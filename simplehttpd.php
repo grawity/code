@@ -74,6 +74,8 @@ $content_types = array(
 	"ogm" => "application/ogg",
 	"pem" => "application/x-x509-ca-cert",
 	"png" => "image/png",
+	"tgz" => "application/x-tar",
+	"gz" => "application/x-gzip",
 );
 
 $local_hostname = php_uname("n");

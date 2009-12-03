@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-# simplehttpd r20091104
+# simplehttpd r20091203
 #
 # (c) 2009 <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
@@ -23,6 +23,8 @@ define("ENABLE_USERDIRS", true);
 $docroot = getenv("HOME") . "/public_html/";
 
 $index_files = array( "index.html", "index.htm" );
+
+$hide_dotfiles = true;
 
 # On Linux, if UseIPv6 is on and Listen is ::, both IPv4 and IPv6 will work
 # (assuming sysctl net.ipv6.bindv6only == 0)
@@ -346,6 +348,9 @@ while ($s = socket_accept($listener)) {
 		$dirs = $files = array();
 		while (($entry = readdir($dirH)) !== false) {
 			if ($entry == ".") continue;
+			if ($hide_dotfiles and $entry[0] == ".")
+				continue;
+
 			$entry_path = $fs_path.$entry;
 			if (is_dir($entry_path) or is_dir(follow_symlink($entry_path)))
 				$dirs[] = $entry;

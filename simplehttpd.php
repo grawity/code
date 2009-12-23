@@ -19,26 +19,21 @@ define("LOG_REQUESTS", true);
 define("ENABLE_USERDIRS", true);
 
 #$docroot = "/var/www/";
-#$docroot = "/srv/http/";
-$docroot = getenv("HOME") . "/public_html/";
+$docroot = "/srv/http/";
+#$docroot = getenv("HOME") . "/public_html/";
 
 $index_files = array( "index.html", "index.htm" );
 
 $hide_dotfiles = true;
 
-# On Linux, if UseIPv6 is on and Listen is ::, both IPv4 and IPv6 will work
+# On Linux, if use_ipv6 is on and Listen is ::, both IPv4 and IPv6 will work
 # (assuming sysctl net.ipv6.bindv6only == 0)
-$UseIPv6 = true;
-#$Listen = "::";
-$Listen = $UseIPv6? "::" : "0.0.0.0";
-$ListenPort = 8001;
+$use_ipv6 = true;
+$listen = $use_ipv6? "::" : "0.0.0.0";
+$listen_port = 8001;
 
-# Use 'file' to determine MIME type? (Quite slow.)
-$UseSystemMimeTypes = false;
+$log_date_format = "%a %b %_d %H:%M:%S %Y";
 
-define("LOG_REQUESTS_DATE_FORMAT", "%a %b %_d %H:%M:%S %Y");
-
-$N = "\x0D\x0A";
 // // // // // / // // // // // // // // // // // // // // // // // // // // //
 
 $responses = array(
@@ -59,9 +54,11 @@ $responses = array(
 
 $content_types = array(
 	"cer" => "application/x-x509-ca-cert",
+	"crt" => "application/x-x509-ca-cert",
 	"css" => "text/css",
 	"der" => "application/x-x509-ca-cert",
 	"gif" => "image/gif",
+	"gz" => "application/x-gzip",
 	"htm" => "text/html",
 	"html" => "text/html",
 	"jpeg" => "image/jpeg",
@@ -77,16 +74,16 @@ $content_types = array(
 	"pem" => "application/x-x509-ca-cert",
 	"png" => "image/png",
 	"tgz" => "application/x-tar",
-	"gz" => "application/x-gzip",
+	"wtls-ca-certificate" => "application/vnd.wap.wtls-ca-certificate",
 );
 
 $local_hostname = php_uname("n");
 
-$listener = socket_create($UseIPv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
+$listener = socket_create($use_ipv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
 socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);
-socket_bind($listener, $Listen, $ListenPort);
+socket_bind($listener, $listen, $listen_port);
 echo "* * docroot = {$docroot}\n";
-echo strftime(LOG_REQUESTS_DATE_FORMAT) . " * listening on " . ($UseIPv6? "[{$Listen}]" : $Listen) . ":{$ListenPort}\n";
+echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]" : $listen) . ":{$listen_port}\n";
 socket_listen($listener, 2);
 
 function get_user_docroot($user) {
@@ -206,7 +203,7 @@ function readMimeTypes($path = "/etc/mime.types") {
 while ($s = socket_accept($listener)) {
 	# get remote host
 	socket_getpeername($s, $remoteHost, $remotePort);
-	if (LOG_REQUESTS) echo strftime(LOG_REQUESTS_DATE_FORMAT) . " {$remoteHost}:{$remotePort} ";
+	if (LOG_REQUESTS) echo strftime($log_date_format) . " {$remoteHost}:{$remotePort} ";
 
 	# default headers to send
 	$resp_code = 200;
@@ -421,22 +418,15 @@ while ($s = socket_accept($listener)) {
 		if (isset($path_info['extension'])) {
 			$file_ext = $path_info['extension'];
 
-			# rely on file(1) to do all the job
-			if ($UseSystemMimeTypes) {
-				$resp_headers["Content-Type"] = shell_exec("file -ib ".escapeshellarg($fs_path));
+			if ($file_ext == "gz") {
+				$resp_headers["Content-Encoding"] = "gzip";
+				$file_ext = pathinfo($path_info['filename'], PATHINFO_EXTENSION);
 			}
 
-			else {
-				if ($file_ext == "gz") {
-					$resp_headers["Content-Encoding"] = "gzip";
-					$file_ext = pathinfo($path_info['filename'], PATHINFO_EXTENSION);
-				}
-
-				if (isset($content_types[$file_ext]))
-					$resp_headers["Content-Type"] = $content_types[$file_ext];
-				else
-					$resp_headers["Content-Type"] = "text/plain";
-			}
+			if (isset($content_types[$file_ext]))
+				$resp_headers["Content-Type"] = $content_types[$file_ext];
+			else
+				$resp_headers["Content-Type"] = "text/plain";
 		}
 
 		$resp_code = 200;
@@ -488,15 +478,14 @@ function send_text($text) {
 }
 
 function send_headers() {
-	# TODO: less globals
-	global $N, $s, $req_http_version, $resp_code, $responses, $resp_headers;
+	global $s, $req_http_version, $resp_code, $responses, $resp_headers;
 
 	if (isset($responses[$resp_code]))
 		$resp_title = $responses[$resp_code];
 	else
 		$resp_title = "Something's fucked up";
 	
-	$outn = socket_write($s, "{$req_http_version} {$resp_code} {$resp_title}{$N}");
+	$outn = socket_write($s, "{$req_http_version} {$resp_code} {$resp_title}\r\n");
 	if ($outn == false) return;
 
 	if (LOG_REQUESTS) echo " {$resp_code}\n";
@@ -504,17 +493,17 @@ function send_headers() {
 	foreach ($resp_headers as $key => $values) {
 		if (is_array($values)) {
 			foreach ($values as $value) {
-				$outn = socket_write($s, "{$key}: {$value}{$N}");
+				$outn = socket_write($s, "{$key}: {$value}\r\n");
 				if ($outn == false) return;
 			}
 		}
-		else socket_write($s, "{$key}: {$values}{$N}");
+		else socket_write($s, "{$key}: {$values}\r\n");
 	}
-	socket_write($s, $N);
+	socket_write($s, "\r\n");
 }
 
 function send_error($resp_code, $req_path = null, $comment = "") {
-	global $N, $s, $responses;
+	global $s, $responses;
 
 	if (isset($responses[$resp_code]))
 		$resp_title = $responses[$resp_code];

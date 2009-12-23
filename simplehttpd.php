@@ -24,18 +24,17 @@ $index_files = array( "index.html", "index.htm" );
 
 $hide_dotfiles = true;
 
-# On Linux, if use_ipv6 is on and Listen is ::, both IPv4 and IPv6 will work
+# 0.0.0.0 for all IPv4 interfaces, :: for all IPv6
+# On Linux, if $listen is ::, both IPv4 and IPv6 will work
 # (assuming sysctl net.ipv6.bindv6only == 0)
-$use_ipv6 = true;
-$listen = $use_ipv6? "::" : "0.0.0.0";
+$listen = "::";
 $listen_port = 8001;
 
 $log_date_format = "%a %b %_d %H:%M:%S %Y";
 
 function read_config($path) {
 	if (!file_exists($path) or !is_file($path)) {
-		fwrite(STDERR, "config file $path does not exist\n");
-		return false;
+		return true;
 	}
 
 	$fh = fopen($path, "r");
@@ -61,24 +60,19 @@ function read_config($path) {
 		$key = trim($key);
 		$value = trim($value);
 
-		if (preg_match('|^"(.*)"$|', $value, $m)) {
+		if (preg_match('|^"(.*)"$|', $value, $m))
 			$value = stripcslashes($m[1]);
-		}
-		elseif (preg_match('|^\'(.*)\'$|', $value, $m)) {
+		elseif (preg_match('|^\'(.*)\'$|', $value, $m))
 			$value = stripslashes($m[1]);
-		}
-		elseif (preg_match('/^(yes|true)$/i', $value)) {
+		elseif (preg_match('/^(yes|true)$/i', $value))
 			$value = true;
-		}
-		elseif (preg_match('/^(no|false)$/i', $value)) {
+		elseif (preg_match('/^(no|false)$/i', $value))
 			$value = false;
-		}
 
 		switch ($key) {
 		case "listen":
-			global $listen, $use_ipv6;
+			global $listen;
 			$listen = (string) $value;
-			$use_ipv6 = (strpos($listen, ":") !== false);
 			break;
 		case "port":
 			global $listen_port;
@@ -113,8 +107,10 @@ function expand_path($path) {
 	return $path;
 }
 
-$config_path = "./simplehttpd.conf";
-read_config($config_path) or exit(1);
+if (!read_config("/etc/simplehttpd.conf") or !read_config("./simplehttpd.conf"))
+	exit(1);
+
+$use_ipv6 = (strpos($listen, ":") !== false);
 
 if (!chdir($docroot)) {
 	fwrite(STDERR, "failed to chdir to $docroot\n");

@@ -8,19 +8,17 @@
 # Requires:
 # - sockets extension
 # - for userdir support: posix extension
-#
-# Todo:
-# - Add simple CGI support
-#   - make sure it can be disabled easily, as most users don't give a fuck about /media/* being +x
-# - Maybe: Change LOG_REQUESTS and ENABLE_USERDIRS to globals
 
 define("LOG_REQUESTS", true);
 
-define("ENABLE_USERDIRS", true);
+$enable_userdirs = true;
 
-#$docroot = "/var/www/";
-$docroot = "/srv/http/";
-#$docroot = getenv("HOME") . "/public_html/";
+if (is_dir("/srv/http/"))
+	$docroot = "/srv/http/";
+elseif (is_dir("/var/www/"))
+	$docroot = "/var/www/";
+else
+	$docroot = "./";
 
 $index_files = array( "index.html", "index.htm" );
 
@@ -33,6 +31,96 @@ $listen = $use_ipv6? "::" : "0.0.0.0";
 $listen_port = 8001;
 
 $log_date_format = "%a %b %_d %H:%M:%S %Y";
+
+function read_config($path) {
+	if (!file_exists($path) or !is_file($path)) {
+		fwrite(STDERR, "config file $path does not exist\n");
+		return false;
+	}
+
+	$fh = fopen($path, "r");
+	if (!$fh) {
+		fwrite(STDERR, "could not open $path\n");
+		return false;
+	}
+
+	$lineno = 0; while (($line = fgets($fh)) !== false) {
+		$lineno++;
+		$line = rtrim($line);
+		if ($line == "" or $line[0] == "#" or $line[0] == ";")
+			continue;
+
+		$line = explode("=", $line, 2);
+		if (count($line) < 2) {
+			fwrite(STDERR, "parse error at line {$lineno}\n");
+			return false;
+		}
+
+		list ($key, $value) = $line;
+		
+		$key = trim($key);
+		$value = trim($value);
+
+		if (preg_match('|^"(.*)"$|', $value, $m)) {
+			$value = stripcslashes($m[1]);
+		}
+		elseif (preg_match('|^\'(.*)\'$|', $value, $m)) {
+			$value = stripslashes($m[1]);
+		}
+		elseif (preg_match('/^(yes|true)$/i', $value)) {
+			$value = true;
+		}
+		elseif (preg_match('/^(no|false)$/i', $value)) {
+			$value = false;
+		}
+
+		switch ($key) {
+		case "listen":
+			global $listen, $use_ipv6;
+			$listen = (string) $value;
+			$use_ipv6 = (strpos($listen, ":") !== false);
+			break;
+		case "port":
+			global $listen_port;
+			$listen_port = (int) $value;
+			break;
+		case "hide_dotfiles":
+			global $hide_dotfiles;
+			$hide_dotfiles = (bool) $value;
+			break;
+		case "docroot":
+			global $docroot;
+			$docroot = expand_path($value);
+			break;
+		case "enable_userdirs":
+			global $enable_userdirs;
+			$enable_userdirs = (bool) $value;
+			break;
+		default:
+			fwrite(STDERR, "warning: unknown config option $key\n");
+		}
+	}
+	fclose($fh);
+	return true;
+}
+
+function expand_path($path) {
+	if ($path == "~") $path .= "/";
+
+	if (substr($path, 0, 2) == "~/" and $home = getenv("HOME"))
+		$path = $home . substr($path, 1);
+	
+	return $path;
+}
+
+$config_path = "./simplehttpd.conf";
+read_config($config_path) or exit(1);
+
+if (!chdir($docroot)) {
+	fwrite(STDERR, "failed to chdir to $docroot\n");
+	exit(1);
+}
+
 
 // // // // // / // // // // // // // // // // // // // // // // // // // // //
 
@@ -296,7 +384,7 @@ while ($s = socket_accept($listener)) {
 	while (substr($fs_path, -2) == "/.")
 		$fs_path = substr($fs_path, 0, -1);
 
-	if (ENABLE_USERDIRS)
+	if ($enable_userdirs)
 		$fs_path = get_docroot($fs_path);
 	else
 		$fs_path = $docroot.$fs_path;

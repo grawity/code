@@ -222,6 +222,7 @@ function read_config($path) {
 		case "userdir.suffix":
 			global $userdir_suffix;
 			$userdir_suffix = (string) $value;
+			break;
 		default:
 			fwrite(STDERR, "warning: unknown config option $key\n");
 		}

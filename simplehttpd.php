@@ -276,10 +276,10 @@ $content_types = array(
 
 $config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
 
-$options = getopt("c:Chl:p:v");
+$options = getopt("c:hl:p:v");
 
 if (isset($options["h"]) or $options == false)
-	die("Usage: simplehttpd [-Cv] [-c config] [-d docroot] [-l addr] [-p port]\n");
+	die("Usage: simplehttpd [-v] [-c config] [-d docroot] [-l addr] [-p port]\n");
 
 if (isset($options["v"]))
 	die(VERSION."\n");

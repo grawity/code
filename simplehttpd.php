@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-# simplehttpd r20091203
+# simple HTTP server
 #
 # (c) 2009 <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
@@ -143,23 +143,19 @@ function follow_symlink($file) {
 	return $file;
 }
 
-function readMimeTypes($path = "/etc/mime.types") {
+function load_mimetypes($path = "/etc/mime.types") {
 	global $content_types;
 	$fh = fopen($path, "r");
 	if (!$fh) return false;
 	while ($line = fgets($fh)) {
 		$line = rtrim($line);
 		if ($line == "" or $line[0] == " " or $line[0] == "#") continue;
-		$line = preg_split("/ +/", $line);
-		array_shift($line);
+		$line = preg_split("/\s+/", $line);
 		$type = array_shift($line);
 		foreach ($line as $ext) $content_types[$ext] = $type;
 	}
 	fclose($fh);
 }
-
-#readMimeTypes();
-#readMimeTypes(getenv('HOME') . '/.mime.types');
 
 function read_config($path) {
 	if (!file_exists($path) or !is_file($path)) {
@@ -248,12 +244,8 @@ $responses = array(
 );
 
 $content_types = array(
-	"cer" => "application/x-x509-ca-cert",
-	"crt" => "application/x-x509-ca-cert",
 	"css" => "text/css",
-	"der" => "application/x-x509-ca-cert",
 	"gif" => "image/gif",
-	"gz" => "application/x-gzip",
 	"htm" => "text/html",
 	"html" => "text/html",
 	"jpeg" => "image/jpeg",
@@ -266,10 +258,8 @@ $content_types = array(
 	"ogg" => "audio/ogg",
 	"ogv" => "video/ogg",
 	"ogm" => "application/ogg",
-	"pem" => "application/x-x509-ca-cert",
 	"png" => "image/png",
 	"tgz" => "application/x-tar",
-	"wtls-ca-certificate" => "application/vnd.wap.wtls-ca-certificate",
 );
 
 if (!read_config("/etc/simplehttpd.conf") or !read_config("./simplehttpd.conf"))
@@ -284,6 +274,10 @@ if (!chdir($docroot)) {
 
 $docroot = getcwd();
 $local_hostname = php_uname("n");
+
+load_mimetypes();
+load_mimetypes(expand_own_path("~/.mime.types"));
+ksort($content_types);
 
 $listener = socket_create($use_ipv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
 socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);

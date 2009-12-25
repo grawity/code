@@ -287,9 +287,6 @@ if (isset($options["v"]))
 if (isset($options["c"]))
 	$config_files = $options["c"];
 
-if (isset($options["C"]))
-	$config_files = array();
-
 # Configuration
 if (!is_array($config_files)) $config_files = array($config_files);
 foreach ($config_files as $file) read_config($file) or exit(1);

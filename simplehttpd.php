@@ -11,16 +11,14 @@
 
 define("LOG_REQUESTS", true);
 
-$enable_userdirs = true;
-
-if (is_dir("/srv/http/"))
-	$docroot = "/srv/http/";
-elseif (is_dir("/var/www/"))
-	$docroot = "/var/www/";
-else
-	$docroot = "./";
+$docroot = expand_own_path("~/public_html");
+if (!is_dir($docroot))
+	$docroot = ".";
 
 $index_files = array( "index.html", "index.htm" );
+
+$enable_userdirs = true;
+$userdir_suffix = "public_html";
 
 $hide_dotfiles = true;
 
@@ -31,6 +29,137 @@ $listen = "::";
 $listen_port = 8001;
 
 $log_date_format = "%a %b %_d %H:%M:%S %Y";
+
+# expand path starting with ~/ given value of ~
+function expand_path($path, $homedir) {
+	if ($path == "~") $path .= "/";
+
+	if (substr($path, 0, 2) == "~/" and $homedir)
+		$path = $homedir . substr($path, 1);
+
+	return $path;
+}
+
+# expand path starting with ~/ according to environment
+function expand_own_path($path) {
+	$home = getenv("HOME");
+	if (!$home)
+		$home = get_user_homedir();
+	if (!$home)
+		return $path;
+	return expand_path($path, $home);
+}
+
+# get docroot for given user (homedir + suffix)
+function get_user_docroot($user) {
+	global $userdir_suffix;
+
+	if (function_exists("posix_getpwnam")) {
+		$pw = posix_getpwnam($user);
+		if (!$pw)
+			return false;
+		else
+			return "{$pw["dir"]}/{$userdir_suffix}";
+	}
+	else {
+		return false;
+	}
+}
+
+# get docroot given request (userdir or global)
+function get_docroot($fs_path) {
+	global $docroot, $enable_userdirs;
+	$global_docroot = $docroot.$fs_path;
+
+	# if $enable_userdirs is off, /~foo/ will be taken literally
+	if ($enable_userdirs and substr($fs_path, 1, 1) == "~") {
+		$fs_path = substr($fs_path, 2);
+		$spos = strpos($fs_path, "/");
+		if ($spos === false) $spos = strlen($fs_path);
+		$req_user = substr($fs_path, 0, $spos);
+		$fs_path = substr($fs_path, $spos);
+		unset($spos);
+
+		$user_dir = get_user_docroot($req_user);
+		if (!$user_dir or !is_dir($user_dir)) {
+			return $global_docroot;
+		}
+
+		return $user_dir . $fs_path;
+
+	}
+	else {
+		# no userdir in request
+		return $global_docroot;
+	}
+}
+
+# read line (ending with CR+LF) from socket
+function socket_gets($socket, $maxlength = 1024) {
+	# This time I'm really sure it works.
+	$buf = "";
+	$i = 0;
+	$char = null;
+	while ($i <= $maxlength) {
+		$char = socket_read($socket, 1, PHP_BINARY_READ);
+		# remote closed connection
+		if ($char === false) return $buf;
+		# no more data
+		if ($char == "") return $buf;
+
+		$buf .= $char;
+
+		# ignore all stray linefeeds
+		#if ($i > 0 and $buf[$i-1] == "\x0D" and $buf[$i] == "\x0A")
+		#	return substr($buf, 0, $i-1);
+
+		# terminate on both LF and CR+LF
+		if ($buf[$i] == "\x0A") {
+			if ($i > 0 and $buf[$i-1] == "\x0D")
+				return substr($buf, 0, $i-1);
+			else
+				return substr($buf, 0, $i);
+		}
+
+		$i++;
+	}
+	return $buf;
+}
+
+# follow symlinks to reach the actual target; basically a recursive readlink()
+function follow_symlink($file) {
+	$i = 0; while (is_link($file)) {
+		if (++$i < 32)
+			$target = readlink($file);
+		else
+			$target = false;
+		if ($target === false) return $file;
+
+		# relative link
+		if ($target[0] != '/')
+			$target = dirname($file) . "/" . $target;
+		$file = $target;
+	}
+	return $file;
+}
+
+function readMimeTypes($path = "/etc/mime.types") {
+	global $content_types;
+	$fh = fopen($path, "r");
+	if (!$fh) return false;
+	while ($line = fgets($fh)) {
+		$line = rtrim($line);
+		if ($line == "" or $line[0] == " " or $line[0] == "#") continue;
+		$line = preg_split("/ +/", $line);
+		array_shift($line);
+		$type = array_shift($line);
+		foreach ($line as $ext) $content_types[$ext] = $type;
+	}
+	fclose($fh);
+}
+
+#readMimeTypes();
+#readMimeTypes(getenv('HOME') . '/.mime.types');
 
 function read_config($path) {
 	if (!file_exists($path) or !is_file($path)) {
@@ -56,7 +185,7 @@ function read_config($path) {
 		}
 
 		list ($key, $value) = $line;
-		
+
 		$key = trim($key);
 		$value = trim($value);
 
@@ -84,12 +213,15 @@ function read_config($path) {
 			break;
 		case "docroot":
 			global $docroot;
-			$docroot = expand_path($value);
+			$docroot = expand_own_path($value);
 			break;
-		case "enable_userdirs":
+		case "userdir.enable":
 			global $enable_userdirs;
 			$enable_userdirs = (bool) $value;
 			break;
+		case "userdir.suffix":
+			global $userdir_suffix;
+			$userdir_suffix = (string) $value;
 		default:
 			fwrite(STDERR, "warning: unknown config option $key\n");
 		}
@@ -97,28 +229,6 @@ function read_config($path) {
 	fclose($fh);
 	return true;
 }
-
-function expand_path($path) {
-	if ($path == "~") $path .= "/";
-
-	if (substr($path, 0, 2) == "~/" and $home = getenv("HOME"))
-		$path = $home . substr($path, 1);
-	
-	return $path;
-}
-
-if (!read_config("/etc/simplehttpd.conf") or !read_config("./simplehttpd.conf"))
-	exit(1);
-
-$use_ipv6 = (strpos($listen, ":") !== false);
-
-if (!chdir($docroot)) {
-	fwrite(STDERR, "failed to chdir to $docroot\n");
-	exit(1);
-}
-
-
-// // // // // / // // // // // // // // // // // // // // // // // // // // //
 
 $responses = array(
 	200 => "Okie dokie",
@@ -161,6 +271,17 @@ $content_types = array(
 	"wtls-ca-certificate" => "application/vnd.wap.wtls-ca-certificate",
 );
 
+if (!read_config("/etc/simplehttpd.conf") or !read_config("./simplehttpd.conf"))
+	exit(1);
+
+$use_ipv6 = (strpos($listen, ":") !== false);
+
+if (!chdir($docroot)) {
+	fwrite(STDERR, "failed to chdir to $docroot\n");
+	exit(1);
+}
+
+$docroot = getcwd();
 $local_hostname = php_uname("n");
 
 $listener = socket_create($use_ipv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
@@ -169,120 +290,6 @@ socket_bind($listener, $listen, $listen_port);
 echo "* * docroot = {$docroot}\n";
 echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]" : $listen) . ":{$listen_port}\n";
 socket_listen($listener, 2);
-
-function get_user_docroot($user) {
-	$suffix = "/public_html/";
-	
-	if (function_exists("posix_getpwnam")):
-		$user_info = posix_getpwnam($user);
-		if ($user_info == false) {
-			# user not found, fall back to real path
-			return false;
-		}
-		return $user_info["dir"].$suffix;
-	
-	# HACK
-	elseif (PHP_OS == "WINNT"):
-		return getenv("USERPROFILE") . "/../{$user}/Documents/Website/";
-	
-	else:
-		return false;
-
-	endif;
-}
-
-function socket_gets($s, $maxlength = 1024) {
-	# This time I'm really sure it works.
-	$buf = "";
-	$i = 0;
-	$char = null;
-	while ($i <= $maxlength) {
-		$char = socket_read($s, 1, PHP_BINARY_READ);
-		# remote closed connection
-		if ($char === false) return $buf;
-		# no more data
-		if ($char == "") return $buf;
-		
-		$buf .= $char;
-
-		# ignore all stray linefeeds
-		#if ($i > 0 and $buf[$i-1] == "\x0D" and $buf[$i] == "\x0A")
-		#	return substr($buf, 0, $i-1);
-		
-		# terminate on both LF and CR+LF
-		if ($buf[$i] == "\x0A") {
-			if ($i > 0 and $buf[$i-1] == "\x0D")
-				return substr($buf, 0, $i-1);
-			else
-				return substr($buf, 0, $i);
-		}
-
-		$i++;
-	}
-	return $buf;
-}
-
-function follow_symlink($file) {
-	# Get the actual target of a symlink. Basically a recursive readlink()
-	# Hardcoded limit of 32 symlink levels.
-	$i = 0; while (is_link($file)) {
-		if (++$i < 32)
-			$n = readlink($file);
-		else
-			$n = false;
-		if ($n === false) return $file;
-
-		# relative link
-		if ($n[0] != '/')
-			$n = dirname($file) . "/" . $n;
-		$file = $n;
-	}
-	return $file;
-}
-
-function get_docroot($fs_path) {
-	global $docroot;
-	$global_docroot = $docroot.$fs_path;
-	
-	if (substr($fs_path, 1, 1) == "~") {
-		$fs_path = substr($fs_path, 2);
-		$spos = strpos($fs_path, "/");
-		if ($spos === false) $spos = strlen($fs_path);
-		$req_user = substr($fs_path, 0, $spos);
-		$fs_path = substr($fs_path, $spos);
-		unset($spos);
-		
-		$user_dir = get_user_docroot($req_user);
-		if (!$user_dir or !is_dir($user_dir)) {
-			return $global_docroot;
-		}
-		
-		return $user_dir . $fs_path;
-		
-	}
-	else {
-		# no userdir in request
-		return $global_docroot;
-	}
-}
-
-function readMimeTypes($path = "/etc/mime.types") {
-	global $content_types;
-	$fh = fopen($path, "r");
-	if (!$fh) return false;
-	while ($line = fgets($fh)) {
-		$line = rtrim($line);
-		if ($line == "" or $line[0] == " " or $line[0] == "#") continue;
-		$line = preg_split("/ +/", $line);
-		array_shift($line);
-		$type = array_shift($line);
-		foreach ($line as $ext) $content_types[$ext] = $type;
-	}
-	fclose($fh);
-}
-
-#readMimeTypes();
-#readMimeTypes(getenv('HOME') . '/.mime.types');
 
 while ($s = socket_accept($listener)) {
 	# get remote host
@@ -322,7 +329,7 @@ while ($s = socket_accept($listener)) {
 
 	# ...and slurp in the request headers.
 	$inHeaders = array(); $h = false;
-	while ($h !== "") 
+	while ($h !== "")
 		$inHeaders[] = $h = socket_gets($s);
 
 	# special /echo request will reply with received headers
@@ -354,7 +361,7 @@ while ($s = socket_accept($listener)) {
 		socket_close($s);
 		continue;
 	}
-	
+
 	# split off the query|search part
 	if (($query_pos = strpos($request_path, "?")) !== false) {
 		$request_query = substr($request_path, $query_pos + 1);
@@ -374,7 +381,7 @@ while ($s = socket_accept($listener)) {
 		$fs_path = str_replace("/../", "/", $fs_path);
 	while (strpos($fs_path, "/./") !== false)
 		$fs_path = str_replace("/./", "/", $fs_path);
-	
+
 	while (substr($fs_path, -3) == "/..")
 		$fs_path = substr($fs_path, 0, -2);
 	while (substr($fs_path, -2) == "/.")
@@ -462,7 +469,7 @@ while ($s = socket_accept($listener)) {
 		foreach ($dirs as $entry) {
 			$entry_path = $fs_path.$entry;
 			$anchor = urlencode($entry);
-			
+
 			if ($entry == '..')
 				$entry = "(parent directory)";
 			$text = "<a href=\"{$anchor}/\">{$entry}/</a>";
@@ -473,7 +480,7 @@ while ($s = socket_accept($listener)) {
 		foreach ($files as $entry) {
 			$entry_path = $fs_path.$entry;
 			$anchor = urlencode($entry);
-			
+
 			$text = "<a href=\"{$anchor}\">{$entry}</a>";
 			if (is_link($entry_path) and $entry_dest = @readlink($entry_path))
 				$text .= " <span class=\"sym\">→ ".htmlspecialchars($entry_dest)."</span>";
@@ -568,7 +575,7 @@ function send_headers() {
 		$resp_title = $responses[$resp_code];
 	else
 		$resp_title = "Something's fucked up";
-	
+
 	$outn = socket_write($s, "{$req_http_version} {$resp_code} {$resp_title}\r\n");
 	if ($outn == false) return;
 
@@ -593,7 +600,7 @@ function send_error($resp_code, $req_path = null, $comment = "") {
 		$resp_title = $responses[$resp_code];
 	else
 		$resp_title = "Something's fucked up";
-	
+
 	send_text("Oh noes, Error: {$resp_code} {$resp_title}\n\n");
 
 	if ($comment != "")

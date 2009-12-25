@@ -1,34 +1,14 @@
 #!/usr/bin/php
 <?php
+define("VERSION", 'simplehttpd v1.0');
 # simple HTTP server
-#
-# (c) 2009 <grawity@gmail.com>
+
+# (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-#
+
 # Requires:
 # - sockets extension
 # - for userdir support: posix extension
-
-define("LOG_REQUESTS", true);
-
-$docroot = expand_own_path("~/public_html");
-if (!is_dir($docroot))
-	$docroot = ".";
-
-$index_files = array( "index.html", "index.htm" );
-
-$enable_userdirs = true;
-$userdir_suffix = "public_html";
-
-$hide_dotfiles = true;
-
-# 0.0.0.0 for all IPv4 interfaces, :: for all IPv6
-# On Linux, if $listen is ::, both IPv4 and IPv6 will work
-# (assuming sysctl net.ipv6.bindv6only == 0)
-$listen = "::";
-$listen_port = 8001;
-
-$log_date_format = "%a %b %_d %H:%M:%S %Y";
 
 # expand path starting with ~/ given value of ~
 function expand_path($path, $homedir) {
@@ -243,6 +223,26 @@ $responses = array(
 	501 => "Not Implemented",
 );
 
+## Default configuration
+
+define("LOG_REQUESTS", true);
+
+$docroot = expand_own_path("~/public_html");
+if (!is_dir($docroot))
+	$docroot = ".";
+
+$index_files = array( "index.html", "index.htm" );
+
+$enable_userdirs = false;
+$userdir_suffix = "public_html";
+
+$hide_dotfiles = true;
+
+$listen = "::";
+$listen_port = 8001;
+
+$log_date_format = "%a %b %_d %H:%M:%S %Y";
+
 $content_types = array(
 	"css" => "text/css",
 	"gif" => "image/gif",
@@ -262,8 +262,34 @@ $content_types = array(
 	"tgz" => "application/x-tar",
 );
 
-if (!read_config("/etc/simplehttpd.conf") or !read_config("./simplehttpd.conf"))
-	exit(1);
+$config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
+
+$options = getopt("c:Chl:p:v");
+
+if (isset($options["h"]) or $options == false)
+	die("Usage: simplehttpd [-Cv] [-c config] [-d docroot] [-l addr] [-p port]\n");
+
+if (isset($options["v"]))
+	die(VERSION."\n");
+
+if (isset($options["c"]))
+	$config_files = $options["c"];
+
+if (isset($options["C"]))
+	$config_files = array();
+
+# Configuration
+if (!is_array($config_files)) $config_files = array($config_files);
+foreach ($config_files as $file) read_config($file) or exit(1);
+
+if (isset($options["d"]))
+	$docroot = $options["d"];
+
+if (isset($options["l"]))
+	$listen = $options["l"];
+
+if (isset($options["p"]))
+	$listen_port = (int) $options["p"];
 
 $use_ipv6 = (strpos($listen, ":") !== false);
 

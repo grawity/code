@@ -106,6 +106,18 @@ function socket_gets($socket, $maxlength = 1024) {
 	return $buf;
 }
 
+# print error message and die
+function socket_die($message, $socket = false) {
+	if (!empty($message))
+		fwrite(STDERR, "$message: ");
+
+	$errno = (is_resource($socket)? socket_last_error($socket) : socket_last_error());
+	$errstr = socket_strerror($errno);
+	fwrite(STDERR, "$errstr [$errno]\n");
+
+	exit(1);
+}
+
 # follow symlinks to reach the actual target; basically a recursive readlink()
 function follow_symlink($file) {
 	$i = 0; while (is_link($file)) {
@@ -305,12 +317,20 @@ load_mimetypes();
 load_mimetypes(expand_own_path("~/.mime.types"));
 ksort($content_types);
 
-$listener = socket_create($use_ipv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
+$listener = @socket_create($use_ipv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
+if (!$listener)
+	socket_die("socket_create");
+
 socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);
-socket_bind($listener, $listen, $listen_port);
+
+if (!@socket_bind($listener, $listen, $listen_port))
+	socket_die("socket_bind", $listener);
+
+if (!@socket_listen($listener, 2))
+	socket_die("socket_listen", $listener);
+
 echo "* * docroot = {$docroot}\n";
 echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]" : $listen) . ":{$listen_port}\n";
-socket_listen($listener, 2);
 
 while ($s = socket_accept($listener)) {
 	# get remote host

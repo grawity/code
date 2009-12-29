@@ -276,9 +276,9 @@ $content_types = array(
 
 $config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
 
-$options = getopt("c:hl:p:v");
+$options = getopt("c:d:hl:p:v");
 
-if (isset($options["h"]) or $options == false)
+if (isset($options["h"]) or $options === false)
 	die("Usage: simplehttpd [-v] [-c config] [-d docroot] [-l addr] [-p port]\n");
 
 if (isset($options["v"]))

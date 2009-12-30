@@ -548,16 +548,12 @@ function handle_request($sockfd, $logfd) {
 
 	# dest exists, but not a regular or directory => 403 (like Apache does)
 	elseif (file_exists($fs_path)) {
-		re_error($sockfd, $request, $req_version, 403);
-		socket_close($sockfd);
-		continue;
+		return re_error($sockfd, $request, $req_version, 403);
 	}
 
 	# dest doesn't exist => 404
 	else {
-		re_error($sockfd, $request, $req_version, 404);
-		socket_close($sockfd);
-		continue;
+		return re_error($sockfd, $request, $req_version, 404);
 	}
 
 }

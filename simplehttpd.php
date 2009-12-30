@@ -77,7 +77,7 @@ function socket_gets($socket, $maxlength = 1024) {
 	$buf = "";
 	$i = 0;
 	$char = null;
-	while ($i <= $maxlength) {
+	while ($i < $maxlength) {
 		$char = socket_read($socket, 1, PHP_BINARY_READ);
 		# remote closed connection
 		if ($char === false) return $buf;

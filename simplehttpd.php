@@ -641,9 +641,12 @@ echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]"
 
 $logfd = STDOUT;
 
-while ($insock = socket_accept($listener)) {
-	handle_request($insock, $logfd);
-	@socket_close($insock);
-}
+for ($i = 0; $i < 3; $i++)
+	if (pcntl_fork()) {
+		while ($insock = socket_accept($listener)) {
+			handle_request($insock, $logfd);
+			@socket_close($insock);
+		}
+	}
 
 socket_close($listener);

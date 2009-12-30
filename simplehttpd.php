@@ -51,23 +51,20 @@ function get_docroot($fs_path) {
 	global $docroot, $enable_userdirs;
 
 	# if $enable_userdirs is off, /~foo/ will be taken literally
-	if ($enable_userdirs and substr($fs_path, 1, 1) == "~") {
-		$fs_path = substr($fs_path, 2);
-		$spos = strpos($fs_path, "/");
-		if ($spos === false) $spos = strlen($fs_path);
-		$req_user = substr($fs_path, 0, $spos);
-		$fs_path = substr($fs_path, $spos);
-		unset($spos);
+	if ($enable_userdirs and substr($fs_path, 0, 2) == "/~") {
+		$user_fs_path = substr($fs_path, 2);
+		$req_user = strtok($user_fs_path, "/");
+		$user_fs_path = (string) strtok("");
 
 		$user_dir = get_user_docroot($req_user);
 		if (!$user_dir or !is_dir($user_dir)) {
-			return $docroot;
+			return "$docroot/$fs_path";
 		}
-		return $user_dir;
+		return "$user_dir/$user_fs_path";
 	}
 	else {
 		# no userdir in request
-		return $docroot;
+		return "$docroot/$fs_path";
 	}
 }
 
@@ -407,9 +404,7 @@ function handle_request($sockfd, $logfd) {
 	while (substr($fs_path, -2) == "/.")
 		$fs_path = substr($fs_path, 0, -1);
 
-	$docroot = get_docroot($fs_path);
-
-	$fs_path = "$docroot/$fs_path";
+	$fs_path = get_docroot($fs_path);
 
 	# If given path is a directory, append a slash if required
 	if (is_dir($fs_path) && substr($req_path, -1) != "/") {

@@ -62,7 +62,6 @@ sub send_libnotify($$) {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
 	if (defined $libnotify) {
-		print "Using DBus";
 		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
 	}
 	else {

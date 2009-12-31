@@ -17,16 +17,34 @@ $VERSION = "0.1";
 # Don't modify this; instead use /set notify_host
 Irssi::settings_add_str("libnotify", "notify_host", "localhost:22754");
 
+my $appname = "irssi";
+my $icon = "notification-message-IM";
+
+my ($dbus, $dservice, $dobject);
+eval {
+	require Net::DBus;
+	$dbus = Net::DBus->session;
+	$dservice = $dbus->get_service("org.freedesktop.Notifications");
+	$dobject = $dservice->get_object("/org/freedesktop/Notifications",
+		"org.freedesktop.Notifications");
+}
+
 sub send_udp($$$$) {
-	my ($host, $port, $title, $text) = @_;
+	my ($title, $text, $host, $port) = @_;
 
-	my $icon = "notification-message-IM";
-
-	my $rawmsg = join " | ", ("irssi", $icon, $title, $text);
+	my $rawmsg = join " | ", ($appname, $icon, $title, $text);
 
 	my $rcpt = sockaddr_in($port, inet_aton($host));
 	socket(SOCK, PF_INET, SOCK_DGRAM, getprotobyname("udp"));
 	send(SOCK, $rawmsg, 0, $rcpt);
+}
+
+sub send_dbus($$) {
+	my ($title, $text) = @_;
+
+	if (defined $dobject) {
+		$dobject->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+	}
 }
 
 sub on_message {
@@ -54,8 +72,13 @@ sub on_message {
 
 	my $dests = Irssi::settings_get_str("notify_host");
 	foreach my $dest (split / /, $dests) {
-		$dest =~ /^(.+):([0-9]{1,5})$/;
-		send_udp($1, $2, $title, $text);
+		if ($dest eq "dbus") {
+			send_dbus($title, $text);
+		}
+		else {
+			$dest =~ /^(.+):([0-9]{1,5})$/;
+			send_udp($title, $text, $1, $2);
+		}
 	}
 }
 

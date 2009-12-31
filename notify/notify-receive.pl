@@ -4,13 +4,13 @@ use strict;
 #use brain;
 use IO::Socket;
 
-my ($bus, $notify, $object);
+my ($bus, $notify, $dobject);
 eval {
 	require Net::DBus;
 	print "Net::DBus available\n";
 	$bus = Net::DBus->session;
 	$notify = $bus->get_service("org.freedesktop.Notifications");
-	$object = $notify->get_object("/org/freedesktop/Notifications",
+	$dobject = $notify->get_object("/org/freedesktop/Notifications",
 		"org.freedesktop.Notifications");
 };
 
@@ -42,8 +42,8 @@ while ($socket->recv($message, 1024)) {
 	print "title: $title\n";
 	print "text: $text\n";
 
-	if (defined $dbus_object) {
-		$dbus_object->Notify(
+	if (defined $dobject) {
+		$dobject->Notify(
 			$source,
 			0,
 			$icon,

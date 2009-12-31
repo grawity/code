@@ -14,20 +14,25 @@ $VERSION = "1.2.constantly-evolving";
 	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
 );
 
+use Data::Dumper;
+
 my $logfile = Irssi::get_irssi_dir() . "/autoignore.log";
 
 my @blocked = ();
 
-sub test {
-	my ($server, $msg, $nick, $userhost, $target, $type, $subtype) = @_;
-	my ($user, $host) = split '@', $userhost;
-	my $network = $server->{tag};
-	#my $isprivate = $target =~ /^[#&+!]/;
+sub test(@) {
+	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
+
+	my ($user, $host) = split "!", $userhost, 2;
+
 	my $ispublic = $server->ischannel($target);
+
 	my ($channel, $userinfo);
-	if ($ispublic) {
-		$channel = $server->channel_find($target) or print "SOMETHING WENT WRONG: $ispublic $target";
-		$userinfo = $channel->nick_find($nick) if defined $channel;
+	if ($ispublic and $target ne "") {
+		$channel = $server->channel_find($target);
+		if (defined $channel) {
+			$userinfo = $channel->nick_find($nick);
+		}
 	}
 
 	return 1 if ignorelisted($server, $nick, $userhost);
@@ -47,6 +52,9 @@ sub test {
 		or $msg =~ /(tomaw|kloeri|christel).*dick/i
 		or $msg =~ /(HA){3,}/
 		or $msg =~ /FUCK OFF/
+		or $msg =~ /http:\/\/AnonTalk\.com/
+		or $msg =~ /^i have to take a dump/i
+		or ($type eq 'action' and $msg =~ /^shits$/i)
 	);
 
 	return 1 if (
@@ -55,50 +63,55 @@ sub test {
 		or $msg =~ /[^\w](faggot|cunt|nigger)/i
 		or $msg =~ /^fuck you/i
 		or $msg =~ /#[A-Z]{5,}([^A-Za-z0-9]|$)/
-		or $msg =~ /http:\/\/AnonTalk\.com/
+		or $msg =~ /^~HAPPY NEW YEARS!!!~$/
 		or ($ispublic and hilightspam_score($server, $target, $msg) > 0.8)
 	);
+
+	return 0;
 }
 
-# TODO: check irssi ignore list too
-# TODO: find out whether 'message *' trigger for irssi-ignored messages
 sub ignorelisted($$$) {
 	my ($server, $nick, $userhost) = @_;
 	return grep { $server->mask_match_address($_, $nick, $userhost) } @blocked;
 }
 
-sub on_message {
-	my ($server, $msg, $nick, $userhost, $target, $type, $subtype) = @_;
+# RFC-compatible lc()
+sub lci($) { my $_ = shift; tr/\[\\\]^/{|}~/; return lc $_; }
+
+sub on_message(@$) {
+	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
+
 	return if !defined $userhost; # skip server notices
 
-	if (!defined $subtype) { $subtype = $server->ischannel($target)? "public" : "private"; }
+	my $public = $server->ischannel($target);
 
 	if (test @_) {
 		Irssi::signal_stop;
 		open LOG, ">> $logfile";
-		print LOG (join "|", ($server->{tag}, "$nick!$userhost", $target, "$type:$subtype", $msg))."\n";
+		print LOG (join "|", ($server->{tag}, "$nick!$userhost", $target, $type, $msg))."\n";
 		close LOG;
 		return 1;
 	}
 	return 0;
 }
 
-sub lc_i { my $_ = shift; tr/\[\\\]^/{|}~/; return lc $_; }
 
 Irssi::signal_add_first "message public" => sub {
-	on_message @_, "message", "public"
+	on_message @_, "message"
 };
 Irssi::signal_add_first "message private" => sub {
-	on_message @_, "message", "private"
-};
-Irssi::signal_add_first "message irc action" => sub {
-	on_message @_, "action"
+	my $server = $_[0];
+	on_message @_, $server->{nick}, "message"
 };
 Irssi::signal_add_first "message irc notice" => sub {
 	on_message @_, "notice"
 };
-Irssi::signal_add_first "message irc ctcp" => sub {
-	on_message @_, "ctcp"
+Irssi::signal_add_first "ctcp msg" => sub {
+	# actions are handled by "ctcp action"
+	on_message @_, "ctcp" unless $_[1] =~ /^ACTION /i;
+};
+Irssi::signal_add_first "ctcp action" => sub {
+	on_message @_, "action";
 };
 Irssi::signal_add_first "dcc request" => sub {
 	my ($dccrec, $addr) = @_;

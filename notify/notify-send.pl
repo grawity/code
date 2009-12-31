@@ -1,21 +1,28 @@
 #!/usr/bin/perl
-# r20091107
+
+# Settings:
+#
+# (string) notify_host = "dbus"
+#   Space-separated list of destinations.
+#   A destination can be either 'dbus' to trigger libnotify locally,
+#   or a host:port pair for UDP notifications (to notify-receive.pl)
+
 use strict;
-#use brain;
+
 use Irssi;
 use Socket;
 use vars qw($VERSION %IRSSI);
 $VERSION = "0.1";
 %IRSSI = (
-	authors => "grawity",
-	contact => "grawity\@gmail.com",
-	name => "notify-send",
-	description => "Sends hilight messages to a remote (well, local) desktop over UDP.",
-	license => "WTFPLv2",
+	authors     => "Mantas Mikulėnas",
+	contact     => "grawity\@gmail.com",
+	name        => "notify-send",
+	description => "Sends hilight messages over DBus or UDP.",
+	license     => "WTFPL v2 <http://sam.zoy.org/wtfpl/>",
 );
 
 # Don't modify this; instead use /set notify_host
-Irssi::settings_add_str("libnotify", "notify_host", "localhost:22754");
+Irssi::settings_add_str("libnotify", "notify_host", "dbus");
 
 my $appname = "irssi";
 my $icon = "notification-message-IM";
@@ -27,7 +34,7 @@ eval {
 	$dservice = $dbus->get_service("org.freedesktop.Notifications");
 	$dobject = $dservice->get_object("/org/freedesktop/Notifications",
 		"org.freedesktop.Notifications");
-}
+};
 
 sub send_udp($$$$) {
 	my ($title, $text, $host, $port) = @_;
@@ -73,11 +80,11 @@ sub on_message {
 	my $dests = Irssi::settings_get_str("notify_host");
 	foreach my $dest (split / /, $dests) {
 		if ($dest eq "dbus") {
-			send_dbus($title, $text);
+			send_dbus($title, $msg);
 		}
 		else {
 			$dest =~ /^(.+):([0-9]{1,5})$/;
-			send_udp($title, $text, $1, $2);
+			send_udp($title, $msg, $1, $2);
 		}
 	}
 }

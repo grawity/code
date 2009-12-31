@@ -7,12 +7,18 @@ use IO::Socket;
 my ($bus, $notify, $dobject);
 eval {
 	require Net::DBus;
-	print "Net::DBus available\n";
 	$bus = Net::DBus->session;
 	$notify = $bus->get_service("org.freedesktop.Notifications");
 	$dobject = $notify->get_object("/org/freedesktop/Notifications",
 		"org.freedesktop.Notifications");
 };
+
+if (defined $bus) {
+	print "Net::DBus available\n";
+}
+else {
+	print "Net::DBus not available, falling back to notify-send\n";
+}
 
 my $ListenPort = shift @ARGV or 22754;
 

@@ -27,14 +27,18 @@ Irssi::settings_add_str("libnotify", "notify_host", "dbus");
 my $appname = "irssi";
 my $icon = "notification-message-IM";
 
-my ($dbus, $dservice, $dobject);
+my ($dbus, $dservice, $libnotify);
 eval {
 	require Net::DBus;
 	$dbus = Net::DBus->session;
 	$dservice = $dbus->get_service("org.freedesktop.Notifications");
-	$dobject = $dservice->get_object("/org/freedesktop/Notifications",
+	$libnotify = $dservice->get_object("/org/freedesktop/Notifications",
 		"org.freedesktop.Notifications");
 };
+
+if (!defined $dbus and Irssi::settings_get_str("notify_host") =~ /\b(dbus)\b/) {
+	warn "Warning: Net::DBus not found, install it or set notify_host";
+}
 
 sub send_udp($$$$) {
 	my ($title, $text, $host, $port) = @_;
@@ -46,11 +50,18 @@ sub send_udp($$$$) {
 	send(SOCK, $rawmsg, 0, $rcpt);
 }
 
-sub send_dbus($$) {
-	my ($title, $text) = @_;
-
-	if (defined $dobject) {
-		$dobject->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+sub send_libnotify($$) {
+	if (defined $libnotify) {
+		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+	}
+	else {
+		my @args = ("notify-send");
+		push @args, "--icon=$icon" unless $icon eq "";
+		# category doesn't do the same as appname, but still useful
+		push @args, "--category=$appname" unless $appname eq "";
+		push @args, $title;
+		push @args, $text unless $text eq "";
+		system @args;
 	}
 }
 

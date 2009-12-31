@@ -4,7 +4,17 @@ use strict;
 #use brain;
 use IO::Socket;
 
-my $ListenPort = $ARGV[0] or 22754;
+my ($bus, $notify, $object);
+eval {
+	require Net::DBus;
+	print "Net::DBus available\n";
+	$bus = Net::DBus->session;
+	$notify = $bus->get_service("org.freedesktop.Notifications");
+	$object = $notify->get_object("/org/freedesktop/Notifications",
+		"org.freedesktop.Notifications");
+};
+
+my $ListenPort = shift @ARGV or 22754;
 
 my $socket = IO::Socket::INET->new(
 	Proto => 'udp',
@@ -20,23 +30,38 @@ while ($socket->recv($message, 1024)) {
 	my ($port, $host) = sockaddr_in($socket->peername);
 	$host = join '.', unpack "C*", $host;
 
-	my @message = split / \| /, $message, 4;
-	my ($source, $icon, $title, $text) = @message;
-	
-	print "(from $host:$port by $source)\n";
+	chomp $message;
+	my ($source, $icon, $title, $text) = split / \| /, $message, 4;
+
+	print "from: $host:$port\n";
+	print "app: $source\n";
 	
 	if ($title eq "") { next; }
 	if ($source eq "") { $source = "unknown"; }
 	
-	print "[$title]\n";
-	print "$text\n\n";
+	print "title: $title\n";
+	print "text: $text\n";
 
-	my @args = ("notify-send");
-	push @args, "--icon=$icon" unless $icon eq "";
-	push @args, "--category=$source" unless $source eq "";
-	push @args, $title;
-	push @args, $text unless $text eq "";
-	system @args;
+	if (defined $dbus_object) {
+		$dbus_object->Notify(
+			$source,
+			0,
+			$icon,
+			$title,
+			$text,
+			[],
+			{},
+			3000
+		);
+	}
+	else {
+		my @args = ("notify-send");
+		push @args, "--icon=$icon" unless $icon eq "";
+		push @args, "--category=$source" unless $source eq "";
+		push @args, $title;
+		push @args, $text unless $text eq "";
+		system @args;
+	}
 
 }
 die "recv error: $!";

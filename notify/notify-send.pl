@@ -17,26 +17,23 @@ $VERSION = "0.1";
 # Don't modify this; instead use /set notify_host
 Irssi::settings_add_str("libnotify", "notify_host", "localhost:22754");
 
-sub notify_send {
-	my ($title, $text) = @_;
+sub send_udp($$$$) {
+	my ($host, $port, $title, $text) = @_;
+
 	my $icon = "notification-message-IM";
 
 	my $rawmsg = join " | ", ("irssi", $icon, $title, $text);
 
-	my $dests = Irssi::settings_get_str("notify_host");
-	foreach my $dest (split / /, $dests) {
-		$dest =~ /^(.+):([0-9]{1,5})$/;
-		my ($dest_host, $dest_port) = ($1, $2);
-		my $rcpt = sockaddr_in($dest_port, inet_aton($dest_host));
-		socket(SOCK, PF_INET, SOCK_DGRAM, getprotobyname("udp"));
-		send(SOCK, $rawmsg, 0, $rcpt);
-	}
+	my $rcpt = sockaddr_in($port, inet_aton($host));
+	socket(SOCK, PF_INET, SOCK_DGRAM, getprotobyname("udp"));
+	send(SOCK, $rawmsg, 0, $rcpt);
 }
 
 sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 	my $mynick = $server->{nick};
-	my $channel = ($target =~ /^[#+&]/);
+	my $channel = $server->ischannel($target);
+	#my $channel = ($target =~ /^[#+&]/);
 
 	# skip server notices
 	return if !defined $userhost;
@@ -53,11 +50,13 @@ sub on_message {
 	);
 
 	my $title = $nick;
-	if ($channel) {
-		$title .= " on $target";
-	}
+	$title .= " on $target" if $channel;
 
-	notify_send $title, $msg;
+	my $dests = Irssi::settings_get_str("notify_host");
+	foreach my $dest (split / /, $dests) {
+		$dest =~ /^(.+):([0-9]{1,5})$/;
+		send_udp($1, $2, $title, $text);
+	}
 }
 
 Irssi::signal_add("message public", sub {

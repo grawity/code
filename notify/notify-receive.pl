@@ -20,7 +20,7 @@ while ($socket->recv($message, 1024)) {
 	my ($port, $host) = sockaddr_in($socket->peername);
 	$host = join '.', unpack "C*", $host;
 
-	my @message = split "\n", $message;
+	my @message = split / \| /, $message, 4;
 	my ($source, $icon, $title, $text) = @message;
 	
 	print "(from $host:$port by $source)\n";

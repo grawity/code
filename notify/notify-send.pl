@@ -21,8 +21,7 @@ sub notify_send {
 	my ($title, $text) = @_;
 	my $icon = "notification-message-IM";
 
-	#my $rawmsg = "irssi\n$icon\n$title\n$text\n";
-	my $rawmsg = join "\n", "irssi", $icon, $title, $text;
+	my $rawmsg = join " | ", ("irssi", $icon, $title, $text);
 
 	my $dests = Irssi::settings_get_str("notify_host");
 	foreach my $dest (split / /, $dests) {

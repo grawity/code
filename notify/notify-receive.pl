@@ -13,6 +13,15 @@ eval {
 		"org.freedesktop.Notifications");
 };
 
+sub xml_escape($) {
+	my ($_) = @_;
+	s/&/\&amp;/g;
+	s/</\&lt;/g;
+	s/>/\&gt;/g;
+	s/"/\&quot;/g;
+	return $_;
+}
+
 if (defined $bus) {
 	print "Net::DBus available\n";
 }
@@ -48,17 +57,10 @@ while ($socket->recv($message, 1024)) {
 	print "title: $title\n";
 	print "text: $text\n";
 
+	$text = xml_escape($text);
+
 	if (defined $dobject) {
-		$dobject->Notify(
-			$source,
-			0,
-			$icon,
-			$title,
-			$text,
-			[],
-			{},
-			3000
-		);
+		$dobject->Notify($source, 0, $icon, $title, $text, [], {}, 3000);
 	}
 	else {
 		my @args = ("notify-send");

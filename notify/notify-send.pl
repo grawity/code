@@ -51,6 +51,7 @@ sub send_udp($$$$) {
 }
 
 sub send_libnotify($$) {
+	my ($title, $text) = @_;
 	if (defined $libnotify) {
 		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
 	}

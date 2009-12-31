@@ -92,7 +92,7 @@ sub on_message {
 	my $dests = Irssi::settings_get_str("notify_host");
 	foreach my $dest (split / /, $dests) {
 		if ($dest eq "dbus") {
-			send_dbus($title, $msg);
+			send_libnotify($title, $msg);
 		}
 		else {
 			$dest =~ /^(.+):([0-9]{1,5})$/;

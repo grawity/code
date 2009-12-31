@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+# Requirements:
+#   libnotify over DBus:
+#     Net::DBus
 
 # Settings:
 #
@@ -36,8 +39,13 @@ eval {
 		"org.freedesktop.Notifications");
 };
 
-if (!defined $dbus and Irssi::settings_get_str("notify_host") =~ /\b(dbus)\b/) {
-	warn "Warning: Net::DBus not found, install it or set notify_host";
+sub xml_escape($) {
+	my ($_) = @_;
+	s/&/\&amp;/g;
+	s/</\&lt;/g;
+	s/>/\&gt;/g;
+	s/"/\&quot;/g;
+	return $_;
 }
 
 sub send_udp($$$$) {
@@ -52,7 +60,9 @@ sub send_udp($$$$) {
 
 sub send_libnotify($$) {
 	my ($title, $text) = @_;
+	$text = xml_escape($text);
 	if (defined $libnotify) {
+		print "Using DBus";
 		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
 	}
 	else {

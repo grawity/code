@@ -15,7 +15,13 @@ $VERSION = "1.2.constantly-evolving";
 );
 
 ## This is a heavily trimmed down version. It blocks channel-wide
-## CTCPs and nothing else. For a full version, see my website.
+## notices, CTCPs and nothing else. For a full version, see my website.
+
+Irssi::signal_add_first "message irc notice" => sub {
+	my ($server, $msg, $nick, $addr, $target) = @_;
+
+	Irssi::signal_stop() if $server->ischannel($target);
+}
 
 Irssi::signal_add_first "ctcp msg" => sub {
 	my ($server, $args, $nick, $addr, $target) = @_;
@@ -34,4 +40,3 @@ Irssi::signal_add_first "dcc request" => sub {
 	do { $dccrec->destroy(); Irssi::signal_stop(); }
 		if $server->ischannel($dccrec->{target});
 };
-

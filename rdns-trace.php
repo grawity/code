@@ -166,7 +166,7 @@ for ($i = 1; $i < $argc; $i++) {
 }
 
 if (count($addresses) == 0)
-	exit(usage())
+	exit(usage());
 
 $i = 0; foreach ($addresses as $start_addr) {
 	$visited = array();

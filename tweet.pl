@@ -63,7 +63,7 @@ if (!defined $user or !defined $pass) {
 	$pass = $authdata->password unless defined $pass;
 }
 
-sub tweet {
+sub post_tweet {
 	my ($text, $user, $pass, $replyid) = @_;
 
 	my $ua = LWP::UserAgent->new();
@@ -89,7 +89,6 @@ if (defined $tweet->{error}) {
 	exit 1;
 }
 else {
-	return $tweet;
 	my $id = $tweet->{id};
 	my $real_user = $tweet->{user}->{screen_name};
 	my $real_text = $tweet->{text};

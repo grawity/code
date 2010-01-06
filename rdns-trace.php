@@ -1,15 +1,26 @@
 #!/usr/bin/php
 <?php
-# rdns-trace - reverse DNS tracing, sort of
-
+# rdns-trace v1.2
+# Reverse DNS tracing, sort of
+#
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 #
-# <http://purl.oclc.org/NET/grawity/code.html>
-
 # Requires dns_get_record() - so at least PHP 5.3.0 on Windows.
 
-error_reporting(-1); // use strict;
+define("VERSION", 'v1.2');
+define("USAGE", 'Usage: rdns-trace [-cC] ADDRESS [ADDRESS ...]');
+define("HELP", <<<EOF
+Displays forward and/or reverse DNS of a given address, recursively.
+
+Options:
+  -c, -C                       Enable/disable coloured output.
+
+Note: This uses dns_get_record(), which (as of PHP 5.3.0) doesn't return
+any IPv6 records on Windows systems.
+
+EOF
+);
 
 if (isset($_SERVER["REMOTE_ADDR"])) {
 	header("Content-Type: text/plain; charset=utf-8");
@@ -18,10 +29,7 @@ if (isset($_SERVER["REMOTE_ADDR"])) {
 	die;
 }
 
-function usage() {
-	print "Usage: rdns-trace [-cC] <address> [<address> ...]\n";
-	return 2;
-}
+error_reporting(-1); // use strict;
 
 # check if argument is an IP address
 function is_inetaddr($a) {
@@ -132,8 +140,15 @@ function go($from, $depth = 0, $skip = array()) {
 	}
 }
 
-$TERM = getenv("TERM");
-$use_colour = !($TERM === false or $TERM == "dumb");
+# on Windows, %TERM% will most likely be unset
+# on Unix, posix.so might be disabled, if it is -- check $TERM
+if (function_exists("posix_isatty")) {
+	$use_colour = posix_isatty(STDOUT);
+}
+else {
+	$TERM = getenv("TERM");
+	$use_colour = !($TERM === false or $TERM == "dumb");
+}
 
 $addresses = array();
 
@@ -145,7 +160,9 @@ for ($i = 1; $i < $argc; $i++) {
 	if ($arg[0] == "-") switch ($arg) {
 		case "-h":
 		case "--help":
-			exit(usage());
+			print USAGE."\n";
+			print HELP;
+			exit();
 		
 		case "-c":
 			$use_colour = true;
@@ -156,8 +173,9 @@ for ($i = 1; $i < $argc; $i++) {
 			break;
 
 		default:
-			print "Unknown option $arg\n";
-			exit(usage());
+			fwrite(STDERR,"rdns-trace: unknown option '$arg'\n");
+			fwrite(STDERR, USAGE."\n");
+			exit(2);
 	}
 
 	else {
@@ -165,8 +183,10 @@ for ($i = 1; $i < $argc; $i++) {
 	}
 }
 
-if (count($addresses) == 0)
-	exit(usage());
+if (count($addresses) == 0) {
+	fwrite(STDERR, USAGE."\n");
+	exit(2);
+}
 
 $i = 0; foreach ($addresses as $start_addr) {
 	$visited = array();

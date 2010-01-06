@@ -5,22 +5,8 @@
 #
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-#
-# Requires dns_get_record() - so at least PHP 5.3.0 on Windows.
 
-define("VERSION", 'v1.2');
-define("USAGE", 'Usage: rdns-trace [-cC] ADDRESS [ADDRESS ...]');
-define("HELP", <<<EOF
-Displays forward and/or reverse DNS of a given address, recursively.
-
-Options:
-  -c, -C                       Enable/disable coloured output.
-
-Note: This uses dns_get_record(), which (as of PHP 5.3.0) doesn't return
-any IPv6 records on Windows systems.
-
-EOF
-);
+error_reporting(-1); // use strict;
 
 if (isset($_SERVER["REMOTE_ADDR"])) {
 	header("Content-Type: text/plain; charset=utf-8");
@@ -29,7 +15,22 @@ if (isset($_SERVER["REMOTE_ADDR"])) {
 	die;
 }
 
-error_reporting(-1); // use strict;
+function msg_help() {
+	$usage = <<<EOTFM
+Usage: rdns-trace [-cC] ADDRESS [ADDRESS ...]
+
+Displays forward and/or reverse DNS of a given address, recursively.
+
+Options:
+  -c, -C                        Enable/disable coloured output.
+
+Note: This uses dns_get_record(), which (as of PHP 5.3.0) doesn't return
+any IPv6 records on Windows systems.
+
+EOTFM;
+	fwrite(STDERR, $usage);
+	return 2;
+}
 
 # check if argument is an IP address
 function is_inetaddr($a) {
@@ -109,7 +110,7 @@ function colour($addr, $c = 0) {
 	else
 		$c = 33;
 	
-	return "\033[{$c}m" . $addr . "\033[m";
+	return "\033[{$c}m{$addr}\033[m";
 }
 
 # This is where the fun happens.
@@ -158,12 +159,6 @@ for ($i = 1; $i < $argc; $i++) {
 	if (empty($arg)) continue;
 
 	if ($arg[0] == "-") switch ($arg) {
-		case "-h":
-		case "--help":
-			print USAGE."\n";
-			print HELP;
-			exit();
-		
 		case "-c":
 			$use_colour = true;
 			break;
@@ -174,8 +169,9 @@ for ($i = 1; $i < $argc; $i++) {
 
 		default:
 			fwrite(STDERR,"rdns-trace: unknown option '$arg'\n");
-			fwrite(STDERR, USAGE."\n");
-			exit(2);
+		case "-h":
+		case "--help":
+			exit(msg_help());
 	}
 
 	else {
@@ -183,10 +179,8 @@ for ($i = 1; $i < $argc; $i++) {
 	}
 }
 
-if (count($addresses) == 0) {
-	fwrite(STDERR, USAGE."\n");
-	exit(2);
-}
+if (count($addresses) == 0)
+	exit(msg_help());
 
 $i = 0; foreach ($addresses as $start_addr) {
 	$visited = array();

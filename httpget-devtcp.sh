@@ -1,11 +1,14 @@
 #!/bin/bash
+# httpget-devtcp v1.0.1
 # Download files over HTTP using the /dev/tcp feature of bash.
+#
+# (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 #
 # Usage: httpget <url>
 
 get() {
-	local url host port path crlf
-	crlf="$( printf '\r\n' )"
+	local url host port path
 	url="$1"
 	host="${url#http://}"
 	if [[ "$host" == */* ]]
@@ -30,7 +33,7 @@ get() {
 	200)
 		while true; do
 			read line <&5
-			[ "$line" = "$crlf" ] && break;
+			[ "$line" = $'\r\n' ] && break;
 		done
 		cat <&5
 		exec 5>&-
@@ -43,7 +46,7 @@ get() {
 				echo "--> redirected to $val" >&2
 				get "$val"
 				break
-			elif [ "$hdr" = "" -o "$hdr" = "$crlf" ]; then
+			elif [ "$hdr" = "" -o "$hdr" = $'\r\n' ]; then
 				cat <&5
 				exec 5>&-
 				break

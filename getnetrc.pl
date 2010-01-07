@@ -1,21 +1,23 @@
 #!/usr/bin/perl
-# a simple tool for grabbing login data from ~/.netrc
-
+# getnetrc v1.1
+# A simple tool for grabbing login data from ~/.netrc
+#
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
 use warnings;
 use strict;
 
-use Net::Netrc;
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
+use Net::Netrc;
 
 sub msg_usage {
 	print STDERR "Usage: getnetrc [-du] [-f format] machine [login]\n";
 	return 2;
 }
 sub msg_help {
-	print 'Usage: getnetrc [-du] [-f format] machine [login]
+	print
+'Usage: getnetrc [-du] [-f format] machine [login]
 
   -d  ignore the default entry (which is useless for anything but ftp)
   -f  format the output as specified (default is %u:%p)
@@ -38,7 +40,7 @@ The .netrc file format is described in the manual page of ftp(1).
 sub fmt($%) {
 	my ($str, %data) = @_;
 	$data{"%"} = "%";
-	$str =~ s/(%(.))/exists $data{$2}? (defined $data{$2}? $data{$2} : "") : $1/ge;
+	$str =~ s/(%(.))/exists $data{$2}?(defined $data{$2}?$data{$2}:""):$1/ge;
 	return $str;
 }
 

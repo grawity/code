@@ -1,8 +1,9 @@
 #!/usr/bin/python
 # vim: fileencoding=utf-8
 
-# checks for duplicate known_hosts entries
-
+# duphosts v1.0
+# Checks for duplicate entries in ~/.ssh/known_hosts
+#
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
@@ -14,6 +15,7 @@ knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
 keys = {}
 
 fh = open(knownhosts_path, "r")
+
 # check for duplicates
 for line in fh:
 	line = line.strip()

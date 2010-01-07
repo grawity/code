@@ -1,6 +1,7 @@
 #!/usr/bin/perl
-# gist submission script
-
+# gist v1.0
+# gist.github.com submission script
+#
 # (c) 2009 <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 

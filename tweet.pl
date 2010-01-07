@@ -1,6 +1,7 @@
 #!/usr/bin/perl
+# tweet.pl v1.0
 # posts stuff to Twitter
-
+#
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
@@ -18,8 +19,7 @@ sub msg_usage {
 	return 2;
 }
 sub msg_help {
-	print
-q{Usage: tweet [-u user] [-p password] [-r tweet_id] text
+	print q{Usage: tweet [-u user] [-p password] [-r tweet_id] text
 
   -u  Twitter account (username) to use, if multiple entries
       exist in ~/.netrc (otherwise the first match is used)
@@ -42,7 +42,7 @@ GetOptions(
 	"u=s" => \$user,
 	"p=s" => \$pass,
 	"r=i" => \$replyid,
-	"help" => sub { exit msg_help },
+	"h|help" => sub { exit msg_help },
 ) or exit msg_usage;
 
 $text = shift @ARGV or exit msg_usage;

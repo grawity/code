@@ -46,7 +46,9 @@ sub fmt($%) {
 
 # URL-encode data
 sub url_encode($) {
-	$_ = shift; s/([^A-Za-z0-9.])/sprintf("%%%02X", ord($1))/seg; return $_;
+	$_ = shift;
+	s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	return $_;
 }
 
 # parse @ARGV

@@ -3,8 +3,9 @@
 
 # Usage: shorten <url>
 
-# The API key will be taken from ~/.netrc entry for api.bit.ly
-# See manpage of ftp(1) for details.
+# The API key will be taken from ~/.netrc login/password for api.bit.ly
+# See manpage of ftp(1) for details on netrc syntax. Example entry:
+# machine api.bit.ly login jsmith password R_e18a9be09e1745dfb1eaf9580ec62a28
 
 use warnings;
 use strict;
@@ -14,8 +15,8 @@ use LWP::Simple;
 use XML::Simple;
 
 sub msg_usage() {
-	print STDERR "Usage: shorten [-S] [-s service] <url>\n";
-	return 1;
+	print STDERR "Usage: shorten <url>\n";
+	return 2;
 }
 
 sub bitly($) {
@@ -28,12 +29,13 @@ sub bitly($) {
 	);
 
 	my $netrc = Net::Netrc->lookup("api.bit.ly");
-	if (defined $netrc->{machine} and defined $netrc->{login} and defined $netrc->{account}) {
+	if (defined $netrc->{machine} and defined $netrc->{login} and defined $netrc->{password}) {
 		$args{login} = $netrc->{login};
-		$args{apiKey} = $netrc->{account};
+		$args{apiKey} = $netrc->{password};
 	}
 	else {
-		print STDERR "login/account for api.bit.ly not found in ~/.netrc\n";
+		print STDERR "API key must be added to ~/.netrc as login/password for 'machine api.bit.ly'\n";
+		print STDERR "Example: machine api.bit.ly login jsmith password R_746869736973616b6579a\n";
 		return undef;
 	}
 
@@ -41,7 +43,7 @@ sub bitly($) {
 	my $apiurl = "http://api.bit.ly/shorten?$args";
 
 	my $resp = LWP::Simple::get($apiurl);
-	$resp = XMLin($resp);
+	$resp = XML::Simple::XMLin($resp);
 
 	if ($resp->{statusCode} eq "OK") {
 		return $resp->{results}->{nodeKeyVal}->{shortUrl};

@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# getnetrc v1.1
+# getnetrc v1.2
 # A simple tool for grabbing login data from ~/.netrc
 #
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>

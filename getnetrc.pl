@@ -79,9 +79,7 @@ my %output = (
 	u => $entry->{login},
 );
 if ($format_url_encode) {
-	foreach my $k (keys %output) {
-		$output{$k} = url_encode($output{$k} or "");
-	}
+	map { $output{$_} = url_encode($output{$_}) } keys %output;
 }
 @output{"n", "0"} = ("\n", "\0");
 

@@ -10,16 +10,14 @@ use LWP::UserAgent;
 
 sub msg_usage() {
 	print STDERR "Usage: shorten <url>\n";
-	return 1;
+	return 2;
 }
 
 sub isgd($) {
 	my ($longurl) = @_;
 	
-	my $apiurl = "http://is.gd/api.php?longurl=".uri_escape($longurl);
-
 	my $req = new LWP::UserAgent;
-	my $resp = $req->get($apiurl);
+	my $resp = $req->get("http://is.gd/api.php?longurl=".uri_escape($longurl));
 
 	chomp(my $content = $resp->decoded_content);
 	if ($resp->code == "200" and $content =~ m!^http://!) {

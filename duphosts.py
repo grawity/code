@@ -10,10 +10,10 @@
 import os
 
 dedup = False
-knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
 
 keys = {}
 
+knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
 fh = open(knownhosts_path, "r")
 
 # check for duplicates

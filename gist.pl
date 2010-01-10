@@ -15,8 +15,8 @@ use LWP::UserAgent;
 
 sub usage {
 	print "Usage:\n";
-	print "\tgist [-p|--private] [-n|--name foo] < file\n";
-	print "\tgist [-p|--private] [-a|--add-remote] file [file2 file3 ...]\n";
+	print "\tgist [-p] [-n|--name foo] < file\n";
+	print "\tgist [-p] [-a|--add-remote] file [file2 file3 ...]\n";
 	return 2;
 }
 
@@ -54,6 +54,7 @@ sub build_post_data {
 			$data{"file_ext[gistfile$i]"} = "";
 			$data{"file_contents[gistfile$i]"} = "";
 
+			# Why can't LWP just steal foo=<file from curl.
 			open IN, "< $filename" or die "Cannot open file $filename\n";
 			while (my $line = <IN>) {
 				$data{"file_contents[gistfile$i]"} .= $line;
@@ -70,9 +71,9 @@ my $private = 0;
 my $filename = "";
 my $add_git_remote = 0;
 GetOptions(
-	"private|p" => \$private,
-	"name=s" => \$filename,
-	"add-remote|a" => \$add_git_remote,
+	"p|private" => \$private,
+	"n|name=s" => \$filename,
+	"a|add-remote" => \$add_git_remote,
 ) or exit usage;
 
 my $data = build_post_data $private, $filename, @ARGV;
@@ -96,7 +97,7 @@ if ($response->code == 302) {
 	print "public: $git_public_url\n" unless $private;
 
 	if ($add_git_remote) {
-		system "git remote add gist $git_private_url";
+		system "git remote add gist '$git_private_url'";
 		system "git push gist master --force";
 	}
 }

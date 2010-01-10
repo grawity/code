@@ -7,7 +7,6 @@
 
 use warnings;
 use strict;
-use utf8;
 
 use Getopt::Long;
 use Net::Netrc;
@@ -37,6 +36,33 @@ The .netrc file format is described in the manual page of ftp(1).
 	return 0;
 }
 
+sub lookup_authdata {
+	my ($user) = @_;
+	# Net::Netrc ignores $user if not defined
+	my $netrc = Net::Netrc->lookup("twitter.com", $user);
+	# Ignore the 'default' entry
+	return defined($netrc->{machine}) ? ($netrc->login, $netrc->password) : ();
+}
+
+sub post_tweet {
+	my ($text, $user, $pass, $replyid) = @_;
+
+	my $ua = LWP::UserAgent->new();
+	$ua->credentials("twitter.com:443", "Twitter API", $user, $pass);
+
+	my %data = (status => $text);
+
+	if (defined $replyid) {
+		die "Replies must start with \@username\n" if $text !~ /^\@[^ ]+ /;
+		# ...otherwise Twitter rejects them.
+
+		$data{"in_reply_to_status_id"} = $replyid;
+	}
+
+	my $resp = $ua->post("https://twitter.com/statuses/update.xml", \%data);
+	return XMLin($resp->decoded_content);
+}
+
 my ($user, $pass, $replyid, $text);
 GetOptions(
 	"u=s" => \$user,
@@ -48,38 +74,16 @@ GetOptions(
 $text = shift @ARGV or exit msg_usage;
 
 if (length $text > 140) {
-	print STDERR (length $text)." character tweet is too long\n";
+	print STDERR length($text)." character tweet is too long\n";
 	exit 1;
 }
 
-# get Twitter credentials from ~/.netrc if not given
 if (!defined $user or !defined $pass) {
-	my $authdata = Net::Netrc->lookup("twitter.com", $user);
-	if (!defined $authdata or !defined $authdata->{machine}) {
-		die "Authentication data not found in ~/.netrc\n";
-	}
-	# password given in @ARGV overrides netrc
-	$user = $authdata->login;
-	$pass = $authdata->password unless defined $pass;
+	($user, $pass) = lookup_authdata($user);
 }
-
-sub post_tweet {
-	my ($text, $user, $pass, $replyid) = @_;
-
-	my $ua = LWP::UserAgent->new();
-	$ua->credentials("twitter.com:443", "Twitter API", $user, $pass);
-
-	my %data = ( status => $text );
-
-	if (defined $replyid) {
-		die "Replies must start with \@username\n" if $text !~ /^\@[^ ]+ /;
-		# ...otherwise Twitter rejects them.
-
-		$data{"in_reply_to_status_id"} = $replyid;
-	}
-
-	my $resp = $ua->post("https://twitter.com/statuses/update.xml", \%data);
-	return XMLin($resp->decoded_content);
+if (!defined $user or !defined $pass) {
+	print STDERR "Login information for twitter.com not found in ~/.netrc\n";
+	exit 3;
 }
 
 my $tweet = post_tweet($text, $user, $pass, $replyid);

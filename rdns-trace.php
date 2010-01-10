@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-# rdns-trace v1.2
+# rdns-trace v1.3
 # Reverse DNS tracing, sort of
 #
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>

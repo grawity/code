@@ -1,11 +1,8 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 # getnetrc v1.2
-# A simple tool for grabbing login data from ~/.netrc
+# Grabs login data from ~/.netrc
 #
-# (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-
-use warnings;
 use strict;
 
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
@@ -19,15 +16,15 @@ sub msg_help {
 	print
 'Usage: getnetrc [-du] [-f format] machine [login]
 
-  -d  ignore the default entry (which is useless for anything but ftp)
-  -f  format the output as specified (default is %u:%p)
+  -d  ignore the default entry
+  -f  format the output as specified (default is %l:%p)
   -u  URL-encode each item separately
 
 These format strings are understood:
+  %m, %h       machine (hostname)
   %l, %u       login (username)
   %p           password
-  %a           account name (mostly useless)
-  %m, %h       machine name (hostname)
+  %a           account
   %%, %n, %0   percent sign, newline, null byte
 Everything else is taken literally.
 
@@ -44,15 +41,13 @@ sub fmt($%) {
 	return $str;
 }
 
-# URL-encode data
-sub url_encode($) {
+sub uri_encode($) {
 	$_ = shift;
 	s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
 	return $_;
 }
 
-# parse @ARGV
-my $format = "%u:%p";
+my $format = "%l:%p";
 my $format_url_encode = 0;
 my $no_default = 0;
 GetOptions(
@@ -66,10 +61,8 @@ my $machine = shift @ARGV;
 my $login = shift @ARGV;
 exit msg_usage if !defined $machine;
 
-# do the lookup and print results
 my $entry = Net::Netrc->lookup($machine, $login);
 
-# lookup failed
 exit 1 if (!defined $entry) or (!defined $entry->{machine} and $no_default);
 
 my %output = (
@@ -79,9 +72,10 @@ my %output = (
 	m => $entry->{machine},
 	p => $entry->{password},
 	u => $entry->{login},
-);
+	);
+
 if ($format_url_encode) {
-	map { $output{$_} = url_encode($output{$_}) } keys %output;
+	$output{$_} = uri_encode($output{$_}) for keys %output;
 }
 @output{"n", "0"} = ("\n", "\0");
 

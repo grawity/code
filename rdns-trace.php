@@ -156,34 +156,27 @@ $addresses = array();
 # Fucking getopt() doesn't let me grab the rest of $argv
 for ($i = 1; $i < $argc; $i++) {
 	$arg = $argv[$i];
-	if (empty($arg)) continue;
+	if (!strlen($arg)) continue;
 
 	if ($arg[0] == "-") switch ($arg) {
 		case "-c":
-			$use_colour = true;
-			break;
-
+			$use_colour = true; break;
 		case "-C":
-			$use_colour = false;
-			break;
-
+			$use_colour = false; break;
 		default:
-			fwrite(STDERR,"rdns-trace: unknown option '$arg'\n");
+			fwrite(STDERR, "rdns-trace: unknown option '$arg'\n");
 		case "-h":
 		case "--help":
 			exit(msg_help());
 	}
-
-	else {
-		$addresses[] = $arg;
-	}
+	else $addresses[] = $arg;
 }
 
 if (count($addresses) == 0)
 	exit(msg_help());
 
-$i = 0; foreach ($addresses as $start_addr) {
+foreach ($addresses as $i => $start_addr) {
 	$visited = array();
-	if ($i++ > 0) print "\n";
+	if ($i > 0) print "\n";
 	go($start_addr);
 }

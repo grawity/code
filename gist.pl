@@ -38,27 +38,19 @@ sub build_post_data {
 		# get from stdin
 		$data{"file_name[gistfile$i]"} = $filename;
 		$data{"file_ext[gistfile$i]"} = "";
-		$data{"file_contents[gistfile$i]"} = "";
-
-		while (my $line = <STDIN>) {
-			$data{"file_contents[gistfile$i]"} .= $line;
-		}
+		$data{"file_contents[gistfile$i]"} = join "", <STDIN>;
 	}
 	else {
 		if ($filename ne "") {
-			print STDERR "warning: file names given; option --name will be ignored\n";
+			print STDERR "warning: reading from files; option --name will be ignored\n";
 		}
 
 		for my $filename (@files) {
 			$data{"file_name[gistfile$i]"} = basename($filename);
 			$data{"file_ext[gistfile$i]"} = "";
-			$data{"file_contents[gistfile$i]"} = "";
-
 			# Why can't LWP just steal foo=<file from curl.
 			open IN, "< $filename" or die "Cannot open file $filename\n";
-			while (my $line = <IN>) {
-				$data{"file_contents[gistfile$i]"} .= $line;
-			}
+			$data{"file_contents[gistfile$i]"} = join "", <IN>;
 			close IN;
 			$i++;
 		}

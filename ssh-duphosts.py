@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # vim: fileencoding=utf-8
 
-# duphosts v1.0
+# ssh-duphosts v1.0
 # Checks for duplicate entries in ~/.ssh/known_hosts
 #
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>

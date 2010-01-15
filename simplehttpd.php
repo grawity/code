@@ -201,8 +201,10 @@ $config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
 
 $options = getopt("ac:d:hl:p:v");
 
-if (isset($options["h"]) or $options === false)
-	die("Usage: simplehttpd [-av] [-d docroot] [-l addr] [-p port]\n");
+if (isset($options["h"]) or $options === false) {
+	fwrite(stderr, "Usage: simplehttpd [-avu] [-d docroot] [-l localaddr] [-p port] [-U suffix]\n");
+	exit(2);
+}
 
 if (isset($options["v"]))
 	die(VERSION."\n");
@@ -218,6 +220,12 @@ if (isset($options["l"]))
 
 if (isset($options["p"]))
 	$listen_port = (int) $options["p"];
+
+if (isset($options["u"]))
+	$enable_userdirs = true;
+
+if (isset($options["U"]))
+	$userdir_suffix = $options["U"];
 
 ## Prepare for actual work
 

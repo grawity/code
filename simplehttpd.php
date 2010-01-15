@@ -140,76 +140,6 @@ function load_mimetypes($path = "/etc/mime.types") {
 	fclose($fh);
 }
 
-function read_config($path) {
-	if (!file_exists($path) or !is_file($path)) {
-		return true;
-	}
-
-	$fh = fopen($path, "r");
-	if (!$fh) {
-		fwrite(STDERR, "could not open $path\n");
-		return false;
-	}
-
-	$lineno = 0; while (($line = fgets($fh)) !== false) {
-		$lineno++;
-		$line = rtrim($line);
-		if ($line == "" or $line[0] == "#" or $line[0] == ";")
-			continue;
-
-		$line = explode("=", $line, 2);
-		if (count($line) < 2) {
-			fwrite(STDERR, "parse error at line {$lineno}\n");
-			return false;
-		}
-
-		list ($key, $value) = $line;
-
-		$key = trim($key);
-		$value = trim($value);
-
-		if (preg_match('|^"(.*)"$|', $value, $m))
-			$value = stripcslashes($m[1]);
-		elseif (preg_match('|^\'(.*)\'$|', $value, $m))
-			$value = stripslashes($m[1]);
-		elseif (preg_match('/^(yes|true)$/i', $value))
-			$value = true;
-		elseif (preg_match('/^(no|false)$/i', $value))
-			$value = false;
-
-		switch ($key) {
-		case "listen":
-			global $listen;
-			$listen = (string) $value;
-			break;
-		case "port":
-			global $listen_port;
-			$listen_port = (int) $value;
-			break;
-		case "hide_dotfiles":
-			global $hide_dotfiles;
-			$hide_dotfiles = (bool) $value;
-			break;
-		case "docroot":
-			global $docroot;
-			$docroot = expand_own_path($value);
-			break;
-		case "userdir.enable":
-			global $enable_userdirs;
-			$enable_userdirs = (bool) $value;
-			break;
-		case "userdir.suffix":
-			global $userdir_suffix;
-			$userdir_suffix = (string) $value;
-			break;
-		default:
-			fwrite(STDERR, "warning: unknown config option $key\n");
-		}
-	}
-	fclose($fh);
-	return true;
-}
-
 $status_messages = array(
 	200 => "Okie dokie",
 
@@ -269,21 +199,16 @@ $config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
 
 ## Command-line options
 
-$options = getopt("c:d:hl:p:v");
+$options = getopt("ac:d:hl:p:v");
 
 if (isset($options["h"]) or $options === false)
-	die("Usage: simplehttpd [-v] [-c config] [-d docroot] [-l addr] [-p port]\n");
+	die("Usage: simplehttpd [-av] [-d docroot] [-l addr] [-p port]\n");
 
 if (isset($options["v"]))
 	die(VERSION."\n");
 
-if (isset($options["c"]))
-	$config_files = $options["c"];
-
-if (!is_array($config_files))
-	$config_files = array($config_files);
-foreach ($config_files as $file)
-	read_config($file) or exit(1);
+if (isset($options["a"]))
+	$hide_dotfiles = false;
 
 if (isset($options["d"]))
 	$docroot = $options["d"];

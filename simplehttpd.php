@@ -36,10 +36,7 @@ function get_user_docroot($user) {
 
 	if (function_exists("posix_getpwnam")) {
 		$pw = posix_getpwnam($user);
-		if (!$pw)
-			return false;
-		else
-			return "{$pw["dir"]}/{$userdir_suffix}";
+		return $pw? "{$pw["dir"]}/{$userdir_suffix}" : false;
 	}
 	else {
 		return false;

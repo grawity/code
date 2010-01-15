@@ -195,6 +195,8 @@ $listen_port = 8001;
 
 $log_date_format = "%a %b %_d %H:%M:%S %Y";
 
+$fork = 3;
+
 $content_types = array(
 	"css" => "text/css",
 	"gif" => "image/gif",
@@ -585,17 +587,25 @@ echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]"
 
 $logfd = STDOUT;
 
-function sigchld_handler($sig) {
-	wait(-1);
-}
-pcntl_signal(SIGCHLD, "sigchld_handler");
-
-for ($i = 0; $i < 3; $i++)
-	if (pcntl_fork()) {
-		while ($insock = socket_accept($listener)) {
-			handle_request($insock, $logfd);
-			@socket_close($insock);
-		}
+if ($fork and function_exists("pcntl_fork")) {
+	function sigchld_handler($sig) {
+		wait(-1);
 	}
+	pcntl_signal(SIGCHLD, "sigchld_handler");
+
+	for ($i = 0; $i < $fork; $i++)
+		if (pcntl_fork()) {
+			while ($insock = socket_accept($listener)) {
+				handle_request($insock, $logfd);
+				@socket_close($insock);
+			}
+		}
+}
+else {
+	while ($insock = socket_accept($listener)) {
+		handle_request($insock, $logfd);
+		@socket_close($insock);
+	}
+}
 
 socket_close($listener);

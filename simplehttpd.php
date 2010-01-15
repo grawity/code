@@ -14,7 +14,7 @@ define("VERSION", 'simplehttpd v1.0');
 function expand_path($path, $homedir) {
 	if ($path == "~") $path .= "/";
 
-	if (substr($path, 0, 2) == "~/" and $homedir)
+	if (substr($path, 0, 2) == "~/" && $homedir)
 		$path = $homedir . substr($path, 1);
 
 	return $path;

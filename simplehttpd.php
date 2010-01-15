@@ -594,7 +594,7 @@ function send_headers($sockfd, $version, $headers, $status = null) {
 	send($sockfd, "\r\n");
 
 	if ($headers === null)
-		send($sockfd, "Content-Type: text/html; charset=utf-8\r\n");
+		send($sockfd, "Content-Type: text/plain; charset=utf-8\r\n");
 
 	else foreach ($headers as $key => $value)
 		send($sockfd, "$key: $value\r\n");

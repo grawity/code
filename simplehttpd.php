@@ -558,6 +558,11 @@ echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]"
 
 $logfd = STDOUT;
 
+function sigchld_handler($sig) {
+	wait(-1);
+}
+pcntl_signal(SIGCHLD, "sigchld_handler");
+
 for ($i = 0; $i < 3; $i++)
 	if (pcntl_fork()) {
 		while ($insock = socket_accept($listener)) {

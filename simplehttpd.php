@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-define("VERSION", 'simplehttpd v1.0');
+define("VERSION", 'simplehttpd v1.1');
 # simple HTTP server
 
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
@@ -9,6 +9,25 @@ define("VERSION", 'simplehttpd v1.0');
 # Requires:
 # - sockets extension
 # - for userdir support: posix extension
+
+$USAGE = <<<EOF
+Usage: simplehttpd [-ahv] [-d docroot] [-l address] [-p port]
+EOF;
+
+$HELP = <<<EOTFM
+$USAGE
+
+Options:
+  -a                           List all files, including hidden, in directories
+  -d path                      Specify docroot (default is ~/public_html)
+  -h                           Display help message
+  -l address                   Bind to specified local address
+  -p port                      Listen on specified port
+  -v                           Display version
+
+\033[;37;41;1;5mNOT TO BE USED IN PRODUCTION ENVIRONMENTS\033[m
+
+EOTFM;
 
 # expand path starting with ~/ given value of ~
 function expand_path($path, $homedir) {
@@ -199,40 +218,40 @@ $config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
 
 ## Command-line options
 
-$options = getopt("ac:d:hl:p:v");
+$opt = getopt("ac:d:hl:p:v", array("help"));
 
-if (isset($options["h"]) or $options === false) {
-	fwrite(stderr, "Usage: simplehttpd [-avu] [-d docroot] [-l localaddr] [-p port] [-U suffix]\n");
+if (isset($opt["h"]) or isset($opt["help"]) or $opt === false) {
+	fwrite(STDERR, $HELP);
 	exit(2);
 }
 
-if (isset($options["v"]))
+if (isset($opt["v"]))
 	die(VERSION."\n");
 
-if (isset($options["a"]))
+if (isset($opt["a"]))
 	$hide_dotfiles = false;
 
-if (isset($options["d"]))
-	$docroot = $options["d"];
+if (isset($opt["d"]))
+	$docroot = $opt["d"];
 
-if (isset($options["l"]))
-	$listen = $options["l"];
+if (isset($opt["l"]))
+	$listen = $opt["l"];
 
-if (isset($options["p"]))
-	$listen_port = (int) $options["p"];
+if (isset($opt["p"]))
+	$listen_port = (int) $opt["p"];
 
-if (isset($options["u"]))
+if (isset($opt["u"]))
 	$enable_userdirs = true;
 
-if (isset($options["U"]))
-	$userdir_suffix = $options["U"];
+if (isset($opt["U"]))
+	$userdir_suffix = $opt["U"];
 
 ## Prepare for actual work
 
 $use_ipv6 = (strpos($listen, ":") !== false);
 
-if (!chdir($docroot)) {
-	fwrite(STDERR, "failed to chdir to $docroot\n");
+if (!@chdir($docroot)) {
+	fwrite(STDERR, "Error: Cannot chdir to docroot $docroot\n");
 	exit(1);
 }
 

@@ -470,10 +470,8 @@ function send_headers($sockfd, $version, $headers, $status = null) {
 	global $messages;
 
 	if (!$status) {
-		if (isset($headers["Status"])) {
+		if (isset($headers["Status"]))
 			$status = (int) $headers["Status"];
-			unset($headers["Status"]);
-		}
 		else
 			$status = 418;
 	}
@@ -487,7 +485,8 @@ function send_headers($sockfd, $version, $headers, $status = null) {
 		send($sockfd, "Content-Type: text/plain; charset=utf-8\r\n");
 
 	else foreach ($headers as $key => $value)
-		send($sockfd, "$key: $value\r\n");
+		if ($key != "Status")
+			send($sockfd, "$key: $value\r\n");
 
 	send($sockfd, "\r\n");
 }

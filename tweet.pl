@@ -97,6 +97,6 @@ else {
 	my $real_user = $tweet->{user}->{screen_name};
 	my $real_text = $tweet->{text};
 	my $post_url = "https://twitter.com/${real_user}/status/${id}";
+	print "$post_url\n";
 	print "<$real_user> $real_text\n";
-	print "at $post_url\n";
 }

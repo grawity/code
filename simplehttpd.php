@@ -224,13 +224,11 @@ function handle_request($sockfd, $logfd) {
 	$req->rawreq = socket_gets($sockfd);
 
 	if ($req->rawreq == "") {
-		if (LOG_REQUESTS)
-			fwrite($logfd, "(null)\n");
+		fwrite($logfd, "(null)\n");
 		return;
 	}
 
-	if (LOG_REQUESTS)
-		fwrite($logfd, $req->rawreq."\n");
+	fwrite($logfd, $req->rawreq."\n");
 
 	# method = up to the first space
 	# path = up to the second space
@@ -472,8 +470,10 @@ function send_headers($sockfd, $version, $headers, $status = null) {
 	global $messages;
 
 	if (!$status) {
-		if (isset($headers["Status"]))
+		if (isset($headers["Status"])) {
 			$status = (int) $headers["Status"];
+			unset($headers["Status"]);
+		}
 		else
 			$status = 418;
 	}

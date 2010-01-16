@@ -215,7 +215,6 @@ function handle_request($sockfd, $logfd) {
 	fwrite($logfd, strftime($log_date_format) . " {$req->rhost}:{$req->rport} ");
 
 	$resp->headers = array(
-		"Status" => 200,
 		"Content-Type" => "text/plain",
 		//"Connection" => "close",
 	);
@@ -466,15 +465,8 @@ function re_error($sockfd, $req, $status, $comment = null) {
 
 # If $headers is NULL, "Content-Type: text/plain" will be sent.
 # To send no headers, specify an empty array().
-function send_headers($sockfd, $version, $headers, $status = null) {
+function send_headers($sockfd, $version, $headers, $status = 200) {
 	global $messages;
-
-	if (!$status) {
-		if (isset($headers["Status"]))
-			$status = (int) $headers["Status"];
-		else
-			$status = 418;
-	}
 
 	send($sockfd, "$version $status "
 		. (isset($messages[$status]) ? $messages[$status] : "FUCKED UP")
@@ -485,8 +477,7 @@ function send_headers($sockfd, $version, $headers, $status = null) {
 		send($sockfd, "Content-Type: text/plain; charset=utf-8\r\n");
 
 	else foreach ($headers as $key => $value)
-		if ($key != "Status")
-			send($sockfd, "$key: $value\r\n");
+		send($sockfd, "$key: $value\r\n");
 
 	send($sockfd, "\r\n");
 }

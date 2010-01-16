@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-define("VERSION", 'simplehttpd v1.1');
+define("VERSION", 'simplehttpd v1.2');
 # simple HTTP server
 
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
@@ -29,24 +29,39 @@ Options:
 
 EOTFM;
 
-# expand path starting with ~/ given value of ~
+# expand path starting with ~/ when given value of ~
 function expand_path($path, $homedir) {
 	if ($path == "~") $path .= "/";
 
-	if (substr($path, 0, 2) == "~/" && $homedir)
+	if ($homedir and substr($path, 0, 2) == "~/")
 		$path = $homedir . substr($path, 1);
 
 	return $path;
 }
 
-# expand path starting with ~/ according to environment
+# expand path starting with ~/ using $HOME
 function expand_own_path($path) {
 	$home = getenv("HOME");
 	if (!$home)
-		$home = get_user_homedir();
+		$home = get_homedir();
 	if (!$home)
 		return $path;
 	return expand_path($path, $home);
+}
+
+# get homedir for current user (for determining default docroot)
+function get_homedir() {
+	$home = null;
+	if (!$home and function_exists("posix_getpwnam")) {
+		$uid = posix_getuid();
+		$pw = posix_getpwuid($uid);
+		if ($pw) $home = $pw["dir"];
+	}
+	if (!$home)
+		$home = getenv("HOME");
+	if (!$home)
+		$home = getenv("USERPROFILE");
+	return $home?:false;
 }
 
 # get docroot for given user (homedir + suffix)

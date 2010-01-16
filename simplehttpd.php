@@ -77,7 +77,7 @@ function get_homedir() {
 		$home = getenv("HOME");
 	if (!$home)
 		$home = getenv("USERPROFILE");
-	return $home?:false;
+	return $home? $home : false;
 }
 
 # get docroot for given user (homedir + suffix)

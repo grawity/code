@@ -1,6 +1,7 @@
 #!/usr/bin/php
 <?php
-define("VERSION", 'simplehttpd v1.2');
+$VERSION = "simplehttpd v1.2";
+$WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m\n";
 # simple HTTP server
 
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
@@ -10,24 +11,39 @@ define("VERSION", 'simplehttpd v1.2');
 # - sockets extension
 # - for userdir support: posix extension
 
-$USAGE = <<<EOF
-Usage: simplehttpd [-ahv] [-d docroot] [-l address] [-p port]
-EOF;
-
+# help message must be not wider than 80 characters                            #
 $HELP = <<<EOTFM
-$USAGE
+Usage: simplehttpd [-46Lahuv] [-d docroot] [-f num] [-l address] [-p port]
+	[-U suffix]
 
 Options:
+  -4                           Force IPv4
+  -6                           Force IPv6, even for IPv4 addresses
   -a                           List all files, including hidden, in directories
+  -f number                    Number of subprocesses (0 disables)
   -d path                      Specify docroot (default is ~/public_html)
   -h                           Display help message
-  -l address                   Bind to specified local address
+  -L                           Bind to localhost (::1 or 127.0.0.1)
+  -l address                   Bind to specified local address (default is ::)
   -p port                      Listen on specified port
+  -U suffix                    Set userdir suffix (default is 'public_html')
+  -u                           Enable userdirs
   -v                           Display version
 
-\033[;37;41;1;5mNOT TO BE USED IN PRODUCTION ENVIRONMENTS\033[m
-
+$WARNING
 EOTFM;
+
+if (isset($_SERVER["REMOTE_ADDR"])) {
+	header("Content-Type: text/plain; charset=utf-8");
+	header("Last-Modified: " . date("r", filemtime(__FILE__)));
+	readfile(__FILE__);
+	die;
+}
+
+if (!function_exists("socket_create")) {
+	fwrite(STDERR, "Error: 'sockets' extension not available\n");
+	exit(3);
+}
 
 # expand path starting with ~/ when given value of ~
 function expand_path($path, $homedir) {
@@ -138,7 +154,7 @@ function _die($message) {
 	exit(1);
 }
 
-function socket_die($message, $socket = false) {
+function _die_socket($message, $socket = false) {
 	if (!empty($message))
 		fwrite(STDERR, "$message: ");
 
@@ -168,7 +184,7 @@ function deref_symlink($file) {
 
 function load_mimetypes($path = "/etc/mime.types") {
 	global $content_types;
-	$fh = fopen($path, "r");
+	$fh = @fopen($path, "r");
 	if (!$fh) return false;
 	while ($line = fgets($fh)) {
 		$line = rtrim($line);
@@ -180,116 +196,13 @@ function load_mimetypes($path = "/etc/mime.types") {
 	fclose($fh);
 }
 
-$messages = array(
-	200 => "Okie dokie",
-
-	301 => "Moved Permanently",
-
-	400 => "Bad Request",
-	401 => "Unauthorized",
-	403 => "Forbidden",
-	404 => "Not Found",
-	405 => "Method Not Allowed",
-	418 => "I'm a teapot",
-
-	500 => "Internal error (something fucked up)",
-	501 => "Not Implemented",
-);
-
-## Default configuration
-
-define("LOG_REQUESTS", true);
-
-$docroot = expand_own_path("~/public_html");
-if (!is_dir($docroot))
-	$docroot = ".";
-
-$index_files = array( "index.html", "index.htm" );
-
-$enable_userdirs = false;
-$userdir_suffix = "public_html";
-
-$hide_dotfiles = true;
-
-$listen = "::";
-$listen_port = 8001;
-
-$log_date_format = "%a %b %_d %H:%M:%S %Y";
-
-$fork = 3;
-
-$content_types = array(
-	"css" => "text/css",
-	"gif" => "image/gif",
-	"htm" => "text/html",
-	"html" => "text/html",
-	"jpeg" => "image/jpeg",
-	"jpg" => "image/jpeg",
-	"js" => "text/javascript",
-	"m4a" => "audio/mp4",
-	"m4v" => "video/mp4",
-	"mp4" => "application/mp4",
-	"oga" => "audio/ogg",
-	"ogg" => "audio/ogg",
-	"ogv" => "video/ogg",
-	"ogm" => "application/ogg",
-	"png" => "image/png",
-	"tgz" => "application/x-tar",
-);
-
-$config_files = array( "/etc/simplehttpd.conf", "./simplehttpd.conf" );
-
-## Command-line options
-
-$opt = getopt("ac:d:hl:p:v", array("help"));
-
-if (isset($opt["h"]) or isset($opt["help"]) or $opt === false) {
-	fwrite(STDERR, $HELP);
-	exit(2);
-}
-
-if (isset($opt["v"]))
-	die(VERSION."\n");
-
-if (isset($opt["a"]))
-	$hide_dotfiles = false;
-
-if (isset($opt["d"]))
-	$docroot = $opt["d"];
-
-if (isset($opt["l"]))
-	$listen = $opt["l"];
-
-if (isset($opt["p"]))
-	$listen_port = (int) $opt["p"];
-
-if (isset($opt["u"]))
-	$enable_userdirs = true;
-
-if (isset($opt["U"]))
-	$userdir_suffix = $opt["U"];
-
-## Prepare for actual work
-
-$use_ipv6 = (strpos($listen, ":") !== false);
-
-if (!@chdir($docroot)) {
-	fwrite(STDERR, "Error: Cannot chdir to docroot $docroot\n");
-	exit(1);
-}
-
-$docroot = getcwd();
-$local_hostname = php_uname("n");
-
-load_mimetypes();
-load_mimetypes(expand_own_path("~/.mime.types"));
-ksort($content_types);
-
 function send($sockfd, $data) {
 	for ($total = 0; $total < strlen($data); $total += $num) {
 		$num = socket_write($sockfd, $data);
 		$data = substr($data, $total);
+		if ($num == 0) return false;
 	}
+	return $total;
 }
 
 function handle_request($sockfd, $logfd) {
@@ -298,8 +211,8 @@ function handle_request($sockfd, $logfd) {
 	$req = new stdClass();
 	$resp = new stdClass();
 
+	socket_getpeername($sockfd, $req->rhost, $req->rport);
 	if (LOG_REQUESTS) {
-		socket_getpeername($sockfd, $req->rhost, $req->rport);
 		fwrite($logfd, strftime($log_date_format) . " {$req->rhost}:{$req->rport} ");
 	}
 
@@ -369,25 +282,23 @@ function handle_request($sockfd, $logfd) {
 	$req->path = strtok($req->path, "?");
 	$req->query = strtok("");
 
-	$fs_path = urldecode($req->path);
-
-	var_dump($req);
+	$req->fspath = urldecode($req->path);
 	
 	# get rid of dot segments ("." and "..")
-	while (strpos($fs_path, "/../") !== false)
-		$fs_path = str_replace("/../", "/", $fs_path);
-	while (strpos($fs_path, "/./") !== false)
-		$fs_path = str_replace("/./", "/", $fs_path);
+	while (strpos($req->fspath, "/../") !== false)
+		$req->fspath = str_replace("/../", "/", $req->fspath);
+	while (strpos($req->fspath, "/./") !== false)
+		$req->fspath = str_replace("/./", "/", $req->fspath);
 
-	while (substr($fs_path, -3) == "/..")
-		$fs_path = substr($fs_path, 0, -2);
-	while (substr($fs_path, -2) == "/.")
-		$fs_path = substr($fs_path, 0, -1);
+	while (substr($req->fspath, -3) == "/..")
+		$req->fspath = substr($req->fspath, 0, -2);
+	while (substr($req->fspath, -2) == "/.")
+		$req->fspath = substr($req->fspath, 0, -1);
 
-	$fs_path = get_docroot($fs_path);
+	$req->fspath = get_docroot($req->fspath);
 
 	# If given path is a directory, append a slash if required
-	if (is_dir($fs_path) and substr($req->path, -1) != "/") {
+	if (is_dir($req->fspath) and substr($req->path, -1) != "/") {
 		send_headers($sockfd, $req->version, array(
 			"Location" => $req->path."/",
 		), 301);
@@ -396,59 +307,57 @@ function handle_request($sockfd, $logfd) {
 	}
 
 	# check for indexfiles
-	if (is_dir($fs_path)) {
+	if (is_dir($req->fspath)) {
 		global $index_files;
 		foreach ($index_files as $file)
-			if (is_file($fs_path . $file)) {
-				$fs_path .= $file;
+			if (is_file($req->fspath . $file)) {
+				$req->fspath .= $file;
 				$auto_index_file = true;
 				break;
 			}
 	}
 
-	# follow symlinks
-	$original_fs_path = $fs_path;
-	$fs_path = deref_symlink($fs_path);
+	$req->fspath = deref_symlink($req->fspath);
 
 	# dest exists, but is not readable => 403
-	if (file_exists($fs_path) and !is_readable($fs_path))
+	if (file_exists($req->fspath) and !is_readable($req->fspath)) {
 		return re_error($sockfd, $req, 403);
-
+	}
 
 	# dest exists, and is a directory => display file list
-	if (is_dir($fs_path)) {
+	if (is_dir($req->fspath)) {
 		$resp->headers["Content-Type"] = "text/html; charset=utf-8";
 		send_headers($sockfd, $req->version, $resp->headers, 200);
-		return re_generate_dirindex($sockfd, $req->path, $fs_path);
+		return re_generate_dirindex($sockfd, $req->path, $req->fspath);
 	}
 
 	# dest is regular file => display
-	elseif (is_file($fs_path)) {
-		$path_info = pathinfo($fs_path);
+	elseif (is_file($req->fspath)) {
+		$info = pathinfo($req->fspath);
 
 		if (isset($path_info['extension'])) {
-			$file_ext = $path_info['extension'];
+			$ext = $info['extension'];
 
-			if ($file_ext == "gz") {
+			if ($ext == "gz") {
 				$resp->headers["Content-Encoding"] = "gzip";
-				$file_ext = pathinfo($path_info['filename'], PATHINFO_EXTENSION);
+				$ext = pathinfo($info['filename'], PATHINFO_EXTENSION);
 			}
 
 			global $content_types;
-			if (isset($content_types[$file_ext]))
-				$resp->headers["Content-Type"] = $content_types[$file_ext];
+			if (isset($content_types[$ext]))
+				$resp->headers["Content-Type"] = $content_types[$ext];
 			else
 				$resp->headers["Content-Type"] = "text/plain";
 		}
 
 		send_headers($sockfd, $req->version, $resp->headers, 200);
-		send_file($sockfd, $fs_path);
+		send_file($sockfd, $req->fspath);
 		socket_close($sockfd);
 		return;
 	}
 
-	# dest exists, but not a regular or directory => 403 (like Apache does)
-	elseif (file_exists($fs_path)) {
+	# dest exists, but not a regular or directory => 403
+	elseif (file_exists($req->fspath)) {
 		return re_error($sockfd, $req, 403);
 	}
 
@@ -459,7 +368,7 @@ function handle_request($sockfd, $logfd) {
 
 }
 
-# List files in a directory
+# List files in a directory {{{
 function re_generate_dirindex($sockfd, $req_path, $fs_path) {
 	global $hide_dotfiles;
 
@@ -598,21 +507,146 @@ function send_file($sockfd, $file) {
 	fclose($filefd);
 }
 
-$listener = @socket_create($use_ipv6? AF_INET6 : AF_INET, SOCK_STREAM, SOL_TCP);
+$messages = array(
+	200 => "Okie dokie",
+	301 => "Moved Permanently",
+	400 => "Bad Request",
+	401 => "Unauthorized",
+	403 => "Forbidden",
+	404 => "Not Found",
+	405 => "Method Not Allowed",
+	418 => "I'm a teapot",
+	500 => "Internal error (something fucked up)",
+	501 => "Not Implemented",
+);
 
-if (!$listener)
-	socket_die("socket_create");
+## Default configuration
+
+define("LOG_REQUESTS", true);
+
+$docroot = expand_own_path("~/public_html");
+if (!is_dir($docroot))
+	$docroot = ".";
+
+$index_files = array( "index.html", "index.htm" );
+
+$enable_userdirs = false;
+$userdir_suffix = "public_html";
+
+$hide_dotfiles = true;
+
+$addr_family = -1;
+$listen = "::";
+$listen_port = 8001;
+
+$log_date_format = "%a %b %_d %H:%M:%S %Y";
+
+$fork = 3;
+
+$content_types = array(
+	"css" => "text/css",
+	"gif" => "image/gif",
+	"htm" => "text/html",
+	"html" => "text/html",
+	"jpeg" => "image/jpeg",
+	"jpg" => "image/jpeg",
+	"js" => "text/javascript",
+	"m4a" => "audio/mp4",
+	"m4v" => "video/mp4",
+	"mp4" => "application/mp4",
+	"oga" => "audio/ogg",
+	"ogg" => "audio/ogg",
+	"ogv" => "video/ogg",
+	"ogm" => "application/ogg",
+	"png" => "image/png",
+	"tgz" => "application/x-tar",
+);
+
+## Command-line options
+
+$opt = getopt("64ac:d:f:hLl:p:U:uv", array("help"));
+
+if (isset($opt["h"]) or isset($opt["help"]) or $opt === false) {
+	fwrite(STDERR, $HELP);
+	exit(2);
+}
+
+foreach ($opt as $opt => $value) switch ($opt) {
+	case "6":
+		$addr_family = AF_INET6; break;
+	case "4":
+		$addr_family = AF_INET; break;
+	case "a":
+		$hide_dotfiles = false; break;
+	case "d":
+		$docroot = $value; break;
+	case "f":
+		$fork = (int) $value; break;
+	case "L":
+		# -4 will be handled later
+		$listen = "::1"; break;
+	case "l":
+		$listen = $value; break;
+	case "p":
+		$listen_port = (int) $value; break;
+	case "U":
+		$userdir_suffix = $value;
+	case "u":
+		$enable_userdirs = true; break;
+	case "v":
+		die(VERSION."\n");
+}
+
+$addr_is_v6 = (strpos($listen, ":") !== false);
+
+if ($addr_family == AF_INET6) {
+	if (!$addr_is_v6) {
+		$listen = "::ffff:$listen";
+		$addr_is_v6 = true;
+	}
+}
+elseif ($addr_family == AF_INET) {
+	if ($listen == "::")
+		$listen = "0.0.0.0";
+	elseif ($listen == "::1")
+		$listen = "127.0.0.1";
+	elseif ($addr_is_v6) {
+		fwrite(STDERR, "Error: IPv4 forced but IPv6 listen address specified\n");
+		exit(5);
+	}
+}
+else {
+	$addr_family = $addr_is_v6? AF_INET6 : AF_INET;
+}
+
+if (!@chdir($docroot)) {
+	fwrite(STDERR, "Error: Cannot chdir to docroot $docroot\n");
+	exit(1);
+}
+
+$docroot = getcwd();
+$local_hostname = php_uname("n");
+
+load_mimetypes();
+load_mimetypes(expand_own_path("~/.mime.types"));
+ksort($content_types);
+
+$listener = @socket_create($addr_family, SOCK_STREAM, SOL_TCP);
+
+$listener or _die_socket("socket_create");
 
 socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);
 
-if (!@socket_bind($listener, $listen, $listen_port))
-	socket_die("socket_bind", $listener);
+@socket_bind($listener, $listen, $listen_port)
+	or _die_socket("socket_bind", $listener);
 
-if (!@socket_listen($listener, 2))
-	socket_die("socket_listen", $listener);
+@socket_listen($listener, 2)
+	or _die_socket("socket_listen", $listener);
 
-echo "* * docroot = {$docroot}\n";
-echo strftime($log_date_format) . " * listening on " . ($use_ipv6? "[{$listen}]" : $listen) . ":{$listen_port}\n";
+echo "* docroot = {$docroot}\n";
+if ($enable_userdirs)
+	echo "* userdirs = ~/{$userdir_suffix}/\n";
+echo "* listening on = " . ($addr_is_v6? "[{$listen}]" : $listen) . ":{$listen_port}\n";
 
 $logfd = STDOUT;
 
@@ -621,6 +655,7 @@ if ($fork and function_exists("pcntl_fork")) {
 		wait(-1);
 	}
 	pcntl_signal(SIGCHLD, "sigchld_handler");
+	echo "* subprocesses = $fork\n";
 
 	for ($i = 0; $i < $fork; $i++)
 		if (pcntl_fork()) {

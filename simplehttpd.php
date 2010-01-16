@@ -174,7 +174,7 @@ function load_mimetypes($path = "/etc/mime.types") {
 	fclose($fh);
 }
 
-$status_messages = array(
+$messages = array(
 	200 => "Okie dokie",
 
 	301 => "Moved Permanently",
@@ -526,25 +526,22 @@ function re_bad_request($sockfd) {
 	return false;
 }
 
-function re_error($sockfd, $request, $version, $status, $comment = null) {
-	global $status_messages;
+function re_error($sockfd, $req, $status, $comment = null) {
+	global $messages;
 
-	send_headers($sockfd, $version, null, $status);
+	send_headers($sockfd, $req->version, null, $status);
 
-	send($sockfd, "Error: $status ");
-	if (isset($status_messages[$status]))
-		send($sockfd, $status_messages[$status]."\r\n");
-	else
-		send($sockfd, "SOMETHING'S FUCKED UP\r\n");
+	send($sockfd, "Error $status: "
+		. (isset($messages[$status]) ? $messages[$status] : "FUCKED UP")
+		. "\r\n"
+		);
+	send($sockfd, "Request: {$req->rawreq}\r\n");
 
-	send($sockfd, "Request: $request\r\n");
-
-	socket_close($sockfd);
 	return false;
 }
 
 function send_headers($sockfd, $version, $headers, $status = null) {
-	global $status_messages;
+	global $messages;
 
 	if (!$status) {
 		if (isset($headers["Status"]))
@@ -553,14 +550,10 @@ function send_headers($sockfd, $version, $headers, $status = null) {
 			$status = 418;
 	}
 
-	send($sockfd, "$version $status ");
-	if (isset($status_messages[$status])) {
-		send($sockfd, $status_messages[$status]);
-	}
-	else {
-		send($sockfd, "SOMETHING'S FUCKED UP");
-	}
-	send($sockfd, "\r\n");
+	send($sockfd, "$version $status "
+		. (isset($messages[$status]) ? $messages[$status] : "FUCKED UP")
+		. "\r\n"
+		);
 
 	if ($headers === null)
 		send($sockfd, "Content-Type: text/plain; charset=utf-8\r\n");

@@ -31,14 +31,17 @@ sub build_post_data {
 	my ($private, $filename, @files) = @_;
 
 	my %data = get_github_auth;
-	$data{"action_button"} = "private" if $private;
+	$data{action_button} = "private" if $private;
 
 	my $i = 1;
 	if ($#files == -1) {
 		# get from stdin
 		$data{"file_name[gistfile$i]"} = $filename;
 		$data{"file_ext[gistfile$i]"} = "";
-		$data{"file_contents[gistfile$i]"} = join "", <STDIN>;
+		do {
+			local $/ = undef;
+			$data{"file_contents[gistfile$i]"} = <STDIN>;
+		}
 	}
 	else {
 		if ($filename ne "") {
@@ -49,9 +52,12 @@ sub build_post_data {
 			$data{"file_name[gistfile$i]"} = basename($filename);
 			$data{"file_ext[gistfile$i]"} = "";
 			# Why can't LWP just steal foo=<file from curl.
-			open IN, "< $filename" or die "Cannot open file $filename\n";
-			$data{"file_contents[gistfile$i]"} = join "", <IN>;
-			close IN;
+			open my $fh, q{<}, $filename or die "Cannot open file $filename\n";
+			do {
+				local $/ = undef;
+				$data{"file_contents[gistfile$i]"} = <$fh>;
+			}
+			close $fh;
 			$i++;
 		}
 	}
@@ -70,7 +76,7 @@ GetOptions(
 
 my $data = build_post_data $private, $filename, @ARGV;
 
-my $ua = new LWP::UserAgent();
+my $ua = LWP::UserAgent->new;
 my $response = $ua->post(
 	"http://gist.github.com/gists",
 	"Content-Type" => "application/x-www-form-urlencoded; charset=utf-8",

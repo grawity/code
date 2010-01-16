@@ -1,8 +1,6 @@
 #!/usr/bin/perl
 # simple URL shortener, using is.gd
-
 # Usage: shorten <url>
-
 use warnings;
 use strict;
 use URI::Escape qw( uri_escape );
@@ -13,30 +11,17 @@ sub msg_usage() {
 	return 2;
 }
 
-sub isgd($) {
-	my ($longurl) = @_;
-	
-	my $req = new LWP::UserAgent;
-	my $resp = $req->get("http://is.gd/api.php?longurl=".uri_escape($longurl));
-
-	chomp(my $content = $resp->decoded_content);
-	if ($resp->code == "200" and $content =~ m!^http://!) {
-		return $content;
-	}
-	else {
-		print STDERR "[is.gd] $content\n";
-		return undef;
-	}
-}
-
 my $longurl = shift @ARGV;
 exit msg_usage if !defined $longurl;
 
-my $shorturl = isgd($longurl);
+my $req = new LWP::UserAgent;
+my $resp = $req->get("http://is.gd/api.php?longurl=".uri_escape($longurl));
 
-if (defined $shorturl) {
-	print "$shorturl\n";
+chomp(my $content = $resp->decoded_content);
+if ($resp->code == "200" and $content =~ m!^http://!) {
+	print "$content\n";
 }
 else {
+	print STDERR "[is.gd] $content\n";
 	exit 1;
 }

@@ -132,6 +132,12 @@ function socket_gets($socket, $maxlength = 1024) {
 }
 
 # print error message and die
+function _die($message) {
+	if (!empty($message))
+		fwrite(STDERR, "$message\n");
+	exit(1);
+}
+
 function socket_die($message, $socket = false) {
 	if (!empty($message))
 		fwrite(STDERR, "$message: ");
@@ -143,8 +149,8 @@ function socket_die($message, $socket = false) {
 	exit(1);
 }
 
-# follow symlinks to reach the actual target; basically a recursive readlink()
-function follow_symlink($file) {
+# dereference symlink
+function deref_symlink($file) {
 	$i = 0; while (is_link($file)) {
 		if (++$i < 32)
 			$target = readlink($file);
@@ -289,75 +295,83 @@ function send($sockfd, $data) {
 function handle_request($sockfd, $logfd) {
 	global $log_date_format;
 
+	$req = new stdClass();
+	$resp = new stdClass();
+
 	if (LOG_REQUESTS) {
-		socket_getpeername($sockfd, $remoteHost, $remotePort);
-		fwrite($logfd, strftime($log_date_format) . " {$remoteHost}:{$remotePort} ");
+		socket_getpeername($sockfd, $req->rhost, $req->rport);
+		fwrite($logfd, strftime($log_date_format) . " {$req->rhost}:{$req->rport} ");
 	}
 
-	$resp_headers = array(
+	$resp->headers = array(
 		"Status" => 200,
 		"Content-Type" => "text/plain",
 		//"Connection" => "close",
 	);
 
-	$request = socket_gets($sockfd);
 
-	if ($request == "") {
+	$req->rawreq = socket_gets($sockfd);
+
+	if ($req->rawreq == "") {
 		if (LOG_REQUESTS)
 			fwrite($logfd, "(null)\n");
 		return;
 	}
 
 	if (LOG_REQUESTS)
-		fwrite($logfd, $request."\n");
+		fwrite($logfd, $req->rawreq."\n");
 
-	$req_method = strtok($request, " ");
-	$req_path = strtok(" ");
-	$req_version = strtok("");
+	# method = up to the first space
+	# path = up to the second space
+	# version = the rest, including any further components
+	$req->method = strtok($req->rawreq, " ");
+	$req->path = strtok(" ");
+	$req->version = strtok("");
 
-	if ($req_version == false) {
-		$req_version = "HTTP/1.0";
+	if ($req->version == false) {
+		$req->version = "HTTP/1.0";
 	}
-	elseif (strpos($req_version, " ") !== false) {
+	elseif (strpos($req->version, " ") !== false) {
 		# more than 3 components = bad
 		return re_bad_request($sockfd);
 	}
-	elseif (strtok($req_version, "/") !== "HTTP") {
+	elseif (strtok($req->version, "/") !== "HTTP") {
 		# we're not a HTCPCP server
 		return re_bad_request($sockfd);
 	}
 
 	# ...and slurp in the request headers.
-	$req_headers = array();
+	$req->headers = array();
 	while (true) {
 		$hdr = socket_gets($sockfd);
 		if (!strlen($hdr)) break;
-		$req_headers[] = $hdr;
+		$req->headers[] = $hdr;
 	}
 	unset ($hdr);
 
-	if ($req_method == "TRACE" || $req_path == "/echo") {
-		send_headers($sockfd, $req_version, null, 200);
-		send($sockfd, $request."\r\n");
-		send($sockfd, implode("\r\n", $req_headers)."\r\n");
+	if ($req->method == "TRACE" or $req->path == "/echo") {
+		send_headers($sockfd, $req->version, null, 200);
+		send($sockfd, $req->rawreq."\r\n");
+		send($sockfd, implode("\r\n", $req->headers)."\r\n");
 		socket_close($sockfd);
 		return;
 	}
 
-	if ($req_method != "GET") {
+	if ($req->method != "GET") {
 		# Not implemented
-		return re_error($sockfd, $request, $req_version, 501);
+		return re_error($sockfd, $req, 501);
 	}
 
-	if ($req_path[0] != "/") {
-		return re_error($sockfd, $request, $req_version, 400);
+	if ($req->path[0] != "/") {
+		return re_error($sockfd, $req, 400);
 	}
 
-	$req_path = strtok($req_path, "?");
-	$req_query = strtok("");
+	$req->path = strtok($req->path, "?");
+	$req->query = strtok("");
 
-	$fs_path = urldecode($req_path);
+	$fs_path = urldecode($req->path);
 
+	var_dump($req);
 	
 	# get rid of dot segments ("." and "..")
 	while (strpos($fs_path, "/../") !== false)
@@ -373,9 +387,9 @@ function handle_request($sockfd, $logfd) {
 	$fs_path = get_docroot($fs_path);
 
 	# If given path is a directory, append a slash if required
-	if (is_dir($fs_path) && substr($req_path, -1) != "/") {
-		send_headers($sockfd, $req_version, array(
-			"Location" => $req_path."/",
+	if (is_dir($fs_path) and substr($req->path, -1) != "/") {
+		send_headers($sockfd, $req->version, array(
+			"Location" => $req->path."/",
 		), 301);
 		socket_close($sockfd);
 		return;
@@ -394,92 +408,18 @@ function handle_request($sockfd, $logfd) {
 
 	# follow symlinks
 	$original_fs_path = $fs_path;
-	$fs_path = follow_symlink($fs_path);
+	$fs_path = deref_symlink($fs_path);
 
 	# dest exists, but is not readable => 403
-	if (file_exists($fs_path) && !is_readable($fs_path))
-		return re_error($sockfd, $request, $req_version, 403);
+	if (file_exists($fs_path) and !is_readable($fs_path))
+		return re_error($sockfd, $req, 403);
 
 
 	# dest exists, and is a directory => display file list
 	if (is_dir($fs_path)) {
-		global $hide_dotfiles;
-
-		$resp_headers["Content-Type"] = "text/html";
-		# Mosaic crashes.
-		#$resp_headers["Content-Type"] = "text/html; charset=utf-8";
-		send_headers($sockfd, $req_version, $resp_headers, 200);
-
-		# retrieve a list of all files
-		$dirfd = opendir($fs_path);
-		$dirs = $files = array();
-		while (($entry = readdir($dirfd)) !== false) {
-			if ($entry == ".")
-				continue;
-
-			if ($hide_dotfiles && $entry[0] == "." && $entry != "..")
-				continue;
-
-			$entry_path = $fs_path.$entry;
-
-			if (is_dir($entry_path) or is_dir(follow_symlink($entry_path)))
-				$dirs[] = $entry;
-			else
-				$files[] = $entry;
-		}
-		closedir($dirfd);
-		sort($dirs);
-		sort($files);
-
-		$page_title = htmlspecialchars($req_path);
-		send($sockfd,
-			"<!DOCTYPE html>\n".
-			"<html>\n".
-			"<head>\n".
-			"\t<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n".
-			"\t<title>index: {$page_title}</title>\n".
-			"\t<style type=\"text/css\">\n".
-			"\ta { font-family: monospace; text-decoration: none; }\n".
-			"\t.symlink, .size { color: gray; }\n".
-			"\tfooter { font-size: smaller; color: gray; }\n".
-			"\t</style>\n".
-			"</head>\n".
-			"<body>\n".
-			"<h1>{$page_title}</h1>\n".
-			"<ul>\n"
-		);
-		foreach ($dirs as $entry) {
-			$entry_path = $fs_path.$entry;
-			$anchor = urlencode($entry);
-
-			if ($entry == '..')
-				$entry = "(parent directory)";
-
-			$text = "<a href=\"{$anchor}/\">{$entry}/</a>";
-			if (is_link($entry_path) && $entry_dest = @readlink($entry_path))
-				$text .= " <span class=\"symlink\">→ ".htmlspecialchars($entry_dest)."</span>";
-			send($sockfd, "\t<li>{$text}</li>\n");
-		}
-		foreach ($files as $entry) {
-			$entry_path = $fs_path.$entry;
-			$anchor = urlencode($entry);
-
-			$text = "<a href=\"{$anchor}\">{$entry}</a>";
-			if (is_link($entry_path) and $entry_dest = @readlink($entry_path))
-				$text .= " <span class=\"sym\">→ ".htmlspecialchars($entry_dest)."</span>";
-			if ($size = @filesize($entry_path))
-				$text .= " <span class=\"size\">({$size})</span>";
-			send($sockfd, "\t<li>{$text}</li>\n");
-		}
-		send($sockfd,
-			"</ul>\n".
-			"<hr/>\n".
-			"<footer><p>simplehttpd</p></footer>\n".
-			"</body>\n".
-			"</html>\n"
-		);
-		socket_close($sockfd);
-		return;
+		$resp->headers["Content-Type"] = "text/html; charset=utf-8";
+		send_headers($sockfd, $req->version, $resp->headers, 200);
+		return re_generate_dirindex($sockfd, $req->path, $fs_path);
 	}
 
 	# dest is regular file => display
@@ -490,18 +430,18 @@ function handle_request($sockfd, $logfd) {
 			$file_ext = $path_info['extension'];
 
 			if ($file_ext == "gz") {
-				$resp_headers["Content-Encoding"] = "gzip";
+				$resp->headers["Content-Encoding"] = "gzip";
 				$file_ext = pathinfo($path_info['filename'], PATHINFO_EXTENSION);
 			}
 
 			global $content_types;
 			if (isset($content_types[$file_ext]))
-				$resp_headers["Content-Type"] = $content_types[$file_ext];
+				$resp->headers["Content-Type"] = $content_types[$file_ext];
 			else
-				$resp_headers["Content-Type"] = "text/plain";
+				$resp->headers["Content-Type"] = "text/plain";
 		}
 
-		send_headers($sockfd, $req_version, $resp_headers, 200);
+		send_headers($sockfd, $req->version, $resp->headers, 200);
 		send_file($sockfd, $fs_path);
 		socket_close($sockfd);
 		return;
@@ -509,20 +449,99 @@ function handle_request($sockfd, $logfd) {
 
 	# dest exists, but not a regular or directory => 403 (like Apache does)
 	elseif (file_exists($fs_path)) {
-		return re_error($sockfd, $request, $req_version, 403);
+		return re_error($sockfd, $req, 403);
 	}
 
 	# dest doesn't exist => 404
 	else {
-		return re_error($sockfd, $request, $req_version, 404);
+		return re_error($sockfd, $req, 404);
 	}
 
+}
+
+# List files in a directory
+function re_generate_dirindex($sockfd, $req_path, $fs_path) {
+	global $hide_dotfiles;
+
+	$dirs = $files = array();
+
+	$dirfd = opendir($fs_path);
+	while (($entry = readdir($dirfd)) !== false) {
+		if ($entry == ".")
+			continue;
+
+		if ($hide_dotfiles and $entry[0] == "." and $entry != "..")
+			continue;
+
+		$entry_path = $fs_path.$entry;
+
+		if (is_dir($entry_path) or is_dir(deref_symlink($entry_path)))
+			$dirs[] = $entry;
+		else
+			$files[] = $entry;
+	}
+	closedir($dirfd);
+
+	sort($dirs);
+	sort($files);
+
+	$page_title = htmlspecialchars($req_path);
+	send($sockfd,
+		"<!DOCTYPE html>\n".
+		"<html>\n".
+		"<head>\n".
+		"\t<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n".
+		"\t<title>index: {$page_title}</title>\n".
+		"\t<style type=\"text/css\">\n".
+		"\ta { font-family: monospace; text-decoration: none; }\n".
+		"\t.symlink, .size { color: gray; }\n".
+		"\tfooter { font-size: smaller; color: gray; }\n".
+		"\t</style>\n".
+		"</head>\n".
+		"<body>\n".
+		"<h1>{$page_title}</h1>\n".
+		"<ul>\n"
+	);
+
+	foreach ($dirs as $entry) {
+		$entry_path = $fs_path.$entry;
+		$anchor = urlencode($entry);
+
+		if ($entry == '..')
+			$entry = "(parent directory)";
+
+		$text = "<a href=\"{$anchor}/\">{$entry}/</a>";
+		if (is_link($entry_path) and $entry_dest = @readlink($entry_path))
+			$text .= " <span class=\"symlink\">→ ".htmlspecialchars($entry_dest)."</span>";
+		send($sockfd, "\t<li>{$text}</li>\n");
+	}
+
+	foreach ($files as $entry) {
+		$entry_path = $fs_path.$entry;
+		$anchor = urlencode($entry);
+
+		$text = "<a href=\"{$anchor}\">{$entry}</a>";
+		if (is_link($entry_path) and $entry_dest = @readlink($entry_path))
+			$text .= " <span class=\"sym\">→ ".htmlspecialchars($entry_dest)."</span>";
+		if ($size = @filesize($entry_path))
+			$text .= " <span class=\"size\">({$size})</span>";
+		send($sockfd, "\t<li>{$text}</li>\n");
+	}
+
+	send($sockfd,
+		"</ul>\n".
+		"<hr/>\n".
+		"<footer><p>simplehttpd</p></footer>\n".
+		"</body>\n".
+		"</html>\n"
+	);
+
+	return true;
 }
 
 function re_bad_request($sockfd) {
 	send_headers($sockfd, "HTTP/1.0", null, 400);
 	send($sockfd, "Are you on drugs?\r\n");
-	socket_close($sockfd);
 	return false;
 }
 
@@ -540,6 +559,8 @@ function re_error($sockfd, $req, $status, $comment = null) {
 	return false;
 }
 
+# If $headers is NULL, "Content-Type: text/plain" will be sent.
+# To send no headers, specify an empty array().
 function send_headers($sockfd, $version, $headers, $status = null) {
 	global $messages;
 

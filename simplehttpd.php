@@ -556,7 +556,7 @@ $content_types = array(
 
 $opts = getopt("64ac:d:f:hLl:p:U:uv", array("help"));
 
-if (isset($opt["h"]) or isset($opt["help"]) or $opt === false) {
+if (isset($opts["h"]) or isset($opts["help"]) or $opts === false) {
 	fwrite(STDERR, $HELP);
 	exit(2);
 }

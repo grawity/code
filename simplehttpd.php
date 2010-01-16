@@ -212,9 +212,7 @@ function handle_request($sockfd, $logfd) {
 	$resp = new stdClass();
 
 	socket_getpeername($sockfd, $req->rhost, $req->rport);
-	if (LOG_REQUESTS) {
-		fwrite($logfd, strftime($log_date_format) . " {$req->rhost}:{$req->rport} ");
-	}
+	fwrite($logfd, strftime($log_date_format) . " {$req->rhost}:{$req->rport} ");
 
 	$resp->headers = array(
 		"Status" => 200,
@@ -522,25 +520,17 @@ $messages = array(
 
 ## Default configuration
 
-define("LOG_REQUESTS", true);
-
 $docroot = expand_own_path("~/public_html");
 if (!is_dir($docroot))
 	$docroot = ".";
-
 $index_files = array( "index.html", "index.htm" );
-
 $enable_userdirs = false;
 $userdir_suffix = "public_html";
-
 $hide_dotfiles = true;
-
 $addr_family = -1;
 $listen = "::";
 $listen_port = 8001;
-
 $log_date_format = "%a %b %_d %H:%M:%S %Y";
-
 $fork = 3;
 
 $content_types = array(
@@ -564,14 +554,14 @@ $content_types = array(
 
 ## Command-line options
 
-$opt = getopt("64ac:d:f:hLl:p:U:uv", array("help"));
+$opts = getopt("64ac:d:f:hLl:p:U:uv", array("help"));
 
 if (isset($opt["h"]) or isset($opt["help"]) or $opt === false) {
 	fwrite(STDERR, $HELP);
 	exit(2);
 }
 
-foreach ($opt as $opt => $value) switch ($opt) {
+foreach ($opts as $opt => $value) switch ($opt) {
 	case "6":
 		$addr_family = AF_INET6; break;
 	case "4":

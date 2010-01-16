@@ -330,7 +330,7 @@ function handle_request($sockfd, $logfd) {
 	elseif (is_file($req->fspath)) {
 		$info = pathinfo($req->fspath);
 
-		if (isset($path_info['extension'])) {
+		if (isset($info['extension'])) {
 			$ext = $info['extension'];
 
 			if ($ext == "gz") {

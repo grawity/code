@@ -41,6 +41,8 @@ if (!function_exists("socket_create")) {
 	exit(3);
 }
 
+date_default_timezone_set("UTC");
+
 # expand path starting with ~/ when given value of ~
 function tilde_expand($path, $homedir) {
 	if ($path == "~")

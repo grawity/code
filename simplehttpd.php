@@ -534,7 +534,7 @@ $config->forks = 3;
 
 $logfd = STDOUT;
 
-$config->log_date_format = "%a %b %_d %H:%M:%S %Y";
+$config->log_date_format = "%a %b %d %H:%M:%S %Y";
 
 $content_types = array(
 	"css" => "text/css",

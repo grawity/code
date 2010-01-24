@@ -553,6 +553,7 @@ $content_types = array(
 	"ogm" => "application/ogg",
 	"png" => "image/png",
 	"tgz" => "application/x-tar",
+	"pem" => "application/x-x509-ca-cert",
 );
 
 ## Command-line options

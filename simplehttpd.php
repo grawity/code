@@ -41,6 +41,8 @@ if (!function_exists("socket_create")) {
 	exit(3);
 }
 
+date_default_timezone_set("UTC");
+
 # expand path starting with ~/ when given value of ~
 function tilde_expand($path, $homedir) {
 	if ($path == "~")
@@ -532,7 +534,7 @@ $config->forks = 3;
 
 $logfd = STDOUT;
 
-$config->log_date_format = "%a %b %_d %H:%M:%S %Y";
+$config->log_date_format = "%a %b %d %H:%M:%S %Y";
 
 $content_types = array(
 	"css" => "text/css",
@@ -551,6 +553,7 @@ $content_types = array(
 	"ogm" => "application/ogg",
 	"png" => "image/png",
 	"tgz" => "application/x-tar",
+	"pem" => "application/x-x509-ca-cert",
 );
 
 ## Command-line options

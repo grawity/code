@@ -205,7 +205,7 @@ if [ "$SELFUPDATE" = 1 ]; then
 	tempfile="$( mktemp ~/.ssh/update-sshauth.XXXXXXXXXX )"
 	rrfetch "$SELF_URL" "$tempfile" || exit 7
 	if verify_sig "$tempfile"; then
-		gpg --decrypt "$tempfile" | bash -s -- -U "${ARGV[@]}"
+		gpg --decrypt "$tempfile" 2> /dev/null | bash -s -- -U "${ARGV[@]}"
 	fi
 	rm -f "$tempfile"
 	exit

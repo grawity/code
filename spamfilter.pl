@@ -27,19 +27,19 @@ sub test(@) {
 
 	my $ispublic = $server->ischannel($target);
 
-	my ($channel, $userinfo);
-	if ($ispublic and $target ne "") {
-		$channel = $server->channel_find($target);
-		if (defined $channel) {
-			$userinfo = $channel->nick_find($nick);
-		}
-	}
+	#my ($channel, $userinfo);
+	#if ($ispublic and $target ne "") {
+	#	$channel = $server->channel_find($target);
+	#	if (defined $channel) {
+	#		$userinfo = $channel->nick_find($nick);
+	#	}
+	#}
 
 	return 1 if ignorelisted($server, $nick, $userhost);
 
 	return 0 if (
-		($ispublic and $userinfo->{op})
-		or ($ispublic and lc($target) eq '#xkcd')
+		# ($ispublic and $userinfo->{op})
+		($ispublic and lc($target) eq '#xkcd')
 		or $nick eq 'Bucket'
 	);
 

@@ -23,7 +23,7 @@ my @blocked = ();
 sub block(@) {
 	for my $mask (@_) {
 		push @blocked, $mask;
-		Irssi::print "Added $mask to temporary ignore";
+		Irssi::print "Added $mask to session ignore";
 	}
 	return 1;
 }

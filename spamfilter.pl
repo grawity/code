@@ -20,6 +20,14 @@ my $logfile = Irssi::get_irssi_dir() . "/autoignore.log";
 
 my @blocked = ();
 
+sub block(@) {
+	for my $mask (@_) {
+		push @blocked, $mask;
+		Irssi::print "Added $mask to temporary ignore";
+	}
+	return 1;
+}
+
 sub test(@) {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 
@@ -43,7 +51,7 @@ sub test(@) {
 		or $nick eq 'Bucket'
 	);
 
-	do { push @blocked, "*!$userhost"; return 1 } if (
+	return block "*!$userhost" if (
 		$msg =~ /^Transmitting virus\.\.\.$/
 		or $nick =~ /dump|shit|feces/i
 		or $msg =~ /^.{0,3}DCC SEND "/

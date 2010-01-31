@@ -164,7 +164,9 @@ sub hilightspam_score {
 	my $hilight_count = 0;
 
 	foreach my $n (@nicks) {
-		$hilight_count++ if grep { $_ eq $n->{nick} } @msg;
+		$n = $n->{nick};
+		#$n =~ s![*?+\[\]()\{\}\^\$\|\\]!\\$&!;
+		$hilight_count++ if grep { $_ =~ m/^[@+]?\Q$n\E$/i } @msg;
 	}
 
 	my $score = $hilight_count / $word_count;

@@ -2,9 +2,11 @@
 SOURCE_URL="http://purl.oclc.org/NET/grawity/authorized_keys.txt"
 SELF_URL="http://purl.oclc.org/NET/grawity/code/update-sshauth.sh.gpg"
 SIGNER_KEY="D24F6CB2C1B52632"
-KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net )
+KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net keyserver.ubuntu.com )
 
 umask 077
+
+mkdir -p ~/.ssh/
 
 # check if application is in $PATH
 have() { which "$1" &> /dev/null; }

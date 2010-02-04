@@ -1,11 +1,12 @@
 #!/bin/bash
 SOURCE_URL="http://purl.oclc.org/NET/grawity/authorized_keys.txt"
+[ "$( id -u )" -eq 0 ] &&
+	SOURCE_URL="${SOURCE_URL%.*}_root.${SOURCE_URL##*.}"
 SELF_URL="http://purl.oclc.org/NET/grawity/code/update-sshauth.sh.gpg"
 SIGNER_KEY="D24F6CB2C1B52632"
 KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net keyserver.ubuntu.com )
 
 umask 077
-
 mkdir -p ~/.ssh/
 
 # check if application is in $PATH
@@ -112,82 +113,31 @@ verify_sig() {
 	local gpg_out="$( gpg --quiet --status-fd=3 3>&1 2>/dev/null >&2 --verify "$file" )"
 	[ "$VERBOSE" == 1 ] && echo "$gpg_out"
 
-	if grep -qs "^\\[GNUPG:\\] NODATA " <<< "$gpg_out"
+	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |$)" <<< "$gpg_out" ||
+		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$gpg_out" ||
+		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$gpg_out"
 	then
-		{	echo "update-sshauth: verification failed, file is empty"
-			echo "file: $file"
+		{	echo "update-sshauth: verification failed"
+			echo "(file: $file)"
 			echo "$gpg_out"
 			echo "(end of gpg output)"
 		} >&2
 		return 1
-
-	# cryptographically valid signature
-	elif grep -qs "^\\[GNUPG:\\] BADSIG " <<< "$gpg_out" ||
-		! grep -qs "^\\[GNUPG:\\] GOODSIG " <<< "$gpg_out"
-	then
-		{	echo "update-sshauth: verification failed, invalid signature"
-			echo "file: $file"
-			echo "$gpg_out"
-			echo "(end of gpg output)"
-		} >&2
-		return 1
-	
-	# valid signature from configured key
-	elif ! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$gpg_out"
-	then
-		{	echo "update-sshauth: verification failed, signed with unknown key"
-			echo "file: $file"
-			echo "$gpg_out"
-			echo "(end of gpg output)"
-		} >&2
-		return 1
-	
-	# signature from ultimately trusted key (my own)
-	elif ! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$gpg_out"
-	then
-		{	echo "update-sshauth: verification failed, signer key not ultimately trusted"
-			echo "file: $file"
-			echo "$gpg_out"
-			echo "(end of gpg output)"
-		} >&2
-		return 2
-	
-	# miscellaneous failures
-	elif grep -qs "^\\[GNUPG:\\] ERROR " <<< "$gpg_out"
-	then
-		{	echo "update-sshauth: verification failed, reason unknown"
-			echo "file: $file"
-			echo "$gpg_out"
-			echo "(end of gpg output)"
-		} >&2
-		return 1
-	
-	# all checks passed
 	else
 		return 0
 	fi
 }
 
-## Parse command-line options.
-ARGV="${@}"
 VERBOSE=0
 SELFUPDATE=1
-while [ -n "$1" ]; do case "$1" in
--v|--verbose)
-	VERBOSE=1
-	;;
--r|--recv-key)
-	update_signer_key && gpg --edit-key "$SIGNER_KEY" trust quit
-	exit
-	;;
--U)
-	SELFUPDATE=0
-	;;
-*)
-	echo "Unknown option $1"
-	exit 1
-	;;
-esac; shift; done
+while getopts "vrU" option "$@"; do
+	case "$option" in
+	v) VERBOSE=1 ;;
+	r) update_signer_key && echo -e "5\ny" | gpg --edit-key "$SIGNER_KEY" trust quit ;;
+	U) SELFUPDATE=0 ;;
+	?) echo "Unknown option $1" ;;
+	esac
+done
 
 ## Check if the key is present in user's keyring.
 if ! have gpg; then
@@ -207,7 +157,7 @@ if [ "$SELFUPDATE" = 1 ]; then
 	tempfile="$( mktemp ~/.ssh/update-sshauth.XXXXXXXXXX )"
 	rrfetch "$SELF_URL" "$tempfile" || exit 7
 	if verify_sig "$tempfile"; then
-		gpg --decrypt "$tempfile" 2> /dev/null | bash -s -- -U "${ARGV[@]}"
+		gpg --decrypt "$tempfile" 2> /dev/null | bash -s -- -U "$@"
 	fi
 	rm -f "$tempfile"
 	exit
@@ -230,4 +180,4 @@ fi
 
 ## Finally, remove the temporary file.
 
-rm "$tempfile"
+rm -f "$tempfile"

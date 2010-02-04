@@ -90,7 +90,7 @@ rrfetch() {
 	local retry_wait=2
 
 	local attempt=0
-	while [ $(( attempt++ )) -lt $max_retries ]; do
+	while [ $(( ++attempt )) -le $max_retries ]; do
 		[ "$VERBOSE" == 1 ] && echo "Fetching $url (attempt $attempt)"
 
 		http_fetch "$url" "$output"

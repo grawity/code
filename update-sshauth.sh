@@ -114,7 +114,7 @@ verify_sig() {
 	gpg --quiet --status-fd=3 >& /dev/null 3> "$gpg_out" --verify "$input"
 	$VERBOSE && cat "$gpg_out"
 
-	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |$)" < "$gpg_out" ||
+	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |\$)" < "$gpg_out" ||
 		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " < "$gpg_out" ||
 		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" < "$gpg_out"
 	then

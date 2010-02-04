@@ -1,7 +1,9 @@
 #!/bin/bash
-SOURCE_URL="http://purl.oclc.org/NET/grawity/authorized_keys.txt"
-[ "$( id -u )" -eq 0 ] &&
-	SOURCE_URL="${SOURCE_URL%.*}_root.${SOURCE_URL##*.}"
+SOURCE_DIR="http://purl.oclc.org/NET/grawity/misc/"
+if [ "$( id -u )" -eq 0 ]
+	then SOURCE_URL="${SOURCE_DIR}authorized_keys_root.txt"
+	else SOURCE_URL="${SOURCE_DIR}authorized_keys.txt"
+fi
 SELF_URL="http://purl.oclc.org/NET/grawity/code/update-sshauth.sh.gpg"
 SIGNER_KEY="D24F6CB2C1B52632"
 KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net keyserver.ubuntu.com )

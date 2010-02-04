@@ -38,9 +38,9 @@ http_fetch() {
 		perl -MLWP::Simple -e 'getprint $ARGV[0]' "$URL" > "$OUT"
 	elif have python; then
 		python -c 'import sys, urllib2; sys.stdout.write(urllib2.urlopen(sys.argv[1])).read())' "$URL" > "$OUT"
-	elif have php && php -i | grep -qsi "^allow_url_fopen => on"; then
+	elif have php && php -i | grep -qsi '^allow_url_fopen => on'; then
 		php -r 'echo file_get_contents(urlencode($argv[1])), FILE_BINARY);' "$URL" > "$OUT"
-	elif have php && php -i | grep -qs "^curl$"; then
+	elif have php && php -i | grep -qs '^curl$'; then
 		php -r '$ch = curl_init($argv[1]); curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1); curl_exec($ch);' "$URL" > "$OUT"
 	elif have tclsh; then
 		tclsh - <<< 'package require http; fconfigure stdout -translation binary; puts -nonewline [http::data [http::geturl [lindex $argv 1]]]' "$URL" > "$OUT"

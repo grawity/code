@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-$VERSION = "simplehttpd v1.2";
+$VERSION = "simplehttpd v1.3";
 $WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m\n";
 # simple HTTP server
 
@@ -17,13 +17,11 @@ Options:
   -6                           Force IPv6, even for IPv4 addresses
   -a                           List all files, including hidden, in directories
   -f number                    Number of subprocesses (0 disables)
-  -d path                      Specify docroot (default is ~/public_html)
+  -d path                      Specify docroot (default is ~/public_html or cwd)
   -h                           Display help message
   -L                           Bind to localhost (::1 or 127.0.0.1)
   -l address                   Bind to specified local address (default is ::)
   -p port                      Listen on specified port
-  -U suffix                    Set userdir suffix (default is 'public_html')
-  -u                           Enable userdirs
   -v                           Display version
 
 $WARNING
@@ -79,47 +77,6 @@ function get_homedir() {
 	return $home? $home : false;
 }
 
-# get docroot for given user (homedir + suffix)
-function get_user_docroot($user) {
-	global $config;
-	$user_home = null;
-
-	if (!$user_home and function_exists("posix_getpwnam")) {
-		$pw = posix_getpwnam($user);
-		if ($pw) $user_home = $pw["dir"];
-	}
-
-	if (!$user_home)
-		return false;
-
-	return $user_home? $user_home."/".$config->userdir_suffix : false;
-}
-
-# parse request path (/foo.html or /~user/foo.html) and return absolute
-# filesystem path
-function get_docroot($fs_path) {
-	global $config;
-
-	# if $enable_userdirs is off, /~foo/ will be taken literally
-	if ($config->userdirs and substr($fs_path, 0, 2) == "/~") {
-		$user_path = substr($fs_path, 2);
-		$req_user = strtok($user_path, "/");
-		$user_path = (string) strtok("");
-
-		$user_dir = get_user_docroot($req_user);
-
-		if ($user_dir and is_dir(deref_symlink($user_dir))) {
-			return $user_dir."/".$user_path;
-		}
-		else
-			return $config->docroot."/".$fs_path;
-	}
-	else {
-		# no userdir in request
-		return $config->docroot."/".$fs_path;
-	}
-}
-
 # read line (ending with CR+LF) from socket
 function socket_gets($socket, $maxlength = 1024) {
 	# This time I'm really sure it works.
@@ -168,25 +125,6 @@ function _die_socket($message, $socket = false) {
 	exit(1);
 }
 
-# dereference symlink
-function deref_symlink($file) {
-	$i = 0; while (is_link($file)) {
-		if (++$i < 32)
-			$target = readlink($file);
-		else
-			$target = false;
-
-		if ($target === false) return $file;
-
-		# relative link
-		if ($target[0] != '/')
-			$target = dirname($file) . "/" . $target;
-
-		$file = $target;
-	}
-	return $file;
-}
-
 function load_mimetypes($path = "/etc/mime.types") {
 	global $content_types;
 	$fh = @fopen($path, "r");
@@ -223,7 +161,6 @@ function handle_request($sockfd, $logfd) {
 		"Content-Type" => "text/plain",
 		//"Connection" => "close",
 	);
-
 
 	$req->rawreq = socket_gets($sockfd);
 
@@ -295,8 +232,6 @@ function handle_request($sockfd, $logfd) {
 	while (substr($req->fspath, -2) == "/.")
 		$req->fspath = substr($req->fspath, 0, -1);
 
-	$req->fspath = get_docroot($req->fspath);
-
 	# If given path is a directory, append a slash if required
 	if (is_dir($req->fspath) and substr($req->path, -1) != "/") {
 		send_headers($sockfd, $req->version, array(
@@ -317,15 +252,18 @@ function handle_request($sockfd, $logfd) {
 			}
 	}
 
-	$req->fspath = deref_symlink($req->fspath);
+	$req->fspath = realpath($req->fspath);
+
+	# realpath() failed - dest is probably a broken symlink
+	if ($req->fspath === false)
+		return re_error($sockfd, $req, 404);
 
 	# dest exists, but is not readable => 403
-	if (file_exists($req->fspath) and !is_readable($req->fspath)) {
+	elseif (file_exists($req->fspath) and !is_readable($req->fspath))
 		return re_error($sockfd, $req, 403);
-	}
 
 	# dest exists, and is a directory => display file list
-	if (is_dir($req->fspath)) {
+	elseif (is_dir($req->fspath)) {
 		$resp->headers["Content-Type"] = "text/html; charset=utf-8";
 		send_headers($sockfd, $req->version, $resp->headers, 200);
 		return re_generate_dirindex($sockfd, $req->path, $req->fspath);
@@ -357,14 +295,12 @@ function handle_request($sockfd, $logfd) {
 	}
 
 	# dest exists, but not a regular or directory => 403
-	elseif (file_exists($req->fspath)) {
+	elseif (file_exists($req->fspath))
 		return re_error($sockfd, $req, 403);
-	}
 
 	# dest doesn't exist => 404
-	else {
+	else
 		return re_error($sockfd, $req, 404);
-	}
 
 }
 
@@ -383,7 +319,7 @@ function re_generate_dirindex($sockfd, $req_path, $fs_path) {
 
 		$entry_path = $fs_path.$entry;
 
-		if (is_dir(deref_symlink($entry_path)))
+		if (is_dir(realpath($entry_path)))
 			$dirs[] = $entry;
 		else
 			$files[] = $entry;
@@ -517,11 +453,8 @@ $messages = array(
 $config = new stdClass();
 
 $config->docroot = tilde_expand_own("~/public_html");
-if (!is_dir(deref_symlink($config->docroot)))
+if (!is_dir(realpath($config->docroot)))
 	$config->docroot = ".";
-
-$config->userdirs = false;
-$config->userdir_suffix = "public_html";
 
 $config->index_files = array( "index.html", "index.htm" );
 $config->hide_dotfiles = true;
@@ -583,10 +516,6 @@ foreach ($opts as $opt => $value) switch ($opt) {
 		$config->listen_addr = $value; break;
 	case "p":
 		$config->listen_port = (int) $value; break;
-	case "U":
-		$config->userdir_suffix = $value;
-	case "u":
-		$config->userdirs = true; break;
 	case "v":
 		die(VERSION."\n");
 }

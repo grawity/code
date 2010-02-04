@@ -125,25 +125,6 @@ function _die_socket($message, $socket = false) {
 	exit(1);
 }
 
-# dereference symlink
-function deref_symlink($file) {
-	$i = 0; while (is_link($file)) {
-		if (++$i < 32)
-			$target = readlink($file);
-		else
-			$target = false;
-
-		if ($target === false) return $file;
-
-		# relative link
-		if ($target[0] != '/')
-			$target = dirname($file) . "/" . $target;
-
-		$file = $target;
-	}
-	return $file;
-}
-
 function load_mimetypes($path = "/etc/mime.types") {
 	global $content_types;
 	$fh = @fopen($path, "r");
@@ -271,15 +252,18 @@ function handle_request($sockfd, $logfd) {
 			}
 	}
 
-	$req->fspath = deref_symlink($req->fspath);
+	$req->fspath = realpath($req->fspath);
+
+	# realpath() failed - dest is probably a broken symlink
+	if ($req->fspath === false)
+		return re_error($sockfd, $req, 404);
 
 	# dest exists, but is not readable => 403
-	if (file_exists($req->fspath) and !is_readable($req->fspath)) {
+	elseif (file_exists($req->fspath) and !is_readable($req->fspath))
 		return re_error($sockfd, $req, 403);
-	}
 
 	# dest exists, and is a directory => display file list
-	if (is_dir($req->fspath)) {
+	elseif (is_dir($req->fspath)) {
 		$resp->headers["Content-Type"] = "text/html; charset=utf-8";
 		send_headers($sockfd, $req->version, $resp->headers, 200);
 		return re_generate_dirindex($sockfd, $req->path, $req->fspath);
@@ -311,14 +295,12 @@ function handle_request($sockfd, $logfd) {
 	}
 
 	# dest exists, but not a regular or directory => 403
-	elseif (file_exists($req->fspath)) {
+	elseif (file_exists($req->fspath))
 		return re_error($sockfd, $req, 403);
-	}
 
 	# dest doesn't exist => 404
-	else {
+	else
 		return re_error($sockfd, $req, 404);
-	}
 
 }
 
@@ -337,7 +319,7 @@ function re_generate_dirindex($sockfd, $req_path, $fs_path) {
 
 		$entry_path = $fs_path.$entry;
 
-		if (is_dir(deref_symlink($entry_path)))
+		if (is_dir(realpath($entry_path)))
 			$dirs[] = $entry;
 		else
 			$files[] = $entry;
@@ -471,7 +453,7 @@ $messages = array(
 $config = new stdClass();
 
 $config->docroot = tilde_expand_own("~/public_html");
-if (!is_dir(deref_symlink($config->docroot)))
+if (!is_dir(realpath($config->docroot)))
 	$config->docroot = ".";
 
 $config->index_files = array( "index.html", "index.htm" );

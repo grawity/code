@@ -109,22 +109,23 @@ rrfetch() {
 }
 
 verify_sig() {
-	local file="$1"
-	local gpg_out="$( gpg --quiet --status-fd=3 3>&1 2>/dev/null >&2 --verify "$file" )"
-	[ "$VERBOSE" == 1 ] && echo "$gpg_out"
+	local input="$1"
+	local gpg_out="$( mktemp ~/.ssh/gpg_out.XXXXXXXXXX )"
+	gpg --quiet --status-fd=3 >& /dev/null 3> "$gpg_out" --verify "$input"
+	[ "$VERBOSE" == 1 ] && cat "$gpg_out"
 
-	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |$)" <<< "$gpg_out" ||
-		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$gpg_out" ||
-		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$gpg_out"
+	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |$)" < "$gpg_out" ||
+		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " < "$gpg_out" ||
+		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" < "$gpg_out"
 	then
 		{	echo "update-sshauth: verification failed"
 			echo "(file: $file)"
 			echo "$gpg_out"
 			echo "(end of gpg output)"
 		} >&2
-		return 1
+		rm -f "$gpg_out"; return 1
 	else
-		return 0
+		rm -f "$gpg_out"; return 0
 	fi
 }
 
@@ -163,7 +164,7 @@ if [ "$SELFUPDATE" = 1 ]; then
 	exit
 fi
 
-tempfile="$( mktemp ~/.ssh/authorized_keys.tmp.XXXXXXXXXX )"
+tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
 rrfetch "$SOURCE_URL" "$tempfile" || exit 7
 
 if verify_sig "$tempfile"; then

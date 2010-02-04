@@ -69,11 +69,11 @@ gpg_recv_key() {
 
 # update signer's GPG pubkey, retrying several keyservers
 update_signer_key() {
-	[ "$VERBOSE" == 1 ] && echo "Updating signer key $SIGNER_KEY"
+	$VERBOSE && echo "Updating signer key $SIGNER_KEY"
 
 	keyrecv_out="$( mktemp -t "gnupg.XXXXXXXXXX" )"
 	for server in "${KEYSERVERS[@]}"; do
-		[ "$VERBOSE" == 1 ] && echo "* trying $server"
+		$VERBOSE && echo "* trying $server"
 		if gpg_recv_key "$SIGNER_KEY" "$server" >> "$keyrecv_out"
 			then rm -f "$keyrecv_out"; return 0
 			else sleep 3
@@ -91,7 +91,7 @@ rrfetch() {
 
 	local attempt=0
 	while [ $(( ++attempt )) -le $max_retries ]; do
-		[ "$VERBOSE" == 1 ] && echo "Fetching $url (attempt $attempt)"
+		$VERBOSE && echo "Fetching $url (attempt $attempt)"
 
 		http_fetch "$url" "$output"
 
@@ -112,7 +112,7 @@ verify_sig() {
 	local input="$1"
 	local gpg_out="$( mktemp ~/.ssh/gpg_out.XXXXXXXXXX )"
 	gpg --quiet --status-fd=3 >& /dev/null 3> "$gpg_out" --verify "$input"
-	[ "$VERBOSE" == 1 ] && cat "$gpg_out"
+	$VERBOSE && cat "$gpg_out"
 
 	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |$)" < "$gpg_out" ||
 		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " < "$gpg_out" ||
@@ -129,11 +129,11 @@ verify_sig() {
 	fi
 }
 
-VERBOSE=0
+VERBOSE=false
 SELFUPDATE=1
 while getopts "vrU" option "$@"; do
 	case "$option" in
-	v) VERBOSE=1 ;;
+	v) VERBOSE=true ;;
 	r) update_signer_key && echo -e "5\ny" | gpg --edit-key "$SIGNER_KEY" trust quit ;;
 	U) SELFUPDATE=0 ;;
 	?) echo "Unknown option $1" ;;
@@ -154,10 +154,11 @@ fi
 update_signer_key >&2 || exit 3
 
 if [ "$SELFUPDATE" = 1 ]; then
-	[ "$VERBOSE" == 1 ] && echo "Updating myself"
+	$VERBOSE && echo "Updating myself"
 	tempfile="$( mktemp ~/.ssh/update-sshauth.XXXXXXXXXX )"
 	rrfetch "$SELF_URL" "$tempfile" || exit 7
 	if verify_sig "$tempfile"; then
+		$VERBOSE && echo "--- Calling $tempfile"
 		gpg --decrypt "$tempfile" 2> /dev/null | bash -s -- -U "$@"
 	fi
 	rm -f "$tempfile"
@@ -174,7 +175,7 @@ if verify_sig "$tempfile"; then
 		gpg --decrypt "$tempfile" 2> /dev/null
 	} > ~/.ssh/authorized_keys
 
-	[ "$VERBOSE" == 1 ] && echo "$(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded."
+	$VERBOSE && echo "$(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded."
 else
 	exit 1
 fi

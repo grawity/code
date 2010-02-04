@@ -17,13 +17,11 @@ Options:
   -6                           Force IPv6, even for IPv4 addresses
   -a                           List all files, including hidden, in directories
   -f number                    Number of subprocesses (0 disables)
-  -d path                      Specify docroot (default is ~/public_html)
+  -d path                      Specify docroot (default is ~/public_html or cwd)
   -h                           Display help message
   -L                           Bind to localhost (::1 or 127.0.0.1)
   -l address                   Bind to specified local address (default is ::)
   -p port                      Listen on specified port
-  -U suffix                    Set userdir suffix (default is 'public_html')
-  -u                           Enable userdirs
   -v                           Display version
 
 $WARNING
@@ -77,47 +75,6 @@ function get_homedir() {
 		$home = getenv("USERPROFILE");
 
 	return $home? $home : false;
-}
-
-# get docroot for given user (homedir + suffix)
-function get_user_docroot($user) {
-	global $config;
-	$user_home = null;
-
-	if (!$user_home and function_exists("posix_getpwnam")) {
-		$pw = posix_getpwnam($user);
-		if ($pw) $user_home = $pw["dir"];
-	}
-
-	if (!$user_home)
-		return false;
-
-	return $user_home? $user_home."/".$config->userdir_suffix : false;
-}
-
-# parse request path (/foo.html or /~user/foo.html) and return absolute
-# filesystem path
-function get_docroot($fs_path) {
-	global $config;
-
-	# if $enable_userdirs is off, /~foo/ will be taken literally
-	if ($config->userdirs and substr($fs_path, 0, 2) == "/~") {
-		$user_path = substr($fs_path, 2);
-		$req_user = strtok($user_path, "/");
-		$user_path = (string) strtok("");
-
-		$user_dir = get_user_docroot($req_user);
-
-		if ($user_dir and is_dir(deref_symlink($user_dir))) {
-			return $user_dir."/".$user_path;
-		}
-		else
-			return $config->docroot."/".$fs_path;
-	}
-	else {
-		# no userdir in request
-		return $config->docroot."/".$fs_path;
-	}
 }
 
 # read line (ending with CR+LF) from socket
@@ -224,7 +181,6 @@ function handle_request($sockfd, $logfd) {
 		//"Connection" => "close",
 	);
 
-
 	$req->rawreq = socket_gets($sockfd);
 
 	if ($req->rawreq == "") {
@@ -294,8 +250,6 @@ function handle_request($sockfd, $logfd) {
 		$req->fspath = substr($req->fspath, 0, -2);
 	while (substr($req->fspath, -2) == "/.")
 		$req->fspath = substr($req->fspath, 0, -1);
-
-	$req->fspath = get_docroot($req->fspath);
 
 	# If given path is a directory, append a slash if required
 	if (is_dir($req->fspath) and substr($req->path, -1) != "/") {
@@ -520,9 +474,6 @@ $config->docroot = tilde_expand_own("~/public_html");
 if (!is_dir(deref_symlink($config->docroot)))
 	$config->docroot = ".";
 
-$config->userdirs = false;
-$config->userdir_suffix = "public_html";
-
 $config->index_files = array( "index.html", "index.htm" );
 $config->hide_dotfiles = true;
 
@@ -583,10 +534,6 @@ foreach ($opts as $opt => $value) switch ($opt) {
 		$config->listen_addr = $value; break;
 	case "p":
 		$config->listen_port = (int) $value; break;
-	case "U":
-		$config->userdir_suffix = $value;
-	case "u":
-		$config->userdirs = true; break;
 	case "v":
 		die(VERSION."\n");
 }

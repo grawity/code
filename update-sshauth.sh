@@ -130,7 +130,7 @@ verify_sig() {
 }
 
 VERBOSE=false
-SELFUPDATE=1
+SELFUPDATE=true
 while getopts "vrU" option "$@"; do
 	case "$option" in
 	v) VERBOSE=true ;;
@@ -153,7 +153,7 @@ fi
 
 update_signer_key >&2 || exit 3
 
-if [ "$SELFUPDATE" = 1 ]; then
+if $SELFUPDATE; then
 	$VERBOSE && echo "Updating myself"
 	tempfile="$( mktemp ~/.ssh/update-sshauth.XXXXXXXXXX )"
 	rrfetch "$SELF_URL" "$tempfile" || exit 7

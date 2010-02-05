@@ -137,7 +137,7 @@ while getopts "vrU" option "$@"; do
 	case "$option" in
 	v) VERBOSE=true ;;
 	r) update_signer_key && echo -e "5\ny" | gpg --edit-key "$SIGNER_KEY" trust quit ;;
-	U) SELFUPDATE=0 ;;
+	U) SELFUPDATE=false ;;
 	?) echo "Unknown option $1" ;;
 	esac
 done

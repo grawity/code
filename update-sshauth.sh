@@ -11,13 +11,10 @@ KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net keyserver.ubuntu.com 
 umask 077
 mkdir -p ~/.ssh/
 
-# check if application is in $PATH
 have() { which "$1" &> /dev/null; }
 
 # used when I cannot figure out how to deal with argv in one-liners
-shellquote() {
-	echo \'${1//\'/\'\\\'\'}\' #'# vim syntax hilighting
-}
+shellquote() { echo \'${1//\'/\'\\\'\'}\'; } #'; }
 
 gpgst() { gpg --status-fd=3 3>&1 >& /dev/null "$@"; }
 
@@ -38,8 +35,8 @@ http_fetch() {
 		links -source "$URL" > "$OUT"
 	elif have elinks; then
 		elinks -source "$URL" > "$OUT"
-	elif have perl; then
-		perl -MLWP::Simple -e 'getprint $ARGV[0]' "$URL" > "$OUT"
+	elif have perl && perl -MLWP::Simple -e ""; then
+		perl -MLWP::Simple -e'getprint $ARGV[0]' "$URL" > "$OUT"
 	elif have python; then
 		python -c 'import sys, urllib2; sys.stdout.write(urllib2.urlopen(sys.argv[1])).read())' "$URL" > "$OUT"
 	elif have php && php -i | grep -qsi '^allow_url_fopen => on'; then

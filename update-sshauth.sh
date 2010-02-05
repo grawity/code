@@ -19,6 +19,8 @@ shellquote() {
 	echo \'${1//\'/\'\\\'\'}\' #'# vim syntax hilighting
 }
 
+gpgst() { gpg --status-fd=3 3>&1 >& /dev/null "$@"; }
+
 # download a file over HTTP 
 http_fetch() {
 	UA="update-sshauth on $( id -un )@$( hostname )"
@@ -48,22 +50,17 @@ http_fetch() {
 		tclsh - <<< 'package require http; fconfigure stdout -translation binary; puts -nonewline [http::data [http::geturl [lindex $argv 1]]]' "$URL" > "$OUT"
 	else
 		# Damn.
-		echo "update-sshauth: no download tool available" >&2
+		echo "sshup: no download tool available" >&2
 		exit 3
 	fi
 }
 
 # download a GPG public key
 gpg_recv_key() {
-	local keyid="$1"
-	local server="$2"
-
-	local gpg_out="$( gpg --status-fd=3 3>&1 2>/dev/null >&1 --keyserver "$server" --recv-key "$keyid" )"
-
-	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$gpg_out"; then
-		echo "[update-sshauth] key update failed from $server"
-		echo "$gpg_out"
-		echo "(end of gpg output)"
+	local keyid="$1" server="$2"
+	local out="$( gpgst --keyserver "$server" --recv-key "$keyid" )"
+	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
+		echo "$out" >&2
 		return 1
 	fi
 	return 0
@@ -71,13 +68,11 @@ gpg_recv_key() {
 
 # update signer's GPG pubkey, retrying several keyservers
 update_signer_key() {
-	$VERBOSE && echo "Updating signer key $SIGNER_KEY"
-
-	keyrecv_out="$( mktemp -t "gnupg.XXXXXXXXXX" )"
+	$VERBOSE && echo "sshup: updating signer key $SIGNER_KEY"
 	for server in "${KEYSERVERS[@]}"; do
-		$VERBOSE && echo "* trying $server"
-		if gpg_recv_key "$SIGNER_KEY" "$server" >> "$keyrecv_out"
-			then rm -f "$keyrecv_out"; return 0
+		$VERBOSE && echo "sshup: * trying $server"
+		if gpg_recv_key "$SIGNER_KEY" "$server"
+			then return 0
 			else sleep 3
 		fi
 	done
@@ -85,25 +80,14 @@ update_signer_key() {
 }
 
 rrfetch() {
-	local url="$1"
-	local output="$2"
-
-	local max_retries=5
-	local retry_wait=2
-
-	local attempt=0
+	local url="$1" output="$2"
+	local max_retries=5 retry_wait=3 attempt=0
 	while [ $(( ++attempt )) -le $max_retries ]; do
-		$VERBOSE && echo "Fetching $url (attempt $attempt)"
-
+		$VERBOSE && echo "sshup: fetching $url (attempt $attempt)"
 		http_fetch "$url" "$output"
-
-		if [ -s "$output" ]; then
-			# exists and not empty
-			return 0
-		else
-			# retry
-			rm -f "$output"
-			sleep $retry_wait
+		if [ -s "$output" ]
+			then return 0
+			else rm -f "$output"; sleep $retry_wait
 		fi
 	done
 	rm -f "$output"
@@ -112,22 +96,16 @@ rrfetch() {
 
 verify_sig() {
 	local input="$1"
-	local gpg_out="$( mktemp ~/.ssh/gpg_out.XXXXXXXXXX )"
-	gpg --quiet --status-fd=3 >& /dev/null 3> "$gpg_out" --verify "$input"
-	$VERBOSE && cat "$gpg_out"
-
-	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |\$)" < "$gpg_out" ||
-		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " < "$gpg_out" ||
-		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" < "$gpg_out"
+	local out="$( gpgst --verify "$input" )"
+	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
+		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$out" ||
+		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$out"
 	then
-		{	echo "update-sshauth: verification failed"
-			echo "(file: $file)"
-			echo "$gpg_out"
-			echo "(end of gpg output)"
-		} >&2
-		rm -f "$gpg_out"; return 1
+		{ echo "sshup: gpg $@"; echo "$out"; } >&2
+		return 1
 	else
-		rm -f "$gpg_out"; return 0
+		$VERBOSE && echo "$out"
+		return 0
 	fi
 }
 
@@ -138,50 +116,41 @@ while getopts "vrU" option "$@"; do
 	v) VERBOSE=true ;;
 	r) update_signer_key && echo -e "5\ny" | gpg --edit-key "$SIGNER_KEY" trust quit ;;
 	U) SELFUPDATE=false ;;
-	?) echo "Unknown option $1" ;;
+	?) echo "sshup: unknown option $1" ;;
 	esac
 done
 
 ## Check if the key is present in user's keyring.
 if ! have gpg; then
-	echo "update-sshauth: gpg not found in \$PATH" >&2
-	exit 7
+	echo "sshup: gpg not found in \$PATH" >&2
+	exit 1
 fi
 
 if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
-	echo "update-sshauth: $SIGNER_KEY not found in gpg keyring" >&2
-	exit 4
+	echo "sshup: $SIGNER_KEY not found in gpg keyring" >&2
+	exit 1
 fi
 
-update_signer_key >&2 || exit 3
+update_signer_key >&2 || exit 1
 
 if $SELFUPDATE; then
-	$VERBOSE && echo "Updating myself"
-	tempfile="$( mktemp ~/.ssh/update-sshauth.XXXXXXXXXX )"
-	rrfetch "$SELF_URL" "$tempfile" || exit 7
-	if verify_sig "$tempfile"; then
-		$VERBOSE && echo "--- Calling $tempfile"
-		gpg --decrypt "$tempfile" 2> /dev/null | bash -s -- -U "$@"
+	$VERBOSE && echo "sshup/$$: updating myself"
+	tempfile="$( mktemp ~/.ssh/update-sshauth.gpg.XXXXXXXXXX )"
+	tempout="$( mktemp ~/.ssh/update-sshauth.sh.XXXXXXXXXX )"
+	rrfetch "$SELF_URL" "$tempfile" || exit 1
+	if gpgst --yes -o "$tempout" -d "$tempfile"; then 
+		$VERBOSE && echo "sshup/$$: calling $tempout"
+		bash -- "$tempout" -U "$@"
 	fi
-	rm -f "$tempfile"
-	exit
-fi
-
-tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
-rrfetch "$SOURCE_URL" "$tempfile" || exit 7
-
-if verify_sig "$tempfile"; then
-	[ -d ~/.ssh/ ] || mkdir ~/.ssh/
+	rm -f "$tempfile" "$tempout"
+else
+	tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
+	rrfetch "$SOURCE_URL" "$tempfile" || exit 1
+	verify_sig "$tempfile" || exit 1
 	{
 		echo "# updated on $(date "+%a, %d %b %Y %H:%M:%S %z") from $SOURCE_URL"
 		gpg --decrypt "$tempfile" 2> /dev/null
 	} > ~/.ssh/authorized_keys
-
-	$VERBOSE && echo "$(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded."
-else
-	exit 1
+	$VERBOSE && echo "sshup/$$: $(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded"
+	rm -f "$tempfile"
 fi
-
-## Finally, remove the temporary file.
-
-rm -f "$tempfile"

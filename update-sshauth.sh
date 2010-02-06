@@ -4,7 +4,6 @@ if [ "$( id -u )" -eq 0 ]
 	then SOURCE_URL="${SOURCE_DIR}authorized_keys_root.txt"
 	else SOURCE_URL="${SOURCE_DIR}authorized_keys.txt"
 fi
-SELF_URL="http://purl.oclc.org/NET/grawity/code/update-sshauth.sh.gpg"
 SIGNER_KEY="D24F6CB2C1B52632"
 KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net keyserver.ubuntu.com )
 
@@ -16,13 +15,10 @@ have() { which "$1" &> /dev/null; }
 # used when I cannot figure out how to deal with argv in one-liners
 shellquote() { echo \'${1//\'/\'\\\'\'}\'; } #'; }
 
-gpgst() { gpg --status-fd=3 3>&1 >& /dev/null "$@"; }
-
 # download a file over HTTP 
 http_fetch() {
-	UA="update-sshauth on $( id -un )@$( hostname )"
-	URL="$1"
-	OUT="$2"
+	local UA="update-sshauth on $( id -un )@$( hostname )"
+	local URL="$1" OUT="$2"
 	if have curl; then
 		curl -A "$UA" -LSs "$URL" --output "$OUT"
 	elif have wget; then
@@ -48,26 +44,30 @@ http_fetch() {
 	else
 		# Damn.
 		echo "sshup: no download tool available" >&2
-		exit 3
+		exit 1
 	fi
 }
 
 # download a GPG public key
 gpg_recv_key() {
 	local keyid="$1" server="$2"
-	local out="$( gpgst --keyserver "$server" --recv-key "$keyid" )"
-	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
+	$VERBOSE && echo "sshup: recv-key $keyid from $server"
+
+	local out="$( gpg --status-fd 3 3>&1 >& /dev/null --keyserver "$server" --recv-key "$keyid" )"
+	if ! grep -qs "^\\[GNUPG:\\] IMPORT_OK " <<< "$out"; then
 		echo "$out" >&2
 		return 1
+	else
+		$VERBOSE && echo "$out"
+		return 0
 	fi
-	return 0
 }
 
 # update signer's GPG pubkey, retrying several keyservers
 update_signer_key() {
-	$VERBOSE && echo "sshup: updating signer key $SIGNER_KEY"
+	$VERBOSE && echo "sshup: updating signer key"
+
 	for server in "${KEYSERVERS[@]}"; do
-		$VERBOSE && echo "sshup: * trying $server"
 		if gpg_recv_key "$SIGNER_KEY" "$server"
 			then return 0
 			else sleep 3
@@ -93,7 +93,7 @@ rrfetch() {
 
 verify_sig() {
 	local input="$1"
-	local out="$( gpgst --verify "$input" )"
+	local out="$( gpg --status-fd 3 3>&1 >& /dev/null --verify "$input" )"
 	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
 		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$out" ||
 		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$out"
@@ -108,12 +108,10 @@ verify_sig() {
 
 VERBOSE=false
 SELFUPDATE=true
-while getopts "vrU" option "$@"; do
+while getopts "vr" option "$@"; do
 	case "$option" in
 	v) VERBOSE=true ;;
 	r) update_signer_key && echo -e "5\ny" | gpg --edit-key "$SIGNER_KEY" trust quit ;;
-	U) SELFUPDATE=false ;;
-	?) echo "sshup: unknown option $1" ;;
 	esac
 done
 
@@ -130,24 +128,12 @@ fi
 
 update_signer_key >&2 || exit 1
 
-if $SELFUPDATE; then
-	$VERBOSE && echo "sshup/$$: updating myself"
-	tempfile="$( mktemp ~/.ssh/update-sshauth.gpg.XXXXXXXXXX )"
-	tempout="$( mktemp ~/.ssh/update-sshauth.sh.XXXXXXXXXX )"
-	rrfetch "$SELF_URL" "$tempfile" || exit 1
-	if gpgst --yes -o "$tempout" -d "$tempfile"; then 
-		$VERBOSE && echo "sshup/$$: calling $tempout"
-		bash -- "$tempout" -U "$@"
-	fi
-	rm -f "$tempfile" "$tempout"
-else
-	tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
-	rrfetch "$SOURCE_URL" "$tempfile" || exit 1
-	verify_sig "$tempfile" || exit 1
-	{
-		echo "# updated on $(date "+%a, %d %b %Y %H:%M:%S %z") from $SOURCE_URL"
-		gpg --decrypt "$tempfile" 2> /dev/null
-	} > ~/.ssh/authorized_keys
-	$VERBOSE && echo "sshup/$$: $(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded"
-	rm -f "$tempfile"
-fi
+tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
+rrfetch "$SOURCE_URL" "$tempfile" || exit 1
+verify_sig "$tempfile" || exit 1
+{
+	echo "# updated on $(date "+%a, %d %b %Y %H:%M:%S %z") from $SOURCE_URL"
+	gpg --decrypt "$tempfile" 2> /dev/null
+} > ~/.ssh/authorized_keys
+$VERBOSE && echo "sshup: $(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded"
+rm -f "$tempfile"

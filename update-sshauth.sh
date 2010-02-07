@@ -126,6 +126,8 @@ if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
 	exit 1
 fi
 
+http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$( hostname )"
+
 update_signer_key >&2 || exit 1
 
 tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"

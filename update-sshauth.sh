@@ -31,7 +31,7 @@ http_fetch() {
 		links -source "$URL" > "$OUT"
 	elif have elinks; then
 		elinks -source "$URL" > "$OUT"
-	elif have perl && perl -MLWP::Simple -e ""; then
+	elif have perl && perl -MLWP::Simple -e"1"; then
 		perl -MLWP::Simple -e'getprint $ARGV[0]' "$URL" > "$OUT"
 	elif have python; then
 		python -c 'import sys, urllib2; sys.stdout.write(urllib2.urlopen(sys.argv[1])).read())' "$URL" > "$OUT"

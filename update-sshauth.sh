@@ -19,6 +19,7 @@ shellquote() { echo \'${1//\'/\'\\\'\'}\'; } #'; }
 http_fetch() {
 	local UA="update-sshauth on $( id -un )@$( hostname )"
 	local URL="$1" OUT="$2"
+	[ -z "$OUT" ] && OUT=/dev/stdout
 	if have curl; then
 		curl -A "$UA" -LSs "$URL" --output "$OUT"
 	elif have wget; then
@@ -126,7 +127,7 @@ if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
 	exit 1
 fi
 
-http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$( hostname )"
+http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$( hostname )" /dev/null
 
 update_signer_key >&2 || exit 1
 

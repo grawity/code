@@ -62,7 +62,7 @@ eval {
 	$supported_mechs{"HMAC-MD5"} = sub {
 		hmac(\&Digest::MD5::md5_hex, \&Digest::MD5::md5, @_);
 	};
-	$supported_mechs{"LEGACY-MD5"} = sub  {
+	$supported_mechs{"LEGACY-MD5"} = sub {
 		Irssi::print("WARNING: LEGACY-MD5 should not be used.");
 		my ($challenge, $username, $password) = @_;
 		Digest::MD5::md5_hex($password . " " . $challenge);
@@ -70,7 +70,9 @@ eval {
 };
 
 if (scalar keys %supported_mechs == 0) {
-	die "No mechanisms available. Install Digest::HMAC and one of Digest::{SHA,SHA1,MD5}";
+	die "No mechanisms available. Please install these Perl modules:\n"
+		."  Digest::HMAC\n"
+		."  Digest::SHA, Digest::SHA1, Digest::MD5 (at least one)\n";
 }
 
 sub hmac {

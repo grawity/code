@@ -1,0 +1,113 @@
+# vim: ft=perl
+use warnings;
+use strict;
+use Irssi;
+use vars qw($VERSION %IRSSI);
+$VERSION = "1.0";
+%IRSSI = (
+	authors     => "Mantas Mikulėnas",
+	contact     => 'grawity@gmail.com',
+	name        => 'auth_bots',
+	description => 'Lets you authenticate to various IRC bots easily.',
+	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
+	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
+);
+
+my @authinfo = ();
+my $authfile = Irssi::get_irssi_dir() .  "/bots.auth";
+
+# Format of bots.auth:
+#   servertag/botnick bottype username password
+# 
+# Example:
+#   freenode/phrik supybot grawity passw3rd
+# This will allow you to /botauth phrik, on Freenode.
+# (phrik's the #archlinux bot, if you are wondering)
+#
+# Use /botauth -load, to reload bots.auth
+#
+# Server tags are case-insensitive. Bot nicks are case-insensitive, and [\]^
+# are treated as identical to {|}~ (according to RFC 2812 and most ircds)
+
+# "identify %p", p => "hunter2" --> "identify hunter2"
+sub fmt($@) {
+	my ($str, %data) = @_;
+	$data{"%"} = "%";
+	$str =~ s/(%(.))/exists $data{$2}? (defined $data{$2}? $data{$2} :"") : $1/ge;
+	return $str;
+}
+
+my %authcommands = (
+	Default	=> "identify %u %p",
+
+	anope	=> "identify %p",
+	atheme	=> "identify %u %p",
+	eggdrop	=> "ident %p",
+	phpserv	=> "identify %u %p",
+	supybot	=> "identify %u %p",
+	ubbm	=> "login %u %p",
+);
+
+# convert to lowercase with IRC extensions
+sub lci ($) { my $_ = shift; tr/\[\\\]^/{|}~/; return lc $_; }
+
+# search for authinfo by servertag/botnick
+sub grep_authinfo ($$) {
+	my ($servertag, $botnick) = @_;
+	for my $entry (@authinfo) {
+		my @entry = split " ", $entry, 4;
+		my ($e_tag, $e_botnick) = split "/", (shift @entry), 2;
+		return @entry if (lc $e_tag eq lc $servertag) and (lci $e_botnick eq lci $botnick);
+	}
+	return (undef, undef, undef);
+}
+
+sub load_info {
+	@authinfo = ();
+	open FILE, "< $authfile";
+	while (<FILE>) {
+		chomp;
+		push @authinfo, $_;
+	}
+	close FILE;
+}
+
+Irssi::command_bind "botauth" => sub {
+	my ($args, $server, $witem) = @_;
+	
+	if ($args eq "-add") {
+		my ($foo, $bot, $type, $user, $pass) = split / /, $args, 5;
+		$foo = join " ", $bot, $type, $user, $pass;
+		push @authinfo, $foo;
+
+		umask 077;
+		open FILE, ">> $authfile";
+		print FILE "$foo\n";
+		close FILE;
+		return;
+	}
+	elsif ($args eq "-load") {
+		load_info;
+		return;
+	}
+
+	my ($botnick) = split / /, $args;
+	my ($type, $user, $pass) = grep_authinfo $server->{tag}, $botnick;
+	if (!defined $type) {
+		Irssi::print "No creds set for ".$server->{tag}."/".$botnick;
+		return;
+	}
+	my $command = defined $authcommands{$type}
+		? $authcommands{$type}
+		: $authcommands{"Default"};
+	my $msg = fmt $command, (
+		"u" => $user,
+		"p" => $pass,
+		"n" => $server->{nick},
+		"N" => $server->{wanted_nick},
+	);
+	$server->print("", "Authenticating to $botnick");
+	$server->send_message($botnick, $msg, 1);
+};
+
+load_info();

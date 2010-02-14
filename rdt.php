@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?php
-# rdns-trace v1.3
-# Reverse DNS tracing, sort of
+# rdt v1.3
+# Recursive forward and reverse DNS tracer
 #
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
@@ -17,7 +17,7 @@ if (isset($_SERVER["REMOTE_ADDR"])) {
 
 function msg_help() {
 	$usage = <<<EOTFM
-Usage: rdns-trace [-cC] ADDRESS [ADDRESS ...]
+Usage: rdt [-cC] ADDRESS [ADDRESS ...]
 
 Displays forward and/or reverse DNS of a given address, recursively.
 
@@ -164,7 +164,7 @@ for ($i = 1; $i < $argc; $i++) {
 		case "-C":
 			$use_colour = false; break;
 		default:
-			fwrite(STDERR, "rdns-trace: unknown option '$arg'\n");
+			fwrite(STDERR, "rdt: unknown option '$arg'\n");
 		case "-h":
 		case "--help":
 			exit(msg_help());

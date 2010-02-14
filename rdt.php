@@ -24,8 +24,7 @@ Displays forward and/or reverse DNS of a given address, recursively.
 Options:
   -c, -C                        Enable/disable coloured output.
 
-Note: This uses dns_get_record(), which (as of PHP 5.3.0) doesn't return
-any IPv6 records on Windows systems.
+Note: On Windows, PHP 5.3.1 or later is required to resolve IPv6 addresses.
 
 EOTFM;
 	fwrite(STDERR, $usage);

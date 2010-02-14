@@ -1,6 +1,6 @@
 #!/usr/bin/php
 <?php
-$VERSION = "simplehttpd v1.3";
+$VERSION = "simplehttpd v1.4";
 $WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m\n";
 # simple HTTP server
 

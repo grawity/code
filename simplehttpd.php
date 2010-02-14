@@ -491,9 +491,9 @@ $content_types = array(
 
 ## Command-line options
 
-$opts = getopt("64ac:d:f:IhLl:p:U:uv", array("help"));
+$opts = getopt("64ac:d:f:IhLl:p:U:uv");
 
-if (isset($opts["h"]) or isset($opts["help"]) or $opts === false) {
+if (isset($opts["h"]) or $opts === false) {
 	fwrite(STDERR, $HELP);
 	exit(2);
 }

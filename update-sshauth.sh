@@ -133,10 +133,20 @@ update_signer_key >&2 || exit 1
 
 tempfile="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
 rrfetch "$SOURCE_URL" "$tempfile" || exit 1
-verify_sig "$tempfile" || exit 1
-{
+if verify_sig "$tempfile"; then
+	{
 	echo "# updated on $(date "+%a, %d %b %Y %H:%M:%S %z") from $SOURCE_URL"
 	gpg --decrypt "$tempfile" 2> /dev/null
-} > ~/.ssh/authorized_keys
-$VERBOSE && echo "sshup: $(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded"
-rm -f "$tempfile"
+	} > ~/.ssh/authorized_keys
+	$VERBOSE && echo "sshup: $(grep -c "^ssh-" ~/.ssh/authorized_keys) keys downloaded"
+	rm -f "$tempfile"
+else
+	exit 1
+fi
+
+if [ -f ~/.ssh/authorized_keys.local ]; then
+	{
+	echo "# local keys"
+	cat ~/.ssh/authorized_keys.local
+	} >> ~/.ssh/authorized_keys
+fi

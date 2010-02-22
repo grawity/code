@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# tweet.pl v1.0
+# tweet.pl v1.1
 # posts stuff to Twitter
 #
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
@@ -8,60 +8,50 @@
 use warnings;
 use strict;
 
+binmode STDOUT, ":utf8";
+
 use Getopt::Long;
 use Net::Netrc;
 use LWP::UserAgent;
 use XML::Simple;
+use Data::Dumper;
 
 sub msg_usage {
 	print STDERR "Usage: tweet [-u user] [-p password] [-r tweet_id] text\n";
 	return 2;
 }
 sub msg_help {
-	print q{Usage: tweet [-u user] [-p password] [-r tweet_id] text
+	print
+q{Usage: tweet [-u user] [-p password] [-r tweet_id] text
 
-  -u  Twitter account (username) to use, if multiple entries
-      exist in ~/.netrc (otherwise the first match is used)
-  -p  Twitter password (if you are careless enough to do this)
-  -r  post a reply to this tweet ID (mostly for scripts)
-
-When replying to another tweet, the reply must start with "@username", where
-'username' = author of the original tweet. Otherwise Twitter will reject it.
-
-When using -p, remember that the entire command line will be visible in the
-output of 'ps' and other commands, also in your ~/.history file.
+  -u  Twitter account (username)
+  -p  Twitter password (must be used with -u)
+  -r  reply to this tweet ID (must start with "@username")
 
 The .netrc file format is described in the manual page of ftp(1).
 };
 	return 0;
 }
 
-sub lookup_authdata {
+sub lookup_auth {
 	my ($user) = @_;
 	my $netrc = Net::Netrc->lookup("twitter.com", $user);
 	return defined($netrc->{machine}) ? ($netrc->login, $netrc->password) : ();
 }
 
-sub post_tweet {
-	my ($text, $user, $pass, $replyid) = @_;
-
-	my $ua = LWP::UserAgent->new();
-	$ua->credentials("api.twitter.com:443", "Twitter API", $user, $pass);
-
-	my %data = (status => $text);
-
-	if (defined $replyid) {
-		die "Replies must start with \@username\n" if $text !~ /^\@[^ ]+ /;
-		# ...otherwise Twitter rejects them.
-
-		$data{"in_reply_to_status_id"} = $replyid;
-	}
-
-	my $resp = $ua->post("https://api.twitter.com/1/statuses/update.xml", \%data);
-	return XMLin($resp->decoded_content);
+sub get {
+	my ($ua, $url) = @_;
+	my $resp = $ua->get("https://api.twitter.com/1/${url}.xml");
+	return XML::Simple::XMLin($resp->decoded_content);
 }
 
-my ($user, $pass, $replyid, $text);
+sub post {
+	my ($ua, $url, $data) = @_;
+	my $resp = $ua->post("https://api.twitter.com/1/${url}.xml", $data);
+	return XML::Simple::XMLin($resp->decoded_content);
+}
+
+my ($text, $replyid, $user, $pass);
 GetOptions(
 	"u=s" => \$user,
 	"p=s" => \$pass,
@@ -69,32 +59,48 @@ GetOptions(
 	"h|help" => sub { exit msg_help },
 ) or exit msg_usage;
 
-$text = shift @ARGV or exit msg_usage;
-
-if (length $text > 140) {
-	print STDERR length($text)." character tweet is too long\n";
-	exit 1;
-}
-
 if (!defined $user or !defined $pass) {
-	($user, $pass) = lookup_authdata($user);
+	($user, $pass) = lookup_auth($user);
 }
 if (!defined $user or !defined $pass) {
-	print STDERR "Login information for twitter.com not found in ~/.netrc\n";
+	print STDERR "error: twitter.com not found in ~/.netrc\n";
 	exit 3;
 }
 
-my $tweet = post_tweet($text, $user, $pass, $replyid);
+my $ua = LWP::UserAgent->new();
+$ua->credentials("api.twitter.com:443", "Twitter API", $user, $pass);
 
-if (defined $tweet->{error}) {
-	print "Twitter error: ".$tweet->{error}."\n";
-	exit 1;
+$text = shift @ARGV;
+
+if (defined $text) {
+	if (length($text) > 140) {
+		print STDERR "error: tweet too long (".length($text)." chars)\n";
+		exit 1;
+	}
+	my %data = (status => $text);
+
+	if (defined $replyid) {
+		die "Replies must start with \@username\n"
+			if $text !~ /^\@[^ ]+ /;
+		# ...otherwise Twitter rejects them.
+		$data{"in_reply_to_status_id"} = $replyid;
+	}
+
+	my $resp = post $ua, "statuses/update", \%data;
+	if (defined $resp->{error}) {
+		print STDERR "error: Twitter: ".$resp->{error}."\n";
+		exit 1;
+	}
 }
 else {
-	my $id = $tweet->{id};
-	my $real_user = $tweet->{user}->{screen_name};
-	my $real_text = $tweet->{text};
-	my $post_url = "https://twitter.com/${real_user}/status/${id}";
-	print "$post_url\n";
-	print "<$real_user> $real_text\n";
+	my $resp = get $ua, "statuses/home_timeline";
+	if (defined $resp->{error}) {
+		print STDERR "error: Twitter: ".$resp->{error}."\n";
+		exit 1;
+	}
+
+	for my $id (reverse keys %{$resp->{status}}) {
+		my $status = $resp->{status}->{$id};
+		printf "<\e[1m%s\e[m> %s\n", $status->{user}->{screen_name}, $status->{text};
+	}
 }

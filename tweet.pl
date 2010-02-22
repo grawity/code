@@ -38,9 +38,7 @@ The .netrc file format is described in the manual page of ftp(1).
 
 sub lookup_authdata {
 	my ($user) = @_;
-	# Net::Netrc ignores $user if not defined
 	my $netrc = Net::Netrc->lookup("twitter.com", $user);
-	# Ignore the 'default' entry
 	return defined($netrc->{machine}) ? ($netrc->login, $netrc->password) : ();
 }
 
@@ -48,7 +46,7 @@ sub post_tweet {
 	my ($text, $user, $pass, $replyid) = @_;
 
 	my $ua = LWP::UserAgent->new();
-	$ua->credentials("twitter.com:443", "Twitter API", $user, $pass);
+	$ua->credentials("api.twitter.com:443", "Twitter API", $user, $pass);
 
 	my %data = (status => $text);
 
@@ -59,7 +57,7 @@ sub post_tweet {
 		$data{"in_reply_to_status_id"} = $replyid;
 	}
 
-	my $resp = $ua->post("https://twitter.com/statuses/update.xml", \%data);
+	my $resp = $ua->post("https://api.twitter.com/1/statuses/update.xml", \%data);
 	return XMLin($resp->decoded_content);
 }
 

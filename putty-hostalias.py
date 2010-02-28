@@ -120,5 +120,5 @@ if user != None:
 if port != None:
 	pArgs += ["-P", str(port)]
 
-print("exec:", repr(pArgs))
-#subprocess.Popen(pArgs)
+#print("exec:", repr(pArgs))
+subprocess.Popen(pArgs)

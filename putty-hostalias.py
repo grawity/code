@@ -10,7 +10,7 @@ alias_file = expandvars("${AppData}/hostaliases.txt")
 
 """
 Usage:
-	hostalias [user@]host[:port]
+	hostalias [puttyargs] [user@]host[:port]
 	
 	Both <user> or <port>, when specified, override those from hostaliases.
 
@@ -76,10 +76,11 @@ def read_aliases(file):
 	fh.close()
 	return aliases
 
-try:
-	host = sys.argv[1]
-except IndexError:
-	print("Usage: %s [user@]host[:port]"
+if len(sys.argv) >= 2:
+	host = sys.argv.pop()
+	extargs = sys.argv[1:]
+else:
+	print("Usage: %s [puttyargs] [user@]host[:port]"
 		% os.path.basename(sys.argv[0]),
 		file=sys.stderr)
 	sys.exit(2)
@@ -115,6 +116,7 @@ if host in antiloop[:-1]:
 	print("Loop detected:", " -> ".join(antiloop))
 
 pArgs = ["putty", host]
+pArgs += extargs
 if user != None:
 	pArgs += ["-l", user]
 if port != None:

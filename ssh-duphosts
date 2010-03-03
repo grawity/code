@@ -22,25 +22,25 @@ for line in fh:
 	if line == "" or line[0] == "#":
 		continue
 	
-	host, type, key = line.split(" ")
-	if (type, key) in keys:
-		keys[(type, key)].append(host)
+	host, ktype, key = line.split(" ")
+	if (ktype, key) in keys:
+		keys[(ktype, key)].append(host)
 	else:
-		keys[(type, key)] = [ host ]
+		keys[(ktype, key)] = [ host ]
 
 # print results
 if dedup:
 	for entry in keys:
-		type, key = entry
+		ktype, key = entry
 		hosts = ",".join(keys[entry])
-		print " ".join([hosts, type, key])
+		print " ".join([hosts, ktype, key])
 else:
 	for entry in keys:
 		hosts = keys[entry]
-		type, key = entry
+		ktype, key = entry
 		if len(hosts) > 1:
 			print "Key [%(shortkey)s] has %(count)d entries:" % {
-				"shortkey": type + " ..." + key[-15:],
+				"shortkey": ktype + " ..." + key[-15:],
 				"count": len(hosts)
 			}
 			print "\t%s" % "\n\t".join(hosts)

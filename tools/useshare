@@ -1,0 +1,29 @@
+#!/bin/bash
+# quick way to access CIFS/SMB shares
+# mount.cifs must be installed setuid-root
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+	echo "Usage: $0 share mountpoint" >&2
+	exit 2
+fi
+
+remote="$1"
+mountpoint="$2"
+
+if [[ "$remote" = *:* ]]; then
+	# host:share
+	host="${remote%%:*}"
+	share="${remote#*:}"
+	remote="//${host}/${share}"
+elif [[ "$remote" = //*/* ]]; then
+	host="${remote#//}"
+	host="${host%%/*}"
+else
+	echo "Invalid remote path"
+	exit 1
+fi
+
+creds="$(mktemp)"
+getnetrc -df "username=%u%npassword=%p" "$host" > "$creds"
+mount.cifs "$remote" "$mountpoint" -o credentials="$creds",iocharset=utf8,file_mode=0600,dir_mode=0700
+rm -f "$creds"

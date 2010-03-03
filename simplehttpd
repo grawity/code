@@ -219,18 +219,13 @@ function handle_request($sockfd, $logfd) {
 	$req->path = strtok($req->path, "?");
 	$req->query = strtok("");
 
-	$req->fspath = urldecode($req->path);
-	
-	# get rid of dot segments ("." and "..")
+	$req->fspath = $config->docroot . urldecode($req->path);
+
 	while (strpos($req->fspath, "/../") !== false)
 		$req->fspath = str_replace("/../", "/", $req->fspath);
-	while (strpos($req->fspath, "/./") !== false)
-		$req->fspath = str_replace("/./", "/", $req->fspath);
 
 	while (substr($req->fspath, -3) == "/..")
 		$req->fspath = substr($req->fspath, 0, -2);
-	while (substr($req->fspath, -2) == "/.")
-		$req->fspath = substr($req->fspath, 0, -1);
 
 	# If given path is a directory, append a slash if required
 	if (is_dir($req->fspath) and substr($req->path, -1) != "/") {

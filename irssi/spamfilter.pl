@@ -66,12 +66,13 @@ sub test(@) {
 	);
 
 	return 1 if (
-		($ispublic and $type =~ /^notice|dcc|ctcp$/)
+		($ispublic and $type =~ /^notice|dcc|ctcp|ctcpreply$/)
 		or ($type eq 'dcc' and $msg =~ /.MPEG$/)
 		or $msg =~ /[^\w](faggot|cunt|nigger)/i
 		or $msg =~ /^fuck you/i
 		or $msg =~ /#[A-Z]{5,}([^A-Za-z0-9]|$)/
 		or $msg =~ /^~HAPPY NEW YEARS!!!~$/
+		or $msg =~ /IRC\..+\.COM/
 		or ($ispublic and hilightspam_score($server, $target, $msg) > 0.8)
 	);
 
@@ -117,6 +118,9 @@ Irssi::signal_add_first "message irc notice" => sub {
 Irssi::signal_add_first "ctcp msg" => sub {
 	# actions are handled by "ctcp action"
 	on_message @_, "ctcp" unless $_[1] =~ /^ACTION /i;
+};
+Irssi::signal_add_first "ctcp reply" => sub {
+	on_message @_, "ctcpreply";
 };
 Irssi::signal_add_first "ctcp action" => sub {
 	on_message @_, "action";

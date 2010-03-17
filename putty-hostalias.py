@@ -1,7 +1,9 @@
 #!/usr/bin/python
+# encoding=utf-8
 # hostalias v1.0 - adds host alias support to PuTTY
 # (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+from __future__ import print_function
 import os, sys, subprocess
 from os.path import expanduser, expandvars
 
@@ -44,7 +46,8 @@ Example hostalias entries:
 """
 
 class addr():
-	def split(input):
+	@classmethod
+	def split(self, input):
 		user, host, port = None, input, None
 		if "@" in host:
 			user, host = host.split("@", 2)

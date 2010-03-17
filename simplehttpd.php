@@ -465,13 +465,26 @@ $logfd = STDOUT;
 $config->log_date_format = "%a %b %d %H:%M:%S %Y";
 
 $content_types = array(
+	# text
+	"txt" => "text/plain",
 	"css" => "text/css",
-	"gif" => "image/gif",
 	"htm" => "text/html",
 	"html" => "text/html",
+	"js" => "text/javascript",
+
+	# archives/binaries
+	"exe" => "application/x-msdos-program",
+	"tar" => "application/x-tar",
+	"tgz" => "application/x-tar",
+	"zip" => "application/zip",
+
+	# images
+	"gif" => "image/gif",
 	"jpeg" => "image/jpeg",
 	"jpg" => "image/jpeg",
-	"js" => "text/javascript",
+	"png" => "image/png",
+
+	# audio/video
 	"m4a" => "audio/mp4",
 	"m4v" => "video/mp4",
 	"mp4" => "application/mp4",
@@ -479,8 +492,8 @@ $content_types = array(
 	"ogg" => "audio/ogg",
 	"ogv" => "video/ogg",
 	"ogm" => "application/ogg",
-	"png" => "image/png",
-	"tgz" => "application/x-tar",
+
+	# misc
 	"pem" => "application/x-x509-ca-cert",
 	"crt" => "application/x-x509-ca-cert",
 );

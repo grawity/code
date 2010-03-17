@@ -259,7 +259,8 @@ function handle_request($sockfd, $logfd) {
 
 	# dest exists, and is a directory => display file list
 	elseif (is_dir($req->fspath)) {
-		$resp->headers["Content-Type"] = "text/html; charset=utf-8";
+		$resp->headers["Content-Type"] = "text/html";
+		#$resp->headers["Content-Type"] = "text/html; charset=utf-8";
 		send_headers($sockfd, $req->version, $resp->headers, 200);
 		return re_generate_dirindex($sockfd, $req->path, $req->fspath);
 	}
@@ -409,6 +410,7 @@ function send_headers($sockfd, $version, $headers, $status = 200) {
 		);
 
 	if ($headers === null)
+		#send($sockfd, "Content-Type: text/plain\r\n");
 		send($sockfd, "Content-Type: text/plain; charset=utf-8\r\n");
 
 	else foreach ($headers as $key => $value)

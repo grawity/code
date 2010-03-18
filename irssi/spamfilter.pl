@@ -53,7 +53,7 @@ sub test(@) {
 
 	return block "*!$userhost" if (
 		$msg =~ /^Transmitting virus\.\.\.$/
-		or $nick =~ /dump|shit|feces/i
+		or $nick =~ /shit|feces/i
 		or $msg =~ /^.{0,3}DCC SEND "/
 		or $msg =~ /^[0-9A-Za-z]{64}$/
 		or $msg =~ /RIZON\.NET/

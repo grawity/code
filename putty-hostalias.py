@@ -18,7 +18,7 @@ Usage:
 
 hostalias syntax:
 
-	entry: <aliases> = [<user>@][<hostmask>][:<port>]
+	entry: <aliases> = [<user>@][<hostmask>][:<port>] [puttyargs]
 
 	Aliases are comma-separated. Spaces are ignored. Hosts are lowercase'd.
 	
@@ -26,7 +26,8 @@ hostalias syntax:
 	
 	All asterisks "*" in <hostmask> are replaced with input.
 	
-	<hostmask> is not required if user and/or port are specified.
+	<hostmask> is not required if user and/or port are specified. (If you only
+	want to set puttyargs but keep user@host:port, set host to *)
 	
 	Aliases can be chained but not looped.
 
@@ -63,6 +64,7 @@ class addr():
 	
 	def __init__(s, input):
 		s.user, s.host, s.port = addr.split(input)
+		s.opts = []
 
 def read_aliases(file):
 	aliases = {}
@@ -72,10 +74,13 @@ def read_aliases(file):
 		if line == "" or line[0] == "#":
 			continue
 		else:
-			alias, target = line.lower().replace(" ", "").split("=", 1)
-			alias = alias.split(",")
+			alias, target = line.split("=", 1)
+			alias = alias.lower().replace(" ", "").split(",")
+			opts = target.split()
+			target = opts.pop(0).lower()
 			for i in alias:
 				aliases[i] = addr(target)
+				aliases[i].opts = opts[:]
 	fh.close()
 	return aliases
 
@@ -113,6 +118,8 @@ while host not in antiloop:
 			user = target.user
 		if port == None and target.port != None:
 			port = target.port
+
+		extargs += target.opts
 
 if host in antiloop[:-1]:
 	antiloop.append(t_host)

@@ -61,7 +61,17 @@ class addr():
 			port = None
 		
 		return user, host, port
-	
+
+	def gethost(self, input):
+		if self.host == "":
+			return self.host
+		elif self.host[0] == ".":
+			return input + self.host
+		elif "*" in target.host:
+			return self.host.replace("*", input)
+		else:
+			return self.host
+
 	def __init__(s, input):
 		s.user, s.host, s.port = addr.split(input)
 		s.opts = []
@@ -97,6 +107,16 @@ user, host, port = addr.split(host)
 
 aliases = read_aliases(alias_file)
 
+def dump():
+	defuser = user or ""
+	defport = port or 22
+	for k in aliases:
+		target = aliases[k]
+		print("%s = %s@%s:%s %s" % (k, target.user or defuser, target.host or k, target.port or defport, subprocess.list2cmdline(target.opts)))
+
+dump()
+#sys.exit()
+
 # resolve alias
 antiloop = []
 while host not in antiloop:
@@ -104,7 +124,7 @@ while host not in antiloop:
 	antiloop.append(host)
 	if host in aliases:
 		target = aliases[host]
-		
+
 		if target.host == "":
 			pass
 		elif target.host[0] == ".":
@@ -113,7 +133,7 @@ while host not in antiloop:
 			host = target.host.replace("*", host)
 		else:
 			host = target.host
-		
+
 		if user == None and target.user != None:
 			user = target.user
 		if port == None and target.port != None:

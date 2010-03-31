@@ -100,12 +100,22 @@ if pixels is False:
 size = len(pixels[0]), len(pixels)
 print "Loaded image: %dx%d" % size
 
-buffer = ""
-for row in pixels:
-	for pix in row:
-		buffer += pix
-# buffer = "".join(flatten(pixels))
+def store_image(pixels, output_file):
+	buffer = ""
+	for row in pixels:
+		for pix in row:
+			buffer += pix
+	# buffer = "".join(flatten(pixels))
 
-img = Image.fromstring("RGBA", size, buffer, "raw", "RGBA", 0, 1)
-img.save(output_file)
+	img = Image.fromstring("RGBA", size, buffer, "raw", "RGBA", 0, 1)
+	img.save(output_file)
+
+def store_raw(pixels, output_file):
+	img = open(output_file, "wb")
+	for row in pixels:
+		for pix in row:
+			img.write(pix)
+	img.close()
+
+store_image(pixels, output_file)
 print "Saved to %s" % output_file

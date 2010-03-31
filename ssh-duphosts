@@ -1,32 +1,27 @@
 #!/usr/bin/python
-# vim: fileencoding=utf-8
-
 # ssh-duphosts v1.0
 # Checks for duplicate entries in ~/.ssh/known_hosts
-#
-# (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
-# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
 import os
 
-dedup = False
+knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
+dedup = False # TODO: rename
 
 keys = {}
 
-knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
 fh = open(knownhosts_path, "r")
 
 # check for duplicates
 for line in fh:
 	line = line.strip()
-	if line == "" or line[0] == "#":
+	if line == "" or line.startswith("#"):
 		continue
 	
 	host, ktype, key = line.split(" ")
 	if (ktype, key) in keys:
-		keys[(ktype, key)].append(host)
+		keys[ktype, key].append(host)
 	else:
-		keys[(ktype, key)] = [ host ]
+		keys[ktype, key] = [host]
 
 # print results
 if dedup:

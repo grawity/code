@@ -1,5 +1,6 @@
 # grawity.theme, <grawity@gmail.com>
 # based on lt.theme
+# vi: ts=2 sw=2 et
 
 
 # When testing changes, the easiest way to reload the theme is with /RELOAD.
@@ -26,10 +27,10 @@
 # block below and sets "parameter1" into $0 and "parameter2" into $1 (you
 # can have more parameters of course). Templates can have subtemplates.
 # Here's a small example:
-#   /FORMAT format hello {colorify {underline world}}
-#   abstracts = { colorify = "%G$0-%n"; underline = "%U$0-%U"; }
+#		/FORMAT format hello {colorify {underline world}}
+#		abstracts = { colorify = "%G$0-%n"; underline = "%U$0-%U"; }
 # When irssi expands the templates in "format", the final string would be:
-#   hello %G%Uworld%U%n
+#		hello %G%Uworld%U%n
 # ie. underlined bright green "world" text.
 # and why "$0-", why not "$0"? $0 would only mean the first parameter,
 # $0- means all the parameters. With {underline hello world} you'd really
@@ -63,14 +64,7 @@ info_eol = "false";
 replaces = { "[]=" = "%K$*%n"; };
 
 abstracts = {
-  ##
-  ## generic
-  ##
-
-  # text to insert at the beginning of each non-message line
-  line_start = "%B-%W!%B-%n ";
-
-  # timestamp styling, nothing by default
+  line_start = "%K-%W-%K-%n ";
   timestamp = "%K$*%K%n";
 
   # any kind of text that needs hilighting, default is to bold
@@ -92,7 +86,7 @@ abstracts = {
   server = "%_$*%_";
 
   # some kind of comment is printed
-  comment = "[$*]";
+  comment = "%K(%n$*%K)%n";
 
   # reason for something is printed (part, quit, kick, ..)
   reason = "{comment $*}";
@@ -123,7 +117,6 @@ abstracts = {
   ##
 
   # the basic styling of how to print message, $0 = nick mode, $1 = nick
-  #msgnick = "%K<%W$0%w$1-%K>%n %|";
   msgnick = "%K<%W$0%w$1-%K>%n ";
 
   # message from you is printed. "msgownnick" specifies the styling of the
@@ -140,7 +133,7 @@ abstracts = {
   #  pubmsgmenick = "%K{msgnick $0 $1-%K}%n";
   #  pubmsghinick = "%K{msgnick $1 $0$2-%n%K}%n";
   #  ownprivmsgnick = "%K{msgnick  $*%K}%n";
-  #  privmsgnick = "%K{msgnick  %R$*%K}%n";
+  #  privmsgnick = "%K{msgnick	%R$*%K}%n";
 
   # $0 = nick mode, $1 = nick
   ownmsgnick = "{msgnick $0 $1-}";
@@ -200,25 +193,22 @@ abstracts = {
   # public action sent by others
   pubaction = "{action $*}";
 
-
-  ##
-  ## other IRC events
-  ##
-
-  # whois
-  whois = "%# $[8]0 : $1-";
+  whois = "%# %b$[-8]0 %K|%n $1-";
 
   # notices
-  ownnotice = "[%r$0 %K>%n %R$1-%K]%n ";
-  notice = "%K-%M$*%K-%n ";
+  notice_own = "{comment %bnotice %K-> %B$0}";
+  notice = "%K-%B$0%K-%n";
+
   pubnotice_channel = "%K:%m$*";
   #pvtnotice_host = " %K(%K$*%K)%n";
   pvtnotice_host = "";
   servernotice = "%g!$*%n ";
 
   # CTCPs
-  ownctcp = "[%r$0 %K>%n %R$1-%K]%n ";
-  ctcp = "%g$*%n";
+  ctcp_own = "{comment %pctcp %K-> %P$0}";
+  ctcp_req = "{comment %P$0 %K<- %pctcp}";
+  ctcp_reply = "{comment %P$0 %K<- %preply}";
+  ctcp_pubreply = "{comment %P$0 %K<- %preply %Kin {channel $1}}";
 
   # wallops
   wallop = "%W$*%n: ";
@@ -318,13 +308,24 @@ formats = {
     action_private_query = "{pvtaction_query $0}$2";
     action_public = "{pubaction $0}$1";
     action_public_channel = "{pubaction $0{msgchannel $1}}$2";
-    ctcp_requested = "{ctcp {hilight $0} {comment $1} requested CTCP {hilight $2} from {nick $4}}: $3";
-    ctcp_requested_unknown = "{ctcp {hilight $0} {comment $1} requested unknown CTCP {hilight $2} from {nick $4}}: $3";
-    notice_public = "{notice $0{pubnotice_channel $1}}$2";
-    notice_private = "{notice $0{pvtnotice_host $1}}$2";
-    ctcp_reply = "CTCP {hilight $0} reply from {nick $1}%N: $2";
-    ctcp_reply_channel = "CTCP {hilight $0} reply from {nick $1} in channel {channel $3}: $2";
-    ctcp_ping_reply = "CTCP {hilight PING} reply from {nick $0}: $1.$[-3.0]2 seconds";
+
+    ### sent
+    # target, command, args
+    own_ctcp = "{ctcp_own $0} $1-";
+    ### received
+    # nick, address, command, args, target
+    ctcp_requested = "{ctcp_req $0 $4} $2 $3";
+    ctcp_requested_unknown = "{ctcp_req $0 $4} %y(unknown)%n $2 $3";
+    # command, nick, replyargs
+    ctcp_reply = "{ctcp_reply $1} $0 {hilight $2}";
+    ctcp_reply_channel = "{ctcp_pubreply $1 $3} $0 {hilight $2}";
+    ctcp_ping_reply = "{ctcp_reply $0} ping: {hilight $1.$[-3.0]2} seconds";
+
+    ### sent
+    own_notice = "{notice_own $0} $1-";
+    ### received
+    notice_private = "{notice $0} $2";
+    notice_public = "{notice $0} $2";
   };
   "fe-common/core" = {
     pubmsg_me = "{pubmsgmenick $2 {menick $0}}$1";

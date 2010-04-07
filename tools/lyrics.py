@@ -3,16 +3,17 @@
 import sys
 import getopt
 
-# Turn off text mode stdio on Windows (otherwise it writes CR CR LF)
-if sys.platform == "win32":
-	import os, msvcrt
-	msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
-
 try:
 	import mutagen.mp3, mutagen.id3
 except ImportError:
 	print >> sys.stderr, "The mutagen library is not installed."
 	sys.exit(42)
+
+# Turn off text mode stdio on Windows (otherwise it writes CR CR LF)
+if sys.platform == "win32":
+	import os, msvcrt
+	for fd in (sys.stdin, sys.stdout, sys.stderr):
+		msvcrt.setmode(fd.fileno(), os.O_BINARY)
 
 def write_id3(file, lyrics):
 	tag = mutagen.mp3.MP3(file)
@@ -50,7 +51,7 @@ for opt, value in options:
 	elif opt == "-f": lyricsfile = value
 
 if mode == "input":
-	if lyricsfile is none:
+	if lyricsfile is None:
 		f = sys.stdin
 	else:
 		f = open(lyricsfile, "r")
@@ -61,7 +62,7 @@ if mode == "input":
 		write_id3(file, lyrics)
 		
 elif mode == "output":
-	if lyricsfile is none:
+	if lyricsfile is None:
 		f = sys.stdout
 	else:
 		f = open(lyricsfile, "w")

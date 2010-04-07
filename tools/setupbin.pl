@@ -23,7 +23,9 @@ ln gist => "*.pl";
 ln getnetrc => "*.pl";
 ln getpaste => "*.pl";
 ln rdt => "*.php";
+ln settermtitle => "tools/*.pl";
 ln sshupdate => "*.sh";
 ln urlencode => "*.pl";
+ln useshare => "tools/*";
 
 cc bgrep => "tools/bgrep.c";

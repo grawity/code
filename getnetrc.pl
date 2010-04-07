@@ -20,14 +20,14 @@ sub msg_help {
   -f  format the output as specified (default is %l:%p)
   -u  URL-encode each item separately
 
-These format strings are understood:
+Format strings:
   %m, %h       machine (hostname)
   %l, %u       login (username)
   %p           password
   %a           account
   %%, %n, %0   percent sign, newline, null byte
-Everything else is taken literally.
 
+See manpage of ftp(1) for description of .netrc
 The .netrc file format is described in the manual page of ftp(1).
 ';
 	return 0;
@@ -47,6 +47,7 @@ sub uri_encode($) {
 	return $_;
 }
 
+### Command line options
 my $format = "%l:%p";
 my $format_url_encode = 0;
 my $no_default = 0;
@@ -61,10 +62,12 @@ my $machine = shift @ARGV;
 my $login = shift @ARGV;
 exit msg_usage if !defined $machine;
 
+### Look up netrc entry
 my $entry = Net::Netrc->lookup($machine, $login);
 
 exit 1 if (!defined $entry) or (!defined $entry->{machine} and $no_default);
 
+### Display results
 my %output = (
 	a => $entry->{account},
 	h => $entry->{machine},

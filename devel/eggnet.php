@@ -46,10 +46,10 @@ function eggnet_parse($instr, $args) {
 		# * prefix for a type means the value is prefixed by privilege level
 		if ($type[0] == "*") {
 			$type = substr($type, 1);
-			$levelsign = $invalue[0];
+			$flag = $invalue[0];
 			$invalue = substr($invalue, 1);
 		}
-		else $levelsign = null;
+		else $flag = null;
 		
 		switch ($type) {
 			case "i:h@b": # idx:handle@bot
@@ -59,24 +59,22 @@ function eggnet_parse($instr, $args) {
 				break;
 			case "h@b": # handle@bot
 				$res = new addr();
+				if ($pos = strpos($invalue, ":")) $invalue = substr($invalue, $pos+1);
 				list ($res->handle, $res->bot) = explode("@", $invalue, 2);
 				break;
 			case "str": # string
 				$res = $invalue;
 				break;
-			case "int": # integer (base64 in newnet mode)
+			case "int":
 				$res = btoi($invalue);
 				break;
 			case "int10": # integer (decimal)
 				$res = intval($invalue, 10);
 				break;
-			case "b64": # integer (base64)
-				$res = b64_int($invalue);
-				break;
 		}
 		
-		if ($levelsign !== null)
-			$out[] = array($levelsign, $res);
+		if ($flag !== null)
+			$out[] = array($flag, $res);
 		else
 			$out[] = $res;
 	}
@@ -90,15 +88,6 @@ function parse_route($route) {
 }
 
 require "eggnet_base64.php";
-
-function btoi($in) {
-	global $newnet;
-	return $newnet? b64_int($in) : intval($in, 10);
-}
-function itob($in) {
-	global $newnet;
-	return $newnet? int_b64($in) : (string)$in;
-}
 
 function err($text = "", $exitval = 0) {
 	fwrite(STDERR, $text."\n");
@@ -144,7 +133,6 @@ $botnet = array();
 $options = array(
 	'DEBUG' => false,
 	'USE_CHALLENGE' => true,
-	'USE_NEWNET' => true,
 );
 
 array_shift($argv);
@@ -161,7 +149,6 @@ foreach ($argv as $arg) {
 	endswitch;
 		
 	switch ($option):
-	case "n": $options["USE_NEWNET"] = $value; break;
 	case "d": $options["DEBUG"] = $value; break;
 	endswitch;
 }
@@ -199,8 +186,6 @@ do {
 
 strtok($in, " ");
 $challenge = strtok($in);
-
-$newnet = USE_NEWNET and $challenge;
 
 if ($challenge and USE_CHALLENGE) {
 	plog("[connect] Authenticating (MD5)\n");
@@ -250,110 +235,42 @@ while (true):
 
 	switch ($in_cmd):
 	case "": break;
-	
-	case "actchan": case "a":
-		rcmd_actchan($in_arg); break;
-	
-	case "*bye":
-		# unlink ack
+	case "a":	rcmd_actchan($in_arg); break;
+	case "*bye": # unlink ack
 		err("Unlinked.\n", 1);
 		break;
-	
-	case "bye":
-		# unlink request
+	case "bye": # unlink req
 		$reason = $in_arg;
 		err("Unlinked by remote: $reason\n", 1);
 		break;
-	
-	case "chan": case "c":
-		rcmd_chan($in_arg); break;
-	
-	case "chat": case "ct":
-		# message by a bot
-		$a = scan($in_arg, "source:str", "msg:str");
-		
-		printf("[bot] *%s* %s\n", $a->source, $a->msg);
-		break;
-	
+	case "c":	rcmd_chan($in_arg); break;
+	case "ct":	rcmd_chat($in_arg); break;
 	case "el":
-		# end link
-		# ()
 		$linking = false;
-		
 		h_bot_linked($remote_handle, $my_handle);
 		break;
-	
 	case "error":
 		rcmd_error($in_arg); break;
-	
-	case "info?": case "i?":
-		rcmd_infop($in_arg); break;
-	
-	case "join": case "j":
-		rcmd_join($in_arg); break;
-
-	case "motd": case "m":
-		rcmd_motd($in_arg); break;
-	
-	case "n":
-		rcmd_nlinked($in_arg, true); break;
-		
-	case "nlinked":
-		rcmd_nlinked($in_arg, false); break;
-	
-	case "ping": case "pi":
+	case "handshake":
+		rcmd_handshake($in_arg); break;
+	case "i?":	rcmd_infop($in_arg); break;
+	case "j":	rcmd_join($in_arg); break;
+	case "m":	rcmd_motd($in_arg); break;
+	case "n":	rcmd_nlinked($in_arg); break;
+	case "pi":
 		$last_recv_ping = time();
-		puts($newnet?"po":"pong");
+		puts("po");
 		break;
+	case "po":	break;
+	case "p":	rcmd_priv($in_arg); break;
+	case "pt":	rcmd_part($in_arg); break;
+	case "r":	rcmd_reject($in_arg); break;
+	case "t":	rcmd_trace($in_arg); break;
+	case "td":	rcmd_traced($in_arg); break;
+	case "tb":	rcmd_thisbot($in_arg); break;
+	case "un":	rcmd_unlinked($in_arg); break;
 	
-	case "pong": case "po":
-		break;
-	
-	case "priv": case "p":
-		# bot_privmsg (src_bot, dest_ihb, *text)
-		$a = scan($in_arg, "source:ihb", "dest:str", "msg:str");
-		if (strpos($a->dest, ":@")) {
-			list ($handle, $bot) = explode("@", $a->dest);
-			$a->dest = new addr("$handle@$bot");
-			plog("[note] (%s@%s -> %s@%s) %s\n", $a->source->handle, $a->source->bot, $a->dest->handle, $a->dest->bot, $a->msg);
-			h_note($a->source, $a->dest, $a->msg);
-		}
-		else {
-			plog("[priv] (%s -> %s) %s\n", $a->source, $a->dest, $a->msg);
-		}
-		break;
-	
-	case "reject": case "r":
-		rcmd_reject($in_arg); break;
-	
-	case "trace": case "t":
-		# trace (src_ihb, dest_bot, path)
-		$a = scan($in_arg, "user:ihb", "dest:str", "path:str");
-		h_trace($a->user, $a->dest, $a->path);
-		break;
-	
-	case "traced": case "td":
-		# traced (src_ihb, path)
-		$a = scan($in_arg, "user:ihb", "path:str");
-		h_trace_reply($a->user, $a->path);
-		break;
-	
-	case "thisbot": $newnet = false;
-	case "tb":
-		rcmd_thisbot($in_arg); break;
-	
-	case "un":
-		# bot unlinked (bot, notice)
-		$a = scan($in_arg, "bot:str", "text:str");
-		h_bot_unlinked($a->bot);
-		break;
-	
-	case "unlinked":
-		$a = scan($in_arg, "bot:str");
-		h_bot_unlinked($a->bot);
-		break;		
-	
-	case "unlink": case "ul":
+	case "ul":
 		# unlink requested
 		$a = scan($in_arg, "source:ihb", "nexthop:str", "dest:str");
 		plog("[botnet] unlink req: %s (by %s)\n", $a->dest, $a->source);
@@ -361,54 +278,10 @@ while (true):
 	
 	case "version":
 		rcmd_version($in_arg); break;
-	
-	case "who": case "w":
-		# remote who (src_ihb, dest_bot, channel)
-		$a = scan($in_arg, "source:ihb", "dest:str", "channel:int");
-		
-		printf("[who?] %s -> %s (channel %d)\n", $a->source, $a->dest, $a->channel);
-		#if ($a->dest == $my_handle) {
-		#	foreach (explode("\n", `qwinsta`) as $line)
-		#		cmd_priv($a->source, preg_replace('|^>|', '*', $line));
-		#}
-		break;
-	
+	case "w":	rcmd_who($in_arg); break;
+	case "z":	rcmd_zapf($in_arg); break;
 	default:
 		echo "<<< ", $in, "\n";
 	
 	endswitch;
 endwhile;
-
-
-/*
-	
-case 'nlinked': case 'nl':
-	$handle = snip($in);
-	$thru = snip($in);
-	$version = snip($in);
-	$share = $version[0] == '+';
-	bot($handle);
-	bot($thru);
-	$botnet[$handle]["downlink"] = $thru;
-	$botnet[$thru]["uplinks"][] = $handle;
-	
-	echo "Uplinked: {$handle} (through {$thru})\n";
-	
-	break;
-
-case 'idle': case 'i':
-	$handle = snip($in);
-	$idx = snip($in); $idx = $Newnet? b64toint($idx) : intval($idx);
-	$time = snip($in); $time = $Newnet? b64toint($time) : intval($time);
-	echo "Idle: {$handle} [{$idx}] = {$time}\n";
-
-default:
-	e("\033[31mtodo: [{$cmd}] {$in}\033[m");
-
-endswitch;
-
-#sleep(1);
-
-endwhile;
-
-*/

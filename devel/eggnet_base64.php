@@ -2,7 +2,7 @@
 ## New-eggnet modified base64
 
 # botcmd.c:base64_to_int()
-function b64_int($value) {
+function btoi($value) {
 	$table = array(
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
 		0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -30,7 +30,7 @@ function b64_int($value) {
 }
 
 # botmsg.c:int_to_base64()
-function int_b64($value) {
+function itob($value) {
 	$table = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]';
 	$buf = "";
 	if (!$value) {

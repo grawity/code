@@ -6,5 +6,5 @@ $link_pass = "o22ue235qmrkz";
 $link_ssl = false;
 
 const MY_VERSION = "foodrop v0.1";
-const DEBUG = true;
+const DEBUG = false;
 const USE_CHALLENGE = true;

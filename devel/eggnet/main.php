@@ -20,6 +20,8 @@ function putlog(/*$format, @args*/) {
 
 function gets() {
 	global $socket;
+	if (!is_resource($socket))
+		err("[net read] Socket closed", 1);
 	$line = fgets($socket);
 	if ($line === false)
 		return false;
@@ -30,6 +32,8 @@ function gets() {
 
 function putsf(/*$format, @args*/) {
 	global $socket;
+	if (!is_resource($socket))
+		err("[net write] Socket closed", 1);
 	$args = func_get_args();
 	$format = array_shift($args);
 	$str = vsprintf($format, $args);
@@ -38,11 +42,15 @@ function putsf(/*$format, @args*/) {
 }
 function puts(/*@args*/) {
 	global $socket;
+	if (!is_resource($socket))
+		err("[net write] Socket closed", 1);
 	$args = func_get_args();
 	$str = implode(" ", $args);
 	fwrite($socket, $str."\n");
 	if (DEBUG) echo "--> $str\n";
 }
+
+function linked() { global $linking; return !$linking; }
 
 require "./base64.php";
 require "./address.class.php";
@@ -52,6 +60,7 @@ require "./botnet_out.php";
 require "./events.php";
 
 $botnet = array();
+$partyline = array();
 
 $link_url = ($link_ssl?"ssl":"tcp")."://{$link_host}:{$link_port}";
 
@@ -94,8 +103,7 @@ else {
 
 switch(gets()) {
 case '*hello!':
-	putlog("[auth] Logged in\n");
-	break;
+	goto logged_in;
 case 'badpass':
 	err("[auth] Password rejected", 1); 
 	break;

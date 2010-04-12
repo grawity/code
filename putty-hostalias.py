@@ -46,25 +46,23 @@ Example hostalias entries:
 	mail, log = adm-*.example.com:21032
 """
 
-class addr():
-	@classmethod
-	def split(self, input):
-		user, host, port = None, input, None
-		if "@" in host:
-			user, host = host.split("@", 2)
-		if ":" in host:
-			host, port = host.split(":", 2)
-		
-		try:
-			port = int(port)
-		except TypeError:
-			port = None
-		
-		return user, host, port
+def split_address(address):
+	user, host, port = None, address, None
+	if "@" in host:
+		user, host = host.split("@", 2)
+	if ":" in host:
+		host, port = host.split(":", 2)
+	try:
+		port = int(port)
+	except TypeError:
+		port = None
+	
+	return user, host, port
 
+class addr():
 	def gethost(self, input):
-		if self.host == "":
-			return self.host
+		if self.host == "" or self.host is None:
+			return ""
 		elif self.host[0] == ".":
 			return input + self.host
 		elif "*" in target.host:
@@ -72,27 +70,39 @@ class addr():
 		else:
 			return self.host
 
-	def __init__(s, input):
-		s.user, s.host, s.port = addr.split(input)
-		s.opts = []
+	def __init__(s):
+		s.user, s.host, s.port, s.opts = None, None, None, []
 
 def read_aliases(file):
-	aliases = {}
-	fh = open(file, "r")
-	for line in fh:
+	alias_map = {}
+	for line in open(file, "r"):
 		line = line.strip()
-		if line == "" or line[0] == "#":
-			continue
-		else:
-			alias, target = line.split("=", 1)
-			alias = alias.lower().replace(" ", "").split(",")
-			opts = target.split()
-			target = opts.pop(0).lower()
-			for i in alias:
-				aliases[i] = addr(target)
-				aliases[i].opts = opts[:]
-	fh.close()
-	return aliases
+		if line == "" or line[0] == "#": continue
+		
+		alias_name, target = line.split("=", 1)
+		alias_name = alias_name.lower().replace(" ", "").split(",")
+		
+		target_address = addr()
+		
+		for i in target.split():
+			if i.startswith("-"):
+				target_address.opts.append(i)
+			else:
+				target_address.user, target_address.host, target_address.port = split_address(i)
+		
+		for i in alias_name:
+			if i not in alias_map:
+				alias_map[i] = addr()
+			
+			if target_address.user:
+				alias_map[i].user = target_address.user	
+			if target_address.host:
+				alias_map[i].host = target_address.host
+			if target_address.port:
+				alias_map[i].port = target_address.port
+			
+			alias_map[i].opts.extend(target_address.opts)
+	return alias_map
 
 if len(sys.argv) >= 2:
 	host = sys.argv.pop()
@@ -103,7 +113,7 @@ else:
 		file=sys.stderr)
 	sys.exit(2)
 
-user, host, port = addr.split(host)
+user, host, port = split_address(host)
 
 aliases = read_aliases(alias_file)
 
@@ -114,7 +124,7 @@ def dump():
 		target = aliases[k]
 		print("%s = %s@%s:%s %s" % (k, target.user or defuser, target.host or k, target.port or defport, subprocess.list2cmdline(target.opts)))
 
-dump()
+#dump()
 #sys.exit()
 
 # resolve alias

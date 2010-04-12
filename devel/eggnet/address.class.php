@@ -5,11 +5,13 @@ class address {
 	
 	function __construct($str=null) {
 		if (!strlen($str)) return;
-		if ($p = strpos($str, ":")) {
+		$p = $p = strpos($str, ":");
+		if ($p !== false) {
 			$this->idx = (int) substr($str, 0, $p);
 			$str = substr($str, ++$p);
 		}
-		if ($p = strpos($str, "@")) {
+		$p = strpos($str, "@");
+		if ($p !== false) {
 			$this->handle = substr($str, 0, $p);
 			$str = substr($str, ++$p);
 		}

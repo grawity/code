@@ -2,6 +2,12 @@
 <?php
 define("STARTED", time());
 
+const EVENT_STOP = false;
+const EVENT_CONTINUE = true;
+
+const EVENT_ADD_LAST = false;
+const EVENT_ADD_FIRST = true;
+
 require "./config.php";
 
 function noop() { }
@@ -16,6 +22,13 @@ function putlog(/*$format, @args*/) {
 	$format = array_shift($args)."\n";
 	vprintf($format, $args);
 	#global $log; vfprintf($log, $format, $args);
+}
+
+function loaded() {
+	$trace = debug_backtrace();
+	$file = basename($trace[0]["file"]);
+	putlog("Loaded %s", $file);
+	event("mod loaded", $file);
 }
 
 function gets() {
@@ -52,12 +65,21 @@ function puts(/*@args*/) {
 
 function linked() { global $linking; return !$linking; }
 
+function is_linked($bot) {
+	global $botnet;
+	return array_key_exists($bot, $botnet);
+}
+
 require "./base64.php";
 require "./address.class.php";
 require "./parse.php";
+
+require "./event_core.php";
 require "./botnet_in.php";
 require "./botnet_out.php";
-require "./events.php";
+require "./event_handlers.php";
+
+require "./note_forward.php";
 
 $botnet = array();
 $partyline = array();
@@ -70,14 +92,14 @@ if (!$socket)
 
 putlog("connected to %s:%s", $link_host, $link_port);
 
-puts($my_handle);
+puts(MY_HANDLE);
 
 do {
 	$in = gets();
 	if ($in == "You don't have access.")
-		err("[link] '$my_handle' not recognized by remote", 1);
+		err("[link] '".MY_HANDLE."' not recognized by remote", 1);
 	elseif (substr($in, -1) == "\x01")
-		err("[link] User '$my_handle' lacks +b flag in remote", 1);
+		err("[link] User '".MY_HANDLE."' lacks +b flag in remote", 1);
 	elseif (substr($in, 0, 8) == "passreq ")
 		break;
 	elseif ($in == "*hello!") {

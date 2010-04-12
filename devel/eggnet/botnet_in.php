@@ -1,10 +1,33 @@
 <?php
+global $botnet_commands;
+
+# << s u?
+# >> s un Blah blah
+# >> s uy exempts invites compress
+# << s us 2130706433 38679 192
+
 $botnet_commands = array(
 	# actchan
 	"a" => function ($cmd, $args) {
 		list($from, $chan, $msg) = parse_args($args, "h@b int str");
 		putlog("[chan/%d] action: <%s> %s", $chan, $from, $msg);
 		event("partyline action", $from, $chan, $msg);
+	},
+	
+	# away
+	"aw" => function ($cmd, $args) {
+		list($bot, $idx, $msg) = parse_args($args, "str int str");
+		
+		if ($msg == null)
+			event("partyline unaway", $bot, $idx);
+		else
+			event("partyline away", $bot, $idx, $msg);
+	},
+	
+	"bye" => function ($cmd, $args) {
+		$reason = $args;
+		putlog("Disconnected by remote.");
+		global $socket; fclose($socket);
 	},
 	
 	# chan
@@ -16,8 +39,8 @@ $botnet_commands = array(
 	
 	# el
 	"el" => function ($cmd, $args) {
-		global $linking;
-		event("linked");
+		global $linking, $remote_handle;
+		event("linked", $remote_handle);
 		$linking = false;
 	},
 	
@@ -30,15 +53,18 @@ $botnet_commands = array(
 	# info?
 	"i?" => function ($cmd, $args) {
 		list($reqr) = parse_args($args, "i:h@b");
-		send_priv($reqr, MY_VERSION);
+		send_botpriv($reqr, MY_VERSION);
 	},
 	
 	# join
 	"j" => function ($cmd, $args) {
 		$who = new address();
 		list($who->bot, $who->handle, $chan, list($flag, $who->idx), $userhost) = parse_args($args, "str str int *int str");
-		if ($who->bot[0] == "!") $who->bot = substr($who->bot, 1);
-		putlog("[chan/%d] join: %s (%s)", $chan, $who, $userhost);
+		
+		# 'linking'
+		if ($who->bot[0] == "!")
+			$who->bot = substr($who->bot, 1);
+		
 		event("partyline join", $who, $chan, $userhost);
 	},
 	
@@ -56,6 +82,17 @@ $botnet_commands = array(
 		event("botnet linked", $bot, $thru);
 	},
 	
+	# nickchange
+	"nc" => function ($cmd, $args) {
+		list($bot, $idx, $newnick) = parse_args($args, "str int str");
+		event("partyline nickchange", $bot, $idx, $newnick);
+	},
+	
+	"p" => function ($cmd, $args) {
+		list($from, $to, $msg) = parse_args($args, "i:h@b i:h@b str");
+		event("priv received", $from, $to, $msg);
+	},
+	
 	# ping
 	"pi" => function ($cmd, $args) {
 		global $last_recv_ping;
@@ -69,28 +106,48 @@ $botnet_commands = array(
 	# part
 	"pt" => function ($cmd, $args) {
 		$who = new address();
-		list($who->bot, $who->handle, $who->idx) = parse_args($args, "str str int");
-		putlog("[chan/*] part: %s", $who);
+		list($who->bot, $who->handle, $who->idx, $reason) = parse_args($args, "str str int str");
 		event("partyline part", $who);
 	},
 	
+	# share
+	"s" => function ($cmd, $args) {
+		list($shcmd, $shargs) = parse_args($args, "str str");
+		switch ($shcmd) {
+			case "u?":
+				## Unimplemented
+				puts("s", "un", "Not implemented");
+				break;
+			case "uy":
+				## Unimplemented
+				break;
+			case "un":
+				## Unimplemented
+				$reason = $shargs;
+				break;
+			case "us":
+				## Unimplemented
+				list($addr, $port, $smth) = parse_args($shargs, "int10 int10 int10");
+				break;
+		}
+	},			
+	
 	# trace
 	"t" => function ($cmd, $args) {
-		global $my_handle;
 		list($reqr, $dest, $pathsz) = parse_args($args, "i:h@b str str");
-		if ($dest == $my_handle) {
-			puts("td", $reqr, "$pathsz:$my_handle");
+		if ($dest == MY_HANDLE) {
+			puts("td", $reqr, $pathsz.":".MY_HANDLE);
 		}
-				
+		
 		list($timestamp, $via) = parse_route($pathsz);
-		putlog("[trace] request from %s@%s to %s (via %s)\n", $reqr->handle, $reqr->bot, $dest, implode("!", $via));
+		putlog("[trace] request from %s@%s to %s (via %s)", $reqr->handle, $reqr->bot, $dest, implode("!", $via));
 	},
 	
 	# thisbot
 	"tb" => function ($cmd, $args) {
-		global $my_handle, $remote_handle;
+		global $remote_handle;
 		list($remote_handle) = parse_args($args, "str");
-		puts("tb", $my_handle);
+		puts("tb", MY_HANDLE);
 	},
 	
 	# unlinked
@@ -99,18 +156,30 @@ $botnet_commands = array(
 		event("botnet unlinked", $bot);
 	},
 	
-	# version
-	"version" => function ($cmd, $args) {
-		global $handlen;
-		list($verno, $handlen, $version) = parse_args($args, "str int10 str");
-		putlog("[link] peer version: %s", $version);
-		puts("version", $verno, $handlen, MY_VERSION);
+	# version (newnet)
+	"v" => function ($cmd, $args) use ($botnet_commands) {
+		$botnet_commands["version"]($cmd, $args);
 	},
 	
-	/*
+	# version
+	"version" => function ($cmd, $args) {
+		if (linked()) {
+			# unimplemented
+		}
+		else {
+			global $handlen;
+			list($verno, $handlen, $version) = parse_args($args, "str int10 str");
+			putlog("[link] peer version: %s", $version);
+			puts($cmd, $verno, $handlen, MY_VERSION);
+		}
+	},
+	
 	# who
 	"w" => function ($cmd, $args) {
 		list($reqr, $destbot, $chan) = parse_args($args, "i:h@b str int");
+		if ($destbot == MY_HANDLE)
+			event("requested who", $reqr);
 	},
-	*/
 );
+
+loaded();

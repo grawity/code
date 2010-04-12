@@ -5,6 +5,11 @@ function parse_args($args, $types) {
 	$parsed = array();
 	foreach ($types as $i => $type) {
 		if ($type == "skip") continue;
+		
+		if (!isset($args[$i])) {
+			$parsed[] = null;
+			continue;
+		}
 
 		$in = $args[$i];
 		$out = null;
@@ -19,15 +24,11 @@ function parse_args($args, $types) {
 		
 		switch ($type) {
 			case "i:h@b": # idx:handle@bot
-				$out = new address();
-				list ($in, $out->bot) = explode("@", $in, 2);
-				list ($out->idx, $out->handle) = explode(":", $in, 2);
+				$out = new address($in);
 				break;
 			case "h@b": # handle@bot
-				$out = new address();
-				list ($out->handle, $out->bot) = explode("@", $in, 2);
-				if ($pos = strpos($out->handle, ":"))
-					$out->handle = substr($out->handle, $pos+1);
+				$out = new address($in);
+				$out->idx = null;
 				break;
 			case "str": # string
 				$out = $in;

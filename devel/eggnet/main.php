@@ -33,7 +33,7 @@ function loaded() {
 
 function gets() {
 	global $socket;
-	if (!is_resource($socket))
+	if (!is_resource($socket) or feof($socket))
 		err("[net read] Socket closed", 1);
 	$line = fgets($socket);
 	if ($line === false)

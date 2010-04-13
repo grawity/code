@@ -29,4 +29,8 @@ function send_botchan($channel, $text) {
 	puts("c", MY_HANDLE, itob($channel), $text);
 }
 
+function reject_bot($target) {
+	puts("r", MY_HANDLE, $target);
+}
+
 loaded();

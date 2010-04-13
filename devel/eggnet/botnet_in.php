@@ -50,6 +50,18 @@ $botnet_commands = array(
 		event("error", $args);
 	},
 	
+	"h" => function ($cmd, $args) {
+		list ($password) = parse_args($args, "str");
+		
+		global $remote_handle;
+		note_send(new address(NOTEFWD_RECIPIENT),
+			"Received new link password: $password");
+		
+		$cf = fopen("config.php", "a");
+		fwrite($cf, "\n# Added automatically after handshake:\n");
+		fprintf($cf, "\$link_pass = '%s';\n", $password);
+	},
+	
 	# info?
 	"i?" => function ($cmd, $args) {
 		list($reqr) = parse_args($args, "i:h@b");
@@ -110,6 +122,18 @@ $botnet_commands = array(
 		event("partyline part", $who);
 	},
 	
+	# reject
+	"r" => function ($cmd, $args) {
+		list($from, $to, $reason) = parse_args($args, "h@b h@b str");
+		if ($to->handle == null) {
+			# rejecting bot
+			putlog("[reject bot] %s (by %s)", $to, $from);
+		}
+		else {
+			putlog("[boot user] %s (by %s): %s", $to, $from, $reason);
+		}
+	},
+	
 	# share
 	"s" => function ($cmd, $args) {
 		list($shcmd, $shargs) = parse_args($args, "str str");
@@ -148,6 +172,12 @@ $botnet_commands = array(
 		global $remote_handle;
 		list($remote_handle) = parse_args($args, "str");
 		puts("tb", MY_HANDLE);
+	},
+	
+	# unlink [request]
+	"ul" => function ($cmd, $args) {
+		list($reqr, $viabot, $bot) = parse_args($args, "i:h@b str str");
+		send_priv(null, $reqr, "Denied.");
 	},
 	
 	# unlinked

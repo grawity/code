@@ -4,7 +4,8 @@ $notes = array();
 ## Forwarded note format:
 ## <via >originalfrom text
 
-function note_send($from, $to, $msg) {
+function note_send($to, $msg) {
+	$from = new address("@".MY_HANDLE);
 	send_priv($from, $to, $msg);
 }
 
@@ -106,17 +107,11 @@ add_handler("note received", function ($from, $to, $msg) {
 		}
 	}
 	else {
-		note_maybe_fwd($from, new address("grawity@feir"), $msg);
+		$to = new address(NOTEFWD_RECIPIENT);
+		note_maybe_fwd($from, $to, $msg);
 		send_priv(null, $from, "Note sent to $to.");
 	}
 });
-
-add_handler("priv received", function ($from, $to, $msg) {
-	if ($from->handle !== null) {
-		event("note received", $from, $to, $msg);
-		return EVENT_STOP;
-	}
-}, EVENT_ADD_FIRST);
 
 notes_fs_read();
 

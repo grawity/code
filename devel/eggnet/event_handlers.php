@@ -37,11 +37,11 @@ add_handler("botnet unlinked", function ($bot) {
 });
 
 add_handler("partyline message", function ($from, $chan, $msg) {
-	if ($from->bot == "feir" and $msg[0] == "/") {
+	if ($from("hb") == "grawity@neph" and $msg[0] == "/") {
 		$msg = substr($msg, 1);
 		$cmd = strtok($msg, " ");
 		$args = strtok("");
-		if ($cmd == "/") {
+		if ($cmd == "raw") {
 			putlog("<DEBUG> raw: %s", $args);
 			puts($args);
 		}
@@ -122,6 +122,11 @@ add_handler("requested who", function ($reqr) {
 });
 
 add_handler("priv received", function ($from, $to, $msg) {
+	if ($from->handle !== null) {
+		event("note received", $from, $to, $msg);
+		return EVENT_STOP;
+	}
+	
 	putlog("[priv] <%s to %s> %s", $from, $to("hb"), $msg);
 });
 

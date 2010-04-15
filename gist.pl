@@ -56,7 +56,7 @@ sub build_post_data {
 			do {
 				local $/ = undef;
 				$data{"file_contents[gistfile$i]"} = <$fh>;
-			}
+			};
 			close $fh;
 			$i++;
 		}
@@ -100,6 +100,7 @@ if ($response->code == 302) {
 	}
 }
 else {
+	print "gist error: ", $response->header("status"), "\n";
 	print $response->decoded_content;
 	exit 1;
 }

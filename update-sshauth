@@ -5,7 +5,6 @@ if [ "$( id -u )" -eq 0 ]
 	else SOURCE_URL="${SOURCE_DIR}authorized_keys.txt"
 fi
 SIGNER_KEY="D24F6CB2C1B52632"
-KEYSERVERS=( keyserver.noreply.org pool.sks-keyservers.net keyserver.ubuntu.com )
 
 umask 077
 mkdir -p ~/.ssh/
@@ -17,15 +16,14 @@ shellquote() { echo \'${1//\'/\'\\\'\'}\'; } #'; }
 
 # download a file over HTTP 
 http_fetch() {
-	local UA="update-sshauth on $( id -un )@$( hostname )"
 	local URL="$1" OUT="$2"
 	[ -z "$OUT" ] && OUT=/dev/stdout
 	if have curl; then
-		curl -A "$UA" -LSs "$URL" --output "$OUT"
+		curl -LSs "$URL" --output "$OUT"
 	elif have wget; then
-		wget -U "$UA" -q "$URL" -O "$OUT"
+		wget -q "$URL" -O "$OUT"
 	elif have lynx; then
-		lynx --useragent="$UA" -source "$URL" > "$OUT"
+		lynx -source "$URL" > "$OUT"
 	elif have w3m; then
 		w3m -dump_source "$URL" > "$OUT"
 	elif have links; then
@@ -35,7 +33,7 @@ http_fetch() {
 	elif have perl && perl -MLWP::Simple -e"1"; then
 		perl -MLWP::Simple -e'getprint $ARGV[0]' "$URL" > "$OUT"
 	elif have python; then
-		python -c 'import sys, urllib2; sys.stdout.write(urllib2.urlopen(sys.argv[1])).read())' "$URL" > "$OUT"
+		python -u -c 'import sys, urllib2; sys.stdout.write(urllib2.urlopen(sys.argv[1])).read())' "$URL" > "$OUT"
 	elif have php && php -i | grep -qsi '^allow_url_fopen => on'; then
 		php -r 'echo file_get_contents(urlencode($argv[1])), FILE_BINARY);' "$URL" > "$OUT"
 	elif have php && php -i | grep -qs '^curl$'; then
@@ -49,12 +47,13 @@ http_fetch() {
 	fi
 }
 
-# download a GPG public key
-gpg_recv_key() {
-	local keyid="$1" server="$2"
+# update signer's GPG pubkey
+update_signer_key() {
+	$VERBOSE && echo "sshup: updating signer key"
+	local keyid="$SIGNER_KEY" server="pool.sks-keyservers.net"
 	$VERBOSE && echo "sshup: recv-key $keyid from $server"
 
-	local out="$( gpg --status-fd 3 3>&1 >& /dev/null --keyserver "$server" --recv-key "$keyid" )"
+	local out="$(gpg --status-fd 3 3>&1 >& /dev/null --keyserver "$server" --recv-key "$keyid")"
 	if ! grep -qs "^\\[GNUPG:\\] IMPORT_OK " <<< "$out"; then
 		echo "$out" >&2
 		return 1
@@ -64,22 +63,9 @@ gpg_recv_key() {
 	fi
 }
 
-# update signer's GPG pubkey, retrying several keyservers
-update_signer_key() {
-	$VERBOSE && echo "sshup: updating signer key"
-
-	for server in "${KEYSERVERS[@]}"; do
-		if gpg_recv_key "$SIGNER_KEY" "$server"
-			then return 0
-			else sleep 3
-		fi
-	done
-	return 1
-}
-
 rrfetch() {
 	local url="$1" output="$2"
-	local max_retries=5 retry_wait=3 attempt=0
+	local max_retries=3 retry_wait=3 attempt=0
 	while [ $(( ++attempt )) -le $max_retries ]; do
 		$VERBOSE && echo "sshup: fetching $url (attempt $attempt)"
 		http_fetch "$url" "$output"
@@ -108,11 +94,10 @@ verify_sig() {
 }
 
 VERBOSE=false
-SELFUPDATE=true
 while getopts "vr" option "$@"; do
 	case "$option" in
 	v) VERBOSE=true ;;
-	r) update_signer_key && echo -e "5\ny" | gpg --edit-key "$SIGNER_KEY" trust quit ;;
+	r) update_signer_key && gpg --edit-key "$SIGNER_KEY" trust quit ;;
 	esac
 done
 
@@ -127,7 +112,7 @@ if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
 	exit 1
 fi
 
-http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$( hostname )" /dev/null
+http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$(hostname)" /dev/null
 
 update_signer_key >&2 || exit 1
 

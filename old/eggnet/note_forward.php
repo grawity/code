@@ -78,12 +78,14 @@ function notes_fs_read() {
 	$f = fopen(NOTEFWD_STORAGE, "r");
 	if (!$f) return false;
 	$notes = array(); $count = 0;
-	while ($entry = fscanf($f, "%d %s %s %s\n")) {
+	while ($line = fgets($f)) {
+		$entry = explode(" ", rtrim($line), 4);
 		$recvtime = $entry[0];
 		$from = new address($entry[1]);
 		$to = new address($entry[2]);
 		$msg = $entry[3];
 		$notes[$to->bot][] = array($recvtime, $from, $to, $msg);
+		putlog("DEBUG load: time=%d from=%s to=%s msg=[%s]", $recvtime, $from, $to, $msg);
 		$count++;
 	}
 	fclose($f);

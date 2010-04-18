@@ -210,6 +210,24 @@ $botnet_commands = array(
 		if ($destbot == MY_HANDLE)
 			event("requested who", $reqr);
 	},
+	
+	# zapf
+	"z" => function ($cmd, $args) {
+		list($from, $to, $msg) = parse_args($args, "str str str");
+		if ($destbot == MY_HANDLE) {
+			event("zapf", $from, $to, $msg);
+			list($zcmd, $zargs) = parse_args($msg, "str str");
+			event("zapf $zcmd", $from, $to, $zcmd, $zargs);
+		}
+	},
+	
+	# zapf-broad
+	"zb" => function ($cmd, $args) {
+		list($from, $msg) = parse_args($args, "str str");
+		event("zapf", $from, null, $msg);
+		list($zcmd, $zargs) = parse_args($msg, "str str");
+		event("zapf $zcmd", $from, null, $zcmd, $zargs);
+	},
 );
 
 loaded();

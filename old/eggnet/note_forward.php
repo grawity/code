@@ -31,7 +31,7 @@ function note_forward($from, $to, $msg, $recvtime=false) {
 	$msg = sprintf(">%s %s", $from("hb"), $msg);
 	if (NOTEFWD_ADD_VIA)
 		$msg = sprintf("<%s %s", MY_HANDLE, $msg);
-	note_send(new address("@".MY_HANDLE), $to, $msg);
+	note_send($to, $msg);
 }
 
 # forward a note if bot is linked, store otherwise

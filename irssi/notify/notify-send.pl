@@ -105,18 +105,18 @@ sub on_message {
 	}
 }
 
-Irssi::signal_add("message public", sub {
+Irssi::signal_add "message public", sub {
 	on_message @_, "message"
-});
+};
 
-Irssi::signal_add("message private", sub  {
+Irssi::signal_add "message private", sub {
 	on_message @_, "private"
-});
+};
 
-Irssi::signal_add("message irc action", sub {
+Irssi::signal_add "message irc action", sub {
 	on_message @_, "action"
-});
+};
 
-Irssi::signal_add("message irc notice", sub {
+Irssi::signal_add "message irc notice", sub {
 	on_message @_, "notice"
-});
+};

@@ -40,12 +40,7 @@ eval {
 };
 
 sub xml_escape($) {
-	my ($_) = @_;
-	s/&/\&amp;/g;
-	s/</\&lt;/g;
-	s/>/\&gt;/g;
-	s/"/\&quot;/g;
-	return $_;
+	$_ = shift; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
 
 sub send_udp($$$$) {

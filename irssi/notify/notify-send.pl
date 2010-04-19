@@ -1,7 +1,8 @@
 #!/usr/bin/perl
 # Requirements:
 #   libnotify over DBus:
-#     Net::DBus
+#     preferred: Net::DBus module
+#     alternate: notify-send binary (from libnotify-bin)
 
 # Settings:
 #

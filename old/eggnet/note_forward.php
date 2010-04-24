@@ -98,7 +98,7 @@ add_handler("botnet linked", function ($bot, $thru) {
 });
 
 add_handler("note received", function ($from, $to, $msg) {
-	if ($to->handle == "") {
+	if ($to->handle == "" or $to->handle == "nfw") {
 		list($to, $msg) = parse_args($msg, "h@b str");
 		if ($to->handle == "" or $msg == null) {
 			send_priv(null, $from, "Usage: .note @".MY_HANDLE." user@bot notetext");

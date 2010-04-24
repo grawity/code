@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # A simple mutagen wrapper
+# Does mostly the same (and less) than "mid3v2" in mutagen distribution.
 
 import sys
 import getopt
@@ -12,12 +13,14 @@ except ImportError:
 	sys.exit(42)
 
 try:
-	shortopts, longopts = "A:a:d:g:t:", (
+	shortopts, longopts = "", (
 		"album=",
 		"artist=",
 		"date=",
 		"genre=",
 		"title=",
+		
+		"rewrite",
 		)
 	options, files = getopt.gnu_getopt(sys.argv[1:], shortopts, longopts)
 except getopt.GetoptError as e:
@@ -25,29 +28,27 @@ except getopt.GetoptError as e:
 	sys.exit(2)
 
 changes = []
+actions = []
 
-
-optmap = dict(
-	A="album", a="artist", d="date", g="genre", t="title"
-)
 for opt, value in options:
 	opt = opt.strip("-")
-	opt = optmap.get(opt, opt)
-	
-	value = unicode(value, "utf-8")
-	if opt == "date" and len(value):
-		try:
-			int(value)
-		except ValueError:
-			print >> sys.stderr, "Error: %(opt)s must be an integer" % locals()
-			sys.exit(1)
-	changes.append((opt, value))
+	value = unicode(value, "utf-8") if len(value) > 0 else None
+	if opt == "rewrite":
+		actions += (("rewrite"))
+	else:
+		if opt == "date" and value is not None:
+			try:
+				int(value)
+			except ValueError:
+				print >> sys.stderr, "Error: %(opt)s must be an integer" % locals()
+				sys.exit(1)
+		changes.append((opt, value))
 
 for file in files:
 	#tag = EasyID3(file)
 	tag = MP3(file, ID3=EasyID3)
 	
-	if len(changes) > 0:
+	if len(changes)+len(actions) > 0:
 		for key, value in changes:
 			if value == "":
 				value = None
@@ -65,6 +66,12 @@ for file in files:
 			else:
 				print "[%(key)s] \"%(old)s\" -> \"%(value)s\"" % locals()
 				tag[key] = [value]
+		
+		for k in actions:
+			action = k.pop(0)
+			if action == "rewrite":
+				pass # will do it anyway
+		
 		tag.save(v1=0) # kill ID3v1
 	else:
 		print "== %s" % file

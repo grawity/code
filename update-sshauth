@@ -6,9 +6,6 @@ if [ "$( id -u )" -eq 0 ]
 fi
 SIGNER_KEY="D24F6CB2C1B52632"
 
-umask 077
-mkdir -p ~/.ssh/
-
 have() { which "$1" &> /dev/null; }
 
 # used when I cannot figure out how to deal with argv in one-liners
@@ -30,14 +27,14 @@ http_fetch() {
 		links -source "$URL" > "$OUT"
 	elif have elinks; then
 		elinks -source "$URL" > "$OUT"
-	elif have perl && perl -MLWP::Simple -e"1"; then
-		perl -MLWP::Simple -e'getprint $ARGV[0]' "$URL" > "$OUT"
 	elif have python; then
 		python -u -c 'import sys, urllib2; sys.stdout.write(urllib2.urlopen(sys.argv[1])).read())' "$URL" > "$OUT"
-	elif have php && php -i | grep -qsi '^allow_url_fopen => on'; then
-		php -r 'echo file_get_contents(urlencode($argv[1])), FILE_BINARY);' "$URL" > "$OUT"
 	elif have php && php -i | grep -qs '^curl$'; then
 		php -r '$ch = curl_init($argv[1]); curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1); curl_exec($ch);' "$URL" > "$OUT"
+	elif have php && php -i | grep -qsi '^allow_url_fopen => on'; then
+		php -r 'echo file_get_contents(urlencode($argv[1])), FILE_BINARY);' "$URL" > "$OUT"
+	elif have perl && perl -MLWP::Simple -e"1"; then
+		perl -MLWP::Simple -e'getprint $ARGV[0]' "$URL" > "$OUT"
 	elif have tclsh; then
 		tclsh - <<< 'package require http; fconfigure stdout -translation binary; puts -nonewline [http::data [http::geturl [lindex $argv 1]]]' "$URL" > "$OUT"
 	else
@@ -49,7 +46,6 @@ http_fetch() {
 
 # update signer's GPG pubkey
 update_signer_key() {
-	$VERBOSE && echo "sshup: updating signer key"
 	local keyid="$SIGNER_KEY" server="pool.sks-keyservers.net"
 	$VERBOSE && echo "sshup: recv-key $keyid from $server"
 
@@ -85,7 +81,7 @@ verify_sig() {
 		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$out" ||
 		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$out"
 	then
-		{ echo "sshup: gpg $@"; echo "$out"; } >&2
+		{ echo "sshup: failed to verify $input"; echo "$out"; } >&2
 		return 1
 	else
 		$VERBOSE && echo "$out"
@@ -111,6 +107,8 @@ if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
 	echo "sshup: $SIGNER_KEY not found in gpg keyring" >&2
 	exit 1
 fi
+
+umask 077; mkdir -p ~/.ssh/
 
 http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$(hostname)" /dev/null
 

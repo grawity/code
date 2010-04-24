@@ -1,7 +1,8 @@
 #!/usr/bin/perl
 # Requirements:
 #   libnotify over DBus:
-#     Net::DBus
+#     preferred: Net::DBus module
+#     alternate: notify-send binary (from libnotify-bin)
 
 # Settings:
 #
@@ -40,12 +41,7 @@ eval {
 };
 
 sub xml_escape($) {
-	my ($_) = @_;
-	s/&/\&amp;/g;
-	s/</\&lt;/g;
-	s/>/\&gt;/g;
-	s/"/\&quot;/g;
-	return $_;
+	$_ = shift; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
 
 sub send_udp($$$$) {
@@ -110,18 +106,18 @@ sub on_message {
 	}
 }
 
-Irssi::signal_add("message public", sub {
+Irssi::signal_add "message public", sub {
 	on_message @_, "message"
-});
+};
 
-Irssi::signal_add("message private", sub  {
+Irssi::signal_add "message private", sub {
 	on_message @_, "private"
-});
+};
 
-Irssi::signal_add("message irc action", sub {
+Irssi::signal_add "message irc action", sub {
 	on_message @_, "action"
-});
+};
 
-Irssi::signal_add("message irc notice", sub {
+Irssi::signal_add "message irc notice", sub {
 	on_message @_, "notice"
-});
+};

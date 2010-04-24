@@ -1,35 +1,51 @@
 #!/usr/bin/perl
-# r20091107
+# r20100410
 use strict;
 #use brain;
 use IO::Socket;
 
-my ($bus, $notify, $dobject);
+sub xml_escape($) {
+	my ($_) = @_; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
+}
+
+### DBus libnotify
+
+my ($dbus, $libnotify, $dobject);
 eval {
 	require Net::DBus;
-	$bus = Net::DBus->session;
-	$notify = $bus->get_service("org.freedesktop.Notifications");
-	$dobject = $notify->get_object("/org/freedesktop/Notifications",
+	$dbus = Net::DBus->session;
+	$libnotify = $dbus->get_service("org.freedesktop.Notifications");
+	$dobject = $libnotify->get_object("/org/freedesktop/Notifications",
 		"org.freedesktop.Notifications");
 };
 
-sub xml_escape($) {
-	my ($_) = @_;
-	s/&/\&amp;/g;
-	s/</\&lt;/g;
-	s/>/\&gt;/g;
-	s/"/\&quot;/g;
-	return $_;
+sub send_libnotify($$$$) {
+	my ($appname, $icon, $title, $text) = @_;
+	$text = xml_escape($text);
+	if (defined $dobject) {
+		$dobject->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+	}
+	else {
+		my @args = ("notify-send");
+		push @args, "--icon=$icon" unless $icon eq "";
+		# category doesn't do the same as appname, but still useful
+		push @args, "--category=$appname" unless $appname eq "";
+		push @args, $title;
+		push @args, $text unless $text eq "";
+		system @args;
+	}
 }
 
-if (defined $bus) {
-	print "Net::DBus available\n";
+if (defined $dbus) {
+	print "DBus: using Net::DBus\n";
 }
 else {
-	print "Net::DBus not available, falling back to notify-send\n";
+	print "DBus: Net::DBus not available, falling back to notify-send\n";
 }
 
-my $ListenPort = shift @ARGV or 22754;
+### UDP listener (the main loop)
+
+my $ListenPort = shift @ARGV // 22754;
 
 my $socket = IO::Socket::INET->new(
 	Proto => 'udp',
@@ -39,38 +55,25 @@ my $socket = IO::Socket::INET->new(
 
 my ($message, $title, $text);
 
-print "Waiting for notifications on :$ListenPort\n";
+print "Waiting for notifications on *:$ListenPort\n";
 
 while ($socket->recv($message, 1024)) {
 	my ($port, $host) = sockaddr_in($socket->peername);
 	$host = join '.', unpack "C*", $host;
 
 	chomp $message;
-	my ($source, $icon, $title, $text) = split / \| /, $message, 4;
+	my ($appname, $icon, $title, $text) = split " | ", $message, 4;
 
-	print "from: $host:$port\n";
-	print "app: $source\n";
+	print "from:  $host:$port\n";
+	print "app:   $appname\n";
 	
 	if ($title eq "") { next; }
-	if ($source eq "") { $source = "unknown"; }
+	#if ($appname eq "") { $appname = "unknown"; }
 	
 	print "title: $title\n";
-	print "text: $text\n";
+	print "text:  $text\n";
 
-	$text = xml_escape($text);
-
-	if (defined $dobject) {
-		$dobject->Notify($source, 0, $icon, $title, $text, [], {}, 3000);
-	}
-	else {
-		my @args = ("notify-send");
-		push @args, "--icon=$icon" unless $icon eq "";
-		push @args, "--category=$source" unless $source eq "";
-		push @args, $title;
-		push @args, $text unless $text eq "";
-		system @args;
-	}
-
+	send_libnotify($appname, $icon, $title, $text);
 }
 die "recv error: $!";
 

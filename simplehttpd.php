@@ -17,6 +17,7 @@ Options:
   -f number                    Number of subprocesses (0 disables)
   -d path                      Specify docroot (default is ~/public_html or cwd)
   -h                           Display this help message
+  -i                           inetd mode (read single request from stdin)
   -L                           Bind to localhost (::1 or 127.0.0.1)
   -l address                   Bind to specified local address
   -p port                      Listen on specified port
@@ -67,52 +68,12 @@ function get_homedir() {
 	return $home? $home : false;
 }
 
-# read line (ending with CR+LF) from socket
-function socket_gets($socket, $maxlength = 1024) {
-	# This time I'm really sure it works.
-	$buf = ""; $i = 0; $char = null;
-	while ($i < $maxlength) {
-		$char = socket_read($socket, 1, PHP_BINARY_READ);
-		# remote closed connection
-		if ($char === false) return $buf;
-		# no more data
-		if ($char == "") return $buf;
-
-		$buf .= $char;
-
-		# ignore all stray linefeeds
-		#if ($i > 0 and $buf[$i-1] == "\x0D" and $buf[$i] == "\x0A")
-		#	return substr($buf, 0, $i-1);
-
-		# terminate on both LF and CR+LF
-		if ($buf[$i] == "\x0A") {
-			if ($i > 0 and $buf[$i-1] == "\x0D")
-				return substr($buf, 0, $i-1);
-			else
-				return substr($buf, 0, $i);
-		}
-
-		$i++;
-	}
-	return $buf;
-}
-
-# print error message and die
-function _die($message) {
-	if (!empty($message))
-		fwrite(STDERR, "$message\n");
-	exit(1);
-}
-
-function _die_socket($message, $socket = false) {
-	if (!empty($message))
-		fwrite(STDERR, "$message: ");
-
-	$errno = (is_resource($socket)? socket_last_error($socket) : socket_last_error());
-	$errstr = socket_strerror($errno);
-	fwrite(STDERR, "$errstr [$errno]\n");
-
-	exit(1);
+function split_host_port($str) {
+	$pos = strrpos($str, ":");
+	if ($pos === false)
+		return $str;
+	else
+		return array(substr($str, 0, $pos), substr($str, $pos+1));
 }
 
 function load_mimetypes($path="/etc/mime.types") {
@@ -130,8 +91,11 @@ function load_mimetypes($path="/etc/mime.types") {
 }
 
 function send($fd, $data) {
+	if ($fd == STDIN) $fd = STDOUT;
+	
 	for ($total = 0; $total < strlen($data); $total += $num) {
-		$num = socket_write($fd, $data);
+		# data length must be specified to avoid magic_quotes_runtime crap
+		$num = fwrite($fd, $data, strlen($data));
 		$data = substr($data, $total);
 		if ($num == 0) return false;
 	}
@@ -149,8 +113,10 @@ function handle_request($sockfd) {
 
 	$req = new stdClass();
 	$resp = new stdClass();
+	
+	$peer = stream_socket_get_name($sockfd, true);
+	list ($req->rhost, $req->rport) = split_host_port($peer);
 
-	socket_getpeername($sockfd, $req->rhost, $req->rport);
 	logwrite("(".strftime($config->log_date_format).") {$req->rhost}:{$req->rport} ");
 
 	$resp->headers = array(
@@ -158,7 +124,12 @@ function handle_request($sockfd) {
 		//"Connection" => "close",
 	);
 
-	$req->rawreq = socket_gets($sockfd);
+	# TODO: reply with 414 to overly long URIs
+	$req->rawreq = fgets($sockfd, 4096);
+	if (substr($req->rawreq, -1) !== "\n") {
+		return re_error($sockfd, $req, 414);
+	}
+	$req->rawreq = rtrim($req->rawreq);
 
 	if ($req->rawreq == "") {
 		logwrite("(null)\n");
@@ -184,17 +155,17 @@ function handle_request($sockfd) {
 	# ...and slurp in the request headers.
 	$req->headers = array();
 	while (true) {
-		$hdr = socket_gets($sockfd);
+		$hdr = rtrim(fgets($sockfd));
 		if (!strlen($hdr)) break;
 		$req->headers[] = $hdr;
 	}
 	unset ($hdr);
-
+	
 	if ($req->method == "TRACE" or $req->path == "/echo") {
 		send_headers($sockfd, $req->version, null, 200);
 		send($sockfd, $req->rawreq."\r\n");
 		send($sockfd, implode("\r\n", $req->headers)."\r\n");
-		socket_close($sockfd);
+		fclose($sockfd);
 		return;
 	}
 
@@ -223,7 +194,7 @@ function handle_request($sockfd) {
 		send_headers($sockfd, $req->version, array(
 			"Location" => $req->path."/",
 		), 301);
-		socket_close($sockfd);
+		fclose($sockfd);
 		return;
 	}
 
@@ -277,7 +248,7 @@ function handle_request($sockfd) {
 
 		send_headers($sockfd, $req->version, $resp->headers, 200);
 		send_file($sockfd, $req->fspath);
-		socket_close($sockfd);
+		fclose($sockfd);
 		return;
 	}
 
@@ -427,8 +398,9 @@ $messages = array(
 	403 => "Forbidden",
 	404 => "Not Found",
 	405 => "Method Not Allowed",
+	414 => "Request-URI Too Long",
 	418 => "I'm a teapot",
-	500 => "Internal error (something fucked up)",
+	500 => "Internal Error (something fucked up)",
 	501 => "Not Implemented",
 );
 
@@ -443,10 +415,10 @@ if (!is_dir(realpath($config->docroot)))
 $config->index_files = array( "index.html", "index.htm" );
 $config->hide_dotfiles = true;
 
-$addr_family = -1;
-$config->listen_addr = "::";
+$config->listen_addr = "any";
 $config->listen_port = 8001;
-
+$config->addr_family = null;
+$config->inetd = false;
 $config->forks = 3;
 
 $logfd = STDOUT;
@@ -498,48 +470,26 @@ if (isset($opts["h"]) or $opts === false) {
 
 foreach ($opts as $opt => $value) switch ($opt) {
 	case "6":
-		$addr_family = AF_INET6; break;
+		$config->addr_family = "inet6"; break;
 	case "4":
-		$addr_family = AF_INET; break;
+		$config->addr_family = "inet"; break;
 	case "a":
 		$config->hide_dotfiles = false; break;
 	case "d":
 		$config->docroot = $value; break;
 	case "f":
 		$config->forks = intval($value); break;
+	case "i":
+		$config->inetd = true; break;
 	case "L":
 		# -4 will be handled later
-		$config->listen_addr = "::1"; break;
+		$config->listen_addr = "localhost"; break;
 	case "l":
 		$config->listen_addr = $value; break;
 	case "p":
 		$config->listen_port = intval($value); break;
 	case "v":
 		die(VERSION."\n");
-}
-
-$addr_is_v6 = (strpos($config->listen_addr, ":") !== false);
-
-if ($addr_family == AF_INET6) {
-	if (!$addr_is_v6) {
-		$config->listen_addr = "::ffff:".$config->listen_addr;
-		$addr_is_v6 = true;
-	}
-}
-elseif ($addr_family == AF_INET) {
-	if ($config->listen_addr == "::")
-		$config->listen_addr = "0.0.0.0";
-
-	elseif ($config->listen_addr == "::1")
-		$config->listen_addr = "127.0.0.1";
-
-	elseif ($addr_is_v6) {
-		fwrite(STDERR, "Error: IPv4 forced but IPv6 listen address specified\n");
-		exit(5);
-	}
-}
-else {
-	$addr_family = $addr_is_v6? AF_INET6 : AF_INET;
 }
 
 if (!@chdir($config->docroot)) {
@@ -554,40 +504,55 @@ load_mimetypes();
 load_mimetypes(tilde_expand_own("~/.mime.types"));
 ksort($content_types);
 
-$listener = @socket_create($addr_family, SOCK_STREAM, SOL_TCP);
-
-$listener or _die_socket("socket_create");
-
-socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);
-
-@socket_bind($listener, $config->listen_addr, $config->listen_port)
-	or _die_socket("socket_bind", $listener);
-
-@socket_listen($listener, 2)
-	or _die_socket("socket_listen", $listener);
-
-fwrite($logfd, "* docroot {$config->docroot}\n");
-fwrite($logfd, "* listening on " . ($addr_is_v6? "[{$config->listen_addr}]" : $config->listen_addr) . ":{$config->listen_port}\n");
-
-if ($config->forks and function_exists("pcntl_fork")) {
-	function sigchld_handler($sig) {
-		wait(-1);
+function listen_tcp() {
+	global $config;
+	
+	if ($config->listen_addr === "any") {
+		# any -> :: | 0.0.0.0
+		$config->listen_addr = ($config->addr_family == "inet6")? "::" : "0.0.0.0";
 	}
-	pcntl_signal(SIGCHLD, "sigchld_handler");
+	elseif ($config->listen_addr === "localhost") {
+		# localhost -> ::1 | 127.0.0.1
+		$config->listen_addr = ($config->addr_family == "inet6")? "::1" : "127.0.0.1";
+	}
 
-	for ($i = 0; $i < $config->forks; $i++)
-		if (pcntl_fork()) {
-			while ($insock = socket_accept($listener)) {
-				handle_request($insock, $logfd);
-				@socket_close($insock);
-			}
+	$config->listen_uri = "tcp://".
+		($config->addr_family == "inet6"? "[" : "").$config->listen_addr.
+		($config->addr_family == "inet6"? "]" : "").":". $config->listen_port;
+	
+	$listener = stream_socket_server($config->listen_uri, $errno, $errstr);
+	
+	logwrite("* docroot {$config->docroot}\n");
+	logwrite("* listening on {$config->listen_uri}\n");
+
+	if ($config->forks and function_exists("pcntl_fork")) {
+		function sigchld_handler($sig) {
+			wait(-1);
 		}
+		pcntl_signal(SIGCHLD, "sigchld_handler");
+
+		for ($i = 0; $i < $config->forks; $i++)
+			if (pcntl_fork()) {
+				while ($insock = stream_socket_accept($listener, -1)) {
+					handle_request($insock);
+					@fclose($insock);
+				}
+			}
+	}
+	else {
+		while ($insock = stream_socket_accept($listener, -1)) {
+			handle_request($insock);
+			@fclose($insock);
+		}
+	}
+
+	fclose($listener);
+}
+
+if ($config->inetd) {
+	$logfd = null;
+	handle_request(STDIN);
 }
 else {
-	while ($insock = socket_accept($listener)) {
-		handle_request($insock, $logfd);
-		@socket_close($insock);
-	}
+	listen_tcp();
 }
-
-socket_close($listener);

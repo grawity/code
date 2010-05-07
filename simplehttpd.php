@@ -1,7 +1,7 @@
 #!/usr/bin/php
 <?php
-$VERSION = "simplehttpd v1.4";
-$WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m\n";
+$VERSION = "simplehttpd v1.6";
+$WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m";
 # simple HTTP server
 
 # (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
@@ -12,18 +12,18 @@ $HELP = <<<EOTFM
 Usage: simplehttpd [-46Lahiuv] [-d docroot] [-f num] [-l address] [-p port]
 
 Options:
-  -4                           Force IPv4
-  -6                           Force IPv6, even for IPv4 addresses
+  -4, -6                       Use IPv4 or IPv6 (cannot be used with -l)
   -a                           List all files, including hidden, in directories
   -f number                    Number of subprocesses (0 disables)
   -d path                      Specify docroot (default is ~/public_html or cwd)
-  -h                           Display help message
+  -h                           Display this help message
   -L                           Bind to localhost (::1 or 127.0.0.1)
-  -l address                   Bind to specified local address (default is ::)
+  -l address                   Bind to specified local address
   -p port                      Listen on specified port
   -v                           Display version
 
 $WARNING
+
 EOTFM;
 
 if (isset($_SERVER["REMOTE_ADDR"])) {
@@ -33,20 +33,14 @@ if (isset($_SERVER["REMOTE_ADDR"])) {
 	die;
 }
 
-if (!function_exists("socket_create")) {
-	fwrite(STDERR, "Error: 'sockets' extension not available\n");
-	exit(3);
-}
-
 date_default_timezone_set("UTC");
 
-# expand path starting with ~/ when given value of ~
+# expand path starting with ~/ using given value of ~
 function tilde_expand($path, $homedir) {
-	if ($path == "~")
-		$path .= "/";
+	if ($path == "~") $path .= "/";
 
 	if ($homedir and substr($path, 0, 2) == "~/")
-		$path = $homedir . substr($path, 1);
+		$path = $homedir.substr($path, 1);
 
 	return $path;
 }
@@ -61,17 +55,14 @@ function tilde_expand_own($path) {
 function get_homedir() {
 	$home = null;
 
-	if (!$home)
-		$home = getenv("HOME");
-
+	if (!$home) $home = getenv("HOME");
 	if (!$home and function_exists("posix_getpwnam")) {
 		$uid = posix_getuid();
 		$pw = posix_getpwuid($uid);
 		if ($pw) $home = $pw["dir"];
 	}
-
-	if (!$home)
-		$home = getenv("USERPROFILE");
+	if (!$home) $home = getenv("HOMEDRIVE").getenv("HOMEPATH");
+	if (!$home) $home = getenv("USERPROFILE");
 
 	return $home? $home : false;
 }
@@ -124,7 +115,7 @@ function _die_socket($message, $socket = false) {
 	exit(1);
 }
 
-function load_mimetypes($path = "/etc/mime.types") {
+function load_mimetypes($path="/etc/mime.types") {
 	global $content_types;
 	$fh = @fopen($path, "r");
 	if (!$fh) return false;
@@ -147,14 +138,20 @@ function send($fd, $data) {
 	return $total;
 }
 
-function handle_request($sockfd, $logfd) {
+function logwrite($str) {
+	global $logfd;
+	if ($logfd !== null)
+		return fwrite($logfd, $str);
+}
+
+function handle_request($sockfd) {
 	global $config;
 
 	$req = new stdClass();
 	$resp = new stdClass();
 
 	socket_getpeername($sockfd, $req->rhost, $req->rport);
-	fwrite($logfd, "(".strftime($config->log_date_format).") {$req->rhost}:{$req->rport} ");
+	logwrite("(".strftime($config->log_date_format).") {$req->rhost}:{$req->rport} ");
 
 	$resp->headers = array(
 		"Content-Type" => "text/plain",
@@ -164,11 +161,11 @@ function handle_request($sockfd, $logfd) {
 	$req->rawreq = socket_gets($sockfd);
 
 	if ($req->rawreq == "") {
-		fwrite($logfd, "(null)\n");
+		logwrite("(null)\n");
 		return;
 	}
 
-	fwrite($logfd, $req->rawreq."\n");
+	logwrite($req->rawreq."\n");
 
 	# method = up to the first space
 	# path = up to the second space
@@ -177,15 +174,10 @@ function handle_request($sockfd, $logfd) {
 	$req->path = strtok(" ");
 	$req->version = strtok("");
 
-	if ($req->version == false) {
-		$req->version = "HTTP/1.0";
+	if ($req->version === false) {
+		$req->version = "HTTP/0.9";
 	}
-	elseif (strpos($req->version, " ") !== false) {
-		# more than 3 components = bad
-		return re_bad_request($sockfd);
-	}
-	elseif (strtok($req->version, "/") !== "HTTP") {
-		# we're not a HTCPCP server
+	elseif (substr($req->version, 0, 5) !== "HTTP/") {
 		return re_bad_request($sockfd);
 	}
 
@@ -518,14 +510,14 @@ foreach ($opts as $opt => $value) switch ($opt) {
 	case "d":
 		$config->docroot = $value; break;
 	case "f":
-		$config->forks = (int) $value; break;
+		$config->forks = intval($value); break;
 	case "L":
 		# -4 will be handled later
 		$config->listen_addr = "::1"; break;
 	case "l":
 		$config->listen_addr = $value; break;
 	case "p":
-		$config->listen_port = (int) $value; break;
+		$config->listen_port = intval($value); break;
 	case "v":
 		die(VERSION."\n");
 }

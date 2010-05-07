@@ -4,13 +4,12 @@ $VERSION = "simplehttpd v1.4";
 $WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m\n";
 # simple HTTP server
 
-# (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
+# (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
 # help message must be not wider than 80 characters                            #
 $HELP = <<<EOTFM
-Usage: simplehttpd [-46Lahuv] [-d docroot] [-f num] [-l address] [-p port]
-	[-U suffix]
+Usage: simplehttpd [-46Lahiuv] [-d docroot] [-f num] [-l address] [-p port]
 
 Options:
   -4                           Force IPv4
@@ -502,7 +501,7 @@ $content_types = array(
 
 ## Command-line options
 
-$opts = getopt("64ac:d:f:IhLl:p:U:uv");
+$opts = getopt("64ad:f:ihLl:p:v");
 
 if (isset($opts["h"]) or $opts === false) {
 	fwrite(STDERR, $HELP);

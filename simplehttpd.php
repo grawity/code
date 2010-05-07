@@ -319,17 +319,15 @@ function re_generate_dirindex($sockfd, $req_path, $fs_path) {
 	$page_title = htmlspecialchars($req_path);
 	send($sockfd,
 		"<!DOCTYPE html>\n".
-		"<html>\n".
 		"<head>\n".
 		"\t<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n".
 		"\t<title>index: {$page_title}</title>\n".
-		"\t<style type=\"text/css\">\n".
+		"\t<style>\n".
 		"\ta { font-family: monospace; text-decoration: none; }\n".
 		"\t.symlink, .size { color: gray; }\n".
 		"\tfooter { font-size: smaller; color: gray; }\n".
 		"\t</style>\n".
 		"</head>\n".
-		"<body>\n".
 		"<h1>{$page_title}</h1>\n".
 		"<ul>\n"
 	);
@@ -363,8 +361,6 @@ function re_generate_dirindex($sockfd, $req_path, $fs_path) {
 		"</ul>\n".
 		"<hr/>\n".
 		"<footer><p>simplehttpd</p></footer>\n".
-		"</body>\n".
-		"</html>\n"
 	);
 
 	return true;

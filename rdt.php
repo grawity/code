@@ -70,12 +70,12 @@ function toptr($ip) {
 function resolve($addr) {
 	if (is_inetaddr($addr)) {
 		$addr = toptr($addr);
-		$rr = dns_get_record($addr, DNS_PTR);
+		$rr = @dns_get_record($addr, DNS_PTR);
 	}
 	else {
-		$rr = dns_get_record($addr, DNS_CNAME);
+		$rr = @dns_get_record($addr, DNS_CNAME);
 		if (empty($rr))
-			$rr = dns_get_record($addr, DNS_A | DNS_AAAA);
+			$rr = @dns_get_record($addr, DNS_A | DNS_AAAA);
 	}
 
 	$addresses = array();

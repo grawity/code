@@ -95,10 +95,10 @@ Drives = []
 Maps = []
 MountPoints = []
 Volumes = {}
+for v in EnumVolumes():
+	Volumes[v] = []
+#VolLetters = {}
 Printed = []
-
-for vol in EnumVolumes():
-	Volumes[vol] = []
 
 for letter in DriveLetters:
 	if not IsVolumeReady(letter): continue
@@ -106,12 +106,16 @@ for letter in DriveLetters:
 		Maps.append(letter)
 	else:
 		Drives.append(letter)
+		#VolLetters[GetMountVolume(letter)] = letter
 		dest = GetMountVolume(letter)
 		#Volumes[dest].append(letter)
 		for mountpoint in EnumMountPoints(letter):
-			mountpoint = letter + mountpoint
-			dest = GetMountVolume(mountpoint)
-			Volumes[dest].append(mountpoint)
+				mountpoint = letter + mountpoint
+				dest = GetMountVolume(mountpoint)
+				Volumes[dest].append(mountpoint)
+
+#Volumes = EnumVolumes()
+#Volumes.sort(key=lambda vol: VolLetters.get(vol, "\uFFFF"))
 
 for letter in DriveLetters:
 	isReady = IsVolumeReady(letter)
@@ -138,10 +142,6 @@ for letter in DriveLetters:
 			free, total, diskfree = win32api.GetDiskFreeSpaceEx(letter)
 		else:
 			free, total, diskfree = None, None, None
-	
-#		print "%-5s %-12s" % (letter, "(mapped)")
-#		print "%-5s ==> %s" % ("", path)
-#		continue
 
 	print LineFormat % (letter,
 		"(%s)" % drivetypes[type],
@@ -154,3 +154,27 @@ for letter in DriveLetters:
 	else:
 		for path in Volumes[volume]:
 			print "%-5s <-- %s" % ("", path)
+
+for volume in EnumVolumes():
+	if volume in Printed:
+		continue
+	
+	isReady = IsVolumeReady(volume)
+	if isReady:
+		type = win32file.GetDriveType(volume)
+	else:
+		type = -2
+
+	if isReady and type != win32con.DRIVE_REMOTE:
+		free, total, diskfree = win32api.GetDiskFreeSpaceEx(volume)
+	else:
+		free, total, diskfree = None, None, None
+
+	print LineFormat % ("*",
+		"(%s)" % drivetypes[type],
+		prettySize(free),
+		prettySize(total)
+	)
+
+	for path in Volumes[volume]:
+		print "%-5s <-- %s" % ("", path)

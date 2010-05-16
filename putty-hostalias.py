@@ -6,7 +6,6 @@
 from __future__ import print_function
 import os, sys, subprocess
 from os.path import expanduser, expandvars
-import fnmatch
 
 #alias_file = expanduser("~/.hostaliases")
 alias_file = expandvars("${AppData}/hostaliases.txt")
@@ -47,21 +46,18 @@ Example hostalias entries:
 	mail, log = adm-*.example.com:21032
 """
 
-# Split [user@]host[:port]
 def split_address(address):
-	group, user, host, port = None, None, address.lower(), None
-	if "/" in host:
-		group, host = host.split("/", 1)
+	user, host, port = None, address, None
 	if "@" in host:
-		user, host = host.split("@", 1)
+		user, host = host.split("@", 2)
 	if ":" in host:
-		host, port = host.split(":", 1)
+		host, port = host.split(":", 2)
 	try:
 		port = int(port)
 	except TypeError:
 		port = None
 	
-	return group, user, host, port
+	return user, host, port
 
 class addr():
 	def gethost(self, input):
@@ -74,51 +70,17 @@ class addr():
 		else:
 			return self.host
 
-	def __init__(s, address=None):
-		if address is None:
-			s.group, s.user, s.host, s.port = None, None, None, None
-		else:
-			s.group, s.user, s.host, s.port = split_address(address)
-		s.opts = []
-	
-	def __repr__(s):
-		r = ", ".join(["%s=%s" % (k, repr(v)) for k, v in s.__dict__.items() if v is not None and v != ""])
-		return "<address" + (("(%s)" % r) if len(r) > 0 else "") + ">"
-	
-	def __iadd__(self, other):
-		if other.user and not self.user:
-			self.user = other.user
-		if other.host and not self.host:
-			self.host = other.host
-		if other.port and not self.port:
-			self.port = other.port
-		if len(other.opts):
-			self.opts += other.opts
-		return self
-		
-	def __ior__(self, other):
-		if other.user and not self.user:
-			self.user = other.user
-		if other.host:
-			if self.host:
-				self.host = expand_host(template=other.host, host=self.host)
-			else:
-				self.host = other.host
-		if other.port and not self.port:
-			self.port = other.port
-		if len(other.opts):
-			self.opts += other.opts
-		return self
+	def __init__(s):
+		s.user, s.host, s.port, s.opts = None, None, None, []
 
-# Parse hostaliases.txt into %aliases
 def read_aliases(file):
 	alias_map = {}
 	for line in open(file, "r"):
 		line = line.strip()
 		if line == "" or line[0] == "#": continue
 		
-		keys, target = line.split("=", 1)
-		keys = keys.lower().replace(" ", "").split(",")
+		alias_name, target = line.split("=", 1)
+		alias_name = alias_name.lower().replace(" ", "").split(",")
 		
 		target_address = addr()
 		
@@ -126,51 +88,24 @@ def read_aliases(file):
 			if i.startswith("-"):
 				target_address.opts.append(i)
 			else:
-				target_address.user, target_address.host, target_address.port = split_address(i)[1:]
-				if target_address.host.startswith("."):
-					target_address.host = "*" + target_address.host
+				target_address.user, target_address.host, target_address.port = split_address(i)
 		
-		for k in keys:
-			if k not in alias_map:
-				alias_map[k] = addr()
-			alias_map[k] += target_address
+		for i in alias_name:
+			if i not in alias_map:
+				alias_map[i] = addr()
+			
+			if target_address.user:
+				alias_map[i].user = target_address.user	
+			if target_address.host:
+				alias_map[i].host = target_address.host
+			if target_address.port:
+				alias_map[i].port = target_address.port
+			
+			alias_map[i].opts.extend(target_address.opts)
 	return alias_map
 
-## expand_host("*.foo.com", "foobox")
-def expand_host(template, host):
-	print("expand_host(", template, ",", host, ")")
-	if template == "" or template is None:
-		return host
-	elif "*" in template:
-		return template.replace("*", host)
-	else:
-		return template
-
-def match(string, mask):
-	mask = mask.lower() if mask else "*"
-	if string is None or len(string) == 0:
-		return True
-	else:
-		string = string.lower()
-		return fnmatch.fnmatchcase(string, mask)
-
-def matchint(integer, mask):
-	print("matchint(", integer, mask, ")")
-	if mask == integer or mask == "*" or not mask:
-		return True
-	else:
-		return False
-
-def find_aliases(input):
-	print("find_aliases(", input, ")")
-	for alias, target in aliases.items():
-		alias = addr(alias)
-		if alias.group in (input.group, None) and match(input.user, alias.user) and match(input.host, alias.host) and matchint(input.port, alias.port):
-			yield alias, target
-
 if len(sys.argv) >= 2:
-	input = sys.argv.pop()
-	input = addr(input)
+	host = sys.argv.pop()
 	extargs = sys.argv[1:]
 else:
 	print("Usage: %s [puttyargs] [user@]host[:port]"
@@ -178,34 +113,54 @@ else:
 		file=sys.stderr)
 	sys.exit(2)
 
+user, host, port = split_address(host)
+
 aliases = read_aliases(alias_file)
 
-final = addr()
-checked = []
+def dump():
+	defuser = user or ""
+	defport = port or 22
+	for k in aliases:
+		target = aliases[k]
+		print("%s = %s@%s:%s %s" % (k, target.user or defuser, target.host or k, target.port or defport, subprocess.list2cmdline(target.opts)))
 
-for alias, next in find_aliases(input):
-	print("* matched", alias)
-	print("  target:", next)
-	input |= next
+#dump()
+#sys.exit()
 
-input.group = None
-print(input)
+# resolve alias
+antiloop = []
+while host not in antiloop:
+	host = host.lower()
+	antiloop.append(host)
+	if host in aliases:
+		target = aliases[host]
 
-while input not in checked:
-	for alias, next in find_aliases(input):
-		print("* matched", alias)
-		print("  target:", next)
-		input |= next
-	checked.append(input)
+		if target.host == "":
+			pass
+		elif target.host[0] == ".":
+			host = host + target.host
+		elif "*" in target.host:
+			host = target.host.replace("*", host)
+		else:
+			host = target.host
 
-final = input
+		if user == None and target.user != None:
+			user = target.user
+		if port == None and target.port != None:
+			port = target.port
 
-args = ["putty", final.host]
-args += final.opts
-if final.user != None:
-	args += ["-l", final.user]
-if final.port != None:
-	args += ["-P", str(final.port)]
+		extargs += target.opts
 
-print("exec:", repr(args))
-subprocess.Popen(args)
+if host in antiloop[:-1]:
+	antiloop.append(t_host)
+	print("Loop detected:", " -> ".join(antiloop))
+
+pArgs = ["putty", host]
+pArgs += extargs
+if user != None:
+	pArgs += ["-l", user]
+if port != None:
+	pArgs += ["-P", str(port)]
+
+print("exec:", repr(pArgs))
+subprocess.Popen(pArgs)

@@ -16,6 +16,7 @@ drivetypes = {
 	win32con.DRIVE_CDROM: "CD",
 	win32con.DRIVE_RAMDISK: "RAM disk",
 	-1: "mapped",
+	-2: "no media",
 }
 
 def prettySize(bytes):
@@ -116,8 +117,7 @@ for letter in DriveLetters:
 	isReady = IsVolumeReady(letter)
 	isMapped = IsMappedDevice(letter)
 	
-	if not isReady:
-		continue
+	#if not isReady: continue
 	
 	if IsMappedDevice(letter):
 		target = GetDosDevice(letter).strip("\0").split("\0")[0]
@@ -129,7 +129,10 @@ for letter in DriveLetters:
 		if volume in Printed: continue
 		else: Printed.append(volume)
 		
-		type = win32file.GetDriveType(volume)
+		if isReady:
+			type = win32file.GetDriveType(volume)
+		else:
+			type = -2
 	
 		if isReady and type != win32con.DRIVE_REMOTE:
 			free, total, diskfree = win32api.GetDiskFreeSpaceEx(letter)

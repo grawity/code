@@ -2,6 +2,8 @@
 # A df-like utility for Windows
 # depends: pywin32
 
+## todo: GetVolumePathNamesForVolumeNameW()
+
 import os, sys
 import ctypes
 import win32api, win32con, win32file

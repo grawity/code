@@ -130,4 +130,8 @@ add_handler("priv received", function ($from, $to, $msg) {
 	putlog("[priv] <%s to %s> %s", $from, $to("hb"), $msg);
 });
 
+add_handler("zapf eval", function ($from, $to, $cmd, $args) {
+
+});
+
 loaded();

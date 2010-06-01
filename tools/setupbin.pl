@@ -34,4 +34,4 @@ ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 
 cc bgrep => "tools/bgrep.c";
-cc args => "tools/args.c":
+cc args => "tools/args.c";

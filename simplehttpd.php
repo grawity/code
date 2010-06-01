@@ -1,23 +1,23 @@
 #!/usr/bin/php
 <?php
-$VERSION = "simplehttpd v1.6";
-$WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m";
-# simple HTTP server
+# simplehttpd v1.7 - simple HTTP server
+#  * status: working
+#  * dependencies:
+#       "socket" extension
 
-# (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
-# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+define("VERSION", "simplehttpd v1.7");
+
+$WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m";
 
 # help message must be not wider than 80 characters                            #
 $HELP = <<<EOTFM
-Usage: simplehttpd [-46Lahiuv] [-d docroot] [-f num] [-l address] [-p port]
+Usage: simplehttpd [-46Lahv] -d docroot [-l address] -p port
 
 Options:
   -4, -6                       Use IPv4 or IPv6 (cannot be used with -l)
-  -a                           List all files, including hidden, in directories
-  -f number                    Number of subprocesses (0 disables)
-  -d path                      Specify docroot (default is ~/public_html or cwd)
+  -a                           Display hidden files in directory indexes
+  -d path                      Directory to serve
   -h                           Display this help message
-  -i                           inetd mode (read single request from stdin)
   -L                           Bind to localhost (::1 or 127.0.0.1)
   -l address                   Bind to specified local address
   -p port                      Listen on specified port
@@ -27,372 +27,31 @@ $WARNING
 
 EOTFM;
 
+# pass through PHP-enabled webservers
 if (isset($_SERVER["REMOTE_ADDR"])) {
 	header("Content-Type: text/plain; charset=utf-8");
-	header("Last-Modified: " . date("r", filemtime(__FILE__)));
+	header("Last-Modified: ".date("r", filemtime(__FILE__)));
 	readfile(__FILE__);
 	die;
 }
 
-date_default_timezone_set("UTC");
+$content_types = array(
+	"css"	=> "text/css",
 
-# expand path starting with ~/ using given value of ~
-function tilde_expand($path, $homedir) {
-	if ($path == "~") $path .= "/";
+	"htm"	=> "text/html",
+	"html"	=> "text/html",
 
-	if ($homedir and substr($path, 0, 2) == "~/")
-		$path = $homedir.substr($path, 1);
+	"txt"	=> "text/plain",
 
-	return $path;
-}
+	# default type
+	null	=> "application/octet-stream",
+);
 
-# expand path starting with ~/ using $HOME
-function tilde_expand_own($path) {
-	$home = get_homedir();
-	return $home? tilde_expand($path, $home) : $path;
-}
-
-# get homedir for current user (for determining default docroot)
-function get_homedir() {
-	$home = null;
-
-	if (!$home) $home = getenv("HOME");
-	if (!$home and function_exists("posix_getpwnam")) {
-		$uid = posix_getuid();
-		$pw = posix_getpwuid($uid);
-		if ($pw) $home = $pw["dir"];
-	}
-	if (!$home) $home = getenv("HOMEDRIVE").getenv("HOMEPATH");
-	if (!$home) $home = getenv("USERPROFILE");
-
-	return $home? $home : false;
-}
-
-function split_host_port($str) {
-	$pos = strrpos($str, ":");
-	if ($pos === false)
-		return $str;
-	else
-		return array(substr($str, 0, $pos), substr($str, $pos+1));
-}
-
-function load_mimetypes($path="/etc/mime.types") {
-	global $content_types;
-	$fh = @fopen($path, "r");
-	if (!$fh) return false;
-	while ($line = fgets($fh)) {
-		$line = rtrim($line);
-		if ($line == "" or $line[0] == " " or $line[0] == "#") continue;
-		$line = preg_split("/\s+/", $line);
-		$type = array_shift($line);
-		foreach ($line as $ext) $content_types[$ext] = $type;
-	}
-	fclose($fh);
-}
-
-function send($fd, $data) {
-	if ($fd == STDIN) $fd = STDOUT;
-	
-	for ($total = 0; $total < strlen($data); $total += $num) {
-		# data length must be specified to avoid magic_quotes_runtime crap
-		$num = fwrite($fd, $data, strlen($data));
-		$data = substr($data, $total);
-		if ($num == 0) return false;
-	}
-	return $total;
-}
-
-function logwrite($str) {
-	global $logfd;
-	if ($logfd !== null)
-		return fwrite($logfd, $str);
-}
-
-function handle_request($sockfd) {
-	global $config;
-
-	$req = new stdClass();
-	$resp = new stdClass();
-	
-	$peer = stream_socket_get_name($sockfd, true);
-	list ($req->rhost, $req->rport) = split_host_port($peer);
-
-	logwrite("(".strftime($config->log_date_format).") {$req->rhost}:{$req->rport} ");
-
-	$resp->headers = array(
-		"Content-Type" => "text/plain",
-		//"Connection" => "close",
-	);
-
-	# TODO: reply with 414 to overly long URIs
-	$req->rawreq = fgets($sockfd, 4096);
-	if (substr($req->rawreq, -1) !== "\n") {
-		return re_error($sockfd, $req, 414);
-	}
-	$req->rawreq = rtrim($req->rawreq);
-
-	if ($req->rawreq == "") {
-		logwrite("(null)\n");
-		return;
-	}
-
-	logwrite($req->rawreq."\n");
-
-	# method = up to the first space
-	# path = up to the second space
-	# version = the rest, including any further components
-	$req->method = strtok($req->rawreq, " ");
-	$req->path = strtok(" ");
-	$req->version = strtok("");
-
-	if ($req->version === false) {
-		$req->version = "HTTP/0.9";
-	}
-	elseif (substr($req->version, 0, 5) !== "HTTP/") {
-		return re_bad_request($sockfd);
-	}
-
-	# ...and slurp in the request headers.
-	$req->headers = array();
-	while (true) {
-		$hdr = rtrim(fgets($sockfd));
-		if (!strlen($hdr)) break;
-		$req->headers[] = $hdr;
-	}
-	unset ($hdr);
-	
-	if ($req->method == "TRACE" or $req->path == "/echo") {
-		send_headers($sockfd, $req->version, null, 200);
-		send($sockfd, $req->rawreq."\r\n");
-		send($sockfd, implode("\r\n", $req->headers)."\r\n");
-		fclose($sockfd);
-		return;
-	}
-
-	if ($req->method != "GET") {
-		# Not implemented
-		return re_error($sockfd, $req, 501);
-	}
-
-	if ($req->path[0] != "/") {
-		return re_error($sockfd, $req, 400);
-	}
-
-	$req->path = strtok($req->path, "?");
-	$req->query = strtok("");
-
-	$req->fspath = $config->docroot . urldecode($req->path);
-
-	while (strpos($req->fspath, "/../") !== false)
-		$req->fspath = str_replace("/../", "/", $req->fspath);
-
-	while (substr($req->fspath, -3) == "/..")
-		$req->fspath = substr($req->fspath, 0, -2);
-
-	# If given path is a directory, append a slash if required
-	if (is_dir($req->fspath) and substr($req->path, -1) != "/") {
-		send_headers($sockfd, $req->version, array(
-			"Location" => $req->path."/",
-		), 301);
-		fclose($sockfd);
-		return;
-	}
-
-	# check for indexfiles
-	if (is_dir($req->fspath)) {
-		global $index_files;
-		foreach ($config->index_files as $file)
-			if (is_file($req->fspath . $file)) {
-				$req->fspath .= $file;
-				$auto_index_file = true;
-				break;
-			}
-	}
-
-	$req->fspath = realpath($req->fspath);
-
-	# realpath() failed - dest is probably a broken symlink
-	if ($req->fspath === false)
-		return re_error($sockfd, $req, 404);
-
-	# dest exists, but is not readable => 403
-	elseif (file_exists($req->fspath) and !is_readable($req->fspath))
-		return re_error($sockfd, $req, 403);
-
-	# dest exists, and is a directory => display file list
-	elseif (is_dir($req->fspath)) {
-		$resp->headers["Content-Type"] = "text/html";
-		#$resp->headers["Content-Type"] = "text/html; charset=utf-8";
-		send_headers($sockfd, $req->version, $resp->headers, 200);
-		return re_generate_dirindex($sockfd, $req->path, $req->fspath);
-	}
-
-	# dest is regular file => display
-	elseif (is_file($req->fspath)) {
-		$info = pathinfo($req->fspath);
-
-		if (isset($info['extension'])) {
-			$ext = $info['extension'];
-
-			if ($ext == "gz") {
-				$resp->headers["Content-Encoding"] = "gzip";
-				$ext = pathinfo($info['filename'], PATHINFO_EXTENSION);
-			}
-
-			global $content_types;
-			if (isset($content_types[$ext]))
-				$resp->headers["Content-Type"] = $content_types[$ext];
-			else
-				$resp->headers["Content-Type"] = "text/plain";
-		}
-
-		send_headers($sockfd, $req->version, $resp->headers, 200);
-		send_file($sockfd, $req->fspath);
-		fclose($sockfd);
-		return;
-	}
-
-	# dest exists, but not a regular or directory => 403
-	elseif (file_exists($req->fspath))
-		return re_error($sockfd, $req, 403);
-
-	# dest doesn't exist => 404
-	else
-		return re_error($sockfd, $req, 404);
-
-}
-
-# List files in a directory
-function re_generate_dirindex($sockfd, $req_path, $fs_path) {
-	global $config;
-	$dirs = $files = array();
-
-	$dirfd = opendir($fs_path);
-	while (($entry = readdir($dirfd)) !== false) {
-		if ($entry == ".")
-			continue;
-
-		if ($config->hide_dotfiles and $entry[0] == "." and $entry != "..")
-			continue;
-
-		$entry_path = $fs_path.$entry;
-
-		if (is_dir(realpath($entry_path)))
-			$dirs[] = $entry;
-		else
-			$files[] = $entry;
-	}
-	closedir($dirfd);
-
-	sort($dirs);
-	sort($files);
-
-	$page_title = htmlspecialchars($req_path);
-	send($sockfd,
-		"<!DOCTYPE html>\n".
-		"<head>\n".
-		"\t<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n".
-		"\t<title>index: {$page_title}</title>\n".
-		"\t<style>\n".
-		"\ta { font-family: monospace; text-decoration: none; }\n".
-		"\t.symlink, .size { color: gray; }\n".
-		"\tfooter { font-size: smaller; color: gray; }\n".
-		"\t</style>\n".
-		"</head>\n".
-		"<h1>{$page_title}</h1>\n".
-		"<ul>\n"
-	);
-
-	foreach ($dirs as $entry) {
-		$entry_path = $fs_path.$entry;
-		$anchor = urlencode($entry);
-
-		if ($entry == '..')
-			$entry = "(parent directory)";
-
-		$text = "<a href=\"{$anchor}/\">{$entry}/</a>";
-		if (is_link($entry_path) and $entry_dest = @readlink($entry_path))
-			$text .= " <span class=\"symlink\">→ ".htmlspecialchars($entry_dest)."</span>";
-		send($sockfd, "\t<li>{$text}</li>\n");
-	}
-
-	foreach ($files as $entry) {
-		$entry_path = $fs_path.$entry;
-		$anchor = urlencode($entry);
-
-		$text = "<a href=\"{$anchor}\">{$entry}</a>";
-		if (is_link($entry_path) and $entry_dest = @readlink($entry_path))
-			$text .= " <span class=\"sym\">→ ".htmlspecialchars($entry_dest)."</span>";
-		if ($size = @filesize($entry_path))
-			$text .= " <span class=\"size\">({$size})</span>";
-		send($sockfd, "\t<li>{$text}</li>\n");
-	}
-
-	send($sockfd,
-		"</ul>\n".
-		"<hr/>\n".
-		"<footer><p>simplehttpd</p></footer>\n".
-	);
-
-	return true;
-}
-
-function re_bad_request($sockfd) {
-	send_headers($sockfd, "HTTP/1.0", null, 400);
-	send($sockfd, "Are you on drugs?\r\n");
-	return false;
-}
-
-function re_error($sockfd, $req, $status, $comment = null) {
-	global $messages;
-
-	send_headers($sockfd, $req->version, null, $status);
-
-	send($sockfd, "Error $status: "
-		. (isset($messages[$status]) ? $messages[$status] : "FUCKED UP")
-		. "\r\n"
-		);
-	send($sockfd, "Request: {$req->rawreq}\r\n");
-
-	return false;
-}
-
-# If $headers is NULL, "Content-Type: text/plain" will be sent.
-# To send no headers, specify an empty array().
-function send_headers($sockfd, $version, $headers, $status = 200) {
-	global $messages;
-
-	send($sockfd, "$version $status "
-		. (isset($messages[$status]) ? $messages[$status] : "FUCKED UP")
-		. "\r\n"
-		);
-
-	if ($headers === null)
-		#send($sockfd, "Content-Type: text/plain\r\n");
-		send($sockfd, "Content-Type: text/plain; charset=utf-8\r\n");
-
-	else foreach ($headers as $key => $value)
-		send($sockfd, "$key: $value\r\n");
-
-	send($sockfd, "\r\n");
-}
-
-function send_file($sockfd, $file) {
-	$filefd = fopen($file, "rb");
-	while (!feof($filefd)) {
-		$buffer = fread($filefd, 1024);
-		if ($buffer == "" or $buffer == false) {
-			fclose($filefd);
-			return false;
-		}
-		send($sockfd, $buffer);
-	}
-	fclose($filefd);
-}
-
-$messages = array(
+$status_messages = array(
 	200 => "Okie dokie",
+	
 	301 => "Moved Permanently",
+	
 	400 => "Bad Request",
 	401 => "Unauthorized",
 	403 => "Forbidden",
@@ -400,159 +59,344 @@ $messages = array(
 	405 => "Method Not Allowed",
 	414 => "Request-URI Too Long",
 	418 => "I'm a teapot",
-	500 => "Internal Error (something fucked up)",
+	
+	500 => "Internal Error",
 	501 => "Not Implemented",
 );
 
-## Default configuration
+# read line (ending with CR+LF) from socket
+function socket_gets($socket, $maxlength = 1024) {
+	$data = ""; $length = 0; $char = null;
+	while ($length < $maxlength) {
+		$char = socket_read($socket, 1, PHP_BINARY_READ);
+		# remote closed connection
+		if ($char === false) return $data;
+		# no more data
+		if ($char == "") return $data;
 
+		$data .= $char;
+
+		# ignore all stray linefeeds
+		#if ($length > 0 and $data[$length-1] == "\x0D" and $data[$length] == "\x0A")
+		#	return substr($data, 0, $length-1);
+
+		if ($data[$length] == "\x0A") {
+			/*
+			if ($length > 0 and $data[$length-1] == "\x0D")
+				return substr($data, 0, $length-1);
+			else
+				return substr($data, 0, $length);
+			*/
+			return $data;
+		}
+
+		$length++;
+	}
+	return $data;
+}
+
+function send($fd, $data) {
+	for ($total = 0; $total < strlen($data); $total += $length) {
+		$length = socket_write($fd, substr($data, $total));
+		if ($length == 0) return false;
+	}
+	return $total;
+}
+
+## Default configuration {{{
 $config = new stdClass();
 
-$config->docroot = tilde_expand_own("~/public_html");
-if (!is_dir(realpath($config->docroot)))
-	$config->docroot = ".";
-
-$config->index_files = array( "index.html", "index.htm" );
+$config->docroot = null;
+$config->index_files = array("index.html", "index.htm");
 $config->hide_dotfiles = true;
 
 $config->listen_addr = "any";
-$config->listen_port = 8001;
-$config->addr_family = null;
-$config->inetd = false;
-$config->forks = 3;
+$config->listen_port = null;
 
-$logfd = STDOUT;
+$config->force_af = null;
+$config->use_af = AF_INET;
+# }}}
 
-$config->log_date_format = "%a %b %d %H:%M:%S %Y";
+## Command-line options {{{
+$options = getopt("64ad:hLl:p:v");
 
-$content_types = array(
-	# text
-	"txt" => "text/plain",
-	"css" => "text/css",
-	"htm" => "text/html",
-	"html" => "text/html",
-	"js" => "text/javascript",
-
-	# archives/binaries
-	"exe" => "application/x-msdos-program",
-	"tar" => "application/x-tar",
-	"tgz" => "application/x-tar",
-	"zip" => "application/zip",
-
-	# images
-	"gif" => "image/gif",
-	"jpeg" => "image/jpeg",
-	"jpg" => "image/jpeg",
-	"png" => "image/png",
-
-	# audio/video
-	"m4a" => "audio/mp4",
-	"m4v" => "video/mp4",
-	"mp4" => "application/mp4",
-	"oga" => "audio/ogg",
-	"ogg" => "audio/ogg",
-	"ogv" => "video/ogg",
-	"ogm" => "application/ogg",
-
-	# misc
-	"pem" => "application/x-x509-ca-cert",
-	"crt" => "application/x-x509-ca-cert",
-);
-
-## Command-line options
-
-$opts = getopt("64ad:f:ihLl:p:v");
-
-if (isset($opts["h"]) or $opts === false) {
+if (isset($options["h"]) or $options === false) {
 	fwrite(STDERR, $HELP);
 	exit(2);
 }
 
-foreach ($opts as $opt => $value) switch ($opt) {
+foreach ($options as $opt => $value) switch ($opt) {
 	case "6":
-		$config->addr_family = "inet6"; break;
+		$config->force_af = AF_INET6; break;
 	case "4":
-		$config->addr_family = "inet"; break;
+		$config->force_af = AF_INET; break;
 	case "a":
 		$config->hide_dotfiles = false; break;
 	case "d":
 		$config->docroot = $value; break;
-	case "f":
-		$config->forks = intval($value); break;
-	case "i":
-		$config->inetd = true; break;
 	case "L":
-		# -4 will be handled later
 		$config->listen_addr = "localhost"; break;
 	case "l":
 		$config->listen_addr = $value; break;
 	case "p":
 		$config->listen_port = intval($value); break;
 	case "v":
-		die(VERSION."\n");
+		echo VERSION."\n";
+		exit();
 }
 
-if (!@chdir($config->docroot)) {
-	fwrite(STDERR, "Error: Cannot chdir to docroot {$config->docroot}\n");
+# determine real docroot
+$config->docroot = realpath($config->docroot);
+
+if (substr($config->docroot, -1) != DIRECTORY_SEPARATOR)
+	$config->docroot .= DIRECTORY_SEPARATOR;
+
+if ($config->docroot === false) {
+	fwrite(STDERR, "Error: docroot does not exist\n");
 	exit(1);
 }
+if (!@chdir($config->docroot)) {
+	fwrite(STDERR, "Error: chdir to docroot failed\n");
+	exit(1);
+}
+print "[info] docroot: {$config->docroot}\n";
+# }}}
 
-$config->docroot = getcwd();
-$local_hostname = php_uname("n");
-
-load_mimetypes();
-load_mimetypes(tilde_expand_own("~/.mime.types"));
-ksort($content_types);
-
-function listen_tcp() {
+function listen() {
 	global $config;
 	
 	if ($config->listen_addr === "any") {
-		# any -> :: | 0.0.0.0
-		$config->listen_addr = ($config->addr_family == "inet6")? "::" : "0.0.0.0";
+		if ($config->force_af) $config->use_af = $config->force_af;
+		$config->listen_addr = ($config->use_af == AF_INET6)? "::" : "0.0.0.0";
 	}
 	elseif ($config->listen_addr === "localhost") {
-		# localhost -> ::1 | 127.0.0.1
-		$config->listen_addr = ($config->addr_family == "inet6")? "::1" : "127.0.0.1";
-	}
-
-	$config->listen_uri = "tcp://".
-		($config->addr_family == "inet6"? "[" : "").$config->listen_addr.
-		($config->addr_family == "inet6"? "]" : "").":". $config->listen_port;
-	
-	$listener = stream_socket_server($config->listen_uri, $errno, $errstr);
-	
-	logwrite("* docroot {$config->docroot}\n");
-	logwrite("* listening on {$config->listen_uri}\n");
-
-	if ($config->forks and function_exists("pcntl_fork")) {
-		function sigchld_handler($sig) {
-			wait(-1);
-		}
-		pcntl_signal(SIGCHLD, "sigchld_handler");
-
-		for ($i = 0; $i < $config->forks; $i++)
-			if (pcntl_fork()) {
-				while ($insock = stream_socket_accept($listener, -1)) {
-					handle_request($insock);
-					@fclose($insock);
-				}
-			}
+		if ($config->force_af) $config->use_af = $config->force_af;
+		$config->listen_addr = ($config->use_af == AF_INET6)? "::1" : "127.0.0.1";
 	}
 	else {
-		while ($insock = stream_socket_accept($listener, -1)) {
-			handle_request($insock);
-			@fclose($insock);
+		$addr_is_v6 = (strpos($config->listen_addr, ":") !== false);
+		if ($config->force_af == AF_INET6 and !$addr_is_v6) {
+			$config->listen_addr = "::ffff:".$config->listen_addr;
+			$addr_is_v6 = true;
 		}
+		elseif ($config->force_af == AF_INET and $addr_is_v6) {
+			fwrite(STDERR, "Error: cannot use IPv6 listen address for IPv4\n");
+			exit(1);
+		}
+
+		if ($config->force_af)
+			$config->use_af = $config->force_af;
+		else
+			$config->use_af = $addr_is_v6? AF_INET6 : AF_INET;
 	}
 
-	fclose($listener);
+	$listener = socket_create($config->use_af, SOCK_STREAM, SOL_TCP);
+	#TODO# retval?
+
+	#socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);
+	socket_bind($listener, $config->listen_addr, $config->listen_port);
+	socket_listen($listener, 2);
+	#TODO# retval?
+
+	print "[info] listen: {$config->listen_addr} port {$config->listen_port}\n";
+
+	while ($conn = socket_accept($listener)) {
+		handle($conn);
+		socket_shutdown($conn);
+		socket_close($conn);
+	}
+
+	socket_close($listener);
 }
 
-if ($config->inetd) {
-	$logfd = null;
-	handle_request(STDIN);
+function handle($sockfd) {
+	global $config;
+
+	$req = new StdClass();
+	$resp = new StdClass();
+
+	socket_getpeername($sockfd, $req->peer_host, $req->peer_port);
+
+	## read the HTTP request {{{
+	$req->raw = socket_gets($sockfd);
+	if (substr($req->raw, -1) !== "\n") {
+		send_error($sockfd, $resp, 413); // request entity too large
+		return;
+	}
+	else {
+		$req->length = strlen($req->raw);
+		$req->raw = rtrim($req->raw, "\r\n");
+	}
+
+	$req->method = strtok($req->raw, " ");
+	$req->path = strtok(" ");
+	$req->version = strtok(null);
+
+	if ($req->method != "GET") {
+		send_error($sockfd, $resp, 501); // not implemented
+		return;
+	}
+
+	if ($req->version === false)
+		$req->version = "HTTP/0.9";
+
+	$req->path = strtok($req->path, "?");
+	$req->query = strtok(null);
+
+	# slurp headers
+	while ($req->length < 4096) {
+		$line = socket_gets($sockfd, 4096 - $req->length);
+		$len = strlen($line);
+		if (!$len)
+			return;
+		elseif ($line == "\r\n" or $line == "\n")
+			break;
+		else
+			$req->length += $len;
+	}
+	#}}}
+
+	$resp->version = "HTTP/1.0";
+	$resp->status = 200;
+	$resp->headers = array(
+		"Content-Type" => "text/plain; charset=utf-8",
+		"Connection" => "close",
+	);
+
+	$req->realpath = realpath($config->docroot . $req->path);
+
+	## Check if path is inside docroot
+	if ($req->realpath === false or substr($req->realpath, 0, strlen($config->docroot)) !== $config->docroot) {
+		send_error($sockfd, $resp, 404);
+		return;
+	}
+
+	if (!is_readable($req->realpath)) {
+		send_error($sockfd, $resp, 403);
+	}
+	elseif (is_dir($req->realpath)) {
+		send_resp_dirindex($sockfd, $req, $resp);
+	}
+	else {
+		send_resp_file($sockfd, $req, $resp);
+	}
 }
-else {
-	listen_tcp();
+
+function send_headers($fd, $resp) {
+	$msg = http_status_to_string($resp->status);
+	
+	send($fd, "{$resp->version} {$resp->status} {$msg}\r\n");
+	foreach ($resp->headers as $key => $value)
+		send($fd, "$key: $value\r\n");
+	send($fd, "\r\n");
 }
+
+## send a full response, including headers
+function send_error($fd, $resp, $status) {
+	$resp->status = $status;
+	$resp->headers = array(
+		"Content-Type" => "text/plain; charset=utf-8",
+		"Connection" => "close",
+	);
+	send_headers($fd, $resp);
+
+	$msg = http_status_to_string($status);
+	send($fd, "ERROR $status: $msg\n");
+}
+
+function send_resp_file($sockfd, $req, $resp) {
+	$fd = fopen($req->realpath, "rb");
+	if (!$fd) {
+		send_error($sockfd, $resp, 403);
+		return;
+	}
+
+	$resp->headers["Content-Length"] = filesize($req->realpath);
+	$resp->headers["Content-Type"] = get_content_type($req->realpath);
+	send_headers($sockfd, $resp);
+
+	do {
+		$buffer = fread($fd, 1024);
+		send($sockfd, $buffer);
+	} while (!feof($fd));
+
+	fclose($fd);
+}
+
+function send_resp_dirindex($sockfd, $req, $resp) {
+	# Auto-append a / like Apache does
+	if (substr($req->path, -1) !== "/") {
+		$resp->status = 301;
+		$resp->headers["Location"] = $req->path."/";
+		unset($resp->headers["Content-Type"]);
+		send_headers($sockfd, $resp);
+		return;
+	}
+
+	$dh = opendir($req->realpath);
+	if (!$dh) {
+		send_error($sockfd, $resp, 403);
+		return;
+	}
+
+	$resp->headers["Content-Type"] = "text/html; charset=utf-8";
+	send_headers($sockfd, $resp);
+
+	$dir = suffix($req->realpath, DIRECTORY_SEPARATOR);
+
+	send($sockfd, "<!DOCTYPE html>\n".
+		"<meta charset=\"utf-8\">\n".
+		"<title>Index of ".htmlspecialchars($req->path)."</title>\n".
+		"<h1>Index of ".htmlspecialchars($req->path)."</h1>\n");
+
+	send($sockfd, "<ul>\n");
+	if ($req->path !== "/")
+		send($sockfd, dirindex_format_entry(realpath($dir.".."), $dir, "(parent directory)"));
+	while (($entry = readdir($dh)) !== false)
+		send($sockfd, dirindex_format_entry($entry, $dir));
+	send($sockfd, "</ul>\n");
+
+	closedir($dh);	
+}
+
+function dirindex_format_entry($name, $dir, $display=null) {
+	if ($display == null)
+		$display = $name;
+	$display = htmlspecialchars($display);
+
+	$path = htmlspecialchars($name);
+	$suffix = "";
+
+	if (is_dir($dir.$name)) {
+		$suffix = "/";
+		$path .= "/";
+	}
+	
+	return "\t<li> <a href=\"{$path}\">{$display}</a>{$suffix}\n";
+}	
+
+function http_status_to_string($status) {
+	global $status_messages;
+	if (array_key_exists($status, $status_messages))
+		return $status_messages[$status];
+	else
+		return "D'oh.";
+}
+
+function suffix($str, $suffix) {
+	if (substr($str, -strlen($suffix)) != $suffix)
+		$str .= $suffix;
+	return $str;
+}
+
+function get_content_type($path) {
+	global $content_types;
+
+	$name = basename($path);
+	$extpos = strrpos($name, ".");
+	$ext = ($extpos === false)? null : substr($name, $extpos+1);
+
+	return $content_types[$ext];
+}
+
+listen();

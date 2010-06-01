@@ -4,6 +4,9 @@
 use warnings;
 
 my $BIN = "$ENV{HOME}/bin";
+my $SRC = "$ENV{HOME}/code";
+
+chdir $SRC or die;
 
 sub cc {
 	my $out = shift;
@@ -20,12 +23,15 @@ sub ln {
 
 ln tweet => "*.pl";
 ln gist => "*.pl";
-ln getnetrc => "*.pl";
+ln getnetrc => "tools/*.pl";
 ln getpaste => "*.pl";
 ln rdt => "*.php";
 ln settermtitle => "tools/*.pl";
+ln shorten => "*-isgd";
+ln sprunge => "*";
 ln sshupdate => "*.sh";
-ln urlencode => "*.pl";
+ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 
 cc bgrep => "tools/bgrep.c";
+cc args => "tools/args.c":

@@ -17,8 +17,11 @@ sub cc {
 sub ln {
 	my ($link, $target) = @_;
 	$target =~ s/\*/$link/g;
-	print "symlink: $BIN/$link --> ../code/$target\n";
-	symlink "../code/$target", "$BIN/$link";
+	$link = "$BIN/$link";
+	$target = "../code/$target";
+	print "symlink: $link --> $target\n";
+	-f $link and unlink $link;
+	symlink $target, $link;
 }
 
 ln tweet => "*.pl";

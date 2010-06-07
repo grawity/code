@@ -20,7 +20,7 @@ sub ln {
 	$link = "$BIN/$link";
 	$target = "../code/$target";
 	print "symlink: $link --> $target\n";
-	-f $link and unlink $link;
+	-l $link and unlink $link;
 	symlink $target, $link;
 }
 

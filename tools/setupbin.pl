@@ -32,7 +32,7 @@ ln rdt => "*.php";
 ln settermtitle => "tools/*.pl";
 ln shorten => "*-isgd";
 ln sprunge => "*";
-ln sshupdate => "*.sh";
+ln sshupdate => "*";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 

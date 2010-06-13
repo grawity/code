@@ -156,4 +156,4 @@ if port:
 	pArgs += ["-P", str(port)]
 
 print("exec:", repr(pArgs))
-#subprocess.Popen(pArgs)
+subprocess.Popen(pArgs)

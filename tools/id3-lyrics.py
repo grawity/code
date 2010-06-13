@@ -18,8 +18,9 @@ if sys.platform == "win32":
 def write_id3(file, lyrics):
 	tag = mutagen.mp3.MP3(file)
 	atom = u"USLT::'eng'"
-	if lyrics is None and atom in tag:
-		del tag[atom]
+	if lyrics is None:
+		if atom in tag:
+			del tag[atom]
 	else:
 		tag[atom] = mutagen.id3.USLT()
 		tag[atom].text = lyrics

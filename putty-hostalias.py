@@ -79,29 +79,22 @@ def read_aliases(file):
 		line = line.strip()
 		if line == "" or line[0] == "#": continue
 		
-		alias_name, target = line.split("=", 1)
-		alias_name = alias_name.lower().replace(" ", "").split(",")
+		names, data = line.split("=", 1)
 		
-		target_address = addr()
+		names = names.lower().replace(" ", "").split(",")
+		data = data.split()
 		
-		for i in target.split():
-			if i.startswith("-"):
-				target_address.opts.append(i)
-			else:
-				target_address.user, target_address.host, target_address.port = split_address(i)
+		target = addr()
 		
-		for i in alias_name:
-			if i not in alias_map:
-				alias_map[i] = addr()
-			
-			if target_address.user:
-				alias_map[i].user = target_address.user	
-			if target_address.host:
-				alias_map[i].host = target_address.host
-			if target_address.port:
-				alias_map[i].port = target_address.port
-			
-			alias_map[i].opts.extend(target_address.opts)
+		target.user, target.host, target.port = split_address(data[0])
+		target.opts = data[1:]
+				
+		for n in names:
+			if n not in alias_map: alias_map[n] = addr()
+			if target.user: alias_map[n].user = target.user	
+			if target.host: alias_map[n].host = target.host
+			if target.port: alias_map[n].port = target.port
+			alias_map[n].opts.extend(target.opts)
 	return alias_map
 
 if len(sys.argv) >= 2:
@@ -137,16 +130,16 @@ while host not in antiloop:
 
 		if target.host == "":
 			pass
-		elif target.host[0] == ".":
-			host = host + target.host
+		elif target.host.startswith("."):
+			host += target.host
 		elif "*" in target.host:
 			host = target.host.replace("*", host)
 		else:
 			host = target.host
 
-		if user == None and target.user != None:
+		if user == None:
 			user = target.user
-		if port == None and target.port != None:
+		if port == None:
 			port = target.port
 
 		extargs += target.opts
@@ -157,10 +150,10 @@ if host in antiloop[:-1]:
 
 pArgs = ["putty", host]
 pArgs += extargs
-if user != None:
+if user:
 	pArgs += ["-l", user]
-if port != None:
+if port:
 	pArgs += ["-P", str(port)]
 
 print("exec:", repr(pArgs))
-subprocess.Popen(pArgs)
+#subprocess.Popen(pArgs)

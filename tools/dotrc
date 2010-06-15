@@ -1,0 +1,22 @@
+#!/bin/bash
+# Dotfile updater.
+
+log() { [ -t 0 ] && echo "$@"; }
+get() {
+	local file="$1" url="$2"
+	log "$url -> $file"
+	wget --ca-certificate ~/nullroute.pem -q "$url" -O "$file"
+	[ "$3" ] && chmod "$3" "$file"
+}
+
+BASE="https://wind.nullroute.eu.org/~grawity/"
+
+cd ~ || exit 1
+log "# dotrc $(date -r bin/dotrc +"%Y-%m-%d %H:%M")"
+
+get .bashrc "${BASE}misc/dot-bashrc"
+get .profile "${BASE}misc/dot-profile"
+get .vimrc "${BASE}misc/dot-vimrc"
+
+get bin/sshupdate "${BASE}code/sshupdate" u+x
+get bin/dotrc "${BASE}misc/dotrc.sh" u+x

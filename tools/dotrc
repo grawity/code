@@ -5,14 +5,20 @@ log() { [ -t 0 ] && echo "$@"; }
 get() {
 	local file="$1" url="$2"
 	log "$url -> $file"
-	wget --ca-certificate ~/nullroute.pem -q "$url" -O "$file"
+	wget --ca-certificate "$CACERT" -q "$url" -O "$file"
 	[ "$3" ] && chmod "$3" "$file"
 }
 
+CACERT=~/nullroute.pem
 BASE="https://wind.nullroute.eu.org/~grawity/"
 
 cd ~ || exit 1
 log "# dotrc $(date -r bin/dotrc +"%Y-%m-%d %H:%M")"
+
+if ! [ -e "$CACERT" ]; then
+	echo "! CA certificate not found: $CACERT" >&2
+	exit 1
+fi
 
 get .bashrc "${BASE}misc/dot-bashrc"
 get .profile "${BASE}misc/dot-profile"

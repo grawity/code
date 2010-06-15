@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 # Dotfile updater.
+update() {
+	get .bashrc "${BASE}misc/dot-bashrc"
+	get .inputrc "${BASE}misc/dot-inputrc"
+	get .profile "${BASE}misc/dot-profile"
+	get .vimrc "${BASE}misc/dot-vimrc"
+	get bin/sshupdate "${BASE}code/sshupdate" u+x
+}
+
+updateself() {
+	get bin/dotrc.new "${BASE}misc/dotrc.sh" u+x &&
+	exec mv -f bin/dotrc.new bin/dotrc
+}
+
 have() { command -v "$@" >& /dev/null; }
 log() { [ -t 0 ] && echo "$@"; }
 get() {
@@ -28,11 +41,8 @@ if ! [ -e "$CACERT" ]; then
 	exit 1
 fi
 
-get .bashrc "${BASE}misc/dot-bashrc"
-get .profile "${BASE}misc/dot-profile"
-get .vimrc "${BASE}misc/dot-vimrc"
-
-get bin/sshupdate "${BASE}code/sshupdate" u+x
-
-get bin/dotrc.new "${BASE}misc/dotrc.sh" u+x &&
-	exec mv -vf bin/dotrc.new bin/dotrc
+if [ "$1" == "self" ]; then
+	updateself
+else
+	update; updateself
+fi

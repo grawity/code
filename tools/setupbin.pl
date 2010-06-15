@@ -24,7 +24,7 @@ sub ln {
 	symlink $target, $link;
 }
 
-ln tweet => "*.pl";
+ln dotrc => "tools/*";
 ln gist => "*.pl";
 ln getnetrc => "tools/*.pl";
 ln getpaste => "*.pl";
@@ -33,6 +33,7 @@ ln settermtitle => "tools/*.pl";
 ln shorten => "*-isgd";
 ln sprunge => "*";
 ln sshupdate => "*";
+ln tweet => "*.pl";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 

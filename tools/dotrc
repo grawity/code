@@ -1,19 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Dotfile updater.
-
+have() { command -v "$@" >& /dev/null; }
 log() { [ -t 0 ] && echo "$@"; }
 get() {
 	local file="$1" url="$2"
 	log "$url -> $file"
-	wget --ca-certificate "$CACERT" -q "$url" -O "$file"
+	getfile "$url" "$file"
 	[ "$3" ] && chmod "$3" "$file"
 }
+
+if have wget; then
+	getfile() { wget --ca-certificate "$CACERT" -q "$1" -O "$2"; }
+elif have curl; then
+	getfile() { curl -L --cacert "$CACERT" -s "$1" -o "$2"; }
+else
+	echo "No HTTP support!" >&2
+	exit 1
+fi
 
 CACERT=~/nullroute.pem
 BASE="https://wind.nullroute.eu.org/~grawity/"
 
 cd ~ || exit 1
-log "# dotrc $(date -r bin/dotrc +"%Y-%m-%d %H:%M")"
 
 if ! [ -e "$CACERT" ]; then
 	echo "! CA certificate not found: $CACERT" >&2

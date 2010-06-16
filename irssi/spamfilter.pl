@@ -62,6 +62,7 @@ sub test(@) {
 		or $msg =~ /FUCK OFF/
 		or $msg =~ /http:\/\/AnonTalk\.com/
 		or $msg =~ /^i have to take a dump/i
+		or $msg =~ /^dick licker/i
 		or ($type eq 'action' and $msg =~ /^shits$/i)
 	);
 

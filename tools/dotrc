@@ -1,28 +1,48 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Dotfile updater.
+update() {
+	get .bashrc "${BASE}misc/dot-bashrc"
+	get .inputrc "${BASE}misc/dot-inputrc"
+	get .profile "${BASE}misc/dot-profile"
+	get .vimrc "${BASE}misc/dot-vimrc"
+	get bin/sshupdate "${BASE}code/sshupdate" u+x
+}
 
+updateself() {
+	get bin/dotrc.new "${BASE}misc/dotrc.sh" u+x &&
+	exec mv -f bin/dotrc.new bin/dotrc
+}
+
+have() { command -v "$@" >& /dev/null; }
 log() { [ -t 0 ] && echo "$@"; }
 get() {
 	local file="$1" url="$2"
 	log "$url -> $file"
-	wget --ca-certificate "$CACERT" -q "$url" -O "$file"
+	getfile "$url" "$file"
 	[ "$3" ] && chmod "$3" "$file"
 }
+
+if have wget; then
+	getfile() { wget --ca-certificate "$CACERT" -q "$1" -O "$2"; }
+elif have curl; then
+	getfile() { curl -L --cacert "$CACERT" -s "$1" -o "$2"; }
+else
+	echo "No HTTP support!" >&2
+	exit 1
+fi
 
 CACERT=~/nullroute.pem
 BASE="https://wind.nullroute.eu.org/~grawity/"
 
 cd ~ || exit 1
-log "# dotrc $(date -r bin/dotrc +"%Y-%m-%d %H:%M")"
 
 if ! [ -e "$CACERT" ]; then
 	echo "! CA certificate not found: $CACERT" >&2
 	exit 1
 fi
 
-get .bashrc "${BASE}misc/dot-bashrc"
-get .profile "${BASE}misc/dot-profile"
-get .vimrc "${BASE}misc/dot-vimrc"
-
-get bin/sshupdate "${BASE}code/sshupdate" u+x
-get bin/dotrc "${BASE}misc/dotrc.sh" u+x
+if [ "$1" == "self" ]; then
+	updateself
+else
+	update; updateself
+fi

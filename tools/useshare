@@ -24,6 +24,9 @@ else
 fi
 
 creds="$(mktemp)"
-getnetrc -df "username=%u%npassword=%p" "$host" > "$creds"
-mount.cifs "$remote" "$mountpoint" -o credentials="$creds",iocharset=utf8,file_mode=0600,dir_mode=0700
+getnetrc -df "username=%u%npassword=%p" "$host" > "$creds" || {
+	echo "No credentials for $host found" >&2
+	exit 1
+}
+sudo mount.cifs "$remote" "$mountpoint" -o "credentials=$creds,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8"
 rm -f "$creds"

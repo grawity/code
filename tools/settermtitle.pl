@@ -15,8 +15,8 @@ sub titlestring {
 	$_ = $ENV{TERM} // "dumb";
 	/^screen/
 		and return "${ESC}k%s${ST}";
-	(/^[xkE]term/ or /^rxvt/)
-		and return "${ESC}]0;%s${BEL}";
+	(/^[xkE]term/ or /^rxvt/ or /^cygwin$/)
+		and return "${ESC}];%s${BEL}";
 	/^vt300/
 		and return "${ESC}]21;%s${ST}";
 }

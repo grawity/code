@@ -7,8 +7,9 @@ sub msg_usage {
 	return 2;
 }
 
-my $ESC = "\e", $ST_ANSI = "\e\\", $ST_XTERM = "\007";
-
+my $ESC = "\e";
+my $ST_ANSI = "\e\\";
+my $ST_XTERM = "\007";
 my $ST = \$ST_ANSI;
 
 sub titlestring {

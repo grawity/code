@@ -115,6 +115,7 @@ for letter in DriveLetters:
 		for mountpoint in EnumMountPoints(letter):
 			# Enumerate all mountpoints to other drives under letter:\
 			mountpoint = letter+mountpoint
+			if not IsVolumeReady(mountpoint): continue
 			mpdest = GetMountVolume(mountpoint)
 			if mpdest in Volumes:
 				Volumes[mpdest].append(mountpoint)

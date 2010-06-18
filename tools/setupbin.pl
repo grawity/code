@@ -2,17 +2,31 @@
 # Sets up symlinks in ~/bin to my scripts.
 # Internal use only.
 use warnings;
+use strict;
+use File::stat;
+use List::Util qw[min];
 
 my $BIN = "$ENV{HOME}/bin";
 my $SRC = "$ENV{HOME}/code";
 
 chdir $SRC or die;
 
+sub mtime($) {
+	my $stat = stat(shift);
+	return defined $stat? $stat->[9] : 0;
+}
+
 sub cc {
 	my $out = shift;
 	my @in = @_;
-	print "compile: ", (join " ", @in), " --> $BIN/$out\n";
-	system "gcc", "-o", "$BIN/$out", @in;
+
+	if (mtime "$BIN/$out" < min(map {mtime $_} @in)) {
+		print "compile: ", (join " ", @in), " --> $BIN/$out\n";
+		system "gcc", "-o", "$BIN/$out", @in;
+	}
+	else {
+		print "skip compile: $BIN/$out\n";
+	}
 }
 sub ln {
 	my ($link, $target) = @_;

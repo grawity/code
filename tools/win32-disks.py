@@ -136,13 +136,11 @@ for letter in DriveLetters:
 		
 	else:
 		volume = GetMountVolume(letter)
-		if volume in Printed: continue
-		else: Printed.append(volume)
+		if volume in Printed:
+			continue
+		Printed.append(volume)
 		
-		if isReady:
-			type = win32file.GetDriveType(volume)
-		else:
-			type = -2
+		type = win32file.GetDriveType(volume) if isReady else -2
 	
 		if isReady and type != win32con.DRIVE_REMOTE:
 			free, total, diskfree = win32api.GetDiskFreeSpaceEx(letter)
@@ -154,7 +152,6 @@ for letter in DriveLetters:
 		prettySize(free),
 		prettySize(total)
 	)
-	
 	if isMapped:
 		print "%-5s ==> %s" % ("", target)
 	else:
@@ -165,12 +162,10 @@ for letter in DriveLetters:
 for volume in EnumVolumes():
 	if volume in Printed:
 		continue
+	Printed.append(volume)
 	
 	isReady = IsVolumeReady(volume)
-	if isReady:
-		type = win32file.GetDriveType(volume)
-	else:
-		type = -2
+	type = win32file.GetDriveType(volume) if isReady else -2
 
 	if isReady and type != win32con.DRIVE_REMOTE:
 		free, total, diskfree = win32api.GetDiskFreeSpaceEx(volume)
@@ -182,6 +177,5 @@ for volume in EnumVolumes():
 		prettySize(free),
 		prettySize(total)
 	)
-
 	for path in Volumes[volume]:
 		print "%-5s <-- %s" % ("", path)

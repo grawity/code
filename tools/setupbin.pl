@@ -38,18 +38,19 @@ sub ln {
 	symlink $target, $link;
 }
 
+cc args => "tools/args.c";
+cc bgrep => "tools/bgrep.c";
 ln dotrc => "tools/*";
 ln gist => "*.pl";
 ln getnetrc => "tools/*.pl";
 ln getpaste => "*.pl";
 ln rdt => "*.php";
+ln setupbin => "tools/*.pl";
 ln settermtitle => "tools/*.pl";
 ln shorten => "*-isgd";
 ln sprunge => "*";
 ln sshupdate => "*";
+ln title => "tools/settermtitle.pl";
 ln tweet => "*.pl";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
-
-cc bgrep => "tools/bgrep.c";
-cc args => "tools/args.c";

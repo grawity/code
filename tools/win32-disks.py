@@ -101,6 +101,7 @@ for v in EnumVolumes():
 	Volumes[v] = []
 #VolLetters = {}
 Printed = []
+BrokenMountPoints = []
 
 for letter in DriveLetters:
 	if not IsVolumeReady(letter): continue
@@ -112,18 +113,21 @@ for letter in DriveLetters:
 		dest = GetMountVolume(letter)
 		#Volumes[dest].append(letter)
 		for mountpoint in EnumMountPoints(letter):
-				mountpoint = letter + mountpoint
-				dest = GetMountVolume(mountpoint)
-				Volumes[dest].append(mountpoint)
+			# Enumerate all mountpoints to other drives under letter:\
+			mountpoint = letter+mountpoint
+			mpdest = GetMountVolume(mountpoint)
+			if mpdest in Volumes:
+				Volumes[mpdest].append(mountpoint)
+			else:
+				BrokenMountPoints.append(mountpoint)
 
 #Volumes = EnumVolumes()
 #Volumes.sort(key=lambda vol: VolLetters.get(vol, "\uFFFF"))
 
+## List volumes that have drive letters
 for letter in DriveLetters:
 	isReady = IsVolumeReady(letter)
 	isMapped = IsMappedDevice(letter)
-	
-	#if not isReady: continue
 	
 	if IsMappedDevice(letter):
 		target = GetDosDevice(letter).strip("\0").split("\0")[0]
@@ -157,6 +161,7 @@ for letter in DriveLetters:
 		for path in Volumes[volume]:
 			print "%-5s <-- %s" % ("", path)
 
+## Print volumes without letters
 for volume in EnumVolumes():
 	if volume in Printed:
 		continue

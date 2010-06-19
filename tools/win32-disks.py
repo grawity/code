@@ -24,7 +24,7 @@ drivetypes = {
 }
 
 def prettySize(bytes):
-	if bytes is None: return None
+	if bytes is None: return "-"
 	q = "kMGTPEY"
 	size = float(bytes)
 	l = -1
@@ -96,8 +96,8 @@ def IsMappedDevice(dev):
 def GetMountVolume(path):
 	return win32file.GetVolumeNameForVolumeMountPoint(path)
 
-LINE_FORMAT = "%-5s %-12s %-17s %10s %10s"
-header = LINE_FORMAT % ("path", "label", "type", "free", "total")
+LINE_FORMAT = "%-5s %-12s %-17s %10s %10s %5s"
+header = LINE_FORMAT % ("path", "label", "type", "size", "free", "used")
 print header
 print "-"*len(header)
 
@@ -153,9 +153,10 @@ for letter in Letters:
 			
 		if isReady and type != win32con.DRIVE_REMOTE:
 			free, total, diskfree = win32api.GetDiskFreeSpaceEx(root)
+			used = 100 - (100*diskfree/total)
 		else:
-			free, total, diskfree = None, None, None
-	
+			free, total, diskfree, used = None, None, None, None
+
 	if filesystem:
 		strtype = "%s (%s)" % (drivetypes[type], filesystem)
 	else:
@@ -167,6 +168,7 @@ for letter in Letters:
 		strtype,
 		prettySize(total),
 		prettySize(diskfree),
+		"%d%%" % used if used is not None else "-",
 	)
 	
 	if isMapped:
@@ -192,9 +194,10 @@ for root in Volumes.keys():
 	
 	if isReady and type != win32con.DRIVE_REMOTE:
 		free, total, diskfree = win32api.GetDiskFreeSpaceEx(root)
+		used = 100 - (100*diskfree/total)
 	else:
-		free, total, diskfree = None, None, None
-	
+		free, total, diskfree, used = None, None, None, None
+
 	if filesystem:
 		strtype = "%s (%s)" % (drivetypes[type], filesystem)
 	else:
@@ -206,6 +209,7 @@ for root in Volumes.keys():
 		strtype,
 		prettySize(total),
 		prettySize(diskfree),
+		"%d%%" % used if used is not None else "-",
 	)
 	for path in pathnames:
 		print "%-5s <-- %s" % ("", path)

@@ -9,11 +9,7 @@ from win32con import *
 try:
 	from winxpgui import *
 except ImportError:
-	print "No winxpgui"
 	from win32gui import *
-
-import SocketServer
-import thread
 
 NIN_BALLOONSHOW = WM_USER+2
 NIN_BALLOONHIDE = WM_USER+3
@@ -138,24 +134,3 @@ class MainWindow:
 		debug("queue_next")
 		data = self.queue.pop(0)
 		self.add_icon(*data)
-
-def sockwait():
-	import socket
-	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.getprotobyname("udp"))
-	s.bind(("0.0.0.0", 4457))
-	while True:
-		(data, addr) = s.recvfrom(1024)
-		debug("recv", data, addr)
-		
-		title, text = [i.decode("base64") for i in data.strip().split(":")]
-		
-		global wnd
-		wnd.queue.append((title, text))
-		if len(wnd.icons) == 0:
-			wnd.queue_next()
-
-wnd = MainWindow()
-wnd.icon_path = "c:\\Program Files\\Mozilla Thunderbird\\chrome\\icons\\default\\msgcomposeWindow.ico"
-tid = thread.start_new_thread(sockwait, ())
-PumpMessages()
-wnd.destroy()

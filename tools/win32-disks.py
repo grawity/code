@@ -47,7 +47,7 @@ def EnumVolumes():
 	volumes = []
 
 	h = kernel32.FindFirstVolumeW(buf, sizeof(buf))
-	if h
+	if h:
 		yield buf.value
 		while kernel32.FindNextVolumeW(h, buf, sizeof(buf)):
 			yield buf.value

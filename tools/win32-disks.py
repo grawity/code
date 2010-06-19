@@ -36,16 +36,16 @@ def prettySize(bytes):
 def EnumVolumes():
 	buf = ctypes.create_unicode_buffer(256)
 	volumes = []
-	
+
 	h = kernel32.FindFirstVolumeW(buf, ctypes.sizeof(buf))
 	if h >= 0: volumes.append(buf.value)
 	else: return None
-	
+
 	while True:
 		res = kernel32.FindNextVolumeW(h, buf, ctypes.sizeof(buf))
 		if res: volumes.append(buf.value)
 		else: break
-	
+
 	kernel32.FindVolumeClose(h)
 	return volumes
 
@@ -73,12 +73,12 @@ def EnumMountPoints(root):
 	h = kernel32.FindFirstVolumeMountPointW(ctypes.c_wchar_p(root), buf, ctypes.sizeof(buf))
 	if h >= 0: mounts.append(buf.value)
 	else: return mounts
-	
+
 	while True:
 		res = kernel32.FindNextVolumeMountPointW(h, buf, ctypes.sizeof(buf))
 		if res: mounts.append(buf.value)
 		else: break
-	
+
 	kernel32.FindVolumeMountPointClose(h)
 	return mounts
 
@@ -128,29 +128,29 @@ for letter in Letters:
 
 for letter in Letters:
 	isMapped = letter in Maps
-	
+
 	if isMapped:
 		target = Maps[letter]
 		type = -1
 		free, total, diskfree = win32api.GetDiskFreeSpaceEx(letter)
-	
+
 	else:
 		root = Drives[letter]
-		
+
 		if root in Printed:
 			continue
 		Printed.append(root)
-		
+
 		pathnames = Volumes[root]["pathnames"][:]
 		isReady = Volumes[root]["ready"]
-		
+
 		if isReady:
 			type = win32file.GetDriveType(root)
 			info = win32api.GetVolumeInformation(root)
 			label, filesystem = info[0], info[4]
 		else:
 			type, label, filesystem = -2, "", None
-			
+
 		if isReady and type != win32con.DRIVE_REMOTE:
 			free, total, diskfree = win32api.GetDiskFreeSpaceEx(root)
 			used = 100 - (100*diskfree/total)
@@ -161,7 +161,7 @@ for letter in Letters:
 		strtype = "%s (%s)" % (drivetypes[type], filesystem)
 	else:
 		strtype = drivetypes[type]
-	
+
 	print LINE_FORMAT % (
 		letter,
 		label or "(unnamed)",
@@ -170,7 +170,7 @@ for letter in Letters:
 		prettySize(diskfree),
 		"%d%%" % used if used is not None else "-",
 	)
-	
+
 	if isMapped:
 		print "%-5s ==> %s" % ("", target)
 	else:
@@ -181,17 +181,17 @@ for letter in Letters:
 for root in Volumes.keys():
 	if root in Printed:
 		continue
-	
+
 	pathnames = Volumes[root]["pathnames"][:]
 	isReady = Volumes[root]["ready"]
-	
+
 	if isReady:
 		type = win32file.GetDriveType(root)
 		info = win32api.GetVolumeInformation(root)
 		label, filesystem = info[0], info[4]
 	else:
 		type, label, filesystem = -2, "", None
-	
+
 	if isReady and type != win32con.DRIVE_REMOTE:
 		free, total, diskfree = win32api.GetDiskFreeSpaceEx(root)
 		used = 100 - (100*diskfree/total)
@@ -202,7 +202,7 @@ for root in Volumes.keys():
 		strtype = "%s (%s)" % (drivetypes[type], filesystem)
 	else:
 		strtype = drivetypes[type]
-	
+
 	print LINE_FORMAT % (
 		"*",
 		label or "(unnamed)",

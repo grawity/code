@@ -1,12 +1,7 @@
 #!/usr/bin/env python
 # A df-like utility for Windows
-# dependencies: pywin32
 
 import os, sys
-try:
-	import win32api
-except ImportError:
-	print "This script still requires PyWin32."
 
 try:
 	from win32con import *
@@ -83,11 +78,6 @@ def GetPathNamesForVolume(volume):
 	else:
 		raise OSError
 
-def IsVolumeReady(root):
-	try: win32api.GetVolumeInformation(root)
-	except: return False
-	else: return True
-
 def QueryDosDevice(dev):
 	if len(dev) <= 3:
 		target = create_unicode_buffer(1024)
@@ -131,12 +121,23 @@ def GetVolumeInformation(root):
 		return (volume_name.value, serial_number.value, byref(max_component_length), flags.value, fs_name.value)
 	else: raise OSError
 
+def IsVolumeReady(root):
+	try: GetVolumeInformation(root)
+	except: return False
+	else: return True
+
+def GetLogicalDriveStrings():
+	buffer = create_unicode_buffer(26*3+1)
+	if kernel32.GetLogicalDriveStringsW(sizeof(buffer), buffer):
+		return wszarray_to_list(buffer)
+	else: raise OSError
+
 LINE_FORMAT = "%-5s %-12s %-17s %10s %10s %5s"
 header = LINE_FORMAT % ("path", "label", "type", "size", "free", "used")
 print header
 print "-"*len(header)
 
-Letters = [unicode(s) for s in win32api.GetLogicalDriveStrings().strip("\0").split("\0")]
+Letters = GetLogicalDriveStrings()
 Letters.sort()
 
 Drives = {}
@@ -222,7 +223,7 @@ for root in Volumes.keys():
 
 	if isReady:
 		type = GetDriveType(root)
-		info = win32api.GetVolumeInformation(root)
+		info = GetVolumeInformation(root)
 		label, filesystem = info[0], info[4]
 	else:
 		type, label, filesystem = -2, "", None

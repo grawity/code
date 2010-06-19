@@ -1,4 +1,4 @@
-#!python.exe
+#!/usr/bin/env python
 # A df-like utility for Windows
 # dependencies: pywin32
 

@@ -3,13 +3,10 @@
 # dependencies: pywin32
 
 import os, sys
-from ctypes import *
 try:
 	import win32api
 except ImportError:
 	print "This script still requires PyWin32."
-
-kernel32 = windll.kernel32
 
 try:
 	from win32con import *
@@ -24,6 +21,8 @@ except ImportError:
 	MAX_PATH          = 260
 	SEM_FAILCRITICALERRORS = 1
 
+from ctypes import *
+kernel32 = windll.kernel32
 kernel32.SetErrorMode(SEM_FAILCRITICALERRORS)
 
 drivetypes = {
@@ -82,7 +81,7 @@ def GetPathNamesForVolume(volume):
 	if kernel32.GetVolumePathNamesForVolumeNameW(c_wchar_p(volume), buf, sizeof(buf), byref(length)):
 		return wszarray_to_list(buf)
 	else:
-		raise Error
+		raise OSError
 
 def IsVolumeReady(root):
 	try: win32api.GetVolumeInformation(root)
@@ -108,7 +107,7 @@ def GetMountVolume(path):
 	volume_name = create_unicode_buffer(64)
 	if kernel32.GetVolumeNameForVolumeMountPointW(c_wchar_p(path), volume_name, sizeof(volume_name)):
 		return volume_name.value
-	else: raise Error
+	else: raise OSError
 
 def GetDiskFreeSpace(root):
 	free = c_int64()
@@ -116,7 +115,7 @@ def GetDiskFreeSpace(root):
 	totalfree = c_int64()
 	if kernel32.GetDiskFreeSpaceExW(c_wchar_p(root), byref(free), byref(total), byref(totalfree)):
 		return (free.value, total.value, totalfree.value)
-	else: raise Error
+	else: raise OSError
 
 def GetDriveType(root):
 	return kernel32.GetDriveTypeW(c_wchar_p(root))
@@ -130,7 +129,7 @@ def GetVolumeInformation(root):
 	fs_name = create_unicode_buffer(MAX_PATH+1)
 	if kernel32.GetVolumeInformationW(c_wchar_p(root), volume_name, sizeof(volume_name), byref(serial_number), byref(max_component_length), byref(flags), fs_name, sizeof(fs_name)):
 		return (volume_name.value, serial_number.value, byref(max_component_length), flags.value, fs_name.value)
-	else: raise Error
+	else: raise OSError
 
 LINE_FORMAT = "%-5s %-12s %-17s %10s %10s %5s"
 header = LINE_FORMAT % ("path", "label", "type", "size", "free", "used")

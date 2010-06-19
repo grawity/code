@@ -165,8 +165,8 @@ for letter in Letters:
 		letter,
 		label or "(unnamed)",
 		strtype,
-		prettySize(free),
 		prettySize(total),
+		prettySize(diskfree),
 	)
 	
 	if isMapped:
@@ -204,8 +204,8 @@ for root in Volumes.keys():
 		"*",
 		label or "(unnamed)",
 		strtype,
-		prettySize(free),
 		prettySize(total),
+		prettySize(diskfree),
 	)
 	for path in pathnames:
 		print "%-5s <-- %s" % ("", path)

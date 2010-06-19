@@ -1,12 +1,14 @@
 #!python.exe
 # A df-like utility for Windows
-# depends: pywin32
-
-## todo: GetVolumePathNamesForVolumeNameW()
+# dependencies: pywin32
 
 import os, sys
 import ctypes
-import win32api, win32con, win32file
+try:
+	import win32api, win32con, win32file
+except ImportError:
+	print "This script requires PyWin32."
+
 kernel32 = ctypes.windll.kernel32
 
 drivetypes = {

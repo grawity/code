@@ -41,8 +41,7 @@ def EnumVolumes():
 	if h >= 0: volumes.append(buf.value)
 	else: return None
 	
-	res = True
-	while res:
+	while True:
 		res = kernel32.FindNextVolumeW(h, buf, ctypes.sizeof(buf))
 		if res: volumes.append(buf.value)
 		else: break
@@ -75,8 +74,7 @@ def EnumMountPoints(root):
 	if h >= 0: mounts.append(buf.value)
 	else: return mounts
 	
-	res = True
-	while res:
+	while True:
 		res = kernel32.FindNextVolumeMountPointW(h, buf, ctypes.sizeof(buf))
 		if res: mounts.append(buf.value)
 		else: break

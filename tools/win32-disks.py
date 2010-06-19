@@ -88,9 +88,7 @@ def IsVolumeReady(root):
 	else: return True
 
 def GetDosDevice(dev):
-	if len(dev) > 3: # mountpoints
-		return None
-	return win32file.QueryDosDevice(dev[0:2])
+	return win32file.QueryDosDevice(dev[0:2]) if len(dev) <= 3 else None
 
 def IsMappedDevice(dev):
 	return GetDosDevice(dev).startswith("\\??\\")
@@ -98,8 +96,8 @@ def IsMappedDevice(dev):
 def GetMountVolume(path):
 	return win32file.GetVolumeNameForVolumeMountPoint(path)
 
-LINE_FORMAT = "%-5s %-12s %10s %10s"
-header = LINE_FORMAT % ("path", "type", "free", "total")
+LINE_FORMAT = "%-5s %-12s %-17s %10s %10s"
+header = LINE_FORMAT % ("path", "label", "type", "free", "total")
 print header
 print "-"*len(header)
 
@@ -145,16 +143,27 @@ for letter in Letters:
 		pathnames = Volumes[root]["pathnames"][:]
 		isReady = Volumes[root]["ready"]
 		
-		type = win32file.GetDriveType(root) if isReady else -2
-	
+		if isReady:
+			type = win32file.GetDriveType(root)
+			info = win32api.GetVolumeInformation(root)
+			label, filesystem = info[0], info[4]
+		else:
+			type, label, filesystem = -2, "", None
+			
 		if isReady and type != win32con.DRIVE_REMOTE:
 			free, total, diskfree = win32api.GetDiskFreeSpaceEx(root)
 		else:
 			free, total, diskfree = None, None, None
 	
+	if filesystem:
+		strtype = "%s (%s)" % (drivetypes[type], filesystem)
+	else:
+		strtype = drivetypes[type]
+	
 	print LINE_FORMAT % (
 		letter,
-		"(%s)" % drivetypes[type],
+		label or "(unnamed)",
+		strtype,
 		prettySize(free),
 		prettySize(total),
 	)
@@ -169,20 +178,33 @@ for letter in Letters:
 for root in Volumes.keys():
 	if root in Printed:
 		continue
-
+	
 	pathnames = Volumes[root]["pathnames"][:]
 	isReady = Volumes[root]["ready"]
-	type = win32file.GetDriveType(root) if isReady else -2
+	
+	if isReady:
+		type = win32file.GetDriveType(root)
+		info = win32api.GetVolumeInformation(root)
+		label, filesystem = info[0], info[4]
+	else:
+		type, label, filesystem = -2, "", None
+	
 	if isReady and type != win32con.DRIVE_REMOTE:
 		free, total, diskfree = win32api.GetDiskFreeSpaceEx(root)
 	else:
 		free, total, diskfree = None, None, None
-
+	
+	if filesystem:
+		strtype = "%s (%s)" % (drivetypes[type], filesystem)
+	else:
+		strtype = drivetypes[type]
+	
 	print LINE_FORMAT % (
 		"*",
-		"(%s)" % drivetypes[type],
+		label or "(unnamed)",
+		strtype,
 		prettySize(free),
-		prettySize(total)
+		prettySize(total),
 	)
 	for path in pathnames:
 		print "%-5s <-- %s" % ("", path)

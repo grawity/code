@@ -167,6 +167,7 @@ for letter in Letters:
 		target = Maps[letter]
 		type = -1
 		free, total, diskfree = GetDiskFreeSpace(letter)
+		used = 100 - (100*diskfree/total)
 
 	else:
 		root = Drives[letter]

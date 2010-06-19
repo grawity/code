@@ -91,7 +91,8 @@ def QueryDosDevice(dev):
 		return None
 
 def IsMappedDevice(dev):
-	return QueryDosDevice(dev).startswith("\\??\\")
+	target = QueryDosDevice(dev)
+	return target.startswith("\\??\\") if target is not None else False
 
 def GetMountVolume(path):
 	volume_name = create_unicode_buffer(64)

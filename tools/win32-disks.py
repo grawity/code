@@ -21,42 +21,37 @@ kernel32 = windll.kernel32
 kernel32.SetErrorMode(SEM_FAILCRITICALERRORS)
 
 drivetypes = {
-	DRIVE_UNKNOWN: "unknown",
-	DRIVE_NO_ROOT_DIR: "not a volume",
-	DRIVE_REMOVABLE: "removable",
-	DRIVE_FIXED: "fixed",
-	DRIVE_REMOTE: "network",
-	DRIVE_CDROM: "CD",
-	DRIVE_RAMDISK: "RAM disk",
-	-1: "mapped",
-	-2: "no media",
+	DRIVE_UNKNOWN:		"unknown",
+	DRIVE_NO_ROOT_DIR:	"not a volume",
+	DRIVE_REMOVABLE:	"removable",
+	DRIVE_FIXED:		"fixed",
+	DRIVE_REMOTE:		"network",
+	DRIVE_CDROM:		"CD",
+	DRIVE_RAMDISK:		"RAM disk",
+
+	-1:					"mapped",
+	-2:					"no media",
 }
 
 def prettySize(bytes):
 	if bytes is None: return "-"
-	q = "kMGTPEY"
 	size = float(bytes)
 	l = -1
 	while size >= 1000:
 		size /= 1024.
 		l += 1
-	return "%.2f %sB" % (size, q[l] if l >= 0 else "")
+	return "%.2f %sB" % (size, "kMGTPEY"[l] if l >= 0 else "")
 
 def EnumVolumes():
 	buf = create_unicode_buffer(256)
 	volumes = []
 
 	h = kernel32.FindFirstVolumeW(buf, sizeof(buf))
-	if h >= 0: volumes.append(buf.value)
-	else: return None
-
-	while True:
-		res = kernel32.FindNextVolumeW(h, buf, sizeof(buf))
-		if res: volumes.append(buf.value)
-		else: break
-
-	kernel32.FindVolumeClose(h)
-	return volumes
+	if h
+		yield buf.value
+		while kernel32.FindNextVolumeW(h, buf, sizeof(buf)):
+			yield buf.value
+		kernel32.FindVolumeClose(h)
 
 def wszarray_to_list(array):
 	output = []
@@ -112,14 +107,16 @@ def GetDriveType(root):
 	return kernel32.GetDriveTypeW(c_wchar_p(root))
 
 def GetVolumeInformation(root):
-	# return win32file.GetVolumeInformation(root)
 	volume_name = create_unicode_buffer(MAX_PATH+1)
 	serial_number = c_int32()
 	max_component_length = c_int32()
 	flags = c_int32()
 	fs_name = create_unicode_buffer(MAX_PATH+1)
-	if kernel32.GetVolumeInformationW(c_wchar_p(root), volume_name, sizeof(volume_name), byref(serial_number), byref(max_component_length), byref(flags), fs_name, sizeof(fs_name)):
-		return (volume_name.value, serial_number.value, byref(max_component_length), flags.value, fs_name.value)
+	if kernel32.GetVolumeInformationW(c_wchar_p(root), volume_name,
+			sizeof(volume_name), byref(serial_number), byref(max_component_length),
+			byref(flags), fs_name, sizeof(fs_name)):
+		return (volume_name.value, serial_number.value, byref(max_component_length),
+			flags.value, fs_name.value)
 	else: raise OSError
 
 def IsVolumeReady(root):

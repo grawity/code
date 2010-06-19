@@ -118,7 +118,8 @@ del names, ready
 
 for letter in Letters:
 	if IsMappedDevice(letter):
-		target = GetDosDevice(letter).strip("\0").split("\0")[0]
+		target = GetDosDevice(letter)
+		target = target[:target.index("\0")]
 		if target.startswith("\\??\\"):
 			target = target[len("\\??\\"):]
 		Maps[letter] = target

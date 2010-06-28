@@ -49,15 +49,24 @@ my %authcommands = (
 );
 
 # convert to lowercase with IRC extensions
-sub lci ($) { my $_ = shift; tr/\[\\\]^/{|}~/; return lc $_; }
+sub lci ($$) {
+	my ($s, $map) = @_;
+	if ($map eq 'rfc1459') { $s =~ tr/\[\\\]/{|}/; }
+	if ($map eq 'rfc2812') { $s =~ tr/\[\\\]^/{|}~/; }
+	return lc $s;
+}
 
 # search for authinfo by servertag/botnick
-sub grep_authinfo ($$) {
-	my ($servertag, $botnick) = @_;
+sub grep_authinfo ($$$) {
+	my ($tag, $botnick, $casemap) = @_;
+	$tag = lc $tag;
+	$botnick = lci $botnick, $casemap;
+	
 	for my $entry (@authinfo) {
 		my @entry = split " ", $entry, 4;
 		my ($e_tag, $e_botnick) = split "/", (shift @entry), 2;
-		return @entry if (lc $e_tag eq lc $servertag) and (lci $e_botnick eq lci $botnick);
+		return @entry if (lc $e_tag eq $tag)
+			and (lci $e_botnick, $casemap eq $botnick);
 	}
 	return (undef, undef, undef);
 }
@@ -92,7 +101,8 @@ Irssi::command_bind "botauth" => sub {
 	}
 
 	my ($botnick) = split / /, $args;
-	my ($type, $user, $pass) = grep_authinfo $server->{tag}, $botnick;
+	my $casemap = $server->isupport("CASEMAPPING") // "rfc1459";
+	my ($type, $user, $pass) = grep_authinfo $server->{tag}, $botnick, $casemap;
 	if (!defined $type) {
 		Irssi::print "No creds set for ".$server->{tag}."/".$botnick;
 		return;

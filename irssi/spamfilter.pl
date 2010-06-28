@@ -85,8 +85,8 @@ sub ignorelisted($$$) {
 	return grep { $server->mask_match_address($_, $nick, $userhost) } @blocked;
 }
 
-# RFC-compatible lc()
-sub lci($) { my $_ = shift; tr/\[\\\]^/{|}~/; return lc $_; }
+# RFC 1459-compatible lc()
+sub lci($) { my $s = shift; $s =~ tr/\[\\\]/{|}/; return lc $s; }
 
 sub on_message(@$) {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;

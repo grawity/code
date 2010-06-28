@@ -5,8 +5,17 @@ update() {
 	get .inputrc "${BASE}dot/inputrc"
 	get .profile "${BASE}dot/profile"
 	get .vimrc "${BASE}dot/vimrc"
+	get .vimrc.input "${BASE}dot/vimrc-input"
 	get .ssh/config "${BASE}dot/ssh-config"
+	#get .ssh/known_hosts "${BASE}dot/ssh-knownhosts"
 	get bin/sshupdate "${BASE}code/sshupdate" u+x
+}
+
+updateext() {
+	get .muttrc "${BASE}dot/muttrc"
+	get .slrnrc "${BASE}dot/slrnrc" 0600
+	get .pythonrc "${BASE}dot/pythonrc"
+	get .netrc "${BASE}dot/netrc" 0600
 }
 
 updateself() {
@@ -43,8 +52,11 @@ if ! [ -e "$CACERT" ]; then
 	exit 1
 fi
 
-if [ "$1" == "self" ]; then
-	updateself
-else
-	update; updateself
-fi
+case "$1" in
+self)
+	updateself;;
+ext)
+	update; updateext; updateself;;
+*)
+	update; updateself;;
+esac

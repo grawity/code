@@ -20,7 +20,12 @@ updateext() {
 
 updateself() {
 	get bin/dotrc.new "${BASE}misc/dotrc.sh" u+x &&
-	exec mv -f bin/dotrc.new bin/dotrc
+	if [ -s bin/dotrc.new ]; then
+		exec mv -f bin/dotrc.new bin/dotrc
+	else
+		echo "Failed to update dotrc from ${BASE}misc/dotrc.sh"
+		return 1
+	fi
 }
 
 have() { command -v "$@" >& /dev/null; }

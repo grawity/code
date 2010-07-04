@@ -1,0 +1,345 @@
+#!/bin/bash
+# vi: ft=sh
+
+# <text> <background> <border>
+WMII_NORMCOLORS='#888888 #222222 #333333'
+WMII_FOCUSCOLORS='#ffffff #285577 #4c7899'
+WMII_URGENTCOLORS='#888888 #550000 #330000'
+
+WMII_BACKGROUND='#333333'
+WMII_FONT='-*-fixed-medium-r-*-*-13-*-*-*-*-*-*-*'
+
+MODKEY="Mod4"
+WMII_TERM='gnome-terminal'
+WMII_TERM=xterm
+
+WMII_HISTORY="${WMII_CONFPATH%%:*}/programs.history"
+
+startup() {
+	witray &
+}
+
+tags() { wmiir ls /tag | sed 's|/$||;/^sel$/d'; }
+current_tag() { wmiir read /tag/sel/ctl | head -n 1; }
+next_tag() { tags | sed -n "1h;/^$(current_tag)\$/{\${g;p};n;p;q}"; }
+prev_tag() { (tags | sed -n "/^$(current_tag)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
+
+event() {
+	local evtype="$1"; shift
+	echo "== ($$) Event: [$evtype]" "$@"
+
+	case "$evtype" in
+	Start)
+		return 1
+		;;
+	
+	CreateTag)
+		{	echo colors "$WMII_NORMCOLORS"
+			echo label "$*"
+		} | wmiir create "/lbar/$*"
+		;;
+	DestroyTag)
+		wmiir remove "/lbar/$*"
+		;;
+	FocusTag)
+		{	echo colors "$WMII_FOCUSCOLORS"
+			echo label "$*"
+		} | wmiir write "/lbar/$*"
+		;;
+	UnfocusTag)
+		{	echo colors "$WMII_NORMCOLORS"
+			echo label "$*"
+		} | wmiir write "/lbar/$*"
+		;;
+	UrgentTag)
+		shift
+		{	echo colors "$WMII_URGENTCOLORS"
+			echo label "$*"
+		} | wmiir write "/lbar/$*"
+		;;
+	NotUrgentTag)
+		shift
+		{	echo colors "$WMII_NORMCOLORS"
+			echo label "$*"
+		} | wmiir write "/lbar/$*"
+		;;
+
+	LeftBarClick)
+		local button="$1"; shift
+		case "$button" in
+		1) wmiir xwrite /ctl "view $*";;
+		2) ;; #menu
+		3) ;; #close?
+		4) wmiir xwrite /ctl "view $(prev_tag)";;
+		5) wmiir xwrite /ctl "view $(next_tag)";;
+		esac
+		;;
+
+	LeftBarDND)
+		shift
+		wmiir xwrite /ctl "view $*"
+		;;
+	
+	ClientMouseDown)
+		local client="$1" button="$2"
+		;;
+
+	Unresponsive)
+		local client="$1"
+		msg="$(printf "The following client is not responding:\n\n%s\n\nWhat would you like to do?" "$(wmiir read /client/"$client"/label)")"
+
+		if ! wihack -transient "$client" zenity --question --text="$msg" \
+			--ok-label="Wait" --cancel-label="Kill"; then
+			wmiir xwrite "/client/$client/ctl" "slay"
+		fi &
+
+		#case "$(wihack -transient "$client" xmessage -nearmouse -buttons Kill,Wait -print -fn "${WMII_FONT%%,*}" "$msg")" in
+		#Kill) wmiir xwrite /client/"$client"/ctl slay
+		#esac
+		;;
+
+	Key)
+		event_$evtype "$@"
+		;;
+	esac
+	return 0
+}
+
+event_Key() {
+	local key="$1" mod=""
+	if [[ "$key" == *-* ]]; then
+		mod="${key%-*}"
+		key="${key##*-}"
+	fi
+	echo "== ($$) Key: [$mod] $key"
+
+	case "$mod" in
+
+	$MODKEY)
+	case "$key" in
+		h) wmiir xwrite /tag/sel/ctl "select left";;
+		j) wmiir xwrite /tag/sel/ctl "select down";;
+		k) wmiir xwrite /tag/sel/ctl "select up";;
+		l) wmiir xwrite /tag/sel/ctl "select right";;
+		space) wmiir xwrite /tag/sel/ctl "select toggle";;
+		[0-9]) wmiir xwrite /ctl "view $key";;
+
+		d) wmiir xwrite /tag/sel/ctl "colmode sel default-max";;
+		s) wmiir xwrite /tag/sel/ctl "colmode sel stack-max";;
+		m) wmiir xwrite /tag/sel/ctl "colmode sel stack+max";;
+
+		p)
+			local input="$(wimenu -h "$WMII_HISTORY" -n 20 < "$(wmiir namespace)/programs.cache")"
+			[[ "$input" ]] && {
+				echo "=> eval (program): $input"
+				#eval "$input"
+				eval wmiir setsid -f "$input"
+			}
+			;;
+
+		a)
+			local input="$(declare -F | sed -n 's/^declare -f //; /^action_/{s/^action_//; p}' | wimenu -p 'action:')"
+			[[ "$input" ]] && {
+				set -- $input
+				local action="$1"; shift
+				echo "=> action: $action || $*"
+				case "$action" in
+					quit) eval action_$action $*;;
+					*) eval $action $*;;
+				esac
+			}
+			;;
+
+		Return) eval wmiir setsid -f "$WMII_TERM";;
+	esac;;
+	
+	$MODKEY-Shift)
+	case "$key" in
+		h) wmiir xwrite /tag/sel/ctl "send sel left";;
+		j) wmiir xwrite /tag/sel/ctl "send sel down";;
+		k) wmiir xwrite /tag/sel/ctl "send sel up";;
+		l) wmiir xwrite /tag/sel/ctl "send sel right";;
+		space) wmiir xwrite /tag/sel/ctl "send sel toggle";;
+		[0-9]) wmiir xwrite /client/sel/tags "$key";;
+	esac;;
+
+	$MODKEY-Control)
+	case "$key" in
+		j) wmiir xwrite /tag/sel/ctl "select down stack";;
+		k) wmiir xwrite /tag/sel/ctl "select up stack";;
+	esac;;
+
+	esac
+}
+
+action_quit() {
+	wmiir xwrite /ctl "quit"
+}
+
+proglist() {
+	local dirs; IFS=":" read -a dirs <<< "$1"
+	for dir in "${dirs[@]}"; do
+		wmiir proglist -- "$(eval echo "$dir")"
+	done | sort | uniq
+}
+
+wmiir write /ctl <<!
+	font $WMII_FONT
+	focuscolors $WMII_FOCUSCOLORS
+	normcolors $WMII_NORMCOLORS
+	grabmod $MODKEY
+	border 1
+!
+xsetroot -solid "$WMII_BACKGROUND" &
+
+# Column Rules
+wmiir write /colrules <<'!'
+	/gimp/ -> 17+83+41
+	/.*/ -> 62+38 # Golden Ratio
+!
+
+# Tagging Rules
+wmiir write /rules <<'!'
+	#/MPlayer|VLC/ floating=on
+	/^ffplay:/ floating=on
+
+	/^Pidgin:/ allow=+activate
+
+	/^gnome-terminal:/ group=0
+	/^ROX-Filer:/ group=0
+!
+
+# Bind keys
+for key in \
+	{h,j,k,l,space} \
+	Shift-{h,j,k,l,space} \
+	{0..9} \
+	Shift-{0..9} \
+	{d,s,m} \
+	{a,p} \
+	Return \
+	Control-{j,k}
+do echo "$MODKEY-$key"; done | wmiir write /keys
+
+# Set up tags
+wmiir rm $(wmiir ls -p /lbar) > /dev/null
+current="$(current_tag)"
+tags | while read tag; do
+	if [ "$tag" = "$current" ]; then
+		echo colors "$WMII_FOCUSCOLORS"
+		echo label "$tag"
+	else
+		echo colors "$WMII_NORMCOLORS"
+		echo label "$tag"
+	fi | wmiir create "/lbar/$tag"
+done
+
+# Cache proglist
+proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
+
+# Event loop
+echo "wmiirc[$$] started"
+wmiir write /event <<< "Start wmiirc"
+
+startup
+
+while read event; do
+	event $event || {
+		echo "wmiirc[$$] quitting."
+		#kill -9 $$
+		break
+	}
+done < <(wmiir read /event) 2> /dev/null
+
+exit; : <<'Fin.'
+
+# Status Bar Info
+status() {
+	echo -n $(uptime | sed 's/.*://; s/,//g') '|' $(date)
+}
+
+Event Notice
+	wmiir xwrite $noticebar $wi_arg
+
+	kill $xpid 2>/dev/null # Let's hope this isn't reused...
+	{ sleep $noticetimeout; wmiir xwrite $noticebar ' '; }&
+	xpid = $!
+
+# Menus
+Menu Client-3-Delete
+	wmiir xwrite /client/$1/ctl kill
+Menu Client-3-Kill
+	wmiir xwrite /client/$1/ctl slay
+Menu Client-3-Fullscreen
+	wmiir xwrite /client/$1/ctl Fullscreen on
+Event ClientMouseDown
+	wi_fnmenu Client $2 $1 &
+
+Menu LBar-3-Delete
+	tag=$1; clients=$(wmiir read "/tag/$tag/index" | awk '/[^#]/{print $2}')
+	for c in $clients; do
+		if [ "$tag" = "$(wmiir read /client/$c/tags)" ]; then
+			wmiir xwrite /client/$c/ctl kill
+		else
+			wmiir xwrite /client/$c/tags -$tag
+		fi
+		if [ "$tag" = "$(wi_seltag)" ]; then
+			newtag=$(wi_tags | awk -v't='$tag '
+				$1 == t { if(!l) getline l
+					  print l
+					  exit }
+				{ l = $0 }')
+			wmiir xwrite /ctl view $newtag
+		fi
+	done
+Event LeftBarMouseDown
+	wi_fnmenu LBar "$@" &
+
+# Actions
+Action showkeys
+	echo "$KeysHelp" | xmessage -file - -fn ${WMII_FONT%%,*}
+Action quit
+	wmiir xwrite /ctl quit
+Action exec
+	wmiir xwrite /ctl exec "$@"
+Action rehash
+	wi_proglist $PATH >$progsfile
+Action status
+	set +xv
+	if wmiir remove /rbar/status 2>/dev/null; then
+		sleep 2
+	fi
+	echo "$WMII_NORMCOLORS" | wmiir create /rbar/status
+	while status | wmiir write /rbar/status; do
+		sleep 1
+	done
+
+Key $MODKEY-f # Toggle selected client's fullsceen state
+	wmiir xwrite /client/sel/ctl Fullscreen toggle
+Key $MODKEY-Shift-c # Close client
+	wmiir xwrite /client/sel/ctl kill
+
+Key $MODKEY-a      # Open wmii actions menu
+	action $(wi_actions | wimenu -h "${hist}.actions" -n $histnum) &
+Key $MODKEY-p      # Open program menu
+	eval wmiir setsid "$(wimenu -h "${hist}.progs" -n $histnum <$progsfile)" &
+
+Key $MODKEY-Control-t # Toggle all other key bindings
+	case $(wmiir read /keys | wc -l | tr -d ' \t\n') in
+	0|1)
+		echo -n "$Keys" | wmiir write /keys
+		wmiir xwrite /ctl grabmod $MODKEY;;
+	*)
+		wmiir xwrite /keys $MODKEY-Control-t
+		wmiir xwrite /ctl grabmod Mod3;;
+	esac
+
+KeyGroup Tag actions
+Key $MODKEY-t       # Change to another tag
+	(tag=$(wi_tags | wimenu -h "${hist}.tags" -n 50) && wmiir xwrite /ctl view $tag) &
+Key $MODKEY-Shift-t # Retag the selected client
+	c=$(wi_selclient)
+	(tag=$(wi_tags | wimenu -h "${hist}.tags" -n 50) && wmiir xwrite /client/$c/tags $tag) &
+	next="$( tags | grep -FxA 1 -m 1 "$current" | tail -n 1 )"
+
+Fin.

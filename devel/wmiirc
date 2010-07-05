@@ -17,6 +17,19 @@ WMII_HISTORY="${WMII_CONFPATH%%:*}/programs.history"
 
 startup() {
 	witray &
+
+	mpcstatus &
+
+	status | wmiir create /rbar/status
+	while status; do
+		sleep 1
+	done &
+}
+
+status() {
+	echo -n label $(uptime | sed 's/.*://; s/,//g') \
+		'|' $(date +'%A, %b %d %H:%M:%S') \
+		| wmiir write /rbar/status
 }
 
 tags() { wmiir ls /tag | sed 's|/$||;/^sel$/d'; }
@@ -30,6 +43,8 @@ event() {
 
 	case "$evtype" in
 	Start)
+		echo Killing self [pgroup:$$]
+		pkill -g $$
 		return 1
 		;;
 	

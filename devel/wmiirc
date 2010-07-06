@@ -1,5 +1,6 @@
 #!/bin/bash
 # vi: ft=sh
+PGROUP="$(ps -o 'pgrp=' $$)"
 
 # <text> <background> <border>
 WMII_NORMCOLORS='#888888 #222222 #333333'
@@ -13,17 +14,23 @@ MODKEY="Mod4"
 WMII_TERM='gnome-terminal'
 WMII_TERM=xterm
 
+WMII_CONFPATH="$HOME/.wmii"
 WMII_HISTORY="${WMII_CONFPATH%%:*}/programs.history"
 
-startup() {
-	witray &
+spawn() { cd ~; wmiir setsid -f "$@"; }
 
-	mpcstatus &
+startup() {
+	cd ~
+	witray -s 24 &
 
 	status | wmiir create /rbar/status
 	while status; do
 		sleep 1
-	done &
+	done & echo "++ status[$!]"
+
+	mpc_update & echo "++ mpc_update[$!]"
+	spawn bluetooth-applet
+	#spawn pidgin
 }
 
 status() {
@@ -39,12 +46,10 @@ prev_tag() { (tags | sed -n "/^$(current_tag)\$/{1q42;g;p;q};h") || (tags | sed 
 
 event() {
 	local evtype="$1"; shift
-	echo "== ($$) Event: [$evtype]" "$@"
+	# echo "== ($$) Event: [$evtype]" "$@"
 
 	case "$evtype" in
-	Start)
-		echo Killing self [pgroup:$$]
-		pkill -g $$
+	Start|Suicide)
 		return 1
 		;;
 	
@@ -186,19 +191,40 @@ event_Key() {
 			;;
 
 		a)
-			local input="$(declare -F | sed -n 's/^declare -f //; /^action_/{s/^action_//; p}' | wimenu -p 'action:')"
+			local input="$({
+				echo 'quit'
+				echo 'restart-wmii'
+				echo 'restart-rc'
+				echo 'rehash-proglist'
+				} | wimenu -p 'action:')"
 			[[ "$input" ]] && {
 				set -- $input
 				local action="$1"; shift
-				echo "=> action: $action || $*"
+				echo "=> action: $action $*"
 				case "$action" in
-					quit) eval action_$action $*;;
-					*) eval $action $*;;
+				quit)
+					wmiir xwrite /event "Suicide"
+					wmiir xwrite /ctl "quit"
+					;;
+				rehash-proglist)
+					proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
+					;;
+				restart-rc)
+					wmiir setsid -f $0
+					;;
+				restart-wmii)
+					wmiir xwrite /ctl "exec wmii" ;;
+				exec)
+					wmiir xwrite /ctl "exec $*" ;;
+				ctl)
+					wmiir xwrite /ctl "$*" ;;
+				eval)
+					eval "$*" ;;
 				esac
 			}
 			;;
 
-		Return) eval wmiir setsid -f "$WMII_TERM";;
+		Return) spawn "$WMII_TERM";;
 	esac;;
 	
 	$MODKEY-Shift)
@@ -218,10 +244,6 @@ event_Key() {
 	esac;;
 
 	esac
-}
-
-action_quit() {
-	wmiir xwrite /ctl "quit"
 }
 
 proglist() {
@@ -285,16 +307,19 @@ done
 # Cache proglist
 proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 
+wmiir create '/rbar/!' < /dev/null
+
 # Event loop
-echo "wmiirc[$$] started"
+echo "wmiirc[$$/$PGROUP] started"
 wmiir write /event <<< "Start wmiirc"
 
 startup
 
 while read event; do
 	event $event || {
-		echo "wmiirc[$$] quitting."
-		#kill -9 $$
+		echo "wmiirc[$$/$PGROUP] quitting."
+		echo "Killing pgroup $PGROUP"
+		pkill -g $PGROUP
 		break
 	}
 done < <(wmiir read /event) 2> /dev/null

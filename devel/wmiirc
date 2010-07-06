@@ -255,6 +255,28 @@ proglist() {
 	done | sort | uniq
 }
 
+mpc_status() {
+	if mpc | grep -qs '^\[playing\]'; then
+		echo label "$(mpc | sed 1q)"
+	elif mpc | grep -qs '^\[paused\]'; then
+		echo label '(paused)' "$(mpc | sed 1q)"
+	else
+		echo label '(stopped)'
+	fi
+}
+
+mpc_update() {
+	mpc_status | wmiir create /rbar/mpc
+	while true; do
+		if pgrep mpd >& /dev/null; then
+			mpc_status | wmiir write /rbar/mpc
+			mpc idle > /dev/null || sleep 5
+		else
+			sleep 20
+		fi
+	done
+}
+
 wmiir write /ctl <<!
 	font $WMII_FONT
 	focuscolors $WMII_FOCUSCOLORS

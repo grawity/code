@@ -155,6 +155,14 @@ event() {
 	Key)
 		event_$evtype "$@"
 		;;
+
+	# Debugging through 'wmiir write /event'
+	eval)
+		{
+			echo -e "\033[1m-> $@\033[m"
+			eval "$@"
+		} >> "${WMII_CONFPATH%%:*}/eval.txt" 2>&1
+		;;
 	esac
 	return 0
 }
@@ -165,7 +173,7 @@ event_Key() {
 		mod="${key%-*}"
 		key="${key##*-}"
 	fi
-	echo "== ($$) Key: [$mod] $key"
+	# echo "== ($$) Key: [$mod] $key"
 
 	case "$mod" in
 

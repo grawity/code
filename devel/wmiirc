@@ -29,7 +29,7 @@ startup() {
 		sleep 1
 	done & echo "++ status[$!]"
 
-	mpc_update & echo "++ mpc_update[$!]"
+	mpstatus_update & echo "++ mpstatus_update[$!]"
 	spawn bluetooth-applet
 	#spawn pidgin
 }
@@ -256,25 +256,33 @@ proglist() {
 	done | sort | uniq
 }
 
-mpc_status() {
-	if mpc | grep -qs '^\[playing\]'; then
+mpstatus() {
+	local FG_PLAYING='#bbbbbb'
+	local FG_PAUSED="${WMII_NORMCOLORS%% *}"
+	local FG_STOPPED='#666666'
+	local BG="${WMII_NORMCOLORS#* }"
+
+	if ! mpc >& /dev/null; then
+		echo colors "$FG_STOPPED $BG"
+		echo label "(mpd not running)"
+		return $?
+	elif mpc | grep -qs '^\[playing\]'; then
+		echo colors "$FG_PLAYING $BG"
 		echo label "$(mpc | sed 1q)"
 	elif mpc | grep -qs '^\[paused\]'; then
-		echo label '(paused)' "$(mpc | sed 1q)"
+		echo colors "$FG_PAUSED $BG"
+		echo label "(paused) $(mpc | sed 1q)"
 	else
-		echo label '(stopped)'
+		echo colors "$FG_STOPPED $BG"
+		echo label "(stopped)"
 	fi
 }
 
-mpc_update() {
-	mpc_status | wmiir create /rbar/mpc
+mpstatus_update() {
+	mpstatus | wmiir create /rbar/mpc
 	while true; do
-		if pgrep mpd >& /dev/null; then
-			mpc_status | wmiir write /rbar/mpc
-			mpc idle > /dev/null || sleep 5
-		else
-			sleep 20
-		fi
+		mpc idle > /dev/null || sleep 5
+		mpstatus | wmiir write /rbar/mpc
 	done
 }
 

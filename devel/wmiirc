@@ -73,6 +73,8 @@ current_tag() { wmiir read /tag/sel/ctl | head -n 1; }
 next_tag() { tags | sed -n "1h;/^$(current_tag)\$/{\${g;p};n;p;q}"; }
 prev_tag() { (tags | sed -n "/^$(current_tag)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
 
+htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+
 event() {
 	local evtype="$1"; shift
 	# echo "== ($$) Event: [$evtype]" "$@"
@@ -151,16 +153,49 @@ event() {
 	ClientMouseDown)
 		local client="$1" button="$2" cmd=""
 		case "$button" in
+		2) wmiir xwrite "/client/$client/ctl" "kill";;
 		3)
-			cmd="$(wmii9menu -- '- wmii -' \
+			local wlabel="$(wmiir read "/client/$client/label")"
+			cmd="$(wmii9menu -- "- $client -" \
 				'close window:kill' \
 				'kill client:slay' \
 				'full screen:zoom' \
+				'properties:props' \
+				'retag:retag' \
 				)"
 			case "$cmd" in
 				kill) wmiir xwrite "/client/$client/ctl" "kill";;
-				slay) wmiir xwrite "/client/$client/ctl" "slay";;
+				#slay) wmiir xwrite "/client/$client/ctl" "slay";;
+				slay)
+					local pid="$(wmiir read "/client/$client/ctl" | sed -n '/^pid /{s/^pid //;p;q}')"
+					local msg="$(printf "Do you really want to kill the process that this window belongs to?\n\nWindow:\t%s\nProcess:\t<b>%s</b>" "$(htmlescape <<< "$wlabel")" "$(ps -o cmd= $pid | htmlescape)")"
+
+					zenity --question --title="Slay" --text="$msg" \
+						--ok-label="Slay" --cancel-label="Cancel" \
+					&& wmiir xwrite "/client/$client/ctl" "slay";;
 				zoom) wmiir xwrite "/client/$client/ctl" "fullscreen on";;
+				props)
+					local winst wclass wlabel
+					IFS=':' read winst wclass wlabel < <( wmiir read "/client/$client/props" )
+					{
+						echo -e "Instance:\t$winst"
+						echo -e "Class:\t$wclass"
+						echo -e "Label:\t$wlabel"
+						echo -e "Tags:\t$(wmiir read "/client/$client/tags" | sed 's/+/, /g')"
+						echo "Control (/client/$client/ctl)"
+						wmiir read "/client/$client/ctl" | sed 's/^/\t/'
+						echo "Properties (/client/$client/props)"
+						wmiir read "/client/$client/props" | sed 's/^/\t/'
+					} | spawn wihack -transient "$client" zenity --text-info --title="Client $client"
+					;;
+				retag)
+					local wlabel="$(wmiir read "/client/$client/label")"
+					local wtags="$(wmiir read "/client/$client/tags")"
+					local input="$(zenity --entry --title="Retag" \
+						--text="Enter new tags for window:\n$wlabel" \
+						--entry-text="$wtags")"
+					[ "$input" ] && wmiir xwrite "/client/$client/tags" "${input// /+}"
+					;;
 			esac
 			;;
 		esac
@@ -168,7 +203,7 @@ event() {
 
 	Unresponsive)
 		local client="$1"
-		msg="$(printf "The following client is not responding:\n\n%s\n\nWhat would you like to do?" "$(wmiir read /client/"$client"/label)")"
+		local msg="$(printf "The following client is not responding:\n\n%s\n\nWhat would you like to do?" "$(wmiir read /client/"$client"/label)")"
 
 		if ! wihack -transient "$client" zenity --question --text="$msg" \
 			--ok-label="Wait" --cancel-label="Kill"; then

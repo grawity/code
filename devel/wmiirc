@@ -34,6 +34,34 @@ startup() {
 	[[ -f "$WMII_STARTUP" ]] && . "$WMII_STARTUP"
 }
 
+wmiir write /ctl <<!
+	font $WMII_FONT
+	focuscolors $WMII_FOCUSCOLORS
+	normcolors $WMII_NORMCOLORS
+	grabmod $MODKEY
+	colmode default
+	border 1
+!
+xsetroot -solid "$WMII_BACKGROUND" &
+
+wmiir write /colrules <<'!'
+	/gimp/ -> 17+83+41
+	/.*/ -> 62+38 # Golden Ratio
+!
+# /client/*/props -> instance:class:label
+wmiir write /rules <<'!'
+	#/MPlayer|VLC/ floating=on
+	/^ffplay:/ floating=on
+
+	/^seahorse-agent:Seahorse-agent:/ floating=on
+	/^bluetooth-properties:/ floating=on
+
+	/^Pidgin:/ allow=+activate
+
+	/^gnome-terminal:/ group=0
+	/^ROX-Filer:/ group=0
+!
+
 status() {
 	echo -n label $(uptime | sed 's/.*://; s/,//g') \
 		'|' $(date +'%A, %b %d %H:%M:%S') \
@@ -308,35 +336,6 @@ mpstatus_update() {
 		mpstatus | wmiir write /rbar/mpc
 	done
 }
-
-wmiir write /ctl <<!
-	font $WMII_FONT
-	focuscolors $WMII_FOCUSCOLORS
-	normcolors $WMII_NORMCOLORS
-	grabmod $MODKEY
-	border 1
-!
-xsetroot -solid "$WMII_BACKGROUND" &
-
-# Column Rules
-wmiir write /colrules <<'!'
-	/gimp/ -> 17+83+41
-	/.*/ -> 62+38 # Golden Ratio
-!
-
-# Tagging Rules
-# /client/*/props -> instance:class:label
-wmiir write /rules <<'!'
-	#/MPlayer|VLC/ floating=on
-	/^ffplay:/ floating=on
-
-	/^bluetooth-properties:/ floating=on
-
-	/^Pidgin:/ allow=+activate
-
-	/^gnome-terminal:/ group=0
-	/^ROX-Filer:/ group=0
-!
 
 # Bind keys
 for key in \

@@ -15,8 +15,7 @@ WMII_TERM='gnome-terminal'
 WMII_TERM=xterm
 
 #WMII_CONFPATH="$HOME/.wmii"
-WMII_HISTORY="${WMII_CONFPATH%%:*}/programs.history"
-WMII_ACTION_HISTORY="${WMII_CONFPATH%%:*}/actions.history"
+WMII_HISTORY="${WMII_CONFPATH%%:*}/history"
 
 WMII_STARTUP="${WMII_CONFPATH%%:*}/startup"
 
@@ -24,7 +23,6 @@ spawn() { cd ~; wmiir setsid -f "$@"; }
 
 startup() {
 	cd ~
-	witray -s 24 &
 
 	status | wmiir create /rbar/status
 	while status; do
@@ -169,6 +167,8 @@ event() {
 	return 0
 }
 
+#declare -F | sed -n -e "s/^declare -f //; /^key_/ {s/^key/${MODKEY}/; y/_/-/; p}" | wmiir write /keys
+
 event_Key() {
 	local key="$1" mod=""
 	if [[ "$key" == *-* ]]; then
@@ -209,8 +209,8 @@ event_Key() {
 				echo 'restart-wmii'
 				echo 'restart-rc'
 				echo 'rehash-proglist'
-				} | wimenu -p 'action:' -h "$WMII_ACTION_HISTORY")"
-			[[ "$input" ]] && {
+				} | wimenu -p 'action:' -h "${WMII_HISTORY}.actions")"
+			[ "$input" ] && {
 				set -- $input
 				local action="$1"; shift
 				echo "=> action: $action $*"
@@ -237,6 +237,13 @@ event_Key() {
 			}
 			;;
 
+		t)
+			local input="$(tags | wimenu -p 'view tag:' -h "${WMII_HISTORY}.tags")"
+			[ "$input" ] && wmiir xwrite "/ctl" "view $input"
+			;;
+
+		q) wmiir xwrite /client/sel/ctl "kill" ;;
+
 		Return) spawn "$WMII_TERM";;
 	esac;;
 	
@@ -248,6 +255,12 @@ event_Key() {
 		l) wmiir xwrite /tag/sel/ctl "send sel right";;
 		space) wmiir xwrite /tag/sel/ctl "send sel toggle";;
 		[0-9]) wmiir xwrite /client/sel/tags "$key";;
+
+		t)
+			local client="$(wmiir read /client/sel/ctl | sed 1q)"
+			local input="$(tags | wimenu -p 'retag:' -h "${WMII_HISTORY}.tags")"
+			[ "$input" ] && wmiir xwrite "/client/$client/tags" "$input"
+			;;
 	esac;;
 
 	$MODKEY-Control)
@@ -331,9 +344,9 @@ for key in \
 	Shift-{h,j,k,l,space} \
 	{0..9} \
 	Shift-{0..9} \
-	{d,s,m} \
-	{a,p} \
-	Return \
+	d s m f \
+	a p t Shift-t \
+	Return q \
 	Control-{j,k}
 do echo "$MODKEY-$key"; done | wmiir write /keys
 

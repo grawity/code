@@ -68,12 +68,48 @@ status() {
 		| wmiir write /rbar/status
 }
 
-tags() { wmiir ls /tag | sed 's|/$||;/^sel$/d'; }
-current_tag() { wmiir read /tag/sel/ctl | head -n 1; }
-next_tag() { tags | sed -n "1h;/^$(current_tag)\$/{\${g;p};n;p;q}"; }
-prev_tag() { (tags | sed -n "/^$(current_tag)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
+# List all tags, get active/next/previous tag.
+tags() { wmiir ls /tag | sed 's|/$||; /^sel$/d'; }
+this_tag() { wmiir read /tag/sel/ctl | head -n 1; }
+next_tag() { tags | sed -n "1h;/^$(this_tag)\$/{\${g;p};n;p;q}"; }
+prev_tag() { (tags | sed -n "/^$(this_tag)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
 
-htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g'; }
+# Get active client's ID.
+this_client() { wmiir read /client/sel/ctl | head -n 1; }
+client_pid() { wmiir read "/client/$1/ctl" | awk '/^pid /{print $2}'; }
+
+program_menu() {
+	wimenu -h "$WMII_HISTORY" -n 50 < "$(wmiir namespace)/programs.cache"
+}
+action_menu() {
+	for action; do
+		echo "$action"
+	done | wimenu -p "action:"
+}
+tag_menu() {
+	tags | wimenu -p "${1:-view tag}:" -h "${WMII_HISTORY}.tags" -n 20
+}
+
+display_client_info() {
+	local client="$1"
+	local pid="$(client_pid "$client")"
+	local winst wclass wlabel
+	IFS=':' read winst wclass wlabel < <( wmiir read "/client/$client/props" )
+
+	{
+		echo -e "Instance:\t$winst"
+		echo -e "Class:\t$wclass"
+		echo -e "Label:\t$wlabel"
+		echo -e "Process:\t($pid) $(ps -o 'cmd=' $pid)"
+		echo "Control:"
+		wmiir read "/client/$client/ctl" | sed 's/^/\t/'
+		echo "Properties:"
+		wmiir read "/client/$client/props" | sed 's/^/\t/'
+	} | spawn wihack -transient "$client" \
+		zenity --text-info --title="Client $client"
+}
+
+htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
 
 event() {
 	local evtype="$1"; shift
@@ -110,7 +146,7 @@ event() {
 		;;
 	NotUrgentTag)
 		shift
-		{	if [ "$*" = "$(current_tag)" ]; then
+		{	if [ "$*" = "$(this_tag)" ]; then
 				echo colors "$WMII_FOCUSCOLORS"
 			else
 				echo colors "$WMII_NORMCOLORS"
@@ -156,36 +192,29 @@ event() {
 		3)
 			local wlabel="$(wmiir read "/client/$client/label")"
 			cmd="$(wmii9menu -- "- $client -" \
-				'close window:kill' \
-				'kill client:slay' \
-				'full screen:zoom' \
-				'properties:props' \
-				'retag:retag' \
+				'close' \
+				'kill' \
+				'fullscreen' \
+				'info' \
+				'retag' \
 				)"
 			case "$cmd" in
-				kill) wmiir xwrite "/client/$client/ctl" "kill";;
-				#slay) wmiir xwrite "/client/$client/ctl" "slay";;
-				slay)
-					local pid="$(wmiir read "/client/$client/ctl" | sed -n '/^pid /{s/^pid //;p;q}')"
-					local msg="$(printf "Do you really want to kill the process that this window belongs to?\n\nWindow:\t%s\nProcess:\t<b>%s</b>" "$(htmlescape <<< "$wlabel")" "$(ps -o cmd= $pid | htmlescape)")"
+				close)
+					wmiir xwrite "/client/$client/ctl" "kill"
+					;;
+				kill)
+					local pid="$(client_pid "$client")"
+					local msg="$(printf "Do you really want to kill the process that this window belongs to?\n\nWindow:\t%s\nProcess:\t<b>%s</b>" "$(htmlescape <<< "$wlabel")" "$(ps -o cmd= $pid | htmlescape)") (PID $pid)"
 
-					zenity --question --title="Slay" --text="$msg" \
-						--ok-label="Slay" --cancel-label="Cancel" \
-					&& wmiir xwrite "/client/$client/ctl" "slay";;
-				zoom) wmiir xwrite "/client/$client/ctl" "fullscreen on";;
-				props)
-					local winst wclass wlabel
-					IFS=':' read winst wclass wlabel < <( wmiir read "/client/$client/props" )
-					{
-						echo -e "Instance:\t$winst"
-						echo -e "Class:\t$wclass"
-						echo -e "Label:\t$wlabel"
-						echo -e "Tags:\t$(wmiir read "/client/$client/tags" | sed 's/+/, /g')"
-						echo "Control (/client/$client/ctl)"
-						wmiir read "/client/$client/ctl" | sed 's/^/\t/'
-						echo "Properties (/client/$client/props)"
-						wmiir read "/client/$client/props" | sed 's/^/\t/'
-					} | spawn wihack -transient "$client" zenity --text-info --title="Client $client"
+					zenity --question --title="Kill process" --text="$msg" \
+						--ok-label="Kill" --cancel-label="Cancel" \
+						&& wmiir xwrite "/client/$client/ctl" "slay"
+					;;
+				fullscreen)
+					wmiir xwrite "/client/$client/ctl" "fullscreen on"
+					;;
+				info)
+					display_client_info "$client"
 					;;
 				retag)
 					local wlabel="$(wmiir read "/client/$client/label")"
@@ -215,10 +244,6 @@ event() {
 			--ok-label="Wait" --cancel-label="Kill"; then
 			wmiir xwrite "/client/$client/ctl" "slay"
 		fi &
-
-		#case "$(wihack -transient "$client" xmessage -nearmouse -buttons Kill,Wait -print -fn "${WMII_FONT%%,*}" "$msg")" in
-		#Kill) wmiir xwrite /client/"$client"/ctl slay
-		#esac
 		;;
 
 	Key)
@@ -232,6 +257,10 @@ event() {
 			eval "$@"
 		} >> "${WMII_CONFPATH%%:*}/eval.txt" 2>&1
 		;;
+
+	hup)
+		wmiir setsid -f $0
+		;;
 	esac
 	return 0
 }
@@ -244,57 +273,47 @@ event_Key() {
 		mod="${key%-*}"
 		key="${key##*-}"
 	fi
-	# echo "== ($$) Key: [$mod] $key"
 
 	case "$mod" in
 
 	$MODKEY)
-	case "$key" in
+		case "$key" in
 		h) wmiir xwrite /tag/sel/ctl "select left";;
 		j) wmiir xwrite /tag/sel/ctl "select down";;
 		k) wmiir xwrite /tag/sel/ctl "select up";;
 		l) wmiir xwrite /tag/sel/ctl "select right";;
 		space) wmiir xwrite /tag/sel/ctl "select toggle";;
 		[0-9]) wmiir xwrite /ctl "view $key";;
-
 		d) wmiir xwrite /tag/sel/ctl "colmode sel default-max";;
 		s) wmiir xwrite /tag/sel/ctl "colmode sel stack-max";;
 		m) wmiir xwrite /tag/sel/ctl "colmode sel stack+max";;
 
 		f) wmiir xwrite /client/sel/ctl "fullscreen toggle";;
+		q) wmiir xwrite /client/sel/ctl "kill" ;;
+
+		Return) spawn "$WMII_TERM" ;;
 
 		p)
-			local input="$(wimenu -h "$WMII_HISTORY" -n 20 < "$(wmiir namespace)/programs.cache")"
-			[[ "$input" ]] && {
-				echo "=> eval (program): $input"
-				#eval "$input"
-				eval wmiir setsid -f "$input"
-			}
+			local input="$(program_menu)"
+			[[ "$input" ]] && eval wmiir setsid -f "$input"
 			;;
 
 		a)
-			local input="$({
-				echo 'quit'
-				echo 'restart-wmii'
-				echo 'restart-rc'
-				echo 'rehash-proglist'
-				} | wimenu -p 'action:' -h "${WMII_HISTORY}.actions")"
-			[ "$input" ] && {
+			local input="$(action_menu 'quit' 'wmii' 'rc' 'proglist')"
+			[[ "$input" ]] && {
 				set -- $input
 				local action="$1"; shift
-				echo "=> action: $action $*"
 				case "$action" in
 				quit)
 					wmiir xwrite /event "Suicide"
 					wmiir xwrite /ctl "quit"
 					;;
-				rehash-proglist)
+				proglist)
 					proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 					;;
-				restart-rc)
-					wmiir setsid -f $0
-					;;
-				restart-wmii)
+				rc)
+					wmiir setsid -f $0 ;;
+				wmii)
 					wmiir xwrite /ctl "exec wmii" ;;
 				exec)
 					wmiir xwrite /ctl "exec $*" ;;
@@ -307,17 +326,13 @@ event_Key() {
 			;;
 
 		t)
-			local input="$(tags | wimenu -p 'view tag:' -h "${WMII_HISTORY}.tags")"
-			[ "$input" ] && wmiir xwrite "/ctl" "view $input"
+			local input="$(tag_menu)"
+			[[ "$input" ]] && wmiir xwrite "/ctl" "view $input"
 			;;
-
-		q) wmiir xwrite /client/sel/ctl "kill" ;;
-
-		Return) spawn "$WMII_TERM";;
-	esac;;
+		esac;;
 	
 	$MODKEY-Shift)
-	case "$key" in
+		case "$key" in
 		h) wmiir xwrite /tag/sel/ctl "send sel left";;
 		j) wmiir xwrite /tag/sel/ctl "send sel down";;
 		k) wmiir xwrite /tag/sel/ctl "send sel up";;
@@ -326,17 +341,17 @@ event_Key() {
 		[0-9]) wmiir xwrite /client/sel/tags "$key";;
 
 		t)
-			local client="$(wmiir read /client/sel/ctl | sed 1q)"
-			local input="$(tags | wimenu -p 'retag:' -h "${WMII_HISTORY}.tags")"
-			[ "$input" ] && wmiir xwrite "/client/$client/tags" "$input"
+			local client="$(this_client)"
+			local input="$(tag_menu 'retag')"
+			[[ "$input" ]] && wmiir xwrite "/client/$client/tags" "$input"
 			;;
-	esac;;
+		esac;;
 
 	$MODKEY-Control)
-	case "$key" in
+		case "$key" in
 		j) wmiir xwrite /tag/sel/ctl "select down stack";;
 		k) wmiir xwrite /tag/sel/ctl "select up stack";;
-	esac;;
+		esac;;
 
 	esac
 }
@@ -354,26 +369,28 @@ mpstatus() {
 	local FG_STOPPED='#666666'
 	local BG="${WMII_NORMCOLORS#* }"
 
-	if ! mpc >& /dev/null; then
-		echo colors "$FG_STOPPED $BG"
-		echo label "(mpd not running)"
-		return $?
-	elif mpc | grep -qs '^\[playing\]'; then
-		echo colors "$FG_PLAYING $BG"
-		echo label "$(mpc | sed 1q)"
-	elif mpc | grep -qs '^\[paused\]'; then
-		echo colors "$FG_PAUSED $BG"
-		echo label "(paused) $(mpc | sed 1q)"
-	else
-		echo colors "$FG_STOPPED $BG"
-		echo label "(stopped)"
-	fi
+	{
+		if ! mpc > /dev/null; then
+			echo colors "$FG_STOPPED $BG"
+			echo label "(mpd not running)"
+			return $?
+		elif mpc | grep -qs '^\[playing\]'; then
+			echo colors "$FG_PLAYING $BG"
+			echo label "$(mpc | sed 1q)"
+		elif mpc | grep -qs '^\[paused\]'; then
+			echo colors "$FG_PAUSED $BG"
+			echo label "(paused) $(mpc | sed 1q)"
+		else
+			echo colors "$FG_STOPPED $BG"
+			echo label "(stopped)"
+		fi
+	} 2> /dev/null
 }
 
 mpstatus_update() {
 	mpstatus | wmiir create /rbar/mpc
 	while true; do
-		mpc idle > /dev/null || sleep 5
+		mpc idle >& /dev/null || sleep 5
 		mpstatus | wmiir write /rbar/mpc
 	done
 }
@@ -392,7 +409,7 @@ do echo "$MODKEY-$key"; done | wmiir write /keys
 
 # Set up tags
 wmiir rm $(wmiir ls -p /lbar) > /dev/null
-current="$(current_tag)"
+current="$(this_tag)"
 tags | while read tag; do
 	if [ "$tag" = "$current" ]; then
 		echo colors "$WMII_FOCUSCOLORS"

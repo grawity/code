@@ -356,6 +356,14 @@ event_Key() {
 		k) wmiir xwrite /tag/sel/ctl "select up stack";;
 		esac;;
 
+	"")
+		case "$key" in
+		Menu)
+			local input="$(program_menu)"
+			[[ "$input" ]] && eval wmiir setsid -f "$input"
+			;;
+		esac;;
+
 	esac
 }
 
@@ -400,15 +408,14 @@ mpstatus_update() {
 
 # Bind keys
 for key in \
-	{h,j,k,l,space} \
-	Shift-{h,j,k,l,space} \
-	{0..9} \
-	Shift-{0..9} \
-	d s m f Shift-d \
-	a p t Shift-t \
-	Return q \
-	Control-{j,k}
-do echo "$MODKEY-$key"; done | wmiir write /keys
+	$MODKEY-{h,j,k,l,space,a,d,f,m,p,q,s,t} \
+	$MODKEY-{0..9} \
+	$MODKEY-Return \
+	$MODKEY-Shift-{h,j,k,l,space,d} \
+	$MODKEY-Shift-{0..9} \
+	$MODKEY-Control-{j,k} \
+	Menu \
+; do echo "$key"; done | wmiir write /keys
 
 # Set up tags
 wmiir rm $(wmiir ls -p /lbar) > /dev/null

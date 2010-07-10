@@ -18,7 +18,9 @@ WMII_TERM="xterm"
 WMII_HISTORY="${WMII_CONFPATH%%:*}/history"
 WMII_STARTUP="${WMII_CONFPATH%%:*}/startup"
 
-spawn() { cd ~; wmiir setsid -f "$@"; }
+WMII_APP_OUTPUT="/dev/null"
+
+spawn() { cd; wmiir setsid -f "$@" > "$WMII_APP_OUTPUT" 2>&1; }
 
 startup() {
 	witray -s 24 & echo "++ witray[$!]"
@@ -45,6 +47,8 @@ xsetroot -solid "$WMII_BACKGROUND" &
 
 # /client/*/props -> instance:class:label
 wmiir write /rules <<-'!'
+	#/./ floating=on continue
+
 	#/MPlayer|VLC/ floating=on
 	/^ffplay:/ floating=on
 

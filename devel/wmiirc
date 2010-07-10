@@ -1,28 +1,27 @@
 #!/bin/bash
 # vi: ft=sh
-PGROUP=$(ps -o 'pgrp=' $$)
+cd ~
 
-# <text> <background> <border>
-WMII_NORMCOLORS='#888888 #222222 #333333'
-WMII_FOCUSCOLORS='#ffffff #285577 #4c7899'
-WMII_URGENTCOLORS='#ffffff #772828 #99784c'
-
-WMII_BACKGROUND='#333333'
+WMII_BACKGROUND="#333333"
 WMII_FONT='-*-fixed-medium-r-*-*-13-*-*-*-*-*-*-*'
 
+# UI colors (text, background, border)
+WMII_NORMCOLORS="#888888 #222222 #333333"
+WMII_FOCUSCOLORS="#ffffff #285577 #4c7899"
+WMII_URGENTCOLORS="#ffffff #772828 #99784c"
+
 MODKEY="Mod4"
-WMII_TERM='gnome-terminal'
-WMII_TERM=xterm
 
-#WMII_CONFPATH="$HOME/.wmii"
+WMII_TERM="xterm"
+
+: ${WMII_CONFPATH:=${0%/*}}
 WMII_HISTORY="${WMII_CONFPATH%%:*}/history"
-
 WMII_STARTUP="${WMII_CONFPATH%%:*}/startup"
 
 spawn() { cd ~; wmiir setsid -f "$@"; }
 
 startup() {
-	cd ~
+	witray -s 24 & echo "++ witray[$!]"
 
 	status | wmiir create /rbar/status
 	while status; do
@@ -34,7 +33,7 @@ startup() {
 	[[ -f "$WMII_STARTUP" ]] && . "$WMII_STARTUP"
 }
 
-wmiir write /ctl <<!
+wmiir write /ctl <<-!
 	font $WMII_FONT
 	focuscolors $WMII_FOCUSCOLORS
 	normcolors $WMII_NORMCOLORS
@@ -44,12 +43,8 @@ wmiir write /ctl <<!
 !
 xsetroot -solid "$WMII_BACKGROUND" &
 
-wmiir write /colrules <<'!'
-	/gimp/ -> 17+83+41
-	/.*/ -> 62+38 # Golden Ratio
-!
 # /client/*/props -> instance:class:label
-wmiir write /rules <<'!'
+wmiir write /rules <<-'!'
 	#/MPlayer|VLC/ floating=on
 	/^ffplay:/ floating=on
 
@@ -64,20 +59,22 @@ wmiir write /rules <<'!'
 	/^gnome-terminal:/ group=0
 	/^ROX-Filer:/ group=0
 !
+wmiir write /colrules <<-'!'
+	/gimp/ -> 17+83+41
+	/.*/ -> 62+38 # Golden Ratio
+!
 
 status() {
 	echo -n label $(uptime | sed 's/.*://; s/,//g') \
-		'|' $(date +'%A, %b %d %H:%M:%S') \
+		'|' $(date +'%A, %b %d %H:%M') \
 		| wmiir write /rbar/status
 }
 
-# List all tags, get active/next/previous tag.
 tags() { wmiir ls /tag | sed 's|/$||; /^sel$/d'; }
 this_tag() { wmiir read /tag/sel/ctl | head -n 1; }
 next_tag() { tags | sed -n "1h;/^$(this_tag)\$/{\${g;p};n;p;q}"; }
 prev_tag() { (tags | sed -n "/^$(this_tag)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
 
-# Get active client's ID.
 this_client() { wmiir read /client/sel/ctl | head -n 1; }
 client_pid() { wmiir read "/client/$1/ctl" | awk '/^pid /{print $2}'; }
 
@@ -117,13 +114,10 @@ htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
 
 event() {
 	local evtype="$1"; shift
-	# echo "== ($$) Event: [$evtype]" "$@"
-
 	case "$evtype" in
-	Start|Suicide)
+	Start)
 		return 1
 		;;
-	
 	CreateTag)
 		{	echo colors "$WMII_NORMCOLORS"
 			echo label "$*"
@@ -390,10 +384,10 @@ mpstatus() {
 			return $?
 		elif mpc | grep -qs '^\[playing\]'; then
 			echo colors "$FG_PLAYING $BG"
-			echo label "$(mpc | sed 1q)"
+			echo label "$(mpc current)"
 		elif mpc | grep -qs '^\[paused\]'; then
 			echo colors "$FG_PAUSED $BG"
-			echo label "(paused) $(mpc | sed 1q)"
+			echo label "(paused) $(mpc current)"
 		else
 			echo colors "$FG_STOPPED $BG"
 			echo label "(stopped)"
@@ -439,6 +433,7 @@ proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 wmiir create '/rbar/!' < /dev/null
 
 # Event loop
+PGROUP=$(ps -o 'pgrp=' $$ | tr -d ' ')
 echo "wmiirc[$$/$PGROUP] started"
 wmiir write /event <<< "Start wmiirc"
 

@@ -238,7 +238,6 @@ event() {
 		local client="$1" button="$2" cmd=""
 		case "$button" in
 		3)
-			local wlabel="$(wmiir read "/client/$client/label")"
 			cmd="$(wmii9menu -i "info" -- \
 				"close" \
 				"kill" \
@@ -251,12 +250,17 @@ event() {
 					wmiir xwrite "/client/$client/ctl" "kill"
 					;;
 				kill)
+					local wlabel="$(wmiir read "/client/$client/label" | htmlescape)"
 					local pid="$(client_pid "$client")"
-					local msg="$(printf "Do you really want to kill the process that this window belongs to?\n\nWindow:\t%s\nProcess:\t<b>%s</b>" "$(htmlescape <<< "$wlabel")" "$(ps -o cmd= $pid | htmlescape)") (PID $pid)"
+					if [[ "$pid" ]]
+						then local process="<b>$(ps -o 'cmd=' $pid | htmlescape)</b> (PID $pid)"
+						else local process="<i>unknown</i>"
+					fi
+					local msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${wlabel}\nProcess:\t${process}"
 
-					zenity --question --title="Kill process" --text="$msg" \
-						--ok-label="Kill" --cancel-label="Cancel" \
-						&& wmiir xwrite "/client/$client/ctl" "slay"
+					zenity --question --title="Disconnect process" --text="$msg" \
+						--ok-label="Cancel" --cancel-label="Disconnect" \
+						|| wmiir xwrite "/client/$client/ctl" "slay"
 					;;
 				fullscreen)
 					wmiir xwrite "/client/$client/ctl" "fullscreen on"

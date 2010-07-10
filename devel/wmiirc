@@ -487,17 +487,19 @@ proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 wmiir create '/rbar/!' < /dev/null
 
 # Event loop
-PGROUP=$(ps -o 'pgrp=' $$ | tr -d ' ')
-echo "wmiirc[$$/$PGROUP] started"
-wmiir write /event <<< "Start wmiirc"
+echo "wmiirc[$$] started: $0"
+echo "- pgroup $(ps -o 'pgrp=' $$ | tr -d ' ')"
+
+# Signal existing wmiirc to quit
+wmiir write /event <<< "Start $0"
 
 startup
 
 while read event; do
-	event $event || {
-		echo "wmiirc[$$/$PGROUP] quitting."
-		echo "Killing pgroup $PGROUP"
-		pkill -g $PGROUP
-		break
-	}
-done < <(wmiir read /event) 2> /dev/null
+	event $event || break
+done < <(wmiir read /event)
+# 'break' will not work properly if { wmiir | while read ... } is used
+
+echo "wmiirc[$$] quitting."
+kill 0
+kill -9 0

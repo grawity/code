@@ -166,25 +166,72 @@ event() {
 		5) wmiir xwrite /ctl "view $(next_tag)";;
 		esac
 		;;
-
-	RightBarClick)
-		local button="$1"; shift
-		case "$*" in
-		mpc)
-			case "$button" in
-			1) mpc toggle;;
-			2) mpc prev;;
-			3) mpc next;;
-			4) mpc volume "+5";;
-			5) mpc volume "-5";;
-			esac > /dev/null
-			;;
-		esac
-		;;
-
 	LeftBarDND)
 		shift
 		wmiir xwrite /ctl "view $*"
+		;;
+
+	RightBarMouseDown)
+		local button="$1"; shift
+		case "$*" in
+		"mpc")
+			case "$button" in
+			3)
+				local choice="$(wmii9menu -i 'next' -- \
+					"playlist" \
+					"play/pause:toggle" \
+					"previous:prev" \
+					"next" \
+				)"
+				case "$choice" in
+				playlist)
+					spawn $WMII_TERM -e ncmpcpp;;
+				toggle)
+					mpc toggle;;
+				prev)
+					mpc prev;;
+				next)
+					mpc next;;
+				esac > /dev/null
+				;;
+			esac
+			;;
+		"status")
+			case "$button" in
+			3)
+				local choice="$(wmii9menu -i 'terminal' -- \
+					"quit wmii:quit" \
+					"terminal" \
+				)"
+				case "$choice" in
+				quit)
+					wmiir xwrite /event "Suicide"
+					wmiir xwrite /ctl "quit"
+					;;
+				terminal)
+					spawn "$WMII_TERM" ;;
+				esac
+				;;
+			esac
+			;;
+		esac
+		;;
+	RightBarClick)
+		local button="$1"; shift
+		case "$*" in
+		"mpc")
+			case "$button" in
+			1) mpc toggle ;;
+			2) mpc prev ;;
+			#3) mpc next ;;
+			4) mpc volume "+5" ;;
+			5) mpc volume "-5" ;;
+			esac > /dev/null ;;
+		"status")
+			case "$button" in
+			1) spawn slock ;;
+			esac ;;
+		esac
 		;;
 	
 	ClientMouseDown)
@@ -192,13 +239,13 @@ event() {
 		case "$button" in
 		3)
 			local wlabel="$(wmiir read "/client/$client/label")"
-			cmd="$(wmii9menu -- "- $client -" \
-				'close' \
-				'kill' \
-				'fullscreen' \
-				'info' \
-				'retag' \
-				)"
+			cmd="$(wmii9menu -i "info" -- \
+				"close" \
+				"kill" \
+				"fullscreen" \
+				"info" \
+				"retag" \
+			)"
 			case "$cmd" in
 				close)
 					wmiir xwrite "/client/$client/ctl" "kill"

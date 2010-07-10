@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# r20100410
+# r20100710
 use strict;
 #use brain;
 use IO::Socket;
@@ -15,8 +15,7 @@ eval {
 	require Net::DBus;
 	$dbus = Net::DBus->session;
 	$libnotify = $dbus->get_service("org.freedesktop.Notifications");
-	$dobject = $libnotify->get_object("/org/freedesktop/Notifications",
-		"org.freedesktop.Notifications");
+	$dobject = $libnotify->get_object("/org/freedesktop/Notifications");
 };
 
 sub send_libnotify($$$$) {

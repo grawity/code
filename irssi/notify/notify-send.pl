@@ -36,8 +36,7 @@ eval {
 	require Net::DBus;
 	$dbus = Net::DBus->session;
 	$dservice = $dbus->get_service("org.freedesktop.Notifications");
-	$libnotify = $dservice->get_object("/org/freedesktop/Notifications",
-		"org.freedesktop.Notifications");
+	$libnotify = $dservice->get_object("/org/freedesktop/Notifications");
 };
 
 sub xml_escape($) {

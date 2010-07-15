@@ -2,7 +2,7 @@
 # Read and write lyrics tags.
 import sys
 
-from getopt import gnu_getopt as getopt
+import getopt
 
 try:
 	import mutagen.mp3, mutagen.id3
@@ -50,7 +50,7 @@ mode = None
 lyricsfile = None
 
 try:
-	options, audiofiles = getopt(sys.argv[1:], "ef:iox")
+	options, audiofiles = getopt.getopt(sys.argv[1:], "ef:iox")
 except getopt.GetoptError as e:
 	print >> sys.stderr, "Error:", e
 	usage()
@@ -61,6 +61,10 @@ for opt, value in options:
 	elif opt == "-i": mode = "input"
 	elif opt == "-o": mode = "output"
 	elif opt == "-x": mode = "kill"
+
+if len(audiofiles) < 1:
+	print >> sys.stderr, "Error: no mp3 files specified"
+	usage()
 
 if mode == "input":
 	if lyricsfile is None:

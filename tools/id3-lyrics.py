@@ -1,19 +1,29 @@
-#!/usr/bin/python -u
+#!/usr/bin/python
 # Read and write lyrics tags.
 import sys
-import getopt
+
+from getopt import gnu_getopt as getopt
 
 try:
 	import mutagen.mp3, mutagen.id3
 except ImportError:
-	print >> sys.stderr, "The mutagen library is not installed."
+	print >> sys.stderr, "This script requires Mutagen."
 	sys.exit(42)
 
-# Turn off text mode stdio on Windows (otherwise it writes CR CR LF)
+def usage():
+	print >> sys.stderr, """\
+import: lyrics -i audiofile [lyricfile]
+export: lyrics -e audiofile [lyricfile]
+remove: lyrics -x audiofile
+"""
+	sys.exit(2)
+
+# Turn off textmode stdio, otherwise CR CR LF is written
 if sys.platform == "win32":
-	import os, msvcrt
+	from os import O_BINARY
+	import msvcrt
 	for fd in (sys.stdin, sys.stdout, sys.stderr):
-		msvcrt.setmode(fd.fileno(), os.O_BINARY)
+		msvcrt.setmode(fd.fileno(), O_BINARY)
 
 def write_id3(file, lyrics):
 	tag = mutagen.mp3.MP3(file)
@@ -40,16 +50,17 @@ mode = "output"
 lyricsfile = None
 
 try:
-	options, files = getopt.gnu_getopt(sys.argv[1:], "f:iox")
+	options, audiofiles = getopt(sys.argv[1:], "ef:iox")
 except getopt.GetoptError as e:
 	print >> sys.stderr, "Error:", e
-	sys.exit(2)
+	usage()
 
 for opt, value in options:
-	if   opt == "-i": mode = "input"
+	if   opt == "-e": mode = "output"
+	elif opt == "-f": lyricsfile = value
+	elif opt == "-i": mode = "input"
 	elif opt == "-o": mode = "output"
 	elif opt == "-x": mode = "kill"
-	elif opt == "-f": lyricsfile = value
 
 if mode == "input":
 	if lyricsfile is None:
@@ -59,7 +70,7 @@ if mode == "input":
 
 	lyrics = f.read().decode("utf-8")
 
-	for file in files:
+	for file in audiofiles:
 		write_id3(file, lyrics)
 		
 elif mode == "output":
@@ -68,16 +79,15 @@ elif mode == "output":
 	else:
 		f = open(lyricsfile, "w")
 
-	for file in files:
+	for file in audiofiles:
 		lyrics = read_id3(file)
 		if lyrics is None: continue
 
 		sys.stdout.write(lyrics.encode("utf-8"))
 
-		# splitting required to bypass Windows text-mode stdio fuckage
-		#for line in lyrics.splitlines():
-		#	print line.strip().encode("utf-8")
-			
 elif mode == "kill":
-	for file in files:
+	for file in audiofiles:
 		write_id3(file, None)
+
+else:
+	usage()

@@ -12,8 +12,8 @@ except ImportError:
 
 def usage():
 	print >> sys.stderr, """\
-import: lyrics -i audiofile [lyricfile]
-export: lyrics -e audiofile [lyricfile]
+import: lyrics -i [-f lyricfile] audiofile
+export: lyrics -e [-f lyricfile] audiofile
 remove: lyrics -x audiofile
 """
 	sys.exit(2)
@@ -46,7 +46,7 @@ def read_id3(file):
 	except KeyError:
 		return None
 
-mode = "output"
+mode = None
 lyricsfile = None
 
 try:

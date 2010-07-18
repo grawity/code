@@ -37,6 +37,7 @@ startup() {
 
 wmiir write /ctl <<-!
 	font $WMII_FONT
+	fontpad 1 1 1 1
 	focuscolors $WMII_FOCUSCOLORS
 	normcolors $WMII_NORMCOLORS
 	grabmod $MODKEY
@@ -52,16 +53,18 @@ wmiir write /rules <<-'!'
 	#/MPlayer|VLC/ floating=on
 	/^ffplay:/ floating=on
 
-	# Disallow accidential defloation
 	/^witray:witray:witray$/ floating=always
 
 	/^seahorse-agent:Seahorse-agent:/ floating=on
 	/^bluetooth-properties:/ floating=on
+	/^xloadimage:/ floating=on
+	/^proximity.py:/ floating=on
 
 	/^Pidgin:/ allow=+activate
 
 	/^gnome-terminal:/ group=0
 	/^ROX-Filer:/ group=0
+	/^nm-applet:/ group=0
 !
 wmiir write /colrules <<-'!'
 	/gimp/ -> 17+83+41
@@ -93,6 +96,41 @@ action_menu() {
 }
 tag_menu() {
 	tags | wimenu -p "${1:-view tag}:" -h "${WMII_HISTORY}.tags" -n 20
+}
+
+program_input() {
+	local input="$(program_menu)"
+	[[ "$input" ]] && eval wmiir setsid -f "$input"
+}
+action_input() {
+	local input="$(action_menu 'quit' 'rc' 'wmii' 'exec' 'proglist')"
+	[[ "$input" ]] && {
+		set -- $input
+		local action="$1"; shift
+		case "$action" in
+		quit)
+			wmiir xwrite /event "Suicide"
+			wmiir xwrite /ctl "quit"
+			;;
+		proglist)
+			proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
+			;;
+		rc)
+			wmiir xwrite /ctl "spawn $0" ;;
+		wmii)
+			wmiir xwrite /ctl "exec wmii" ;;
+		exec)
+			wmiir xwrite /ctl "exec $*" ;;
+		ctl)
+			wmiir xwrite /ctl "$*" ;;
+		eval)
+			eval "$*" ;;
+		esac
+	}
+}
+
+program_cache() {
+	proglist "$PATH" > "$(wmiir namespace)/programs.cache"
 }
 
 display_client_info() {
@@ -349,37 +387,9 @@ event_Key() {
 
 		Return) spawn "$WMII_TERM" ;;
 
-		p)
-			local input="$(program_menu)"
-			[[ "$input" ]] && eval wmiir setsid -f "$input"
-			;;
-
-		a)
-			local input="$(action_menu 'quit' 'rc' 'wmii' 'exec' 'proglist')"
-			[[ "$input" ]] && {
-				set -- $input
-				local action="$1"; shift
-				case "$action" in
-				quit)
-					wmiir xwrite /event "Suicide"
-					wmiir xwrite /ctl "quit"
-					;;
-				proglist)
-					proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
-					;;
-				rc)
-					wmiir xwrite /ctl "spawn $0" ;;
-				wmii)
-					wmiir xwrite /ctl "exec wmii" ;;
-				exec)
-					wmiir xwrite /ctl "exec $*" ;;
-				ctl)
-					wmiir xwrite /ctl "$*" ;;
-				eval)
-					eval "$*" ;;
-				esac
-			}
-			;;
+		p) program_input ;;
+		Menu) action_input ;;
+		a) action_input ;;
 
 		t)
 			local input="$(tag_menu)"
@@ -413,10 +423,12 @@ event_Key() {
 
 	"")
 		case "$key" in
-		Menu)
-			local input="$(program_menu)"
-			[[ "$input" ]] && eval wmiir setsid -f "$input"
-			;;
+		Menu) program_input ;;
+		esac;;
+
+	Control)
+		case "$key" in
+		Menu) program_cache; program_input ;;
 		esac;;
 
 	esac
@@ -470,6 +482,7 @@ for key in \
 	$MODKEY-Shift-{0..9} \
 	$MODKEY-Control-{j,k} \
 	Menu \
+	Control-Menu \
 ; do echo "$key"; done | wmiir write /keys
 
 # Set up tags

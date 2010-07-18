@@ -50,7 +50,7 @@ mode = None
 lyricsfile = None
 
 try:
-	options, audiofiles = getopt.getopt(sys.argv[1:], "ef:iox")
+	options, audiofiles = getopt.gnu_getopt(sys.argv[1:], "ef:iox")
 except getopt.GetoptError as e:
 	print >> sys.stderr, "Error:", e
 	usage()

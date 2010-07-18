@@ -1,64 +1,108 @@
 #!/usr/bin/python
-import sys
-from mutagen import mp3, id3
-shift = lambda: sys.argv.pop(1)
+import sys, os
 
-def filename_to_mime(path):
+import getopt
+
+try:
+	from mutagen import mp3, id3
+except ImportError:
+	print >> sys.stderr, "This script requires Mutagen."
+	sys.exit(42)
+
+def usage():
+	print >> sys.stderr, """\
+import: cover -i [-f imagefile] audio_file [audio_file ...]
+export: cover -e [-f imagefile] audio_file
+remove: cover -x audio_file [audio_file ...]
+"""
+	sys.exit(2)
+
+def fileext_to_type(ext):
 	return {
-		"png": "image/png",
-		"jpeg": "image/jpeg",
-		"jpg": "image/jpeg",
-		}.get(path.split(".")[-1], "image/jpeg")
+		None:	None,
+		"jpeg":	"image/jpeg",
+		"jpg":	"image/jpeg",
+		"png":	"image/png",
+	}.get(ext[1:], None)
 
-def export_cover(audiofile, imagefile):
-	audio = mp3.MP3(audiofile)
-	if "APIC:" not in audio:
-		print >> sys.stderr, "No APIC frame found"
+def type_to_fileext(type):
+	return {
+		None:			None,
+		"image/jpeg":	".jpeg",
+		"image/png":	".png",
+	}.get(type, "jpeg")
+
+def export_cover(file, cover_file):
+	filetag = mp3.MP3(file)
+	if "APIC:" not in filetag:
+		print >> sys.stderr, "Error: No cover image (APIC frame) found"
 		return False
-	
-	if imagefile.endswith("."):
-		imagefile += {
-			"image/png": "png",
-			"image/jpeg": "jpeg",
-			}.get(audio["APIC:"].type, "jpeg")
-	
-	with open(imagefile, "wb") as image:
-		image.write(audio["APIC:"].data)
-	
-	print "Stored to %s" % imagefile
+
+	#if imagefile.endswith("."):
+	#	imagefile += 	
+	with open(cover_file, "wb") as cover_fh:
+		cover_fh.write(filetag["APIC:"].data)
 	return True
 
-def import_cover(imagefile, audiofile):
+def import_cover(file, image_data, image_type="image/jpeg"):
 	TYPE_FRONT_COVER = 3
 	ENC_UTF8 = 3
 	
-	audio = mp3.MP3(audiofile)
-	imagedata = open(imagefile, "rb").read()
-	imagemime = filename_to_mime(imagefile)
-	audio.tags.add(id3.APIC(data=imagedata, mime=imagemime, type=TYPE_FRONT_COVER,
-		desc="", encoding=ENC_UTF8))
-	audio.save()
+	filetag = mp3.MP3(file)
+	filetag.tags.add(id3.APIC(
+		data=image_data,
+		mime=image_type,
+		type=TYPE_FRONT_COVER,
+		desc=u"",
+		encoding=ENC_UTF8))
+	filetag.save()
 
-def nuke_cover(audiofile):
-	audio = mp3.MP3(audiofile)
-	del audio["APIC:"]
-	audio.save()
+def remove_cover(file):
+	filetag = mp3.MP3(file)
+	if "APIC:" in filetag:
+		del filetag["APIC:"]
+	filetag.save()
 
 try:
-	action = shift()
-except IndexError:
-	action = "-o"
+	options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iox")
+except getopt.GetoptError as e:
+	print >> sys.stderr, "Error:", e
+	usage()
 
-audiofile = shift()
-imagefile = shift()
+mode = None
+cover_file = None
 
-if action == "-i":
-	import_cover(imagefile, audiofile)
-elif action == "-o" or action == "-e":
-	export_cover(audiofile, imagefile)
-elif action == "-x":
-	nuke_cover(audiofile)
+for opt, value in options:
+	if   opt == "-e": mode = "export"
+	elif opt == "-f": cover_file = value
+	elif opt == "-i": mode = "import"
+	elif opt == "-o": mode = "export"
+	elif opt == "-x": mode = "kill"
+
+if len(files) < 1:
+	print >> sys.stderr, "Error: no mp3 files specified"
+	usage()
+
+if mode == "import":
+	if cover_file:
+		cover_fh = open(cover_file, 'rb')
+		ext = os.path.splitext(cover_file)
+		image_type = fileext_to_type(ext)
+	else:
+		cover_fh = sys.stdin
+		image_type = None #"image/jpeg"
+	image_data = cover_fh.read()
+	for audiofile in files:
+		import_cover(audiofile, image_data, image_type)
+
+elif mode == "export":
+	if len(files) > 1:
+		print >> sys.stderr, "Error: cannot export multiple covers to one file"
+		usage()
+
+	ret = export_cover(files[0], cover_file)
+
+	sys.exit(0 if ret else 1)
+
 else:
-	print >> sys.stderr, "Usage:"
-	print >> sys.stderr, "\t(import to tag)   cover -i foo.mp3 foo.jpg"
-	print >> sys.stderr, "\t(export to file)  cover -o foo.mp3 foo.jpg"
+	usage()

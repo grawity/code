@@ -451,14 +451,16 @@ proglist() {
 clock() {
 	local load1 load2 load3 rest
 	read load1 load2 load3 rest < /proc/loadavg
+	echo colors "$WMII_NORMCOLORS"
 	echo label "$load1 $load2 $load3 | $(date +'%a, %b %d %H:%M')"
 }
 
 clock_update() {
 	printf "wi.clock" > /proc/self/comm
-	clock | wmiir create /rbar/status
+	local path="/rbar/status"
+
 	while true; do
-		clock | wmiir write /rbar/status
+		clock | { wmiir write "$path" || wmiir create "$path"; }
 		sleep 1
 	done
 }
@@ -488,10 +490,11 @@ mpstatus() {
 
 mpstatus_update() {
 	printf "wi.mpstatus" > /proc/self/comm
+	local path="/rbar/mpc"
 	mpstatus | wmiir create /rbar/mpc
 	while true; do
 		mpc idle >& /dev/null || sleep 5
-		mpstatus | wmiir write /rbar/mpc
+		mpstatus | { wmiir write "$path" || wmiir create "$path"; }
 	done
 }
 

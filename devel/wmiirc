@@ -13,16 +13,17 @@ WMII_URGENTCOLORS="#ffffff #772828 #99784c"
 
 MODKEY="Mod4"
 
-WMII_TERM="konsole"
+WMII_TERM="xterm"
 
 : ${WMII_CONFPATH:=${0%/*}}
 WMII_CONFDIR="${WMII_CONFPATH%%:*}"
-WMII_HISTORY="$WMII_CONFDIR/history"
 WMII_STARTUP="$WMII_CONFDIR/startup"
 
 WMII_APP_OUTPUT="/dev/null"
 
-spawn() { cd; wmiir setsid -f "$@" > "$WMII_APP_OUTPUT" 2>&1; }
+[[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config"
+
+spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
 
 startup() {
 	witray -s 24 & echo "++ witray[$!]"
@@ -34,7 +35,7 @@ startup() {
 
 	mpstatus_update & echo "++ mpstatus_update[$!]"
 
-	[[ -f "$WMII_STARTUP" ]] && . "$WMII_STARTUP"
+	[[ -f "$WMII_CONFDIR/startup" ]] && . "$WMII_CONFDIR/startup"
 }
 
 wmiir write /ctl <<-!
@@ -81,7 +82,7 @@ action_menu() {
 	done | wimenu -p "action:"
 }
 tag_menu() {
-	tags | wimenu -p "${1:-view tag}:" -h "${WMII_HISTORY}.tags" -n 20
+	tags | wimenu -p "${1:-view tag}:" -h "$WMII_CONFDIR/history.tags" -n 20
 }
 
 program_input() {
@@ -89,7 +90,7 @@ program_input() {
 	[[ "$input" ]] && eval wmiir setsid -f "$input"
 }
 action_input() {
-	local input="$(action_menu 'quit' 'rc' 'wmii' 'exec' 'proglist')"
+	local input="$(action_menu 'quit' 'config' 'rc' 'wmii' 'exec' 'proglist')"
 	[[ "$input" ]] && {
 		set -- $input
 		local action="$1"; shift
@@ -101,6 +102,8 @@ action_input() {
 		proglist)
 			proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 			;;
+		config)
+			[[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config" ;;
 		rc)
 			wmiir xwrite /ctl "spawn $0" ;;
 		wmii)

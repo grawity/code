@@ -28,11 +28,7 @@ spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
 startup() {
 	witray -s 24 & echo "++ witray[$!]"
 
-	status | wmiir create /rbar/status
-	while status; do
-		sleep 1
-	done & echo "++ status[$!]"
-
+	clock_update & echo "++ clock_update[$!]"
 	mpstatus_update & echo "++ mpstatus_update[$!]"
 
 	[[ -f "$WMII_CONFDIR/startup" ]] && . "$WMII_CONFDIR/startup"
@@ -58,10 +54,10 @@ wmiir write /colrules <<-'!'
 	/.*/ -> 62+38 # Golden Ratio
 !
 
-status() {
-	echo -n label $(uptime | sed 's/.*://; s/,//g') \
-		'|' $(date +'%A, %b %d %H:%M') \
-		| wmiir write /rbar/status
+log() {
+	#local tag="$$/$BASHPID"
+	echo -e "wmiirc[$$]: $*"
+	echo -e "\033[34m($$)\033[m $*" >> "$WMII_CONFDIR/debug.log"
 }
 
 tags() { wmiir ls /tag | sed 's|/$||; /^sel$/d'; }
@@ -149,6 +145,11 @@ event() {
 	local evtype="$1"; shift
 	case "$evtype" in
 	Start)
+		log "received start event from another wmiirc"
+		return 1
+		;;
+	Suicide)
+		log "received shutdown request"
 		return 1
 		;;
 	CreateTag)
@@ -429,12 +430,26 @@ proglist() {
 	done | sort | uniq
 }
 
+clock() {
+	local load1 load2 load3 rest
+	read load1 load2 load3 rest < /proc/loadavg
+	echo label "$load1 $load2 $load3 | $(date +'%a, %b %d %H:%M')"
+}
+
+clock_update() {
+	printf "wi.clock" > /proc/self/comm
+	clock | wmiir create /rbar/status
+	while true; do
+		clock | wmiir write /rbar/status
+		sleep 1
+	done
+}
+
 mpstatus() {
 	local FG_PLAYING='#bbbbbb'
 	local FG_PAUSED="${WMII_NORMCOLORS%% *}"
 	local FG_STOPPED='#666666'
 	local BG="${WMII_NORMCOLORS#* }"
-
 	{
 		if ! mpc > /dev/null; then
 			echo colors "$FG_STOPPED $BG"
@@ -454,12 +469,26 @@ mpstatus() {
 }
 
 mpstatus_update() {
+	printf "wi.mpstatus" > /proc/self/comm
 	mpstatus | wmiir create /rbar/mpc
 	while true; do
 		mpc idle >& /dev/null || sleep 5
 		mpstatus | wmiir write /rbar/mpc
 	done
 }
+
+suicide() {
+	log "\e[1;31mkilling self\e[m (pgroup=$MY_PGROUP)"
+	trap - TERM; kill 0
+}
+
+### Start wmiirc
+MY_PGROUP="$(ps -o 'pgrp=' $$ | tr -d ' ')"
+MY_SID="$(ps -o 'sid=' $$ | tr -d ' ')"
+
+trap "suicide" INT QUIT TERM EXIT
+
+wmiir write /event <<< "Start $0"
 
 # Bind keys
 for key in \
@@ -486,25 +515,16 @@ tags | while read tag; do
 	fi | wmiir create "/lbar/$tag"
 done
 
-# Cache proglist
 proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 
 wmiir create '/rbar/!' < /dev/null
 
-# Event loop
-echo "wmiirc[$$] started: $0"
-echo "- pgroup $(ps -o 'pgrp=' $$ | tr -d ' ')"
-
-# Signal existing wmiirc to quit
-wmiir write /event <<< "Start $0"
+log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
 
 startup
 
 while read event; do
-	event $event || break
+	event $event || suicide
 done < <(wmiir read /event)
-# 'break' will not work properly if { wmiir | while read ... } is used
-
-echo "wmiirc[$$] quitting."
-kill 0
-kill -9 0
+log "eventloop finished"
+suicide; kill -9 0

@@ -336,9 +336,25 @@ event() {
 	# Debugging through 'wmiir write /event'
 	eval)
 		{
-			echo -e "\033[1m-> $@\033[m"
-			eval "$@"
-		} >> "${WMII_CONFPATH%%:*}/eval.txt" 2>&1
+			printf "\033[34m($$)\033[;1m eval: %s\033[m\n" "$*"
+			eval set -- "$*"
+			case "$1" in
+			event)
+				shift; wmiir xwrite /event "$@";;
+			ps)
+				wmiir setsid ps -o pid,ppid,comm,command --forest -$MY_PGROUP;;
+			pstree)
+				wmiir setsid pstree -Up $$;;
+			read)
+				wmiir read "$2";;
+			write)
+				shift; wmiir xwrite "$@";;
+			addrule)
+				shift; { wmiir read /rules; echo "$*"; } | wmiir write /rules;;
+			*)
+				eval "$@";;
+			esac
+		} >> "$WMII_CONFDIR/debug.log" 2>&1
 		;;
 
 	hup)

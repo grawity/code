@@ -287,9 +287,11 @@ event() {
 					fi
 					local msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${wlabel}\nProcess:\t${process}"
 
-					zenity --question --title="Disconnect process" --text="$msg" \
+					{ wihack -transient "$client" \
+						zenity --question --title="Disconnect process" \
+						--text="$msg" \
 						--ok-label="Cancel" --cancel-label="Disconnect" \
-						|| wmiir xwrite "/client/$client/ctl" "slay"
+						|| wmiir xwrite "/client/$client/ctl" "slay"; } &
 					;;
 				fullscreen)
 					wmiir xwrite "/client/$client/ctl" "fullscreen on"

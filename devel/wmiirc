@@ -85,7 +85,7 @@ program_input() {
 	[[ "$input" ]] && eval wmiir setsid -f "$input"
 }
 action_input() {
-	local input="$(action_menu 'quit' 'config' 'rc' 'wmii' 'exec' 'proglist')"
+	local input="$(action_menu 'quit' 'rc' 'wmii' 'exec' 'proglist')"
 	[[ "$input" ]] && {
 		set -- $input
 		local action="$1"; shift
@@ -97,8 +97,6 @@ action_input() {
 		proglist)
 			proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 			;;
-		config)
-			[[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config" ;;
 		rc)
 			wmiir xwrite /ctl "spawn $0" ;;
 		wmii)
@@ -525,17 +523,17 @@ wmiir rm $(wmiir ls -p /lbar) > /dev/null
 current="$(this_tag)"
 tags | while read tag; do
 	if [ "$tag" = "$current" ]; then
-		echo colors "$WMII_FOCUSCOLORS"
+		echo colors "${WMII_FOCUSCOLORS[*]}"
 		echo label "$tag"
 	else
-		echo colors "$WMII_NORMCOLORS"
+		echo colors "${WMII_NORMCOLORS[*]}"
 		echo label "$tag"
 	fi | wmiir create "/lbar/$tag"
 done
 
 proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
 
-wmiir create '/rbar/!' < /dev/null
+wmiir rm '/rbar/!' && wmiir create '/rbar/!' < /dev/null
 
 log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
 

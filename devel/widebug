@@ -1,10 +1,10 @@
 #!/bin/bash
 wmiir read /ctl > /dev/null || exit 1
+wmiir xwrite /event "eval poke"
 
-tail -Fn0 ~/.wmii-hg/debug.log & tailpid=$!
+tail -fn1 ~/.wmii-hg/debug.log & tailpid=$!
 trap "kill $tailpid; exit" INT TERM QUIT HUP EXIT
 
-wmiir xwrite /event "eval poke"
 while read -er cmd; do
 	[ "$cmd" ] || continue
 	wmiir xwrite /event "eval $cmd"

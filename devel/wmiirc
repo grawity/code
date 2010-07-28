@@ -334,32 +334,44 @@ event() {
 		;;
 
 	# Debugging through 'wmiir write /event'
-	eval)
+	Debug)
 		{
-			printf "\033[34m($$)\033[;1m eval: %s\033[m\n" "$*"
+			printf "\033[34m($$)\033[m Debug: \033[1m%s\033[m\n" "$*"
 			eval set -- "$*"
 			case "$1" in
-			event)
+			c|ctl)
+				shift; wmiir xwrite /ctl "$@";;
+			e|eval)
+				shift; eval "$@";;
+			ev|event)
 				shift; wmiir xwrite /event "$@";;
-			poke)
-				echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m";;
-			ps)
+			.|poke)
+				echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m"
+				;;
+			p|ps)
 				wmiir setsid ps -o pid,ppid,comm,command --forest -$MY_PGROUP;;
 			pstree)
 				wmiir setsid pstree -Up $$;;
-			read)
+			r|read)
 				wmiir read "$2";;
-			write)
+			re|restart)
+				if [ "$2" = "rc" ]; then
+					wmiir xwrite /ctl "spawn $0"
+				elif [ "$2" = "wmii" ]; then
+					wmiir xwrite /ctl "exec wmii"
+				fi
+				;;
+			w|write)
 				shift; wmiir xwrite "$@";;
 			addrule)
 				shift; { wmiir read /rules; echo "$*"; } | wmiir write /rules;;
 			*)
-				eval "$@";;
+				echo -e "\e[1;33mUnknown debug command $1\e[m";;
 			esac
 		} >> "$WMII_CONFDIR/debug.log" 2>&1
 		;;
 
-	hup)
+	Respawn)
 		wmiir xwrite /ctl "spawn $0"
 		;;
 	esac

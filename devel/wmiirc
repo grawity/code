@@ -62,8 +62,9 @@ log() {
 
 tags() { wmiir ls /tag | sed 's|/$||; /^sel$/d'; }
 this_tag() { wmiir read /tag/sel/ctl | head -n 1; }
-next_tag() { tags | sed -n "1h;/^$(this_tag)\$/{\${g;p};n;p;q}"; }
-prev_tag() { (tags | sed -n "/^$(this_tag)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
+this_tag_safe() { this_tag | sed 's/[][/\\.*&^$]/\\&/g'; }
+next_tag() { tags | sed -n "1h;/^$(this_tag_safe)\$/{\${g;p};n;p;q}"; }
+prev_tag() { (tags | sed -n "/^$(this_tag_safe)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
 
 this_client() { wmiir read /client/sel/ctl | head -n 1; }
 client_pid() { wmiir read "/client/$1/ctl" | awk '/^pid /{print $2}'; }

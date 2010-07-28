@@ -86,34 +86,35 @@ program_input() {
 	[[ "$input" ]] && eval wmiir setsid -f "$input"
 }
 action_input() {
-	local input="$(action_menu 'quit' 'rc' 'wmii' 'exec' 'proglist')"
+	local input="$(action_menu 'quit' 'rc' 'exec wmii' 'exec' 'proglist')"
 	[[ "$input" ]] && {
 		set -- $input
 		local action="$1"; shift
 		case "$action" in
+		ctl)
+			wmiir xwrite /ctl "$*" ;;
+		eval)
+			eval "$*" ;;
+		exec)
+			wmiir xwrite /ctl "exec $*" ;;
 		quit)
 			wmiir xwrite /event "Suicide"
 			wmiir xwrite /ctl "quit"
 			;;
 		proglist)
-			proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
+			program_cache &
 			;;
 		rc)
-			wmiir xwrite /ctl "spawn $0" ;;
-		wmii)
-			wmiir xwrite /ctl "exec wmii" ;;
-		exec)
-			wmiir xwrite /ctl "exec $*" ;;
-		ctl)
-			wmiir xwrite /ctl "$*" ;;
-		eval)
-			eval "$*" ;;
+			restart_rc ;;
 		esac
 	}
 }
 
-program_cache() {
-	proglist "$PATH" > "$(wmiir namespace)/programs.cache"
+restart_rc() {
+	wmiir xwrite /ctl "spawn $0"
+}
+restart_wmii() {
+	wmiir xwrite /ctl "exec wmii"
 }
 
 display_client_info() {
@@ -414,11 +415,9 @@ event_Key() {
 	esac
 }
 
-proglist() {
-	local dirs; IFS=":" read -a dirs <<< "$1"
-	for dir in "${dirs[@]}"; do
-		wmiir proglist -- "$(eval echo "$dir")"
-	done | sort | uniq
+program_cache() {
+	local IFS=:
+	wmiir proglist -- $PATH > "$(wmiir ns)/programs.cache"
 }
 
 clock() {
@@ -509,7 +508,7 @@ tags | while read tag; do
 	fi | wmiir create "/lbar/$tag"
 done
 
-proglist "$PATH" > "$(wmiir namespace)/programs.cache" &
+program_cache &
 
 wmiir rm '/rbar/!' && wmiir create '/rbar/!' < /dev/null
 

@@ -33,8 +33,8 @@ spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
 startup() {
 	witray -s 24 & echo "++ witray[$!]"
 
-	clock_update & echo "++ clock_update[$!]"
-	mpstatus_update & echo "++ mpstatus_update[$!]"
+	statusloop & echo "++ statusloop[$!]"
+	statusloop_mpd & echo "++ statusloop_mpd[$!]"
 
 	[[ -f "$WMII_CONFDIR/startup" ]] && . "$WMII_CONFDIR/startup"
 }
@@ -115,13 +115,6 @@ action_input() {
 	}
 }
 
-restart_rc() {
-	wmiir xwrite /ctl "spawn $0"
-}
-restart_wmii() {
-	wmiir xwrite /ctl "exec wmii"
-}
-
 display_client_info() {
 	local client="$1"
 	local pid="$(client_pid "$client")"
@@ -157,6 +150,10 @@ event() {
 		log "received shutdown request"
 		return 1
 		;;
+	Respawn)
+		restart_rc
+		;;
+
 	CreateTag)
 		{	echo colors "$WMII_NORMCOLORS"
 			echo label "$*"
@@ -253,12 +250,13 @@ event() {
 						else local process="<i>unknown</i>"
 					fi
 					local msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${wlabel}\nProcess:\t${process}"
-
-					{ wihack -transient "$client" \
+					{
+						wihack -transient "$client" \
 						zenity --question --title="Disconnect process" \
 						--text="$msg" \
 						--ok-label="Cancel" --cancel-label="Disconnect" \
-						|| wmiir xwrite "/client/$client/ctl" "slay"; } &
+						|| wmiir xwrite "/client/$client/ctl" "slay"
+					} &
 					;;
 				fullscreen)
 					wmiir xwrite "/client/$client/ctl" "fullscreen on"
@@ -297,7 +295,7 @@ event() {
 		;;
 
 	Key)
-		event_$evtype "$@"
+		event_Key "$@"
 		;;
 
 	# Debugging through 'wmiir write /event'
@@ -336,10 +334,6 @@ event() {
 				echo -e "\e[1;33mUnknown debug command $1\e[m";;
 			esac
 		} >> "$WMII_CONFDIR/debug.log" 2>&1
-		;;
-
-	Respawn)
-		wmiir xwrite /ctl "spawn $0"
 		;;
 	esac
 	return 0
@@ -425,24 +419,43 @@ program_cache() {
 	wmiir proglist -- $PATH > "$(wmiir ns)/programs.cache"
 }
 
-clock() {
-	local load1 load2 load3 rest
-	read load1 load2 load3 rest < /proc/loadavg
-	echo colors "$WMII_NORMCOLORS"
-	echo label "$load1 $load2 $load3 | $(date +'%a, %b %d %H:%M')"
-}
-
-clock_update() {
-	printf "wi.clock" > /proc/self/comm
-	local path="/rbar/status"
+## Loops for statusbar updating
+statusloop() {
+	printf "wistatus" > /proc/self/comm
+	local path
 
 	while true; do
-		clock | { wmiir write "$path" || wmiir create "$path"; }
+		path="/rbar/zy_load"
+		status_load | { wmiir write "$path" || wmiir create "$path"; }
+
+		path="/rbar/zz_status"
+		status_clock | { wmiir write "$path" || wmiir create "$path"; }
+
 		sleep 1
 	done
 }
+statusloop_mpd() {
+	printf "wistatus.mpd" > /proc/self/comm
+	local path="/rbar/mpc"
 
-mpstatus() {
+	status_mpd | wmiir create /rbar/mpc
+	while true; do
+		mpc idle >& /dev/null || sleep 5
+		status_mpd | { wmiir write "$path" || wmiir create "$path"; }
+	done
+}
+
+status_load() {
+	local load1 load2 load3 rest
+	read load1 load2 load3 rest < /proc/loadavg
+	echo colors "$WMII_NORMCOLORS"
+	echo label "$load1 $load2 $load3"
+}
+status_clock() {
+	echo colors "$WMII_NORMCOLORS"
+	date +'label %a, %b %d %H:%M'
+}
+status_mpd() {
 	local FG_PLAYING='#bbbbbb'
 	local FG_PAUSED="${WMII_NORMCOLORS%% *}"
 	local FG_STOPPED='#666666'
@@ -465,19 +478,15 @@ mpstatus() {
 	} 2> /dev/null
 }
 
-mpstatus_update() {
-	printf "wi.mpstatus" > /proc/self/comm
-	local path="/rbar/mpc"
-	mpstatus | wmiir create /rbar/mpc
-	while true; do
-		mpc idle >& /dev/null || sleep 5
-		mpstatus | { wmiir write "$path" || wmiir create "$path"; }
-	done
-}
-
 suicide() {
 	log "\e[1;31mkilling self\e[m (pgroup=$MY_PGROUP)"
 	trap - TERM; kill 0
+}
+restart_rc() {
+	wmiir xwrite /ctl "spawn $0"
+}
+restart_wmii() {
+	wmiir xwrite /ctl "exec wmii"
 }
 
 ### Start wmiirc
@@ -501,7 +510,7 @@ for key in \
 ; do echo "$key"; done | wmiir write /keys
 
 # Set up tags
-wmiir rm $(wmiir ls -p /lbar) > /dev/null
+wmiir ls -p /lbar | xargs wmiir rm
 current="$(this_tag)"
 tags | while read tag; do
 	if [ "$tag" = "$current" ]; then
@@ -513,16 +522,20 @@ tags | while read tag; do
 	fi | wmiir create "/lbar/$tag"
 done
 
-program_cache &
+# Set up rbar
+wmiir ls -p /rbar | xargs wmiir rm
+wmiir create '/rbar/!' < /dev/null
 
-{ wmiir rm '/rbar/!' && wmiir create '/rbar/!' < /dev/null; } >& /dev/null
+program_cache &
+startup
 
 log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
 
-startup
-
+# Event loop
 while read event; do
 	event $event || suicide
 done < <(exec wmiir read /event)
+
+# Cleanup
 log "eventloop finished"
 suicide

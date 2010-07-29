@@ -306,35 +306,46 @@ event() {
 		{
 			printf "\033[34m($$)\033[m Debug: \033[1m%s\033[m\n" "$*"
 			eval set -- "$*"
-			case "$1" in
-			c|ctl)
-				shift; wmiir xwrite /ctl "$@";;
-			e|eval)
-				shift; eval "$@";;
-			ev|event)
-				shift; wmiir xwrite /event "$@";;
-			.|poke)
-				echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m"
-				;;
-			p|ps)
-				wmiir setsid ps -o pid,ppid,comm,command --forest -$MY_PGROUP;;
-			pstree)
-				wmiir setsid pstree -Up $$;;
-			r|read)
-				wmiir read "$2";;
-			re|restart)
-				if [ "$2" = "rc" ]; then
-					wmiir xwrite /ctl "spawn $0"
-				elif [ "$2" = "wmii" ]; then
-					wmiir xwrite /ctl "exec wmii"
+			local cmd="$1"; shift
+			case "$cmd" in
+			rule)		{ wmiir read /rules; echo "$*"; } | wmiir write /rules;;
+			c|ctl)		wmiir xwrite /ctl "$@";;
+			e|eval)		eval "$@";;
+			ev|event)	wmiir xwrite /event "$@";;
+			.|poke)		echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m";;
+			p|ps)		wmiir setsid ps -o pid,ppid,comm,command --forest -$MY_PGROUP;;
+			r|read)		wmiir read "$@";;
+			qr)			wmiir xwrite /event "Suicide";;
+			qw)			wmiir xwrite /ctl "quit";;
+			restart)
+				if [ "$1" = "wmii" ]; then
+					restart_wmii
+				else
+					restart_rc
 				fi
 				;;
-			w|write)
-				shift; wmiir xwrite "$@";;
-			addrule)
-				shift; { wmiir read /rules; echo "$*"; } | wmiir write /rules;;
-			*)
-				echo -e "\e[1;33mUnknown debug command $1\e[m";;
+			re)			restart_rc;;
+			rw)			restart_wmii;;
+			x|ixp|wmiir)	wmiir "$@";;
+			w|write)	wmiir xwrite "$@";;
+			\?|help)
+				cat <<-'EOF'
+				Commands:
+				.   poke
+				c   ctl <ctl command>
+				e   eval <shell code>
+				ev  event <evtype> [<args>]
+				p   ps
+				qr  quit wmiirc
+				qw  quit wmii
+				r   read <path>
+				re  restart
+				rw  restart wmii
+				w   write <path> <data>
+				x   ixpc (wmiir)
+				EOF
+				;;
+			*)			echo -e "\e[1;33mUnknown debug command '$cmd'. Try 'help'\e[m";;
 			esac
 		} >> "$WMII_CONFDIR/debug.log" 2>&1
 		;;

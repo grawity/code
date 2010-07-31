@@ -1,5 +1,4 @@
 #!/bin/bash
-# vi: ft=sh
 
 ### wmiirc initialization
 wmiir namespace > /dev/null || exit 1
@@ -26,8 +25,10 @@ WMII_STARTUP="$WMII_CONFDIR/startup"
 
 WMII_APP_OUTPUT="/dev/null"
 
-[[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config"
+[[ -f "$WMII_CONFDIR/config" ]] &&
+	. "$WMII_CONFDIR/config"
 
+## Launch a program in its own session
 spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
 
 startup() {
@@ -38,26 +39,6 @@ startup() {
 
 	[[ -f "$WMII_CONFDIR/startup" ]] && . "$WMII_CONFDIR/startup"
 }
-
-wmiir write /ctl <<-!
-	font $WMII_FONT
-	fontpad 1 1 1 1
-	focuscolors $WMII_FOCUSCOLORS
-	normcolors $WMII_NORMCOLORS
-	grabmod $MODKEY
-	colmode default
-	border 2
-!
-xsetroot -solid "$WMII_BACKGROUND" &
-
-# /client/*/props -> instance:class:label
-[[ -f "$WMII_CONFDIR/rules" ]] &&
-	wmiir write /rules < "$WMII_CONFDIR/rules"
-
-wmiir write /colrules <<-'!'
-	/gimp/ -> 17+83+41
-	/.*/ -> 62+38 # Golden Ratio
-!
 
 log() {
 	#local tag="$$/$BASHPID"
@@ -143,14 +124,15 @@ event() {
 	local evtype="$1"; shift
 	case "$evtype" in
 	Start)
-		log "received start event from another wmiirc"
+		log "quitting (received Start event from another wmiirc)"
 		return 1
 		;;
 	Suicide)
-		log "received shutdown request"
+		log "quitting (received shutdown request)"
 		return 1
 		;;
 	Respawn)
+		log "restarting self"
 		restart_rc
 		;;
 
@@ -314,7 +296,7 @@ event() {
 			e|eval)		eval "$@";;
 			ev|event)	wmiir xwrite /event "$@";;
 			.|poke)		echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m";;
-			p|ps)		wmiir setsid ps -o pid,ppid,comm,command --forest -$MY_PGROUP;;
+			p|ps)		wmiir setsid ps -o pid,comm,command --forest -$MY_PGROUP;;
 			r|read)		wmiir read "$@";;
 			qr)			wmiir xwrite /event "Suicide";;
 			qw)			wmiir xwrite /ctl "quit";;
@@ -506,13 +488,16 @@ status_mpd() {
 }
 
 suicide() {
-	log "\e[1;31mkilling self\e[m (pgroup=$MY_PGROUP)"
+	log "\e[1;31mExiting:\e[m killing pgroup $MY_PGROUP"
 	trap - TERM; kill 0
 }
+
 restart_rc() {
+	log "\e[33mrestarting wmiirc\e[m ($0)"
 	wmiir xwrite /ctl "spawn $0"
 }
 restart_wmii() {
+	log "\e[33mrestarting wmii\e[m"
 	wmiir xwrite /ctl "exec wmii"
 }
 
@@ -520,32 +505,60 @@ restart_wmii() {
 MY_PGROUP="$(ps -o 'pgrp=' $$ | tr -d ' ')"
 MY_SID="$(ps -o 'sid=' $$ | tr -d ' ')"
 
-trap "suicide" INT QUIT TERM EXIT
+trap 'log "Received SIGINT"; suicide' SIGINT
+trap 'log "Received SIGQUIT"; suicide' SIGQUIT
+trap 'log "Received SIGTERM"; suicide' SIGTERM
+trap 'log "Received SIGHUP"; restart_rc' SIGHUP
+trap 'log "wmiirc exited"; suicide' EXIT
 
 wmiir write /event <<< "Start $0"
 
-# Bind keys
-echo "${BIND_KEYS[@]}" | tr ' ' '\n' | wmiir write /keys
+# Configure wmii
+wmiir write /ctl <<-!
+	font $WMII_FONT
+	fontpad 1 1 1 1
+	focuscolors $WMII_FOCUSCOLORS
+	normcolors $WMII_NORMCOLORS
+	grabmod $MODKEY
+	colmode default
+	border 2
+!
 
-# Set up tags
-wmiir ls -p /lbar | xargs wmiir rm
-current="$(this_tag)"
-tags | while read tag; do
-	if [ "$tag" = "$current" ]; then
-		echo colors "${WMII_FOCUSCOLORS[*]}"
-		echo label "$tag"
-	else
-		echo colors "${WMII_NORMCOLORS[*]}"
-		echo label "$tag"
-	fi | wmiir create "/lbar/$tag"
-done
+xsetroot -solid "$WMII_BACKGROUND" &
 
-# Set up rbar
-wmiir ls -p /rbar | xargs wmiir rm
-wmiir create '/rbar/!' < /dev/null
+{
+	# Load window and column rules
+	[[ -f "$WMII_CONFDIR/rules" ]] &&
+		wmiir write /rules < "$WMII_CONFDIR/rules"
 
-program_cache &
-startup
+	[[ -f "$WMII_CONFDIR/colrules" ]] &&
+		wmiir write /colrules < "$WMII_CONFDIR/colrules"
+
+	# Bind keys
+	echo "${BIND_KEYS[@]}" | tr ' ' '\n' | wmiir write /keys
+
+	# Set up tags and rbar
+	wmiir ls -p /lbar /rbar | xargs wmiir rm
+
+	current="$(this_tag)"
+	tags | while read tag; do
+		if [ "$tag" = "$current" ]; then
+			echo colors "${WMII_FOCUSCOLORS[*]}"
+			echo label "$tag"
+		else
+			echo colors "${WMII_NORMCOLORS[*]}"
+			echo label "$tag"
+		fi | wmiir create "/lbar/$tag"
+	done
+
+	wmiir create '/rbar/!' < /dev/null
+
+	# Rebuild program cache
+	program_cache &
+
+	# Run startup programs
+	startup
+} &
 
 log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
 
@@ -555,5 +568,5 @@ while read event; do
 done < <(exec wmiir read /event)
 
 # Cleanup
-log "eventloop finished"
+log "Eventloop finished"
 suicide

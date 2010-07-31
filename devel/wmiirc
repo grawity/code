@@ -7,29 +7,25 @@ cd ~
 
 ### Configuration
 
-WMII_BACKGROUND="#333333"
-WMII_FONT='-*-fixed-medium-r-*-*-13-*-*-*-*-*-*-*'
-
-# UI colors (text, background, border)
+# Bar/border colors (text, background, border)
 WMII_NORMCOLORS="#888888 #222222 #333333"
 WMII_FOCUSCOLORS="#ffffff #285577 #4c7899"
 WMII_URGENTCOLORS="#ffffff #772828 #99784c"
 
-MODKEY="Mod4"
-
+WMII_BACKGROUND="#333333"
+WMII_FONT='-*-fixed-medium-r-*-*-13-*-*-*-*-*-*-*'
 WMII_TERM="xterm"
+
+MODKEY="Mod4"
 
 : ${WMII_CONFPATH:=${0%/*}}
 WMII_CONFDIR="${WMII_CONFPATH%%:*}"
-WMII_STARTUP="$WMII_CONFDIR/startup"
 
 WMII_APP_OUTPUT="/dev/null"
 
-[[ -f "$WMII_CONFDIR/config" ]] &&
-	. "$WMII_CONFDIR/config"
+[[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config"
 
-## Launch a program in its own session
-spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
+# startup()			run startup/autorun programs (terminals and such)
 
 startup() {
 	witray -s 24 & echo "++ witray[$!]"
@@ -40,23 +36,65 @@ startup() {
 	[[ -f "$WMII_CONFDIR/startup" ]] && . "$WMII_CONFDIR/startup"
 }
 
+# spawn(args)		launch a program in its own session
+
+spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
+
+# log()				write line to stdout and debug.log
+
 log() {
 	#local tag="$$/$BASHPID"
 	echo -e "wmiirc[$$]: $*"
 	echo -e "\033[34m($$)\033[m $*" >> "$WMII_CONFDIR/debug.log"
 }
 
-tags() { wmiir ls /tag | sed 's|/$||; /^sel$/d'; }
-this_tag() { wmiir read /tag/sel/ctl | head -n 1; }
-this_tag_safe() { this_tag | sed 's/[][/\\.*&^$]/\\&/g'; }
-next_tag() { tags | sed -n "1h;/^$(this_tag_safe)\$/{\${g;p};n;p;q}"; }
-prev_tag() { (tags | sed -n "/^$(this_tag_safe)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p"); }
+# tags()			list all tags
+# this_tag()		return current tag
+# this_tag_safe()	as above, but escape sed metacharacters
+# next_tag()		return next tag (wrap around to first)
+# prev_tag()		return previous tag (wrap around)
 
-this_client() { wmiir read /client/sel/ctl | head -n 1; }
-client_pid() { wmiir read "/client/$1/ctl" | awk '/^pid /{print $2}'; }
+tags() {
+	wmiir ls /tag | sed 's|/$||; /^sel$/d'
+}
+this_tag() {
+	wmiir read /tag/sel/ctl | head -n 1
+}
+this_tag_safe() {
+	this_tag | sed 's/[][/\\.*&^$]/\\&/g'
+}
+next_tag() {
+	tags | sed -n "1h;/^$(this_tag_safe)\$/{\${g;p};n;p;q}"
+}
+prev_tag() {
+	(tags | sed -n "/^$(this_tag_safe)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p")
+}
+
+# this_client()			return currently selected client ID
+# client_pid(client)	return PID of client (if known; exit 1 otherwise)
+
+this_client() {
+	wmiir read /client/sel/ctl | head -n 1
+}
+client_pid() {
+	wmiir read "/client/$1/ctl" | awk '/^pid / {print $2; exit} END {exit 1}'
+}
+
+# program_menu()		display wimenu with programs
+# action_menu(*actions)	display wimenu with given actions
+# tag_menu()			display wimenu with current tags
+#
+# program_cache()		rebuild program cache used by program_menu()
+#
+# program_input()		call program_menu() and execute user input
+# action_input()		call action_menu() and execute given action
 
 program_menu() {
 	wimenu -h "$WMII_CONFDIR/history" -n 20 < "$(wmiir namespace)/programs.cache"
+}
+program_cache() {
+	local IFS=:
+	wmiir proglist -- $PATH > "$(wmiir ns)/programs.cache"
 }
 action_menu() {
 	for action; do
@@ -71,6 +109,7 @@ program_input() {
 	local input="$(program_menu)"
 	[[ "$input" ]] && eval wmiir setsid -f "$input"
 }
+
 action_input() {
 	local input="$(action_menu 'quit' 'rc' 'exec wmii' 'exec' 'proglist')"
 	[[ "$input" ]] && {
@@ -96,6 +135,8 @@ action_input() {
 	}
 }
 
+# display_client_info(client)	display an information window for given client
+
 display_client_info() {
 	local client="$1"
 	local pid="$(client_pid "$client")"
@@ -118,7 +159,11 @@ display_client_info() {
 		zenity --text-info --title="Client $client"
 }
 
+# htmlescape()				convert special HTML characters to HTML entities
+
 htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
+
+# event(type, *args)		the event handler function
 
 event() {
 	local evtype="$1"; shift
@@ -336,6 +381,9 @@ event() {
 	return 0
 }
 
+# BIND_KEYS[]			keys to be bound (should match the list in event_Key)
+# event_Key(key)		keypress event handler
+
 BIND_KEYS=(
 	$MODKEY-{a,d,f,h,j,k,l,m,p,q,s,t}
 	$MODKEY-{0..9}
@@ -355,77 +403,65 @@ BIND_KEYS=(
 )
 
 event_Key() {
-	local key="$1" mod=""
+	local key="$1" modifier=""
 	if [[ "$key" == *-* ]]; then
-		mod="${key%-*}"
+		modifier="${key%-*}"
 		key="${key##*-}"
 	fi
 
-	case "$mod" in
-
-	$MODKEY)
-		case "$key" in
-		h) wmiir xwrite /tag/sel/ctl "select left";;
-		j) wmiir xwrite /tag/sel/ctl "select down";;
-		k) wmiir xwrite /tag/sel/ctl "select up";;
-		l) wmiir xwrite /tag/sel/ctl "select right";;
-		space) wmiir xwrite /tag/sel/ctl "select toggle";;
-		[0-9]) wmiir xwrite /ctl "view $key";;
-		d) wmiir xwrite /tag/sel/ctl "colmode sel default-max";;
-		s) wmiir xwrite /tag/sel/ctl "colmode sel stack-max";;
-		m) wmiir xwrite /tag/sel/ctl "colmode sel stack+max";;
-		f) wmiir xwrite /client/sel/ctl "fullscreen toggle";;
-		q) wmiir xwrite /client/sel/ctl "kill" ;;
-		Return|KP_Enter) spawn "$WMII_TERM" ;;
-		p) program_input ;;
-		Menu) action_input ;;
-		a) action_input ;;
-		t)
-			local input="$(tag_menu)"
+	case "$modifier" in
+	$MODKEY) case "$key" in
+		a)	action_input;;
+		d)	wmiir xwrite /tag/sel/ctl "colmode sel default-max";;
+		f)	wmiir xwrite /client/sel/ctl "fullscreen toggle";;
+		h)	wmiir xwrite /tag/sel/ctl "select left";;
+		j)	wmiir xwrite /tag/sel/ctl "select down";;
+		k)	wmiir xwrite /tag/sel/ctl "select up";;
+		l)	wmiir xwrite /tag/sel/ctl "select right";;
+		m)	wmiir xwrite /tag/sel/ctl "colmode sel stack+max";;
+		p)	program_input;;
+		q)	wmiir xwrite /client/sel/ctl "kill";;
+		s)	wmiir xwrite /tag/sel/ctl "colmode sel stack-max";;
+		t)	local input="$(tag_menu)"
 			[[ "$input" ]] && wmiir xwrite "/ctl" "view $input"
 			;;
+		[0-9])		wmiir xwrite /ctl "view $key";;
+		KP_Enter)	spawn "$WMII_TERM";;
+		Menu)		action_input ;;
+		Return)		spawn "$WMII_TERM";;
+		space)		wmiir xwrite /tag/sel/ctl "select toggle";;
 		esac;;
 	
-	$MODKEY-Shift)
-		case "$key" in
-		h) wmiir xwrite /tag/sel/ctl "send sel left";;
-		j) wmiir xwrite /tag/sel/ctl "send sel down";;
-		k) wmiir xwrite /tag/sel/ctl "send sel up";;
-		l) wmiir xwrite /tag/sel/ctl "send sel right";;
-		space) wmiir xwrite /tag/sel/ctl "send sel toggle";;
-		[0-9]) wmiir xwrite /client/sel/tags "$key";;
-		d) wmiir xwrite /tag/sel/ctl "colmode sel default+max";;
-		t)
-			local client="$(this_client)"
+	$MODKEY-Shift) case "$key" in
+		d)	wmiir xwrite /tag/sel/ctl "colmode sel default+max";;
+		h)	wmiir xwrite /tag/sel/ctl "send sel left";;
+		j)	wmiir xwrite /tag/sel/ctl "send sel down";;
+		k)	wmiir xwrite /tag/sel/ctl "send sel up";;
+		l)	wmiir xwrite /tag/sel/ctl "send sel right";;
+		t)	local client="$(this_client)"
 			local input="$(tag_menu 'retag')"
 			[[ "$input" ]] && wmiir xwrite "/client/$client/tags" "$input"
 			;;
+		[0-9])	wmiir xwrite /client/sel/tags "$key";;
+		space)	wmiir xwrite /tag/sel/ctl "send sel toggle";;
 		esac;;
 
-	$MODKEY-Control)
-		case "$key" in
-		h) wmiir xwrite /client/sel/tags "$(prev_tag)";;
-		j) wmiir xwrite /tag/sel/ctl "select down stack";;
-		k) wmiir xwrite /tag/sel/ctl "select up stack";;
-		l) wmiir xwrite /client/sel/tags "$(next_tag)";;
+	$MODKEY-Control) case "$key" in
+		h)	wmiir xwrite /client/sel/tags "$(prev_tag)";;
+		j)	wmiir xwrite /tag/sel/ctl "select down stack";;
+		k)	wmiir xwrite /tag/sel/ctl "select up stack";;
+		l)	wmiir xwrite /client/sel/tags "$(next_tag)";;
 		esac;;
 
-	"")
-		case "$key" in
-		Menu) program_input ;;
+	"") case "$key" in
+		Menu)	program_input;;
 		esac;;
 
-	Control)
-		case "$key" in
-		Menu) program_cache; program_input ;;
+	Control) case "$key" in
+		Menu)	program_cache; program_input;;
 		esac;;
 
 	esac
-}
-
-program_cache() {
-	local IFS=:
-	wmiir proglist -- $PATH > "$(wmiir ns)/programs.cache"
 }
 
 ## Loops for statusbar updating
@@ -566,4 +602,3 @@ done < <(exec wmiir read /event)
 
 # Cleanup
 log "Eventloop finished"
-suicide

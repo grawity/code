@@ -19,7 +19,6 @@ WMII_APP_OUTPUT="/dev/null"
 
 [[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config"
 
-
 ### Functions
 
 # startup()			run startup/autorun programs (terminals and such)
@@ -160,6 +159,7 @@ display_client_info() {
 
 htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
 
+### Event handling
 # event(type, *args)		the event handler function
 
 event() {
@@ -225,6 +225,8 @@ event() {
 		5) wmiir xwrite /ctl "view $(next_tag)";;
 		esac
 		;;
+
+	# drag'n'drop
 	LeftBarDND)
 		shift
 		wmiir xwrite /ctl "view $*"
@@ -235,20 +237,15 @@ event() {
 		case "$*" in
 		"mpc")
 			case "$button" in
-			1)
-				if mpc >& /dev/null; then
-					mpc toggle
-				else
-					spawn mpd
-				fi ;;
+			1) mpc toggle || spawn mpd ;;
 			2) mpc prev ;;
 			3) mpc next ;;
 			4) mpc volume "+5" ;;
 			5) mpc volume "-5" ;;
 			esac > /dev/null ;;
-		"status")
+		*)
 			case "$button" in
-			1) spawn slock ;;
+			2) spawn slock ;;
 			esac ;;
 		esac
 		;;
@@ -276,13 +273,14 @@ event() {
 				info)
 					display_client_info "$client";;
 				kill)
-					local wlabel="$(wmiir read "/client/$client/label" | htmlescape)"
-					local pid="$(client_pid "$client")"
+					local label pid process message
+					client_label="$(wmiir read "/client/$client/label" | htmlescape)"
+					pid="$(client_pid "$client")"
 					if [[ "$pid" ]]
-						then local process="<b>$(ps -o 'cmd=' $pid | htmlescape)</b> (PID $pid)"
-						else local process="<i>unknown</i>"
+						then process="<b>$(ps -o 'cmd=' $pid | htmlescape)</b> (PID $pid)"
+						else process="<i>unknown</i>"
 					fi
-					local msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${wlabel}\nProcess:\t${process}"
+					msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${client_label}\nProcess:\t${process}"
 					{
 						wihack -transient "$client" \
 						zenity --question --title="Disconnect process" \
@@ -292,12 +290,13 @@ event() {
 					} &
 					;;
 				retag)
-					local wlabel="$(wmiir read "/client/$client/label")"
-					local wtags="$(wmiir read "/client/$client/tags")"
+					local label tags input
+					client_label="$(wmiir read "/client/$client/label")"
+					old_tags="$(wmiir read "/client/$client/tags")"
 					{
-						local input="$(zenity --entry --title="Retag" \
-						--text="Enter new tags for window:\n$wlabel" \
-						--entry-text="$wtags")"
+						input="$(zenity --entry --title="Retag" \
+						--text="Enter new tags for window:\n$client_label" \
+						--entry-text="$old_tags")"
 
 						[[ "$input" ]] && wmiir xwrite "/client/$client/tags" "${input// /+}"
 					} &
@@ -463,7 +462,14 @@ event_Key() {
 	esac
 }
 
-## Loops for statusbar updating
+## Loops for statusbar updating. Called from startup()
+# statusloop()			updates clock and load average
+# statusloop_mpd()		updates mpd playback status
+#
+# status_load()			prints load average from /proc/loadavg
+# status_clock()		prints date/time
+# status_mpd()			prints mpd status
+
 statusloop() {
 	printf "wistatus" > /proc/self/comm
 	local path
@@ -472,10 +478,10 @@ statusloop() {
 		path="/rbar/zy_load"
 		status_load | { wmiir write "$path" || wmiir create "$path"; }
 
-		path="/rbar/zz_status"
+		path="/rbar/zz_clock"
 		status_clock | { wmiir write "$path" || wmiir create "$path"; }
 
-		sleep 1
+		sleep 2
 	done
 }
 statusloop_mpd() {
@@ -506,9 +512,10 @@ status_mpd() {
 	local BG="${WMII_NORMCOLORS#* }"
 	{
 		if ! mpc > /dev/null; then
+			local ret=$?
 			echo colors "$FG_STOPPED $BG"
 			echo label "(mpd not running)"
-			return $?
+			return $ret
 		elif mpc | grep -qs '^\[playing\]'; then
 			echo colors "$FG_PLAYING $BG"
 			echo label "$(mpc current)"
@@ -522,11 +529,15 @@ status_mpd() {
 	} 2> /dev/null
 }
 
+## wmiirc control functions
+# suicide()				kill own pgroup; SIGINT/TERM/QUIT handler
+# restart_rc()			tell wmii to spawn a new wmiirc
+# restart_wmii()		tell wmii to re-exec self
+
 suicide() {
 	log "\e[1;31mExiting:\e[m killing pgroup $MY_PGROUP"
 	trap - TERM; kill 0
 }
-
 restart_rc() {
 	log "\e[33mrestarting wmiirc\e[m ($0)"
 	wmiir xwrite /ctl "spawn $0"

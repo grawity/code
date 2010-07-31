@@ -49,6 +49,7 @@ log() {
 # this_tag_safe()	as above, but escape sed metacharacters
 # next_tag()		return next tag (wrap around to first)
 # prev_tag()		return previous tag (wrap around)
+# destroy_tag(tag)	kill all clients in a tag
 
 tags() {
 	wmiir ls /tag | sed 's|/$||; /^sel$/d'
@@ -64,6 +65,20 @@ next_tag() {
 }
 prev_tag() {
 	(tags | sed -n "/^$(this_tag_safe)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p")
+}
+
+destroy_tag() {
+	local tag="$1"
+	local client
+	wmiir read "/tag/$tag/index" | awk '!/^#/ {print $2}' | while read client; do
+		if [[ "$tag" == "$(wmiir read "/client/$client/tags")" ]]
+			then wmiir xwrite "/client/$client/ctl" "kill"
+			else wmiir xwrite "/client/$client/ctl" "tags -$tag"
+		fi
+	done
+	if [[ "$tag" == "$(this_tag)" ]]; then
+		wmiir xwrite "/ctl" "view $(next_tag)"
+	fi
 }
 
 # this_client()			return currently selected client ID
@@ -215,14 +230,22 @@ event() {
 		} | wmiir write "/lbar/$*"
 		;;
 
+	LeftBarMouseDown)
+		local button="$1"; shift
+		case "$button" in
+		1) wmiir xwrite /ctl "view $*";;
+		2) ;;
+		3) ;;
+		4) wmiir xwrite /ctl "view $(prev_tag)";;
+		5) wmiir xwrite /ctl "view $(next_tag)";;
+		esac
+		;;
+
 	LeftBarClick)
 		local button="$1"; shift
 		case "$button" in
 		1) wmiir xwrite /ctl "view $*";;
-		2) ;; #menu
-		3) ;; #close?
-		4) wmiir xwrite /ctl "view $(prev_tag)";;
-		5) wmiir xwrite /ctl "view $(next_tag)";;
+		2) destroy_tag "$*";;
 		esac
 		;;
 

@@ -1,10 +1,5 @@
 #!/bin/bash
 
-### wmiirc initialization
-wmiir namespace > /dev/null || exit 1
-
-cd ~
-
 ### Configuration
 
 # Bar/border colors (text, background, border)
@@ -24,6 +19,9 @@ WMII_CONFDIR="${WMII_CONFPATH%%:*}"
 WMII_APP_OUTPUT="/dev/null"
 
 [[ -f "$WMII_CONFDIR/config" ]] && . "$WMII_CONFDIR/config"
+
+
+### Functions
 
 # startup()			run startup/autorun programs (terminals and such)
 
@@ -538,12 +536,17 @@ restart_wmii() {
 }
 
 ### Start wmiirc
+cd ~
+
+wmiir namespace > /dev/null || exit 1
+
 MY_PGROUP="$(ps -o 'pgrp=' $$ | tr -d ' ')"
 MY_SID="$(ps -o 'sid=' $$ | tr -d ' ')"
 
 trap 'suicide' SIGINT SIGQUIT SIGTERM EXIT
 trap 'log "Received SIGHUP"; restart_rc' SIGHUP
 
+log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
 wmiir write /event <<< "Start $0"
 
 # Configure wmii
@@ -592,8 +595,6 @@ xsetroot -solid "$WMII_BACKGROUND" &
 	# Run startup programs
 	startup
 } &
-
-log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
 
 # Event loop
 while read event; do

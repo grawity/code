@@ -27,29 +27,33 @@ function stream_getpeername($stream, &$host, &$port) {
 function handle_request($request, $rule, $handler) {
 	#var_dump($request, $rule, $handler);
 	if (is_string($handler)) {
-		if ($handler[0] == "<") {
-			// "< file"
-			$pattern = trim(substr($handler, 1));
-			$file = sprintf($pattern, $request);
-			if (file_exists($file)) {
-				readfile($file);
-			} else {
-				print("Error: Not found\r\n");
-			}
+		if ($handler[0] == "/" or $handler[0] == ".") {
+			reply_file($request, $handler);
+		} elseif ($handler[0] == "<") {
+			reply_file($request, substr($handler, 1));
 		} elseif ($handler[0] == "|") {
-			// "| command"
-			$handler = trim(substr($handler, 1));
-			pipe_request($request, $handler);
+			reply_pipe($request, substr($handler, 1));
 		} elseif (function_exists($handler)) {
-			// create_function()
-			$handler($request, $rule);
+			$handler($request);
+		} else {
+			reply_file($request, $handler);
 		}
 	} else {
 		$handler($request, $rule);
 	}
 }
 
-function pipe_request($request, $handler) {
+function reply_file($request, $path) {
+	$path = trim($path);
+	$path = sprintf($path, $request);
+	if (file_exists($path))
+		readfile($path);
+	else
+		print("Error: Not found\r\n");
+}
+
+function reply_pipe($request, $handler) {
+	$handler = trim($handler);
 	$fd_spec = array(
 		0 => array("pipe", "r"),
 		1 => STDOUT,

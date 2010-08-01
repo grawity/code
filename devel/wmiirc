@@ -495,26 +495,18 @@ event_Key() {
 
 statusloop() {
 	printf "wistatus" > /proc/self/comm
-	local path
-
 	while true; do
-		path="/rbar/zy_load"
-		status_load | { wmiir write "$path" || wmiir create "$path"; }
-
-		path="/rbar/zz_clock"
-		status_clock | { wmiir write "$path" || wmiir create "$path"; }
-
+		status_load | wmiir create "/rbar/zy_load"
+		status_clock | wmiir create "/rbar/zz_clock"
 		sleep 2
 	done
 }
 statusloop_mpd() {
 	printf "wistatus.mpd" > /proc/self/comm
-	local path="/rbar/mpc"
-
-	status_mpd | wmiir create /rbar/mpc
+	status_mpd | wmiir create "/rbar/mpc"
 	while true; do
 		mpc idle >& /dev/null || sleep 5
-		status_mpd | { wmiir write "$path" || wmiir create "$path"; }
+		status_mpd | wmiir create "/rbar/mpc"
 	done
 }
 
@@ -553,13 +545,17 @@ status_mpd() {
 }
 
 ## wmiirc control functions
-# suicide()				kill own pgroup; SIGINT/TERM/QUIT handler
+# suicide()				kill own pgroup; handle SIGINT/TERM/QUIT
 # restart_rc()			tell wmii to spawn a new wmiirc
 # restart_wmii()		tell wmii to re-exec self
 
 suicide() {
 	log "\e[1;31mExiting:\e[m killing pgroup $MY_PGROUP"
-	trap - TERM; kill 0
+	# remove traps to avoid infinite loop
+	trap - EXIT
+	trap 'exit' SIGINT SIGQUIT SIGTERM
+	# kill own pgroup
+	kill 0
 }
 restart_rc() {
 	log "\e[33mrestarting wmiirc\e[m ($0)"
@@ -609,7 +605,7 @@ xsetroot -solid "$WMII_BACKGROUND" &
 	echo "${BIND_KEYS[@]}" | tr ' ' '\n' | wmiir write /keys
 
 	# Set up tags and rbar
-	wmiir ls -p /lbar /rbar | xargs wmiir rm
+	wmiir ls -p /lbar /rbar | xargs -r wmiir rm
 
 	current="$(this_tag)"
 	tags | while read tag; do

@@ -12,21 +12,8 @@ if (count($rules) == 0) {
 	exit(2);
 }
 
-function match($mask, $input) {
-	$mask = str_replace(
-		array(".", "*", "%", "?"),
-		array("\\.", ".+", "[^.]+", "."),
-		$mask);
-
-	if (preg_match("/^$mask\$/i", $input))
-		return true;
-	else
-		return false;
-}
-
 function handle_request($request, $rule, $handler) {
-	//var_dump($request, $rule, $handler);
-
+	#var_dump($request, $rule, $handler);
 	if (is_string($handler)) {
 		if ($handler[0] == "<") {
 			// "< file"
@@ -75,8 +62,9 @@ function pipe_request($request, $handler) {
 #$request = stream_get_line(STDIN, MAX_REQUEST+1, "\r\n");
 $request = rtrim(fgets(STDIN, MAX_REQUEST+1));
 
-if ($request === false)
+if ($request === false) {
 	exit;
+}
 if (strlen($request) > MAX_REQUEST) {
 	print("Error: Request too long\r\n");
 	exit;
@@ -89,7 +77,15 @@ if (strpos($request, "/") !== false) {
 $request = rtrim($request, ".");
 
 foreach ($rules as $rule => $handler) {
-	if (match($rule, $request)) {
+	$regexp = str_replace(
+		array(".", "*", "%", "?"),
+		array("\\.", ".+", "[^.]+", "."),
+		$rule);
+	$regexp = "/^{$regexp}\$/i";
+
+	if (preg_match($regexp, $request, $matches)) {
+		if (count($matches) > 1)
+			$request = $matches[1];
 		handle_request($request, $rule, $handler);
 		exit;
 	}

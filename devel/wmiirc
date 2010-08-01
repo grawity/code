@@ -185,13 +185,9 @@ event() {
 		log "quitting (received Start event from another wmiirc)"
 		return 1
 		;;
-	Suicide)
+	Shutdown)
 		log "quitting (received shutdown request)"
 		return 1
-		;;
-	Respawn)
-		log "restarting self"
-		restart_rc
 		;;
 
 	CreateTag)
@@ -273,7 +269,7 @@ event() {
 			esac ;;
 		esac
 		;;
-	
+
 	ClientMouseDown)
 		local client="$1" button="$2"
 		case "$button" in
@@ -365,7 +361,7 @@ event() {
 			.|poke)		echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m";;
 			p|ps)		wmiir setsid ps -o pid,comm,command --forest -$MY_PGROUP;;
 			r|read)		wmiir read "$@";;
-			qr)			wmiir xwrite /event "Suicide";;
+			qr)			wmiir xwrite /event "Shutdown";;
 			qw)			wmiir xwrite /ctl "quit";;
 			restart)
 				if [ "$1" = "wmii" ]; then
@@ -453,7 +449,7 @@ event_Key() {
 		Return)		spawn "$WMII_TERM";;
 		space)		wmiir xwrite /tag/sel/ctl "select toggle";;
 		esac;;
-	
+
 	$MODKEY-Shift) case "$key" in
 		d)	wmiir xwrite /tag/sel/ctl "colmode sel default+max";;
 		h)	wmiir xwrite /tag/sel/ctl "send sel left";;

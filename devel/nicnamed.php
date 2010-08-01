@@ -12,6 +12,18 @@ if (count($rules) == 0) {
 	exit(2);
 }
 
+function stream_getpeername($stream, &$host, &$port) {
+	$name = stream_socket_get_name($stream, true);
+	if (strlen($name)) {
+		$pos = strrpos($name, ":");
+		$host = substr($name, 0, $pos++);
+		$port = substr($name, $pos);
+		return true;
+	} else {
+		return false;
+	}
+}
+
 function handle_request($request, $rule, $handler) {
 	#var_dump($request, $rule, $handler);
 	if (is_string($handler)) {
@@ -44,9 +56,8 @@ function pipe_request($request, $handler) {
 		2 => STDERR,
 	);
 
-	$peername = stream_socket_get_name(STDIN, true);
-
 	$env = array();
+	stream_getpeername(STDIN, $env["REMOTE_ADDR"], $env["REMOTE_PORT"]);
 
 	$proc = proc_open($handler, $fd_spec, $pipes, NULL, $env);
 	if (!$proc) {

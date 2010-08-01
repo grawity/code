@@ -147,6 +147,30 @@ action_input() {
 	}
 }
 
+confirm_shutdown() {
+	can_shutdown || return 1;
+
+	local msg="Do you really want to shut down the system?"
+	local num_sess=$(who | wc -l)
+	if (( $num_sess )); then
+		msg+="\n\nThere are $num_sess active sessions."
+	fi
+
+	zenity --question \
+		--title "Shut down" \
+		--text "$msg" \
+		--ok-label "Cancel" \
+		--cancel-label "Shut down" \
+		|| do_shutdown
+}
+can_shutdown() {
+	local action="org.freedesktop.consolekit.system.stop"
+	pkcheck --process $$ --action-id $action -u
+}
+do_shutdown() {
+	ck stop
+}
+
 # display_client_info(client)	display an information window for given client
 
 display_client_info() {
@@ -250,6 +274,29 @@ event() {
 	LeftBarDND)
 		shift
 		wmiir xwrite /ctl "view $*"
+		;;
+
+	RightBarMouseDown)
+		local button="$1"; shift
+		case "$*" in
+		*)
+			case "$button" in
+			3)
+				local menuitems=(
+					"shutdown"
+					"quit wmii:quit"
+					"terminal"
+					)
+				case "$(wmii9menu -i "terminal" -- "${menuitems[@]}")" in
+					quit)
+						event Shutdown ;;
+					terminal)
+						spawn "$WMII_TERM" ;;
+					shutdown)
+						confirm_shutdown & ;;
+				esac ;;
+			esac ;;
+		esac
 		;;
 
 	RightBarClick)

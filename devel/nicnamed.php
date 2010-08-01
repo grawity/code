@@ -3,11 +3,14 @@
 
 const MAX_REQUEST = 512;
 
-$rules = array(
-	"*.cluenet.org" => "| ~/cluenet/whois-server",
-);
+$rules = array();
 
 @include "nicnamed.conf";
+
+if (count($rules) == 0) {
+	fwrite(STDERR, "Error: No rules configured\n");
+	exit(2);
+}
 
 function match($mask, $input) {
 	$mask = str_replace(
@@ -69,7 +72,9 @@ function pipe_request($request, $handler) {
 	return ($retval == 0);
 }
 
-$request = stream_get_line(STDIN, MAX_REQUEST+1, "\n");
+#$request = stream_get_line(STDIN, MAX_REQUEST+1, "\r\n");
+$request = rtrim(fgets(STDIN, MAX_REQUEST+1));
+
 if ($request === false)
 	exit;
 if (strlen($request) > MAX_REQUEST) {

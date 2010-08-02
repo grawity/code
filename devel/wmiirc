@@ -123,7 +123,17 @@ program_input() {
 }
 
 action_input() {
-	local input="$(action_menu 'quit' 'rc' 'exec wmii' 'exec' 'proglist')"
+	local actions=(
+		"quit"
+		"shutdown"
+		"reboot"
+		"rc"
+		"exec wmii"
+		"exec"
+		"proglist"
+		)
+
+	local input="$(action_menu "${actions[@]}")"
 	[[ "$input" ]] && {
 		set -- $input
 		local action="$1"; shift
@@ -139,36 +149,56 @@ action_input() {
 			wmiir xwrite /ctl "quit"
 			;;
 		proglist)
-			program_cache &
-			;;
+			program_cache & ;;
 		rc)
 			restart_rc ;;
+		reboot)
+			confirm_shutdown -r & ;;
+		shutdown)
+			confirm_shutdown & ;;
 		esac
 	}
 }
 
 confirm_shutdown() {
-	can_shutdown || return 1;
+	if [[ $1 == "-r" ]]; then
+		local action="restart" text="restart" title="Restart"
+	else
+		local action="stop" text="shut down" title="Shut down"
+	fi
 
-	local msg="Do you really want to shut down the system?"
+	if ! can_shutdown "$action"; then
+		zenity --error "You are not authorized to $text the system."
+		return 1
+	fi
+
+	local msg="Do you really want to $text the system?"
 	local num_sess=$(who | wc -l)
 	if (( $num_sess )); then
 		msg+="\n\nThere are $num_sess active sessions."
 	fi
 
 	zenity --question \
-		--title "Shut down" \
+		--title "$title" \
 		--text "$msg" \
 		--ok-label "Cancel" \
-		--cancel-label "Shut down" \
-		|| do_shutdown
+		--cancel-label "$title" \
+		|| do_shutdown "$action"
 }
 can_shutdown() {
-	local action="org.freedesktop.consolekit.system.stop"
+	if [[ $1 == "stop" ]]; then
+		local action="org.freedesktop.consolekit.system.stop"
+	elif [[ $1 == "restart" ]]; then
+		local action="org.freedesktop.consolekit.system.restart"
+	fi
 	pkcheck --process $$ --action-id $action -u
 }
 do_shutdown() {
-	ck stop
+	if [[ $1 == "stop" ]]; then
+		ck stop
+	elif [[ $1 == "restart" ]]; then
+		ck restart
+	fi
 }
 
 # display_client_info(client)	display an information window for given client
@@ -278,22 +308,33 @@ event() {
 
 	RightBarMouseDown)
 		local button="$1"; shift
-		case "$*" in
-		*)
-			case "$button" in
-			3)
+		case "$button" in
+		3)
+			case "$*" in
+			mpc)
+				local menuitems=(
+					"play/pause:toggle"
+					)
+				case "$(wmii9menu -- "${menuitems[@]}")" in
+				toggle)
+					mpc toggle ;;
+				esac ;;
+			*)
 				local menuitems=(
 					"shutdown"
+					"restart"
 					"quit wmii:quit"
 					"terminal"
 					)
 				case "$(wmii9menu -i "terminal" -- "${menuitems[@]}")" in
-					quit)
-						wmiir xwrite /ctl "quit" ;;
-					terminal)
-						spawn "$WMII_TERM" ;;
-					shutdown)
-						confirm_shutdown & ;;
+				quit)
+					wmiir xwrite /ctl "quit" ;;
+				restart)
+					confirm_shutdown -r & ;;
+				terminal)
+					spawn "$WMII_TERM" ;;
+				shutdown)
+					confirm_shutdown & ;;
 				esac ;;
 			esac ;;
 		esac
@@ -304,9 +345,9 @@ event() {
 		case "$*" in
 		"mpc")
 			case "$button" in
-			1) mpc toggle || spawn mpd ;;
-			2) mpc prev ;;
-			3) mpc next ;;
+			1) mpc next || spawn mpd ;;
+			2) mpc toggle ;;
+			3) ;; #menu
 			4) mpc volume "+5" ;;
 			5) mpc volume "-5" ;;
 			esac > /dev/null ;;

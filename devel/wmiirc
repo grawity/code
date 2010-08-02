@@ -125,12 +125,12 @@ program_input() {
 action_input() {
 	local actions=(
 		"quit"
-		"shutdown"
-		"reboot"
 		"rc"
 		"exec wmii"
 		"exec"
 		"proglist"
+		"shutdown"
+		"reboot"
 		)
 
 	local input="$(action_menu "${actions[@]}")"
@@ -153,51 +153,18 @@ action_input() {
 		rc)
 			restart_rc ;;
 		reboot)
-			confirm_shutdown -r & ;;
+			restart_system ;;
 		shutdown)
-			confirm_shutdown & ;;
+			shutdown_system ;;
 		esac
 	}
 }
 
-confirm_shutdown() {
-	if [[ $1 == "-r" ]]; then
-		local action="restart" text="restart" title="Restart"
-	else
-		local action="stop" text="shut down" title="Shut down"
-	fi
-
-	if ! can_shutdown "$action"; then
-		zenity --error "You are not authorized to $text the system."
-		return 1
-	fi
-
-	local msg="Do you really want to $text the system?"
-	local num_sess=$(who | wc -l)
-	if (( $num_sess )); then
-		msg+="\n\nThere are $num_sess active sessions."
-	fi
-
-	zenity --question \
-		--title "$title" \
-		--text "$msg" \
-		--ok-label "$title" \
-		--cancel-label "Cancel" \
-		&& do_shutdown "$action"
-}
-can_shutdown() {
-	if [[ $1 == "stop" ]]; then
-		local action="org.freedesktop.consolekit.system.stop"
-	elif [[ $1 == "restart" ]]; then
-		local action="org.freedesktop.consolekit.system.restart"
-	fi
-	pkcheck --process $$ --action-id $action -u
-}
 do_shutdown() {
-	if [[ $1 == "stop" ]]; then
-		ck stop
-	elif [[ $1 == "restart" ]]; then
+	if [[ $1 == "restart" ]]; then
 		ck restart
+	else
+		ck stop
 	fi
 }
 
@@ -306,40 +273,6 @@ event() {
 		wmiir xwrite /ctl "view $*"
 		;;
 
-	RightBarMouseDown)
-		local button="$1"; shift
-		case "$button" in
-		3)
-			case "$*" in
-			mpc)
-				local menuitems=(
-					"play/pause:toggle"
-					)
-				case "$(wmii9menu -- "${menuitems[@]}")" in
-				toggle)
-					mpc toggle ;;
-				esac ;;
-			*)
-				local menuitems=(
-					"shutdown"
-					"restart"
-					"quit wmii:quit"
-					"terminal"
-					)
-				case "$(wmii9menu -i "terminal" -- "${menuitems[@]}")" in
-				quit)
-					wmiir xwrite /ctl "quit" ;;
-				restart)
-					confirm_shutdown -r & ;;
-				terminal)
-					spawn "$WMII_TERM" ;;
-				shutdown)
-					confirm_shutdown & ;;
-				esac ;;
-			esac ;;
-		esac
-		;;
-
 	RightBarClick)
 		local button="$1"; shift
 		case "$*" in
@@ -347,7 +280,7 @@ event() {
 			case "$button" in
 			1) mpc next || spawn mpd ;;
 			2) mpc toggle ;;
-			3) ;; #menu
+			3) mpc prev ;;
 			4) mpc volume "+5" ;;
 			5) mpc volume "-5" ;;
 			esac > /dev/null ;;

@@ -37,6 +37,8 @@ def write_id3(file, lyrics):
 		tag[atom].encoding = 1
 		tag[atom].lang = "eng"
 		tag[atom].desc = u""
+	if verbose:
+		print >> sys.stderr, "Writing %s" % file
 	tag.save()
 
 def read_id3(file):
@@ -48,9 +50,10 @@ def read_id3(file):
 
 mode = None
 lyricsfile = None
+verbose = False
 
 try:
-	options, audiofiles = getopt.gnu_getopt(sys.argv[1:], "ef:iox")
+	options, audiofiles = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
 	print >> sys.stderr, "Error:", e
 	usage()
@@ -60,6 +63,7 @@ for opt, value in options:
 	elif opt == "-f": lyricsfile = value
 	elif opt == "-i": mode = "input"
 	elif opt == "-o": mode = "output"
+	elif opt == "-v": verbose = True
 	elif opt == "-x": mode = "kill"
 
 if len(audiofiles) < 1:

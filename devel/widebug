@@ -1,6 +1,11 @@
 #!/bin/bash
 wmiir read /ctl > /dev/null || exit 1
 
+if [ "$1" ]; then
+	wmiir xwrite /event "Debug $*"
+	exit
+fi
+
 tail -fn0 ~/.wmii-hg/debug.log & tailpid=$!
 trap "kill $tailpid; exit" INT TERM QUIT HUP EXIT
 

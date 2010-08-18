@@ -14,9 +14,10 @@ sub msg_usage {
 }
 sub msg_help {
 	print
-'Usage: getnetrc [-du] [-f format] machine [login]
+'Usage: getnetrc [-dnu] [-f format] machine [login]
 
   -d  ignore the default entry
+  -n  do not print final newline
   -f  format the output as specified (default is %l:%p)
   -u  URL-encode each item separately
 
@@ -49,10 +50,12 @@ sub uri_encode($) {
 
 ### Command line options
 my $format = "%l:%p";
+my $format_nonewline = 0;
 my $format_url_encode = 0;
 my $no_default = 0;
 GetOptions(
 	"f=s" => \$format,
+	"n" => \$format_nonewline,
 	"u" => \$format_url_encode,
 	"d" => \$no_default,
 	"help" => sub { exit msg_help },
@@ -82,4 +85,8 @@ if ($format_url_encode) {
 }
 @output{"n", "0"} = ("\n", "\0");
 
-print fmt($format, %output), "\n";
+if (!$format_nonewline) {
+	$format .= '%n';
+}
+
+print fmt($format, %output);

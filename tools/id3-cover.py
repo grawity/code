@@ -104,5 +104,9 @@ elif mode == "export":
 
 	sys.exit(0 if ret else 1)
 
+elif mode == "kill":
+	for audiofile in files:
+		remove_cover(audiofile)
+
 else:
 	usage()

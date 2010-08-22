@@ -33,14 +33,19 @@ def type_to_fileext(type):
 	}.get(type, "jpeg")
 
 def export_cover(file, cover_file):
-	filetag = mp3.MP3(file)
-	if "APIC:" not in filetag:
-		print >> sys.stderr, "Error: No cover image (APIC frame) found"
+	try:
+		filetag = mp3.MP3(file)
+	except BaseException as e:
+		print >> sys.stderr, "Error:", e
 		return False
 
-	#if imagefile.endswith("."):
-	#	imagefile += 	
+	if "APIC:" not in filetag:
+		print >> sys.stderr, "Error: No cover image (APIC frame not found)"
+		return False
+
 	with open(cover_file, "wb") as cover_fh:
+		if verbose:
+			print >> sys.stderr, "Exporting image: %s" % cover_file
 		cover_fh.write(filetag["APIC:"].data)
 	return True
 
@@ -48,35 +53,65 @@ def import_cover(file, image_data, image_type="image/jpeg"):
 	TYPE_FRONT_COVER = 3
 	ENC_UTF8 = 3
 	
-	filetag = mp3.MP3(file)
+	try:
+		filetag = mp3.MP3(file)
+	except BaseException as e:
+		print >> sys.stderr, "Error:", e
+		return False
+
 	filetag.tags.add(id3.APIC(
 		data=image_data,
 		mime=image_type,
 		type=TYPE_FRONT_COVER,
 		desc=u"",
 		encoding=ENC_UTF8))
-	filetag.save()
+
+	if verbose:
+		print >> sys.stderr, "Updating tags: %s" % file
+	try:
+		filetag.save()
+	except BaseException as e:
+		print >> sys.stderr, "Error:", e
+		return False
+	else:
+		return True
 
 def remove_cover(file):
-	filetag = mp3.MP3(file)
+	try:
+		filetag = mp3.MP3(file)
+	except BaseException as e:
+		print >> sys.stderr, "Error:", e
+		return False
+
 	if "APIC:" in filetag:
 		del filetag["APIC:"]
-	filetag.save()
+	
+	if verbose:
+		print >> sys.stderr, "Updating tags: %s" % file
+	try:
+		filetag.save()
+	except BaseException as e:
+		print >> sys.stderr, "Error:", e
+		return False
+	else:
+		return True
 
 try:
-	options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iox")
+	options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
 	print >> sys.stderr, "Error:", e
 	usage()
 
 mode = None
 cover_file = None
+verbose = False
 
 for opt, value in options:
 	if   opt == "-e": mode = "export"
 	elif opt == "-f": cover_file = value
 	elif opt == "-i": mode = "import"
 	elif opt == "-o": mode = "export"
+	elif opt == "-v": verbose = True
 	elif opt == "-x": mode = "kill"
 
 if len(files) < 1:
@@ -105,8 +140,12 @@ elif mode == "export":
 	sys.exit(0 if ret else 1)
 
 elif mode == "kill":
+	ret = True
+
 	for audiofile in files:
-		remove_cover(audiofile)
+		ret = remove_cover(audiofile) and ret
+	
+	sys.exit(0 if ret else 1)
 
 else:
 	usage()

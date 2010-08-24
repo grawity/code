@@ -19,7 +19,7 @@ Irssi::signal_add_first "message irc notice" => sub {
 
 	# Block channel-wide notices
 	Irssi::signal_stop() if $server->ischannel($target);
-}
+};
 
 Irssi::signal_add_first "ctcp msg" => sub {
 	my ($server, $args, $nick, $addr, $target) = @_;
@@ -37,5 +37,5 @@ Irssi::signal_add_first "dcc request" => sub {
 	# Don't ask why did I do this bass-ackwards instead of just using
 	# if (foo) { signal_stop(); } like any sane person... Just don't ask.
 	do { $dccrec->destroy(); Irssi::signal_stop(); }
-		if $server->ischannel($dccrec->{target});
+		if $dccrec->{server}->ischannel($dccrec->{target});
 };

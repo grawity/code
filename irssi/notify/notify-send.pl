@@ -5,6 +5,8 @@
 #     alternate: notify-send binary (from libnotify-bin)
 #   TCP or UDP over IPv6:
 #     IO::Socket::INET6 module
+#   TCP/SSL:
+#     IO::Socket::SSL
 #
 # Settings:
 #
@@ -14,6 +16,7 @@
 #       tcp!<host>!<port>
 #       udp!<host>!<port>
 #       unix!<address>
+#       ssl!<host>!<port>
 #
 # Notes:
 #
@@ -71,6 +74,30 @@ sub send_inet($$$$) {
 	}
 }
 
+sub send_inetssl($$$) {
+	my ($data, $host, $port) = @_;
+	my $sock;
+	my %sock_args = (
+		PeerAddr => $host,
+		PeerPort => $port,
+		Proto => 'tcp',
+		Blocking => 0,
+		SSL_version => 'TLSv1',
+		SSL_ca_path => '/etc/ssl/certs',
+	);
+	if (eval {require IO::Socket::SSL}) {
+		$sock = IO::Socket::SSL->new(%sock_args);
+	} else {
+		Irssi::print("notify-send: SSL support requires IO::Socket:SSL");
+		return 0;
+	}
+
+	if (defined $sock) {
+		print $sock $data;
+		$sock->close();
+	}
+}
+
 sub send_unix($$) {
 	my ($data, $address) = @_;
 	my $sock = IO::Socket::UNIX->new(Peer => $address);
@@ -111,10 +138,12 @@ sub send_notification($$) {
 	foreach my $dest (split / /, $dests) {
 		if ($dest eq "dbus") {
 			send_libnotify($title, $text);
-		} elsif ($dest =~ /^(tcp|udp)!(.+?)!([0-9]+)$/) {
+		} elsif ($dest =~ /^(tcp|udp)!(.+)!([0-9]+)$/) {
 			send_inet($rawmsg, $1, $2, int $3);
 		} elsif ($dest =~ /^unix!(.+)$/) {
 			send_unix($rawmsg, $1);
+		} elsif ($dest =~ /^ssl!(.+)!([0-9]+)$/) {
+			send_inetssl($rawmsg, $1, $2);
 		} else {
 			print "$IRSSI{name}: unsupported address '$dest'";
 		}

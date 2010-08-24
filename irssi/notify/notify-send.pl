@@ -150,7 +150,7 @@ sub send_libnotify($$) {
 
 sub send_notification($$) {
 	my ($title, $text) = @_;
-	my $rawmsg = join(" | ", $appname, $icon, $title, $text);
+	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 	my $dests = Irssi::settings_get_str("notify_host");
 	foreach my $dest (split / /, $dests) {
 		if ($dest eq "dbus") {

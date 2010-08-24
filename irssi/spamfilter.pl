@@ -4,14 +4,14 @@ use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);
 
-$VERSION = "1.2.constantly-evolving";
+$VERSION = "1.3.constantly-evolving";
 %IRSSI = (
+	name        => 'filter_junk',
+	description => 'Automatically ignores messages matching certain patterns.',
 	authors     => 'grawity',
 	contact     => 'grawity@gmail.com',
-	name        => 'spamfilter',
-	description => 'Automatically ignores messages matching certain patterns.',
 	license     => 'WTFPL 2.0 <http://sam.zoy.org/wtfpl/>',
-	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
+	url         => 'http://purl.net/NET/grawity/',
 );
 
 use Data::Dumper;
@@ -51,30 +51,20 @@ sub test(@) {
 		or $nick eq 'Bucket'
 	);
 
-	return block "*!$userhost" if (
-		$msg =~ /^Transmitting virus\.\.\.$/
+	return block "*!$userhost" if (0
 		or $nick =~ /shit|feces/i
 		or $msg =~ /^.{0,3}DCC SEND "/
 		or $msg =~ /^[0-9A-Za-z]{64}$/
 		or $msg =~ /RIZON\.NET/
-		or $msg =~ /(tomaw|kloeri|christel).*dick/i
-		or $msg =~ /(HA){3,}/
-		or $msg =~ /FUCK OFF/
-		or $msg =~ /http:\/\/AnonTalk\.com/
-		or $msg =~ /^i have to take a dump/i
-		or $msg =~ /^dick licker/i
-		or ($type eq 'action' and $msg =~ /^shits$/i)
 	);
 
-	return 1 if (
-		($ispublic and $type =~ /^notice|dcc|ctcp|ctcpreply$/)
+	return 1 if (0
+		or ($ispublic and $type =~ /^notice|dcc|ctcp|ctcpreply$/)
 		or ($type eq 'dcc' and $msg =~ /.MPEG$/)
 		or $msg =~ /[^\w](faggot|cunt|nigger)/i
 		or $msg =~ /^fuck you/i
 		or $msg =~ /#[A-Z]{5,}([^A-Za-z0-9]|$)/
-		or $msg =~ /^~HAPPY NEW YEARS!!!~$/
 		or $msg =~ /IRC\..+\.COM/
-		or ($ispublic and hilightspam_score($server, $target, $msg) > 0.8)
 	);
 
 	return 0;
@@ -88,7 +78,7 @@ sub ignorelisted($$$) {
 # RFC 1459-compatible lc()
 sub lci($) { my $s = shift; $s =~ tr/\[\\\]/{|}/; return lc $s; }
 
-sub on_message(@$) {
+sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 
 	return if !defined $userhost; # skip server notices
@@ -148,32 +138,3 @@ Irssi::command_bind "blocklist" => sub {
 		printf "%3d  %s", $i++, $entry;
 	}
 };
-
-Irssi::command_bind "hscore" => sub {
-	my ($args, $server, $witem) = @_;
-	my $score = hilightspam_score($server, $witem->{name}, $args);
-	print "Hilightspam score: $score";
-};
-
-sub hilightspam_score {
-	my ($server, $target, $msg) = @_;
-	my $channel = $server->channel_find($target);
-	my @nicks = $channel->nicks();
-
-	$msg =~ s/^(<.+?>| \* .+?) //;
-	my @msg = split / +/, $msg;
-
-	my $word_count = $#msg+1;
-	return 0 if $word_count < 4;
-	my $msg_len = length $msg;
-	my $hilight_count = 0;
-
-	foreach my $n (@nicks) {
-		$n = $n->{nick};
-		#$n =~ s![*?+\[\]()\{\}\^\$\|\\]!\\$&!;
-		$hilight_count++ if grep { $_ =~ m/^[\@+]?\Q$n\E$/i } @msg;
-	}
-
-	my $score = $hilight_count / $word_count;
-	return $score;
-}

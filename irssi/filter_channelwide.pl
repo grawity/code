@@ -4,34 +4,33 @@ use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);
 
-$VERSION = "1.2.constantly-evolving";
+$VERSION = "1.3";
 %IRSSI = (
+	name        => 'filter_channelwide',
+	description => 'Block channel-wide notices and other junk',
 	authors     => 'grawity',
 	contact     => 'grawity@gmail.com',
-	name        => 'spamfilter',
-	description => 'Automatically ignores messages matching certain patterns.',
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
-	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
+	url         => 'http://purl.net/NET/grawity/',
 );
-
-## This is a heavily trimmed down version. It blocks channel-wide
-## notices, CTCPs and nothing else. For a full version, see my website.
 
 Irssi::signal_add_first "message irc notice" => sub {
 	my ($server, $msg, $nick, $addr, $target) = @_;
 
+	# Block channel-wide notices
 	Irssi::signal_stop() if $server->ischannel($target);
 }
 
 Irssi::signal_add_first "ctcp msg" => sub {
 	my ($server, $args, $nick, $addr, $target) = @_;
-	return if $args =~ /^ACTION /i;
 
-	Irssi::signal_stop() if $server->ischannel($target);
+	# Block channel-wide CTCPs
+	if ($server->ischannel($target)) {
+		Irssi::signal_stop() unless $args =~ /^ACTION /i;
+	}
 };
 
-# This one might be not even needed - I have a feeling that "ctcp msg"
-# already blocks everything.
+# This one might be not even needed - "ctcp msg" might be blocking everything.
 Irssi::signal_add_first "dcc request" => sub {
 	my ($dccrec, $addr) = @_;
 

@@ -27,6 +27,7 @@ use strict;
 use vars qw($VERSION %IRSSI);
 
 use Irssi;
+use Socket;
 use IO::Socket::INET;
 use IO::Socket::UNIX;
 
@@ -50,8 +51,23 @@ sub xml_escape($) {
 	$_ = shift; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
 
+sub getserv($$) {
+	my ($name, $proto) = @_;
+	if ($name =~ /^[0-9]+$/) {
+		return int $name;
+	}
+	my ($rname, $aliases, $port, $rproto) = getservbyname($name, $proto);
+	if (defined $port) {
+		return $port;
+	} else {
+		Irssi::print("notify-send: unknown service '$name/$proto'");
+		return undef;
+	}
+}
+
 sub send_inet($$$$) {
 	my ($data, $proto, $host, $port) = @_;
+	$port = getserv($port, $proto) or return 0;
 	my $sock;
 	my %sock_args = (
 		PeerAddr => $host,
@@ -76,6 +92,7 @@ sub send_inet($$$$) {
 
 sub send_inetssl($$$) {
 	my ($data, $host, $port) = @_;
+	$port = getserv($port, "tcp") or return 0;
 	my $sock;
 	my %sock_args = (
 		PeerAddr => $host,
@@ -138,11 +155,11 @@ sub send_notification($$) {
 	foreach my $dest (split / /, $dests) {
 		if ($dest eq "dbus") {
 			send_libnotify($title, $text);
-		} elsif ($dest =~ /^(tcp|udp)!(.+)!([0-9]+)$/) {
+		} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
 			send_inet($rawmsg, $1, $2, int $3);
 		} elsif ($dest =~ /^unix!(.+)$/) {
 			send_unix($rawmsg, $1);
-		} elsif ($dest =~ /^ssl!(.+)!([0-9]+)$/) {
+		} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {
 			send_inetssl($rawmsg, $1, $2);
 		} else {
 			print "$IRSSI{name}: unsupported address '$dest'";

@@ -39,16 +39,9 @@ $VERSION = "0.4";
 # Don't modify this; instead use /set notify_host
 Irssi::settings_add_str("libnotify", "notify_host", "dbus");
 
+my ($dbus, $dbus_service, $libnotify);
 my $appname = "irssi";
 my $icon = "notification-message-IM";
-
-my ($dbus, $dservice, $libnotify);
-
-if (eval {require Net::DBus}) {
-	$dbus = Net::DBus->session;
-	$dservice = $dbus->get_service("org.freedesktop.Notifications");
-	$libnotify = $dservice->get_object("/org/freedesktop/Notifications");
-}
 
 sub xml_escape($) {
 	$_ = shift; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
@@ -90,6 +83,13 @@ sub send_unix($$) {
 sub send_libnotify($$) {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
+
+	if (!defined $dbus and eval {require Net::DBus}) {
+		$dbus = Net::DBus->session;
+		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
+		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
+	}
+
 	if (defined $libnotify) {
 		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
 	}

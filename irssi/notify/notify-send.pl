@@ -23,6 +23,12 @@
 #
 #   - tcp and udp will only use the first address from DNS (due to use of
 #     non-blocking sockets; fork() is a pain in irssi)
+#
+#   - By default, only messages containing your nickname will be matched;
+#     /hilights will not be used due to limitations in Irssi. I *could* use
+#     signal "print text", but then I couldn't split a message to title
+#     (sender) and text in a theme-agnostic way. Because of this, notify-send
+#     only checks a list of regexps, defined in on_message() below.
 
 use strict;
 use vars qw($VERSION %IRSSI);
@@ -192,8 +198,9 @@ sub on_message {
 
 	# if public, check for hilightness
 	return if $channel and !(
-		# put hilight rules here
-		$msg =~ /\Q$mynick/
+		# put hilight rules here, separated by 'or'
+		$msg =~ /\Q$mynick/i
+		#or $msg =~ /porn/i
 	);
 
 	# ignore services

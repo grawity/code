@@ -13,6 +13,7 @@
 # (string) notify_host = "dbus"
 #   Space-separated list of destinations. Possible destinations are:
 #       dbus
+#       file!<path>
 #       tcp!<host>!<port>
 #       udp!<host>!<port>
 #       unix!<address>
@@ -31,7 +32,7 @@ use Socket;
 use IO::Socket::INET;
 use IO::Socket::UNIX;
 
-$VERSION = "0.4";
+$VERSION = "0.5";
 %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus or Intertubes.',
@@ -124,6 +125,16 @@ sub send_unix($$) {
 	}
 }
 
+sub send_file($$) {
+	my ($data, $path) = @_;
+	if (open my $fh, ">>", $path) {
+		print $fh $data;
+		close $fh;
+	} else {
+		Irssi::print("Could not notify '$path': $!");
+	}
+}
+
 sub send_libnotify($$) {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
@@ -157,6 +168,8 @@ sub send_notification($$) {
 			send_libnotify($title, $text);
 		} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
 			send_inet($rawmsg, $1, $2, int $3);
+		} elsif ($dest =~ /^file!(.+)$/) {
+			send_file($rawmsg, $1);
 		} elsif ($dest =~ /^unix!(.+)$/) {
 			send_unix($rawmsg, $1);
 		} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {

@@ -39,7 +39,7 @@ use Socket;
 use IO::Socket::INET;
 use IO::Socket::UNIX;
 
-$VERSION = "0.5";
+$VERSION = "0.6";
 %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus or Intertubes.',

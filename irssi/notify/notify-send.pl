@@ -41,9 +41,6 @@ $VERSION = "0.5";
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
 );
 
-# Don't modify this; instead use /set notify_host
-Irssi::settings_add_str("libnotify", "notify_host", "dbus");
-
 my ($dbus, $dbus_service, $libnotify);
 my $appname = "irssi";
 my $icon = "notification-message-IM";
@@ -76,18 +73,19 @@ sub send_inet($$$$) {
 		Proto => $proto,
 		Blocking => 0,
 	);
-
 	if (eval {require IO::Socket::INET6}) {
 		$sock = IO::Socket::INET6->new(%sock_args);
 	} elsif ($host =~ /:/) {
-		Irssi::print("notify-send: IPv6 support requires IO::Socket::INET6");
-		return 0;
+		return 0, "IPv6 support requires IO::Socket::INET6";
 	} else {
 		$sock = IO::Socket::INET->new(%sock_args);
 	}
 	if (defined $sock) {
 		print $sock $data;
 		$sock->close();
+		return 1;
+	} else {
+		return 0, $!;
 	}
 }
 
@@ -106,13 +104,14 @@ sub send_inetssl($$$) {
 	if (eval {require IO::Socket::SSL}) {
 		$sock = IO::Socket::SSL->new(%sock_args);
 	} else {
-		Irssi::print("notify-send: SSL support requires IO::Socket:SSL");
-		return 0;
+		return 0, "SSL support requires IO::Socket::SSL";
 	}
-
 	if (defined $sock) {
 		print $sock $data;
 		$sock->close();
+		return 1;
+	} else {
+		return 0, $!;
 	}
 }
 
@@ -122,6 +121,9 @@ sub send_unix($$) {
 	if (defined $sock) {
 		print $sock $data;
 		$sock->close();
+		return 1;
+	} else {
+		return 0, $!;
 	}
 }
 
@@ -130,8 +132,9 @@ sub send_file($$) {
 	if (open my $fh, ">>", $path) {
 		print $fh $data;
 		close $fh;
+		return 1;
 	} else {
-		Irssi::print("Could not notify '$path': $!");
+		return 0, $!;
 	}
 }
 
@@ -159,24 +162,23 @@ sub send_libnotify($$) {
 	}
 }
 
-sub send_notification($$) {
-	my ($title, $text) = @_;
+sub send_notification($$$) {
+	my ($dest, $title, $text) = @_;
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
-	my $dests = Irssi::settings_get_str("notify_host");
-	foreach my $dest (split / /, $dests) {
-		if ($dest eq "dbus") {
-			send_libnotify($title, $text);
-		} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
-			send_inet($rawmsg, $1, $2, int $3);
-		} elsif ($dest =~ /^file!(.+)$/) {
-			send_file($rawmsg, $1);
-		} elsif ($dest =~ /^unix!(.+)$/) {
-			send_unix($rawmsg, $1);
-		} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {
-			send_inetssl($rawmsg, $1, $2);
-		} else {
-			print "$IRSSI{name}: unsupported address '$dest'";
-		}
+
+	if ($dest eq "dbus") {
+		send_libnotify($title, $text);
+	} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
+		send_inet($rawmsg, $1, $2, int $3);
+	} elsif ($dest =~ /^file!(.+)$/) {
+		send_file($rawmsg, $1);
+	} elsif ($dest =~ /^unix!(.+)$/) {
+		send_unix($rawmsg, $1);
+	} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {
+		send_inetssl($rawmsg, $1, $2);
+	} else {
+		$dest =~ /^([^!]+)/;
+		0, "Unsupported address '$1'";
 	}
 }
 
@@ -202,8 +204,15 @@ sub on_message {
 	my $title = $nick;
 	$title .= " on $target" if $channel;
 
-	send_notification($title, $msg);
+	# send notification to all dests
+	my $dests = Irssi::settings_get_str("notify_host");
+	foreach my $dest (split / /, $dests) {
+		my @ret = parse_dest($dest, $title, $msg);
+		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
+	}
 }
+
+Irssi::settings_add_str("libnotify", "notify_host", "dbus");
 
 Irssi::signal_add "message public", sub {
 	on_message @_, "message"

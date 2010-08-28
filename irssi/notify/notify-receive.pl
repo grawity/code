@@ -1,11 +1,22 @@
 #!/usr/bin/perl
-# r20100710
+use warnings;
 use strict;
-#use brain;
-use Getopt::Long qw(:config bundling);
 use IO::Socket;
 
 my ($dbus, $libn_serv, $libnotify);
+
+sub usage() {
+	print STDERR <<EOF;
+Usage: notify-receive <listen>
+
+Supported listen addresses:
+	stdin
+	tcp!<addr>!<port>
+	udp!<addr>!<port>
+<addr> may be * to listen on all interfaces.
+EOF
+	exit 2;
+}
 
 sub forked(&) {
 	my $code = shift;
@@ -103,7 +114,9 @@ sub accept_dgram($) {
 	}
 }
 
-if ($listen =~ /^(tcp|udp)!(.+)!(.+)$/) {
+if (!defined $listen) {
+	usage;
+} elsif ($listen =~ /^(tcp|udp)!(.+)!(.+)$/) {
 	my $proto = $1;
 	my $laddr = ($2 eq '*'? undef : $2);
 	my $lport = $3;
@@ -126,5 +139,6 @@ if ($listen =~ /^(tcp|udp)!(.+)!(.+)$/) {
 		$data and handle_message($data);
 	}
 } else {
-	die "Unknown protocol\n";
+	print STDERR "Unsupported address\n";
+	usage;
 }

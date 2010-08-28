@@ -168,7 +168,7 @@ sub send_libnotify($$) {
 	}
 }
 
-sub send_notification($$$) {
+sub notify($$$) {
 	my ($dest, $title, $text) = @_;
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 
@@ -214,7 +214,7 @@ sub on_message {
 	# send notification to all dests
 	my $dests = Irssi::settings_get_str("notify_host");
 	foreach my $dest (split / /, $dests) {
-		my @ret = parse_dest($dest, $title, $msg);
+		my @ret = notify($dest, $title, $msg);
 		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
 	}
 }

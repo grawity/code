@@ -1,5 +1,4 @@
 # vim: ft=perl
-use warnings;
 use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);

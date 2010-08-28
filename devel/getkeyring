@@ -4,21 +4,64 @@ import sys
 import getopt
 import gnomekeyring as gkr
 
+# Parse %k, %{key}, and some backslash escapes
 def format(pattern, data):
 	output = ""
-	state = True
+	key = ""
+	state = 0
 	for char in pattern:
-		if state:
-			if char is "%":
-				state = False
+		if state == 0:
+			if char == "%":
+				state = 1
+			elif char == "\\":
+				state = 2
 			else:
 				output += char
-		else:
-			if char in data:
+		elif state == 1:
+			state = 0
+			if char == "{":
+				state = 3
+			elif char == "%":
+				output += char
+			elif char in data:
 				output += data[char]
 			else:
-				output += char
-			state = True
+				print >> sys.stderr, "format: unknown key '%s'" % char
+		elif state == 2:
+			if char == "x":
+				state = 4
+			if char == "u":
+				state = 5
+			else:
+				output += {
+					'0': "\0",
+					'n': "\n",
+					'r': "\r",
+					't': "\t",
+					}.get(char, char)
+				state = 0
+		elif state == 3:
+			if char == "}":
+				if key in data:
+					output += data[key]
+				else:
+					print >> sys.stderr, "format: unknown key '%s'" % key
+				state = 0
+			else:
+				key += char
+				state = 3
+		elif state in (4, 5):
+			if char in '0123456789ABCDEFabcdef':
+				key += char
+				if state == 4 and len(key) == 2:
+					output += chr(int(key, 16))
+					state = 0
+				elif state == 5 and len(key) == 4:
+					output += unichr(int(key, 16))
+					state = 0
+			else:
+				print >> sys.stderr, "format: invalid hex character '%s'" % char
+				state = 0
 	return output
 
 def usage():
@@ -53,14 +96,9 @@ def show_item(id, attrs=True):
 			for key in sorted(data.keys()):
 				print "\t%s: %s" % (key, data[key])
 	else:
-		data["Name"] = info.get_display_name()
-		data["Secret"] = info.get_secret()
-		try:
-			print format_pattern % data
-		except KeyError as e:
-			print >> sys.stderr, "getkeyring: item %d does not have key %s" % (id, e)
-		except TypeError as e:
-			print >> sys.stderr, "getkeyring: (item %d) %s" % (id, e)
+		data["n"] = data["Name"] = info.get_display_name()
+		data["s"] = data["Secret"] = info.get_secret()
+		print format(format_pattern, data)
 
 if not gkr.is_available():
 	print >> sys.stderr, "getkeyring: Keyring service not available"
@@ -90,7 +128,7 @@ if is_keyring_locked():
 
 if command == "list":
 	list_items(False)
-elif command == "show":
+elif command == "get":
 	if len(rest):
 		for id in rest:
 			show_item(int(id), True)

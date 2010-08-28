@@ -17,6 +17,7 @@
 #       tcp!<host>!<port>
 #       udp!<host>!<port>
 #       unix!<address>
+#       unix!<address>!(stream|dgram)
 #       ssl!<host>!<port>
 #
 # Notes:
@@ -121,9 +122,12 @@ sub send_inetssl($$$) {
 	}
 }
 
-sub send_unix($$) {
-	my ($data, $address) = @_;
-	my $sock = IO::Socket::UNIX->new(Peer => $address);
+sub send_unix($$$) {
+	my ($data, $type, $address) = @_;
+	my $sock = IO::Socket::UNIX->new(
+		Type => ($type eq 'stream'? SOCK_STREAM : SOCK_DGRAM),
+		Peer => $address
+	);
 	if (defined $sock) {
 		print $sock $data;
 		$sock->close();
@@ -178,8 +182,10 @@ sub notify($$$) {
 		send_inet($rawmsg, $1, $2, int $3);
 	} elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
+	} elsif ($dest =~ /^unix!(.+)!(stream|dgram)$/) {
+		send_unix($rawmsg, $2, $1);
 	} elsif ($dest =~ /^unix!(.+)$/) {
-		send_unix($rawmsg, $1);
+		send_unix($rawmsg, "stream", $1);
 	} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {
 		send_inetssl($rawmsg, $1, $2);
 	} else {

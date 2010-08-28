@@ -120,6 +120,11 @@ if ($listen =~ /^(tcp|udp)!(.+)!(.+)$/) {
 	}
 
 	close $sock;
+} elsif ($listen eq 'stdin') {
+	while (my $data = <STDIN>) {
+		chomp $data;
+		$data and handle_message($data);
+	}
 } else {
 	die "Unknown protocol\n";
 }

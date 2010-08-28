@@ -4,7 +4,7 @@ use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);
 
-$VERSION = "1.3";
+$VERSION = "1.4";
 %IRSSI = (
 	name        => 'filter_hilightspam',
 	description => 'Blocks messages consisting of too many nicknames.',
@@ -38,7 +38,7 @@ sub on_message(@) {
 	}
 }
 
-sub hilightspam_score($\@) {
+sub hilightspam_score($$) {
 	my ($msg, $nicks) = @_;
 
 	$msg =~ s/^(<.+?>| \* .+?) //;
@@ -66,4 +66,16 @@ Irssi::signal_add_first "message irc notice" => sub {
 };
 Irssi::signal_add_first "ctcp action" => sub {
 	on_message @_, "action";
+};
+
+Irssi::command_bind "hscore" => sub {
+	my ($args, $server, $witem) = @_;
+	my $itemname = $witem->{name};
+	if (!defined $itemname or !$server->ischannel($itemname)) {
+		$witem->print("Cannot calculate hilight score for non-channels");
+		return;
+	}
+	my @nicks = $server->channel_find($itemname)->nicks();
+	my $score = hilightspam_score($args, \@nicks);
+	$witem->print("Hilightspam: line scored $score for $itemname");
 };

@@ -10,8 +10,8 @@
 #
 # Settings:
 #
-# (string) notify_host = "dbus"
-#   Space-separated list of destinations. Possible destinations are:
+# (string) notify_targets = "dbus"
+#   Space-separated list of targets to send notifications to. Possible values:
 #       dbus
 #       file!<path>
 #       tcp!<host>!<port>
@@ -218,14 +218,14 @@ sub on_message {
 	$title .= " on $target" if $channel;
 
 	# send notification to all dests
-	my $dests = Irssi::settings_get_str("notify_host");
+	my $dests = Irssi::settings_get_str("notify_targets");
 	foreach my $dest (split / /, $dests) {
 		my @ret = notify($dest, $title, $msg);
 		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
 	}
 }
 
-Irssi::settings_add_str("libnotify", "notify_host", "dbus");
+Irssi::settings_add_str("libnotify", "notify_targets", "dbus");
 
 Irssi::signal_add "message public", sub {
 	on_message @_, "message"

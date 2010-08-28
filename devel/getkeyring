@@ -4,7 +4,15 @@ import os, sys
 import getopt
 import gnomekeyring as gkr
 
-# Parse %k, %{key}, and some backslash escapes
+# Supported format characters:
+#    %k            one-letter key from data[]
+#    %{key}        string key from data[]
+#    \0 \n \r \t   standard C string escapes
+#    \xHH \uHHHH   standard hex and Unicode escapes
+#    ${key}        environment variable
+#
+# Only ${key} is allowed; $key is not.
+# Backslash escapes or nested formats are not supported.
 def format(pattern, data):
 	output = ""
 	key = ""

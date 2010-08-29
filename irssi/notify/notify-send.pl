@@ -17,7 +17,7 @@
 #       tcp!<host>!<port>
 #       udp!<host>!<port>
 #       unix!<address>
-#       unix!<address>!(stream|dgram)
+#       unix!(stream|dgram)!<address>
 #       ssl!<host>!<port>
 #
 # Notes:
@@ -179,8 +179,8 @@ sub notify($$$) {
 		send_inet($rawmsg, $1, $2, $3);
 	} elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
-	} elsif ($dest =~ /^unix!(.+)!(stream|dgram)$/) {
-		send_unix($rawmsg, $2, $1);
+	} elsif ($dest =~ /^unix!(stream|dgram)!(.+)$/) {
+		send_unix($rawmsg, $1, $2);
 	} elsif ($dest =~ /^unix!(.+)$/) {
 		send_unix($rawmsg, "stream", $1);
 	} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {

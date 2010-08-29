@@ -1,0 +1,27 @@
+#!/bin/bash
+# muttauth - netrc authentication for mutt
+#
+# Usage (single host):
+#    source "~/bin/muttauth -g host1 ... hostn|"
+# Usage (multiple hosts):
+#    source "~/bin/muttauth host|"
+
+genauth() {
+	host="$1"
+	getnetrc -df "set imap_user='%u' imap_pass='%p'" "$host"  
+}
+
+genhook() {
+	for host; do
+		local re=${host//./\\.}
+		local host=${host//\'/\\\'}
+		echo "account-hook '^imaps?://${re}/\$' 'source \"~/bin/muttauth ${host}|\"'"
+	done
+}
+
+if [ "$1" == "-g" ]; then
+	shift
+	genhook "$@"
+else
+	genauth "$@"
+fi

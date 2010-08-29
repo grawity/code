@@ -62,17 +62,13 @@ sub getserv($$) {
 		return int $name;
 	}
 	my ($rname, $aliases, $port, $rproto) = getservbyname($name, $proto);
-	if (defined $port) {
-		return $port;
-	} else {
-		Irssi::print("notify-send: unknown service '$name/$proto'");
-		return undef;
-	}
+	return $port;
 }
 
 sub send_inet($$$$) {
-	my ($data, $proto, $host, $port) = @_;
-	$port = getserv($port, $proto) or return 0;
+	my ($data, $proto, $host, $service) = @_;
+	my $port = getserv($service, $proto)
+		or return 0, "Unknown service '$service/$proto'";
 	my $sock;
 	my %sock_args = (
 		PeerAddr => $host,
@@ -97,8 +93,9 @@ sub send_inet($$$$) {
 }
 
 sub send_inetssl($$$) {
-	my ($data, $host, $port) = @_;
-	$port = getserv($port, "tcp") or return 0;
+	my ($data, $host, $service) = @_;
+	my $port = getserv($service, "tcp")
+		or return 0, "Unknown service '$service/tcp'";
 	my $sock;
 	my %sock_args = (
 		PeerAddr => $host,
@@ -179,7 +176,7 @@ sub notify($$$) {
 	if ($dest eq "dbus") {
 		send_libnotify($title, $text);
 	} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
-		send_inet($rawmsg, $1, $2, int $3);
+		send_inet($rawmsg, $1, $2, $3);
 	} elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
 	} elsif ($dest =~ /^unix!(.+)!(stream|dgram)$/) {

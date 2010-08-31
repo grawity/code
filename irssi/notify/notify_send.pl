@@ -52,6 +52,37 @@ my ($dbus, $dbus_service, $libnotify);
 my $appname = "irssi";
 my $icon = "notification-message-IM";
 
+sub on_message {
+	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
+	my $mynick = $server->{nick};
+	my $channel = $server->ischannel($target);
+
+	# skip server notices
+	return if !defined $userhost;
+
+	# if public, check for hilightness
+	return if $channel and !(
+		# put hilight rules here, separated by 'or'
+		$msg =~ /\Q$mynick/i
+		#or $msg =~ /porn/i
+	);
+
+	# ignore services
+	return if !$channel and (
+		$nick =~ /^(nick|chan|memo|oper|php)serv$/i
+	);
+
+	my $title = $nick;
+	$title .= " on $target" if $channel;
+
+	# send notification to all dests
+	my $dests = Irssi::settings_get_str("notify_targets");
+	foreach my $dest (split / /, $dests) {
+		my @ret = notify($dest, $title, $msg);
+		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
+	}
+}
+
 sub xml_escape($) {
 	$_ = shift; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
@@ -188,37 +219,6 @@ sub notify($$$) {
 	} else {
 		$dest =~ /^([^!]+)/;
 		0, "Unsupported address '$1'";
-	}
-}
-
-sub on_message {
-	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
-	my $mynick = $server->{nick};
-	my $channel = $server->ischannel($target);
-
-	# skip server notices
-	return if !defined $userhost;
-
-	# if public, check for hilightness
-	return if $channel and !(
-		# put hilight rules here, separated by 'or'
-		$msg =~ /\Q$mynick/i
-		#or $msg =~ /porn/i
-	);
-
-	# ignore services
-	return if !$channel and (
-		$nick =~ /^(nick|chan|memo|oper)serv$/i
-	);
-
-	my $title = $nick;
-	$title .= " on $target" if $channel;
-
-	# send notification to all dests
-	my $dests = Irssi::settings_get_str("notify_targets");
-	foreach my $dest (split / /, $dests) {
-		my @ret = notify($dest, $title, $msg);
-		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
 	}
 }
 

@@ -20,7 +20,9 @@ sub check() {
 	my $w = Irssi::active_win();
 
 	open my $fd, "-|", "mail-notification", "-s";
-	my $data = XMLin($fd);
+	my $data = XMLin($fd,
+		ForceArray => ["message"]
+		);
 
 	for my $message_id (keys %{$data->{message}}) {
 		my $msg = $data->{message}->{$message_id};

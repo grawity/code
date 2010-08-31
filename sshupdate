@@ -1,5 +1,5 @@
 #!/bin/bash
-SOURCE_URL="http://purl.oclc.org/NET/grawity/misc/"
+SOURCE_URL="http://purl.net/NET/grawity/misc/"
 if [ "$(id -u)" -eq 0 ]
 	then SOURCE_URL="${SOURCE_URL}authorized_keys_root.txt"
 	else SOURCE_URL="${SOURCE_URL}authorized_keys.txt"
@@ -8,62 +8,14 @@ SIGNER_KEY="D24F6CB2C1B52632"
 
 have() { command -v "$1" &> /dev/null; }
 
-# download a file over HTTP 
-http_fetch() {
-	local URL="$1" OUT="${2:-/dev/stdout}"
-	if have curl; then
-		curl -LSs "$URL" -o "$OUT"
-	elif have wget; then
-		wget -q "$URL" -O "$OUT"
-	elif have lynx; then
-		lynx -source "$URL" > "$OUT"
-	elif have w3m; then
-		w3m -dump_source "$URL" > "$OUT" -o auto_uncompress=1
-	elif have links; then
-		links -source "$URL" > "$OUT"
-	elif have elinks; then
-		elinks -source "$URL" > "$OUT"
-	elif have python; then
-		python - "$URL" > "$OUT" <<-'EOF'
-			import sys, urllib2
-			try: sys.stdout.write(urllib2.urlopen(sys.argv[1]).read())
-			except: sys.exit(1)
-		EOF
-	elif have php && {
-		php -i | grep -qs '^curl$' &&
-		php -i | grep -qsi '^safe_mode => Off ' &&
-		php -i | grep -qs '^open_basedir => no value '
-		} 2> /dev/null; then
-		php -- "$URL" > "$OUT" <<-'EOF'
-			<?php
-			$ch = curl_init($argv[1]);
-			curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-			curl_exec($ch);
-		EOF
-	elif have php && { php -i | grep -qsi '^allow_url_fopen => on'; } 2> /dev/null; then
-		php -r '@readfile($argv[1]);' "$URL" > "$OUT"
-	elif have perl && perl -MLWP::Simple -e'1' 2> /dev/null; then
-		perl -MLWP::Simple -e'getprint $ARGV[0]' "$URL" > "$OUT"
-	elif have tclsh; then
-		tclsh - "$URL" > "$OUT" <<-'EOF'
-			package require http
-			fconfigure stdout -translation binary
-			puts -nonewline [http::data [http::geturl [lindex $argv 1]]]
-		EOF
-	else
-		# Damn.
-		echo "sshup: no download tool available" >&2
-		exit 1
-	fi
-	[ -s "$OUT" ]
-}
+. ~/code/lib/http_fetch.sh || exit 1
 
-update_signer_key() {
-	local keyid="$SIGNER_KEY" server="pool.sks-keyservers.net"
+recv_key() {
+	local keyid=$1
+	local server="pool.sks-keyservers.net"
 	$VERBOSE && echo "sshup: recv-key $keyid from $server"
-
-	local out="$(gpg --status-fd 3 3>&1 >& /dev/null --keyserver "$server" --recv-key "$keyid")"
-	if ! grep -qs "^\\[GNUPG:\\] IMPORT_OK " <<< "$out"; then
+	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$keyid" 2>/dev/null)
+	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
 		echo "$out" >&2
 		return 1
 	else
@@ -73,26 +25,27 @@ update_signer_key() {
 }
 
 tryfetch() {
-	local url="$1" output="$2"
+	local url=$1 out=$2
 	local max_tries=3 retry_wait=3 attempt=0
 	while (( ++attempt <= max_tries )); do
-		$VERBOSE && echo "sshup: fetching $url (attempt $attempt)"
-		if http_fetch "$url" "$output"
-			then return 0
-			else rm -f "$output"; sleep $retry_wait
+		$VERBOSE && echo "Fetching $url (attempt $attempt)"
+		if http_fetch "$url" "$out"; then
+			return 0
+		else
+			rm -f "$out"; sleep $retry_wait
 		fi
 	done
 	return 1
 }
 
 verify() {
-	local input="$1"
-	local out="$( gpg --status-fd 3 3>&1 >& /dev/null --verify "$input" )"
-	if grep -Eqs "^\\[GNUPG:\\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
-		! grep -qs "^\\[GNUPG:\\] GOODSIG $SIGNER_KEY " <<< "$out" ||
-		! grep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE\$" <<< "$out"
+	local file=$1
+	local out=$(gpg --status-fd 1 --verify "$file" 2>/dev/null)
+	if grep -Eqs "^\[GNUPG:\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
+		! grep -qs "^\[GNUPG:\] GOODSIG $SIGNER_KEY " <<< "$out" ||
+		! grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$out"
 	then
-		{ echo "sshup: failed to verify $input"; echo "$out"; } >&2
+		{ echo "Failed to verify $file"; echo "$out"; } >&2
 		return 1
 	else
 		$VERBOSE && echo "$out"
@@ -101,43 +54,45 @@ verify() {
 }
 
 VERBOSE=false
-while getopts "vr" option "$@"; do
-	case "$option" in
-	v) VERBOSE=true ;;
-	r) update_signer_key && gpg --edit-key "$SIGNER_KEY" trust quit ;;
+while getopts "hvr" OPT "$@"; do
+	case "$OPT" in
+	v)	VERBOSE=true ;;
+	r)	recv_key "$SIGNER_KEY" && gpg --edit-key "$SIGNER_KEY" trust quit ;;
 	esac
 done
 
-## Check if the key is present in user's keyring.
 if ! have gpg; then
-	echo "sshup: gpg not found in \$PATH" >&2
+	echo "'gpg' not found in \$PATH" >&2
 	exit 1
 fi
 
 if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
-	echo "sshup: $SIGNER_KEY not found in gpg keyring" >&2
+	echo "Signer key $SIGNER_KEY not in keyring" >&2
 	exit 1
 fi
 
-umask 077; mkdir -p ~/.ssh/
+umask 077
+mkdir -p ~/.ssh/
 
+recv_key "$SIGNER_KEY" >&2 || exit 1
 http_fetch "http://purl.oclc.org/NET/grawity/log/?update-sshauth@$(hostname)" /dev/null
-update_signer_key >&2 || exit 1
 
-temp="$( mktemp ~/.ssh/authorized_keys.XXXXXXXXXX )"
-if tryfetch "$SOURCE_URL" "$temp" && verify "$temp"; then
-	{
-	echo "# updated on $(date "+%a, %d %b %Y %H:%M:%S %z") from $SOURCE_URL"
-	gpg --decrypt "$temp" 2> /dev/null
-	} > ~/.ssh/authorized_keys
-	rm -f "$temp"
-else
+temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
+if ! tryfetch "$SOURCE_URL" "$temp"; then
+	echo "Failed to fetch $SOURCE_URL" >&2
 	exit 1
+fi
+
+if verify "$temp"; then
+	{
+		echo "# updated $(date +"%Y-%m-%d %H:%M") from $SOURCE_URL"
+		gpg --decrypt "$temp" 2> /dev/null
+	} > ~/.ssh/authorized_keys
 fi
 
 if [ -f ~/.ssh/authorized_keys.local ]; then
 	{
-	echo "# local keys from ~/.ssh/authorized_keys.local"
-	cat ~/.ssh/authorized_keys.local
+		echo "# keys from ~/.ssh/authorized_keys.local"
+		cat ~/.ssh/authorized_keys.local
 	} >> ~/.ssh/authorized_keys
 fi

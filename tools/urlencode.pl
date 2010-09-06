@@ -11,18 +11,18 @@ sub usage() {
 	print STDERR "    -r    do not print ";
 }
 
-sub encode() {
+sub decode() {
 	s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
 }
-sub decode() {
+sub encode() {
 	s/([^A-Za-z0-9_.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
 }
 
 sub do_things() {
 	if ($opts{d}) {
-		encode;
-	} else {
 		decode;
+	} else {
+		encode;
 	}
 	print;
 	print "\n" unless $opts{r};

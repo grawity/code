@@ -1,58 +1,56 @@
 #!/usr/bin/env bash
 # Dotfile updater.
-update() {
-	get .bashrc "${BASE}dot/bashrc"
-	get .inputrc "${BASE}dot/inputrc"
-	get .profile "${BASE}dot/profile"
-	get .vimrc "${BASE}dot/vimrc"
-	get .vimrc.input "${BASE}dot/vimrc-input"
-	get .ssh/config "${BASE}dot/ssh-config"
-	#get .ssh/known_hosts "${BASE}dot/ssh-knownhosts"
-	get bin/sshupdate "${BASE}code/sshupdate" u+x
-}
-
-updateself() {
-	get bin/dotrc.new "${BASE}misc/dotrc.sh" u+x &&
-	if [ -s bin/dotrc.new ]; then
-		exec mv -f bin/dotrc.new bin/dotrc
-	else
-		echo "Failed to update dotrc from ${BASE}misc/dotrc.sh"
-		return 1
-	fi
-}
-
-have() { command -v "$@" >& /dev/null; }
-log() { [ -t 0 ] && echo "$@"; }
-get() {
-	local file="$1" url="$2"
-	log "$url -> $file"
-	[[ "$file" = */* ]] && mkdir -p "$(dirname "$file")"
-	getfile "$url" "$file"
-	[ "$3" ] && chmod "$3" "$file"
-}
-
-if have wget; then
-	getfile() { wget --ca-certificate "$CACERT" -q "$1" -O "$2"; }
-elif have curl; then
-	getfile() { curl -L --cacert "$CACERT" -s "$1" -o "$2"; }
-else
-	echo "No HTTP support!" >&2
-	exit 1
-fi
+. ~/lib/util.sh 2> /dev/null
 
 CACERT=~/lib/nullroute.pem
 BASE="https://wind.nullroute.eu.org/~grawity/"
 
-cd ~ || exit 1
+update() {
+	cd || die "could not chdir into $HOME"
+	rm -vf .bash_login
+	rm -vf .bash_profile
+	get "${BASE}dot/bashrc" .bashrc
+	get "${BASE}dot/profile" .profile
+	get "${BASE}dot/vimrc" .vimrc
+}
 
-if ! [ -e "$CACERT" ]; then
-	echo "! CA certificate not found: $CACERT" >&2
-	exit 1
+## Other functions
+
+have() { command -v "$@" >& /dev/null; }
+
+log() { [ -t 0 ] && printf "%s\n" "$*"; }
+
+die() { echo "dotrc: fatal: ${1:-previous command failed}" >&2; exit 1; }
+
+get() {
+	local url=$1 file=$2 mode=$3 temp=''
+	log "fetching $file from $url"
+
+	mkdir -p "$(dirname "$file")"
+	temp=$(mktemp ~/tmp/dotrc-$USER.XXXXXX) || die "mktemp failed"
+	if fetch "$url" "$temp" && [ -s "$temp" ]; then
+		mv -f -b "$temp" "$file"
+		if [ "$mode" ]; then
+			chmod "$mode" "$file"
+		fi
+	else
+		echo "dotrc: fetch failed: $url" >&2
+		rm -f "$temp"
+	fi
+}
+
+if have curl; then
+	fetch() { curl -sLSf --cacert "$CACERT" "$1" -o "$2"; }
+elif have wget; then
+	fetch() { wget -q --ca-certificate "$CACERT" "$1" -O "$2"; }
+else
+	die "no HTTP client"
 fi
 
-case "$1" in
-self)
-	updateself;;
-*)
-	update;;
-esac
+## Do stuff.
+
+if ! [ -e "$CACERT" ]; then
+	die "CA certificate not found: $CACERT"
+fi
+mkdir -pm 0700 ~/tmp || die "unable to create temporary directory"
+update

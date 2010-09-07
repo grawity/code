@@ -36,7 +36,7 @@ http_fetch() {
 		} 2> /dev/null; then
 		php -r '@readfile($argv[1]);' "$url" > "$out"
 	elif have perl && perl -mLWP::Simple -e'1' 2> /dev/null; then
-		perl -mLWP::Simple -e'getprint $ARGV[0]' "$url" > "$out"
+		perl -mLWP::Simple -e'getstore $ARGV[0], $ARGV[1]' "$url" "$out"
 	elif have tclsh; then
 		tclsh - "$url" > "$out" <<-'EOF'
 			package require http

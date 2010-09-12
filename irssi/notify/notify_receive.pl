@@ -36,7 +36,7 @@ sub handle_message($) {
 	my ($message) = @_;
 	my ($appname, $icon, $title, $text) = split / \| /, $message;
 
-	if ($title eq "") { next; }
+	if ($title eq "") { return; }
 	#if ($appname eq "") { $appname = "unknown"; }
 
 	send_libnotify($appname, $icon, $title, $text);

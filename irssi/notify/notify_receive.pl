@@ -2,76 +2,52 @@
 use warnings;
 use strict;
 use IO::Socket;
+use Data::Dumper;
 
-my ($dbus, $libn_serv, $libnotify);
+my $listen = shift @ARGV;
+my $forward = shift @ARGV;
+my @forwards = ();
+
+my ($dbus, $libnotify);
 
 sub usage() {
 	print STDERR <<EOF;
-Usage: notify-receive <listen>
+Usage: notify-receive <listen> <forward>
 
-Supported listen addresses:
+listen:
 	stdin
-	tcp!<addr>!<port>
-	udp!<addr>!<port>
-<addr> may be * to listen on all interfaces.
+	tcp!addr!port
+	udp!addr!port
+	(addr can be *)
+forward:
+	libnotify
+	growl!addr!port
+	growl!addr!port!password
 EOF
 	exit 2;
 }
 
+### Helpers
+
 sub forked(&) {
 	my $code = shift;
 	my $pid = fork();
-	if ($pid == 0) {
-		exit &$code;
-	} else {
-		return $pid;
-	}
+	if ($pid == 0) {exit &$code;}
+	else {return $pid;}
 }
 
 sub xml_escape($) {
-	my ($_) = @_; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
+	($_) = @_; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
 
 sub handle_message($) {
 	my ($message) = @_;
 	my ($appname, $icon, $title, $text) = split / \| /, $message;
-
-	if ($title eq "") { return; }
-	#if ($appname eq "") { $appname = "unknown"; }
-
-	send_libnotify($appname, $icon, $title, $text);
-}
-
-sub send_libnotify($$$$) {
-	my ($appname, $icon, $title, $text) = @_;
-	$text = xml_escape($text);
-
-	if (defined $libnotify) {
-		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
-	}
-	else {
-		my @args = ("notify-send");
-		push @args, "--icon=$icon" unless $icon eq "";
-		# category doesn't do the same as appname, but still useful
-		push @args, "--category=$appname" unless $appname eq "";
-		push @args, $title;
-		push @args, $text unless $text eq "";
-		system @args;
+	if ($title eq "") {return;}
+	for my $fwd (@forwards) {
+		&$fwd($appname, $icon, $title, $text);
 	}
 }
-
-if (eval {require Net::DBus}) {
-	$dbus = Net::DBus->session;
-}
-
-if (defined $dbus) {
-	$libn_serv = $dbus->get_service("org.freedesktop.Notifications");
-	$libnotify = $libn_serv->get_object("/org/freedesktop/Notifications");
-}
-
-### main loop
-
-my $listen = shift @ARGV;
 
 sub socket_inet($$$) {
 	my ($proto, $laddr, $lport) = @_;
@@ -114,6 +90,67 @@ sub accept_dgram($) {
 	}
 }
 
+# set up forwarders
+if (!defined $forward) {
+	usage;
+} elsif ($forward =~ /^libnotify$/) {
+	my $dbus;
+	if (eval {require Net::DBus}) {
+		$dbus = Net::DBus->session;
+	#} else {
+	#	print STDERR "error: DBus requires Net::DBus\n";
+	#	exit 2;
+	}
+	
+	if (defined $dbus) {
+		my $libnotify = $dbus->get_service("org.freedesktop.Notifications")
+			->get_object("/org/freedesktop/Notifications");
+			
+		push @forwards, sub {
+			my ($appname, $icon, $title, $text) = @_;
+			$text = xml_escape($text);
+			$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+		};
+	} else {
+		push @forwards, sub {
+			my ($appname, $icon, $title, $text) = @_;
+			$text = xml_escape($text);
+			my @args = ("notify-send");
+			push @args, "--icon=$icon" unless $icon eq "";
+			# category doesn't do the same as appname, but still useful
+			push @args, "--category=$appname" unless $appname eq "";
+			push @args, $title;
+			push @args, $text unless $text eq "";
+			system @args;
+		};
+	}
+} elsif ($forward =~ /^growl!(.+?)!(.+?)(?:!(.+?))?$/) {
+	if (eval {require Growl::GNTP}) {
+		my $growl = Growl::GNTP->new(
+			PeerHost => $1,
+			PeerPort => $2,
+			Password => $3,
+			AppName => "notify_receive",
+		);
+		push @forwards, sub {
+			my ($appname, $icon, $title, $text) = @_;
+			$growl->register([
+				{Name => $appname, Enabled => 'True', Sticky => 'False'},
+			]);
+			$growl->notify(
+				Event => $appname, Title => $title, Message => $text
+			);
+		};
+	} else {
+		print STDERR "error: Growl requires Growl::GNTP\n";
+		exit 2;
+	}
+} else {
+	print STDERR "error: unsupported forward address: $forward\n";
+	usage;
+}
+
+# set up listener
 if (!defined $listen) {
 	usage;
 } elsif ($listen =~ /^(tcp|udp)!(.+)!(.+)$/) {
@@ -139,6 +176,6 @@ if (!defined $listen) {
 		$data and handle_message($data);
 	}
 } else {
-	print STDERR "Unsupported address\n";
+	print STDERR "error: unsupported listen address: $listen\n";
 	usage;
 }

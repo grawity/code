@@ -9,8 +9,9 @@
 
 use warnings;
 use strict;
+
 use Net::Netrc;
-use URI::Escape qw(uri_escape);
+use URI::Escape 'uri_escape';
 use LWP::Simple;
 use XML::Simple;
 
@@ -27,30 +28,30 @@ sub bitly($) {
 		version => "2.0.1",
 		format => "xml",
 	);
-
+	
 	my $netrc = Net::Netrc->lookup("api.bit.ly");
-	if (defined $netrc->{machine} and defined $netrc->{login} and defined $netrc->{password}) {
+	if (defined $netrc->{machine}
+	and defined $netrc->{login}
+	and defined $netrc->{password}) {
 		$args{login} = $netrc->{login};
 		$args{apiKey} = $netrc->{password};
 	}
 	else {
 		print STDERR "API key must be added to ~/.netrc as login/password for 'machine api.bit.ly'\n";
 		print STDERR "Example: machine api.bit.ly login jsmith password R_746869736973616b6579a\n";
-		return undef;
+		return;
 	}
-
-	my $args = join "&", map { $_ . "=" . uri_escape($args{$_}) } keys %args;
-	my $apiurl = "http://api.bit.ly/shorten?$args";
-
-	my $resp = LWP::Simple::get($apiurl);
-	$resp = XML::Simple::XMLin($resp);
-
-	if ($resp->{statusCode} eq "OK") {
-		return $resp->{results}->{nodeKeyVal}->{shortUrl};
-	}
-	else {
-		print STDERR "[bit.ly] ".$resp->{errorMessage}."\n";
-		return undef;
+	
+	my $args = join "&", map {$_."=".uri_escape($args{$_})} keys %args;
+	my $resp = LWP::Simple::get("http://api.bit.ly/shorten?$args");
+	if (eval {$resp = XML::Simple::XMLin($resp)}) {
+		if ($resp->{statusCode} eq "OK") {
+			return $resp->{results}{nodeKeyVal}{shortUrl};
+		} else {
+			print STDERR "error: [bit.ly] ".$resp->{errorMessage}."\n";
+		}
+	} else {
+		print STDERR "error: failed to parse response: $@\n";
 	}
 }
 
@@ -61,7 +62,6 @@ my $shorturl = bitly($longurl);
 
 if (defined $shorturl) {
 	print "$shorturl\n";
-}
-else {
+} else {
 	exit 1;
 }

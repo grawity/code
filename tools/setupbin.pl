@@ -38,6 +38,7 @@ sub ln {
 	symlink $target, $link;
 }
 
+-d "$BIN" || mkdir "$BIN";
 cc args => "tools/args.c";
 cc bgrep => "tools/bgrep.c";
 ln dotrc => "tools/*";

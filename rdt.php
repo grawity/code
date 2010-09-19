@@ -1,8 +1,6 @@
-#!/usr/bin/php
+#!/usr/bin/env php
 <?php
-# rdt v1.3
-# Recursive forward and reverse DNS tracer
-#
+# rdt v1.3+ε
 # (c) 2009 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
@@ -31,57 +29,46 @@ EOTFM;
 	return 2;
 }
 
-# check if argument is an IP address
 function is_inetaddr($a) {
 	return @inet_pton($a) !== false;
 }
-
 function is_inet4addr($a) {
 	return ($p = @inet_pton($a)) !== false and strlen($p) == 4;
 }
-
 function is_inet6addr($a) {
 	return ($p = @inet_pton($a)) !== false and strlen($p) == 16;
 }
 
 # convert IP address to .arpa domain for PTR
-function toptr($ip) {
+function to_ptr($ip) {
 	$packed = @inet_pton($ip);
 	if ($packed === false) {
 		return false;
-	}
-	elseif (strlen($packed) == 4) {
+	} elseif (strlen($packed) == 4) {
 		$ip = unpack("C*", $packed);
 		$suffix = ".in-addr.arpa.";
-	}
-	elseif (strlen($packed) == 16) {
+	} elseif (strlen($packed) == 16) {
 		$ip = unpack("H*", $packed);
 		$ip = str_split($ip[1]);
 		$suffix = ".ip6.arpa.";
-	}
-	else {
+	} else {
 		return false;
 	}
-
 	return implode(".", array_reverse($ip)) . $suffix;
 }
 
 # Do DNS requests
 function resolve($addr) {
 	if (is_inetaddr($addr)) {
-		$addr = toptr($addr);
+		$addr = to_ptr($addr);
 		$rr = @dns_get_record($addr, DNS_PTR);
-	}
-	else {
+	} else {
 		$rr = @dns_get_record($addr, DNS_CNAME);
 		if (empty($rr))
 			$rr = @dns_get_record($addr, DNS_A | DNS_AAAA);
 	}
 
 	$addresses = array();
-	if (empty($rr))
-		return $addresses;
-		
 	foreach ($rr as $record) {
 		if (isset($record["ip"]))
 			$addresses[] = $record["ip"];
@@ -90,25 +77,23 @@ function resolve($addr) {
 		elseif (isset($record["target"]))
 			$addresses[] = $record["target"];
 	}
-
 	return $addresses;
 }
 
 # Colourize the provided string.
 # IP addresses are detected automatically if $colour not given
 function colour($addr, $c = 0) {
-	 if ($GLOBALS["use_colour"] == false)
+	 if (!$GLOBALS["use_colour"])
 		return $addr;
 
 	if ($c > 0)
-		;
+		null;
 	elseif (is_inet4addr($addr))
 		$c = 35;
 	elseif (is_inet6addr($addr))
 		$c = 36;
 	else
 		$c = 33;
-	
 	return "\033[{$c}m{$addr}\033[m";
 }
 
@@ -131,11 +116,9 @@ function go($from, $depth = 0, $skip = array()) {
 	# recursively look up the results
 	foreach ($addresses as $addr) {
 		$addr = strtolower($addr);
-
 		if (in_array($addr, $visited) or in_array($addr, $skip))
 			continue;
 		$visited[] = $addr;
-
 		go($addr, $depth+1, $skip+$addresses);
 	}
 }
@@ -144,10 +127,9 @@ function go($from, $depth = 0, $skip = array()) {
 # on Unix, posix.so might be disabled, if it is -- check $TERM
 if (function_exists("posix_isatty")) {
 	$use_colour = posix_isatty(STDOUT);
-}
-else {
+} else {
 	$TERM = getenv("TERM");
-	$use_colour = !($TERM === false or $TERM == "dumb");
+	$use_colour = !($TERM === false or $TERM === "dumb");
 }
 
 $addresses = array();
@@ -156,17 +138,16 @@ $addresses = array();
 for ($i = 1; $i < $argc; $i++) {
 	$arg = $argv[$i];
 	if (!strlen($arg)) continue;
-
-	if ($arg[0] == "-") switch ($arg) {
+	elseif ($arg[0] == "-") switch ($arg) {
 		case "-c":
 			$use_colour = true; break;
 		case "-C":
 			$use_colour = false; break;
-		default:
-			fwrite(STDERR, "rdt: unknown option '$arg'\n");
 		case "-h":
 		case "--help":
 			exit(msg_help());
+		default:
+			fwrite(STDERR, "rdt: unknown option '$arg'\n");
 	}
 	else $addresses[] = $arg;
 }

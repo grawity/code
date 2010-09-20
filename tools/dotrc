@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Dotfile updater.
-. ~/lib/util.sh 2> /dev/null
+. ~/lib/include/util.sh 2> /dev/null
 
-CACERT=~/lib/nullroute.pem
+CACERT=~/lib/ssl/ca/nullroute.pem
 BASE="https://wind.nullroute.eu.org/~grawity/"
 
 update() {
@@ -27,16 +27,19 @@ get() {
 	log "fetching $file from $url"
 
 	mkdir -p "$(dirname "$file")"
-	temp=$(mktemp ~/tmp/dotrc-$USER.XXXXXX) || die "mktemp failed"
+	temp=$(mktemp "dotrc-$USER.XXXXXX") || die "mktemp failed"
 	if fetch "$url" "$temp" && [ -s "$temp" ]; then
-		mv -f -b "$temp" "$file"
+		# easiest way to preserve modes
+		cat "$temp" > "$file"
+
 		if [ "$mode" ]; then
+			log "changing modes for $file to $mode"
 			chmod "$mode" "$file"
 		fi
 	else
 		echo "dotrc: fetch failed: $url" >&2
-		rm -f "$temp"
 	fi
+	rm -f "$temp"
 }
 
 if have curl; then

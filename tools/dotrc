@@ -3,15 +3,16 @@
 . ~/lib/include/util.sh 2> /dev/null
 
 CACERT=~/lib/ssl/ca/nullroute.pem
-BASE="https://wind.nullroute.eu.org/~grawity/"
+BASE="http://equal.cluenet.org/~grawity/dotfiles"
 
 update() {
 	cd || die "could not chdir into $HOME"
 	rm -vf .bash_login
 	rm -vf .bash_profile
-	get "${BASE}dot/bashrc" .bashrc
-	get "${BASE}dot/profile" .profile
-	get "${BASE}dot/vimrc" .vimrc
+	get "$BASE/bashrc" .bashrc
+	get "$BASE/profile" .profile
+	get "$BASE/vimrc" .vimrc
+	get "$BASE/ssh_config" .ssh/config
 }
 
 ## Other functions
@@ -50,10 +51,14 @@ else
 	die "no HTTP client"
 fi
 
+echo "Fix SSL, you paranoid dumbfuck" #FIXME
+
 ## Do stuff.
 
+:<< '#>>'
 if ! [ -e "$CACERT" ]; then
 	die "CA certificate not found: $CACERT"
 fi
+#>>
 mkdir -pm 0700 ~/tmp || die "unable to create temporary directory"
 update

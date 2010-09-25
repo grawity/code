@@ -69,6 +69,8 @@ function resolve($addr) {
 	}
 
 	$addresses = array();
+	if (empty($rr))
+		return $addresses;
 	foreach ($rr as $record) {
 		if (isset($record["ip"]))
 			$addresses[] = $record["ip"];

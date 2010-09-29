@@ -2,8 +2,14 @@
 # Dotfile updater.
 . ~/lib/include/util.sh 2> /dev/null
 
-CACERT=~/lib/ssl/ca/nullroute.pem
-BASE="http://equal.cluenet.org/~grawity/dotfiles"
+if [[ $HOSTNAME == equal ]]; then
+	BASE="https://snowflake.nullroute.eu.org"
+else
+	BASE="https://equal.cluenet.org"
+fi
+BASE+="/~grawity/dotfiles"
+
+CACERT=~/lib/ca/nullroute.pem
 
 update() {
 	cd || die "could not chdir into $HOME"
@@ -52,11 +58,13 @@ else
 	die "no HTTP client"
 fi
 
-echo "Fix SSL, you paranoid dumbfuck" #FIXME
-
 ## Do stuff.
+if [ -f ~/lib/nullroute.pem ]; then
+	mkdir -v -pm 0755 ~/lib/ca
+	mv -v ~/lib/nullroute.pem ~/lib/ca
+fi
 
-:<< '#>>'
+#<< '#>>'
 if ! [ -e "$CACERT" ]; then
 	die "CA certificate not found: $CACERT"
 fi

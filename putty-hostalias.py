@@ -155,5 +155,5 @@ if user:
 if port:
 	pArgs += ["-P", str(port)]
 
-print("exec:", repr(pArgs))
+print("exec:", subprocess.list2cmdline(pArgs))
 subprocess.Popen(pArgs)

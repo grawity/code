@@ -65,16 +65,18 @@ replaces = { "[]=" = "%K$*%n"; };
 
 abstracts = {
   timestamp = "%K$*%K%n";
-  line_start = "%K-%w-%K-%n ";
+  line_start = "%w--%n ";
 
   hilight = "%_$*%_";
   error = "%R$*%n";
 
   #channel = "%_$*%_";
   channel = "%c$*%n";
-  nick = "%_$*%_";
+  nick = "%G$*%n";
   nickhost = "%K[$*]%n";
   server = "%_$*%_";
+
+  servertag = "%y$0%n:";
 
   channick = "%c$0%n";
   channick_hilight = "%C$0%n";
@@ -84,7 +86,7 @@ abstracts = {
   reason = "{comment $*}";
   mode = "{comment $*}";
 
-  whois = "%# %b$[-8]0 %K|%n $1-";
+  whois = "%# %b$[-8]0 %K│%n $1-";
 
   identify_positive = "$*%B+%n";
   identify_negative = "$*%R?%n";
@@ -93,12 +95,13 @@ abstracts = {
 
   with_target = "%K:%c$0%n";
 
-  msg = "%K<%W$0%w$1%K>%n";
+  #msg = "%K<%W$0%g$1%K>%n";
+  msg = "%K(%W$0%g$1%K)%n";
   msg_hilight = "{msg $0 %Y$1%n}";
   msg_own = "{msg $0 $1}";
   msg_own_nonq = "%K(%wmsg %Kto %W$0%K)%n";
 
-  action = " %K• %w$0%n";
+  action = " %K•%n %g$0%n";
 
   notice_own = "%K(%rnotice %Kto %c$0%K)%n";
   notice = "%K-%R$0%K-%n";
@@ -106,6 +109,8 @@ abstracts = {
   ctcp_own = "%K(%bctcp %Kto %B$0%K)%n";
   ctcp_req = "%K(%B$0%K: %bctcp%K)%n";
   ctcp_reply = "%K(%B$0%K: %breply%K)%n";
+
+  topic = "%W$0%n";
 
   ### Statusbars
   sb_background = "%K";
@@ -118,8 +123,6 @@ abstracts = {
   #sbaway = " (%GzZzZ%n)";
   sbservertag = ":$0";
   #sbnickmode = "$0";
-
-  sbstart = "";
   sbend = "";
 
   sb_act_sep = " ";
@@ -147,10 +150,12 @@ formats = {
     #join = "{channick_hilight $0}{chanhost $1} has joined {channel $2}";
     #part = "{channick $0}{chanhost $1} has left {channel $2} {comment $3}";
     #quit = "{channick $0}{chanhost $1} has quit {comment $2}";
-
     join = "{channick_hilight $0} has joined {channel $2}";
     part = "{channick $0} has left {channel $2} %K{comment $3}%n";
     quit = "{channick $0} has quit %K{comment $2}%n";
+
+    new_topic = "{nick $0} changed the topic of {channel $1} to: {topic $2}";
+    servertag = "{servertag $0} ";
   };
   "fe-common/irc" = {
     own_action = "{action $0} $1";
@@ -170,5 +175,7 @@ formats = {
     ctcp_reply = "{ctcp_reply {identify_unknown $1}} $0 {hilight $2}";
     ctcp_reply_channel = "{ctcp_pubreply {identify_unknown $1} $3} $0 {hilight $2}";
     ctcp_ping_reply = "{ctcp_reply {identify_unknown $0}} ping = {hilight $1.$[-3.0]2} seconds";
+
+    topic = "Topic for {channelhilight $0}: {topic $1}";
   };
 };

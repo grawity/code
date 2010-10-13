@@ -48,6 +48,7 @@ ln getnetrc => "tools/*.pl";
 ln getpaste => "*.pl";
 ln getsession => "tools/*.sh";
 ln rdt => "*.php";
+ln rwhod => "useless/rwho/*.pl";
 ln setupbin => "tools/*.pl";
 ln shorten => "*-isgd";
 ln sprunge => "*";

@@ -47,6 +47,7 @@ ln getkeyring => "devel/*";
 ln getnetrc => "tools/*.pl";
 ln getpaste => "*.pl";
 ln getsession => "tools/*.sh";
+ln motd => "*";
 ln rdt => "*.php";
 ln rwhod => "useless/rwho/*.pl";
 ln setupbin => "tools/*.pl";

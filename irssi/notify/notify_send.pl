@@ -70,6 +70,7 @@ sub on_message {
 	# ignore services
 	return if !$channel and (
 		$nick =~ /^(nick|chan|memo|oper|php)serv$/i
+		or ($nick =~ /^alis$/i and $userhost =~ /\@services/)
 	);
 
 	my $title = $nick;

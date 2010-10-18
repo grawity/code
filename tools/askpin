@@ -1,0 +1,92 @@
+#!/bin/bash
+# Wrapper around GPG pinentry to be used as a simple 'askpass' tool.
+
+usage() {
+	echo "Usage: ${0##*/} [OPTION]... [description]"
+	echo ""
+	echo "    -g             (pinentry) append --no-global-grab"
+	echo "    -p text        set entry prompt (default is 'PIN:')"
+	echo "    -t title       set entry window title"
+	echo "    -C canceltext  set Cancel button label"
+	echo "    -O oktext      set OK button label"
+	echo "    -P windowid    (pinentry) append --parent-wid \$windowid"
+	exit 2
+}
+
+# You can set a default pinentry program and its options here.
+# Examples:
+#   pinentry=(pinentry-gtk-2 --no-global-grab)
+pinentry=(pinentry)
+
+
+i=0
+debug=false
+config=("SETPROMPT")
+
+while getopts 'd:ghp:t:DO:C:P:' OPT "$@"; do
+	$debug && echo "[$OPTIND] -$OPT '$OPTARG'" >&2
+	case "$OPT" in
+	d)	config+=("SETDESC $OPTARG") ;;
+	g)	pinentry+=(--no-global-grab) ;;
+	h)	usage ;;
+	p)	config+=("SETPROMPT $OPTARG") ;;
+	t)	config+=("SETTITLE $OPTARG") ;;
+	D)	debug=true ;;
+	O)	config+=("SETOK $OPTARG") ;;
+	P)	pinentry+=(--parent-wid "$OPTARG") ;;
+	C)	config+=("SETCANCEL $OPTARG") ;;
+	\?)	usage ;;
+	*)	echo "$0: option -$OPT not implemented" >&2 ;;
+	esac
+done
+
+if [[ "${!OPTIND}" ]]; then
+	config+=("SETDESC ${!OPTIND}")
+fi
+
+configure() {
+	if (( $i == ${#config[@]} )); then
+		return 1
+	else
+		echo "${config[$i]}"
+		(( ++i ))
+	fi
+}
+
+trap "trap - SIGTERM; kill \$pinentry_pid" EXIT SIGINT SIGHUP SIGTERM SIGQUIT
+
+$debug && echo "pinentry =" "${pinentry[@]}"
+coproc "${pinentry[@]}"; pinentry_pid=$!
+in=${COPROC[0]}
+out=${COPROC[1]}
+
+nextstate=configure
+while read status rest <&$in; do
+	$debug && echo "[$nextstate] $status {$rest}" >&2
+	case "$nextstate" in
+	configure)
+		case "$status" in
+		OK)
+			configure >&$out || {
+				echo 'getpin' >&$out
+				nextstate=waitinput
+			} ;;
+		ERR)
+			echo "$rest" >&2
+			exit 2 ;;
+		esac ;;
+	waitinput)
+		case "$status" in
+		OK)
+			# null input
+			exit 0 ;;
+		D)
+			# data
+			echo "$rest"
+			exit 0 ;;
+		ERR)
+			# user cancelled
+			exit 1 ;;
+		esac ;;
+	esac
+done

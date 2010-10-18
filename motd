@@ -15,13 +15,15 @@ mtime() { stat -Lc %Y "$1"; }
 motd=/etc/motd
 last=$HOME/tmp/motd-$(hostname)
 diff=false
+conddiff=false
 force=false
 quiet=false
 
 # parse options
-while getopts ":dfho:q" OPT; do
+while getopts ":Ddfho:q" OPT; do
 	case $OPT in
-	d)	diff=true ;;
+	D)	diff=true conddiff=false ;;
+	d)	diff=true conddiff=true ;;
 	f)	force=true ;;
 	o)	last=$OPTARG ;;
 	h)	usage ;;
@@ -37,8 +39,8 @@ done; shift $(( OPTIND-1 ))
 if [ ! -f "$last" ] || $force; then
 	# motd added (first run on this host?)
 	if [ -f "$motd" ]; then
-		if $diff; then
-			diff -uN "$last" "$motd"
+		if $diff && ! $conddiff; then
+			diff -uN "$last" "$motd" && echo "motd: no changes"
 		else
 			cat "$motd"
 		fi

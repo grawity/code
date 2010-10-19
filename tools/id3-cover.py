@@ -43,7 +43,7 @@ def export_cover(file, cover_file):
 		print >> sys.stderr, "Error: No cover image (APIC frame not found)"
 		return False
 
-	with open(cover_file, "wb") as cover_fh:
+	with open(cover_file or "/dev/stdout", "wb") as cover_fh:
 		if verbose:
 			print >> sys.stderr, "Exporting image: %s" % cover_file
 		cover_fh.write(filetag["APIC:"].data)

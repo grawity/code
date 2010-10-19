@@ -4,12 +4,14 @@
 usage() {
 	echo "Usage: ${0##*/} [OPTION]... [description]"
 	echo ""
+	echo "    -C canceltext  set Cancel button label"
 	echo "    -g             (pinentry) append --no-global-grab"
+	echo "    -I windowid    (pinentry) append --parent-wid \$windowid"
+	echo "    -O oktext      set OK button label"
+	echo "    -o option      (pinentry) append given option"
+	echo "    -P path        use a different pinentry executable"
 	echo "    -p text        set entry prompt (default is 'PIN:')"
 	echo "    -t title       set entry window title"
-	echo "    -C canceltext  set Cancel button label"
-	echo "    -O oktext      set OK button label"
-	echo "    -P windowid    (pinentry) append --parent-wid \$windowid"
 	exit 2
 }
 
@@ -18,25 +20,26 @@ usage() {
 #   pinentry=(pinentry-gtk-2 --no-global-grab)
 pinentry=(pinentry)
 
-
 i=0
 debug=false
 config=("SETPROMPT")
 
-while getopts 'd:ghp:t:DO:C:P:' OPT "$@"; do
+while getopts ':C:Dd:ghI:O:o:P:p:t:x' OPT "$@"; do
 	$debug && echo "[$OPTIND] -$OPT '$OPTARG'" >&2
 	case "$OPT" in
+	C)	config+=("SETCANCEL $OPTARG") ;;
+	D)	debug=true ;;
 	d)	config+=("SETDESC $OPTARG") ;;
 	g)	pinentry+=(--no-global-grab) ;;
 	h)	usage ;;
+	I)	pinentry+=(--parent-wid "$OPTARG") ;;
+	O)	config+=("SETOK $OPTARG") ;;
+	o)	pinentry+=("$OPTARG") ;;
+	P)	pinentry[0]="$OPTARG" ;;
 	p)	config+=("SETPROMPT $OPTARG") ;;
 	t)	config+=("SETTITLE $OPTARG") ;;
-	D)	debug=true ;;
-	O)	config+=("SETOK $OPTARG") ;;
-	P)	pinentry+=(--parent-wid "$OPTARG") ;;
-	C)	config+=("SETCANCEL $OPTARG") ;;
-	\?)	usage ;;
-	*)	echo "$0: option -$OPT not implemented" >&2 ;;
+	\?)	echo "${0##*/}: unknown option '$OPT'" >&2; usage ;;
+	*)	echo "${0##*/}: option -$OPT not implemented" >&2; exit 2 ;;
 	esac
 done
 
@@ -55,6 +58,7 @@ configure() {
 
 trap "trap - SIGTERM; kill \$pinentry_pid" EXIT SIGINT SIGHUP SIGTERM SIGQUIT
 
+# spawn the pinentry program
 $debug && echo "pinentry =" "${pinentry[@]}"
 coproc "${pinentry[@]}"; pinentry_pid=$!
 in=${COPROC[0]}
@@ -76,6 +80,7 @@ while read status rest <&$in; do
 			exit 2 ;;
 		esac ;;
 	waitinput)
+		# sent GETPIN, waiting for user action
 		case "$status" in
 		OK)
 			# null input

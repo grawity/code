@@ -36,8 +36,8 @@ def ask(question, path, preans=None):
 
 	sys.stdout.write(msg)
 	if preans:
-		sys.stderr.write(preans+"\n")
-	sys.stderr.flush()
+		sys.stdout.write(preans+"\n")
+	sys.stdout.flush()
 	return preans or sys.stdin.readline().strip()
 
 def unitPrefix(size):
@@ -115,6 +115,9 @@ def run_queue(actions):
 		
 		if action == "copy":
 			instat = os.stat(src)
+			pos, progress = 0, 0
+			sys.stdout.write((fmt_prefix+fmt_copy) % locals())
+			sys.stdout.flush()
 			for pos in file_copy(src, dst):
 				progress = (pos*100 / instat.st_size)
 				sys.stdout.write("\r" + (fmt_prefix+fmt_copy) % locals())

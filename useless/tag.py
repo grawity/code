@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # A simple mutagen wrapper
 # Does mostly the same (and less) than "mid3v2" in mutagen distribution.
 

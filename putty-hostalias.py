@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # encoding=utf-8
 # hostalias v1.0 - adds host alias support to PuTTY
 # (c) 2010 Mantas Mikulėnas <grawity@gmail.com>

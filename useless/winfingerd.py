@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 import socket as so
 import win32api as api
 #import win32con as con

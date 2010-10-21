@@ -1,4 +1,4 @@
-#!/usr/bin/python 
+#!/usr/bin/env python2
 # Prints user reputation on StackOverflow and related sites.
 
 import urllib2

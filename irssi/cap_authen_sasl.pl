@@ -61,6 +61,7 @@ sub event_cap {
 						user => $sasl->{user},
 						pass => $sasl->{password}
 					})->client_new("host", $server->{address});
+				$sasl->{started} = 0;
 				if($sasl->{obj}) {
 					$server->send_raw_now("AUTHENTICATE " . $sasl->{mech});
 					Irssi::timeout_add_once(10*1000, \&timeout, $server->{tag});

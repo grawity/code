@@ -4,6 +4,7 @@
 use warnings;
 use strict;
 use File::stat;
+use File::Spec;
 use List::Util qw[min];
 
 my $BIN = "$ENV{HOME}/bin";
@@ -38,9 +39,19 @@ sub ln {
 	symlink $target, $link;
 }
 
--d "$BIN" || mkdir "$BIN";
+sub which {
+	my ($name) = @_;
+	grep {-x File::Spec->join($_, $name)} File::Spec->path;
+}
+
+if (!-d "$BIN") {
+	mkdir "$BIN";
+}
+
 cc args => "tools/args.c";
 cc bgrep => "tools/bgrep.c";
+#cc logwipe => "tools/wipe.c";
+
 ln dotrc => "tools/*";
 ln gist => "*.pl";
 ln getkeyring => "devel/*";
@@ -56,3 +67,7 @@ ln sprunge => "*";
 ln sshupdate => "*";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
+
+if (!which "python2") {
+	ln python2 => which "python";
+}

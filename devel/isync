@@ -93,7 +93,7 @@ def file_copy(source, target):
 	outfd.close()
 
 def run_queue(actions):
-	fmt_prefix	= "%(item)s \033[35m%(direction)s\033[m "
+	fmt_prefix	= "%(item)s \033[%(direction_color)dm%(direction)s\033[m "
 	fmt_copy	= "\033[32m%(progress)3d%%\033[m %(path)s"
 	fmt_delete	= "\033[31m(del)\033[m %(path)s"
 
@@ -104,15 +104,15 @@ def run_queue(actions):
 
 		if target == "local":
 			# local <-- remote
-			source, direction = "remote", "<--"
+			source, direction, direction_color = "remote", "<--", 35
 			src = os.path.join(remote_root, path)
 			dst = os.path.join(local_root, path)
 		else:
 			# local --> remote
-			source, direction = "local", "-->"
+			source, direction, direction_color = "local", "-->", 36
 			src = os.path.join(local_root, path)
 			dst = os.path.join(remote_root, path)
-		
+
 		if action == "copy":
 			instat = os.stat(src)
 			pos, progress = 0, 0

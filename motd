@@ -20,6 +20,8 @@ sdate() { date -d "@$1" +"%Y-%m-%d %H:%M"; }
 sfdate() { sdate "$(mtime "$1")"; }
 mtime() { stat -Lc %Y "$1"; }
 
+copy() { cp "$1" "$2" && touch -r "$1" "$2"; }
+
 # set defaults
 motd=/etc/motd
 last=$HOME/tmp/motd-$(hostname)
@@ -54,7 +56,7 @@ if [ ! -f "$last" ] || $force; then
 			cat "$motd"
 		fi
 		$quiet || echo "motd: last updated $(sfdate "$motd")" >&2
-		cp -p "$motd" "$last"
+		copy "$motd" "$last"
 	else
 		$quiet || echo "no motd" >&2
 	fi
@@ -77,10 +79,10 @@ elif ! cmp -s "$last" "$motd"; then
 	fi
 
 	echo "motd: updated $(sfdate "$motd")" >&2
-	cp -p "$motd" "$last"
+	copy "$motd" "$last"
 
 else
 	# no change
 	$quiet || echo "motd: no changes (last updated $(sfdate "$motd"))" >&2
-	cp -p "$motd" "$last" # in case local copy is newer
+	copy "$motd" "$last" # in case local copy is newer
 fi

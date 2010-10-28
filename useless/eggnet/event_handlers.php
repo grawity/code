@@ -6,17 +6,31 @@ $handlers = array();
 add_handler("linked", function ($handle) {
 	putlog("Linked.");
 	
-	global $botnet;
-	putlog("[botnet] %d bots", count($botnet));
-	event("botnet linked", $handle, MY_HANDLE);
+	global $bot_net;
+	putlog("[botnet] %d bots", count($bot_net));
+	print_bottree();
 });
 
-add_handler("botnet linked", function ($bot, $thru) {
-	global $botnet, $partyline;
-	$botnet[$bot] = array($thru => true);
-	$botnet[$thru][$bot] = true;
+add_handler("link started", function ($handle) {
+	event("botnet linked", $handle, Config::$handle);
+});
+
+add_handler("botnet linked", function ($bot, $via, $sharebot=false) {
+	global $bot_net, $bot_distance, $partyline;
+
+	$i = ($sharebot? 2 : 1);
+
+	// $bot_net[$bot] = array of linked bots
+	$bot_net[$bot] = array($via => -$i);
+	$bot_net[$via][$bot] = $i;
+
+	// $bot_distance[$bot] = hop count to the bot
+	$bot_distance[$bot] = $bot_distance[$via]+1;
+
 	$partyline[$bot] = array();
-	if (linked()) putlog("[botnet] linked: %s (thru %s)", $bot, $thru);
+	
+	if (linked())
+		putlog("[botnet] linked: %s (via %s)", $bot, $via);
 });
 
 add_handler("botnet unlinked", function ($bot) {

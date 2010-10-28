@@ -5,13 +5,13 @@ $notes = array();
 ## <via >originalfrom text
 
 function note_send($to, $msg) {
-	$from = new address("@".MY_HANDLE);
+	$from = new address("@".Config::$handle);
 	send_priv($from, $to, $msg);
 }
 
 function note_send_fake($from, $to, $msg) {
 	$msg = sprintf(">%s %s", $from("hb"), $msg);
-	$from = new address("@".MY_HANDLE);
+	$from = new address("@".Config::$handle);
 	send_priv($from, $to, $msg);
 }
 
@@ -29,8 +29,8 @@ function note_forward($from, $to, $msg, $recvtime=false) {
 	if ($recvtime)
 		$msg = sprintf("(sent %s) %s", date("Y-m-d H:i", $recvtime), $msg);
 	$msg = sprintf(">%s %s", $from("hb"), $msg);
-	if (NOTEFWD_ADD_VIA)
-		$msg = sprintf("<%s %s", MY_HANDLE, $msg);
+	if (Config::$note_forward->add_via)
+		$msg = sprintf("<%s %s", Config::$handle, $msg);
 	note_send($to, $msg);
 }
 
@@ -61,7 +61,7 @@ function note_forward_all($bot) {
 # write stored notes to file
 function notes_fs_store() {
 	global $notes;
-	$f = fopen(NOTEFWD_STORAGE, "w");
+	$f = fopen(Config::$note_forward->storage, "w");
 	if (!$f) return false;
 	foreach ($notes as $bot => $botnotes) {
 		foreach ($botnotes as $note) {
@@ -75,7 +75,7 @@ function notes_fs_store() {
 # load stored notes from file
 function notes_fs_read() {
 	global $notes;
-	$f = fopen(NOTEFWD_STORAGE, "r");
+	$f = fopen(Config::$note_forward->storage, "r");
 	if (!$f) return false;
 	$notes = array(); $count = 0;
 	while ($line = fgets($f)) {
@@ -101,7 +101,7 @@ add_handler("note received", function ($from, $to, $msg) {
 	if ($to->handle == "" or $to->handle == "nfw") {
 		list($to, $msg) = parse_args($msg, "h@b str");
 		if ($to->handle == "" or $msg == null) {
-			send_priv(null, $from, "Usage: .note @".MY_HANDLE." user@bot notetext");
+			send_priv(null, $from, "Usage: .note @".Config::$handle." user@bot notetext");
 		}
 		else {
 			note_maybe_fwd($from, $to, $msg);
@@ -109,7 +109,7 @@ add_handler("note received", function ($from, $to, $msg) {
 		}
 	}
 	else {
-		$to = new address(NOTEFWD_RECIPIENT);
+		$to = new address(Config::$note_forward->recipient);
 		note_maybe_fwd($from, $to, $msg);
 		send_priv(null, $from, "Note sent to $to.");
 	}

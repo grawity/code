@@ -8,6 +8,16 @@ const EVENT_CONTINUE = true;
 const EVENT_ADD_LAST = false;
 const EVENT_ADD_FIRST = true;
 
+class Config {
+	static $handle;
+	static $link_host;
+	static $link_port;
+	static $link_pass = "";
+	static $link_ssl = false;
+
+	static $note_forward;
+}
+
 require "./config.php";
 
 function noop() { }
@@ -63,11 +73,29 @@ function puts(/*@args*/) {
 	if (DEBUG) echo "--> $str\n";
 }
 
+function print_bottree($root=null, $sharebot=false) {
+	global $bot_net, $bot_distance;
+	if ($root === null)
+		$root = Config::$handle;
+
+	$dist = $bot_distance[$root];
+
+	$indent = str_repeat("   ", $dist);
+	$sb = ($sharebot? "+" : " ");
+
+	putlog("bot tree: $indent$sb$root ($dist)");
+	foreach ($bot_net[$root] as $bot => $direction)
+		if ($direction > 0) {
+			$sharebot = abs($direction) == 2;
+			print_bottree($bot, $sharebot);
+		}
+}
+
 function linked() { global $linking; return !$linking; }
 
 function is_linked($bot) {
-	global $botnet;
-	return array_key_exists($bot, $botnet);
+	global $bot_net;
+	return array_key_exists($bot, $bot_net);
 }
 
 require "./base64.php";
@@ -81,25 +109,27 @@ require "./event_handlers.php";
 
 require "./note_forward.php";
 
-$botnet = array();
+$bot_net = array();
+$bot_distance = array(Config::$handle => 0);
 $partyline = array();
 
-$link_url = ($link_ssl?"ssl":"tcp")."://{$link_host}:{$link_port}";
+$link_url = (Config::$link_ssl? "ssl":"tcp")
+	."://".Config::$link_host.":".Config::$link_port;
 
 $socket = stream_socket_client($link_url, $errno, $errstr);
 if (!$socket)
 	err("[stream] $errno $errstr", 1);
 
-putlog("connected to %s:%s", $link_host, $link_port);
+putlog("connected to %s:%s", Config::$link_host, Config::$link_port);
 
-puts(MY_HANDLE);
+puts(Config::$handle);
 
 do {
 	$in = gets();
 	if ($in == "You don't have access.")
-		err("[link] '".MY_HANDLE."' not recognized by remote", 1);
+		err("[link] '".Config::$handle."' not recognized by remote", 1);
 	elseif (substr($in, -1) == "\x01")
-		err("[link] User '".MY_HANDLE."' lacks +b flag in remote", 1);
+		err("[link] User '".Config::$handle."' lacks +b flag in remote", 1);
 	elseif (substr($in, 0, 8) == "passreq ")
 		break;
 	elseif ($in == "*hello!") {
@@ -115,12 +145,12 @@ if (!$challenge)
 
 if (USE_CHALLENGE) {
 	putlog("Authenticating (MD5)");
-	$response = md5($challenge.$link_pass);
+	$response = md5($challenge.Config::$link_pass);
 	puts("digest $response");
 }
 else {
 	putlog("Authenticating (plain)");
-	puts($link_pass);
+	puts(Config::$link_pass);
 }
 
 switch(gets()) {

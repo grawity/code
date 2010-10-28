@@ -89,9 +89,9 @@ $botnet_commands = array(
 	
 	# nlinked
 	"n" => function ($cmd, $args) {
-		list($bot, $thru, list($sharebot, $version)) = parse_args($args, "str str *int");
+		list($bot, $via, list($sharebot, $version)) = parse_args($args, "str str *int");
 		$sharebot = ($sharebot == "+");
-		event("botnet linked", $bot, $thru);
+		event("botnet linked", $bot, $via, $sharebot);
 	},
 	
 	# nickchange
@@ -159,8 +159,8 @@ $botnet_commands = array(
 	# trace
 	"t" => function ($cmd, $args) {
 		list($reqr, $dest, $pathsz) = parse_args($args, "i:h@b str str");
-		if ($dest == MY_HANDLE) {
-			puts("td", $reqr, $pathsz.":".MY_HANDLE);
+		if ($dest == Config::$handle) {
+			puts("td", $reqr, $pathsz.":".Config::$handle);
 		}
 		
 		list($timestamp, $via) = parse_route($pathsz);
@@ -171,7 +171,8 @@ $botnet_commands = array(
 	"tb" => function ($cmd, $args) {
 		global $remote_handle;
 		list($remote_handle) = parse_args($args, "str");
-		puts("tb", MY_HANDLE);
+		puts("tb", Config::$handle);
+		event("link started", $remote_handle);
 	},
 	
 	# unlink [request]
@@ -207,14 +208,14 @@ $botnet_commands = array(
 	# who
 	"w" => function ($cmd, $args) {
 		list($reqr, $destbot, $chan) = parse_args($args, "i:h@b str int");
-		if ($destbot == MY_HANDLE)
+		if ($destbot == Config::$handle)
 			event("requested who", $reqr);
 	},
 	
 	# zapf
 	"z" => function ($cmd, $args) {
 		list($from, $to, $msg) = parse_args($args, "str str str");
-		if ($to == MY_HANDLE) {
+		if ($to == Config::$handle) {
 			event("zapf", $from, $to, $msg);
 			list($zcmd, $zargs) = parse_args($msg, "str str");
 			event("zapf $zcmd", $from, $to, $zcmd, $zargs);

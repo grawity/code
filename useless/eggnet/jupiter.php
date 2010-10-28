@@ -9,7 +9,7 @@ function jupe($bot) {
 		return false;
 	}
 	else {
-		puts("n", $bot, MY_HANDLE, "-".itob(0));
+		puts("n", $bot, Config::$handle, "-".itob(0));
 		$juped[$bot] = 1;
 	}
 }
@@ -17,7 +17,7 @@ function jupe($bot) {
 function unjupe($bot) {
 	global $juped;
 	if (array_key_exists($bot, $juped)) {
-		puts("n", $bot, MY_HANDLE, "-".itob(0));
+		puts("n", $bot, Config::$handle, "-".itob(0));
 		unset($juped[$bot]);
 	}
 	else {

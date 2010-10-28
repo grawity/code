@@ -5,10 +5,13 @@ use warnings;
 use strict;
 use File::stat;
 use File::Spec;
+use File::Spec::Functions;
 use List::Util qw[min];
 
-my $BIN = "$ENV{HOME}/bin";
-my $SRC = "$ENV{HOME}/code";
+my $BIN = $ENV{MY_BIN} // "$ENV{HOME}/bin";
+my $LIB = $ENV{MY_LIB} // "$ENV{HOME}/lib";
+my $SRC = $ENV{MY_SRC} // "$ENV{HOME}/code";
+my $BASE;
 
 chdir $SRC or die;
 
@@ -18,22 +21,21 @@ sub mtime($) {
 }
 
 sub cc {
-	my $out = shift;
-	my @in = @_;
-
-	if (mtime "$BIN/$out" < min(map {mtime $_} @in)) {
-		print "compile: ", (join " ", @in), " --> $BIN/$out\n";
-		system "gcc", "-o", "$BIN/$out", @in;
+	my ($out, @in) = @_;
+	$out = catfile($BASE, $out);
+	if (mtime $out < min(map {mtime $_} @in)) {
+		print "compile: ", (join " ", @in), " --> $out\n";
+		system "gcc", "-o", $out, @in;
 	}
 	else {
-		print "skip compile: $BIN/$out\n";
+		print "skip compile: $out\n";
 	}
 }
 sub ln {
 	my ($link, $target) = @_;
 	$target =~ s/\*/$link/g;
-	$link = "$BIN/$link";
-	$target = "../code/$target";
+	$link = catfile($BASE, $link);
+	$target = File::Spec->abs2rel(catfile($SRC, $target), $BASE);
 	print "symlink: $link --> $target\n";
 	-l $link and unlink $link;
 	symlink $target, $link;
@@ -41,13 +43,13 @@ sub ln {
 
 sub which {
 	my ($name) = @_;
-	grep {-x File::Spec->join($_, $name)} File::Spec->path;
+	grep {-x catfile($_, $name)} File::Spec->path;
 }
 
-if (!-d "$BIN") {
-	mkdir "$BIN";
-}
+-d $BIN || mkdir $BIN;
+-d $LIB || mkdir $LIB;
 
+$BASE = $BIN;
 cc args => "tools/args.c";
 cc bgrep => "tools/bgrep.c";
 #cc logwipe => "tools/wipe.c";
@@ -71,3 +73,6 @@ ln useshare => "tools/*";
 if (!which "python2") {
 	ln python2 => which "python";
 }
+
+$BASE = $LIB;
+ln "libident.php" => "lib/*";

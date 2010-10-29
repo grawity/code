@@ -271,7 +271,7 @@ event() {
 	RightBarClick)
 		local button="$1"; shift
 		case "$*" in
-		"mpc")
+		mpc|mpc_volume)
 			case "$button" in
 			1) mpc -q toggle || spawn mpd ;;
 			2) mpc -q prev ;;
@@ -530,12 +530,25 @@ statusloop() {
 }
 statusloop_mpd() {
 	printf "wistatus.mpd" > /proc/self/comm
+	local event
 	status_mpd | wmiir create "/rbar/mpc"
-	while true; do
-		mpc idle >& /dev/null || sleep 5
-		status_mpd | wmiir create "/rbar/mpc"
+	status_volume | wmiir create "/rbar/mpc_volume"
+	while event=$(mpc idle) || sleep 5; do
+		if [[ $event == mixer ]]; then
+			status_volume | wmiir create "/rbar/mpc_volume"
+		else
+			status_mpd | wmiir create "/rbar/mpc"
+		fi
 	done
 }
+#statusloop_volume() {
+#	print "wistatus.vol" > /proc/self/comm
+#	status_volume | wmiir create "/rbar/mpc_volume"
+#	while true; do
+#		mpc idle mixer || sleep 5
+#		status_volume | wmiir create "/rbar/mpc"
+#	done
+#}
 
 status_load() {
 	local load1 load2 load3 rest
@@ -569,6 +582,26 @@ status_mpd() {
 			echo label "(stopped)"
 		fi
 	} 2> /dev/null
+}
+status_volume() {
+	local size=11
+	local on=▮ off=▯
+	#ocal on=▰ off=▱
+	#ocal on=■ off=□
+	#ocal on=◾ off=◽
+
+	local volume=$(volfade)
+	local len=$((volume * size / 100))
+	local bar=""
+	local i=0
+
+	while (( i++ < len )); do
+		bar+=$on
+	done
+	while (( i++ <= size )); do
+		bar+=$off
+	done
+	echo label "$bar"
 }
 
 ## wmiirc control functions

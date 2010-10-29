@@ -67,14 +67,13 @@ def mkdir(path):
 	for tail in comps:
 		path = os.path.join(head, tail)
 		if not os.path.isdir(path):
-			print "mkdir:", path
+			print "mkdir: %s" % path
 			os.mkdir(path)
 		head = path
 
 def file_copy(source, target):
 	BUFSIZE = 2*1024*1024
 
-	mkdir(os.path.dirname(target))
 	infd = open(source, "rb")
 	outfd = open(target, "wb")
 
@@ -116,6 +115,7 @@ def run_queue(actions):
 		if action == "copy":
 			instat = os.stat(src)
 			pos, progress = 0, 0
+			mkdir(os.path.dirname(dst))
 			sys.stdout.write((fmt_prefix+fmt_copy) % locals())
 			sys.stdout.flush()
 			for pos in file_copy(src, dst):

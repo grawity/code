@@ -5,7 +5,7 @@ use constant LDAP_HOST => "ldap.cluenet.org";
 use Getopt::Long;
 use Socket;
 use Authen::SASL;
-use Net::addrinfo;
+use Socket::GetAddrInfo qw(:newapi getaddrinfo);
 use Net::LDAP;
 use Net::LDAP::Extension::WhoAmI;
 use Net::LDAP::Util qw(ldap_explode_dn);
@@ -24,9 +24,9 @@ use constant SHELL_SERVICES => qw(atd cron login passwd sshd su sudo);
 # Canonicalize a hostname
 sub canon_host($) {
 	my ($host) = @_;
-	my $hint = Net::addrinfo->new(flags => AI_CANONNAME);
-	my $ai = getaddrinfo($host, undef, $hint);
-	return (ref $ai eq "Net::addrinfo") ? $ai->canonname : $host;
+	my %hint = (flags => Socket::GetAddrInfo->AI_CANONNAME);
+	my ($err, @ai) = getaddrinfo($host, "", \%hint);
+	return $err ? $host : ((shift @ai)->{canonname} // $host);
 }
 
 # FQDNize a given host

@@ -72,7 +72,7 @@ sub from_dn($$@) {
 # Establish LDAP connection, authenticated or anonymous
 sub connect_auth() {
 	my $sasl = Authen::SASL->new("GSSAPI");
-	my $ldap = Net::LDAP->new(LDAP_HOST) or die "$@";
+	my $ldap = Net::LDAP->new(LDAP_HOST) or die "$!";
 	#$ldap->start_tls(verify => "require",
 	#	cafile => "$ENV{HOME}/lib/ca/cluenet.pem") or die "$@";
 	my $authen = $sasl->client_new("ldap", canon_host LDAP_HOST);
@@ -81,7 +81,7 @@ sub connect_auth() {
 	return $ldap;
 }
 sub connect_anon() {
-	my $ldap = Net::LDAP->new(LDAP_HOST) or die "$@";
+	my $ldap = Net::LDAP->new(LDAP_HOST) or die "$!";
 	$ldap->bind;
 	return $ldap;
 }

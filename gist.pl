@@ -21,12 +21,13 @@ sub usage {
 }
 
 sub get_github_auth {
-	chomp(my $user = `git config --global github.user`);
-	chomp(my $token = `git config --global github.token`);
-
+	my $user = `git config --global github.user`;
+	my $token = `git config --global github.token`;
 	if ($token =~ /^!(.+)/) {
-		chomp($token = `$1`);
+		$token = `$1`;
+		$? and die "gist: could not query GitHub token: '$1' failed\n";
 	}
+	chomp ($user, $token);
 	return $user eq ""? () : (login => $user, token => $token);
 }
 

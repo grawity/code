@@ -24,6 +24,9 @@ sub get_github_auth {
 	chomp(my $user = `git config --global github.user`);
 	chomp(my $token = `git config --global github.token`);
 
+	if ($token =~ /^!(.+)/) {
+		chomp($token = `$1`);
+	}
 	return $user eq ""? () : (login => $user, token => $token);
 }
 

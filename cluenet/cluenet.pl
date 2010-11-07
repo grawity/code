@@ -4,6 +4,8 @@ use constant LDAP_HOST => "ldap.cluenet.org";
 
 use Getopt::Long;
 use Socket;
+use Net::DNS;
+use Net::IP;
 use Authen::SASL;
 use Socket::GetAddrInfo qw(:newapi getaddrinfo);
 use Net::LDAP;
@@ -28,6 +30,40 @@ sub canon_host($) {
 	my ($err, @ai) = getaddrinfo($host, "", \%hint);
 	return $err ? $host : ((shift @ai)->{canonname} // $host);
 }
+
+sub lookup_host {
+	my ($host) = @_;
+	my @addrs = ();
+	my $r = Net::DNS::Resolver->new;
+
+	my $query = $r->query($host, "A");
+	if ($query) { push @addrs, $_->address for $query->answer }
+
+	$query = $r->query($host, "AAAA");
+	if ($query) { push @addrs, $_->address for $query->answer }
+
+	return @addrs;
+}
+
+sub format_name {
+	my ($user) = @_;
+	my $name = $user->{uid};
+	if ($user->{cn} ne $user->{uid}) {
+		$name .= " (".$user->{cn}.")";
+	}
+	return $name;
+}
+
+sub format_address {
+	my ($host, $port) = @_;
+	if ($host =~ /:/) {
+		$host = Net::IP::ip_compress_address($host, 6);
+		return "[$host]:$port";
+	} else {
+		return "$host:$port";
+	}
+}
+
 
 # FQDNize a given host
 sub fqdn($) {
@@ -65,6 +101,12 @@ sub from_dn($$@) {
 	}
 	my @final = %{shift @entry};
 	return $nonames ? $final[1] : @final;
+}
+sub user_from_dn {
+	from_dn(shift, "ou=people,dc=cluenet,dc=org", 1);
+}
+sub server_from_dn {
+	from_dn(shift, "ou=servers,dc=cluenet,dc=org", 1);
 }
 
 ### LDAP connection
@@ -263,6 +305,86 @@ $commands{"acl:delete"} = sub {
 	}
 	return $err;
 };
+
+$commands{"server"} = sub {
+	$ldap = connect_anon;
+	my $server = get_server_info(shift);
+	my $owner = get_user_info($server->{owner}, 1);
+	my @admins = map {get_user_info($_, 1)}
+		@{$server->{authorizedAdministrator}};
+	print_server_info($server, $owner, @admins);
+	print_user_info($owner);
+	print_user_info($_) for @admins;
+	return 0;
+};
+
+sub get_server_info {
+	my ($host, $is_dn) = @_;
+	my $dn = $is_dn ? $host : server_dn($host);
+
+	my $res = $ldap->search(base => $dn, scope => "base",
+		filter => q(objectClass=server));
+	$res->is_error and die ldap_errmsg($res, $dn);
+	for my $entry ($res->entries) {
+		my %server = map {$_ => [$entry->get_value($_)]} $entry->attributes;
+		for (qw(cn owner internalAddress serverRules sshPort)) {
+			$server{$_} = $server{$_}->[0];
+		}
+		for (qw(isActive isOfficial userAccessible)) {
+			$server{$_} = $server{$_}->[0] eq "TRUE";
+		}
+		$server{address} = [lookup_host($server{cn})];
+		return \%server;
+	}
+}
+sub get_user_info {
+	my ($user, $is_dn) = @_;
+	my $dn = $is_dn ? $user : user_dn($user);
+
+	my $res = $ldap->search(base => $dn, scope => "base",
+		filter => q(objectClass=posixAccount));
+	$res->is_error and die ldap_errmsg($res, $dn);
+	for my $entry ($res->entries) {
+		my %user;
+		for (qw(uid uidNumber gidNumber gecos homeDirectory loginShell cn
+				krb5PrincipalName clueIrcNick ircServicesUser)) {
+			$user{$_} = $entry->get_value($_);
+		}
+		return \%user;
+	}
+}
+
+sub print_server_info {
+	my ($server, $owner, @admins) = @_;
+	@admins = sort {$a->{uid} cmp $b->{uid}} @admins;
+	my $port = $server->{sshPort} // 22;
+	my $fmt = "%-16s%s\n";
+	printf $fmt, "hostname:", uc $server->{cn};
+	printf $fmt, "address:", format_address($_, $port)
+		for @{$server->{address}};
+	printf $fmt, "owner:", format_name($owner);
+	printf $fmt, "admin:", format_name($_)
+		for @admins;
+	printf $fmt, "status:", join(", ", grep {defined} (
+		$server->{isOfficial}? "official" : "unofficial",
+		$server->{userAccessible}? "public" : "private",
+		$server->{isActive}? "active" : "inactive",
+		(grep {/:/} @{$server->{address}})? "IPv6" : undef,
+		));
+
+	if (defined $server->{authorizedService}) {
+		my @services = sort @{$server->{authorizedService}};
+		printf $fmt, "services:", join(", ", @services);
+	}
+	print "\n";
+}
+
+sub print_user_info {
+	my ($user) = @_;
+	my $fmt = "%-16s%s\n";
+	printf $fmt, "person:", uc $user->{uid};
+	print "\n";
+}
 
 $commands{"server:create"} = sub {
 	my $err;

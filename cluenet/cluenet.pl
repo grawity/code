@@ -438,6 +438,17 @@ $commands{"server:create"} = sub {
 	return $err;
 };
 
+$commands{"user:chsh"} = sub {
+	my ($shell) = @_;
+
+	$ldap = connect_auth;
+	my $dn = user_dn(whoami);
+	my %entry = (loginShell => $shell);
+
+	my $res = $ldap->modify($dn, replace => \%entry);
+	if ($res->is_error) { die ldap_errmsg($res, $dn); }
+};
+
 $commands{"help"} = sub {
 	print qq{Usage: cluenet <command>
 
@@ -447,6 +458,9 @@ ACCESS LISTS
 	list	acl <host>...
 	create	acl:create <host/service>...
 	delete	acl:delete <host/service>...
+
+USER ACCOUNT
+	user:chsh <shell>
 
 NOT YET IMPLEMENTED
 	server:create <host> --owner <owner>

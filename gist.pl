@@ -21,9 +21,13 @@ sub usage {
 }
 
 sub get_github_auth {
-	chomp(my $user = `git config --global github.user`);
-	chomp(my $token = `git config --global github.token`);
-
+	my $user = `git config --global github.user`;
+	my $token = `git config --global github.token`;
+	if ($token =~ /^!(.+)/) {
+		$token = `$1`;
+		$? and die "gist: could not query GitHub token: '$1' failed\n";
+	}
+	chomp ($user, $token);
 	return $user eq ""? () : (login => $user, token => $token);
 }
 
@@ -78,7 +82,7 @@ my $data = build_post_data $private, $filename, @ARGV;
 
 my $ua = LWP::UserAgent->new;
 my $response = $ua->post(
-	"http://gist.github.com/gists",
+	"https://gist.github.com/gists",
 	"Content-Type" => "application/x-www-form-urlencoded; charset=utf-8",
 	Content => $data);
 

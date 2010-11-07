@@ -78,7 +78,7 @@ my $data = build_post_data $private, $filename, @ARGV;
 
 my $ua = LWP::UserAgent->new;
 my $response = $ua->post(
-	"http://gist.github.com/gists",
+	"https://gist.github.com/gists",
 	"Content-Type" => "application/x-www-form-urlencoded; charset=utf-8",
 	Content => $data);
 

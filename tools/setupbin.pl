@@ -72,8 +72,13 @@ ln sshupdate => "*";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 
-if (system "make -C pklist") {
-	ln pklist => "pklist/pklist";
+if (which "krb5-config") {
+	my $krb = `krb5-config --version`;
+	my @make = ("make", "-C", "pklist");
+	$krb =~ /^heimdal / && push @make, "D=-DHEIMDAL";
+	if (system @make) {
+		ln pklist => "pklist/pklist";
+	}
 }
 
 if (!which "python2") {

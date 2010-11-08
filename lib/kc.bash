@@ -28,7 +28,7 @@ kc() {
 					name="${file#$prefix}"
 				fi
 
-				local ccdata="$(~/pklist/pklist -c "FILE:$file")"
+				local ccdata="$(pklist -c "FILE:$file")"
 				local princ="" local_realm=""
 				local in_service= in_expires=0 in_renew=0
 				local tgt_service= tgt_expires=0 tgt_renew=0
@@ -141,40 +141,4 @@ _kc_eq_ccname() {
 	a=${a#FILE:}
 	b=${b#FILE:}
 	[[ $a == $b ]]
-}
-
-_kc_is_heimdal() {
-	klist --version 2>&1 | grep -qsF "klist (Heimdal "
-}
-
-_kc_get_expires() {
-	local date
-	if _kc_is_heimdal; then
-		date=$(klist -c "${1:-$KRB5CCNAME}" -f | sed -rn '
-			s/^[A-Za-z]+ [0-9: ]+  ([A-Za-z]+ [0-9: ]+)  [A-Z]*I[A-Z]* .*$/\1/p
-			') && date -d "$date" "${2:-+%s}"
-	else
-		date=$(klist -c "${1:-$KRB5CCNAME}" -f | sed -rn '
-			/ Flags: [A-Z]*I[A-Z]*$/ {
-				g
-				s/^[0-9/]+ [0-9:]+ +([0-9/]+ [0-9:]+) .+$/\1/
-				p
-				q
-			}
-			h') && date -d "$date" "${2:-+%s}"
-	fi
-}
-
-_kc_get_princ() {
-	#if klist --version 2>&1 | grep -qs Heimdal; then
-	klist -c "${1:-$KRB5CCNAME}" | sed -rn \
-		's/^(Default principal| *Principal): (.+)$/\2/p'
-}
-
-_kc_get_renew() {
-	local date
-	date=$(klist -c "${1:-$KRB5CCNAME}" -f | sed -rn '
-		s/^\trenew until ([0-9/: ]+), Flags: [A-Z]*I[A-Z]*$/\1/ {
-			p; q
-		}') && date -d "$date" "${2:-+%s}"
 }

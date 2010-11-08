@@ -1,16 +1,11 @@
 LIB = -lkrb5
 CC = gcc
-CFLAGS = -g -Wall -DHEIMDAL_TKTFLAGS
-
-O = pklist.o strflags.o
+CFLAGS = -g -Wall $(D)
 
 DESTDIR = ${HOME}/bin
 
-pklist: $(O)
-	$(CC) $(CFLAGS) -o $@ $(O) $(LIB)
-
-.c.o:
-	$(CC) $(CFLAGS) -c $<
+pklist: pklist.c
+	$(CC) $(CFLAGS) -o $@ pklist.c $(LIB)
 
 install:
 	install -D pklist $(DESTDIR)

@@ -10,11 +10,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <krb5.h>
-#include <krb5_ccapi.h>
-
-#include "strflags.h"
+#ifdef HEIMDAL
+#	include <krb5_ccapi.h>
+#endif
 
 char *progname;
 krb5_context ctx;
@@ -23,6 +24,8 @@ char *defname;
 void do_ccache(char *name);
 
 void show_cred(register krb5_creds *cred);
+
+char * strflags(register krb5_creds *cred);
 
 int main(int argc, char *argv[]) {
 	int opt;
@@ -167,4 +170,76 @@ void show_cred(register krb5_creds *cred) {
 
 	krb5_free_unparsed_name(ctx, name);
 	krb5_free_unparsed_name(ctx, sname);
+}
+
+char * strflags(register krb5_creds *cred) {
+	static char buf[16];
+	int i = 0;
+
+#ifdef HEIMDAL
+	struct TicketFlags flags = cred->flags.b;
+
+	if (flags.forwardable)
+		buf[i++] = 'F';
+	if (flags.forwarded)
+		buf[i++] = 'f';
+	if (flags.proxiable)
+		buf[i++] = 'P';
+	if (flags.proxy)
+		buf[i++] = 'p';
+	if (flags.may_postdate)
+		buf[i++] = 'D';
+	if (flags.postdated)
+		buf[i++] = 'd';
+	if (flags.invalid)
+		buf[i++] = 'i';
+	if (flags.renewable)
+		buf[i++] = 'R';
+	if (flags.initial)
+		buf[i++] = 'I';
+	if (flags.hw_authent)
+		buf[i++] = 'H';
+	if (flags.pre_authent)
+		buf[i++] = 'A';
+	if (flags.transited_policy_checked)
+		buf[i++] = 'T';
+	if (flags.ok_as_delegate)
+		buf[i++] = 'O';
+	if (flags.anonymous)
+		buf[i++] = 'a';
+#else
+	krb5_flags flags = cred->ticket_flags;
+
+	if (flags & TKT_FLG_FORWARDABLE)
+		buf[i++] = 'F';
+	if (flags & TKT_FLG_FORWARDED)
+		buf[i++] = 'f';
+	if (flags & TKT_FLG_PROXIABLE)
+		buf[i++] = 'P';
+	if (flags & TKT_FLG_PROXY)
+		buf[i++] = 'p';
+	if (flags & TKT_FLG_MAY_POSTDATE)
+		buf[i++] = 'D';
+	if (flags & TKT_FLG_POSTDATED)
+		buf[i++] = 'd';
+	if (flags & TKT_FLG_INVALID)
+		buf[i++] = 'i';
+	if (flags & TKT_FLG_RENEWABLE)
+		buf[i++] = 'R';
+	if (flags & TKT_FLG_INITIAL)
+		buf[i++] = 'I';
+	if (flags & TKT_FLG_HW_AUTH)
+		buf[i++] = 'H';
+	if (flags & TKT_FLG_PRE_AUTH)
+		buf[i++] = 'A';
+	if (flags & TKT_FLG_TRANSIT_POLICY_CHECKED)
+		buf[i++] = 'T';
+	if (flags & TKT_FLG_OK_AS_DELEGATE)
+		buf[i++] = 'O';
+	if (flags & TKT_FLG_ANONYMOUS)
+		buf[i++] = 'a';
+#endif
+
+	buf[i] = '\0';	
+	return buf;
 }

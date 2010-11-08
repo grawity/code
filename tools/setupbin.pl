@@ -32,10 +32,12 @@ sub cc {
 	}
 }
 sub ln {
-	my ($link, $target) = @_;
+	my ($link, $target, %opts) = @_;
 	$target =~ s/\*/$link/g;
 	$link = catfile($BASE, $link);
-	$target = File::Spec->abs2rel(catfile($SRC, $target), $BASE);
+	if ($opts{relative} // 1) {
+		$target = File::Spec->abs2rel(catfile($SRC, $target), $BASE);
+	}
 	print "symlink: $link --> $target\n";
 	-l $link and unlink $link;
 	symlink $target, $link;
@@ -70,8 +72,12 @@ ln sshupdate => "*";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 
+if (system "make -C pklist") {
+	ln pklist => "pklist/pklist";
+}
+
 if (!which "python2") {
-	ln python2 => which "python";
+	ln python2 => which "python", relative => 0;
 }
 
 $BASE = $LIB;

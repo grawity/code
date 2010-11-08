@@ -86,4 +86,5 @@ if (!which "python2") {
 }
 
 $BASE = $LIB;
+ln "kc.bash" => "lib/*";
 ln "libident.php" => "lib/*";

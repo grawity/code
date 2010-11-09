@@ -2,33 +2,40 @@
 # Must be sourced (ie. from bashrc) to be able to change KRB5CCNAME.
 
 kc_list_caches() {
+	local current="$(pklist -N)" have_current=
 	local default="$(unset KRB5CCNAME; pklist -N)"
 	local prefix="/tmp/krb5cc_$(id -u)_"
 
-	if [[ $default == FILE:* ]]; then
-		[[ -f ${default#FILE:} ]] && printf "%s\n" "$default"
-	fi
+	local try=("$default")
 
 	local shopt=$(shopt -p failglob nullglob)
 	shopt -s nullglob
 	shopt -u failglob
 	for file in "$prefix"*; do
-		[[ -f $file ]] && printf "FILE:%s\n" "$file"
+		try+=("FILE:$file")
 	done
 	eval "$shopt"
 
 	if [[ -S /var/run/.kcm_socket ]]; then
-		local c="KCM:$(id -u)"
-		pklist -c "$c" >& /dev/null && printf "%s\n" "$c"
+		try+=("KCM:$(id -u)")
 	fi
+
+	for c in "${try[@]}"; do
+		if pklist -c "$c" >& /dev/null; then
+			printf "%s\n" "$c"
+			[[ $c == $current ]] && have_current=$c
+		fi
+	done > >(sort)
+	[[ $have_current ]] || printf "%s\n" "$current"
 }
 
 kc() {
 	local arg=$1; shift
 
+	local current="$(pklist -N)"
 	local default="$(unset KRB5CCNAME; pklist -N)"
 	local prefix="/tmp/krb5cc_$(id -u)_"
-	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches | sort)
+	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches)
 
 	case $arg in
 	-h|--help)
@@ -81,12 +88,12 @@ kc() {
 				fi
 			fi
 
-			if [[ -z $flag && -z $KRB5CCNAME && $dname == "@" ]]; then
-				have_current=true
-				flag="*"
-			elif _kc_eq_ccname "$ccname" "$KRB5CCNAME"; then
-				have_current=true
-				flag="»"
+			if [[ $ccname == $current ]]; then
+				if [[ $KRB5CCNAME ]]; then
+					flag="»"
+				else
+					flag="*"
+				fi
 			fi
 
 			local dname=$ccname
@@ -95,22 +102,23 @@ kc() {
 			elif [[ $dname == FILE:${prefix}* ]]; then
 				dname="${dname#FILE:${prefix}}"
 			elif [[ $dname == API:$defprinc ]]; then
-				dname="${dname%$defprinc}"
+				dname="${dname%$defprinc}*"
 			elif [[ $dname == KCM:$(id -u) ]]; then
 				dname="KCM"
 			fi
 
 			local width=
-			printf "%1s%2d %-16s%n%-48s%s\n" "$flag" "$i" "$dname" width \
-				"$defprinc" "$expiry_str"
-			if [[ $init != "krbtgt/$defrealm@$defrealm" ]]; then
+			if (( ${#dname} > 15 )); then
+				printf "%1s%2d %-s\n" "$flag" "$i" "$dname"
+				printf "%20s%-48s%s\n" "" "$defprinc" "$expiry_str"
+			else
+				printf "%1s%2d %-15s %n%-48s%s\n" "$flag" "$i" "$dname" width \
+					"$defprinc" "$expiry_str"
+			fi
+			if [[ $init && $init != "krbtgt/$defrealm@$defrealm" ]]; then
 				printf "%*s(for %s)\n" $width "" "$init"
 			fi
 		done
-
-		if ! $have_current; then
-			klist
-		fi
 		;;
 	purge)
 		local ccname= ccdata=
@@ -165,9 +173,12 @@ kc() {
 		;;
 	*)
 		export KRB5CCNAME=$(_kc_expand "$arg")
+		printf "Switched to %s\n" "$KRB5CCNAME"
 		[[ $1 ]] && kinit "$@"
 		;;
 	esac
+
+	true
 }
 
 _kc_expand() {

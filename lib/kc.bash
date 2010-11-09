@@ -30,26 +30,25 @@ kc() {
 
 				local ccdata="$(pklist -c "FILE:$file")"
 				local princ="" local_realm=""
-				local in_service= in_expires=0 in_renew=0
-				local tgt_service= tgt_expires=0 tgt_renew=0
+				local in_service= in_expires=0
+				local tgt_service= tgt_expires=0
 				while IFS=$'\t' read -r item rest; do
 					case $item in
 					principal)
 						princ="$rest"
 						local_realm=${princ#*@}
+						local_tgt=krbtgt/$local_realm@$local_realm
 						;;
 					ticket)
 						local client service issue expires renew flags
 						IFS=$'\t' read -r client service issue expires renew flags _ <<< "$rest"
-						if [[ $service == "krbtgt/$local_realm@$local_realm" ]]; then
+						if [[ $service == $local_tgt ]]; then
 							tgt_service=$service
 							tgt_expires=$expires
-							tgt_renew=$renew
 						fi
 						if [[ $flags == *I* ]]; then
 							in_service=$service
 							in_expires=$expires
-							in_renew=$renew
 						fi
 						;;
 					esac
@@ -58,14 +57,18 @@ kc() {
 				local flag=""
 
 				if [[ $tgt_service ]]; then
-					# have a TGT
-					expires=$(date -d "@$tgt_expires" +"%b %d, %H:%M")
-					if (( tgt_expires <= now )); then
-						expires="(expired)"
+					expires=$tgt_expires
+				elif [[ $in_service ]]; then
+					expires=$in_expires
+				fi
+
+				if [[ $expires ]]; then
+					if (( expires <= now )); then
+						expires_str="(expired)"
 						flag="x"
+					else
+						expires=$(date -d "@$expires" +"%b %d, %H:%M")
 					fi
-				else
-					expires="(no TGT)"
 				fi
 				
 				if [[ -z $flag && $name == "@" && -z $KRB5CCNAME ]]; then
@@ -73,8 +76,13 @@ kc() {
 				elif _kc_eq_ccname "$file" "$KRB5CCNAME"; then
 					flag="»"
 				fi
+
 				printf "%1s %-14s%-48s%s\n" "$flag" "$name" \
 					"$princ" "$expires"
+
+				if [[ -z $tgt_service ]] && [[ $in_service ]]; then
+					printf "%16s(for %s)\n" "" "$in_service"
+				fi
 			done
 		else
 			echo >&2 "kc: no ccaches"

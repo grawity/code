@@ -1,112 +1,142 @@
 #!bash
 # Must be sourced (ie. from bashrc) to be able to change KRB5CCNAME.
 
-kc() {
+kc_list_caches() {
+	local default="$(unset KRB5CCNAME; pklist -N)"
+	local prefix="/tmp/krb5cc_$(id -u)_"
+
+	if [[ $default == FILE:* ]]; then
+		[[ -f ${default#FILE:} ]] && printf "%s\n" "$default"
+	fi
+
 	local shopt=$(shopt -p failglob nullglob)
 	shopt -s nullglob
 	shopt -u failglob
+	for file in "$prefix"*; do
+		[[ -f $file ]] && printf "FILE:%s\n" "$file"
+	done
+	eval "$shopt"
 
-	local default="/tmp/krb5cc_$(id -u)"
-	local prefix="${default}_"
+	if [[ -S /var/run/.kcm_socket ]]; then
+		local c="KCM:$(id -u)"
+		pklist -c "$c" >& /dev/null && printf "%s\n" "$c"
+	fi
+}
+
+kc() {
 	local arg=$1; shift
-	local ret=0
 
-	local now=$(date +%s)
-
-	local ccaches=("$prefix"*)
-	[[ -f $default ]] && ccaches+=("$default")
-	[[ -S /var/run/.kcm_socket ]] && ccaches+=("KCM:$(id -u)")
+	local default="$(unset KRB5CCNAME; pklist -N)"
+	local prefix="/tmp/krb5cc_$(id -u)_"
+	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches | sort)
 
 	case $arg in
+	-h|--help)
+		echo "Usage: kc [list]"
+		echo "       kc <name>|\"@\" [kinit_args]"
+		;;
 	list|"")
-		local cc= name= ccdata= n=0
-		printf '%s\n' "${ccaches[@]}" | sort | while read cc; do
-			(( ++n ))
-			ccdata="$(pklist -c "$cc" 2>/dev/null)" || continue
-			if [[ $cc == $default ]]; then
-				name="@"
-			else
-				name="${cc#$prefix}"
-			fi
-			local princ= local_realm=
-			local in_service= in_expires=0
-			local tgt_service= tgt_expires=0
+		local ccname= dname= ccdata= i= have_current=false
+		for (( i=1; i <= ${#caches[@]}; i++ )); do
+			ccname=${caches[i]}
+			ccdata=$(pklist -c "$ccname") || continue
+
+			local item= rest=
+			local flag= defprinc= defrealm= expiry= expiry_str=
+			local tgt= init= tgtexpiry=0 initexpiry=0
 			while IFS=$'\t' read -r item rest; do
 				case $item in
 				principal)
-					princ="$rest"
-					local_realm=${princ#*@}
-					local_tgt=krbtgt/$local_realm@$local_realm
+					defprinc=$rest
+					defrealm=${defprinc##*@}
 					;;
 				ticket)
-					local client service expires flags
-					IFS=$'\t' read -r client service _ expires _ flags _ <<< "$rest"
-					if [[ $service == $local_tgt ]]; then
-						tgt_service=$service
-						tgt_expires=$expires
+					local client= service= expiry= flags=
+					IFS=$'\t' read -r client service _ expiry _ flags _ <<< "$rest"
+
+					if [[ $service == "krbtgt/$defrealm@$defrealm" ]]; then
+						tgt=$service
+						tgtexpiry=$expiry
 					fi
 					if [[ $flags == *I* ]]; then
-						in_service=$service
-						in_expires=$expires
+						init=$service
+						initexpiry=$expiry
 					fi
 					;;
 				esac
 			done <<< "$ccdata"
 
-			local flag=""
-
-			if [[ $tgt_service ]]; then
-				expires=$tgt_expires
-			elif [[ $in_service ]]; then
-				expires=$in_expires
+			if [[ $tgt ]]; then
+				expiry=$tgtexpiry
+			elif [[ $init ]]; then
+				expiry=$initexpiry
 			fi
 
-			if [[ $expires ]]; then
-				if (( expires <= now )); then
-					expires_str="(expired)"
+			if [[ $expiry ]]; then
+				if (( expiry <= now )); then
+					expiry_str="(expired)"
 					flag="x"
 				else
-					expires_str=$(date -d "@$expires" +"%b %d, %H:%M")
+					expiry_str=$(date -d "@$expiry" +"%b %d, %H:%M")
 				fi
 			fi
 
-			if [[ -z $flag && $name == "@" && -z $KRB5CCNAME ]]; then
+			if [[ -z $flag && -z $KRB5CCNAME && $dname == "@" ]]; then
+				have_current=true
 				flag="*"
-			elif _kc_eq_ccname "$cc" "$KRB5CCNAME"; then
+			elif _kc_eq_ccname "$ccname" "$KRB5CCNAME"; then
+				have_current=true
 				flag="»"
 			fi
 
-			printf "%1s %2d %-14s%n%-47s%s\n" "$flag" "$n" "$name" pos \
-				"$princ" "$expires_str"
+			local dname=$ccname
+			if [[ $dname == $default ]]; then
+				dname="@"
+			elif [[ $dname == FILE:${prefix}* ]]; then
+				dname="${dname#FILE:${prefix}}"
+			elif [[ $dname == API:$defprinc ]]; then
+				dname="${dname%$defprinc}"
+			elif [[ $dname == KCM:$(id -u) ]]; then
+				dname="KCM"
+			fi
 
-			if [[ -z $tgt_service ]] && [[ $in_service ]]; then
-				printf "%*s(for %s)\n" $pos "" "$in_service"
+			local width=
+			printf "%1s%2d %-16s%n%-49s%s\n" "$flag" "$i" "$dname" width \
+				"$defprinc" "$expiry_str"
+			if [[ $init != "krbtgt/$defrealm@$defrealm" ]]; then
+				printf "%*s(for %s)\n" $width "" "$init"
 			fi
 		done
+
+		if ! $have_current; then
+			klist
+		fi
 		;;
 	purge)
-		local ccache= ccdata=
-		for file in "${ccaches[@]}"; do
-			local ccdata= item= rest=
-			local client= service= expiry= flags=
-			local realm= tgt= init= expiry=0
-			ccdata=$(pklist -c "$ccache") || continue
+		local ccname= ccdata=
+		for ccname in "${ccaches[@]}"; do
+			ccdata=$(pklist -c "$ccname") || continue
+
+			local item= rest=
+			local defprinc= defrealm= expiry=
+			local tgt= init= tgtexpiry=0 initexpiry=0
 			while IFS=$'\t' read -r item rest; do
 				case $item in
 				principal)
-					realm=${rest##*@}
+					defprinc=$rest
+					defrealm=${princ##*@}
 					;;
 				ticket)
+					local client= service= expiry= flags=
 					IFS=$'\t' read -r client service _ expiry _ flags _ <<< "$rest"
-					if [[ $client == "*" && $service == "krbtgt/${realm}@${realm}" ]]; then
-						# have a local TGT
+
+					if [[ $service == "krbtgt/$defrealm@$defrealm" ]]; then
 						tgt=$service
-						expiry=$expiry
-						break
-					elif [[ $client == "*" && $flags == *I* ]]; then
+						tgtexpiry=$expiry
+					fi
+					if [[ $flags == *I* ]]; then
 						init=$service
-						expiry=$expiry
-						break
+						initexpiry=$expiry
 					fi
 					;;
 				esac
@@ -114,17 +144,17 @@ kc() {
 
 			if [[ $tgt ]]; then
 				# only ccaches with a TGT can be renewed by kinit
-				if ! kinit -c "$ccache" -R; then
-					kdestroy -c "$ccache"
+				if ! kinit -c "$ccname" -R; then
+					kdestroy -c "$ccname"
 				fi
 			elif [[ $init ]]; then
 				# ccache has an initial ticket but not a TGT
-				if (( $expiry < $now )); then
-					kdestroy -c "$ccache"
+				if (( $initexpiry < $now )); then
+					kdestroy -c "$ccname"
 				fi
 			else
 				if ! kinit -c "$ccache" -R; then
-					kdestroy -c "$ccache"
+					kdestroy -c "$ccname"
 				fi
 			fi
 		done
@@ -138,9 +168,6 @@ kc() {
 		[[ $1 ]] && kinit "$@"
 		;;
 	esac
-
-	eval "$shopt"
-	return $ret
 }
 
 _kc_expand() {
@@ -148,40 +175,20 @@ _kc_expand() {
 	new)
 		printf 'FILE:%s\n' "$(mktemp "${prefix}XXXXXX")";;
 	"@")
-		printf 'FILE:%s\n' "$default";;
-	"-")
-		local l=$(_kc_latest);
-		[[ $l ]] && printf 'FILE:%s\n' "$l";;
-	kcm)
+		printf '%s\n' "$default";;
+	[Kk][Cc][Mm])
 		printf 'KCM:%d\n' "$(id -u)";;
-	[0-9]*)
-		local i=0
-		printf '%s\n' "${ccaches[@]}" | sort | while read -r cc; do
-			if (( ++i == $1 )); then
-				printf '%s\n' "$cc"
-				return
-			fi
-		done;;
+	[0-9]|[0-9][0-9])
+		local i=$1
+		printf '%s\n' "${caches[i]}";;
 	*)
 		printf 'FILE:%s%s\n' "$prefix" "$1";;
 	esac
 }
 
-_kc_latest() {
-	local shopt=$(shopt -p failglob nullglob)
-	shopt -s nullglob
-	shopt -u failglob
-
-	local files=("$default" "$prefix"*)
-	{ command ls -t1 -- "$default" "$prefix"* ||
-		echo >&2 "kc: no ccaches"; } | sed 1q
-
-	eval "$shopt"
-}
-
 _kc_eq_ccname() {
 	local a=$1 b=$2
-	a=${a#FILE:}
-	b=${b#FILE:}
+	[[ $a == *:* ]] || a=FILE:$a
+	[[ $b == *:* ]] || b=FILE:$b
 	[[ $a == $b ]]
 }

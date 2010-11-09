@@ -77,7 +77,7 @@ kc() {
 					expiry_str="(expired)"
 					flag="x"
 				else
-					expiry_str=$(date -d "@$expiry" +"%b %d, %H:%M")
+					expiry_str=$(date -d "@$expiry" +"%b %d %H:%M")
 				fi
 			fi
 
@@ -101,7 +101,7 @@ kc() {
 			fi
 
 			local width=
-			printf "%1s%2d %-16s%n%-49s%s\n" "$flag" "$i" "$dname" width \
+			printf "%1s%2d %-16s%n%-48s%s\n" "$flag" "$i" "$dname" width \
 				"$defprinc" "$expiry_str"
 			if [[ $init != "krbtgt/$defrealm@$defrealm" ]]; then
 				printf "%*s(for %s)\n" $width "" "$init"

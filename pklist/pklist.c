@@ -20,6 +20,7 @@
 char *progname;
 krb5_context ctx;
 int show_cfg_tkts = 0;
+int show_ccname_only = 0;
 char *defname;
 
 void do_ccache(char *name);
@@ -36,13 +37,16 @@ int main(int argc, char *argv[]) {
 	progname = "pklist";
 
 	ccname = NULL;
-	while ((opt = getopt(argc, argv, "cC")) != -1) {
+	while ((opt = getopt(argc, argv, "cCN")) != -1) {
 		switch (opt) {
 		case 'c':
 			ccname = argv[optind++];
 			break;
 		case 'C':
 			show_cfg_tkts = 1;
+			break;
+		case 'N':
+			show_ccname_only = 1;
 			break;
 		}
 	}
@@ -75,6 +79,13 @@ void do_ccache(char *name) {
 			com_err(progname, retval, "while resolving ccache %s", name);
 			exit(1);
 		}
+	}
+
+	if (show_ccname_only) {
+		printf("%s:%s\n",
+			krb5_cc_get_type(ctx, cache),
+			krb5_cc_get_name(ctx, cache));
+		return;
 	}
 
 	flags = 0;

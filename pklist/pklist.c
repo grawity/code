@@ -103,10 +103,6 @@ void do_ccache(char *name) {
 		exit(1);
 	}
 	while (!(retval = krb5_cc_next_cred(ctx, cache, &cur, &creds))) {
-		if (krb5_is_config_principal(ctx, creds.server)) {
-			printf("=== is_config_principal\n");
-			//continue;
-		}
 		show_cred(&creds);
 		krb5_free_cred_contents(ctx, &creds);
 	}
@@ -148,11 +144,16 @@ void show_cred(register krb5_creds *cred) {
 		cred->times.starttime = cred->times.authtime;
 	
 	// "ticket" server client start renew flags
-	printf("ticket");
+	if (krb5_is_config_principal(ctx, cred->server))
+		printf("cfgticket");
+	else
+		printf("ticket");
+
 	if (strcmp(name, defname))
 		printf("\t%s", name);
 	else
 		printf("\t*");
+
 	printf("\t%s", sname);
 	printf("\t%d", cred->times.starttime);
 	printf("\t%d", cred->times.endtime);

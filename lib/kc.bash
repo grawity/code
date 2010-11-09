@@ -60,11 +60,9 @@ kc() {
 				if [[ $tgt_service ]]; then
 					# have a TGT
 					expires=$(date -d "@$tgt_expires" +"%b %d, %H:%M")
-					if (( tgt_expires <= now && tgt_renew <= now )); then
+					if (( tgt_expires <= now )); then
 						expires="(expired)"
 						flag="x"
-					elif (( tgt_expires <= now )); then
-						expires="(renewable)"
 					fi
 				else
 					expires="(no TGT)"

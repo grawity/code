@@ -26,7 +26,9 @@ kc_list_caches() {
 			[[ $c == $current ]] && have_current=$c
 		fi
 	done > >(sort)
-	[[ $have_current ]] || printf "%s\n" "$current"
+	if [[ ! $have_current ]]; then
+		pklist >& /dev/null && printf "%s\n" "$current"
+	fi
 }
 
 kc() {

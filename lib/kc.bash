@@ -67,7 +67,7 @@ kc() {
 						expires_str="(expired)"
 						flag="x"
 					else
-						expires=$(date -d "@$expires" +"%b %d, %H:%M")
+						expires_str=$(date -d "@$expires" +"%b %d, %H:%M")
 					fi
 				fi
 				
@@ -78,7 +78,7 @@ kc() {
 				fi
 
 				printf "%1s %-14s%-48s%s\n" "$flag" "$name" \
-					"$princ" "$expires"
+					"$princ" "$expires_str"
 
 				if [[ -z $tgt_service ]] && [[ $in_service ]]; then
 					printf "%16s(for %s)\n" "" "$in_service"

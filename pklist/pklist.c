@@ -19,6 +19,7 @@
 
 char *progname;
 krb5_context ctx;
+int show_cfg_tkts = 0;
 char *defname;
 
 void do_ccache(char *name);
@@ -35,10 +36,13 @@ int main(int argc, char *argv[]) {
 	progname = "pklist";
 
 	ccname = NULL;
-	while ((opt = getopt(argc, argv, "c")) != -1) {
+	while ((opt = getopt(argc, argv, "cC")) != -1) {
 		switch (opt) {
 		case 'c':
 			ccname = argv[optind++];
+			break;
+		case 'C':
+			show_cfg_tkts = 1;
 			break;
 		}
 	}
@@ -103,6 +107,8 @@ void do_ccache(char *name) {
 		exit(1);
 	}
 	while (!(retval = krb5_cc_next_cred(ctx, cache, &cur, &creds))) {
+		if (krb5_is_config_principal(ctx, creds.server) && !show_cfg_tkts)
+			continue;
 		show_cred(&creds);
 		krb5_free_cred_contents(ctx, &creds);
 	}

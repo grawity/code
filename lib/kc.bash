@@ -194,6 +194,10 @@ _kc_expand() {
 	[0-9]|[0-9][0-9])
 		local i=$1
 		printf '%s\n' "${caches[i]}";;
+	*:*)
+		printf '%s\n' "$1";;
+	*/*)
+		printf 'FILE:%s\n' "$1";;
 	*)
 		printf 'FILE:%s%s\n' "$prefix" "$1";;
 	esac

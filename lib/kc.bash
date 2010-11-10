@@ -126,7 +126,7 @@ kc() {
 		;;
 	purge)
 		local ccname= ccdata=
-		for ccname in "${ccaches[@]}"; do
+		for ccname in "${caches[@]}"; do
 			ccdata=$(pklist -c "$ccname") || continue
 
 			local item= rest=

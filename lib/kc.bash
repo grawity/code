@@ -176,9 +176,14 @@ kc() {
 		rm -vf "$default" "$prefix"*
 		;;
 	*)
-		export KRB5CCNAME=$(_kc_expand "$arg")
-		printf "Switched to %s\n" "$KRB5CCNAME"
-		[[ $1 ]] && kinit "$@"
+		local ccname
+		if ccname=$(_kc_expand "$arg"); then
+			export KRB5CCNAME=$ccname
+			printf "Switched to %s\n" "$KRB5CCNAME"
+			[[ $1 ]] && kinit "$@"
+		else
+			return 1
+		fi
 		;;
 	esac
 
@@ -195,7 +200,13 @@ _kc_expand() {
 		printf 'KCM:%d\n' "$(id -u)";;
 	[0-9]|[0-9][0-9])
 		local i=$1
-		printf '%s\n' "${caches[i]}";;
+		if (( 0 < i && i <= ${#caches[@]} )); then
+			printf '%s\n' "${caches[i]}"
+		else
+			printf '%s\n' "$current"
+			echo >&2 "kc: cache #$i not in list"
+			return 1
+		fi;;
 	*:*)
 		printf '%s\n' "$1";;
 	*/*)

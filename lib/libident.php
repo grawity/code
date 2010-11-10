@@ -1,7 +1,10 @@
 <?php
 namespace Ident;
-
-/*
+/* identd checking library
+ * © 2010 <grawity@gmail.com>
+ * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+ *
+ *
  * Ident Ident\query($rhost, $rport, $lhost, $lport)
  *     $rhost, $rport
  *         remote (client) host/port

@@ -39,6 +39,8 @@ kc() {
 	local prefix="/tmp/krb5cc_$(id -u)_"
 	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches)
 
+	local now=$(date +%s)
+
 	case $arg in
 	-h|--help)
 		echo "Usage: kc [list]"

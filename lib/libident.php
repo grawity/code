@@ -8,6 +8,8 @@ namespace Ident;
  *     $lhost, $lport
  *         local (server) host/port
  *
+ * Ident Ident\query_cgiremote()
+ *
  * Ident Ident\query_stream($stream)
  *     $stream
  *         handle to connected stream resource
@@ -30,6 +32,7 @@ namespace Ident;
 
 class Ident {
 	static $debug = false;
+	static $timeout = 2;
 
 	static function debug($str) {
 		if (self::$debug) print $str;
@@ -142,7 +145,6 @@ function split_host_port($h) {
 }
 
 function query($rhost, $rport, $lhost, $lport) {
-	$timeout = 2;
 	$authport = getservbyname("auth", "tcp");
 
 	$lhost_w = escape_host($lhost);
@@ -155,7 +157,7 @@ function query($rhost, $rport, $lhost, $lport) {
 	$ctx = stream_context_create($ctx);
 
 	$st = @stream_socket_client("tcp://$rhost_w:$authport", $errno, $errstr,
-		$timeout, \STREAM_CLIENT_CONNECT, $ctx);
+		Ident::$timeout, \STREAM_CLIENT_CONNECT, $ctx);
 
 	if (!$st)
 		return _failure("[$errno] $errstr");
@@ -164,6 +166,14 @@ function query($rhost, $rport, $lhost, $lport) {
 	$reply_str = fgets($st, 1024);
 	fclose($st);
 	return new Ident($reply_str);
+}
+
+function query_cgiremote() {
+	return query(
+		$_SERVER["REMOTE_ADDR"],
+		$_SERVER["REMOTE_PORT"],
+		$_SERVER["SERVER_ADDR"],
+		$_SERVER["SERVER_PORT"]);
 }
 
 function query_stream($sh) {

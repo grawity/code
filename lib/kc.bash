@@ -39,6 +39,8 @@ kc() {
 	local prefix="/tmp/krb5cc_$(id -u)_"
 	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches)
 
+	local now=$(date +%s)
+
 	case $arg in
 	-h|--help)
 		echo "Usage: kc [list]"
@@ -124,7 +126,7 @@ kc() {
 		;;
 	purge)
 		local ccname= ccdata=
-		for ccname in "${ccaches[@]}"; do
+		for ccname in "${caches[@]}"; do
 			ccdata=$(pklist -c "$ccname") || continue
 
 			local item= rest=
@@ -174,9 +176,14 @@ kc() {
 		rm -vf "$default" "$prefix"*
 		;;
 	*)
-		export KRB5CCNAME=$(_kc_expand "$arg")
-		printf "Switched to %s\n" "$KRB5CCNAME"
-		[[ $1 ]] && kinit "$@"
+		local ccname
+		if ccname=$(_kc_expand "$arg"); then
+			export KRB5CCNAME=$ccname
+			printf "Switched to %s\n" "$KRB5CCNAME"
+			[[ $1 ]] && kinit "$@"
+		else
+			return 1
+		fi
 		;;
 	esac
 
@@ -193,7 +200,17 @@ _kc_expand() {
 		printf 'KCM:%d\n' "$(id -u)";;
 	[0-9]|[0-9][0-9])
 		local i=$1
-		printf '%s\n' "${caches[i]}";;
+		if (( 0 < i && i <= ${#caches[@]} )); then
+			printf '%s\n' "${caches[i]}"
+		else
+			printf '%s\n' "$current"
+			echo >&2 "kc: cache #$i not in list"
+			return 1
+		fi;;
+	*:*)
+		printf '%s\n' "$1";;
+	*/*)
+		printf 'FILE:%s\n' "$1";;
 	*)
 		printf 'FILE:%s%s\n' "$prefix" "$1";;
 	esac

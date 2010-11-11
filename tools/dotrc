@@ -11,8 +11,43 @@ BASE+="/~grawity/dotfiles"
 
 CACERT=~/lib/ca/nullroute.pem
 
+new_cert='
+-----BEGIN CERTIFICATE-----
+MIIDkjCCAnqgAwIBAgIDEAAAMA0GCSqGSIb3DQEBBQUAMDgxCzAJBgNVBAYTAkxU
+MRIwEAYDVQQKDAlOdWxscm91dGUxFTATBgNVBAMMDE51bGxyb3V0ZSBDQTAeFw0x
+MDExMTEyMTQ0MDNaFw0yMDExMDgyMTQ0MDNaMDgxCzAJBgNVBAYTAkxUMRIwEAYD
+VQQKDAlOdWxscm91dGUxFTATBgNVBAMMDE51bGxyb3V0ZSBDQTCCASIwDQYJKoZI
+hvcNAQEBBQADggEPADCCAQoCggEBAMIcbpl/BXzaNeSjDVHYQRUzFu875XXmCgfZ
+umI6e+dnUszn+7iJ5/LGUj/yGc8uODuLfyiqaCR3E+j/h9/3yHrktyHsUQ24cWZN
+GujigSIvtseeily63phEqydUpnNqd51OKlTHix94WE5p5Q3BhYXpPYCrbwmTOiyM
+/dLio9rk3hORGq/KiV9UurQkr40oeFbv0yk1ZsF8iTl4iCHwmsk8IoifvgfyJp4p
+EElIpWOjxmv4uO1Knodxe1IIwhES2KRWa3rQwAKDIwevkuj65l0EnI6DlK+9sctJ
+t50Ggpx3inNiAiPZCsA7l6pnOavlYvL0D6SchCSDryyvc6bChg8CAwEAAaOBpDCB
+oTAPBgNVHRMBAf8EBTADAQH/MAsGA1UdDwQEAwIBBjAdBgNVHQ4EFgQUXik15RQo
+n4MkdC/WmYCbsGKEUYQwYgYDVR0jBFswWYAUXik15RQon4MkdC/WmYCbsGKEUYSh
+PKQ6MDgxCzAJBgNVBAYTAkxUMRIwEAYDVQQKDAlOdWxscm91dGUxFTATBgNVBAMM
+DE51bGxyb3V0ZSBDQYIDEAAAMA0GCSqGSIb3DQEBBQUAA4IBAQAA9X1/eDgL0YAP
+8VuDys2agX+PCqstL/qfOJE18dBxDVmQ7opnL/II2Ekme7XcMZByrRttRsJREDSl
+4ZcB5VHHIMwf0TqsORYLAF+g6Kyafxkf8E+qTZvU6tOiSKB2r/7YG+M7OG4RZrtm
+5dX3Tx516rtQYcf28M2ChpEZPh1OoQj5nfayYP8iHEJrgY5B2S5KeBgC2KCxC683
+Wy9XYvBtzTyZJX/IvfkwHEXriNOyCZXgz3H+LTJ8SbGEjy6LfJ0slqdqCX17UG11
+dP4XXh1uNrgSrzu9kDSBycF6vzAcT4ycKf1KXSKBaajkHDy+HPIhZFSS8Xbj+TmP
+4IMPCROA
+-----END CERTIFICATE-----
+'
+new_fpr='cfb4467dd3f1fb1c3798031e3b20d8f6d579456c'
+
 update() {
 	cd || die "could not chdir into $HOME"
+
+	if [[ $(x509fp < "$CACERT") != $new_fpr ]]; then
+		printf "%s" "$new_cert" > "$CACERT"
+
+		temp=$(mktemp "dotrc-$USER.XXXXXX") || die "mktemp failed"
+		get "$BASE/mail.php?host=`hostname -f`" "$temp"
+		rm -f "$temp"
+	fi
+
 	rm -vf .bash_login
 	rm -vf .bash_profile
 	get "$BASE/bashrc" .bashrc
@@ -29,6 +64,10 @@ have() { command -v "$@" >& /dev/null; }
 log() { [ -t 0 ] && printf "%s\n" "$*"; }
 
 die() { echo "dotrc: fatal: ${1:-previous command failed}" >&2; exit 1; }
+
+x509fp() {
+	openssl x509 -outform der | sha1sum | awk '{print $1}'
+}
 
 get() {
 	local url=$1 file=$2 mode=$3 temp=''

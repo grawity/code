@@ -6,7 +6,7 @@ use strict;
 use File::stat;
 use File::Spec;
 use File::Spec::Functions;
-use List::Util qw[min];
+use List::Util qw[first min];
 
 my $BIN = $ENV{MY_BIN} // "$ENV{HOME}/bin";
 my $LIB = $ENV{MY_LIB} // "$ENV{HOME}/lib";
@@ -45,7 +45,7 @@ sub ln {
 
 sub which {
 	my ($name) = @_;
-	grep {-x catfile($_, $name)} File::Spec->path;
+	first {-x catfile($_, $name)} File::Spec->path;
 }
 
 -d $BIN || mkdir $BIN;
@@ -72,17 +72,8 @@ ln sshupdate => "*";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";
 
-if (which "krb5-config") {
-	my $krb = `krb5-config --version`;
-	my @make = ("make", "-C", "pklist");
-	$krb =~ /^heimdal / && push @make, "D=-DHEIMDAL";
-	if (system @make) {
-		ln pklist => "pklist/pklist";
-	}
-}
-
-if (!which "python2") {
-	ln python2 => which "python", relative => 0;
+if (!which("python2") && which("python")) {
+	ln python2 => which("python"), relative => 0;
 }
 
 $BASE = $LIB;

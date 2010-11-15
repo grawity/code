@@ -46,7 +46,7 @@ kc() {
 		echo "Usage: kc [list]"
 		echo "       kc <name>|\"@\" [kinit_args]"
 		;;
-	list|"")
+	"")
 		local ccname= dname= ccdata= i= have_current=false
 		for (( i=1; i <= ${#caches[@]}; i++ )); do
 			ccname=${caches[i]}
@@ -174,6 +174,12 @@ kc() {
 		;;
 	clean)
 		rm -vf "$default" "$prefix"*
+		;;
+	list)
+		printf '%s\n' "${caches[@]}"
+		;;
+	expand)
+		_kc_expand "$1"
 		;;
 	*)
 		local ccname

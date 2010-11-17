@@ -41,6 +41,7 @@ class Ident {
 		if (self::$debug) print $str;
 	}
 
+	public $raw_reply;
 	public $success;
 	public $lport;
 	public $rport;
@@ -56,6 +57,7 @@ class Ident {
 
 		$str = rtrim($str, "\r\n");
 		Ident::debug("parsing: $str\n");
+		$this->raw_reply = $str;
 
 		$ports = strtok($str, ":");
 		$ports = explode(",", $ports, 2);

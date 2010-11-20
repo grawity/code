@@ -43,8 +43,8 @@ function expand_tilde($path) {
 	}
 }
 
-function stream_getpeername($stream, &$host, &$port) {
-	$name = stream_socket_get_name($stream, true);
+function stream_getpeername($stream, &$host, &$port, $wantpeer=true) {
+	$name = stream_socket_get_name($stream, $wantpeer);
 	if (strlen($name)) {
 		$pos = strrpos($name, ":");
 		$host = substr($name, 0, $pos++);
@@ -80,11 +80,11 @@ function reply_file($request, $path) {
 	if (file_exists($path))
 		readfile($path);
 	else
-		print("error: '$request' not found\r\n");
+		print("Error: '$request' not found\r\n");
 }
 
 function reply_pipe($request, $handler) {
-	$handler = trim($handler);
+	$handler = expand_tilde(trim($handler));
 	$fd_spec = array(
 		0 => array("pipe", "r"),
 		1 => STDOUT,
@@ -92,7 +92,10 @@ function reply_pipe($request, $handler) {
 	);
 
 	$env = array();
-	stream_getpeername(STDIN, $env["REMOTE_ADDR"], $env["REMOTE_PORT"]);
+	stream_getpeername(STDIN, $env["REMOTE_ADDR"], $env["REMOTE_PORT"], true);
+	stream_getpeername(STDIN, $env["SERVER_ADDR"], $env["SERVER_PORT"], false);
+	$env["QUERY_STRING"] = $request;
+	$env["SCRIPT_FILENAME"] = $handler;
 
 	$proc = proc_open($handler, $fd_spec, $pipes, NULL, $env);
 	if (!$proc) {
@@ -137,4 +140,4 @@ foreach ($rules as $rule => $handler) {
 	}
 }
 
-print("Error: Not found\r\n");
+print("Error: '$request' not found\r\n");

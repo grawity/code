@@ -12,6 +12,37 @@ if (count($rules) == 0) {
 	exit(2);
 }
 
+function get_homedir($user) {
+	if (strlen($user)) {
+		if (!function_exists("posix_getpwnam"))
+			return false;
+		$pw = posix_getpwnam($user);
+		return $pw["dir"];
+	} else {
+		if ($h = getenv("HOME") and strlen($h)) {
+			return $h;
+		}
+	}
+	return false;
+}
+
+function expand_tilde($path) {
+	if ($path[0] == "~") {
+		$pos = strpos($path, "/");
+		if ($pos === false) {
+			$user = substr($path, 1);
+			$rest = "";
+		} else {
+			$user = substr($path, 1, $pos-1);
+			$rest = substr($path, $pos);
+		}
+		$home = get_homedir($user);
+		return strlen($home) ? $home.$rest : $path;
+	} else {
+		return $path;
+	}
+}
+
 function stream_getpeername($stream, &$host, &$port) {
 	$name = stream_socket_get_name($stream, true);
 	if (strlen($name)) {
@@ -27,7 +58,7 @@ function stream_getpeername($stream, &$host, &$port) {
 function handle_request($request, $rule, $handler) {
 	#var_dump($request, $rule, $handler);
 	if (is_string($handler)) {
-		if ($handler[0] == "/" or $handler[0] == ".") {
+		if ($handler[0] == "/" or $handler[0] == "." or $handler[0] == "~") {
 			reply_file($request, $handler);
 		} elseif ($handler[0] == "<") {
 			reply_file($request, substr($handler, 1));
@@ -44,12 +75,12 @@ function handle_request($request, $rule, $handler) {
 }
 
 function reply_file($request, $path) {
-	$path = trim($path);
+	$path = expand_tilde(trim($path));
 	$path = sprintf($path, $request);
 	if (file_exists($path))
 		readfile($path);
 	else
-		print("Error: Not found\r\n");
+		print("error: '$request' not found\r\n");
 }
 
 function reply_pipe($request, $handler) {

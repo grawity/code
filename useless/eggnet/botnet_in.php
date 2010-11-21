@@ -9,15 +9,14 @@ global $botnet_commands;
 $botnet_commands = array(
 	# actchan
 	"a" => function ($cmd, $args) {
-		list($from, $chan, $msg) = parse_args($args, "h@b int str");
-		putlog("[chan/%d] action: <%s> %s", $chan, $from, $msg);
-		event("partyline action", $from, $chan, $msg);
+		list($who, $chan, $msg) = parse_args($args, "h@b int str");
+		putlog("[chan/%d] * %s %s", $chan, $who, $msg);
+		event("partyline action", $who, $chan, $msg);
 	},
 	
 	# away
 	"aw" => function ($cmd, $args) {
 		list($bot, $idx, $msg) = parse_args($args, "str int str");
-		
 		if ($msg == null)
 			event("partyline unaway", $bot, $idx);
 		else
@@ -32,9 +31,9 @@ $botnet_commands = array(
 	
 	# chan
 	"c" => function ($cmd, $args) {
-		list($from, $chan, $msg) = parse_args($args, "h@b int str");
-		putlog("[chan/%d] msg: <%s> %s", $chan, $from, $msg);
-		event("partyline message", $from, $chan, $msg);
+		list($who, $chan, $msg) = parse_args($args, "h@b int str");
+		putlog("[chan/%d] <%s> %s", $chan, $who, $msg);
+		event("partyline message", $who, $chan, $msg);
 	},
 	
 	# el
@@ -59,19 +58,28 @@ $botnet_commands = array(
 		
 		$cf = fopen("config.php", "a");
 		fwrite($cf, "\n# Added automatically after handshake:\n");
-		fprintf($cf, "\$link_pass = '%s';\n", $password);
+		fprintf($cf, "Config::\$link_pass = '%s';\n", $password);
+	},
+
+	# idle
+	"i" => function ($cmd, $args) {
+		list($bot, $idx, $idle) = parse_args($args, "str int int");
+		event("partyline idle", $bot, $idx, $idle);
 	},
 	
 	# info?
 	"i?" => function ($cmd, $args) {
-		list($reqr) = parse_args($args, "i:h@b");
-		send_botpriv($reqr, MY_VERSION);
+		list($who) = parse_args($args, "i:h@b");
+		send_botpriv($who, MY_VERSION);
+		putlog("[botinfo?] from %s@%s", $who->handle, $who->bot);
+		event("requested botinfo", $who);
 	},
 	
 	# join
 	"j" => function ($cmd, $args) {
 		$who = new address();
-		list($who->bot, $who->handle, $chan, list($flag, $who->idx), $userhost) = parse_args($args, "str str int *int str");
+		list($who->bot, $who->handle, $chan, list($flag, $who->idx), $userhost)
+			= parse_args($args, "str str int *int str");
 		
 		# 'linking'
 		if ($who->bot[0] == "!")
@@ -80,18 +88,17 @@ $botnet_commands = array(
 		event("partyline join", $who, $chan, $userhost);
 	},
 	
-	/*
 	# motd
 	"m" => function ($cmd, $args) {
-		list($reqr, $destbot) = parse_args($args, "i:h@b str");
+		list($who, $dest) = parse_args($args, "*i:h@b str");
+		if ($dest == Config::$handle)
+			event("requested motd", $who[1], $who[0]);
 	},
-	*/
 	
 	# nlinked
 	"n" => function ($cmd, $args) {
 		list($bot, $via, list($sharebot, $version)) = parse_args($args, "str str *int");
-		$sharebot = ($sharebot == "+");
-		event("botnet linked", $bot, $via, $sharebot);
+		event("botnet linked", $bot, $via, $sharebot=="+");
 	},
 	
 	# nickchange
@@ -102,7 +109,7 @@ $botnet_commands = array(
 	
 	"p" => function ($cmd, $args) {
 		list($from, $to, $msg) = parse_args($args, "i:h@b i:h@b str");
-		event("priv received", $from, $to, $msg);
+		event("priv", $from, $to, $msg);
 	},
 	
 	# ping
@@ -115,14 +122,14 @@ $botnet_commands = array(
 	# pong
 	"po" => "noop",
 	
-	# part
+	# part [info]
 	"pt" => function ($cmd, $args) {
 		$who = new address();
 		list($who->bot, $who->handle, $who->idx, $reason) = parse_args($args, "str str int str");
 		event("partyline part", $who);
 	},
 	
-	# reject
+	# reject [request]
 	"r" => function ($cmd, $args) {
 		list($from, $to, $reason) = parse_args($args, "h@b h@b str");
 		if ($to->handle == null) {
@@ -137,34 +144,92 @@ $botnet_commands = array(
 	# share
 	"s" => function ($cmd, $args) {
 		list($shcmd, $shargs) = parse_args($args, "str str");
+
 		switch ($shcmd) {
-			case "u?":
-				## Unimplemented
+			case "!": #endstartup
+			case "+b": #ban
+			case "-b":
+			case "+bc": #banchan
+			case "-bc":
+			case "+cr": #chrec
+			case "-cr":
+			case "+e": #exempt
+			case "-e":
+			case "+ec": #exemptchan
+			case "-ec":
+			case "+h": #host
+			case "-h":
+			case "+i": #ignore
+			case "-i":
+			case "+inv": #invite
+			case "-inv":
+			case "+invc": #invitechan
+			case "-invc":
+			case "a": #chattr
+			case "c": #change
+			case "chchinfo":
+			case "feats": #feats
+			case "h": #chhand
+			case "r!": #resync
+			case "r?": #resyncq
+			case "rn": #resyncno
+			case "s": #stick_ban
+			case "se": #stick_exempt
+			case "sInv": #stick_invite
+			case "v": #version
+				break;
+			# change user
+			case "c":
+				list($item, $hand, $data) = parse_args($shargs, "str str str");
+				break;
+			# share end
+			case "e":
+				$reason = $shargs;
+				event("share end", $reason);
+				break;
+			# kill user
+			case "k":
+				list($hand) = parse_args($shargs, "str");
+				event("share user del", $hand);
+				break;
+			# new user
+			case "n":
+				list($hand, $host, $pass, $isbot) =
+					parse_args($shargs, "str str str str");
+				event("share user add", $hand, $host, $pass, $isbot);
+				break;
+			## Unimplemented
+			case "u?": #userfileq
 				puts("s", "un", "Not implemented");
 				break;
-			case "uy":
-				## Unimplemented
+			## Unimplemented
+			case "uy": #ufyes
 				break;
-			case "un":
-				## Unimplemented
+			## Unimplemented
+			case "un": #ufno
 				$reason = $shargs;
 				break;
-			case "us":
-				## Unimplemented
-				list($addr, $port, $smth) = parse_args($shargs, "int10 int10 int10");
+			## Unimplemented
+			case "us": #ufsend
+				list($addr, $port, $size) = parse_args($shargs, "int10 int10 int10");
 				break;
 		}
 	},			
 	
 	# trace
 	"t" => function ($cmd, $args) {
-		list($reqr, $dest, $pathsz) = parse_args($args, "i:h@b str str");
+		list($who, $dest, $path) = parse_args($args, "i:h@b str str");
 		if ($dest == Config::$handle) {
-			puts("td", $reqr, $pathsz.":".Config::$handle);
+			puts("td", $who, $path.":".Config::$handle);
+
+			$path = explode(":", $path);
+			$timestamp = $path[1];
+			$via = array_slice($path, 2);
+
+			putlog("[trace] from %s@%s to %s via %s",
+				$who->handle, $who->bot, $dest, implode(":", $via));
+			event("trace", $who, $timestamp, $via);
 		}
-		
-		list($timestamp, $via) = parse_route($pathsz);
-		putlog("[trace] request from %s@%s to %s (via %s)", $reqr->handle, $reqr->bot, $dest, implode("!", $via));
 	},
 	
 	# thisbot
@@ -177,8 +242,8 @@ $botnet_commands = array(
 	
 	# unlink [request]
 	"ul" => function ($cmd, $args) {
-		list($reqr, $viabot, $bot) = parse_args($args, "i:h@b str str");
-		send_priv(null, $reqr, "Denied.");
+		list($who, $viabot, $bot) = parse_args($args, "i:h@b str str");
+		send_priv(null, $who, "Denied.");
 	},
 	
 	# unlinked

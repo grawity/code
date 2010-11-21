@@ -125,12 +125,22 @@ add_handler("partyline unaway", function ($bot, $idx) {
 	$partyline[$bot][$idx]->away = false;
 });
 
+add_handler("requested motd", function ($who, $flag) {
+	send_botpriv($who, "I am ".Config::$handle.".");
+});
+
 add_handler("requested who", function ($reqr) {
 	global $partyline;
-	send_botpriv($reqr, sprintf("%-4s %1s%-19s %s:%s", "CHAN", "", "USER@BOT", "IDX", "HOST"));
+	send_botpriv($reqr, sprintf("%-4s %1s%-19s %-4s %s",
+		"CHAN", "", "USER@BOT", "IDX", "HOST"));
 	foreach ($partyline as $bot => $botusers) {
 		foreach ($botusers as $idx => $user) {
-			send_botpriv($reqr, sprintf("%-4d %1s%-19s %d:%s", $user->chan, strlen($user->away)?"*":"", $user->handle."@".$bot, $idx, $user->userhost));
+			send_botpriv($reqr, sprintf("%-4d %1s%-19s %-4d %s",
+				$user->chan,
+				strlen($user->away)?"*":"",
+				$user->handle."@".$bot,
+				$idx,
+				$user->userhost));
 		}
 	}
 });
@@ -147,5 +157,8 @@ add_handler("priv received", function ($from, $to, $msg) {
 add_handler("zapf eval", function ($from, $to, $cmd, $args) {
 
 });
+
+#add_handler("share user new", function ($hand, $host, $pass, $isbot) {
+#});
 
 loaded();

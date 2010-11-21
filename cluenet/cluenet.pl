@@ -441,12 +441,36 @@ $commands{"server:create"} = sub {
 $commands{"user:chsh"} = sub {
 	my ($shell) = @_;
 
-	$ldap = connect_auth;
-	my $dn = user_dn(whoami);
-	my %entry = (loginShell => $shell);
+	if ($shell) {
+		if ($shell !~ m!^/.+!) {
+			die "error: shell must be an absolute filesystem path\n";
+		}
+		elsif ($shell !~ m!^/bin/(ba)?sh$!) {
+			warn "warning: shell might not be available on other servers\n";
+		}
 
-	my $res = $ldap->modify($dn, replace => \%entry);
-	if ($res->is_error) { die ldap_errmsg($res, $dn); }
+		$ldap = connect_auth;
+		my $dn = user_dn(whoami);
+		my %entry = (loginShell => $shell);
+
+		print "Changing shell for ".whoami." to $shell\n";
+		my $res = $ldap->modify($dn, replace => \%entry);
+		if ($res->is_error) { die ldap_errmsg($res, $dn); }
+		return 0;
+	}
+	else {
+		$ldap = connect_auth;
+		my $dn = user_dn(whoami);
+		my $res = $ldap->search(base => $dn, scope => "base",
+			filter => q(objectClass=posixAccount));
+		$res->is_error and die ldap_errmsg($res, $dn);
+		for my $entry ($res->entries) {
+			$shell = $entry->get_value("loginShell");
+		}
+		$shell //= "not set.";
+		print "Your current shell is $shell\n";
+		return 0;
+	}
 };
 
 $commands{"help"} = sub {
@@ -472,6 +496,7 @@ NOT YET IMPLEMENTED
 $commands{"whoami"} = sub {
 	$ldap = connect_auth();
 	print $ldap->who_am_i->response."\n";
+	return 0;
 };
 
 ### Main code

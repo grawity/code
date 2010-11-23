@@ -313,8 +313,6 @@ $commands{"server"} = sub {
 	my @admins = map {get_user_info($_, 1)}
 		@{$server->{authorizedAdministrator}};
 	print_server_info($server, $owner, @admins);
-	print_user_info($owner);
-	print_user_info($_) for @admins;
 	return 0;
 };
 
@@ -345,10 +343,14 @@ sub get_user_info {
 		filter => q(objectClass=posixAccount));
 	$res->is_error and die ldap_errmsg($res, $dn);
 	for my $entry ($res->entries) {
-		my %user;
+		my %user = map {$_ => [$entry->get_value($_)]} $entry->attributes;
 		for (qw(uid uidNumber gidNumber gecos homeDirectory loginShell cn
 				krb5PrincipalName clueIrcNick ircServicesUser)) {
-			$user{$_} = $entry->get_value($_);
+			$user{$_} = $user{$_}->[0];
+		}
+		if (defined $user{altEmail}) {
+			print Dumper($user{altEmail});
+			push @{$user{mail}}, @{$user{altEmail}};
 		}
 		return \%user;
 	}
@@ -365,6 +367,8 @@ sub print_server_info {
 	printf $fmt, "owner:", format_name($owner);
 	printf $fmt, "admin:", format_name($_)
 		for @admins;
+	print "\n";
+
 	printf $fmt, "status:", join(", ", grep {defined} (
 		$server->{isOfficial}? "official" : "unofficial",
 		$server->{userAccessible}? "public" : "private",
@@ -383,6 +387,11 @@ sub print_user_info {
 	my ($user) = @_;
 	my $fmt = "%-16s%s\n";
 	printf $fmt, "person:", uc $user->{uid};
+	printf $fmt, "uid:", $user->{uidNumber};
+	printf $fmt, "shell:", $user->{loginShell};
+	printf $fmt, "IRC account:", $user->{ircServicesUser};
+
+	printf $fmt, "email:", join(", ", @{$user->{mail}});
 	print "\n";
 }
 
@@ -438,6 +447,14 @@ $commands{"server:create"} = sub {
 	return $err;
 };
 
+$commands{"user"} = sub {
+	$ldap = connect_anon;
+	for my $user (@_) {
+		print_user_info(get_user_info($user));
+	}
+	return 0;
+};
+
 $commands{"user:chsh"} = sub {
 	my ($shell) = @_;
 
@@ -484,7 +501,11 @@ ACCESS LISTS
 	delete	acl:delete <host/service>...
 
 USER ACCOUNT
-	user:chsh <shell>
+	view	user <user>
+	shell	user:chsh <shell>
+
+SERVERS
+	view	server <host>
 
 NOT YET IMPLEMENTED
 	server:create <host> --owner <owner>

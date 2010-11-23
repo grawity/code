@@ -221,6 +221,7 @@ $commands{"access"} = sub {
 
 $commands{"acl"} = sub {
 	my $err;
+	usage("acl", qw(host ...)) unless @_;
 	$ldap = connect_anon;
 	for my $host (@_) {
 		my ($dn, $res);
@@ -263,6 +264,7 @@ $commands{"acl"} = sub {
 
 $commands{"acl:create"} = sub {
 	my $err;
+	usage("acl:create", qw(host/service ...)) unless @_;
 	$ldap = connect_auth;
 	for (@_) {
 		my ($host, $service) = to_hostservice_safe($_);
@@ -288,6 +290,7 @@ $commands{"acl:create"} = sub {
 
 $commands{"acl:delete"} = sub {
 	my $err;
+	usage("acl:delete", qw(host/service ...)) unless @_;
 	$ldap = connect_auth;
 	for (@_) {
 		my ($host, $service) = to_hostservice_safe($_);

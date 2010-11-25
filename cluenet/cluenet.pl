@@ -193,17 +193,34 @@ $commands{"access"} = sub {
 		
 		if (@add_users or @del_users) {
 			# found +user/-user in args -- update members
-			my %changes;
-			if (@add_users) {
-				$changes{add} = {member => [map {user_dn $_} @add_users]};
-				print "Adding access: {".join(", ", @add_users)."} to $host/$service\n";
-			}
-			if (@del_users) {
-				$changes{delete} = {member => [map {user_dn $_} @del_users]};
-				print "Removing access: {".join(", ", @del_users)."} to $host/$service\n";
-			}
-			my $res = $ldap->modify($group, %changes);
+			my (@users, @add_users_svc, @del_users_svc, %changes);
+
+			# Avoid errors on duplicates.
+			my $res = $ldap->search(base => $group, scope => "base",
+				filter => q(objectClass=*), attrs => ["member"]);
 			$res->is_error and warn ldap_errmsg($res, $group);
+			for my $entry ($res->entries) {
+				@users = map {from_dn($_, "ou=people,dc=cluenet,dc=org", 1)}
+					$entry->get_value("member");
+			}
+			@add_users_svc = grep {not $_ ~~ @users} @add_users;
+			@del_users_svc = grep {$_ ~~ @users} @del_users;
+
+			if (@add_users_svc) {
+				$changes{add} = {member => [map {user_dn $_} @add_users_svc]};
+				print "$host/$service: Adding: ".join(", ", @add_users_svc)."\n";
+			}
+			if (@del_users_svc) {
+				$changes{delete} = {member => [map {user_dn $_} @del_users_svc]};
+				print "$host/$service: Removing: ".join(", ", @del_users_svc)."\n";
+			}
+
+			if (@add_users_svc or @del_users_svc) {
+				my $res = $ldap->modify($group, %changes);
+				$res->is_error and warn ldap_errmsg($res, $group);
+			} else {
+				print "$host/$service: Nothing to do\n";
+			}
 		}
 		else {
 			# list members

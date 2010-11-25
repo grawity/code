@@ -200,8 +200,7 @@ $commands{"access"} = sub {
 				filter => q(objectClass=*), attrs => ["member"]);
 			$res->is_error and warn ldap_errmsg($res, $group);
 			for my $entry ($res->entries) {
-				@users = map {from_dn($_, "ou=people,dc=cluenet,dc=org", 1)}
-					$entry->get_value("member");
+				@users = map {user_from_dn $_} $entry->get_value("member");
 			}
 			@add_users_svc = grep {not $_ ~~ @users} @add_users;
 			@del_users_svc = grep {$_ ~~ @users} @del_users;
@@ -230,7 +229,7 @@ $commands{"access"} = sub {
 			for my $entry ($res->entries) {
 				my @members = $entry->get_value("member");
 				print "$host/$service\t$_\n"
-					for sort map {from_dn($_, "ou=people,dc=cluenet,dc=org", 1)} @members;
+					for sort map {user_from_dn $_} @members;
 			}
 		}
 	}

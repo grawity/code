@@ -51,28 +51,36 @@ configure() {
 	if (( $i == ${#config[@]} )); then
 		return 1
 	else
-		echo "${config[$i]}"
+		out "${config[$i]}"
 		(( ++i ))
 	fi
+}
+
+out() {
+	$debug && echo "out: $*" >&2
+	echo "$*" >&$out
 }
 
 trap "trap - SIGTERM; kill \$pinentry_pid" EXIT SIGINT SIGHUP SIGTERM SIGQUIT
 
 # spawn the pinentry program
-$debug && echo "pinentry =" "${pinentry[@]}"
+$debug && echo "command:" "${pinentry[@]}"
 coproc "${pinentry[@]}"; pinentry_pid=$!
 in=${COPROC[0]}
 out=${COPROC[1]}
 
 nextstate=configure
 while read status rest <&$in; do
-	$debug && echo "[$nextstate] $status {$rest}" >&2
+	$debug && {
+		echo "State: $nextstate"
+		echo "in: $status {$rest}"
+	} >&2
 	case "$nextstate" in
 	configure)
 		case "$status" in
 		OK)
-			configure >&$out || {
-				echo 'GETPIN' >&$out
+			configure || {
+				out 'GETPIN'
 				nextstate=waitinput
 			} ;;
 		ERR)

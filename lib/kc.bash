@@ -165,7 +165,7 @@ kc() {
 					kdestroy -c "$ccname"
 				fi
 			else
-				if ! kinit -c "$ccache" -R; then
+				if ! kinit -c "$ccname" -R; then
 					kdestroy -c "$ccname"
 				fi
 			fi
@@ -180,6 +180,12 @@ kc() {
 		;;
 	expand)
 		_kc_expand "$1"
+		;;
+	=*)
+		local line=
+		if line=$(grep -w "^${arg#=}" ~/lib/kerberos); then
+			kc $line
+		fi
 		;;
 	*)
 		local ccname

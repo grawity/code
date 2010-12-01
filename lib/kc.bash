@@ -181,6 +181,12 @@ kc() {
 	expand)
 		_kc_expand "$1"
 		;;
+	=*)
+		local line=
+		if line=$(grep -w "^${arg#=}" ~/lib/kerberos); then
+			kc $line
+		fi
+		;;
 	*)
 		local ccname
 		if ccname=$(_kc_expand "$arg"); then

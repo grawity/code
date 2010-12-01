@@ -57,9 +57,9 @@ if (!@ARGV) {
 if (-d $dest) {
 	# target [target...] dirname
 	for my $target (@ARGV) {
-		my $target = File::Spec->abs2rel($target, $dest);
+		my $reltarget = File::Spec->abs2rel($target, $dest);
 		my $link = File::Spec->catfile($dest, basename($target));
-		do_link($target, $link);
+		do_link($reltarget, $link);
 	}
 } elsif (scalar(@ARGV) > 1) {
 	# target target... name
@@ -67,6 +67,6 @@ if (-d $dest) {
 } else {
 	# target name
 	my $target = pop(@ARGV);
-	my $target = File::Spec->abs2rel($target, dirname($dest));
-	do_link($target, $dest);
+	my $reltarget = File::Spec->abs2rel($target, dirname($dest));
+	do_link($reltarget, $dest);
 }

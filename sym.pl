@@ -24,7 +24,7 @@ sub usage {
 sub do_link {
 	my ($target, $link) = @_;
 	print "$target -> $link\n";
-	if (-e $link) {
+	if (-l $link or -e $link) {
 		if ($force) {
 			unlink($link);
 			symlink($target, $link) or warn "$!";

@@ -8,7 +8,7 @@ sub usage() {
 	print STDERR "Usage: urlencode [-dr] [string]\n";
 	print STDERR "\n";
 	print STDERR "    -d    decode\n";
-	print STDERR "    -r    do not print ";
+	print STDERR "    -r    do not print newline\n";
 }
 
 sub decode() {

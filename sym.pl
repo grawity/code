@@ -12,6 +12,7 @@ use File::Basename;
 use File::Spec;
 
 my $force = 0;
+my $verbose = 0;
 my $dest;
 
 sub usage {
@@ -23,7 +24,7 @@ sub usage {
 
 sub do_link {
 	my ($target, $link) = @_;
-	print "$target -> $link\n";
+	$verbose && print "$link -> $target\n";
 	if (-l $link or -e $link) {
 		if ($force) {
 			unlink($link);
@@ -39,6 +40,7 @@ sub do_link {
 GetOptions(
 	"f|force" => \$force,
 	"t|target-directory=s" => \$dest,
+	"v|verbose" => \$verbose,
 ) or usage;
 
 if (!defined $dest) {

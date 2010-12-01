@@ -165,7 +165,7 @@ kc() {
 					kdestroy -c "$ccname"
 				fi
 			else
-				if ! kinit -c "$ccache" -R; then
+				if ! kinit -c "$ccname" -R; then
 					kdestroy -c "$ccname"
 				fi
 			fi

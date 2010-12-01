@@ -26,14 +26,13 @@ sub do_link {
 	print "$target -> $link\n";
 	if (-e $link) {
 		if ($force) {
-			warn "$link already exists - replacing\n";
 			unlink($link);
-			symlink($target, $link);
+			symlink($target, $link) or warn "$!";
 		} else {
-			warn "$link already exists - skipping\n";
+			warn "$link: already exists\n";
 		}
 	} else {
-		symlink($target, $link);
+		symlink($target, $link) or warn "$!";
 	}
 }
 

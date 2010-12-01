@@ -68,6 +68,7 @@ ln rwhod => "useless/rwho/*.pl";
 ln setupbin => "tools/*.pl";
 ln shorten => "*-isgd";
 ln sprunge => "*";
+ln sym => "*.pl";
 ln sshupdate => "*";
 ln urlencode => "tools/*.pl";
 ln useshare => "tools/*";

@@ -1,0 +1,17 @@
+#!/bin/bash
+PATH="$HOME/bin:$HOME/usr/bin:$PATH"
+dir="$HOME/code"
+set -e
+
+cd "$dir"
+
+oldhead=$(git rev-parse HEAD)
+git pull -q
+newhead=$(git rev-parse HEAD)
+
+"$dir/sshupdate"
+"$dir/tools/dotrc"
+
+if [[ $oldhead != $newhead ]]; then
+	"$dir/useless/rwho/rwhod.sh" restart
+fi

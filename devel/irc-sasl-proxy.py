@@ -73,6 +73,7 @@ class SASLProxy():
 
 	def start_ssl(self):
 		self.server = ssl.wrap_socket(self.server,
+			cert_reqs=ssl.CERT_REQUIRED,
 			ssl_version=ssl.PROTOCOL_TLSv1)
 		ssl.match_hostname(self.server.getpeercert(), self.server_host)
 	

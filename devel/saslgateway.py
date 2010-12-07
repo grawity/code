@@ -69,10 +69,12 @@ class SASLProxy():
 	def connect(self, af, addr):
 		self.server = socket.socket(af, socket.SOCK_STREAM, socket.SOL_TCP)
 		self.server.connect(addr)
+		self.server_host = addr[0]
 
 	def start_ssl(self):
 		self.server = ssl.wrap_socket(self.server,
 			ssl_version=ssl.PROTOCOL_TLSv1)
+		ssl.match_hostname(self.server.getpeercert(), self.server_host)
 	
 	def proxy(self):
 		client = self.client

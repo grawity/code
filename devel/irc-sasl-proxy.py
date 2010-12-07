@@ -46,7 +46,7 @@ def irc_parseline(line):
 
 def sasl_plain():
 	authid = Config["auth"]["user"]
-	authzid = auth
+	authzid = authid
 	passwd = Config["auth"]["pass"]
 	data = "%s\0%s\0%s\0" % (authid, authzid, passwd)
 	return base64.b64encode(data.encode("utf-8"))
@@ -73,9 +73,11 @@ class SASLProxy():
 
 	def start_ssl(self):
 		self.server = ssl.wrap_socket(self.server,
+			ca_certs="/etc/ssl/certs/ca-certificates.crt",
 			cert_reqs=ssl.CERT_REQUIRED,
 			ssl_version=ssl.PROTOCOL_TLSv1)
-		ssl.match_hostname(self.server.getpeercert(), self.server_host)
+		cert = self.server.getpeercert()
+		print(cert)
 	
 	def proxy(self):
 		client = self.client

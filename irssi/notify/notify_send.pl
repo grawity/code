@@ -189,6 +189,7 @@ sub send_libnotify($$) {
 
 	if (defined $libnotify) {
 		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+		return 1;
 	}
 	else {
 		my @args = ("notify-send");
@@ -197,7 +198,7 @@ sub send_libnotify($$) {
 		push @args, "--category=$appname" unless $appname eq "";
 		push @args, $title;
 		push @args, $text unless $text eq "";
-		system @args;
+		return system(@args) == 0;
 	}
 }
 

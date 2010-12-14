@@ -2,7 +2,7 @@
 # Hackage to convert OpenSSH/OpenSSL keys to lsh S-expressions.
 # (Written since 'lsh' only comes with a public key conversion tool.)
 #
-# Usage (keypair):
+# Usage (private key):
 #
 #     ./pkey-sexp.pl ~/.ssh/id_rsa -p "passphrase" \ 
 #         | sexp-conv -s transport | lsh-writekey -o ~/.lsh/identity
@@ -28,6 +28,16 @@
 #     * lsh-writekey requires input to be in 'transport' encoding.
 #
 #     * Converting s-exps to OpenSSL keys is not possible yet.
+#
+#     * The statement that 'lsh' does not come with a private key conversion
+#       tool is only partially true: lsh's 'nettle' library does come with
+#       pkcs1-conv, able to import RSA-PKCS#1 keys. Usage:
+#         openssl rsa -in id_rsa | pkcs1-conv > identity
+#           (outputs decrypted private key)
+#         openssl rsa -in id_rsa | pkcs1-conv | lsh-writekey
+#           (public and encrypted private)
+#         ssh-keygen -f id_rsa -em PEM | pkcs1-conv > identity.pub
+#           (public key)
 
 use strict;
 use Getopt::Long qw(:config bundling no_ignore_case);

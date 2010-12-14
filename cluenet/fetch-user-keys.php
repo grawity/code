@@ -8,14 +8,21 @@ const FILTER = "(&
 	(clueSshPubKey=*)
 )";
 
-$starttls = false;
-$optin = true;
-
-$argv0 = array_shift($argv);
+class config {
+	static $optin = true;
+}
 
 openlog("fetch-keys", LOG_PERROR|LOG_PID, LOG_DAEMON);
 
-putenv("LDAPCONF=".getenv("HOME")."/cluenet/ldap.conf");
+$argv0 = array_shift($argv);
+$opts = getopt("a");
+if (isset($opts["a"]))
+	config::$optin = false;
+
+$ldapconf = "/etc/ldap/cluenet.conf";
+if (is_file($ldapconf))
+	putenv("LDAPCONF=$ldapconf");
+
 $conn = ldap_connect(LDAP_URI);
 if (!$conn) {
 	syslog(LOG_ERR, "LDAP connection failed");
@@ -25,7 +32,7 @@ if (!ldap_set_option($conn, LDAP_OPT_PROTOCOL_VERSION, 3)) {
 	syslog(LOG_ERR, "upgrade to LDAPv3 failed");
 	exit(1);
 }
-if ($starttls and !ldap_start_tls($conn)) {
+if (!ldap_start_tls($conn)) {
 	syslog(LOG_ERR, "TLS negotiation failed: ".ldap_error($conn));
 	exit(1);
 }
@@ -54,12 +61,11 @@ for ($entry = ldap_first_entry($conn, $search);
 	$home = $values["homeDirectory"][0];
 	$keys = $values["clueSshPubKey"];
 
-	syslog(LOG_DEBUG, "processing $user [$uid] (".count($keys)." keys)");
-
-	if ($optin and !file_exists("$home/.ssh/ldap_autofetch")) {
-		syslog(LOG_INFO, "optin: skipping $user");
+	if (!is_dir($home))
 		continue;
-	}
+
+	if ($optin and !file_exists("$home/.ssh/ldap_autofetch"))
+		continue;
 
 	$file = "$home/.ssh/authorized_keys";
 	$fh = fopen($file, "w");
@@ -69,10 +75,8 @@ for ($entry = ldap_first_entry($conn, $search);
 	}
 
 	fwrite($fh, "# updated ".date("r")." from LDAP\n");
-	foreach ($keys as $key) {
+	foreach ($keys as $key)
 		fwrite($fh, "$key\n");
-	}
-	syslog(LOG_DEBUG, "wrote ".count($keys)." keys");
 
 	$local = "$file.local";
 	if (is_file($local)) {
@@ -80,7 +84,6 @@ for ($entry = ldap_first_entry($conn, $search);
 		if (!$local_fh) {
 			syslog(LOG_NOTICE, "failed to open $local");
 		} else {
-			syslog(LOG_DEBUG, "copying keys from $local");
 			fwrite($fh, "# local keys\n");
 			while (($buf = fread($local_fh, 4096)) !== false) {
 				fwrite($fh, $buf);
@@ -94,4 +97,3 @@ for ($entry = ldap_first_entry($conn, $search);
 
 ldap_unbind($conn);
 closelog();
-

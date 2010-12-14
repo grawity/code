@@ -229,7 +229,7 @@ sub notify($$$) {
 	} elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
 	} elsif ($dest =~ /^growl$/) {
-		send_growl($rawmsg);
+		send_growl($title, $text);
 	} elsif ($dest =~ /^unix!(stream|dgram)!(.+)$/) {
 		send_unix($rawmsg, $1, $2);
 	} elsif ($dest =~ /^unix!(.+)$/) {

@@ -214,7 +214,12 @@ sub send_growl($$) {
 		}
 		Mac::Growl->PostNotification($appname, "Hilight", $title, $text);
 	} else {
-		return 0, "Growl support requires Mac::Growl";
+		#return 0, "Growl support requires Mac::Growl";
+		my @args = ("growlnotify");
+		push @args, ("-n", $appname) if $appname;
+		push @args, ("-m", $text) if $text;
+		push @args, $title;
+		return system(@args) == 0;
 	}
 }	
 

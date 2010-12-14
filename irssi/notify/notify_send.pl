@@ -202,6 +202,22 @@ sub send_libnotify($$) {
 	}
 }
 
+sub send_growl($$) {
+	my ($title, $text) = @_;
+	our $growl;
+	if (eval {require Mac::Growl}) {
+		if (!$growl) {
+			my @default = qw(Hilight);
+			my @all = @default;
+			Mac::Growl->RegisterNotification($appname, \@all, \@default);
+			$growl = 1;
+		}
+		Mac::Growl->PostNotification($appname, "Hilight", $title, $text);
+	} else {
+		return 0, "SSL support requires IO::Socket::SSL";
+	}
+}	
+
 sub notify($$$) {
 	my ($dest, $title, $text) = @_;
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
@@ -212,6 +228,8 @@ sub notify($$$) {
 		send_inet($rawmsg, $1, $2, $3);
 	} elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
+	} elsif ($dest =~ /^growl$/) {
+		send_growl($rawmsg);
 	} elsif ($dest =~ /^unix!(stream|dgram)!(.+)$/) {
 		send_unix($rawmsg, $1, $2);
 	} elsif ($dest =~ /^unix!(.+)$/) {

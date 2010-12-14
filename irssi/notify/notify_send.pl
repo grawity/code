@@ -214,7 +214,7 @@ sub send_growl($$) {
 		}
 		Mac::Growl->PostNotification($appname, "Hilight", $title, $text);
 	} else {
-		return 0, "SSL support requires IO::Socket::SSL";
+		return 0, "Growl support requires Mac::Growl";
 	}
 }	
 

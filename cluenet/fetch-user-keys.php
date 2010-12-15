@@ -86,7 +86,7 @@ for ($entry = ldap_first_entry($conn, $search);
 	if (!is_dir($home))
 		continue;
 
-	if (config::$optin and !file_exists("$home/.ssh/ldap_autofetch")) {
+	if (config::$optin and !file_exists("$home/.ssh/authorized_keys.autoupdate")) {
 		putlog(LOG_INFO, "skipping $user - not opted in");
 		continue;
 	}

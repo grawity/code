@@ -94,8 +94,12 @@ for ($entry = ldap_first_entry($conn, $search);
 	putlog(LOG_INFO, "updating keys for $user");
 	$file = "$home/.ssh/authorized_keys";
 
-	$owner = fileowner($file);
-	if ($owner and $owner !== $uid) {
+	$owner = @fileowner($file);
+	if ($owner === false) {
+		putlog(LOG_NOTICE, "skipping $user - does not have authorized_keys");
+		continue;
+	}
+	elseif ($owner and $owner !== $uid) {
 		putlog(LOG_WARNING, "skipping $user - insecure ownership on $file");
 		continue;
 	}

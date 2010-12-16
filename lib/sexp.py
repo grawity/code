@@ -144,16 +144,18 @@ class SexpParser(object):
 		if not hasattr(buf, "read"):
 			buf = StringIO(buf)
 		self.buf = buf
-		self.pos = 0
 		self.char = self.buf.read(1)
 
 		self.bytesize = 8
 		self.bits = 0
 		self.nBits = 0
 
+	@property
+	def pos(self):
+		return self.buf.tell()
+
 	def advance(self):
 		while True:
-			self.pos += 1
 			self.char = self.buf.read(1)
 			if not self.char:
 				self.bytesize = 8
@@ -195,11 +197,16 @@ class SexpParser(object):
 					return self.char
 
 	def skipWhitespace(self):
-		while self.char in WHITESPACE:
+		while self.char and self.char in WHITESPACE:
 			self.advance()
 	
 	def skipChar(self, char):
-		if self.char == char:
+		if len(char) != 1:
+			raise ValueError("only single characters allowed")
+
+		if not self.char:
+			raise IOError("EOF found where %r expected" % char)
+		elif self.char == char:
 			self.advance()
 		else:
 			raise IOError("char %r found where %r expected" % (
@@ -208,19 +215,14 @@ class SexpParser(object):
 	def scanToken(self):
 		self.skipWhitespace()
 		out = ""
-		while self.char in TOKEN_CHARS:
+		while self.char and self.char in TOKEN_CHARS:
 			out += self.char
 			self.advance()
 		return String(out)
-	
-	def scanToEOF(self):
-		self.skipWhitespace()
-		pos, self.pos = self.pos, len(self)
-		return self[pos:]
-	
+
 	def scanDecimal(self):
 		i, value = 0, 0
-		while self.char in DIGITS:
+		while self.char and self.char in DIGITS:
 			value = value*10 + int(self.char)
 			i += 1
 			if i > 8:
@@ -232,7 +234,7 @@ class SexpParser(object):
 		self.skipWhitespace()
 		self.skipChar(":")
 		if not length:
-			raise IOError("verbatim string had no length")
+			raise ValueError("verbatim string had no length")
 		out, i = "", 0
 		while i < length:
 			out += self.char
@@ -244,12 +246,14 @@ class SexpParser(object):
 		self.skipChar("\"")
 		out = ""
 		while length is None or len(out) <= length:
-			if self.char == "\"":
+			if not self.char:
+				raise ValueError("quoted string is missing closing quote")
+			elif self.char == "\"":
 				if length is None or len(out) == length:
 					self.skipChar("\"")
 					break
 				else:
-					raise IOError("quoted string ended too early (expected %d)" % length)
+					raise ValueError("quoted string ended too early (expected %d)" % length)
 			elif self.char == "\\":
 				c = self.advance()
 				if c == "b":			out += "\b"
@@ -271,7 +275,7 @@ class SexpParser(object):
 				elif c == "\r":
 					continue
 				else:
-					raise IOError("unknown escape character \\%s" % c)
+					raise ValueError("unknown escape character \\%s at %d" % (c, self.pos))
 			else:
 				out += self.char
 			self.advance()
@@ -286,7 +290,7 @@ class SexpParser(object):
 			self.advance()
 		self.skipChar("#")
 		if length and length != len(out):
-			raise IOError("hexstring length %d != declared length %d" %
+			raise ValueError("hexstring length %d != declared length %d" %
 				(len(out), length))
 		return String(out)
 
@@ -299,13 +303,15 @@ class SexpParser(object):
 			self.advance()
 		self.skipChar("|")
 		if length and length != len(out):
-			raise IOError("base64 length %d != declared length %d" %
+			raise ValueError("base64 length %d != declared length %d" %
 				(len(out), length))
 		return String(out)
-	
+
 	def scanSimpleString(self):
 		self.skipWhitespace()
-		if self.char in TOKEN_CHARS and self.char not in DIGITS:
+		if not self.char:
+			return None
+		elif self.char in TOKEN_CHARS and self.char not in DIGITS:
 			return self.scanToken()
 		elif self.char in DIGITS or self.char in '"#|:':
 			if self.char in DIGITS:
@@ -321,7 +327,7 @@ class SexpParser(object):
 			elif self.char == ":":
 				return self.scanVerbatimString(length)
 		else:
-			raise IOError("illegal char %r at pos %d" % (self.char, self.pos))
+			raise ValueError("illegal char %r at %d" % (self.char, self.pos))
 
 	def scanString(self):
 		hint = None
@@ -341,7 +347,9 @@ class SexpParser(object):
 		self.skipChar("(")
 		while True:
 			self.skipWhitespace()
-			if self.char == ")":
+			if not self.char:
+				raise ValueError("list is missing closing paren")
+			elif self.char == ")":
 				self.skipChar(")")
 				return out
 			else:
@@ -349,7 +357,9 @@ class SexpParser(object):
 	
 	def scanObject(self):
 		self.skipWhitespace()
-		if self.char == "{":
+		if not self.char:
+			return None
+		elif self.char == "{":
 			self.bytesize = 6
 			self.skipChar("{")
 			obj = self.scanObject()

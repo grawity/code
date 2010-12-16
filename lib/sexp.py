@@ -358,14 +358,14 @@ class SexpParser(object):
 	def scanObject(self):
 		self.skipWhitespace()
 		if not self.char:
-			return None
+			out = None
 		elif self.char == "{":
 			self.bytesize = 6
 			self.skipChar("{")
-			obj = self.scanObject()
+			out = self.scanObject()
 			self.skipChar("}")
-			return obj
 		elif self.char == "(":
-			return self.scanList()
+			out = self.scanList()
 		else:
-			return self.scanString()
+			out = self.scanString()
+		return out

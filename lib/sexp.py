@@ -147,14 +147,15 @@ class SexpParser(object):
 			elif (self.bytesize == 6 and self.char in "|}") \
 				or (self.bytesize == 4 and self.char == "#"):
 				if self.nBits and (1 << self.nBits)-1 & self.bits:
-					raise IOError("%d-bit region ended with %d unused bits" %
-						(self.bytesize, self.nBits))
+					raise IOError("%d-bit region ended with %d unused bits at %d" %
+						(self.bytesize, self.nBits, self.pos))
 				self.bytesize = 8
 				return self.char
 			elif self.bytesize != 8 and self.char in WHITESPACE:
 				# ignore whitespace in hex/base64 regions
 				pass
 			elif self.bytesize == 6 and self.char == "=":
+				self.nBits -= 2
 				pass
 			elif self.bytesize == 8:
 				return self.char

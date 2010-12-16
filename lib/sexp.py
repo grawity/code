@@ -5,6 +5,7 @@
 #  (c) 1997 Ronald Rivest
 
 import base64
+from StringIO import StringIO
 
 ALPHA      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 DIGITS     = "0123456789"
@@ -133,16 +134,17 @@ class List(list):
 						yield j
 
 class Sexp(object):
-	def __init__(self, string, encoding="utf-8"):
-		self.parser = SexpParser(string, encoding)
+	def __init__(self, buf, encoding="utf-8"):
+		self.parser = SexpParser(buf, encoding)
 		self.tree = self.parser.scanObject()
 
 class SexpParser(object):
-	def __init__(self, string, encoding="utf-8"):
-		#self.buf = string.encode(encoding)
-		self.buf = string
+	def __init__(self, buf, encoding="utf-8"):
+		if not hasattr(buf, "read"):
+			buf = StringIO(buf)
+		self.buf = buf
 		self.pos = 0
-		self.char = self.buf[0]
+		self.char = self.buf.read(1)
 
 		self.bytesize = 8
 		self.bits = 0
@@ -150,10 +152,9 @@ class SexpParser(object):
 
 	def advance(self):
 		while True:
-			try:
-				self.pos += 1
-				self.char = self.buf[self.pos]
-			except IndexError:
+			self.pos += 1
+			self.char = self.buf.read(1)
+			if not self.char:
 				self.bytesize = 8
 				self.char = None
 				return self.char

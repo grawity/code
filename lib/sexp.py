@@ -22,7 +22,7 @@ B64_DIGITS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
 
 class String(str):
 	hint = None
-	
+
 	escape_names = {
 		"\b":	"b",
 		"\t":	"t",
@@ -60,15 +60,15 @@ class String(str):
 	def base64(self, indent=0):
 		out = "|%s|" % base64.b64encode(self)
 		return "[%s]%s" % (self.hint, out) if self.hint else out
-	
+
 	def hex(self, indent=0):
 		out = "#%s#" % self.encode("hex")
 		return "[%s]%s" % (self.hint, out) if self.hint else out
-	
+
 	def token(self):
 		out = str(self)
 		return "[%s]%s" % (self.hint, out) if self.hint else out
-	
+
 	def quoted(self):
 		out = '"'
 		for char in self:
@@ -80,7 +80,7 @@ class String(str):
 				out += char
 		out += '"'
 		return "[%s]%s" % (self.hint, out) if self.hint else out
-	
+
 	def to_int(self):
 		out = 0
 		for byte in self:
@@ -96,7 +96,7 @@ class String(str):
 			elif char not in TOKEN_CHARS:
 				return False
 		return True
-	
+
 	@property
 	def canBeQuoted(self):
 		for char in self:
@@ -121,7 +121,7 @@ class List(list):
 
 	def canonical(self):
 		return "(" + "".join(x.canonical() for x in self) + ")"
-	
+
 	def base64(self):
 		return "{%s}" % base64.b64encode(self.canonical())
 
@@ -199,7 +199,7 @@ class SexpParser(object):
 	def skipWhitespace(self):
 		while self.char and self.char in WHITESPACE:
 			self.advance()
-	
+
 	def skipChar(self, char):
 		if len(char) != 1:
 			raise ValueError("only single characters allowed")
@@ -211,7 +211,7 @@ class SexpParser(object):
 		else:
 			raise IOError("char %r found where %r expected" % (
 				self.char, char))
-	
+
 	def scanToken(self):
 		self.skipWhitespace()
 		out = ""
@@ -229,7 +229,7 @@ class SexpParser(object):
 				raise IOError("decimal %d... too long" % value)
 			self.advance()
 		return value
-	
+
 	def scanVerbatimString(self, length=None):
 		self.skipWhitespace()
 		self.skipChar(":")
@@ -241,7 +241,7 @@ class SexpParser(object):
 			self.advance()
 			i += 1
 		return String(out)
-	
+
 	def scanQuotedString(self, length=None):
 		self.skipChar("\"")
 		out = ""
@@ -280,7 +280,7 @@ class SexpParser(object):
 				out += self.char
 			self.advance()
 		return String(out)
-	
+
 	def scanHexString(self, length=None):
 		self.bytesize = 4
 		self.skipChar("#")
@@ -341,7 +341,7 @@ class SexpParser(object):
 		if hint:
 			out.hint = hint
 		return out
-	
+
 	def scanList(self):
 		out = List()
 		self.skipChar("(")
@@ -354,7 +354,7 @@ class SexpParser(object):
 				return out
 			else:
 				out.append(self.scanObject())
-	
+
 	def scanObject(self):
 		self.skipWhitespace()
 		if not self.char:

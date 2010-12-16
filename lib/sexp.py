@@ -116,6 +116,15 @@ class List(list):
 	def base64(self):
 		return "{%s}" % base64.b64encode(self.canonical())
 
+	def find(self, token, descend=False):
+		for i in self:
+			if isinstance(i, List):
+				if i[0] == token:
+					yield i
+				elif descend:
+					for j in i.find(token, descend):
+						yield j
+
 class Sexp(object):
 	def __init__(self, string, encoding="utf-8"):
 		self.parser = SexpParser(string, encoding)

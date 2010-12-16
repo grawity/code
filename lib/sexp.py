@@ -81,6 +81,13 @@ class String(str):
 		out += '"'
 		return "[%s]%s" % (self.hint, out) if self.hint else out
 	
+	def to_int(self):
+		out = 0
+		for byte in self:
+			out <<= 8
+			out |= ord(byte)
+		return out
+
 	@property
 	def canBeToken(self):
 		for i, char in enumerate(self):

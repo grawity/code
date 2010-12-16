@@ -34,12 +34,8 @@ class String(str):
 	}
 
 	def __repr__(self):
-		if self.hint:
-			return "%s.String(%s, hint=%s)" % (self.__module__,
-				str.__repr__(self), str.__repr__(self.hint))
-		else:
-			return "%s.String(%s)" % (self.__module__, str.__repr__(self))
-	
+		return self.sexp()
+
 	def __add__(self, other):
 		out = str(self) + other
 		return self.__class__(out)
@@ -53,6 +49,9 @@ class String(str):
 			return self.hex()
 		else:
 			return self.base64()
+
+	def compact(self):
+		return self.sexp()
 
 	def canonical(self):
 		out = "%d:%s" % (len(self), self)
@@ -111,13 +110,15 @@ class String(str):
 
 class List(list):
 	def __repr__(self):
-		#return "%s.List(%s)" % (self.__module__, list.__repr__(self))
-		return "%s.List(<%d elements>)" % (self.__module__, len(self))
+		return self.compact()
 
 	def sexp(self, indent=0, hex=False):
 		indent += 2
 		return "(" + ("\n"+" "*indent).join(x.sexp(indent, hex) for x in self) + ")"
-	
+
+	def compact(self):
+		return "(" + " ".join(x.compact() for x in self) + ")"
+
 	def canonical(self):
 		return "(" + "".join(x.canonical() for x in self) + ")"
 	

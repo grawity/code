@@ -6,7 +6,11 @@ set -e
 cd "$dir"
 
 oldhead=$(git rev-parse HEAD)
-git pull -q
+if [[ $(git --version | sed 's/^git version //') == 1.5.* ]]; then
+	git pull >& /dev/null
+else
+	git pull -q
+fi
 newhead=$(git rev-parse HEAD)
 
 "$dir/sshupdate"

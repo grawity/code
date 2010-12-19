@@ -520,6 +520,35 @@ $commands{"user:acs"} = sub {
 	}
 };
 
+$commands{"user:acs:compare"} = sub {
+	my (@public_attrs, @private_attrs);
+
+	$ldap = connect_auth;
+	my $dn = user_dn(whoami);
+	my $res = $ldap->search(base => $dn, scope => "base",
+		filter => q(objectClass=posixAccount));
+	$res->is_error and die ldap_errmsg($res, $dn);
+	for my $entry ($res->entries) {
+		@private_attrs = $entry->attributes;
+	}
+
+	$ldap->unbind;
+	$ldap = connect_anon;
+	$res = $ldap->search(base => $dn, scope => "base",
+		filter => q(objectClass=posixAccount));
+	$res->is_error and die ldap_errmsg($res, $dn);
+	for my $entry ($res->entries) {
+		@public_attrs = $entry->attributes;
+	}
+
+	for my $attr (sort @private_attrs) {
+		$attr =~ /^acs/ and next;
+		my $public = ($attr ~~ @public_attrs);
+		printf "%s\t%s\n",
+			$public?"":"\e[1;32mpriv\e[m", $attr;
+	}
+};
+
 $commands{"user:chsh"} = sub {
 	my ($shell) = @_;
 

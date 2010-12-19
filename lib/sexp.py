@@ -20,135 +20,124 @@ HEX_DIGITS = "0123456789ABCDEFabcdef"
 B64_DIGITS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
              "ghijklmnopqrstuvwxyz0123456789+/="
 
-class String(str):
-	hint = None
+escape_names = {
+	"\b":	"b",
+	"\t":	"t",
+	"\v":	"v",
+	"\n":	"n",
+	"\f":	"f",
+	"\r":	"r",
+	"\\":	"\\",
+}
 
-	escape_names = {
-		"\b":	"b",
-		"\t":	"t",
-		"\v":	"v",
-		"\n":	"n",
-		"\f":	"f",
-		"\r":	"r",
-		"\\":	"\\",
-	}
+def load(buf):
+	out = list(SexpParser(buf))
+	if not out:
+		return None
+	elif len(out) == 1:
+		return out[0]
+	else:
+		return out
 
-	def __repr__(self):
-		return self.sexp()
+def dump(obj, canonical=False, transport=False):
+	if transport:
+		canonical = True
 
-	def __add__(self, other):
-		out = str(self) + other
-		return self.__class__(out)
+	if isinstance(obj, str):
+		exp = dumpString(obj, canonical)
+	elif isinstance(obj, dict):
+		exp = dumpList(obj.items(), canonical)
+	elif isinstance(obj, (list, tuple)):
+		exp = dumpList(obj, canonical)
+	else:
+		raise TypeError
 
-	def sexp(self, indent=0, hex=False):
-		if self.canBeToken:
-			return self.token()
-		elif self.canBeQuoted:
-			return self.quoted()
-		elif hex:
-			return self.hex()
-		else:
-			return self.base64()
+	if transport:
+		return "{%s}" % base64.b64encode(exp)
+	else:
+		return exp
 
-	def compact(self):
-		return self.sexp()
-
-	def canonical(self):
-		out = "%d:%s" % (len(self), self)
-		return "[%s]%s" % (self.hint.canonical(), out) if self.hint else out
-
-	def base64(self, indent=0):
-		out = "|%s|" % base64.b64encode(self)
-		return "[%s]%s" % (self.hint, out) if self.hint else out
-
-	def hex(self, indent=0):
-		out = "#%s#" % self.encode("hex")
-		return "[%s]%s" % (self.hint, out) if self.hint else out
-
-	def token(self):
-		out = str(self)
-		return "[%s]%s" % (self.hint, out) if self.hint else out
-
-	def quoted(self):
+def dumpString(obj, canonical=False, hex=False):
+	if canonical:
+		out = "%d:%s" % (len(obj), obj)
+	elif isToken(obj):
+		out = str(obj)
+	elif isQuoteable(obj):
 		out = '"'
-		for char in self:
-			if char in String.escape_names:
-				out += "\\"+String.escape_names[char]
+		for char in obj:
+			if char in escape_names:
+				out += "\\"+escape_names[char]
 			elif char in "'\"":
 				out += "\\"+char
 			else:
 				out += char
 		out += '"'
-		return "[%s]%s" % (self.hint, out) if self.hint else out
+	elif hex:
+		out = "#%s#" % obj.encode("hex")
+	else:
+		out = "|%s|" % base64.b64encode(obj)
 
-	def to_int(self):
-		out = 0
-		for byte in self:
-			out <<= 8
-			out |= ord(byte)
-		return out
+	#return "[%s]%s" % (self.hint.canonical(), out) if self.hint else out
+	#return "[%s]%s" % (self.hint, out) if self.hint else out
+	return out
 
-	@property
-	def canBeToken(self):
-		for i, char in enumerate(self):
-			if i == 0 and char in DIGITS:
-				return False
-			elif char not in TOKEN_CHARS:
-				return False
-		return True
+def dumpHint(obj, canonical=False):
+	return "[%s]" % dumpString(obj, canonical)
 
-	@property
-	def canBeQuoted(self):
-		for char in self:
-			if 0x20 <= ord(char) < 0x7f:
-				pass
-			elif char in String.escape_names:
-				pass
-			else:
-				return False
-		return True
+def dumpList(obj, canonical=False):
+	out = "("
+	if canonical:
+		out += "".join(dump(x, canonical=True) for x in obj)
+	else:
+		out += " ".join(dump(x) for x in obj)
+	out += ")"
+	return out
 
-class List(list):
-	def __repr__(self):
-		return self.compact()
+def toInt(buf):
+	num = 0
+	for byte in buf:
+		num <<= 8
+		num |= ord(byte)
+	return num
 
-	def sexp(self, indent=0, hex=False):
-		indent += 2
-		return "(" + ("\n"+" "*indent).join(x.sexp(indent, hex) for x in self) + ")"
+def isToken(string):
+	if string[0] in DIGITS:
+		return False
+	for char in string:
+		if char not in TOKEN_CHARS:
+			return False
+	return True
 
-	def compact(self):
-		return "(" + " ".join(x.compact() for x in self) + ")"
-
-	def canonical(self):
-		return "(" + "".join(x.canonical() for x in self) + ")"
-
-	def base64(self):
-		return "{%s}" % base64.b64encode(self.canonical())
-
-	def find(self, token, descend=False):
-		for i in self:
-			if isinstance(i, List):
-				if i[0] == token:
-					yield i
-				elif descend:
-					for j in i.find(token, descend):
-						yield j
-
-class Sexp(object):
-	def __init__(self, buf, encoding="utf-8"):
-		self.parser = SexpParser(buf, encoding)
-		self.tree = self.parser.scanObject()
+def isQuoteable(string):
+	for char in string:
+		if char in VERBATIM:
+			return False
+		elif 0x20 <= ord(char) < 0x7f:
+			pass
+		elif char in escape_names:
+			pass
+		else:
+			return False
+	return True
 
 class SexpParser(object):
 	def __init__(self, buf, encoding="utf-8"):
-		if not hasattr(buf, "read"):
-			buf = StringIO(buf)
-		self.buf = buf
-		self.char = self.buf.read(1)
-
 		self.bytesize = 8
 		self.bits = 0
 		self.nBits = 0
+		self.buf = buf if hasattr(buf, "read") else StringIO(buf)
+		self.char = ""
+		self.advance()
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		obj = self.scanObject()
+		if obj:
+			return obj
+		else:
+			raise StopIteration
 
 	@property
 	def pos(self):
@@ -156,6 +145,7 @@ class SexpParser(object):
 
 	def advance(self):
 		while True:
+			self.last = self.char
 			self.char = self.buf.read(1)
 			if not self.char:
 				self.bytesize = 8
@@ -197,8 +187,14 @@ class SexpParser(object):
 					return self.char
 
 	def skipWhitespace(self):
-		while self.char and self.char in WHITESPACE:
-			self.advance()
+		while self.char:
+			if self.char in WHITESPACE:
+				self.advance()
+			elif self.char == ";" and self.last in "\r\n":
+				while self.char and self.char not in "\r\n":
+					self.advance()
+			else:
+				return
 
 	def skipChar(self, char):
 		if len(char) != 1:
@@ -218,7 +214,7 @@ class SexpParser(object):
 		while self.char and self.char in TOKEN_CHARS:
 			out += self.char
 			self.advance()
-		return String(out)
+		return out
 
 	def scanDecimal(self):
 		i, value = 0, 0
@@ -240,7 +236,7 @@ class SexpParser(object):
 			out += self.char
 			self.advance()
 			i += 1
-		return String(out)
+		return out
 
 	def scanQuotedString(self, length=None):
 		self.skipChar("\"")
@@ -279,7 +275,7 @@ class SexpParser(object):
 			else:
 				out += self.char
 			self.advance()
-		return String(out)
+		return out
 
 	def scanHexString(self, length=None):
 		self.bytesize = 4
@@ -292,7 +288,7 @@ class SexpParser(object):
 		if length and length != len(out):
 			raise ValueError("hexstring length %d != declared length %d" %
 				(len(out), length))
-		return String(out)
+		return out
 
 	def scanBase64String(self, length=None):
 		self.bytesize = 6
@@ -305,7 +301,7 @@ class SexpParser(object):
 		if length and length != len(out):
 			raise ValueError("base64 length %d != declared length %d" %
 				(len(out), length))
-		return String(out)
+		return out
 
 	def scanSimpleString(self):
 		self.skipWhitespace()
@@ -338,12 +334,10 @@ class SexpParser(object):
 			self.skipChar("]")
 			self.skipWhitespace()
 		out = self.scanSimpleString()
-		if hint:
-			out.hint = hint
-		return out
+		return {"value": out, "hint": hint} if hint else out
 
 	def scanList(self):
-		out = List()
+		out = []
 		self.skipChar("(")
 		while True:
 			self.skipWhitespace()

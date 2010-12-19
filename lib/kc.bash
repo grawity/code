@@ -184,7 +184,7 @@ kc() {
 	=*)
 		local line=
 		if line=$(grep -w "^${arg#=}" ~/lib/kerberos); then
-			kc $line
+			eval kc "$line"
 		fi
 		;;
 	*)

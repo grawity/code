@@ -1,26 +1,31 @@
 <?php
-function age($t) {
-	$age = "";
+function age($t, $max_elements=null) {
+	$age = array();
 	
 	if ($s = $t%60) {
-		$age = "${s}s${age}";
+		$age[] = "${s}s";
 		$t = floor($t/60);
 	}
 	if ($m = $t%60) {
-		$age = "${m}m${age}";
+		$age[] = "${m}m";
 		$t = floor($t/60);
 	}
 	if ($h = $t%24) {
-		$age = "${h}h${age}";
+		$age[] = "${h}h";
 		$t = floor($t/24);
 	}
 	if ($d = $t%7) {
-		$age = "${d}d${age}";
+		$age[] = "${d}d";
 		$t = floor($t/7);
 	}
 	if ($t) {
-		$age = "${t}w${age}";
+		$age[] = "${t}w";
 	}
+
+	$age = array_reverse($age);
+	if ($max_elements)
+		$age = array_slice($age, 0, $max_elements);
+	$age = implode("", $age);
 
 	/*
 	if ($d = floor($t/86400)) {

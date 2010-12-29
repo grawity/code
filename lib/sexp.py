@@ -322,6 +322,8 @@ class SexpParser(object):
 				return self.scanBase64String(length)
 			elif self.char == ":":
 				return self.scanVerbatimString(length)
+			else:
+				raise ValueError("illegal char %r at %d" % (self.char, self.pos))
 		else:
 			raise ValueError("illegal char %r at %d" % (self.char, self.pos))
 

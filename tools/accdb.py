@@ -64,7 +64,7 @@ class Record(dict):
 		for f in fields["object"]:
 			if f in self:
 				n.extend(self[f])
-		return n
+		return map(str.lower, n)
 
 def parse(file):
 	data, cur, lineno = [], Record(), 0

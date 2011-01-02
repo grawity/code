@@ -79,15 +79,16 @@ def parse(file):
 				cur = Record()
 
 		elif line[0] == "=":
+			if len(cur) > 0:
+				data.append(cur)
+			cur = Record()
+			cur.line = lineno
+
 			val = line[1:].strip()
 			if val.startswith("!"):
 				val = val[1:].strip()
 				cur.flags.add("deleted")
-
-			if len(cur) > 0:
-				data.append(cur)
-			cur = Record(Name=val)
-			cur.line = lineno
+			cur["Name"] = val
 
 		elif line[0] == ";":
 			val = line[1:].strip()

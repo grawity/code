@@ -45,7 +45,7 @@ sub ln {
 
 sub which {
 	my ($name) = @_;
-	first {-x catfile($_, $name)} File::Spec->path;
+	first {-x} map {catfile($_, $name)} File::Spec->path;
 }
 
 -d $BIN || mkdir $BIN;

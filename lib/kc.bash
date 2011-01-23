@@ -99,6 +99,8 @@ kc() {
 				dname="@"
 			elif [[ $dname == FILE:${prefix}* ]]; then
 				dname="${dname#FILE:${prefix}}"
+			elif [[ $dname == FILE:/* ]]; then
+				dname="${dname#FILE:}"
 			elif [[ $dname == API:$defprinc ]]; then
 				dname="${dname%$defprinc}*"
 			elif [[ $dname == KCM:$(id -u) ]]; then

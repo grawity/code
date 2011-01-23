@@ -3,32 +3,26 @@
 
 kc_list_caches() {
 	local current="$(pklist -N)" have_current=
-	local default="$(unset KRB5CCNAME; pklist -N)"
-	local prefix="/tmp/krb5cc_$(id -u)_"
+	local default="$(unset KRB5CCNAME; pklist -N)" have_default=
 
-	local try=("$default")
-
-	local shopt=$(shopt -p failglob nullglob)
-	shopt -s nullglob
-	shopt -u failglob
-	for file in "$prefix"*; do
-		try+=("FILE:$file")
-	done
-	eval "$shopt"
-
-	if [[ -S /var/run/.kcm_socket ]]; then
-		try+=("KCM:$(id -u)")
-	fi
-
-	for c in "${try[@]}"; do
-		if pklist -c "$c" >& /dev/null; then
-			printf "%s\n" "$c"
-			[[ $c == $current ]] && have_current=$c
+	{
+		find "/tmp" -maxdepth 1 -name "krb5cc_*" \( -user "$(id -un)" \
+		-o -user "$LOGNAME" \) -printf "FILE:%p\0"
+		if [[ -S /var/run/.kcm_socket ]]; then
+			printf "%s\0" "KCM:$(id -u)"
 		fi
-	done > >(sort)
-	if [[ ! $have_current ]]; then
-		pklist >& /dev/null && printf "%s\n" "$current"
-	fi
+	} | sort -z | {
+		while read -rd '' c; do
+			if pklist -c "$c" >& /dev/null; then
+				printf "%s\n" "$c"
+				[[ $c == $current ]] && have_current=$c
+				[[ $c == $default ]] && have_default=$c
+			fi
+		done
+		if [[ ! $have_current ]]; then
+			pklist >& /dev/null && printf "%s\n" "$current"
+		fi
+	}
 }
 
 kc() {

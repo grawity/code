@@ -23,6 +23,8 @@ also when doing 'accdb touch'.
 import os
 import sys
 import fnmatch
+import shlex
+from cmd import Cmd
 
 class Record(dict):
 	def __init__(self, *args, **kwargs):
@@ -36,7 +38,7 @@ class Record(dict):
 		out += "= %s\n" % self["Name"]
 		for line in self.comment:
 			out += "; %s\n" % line
-		for key in sort_fields(self.keys(), full):
+		for key in Database.sort_fields(self.keys(), full):
 			if key in ("Name", "comment"):
 				continue
 			if isinstance(self[key], str):
@@ -61,121 +63,254 @@ class Record(dict):
 
 	def names(self):
 		n = [self["Name"]]
-		for f in fields["object"]:
+		for f in Database.fields["object"]:
 			if f in self:
 				n.extend(self[f])
 		return map(str.lower, n)
 
-def parse(file):
-	data, cur, lineno = [], Record(), 0
+class Database():
+	fields = dict(
+		object		= ("host", "uri"),
+		username	= ("login", "nic-hdl"),
+		password	= ("pass",),
+		email		= ("email",),
+	)
+	field_order = "object", "username", "password", "email"
 
-	for line in open(file, "r"):
-		line = line.strip()
-		lineno += 1
-
-		if line == "":
-			if len(cur) > 0:
-				data.append(cur)
-				cur = Record()
-
-		elif line[0] == "=":
-			if len(cur) > 0:
-				data.append(cur)
-			cur = Record()
-			cur.line = lineno
-
-			val = line[1:].strip()
-			if val.startswith("!"):
-				val = val[1:].strip()
-				cur.flags.add("deleted")
-			cur["Name"] = val
-
-		elif line[0] == ";":
+	def __init__(self, path):
+		self.path = path
+		if self.path:
+			self.data = self.parse(self.path)
+		self.modified = False
+	
+	def parse_line(self, line, cur, lineno="stdin"):
+		if line.startswith(";"):
+			# comment
 			val = line[1:].strip()
 			cur.comment.append(val)
-
-		elif line[0] == "(" and line[-1] == ")":
-			pass
-
-		elif line[0] == "+":
+		elif line.startswith("+"):
+			# flags
 			val = line[1:].lower().replace(",", " ").split()
 			cur.flags |= set(val)
-
 		else:
+			# key:value pairs
 			sep = ": " if ": " in line else "="
 			try:
 				key, val = line.split(sep, 1)
 			except ValueError:
-				print >> sys.stderr, "{%d} not in key=value format" % lineno
-				continue
-			# normalize input
+				print >> sys.stderr, "{%s} not in key=value format, ignored" % lineno
+				return cur
 			key, val = key.strip(), val.strip()
-			key = fix_field_name(key)
+			key = self.fix_field_name(key)
 			if val == "(none)" or val == "(null)":
 				val = None
+			try:
+				cur[key].append(val)
+			except KeyError:
+				cur[key] = [val]
+		return cur
 
-			if key in ("login", "pass"):
-				cur[key] = val
+	def parse(self, file):
+		data, cur = [], Record()
+		fh = open(file, "r")
+		for lineno, line in enumerate(fh, start=1):
+			line = line.strip()
+			if not line:
+				if len(cur) > 0:
+					data.append(cur)
+				cur = Record()
+			elif line.startswith("="):
+				val = line[1:].strip()
+				if len(cur) > 0:
+					data.append(cur)
+				cur = Record()
+				cur["Name"] = val
 			else:
-				try:
-					cur[key].append(val)
-				except KeyError:
-					cur[key] = [val]
+				cur = self.parse_line(line, cur, lineno)
+		if len(cur) > 0:
+			data.append(cur)
+		return data
 
-	if len(cur) > 0:
-		data.append(cur)
+	def sort(self):
+		self.data.sort(key=lambda x: x["Name"].lower())
+		self.modified = True
 
-	return data
+	def save(self):
+		map(str, self.data) # make sure __str__() does not fail
+		print "Writing database"
+		with open(self.path, "w") as fh:
+			self.dump(fh)
+		self.modified = False
 
-def dump(file, data):
-	map(str, data) # make sure __str__() does not fail
-	with open(file, "w") as fh:
-		for item in data:
-			if "deleted" in item.flags:
-				continue
-			print >> fh, item
+	def dump(self, fh=sys.stdout):
+		for item in self.data:
+			if "deleted" not in item.flags:
+				print >> fh, item
 
-fields = dict(
-	object		= ("host", "uri"),
-	username	= ("login", "nic-hdl"),
-	password	= ("pass",),
-	email		= ("email",),
-)
-field_order = "object", "username", "password", "email"
+	def dump_json(self, fh=sys.stdout):
+		try:
+			import json
+		except ImportError:
+			print >> sys.stderr, "Module 'json' not found."
+		else:
+			dbx = []
+			for item in db.data:
+				itemx = dict(item)
+				if len(item.flags):
+					itemx["flags"] = list(item.flags)
+				dbx.append(itemx)
+			print >> fh, json.dumps(dbx, indent=4)
 
-def sort_fields(input, full=True):
-	output = []
-	for group in field_order:
-		output += [k for k in fields[group] if k in input]
-	if full:
-		output += [k for k in input if k not in output]
-	return output
+	def dump_yaml(self, fh=sys.stdout):
+		try:
+			import yaml
+		except ImportError:
+			print >> sys.stderr, "Module 'yaml' not found."
+		else:
+			dbx = []
+			for item in db.data:
+				itemx = dict(item)
+				if len(item.flags):
+					itemx["flags"] = list(item.flags)
+				dbx.append(itemx)
+			print >> fh, yaml.dump(dbx)
 
-# Expand field name aliases when reading db
-def fix_field_name(name):
-	name = name.lower()
-	return {
-		"h":		"host",
-		"hostname":	"host",
-		"machine":	"host",
+	def close(self):
+		if self.modified:
+			self.save()
 
-		"@":		"uri",
-		"url":		"uri",
-		"website":	"uri",
+	def grep_named(self, pattern):
+		if pattern.startswith("="):
+			pattern = pattern[0]
+			for item in self.data:
+				if any(n==pattern for n in item.names()):
+					yield item
+		else:
+			if "*" not in pattern:
+				pattern += "*"
+			for item in self.data:
+				if fnmatch.filter(item.names(), pattern):
+					yield item
 
-		"l":		"login",
-		"u":		"login",
-		"user":		"login",
-		"username":	"login",
+	@classmethod
+	def sort_fields(self, input, full=True):
+		output = []
+		for group in self.field_order:
+			output += [k for k in self.fields[group] if k in input]
+		if full:
+			output += [k for k in input if k not in output]
+		return output
 
-		"p":		"pass",
-		"password":	"pass",
-	}.get(name, name)
+	@classmethod
+	def fix_field_name(self, name):
+		name = name.lower()
+		return {
+			"h":			"host",
+			"hostname":	"host",
+			"machine":	"host",
 
-def grep_named(pattern):
-	for item in db:
-		if fnmatch.filter(item.names(), pattern):
-			yield item
+			"@":		"uri",
+			"url":		"uri",
+			"website":	"uri",
+
+			"l":			"login",
+			"u":			"login",
+			"user":		"login",
+			"username":	"login",
+
+			"p":			"pass",
+			"password":	"pass",
+		}.get(name, name)
+
+class Interactive(Cmd):
+	def __init__(self, *args, **kwargs):
+		Cmd.__init__(self, *args, **kwargs)
+		self.prompt = "accdb> "
+		self.banner = "Using %s" % dbfile
+		self._foo = False
+
+	def emptyline(self):
+		pass
+
+	def default(self, line):
+		print >> sys.stderr, "Are you on drugs?"
+
+	def do_EOF(self, arg):
+		db.close()
+		return True
+
+	def do_help(self, arg):
+		if self._foo:
+			for cmd in dir(self):
+				if cmd.startswith("do_") and cmd not in ("do_help", "do_EOF"):
+					print "%-14s %s" % (cmd[3:], getattr(self, cmd).__doc__ or "?")
+		else:
+			print "RTFM"
+			self._foo = True
+
+	def do_xyzzy(self, arg):
+		print "Nothing happens."
+
+	def do_info(self, arg):
+		print "%d entries in %s" % (len(db.data), db.path)
+
+	def do_ls(self, arg):
+		"""List entries by name"""
+		results = db.grep_named(arg) if arg else db.data
+		for item in results:
+			name = item["Name"]
+			try:
+				login = (item[f] for f in db.fields["username"] if f in item).next()
+				login = login[0]
+			except StopIteration:
+				login = ""
+			print "%-50s%s" % (name, login)
+
+	def do_grep(self, arg):
+		"""Search for an entry"""
+		results = db.grep_named(arg) if arg else db.data
+		num = 0
+		for item in results:
+			print item
+			num += 1
+		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
+
+	def do_add(self, arg):
+		"""Add a new entry"""
+		rec = Record()
+		rec["Name"] = raw_input("= ").strip()
+		if not rec["Name"]:
+			return
+		while True:
+			try:
+				line = raw_input("\t").strip()
+			except EOFError:
+				line = None
+			if not line:
+				break
+			else:
+				rec = db.parse_line(line, rec)
+		db.data.append(rec)
+		print "Added."
+
+	def do_dump(self, arg):
+		"""Dump database"""
+		if not arg:
+			db.dump()
+		elif arg == "yaml":
+			db.dump_yaml()
+		elif arg == "json":
+			db.dump_json()
+		else:
+			print >> sys.stderr, "Unsupported format %r" % arg
+
+	def do_touch(self, arg):
+		"""Rewrite database, reformatting it"""
+		db.modified = True
+
+	def do_sort(self, arg):
+		"""Sort database"""
+		db.sort()
 
 def grep_flagged(pattern, exact=True):
 	if exact:
@@ -192,83 +327,19 @@ def run_editor(file):
 	Popen((os.environ.get("EDITOR", "notepad.exe"), file))
 
 dbfile = os.environ.get("ACCDB", os.path.expanduser("~/accounts.db.txt"))
-db = parse(dbfile)
-modified = False
+db = Database(dbfile)
+interp = Interactive()
+
 try:
-	command = sys.argv.pop(1).lower()
+	command = sys.argv[1].lower()
 except IndexError:
 	command = None
 
 if command is None:
-	print "file: %s" % dbfile
-	print "items: %s" % len(db)
-elif command in ("g", "grep", "a", "auth", "l", "ls"):
-	listonly = command in ("ls", "list")
-	authonly = command in ("a", "auth")
-	option = None
-	try:
-		pattern = sys.argv.pop(1).lower()
-		while pattern.startswith("-") or pattern.startswith("/"):
-			option = pattern[1:]
-			pattern = sys.argv.pop(1).lower()
-		exact = pattern.startswith("=")
-		if exact: pattern = pattern[1:]
-	except IndexError:
-		pattern = "*"
-		exact = False
-
-	if option == "f":
-		results = grep_flagged(pattern, exact)
-	else:
-		results = grep_named("*%s*" % pattern)
-
-	num_results = 0
-	for item in results:
-		num_results += 1
-		if listonly:
-			print item["Name"]
-		elif authonly:
-			print item.__str__(False)
-		else:
-			print "(line %d)" % item.line
-			print item
-	if not listonly:
-		print "(%d entr%s matching '%s')" % (
-			num_results,
-			("y" if num_results == 1 else "ies"),
-			pattern)
-elif command == "dump":
-	for item in db:
-		print item
-elif command == "dump:json":
-	import json
-	dbx = []
-	for item in db:
-		itemx = dict(item)
-		if len(item.flags):
-			itemx["flags"] = list(item.flags)
-		dbx.append(itemx)
-	print json.dumps(dbx, indent=4)
-elif command == "dump:yaml":
-	import yaml
-	dbx = []
-	for item in db:
-		itemx = dict(item)
-		if len(item.flags):
-			itemx["flags"] = list(item.flags)
-		dbx.append(itemx)
-	print yaml.dump(dbx)
-elif command == "touch":
-	print "Rewriting database"
-	modified = True
-elif command == "sort":
-	print "Rewriting database"
-	db.sort(key=lambda x: x["Name"].lower())
-	modified = True
+	interp.cmdloop()
 elif command == "edit":
-	run_editor(dbfile)
+	run_editor(db.path)
 else:
-	print "Unknown command."
+	interp.onecmd(" ".join(sys.argv[1:]))
 
-if modified:
-	dump(dbfile, db)
+db.close()

@@ -2,7 +2,9 @@
 # Dotfile updater.
 . ~/lib/include/util.sh 2> /dev/null
 
-if [[ $HOSTNAME == equal ]]; then
+FQDN=$(getent hosts 127.0.0.1 | awk '{print $2}' | sed 's/\.$//')
+
+if [[ $FQDN == "equal.cluenet.org" ]]; then
 	BASE="https://snowflake.nullroute.eu.org"
 else
 	BASE="https://equal.cluenet.org"
@@ -44,7 +46,7 @@ update() {
 		printf "%s" "$new_cert" > "$CACERT"
 
 		temp=$(mktemp "dotrc-$USER.XXXXXX") || die "mktemp failed"
-		get "$BASE/mail.php?host=`hostname -f`" "$temp"
+		get "$BASE/mail.php?host=$FQDN" "$temp"
 		rm -f "$temp"
 	fi
 

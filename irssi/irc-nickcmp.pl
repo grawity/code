@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Not an Irssi script; just a code snippet.
 
 sub lci ($$) {

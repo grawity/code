@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Requirements:
 #   libnotify over DBus:
 #     preferred: Net::DBus module

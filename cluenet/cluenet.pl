@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 use strict;
 use constant LDAP_HOST => "ldap.cluenet.org";
 

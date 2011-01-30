@@ -1,8 +1,9 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 # getnetrc v1.2
 # Grabs login data from ~/.netrc
 #
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+use warnings;
 use strict;
 
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);

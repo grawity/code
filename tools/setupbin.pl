@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Sets up symlinks in ~/bin to my scripts.
 # Internal use only.
 use warnings;

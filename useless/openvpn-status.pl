@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # Parses the OpenVPN "status" files, versions 1 and 3
 
 use strict;

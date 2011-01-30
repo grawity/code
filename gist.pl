@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # gist v1.0
 # gist.github.com submission script
 #

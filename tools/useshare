@@ -2,33 +2,70 @@
 # quick way to access CIFS/SMB shares
 # mount.cifs must be installed setuid-root
 
-if [ -z "$1" ] || [ -z "$2" ]; then
+if ! [[ $1 ]]; then
 	echo "Usage: $0 share mountpoint" >&2
 	exit 2
 fi
 
-remote="$1"
-mountpoint="$2"
+remote=$1
+mountpoint=$2
+proto=cifs
 
-if [[ "$remote" = *:* ]]; then
-	# host:share
-	host="${remote%%:*}"
-	share="${remote#*:}"
-	remote="//${host}/${share}"
-elif [[ "$remote" = //*/* ]]; then
-	host="${remote#//}"
-	host="${host%%/*}"
+if [[ $remote = *:* ]]; then
+	proto=${remote%%:*}
+	remote=${remote#*:}
+fi
+
+if [[ $remote = *:* ]]; then
+	host=${remote%%:*}
+	path=${remote#*:}
+elif [[ $remote = //*/* ]]; then
+	remote=${remote#//}
+	host=${remote%%/*}
+	path=${remote#*/}
 else
 	echo "Invalid remote path"
 	exit 1
 fi
 
+if [[ -z $mountpoint ]]; then
+	if [[ $path == $USER ]]; then
+		mountpoint=$host
+	else
+		mountpoint=${path##/*}
+	fi
+	mountpoint=$HOME/fs/$mountpoint
+	mkdir -pm 0700 "$mountpoint"
+fi
+
+getcred() {
+	local file=$(mktemp)
+	getnetrc -d "$@" "$authhost" > "$file" || \
+	getnetrc -d "$@" "$host" > "$file" || {
+		echo "No credentials for $authhost found." >&2
+		exit 1
+	}
+	echo "$file"
+}
+
 [[ $authhost ]] || authhost=$host
 
-creds="$(mktemp)"
-getnetrc -df "username=%u%npassword=%p" "$authhost" > "$creds" || {
-	echo "No credentials for $host found" >&2
-	exit 1
+connect() {
+	case $proto in
+	sftp)
+		sshfs "$host:$path" "$mountpoint" -o "allow_other"
+		;;
+	cifs|smb)
+		local creds=$(getcred -f "username=%u%npassword=%p")
+		local secmode=ntlmv2
+		if grep -Fxqs "password=*" "$creds"; then
+			secmode=krb5
+		fi
+		sudo mount.cifs "$host:$path" "$mountpoint" \
+			-o "sec=$secmode,credentials=$creds,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8"
+		rm -f "$creds"
+		;;
+	esac
 }
-sudo mount.cifs "$remote" "$mountpoint" -o "credentials=$creds,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8"
-rm -f "$creds"
+
+connect

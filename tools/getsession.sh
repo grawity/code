@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Print the current session's parent process name.
 
 #pid=${1:-$(ps -p $$ -o "ppid=")}

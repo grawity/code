@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 usage() {
 	echo "usage: settermtitle [-e] <title>" >&2
 	exit 2

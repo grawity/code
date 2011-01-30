@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 get() {
 	url="$1"
 	host="${url#http://}"

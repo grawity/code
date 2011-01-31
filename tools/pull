@@ -3,10 +3,16 @@ PATH="$HOME/bin:$HOME/usr/bin:$PATH"
 set -e
 exec 1>/dev/null
 
+if [[ $(git --version | sed 's/^git version //') == 1.[1-5].* ]]; then
+	oldgit=true
+else
+	oldgit=false
+fi
+
 git-pull() {
 	cd "$1"
-	if [[ $(git --version | sed 's/^git version //') == 1.5.* ]]; then
-		git pull >& /dev/null
+	if $oldgit; then
+		git fetch origin && git merge origin >/dev/null
 	else
 		git pull -q
 	fi
@@ -15,13 +21,19 @@ git-pull() {
 
 git-pull ~/code
 
-if [[ -d ~/.dotfiles ]]; then
-	git-pull ~/.dotfiles
+if [[ -d ~/lib/dotfiles ]]; then
+	git-pull ~/lib/dotfiles
+elif [[ -d ~/.dotfiles ]]; then
+	echo "Moving dotfiles.git to ~/lib"
+	mkdir -p ~/lib
+	mv ~/.dotfiles ~/lib
+	git-pull ~/lib/dotfiles
+	~/lib/dotfiles/install -a
 else
-	~/code/tools/dotrc || {
-		echo >&2 "dotrc failed [$?]"
-		exit 1
-	}
+	echo "Upgrading dotrc to dotfiles.git"
+	mkdir -p ~/lib
+	git clone -q "https://github.com/grawity/dotfiles.git" ~/lib/dotfiles
+	~/lib/dotfiles/install -a
 fi
 
 ~/code/sshupdate || {

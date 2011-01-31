@@ -1,32 +1,34 @@
 #!/usr/bin/env bash
 PATH="$HOME/bin:$HOME/usr/bin:$PATH"
-dir="$HOME/code"
 set -e
 exec 1>/dev/null
 
-cd "$dir"
+git-pull() {
+	cd "$1"
+	if [[ $(git --version | sed 's/^git version //') == 1.5.* ]]; then
+		git pull >& /dev/null
+	else
+		git pull -q
+	fi
+	cd -
+}
 
-oldhead=$(git rev-parse HEAD)
-if [[ $(git --version | sed 's/^git version //') == 1.5.* ]]; then
-	git pull >& /dev/null
+git-pull ~/code
+
+if [[ -d ~/.dotfiles ]]; then
+	git-pull ~/.dotfiles
 else
-	git pull -q
+	~/code/tools/dotrc || {
+		echo >&2 "dotrc failed [$?]"
+		exit 1
+	}
 fi
-newhead=$(git rev-parse HEAD)
 
-"$dir/sshupdate" || {
+~/code/sshupdate || {
 	echo >&2 "sshupdate failed [$?]"
 	exit 1
 }
-"$dir/tools/dotrc" || {
-	echo >&2 "dotrc failed [$?]"
-	exit 1
-}
 
-if [[ $oldhead != $newhead ]]; then
-	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
-		"$dir/useless/rwho/rwhod.sh" update
-	fi
+if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
+	~/code/useless/rwho/rwhod.sh update
 fi
-
-true

@@ -192,6 +192,16 @@ class Database():
 				if fnmatch.filter(item.names(), pattern):
 					yield item
 
+	def grep_flagged(self, pattern, exact=True):
+		if exact:
+			test = lambda item, pat: pat.lower() in item.flags
+		else:
+			test = lambda item, pat: fnmatch.filter(item.flags, pat)
+
+		for item in self.data:
+			if test(item, pattern):
+				yield item
+
 	@classmethod
 	def sort_fields(self, input, full=True):
 		output = []
@@ -275,6 +285,16 @@ class Interactive(Cmd):
 			num += 1
 		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
 
+	def do_flag(self, arg):
+		"""Search for a flag"""
+		exact = "*" not in arg
+		results = db.grep_flagged(arg, exact)
+		num = 0
+		for item in results:
+			print item
+			num += 1
+		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
+
 	def do_add(self, arg):
 		"""Add a new entry"""
 		rec = Record()
@@ -311,16 +331,6 @@ class Interactive(Cmd):
 	def do_sort(self, arg):
 		"""Sort database"""
 		db.sort()
-
-def grep_flagged(pattern, exact=True):
-	if exact:
-		test = lambda i, p: p.lower() in i.flags
-	else:
-		test = lambda i, p: fnmatch.filter(i.flags, p)
-
-	for item in db:
-		if test(item, pattern):
-			yield item
 
 def run_editor(file):
 	from subprocess import Popen

@@ -14,8 +14,14 @@ else
 fi
 newhead=$(git rev-parse HEAD)
 
-"$dir/sshupdate"
-"$dir/tools/dotrc"
+"$dir/sshupdate" || {
+	echo >&2 "sshupdate failed [$?]"
+	exit 1
+}
+"$dir/tools/dotrc" || {
+	echo >&2 "dotrc failed [$?]"
+	exit 1
+}
 
 if [[ $oldhead != $newhead ]]; then
 	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then

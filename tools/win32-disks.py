@@ -3,6 +3,10 @@
 
 import os, sys
 
+import win32api		as Api
+import win32file		as File
+import win32net		as Net
+
 try:
 	from win32con import *
 except ImportError:
@@ -74,34 +78,35 @@ def GetPathNamesForVolume(volume):
 		raise OSError
 
 def QueryDosDevice(dev):
-	if len(dev) <= 3:
-		target = create_unicode_buffer(1024)
-		if kernel32.QueryDosDeviceW(c_wchar_p(dev[0:2]), target, sizeof(target)):
-			# discard all values except first one
-			#return wszarray_to_list(target)
-			return target.value
-		else:
-			return None
-	else:
-		return None
-
-def IsMappedDevice(dev):
-	target = QueryDosDevice(dev)
-	return target.startswith("\\??\\") if target is not None else False
+	dev = dev[:dev.index(":")+1]
+	target = File.QueryDosDevice(dev)
+	return target.split("\0")[0]
 
 def GetMountVolume(path):
 	volume_name = create_unicode_buffer(64)
-	if kernel32.GetVolumeNameForVolumeMountPointW(c_wchar_p(path), volume_name, sizeof(volume_name)):
+	res = kernel32.GetVolumeNameForVolumeMountPointW(
+		c_wchar_p(path), volume_name, sizeof(volume_name))
+	if res:
 		return volume_name.value
-	else: raise OSError
 
-def GetDiskFreeSpace(root):
-	free = c_int64()
-	total = c_int64()
-	totalfree = c_int64()
-	if kernel32.GetDiskFreeSpaceExW(c_wchar_p(root), byref(free), byref(total), byref(totalfree)):
-		return (free.value, total.value, totalfree.value)
-	else: raise OSError
+def GetCanonicalName(disk):
+	target = QueryDosDevice(disk)
+	if target is None:
+		print "QueryDosDevice(%r) is %r" % (letter, target)
+		return None
+	elif target.startswith("\\??\\"):
+		# `subst`-mapped disk
+		if target.startswith("\\??\\"):
+			target = target[len("\\??\\"):]
+		return target, False
+	elif target.startswith("\\Device\\LanmanRedirector\\"):
+		# network disk
+		return Net.NetUseGetInfo(None, disk[0]+":")["remote"], True
+	elif target.startswith("UNC\\"):
+		# `subst`-mapped network disk
+		return target[4:], True
+	else:
+		return GetMountVolume(letter), False
 
 def GetDriveType(root):
 	return kernel32.GetDriveTypeW(c_wchar_p(root))
@@ -125,12 +130,9 @@ def IsVolumeReady(root):
 	else: return True
 
 def GetLogicalDriveStrings():
-	buffer = create_unicode_buffer(26*3+1)
-	if kernel32.GetLogicalDriveStringsW(sizeof(buffer), buffer):
-		return wszarray_to_list(buffer)
-	else: raise OSError
+	return Api.GetLogicalDriveStrings().split("\0")[:-1]
 
-LINE_FORMAT = "%-5s %-12s %-17s %10s %10s %5s"
+LINE_FORMAT = "%-5s %-16s %-17s %10s %10s %5s"
 header = LINE_FORMAT % ("path", "label", "type", "size", "free", "used")
 print header
 print "-"*len(header)
@@ -144,19 +146,30 @@ Volumes = {}
 
 Printed = []
 
-for volGuid in EnumVolumes():
-	names = GetPathNamesForVolume(volGuid)
-	ready = IsVolumeReady(volGuid)
-	Volumes[volGuid] = {"pathnames": names, "ready": ready}
-del names, ready
+Volumes = {guid: {
+		"pathnames": GetPathNamesForVolume(guid),
+		"ready": IsVolumeReady(guid),
+	} for guid in EnumVolumes()}
 
+DosDevices = {}
 for letter in Letters:
-	if IsMappedDevice(letter):
-		target = QueryDosDevice(letter)
+	target = DosDevices[letter] = QueryDosDevice(letter)
+	if target is None:
+		print "QueryDosDevice(%r) is %r" % (letter, target)
+	elif target.startswith("\\??\\"):
+		# `subst`-mapped disk
 		#target = target[:target.index("\0")]
 		if target.startswith("\\??\\"):
 			target = target[len("\\??\\"):]
 		Maps[letter] = target
+	elif target.startswith("\\Device\\LanmanRedirector\\"):
+		# network disk
+		Maps[letter] = GetCanonicalName(letter)
+		Drives[letter] = Maps[letter]
+		pass
+	elif target.startswith("UNC\\"):
+		# `subst`-mapped network disk
+		Maps[letter] = 
 	else:
 		Drives[letter] = GetMountVolume(letter)
 
@@ -166,7 +179,7 @@ for letter in Letters:
 	if isMapped:
 		target = Maps[letter]
 		type = -1
-		free, total, diskfree = GetDiskFreeSpace(letter)
+		free, total, diskfree = Api.GetDiskFreeSpaceEx(letter)
 		used = 100 - (100*diskfree/total)
 
 	else:
@@ -187,7 +200,7 @@ for letter in Letters:
 			type, label, filesystem = -2, "", None
 
 		if isReady and type != DRIVE_REMOTE:
-			free, total, diskfree = GetDiskFreeSpace(root)
+			free, total, diskfree = Api.GetDiskFreeSpaceEx(root)
 			used = 100 - (100*diskfree/total)
 		else:
 			free, total, diskfree, used = None, None, None, None
@@ -228,7 +241,7 @@ for root in Volumes.keys():
 		type, label, filesystem = -2, "", None
 
 	if isReady and type != DRIVE_REMOTE:
-		free, total, diskfree = GetDiskFreeSpace(root)
+		free, total, diskfree = Api.GetDiskFreeSpaceEx(root)
 		used = 100 - (100*diskfree/total)
 	else:
 		free, total, diskfree, used = None, None, None, None

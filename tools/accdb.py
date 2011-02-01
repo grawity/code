@@ -82,7 +82,7 @@ class Database():
 		if self.path:
 			self.data = self.parse(self.path)
 		self.modified = False
-	
+
 	def parse_line(self, line, cur, lineno="stdin"):
 		if line.startswith(";"):
 			# comment
@@ -248,6 +248,15 @@ class Interactive(Cmd):
 	def do_EOF(self, arg):
 		db.close()
 		return True
+
+	do_quit = do_EOF
+	do_exit = do_EOF
+	do_q = do_quit
+
+	def do_write(self, arg):
+		db.save()
+
+	do_w = do_write
 
 	def do_help(self, arg):
 		if self._foo:

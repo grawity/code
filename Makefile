@@ -1,4 +1,4 @@
-install:
+install: all
 	bash tools/installbin
 
 all: bin/args bin/bgrep bin/logwipe

@@ -36,10 +36,11 @@ else
 	~/lib/dotfiles/install -f
 fi
 
-~/code/sshupdate || {
-	echo >&2 "sshupdate failed [$?]"
-	exit 1
-}
+if [[ -f ~/.ssh/id_sshupdate ]]; then
+	~/code/sshupdate-ssh
+else
+	~/code/sshupdate
+fi || { echo "sshupdate failed [$?]" >&2; exit 1; }
 
 if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
 	~/code/useless/rwho/rwhod.sh update

@@ -311,6 +311,7 @@ class Interactive(Cmd):
 			else:
 				rec = db.parse_line(line, rec)
 		db.data.append(rec)
+		db.modified = True
 		print "Added."
 
 	def do_dump(self, arg):

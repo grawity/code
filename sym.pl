@@ -24,7 +24,7 @@ sub usage {
 
 sub do_link {
 	my ($target, $link) = @_;
-	$verbose && print "$link -> $target\n";
+	$verbose && print "`$link' -> `$target'\n";
 	if (-l $link or -e $link) {
 		if ($force) {
 			unlink($link);

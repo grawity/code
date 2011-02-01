@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 set -e
-
+unset SSH_AUTH_SOCK
 dest="$HOME/.ssh/authorized_keys"
-local="${dest}.local"
 
 temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
-ssh -qT _sshkeys > "$temp"
+ssh -T _sshkeys > "$temp"
 if [[ ! -s $temp ]]; then
 	rm -f "$temp"
 	echo "sshupdate: failed (no data received)" >&2
 	exit 1
 fi
 
-{
-	echo "# updated $(date +"%Y-%m-%d %H:%M") over SSH"
-	cat "$temp"
-	rm -f "$temp"
+exec >"$dest"
 
-	if [[ -f $local ]] && [[ -s $local ]]; then
-		echo "# local keys from $local"
-		cat "$local"
-	fi
-} > ~/.ssh/authorized_keys
+echo "# updated $(date +"%Y-%m-%d %H:%M") over SSH"
+cat "$temp"
+rm -f "$temp"
+
+local="${dest}.local"
+if [[ -f $local ]] && [[ -s $local ]]; then
+	echo "# local keys from $local"
+	cat "$local"
+fi

@@ -1,24 +1,35 @@
 #!/usr/bin/env bash
 set -e
-unset SSH_AUTH_SOCK
+
+die() { echo "sshupdate: $*" >&2; exit 1; }
+
+fetch() {
+	local temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
+
+	unset SSH_AUTH_SOCK
+	ssh -T "$host" false > "$temp"
+
+	if [[ -s $temp ]]; then
+		echo "$temp"
+	else
+		rm -f "$temp"
+		die "no data received"
+	fi
+}
+
+update() {
+	local temp=$(fetch)
+	{
+		echo "# updated $(date +"%Y-%m-%d %H:%M") over SSH"
+		cat "$temp"
+		if [[ -f ${dest}.local ]] && [[ -s ${dest}.local ]]; then
+			echo "# local keys from ${dest}.local"
+			cat "${dest}.local"
+		fi
+	} > "$dest"
+}
+
 dest="$HOME/.ssh/authorized_keys"
+host="_sshkeys"
 
-temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
-ssh -T _sshkeys false > "$temp"
-if [[ ! -s $temp ]]; then
-	rm -f "$temp"
-	echo "sshupdate: failed (no data received)" >&2
-	exit 1
-fi
-
-exec >"$dest"
-
-echo "# updated $(date +"%Y-%m-%d %H:%M") over SSH"
-cat "$temp"
-rm -f "$temp"
-
-local="${dest}.local"
-if [[ -f $local ]] && [[ -s $local ]]; then
-	echo "# local keys from $local"
-	cat "$local"
-fi
+update

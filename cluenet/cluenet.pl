@@ -414,6 +414,79 @@ sub print_user_info {
 	print "\n";
 }
 
+$commands{"server:admin"} = sub {
+	my (@hosts, @add, @del);
+	for (@_) {
+		if (/^\+(.+)$/) {push @add, $1}
+		elsif (/^-(.+)$/) {push @del, $1}
+		else {push @hosts, $_}
+	}
+
+	usage("server:admin", qw(host [+-]user ...))
+		unless @hosts;
+
+	# TODO:
+	#  "access" nests if/for
+	#  this command nests for/if
+	if (@add or @del) {
+		# update admins
+		$ldap = connect_auth;
+		for my $host (@hosts) {
+			my (@admins, $owner, @add_host, @del_host, %changes);
+			my $sdn = server_dn($host);
+			my $res = $ldap->search(base => $sdn, scope => "base",
+				filter => q(objectClass=server),
+				attrs => ["authorizedAdministrator", "owner"]);
+			$res->is_error and warn ldap_errmsg($res, $sdn);
+			for my $entry ($res->entries) {
+				$owner = user_from_dn($entry->get_value("owner"));
+				@admins = map {user_from_dn $_} $entry->get_value("authorizedAdministrator");
+			}
+			@add_host = grep {not $_ ~~ @admins} @add;
+			@del_host = grep {$_ ~~ @admins} @del;
+
+			if ($owner ~~ @add_host) {
+				warn "$host: Will not add $owner (already is server owner)\n";
+				@add = grep {$_ ne $owner} @add_host;
+			}
+
+			if (@add_host) {
+				$changes{add} = {authorizedAdministrator => [map {user_dn $_} @add_host]};
+				print "$host: Adding: ".join(", ", @add_host)."\n";
+			}
+			if (@del_host) {
+				$changes{delete} = {authorizedAdministrator => [map {user_dn $_} @del_host]};
+				print "$host: Removing: ".join(", ", @del_host)."\n";
+			}
+
+			if (@add_host or @del_host) {
+				my $res = $ldap->modify($sdn, %changes);
+				$res->is_error and warn ldap_errmsg($res, $sdn);
+			} else {
+				print "$host: Nothing to do\n";
+			}
+		}
+	}
+	else {
+		# list admins
+		$ldap = connect_anon;
+		for my $host (@hosts) {
+			my $sdn = server_dn($host);
+			my $res = $ldap->search(base => $sdn, scope => "base",
+				filter => q(objectClass=server),
+				attrs => ["authorizedAdministrator", "owner"]);
+			$res->is_error and warn ldap_errmsg($res, $sdn);
+			for my $entry ($res->entries) {
+				my @admins = sort map {user_from_dn $_}
+					$entry->get_value("authorizedAdministrator");
+				my $owner = user_from_dn $entry->get_value("owner");
+				print "$host\t$owner\t(owner)\n";
+				print "$host\t$_\n" for @admins;
+			}
+		}
+	}
+};
+
 $commands{"server:create"} = sub {
 	my $err;
 	$ldap = connect_auth;
@@ -442,8 +515,8 @@ $commands{"server:create"} = sub {
 		ipHostNumber => "0.0.0.0",
 	);
 	print Dumper \%entry;
-	#$res = $ldap->add($dn, attr => [%entry]);
-	#if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
+	$res = $ldap->add($dn, attr => [%entry]);
+	if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
 
 	my $subdn = "cn=svcAccess,$dn";
 	%entry = (
@@ -452,6 +525,8 @@ $commands{"server:create"} = sub {
 		description => "Tree for groups of users that can access certain services.",
 	);
 	print Dumper \%entry;
+	$res = $ldap->add($subdn, attr => [%entry]);
+	if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
 
 	for (SHELL_SERVICES) {
 		$subdn = "cn=$_,cn=svcAccess,$dn";
@@ -461,6 +536,8 @@ $commands{"server:create"} = sub {
 			member => user_dn($owner),
 		);
 		print Dumper \%entry;
+		$res = $ldap->add($subdn, attr => [%entry]);
+		if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
 	}
 
 	return $err;

@@ -1,25 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-do_install() {
-	mkdir -p ~/bin ~/lib
-	mkdir -pm 0700 ~/tmp
-
-	link	bin/args		~/bin/args
-	link	bin/bgrep		~/bin/bgrep
-	link	tools/getnetrc.pl	~/bin/getnetrc
-	link	getpaste.pl		~/bin/getpaste
-	link	tools/getsession.sh	~/bin/getsession
-	link	gist.pl			~/bin/gist
-	link	rdt.php			~/bin/rdt
-	link	sym.pl			~/bin/sym
-	link	tools/urlencode.pl	~/bin/urlencode
-
-	if { which python2 && ! which python; } >& /dev/null; then
-		ln -vsf "$(which python)" ~/bin/python2
-	fi
-}
-
 link() {
 	local target="$dir/${1%/}" link=$2
 	if [ -e "$link" ] && [ ! -h "$link" ] && ! $force; then
@@ -45,4 +26,19 @@ while getopts ad:f OPT; do
 	esac
 done
 
-do_install
+mkdir -p ~/bin ~/lib
+mkdir -pm 0700 ~/tmp
+
+link	bin/args		~/bin/args
+link	bin/bgrep		~/bin/bgrep
+link	tools/getnetrc.pl	~/bin/getnetrc
+link	getpaste.pl		~/bin/getpaste
+link	tools/getsession.sh	~/bin/getsession
+link	gist.pl			~/bin/gist
+link	rdt.php			~/bin/rdt
+link	sym.pl			~/bin/sym
+link	tools/urlencode.pl	~/bin/urlencode
+
+if { which python2 && ! which python; } >& /dev/null; then
+	ln -vsf "$(which python)" ~/bin/python2
+fi

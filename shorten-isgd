@@ -11,16 +11,19 @@ sub msg_usage {
 	return 2;
 }
 
-my $longurl = shift @ARGV;
-exit msg_usage() if !defined $longurl;
+exit msg_usage() if !@ARGV;
 
 my $req = LWP::UserAgent->new;
-my $resp = $req->get("http://is.gd/api.php?longurl=".uri_escape($longurl));
+my $err = 0;
+for my $longurl (@ARGV) {
+	my $resp = $req->get("http://is.gd/api.php?longurl=".uri_escape($longurl));
 
-chomp(my $content = $resp->decoded_content);
-if ($resp->code eq '200' and $content =~ /^http:/) {
-	print "$content\n";
-} else {
-	print STDERR "error: [is.gd] $content\n";
-	exit 1;
+	chomp(my $content = $resp->decoded_content);
+	if ($resp->code eq '200' and $content =~ /^http:/) {
+		print "$content\n";
+	} else {
+		warn "error: [is.gd] $content\n";
+		$err++;
+	}
 }
+exit $err;

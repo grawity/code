@@ -55,13 +55,16 @@ sub bitly {
 	}
 }
 
-my $longurl = shift @ARGV;
-exit msg_usage() if !defined $longurl;
+exit msg_usage() if !@ARGV;
 
-my $shorturl = bitly($longurl);
+my $err = 0;
+for my $longurl (@ARGV) {
+	my $shorturl = bitly($longurl);
 
-if (defined $shorturl) {
-	print "$shorturl\n";
-} else {
-	exit 1;
+	if (defined $shorturl) {
+		print "$shorturl\n";
+	} else {
+		$err++;
+	}
 }
+exit $err;

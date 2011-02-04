@@ -1,47 +1,40 @@
 #!/usr/bin/env bash
-PATH="$HOME/bin:$HOME/usr/bin:$PATH"
-set -e
-exec 1>/dev/null
+set -ex
+if [[ -z $xyzzy ]]; then
+	# Update ~/code and run the new script
+	export PATH="$HOME/bin:$HOME/usr/bin:$PATH"
+	export xyzzy=42
 
-if [[ $(git --version | sed 's/^git version //') == 1.[1-5].* ]]; then
-	oldgit=true
+	cd ~/code
+	git pull >& /dev/null
+	exec tools/pull
 else
-	oldgit=false
-fi
-
-git-pull() {
-	cd "$1"
-	if $oldgit; then
-		git pull origin master &>/dev/null
+	# Update dotfiles
+	if [[ -d ~/lib/dotfiles ]]; then
+		cd ~/lib/dotfiles
+		git pull origin master >& /dev/null
 	else
-		git pull -q origin master
+		echo "Migrating to dotfiles.git"
+		mkdir -p ~/lib
+		git clone "https://github.com/grawity/dotfiles.git" \
+			~/lib/dotfiles
 	fi
-	cd -
-}
-
-git-pull ~/code
-
-if [[ -d ~/lib/dotfiles ]]; then
-	git-pull ~/lib/dotfiles
-elif [[ -d ~/.dotfiles ]]; then
-	echo >&2 "Moving dotfiles.git to ~/lib"
-	mkdir -p ~/lib
-	mv ~/.dotfiles ~/lib/dotfiles
-	git-pull ~/lib/dotfiles
 	~/lib/dotfiles/install
-else
-	echo >&2 "Upgrading dotrc to dotfiles.git"
-	mkdir -p ~/lib
-	git clone -q "https://github.com/grawity/dotfiles.git" ~/lib/dotfiles
-	~/lib/dotfiles/install -f
-fi
 
-if [[ -f ~/.ssh/id_sshupdate ]]; then
-	~/code/sshupdate-ssh
-else
-	~/code/sshupdate
-fi || { echo "sshupdate failed [$?]" >&2; exit 1; }
+	# Update authorized SSH keys
+	if [[ -f ~/.ssh/id_sshupdate ]]; then
+		~/code/sshupdate-ssh
+	elif [[ -f ~/code/sshupdate ]]; then
+		# TODO: remove this on Feb 6
+		~/code/sshupdate
+	else
+		~/code/sshupdate-gpg
+	fi
 
-if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
-	~/code/useless/rwho/rwhod.sh update
+	# Restart rwhod if necessary
+
+	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
+		~/code/useless/rwho/rwhod.sh update
+	fi
 fi
+true

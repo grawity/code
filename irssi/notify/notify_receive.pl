@@ -10,7 +10,7 @@ my @forwards = ();
 
 my ($dbus, $libnotify);
 
-sub usage() {
+sub usage {
 	print STDERR <<EOF;
 Usage: notify-receive <listen> <forward>
 
@@ -29,6 +29,7 @@ EOF
 
 ### Helpers
 
+# perlcritic can DIAF.
 sub forked(&) {
 	my $code = shift;
 	my $pid = fork();
@@ -36,11 +37,11 @@ sub forked(&) {
 	else {return $pid;}
 }
 
-sub xml_escape($) {
+sub xml_escape {
 	($_) = @_; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
 
-sub handle_message($) {
+sub handle_message {
 	my ($message) = @_;
 	my ($appname, $icon, $title, $text) = split / \| /, $message;
 	if ($title eq "") {return;}
@@ -49,7 +50,7 @@ sub handle_message($) {
 	}
 }
 
-sub socket_inet($$$) {
+sub socket_inet {
 	my ($proto, $laddr, $lport) = @_;
 
 	my $sock;
@@ -71,7 +72,7 @@ sub socket_inet($$$) {
 	return $sock;
 }
 
-sub accept_stream($) {
+sub accept_stream {
 	my $sock = shift;
 	while (my $insock = $sock->accept) {
 		forked {
@@ -82,7 +83,7 @@ sub accept_stream($) {
 	}
 }
 
-sub accept_dgram($) {
+sub accept_dgram {
 	my $sock = shift;
 	while ($sock->recv(my $data, 1024)) {
 		chomp $data;

@@ -3,7 +3,7 @@ use warnings;
 use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);
-$VERSION = "1.0";
+$VERSION = "1.0.1";
 %IRSSI = (
 	authors     => "Mantas Mikulėnas",
 	contact     => 'grawity@gmail.com',
@@ -30,7 +30,7 @@ my $authfile = Irssi::get_irssi_dir() .  "/bots.auth";
 # are treated as identical to {|}~ (according to RFC 2812 and most ircds)
 
 # "identify %p", p => "hunter2" --> "identify hunter2"
-sub fmt($@) {
+sub fmt {
 	my ($str, %data) = @_;
 	$data{"%"} = "%";
 	$str =~ s/(%(.))/exists $data{$2}? (defined $data{$2}? $data{$2} :"") : $1/ge;
@@ -49,15 +49,15 @@ my %authcommands = (
 );
 
 # convert to lowercase with IRC extensions
-sub lci ($$) {
-	my ($s, $map) = @_;
-	if ($map eq 'rfc1459') { $s =~ tr/\[\\\]/{|}/; }
-	if ($map eq 'rfc2812') { $s =~ tr/\[\\\]^/{|}~/; }
-	return lc $s;
+sub lci {
+	my ($str, $map) = @_;
+	if ($map eq 'rfc1459') { $str =~ tr/\[\\\]/{|}/; }
+	if ($map eq 'rfc2812') { $str =~ tr/\[\\\]^/{|}~/; }
+	return lc $str;
 }
 
 # search for authinfo by servertag/botnick
-sub grep_authinfo ($$$) {
+sub grep_authinfo {
 	my ($tag, $botnick, $casemap) = @_;
 	$tag = lc $tag;
 	$botnick = lci $botnick, $casemap;
@@ -73,12 +73,12 @@ sub grep_authinfo ($$$) {
 
 sub load_info {
 	@authinfo = ();
-	open FILE, "< $authfile";
-	while (<FILE>) {
+	open my $file, "<", $authfile;
+	while (<$file>) {
 		chomp;
 		push @authinfo, $_;
 	}
-	close FILE;
+	close $file;
 }
 
 Irssi::command_bind "botauth" => sub {
@@ -90,9 +90,9 @@ Irssi::command_bind "botauth" => sub {
 		push @authinfo, $foo;
 
 		umask 077;
-		open FILE, ">> $authfile";
-		print FILE "$foo\n";
-		close FILE;
+		open my $file, ">>", $authfile;
+		print $file "$foo\n";
+		close $file;
 		return;
 	}
 	elsif ($args eq "-load") {

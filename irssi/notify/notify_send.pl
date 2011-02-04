@@ -84,11 +84,11 @@ sub on_message {
 	}
 }
 
-sub xml_escape($) {
+sub xml_escape {
 	$_ = shift; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
 }
 
-sub getserv($$) {
+sub getserv {
 	my ($name, $proto) = @_;
 	if ($name =~ /^[0-9]+$/) {
 		return int $name;
@@ -97,7 +97,7 @@ sub getserv($$) {
 	return $port;
 }
 
-sub send_inet($$$$) {
+sub send_inet {
 	my ($data, $proto, $host, $service) = @_;
 	my $port = getserv($service, $proto)
 		or return 0, "Unknown service '$service/$proto'";
@@ -124,7 +124,7 @@ sub send_inet($$$$) {
 	}
 }
 
-sub send_inetssl($$$) {
+sub send_inetssl {
 	my ($data, $host, $service) = @_;
 	my $port = getserv($service, "tcp")
 		or return 0, "Unknown service '$service/tcp'";
@@ -151,7 +151,7 @@ sub send_inetssl($$$) {
 	}
 }
 
-sub send_unix($$$) {
+sub send_unix {
 	my ($data, $type, $address) = @_;
 	my $sock = IO::Socket::UNIX->new(
 		Type => ($type eq 'stream'? SOCK_STREAM : SOCK_DGRAM),
@@ -166,7 +166,7 @@ sub send_unix($$$) {
 	}
 }
 
-sub send_file($$) {
+sub send_file {
 	my ($data, $path) = @_;
 	if (open my $fh, ">>", $path) {
 		print $fh $data;
@@ -177,7 +177,7 @@ sub send_file($$) {
 	}
 }
 
-sub send_libnotify($$) {
+sub send_libnotify {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
 
@@ -202,7 +202,7 @@ sub send_libnotify($$) {
 	}
 }
 
-sub send_growl($$) {
+sub send_growl {
 	my ($title, $text) = @_;
 	our $growl;
 	if (eval {require Mac::Growl}) {
@@ -223,7 +223,7 @@ sub send_growl($$) {
 	}
 }	
 
-sub notify($$$) {
+sub notify {
 	my ($dest, $title, $text) = @_;
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 

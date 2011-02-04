@@ -36,17 +36,17 @@ The .netrc file format is described in the manual page of ftp(1).
 }
 
 # parse format string
-sub fmt($%) {
+sub fmt) {
 	my ($str, %data) = @_;
 	$data{"%"} = "%";
 	$str =~ s/(%(.))/exists $data{$2}?(defined $data{$2}?$data{$2}:""):$1/ge;
 	return $str;
 }
 
-sub uri_encode($) {
-	$_ = shift;
-	s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
-	return $_;
+sub uri_encode {
+	$str = shift;
+	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	return $str;
 }
 
 ### Command line options

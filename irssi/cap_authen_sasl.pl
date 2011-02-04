@@ -158,13 +158,13 @@ sub timeout {
 	}
 }
 
-sub sasl_abort($) {
+sub sasl_abort {
 	my $server = shift;
 	$server->send_raw_now("AUTHENTICATE *");
 	$server->send_raw_now("CAP END");
 }
 
-sub has_mech($) {
+sub has_mech {
 	return defined eval {Authen::SASL->new(shift)->client_new};
 }
 
@@ -206,10 +206,9 @@ sub cmd_sasl_set {
 
 sub cmd_sasl_show {
 	#my ($data, $server, $item) = @_;
-	my $net;
 	my $count = 0;
 
-	foreach $net (keys %sasl_auth) {
+	for my $net (keys %sasl_auth) {
 		Irssi::print("SASL: $net: [$sasl_auth{$net}{mech}] $sasl_auth{$net}{user} *");
 		$count++;
 	}
@@ -219,11 +218,11 @@ sub cmd_sasl_show {
 sub cmd_sasl_save {
 	#my ($data, $server, $item) = @_;
 	my $file = Irssi::get_irssi_dir()."/sasl.auth";
-	open FILE, "> $file" or return;
-	foreach my $net (keys %sasl_auth) {
-		printf FILE ("%s\t%s\t%s\t%s\n", $net, $sasl_auth{$net}{user}, $sasl_auth{$net}{password}, $sasl_auth{$net}{mech});
+	open my $fh, ">", $file or return;
+	for my $net (keys %sasl_auth) {
+		printf $fh ("%s\t%s\t%s\t%s\n", $net, $sasl_auth{$net}{user}, $sasl_auth{$net}{password}, $sasl_auth{$net}{mech});
 	}
-	close FILE;
+	close $fh;
 	Irssi::print("SASL: auth saved to $file");
 }
 
@@ -231,9 +230,9 @@ sub cmd_sasl_load {
 	#my ($data, $server, $item) = @_;
 	my $file = Irssi::get_irssi_dir()."/sasl.auth";
 
-	open FILE, "< $file" or return;
+	open my $fh, "<", $file or return;
 	%sasl_auth = ();
-	while (<FILE>) {
+	while (<$fh>) {
 		chomp;
 		my ($net, $u, $p, $m) = split (/\t/, $_, 4);
 		$m ||= "PLAIN";
@@ -245,7 +244,7 @@ sub cmd_sasl_load {
 			Irssi::print("SASL: unknown mechanism $m");
 		}
 	}
-	close FILE;
+	close $fh;
 	Irssi::print("SASL: auth loaded from $file");
 }
 

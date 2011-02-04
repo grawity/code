@@ -24,7 +24,7 @@ use constant SHELL_SERVICES => qw(atd cron login passwd sshd su sudo);
 ### String and hostname manipulation
 
 # Canonicalize a hostname
-sub canon_host($) {
+sub canon_host {
 	my ($host) = @_;
 	my %hint = (flags => Socket::GetAddrInfo->AI_CANONNAME);
 	my ($err, @ai) = getaddrinfo($host, "", \%hint);
@@ -66,17 +66,17 @@ sub format_address {
 
 
 # FQDNize a given host
-sub fqdn($) {
+sub fqdn {
 	my ($host) = @_;
 	return ($host =~ /\./) ? $host : "$host.cluenet.org";
 }
 
 # Split "host/service" arg
-sub to_hostservice($) {
+sub to_hostservice {
 	my ($host, $service, $rest) = split /\//, shift, 3;
 	return (fqdn($host), $service, $rest);
 }
-sub to_hostservice_safe($) {
+sub to_hostservice_safe {
 	my ($host, $service, $rest) = split /\//, shift, 3;
 	unless ($host and $service) {
 		die "syntax error: empty host or service: '$host/$service'\n";
@@ -89,7 +89,7 @@ sub user_dn {"uid=".shift().",ou=people,dc=cluenet,dc=org"}
 sub server_dn {"cn=".fqdn(shift).",ou=servers,dc=cluenet,dc=org"}
 
 # Find the next rightmost RDN after given base
-sub from_dn($$@) {
+sub from_dn {
 	my ($entrydn, $branchdn, $nonames) = @_;
 	my %opts = (reverse => 1, casefold => "lower");
 	my @entry = @{ldap_explode_dn($entrydn, %opts)};
@@ -112,7 +112,7 @@ sub server_from_dn {
 ### LDAP connection
 
 # Establish LDAP connection, authenticated or anonymous
-sub connect_auth() {
+sub connect_auth {
 	my $sasl = Authen::SASL->new("GSSAPI");
 	my $ldap = Net::LDAP->new(LDAP_HOST) or die "$!";
 	#$ldap->start_tls(verify => "require",
@@ -122,14 +122,14 @@ sub connect_auth() {
 	$msg->code and die "error: ".$sasl->error;
 	return $ldap;
 }
-sub connect_anon() {
+sub connect_anon {
 	my $ldap = Net::LDAP->new(LDAP_HOST) or die "$!";
 	$ldap->bind;
 	return $ldap;
 }
 
 # Get and cache LDAP authzid
-sub whoami() {
+sub whoami {
 	if (!defined $my_name) {
 		$my_name = $ldap->who_am_i->response;
 		$my_name =~ s/^dn:uid=(.+?),.*$/\1/;
@@ -152,7 +152,7 @@ sub ldap_errmsg {
 
 ### Miscellaneous
 
-sub usage($@) {
+sub usage {
 	my ($cmd, @args) = @_;
 	my $text = $cmd." ".join(" ", map {$_ eq '...' ? $_ : "<$_>"} @args);
 

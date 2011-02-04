@@ -20,31 +20,31 @@ our $Config;
 my $Events;
 my $Keys;
 
-sub ixp_create($) {
+sub ixp_create {
 	my ($path) = @_;
 	open my $fd, "|-", ("wmiir", "create", $path);
 	return $fd;
 }
-sub ixp_write($) {
+sub ixp_write {
 	my ($path) = @_;
 	open my $fd, "|-", ("wmiir", "write", $path);
 	return $fd;
 }
-sub ixp_read($) {
+sub ixp_read {
 	my ($path) = @_;
 	open my $fd, "-|", ("wmiir", "read", $path);
 	return $fd;
 }
-sub ixp_remove($) {
+sub ixp_remove {
 	my ($path) = @_;
 	system("wmiir", "remove", $path);
 }
-sub ixp_list($) {
+sub ixp_list {
 	my ($path) = @_;
 	open my $fd, "-|", ("wmiir", "ls", $path);
 	return $fd;
 }
-sub ixp_xcreate($@) {
+sub ixp_xcreate {
 	my ($path, @lines) = @_;
 	my $fd = ixp_create $path;
 	foreach my $line (@lines) {
@@ -52,7 +52,7 @@ sub ixp_xcreate($@) {
 	}
 	close $fd;
 }
-sub ixp_xwrite($@) {
+sub ixp_xwrite {
 	my ($path, @lines) = @_;
 	my $fd = ixp_write $path;
 	foreach my $line (@lines) {
@@ -62,19 +62,19 @@ sub ixp_xwrite($@) {
 }
 
 # Write "key value" pairs
-sub ctl($%) {
+sub ctl {
 	my ($fd, %values) = @_;
 	foreach my $key (keys %values) {
 		print $fd $key, " ", $values{$key}, "\n";
 	}
 }
-sub ctl_create($%) {
+sub ctl_create {
 	my ($path, %values) = @_;
 	my $fd = ixp_create $path;
 	ctl $fd, %values;
 	close $fd;
 }
-sub ctl_write($%) {
+sub ctl_write {
 	my ($path, %values) = @_;
 	my $fd = ixp_write $path;
 	ctl $fd, %values;
@@ -82,7 +82,7 @@ sub ctl_write($%) {
 }
 
 # Handler for /event input
-sub on_event($@) {
+sub on_event {
 	my ($event, @args) = @_;
 	if (!exists $Events->{$event}) {
 		return 0;
@@ -95,7 +95,7 @@ sub on_event($@) {
 	&$handler(@args);
 }
 
-sub on_key($) {
+sub on_key {
 	my ($key) = @_;
 	$key =~ s/^$Config->{modkey}-/Modkey-/;
 	if (!exists $Keys->{$key}) {
@@ -106,13 +106,13 @@ sub on_key($) {
 }
 
 # Tag helper functions
-sub this_tag() {
+sub this_tag {
 	my $fd = ixp_read "/tag/sel/ctl";
 	chomp(my $tag = <$fd>);
 	close $fd;
 	return $tag;
 }
-sub tags() {
+sub tags {
 	my $fd = ixp_list "/tag";
 	my @tags = ();
 	while (<$fd>) {
@@ -121,7 +121,7 @@ sub tags() {
 	}
 	return @tags;
 }
-sub next_tag() {
+sub next_tag {
 	my @alltags = tags;
 	my $this = this_tag;
 	my $found = 0;
@@ -131,7 +131,7 @@ sub next_tag() {
 	}
 	return $alltags[0];
 }
-sub prev_tag() {
+sub prev_tag {
 	my @alltags = tags;
 	my $this = this_tag;
 	my $last = $alltags[$#alltags];
@@ -143,14 +143,14 @@ sub prev_tag() {
 }
 
 # Fork/exec an external program
-sub spawn(@) {
+sub spawn {
 	my (@args) = @_;
 	if (fork == 0) {
 		exec { $args[0] } @args or exit;
 	}
 }
 # spawn() in a new session
-sub spawns(@) {
+sub spawns {
 	my (@args) = @_;
 	if (fork == 0) {
 		setsid();
@@ -158,11 +158,12 @@ sub spawns(@) {
 	}
 }
 
-sub keys() {
-	map { s/^Modkey-/$Config->{modkey}-/ } keys %@Keys;
+sub keys {
+	my @k = keys %@Keys;
+	map {s/^Modkey-/$Config->{modkey}-/} @k;
 }
 
-sub suicide() {
+sub suicide {
 	print "Slaying -$$\n";
 	kill 15, -$$;
 }

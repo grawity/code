@@ -20,7 +20,7 @@ my $logfile = Irssi::get_irssi_dir() . "/autoignore.log";
 
 my @blocked = ();
 
-sub block(@) {
+sub block {
 	for my $mask (@_) {
 		push @blocked, $mask;
 		Irssi::print "Added $mask to session ignore";
@@ -28,7 +28,7 @@ sub block(@) {
 	return 1;
 }
 
-sub test(@) {
+sub test {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 
 	my ($user, $host) = split "!", $userhost, 2;
@@ -70,13 +70,13 @@ sub test(@) {
 	return 0;
 }
 
-sub ignorelisted($$$) {
+sub ignorelisted {
 	my ($server, $nick, $userhost) = @_;
 	return grep { $server->mask_match_address($_, $nick, $userhost) } @blocked;
 }
 
 # RFC 1459-compatible lc()
-sub lci($) { my $s = shift; $s =~ tr/\[\\\]/{|}/; return lc $s; }
+sub lci { my $s = shift; $s =~ tr/\[\\\]/{|}/; return lc $s; }
 
 sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
@@ -87,9 +87,9 @@ sub on_message {
 
 	if (test @_) {
 		Irssi::signal_stop;
-		open LOG, ">> $logfile";
-		print LOG (join "|", ($server->{tag}, "$nick!$userhost", $target, $type, $msg))."\n";
-		close LOG;
+		open my $log, ">>", $logfile;
+		print $log (join "|", ($server->{tag}, "$nick!$userhost", $target, $type, $msg))."\n";
+		close $log;
 		return 1;
 	}
 	return 0;

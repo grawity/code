@@ -16,7 +16,7 @@ $VERSION = "0.1";
 
 my @seen = ();
 
-sub check() {
+sub check {
 	my $w = Irssi::active_win();
 
 	open my $fd, "-|", "mail-notification", "-s";
@@ -37,7 +37,7 @@ sub check() {
 	}
 }
 
-sub add_timer() {
+sub add_timer {
 	my $interval = Irssi::settings_get_int("mail_check_interval");
 
 	if ($interval > 0) {

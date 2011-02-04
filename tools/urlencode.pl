@@ -5,21 +5,21 @@ use Getopt::Std;
 
 my %opts;
 
-sub usage() {
+sub usage {
 	print STDERR "Usage: urlencode [-dr] [string]\n";
 	print STDERR "\n";
 	print STDERR "    -d    decode\n";
 	print STDERR "    -r    do not print newline\n";
 }
 
-sub decode() {
+sub decode {
 	s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
 }
-sub encode() {
+sub encode {
 	s/([^A-Za-z0-9_.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
 }
 
-sub do_things() {
+sub do_things {
 	if ($opts{d}) {
 		decode;
 	} else {

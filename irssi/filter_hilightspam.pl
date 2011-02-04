@@ -15,7 +15,7 @@ $VERSION = "1.4";
 
 use Data::Dumper;
 
-sub on_message(@) {
+sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 
 	my $treshold = 0.8;
@@ -37,7 +37,7 @@ sub on_message(@) {
 	}
 }
 
-sub hilightspam_score($$) {
+sub hilightspam_score {
 	my ($msg, $nicks) = @_;
 
 	$msg =~ s/^(<.+?>| \* .+?) //;

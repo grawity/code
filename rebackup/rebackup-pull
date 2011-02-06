@@ -2,16 +2,16 @@
 unset SSH_AUTH_SOCK
 umask 077
 if ! [[ $1 && $2 ]]; then
-	echo "Usage: rebackup-pull rbname hostname"
+	echo "Usage: rebackup-pull jobname hostname"
 	exit 2
 fi
 date=$(date -u +%Y%m%d)
 jobname=$1
 hostname=$2
 file=~/backups/$jobname.$date.gpg
-keyfile=~/.ssh/rebackup-$jobname.key
+keyfile=~/.ssh/rebackup-$hostname.key
 
-ssh -k "$keyfile" -aTx -oPreferredAuthentications=publickey "$hostname" rebackup-serve > "$file"
+ssh -k "$keyfile" -aTx -oPreferredAuthentications=publickey "$hostname" rebackup-serve "$jobname" > "$file"
 if ! [[ -s $file ]]; then
 	echo "failed to pull backup from $jobname ($hostname)" >&2
 	exit 1

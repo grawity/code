@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+keyid=D24F6CB2C1B52632
+files=()
+
+case $HOSTNAME in
+	equal)
+		files+=(
+			~/mail/
+			~/lib/sites/
+			~/lib/repos/
+			~/lib/apache2/
+			~/bin/
+		)
+	;;
+	imaginary)
+		files+=(
+			~/lib/zones/
+			~/lib/named.conf
+		)
+	;;
+esac
+
+if [[ -t 1 ]]; then
+	echo "Will not output backup to tty." >&2
+	exit 1
+fi
+
+if (( ${#files[@]} == 0 )); then
+	echo "No files added." >&2
+	exit 1
+fi
+
+tar c "${files[@]}" | gpg --no-armor --encrypt --recipient "$keyid"

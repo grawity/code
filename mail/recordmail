@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Store message to "Sent" unless it already exists there.
+# Invoked by ~/.forward+bcc
+
+dir=~/mail/.sent
+
+trim() { sed 's/^[[:space:]]\+//; s/[[:space:]]\+$//'; }
+
+has-msgid() {
+	# Check all messages not older than 2 days.
+	find "$dir/cur" "$dir/new" -type f -mtime -2 -print0 |
+	while read -rd '' file; do
+		formail -cx "Message-ID:" <"$file"
+	done | trim | grep -Fxqs "$1"
+}
+
+log() { echo "$(date "+%Y-%m-%d %H:%M") | $*" >> ~/tmp/log/recordmail; }
+
+if [[ -t 0 ]]; then
+	echo "$0: expecting rfc822 message on stdin" >&2
+	exit 1
+fi
+
+temp=$(mktemp "$dir/tmp/$(date +%s).$$.XXXXXXXX")
+cat >"$temp"
+
+msgid=$(formail -cx "Message-ID:" <"$temp" | trim)
+if has-msgid "$msgid"; then
+	log "$msgid: duplicate"
+	rm -f "$temp"
+else
+	base=$(basename "$temp")
+	log "$msgid: stored as $base"
+	mv "$temp" "$dir/cur/$base:2,S"
+fi

@@ -4,17 +4,18 @@
 
 dir=~/mail/.sent
 
-trim() { sed 's/^[[:space:]]\+//; s/[[:space:]]\+$//'; }
+envelope() { formail -X "Message-ID:" -X "From:" -X "To:" -X "Subject:" -X "Date:"; }
 
-has-msgid() {
-	# Check all messages not older than 2 days.
-	find "$dir/cur" "$dir/new" -type f -mtime -2 -print0 |
-	while read -rd '' file; do
-		formail -cx "Message-ID:" <"$file"
-	done | trim | grep -Fxqs "$1"
+exists() {
+	# Check all messages not older than 10 minutes
+	# (in case of massive effin' lag; normally 2-3 minutes would be sane)
+	find ~/mail/.*/{cur,new} -type f -mmin -10 -print0 | {
+		while read -rd '' file; do
+			[[ $1 == $(envelope <"$file") ]] && return 0
+		done
+		return 1
+	}
 }
-
-log() { echo "$(date "+%Y-%m-%d %H:%M") | $*" >> ~/tmp/log/recordmail; }
 
 if [[ -t 0 ]]; then
 	echo "$0: expecting rfc822 message on stdin" >&2
@@ -24,12 +25,10 @@ fi
 temp=$(mktemp "$dir/tmp/$(date +%s).$$.XXXXXXXX")
 cat >"$temp"
 
-msgid=$(formail -cx "Message-ID:" <"$temp" | trim)
-if has-msgid "$msgid"; then
-	log "$msgid: duplicate"
+envelope=$(envelope <"$temp")
+if exists "$envelope"; then
 	rm -f "$temp"
 else
-	base=$(basename "$temp")
-	log "$msgid: stored as $base"
-	mv "$temp" "$dir/cur/$base:2,S"
+	# move to cur/ and immediately mark as \Seen
+	mv "$temp" "$dir/cur/$(basename "$temp"):2,S"
 fi

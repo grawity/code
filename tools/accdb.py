@@ -30,6 +30,7 @@ class Record(dict):
 	def __init__(self, *args, **kwargs):
 		self.flags = set()
 		self.comment = []
+		self.pos = None
 		dict.__init__(self, *args, **kwargs)
 
 	def __str__(self, full=True):
@@ -67,6 +68,9 @@ class Record(dict):
 			if f in self:
 				n.extend(self[f])
 		return map(str.lower, n)
+	
+	def flag(self, *flags):
+		self.flags |= set(flags)
 
 class Database():
 	fields = dict(
@@ -76,6 +80,7 @@ class Database():
 		email		= ("email",),
 	)
 	field_order = "object", "username", "password", "email"
+	next_pos = 1
 
 	def __init__(self, path):
 		self.path = path
@@ -113,22 +118,29 @@ class Database():
 	def parse(self, file):
 		data, cur = [], Record()
 		fh = open(file, "r")
+		i = self.next_pos
 		for lineno, line in enumerate(fh, start=1):
 			line = line.strip()
 			if not line:
 				if len(cur) > 0:
+					cur.pos, i = i, i+1
 					data.append(cur)
 				cur = Record()
 			elif line.startswith("="):
 				val = line[1:].strip()
 				if len(cur) > 0:
+					cur.pos, i = i, i+1
 					data.append(cur)
 				cur = Record()
 				cur["Name"] = val
+			elif line.startswith("("):
+				pass
 			else:
 				cur = self.parse_line(line, cur, lineno)
 		if len(cur) > 0:
+			cur.pos, i = i, i+1
 			data.append(cur)
+		self.next_pos = i
 		return data
 
 	def sort(self):
@@ -246,6 +258,7 @@ class Interactive(Cmd):
 		print >> sys.stderr, "Are you on drugs?"
 
 	def do_EOF(self, arg):
+		"""Save changes and exit"""
 		db.close()
 		return True
 
@@ -254,6 +267,7 @@ class Interactive(Cmd):
 	do_q = do_quit
 
 	def do_write(self, arg):
+		"""Write modified database to disk"""
 		db.save()
 
 	do_w = do_write
@@ -261,35 +275,41 @@ class Interactive(Cmd):
 	def do_help(self, arg):
 		if self._foo:
 			for cmd in dir(self):
-				if cmd.startswith("do_") and cmd not in ("do_help", "do_EOF"):
-					print "%-14s %s" % (cmd[3:], getattr(self, cmd).__doc__ or "?")
+				if cmd.startswith("do_") and cmd not in ("do_help", "do_EOF", "do_xyzzy"):
+					print "    %-14s %s" % (cmd[3:], getattr(self, cmd).__doc__ or "?")
 		else:
 			print "RTFM"
 			self._foo = True
-
+	
 	def do_xyzzy(self, arg):
 		print "Nothing happens."
-
+		
 	def do_info(self, arg):
+		"""Database summary"""
 		print "%d entries in %s" % (len(db.data), db.path)
 
 	def do_ls(self, arg):
 		"""List entries by name"""
-		results = db.grep_named(arg) if arg else db.data
-		for item in results:
-			name = item["Name"]
-			try:
-				login = (item[f] for f in db.fields["username"] if f in item).next()
-				login = login[0]
-			except StopIteration:
-				login = ""
-			print "%-50s%s" % (name, login)
+		results = list(db.grep_named(arg) if arg else db.data)
+		if results:
+			pos_w = len(str(max(i.pos for i in results)))
+			for item in results:
+				if "deleted" in item.flags: continue
+				name = item["Name"]
+				try:
+					login = (item[f] for f in db.fields["username"] if f in item).next()
+					login = login[0]
+				except StopIteration:
+					login = ""
+				print "%*s | %-*s%s" % (pos_w, item.pos, 40, name, login)
 
 	def do_grep(self, arg):
 		"""Search for an entry"""
 		results = db.grep_named(arg) if arg else db.data
 		num = 0
 		for item in results:
+			if "deleted" in item.flags: continue
+			print "(item %s)" % item.pos
 			print item
 			num += 1
 		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
@@ -300,6 +320,8 @@ class Interactive(Cmd):
 		results = db.grep_flagged(arg, exact)
 		num = 0
 		for item in results:
+			if "deleted" in item.flags: continue
+			print "(item %s)" % item.pos
 			print item
 			num += 1
 		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
@@ -307,6 +329,7 @@ class Interactive(Cmd):
 	def do_add(self, arg):
 		"""Add a new entry"""
 		rec = Record()
+		rec.pos = db.next_pos
 		rec["Name"] = raw_input("= ").strip()
 		if not rec["Name"]:
 			return
@@ -319,9 +342,26 @@ class Interactive(Cmd):
 				break
 			else:
 				rec = db.parse_line(line, rec)
+		db.next_pos += 1
 		db.data.append(rec)
 		db.modified = True
 		print "Added."
+	
+	def do_rm(self, arg):
+		"""Remove an entry"""
+		items = []
+		for g in arg.split(","):
+			if "-" in g:
+				min, max = g.split("-", 1)
+				items.extend(range(int(min), int(max)+1))
+			else:
+				items.append(int(g))
+		
+		for item in db.data:
+			if item.pos in items:
+				item.flag("deleted")
+				items.remove(item.pos)
+		db.modified = True
 
 	def do_dump(self, arg):
 		"""Dump database"""
@@ -335,7 +375,7 @@ class Interactive(Cmd):
 			print >> sys.stderr, "Unsupported format %r" % arg
 
 	def do_touch(self, arg):
-		"""Rewrite database, reformatting it"""
+		"""Mark database as modified"""
 		db.modified = True
 
 	def do_sort(self, arg):
@@ -360,6 +400,7 @@ if command is None:
 elif command == "edit":
 	run_editor(db.path)
 else:
+	interp._foo = True
 	interp.onecmd(" ".join(sys.argv[1:]))
 
 db.close()

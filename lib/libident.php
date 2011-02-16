@@ -100,7 +100,7 @@ class Ident {
 			$str .= "server error: [".$this->ecode."] ".strerror($this->ecode);
 			break;
 		case "USERID":
-			$str .= "USERID: {$this->userid} (ostype: {$this->ostype})";
+			$str .= "userid={$this->userid} ostype={$this->ostype}";
 			break;
 		default:
 			$str .= "{$this->rcode}: {$this->ecode}";

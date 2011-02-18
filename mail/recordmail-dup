@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Store message to "Sent" unless it already exists there.
+# Invoked by ~/.forward+bcc
+
+dir=~/mail/.sent
+
+envelope() { formail -X "Message-ID:" -X "From:" -X "To:" -X "Subject:" -X "Date:"; }
+
+exists() {
+	# Check all messages not older than 10 minutes
+	# (in case of massive effin' lag; normally 2-3 minutes would be sane)
+	find ~/mail/.*/{cur,new} -type f -mmin -10 -print0 | {
+		while read -rd '' file; do
+			[[ $1 == $(envelope <"$file") ]] && return 0
+		done
+		return 1
+	}
+}
+
+if [[ -t 0 ]]; then
+	echo "$0: expecting rfc822 message on stdin" >&2
+	exit 1
+fi
+
+temp=$(mktemp "$dir/tmp/$(date +%s).$$.XXXXXXXX")
+cat >"$temp"
+mv "$temp" "$dir/cur/$(basena
+
+envelope=$(envelope <"$temp")
+if exists "$envelope"; then
+	rm -f "$temp"
+else
+	# move to cur/ and immediately mark as \Seen
+	mv "$temp" "$dir/cur/$(basename "$temp"):2,S"
+fi

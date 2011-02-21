@@ -36,7 +36,7 @@ The .netrc file format is described in the manual page of ftp(1).
 }
 
 # parse format string
-sub fmt) {
+sub fmt {
 	my ($str, %data) = @_;
 	$data{"%"} = "%";
 	$str =~ s/(%(.))/exists $data{$2}?(defined $data{$2}?$data{$2}:""):$1/ge;

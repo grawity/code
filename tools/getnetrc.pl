@@ -44,7 +44,7 @@ sub fmt {
 }
 
 sub uri_encode {
-	$str = shift;
+	my $str = shift;
 	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
 	return $str;
 }

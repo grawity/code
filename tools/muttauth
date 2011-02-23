@@ -1,26 +1,17 @@
-#!/usr/bin/env bash
+#!/usr/bin/env perl
 # muttauth - netrc authentication for mutt
-#
-# Usage (single host):
-#    source "~/bin/muttauth -g host1 ... hostn|"
-# Usage (multiple hosts):
-#    source "~/bin/muttauth host|"
+use strict;
+use Net::Netrc;
 
-genauth() {
-	getnetrc -df "set imap_user='%u' imap_pass='%p'" "${1%%:*}"
+sub genconf {
+	my ($key, $value) = @_;
+	$value =~ s/'/\\'/g;
+	printf "set %s='%s'\n", $key, $value;
 }
 
-genhook() {
-	for host; do
-		local re=${host//./\\.}
-		local host=${host//\'/\\\'}
-		echo "account-hook '^imaps?://${re}/\$' 'source \"~/bin/muttauth ${host}|\"'"
-	done
+my $host = shift(@ARGV);
+my $auth = Net::Netrc->lookup($host);
+if (defined $auth->{machine}) {
+	genconf imap_user => $auth->{login};
+	genconf imap_pass => $auth->{password};
 }
-
-if [ "$1" == "-g" ]; then
-	shift
-	genhook "$@"
-else
-	genauth "$@"
-fi

@@ -10,6 +10,15 @@ fi
 remote=$1
 mountpoint=$2
 proto=cifs
+host=
+path=
+authhost=
+
+while getopts 'a:' OPT; do
+	case $OPT in
+		a)	authhost=$OPTARG;;
+	esac
+done; shift $((--OPTIND))
 
 if [[ $remote = *:* ]]; then
 	proto=${remote%%:*}
@@ -42,8 +51,16 @@ getcred() {
 	local file=$(mktemp)
 	getnetrc -d "$@" "$authhost" > "$file" || \
 	getnetrc -d "$@" "$host" > "$file" || {
-		echo "No credentials for $authhost found." >&2
-		exit 1
+		if [[ -t 0 ]]; then
+			echo "Enter credentials for $host:$path"
+			read -rp 'username: ' -ei "$LOGNAME" r_user
+			read -rp 'password: ' -es r_pass; echo
+			printf 'username=%u\npassword=%p\n' > "$file"
+			unset r_user r_pass
+		else
+			echo "No credentials for $authhost found." >&2
+			exit 1
+		fi
 	}
 	echo "$file"
 }
@@ -53,7 +70,7 @@ getcred() {
 connect() {
 	case $proto in
 	sftp)
-		sshfs "$host:$path" "$mountpoint" -o "allow_other"
+		sshfs "$host:$path" "$mountpoint" -o "allow_root"
 		;;
 	cifs|smb)
 		local creds=$(getcred -f "username=%u%npassword=%p")

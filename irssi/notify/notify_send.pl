@@ -1,24 +1,35 @@
 #!/usr/bin/env perl
 # Requirements:
+#
 #   libnotify over DBus:
-#     preferred: Net::DBus module
-#     alternate: notify-send binary (from libnotify-bin)
+#     preferred: Net::DBus
+#     alternate: 'notify-send' executable from libnotify-bin
+#
 #   TCP or UDP over IPv6:
-#     IO::Socket::INET6 module
+#     IO::Socket::INET6
+#
 #   TCP/SSL:
 #     IO::Socket::SSL
 #
+#   Growl:
+#     preferred: Mac::Growl
+#     alternate: 'growlnotify' executable
+#
 # Settings:
 #
-# (string) notify_targets = "dbus"
-#   Space-separated list of targets to send notifications to. Possible values:
-#       dbus
-#       file!<path>
-#       tcp!<host>!<port>
-#       udp!<host>!<port>
-#       unix!<address>
-#       unix!(stream|dgram)!<address>
-#       ssl!<host>!<port>
+#   (string) notify_targets = "dbus"
+#     Space-separated list of targets to send notifications to. Possible values:
+#
+#       - dbus
+#       - file!<path>
+#       - growl
+#       - ssl!<host>!<port>
+#       - tcp!<host>!<port>
+#       - udp!<host>!<port>
+#       - unix!<address>
+#       - unix!(stream|dgram)!<address>
+#
+#     <port> may be the port number (decimal) or a service name (/etc/services)
 #
 # Notes:
 #
@@ -26,12 +37,12 @@
 #     non-blocking sockets; fork() is a pain in irssi)
 #
 #   - By default, only messages containing your nickname will be matched;
-#     /hilights will not be used due to limitations in Irssi. I *could* use
-#     signal "print text", but then I couldn't split a message to title
-#     (sender) and text in a theme-agnostic way. Because of this, notify-send
-#     only checks a list of regexps, defined in on_message() below.
+#     configured /hilights will not be used due to limitations in Irssi.
+#     See 'sub on_message' below for more information.
 
+use warnings;
 use strict;
+use utf8;
 use vars qw($VERSION %IRSSI);
 
 use Irssi;
@@ -39,7 +50,7 @@ use Socket;
 use IO::Socket::INET;
 use IO::Socket::UNIX;
 
-$VERSION = "0.6";
+$VERSION = "0.6.(2*ε)";
 %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus or Intertubes.',
@@ -48,12 +59,23 @@ $VERSION = "0.6";
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
 );
 
-my ($dbus, $dbus_service, $libnotify);
 my $appname = "irssi";
 my $icon = "notification-message-IM";
 
+my ($dbus, $dbus_service, $libnotify);
+my $dbus_ok = 1;
+
 sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
+
+	# Unfortunately, irssi only checks hilights at time of printing the
+	# message, when such information as "nick" and "message" is effectively
+	# lost in formatting. Even if we tried to regexp the sender's nick out
+	# of the message, it would break with 60% of the themes out there.
+	#
+	# Besides, most people are fine with being notified when someone says
+	# their name. The rest are welcome to modify the rules below.
+
 	my $mynick = $server->{nick};
 	my $channel = $server->ischannel($target);
 
@@ -67,10 +89,10 @@ sub on_message {
 		#or $msg =~ /porn/i
 	);
 
-	# ignore services
+	# ignore notices from services
 	return if !$channel and (
-		$nick =~ /^(nick|chan|memo|oper|php)serv$/i
-		or ($nick =~ /^alis$/i and $userhost =~ /\@services/)
+		($type eq "notice" and $userhost =~ /\@services/)
+		or $nick =~ /^(nick|chan|memo|oper|php)serv$/i
 	);
 
 	my $title = $nick;
@@ -92,9 +114,10 @@ sub getserv {
 	my ($name, $proto) = @_;
 	if ($name =~ /^[0-9]+$/) {
 		return int $name;
+	} else {
+		my ($rname, $aliases, $port, $rproto) = getservbyname($name, $proto);
+		return $port;
 	}
-	my ($rname, $aliases, $port, $rproto) = getservbyname($name, $proto);
-	return $port;
 }
 
 sub send_file {
@@ -112,14 +135,16 @@ sub send_dbus {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
 
-	if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
-		return 0;
+	if ($dbus_ok and !defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
+		$dbus_ok = 0;
+		return 0, "DBus session bus not available";
 	}
 
 	if (!defined $dbus and eval {require Net::DBus}) {
 		$dbus = Net::DBus->session;
 		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
 		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
+		$dbus_ok = 1;
 	}
 
 	if (defined $libnotify) {
@@ -216,7 +241,7 @@ sub send_unix {
 	my ($data, $type, $address) = @_;
 	my $sock = IO::Socket::UNIX->new(
 		Type => ($type eq 'stream'? SOCK_STREAM : SOCK_DGRAM),
-		Peer => $address
+		Peer => $address,
 	);
 	if (defined $sock) {
 		print $sock $data;
@@ -231,23 +256,30 @@ sub notify {
 	my ($dest, $title, $text) = @_;
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 
-	if ($dest eq "dbus") {
+	if ($dest =~ /^dbus$/) {
 		send_dbus($title, $text);
-	} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
-		send_inet($rawmsg, $1, $2, $3);
-	} elsif ($dest =~ /^file!(.+)$/) {
+	}
+	elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
-	} elsif ($dest =~ /^growl$/) {
+	}
+	elsif ($dest =~ /^growl$/) {
 		send_growl($title, $text);
-	} elsif ($dest =~ /^unix!(stream|dgram)!(.+)$/) {
-		send_unix($rawmsg, $1, $2);
-	} elsif ($dest =~ /^unix!(.+)$/) {
-		send_unix($rawmsg, "stream", $1);
-	} elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {
+	}
+	elsif ($dest =~ /^ssl!(.+?)!(.+?)$/) {
 		send_inetssl($rawmsg, $1, $2);
-	} else {
+	}
+	elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
+		send_inet($rawmsg, $1, $2, $3);
+	}
+	elsif ($dest =~ /^unix!(stream|dgram)!(.+)$/) {
+		send_unix($rawmsg, $1, $2);
+	}
+	elsif ($dest =~ /^unix!(.+)$/) {
+		send_unix($rawmsg, "stream", $1);
+	}
+	else {
 		$dest =~ /^([^!]+)/;
-		0, "Unsupported address '$1'";
+		0, "Unsupported address type '$1'";
 	}
 }
 

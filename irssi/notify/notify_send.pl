@@ -97,6 +97,63 @@ sub getserv {
 	return $port;
 }
 
+sub send_file {
+	my ($data, $path) = @_;
+	if (open my $fh, ">>", $path) {
+		print $fh $data;
+		close $fh;
+		return 1;
+	} else {
+		return 0, $!;
+	}
+}
+
+sub send_dbus {
+	my ($title, $text) = @_;
+	$text = xml_escape($text);
+
+	if (!defined $dbus and eval {require Net::DBus}) {
+		$dbus = Net::DBus->session;
+		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
+		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
+	}
+
+	if (defined $libnotify) {
+		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+		return 1;
+	}
+	else {
+		my @args = ("notify-send");
+		push @args, "--icon=$icon" unless $icon eq "";
+		# category doesn't do the same as appname, but still useful
+		push @args, "--category=$appname" unless $appname eq "";
+		push @args, $title;
+		push @args, $text unless $text eq "";
+		return system(@args) == 0;
+	}
+}
+
+sub send_growl {
+	my ($title, $text) = @_;
+	our $growl;
+	if (eval {require Mac::Growl}) {
+		if (!$growl) {
+			my @default = qw(Hilight);
+			my @all = @default;
+			Mac::Growl->RegisterNotification($appname, \@all, \@default);
+			$growl = 1;
+		}
+		Mac::Growl->PostNotification($appname, "Hilight", $title, $text);
+	} else {
+		#return 0, "Growl support requires Mac::Growl";
+		my @args = ("growlnotify");
+		push @args, ("-n", $appname) if $appname;
+		push @args, ("-m", $text) if $text;
+		push @args, $title;
+		return system(@args) == 0;
+	}
+}	
+
 sub send_inet {
 	my ($data, $proto, $host, $service) = @_;
 	my $port = getserv($service, $proto)
@@ -166,69 +223,12 @@ sub send_unix {
 	}
 }
 
-sub send_file {
-	my ($data, $path) = @_;
-	if (open my $fh, ">>", $path) {
-		print $fh $data;
-		close $fh;
-		return 1;
-	} else {
-		return 0, $!;
-	}
-}
-
-sub send_libnotify {
-	my ($title, $text) = @_;
-	$text = xml_escape($text);
-
-	if (!defined $dbus and eval {require Net::DBus}) {
-		$dbus = Net::DBus->session;
-		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
-		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
-	}
-
-	if (defined $libnotify) {
-		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
-		return 1;
-	}
-	else {
-		my @args = ("notify-send");
-		push @args, "--icon=$icon" unless $icon eq "";
-		# category doesn't do the same as appname, but still useful
-		push @args, "--category=$appname" unless $appname eq "";
-		push @args, $title;
-		push @args, $text unless $text eq "";
-		return system(@args) == 0;
-	}
-}
-
-sub send_growl {
-	my ($title, $text) = @_;
-	our $growl;
-	if (eval {require Mac::Growl}) {
-		if (!$growl) {
-			my @default = qw(Hilight);
-			my @all = @default;
-			Mac::Growl->RegisterNotification($appname, \@all, \@default);
-			$growl = 1;
-		}
-		Mac::Growl->PostNotification($appname, "Hilight", $title, $text);
-	} else {
-		#return 0, "Growl support requires Mac::Growl";
-		my @args = ("growlnotify");
-		push @args, ("-n", $appname) if $appname;
-		push @args, ("-m", $text) if $text;
-		push @args, $title;
-		return system(@args) == 0;
-	}
-}	
-
 sub notify {
 	my ($dest, $title, $text) = @_;
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 
 	if ($dest eq "dbus") {
-		send_libnotify($title, $text);
+		send_dbus($title, $text);
 	} elsif ($dest =~ /^(tcp|udp)!(.+?)!(.+?)$/) {
 		send_inet($rawmsg, $1, $2, $3);
 	} elsif ($dest =~ /^file!(.+)$/) {

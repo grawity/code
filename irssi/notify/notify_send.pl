@@ -112,6 +112,10 @@ sub send_dbus {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
 
+	if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
+		return 0;
+	}
+
 	if (!defined $dbus and eval {require Net::DBus}) {
 		$dbus = Net::DBus->session;
 		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");

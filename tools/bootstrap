@@ -3,15 +3,9 @@ set -e
 pullkey_host=equal.cluenet.org
 forward_mail=grawity@gmail.com
 
-if have getent; then
-	read _ FQDN _ <<< "$(getent hosts "$HOSTNAME")"
-else
-	FQDN=$(hostname)
-fi
-
 have() { command -v "$1" >&/dev/null; }
 
-log() { printf "\e[1;34m==>\e[;1m %s\e[m\n" "$*"; }
+log() { printf "\e[1;34m=>\e[;1m %s\e[m\n" "$*"; }
 
 confirm() {
 	local msg=$1 ans=
@@ -19,11 +13,17 @@ confirm() {
 }
 
 check-gpg-version() {
-	local version major minor patch rest
+	local version major minor rest
 	version=$(gpg --version | sed 's/gpg (GnuPG) //; q')
 	IFS="." read -r major minor rest <<< "$version"
 	(( major >= 2 )) || (( major == 1 && minor >= 4 ))
 }
+
+if have getent; then
+	read _ FQDN _ <<< "$(getent hosts "$HOSTNAME")"
+else
+	FQDN=$(hostname)
+fi
 
 if [[ ! -d ~/lib/dotfiles ]]; then
 	log "Cloning dotfiles.git"
@@ -38,12 +38,18 @@ if [[ ! -f ~/.ssh/authorized_keys ]]; then
 		log "Setting up sshupdate-gpg"
 		~/code/sshupdate-gpg -rv
 	elif have ssh-keygen && [[ ! -f ~/.ssh/id_sshupdate ]]; then
-		log "Setting up sshupdate-ssh"
+		log "Generating a key for sshupdate-ssh"
 		opts=(-q -f ~/.ssh/id_sshupdate -N ""
 			-C "$USER/sshupdate@$FQDN")
 		ssh-keygen "${opts[@]}" -t ecdsa ||
 		ssh-keygen "${opts[@]}" -t rsa -b 768
-		cat ~/.ssh/id_sshupdate | ssh $pullkey_host "~/bin/pullkey --install"
+		log "Uploading key to $pullkey_host"
+		cat ~/.ssh/id_sshupdate.pub |
+			ssh $pullkey_host "~/bin/pullkey --install"
+		log "Updating SSH keys"
+		~/code/sshupdate-ssh
+	else
+		warn "Impossible to update SSH authorized_keys"
 	fi
 fi
 
@@ -56,11 +62,15 @@ if [[ ! -f ~/.forward ]]; then
 	log "Forwarding mail to $forward_mail"
 	echo "$forward_mail" > ~/.forward
 
-	log "Sending a test email"
-	(echo "Test";
-		hostname -f;
-		uname -a;
-		id;
-		have getent && getent passwd "$USER"
-	) | mail -s "Test from $HOSTNAME" "$forward_mail"
+	if have mail; then
+		log "Sending a test email"
+		(echo "Test";
+			hostname -f;
+			uname -a;
+			id;
+			have getent && getent passwd "$USER"
+		) | mail -s "Test from $HOSTNAME" "$forward_mail"
+	else
+		warn "'mail' not available; cannot send test email"
+	fi
 fi

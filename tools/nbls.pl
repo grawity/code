@@ -191,9 +191,10 @@ for my $master (@masters) {
 			&& $_->{addr} eq $master->{addr}} @network;
 }
 
-# Look up DNS names for all entries
+# Look up DNS names for all entries. Add missing fields.
 for my $entry (@network) {
 	$entry->{dnsname} = ip2host($entry->{addr});
+	$entry->{type} //= "unique";
 }
 
 # Sort by name/suffix/DNS

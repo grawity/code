@@ -146,7 +146,7 @@ for my $master (@masters) {
 		if ($entry->{suffix} == $SUFFIX{workstation}) {
 			if ($entry->{type} eq "group") {
 				my $wgname = $entry->{name};
-				print STDERR "(master has group $wgname)\n";
+				print STDERR "($entry->{addr} has group $wgname)\n";
 				next if $wgname ~~ @next_wgs;
 				push @next_wgs, $wgname;
 			}
@@ -183,7 +183,7 @@ while (@next_wgs) {
 
 # Push master browser in case none of above lookups returned it
 # Doing it here because only NBSTAT lookups return the correct
-# group bit, when using 'nmblookup'.
+# group bit, if using 'nmblookup'.
 for my $master (@masters) {
 	push @network, $master
 		unless grep {$_->{name} eq $master->{name}
@@ -216,23 +216,32 @@ for my $entry (@network) {
 	my $color = "";
 	my $c_reset = "";
 	if ($do_color) {
-		if ($entry->{suffix} == $SUFFIX{server} and $entry->{type} eq "unique") {
-			#$color = "\e[1;32m";
-			#$color = "\e[30;46m";
-			$color = "\e[7;36m";
-		} elsif ($entry->{suffix} == $SUFFIX{workstation}) {
-			$color = ($entry->{type} eq "group") ? "\e[36m" : "\e[1;36m";
-		} elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
+		if ($entry->{suffix} == $SUFFIX{server}) {
+			$color = ($entry->{type} eq "unique")
+				? "\e[7;34m"
+				: "\e[34m";
+		}
+		elsif ($entry->{suffix} == $SUFFIX{workstation}) {
+			$color = ($entry->{type} eq "unique")
+				? "\e[1;32m"
+				: "\e[32m";
+		}
+		elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
 			$color = "\e[1;35m";
-		} elsif ($entry->{suffix} == $SUFFIX{local_master}) {
+		}
+		elsif ($entry->{suffix} == $SUFFIX{local_master}) {
 			$color = "\e[35m";
-		} elsif ($entry->{suffix} == $SUFFIX{domain_controller}) {
-			$color = "\e[1;32m";
-		} elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
+		}
+		elsif ($entry->{suffix} == $SUFFIX{domain_controller}) {
+			$color = "\e[1;36m";
+		}
+		elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
 			$color = "\e[1;30m";
-		} elsif ($entry->{suffix} == $SUFFIX{messenger}) {
-			$color = "\e[33m";
-		} else {
+		}
+		elsif ($entry->{suffix} == $SUFFIX{messenger}) {
+			$color = "\e[31m";
+		}
+		else {
 			$color = "";
 		}
 		$c_reset = "\e[m";

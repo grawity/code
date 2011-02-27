@@ -69,7 +69,7 @@ my %RSUFFIX = map {$SUFFIX{$_} => $_} keys %SUFFIX;
 
 sub ip2host {
 	my $addr = inet_aton(shift);
-	my $name = gethostbyaddr($addr, AF_INET);
+	my $name = gethostbyaddr($addr, AF_INET) // "";
 	$name = lc $name;
 	$name =~ s/\.home$//;
 	return $name;
@@ -104,10 +104,11 @@ sub nmbstat {
 	print STDERR "(nmbstat @_)\n";
 	open my $fd, "-|", ("nmblookup", "-S", @_);
 	while (<$fd>) {
-		if (my @r = /^Looking up status of (\S+)$/) {
+		my @r;
+		if (@r = /^Looking up status of (\S+)$/) {
 			$addr = $r[0];
 		}
-		elsif (my @r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+)/ix) {
+		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+)/ix) {
 			my ($name, $suffix, $type, $flag) = @r;
 			#if ($name =~ /^[ && $suffix == $SUFFIX{browser}) {
 			#	$name = "__MSBROWSE__";

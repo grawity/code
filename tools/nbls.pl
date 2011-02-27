@@ -121,12 +121,16 @@ sub nmbstat {
 	return @results;
 }
 
+my $master;
 my @network;
 my @workgroups;
 my @next_wgs;
 
+my $do_header = 1;
+my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
+
 # Discover the network's master browser
-my $master = nmblookup("-M", "--", "-")
+$master = nmblookup("-M", "--", "-")
 	or die "Unable to find master browser.\n";
 print STDERR "(master is $master->{addr})\n";
 
@@ -193,6 +197,12 @@ for my $entry (@network) {
 	|| $a->{dnsname} cmp $b->{dnsname}} @network;
 
 # Print out
+if ($do_header) {
+	printf "%-15s%-4s %1s %-15s %-20s %s\n%s\n",
+		"NETBIOS NAME", "SUFX", "G", "IP ADDRESS", "DNS NAME", "NETBIOS SUFFIX",
+		"-"x80;
+}
+
 for my $entry (@network) {
 	my $flag;
 	if ($entry->{type} eq "group")		{$flag = "G"}
@@ -200,7 +210,7 @@ for my $entry (@network) {
 
 	my $color = "";
 	my $c_reset = "";
-	if (-t 1 or defined $ENV{FORCE_COLOR}) {
+	if ($do_color) {
 		if ($entry->{suffix} == $SUFFIX{server}) {
 			#$color = "\e[1;32m";
 			$color = "\e[30;42m";

@@ -126,7 +126,8 @@ my @workgroups;
 my @next_wgs;
 
 # Discover the network's master browser
-my $master = nmblookup("-M", "--", "-");
+my $master = nmblookup("-M", "--", "-")
+	or die "Unable to find master browser.\n";
 print STDERR "(master is $master->{addr})\n";
 
 # Get all workgroups in master.

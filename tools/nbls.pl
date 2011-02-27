@@ -121,7 +121,7 @@ sub nmbstat {
 	return @results;
 }
 
-my $master;
+my @masters;
 my @network;
 my @workgroups;
 my @next_wgs;
@@ -130,23 +130,26 @@ my $do_header = 1;
 my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
 
 # Discover the network's master browser
-$master = nmblookup("-M", "--", "-")
+@masters = nmblookup("-M", "--", "-")
 	or die "Unable to find master browser.\n";
-print STDERR "(master is $master->{addr})\n";
 
-# Get all workgroups in master.
-for my $entry (nmbstat("-A", $master->{addr})) {
-	next if grep {$_->{name} eq $entry->{name}
-		&& $_->{suffix} eq $entry->{suffix}
-		&& $_->{addr} eq $entry->{addr}} @network;
-	push @network, $entry;
+for my $master (@masters) {
+	print STDERR "(master is $master->{addr})\n";
 
-	if ($entry->{suffix} == $SUFFIX{workstation}) {
-		if ($entry->{type} eq "group") {
-			my $wgname = $entry->{name};
-			print STDERR "(master has group $wgname)\n";
-			next if $wgname ~~ @next_wgs;
-			push @next_wgs, $wgname;
+	# Get all workgroups in master.
+	for my $entry (nmbstat("-A", $master->{addr})) {
+		next if grep {$_->{name} eq $entry->{name}
+			&& $_->{suffix} eq $entry->{suffix}
+			&& $_->{addr} eq $entry->{addr}} @network;
+		push @network, $entry;
+
+		if ($entry->{suffix} == $SUFFIX{workstation}) {
+			if ($entry->{type} eq "group") {
+				my $wgname = $entry->{name};
+				print STDERR "(master has group $wgname)\n";
+				next if $wgname ~~ @next_wgs;
+				push @next_wgs, $wgname;
+			}
 		}
 	}
 }
@@ -181,10 +184,12 @@ while (@next_wgs) {
 # Push master browser in case none of above lookups returned it
 # Doing it here because only NBSTAT lookups return the correct
 # group bit, when using 'nmblookup'.
-push @network, $master
-	unless grep {$_->{name} eq $master->{name}
-		&& $_->{suffix} eq $master->{suffix}
-		&& $_->{addr} eq $master->{addr}} @network;
+for my $master (@masters) {
+	push @network, $master
+		unless grep {$_->{name} eq $master->{name}
+			&& $_->{suffix} eq $master->{suffix}
+			&& $_->{addr} eq $master->{addr}} @network;
+}
 
 # Look up DNS names for all entries
 for my $entry (@network) {

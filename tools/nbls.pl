@@ -216,7 +216,7 @@ for my $entry (@network) {
 	my $color = "";
 	my $c_reset = "";
 	if ($do_color) {
-		if ($entry->{suffix} == $SUFFIX{server}) {
+		if ($entry->{suffix} == $SUFFIX{server} and $entry->{type} eq "unique") {
 			#$color = "\e[1;32m";
 			#$color = "\e[30;46m";
 			$color = "\e[7;36m";

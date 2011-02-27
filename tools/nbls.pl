@@ -218,15 +218,16 @@ for my $entry (@network) {
 	if ($do_color) {
 		if ($entry->{suffix} == $SUFFIX{server}) {
 			#$color = "\e[1;32m";
-			$color = "\e[30;42m";
+			#$color = "\e[30;46m";
+			$color = "\e[7;36m";
 		} elsif ($entry->{suffix} == $SUFFIX{workstation}) {
-			$color = "\e[32m";
+			$color = ($entry->{type} eq "group") ? "\e[36m" : "\e[1;36m";
 		} elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
 			$color = "\e[1;35m";
 		} elsif ($entry->{suffix} == $SUFFIX{local_master}) {
 			$color = "\e[35m";
 		} elsif ($entry->{suffix} == $SUFFIX{domain_controller}) {
-			$color = "\e[1;36m";
+			$color = "\e[1;32m";
 		} elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
 			$color = "\e[1;30m";
 		} elsif ($entry->{suffix} == $SUFFIX{messenger}) {

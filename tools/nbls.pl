@@ -152,7 +152,7 @@ printlog("discovering master browsers");
 # Get all workgroups in masters, querying by IP address
 for my $master (@masters) {
 	printlog("querying names of master $master->{addr}");
-	for my $entry (nmbstat("-A", $master->{addr})) {
+	for my $entry (nmbstat("-U", $master->{addr}, "\x01\x02__MSBROWSE__\x02#01")) {
 		next if grep {$_->{name} eq $entry->{name}
 			&& $_->{suffix} eq $entry->{suffix}
 			&& $_->{addr} eq $entry->{addr}} @network;

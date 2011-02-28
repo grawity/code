@@ -151,8 +151,8 @@ for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
 
 	if ($entry->{suffix} == $SUFFIX{workstation}) {
 		if ($entry->{type} eq "group") {
-			printlog("adding '$entry->{name}' from $entry->{addr}");
 			next if $entry->{name} ~~ @next_wgs;
+			printlog("adding '$entry->{name}' from $entry->{addr}");
 			push @next_wgs, $entry->{name};
 		}
 	}
@@ -176,8 +176,8 @@ while (@next_wgs) {
 			if ($entry->{suffix} == $SUFFIX{workstation}) {
 				if ($entry->{type} eq "group") {
 					next if $entry->{name} ~~ @workgroups;
-					printlog("adding '$entry->{name}' from $entry->{addr}");
 					next if $entry->{name} ~~ @next_wgs;
+					printlog("adding '$entry->{name}' from $entry->{addr}");
 					push @next_wgs, $entry->{name};
 				}
 			}

@@ -8,8 +8,9 @@ if ! [[ $1 ]]; then
 fi
 
 remote=$1
+o_remote=$remote
 mountpoint=$2
-proto=cifs
+proto=
 host=
 path=
 authhost=
@@ -20,25 +21,22 @@ while getopts 'a:' OPT; do
 	esac
 done; shift $((--OPTIND))
 
-if [[ $remote = *:* ]]; then
-	proto=${remote%%:*}
-	remote=${remote#*:}
+# Parse remote URL into proto,host,path
+if [[ $remote =~ ^(([[:alnum:]]+):)?//(\[.+\]|[[:alnum:]._-]+)(/(.*))?$ ]]; then
+	proto=${BASH_REMATCH[2]:-cifs}
+	host=${BASH_REMATCH[3]}
+	path=${BASH_REMATCH[5]:-$LOGNAME}
+elif [[ $remote =~ ^(\[.+\]|[[:alnum:]._-]+)(:(.*))?$ ]]; then
+	proto=sftp
+	host=${BASH_REMATCH[1]}
+	path=${BASH_REMATCH[3]}
 fi
+remote=$proto://$host/$path
 
-if [[ $remote = *:* ]]; then
-	host=${remote%%:*}
-	path=${remote#*:}
-elif [[ $remote = //*/* ]]; then
-	remote=${remote#//}
-	host=${remote%%/*}
-	path=${remote#*/}
-else
-	echo "Invalid remote path"
-	exit 1
-fi
+[[ $authhost ]] || authhost=$host
 
 if [[ -z $mountpoint ]]; then
-	if [[ $path == $USER ]]; then
+	if [[ $path == $LOGNAME ]]; then
 		mountpoint=$host
 	else
 		mountpoint=${path##/*}
@@ -47,25 +45,31 @@ if [[ -z $mountpoint ]]; then
 	mkdir -pm 0700 "$mountpoint"
 fi
 
-getcred() {
-	local file=$(mktemp)
-	getnetrc -d "$@" "$authhost" > "$file" || \
-	getnetrc -d "$@" "$host" > "$file" || {
-		if [[ -t 0 ]]; then
-			echo "Enter credentials for $host:$path"
-			read -rp 'username: ' -ei "$LOGNAME" r_user
-			read -rp 'password: ' -es r_pass; echo
-			printf 'username=%u\npassword=%p\n' > "$file"
-			unset r_user r_pass
-		else
-			echo "No credentials for $authhost found." >&2
-			exit 1
-		fi
-	}
-	echo "$file"
+readcred() {
+	local obj=$1 r_user r_pass
+	if [[ -t 0 ]]; then
+		echo >/dev/tty "Enter credentials for $obj"
+		read </dev/tty -rp 'username: ' -ei "$LOGNAME" r_user
+		read </dev/tty -rp 'password: ' -es r_pass
+		echo >/dev/tty ""
+		printf 'username=%s\npassword=%s\n' "$r_user" "$r_pass"
+		return 0
+	else
+		echo >&2 "No credentials for $obj found."
+		return 1
+	fi
 }
 
-[[ $authhost ]] || authhost=$host
+getcred() {
+	local fmt='username=%u%npassword=%p'
+	getnetrc -df "$fmt" "$authhost" ||
+	getnetrc -df "$fmt" "$host" ||
+	readcred "$remote"
+}
+
+mktemps() {
+	mktemp --tmpdir=/dev/shm "$@"
+}
 
 connect() {
 	case $proto in
@@ -73,16 +77,23 @@ connect() {
 		sshfs "$host:$path" "$mountpoint" -o "allow_root"
 		;;
 	cifs|smb)
-		local creds=$(getcred -f "username=%u%npassword=%p")
-		local secmode=ntlmv2
+		local creds=$(mktemps)
+		getcred >$creds
+
+		local secmode="ntlmv2,cred=$creds"
 		if grep -Fxqs "password=*" "$creds"; then
-			secmode=krb5
+			secmode="krb5,cred=${KRB5CCNAME#FILE:}"
 		fi
-		sudo mount.cifs "$host:$path" "$mountpoint" \
-			-o "sec=$secmode,credentials=$creds,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8"
+
+		sudo mount -t cifs "$host:$path" "$mountpoint" \
+			-o "sec=$secmode,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8,nosuid,cifsacl"
 		rm -f "$creds"
 		;;
 	esac
 }
 
-connect
+if [[ $DEBUG ]]; then
+	"$@"
+else
+	connect
+fi

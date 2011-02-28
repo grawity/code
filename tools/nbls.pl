@@ -88,21 +88,6 @@ sub lookup {
 	nmblookup($name);
 }
 
-sub nmblookup {
-	my (@args) = @_;
-	my @results;
-	open my $fd, "-|", (@nmblookup_args, @args);
-	while (<$fd>) {
-		if (my @r = /^(\S+) (\S+)<([0-9a-f]{2})>$/i) {
-			my ($addr, $name, $suffix) = @r;
-			$name =~ s/[\x01-\x1F]/./g;
-			push @results, {addr => $addr, name => uc $name, suffix => hex $suffix};
-		}
-	}
-	close $fd;
-	return wantarray ? @results : $results[0];
-}
-
 sub nmbstat {
 	my @results;
 	my $addr;

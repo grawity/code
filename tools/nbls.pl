@@ -73,8 +73,9 @@ my %RSUFFIX = map {$SUFFIX{$_} => $_} keys %SUFFIX;
 my @nmblookup_args = ("nmblookup");
 
 sub ip2host {
-	my $addr = inet_aton(shift);
-	my $name = gethostbyaddr($addr, AF_INET) // "";
+	my $addr = shift;
+	printlog("resolving $addr");
+	my $name = gethostbyaddr(inet_aton($addr), AF_INET) // "";
 	$name = lc $name;
 	$name =~ s/\.home$//;
 	return $name;
@@ -211,8 +212,9 @@ for my $master (@masters) {
 
 # Look up DNS names for all entries. Add missing fields.
 printlog("resolving DNS names");
+my %dnscache;
 for my $entry (@network) {
-	$entry->{dnsname} = ip2host($entry->{addr});
+	$entry->{dnsname} = ($dnscache{$entry->{addr}} //= ip2host($entry->{addr}));
 	$entry->{type} //= "unique";
 }
 

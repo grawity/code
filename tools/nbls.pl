@@ -4,6 +4,7 @@ use warnings;
 use strict;
 use Data::Dumper;
 use Socket;
+use Getopt::Long qw(:config bundling no_ignore_case);
 
 my %SUFFIX = (
 	workstation		=> 0x00,
@@ -85,7 +86,7 @@ sub lookup {
 sub nmblookup {
 	my (@args) = @_;
 	my @results;
-	print STDERR "(nmblookup @args)\n";
+	#print STDERR "(nmblookup @args)\n";
 	open my $fd, "-|", ("nmblookup", @args);
 	while (<$fd>) {
 		if (my @r = /^(\S+) (\S+)<([0-9a-f]{2})>$/i) {
@@ -101,7 +102,7 @@ sub nmblookup {
 sub nmbstat {
 	my @results;
 	my $addr;
-	print STDERR "(nmbstat @_)\n";
+	#print STDERR "(nmbstat @_)\n";
 	open my $fd, "-|", ("nmblookup", "-S", @_);
 	while (<$fd>) {
 		my @r;
@@ -126,17 +127,31 @@ my @network;
 my @workgroups;
 my @next_wgs;
 
+my $do_verbose = 0;
 my $do_header = 1;
 my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
 
-# Discover the network's master browser
+sub printlog {
+	if ($do_verbose) {
+		my $msg = shift;
+		print STDERR "- $msg\n";
+	}
+}
+
+GetOptions(
+	"v|verbose"	=> \$do_verbose,
+	"H|header!"	=> \$do_header,
+	"C|color!"	=> \$do_color,
+) or die $!;
+
+# Discover the network's master browsers
+printlog("discovering master browsers");
 @masters = nmblookup("-M", "--", "-")
-	or die "Unable to find master browser.\n";
+	or die "Unable to find a master browser.\n";
 
+# Get all workgroups in masters, querying by IP address
 for my $master (@masters) {
-	print STDERR "(master is $master->{addr})\n";
-
-	# Get all workgroups in master.
+	printlog("querying names of master $master->{addr}");
 	for my $entry (nmbstat("-A", $master->{addr})) {
 		next if grep {$_->{name} eq $entry->{name}
 			&& $_->{suffix} eq $entry->{suffix}
@@ -145,10 +160,9 @@ for my $master (@masters) {
 
 		if ($entry->{suffix} == $SUFFIX{workstation}) {
 			if ($entry->{type} eq "group") {
-				my $wgname = $entry->{name};
-				print STDERR "($entry->{addr} has group $wgname)\n";
-				next if $wgname ~~ @next_wgs;
-				push @next_wgs, $wgname;
+				printlog("adding '$entry->{name}' from $entry->{addr}");
+				next if $entry->{name} ~~ @next_wgs;
+				push @next_wgs, $entry->{name};
 			}
 		}
 	}
@@ -162,6 +176,7 @@ while (@next_wgs) {
 	for my $wg (@more_wgs) {
 		next if $wg ~~ @workgroups;
 		push @workgroups, $wg;
+		printlog("querying names of '$wg' members");
 		for my $entry (nmbstat($wg)) {
 			next if grep {$_->{name} eq $entry->{name}
 				&& $_->{suffix} eq $entry->{suffix}
@@ -170,11 +185,10 @@ while (@next_wgs) {
 
 			if ($entry->{suffix} == $SUFFIX{workstation}) {
 				if ($entry->{type} eq "group") {
-					my $wgname = $entry->{name};
-					next if $wgname ~~ @workgroups;
-					print STDERR "($entry->{addr} has group $wgname)\n";
-					next if $wgname ~~ @next_wgs;
-					push @next_wgs, $wgname;
+					next if $entry->{name} ~~ @workgroups;
+					printlog("adding '$entry->{name}' from $entry->{addr}");
+					next if $entry->{name} ~~ @next_wgs;
+					push @next_wgs, $entry->{name};
 				}
 			}
 		}
@@ -192,6 +206,7 @@ for my $master (@masters) {
 }
 
 # Look up DNS names for all entries. Add missing fields.
+printlog("resolving DNS names");
 for my $entry (@network) {
 	$entry->{dnsname} = ip2host($entry->{addr});
 	$entry->{type} //= "unique";

@@ -70,6 +70,8 @@ my %NSUFFIX = (
 
 my %RSUFFIX = map {$SUFFIX{$_} => $_} keys %SUFFIX;
 
+my @nmblookup_args = ("nmblookup");
+
 sub ip2host {
 	my $addr = inet_aton(shift);
 	my $name = gethostbyaddr($addr, AF_INET) // "";
@@ -88,8 +90,7 @@ sub lookup {
 sub nmblookup {
 	my (@args) = @_;
 	my @results;
-	#print STDERR "(nmblookup @args)\n";
-	open my $fd, "-|", ("nmblookup", @args);
+	open my $fd, "-|", (@nmblookup_args, @args);
 	while (<$fd>) {
 		if (my @r = /^(\S+) (\S+)<([0-9a-f]{2})>$/i) {
 			my ($addr, $name, $suffix) = @r;
@@ -104,8 +105,7 @@ sub nmblookup {
 sub nmbstat {
 	my @results;
 	my $addr;
-	#print STDERR "(nmbstat @_)\n";
-	open my $fd, "-|", ("nmblookup", "-S", @_);
+	open my $fd, "-|", (@nmblookup_args, "-S", @_);
 	while (<$fd>) {
 		my @r;
 		if (@r = /^Looking up status of (\S+)$/) {
@@ -132,6 +132,7 @@ my @next_wgs;
 my $do_verbose = 0;
 my $do_header = 1;
 my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
+my $do_root_port = 0;
 
 sub printlog {
 	if ($do_verbose) {
@@ -141,10 +142,18 @@ sub printlog {
 }
 
 GetOptions(
-	"v|verbose"	=> \$do_verbose,
-	"H|header!"	=> \$do_header,
 	"C|color!"	=> \$do_color,
+	"H|header!"	=> \$do_header,
+	"r|root-port"	=> \$do_root_port,
+	"v|verbose"	=> \$do_verbose,
 ) or die $!;
+
+if ($do_root_port) {
+	push @nmblookup_args, "-r";
+	if ($<) {
+		unshift @nmblookup_args, "sudo";
+	}
+}
 
 # Discover the network's master browsers
 printlog("discovering master browsers");

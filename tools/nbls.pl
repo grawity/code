@@ -156,25 +156,18 @@ if ($do_root_port) {
 }
 
 # Discover the network's master browsers
-printlog("discovering master browsers");
-@masters = nmblookup("-M", "--", "-")
-	or die "Unable to find a master browser.\n";
+printlog("querying names of master browsers");
+for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
+	next if grep {$_->{name} eq $entry->{name}
+		&& $_->{suffix} eq $entry->{suffix}
+		&& $_->{addr} eq $entry->{addr}} @network;
+	push @network, $entry;
 
-# Get all workgroups in masters, querying by IP address
-for my $master (@masters) {
-	printlog("querying names of master $master->{addr}");
-	for my $entry (nmbstat("-U", $master->{addr}, "\x01\x02__MSBROWSE__\x02#01")) {
-		next if grep {$_->{name} eq $entry->{name}
-			&& $_->{suffix} eq $entry->{suffix}
-			&& $_->{addr} eq $entry->{addr}} @network;
-		push @network, $entry;
-
-		if ($entry->{suffix} == $SUFFIX{workstation}) {
-			if ($entry->{type} eq "group") {
-				printlog("adding '$entry->{name}' from $entry->{addr}");
-				next if $entry->{name} ~~ @next_wgs;
-				push @next_wgs, $entry->{name};
-			}
+	if ($entry->{suffix} == $SUFFIX{workstation}) {
+		if ($entry->{type} eq "group") {
+			printlog("adding '$entry->{name}' from $entry->{addr}");
+			next if $entry->{name} ~~ @next_wgs;
+			push @next_wgs, $entry->{name};
 		}
 	}
 }

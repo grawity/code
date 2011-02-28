@@ -270,6 +270,7 @@ for my $entry (@network) {
 	printf "%s%-15s<%02x> %1s %-15s %-20s %s%s\n",
 		$color,
 		$entry->{name}, $entry->{suffix}, $flag,
-		$entry->{addr}, $entry->{dnsname}, $NSUFFIX{$entry->{suffix}},
+		$entry->{addr}, $entry->{dnsname},
+		$NSUFFIX{$entry->{suffix}} // sprintf("(unknown <%02x>)", $entry->{suffix}),
 		$c_reset;
 }

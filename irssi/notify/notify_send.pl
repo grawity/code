@@ -63,7 +63,6 @@ my $appname = "irssi";
 my $icon = "notification-message-IM";
 
 my ($dbus, $dbus_service, $libnotify);
-my $dbus_ok = 1;
 
 sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
@@ -135,8 +134,7 @@ sub send_dbus {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
 
-	if ($dbus_ok and !defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
-		$dbus_ok = 0;
+	if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
 		return 0, "DBus session bus not available";
 	}
 

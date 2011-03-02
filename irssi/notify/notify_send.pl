@@ -142,7 +142,6 @@ sub send_dbus {
 		$dbus = Net::DBus->session;
 		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
 		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
-		$dbus_ok = 1;
 	}
 
 	if (defined $libnotify) {

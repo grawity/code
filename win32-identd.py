@@ -1,3 +1,5 @@
+#!python
+from __future__ import print_function
 import sys
 import ctypes
 from ctypes import byref, sizeof
@@ -166,7 +168,7 @@ class Identd():
 		self.accept()
 
 	def log(self, str, *args):
-		print str % args
+		print(str % args)
 
 	def listen(self, af, addr):
 		fd = socket.socket(af, socket.SOCK_STREAM)

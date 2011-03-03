@@ -149,41 +149,55 @@ def expand_v6_addr(addr):
 		addr = addr.split(":")
 	return ":".join("%04x" % int(c, 16) for c in addr)
 
-def format_addr(host, port):
+def format_addr(host, port, *rest):
 	return ("[%s]:%s" if ":" in host else "%s:%s") % (host, port)
 
 class Identd():
 	def __init__(self, service=None):
+		try:
+			self.port = socket.getservbyname("auth")
+		except socket.error:
+			self.port = 113
+
+		self.os_name = "WIN32"
+		# Connections waiting for acception, per interface
+		self.listen_backlog = 3
+
 		self.listeners = []
 		self.clients = []
 		self.buffers = {}
 		self.requests = {}
-		self.port = 113
-		self.os_name = "WIN32"
+		self._portpairs = {}
 		self._service = service
 
 	def start(self):
+		"""Listen on all IPv4 and IPv6 interfaces and start accepting connections."""
+
 		self.listen(socket.AF_INET, "0.0.0.0")
 		if socket.has_ipv6:
 			self.listen(socket.AF_INET6, "::")
 		self.accept()
 
-	def log(self, msg, *args):
+	def log(self, level, msg, *args):
 		if self._service:
-			self._service.log(msg % args)
+			self._service.log(level, msg % args)
 		else:
 			print(msg % args)
 
 	def listen(self, af, addr):
+		"""Listen on a given address."""
+
 		fd = socket.socket(af, socket.SOCK_STREAM)
-		self.log("listening on %s", format_addr(addr, self.port))
+		self.log("info", "Listening on %s", format_addr(addr, self.port))
 		fd.bind((addr, self.port))
-		fd.listen(3)
+		fd.listen(self.listen_backlog)
 		self.listeners.append(fd)
 
 	def accept(self):
+		"""Wait for incoming data or connections."""
+
 		while True:
-			r, w, x = self.listeners[:] + self.clients[:], [], []
+			r, w, x = self.listeners + self.clients, [], []
 			r, w, x = select.select(r, w, x)
 			for fd in r:
 				if fd in self.listeners:
@@ -192,61 +206,80 @@ class Identd():
 					self.handle_in_data(fd)
 
 	def handle_connection(self, fd):
-		infd, peer = fd.accept()
-		self.log("accepting %s", peer[0])
-		self.clients.append(infd)
-		self.buffers[infd] = b""
+		client, peer = fd.accept()
+		self.log("info", "Accepting %s (fd=%d)", format_addr(*peer), client.fileno())
+		self.clients.append(client)
+		self.buffers[client] = b""
 
 	def handle_in_data(self, fd):
-		self.buffers[fd] += fd.recv(1024)
+		buf = fd.recv(1024)
+		if not buf:
+			self.log("notice", "Lost connection from %s", format_addr(*fd.getpeername()))
+			return self.close(fd)
+
+		self.buffers[fd] += buf
 		if b"\n" in self.buffers[fd]:
 			try:
 				self.handle_req(fd)
-			except Exception:
+			except Exception as e:
 				self.reply(fd, "ERROR", "UNKNOWN-ERROR")
+				self.log("error", e)
 
 	def handle_req(self, fd):
-		try:
-			self.requests[fd] = self.buffers[fd].splitlines()[0]
-			local_port, remote_port = self.requests[fd].split(",", 1)
-			local_port = int(local_port.strip())
-			remote_port = int(remote_port.strip())
-			self.requests[fd] = "%d,%d" % (local_port, remote_port)
-		except ValueError:
-			self.reply(fd, "ERROR", "INVALID-PORT")
-
 		local_addr = fd.getsockname()[0]
 		remote_addr = fd.getpeername()[0]
-		self.log("query %s -> %s",
-			format_addr(local_addr, local_port),
-			format_addr(remote_addr, remote_port))
+
+		# parse incoming request
+		try:
+			self._portpairs[fd] = self.buffers[fd].splitlines()[0]
+			local_port, remote_port = self._portpairs[fd].split(",", 1)
+			local_port = int(local_port.strip())
+			remote_port = int(remote_port.strip())
+			self._portpairs[fd] = "%d,%d" % (local_port, remote_port)
+		except ValueError:
+			local_port = remote_port = None
+
+		self.requests[fd] = (local_addr, local_port), (remote_addr, remote_port)
+		if local_port is None:
+			return self.reply(fd, "ERROR", "INVALID-PORT")
+
 		if fd.family == socket.AF_INET6:
 			local_addr = expand_v6_addr(local_addr)
 			remote_addr = expand_v6_addr(remote_addr)
-
+		# find connection in TcpTable
 		pid = get_connection_pid(fd.family, local_addr, local_port, remote_addr, remote_port)
 		if pid is not None:
+			# query token of owning process
 			owner = get_pid_owner(pid)
 			if owner:
-				owner = owner.replace(":", "_")
-				info = "%s,%s:%s" % (self.os_name.encode("utf-8"),
-					"UTF-8", owner.encode("utf-8"))
-				self.reply(fd, "USERID", info)
+				owner = owner.replace(":", "_").replace("\r", "").replace("\n", " ")
+				info = "%s,%s:%s" % (self.os_name, "UTF-8", owner)
+				return self.reply(fd, "USERID", info)
 			else:
-				self.reply(fd, "ERROR", "HIDDEN-USER")
+				return self.reply(fd, "ERROR", "HIDDEN-USER")
 		else:
-			self.reply(fd, "ERROR", "NO-USER")
+			return self.reply(fd, "ERROR", "NO-USER")
 
 	def reply(self, fd, code, info):
-		data = "%s:%s:%s\r\n" % (self.requests[fd], code, info)
+		self.log("notice", "Query:\n"
+			"\tlocal:\t%s\n"
+			"\tremote:\t%s\n"
+			"\tstatus:\t%s\n"
+			"\tinfo:\t%s",
+			format_addr(*self.requests[fd][0]), format_addr(*self.requests[fd][1]), code, info)
+		data = "%s:%s:%s\r\n" % (self._portpairs[fd], code, info)
 		fd.send(data.encode("utf-8"))
 		self.close(fd)
 
 	def close(self, fd):
+		self.log("debug", "Closing fd %d", fd.fileno())
+		try:
+			self.clients.remove(fd)
+			del self.buffers[fd]
+			del self._portpairs[fd]
+		except (KeyError, ValueError) as e:
+			pass
 		fd.close()
-		self.clients.remove(fd)
-		del self.buffers[fd]
-		del self.requests[fd]
 
 class IdentdService(win32serviceutil.ServiceFramework):
 	_svc_name_ = "identd"
@@ -261,10 +294,16 @@ class IdentdService(win32serviceutil.ServiceFramework):
 
 	def SvcStop(self):
 		self.ReportServiceStatus(win32service.SERVICE_STOPPED)
-		sys.exit()
 
-	def log(self, msg, *args):
-		servicemanager.LogInfoMsg(msg % args)
+	def log(self, level, msg):
+		if level == "error":
+			servicemanager.LogErrorMsg(msg)
+		elif level == "warn":
+			servicemanager.LogWarningMsg(msg)
+		elif level == "notice":
+			servicemanager.LogInfoMsg(msg)
+		else:
+			pass
 
 if __name__ == "__main__":
 	if len(sys.argv) > 1:

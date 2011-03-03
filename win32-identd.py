@@ -153,22 +153,26 @@ def format_addr(host, port):
 	return ("[%s]:%s" if ":" in host else "%s:%s") % (host, port)
 
 class Identd():
-	def __init__(self):
+	def __init__(self, service=None):
 		self.listeners = []
 		self.clients = []
 		self.buffers = {}
 		self.requests = {}
 		self.port = 113
 		self.os_name = "WIN32"
-	
+		self._service = service
+
 	def start(self):
 		self.listen(socket.AF_INET, "0.0.0.0")
 		if socket.has_ipv6:
 			self.listen(socket.AF_INET6, "::")
 		self.accept()
 
-	def log(self, str, *args):
-		print(str % args)
+	def log(self, msg, *args):
+		if self._service:
+			self._service.log(msg % args)
+		else:
+			print(msg % args)
 
 	def listen(self, af, addr):
 		fd = socket.socket(af, socket.SOCK_STREAM)
@@ -247,17 +251,20 @@ class Identd():
 class IdentdService(win32serviceutil.ServiceFramework):
 	_svc_name_ = "identd"
 	_svc_display_name_ = "Ident (RFC 1413) responder"
-	
+
 	def __init__(self, args):
 		win32serviceutil.ServiceFramework.__init__(self, args)
-	
+
 	def SvcDoRun(self):
-		d = Identd()
+		d = Identd(service=self)
 		d.start()
-	
+
 	def SvcStop(self):
 		self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 		sys.exit()
+
+	def log(self, msg, *args):
+		servicemanager.LogInfoMsg(msg % args)
 
 if __name__ == "__main__":
 	if len(sys.argv) > 1:

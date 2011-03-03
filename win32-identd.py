@@ -261,11 +261,11 @@ class Identd():
 			return self.reply(fd, "ERROR", "NO-USER")
 
 	def reply(self, fd, code, info):
-		self.log("notice", "Query:\n"
-			"\tlocal:\t%s\n"
-			"\tremote:\t%s\n"
-			"\tstatus:\t%s\n"
-			"\tinfo:\t%s",
+		self.log("notice", "Query:\n\n"
+			"local:\t%s\n"
+			"remote:\t%s\n"
+			"status:\t%s\n"
+			"info:\t%s",
 			format_addr(*self.requests[fd][0]), format_addr(*self.requests[fd][1]), code, info)
 		data = "%s:%s:%s\r\n" % (self._portpairs[fd], code, info)
 		fd.send(data.encode("utf-8"))

@@ -120,6 +120,7 @@ my @workgroups;
 my @next_wgs;
 
 my $do_verbose = 0;
+my $do_concise = 0;
 my $do_header = 1;
 my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
 my $do_root_port = 0;
@@ -135,6 +136,7 @@ GetOptions(
 	"C|color!"	=> \$do_color,
 	"H|header!"	=> \$do_header,
 	"r|root-port"	=> \$do_root_port,
+	"s|short"	=> \$do_concise,
 	"v|verbose"	=> \$do_verbose,
 ) or die $!;
 
@@ -220,49 +222,56 @@ for my $entry (@network) {
 	|| $a->{dnsname} cmp $b->{dnsname}} @network;
 
 # Print out
-if ($do_header) {
-	printf "%-15s%-4s %1s %1s %-15s %-20s %s\n%s\n",
-		"NETBIOS NAME", "SUFX", "G", "T", "IP ADDRESS", "DNS NAME", "NETBIOS SUFFIX",
-		"-"x80;
-}
-
-for my $entry (@network) {
-	my $color = "";
-	my $c_reset = "";
-	if ($do_color) {
-		if ($entry->{suffix} == $SUFFIX{server}) {
-			$color = $entry->{is_group} ? "\e[34m" : "\e[7;34m";
-		}
-		elsif ($entry->{suffix} == $SUFFIX{workstation}) {
-			$color = $entry->{is_group} ? "\e[32m" : "\e[1;32m";
-		}
-		elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
-			$color = "\e[1;35m";
-		}
-		elsif ($entry->{suffix} == $SUFFIX{local_master}) {
-			$color = "\e[35m";
-		}
-		elsif ($entry->{suffix} == $SUFFIX{domain_controller}) {
-			$color = "\e[1;36m";
-		}
-		elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
-			$color = "\e[1;30m";
-		}
-		elsif ($entry->{suffix} == $SUFFIX{messenger}) {
-			$color = "\e[31m";
-		}
-		else {
-			$color = "";
-		}
-		$c_reset = "\e[m";
+if ($do_concise) {
+	for my $entry (@network) {
+		printf "%-15s\t<%02x>\t%s\n",
+			$entry->{name}, $entry->{suffix}, $entry->{addr};
 	}
-		
-	printf "%s%-15s<%02x> %1s %1s %-15s %-20s %s%s\n",
-		$color,
-		$entry->{name}, $entry->{suffix},
-		$entry->{is_group} ? "G" : "",
-		$entry->{node_type},
-		$entry->{addr}, $entry->{dnsname},
-		$NSUFFIX{$entry->{suffix}} // sprintf("(unknown <%02x>)", $entry->{suffix}),
-		$c_reset;
+} else {
+	if ($do_header) {
+		printf "%-15s%-4s %1s %1s %-15s %-20s %s\n%s\n",
+			"NETBIOS NAME", "SUFX", "G", "T", "IP ADDRESS", "DNS NAME", "NETBIOS SUFFIX",
+			"-"x80;
+	}
+
+	for my $entry (@network) {
+		my $color = "";
+		my $c_reset = "";
+		if ($do_color) {
+			if ($entry->{suffix} == $SUFFIX{server}) {
+				$color = $entry->{is_group} ? "\e[34m" : "\e[7;34m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{workstation}) {
+				$color = $entry->{is_group} ? "\e[32m" : "\e[1;32m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
+				$color = "\e[1;35m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{local_master}) {
+				$color = "\e[35m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{domain_controller}) {
+				$color = "\e[1;36m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
+				$color = "\e[1;30m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{messenger}) {
+				$color = "\e[31m";
+			}
+			else {
+				$color = "";
+			}
+			$c_reset = "\e[m";
+		}
+			
+		printf "%s%-15s<%02x> %1s %1s %-15s %-20s %s%s\n",
+			$color,
+			$entry->{name}, $entry->{suffix},
+			$entry->{is_group} ? "G" : "",
+			$entry->{node_type},
+			$entry->{addr}, $entry->{dnsname},
+			$NSUFFIX{$entry->{suffix}} // sprintf("(unknown <%02x>)", $entry->{suffix}),
+			$c_reset;
+	}
 }

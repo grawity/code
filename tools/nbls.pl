@@ -91,7 +91,7 @@ sub lookup {
 sub nmbstat {
 	my @results;
 	my $addr;
-	open my $fd, "-|", (@nmblookup_args, "-S", @_);
+	open my $fd, "-|", (@nmblookup_args, "--status", @_);
 	while (<$fd>) {
 		my @r;
 		if (@r = /^Looking up status of (\S+)$/) {
@@ -138,7 +138,7 @@ GetOptions(
 ) or die $!;
 
 if ($do_root_port) {
-	push @nmblookup_args, "-r";
+	push @nmblookup_args, "--root-port";
 	if ($<) {
 		unshift @nmblookup_args, "sudo";
 	}

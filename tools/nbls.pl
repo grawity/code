@@ -97,13 +97,16 @@ sub nmbstat {
 		if (@r = /^Looking up status of (\S+)$/) {
 			$addr = $r[0];
 		}
-		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+)/ix) {
-			my ($name, $suffix, $type, $flag) = @r;
+		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+) \s (\w) \s <(\w+)>/ix) {
+			my ($name, $suffix, $nametype, $nodetype, $status) = @r;
 			$name = uc $name;
 			$suffix = hex $suffix;
-			$type = $type // "UNIQUE";
-			push @results, {name => $name, suffix => $suffix,
-				addr => $addr, is_group => ($type eq "GROUP")};
+			$nametype = $nametype // "UNIQUE";
+			$nodetype = uc $nodetype;
+			$status = uc $status,
+			push @results, {name => $name, suffix => $suffix, addr => $addr,
+				is_group => ($nametype eq "GROUP"), node_type => $nodetype,
+				status => $status};
 		}
 	}
 	close $fd;
@@ -210,8 +213,8 @@ for my $entry (@network) {
 
 # Print out
 if ($do_header) {
-	printf "%-15s%-4s %1s %-15s %-20s %s\n%s\n",
-		"NETBIOS NAME", "SUFX", "G", "IP ADDRESS", "DNS NAME", "NETBIOS SUFFIX",
+	printf "%-15s%-4s %1s %1s %-15s %-20s %s\n%s\n",
+		"NETBIOS NAME", "SUFX", "G", "T", "IP ADDRESS", "DNS NAME", "NETBIOS SUFFIX",
 		"-"x80;
 }
 
@@ -246,10 +249,11 @@ for my $entry (@network) {
 		$c_reset = "\e[m";
 	}
 		
-	printf "%s%-15s<%02x> %1s %-15s %-20s %s%s\n",
+	printf "%s%-15s<%02x> %1s %1s %-15s %-20s %s%s\n",
 		$color,
 		$entry->{name}, $entry->{suffix},
 		$entry->{is_group} ? "G" : "",
+		$entry->{node_type},
 		$entry->{addr}, $entry->{dnsname},
 		$NSUFFIX{$entry->{suffix}} // sprintf("(unknown <%02x>)", $entry->{suffix}),
 		$c_reset;

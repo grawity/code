@@ -74,7 +74,7 @@ my @nmblookup_args = ("nmblookup");
 
 sub ip2host {
 	my $addr = shift;
-	printlog("resolving $addr");
+	printlog("resolving $addr using DNS");
 	my $name = gethostbyaddr(inet_aton($addr), AF_INET) // "";
 	$name = lc $name;
 	$name =~ s/\.home$//;
@@ -91,6 +91,7 @@ sub lookup {
 sub nmbstat {
 	my @results;
 	my $addr;
+	printlog("resolving @_ using NBSTAT");
 	open my $fd, "-|", (@nmblookup_args, "--status", @_);
 	while (<$fd>) {
 		my @r;
@@ -126,7 +127,7 @@ my $do_root_port = 0;
 sub printlog {
 	if ($do_verbose) {
 		my $msg = shift;
-		print STDERR "- $msg\n";
+		printf STDERR "- $msg\n", @_;
 	}
 }
 
@@ -198,8 +199,15 @@ for my $master (@masters) {
 			&& $_->{addr} eq $master->{addr}} @network;
 }
 
+# Count unique names
+my %names;
+$names{$_->{name}}++ for @network;
+my %addresses;
+$addresses{$_->{addr}}++ for @network;
+printlog("%d entries discovered, %d unique names, %d hosts",
+	scalar @network, scalar keys %names, scalar keys %addresses);
+
 # Look up DNS names for all entries. Add missing fields.
-printlog("resolving DNS names");
 my %dnscache;
 for my $entry (@network) {
 	$entry->{dnsname} = ($dnscache{$entry->{addr}} //= ip2host($entry->{addr}));

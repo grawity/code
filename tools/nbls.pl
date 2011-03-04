@@ -99,11 +99,11 @@ sub nmbstat {
 		}
 		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+)/ix) {
 			my ($name, $suffix, $type, $flag) = @r;
-			#if ($name =~ /^[ && $suffix == $SUFFIX{browser}) {
-			#	$name = "__MSBROWSE__";
-			#}
-			push @results, {name => uc $name, suffix => hex $suffix,
-				addr => $addr, type => lc ($type // "unique")};
+			$name = uc $name;
+			$suffix = hex $suffix;
+			$type = $type // "UNIQUE";
+			push @results, {name => $name, suffix => $suffix,
+				addr => $addr, is_group => ($type eq "GROUP")};
 		}
 	}
 	close $fd;
@@ -150,7 +150,7 @@ for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
 	push @network, $entry;
 
 	if ($entry->{suffix} == $SUFFIX{workstation}) {
-		if ($entry->{type} eq "group") {
+		if ($entry->{is_group}) {
 			next if $entry->{name} ~~ @next_wgs;
 			printlog("adding '$entry->{name}' from $entry->{addr}");
 			push @next_wgs, $entry->{name};
@@ -174,7 +174,7 @@ while (@next_wgs) {
 			push @network, $entry;
 
 			if ($entry->{suffix} == $SUFFIX{workstation}) {
-				if ($entry->{type} eq "group") {
+				if ($entry->{is_group}) {
 					next if $entry->{name} ~~ @workgroups;
 					next if $entry->{name} ~~ @next_wgs;
 					printlog("adding '$entry->{name}' from $entry->{addr}");
@@ -200,7 +200,7 @@ printlog("resolving DNS names");
 my %dnscache;
 for my $entry (@network) {
 	$entry->{dnsname} = ($dnscache{$entry->{addr}} //= ip2host($entry->{addr}));
-	$entry->{type} //= "unique";
+	$entry->{is_group} //= 0;
 }
 
 # Sort by name/suffix/DNS
@@ -216,22 +216,14 @@ if ($do_header) {
 }
 
 for my $entry (@network) {
-	my $flag;
-	if ($entry->{type} eq "group")		{$flag = "G"}
-	else					{$flag = ""}
-
 	my $color = "";
 	my $c_reset = "";
 	if ($do_color) {
 		if ($entry->{suffix} == $SUFFIX{server}) {
-			$color = ($entry->{type} eq "unique")
-				? "\e[7;34m"
-				: "\e[34m";
+			$color = $entry->{is_group} ? "\e[34m" : "\e[7;34m";
 		}
 		elsif ($entry->{suffix} == $SUFFIX{workstation}) {
-			$color = ($entry->{type} eq "unique")
-				? "\e[1;32m"
-				: "\e[32m";
+			$color = $entry->{is_group} ? "\e[32m" : "\e[1;32m";
 		}
 		elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
 			$color = "\e[1;35m";
@@ -256,7 +248,8 @@ for my $entry (@network) {
 		
 	printf "%s%-15s<%02x> %1s %-15s %-20s %s%s\n",
 		$color,
-		$entry->{name}, $entry->{suffix}, $flag,
+		$entry->{name}, $entry->{suffix},
+		$entry->{is_group} ? "G" : "",
 		$entry->{addr}, $entry->{dnsname},
 		$NSUFFIX{$entry->{suffix}} // sprintf("(unknown <%02x>)", $entry->{suffix}),
 		$c_reset;

@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys
 import ctypes
 from ctypes import byref, sizeof
+from ctypes.wintypes import BOOL, DWORD
 import select
 import socket
 import struct
@@ -14,10 +15,7 @@ import win32service
 import win32serviceutil
 
 NULL		= None
-DWORD	= ctypes.c_ulong
 UCHAR	= ctypes.c_ubyte
-ULONG	= ctypes.c_ulong
-WORD	= ctypes.c_ushort
 
 ANY_SIZE	= 1
 

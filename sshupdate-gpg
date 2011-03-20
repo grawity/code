@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 SOURCE_URL="http://purl.net/net/grawity/misc/authorized_keys.txt"
 SIGNER_KEY="D24F6CB2C1B52632"
-#KEYSERVER="pool.sks-keyservers.net"
-KEYSERVER="gingerbear.net"
+KEYSERVER="pool.sks-keyservers.net"
 
 have() { command -v "$1" &> /dev/null; }
 
@@ -12,9 +11,11 @@ recv_key() {
 	local keyid=$1
 	local server=$KEYSERVER
 	$VERBOSE && echo "sshup: recv-key $keyid from $server"
-	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$keyid" 2>/dev/null)
+	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$keyid" 2>&1)
+	local gpg_status=$?
 	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
-		echo "$out" >&2
+		[[ $out ]] && echo "$out" >&2
+		echo "sshup: fetching key $keyid from $server failed (gpg returned $gpg_status)" >&2
 		return 1
 	else
 		$VERBOSE && echo "$out"
@@ -33,6 +34,7 @@ tryfetch() {
 			rm -f "$out"; sleep $retry_wait
 		fi
 	done
+	echo "sshup: gave up fetching $url after $attempt tries" >&2
 	return 1
 }
 
@@ -43,7 +45,7 @@ verify() {
 		! grep -qs "^\[GNUPG:\] GOODSIG $SIGNER_KEY " <<< "$out" ||
 		! grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$out"
 	then
-		{ echo "Failed to verify $file"; echo "$out"; } >&2
+		{ echo "$out"; echo "sshup: failed to verify $file"; } >&2
 		return 1
 	else
 		$VERBOSE && echo "$out"
@@ -60,12 +62,12 @@ while getopts "hvr" OPT "$@"; do
 done
 
 if ! have gpg; then
-	echo "'gpg' not found in \$PATH" >&2
+	echo "sshup: 'gpg' not found in \$PATH" >&2
 	exit 1
 fi
 
 if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
-	echo "Signer key $SIGNER_KEY not in keyring" >&2
+	echo "sshup: signer key $SIGNER_KEY not in keyring" >&2
 	exit 1
 fi
 
@@ -76,7 +78,7 @@ recv_key "$SIGNER_KEY" >&2 || exit 1
 
 temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
 if ! tryfetch "$SOURCE_URL" "$temp"; then
-	echo "Failed to fetch $SOURCE_URL" >&2
+	echo "sshup: failed to fetch $SOURCE_URL" >&2
 	exit 1
 fi
 

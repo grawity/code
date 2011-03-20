@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 SOURCE_URL="http://purl.net/net/grawity/misc/authorized_keys.txt"
 SIGNER_KEY="D24F6CB2C1B52632"
+#KEYSERVER="pool.sks-keyservers.net"
+KEYSERVER="gingerbear.net"
 
 have() { command -v "$1" &> /dev/null; }
 
@@ -8,7 +10,7 @@ have() { command -v "$1" &> /dev/null; }
 
 recv_key() {
 	local keyid=$1
-	local server="pool.sks-keyservers.net"
+	local server=$KEYSERVER
 	$VERBOSE && echo "sshup: recv-key $keyid from $server"
 	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$keyid" 2>/dev/null)
 	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then

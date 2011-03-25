@@ -7,6 +7,8 @@ have() { command -v "$1" >&/dev/null; }
 
 log() { printf "\e[1;32m=\e[;1m %s\e[m\n" "$*"; }
 
+log_ok() { printf "\e[1;34m=\e[m %s\e[m\n" "$*"; }
+
 warn() { printf "\e[1;31m= %s\e[m\n" "$*"; }
 
 confirm() {
@@ -27,12 +29,14 @@ else
 	FQDN=$(hostname)
 fi
 
-if [[ ! -d ~/lib/dotfiles ]]; then
+if [[ ! -d ~/lib/dotfiles/.git ]]; then
 	log "Cloning dotfiles.git"
 	mkdir -p ~/lib
 	git clone "https://github.com/grawity/dotfiles.git" \
 		~/lib/dotfiles
 	~/lib/dotfiles/install
+else
+	log_ok "~/lib/dotfiles is okay"
 fi
 
 if [[ ! -f ~/.ssh/authorized_keys ]]; then
@@ -53,12 +57,22 @@ if [[ ! -f ~/.ssh/authorized_keys ]]; then
 	else
 		warn "Impossible to update SSH authorized_keys"
 	fi
+else
+	num=$(grep -c '^[[:alpha:]]' ~/.ssh/authorized_keys)
+	log_ok "authorized_keys has $num keys"
 fi
 
-if ! crontab -l | grep -qs "code/tools/pull"; then
+set +e
+
+if ! crontab -l 2>/dev/null | grep -qs "code/tools/pull"; then
 	log "Adding tools/pull to crontab"
-	(crontab -l; echo -e '@daily\t~/code/tools/pull') | crontab -
+	(crontab -l 2>/dev/null || true;
+		echo -e '@daily\t~/code/tools/pull') | crontab -
+else
+	log_ok "tools/pull is in crontab"
 fi
+
+set -e
 
 if [[ ! -f ~/.forward ]]; then
 	log "Forwarding mail to $forward_mail"
@@ -75,4 +89,6 @@ if [[ ! -f ~/.forward ]]; then
 	else
 		warn "'mail' not available; cannot send test email"
 	fi
+else
+	log_ok "Mail is being forwarded to $(sed 1q ~/.forward)"
 fi

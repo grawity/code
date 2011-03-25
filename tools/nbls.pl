@@ -237,6 +237,17 @@ if ($do_concise) {
 	for my $entry (@network) {
 		my $color = "";
 		my $c_reset = "";
+		my $is_mb = $entry->{name} eq "..__MSBROWSE__." &&
+			$entry->{suffix} == $SUFFIX{browser};
+		my $suffixname;
+
+		if ($is_mb) {
+			$suffixname = "Local Master Browser";
+		} else {
+			$suffixname = $NSUFFIX{$entry->{suffix}} //
+				sprintf("(unknown <%02x>)", $entry->{suffix});
+		}
+
 		if ($do_color) {
 			if ($entry->{suffix} == $SUFFIX{server}) {
 				$color = $entry->{is_group} ? "\e[34m" : "\e[7;34m";
@@ -244,18 +255,25 @@ if ($do_concise) {
 			elsif ($entry->{suffix} == $SUFFIX{workstation}) {
 				$color = $entry->{is_group} ? "\e[32m" : "\e[1;32m";
 			}
+
+			# browsers
 			elsif ($entry->{suffix} == $SUFFIX{domain_master}) {
 				$color = "\e[1;35m";
 			}
 			elsif ($entry->{suffix} == $SUFFIX{local_master}) {
+				$color = "\e[1;35m";
+			}
+			elsif ($is_mb) {
+				$color = "\e[1;35m";
+			}
+			elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
 				$color = "\e[35m";
 			}
+
 			elsif ($entry->{suffix} == $SUFFIX{domain_controller}) {
 				$color = "\e[1;36m";
 			}
-			elsif ($entry->{suffix} == $SUFFIX{browser_elections}) {
-				$color = "\e[1;30m";
-			}
+
 			elsif ($entry->{suffix} == $SUFFIX{messenger}) {
 				$color = "\e[31m";
 			}
@@ -264,14 +282,14 @@ if ($do_concise) {
 			}
 			$c_reset = "\e[m";
 		}
-			
+
 		printf "%s%-15s<%02x> %1s %1s %-15s %-20s %s%s\n",
 			$color,
 			$entry->{name}, $entry->{suffix},
 			$entry->{is_group} ? "G" : "",
 			$entry->{node_type},
 			$entry->{addr}, $entry->{dnsname},
-			$NSUFFIX{$entry->{suffix}} // sprintf("(unknown <%02x>)", $entry->{suffix}),
+			$suffixname,
 			$c_reset;
 	}
 }

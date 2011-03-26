@@ -64,7 +64,7 @@ fi
 
 set +e
 
-if ! crontab -l 2>/dev/null | grep -qs "code/tools/pull"; then
+if ! crontab -l 2>/dev/null | grep -Eqs "[[:space:]]ID=pull[[:space:]]|code/tools/pull"; then
 	log "Adding tools/pull to crontab"
 	(crontab -l 2>/dev/null || true;
 		echo -e '@daily\tID=pull\t~/code/tools/pull') | crontab -
@@ -74,7 +74,9 @@ fi
 
 set -e
 
-if [[ ! -f ~/.forward ]]; then
+if [[ $FQDN == "equal.cluenet.org" ]]; then
+	log_ok "Skipping mail forward to avoid loop"
+elif [[ ! -f ~/.forward ]]; then
 	log "Forwarding mail to $forward_mail"
 	echo "$forward_mail" > ~/.forward
 

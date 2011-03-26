@@ -5,23 +5,23 @@ namespace Ident;
  * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
  *
  *
- * Ident Ident\query($rhost, $rport, $lhost, $lport)
+ * IdentReply Ident\query($rhost, $rport, $lhost, $lport)
  *     $rhost, $rport
  *         remote (client) host/port
  *     $lhost, $lport
  *         local (server) host/port
  *
- * Ident Ident\query_cgiremote()
+ * IdentReply Ident\query_cgiremote()
  *
- * Ident Ident\query_stream($stream)
+ * IdentReply Ident\query_stream($stream)
  *     $stream
  *         handle to connected stream resource
  *
- * Ident Ident\query_socket($socket)
+ * IdentReply Ident\query_socket($socket)
  *     $socket
  *         handle to connected socket resource
  *
- * class Ident {
+ * class IdentReply {
  *      bool $success;
  *      int $lport;
  *      int $rport;
@@ -36,11 +36,12 @@ namespace Ident;
 class Ident {
 	static $debug = false;
 	static $timeout = 2;
-
 	static function debug($str) {
 		if (self::$debug) print $str;
 	}
+}
 
+class IdentReply {
 	public $raw_reply;
 	public $success;
 	public $lport;
@@ -110,7 +111,7 @@ class Ident {
 }
 
 function _failure($ecode) {
-	$r = new Ident();
+	$r = new IdentReply();
 	$r->success = false;
 	$r->rcode = "X-CLIENT-ERROR";
 	$r->ecode = $ecode;
@@ -170,7 +171,7 @@ function query($rhost, $rport, $lhost, $lport) {
 	fwrite($st, "$rport,$lport\r\n");
 	$reply_str = fgets($st, 1024);
 	fclose($st);
-	return new Ident($reply_str);
+	return new IdentReply($reply_str);
 }
 
 function query_cgiremote() {

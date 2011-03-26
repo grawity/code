@@ -164,8 +164,8 @@ class Identd():
 		self.listeners = []
 		self.clients = []
 		self.buffers = {}
+		self.peers = {}
 		self.requests = {}
-		self._portpairs = {}
 		self._service = service
 
 	def start(self):
@@ -193,7 +193,6 @@ class Identd():
 
 	def accept(self):
 		"""Wait for incoming data or connections."""
-
 		while True:
 			r, w, x = self.listeners + self.clients, [], []
 			r, w, x = select.select(r, w, x)
@@ -201,16 +200,24 @@ class Identd():
 				if fd in self.listeners:
 					self.handle_connection(fd)
 				elif fd in self.clients:
-					self.handle_in_data(fd)
+					try:
+						self.handle_in_data(fd)
+					except Exception as e:
+						self.log("error", "Error in handle_in_data(): %s: %s",
+							e.__class__.__name__, e)
+						self.close(fd)
 
 	def handle_connection(self, fd):
+		"""Accept incoming connection. Called by accept() for listener sockets on select()"""
+
 		client, peer = fd.accept()
 		self.log("info", "Accepting %s (fd=%d)", format_addr(*peer), client.fileno())
 		self.clients.append(client)
 		self.buffers[client] = b""
 
 	def handle_in_data(self, fd):
-		buf = fd.recv(1024)
+		"""Accept incoming data. Called by accept() for client sockets on select()"""
+		buf = fd.recv(512)
 		if not buf:
 			self.log("notice", "Lost connection from %s", format_addr(*fd.getpeername()))
 			return self.close(fd)
@@ -220,25 +227,27 @@ class Identd():
 			try:
 				self.handle_req(fd)
 			except Exception as e:
-				self.reply(fd, "ERROR", "UNKNOWN-ERROR")
 				self.log("error", "Error in handle_req(): %s: %s", e.__class__.__name__, e)
+				self.reply(fd, "ERROR", "UNKNOWN-ERROR")
+		else:
+			# TODO: This assumes that the first packet contains the entire request.
+			self.log_invalid_request(fd, self.buffers[fd])
 
 	def handle_req(self, fd):
 		local_addr = fd.getsockname()[0]
 		remote_addr = fd.getpeername()[0]
 
 		# parse incoming request
+		raw_request = self.buffers[fd].splitlines()[0]
 		try:
-			self._portpairs[fd] = self.buffers[fd].splitlines()[0]
-			local_port, remote_port = self._portpairs[fd].split(",", 1)
+			local_port, remote_port = raw_request.split(",", 1)
 			local_port = int(local_port.strip())
 			remote_port = int(remote_port.strip())
-			self._portpairs[fd] = "%d,%d" % (local_port, remote_port)
+			self.requests[fd] = (local_addr, local_port), (remote_addr, remote_port)
 		except ValueError:
-			local_port = remote_port = None
+			return self.log_invalid_request(fd, self.buffers[fd])
 
-		self.requests[fd] = (local_addr, local_port), (remote_addr, remote_port)
-		if local_port is None:
+		if not (0 < local_port < 65536 and 0 < remote_port < 65536):
 			return self.reply(fd, "ERROR", "INVALID-PORT")
 
 		if fd.family == socket.AF_INET6:
@@ -259,13 +268,28 @@ class Identd():
 			return self.reply(fd, "ERROR", "NO-USER")
 
 	def reply(self, fd, code, info):
-		self.log("notice", "Query:\n\n"
+		"""Send a reply to an ident request."""
+		local, remote = self.requests[fd]
+		self.log("notice", "Query from %s\n\n"
 			"local:\t%s\n"
 			"remote:\t%s\n"
 			"status:\t%s\n"
 			"info:\t%s",
-			format_addr(*self.requests[fd][0]), format_addr(*self.requests[fd][1]), code, info)
-		data = "%s:%s:%s\r\n" % (self._portpairs[fd], code, info)
+			format_addr(*fd.getpeername()), format_addr(*local),
+			format_addr(*remote), code, info)
+		return self.send_reply(fd, local[1], remote[1], code, info)
+
+	def log_invalid_request(self, fd, raw_req):
+		self.log("error", "Invalid query from %s\n\n"
+			"raw data:\t%r\n"
+			"\t(%d bytes)\n",
+			format_addr(*fd.getpeername()), raw_req, len(raw_req))
+		# TODO: Should this call self.close(fd) instead? (like oidentd)
+		self.send_reply(fd, 0, 0, "ERROR", "INVALID-PORT")
+
+	def send_reply(self, fd, lport, rport, code, info):
+		"""Format and send an Ident reply with given parameters."""
+		data = "%d,%d:%s:%s\r\n" % (lport, rport, code, info)
 		fd.send(data.encode("utf-8"))
 		self.close(fd)
 
@@ -274,7 +298,6 @@ class Identd():
 		try:
 			self.clients.remove(fd)
 			del self.buffers[fd]
-			del self._portpairs[fd]
 		except (KeyError, ValueError) as e:
 			pass
 		fd.close()

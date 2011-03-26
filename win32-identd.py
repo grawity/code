@@ -221,7 +221,7 @@ class Identd():
 				self.handle_req(fd)
 			except Exception as e:
 				self.reply(fd, "ERROR", "UNKNOWN-ERROR")
-				self.log("error", e)
+				self.log("error", "Error in handle_req(): %s: %s", e.__class__.__name__, e)
 
 	def handle_req(self, fd):
 		local_addr = fd.getsockname()[0]

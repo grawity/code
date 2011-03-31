@@ -25,7 +25,8 @@ WTS_SESSION_REMOTE_CONTROL	= 0x9
 class WTSMonitor():
 	className = "WTSMonitor"
 	wndName = "WTS Event Monitor"
-	def __init__(self):
+
+	def __init__(self, all_sessions=False):
 		wc = gui.WNDCLASS()
 		wc.hInstance = hInst = api.GetModuleHandle(None)
 		wc.lpszClassName = self.className
@@ -38,8 +39,11 @@ class WTSMonitor():
 			0, 0, hInst, None)
 		gui.UpdateWindow(self.hWnd)
 
-		# you can optionally use ts.NOTIFY_FOR_ALL_SESSIONS
-		ts.WTSRegisterSessionNotification(self.hWnd, ts.NOTIFY_FOR_THIS_SESSION)
+		if all_sessions:
+			scope = ts.NOTIFY_FOR_ALL_SESSIONS
+		else:
+			scope = ts.NOTIFY_FOR_THIS_SESSION
+		ts.WTSRegisterSessionNotification(self.hWnd, scope)
 	
 	def start(self):
 		gui.PumpMessages()
@@ -66,5 +70,5 @@ class WTSMonitor():
 		# Otherwise, replace this with something involving subprocess.Popen()
 
 if __name__ == '__main__':
-	m = WTSMonitor()
+	m = WTSMonitor(all_sessions=False)
 	m.start()

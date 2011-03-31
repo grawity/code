@@ -16,7 +16,7 @@ class WTSMonitorService(svcutil.ServiceFramework):
 		self.ReportServiceStatus(svc.SERVICE_STOPPED)
 
 	def SvcDoRun(self):
-		self.m = wtsmonitor.Monitor()
+		self.m = wtsmonitor.WTSMonitor(all_sessions=True)
 		self.m.start()
 
 if __name__ == '__main__':

@@ -44,6 +44,9 @@ class WTSMonitor():
 	def start(self):
 		gui.PumpMessages()
 
+	def stop(self):
+		gui.PostQuitMessage(0)
+
 	def WndProc(self, hWnd, message, wParam, lParam):
 		if message == WM_WTSSESSION_CHANGE:
 			self.OnSession(wParam, lParam)

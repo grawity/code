@@ -6,6 +6,6 @@
 
     System-wide:
 
-       wtsmonitor.py install --startup auto
-       wtsmonitor.py start
+       wtsmonitor-svc.py install --startup auto
+       wtsmonitor-svc.py start
        sc query WTSMonitor

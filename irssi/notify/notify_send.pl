@@ -60,7 +60,6 @@ $VERSION = "0.6.(2*ε)";
 );
 
 my $appname = "irssi";
-my $icon = "notification-message-IM";
 
 my ($dbus, $dbus_service, $libnotify);
 
@@ -143,6 +142,8 @@ sub send_dbus {
 		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
 		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
 	}
+
+	my $icon = Irssi::settings_get_str("notification_icon");
 
 	if (defined $libnotify) {
 		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
@@ -251,6 +252,8 @@ sub send_unix {
 
 sub notify {
 	my ($dest, $title, $text) = @_;
+
+	my $icon = Irssi::settings_get_str("notification_icon");
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 
 	if ($dest =~ /^dbus$/) {
@@ -281,6 +284,7 @@ sub notify {
 }
 
 Irssi::settings_add_str("libnotify", "notify_targets", "dbus");
+Irssi::settings_add_str("libnotify", "notification_icon", "avatar-default");
 
 Irssi::signal_add "message public", sub {
 	on_message @_, "message"

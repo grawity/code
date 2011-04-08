@@ -6,10 +6,10 @@
 
 use warnings;
 use strict;
-
 use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
 use File::Spec;
+use Cwd;
 
 my $force = 0;
 my $verbose = 0;
@@ -45,28 +45,30 @@ GetOptions(
 
 if (!defined $dest) {
 	if (scalar(@ARGV) > 1) {
+		# pop last item as destination directory
 		$dest = pop(@ARGV);
 	} else {
 		$dest = ".";
 	}
 }
+$dest = Cwd::abs_path($dest);
 
 if (!@ARGV) {
 	usage;
 }
 
 if (-d $dest) {
-	# target [target...] dirname
+	# target [target...] dest_dir
 	for my $target (@ARGV) {
 		my $reltarget = File::Spec->abs2rel($target, $dest);
 		my $link = File::Spec->catfile($dest, basename($target));
 		do_link($reltarget, $link);
 	}
 } elsif (scalar(@ARGV) > 1) {
-	# target target... name
+	# target target... dest_file
 	die "error: target is not a directory\n";
 } else {
-	# target name
+	# target dest
 	my $target = pop(@ARGV);
 	my $reltarget = File::Spec->abs2rel($target, dirname($dest));
 	do_link($reltarget, $dest);

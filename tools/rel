@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+# Display the relative path to a file from a given base.
+use strict;
+use Cwd;
+use File::Spec;
+use Getopt::Long qw(:config bundling no_ignore_case);
+use Data::Dumper;
+
+my $base = $ENV{HOME};
+my $debug = 0;
+
+sub do_rel {
+	my ($base, $path) = @_;
+	my $abs = Cwd::abs_path($path);
+	if (!defined $abs) {
+		print STDERR "error: '$path' does not exist\n";
+		return;
+	}
+	my $rel = File::Spec->abs2rel($abs, $base);
+	if ($debug) {
+		print STDERR Dumper({
+			given => $path,
+			given_abs => $abs,
+			base => $base,
+			rebased => $rel,
+			rebased_abs => Cwd::abs_path($rel),
+		});
+	}
+	print "$rel\n";
+}
+
+GetOptions("b|base=s" => \$base,
+	"D|debug" => \$debug);
+$base = Cwd::abs_path($base);
+if (@ARGV) {
+	do_rel($base, $_) for @ARGV;
+} else {
+	do_rel($base, getcwd());
+}

@@ -63,6 +63,8 @@ my $appname = "irssi";
 
 my ($dbus, $dbus_service, $libnotify);
 
+my $dbus_error = 0;
+
 sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 
@@ -133,8 +135,9 @@ sub send_dbus {
 	my ($title, $text) = @_;
 	$text = xml_escape($text);
 
-	if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
-		return 0, "DBus session bus not available";
+	unless (defined $dbus and
+		(defined $ENV{DISPLAY} or defined $ENV{DBUS_SESSION_BUS_ADDRESS})) {
+		return $dbus_error++, "DBus session bus not available";
 	}
 
 	if (!defined $dbus and eval {require Net::DBus}) {

@@ -83,13 +83,13 @@ connect() {
 		local creds=$(mktemps)
 		getcred >$creds
 
-		local secmode="ntlmv2,cred=$creds"
+		local secmode="ntlmv2,credentials=$creds"
 		if grep -Fxqs "password=*" "$creds"; then
-			secmode="krb5,cred=${KRB5CCNAME#FILE:}"
+			secmode="krb5,credentials=${KRB5CCNAME#FILE:}"
 		fi
 
-		sudo mount -t cifs "$host:$path" "$mountpoint" \
-			-o "sec=$secmode,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8,nosuid,cifsacl"
+		sudo mount -t cifs "//$host/$path" "$mountpoint" \
+			-o "sec=$secmode,uid=$(id -u),gid=$(id -g),file_mode=0600,dir_mode=0700,iocharset=utf8,nosuid,noperm"
 		rm -f "$creds"
 		;;
 	esac

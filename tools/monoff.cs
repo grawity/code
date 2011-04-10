@@ -1,5 +1,5 @@
 /* Utility to turn off the monitor on Windows.
- * csc /t:winexe /optimize /out:"%SystemRoot%\monoff.scr" monoff.cs /r:System.dll /r:System.Windows.Forms.dll
+ * csc /t:winexe /o /r:System.dll /r:System.Windows.Forms.dll /out:"%SystemRoot%\monoff.scr" monoff.cs
  */
 
 using System;
@@ -26,9 +26,9 @@ class MonOff
 
 	static void Main(string[] args)
 	{
-		var sc = StringComparison.OrdinalIgnoreCase;
+		StringComparison sc = StringComparison.OrdinalIgnoreCase;
 		if (args.Length < 1)
-			Power();
+			Power(PowerState.Off);
 		else if (args[0].Equals("/s", sc))
 			Screensaver();
 		else if (args[0].StartsWith("/c:", sc))
@@ -43,9 +43,12 @@ class MonOff
 
 	static void Power(PowerState state)
 	{
-		SendMessage((IntPtr)HWND_BROADCAST, WM_SYSCOMMAND,
-			(IntPtr)SC_MONITORPOWER, (IntPtr)state);
+		using (Form foo = new Form()) {
+			SendMessage(foo.Handle, WM_SYSCOMMAND,
+				(IntPtr)SC_MONITORPOWER, (IntPtr)state);
+		}
 	}
+
 	static void Power()
 	{
 		Power(PowerState.Off);
@@ -53,12 +56,13 @@ class MonOff
 
 	static void Screensaver()
 	{
-		Power();
 		Process scr = new Process();
 		scr.StartInfo.FileName = "scrnsave.scr";
 		scr.StartInfo.Arguments = "/S";
 		scr.StartInfo.UseShellExecute = false;
 		scr.StartInfo.CreateNoWindow = true;
+
+		Power(PowerState.Off);
 		scr.Start();
 		scr.WaitForExit();
 	}

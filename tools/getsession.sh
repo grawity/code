@@ -5,12 +5,18 @@
 pid=${1:-$$}
 
 # our Session ID (= PID of whatever started the session)
-sid=$(ps -p $pid -o "sess=")
+sid=$(echo $(ps -p $pid -o "sess="))
 (( sid )) || exit 1
 
 # session starter's Parent PID (usually sshd or in.telnetd)
-sppid=$(ps -p $sid -o "ppid=")
+sppid=$(echo $(ps -p $sid -o "ppid="))
 (( sppid )) || exit 1
 
-echo $sppid $(ps -p $sppid -o "cmd=")
-#ps -p $sppid -o "uid,pid,ppid,cmd"
+cmd=$(echo $(ps -p $sppid -o "cmd="))
+if [[ $cmd == "sshd: "* ]]; then
+	conn=ssh
+elif [[ $cmd == "in.telnetd: "* ]]; then
+	conn=telnet
+fi
+
+echo "[$conn] $sppid $cmd"

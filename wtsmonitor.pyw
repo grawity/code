@@ -8,6 +8,8 @@ import win32con as con
 import win32gui as gui
 import win32ts as ts
 
+import events
+
 # window messages
 WM_WTSSESSION_CHANGE		= 0x2B1
 
@@ -21,6 +23,18 @@ WTS_SESSION_LOGOFF		= 0x6
 WTS_SESSION_LOCK		= 0x7
 WTS_SESSION_UNLOCK		= 0x8
 WTS_SESSION_REMOTE_CONTROL	= 0x9
+
+methods = {
+	WTS_CONSOLE_CONNECT:		"ConsoleConnect",
+	WTS_CONSOLE_DISCONNECT:	"ConsoleDisconnect",
+	WTS_REMOTE_CONNECT:		"RemoteConnect",
+	WTS_REMOTE_DISCONNECT:	"RemoteDisconnect",
+	WTS_SESSION_LOGON:			"SessionLogon",
+	WTS_SESSION_LOGOFF:		"SessionLogoff",
+	WTS_SESSION_LOCK:			"SessionLock",
+	WTS_SESSION_UNLOCK:		"SessionUnlock",
+	WTS_SESSION_REMOTE_CONTROL:	"SessionRemoteControl",
+}
 
 class WTSMonitor():
 	className = "WTSMonitor"
@@ -44,7 +58,7 @@ class WTSMonitor():
 		else:
 			scope = ts.NOTIFY_FOR_THIS_SESSION
 		ts.WTSRegisterSessionNotification(self.hWnd, scope)
-	
+
 	def start(self):
 		gui.PumpMessages()
 
@@ -62,12 +76,16 @@ class WTSMonitor():
 			return True
 
 	def OnSession(self, event, sessionID):
-		print("event 0x%x on session %d" % (event, sessionID))
+		name = methods.get(event, "unknown")
+		print("event %s(% on session %d" % (
+			methods.get(event, "unknown(0x%x)" % event), sessionID))
 
-		#if sessionID == ts.ProcessIdToSessionId(os.getpid()):
+		try:
+			method = getattr(reload(events), name)
+		except AttributeError:
+			method = getattr(events, "default", lambda e, s: None)
 
-		# Since you already have a Python script, you can use it here directly.
-		# Otherwise, replace this with something involving subprocess.Popen()
+		method(event, sessionID)
 
 if __name__ == '__main__':
 	m = WTSMonitor(all_sessions=False)

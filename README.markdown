@@ -1,4 +1,4 @@
-1. Edit `wtsmonitor.WTSMonitor.OnSession()` to suit your needs.
+1. Edit `events.py` to suit your needs.
 
 2. For a single user:
 

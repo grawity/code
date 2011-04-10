@@ -51,13 +51,17 @@ if (!defined $dest) {
 		$dest = ".";
 	}
 }
-$dest = Cwd::abs_path($dest);
 
 if (!@ARGV) {
 	usage;
 }
 
-if (-d $dest) {
+$dest = Cwd::abs_path($dest);
+
+if (!defined $dest) {
+	# abs_path() returned undef
+	die "error: target does not exist\n";
+} elsif (-d $dest) {
 	# target [target...] dest_dir
 	for my $target (@ARGV) {
 		my $reltarget = File::Spec->abs2rel($target, $dest);

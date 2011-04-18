@@ -10,7 +10,7 @@ $VERSION = "1.0.1";
 	name        => 'auth_bots',
 	description => 'Lets you authenticate to various IRC bots easily.',
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
-	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
+	url         => 'http://purl.net/net/grawity/irssi.html',
 );
 
 my @authinfo = ();

@@ -10,7 +10,7 @@ $VERSION = "1.0";
 	name        => 'autoghost.pl',
 	description => "Automatically ghosts your primary nick",
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
-	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
+	url         => 'http://purl.net/net/grawity/irssi.html',
 );
 
 Irssi::signal_add_last "event 001" => sub {

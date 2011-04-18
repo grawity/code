@@ -10,7 +10,7 @@ $VERSION = "0.3";
 	name        => 'quakenet-auth.pl',
 	description => "Sends the server password to QuakeNet's Q (for those who dislike autosendcmds)",
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
-	url         => 'http://purl.oclc.org/NET/grawity/irssi.html',
+	url         => 'http://purl.net/net/grawity/irssi.html',
 );
 
 Irssi::signal_add_last "event 001" => sub {

@@ -7,12 +7,16 @@ from ctypes.wintypes import BOOL, DWORD
 import select
 import socket
 import struct
-import servicemanager
-import win32api
-import win32con
-import win32security
-import win32service
-import win32serviceutil
+try:
+	import servicemanager
+	import win32api
+	import win32con
+	import win32security
+	import win32service
+	import win32serviceutil
+except ImportError:
+	print("Error: This program requires pywin32.", file=sys.stderr)
+	raise
 
 NULL		= None
 UCHAR	= ctypes.c_ubyte
@@ -206,6 +210,7 @@ class Identd():
 						self.log("error", "Error in handle_in_data(): %s: %s",
 							e.__class__.__name__, e)
 						self.close(fd)
+						raise
 
 	def handle_connection(self, fd):
 		"""Accept incoming connection. Called by accept() for listener sockets on select()"""
@@ -221,14 +226,14 @@ class Identd():
 		if not buf:
 			self.log("notice", "Lost connection from %s", format_addr(*fd.getpeername()))
 			return self.close(fd)
-
 		self.buffers[fd] += buf
 		if b"\n" in self.buffers[fd]:
 			try:
 				self.handle_req(fd)
-			except Exception as e:
+			except BaseException as e:
 				self.log("error", "Error in handle_req(): %s: %s", e.__class__.__name__, e)
 				self.reply(fd, "ERROR", "UNKNOWN-ERROR")
+				raise
 		else:
 			# TODO: This assumes that the first packet contains the entire request.
 			self.log_invalid_request(fd, self.buffers[fd])
@@ -236,11 +241,10 @@ class Identd():
 	def handle_req(self, fd):
 		local_addr = fd.getsockname()[0]
 		remote_addr = fd.getpeername()[0]
-
 		# parse incoming request
 		raw_request = self.buffers[fd].splitlines()[0]
 		try:
-			local_port, remote_port = raw_request.split(",", 1)
+			local_port, remote_port = raw_request.split(b",", 1)
 			local_port = int(local_port.strip())
 			remote_port = int(remote_port.strip())
 			self.requests[fd] = (local_addr, local_port), (remote_addr, remote_port)
@@ -263,13 +267,17 @@ class Identd():
 				info = "%s,%s:%s" % (self.os_name, "UTF-8", owner)
 				return self.reply(fd, "USERID", info)
 			else:
+				# failed to query user token (insufficient privileges?)
 				return self.reply(fd, "ERROR", "HIDDEN-USER")
 		else:
 			return self.reply(fd, "ERROR", "NO-USER")
 
 	def reply(self, fd, code, info):
 		"""Send a reply to an ident request."""
-		local, remote = self.requests[fd]
+		try:
+			local, remote = self.requests[fd]
+		except KeyError:
+			local, remote = 0, 0
 		self.log("notice", "Query from %s\n\n"
 			"local:\t%s\n"
 			"remote:\t%s\n"
@@ -280,6 +288,7 @@ class Identd():
 		return self.send_reply(fd, local[1], remote[1], code, info)
 
 	def log_invalid_request(self, fd, raw_req):
+		"""Send a reply to an unparseable Ident request."""
 		self.log("error", "Invalid query from %s\n\n"
 			"raw data:\t%r\n"
 			"\t(%d bytes)\n",
@@ -288,12 +297,13 @@ class Identd():
 		self.send_reply(fd, 0, 0, "ERROR", "INVALID-PORT")
 
 	def send_reply(self, fd, lport, rport, code, info):
-		"""Format and send an Ident reply with given parameters."""
+		"""Format and send a raw Ident reply with given parameters."""
 		data = "%d,%d:%s:%s\r\n" % (lport, rport, code, info)
 		fd.send(data.encode("utf-8"))
 		self.close(fd)
 
 	def close(self, fd):
+		"""Close TCP connection and remove data structures"""
 		self.log("debug", "Closing fd %d", fd.fileno())
 		try:
 			self.clients.remove(fd)

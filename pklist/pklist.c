@@ -20,6 +20,8 @@
 #	define KRB5_HEIMDAL
 #	include <krb5_ccapi.h>
 #	define krb5_free_unparsed_name(ctx, name) krb5_xfree(name)
+#else
+#	error Unknown Kerberos API; hack pklist.c to fix
 #endif
 
 char *progname;

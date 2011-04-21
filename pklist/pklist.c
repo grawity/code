@@ -19,6 +19,7 @@
 #elif defined(__KRB5_H__)
 #	define KRB5_HEIMDAL
 #	include <krb5_ccapi.h>
+#	define krb5_free_unparsed_name(ctx, name) free(name)
 #endif
 
 char *progname;

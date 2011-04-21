@@ -13,7 +13,11 @@
 #include <unistd.h>
 #include <string.h>
 #include <krb5.h>
-#ifdef HEIMDAL
+
+#ifdef KRB5_KRB5_H_INCLUDED
+#	define KRB5_MIT
+#elif defined(__KRB5_H__)
+#	define KRB5_HEIMDAL
 #	include <krb5_ccapi.h>
 #endif
 
@@ -194,7 +198,7 @@ char * strflags(register krb5_creds *cred) {
 	static char buf[16];
 	int i = 0;
 
-#ifdef HEIMDAL
+#ifdef KRB5_HEIMDAL
 	struct TicketFlags flags = cred->flags.b;
 
 	if (flags.forwardable)

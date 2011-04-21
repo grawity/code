@@ -38,15 +38,16 @@ char * strflags(register krb5_creds *cred);
 int main(int argc, char *argv[]) {
 	int opt;
 	char *ccname;
+	extern char *optarg;
 	krb5_error_code retval;
 
 	progname = "pklist";
 
 	ccname = NULL;
-	while ((opt = getopt(argc, argv, "cCNp")) != -1) {
+	while ((opt = getopt(argc, argv, "c:CNp")) != -1) {
 		switch (opt) {
 		case 'c':
-			ccname = argv[optind++];
+			ccname = optarg;
 			break;
 		case 'C':
 			show_cfg_tkts = 1;
@@ -57,6 +58,10 @@ int main(int argc, char *argv[]) {
 		case 'p':
 			show_defname_only = 1;
 			break;
+		case '?':
+		default:
+			fprintf(stderr, "Usage: %s [-C | -N | -p] [-c ccname]\n", argv[0]);
+			exit(EXIT_FAILURE);
 		}
 	}
 

@@ -27,6 +27,7 @@ krb5_context ctx;
 int show_cfg_tkts = 0;
 int show_ccname_only = 0;
 int show_defname_only = 0;
+int show_names_only = 0;
 char *defname;
 
 void do_ccache(char *name);
@@ -44,23 +45,26 @@ int main(int argc, char *argv[]) {
 	progname = "pklist";
 
 	ccname = NULL;
-	while ((opt = getopt(argc, argv, "c:CNp")) != -1) {
+	while ((opt = getopt(argc, argv, "Cc:NPp")) != -1) {
 		switch (opt) {
-		case 'c':
-			ccname = optarg;
-			break;
 		case 'C':
 			show_cfg_tkts = 1;
+			break;
+		case 'c':
+			ccname = optarg;
 			break;
 		case 'N':
 			show_ccname_only = 1;
 			break;
-		case 'p':
+		case 'P':
 			show_defname_only = 1;
+			break;
+		case 'p':
+			show_names_only = 1;
 			break;
 		case '?':
 		default:
-			fprintf(stderr, "Usage: %s [-C | -N | -p] [-c ccname]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-C | -N | -P | -p] [-c ccname]\n", argv[0]);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -129,8 +133,12 @@ void do_ccache(char *name) {
 		return;
 	}
 
-	printf("cache\t%s:%s\n", krb5_cc_get_type(ctx, cache), krb5_cc_get_name(ctx, cache));
-	printf("principal\t%s\n", defname);
+	if (!show_names_only) {
+		printf("cache\t%s:%s\n",
+			krb5_cc_get_type(ctx, cache),
+			krb5_cc_get_name(ctx, cache));
+		printf("principal\t%s\n", defname);
+	}
 
 	if ((retval = krb5_cc_start_seq_get(ctx, cache, &cur))) {
 		com_err(progname, retval, "while starting to retrieve tickets");
@@ -173,6 +181,11 @@ void show_cred(register krb5_creds *cred) {
 	if ((retval = krb5_unparse_name(ctx, cred->server, &sname))) {
 		com_err(progname, retval, "while unparsing server name");
 		krb5_free_unparsed_name(ctx, name);
+		return;
+	}
+
+	if (show_names_only) {
+		printf("%s\n", sname);
 		return;
 	}
 

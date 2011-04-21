@@ -171,7 +171,6 @@ void do_ccache(char *name) {
 
 void show_cred(register krb5_creds *cred) {
 	krb5_error_code retval;
-	krb5_ticket *tkt;
 	char *name, *sname, *flags;
 
 	if ((retval = krb5_unparse_name(ctx, cred->client, &name))) {
@@ -204,9 +203,9 @@ void show_cred(register krb5_creds *cred) {
 		printf("\t*");
 
 	printf("\t%s", sname);
-	printf("\t%d", cred->times.starttime);
-	printf("\t%d", cred->times.endtime);
-	printf("\t%d", cred->times.renew_till);
+	printf("\t%d", (uint) cred->times.starttime);
+	printf("\t%d", (uint) cred->times.endtime);
+	printf("\t%d", (uint) cred->times.renew_till);
 
 	flags = strflags(cred);
 	if (flags && *flags)

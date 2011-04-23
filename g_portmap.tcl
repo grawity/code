@@ -71,7 +71,11 @@ proc portmap:listen {name {port 0}} {
 	while {[portmap:lookup_port $port] != ""} {
 		set port [expr $port+1]
 	}
-	set port [listen $port script "$name:grab"]
+	if {$name == "telnet"} {
+		set port [listen $port all]
+	} else {
+		set port [listen $port script "$name:grab"]
+	}
 	putlog "portmap: port $port listen for $name"
 	portmap:register $name $port
 	return $port
@@ -84,7 +88,13 @@ proc portmap:listen_ssl {name {port 0}} {
 	while {[portmap:lookup_port $port] != ""} {
 		set port [expr $port+1]
 	}
-	set port [listen +$port script "$name:grab"]
+	set port "+$port"
+	if {$name == "telnet"} {
+		set name "$name-ssl"
+		set port [listen $port all]
+	} else {
+		set port [listen $port script "$name:grab"]
+	}
 	putlog "portmap: port $port listen (ssl) for $name"
 	portmap:register $name $port
 	return $port

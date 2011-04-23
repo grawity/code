@@ -260,15 +260,15 @@ proc portmap:loadstate {} {
 }
 
 proc portmap:init {} {
-	global config
+	global config botnick
 
 	portmap:loadstate
 
 	portmap:unlisten portmap
-	set portmapper [portmap:listen portmap 12075]
+	set port [portmap:listen portmap 12075]
 
-	set fp [open "$config.portmap" w]
-	puts $fp $portmapper
+	set fp [open "~/tmp/$botnick.port" w]
+	puts $fp $port
 	close $fp
 }
 

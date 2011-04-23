@@ -69,7 +69,7 @@ proc portmap:listen {name {port 0}} {
 		set port [random:port]
 	}
 	while {[portmap:lookup_port $port] != ""} {
-		set port [expr $port+1]
+		incr port
 	}
 	if {$name == "telnet"} {
 		set port [listen $port all]
@@ -86,7 +86,7 @@ proc portmap:listen_ssl {name {port 0}} {
 		set port [random:port]
 	}
 	while {[portmap:lookup_port $port] != ""} {
-		set port [expr $port+1]
+		incr port
 	}
 	set port "+$port"
 	if {$name == "telnet"} {

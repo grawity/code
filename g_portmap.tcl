@@ -74,6 +74,7 @@ proc portmap:listen {name {port 0}} {
 	set port [listen $port script "$name:grab"]
 	putlog "portmap: port $port listen for $name"
 	portmap:register $name $port
+	return $port
 }
 
 proc portmap:listen_ssl {name {port 0}} {
@@ -86,6 +87,7 @@ proc portmap:listen_ssl {name {port 0}} {
 	set port [listen +$port script "$name:grab"]
 	putlog "portmap: port $port listen (ssl) for $name"
 	portmap:register $name $port
+	return $port
 }
 
 proc portmap:unlisten {name} {
@@ -219,9 +221,9 @@ bind evnt - prerestart portmap:savestate
 
 proc portmap:savestate {event} {
 	global config portmap_names portmap_ports
-	set statefile "$config.ports"
+	set statefile "$config.portmap-state"
 	putlog "portmap: saving state to $statefile"
-	set fp [open "$config.ports" w]
+	set fp [open $statefile w]
 	puts $fp "# Temporary state file for g_portmap. Should be automatically deleted."
 	puts $fp [array get portmap_names]
 	puts $fp [array get portmap_ports]
@@ -232,7 +234,7 @@ proc portmap:loadstate {} {
 	global config portmap_names portmap_ports
 	array unset portmap_names
 	array unset portmap_ports
-	set statefile "$config.ports"
+	set statefile "$config.portmap-state"
 	if {[file exists $statefile]} {
 		putlog "portmap: loading state from $statefile"
 		set fp [open $statefile r]
@@ -247,8 +249,17 @@ proc portmap:loadstate {} {
 	}
 }
 
-# init
+proc portmap:init {} {
+	global config
 
-portmap:loadstate
-portmap:unlisten portmap
-portmap:listen portmap 12075
+	portmap:loadstate
+
+	portmap:unlisten portmap
+	set portmapper [portmap:listen portmap 12075]
+
+	set fp [open "$config.portmap" w]
+	puts $fp $portmapper
+	close $fp
+}
+
+portmap:init

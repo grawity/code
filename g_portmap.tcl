@@ -75,9 +75,13 @@ proc portmap:listen {name {port 0} {ssl 0}} {
 
 	if {$port == 0} {
 		set port [random:port]
-	}
-	while {[portmap:lookup_port $port] != ""} {
-		incr port
+		while {[portmap:lookup_port $port] != ""} {
+			incr port
+		}
+	} else {
+		if {[portmap:lookup_port $port] != ""} {
+			portmap:unlisten_port $port
+		}
 	}
 
 	if {$ssl} {

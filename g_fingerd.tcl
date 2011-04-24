@@ -28,13 +28,21 @@ proc fingerd:control {idx text} {
 	return 1
 }
 
-proc fingerd:handle_local {idx local} {
-	dcc:whom "" $idx ""
+proc fingerd:handle_local {idx handle} {
+	if {$handle == ""} {
+		#dcc:whom "" $idx ""
+		*dcc:who "" $idx ""
+	} elseif {[validuser $handle]} {
+		*dcc:whois $handle $idx $handle
+	} else {
+		putdcc $idx "error: unknown user '$handle'"
+	}
 }
 
 proc fingerd:handle_remote {idx query} {
 	set local [lindex $query 0]
 	set host [lindex $query 1]
+	putlog "finger: rejected remote query '$local' to $host"
 	putdcc $idx "error: remote query to $host rejected"
 }
 
@@ -47,6 +55,5 @@ proc fingerd:qparse {raw} {
 		set query $raw
 		set host ""
 	}
-	putlog "finger: parsing '$raw' as '$query' at '$host'"
 	return [list $query $host]
 }

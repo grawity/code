@@ -270,7 +270,7 @@ proc portmap:init {} {
 	portmap:loadstate
 
 	portmap:unlisten portmap
-	set port [portmap:listen portmap 12075]
+	set port [portmap:listen portmap]
 
 	set fp [open "~/tmp/$botnick.port" w]
 	puts $fp $port

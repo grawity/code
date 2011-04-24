@@ -142,7 +142,7 @@ proc portmap:control {idx text} {
 	set cmd [lindex $text 0]
 	switch -exact -- $cmd {
 		"?" {
-			if {[llength $text] > 0} {
+			if {[llength $text] > 1} {
 				foreach name [lrange $text 1 end] {
 					set port [portmap:lookup $name]
 					if {[llength $port]} {

@@ -67,25 +67,33 @@ proc portmap:unregister_port {ports} {
 }
 
 proc portmap:listen {name {port 0} {ssl 0}} {
+	set procname $name
+	if {[string match "+*" $name]} {
+		set ssl 1
+		set procname [string range $name 1 end]
+	}
+
 	if {$port == 0} {
 		set port [random:port]
 	}
 	while {[portmap:lookup_port $port] != ""} {
 		incr port
 	}
-	if {$ssl} {set port +$port}
-	if {$name == "telnet"} {
-		set port [listen $port all]
-	} else {
-		set port [listen $port script "$name:grab"]
-	}
+
 	if {$ssl} {
-		putlog "portmap: port $port listen (ssl) for $name"
-		portmap:register $name-ssl $port
+		set lport "+$port"
 	} else {
-		putlog "portmap: port $port listen for $name"
-		portmap:register $name $port
+		set lport "$port"
 	}
+
+	if {$procname == "telnet"} {
+		set port [listen $lport all]
+	} else {
+		set port [listen $lport script "$procname:grab"]
+	}
+
+	putlog "portmap: port $lport listen for $name"
+	portmap:register $name $port
 	return $port
 }
 
@@ -261,4 +269,3 @@ proc portmap:init {} {
 }
 
 portmap:init
-portmap:listen_ssl portmap

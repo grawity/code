@@ -8,7 +8,7 @@ proc portmap:reset {} {
 
 proc portmap:register {name port} {
 	global portmap_names portmap_ports
-	putlog "portmap: registered $name on $port"
+	putlog "portmap: registered \"$name\" on $port"
 	if {[info exists portmap_names($name)]} {
 		set index [lsearch -exact $portmap_names($name) $port]
 		if {$index < 0} {
@@ -26,7 +26,7 @@ proc portmap:register {name port} {
 proc portmap:override {name port} {
 	global portmap_names portmap_ports
 	portmap:unregister $name
-	putlog "portmap: registered $name on $port"
+	putlog "portmap: registered \"$name\" on $port"
 	set portmap_names($name) $port
 	set portmap_ports($port) $name
 	return $port
@@ -37,7 +37,7 @@ proc portmap:unregister {names} {
 	foreach name $names {
 		if {[info exists portmap_names($name)]} {
 			foreach port $portmap_names($name) {
-				putlog "portmap: unregistered $name on $port"
+				putlog "portmap: unregistered \"$name\" on $port"
 				unset portmap_ports($port)
 			}
 			unset portmap_names($name)
@@ -60,7 +60,7 @@ proc portmap:unregister_port {ports} {
 					}
 				}
 			}
-			putlog "portmap: unregistered $name on $port"
+			putlog "portmap: unregistered \"$name\" on $port"
 			unset portmap_ports($port)
 		}
 	}
@@ -88,11 +88,12 @@ proc portmap:listen {name {port 0} {ssl 0}} {
 
 	if {$procname == "telnet"} {
 		set port [listen $lport all]
+		putlog "portmap: port $lport opened for telnet connections"
 	} else {
 		set port [listen $lport script "$procname:grab"]
+		putlog "portmap: port $lport opened for \"$procname:grab\""
 	}
 
-	putlog "portmap: port $lport listen for $name"
 	portmap:register $name $port
 	return $port
 }

@@ -1,5 +1,6 @@
 #!python
 from __future__ import print_function
+
 import sys
 import ctypes
 from ctypes import byref, sizeof
@@ -7,6 +8,7 @@ from ctypes.wintypes import BOOL, DWORD
 import select
 import socket
 import struct
+
 try:
 	import servicemanager
 	import win32api
@@ -19,7 +21,7 @@ except ImportError:
 	raise
 
 NULL		= None
-UCHAR	= ctypes.c_ubyte
+UCHAR		= ctypes.c_ubyte
 
 ANY_SIZE	= 1
 
@@ -27,9 +29,9 @@ NO_ERROR	= 0
 
 TCP_CONNECTION_OFFLOAD_STATE 	= DWORD
 
-TCP_TABLE_BASIC_LISTENER			= 0
-TCP_TABLE_BASIC_CONNECTIONS			= 1
-TCP_TABLE_BASIC_ALL				= 2
+TCP_TABLE_BASIC_LISTENER		= 0
+TCP_TABLE_BASIC_CONNECTIONS		= 1
+TCP_TABLE_BASIC_ALL			= 2
 TCP_TABLE_OWNER_PID_LISTENER		= 3
 TCP_TABLE_OWNER_PID_CONNECTIONS		= 4
 TCP_TABLE_OWNER_PID_ALL			= 5
@@ -40,11 +42,11 @@ TCP_TABLE_OWNER_MODULE_ALL		= 8
 class MIB_TCPROW_OWNER_PID(ctypes.Structure):
 	_fields_ = [
 		("dwState",		DWORD),
-		("dwLocalAddr",	DWORD),
-		("dwLocalPort",	DWORD),
+		("dwLocalAddr",		DWORD),
+		("dwLocalPort",		DWORD),
 		("dwRemoteAddr",	DWORD),
 		("dwRemotePort",	DWORD),
-		("dwOwningPid",	DWORD),
+		("dwOwningPid",		DWORD),
 	]
 
 class MIB_TCPTABLE_OWNER_PID(ctypes.Structure):
@@ -55,14 +57,14 @@ class MIB_TCPTABLE_OWNER_PID(ctypes.Structure):
 
 class MIB_TCP6ROW_OWNER_PID(ctypes.Structure):
 	_fields_ = [
-		("dwLocalAddr",	UCHAR * 16),
+		("dwLocalAddr",		UCHAR * 16),
 		("dwLocalScopeId",	DWORD),
-		("dwLocalPort",	DWORD),
+		("dwLocalPort",		DWORD),
 		("dwRemoteAddr",	UCHAR * 16),
 		("dwRemoteScopeId",	DWORD),
 		("dwRemotePort",	DWORD),
 		("dwState",		DWORD),
-		("dwOwningPid",	DWORD),
+		("dwOwningPid",		DWORD),
 	]
 
 class MIB_TCP6TABLE_OWNER_PID(ctypes.Structure):

@@ -148,21 +148,12 @@ proc portmap:control {idx text} {
 					if {[llength $port]} {
 						putdcc $idx "+ $name $port"
 					} else {
-						putdcc $idx "- $name unknown"
+						putdcc $idx "- $name"
 					}
 				}
 			} else {
 				putdcc $idx "! syntax"
 			}
-		}
-		"l" {
-			foreach name [array names portmap_names] {
-				set port $portmap_names($name)
-				putdcc $idx "+ $name $port"
-			}
-		}
-		"q" {
-			return 1
 		}
 		"." {
 			return 1

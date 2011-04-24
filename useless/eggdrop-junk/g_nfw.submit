@@ -1,0 +1,102 @@
+#!/usr/bin/php
+<?php
+class config {
+	static $bothandle = "neph";
+
+	static $host = "localhost";
+	static $user = "notefwd";
+	static $pass = "foobie";
+	static $ssl = false;
+}
+
+function portmap($service) {
+	$file = getenv("HOME")."/tmp/".config::$bothandle.".port";
+
+	$fh = fopen($file, "r");
+	if (!$fh)
+		return false;
+	$portmapper = intval(trim(fgets($fh)));
+	if (!$portmapper)
+		return false;
+	fclose($fh);
+
+	$fh = fsockopen("tcp://".config::$host.":".$portmapper);
+	fprintf($fh, "? %s\n", $service);
+	while (($line = fgets($fh)) !== false) {
+		$line = explode(" ", rtrim($line));
+		switch ($line[0]) {
+		case "+":
+			if ($line[1] == $service) {
+				$ports = array_slice($line, 2);
+				return $ports[array_rand($ports)];
+			}
+			break;
+		case "-":
+			if ($line[1] == $service) {
+				return null;
+			}
+			break;
+		case "!":
+		default:
+			break;
+		}
+	}
+	return null;
+}
+
+function gets($fh) {
+	$in = fgets($fh);
+	if ($in === false) {
+		fwrite(STDERR, "EOF while reading\n");
+		exit(1);
+	}
+	return rtrim($in);
+}
+
+function tcl_list(/*@args*/) {
+	$args = func_get_args();
+	foreach ($args as &$val) {
+		if (!strlen($val))
+			$val = "{}";
+		else {
+			$val = str_replace("{", "\\{", $val);
+			$val = str_replace("}", "\\}", $val);
+			$val = '"'.$val.'"';
+		}
+	}
+	return implode(" ", $args);
+}
+
+# Connect, authenticate
+$submit_url = (config::$ssl ? "ssl://" : "tcp://") . config::$host
+	. ":" . portmap(config::$ssl ? "+nfwd" : "nfwd");
+
+$fh = fsockopen($submit_url);
+if (!$fh) {
+	fwrite(STDERR, "Connection failed\n");
+	exit(1);
+}
+
+fprintf($fh, "auth %s %s\n", config::$user, config::$pass);
+$reply = gets($fh);
+if ($reply[0] == "-") {
+	fprintf(STDERR, "Authentication failed: %s\n", rtrim($reply));
+	exit(1);
+}
+
+# Submit messages from stdin
+while (($line = fgets(STDIN)) !== false) {
+	if ($line == "-- ") {
+		break;
+	}
+	elseif ($line[0] == "+") {
+		list($from, $to, $msg) = explode(" ", substr(rtrim($line), 2), 3);
+		fprintf($fh, "send + %s\n", tcl_list(null, $to, $msg));
+		$reply = gets($fh);
+		if ($reply[0] == "-")
+			fprintf(STDERR, "Rejected (%s -> %s): %s\n", $from, $to, $reply);
+	}
+}
+
+fwrite($fh, ".\n");
+fclose($fh);

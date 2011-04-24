@@ -32,36 +32,38 @@ proc portmap:override {name port} {
 	return $port
 }
 
-proc portmap:unregister {name} {
+proc portmap:unregister {names} {
 	global portmap_names portmap_ports
-	if {[info exists portmap_names($name)]} {
-		foreach port $portmap_names($name) {
+	foreach name $names {
+		if {[info exists portmap_names($name)]} {
+			foreach port $portmap_names($name) {
+				putlog "portmap: unregistered $name on $port"
+				unset portmap_ports($port)
+			}
+			unset portmap_names($name)
+		}
+	}
+}
+
+proc portmap:unregister_port {ports} {
+	global portmap_names portmap_ports
+	foreach port $ports {
+		if {[info exists portmap_ports($port)]} {
+			set name $portmap_ports($port)
+			if {[info exists portmap_names($name)]} {
+				set i [lsearch -exact $portmap_names($name) $port]
+				if {$i >= 0} {
+					set portmap_names($name) \
+						[lreplace $portmap_names($name) $i $i]
+					if {[llength $portmap_names($name)] == 0} {
+						unset portmap_names($name)
+					}
+				}
+			}
 			putlog "portmap: unregistered $name on $port"
 			unset portmap_ports($port)
 		}
-		unset portmap_names($name)
 	}
-	return $name
-}
-
-proc portmap:unregister_port {port} {
-	global portmap_names portmap_ports
-	if {[info exists portmap_ports($port)]} {
-		set name $portmap_ports($port)
-		if {[info exists portmap_names($name)]} {
-			set i [lsearch -exact $portmap_names($name) $port]
-			if {$i >= 0} {
-				set portmap_names($name) \
-					[lreplace $portmap_names($name) $i $i]
-				if {[llength $portmap_names($name)] == 0} {
-					unset portmap_names($name)
-				}
-			}
-		}
-		putlog "portmap: unregistered $name on $port"
-		unset portmap_ports($port)
-	}
-	return $port
 }
 
 proc portmap:listen {name {port 0} {ssl 0}} {
@@ -91,16 +93,20 @@ proc portmap:listen_ssl {name {port 0}} {
 	portmap:listen $name $port 1
 }
 
-proc portmap:unlisten {name} {
-	foreach port [portmap:lookup $name] {
-		portmap:unlisten_port $port
+proc portmap:unlisten {names} {
+	foreach name $names {
+		foreach port [portmap:lookup $name] {
+			portmap:unlisten_port $port
+		}
 	}
 }
 
-proc portmap:unlisten_port {port} {
-	listen $port off
-	putlog "portmap: port $port closed"
-	portmap:unregister_port $port
+proc portmap:unlisten_port {ports} {
+	foreach port $ports {
+		listen $port off
+		#putlog "portmap: port $port closed"
+		portmap:unregister_port $port
+	}
 }
 
 proc portmap:lookup {name} {

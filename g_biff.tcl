@@ -1,15 +1,12 @@
 # Accepts notification messages over IRC, TCP and forwards to subscriber groups
 # Depends on g_portmap.tcl
 
+portmap:unlisten "biff"
+portmap:listen_ssl "biff"
+
 array set biffgroups {}
 array set biffnicks {}
 array set biffpersist {}
-
-portmap:unlisten biff
-portmap:listen_ssl biff
-#portmap:listen biff
-#portmap:listen biff 16017
-#listen 16017 script biff:grab
 
 proc biff:grab {idx} {
 	control $idx biff:control

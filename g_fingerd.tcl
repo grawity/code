@@ -2,9 +2,8 @@
 # Depends on g_portmap.tcl
 # Depends on g_whom.tcl
 
-portmap:unlisten fingerd
-portmap:listen fingerd 24728
-#listen 24728 script fingerd:grab
+portmap:unlisten "fingerd"
+portmap:listen "fingerd" 24728
 
 proc fingerd:grab {idx} {
 	control $idx fingerd:control

@@ -32,6 +32,8 @@ proc fingerd:handle_local {idx handle} {
 	if {$handle == ""} {
 		#dcc:whom "" $idx ""
 		*dcc:who "" $idx ""
+	} elseif {$handle == "*bots"} {
+		*dcc:bottree "" $idx ""
 	} elseif {[validuser $handle]} {
 		*dcc:whois $handle $idx $handle
 	} else {

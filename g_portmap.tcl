@@ -177,11 +177,13 @@ bind msg - "portmap" portmap:msg
 proc portmap:msg {nick addr hand text} {
 	global portmap_names
 	if {$text == ""} {
-		putnotc $nick "portmap ! syntax"
-	} elseif {$text == "*"} {
-		foreach name [array names portmap_names] {
-			set port $portmap_names($name)
-			putnotc $nick "portmap + $name $port"
+		if {[matchattr $hand n]} {
+			foreach name [array names portmap_names] {
+				set port $portmap_names($name)
+				putnotc $nick "portmap + $name $port"
+			}
+		} else {
+			putnotc $nick "portmap ! syntax"
 		}
 	} else {
 		foreach name [split $text] {
@@ -189,7 +191,7 @@ proc portmap:msg {nick addr hand text} {
 			if {[llength $port]} {
 				putnotc $nick "portmap + $name $port"
 			} else {
-				putnotc $nick "portmap - $name unknown"
+				putnotc $nick "portmap - $name"
 			}
 		}
 	}
@@ -202,11 +204,13 @@ bind dcc - "portmap" portmap:dcc
 proc portmap:dcc {hand idx text} {
 	global portmap_names
 	if {$text == ""} {
-		putdcc $idx "Usage: portmap <name> | portmap *"
-	} elseif {$text == "*"} {
-		foreach name [lsort [array names portmap_names]] {
-			set port $portmap_names($name)
-			putdcc $idx "portmap: $name $port"
+		if {[matchattr $hand n]} {
+			foreach name [lsort [array names portmap_names]] {
+				set port $portmap_names($name)
+				putdcc $idx "portmap: $name $port"
+			}
+		} else {
+			putdcc $idx "Usage: portmap <name> | portmap *"
 		}
 	} else {
 		foreach name [split $text] {

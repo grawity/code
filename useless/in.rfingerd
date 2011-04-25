@@ -1,0 +1,208 @@
+#!/usr/bin/env python
+# <- WHY!?@
+# -> Because I sort of felt like it.
+
+from __future__ import print_function
+import sys
+import os
+import fnmatch
+import socket
+import subprocess
+
+# Syntax:
+# 	<mask>	<nexthop>	[<flags>]
+#
+# Query:
+# 	<host>
+# 	<user>@<host>
+#
+# 	If <mask> contains "@", it is matched against the raw query received.
+# 	Otherwise, <mask> is matched against the host part of raw query.
+# 	(If raw query didn't contain a host part, "!" is used instead.)
+#
+#	If "m" in flags, matching is done using fnmatch(), with * ? [seq] [!seq] supported.
+#
+#	First match wins.
+#
+# Next hop:
+# 	If "x" in flags, <nexthop> is an executable command.
+# 		If "s" in flags, raw query is given in stdin, otherwise as
+# 		first argument in argv.
+# 	If <nexthop> starts with "/", it is a file to be sent.
+# 	If <nexthop> is "!", the query is refused.
+# 	If <nexthop> is "*", the query is transparently forwarded to the host.
+# 	Otherwise, <nexthop> is a host or host:port to forward the query to.
+#
+# Flags:
+# 	"h": do not strip off "@host" part from query when forwarding
+#	"m": <mask> is a fnmatch() mask
+# 	"q": do not display messages about forwarding to another host
+# 	"s": with "x", send raw query to command's stdin
+# 	"x": treat <nexthop> as a command to execute
+
+routes = """
+*motd@!		/etc/motd
+*hostkey@!	/var/www/equal.cluenet.org/hostkeys.txt
+root@!		/root/.plan
+admin@!		/root/.plan
+hostmaster@!	/root/.plan
+!		/home/grawity/code/useless/rwho/fingerd.php	xs
+
+any.io		*
+snowflake	snowflake.nullroute.eu.org			h
+gein		gein.vistech.net
+neph		localhost:24728					hq
+twitter		any.io						h
+*		/home/grawity/code/useless/rwho/fingerd.php	mhxs
+
+"""
+
+def DEBUG(fmt, *args):
+	if os.isatty(sys.stdout.fileno()):
+		print("(" + (fmt % args) + ")", file=sys.stderr)
+
+def accept():
+	request = sys.stdin.readline().strip()
+	if "@" in request:
+		local, host = request.rsplit("@", 1)
+	else:
+		local, host = request, "!"
+	nexthop, flags = route(local, host)
+	DEBUG("routed to %r (%r)", nexthop, flags)
+	if nexthop is None:
+		print("finger: query refused")
+	else:
+		if "h" in flags:
+			forward(request, nexthop, flags)
+		else:
+			forward(local, nexthop, flags)
+
+def get_routes():
+	if routes.startswith('/'):
+		rgen = open(routes, "r")
+	else:
+		rgen = routes.splitlines()
+
+	for line in rgen:
+		line = line.strip()
+		if line and not line.startswith("#"):
+			line = line.split()
+			if line[1] == "!":
+				line[1] = None
+			yield line
+
+def route(reqlocal, reqhost):
+	DEBUG("routing %r@%r", reqlocal, reqhost)
+	req = "%s@%s" % (reqlocal, reqhost)
+	for rtent in get_routes():
+		route = rtent[0]
+		nexthop = rtent[1]
+		if nexthop == "*":
+			nexthop = reqhost
+		try:
+			flags = rtent[2]
+		except IndexError:
+			flags = ""
+		DEBUG("trying %s %r", "mask" if "m" in flags else "rule", route)
+		if route == req or route == reqhost:
+			return nexthop, flags
+		elif "m" in flags and fnmatch.fnmatch(req if "@" in route else reqhost, route):
+			return nexthop, flags
+	return None, None
+
+def forward(req, addr, flags):
+	if "x" in flags:
+		stdin = "s" in flags
+		if stdin:
+			cmdline = [addr]
+		else:
+			cmdline = [addr, req]
+		DEBUG('exec: trying %r', cmdline)
+
+		if stdin:
+			proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
+			print(req, file=proc.stdin)
+			proc.stdin.close()
+			proc.wait()
+		else:
+			subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
+
+	elif addr.startswith("/"):
+		DEBUG('file: trying %r', addr)
+		try:
+			for line in open(addr, "rb"):
+				print(line.rstrip(), end="\r\n")
+		except IOError:
+			raise
+
+	else:
+		addr = parseaddr(addr)
+		gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
+			socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+		canonname = addr
+		for family, socktype, proto, _canonname, addr in gai:
+			if _canonname: canonname = _canonname
+			DEBUG('tcp: trying %d %r', family, addr)
+
+			straddr = formataddr(family, addr, ignoreport=79)
+			if not "q" in flags:
+				print("Trying %s... " % straddr, end="")
+				sys.stdout.flush()
+
+			sock = socket.socket(family, socktype, proto)
+			try:
+				sock.connect(addr)
+			except socket.error as e:
+				print(e.strerror)
+				continue
+
+			if not "q" in flags:
+				print()
+				print("[%s]" % canonname)
+
+			DEBUG('tcp: sending %r', req)
+			sock.send((req + "\r\n").encode("utf-8"))
+			buf = True
+			while buf:
+				buf = sock.recv(4096)
+				sys.stdout.write(buf)
+			sock.close()
+			break
+
+def formataddr(family, addr, ignoreport=None):
+	# LAME
+	if family == socket.AF_INET:
+		host, port = addr
+		if port == ignoreport:
+			return "%s" % host
+		else:
+			return "%s:%s" % (host, port)
+	elif family == socket.AF_INET6:
+		host, port, flow, scope = addr
+		if scope:
+			host = "%s%%%s" % (host, scope)
+		if port == ignoreport:
+			return "%s" % host
+		else:
+			return "[%s]:%s" % (host, port)
+	else:
+		return repr(addr)
+
+def parseaddr(addr):
+	## LAAAAME
+	host, port = None, "finger"
+	if addr.startswith("[") and "]" in addr:
+		endpos = addr.find("]")
+		host = addr[1:endpos]
+		addr = addr[endpos+1:]
+	if addr.startswith(":"):
+		port = addr[1:]
+	elif ":" in addr:
+		host, port = addr.split(":", 1)
+		port = port
+	elif not host:
+		host = addr
+
+	return host, port
+
+accept()

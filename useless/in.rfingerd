@@ -6,6 +6,7 @@ from __future__ import print_function
 import sys
 import os
 import fnmatch
+import getopt
 import socket
 import subprocess
 
@@ -41,19 +42,6 @@ import subprocess
 # 	"x": treat <nexthop> as a command to execute
 
 routes = """
-*motd@!		/etc/motd
-*hostkey@!	/var/www/equal.cluenet.org/hostkeys.txt
-root@!		/root/.plan
-admin@!		/root/.plan
-hostmaster@!	/root/.plan
-!		/home/grawity/code/useless/rwho/fingerd.php	xs
-
-any.io		*
-snowflake	snowflake.nullroute.eu.org			h
-gein		gein.vistech.net
-neph		localhost:24728					hq
-twitter		any.io						h
-*		/home/grawity/code/useless/rwho/fingerd.php	mhxs
 
 """
 
@@ -204,5 +192,10 @@ def parseaddr(addr):
 		host = addr
 
 	return host, port
+
+options, args = getopt.gnu_getopt(sys.argv[1:], "c:")
+for opt, optarg in options:
+	if opt == "-c":
+		routes = os.path.abspath(optarg)
 
 accept()

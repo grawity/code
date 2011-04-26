@@ -76,6 +76,7 @@ def route(request):
 			return None
 		elif nexthop == b"*":
 			nexthop = host
+			flags += b"R"
 
 		if b"@" in request and b"h" not in flags:
 			nextreq = local
@@ -116,7 +117,11 @@ def forward(addr, req, flags):
 		sys.stdout.flush()
 
 	else:
-		addr = parseaddr(addr)
+		if b"R" in flags:
+			# use raw address as received
+			addr = (addr, "finger")
+		else:
+			addr = parseaddr(addr)
 		DEBUG('tcp: using %r', addr)
 		try:
 			gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,

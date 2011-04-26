@@ -132,20 +132,15 @@ def forward(req, addr, flags):
 			if _canonname: canonname = _canonname
 			DEBUG('tcp: trying %d %r', family, addr)
 
-			straddr = formataddr(family, addr, ignoreport=79)
-			if not "q" in flags:
-				print("Trying %s... " % straddr, end="")
-				sys.stdout.flush()
-
 			sock = socket.socket(family, socktype, proto)
 			try:
 				sock.connect(addr)
 			except socket.error as e:
-				print(e.strerror)
+				straddr = formataddr(family, addr, ignoreport=79)
+				print("Trying %s... %s" % (straddr, e.strerror))
 				continue
 
 			if not "q" in flags:
-				print()
 				print("[%s]" % canonname)
 
 			DEBUG('tcp: sending %r', req)

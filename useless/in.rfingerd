@@ -9,6 +9,8 @@ import re
 import socket
 import subprocess
 
+#s.environ["DEBUG"] = "y"
+
 # Syntax:
 # 	<regex>		<nexthop>	[<flags>]
 #
@@ -27,20 +29,18 @@ import subprocess
 #
 # Flags:
 # 	"h": do not strip off "@host" part from query when forwarding
-#	"m": <mask> is a fnmatch() mask
 # 	"q": do not display messages about forwarding to another host
-# 	"s": with "x", send raw query to command's stdin
 # 	"x": treat <nexthop> as a command to execute
 
 def DEBUG(fmt, *args):
 	if os.environ.get("DEBUG", "") == "y":
 		print("(" + (fmt % args) + ")")
 
-def print(*args, file=None):
+def print(*args):
 	line = " ".join(args)+"\r\n"
-	file = (file or sys.stdout)
-	file.write(line.encode("utf-8"))
-	file.flush()
+	fh = sys.stdout
+	fh.write(line.encode("utf-8"))
+	fh.flush()
 
 def accept():
 	request = sys.stdin.readline().strip()
@@ -63,7 +63,7 @@ def route(request):
 			flags = b""
 
 		DEBUG("trying route %r", rule)
-		result = re.search(rule, request, re.ASCII)
+		result = re.search(rule, request)
 		if not result:
 			continue
 
@@ -102,6 +102,7 @@ def forward(addr, req, flags):
 
 		if stdin:
 			proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
+			DEBUG('exec: writing %r', req)
 			proc.stdin.write(req)
 			proc.stdin.close()
 			proc.wait()
@@ -185,6 +186,7 @@ def parseaddr(addr):
 	return host, port
 
 def get_routes():
+	DEBUG("get_routes(%r)", rules_file)
 	for line in open(rules_file, "rb"):
 		line = line.strip()
 		if line and not line.startswith(b"#"):

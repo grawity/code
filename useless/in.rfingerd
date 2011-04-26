@@ -41,10 +41,6 @@ import subprocess
 # 	"s": with "x", send raw query to command's stdin
 # 	"x": treat <nexthop> as a command to execute
 
-routes = """
-
-"""
-
 def DEBUG(fmt, *args):
 	if os.isatty(sys.stdout.fileno()):
 		print("(" + (fmt % args) + ")", file=sys.stderr)
@@ -66,12 +62,7 @@ def accept():
 			forward(local, nexthop, flags)
 
 def get_routes():
-	if routes.startswith('/'):
-		rgen = open(routes, "r")
-	else:
-		rgen = routes.splitlines()
-
-	for line in rgen:
+	for line in open(rules_file, "r"):
 		line = line.strip()
 		if line and not line.startswith("#"):
 			line = line.split()
@@ -188,9 +179,11 @@ def parseaddr(addr):
 
 	return host, port
 
+rules_file = os.devnull
+
 options, args = getopt.gnu_getopt(sys.argv[1:], "c:")
 for opt, optarg in options:
 	if opt == "-c":
-		routes = os.path.abspath(optarg)
+		rules_file = optarg
 
 accept()

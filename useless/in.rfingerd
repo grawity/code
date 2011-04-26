@@ -118,8 +118,13 @@ def forward(addr, req, flags):
 	else:
 		addr = parseaddr(addr)
 		DEBUG('tcp: using %r', addr)
-		gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
-			socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+		try:
+			gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
+				socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+		except socket.gaierror as e:
+			print("finger: %s" % e.strerror)
+			return
+
 		canonname = addr
 		for family, socktype, proto, _canonname, addr in gai:
 			if _canonname: canonname = _canonname

@@ -1,53 +1,9 @@
 #!/usr/bin/env bash
-set -e
-if [[ $DEBUG == 1 ]]; then
-	set -x
+
+if crontab -l 2>/dev/null | grep -Eqs code/tools/pull; then
+	echo "Adjusting crontab"
+	crontab -l | sed "/ID=pull/ s/pull/dotrc/" | crontab -
 fi
 
-if [[ -t 0 ]]; then
-	log() { printf "\e[1;32m=\e[;1m %s\e[m\n" "$*"; }
-else
-	log() { true; }
-fi
-
-if [[ -z $xyzzy ]]; then
-	# Update ~/code and run the new script
-	export PATH="$HOME/bin:$HOME/usr/bin:$PATH"
-	export xyzzy=42
-
-	log "fetching code.git"
-	cd ~/code
-	git pull >& /dev/null
-	exec tools/pull
-else
-	# Update dotfiles
-	if [[ -d ~/lib/dotfiles ]]; then
-		log "fetching dotfiles.git"
-		cd ~/lib/dotfiles
-		git pull origin master >& /dev/null
-	else
-		echo "Migrating to dotfiles.git"
-		log "cloning dotfiles"
-		mkdir -p ~/lib
-		git clone "https://github.com/grawity/dotfiles.git" \
-			~/lib/dotfiles
-	fi
-	log "running dotfiles/install"
-	~/lib/dotfiles/install
-
-	# Update authorized SSH keys
-	if [[ -f ~/.ssh/id_sshupdate ]]; then
-		log "updating authorized_keys over SSH"
-		~/code/ssh/sshupdate-ssh
-	elif [[ -d ~/.gnupg ]]; then
-		log "updating authorized_keys over HTTP"
-		~/code/ssh/sshupdate-gpg
-	fi
-
-	# Restart rwhod if necessary
-	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
-		log "poking rwhod"
-		~/code/useless/rwho/rwhod.sh update
-	fi
-fi
-true
+echo "Reexecuting tools/dotrc"
+exec ~/code/tools/dotrc

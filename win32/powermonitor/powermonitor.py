@@ -1,4 +1,6 @@
+#!python
 import os, sys
+
 from win32con import *
 from win32gui import *
 
@@ -8,8 +10,8 @@ import servicemanager as smgr
 
 import actions
 
-class PowerWatcher():
-	def __init__(self, name="Power event watcher", classname="PowerWatcher"):
+class PowerMonitor():
+	def __init__(self, name="Power event monitor", classname="PowerMonitor"):
 		wc = WNDCLASS()
 		wc.hInstance = hInst = GetModuleHandle(None)
 		wc.lpszClassName = classname
@@ -53,13 +55,13 @@ class PowerWatcher():
 		self.log("info", "APM resume event received")
 		reload(actions).Resume()
 
-class PowerWatcherService(svcutil.ServiceFramework, PowerWatcher):
-	_svc_name_ = "PowerWatcher"
+class PowerMonitorService(svcutil.ServiceFramework, PowerMonitor):
+	_svc_name_ = "PowerMonitor"
 	_svc_display_name_ = "Power event watcher"
 	
 	def __init__(self, args):
 		svcutil.ServiceFramework.__init__(self, args)
-		PowerWatcher.__init__(self, name=self._svc_display_name_,
+		PowerMonitor.__init__(self, name=self._svc_display_name_,
 			classname=self._svc_name_)
 	
 	def log(self, priority, message):
@@ -80,4 +82,4 @@ class PowerWatcherService(svcutil.ServiceFramework, PowerWatcher):
 		self.ReportServiceStatus(svc.SERVICE_STOPPED)
 
 if __name__ == '__main__':
-	svcutil.HandleCommandLine(PowerWatcherService)
+	svcutil.HandleCommandLine(PowerMonitorService)

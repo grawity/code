@@ -5,6 +5,11 @@
  * IPv6
  * Multi-user support
 
+## Requirements
+
+ * [PyWin32](http://starship.python.net/crew/mhammond/win32/Downloads.html)
+ * Windows XP or later
+
 ## Installation
 
     win32-identd.py --startup auto install

@@ -1,4 +1,10 @@
-# Terminal Services event monitor for Windows NT
+# Terminal Services event monitor for Windows NT/XP/2003/...
+
+## Requirements
+
+ * [PyWin32](http://starship.python.net/crew/mhammond/win32/Downloads.html)
+
+## Usage
 
 1. Edit `events.py` to suit your needs.
 

@@ -1,5 +1,9 @@
 # Power event monitor service
 
+## Requirements
+
+ * [PyWin32](http://starship.python.net/crew/mhammond/win32/Downloads.html)
+
 ## Installation:
 
  1. Copy `actions.py.example` to `actions.py` and edit according to your needs.

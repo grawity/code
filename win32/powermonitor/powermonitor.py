@@ -1,4 +1,6 @@
 #!python
+from __future__ import print_function
+
 import os, sys
 
 from win32con import *
@@ -8,7 +10,11 @@ import win32service as svc
 import win32serviceutil as svcutil
 import servicemanager as smgr
 
-import actions
+try:
+	import actions
+except ImportError:
+	print("You need to create an actions.py file first.")
+	sys.exit(1)
 
 class PowerMonitor():
 	def __init__(self, name="Power event monitor", classname="PowerMonitor"):
@@ -32,7 +38,7 @@ class PowerMonitor():
 		PostQuitMessage(0)
 	
 	def log(self, type, message):
-		print "[%s] %s" % (type, message)
+		print("[%s] %s" % (type, message))
 
 	def WndProc(self, hWnd, message, wParam, lParam):
 		if message == WM_POWERBROADCAST:

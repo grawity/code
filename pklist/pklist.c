@@ -76,11 +76,13 @@ int main(int argc, char *argv[]) {
 		com_err(progname, retval, "while initializing krb5");
 		exit(1);
 	}
-
 	do_ccache(ccname);
 	return 0;
 }
 
+/*
+ * output the ccache contents
+ */
 void do_ccache(char *name) {
 	krb5_ccache cache = NULL;
 	krb5_cc_cursor cur;
@@ -88,6 +90,8 @@ void do_ccache(char *name) {
 	krb5_principal princ;
 	krb5_flags flags;
 	krb5_error_code retval;
+
+	// display cache and principal names
 
 	if (name == NULL) {
 		if ((retval = krb5_cc_default(ctx, &cache))) {
@@ -142,6 +146,8 @@ void do_ccache(char *name) {
 		printf("principal\t%s\n", defname);
 	}
 
+	// list all tickets
+
 	if ((retval = krb5_cc_start_seq_get(ctx, cache, &cur))) {
 		com_err(progname, retval, "while starting to retrieve tickets");
 		exit(1);
@@ -157,13 +163,6 @@ void do_ccache(char *name) {
 			com_err(progname, retval, "while finishing ticket retrieval");
 			exit(1);
 		}
-#if 0
-		flags = KRB5_TC_OPENCLOSE;
-		if ((retval = krb5_cc_set_flags(ctx, cache, flags))) {
-			com_err(progname, retval, "while closing ccache");
-			exit(1);
-		}
-#endif
 		exit(0);
 	} else {
 		com_err(progname, retval, "while retrieving a ticket");
@@ -171,6 +170,9 @@ void do_ccache(char *name) {
 	}
 }
 
+/*
+ * output a single credential (ticket)
+ */
 void show_cred(register krb5_creds *cred) {
 	krb5_error_code retval;
 	char *name, *sname, *flags;
@@ -223,6 +225,9 @@ void show_cred(register krb5_creds *cred) {
 	krb5_free_unparsed_name(ctx, sname);
 }
 
+/*
+ * return Kerberos credential flags in ASCII
+ */
 char * strflags(register krb5_creds *cred) {
 	static char buf[16];
 	int i = 0;
@@ -230,65 +235,37 @@ char * strflags(register krb5_creds *cred) {
 #ifdef KRB5_HEIMDAL
 	struct TicketFlags flags = cred->flags.b;
 
-	if (flags.forwardable)
-		buf[i++] = 'F';
-	if (flags.forwarded)
-		buf[i++] = 'f';
-	if (flags.proxiable)
-		buf[i++] = 'P';
-	if (flags.proxy)
-		buf[i++] = 'p';
-	if (flags.may_postdate)
-		buf[i++] = 'D';
-	if (flags.postdated)
-		buf[i++] = 'd';
-	if (flags.invalid)
-		buf[i++] = 'i';
-	if (flags.renewable)
-		buf[i++] = 'R';
-	if (flags.initial)
-		buf[i++] = 'I';
-	if (flags.hw_authent)
-		buf[i++] = 'H';
-	if (flags.pre_authent)
-		buf[i++] = 'A';
-	if (flags.transited_policy_checked)
-		buf[i++] = 'T';
-	if (flags.ok_as_delegate)
-		buf[i++] = 'O';
-	if (flags.anonymous)
-		buf[i++] = 'a';
+	if (flags.forwardable)			buf[i++] = 'F';
+	if (flags.forwarded)			buf[i++] = 'f';
+	if (flags.proxiable)			buf[i++] = 'P';
+	if (flags.proxy)			buf[i++] = 'p';
+	if (flags.may_postdate)			buf[i++] = 'D';
+	if (flags.postdated)			buf[i++] = 'd';
+	if (flags.invalid)			buf[i++] = 'i';
+	if (flags.renewable)			buf[i++] = 'R';
+	if (flags.initial)			buf[i++] = 'I';
+	if (flags.hw_authent)			buf[i++] = 'H';
+	if (flags.pre_authent)			buf[i++] = 'A';
+	if (flags.transited_policy_checked)	buf[i++] = 'T';
+	if (flags.ok_as_delegate)		buf[i++] = 'O';
+	if (flags.anonymous)			buf[i++] = 'a';
 #else
 	krb5_flags flags = cred->ticket_flags;
 
-	if (flags & TKT_FLG_FORWARDABLE)
-		buf[i++] = 'F';
-	if (flags & TKT_FLG_FORWARDED)
-		buf[i++] = 'f';
-	if (flags & TKT_FLG_PROXIABLE)
-		buf[i++] = 'P';
-	if (flags & TKT_FLG_PROXY)
-		buf[i++] = 'p';
-	if (flags & TKT_FLG_MAY_POSTDATE)
-		buf[i++] = 'D';
-	if (flags & TKT_FLG_POSTDATED)
-		buf[i++] = 'd';
-	if (flags & TKT_FLG_INVALID)
-		buf[i++] = 'i';
-	if (flags & TKT_FLG_RENEWABLE)
-		buf[i++] = 'R';
-	if (flags & TKT_FLG_INITIAL)
-		buf[i++] = 'I';
-	if (flags & TKT_FLG_HW_AUTH)
-		buf[i++] = 'H';
-	if (flags & TKT_FLG_PRE_AUTH)
-		buf[i++] = 'A';
-	if (flags & TKT_FLG_TRANSIT_POLICY_CHECKED)
-		buf[i++] = 'T';
-	if (flags & TKT_FLG_OK_AS_DELEGATE)
-		buf[i++] = 'O';
-	if (flags & TKT_FLG_ANONYMOUS)
-		buf[i++] = 'a';
+	if (flags & TKT_FLG_FORWARDABLE)		buf[i++] = 'F';
+	if (flags & TKT_FLG_FORWARDED)			buf[i++] = 'f';
+	if (flags & TKT_FLG_PROXIABLE)			buf[i++] = 'P';
+	if (flags & TKT_FLG_PROXY)			buf[i++] = 'p';
+	if (flags & TKT_FLG_MAY_POSTDATE)		buf[i++] = 'D';
+	if (flags & TKT_FLG_POSTDATED)			buf[i++] = 'd';
+	if (flags & TKT_FLG_INVALID)			buf[i++] = 'i';
+	if (flags & TKT_FLG_RENEWABLE)			buf[i++] = 'R';
+	if (flags & TKT_FLG_INITIAL)			buf[i++] = 'I';
+	if (flags & TKT_FLG_HW_AUTH)			buf[i++] = 'H';
+	if (flags & TKT_FLG_PRE_AUTH)			buf[i++] = 'A';
+	if (flags & TKT_FLG_TRANSIT_POLICY_CHECKED)	buf[i++] = 'T';
+	if (flags & TKT_FLG_OK_AS_DELEGATE)		buf[i++] = 'O';
+	if (flags & TKT_FLG_ANONYMOUS)			buf[i++] = 'a';
 #endif
 
 	buf[i] = '\0';	

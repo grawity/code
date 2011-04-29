@@ -17,6 +17,12 @@ if [[ $cmd == "sshd: "* ]]; then
 	conn=ssh
 elif [[ $cmd == "in.telnetd: "* ]]; then
 	conn=telnet
+elif [[ $cmd == "SCREEN" ]]; then
+	conn=screen
+elif [[ $cmd == "tmux" || $cmd == "tmux "* ]]; then
+	conn=tmux
+else
+	conn='-'
 fi
 
-echo "[$conn] $sppid $cmd"
+printf '%s\t%d\t%s\n' "$conn" "$sppid" "$cmd"

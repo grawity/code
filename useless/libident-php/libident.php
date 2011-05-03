@@ -23,13 +23,15 @@ namespace Ident;
  *
  * class IdentReply {
  *      bool $success;
- *      int $lport;
- *      int $rport;
- *      string $rcode;
- *      string $ecode;
+ *      // for "success" replies:
+ *      string $userid;
  *      string $ostype;
  *      string $charset;
- *      string $userid;
+ *      int $lport;
+ *      int $rport;
+ *      // for "failure" replies:
+ *      string $response_type;
+ *      string $add_info;
  * }
  */
 
@@ -43,14 +45,18 @@ class Ident {
 
 class IdentReply {
 	public $raw_reply;
+	public $response_type;
+	public $add_info;
+
 	public $success;
 	public $lport;
 	public $rport;
-	public $rcode;
-	public $ecode;
 	public $ostype;
 	public $charset;
 	public $userid;
+
+	public $rcode; // compat
+	public $ecode; // compat
 
 	function __construct($str=null) {
 		if (!strlen($str))
@@ -65,27 +71,29 @@ class IdentReply {
 		$this->rport = intval($ports[0]);
 		$this->lport = intval($ports[1]);
 
-		$this->rcode = strtoupper(trim(strtok(":")));
-		switch ($this->rcode) {
-		case "ERROR":
-			$this->success = false;
-			$this->ecode = strtoupper(trim(strtok(null)));
-			break;
+		$this->response_type = strtoupper(trim(strtok(":")));
+		switch ($this->response_type) {
 		case "USERID":
 			$this->success = true;
 			$ostype = strtok(":");
-			if (strpos($ostype, ",") !== false) {
+			if (strpos($ostype, ",") !== false)
 				list ($ostype, $charset) = explode(",", $ostype, 2);
-			} else {
+			else
 				$charset = "US-ASCII";
-			}
 			$this->ostype = trim($ostype);
 			$this->charset = trim($charset);
 			$this->userid = ltrim(strtok(null));
 			break;
+		case "ERROR":
+			$this->success = false;
+			$this->add_info = strtoupper(trim(strtok(null)));
+			break;
 		default:
 			$this->success = false;
 		}
+
+		$this->rcode = $this->response_type;
+		$this->ecode = $this->add_info;
 	}
 
 	function __toString() {

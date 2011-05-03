@@ -27,11 +27,14 @@ namespace Ident;
  *      string $userid;
  *      string $ostype;
  *      string $charset;
- *      int $lport;
- *      int $rport;
  *      // for "failure" replies:
  *      string $response_type;
  *      string $add_info;
+ *      // addresses
+ *      int $lhost;
+ *      int $lport;
+ *      int $rhost;
+ *      int $rport;
  * }
  */
 
@@ -49,11 +52,14 @@ class IdentReply {
 	public $add_info;
 
 	public $success;
-	public $lport;
-	public $rport;
+	public $userid;
 	public $ostype;
 	public $charset;
-	public $userid;
+
+	public $lhost;
+	public $rhost;
+	public $lport;
+	public $rport;
 
 	public $rcode; // compat
 	public $ecode; // compat
@@ -179,7 +185,11 @@ function query($rhost, $rport, $lhost, $lport) {
 	fwrite($st, "$rport,$lport\r\n");
 	$reply_str = fgets($st, 1024);
 	fclose($st);
-	return new IdentReply($reply_str);
+	
+	$r = new IdentReply($reply_str);
+	$r->lhost = $lhost;
+	$r->rhost = $rhost;
+	return $r;
 }
 
 function query_cgiremote() {

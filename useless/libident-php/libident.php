@@ -41,20 +41,73 @@ namespace Ident;
 class Ident {
 	static $debug = false;
 	static $timeout = 2;
+
 	static function debug($str) {
 		if (self::$debug) print $str;
 	}
+
 	static function query($rhost, $rport, $lhost, $lport) {
-		return query($rhost, $rport, $lhost, $lport);
+		$authport = getservbyname("auth", "tcp");
+
+		$lhost_w = escape_host($lhost);
+		$rhost_w = escape_host($rhost);
+
+		self::debug("query($rhost_w:$rport -> $lhost_w:$lport)\n");
+
+		$ctx = array();
+		$ctx["socket"]["bindto"] = "$lhost_w:0";
+		$ctx = stream_context_create($ctx);
+
+		$st = @stream_socket_client("tcp://$rhost_w:$authport", $errno, $errstr,
+			self::$timeout, \STREAM_CLIENT_CONNECT, $ctx);
+
+		if (!$st)
+			return IdentReply::_failure("[$errno] $errstr");
+
+		fwrite($st, "$rport,$lport\r\n");
+		$reply_str = fgets($st, 1024);
+		fclose($st);
+
+		$r = new IdentReply($reply_str);
+		$r->lhost = $lhost;
+		$r->rhost = $rhost;
+		return $r;
 	}
+
 	static function query_cgiremote() {
-		return query_cgiremote();
+		return self::query(
+			$_SERVER["REMOTE_ADDR"],
+			$_SERVER["REMOTE_PORT"],
+			$_SERVER["SERVER_ADDR"],
+			$_SERVER["SERVER_PORT"]);
 	}
+
 	static function query_socket($sh) {
-		return query_socket($sh);
+		if (!socket_getsockname($sh, $lhost, $lport)) {
+			$errno = socket_last_error($sh);
+			$err = socket_strerror($errno);
+			return _failure("unable to determine socket name: [$errno] $err");
+		}
+		if (!socket_getpeername($sh, $rhost, $rport)) {
+			$errno = socket_last_error($sh);
+			$err = socket_strerror($errno);
+			return _failure("unable to determine peer name: [$errno] $err");
+		}
+		return self::query($rhost, $rport, $lhost, $lport);
 	}
+
 	static function query_stream($sh) {
-		return query_stream($sh);
+		$local = stream_socket_get_name($sh, false);
+		if (!$local) {
+			return _failure("unable to determine socket name");
+		}
+		$remote = stream_socket_get_name($sh, true);
+		if (!$remote) {
+			return _failure("unable to determine peer name");
+		}
+		$local = split_host_port($local);
+		$remote = split_host_port($remote);
+		return self::query($remote[0], $remote[1], $local[0], $local[1]);
 	}
 }
 
@@ -134,14 +187,18 @@ class IdentReply {
 		}
 		return $str;
 	}
+
+	function _failure($ecode) {
+		$r = new self();
+		$r->success = false;
+		$r->rcode = "X-CLIENT-ERROR";
+		$r->ecode = $ecode;
+		return $r;
+	}
 }
 
-function _failure($ecode) {
-	$r = new IdentReply();
-	$r->success = false;
-	$r->rcode = "X-CLIENT-ERROR";
-	$r->ecode = $ecode;
-	return $r;
+function debug($x=true) {
+	Ident::$debug = $x;
 }
 
 function strerror($ecode) {
@@ -168,6 +225,7 @@ function escape_host($h) {
 	else
 		return $h;
 }
+
 function split_host_port($h) {
 	$pos = strrpos($h, ":");
 	return array(
@@ -177,67 +235,19 @@ function split_host_port($h) {
 }
 
 function query($rhost, $rport, $lhost, $lport) {
-	$authport = getservbyname("auth", "tcp");
-
-	$lhost_w = escape_host($lhost);
-	$rhost_w = escape_host($rhost);
-
-	Ident::debug("query($rhost_w:$rport -> $lhost_w:$lport)\n");
-
-	$ctx = array();
-	$ctx["socket"]["bindto"] = "$lhost_w:0";
-	$ctx = stream_context_create($ctx);
-
-	$st = @stream_socket_client("tcp://$rhost_w:$authport", $errno, $errstr,
-		Ident::$timeout, \STREAM_CLIENT_CONNECT, $ctx);
-
-	if (!$st)
-		return _failure("[$errno] $errstr");
-
-	fwrite($st, "$rport,$lport\r\n");
-	$reply_str = fgets($st, 1024);
-	fclose($st);
-	
-	$r = new IdentReply($reply_str);
-	$r->lhost = $lhost;
-	$r->rhost = $rhost;
-	return $r;
+	return Ident::query($rhost, $rport, $lhost, $lport);
 }
 
 function query_cgiremote() {
-	return query(
-		$_SERVER["REMOTE_ADDR"],
-		$_SERVER["REMOTE_PORT"],
-		$_SERVER["SERVER_ADDR"],
-		$_SERVER["SERVER_PORT"]);
+	return Ident::query_cgiremote();
 }
 
 function query_stream($sh) {
-	$local = stream_socket_get_name($sh, false);
-	if (!$local) {
-		return _failure("unable to determine socket name");
-	}
-	$remote = stream_socket_get_name($sh, true);
-	if (!$remote) {
-		return _failure("unable to determine peer name");
-	}
-	$local = split_host_port($local);
-	$remote = split_host_port($remote);
-	return query($remote[0], $remote[1], $local[0], $local[1]);
+	return Ident::query_stream($sh);
 }
 
 function query_socket($sh) {
-	if (!socket_getsockname($sh, $lhost, $lport)) {
-		$errno = socket_last_error($sh);
-		$err = socket_strerror($errno);
-		return _failure("unable to determine socket name: [$errno] $err");
-	}
-	if (!socket_getpeername($sh, $rhost, $rport)) {
-		$errno = socket_last_error($sh);
-		$err = socket_strerror($errno);
-		return _failure("unable to determine peer name: [$errno] $err");
-	}
-	return query($rhost, $rport, $lhost, $lport);
+	return Ident::query_socket($sh);
 }
 
 /// TEST FUNCTIONS

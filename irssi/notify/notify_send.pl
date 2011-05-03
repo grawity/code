@@ -142,7 +142,6 @@ sub send_dbus {
 		}
 
 		if (eval {require Net::DBus}) {
-			print "Trying to connect to session bus";
 			$dbus = Net::DBus->session;
 			$libnotify = $dbus->get_service("org.freedesktop.Notifications")
 				->get_object("/org/freedesktop/Notifications");
@@ -294,14 +293,18 @@ Irssi::settings_add_str("libnotify", "notify_targets", "dbus");
 Irssi::settings_add_str("libnotify", "notification_icon", "avatar-default");
 
 Irssi::signal_add "message public", sub {
+	# server, msg, nick, addr, target
 	on_message @_, "message"
 };
 Irssi::signal_add "message private", sub {
-	on_message @_, "private"
+	# server, msg, nick, addr
+	on_message @_, $_[0]->{nick}, "private"
 };
 Irssi::signal_add "message irc action", sub {
+	# server, msg, nick, addr, target
 	on_message @_, "action"
 };
 Irssi::signal_add "message irc notice", sub {
+	# server, msg, nick, addr, target
 	on_message @_, "notice"
 };

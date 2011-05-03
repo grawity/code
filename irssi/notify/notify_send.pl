@@ -61,7 +61,7 @@ $VERSION = "0.6.(2*ε)";
 
 my $appname = "irssi";
 
-my ($dbus, $dbus_service, $libnotify);
+my ($dbus, $libnotify);
 
 my $dbus_error = 0;
 
@@ -133,19 +133,23 @@ sub send_file {
 
 sub send_dbus {
 	my ($title, $text) = @_;
+
+	if (!defined $dbus) {
+		if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
+			use Data::Dumper;
+			print Dumper($ENV{DISPLAY}, $ENV{DBUS_SESSION_BUS_ADDRESS});
+			return $dbus_error++, "DBus session bus not available";
+		}
+
+		if (eval {require Net::DBus}) {
+			print "Trying to connect to session bus";
+			$dbus = Net::DBus->session;
+			$libnotify = $dbus->get_service("org.freedesktop.Notifications")
+				->get_object("/org/freedesktop/Notifications");
+		}
+	}
+
 	$text = xml_escape($text);
-
-	unless (defined $dbus and
-		(defined $ENV{DISPLAY} or defined $ENV{DBUS_SESSION_BUS_ADDRESS})) {
-		return $dbus_error++, "DBus session bus not available";
-	}
-
-	if (!defined $dbus and eval {require Net::DBus}) {
-		$dbus = Net::DBus->session;
-		$dbus_service = $dbus->get_service("org.freedesktop.Notifications");
-		$libnotify = $dbus_service->get_object("/org/freedesktop/Notifications");
-	}
-
 	my $icon = Irssi::settings_get_str("notification_icon");
 
 	if (defined $libnotify) {

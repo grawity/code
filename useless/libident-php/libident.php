@@ -44,6 +44,18 @@ class Ident {
 	static function debug($str) {
 		if (self::$debug) print $str;
 	}
+	static function query($rhost, $rport, $lhost, $lport) {
+		return query($rhost, $rport, $lhost, $lport);
+	}
+	static function query_cgiremote() {
+		return query_cgiremote();
+	}
+	static function query_socket($sh) {
+		return query_socket($sh);
+	}
+	static function query_stream($sh) {
+		return query_stream($sh);
+	}
 }
 
 class IdentReply {

@@ -103,7 +103,8 @@ class Database():
 			try:
 				key, val = line.split(sep, 1)
 			except ValueError:
-				print >> sys.stderr, "{%s} not in key=value format, ignored" % lineno
+				print >> sys.stderr, "syntax error on line %d" % lineno
+				cur.comment.append("%s" % line)
 				return cur
 			key, val = key.strip(), val.strip()
 			key = self.fix_field_name(key)

@@ -137,7 +137,6 @@ sub send_dbus {
 	if (!defined $dbus) {
 		if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
 			use Data::Dumper;
-			print Dumper($ENV{DISPLAY}, $ENV{DBUS_SESSION_BUS_ADDRESS});
 			return $dbus_error++, "DBus session bus not available";
 		}
 

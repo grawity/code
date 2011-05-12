@@ -316,7 +316,9 @@ class Identd():
 
 class IdentdService(win32serviceutil.ServiceFramework):
 	_svc_name_ = "identd"
-	_svc_display_name_ = "Ident (RFC 1413) responder"
+	_svc_display_name_ = "Ident service"
+	_svc_description_ = "Responds to Ident (RFC 1413) requests."
+	_svc_deps_ = ["Tcpip", "TermService"]
 
 	def __init__(self, args):
 		win32serviceutil.ServiceFramework.__init__(self, args)

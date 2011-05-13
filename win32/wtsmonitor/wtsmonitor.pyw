@@ -77,7 +77,7 @@ class WTSMonitor():
 
 	def OnSession(self, event, sessionID):
 		name = methods.get(event, "unknown")
-		print("event %s(% on session %d" % (
+		print("event %s on session %d" % (
 			methods.get(event, "unknown(0x%x)" % event), sessionID))
 
 		try:

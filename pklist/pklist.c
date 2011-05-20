@@ -19,20 +19,24 @@
 #elif defined(__KRB5_H__)
 #	define KRB5_HEIMDAL
 #	include <krb5_ccapi.h>
-#	define krb5_free_unparsed_name(ctx, name) krb5_xfree(name)
+#	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
+#	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
+#	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
 #else
 #	error Unknown Kerberos API; hack pklist.c to fix
 #endif
 
-char *progname;
+char *progname = "pklist";
 krb5_context ctx;
 int show_cfg_tkts = 0;
 int show_ccname_only = 0;
 int show_defname_only = 0;
 int show_names_only = 0;
-char *defname;
+int show_realm_only = 0;
 
 void do_ccache(char *name);
+
+void do_realm(char *host);
 
 void show_cred(register krb5_creds *cred);
 
@@ -40,14 +44,13 @@ char * strflags(register krb5_creds *cred);
 
 int main(int argc, char *argv[]) {
 	int opt;
-	char *ccname;
 	extern char *optarg;
+
+	char *ccname = NULL;
+	char *hostname = NULL;
 	krb5_error_code retval;
 
-	progname = "pklist";
-
-	ccname = NULL;
-	while ((opt = getopt(argc, argv, "Cc:NPp")) != -1) {
+	while ((opt = getopt(argc, argv, "Cc:NPpRr:")) != -1) {
 		switch (opt) {
 		case 'C':
 			show_cfg_tkts = 1;
@@ -64,9 +67,24 @@ int main(int argc, char *argv[]) {
 		case 'p':
 			show_names_only = 1;
 			break;
+		case 'R':
+			show_realm_only = 1;
+			break;
+		case 'r':
+			show_realm_only = 1;
+			hostname = optarg;
+			break;
 		case '?':
 		default:
-			fprintf(stderr, "Usage: %s [-C | -N | -P | -p] [-c ccname]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-C] [-N | -P | -p | -R | -r hostname] [-c ccname]\n", argv[0]);
+			fprintf(stderr,
+				"\n"
+				"\t-C       also list config principals\n"
+				"\t-N       show ccache name\n"
+				"\t-P       show default client principal\n"
+				"\t-p       show principal names\n"
+				"\t-R       show default realm\n"
+				"\t-r host  show realm for given FQDN\n");
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -76,8 +94,35 @@ int main(int argc, char *argv[]) {
 		com_err(progname, retval, "while initializing krb5");
 		exit(1);
 	}
-	do_ccache(ccname);
+
+	if (show_realm_only) {
+		do_realm(hostname);
+	} else {
+		do_ccache(ccname);
+	}
 	return 0;
+}
+
+void do_realm(char *hostname) {
+	char **realm;
+	int retval;
+
+	printf("%x '%s'\n", hostname, hostname);
+	if (hostname) {
+		if ((retval = krb5_get_host_realm(ctx, hostname, &realm))) {
+			com_err(progname, retval, "while obtaining realm for %s", hostname);
+			exit(1);
+		}
+		printf("%s\n", *realm);
+		krb5_free_host_realm(ctx, realm);
+	} else {
+		if ((retval = krb5_get_default_realm(ctx, realm))) {
+			com_err(progname, retval, "while obtaining default realm");
+			exit(1);
+		}
+		printf("%s\n", *realm);
+		krb5_free_default_realm(ctx, *realm);
+	}
 }
 
 /*
@@ -201,10 +246,7 @@ void show_cred(register krb5_creds *cred) {
 	else
 		printf("ticket");
 
-	if (strcmp(name, defname))
-		printf("\t%s", name);
-	else
-		printf("\t*");
+	printf("\t%s", name);
 
 	printf("\t%s", sname);
 	printf("\t%d", (uint) cred->times.starttime);

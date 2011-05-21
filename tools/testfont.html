@@ -21,7 +21,7 @@
 
 <p><input type="text" id="font"
 	placeholder="Enter a font name"
-	value="Consolas"
+	value=""
 	onchange="update(this.value);"
 	style="font-family: inherit; font-size: x-large; width: 99%;"
 	/></p>
@@ -39,9 +39,7 @@
 function update(ff) {
 	ff = ff.replace(/^#/, "");
 	ff = ff.trim? ff.trim() : ff.replace(/^\s+/, "").replace(/\s+$/, "");
-	
 	document.body.style.fontFamily = '"' + ff.replace(/"/g, '\\"') + '"';
-	
 	location.hash = ff;
 	with (document.getElementById("font")) {
 		value = ff;
@@ -49,5 +47,13 @@ function update(ff) {
 		select();
 	}
 }
-update(location.hash);
+
+function fromhash() {
+	var hash = unescape(location.hash);
+	if (hash.length)
+		update(hash);
+}
+
+document.addEventListener("DOMContentLoaded", fromhash, false);
+window.addEventListener("hashchange", fromhash, false);
 </script>

@@ -107,7 +107,6 @@ void do_realm(char *hostname) {
 	char **realm;
 	int retval;
 
-	printf("%x '%s'\n", hostname, hostname);
 	if (hostname) {
 		if ((retval = krb5_get_host_realm(ctx, hostname, &realm))) {
 			com_err(progname, retval, "while obtaining realm for %s", hostname);
@@ -135,6 +134,7 @@ void do_ccache(char *name) {
 	krb5_principal princ;
 	krb5_flags flags;
 	krb5_error_code retval;
+	char *defname;
 
 	// display cache and principal names
 

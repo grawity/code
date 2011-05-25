@@ -30,12 +30,12 @@ def parse_port(val):
 			port, proto = b, a
 	else:
 		port, proto = a, b
-	
+
 	if not 1 < port < 65535:
 		raise ValueError("Port must be in range 1-65535")
 	if proto not in ("tcp", "udp"):
 		raise ValueError("Protocol must be TCP or UDP")
-		
+
 	return port, proto
 
 def unpack_port(val):
@@ -63,7 +63,7 @@ class reg_connect():
 		else:
 			self.hkey = Api.RegOpenKeyEx(Con.HKEY_LOCAL_MACHINE, None, 0, Con.KEY_ALL_ACCESS)
 		self.subkey = Api.RegOpenKeyEx(self.hkey, REG_PATH, 0, Con.KEY_ALL_ACCESS)
-	
+
 	def __del__(self):
 		Api.RegCloseKey(self.subkey)
 		Api.RegCloseKey(self.hkey)
@@ -103,12 +103,12 @@ def fw_enable_port(reg, port, proto, enable=True):
 def query(machine=None):
 	reg = reg_connect(machine)
 	entries = list(fw_query_ports(reg))
-	entries.sort(key=lambda e: e[0])
 	entries.sort(key=lambda e: e[1])
+	entries.sort(key=lambda e: e[0])
 	for port, proto, scope, enabled, name in entries:
 		if name.startswith("@"):
 			name = load_name(name)
-		print(" %1s %-4s %-5d %s" % ("*" if enabled else "", proto, port, name))
+		print(" %1s %-4s %5d %s" % ("*" if enabled else "", proto, port, name))
 
 def enable(port, proto, machine=None):
 	reg = reg_connect(machine)
@@ -118,44 +118,53 @@ def disable(port, proto, machine=None):
 	reg = reg_connect(machine)
 	fw_enable_port(reg, port, proto, False)
 
-machine = None
-cmd = "ls"
-args = []
-
-try:
-	if sys.argv[1].startswith("\\\\"):
-		machine = sys.argv.pop(1)
-	cmd = sys.argv.pop(1)
-	args = sys.argv[1:]
-except IndexError:
-	pass
-
-if cmd == "help":
+def usage():
 	print("Usage:")
 	print("\tfw [\\\\machine] ls")
 	print("\tfw [\\\\machine] enable|disable <proto>/<port> ...")
 	print("\tfw [\\\\machine] add <proto>/<port> <name> [<scope>]")
 	print("\tfw [\\\\machine] del <proto>/<port>")
-elif cmd == "ls":
-	query(machine)
-elif cmd in ("enable", "disable"):
-	reg = reg_connect(machine)
-	for arg in args:
-		port, proto = parse_port(arg)
-		fw_enable_port(reg, port, proto, cmd == "enable")
-elif cmd == "add":
-	reg = reg_connect(machine)
-	port, proto = parse_port(args[0])
-	name = args[1]
+
+def Main():
+	machine = None
+	cmd = "ls"
+	args = []
+
 	try:
-		scope = args[2]
+		if sys.argv[1].startswith("\\\\"):
+			machine = sys.argv.pop(1)
+		cmd = sys.argv.pop(1)
+		args = sys.argv[1:]
 	except IndexError:
-		scope = "*"
-	fw_add_port(reg, port, proto, scope, True, name)
-elif cmd == "del":
-	reg = reg_connect(machine)
-	for arg in args:
-		port, proto = parse_port(arg)
-		fw_del_port(reg, port, proto)
-else:
-	print("Unknown command '%s'" % cmd, file=sys.stderr)
+		pass
+
+	if cmd == "help":
+		return usage()
+	elif cmd == "ls":
+		query(machine)
+	elif cmd in ("enable", "disable"):
+		reg = reg_connect(machine)
+		for arg in args:
+			port, proto = parse_port(arg)
+			fw_enable_port(reg, port, proto, cmd == "enable")
+	elif cmd == "add":
+		try:
+			port, proto = parse_port(args[0])
+			name = args[1]
+		except IndexError:
+			return usage()
+		try:
+			scope = args[2]
+		except IndexError:
+			scope = "*"
+		reg = reg_connect(machine)
+		fw_add_port(reg, port, proto, scope, True, name)
+	elif cmd == "del":
+		reg = reg_connect(machine)
+		for arg in args:
+			port, proto = parse_port(arg)
+			fw_del_port(reg, port, proto)
+	else:
+		print("Unknown command '%s'" % cmd, file=sys.stderr)
+
+Main()

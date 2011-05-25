@@ -25,11 +25,17 @@ def parse_port(val):
 		try:
 			b = int(b)
 		except ValueError:
-			raise
+			raise ValueError("Port must be an integer")
 		else:
 			port, proto = b, a
 	else:
 		port, proto = a, b
+	
+	if not 1 < port < 65535:
+		raise ValueError("Port must be in range 1-65535")
+	if proto not in ("tcp", "udp"):
+		raise ValueError("Protocol must be TCP or UDP")
+		
 	return port, proto
 
 def unpack_port(val):

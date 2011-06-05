@@ -224,7 +224,7 @@ tsu = TermServUtil()
 try:
 	command = sys.argv[1].lower()
 except IndexError:
-	command = "ls"
+	command = "users"
 args = sys.argv[2:]
 
 getattr(tsu, "cmd_%s" % command, tsu.unknown)(command, args)

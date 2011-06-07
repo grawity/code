@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import os
 import fnmatch
 import getopt
@@ -9,11 +8,11 @@ import sys
 def getfqdn(host=None):
 	return socket.gethostbyaddr(socket.gethostbyname(host or socket.gethostname()))[0]
 
-def read_rules(infd):
+def read_rules(rules_file):
 	defprinc = None
 	rules = {}
 	lineno = 0
-	for line in infd:
+	for line in open(rules_file, "r"):
 		lineno += 1
 		line = line.rstrip()
 		if not line or line.startswith("#"):
@@ -25,18 +24,21 @@ def read_rules(infd):
 			defprinc = line[0]
 			masks = line[1:]
 		if not defprinc:
-			print("warning: missing principal on line %d" % lineno, file=sys.stderr)
+			sys.stderr.write("warning: missing principal on line %d\n" % lineno)
 			continue
 		if defprinc not in rules:
 			rules[defprinc] = set()
 		rules[defprinc] |= set(masks)
 	return rules.items()
 
-def write_k5login(outfd, rules):
+def write_k5login(output, rules):
 	fqdn = getfqdn()
+	
+	outfd = open(output, "w")
 	for princ, masks in rules:
-		if any(map(lambda mask: fnmatch.fnmatch(fqdn, mask), masks)): 
-			print(princ, file=outfd)
+		if any(map(lambda mask: fnmatch.fnmatch(fqdn, mask), masks)):
+			outfd.write(princ+"\n")
+	outfd.close()
 
 rules_file = os.path.expanduser("~/lib/dotfiles/k5login.rules")
 k5login_file = os.path.expanduser("~/.k5login")
@@ -46,8 +48,5 @@ for opt, optarg in opts:
 	if opt == "-i":		rules_file = optarg
 	elif opt == "-o":	k5login_file = optarg
 
-with open(rules_file, "r") as fd:
-	rules = read_rules(fd)
-
-with open(k5login_file, "w") as fd:
-	write_k5login(fd, rules)
+rules = read_rules(rules_file)
+write_k5login(k5login_file, rules)

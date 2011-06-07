@@ -7,5 +7,5 @@ int main(int argc, char *argv[]) {
 
 	/* exec real cat */
 	argv[0] = "cat";
-	return execvp(argv[0], argv);
+	return execv("/bin/cat", argv);
 }

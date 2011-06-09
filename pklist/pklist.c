@@ -18,12 +18,13 @@
 #	define KRB5_MIT
 #elif defined(__KRB5_H__)
 #	define KRB5_HEIMDAL
+#endif
+
+#ifdef KRB5_HEIMDAL
 #	include <krb5_ccapi.h>
 #	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
 #	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
-#else
-#	error Unknown Kerberos API; hack pklist.c to fix
 #endif
 
 char *progname = "pklist";

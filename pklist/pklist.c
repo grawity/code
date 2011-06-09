@@ -193,6 +193,7 @@ void do_ccache(char *name) {
 
 	// list all tickets
 
+	printf("CREDS\tclient_name\tserver_name\tstart_time\texpiry_time renew_time\tflags\n");
 	if ((retval = krb5_cc_start_seq_get(ctx, cache, &cur))) {
 		com_err(progname, retval, "while starting to retrieve tickets");
 		exit(1);

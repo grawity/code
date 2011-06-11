@@ -139,8 +139,10 @@ sub connect_anon {
 sub whoami {
 	if (!defined $my_name) {
 		$my_name = $ldap->who_am_i->response;
-		$my_name =~ s/^dn:uid=(.+?),.*$/\1/;
 		$my_name =~ s/^u://;
+		$my_name =~ s/^dn:uid=(.+?),.*$/\1/;
+		# cross-realm
+		$my_name =~ s/\@nullroute\.eu\.org$//;
 	}
 	return $my_name;
 }
@@ -692,6 +694,9 @@ USER ACCOUNT
 
 SERVERS
 	view	server <host>
+
+MISCELLANEOUS
+	whoami
 
 NOT YET IMPLEMENTED
 	server:create <host> --owner <owner>

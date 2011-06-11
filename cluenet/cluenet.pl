@@ -336,11 +336,13 @@ $commands{"acl:delete"} = sub {
 
 $commands{"server"} = sub {
 	$ldap = connect_anon;
-	my $server = get_server_info(shift);
-	my $owner = get_user_info($server->{owner}, 1);
-	my @admins = map {get_user_info($_, 1)}
-		@{$server->{authorizedAdministrator}};
-	print_server_info($server, $owner, @admins);
+	for (@_) {
+		my $server = get_server_info($_);
+		my $owner = get_user_info($server->{owner}, 1);
+		my @admins = map {get_user_info($_, 1)}
+			@{$server->{authorizedAdministrator}};
+		print_server_info($server, $owner, @admins);
+	}
 	return 0;
 };
 

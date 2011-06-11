@@ -378,6 +378,7 @@ sub get_user_info {
 				krb5PrincipalName clueIrcNick ircServicesUser)) {
 			$user{$_} = $user{$_}->[0];
 		}
+		$user{cn} =~ s/^\s+|\s+$//g;
 		if (defined $user{altEmail}) {
 			print Dumper($user{altEmail});
 			push @{$user{mail}}, @{$user{altEmail}};

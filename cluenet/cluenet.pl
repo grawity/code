@@ -697,12 +697,10 @@ USER ACCOUNT
 
 SERVERS
 	view	server <host>
+	add	server:create <host> --owner <owner>
 
 MISCELLANEOUS
 	whoami
-
-NOT YET IMPLEMENTED
-	server:create <host> --owner <owner>
 };
 
 	return 0;

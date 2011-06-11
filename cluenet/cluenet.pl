@@ -12,6 +12,7 @@ use Net::LDAP;
 use Net::LDAP::Extension::WhoAmI;
 use Net::LDAP::Util qw(ldap_explode_dn);
 use Data::Dumper;
+use Text::Format;
 
 my $ldap;
 my $cmd;
@@ -350,7 +351,7 @@ sub get_server_info {
 	$res->is_error and die ldap_errmsg($res, $dn);
 	for my $entry ($res->entries) {
 		my %server = map {$_ => [$entry->get_value($_)]} $entry->attributes;
-		for (qw(cn owner internalAddress serverRules sshPort)) {
+		for (qw(cn owner internalAddress sshPort)) {
 			$server{$_} = $server{$_}->[0];
 		}
 		for (qw(isActive isOfficial userAccessible)) {
@@ -403,6 +404,16 @@ sub print_server_info {
 		row "services:"	=> join(", ", @services);
 	}
 	endsection;
+
+	my $fmt = Text::Format->new(leftMargin => 4, firstIndent => 0);
+
+	if ($server->{description}) {
+		print $fmt->format(@{$server->{description}}), "\n";
+	}
+
+	if ($server->{serverRules}) {
+		print $fmt->format(@{$server->{serverRules}}), "\n";
+	}
 }
 
 sub print_user_info {

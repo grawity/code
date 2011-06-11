@@ -109,6 +109,12 @@ sub server_from_dn {
 	from_dn(shift, "ou=servers,dc=cluenet,dc=org", 1);
 }
 
+# Output fields
+
+my $_rows = 0;
+sub row { $_rows++; printf "%-16s%s\n", @_; }
+sub endsection { if ($_rows) {print "\n"; $_rows = 0;} }
+
 ### LDAP connection
 
 # Establish LDAP connection, authenticated or anonymous
@@ -379,39 +385,36 @@ sub print_server_info {
 	my ($server, $owner, @admins) = @_;
 	@admins = sort {$a->{uid} cmp $b->{uid}} @admins;
 	my $port = $server->{sshPort} // 22;
-	my $fmt = "%-16s%s\n";
-	printf $fmt, "hostname:", uc $server->{cn};
-	printf $fmt, "address:", format_address($_, $port)
+
+	row "HOSTNAME:"		=> uc $server->{cn};
+	row "address:"		=> format_address($_, $port)
 		for @{$server->{address}};
-	printf $fmt, "owner:", format_name($owner);
-	printf $fmt, "admin:", format_name($_)
+	row "owner:"		=> format_name($owner);
+	row "admin:"		=> format_name($_)
 		for @admins;
-	print "\n";
-
-	printf $fmt, "status:", join(", ", grep {defined} (
-		$server->{isOfficial}? "official" : "unofficial",
-		$server->{userAccessible}? "public" : "private",
-		$server->{isActive}? "active" : "inactive",
-		(grep {/:/} @{$server->{address}})? "IPv6" : undef,
-		));
-
+	row "status:"		=> join(", ", grep {defined} (
+					$server->{isOfficial}     ? "official" : "unofficial",
+					$server->{userAccessible} ? "public"   : "private",
+					$server->{isActive}       ? "active"   : "inactive",
+					(grep {/:/} @{$server->{address}}) ? "IPv6" : undef,
+				));
 	if (defined $server->{authorizedService}) {
 		my @services = sort @{$server->{authorizedService}};
-		printf $fmt, "services:", join(", ", @services);
+		row "services:"	=> join(", ", @services);
 	}
-	print "\n";
+	endsection;
 }
 
 sub print_user_info {
 	my ($user) = @_;
-	my $fmt = "%-16s%s\n";
-	printf $fmt, "person:", uc $user->{uid};
-	printf $fmt, "uid:", $user->{uidNumber};
-	printf $fmt, "shell:", $user->{loginShell};
-	printf $fmt, "IRC account:", $user->{ircServicesUser};
-
-	printf $fmt, "email:", join(", ", @{$user->{mail}});
-	print "\n";
+	row "PERSON:"	=> format_name($user);
+	row "uid:"	=> $user->{uidNumber};
+	row "shell:"	=> $user->{loginShell};
+	row "IRC account:"	=> $user->{ircServicesUser};
+	if ($user->{mail}) {
+		row "email:" => join(", ", @{$user->{mail}});
+	}
+	endsection;
 }
 
 $commands{"server:admin"} = sub {

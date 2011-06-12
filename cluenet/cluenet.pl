@@ -159,6 +159,17 @@ sub ldap_errmsg {
 	$text;
 }
 
+# Call `ldapsearch` to dump raw LDIF
+sub ext_dump_ldif {
+	my (%args) = @_;
+	my @cmd = ("ldapsearch", "-ZZQLLL");
+	push @cmd, "-s", $args{scope}		if $args{scope};
+	push @cmd, "-b", $args{base}		if $args{base};
+	push @cmd, $args{filter}		if $args{filter};
+	push @cmd, @{$args{attributes}}		if $args{attributes};
+	system(@cmd);
+}
+
 sub get_server_info {
 	my ($host, $is_dn) = @_;
 	my $dn = $is_dn ? $host : server_dn($host);
@@ -436,6 +447,21 @@ $commands{"server"} = sub {
 	return 0;
 };
 
+$commands{"server:dump"} = sub {
+	ext_dump_ldif(base => "ou=servers,dc=cluenet,dc=org", scope => "one",
+		filter => "(|".join("", map {"(cn=".fqdn($_).")"} @_).")");
+	return 0;
+};
+
+$commands{"server:list"} = sub {
+	$ldap = connect_anon;
+	my $base = "ou=servers,dc=cluenet,dc=org";
+	my $res = $ldap->search(base => $base, scope => "one",
+		filter => q(objectClass=server), attrs => ["cn"]);
+	if ($res->is_error) { die ldap_errmsg($res, $base); }
+	print "$_\n" for sort map {($_->get_value("cn"))[0]} $res->entries;
+};
+
 $commands{"server:admin"} = sub {
 	my (@hosts, @add, @del);
 	for (@_) {
@@ -574,8 +600,8 @@ $commands{"user"} = sub {
 };
 
 $commands{"user:dump"} = sub {
-	my $filter = "(|" . join("", map {"(uid=$_)"} @_) . ")";
-	system("ldapsearch", "-s", "one", "-b", "ou=people,dc=cluenet,dc=org", $filter);
+	ext_dump_ldif(base => "ou=people,dc=cluenet,dc=org", scope => "one",
+		filter => "(|".join("", map {"(uid=$_)"} @_).")");
 	return 0;
 };
 

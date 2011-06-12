@@ -356,7 +356,7 @@ $commands{"acl"} = sub {
 		my (%services, @svcs_authz, @svcs_acl);
 
 		$dn = server_dn($host);
-		$res = $ldap->search(base => $dn, scope => "bas",
+		$res = $ldap->search(base => $dn, scope => "base",
 			filter => q(objectClass=*), attrs => ["authorizedService"]);
 		if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
 		for my $entry ($res->entries) {

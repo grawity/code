@@ -107,7 +107,7 @@ kc() {
 				fi
 			fi
 
-			$use_color && flag=${flag_color}${flag}$'\033[m'
+			$use_color && [[ $flag ]] && flag=${flag_color}${flag}$'\033[m'
 
 			local dname=$ccname
 			if [[ $dname == $default ]]; then

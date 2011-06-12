@@ -542,6 +542,7 @@ $commands{"server:admin"} = sub {
 $commands{"server:create"} = sub {
 	my $err;
 	$ldap = connect_auth;
+	usage("server:create", qw(hostname)) unless @_;
 
 	my ($host, $dn, $subdn, $owner, $res, %entry);
 	$host = shift;
@@ -568,7 +569,7 @@ $commands{"server:create"} = sub {
 	);
 	print Dumper \%entry;
 	$res = $ldap->add($dn, attr => [%entry]);
-	if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
+	if ($res->is_error) { die ldap_errmsg($res, $dn); $err++; }
 
 	my $subdn = "cn=svcAccess,$dn";
 	%entry = (
@@ -592,6 +593,31 @@ $commands{"server:create"} = sub {
 		if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
 	}
 
+	return $err;
+};
+
+$commands{"server:delete"} = sub {
+	my $err;
+	usage("server:delete", qw(service ...)) unless @_;
+	$ldap = connect_auth;
+	for (@_) {
+		my ($host, $dn, $res, @children, $subdn, $num);
+		$host = fqdn($_);
+		$dn = server_dn($host);
+		print "Deleting server: $host\n";
+
+		# delete entire subtree
+		$res = $ldap->search(base => $dn, scope => "sub",
+			filter => q(objectClass=*), attributes => ["dn"]);
+		@children = reverse map {$_->dn} $res->entries;
+		$num = @children;
+		for $subdn (@children) {
+			$res = $ldap->delete($subdn);
+			if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; $num--; }
+		}
+		print "... $num entries deleted\n";
+	}
+	
 	return $err;
 };
 

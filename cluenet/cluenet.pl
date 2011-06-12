@@ -447,9 +447,13 @@ $commands{"server"} = sub {
 	return 0;
 };
 
+$commands{"server:getdn"} = sub {
+	print server_dn($_)."\n" for @_;
+	return 0;
+};
+
 $commands{"server:dump"} = sub {
-	ext_dump_ldif(base => "ou=servers,dc=cluenet,dc=org", scope => "one",
-		filter => "(|".join("", map {"(cn=".fqdn($_).")"} @_).")");
+	ext_dump_ldif(base => server_dn($_), scope => "sub") for @_;
 	return 0;
 };
 
@@ -599,9 +603,13 @@ $commands{"user"} = sub {
 	return 0;
 };
 
+$commands{"user:getdn"} = sub {
+	print user_dn($_)."\n" for @_;
+	return 0;
+};
+
 $commands{"user:dump"} = sub {
-	ext_dump_ldif(base => "ou=people,dc=cluenet,dc=org", scope => "one",
-		filter => "(|".join("", map {"(uid=$_)"} @_).")");
+	ext_dump_ldif(base => user_dn($_), scope => "sub") for @_;
 	return 0;
 };
 

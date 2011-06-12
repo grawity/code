@@ -34,6 +34,8 @@ kc() {
 	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches)
 
 	local now=$(date +%s)
+	local color=false
+	[[ $TERM && -t 1 ]] && color=true
 
 	case $arg in
 	-h|--help)
@@ -81,6 +83,7 @@ kc() {
 				if (( expiry <= now )); then
 					expiry_str="(expired)"
 					flag="x"
+					$color && flag=$'\033[31m'$flag$'\033[m'
 				else
 					expiry_str=$(date -d "@$expiry" +"%b %d %H:%M")
 				fi
@@ -89,8 +92,10 @@ kc() {
 			if [[ $ccname == $current ]]; then
 				if [[ $KRB5CCNAME ]]; then
 					flag="»"
+					$color && flag=$'\033[1;32m'$flag$'\033[m'
 				else
 					flag="*"
+					$color && flag=$'\033[32m'$flag$'\033[m'
 				fi
 			fi
 

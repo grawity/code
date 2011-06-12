@@ -423,13 +423,11 @@ sub print_server_info {
 
 sub print_user_info {
 	my ($user) = @_;
-	row "PERSON:"	=> format_name($user);
-	row "uid:"	=> $user->{uidNumber};
-	row "shell:"	=> $user->{loginShell};
-	row "IRC account:"	=> $user->{ircServicesUser};
-	if ($user->{mail}) {
-		row "email:" => join(", ", @{$user->{mail}});
-	}
+	row "PERSON:"		=> format_name($user);
+	row "uid:"		=> $user->{uidNumber};
+	row "shell:"		=> $user->{loginShell} // "(unset)";
+	row "IRC account:"	=> $user->{ircServicesUser}		if $user->{ircServicesUser};
+	row "email:"		=> join(", ", @{$user->{mail}})		if $user->{mail};
 	endsection;
 }
 
@@ -567,6 +565,12 @@ $commands{"user"} = sub {
 	for my $user (@_) {
 		print_user_info(get_user_info($user));
 	}
+	return 0;
+};
+
+$commands{"user:dump"} = sub {
+	my $filter = "(|" . join("", map {"(uid=$_)"} @_) . ")";
+	system("ldapsearch", "-s", "one", "-b", "ou=people,dc=cluenet,dc=org", $filter);
 	return 0;
 };
 

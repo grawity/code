@@ -107,14 +107,15 @@ kc() {
 				dname="KCM"
 			fi
 
-			local width=
+			local width=20 flag_w=1
 			if (( ${#dname} > 15 )); then
-				printf "%1s%2d %-s\n" "$flag" "$i" "$dname"
+				printf "%1s%n%2d %-s\n" "$flag" flag_w "$i" "$dname"
 				printf "%20s%-48s%s\n" "" "$defprinc" "$expiry_str"
 			else
-				printf "%1s%2d %-15s %n%-48s%s\n" "$flag" "$i" "$dname" width \
+				printf "%1s%n%2d %-15s %n%-48s%s\n" "$flag" flag_w "$i" "$dname" width \
 					"$defprinc" "$expiry_str"
 			fi
+			(( width += (1 - flag_w) ))
 			if [[ $init && $init != "krbtgt/$defrealm@$defrealm" ]]; then
 				printf "%*s(for %s)\n" $width "" "$init"
 			fi

@@ -85,7 +85,7 @@ sub to_hostservice_safe {
 	return (fqdn($host), $service, $rest);
 }
 
-# 
+#
 sub user_dn {"uid=".shift().",ou=people,dc=cluenet,dc=org"}
 sub server_dn {"cn=".fqdn(shift).",ou=servers,dc=cluenet,dc=org"}
 
@@ -287,20 +287,20 @@ $commands{"access"} = sub {
 		elsif (/^-(.+)$/) {push @del_users, $1}
 		else {die "syntax error: '$_'\n"}
 	}
-	
+
 	usage("access", qw(host/service ... [+-]user ...))
 		unless @services;
-	
+
 	if (@add_users or @del_users) {
 		$ldap = connect_auth;
 	} else {
 		$ldap = connect_anon;
 	}
-	
+
 	for (@services) {
 		my ($host, $service) = @$_;
 		my $group = "cn=$service,cn=svcAccess,".server_dn($host);
-		
+
 		if (@add_users or @del_users) {
 			# found +user/-user in args -- update members
 			my (@users, @add_users_svc, @del_users_svc, %changes);
@@ -395,7 +395,7 @@ $commands{"acl:create"} = sub {
 	for (@_) {
 		my ($host, $service) = to_hostservice_safe($_);
 		my ($dn, $res, %entry);
-		
+
 		print "Creating ACL: $host/$service\n";
 		$dn = "cn=$service,cn=svcAccess,".server_dn($host);
 		%entry = (
@@ -405,7 +405,7 @@ $commands{"acl:create"} = sub {
 		);
 		$res = $ldap->add($dn, attr => [%entry]);
 		if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
-		
+
 		$dn = server_dn($host);
 		%entry = (authorizedService => $service);
 		$res = $ldap->modify($dn, add => \%entry);
@@ -421,12 +421,12 @@ $commands{"acl:delete"} = sub {
 	for (@_) {
 		my ($host, $service) = to_hostservice_safe($_);
 		my ($dn, $res, %entry);
-		
+
 		print "Deleting ACL: $host/$service\n";
 		$dn = "cn=$service,cn=svcAccess,".server_dn($host);
 		$res = $ldap->delete($dn);
 		if ($res->is_error) { warn ldap_errmsg($res, $dn); $err++; }
-		
+
 		$dn = server_dn($host);
 		%entry = (authorizedService => $service);
 		$res = $ldap->modify($dn, delete => \%entry);
@@ -617,7 +617,7 @@ $commands{"server:delete"} = sub {
 		}
 		print "... $num entries deleted\n";
 	}
-	
+
 	return $err;
 };
 

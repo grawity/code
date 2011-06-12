@@ -41,6 +41,9 @@ kc() {
 	-h|--help)
 		echo "Usage: kc [list]"
 		echo "       kc <name>|\"@\" [kinit_args]"
+		echo "       kc <number>"
+		echo "       kc purge"
+		echo "       kc destroy <name|number> ..."
 		;;
 	"")
 		local ccname= dname= ccdata= i= have_current=false

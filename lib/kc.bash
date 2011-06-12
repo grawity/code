@@ -168,6 +168,18 @@ kc() {
 			fi
 		done
 		;;
+	destroy)
+		local name ccname ccnames=()
+		# kdestroying immediately would break numbered names
+		for name; do
+			if ccname=$(_kc_expand "$name"); then
+				ccnames+=("$ccname")
+			fi
+		done
+		for ccname in "${ccnames[@]}"; do
+			kdestroy -c "$ccname"
+		done
+		;;
 	clean)
 		rm -vf "$default" "$prefix"*
 		;;

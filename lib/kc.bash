@@ -34,8 +34,8 @@ kc() {
 	local caches; mapfile -t -O 1 -n 99 caches < <(kc_list_caches)
 
 	local now=$(date +%s)
-	local color=false
-	[[ $TERM && -t 1 ]] && color=true
+	local use_color=false
+	[[ $TERM && -t 1 ]] && use_color=true
 
 	case $arg in
 	-h|--help)
@@ -51,6 +51,8 @@ kc() {
 			local item= rest=
 			local flag= defprinc= defrealm= expiry= expiry_str=
 			local tgt= init= tgtexpiry=0 initexpiry=0
+			local flag_color=
+
 			while IFS=$'\t' read -r item rest; do
 				case $item in
 				principal)
@@ -83,7 +85,7 @@ kc() {
 				if (( expiry <= now )); then
 					expiry_str="(expired)"
 					flag="x"
-					$color && flag=$'\033[31m'$flag$'\033[m'
+					flag_color=$'\033[31m'
 				else
 					expiry_str=$(date -d "@$expiry" +"%b %d %H:%M")
 				fi
@@ -92,12 +94,17 @@ kc() {
 			if [[ $ccname == $current ]]; then
 				if [[ $KRB5CCNAME ]]; then
 					flag="»"
-					$color && flag=$'\033[1;32m'$flag$'\033[m'
+					flag_color=$'\033[1;32m'
 				else
 					flag="*"
-					$color && flag=$'\033[32m'$flag$'\033[m'
+					flag_color=$'\033[32m'
+				fi
+				if [[ $expiry_str == "(expired)" ]]; then
+					flag_color=$'\033[33m'
 				fi
 			fi
+
+			$use_color && flag=${flag_color}${flag}$'\033[m'
 
 			local dname=$ccname
 			if [[ $dname == $default ]]; then

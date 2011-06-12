@@ -132,7 +132,7 @@ kc() {
 				case $item in
 				principal)
 					defprinc=$rest
-					defrealm=${princ##*@}
+					defrealm=${defprinc##*@}
 					;;
 				ticket)
 					local client= service= expiry= flags=
@@ -151,7 +151,7 @@ kc() {
 			done <<< "$ccdata"
 
 			if [[ $tgt ]]; then
-				# only ccaches with a TGT can be renewed by kinit
+				# only TGTs are renewable
 				if ! kinit -c "$ccname" -R; then
 					kdestroy -c "$ccname"
 				fi
@@ -166,7 +166,6 @@ kc() {
 				fi
 			fi
 		done
-		kc list
 		;;
 	clean)
 		rm -vf "$default" "$prefix"*

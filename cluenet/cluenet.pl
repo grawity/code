@@ -417,6 +417,10 @@ sub print_server_info {
 	}
 
 	if ($server->{serverRules}) {
+		if ($server->{serverRules}[0] eq 'default') {
+			$server->{serverRules} = ["Don't break shit.",
+				"(To do: fix default serverRules)"];
+		}
 		print $fmt->format(@{$server->{serverRules}}), "\n";
 	}
 }

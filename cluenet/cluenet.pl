@@ -159,6 +159,96 @@ sub ldap_errmsg {
 	$text;
 }
 
+sub get_server_info {
+	my ($host, $is_dn) = @_;
+	my $dn = $is_dn ? $host : server_dn($host);
+
+	my $res = $ldap->search(base => $dn, scope => "base",
+		filter => q(objectClass=server));
+	$res->is_error and die ldap_errmsg($res, $dn);
+	for my $entry ($res->entries) {
+		my %server = map {$_ => [$entry->get_value($_)]} $entry->attributes;
+		for (qw(cn owner internalAddress sshPort)) {
+			$server{$_} = $server{$_}->[0];
+		}
+		for (qw(isActive isOfficial userAccessible)) {
+			$server{$_} = $server{$_}->[0] eq "TRUE";
+		}
+		$server{address} = [lookup_host($server{cn})];
+		return \%server;
+	}
+}
+
+sub print_server_info {
+	my ($server, $owner, @admins) = @_;
+	@admins = sort {$a->{uid} cmp $b->{uid}} @admins;
+	my $port = $server->{sshPort} // 22;
+
+	row "HOSTNAME:"		=> uc $server->{cn};
+	row "address:"		=> format_address($_, $port)
+		for @{$server->{address}};
+	row "owner:"		=> format_name($owner);
+	row "admin:"		=> format_name($_)
+		for @admins;
+	row "status:"		=> join(", ", grep {defined} (
+					$server->{isOfficial}     ? "official" : "unofficial",
+					$server->{userAccessible} ? "public"   : "private",
+					$server->{isActive}       ? "active"   : "inactive",
+					(grep {/:/} @{$server->{address}}) ? "IPv6" : undef,
+				));
+	if (defined $server->{authorizedService}) {
+		my @services = sort @{$server->{authorizedService}};
+		row "services:"	=> join(", ", @services);
+	}
+	endsection;
+
+	my $fmt = Text::Format->new(leftMargin => 4, firstIndent => 0);
+
+	if ($server->{description}) {
+		print $fmt->format(@{$server->{description}}), "\n";
+	}
+
+	if ($server->{serverRules}) {
+		if ($server->{serverRules}[0] eq 'default') {
+			$server->{serverRules} = ["Don't break shit.",
+				"(To do: fix default serverRules)"];
+		}
+		print $fmt->format(@{$server->{serverRules}}), "\n";
+	}
+}
+
+sub get_user_info {
+	my ($user, $is_dn) = @_;
+	my $dn = $is_dn ? $user : user_dn($user);
+
+	my $res = $ldap->search(base => $dn, scope => "base",
+		filter => q(objectClass=posixAccount));
+	$res->is_error and die ldap_errmsg($res, $dn);
+	for my $entry ($res->entries) {
+		my %user = map {$_ => [$entry->get_value($_)]} $entry->attributes;
+		for (qw(uid uidNumber gidNumber gecos homeDirectory loginShell cn
+				krb5PrincipalName clueIrcNick ircServicesUser)) {
+			$user{$_} = $user{$_}->[0];
+		}
+		$user{cn} =~ s/^\s+|\s+$//g;
+		if (defined $user{altEmail}) {
+			print Dumper($user{altEmail});
+			push @{$user{mail}}, @{$user{altEmail}};
+		}
+		return \%user;
+	}
+}
+
+sub print_user_info {
+	my ($user) = @_;
+	row "PERSON:"		=> format_name($user);
+	row "uid:"		=> $user->{uidNumber};
+	row "shell:"		=> $user->{loginShell} // "(unset)";
+	row "IRC account:"	=> $user->{ircServicesUser}		if $user->{ircServicesUser};
+	row "email:"		=> join(", ", @{$user->{mail}})		if $user->{mail};
+	endsection;
+}
+
 ### Miscellaneous
 
 sub usage {
@@ -345,95 +435,6 @@ $commands{"server"} = sub {
 	}
 	return 0;
 };
-
-sub get_server_info {
-	my ($host, $is_dn) = @_;
-	my $dn = $is_dn ? $host : server_dn($host);
-
-	my $res = $ldap->search(base => $dn, scope => "base",
-		filter => q(objectClass=server));
-	$res->is_error and die ldap_errmsg($res, $dn);
-	for my $entry ($res->entries) {
-		my %server = map {$_ => [$entry->get_value($_)]} $entry->attributes;
-		for (qw(cn owner internalAddress sshPort)) {
-			$server{$_} = $server{$_}->[0];
-		}
-		for (qw(isActive isOfficial userAccessible)) {
-			$server{$_} = $server{$_}->[0] eq "TRUE";
-		}
-		$server{address} = [lookup_host($server{cn})];
-		return \%server;
-	}
-}
-sub get_user_info {
-	my ($user, $is_dn) = @_;
-	my $dn = $is_dn ? $user : user_dn($user);
-
-	my $res = $ldap->search(base => $dn, scope => "base",
-		filter => q(objectClass=posixAccount));
-	$res->is_error and die ldap_errmsg($res, $dn);
-	for my $entry ($res->entries) {
-		my %user = map {$_ => [$entry->get_value($_)]} $entry->attributes;
-		for (qw(uid uidNumber gidNumber gecos homeDirectory loginShell cn
-				krb5PrincipalName clueIrcNick ircServicesUser)) {
-			$user{$_} = $user{$_}->[0];
-		}
-		$user{cn} =~ s/^\s+|\s+$//g;
-		if (defined $user{altEmail}) {
-			print Dumper($user{altEmail});
-			push @{$user{mail}}, @{$user{altEmail}};
-		}
-		return \%user;
-	}
-}
-
-sub print_server_info {
-	my ($server, $owner, @admins) = @_;
-	@admins = sort {$a->{uid} cmp $b->{uid}} @admins;
-	my $port = $server->{sshPort} // 22;
-
-	row "HOSTNAME:"		=> uc $server->{cn};
-	row "address:"		=> format_address($_, $port)
-		for @{$server->{address}};
-	row "owner:"		=> format_name($owner);
-	row "admin:"		=> format_name($_)
-		for @admins;
-	row "status:"		=> join(", ", grep {defined} (
-					$server->{isOfficial}     ? "official" : "unofficial",
-					$server->{userAccessible} ? "public"   : "private",
-					$server->{isActive}       ? "active"   : "inactive",
-					(grep {/:/} @{$server->{address}}) ? "IPv6" : undef,
-				));
-	if (defined $server->{authorizedService}) {
-		my @services = sort @{$server->{authorizedService}};
-		row "services:"	=> join(", ", @services);
-	}
-	endsection;
-
-	my $fmt = Text::Format->new(leftMargin => 4, firstIndent => 0);
-
-	if ($server->{description}) {
-		print $fmt->format(@{$server->{description}}), "\n";
-	}
-
-	if ($server->{serverRules}) {
-		if ($server->{serverRules}[0] eq 'default') {
-			$server->{serverRules} = ["Don't break shit.",
-				"(To do: fix default serverRules)"];
-		}
-		print $fmt->format(@{$server->{serverRules}}), "\n";
-	}
-}
-
-sub print_user_info {
-	my ($user) = @_;
-	row "PERSON:"		=> format_name($user);
-	row "uid:"		=> $user->{uidNumber};
-	row "shell:"		=> $user->{loginShell} // "(unset)";
-	row "IRC account:"	=> $user->{ircServicesUser}		if $user->{ircServicesUser};
-	row "email:"		=> join(", ", @{$user->{mail}})		if $user->{mail};
-	endsection;
-}
 
 $commands{"server:admin"} = sub {
 	my (@hosts, @add, @del);

@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
 use strict;
+use warnings;
 use constant LDAP_HOST => "ldap.cluenet.org";
 
 use Getopt::Long;
@@ -140,7 +141,7 @@ sub whoami {
 	if (!defined $my_name) {
 		$my_name = $ldap->who_am_i->response;
 		$my_name =~ s/^u://;
-		$my_name =~ s/^dn:uid=(.+?),.*$/\1/;
+		$my_name =~ s/^dn:uid=(.+?),.*$/$1/;
 		# cross-realm
 		$my_name =~ s/\@nullroute\.eu\.org$//;
 	}
@@ -571,7 +572,7 @@ $commands{"server:create"} = sub {
 	$res = $ldap->add($dn, attr => [%entry]);
 	if ($res->is_error) { die ldap_errmsg($res, $dn); $err++; }
 
-	my $subdn = "cn=svcAccess,$dn";
+	$subdn = "cn=svcAccess,$dn";
 	%entry = (
 		objectClass => "groupOfGroups",
 		cn => "svcAccess",
@@ -788,7 +789,7 @@ $cmd = shift(@ARGV) // "help";
 if (defined $commands{$cmd}) {
 	$exit = $commands{$cmd}->(@ARGV);
 	$ldap and $ldap->unbind;
-	exit $exit ? 1 : 0;
+	exit (defined $exit && $exit) ? 1 : 0;
 } else {
 	die "Unknown command '$cmd'\n";
 }

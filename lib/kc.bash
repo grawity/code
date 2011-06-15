@@ -26,6 +26,11 @@ kc_list_caches() {
 }
 
 kc() {
+	if ! command -v pklist >&/dev/null; then
+		echo "'pklist' not found in \$PATH" >&2
+		return 2
+	fi
+
 	local arg=$1; shift
 
 	local current="$(pklist -N)"

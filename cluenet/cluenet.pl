@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
+use feature "switch";
 use constant LDAP_HOST => "ldap.cluenet.org";
 
 use Getopt::Long;
@@ -110,6 +111,16 @@ sub user_from_dn {
 sub server_from_dn {
 	from_dn(shift, "ou=servers,dc=cluenet,dc=org", 1);
 }
+
+sub str_bool {
+	given (shift) {
+		return 1 when undef;
+		return 1 when /^(1|y|yes|true)$/i;
+		return 0 when /^(0|n|no|false)$/i;
+		die "Invalid value '$_'\n";
+	}
+}
+sub ldap_bool { str_bool(shift) ? "TRUE" : "FALSE" }
 
 # Output fields
 
@@ -620,6 +631,38 @@ $commands{"server:delete"} = sub {
 	}
 
 	return $err;
+};
+
+$commands{"server:set"} = sub {
+	my $err;
+	usage("server:set", qw(server attr=value ...)) unless @_;
+	$ldap = connect_auth;
+	my @hosts = split(/,/, shift);
+	my %changes = (replace => {});
+	for (@_) {
+		my ($attr, $value) = split(/=/, $_, 2);
+		given ($attr) {
+			when ("active") {
+				$attr = "isActive";
+				$value = ldap_bool($value);
+			}
+			when ("official") {
+				$attr = "isOfficial";
+				$value = ldap_bool($value);
+			}
+			when ("public") {
+				$attr = "userAccessible";
+				$value = ldap_bool($value);
+			}
+		}
+		$changes{replace}{$attr} = [$value];
+	}
+	for my $host (@hosts) {
+		my $sdn = server_dn($host);
+		print "Modifying $sdn\n";
+		my $res = $ldap->modify($sdn, %changes);
+		$res->is_error and warn ldap_errmsg($res, $sdn);
+	}
 };
 
 $commands{"user"} = sub {

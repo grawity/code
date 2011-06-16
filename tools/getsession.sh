@@ -13,16 +13,19 @@ sppid=$(echo $(ps -p $sid -o "ppid="))
 (( sppid )) || exit 1
 
 cmd=$(echo $(ps -p $sppid -o "cmd="))
-if [[ $cmd == "sshd: "* ]]; then
-	conn=ssh
-elif [[ $cmd == "in.telnetd: "* ]]; then
-	conn=telnet
-elif [[ $cmd == "SCREEN" ]]; then
-	conn=screen
-elif [[ $cmd == "tmux" || $cmd == "tmux "* ]]; then
-	conn=tmux
-else
-	conn='-'
-fi
+case $cmd in
+	"sshd: "*)
+		conn=ssh ;;
+	"in.telnetd: "*)
+		conn=telnet ;;
+	"SCREEN")
+		conn=screen ;;
+	"tmux"|"tmux "*)
+		conn=tmux ;;
+	gnome-terminal|konsole|xterm|yakuake)
+		conn=x11 ;;
+	*)
+		conn=-
+esac
 
 printf '%s\t%d\t%s\n' "$conn" "$sppid" "$cmd"

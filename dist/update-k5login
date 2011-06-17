@@ -10,6 +10,7 @@ def getfqdn(host=None):
 
 def read_rules(rules_file):
 	defprinc = None
+	principals = []
 	rules = {}
 	lineno = 0
 	for line in open(rules_file, "r"):
@@ -17,28 +18,23 @@ def read_rules(rules_file):
 		line = line.rstrip()
 		if not line or line.startswith("#"):
 			continue
+
 		if line[0].isspace():
 			masks = line.split()
 		else:
 			line = line.split()
 			defprinc = line[0]
 			masks = line[1:]
+
 		if not defprinc:
 			sys.stderr.write("warning: missing principal on line %d\n" % lineno)
 			continue
 		if defprinc not in rules:
+			principals.append(defprinc)
 			rules[defprinc] = set()
 		rules[defprinc] |= set(masks)
-	return rules.items()
 
-def write_k5login(output, rules):
-	fqdn = getfqdn()
-	
-	outfd = open(output, "w")
-	for princ, masks in rules:
-		if any(map(lambda mask: fnmatch.fnmatch(fqdn, mask), masks)):
-			outfd.write(princ+"\n")
-	outfd.close()
+	return principals, rules
 
 rules_file = os.path.expanduser("~/lib/dotfiles/k5login.rules")
 k5login_file = os.path.expanduser("~/.k5login")
@@ -48,5 +44,12 @@ for opt, optarg in opts:
 	if opt == "-i":		rules_file = optarg
 	elif opt == "-o":	k5login_file = optarg
 
-rules = read_rules(rules_file)
-write_k5login(k5login_file, rules)
+principals, rules = read_rules(rules_file)
+fqdn = getfqdn()
+
+outfd = open(k5login_file, "w")
+for princ in principals:
+	masks = rules[princ]
+	if any(map(lambda mask: fnmatch.fnmatch(fqdn, mask), masks)):
+		outfd.write(princ+"\n")
+outfd.close()

@@ -1,26 +1,33 @@
-CCFLAGS = -Wall -O2
+CFLAGS = -Wall -O2
 
 all: bin/args bin/bgrep bin/logwipe bin/silentcat
 
 bootstrap:
-	@bash tools/bootstrap
+	@bash dist/bootstrap
 
 pull:
-	@bash tools/dotrc
+	@bash dist/pull
 
 install: all
-	@bash tools/installbin
+	@bash dist/installbin
+
+clean:
+	rm -f bin/*
 
 bin/args: tools/args.c
-	gcc $(CCFLAGS) -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 bin/bgrep: tools/bgrep.c
-	gcc $(CCFLAGS) -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 bin/logwipe: tools/wipe.c
-	gcc $(CCFLAGS) -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 bin/silentcat: tools/silentcat.c
-	gcc $(CCFLAGS) -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
-.PHONY: bootstrap install pull
+pklist:
+	@make -C pklist
+
+.PHONY: bootstrap install pull clean
+.PHONY: pklist

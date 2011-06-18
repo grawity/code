@@ -7,11 +7,14 @@ link() {
 		echo "Not overwriting $link" >&2
 	else
 		rm -f "$link"
-		sym -f "$target" "$link"
+		sym -vf "$target" "$link"
 	fi
 }
 
 sym() { "$dir/sym.pl" "$@"; }
+
+[ "$MAKELEVEL" = "1" ] &&
+	unset MAKELEVEL
 
 dir=~/code
 all=false
@@ -28,25 +31,28 @@ done
 mkdir -p ~/bin ~/lib
 mkdir -pm 0700 ~/tmp
 
+$force && make clean
+
 make all
 
 link	bin/args		~/bin/args
 link	bin/bgrep		~/bin/bgrep
-link	tools/fqdn		~/bin/fqdn
-link	tools/getnetrc.pl	~/bin/getnetrc
 link	getpaste.pl		~/bin/getpaste
 link	tools/getsession.sh	~/bin/getsession
 link	gist.pl			~/bin/gist
-link	tools/nbls.pl		~/bin/nbls
 link	rdt.php			~/bin/rdt
 link	bin/silentcat		~/bin/silentcat
 link	sym.pl			~/bin/sym
 link	tools/urlencode.pl	~/bin/urlencode
 
-if { which python2 && ! which python; } >& /dev/null; then
-	ln -sf "$(which python)" ~/bin/python2
+rm -f	~/bin/getnetrc
+rm -f	~/bin/nbls
+
+if [ -f /usr/include/krb5.h ]; then
+	make pklist
+	link pklist/pklist	~/bin/pklist
 fi
 
-if [ -e pklist/pklist ]; then
-	link	pklist/pklist		~/bin/pklist
+if { which python2 && ! which python; } >/dev/null 2>&1; then
+	ln -sf "`which python`" ~/bin/python2
 fi

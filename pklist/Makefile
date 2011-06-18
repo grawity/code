@@ -1,5 +1,5 @@
 pklist: pklist.c
-	gcc -Wall -lkrb5 -lcom_err $(CFLAGS) -o $@ $<
+	gcc $(CFLAGS) -Wall -lkrb5 -lcom_err -o $@ $<
 
 clean:
 	rm -f pklist

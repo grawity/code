@@ -3,7 +3,7 @@ set -e
 pullkey_host=equal.cluenet.org
 forward_mail=grawity@gmail.com
 
-have() { command -v "$1" >&/dev/null; }
+have() { command -v "$1" >/dev/null; }
 
 log() { printf "\e[1;32m=\e[;1m %s\e[m\n" "$*"; }
 
@@ -102,4 +102,11 @@ elif [[ ! -f ~/.forward ]]; then
 	fi
 else
 	log_ok "Mail is being forwarded to $(sed 1q ~/.forward)"
+fi
+
+if have cpanm; then
+	log_ok "cpanminus is installed"
+else
+	log "Installing cpanminus"
+	httpget http://cpanmin.us | perl - --self-upgrade
 fi

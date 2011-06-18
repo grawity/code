@@ -1,12 +1,29 @@
-// Written in April 2009 by Felix Domke <tmbinc@elitedvb.net>
+// Copyright 2009 Felix Domke <tmbinc@elitedvb.net>. All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+// 
+//    1. Redistributions of source code must retain the above copyright notice, this list of
+//       conditions and the following disclaimer.
+// 
+//    2. Redistributions in binary form must reproduce the above copyright notice, this list
+//       of conditions and the following disclaimer in the documentation and/or other materials
+//       provided with the distribution.
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ``AS IS'' AND ANY EXPRESS OR IMPLIED
+// WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+// FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> OR
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+// ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// The views and conclusions contained in the software and documentation are those of the
+// authors and should not be interpreted as representing official policies, either expressed
+// or implied, of the copyright holder.
 //
-// Placed in the public domain April 2009 by the author: no copyright is
-// claimed, and you may use it for any purpose you like.
-//
-// No warranty for any purpose is expressed or implied by the author. 
-// Report bugs and send enhancements to the author.
-//
-// http://debugmo.de/?p=100
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +33,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+#define BGREP_VERSION "0.2"
 
 int ascii2hex(char c)
 {
@@ -39,12 +58,15 @@ void searchfile(const char *filename, int fd, const unsigned char *value, const 
 {
 	off_t offset = 0;
 	unsigned char buf[1024];
+
+	len--;
+
 	while (1)
 	{
 		int r;
 
-		memcpy(buf, buf + len, len);
-		r = read(fd, buf + len, 1024 - len);
+		memmove(buf, buf + sizeof(buf) - len, len);
+		r = read(fd, buf + len, sizeof(buf) - len);
 
 		if (r < 0)
 		{
@@ -54,12 +76,12 @@ void searchfile(const char *filename, int fd, const unsigned char *value, const 
 			return;
 		
 		int o, i;
-		for (o = offset ? len : 0; o < r - len + 1; ++o)
+		for (o = offset ? 0 : len; o < r; ++o)
 		{
-			for (i = 0; i < len; ++i)
+			for (i = 0; i <= len; ++i)
 				if ((buf[o + i] & mask[i]) != value[i])
 					break;
-			if (i == len)
+			if (i > len)
 			{
 				printf("%s: %08llx\n", filename, (unsigned long long)(offset + o - len));
 			}
@@ -120,6 +142,7 @@ int main(int argc, char **argv)
 	
 	if (argc < 2)
 	{
+		fprintf(stderr, "bgrep version: %s\n", BGREP_VERSION);
 		fprintf(stderr, "usage: %s <hex> [<path> [...]]\n", *argv);
 		return 1;
 	}
@@ -132,7 +155,10 @@ int main(int argc, char **argv)
 			value[len] = mask[len] = 0;
 			len++;
 			h += 2;
-		} else 
+		} else if (h[0] == ' ')
+		{
+			h++;
+		} else
 		{
 			int v0 = ascii2hex(*h++);
 			int v1 = ascii2hex(*h++);

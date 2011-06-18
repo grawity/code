@@ -23,7 +23,9 @@ check-gpg-version() {
 	(( major >= 2 )) || (( major == 1 && minor >= 4 ))
 }
 
-if have getent; then
+if have ~/code/tools/fqdn; then
+	FQDN=$(~/code/tools/fqdn)
+elif have getent; then
 	read _ FQDN _ <<< "$(getent hosts "$HOSTNAME")"
 else
 	FQDN=$(hostname)
@@ -36,7 +38,8 @@ if [[ ! -d ~/lib/dotfiles/.git ]]; then
 		~/lib/dotfiles
 	~/lib/dotfiles/install
 else
-	log_ok "~/lib/dotfiles is okay"
+	commit=$(cd ~/lib/dotfiles && git log --oneline -1)
+	log_ok "~/lib/dotfiles is at $commit"
 fi
 
 if [[ ! -f ~/.ssh/authorized_keys ]]; then
@@ -84,7 +87,7 @@ fi
 set -e
 
 if [[ $FQDN == "equal.cluenet.org" ]]; then
-	log_ok "Skipping mail forward to avoid loop"
+	log_ok "Skipping ~/.forward - this is the mail server"
 elif [[ ! -f ~/.forward ]]; then
 	log "Forwarding mail to $forward_mail"
 	echo "$forward_mail" > ~/.forward

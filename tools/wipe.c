@@ -95,7 +95,7 @@ copy_file(char *src, char *dst)
 		return;
 	}
 
-	if ( (fd2 = open(dst, O_WRONLY | O_CREAT | O_TRUNC)) < 0 ) {
+	if ( (fd2 = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0 ) {
 		fprintf(stderr, "ERROR: Creating %s during copy.\n", dst);
 		return;
 	}

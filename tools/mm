@@ -1,11 +1,45 @@
 #!/bin/bash
 # Playlist search tool for `mpd`
 
+do_search() {
+	local pattern=$1
+	local songs=()
+
+	# parse argument
+	if [[ $pattern =~ ^[[:digit:]]+$ ]]; then
+		if (( $pattern == 0 )); then
+			echo "error: song number must be larger than zero" >&2
+			exit 2
+		fi
+		songs[$pattern]=$(mpc playlist -f "$fmt_input" | sed -n "${pattern}{p;q}")
+	else
+		while IFS=$'\t' read -r num song; do
+			songs[$num]=$song
+		done < <(mpc playlist -f "$fmt_input" | grep -Ei -- "$pattern")
+	fi
+
+	# if exactly one result, go to song
+	if (( ${#songs[@]} == 1 )); then
+		mpc -q play "${!songs[@]}"
+
+		if [[ $out == x11 ]]; then
+			return
+		fi
+
+		get_current
+		display_${out}_current
+	else
+		display_${out}_list
+	fi
+}
+
 printf -v fmt_normal "$(tput setaf 40)%%4d  $(tput sgr0)%%s\n"
 printf -v fmt_current "$(tput bold; tput setaf 82)%%4d  $(tput setaf 7)%%s$(tput sgr0)\n"
+
 display_tty_current() {
 	printf "$fmt_current" "$cur_pos" "$cur_artist - $cur_title"
 }
+
 display_tty_list() {
 	local i
 	for i in "${!songs[@]}"; do
@@ -25,6 +59,7 @@ display_x11_current() {
 		"$cur_title" \
 		"by <i>$(xmlescape "$cur_artist")</i>"
 }
+
 display_x11_list() {
 	local i new
 	new=$(for i in "${!songs[@]}"; do
@@ -60,32 +95,9 @@ fi
 
 fmt_input='%position%\t%artist%\t%title%'
 
+get_current
 if [[ -z $1 ]]; then
-	get_current
 	display_${out}_current
 else
-	pattern=$1
-	songs=()
-
-	# parse argument
-	if [[ $pattern =~ ^[[:digit:]]+$ ]]; then
-		if (( $pattern == 0 )); then
-			echo "error: song number must be larger than zero" >&2
-			exit 2
-		fi
-		songs[$pattern]=$(mpc playlist -f "$fmt_input" | sed -n "${pattern}{p;q}")
-	else
-		while IFS=$'\t' read -r num song; do
-			songs[$num]=$song
-		done < <(mpc playlist -f "$fmt_input" | grep -Ei -- "$pattern")
-	fi
-
-	# if exactly one result, go to song
-	if (( ${#songs[@]} == 1 )); then
-		mpc -q play "${!songs[@]}"
-		get_current
-		display_${out}_current
-	else
-		display_${out}_list
-	fi
+	do_search "$1"
 fi

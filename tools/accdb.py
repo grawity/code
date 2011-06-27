@@ -33,7 +33,7 @@ class Record(dict):
 		self.pos = None
 		dict.__init__(self, *args, **kwargs)
 
-	def __str__(self, full=True):
+	def __str__(self, full=True, safe=True):
 		sep = ": "
 		out = ""
 		out += "= %s\n" % self["Name"]
@@ -42,10 +42,15 @@ class Record(dict):
 		for key in Database.sort_fields(self.keys(), full):
 			if key in ("Name", "comment"):
 				continue
-			if isinstance(self[key], str):
+			elif isinstance(self[key], str):
 				values = [self[key]]
 			else:
 				values = self[key]
+			if safe:
+				if key == "pass":
+					continue
+				elif key.startswith("!"):
+					values = ("<%d>" % len(val) for val in values)
 			for val in values:
 				out += "\t%s\n" % sep.join((key, val))
 		if full and len(self.flags) > 0:
@@ -68,9 +73,12 @@ class Record(dict):
 			if f in self:
 				n.extend(self[f])
 		return map(str.lower, n)
-	
+
 	def flag(self, *flags):
 		self.flags |= set(flags)
+
+	def reveal(self):
+		return self.__str__(safe=False)
 
 class Database():
 	fields = dict(
@@ -192,6 +200,9 @@ class Database():
 		if self.modified:
 			self.save()
 
+	def grep_bypos(self, pos):
+		return self.data[pos-1]
+
 	def grep_named(self, pattern):
 		if pattern.startswith("="):
 			pattern = pattern[0]
@@ -281,13 +292,41 @@ class Interactive(Cmd):
 		else:
 			print "RTFM"
 			self._foo = True
-	
+
 	def do_xyzzy(self, arg):
 		print "Nothing happens."
-		
+
 	def do_info(self, arg):
 		"""Database summary"""
 		print "%d entries in %s" % (len(db.data), db.path)
+
+	def do_copy(self, arg):
+		"""Copy the password to clipboard"""
+		try:
+			arg = int(arg)
+		except ValueError:
+			print "Missing argument"
+			return
+
+		item = db.grep_bypos(arg)
+		print item
+		if "pass" in item:
+			Clipboard.set(item["pass"][0])
+
+	do_c = do_copy
+
+	def do_reveal(self, arg):
+		"""Display an entry including secret data"""
+		try:
+			arg = int(arg)
+		except ValueError:
+			print "Missing argument"
+			return
+
+		item = db.grep_bypos(arg)
+		print item.reveal()
+
+	do_re = do_reveal
 
 	def do_ls(self, arg):
 		"""List entries by name"""
@@ -347,7 +386,7 @@ class Interactive(Cmd):
 		db.data.append(rec)
 		db.modified = True
 		print "Added."
-	
+
 	def do_rm(self, arg):
 		"""Remove an entry"""
 		items = []
@@ -357,7 +396,7 @@ class Interactive(Cmd):
 				items.extend(range(int(min), int(max)+1))
 			else:
 				items.append(int(g))
-		
+
 		for item in db.data:
 			if item.pos in items:
 				item.flag("deleted")
@@ -382,6 +421,25 @@ class Interactive(Cmd):
 	def do_sort(self, arg):
 		"""Sort database"""
 		db.sort()
+
+class Clipboard():
+	@classmethod
+	def get(self):
+		if sys.platform == "win32":
+			import win32clipboard as Clip
+			Clip.OpenClipboard()
+			data = Clip.GetClipboardData()
+			Clip.CloseClipboard()
+			return data
+
+	@classmethod
+	def set(self, data):
+		if sys.platform == "win32":
+			import win32clipboard as Clip
+			Clip.OpenClipboard()
+			Clip.SetClipboardText(data.encode("utf-8"), Clip.CF_TEXT)
+			Clip.SetClipboardText(unicode(data), Clip.CF_UNICODETEXT)
+			Clip.CloseClipboard()
 
 def run_editor(file):
 	from subprocess import Popen

@@ -108,18 +108,15 @@ program_cache() {
 	local IFS=:
 	wmiir proglist -- $PATH > "$(wmiir ns)/programs.cache"
 }
-action_menu() {
-	for action; do
-		echo "$action"
-	done | wimenu -p "action:"
-}
 tag_menu() {
 	tags | wimenu -p "${1:-view tag}:" -h "$WMII_CONFDIR/history.tags" -n 20
 }
 
 program_input() {
-	local input="$(program_menu)"
-	[[ "$input" ]] && eval wmiir setsid -f "$input"
+	{
+		local input="$(program_menu)"
+		[[ "$input" ]] && eval wmiir setsid -f "$input"
+	} &
 }
 
 action_input() {
@@ -133,31 +130,40 @@ action_input() {
 		"reboot"
 		)
 
-	local input="$(action_menu "${actions[@]}")"
-	[[ "$input" ]] && {
-		set -- $input
-		local action="$1"; shift
-		case "$action" in
-		ctl)
-			wmiir xwrite /ctl "$*" ;;
-		eval)
-			eval "$*" ;;
-		exec)
-			wmiir xwrite /ctl "exec $*" ;;
-		quit)
-			wmiir xwrite /event "Suicide"
-			wmiir xwrite /ctl "quit"
-			;;
-		proglist)
-			program_cache & ;;
-		rc)
-			restart_rc ;;
-		reboot)
-			restart_system ;;
-		shutdown)
-			shutdown_system ;;
-		esac
-	}
+	{
+		printf '%s\n' "${actions[@]}" |
+		wimenu -p "action:" |
+		sed 's/^/Action /' |
+		wmiir write /event
+	} &
+}
+
+event_Program() {
+	eval wmiir setsid -f "$@"
+}
+
+event_Action() {
+	local action="$1"; shift
+	case "$action" in
+	ctl)
+		wmiir xwrite /ctl "$*" ;;
+	eval)
+		eval "$*" ;;
+	exec)
+		wmiir xwrite /ctl "exec $*" ;;
+	quit)
+		wmiir xwrite /event "Suicide"
+		wmiir xwrite /ctl "quit"
+		;;
+	proglist)
+		program_cache & ;;
+	rc)
+		restart_rc ;;
+	reboot)
+		restart_system ;;
+	shutdown)
+		shutdown_system ;;
+	esac
 }
 
 shutdown_system() { ck stop; }
@@ -362,6 +368,10 @@ event() {
 
 	Key)
 		event_Key "$@"
+		;;
+
+	Action)
+		event_Action "$@"
 		;;
 
 	# Debugging through 'wmiir write /event'

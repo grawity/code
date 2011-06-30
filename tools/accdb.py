@@ -437,6 +437,7 @@ class Clipboard():
 		if sys.platform == "win32":
 			import win32clipboard as Clip
 			Clip.OpenClipboard()
+			Clip.EmptyClipboard()
 			Clip.SetClipboardText(data.encode("utf-8"), Clip.CF_TEXT)
 			Clip.SetClipboardText(unicode(data), Clip.CF_UNICODETEXT)
 			Clip.CloseClipboard()

@@ -13,7 +13,15 @@ colors = {
 	"timeout":	cons.FOREGROUND_YELLOW | cons.FOREGROUND_INTENSITY,
 }
 
-args = ["ping"] + sys.argv[1:]
+def parse_data(data):
+	for token in data.split():
+		if "=" in token:
+			yield token.split("=", 1)
+		elif "<" in token:
+			t = token.partition("<")
+			yield token[0], token[1]+token[2]
+
+args = ["ping", "-t", "-w", "1"] + sys.argv[1:]
 proc = Popen(args, stdout=PIPE)
 while True:
 	try:
@@ -29,8 +37,7 @@ while True:
 	if line.startswith("Reply from "):
 		status = "ok"
 		_, data = line.split(": ", 1)
-		data = data.split()
-		data = {k[0]: k[1] for k in [j.split("=") for j in data]}
+		data = {k[0]: k[1] for k in parse_data(data)}
 	elif line == "Request timed out.":
 		status = "timeout"
 	else:

@@ -183,7 +183,7 @@ class TermServUtil():
 				continue
 			if len(conditions) and not all(map(lambda func: func[0](proc, func[1]), conditions)):
 				continue
-			print(" %(Server)-10s %(User)-12s %(SessionId)5d %(Pid)5d %(Image)s" % proc)
+			print(" %(Server)-10s %(User)-14s %(SessionId)5d %(Pid)5d %(Image)s" % proc)
 	
 	def cmd_users(self, cmd, args):
 		return self.cmd_who("users", args)

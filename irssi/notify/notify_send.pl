@@ -49,6 +49,7 @@ use Irssi;
 use Socket;
 use IO::Socket::INET;
 use IO::Socket::UNIX;
+use List::MoreUtils qw(any);
 
 $VERSION = "0.6.(2*ε)";
 %IRSSI = (
@@ -91,7 +92,7 @@ sub on_message {
 	# if public, check for hilightness
 	return if $channel and !(
 		$msg =~ /\Q$mynick/i
-		or grep {$msg =~ $_} @hilights
+		or any {$msg =~ $_} @hilights
 	);
 
 	# ignore notices from services

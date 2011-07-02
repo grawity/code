@@ -65,6 +65,12 @@ my ($dbus, $libnotify);
 
 my $dbus_error = 0;
 
+my @hilights = (
+	# Put regexps below, as per the example, just without the "#"
+
+	# qr/whatever/i,
+);
+
 sub on_message {
 	my ($server, $msg, $nick, $userhost, $target, $type) = @_;
 
@@ -84,9 +90,8 @@ sub on_message {
 
 	# if public, check for hilightness
 	return if $channel and !(
-		# put hilight rules here, separated by 'or'
 		$msg =~ /\Q$mynick/i
-		#or $msg =~ /porn/i
+		or grep {$msg =~ $_} @hilights
 	);
 
 	# ignore notices from services

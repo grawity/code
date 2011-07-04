@@ -26,6 +26,15 @@ import fnmatch
 import shlex
 from cmd import Cmd
 
+def rangesplit(string):
+	for m in string.split():
+		for n in m.split(","):
+			if "-" in n:
+				x, y = n.split("-", 1)
+				yield int(x), int(y)+1
+			else:
+				yield int(n), int(n)+1
+
 class Record(dict):
 	def __init__(self, *args, **kwargs):
 		self.flags = set()
@@ -317,14 +326,11 @@ class Interactive(Cmd):
 
 	def do_reveal(self, arg):
 		"""Display an entry including secret data"""
-		try:
-			arg = int(arg)
-		except ValueError:
-			print "Missing argument"
-			return
-
-		item = db.grep_bypos(arg)
-		print item.reveal()
+		items = []
+		for x, y in rangesplit(arg):
+			items.extend(range(x, y))
+		for item in items:
+			print db.grep_bypos(item).reveal()
 
 	do_re = do_reveal
 
@@ -390,12 +396,8 @@ class Interactive(Cmd):
 	def do_rm(self, arg):
 		"""Remove an entry"""
 		items = []
-		for g in arg.split(","):
-			if "-" in g:
-				min, max = g.split("-", 1)
-				items.extend(range(int(min), int(max)+1))
-			else:
-				items.append(int(g))
+		for x, y in rangesplit(arg):
+			items.extend(range(x, y))
 
 		for item in db.data:
 			if item.pos in items:

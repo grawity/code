@@ -166,7 +166,7 @@ class Database():
 	def dump(self, fh=sys.stdout):
 		for item in self.data:
 			if "deleted" not in item.flags:
-				print >> fh, item
+				print >> fh, item.reveal()
 
 	def dump_json(self, fh=sys.stdout):
 		try:

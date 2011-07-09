@@ -2,6 +2,7 @@
  * Wipe v1.01.
  *
  * Written by The Crawler.
+ * v1.01 by grawity.
  *
  * Selectively wipe system logs.
  * 

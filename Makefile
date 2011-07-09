@@ -20,7 +20,7 @@ bin/args: tools/args.c
 bin/bgrep: tools/bgrep.c
 	gcc $(CFLAGS) -o $@ $<
 
-bin/logwipe: tools/wipe.c
+bin/logwipe: tools/logwipe.c
 	gcc $(CFLAGS) -o $@ $<
 
 bin/silentcat: tools/silentcat.c

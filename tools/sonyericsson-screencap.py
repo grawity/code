@@ -7,10 +7,7 @@
 
 import sys
 import serial
-
 from PIL import Image
-
-NL = "\x0D\x0A"
 
 """
 Todo: add multiple screen support
@@ -29,14 +26,14 @@ def put(x):
 
 def load_screen(serFh):
 	input, lastin = [], ""
-	##logFh = open("foo.log", "wb")
 	
-	print "Loading screendump (eta 24 seconds)"
-	serFh.write("AT*ZISI"+NL)
+	print "Capturing screen (eta 24 seconds)"
+	serFh.write("AT*ZISI\r\n")
 	while True:
 		line = ser.readline()
-		if line == "": break
-		##logFh.write(line)
+		if not line:
+			break
+
 		line = line.strip()
 		if line == "":
 			pass
@@ -89,7 +86,6 @@ except IndexError:
 print "Connecting to %(port)s" % dict(port=port)
 
 ser = serial.Serial(port, 921600, timeout=5)
-#ser = open("foo.log", "r")
 pixels = load_screen(ser)
 ser.close()
 

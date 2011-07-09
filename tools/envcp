@@ -8,29 +8,28 @@ def usage():
 	sys.exit(2)
 
 def read_env(pid):
-	env = []
-	bufsize = 4096
 	try:
 		fd = open("/proc/%d/environ" % pid, "rb")
 	except IOError as e:
 		print("error: [%d] %s: %s" % (e.errno, e.strerror,
 			e.filename))
 		return None
+	env = []
 	last = None
 	while True:
-		buf = fd.read(bufsize)
-		bufs = buf.split(b'\0')
+		buf = fd.read(0x4000)
+		if not buf:
+			break
+		bufl = buf.split(b'\0')
 		if last is not None:
-			bufs[0] = last+bufs[0]
+			bufl[0] = last+bufl[0]
 			last = None
 		if not buf.endswith(b'\0'):
-			last = bufs.pop()
-		env += bufs
-		if len(buf) < bufsize:
-			break
+			last = bufl.pop()
+		env += bufl
 	fd.close()
 	return dict(k.split(b'=', 1) for k in env if k != b'')
-			
+
 
 try:
 	pid = int(sys.argv[1])

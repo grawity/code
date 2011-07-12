@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 : ${SRCDIR:=~/src}
 : ${LOCAL:=~/.local}
 : ${CONFIG:=~/.config}

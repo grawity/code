@@ -18,7 +18,16 @@ for line in fh:
 	if line == "" or line.startswith("#"):
 		continue
 	
-	host, ktype, key = line.split(" ")
+	host, ktype, key = line.split(" ", 2)
+
+	try:
+		int(ktype)
+	except ValueError:
+		pass
+	else:
+		key = ktype + " " + key
+		ktype = "(sshv1-rsa)"
+
 	if (ktype, key) in keys:
 		keys[ktype, key].append(host)
 	else:

@@ -1,15 +1,22 @@
 #!/usr/bin/env python
-# ssh-duphosts v1.0
+# ssh-duphosts v1.1
 # Checks for duplicate entries in ~/.ssh/known_hosts
-
 from __future__ import print_function
 import os
+import sys
+import getopt
 
 knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
-dedup = False # TODO: rename
+do_filter = False
+
+opts, args = getopt.getopt(sys.argv[1:], 'f')
+for opt, optarg in opts:
+	if opt in ('f', '-f'):
+		do_filter = True
+if args:
+	knownhosts_path = args.pop(0)
 
 keys = {}
-
 fh = open(knownhosts_path, "r")
 
 # check for duplicates
@@ -34,11 +41,14 @@ for line in fh:
 		keys[ktype, key] = [host]
 
 # print results
-if dedup:
+if do_filter:
 	for entry in keys:
 		ktype, key = entry
 		hosts = ",".join(keys[entry])
-		print(" ".join([hosts, ktype, key]))
+		if ktype == "(sshv1-rsa)":
+			print(hosts, key)
+		else:
+			print(hosts, ktype, key)
 else:
 	for entry in keys:
 		hosts = keys[entry]

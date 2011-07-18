@@ -1,0 +1,65 @@
+#!bash
+
+# readcred(object, [printfmt])
+# prompt user for username/password
+
+readcred() {
+	local obj=$1
+	local fmt=${2:-'username=%s\npassword=%s\n'}
+	local r_user r_pass
+	if [[ -t 2 ]]; then
+		{
+		echo "Enter credentials for $obj"
+		read -rp 'username: ' -ei "$LOGNAME" r_user
+		read -rp 'password: ' -es r_pass
+		echo ""
+		} </dev/tty >/dev/tty
+		printf "$fmt" "$r_user" "$r_pass"
+		return 0
+	else
+		echo >&2 "No credentials for $obj found."
+		return 1
+	fi
+}
+
+# getcred_var(host, [service], object, $uservar, $passvar)
+# obtain credentials for service@host and put into given variables
+
+getcred_var() {
+	local host=$1 service=$2 obj=$3 uvar=${4:-user} pvar=${5:-pass}
+	local fmt='%u%n%p' data= udata= pdata=
+	if data=$(getnetrc_fqdn "$host" "$service" '%u%n%p'); then
+		{ read -r udata; read -r pdata; } <<< "$data"
+		declare -g "$uvar=$udata" "$pvar=$pdata"
+	elif data=$(readcred "$obj on $host" '%s\n%s\n'); then
+		{ read -r udata; read -r pdata; } <<< "$data"
+		declare -g "$uvar=$udata" "$pvar=$pdata"
+	else
+		return 1
+	fi
+}
+
+# getcred_cifs(host, unc_obj)
+# obtain credentials for cifs@<host>, output in smbclient format
+
+getcred_cifs() {
+	local host=$1 unc=$2
+	local fmt='username=%u%npassword=%p'
+	getnetrc_fqdn "$host" "cifs" "$fmt" ||
+	readcred "cifs:$unc on $host"
+}
+
+# getnetrc_fqdn(host, [service], format)
+# call getnetrc for [service@]host and [service@]fqdn until success
+
+getnetrc_fqdn() {
+	local host=$1 service=$2 fmt=$3
+	local fqdn=$(fqdn "$host")
+	[[ $service ]] &&
+	getnetrc -df "$fmt" "$service@$host" && return
+	getnetrc -df "$fmt" "$host" && return
+	[[ $host != $fqdn ]] || return
+	[[ $service ]] &&
+	getnetrc -df "$fmt" "$service@$fqdn" && return
+	getnetrc -df "$fmt" "$fqdn" && return
+}

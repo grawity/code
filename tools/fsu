@@ -2,6 +2,8 @@
 : ${UID:=$(id -u)}
 : ${GID:=$(id -g)}
 
+. ~/code/lib/bash/cred
+
 withoption() {
 	[[ $options =~ (^|,)$1(,|$) ]]
 }
@@ -53,7 +55,7 @@ do_mount() {
 				secmode="cruid=$UID"
 			else
 				creds=$(mkcredfile)
-				cifs_getcred "$host" "$unc" >"$creds"
+				getcred_cifs "$host" "$unc" >"$creds"
 				if grep -Fxqs "password=*" "$creds"; then
 					secmode="sec=krb5,cruid=$UID"
 				else
@@ -80,39 +82,21 @@ do_mount() {
 	esac
 }
 
-readcred() {
-	local obj=$1
-	local r_user r_pass
-	if [[ -t 2 ]]; then
-		{
-		echo "Enter credentials for $obj"
-		read -rp 'username: ' -ei "$LOGNAME" r_user
-		read -rp 'password: ' -es r_pass
-		echo ""
-		} </dev/tty >/dev/tty
-		printf 'username=%s\npassword=%s\n' "$r_user" "$r_pass"
-		return 0
-	else
-		echo >&2 "No credentials for $obj found."
-		return 1
-	fi
-}
-
-cifs_getcred() {
-	local host=$1 unc=$2
-	local fmt=${3:-'username=%u%npassword=%p'}
-	getnetrc -df "$fmt" "cifs@$host" ||
-	getnetrc -df "$fmt" "$host" ||
-	readcred "cifs:$unc on $host"
-}
-
 mkcredfile() {
 	mktemp --tmpdir=/dev/shm "credentials.$UID.XXXXXXXX"
 }
 
 fsname=$1
+device=$2
+fstype=$3
+options=$4
 
 [[ $fsname ]] || usage
+
+if [[ $device && $fstype ]]; then
+	do_mount "$fsname" "$device" "$fstype" "$options"
+	exit $?
+fi
 
 while read name device fstype options; do
 	if [[ $name == $fsname ]]; then

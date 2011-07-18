@@ -55,11 +55,7 @@ getcred_cifs() {
 getnetrc_fqdn() {
 	local host=$1 service=$2 fmt=$3
 	local fqdn=$(fqdn "$host")
-	[[ $service ]] &&
-	getnetrc -df "$fmt" "$service@$host" && return
-	getnetrc -df "$fmt" "$host" && return
-	[[ $host != $fqdn ]] || return
-	[[ $service ]] &&
-	getnetrc -df "$fmt" "$service@$fqdn" && return
-	getnetrc -df "$fmt" "$fqdn" && return
+	getnetrc -df "$fmt" -s "$service" "$host" ||
+	{ [[ $host != $fqdn ]] &&
+	getnetrc -df "$fmt" -s "$service" "$fqdn"; }
 }

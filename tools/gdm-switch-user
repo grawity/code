@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+use common::sense;
+use Net::DBus;
+
+my $ck = Net::DBus->system->get_service("org.freedesktop.ConsoleKit");
+my $mgr = $ck->get_object("/org/freedesktop/ConsoleKit/Manager");
+
+sub can_activate_sessions {
+	my ($seatid) = @_;
+	my $seat = $ck->get_object($seatid);
+	return $seat->CanActivateSessions();
+}
+
+sub activate_session {
+	my ($seatid, $sessionid) = @_;
+	my $seat = $ck->get_object($seatid);
+	$seat->ActivateSession($sessionid);
+}
+
+sub start_new_login_session {
+	if (fork == 0) {
+		exec("gdmflexiserver", "-s") or die "$@";
+	}
+}
+
+sub get_current_seatid {
+	my $sessid_cur = $mgr->GetCurrentSession();
+	return $ck->get_object($sessid_cur)->GetSeatId();
+}
+
+sub get_login_sessionid {
+	my ($seatid) = @_;
+	my $seat = $ck->get_object($seatid);
+	my $sessions = $seat->GetSessions();
+	for my $sessid (@$sessions) {
+		my $session = $ck->get_object($sessid);
+		my $type = $session->GetSessionType();
+		if ($type eq "LoginWindow") {
+			return $sessid;
+		}
+	}
+	return undef;
+}
+
+my $seatid = get_current_seatid;
+if (!can_activate_sessions($seatid)) {
+	die "Seat cannot activate sessions\n";
+}
+
+my $sessid = get_login_sessionid($seatid);
+if ($sessid) {
+	activate_session($seatid, $sessid);
+} else {
+	start_new_login_session();
+}

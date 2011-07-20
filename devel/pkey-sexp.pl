@@ -18,13 +18,6 @@
 #
 # Notes:
 #
-#     * lsh prefixes some bignums with a zero byte. I haven't figured out
-#       why yet (signed-ness?), but it seems to require that zero byte
-#       whenever it is present. So this script adds the prefix for /every/
-#       bignum, which seems to work fine. This causes noticeable difference
-#       when comparing sexps in their "advanced" (base64) encodings, but
-#       this can be ignored.
-#
 #     * lsh-writekey requires input to be in 'transport' encoding.
 #
 #     * Converting s-exps to OpenSSL keys is not possible yet.
@@ -59,7 +52,12 @@ sub write_sexp {
 	}
 	elsif (ref $sexp eq 'Math::Pari') {
 		my $hex = lc Crypt::OpenSSL::Bignum->new_from_decimal($sexp)->to_hex;
-		print "#00$hex#";
+		# Numbers are signed, so the most significiant bit must be 0.
+		if ($hex =~ /^[89a-f]/i) {
+			print "#00$hex#";
+		} else {
+			print "#$hex#";
+		}
 	}
 	else {
 		print $sexp;

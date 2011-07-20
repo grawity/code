@@ -215,6 +215,59 @@ kc() {
 			eval kc "$line"
 		fi
 		;;
+	?*@?*)
+		local ccname= ccdata= defprinc=
+		for ccname in "${caches[@]}"; do
+			defprinc=$(pklist -Pc "$ccname") || continue
+			[[ $defprinc == $arg ]] || continue
+			ccdata=$(pklist -c "$ccname") || continue
+
+			local item= rest= flags= defprinc= defrealm= expiry=
+			local tgt= init= tgtexpiry=0 initexpiry=0 initflags=
+
+			while IFS=$'\t' read -r item rest; do
+				case $item in
+				principal)
+					defprinc=$rest
+					defrealm=${defprinc##*@}
+					;;
+				ticket)
+					local client= service= expiry= flag=
+					IFS=$'\t' read -r client service _ expiry _ flags _ <<< "$rest"
+
+					if [[ $service == "krbtgt/$defrealm@$defrealm" ]]; then
+						tgt=$service
+						tgtexpiry=$expiry
+					fi
+					if [[ $flags == *I* ]]; then
+						init=$service
+						initexpiry=$expiry
+						initflags=$flags
+					fi
+					;;
+				esac
+			done <<< "$ccdata"
+
+			if [[ $tgt ]]; then
+				expiry=$tgtexpiry
+			elif [[ $init ]]; then
+				expiry=$initexpiry
+			fi
+
+			if [[ $expiry ]]; then
+				if (( expiry <= now )); then
+					continue
+				else
+					export KRB5CCNAME=$ccname
+					printf "Switched to %s\n" "$KRB5CCNAME"
+					return 0
+				fi
+			fi
+		done
+		export KRB5CCNAME=$(_kc_expand new)
+		printf "Switched to %s\n" "$KRB5CCNAME"
+		kinit "$arg" "$@"
+		;;
 	*)
 		local ccname
 		if ccname=$(_kc_expand "$arg"); then

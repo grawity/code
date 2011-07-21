@@ -52,12 +52,12 @@ do_mount() {
 			if withoption 'multiuser'; then
 				secmode="sec=krb5"
 			elif withoption 'sec=(krb5|krb5i|krb5p)'; then
-				secmode="cruid=$UID"
+				secmode="user=$USER,cruid=$UID"
 			else
 				creds=$(mkcredfile)
 				getcred_cifs "$host" "$unc" >"$creds"
 				if grep -Fxqs "password=*" "$creds"; then
-					secmode="sec=krb5,cruid=$UID"
+					secmode="sec=krb5,user=$USER,cruid=$UID"
 				else
 					secmode="sec=ntlmv2,credentials=$creds"
 				fi
@@ -68,6 +68,7 @@ do_mount() {
 				mtopts+=",uid=$UID,gid=$GID,file_mode=0600,dir_mode=0700"
 			fi
 
+			echo "Using $mtopts"
 			sudo mount -t cifs "$device" "$mtpt" -o "$mtopts" &&
 			echo "Mounted cifs#$device on $mtpt"
 			[[ $creds ]] && rm -f "$creds"

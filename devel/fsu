@@ -1,0 +1,125 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature "switch";
+use Data::Dumper;
+use File::Temp;
+use IO::Handle;
+use User::pwent;
+
+my @Temp;
+
+sub check_mtname {
+	shift =~ /^\w+$/;
+}
+
+sub cifs_parsedev {
+	my $dev = shift;
+	my ($host, $path);
+	if ($dev =~ m|^//(.+?)/(.+)$|) {
+		$host = $1;
+		$path = $2;
+	}
+	elsif ($dev =~ m|^(\w+):(.+)$|) {
+		$host = $1;
+		$path = $2;
+	}
+	return $host, $path;
+}
+
+sub cifs_makecredfile {
+	my ($user, $pass) = @_;
+
+	my $fh = File::Temp->new(TEMPLATE => "cifs-mount-credentials.XXXXXXXX",
+		TMPDIR => 1,
+		UNLINK => 0);
+	$fh->print("username=$user\npassword=$pass\n");
+	return $fh->filename;
+}
+
+=required arguments:
+	uid		numeric UID of caller
+	mtpt		mount point basename
+	device		device to mount
+	fstype		file system type
+=optional (cifs):
+	multiuser	bool: enable multi-user mounts
+	sec		str: CIFS security mode
+	user		str: auth username
+	passwd		str: auth password
+	umask		octal: force specific file/dir modes
+=cut
+
+sub getmtpt {
+	my ($uid, $mtname) = @_;
+	my $pw = getpwuid($uid);
+	return File::Spec->catdir($pw->dir, "fs", $mtname);
+}
+
+sub do_mount {
+	my ($uid, $mtpt, $device, $fstype, %opts) = @_;
+
+	my $pw = getpwuid($uid);
+	my $mtdev;
+	my @mtopts = ("nosuid", "nodev", "user", "user=".$pw->name);
+	my @cmd;
+
+	given ($fstype) {
+		when ("cifs") {
+			my ($host, $path) = cifs_parsedev($device);
+			$mtdev = "//$host/$path";
+
+			push @mtopts, "fsc", "iocharset=utf8";
+			
+			if ($opts{multiuser}) {
+				push @mtopts, "multiuser";
+				$opts{sec} //= "krb5i";
+			} else {
+				$opts{sec} //= "ntlmv2";
+			}
+			push @mtopts, "sec=".$opts{sec};
+
+			if ($opts{sec} =~ /^krb5/) {
+				push @mtopts, "cruid=".$opts{uid};
+			}
+			else {
+				$opts{user} //= $pw->name;
+				$opts{passwd} //= "";
+				my $cred = cifs_makecredfile($opts{user}, $opts{passwd});
+				push @mtopts, "credentials=".$cred;
+				push @Temp, $cred;
+			}
+
+			if (defined $opts{umask}) {
+				$opts{umask} = oct($opts{umask}) if $opts{umask} =~ /^0/;
+				my $fmode = 0666 & ~$opts{umask};
+				my $dmode = 0777 & ~$opts{umask};
+				push @mtopts, "uid=".$opts{uid}, "gid=".$opts{gid},
+					sprintf("file_mode=%04o", $fmode),
+					sprintf("dir_mode=%04o", $dmode);
+			}
+		}
+		default {
+			return {failure, msg => "file system not supported"};
+		}
+	}
+
+	@cmd = ("mount", $mtdev, $mtpt,
+		"-t", $fstype,
+		"-o", join(",", @mtopts));
+
+	print Data::Dumper->Dump([$mtpt, $mtdev, \@mtopts, \@cmd],
+		["mtpt", "mtdev", "mtopts", "cmd"]);
+
+	system("sudo", @cmd);
+}
+
+sub mount {
+	my $req = shift;
+	my $uid = $req->{uid};
+	my $mtpt = 
+	do_mount($req->{uid}, $rqe
+
+mount(@ARGV);
+
+unlink($_) for @Temp;

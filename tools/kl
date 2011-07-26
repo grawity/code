@@ -50,7 +50,24 @@ fi
 if (( expiry <= now )); then
 	dexpiry=$'\e[31mexpired\e[m'
 else
-	dexpiry="expires $(date -d "@$expiry" "+%b %d %H:%M")"
+	#dexpiry="expires $(date -d "@$expiry" "+%b %d %H:%M")"
+	diff=$(( expiry - now ))
+	diff_s=$(( diff % 60 ))
+	diff=$(( (diff-diff_s) / 60 ))
+	diff_m=$(( diff % 60 ))
+	diff=$(( (diff-diff_m) / 60 ))
+	diff_h=$(( diff % 24 ))
+	diff_d=$(( (diff-diff_h) / 24 ))
+	dexpiry="expires in"
+	if (( diff_d > 1 )); then
+		dexpiry+=" ${diff_d} days"
+	elif (( diff_h > 0 )); then
+		dexpiry+=" ${diff_h}h ${diff_m}m"
+	elif (( diff_m > 1 )); then
+		dexpiry+=" ${diff_m} minutes"
+	else
+		dexpiry+=" a minute"
+	fi
 fi
 
 # Pretty-print data

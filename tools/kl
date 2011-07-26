@@ -20,20 +20,20 @@ while rread key rest; do
 			defrealm=${defprinc##*@}
 			;;
 		ticket)
-			rread _ cserver _ cexpiry _ cflags _ <<< "$rest"
-			if [[ $cserver == krbtgt/* ]]; then
+			rread _ server _ expiry _ flags _ <<< "$rest"
+			if [[ $server == krbtgt/* ]]; then
 				tgtickets+=("$rest")
 			else
 				svtickets+=("$rest")
 			fi
-			if [[ $cserver == "krbtgt/$defrealm@$defrealm" ]]; then
-				tgt=$cserver
-				tgtexpiry=$cexpiry
+			if [[ $server == "krbtgt/$defrealm@$defrealm" ]]; then
+				tgt=$server
+				tgtexpiry=$expiry
 			fi
-			if [[ $cflags == *I* ]]; then
-				init=$cserver
-				initexpiry=$cexpiry
-				initflags=$cflags
+			if [[ $flags == *I* ]]; then
+				init=$server
+				initexpiry=$expiry
+				initflags=$flags
 			fi
 			;;
 	esac
@@ -42,41 +42,42 @@ done <<< "$ccdata"
 # Determine which ticket's expiry to show
 
 if [[ $init ]]; then
-	texpiry=$initexpiry
+	expiry=$initexpiry
 elif [[ $tgt ]]; then
-	texpiry=$tgtexpiry
+	expiry=$tgtexpiry
 fi
 
-if (( texpiry <= now )); then
-	expiry=$'\e[31mexpired\e[m'
+if (( expiry <= now )); then
+	dexpiry=$'\e[31mexpired\e[m'
 else
-	expiry="expires $(date -d "@$texpiry" "+%b %d %H:%M")"
+	dexpiry="expires $(date -d "@$expiry" "+%b %d %H:%M")"
 fi
 
 # Pretty-print data
 
-printf 'Credentials for \e[1m%s\e[m (%s):\n\n' "$defprinc" "$expiry"
+printf 'Credentials for \e[1m%s\e[m (%s):\n\n' "$defprinc" "$dexpiry"
 for rest in "${tgtickets[@]}" "${svtickets[@]}"; do
-	rread cclient cserver cstart cexpiry crenew cflags <<< "$rest"
+	rread client server validity expiry renew flags <<< "$rest"
 
-	if [[ $cflags == *I* ]]; then
-		if (( initexpiry <= now )); then
+	if [[ $flags == *I* || $server == $tgt ]]; then
+		if (( expiry <= now )); then
 			color='1;31'
-		elif (( initexpiry <= now+600 )); then
+		elif (( expiry <= now+600 )); then
 			color='1;33'
 		else
 			color='1;32'
 		fi
-	elif [[ $cserver == krbtgt/* ]]; then
+	elif [[ $server == krbtgt/* ]]; then
 		color='1;35'
 	else
 		color=''
 	fi
 
-	cserver=${cserver%"@$defrealm"}
+	dserver=${server%"@$defrealm"}
+	
+	dflags=${flags//[AT]/}
+	[[ $server == $tgt ]] ||
+		dflags=${dflags//[FR]/}
 
-	cflags=${cflags//[AT]/}
-	[[ $cflags == *I* ]] || cflags=${cflags//[FR]/}
-
-	printf '    \e[%sm%-50s\e[m %-8s\n' "$color" "$cserver" "$cflags"
+	printf '    \e[%sm%-50s\e[m %s\n' "$color" "$dserver" "$dflags"
 done

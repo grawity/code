@@ -1,6 +1,8 @@
-## Installing
+# pklist - machine-readable Kerberos ticket list
 
-    make
+## Installation
+
+    make pklist
 
 ## Command-line options
 

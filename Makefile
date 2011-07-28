@@ -26,8 +26,8 @@ bin/logwipe: tools/logwipe.c
 bin/silentcat: tools/silentcat.c
 	gcc $(CFLAGS) -o $@ $<
 
-pklist:
-	@make -C pklist
+kerberos:
+	@make -C kerberos
 
 .PHONY: bootstrap install pull clean
-.PHONY: pklist
+.PHONY: kerberos

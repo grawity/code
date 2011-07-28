@@ -1,8 +1,11 @@
 CFLAGS = -Wall -O2
 
-all: bin/args bin/bgrep bin/logwipe bin/silentcat
+all:
+	+make -C kerberos
+	+make -C thirdparty
+	+make -C tools
 
-bootstrap:
+bootstrap: all
 	@bash dist/bootstrap
 
 pull:
@@ -12,22 +15,8 @@ install: all
 	@bash dist/installbin
 
 clean:
-	rm -f bin/*
-
-bin/args: tools/args.c
-	gcc $(CFLAGS) -o $@ $<
-
-bin/bgrep: tools/bgrep.c
-	gcc $(CFLAGS) -o $@ $<
-
-bin/logwipe: tools/logwipe.c
-	gcc $(CFLAGS) -o $@ $<
-
-bin/silentcat: tools/silentcat.c
-	gcc $(CFLAGS) -o $@ $<
-
-kerberos:
-	@make -C kerberos
+	+make -C kerberos clean
+	+make -C thirdparty clean
+	+make -C tools clean
 
 .PHONY: bootstrap install pull clean
-.PHONY: kerberos

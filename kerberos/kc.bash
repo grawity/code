@@ -1,5 +1,5 @@
 #!bash
-# Must be sourced (ie. from bashrc) to be able to change KRB5CCNAME.
+# NOTE: Must be 'source'd (ie. from bashrc) in order for cache switching to work.
 
 kc_list_caches() {
 	local current="$(pklist -N)" have_current=

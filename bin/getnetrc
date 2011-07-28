@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# getnetrc v1.3
+# getnetrc v1.4
 # Grabs login data from ~/.netrc
 #
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
@@ -20,9 +20,9 @@ sub msg_usage {
 	return 2;
 }
 sub msg_help {
+	msg_usage;
 	print
-'Usage: getnetrc [-dnu] [-f format] machine [login]
-
+'
   -d  ignore the default entry
   -n  do not print final newline
   -f  format the output as specified (default is %l:%p)
@@ -30,10 +30,12 @@ sub msg_help {
   -u  URL-encode each item separately
 
 Format strings:
-  %m, %h       machine (hostname)
-  %l, %u       login (username)
-  %p           password
-  %a           account
+  %m, %h       result machine (hostname)
+  %l, %u       result login (username)
+  %p           result password
+  %a           result account
+  %M           query machine
+  %S           query service
   %%, %n, %0   percent sign, newline, null byte
 
 The .netrc file format is described in the manual page of ftp(1), with
@@ -95,6 +97,8 @@ my %output = (
 	m => $entry->{machine},
 	p => $entry->{password},
 	u => $entry->{login},
+	M => $machine,
+	S => $service,
 	);
 if ($format_url_encode) {
 	$output{$_} = uri_encode($output{$_} // "") for keys %output;

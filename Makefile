@@ -1,9 +1,14 @@
-CFLAGS = -Wall -O2
+CC	= gcc
+CFLAGS	= -Wall -O2
 
-all:
-	+make -C kerberos
-	+make -C misc
-	+make -C thirdparty
+BIN = \
+	kerberos/pklist \
+	misc/args \
+	misc/silentcat \
+	thirdparty/bgrep \
+	thirdparty/logwipe
+
+all: $(BIN)
 
 bootstrap: all
 	@bash dist/bootstrap
@@ -16,5 +21,8 @@ install: all
 
 clean:
 	git clean -dfX
+
+kerberos/pklist: kerberos/pklist.c
+	$(CC) $(CFLAGS) $(LDFLAGS) -lkrb5 -lcom_err $< -o $@
 
 .PHONY: all bootstrap install pull clean

@@ -2,8 +2,8 @@ CFLAGS = -Wall -O2
 
 all:
 	+make -C kerberos
+	+make -C misc
 	+make -C thirdparty
-	+make -C tools
 
 bootstrap: all
 	@bash dist/bootstrap
@@ -15,8 +15,6 @@ install: all
 	@bash dist/installbin
 
 clean:
-	+make -C kerberos clean
-	+make -C thirdparty clean
-	+make -C tools clean
+	git clean -dfX
 
-.PHONY: bootstrap install pull clean
+.PHONY: all bootstrap install pull clean

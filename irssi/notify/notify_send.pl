@@ -2,8 +2,7 @@
 # Requirements:
 #
 #   libnotify over DBus:
-#     preferred: Net::DBus
-#     alternate: 'notify-send' executable from libnotify-bin
+#     Net::DBus
 #
 #   TCP or UDP over IPv6:
 #     IO::Socket::INET6
@@ -154,35 +153,26 @@ sub send_dbus {
 			$libnotify = $dbus->get_service("org.freedesktop.Notifications")
 				->get_object("/org/freedesktop/Notifications");
 		}
+		else {
+			return 0, "libnotify support requires Net::DBus";
+		}
 	}
 
 	$text = xml_escape($text);
 
 	my $icon = Irssi::settings_get_str("notification_icon");
 
-	if (defined $libnotify) {
-		# append to existing notification, if relatively new
-		if (defined $state->{text} and time-$state->{sent} < 20) {
-			$state->{text} .= "\n".$text;
-		} else {
-			$state->{text} = $text;
-		}
+	# append to existing notification, if relatively new
+	if (defined $state->{text} and time-$state->{sent} < 20) {
+		$state->{text} .= "\n".$text;
+	} else {
+		$state->{text} = $text;
+	}
 
-		$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
-			$icon, $title, $state->{text}, [], {}, 3000);
-		$state->{sent} = time;
-		return 1;
-	}
-	else {
-		# updating is not supported
-		my @args = ("notify-send");
-		push @args, "--icon=$icon" unless $icon eq "";
-		# category doesn't do the same as appname, but still useful
-		push @args, "--category=$appname" unless $appname eq "";
-		push @args, $title;
-		push @args, $text unless $text eq "";
-		return system(@args) == 0;
-	}
+	$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
+		$icon, $title, $state->{text}, [], {}, 3000);
+	$state->{sent} = time;
+	return 1;
 }
 
 sub send_growl {

@@ -1,44 +1,4 @@
 #!/usr/bin/env perl
-# Requirements:
-#
-#   libnotify over DBus:
-#     Net::DBus
-#
-#   TCP or UDP over IPv6:
-#     IO::Socket::INET6
-#
-#   TCP/SSL:
-#     IO::Socket::SSL
-#
-#   Growl:
-#     preferred: Mac::Growl
-#     alternate: 'growlnotify' executable
-#
-# Settings:
-#
-#   (string) notify_targets = "dbus"
-#     Space-separated list of targets to send notifications to. Possible values:
-#
-#       - dbus
-#       - file!<path>
-#       - growl
-#       - ssl!<host>!<port>
-#       - tcp!<host>!<port>
-#       - udp!<host>!<port>
-#       - unix!<address>
-#       - unix!(stream|dgram)!<address>
-#
-#     <port> may be the port number (decimal) or a service name (/etc/services)
-#
-# Notes:
-#
-#   - tcp and udp will only use the first address from DNS (due to use of
-#     non-blocking sockets; fork() is a pain in irssi)
-#
-#   - By default, only messages containing your nickname will be matched;
-#     configured /hilights will not be used due to limitations in Irssi.
-#     See 'sub on_message' below for more information.
-
 use warnings;
 use strict;
 use utf8;
@@ -50,7 +10,7 @@ use IO::Socket::INET;
 use IO::Socket::UNIX;
 use List::MoreUtils qw(any);
 
-$VERSION = "0.6.(2*ε)";
+$VERSION = "0.6.(3*ε)";
 %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus or Intertubes.',

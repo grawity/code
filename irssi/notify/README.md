@@ -23,14 +23,16 @@ TCP with SSL:
 
 Install the `notify_send.pl` script, load it to Irssi, and change the `notify_targets` setting to one or more of, space separated:
 
-  * <code>dbus</code> - use libnotify over DBus (default)
   * <code>file!*path*</code> - append to a file
   * <code>growl</code> - use Growl
+  * <code>libnotify</code> - use libnotify over DBus (default)
   * <code>ssl!*host*!*port*</code> - SSL-encrypted TCP connection
   * <code>tcp!*host*!*port*</code> - TCP connection
   * <code>udp!*host*!*port*</code> - UDP datagram
   * <code>unix!*path*</code> - Unix local socket
   * <code>unix!stream!*path*</code>, <code>unix!dgram!*path*</code>
+
+<code>dbus</code> is accepted as an alias for <code>libnotify</code> for compatibility.
 
 ## Bugs
 

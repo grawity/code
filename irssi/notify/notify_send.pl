@@ -231,7 +231,7 @@ sub notify {
 	my $icon = Irssi::settings_get_str("notification_icon");
 	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
 
-	if ($dest =~ /^dbus$/) {
+	if ($dest =~ /^(libnotify|dbus)$/) {
 		send_dbus($title, $text);
 	}
 	elsif ($dest =~ /^file!(.+)$/) {
@@ -258,7 +258,7 @@ sub notify {
 	}
 }
 
-Irssi::settings_add_str("libnotify", "notify_targets", "dbus");
+Irssi::settings_add_str("libnotify", "notify_targets", "libnotify");
 Irssi::settings_add_str("libnotify", "notification_icon", "avatar-default");
 
 Irssi::signal_add "message public", sub {

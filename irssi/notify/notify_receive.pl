@@ -43,10 +43,15 @@ sub xml_escape {
 
 sub handle_message {
 	my ($message) = @_;
-	my ($appname, $icon, $title, $text) = split / \| /, $message;
+	my ($ver, $appname, $tag, $icon, $title, $text) = split(/\x01/, $message, 5);
+	if ($ver != 2) {
+		warn "Received invalid message: $message\n";
+		return;
+	}
 	if ($title eq "") {return;}
+	if ($tag eq "") {$tag = $appname;}
 	for my $fwd (@forwards) {
-		&$fwd($appname, $icon, $title, $text);
+		&$fwd($appname, $tag, $icon, $title, $text);
 	}
 }
 
@@ -108,18 +113,29 @@ if (!defined $forward) {
 			->get_object("/org/freedesktop/Notifications");
 			
 		push @forwards, sub {
-			my ($appname, $icon, $title, $text) = @_;
+			my ($appname, $tag, $icon, $title, $text) = @_;
+			our %libnotify_state;
+			my $state = $libnotify_state{$title} //= {};
 			$text = xml_escape($text);
-			$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+			# append to existing notification, if relatively new
+			if (defined $state->{text} and time-$state->{sent} < 20) {
+				$state->{text} .= "\n".$text;
+			} else {
+				$state->{text} = $text;
+			}
+
+			$state->{id} = $libnotify->Notify($tag, $state->{id} // 0,
+				$icon, $title, $state->{text}, [], {}, 3000);
+			$state->{sent} = time;
 		};
 	} else {
 		push @forwards, sub {
-			my ($appname, $icon, $title, $text) = @_;
+			my ($appname, $tag, $icon, $title, $text) = @_;
 			$text = xml_escape($text);
 			my @args = ("notify-send");
 			push @args, "--icon=$icon" unless $icon eq "";
 			# category doesn't do the same as appname, but still useful
-			push @args, "--category=$appname" unless $appname eq "";
+			push @args, "--category=$tag" unless $tag eq "";
 			push @args, $title;
 			push @args, $text unless $text eq "";
 			system @args;
@@ -134,7 +150,7 @@ if (!defined $forward) {
 			AppName => "notify_receive",
 		);
 		push @forwards, sub {
-			my ($appname, $icon, $title, $text) = @_;
+			my ($appname, $tag, $icon, $title, $text) = @_;
 			$growl->register([
 				{Name => $appname, Enabled => 'True', Sticky => 'False'},
 			]);

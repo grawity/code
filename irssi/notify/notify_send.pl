@@ -1,45 +1,4 @@
 #!/usr/bin/env perl
-# Requirements:
-#
-#   libnotify over DBus:
-#     preferred: Net::DBus
-#     alternate: 'notify-send' executable from libnotify-bin
-#
-#   TCP or UDP over IPv6:
-#     IO::Socket::INET6
-#
-#   TCP/SSL:
-#     IO::Socket::SSL
-#
-#   Growl:
-#     preferred: Mac::Growl
-#     alternate: 'growlnotify' executable
-#
-# Settings:
-#
-#   (string) notify_targets = "dbus"
-#     Space-separated list of targets to send notifications to. Possible values:
-#
-#       - dbus
-#       - file!<path>
-#       - growl
-#       - ssl!<host>!<port>
-#       - tcp!<host>!<port>
-#       - udp!<host>!<port>
-#       - unix!<address>
-#       - unix!(stream|dgram)!<address>
-#
-#     <port> may be the port number (decimal) or a service name (/etc/services)
-#
-# Notes:
-#
-#   - tcp and udp will only use the first address from DNS (due to use of
-#     non-blocking sockets; fork() is a pain in irssi)
-#
-#   - By default, only messages containing your nickname will be matched;
-#     configured /hilights will not be used due to limitations in Irssi.
-#     See 'sub on_message' below for more information.
-
 use warnings;
 use strict;
 use utf8;
@@ -51,7 +10,7 @@ use IO::Socket::INET;
 use IO::Socket::UNIX;
 use List::MoreUtils qw(any);
 
-$VERSION = "0.6.(2*ε)";
+$VERSION = "0.7.(0*ε)";
 %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus or Intertubes.',
@@ -101,13 +60,13 @@ sub on_message {
 		or $nick =~ /^(nick|chan|memo|oper|php)serv$/i
 	);
 
+	my $tag = $channel ? $target : $nick;
 	my $title = $nick;
 	$title .= " on $target" if $channel;
-
 	# send notification to all dests
 	my $dests = Irssi::settings_get_str("notify_targets");
 	foreach my $dest (split / /, $dests) {
-		my @ret = notify($dest, $title, $msg);
+		my @ret = notify($dest, $tag, $title, $msg);
 		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
 	}
 }
@@ -138,7 +97,7 @@ sub send_file {
 }
 
 sub send_dbus {
-	my ($title, $text) = @_;
+	my ($tag, $title, $text) = @_;
 
 	if (!defined $dbus) {
 		if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
@@ -151,29 +110,35 @@ sub send_dbus {
 			$libnotify = $dbus->get_service("org.freedesktop.Notifications")
 				->get_object("/org/freedesktop/Notifications");
 		}
+		else {
+			return 0, "libnotify support requires Net::DBus";
+		}
 	}
 
-	$text = xml_escape($text);
+	our %libnotify_state;
+	my $state = $libnotify_state{$title} //= {};
+
+	my $appname = $tag;
 	my $icon = Irssi::settings_get_str("notification_icon");
 
-	if (defined $libnotify) {
-		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
-		return 1;
+	$text = xml_escape($text);
+	# append to existing notification, if relatively new
+	if (defined $state->{text} and time-$state->{sent} < 20) {
+		$state->{text} .= "\n".$text;
+	} else {
+		$state->{text} = $text;
 	}
-	else {
-		my @args = ("notify-send");
-		push @args, "--icon=$icon" unless $icon eq "";
-		# category doesn't do the same as appname, but still useful
-		push @args, "--category=$appname" unless $appname eq "";
-		push @args, $title;
-		push @args, $text unless $text eq "";
-		return system(@args) == 0;
-	}
+
+	$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
+		$icon, $title, $state->{text}, [], {}, 3000);
+	$state->{sent} = time;
+	return 1;
 }
 
 sub send_growl {
 	my ($title, $text) = @_;
 	our $growl;
+	# To do: Mac::Growl vs Growl::GNTP?
 	if (eval {require Mac::Growl}) {
 		if (!$growl) {
 			my @default = qw(Hilight);
@@ -262,13 +227,13 @@ sub send_unix {
 }
 
 sub notify {
-	my ($dest, $title, $text) = @_;
+	my ($dest, $tag, $title, $text) = @_;
 
 	my $icon = Irssi::settings_get_str("notification_icon");
-	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
+	my $rawmsg = join("\x01", 2, $appname, $tag, $icon, $title, $text)."\n";
 
-	if ($dest =~ /^dbus$/) {
-		send_dbus($title, $text);
+	if ($dest =~ /^(libnotify|dbus)$/) {
+		send_dbus($tag, $title, $text);
 	}
 	elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);
@@ -294,7 +259,7 @@ sub notify {
 	}
 }
 
-Irssi::settings_add_str("libnotify", "notify_targets", "dbus");
+Irssi::settings_add_str("libnotify", "notify_targets", "libnotify");
 Irssi::settings_add_str("libnotify", "notification_icon", "avatar-default");
 
 Irssi::signal_add "message public", sub {

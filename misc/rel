@@ -9,6 +9,11 @@ use Data::Dumper;
 my $base = $ENV{HOME};
 my $debug = 0;
 
+sub msg_usage {
+	print "Usage: rel [-b base] path\n";
+	return 2;
+}
+
 sub do_rel {
 	my ($base, $path) = @_;
 	my $abs = Cwd::abs_path($path);
@@ -29,8 +34,11 @@ sub do_rel {
 	print "$rel\n";
 }
 
-GetOptions("b|base=s" => \$base,
-	"D|debug" => \$debug);
+GetOptions(
+	"b|base=s" => \$base,
+	"D|debug" => \$debug)
+	or exit(msg_usage);
+
 $base = Cwd::abs_path($base);
 if (@ARGV) {
 	do_rel($base, $_) for @ARGV;

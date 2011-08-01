@@ -140,6 +140,9 @@ sub send_file {
 sub send_dbus {
 	my ($title, $text) = @_;
 
+	our %libnotify_state;
+	my $state = $libnotify_state{$title} //= {};
+
 	if (!defined $dbus) {
 		if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
 			use Data::Dumper;
@@ -154,13 +157,24 @@ sub send_dbus {
 	}
 
 	$text = xml_escape($text);
+
 	my $icon = Irssi::settings_get_str("notification_icon");
 
 	if (defined $libnotify) {
-		$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+		# append to existing notification, if relatively new
+		if (defined $state->{text} and time-$state->{sent} < 20) {
+			$state->{text} .= "\n".$text;
+		} else {
+			$state->{text} = $text;
+		}
+
+		$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
+			$icon, $title, $state->{text}, [], {}, 3000);
+		$state->{sent} = time;
 		return 1;
 	}
 	else {
+		# updating is not supported
 		my @args = ("notify-send");
 		push @args, "--icon=$icon" unless $icon eq "";
 		# category doesn't do the same as appname, but still useful

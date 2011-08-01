@@ -109,8 +109,20 @@ if (!defined $forward) {
 			
 		push @forwards, sub {
 			my ($appname, $icon, $title, $text) = @_;
+			our %libnotify_state;
+			my $state = $libnotify_state{$title} //= {};
+
 			$text = xml_escape($text);
-			$libnotify->Notify($appname, 0, $icon, $title, $text, [], {}, 3000);
+			# append to existing notification, if relatively new
+			if (defined $state->{text} and time-$state->{sent} < 20) {
+				$state->{text} .= "\n".$text;
+			} else {
+				$state->{text} = $text;
+			}
+
+			$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
+				$icon, $title, $state->{text}, [], {}, 3000);
+			$state->{sent} = time;
 		};
 	} else {
 		push @forwards, sub {

@@ -10,7 +10,7 @@ use IO::Socket::INET;
 use IO::Socket::UNIX;
 use List::MoreUtils qw(any);
 
-$VERSION = "0.6.(3*ε)";
+$VERSION = "0.7.(0*ε)";
 %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus or Intertubes.',
@@ -60,13 +60,13 @@ sub on_message {
 		or $nick =~ /^(nick|chan|memo|oper|php)serv$/i
 	);
 
+	my $tag = $channel ? $target : $nick;
 	my $title = $nick;
 	$title .= " on $target" if $channel;
-
 	# send notification to all dests
 	my $dests = Irssi::settings_get_str("notify_targets");
 	foreach my $dest (split / /, $dests) {
-		my @ret = notify($dest, $title, $msg);
+		my @ret = notify($dest, $tag, $title, $msg);
 		Irssi::print("Could not notify $dest: $ret[1]") if !$ret[0];
 	}
 }
@@ -97,10 +97,7 @@ sub send_file {
 }
 
 sub send_dbus {
-	my ($title, $text) = @_;
-
-	our %libnotify_state;
-	my $state = $libnotify_state{$title} //= {};
+	my ($tag, $title, $text) = @_;
 
 	if (!defined $dbus) {
 		if (!defined $ENV{DISPLAY} and !defined $ENV{DBUS_SESSION_BUS_ADDRESS}) {
@@ -118,10 +115,13 @@ sub send_dbus {
 		}
 	}
 
-	$text = xml_escape($text);
+	our %libnotify_state;
+	my $state = $libnotify_state{$title} //= {};
 
+	my $appname = $tag;
 	my $icon = Irssi::settings_get_str("notification_icon");
 
+	$text = xml_escape($text);
 	# append to existing notification, if relatively new
 	if (defined $state->{text} and time-$state->{sent} < 20) {
 		$state->{text} .= "\n".$text;
@@ -138,6 +138,7 @@ sub send_dbus {
 sub send_growl {
 	my ($title, $text) = @_;
 	our $growl;
+	# To do: Mac::Growl vs Growl::GNTP?
 	if (eval {require Mac::Growl}) {
 		if (!$growl) {
 			my @default = qw(Hilight);
@@ -226,13 +227,13 @@ sub send_unix {
 }
 
 sub notify {
-	my ($dest, $title, $text) = @_;
+	my ($dest, $tag, $title, $text) = @_;
 
 	my $icon = Irssi::settings_get_str("notification_icon");
-	my $rawmsg = join(" | ", $appname, $icon, $title, $text)."\n";
+	my $rawmsg = join("\x01", $appname, $tag, $icon, $title, $text)."\n";
 
 	if ($dest =~ /^(libnotify|dbus)$/) {
-		send_dbus($title, $text);
+		send_dbus($tag, $title, $text);
 	}
 	elsif ($dest =~ /^file!(.+)$/) {
 		send_file($rawmsg, $1);

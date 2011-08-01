@@ -43,7 +43,7 @@ sub xml_escape {
 
 sub handle_message {
 	my ($message) = @_;
-	my ($ver, $appname, $tag, $icon, $title, $text) = split(/\x01/, $message, 5);
+	my ($ver, $appname, $tag, $icon, $title, $text) = split(/\x01/, $message, 6);
 	if ($ver != 2) {
 		warn "Received invalid message: $message\n";
 		return;

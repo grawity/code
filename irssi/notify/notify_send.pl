@@ -63,6 +63,8 @@ sub on_message {
 	my $tag = $channel ? $target : $nick;
 	my $title = $nick;
 	$title .= " on $target" if $channel;
+	# filter funky characters; allow Tab (x09)
+	$msg =~ s/[\x01-\x08\x0A-\x1F]//g;
 	# send notification to all dests
 	my $dests = Irssi::settings_get_str("notify_targets");
 	foreach my $dest (split / /, $dests) {

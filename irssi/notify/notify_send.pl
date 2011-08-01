@@ -230,7 +230,7 @@ sub notify {
 	my ($dest, $tag, $title, $text) = @_;
 
 	my $icon = Irssi::settings_get_str("notification_icon");
-	my $rawmsg = join("\x01", $appname, $tag, $icon, $title, $text)."\n";
+	my $rawmsg = join("\x01", 2, $appname, $tag, $icon, $title, $text)."\n";
 
 	if ($dest =~ /^(libnotify|dbus)$/) {
 		send_dbus($tag, $title, $text);

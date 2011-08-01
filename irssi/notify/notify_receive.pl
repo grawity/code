@@ -43,7 +43,11 @@ sub xml_escape {
 
 sub handle_message {
 	my ($message) = @_;
-	my ($appname, $tag, $icon, $title, $text) = split(/\x01/, $message, 5);
+	my ($ver, $appname, $tag, $icon, $title, $text) = split(/\x01/, $message, 5);
+	if ($ver != 2) {
+		warn "Received invalid message: $message\n";
+		return;
+	}
 	if ($title eq "") {return;}
 	if ($tag eq "") {$tag = $appname;}
 	for my $fwd (@forwards) {

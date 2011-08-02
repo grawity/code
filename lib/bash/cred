@@ -15,8 +15,10 @@ readcred() {
 	local r_user r_pass
 	if [[ -t 2 ]]; then
 		{
-		echo "Enter credentials for $obj"
-		read -rp 'username: ' -ei "$LOGNAME" r_user
+		echo "Enter credentials for $obj:"
+		read -rp $'username: \001\e[1m\002' \
+			-ei "$LOGNAME" r_user
+		printf '\e[m'
 		read -rp 'password: ' -es r_pass
 		echo ""
 		} </dev/tty >/dev/tty
@@ -33,11 +35,12 @@ readcred() {
 
 getcred_var() {
 	local host=$1 service=$2 obj=$3 uvar=${4:-user} pvar=${5:-pass}
-	local fmt='%u%n%p' data= udata= pdata=
+	local fmt='%u%n%p' data= udata= pdata= prompt=
+	printf -v prompt '\e[4m%s\e[m on %s' "$obj" "$host"
 	if data=$(getnetrc_fqdn "$host" "$service" '%u%n%p'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
-	elif data=$(readcred "$obj on $host" '%s\n%s\n'); then
+	elif data=$(readcred "$prompt" '%s\n%s\n'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
 	else
@@ -50,9 +53,10 @@ getcred_var() {
 
 getcred_samba() {
 	local host=$1 service=$2 obj=$3
-	local fmt='username=%u%npassword=%p'
+	local fmt='username=%u%npassword=%p' prompt=
+	printf -v prompt '\e[4m%s\e[m on %s' "$obj" "$host"
 	getnetrc_fqdn "$host" "$service" "$fmt" ||
-	readcred "$obj on $host"
+	readcred "$prompt"
 }
 
 # getnetrc_fqdn(host, [service], format)

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -e
+umask 077
+
+realm=$1
+kdc=$2
+if ! [[ $realm ]]; then
+	echo "error: usage: krb5db-pull <realm> [kdc]" >&2
+	exit 1
+fi
+
+if ! [[ $kdc ]]; then
+	kdc=$(dig +short -t srv {_kerberos-master,_kerberos}._udp."$realm" |
+		awk '{print $4; exit}')
+fi
+
+# dump current database
+dir="$HOME/backup/kerberos-$realm"
+file="$dir/dump-$(date +%Y%m%d).gpg"
+sshid="$HOME/.ssh/key_krb5db_$realm"
+keyid="grawity@gmail.com"
+mkdir -p "$dir"
+ssh -i "$sshid" "${kdc%.}" "~/code/misc/backup/krb-push $realm $keyid" |
+	gpg --decrypt > "$file"
+
+# clean up old backups
+days=21
+find "$dir" -type f -name "dump-*" -mtime "+$days" -delete

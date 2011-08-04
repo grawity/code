@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -e
+umask 077
+
+keyid="grawity@gmail.com"
+
+encrypt() {
+	gpg --encrypt --recipient "$keyid" --batch | gpg --store -z 1
+}
+
+setname=$1
+
+if ! [[ $setname ]]; then
+	echo "Usage: serve <setname>"
+	exit 2
+fi
+
+if [[ -t 1 ]]; then
+	echo "error: will not write to a tty"
+	exit 1
+fi
+
+case "$HOSTNAME/$setname" in
+	equal/mail)
+		tar c ~/mail
+		;;
+
+	equal/pub)
+		tar c ~/pub ~/lib/conf/apache2
+		;;
+
+	imaginary/dns)
+		tar c ~/lib/dns
+		;;
+
+	*/krb-NULLROUTE.EU.ORG)
+		realm=${setname#krb-}
+		sudo kdb5_util -r "$realm" dump
+		;;
+esac | encrypt

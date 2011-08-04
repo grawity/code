@@ -120,7 +120,6 @@ sub send_dbus {
 	our %libnotify_state;
 	my $state = $libnotify_state{$title} //= {};
 
-	my $appname = $tag;
 	my $icon = Irssi::settings_get_str("notification_icon");
 
 	$text = xml_escape($text);

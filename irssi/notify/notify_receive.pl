@@ -124,7 +124,7 @@ if (!defined $forward) {
 				$state->{text} = $text;
 			}
 
-			$state->{id} = $libnotify->Notify($tag, $state->{id} // 0,
+			$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
 				$icon, $title, $state->{text}, [], {}, 3000);
 			$state->{sent} = time;
 		};
@@ -135,7 +135,7 @@ if (!defined $forward) {
 			my @args = ("notify-send");
 			push @args, "--icon=$icon" unless $icon eq "";
 			# category doesn't do the same as appname, but still useful
-			push @args, "--category=$tag" unless $tag eq "";
+			push @args, "--category=$appname" unless $tag eq "";
 			push @args, $title;
 			push @args, $text unless $text eq "";
 			system @args;

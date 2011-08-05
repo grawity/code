@@ -9,11 +9,13 @@ log() { printf "\e[1;32m=\e[;1m %s\e[m\n" "$*"; }
 
 log_ok() { printf "\e[1;34m=\e[m %s\e[m\n" "$*"; }
 
-warn() { printf "\e[1;31m= %s\e[m\n" "$*"; }
+warn() { printf "\e[1;33mwarning:\e[m %s\e[m\n" "$*"; }
+
+die() { printf "\e[1;31merror:\e[m %s\e[m\n" "$*"; exit 1; }
 
 confirm() {
 	local msg=$1 ans=
-	read -ep "$msg " -t 10 ans && [[ $ans == y ]]
+	read -ep "\001\e[1m\002(?)\001\e[m\002 $msg " -t 10 ans && [[ $ans == y ]]
 }
 
 check-gpg-version() {
@@ -36,15 +38,15 @@ fi
 have git	|| die "git not installed"
 have curl	|| die "curl not installed"
 
-if [[ ! -d ~/lib/dotfiles/.git ]]; then
+if [[ -d ~/lib/dotfiles/.git ]]; then
+	commit=$(cd ~/lib/dotfiles && git log --oneline -1)
+	log_ok "~/lib/dotfiles is at $commit"
+else
 	log "Cloning dotfiles.git"
 	mkdir -p ~/lib
 	git clone "https://github.com/grawity/dotfiles.git" \
 		~/lib/dotfiles
 	~/lib/dotfiles/install
-else
-	commit=$(cd ~/lib/dotfiles && git log --oneline -1)
-	log_ok "~/lib/dotfiles is at $commit"
 fi
 
 if [[ -z $LOCAL ]]; then
@@ -58,7 +60,10 @@ if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	c_rehash ~/.pki/ca/
 fi
 
-if [[ ! -f ~/.ssh/authorized_keys ]]; then
+if [[ -s ~/.ssh/authorized_keys ]]; then
+	num=$(grep -c '^[[:alpha:]]' ~/.ssh/authorized_keys)
+	log_ok "authorized_keys has $num keys"
+else
 	if have gpg && check-gpg-version; then
 		log "Setting up sshupdate-gpg"
 		~/code/ssh/sshupdate-gpg -rv
@@ -75,43 +80,42 @@ if [[ ! -f ~/.ssh/authorized_keys ]]; then
 		log "Updating SSH keys"
 		~/code/ssh/sshupdate-ssh
 	else
-		warn "Impossible to update SSH authorized_keys"
+		warn "Unable to auto-update authorized_keys"
 	fi
-else
-	num=$(grep -c '^[[:alpha:]]' ~/.ssh/authorized_keys)
-	log_ok "authorized_keys has $num keys"
 fi
 
-if [[ -f ~/.k5login ]]; then
+if [[ -s ~/.k5login ]]; then
 	log_ok "k5login has $(wc -l < ~/.k5login) principals"
 else
 	if have kinit && [[ -f /etc/krb5.keytab ]]; then
-		log_ok "Creating ~/.k5login"
+		log "Creating ~/.k5login"
 		~/code/dist/update-k5login
 	fi
 fi
 
 set +e
-if ! crontab -l 2>/dev/null |
+if crontab -l 2>/dev/null |
 		grep -Eqs "[[:space:]]ID=pull[[:space:]]|code/dist/pull"; then
+	log_ok "dist/pull is in crontab"
+else
 	log "Adding dist/pull to crontab"
 	(crontab -l 2>/dev/null || true;
 		echo -e '@daily\tID=pull\t~/code/dist/pull') | crontab -
-else
-	log_ok "dist/pull is in crontab"
 fi
 set -e
 
 if have mailx && grep -Fqs NAILRC "$(which mailx)"; then
-	log_ok "Heirloom mailx is installed"
+	log_ok "heirloom-mailx is installed"
 else
-	log "Installing Heirloom mailx"
+	log "Installing heirloom-mailx"
 	~/code/dist/install-mailx.sh
 fi
 
 if [[ $FQDN == "equal.cluenet.org" ]]; then
 	log_ok "Skipping ~/.forward - this is the mail server"
-elif [[ ! -f ~/.forward ]]; then
+elif [[ -s ~/.forward ]]; then
+	log_ok "Mail is being forwarded to $(sed 1q ~/.forward)"
+else
 	log "Forwarding mail to $forward_mail"
 	echo "$forward_mail" > ~/.forward
 
@@ -126,13 +130,11 @@ elif [[ ! -f ~/.forward ]]; then
 	else
 		warn "'mail' not available; cannot send test email"
 	fi
-else
-	log_ok "Mail is being forwarded to $(sed 1q ~/.forward)"
 fi
 
 if have cpanm; then
 	log_ok "cpanminus is installed"
 else
 	log "Installing cpanminus"
-	curl -sL http://cpanmin.us | perl - --self-upgrade
+	curl -#sL http://cpanmin.us | perl - --self-upgrade
 fi

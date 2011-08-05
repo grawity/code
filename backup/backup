@@ -8,11 +8,19 @@ days=14
 
 hostname=$1
 setname=$2
+schedule=$3
 
 if ! [[ $hostname && $setname ]]; then
 	echo "Usage: backup <hostname> <setname>"
 	exit 2
 fi
+
+case $schedule in
+	daily)		days=14;;
+	weekly)		days=30;;
+	monthly)	days=180;;
+	[0-9]*)		days=$schedule;;
+esac
 
 date=$(date +%Y%m%d)
 keyfile=$HOME/.ssh/backup_$hostname.key

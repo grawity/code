@@ -2,6 +2,7 @@
 require 'dbus'
 require 'net/netrc'
 require 'net/imap'
+require 'optparse'
 
 class Watcher
 	def initialize(host)
@@ -103,7 +104,27 @@ class Watcher
 	end
 end
 
-host = ENV["MAILHOST"]
+options = {}
+optparse = OptionParser.new do |opt|
+	options[:host] = ENV["MAILHOST"]
+	opt.on("-h", "--host", "Connect to given mail host") do |host|
+		options[:host] = host
+	end
 
-w = Watcher.new(host)
-w.idle()
+	options[:oneshot] = false
+	opt.on("-1", "--oneshot", "Check messages without entering idle loop") do
+		options[:oneshot] = true
+	end
+end
+optparse.parse!
+
+if options[:host].empty?
+	raise "Mailhost is empty"
+end
+
+w = Watcher.new(options[:host])
+if options[:oneshot]
+	w.update
+else
+	w.idle
+end

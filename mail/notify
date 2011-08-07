@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+require 'dbus'
+require 'net/netrc'
+require 'net/imap'
+
+class Watcher
+	def initialize(host)
+		@new = []
+
+		bus = DBus::SessionBus.instance
+		svc = bus.service("org.freedesktop.Notifications")
+		obj = svc.object("/org/freedesktop/Notifications")
+		obj.introspect
+		@notify = obj["org.freedesktop.Notifications"]
+
+		auth = Net::Netrc.locate(host)
+		if auth.machine == nil
+			raise "Missing authdata for #{host}"
+		end
+
+		@imap = Net::IMAP.new(host)
+		@imap.starttls()
+		# TODO: find a GSSAPI authenticator
+		@imap.authenticate("LOGIN", auth.login, auth.password)
+		@imap.examine("INBOX")
+
+		update(true)
+	end
+
+	def idle()
+		while true
+			puts "Idling"
+			@imap.idle do |resp|
+				if resp.kind_of?(Net::IMAP::UntaggedResponse) and
+				resp.name == "EXISTS"
+					@imap.idle_done
+				end
+			end
+			update(false)
+		end
+	end
+
+	def update(batch=true)
+		res = @imap.uid_search("NEW")
+		fetch = res-@new
+		@new = res.dup
+
+		if fetch.empty?
+			return
+		end
+
+		puts "Fetching messages #{fetch}"
+		headers = @imap.uid_fetch(fetch, "BODY[HEADER.FIELDS (SUBJECT FROM)]")
+		
+		messages = []
+		headers.each do |data|
+			subj = nil
+			from = nil
+			data.attr["BODY[HEADER.FIELDS (SUBJECT FROM)]"].lines.each do |line|
+				k, v = line.chomp.split(/:\s*/, 2)
+				next unless k
+				case k.downcase
+				when "from"
+					from = v
+				when "subject"
+					subj = v
+				end
+			end
+			messages.push [from, subj]
+		end
+		puts "Fetched #{messages.count} messages"
+
+		if batch
+			summary = "#{messages.count} new messages"
+			text = ""
+			messages.each do |from, subj|
+				text += "#{subj}\n"
+			end
+			id = 0
+			id = @notify.Notify("Mail",
+					id,
+					"mail-unread",
+					summary,
+					text,
+					[],
+					{},
+					10*1000)
+		else
+			messages.each do |from, subj|
+				summary = "New message from #{from}"
+				text = "#{subj}"
+				id = 0
+				id = @notify.Notify("Mail",
+						id,
+						"mail-unread",
+						summary,
+						text,
+						[],
+						{},
+						5*1000)
+			end
+		end
+	end
+end
+
+host = ENV["MAILHOST"]
+
+w = Watcher.new(host)
+w.idle()

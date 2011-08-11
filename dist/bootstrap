@@ -38,6 +38,9 @@ fi
 have git	|| die "git not installed"
 have curl	|| die "curl not installed"
 
+log "Building tools"
+(cd ~/code; make)
+
 if [[ -d ~/lib/dotfiles/.git ]]; then
 	commit=$(cd ~/lib/dotfiles && git log --oneline -1)
 	log_ok "~/lib/dotfiles is at $commit"
@@ -46,10 +49,11 @@ else
 	mkdir -p ~/lib
 	git clone "https://github.com/grawity/dotfiles.git" \
 		~/lib/dotfiles
-	~/lib/dotfiles/install
 fi
 
 if [[ -z $LOCAL ]]; then
+	log "Creating dotfile symlinks"
+	~/lib/dotfiles/install
 	. ~/.profile
 fi
 
@@ -136,5 +140,5 @@ if have cpanm; then
 	log_ok "cpanminus is installed"
 else
 	log "Installing cpanminus"
-	curl -#sL http://cpanmin.us | perl - --self-upgrade
+	curl -L http://cpanmin.us | perl - --self-upgrade
 fi

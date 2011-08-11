@@ -41,10 +41,7 @@ have curl	|| die "curl not installed"
 log "Building tools"
 (cd ~/code; make)
 
-if [[ -d ~/lib/dotfiles/.git ]]; then
-	commit=$(cd ~/lib/dotfiles && git log --oneline -1)
-	log_ok "~/lib/dotfiles is at $commit"
-else
+if [[ ! -d ~/lib/dotfiles/.git ]]; then
 	log "Cloning dotfiles.git"
 	mkdir -p ~/lib
 	git clone "https://github.com/grawity/dotfiles.git" \
@@ -78,10 +75,7 @@ if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	c_rehash ~/.pki/ca/
 fi
 
-if [[ -s ~/.ssh/authorized_keys ]]; then
-	num=$(grep -c '^[[:alpha:]]' ~/.ssh/authorized_keys)
-	log_ok "authorized_keys has $num keys"
-else
+if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if have gpg && check-gpg-version; then
 		log "Setting up sshupdate-gpg"
 		~/code/ssh/sshupdate-gpg -rv
@@ -102,9 +96,7 @@ else
 	fi
 fi
 
-if [[ -s ~/.k5login ]]; then
-	log_ok "k5login has $(wc -l < ~/.k5login) principals"
-else
+if [[ ! -s ~/.k5login ]]; then
 	if have kinit && [[ -f /etc/krb5.keytab ]]; then
 		log "Creating ~/.k5login"
 		~/code/dist/update-k5login
@@ -112,19 +104,15 @@ else
 fi
 
 set +e
-if crontab -l 2>/dev/null |
-		grep -Eqs "[[:space:]]ID=pull[[:space:]]|code/dist/pull"; then
-	log_ok "dist/pull is in crontab"
-else
+if ! { crontab -l 2>/dev/null |
+		grep -Eqs "[[:space:]]ID=pull[[:space:]]|code/dist/pull"; }; then
 	log "Adding dist/pull to crontab"
 	(crontab -l 2>/dev/null || true;
 		echo -e '@daily\tID=pull\t~/code/dist/pull') | crontab -
 fi
 set -e
 
-if have mailx && grep -Fqs NAILRC "$(which mailx)"; then
-	log_ok "heirloom-mailx is installed"
-else
+if ! { have mailx && grep -Fqs NAILRC "$(which mailx)"; }; then
 	log "Installing heirloom-mailx"
 	~/code/dist/install-mailx.sh
 fi
@@ -150,9 +138,7 @@ else
 	fi
 fi
 
-if have cpanm; then
-	log_ok "cpanminus is installed"
-else
+if ! have cpanm; then
 	log "Installing cpanminus"
 	curl -L http://cpanmin.us | perl - --self-upgrade
 fi

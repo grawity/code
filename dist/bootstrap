@@ -57,6 +57,16 @@ if [[ -z $LOCAL ]]; then
 	. ~/.profile
 fi
 
+mkdir -p "$LOCAL/man"
+if [[ -L $LOCAL/share/man ]]; then
+	true
+elif [[ -d $LOCAL/share/man ]]; then
+	log "Consolidating manual pages"
+	cp -alf "$LOCAL/share/man/" "$LOCAL/man/"
+	rm -rf "$LOCAL/share/man"
+	ln -s "../man" "$LOCAL/share/man"
+fi
+
 if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	log "Installing Nullroute CA certificate"
 	mkdir -p -m 0700 ~/.pki/ca

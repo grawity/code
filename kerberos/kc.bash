@@ -195,7 +195,7 @@ kc() {
 			fi
 
 			if [[ $ccname == $cccurrent ]]; then
-				if [[ $KRB5CCNAME ]]; then
+				if [[ $ccname == $KRB5CCNAME ]]; then
 					itemflag="»"
 					[[ $itemcolor ]] ||
 						itemcolor=$'\033[1;32m'

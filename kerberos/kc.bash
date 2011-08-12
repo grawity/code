@@ -1,6 +1,27 @@
 #!bash
 # NOTE: Must be 'source'd (ie. from bashrc) in order for cache switching to work.
 
+_kc_relative_time() {
+	local expiry=$1 str=$2 now=$(date +%s)
+	local diff=$(( expiry - now ))
+	local diff_s=$(( diff % 60 ))
+	diff=$(( (diff-diff_s) / 60 ))
+	local diff_m=$(( diff % 60 ))
+	diff=$(( (diff-diff_m) / 60 ))
+	local diff_h=$(( diff % 24 ))
+	local diff_d=$(( (diff-diff_h) / 24 ))
+	if (( diff_d > 1 )); then
+		str+=" ${diff_d} days"
+	elif (( diff_h > 0 )); then
+		str+=" ${diff_h}h ${diff_m}m"
+	elif (( diff_m > 1 )); then
+		str+=" ${diff_m} minutes"
+	else
+		str+=" a minute"
+	fi
+	echo "$str"
+}
+
 kc_list_caches() {
 	local current="$(pklist -N)" have_current=
 	local default="$(unset KRB5CCNAME; pklist -N)" have_default=
@@ -95,7 +116,7 @@ kc() {
 					flag="x"
 					flag_color=$'\033[31m'
 				else
-					expiry_str=$(date -d "@$expiry" +"%b %d %H:%M")
+					expiry_str=$(_kc_relative_time "$expiry" "expires in")
 				fi
 			fi
 

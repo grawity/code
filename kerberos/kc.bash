@@ -142,7 +142,6 @@ kc() {
 			local ccrealm=
 			local credexpiry=
 			local credexpiry_str=
-			local tgt=
 			local tgtexpiry=
 			local init=
 			local initexpiry=

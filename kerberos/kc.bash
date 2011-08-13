@@ -20,7 +20,7 @@ _kc_relative_time() {
 	else
 		str+=" a minute"
 	fi
-	echo "$str"
+	echo $str
 }
 
 # Expand shortname to ccname
@@ -140,15 +140,16 @@ kc() {
 			local rest=
 			local principal=
 			local ccrealm=
-			local credexpiry=
-			local credexpiry_str=
+			local expiry=
+			local expirystr=
 			local tgtexpiry=
 			local init=
 			local initexpiry=
 			local itemflag=
-			local itemcolor=
-			local flagwidth=
-			local colwidth=
+			local flagcolor=
+			local namecolor=
+			local princcolor=
+			local expirycolor=
 
 			ccname=${caches[i]}
 			ccdata=$(pklist -c "$ccname") || continue
@@ -179,52 +180,52 @@ kc() {
 			shortname=$(_kc_collapse_ccname "$ccname")
 
 			if (( tgtexpiry )); then
-				credexpiry=$tgtexpiry
+				expiry=$tgtexpiry
 			elif (( initexpiry )); then
-				credexpiry=$initexpiry
+				expiry=$initexpiry
 			fi
 
-			if (( credexpiry )); then
-				if (( credexpiry <= now )); then
-					credexpiry_str="(expired)"
+			if (( expiry )); then
+				if (( expiry <= now )); then
+					expirystr="(expired)"
+					expirycolor='31'
 					itemflag="x"
-					itemcolor=$'\033[31m'
+					flagcolor='31'
 				else
-					credexpiry_str=$(_kc_relative_time "$credexpiry" "expires in")
+					expirystr=$(_kc_relative_time "$expiry" "")
+					if (( expiry > now+1200 )); then
+						expirycolor=''
+					else
+						expirycolor='33'
+					fi
 				fi
 			fi
 
 			if [[ $ccname == $cccurrent ]]; then
 				if [[ $ccname == $KRB5CCNAME ]]; then
 					itemflag="»"
-					[[ $itemcolor ]] ||
-						itemcolor=$'\033[1;32m'
 				else
 					itemflag="*"
-					[[ $itemcolor ]] ||
-						itemcolor=$'\033[32m'
 				fi
 
-				if (( credexpiry <= now )); then
-					itemcolor=$'\033[33m'
+				if (( expiry <= now )); then
+					flagcolor='1;31'
+				else
+					flagcolor='1;32'
 				fi
+
+				namecolor=$flagcolor
+				princcolor=$namecolor
 			fi
 
-			if $use_color; then
-				[[ $itemflag ]] && itemflag="${itemcolor}${itemflag}"$'\033[m'
-			fi
-
+			printf '\e[%sm%1s\e[m %2d ' "$flagcolor" "$itemflag" "$i"
+			printf '\e[%sm%-15s\e[m' "$namecolor" "$shortname"
 			if (( ${#shortname} > 15 )); then
-				printf '%1s%n%2d %s\n' "$itemflag" flagwidth "$i" "$shortname"
-				printf '%20s%-48s%s\n' "" "$principal" "$credexpiry_str"
-			else
-				printf '%1s%n%2d %-15s %n%-48s%s\n' "$itemflag" flagwidth "$i" "$shortname" \
-					colwidth "$principal" "$credexpiry_str"
+				printf '\n%20s' ""
 			fi
-			(( colwidth += (1 - flagwidth) ))
-			if [[ $init && $init != "krbtgt/$ccrealm@$ccrealm" ]]; then
-				printf '%*s(for %s)\n' "$colwidth" "" "$init"
-			fi
+			printf ' \e[%sm%-40s\e[m' "$princcolor" "$principal"
+			printf ' \e[%sm%s\e[m' "$expirycolor" "$expirystr"
+			printf '\n'
 		done
 		;;
 	purge)
@@ -304,9 +305,9 @@ kc() {
 			done <<< "$ccdata"
 
 			if (( tgtexpiry )); then
-				credexpiry=$tgtexpiry
+				expiry=$tgtexpiry
 			elif (( initexpiry )); then
-				credexpiry=$initexpiry
+				expiry=$initexpiry
 			fi
 
 			if (( expiry > maxexpiry )); then

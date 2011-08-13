@@ -1,0 +1,40 @@
+#!/usr/bin/env perl
+use common::sense;
+use Getopt::Long qw(:config no_ignore_case);
+
+sub usage {
+	say "Usage: msshutdown [-c comment] [-f] [-r] [-t timeout] host";
+	return 2;
+}
+
+my $abort;
+my $force;
+my $reboot;
+my $comment;
+my $timeout;
+
+GetOptions(
+	'a|abort'	=> \$abort,
+	'c|comment=s'	=> \$comment,
+	'f|force'	=> \$force,
+	'r|reboot'	=> \$reboot,
+	't|timeout=i'	=> \$timeout,
+) or exit usage();
+
+my $host = shift @ARGV
+	// exit usage();
+my @args = ("remote.msrpc", $host);
+
+if ($abort) {
+	push @args, "abortshutdown";
+	warn "note: -f is meaningless\n"	if $force;
+	warn "note: -r is meaningless\n"	if $reboot;
+}
+else {
+	push @args, "-t", ($timeout // 1);
+	push @args, "-f"		if $force;
+	push @args, "-r"		if $reboot;
+	push @args, "-C", $comment	if defined $comment;
+	push @args, "shutdown";
+}
+exec(@args);

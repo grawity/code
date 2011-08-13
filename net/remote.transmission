@@ -1,0 +1,17 @@
+#!/bin/bash
+. ~/code/lib/bash/cred
+
+host=$1
+[[ $host ]] || exit 2
+
+args=("$host")
+
+getcred_var "$host" "transmission" "Transmission" user pass
+if [[ $user || $pass ]]; then
+	export TR_AUTH="$user:$pass"
+	args+=(-ne)
+fi
+
+args+=("${@:2}")
+
+exec transmission-remote "${args[@]}"

@@ -1,17 +1,27 @@
 #!/bin/bash
 . ~/code/lib/bash/cred
 
-host=$1
-[[ $host ]] || exit 2
+if [[ $1 ]]; then
+	host=$1; shift
+else
+	host=$HOSTNAME
+fi
 
 args=("$host")
 
 getcred_var "$host" "transmission" "Transmission" user pass
-if [[ $user || $pass ]]; then
-	export TR_AUTH="$user:$pass"
-	args+=(-ne)
+
+if [[ $1 ]]; then
+	if [[ $user || $pass ]]; then
+		export TR_AUTH="$user:$pass"
+		args+=(-ne)
+	fi
+	args+=("$@")
+	exec transmission-remote "${args[@]}"
+else
+	conn="$host"
+	if [[ $user || $pass ]]; then
+		conn="$user:$pass@$conn"
+	fi
+	exec python2 ~/bin/transmission-remote-cli -c "$conn"
 fi
-
-args+=("${@:2}")
-
-exec transmission-remote "${args[@]}"

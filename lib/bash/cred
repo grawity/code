@@ -10,15 +10,24 @@ mkcredfile() {
 # prompt user for username/password
 
 readcred() {
+	local OPT OPTARG nouser=false
+	while getopts 'U' OPT; do
+		case $OPT in
+			U)	nouser=true	;;
+		esac
+	done; shift $((--OPTIND))
+
 	local obj=$1
 	local fmt=${2:-'username=%s\npassword=%s\n'}
-	local r_user r_pass
+	local r_user= r_pass=
 	if [[ -t 2 ]]; then
 		{
 		echo "Enter credentials for $obj:"
-		read -rp $'username: \001\e[1m\002' \
-			-ei "$LOGNAME" r_user
-		printf '\e[m'
+		$nouser || {
+			read -rp $'username: \001\e[1m\002' \
+				-ei "$LOGNAME" r_user
+			printf '\e[m'
+		}
 		read -rp 'password: ' -es r_pass
 		echo ""
 		} </dev/tty >/dev/tty
@@ -34,13 +43,20 @@ readcred() {
 # obtain credentials for service@host and put into given variables
 
 getcred_var() {
+	local OPT OPTARG nouser=false
+	while getopts 'U' OPT; do
+		case $OPT in
+			U)	nouser="-$OPT"	;;
+		esac
+	done; shift $((--OPTIND))
+
 	local host=$1 service=$2 obj=$3 uvar=${4:-user} pvar=${5:-pass}
 	local fmt='%u%n%p' data= udata= pdata= prompt=
 	printf -v prompt '\e[4m%s\e[m on %s' "$obj" "$host"
 	if data=$(getnetrc_fqdn "$host" "$service" '%u%n%p'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
-	elif data=$(readcred "$prompt" '%s\n%s\n'); then
+	elif data=$(readcred $nouser "$prompt" '%s\n%s\n'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
 	else

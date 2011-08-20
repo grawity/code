@@ -87,6 +87,15 @@ xmlescape() {
 	printf '%s\n' "$@" | sed 's/&/\&amp;/g; s/"/\&quot;/g; s/</\&lt;/g; s/>/\&gt;/g'
 }
 
+join() {
+	local var=$1 sep=$2
+	$var=$3
+	for i in "${@:3}"; do
+		$var+=$sep$i
+	done
+	printf
+}
+
 if [[ $DISPLAY && ! -t 1 ]]; then
 	out=x11
 else
@@ -99,5 +108,9 @@ get_current
 if [[ -z $1 ]]; then
 	display_${out}_current
 else
-	do_search "$1"
+	pattern=$1 sep='.+'
+	for i in "${@:2}"; do
+		pattern+=$sep$i
+	done
+	do_search "$pattern"
 fi

@@ -69,18 +69,23 @@ sub do_mount {
 			my ($host, $path) = cifs_parsedev($device);
 			$mtdev = "//$host/$path";
 
-			push @mtopts, "fsc", "iocharset=utf8";
-			
+			push @mtopts,
+				"fsc",
+				"iocharset=utf8";
+
 			if ($opts{multiuser}) {
-				push @mtopts, "multiuser";
-				$opts{sec} //= "krb5i";
-			} else {
-				$opts{sec} //= "ntlmv2";
+				push @mtopts,
+					"multiuser",
+					"sec=".($opts{sec} // "krb5i");
 			}
-			push @mtopts, "sec=".$opts{sec};
+			else {
+				push @mtopts,
+					"sec=".($opts{sec} // "ntlmv2");
+			}
 
 			if ($opts{sec} =~ /^krb5/) {
-				push @mtopts, "cruid=".$opts{uid};
+				push @mtopts,
+					"cruid=".$opts{uid};
 			}
 			else {
 				$opts{user} //= $pw->name;

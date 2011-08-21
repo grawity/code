@@ -4,9 +4,16 @@ require 'net/netrc'
 require 'net/imap'
 require 'optparse'
 
+Net::IMAP.debug = true
+
 class Watcher
 	def initialize(host)
-		@new = []
+		@host = host
+
+		@auth = Net::Netrc.locate(@host)
+		if @auth.machine == nil
+			raise "Missing authdata for #{@host}"
+		end
 
 		bus = DBus::SessionBus.instance
 		svc = bus.service("org.freedesktop.Notifications")
@@ -14,30 +21,38 @@ class Watcher
 		obj.introspect
 		@notify = obj["org.freedesktop.Notifications"]
 
-		auth = Net::Netrc.locate(host)
-		if auth.machine == nil
-			raise "Missing authdata for #{host}"
-		end
+		@new = []
 
-		@imap = Net::IMAP.new(host)
+		reconnect
+		update(true)
+	end
+
+	def reconnect()
+		puts "Connecting"
+		@imap = Net::IMAP.new(@host)
 		@imap.starttls()
 		# TODO: find a GSSAPI authenticator
-		@imap.authenticate("LOGIN", auth.login, auth.password)
+		@imap.authenticate("LOGIN", @auth.login, @auth.password)
 		@imap.examine("INBOX")
-
-		update(true)
 	end
 
 	def idle()
 		while true
-			puts "Idling"
-			@imap.idle do |resp|
-				if resp.kind_of?(Net::IMAP::UntaggedResponse) and
-				resp.name == "EXISTS"
-					@imap.idle_done
+			begin
+				began = Time.now
+				puts "Idling"
+				@imap.idle do |resp|
+					puts "Response: #{resp}"
+					if began <= Time.now-600 or
+					(resp.kind_of?(Net::IMAP::UntaggedResponse) and
+					resp.name == "EXISTS")
+						@imap.idle_done
+					end
 				end
+				update(false)
+			rescue IOError
+				reconnect
 			end
-			update(false)
 		end
 	end
 

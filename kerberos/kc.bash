@@ -227,8 +227,13 @@ kc() {
 			printf ' \e[%sm%s\e[m' "$expirycolor" "$expirystr"
 			printf '\n'
 		done
+		if (( i == 1 )); then
+			echo "No Kerberos credential caches found."
+			return 1
+		fi
 		;;
 	purge)
+		# purge expired ccaches
 		local ccname=
 		local ccdata=
 
@@ -239,6 +244,7 @@ kc() {
 		done
 		;;
 	destroy)
+		# destroy current ccache or argv
 		local shortname=
 		local ccname=
 		local destroy=()
@@ -253,9 +259,11 @@ kc() {
 		done
 		;;
 	clean)
+		# destroy file ccaches at standard locations
 		rm -vf "$ccdefault" "$ccprefix"*
 		;;
 	list)
+		# list all found ccaches
 		printf '%s\n' "${caches[@]}"
 		;;
 	=*)
@@ -266,6 +274,7 @@ kc() {
 		fi
 		;;
 	?*@?*)
+		# switch to a ccache for given principal
 		local ccname=
 		local maxexpiry=
 		local maxccname=
@@ -326,6 +335,7 @@ kc() {
 		fi
 		;;
 	*)
+		# switch to a named or numbered ccache
 		local ccname=
 
 		if ccname=$(_kc_expand_ccname "$cmd"); then

@@ -15,6 +15,7 @@ In the example above, the "default" ccache (`/tmp/krb5cc_$UID`) is selected as `
 
   * `kc` - list ccaches
   * `kc <name>` - select ccache by name or number
+  * `kc <principal>` - select ccache by principal
   * `kc new` - select a new ccache with generated name
   * `kc purge` - destroy ccaches with expired TGTs
-  * `kc destroy <name>` - destroy selected ccaches
+  * `kc destroy [<name>...]` - destroy selected ccaches

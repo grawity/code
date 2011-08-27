@@ -269,7 +269,7 @@ kc() {
 	=*)
 		local line=
 
-		if line=$(grep -w "^${arg#=}" ~/lib/kerberos); then
+		if line=$(grep -w "^${cmd#=}" ~/lib/kerberos); then
 			eval kc "$line"
 		fi
 		;;

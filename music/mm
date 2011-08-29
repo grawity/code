@@ -43,7 +43,7 @@ display_tty_current() {
 display_tty_list() {
 	local i
 	for i in "${!songs[@]}"; do
-		IFS=$'\t' read -r artist title <<< "${songs[i]}"
+		IFS=$'\t' read -r artist title _ <<< "${songs[i]}"
 		if [[ $artist == $cur_artist && $title == $cur_title ]]; then
 			printf "$fmt_current" "$i" "$artist - $title"
 		else
@@ -63,7 +63,7 @@ display_x11_current() {
 display_x11_list() {
 	local i new
 	new=$(for i in "${!songs[@]}"; do
-			IFS=$'\t' read -r artist title <<< "${songs[i]}"
+			IFS=$'\t' read -r artist title _ <<< "${songs[i]}"
 			printf '%d\n%s - %s\n' "$i" "$artist" "$title"
 		done | zenity --list \
 			--width=500 --height=400 \
@@ -102,7 +102,7 @@ else
 	out=tty
 fi
 
-fmt_input='%position%\t%artist%\t%title%'
+fmt_input='%position%\t%artist%\t%title%\t%artist% - %title%'
 
 get_current
 if [[ -z $1 ]]; then

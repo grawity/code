@@ -3,11 +3,9 @@ use warnings;
 use feature 'say';
 
 for my $dir (@INC) {
-	next unless -f "$dir/perllocal.pod";
-	open(my $fh, "<", "$dir/perllocal.pod");
+	open(my $fh, "<", "$dir/perllocal.pod") or next;
 	while (<$fh>) {
-		if (/^=head2 .+ L<(.+)\|.+>$/) {
-			say $1;
-		}
+		/^=head2 .+ L<(.+)\|.+>$/ and say $1;
 	}
+	close($fh);
 }

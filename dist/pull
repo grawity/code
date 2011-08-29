@@ -31,6 +31,7 @@ else
 			;;
 	esac
 
+	{
 	# Update dotfiles
 	if [[ -d ~/lib/dotfiles ]]; then
 		log "fetching dotfiles.git"
@@ -46,6 +47,13 @@ else
 	log "running dotfiles/install"
 	~/lib/dotfiles/install
 
+	# Update ~/.k5login
+	if [[ -f ~/.k5login ]]; then
+		log "updating .k5login"
+		~/code/dist/update-k5login
+	fi
+	} &
+
 	# Update authorized SSH keys
 	if [[ -f ~/.ssh/id_sshupdate ]]; then
 		log "updating authorized_keys over SSH"
@@ -55,16 +63,11 @@ else
 		~/code/ssh/sshupdate-gpg
 	fi
 
-	# Update ~/.k5login
-	if [[ -f ~/.k5login ]]; then
-		log "updating .k5login"
-		~/code/dist/update-k5login
-	fi
-
 	# Restart rwhod if necessary
 	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
 		log "poking rwhod"
 		~/code/useless/rwho/rwhod.sh update
 	fi
 fi
+wait
 true

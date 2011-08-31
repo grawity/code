@@ -1,22 +1,32 @@
 #!/usr/bin/env bash
 SOURCE_URL="http://purl.net/net/grawity/misc/authorized_keys.txt"
-SIGNER_KEY="D24F6CB2C1B52632"
-#KEYSERVER="pool.sks-keyservers.net"
-KEYSERVER="pgp.uni-mainz.de"
+SIGNER_KEY_ID="D24F6CB2C1B52632"
+SIGNER_KEY_FP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
+KEYSERVER="pool.sks-keyservers.net"
+#KEYSERVER="pgp.uni-mainz.de"
 
 have() { command -v "$1" &> /dev/null; }
 
 . ~/code/lib/http_fetch.sh || exit 1
 
+usage() {
+	echo "Usage: sshupdate-gpg [-r] [-v]"
+	echo
+	echo "  -r  retrieve key"
+	echo "  -v  verbose mode"
+	echo
+	echo "Key locations are hardcoded in $0."
+} >&2
+
 recv_key() {
-	local keyid=$1
+	local grip=$1
 	local server=$KEYSERVER
-	$VERBOSE && echo "sshup: recv-key $keyid from $server"
-	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$keyid" 2>&1)
+	$VERBOSE && echo "sshup: recv-key $grip from $server"
+	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$grip" 2>&1)
 	local gpg_status=$?
 	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
 		[[ $out ]] && echo "$out" >&2
-		echo "sshup: fetching key $keyid from $server failed (gpg returned $gpg_status)" >&2
+		echo "sshup: fetching key $grip from $server failed (gpg returned $gpg_status)" >&2
 		return 1
 	else
 		$VERBOSE && echo "$out"
@@ -43,7 +53,8 @@ verify() {
 	local file=$1
 	local out=$(gpg --status-fd 1 --verify "$file" 2>/dev/null)
 	if grep -Eqs "^\[GNUPG:\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
-		! grep -qs "^\[GNUPG:\] GOODSIG $SIGNER_KEY " <<< "$out" ||
+		! grep -qs "^\[GNUPG:\] GOODSIG $SIGNER_KEY_ID " <<< "$out" ||
+		! grep -qs "^\[GNUPG:\] VALIDSIG $SIGNER_KEY_FP " <<< "$out" ||
 		! grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$out"
 	then
 		{ echo "$out"; echo "sshup: failed to verify $file"; } >&2
@@ -57,8 +68,9 @@ verify() {
 VERBOSE=false
 while getopts "hvr" OPT "$@"; do
 	case "$OPT" in
-	v)	VERBOSE=true ;;
-	r)	recv_key "$SIGNER_KEY" && gpg --edit-key "$SIGNER_KEY" trust quit ;;
+	'v')	VERBOSE=true ;;
+	'r')	recv_key "$SIGNER_KEY_FP" && gpg --edit-key "$SIGNER_KEY_FP" trust quit ;;
+	'?')	usage; exit 2 ;;
 	esac
 done
 
@@ -67,15 +79,15 @@ if ! have gpg; then
 	exit 1
 fi
 
-if ! gpg --list-keys "$SIGNER_KEY" &> /dev/null; then
-	echo "sshup: signer key $SIGNER_KEY not in keyring" >&2
+if ! gpg --list-keys "$SIGNER_KEY_FP" &> /dev/null; then
+	echo "sshup: signer key $SIGNER_KEY_FP not in keyring" >&2
 	exit 1
 fi
 
 umask 077
 mkdir -p ~/.ssh/
 
-recv_key "$SIGNER_KEY" >&2 || exit 1
+recv_key "$SIGNER_KEY_FP" >&2 || exit 1
 
 temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
 if ! tryfetch "$SOURCE_URL" "$temp"; then

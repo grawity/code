@@ -5,6 +5,8 @@ BIN = \
 	kerberos/pklist \
 	misc/args \
 	misc/silentcat \
+	misc/xor \
+	misc/xors \
 	thirdparty/bgrep \
 	thirdparty/logwipe
 

@@ -27,19 +27,26 @@ check-gpg-version() {
 
 export -f have
 
-if have ~/code/tools/fqdn; then
-	FQDN=$(~/code/tools/fqdn)
-elif have getent; then
-	read _ FQDN _ <<< "$(getent hosts "$HOSTNAME")"
-else
-	FQDN=$(hostname)
-fi
+cd ~/code
+PATH=~/code/bin:$PATH
 
 have git	|| die "git not installed"
 have curl	|| die "curl not installed"
 
-log "Building tools"
-(cd ~/code; make)
+if have fqdn; then
+	FQDN=$(fqdn)
+elif have getent && f=$(getent hosts "$HOSTNAME" 2>/dev/null); then
+	read _ FQDN _ <<< "$f"
+elif have hostname && f=$(hostname -f 2>/dev/null); then
+	FQDN=$f
+else
+	FQDN=$HOSTNAME
+fi
+
+if ! make -q; then
+	log "Building tools"
+	make
+fi
 
 if [[ ! -d ~/lib/dotfiles/.git ]]; then
 	log "Cloning dotfiles.git"
@@ -49,7 +56,7 @@ if [[ ! -d ~/lib/dotfiles/.git ]]; then
 fi
 
 if [[ -z $LOCAL ]]; then
-	log "Creating dotfile symlinks"
+	log "Symlinking dotfiles"
 	~/lib/dotfiles/install
 	. ~/.profile
 fi
@@ -62,7 +69,7 @@ fi
 if [[ -L $LOCAL/share/man ]]; then
 	true
 elif [[ -d $LOCAL/share/man ]]; then
-	log "Consolidating manual pages"
+	log "Moving manual pages"
 	cp -alf "$LOCAL/share/man" "$LOCAL/"
 	rm -rf "$LOCAL/share/man" "$LOCAL/man/index.db"
 	ln -s "../man" "$LOCAL/share/man"
@@ -71,14 +78,14 @@ fi
 if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	log "Installing Nullroute CA certificate"
 	mkdir -p -m 0700 ~/.pki/ca
-	cp ~/code/dist/nullroute.pem ~/.pki/ca/
-	c_rehash ~/.pki/ca/
+	cp dist/nullroute.pem ~/.pki/ca/
+	c_rehash ~/.pki/ca/ >/dev/null &
 fi
 
 if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if have gpg && check-gpg-version; then
 		log "Setting up sshupdate-gpg"
-		~/code/ssh/sshupdate-gpg -rv
+		ssh/sshupdate-gpg -r
 	elif have ssh-keygen && [[ ! -f ~/.ssh/id_sshupdate ]] &&
 	confirm "GPG not found; configure sshupdate-ssh?"; then
 		log "Generating a key for sshupdate-ssh"
@@ -90,17 +97,15 @@ if [[ ! -s ~/.ssh/authorized_keys ]]; then
 		cat ~/.ssh/id_sshupdate.pub |
 			ssh $pullkey_host "~/bin/pullkey --install"
 		log "Updating SSH keys"
-		~/code/ssh/sshupdate-ssh
+		ssh/sshupdate-ssh
 	else
 		warn "Unable to auto-update authorized_keys"
 	fi
 fi
 
-if [[ ! -s ~/.k5login ]]; then
-	if have kinit && [[ -f /etc/krb5.keytab ]]; then
-		log "Creating ~/.k5login"
-		~/code/dist/update-k5login
-	fi
+if [[ ! -s ~/.k5login ]] && [[ -f /etc/krb5.keytab ]]; then
+	log "Creating ~/.k5login"
+	dist/update-k5login &
 fi
 
 set +e
@@ -114,31 +119,25 @@ set -e
 
 if ! { have mailx && grep -Fqs NAILRC "$(which mailx)"; }; then
 	log "Installing heirloom-mailx"
-	~/code/dist/install-mailx.sh
+	dist/install-mailx.sh
 fi
 
 if [[ $FQDN == "equal.cluenet.org" ]]; then
-	log_ok "Skipping ~/.forward - this is the mail server"
+	log_ok "Skipping ~/.forward on the mail server"
 elif [[ -s ~/.forward ]]; then
 	log_ok "Mail is being forwarded to $(sed 1q ~/.forward)"
 else
 	log "Forwarding mail to $forward_mail"
 	echo "$forward_mail" > ~/.forward
 
-	if have mail; then
-		log "Sending a test email"
-		(echo "Test";
-			hostname -f;
-			uname -a;
-			id;
-			have getent && getent passwd "$USER"
-		) | mail -s "Test from $HOSTNAME" "$forward_mail"
-	else
-		warn "'mail' not available; cannot send test email"
-	fi
+	log "Sending a test email"
+	echo "Test email from $USER($UID) at $FQDN" \
+		| mailx -s "Test from $HOSTNAME" "$forward_mail"
 fi
 
 if ! have cpanm; then
 	log "Installing cpanminus"
 	curl -L http://cpanmin.us | perl - --self-upgrade
 fi
+
+wait

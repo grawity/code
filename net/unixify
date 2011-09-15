@@ -44,8 +44,9 @@ class UnixifyRelay(threading.Thread):
 			worker.start()
 	
 	def cleanup(self):
-		if self.listenaf == socket.AF_UNIX:
-			if self.listenaddr[0] != '\0':
+		if self.listenaf == socket.AF_UNIX \
+		and self.listenaddr[0] != '\0' \
+		and os.path.exists(self.listenaddr):
 				os.unlink(self.listenaddr)
 
 class UnixifyRelayWorker(threading.Thread):

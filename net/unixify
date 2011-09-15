@@ -15,6 +15,7 @@ class UnixifyRelay(threading.Thread):
 		self.serveraf = serveraf
 		self.serveraddr = serveraddr
 
+		self.debug = False
 		self.maxconns = 0
 		self.listencookie = None
 		self.servercookie = None
@@ -82,7 +83,8 @@ class UnixifyRelayWorker(threading.Thread):
 					ofd = self.clientfd
 
 				data = ifd.recv(65536)
-				print(ifd, repr(data))
+				if self.listener.debug:
+					print(ifd.fileno(), repr(data))
 				if data:
 					self.send(ofd, data)
 				else:
@@ -132,16 +134,20 @@ def main():
 	relay = UnixifyRelay()
 
 	try:
-		opts, args = getopt.gnu_getopt(sys.argv[1:], 'C:c:')
+		opts, args = getopt.gnu_getopt(sys.argv[1:], 'C:Dc:')
 	except getopt.GetoptError as e:
 		print("unixify:", e.msg, file=sys.stderr)
 		return usage()
 
 	for opt, optarg in opts:
-		if opt == '-c':
-			relay.listencookie = read_cookie_file(optarg)
+		if False:
+			pass
 		elif opt == '-C':
 			relay.servercookie = read_cookie_file(optarg)
+		elif opt == '-D':
+			relay.debug = True
+		elif opt == '-c':
+			relay.listencookie = read_cookie_file(optarg)
 
 	try:
 		relay.listenaf, relay.listenaddr = parse_addr(args.pop(0))

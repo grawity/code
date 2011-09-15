@@ -38,6 +38,15 @@ readcred() {
 		} </dev/tty >/dev/tty
 		printf "$fmt" "$user" "$pass"
 		return 0
+	elif [[ $DISPLAY ]]; then
+		zenity --forms --text "Enter credentials for $prompt:" \
+			--add-entry "Username:" --add-password "Password:" \
+			--separator $'\n' |
+		{
+			read -r user
+			read -r pass
+			printf "$fmt" "$user" "$pass"
+		}
 	else
 		echo >&2 "No credentials for $obj found."
 		return 1

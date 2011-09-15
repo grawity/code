@@ -68,7 +68,11 @@ class UnixifyRelayWorker(threading.Thread):
 				return
 
 		self.serverfd = socket.socket(self.listener.serveraf, socket.SOCK_STREAM)
-		self.serverfd.connect(self.listener.serveraddr)
+		try:
+			self.serverfd.connect(self.listener.serveraddr)
+		except socket.error:
+			self.clientfd.close()
+			raise
 
 		if self.listener.servercookie:
 			self.send(self.serverfd, self.listener.servercookie)

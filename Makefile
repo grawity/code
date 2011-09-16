@@ -8,7 +8,8 @@ BIN = \
 	misc/xor \
 	misc/xors \
 	thirdparty/bgrep \
-	thirdparty/logwipe
+	thirdparty/logwipe \
+	thirdparty/writevt
 
 all: $(BIN)
 

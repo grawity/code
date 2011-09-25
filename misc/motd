@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# motd - display /etc/motd only when it is updated
+# WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
+usage() {
+	echo "usage: motd [-Ddfq] [-o oldpath] [path]"
+	echo ""
+	echo "    -D       always show diff, even if not cached"
+	echo "    -d       show diff if cached motd exists"
+	echo "    -f       always show motd, even if unchanged"
+	echo "    -o path  use a different local cache path"
+	echo "    -q       do not display modification time"
+	echo "    path     use a different motd path"
+	echo ""
+	echo "'motd -dq' is suitable for login scripts."
+	exit 2
+}
+
+sdate() { date -d "@$1" +"%Y-%m-%d %H:%M"; }
+sfdate() { sdate "$(mtime "$1")"; }
+mtime() { stat -Lc %Y "$1"; }
+
+copy() { cp "$1" "$2" && touch -r "$1" "$2"; }
+
+# set defaults
+motd=/etc/motd
+cached=$HOME/.cache/motd-$(hostname)
+diff=false
+conddiff=false
+force=false
+quiet=false
+
+# parse options
+while getopts ":Ddfho:q" OPT; do
+	case $OPT in
+	D)	diff=true conddiff=false ;;
+	d)	diff=true conddiff=true ;;
+	f)	force=true ;;
+	o)	cached=$OPTARG ;;
+	q)	quiet=true ;;
+	\?)	echo "motd: illegal option '$OPTARG'" >&2
+		usage ;;
+	esac
+done; shift $(( OPTIND-1 ))
+
+[ "$1" ] && motd=$1
+
+# do the job
+if [ ! -f "$cached" ] || $force; then
+	# motd added (first run on this host?)
+	if [ -f "$motd" ]; then
+		if $diff && ! $conddiff; then
+			diff -uN "$cached" "$motd" && echo "motd: no changes"
+		else
+			cat "$motd"
+		fi
+		$quiet || echo "motd: last updated $(sfdate "$motd")" >&2
+		copy "$motd" "$cached"
+	else
+		$quiet || echo "no motd" >&2
+	fi
+
+elif [ ! -f "$motd" ]; then
+	# motd removed
+	if $diff; then
+		diff -uN "$cached" "$motd"
+	fi
+
+	$diff || echo "motd: removed" >&2
+	rm "$cached"
+
+elif ! cmp -s "$cached" "$motd"; then
+	# motd updated
+	if $diff; then
+		diff -uN "$cached" "$motd"
+	else
+		cat "$motd"
+	fi
+
+	echo "motd: updated $(sfdate "$motd")" >&2
+	copy "$motd" "$cached"
+
+else
+	# no change
+	$quiet || echo "motd: no changes (last updated $(sfdate "$motd"))" >&2
+	copy "$motd" "$cached" # in case local copy is newer
+fi

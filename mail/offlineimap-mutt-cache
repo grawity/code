@@ -1,0 +1,82 @@
+#!/bin/bash
+# Tool to automatically update mutt cache.
+
+log() {
+	$verbose && echo "$*"
+	return 0
+}
+
+err() {
+	echo "$*" >&2
+	return 1
+}
+
+syncdir() {
+	local name=$1
+	local dname=${name//\//.}
+
+	local maildir=$mailroot/$dname
+	[[ -d $maildir ]] || {
+		err "maildir not found: $maildir"
+		return
+	}
+
+	local cachedir=$cacheroot/$name
+	[[ -d $cachedir ]] || mkdir -p "$cachedir"
+
+	local validity=$(<~/.cache/OfflineIMAP/Repository-nullroute/FolderValidity/$dname)
+
+	shopt -s nullglob
+	local files=("$maildir"/{cur,new}/*:*)
+	shopt -u nullglob
+
+	local mailfile
+	local cachefile
+	local basename
+	local uid
+
+	local re=',U=([[:digit:]]+),'
+
+	for mailfile in "${files[@]}"; do
+		basename=${mailfile##*/}
+		[[ $basename =~ $re ]] || {
+			err "non-OfflineIMAP message file: $basename"
+			continue
+		}
+		uid=${BASH_REMATCH[1]}
+		cachefile=$cachedir/$validity-$uid
+		if [[ ! -f "$cachefile" ]]; then
+			log "$name/$validity-$uid: not found, caching"
+			ln -f "$mailfile" "$cachefile"
+		elif cmp "$mailfile" "$cachefile"; then
+			log "$name/$validity-$uid: okay"
+		else
+			log "$name/$validity-$uid: mismatch, updating"
+			ln -f "$mailfile" "$cachefile"
+		fi
+	done
+}
+
+verbose=false
+mailroot=~/Mail
+cacheroot=~/.cache/mutt/@nullroute
+
+if [[ $1 == "-v" ]]; then
+	verbose=true
+	shift
+fi
+
+if ! (( $# )); then
+	folders=( "$mailroot"/*/ )
+	folders=( "${folders[@]%/}" )
+	folders=( "${folders[@]##*/}" )
+	folders=( "${folders[@]//.//}" )
+	set -- "${folders[@]}"
+fi
+
+err=0
+for d do
+	syncdir "$d"
+	(( err |= $? ))
+done
+exit $err

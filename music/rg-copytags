@@ -14,6 +14,14 @@ dsttag = mutagen.mp3.MP3(dstfile)
 if u'RVA2:track' in srctag:
 # ID3v2.4 RVA2
 	dsttag[u'RVA2:track'] = srctag[u'RVA2:track']
+elif u'TXXX:replaygain_track_gain' in srctag:
+# ID3v2 foobar2000
+	rg_gain = float(srctag[u'TXXX:replaygain_track_gain'][0].split(' ')[0])
+	rg_peak = float(srctag[u'TXXX:replaygain_track_peak'][0])
+	dsttag[u'RVA2:track'] = mutagen.id3.RVA2(desc=u'track',
+					channel=1,
+					gain=rg_gain,
+					peak=rg_peak)
 elif 'replaygain_track_gain' in srctag:
 # FLAC
 	rg_gain = float(srctag['replaygain_track_gain'][0].split(' ')[0])
@@ -25,6 +33,6 @@ elif 'replaygain_track_gain' in srctag:
 else:
 # None
 	print "No ReplayGain tag found."
-	print srctag.keys()
+	print srctag
 
 dsttag.save()

@@ -1,0 +1,111 @@
+#!/usr/bin/env perl
+# getnetrc v1.4
+# Grabs login data from ~/.netrc
+#
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+use warnings;
+use strict;
+
+use Getopt::Long qw(:config gnu_getopt no_ignore_case);
+use Net::Netrc;
+
+my $format		= "%l:%p";
+my $format_nonewline	= 0;
+my $format_url_encode	= 0;
+my $service		= undef;
+my $no_default		= 0;
+
+sub msg_usage {
+	print STDERR "Usage: getnetrc [-dnu] [-f format] [-s service] machine [login]\n";
+	return 2;
+}
+sub msg_help {
+	msg_usage;
+	print
+'
+  -d  ignore the default entry
+  -n  do not print final newline
+  -f  format the output as specified (default is %l:%p)
+  -s  try \'service@machine\' before \'machine\' (nonstandard)
+  -u  URL-encode each item separately
+
+Format strings:
+  %m, %h       result machine (hostname)
+  %l, %u       result login (username)
+  %p           result password
+  %a           result account
+  %M           query machine
+  %S           query service
+  %%, %n, %0   percent sign, newline, null byte
+
+The .netrc file format is described in the manual page of ftp(1), with
+exception of the \'service@machine\' extension specific to grawity\'s netrc.
+';
+	return 0;
+}
+
+sub lookup {
+	my ($machines, $login) = @_;
+	for my $machine (@$machines) {
+		my $en = Net::Netrc->lookup($machine, $login);
+		unless (!defined $en or (!defined $en->{machine} and $no_default)) {
+			return $en;
+		}
+	}
+	return undef;
+}
+
+# parse format string
+sub fmt {
+	my ($str, %data) = @_;
+	$data{"%"} = "%";
+	$str =~ s/(%(.))/exists $data{$2}?(defined $data{$2}?$data{$2}:""):$1/ge;
+	return $str;
+}
+
+sub uri_encode {
+	my $str = shift;
+	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	return $str;
+}
+
+### Command line options
+GetOptions(
+	"f=s"	=> \$format,
+	"n"	=> \$format_nonewline,
+	"u"	=> \$format_url_encode,
+	"s=s"	=> \$service,
+	"d"	=> \$no_default,
+	"help"	=> sub { exit msg_help },
+) or exit msg_usage;
+
+my $machine = shift @ARGV;
+my $login = shift @ARGV;
+exit msg_usage if !defined $machine;
+
+my @machines;
+push @machines, $service.'@'.$machine
+	if length $service;
+push @machines, $machine;
+my $entry = lookup(\@machines, $login) // exit 1;
+
+### Display results
+my %output = (
+	a => $entry->{account},
+	h => $entry->{machine},
+	l => $entry->{login},
+	m => $entry->{machine},
+	p => $entry->{password},
+	u => $entry->{login},
+	M => $machine,
+	S => $service,
+	);
+if ($format_url_encode) {
+	$output{$_} = uri_encode($output{$_} // "") for keys %output;
+}
+@output{"n", "0"} = ("\n", "\0");
+
+if (!$format_nonewline) {
+	$format .= '%n';
+}
+print fmt($format, %output);

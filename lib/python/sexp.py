@@ -1,5 +1,10 @@
-#!/usr/bin/env python2
 # S-exp parser and dumper
+#
+# The simple S-expression format is used by various crypto software, including:
+#
+#   - 'lsh' SSH server/client, for storing keys
+#   - most Off-the-Record IM encryption, for storing OTR keypairs
+#   - GnuPG 'gpgsm', for storing private keys (private-keys-v1.d)
 #
 # Parser code ripped from http://people.csail.mit.edu/rivest/sexp.html
 #  (c) 1997 Ronald Rivest
@@ -7,20 +12,20 @@
 import base64
 from StringIO import StringIO
 
-ALPHA      = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-DIGITS     = "0123456789"
-WHITESPACE = " \t\v\f\r\n"
-PSEUDO_ALPHA = "-./_:*+="
-PUNCTUATION = '()[]{}|#"&\\'
-VERBATIM = "!%^~;',<>?"
+ALPHA		= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+DIGITS		= "0123456789"
+WHITESPACE	= " \t\v\f\r\n"
+PSEUDO_ALPHA	= "-./_:*+="
+PUNCTUATION	= '()[]{}|#"&\\'
+VERBATIM	= "!%^~;',<>?"
 
-TOKEN_CHARS = DIGITS+ALPHA+PSEUDO_ALPHA
+TOKEN_CHARS	= DIGITS + ALPHA + PSEUDO_ALPHA
 
-HEX_DIGITS = "0123456789ABCDEFabcdef"
-B64_DIGITS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
-             "ghijklmnopqrstuvwxyz0123456789+/="
+HEX_DIGITS	= "0123456789ABCDEFabcdef"
+B64_DIGITS	= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
+			"ghijklmnopqrstuvwxyz0123456789+/="
 
-escape_names = {
+ESCAPE_CHARS	= {
 	"\b":	"b",
 	"\t":	"t",
 	"\v":	"v",
@@ -44,11 +49,11 @@ def dump(obj, canonical=False, transport=False):
 		canonical = True
 
 	if isinstance(obj, str):
-		exp = dumpString(obj, canonical)
+		exp = dump_string(obj, canonical)
 	elif isinstance(obj, dict):
-		exp = dumpList(obj.items(), canonical)
+		exp = dump_list(obj.items(), canonical)
 	elif isinstance(obj, (list, tuple)):
-		exp = dumpList(obj, canonical)
+		exp = dump_list(obj, canonical)
 	else:
 		raise TypeError
 
@@ -57,16 +62,16 @@ def dump(obj, canonical=False, transport=False):
 	else:
 		return exp
 
-def dumpString(obj, canonical=False, hex=False):
+def dump_string(obj, canonical=False, hex=False, hint=None):
 	if canonical:
 		out = "%d:%s" % (len(obj), obj)
-	elif isToken(obj):
+	elif is_token(obj):
 		out = str(obj)
-	elif isQuoteable(obj):
+	elif is_quoteable(obj):
 		out = '"'
 		for char in obj:
-			if char in escape_names:
-				out += "\\"+escape_names[char]
+			if char in ESCAPE_CHARS:
+				out += "\\"+ESCAPE_CHARS[char]
 			elif char in "'\"":
 				out += "\\"+char
 			else:
@@ -76,15 +81,16 @@ def dumpString(obj, canonical=False, hex=False):
 		out = "#%s#" % obj.encode("hex")
 	else:
 		out = "|%s|" % base64.b64encode(obj)
+	
+	if hint:
+		return "[%s]%s" % (dump_string(hint, canonical, hex, None), out)
+	else:
+		return out
 
-	#return "[%s]%s" % (self.hint.canonical(), out) if self.hint else out
-	#return "[%s]%s" % (self.hint, out) if self.hint else out
-	return out
+def dump_hint(obj, canonical=False):
+	return "[%s]" % dump_string(obj, canonical)
 
-def dumpHint(obj, canonical=False):
-	return "[%s]" % dumpString(obj, canonical)
-
-def dumpList(obj, canonical=False):
+def dump_list(obj, canonical=False):
 	out = "("
 	if canonical:
 		out += "".join(dump(x, canonical=True) for x in obj)
@@ -93,14 +99,14 @@ def dumpList(obj, canonical=False):
 	out += ")"
 	return out
 
-def toInt(buf):
+def to_int(buf):
 	num = 0
 	for byte in buf:
 		num <<= 8
 		num |= ord(byte)
 	return num
 
-def isToken(string):
+def is_token(string):
 	if string[0] in DIGITS:
 		return False
 	for char in string:
@@ -108,13 +114,13 @@ def isToken(string):
 			return False
 	return True
 
-def isQuoteable(string):
+def is_quoteable(string):
 	for char in string:
 		if char in VERBATIM:
 			return False
 		elif 0x20 <= ord(char) < 0x7f:
 			pass
-		elif char in escape_names:
+		elif char in ESCAPE_CHARS:
 			pass
 		else:
 			return False
@@ -133,7 +139,7 @@ class SexpParser(object):
 		return self
 
 	def next(self):
-		obj = self.scanObject()
+		obj = self.scan_object()
 		if obj:
 			return obj
 		else:
@@ -144,6 +150,10 @@ class SexpParser(object):
 		return self.buf.tell()
 
 	def advance(self):
+		"""Get the next byte in the input stream.
+
+		Will read as many input bytes as needed from Base64 or hex areas.
+		"""
 		while True:
 			self.last = self.char
 			self.char = self.buf.read(1)
@@ -165,8 +175,8 @@ class SexpParser(object):
 				# ignore whitespace in hex/base64 regions
 				pass
 			elif self.bytesize == 6 and self.char == "=":
+				# Base64 padding
 				self.nBits -= 2
-				pass
 			elif self.bytesize == 8:
 				return self.char
 			elif self.bytesize < 8:
@@ -186,7 +196,7 @@ class SexpParser(object):
 					self.bits &= (1 << self.nBits)-1
 					return self.char
 
-	def skipWhitespace(self):
+	def skip_whitespace(self):
 		while self.char:
 			if self.char in WHITESPACE:
 				self.advance()
@@ -196,7 +206,8 @@ class SexpParser(object):
 			else:
 				return
 
-	def skipChar(self, char):
+	def skip_char(self, char):
+		"""Skip the next character if it matches expectations."""
 		if len(char) != 1:
 			raise ValueError("only single characters allowed")
 
@@ -208,15 +219,15 @@ class SexpParser(object):
 			raise IOError("char %r found where %r expected" % (
 				self.char, char))
 
-	def scanToken(self):
-		self.skipWhitespace()
+	def scan_token(self):
+		self.skip_whitespace()
 		out = ""
 		while self.char and self.char in TOKEN_CHARS:
 			out += self.char
 			self.advance()
 		return out
 
-	def scanDecimal(self):
+	def scan_decimal(self):
 		i, value = 0, 0
 		while self.char and self.char in DIGITS:
 			value = value*10 + int(self.char)
@@ -226,9 +237,10 @@ class SexpParser(object):
 			self.advance()
 		return value
 
-	def scanVerbatimString(self, length=None):
-		self.skipWhitespace()
-		self.skipChar(":")
+	def scan_verbatim_string(self, length=None):
+		"""Return the value of verbatim string with given length."""
+		self.skip_whitespace()
+		self.skip_char(":")
 		if not length:
 			raise ValueError("verbatim string had no length")
 		out, i = "", 0
@@ -238,15 +250,15 @@ class SexpParser(object):
 			i += 1
 		return out
 
-	def scanQuotedString(self, length=None):
-		self.skipChar("\"")
+	def scan_quoted_string(self, length=None):
+		self.skip_char("\"")
 		out = ""
 		while length is None or len(out) <= length:
 			if not self.char:
 				raise ValueError("quoted string is missing closing quote")
 			elif self.char == "\"":
 				if length is None or len(out) == length:
-					self.skipChar("\"")
+					self.skip_char("\"")
 					break
 				else:
 					raise ValueError("quoted string ended too early (expected %d)" % length)
@@ -277,91 +289,93 @@ class SexpParser(object):
 			self.advance()
 		return out
 
-	def scanHexString(self, length=None):
+	def scan_hex_string(self, length=None):
 		self.bytesize = 4
-		self.skipChar("#")
+		self.skip_char("#")
 		out = ""
 		while self.char and (self.char != "#" or self.bytesize == 4):
 			out += self.char
 			self.advance()
-		self.skipChar("#")
+		self.skip_char("#")
 		if length and length != len(out):
 			raise ValueError("hexstring length %d != declared length %d" %
 				(len(out), length))
 		return out
 
-	def scanBase64String(self, length=None):
+	def scan_base64_string(self, length=None):
 		self.bytesize = 6
-		self.skipChar("|")
+		self.skip_char("|")
 		out = ""
 		while self.char and (self.char != "|" or self.bytesize == 6):
 			out += self.char
 			self.advance()
-		self.skipChar("|")
+		self.skip_char("|")
 		if length and length != len(out):
 			raise ValueError("base64 length %d != declared length %d" %
 				(len(out), length))
 		return out
 
-	def scanSimpleString(self):
-		self.skipWhitespace()
+	def scan_simple_string(self):
+		self.skip_whitespace()
 		if not self.char:
 			return None
 		elif self.char in TOKEN_CHARS and self.char not in DIGITS:
-			return self.scanToken()
+			return self.scan_token()
 		elif self.char in DIGITS or self.char in '"#|:':
 			if self.char in DIGITS:
-				length = self.scanDecimal()
+				length = self.scan_decimal()
 			else:
 				length = None
 			if self.char == "\"":
-				return self.scanQuotedString(length)
+				return self.scan_quoted_string(length)
 			elif self.char == "#":
-				return self.scanHexString(length)
+				return self.scan_hex_string(length)
 			elif self.char == "|":
-				return self.scanBase64String(length)
+				return self.scan_base64_string(length)
 			elif self.char == ":":
-				return self.scanVerbatimString(length)
+				return self.scan_verbatim_string(length)
 			else:
 				raise ValueError("illegal char %r at %d" % (self.char, self.pos))
 		else:
 			raise ValueError("illegal char %r at %d" % (self.char, self.pos))
 
-	def scanString(self):
+	def scan_string(self):
+		# TODO: How should hints be handled in a Pythonic way?
 		hint = None
 		if self.char == "[":
-			self.skipChar("[")
-			hint = self.scanSimpleString()
-			self.skipWhitespace()
-			self.skipChar("]")
-			self.skipWhitespace()
-		out = self.scanSimpleString()
-		return {"value": out, "hint": hint} if hint else out
+			self.skip_char("[")
+			hint = self.scan_simple_string()
+			self.skip_whitespace()
+			self.skip_char("]")
+			self.skip_whitespace()
+		out = self.scan_simple_string()
+		return (hint, out) if hint else out
 
-	def scanList(self):
+	def scan_list(self):
 		out = []
-		self.skipChar("(")
+		self.skip_char("(")
 		while True:
-			self.skipWhitespace()
+			self.skip_whitespace()
 			if not self.char:
 				raise ValueError("list is missing closing paren")
 			elif self.char == ")":
-				self.skipChar(")")
+				self.skip_char(")")
 				return out
 			else:
-				out.append(self.scanObject())
+				out.append(self.scan_object())
 
-	def scanObject(self):
-		self.skipWhitespace()
+	def scan_object(self):
+		"""Return the next object of any type."""
+		self.skip_whitespace()
 		if not self.char:
 			out = None
 		elif self.char == "{":
 			self.bytesize = 6
-			self.skipChar("{")
-			out = self.scanObject()
-			self.skipChar("}")
+			self.skip_char("{")
+			out = self.scan_object()
+			self.skip_char("}")
 		elif self.char == "(":
-			out = self.scanList()
+			out = self.scan_list()
 		else:
-			out = self.scanString()
+			out = self.scan_string()
 		return out

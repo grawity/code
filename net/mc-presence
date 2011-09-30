@@ -1,0 +1,51 @@
+#!/bin/bash
+# Tool to control status of all Telepathy accounts with a single command.
+
+case $1 in
+	""|help|--help)
+		echo "Usage:"
+		echo ""
+		echo "  $0 offline"
+		echo "  $0 available"
+		echo "  $0 auto"
+		echo "  $0 dump > state"
+		echo "  $0 load < state"
+		echo ""
+		;;
+	offline)
+		mc-tool list |
+		while read -r acct; do
+			mc-tool request "$acct" 'offline'
+		done
+		;;
+	available)
+		mc-tool list |
+		while read -r acct; do
+			mc-tool request "$acct" 'available'
+		done
+		;;
+	auto)
+		mc-tool list |
+		while read -r acct; do
+			st=$(mc-tool show "$acct" |
+				awk '$1 == "Automatic:" {print $2}')
+			mc-tool request "$acct" "$st"
+		done
+		;;
+	dump)
+		mc-tool list |
+		while read -r acct; do
+			curr=$(mc-tool show "$acct" |
+				awk '$1 == "Current:" {print $2}')
+			echo "$acct $curr"
+		done
+		;;
+	load)
+		while read -r acct st; do
+			mc-tool request "$acct" "$st"
+		done
+		;;
+	*)
+		echo "Invalid command '$1'" >&2
+		exit 2
+esac

@@ -1,0 +1,24 @@
+#!/bin/sh -e
+# Simple sprunge.us pastebin client
+
+post() {
+	curl -sF "sprunge=<$1" http://sprunge.us/
+}
+
+if [ -z "$1" ]; then
+	# curl handles stdin buffering in a funny way, often
+	# resulting in only the first write() to be pastebinned
+	file=`mktemp /tmp/sprunge.XXXXXXXX`
+	cat > "$file"
+	if [ -s "$file" ]; then
+		post "$file"
+	else
+		echo "stdin empty" >&2
+	fi
+	rm -f "$file"
+else
+	for file; do
+		echo -n "$file → "
+		post "$file"
+	done
+fi

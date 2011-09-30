@@ -10,29 +10,32 @@
 #  (c) 1997 Ronald Rivest
 
 import base64
-from StringIO import StringIO
+try:
+	from io import StringIO
+except ImportError:
+	from StringIO import StringIO
 
-ALPHA		= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-DIGITS		= "0123456789"
-WHITESPACE	= " \t\v\f\r\n"
-PSEUDO_ALPHA	= "-./_:*+="
-PUNCTUATION	= '()[]{}|#"&\\'
-VERBATIM	= "!%^~;',<>?"
+ALPHA		= b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+DIGITS		= b"0123456789"
+WHITESPACE	= b" \t\v\f\r\n"
+PSEUDO_ALPHA	= b"-./_:*+="
+PUNCTUATION	= b'()[]{}|#"&\\'
+VERBATIM	= b"!%^~;',<>?"
 
 TOKEN_CHARS	= DIGITS + ALPHA + PSEUDO_ALPHA
 
-HEX_DIGITS	= "0123456789ABCDEFabcdef"
-B64_DIGITS	= "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
-			"ghijklmnopqrstuvwxyz0123456789+/="
+HEX_DIGITS	= b"0123456789ABCDEFabcdef"
+B64_DIGITS	= b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
+			b"ghijklmnopqrstuvwxyz0123456789+/="
 
 ESCAPE_CHARS	= {
-	"\b":	"b",
-	"\t":	"t",
-	"\v":	"v",
-	"\n":	"n",
-	"\f":	"f",
-	"\r":	"r",
-	"\\":	"\\",
+	b"\b":	b"b",
+	b"\t":	b"t",
+	b"\v":	b"v",
+	b"\n":	b"n",
+	b"\f":	b"f",
+	b"\r":	b"r",
+	b"\\":	b"\\",
 }
 
 def load(buf):
@@ -64,39 +67,39 @@ def dump(obj, canonical=False, transport=False):
 
 def dump_string(obj, canonical=False, hex=False, hint=None):
 	if canonical:
-		out = "%d:%s" % (len(obj), obj)
+		out = b"%d:%s" % (len(obj), obj)
 	elif is_token(obj):
 		out = str(obj)
 	elif is_quoteable(obj):
-		out = '"'
+		out = b'"'
 		for char in obj:
 			if char in ESCAPE_CHARS:
-				out += "\\"+ESCAPE_CHARS[char]
-			elif char in "'\"":
-				out += "\\"+char
+				out += b"\\" + ESCAPE_CHARS[char]
+			elif char in b"'\"":
+				out += b"\\" + char
 			else:
 				out += char
 		out += '"'
 	elif hex:
-		out = "#%s#" % obj.encode("hex")
+		out = b"#%s#" % obj.encode("hex")
 	else:
-		out = "|%s|" % base64.b64encode(obj)
+		out = b"|%s|" % base64.b64encode(obj)
 	
 	if hint:
-		return "[%s]%s" % (dump_string(hint, canonical, hex, None), out)
+		return b"[%s]%s" % (dump_string(hint, canonical, hex, None), out)
 	else:
 		return out
 
 def dump_hint(obj, canonical=False):
-	return "[%s]" % dump_string(obj, canonical)
+	return b"[%s]" % dump_string(obj, canonical)
 
 def dump_list(obj, canonical=False):
-	out = "("
+	out = b"("
 	if canonical:
-		out += "".join(dump(x, canonical=True) for x in obj)
+		out += b"".join(dump(x, canonical=True) for x in obj)
 	else:
-		out += " ".join(dump(x) for x in obj)
-	out += ")"
+		out += b" ".join(dump(x) for x in obj)
+	out += b")"
 	return out
 
 def to_int(buf):
@@ -137,6 +140,9 @@ class SexpParser(object):
 
 	def __iter__(self):
 		return self
+	
+	def __next__(self):
+		return self.next()
 
 	def next(self):
 		obj = self.scan_object()
@@ -164,8 +170,8 @@ class SexpParser(object):
 
 			if self.char is None:
 				return self.char
-			elif (self.bytesize == 6 and self.char in "|}") \
-				or (self.bytesize == 4 and self.char == "#"):
+			elif (self.bytesize == 6 and self.char in b"|}") \
+				or (self.bytesize == 4 and self.char == b"#"):
 				if self.nBits and (1 << self.nBits)-1 & self.bits:
 					raise IOError("%d-bit region ended with %d unused bits at %d" %
 						(self.bytesize, self.nBits, self.pos))
@@ -174,7 +180,7 @@ class SexpParser(object):
 			elif self.bytesize != 8 and self.char in WHITESPACE:
 				# ignore whitespace in hex/base64 regions
 				pass
-			elif self.bytesize == 6 and self.char == "=":
+			elif self.bytesize == 6 and self.char == b"=":
 				# Base64 padding
 				self.nBits -= 2
 			elif self.bytesize == 8:
@@ -200,8 +206,8 @@ class SexpParser(object):
 		while self.char:
 			if self.char in WHITESPACE:
 				self.advance()
-			elif self.char == ";" and self.last in "\r\n":
-				while self.char and self.char not in "\r\n":
+			elif self.char == b";" and self.last in b"\r\n":
+				while self.char and self.char not in b"\r\n":
 					self.advance()
 			else:
 				return
@@ -221,7 +227,7 @@ class SexpParser(object):
 
 	def scan_token(self):
 		self.skip_whitespace()
-		out = ""
+		out = b""
 		while self.char and self.char in TOKEN_CHARS:
 			out += self.char
 			self.advance()
@@ -240,10 +246,10 @@ class SexpParser(object):
 	def scan_verbatim_string(self, length=None):
 		"""Return the value of verbatim string with given length."""
 		self.skip_whitespace()
-		self.skip_char(":")
+		self.skip_char(b":")
 		if not length:
 			raise ValueError("verbatim string had no length")
-		out, i = "", 0
+		out, i = b"", 0
 		while i < length:
 			out += self.char
 			self.advance()
@@ -251,36 +257,36 @@ class SexpParser(object):
 		return out
 
 	def scan_quoted_string(self, length=None):
-		self.skip_char("\"")
-		out = ""
+		self.skip_char(b"\"")
+		out = b""
 		while length is None or len(out) <= length:
 			if not self.char:
 				raise ValueError("quoted string is missing closing quote")
-			elif self.char == "\"":
+			elif self.char == b"\"":
 				if length is None or len(out) == length:
-					self.skip_char("\"")
+					self.skip_char(b"\"")
 					break
 				else:
 					raise ValueError("quoted string ended too early (expected %d)" % length)
-			elif self.char == "\\":
+			elif self.char == b"\\":
 				c = self.advance()
-				if c == "b":			out += "\b"
-				elif c == "t":			out += "\t"
-				elif c == "v":			out += "\v"
-				elif c == "n":			out += "\n"
-				elif c == "f":			out += "\f"
-				elif c == "r":			out += "\r"
-				elif c in "0123":
+				if c == b"b":		out += b"\b"
+				elif c == b"t":		out += b"\t"
+				elif c == b"v":		out += b"\v"
+				elif c == b"n":		out += b"\n"
+				elif c == b"f":		out += b"\f"
+				elif c == b"r":		out += b"\r"
+				elif c in b"0123":
 					s = c + self.advance() + self.advance()
 					val = int(s, 8)
 					out += chr(val)
-				elif c == "x":
+				elif c == b"x":
 					s = self.advance() + self.advance()
 					val = int(s, 16)
 					out += chr(val)
-				elif c == "\n":
+				elif c == b"\n":
 					continue
-				elif c == "\r":
+				elif c == b"\r":
 					continue
 				else:
 					raise ValueError("unknown escape character \\%s at %d" % (c, self.pos))
@@ -291,12 +297,12 @@ class SexpParser(object):
 
 	def scan_hex_string(self, length=None):
 		self.bytesize = 4
-		self.skip_char("#")
-		out = ""
-		while self.char and (self.char != "#" or self.bytesize == 4):
+		self.skip_char(b"#")
+		out = b""
+		while self.char and (self.char != b"#" or self.bytesize == 4):
 			out += self.char
 			self.advance()
-		self.skip_char("#")
+		self.skip_char(b"#")
 		if length and length != len(out):
 			raise ValueError("hexstring length %d != declared length %d" %
 				(len(out), length))
@@ -304,12 +310,12 @@ class SexpParser(object):
 
 	def scan_base64_string(self, length=None):
 		self.bytesize = 6
-		self.skip_char("|")
-		out = ""
-		while self.char and (self.char != "|" or self.bytesize == 6):
+		self.skip_char(b"|")
+		out = b""
+		while self.char and (self.char != b"|" or self.bytesize == 6):
 			out += self.char
 			self.advance()
-		self.skip_char("|")
+		self.skip_char(b"|")
 		if length and length != len(out):
 			raise ValueError("base64 length %d != declared length %d" %
 				(len(out), length))
@@ -321,18 +327,18 @@ class SexpParser(object):
 			return None
 		elif self.char in TOKEN_CHARS and self.char not in DIGITS:
 			return self.scan_token()
-		elif self.char in DIGITS or self.char in '"#|:':
+		elif self.char in DIGITS or self.char in b"\"#|:":
 			if self.char in DIGITS:
 				length = self.scan_decimal()
 			else:
 				length = None
-			if self.char == "\"":
+			if self.char == b"\"":
 				return self.scan_quoted_string(length)
-			elif self.char == "#":
+			elif self.char == b"#":
 				return self.scan_hex_string(length)
-			elif self.char == "|":
+			elif self.char == b"|":
 				return self.scan_base64_string(length)
-			elif self.char == ":":
+			elif self.char == b":":
 				return self.scan_verbatim_string(length)
 			else:
 				raise ValueError("illegal char %r at %d" % (self.char, self.pos))
@@ -342,24 +348,24 @@ class SexpParser(object):
 	def scan_string(self):
 		# TODO: How should hints be handled in a Pythonic way?
 		hint = None
-		if self.char == "[":
-			self.skip_char("[")
+		if self.char == b"[":
+			self.skip_char(b"[")
 			hint = self.scan_simple_string()
 			self.skip_whitespace()
-			self.skip_char("]")
+			self.skip_char(b"]")
 			self.skip_whitespace()
 		out = self.scan_simple_string()
 		return (hint, out) if hint else out
 
 	def scan_list(self):
 		out = []
-		self.skip_char("(")
+		self.skip_char(b"(")
 		while True:
 			self.skip_whitespace()
 			if not self.char:
 				raise ValueError("list is missing closing paren")
-			elif self.char == ")":
-				self.skip_char(")")
+			elif self.char == b")":
+				self.skip_char(b")")
 				return out
 			else:
 				out.append(self.scan_object())
@@ -369,12 +375,12 @@ class SexpParser(object):
 		self.skip_whitespace()
 		if not self.char:
 			out = None
-		elif self.char == "{":
+		elif self.char == b"{":
 			self.bytesize = 6
-			self.skip_char("{")
+			self.skip_char(b"{")
 			out = self.scan_object()
-			self.skip_char("}")
-		elif self.char == "(":
+			self.skip_char(b"}")
+		elif self.char == b"(":
 			out = self.scan_list()
 		else:
 			out = self.scan_string()

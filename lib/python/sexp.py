@@ -9,6 +9,7 @@
 # Parser code ripped from http://people.csail.mit.edu/rivest/sexp.html
 #  (c) 1997 Ronald Rivest
 
+from __future__ import print_function
 import base64
 try:
 	from io import StringIO
@@ -25,8 +26,9 @@ VERBATIM	= b"!%^~;',<>?"
 TOKEN_CHARS	= DIGITS + ALPHA + PSEUDO_ALPHA
 
 HEX_DIGITS	= b"0123456789ABCDEFabcdef"
-B64_DIGITS	= b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" \
-			b"ghijklmnopqrstuvwxyz0123456789+/="
+B64_DIGITS	= b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+
+PRINTABLE_CHARS	= bytearray(range(0x20, 0x80))
 
 ESCAPE_CHARS	= {
 	b"\b":	b"b",
@@ -38,99 +40,8 @@ ESCAPE_CHARS	= {
 	b"\\":	b"\\",
 }
 
-def load(buf):
-	out = list(SexpParser(buf))
-	if not out:
-		return None
-	elif len(out) == 1:
-		return out[0]
-	else:
-		return out
-
-def dump(obj, canonical=False, transport=False):
-	if transport:
-		canonical = True
-
-	if isinstance(obj, str):
-		exp = dump_string(obj, canonical)
-	elif isinstance(obj, dict):
-		exp = dump_list(obj.items(), canonical)
-	elif isinstance(obj, (list, tuple)):
-		exp = dump_list(obj, canonical)
-	else:
-		raise TypeError
-
-	if transport:
-		return "{%s}" % base64.b64encode(exp)
-	else:
-		return exp
-
-def dump_string(obj, canonical=False, hex=False, hint=None):
-	if canonical:
-		out = b"%d:%s" % (len(obj), obj)
-	elif is_token(obj):
-		out = str(obj)
-	elif is_quoteable(obj):
-		out = b'"'
-		for char in obj:
-			if char in ESCAPE_CHARS:
-				out += b"\\" + ESCAPE_CHARS[char]
-			elif char in b"'\"":
-				out += b"\\" + char
-			else:
-				out += char
-		out += '"'
-	elif hex:
-		out = b"#%s#" % obj.encode("hex")
-	else:
-		out = b"|%s|" % base64.b64encode(obj)
-	
-	if hint:
-		return b"[%s]%s" % (dump_string(hint, canonical, hex, None), out)
-	else:
-		return out
-
-def dump_hint(obj, canonical=False):
-	return b"[%s]" % dump_string(obj, canonical)
-
-def dump_list(obj, canonical=False):
-	out = b"("
-	if canonical:
-		out += b"".join(dump(x, canonical=True) for x in obj)
-	else:
-		out += b" ".join(dump(x) for x in obj)
-	out += b")"
-	return out
-
-def to_int(buf):
-	num = 0
-	for byte in buf:
-		num <<= 8
-		num |= ord(byte)
-	return num
-
-def is_token(string):
-	if string[0] in DIGITS:
-		return False
-	for char in string:
-		if char not in TOKEN_CHARS:
-			return False
-	return True
-
-def is_quoteable(string):
-	for char in string:
-		if char in VERBATIM:
-			return False
-		elif 0x20 <= ord(char) < 0x7f:
-			pass
-		elif char in ESCAPE_CHARS:
-			pass
-		else:
-			return False
-	return True
-
 class SexpParser(object):
-	def __init__(self, buf, encoding="utf-8"):
+	def __init__(self, buf):
 		self.bytesize = 8
 		self.bits = 0
 		self.nBits = 0
@@ -231,6 +142,7 @@ class SexpParser(object):
 		while self.char and self.char in TOKEN_CHARS:
 			out += self.char
 			self.advance()
+		print("scan_simple_string ->", repr(out))
 		return out
 
 	def scan_decimal(self):
@@ -385,3 +297,101 @@ class SexpParser(object):
 		else:
 			out = self.scan_string()
 		return out
+
+def load(buf):
+	out = list(SexpParser(buf))
+	if not out:
+		return None
+	elif len(out) == 1:
+		return out[0]
+	else:
+		return out
+
+def dump(obj, canonical=False, transport=False):
+	if transport:
+		canonical = True
+
+	if isinstance(obj, (str, bytes)):
+		exp = dump_string(obj, canonical)
+	elif isinstance(obj, dict):
+		exp = dump_list(obj.items(), canonical)
+	elif isinstance(obj, (list, tuple)):
+		exp = dump_list(obj, canonical)
+	else:
+		raise TypeError
+
+	if transport:
+		return b"{" + base64.b64encode(exp) + b"}"
+	else:
+		return exp
+
+def dump_string(obj, canonical=False, hex=False, hint=None):
+	#if hasattr(obj, "encode"):
+	#	obj = obj.encode("utf-8")
+
+	if canonical:
+		out = bytes(len(obj), "ascii") + b":" + obj
+	elif is_token(obj):
+		out = bytes(obj)
+	elif is_quoteable(obj):
+		# MASSIVE UGLIFICATION
+		# PYTHON Y U NO CONCAT BYTES() AND INT()
+		out = bytearray(b'"')
+		for char in obj:
+			if char in ESCAPE_CHARS:
+				out += b"\\" + ESCAPE_CHARS[char]
+			elif char in b"'\"":
+				out += b"\\" + char
+			else:
+				out.append(char)
+		out += b'"'
+		out = bytes(out)
+	elif hex:
+		out = b"#" + obj.encode("hex") + b"#"
+	else:
+		out = b"|" + base64.b64encode(obj) + b"|"
+	
+	# Add [mimetypehint]
+	if hint:
+		return b"[" + dump_string(hint, canonical, hex, None) + b"]" + out
+	else:
+		return out
+
+def dump_hint(obj, canonical=False):
+	return b"[%s]" % dump_string(obj, canonical)
+
+def dump_list(obj, canonical=False):
+	out = b"("
+	if canonical:
+		out += b"".join(dump(x, canonical=True) for x in obj)
+	else:
+		out += b" ".join(dump(x) for x in obj)
+	out += b")"
+	return out
+
+def to_int(buf):
+	num = 0
+	for byte in buf:
+		num <<= 8
+		num |= ord(byte)
+	return num
+
+def is_token(string):
+	if string[0] in DIGITS:
+		return False
+	for char in string:
+		if char not in TOKEN_CHARS:
+			return False
+	return True
+
+def is_quoteable(string):
+	for char in string:
+		if char in VERBATIM:
+			return False
+		elif char in PRINTABLE_CHARS:
+			pass
+		elif char in ESCAPE_CHARS:
+			pass
+		else:
+			return False
+	return True

@@ -116,6 +116,8 @@ void do_realm(char *hostname) {
 		printf("%s\n", *realm);
 		krb5_free_host_realm(ctx, realm);
 	} else {
+		/* TODO: is this correct? */
+		realm = malloc(sizeof(char*));
 		if ((retval = krb5_get_default_realm(ctx, realm))) {
 			com_err(progname, retval, "while obtaining default realm");
 			exit(1);

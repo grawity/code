@@ -8,6 +8,7 @@ BIN = \
 	misc/xor \
 	misc/xors \
 	thirdparty/bgrep \
+	thirdparty/linux26 \
 	thirdparty/logwipe \
 	thirdparty/writevt
 

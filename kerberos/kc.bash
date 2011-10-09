@@ -165,7 +165,7 @@ kc() {
 					local tktexpiry=
 					local tktflags=
 
-					IFS=$'\t' read -r tktclient tktservice _ tktexpiry _ flags _ <<< "$rest"
+					IFS=$'\t' read -r tktclient tktservice _ tktexpiry _ tktflags _ <<< "$rest"
 					if [[ $tktservice == "krbtgt/$ccrealm@$ccrealm" ]]; then
 						tgtexpiry=$tktexpiry
 					fi

@@ -1,98 +1,133 @@
-#!/usr/bin/env bash
-rread() {
-	IFS=$'\t' read -r "$@"
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature qw(say switch);
+use List::MoreUtils qw(uniq);
+
+my @keys;
+
+my $cache;
+my $defprinc;
+my $defrealm;
+my @extrealms;
+my %creds;
+my $init;
+my $tgt;
+
+open(my $proc, "-|", "pklist");
+while (<$proc>) {
+	chomp;
+	my @l = split(/\t/, $_);
+	given (shift @l) {
+		when ("cache") {
+			($cache) = @l;
+		}
+		when ("principal") {
+			($defprinc) = @l;
+			($defrealm) = $defprinc =~ /@(.+?)$/;
+		}
+		when ("CREDS") {
+			@keys = @l;
+		}
+		when ("ticket") {
+			my %tkt = ();
+			@tkt{@keys} = @l;
+			my ($name, $realm) = $tkt{server_name} =~ /^(.+)@(.+)$/;
+			push @extrealms, $realm
+				unless $realm eq $defrealm;
+
+			if ($name =~ m|^krbtgt/(.+)|) {
+				unshift @{$creds{$1}}, \%tkt;
+				push @extrealms, $1
+					unless $1 eq $defrealm;
+				if ($1 eq $realm) {
+					$tgt = \%tkt;
+				}
+				if ($tkt{flags} =~ /I/) {
+					$init = \%tkt;
+				}
+			} else {
+				push @{$creds{$realm}}, \%tkt;
+			}
+		}
+	}
 }
 
-now=$(date +%s)
+my $expirystr;
+my $expiry = $init->{expiry_time} || $tgt->{expiry_time};
+if ($expiry <= time) {
+	$expirystr = "\e[31m" . "expired" . "\e[m";
+} else {
+	$expirystr = "expires in ";
+	my %diff;
+	$diff{_} = int $expiry - time;
+	$diff{_} -= $diff{s} = $diff{_} % 60;
+	$diff{_} /= 60;
+	$diff{_} -= $diff{m} = $diff{_} % 60;
+	$diff{_} /= 60;
+	$diff{_} -= $diff{h} = $diff{_} % 24;
+	$diff{_} /= 24;
+	$diff{d} = $diff{_} + 0;
+	if ($diff{d} > 1) {
+		$expirystr .= "$diff{d} days";
+	} elsif ($diff{h} > 0) {
+		$expirystr .= "$diff{h}h $diff{m}m";
+	} elsif ($diff{m} > 1) {
+		$expirystr .= "$diff{m} minutes";
+	} else {
+		$expirystr .= "a minute";
+	}
+}
 
-# Read ccache contents
+say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
+say "";
 
-tgtickets=()
-svtickets=()
-ccdata=$(pklist) || exit $?
-while rread key rest; do
-	case $key in
-		cache)
-			rread ccname _ <<< "$rest"
-			;;
-		principal)
-			rread defprinc _ <<< "$rest"
-			defrealm=${defprinc##*@}
-			;;
-		ticket)
-			rread _ server _ expiry _ flags _ <<< "$rest"
-			if [[ $server == krbtgt/* ]]; then
-				tgtickets+=("$rest")
-			else
-				svtickets+=("$rest")
-			fi
-			if [[ $server == "krbtgt/$defrealm@$defrealm" ]]; then
-				tgt=$server
-				tgtexpiry=$expiry
-			fi
-			if [[ $flags == *I* ]]; then
-				init=$server
-				initexpiry=$expiry
-				initflags=$flags
-			fi
-			;;
-	esac
-done <<< "$ccdata"
+my @realms = ($defrealm, uniq sort @extrealms);
+for my $realm (@realms) {
+	for my $tkt (@{$creds{$realm}}) {
+		my $color = "0";
+		my $label = "";
+		my $width = 0;
+		my $istgt = 0;
+		my $isinit = 0;
 
-# Determine which ticket's expiry to show
+		my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.+)$/;
+		if ($svname =~ m|^krbtgt/(.+)$|) {
+			$istgt = 1;
 
-if [[ $init ]]; then
-	expiry=$initexpiry
-elif [[ $tgt ]]; then
-	expiry=$tgtexpiry
-fi
+			my $nextrealm = $1;
+			$color = $svrealm eq $nextrealm
+				? "1;32"
+				: $svrealm eq $defrealm
+				? "1;35"
+				: "1;34"
+				;
+			$label .= "\e[${color}m${svname}\e[m";
+			$width += length $svname;
 
-if (( expiry <= now )); then
-	dexpiry=$'\e[31mexpired\e[m'
-else
-	#dexpiry="expires $(date -d "@$expiry" "+%b %d %H:%M")"
-	diff=$(( expiry - now ))
-	diff_s=$(( diff % 60 ))
-	diff=$(( (diff-diff_s) / 60 ))
-	diff_m=$(( diff % 60 ))
-	diff=$(( (diff-diff_m) / 60 ))
-	diff_h=$(( diff % 24 ))
-	diff_d=$(( (diff-diff_h) / 24 ))
-	dexpiry="expires in"
-	if (( diff_d > 1 )); then
-		dexpiry+=" ${diff_d} days"
-	elif (( diff_h > 0 )); then
-		dexpiry+=" ${diff_h}h ${diff_m}m"
-	elif (( diff_m > 1 )); then
-		dexpiry+=" ${diff_m} minutes"
-	else
-		dexpiry+=" a minute"
-	fi
-fi
+			if ($svrealm ne $nextrealm && $svrealm ne $defrealm) {
+				$color = $svrealm eq $defrealm ? "35" : "34";
+				$label .= " \e[${color}m\@ ${svrealm}\e[m";
+				$width += length " \@ $svrealm";
+			}
+		} else {
+			$label .= $svname;
+			$width += length $svname;
+		}
+		
+		my $flags = $tkt->{flags};
+		my @eflags = ();
+		$flags =~ /A/ or push @eflags, "!A";
+		$flags =~ s/[AT]//g;
+		if ($istgt) {
+			$flags =~ s/[P]//g;
+		} else {
+			$flags =~ s/[FR]//g;
+		}
+		$flags = join(" ", $flags, @eflags);
 
-# Pretty-print data
-
-printf 'Credentials for \e[1m%s\e[m (%s):\n\n' "$defprinc" "$dexpiry"
-for rest in "${tgtickets[@]}" "${svtickets[@]}"; do
-	rread client server validity expiry renew flags <<< "$rest"
-
-	if [[ $flags == *I* || $server == $tgt ]]; then
-		if (( expiry <= now )); then
-			color='1;31'
-		elif (( expiry <= now+600 )); then
-			color='1;33'
-		else
-			color='1;32'
-		fi
-	elif [[ $server == krbtgt/* ]]; then
-		color='1;35'
-	else
-		color=''
-	fi
-
-	dserver=${server%"@$defrealm"}
-	
-	dflags=${flags//[T]/}
-
-	printf '    \e[%sm%-50s\e[m %s\n' "$color" "$dserver" "$dflags"
-done
+		say " "x4,
+			$label, " "x(45-$width), " ",
+			$flags; #, " "x(5-length $flags), " ";
+	}
+}

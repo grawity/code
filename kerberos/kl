@@ -89,8 +89,12 @@ sub mangle_name { join ".", reverse split qr|[/.]|, (shift)->{server_name} }
 
 my @realms = ($defrealm, uniq sort @extrealms);
 for my $realm (@realms) {
+	$tgtcreds{$realm} //= [];
+	$creds{$realm} //= [];
+
 	my @creds = (@{$tgtcreds{$realm}},
 			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
+
 	for my $tkt (@creds) {
 		my $color = "0";
 		my $label = "";

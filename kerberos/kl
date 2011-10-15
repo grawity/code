@@ -5,6 +5,23 @@ use feature qw(say switch);
 
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
+sub interval {
+	my $end = shift;
+	my $start = shift // time;
+	my ($dif, $s, $m, $h, $d);
+
+	$dif = $end - $start;
+	$dif -= $s = $dif % 60; $dif /= 60;
+	$dif -= $m = $dif % 60; $dif /= 60;
+	$dif -= $h = $dif % 24; $dif /= 24;
+	$d = $dif + 0;
+
+	if ($d > 1)	{ "${d} days" }
+	elsif ($h > 0)	{ "${h}h ${m}m" }
+	elsif ($m > 1)	{ "${m} mins" }
+	else		{ "a minute" }
+}
+
 my @fields;
 my $cache;
 my $defprinc;
@@ -59,27 +76,11 @@ close($proc);
 my $expirystr;
 my $expiry = $init->{expiry_time} || $tgt->{expiry_time};
 if ($expiry <= time) {
-	$expirystr = "\e[31m" . "expired" . "\e[m";
+	$expirystr = "\e[1;31m" . "expired" . "\e[m";
+} elsif ($expiry <= time+3600) {
+	$expirystr = "\e[1;33m" . "expires in ".interval($expiry) . "\e[m";
 } else {
-	$expirystr = "expires in ";
-	my %diff;
-	$diff{_} = int $expiry - time;
-	$diff{_} -= $diff{s} = $diff{_} % 60;
-	$diff{_} /= 60;
-	$diff{_} -= $diff{m} = $diff{_} % 60;
-	$diff{_} /= 60;
-	$diff{_} -= $diff{h} = $diff{_} % 24;
-	$diff{_} /= 24;
-	$diff{d} = $diff{_} + 0;
-	if ($diff{d} > 1) {
-		$expirystr .= "$diff{d} days";
-	} elsif ($diff{h} > 0) {
-		$expirystr .= "$diff{h}h $diff{m}m";
-	} elsif ($diff{m} > 1) {
-		$expirystr .= "$diff{m} minutes";
-	} else {
-		$expirystr .= "a minute";
-	}
+	$expirystr = "expires in ".interval($expiry);
 }
 
 say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
@@ -138,8 +139,26 @@ for my $realm (@realms) {
 		}
 		$flags = join(" ", $flags, @eflags);
 
+		my $expiry = $tkt->{expiry_time} <= time
+				? "expired"
+				: interval($tkt->{expiry_time});
+
+		my $expiry_c = ($tkt->{expiry_time} <= time
+				? "\e[1;31m"
+				: $tkt->{expiry_time} <= time+300
+				? "\e[1;33m"
+				: "").$expiry."\e[m";
+
 		say " "x4,
-			$label, " "x(45-$width), " ",
-			$flags; #, " "x(5-length $flags), " ";
+			$label,
+			" "x(45-$width),
+			" ",
+			" "x(8-length $expiry),
+			$expiry_c,
+			" "x2,
+			$flags,
+			" "x(5-length $flags),
+			" ",
+			;
 	}
 }

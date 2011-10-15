@@ -10,6 +10,7 @@ my $cache;
 my $defprinc;
 my $defrealm;
 my @extrealms;
+my %tgtcreds;
 my %creds;
 my $init;
 my $tgt;
@@ -38,7 +39,7 @@ while (<$proc>) {
 				unless $realm eq $defrealm;
 
 			if ($name =~ m|^krbtgt/(.+)|) {
-				unshift @{$creds{$1}}, \%tkt;
+				push @{$tgtcreds{$1}}, \%tkt;
 				push @extrealms, $1
 					unless $1 eq $defrealm;
 				if ($1 eq $realm) {
@@ -84,9 +85,13 @@ if ($expiry <= time) {
 say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
 say "";
 
+sub mangle_name { join ".", reverse split qr|[/.]|, (shift)->{server_name} }
+
 my @realms = ($defrealm, uniq sort @extrealms);
 for my $realm (@realms) {
-	for my $tkt (@{$creds{$realm}}) {
+	my @creds = (@{$tgtcreds{$realm}},
+			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
+	for my $tkt (@creds) {
 		my $color = "0";
 		my $label = "";
 		my $width = 0;
@@ -113,8 +118,9 @@ for my $realm (@realms) {
 				$width += length " \@ $svrealm";
 			}
 		} else {
-			$label .= $svname;
 			$width += length $svname;
+			$svname =~ s|/([^.]+)\.|/\e[1m$1\e[m.|;
+			$label .= $svname;
 		}
 		
 		my $flags = $tkt->{flags};

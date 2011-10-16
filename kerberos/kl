@@ -2,6 +2,7 @@
 use warnings;
 use strict;
 use feature qw(say switch);
+use Getopt::Std;
 
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
@@ -22,6 +23,8 @@ sub interval {
 	else		{ "a minute" }
 }
 
+my %opts;
+my @pklist_args;
 my @fields;
 my $cache;
 my $defprinc;
@@ -32,8 +35,13 @@ my %creds;
 my $init;
 my $tgt;
 
-open(my $proc, "-|", "pklist")
+getopts('c:', \%opts) or exit 2;
+if (exists $opts{c}) {
+	push @pklist_args, "-c", $opts{c};
+}
+open(my $proc, "-|", "pklist", @pklist_args)
 	or die "Please install 'pklist' to use this tool.\n";
+
 while (<$proc>) {
 	chomp;
 	my @l = split(/\t/, $_);

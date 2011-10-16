@@ -433,6 +433,8 @@ class Clipboard():
 			data = Clip.GetClipboardData()
 			Clip.CloseClipboard()
 			return data
+		else:
+			raise BaseException("Unsupported platform")
 
 	@classmethod
 	def set(self, data):
@@ -443,6 +445,13 @@ class Clipboard():
 			Clip.SetClipboardText(data.encode("utf-8"), Clip.CF_TEXT)
 			Clip.SetClipboardText(unicode(data), Clip.CF_UNICODETEXT)
 			Clip.CloseClipboard()
+		elif sys.platform.startswith("linux"):
+			from subprocess import Popen, PIPE
+			proc = Popen(("xsel", "-i", "-b", "-l", "/dev/null"), stdin=PIPE)
+			proc.stdin.write(data)
+			proc.stdin.close()
+		else:
+			raise BaseException("Unsupported platform")
 
 def run_editor(file):
 	from subprocess import Popen

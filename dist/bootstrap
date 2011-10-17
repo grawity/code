@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -e
-pullkey_host=equal.cluenet.org
-forward_mail=grawity@gmail.com
+mail=grawity@gmail.com
 
 have() { command -v "$1" >/dev/null; }
 
-log() { printf "\e[1;32m=\e[;1m %s\e[m\n" "$*"; }
+log() { printf "\e[1;32m=\e[m %s\e[m\n" "$*"; }
 
 log_ok() { printf "\e[1;34m=\e[m %s\e[m\n" "$*"; }
 
@@ -32,8 +31,9 @@ PATH=~/code/bin:$PATH
 
 have git	|| die "git not installed"
 have curl	|| die "curl not installed"
+have perl	|| warn "perl not installed"
 
-if have fqdn; then
+if have perl; then
 	FQDN=$(fqdn)
 elif have getent && f=$(getent hosts "$HOSTNAME" 2>/dev/null); then
 	read _ FQDN _ <<< "$f"
@@ -44,19 +44,19 @@ else
 fi
 
 if ! make -q; then
-	log "Building tools"
+	log "building tools"
 	make
 fi
 
 if [[ ! -d ~/lib/dotfiles/.git ]]; then
-	log "Cloning dotfiles.git"
+	log "cloning dotfiles.git"
 	mkdir -p ~/lib
 	git clone "https://github.com/grawity/dotfiles.git" \
 		~/lib/dotfiles
 fi
 
 if [[ -z $LOCAL ]]; then
-	log "Symlinking dotfiles"
+	log "symlinking dotfiles"
 	~/lib/dotfiles/install
 	. ~/.profile
 fi
@@ -69,14 +69,14 @@ fi
 if [[ -L $LOCAL/share/man ]]; then
 	true
 elif [[ -d $LOCAL/share/man ]]; then
-	log "Moving manual pages"
+	log "moving manual pages"
 	cp -alf "$LOCAL/share/man" "$LOCAL/"
 	rm -rf "$LOCAL/share/man" "$LOCAL/man/index.db"
 	ln -s "../man" "$LOCAL/share/man"
 fi
 
 if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
-	log "Installing Nullroute CA certificate"
+	log "installing Nullroute CA certificate"
 	mkdir -p -m 0700 ~/.pki/ca
 	cp dist/nullroute.pem ~/.pki/ca/
 	c_rehash ~/.pki/ca/ >/dev/null &
@@ -84,58 +84,44 @@ fi
 
 if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if have gpg && check-gpg-version; then
-		log "Setting up sshupdate-gpg"
-		ssh/sshupdate-gpg -r
-	elif have ssh-keygen && [[ ! -f ~/.ssh/id_sshupdate ]] &&
-	confirm "GPG not found; configure sshupdate-ssh?"; then
-		log "Generating a key for sshupdate-ssh"
-		opts=(-q -f ~/.ssh/id_sshupdate -N ""
-			-C "$USER/sshupdate@$FQDN")
-		ssh-keygen "${opts[@]}" -t ecdsa ||
-		ssh-keygen "${opts[@]}" -t rsa -b 768
-		log "Uploading key to $pullkey_host"
-		cat ~/.ssh/id_sshupdate.pub |
-			ssh $pullkey_host "~/bin/pullkey --install"
-		log "Updating SSH keys"
-		ssh/sshupdate-ssh
+		log "setting up SSH key updater"
+		ssh/ssh-authz-update -r
 	else
-		warn "Unable to auto-update authorized_keys"
+		warn "unable to auto-update authorized_keys; gpg missing or too old"
 	fi
 fi
 
 if [[ ! -s ~/.k5login ]] && [[ -f /etc/krb5.keytab ]]; then
-	log "Creating ~/.k5login"
+	log "creating ~/.k5login"
 	dist/update-k5login &
 fi
 
-set +e
-if ! { crontab -l 2>/dev/null |
+if crontab -l >/dev/null && ! { crontab -l 2>/dev/null |
 		grep -Eqs "[[:space:]]ID=pull[[:space:]]|code/dist/pull"; }; then
-	log "Adding dist/pull to crontab"
+	log "adding dist/pull to crontab"
 	(crontab -l 2>/dev/null || true;
 		echo -e '@daily\tID=pull\t~/code/dist/pull') | crontab -
 fi
-set -e
 
 if ! { have mailx && grep -Fqs NAILRC "$(which mailx)"; }; then
-	log "Installing heirloom-mailx"
+	log "installing heirloom-mailx"
 	dist/install-mailx.sh
 fi
 
 if [[ $FQDN == "equal.cluenet.org" ]]; then
-	log_ok "Skipping ~/.forward on the mail server"
+	log_ok "skipping ~/.forward on mail server"
 elif [[ -s ~/.forward ]]; then
-	log_ok "Mail is being forwarded to $(sed 1q ~/.forward)"
+	log_ok "mail forwarded to $(sed 1q ~/.forward)"
 else
-	log "Forwarding mail to $forward_mail"
-	echo "$forward_mail" > ~/.forward
+	log "forwarding mail to $mail"
+	echo "$mail" > ~/.forward
 
-	log "Sending a test email"
+	log "sending a test email"
 	echo "Test email from $USER($UID) at $FQDN" \
-		| mailx -s "Test from $HOSTNAME" "$forward_mail"
+		| mailx -s "Test from $HOSTNAME" "$mail"
 fi
 
-if ! have cpanm; then
+if have perl && ! have cpanm; then
 	log "Installing cpanminus"
 	curl -L http://cpanmin.us | perl - --self-upgrade
 fi

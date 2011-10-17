@@ -1,78 +1,65 @@
 #!/usr/bin/env bash
+(( DEBUG )) && set -x
 set -e
-if [[ $DEBUG == 1 ]]; then
-	set -x
-fi
 
 if [[ -t 0 ]]; then
-	log() { printf "\e[1;32m=\e[;1m %s\e[m\n" "$*"; }
+	log() { printf "\e[1;32m=\e[m %s\e[m\n" "$*"; }
 else
 	log() { true; }
 fi
 
 if [[ -z $xyzzy ]]; then
 	# Update ~/code and run the new script
-	export PATH="$HOME/bin:$HOME/usr/bin:$HOME/code/bin:$PATH"
+	export PATH="$HOME/code/bin:$PATH"
 	export xyzzy=42
 
 	log "fetching code.git"
 	cd ~/code
-	git pull >& /dev/null
+	git pull --quiet
 	exec dist/pull
 else
 	if ! make -q; then
-		log "running Makefile"
+		log "updating tools"
 		make -s
 	fi
 
-	# Do stuff on some servers
-	FQDN=$(~/code/bin/fqdn)
-	case $FQDN in
-		*.cluenet.org|*.nullroute.eu.org)
-			if [[ ! -f ~/.k5login ]]; then
-				log "creating .k5login"
+	case `fqdn` in
+		*.cluenet.org|*.nathan7.eu|*.nullroute.eu.org)
+			if ! [[ -f ~/.k5login ]]; then
 				touch ~/.k5login
 			fi
 			;;
 	esac
 
-	{
-	# Update dotfiles
-	if [[ -d ~/lib/dotfiles ]]; then
-		log "fetching dotfiles.git"
-		cd ~/lib/dotfiles
-		git pull --rebase >& /dev/null
-	else
-		echo "Migrating to dotfiles.git"
-		log "cloning dotfiles"
-		mkdir -p ~/lib
-		git clone "https://github.com/grawity/dotfiles.git" \
-			~/lib/dotfiles
-	fi
-	log "running dotfiles/install"
-	~/lib/dotfiles/install
+	if [[ -d ~/.gnupg ]]; then
+		log "updating authorized_keys"
+		~/code/ssh/ssh-authz-update
+	fi &
 
-	# Update ~/.k5login
-	if [[ -f ~/.k5login ]]; then
-		log "updating .k5login"
-		~/code/dist/update-k5login
-	fi
+	{
+		if [[ -d ~/lib/dotfiles ]]; then
+			log "fetching dotfiles.git"
+			cd ~/lib/dotfiles
+			git pull --quiet --ff-only
+		else
+			log "cloning dotfiles"
+			mkdir -p ~/lib
+			git clone "https://github.com/grawity/dotfiles.git" \
+				~/lib/dotfiles
+		fi
+		{
+			log "running dotfiles/install"
+			~/lib/dotfiles/install
+		} &
+		if [[ -f ~/.k5login ]]; then
+			log "updating .k5login"
+			~/code/dist/update-k5login
+		fi &
 	} &
 
-	# Update authorized SSH keys
-	if [[ -f ~/.ssh/id_sshupdate ]]; then
-		log "updating authorized_keys over SSH"
-		~/code/ssh/sshupdate-ssh
-	elif [[ -d ~/.gnupg ]]; then
-		log "updating authorized_keys over HTTP"
-		~/code/ssh/sshupdate-gpg
-	fi
-
-	# Restart rwhod if necessary
 	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
 		log "poking rwhod"
-		~/code/useless/rwho/rwhod.sh update
-	fi
+		~/code/net/rwho/rwhod.sh update
+	fi &
 fi
 wait
-true

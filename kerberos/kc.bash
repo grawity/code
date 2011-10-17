@@ -28,7 +28,7 @@ _kc_expand_ccname() {
 	case $1 in
 	"new")
 		printf 'FILE:%s\n' "$(mktemp "${ccprefix}XXXXXX")";;
-	"@")
+	""|"@")
 		printf '%s\n' "$ccdefault";;
 	[Kk][Cc][Mm])
 		printf 'KCM:%d\n' "$UID";;
@@ -41,6 +41,10 @@ _kc_expand_ccname() {
 			echo >&2 "kc: cache #$i not in list"
 			return 1
 		fi;;
+	:)
+		printf 'DIR:%s\n' "$cccdir";;
+	:*)
+		printf 'DIR::%s/tkt%s\n' "$cccdir" "${1#:}";;
 	*:*)
 		printf '%s\n' "$1";;
 	*/*)
@@ -56,6 +60,8 @@ _kc_collapse_ccname() {
 	case $ccname in
 	"$ccdefault")
 		ccname="@";;
+	"DIR::$cccdir/"*)
+		ccname=":${ccname##DIR::$cccdir/tkt}";;
 	"FILE:$ccprefix"*)
 		ccname="${ccname#FILE:$ccprefix}";;
 	"FILE:/"*)
@@ -82,7 +88,11 @@ kc_list_caches() {
 
 	{
 		find "/tmp" -maxdepth 1 -name "krb5cc_*" \( -user "$UID" \
-		-o -user "$LOGNAME" \) -printf "FILE:%p\0"
+			-o -user "$LOGNAME" \) -printf "FILE:%p\0"
+		if [[ "$KRB5CCNAME" == DIR:* ]]; then
+			find "${KRB5CCNAME#DIR:}" -maxdepth 1 -type f -name "tkt*" \
+			\( -user "$UID" -o -user "$LOGNAME" \) -printf "DIR::%p\0"
+		fi
 		if [[ -S /var/run/.kcm_socket ]]; then
 			printf "%s\0" "KCM:$(id -u)"
 		fi
@@ -109,6 +119,20 @@ kc() {
 	local cccurrent=$(pklist -N)
 	local ccdefault=$(unset KRB5CCNAME; pklist -N)
 	local ccprefix="/tmp/krb5cc_${UID}_"
+	local cccdir=""
+	local cccprimary=""
+	if [[ -d "$XDG_RUNTIME_DIR/krb5cc" ]]; then
+		cccdir="$XDG_RUNTIME_DIR/krb5cc"
+	fi
+	if [[ "$cccurrent" == DIR::* ]]; then
+		cccdir=${cccurrent#DIR::}
+		cccdir=${cccdir%/*}
+		if [[ -f "$cccdir/primary" ]]; then
+			cccprimary=$(<"$cccdir/primary")
+		else
+			cccprimary="tkt"
+		fi
+	fi
 	local now=$(date +%s)
 	local use_color=false
 
@@ -266,6 +290,9 @@ kc() {
 		# list all found ccaches
 		printf '%s\n' "${caches[@]}"
 		;;
+	expand)
+		_kc_expand_ccname "$1"
+		;;
 	=*)
 		local line=
 
@@ -339,8 +366,12 @@ kc() {
 		local ccname=
 
 		if ccname=$(_kc_expand_ccname "$cmd"); then
-			export KRB5CCNAME=$ccname
-			printf "Switched to %s\n" "$KRB5CCNAME"
+			if [[ $ccname == DIR::* ]]; then
+				kswitch -c "$ccname"
+			else
+				export KRB5CCNAME=$ccname
+			fi
+			printf "Switched to %s\n" "$ccname"
 			[[ $1 ]] && kinit "$@"
 		else
 			return 1

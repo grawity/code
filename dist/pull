@@ -8,6 +8,8 @@ else
 	log() { true; }
 fi
 
+silent() { local t=`mktemp /tmp/log.XXXXXX`; "$@" >& "$t" || cat "$t"; rm -f "$t"; }
+
 if [[ -z $xyzzy ]]; then
 	# Update ~/code and run the new script
 	export PATH="$HOME/code/bin:$PATH"
@@ -15,7 +17,7 @@ if [[ -z $xyzzy ]]; then
 
 	log "fetching code.git"
 	cd ~/code
-	git pull --quiet
+	silent git pull
 	exec dist/pull
 else
 	if ! make -q; then
@@ -40,7 +42,7 @@ else
 		if [[ -d ~/lib/dotfiles ]]; then
 			log "fetching dotfiles.git"
 			cd ~/lib/dotfiles
-			git pull --quiet --ff-only
+			silent git pull --ff-only
 		else
 			log "cloning dotfiles"
 			mkdir -p ~/lib

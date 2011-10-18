@@ -1,0 +1,27 @@
+#!/bin/bash
+if [[ $1 == -f ]]; then
+	# Running from PAM
+	(su -l -c "'$0'" "$PAM_USER" |& logger -p user.debug -t pkinit) &
+	exit
+fi
+
+realm="$(pklist -R)"
+princ="$(whoami)@$realm"
+
+X509_IDENTITY="FILE:$HOME/.pki/private/pkinit#$princ.pem"
+
+err="Internal error"
+{
+	nm-online -xqt 60 &&
+	ecryptfs-mount-x11 && {
+		kinit -R ||
+		err=$(kinit -X X509_user_identity="$X509_IDENTITY" "$princ" 2>&1)
+	} <<< "bogus"
+} || exec notify-send -i error \
+	"Kerberos login failed" \
+	"Failed to obtain a Kerberos ticket for $princ.\n$err"
+
+princ=$(pklist -P)
+exec notify-send \
+	"Logged in to Kerberos" \
+	"Successfully acquired a Kerberos ticket for $princ."

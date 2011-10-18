@@ -4,15 +4,23 @@
 usage() {
 	echo "Usage: ${0##*/} [OPTION]... [description]"
 	echo ""
-	echo "    -C canceltext  set Cancel button label"
-	echo "    -g             (pinentry) append --no-global-grab"
+	echo "    -d description set description"
+	echo "    -t title       set entry window title"
+	echo "    -p text        set entry prompt (default is 'PIN:')"
+	echo ""
 	echo "    -O oktext      set OK button label"
+	echo "    -C canceltext  set Cancel button label"
+	echo ""
+	echo "    -g             (pinentry) append --no-global-grab"
+	echo "    -W windowid    (pinentry) append --parent-wid \$windowid"
 	echo "    -o option      (pinentry) append given option"
 	echo "    -P path        use a different pinentry executable"
-	echo "    -p text        set entry prompt (default is 'PIN:')"
-	echo "    -t title       set entry window title"
-	echo "    -W windowid    (pinentry) append --parent-wid \$windowid"
 	exit 2
+}
+
+encode() {
+	printf '%s' "$*" |
+	perl -pe "s/([^A-Za-z0-9_.!~*'()-])/sprintf(\"%%%02X\", ord(\$1))/seg"
 }
 
 # You can set a default pinentry program and its options here.
@@ -32,17 +40,17 @@ config=("SETPROMPT")
 while getopts ':C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	$debug && echo "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
 	case "$OPT" in
-	C)	config+=("SETCANCEL $OPTARG") ;;
+	C)	config+=("SETCANCEL $(encode "$OPTARG")") ;;
 	D)	debug=true ;;
-	d)	config+=("SETDESC $OPTARG") ;;
+	d)	config+=("SETDESC $(encode "$OPTARG")") ;;
 	g)	pinentry+=(--no-global-grab) ;;
 	h)	usage ;;
-	O)	config+=("SETOK $OPTARG") ;;
+	O)	config+=("SETOK $(encode "$OPTARG")") ;;
 	o)	pinentry+=("$OPTARG") ;;
 	P)	pinentry[0]="$OPTARG" ;;
-	p)	config+=("SETPROMPT $OPTARG") ;;
-	t)	config+=("SETTITLE $OPTARG") ;;
-	W)	pinentry+=(--parent-wid "$OPTARG") ;;
+	p)	config+=("SETPROMPT $(encode "$OPTARG")") ;;
+	t)	config+=("SETTITLE $(encode "$OPTARG")") ;;
+	W)	pinentry+=(--parent-wid "$(encode "$OPTARG")") ;;
 	\?)	echo "${0##*/}: unknown option '$OPTARG'" >&2; usage >&2 ;;
 	*)	echo "${0##*/}: option -$OPT not implemented" >&2; exit 2 ;;
 	esac
@@ -55,7 +63,7 @@ elif [[ -t 0 ]]; then
 fi
 
 if [[ "${!OPTIND}" ]]; then
-	config+=("SETDESC ${!OPTIND}")
+	config+=("SETDESC $(encode "${!OPTIND}")")
 fi
 
 configure() {

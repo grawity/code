@@ -1,0 +1,45 @@
+#!/bin/bash
+path="$HOME/Private"
+dpath="${path/#${HOME%/}/~}"
+lock="$HOME/.ecryptfs/Private.mnt"
+
+if [[ $1 == "--nowait" ]]; then
+	exec {fd}<"$lock" && flock -x -n $fd || {
+		echo "Another unlock prompt already running"
+		exit 1
+	}
+else
+	if mountpoint -q "$path"; then
+		exit 0
+	else
+		exec {fd}<"$lock" || exit 1
+		# display unlock prompt if none running
+		flock -x -n $fd && {
+			flock -u $fd
+			ecryptfs-mount-x11 --nowait
+		}
+		# wait for unlock
+		exec flock -x $fd || exit 1
+	fi
+fi
+
+err() {
+	echo "${0##*/}: $*" >&2
+	zenity --error --title "" --text "$*"
+	exit 1
+}
+
+pw=$(zenity --entry \
+	--title "Unlock private files" \
+	--text "Your private directory is locked.\n\nEnter password for ~/Private/" \
+	--hide-text \
+	--ok-label "Unlock" \
+) || exit 1
+
+# Twice. Sometimes it "forgets" to insert the FNEK. Fucker.
+printf '%s\n' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring ||
+	err "Failed to unlock your private files."
+printf '%s\n' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring ||
+	err "Failed to unlock your private files."
+ecryptfs-mount-private </dev/null ||
+	err "Failed to mount ~/Private/."

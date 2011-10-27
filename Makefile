@@ -28,6 +28,6 @@ clean:
 	git clean -dfX
 
 kerberos/pklist: kerberos/pklist.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -lkrb5 -lcom_err $< -o $@
+	$(CC) $(CFLAGS) $< $(LDFLAGS)-lkrb5 -lcom_err -o $@ || true
 
 .PHONY: all bootstrap install pull clean

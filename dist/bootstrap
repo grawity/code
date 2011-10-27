@@ -106,7 +106,8 @@ if crontab -l >/dev/null && ! { crontab -l 2>/dev/null |
 		echo -e '@daily\tID=pull\t~/code/dist/pull') | crontab -
 fi
 
-if ! { have mailx && grep -Fqs NAILRC "$(which mailx)"; }; then
+if ! { have mailx && grep -Fqs NAILRC "$(which mailx)"; } &&
+confirm "heirloom-mailx missing, install?"; then
 	log "installing heirloom-mailx"
 	dist/install-mailx.sh
 fi
@@ -124,7 +125,8 @@ else
 		| mailx -s "Test from $HOSTNAME" "$mail"
 fi
 
-if have perl && ! have cpanm; then
+if have perl && ! have cpanm &&
+confirm "cpanminus missing, install?"; then
 	log "Installing cpanminus"
 	curl -L http://cpanmin.us | perl - --self-upgrade
 fi

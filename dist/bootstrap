@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 mail=grawity@gmail.com
 
 have() { command -v "$1" >/dev/null; }
@@ -10,7 +9,9 @@ log_ok() { printf "\e[1;34m=\e[m %s\e[m\n" "$*"; }
 
 warn() { printf "\e[1;33mwarning:\e[m %s\e[m\n" "$*"; }
 
-die() { printf "\e[1;31merror:\e[m %s\e[m\n" "$*"; exit 1; }
+err() { printf "\e[1;31merror:\e[m %s\e[m\n" "$*"; ((++errors)); false; }
+
+die() { err "$@"; exit 1; }
 
 confirm() {
 	local msg=$1 ans=
@@ -25,13 +26,15 @@ check-gpg-version() {
 }
 
 export -f have
+errors=0
 
-cd ~/code
 PATH=~/code/bin:$PATH
+cd ~/code
 
-have git	|| die "git not installed"
-have curl	|| die "curl not installed"
+have git	|| err "git not installed"
+have curl	|| err "curl not installed"
 have perl	|| warn "perl not installed"
+((errors))	|| exit
 
 if have perl; then
 	FQDN=$(fqdn)
@@ -84,7 +87,7 @@ fi
 
 if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if have gpg && check-gpg-version; then
-		log "setting up SSH key updater"
+		log "enabling SSH key updates"
 		ssh/ssh-authz-update -r
 	else
 		warn "unable to auto-update authorized_keys; gpg missing or too old"

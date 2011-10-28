@@ -88,10 +88,10 @@ kc_list_caches() {
 
 	{
 		find "/tmp" -maxdepth 1 -name "krb5cc_*" \( -user "$UID" \
-			-o -user "$LOGNAME" \) -printf "FILE:%p\0"
+			-o -user "$USER" \) -printf "FILE:%p\0"
 		if [[ "$KRB5CCNAME" == DIR:* ]]; then
 			find "${KRB5CCNAME#DIR:}" -maxdepth 1 -type f -name "tkt*" \
-			\( -user "$UID" -o -user "$LOGNAME" \) -printf "DIR::%p\0"
+			\( -user "$UID" -o -user "$USER" \) -printf "DIR::%p\0"
 		fi
 		if [[ -S /var/run/.kcm_socket ]]; then
 			printf "%s\0" "KCM:$(id -u)"

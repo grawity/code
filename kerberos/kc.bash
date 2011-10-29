@@ -87,16 +87,25 @@ kc_list_caches() {
 	local ccdefault="$(unset KRB5CCNAME; pklist -N)" have_default=
 
 	{
+		# traditional
 		find "/tmp" -maxdepth 1 -name "krb5cc_*" \( -user "$UID" \
 			-o -user "$USER" \) -printf "FILE:%p\0"
+		# MIT Krb5 v1.10
 		if [[ "$KRB5CCNAME" == DIR:* ]]; then
 			find "${KRB5CCNAME#DIR:}" -maxdepth 1 -type f -name "tkt*" \
 			\( -user "$UID" -o -user "$USER" \) -printf "DIR::%p\0"
 		fi
+		# grawity's own convention for the above
+		# TODO: only check if different from above path
+		if [[ "$XDG_RUNTIME_DIR" ]] && [[ -d "$XDG_RUNTIME_DIR/krb5cc" ]]; then
+			find "$XDG_RUNTIME_DIR/krb5cc" -maxdepth 1 -type f -name "tkt*" \
+			\( -user "$UID" -o -user "$USER" \) -printf "DIR::%p\0"
+		fi
+		# Heimdal kcmd
 		if [[ -S /var/run/.kcm_socket ]]; then
 			printf "%s\0" "KCM:$(id -u)"
 		fi
-	} | sort -z | {
+	} | sort -z -u | {
 		while read -rd '' c; do
 			if pklist -c "$c" >& /dev/null; then
 				printf "%s\n" "$c"

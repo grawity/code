@@ -79,7 +79,7 @@ _kc_eq_ccname() {
 	local a=$1 b=$2
 	[[ $a == *:* ]] || a=FILE:$a
 	[[ $b == *:* ]] || b=FILE:$b
-	[[ $a == $b ]]
+	[[ $a == "$b" ]]
 }
 
 kc_list_caches() {
@@ -109,8 +109,8 @@ kc_list_caches() {
 		while read -rd '' c; do
 			if pklist -c "$c" >& /dev/null; then
 				printf "%s\n" "$c"
-				[[ $c == $current ]] && have_current=$c
-				[[ $c == $ccdefault ]] && have_default=$c
+				[[ $c == "$current" ]] && have_current=$c
+				[[ $c == "$ccdefault" ]] && have_default=$c
 			fi
 		done
 		if [[ ! $have_current ]]; then
@@ -234,8 +234,8 @@ kc() {
 				fi
 			fi
 
-			if [[ $ccname == $cccurrent ]]; then
-				if [[ $ccname == $KRB5CCNAME ]]; then
+			if [[ $ccname == "$cccurrent" ]]; then
+				if [[ $ccname == "$KRB5CCNAME" ]]; then
 					itemflag="»"
 				else
 					itemflag="*"

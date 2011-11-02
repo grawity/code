@@ -362,7 +362,15 @@ kc() {
 		done
 
 		if [[ $maxccname ]]; then
-			export KRB5CCNAME=$maxccname
+			ccname=$maxccname
+			if [[ $ccname == DIR::* ]]; then
+				ccname=${ccname/#DIR::/DIR:}
+				ccname=${ccname%/*}
+				export KRB5CCNAME=$ccname
+				kswitch -c "$ccname"
+			else
+				export KRB5CCNAME=$ccname
+			fi
 			printf "Switched to %s\n" "$KRB5CCNAME"
 		else
 			export KRB5CCNAME=$(_kc_expand_ccname 'new')
@@ -376,6 +384,9 @@ kc() {
 
 		if ccname=$(_kc_expand_ccname "$cmd"); then
 			if [[ $ccname == DIR::* ]]; then
+				ccname=${ccname%/*}
+				ccname=${ccname/#DIR::/DIR:}
+				export KRB5CCNAME=$ccname
 				kswitch -c "$ccname"
 			else
 				export KRB5CCNAME=$ccname

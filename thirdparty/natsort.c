@@ -1,4 +1,6 @@
-/* Origin: http://sourcefrog.net/projects/natsort/ */
+/* Origin: http://sourcefrog.net/projects/natsort/
+ * Minor changes by grawity. See Git history.
+ */
 /* -*- mode: c; c-file-style: "k&r" -*-
 
    natsort.c -- Example strnatcmp application.
@@ -99,7 +101,7 @@ int main(int argc, char **argv)
      char **list = 0;
      int linelen = 0, i;
      int c, opt_ind;
-     int bufsize;
+     size_t bufsize;
 
      static struct option long_options[] = {
 	  { "verbose", 0, NULL, 'v'},

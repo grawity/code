@@ -1,0 +1,35 @@
+#!/usr/bin/env perl
+use common::sense;
+use Net::DBus;
+use Net::DBus::Reactor;
+
+use constant APPNAME => "keybind";
+
+my $player = shift(@ARGV) // "mpd";
+
+my $bus = Net::DBus->session;
+my $mp = $bus->get_service("org.mpris.MediaPlayer2.$player");
+my $mp_player = $mp->get_object("/org/mpris/MediaPlayer2");
+my $gsd = $bus->get_service("org.gnome.SettingsDaemon");
+my $gsd_mmkeys = $gsd->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+$gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
+	my ($app, $key) = @_;
+	given ($key) {
+		when ("Play") {
+			$mp_player->PlayPause();
+		}
+		when ("Stop") {
+			$mp_player->Stop();
+		}
+		when ("Next") {
+			$mp_player->Next();
+		}
+		when ("Previous") {
+			$mp_player->Previous();
+		}
+	}
+});
+$gsd_mmkeys->GrabMediaPlayerKeys(APPNAME, 0);
+my $reactor = Net::DBus::Reactor->main;
+$reactor->run;
+exit(0);

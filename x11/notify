@@ -46,11 +46,16 @@ if ($appendbody) {
 }
 
 if (defined $urgency) {
-	if ($urgency ~~ ['low', 'normal', 'critical']) {
-		$hints{urgency} = $urgency;
-	} else {
-		die "notify: invalid urgency level given (can be low, normal, critical)\n";
+	my $val;
+	given ($urgency) {
+		when ('low') { $val = 0; }
+		when ('normal') { $val = 1; }
+		when ('critical') { $val = 2; }
+		default {
+			die "notify: invalid urgency level (can be low, normal, critical)\n";
+		}
 	}
+	$hints{urgency} = Net::DBus::dbus_byte($val);
 }
 
 my $bus = Net::DBus->session;

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use common::sense;
 use Net::DBus;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case bundling);
 
 my $urgency	= 1;
 my $icon	= "";
@@ -10,21 +10,31 @@ my $summary	= "";
 my $body	= "";
 my $application	= "notify";
 my $timeout	= 3;
+my $statefile	= undef;
 
 GetOptions(
 	'a|appname=s'	=> \$application,
 	'i|icon=s'	=> \$icon,
 	'r|replace=i'	=> \$id,
 	't|timeout=i'	=> \$timeout,
+	's|state=s'	=> \$statefile,
 ) or die "$@";
 
 $summary = shift(@ARGV) or die "notify: summary not given\n";
 $body = join(" ", @ARGV);
 
+if (defined $statefile) {
+	if (open(my $fh, "<", $statefile)) {
+		$id = int <$fh>;
+		close($fh);
+	}
+}
+
 my $bus = Net::DBus->session;
 my $svc = $bus->get_service("org.freedesktop.Notifications");
 my $obj = $svc->get_object("/org/freedesktop/Notifications");
-say $obj->Notify($application,
+
+$id = $obj->Notify($application,
 		$id,
 		$icon,
 		$summary,
@@ -32,3 +42,11 @@ say $obj->Notify($application,
 		[],
 		{},
 		$timeout);
+
+if (defined $statefile) {
+	open(my $fh, ">", $statefile) or die "notify: cannot update state: $@\n";
+	say $fh $id;
+	close($fh);
+} else {
+	say $id;
+}

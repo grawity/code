@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -42,8 +43,8 @@ char * get_lockfile(char *name, int shared) {
 	else
 		disp = get_ttyname();
 	char *path;
-	if (asprintf(&path, "%s/%s.%s.lock", dir, name, disp))
-		return path;
+	asprintf(&path, "%s/%s.%s.lock", dir, name, disp);
+	return path;
 }
 
 int main(int argc, char *argv[]) {

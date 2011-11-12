@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
 		}
 		if (flock(lockfd, LOCK_EX|LOCK_NB) < 0) {
 			if (errno == EWOULDBLOCK)
-				fprintf(stderr, "%s: already running", cmd[0]);
+				fprintf(stderr, "%s: already running\n", cmd[0]);
 			else
 				perror("flock");
 			return 1;

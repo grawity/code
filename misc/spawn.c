@@ -101,6 +101,9 @@ int main(int argc, char *argv[]) {
 				perror("flock");
 			return 1;
 		}
+		char *env;
+		asprintf(&env, "SPAWN_LOCKFD=%d", lockfd);
+		putenv(env);
 	}
 
 	switch (fork()) {

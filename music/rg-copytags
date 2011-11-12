@@ -5,6 +5,11 @@
 import sys
 import mutagen
 
+def rva_from_string(gain, peak):
+	rg_gain = float(gain[0].split(' ')[0])
+	rg_peak = float(peak[0])
+	return mutagen.id3.RVA2(desc=u'track', channel=1, gain=rg_gain, peak=rg_peak)
+
 srcfile = sys.argv[1]
 dstfile = sys.argv[2]
 
@@ -12,27 +17,26 @@ srctag = mutagen.File(srcfile)
 dsttag = mutagen.mp3.MP3(dstfile)
 
 if u'RVA2:track' in srctag:
-# ID3v2.4 RVA2
-	dsttag[u'RVA2:track'] = srctag[u'RVA2:track']
+	# ID3v2.4 RVA2
+	rva = srctag[u'RVA2:track']
 elif u'TXXX:replaygain_track_gain' in srctag:
-# ID3v2 foobar2000
-	rg_gain = float(srctag[u'TXXX:replaygain_track_gain'][0].split(' ')[0])
-	rg_peak = float(srctag[u'TXXX:replaygain_track_peak'][0])
-	dsttag[u'RVA2:track'] = mutagen.id3.RVA2(desc=u'track',
-					channel=1,
-					gain=rg_gain,
-					peak=rg_peak)
+	# ID3v2 foobar2000
+	rva = rva_from_string(	srctag[u'TXXX:replaygain_track_gain'],
+				srctag[u'TXXX:replaygain_track_peak'])
+elif '----:com.apple.iTunes:replaygain_track_gain' in srctag:
+	# MP4 foobar2000
+	rva = rva_from_string(	srctag['----:com.apple.iTunes:replaygain_track_gain'],
+				srctag['----:com.apple.iTunes:replaygain_track_peak'])
 elif 'replaygain_track_gain' in srctag:
-# FLAC
-	rg_gain = float(srctag['replaygain_track_gain'][0].split(' ')[0])
-	rg_peak = float(srctag['replaygain_track_peak'][0])
-	dsttag[u'RVA2:track'] = mutagen.id3.RVA2(desc=u'track',
-					channel=1,
-					gain=rg_gain,
-					peak=rg_peak)
+	# FLAC
+	rva = rva_from_string(	srctag['replaygain_track_gain'],
+				srctag['replaygain_track_peak'])
 else:
-# None
+	rva = None
+
+if rva:
+	dsttag[u'RVA2:track'] = rva
+	dsttag.save()
+else:
 	print "No ReplayGain tag found."
 	print srctag
-
-dsttag.save()

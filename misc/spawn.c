@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 	char **cmd;
 	int do_wait = 0;
 	int do_lock = 0;
-	char *lockname;
+	char *lockname = NULL;
 	int lockshared = 0;
 	char *lockfile;
 	int opt;

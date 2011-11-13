@@ -33,6 +33,8 @@ cd ~/code
 
 have git	|| err "git not installed"
 have curl	|| err "curl not installed"
+have gmake	&& make() { gmake "$@"; }
+have make	|| err "make not installed"
 have perl	|| warn "perl not installed"
 ((errors))	&& exit
 
@@ -106,7 +108,7 @@ if crontab -l >/dev/null && ! { crontab -l 2>/dev/null |
 		echo -e '@daily\tID=pull\t~/code/dist/pull') | crontab -
 fi
 
-if ! { have mailx && grep -Fqs NAILRC "$(which mailx)"; } &&
+if ! { have mailx && fgrep -qs NAILRC "$(which mailx)"; } &&
 confirm "heirloom-mailx missing, install?"; then
 	log "installing heirloom-mailx"
 	dist/install-mailx.sh

@@ -3,9 +3,18 @@ use common::sense;
 use Net::DBus;
 use Net::DBus::Reactor;
 
-use constant APPNAME => "keybind";
+sub usage {
+	say for
+	"Usage: gnome-mpris-keybind [playername]",
+	"",
+	"Use the last component of the MPRIS2 bus name as <playername>.",
+	"If no name specified, 'mpd' will be used by default.",
+	;
+	return 2;
+}
 
 my $player = shift(@ARGV) // "mpd";
+exit(usage) if $player =~ /^-/;
 
 my $bus = Net::DBus->session;
 my $mp = $bus->get_service("org.mpris.MediaPlayer2.$player");
@@ -29,7 +38,8 @@ $gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
 		}
 	}
 });
-$gsd_mmkeys->GrabMediaPlayerKeys(APPNAME, 0);
+my $appname = "gnome-mpris-keybind ($player)";
+$gsd_mmkeys->GrabMediaPlayerKeys($appname, 0);
 my $reactor = Net::DBus::Reactor->main;
 $reactor->run;
 exit(0);

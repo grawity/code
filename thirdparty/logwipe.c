@@ -2,7 +2,7 @@
  * Wipe v1.01.
  *
  * Written by The Crawler.
- * v1.01 by grawity.
+ * v1.01 by grawity - accepts four-year dates
  *
  * Selectively wipe system logs.
  * 

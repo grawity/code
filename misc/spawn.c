@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		if (execvp(cmd[0], cmd) < 0) {
-			perror("execvp");
+			fprintf(stderr, "%s: failed to execute '%s': %m\n", arg0, cmd[0]);
 			return 1;
 		}
 		return 0;

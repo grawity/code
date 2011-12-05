@@ -18,7 +18,8 @@ static void usage() {
 char * get_ttyname() {
 	char *d, *i;
 	if ((d = getenv("DISPLAY"))) {
-		*rindex(d, '.') = 0;
+		if ((i = rindex(d, '.')))
+			*i = 0;
 		return d;
 	}
 	if ((d = ttyname(2))) {

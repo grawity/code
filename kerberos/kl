@@ -59,7 +59,7 @@ while (<$proc>) {
 		when ("ticket") {
 			my %tkt = ();
 			@tkt{@fields} = @l;
-			my ($name, $realm) = $tkt{server_name} =~ /^(.+)@(.+)$/;
+			my ($name, $realm) = $tkt{server_name} =~ /^(.+)@(.*)$/;
 			push @extrealms, $realm
 				unless $realm eq $defrealm;
 
@@ -115,7 +115,7 @@ for my $realm (@realms) {
 		my $istgt = 0;
 		my $isinit = 0;
 
-		my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.+)$/;
+		my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.*)$/;
 
 		if ($svname =~ m|^krbtgt/(.+)$|) {
 			$istgt = 1;
@@ -127,6 +127,7 @@ for my $realm (@realms) {
 				? "1;35"
 				: "1;34"
 				;
+
 			$label .= "\e[${color}m${svname}\e[m";
 			$width += length $svname;
 
@@ -144,6 +145,10 @@ for my $realm (@realms) {
 				my ($defname) = ($tkt->{client_name} =~ /^(.+)@/);
 				$width += length " for $defname";
 				$label .= " \e[36mfor \e[1m$defname\e[m";
+			}
+			if ($svrealm eq "") {
+				$width += length " (no realm)";
+				$label .= " \e[32m(no realm)\e[m";
 			}
 		}
 		

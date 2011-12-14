@@ -121,6 +121,7 @@ my @next_wgs;
 
 my $do_verbose = 0;
 my $do_concise = 0;
+my $want_suffix = 0x20;
 my $do_header = 1;
 my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
 my $do_root_port = 0;
@@ -136,7 +137,8 @@ GetOptions(
 	"C|color!"	=> \$do_color,
 	"H|header!"	=> \$do_header,
 	"r|root-port"	=> \$do_root_port,
-	"s|short"	=> \$do_concise,
+	"s|short+"	=> \$do_concise,
+	"S|suffix=o"	=> \$want_suffix,
 	"v|verbose"	=> \$do_verbose,
 ) or die $!;
 
@@ -222,7 +224,14 @@ for my $entry (@network) {
 	|| $a->{dnsname} cmp $b->{dnsname}} @network;
 
 # Print out
-if ($do_concise) {
+if ($do_concise > 1) {
+	my %names = map {$_->{name} => 1}
+			grep {$_->{suffix} == $want_suffix}
+			@network;
+	for my $name (sort keys %names) {
+		print "$name\n";
+	}
+} elsif ($do_concise) {
 	for my $entry (@network) {
 		printf "%-15s\t<%02x>\t%s\n",
 			$entry->{name}, $entry->{suffix}, $entry->{addr};

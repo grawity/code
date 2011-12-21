@@ -1,0 +1,13 @@
+#!/bin/bash
+service='host'
+fqdn=$(fqdn || hostname -f)
+principal=$service/$fqdn
+
+if [ $service == "host" ]; then
+	ccname="host"
+else
+	ccname="host_$service"
+fi
+export KRB5CCNAME="/tmp/krb5cc_$ccname"
+
+k5start -F -P -f /etc/krb5.keytab -u "$principal" -K 30 -b -L

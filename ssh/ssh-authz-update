@@ -4,6 +4,9 @@ SIGNER_KEY_ID="D24F6CB2C1B52632"
 SIGNER_KEY_FP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 KEYSERVER="pgp.surfnet.nl"
 
+PATH="$HOME/code/bin:$PATH"
+FQDN=$(fqdn) || exit 1
+
 have() { command -v "$1" &> /dev/null; }
 
 . ~/code/lib/bash/http_fetch || exit 1
@@ -64,14 +67,50 @@ verify() {
 	fi
 }
 
+hostmask_match() {
+	local mask=$1
+	[[ $FQDN == $mask || $HOSTNAME == $mask ]]
+}
+
+filter_keys() {
+	local line='' masked=false mask='' matched=false
+	while read -r line; do
+		if [[ "$line" == '#if '* ]]; then
+			masked=true
+			mask=${line#'#if '}
+			if hostmask_match "$mask"
+				matched=true
+			else
+				matched=false
+			fi
+			continue
+		elif [[ "$line" == '#endif' ]]; then
+			masked=false
+			continue
+		elif $masked && ! $matched; then
+			continue
+		else
+			echo "$line"
+		fi
+	done
+}
+
+debug=":"
 VERBOSE=false
-while getopts "hvr" OPT "$@"; do
+
+while getopts "D:hvr" OPT "$@"; do
 	case "$OPT" in
+	'D')	debug+="${OPTARG}:";;
 	'v')	VERBOSE=true ;;
 	'r')	recv_key "$SIGNER_KEY_FP" && gpg --edit-key "$SIGNER_KEY_FP" trust quit ;;
 	'?')	usage; exit 2 ;;
 	esac
 done
+
+if [[ $debug == *:filter:* ]]; then
+	filter_keys
+	exit
+fi
 
 if ! have gpg; then
 	echo "sshup: 'gpg' not found in \$PATH" >&2
@@ -98,7 +137,7 @@ if verify "$temp"; then
 	{
 		echo "# updated $(date +"%Y-%m-%d %H:%M") from $SOURCE_URL"
 		gpg --decrypt "$temp" 2> /dev/null
-	} > ~/.ssh/authorized_keys
+	} | filter_keys > ~/.ssh/authorized_keys
 	rm -f "$temp"
 fi
 
@@ -106,5 +145,5 @@ if [ -f ~/.ssh/authorized_keys.local ]; then
 	{
 		echo "# keys from ~/.ssh/authorized_keys.local"
 		cat ~/.ssh/authorized_keys.local
-	} >> ~/.ssh/authorized_keys
+	} | filter_keys >> ~/.ssh/authorized_keys
 fi

@@ -4,6 +4,13 @@ use strict;
 use feature qw(say switch);
 use Getopt::Std;
 
+sub usage {
+	say for
+		"usage: kl [-c <ccname>]",
+		;
+	exit 2;
+}
+
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
@@ -23,6 +30,10 @@ sub interval {
 	else		{ "a minute" }
 }
 
+sub mangle_name {
+	join ".", reverse split qr|[/.]|, (shift)->{server_name};
+}
+
 my %opts;
 my @pklist_args;
 my @fields;
@@ -35,10 +46,14 @@ my %creds;
 my $init;
 my $tgt;
 
-getopts('c:', \%opts) or exit 2;
+getopts('c:', \%opts) or usage();
 if (exists $opts{c}) {
+	$ENV{KRB5CCNAME} = $opts{c};
 	push @pklist_args, "-c", $opts{c};
 }
+
+# read tickets from ccache
+
 open(my $proc, "-|", "pklist", @pklist_args)
 	or die "Please install 'pklist' to use this tool.\n";
 
@@ -85,6 +100,8 @@ if (!defined $cache) {
 	exit 1;
 }
 
+# format TGT expiration time
+
 my $expirystr;
 my $expiry = $init->{expiry_time} || $tgt->{expiry_time};
 if ($expiry <= time) {
@@ -95,10 +112,11 @@ if ($expiry <= time) {
 	$expirystr = "expires in ".interval($expiry);
 }
 
+# output tickets sorted by realm, server name
+
 say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
 say "";
 
-sub mangle_name { join ".", reverse split qr|[/.]|, (shift)->{server_name} }
 
 my @realms = ($defrealm, uniq sort @extrealms);
 for my $realm (@realms) {

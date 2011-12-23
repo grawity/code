@@ -126,6 +126,22 @@ for my $realm (@realms) {
 	my @creds = (@{$tgtcreds{$realm}},
 			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
 
+	if (!@{$tgtcreds{$realm}}) {
+		my ($color, $label);
+		if ($realm eq '') {
+			$color = "32";
+			$label = "tickets for empty realm:";
+		} else {
+			$color = "35";
+			$label = "tickets for '$realm' (no TGT)";
+		}
+		say " "x4,
+			"\e[${color}m",
+			$label,
+			"\e[m",
+			;
+	}
+
 	for my $tkt (@creds) {
 		my $color = "0";
 		my $label = "";

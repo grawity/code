@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
+shopt -s extglob
+
 SOURCE_URL="http://purl.net/net/grawity/files/authorized_keys.txt"
 SIGNER_KEY_ID="D24F6CB2C1B52632"
 SIGNER_KEY_FP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 KEYSERVER="pgp.surfnet.nl"
 
 PATH="$HOME/code/bin:$PATH"
-FQDN=$(fqdn) || exit 1
-
-have() { command -v "$1" &> /dev/null; }
-
-. ~/code/lib/bash/http_fetch || exit 1
 
 usage() {
 	echo "Usage: sshupdate-gpg [-r] [-v]"
@@ -19,6 +16,10 @@ usage() {
 	echo
 	echo "Key locations are hardcoded in $0."
 } >&2
+
+have() { command -v "$1" &> /dev/null; }
+
+. ~/code/lib/bash/http_fetch || exit 1
 
 recv_key() {
 	local grip=$1
@@ -69,6 +70,7 @@ verify() {
 
 hostmask_match() {
 	local mask=$1
+	
 	[[ $FQDN == $mask || $HOSTNAME == $mask ]]
 }
 
@@ -78,7 +80,7 @@ filter_keys() {
 		if [[ "$line" == '#if '* ]]; then
 			masked=true
 			mask=${line#'#if '}
-			if hostmask_match "$mask"
+			if hostmask_match "$mask"; then
 				matched=true
 			else
 				matched=false
@@ -94,6 +96,10 @@ filter_keys() {
 		fi
 	done
 }
+
+umask 077
+
+FQDN=$(fqdn) || exit 1
 
 debug=":"
 VERBOSE=false
@@ -122,8 +128,7 @@ if ! gpg --list-keys "$SIGNER_KEY_FP" &> /dev/null; then
 	exit 1
 fi
 
-umask 077
-mkdir -p ~/.ssh/
+mkdir -pm 0700 ~/.ssh
 
 recv_key "$SIGNER_KEY_FP" >&2 || exit 1
 

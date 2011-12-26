@@ -192,7 +192,6 @@ void do_ccache_by_name(char *name) {
 	do_ccache(cache);
 
 	krb5_cc_close(ctx, cache);
-	free(cache);
 }
 
 /*

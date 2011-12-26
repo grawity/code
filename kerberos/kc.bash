@@ -376,13 +376,13 @@ kc() {
 		;;
 	*)
 		# switch to a named or numbered ccache
-		local ccname=
+		local ccname= ccdirname=
 
 		if ccname=$(_kc_expand_ccname "$cmd"); then
 			if [[ $ccname == DIR::* ]]; then
-				ccname=${ccname%/*}
-				ccname=${ccname/#DIR::/DIR:}
-				export KRB5CCNAME=$ccname
+				ccdirname=${ccname%/*}
+				ccdirname=${ccdirname/#DIR::/DIR:}
+				export KRB5CCNAME=$ccdirname
 				kswitch -c "$ccname"
 			else
 				export KRB5CCNAME=$ccname

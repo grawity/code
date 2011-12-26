@@ -152,8 +152,8 @@ cleanup:
 }
 
 void do_realm(char *hostname) {
+	krb5_error_code retval;
 	char **realm;
-	int retval;
 
 	if (hostname) {
 		if ((retval = krb5_get_host_realm(ctx, hostname, &realm))) {

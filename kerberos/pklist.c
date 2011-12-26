@@ -163,14 +163,14 @@ void do_realm(char *hostname) {
 		printf("%s\n", *realm);
 		krb5_free_host_realm(ctx, realm);
 	} else {
-		/* TODO: is this correct? */
-		realm = malloc(sizeof(char*));
+		realm = malloc(sizeof(realm));
 		if ((retval = krb5_get_default_realm(ctx, realm))) {
 			com_err(progname, retval, "while obtaining default realm");
 			exit(1);
 		}
 		printf("%s\n", *realm);
 		krb5_free_default_realm(ctx, *realm);
+		free(realm);
 	}
 }
 
@@ -193,6 +193,7 @@ void do_ccache_by_name(char *name) {
 	do_ccache(cache);
 
 	krb5_cc_close(ctx, cache);
+	free(cache);
 }
 
 /*
@@ -239,7 +240,7 @@ void do_ccache(krb5_ccache cache) {
 
 	if (show_defname_only) {
 		printf("%s\n", defname);
-		return;
+		goto cleanup;
 	}
 
 	if (!show_names_only) {
@@ -275,6 +276,10 @@ void do_ccache(krb5_ccache cache) {
 		com_err(progname, retval, "while retrieving a ticket");
 		exit(1);
 	}
+
+cleanup:
+	krb5_free_principal(ctx, princ);
+	krb5_free_unparsed_name(ctx, defname);
 }
 
 /*
@@ -282,21 +287,20 @@ void do_ccache(krb5_ccache cache) {
  */
 void show_cred(register krb5_creds *cred) {
 	krb5_error_code retval;
-	char *name, *sname, *flags;
+	char *clientname, *servername, *flags;
 
-	if ((retval = krb5_unparse_name(ctx, cred->client, &name))) {
+	if ((retval = krb5_unparse_name(ctx, cred->client, &clientname))) {
 		com_err(progname, retval, "while unparsing client name");
-		return;
+		goto cleanup;
 	}
-	if ((retval = krb5_unparse_name(ctx, cred->server, &sname))) {
+	if ((retval = krb5_unparse_name(ctx, cred->server, &servername))) {
 		com_err(progname, retval, "while unparsing server name");
-		krb5_free_unparsed_name(ctx, name);
-		return;
+		goto cleanup;
 	}
 
 	if (show_names_only) {
-		printf("%s\n", sname);
-		return;
+		printf("%s\n", servername);
+		goto cleanup;
 	}
 
 	if (!cred->times.starttime)
@@ -308,9 +312,8 @@ void show_cred(register krb5_creds *cred) {
 	else
 		printf("ticket");
 
-	printf("\t%s", name);
-
-	printf("\t%s", sname);
+	printf("\t%s", clientname);
+	printf("\t%s", servername);
 	printf("\t%d", (uint) cred->times.starttime);
 	printf("\t%d", (uint) cred->times.endtime);
 	printf("\t%d", (uint) cred->times.renew_till);
@@ -322,11 +325,12 @@ void show_cred(register krb5_creds *cred) {
 		printf("\t-");
 	else
 		printf("\t?");
-	
+
 	printf("\n");
 
-	krb5_free_unparsed_name(ctx, name);
-	krb5_free_unparsed_name(ctx, sname);
+cleanup:
+	krb5_free_unparsed_name(ctx, clientname);
+	krb5_free_unparsed_name(ctx, servername);
 }
 
 /*

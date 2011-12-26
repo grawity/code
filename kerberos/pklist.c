@@ -154,7 +154,7 @@ int do_ccache(krb5_ccache cache) {
 	char		*ccname = NULL;
 	krb5_creds	creds;
 	krb5_cc_cursor	cursor;
-	krb5_principal	princ;
+	krb5_principal	princ = NULL;
 	char		*princname = NULL;
 	krb5_flags	flags = 0;
 	krb5_error_code	retval;

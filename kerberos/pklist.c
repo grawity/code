@@ -8,6 +8,8 @@
  * Portions of code lifted from MIT Kerberos (clients/klist/klist.c)
  */
 
+#define HAVE_COLLECTIONS
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -114,9 +116,6 @@ int main(int argc, char *argv[]) {
 	}
 	return 0;
 }
-
-#warning Temporary HAVE_COLLECTIONS override
-#define HAVE_COLLECTIONS
 
 void do_cccol() {
 #ifdef HAVE_COLLECTIONS

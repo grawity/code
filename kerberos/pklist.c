@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr,
 				"\n"
 				"\t-C       also list config principals\n"
+				"\t-c       show contents of given ccache\n"
 				"\t-l       list ccaches\n"
 				"\t-N       show ccache name\n"
 				"\t-P       show default client principal\n"

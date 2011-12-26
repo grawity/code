@@ -6,7 +6,10 @@ use Getopt::Std;
 
 sub usage {
 	say for
-		"usage: kl [-c <ccname>]",
+		"Usage: kl [-c <ccname> | -l]",
+		"",
+		"\t-c       show contents of given ccache",
+		"\t-l       list known ccaches",
 		;
 	exit 2;
 }
@@ -34,190 +37,225 @@ sub mangle_name {
 	join ".", reverse split qr|[/.]|, (shift)->{server_name};
 }
 
-my %opts;
-my @pklist_args;
-my @fields;
-my $cache;
-my $defprinc;
-my $defrealm;
-my @extrealms;
-my %tgtcreds;
-my %creds;
-my $init;
-my $tgt;
+sub enum_ccaches {
+	my @ccaches;
 
-getopts('c:', \%opts) or usage();
-if (exists $opts{c}) {
-	$ENV{KRB5CCNAME} = $opts{c};
-	push @pklist_args, "-c", $opts{c};
+	open(my $proc, "-|", "pklist", "-l", "-N")
+		or die "'pklist' not found\n";
+	while (<$proc>) {
+		chomp;
+		push @ccaches, $_;
+	}
+	close($proc);
+
+	return @ccaches;
 }
 
-# read tickets from ccache
+sub display_ccache {
+	my ($ccache) = @_;
 
-open(my $proc, "-|", "pklist", @pklist_args)
-	or die "Please install 'pklist' to use this tool.\n";
+	my @pklist_args;
+	my @fields;
+	my $cache;
+	my $defprinc;
+	my $defrealm;
+	my @extrealms;
+	my %tgtcreds;
+	my %creds;
+	my $init;
+	my $tgt;
 
-while (<$proc>) {
-	chomp;
-	my @l = split(/\t/, $_);
-	given (shift @l) {
-		when ("cache") {
-			($cache) = @l;
-		}
-		when ("principal") {
-			($defprinc) = @l;
-			($defrealm) = $defprinc =~ /@(.+?)$/;
-		}
-		when ("CREDS") {
-			@fields = @l;
-		}
-		when ("ticket") {
-			my %tkt = ();
-			@tkt{@fields} = @l;
-			my ($name, $realm) = $tkt{server_name} =~ /^(.+)@(.*)$/;
-			push @extrealms, $realm
-				unless $realm eq $defrealm;
 
-			if ($name =~ m|^krbtgt/(.+)|) {
-				push @{$tgtcreds{$1}}, \%tkt;
-				push @extrealms, $1
-					unless $1 eq $defrealm;
-				if ($1 eq $realm) {
-					$tgt = \%tkt;
+	# read tickets from ccache
+
+	if (defined $ccache) {
+		push @pklist_args, ("-c", $ccache);
+	}
+	open(my $proc, "-|", "pklist", @pklist_args)
+		or die "Please install 'pklist' to use this tool.\n";
+
+	while (<$proc>) {
+		chomp;
+		my @l = split(/\t/, $_);
+		given (shift @l) {
+			when ("cache") {
+				($cache) = @l;
+			}
+			when ("principal") {
+				($defprinc) = @l;
+				($defrealm) = $defprinc =~ /@(.+?)$/;
+			}
+			when ("CREDS") {
+				@fields = @l;
+			}
+			when ("ticket") {
+				my %tkt = ();
+				@tkt{@fields} = @l;
+				my ($name, $realm) = $tkt{server_name} =~ /^(.+)@(.*)$/;
+				push @extrealms, $realm
+					unless $realm eq $defrealm;
+
+				if ($name =~ m|^krbtgt/(.+)|) {
+					push @{$tgtcreds{$1}}, \%tkt;
+					push @extrealms, $1
+						unless $1 eq $defrealm;
+					if ($1 eq $realm) {
+						$tgt = \%tkt;
+					}
+					if ($tkt{flags} =~ /I/) {
+						$init = \%tkt;
+					}
+				} else {
+					push @{$creds{$realm}}, \%tkt;
 				}
-				if ($tkt{flags} =~ /I/) {
-					$init = \%tkt;
+			}
+		}
+	}
+	close($proc);
+
+	if (!defined $cache) {
+		return 1;
+	}
+
+	# format TGT expiration time
+
+	my $expirystr;
+	my $expiry = $init->{expiry_time} || $tgt->{expiry_time};
+	if ($expiry <= time) {
+		$expirystr = "\e[1;31m" . "expired" . "\e[m";
+	} elsif ($expiry <= time+3600) {
+		$expirystr = "\e[1;33m" . "expires in ".interval($expiry) . "\e[m";
+	} else {
+		$expirystr = "expires in ".interval($expiry);
+	}
+
+	# output tickets sorted by realm, server name
+
+	say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
+	say "";
+
+	my @realms = ($defrealm,
+			# TODO: ugly
+			uniq sort {$a eq '' ? 1 : $b eq '' ? -1 : $a cmp $b} @extrealms);
+
+	for my $realm (@realms) {
+		$tgtcreds{$realm} //= [];
+		$creds{$realm} //= [];
+
+		my @creds = (@{$tgtcreds{$realm}},
+				sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
+
+		if (!@{$tgtcreds{$realm}}) {
+			my ($color, $label);
+			if ($realm eq '') {
+				$color = "32";
+				$label = "tickets for empty realm:";
+			} else {
+				$color = "35";
+				$label = "tickets for '$realm' (no TGT)";
+			}
+			say " "x4,
+				"\e[${color}m",
+				$label,
+				"\e[m",
+				;
+		}
+
+		for my $tkt (@creds) {
+			my $color = "0";
+			my $label = "";
+			my $width = 0;
+			my $istgt = 0;
+			my $isinit = 0;
+
+			my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.*)$/;
+
+			if ($svname =~ m|^krbtgt/(.+)$|) {
+				$istgt = 1;
+
+				my $nextrealm = $1;
+				$color = $svrealm eq $nextrealm
+					? "1;32"
+					: $svrealm eq $defrealm
+					? "1;35"
+					: "1;34"
+					;
+
+				$label .= "\e[${color}m${svname}\e[m";
+				$width += length $svname;
+
+				if ($svrealm ne $nextrealm && $svrealm ne $defrealm) {
+					$color = $svrealm eq $defrealm ? "35" : "34";
+					$label .= " \e[${color}m\@ ${svrealm}\e[m";
+					$width += length " \@ $svrealm";
 				}
 			} else {
-				push @{$creds{$realm}}, \%tkt;
+				$width += length $svname;
+				$svname =~ s|/([^.]+)\.|/\e[1m$1\e[m.|;
+				$label .= $svname;
+
+				if ($tkt->{client_name} ne $defprinc) {
+					my ($defname) = ($tkt->{client_name} =~ /^(.+)@/);
+					$width += length " for $defname";
+					$label .= " \e[36mfor \e[1m$defname\e[m";
+				}
+				if ($svrealm eq "") {
+					$width += length " (no realm)";
+					$label .= " \e[32m(no realm)\e[m";
+				}
 			}
-		}
-	}
-}
-close($proc);
+			
+			my $flags = $tkt->{flags};
+			my @eflags = ();
+			$flags =~ /A/ or push @eflags, "!A";
+			$flags =~ s/[AT]//g;
+			if ($istgt) {
+				$flags =~ s/[P]//g;
+			} else {
+				$flags =~ s/[FR]//g;
+			}
+			$flags = join(" ", $flags, @eflags);
 
-if (!defined $cache) {
-	exit 1;
-}
+			my $expiry = $tkt->{expiry_time} <= time
+					? "expired"
+					: interval($tkt->{expiry_time});
 
-# format TGT expiration time
+			my $expiry_c = ($tkt->{expiry_time} <= time
+					? "\e[1;31m"
+					: $tkt->{expiry_time} <= time+300
+					? "\e[33m"
+					: "").$expiry."\e[m";
 
-my $expirystr;
-my $expiry = $init->{expiry_time} || $tgt->{expiry_time};
-if ($expiry <= time) {
-	$expirystr = "\e[1;31m" . "expired" . "\e[m";
-} elsif ($expiry <= time+3600) {
-	$expirystr = "\e[1;33m" . "expires in ".interval($expiry) . "\e[m";
-} else {
-	$expirystr = "expires in ".interval($expiry);
-}
-
-# output tickets sorted by realm, server name
-
-say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
-say "";
-
-my @realms = ($defrealm,
-		# TODO: ugly
-		uniq sort {$a eq '' ? 1 : $b eq '' ? -1 : $a cmp $b} @extrealms);
-
-for my $realm (@realms) {
-	$tgtcreds{$realm} //= [];
-	$creds{$realm} //= [];
-
-	my @creds = (@{$tgtcreds{$realm}},
-			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
-
-	if (!@{$tgtcreds{$realm}}) {
-		my ($color, $label);
-		if ($realm eq '') {
-			$color = "32";
-			$label = "tickets for empty realm:";
-		} else {
-			$color = "35";
-			$label = "tickets for '$realm' (no TGT)";
-		}
-		say " "x4,
-			"\e[${color}m",
-			$label,
-			"\e[m",
-			;
-	}
-
-	for my $tkt (@creds) {
-		my $color = "0";
-		my $label = "";
-		my $width = 0;
-		my $istgt = 0;
-		my $isinit = 0;
-
-		my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.*)$/;
-
-		if ($svname =~ m|^krbtgt/(.+)$|) {
-			$istgt = 1;
-
-			my $nextrealm = $1;
-			$color = $svrealm eq $nextrealm
-				? "1;32"
-				: $svrealm eq $defrealm
-				? "1;35"
-				: "1;34"
+			say " "x4,
+				$label,
+				" "x(45-$width),
+				" ",
+				$flags,
+				" "x(5-length $flags),
+				" ",
+				" "x(8-length $expiry),
+				$expiry_c,
 				;
-
-			$label .= "\e[${color}m${svname}\e[m";
-			$width += length $svname;
-
-			if ($svrealm ne $nextrealm && $svrealm ne $defrealm) {
-				$color = $svrealm eq $defrealm ? "35" : "34";
-				$label .= " \e[${color}m\@ ${svrealm}\e[m";
-				$width += length " \@ $svrealm";
-			}
-		} else {
-			$width += length $svname;
-			$svname =~ s|/([^.]+)\.|/\e[1m$1\e[m.|;
-			$label .= $svname;
-
-			if ($tkt->{client_name} ne $defprinc) {
-				my ($defname) = ($tkt->{client_name} =~ /^(.+)@/);
-				$width += length " for $defname";
-				$label .= " \e[36mfor \e[1m$defname\e[m";
-			}
-			if ($svrealm eq "") {
-				$width += length " (no realm)";
-				$label .= " \e[32m(no realm)\e[m";
-			}
 		}
-		
-		my $flags = $tkt->{flags};
-		my @eflags = ();
-		$flags =~ /A/ or push @eflags, "!A";
-		$flags =~ s/[AT]//g;
-		if ($istgt) {
-			$flags =~ s/[P]//g;
-		} else {
-			$flags =~ s/[FR]//g;
-		}
-		$flags = join(" ", $flags, @eflags);
-
-		my $expiry = $tkt->{expiry_time} <= time
-				? "expired"
-				: interval($tkt->{expiry_time});
-
-		my $expiry_c = ($tkt->{expiry_time} <= time
-				? "\e[1;31m"
-				: $tkt->{expiry_time} <= time+300
-				? "\e[33m"
-				: "").$expiry."\e[m";
-
-		say " "x4,
-			$label,
-			" "x(45-$width),
-			" ",
-			$flags,
-			" "x(5-length $flags),
-			" ",
-			" "x(8-length $expiry),
-			$expiry_c,
-			;
 	}
+
+	say "";
+	return 0;
+}
+
+my %opts;
+my $ccache;
+my $list_all;
+
+getopts('c:l', \%opts) or usage();
+if (exists $opts{c}) {
+	$ccache = $opts{c};
+} elsif (exists $opts{l}) {
+	$list_all = 1;
+}
+
+if ($list_all) {
+	display_ccache($_) for enum_ccaches();
+} else {
+	display_ccache($ccache);
 }

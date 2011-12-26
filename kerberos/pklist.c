@@ -8,6 +8,8 @@
  * Portions of code lifted from MIT Kerberos (clients/klist/klist.c)
  */
 
+#define _GNU_SOURCE
+
 #define HAVE_COLLECTIONS
 
 #include <stdlib.h>
@@ -158,7 +160,10 @@ int do_ccache(krb5_ccache cache) {
 	krb5_error_code	retval;
 	int		status = 1;
 
-	if (krb5_cc_get_full_name(ctx, cache, &ccname))
+	asprintf(&ccname, "%s:%s",
+		krb5_cc_get_type(ctx, cache),
+		krb5_cc_get_name(ctx, cache));
+	if (!ccname)
 		goto cleanup;
 
 	if (show_ccname_only && !show_collection) {

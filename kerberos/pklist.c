@@ -36,7 +36,9 @@ int show_defname_only = 0;
 int show_names_only = 0;
 int show_realm_only = 0;
 
-void do_ccache(char *name);
+void do_ccache_by_name(char *name);
+
+void do_ccache(krb5_ccache cache);
 
 void do_cccol();
 
@@ -107,7 +109,7 @@ int main(int argc, char *argv[]) {
 	} else if (show_realm_only) {
 		do_realm(hostname);
 	} else {
-		do_ccache(ccname);
+		do_ccache_by_name(ccname);
 	}
 	return 0;
 }
@@ -172,19 +174,9 @@ void do_realm(char *hostname) {
 	}
 }
 
-/*
- * output the ccache contents
- */
-void do_ccache(char *name) {
+void do_ccache_by_name(char *name) {
 	krb5_ccache cache = NULL;
-	krb5_cc_cursor cur;
-	krb5_creds creds;
-	krb5_principal princ;
-	krb5_flags flags;
 	krb5_error_code retval;
-	char *defname;
-
-	// display cache and principal names
 
 	if (name == NULL) {
 		if ((retval = krb5_cc_default(ctx, &cache))) {
@@ -197,6 +189,24 @@ void do_ccache(char *name) {
 			exit(1);
 		}
 	}
+
+	do_ccache(cache);
+
+	krb5_cc_close(ctx, cache);
+}
+
+/*
+ * output the ccache contents
+ */
+void do_ccache(krb5_ccache cache) {
+	krb5_cc_cursor cur;
+	krb5_creds creds;
+	krb5_principal princ;
+	krb5_flags flags;
+	krb5_error_code retval;
+	char *defname;
+
+	// display cache and principal names
 
 	if (show_ccname_only) {
 		printf("%s:%s\n",

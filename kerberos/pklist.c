@@ -37,6 +37,7 @@ int show_ccname_only = 0;
 int show_defname_only = 0;
 int show_names_only = 0;
 int show_realm_only = 0;
+int quiet_errors = 0;
 
 void do_ccache_by_name(char *name);
 
@@ -139,6 +140,7 @@ void do_cccol() {
 	while (!(retval = krb5_cccol_cursor_next(ctx, cursor, &cache))) {
 		if (cache == NULL)
 			break;
+		quiet_errors = 1;
 		do_ccache(cache);
 		free(cache);
 	}
@@ -215,7 +217,9 @@ void do_ccache(krb5_ccache cache) {
 
 	flags = 0;
 	if ((retval = krb5_cc_set_flags(ctx, cache, flags))) {
-		if (retval == KRB5_FCC_NOFILE) {
+		if (quiet_errors) {
+			;
+		} else if (retval == KRB5_FCC_NOFILE) {
 			com_err(progname, retval, "(ticket cache %s:%s)",
 				krb5_cc_get_type(ctx, cache),
 				krb5_cc_get_name(ctx, cache));
@@ -224,7 +228,7 @@ void do_ccache(krb5_ccache cache) {
 				krb5_cc_get_type(ctx, cache),
 				krb5_cc_get_name(ctx, cache));
 		}
-		exit(1);
+		return;
 	}
 	if ((retval = krb5_cc_get_principal(ctx, cache, &princ))) {
 		com_err(progname, retval, "while retrieving principal name");

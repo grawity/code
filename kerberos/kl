@@ -79,13 +79,17 @@ sub display_ccache {
 		my @l = split(/\t/, $_);
 		given (shift @l) {
 			when ("cache") {
-				($cache) = @l;
+				($cache, $defprinc) = @l;
+				# If I ever decide to merge the 'cache' line formats in pklist.
+				if (defined $defprinc) {
+					($defrealm) = $defprinc =~ /@(.+?)$/;
+				}
 			}
 			when ("principal") {
 				($defprinc) = @l;
 				($defrealm) = $defprinc =~ /@(.+?)$/;
 			}
-			when ("CREDS") {
+			when ("CREDENTIALS") {
 				@fields = @l;
 			}
 			when ("ticket") {

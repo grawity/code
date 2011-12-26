@@ -30,12 +30,15 @@
 char *progname = "pklist";
 krb5_context ctx;
 int show_cfg_tkts = 0;
+int show_collection_only = 0;
 int show_ccname_only = 0;
 int show_defname_only = 0;
 int show_names_only = 0;
 int show_realm_only = 0;
 
 void do_ccache(char *name);
+
+void do_cccol();
 
 void do_realm(char *host);
 
@@ -51,13 +54,16 @@ int main(int argc, char *argv[]) {
 	char *hostname = NULL;
 	krb5_error_code retval;
 
-	while ((opt = getopt(argc, argv, "Cc:NPpRr:")) != -1) {
+	while ((opt = getopt(argc, argv, "Cc:lNPpRr:")) != -1) {
 		switch (opt) {
 		case 'C':
 			show_cfg_tkts = 1;
 			break;
 		case 'c':
 			ccname = optarg;
+			break;
+		case 'l':
+			show_collection_only = 1;
 			break;
 		case 'N':
 			show_ccname_only = 1;
@@ -96,12 +102,51 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	if (show_realm_only) {
+	if (show_collection_only) {
+		do_cccol();
+	} else if (show_realm_only) {
 		do_realm(hostname);
 	} else {
 		do_ccache(ccname);
 	}
 	return 0;
+}
+
+void do_cccol() {
+	krb5_error_code retval;
+	krb5_cccol_cursor cursor;
+	krb5_ccache cache;
+
+	krb5_principal princ = NULL;
+	char *princname = NULL;
+
+	printf("default\t%s\n",
+		krb5_cc_default_name(ctx));
+
+	printf("COLLECTION\tccname\tprincipal\n");
+	if ((retval = krb5_cccol_cursor_new(ctx, &cursor))) {
+		com_err(progname, retval, "while listing ccache collection");
+		exit(1);
+	}
+	while (!(retval = krb5_cccol_cursor_next(ctx, cursor, &cache))) {
+		if (cache == NULL)
+			break;
+		if ((retval = krb5_cc_get_principal(ctx, cache, &princ)))
+			goto cleanup;
+		if ((retval = krb5_unparse_name(ctx, princ, &princname)))
+			goto cleanup;
+		printf("ccache\t%s:%s\t%s\n",
+			krb5_cc_get_type(ctx, cache),
+			krb5_cc_get_name(ctx, cache),
+			princname);
+
+cleanup:
+		krb5_cc_close(ctx, cache);
+		krb5_free_principal(ctx, princ);
+		free(princname);
+		free(cache);
+	}
+	krb5_cccol_cursor_free(ctx, &cursor);
 }
 
 void do_realm(char *hostname) {

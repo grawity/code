@@ -305,7 +305,6 @@ int do_collection() {
 			break;
 		do_ccache(cache);
 		krb5_cc_close(ctx, cache);
-		free(cache);
 	}
 	krb5_cccol_cursor_free(ctx, &cursor);
 	return 0;

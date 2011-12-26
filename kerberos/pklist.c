@@ -85,10 +85,11 @@ int main(int argc, char *argv[]) {
 			break;
 		case '?':
 		default:
-			fprintf(stderr, "Usage: %s [-C] [-N | -P | -p | -R | -r hostname] [-c ccname]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-C] [-l] [-N | -P | -p | -R | -r hostname] [-c ccname]\n", argv[0]);
 			fprintf(stderr,
 				"\n"
 				"\t-C       also list config principals\n"
+				"\t-l       list ccaches\n"
 				"\t-N       show ccache name\n"
 				"\t-P       show default client principal\n"
 				"\t-p       show principal names\n"
@@ -114,18 +115,24 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+#warning Temporary HAVE_COLLECTIONS override
+#define HAVE_COLLECTIONS
+
 void do_cccol() {
+#ifdef HAVE_COLLECTIONS
 	krb5_error_code retval;
-	krb5_cccol_cursor cursor;
 	krb5_ccache cache;
+	krb5_cccol_cursor cursor;
+#endif
 
-	krb5_principal princ = NULL;
-	char *princname = NULL;
+	if (!show_ccname_only) {
+		printf("default\t%s\n",
+			krb5_cc_default_name(ctx));
 
-	printf("default\t%s\n",
-		krb5_cc_default_name(ctx));
+		printf("COLLECTION\tccname\tprincipal\n");
+	}
 
-	printf("COLLECTION\tccname\tprincipal\n");
+#ifdef HAVE_COLLECTIONS
 	if ((retval = krb5_cccol_cursor_new(ctx, &cursor))) {
 		com_err(progname, retval, "while listing ccache collection");
 		exit(1);
@@ -133,22 +140,13 @@ void do_cccol() {
 	while (!(retval = krb5_cccol_cursor_next(ctx, cursor, &cache))) {
 		if (cache == NULL)
 			break;
-		if ((retval = krb5_cc_get_principal(ctx, cache, &princ)))
-			goto cleanup;
-		if ((retval = krb5_unparse_name(ctx, princ, &princname)))
-			goto cleanup;
-		printf("ccache\t%s:%s\t%s\n",
-			krb5_cc_get_type(ctx, cache),
-			krb5_cc_get_name(ctx, cache),
-			princname);
-
-cleanup:
-		krb5_cc_close(ctx, cache);
-		krb5_free_principal(ctx, princ);
-		free(princname);
+		do_ccache(cache);
 		free(cache);
 	}
 	krb5_cccol_cursor_free(ctx, &cursor);
+#else
+	do_ccache_by_name(NULL);
+#endif
 }
 
 void do_realm(char *hostname) {
@@ -240,6 +238,14 @@ void do_ccache(krb5_ccache cache) {
 
 	if (show_defname_only) {
 		printf("%s\n", defname);
+		goto cleanup;
+	}
+
+	if (show_collection_only) {
+		printf("ccache\t%s:%s\t%s\n",
+			krb5_cc_get_type(ctx, cache),
+			krb5_cc_get_name(ctx, cache),
+			defname);
 		goto cleanup;
 	}
 

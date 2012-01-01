@@ -40,11 +40,16 @@ sub mangle_name {
 sub enum_ccaches {
 	my @ccaches;
 
-	open(my $proc, "-|", "pklist", "-l", "-N")
+	open(my $proc, "-|", "pklist", "-l")
 		or die "'pklist' not found\n";
 	while (<$proc>) {
-		chomp;
-		push @ccaches, $_;
+		my @l = split(/\t/, $_);
+		given (shift @l) {
+			when ("cache") {
+				my ($ccache, $princ) = @l;
+				push @ccaches, [$ccache, $princ];
+			}
+		}
 	}
 	close($proc);
 
@@ -260,7 +265,7 @@ if (exists $opts{c}) {
 }
 
 if ($list_all) {
-	display_ccache($_) for enum_ccaches();
+	display_ccache($_->[0]) for sort {$a->[1] cmp $b->[1]} enum_ccaches();
 } else {
 	display_ccache($ccache);
 }

@@ -1,4 +1,5 @@
 #!bash
+. libbleh.bash
 
 : ${VIRTUALBOX_LIBEXEC:='/usr/lib/virtualbox'}
 
@@ -48,22 +49,41 @@ dev_create() {
 
 	log "creating '$dev'"
 	if dev_exists "$dev"; then
-		warn "cannot create '$dev' - already exists"
+		log "cannot create '$dev' - already exists"
 		return
 	fi
 	case $dev in
 	br*)
+		debug "creating $dev as bridge"
 		brctl addbr "$dev"
 		;;
+	mon*)
+		local parent=${dev/#mon/phy}
+		debug "creating $dev as wireless/monitor on $parent"
+		iw phy "$parent" interface add "$dev" type monitor
+		;;
 	tap*)
+		debug "creating $dev as tap"
 		ip tuntap add dev "$dev" mode tap
 		;;
 	tun*)
+		debug "creating $dev as tun"
 		ip tuntap add dev "$dev" mode tun
 		;;
 	vboxnet*)
+		debug "creating $dev as vboxnet"
 		modprobe vboxnetadp
 		"$VIRTUALBOX_LIBEXEC/VBoxNetAdpCtl" "$dev" add
+		;;
+	wds*)
+		local parent=${dev/#wds/phy}
+		debug "creating $dev as wireless/wds on $parent"
+		iw phy "$parent" interface add "$dev" type wds
+		;;
+	wlan*)
+		local parent=${dev/#wlan/phy}
+		debug "creating $dev as wireless on $parent"
+		iw phy "$parent" interface add "$dev" type managed
 		;;
 	*)
 		err "cannot create '$dev' - static device or unknown type"
@@ -82,15 +102,20 @@ dev_destroy() {
 		return
 	fi
 	if dev_is_bridge "$dev"; then
+		debug "destroying $dev as bridge"
 		ip link set dev "$dev" down
 		brctl delbr "$dev"
 	elif dev_is_tap "$dev"; then
+		debug "destroying $dev as tap"
 		ip tuntap del dev "$dev" mode tap
 	elif dev_is_tun "$dev"; then
+		debug "destroying $dev as tun"
 		ip tuntap del dev "$dev" mode tun
 	elif dev_is_wireless "$dev"; then
+		debug "destroying $dev as wireless"
 		iw dev "$dev" del
 	elif [[ $dev == vboxnet* ]]; then
+		debug "Destroying $dev as vboxnet"
 		"$VIRTUALBOX_LIBEXEC/VBoxNetAdpCtl" "$dev" remove
 	else
 		err "cannot destroy '$dev' - static device or unknown type"

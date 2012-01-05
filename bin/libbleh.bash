@@ -35,7 +35,7 @@ die() {
 	exit 1
 }
 
-dump_stack() {
+backtrace() {
 	echo "call stack:"
 	for i in "${!BASH_SOURCE[@]}"; do
 		echo "... ${BASH_SOURCE[i]}:${BASH_LINENO[i]} @ ${FUNCNAME[i-1]}"

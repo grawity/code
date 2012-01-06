@@ -1,0 +1,67 @@
+#!/usr/bin/env perl
+use feature "say";
+use Net::DBus;
+use POSIX;
+use constant {
+	INHIBIT_LOGOUT		=> 1<<0,
+	INHIBIT_SWITCH_USER	=> 1<<1,
+	INHIBIT_SUSPEND		=> 1<<2,
+	INHIBIT_IDLE		=> 1<<3,
+};
+
+sub usage {
+	say for
+		"usage: gnome-inhibit <command> [args]",
+		"       gnome-inhibit -p  (pause until killed)",
+		;
+	exit(2);
+}
+
+my $app_id	= "gnome-inhibit";
+my $top_xid	= 0;
+my $reason	= "User-initiated inhibit.";
+my $flags	= INHIBIT_IDLE;
+my $cookie	= 0;
+my $mode	= "pause";
+my @cmd		= ();
+
+if (!@ARGV) {
+	usage();
+} elsif ($ARGV[0] eq '-p') {
+	$mode = "pause";
+} else {
+	$mode = "exec";
+	@cmd = @ARGV;
+}
+
+my $bus = Net::DBus->session;
+my $sm_svc = $bus->get_service("org.gnome.SessionManager");
+my $sm = $sm_svc->get_object("/org/gnome/SessionManager");
+
+sub inhibit {
+	if ($cookie) {
+		die "$app_id: double inhibit attempted (have cookie $cookie)";
+	}
+	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	print "$app_id: inhibit ok ($cookie)\n";
+}
+sub uninhibit {
+	if (!$cookie) {
+		die "$app_id: double uninhibit attempted";
+	}
+	$sm->Uninhibit($cookie);
+	print "$app_id: uninhibit ok\n";
+	$cookie = 0;
+}
+
+inhibit();
+
+if ($mode eq 'pause') {
+	print "$app_id: pausing until signal\n";
+	POSIX::pause();
+} elsif ($mode eq 'exec') {
+	print "$app_id: executing command: @cmd\n";
+	system {$cmd[0]} @cmd;
+}
+
+uninhibit();

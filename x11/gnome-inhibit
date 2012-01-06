@@ -12,7 +12,7 @@ use constant {
 sub usage {
 	say for
 		"usage: gnome-inhibit <command> [args]",
-		"       gnome-inhibit -p  (pause until killed)",
+		"       gnome-inhibit     (pause until killed)",
 		;
 	exit(2);
 }
@@ -25,13 +25,13 @@ my $cookie	= 0;
 my $mode	= "pause";
 my @cmd		= ();
 
-if (!@ARGV) {
+if ($ARGV[0] =~ /^-/) {
 	usage();
-} elsif ($ARGV[0] eq '-p') {
-	$mode = "pause";
-} else {
+} elsif (@ARGV) {
 	$mode = "exec";
 	@cmd = @ARGV;
+} else {
+	$mode = "pause";
 }
 
 my $bus = Net::DBus->session;

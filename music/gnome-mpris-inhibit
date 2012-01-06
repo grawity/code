@@ -38,13 +38,21 @@ my $sm_svc = $bus->get_service("org.gnome.SessionManager");
 my $sm = $sm_svc->get_object("/org/gnome/SessionManager");
 my $mp_svc = $bus->get_service("org.mpris.MediaPlayer2.$player");
 my $mp = $mp_svc->get_object("/org/mpris/MediaPlayer2");
+# needed due to Clementine exposing broken/incomplete introspection data,
+# lacking signals in particular
 my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
 
 sub inhibit {
+	if ($cookie) {
+		die "$app_id: double inhibit attempted (have cookie $cookie)";
+	}
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
 	print "$app_id: inhibit ok ($cookie)\n";
 }
 sub uninhibit {
+	if (!$cookie) {
+		die "$app_id: double uninhibit attempted";
+	}
 	$sm->Uninhibit($cookie);
 	print "$app_id: uninhibit ok\n";
 	$cookie = 0;
@@ -83,3 +91,4 @@ if ($old_status eq 'Playing') {
 my $reactor = Net::DBus::Reactor->main;
 $reactor->run;
 exit(0);
+# gnome-session takes care of cleanup

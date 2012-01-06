@@ -42,33 +42,32 @@ my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
 
 sub inhibit {
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
-	warn "inhibit ok ($cookie)\n";
+	print "$app_id: inhibit ok ($cookie)\n";
 }
 sub uninhibit {
 	$sm->Uninhibit($cookie);
-	warn "uninhibit ok\n";
+	print "$app_id: uninhibit ok\n";
 	$cookie = 0;
 }
 
 $mp_prop->connect_to_signal("PropertiesChanged", sub {
 	my ($iface, $changed, $invalidated) = @_;
 	if ($iface eq 'org.mpris.MediaPlayer2.Player') {
-		my $new_status = $old_status;
-
-		if (exists $changed->{PlaybackStatus}) {
+		my $new_status;
+		if ("PlaybackStatus" ~~ $changed) {
 			$new_status = $changed->{PlaybackStatus};
 		} elsif ("PlaybackStatus" ~~ $invalidated) {
 			$new_status = $mp->Get("org.mpris.MediaPlayer2.Player",
 							"PlaybackStatus");
+		} else {
+			return;
 		}
-
+		print "$app_id: status change: $old_status -> $new_status\n";
 		if ($new_status eq $old_status) {
 			return;
 		} elsif ($new_status eq 'Playing') {
-			print "status change: $old_status -> $new_status\n";
 			inhibit();
 		} elsif ($old_status eq 'Playing') {
-			print "status change: $old_status -> $new_status\n";
 			uninhibit();
 		}
 		$old_status = $new_status;
@@ -76,7 +75,7 @@ $mp_prop->connect_to_signal("PropertiesChanged", sub {
 });
 
 $old_status = $mp->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
-print "status currently: $old_status\n";
+print "$app_id: status currently: $old_status\n";
 if ($old_status eq 'Playing') {
 	inhibit();
 }

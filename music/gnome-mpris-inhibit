@@ -38,6 +38,7 @@ my $sm_svc = $bus->get_service("org.gnome.SessionManager");
 my $sm = $sm_svc->get_object("/org/gnome/SessionManager");
 my $mp_svc = $bus->get_service("org.mpris.MediaPlayer2.$player");
 my $mp = $mp_svc->get_object("/org/mpris/MediaPlayer2");
+my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
 
 sub inhibit {
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
@@ -49,7 +50,7 @@ sub uninhibit {
 	$cookie = 0;
 }
 
-$mp->connect_to_signal("PropertiesChanged", sub {
+$mp_prop->connect_to_signal("PropertiesChanged", sub {
 	my ($iface, $changed, $invalidated) = @_;
 	if ($iface eq 'org.mpris.MediaPlayer2.Player') {
 		my $new_status = $old_status;

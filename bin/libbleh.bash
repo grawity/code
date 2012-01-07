@@ -8,32 +8,32 @@ fi
 
 progname=${0##*/}
 
-if (( DEBUG )); then
+if [[ $DEBUG ]]; then
 	debug() {
-		echo "${progname}[$$]: $*" >&2
+		echo "${progname}[$$]: (${FUNCNAME[1]}) $*" >&2
 	}
 else
 	debug() { :; }
 fi
 
 log() {
-	echo "* $*"
+	echo "-- $*"
 }
 
 warn() {
-	echo "! $*" >&2
+	echo "warning: $*"
 	return 0
-}
+} >&2
 
 err() {
-	echo "error: $*" >&2
+	echo "error: $*"
 	return 1
-}
+} >&2
 
 die() {
-	err "$@"
+	echo "error: $*"
 	exit 1
-}
+} >&2
 
 backtrace() {
 	echo "call stack:"

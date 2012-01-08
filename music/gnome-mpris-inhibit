@@ -44,14 +44,16 @@ my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
 
 sub inhibit {
 	if ($cookie) {
-		die "$app_id: double inhibit attempted (have cookie $cookie)";
+		warn "$app_id: double inhibit attempted (have cookie $cookie)";
+		return;
 	}
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
 	print "$app_id: inhibit ok ($cookie)\n";
 }
 sub uninhibit {
 	if (!$cookie) {
-		die "$app_id: double uninhibit attempted";
+		warn "$app_id: double uninhibit attempted";
+		return;
 	}
 	$sm->Uninhibit($cookie);
 	print "$app_id: uninhibit ok\n";

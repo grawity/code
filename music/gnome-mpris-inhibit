@@ -1,4 +1,6 @@
 #!/usr/bin/env perl
+use warnings;
+use strict;
 use feature "say";
 use Net::DBus;
 use Net::DBus::Reactor;
@@ -11,14 +13,21 @@ use constant {
 
 sub usage {
 	say for
-		"usage: gnome-mpris-inhibit <playername>"
-		;
+	"Usage: gnome-mpris-inhibit <playername>",
+	"",
+	"Prevents system from automatically going into suspend while music is playing.",
+	"",
+	"<playername> is the last component of the player's MPRISv2 D-Bus name; for",
+	"example, \"banshee\" for \"org.mpris.MediaPlayer2.banshee\".",
+	;
 	exit(2);
 }
 
 my $player = shift(@ARGV) // usage();
 
-if ($player =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
+if ($player =~ /^-/) {
+	usage();
+} elsif ($player =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
 	$player = $1;
 } elsif ($player =~ /^org\.mpris\./) {
 	warn "error: MPRIS v1 interface is not supported\n";
@@ -31,16 +40,16 @@ my $reason	= "Media is playing.";
 my $flags	= INHIBIT_IDLE;
 
 my $cookie	= 0;
-my $old_status;
+my $old_status	= undef;
 
-my $bus = Net::DBus->session;
-my $sm_svc = $bus->get_service("org.gnome.SessionManager");
-my $sm = $sm_svc->get_object("/org/gnome/SessionManager");
-my $mp_svc = $bus->get_service("org.mpris.MediaPlayer2.$player");
-my $mp = $mp_svc->get_object("/org/mpris/MediaPlayer2");
+my $bus		= Net::DBus->session;
+my $sm_svc	= $bus->get_service("org.gnome.SessionManager");
+my $sm		= $sm_svc->get_object("/org/gnome/SessionManager");
+my $mp_svc	= $bus->get_service("org.mpris.MediaPlayer2.$player");
+my $mp		= $mp_svc->get_object("/org/mpris/MediaPlayer2");
 # needed due to Clementine exposing broken/incomplete introspection data,
 # lacking signals in particular
-my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
+my $mp_prop	= $mp->as_interface("org.freedesktop.DBus.Properties");
 
 sub inhibit {
 	if ($cookie) {
@@ -50,6 +59,7 @@ sub inhibit {
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
 	print "$app_id: inhibit ok ($cookie)\n";
 }
+
 sub uninhibit {
 	if (!$cookie) {
 		warn "$app_id: double uninhibit attempted";

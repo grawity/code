@@ -1,26 +1,39 @@
 #!/usr/bin/env perl
-use common::sense;
+use warnings;
+use strict;
+use feature "say";
 use Net::DBus;
 use Net::DBus::Reactor;
 
 sub usage {
 	say for
-	"Usage: gnome-mpris-keybind [playername]",
+	"Usage: gnome-mpris-keybind <playername>",
 	"",
-	"Use the last component of the MPRIS2 bus name as <playername>.",
-	"If no name specified, 'mpd' will be used by default.",
+	"<playername> is the last component of the player's MPRISv2 D-Bus name; for",
+	"example, \"mpd\" for \"org.mpris.MediaPlayer2.mpd\".",
 	;
-	return 2;
+	exit 2;
 }
 
-my $player = shift(@ARGV) // "mpd";
-exit(usage) if $player =~ /^-/;
+my $player = shift(@ARGV) // usage();
 
-my $bus = Net::DBus->session;
-my $mp = $bus->get_service("org.mpris.MediaPlayer2.$player");
-my $mp_player = $mp->get_object("/org/mpris/MediaPlayer2");
-my $gsd = $bus->get_service("org.gnome.SettingsDaemon");
-my $gsd_mmkeys = $gsd->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+if ($player =~ /^-/) {
+	usage();
+} elsif ($player =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
+	$player = $1;
+} elsif ($player =~ /^org\.mpris\./) {
+	warn "error: MPRIS v1 interface is not supported\n";
+	exit(1);
+}
+
+my $appname = "gnome-mpris-keybind ($player)";
+
+my $bus		= Net::DBus->session;
+my $mp_svc	= $bus->get_service("org.mpris.MediaPlayer2.$player");
+my $mp_player	= $mp->get_object("/org/mpris/MediaPlayer2");
+my $gsd_svc	= $bus->get_service("org.gnome.SettingsDaemon");
+my $gsd_mmkeys	= $gsd->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+
 $gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
 	my ($app, $key) = @_;
 	given ($key) {
@@ -38,8 +51,9 @@ $gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
 		}
 	}
 });
-my $appname = "gnome-mpris-keybind ($player)";
+
 $gsd_mmkeys->GrabMediaPlayerKeys($appname, 0);
+
 my $reactor = Net::DBus::Reactor->main;
 $reactor->run;
 exit(0);

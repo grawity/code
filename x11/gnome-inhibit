@@ -11,9 +11,14 @@ use constant {
 
 sub usage {
 	say for
-		"usage: gnome-inhibit <command> [args]",
-		"       gnome-inhibit     (pause until killed)",
-		;
+	"Usage: gnome-inhibit",
+	"       gnome-inhibit <command> [args...]",
+	"",
+	"Prevents system from going into suspend mode on idle.",
+	"",
+	"If <command> is given, inhibit will last until the command exits; otherwise,",
+	"this tool will keep running until manually killed/terminated.",
+	;
 	exit(2);
 }
 
@@ -21,33 +26,34 @@ my $app_id	= "gnome-inhibit";
 my $top_xid	= 0;
 my $reason	= "User-initiated inhibit.";
 my $flags	= INHIBIT_IDLE;
+
 my $cookie	= 0;
-my $mode	= "pause";
 my @cmd		= ();
+my $return	= 0;
 
 if ($ARGV[0] =~ /^-/) {
 	usage();
 } elsif (@ARGV) {
-	$mode = "exec";
 	@cmd = @ARGV;
-} else {
-	$mode = "pause";
 }
 
-my $bus = Net::DBus->session;
-my $sm_svc = $bus->get_service("org.gnome.SessionManager");
-my $sm = $sm_svc->get_object("/org/gnome/SessionManager");
+my $bus		= Net::DBus->session;
+my $sm_svc	= $bus->get_service("org.gnome.SessionManager");
+my $sm		= $sm_svc->get_object("/org/gnome/SessionManager");
 
 sub inhibit {
 	if ($cookie) {
-		die "$app_id: double inhibit attempted (have cookie $cookie)";
+		warn "$app_id: double inhibit attempted (have cookie $cookie)";
+		return;
 	}
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
 	print "$app_id: inhibit ok ($cookie)\n";
 }
+
 sub uninhibit {
 	if (!$cookie) {
-		die "$app_id: double uninhibit attempted";
+		warn "$app_id: double uninhibit attempted";
+		return;
 	}
 	$sm->Uninhibit($cookie);
 	print "$app_id: uninhibit ok\n";
@@ -56,12 +62,14 @@ sub uninhibit {
 
 inhibit();
 
-if ($mode eq 'pause') {
+if (@cmd) {
+	print "$app_id: executing command: @cmd\n";
+	$return = system {$cmd[0]} @cmd;
+	$return = POSIX::WEXITSTATUS($return);
+} else {
 	print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
 	POSIX::pause();
-} elsif ($mode eq 'exec') {
-	print "$app_id: executing command: @cmd\n";
-	system {$cmd[0]} @cmd;
 }
 
 uninhibit();
+exit($return);

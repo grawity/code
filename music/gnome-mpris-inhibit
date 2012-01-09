@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-use warnings;
+#use warnings;
 use strict;
 use feature "say";
 use Net::DBus;
@@ -39,17 +39,14 @@ my $top_xid	= 0;
 my $reason	= "Media is playing.";
 my $flags	= INHIBIT_IDLE;
 
+my $mp_name	= "org.mpris.MediaPlayer2.$player";
 my $cookie	= 0;
-my $old_status	= undef;
+my $old_status;
 
-my $bus		= Net::DBus->session;
-my $sm_svc	= $bus->get_service("org.gnome.SessionManager");
-my $sm		= $sm_svc->get_object("/org/gnome/SessionManager");
-my $mp_svc	= $bus->get_service("org.mpris.MediaPlayer2.$player");
-my $mp		= $mp_svc->get_object("/org/mpris/MediaPlayer2");
-# needed due to Clementine exposing broken/incomplete introspection data,
-# lacking signals in particular
-my $mp_prop	= $mp->as_interface("org.freedesktop.DBus.Properties");
+my $bus = Net::DBus->session;
+my $sm;
+my $mp;
+my $mp_prop;
 
 sub inhibit {
 	if ($cookie) {
@@ -70,34 +67,69 @@ sub uninhibit {
 	$cookie = 0;
 }
 
-$mp_prop->connect_to_signal("PropertiesChanged", sub {
-	my ($iface, $changed, $invalidated) = @_;
-	if ($iface eq 'org.mpris.MediaPlayer2.Player') {
-		my $new_status;
-		if ("PlaybackStatus" ~~ $changed) {
-			$new_status = $changed->{PlaybackStatus};
-		} elsif ("PlaybackStatus" ~~ $invalidated) {
-			$new_status = $mp->Get("org.mpris.MediaPlayer2.Player",
-							"PlaybackStatus");
-		} else {
-			return;
-		}
-		print "$app_id: status change: $old_status -> $new_status\n";
-		if ($new_status eq $old_status) {
-			return;
-		} elsif ($new_status eq 'Playing') {
-			inhibit();
-		} elsif ($old_status eq 'Playing') {
-			uninhibit();
-		}
-		$old_status = $new_status;
-	}
-});
+sub init_watch {
+	print "$app_id: started watching\n";
 
-$old_status = $mp->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
-print "$app_id: status currently: $old_status\n";
-if ($old_status eq 'Playing') {
-	inhibit();
+	$sm = $bus->get_service("org.gnome.SessionManager")
+			->get_object("/org/gnome/SessionManager");
+	$mp = $bus->get_service($mp_name)
+			->get_object("/org/mpris/MediaPlayer2");
+
+	# needed due to Clementine exposing broken/incomplete introspection data,
+	# lacking signals in particular
+	$mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
+
+	$mp_prop->connect_to_signal("PropertiesChanged", sub {
+		my ($iface, $changed, $invalidated) = @_;
+		if ($iface eq "org.mpris.MediaPlayer2.Player") {
+			my $new_status;
+			if ("PlaybackStatus" ~~ $changed) {
+				$new_status = $changed->{PlaybackStatus};
+			} elsif ("PlaybackStatus" ~~ $invalidated) {
+				$new_status = $mp->Get("org.mpris.MediaPlayer2.Player",
+								"PlaybackStatus");
+			} else {
+				return;
+			}
+
+			print "$app_id: status change: $old_status -> $new_status\n";
+			if ($new_status eq $old_status) {
+				return;
+			} elsif ($new_status eq 'Playing') {
+				inhibit();
+			} elsif ($old_status eq 'Playing') {
+				uninhibit();
+			}
+			$old_status = $new_status;
+		}
+	});
+
+	$old_status = $mp->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
+	print "$app_id: status currently: $old_status\n";
+	if ($old_status eq 'Playing') {
+		inhibit();
+	}
+}
+
+if (defined $bus->get_service_owner($mp_name)) {
+	init_watch();
+} else {
+	my $dbus = $bus->get_service("org.freedesktop.DBus")
+			->get_object("/org/freedesktop/DBus");
+
+	$dbus->connect_to_signal("NameOwnerChanged", sub {
+		my ($name, $old_owner, $new_owner) = @_;
+		if ($name eq $mp_name) {
+			if ($old_owner eq "" and $new_owner ne "") {
+				print "$app_id: $name claimed\n";
+				init_watch();
+			} elsif ($old_owner ne "" and $new_owner eq "") {
+				print "$app_id: $name disappeared\n";
+			}
+		}
+	});
+
+	print "$app_id: waiting for $mp_name to appear\n";
 }
 
 my $reactor = Net::DBus::Reactor->main;

@@ -34,19 +34,20 @@ if ($player =~ /^-/) {
 	exit(1);
 }
 
+# Inhibit API settings
 my $app_id	= "gnome-mpris-inhibit ($player)";
 my $top_xid	= 0;
 my $reason	= "Media is playing.";
 my $flags	= INHIBIT_IDLE;
 
+# MPRIS variables
 my $mp_name	= "org.mpris.MediaPlayer2.$player";
 my $cookie	= 0;
-my $old_status;
+my $old_status	= undef;
 
 my $bus = Net::DBus->session;
 my $sm;
 my $mp;
-my $mp_prop;
 
 sub inhibit {
 	if ($cookie) {
@@ -77,7 +78,7 @@ sub init_watch {
 
 	# needed due to Clementine exposing broken/incomplete introspection data,
 	# lacking signals in particular
-	$mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
+	my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
 
 	$mp_prop->connect_to_signal("PropertiesChanged", sub {
 		my ($iface, $changed, $invalidated) = @_;

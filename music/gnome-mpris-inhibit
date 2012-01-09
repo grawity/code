@@ -41,14 +41,15 @@ my $reason	= "Media is playing.";
 my $flags	= INHIBIT_IDLE;
 
 # MPRIS variables
-my $mp_name	= "org.mpris.MediaPlayer2.$player";
-my $ih_cookie	= 0;
-my $old_status	= undef;
-my $watching	= 0;
+my $player_bus_name = "org.mpris.MediaPlayer2.$player";
+my $ih_cookie;
+my $old_status;
+my $watching;
 
-my $bus = Net::DBus->session;
-my $sm;
-my $mp;
+my $bus;
+my $dbus;
+my $sessmgr;
+my $player;
 
 sub trace {
 	my ($msg) = @_;
@@ -60,7 +61,7 @@ sub inhibit {
 		warn "$app_id: double inhibit attempted (have cookie $ih_cookie)";
 		return;
 	}
-	$ih_cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	$ih_cookie = $sessmgr->Inhibit($app_id, $top_xid, $reason, $flags);
 	trace("inhibit ok ($ih_cookie)");
 }
 
@@ -69,7 +70,7 @@ sub uninhibit {
 		warn "$app_id: double uninhibit attempted";
 		return;
 	}
-	$sm->Uninhibit($ih_cookie);
+	$sessmgr->Uninhibit($ih_cookie);
 	$ih_cookie = 0;
 	trace("uninhibit ok");
 }
@@ -77,23 +78,24 @@ sub uninhibit {
 sub init_watch {
 	trace("started watching");
 
-	$sm = $bus->get_service("org.gnome.SessionManager")
+	$sessmgr = $bus->get_service("org.gnome.SessionManager")
 			->get_object("/org/gnome/SessionManager");
-	$mp = $bus->get_service($mp_name)
+
+	$player = $bus->get_service($player_bus_name)
 			->get_object("/org/mpris/MediaPlayer2");
 
 	# needed due to Clementine exposing broken/incomplete introspection data,
 	# lacking signals in particular
-	my $mp_prop = $mp->as_interface("org.freedesktop.DBus.Properties");
+	my $player_prop = $player->as_interface("org.freedesktop.DBus.Properties");
 
-	$mp_prop->connect_to_signal("PropertiesChanged", sub {
+	$player_prop->connect_to_signal("PropertiesChanged", sub {
 		my ($iface, $changed, $invalidated) = @_;
 		if ($iface eq "org.mpris.MediaPlayer2.Player") {
 			my $new_status;
 			if ("PlaybackStatus" ~~ $changed) {
 				$new_status = $changed->{PlaybackStatus};
 			} elsif ("PlaybackStatus" ~~ $invalidated) {
-				$new_status = $mp->Get("org.mpris.MediaPlayer2.Player",
+				$new_status = $player->Get("org.mpris.MediaPlayer2.Player",
 								"PlaybackStatus");
 			} else {
 				return;
@@ -111,7 +113,7 @@ sub init_watch {
 		}
 	});
 
-	$old_status = $mp->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
+	$old_status = $player->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
 	trace("status currently: $old_status");
 	if ($old_status eq 'Playing') {
 		inhibit();
@@ -120,12 +122,14 @@ sub init_watch {
 	$watching = 1;
 }
 
-my $dbus = $bus->get_service("org.freedesktop.DBus")
+$bus = Net::DBus->session;
+
+$dbus = $bus->get_service("org.freedesktop.DBus")
 		->get_object("/org/freedesktop/DBus");
 
 $dbus->connect_to_signal("NameOwnerChanged", sub {
 	my ($name, $old_owner, $new_owner) = @_;
-	if ($name eq $mp_name) {
+	if ($name eq $player_bus_name) {
 		if ($old_owner eq "" and $new_owner ne "") {
 			trace("$name claimed");
 			init_watch() if !$watching;
@@ -137,10 +141,10 @@ $dbus->connect_to_signal("NameOwnerChanged", sub {
 	}
 });
 
-if (defined $bus->get_service_owner($mp_name)) {
+if (defined $bus->get_service_owner($player_bus_name)) {
 	init_watch();
 } else {
-	trace("waiting for $mp_name to appear");
+	trace("waiting for $player_bus_name to appear");
 }
 
 my $reactor = Net::DBus::Reactor->main;

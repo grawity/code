@@ -42,34 +42,40 @@ my $flags	= INHIBIT_IDLE;
 
 # MPRIS variables
 my $mp_name	= "org.mpris.MediaPlayer2.$player";
-my $cookie	= 0;
+my $ih_cookie	= 0;
 my $old_status	= undef;
+my $watching	= 0;
 
 my $bus = Net::DBus->session;
 my $sm;
 my $mp;
 
+sub trace {
+	my ($msg) = @_;
+	say "$app_id: $msg";
+}
+
 sub inhibit {
-	if ($cookie) {
-		warn "$app_id: double inhibit attempted (have cookie $cookie)";
+	if ($ih_cookie) {
+		warn "$app_id: double inhibit attempted (have cookie $ih_cookie)";
 		return;
 	}
-	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
-	print "$app_id: inhibit ok ($cookie)\n";
+	$ih_cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	trace("inhibit ok ($ih_cookie)");
 }
 
 sub uninhibit {
-	if (!$cookie) {
+	if (!$ih_cookie) {
 		warn "$app_id: double uninhibit attempted";
 		return;
 	}
-	$sm->Uninhibit($cookie);
-	print "$app_id: uninhibit ok\n";
-	$cookie = 0;
+	$sm->Uninhibit($ih_cookie);
+	$ih_cookie = 0;
+	trace("uninhibit ok");
 }
 
 sub init_watch {
-	print "$app_id: started watching\n";
+	trace("started watching");
 
 	$sm = $bus->get_service("org.gnome.SessionManager")
 			->get_object("/org/gnome/SessionManager");
@@ -92,8 +98,8 @@ sub init_watch {
 			} else {
 				return;
 			}
+			trace("status change: $old_status -> $new_status");
 
-			print "$app_id: status change: $old_status -> $new_status\n";
 			if ($new_status eq $old_status) {
 				return;
 			} elsif ($new_status eq 'Playing') {
@@ -106,34 +112,36 @@ sub init_watch {
 	});
 
 	$old_status = $mp->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
-	print "$app_id: status currently: $old_status\n";
+	trace("status currently: $old_status");
 	if ($old_status eq 'Playing') {
 		inhibit();
 	}
+
+	$watching = 1;
 }
+
+my $dbus = $bus->get_service("org.freedesktop.DBus")
+		->get_object("/org/freedesktop/DBus");
+
+$dbus->connect_to_signal("NameOwnerChanged", sub {
+	my ($name, $old_owner, $new_owner) = @_;
+	if ($name eq $mp_name) {
+		if ($old_owner eq "" and $new_owner ne "") {
+			trace("$name claimed");
+			init_watch() if !$watching;
+		} elsif ($old_owner ne "" and $new_owner eq "") {
+			trace("$name disappeared");
+			uninhibit() if $ih_cookie;
+			$old_status = 'Stopped';
+		}
+	}
+});
 
 if (defined $bus->get_service_owner($mp_name)) {
 	init_watch();
 } else {
-	my $dbus = $bus->get_service("org.freedesktop.DBus")
-			->get_object("/org/freedesktop/DBus");
-
-	$dbus->connect_to_signal("NameOwnerChanged", sub {
-		my ($name, $old_owner, $new_owner) = @_;
-		if ($name eq $mp_name) {
-			if ($old_owner eq "" and $new_owner ne "") {
-				print "$app_id: $name claimed\n";
-				init_watch();
-			} elsif ($old_owner ne "" and $new_owner eq "") {
-				print "$app_id: $name disappeared\n";
-			}
-		}
-	});
-
-	print "$app_id: waiting for $mp_name to appear\n";
+	trace("waiting for $mp_name to appear");
 }
 
 my $reactor = Net::DBus::Reactor->main;
 $reactor->run;
-exit(0);
-# gnome-session takes care of cleanup

@@ -52,9 +52,7 @@ my $old_status;
 my $watching;
 
 my $bus;
-my $dbus;
 my $sessmgr;
-my $player;
 
 sub trace {
 	my ($msg) = @_;
@@ -86,12 +84,9 @@ sub init_watch {
 	$sessmgr = $bus->get_service("org.gnome.SessionManager")
 			->get_object("/org/gnome/SessionManager");
 
-	$player = $bus->get_service($player_bus_name)
-			->get_object("/org/mpris/MediaPlayer2");
-
-	# needed due to Clementine exposing broken/incomplete introspection data,
-	# lacking signals in particular
-	my $player_prop = $player->as_interface("org.freedesktop.DBus.Properties");
+	my $player_prop = $bus->get_service($player_bus_name)
+			->get_object("/org/mpris/MediaPlayer2")
+			->as_interface("org.freedesktop.DBus.Properties");
 
 	$player_prop->connect_to_signal("PropertiesChanged", sub {
 		my ($iface, $changed, $invalidated) = @_;
@@ -100,7 +95,7 @@ sub init_watch {
 			if ("PlaybackStatus" ~~ $changed) {
 				$new_status = $changed->{PlaybackStatus};
 			} elsif ("PlaybackStatus" ~~ $invalidated) {
-				$new_status = $player->Get("org.mpris.MediaPlayer2.Player",
+				$new_status = $player_prop->Get("org.mpris.MediaPlayer2.Player",
 								"PlaybackStatus");
 			} else {
 				return;
@@ -118,7 +113,7 @@ sub init_watch {
 		}
 	});
 
-	$old_status = $player->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
+	$old_status = $player_prop->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
 	trace("status currently: $old_status");
 	if ($old_status eq 'Playing') {
 		inhibit();
@@ -129,7 +124,7 @@ sub init_watch {
 
 $bus = Net::DBus->session;
 
-$dbus = $bus->get_service("org.freedesktop.DBus")
+my $dbus = $bus->get_service("org.freedesktop.DBus")
 		->get_object("/org/freedesktop/DBus");
 
 $dbus->connect_to_signal("NameOwnerChanged", sub {

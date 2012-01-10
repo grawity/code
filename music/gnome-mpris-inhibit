@@ -1,5 +1,10 @@
 #!/usr/bin/env perl
-#use warnings;
+# gnome-mpris-inhibit - suspend GNOME "session idle" check while music is playing
+#
+# © 2012 Mantas M. <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
+use warnings;
 use strict;
 use feature "say";
 use Net::DBus;
@@ -23,25 +28,25 @@ sub usage {
 	exit(2);
 }
 
-my $player = shift(@ARGV) // usage();
+my $player_name = shift(@ARGV) // usage();
 
-if ($player =~ /^-/) {
+if ($player_name =~ /^-/) {
 	usage();
-} elsif ($player =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
-	$player = $1;
-} elsif ($player =~ /^org\.mpris\./) {
+} elsif ($player_name =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
+	$player_name = $1;
+} elsif ($player_name =~ /^org\.mpris\./) {
 	warn "error: MPRIS v1 interface is not supported\n";
 	exit(1);
 }
 
 # Inhibit API settings
-my $app_id	= "gnome-mpris-inhibit ($player)";
+my $app_id	= "gnome-mpris-inhibit ($player_name)";
 my $top_xid	= 0;
 my $reason	= "Media is playing.";
 my $flags	= INHIBIT_IDLE;
 
 # MPRIS variables
-my $player_bus_name = "org.mpris.MediaPlayer2.$player";
+my $player_bus_name = "org.mpris.MediaPlayer2.$player_name";
 my $ih_cookie;
 my $old_status;
 my $watching;

@@ -1,7 +1,13 @@
 #!/usr/bin/env perl
+# gnome-mpris-keybind - forward media keys in GNOME to a MPRISv2-capable player
+#
+# © 2011 Mantas M. <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
 use warnings;
 use strict;
 use feature "say";
+use feature "switch";
 use Net::DBus;
 use Net::DBus::Reactor;
 
@@ -15,27 +21,27 @@ sub usage {
 	exit 2;
 }
 
-my $player = shift(@ARGV) // usage();
+my $player_name = shift(@ARGV) // usage();
 
-if ($player =~ /^-/) {
+if ($player_name =~ /^-/) {
 	usage();
-} elsif ($player =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
-	$player = $1;
-} elsif ($player =~ /^org\.mpris\./) {
+} elsif ($player_name =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
+	$player_name = $1;
+} elsif ($player_name =~ /^org\.mpris\./) {
 	warn "error: MPRIS v1 interface is not supported\n";
 	exit(1);
 }
 
-my $appname = "gnome-mpris-keybind ($player)";
+my $app_id	= "gnome-mpris-keybind ($player_name)";
 
 my $bus		= Net::DBus->session;
-my $mp_svc	= $bus->get_service("org.mpris.MediaPlayer2.$player");
-my $mp_player	= $mp->get_object("/org/mpris/MediaPlayer2");
-my $gsd_svc	= $bus->get_service("org.gnome.SettingsDaemon");
-my $gsd_mmkeys	= $gsd->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+my $mp_player	= $bus->get_service("org.mpris.MediaPlayer2.$player_name")
+			->get_object("/org/mpris/MediaPlayer2");
+my $gsd_mmkeys	= $bus->get_service("org.gnome.SettingsDaemon")
+			->get_object("/org/gnome/SettingsDaemon/MediaKeys");
 
 $gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
-	my ($app, $key) = @_;
+	my ($app_id, $key) = @_;
 	given ($key) {
 		when ("Play") {
 			$mp_player->PlayPause();
@@ -52,7 +58,7 @@ $gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
 	}
 });
 
-$gsd_mmkeys->GrabMediaPlayerKeys($appname, 0);
+$gsd_mmkeys->GrabMediaPlayerKeys($app_id, 0);
 
 my $reactor = Net::DBus::Reactor->main;
 $reactor->run;

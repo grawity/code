@@ -42,19 +42,11 @@ my $sm_svc	= $bus->get_service("org.gnome.SessionManager");
 my $sm		= $sm_svc->get_object("/org/gnome/SessionManager");
 
 sub inhibit {
-	if ($cookie) {
-		warn "$app_id: double inhibit attempted (have cookie $cookie)";
-		return;
-	}
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
 	print "$app_id: inhibit ok ($cookie)\n";
 }
 
 sub uninhibit {
-	if (!$cookie) {
-		warn "$app_id: double uninhibit attempted";
-		return;
-	}
 	$sm->Uninhibit($cookie);
 	print "$app_id: uninhibit ok\n";
 	$cookie = 0;

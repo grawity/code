@@ -1,9 +1,7 @@
 /*
- * pklist.c
+ * pklist.c - parseable 'klist'
  *
- * Parseable `klist`.
- *
- * © 2010 <grawity@gmail.com>
+ * © 2010 Mantas M. <grawity@gmail.com>
  * Relesed under WTFPL v2 <http://sam.zoy.org/wtfpl/>
  * Portions of code lifted from MIT Kerberos (clients/klist/klist.c)
  */

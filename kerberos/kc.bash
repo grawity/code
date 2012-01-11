@@ -1,5 +1,7 @@
 #!bash
-# NOTE: Must be 'source'd (ie. from bashrc) in order for cache switching to work.
+# kc.bash - Kerberos credential cache juggler
+#
+# Must be 'source'd (ie. from bashrc) in order for cache switching to work.
 
 # Translate Unix timestamp to relative time string
 _kc_relative_time() {

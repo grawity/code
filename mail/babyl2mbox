@@ -1,0 +1,103 @@
+#!/usr/bin/env perl
+# babyl2mbox - convert Rmail BABYL storage format to mboxrd.
+#
+# Originally written to convert the following, which `formail -B` could not:
+# <http://www.ibiblio.org/pub/Linux/docs/old/misc/linux_is_obsolete.txt.z>
+# I didn't bother with finding any actual format documentation.
+#
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
+use warnings;
+use strict;
+use POSIX qw(strftime);
+use constant TIMEFMT_MBOX => '%a %b %_d %H:%M:%S %Y';
+
+my $state = "babylmagic";
+my @mailheader = ();
+my $count = 0;
+
+sub parse_date {
+	my ($str) = @_;
+
+	my %MONTHS = qw(Jan 0 Feb 1 Mar 2 Apr 3 May 4 Jun 5
+			Jul 6 Aug 7 Sep 8 Oct 9 Nov 10 Dec 11);
+
+	if (my @m = $str =~ /^(?:(\w+), )?(\d+) (\w+) (\d+) (\d+):(\d+):(\d+) (\w+)$/) {
+		my ($wday, $day, $mon, $yr, $hr, $mn, $sec, $tz) = @m;
+		if ($yr >= 100) { $yr -= 1900; }
+		return ($sec, $mn, $hr, $day, $MONTHS{$mon}, $yr);
+	} else {
+		warn "unparsed date: $str\n";
+	}
+}
+
+sub output_header {
+	my ($from, $date);
+	for (@mailheader) {
+		if (/^From: (.+)/) {
+			$from = $1;
+		}
+		elsif (/^Date: (.+)/) {
+			$date = $1;
+		}
+	}
+
+	$from =~ s/\s*\(.+?\)\s*/ /g;
+	$from =~ s/^\s+//;
+	$from =~ s/\s+$//;
+
+	$date = strftime(TIMEFMT_MBOX, parse_date($date));
+
+	print "From $from $date\n";
+
+	print "$_\n" for @mailheader;
+	print "\n";
+}
+
+if (!@ARGV and -t 0) {
+	warn "Expecting BABYL mail file as stdin.\n";
+}
+
+while (<>) {
+	chomp;
+	if ($state eq "babylmagic") {
+		if ($_ eq "BABYL OPTIONS:") {
+			$state = "babylheader";
+		} else {
+			warn "first line is not BABYL header\n";
+		}
+	}
+	elsif ($_ eq "\037\014") {
+		$state = "msgstatus";
+		if ($count++ > 0) {
+			print "\n";
+		}
+	}
+	elsif ($state eq "babylheader") {
+		if (/^Version: (\d+)/) {
+			if ($1 != 5) {
+				warn "script not tested with BABYL version $1\n";
+			}
+		}
+	}
+	elsif ($state eq "msgstatus") {
+		if ($_ eq '*** EOOH ***') {
+			$state = "mailheader";
+			@mailheader = ();
+		}
+	}
+	elsif ($state eq "mailheader") {
+		if ($_ eq '') {
+			output_header;
+			$state = "mailbody";
+		} else {
+			push @mailheader, $_;
+		}
+	}
+	elsif ($state eq "mailbody") {
+		if (/^>*From /) {
+			s/^/>/;
+		}
+		print "$_\n";
+	}
+}

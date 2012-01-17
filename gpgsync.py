@@ -4,16 +4,16 @@ from operator import attrgetter
 class GpgKeyring(dict):
 	def __init__(self):
 		self.last_key = None
-	
+
 	def add_key(self, key_id):
 		key = GpgKey(key_id)
 		self[key.id] = key
 		self.last_key = key
-	
+
 	@classmethod
 	def load(self, *gpgoptions):
 		keyring = self()
-		gpgargs = ["gpg", "--with-colons"] #, "--fast-list-mode"]
+		gpgargs = ["gpg", "--with-colons", "--fast-list-mode"]
 		gpgargs += gpgoptions
 		gpgargs += ["--list-sigs"]
 		proc = subprocess.Popen(gpgargs,
@@ -24,77 +24,43 @@ class GpgKeyring(dict):
 			if line[0] == "pub":
 				id = line[4]
 				keyring.add_key(id)
-			elif line[0] == "uid":
-				keyring.last_key.add_uid()
 			elif line[0] == "sig":
 				signer_id = line[4]
 				timestamp = int(line[5])
-				keyring.last_key.last_uid.add_sig(signer_id, timestamp)
-		
+				keyring.last_key.add_sig(signer_id, timestamp)
+
 		return keyring
 
 class GpgKey(object):
 	def __init__(self, key_id):
 		self.id = key_id
-		self.uids = []
-		self.last_uid = None
-	
-	def __repr__(self):
-		return "Key(id=%r, uids=%r)" % (self.id, self.uids)
-
-	def add_uid(self, name=None):
-		uid = GpgUid(name)
-		self.uids.append(uid)
-		self.last_uid = uid
-	
-	def num_uids(self):
-		return len(self.uids)
-	
-	def num_sigs(self):
-		return sum(len(uid.sigs) for uid in self.uids)
-
-class GpgUid(object):
-	def __init__(self, name):
-		self.name = name
 		self.sigs = set()
-	
+
 	def __repr__(self):
-		return "Uid(name=%r, sigs=%r)" % (self.name, self.sigs)
+		return "Key(id=%r, sigs=%r)" % (self.id, self.sigs)
 
 	def add_sig(self, signer_id, timestamp):
 		sig = signer_id, timestamp
 		self.sigs.add(sig)
-	
-def keyring_diff(local, remote):
-	keys_local_only = []
-	keys_local_moreuids = []
-	keys_local_moresigs = []
-	keys_remote_only = []
-	keys_remote_moreuids = []
-	keys_remote_moresigs = []
-	
-	# TODO: sync key removal
-	
-	for id in local:
-		if id not in remote:
-			keys_local_only.append(id)
-		elif local[id].num_uids() > remote[id].num_uids():
-			keys_local_moreuids.append(id)
-		elif local[id].num_sigs() > remote[id].num_sigs():
-			keys_local_moresigs.append(id)
 
-	for id in remote:
-		if id not in local:
-			keys_remote_only.append(id)
-		elif remote[id].num_uids() > local[id].num_uids():
-			keys_remote_moreuids.append(id)
-		elif remote[id].num_sigs() > local[id].num_sigs():
-			keys_remote_moresigs.append(id)
-	
-	keys_export = set(keys_local_only + keys_local_moreuids + keys_local_moresigs)
-	keys_import = set(keys_remote_only + keys_local_moreuids + keys_remote_moresigs)
-	
-	return keys_export, keys_import
+def keyring_diff(local, remote):
+	to_remote = set()
+	to_local = set()
+
+	# TODO: sync key removal
+
+	all_ids = set(local.keys()) | set(remote.keys())
+
+	for id in all_ids:
+		if id in local and id not in remote:
+			to_remote.add(id)
+		elif id in remote and id not in local:
+			to_local.add(id)
+		elif local[id].sigs != remote[id].sigs:
+			to_remote.add(id)
+			to_local.add(id)
+
+	return to_remote, to_local
 
 def gpg_transport(src_args, dst_args, key_ids):
 	export_args = ["gpg",

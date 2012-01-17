@@ -3,6 +3,7 @@ from operator import attrgetter
 
 class GpgKeyring(dict):
 	def __init__(self):
+		self.gpgoptions = None
 		self.last_key = None
 
 	def add_key(self, key_id):
@@ -13,6 +14,8 @@ class GpgKeyring(dict):
 	@classmethod
 	def load(self, *gpgoptions):
 		keyring = self()
+		keyring.gpgoptions = gpgoptions
+
 		gpgargs = ["gpg", "--with-colons", "--fast-list-mode"]
 		gpgargs += gpgoptions
 		gpgargs += ["--list-sigs"]

@@ -47,20 +47,20 @@ class GpgKey(object):
 		self.sigs.add(sig)
 
 def keyring_diff(local, remote):
-	to_remote = set()
-	to_local = set()
+	local_keys = set(local)
+	remote_keys = set(remote)
 
 	# TODO: sync key removal
 
-	all_ids = set(local.keys()) | set(remote.keys())
+	to_remote = local_keys - remote_keys
+	to_local = remote_keys - local_keys
 
-	for id in all_ids:
-		if id in local and id not in remote:
+	for id in local_keys & remote_keys:
+		if local[id].sigs - remote[id].sigs:
+			print id, "local[%d] > remote[%d]" % (len(local[id].sigs), len(remote[id].sigs))
 			to_remote.add(id)
-		elif id in remote and id not in local:
-			to_local.add(id)
-		elif local[id].sigs != remote[id].sigs:
-			to_remote.add(id)
+		if remote[id].sigs - local[id].sigs:
+			print id, "local[%d] < remote[%d]" % (len(local[id].sigs), len(remote[id].sigs))
 			to_local.add(id)
 
 	return to_remote, to_local

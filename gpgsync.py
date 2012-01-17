@@ -97,6 +97,15 @@ def keyring_diff(local, remote):
 	return keys_export, keys_import
 
 def gpg_transport(src_args, dst_args, key_ids):
+	export_args = ["gpg",
+			"--export-options",
+				"export-local-sigs,export-sensitive-revkeys"]
+	import_args = ["gpg",
+			"-v",
+			"--import-options",
+				"import-local-sigs",
+			"--allow-non-selfsigned-uid"]
+
 	export_cmd = export_args + src_args + ["--export"] + ["0x%s" % id for id in key_ids]
 	import_cmd = import_args + dst_args + ["--import"]
 
@@ -111,15 +120,6 @@ def gpg_transport(src_args, dst_args, key_ids):
 
 local_args = []
 remote_args = ["--home", "testgpg"]
-
-export_args = ["gpg",
-		"--export-options",
-			"export-local-sigs,export-sensitive-revkeys"]
-import_args = ["gpg",
-		"-v",
-		"--import-options",
-			"import-local-sigs",
-		"--allow-non-selfsigned-uid"]
 
 local = GpgKeyring.load(*local_args)
 print "Local: %d keys" % len(local)

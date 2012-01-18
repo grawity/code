@@ -7,14 +7,14 @@
 ## Command-line options
 
   * `-C`: also list config principals (used by Kerberos internally)
-  * `-c` *type:rest*: list contents of a specific ccache
+  * `-c type:rest`: list contents of a specific ccache
   * `-l`: list ccaches in a collection
   * `-ll`: list contents of all ccaches
   * `-N`: print only the ccache name
   * `-P`: print only the default client principal
   * `-p`: print only tickets' principal names
   * `-R`: print only the configured default realm
-  * `-r` *fqdn*: print only the realm for given FQDN
+  * `-r fqdn`: print only the realm for given FQDN
 
 ## Output format
 

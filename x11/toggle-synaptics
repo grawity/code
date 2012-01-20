@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# toggle-synaptics - Enable or disable the Synaptics touchpad
+
+set -e
+
+settings=$(synclient)
+
+mode=$(echo "$settings" | awk '$1 == "TouchpadOff" {print $3}')
+
+if [[ $mode == 1 ]]; then
+	newmode=0
+	msg="Touchpad enabled"
+	icon='input-touchpad-symbolic'
+else
+	newmode=1
+	msg="Touchpad disabled"
+	icon='touchpad-disabled-symbolic'
+fi
+
+synclient "TouchpadOff=$newmode"
+
+echo "$msg"
+
+notify -i "$icon"	\
+	-a "Touchpad"	\
+	-s "+synaptics"	\
+	-t 3		\
+	"$msg"		;

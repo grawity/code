@@ -7,6 +7,8 @@ use common::sense;
 use Net::DBus;
 use Getopt::Long qw(:config no_ignore_case bundling);
 
+my $statedir	= ($ENV{XDG_CACHE_HOME} // $ENV{HOME}."/.cache") . "/notify/";
+
 my $urgency	= 1;
 my $icon	= "";
 my $id		= 0;
@@ -35,6 +37,7 @@ $summary = shift(@ARGV) or die "notify: summary not given\n";
 $body = join(" ", @ARGV);
 
 if (defined $statefile) {
+	$statefile =~ s/^\+/$statedir/;
 	if (open(my $fh, "<", $statefile)) {
 		$id = int <$fh>;
 		chomp($oldbody = join("", <$fh>));

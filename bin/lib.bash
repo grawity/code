@@ -55,13 +55,14 @@ confirm() {
 backtrace() {
 	echo "call stack:"
 	for i in "${!BASH_SOURCE[@]}"; do
-		echo "... ${BASH_SOURCE[i]}:${BASH_LINENO[i]} @ ${FUNCNAME[i-1]}"
+		echo "... ${BASH_SOURCE[i]}:${BASH_LINENO[i]} @ ${FUNCNAME[i]}"
 	done
 } >&2
 
 ## Various
 
 use() {
+	local lib=
 	for lib; do
 		debug "loading lib$lib.bash"
 		. "lib$lib.bash" ||

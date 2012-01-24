@@ -6,7 +6,7 @@
 filter_file() {
 	local maskfunc=${1:-false}
 	local line='' masked=false mask='' matched=false skipped=0
-	while read -r line; do
+	while IFS='' read -r line; do
 		if [[ $line == '#if '* ]]; then
 			masked=true
 			mask=${line#'#if '}

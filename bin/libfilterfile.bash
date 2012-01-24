@@ -30,6 +30,9 @@ filter_file() {
 			echo "$line"
 		fi
 	done
+	if $masked; then
+		warn "missing '#endif' after '#if $mask'"
+	fi
 }
 
 match_hostname() {

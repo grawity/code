@@ -1,23 +1,22 @@
 #!bash
 # lib.bash - a few very basic functions for bash cripts
 
-if [[ $__LIB == 'y' ]]; then
+if [[ $__LIBROOT ]]; then
 	return
 else
-	__LIB=y
+	__LIBROOT=${BASH_SOURCE[0]%/*}
 fi
-
-progname=${0##*/}
 
 ## Logging
 
-if [[ $DEBUG ]]; then
-	debug() {
-		echo "${progname}[$$]: (${FUNCNAME[1]}) $*" >&2
-	}
-else
-	debug() { :; }
-fi
+progname=${0##*/}
+
+debug() {
+	if [[ $DEBUG ]]; then
+		echo "$progname[$$]: (${FUNCNAME[1]}) $*"
+	fi
+	return 0
+} >&2
 
 log() {
 	echo "-- $*"
@@ -62,11 +61,16 @@ backtrace() {
 ## Various
 
 use() {
-	local lib=
+	local lib= file=
 	for lib; do
-		debug "loading lib$lib.bash"
-		. "lib$lib.bash" ||
-		die "failed to load lib$lib.bash"
+		file="lib$lib.bash"
+		if have "$file"; then
+			debug "loading $file from path"
+		else
+			debug "loading $file from libroot"
+			file="$__LIBROOT/$file"
+		fi
+		. "$__LIBROOT/$file" || die "failed to load $file"
 	done
 }
 
@@ -74,8 +78,11 @@ have() {
 	command -v "$1" >&/dev/null
 }
 
-##
+## Final
 
-if [[ $DEBUG ]]; then
-	debug "lib.bash loaded by $0"
-fi
+debug "lib.bash loaded by $0 from $__LIBROOT"
+
+#if ! have "${BASH_SOURCE[0]##*/}"; then
+#	debug "adding $__LIBROOT to \$PATH"
+#	PATH="$__LIBROOT:$PATH"
+#fi

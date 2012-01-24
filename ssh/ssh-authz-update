@@ -24,6 +24,7 @@ VERBOSE=""
 FQDN=$(fqdn) || exit 1
 
 . lib.bash		|| exit 1
+. libfilterfile.bash	|| exit 1
 . libhttpfetch.bash	|| exit 1
 
 usage() {
@@ -86,38 +87,8 @@ verify() {
 	fi
 }
 
-host_match() {
-	local mask=$1
-	debug "matching '$FQDN', '$HOSTNAME' against '$mask'"
-	(shopt -s extglob;
-		[[ $FQDN == $mask || $HOSTNAME == $mask ]])
-}
-
 filter_keys() {
-	local line='' masked=false mask='' matched=false skipped=0 
-	while read -r line; do
-		if [[ $line == '#if '* ]]; then
-			masked=true
-			mask=${line#'#if '}
-			if host_match "$mask"; then
-				matched=true
-			else
-				matched=false
-			fi
-			skipped=0
-			debug "start masked region, mask='$mask', matched=$matched"
-			continue
-		elif [[ $line == '#endif' ]]; then
-			masked=false
-			debug "end masked region, skipped $skipped lines"
-			continue
-		elif $masked && ! $matched; then
-			((++skipped))
-			continue
-		else
-			echo "$line"
-		fi
-	done
+	filter_file 'match_hostname'
 }
 
 debug=":"

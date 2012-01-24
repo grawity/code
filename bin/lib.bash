@@ -59,14 +59,15 @@ backtrace() {
 	done
 } >&2
 
+## Various
+
 use() {
 	for lib; do
 		debug "loading lib$lib.bash"
-		. "lib${lib}.bash"
+		. "lib$lib.bash" ||
+		die "failed to load lib$lib.bash"
 	done
 }
-
-## Various
 
 have() {
 	command -v "$1" >&/dev/null

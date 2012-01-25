@@ -1,5 +1,5 @@
 #!bash
-. libbleh.bash
+. lib.bash
 
 : ${VIRTUALBOX_LIBEXEC:='/usr/lib/virtualbox'}
 

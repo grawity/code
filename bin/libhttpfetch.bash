@@ -1,5 +1,4 @@
 #!bash
-
 http_fetch() {
 	local url="$1" out="${2:-/dev/stdout}"
 	if have curl; then

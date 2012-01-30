@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-# Account and password database. For my own internal use.
+# accdb - account database (internal use only)
 
 """
 General syntax:
@@ -20,6 +20,8 @@ Misc syntax notes:
 Database will be rewritten and all shorthands expanded if any change is made,
 also when doing 'accdb touch'.
 """
+
+from __future__ import print_function
 import os
 import sys
 import fnmatch
@@ -120,7 +122,7 @@ class Database():
 			try:
 				key, val = line.split(sep, 1)
 			except ValueError:
-				print >> sys.stderr, "syntax error on line %d" % lineno
+				print("syntax error on line %d" % lineno, file=sys.stderr)
 				cur.comment.append("%s" % line)
 				return cur
 			key, val = key.strip(), val.strip()
@@ -167,7 +169,7 @@ class Database():
 
 	def save(self):
 		map(str, self.data) # make sure __str__() does not fail
-		print "Writing database"
+		print("Writing database")
 		with open(self.path, "w") as fh:
 			self.dump(fh)
 		self.modified = False
@@ -175,13 +177,13 @@ class Database():
 	def dump(self, fh=sys.stdout):
 		for item in self.data:
 			if "deleted" not in item.flags:
-				print >> fh, item.reveal()
+				print(item.reveal(), file=fh)
 
 	def dump_json(self, fh=sys.stdout):
 		try:
 			import json
 		except ImportError:
-			print >> sys.stderr, "Module 'json' not found."
+			print("Module 'json' not found.", file=sys.stderr)
 		else:
 			dbx = []
 			for item in db.data:
@@ -189,13 +191,13 @@ class Database():
 				if len(item.flags):
 					itemx["flags"] = list(item.flags)
 				dbx.append(itemx)
-			print >> fh, json.dumps(dbx, indent=4)
+			print(json.dumps(dbx, indent=4), file=fh)
 
 	def dump_yaml(self, fh=sys.stdout):
 		try:
 			import yaml
 		except ImportError:
-			print >> sys.stderr, "Module 'yaml' not found."
+			print("Module 'yaml' not found.", file=sys.stderr)
 		else:
 			dbx = []
 			for item in db.data:
@@ -203,7 +205,7 @@ class Database():
 				if len(item.flags):
 					itemx["flags"] = list(item.flags)
 				dbx.append(itemx)
-			print >> fh, yaml.dump(dbx)
+			print(yaml.dump(dbx), file=fh)
 
 	def close(self):
 		if self.modified:
@@ -248,7 +250,7 @@ class Database():
 	def fix_field_name(self, name):
 		name = name.lower()
 		return {
-			"h":			"host",
+			"h":		"host",
 			"hostname":	"host",
 			"machine":	"host",
 
@@ -256,12 +258,12 @@ class Database():
 			"url":		"uri",
 			"website":	"uri",
 
-			"l":			"login",
-			"u":			"login",
+			"l":		"login",
+			"u":		"login",
 			"user":		"login",
 			"username":	"login",
 
-			"p":			"pass",
+			"p":		"pass",
 			"password":	"pass",
 		}.get(name, name)
 
@@ -276,7 +278,7 @@ class Interactive(Cmd):
 		pass
 
 	def default(self, line):
-		print >> sys.stderr, "Are you on drugs?"
+		print("Are you on drugs?", file=sys.stderr)
 
 	def do_EOF(self, arg):
 		"""Save changes and exit"""
@@ -297,28 +299,25 @@ class Interactive(Cmd):
 		if self._foo:
 			for cmd in dir(self):
 				if cmd.startswith("do_") and cmd not in ("do_help", "do_EOF", "do_xyzzy"):
-					print "    %-14s %s" % (cmd[3:], getattr(self, cmd).__doc__ or "?")
+					print("    %-14s %s" % (cmd[3:], getattr(self, cmd).__doc__ or "?"))
 		else:
-			print "RTFM"
+			print("RTFM")
 			self._foo = True
-
-	def do_xyzzy(self, arg):
-		print "Nothing happens."
 
 	def do_info(self, arg):
 		"""Database summary"""
-		print "%d entries in %s" % (len(db.data), db.path)
+		print("%d entries in %s" % (len(db.data), db.path))
 
 	def do_copy(self, arg):
 		"""Copy the password to clipboard"""
 		try:
 			arg = int(arg)
 		except ValueError:
-			print "Missing argument"
+			print("Missing argument")
 			return
 
 		item = db.grep_bypos(arg)
-		print item
+		print(item)
 		if "pass" in item:
 			Clipboard.set(item["pass"][0])
 
@@ -330,7 +329,7 @@ class Interactive(Cmd):
 		for x, y in rangesplit(arg):
 			items.extend(range(x, y))
 		for item in items:
-			print db.grep_bypos(item).reveal()
+			print(db.grep_bypos(item).reveal())
 
 	do_re = do_reveal
 
@@ -343,11 +342,11 @@ class Interactive(Cmd):
 				if "deleted" in item.flags: continue
 				name = item["Name"]
 				try:
-					login = (item[f] for f in db.fields["username"] if f in item).next()
+					login = next(item[f] for f in db.fields["username"] if f in item)
 					login = login[0]
 				except StopIteration:
 					login = ""
-				print "%*s | %-*s%s" % (pos_w, item.pos, 40, name, login)
+				print("%*s | %-*s%s" % (pos_w, item.pos, 40, name, login))
 
 	def do_grep(self, arg):
 		"""Search for an entry"""
@@ -355,10 +354,10 @@ class Interactive(Cmd):
 		num = 0
 		for item in results:
 			if "deleted" in item.flags: continue
-			print "(item %s)" % item.pos
-			print item
+			print("(item %s)" % item.pos)
+			print(item)
 			num += 1
-		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
+		print("(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg))
 
 	def do_flag(self, arg):
 		"""Search for a flag"""
@@ -367,10 +366,10 @@ class Interactive(Cmd):
 		num = 0
 		for item in results:
 			if "deleted" in item.flags: continue
-			print "(item %s)" % item.pos
-			print item
+			print("(item %s)" % item.pos)
+			print(item)
 			num += 1
-		print "(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg)
+		print("(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg))
 
 	def do_add(self, arg):
 		"""Add a new entry"""
@@ -391,7 +390,7 @@ class Interactive(Cmd):
 		db.next_pos += 1
 		db.data.append(rec)
 		db.modified = True
-		print "Added."
+		print("Added.")
 
 	def do_rm(self, arg):
 		"""Remove an entry"""
@@ -414,7 +413,7 @@ class Interactive(Cmd):
 		elif arg == "json":
 			db.dump_json()
 		else:
-			print >> sys.stderr, "Unsupported format %r" % arg
+			print("Unsupported format %r" % arg, file=sys.stderr)
 
 	def do_touch(self, arg):
 		"""Mark database as modified"""

@@ -3,17 +3,85 @@
 # accdb - account database using human-editable flat files as storage
 
 from __future__ import print_function
+import cmd
 import fnmatch
 import os
 import re
+import shlex
+import subprocess
 import sys
 import uuid
 
+field_names = {
+	"hostname":	"host",
+	"machine":	"host",
+	"url":		"uri",
+	"website":	"uri",
+	"user":		"login",
+	"username":	"login",
+	"nicname":	"nic-hdl",
+	"password":	"pass",
+	"mail":		"email",
+}
+
+field_groups = {
+	"object":	["host", "uri"],
+	"username":	["login", "nic-hdl"],
+	"password":	["pass"],
+	"email":	["email"],
+}
+
+field_order = ["object", "username", "password", "email"]
+
+def sort_fields(entry, terse=False):
+	names = []
+	for group in field_order:
+		names += sorted(k for k in field_groups[group] if k in entry.attributes)
+	if not terse:
+		names += sorted(k for k in entry.attributes if k not in names)
+	return names
+
+def translate_field(name):
+	return field_names.get(name, name)
+
+def split_ranges(string):
+	for i in string.split():
+		for j in i.split(","):
+			if "-" in j:
+				x, y = j.split("-", 1)
+				yield int(x), int(y)+1
+			else:
+				yield int(j), int(j)+1
+
+def expand_range(string):
+	items = []
+	for m, n in split_ranges(string):
+		items.extend(range(m, n))
+	return items
+
+def start_editor(path):
+	if "VISUAL" in os.environ:
+		editor = shlex.split(os.environ["VISUAL"])
+	elif "EDITOR" in os.environ:
+		editor = shlex.split(os.environ["EDITOR"])
+	elif sys.platform == "win32":
+		editor = ["notepad.exe"]
+	elif sys.platform == "linux2":
+		editor = ["vi"]
+	
+	editor.append(path)
+
+	proc = subprocess.Popen(editor)
+
+	if sys.platform == "linux2":
+		proc.wait()
+
 class Database(object):
 	def __init__(self):
+		self.count = 0
 		self.entries = dict()
 		self.order = list()
-		self.count = 0
+		self.modified = False
 
 	# Import
 
@@ -62,6 +130,12 @@ class Database(object):
 
 	# Lookup
 
+	def find_by_itemno(self, itemno):
+		uuid = self.order[itemno-1]
+		entry = self.entries[uuid]
+		assert entry.itemno == itemno
+		return entry
+
 	def find_by_name(self, pattern):
 		regex = fnmatch.translate(pattern)
 		reobj = re.compile(regex, re.I | re.U)
@@ -95,11 +169,13 @@ class Database(object):
 
 	def __iter__(self):
 		for uuid in self.order:
-			yield self.entries[uuid]
+			entry = self.entries[uuid]
+			if not entry.deleted:
+				yield entry
 
 	def dump(self, fh=sys.stdout):
 		for entry in self:
-			fh.write(entry.dump(storage=True))
+			print(entry.dump(storage=True), file=fh)
 
 class Entry(object):
 	RE_TAGS = re.compile(r'\s*,\s*|\s+')
@@ -108,6 +184,7 @@ class Entry(object):
 	def __init__(self):
 		self.attributes = dict()
 		self.comment = ""
+		self.deleted = False
 		self.itemno = None
 		self.lineno = None
 		self.name = None
@@ -172,6 +249,8 @@ class Entry(object):
 						% lineno,
 						file=sys.stderr)
 
+				key = translate_field(key)
+
 				if self.is_private_attr(key):
 					attr = PrivateAttribute(val)
 				else:
@@ -191,14 +270,15 @@ class Entry(object):
 
 	# Export
 
-	def attr_names(self):
-		keys = self.attributes.keys()
-		# TODO: import attr sort code from accdb v1
-		keys = sorted(keys)
-		return keys
+	def dump(self, storage=False, terse=False, reveal=False):
+		"""
+		storage: dump metadata and private data, never skip fields
+		terse: skip fields not listed in groups
+		reveal: display private data
+		"""
 
-	def dump(self, storage=False, reveal=False):
 		if storage:
+			terse = False
 			reveal = True
 
 		data = ""
@@ -217,7 +297,7 @@ class Entry(object):
 		if self.uuid and storage:
 			data += "\t{%s}\n" % self.uuid
 
-		for key in self.attr_names():
+		for key in sort_fields(self, terse):
 			for value in self.attributes[key]:
 				if reveal:
 					value = value.dump()
@@ -227,8 +307,6 @@ class Entry(object):
 			tags = sorted(self.tags)
 			# TODO: fold lines
 			data += "\t+ %s\n" % ", ".join(tags)
-
-		data += "\n"
 
 		return data
 
@@ -258,7 +336,118 @@ class PrivateAttribute(Attribute):
 	def __str__(self):
 		return "<private[%d]>" % len(self)
 
-db_path = os.environ.get("ACCDB")
+class Interactive(cmd.Cmd):
+	def __init__(self, *args, **kwargs):
+		cmd.Cmd.__init__(self, *args, **kwargs)
+		self.prompt = "accdb> "
+		self.banner = "Using %s" % db_path
+	
+	def emptyline(self):
+		pass
+	
+	def default(self, line):
+		print("Are you on drugs?", file=sys.stderr)
+	
+	def do_EOF(self, arg):
+		"""Save changes and exit"""
+		db.flush()
+		return True
+	
+	def do_help(self, arg):
+		cmds = [k for k in dir(self) if k.startswith("do_")]
+		for cmd in cmds:
+			doc = getattr(self, cmd).__doc__ or "?"
+			print("    %-14s  %s" % (cmd[3:], doc))
+
+	def do_copy(self, arg):
+		"""Copy password to clipboard"""
+		arg = int(arg)
+
+		entry = db.find_by_itemno(arg)
+		print(entry)
+		if "pass" in entry.attributes:
+			Clipboard.put(entry.attributes["pass"][0])
+		else:
+			print("No password found!",
+				file=sys.stderr)
+	
+	def do_edit(self, arg):
+		"""Launch an editor"""
+		start_editor(db_path)
+	
+	def do_grep(self, arg):
+		"""Search for an entry"""
+		arg += '*'
+		results = db.find_by_name(arg)
+		num = 0
+		for entry in results:
+			if entry.deleted:
+				continue
+			print(entry)
+			num += 1
+		print("(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg))
+	
+	def do_reveal(self, arg):
+		"""Display full entry data"""
+		for itemno in expand_range(arg):
+			entry = db.find_by_itemno(itemno)
+			print(entry.dump(reveal=True))
+	
+	def do_show(self, arg):
+		for itemno in expand_range(arg):
+			entry = db.find_by_itemno(itemno)
+			print(entry.dump(reveal=False))
+	
+	def do_touch(self, arg):
+		db.modified = True
+	
+	do_c	= do_copy
+	do_g	= do_grep
+	do_re	= do_reveal
+	do_s	= do_show
+
+class Clipboard():
+	@classmethod
+	def get(self):
+		if sys.platform == "win32":
+			import win32clipboard as clip
+			clip.OpenClipboard()
+			# TODO: what type does this return?
+			data = clip.GetClipboardData()
+			clip.CloseClipboard()
+			return data
+		else:
+			raise RuntimeError("Unsupported platform")
+
+	@classmethod
+	def put(self, data):
+		if sys.platform == "win32":
+			import win32clipboard as clip
+			clip.OpenClipboard()
+			clip.EmptyClipboard()
+			# TODO: make this work in Py3 -- unicode()
+			clip.SetClipboardText(data.encode("utf-8"), clip.CF_TEXT)
+			clip.SetClipboardText(unicode(data), clip.CF_UNICODETEXT)
+			clip.CloseClipboard()
+		elif sys.platform.startswith("linux"):
+			proc = subprocess.Popen(("xsel", "-i", "-b", "-l", "/dev/null"),
+						stdin=PIPE)
+			proc.stdin.write(data)
+			proc.stdin.close()
+		else:
+			raise RuntimeError("Unsupported platform")
+
+db_path = os.environ.get("ACCDB",
+			os.path.expanduser("~/accounts.db.txt"))
 
 db = Database.parse(open(db_path))
-db.dump()
+
+interp = Interactive()
+
+if len(sys.argv) > 1:
+	line = subprocess.list2cmdline(sys.argv[1:])
+	interp.onecmd(line)
+else:
+	interp.cmdloop()
+
+db.flush()

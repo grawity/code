@@ -1,5 +1,9 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# accdb - account database using human-editable flat files as storage
+
 from __future__ import print_function
+import fnmatch
 import os
 import re
 import sys
@@ -10,17 +14,17 @@ class Database(object):
 		self.entries = dict()
 		self.order = list()
 		self.count = 0
-	
+
 	# Import
-	
+
 	@classmethod
 	def parse(self, *args, **kwargs):
 		return self().parseinto(*args, **kwargs)
-	
+
 	def parseinto(self, fh):
 		data = ""
 		lineno = 0
-		lastno = 0
+		lastno = 1
 		for line in fh:
 			lineno += 1
 			if line.startswith("="):
@@ -36,23 +40,48 @@ class Database(object):
 			if entry:
 				self.add(entry)
 		return self
-	
+
 	def add(self, entry, lineno=None):
 		if entry.itemno is None:
 			entry.itemno = self.count + 1
 		if entry.lineno is None:
 			entry.lineno = lineno
+
 		if entry.uuid is None:
 			entry.uuid = uuid.uuid4()
+		elif entry.uuid in self:
+			raise KeyError("Duplicate UUID %s" % entry.uuid)
 
 		self.count += 1
+
+		# Two uuid.UUID objects for the same UUID will also have the same hash.
+		# Hence, it is okay to use an uuid.UUID as a dict key. For now, anyway.
+		# TODO: Can this be relied upon? Not documented anywhere.
 		self.entries[entry.uuid] = entry
 		self.order.append(entry.uuid)
-	
+
 	# Lookup
-	
-	# FIXME
-	#def find_by_name(self, 
+
+	def find_by_name(self, pattern):
+		regex = fnmatch.translate(pattern)
+		reobj = re.compile(regex, re.I | re.U)
+		for entry in self:
+			if re.match(reobj, entry.name):
+				yield entry
+
+	def find_by_tag(self, pattern, glob=False):
+		if glob:
+			regex = fnmatch.translate(pattern)
+			reobj = re.compile(regex, re.I | re.U)
+			func = lambda tags: any(reobj.match(tag) for tag in tags)
+		else:
+			func = lambda tags: pattern in tags
+		for entry in self:
+			if func(entry.tags):
+				yield entry
+
+	def find_by_uuid(self, uuid):
+		return self[uuid]
 
 	# Aggregate lookup
 
@@ -63,7 +92,7 @@ class Database(object):
 		return tags
 
 	# Export
-	
+
 	def __iter__(self):
 		for uuid in self.order:
 			yield self.entries[uuid]
@@ -86,7 +115,7 @@ class Entry(object):
 	@classmethod
 	def parse(self, *args, **kwargs):
 		return self().parseinto(*args, **kwargs)
-	
+
 	def parseinto(self, data, lineno=1):
 		# lineno is passed here for use in syntax error messages
 		self.lineno = lineno
@@ -96,6 +125,11 @@ class Entry(object):
 			if not line:
 				pass
 			elif line.startswith("="):
+				if self.name:
+					# Ensure that Database only passes us single entries
+					print("Line %d: ignoring multiple name headers" \
+						% lineno,
+						file=sys.stderr)
 				self.name = line[1:].strip()
 			elif line.startswith("+"):
 				tags = re.split(self.RE_TAGS, line[1:].strip())
@@ -106,24 +140,34 @@ class Entry(object):
 				# annotations in search output
 				pass
 			elif line.startswith("{") and line.endswith("}"):
+				if self.uuid:
+					print("Line %d: ignoring multiple UUID headers" \
+						% lineno,
+						file=sys.stderr)
+					raise FatalSyntaxError(self, lineno,
+						"duplicate UUID header")
+
 				try:
 					self.uuid = uuid.UUID(line)
-				except ValueError as e:
-					print("Syntax error on %d: %s" % (lineno, e),
+				except ValueError:
+					print("Line %d: ignoring badly formed UUID %r" \
+						% (lineno, line),
 						file=sys.stderr)
 					self.comment += line + "\n"
 			else:
 				try:
 					key, val = re.split(self.RE_KEYVAL, line, 1)
 				except ValueError:
-					print("Syntax error on %d: missing value" % lineno,
+					print("Line %d: could not parse line %r" \
+						% (lineno, line),
 						file=sys.stderr)
 					self.comment += line + "\n"
 					continue
 
 				if val.startswith("<private[") and val.endswith("]>"):
 					# trying to load a safe dump
-					print("Warning on %d: missing private data" % lineno,
+					print("Line %d: missing private data, you're fucked" \
+						% lineno,
 						file=sys.stderr)
 
 				if self.is_private_attr(key):
@@ -155,8 +199,11 @@ class Entry(object):
 
 		data = ""
 
-		if self.lineno and not storage:
-			data += "(line %d)\n" % self.lineno
+		if not storage:
+			if self.itemno:
+				data += "(item %d)\n" % self.itemno
+			elif self.lineno:
+				data += "(line %d)\n" % self.lineno
 
 		data += "= %s\n" % (self.name or "(unnamed)")
 
@@ -181,7 +228,7 @@ class Entry(object):
 
 	def __str__(self):
 		return self.dump(storage=False)
-	
+
 	def __bool__(self):
 		return bool(self.name or self.attributes or self.tags or self.comment)
 
@@ -191,7 +238,7 @@ class Attribute(str):
 
 	def __init__(self, value):
 		str.__init__(self, value)
-	
+
 	def dump(self):
 		return str.__str__(self)
 
@@ -209,4 +256,4 @@ db_path = os.environ.get("ACCDB")
 
 db = Database.parse(open(db_path))
 for entry in db:
-	print(entry.dump(storage=False))
+	print(entry.dump(storage=True))

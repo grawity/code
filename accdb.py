@@ -97,6 +97,10 @@ class Database(object):
 		for uuid in self.order:
 			yield self.entries[uuid]
 
+	def dump(self, fh=sys.stdout):
+		for entry in self:
+			fh.write(entry.dump(storage=True))
+
 class Entry(object):
 	RE_TAGS = re.compile(r'\s*,\s*|\s+')
 	RE_KEYVAL = re.compile(r'=|: ')
@@ -144,8 +148,6 @@ class Entry(object):
 					print("Line %d: ignoring multiple UUID headers" \
 						% lineno,
 						file=sys.stderr)
-					raise FatalSyntaxError(self, lineno,
-						"duplicate UUID header")
 
 				try:
 					self.uuid = uuid.UUID(line)
@@ -166,7 +168,7 @@ class Entry(object):
 
 				if val.startswith("<private[") and val.endswith("]>"):
 					# trying to load a safe dump
-					print("Line %d: missing private data, you're fucked" \
+					print("Line %d: lost private data, you're fucked" \
 						% lineno,
 						file=sys.stderr)
 
@@ -190,8 +192,10 @@ class Entry(object):
 	# Export
 
 	def attr_names(self):
+		keys = self.attributes.keys()
 		# TODO: import attr sort code from accdb v1
-		return self.attributes.keys()
+		keys = sorted(keys)
+		return keys
 
 	def dump(self, storage=False, reveal=False):
 		if storage:
@@ -224,6 +228,8 @@ class Entry(object):
 			# TODO: fold lines
 			data += "\t+ %s\n" % ", ".join(tags)
 
+		data += "\n"
+
 		return data
 
 	def __str__(self):
@@ -255,5 +261,4 @@ class PrivateAttribute(Attribute):
 db_path = os.environ.get("ACCDB")
 
 db = Database.parse(open(db_path))
-for entry in db:
-	print(entry.dump(storage=True))
+db.dump()

@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import sys
 import uuid
+from collections import OrderedDict
 
 field_names = {
 	"hostname":	"host",
@@ -68,7 +69,7 @@ def start_editor(path):
 		editor = ["notepad.exe"]
 	elif sys.platform == "linux2":
 		editor = ["vi"]
-	
+
 	editor.append(path)
 
 	proc = subprocess.Popen(editor)
@@ -175,7 +176,20 @@ class Database(object):
 
 	def dump(self, fh=sys.stdout):
 		for entry in self:
+			if entry.deleted:
+				continue
 			print(entry.dump(storage=True), file=fh)
+
+	def to_structure(self):
+		return [entry.to_structure() for entry in self]
+
+	def dump_yaml(self, fh=sys.stdout):
+		import yaml
+		print(yaml.dump(self.to_structure()), file=fh)
+
+	def dump_json(self, fh=sys.stdout):
+		import json
+		print(json.dumps(self.to_structure(), indent=4), file=fh)
 
 class Entry(object):
 	RE_TAGS = re.compile(r'\s*,\s*|\s+')
@@ -310,6 +324,17 @@ class Entry(object):
 
 		return data
 
+	def to_structure(self):
+		dis = dict()
+		dis["name"] = self.name
+		dis["comment"] = self.comment
+		dis["data"] = {key: list(val.dump() for val in self.attributes[key])
+				for key in sort_fields(self, False)}
+		dis["lineno"] = self.lineno
+		dis["tags"] = list(self.tags)
+		dis["uuid"] = str(self.uuid)
+		return dis
+
 	def __str__(self):
 		return self.dump(storage=False)
 
@@ -341,18 +366,18 @@ class Interactive(cmd.Cmd):
 		cmd.Cmd.__init__(self, *args, **kwargs)
 		self.prompt = "accdb> "
 		self.banner = "Using %s" % db_path
-	
+
 	def emptyline(self):
 		pass
-	
+
 	def default(self, line):
 		print("Are you on drugs?", file=sys.stderr)
-	
+
 	def do_EOF(self, arg):
 		"""Save changes and exit"""
 		db.flush()
 		return True
-	
+
 	def do_help(self, arg):
 		cmds = [k for k in dir(self) if k.startswith("do_")]
 		for cmd in cmds:
@@ -370,11 +395,11 @@ class Interactive(cmd.Cmd):
 		else:
 			print("No password found!",
 				file=sys.stderr)
-	
+
 	def do_edit(self, arg):
 		"""Launch an editor"""
 		start_editor(db_path)
-	
+
 	def do_grep(self, arg):
 		"""Search for an entry"""
 		arg += '*'
@@ -386,21 +411,21 @@ class Interactive(cmd.Cmd):
 			print(entry)
 			num += 1
 		print("(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg))
-	
+
 	def do_reveal(self, arg):
 		"""Display full entry data"""
 		for itemno in expand_range(arg):
 			entry = db.find_by_itemno(itemno)
 			print(entry.dump(reveal=True))
-	
+
 	def do_show(self, arg):
 		for itemno in expand_range(arg):
 			entry = db.find_by_itemno(itemno)
 			print(entry.dump(reveal=False))
-	
+
 	def do_touch(self, arg):
 		db.modified = True
-	
+
 	do_c	= do_copy
 	do_g	= do_grep
 	do_re	= do_reveal

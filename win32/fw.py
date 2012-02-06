@@ -1,9 +1,11 @@
 # -*- mode: python -*-
 # Simple command line interface to Windows XP Firewall.
 from __future__ import print_function
+import cmd
 import sys
 from libnullroute.windows.firewall import Firewall
 from libnullroute.windows.util import load_string_resource
+from subprocess import list2cmdline
 
 def usage():
 	print("Usage:")
@@ -12,7 +14,7 @@ def usage():
 	print("\tfw [\\\\machine] add <proto>/<port> <name> [<scope>]")
 	print("\tfw [\\\\machine] del <proto>/<port>")
 
-def parse_port(val):
+def parse_portspec(val):
 	a, b = val.lower().split("/")
 	try:
 		a = int(a)
@@ -33,57 +35,58 @@ def parse_port(val):
 
 	return port, proto
 
-def Main():
-	machine = None
-	cmd = "ls"
-	args = []
-
-	try:
-		if sys.argv[1].startswith("\\\\"):
-			machine = sys.argv.pop(1)
-		cmd = sys.argv.pop(1)
-		args = sys.argv[1:]
-	except IndexError:
+class Interactive(cmd.Cmd):
+	def __init__(self, machine):
+		cmd.Cmd.__init__(self)
+		self.prompt = "fw> "
+		self.fw = Firewall(machine)
+	
+	def emptyline(self):
 		pass
+		
+	def default(self, line):
+		print("Unknown command %r" % line, file=sys.stderr)
 
-	if cmd == "help":
-		return usage()
-	elif cmd == "ls":
-		fw = Firewall(machine)
-		entries = list(fw.ports.enumerate())
-		entries.sort(key=lambda e: e[fw.ports.POS_PORT])
-		entries.sort(key=lambda e: e[fw.ports.POS_PROTO])
-		for port, proto, scope, enabled, name in entries:
+	def do_EOF(self, arg):
+		return True
+	
+	def do_ls(self, arg):
+		entries = list(self.fw.ports.values())
+		entries.sort(key=lambda e: e[self.fw.ports.POS_PORTSPEC][0])
+		entries.sort(key=lambda e: e[self.fw.ports.POS_PORTSPEC][1])
+		for (port, proto), scope, enabled, name in entries:
 			name = load_string_resource(name)
 			print(" %1s %-4s %5d %s" % ("*" if enabled else "", proto, port, name))
-	elif cmd == "ls-apps":
-		fw = Firewall(machine)
-		entries = list(fw.apps.enumerate())
-		for exepath, scope, enabled, name in entries:
-			print(" %1s %s" % ("*" if enabled else "", exepath))
-	elif cmd in ("enable", "disable"):
-		fw = Firewall(machine)
-		for arg in args:
-			port, proto = parse_port(arg)
-			fw.ports.enable(port, proto, cmd == "enable")
-	elif cmd == "add":
-		try:
-			port, proto = parse_port(args[0])
-			name = args[1]
-		except IndexError:
-			return usage()
-		try:
-			scope = args[2]
-		except IndexError:
-			scope = "*"
-		fw = Firewall(machine)
-		fw.ports[port, proto] = (scope, True, name)
-	elif cmd == "del":
-		fw = Firewall(machine)
-		for arg in args:
-			port, proto = parse_port(arg)
-			del fw.ports[port, proto]
-	else:
-		print("Unknown command '%s'" % cmd, file=sys.stderr)
+	
+	def do_enable(self, arg):
+		specs = [parse_portspec(a) for a in arg.split()]
+		for portspec in specs:
+			self.fw.ports.set_rule_status(portspec, True)
+	
+	def do_disable(self, arg):
+		specs = [parse_portspec(a) for a in arg.split()]
+		for portspec in specs:
+			self.fw.ports.set_rule_status(portspec, False)
+	
+	def do_rename(self, arg):
+		spec, newname = arg.split(None, 1)
+		spec = parse_portspec(spec)
+		oldname = self.fw.ports[spec]
+		if oldname.startswith("@"):
+			print("Warning: Renaming built-in rule", oldname)
+		self.fw.ports[spec]
 
-Main()
+try:
+	if sys.argv[1].startswith("\\\\"):
+		machine = sys.argv.pop(1)
+	else:
+		machine = None
+except IndexError:
+	machine = None
+
+interp = Interactive(machine)
+
+if len(sys.argv) > 1:
+	interp.onecmd(list2cmdline(sys.argv[1:]))
+else:
+	interp.cmdloop()

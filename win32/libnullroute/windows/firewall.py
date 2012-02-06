@@ -7,8 +7,8 @@ class Firewall(object):
 	SCOPE_ALL	= "*"
 	SCOPE_SUBNET	= "LocalSubNet"
 
-	STATE_ENABLED	= "Enabled"
-	STATE_DISABLED	= "Disabled"
+	status_ENABLED	= "Enabled"
+	status_DISABLED	= "Disabled"
 
 	def __init__(self, machine=None):
 		self.machine = machine
@@ -35,7 +35,7 @@ class _FirewallApplicationList(object):
 
 	POS_EXEPATH	= 0
 	POS_SCOPE	= 1
-	POS_STATE	= 2
+	POS_status	= 2
 	POS_NAME	= 3
 
 	def __init__(self, fw):
@@ -45,8 +45,8 @@ class _FirewallApplicationList(object):
 	@classmethod
 	def _pack(self, exepath, scope=None, enabled=None, name=None):
 		if scope is not None:
-			state = "Enabled" if enabled else "Disabled"
-			return ":".join([exepath, scope, enabled, name])
+			status = "Enabled" if enabled else "Disabled"
+			return ":".join([exepath, scope, status, name])
 		else:
 			return exepath
 
@@ -58,9 +58,9 @@ class _FirewallApplicationList(object):
 	def _unpack_data(self, val):
 		# deal with drive:\path bogosity
 		_drive, _rest = val[:2], val[2:]
-		exepath, scope, state, name = _rest.split(":", 3)
+		exepath, scope, status, name = _rest.split(":", 3)
 		exepath = _drive + exepath
-		enabled = (state.lower() == "enabled")
+		enabled = (status.lower() == "enabled")
 		return exepath, scope, enabled, name
 
 	# Lookup
@@ -95,6 +95,10 @@ class _FirewallApplicationList(object):
 		for k, (v, t) in self.hKey:
 			yield self._unpack_value(k)
 
+	def values(self):
+		for k, (v, t) in self.hKey:
+			yield self._unpack_data(v)
+
 	def items(self):
 		for k, (v, t) in self.hKey:
 			yield self._unpack_value(k), self._unpack_data(v)
@@ -102,11 +106,16 @@ class _FirewallApplicationList(object):
 class _FirewallPortList(object):
 	PORTS_SUBKEY	= "GloballyOpenPorts\\List"
 
-	POS_PORT	= 0
-	POS_PROTO	= 1
-	POS_SCOPE	= 2
-	POS_STATE	= 3
-	POS_NAME	= 4
+	#POS_PORT	= 0
+	#POS_PROTO	= 1
+	#POS_SCOPE	= 2
+	#POS_status	= 3
+	#POS_NAME	= 4
+	
+	POS_PORTSPEC	= 0
+	POS_SCOPE	= 1
+	POS_status	= 2
+	POS_NAME	= 3
 
 	def __init__(self, fw):
 		self.fwProfile = fw
@@ -121,8 +130,8 @@ class _FirewallPortList(object):
 		port = str(port)
 		proto = proto.upper()
 		if scope is not None:
-			state = "Enabled" if enabled else "Disabled"
-			return ":".join([port, proto, scope, enabled, name])
+			status = "Enabled" if enabled else "Disabled"
+			return ":".join([port, proto, scope, status, name])
 		else:
 			return ":".join([port, proto])
 
@@ -135,10 +144,10 @@ class _FirewallPortList(object):
 
 	@classmethod
 	def _unpack_data(self, val):
-		port, proto, scope, state, name = val.split(":", 4)
+		port, proto, scope, status, name = val.split(":", 4)
 		port = int(port)
 		proto = proto.upper()
-		enabled = (state.lower() == "enabled")
+		enabled = (status.lower() == "enabled")
 		return (port, proto), scope, enabled, name
 
 	@classmethod
@@ -148,12 +157,15 @@ class _FirewallPortList(object):
 		except (TypeError, AssertionError):
 			raise KeyError("key must be a (port, proto)")
 
-	# Lookup
+	# Dict-like lookup
 
 	def query(self, portspec):
 		value = self._pack(portspec)
 		data, _reg_type = self.hKey[value]
 		return self._unpack_data(data)
+	
+	def __getitem__(self, key):
+		return self.query(key)
 
 	def set(self, portspec, scope, enabled, name):
 		scope = scope or self.SCOPE_ALL
@@ -161,14 +173,42 @@ class _FirewallPortList(object):
 		data = self._pack(portspec, scope, enabled, name)
 		self.hKey[value] = (data, Con.REG_SZ)
 
+	def __setitem__(self, key, val):
+		if val[0] != key:
+			raise ValueError("portspec must be identical to key")
+		self.set(*val)
+
 	def delete(self, portspec):
 		value = self._pack(portspec)
 		del self.hKey[value]
+	
+	def __delitem__(self, key):
+		self.delete(key)
 
 	def __iter__(self):
 		for k, (v, t) in self.hKey:
 			yield self._unpack_value(k)
 
+	def values(self):
+		for k, (v, t) in self.hKey:
+			yield self._unpack_data(v)
+
 	def items(self):
 		for k, (v, t) in self.hKey:
 			yield self._unpack_value(k), self._unpack_data(v)
+
+	# Rule management
+	
+	def get_rule_status(self, portspec):
+		return self[portspec][self.POS_STATUS]
+
+	def set_rule_status(self, portspec, enabled):
+		_, scope, _, name = self[portspec]
+		self[portspec] = portspec, scope, enabled, name
+	
+	def get_rule_name(self, portspec):
+		return self[portspec][self.POS_NAME]
+	
+	def set_rule_name(self, portspec, name):
+		_, scope, enabled, _ = self[portspec]
+		self[portspec] = portspec, scope, enabled, name

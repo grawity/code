@@ -54,6 +54,11 @@ def Main():
 		entries.sort(key=lambda e: e[fw.ports.POS_PROTO])
 		for port, proto, scope, enabled, name in entries:
 			print(" %1s %-4s %5d %s" % ("*" if enabled else "", proto, port, name))
+	elif cmd == "ls-apps":
+		fw = Firewall(machine)
+		entries = list(fw.apps.enumerate())
+		for exepath, scope, enabled, name in entries:
+			print(" %1s %s" % ("*" if enabled else "", exepath))
 	elif cmd in ("enable", "disable"):
 		fw = Firewall(machine)
 		for arg in args:

@@ -1,7 +1,7 @@
 import win32api as Api
 import win32con as Con
 
-def load_external_string(pointer):
+def load_string_resource(pointer):
 	"""Resolve a @dllname,ordinal string resource pointer"""
 
 	if pointer[0] != "@":

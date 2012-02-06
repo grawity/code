@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys
 from libnullroute.windows.firewall import Firewall
+from libnullroute.windows.util import load_string_resource
 
 def usage():
 	print("Usage:")
@@ -53,6 +54,7 @@ def Main():
 		entries.sort(key=lambda e: e[fw.ports.POS_PORT])
 		entries.sort(key=lambda e: e[fw.ports.POS_PROTO])
 		for port, proto, scope, enabled, name in entries:
+			name = load_string_resource(name)
 			print(" %1s %-4s %5d %s" % ("*" if enabled else "", proto, port, name))
 	elif cmd == "ls-apps":
 		fw = Firewall(machine)

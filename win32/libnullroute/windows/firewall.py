@@ -1,6 +1,5 @@
 import win32con as Con
 from .registry import RegistryKey
-from .util import load_external_string
 
 class Firewall(object):
 	ROOT_KEY = "SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy\\StandardProfile"
@@ -62,8 +61,6 @@ class _FirewallApplicationList(object):
 		exepath, scope, state, name = _rest.split(":", 3)
 		exepath = _drive + exepath
 		enabled = (state.lower() == "enabled")
-		if name.startswith("@"):
-			name = load_external_string(name)
 		return exepath, scope, enabled, name
 
 	# Lookup
@@ -142,8 +139,6 @@ class _FirewallPortList(object):
 		port = int(port)
 		proto = proto.upper()
 		enabled = (state.lower() == "enabled")
-		if name.startswith("@"):
-			name = load_external_string(name)
 		return (port, proto), scope, enabled, name
 
 	@classmethod

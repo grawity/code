@@ -1,4 +1,7 @@
+#!python
+#
 # S-exp parser and dumper
+# (c) 2011 Mantas M. <grawity@gmail.com>
 #
 # The simple S-expression format is used by various crypto software, including:
 #
@@ -7,7 +10,7 @@
 #   - GnuPG 'gpgsm', for storing private keys (private-keys-v1.d)
 #
 # Parser code ripped from http://people.csail.mit.edu/rivest/sexp.html
-#  (c) 1997 Ronald Rivest
+# (c) 1997 Ronald Rivest
 
 from __future__ import print_function
 import base64
@@ -182,24 +185,30 @@ class SexpParser(object):
 					raise ValueError("quoted string ended too early (expected %d)" % length)
 			elif self.char == b"\\":
 				c = self.advance()
-				if c == b"b":		out += b"\b"
-				elif c == b"t":		out += b"\t"
-				elif c == b"v":		out += b"\v"
-				elif c == b"n":		out += b"\n"
-				elif c == b"f":		out += b"\f"
-				elif c == b"r":		out += b"\r"
+				if c == b"\r":
+					continue
+				elif c == b"\n":
+					continue
 				elif c in b"0123":
 					s = c + self.advance() + self.advance()
 					val = int(s, 8)
 					out += chr(val)
+				elif c == b"b":
+					out += b"\b"
+				elif c == b"f":
+					out += b"\f"
+				elif c == b"n":
+					out += b"\n"
+				elif c == b"r":
+					out += b"\r"
+				elif c == b"t":
+					out += b"\t"
+				elif c == b"v":
+					out += b"\v"
 				elif c == b"x":
 					s = self.advance() + self.advance()
 					val = int(s, 16)
 					out += chr(val)
-				elif c == b"\n":
-					continue
-				elif c == b"\r":
-					continue
 				else:
 					raise ValueError("unknown escape character \\%s at %d" % (c, self.pos))
 			else:
@@ -318,7 +327,7 @@ def dump(obj, canonical=False, transport=False):
 	elif isinstance(obj, (list, tuple)):
 		exp = dump_list(obj, canonical)
 	else:
-		raise TypeError
+		raise TypeError("unsupported object type %r of %r" % (type(obj), obj))
 
 	if transport:
 		return b"{" + base64.b64encode(exp) + b"}"
@@ -326,11 +335,11 @@ def dump(obj, canonical=False, transport=False):
 		return exp
 
 def dump_string(obj, canonical=False, hex=False, hint=None):
-	#if hasattr(obj, "encode"):
-	#	obj = obj.encode("utf-8")
+	if hasattr(obj, "encode"):
+		obj = obj.encode("utf-8")
 
 	if canonical:
-		out = bytes(len(obj), "ascii") + b":" + obj
+		out = str(len(obj)).encode("utf-8") + b":" + obj
 	elif is_token(obj):
 		out = bytes(obj)
 	elif is_quoteable(obj):

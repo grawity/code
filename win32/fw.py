@@ -3,8 +3,8 @@
 from __future__ import print_function
 import cmd
 import sys
-from libnullroute.windows.firewall import Firewall
-from libnullroute.windows.util import load_string_resource
+from nullroute.windows.firewall import Firewall
+from nullroute.windows.util import load_string_resource
 from subprocess import list2cmdline
 
 def usage():

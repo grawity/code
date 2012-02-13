@@ -10,10 +10,10 @@ use IO::Socket::INET;
 use IO::Socket::UNIX;
 use List::MoreUtils qw(any);
 
-$VERSION = "0.7.(0*ε)";
+$VERSION = "0.7.(1ε)";
 %IRSSI = (
 	name        => 'notify-send',
-	description => 'Sends hilight messages over DBus or Intertubes.',
+	description => 'Sends hilight messages over DBus, TCP or UDP',
 	authors     => 'Mantas Mikulėnas',
 	contact     => 'grawity@gmail.com',
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
@@ -45,27 +45,33 @@ sub on_message {
 	my $mynick = $server->{nick};
 	my $channel = $server->ischannel($target);
 
-	# skip server notices
+	# Skip server notices
 	return if !defined $userhost;
 
-	# if public, check for hilightness
+	# If public, check if it contains our nick
+	# Also check @hilights for matches
 	return if $channel and !(
 		$msg =~ /\Q$mynick/i
 		or any {$msg =~ $_} @hilights
+		# can also add custom rules:
+		#or this...
+		#or ...that
 	);
 
-	# ignore notices from services
+	# Ignore notices from services
 	return if !$channel and (
 		($type eq "notice" and $userhost =~ /\@services/)
 		or $nick =~ /^(nick|chan|memo|oper|php)serv$/i
+		# again, can add custom rules here
 	);
-
+	
 	my $tag = $channel ? $target : $nick;
-	my $title = $nick;
-	$title .= " on $target" if $channel;
-	# filter funky characters; allow Tab (x09)
+	my $title = $channel ? "$nick on $target" : $nick;
+	
+	# Filter control characters but allow Tab (\x09)
 	$msg =~ s/[\x01-\x08\x0A-\x1F]//g;
-	# send notification to all dests
+	
+	# Send notification to all destinations
 	my $dests = Irssi::settings_get_str("notify_targets");
 	foreach my $dest (split / /, $dests) {
 		my @ret = notify($dest, $tag, $title, $msg);

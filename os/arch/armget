@@ -59,20 +59,26 @@ def download_batch(queue):
 		except KeyboardInterrupt:
 			os.unlink(name+".sig")
 
-query = sys.argv[1]
+def search(query):
+	packages = list(arm_search(query))
+	queue = []
 
-packages = list(arm_search(query))
+	for i, (name, url) in enumerate(packages):
+		print "%3x  %s" % (i, name)
+	sel = raw_input("-> ")
+
+	sel = {i for x, y in rangesplit(sel, 16) for i in range(x, y)}
+	for i in sel:
+		try:
+			queue.append(packages[i])
+		except IndexError:
+			print("error: choice %r out of range" % i)
+
+	return queue
+
 queue = []
 
-for i, (name, url) in enumerate(packages):
-	print "%3x  %s" % (i, name)
-sel = raw_input("-> ")
-
-sel = {i for x, y in rangesplit(sel, 16) for i in range(x, y)}
-for i in sel:
-	try:
-		queue.append(packages[i])
-	except IndexError:
-		print("error: choice %r out of range" % i)
+for query in sys.argv[1:]:
+	queue += search(query)
 
 download_batch(queue)

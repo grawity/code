@@ -1,0 +1,26 @@
+#!/usr/bin/env perl
+use List::MoreUtils 'uniq';
+use feature 'say';
+
+my %hosts;
+my %services;
+
+my $skip = 3;
+for my $line (`klist -k`) {
+	next if $skip and $skip--;
+	if ($line =~ /^\s*(\d+)\s+(\S+)@(\S+)$/) {
+		my ($kvno, $princ, $realm) = ($1, $2, $3);
+		my ($svc, $host) = split(m|/|, $princ, 2);
+		push @{$hosts{$host}}, $svc;
+		push @{$services{$svc}}, $host;
+	}
+}
+
+while (my ($host, $services) = each %hosts) {
+	say "host $host:";
+	my @sv;
+	for my $service (uniq sort {lc $a cmp lc $b} @$services) {
+		push @sv, $service;
+	}
+	say "    ", join(", ", @sv);
+}

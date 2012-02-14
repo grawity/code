@@ -27,7 +27,7 @@ def put(x):
 def load_screen(serFh):
 	input, lastin = [], ""
 	
-	print "Capturing screen (eta 24 seconds)"
+	print "Capturing screen (eta 10 seconds)"
 	serFh.write("AT*ZISI\r\n")
 	while True:
 		line = ser.readline()

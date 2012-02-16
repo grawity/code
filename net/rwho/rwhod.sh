@@ -1,76 +1,33 @@
 #!/usr/bin/env bash
 
+OLD_DIR=$(dirname "$0")
+
 if (( $UID > 0 )); then
-	PIDFILE=${PIDFILE:-$HOME/tmp/rwhod-$HOSTNAME.pid}
-	PERL5LIB=$HOME/.local/lib/perl5
-	export PERL5LIB
+	RWHO_DIR=$HOME/lib/rwho
 else
-	PIDFILE=${PIDFILE:-/run/rwhod.pid}
+	RWHO_DIR=/cluenet/rwho
 fi
 
-RWHOD_DIR=$(dirname "$0")
+case $1 in
+update)
+	echo "new rwho location: $RWHO_DIR"
+	if [[ -d $RWHO_DIR ]]; then
+		exec "$RWHO_DIR/rwhod.sh" git-update
+	else
+		echo "cloning git repository"
+		mkdir -p "$(dirname "$RWHO_DIR")"
+		git clone "git://github.com/grawity/rwho.git" "$RWHO_DIR"
+		cp -a "$OLD_DIR/config.php" "$RWHO_DIR"
 
-ctl() {
-	case $1 in
-	start)
-		"$RWHOD_DIR/rwhod.pl" --daemon --pidfile "$PIDFILE" &
-		;;
-	foreground)
-		exec "$RWHOD_DIR/rwhod.pl" --pidfile "$PIDFILE"
-		;;
-	stop)
-		read -r pid < "$PIDFILE" && kill $pid && rm "$PIDFILE"
-		;;
-	restart)
-		ctl stop
-		ctl start
-		;;
-	reload)
-		ctl restart
-		;;
-	force-reload)
-		ctl restart
-		;;
-	status)
-		if [[ ! -f $PIDFILE ]]; then
-			echo "not running (no pidfile at '$PIDFILE')"
-			return 3
-		fi
+		echo "restarting rwho"
+		"$RWHO_DIR/rwhod.sh" restart
 
-		if ! read -r pid < "$PIDFILE"; then
-			echo "error (cannot read pidfile)"
-			return 1
-		fi
-
-		if kill -0 $pid 2>/dev/null; then
-			echo "running (pid $pid)"
-			[[ $RWHOD_DIR/rwhod.pl -nt $PIDFILE ]] &&
-				echo "out of date"
-			return 0
-		else
-			echo "unsure (pid $pid does not respond to signals)"
-			return 1
-		fi
-		;;
-	build-dep)
-		perldeps=(
-			JSON
-			LWP::UserAgent
-			Linux::Inotify2
-			Socket::GetAddrInfo
-			Sys::Utmp
-		)
-		${CPAN:-cpanm} "${perldeps[@]}"
-		;;
-	update)
-		if [[ $RWHOD_DIR/rwhod.pl -nt $PIDFILE ]]; then
-			ctl restart
-		fi
-		;;
-	*)
-		echo "usage: $0 <start|stop|restart|foreground|update>"
-		;;
-	esac
-}
-
-ctl "$@"
+		echo "installing cronjob"
+		{ crontab -l;
+		  echo "@daily	$RWHO_DIR/rwhod.sh git-update"; } | crontab -
+	fi
+	;;
+*)
+	exec "$RWHO_DIR/rwhod.sh" "$@"
+	;;
+esac

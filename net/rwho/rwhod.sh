@@ -22,9 +22,10 @@ update)
 		echo "restarting rwho"
 		"$RWHO_DIR/rwhod.sh" restart
 
-		echo "installing cronjob"
-		{ crontab -l;
-		  echo "@daily	$RWHO_DIR/rwhod.sh git-update"; } | crontab -
+		#echo "installing cronjob"
+		#{ crontab -l;
+		#  echo "@daily	${RWHO_DIR/#$HOME/~}/rwhod.sh git-update";
+		#  } | crontab -
 	fi
 	;;
 *)

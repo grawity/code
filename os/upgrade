@@ -1,0 +1,25 @@
+#!/bin/bash -e
+. lib.bash
+
+detect_pkg() {
+	if have apt-get; then
+		echo 'apt'
+	elif have pacman; then
+		echo 'pacman'
+	else
+		return 1
+	fi
+}
+
+pkg=$(detect_pkg)
+case $pkg in
+apt)
+	sudo apt-get update
+	sudo apt-get dist-upgrade
+	;;
+pacman)
+	sudo pacman -Syu
+	;;
+*)
+	die "Unknown package manager '$pkg'."
+esac

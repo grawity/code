@@ -8,7 +8,14 @@ else
 	log() { true; }
 fi
 
-silent() { local t=`mktemp /tmp/log.XXXXXX`; "$@" >& "$t" || cat "$t"; rm -f "$t"; }
+silent() {
+	local output=$(mktemp /tmp/log.XXXXXX)
+	( "$@" ) >& "$output"
+	local rc=$?
+	(( rc )) || cat "$output"
+	rm -f "$output"
+	return $rc
+}
 
 if [[ -z $xyzzy ]]; then
 	# Update ~/code and run the new script
@@ -58,12 +65,12 @@ else
 		fi
 	} &
 
-	if [[ -f ~/tmp/rwhod-${HOSTNAME}.pid ]]; then
-		log "poking rwhod"
-		if [[ -d ~/lib/rwho ]]; then
-			~/lib/rwho/rwhod.sh git-update
-		else
-			~/code/net/rwho/rwhod.sh update
+	if [[ -d ~/lib/rwho ]]; then
+		log "updating rwhod"
+		cd ~/lib/rwho &&
+		silent git pull --ff-only &&
+		if ./agent-linux/rwho-agent.sh status >/dev/null; then
+			./agent-linux/rwho-agent.sh update
 		fi
 	fi &
 fi

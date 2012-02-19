@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+warn() { printf "\e[31mwarning:\e[m %s\n" "$*"; } >&2
+
+is_locale_supported() {
+	locale -a 2>/dev/null | grep -qsxF "$(get_locale "$1")"
+}
+
+get_locale() {
+	local locale=$1
+	if [[ $locale == *.* ]]; then
+		locale=${locale%%.*}.$(get_charset "$locale")
+	fi
+	echo "$locale"
+}
+
+get_charset() {
+	local locale=$1 charset=''
+	if [[ $locale == *.* ]]; then
+		charset=${locale#*.}
+		charset=${charset//-/}
+		charset=${charset,,}
+	else
+		charset='default'
+	fi
+	echo "$charset"
+}
+
+check_setting() {
+	local name=$1 value=$2
+
+	[[ -z $value ]] && return
+
+	if ! is_locale_supported "$value"; then
+		warn "$name: unsupported locale ($value)"
+	fi
+
+	local charset=$(get_charset "$value")
+	if [[ $charset != "utf8" ]]; then
+		warn "$name: non-UTF8 charset ($value)"
+	fi
+
+	if [[ "$charset" != "$main_charset" ]]; then
+		warn "$name: charset does not match LANG ($value | $main_charset)"
+	fi
+}
+
+vars=("LC_CTYPE" "LC_NUMERIC" "LC_TIME" "LC_COLLATE" "LC_MONETARY" "LC_MESSAGES" "LC_PAPER"
+	"LC_NAME" "LC_ADDRESS" "LC_TELEPHONE" "LC_MEASUREMENT" "LC_IDENTIFICATION" "LC_ALL")
+
+unset ${!TERM_*}
+while IFS='=' read -d '' name value; do
+	if [[ $name == LANG || $name == LC_* ]]; then
+		declare "TERM_$name"="$value"
+	fi
+done < "/proc/$PPID/environ"
+
+if [[ -z $LANG ]]; then
+	warn "(shell) LANG: not set"
+	main_charset='default'
+else
+	main_charset=$(get_charset "$LANG")
+fi
+
+if [[ -z $TERM_LANG ]]; then
+	warn "(terminal) LANG: not set"
+	t_main_charset='default'
+else
+	t_main_charset=$(get_charset "$TERM_LANG")
+fi
+
+for name in LANG "${vars[@]}"; do
+	value=${!name}
+	locale=$(get_locale "$value")
+	charset=$(get_charset "$value")
+	t_name="TERM_$name"
+	t_value=${!t_name}
+	t_locale=$(get_locale "$t_value")
+	t_charset=$(get_charset "$t_value")
+
+	check_setting "(shell) $name" "$value"
+
+	check_setting "(terminal) $name" "$t_value"
+
+	if [[ -n "$value" && -z "$t_value" ]]; then
+		warn "$name: set by shell but not terminal ($value | none)"
+	elif [[ -z "$value" && -n "$t_value" ]]; then
+		warn "$name: set by terminal but not shell (none | $t_value)"
+	elif [[ "$charset" != "$t_charset" ]]; then
+		warn "$name: charset mismatch between shell and terminal ($locale | $t_locale)"
+	elif [[ "$locale" != "$t_locale" ]]; then
+		warn "$name: lang mismatch between shell and terminal ($locale | $t_locale)"
+	fi
+done

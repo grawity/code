@@ -5,7 +5,7 @@ import socket
 import sys
 
 if sys.platform == "win32":
-	HOSTS_PATH = os.path.expandenv("%SystemRoot%/System32/drivers/etc/hosts")
+	HOSTS_PATH = os.path.expandvars("%SystemRoot%/System32/drivers/etc/hosts")
 
 def is_local_name(name):
 	local_domains = (".home",

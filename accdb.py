@@ -80,11 +80,20 @@ def start_editor(path):
 class Database(object):
 	def __init__(self):
 		self.count = 0
+		self.path = None
 		self.entries = dict()
 		self.order = list()
 		self.modified = False
+		self.readonly = False
 
 	# Import
+
+	@classmethod
+	def from_file(self, path):
+		db = self()
+		db.path = path
+		db.parseinto(open(path))
+		return db
 
 	@classmethod
 	def parse(self, *args, **kwargs):
@@ -166,6 +175,11 @@ class Database(object):
 			tags |= entry.tags
 		return tags
 
+	# Maintenance
+
+	def sort(self):
+		self.order.sort(key=lambda uuid: self.entries[uuid].normalized_name)
+
 	# Export
 
 	def __iter__(self):
@@ -174,11 +188,11 @@ class Database(object):
 			if not entry.deleted:
 				yield entry
 
-	def dump(self, fh=sys.stdout):
+	def dump(self, fh=sys.stdout, storage=True):
 		for entry in self:
 			if entry.deleted:
 				continue
-			print(entry.dump(storage=True), file=fh)
+			print(entry.dump(storage=storage), file=fh)
 
 	def to_structure(self):
 		return [entry.to_structure() for entry in self]
@@ -191,9 +205,27 @@ class Database(object):
 		import json
 		print(json.dumps(self.to_structure(), indent=4), file=fh)
 
+	def to_file(self, path):
+		self.dump(open(path, "w"))
+
+	def flush(self):
+		if not self.modified:
+			return
+		if self.readonly:
+			print("Discarding changes (database read-only)",
+				file=sys.stderr)
+			return
+		if self.path is None:
+			return
+		print("Storing database")
+		self.to_file(self.path)
+		self.modified = False
+
 class Entry(object):
 	RE_TAGS = re.compile(r'\s*,\s*|\s+')
 	RE_KEYVAL = re.compile(r'=|: ')
+
+	RE_COLL = re.compile(r'\w.*$')
 
 	def __init__(self):
 		self.attributes = dict()
@@ -341,6 +373,10 @@ class Entry(object):
 	def __bool__(self):
 		return bool(self.name or self.attributes or self.tags or self.comment)
 
+	@property
+	def normalized_name(self):
+		return re.search(self.RE_COLL, self.name).group(0).lower()
+
 class Attribute(str):
 	# Nothing special about this class. Exists only for consistency
 	# with PrivateAttribute providing a dump() method.
@@ -375,7 +411,6 @@ class Interactive(cmd.Cmd):
 
 	def do_EOF(self, arg):
 		"""Save changes and exit"""
-		db.flush()
 		return True
 
 	def do_help(self, arg):
@@ -391,14 +426,30 @@ class Interactive(cmd.Cmd):
 		entry = db.find_by_itemno(arg)
 		print(entry)
 		if "pass" in entry.attributes:
-			Clipboard.put(entry.attributes["pass"][0])
+			Clipboard.put(entry.attributes["pass"][0].dump())
 		else:
 			print("No password found!",
 				file=sys.stderr)
 
+	def do_dump(self, arg):
+		if arg == "":
+			db.dump()
+		elif arg == "yaml":
+			db.dump_yaml()
+		elif arg == "json":
+			db.dump_json()
+		elif arg == "safe":
+			db.dump(storage=False)
+		else:
+			print("Unsupported export format: %r" % arg,
+				file=sys.stderr)
+
 	def do_edit(self, arg):
 		"""Launch an editor"""
+		db.flush()
+		db.modified = False
 		start_editor(db_path)
+		return True
 
 	def do_grep(self, arg):
 		"""Search for an entry"""
@@ -424,6 +475,10 @@ class Interactive(cmd.Cmd):
 			print(entry.dump(reveal=False))
 
 	def do_touch(self, arg):
+		db.modified = True
+
+	def do_dbsort(self, arg):
+		db.sort()
 		db.modified = True
 
 	do_c	= do_copy
@@ -456,8 +511,8 @@ class Clipboard():
 			clip.CloseClipboard()
 		elif sys.platform.startswith("linux"):
 			proc = subprocess.Popen(("xsel", "-i", "-b", "-l", "/dev/null"),
-						stdin=PIPE)
-			proc.stdin.write(data)
+						stdin=subprocess.PIPE)
+			proc.stdin.write(data.encode("utf-8"))
 			proc.stdin.close()
 		else:
 			raise RuntimeError("Unsupported platform")
@@ -465,7 +520,14 @@ class Clipboard():
 db_path = os.environ.get("ACCDB",
 			os.path.expanduser("~/accounts.db.txt"))
 
-db = Database.parse(open(db_path))
+db_cache_path = os.path.expanduser("~/Private/accounts.cache.txt")
+
+if os.path.exists(db_path):
+	db = Database.from_file(db_path)
+else:
+	db = Database.from_file(db_cache_path)
+	db.readonly = True
+	print("Database not found; reading from read-only cache")
 
 interp = Interactive()
 
@@ -476,3 +538,7 @@ else:
 	interp.cmdloop()
 
 db.flush()
+
+if db.path != db_cache_path:
+	print("Updating cache at %s" % db_cache_path)
+	db.to_file(db_cache_path)

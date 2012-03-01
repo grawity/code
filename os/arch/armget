@@ -65,9 +65,18 @@ def search(query):
 
 	for i, (name, url) in enumerate(packages):
 		print "%3x  %s" % (i, name)
+
 	sel = raw_input("-> ")
 
-	sel = {i for x, y in rangesplit(sel, 16) for i in range(x, y)}
+	if sel == "q":
+		return queue
+
+	try:
+		sel = {i for x, y in rangesplit(sel, 16) for i in range(x, y)}
+	except ValueError as e:
+		print("error: invalid range (%s)" % e.args)
+		return []
+
 	for i in sel:
 		try:
 			queue.append(packages[i])

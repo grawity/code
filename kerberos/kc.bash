@@ -303,7 +303,15 @@ kc() {
 	=*)
 		local line=
 
-		if line=$(grep -w "^${cmd#=}" ~/lib/kerberos); then
+		if if [[ -e ~/lib/k5principals ]] &&
+		line=$(grep -w "^${cmd#=}" ~/lib/k5principals); then
+			true
+		elif [[ -e ~/lib/dotfiles/k5principals ]] &&
+		line=$(grep -w "^${cmd#=}" ~/lib/dotfiles/k5principals); then
+			true
+		else
+			false
+		fi; then
 			eval kc "$line"
 		fi
 		;;

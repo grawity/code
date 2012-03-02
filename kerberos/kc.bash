@@ -303,11 +303,11 @@ kc() {
 	=*)
 		local line=
 
-		if if [[ -e ~/lib/k5principals ]] &&
-		line=$(grep -w "^${cmd#=}" ~/lib/k5principals); then
+		if if [[ -e ~/lib/k5aliases ]] &&
+		line=$(grep -w "^${cmd#=}" ~/lib/k5aliases); then
 			true
-		elif [[ -e ~/lib/dotfiles/k5principals ]] &&
-		line=$(grep -w "^${cmd#=}" ~/lib/dotfiles/k5principals); then
+		elif [[ -e ~/lib/dotfiles/k5aliases ]] &&
+		line=$(grep -w "^${cmd#=}" ~/lib/dotfiles/k5aliases); then
 			true
 		else
 			false

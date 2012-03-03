@@ -10,7 +10,7 @@ using System.Windows.Forms;
 class MonOff
 {
 	private const int HWND_BROADCAST	= 0xffff;
-	private const int WM_SYSCOMMAND	= 0x112;
+	private const int WM_SYSCOMMAND		= 0x112;
 	private const int SC_MONITORPOWER	= 0xf170;
 
 	enum PowerState : int

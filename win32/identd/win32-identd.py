@@ -119,13 +119,6 @@ def get_connection_pid(af, local_addr, local_port, remote_addr, remote_port):
 			return entry["pid"]
 	return None
 
-def get_pid_owner(pid):
-	proc = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION, False, pid)
-	token = win32security.OpenProcessToken(proc, win32con.TOKEN_QUERY)
-	user_sid, user_attr = win32security.GetTokenInformation(token, win32security.TokenUser)
-	user = win32security.LookupAccountSid(None, user_sid)
-	return user[0]
-
 def unpack_addr(af, psockaddr):
 	if af == socket.AF_INET:
 		addr, port = psockaddr
@@ -188,6 +181,10 @@ class Identd():
 		else:
 			print(msg % args)
 
+	def logEx(self, level, msg, *data):
+		msg += "\n\n" + "\n".join("%s:\t%s" % item if item else "" for item in data)
+		return self.log(level, msg)
+
 	def listen(self, af, addr):
 		"""Listen on a given address."""
 
@@ -243,15 +240,17 @@ class Identd():
 	def handle_req(self, fd):
 		local_addr = fd.getsockname()[0]
 		remote_addr = fd.getpeername()[0]
-		# parse incoming request
+
 		raw_request = self.buffers[fd].splitlines()[0]
+
 		try:
 			local_port, remote_port = raw_request.split(b",", 1)
 			local_port = int(local_port.strip())
 			remote_port = int(remote_port.strip())
-			self.requests[fd] = (local_addr, local_port), (remote_addr, remote_port)
 		except ValueError:
 			return self.log_invalid_request(fd, self.buffers[fd])
+
+		self.requests[fd] = (local_addr, local_port), (remote_addr, remote_port)
 
 		if not (0 < local_port < 65536 and 0 < remote_port < 65536):
 			return self.reply(fd, "ERROR", "INVALID-PORT")
@@ -259,38 +258,72 @@ class Identd():
 		if fd.family == socket.AF_INET6:
 			local_addr = expand_v6_addr(local_addr)
 			remote_addr = expand_v6_addr(remote_addr)
-		# find connection in TcpTable
-		pid = get_connection_pid(fd.family, local_addr, local_port, remote_addr, remote_port)
-		if pid is not None:
-			# query token of owning process
-			owner = get_pid_owner(pid)
-			if owner:
-				owner = owner.replace(":", "_").replace("\r", "").replace("\n", " ")
-				info = "%s,%s:%s" % (self.os_name, "UTF-8", owner)
-				return self.reply(fd, "USERID", info)
-			else:
-				# failed to query user token (insufficient privileges?)
-				return self.reply(fd, "ERROR", "HIDDEN-USER")
-		else:
+
+		pid = get_connection_pid(fd.family,
+					local_addr, local_port,
+					remote_addr, remote_port)
+		if pid is None:
 			return self.reply(fd, "ERROR", "NO-USER")
+
+		owner = self.get_pid_owner(fd, pid)
+		if not owner:
+			# insufficient privileges?
+			return self.reply(fd, "ERROR", "HIDDEN-USER")
+
+		return self.reply_userid(fd, pid, owner)
 
 	def reply(self, fd, code, info):
 		"""Send a reply to an ident request."""
+
 		try:
 			local, remote = self.requests[fd]
 		except KeyError:
 			local, remote = 0, 0
-		self.log("notice", "Query from %s\n\n"
-			"local:\t%s\n"
-			"remote:\t%s\n"
-			"status:\t%s\n"
-			"info:\t%s",
-			format_addr(*fd.getpeername()), format_addr(*local),
-			format_addr(*remote), code, info)
+
+		self.logEx("notice",
+			"Query from %s" % format_addr(*fd.getpeername()),
+			("local",	format_addr(*local)),
+			("remote",	format_addr(*remote)),
+			None,
+			("reply",	code),
+			("data",	info),)
+
+		return self.send_reply(fd, local[1], remote[1], code, info)
+
+	def reply_userid(self, fd, pid, owner):
+		"""Send a success reply and log owner information."""
+
+		try:
+			local, remote = self.requests[fd]
+		except KeyError:
+			local, remote = 0, 0
+
+		sid, username, domain = owner
+
+		username = username.replace(":", "_").replace("\r", "").replace("\n", " ")
+
+		code = "USERID"
+
+		info = "%s,%s:%s" % (self.os_name, "UTF-8", username)
+
+		self.logEx("notice",
+			"Successful query from %s." % format_addr(*fd.getpeername()),
+			("local",	format_addr(*local)),
+			("remote",	format_addr(*remote)),
+			None,
+			("pid",		pid),
+			("owner",	win32security.ConvertSidToStringSid(sid)),
+			("user",	username),
+			("domain",	domain),
+			None,
+			("reply",	code),
+			("info",	info),)
+
 		return self.send_reply(fd, local[1], remote[1], code, info)
 
 	def log_invalid_request(self, fd, raw_req):
 		"""Send a reply to an unparseable Ident request."""
+
 		self.log("error", "Invalid query from %s\n\n"
 			"raw data:\t%r\n"
 			"\t(%d bytes)\n",
@@ -303,19 +336,43 @@ class Identd():
 
 	def send_reply(self, fd, lport, rport, code, info):
 		"""Format and send a raw Ident reply with given parameters."""
+
 		data = "%d,%d:%s:%s\r\n" % (lport, rport, code, info)
 		fd.send(data.encode("utf-8"))
 		self.close(fd)
 
 	def close(self, fd):
-		"""Close TCP connection and remove data structures"""
+		"""Close TCP connection and remove data structures."""
+
 		self.log("debug", "Closing fd %d", fd.fileno())
+
 		try:
 			self.clients.remove(fd)
 			del self.buffers[fd]
 		except (KeyError, ValueError) as e:
 			pass
+
 		fd.close()
+
+	# helper functions
+
+	def get_pid_owner(self, fd, pid):
+		try:
+			proc = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION, False, pid)
+			token = win32security.OpenProcessToken(proc, win32con.TOKEN_QUERY)
+			user_sid, user_attr = win32security.GetTokenInformation(token,
+						win32security.TokenUser)
+			user = win32security.LookupAccountSid(None, user_sid)
+			return user_sid, user[0], user[1]
+		except win32api.error as e:
+			self.logEx("error",
+				"%s failed" % funcname,
+				("exception",	e),
+				("function",	e.funcname),
+				("error",	"[%(winerror)d] %(strerror)s" % e),
+				None,
+				("process",	pid),)
+			raise
 
 class IdentdService(win32serviceutil.ServiceFramework):
 	_svc_name_ = "identd"

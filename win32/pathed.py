@@ -1,18 +1,19 @@
 #!python
 # pathed - a %PATH% editor for Windows, not entirely unlike ed
 
+from __future__ import print_function
 import os
 import sys
 import win32con as Con
 from nullroute.windows.registry import RegistryKey
-	
+
 def display_buf():
 	for i, item in enumerate(buf):
-		print "%4d - %s" % (i, item)
+		print("%4d - %s" % (i, item))
 
 def display_stack():
 	for i, item in enumerate(stack):
-		print "+ %s " % (item)
+		print("+ %s " % (item))
 
 def display():
 	display_buf()
@@ -38,21 +39,22 @@ display()
 
 while True:
 	try:
-		tokens = raw_input("pathed %s> " % bname).split()
+		tokens = input("pathed %s> " % bname).split(" ")
 	except EOFError:
 		update = True
 		break
 	except KeyboardInterrupt:
 		update = False
 		break
-	
+
 	token = lambda: tokens.pop(0)
-	
+	rest = lambda: " ".join(tokens)
+
 	try:
 		cmd = token()
 	except IndexError:
 		cmd = None
-	
+
 	if cmd is None:
 		display()
 
@@ -66,22 +68,25 @@ while True:
 
 	elif cmd == "i":
 		try:
-			pos, arg = tokens
+			pos = token()
 		except ValueError:
 			pos = 0
-			arg, = tokens
 		else:
 			pos = int(pos)
+
+		arg = rest()
+
 		buf.insert(pos, arg)
 
 	elif cmd == "a":
 		try:
-			pos, arg = tokens
+			pos = token()
 		except ValueError:
 			pos = None
-			arg, = tokens
 		else:
 			pos = int(pos)
+
+		arg = rest()
 
 		if pos is None:
 			buf.append(arg)
@@ -94,7 +99,7 @@ while True:
 		try:
 			val = buf.pop(pos)
 		except IndexError:
-			print "out of range"
+			print("out of range")
 		else:
 			stack.append(val)
 			display_stack()
@@ -113,7 +118,7 @@ while True:
 		try:
 			val = stack.pop()
 		except IndexError:
-			print "stack empty"
+			print("stack empty")
 		else:
 			buf.insert(pos, val)
 			display_stack()
@@ -125,7 +130,7 @@ while True:
 		try:
 			val = stack.pop()
 		except IndexError:
-			print "stack empty"
+			print("stack empty")
 		else:
 			buf.insert(pos+1, val)
 			display_stack()
@@ -140,16 +145,16 @@ while True:
 		try:
 			val = stack.pop()
 		except IndexError:
-			print "stack empty"
+			print("stack empty")
 		else:
 			stack.insert(0, val)
 			display_stack()
-		
+
 	elif cmd == "pop":
 		try:
 			val = stack.pop()
 		except IndexError:
-			print "stack empty"
+			print("stack empty")
 		else:
 			display_stack()
 
@@ -161,8 +166,8 @@ while True:
 		display_buf()
 
 if update:
-	print "Updating"
+	print("Updating")
 	ukey["PATH"] = os.pathsep.join(ubuf), _utype
 	skey["PATH"] = os.pathsep.join(sbuf), _stype
 else:
-	print "Discarding changes"
+	print("Discarding changes")

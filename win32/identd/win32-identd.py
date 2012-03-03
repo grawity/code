@@ -151,7 +151,7 @@ def expand_v6_addr(addr):
 		addr = left+rest+right
 	else:
 		addr = addr.split(":")
-	return ":".join("%04x" % int(c, 16) for c in addr)
+	return ":".join("%04x" % (int(c, 16) if c != '' else 0) for c in addr)
 
 def format_addr(host, port, *rest):
 	return ("[%s]:%s" if ":" in host else "%s:%s") % (host, port)

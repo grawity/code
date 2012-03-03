@@ -4,6 +4,7 @@
 from __future__ import print_function
 import os
 import sys
+import win32api as Api
 import win32con as Con
 from nullroute.windows.registry import RegistryKey
 
@@ -18,6 +19,9 @@ def display_stack():
 def display():
 	display_buf()
 	display_stack()
+
+def notify_os():
+	Api.SendMessage(Con.HWND_BROADCAST, Con.WM_SETTINGCHANGE, None, "Environment")
 
 update = False
 
@@ -169,5 +173,6 @@ if update:
 	print("Updating")
 	ukey["PATH"] = os.pathsep.join(ubuf), _utype
 	skey["PATH"] = os.pathsep.join(sbuf), _stype
+	notify_os()
 else:
 	print("Discarding changes")

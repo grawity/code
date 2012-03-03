@@ -295,8 +295,11 @@ class Identd():
 			"raw data:\t%r\n"
 			"\t(%d bytes)\n",
 			format_addr(*fd.getpeername()), raw_req, len(raw_req))
-		# TODO: Should this call self.close(fd) instead? (like oidentd)
-		self.send_reply(fd, 0, 0, "ERROR", "INVALID-PORT")
+
+		req = raw_req.rstrip(b"\r\n")
+
+		fd.send(req + ":ERROR:INVALID-PORT\r\n".encode("utf-8"))
+		self.close(fd)
 
 	def send_reply(self, fd, lport, rport, code, info):
 		"""Format and send a raw Ident reply with given parameters."""

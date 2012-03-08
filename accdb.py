@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import sys
+import time
 import uuid
 from collections import OrderedDict
 
@@ -193,6 +194,7 @@ class Database(object):
 			if entry.deleted:
 				continue
 			print(entry.dump(storage=storage), file=fh)
+		print("(last-write: %s)" % time.strftime("%Y-%m-%d %H:%M:%S"), file=fh)
 
 	def to_structure(self):
 		return [entry.to_structure() for entry in self]

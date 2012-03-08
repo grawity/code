@@ -93,7 +93,8 @@ class Database(object):
 	def from_file(self, path):
 		db = self()
 		db.path = path
-		db.parseinto(open(path))
+		with open(path, "r", encoding="utf-8") as fh:
+			db.parseinto(fh)
 		return db
 
 	@classmethod
@@ -104,6 +105,7 @@ class Database(object):
 		data = ""
 		lineno = 0
 		lastno = 1
+
 		for line in fh:
 			lineno += 1
 			if line.startswith("="):
@@ -114,10 +116,12 @@ class Database(object):
 				lastno = lineno
 			else:
 				data += line
+
 		if data:
 			entry = Entry.parse(data, lineno=lastno)
 			if entry:
 				self.add(entry)
+
 		return self
 
 	def add(self, entry, lineno=None):
@@ -208,7 +212,8 @@ class Database(object):
 		print(json.dumps(self.to_structure(), indent=4), file=fh)
 
 	def to_file(self, path):
-		self.dump(open(path, "w"))
+		with open(path, "w", encoding="utf-8") as fh:
+			self.dump(fh)
 
 	def flush(self):
 		if not self.modified:

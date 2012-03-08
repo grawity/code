@@ -529,7 +529,7 @@ if os.path.exists(db_path):
 else:
 	db = Database.from_file(db_cache_path)
 	db.readonly = True
-	print("Database not found; reading from read-only cache")
+	print("Database not found; reading from read-only cache", file=sys.stderr)
 
 interp = Interactive()
 
@@ -542,5 +542,5 @@ else:
 db.flush()
 
 if db.path != db_cache_path:
-	print("Updating cache at %s" % db_cache_path)
+	print("Updating cache at %s" % db_cache_path, file=sys.stderr)
 	db.to_file(db_cache_path)

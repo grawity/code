@@ -81,9 +81,20 @@ def route(request):
 			nexthop = host
 			flags += b"R"
 
-		if b"@" in request and b"h" not in flags:
+		if b"g" in flags and b"," in nexthop:
+			group, nexthop = nexthop.split(",", 1)
+			try:
+				group = int(group)
+			except ValueError:
+				DEBUG("invalid group %r", group)
+				return None
+			DEBUG("nextreq = group(%d)", group)
+			nextreq = result.group(group)
+		elif b"@" in request and b"h" not in flags:
+			DEBUG("nextreq = local")
 			nextreq = local
 		else:
+			DEBUG("nextreq = req")
 			nextreq = request
 
 		return nexthop, nextreq, flags

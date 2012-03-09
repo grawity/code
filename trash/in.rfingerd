@@ -151,11 +151,13 @@ def forward(addr, req, flags):
 			DEBUG('tcp: trying %r <af=%r>', addr, family)
 
 			sock = socket.socket(family, socktype, proto)
+			sock.settimeout(3)
 			try:
 				sock.connect(addr)
 			except socket.error as e:
 				straddr = formataddr(family, addr, ignoreport=79)
-				print("Trying %s... %s" % (straddr, e.strerror))
+				strerr = e.strerror or e.message
+				print("Trying %s... %s" % (straddr, strerr))
 				continue
 
 			if not b"q" in flags:

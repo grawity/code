@@ -19,9 +19,11 @@ import subprocess
 #	First match wins.
 #
 # Next hop:
+#	If <nexthop> starts with "$", it is parsed as "$<group>,<nexthop>"
+#	  and the selected () group is forwarded instead of entire request.
 # 	If "x" in flags, <nexthop> is an executable command.
 #		If <nexthop> begins with a "|", raw query is given as stdin,
-#		otherwise - in argv[].
+#		  otherwise - in argv[].
 # 	If <nexthop> starts with "/", it is a file to be sent.
 # 	If <nexthop> is "!", the query is refused.
 # 	If <nexthop> is "*", the query is transparently forwarded to the host.
@@ -81,10 +83,10 @@ def route(request):
 			nexthop = host
 			flags += b"R"
 
-		if b"g" in flags and b"," in nexthop:
+		if nexthop[0] == b"$" and b"," in nexthop:
 			group, nexthop = nexthop.split(",", 1)
 			try:
-				group = int(group)
+				group = int(group[1:])
 			except ValueError:
 				DEBUG("invalid group %r", group)
 				return None

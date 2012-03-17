@@ -53,7 +53,7 @@ sub hilightspam_score {
 		#$n =~ s![*?+\[\]()\{\}\^\$\|\\]!\\$&!;
 		$hilight_count++ if grep { $_ =~ m/^[\@+]?\Q$n\E$/i } @msg;
 	}
-	my $score = $hilight_count / $word_count;
+	my $score = $hilight_count > 6;
 	return $score;
 }
 

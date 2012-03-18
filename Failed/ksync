@@ -1,0 +1,7 @@
+#!/bin/bash
+remote=~/fs/snow/F/Users/Mantas/Private/AppData/snow/gnupg/
+temp=$(mktemp -d /tmp/gpg-sync.XXXXXXXXX)
+rsync -rvt "${remote%/}/" "${temp%/}/" --include '*.gpg'
+~/code/security/gpg-sync-keyrings "$temp"
+rsync -rvt "${temp%/}/" "${remote%/}/" --include '*.gpg' --inplace
+rm -rf "$temp"

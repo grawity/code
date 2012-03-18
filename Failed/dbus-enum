@@ -1,0 +1,44 @@
+#!/usr/bin/env python2
+import os
+import dbus
+
+def enum_pids():
+	for ent in os.listdir("/proc"):
+		path = os.path.join("/proc", ent, "cmdline")
+		if os.path.exists(path) and ent != "self":
+			yield int(ent)
+
+def get_cmdline(pid):
+	with open("/proc/%d/cmdline" % pid, "rb") as f:
+		cmd = f.read()
+	return cmd.split(b'\0') if cmd else None
+
+def get_environ(pid):
+	with open("/proc/%d/environ" % pid, "rb") as f:
+		environ = f.read()
+	return {k: v for k, v in
+		(var.split(b'=', 1) for var in environ.split(b'\0') if var)}
+
+def enum_dbus():
+	for pid in enum_pids():
+		cmdline = get_cmdline(pid)
+		if not cmdline:
+			continue
+		exe = os.path.basename(cmdline[0])
+		if exe != b'dbus-daemon':
+			continue
+		if b'--session' in cmdline:
+			yield pid
+
+sockets = set()
+for pid in enum_pids():
+	try:
+		environ = get_environ(pid)
+	except IOError:
+		continue
+	try:
+		sockets.add(environ[b'DBUS_SESSION_BUS_ADDRESS'])
+	except KeyError:
+		continue
+for socket in sockets:
+	bus = dbus.Bus(socket)

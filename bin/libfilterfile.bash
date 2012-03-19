@@ -60,7 +60,7 @@ match_eval() {
 
 match_hostname() {
 	local mask=${1:-*}
-	debug "matching '$FQDN', '$HOSTNAME' against '$mask'"
+	debug "matching fqdn='$FQDN', host='$HOSTNAME' against '$mask'"
 	(shopt -s extglob;
 		[[ $FQDN == $mask || $HOSTNAME == $mask ]])
 }

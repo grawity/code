@@ -8,11 +8,13 @@ else
 	RWHO_DIR=/cluenet/rwho
 fi
 
+RWHO_SCRIPT="$RWHO_DIR/agent-linux/rwho-agent.sh"
+
 case $1 in
 update)
 	echo "new rwho location: $RWHO_DIR"
 	if [[ -d $RWHO_DIR ]]; then
-		exec "$RWHO_DIR/rwhod.sh" git-update
+		exec "$RWHO_SCRIPT" git-update
 	else
 		echo "cloning git repository"
 		mkdir -p "$(dirname "$RWHO_DIR")"
@@ -20,7 +22,7 @@ update)
 		cp -a "$OLD_DIR/config.php" "$RWHO_DIR"
 
 		echo "restarting rwho"
-		"$RWHO_DIR/rwhod.sh" restart
+		"$RWHO_SCRIPT" restart
 
 		#echo "installing cronjob"
 		#{ crontab -l;
@@ -29,6 +31,6 @@ update)
 	fi
 	;;
 *)
-	exec "$RWHO_DIR/rwhod.sh" "$@"
+	exec "$RWHO_SCRIPT" "$@"
 	;;
 esac

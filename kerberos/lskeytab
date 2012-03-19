@@ -4,6 +4,7 @@ use feature 'say';
 
 my %hosts;
 my %services;
+my %kvnos;
 
 my $skip = 3;
 for my $line (`klist -k`) {
@@ -13,6 +14,7 @@ for my $line (`klist -k`) {
 		my ($svc, $host) = split(m|/|, $princ, 2);
 		push @{$hosts{$host}}, $svc;
 		push @{$services{$svc}}, $host;
+		push @{$kvnos{$princ}}, $kvno;
 	}
 }
 
@@ -20,7 +22,10 @@ while (my ($host, $services) = each %hosts) {
 	say "host $host:";
 	my @sv;
 	for my $service (uniq sort {lc $a cmp lc $b} @$services) {
+		my @kvnos = uniq sort @{$kvnos{"$service/$host"}};
+		my $kvnos = join(",", @kvnos);
+		$service = "$service($kvnos)";
 		push @sv, $service;
 	}
-	say "    ", join(", ", @sv);
+	say "    ", join(" ", @sv);
 }

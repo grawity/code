@@ -52,6 +52,12 @@ filter_file() {
 	fi
 }
 
+match_eval() {
+	local code=$1
+	debug "evaluating '$code'"
+	(eval "$code")
+}
+
 match_hostname() {
 	local mask=${1:-*}
 	debug "matching '$FQDN', '$HOSTNAME' against '$mask'"

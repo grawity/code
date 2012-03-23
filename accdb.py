@@ -421,6 +421,7 @@ class Interactive(cmd.Cmd):
 		return True
 
 	def do_help(self, arg):
+		"""Well, duh."""
 		cmds = [k for k in dir(self) if k.startswith("do_")]
 		for cmd in cmds:
 			doc = getattr(self, cmd).__doc__ or "?"
@@ -439,6 +440,7 @@ class Interactive(cmd.Cmd):
 				file=sys.stderr)
 
 	def do_dump(self, arg):
+		"""Dump the database to stdout (yaml, json, safe)"""
 		if arg == "":
 			db.dump()
 		elif arg == "yaml":
@@ -471,20 +473,23 @@ class Interactive(cmd.Cmd):
 		print("(%d entr%s matching '%s')" % (num, ("y" if num == 1 else "ies"), arg))
 
 	def do_reveal(self, arg):
-		"""Display full entry data"""
+		"""Display entry (including sensitive information)"""
 		for itemno in expand_range(arg):
 			entry = db.find_by_itemno(itemno)
 			print(entry.dump(reveal=True))
 
 	def do_show(self, arg):
+		"""Display entry (safe)"""
 		for itemno in expand_range(arg):
 			entry = db.find_by_itemno(itemno)
 			print(entry.dump(reveal=False))
 
 	def do_touch(self, arg):
+		"""Rewrite the accounts.db file"""
 		db.modified = True
 
 	def do_dbsort(self, arg):
+		"""Sort and rewrite the database"""
 		db.sort()
 		db.modified = True
 

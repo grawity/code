@@ -4,6 +4,7 @@
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
 use common::sense;
+use File::Path qw(make_path);
 use Net::DBus;
 use Getopt::Long qw(:config no_ignore_case bundling);
 
@@ -37,7 +38,11 @@ $summary = shift(@ARGV) or die "notify: summary not given\n";
 $body = join(" ", @ARGV);
 
 if (defined $statefile) {
-	$statefile =~ s/^\+/$statedir/;
+	if ($statefile =~ s/^\+/$statedir/) {
+		# If +name given as state file, the user wants as little
+		# hassle as possible. Create the directories.
+		-d $statedir || make_path($statedir);
+	}
 	if (open(my $fh, "<", $statefile)) {
 		$id = int <$fh>;
 		chomp($oldbody = join("", <$fh>));
@@ -79,7 +84,7 @@ $id = $obj->Notify($application,
 		$timeout);
 
 if (defined $statefile) {
-	open(my $fh, ">", $statefile) or die "notify: cannot update state: $@\n";
+	open(my $fh, ">", $statefile) or die "notify: cannot update state: $!\n";
 	say $fh $id;
 	say $fh $body;
 	close($fh);

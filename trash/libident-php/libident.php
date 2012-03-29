@@ -175,24 +175,24 @@ class IdentReply {
 		else
 			$str = "error: ";
 
-		switch ($this->rcode) {
+		switch ($this->response_type) {
 		case "ERROR":
-			$str .= "server error: [".$this->ecode."] ".strerror($this->ecode);
+			$str .= "server error: [".$this->add_info."] ".strerror($this->add_info);
 			break;
 		case "USERID":
 			$str .= "userid={$this->userid} ostype={$this->ostype}";
 			break;
 		default:
-			$str .= "{$this->rcode}: {$this->ecode}";
+			$str .= "{$this->response_type}: {$this->add_info}";
 		}
 		return $str;
 	}
 
-	function _failure($ecode) {
+	function _failure($add_info) {
 		$r = new self();
 		$r->success = false;
-		$r->rcode = "X-CLIENT-ERROR";
-		$r->ecode = $ecode;
+		$r->response_type = "X-CLIENT-ERROR";
+		$r->add_info = $add_info;
 		return $r;
 	}
 }

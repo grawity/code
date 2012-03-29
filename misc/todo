@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+_todo_show() {
+	nl -ba ~/lib/todo -w3 -s"  "
+}
+
+todo() {
+	if [[ ! -d ~/lib ]]; then
+		mkdir -p ~/lib
+	fi
+
+	if [[ -f ~/todo ]] && [[ ! -e ~/lib/todo ]]; then
+		mv ~/todo ~/lib/todo
+		ln -s 'lib/todo' ~/todo
+	fi
+
+	if [[ $1 ]]; then
+		echo "$(date +"%b %d, %Y") – $*" >> ~/lib/todo
+		_todo_show | tail -n1
+	elif [[ -s ~/lib/todo ]]; then
+		_todo_show
+	fi
+}
+
+vitodo() {
+	eval "${EDITOR:-vi} ~/lib/todo"
+}
+
+rmtodo() {
+	sed -i "${1:-\$}d" ~/lib/todo
+}
+
+
+case ${0##*/} in
+'todo')		todo "$@";;
+'vitodo')	vitodo "$@";;
+'rmtodo')	rmtodo "$@";;
+esac

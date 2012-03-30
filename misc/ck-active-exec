@@ -24,9 +24,9 @@ my $child;
 
 # set up signal handler
 
-sub reap {
+sub reap_child {
 	my $pid = wait;
-	$SIG{CHLD} = \&reap;
+	$SIG{CHLD} = \&reap_child;
 
 	if ($pid == $child) {
 		trace "sigchld: child $pid exited";
@@ -36,9 +36,27 @@ sub reap {
 	}
 }
 
-$SIG{CHLD} = \&reap;
+$SIG{CHLD} = \&reap_child;
 
 # set up DBus signals
+
+sub spawn_child {
+	return if $child && kill(0, $child);
+	my $pid = fork;
+	if ($pid) {
+		$child = $pid;
+		trace "fork: child is $child";
+	} else {
+		trace "exec: $exe (@args)";
+		exec {$exe} @args or die "exec: $!";
+	}
+}
+
+sub kill_child {
+	return unless $child;
+	trace "killing $child";
+	kill(SIGTERM, $child);
+}
 
 sub ConsoleKit { $system_bus->get_service("org.freedesktop.ConsoleKit") }
 
@@ -54,22 +72,10 @@ $ck_own_seat->connect_to_signal("ActiveSessionChanged", sub {
 
 	if ($new_session_p eq $ck_own_session->get_object_path) {
 		trace "current session activated";
-		return if $child && kill(0, $child);
-
-		my $pid = fork;
-		if ($pid) {
-			$child = $pid;
-			trace "fork: child is $child";
-		} else {
-			trace "exec: $exe (@args)";
-			exec {$exe} @args or die "exec: $!";
-		}
+		spawn_child();
 	} else {
 		trace "current session deactivated";
-		return unless $child;
-
-		trace "killing $child";
-		kill(SIGTERM, $child);
+		kill_child();
 	}
 });
 
@@ -79,5 +85,10 @@ usage() if !@ARGV;
 
 @args = @ARGV;
 $exe = $args[0];
+
+if ($ck_own_session->IsActive) {
+	trace "current session is active";
+	spawn_child();
+}
 
 Net::DBus::Reactor->main->run;

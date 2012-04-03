@@ -2,8 +2,14 @@
 header("Content-Type: text/plain; charset=utf-8");
 
 $i = array(
-	"remote host" => $_SERVER["REMOTE_ADDR"],
-	"remote port" => intval($_SERVER["REMOTE_PORT"]),
+	"server" => array(
+		"host" => $_SERVER["SERVER_ADDR"],
+		"port" => intval($_SERVER["SERVER_PORT"]),
+	),
+	"remote" => array(
+		"host" => $_SERVER["REMOTE_ADDR"],
+		"port" => intval($_SERVER["REMOTE_PORT"]),
+	),
 );
 
 if (@include "libident.php") {

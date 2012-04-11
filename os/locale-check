@@ -54,6 +54,9 @@ check_setting() {
 	fi
 }
 
+ps_shell=$(ps -o 'pid=,command=' $$)
+ps_terminal=$(ps -o 'pid=,command=' $PPID)
+
 unset ${!sy_*}
 declare -A sy_missing_locs
 
@@ -121,6 +124,8 @@ fi
 if (( sy_mismatch )); then
 	problem "Shell and terminal have different locale settings."
 	echo " * Your ~/.bashrc or similar startup scripts may be overriding them."
+	echo " * Shell:    $ps_shell"
+	echo " * Terminal: $ps_terminal"
 fi
 
 if (( sy_lcall )); then

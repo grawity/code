@@ -36,7 +36,7 @@ get_by_systemd() {
 	local pid=${1:-$$} service= leader_pid=
 
 	local asid=$(< "/proc/$pid/sessionid")
-	local info=$(systemd-loginctl show-session "$asid")
+	local info=$(loginctl show-session "$asid")
 	while IFS='=' read -r key value; do
 		case $key in
 		Remote)
@@ -59,7 +59,7 @@ get_cmdline() {
 	echo $(ps -p $1 -o 'cmd=')
 }
 
-if [[ -f /proc/self/sessionid ]] && command -v 'systemd-loginctl' >/dev/null; then
+if [[ -f /proc/self/sessionid ]] && command -v 'loginctl' >/dev/null; then
 	get_by_systemd
 else
 	get_by_pssid

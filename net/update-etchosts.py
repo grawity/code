@@ -6,15 +6,19 @@ import sys
 
 if sys.platform == "win32":
 	HOSTS_PATH = os.path.expandvars("%SystemRoot%/System32/drivers/etc/hosts")
+else:
+	HOSTS_PATH = "/etc/hosts"
+
+local_domains = (".home",
+		".nullroute.eu.org",)
+
+local_prefixes = ("192.168.",)
 
 def is_local_name(name):
-	local_domains = (".home",
-			".nullroute.eu.org",)
 	return any(name.endswith(i) for i in local_domains)
 
 def is_local_addr(af, addr):
-	prefixes = ("192.168.",)
-	return any(addr.startswith(i) for i in prefixes)
+	return any(addr.startswith(i) for i in local_prefixes)
 
 def resolve_addr(name):
 	gai = socket.getaddrinfo(name, None)

@@ -2,7 +2,8 @@
 # Activate the GDM login screen for user switching.
 # 2010 <grawity@gmail.com> WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
-use common::sense;
+use strict;
+use warnings;
 use Net::DBus;
 
 my $ck = Net::DBus->system->get_service("org.freedesktop.ConsoleKit");
@@ -22,13 +23,14 @@ sub activate_session {
 
 sub start_new_login_session {
 	if (fork == 0) {
-		exec("gdmflexiserver", "-s") or die "$@";
+		exec("gdmflexiserver", "-s") or die "$!";
 	}
 }
 
 sub get_current_seatid {
-	my $sessid_cur = $mgr->GetCurrentSession();
-	return $ck->get_object($sessid_cur)->GetSeatId();
+	my $sessid = $mgr->GetCurrentSession();
+	my $session = $ck->get_object($sessid);
+	return $session->GetSeatId();
 }
 
 sub get_login_sessionid {

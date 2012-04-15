@@ -1,6 +1,7 @@
-/* Origin: http://sourcefrog.net/projects/natsort/
+/* origin: http://sourcefrog.net/projects/natsort/
  * Minor changes by grawity. See Git history.
  */
+
 /* -*- mode: c; c-file-style: "k&r" -*-
 
    natsort.c -- Example strnatcmp application.

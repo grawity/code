@@ -40,12 +40,14 @@ readcred() {
 		printf "$fmt" "$user" "$pass"
 		return 0
 	elif [[ $DISPLAY ]]; then
-		zenity --forms --text "Enter credentials for $prompt:" \
-			--add-entry "Username:" --add-password "Password:" \
-			--separator $'\n' |
-		{
-			read -r user
-			read -r pass
+		zenity --forms \
+		--title "Enter credentials" \
+		--text "Enter credentials for $prompt:" \
+		--add-entry "Username:" \
+		--add-password "Password:" \
+		--separator $'\n' | {
+			read -r user &&
+			read -r pass &&
 			printf "$fmt" "$user" "$pass"
 		}
 	else
@@ -67,8 +69,8 @@ getcred_var() {
 	done
 
 	local host=$1 service=$2 obj=$3 uvar=${4:-user} pvar=${5:-pass}
-	local fmt='%u%n%p' data= udata= pdata= prompt=
-	printf -v prompt '\e[4m%s\e[m on %s' "$obj" "$host"
+	local fmt='%u%n%p' data= udata= pdata=
+	local prompt="$obj on $host"
 	if data=$(getnetrc_fqdn "$host" "$service" '%u%n%p'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
@@ -85,8 +87,8 @@ getcred_var() {
 
 getcred_samba() {
 	local host=$1 service=$2 obj=$3
-	local fmt='username=%u%npassword=%p' prompt=
-	printf -v prompt '\e[4m%s\e[m on %s' "$obj" "$host"
+	local fmt='username=%u%npassword=%p'
+	local prompt="$obj on $host"
 	getnetrc_fqdn "$host" "$service" "$fmt" ||
 	readcred "$prompt"
 }

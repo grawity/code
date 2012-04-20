@@ -1,9 +1,8 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <linux/if.h>
-#include <linux/if_tun.h>
+#include <net/if.h>
 #include <fcntl.h>
+#include <linux/if_tun.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

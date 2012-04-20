@@ -8,6 +8,7 @@ BIN = \
 	misc/spawn \
 	misc/xor \
 	misc/xors \
+	net/tapchown \
 	thirdparty/bgrep \
 	thirdparty/linux26 \
 	thirdparty/logwipe \

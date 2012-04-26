@@ -7,7 +7,7 @@ log() { printf "\e[32m=\e[m %s\e[m\n" "$*"; }
 
 log_ok() { printf "\e[34m=\e[m %s\e[m\n" "$*"; }
 
-warn() { printf "\e[1;33mwarning:\e[m %s\e[m\n" "$*"; }
+warn() { printf "\e[1;33mwarning:\e[m %s\e[m\n" "$*"; ((++warnings)); }
 
 err() { printf "\e[1;31merror:\e[m %s\e[m\n" "$*"; ((++errors)); false; }
 
@@ -25,18 +25,42 @@ check-gpg-version() {
 	(( major >= 2 )) || (( major == 1 && minor >= 4 ))
 }
 
+# check for necessary programs
+
 export -f have
 errors=0
+warnings=0
 
 PATH=~/code/bin:$PATH
 cd ~/code
 
-have git	|| err "git not installed"
-have curl	|| err "curl not installed"
 have gmake	&& make() { gmake "$@"; }
-have make	|| err "make not installed"
-have perl	|| warn "perl not installed"
-((errors))	&& exit
+have gpg2	&& gpg() { gpg2 "$@"; }
+
+wants=(
+	crontab
+	!curl
+	gcc
+	!git
+	!gpg
+	mailx
+	!make
+	perl
+)
+
+for bin in "${wants[@]}"; do
+	case $bin in
+	!*)	bin=${bin#!};
+		have "$bin" || err  "$bin not installed";;
+	*)	have "$bin" || warn "$bin not installed";;
+	esac
+done
+
+((errors)) && exit 1
+((warnings)) && { confirm "continue with setup?" || exit 1; }
+warnings=0
+
+# determine our FQDN
 
 if have perl; then
 	FQDN=$(fqdn)
@@ -48,10 +72,14 @@ else
 	FQDN=$HOSTNAME
 fi
 
+# compile tools
+
 if ! make -q; then
 	log "building tools"
 	make
 fi
+
+# set up dotfiles
 
 if [[ ! -d ~/lib/dotfiles/.git ]]; then
 	log "cloning dotfiles.git"
@@ -65,6 +93,8 @@ if [[ -z $LOCAL ]]; then
 	(cd ~/lib/dotfiles && ./install)
 	. ~/.profile
 fi
+
+# fix location of ~/.local/man
 
 if [[ -L $LOCAL/man ]]; then
 	rm -f "$LOCAL/man"
@@ -83,12 +113,16 @@ else
 	ln -s "../man" "$LOCAL/share/man"
 fi
 
+# install NullCA
+
 if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	log "installing Nullroute CA certificate"
 	mkdir -p -m 0700 ~/.pki/ca
 	cp dist/nullroute.pem ~/.pki/ca/
 	c_rehash ~/.pki/ca/ >/dev/null &
 fi
+
+# set up authorized_keys
 
 if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if have gpg && check-gpg-version; then
@@ -99,12 +133,18 @@ if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	fi
 fi
 
+# set up k5login
+
 if [[ ! -s ~/.k5login ]] && [[ -f /etc/krb5.keytab ]]; then
 	log "creating ~/.k5login"
 	dist/update-k5login &
 fi
 
-if err=$(crontab -l 2>&1 >/dev/null) || [[ $err == "no crontab for $USER" ]]; then
+# set up dist/pull
+
+if ! have crontab; then
+	warn "not adding dist/pull: \`crontab\` missing"
+elif err=$(crontab -l 2>&1 >/dev/null) || [[ $err == "no crontab for $USER" ]]; then
 	if ! crontab -l 2>/dev/null |
 		grep -Eqs "[[:space:]]ID=pull[[:space:]]|code/dist/pull"; then
 		log "adding dist/pull to crontab"
@@ -122,15 +162,19 @@ confirm "heirloom-mailx missing, install?"; then
 fi
 
 if [[ $FQDN == "equal.cluenet.org" ]]; then
-	log_ok "skipping ~/.forward on mail server"
+	log_ok "skipping ~/.forward on the mail server"
 elif [[ -s ~/.forward ]]; then
-	log_ok "mail is forwarded to $(sed 1q ~/.forward)"
+	log_ok "mail is being forwarded to $(sed 1q ~/.forward)"
 else
 	log "forwarding mail to $mail"
 	echo "$mail" > ~/.forward
-	log "sending a test email"
-	echo "Test email from $USER($UID) at $FQDN" \
-		| mailx -s "Test from $HOSTNAME" "$mail"
+	if have mailx; then
+		log "sending a test email"
+		echo "Test email from $USER($UID) at $FQDN" \
+			| mailx -s "Test from $HOSTNAME" "$mail"
+	else
+		warn "skipping test email: \`mailx\` missing"
+	fi
 fi
 
 if have perl && ! have cpanm &&

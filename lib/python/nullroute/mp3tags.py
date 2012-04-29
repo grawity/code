@@ -127,18 +127,21 @@ class GainValue(object):
 			return None
 
 	def export_id3(self, tag):
-		#print "Adding ID3v2.4 RVA2 frame"
 		tag[u'RVA2:%s' % self._mode] = self.to_rva2()
-		#print "Adding ID3v2 foobar2000 tag"
+
 		rg_gain, rg_peak = self.to_string()
-		tx_gain = mutagen.id3.TXXX(desc=u'replaygain_%s_gain' % self._mode, encoding=1, text=[rg_gain])
-		tx_peak = mutagen.id3.TXXX(desc=u'replaygain_%s_peak' % self._mode, encoding=1, text=[rg_peak])
+		tx_gain = mutagen.id3.TXXX(desc=u'replaygain_%s_gain' % self._mode,
+					encoding=1, text=[rg_gain])
+		tx_peak = mutagen.id3.TXXX(desc=u'replaygain_%s_peak' % self._mode,
+					encoding=1, text=[rg_peak])
 		tag[u'TXXX:'+tx_gain.desc] = tx_gain
 		tag[u'TXXX:'+tx_peak.desc] = tx_peak
-		#print "Adding ID3v2 iTunes Sound Check tag"
-		sc_raw = self.to_soundcheck()
-		sc_norm = mutagen.id3.COMM(desc=u'iTunNORM', lang='eng', encoding=0, text=[sc_raw])
-		tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)] = sc_norm
+
+		if self._mode == 'track':
+			sc_raw = self.to_soundcheck()
+			sc_norm = mutagen.id3.COMM(desc=u'iTunNORM', lang='eng',
+						encoding=0, text=[sc_raw])
+			tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)] = sc_norm
 
 	def export_mp4(self, tag):
 		#print "Adding MP4 foobar2000 tag"

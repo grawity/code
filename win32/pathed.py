@@ -41,6 +41,23 @@ buf, bname = ubuf, "usr"
 
 display()
 
+Commands = """
+    i [POS] PATH    insert before POS or first
+    a [POS] PATH    append after POS or last
+
+    d POS           delete (cut) item
+    y POS           yank (copy) item
+
+    p POS           pop and append after POS
+    P POS           pop and insert before POS
+    sw X Y          swap X and Y in stack
+    r               rotate stack
+
+    /               switch user and system paths
+    q               quit and save
+    x               exit without saving
+"""
+
 while True:
 	try:
 		tokens = input("pathed %s> " % bname).split(" ")
@@ -59,7 +76,7 @@ while True:
 	except IndexError:
 		cmd = None
 
-	if cmd is None:
+	if not cmd:
 		display()
 
 	elif cmd == "q":
@@ -70,10 +87,13 @@ while True:
 		update = False
 		break
 
+	elif cmd == "h":
+		print(Commands)
+
 	elif cmd == "i":
 		try:
 			pos = token()
-		except ValueError:
+		except IndexError:
 			pos = 0
 		else:
 			pos = int(pos)
@@ -85,7 +105,7 @@ while True:
 	elif cmd == "a":
 		try:
 			pos = token()
-		except ValueError:
+		except IndexError:
 			pos = None
 		else:
 			pos = int(pos)
@@ -168,6 +188,9 @@ while True:
 		else:
 			buf, bname = ubuf, "usr"
 		display_buf()
+
+	else:
+		print("unknown command")
 
 if update:
 	print("Updating")

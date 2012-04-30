@@ -27,7 +27,7 @@ def resolve_addr(name):
 			addr = sa[0]
 		else:
 			continue
-		print "... %s" % addr
+		print("... %s" % addr)
 		if is_local_addr(af, addr) and not is_local_name(name):
 			continue
 		else:
@@ -48,11 +48,10 @@ def update_names(input):
 		elif fixup:
 			names = line.split()
 			addr = names.pop(0)
-			name = names[0]
-			if name in pastnames:
+			if names[0] in pastnames:
 				continue
-			print "Updating %r" % name
-			for addr in resolve_addr(name):
+			print("Updating %r" % names[0])
+			for addr in resolve_addr(names[0]):
 				yield "\t".join([addr]+names)
 			pastnames.update(names)
 		else:
@@ -63,26 +62,28 @@ def update_names(input):
 input = ""
 output = ""
 
-print "Reading current hosts file"
+print("Reading current hosts file")
 
 fixup = False
 for line in open(HOSTS_PATH, "r"):
+	if fixup and line.startswith("#<off>#"):
+		line = line[7:]
 	input += line
+
 	line = line.rstrip('\r\n')
 	if line == "#begin fixup":
 		fixup = True
 	elif line == "#end fixup":
 		fixup = False
 	elif fixup:
-		pass
-	else:
-		output += line + "\n"
+		line = "#<off>#" + line
+	output += line + "\n"
 
 try:
-	print "Temporarily removing dynamic entries"
+	print("Temporarily removing dynamic entries")
 	open(HOSTS_PATH, "w").write(output)
 except:
-	print "Failed. Recovering old file"
+	print("Failed. Recovering old file")
 	open(HOSTS_PATH, "w").write(input)
 	raise
 
@@ -91,13 +92,13 @@ except:
 output = ""
 
 try:
-	print "Updating entries"
+	print("Updating entries")
 	for line in update_names(input.splitlines()):
 		output += line + "\n"
 except:
-	print "Failed. Recovering old file"
+	print("Failed. Recovering old file")
 	open(HOSTS_PATH, "w").write(input)
 	raise
 else:
-	print "Writing new hosts file"
+	print("Writing new hosts file")
 	open(HOSTS_PATH, "w").write(output)

@@ -34,15 +34,15 @@ check_setting() {
 	[[ -z $value ]] && return
 
 	if ! is_locale_supported "$value"; then
-		warn "$name: unsupported locale ($value)"
+		warn "$name: unsupported locale \"$value\""
 		(( ++sy_missing ))
 		local xlocale=$(get_locale "$value")
-		declare -gA sy_missing_locs["$xlocale"]=y
+		sy_missing_locs["$xlocale"]=y
 	fi
 
 	local charset=$(get_charset "$value")
 	if [[ $charset != "utf8" ]]; then
-		warn "$name: non-UTF8 locale ($value)"
+		warn "$name: non-UTF8 locale \"$value\""
 		(( ++sy_nonutf8 ))
 	fi
 
@@ -54,7 +54,19 @@ check_setting() {
 	fi
 }
 
+declare -i pid_shell=$PPID
+declare -i pid_term=$(ps -o 'ppid=' $pid_shell)
+
+ps_shell=$(ps -o 'pid=,command=' $pid_shell)
+ps_terminal=$(ps -o 'pid=,command=' $pid_term)
+
+echo " * Shell:    $ps_shell"
+echo " * Terminal: $ps_terminal"
+
 unset ${!sy_*}
+declare -A sy_missing_locs
+
+# Read terminal's environment
 
 vars=("LC_CTYPE" "LC_NUMERIC" "LC_TIME" "LC_COLLATE" "LC_MONETARY" "LC_MESSAGES" "LC_PAPER"
 	"LC_NAME" "LC_ADDRESS" "LC_TELEPHONE" "LC_MEASUREMENT" "LC_IDENTIFICATION" "LC_ALL")
@@ -64,7 +76,9 @@ while IFS='=' read -d '' name value; do
 	if [[ $name == LANG || $name == LC_* ]]; then
 		declare "TERM_$name"="$value"
 	fi
-done < "/proc/$PPID/environ"
+done < "/proc/$pid_term/environ"
+
+# Basic checks
 
 if [[ -z $LANG ]]; then
 	warn "(shell) LANG: not set"
@@ -116,6 +130,8 @@ done
 if [[ ${LANG,,} == *'.utf8' ]]; then
 	(( ++sy_utf8_dash ))
 fi
+
+# Display final results
 
 if (( sy_mismatch )); then
 	problem "Shell and terminal have different locale settings."

@@ -6,15 +6,19 @@ import sys
 
 if sys.platform == "win32":
 	HOSTS_PATH = os.path.expandvars("%SystemRoot%/System32/drivers/etc/hosts")
+else:
+	HOSTS_PATH = "/etc/hosts"
+
+local_domains = (".home",
+		".nullroute.eu.org",)
+
+local_prefixes = ("192.168.",)
 
 def is_local_name(name):
-	local_domains = (".home",
-			".nullroute.eu.org",)
 	return any(name.endswith(i) for i in local_domains)
 
 def is_local_addr(af, addr):
-	prefixes = ("192.168.",)
-	return any(addr.startswith(i) for i in prefixes)
+	return any(addr.startswith(i) for i in local_prefixes)
 
 def resolve_addr(name):
 	gai = socket.getaddrinfo(name, None)
@@ -23,7 +27,7 @@ def resolve_addr(name):
 			addr = sa[0]
 		else:
 			continue
-		print "... %s" % addr
+		print("... %s" % addr)
 		if is_local_addr(af, addr) and not is_local_name(name):
 			continue
 		else:
@@ -44,11 +48,10 @@ def update_names(input):
 		elif fixup:
 			names = line.split()
 			addr = names.pop(0)
-			name = names[0]
-			if name in pastnames:
+			if names[0] in pastnames:
 				continue
-			print "Updating %r" % name
-			for addr in resolve_addr(name):
+			print("Updating %r" % names[0])
+			for addr in resolve_addr(names[0]):
 				yield "\t".join([addr]+names)
 			pastnames.update(names)
 		else:
@@ -59,26 +62,28 @@ def update_names(input):
 input = ""
 output = ""
 
-print "Reading current hosts file"
+print("Reading current hosts file")
 
 fixup = False
 for line in open(HOSTS_PATH, "r"):
+	if fixup and line.startswith("#<off>#"):
+		line = line[7:]
 	input += line
+
 	line = line.rstrip('\r\n')
 	if line == "#begin fixup":
 		fixup = True
 	elif line == "#end fixup":
 		fixup = False
 	elif fixup:
-		pass
-	else:
-		output += line + "\n"
+		line = "#<off>#" + line
+	output += line + "\n"
 
 try:
-	print "Temporarily removing dynamic entries"
+	print("Temporarily removing dynamic entries")
 	open(HOSTS_PATH, "w").write(output)
 except:
-	print "Failed. Recovering old file"
+	print("Failed. Recovering old file")
 	open(HOSTS_PATH, "w").write(input)
 	raise
 
@@ -87,13 +92,13 @@ except:
 output = ""
 
 try:
-	print "Updating entries"
+	print("Updating entries")
 	for line in update_names(input.splitlines()):
 		output += line + "\n"
 except:
-	print "Failed. Recovering old file"
+	print("Failed. Recovering old file")
 	open(HOSTS_PATH, "w").write(input)
 	raise
 else:
-	print "Writing new hosts file"
+	print("Writing new hosts file")
 	open(HOSTS_PATH, "w").write(output)

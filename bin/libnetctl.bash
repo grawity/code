@@ -118,6 +118,7 @@ dev_destroy() {
 		warn "cannot destroy '$dev' - interface does not exist"
 		return
 	fi
+	dev_bring_down "$dev"
 	if dev_is_bridge "$dev"; then
 		debug "destroying '$dev' as bridge"
 		ip link set dev "$dev" down
@@ -138,6 +139,13 @@ dev_destroy() {
 		err "cannot destroy '$dev' - static interface or unknown type"
 		return
 	fi || err "cannot destroy '$dev' - generic failure"
+}
+
+dev_is_lower_up() {
+	local dev=$1
+	dev_exists "$dev" || return
+	local state=$(<"/sys/class/net/$dev/operstate")
+	[[ $state == "up" ]]
 }
 
 dev_bring_up() {

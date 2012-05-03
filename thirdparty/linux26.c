@@ -11,18 +11,27 @@
 #include <sys/personality.h>
 #include <unistd.h>
 
-#define UNAME26 0x0020000
+/* Bug emulation flags, taken from <linux/personality.h> */
+
+enum {
+	UNAME26		= 0x0020000,
+};
 
 int main(int argc, char *argv[]) {
 	int r;
-	if ((r = personality(UNAME26)) < 0) {
+
+	r = personality(UNAME26);
+	if (r < 0) {
 		perror("personality");
-		return r;
+		return 1;
 	}
+
 	argv++;
-	if ((r = execvp(argv[0], argv))) {
+	r = execvp(argv[0], argv);
+	if (r < 0) {
 		perror("exec");
-		return r;
+		return 1;
 	}
+
 	return 0;
 }

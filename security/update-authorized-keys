@@ -15,9 +15,8 @@
 #   #endif
 
 SOURCE_URL="http://purl.net/net/grawity/files/authorized_keys.txt"
-SIGNER_KEY_ID="D24F6CB2C1B52632"
 SIGNER_KEY_FP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
-KEYSERVER="pgp.surfnet.nl"
+[[ $KEYSERVER ]] || KEYSERVER="hkp://pool.sks-keyservers.net"
 
 PATH="$HOME/code/bin:$PATH"
 VERBOSE=""
@@ -75,7 +74,7 @@ verify() {
 	debug "verifying signature of '$file'"
 	local out=$(gpg --status-fd 1 --verify "$file" 2>/dev/null)
 	if grep -Eqs "^\[GNUPG:\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
-		! grep -qs "^\[GNUPG:\] GOODSIG $SIGNER_KEY_ID " <<< "$out" ||
+		! grep -qs "^\[GNUPG:\] GOODSIG " <<< "$out" ||
 		! grep -qs "^\[GNUPG:\] VALIDSIG $SIGNER_KEY_FP " <<< "$out" ||
 		! grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$out"
 	then

@@ -396,7 +396,7 @@ function get_content_type($path) {
 	$extpos = strrpos($name, ".");
 	$ext = ($extpos === false)? null : substr($name, $extpos+1);
 
-	return $content_types[$ext];
+	return @$content_types[$ext] ?: "text/plain";
 }
 
 listen();

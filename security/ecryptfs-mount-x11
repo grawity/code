@@ -36,10 +36,12 @@ pw=$(zenity --entry \
 	--ok-label "Unlock" \
 ) || exit 1
 
+wrapped=~/.ecryptfs/wrapped-passphrase
+
 # Twice. Sometimes it "forgets" to insert the FNEK. Fucker.
-printf '%s\n' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring ||
+printf '%s' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring "$wrapped" - ||
 	err "Failed to unlock your private files."
-printf '%s\n' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring ||
-	err "Failed to unlock your private files."
+#printf '%s\n' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring "$wrapped" - ||
+#	err "Failed to unlock your private files."
 ecryptfs-mount-private </dev/null ||
 	err "Failed to mount ~/Private/."

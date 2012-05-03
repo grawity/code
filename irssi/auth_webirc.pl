@@ -2,11 +2,10 @@
 use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);
-use Data::Dumper;
 
-$VERSION = "0.7";
+$VERSION = "0.8";
 %IRSSI = (
-	name        => 'webirc.pl',
+	name        => 'auth_webirc.pl',
 	description => 'Implements WEBIRC authentication for UnrealIRCd',
 	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
 );

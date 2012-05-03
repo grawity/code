@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# getpaste v0.10 - Retrieves raw text from a pastebin
+# getpaste r11 - Retrieves raw text from a pastebin
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 use warnings;
 use strict;
@@ -38,16 +38,11 @@ sub parse_url {
 		and $path =~ m!^(?:pastebin\.php\?dl=)?(\d+)!)
 		{ return "http://$host/pastebin.php?dl=$1" }
 
-	elsif ($host =~ /^paste\.linuxassist.net$/
-		and $path =~ m!(\d+)!)
+	elsif ($host =~ /^paste\.linuxassist\.net$/ and $path =~ m!(\d+)!)
 		{ return "http://linux:linux\@$host/pastebin.php?raw=$1" }
 
 	elsif ($host =~ /^pastie\.org$/ and $path =~ m!^(\d+)!)
 		{ return "http://$host/pastes/$1/download" }
-
-	# LodgeIt
-	elsif ($host =~ /^paste\.pocoo\.org|bpaste\.net$/ and $path =~ m!^(?:show|raw)/(\d+)!)
-		{ return "http://$host/raw/$1" }
 
 	elsif ($host =~ /(?:dark-)?code\.bulix\.org$/ and $path =~ m!^(\w+-\d+)!)
 		{ return "http://$host/$1?raw" }
@@ -62,22 +57,29 @@ sub parse_url {
 		{ return "http://$host/download/$1" }
 
 	else
-		{ return "$url" }
+		{ return undef }
 }
 
 my $showurl = ($ARGV[0] eq "-u");
 shift @ARGV if $showurl;
 
 if (!@ARGV) {
-	print STDERR "Usage: getpaste [-u] <url>\n";
+	warn "Usage: getpaste [-u] <url>\n";
 	exit 2;
 }
 
+my $err = 0;
+
 for my $url (@ARGV) {
-	if ($showurl) {
-		print parse_url($url), "\n";
-	}
-	else {
-		getprint parse_url($url);
+	my $raw = parse_url($url);
+	if (!defined $raw) {
+		warn "Unknown pastebin: $url\n";
+		++$err;
+	} elsif ($showurl) {
+		print "$raw\n";
+	} else {
+		getprint $raw;
 	}
 }
+
+exit $err;

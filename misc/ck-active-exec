@@ -1,0 +1,94 @@
+#!/usr/bin/env perl
+# ck-active-exec - starts and kills programs when ConsoleKit session becomes active
+# © 2012 Mantas M. <grawity@gmail.com>; released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+use warnings;
+use strict;
+use Net::DBus;
+use Net::DBus::Reactor;
+use POSIX qw(:signal_h);
+
+sub usage {
+	print "Usage: ck-active-exec <program> [args]\n";
+	exit 2;
+}
+
+sub trace {
+	print "ck-active-exec: ", shift, "\n";
+}
+
+my @args;
+my $exe;
+
+my $system_bus;
+my $child;
+
+# set up signal handler
+
+sub reap_child {
+	my $pid = wait;
+	$SIG{CHLD} = \&reap_child;
+
+	if ($pid == $child) {
+		trace "sigchld: child $pid exited";
+		$child = undef;
+	} else {
+		trace "sigchld: unknown $pid exited";
+	}
+}
+
+$SIG{CHLD} = \&reap_child;
+
+# set up DBus signals
+
+sub spawn_child {
+	return if $child && kill(0, $child);
+	my $pid = fork;
+	if ($pid) {
+		$child = $pid;
+		trace "fork: child is $child";
+	} else {
+		trace "exec: $exe (@args)";
+		exec {$exe} @args or die "exec: $!";
+	}
+}
+
+sub kill_child {
+	return unless $child;
+	trace "killing $child";
+	kill(SIGTERM, $child);
+}
+
+sub ConsoleKit { $system_bus->get_service("org.freedesktop.ConsoleKit") }
+
+$system_bus = Net::DBus->system;
+my $ck_manager = ConsoleKit->get_object("/org/freedesktop/ConsoleKit/Manager");
+my $ck_own_session = ConsoleKit->get_object($ck_manager->GetCurrentSession);
+my $ck_own_seat = ConsoleKit->get_object($ck_own_session->GetSeatId);
+
+$ck_own_seat->connect_to_signal("ActiveSessionChanged", sub {
+	my ($new_session_p) = @_;
+	
+	trace "active: ".($new_session_p || "(unmanaged)");
+
+	if ($new_session_p eq $ck_own_session->get_object_path) {
+		trace "current session activated";
+		spawn_child();
+	} else {
+		trace "current session deactivated";
+		kill_child();
+	}
+});
+
+# main
+
+usage() if !@ARGV;
+
+@args = @ARGV;
+$exe = $args[0];
+
+if ($ck_own_session->IsActive) {
+	trace "current session is active";
+	spawn_child();
+}
+
+Net::DBus::Reactor->main->run;

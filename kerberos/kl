@@ -70,7 +70,6 @@ sub display_ccache {
 	my $init;
 	my $tgt;
 
-
 	# read tickets from ccache
 
 	if (defined $ccache) {
@@ -163,6 +162,7 @@ sub display_ccache {
 				$color = "35";
 				$label = "tickets for '$realm' (no TGT)";
 			}
+
 			say " "x4,
 				"\e[${color}m",
 				$label,
@@ -258,16 +258,26 @@ my %opts;
 my $ccache	= undef;
 my $list_all	= 1;
 
-getopts('c:l', \%opts) or usage();
+getopts('c:lL', \%opts) or usage();
 if (exists $opts{c}) {
 	$ccache = $opts{c};
 	$list_all = 0;
 } elsif (exists $opts{l}) {
 	$list_all = 1;
+} elsif (exists $opts{L}) {
+	$list_all = 0;
 }
 
+my @visible;
+
 if ($list_all) {
-	display_ccache($_->[0]) for sort {$a->[1] cmp $b->[1]} enum_ccaches();
+	@visible = map {$_->[0]} sort {$a->[1] cmp $b->[1]} enum_ccaches();
 } else {
-	display_ccache($ccache);
+	@visible = ($ccache);
+}
+
+if (@visible) {
+	display_ccache($_) for @visible;
+} else {
+	say "No credentials cache found.";
 }

@@ -2,40 +2,53 @@
 package Nullroute::Biff2;
 use common::sense;
 use Carp;
-use Data::Dumper;
+use Encode qw(encode);
 use IO::Socket::UNIX;
 use JSON;
 use Socket;
 use Sys::Hostname;
 
+sub uri_encode {
+	my $str = shift;
+	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	return $str;
+}
+
+sub xdg_runtime_dir {
+	$ENV{XDG_RUNTIME_DIR} // $ENV{XDG_CACHE_HOME} // "$ENV{HOME}/.cache";
+}
+
+sub joinline {
+	join(" ", map {uri_encode $_} @_);
+}
+
 sub findsocket {
-	$ENV{BIFF2_SERVER} // "$ENV{HOME}/.cache/S.biff2";
+	my $dir = xdg_runtime_dir;
+	"$dir/mq.socket";
 }
 
 sub notify {
-	my ($class, $path, $data) = @_;
+	my ($class, $tag, $data) = @_;
 
-	my $buf = JSON->new->utf8->encode($data);
+	my $buf = ref $data ? JSON->new->utf8->encode($data) : encode("UTF-8", $data);
 
+	my $name = sprintf('%s!%s!biff2', hostname, $<);
 	my $sock = IO::Socket::UNIX->new(
-				Type => SOCK_DGRAM,
-				Peer => findsocket(),
-			);
+				Type => SOCK_STREAM,
+				Peer => findsocket(),);
 
 	if ($sock) {
-		# TODO TODO TODO: Just find a Perl/Python HTTP
-		# server library. Or heroku the fucker.
-		# 
-		# Clients send JSON using HTTP POST
-		# Subscribers: long-lived polls? tcp? etc.
-		#
+		my $line = $sock->getline;
+		unless ($line eq ". nmq-1.0\n") {
+			croak "Protocol mismatch: $line";
+		}
+
 		$sock->autoflush(0);
-		say $sock "POST $path STFU/1.0";
-		say $sock "Origin-Host: ".hostname();
-		say $sock "Content-Length: ".length($buf);
-		say $sock "";
-		say $sock $buf;
+		say $sock joinline("name", $name);
+		say $sock joinline("send", $tag // "sys", $buf);
+		say $sock joinline("quit");
 		$sock->flush;
+		1 while $sock->getline;
 		close $sock;
 	} else {
 		$ENV{DEBUG} && warn "Connection failed: $!\n";

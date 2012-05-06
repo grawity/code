@@ -10,7 +10,6 @@ my %map;
 sub readmap {
 	open(my $fd, "<", "/etc/samba/principals")
 		or die "$!";
-
 	while (<$fd>) {
 		chomp;
 		next if /^[;#]/;
@@ -39,10 +38,11 @@ readmap;
 chomp(my $defrealm = qx[pklist -R]);
 
 my $smbuser = shift(@ARGV)
-	or die "usage: samba.idmap [DOMAIN\\]username\n";
+	or die "usage: samba.usermap [DOMAIN\\]username\n";
 
 my $user;
 my $realm;
+
 if ($smbuser =~ /^(.*)\\(.+)$/) {
 	$realm = $1;
 	$user = $2;
@@ -50,6 +50,7 @@ if ($smbuser =~ /^(.*)\\(.+)$/) {
 	$realm = $defrealm;
 	$user = $smbuser;
 }
+
 my $princ = "$user\@$realm";
 
 my $unixuser = eval {

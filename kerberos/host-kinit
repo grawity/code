@@ -1,14 +1,25 @@
 #!/usr/bin/env bash
 service='host'
 fqdn=$(hostname -f)
-principal=$service/$fqdn
+principal=
 keytab=/etc/krb5.keytab
+owner=
+ccname=host
 
-if [ $service == "host" ]; then
-	ccname="host"
-else
+while getopts 'k:s:u:' OPT; do
+	case $OPT in
+	'k')	keytab=$OPTARG;;
+	's')	service=$OPTARG;;
+	'u')	owner=$OPTARG;;
+	esac
+done
+
+[[ ! $principal ]] &&
+	principal=$service/$fqdn
+
+[[ $service != "host" ]] &&
 	ccname="host_$service"
-fi
+
 export KRB5CCNAME="/tmp/krb5cc_$ccname"
 
 args=(	-k "$KRB5CCNAME"	# explicit ccache for `ps`
@@ -17,5 +28,7 @@ args=(	-k "$KRB5CCNAME"	# explicit ccache for `ps`
 	-u "$principal"		# principal
 	-F -P			# not forwardable, not proxiable
 	)
+
+[[ $owner ]] && args+=( -o "$owner" )
 
 exec k5start "${args[@]}"

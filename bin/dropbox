@@ -1,6 +1,16 @@
-#!/bin/sh
+#!/bin/sh -e
 umask 077
-if [ "$1" = "start" ]; then
+if [ "$1" = "install" ]; then
+	cd ~
+	case `uname -m` in
+	i[456]86)	url='http://www.dropbox.com/download?plat=lnx.x86';;
+	x86_64)		url='http://www.dropbox.com/download?plat=lnx.x86_64';;
+	*)		echo "Unsupported architecture `uname -m`" >&2; exit 1;;
+	esac
+	echo "Downloading $url"
+	curl -L "$url" | tar xzf -
+	exit
+elif [ "$1" = "start" ]; then
 	cd ~
 fi
 exec ${PYTHON:-python2} ~/code/thirdparty/dropbox "$@"

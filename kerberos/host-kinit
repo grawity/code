@@ -2,6 +2,7 @@
 service='host'
 fqdn=$(fqdn || hostname -f)
 principal=$service/$fqdn
+keytab=/etc/krb5.keytab
 
 if [ $service == "host" ]; then
 	ccname="host"
@@ -10,4 +11,11 @@ else
 fi
 export KRB5CCNAME="/tmp/krb5cc_$ccname"
 
-k5start -F -P -f /etc/krb5.keytab -u "$principal" -K 30 -b -L
+args=(	-k "$KRB5CCNAME"	# explicit ccache for `ps`
+	-b -L -K 30		# daemonize, syslog, check every 30m
+	-f "$keytab"		# credentials
+	-u "$principal"		# principal
+	-F -P			# not forwardable, not proxiable
+	)
+
+exec k5start "${args[@]}"

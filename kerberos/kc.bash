@@ -100,7 +100,7 @@ kc_list_caches() {
 			\( -user "$UID" -o -user "$USER" \) -printf "DIR::%p\0"
 		fi
 		# Heimdal kcmd
-		if [[ -S /var/run/.kcm_socket ]]; then
+		if [[ -S /var/run/.heim_org.h5l.kcm-socket ]]; then
 			printf "%s\0" "KCM:$(id -u)"
 		fi
 	} | sort -z -u | {

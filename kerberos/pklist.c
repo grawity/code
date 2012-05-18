@@ -51,7 +51,6 @@ krb5_ccache resolve_ccache(char*);
 
 int main(int argc, char *argv[]) {
 	int opt;
-	extern char *optarg;
 
 	char *ccname = NULL;
 	char *hostname = NULL;

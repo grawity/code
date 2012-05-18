@@ -32,10 +32,8 @@ clean:
 
 kerberos/k5userok: LDLIBS := -lkrb5 -lcom_err
 
-kerberos/pklist: kerberos/pklist.c
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -lkrb5 -lcom_err -o $@
+kerberos/pklist: LDLIBS := -lkrb5 -lcom_err
 
 thirdparty/natsort: thirdparty/strnatcmp.c thirdparty/natsort.c
-	$(CC) $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 .PHONY: all bootstrap install pull clean

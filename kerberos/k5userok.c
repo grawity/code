@@ -40,7 +40,6 @@ int main(int argc, char *argv[]) {
 	char		lname[256];
 	char		*princname;
 	krb5_boolean	ok;
-	char		*ok_str;
 
 	while ((opt = getopt(argc, argv, "qtu:")) != -1) {
 		switch (opt) {
@@ -62,11 +61,14 @@ int main(int argc, char *argv[]) {
 	if (optind == argc)
 		usage();
 
-	if (!translate) {
+	if (translate) {
+		if (user) {
+			fprintf(stderr, "%s: -t and -u conflict\n", progname);
+			exit(2);
+		}
+	} else {
 		if (!user)
 			user = cuserid(NULL);
-		if (!quiet)
-			printf("# for user: %s\n", user);
 		strncpy(lname, user, sizeof(lname));
 	}
 
@@ -80,40 +82,42 @@ int main(int argc, char *argv[]) {
 	for (i = optind; i < argc; i++) {
 		princ = NULL;
 		princname = NULL;
+		ok = 0;
 
 		r = krb5_parse_name_flags(ctx, argv[i], 0, &princ);
 		if (r) {
 			com_err(progname, r, "while parsing '%s'", argv[i]);
 			if (!quiet)
-				printf("%s %s %s\n", argv[i], "*", "invalid");
+				printf("%s %s %s\n",
+					argv[i],
+					"*",
+					"invalid");
 			goto next;
 		}
 
 		if (translate) {
-			r = krb5_aname_to_localname(ctx, princ, sizeof(lname), lname);
+			r = krb5_aname_to_localname(ctx, princ,
+						sizeof(lname), lname);
 			if (r) {
-				strcpy(lname, "*");
+				lname[0] = '*';
+				lname[1] = 0;
 				ok = 0;
-			} else {
+			} else
 				ok = krb5_kuserok(ctx, princ, lname);
-			}
-		} else {
+		} else
 			ok = krb5_kuserok(ctx, princ, lname);
-		}
-		ok_str = ok ? "allowed" : "denied";
-		all_ok = all_ok && ok;
 
 		r = krb5_unparse_name(ctx, princ, &princname);
-		if (r == 0) {
-			if (!quiet)
-				printf("%s %s %s\n", princname, lname, ok_str);
-		} else {
-			com_err(progname, r, "while unparsing name");
-			if (!quiet)
-				printf("%s %s %s\n", argv[i], lname, ok_str);
-		}
+
+		if (!quiet)
+			printf("%s %s %s\n",
+				r ? argv[i] : princname,
+				lname,
+				ok ? "allowed" : "denied");
 
 	next:
+		all_ok = all_ok && ok;
+
 		if (princ)
 			krb5_free_principal(ctx, princ);
 		if (princname)

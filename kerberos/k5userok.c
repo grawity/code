@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
 		usage();
 
 	if (!user)
-		user = cuserid(user);
+		user = cuserid(NULL);
 	
 	if (!quiet)
 		printf("# for user: %s\n", user);

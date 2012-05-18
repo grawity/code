@@ -8,22 +8,26 @@
 #define _XOPEN_SOURCE
 
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <krb5.h>
 
 char *progname = "k5userok";
 
 void usage(void) {
-	fprintf(stderr, "Usage: %s [-u user] principal...\n", progname);
+	fprintf(stderr, "Usage: %s [-qt] [-u user] principal...\n", progname);
 	fprintf(stderr,
 		"\n"
-		"\t-u user    perform check for given user instead of current UID\n"
+		"\t-q         do not output anything, only use exit code\n"
+		"\t-t         translate principals to usernames\n"
+		"\t-u user    check all principals against given user\n"
 		"\n");
 	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
 	int		opt;
+	int		translate = 0;
 	int		quiet = 0;
 	char		*user = NULL;
 
@@ -33,13 +37,18 @@ int main(int argc, char *argv[]) {
 
 	int		i;
 	krb5_principal	princ;
+	char		lname[256];
 	char		*princname;
 	krb5_boolean	ok;
+	char		*ok_str;
 
-	while ((opt = getopt(argc, argv, "qu:")) != -1) {
+	while ((opt = getopt(argc, argv, "qtu:")) != -1) {
 		switch (opt) {
 		case 'q':
 			++quiet;
+			break;
+		case 't':
+			translate = 1;
 			break;
 		case 'u':
 			user = optarg;
@@ -53,11 +62,13 @@ int main(int argc, char *argv[]) {
 	if (optind == argc)
 		usage();
 
-	if (!user)
-		user = cuserid(NULL);
-	
-	if (!quiet)
-		printf("# for user: %s\n", user);
+	if (!translate) {
+		if (!user)
+			user = cuserid(NULL);
+		if (!quiet)
+			printf("# for user: %s\n", user);
+		strncpy(lname, user, sizeof(lname));
+	}
 
 	r = krb5_init_context(&ctx);
 	if (r) {
@@ -74,23 +85,33 @@ int main(int argc, char *argv[]) {
 		if (r) {
 			com_err(progname, r, "while parsing '%s'", argv[i]);
 			if (!quiet)
-				printf("%s %s\n", argv[i], "invalid");
+				printf("%s %s %s\n", argv[i], "*", "invalid");
 			goto next;
 		}
 
-		ok = krb5_kuserok(ctx, princ, user);
+		if (translate) {
+			r = krb5_aname_to_localname(ctx, princ, sizeof(lname), lname);
+			if (r) {
+				strcpy(lname, "*");
+				ok = 0;
+			} else {
+				ok = krb5_kuserok(ctx, princ, lname);
+			}
+		} else {
+			ok = krb5_kuserok(ctx, princ, lname);
+		}
+		ok_str = ok ? "allowed" : "denied";
 		all_ok = all_ok && ok;
 
 		r = krb5_unparse_name(ctx, princ, &princname);
-		if (r) {
+		if (r == 0) {
+			if (!quiet)
+				printf("%s %s %s\n", princname, lname, ok_str);
+		} else {
 			com_err(progname, r, "while unparsing name");
 			if (!quiet)
-				printf("%s %s\n", argv[i], ok ? "allowed" : "denied");
-			goto next;
+				printf("%s %s %s\n", argv[i], lname, ok_str);
 		}
-
-		if (!quiet)
-			printf("%s %s\n", princname, ok ? "allowed" : "denied");
 
 	next:
 		if (princ)

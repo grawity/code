@@ -2,6 +2,7 @@ CC	= gcc
 CFLAGS	= -Wall -O2
 
 BIN = \
+	kerberos/k5userok \
 	kerberos/pklist \
 	misc/args \
 	misc/silentcat \
@@ -28,6 +29,8 @@ install: all
 
 clean:
 	git clean -dfX
+
+kerberos/k5userok: LDLIBS := -lkrb5 -lcom_err
 
 kerberos/pklist: kerberos/pklist.c
 	$(CC) $(CFLAGS) $^ $(LDFLAGS) -lkrb5 -lcom_err -o $@

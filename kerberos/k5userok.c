@@ -2,7 +2,7 @@
  * k5userok.c - verify user access according to krb5_userok()
  *
  * © 2012 Mantas M. <grawity@gmail.com>
- * Relesed under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+ * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
  */
 
 #define _XOPEN_SOURCE

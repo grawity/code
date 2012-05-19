@@ -86,12 +86,12 @@ sub display_ccache {
 				($cache, $defprinc) = @l;
 				# If I ever decide to merge the 'cache' line formats in pklist.
 				if (defined $defprinc) {
-					($defrealm) = $defprinc =~ /@(.+?)$/;
+					($defrealm) = $defprinc =~ /@([^@]+)$/;
 				}
 			}
 			when ("principal") {
 				($defprinc) = @l;
-				($defrealm) = $defprinc =~ /@(.+?)$/;
+				($defrealm) = $defprinc =~ /@([^@]+)$/;
 			}
 			when ("CREDENTIALS") {
 				@fields = @l;
@@ -99,7 +99,7 @@ sub display_ccache {
 			when ("ticket") {
 				my %tkt = ();
 				@tkt{@fields} = @l;
-				my ($name, $realm) = $tkt{server_name} =~ /^(.+)@(.*)$/;
+				my ($name, $realm) = $tkt{server_name} =~ /^(.+)@([^@]*)$/;
 				push @extrealms, $realm
 					unless $realm eq $defrealm;
 

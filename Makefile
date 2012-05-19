@@ -1,22 +1,25 @@
-CC	= gcc
-CFLAGS	= -Wall -O2
+CC	:= gcc
 
-BIN = \
-	kerberos/k5userok \
-	kerberos/pklist \
-	misc/args \
-	misc/silentcat \
-	misc/spawn \
-	misc/xor \
-	misc/xors \
-	net/tapchown \
-	thirdparty/bgrep \
-	thirdparty/linux26 \
-	thirdparty/logwipe \
-	thirdparty/natsort \
+CFLAGS	:= -Wall -O2
+
+BINS := \
+	kerberos/k5userok	\
+	kerberos/pklist		\
+	misc/args		\
+	misc/silentcat		\
+	misc/spawn		\
+	misc/xor		\
+	misc/xors		\
+	net/tapchown		\
+	thirdparty/bgrep	\
+	thirdparty/linux26	\
+	thirdparty/logwipe	\
+	thirdparty/natsort 	\
 	thirdparty/writevt
 
-all: $(BIN)
+.PHONY: all bootstrap install pull clean
+
+all: $(BINS)
 
 bootstrap: all
 	@bash dist/bootstrap
@@ -35,5 +38,3 @@ kerberos/k5userok: LDLIBS := -lkrb5 -lcom_err
 kerberos/pklist: LDLIBS := -lkrb5 -lcom_err
 
 thirdparty/natsort: thirdparty/strnatcmp.c thirdparty/natsort.c
-
-.PHONY: all bootstrap install pull clean

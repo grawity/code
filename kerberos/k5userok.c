@@ -15,12 +15,16 @@
 char *progname = "k5userok";
 
 void usage(void) {
-	fprintf(stderr, "Usage: %s [-qt] [-u user] principal...\n", progname);
+	fprintf(stderr, "Usage: %s [-eqt] [-u user] principal...\n", progname);
 	fprintf(stderr,
 		"\n"
-		"\t-q         do not output anything, only use exit code\n"
-		"\t-t         translate principals to usernames\n"
-		"\t-u user    check all principals against given user\n"
+		"\t-e         parse principals as enterprise names\n"
+		"\t-q         do not output anything, only set exit code\n"
+		"\t-t         check against translated usernames (aname2lname)\n"
+		"\t-u user    check against given username (default is current user)\n"
+		"\n"
+		"Note: Root permissions may be required for -t/-u, in order to read other\n"
+		"      users' ~/.k5login files.\n"
 		"\n");
 	exit(EXIT_FAILURE);
 }
@@ -29,6 +33,7 @@ int main(int argc, char *argv[]) {
 	int		opt;
 	int		translate = 0;
 	int		quiet = 0;
+	int		parseflags = 0;
 	char		*user = NULL;
 
 	krb5_error_code	r;
@@ -41,8 +46,11 @@ int main(int argc, char *argv[]) {
 	char		*princname;
 	krb5_boolean	ok;
 
-	while ((opt = getopt(argc, argv, "qtu:")) != -1) {
+	while ((opt = getopt(argc, argv, "eqtu:")) != -1) {
 		switch (opt) {
+		case 'e':
+			parseflags |= KRB5_PRINCIPAL_PARSE_ENTERPRISE;
+			break;
 		case 'q':
 			++quiet;
 			break;
@@ -84,14 +92,13 @@ int main(int argc, char *argv[]) {
 		princname = NULL;
 		ok = 0;
 
-		r = krb5_parse_name_flags(ctx, argv[i], 0, &princ);
+		r = krb5_parse_name_flags(ctx, argv[i], parseflags, &princ);
 		if (r) {
-			com_err(progname, r, "while parsing '%s'", argv[i]);
 			if (!quiet)
 				printf("%s %s %s\n",
 					argv[i],
 					"*",
-					"invalid");
+					"malformed");
 			goto next;
 		}
 

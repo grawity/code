@@ -17,7 +17,7 @@ BINS := \
 	thirdparty/natsort 	\
 	thirdparty/writevt
 
-.PHONY: all bootstrap install pull clean
+.PHONY: all bootstrap pull clean
 
 all: $(BINS)
 
@@ -26,9 +26,6 @@ bootstrap: all
 
 pull:
 	@bash dist/pull
-
-install: all
-	@bash dist/installbin
 
 clean:
 	git clean -dfX

@@ -157,6 +157,9 @@ sub display_ccache {
 		my @creds = (@{$tgtcreds{$realm}},
 				sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
 
+		my $num_tgt = 0;
+		my $num_srv = 0;
+
 		if (!@{$tgtcreds{$realm}}) {
 			my ($color, $label);
 			if ($realm eq '') {
@@ -208,6 +211,7 @@ sub display_ccache {
 					$label .= " \e[${color}m(via ${svrealm})\e[m";
 					$width += length " (via $svrealm)";
 				}
+				$num_tgt++;
 			} else {
 				$label .= " "x2;
 				$width += 2;
@@ -225,6 +229,7 @@ sub display_ccache {
 					$width += length " (referral)";
 					$label .= " \e[34m(referral)\e[m";
 				}
+				$num_srv++;
 			}
 			
 			my $flags = $tkt->{flags};
@@ -257,6 +262,12 @@ sub display_ccache {
 				" ",
 				" "x(8-length $expiry),
 				$expiry_c,
+				;
+		}
+
+		if (!$num_srv) {
+			say " "x4,
+				"  (no service tickets)",
 				;
 		}
 	}

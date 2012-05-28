@@ -51,7 +51,7 @@ krb5_ccache resolve_ccache(char*);
 
 int main(int argc, char *argv[]) {
 	int opt;
-
+	int ret;
 	char *ccname = NULL;
 	char *hostname = NULL;
 	krb5_error_code retval;
@@ -108,13 +108,16 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	if (show_collection) {
-		return do_collection();
-	} else if (show_realm_only) {
-		return do_realm(hostname);
-	} else {
-		return do_ccache_by_name(ccname);
-	}
+	if (show_collection)
+		ret = do_collection();
+	else if (show_realm_only)
+		ret = do_realm(hostname);
+	else
+		ret = do_ccache_by_name(ccname);
+
+	krb5_free_context(ctx);
+
+	return ret;
 }
 
 /*

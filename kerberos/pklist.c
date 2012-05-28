@@ -180,6 +180,12 @@ int do_ccache(krb5_ccache cache) {
 		goto cleanup;
 	}
 	if (krb5_cc_get_principal(ctx, cache, &princ)) {
+		if (quiet_errors)
+			;
+		else if (retval == KRB5_FCC_NOFILE)
+			com_err(progname, retval, "(ticket cache %s)", ccname);
+		else
+			com_err(progname, retval, "while obtaining default principal (ticket cache %s)", ccname);
 		goto cleanup;
 	}
 	if (krb5_unparse_name(ctx, princ, &princname))

@@ -224,9 +224,8 @@ int do_ccache(krb5_ccache cache) {
 		goto cleanup;
 	}
 	while (!(retval = krb5_cc_next_cred(ctx, cache, &cursor, &creds))) {
-		if (!show_cfg_tkts && krb5_is_config_principal(ctx, creds.server))
-			continue;
-		show_cred(&creds);
+		if (!krb5_is_config_principal(ctx, creds.server) || show_cfg_tkts)
+			show_cred(&creds);
 		krb5_free_cred_contents(ctx, &creds);
 	}
 	if (retval == KRB5_CC_END) {

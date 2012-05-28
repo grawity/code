@@ -86,7 +86,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case '?':
 		default:
-			fprintf(stderr, "Usage: %s [-C] [-l] [-N | -P | -p | -R | -r hostname] [-c ccname]\n", progname);
+			fprintf(stderr,
+				"Usage: %s [-C] [-l] [-N | -P | -p | -R | -r hostname] [-c ccname]\n",
+				progname);
 			fprintf(stderr,
 				"\n"
 				"\t-C         also list config principals\n"
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
 				"\t-p         only show principal names\n"
 				"\t-R         show default realm\n"
 				"\t-r host    show realm for given FQDN\n");
-			exit(EXIT_FAILURE);
+			exit(2);
 		}
 	}
 
@@ -128,7 +130,8 @@ int do_realm(char *hostname) {
 	char		**realm;
 
 	if (hostname) {
-		if ((retval = krb5_get_host_realm(ctx, hostname, &realm))) {
+		retval = krb5_get_host_realm(ctx, hostname, &realm);
+		if (retval) {
 			com_err(progname, retval, "while obtaining realm for %s", hostname);
 			exit(1);
 		}
@@ -136,7 +139,8 @@ int do_realm(char *hostname) {
 		krb5_free_host_realm(ctx, realm);
 	} else {
 		realm = malloc(sizeof(realm));
-		if ((retval = krb5_get_default_realm(ctx, realm))) {
+		retval = krb5_get_default_realm(ctx, realm);
+		if (retval) {
 			com_err(progname, retval, "while obtaining default realm");
 			exit(1);
 		}
@@ -148,7 +152,7 @@ int do_realm(char *hostname) {
 }
 
 /*
- * output the ccache contents
+ * Output the ccache contents
  */
 int do_ccache(krb5_ccache cache) {
 	char		*ccname = NULL;
@@ -173,7 +177,8 @@ int do_ccache(krb5_ccache cache) {
 		goto cleanup;
 	}
 
-	if ((retval = krb5_cc_set_flags(ctx, cache, flags))) {
+	retval = krb5_cc_set_flags(ctx, cache, flags);
+	if (retval) {
 		if (quiet_errors)
 			;
 		else if (retval == KRB5_FCC_NOFILE)
@@ -182,7 +187,9 @@ int do_ccache(krb5_ccache cache) {
 			com_err(progname, retval, "while setting cache flags (ticket cache %s)", ccname);
 		goto cleanup;
 	}
-	if (krb5_cc_get_principal(ctx, cache, &princ)) {
+
+	retval = krb5_cc_get_principal(ctx, cache, &princ);
+	if (retval) {
 		if (quiet_errors)
 			;
 		else if (retval == KRB5_FCC_NOFILE)
@@ -191,7 +198,9 @@ int do_ccache(krb5_ccache cache) {
 			com_err(progname, retval, "while obtaining default principal (ticket cache %s)", ccname);
 		goto cleanup;
 	}
-	if (krb5_unparse_name(ctx, princ, &princname))
+
+	retval = krb5_unparse_name(ctx, princ, &princname);
+	if (retval)
 		goto cleanup;
 
 	if (show_ccname_only && show_collection) {
@@ -222,25 +231,26 @@ int do_ccache(krb5_ccache cache) {
 		printf("CREDENTIALS\tclient_name\tserver_name\tstart_time\texpiry_time\trenew_time\tflags\n");
 	}
 
-	if ((retval = krb5_cc_start_seq_get(ctx, cache, &cursor))) {
+	retval = krb5_cc_start_seq_get(ctx, cache, &cursor);
+	if (retval) {
 		com_err(progname, retval, "while starting to retrieve tickets");
 		goto cleanup;
 	}
-	while (!(retval = krb5_cc_next_cred(ctx, cache, &cursor, &creds))) {
+
+	for (;;) {
+		retval = krb5_cc_next_cred(ctx, cache, &cursor, &creds);
+		if (retval)
+			break;
 		if (!krb5_is_config_principal(ctx, creds.server) || show_cfg_tkts)
 			show_cred(&creds);
 		krb5_free_cred_contents(ctx, &creds);
 	}
+
 	if (retval == KRB5_CC_END) {
-		if ((retval = krb5_cc_end_seq_get(ctx, cache, &cursor))) {
-			com_err(progname, retval, "while finishing ticket retrieval");
-		} else {
-			status = 0;
-		}
-		goto cleanup;
+		krb5_cc_end_seq_get(ctx, cache, &cursor);
+		status = 0;
 	} else {
 		com_err(progname, retval, "while retrieving a ticket");
-		goto cleanup;
 	}
 
 cleanup:
@@ -253,18 +263,21 @@ cleanup:
 	return status;
 }
 
+/*
+ * Resolve a ccname to krb5_ccache
+ */
 krb5_ccache resolve_ccache(char *name) {
 	krb5_ccache		cache = NULL;
 	krb5_error_code		retval;
 
 	if (name == NULL) {
-		if ((retval = krb5_cc_default(ctx, &cache))) {
+		retval = krb5_cc_default(ctx, &cache);
+		if (retval)
 			com_err(progname, retval, "while getting default ccache");
-		}
 	} else {
-		if ((retval = krb5_cc_resolve(ctx, name, &cache))) {
+		retval = krb5_cc_resolve(ctx, name, &cache);
+		if (retval)
 			com_err(progname, retval, "while resolving ccache %s", name);
-		}
 	}
 	return cache;
 }
@@ -327,11 +340,14 @@ void show_cred(register krb5_creds *cred) {
 	char		*servername;
 	char		*flags;
 
-	if ((retval = krb5_unparse_name(ctx, cred->client, &clientname))) {
+	retval = krb5_unparse_name(ctx, cred->client, &clientname);
+	if (retval) {
 		com_err(progname, retval, "while unparsing client name");
 		goto cleanup;
 	}
-	if ((retval = krb5_unparse_name(ctx, cred->server, &servername))) {
+
+	retval = krb5_unparse_name(ctx, cred->server, &servername);
+	if (retval) {
 		com_err(progname, retval, "while unparsing server name");
 		goto cleanup;
 	}

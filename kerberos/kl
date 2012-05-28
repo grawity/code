@@ -34,7 +34,11 @@ sub interval {
 }
 
 sub mangle_name {
-	join ".", reverse split qr|[/.]|, (shift)->{server_name};
+	mangle_principal((shift)->{server_name});
+}
+
+sub mangle_principal {
+	join "/", map {join ".", reverse split /\./, $_} split /\//, lc shift;
 }
 
 sub enum_ccaches {

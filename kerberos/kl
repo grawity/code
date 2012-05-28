@@ -160,8 +160,8 @@ sub display_ccache {
 		if (!@{$tgtcreds{$realm}}) {
 			my ($color, $label);
 			if ($realm eq '') {
-				$color = "32";
-				$label = "tickets for empty realm";
+				$color = "1;34";
+				$label = "cross-realm referral tickets";
 			} else {
 				$color = "35";
 				$label = "tickets for '$realm' (no TGT)";
@@ -173,6 +173,10 @@ sub display_ccache {
 				"\e[m",
 				;
 		}
+
+		my $COLOR_TGT_LOCAL	= "32";
+		my $COLOR_TGT_CROSS	= "33";
+		my $COLOR_TGT_DISTANT	= "35";
 
 		for my $tkt (@creds) {
 			my $color = "0";
@@ -188,18 +192,21 @@ sub display_ccache {
 				$istgt = 1;
 
 				$color = $svrealm eq $nextrealm
-					? "1;32"
+					? $COLOR_TGT_LOCAL
 					: $svrealm eq $defrealm
-					? "1;35"
-					: "1;34"
+					? $COLOR_TGT_CROSS
+					: $COLOR_TGT_DISTANT
 					;
-				$label .= "\e[${color}m${svname}\e[m";
+
+				$label .= "\e[1;${color}m${svname}\e[m";
 				$width += length $svname;
 
-				if ($svrealm ne $nextrealm) {
-					$color = $svrealm eq $defrealm ? "35" : "34";
-					$label .= " \e[${color}m\@ ${svrealm}\e[m";
-					$width += length " \@ $svrealm";
+				if ($svrealm eq $nextrealm) {
+					$label .= " \e[${color}m(local)\e[m";
+					$width += length " (local)";
+				} else {
+					$label .= " \e[${color}m(via ${svrealm})\e[m";
+					$width += length " (via $svrealm)";
 				}
 			} else {
 				$label .= " "x2;
@@ -215,8 +222,8 @@ sub display_ccache {
 					$label .= " \e[36mfor \e[1m$defname\e[m";
 				}
 				if ($svrealm eq "") {
-					$width += length " (no realm)";
-					$label .= " \e[32m(no realm)\e[m";
+					$width += length " (referral)";
+					$label .= " \e[34m(referral)\e[m";
 				}
 			}
 			

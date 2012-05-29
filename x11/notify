@@ -16,6 +16,7 @@ my $id		= 0;
 my $summary	= "";
 my $body	= "";
 my @actions	= ();
+my @hints	= ();
 my %hints	= ();
 my $application	= "notify";
 my $timeout	= 3;
@@ -32,6 +33,7 @@ GetOptions(
 	's|state=s'	=> \$statefile,
 	'A|append'	=> \$appendbody,
 	'u|urgency=s'	=> \$urgency,
+	'h|hint=s'	=> \@hints,
 ) or die "$@";
 
 $summary = shift(@ARGV) or die "notify: summary not given\n";
@@ -68,6 +70,15 @@ if (defined $urgency) {
 		}
 	}
 	$hints{urgency} = Net::DBus::dbus_byte($val);
+}
+
+for (@hints) {
+	when ("resident") {
+		$hints{resident} = Net::DBus::dbus_boolean(1);
+	}
+	when ("transient") {
+		$hints{transient} = Net::DBus::dbus_boolean(1);
+	}
 }
 
 my $bus = Net::DBus->session;

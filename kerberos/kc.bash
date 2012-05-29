@@ -43,6 +43,10 @@ _kc_expand_ccname() {
 			echo >&2 "kc: cache #$i not in list"
 			return 1
 		fi;;
+	^^*)
+		printf 'KEYRING:%s\n' "${1#^^}";;
+	^*)
+		printf 'KEYRING:krb5cc.%s\n' "${1#^}";;
 	:)
 		printf 'DIR:%s\n' "$cccdir";;
 	:*)
@@ -72,6 +76,10 @@ _kc_collapse_ccname() {
 		ccname="${ccname%$principal}";;
 	"KCM:$UID")
 		ccname="KCM";;
+	"KEYRING:krb5cc."*)
+		ccname="${ccname/#KEYRING:krb5cc./^^}";;
+	"KEYRING:"*)
+		ccname="${ccname/#KEYRING:/^}";;
 	esac
 	printf '%s\n' "$ccname"
 }
@@ -87,6 +95,7 @@ _kc_eq_ccname() {
 kc_list_caches() {
 	local current="$(pklist -N)" have_current=
 	local ccdefault="$(unset KRB5CCNAME; pklist -N)" have_default=
+	local name=
 
 	{
 		pklist -l -N | tr '\n' '\0'
@@ -101,7 +110,14 @@ kc_list_caches() {
 		fi
 		# Heimdal kcmd
 		if [[ -S /var/run/.heim_org.h5l.kcm-socket ]]; then
-			printf "%s\0" "KCM:$(id -u)"
+			printf "KCM:%d\0" "$UID"
+		fi
+		# kernel keyrings
+		if [[ "$XDG_SESSION_ID" ]]; then
+			name="krb5cc.$UID.$XDG_SESSION_ID"
+			if keyctl search "@s" "keyring" "$name" >&/dev/null; then
+				printf "KEYRING:%s\0" "$name"
+			fi
 		fi
 	} | sort -z -u | {
 		while read -rd '' c; do
@@ -386,17 +402,34 @@ kc() {
 		;;
 	*)
 		# switch to a named or numbered ccache
-		local ccname= ccdirname=
+		local ccname= ccdirname= keyname= keyring=
 
 		if ccname=$(_kc_expand_ccname "$cmd"); then
-			if [[ $ccname == DIR::* ]]; then
+			case $ccname in
+			DIR::*)
 				ccdirname=${ccname%/*}
 				ccdirname=${ccdirname/#DIR::/DIR:}
 				export KRB5CCNAME=$ccdirname
 				kswitch -c "$ccname"
-			else
+				;;
+			KEYRING:*)
+				keyname=${ccname#KEYRING:}
+				if ! keyctl request 'keyring' "$keyname" 2>/dev/null; then
+					# Hack around something that loses keys added to @s if it equals @us
+					local sdesc=$(keyctl rdescribe @s 2>/dev/null)
+					local ddesc=$(keyctl rdescribe @us 2>/dev/null)
+					if [[ "$sdesc" == "$ddesc" ]]; then
+						keyring='@us'
+					else
+						keyring='@s'
+					fi
+					keyctl newring "$keyname" "$keyring" >/dev/null
+				fi
 				export KRB5CCNAME=$ccname
-			fi
+				;;
+			*)
+				export KRB5CCNAME=$ccname
+			esac
 			printf "Switched to %s\n" "$ccname"
 			[[ $1 ]] && kinit "$@"
 		else

@@ -77,9 +77,9 @@ _kc_collapse_ccname() {
 	"KCM:$UID")
 		ccname="KCM";;
 	"KEYRING:krb5cc."*)
-		ccname="${ccname/#KEYRING:krb5cc./^^}";;
+		ccname="${ccname/#KEYRING:krb5cc./^}";;
 	"KEYRING:"*)
-		ccname="${ccname/#KEYRING:/^}";;
+		ccname="${ccname/#KEYRING:/^^}";;
 	esac
 	printf '%s\n' "$ccname"
 }

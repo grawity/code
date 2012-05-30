@@ -6,7 +6,12 @@ import socket
 import sys
 
 def getfqdn(host=None):
-	return socket.gethostbyaddr(socket.gethostbyname(host or socket.gethostname()))[0]
+	host = host or socket.gethostname()
+	try:
+		ai = socket.getaddrinfo(host, None, 0, 0, 0, socket.AI_CANONNAME)
+		return ai[0][3] if ai else host
+	except:
+		return host
 
 def read_rules(rules_file):
 	defprinc = None

@@ -43,14 +43,21 @@ def read_rules(rules_file):
 
 rules_file = os.path.expanduser("~/lib/dotfiles/k5login.rules")
 k5login_file = os.path.expanduser("~/.k5login")
+verbose = False
 
-opts, args = getopt.getopt(sys.argv[1:], "i:o:")
+opts, args = getopt.getopt(sys.argv[1:], "i:o:v")
 for opt, optarg in opts:
-	if opt == "-i":		rules_file = optarg
+	if opt == "-v":		verbose = True
+	elif opt == "-i":	rules_file = optarg
 	elif opt == "-o":	k5login_file = optarg
 
-principals, rules = read_rules(rules_file)
 fqdn = getfqdn()
+if verbose:
+	sys.stderr.write("fqdn: %s\n" % fqdn)
+	sys.stderr.write("rules_file: %s\n" % rules_file)
+	sys.stderr.write("k5login_file: %s\n" % k5login_file)
+
+principals, rules = read_rules(rules_file)
 
 outfd = open(k5login_file, "w")
 for princ in principals:

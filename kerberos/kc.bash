@@ -414,7 +414,7 @@ kc() {
 				;;
 			KEYRING:*)
 				keyname=${ccname#KEYRING:}
-				if ! keyctl request 'keyring' "$keyname" 2>/dev/null; then
+				if ! keyctl request 'keyring' "$keyname" >&/dev/null; then
 					# Hack around something that loses keys added to @s if it equals @us
 					local sdesc=$(keyctl rdescribe @s 2>/dev/null)
 					local ddesc=$(keyctl rdescribe @us 2>/dev/null)

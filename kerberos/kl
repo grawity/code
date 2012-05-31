@@ -30,7 +30,8 @@ sub interval {
 	if ($d > 1)	{ "${d} days" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
 	elsif ($m > 1)	{ "${m} mins" }
-	else		{ "a minute" }
+	elsif ($s > 45)	{ "a minute" }
+	else		{ "${s} secs" }
 }
 
 sub mangle_name {
@@ -135,19 +136,38 @@ sub display_ccache {
 
 	# format TGT expiration time
 
-	my $expirystr;
+	my @expirystr;
+
+	my $starting = $init->{start_time} || $tgt->{start_time};
+
 	my $expiry = $init->{expiry_time} || $tgt->{expiry_time};
-	if ($expiry <= time) {
-		$expirystr = "\e[1;31m" . "expired" . "\e[m";
+
+	my $renew = $tgt->{renew_time};
+
+	if ($tgt->{flags} =~ /d/ and $tgt->{flags} =~ /i/
+	    and $starting <= time) {
+		push @expirystr, "\e[1;35m"."invalid"."\e[m";
+	}
+
+	if ($starting > time) {
+		push @expirystr, "postdated, will become valid in ".interval($starting);
+	} elsif ($expiry <= time) {
+		push @expirystr, "\e[1;31m"."expired"."\e[m";
 	} elsif ($expiry <= time+3600) {
-		$expirystr = "\e[1;33m" . "expires in ".interval($expiry) . "\e[m";
+		push @expirystr, "\e[1;33m"."expire in ".interval($expiry)."\e[m";
 	} else {
-		$expirystr = "expires in ".interval($expiry);
+		push @expirystr, "expire in ".interval($expiry);
+	}
+
+	if ($tgt->{flags} =~ /R/ and $tgt->{flags} =~ /I/ and $tgt->{flags} =~ /d/
+	    and $starting <= time and $expiry > time and $renew > time) {
+		push @expirystr, "renewable for ".interval($renew);
 	}
 
 	# output tickets sorted by realm, server name
 
-	say "Credentials for \e[1m${defprinc}\e[m (${expirystr}):";
+	say "Credentials for \e[1m${defprinc}\e[m";
+	say "    ", join(", ", @expirystr);
 	say "";
 
 	my @realms = uniq sort {$a eq '' ? 1 :
@@ -168,7 +188,7 @@ sub display_ccache {
 			my ($color, $label);
 			if ($realm eq '') {
 				$color = "1;34";
-				$label = "cross-realm referral tickets";
+				$label = "referral tickets";
 			} else {
 				$color = "35";
 				$label = "tickets for '$realm' (no TGT)";
@@ -237,32 +257,27 @@ sub display_ccache {
 			}
 			
 			my $flags = $tkt->{flags};
-			my @eflags = ();
-			$flags =~ /A/ or push @eflags, "!A";
-			$flags =~ s/[AT]//g;
-			if ($istgt) {
-				$flags =~ s/[P]//g;
-			} else {
-				$flags =~ s/[FR]//g;
-			}
-			$flags = join(" ", $flags, @eflags);
 
 			my $expiry = $tkt->{expiry_time} <= time
 					? "expired"
 					: interval($tkt->{expiry_time});
 
-			my $expiry_c = ($tkt->{expiry_time} <= time
+			my $expiry_c = (
+					$tkt->{start_time} > time
+					? "\e[1;35m"
+					: $tkt->{expiry_time} <= time
 					? "\e[1;31m"
 					: $tkt->{expiry_time} <= time+300
 					? "\e[33m"
-					: "").$expiry."\e[m";
+					: ""
+					). $expiry."\e[m";
 
 			say " "x4,
 				$label,
 				" "x(45-$width),
 				" ",
 				$flags,
-				" "x(5-length $flags),
+				" "x(8-length $flags),
 				" ",
 				" "x(8-length $expiry),
 				$expiry_c,

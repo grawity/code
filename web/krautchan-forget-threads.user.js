@@ -1,11 +1,13 @@
 // ==UserScript==
-// @name        Krautchan.net - clean up hidden threads
+// @name        Krautchan.net - forget old hidden threads
+// @description Clean up old hidden threads to avoid hitting the 4k cookie length limit.
 // @namespace   http://nullroute.eu.org/~grawity/
 // @include     http://krautchan.net/*
-// @version     1
+// @version     2
 // ==/UserScript==
 
-var MAX_THREADS = 100;
+// Let's assume 
+var MAX_THREADS = 150;
 
 // https://gist.github.com/1143845
 var gm_uwin = (function(){
@@ -21,11 +23,18 @@ var gm_uwin = (function(){
 }());
 
 function main() {
+	// cookie limit: 1 board => ~190 threads
+	//           more boards => dunno
+	var max = 150;
+	var count = 0;
+	//var re = /^board\.(.+)\.hiddenthreads$/;
+	//for (var param in gm_uwin.desuConfig) {
 	var param = "board."+gm_uwin.board+".hiddenthreads";
 	var threads = gm_uwin.configGet(param);
-	if (threads != null)
-		if (threads.length > MAX_THREADS)
-			gm_uwin.configSet(param, threads.slice(-MAX_THREADS));
+	if (threads == null)
+		return;
+	if (threads.length > max)
+		gm_uwin.configSet(param, threads.slice(-max));
 }
 
 window.addEventListener("load", main, true);

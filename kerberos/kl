@@ -108,15 +108,16 @@ sub display_ccache {
 				push @extrealms, $realm
 					unless $realm eq $defrealm;
 
+				if ($tkt{flags} =~ /I/) {
+					$init = \%tkt;
+				}
+
 				if ($name =~ m|^krbtgt/(.+)| && $realm ne '') {
 					push @{$tgtcreds{$1}}, \%tkt;
 					push @extrealms, $1
 						unless $1 eq $defrealm;
 					if ($1 eq $realm) {
 						$tgt = \%tkt;
-					}
-					if ($tkt{flags} =~ /I/) {
-						$init = \%tkt;
 					}
 				} else {
 					push @{$creds{$realm}}, \%tkt;

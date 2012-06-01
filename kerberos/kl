@@ -145,8 +145,9 @@ sub display_ccache {
 
 	my $renew = $tgt->{renew_time};
 
-	if ($tgt->{flags} =~ /d/ and $tgt->{flags} =~ /i/
-	    and $starting <= time) {
+	my $flags = $tgt->{flags};
+
+	if ($flags and $flags =~ /d/ and $flags =~ /i/ and $starting <= time) {
 		push @expirystr, "\e[1;35m"."invalid"."\e[m";
 	}
 
@@ -160,7 +161,7 @@ sub display_ccache {
 		push @expirystr, "expire in ".interval($expiry);
 	}
 
-	if ($tgt->{flags} =~ /R/ and $tgt->{flags} =~ /I/ and $tgt->{flags} =~ /d/
+	if ($flags and $flags =~ /R/ and $flags =~ /I/ and $flags =~ /d/
 	    and $starting <= time and $expiry > time and $renew > time) {
 		push @expirystr, "renewable for ".interval($renew);
 	}
@@ -168,7 +169,7 @@ sub display_ccache {
 	# output tickets sorted by realm, server name
 
 	say "Credentials for \e[1m${defprinc}\e[m";
-	say "    ", join(", ", @expirystr);
+	say "    ", join(", ", @expirystr) if @expirystr;
 	say "";
 
 	my @realms = uniq sort {$a eq '' ? 1 :

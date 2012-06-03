@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 
+file=~/lib/todo
+
+date_fmt="'%y %b %_d"
+
+date_sep=" – "
+
 _todo_show() {
-	nl -ba ~/lib/todo -w3 -s"  "
+	nl -ba -s". " -w3 "$file"
 }
 
 todo() {
-	if [[ ! -d ~/lib ]]; then
-		mkdir -p ~/lib
-	fi
-
-	if [[ -f ~/todo ]] && [[ ! -e ~/lib/todo ]]; then
-		mv ~/todo ~/lib/todo
-		ln -s 'lib/todo' ~/todo
-	fi
-
-	if [[ $1 ]]; then
-		echo "$(date +"%b %d, %Y") – $*" >> ~/lib/todo
-		_todo_show | tail -n1
+	if [[ $1 == /* ]]; then
+		local addr=$1
+		if [[ $addr != /*/ ]]; then
+			addr+=/
+		fi
+		_todo_show | sed -r -n "${addr}p"
+	elif [[ $1 ]]; then
+		echo "$(date +"$date_fmt")$date_sep$*" >> "$file"
+		_todo_show | tail -n 1
 	elif [[ -s ~/lib/todo ]]; then
 		_todo_show
 	fi
@@ -28,18 +31,27 @@ vitodo() {
 
 rmtodo() {
 	local addr=${1:-'$'}
-	local tmp=~/lib/.todo.tmp
+	local tmp=${file%/*}/.todo.tmp
 	if [[ $addr == /* && $addr != /*/ ]]; then
 		addr+=/
 	fi
-	sed "${addr}d" ~/lib/todo > "$tmp" &&
-	cp "$tmp" ~/lib/todo &&
+	sed -r "${addr}d" "$file" > "$tmp" &&
+	cp "$tmp" "$file" &&
 	rm -f "$tmp"
 }
 
+if [[ ! -d ${file%/*} ]]; then
+	mkdir -p "${file%/*}"
+fi
+
+if [[ -f ~/todo ]] && [[ ! -e $file ]]; then
+	mv ~/todo "$file"
+	ln -s 'lib/todo' ~/todo
+fi
 
 case ${0##*/} in
 'todo')		todo "$@";;
 'vitodo')	vitodo "$@";;
 'rmtodo')	rmtodo "$@";;
+*)		todo;;
 esac

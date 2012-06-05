@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 service='host'
 fqdn=$(hostname -f)
-principal=
-keytab=/etc/krb5.keytab
-owner=
-ccname=host
+principal=''
+keytab='/etc/krb5.keytab'
+owner=''
+ccname='/tmp/krb5cc_host'
+command=()
+runcommand=false
 
 while getopts 'k:s:u:' OPT; do
 	case $OPT in
@@ -14,21 +16,40 @@ while getopts 'k:s:u:' OPT; do
 	esac
 done
 
+command=("${@:$OPTIND}")
+
+(( ${#command[@]} )) &&
+	runcommand=true
+
 [[ ! $principal ]] &&
-	principal=$service/$fqdn
+	principal="$service/$fqdn"
 
 [[ $service != "host" ]] &&
-	ccname="host_$service"
+	ccname+="_$service"
 
-export KRB5CCNAME="/tmp/krb5cc_$ccname"
+$runcommand &&
+	ccname=$(mktemp "${ccname}_XXXXXXXX")
 
-args=(	-k "$KRB5CCNAME"	# explicit ccache for `ps`
-	-b -L -K 30		# daemonize, syslog, check every 30m
+export KRB5CCNAME=$ccname
+
+args=(
+	-k "$KRB5CCNAME"	# explicit ccache for `ps`
+	-L -K 30		# syslog, check every 30m
 	-f "$keytab"		# credentials
 	-u "$principal"		# principal
 	-F -P			# not forwardable, not proxiable
-	)
+)
 
-[[ $owner ]] && args+=( -o "$owner" )
+if [[ $owner ]]; then
+	args+=( -o "$owner" )
+fi
 
-exec k5start "${args[@]}"
+if $runcommand; then
+	args+=( -q )		# quiet
+	args+=( -- "${command[@]}" )
+	k5start "${args[@]}"
+	kdestroy
+else
+	args+=( -b )		# daemonize
+	exec k5start "${args[@]}"
+fi

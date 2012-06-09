@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# nproc - fallback 'nproc' util for coreutils < 8.0
+
+if [[ $OMP_NUM_THREADS ]]; then
+	echo $OMP_NUM_THREADS
+	exit
+fi
+
+case $ostype in
+linux-gnu)
+	exec getconf _NPROCESSORS_ONLN
+	;;
+*)
+	echo "fb-nproc: unsupported OS '$ostype'" >&2
+	echo 1
+	exit 1
+	;;
+esac

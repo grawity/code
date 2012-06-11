@@ -6,7 +6,12 @@ keytab='/etc/krb5.keytab'
 owner=''
 ccname='/tmp/krb5cc_host'
 command=()
+daemonize=true
 runcommand=false
+
+if (( PPID == 1 )); then
+	daemonize=false
+fi
 
 while getopts 'k:s:u:' OPT; do
 	case $OPT in
@@ -50,6 +55,8 @@ if $runcommand; then
 	k5start "${args[@]}"
 	kdestroy
 else
-	args+=( -b )		# daemonize
+	if $daemonize; then
+		args+=( -b )
+	fi
 	exec k5start "${args[@]}"
 fi

@@ -37,6 +37,10 @@ $runcommand &&
 
 export KRB5CCNAME=$ccname
 
+lockfile=${ccname#FILE:}
+lockfile=${lockfile//'/'/'-'}
+lockfile=/run/lock/host-kinit.${lockfile#'-'}
+
 args=(
 	-k "$KRB5CCNAME"	# explicit ccache for `ps`
 	-L -K 30		# syslog, check every 30m
@@ -47,6 +51,11 @@ args=(
 
 if [[ $owner ]]; then
 	args+=( -o "$owner" )
+fi
+
+if ! { exec {lockfd}>"$lockfile" && flock -x -n $lockfd; }; then
+	echo "Failed to obtain lock on $lockfile, exiting"
+	exit 1
 fi
 
 if $runcommand; then

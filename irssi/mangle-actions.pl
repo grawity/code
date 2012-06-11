@@ -25,7 +25,7 @@ Irssi::signal_add("send command", sub {
 
 Irssi::signal_add("message own_private", sub {
 	my ($server, $msg, $target, $orig_target) = @_;
-	if ($msg =~ m|^/me (.+)|) {
+	if ($msg =~ m|^/me (.*)|) {
 		Irssi::signal_stop;
 		Irssi::signal_emit("message irc own_action",
 			$server, $1, $target);

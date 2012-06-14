@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+# gnome-inhibit-list - list power saving inhibitors in GNOME
+#
+# © 2012 Mantas M. <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
+use warnings;
+use strict;
+use feature "say";
+use locale;
+use List::Util qw[max];
+use Net::DBus;
+use constant {
+	INHIBIT_LOGOUT		=> 1<<0,
+	INHIBIT_SWITCH_USER	=> 1<<1,
+	INHIBIT_SUSPEND		=> 1<<2,
+	INHIBIT_IDLE		=> 1<<3,
+};
+
+sub usage {
+	say for
+	"Usage: gnome-inhibit-list",
+	;
+	exit(2);
+}
+
+sub maxlength {
+	my ($attr, @items) = @_;
+	(max map {length $_->{$attr}} @items) // 0;
+}
+
+my $bus	= Net::DBus->session;
+my $sms	= $bus->get_service("org.gnome.SessionManager");
+my $sm	= $sms->get_object("/org/gnome/SessionManager");
+
+my @inhibitors;
+
+for my $ih_p (@{$sm->GetInhibitors}) {
+	my $ih = $sms->get_object($ih_p);
+	my $v = {
+		path      => $ih_p,
+		app_id    => $ih->GetAppId,
+		client_id => eval {$ih->GetClientId} // "(none)",
+		flags     => $ih->GetFlags,
+		reason    => eval {$ih->GetReason} // "(none)",
+		xid       => $ih->GetToplevelXid,
+	};
+
+	my @flags = grep {defined} (
+		$v->{flags} & INHIBIT_LOGOUT      ? "logout"      : undef,
+		$v->{flags} & INHIBIT_SWITCH_USER ? "switch-user" : undef,
+		$v->{flags} & INHIBIT_SUSPEND     ? "suspend"     : undef,
+		$v->{flags} & INHIBIT_IDLE        ? "idle"        : undef,
+		$v->{flags} ? undef : "none",
+	);
+	$v->{szflags} = join(",", @flags);
+
+	push @inhibitors, $v;
+}
+
+@inhibitors = sort {$a->{app_id} cmp $b->{app_id}} @inhibitors;
+
+my $len_flags  = maxlength szflags => @inhibitors;
+my $len_app_id = maxlength app_id => @inhibitors;
+my $len_reason = maxlength reason => @inhibitors;
+
+printf "%-*s  %-*s  %-*s\n",
+	$len_app_id,	"APPLICATION",
+	$len_reason,	"REASON",
+	$len_flags,	"INHIBITS";
+
+for my $v (@inhibitors) {
+	my ($ih_id) = ($v->{path} =~ m|/Inhibitor(\d+)$|);
+	printf "%-*s  %-*s  %-*s\n",
+		$len_app_id,	$v->{app_id},
+		$len_reason,	$v->{reason},
+		$len_flags,	$v->{szflags};
+}

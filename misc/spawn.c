@@ -52,6 +52,7 @@ int main(int argc, char *argv[]) {
 	char **cmd;
 	int do_wait = 0;
 	int do_lock = 0;
+	int do_print_lockname = 0;
 	char *lockname = NULL;
 	int lockshared = 0;
 	char *lockfile;
@@ -60,7 +61,7 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+Ll:w")) != -1) {
+	while ((opt = getopt(argc, argv, "+Ll:Pw")) != -1) {
 		switch (opt) {
 		case 'L':
 			lockshared = 1;
@@ -71,6 +72,10 @@ int main(int argc, char *argv[]) {
 				lockname = NULL;
 			else
 				lockname = optarg;
+			break;
+		case 'P':
+			do_lock = 1;
+			do_print_lockname = 1;
 			break;
 		case 'w':
 			do_wait = 1;
@@ -91,10 +96,17 @@ int main(int argc, char *argv[]) {
 		if (!lockname)
 			lockname = cmd[0];
 		lockfile = get_lockfile(lockname, lockshared);
-		if ((lockfd = open(lockfile, O_RDONLY|O_CREAT, 0600)) < 0) {
+		if (do_print_lockname) {
+			printf("%s\n", lockfile);
+			return 0;
+		}
+
+		lockfd = open(lockfile, O_RDWR|O_CREAT, 0600);
+		if (lockfd < 0) {
 			perror("open(lockfile)");
 			return 1;
 		}
+
 		if (flock(lockfd, LOCK_EX|LOCK_NB) < 0) {
 			if (errno == EWOULDBLOCK)
 				fprintf(stderr, "%s: already running\n", cmd[0]);

@@ -46,7 +46,12 @@ else {
 	);
 }
 
-print yaml_emit($i, YAML_UTF8_ENCODING);
+if (function_exists("yaml_emit"))
+	print yaml_emit($i, YAML_UTF8_ENCODING);
+else {
+	print "(Notice: missing 'yaml' module, fallback to print_r)\n";
+	print_r($i);
+}
 
 ?>
 

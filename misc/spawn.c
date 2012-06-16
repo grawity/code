@@ -57,7 +57,8 @@ int main(int argc, char *argv[]) {
 	int lockshared = 0;
 	char *lockfile;
 	int opt;
-	int lockfd;
+	int lockfd = 0;
+	int pid;
 
 	arg0 = argv[0];
 
@@ -114,12 +115,14 @@ int main(int argc, char *argv[]) {
 				perror("flock");
 			return 1;
 		}
+
 		char *env;
 		asprintf(&env, "SPAWN_LOCKFD=%d", lockfd);
 		putenv(env);
 	}
 
-	switch (fork()) {
+	pid = fork();
+	switch (pid) {
 	case 0:
 		if (setsid() < 0) {
 			perror("setsid");
@@ -134,6 +137,14 @@ int main(int argc, char *argv[]) {
 		perror("fork");
 		return 1;
 	default:
+		if (do_lock && lockfd) {
+			char *str = NULL;
+			int len = asprintf(&str, "%d\n", pid);
+			if (str) {
+				write(lockfd, str, len);
+				free(str);
+			}
+		}
 		if (do_wait)
 			wait(NULL);
 		return 0;

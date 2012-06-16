@@ -10,9 +10,9 @@
 
 char *arg0;
 
-static void usage() {
+static int usage() {
 	fprintf(stderr, "usage: %s [-L] [-l name] [-w] <command> [args]\n", arg0);
-	exit(2);
+	return 2;
 }
 
 char * get_ttyname() {
@@ -49,7 +49,7 @@ char * get_lockfile(char *name, int shared) {
 }
 
 int main(int argc, char *argv[]) {
-	char **cmd;
+	char **cmd = NULL;
 	int do_wait = 0;
 	int do_lock = 0;
 	int do_print_lockname = 0;
@@ -82,13 +82,13 @@ int main(int argc, char *argv[]) {
 			do_wait = 1;
 			break;
 		default:
-			usage();
+			return usage();
 		}
 	}
 
 	if (optind >= argc) {
 		fprintf(stderr, "%s: must specify a command to run\n", arg0);
-		usage();
+		return usage();
 	} else {
 		cmd = &argv[optind];
 	}

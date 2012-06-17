@@ -1,6 +1,7 @@
 CC	:= gcc
 
-CFLAGS	:= -std=gnu11 -Wall -pedantic -O2
+#CFLAGS	:= -std=gnu11 -Wall -pedantic -O2
+CFLAGS	:= -Wall -O2
 
 BINS := \
 	kerberos/k5userok	\

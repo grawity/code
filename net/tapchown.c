@@ -10,12 +10,26 @@
 
 #define CLONEDEV "/dev/net/tun"
 
+char *arg0;
+
+static int usage() {
+	printf("Usage: %s <ifname> <uid>\n", arg0);
+	return 2;
+}
+
 int main(int argc, char *argv[]) {
 	struct ifreq ifr;
 	char *ifname;
 	int fd, r;
 	uid_t owner;
 	int iftype = -1;
+
+	arg0 = argv[0];
+
+	if (argc < 3) {
+		fprintf(stderr, "%s: missing arguments\n", arg0);
+		return usage();
+	}
 
 	ifname = argv[1];
 	owner = atoi(argv[2]);

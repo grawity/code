@@ -8,8 +8,10 @@ use warnings;
 use strict;
 use feature "say";
 use locale;
+
 use List::Util qw[max];
 use Net::DBus;
+
 use constant {
 	INHIBIT_LOGOUT		=> 1<<0,
 	INHIBIT_SWITCH_USER	=> 1<<1,
@@ -63,9 +65,9 @@ my @inhibitors =
 	}
 	@{$sm->GetInhibitors};
 
-my $len_flags  = maxlength szflags => @inhibitors;
-my $len_app_id = maxlength app_id => @inhibitors;
-my $len_reason = maxlength reason => @inhibitors;
+my $len_app_id = max(11, maxlength app_id => @inhibitors);
+my $len_reason = max(6,  maxlength reason => @inhibitors);
+my $len_flags  = max(8,  maxlength szflags => @inhibitors);
 
 printf "%-*s  %-*s  %-*s\n",
 	$len_app_id,	"APPLICATION",

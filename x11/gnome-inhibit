@@ -85,6 +85,11 @@ if (@cmd) {
 	$return = system {$cmd[0]} @cmd;
 	$return = POSIX::WEXITSTATUS($return);
 } else {
+	$SIG{INT} = sub {
+		print "$app_id: SIGINT caught, exiting\n";
+		uninhibit();
+		exit(0);
+	};
 	print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
 	POSIX::pause();
 }

@@ -42,7 +42,7 @@ recv_key() {
 	local grip=$1
 	local server=$KEYSERVER
 	say "updating key $grip from $server"
-	local out=$(gpg --status-fd 1 --keyserver "$server" --recv-key "$grip" 2>&1)
+	local out=$($GPG --status-fd 1 --keyserver "$server" --recv-key "$grip" 2>&1)
 	local gpg_status=$?
 	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
 		[[ $out ]] && echo "$out" >&2
@@ -72,7 +72,7 @@ tryfetch() {
 verify() {
 	local file=$1
 	debug "verifying signature of '$file'"
-	local out=$(gpg --status-fd 1 --verify "$file" 2>/dev/null)
+	local out=$($GPG --status-fd 1 --verify "$file" 2>/dev/null)
 	if grep -Eqs "^\[GNUPG:\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
 		! grep -qs "^\[GNUPG:\] GOODSIG " <<< "$out" ||
 		! grep -qs "^\[GNUPG:\] VALIDSIG $SIGNER_KEY_FP " <<< "$out" ||
@@ -99,7 +99,7 @@ while getopts "D:hvr" OPT "$@"; do
 	'r')	if confirm "import key ${SIGNER_KEY_FP}?"; then
 			recv_key "$SIGNER_KEY_FP" &&
 			echo -e 'trust\n5\ny\nquit\n' |
-			gpg --batch --command-fd=0 --edit-key "$SIGNER_KEY_FP"
+			$GPG --batch --command-fd=0 --edit-key "$SIGNER_KEY_FP"
 		fi;;
 	'?')	usage;;
 	esac
@@ -110,11 +110,15 @@ if [[ $debug == *:filter:* ]]; then
 	exit
 fi
 
-if ! have gpg; then
+if have gpg2; then
+	GPG=gpg2
+elif have gpg; then
+	GPG=gpg
+else
 	die "'gpg' not found in \$PATH"
 fi
 
-if ! gpg --list-keys "$SIGNER_KEY_FP" &> /dev/null; then
+if ! $GPG --list-keys "$SIGNER_KEY_FP" &> /dev/null; then
 	die "key $SIGNER_KEY_FP not in keyring (use ${progname} -r to import)"
 fi
 
@@ -134,7 +138,7 @@ fi
 if verify "$temp"; then
 	{
 		echo "# updated $(date +"%Y-%m-%d %H:%M") from $SOURCE_URL"
-		gpg --decrypt "$temp" 2> /dev/null
+		$GPG --decrypt "$temp" 2> /dev/null
 	} | filter_keys > ~/.ssh/authorized_keys
 	rm -f "$temp"
 fi

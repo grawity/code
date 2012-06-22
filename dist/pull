@@ -2,6 +2,8 @@
 [[ $DEBUG ]] && set -x
 set -e
 
+have() { command -v "$1" >/dev/null; }
+
 if [[ -t 1 ]]; then
 	log() { printf "\e[32m=\e[m %s\e[m\n" "$*"; }
 else
@@ -33,9 +35,12 @@ if [[ -z $xyzzy ]]; then
 	silent git pull
 	exec dist/pull
 else
-	if ! make -q; then
+	have gmake && MAKE=${MAKE:-gmake}
+	MAKE=${MAKE:-make}
+
+	if ! $MAKE -q; then
 		log "updating tools"
-		make -s
+		$MAKE -s
 	fi
 
 	case `fqdn` in

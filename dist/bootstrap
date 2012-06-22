@@ -20,7 +20,7 @@ confirm() {
 
 check-gpg-version() {
 	local version major minor rest
-	version=$(gpg --version | sed 's/gpg (GnuPG) //; q')
+	version=$($GPG --version | sed 's/gpg (GnuPG) //; q')
 	IFS="." read -r major minor rest <<< "$version"
 	(( major >= 2 )) || (( major == 1 && minor >= 4 ))
 }
@@ -34,8 +34,11 @@ warnings=0
 PATH=~/code/bin:$PATH
 cd ~/code
 
-have gmake	&& make() { gmake "$@"; }
-have gpg2	&& gpg() { gpg2 "$@"; }
+have gmake && MAKE=${MAKE:-gmake}
+MAKE=${MAKE:-make}
+
+have gpg2 && GPG=${GPG:-gpg2}
+GPG=${GPG:-gpg}
 
 wants=(
 	crontab
@@ -74,9 +77,9 @@ fi
 
 # compile tools
 
-if ! make -q; then
+if ! $MAKE -q; then
 	log "building tools"
-	make
+	$MAKE
 fi
 
 # set up dotfiles
@@ -119,13 +122,13 @@ if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	log "installing Nullroute CA certificate"
 	mkdir -p -m 0700 ~/.pki/ca
 	cp dist/nullroute.pem ~/.pki/ca/
-	c_rehash ~/.pki/ca/ >/dev/null &
+	have c_rehash && c_rehash ~/.pki/ca/ >/dev/null &
 fi
 
 # set up authorized_keys
 
 if [[ ! -s ~/.ssh/authorized_keys ]]; then
-	if have gpg && check-gpg-version; then
+	if have $GPG && check-gpg-version; then
 		log "enabling SSH key updates"
 		security/update-authorized-keys -r
 	else

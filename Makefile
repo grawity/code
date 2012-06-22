@@ -11,12 +11,14 @@ BINS := \
 	misc/spawn		\
 	misc/xor		\
 	misc/xors		\
-	net/tapchown		\
 	thirdparty/bgrep	\
-	thirdparty/linux26	\
 	thirdparty/logwipe	\
 	thirdparty/natsort 	\
 	thirdparty/writevt
+
+EXTRA := \
+	net/tapchown		\
+	thirdparty/linux26	\
 
 .PHONY: all bootstrap pull clean
 

@@ -5,18 +5,32 @@
  * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
  */
 
-#define _XOPEN_SOURCE
+#define _XOPEN_SOURCE 500
 
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include "krb5.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <pwd.h>
 
 #ifdef KRB5_HEIMDAL
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
 #endif
 
 char *progname = "k5userok";
+
+char *get_username(void) {
+	struct passwd *pw;
+
+	pw = getpwuid(geteuid());
+	if (pw && pw->pw_name) {
+		return strdup(pw->pw_name);
+	} else {
+		return strdup("?");
+	}
+}
 
 void usage(void) {
 	fprintf(stderr, "Usage: %s [-eqt] [-u user] principal...\n", progname);
@@ -80,7 +94,7 @@ int main(int argc, char *argv[]) {
 		}
 	} else {
 		if (!user)
-			user = cuserid(NULL);
+			user = get_username();
 		strncpy(lname, user, sizeof(lname));
 	}
 

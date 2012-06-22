@@ -25,7 +25,7 @@
 #	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
 #	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
-#	define krb5_is_config_principal(ctx, princ)	(1)
+#	define krb5_is_config_principal(ctx, princ)	(0)
 #endif
 
 char *progname = "pklist";

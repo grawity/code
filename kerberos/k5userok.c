@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <krb5.h>
+#include <krb5/krb5.h>
 
 char *progname = "k5userok";
 

@@ -32,7 +32,9 @@ clean:
 	git clean -dfX
 
 kerberos/k5userok: LDLIBS := -lkrb5 -lcom_err
+kerberos/k5userok: kerberos/k5userok.c kerberos/krb5.h
 
 kerberos/pklist: LDLIBS := -lkrb5 -lcom_err
+kerberos/pklist: kerberos/pklist.c kerberos/krb5.h
 
 thirdparty/natsort: thirdparty/strnatcmp.c thirdparty/natsort.c

@@ -14,17 +14,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <krb5/krb5.h>
-#include <et/com_err.h>
-
-#ifdef KRB5_KRB5_H_INCLUDED
-#	define KRB5_MIT
-#elif defined(__KRB5_H__)
-#	define KRB5_HEIMDAL
-#endif
+#include "krb5.h"
 
 #ifdef KRB5_HEIMDAL
-#	include <krb5_ccapi.h>
+#	ifdef HAVE_COLLECTIONS
+#		include <krb5_ccapi.h>
+#	endif
 #	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
 #	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)

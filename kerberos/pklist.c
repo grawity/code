@@ -14,7 +14,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <krb5.h>
+#include <krb5/krb5.h>
+#include <et/com_err.h>
 
 #ifdef KRB5_KRB5_H_INCLUDED
 #	define KRB5_MIT

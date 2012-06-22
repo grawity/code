@@ -11,6 +11,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <krb5/krb5.h>
+#include <et/com_err.h>
+
+#ifdef KRB5_KRB5_H_INCLUDED
+#	define KRB5_MIT
+#elif defined(__KRB5_H__)
+#	define KRB5_HEIMDAL
+#endif
+
+#ifdef KRB5_HEIMDAL
+#	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
+#endif
 
 char *progname = "k5userok";
 
@@ -26,7 +37,7 @@ void usage(void) {
 		"Note: Root permissions may be required for -t/-u, in order to read other\n"
 		"      users' ~/.k5login files.\n"
 		"\n");
-	exit(EXIT_FAILURE);
+	exit(2);
 }
 
 int main(int argc, char *argv[]) {

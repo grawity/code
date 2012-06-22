@@ -8,13 +8,15 @@
 
 #define _GNU_SOURCE
 
-#define HAVE_COLLECTIONS
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include "krb5.h"
+
+#ifdef KRB5_MIT
+#	define HAVE_COLLECTIONS
+#endif
 
 #ifdef KRB5_HEIMDAL
 #	ifdef HAVE_COLLECTIONS
@@ -23,6 +25,7 @@
 #	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
 #	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
+#	define krb5_is_config_principal(ctx, princ)	(1)
 #endif
 
 char *progname = "pklist";
@@ -237,7 +240,7 @@ int do_ccache(krb5_ccache cache) {
 		retval = krb5_cc_next_cred(ctx, cache, &cursor, &creds);
 		if (retval)
 			break;
-		if (!krb5_is_config_principal(ctx, creds.server) || show_cfg_tkts)
+		if (show_cfg_tkts || !krb5_is_config_principal(ctx, creds.server))
 			show_cred(&creds);
 		krb5_free_cred_contents(ctx, &creds);
 	}

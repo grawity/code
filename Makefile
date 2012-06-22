@@ -13,16 +13,18 @@ BINS := \
 	misc/xors		\
 	thirdparty/bgrep	\
 	thirdparty/logwipe	\
-	thirdparty/natsort 	\
 	thirdparty/writevt
 
 EXTRA := \
 	net/tapchown		\
 	thirdparty/linux26	\
+	thirdparty/natsort
 
 .PHONY: all bootstrap pull clean
 
 all: $(BINS)
+
+extra: all $(EXTRA)
 
 bootstrap: all
 	@bash dist/bootstrap

@@ -367,9 +367,9 @@ void show_cred(register krb5_creds *cred) {
 
 	printf("\t%s", clientname);
 	printf("\t%s", servername);
-	printf("\t%ld", (ulong) cred->times.starttime);
-	printf("\t%ld", (ulong) cred->times.endtime);
-	printf("\t%ld", (ulong) cred->times.renew_till);
+	printf("\t%ld", (unsigned long) cred->times.starttime);
+	printf("\t%ld", (unsigned long) cred->times.endtime);
+	printf("\t%ld", (unsigned long) cred->times.renew_till);
 
 	flags = strflags(cred);
 	if (flags && *flags)

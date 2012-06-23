@@ -91,16 +91,13 @@ filter_keys() {
 }
 
 debug=":"
+import=false
 
 while getopts "D:hvr" OPT "$@"; do
 	case "$OPT" in
 	'D')	debug+="${OPTARG}:";;
 	'v')	VERBOSE=true ;;
-	'r')	if confirm "import key ${SIGNER_KEY_FP}?"; then
-			recv_key "$SIGNER_KEY_FP" &&
-			echo -e 'trust\n5\ny\nquit\n' |
-			$GPG --batch --command-fd=0 --edit-key "$SIGNER_KEY_FP"
-		fi;;
+	'r')	import=true;;
 	'?')	usage;;
 	esac
 done
@@ -116,6 +113,11 @@ elif have gpg; then
 	GPG=gpg
 else
 	die "'gpg' not found in \$PATH"
+fi
+	
+if $import && confirm "import key ${SIGNER_KEY_FP}?"; then
+	recv_key "$SIGNER_KEY_FP" &&
+	echo -e 'trust\n5\ny\nquit\n' | $GPG --batch --command-fd=0 --edit-key "$SIGNER_KEY_FP"
 fi
 
 if ! $GPG --list-keys "$SIGNER_KEY_FP" &> /dev/null; then

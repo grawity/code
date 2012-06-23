@@ -6,6 +6,8 @@ else ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
 else ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
+else ifeq ($(UNAME),CYGWIN_NT-5.1)
+	OSFLAGS := -DHAVE_CYGWIN
 endif
 
 CC	:= gcc

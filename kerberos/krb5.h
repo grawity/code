@@ -1,6 +1,6 @@
 #if defined(HAVE_LINUX)
 #	include <krb5/krb5.h>
-#elif defined(HAVE_FREEBSD)
+#elif defined(HAVE_FREEBSD) || defined(HAVE_CYGWIN)
 #	include <krb5.h>
 #elif defined(HAVE_NETBSD)
 #	include <krb5/krb5.h>

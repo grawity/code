@@ -1,7 +1,17 @@
+UNAME	:= $(shell uname)
+
+ifeq ($(UNAME),Linux)
+	OSFLAGS := -DHAVE_LINUX
+else ifeq ($(UNAME),FreeBSD)
+	OSFLAGS := -DHAVE_FREEBSD
+else ifeq ($(UNAME),NetBSD)
+	OSFLAGS := -DHAVE_NETBSD
+endif
+
 CC	:= gcc
 
 #CFLAGS	:= -std=gnu11 -Wall -pedantic -O2
-CFLAGS	:= -Wall -O2
+CFLAGS	:= -Wall -O2 $(OSFLAGS)
 
 BINS := \
 	kerberos/k5userok	\

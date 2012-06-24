@@ -1,4 +1,10 @@
-UNAME	:= $(shell uname)
+CC = gcc
+
+CFLAGS = -Wall -O2 $(OSFLAGS)
+
+UNAME := $(shell uname)
+
+OBJDIR := $(shell bash -c 'echo obj/$$HOSTTYPE-$$OSTYPE')
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
@@ -10,35 +16,30 @@ else ifeq ($(UNAME),CYGWIN_NT-5.1)
 	OSFLAGS := -DHAVE_CYGWIN
 endif
 
-CC	:= gcc
-
-#CFLAGS	:= -std=gnu11 -Wall -pedantic -O2
-CFLAGS	:= -Wall -O2 $(OSFLAGS)
-
-BINS := \
-	kerberos/k5userok	\
-	kerberos/pklist		\
+BINS = \
 	misc/args		\
 	misc/silentcat		\
-	misc/spawn		\
+	misc/spawn
+
+EXTRA = \
+	kerberos/k5userok	\
+	kerberos/pklist		\
 	misc/xor		\
 	misc/xors		\
-	thirdparty/bgrep	\
-	thirdparty/logwipe	\
-	thirdparty/writevt
-
-EXTRA := \
 	net/tapchown		\
+	thirdparty/bgrep	\
 	thirdparty/linux26	\
-	thirdparty/natsort
+	thirdparty/logwipe	\
+	thirdparty/natsort	\
+	thirdparty/writevt
 
 .PHONY: all bootstrap pull clean
 
-all: $(BINS)
+basic: $(BINS)
 
-extra: all $(EXTRA)
+all: basic $(EXTRA)
 
-bootstrap: all
+bootstrap: basic
 	@bash dist/bootstrap
 
 pull:

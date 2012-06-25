@@ -4,27 +4,26 @@ set -e
 
 have() { command -v "$1" >/dev/null; }
 
-if [ -t 1 ]; then
+if [ -t 0 ]; then
 	log() { printf "\033[32m=\033[m %s\033[m\n" "$*"; }
 else
 	log() { true; }
 fi
 
 silent() {
-	local output=$(mktemp /tmp/log.XXXXXX) rc=0
-	if "$@" >"$output" 2>&1; then
+	local tmp=$(mktemp /tmp/pull.XXXXXX) rc=0
+	if "$@" >"$tmp" 2>&1; then
 		rc=0
 	else
 		rc=$?
 		echo "('$1' returned $rc)"
-		cat "$output"
+		cat "$tmp"
 	fi >&2
-	rm -f "$output"
+	rm -f "$tmp"
 	return $rc
 }
 
 if [ ! "$xyzzy" ]; then
-	# Update ~/code and run the new script
 	export PATH="$HOME/code/bin:$PATH"
 
 	if ! git var GIT_AUTHOR_IDENT >/dev/null; then
@@ -38,11 +37,6 @@ if [ ! "$xyzzy" ]; then
 	silent git pull
 	xyzzy=42 exec dist/pull
 else
-	if ! gmake -q; then
-		log "updating tools"
-		gmake -s
-	fi
-
 	case `fqdn` in
 		*.cluenet.org|*.nathan7.eu|*.nullroute.eu.org)
 			touch ~/.k5login
@@ -53,18 +47,18 @@ else
 
 	if [ -d ~/.gnupg ]; then
 		log "updating authorized_keys"
-		~/code/security/update-authorized-keys
+		security/update-authorized-keys
 	fi &
 
 	# rwho
 
 	if [ -d ~/lib/rwho ]; then
 		log "updating rwho"
-		cd ~/lib/rwho
+		(cd ~/lib/rwho
 		silent git pull --ff-only
 		if ./agent-linux/rwho-agent.sh status >/dev/null; then
 			./agent-linux/rwho-agent.sh update
-		fi
+		fi)
 	fi &
 
 	# dotfiles
@@ -76,8 +70,7 @@ else
 	else
 		log "cloning dotfiles.git"
 		mkdir -p ~/lib
-		git clone "git://github.com/grawity/dotfiles.git" \
-			~/lib/dotfiles
+		git clone "git://github.com/grawity/dotfiles.git" ~/lib/dotfiles
 	fi
 
 	log "running dotfiles/install"
@@ -87,7 +80,7 @@ else
 
 	if [ -f ~/.k5login ] && [ ! -k ~/.k5login ]; then
 		log "updating .k5login"
-		~/code/security/update-k5login
+		security/update-k5login
 	fi
 fi
 

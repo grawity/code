@@ -14,75 +14,68 @@
 #   ssh-rsa .... home-only key
 #   #endif
 
-SOURCE_URL="http://purl.net/net/grawity/files/authorized_keys.txt"
-SIGNER_KEY_FP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
+SRCURL="http://nullroute.eu.org/~grawity/files/authorized_keys.txt"
+KEYFP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 [[ $KEYSERVER ]] || KEYSERVER="hkp://pgp.mit.edu"
 
 PATH="$HOME/code/bin:$PATH"
-VERBOSE=""
-FQDN=$(fqdn) || exit 1
+FQDN=$(fqdn || hostname)
 
-. lib.bash		|| exit 1
-. libfilterfile.bash	|| exit 1
-. libhttpfetch.bash	|| exit 1
+. lib.bash		|| exit
+. libfilterfile.bash	|| exit
+. libhttpfetch.bash	|| exit
 
 usage() {
-	echo "Usage: $progname [-r] [-v]"
+	echo "Usage: $progname [-Frv]"
 	echo ""
-	echo "  -r  retrieve key"
-	echo "  -v  verbose mode"
+	echo "  -F  test key filter"
+	echo "  -r  receive signing key"
+	echo "  -v  verbose"
 	echo ""
-	echo -e "\e[1m""WARNING: Running this script will replace your keys with grawity's!""\e[m"
-	echo ""
-	echo "Key locations are hardcoded in $0."
+	echo -e "\e[1mWARNING: This script will replace your keys with grawity's!\e[m"
 	exit 2
 } >&2
 
 recv_key() {
-	local grip=$1
-	local server=$KEYSERVER
-	say "updating key $grip from $server"
-	local out=$($GPG --status-fd 1 --keyserver "$server" --recv-key "$grip" 2>&1)
-	local gpg_status=$?
-	if ! grep -qs "^\[GNUPG:\] IMPORT_OK " <<< "$out"; then
-		[[ $out ]] && echo "$out" >&2
-		warn "receiving key $grip from $server failed (gpg returned $gpg_status)"
-		return 1
-	else
+	local key=$1 out=
+	if out=$($GPG --keyserver "$KEYSERVER" --recv-key "$key" 2>&1); then
 		say "$out"
-		return 0
+	else
+		echo "$out" >&2
+		warn "failed to receive key $key from $KEYSERVER"
+		return 1
 	fi
 }
 
-tryfetch() {
+fetch() {
 	local url=$1 out=$2
-	local max_tries=3 retry_wait=3 attempt=0
-	while (( ++attempt <= max_tries )); do
-		say "fetching $url (attempt $attempt)"
+	local max_tries=3 retry_wait=3 attempt=1
+	while true; do
+		say "fetching $url (#$attempt)"
 		if http_fetch "$url" "$out"; then
 			return 0
-		else
-			rm -f "$out"; sleep $retry_wait
 		fi
+		rm -f "$out"
+		if (( attempt++ >= max_tries )); then
+			break
+		fi
+		sleep $retry_wait
 	done
-	warn "gave up fetching $url after $attempt tries"
+	err "failed to fetch $url"
 	return 1
 }
 
 verify() {
-	local file=$1
-	debug "verifying signature of '$file'"
-	local out=$($GPG --status-fd 1 --verify "$file" 2>/dev/null)
-	if grep -Eqs "^\[GNUPG:\] (ERROR|NODATA|BADSIG)( |\$)" <<< "$out" ||
-		! grep -qs "^\[GNUPG:\] GOODSIG " <<< "$out" ||
-		! grep -qs "^\[GNUPG:\] VALIDSIG $SIGNER_KEY_FP " <<< "$out" ||
-		! grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$out"
-	then
-		{ echo "$out"; echo "$progname: failed to verify $file"; } >&2
-		return 1
-	else
+	local file=$1 out=
+	debug "verifying signature of $file"
+	if out=$($GPG --status-fd 1 --verify "$file" 2>/dev/null) &&
+	   grep -qs "^\[GNUPG:\] VALIDSIG $KEYFP " <<<"$out" &&
+	   grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<<"$out"; then
 		say "$out"
-		return 0
+	else
+		echo "$out" >&2
+		err "failed to verify $file"
+		return 1
 	fi
 }
 
@@ -90,19 +83,22 @@ filter_keys() {
 	filter_file 'match_hostname'
 }
 
-debug=":"
+filter=false
 import=false
+file="$HOME/.ssh/authorized_keys"
 
-while getopts "D:hvr" OPT "$@"; do
+umask 077
+
+while getopts "Frv" OPT "$@"; do
 	case "$OPT" in
-	'D')	debug+="${OPTARG}:";;
-	'v')	VERBOSE=true ;;
+	'F')	filter=true;;
 	'r')	import=true;;
+	'v')	VERBOSE=true;;
 	'?')	usage;;
 	esac
 done
 
-if [[ $debug == *:filter:* ]]; then
+if $filter; then
 	filter_keys
 	exit
 fi
@@ -115,40 +111,33 @@ else
 	die "'gpg' not found in \$PATH"
 fi
 	
-if $import && confirm "import key ${SIGNER_KEY_FP}?"; then
-	recv_key "$SIGNER_KEY_FP" &&
-	echo -e 'trust\n5\ny\nquit\n' | $GPG --batch --command-fd=0 --edit-key "$SIGNER_KEY_FP"
+if $import; then
+	if confirm "import key $KEYFP?"; then
+		VERBOSE=true recv_key "$KEYFP" &&
+		echo "$KEYFP:6:" | $GPG --import-ownertrust
+	else
+		exit
+	fi
+elif $GPG --list-keys "$KEYFP" >/dev/null; then
+	recv_key "$KEYFP"
+else
+	die "key $KEYFP not in keyring"
 fi
 
-if ! $GPG --list-keys "$SIGNER_KEY_FP" &> /dev/null; then
-	die "key $SIGNER_KEY_FP not in keyring (use ${progname} -r to import)"
-fi
+mkdir -p -m 0700 "${file%/*}"
 
-# main code
+temp=$(mktemp "$file.XXXXXXXX") || exit
 
-umask 077
-
-mkdir -pm 0700 ~/.ssh
-
-recv_key "$SIGNER_KEY_FP" >&2 || exit 1
-
-temp=$(mktemp ~/.ssh/authorized_keys.XXXXXX)
-if ! tryfetch "$SOURCE_URL" "$temp"; then
-	die "failed to fetch $SOURCE_URL"
-fi
-
-if verify "$temp"; then
+if fetch "$SRCURL" "$temp" && verify "$temp"; then
 	{
-		echo "# updated $(date +"%Y-%m-%d %H:%M") from $SOURCE_URL"
-		$GPG --decrypt "$temp" 2> /dev/null
-	} | filter_keys > ~/.ssh/authorized_keys
-	rm -f "$temp"
+	echo "# updated: at $(date +"%Y-%m-%d %H:%M")"
+	echo "# updated: from $SRCURL"
+	$GPG --decrypt "$temp" 2>/dev/null
+	if [ -s "$file.local" ]; then
+		echo "# updated: from $file.local"
+		cat "$file.local"
+	fi
+	} | filter_keys >"$file"
 fi
 
-if [[ -s ~/.ssh/authorized_keys.local ]]; then
-	{
-		echo ""
-		echo "# keys from ~/.ssh/authorized_keys.local"
-		cat ~/.ssh/authorized_keys.local
-	} | filter_keys >> ~/.ssh/authorized_keys
-fi
+rm -f "$temp"

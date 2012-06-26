@@ -1,8 +1,8 @@
 UNAME := $(shell uname)
 HOSTNAME := $(shell hostname)
 
-ARCHOBJ := obj/bin.$(shell bash -c 'echo $$HOSTTYPE-$$OSTYPE')
-HOSTOBJ := obj/sys.$(HOSTNAME)
+ARCHOBJ := obj/arch.$(shell bash -c 'echo $$HOSTTYPE-$$OSTYPE')
+HOSTOBJ := obj/host.$(HOSTNAME)
 OBJ := $(HOSTOBJ)
 
 CC = gcc
@@ -25,11 +25,15 @@ endif
 DEFAULT: all
 
 pre:
-	@dist/prepare
+	@#dist/prepare
+	@mkdir -p $(ARCHOBJ)
+	@ln -nsf $(notdir $(ARCHOBJ)) $(HOSTOBJ)
 
 clean:
 	rm -rf $(ARCHOBJ) $(HOSTOBJ)
-	#git clean -dfX
+
+mrproper:
+	git clean -dfX
 
 # compile targets
 

@@ -24,9 +24,9 @@ endif
 
 # misc targets
 
-.PHONY: pre all clean
+.PHONY: pre all basic clean mrproper
 
-DEFAULT: all
+DEFAULT: basic
 
 pre:
 	@dist/prepare
@@ -53,6 +53,8 @@ cc-all: cc-basic cc-krb cc-misc
 ifeq ($(UNAME),Linux)
 cc-all: cc-linux
 endif
+
+basic: cc-basic
 
 all: cc-all
 

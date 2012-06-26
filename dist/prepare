@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -e
+cd ~/code
 
-BASEDIR="$HOME/code"
+ARCHOBJ="obj/arch.$MACHTYPE"
+HOSTOBJ="obj/host.$HOSTNAME"
 
-SYS="$HOSTTYPE-$OSTYPE"
+# ensure $ARCHOBJ and $HOSTOBJ
 
-OBJDIR="$BASEDIR/obj/arch.$SYS"
-SYSDIR="$BASEDIR/obj/host.$HOSTNAME"
+if test ! -d "$ARCHOBJ"; then
+	mkdir -p "$ARCHOBJ"
+fi
 
-# ensure $OBJDIR and $SYSDIR
-
-mkdir -p "$OBJDIR"
-
-ln -nsf "bin.$SYS" "$SYSDIR"
+if test -L "$HOSTOBJ" || test ! -e "$HOSTOBJ"; then
+	ln -nsf "${ARCHOBJ##*/}" "$HOSTOBJ"
+fi

@@ -1,7 +1,11 @@
+#!make
+
 UNAME := $(shell uname)
 HOSTNAME := $(shell hostname)
+#MACHTYPE := $(shell cc -dumpmachine)
+MACHTYPE := $(shell bash -c 'echo $$MACHTYPE')
 
-ARCHOBJ := obj/arch.$(shell bash -c 'echo $$HOSTTYPE-$$OSTYPE')
+ARCHOBJ := obj/arch.$(MACHTYPE)
 HOSTOBJ := obj/host.$(HOSTNAME)
 OBJ := $(HOSTOBJ)
 
@@ -25,9 +29,7 @@ endif
 DEFAULT: all
 
 pre:
-	@#dist/prepare
-	@mkdir -p $(ARCHOBJ)
-	@ln -nsf $(notdir $(ARCHOBJ)) $(HOSTOBJ)
+	@dist/prepare
 
 clean:
 	rm -rf $(ARCHOBJ) $(HOSTOBJ)

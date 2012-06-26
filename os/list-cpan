@@ -5,7 +5,11 @@ use feature 'say';
 for my $dir (@INC) {
 	open(my $fh, "<", "$dir/perllocal.pod") or next;
 	while (<$fh>) {
-		/^=head2 .+ L<(.+)\|.+>$/ and say $1;
+		if (/^=head2 .+ L<(.+)\|.+>$/) {
+			$pkg = $1;
+			if ($pkg eq 'ack') {$pkg = 'App::Ack'}
+			say $pkg;
+		}
 	}
 	close($fh);
 }

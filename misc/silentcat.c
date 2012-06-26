@@ -2,6 +2,7 @@
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
-	freopen("/dev/null", "w", stderr);
+	if (freopen("/dev/null", "w", stderr) == NULL)
+		perror("freopen");
 	return execv("/bin/cat", argv);
 }

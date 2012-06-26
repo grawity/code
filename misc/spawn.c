@@ -7,6 +7,7 @@
 #include <sys/file.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <assert.h>
 
 char *arg0;
 
@@ -33,18 +34,22 @@ char * get_ttyname() {
 }
 
 char * get_lockfile(char *name, int shared) {
-	char *dir = getenv("XDG_RUNTIME_DIR");
+	int r;
+	char *dir, *disp, *path;
+
+	dir = getenv("XDG_RUNTIME_DIR");
 	if (dir == NULL) {
 		fprintf(stderr, "%s: XDG_RUNTIME_DIR not set, cannot use lockfile\n", arg0);
 		exit(3);
 	}
-	char *disp;
+
 	if (shared)
 		disp = "shared";
 	else
 		disp = get_ttyname();
-	char *path;
-	asprintf(&path, "%s/%s.%s.lock", dir, name, disp);
+
+	r = asprintf(&path, "%s/%s.%s.lock", dir, name, disp);
+	assert(r > 0);
 	return path;
 }
 
@@ -59,6 +64,7 @@ int main(int argc, char *argv[]) {
 	int opt;
 	int lockfd = 0;
 	int pid;
+	int r;
 
 	arg0 = argv[0];
 
@@ -117,7 +123,8 @@ int main(int argc, char *argv[]) {
 		}
 
 		char *env;
-		asprintf(&env, "SPAWN_LOCKFD=%d", lockfd);
+		r = asprintf(&env, "SPAWN_LOCKFD=%d", lockfd);
+		assert(r > 0);
 		putenv(env);
 	}
 
@@ -141,7 +148,7 @@ int main(int argc, char *argv[]) {
 			char *str = NULL;
 			int len = asprintf(&str, "%d\n", pid);
 			if (str) {
-				write(lockfd, str, len);
+				len -= write(lockfd, str, len);
 				free(str);
 			}
 		}

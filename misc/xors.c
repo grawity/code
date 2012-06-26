@@ -4,16 +4,23 @@
 
 #define BUFSIZE 1024
 
+void usage(void) {
+	fprintf(stderr,
+		"Usage: xors <key> <increment>\n");
+	exit(2);
+}
+
 int main(int argc, char *argv[]) {
 	unsigned char buf[BUFSIZE];
 	size_t buflen;
 	int i, key = 0, incr = 1;
 
-	if (argc > 1)
+	if (argc == 3) {
 		key = atoi(argv[1]);
-	
-	if (argc > 2)
 		incr = atoi(argv[2]);
+	}
+	else
+		usage();
 
 	while ((buflen = read(0, buf, BUFSIZE))) {
 		for (i = 0; i < buflen; i++) {

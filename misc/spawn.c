@@ -9,6 +9,18 @@
 #include <unistd.h>
 #include <assert.h>
 
+/* Todo: move to a header */
+
+#define HAVE_FLOCK
+
+#if defined(__SVR4) && defined(__sun)
+#  define HAVE_SOLARIS
+#endif
+
+#ifdef HAVE_SOLARIS
+#  undef HAVE_FLOCK
+#endif
+
 char *arg0;
 
 static int usage() {
@@ -70,6 +82,7 @@ int main(int argc, char *argv[]) {
 
 	while ((opt = getopt(argc, argv, "+Ll:Pw")) != -1) {
 		switch (opt) {
+#ifdef HAVE_FLOCK
 		case 'L':
 			lockshared = 1;
 			break;
@@ -84,6 +97,13 @@ int main(int argc, char *argv[]) {
 			do_lock = 1;
 			do_print_lockname = 1;
 			break;
+#else
+		case 'L':
+		case 'l':
+		case 'P':
+			fprintf(stderr, "flock() support missing\n");
+			return 42;
+#endif
 		case 'w':
 			do_wait = 1;
 			break;
@@ -99,6 +119,7 @@ int main(int argc, char *argv[]) {
 		cmd = &argv[optind];
 	}
 
+#ifdef HAVE_FLOCK
 	if (do_lock) {
 		if (!lockname)
 			lockname = cmd[0];
@@ -127,6 +148,7 @@ int main(int argc, char *argv[]) {
 		assert(r > 0);
 		putenv(env);
 	}
+#endif
 
 	pid = fork();
 	switch (pid) {

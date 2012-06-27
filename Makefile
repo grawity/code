@@ -62,11 +62,11 @@ $(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS := -lkrb5 -lcom_err
 
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
-$(OBJ)/k5userok:	kerberos/k5userok.c kerberos/krb5.h
+$(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
-$(OBJ)/pklist:		kerberos/pklist.c kerberos/krb5.h
+$(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		misc/spawn.c
 $(OBJ)/tapchown:	net/tapchown.c

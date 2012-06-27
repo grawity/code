@@ -25,6 +25,11 @@
 #include <time.h>
 #include <stdlib.h>
 
+#ifdef HAVE_SOLARIS
+#include <strings.h>
+#define HAVE_LASTLOG_H
+#endif
+
 #ifdef HAVE_LASTLOG_H
 #include <lastlog.h>
 #endif

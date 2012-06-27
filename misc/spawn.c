@@ -13,10 +13,6 @@
 
 #define HAVE_FLOCK
 
-#if defined(__SVR4) && defined(__sun)
-#  define HAVE_SOLARIS
-#endif
-
 #ifdef HAVE_SOLARIS
 #  undef HAVE_FLOCK
 #endif

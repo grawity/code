@@ -12,6 +12,8 @@ OBJ := $(HOSTOBJ)
 CC = gcc
 CFLAGS = -Wall -O2 $(OSFLAGS)
 
+KRB_LDLIBS := -lkrb5 -lcom_err
+
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
 else ifeq ($(UNAME),FreeBSD)
@@ -20,6 +22,9 @@ else ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
 else ifeq ($(UNAME),CYGWIN_NT-5.1)
 	OSFLAGS := -DHAVE_CYGWIN
+else ifeq ($(UNAME),SunOS)
+	OSFLAGS := -DHAVE_SOLARIS
+	KRB_LDLIBS := -lkrb5
 endif
 
 # misc targets
@@ -58,7 +63,7 @@ basic: cc-basic
 
 all: cc-all
 
-$(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS := -lkrb5 -lcom_err
+$(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
 
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c

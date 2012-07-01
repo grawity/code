@@ -1,118 +1,138 @@
-#!/usr/bin/env bash
-# Playlist search tool for MPD
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use IPC::Open2;
 
-do_search() {
-	local pattern=$1
-	local songs=()
+my $current;
+my @songs;
+my @patterns;
 
-	# parse argument
-	if [[ $pattern =~ ^[[:digit:]]+$ ]]; then
-		if (( $pattern == 0 )); then
-			echo "error: song number must be larger than zero" >&2
-			exit 2
-		fi
-		songs[$pattern]=$(mpc playlist -f "$fmt_input" | sed -n "${pattern}{p;q}")
-	else
-		while IFS=$'\t' read -r num song; do
-			songs[$num]=$song
-		done < <(mpc playlist -f "$fmt_input" | grep -Ei -- "$pattern")
-	fi
+my $fmt_normal  =      "\e[38;5;40m"."%4d  "."\e[m".  "%s - %s\n";
+my $fmt_current = "\e[1m\e[38;5;82m"."%4d  "."\e[37m"."%s - %s"."\e[m\n";
 
-	# if exactly one result, go to song
-	if (( ${#songs[@]} == 1 )); then
-		mpc -q play "${!songs[@]}"
+sub search {
+	my (@patterns) = @_;
 
-		if [[ $out == x11 ]]; then
-			return
-		fi
+	my @songs = get_playlist();
 
-		get_current
-		display_${out}_current
-	else
-		display_${out}_list
-	fi
+	for my $pattern (@patterns) {
+		if ($pattern =~ /^\d+$/) {
+			@songs = grep {$_->{num} == $pattern} @songs;
+		} else {
+			my $pat = qr/$pattern/i;
+			@songs = grep {$_->{artist} ~~ $pat
+					or $_->{title} ~~ $pat
+					or $_->{artist}." - ".$_->{title} ~~ $pat}
+					@songs;
+		}
+	}
+	@songs;
 }
 
-printf -v fmt_normal "$(tput setaf 40)%%4d  $(tput sgr0)%%s\n"
-printf -v fmt_current "$(tput bold; tput setaf 82)%%4d  $(tput setaf 7)%%s$(tput sgr0)\n"
+my $fmt_input = "%position%\t%artist%\t%title%";
 
-display_tty_current() {
-	printf "$fmt_current" "$cur_pos" "$cur_artist - $cur_title"
+sub get_current {
+	my ($song) = get_playlist("current");
+	return $song;
 }
 
-display_tty_list() {
-	local i
-	for i in "${!songs[@]}"; do
-		IFS=$'\t' read -r artist title _ <<< "${songs[i]}"
-		if [[ $artist == "$cur_artist" && $title == "$cur_title" ]]; then
-			printf "$fmt_current" "$i" "$artist - $title"
-		else
-			printf "$fmt_normal" "$i" "$artist - $title"
-		fi
-	done
+sub get_playlist {
+	my $cmd = shift // "playlist";
+	my @playlist;
+	open(my $f, "-|", "mpc", $cmd, "-f", $fmt_input);
+	while (my $item = <$f>) {
+		chomp($item);
+		my ($num, $artist, $title) = split(/\t/, $item);
+		push @playlist, {num => $num,
+				artist => $artist,
+				title => $title};
+	}
+	close($f);
+	return @playlist;
 }
 
-display_x11_current() {
-	local icon
-	icon="media-playback-start"
-	notify -i "$icon" \
-		-a "Now playing" \
-		-s "+mm" \
-		"$cur_title" \
-		"by <i>$(xmlescape "$cur_artist")</i>"
+sub play {
+	system("mpc", "-q", "play", shift);
 }
 
-display_x11_list() {
-	local i new
-	new=$(for i in "${!songs[@]}"; do
-			IFS=$'\t' read -r artist title _ <<< "${songs[i]}"
-			printf '%d\n%s - %s\n' "$i" "$artist" "$title"
-		done | zenity --list \
-			--width=500 --height=400 \
-			--title="Search results for '$pattern'" \
-			--text="${#songs[@]} entries. Double-click to play." \
-			--hide-header \
-			--column="" \
-			--column="Title" \
-			--hide-column=1)
-
-	if [[ $new ]]; then
-		mpc -q play "$new"
-	fi
+sub display_tty_list {
+	my @songs = @_;
+	for my $item (@songs) {
+		my $fmt = ($item->{num} == $current->{num})
+				? $fmt_current : $fmt_normal;
+		printf $fmt,
+			$item->{num},
+			$item->{artist},
+			$item->{title};
+	}
 }
 
-get_current() {
-	IFS=$'\t' read -r cur_pos cur_artist cur_title _ <<< "$(mpc current -f "$fmt_input")"
+sub display_tty_current {
+	printf $fmt_current,
+		$current->{num},
+		$current->{artist},
+		$current->{title};
 }
 
-xmlescape() {
-	printf '%s\n' "$@" | sed 's/&/\&amp;/g; s/"/\&quot;/g; s/</\&lt;/g; s/>/\&gt;/g'
+sub display_x11_list {
+	my @songs = @_;
+	my $count = @songs;
+	my $patterns = join(" ", @patterns);
+	my ($in, $out);
+	my $pid = open2($out, $in,
+			"zenity",
+			"--list",
+			"--width=500",
+			"--height=400",
+			"--title=Search results for '$patterns'",
+			"--text=$count entries. Double-click to play.",
+			"--hide-header",
+			"--column=#",
+			"--column=Title",
+			"--hide-column=1",);
+	for my $item (@songs) {
+		printf $in "%d\n%s - %s\n",
+			$item->{num},
+			$item->{artist},
+			$item->{title};
+	}
+	close($in);
+	chomp(my $line = <$out>);
+	if (length $line) {
+		play($line);
+	}
 }
 
-join() {
-	local var=$1 sep=$2
-	$var=$3
-	for i in "${@:3}"; do
-		$var+=$sep$i
-	done
-	printf
+sub display_x11_current {
+	...;
 }
 
-if [[ $DISPLAY && ! ( -t 1 || -t 2 ) ]]; then
-	out=x11
-else
-	out=tty
-fi
+sub display_list {
+	if (-t 0) {
+		goto &display_tty_list;
+	} else {
+		goto &display_x11_list;
+	}
+}
 
-fmt_input='%position%\t%artist%\t%title%\t%artist% - %title%'
+sub display_current {
+	if (-t 0) {
+		goto &display_tty_current;
+	} else {
+		goto &display_x11_current;
+	}
+}
 
-get_current
-if [[ -z $1 ]]; then
-	display_${out}_current
-else
-	pattern=$1 sep='.+'
-	for i in "${@:2}"; do
-		pattern+=$sep$i
-	done
-	do_search "$pattern"
-fi
+$current = get_current();
+
+@patterns = @ARGV;
+if (@patterns) {
+	@songs = search(@patterns);
+	if (@songs == 1) {
+		$current = $songs[0];
+		play($current->{num});
+	}
+	display_list(@songs);
+} else {
+	display_current();
+}

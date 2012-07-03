@@ -13,6 +13,9 @@ use constant {
 
 my $bus = Net::DBus->session;
 
+my $prefix_re = qr/^org\.mpris\.MediaPlayer2\./;
+my $suffix_re = qr/[^.]+(?:\.instance-?\d+)?$/;
+
 # usage() - print usage text
 
 sub usage {
@@ -28,12 +31,8 @@ sub usage {
 #   ->([optional] object) - return object in service
 
 sub MediaPlayer {
-	my $player = shift;
-	if ($player !~ /^org\.mpris\.MediaPlayer2\./) {
-		$player = "org.mpris.MediaPlayer2.$player";
-	}
-
-	my $service = $bus->get_service($player);
+	my $busname = shift;
+	my $service = $bus->get_service($busname);
 	sub {
 		my $path = shift;
 		$service->get_object($path // "/org/mpris/MediaPlayer2");
@@ -58,16 +57,19 @@ sub saybool {
 
 sub enumerate {
 	my $names = $bus->get_bus_object->ListNames();
-	sort grep {s/^org\.mpris\.MediaPlayer2\.//} @$names;
+	sort grep {/$prefix_re/} @$names;
 }
 
 # describe(name) - show identity and status of player
 
 sub describe {
 	my $name = shift;
-
-	my $out = $name;
 	my $player = MediaPlayer($name);
+	my $out = $name;
+
+	if ($out =~ /^$prefix_re($suffix_re)/) {
+		$out = $1;
+	}
 
 	my $identity = eval {$player->()->Get(MPRIS_MAIN_IFACE, "Identity")};
 	$out .= " ($identity)" if defined $identity;
@@ -332,13 +334,16 @@ given ($player) {
 		exit;
 	}
 	when (/^-/) {
+		# other dash-options
 		usage();
 		exit;
 	}
-	when (/^org\.mpris\.MediaPlayer2\.(.+)$/) {
+	when (/^$prefix_re/) {
+		# full MPRIS v2 bus name
 		$bus_name = $player;
 	}
-	when (/^org\.mpris\.(\w+)$/) {
+	when (/^org\.mpris\.([^.]+)/) {
+		# full MPRIS v1 bus name
 		warn "MPRISv1 is not supported by this script; please use MPRISv2.\n";
 		$bus_name = "org.mpris.MediaPlayer2.$1";
 		if ($bus->get_service_owner($bus_name)) {
@@ -347,7 +352,18 @@ given ($player) {
 			exit 3;
 		}
 	}
+	when (/^$suffix_re/) {
+		# suffix with optional .instance-[PID]
+		$bus_name = "org.mpris.MediaPlayer2.$player";
+	}
+	when (/\./) {
+		# possible bus name (at least two components)
+		# unlikely but possible: activate a MPRIS player via proprietary name
+		# (e.g. Banshee via org.bansheeproject.Banshee)
+		$bus_name = $player;
+	}
 	default {
+		# suffix (only one component)
 		$bus_name = "org.mpris.MediaPlayer2.$player";
 	}
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# mpris 1.0 - control MPRIS v2 compatible players
+# mpris 1.1 - control MPRIS v2 compatible players
 use warnings;
 use strict;
 use feature qw(say switch);
@@ -105,6 +105,19 @@ sub describe {
 	$out .= " - $status" if defined $status;
 
 	say $out;
+}
+
+sub checkversion {
+	my ($player, $bus_name) = @_;
+	if ($bus->get_service_owner($bus_name)) {
+	return 1;
+	} elsif ($bus->get_service_owner("org.mpris.$player")) {
+	warn "The player '$player' is accessible only with a MPRIS v1 name, but this script\n";
+	warn "only supports MPRIS v2. Upgrade your player, or use `mpris-remote` instead.\n";
+	exit 3;
+	} else {
+	return 0;
+	}
 }
 
 sub listplayers {
@@ -497,10 +510,10 @@ given ($player) {
 	}
 	when (/^org\.mpris\.([^.]+)/) {
 		# full MPRIS v1 bus name
-		warn "MPRISv1 is not supported by this script; please use MPRISv2.\n";
+		warn "MPRIS v1 is not supported by this script; please use MPRIS v2.\n";
 		$bus_name = "org.mpris.MediaPlayer2.$1";
 		if ($bus->get_service_owner($bus_name)) {
-			warn "Retrying MPRISv2 using bus name $bus_name ...\n";
+			warn "\033[1mWill try MPRISv2 using bus name $bus_name ...\033[m\n";
 		} else {
 			exit 3;
 		}
@@ -508,6 +521,7 @@ given ($player) {
 	when (/^$suffix_re/) {
 		# suffix with optional .instance-[PID]
 		$bus_name = "org.mpris.MediaPlayer2.$player";
+		checkversion($player, $bus_name) or exit 3;
 	}
 	when (/\./) {
 		# possible bus name (at least two components)
@@ -517,7 +531,9 @@ given ($player) {
 	}
 	default {
 		# suffix (only one component)
+		# NOTE: /^$suffix_re/ above should catch all such instances
 		$bus_name = "org.mpris.MediaPlayer2.$player";
+		checkversion($player, $bus_name) or exit 3;
 	}
 }
 

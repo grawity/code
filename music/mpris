@@ -54,6 +54,18 @@ sub saybool {
 	exit !$b;
 }
 
+sub int2time {
+	my $int = shift // return "∞";
+
+	$int = int($int / 1000000);
+	$int -= my $s = $int % 60; $int /= 60;
+	$int -= my $m = $int % 60; $int /= 60;
+	$int -= my $h = $int % 24; $int /= 25;
+
+	$h ? sprintf("%dh%02d:%02d", $h, $m, $s)
+	   :  sprintf("%d:%02d", $m, $s);
+}
+
 # frombool(str) - booleanize a string
 
 sub dieusage {
@@ -300,7 +312,7 @@ sub player_setprop {
 		when ("player:loop-status") {
 			my $arg = shift;
 			given ($arg) {
-				when (undef) {
+				when ([undef, "help"]) {
 					say for qw(None Playlist Track);
 					exit;
 				}
@@ -356,7 +368,7 @@ sub player_setprop {
 		when ("player:status") {
 			my $arg = shift;
 			given ($arg) {
-				when (undef) {
+				when ([undef, "help"]) {
 					say for qw(Playing Paused Stopped);
 					exit;
 				}
@@ -379,7 +391,7 @@ sub player_setprop {
 		}
 		when ("player:volume") {
 			my $arg = shift;
-			unless (defined $arg) {
+			if ($arg ~~ [undef, "help"]) {
 				say "0.0 .. 1.0";
 				exit;
 			}
@@ -403,7 +415,7 @@ sub player_setprop {
 		}
 
 		default {
-			warn "Unknown property '$property'.\n";
+			warn "Cannot set property '$property'.\n";
 			exit 2;
 		}
 	}
@@ -428,6 +440,9 @@ sub property {
 my %commands = (
 	get => sub {
 		player_getprop(@_);
+	},
+	meta => sub {
+		player_getprop(shift, "player:metadata");
 	},
 	next => sub {
 		shift->()->Next();
@@ -480,6 +495,28 @@ my %commands = (
 	status => property("player:status"),
 	stop => sub {
 		shift->()->Stop();
+	},
+	summary => sub {
+		my $player = shift;
+		my $props = $player->()->GetAll(MPRIS_PLAYER_IFACE);
+		my $status = $props->{PlaybackStatus};
+		if ($status =~ /^(Playing|Paused)$/) {
+			my %meta = %{$props->{Metadata}};
+			my $pos = int2time($props->{Position} // 0);
+			my $len = int2time($meta{"mpris:length"});
+			my $artist = $meta{"xesam:artist"} // "Unknown artist";
+			if (ref $artist eq 'ARRAY') {
+				$artist = join(", ", @$artist);
+			}
+			my $track = $meta{"xesam:title"} // "Unknown track";
+			say "[$status] $artist - $track ($pos/$len)";
+		} else {
+			say "[$status]";
+		}
+		my $vol = int (($props->{Volume} // 0) * 100);
+		my $loop = lc ($props->{LoopStatus} // "none");
+		my $shuf = ($props->{Shuffle} // 0) ? "on" : "off";
+		say "(volume: $vol%, repeat: $loop, shuffle: $shuf)";
 	},
 	toggle => sub {
 		shift->()->PlayPause();

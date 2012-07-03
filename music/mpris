@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
-# mpris 1.1 - control MPRIS v2 compatible players
+# mpris 1.2 - control MPRIS v2 compatible players
+# Full spec: http://specifications.freedesktop.org/mpris-spec/latest/
 use warnings;
 use strict;
 use feature qw(say switch);
@@ -25,6 +26,9 @@ sub usage {
 	"       mprisctl [<player> [<cmd> [args...]]]",
 	"       mprisctl <player> activate",
 	"       mprisctl <player> is-running",
+	"",
+	"This script implements the MPRIS v2.2 specification:",
+	"  http://specifications.freedesktop.org/mpris-spec/latest/",
 	;
 }
 
@@ -148,13 +152,17 @@ sub player_getprop {
 	given ($property) {
 		when (undef) {
 			say for qw(
+				[APPLICATION]
+				can-fullscreen
 				can-raise
 				can-quit
 				desktop
+				fullscreen
 				has-track-list
 				identity
 				mime-types
 				uri-schemes
+				[PLAYER]
 				player:can-control
 				player:can-go-next
 				player:can-go-prev
@@ -171,10 +179,15 @@ sub player_getprop {
 				player:shuffle
 				player:status
 				player:volume
+				[PLAYLIST]
 				playlist:active
 			);
 		}
 
+		when ("can-fullscreen") {
+			saybool eval {$player->()->Get(MPRIS_MAIN_IFACE,
+							"CanSetFullscreen")} // 0;
+		}
 		when ("can-raise") {
 			saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanRaise");
 		}
@@ -182,7 +195,12 @@ sub player_getprop {
 			saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanQuit");
 		}
 		when ("desktop") {
-			say $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
+			say eval {$player->()->Get(MPRIS_MAIN_IFACE,
+							"DesktopEntry")} // "";
+		}
+		when ("fullscreen") {
+			saybool eval {$player->()->Get(MPRIS_MAIN_IFACE,
+							"Fullscreen")} // 0;
 		}
 		when ("has-track-list") {
 			saybool $player->()->Get(MPRIS_MAIN_IFACE, "HasTrackList");
@@ -300,15 +318,25 @@ sub player_setprop {
 	given ($property) {
 		when (undef) {
 			say for (
+				"[APPLICATION]",
+				"fullscreen {on|off}",
+				"[PLAYER]",
 				"player:loop-status {None|Playlist|Track}",
 				"player:rate (player:rate-max)~(player:rate-min)",
 				"player:position <pos>[@<track>]",
 				"player:shuffle {on|off}",
 				"player:status {Paused|Playing|Stopped|Toggle}",
 				"player:volume 0.0~1.0",
+				"[PLAYLIST]",
 				"playlist:active <playlist-path>",
 			);
 		}
+
+		when ("fullscreen") {
+			my $arg = frombool(shift);
+			$player->()->Set(MPRIS_MAIN_IFACE, "Fullscreen", $arg);
+		}
+
 		when ("player:loop-status") {
 			my $arg = shift;
 			given ($arg) {

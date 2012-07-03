@@ -9,6 +9,7 @@ use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
 	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
 	MPRIS_PLAYER_IFACE	=> 'org.mpris.MediaPlayer2.Player',
+	MPRIS_PLAYLIST_IFACE	=> 'org.mpris.MediaPlayer2.Playlists',
 };
 
 my $bus = Net::DBus->session;
@@ -145,6 +146,7 @@ sub player_getprop {
 				player:shuffle
 				player:status
 				player:volume
+				playlist:active
 			);
 		}
 
@@ -247,6 +249,19 @@ sub player_getprop {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "Volume");
 		}
 
+		# playlist:
+
+		when ("playlist:active") {
+			my $ret = $player->()->Get(MPRIS_PLAYLIST_IFACE, "ActivePlaylist");
+			my ($valid, $struct) = @$ret;
+			if ($valid) {
+				my ($obj, $name, $icon) = @$struct;
+				say "$obj ($name)";
+			} else {
+				say "/ (no active playlist)";
+			}
+		}
+
 		default {
 			warn "Unknown property '$property'.\n";
 			exit 2;
@@ -266,6 +281,7 @@ sub player_setprop {
 				"player:shuffle {on|off}",
 				"player:status {Paused|Playing|Stopped|Toggle}",
 				"player:volume 0.0~1.0",
+				"playlist:active <playlist-path>",
 			);
 		}
 		when ("player:loop-status") {
@@ -357,6 +373,22 @@ sub player_setprop {
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Volume", $arg);
 		}
+
+		when ("playlist:active") {
+			my $arg = shift;
+			unless (defined $arg) {
+				my $orderings = $player->()->Get(MPRIS_PLAYLIST_IFACE,
+							"Orderings");
+				my $playlists = $player->()->GetPlaylists(0, 9999,
+							@$orderings[0], dbus_boolean(0));
+				for my $playlist (@$playlists) {
+					my ($obj, $name, $icon) = @$playlist;
+					say "$obj ($name)";
+				}
+			}
+			$player->()->ActivatePlaylist($arg);
+		}
+
 		default {
 			warn "Unknown property '$property'.\n";
 			exit 2;
@@ -393,6 +425,17 @@ my %commands = (
 	play => sub {
 		shift->()->Play();
 	},
+	playlists => sub {
+		my $player = shift;
+		my $orderings = $player->()->Get(MPRIS_PLAYLIST_IFACE, "Orderings");
+		my $playlists = $player->()->GetPlaylists(0, 9999,
+						@$orderings[0], dbus_boolean(0));
+		for my $playlist (@$playlists) {
+			my ($obj, $name, $icon) = @$playlist;
+			say "$obj ($name)";
+		}
+	},
+	playlist => property("playlist:active"),
 	prev => sub {
 		shift->()->Previous();
 	},

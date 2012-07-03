@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
+# mpris 1.0 - control MPRIS v2 compatible players
 use warnings;
 use strict;
-use feature 'switch';
-use feature 'say';
-use Net::DBus;
+use feature qw(say switch);
 use Data::Dumper;
+use Net::DBus qw(:typing);
 use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
 	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
@@ -53,6 +53,32 @@ sub saybool {
 	exit !$b;
 }
 
+# frombool(str) - booleanize a string
+
+sub dieusage {
+	warn shift."\n";
+	exit 2;
+}
+
+sub frombool {
+	my $str = shift;
+	my $die = shift // 1;
+	given ($str) {
+		when (undef) {
+			$die ? dieusage "Missing boolean parameter." : undef;
+		}
+		when (/^(yes|true|on|1)$/i) {
+			return dbus_boolean(1);
+		}
+		when (/^(no|false|off|0)$/i) {
+			return dbus_boolean(0);
+		}
+		default {
+			$die ? dieusage "Invalid boolean parameter." : undef;
+		}
+	}
+}
+
 # enumerate() - list MPRISv2 bus names, return suffixes
 
 sub enumerate {
@@ -90,135 +116,273 @@ sub listplayers {
 	}
 }
 
-my %commands = (
-	get => sub {
-		my $player = shift;
-		my $property = shift;
-		given ($property) {
-			when (undef) {
-				say for qw(
-					can-raise
-					can-quit
-					desktop
-					identity
-					mime-types
-					uri-schemes
-					player:can-control
-					player:can-go-next
-					player:can-go-prev
-					player:can-pause
-					player:can-play
-					player:can-seek
-					player:metadata
-					player:position
-					player:position@track
-					player:rate
-					player:rate-max
-					player:rate-min
-					player:shuffle
-					player:status
-					player:volume
-				);
-			}
+sub player_getprop {
+	my $player = shift;
+	my $property = shift;
+	given ($property) {
+		when (undef) {
+			say for qw(
+				can-raise
+				can-quit
+				desktop
+				has-track-list
+				identity
+				mime-types
+				uri-schemes
+				player:can-control
+				player:can-go-next
+				player:can-go-prev
+				player:can-pause
+				player:can-play
+				player:can-seek
+				player:loop-status
+				player:metadata
+				player:position
+				player:position@track
+				player:rate
+				player:rate-max
+				player:rate-min
+				player:shuffle
+				player:status
+				player:volume
+			);
+		}
 
-			when ("can-raise") {
-				saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanRaise");
-			}
-			when ("can-quit") {
-				saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanQuit");
-			}
-			when ("desktop") {
-				say $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
-			}
-			when ("identity") {
-				say $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
-			}
-			when ("mime-types") {
-				my $types = $player->()->Get(MPRIS_MAIN_IFACE,
-								"SupportedMimeTypes");
-				say for @$types;
-			}
-			when ("uri-schemes") {
-				my $schemes = $player->()->Get(MPRIS_MAIN_IFACE,
-								"SupportedUriSchemes");
-				say for @$schemes;
-			}
+		when ("can-raise") {
+			saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanRaise");
+		}
+		when ("can-quit") {
+			saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanQuit");
+		}
+		when ("desktop") {
+			say $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
+		}
+		when ("has-track-list") {
+			saybool $player->()->Get(MPRIS_MAIN_IFACE, "HasTrackList");
+		}
+		when ("identity") {
+			say $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
+		}
+		when ("mime-types") {
+			my $types = $player->()->Get(MPRIS_MAIN_IFACE,
+							"SupportedMimeTypes");
+			say for @$types;
+		}
+		when ("uri-schemes") {
+			my $schemes = $player->()->Get(MPRIS_MAIN_IFACE,
+							"SupportedUriSchemes");
+			say for @$schemes;
+		}
 
-			# player:
+		# player:
 
-			when ("player:can-control") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanControl");
-			}
-			when ("player:can-go-next") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoNext");
-			}
-			when ("player:can-go-prev") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoPrevious");
-			}
-			when ("player:can-pause") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPause");
-			}
-			when ("player:can-play") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPlay");
-			}
-			when ("player:can-seek") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanSeek");
-			}
-			when ("player:metadata") {
-				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
-				my @wantkeys = @_ ? @_ : keys(%$meta);
-				for my $key (@wantkeys) {
-					my $value = $meta->{$key};
-					if (!defined $value) {
-						say "!${key}";
-					}
-					elsif (ref $value eq 'ARRAY') {
-						say "${key}[]=$_" for @$value;
-					}
-					elsif (ref $value eq '') {
-						say "$key=$value";
-					}
-					else {
-						print Dumper($key, $value);
-					}
+		when ("player:can-control") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanControl");
+		}
+		when ("player:can-go-next") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoNext");
+		}
+		when ("player:can-go-prev") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoPrevious");
+		}
+		when ("player:can-pause") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPause");
+		}
+		when ("player:can-play") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPlay");
+		}
+		when ("player:can-seek") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanSeek");
+		}
+		when ("player:loop-status") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "LoopStatus");
+		}
+		when ("player:metadata") {
+			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+			my @wantkeys = @_ ? @_ : keys(%$meta);
+			for my $key (@wantkeys) {
+				my $value = $meta->{$key};
+				if (!defined $value) {
+					say "!${key}";
 				}
-			}
-			when ("player:position") {
-				say $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
-			}
-			when ("player:position\@track") {
-				my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
-				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
-				my $track = $meta->{"mpris:trackid"};
-				if ($track =~ m|^/org/mpris/MediaPlayer2/Track/(\d+)$|) {
-					$track = $1;
+				elsif (ref $value eq 'ARRAY') {
+					say "${key}[]=$_" for @$value;
 				}
-				say "$pos\@$track";
-			}
-			when ("player:rate") {
-				say $player->()->Get(MPRIS_PLAYER_IFACE, "Rate");
-			}
-			when ("player:rate-max") {
-				say $player->()->Get(MPRIS_PLAYER_IFACE, "MaximumRate");
-			}
-			when ("player:rate-min") {
-				say $player->()->Get(MPRIS_PLAYER_IFACE, "MinimumRate");
-			}
-			when ("player:shuffle") {
-				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "Shuffle");
-			}
-			when ("player:status") {
-				say $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
-			}
-			when ("player:volume") {
-				say $player->()->Get(MPRIS_PLAYER_IFACE, "Volume");
-			}
-
-			default {
-				warn "Unknown property '$property'.\n";
-				exit 2;
+				elsif (ref $value eq '') {
+					say "$key=$value";
+				}
+				else {
+					print Dumper($key, $value);
+				}
 			}
 		}
+		when ("player:position") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
+		}
+		when ("player:position\@track") {
+			my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
+			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+			my $track = $meta->{"mpris:trackid"};
+			if ($track =~ m|^/org/mpris/MediaPlayer2/Track/(\d+)$|) {
+				$track = $1;
+			}
+			say "$pos\@$track";
+		}
+		when ("player:rate") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "Rate");
+		}
+		when ("player:rate-max") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "MaximumRate");
+		}
+		when ("player:rate-min") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "MinimumRate");
+		}
+		when ("player:shuffle") {
+			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "Shuffle");
+		}
+		when ("player:status") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+		}
+		when ("player:volume") {
+			say $player->()->Get(MPRIS_PLAYER_IFACE, "Volume");
+		}
+
+		default {
+			warn "Unknown property '$property'.\n";
+			exit 2;
+		}
+	}
+}
+
+sub player_setprop {
+	my $player = shift;
+	my $property = shift;
+	given ($property) {
+		when (undef) {
+			say for (
+				"player:loop-status {None|Playlist|Track}",
+				"player:rate (player:rate-max)~(player:rate-min)",
+				"player:position <pos>[@<track>]",
+				"player:shuffle {on|off}",
+				"player:status {Paused|Playing|Stopped|Toggle}",
+				"player:volume 0.0~1.0",
+			);
+		}
+		when ("player:loop-status") {
+			my $arg = shift;
+			given ($arg) {
+				when (undef) {
+					say for qw(None Playlist Track);
+					exit;
+				}
+				when (/^(none|off)$/i) {
+					$arg = "None";
+				}
+				when (/^(playlist|all)$/i) {
+					$arg = "Playlist";
+				}
+				when (/^(track|song|single|one)$/i) {
+					$arg = "Track";
+				}
+				default {
+					dieusage "Unknown arg status.";
+				}
+			}
+			$player->()->Set(MPRIS_PLAYER_IFACE, "LoopStatus", $arg);
+		}
+		when ("player:position") {
+			my $position = shift;
+			my $track;
+			if (!defined $position) {
+				dieusage "Missing position.";
+			} elsif ($position =~ /^(\d+)@(\d+)$/) {
+				$position = $1;
+				$track = track($2);
+			} elsif ($position =~ /^\d+$/) {
+				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
+							"Metadata");
+				$track = $meta->{"mpris:trackid"} // track("1");
+			} else {
+				dieusage "Invalid position.";
+			}
+			$player->()->SetPosition($track, $position);
+		}
+		when ("player:rate") {
+			my $arg = shift;
+			unless (defined $arg) {
+				my $min = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
+							"MinimumRate")} // 1.0;
+				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
+							"MaximumRate")} // 1.0;
+				say "$min ... $max";
+				exit;
+			}
+			$arg = dbus_double($arg);
+			$player->()->Set(MPRIS_PLAYER_IFACE, "Rate", $arg);
+		}
+		when ("player:shuffle") {
+			my $arg = frombool(shift);
+			$player->()->Set(MPRIS_PLAYER_IFACE, "Shuffle", $arg);
+		}
+		when ("player:status") {
+			my $arg = shift;
+			given ($arg) {
+				when (undef) {
+					say for qw(Playing Paused Stopped);
+					exit;
+				}
+				when (/^(paused?)$/i) {
+					$player->()->Pause();
+				}
+				when (/^(play|playing)$/i) {
+					$player->()->Play();
+				}
+				when (/^(stop|stopped)$/i) {
+					$player->()->Stop();
+				}
+				when (/^toggle$/i) {
+					$player->()->PlayPause();
+				}
+				default {
+					dieusage "Unknown playback status.";
+				}
+			}
+		}
+		when ("player:volume") {
+			my $arg = shift;
+			unless (defined $arg) {
+				say "0.0 .. 1.0";
+				exit;
+			}
+			$arg = dbus_double($arg);
+			$player->()->Set(MPRIS_PLAYER_IFACE, "Volume", $arg);
+		}
+		default {
+			warn "Unknown property '$property'.\n";
+			exit 2;
+		}
+	}
+}
+
+sub player_doprop {
+	my ($property, $player, @args) = @_;
+	if (@args) {
+		player_setprop($player, $property, @args);
+	} else {
+		player_getprop($player, $property);
+	}
+}
+
+sub property {
+	my $property = shift;
+	return sub {
+		player_doprop($property, @_);
+	};
+}
+
+my %commands = (
+	get => sub {
+		player_getprop(@_);
 	},
 	next => sub {
 		shift->()->Next();
@@ -238,8 +402,7 @@ my %commands = (
 		if (defined $uri) {
 			$player->()->OpenUri($uri);
 		} else {
-			warn "Missing URI.\n";
-			exit 2;
+			dieusage "Missing URI.";
 		}
 	},
 	quit => sub {
@@ -248,70 +411,17 @@ my %commands = (
 	raise => sub {
 		shift->()->Raise();
 	},
+	repeat => property("player:loop-status"),
 	seek => sub {
 		my $player = shift;
 		my $offset = shift;
 		$player->()->Seek($offset);
 	},
 	set => sub {
-		my $player = shift;
-		my $property = shift;
-		given ($property) {
-			when (undef) {
-				say for (
-					"player:position <pos>[@<track>]",
-					"player:status {Paused|Playing|Stopped|Toggle}",
-				);
-			}
-			when ("player:position") {
-				my $position = shift;
-				my $track;
-				if (!defined $position) {
-					warn "Missing position.\n";
-					exit 2;
-				} elsif ($position =~ /^(\d+)@(\d+)$/) {
-					$position = $1;
-					$track = track($2);
-				} elsif ($position =~ /^\d+$/) {
-					my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
-								"Metadata");
-					$track = $meta->{"mpris:trackid"} // track("1");
-				} else {
-					warn "Invalid position.\n";
-					exit 2;
-				}
-				$player->()->SetPosition($track, $position);
-			}
-			when ("player:status") {
-				my $status = lc(shift // "Toggle");
-				given ($status) {
-					when ("paused") {
-						$player->()->Pause();
-					}
-					when ("playing") {
-						$player->()->Play();
-					}
-					when ("stopped") {
-						$player->()->Stop();
-					}
-					when ("toggle") {
-						$player->()->PlayPause();
-					}
-					default {
-						warn "Unknown status '$status'.\n";
-						exit 2;
-					}
-				}
-			}
-			default {
-				warn "Unknown property '$property'.\n";
-				exit 2;
-			}
-		}
+		player_setprop(@_);
 	},
-	status => sub {
-		say shift->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
-	},
+	shuffle => property("player:shuffle"),
+	status => property("player:status"),
 	stop => sub {
 		shift->()->Stop();
 	},

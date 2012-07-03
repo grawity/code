@@ -1,0 +1,373 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature 'switch';
+use feature 'say';
+use Net::DBus;
+use Data::Dumper;
+use constant {
+	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
+	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
+	MPRIS_PLAYER_IFACE	=> 'org.mpris.MediaPlayer2.Player',
+};
+
+my $bus = Net::DBus->session;
+
+# usage() - print usage text
+
+sub usage {
+	say for
+	"Usage: mprisctl --list",
+	"       mprisctl [<player> [<cmd> [args...]]]",
+	"       mprisctl <player> activate",
+	"       mprisctl <player> is-running",
+	;
+}
+
+# MediaPlayer(busname) - return player service closure
+#   ->([optional] object) - return object in service
+
+sub MediaPlayer {
+	my $player = shift;
+	if ($player !~ /^org\.mpris\.MediaPlayer2\./) {
+		$player = "org.mpris.MediaPlayer2.$player";
+	}
+
+	my $service = $bus->get_service($player);
+	sub {
+		my $path = shift;
+		$service->get_object($path // "/org/mpris/MediaPlayer2");
+	};
+}
+
+# track(num) - return object path for track number
+
+sub track {
+	"/org/mpris/MediaPlayer2/Track/".(shift // "1");
+}
+
+# saybool(bool) - print "yes"/"no" and exit with boolean status
+
+sub saybool {
+	my $b = shift;
+	say $b ? "yes" : "no";
+	exit !$b;
+}
+
+# enumerate() - list MPRISv2 bus names, return suffixes
+
+sub enumerate {
+	my $names = $bus->get_bus_object->ListNames();
+	sort grep {s/^org\.mpris\.MediaPlayer2\.//} @$names;
+}
+
+# describe(name) - show identity and status of player
+
+sub describe {
+	my $name = shift;
+
+	my $out = $name;
+	my $player = MediaPlayer($name);
+
+	my $identity = eval {$player->()->Get(MPRIS_MAIN_IFACE, "Identity")};
+	$out .= " ($identity)" if defined $identity;
+
+	my $status = eval {$player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus")};
+	$out .= " - $status" if defined $status;
+
+	say $out;
+}
+
+sub listplayers {
+	my $verbose = shift;
+	my @names = enumerate();
+	if ($verbose) {
+		describe($_) for @names;
+	} else {
+		say for @names;
+	}
+}
+
+my %commands = (
+	get => sub {
+		my $player = shift;
+		my $property = shift;
+		given ($property) {
+			when (undef) {
+				say for qw(
+					can-raise
+					can-quit
+					desktop
+					identity
+					mime-types
+					uri-schemes
+					player:can-control
+					player:can-go-next
+					player:can-go-prev
+					player:can-pause
+					player:can-play
+					player:can-seek
+					player:metadata
+					player:position
+					player:position@track
+					player:rate
+					player:rate-max
+					player:rate-min
+					player:shuffle
+					player:status
+					player:volume
+				);
+			}
+
+			when ("can-raise") {
+				saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanRaise");
+			}
+			when ("can-quit") {
+				saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanQuit");
+			}
+			when ("desktop") {
+				say $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
+			}
+			when ("identity") {
+				say $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
+			}
+			when ("mime-types") {
+				my $types = $player->()->Get(MPRIS_MAIN_IFACE,
+								"SupportedMimeTypes");
+				say for @$types;
+			}
+			when ("uri-schemes") {
+				my $schemes = $player->()->Get(MPRIS_MAIN_IFACE,
+								"SupportedUriSchemes");
+				say for @$schemes;
+			}
+
+			# player:
+
+			when ("player:can-control") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanControl");
+			}
+			when ("player:can-go-next") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoNext");
+			}
+			when ("player:can-go-prev") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoPrevious");
+			}
+			when ("player:can-pause") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPause");
+			}
+			when ("player:can-play") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPlay");
+			}
+			when ("player:can-seek") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanSeek");
+			}
+			when ("player:metadata") {
+				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+				my @wantkeys = @_ ? @_ : keys(%$meta);
+				for my $key (@wantkeys) {
+					my $value = $meta->{$key};
+					if (!defined $value) {
+						say "!${key}";
+					}
+					elsif (ref $value eq 'ARRAY') {
+						say "${key}[]=$_" for @$value;
+					}
+					elsif (ref $value eq '') {
+						say "$key=$value";
+					}
+					else {
+						print Dumper($key, $value);
+					}
+				}
+			}
+			when ("player:position") {
+				say $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
+			}
+			when ("player:position\@track") {
+				my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
+				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+				my $track = $meta->{"mpris:trackid"};
+				if ($track =~ m|^/org/mpris/MediaPlayer2/Track/(\d+)$|) {
+					$track = $1;
+				}
+				say "$pos\@$track";
+			}
+			when ("player:rate") {
+				say $player->()->Get(MPRIS_PLAYER_IFACE, "Rate");
+			}
+			when ("player:rate-max") {
+				say $player->()->Get(MPRIS_PLAYER_IFACE, "MaximumRate");
+			}
+			when ("player:rate-min") {
+				say $player->()->Get(MPRIS_PLAYER_IFACE, "MinimumRate");
+			}
+			when ("player:shuffle") {
+				saybool $player->()->Get(MPRIS_PLAYER_IFACE, "Shuffle");
+			}
+			when ("player:status") {
+				say $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+			}
+			when ("player:volume") {
+				say $player->()->Get(MPRIS_PLAYER_IFACE, "Volume");
+			}
+
+			default {
+				warn "Unknown property '$property'.\n";
+				exit 2;
+			}
+		}
+	},
+	next => sub {
+		shift->()->Next();
+	},
+	pause => sub {
+		shift->()->Pause();
+	},
+	play => sub {
+		shift->()->Play();
+	},
+	prev => sub {
+		shift->()->Previous();
+	},
+	"open-uri" => sub {
+		my $player = shift;
+		my $uri = shift;
+		if (defined $uri) {
+			$player->()->OpenUri($uri);
+		} else {
+			warn "Missing URI.\n";
+			exit 2;
+		}
+	},
+	quit => sub {
+		shift->()->Quit();
+	},
+	raise => sub {
+		shift->()->Raise();
+	},
+	seek => sub {
+		my $player = shift;
+		my $offset = shift;
+		$player->()->Seek($offset);
+	},
+	set => sub {
+		my $player = shift;
+		my $property = shift;
+		given ($property) {
+			when (undef) {
+				say for (
+					"player:position <pos>[@<track>]",
+					"player:status {Paused|Playing|Stopped|Toggle}",
+				);
+			}
+			when ("player:position") {
+				my $position = shift;
+				my $track;
+				if (!defined $position) {
+					warn "Missing position.\n";
+					exit 2;
+				} elsif ($position =~ /^(\d+)@(\d+)$/) {
+					$position = $1;
+					$track = track($2);
+				} elsif ($position =~ /^\d+$/) {
+					my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
+								"Metadata");
+					$track = $meta->{"mpris:trackid"} // track("1");
+				} else {
+					warn "Invalid position.\n";
+					exit 2;
+				}
+				$player->()->SetPosition($track, $position);
+			}
+			when ("player:status") {
+				my $status = lc(shift // "Toggle");
+				given ($status) {
+					when ("paused") {
+						$player->()->Pause();
+					}
+					when ("playing") {
+						$player->()->Play();
+					}
+					when ("stopped") {
+						$player->()->Stop();
+					}
+					when ("toggle") {
+						$player->()->PlayPause();
+					}
+					default {
+						warn "Unknown status '$status'.\n";
+						exit 2;
+					}
+				}
+			}
+			default {
+				warn "Unknown property '$property'.\n";
+				exit 2;
+			}
+		}
+	},
+	status => sub {
+		say shift->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+	},
+	stop => sub {
+		shift->()->Stop();
+	},
+	toggle => sub {
+		shift->()->PlayPause();
+	},
+);
+
+my $player = shift(@ARGV);
+my $cmd = shift(@ARGV);
+my $bus_name;
+
+given ($player) {
+	when (undef) {
+		listplayers(1);
+		exit;
+	}
+	when (/^(-l|--list)/) {
+		listplayers(0);
+		exit;
+	}
+	when (/^-/) {
+		usage();
+		exit;
+	}
+	when (/^org\.mpris\.MediaPlayer2\.(.+)$/) {
+		$bus_name = $player;
+	}
+	when (/^org\.mpris\.(\w+)$/) {
+		warn "MPRISv1 is not supported by this script; please use MPRISv2.\n";
+		$bus_name = "org.mpris.MediaPlayer2.$1";
+		if ($bus->get_service_owner($bus_name)) {
+			warn "Retrying MPRISv2 using bus name $bus_name ...\n";
+		} else {
+			exit 3;
+		}
+	}
+	default {
+		$bus_name = "org.mpris.MediaPlayer2.$player";
+	}
+}
+
+given ($cmd) {
+	when (undef) {
+		say for sort keys %commands;
+	}
+	when ("activate") {
+		MediaPlayer($bus_name);
+	}
+	when ("is-running") {
+		saybool $bus->get_service_owner($bus_name);
+	}
+	default {
+		if (exists $commands{$cmd}) {
+			$commands{$cmd}->(MediaPlayer($bus_name), @ARGV);
+		} else {
+			warn "Unknown command '$cmd'.\n";
+			exit 2;
+		}
+	}
+}

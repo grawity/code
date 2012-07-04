@@ -44,7 +44,7 @@ mrproper:
 
 # compile targets
 
-BASIC_BINS := args silentcat spawn
+BASIC_BINS := args silentcat spawn strtool
 KRB_BINS := k5userok pklist
 LINUX_BINS := linux26 tapchown
 MISC_BINS := bgrep logwipe natsort writevt xor xors
@@ -74,6 +74,7 @@ $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		misc/spawn.c
+$(OBJ)/strtool:		misc/strtool.c
 $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c

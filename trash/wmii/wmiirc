@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-RC_PATH="$(readlink -f "$_")"
+RC_PATH="$(readlink -f "$0")"
 
 ### Configuration
 
@@ -8,7 +8,8 @@ WMII_NORMCOLORS="#888888 #222222 #333333"
 WMII_FOCUSCOLORS="#ffffff #285577 #4c7899"
 WMII_URGENTCOLORS="#ffffff #772828 #99784c"
 WMII_BACKGROUND="#333333"
-WMII_FONT="-*-fixed-medium-r-*-*-13-*-*-*-*-*-*-*"
+#WMII_FONT="-*-fixed-medium-r-*-*-13-*-*-*-*-*-iso10646-*"
+WMII_FONT="xft:DejaVu Sans:size=10"
 WMII_TERM="xterm"
 
 MODKEY="Mod4"
@@ -22,22 +23,22 @@ WMII_APP_OUTPUT="/dev/null"
 
 ### Functions
 
-# startup()			run startup/autorun programs (terminals and such)
+# startup()		run startup/autorun programs (terminals and such)
 
 startup() {
-	witray -s 24 & echo "++ witray[$!]"
-
-	statusloop & echo "++ statusloop[$!]"
-	statusloop_mpd & echo "++ statusloop_mpd[$!]"
-
-	[[ -f "$WMII_CONFDIR/startup" ]] && . "$WMII_CONFDIR/startup"
+	#witray -s 24 &			echo "++ witray[$!]"
+	statusloop &			echo "++ statusloop[$!]"
+	statusloop_mpd &		echo "++ statusloop_mpd[$!]"
+	test -x "$WMII_CONFDIR/startup" && {
+	"$WMII_CONFDIR/startup" &	echo "++ startup[$!]"
+	}
 }
 
 # spawn(args)		launch a program in its own session
 
-spawn() { cd; wmiir setsid -f "$@" < /dev/null > "$WMII_APP_OUTPUT" 2>&1; }
+spawn() { cd; wmiir setsid -f "$@" </dev/null >"$WMII_APP_OUTPUT" 2>&1; }
 
-# log()				write line to stdout and debug.log
+# log()			write line to stdout and debug.log
 
 log() {
 	#local tag="$$/$BASHPID"
@@ -45,9 +46,8 @@ log() {
 	echo -e "\033[34m($$)\033[m $*" >> "$WMII_CONFDIR/debug.log"
 }
 
-# tags()			list all tags
+# tags()		list all tags
 # this_tag()		return current tag
-# this_tag_safe()	as above, but escape sed metacharacters
 # next_tag()		return next tag (wrap around to first)
 # prev_tag()		return previous tag (wrap around)
 # destroy_tag(tag)	kill all clients in a tag
@@ -55,17 +55,17 @@ log() {
 tags() {
 	wmiir ls /tag | sed 's|/$||; /^sel$/d'
 }
+
 this_tag() {
-	wmiir read /tag/sel/ctl | head -n 1
+	wmiir read /tag/sel/ctl | sed '1q'
 }
-this_tag_safe() {
-	this_tag | sed 's/[][/\\.*&^$]/\\&/g'
-}
+
 next_tag() {
-	tags | sed -n "1h;/^$(this_tag_safe)\$/{\${g;p};n;p;q}"
+	tags | strtool nextw "$(this_tag)"
 }
+
 prev_tag() {
-	(tags | sed -n "/^$(this_tag_safe)\$/{1q42;g;p;q};h") || (tags | sed -n "\$p")
+	tags | strtool prevw "$(this_tag)"
 }
 
 destroy_tag() {
@@ -193,6 +193,58 @@ display_client_info() {
 		zenity --text-info --title="Client $client"
 }
 
+wi_client_menu() {
+	local client=$1
+	local menuitems=(
+		"close"
+		"kill"
+		"info"
+		"retag"
+		"float"
+		"fullscreen"
+		)
+	local cmd=$(wmii9menu -i "${wi_clientmenu_last:-info}" -- "${menuitems[@]}")
+	wi_clientmenu_last=$cmd
+	case "$cmd" in
+		close)
+			wmiir xwrite "/client/$client/ctl" "kill";;
+		float)
+			wmiir xwrite "/tag/sel/ctl" "send $client toggle";;
+		fullscreen)
+			wmiir xwrite "/client/$client/ctl" "fullscreen on";;
+		info)
+			display_client_info "$client";;
+		kill)
+			local label pid process message
+			client_label="$(wmiir read "/client/$client/label" | htmlescape)"
+			pid="$(client_pid "$client")"
+			if [[ "$pid" ]]
+				then process="<b>$(ps -o 'cmd=' $pid | htmlescape)</b> (PID $pid)"
+				else process="<i>unknown</i>"
+			fi
+			msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${client_label}\nProcess:\t${process}"
+			(wihack -transient "$client" \
+					zenity --question \
+					--title="Disconnect process" \
+					--text="$msg" \
+					--ok-label="Cancel" --cancel-label="Disconnect" \
+					|| wmiir xwrite "/client/$client/ctl" "slay") &
+			;;
+		retag)
+			local label tags input
+			label="$(wmiir read "/client/$client/label")"
+			tags="$(wmiir read "/client/$client/tags")"
+			(input=$(wihack -transient "$client" \
+				zenity --entry --title="Retag" \
+				--text="Enter new tags for window:\n$client_label" \
+				--entry-text="$tags")
+				if [[ "$input" ]]; then
+					wmiir xwrite "/client/$client/tags" "${input// /+}"
+				fi) &
+			;;
+	esac
+}
+
 # htmlescape()				convert special HTML characters to HTML entities
 
 htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
@@ -201,58 +253,66 @@ htmlescape() { sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g'; }
 # event(type, *args)		the event handler function
 
 event() {
-	local evtype="$1"; shift
-	case "$evtype" in
+	local evtype=$1; shift
+	case $evtype in
 	Start)
-		log "quitting (received Start event from another wmiirc)"
+		log "quitting (replaced by another wmiirc)"
 		return 1
 		;;
+
 	Shutdown)
-		log "quitting (received shutdown request)"
+		log "quitting (exit requested)"
 		return 1
 		;;
 
 	CreateTag)
-		{	echo colors "$WMII_NORMCOLORS"
-			echo label "$*"
-		} | wmiir create "/lbar/$*"
+		local tag=$*
+		{ echo colors "$WMII_NORMCOLORS"
+		  echo label "$tag"
+		} | wmiir create "/lbar/$tag"
 		;;
+
 	DestroyTag)
-		wmiir remove "/lbar/$*"
+		local tag=$*
+		wmiir remove "/lbar/$tag"
 		;;
 
 	FocusTag)
-		{	echo colors "$WMII_FOCUSCOLORS"
-			echo label "$*"
-		} | wmiir write "/lbar/$*"
+		local tag=$*
+		{ echo colors "$WMII_FOCUSCOLORS"
+		  echo label "$tag"
+		} | wmiir write "/lbar/$tag"
 		;;
+
 	UnfocusTag)
-		{	echo colors "$WMII_NORMCOLORS"
-			echo label "$*"
-		} | wmiir write "/lbar/$*"
+		local tag=$*
+		{ echo colors "$WMII_NORMCOLORS"
+		  echo label "$tag"
+		} | wmiir write "/lbar/$tag"
 		;;
 
 	UrgentTag)
-		shift
-		{	echo colors "$WMII_URGENTCOLORS"
-			echo label "$*"
-		} | wmiir write "/lbar/$*"
+		local a=$1 tag=${*:2}
+		{ echo colors "$WMII_URGENTCOLORS"
+		  echo label "$tag"
+		} | wmiir write "/lbar/$tag"
 		;;
+
 	NotUrgentTag)
 		shift
-		{	if [ "$*" = "$(this_tag)" ]; then
-				echo colors "$WMII_FOCUSCOLORS"
-			else
-				echo colors "$WMII_NORMCOLORS"
-			fi
-			echo label "$*"
+		{ if [[ "$*" = "$(this_tag)" ]]; then
+			echo colors "$WMII_FOCUSCOLORS"
+		  else
+			echo colors "$WMII_NORMCOLORS"
+		  fi
+		  echo label "$*"
 		} | wmiir write "/lbar/$*"
 		;;
 
 	LeftBarMouseDown)
-		local button="$1"; shift
-		case "$button" in
-		1) wmiir xwrite /ctl "view $*";;
+		local button=$1 tag=${*:2}
+		case $button in
+		1) wmiir xwrite /ctl "view $tag";;
 		2) ;;
 		3) ;;
 		4) wmiir xwrite /ctl "view $(prev_tag)";;
@@ -261,104 +321,53 @@ event() {
 		;;
 
 	LeftBarClick)
-		local button="$1"; shift
-		case "$button" in
-		1) wmiir xwrite /ctl "view $*";;
+		local button="$1"
+		case $button in
+		1) wmiir xwrite /ctl "view $tag";;
 		2) destroy_tag "$*";;
 		esac
 		;;
 
-	# drag'n'drop
 	LeftBarDND)
-		shift
-		wmiir xwrite /ctl "view $*"
+		local button=$1 tag=${*:2}
+		wmiir xwrite /ctl "view $tag"
 		;;
 
 	RightBarClick)
-		local button="$1"; shift
-		case "$*" in
+		local button="$1"
+		case "${*:2}" in
 		mpc|mpc_volume)
 			case "$button" in
-			1) mpc -q toggle || spawn mpd ;;
-			2) mpc -q prev ;;
-			3) mpc -q next ;;
-			4) mpc -q volume "+5" ;;
-			5) mpc -q volume "-5" ;;
-			esac > /dev/null ;;
+			1) mpc -q toggle || spawn mpd;;
+			2) mpc -q prev;;
+			3) mpc -q next;;
+			4) mpc -q volume "+5";;
+			5) mpc -q volume "-5";;
+			esac > /dev/null;;
 		*)
 			case "$button" in
-			2) spawn slock ;;
-			esac ;;
+			2) lock_screen;;
+			esac;;
 		esac
 		;;
 
 	ClientMouseDown)
-		local client="$1" button="$2"
-		case "$button" in
-		3)
-			local menuitems=(
-				"close"
-				"kill"
-				"info"
-				"retag"
-				"float"
-				"fullscreen"
-				)
-			local cmd="$(wmii9menu -i "${last_windowmenu:-info}" -- "${menuitems[@]}")"
-			last_windowmenu="$cmd"
-			case "$cmd" in
-				close)
-					wmiir xwrite "/client/$client/ctl" "kill";;
-				float)
-					wmiir xwrite "/tag/sel/ctl" "send $client toggle";;
-				fullscreen)
-					wmiir xwrite "/client/$client/ctl" "fullscreen on";;
-				info)
-					display_client_info "$client";;
-				kill)
-					local label pid process message
-					client_label="$(wmiir read "/client/$client/label" | htmlescape)"
-					pid="$(client_pid "$client")"
-					if [[ "$pid" ]]
-						then process="<b>$(ps -o 'cmd=' $pid | htmlescape)</b> (PID $pid)"
-						else process="<i>unknown</i>"
-					fi
-					msg="Do you really want to disconnect the process that this window belongs to?\n\nWindow:\t${client_label}\nProcess:\t${process}"
-					{
-						wihack -transient "$client" \
-						zenity --question --title="Disconnect process" \
-						--text="$msg" \
-						--ok-label="Cancel" --cancel-label="Disconnect" \
-						|| wmiir xwrite "/client/$client/ctl" "slay"
-					} &
-					;;
-				retag)
-					local label tags input
-					client_label="$(wmiir read "/client/$client/label")"
-					old_tags="$(wmiir read "/client/$client/tags")"
-					{
-						input="$(zenity --entry --title="Retag" \
-						--text="Enter new tags for window:\n$client_label" \
-						--entry-text="$old_tags")"
-
-						[[ "$input" ]] && wmiir xwrite "/client/$client/tags" "${input// /+}"
-					} &
-					;;
-			esac
-			;;
+		local client=$1 button=$2
+		case $button in
+		3) wi_client_menu "$client";;
 		esac
 		;;
 
 	ClientClick)
-		local client="$1" button="$2"
-		case "$button" in
+		local client=$1 button=$2
+		case $button in
 		2) wmiir xwrite "/client/$client/ctl" "kill";;
 		esac
 		;;
 
 	Unresponsive)
-		local client="$1"
-		local msg="$(printf "The following client is not responding:\n\n%s\n\nWhat would you like to do?" "$(wmiir read /client/"$client"/label)")"
+		local client=$1
+		local msg=$(printf "The following client is not responding:\n\n%s\n\nWhat would you like to do?" "$(wmiir read /client/"$client"/label)")
 
 		if ! wihack -transient "$client" zenity --question --text="$msg" \
 			--ok-label="Wait" --cancel-label="Kill"; then
@@ -386,8 +395,9 @@ event() {
 			e|eval)		eval "$@";;
 			env|export)	export "$@";;
 			ev|event)	wmiir xwrite /event "$@";;
+			ls)		wmiir ls "$@";;
 			.|poke)		echo -e "\e[1;35mI am $$ (pgroup $MY_PGROUP, sid $MY_SID)\e[m";;
-			p|ps)		wmiir setsid ps -o pid,comm,command --forest -$MY_PGROUP;;
+			p|ps)		wmiir setsid ps -o sid,pgid,pid,comm,command --forest -$MY_PGROUP;;
 			r|read)		wmiir read "$@";;
 			qr)			wmiir xwrite /event "Shutdown";;
 			qw)			wmiir xwrite /ctl "quit";;
@@ -398,8 +408,8 @@ event() {
 					restart_rc
 				fi
 				;;
-			re)			restart_rc;;
-			rw)			restart_wmii;;
+			re)		restart_rc;;
+			rw)		restart_wmii;;
 			x|ixp|wmiir)	wmiir "$@";;
 			w|write)	wmiir xwrite "$@";;
 			\?|help)
@@ -419,7 +429,8 @@ event() {
 				x   ixpc (wmiir)
 				EOF
 				;;
-			*)			echo -e "\e[1;33mUnknown debug command '$cmd'. Try 'help'\e[m";;
+			*)
+				echo -e "\e[1;33mUnknown debug command '$cmd'. Try 'help'\e[m";;
 			esac
 		} >> "$WMII_CONFDIR/debug.log" 2>&1
 		;;
@@ -474,7 +485,16 @@ event_Key() {
 		t)	local input="$(tag_menu)"
 			[[ "$input" ]] && wmiir xwrite "/ctl" "view $input"
 			;;
-		[0-9])		wmiir xwrite /ctl "view $key";;
+		[0-9])
+			local cur=$(this_tag)
+			if [[ $key == $cur ]]; then
+				tag=$prev
+			else
+				tag=$key
+				prev=$cur
+			fi
+			wmiir xwrite /ctl "view $tag"
+			;;
 		Tab)		wmiir xwrite /ctl "view $(next_tag)";;
 		KP_Enter)	spawn "$WMII_TERM";;
 		Menu)		action_input ;;
@@ -525,7 +545,6 @@ event_Key() {
 ## Loops for statusbar updating. Called from startup()
 # statusloop()			updates clock and load average
 # statusloop_mpd()		updates mpd playback status
-#
 # status_load()			prints load average from /proc/loadavg
 # status_clock()		prints date/time
 # status_mpd()			prints mpd status
@@ -538,6 +557,7 @@ statusloop() {
 		sleep 2
 	done
 }
+
 statusloop_mpd() {
 	printf "wistatus.mpd" > /proc/self/comm
 	local event
@@ -562,6 +582,15 @@ status_clock() {
 	echo colors "$WMII_NORMCOLORS"
 	date +'label %a, %b %d %H:%M'
 }
+
+#LAYING=''
+PLAYING='▶'
+#LAYING='▸'
+
+#AUSED='(paused)'
+PAUSED='▷'
+#AUSED='▹'
+
 status_mpd() {
 	local FG_PLAYING='#bbbbbb'
 	local FG_PAUSED="${WMII_NORMCOLORS%% *}"
@@ -575,10 +604,10 @@ status_mpd() {
 			return $ret
 		elif mpc | grep -qs '^\[playing\]'; then
 			echo colors "$FG_PLAYING $BG"
-			echo label "$(mpc current)"
+			echo label $PLAYING "$(mpc current)"
 		elif mpc | grep -qs '^\[paused\]'; then
 			echo colors "$FG_PAUSED $BG"
-			echo label "(paused) $(mpc current)"
+			echo label $PAUSED "$(mpc current)"
 		else
 			echo colors "$FG_STOPPED $BG"
 			echo label "(stopped)"
@@ -586,16 +615,38 @@ status_mpd() {
 	} 2> /dev/null
 }
 status_volume() {
-	local size=11
+	local FG="${WMII_NORMCOLORS%% *}"
+	local BG="${WMII_NORMCOLORS#* }"
+
 	local volume=$(vol)
-	echo label $(bar $((volume * size / 100)) $size)
+	local size=11
+	local level=$((volume * size / 100))
+	if (( level >= 8 )); then
+		echo colors "#ff3333 $BG"
+	elif (( level >= 7 )); then
+		echo colors "#ddbb44 $BG"
+	elif (( level >= 6 )); then
+		echo colors "#ffdd88 $BG"
+	elif (( level >= 5 )); then
+		echo colors "#ffffff $BG"
+	elif (( level >= 4 )); then
+		echo colors "#bbbbbb $BG"
+	else
+		echo colors "$FG $BG"
+	fi
+	echo label $(bar $level $size)
 }
 
 bar() {
-	local on=▮ off=▯
+	#ocal on=▮ off=▯
 	#ocal on=▰ off=▱
 	#ocal on=■ off=□
 	#ocal on=◾ off=◽
+
+	local bar_volume=◾◽
+
+	local on=${bar_volume:0:1}
+	local off=${bar_volume:1:1}
 
 	local i=0 num=$1 width=$2
 	while (( i++ < num )); do
@@ -608,7 +659,7 @@ bar() {
 }
 
 ## wmiirc control functions
-# suicide()				kill own pgroup; handle SIGINT/TERM/QUIT
+# suicide()			kill own pgroup; handler for SIGINT/TERM/QUIT
 # restart_rc()			tell wmii to spawn a new wmiirc
 # restart_wmii()		tell wmii to re-exec self
 
@@ -621,7 +672,7 @@ suicide() {
 	kill 0
 }
 restart_rc() {
-	log "\e[33mrestarting wmiirc\e[m ($0)"
+	log "\e[33mrestarting wmiirc\e[m ($RC_PATH)"
 	wmiir xwrite /ctl "spawn \"$RC_PATH\""
 }
 restart_wmii() {
@@ -630,10 +681,12 @@ restart_wmii() {
 }
 
 ### Start wmiirc
-wmiir namespace > /dev/null || exit 1
+wmiir namespace >/dev/null || exit 1
 
-MY_PGROUP="$(ps -o 'pgrp=' $$ | tr -d ' ')"
-MY_SID="$(ps -o 'sid=' $$ | tr -d ' ')"
+#MY_PGROUP=$(ps -o 'pgrp=' $$ | tr -d ' ')
+#MY_SID=$(ps -o 'sid=' $$ | tr -d ' ')
+MY_PGROUP=$(proctool getpgid)
+MY_SID=$(proctool getsid)
 
 unset SHLVL
 
@@ -641,16 +694,16 @@ trap 'suicide' SIGINT SIGQUIT SIGTERM EXIT
 trap 'log "Received SIGHUP"; restart_rc' SIGHUP
 
 log "\e[1;32mstarted\e[m ($0) \e[1mpgroup=$MY_PGROUP\e[m sid=$MY_SID"
+
 wmiir write /event <<< "Start $0"
 
-# Configure wmii
 wmiir write /ctl <<-!
 	font $WMII_FONT
 	fontpad ${WMII_FONTPAD:-0 0 0 0}
 	focuscolors $WMII_FOCUSCOLORS
 	normcolors $WMII_NORMCOLORS
 	grabmod ${MODKEY:-Mod4}
-	border 2
+	border 3
 !
 
 xsetroot -solid "$WMII_BACKGROUND" &
@@ -689,7 +742,6 @@ xsetroot -solid "$WMII_BACKGROUND" &
 	startup
 } &
 
-# Event loop
 while read event; do
 	event $event || suicide
 done < <(exec wmiir read /event)

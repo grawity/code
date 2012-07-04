@@ -1,11 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include "util.h"
 
 #define LINESZ 512
-
-static inline int streq(const char *a, const char *b) {
-	return strcmp(a, b) == 0;
-}
 
 static char * cut(char *line) {
 	char *c;
@@ -22,7 +19,7 @@ static char * cut(char *line) {
  * print line after first match
  */
 
-int next_item(char *want, int loop) {
+int next_item(char *want, int wrap) {
 	char a[LINESZ] = {0};
 	char b[LINESZ] = {0};
 	char *line[2] = {a, b};
@@ -37,7 +34,7 @@ int next_item(char *want, int loop) {
 		} else if (!strcmp(line[n], want))
 			found = 1;
 	}
-	if (!found || !loop || !n)
+	if (!found || !wrap || !n)
 		return 1;
 	else {
 		printf("%s\n", line[0]);
@@ -49,7 +46,7 @@ int next_item(char *want, int loop) {
  * print line before first match
  */
 
-int prev_item(char *want, int loop) {
+int prev_item(char *want, int wrap) {
 	char a[LINESZ] = {0};
 	char b[LINESZ] = {0};
 	char *line[2] = {a, b};
@@ -66,7 +63,7 @@ int prev_item(char *want, int loop) {
 				break;
 		}
 	}
-	if (count || !loop)
+	if (count || !wrap)
 		return 1;
 	else {
 		while (fgets(line[n], LINESZ, stdin))
@@ -109,7 +106,7 @@ int main(int argc, char *argv[]) {
 		char *str = argv[++i];
 		return next_item(str, 0);
 	}
-	else if (streq(cmd, "nextl")) {
+	else if (streq(cmd, "nextw")) {
 		if (argc < 3)
 			return 2;
 		char *str = argv[++i];
@@ -121,7 +118,7 @@ int main(int argc, char *argv[]) {
 		char *str = argv[++i];
 		return prev_item(str, 0);
 	}
-	else if (streq(cmd, "prevl")) {
+	else if (streq(cmd, "prevw")) {
 		if (argc != 3)
 			return 2;
 		char *str = argv[++i];

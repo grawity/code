@@ -10,6 +10,7 @@ my $bus;
 my $err = 0;
 my $activate = 0;
 my $quiet = 0;
+my $list = 0;
 
 sub usage {
 	say for
@@ -20,6 +21,7 @@ sub usage {
 	"  -a, --address=ADDR     Connect to given D-Bus address",
 	"  -q, --quiet            Remain silent, just set exit code",
 	"  -c, --activate         Try to launch services using DBus activation",
+	"  -l, --list             List all owned names (or activatable names with -c)",
 	"",
 	"Without explicit bus specification, the heuristics implemented by Net::DBus",
 	"will be used (session if DBUS_SESSION_BUS_ADDRESS is set, system otherwise).",
@@ -35,18 +37,30 @@ GetOptions(
 				$bus = Net::DBus->new($addr);
 			},
 	"q|quiet"	=> \$quiet,
-	"c|activate!"	=> \$activate,
+	"c|activate"	=> \$activate,
+	"l|list"	=> \$list,
 ) or do { usage(); exit 2; };
 
 $bus //= Net::DBus->find;
 
-for my $name (@ARGV) {
-	if ($activate) {
-		eval {$bus->get_service($name)} or warn "$@";
+if ($list) {
+	warn "Note: --quiet does not make sense with --list.\n" if $quiet;
+	my $obj = $bus->get_bus_object;
+	my $names = $activate
+			? $obj->ListActivatableNames
+			: $obj->ListNames;
+	say for sort @$names;
+} elsif (@ARGV) {
+	for my $name (@ARGV) {
+		if ($activate) {
+			eval {$bus->get_service($name)} or warn "$@";
+		}
+		my $owner = $bus->get_service_owner($name);
+		$quiet or say $name, " ", $owner // "(none)";
+		$owner or ++$err;
 	}
-	my $owner = $bus->get_service_owner($name);
-	$quiet or say $name, " ", $owner // "(none)";
-	$owner or ++$err;
+	exit !!$err;
+} else {
+	usage();
+	exit 2;
 }
-
-exit !!$err;

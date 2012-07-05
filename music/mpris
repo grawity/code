@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# mpris 1.4 - control MPRIS v2 compatible players
+# mpris - control MPRIS v2 compatible players
 # Full spec: http://specifications.freedesktop.org/mpris-spec/latest/
 use warnings;
 use strict;
@@ -467,8 +467,14 @@ sub property {
 }
 
 my %commands = (
+	activate => sub {
+		# handled by main func
+	},
 	get => sub {
 		player_getprop(@_);
+	},
+	"is-running" => sub {
+		# handled by main func
 	},
 	meta => sub {
 		player_getprop(shift, "player:metadata");
@@ -614,11 +620,15 @@ given ($cmd) {
 		saybool $bus->get_service_owner($bus_name);
 	}
 	default {
-		if (exists $commands{$cmd}) {
+		if (!exists $commands{$cmd}) {
+			dieusage "Unknown command '$cmd'.";
+		}
+		elsif (!$bus->get_service_owner($bus_name)) {
+			warn "Player $bus_name is not running.\n";
+			exit 4;
+		}
+		else {
 			$commands{$cmd}->(MediaPlayer($bus_name), @ARGV);
-		} else {
-			warn "Unknown command '$cmd'.\n";
-			exit 2;
 		}
 	}
 }

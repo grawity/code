@@ -20,6 +20,18 @@ WMII_TERM="xterm"
 
 Mod="Mod4"
 
+tagnames=(
+	[1]=
+	[2]='web'
+	[3]='irc'
+	[4]=
+	[5]=
+	[6]=
+	[7]=
+	[8]=
+	[9]=
+)
+
 [[ -f "$WMII_CONFDIR/config" ]] &&
 	. "$WMII_CONFDIR/config"
 
@@ -35,14 +47,20 @@ startup() {
 	#witray -s 24 &			echo "++ witray[$!]"
 	statusloop &			echo "++ statusloop[$!]"
 	statusloop_mpd &		echo "++ statusloop_mpd[$!]"
-	test -x "$WMII_CONFDIR/startup" && {
-	"$WMII_CONFDIR/startup" &	echo "++ startup[$!]"
-	}
+
+	[[ -f "$WMII_CONFDIR/startup" ]] &&
+		. "$WMII_CONFDIR/startup"
+}
+
+cg_migrate() {
+	echo $BASHPID >"/sys/fs/cgroup/systemd/$1/tasks"
 }
 
 spawn() {
 	log "launching: $*"
-	(cd; wmiir setsid -f "$@" </dev/null >&/dev/null)
+	(cd ~
+	cg_migrate "/user/$USER/$XDG_SESSION_ID"
+	exec wmiir setsid -f "$@" </dev/null >&/dev/null)
 }
 
 
@@ -179,18 +197,10 @@ event_Action() {
 	rc)
 		restart_rc;;
 	reboot)
-		restart_system;;
+		systemctl reboot;;
 	shutdown)
-		shutdown_system;;
+		systemctl poweroff;;
 	esac
-}
-
-shutdown_system() {
-	ck stop
-}
-
-restart_system() {
-	ck restart
 }
 
 wi_9menu() {
@@ -200,12 +210,18 @@ wi_9menu() {
 	local vdefault="default_$name"
 	local choice=$( "menu_$name" "${@:2}" &&
 			wmii9menu -i "${!vlast:-${!vdefault}}" -- "${!vmenu}")
-	declare -g "$vlast=$choice"
-	wmiir xwrite /event "$name $args $choice"
+	if [[ $choice ]]; then
+		declare -g "$vlast=$choice"
+		wmiir xwrite /event $name $args $choice
+	fi
 }
 
 wi_client_menu() {
 	wi_9menu ClientAction $*
+}
+
+wi_system_menu() {
+	wi_9menu SystemAction
 }
 
 ### Event handling
@@ -305,14 +321,39 @@ event_LeftBarDND() {
 	wmiir xwrite /ctl "view $tag"
 }
 
+event_RightBarMouseDown() {
+	local button=$1 item=$2
+	case $item in
+		mpc)
+			case $button in
+				3) wi_9menu MediaAction;;
+			esac
+			;;
+		zz_clock)
+			case $button in
+				3) wi_system_menu;;
+			esac
+			;;
+	esac
+}
+
 event_RightBarClick() {
 	local button=$1 item=$2
 	case $item in
-		mpc|mpc_volume)
+		mpc)
 			case $button in
 				1) mpc -q toggle || spawn mpd;;
-				2) mpc -q prev;;
-				3) mpc -q next;;
+				2) ;;
+				3) ;;
+				4) mpc -q next;;
+				5) mpc -q prev;;
+			esac
+			;;
+		mpc-volume)
+			case $button in
+				1) mpc -q toggle || spawn mpd;;
+				2) ;;
+				3) ;;
 				4) mpc -q volume "+5";;
 				5) mpc -q volume "-5";;
 			esac > /dev/null
@@ -328,7 +369,7 @@ event_RightBarClick() {
 event_ClientMouseDown() {
 	local client=$1 button=$2
 	case $button in
-		3) wi_client_menu;;
+		3) wi_client_menu "$client";;
 	esac
 }
 
@@ -343,6 +384,7 @@ event_ClientClick() {
 
 bind_Key=(
 	$Mod-{Return,KP_Enter,p,a}
+	Mod1-F2
 	$Mod-{h,j,k,l,space}
 	$Mod-Control-{j,k}
 	$Mod-{0..9}
@@ -366,6 +408,8 @@ event_Key() {
 		program_input;;
 	$Mod-a)
 		action_input;;
+	Mod1-F2)
+		program_input;;
 
 	# focus movement
 
@@ -388,7 +432,11 @@ event_Key() {
 	# tag navigation
 
 	$Mod-[0-9])
-		wmiir xwrite /ctl "view $key";;
+		local tag=$key
+		if [[ ${tagnames[$tag]} ]]; then
+			tag+=".${tagnames[$tag]}"
+		fi
+		wmiir xwrite /ctl "view $tag";;
 	$Mod-t)
 		local input=$(tag_menu)
 		if [[ $input ]]; then
@@ -536,6 +584,53 @@ event_ClientAction() {
 	esac
 }
 
+menu_MediaAction() {
+	local play=$(mpc | sed -rn 's/^\[([[:alpha:]]+)\].*/\1/p')
+
+	if [[ $play == "playing" ]]; then
+		play='pause'
+	else
+		play='play'
+	fi
+
+	menu_MediaAction=(
+		"sonata"
+		"prev"
+		"next"
+		"$play"
+	)
+	default_MediaAction="$play"
+}
+
+event_MediaAction() {
+	local action=$1
+	case $action in
+		"play"|"pause"|"next"|"prev")
+			mpc -q $action;;
+		"sonata")
+			spawn sonata;;
+	esac
+}
+
+menu_SystemAction() {
+	menu_SystemAction=(
+		"shutdown"
+		"reboot"
+		"noop"
+	)
+	default_SystemAction="noop"
+}
+
+event_SystemAction() {
+	local action=$1
+	case $action in
+		"shutdown")
+			systemctl poweroff;;
+		"reboot")
+			systemctl reboot;;
+	esac
+}
+
 # debug thing
 
 event_Debug() {
@@ -543,7 +638,7 @@ event_Debug() {
 	local cmd=$1; shift
 	case $cmd in
 		".")
-			echo "I am $$";;
+			;;
 		"addrule")
 			{ wmiir read /rules; echo "$*"; } | wmiir write /rules;;
 		"ctl")
@@ -551,7 +646,12 @@ event_Debug() {
 		"eval")
 			eval "$@";;
 		"env"|"export"|"setenv")
-			export "$@";;
+			local env=$*
+			if [[ $env == ?*=?* ]]; then
+				export "$env"
+			else
+				unset "${env%=}"
+			fi;;
 		"ps")
 			wmiir setsid ps -o pgid,pid,comm,command --forest -$MY_PGROUP;;
 		"r"|"read")
@@ -569,20 +669,20 @@ event_Debug() {
 		"w"|"write")
 			wmiir xwrite "$@";;
 		"?"|"help")
-			cat <<-'EOF'
-			Commands:
-			.   poke
-			c   ctl <ctl command>
-			e   eval <shell code>
-			p   ps
-			qr  quit wmiirc
-			qw  quit wmii
-			r   read <path>
-			re  restart
-			rw  restart wmii
-			w   write <path> <data>
-			x   ixpc (wmiir)
-			EOF
+			cat <<-!
+				Commands:
+				.   poke
+				c   ctl <ctl command>
+				e   eval <shell code>
+				p   ps
+				qr  quit wmiirc
+				qw  quit wmii
+				r   read <path>
+				re  restart
+				rw  restart wmii
+				w   write <path> <data>
+				x   ixpc (wmiir)
+			!
 			;;
 		*)
 			echo -e "\e[1;33mUnknown debug command '$cmd'. Try 'help'\e[m";;
@@ -615,16 +715,13 @@ statusloop() {
 
 statusloop_mpd() {
 	printf "StatusLoop" > /proc/self/comm
-	local event
 
-	status_mpd
-	status_volume
+	while true; do
+		status_mpd
+		status_volume
 
-	while event=$(mpc idle) || sleep 5; do
-		case $event in
-		mixer)	status_volume;;
-		*)	status_mpd;;
-		esac
+		mpc idle >&/dev/null ||
+		sleep 5
 	done
 }
 
@@ -633,8 +730,9 @@ PLAYING='▶'
 #LAYING='▸'
 
 #AUSED='(paused)'
-PAUSED='▷'
+#AUSED='▷'
 #AUSED='▹'
+PAUSED=''
 
 status_mpd() {
 	local FG_PLAYING='#bbbbbb'
@@ -642,21 +740,21 @@ status_mpd() {
 	local FG_STOPPED='#666666'
 	local BG=${WMII_NORMCOLORS#* }
 
-	if ! mpc >&/dev/null; then
-		local ret=$?
-		echo colors "$FG_STOPPED $BG"
-		echo label "(mpd not running)"
-		return $ret
-	elif mpc | grep -qs '^\[playing\]'; then
-		echo colors "$FG_PLAYING $BG"
-		echo label $PLAYING "$(mpc current)"
-	elif mpc | grep -qs '^\[paused\]'; then
-		echo colors "$FG_PAUSED $BG"
-		echo label $PAUSED "$(mpc current)"
-	else
-		echo colors "$FG_STOPPED $BG"
-		echo label "(stopped)"
-	fi | wmiir create "/rbar/mpc"
+	{
+		if ! mpc >&/dev/null; then
+			echo colors "$FG_STOPPED $BG"
+			echo label "(mpd not running)"
+		elif mpc | grep -qs '^\[playing\]'; then
+			echo colors "$FG_PLAYING $BG"
+			echo label $PLAYING "$(mpc current)"
+		elif mpc | grep -qs '^\[paused\]'; then
+			echo colors "$FG_PAUSED $BG"
+			echo label $PAUSED "$(mpc current)"
+		else
+			echo colors "$FG_STOPPED $BG"
+			echo label "(stopped)"
+		fi
+	} | wmiir create "/rbar/mpc"
 }
 
 status_volume() {
@@ -668,20 +766,20 @@ status_volume() {
 	local cur=$((volume * max / 100))
 
 	{
-	if (( cur >= 8 )); then
-		echo colors "#ff3333 $BG"
-	elif (( cur >= 7 )); then
-		echo colors "#ddbb44 $BG"
-	elif (( cur >= 6 )); then
-		echo colors "#ffdd88 $BG"
-	elif (( cur >= 5 )); then
-		echo colors "#ffffff $BG"
-	elif (( cur >= 4 )); then
-		echo colors "#bbbbbb $BG"
-	else
-		echo colors "$FG $BG"
-	fi
-	echo label $(bar $cur $max)
+		if (( cur >= 8 )); then
+			echo colors "#ff3333 $BG"
+		elif (( cur >= 7 )); then
+			echo colors "#ddbb44 $BG"
+		elif (( cur >= 6 )); then
+			echo colors "#ffdd88 $BG"
+		elif (( cur >= 5 )); then
+			echo colors "#ffffff $BG"
+		elif (( cur >= 4 )); then
+			echo colors "#bbbbbb $BG"
+		else
+			echo colors "$FG $BG"
+		fi
+		echo label $(bar $cur $max)
 	} | wmiir create "/rbar/mpc-volume"
 }
 
@@ -691,7 +789,8 @@ status_volume() {
 # restart_wmii()		tell wmii to re-exec self
 
 suicide() {
-	log "\e[1;31mexiting:\e[m killing pgroup $MY_PGROUP"
+	local pgrp=$(proctool getpgid)
+	log "\e[1;31mexiting:\e[m killing pgroup $pgrp"
 	trap - EXIT
 	trap 'exit' SIGINT SIGQUIT SIGTERM
 	kill 0
@@ -710,8 +809,6 @@ restart_wmii() {
 
 ### Start wmiirc
 
-MY_PGROUP=$(proctool getpgid)
-
 unset SHLVL
 
 trap 'suicide' SIGINT SIGQUIT SIGTERM EXIT
@@ -729,7 +826,15 @@ wmiir write /ctl <<-!
 	border 3
 !
 
-xsetroot -solid "$WMII_BACKGROUND" &
+xsetroot -solid "$WMII_BACKGROUND"
+
+wmiir write '/rules' <<!
+	/^sonata:/ floating=on
+!
+
+wmiir write '/colrules' <<-!
+	/.*/ -> 62+38 # Golden Ratio
+!
 
 {
 	[[ -f "$WMII_CONFDIR/rules" ]] &&

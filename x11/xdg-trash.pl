@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# trash - move files into XDG Trash
 use warnings;
 use strict;
 use Cwd qw(realpath);
@@ -23,6 +24,14 @@ sub dev {
 	(lstat(shift))[0];
 }
 
+=item find_root($path)
+
+Find the root directory of the filesystem $path is in.
+
+Does not currently work with bind-mounted files; returns the mountpoint's parent.
+
+=cut
+
 sub find_root {
 	my ($path) = @_;
 	$path = realpath($path);
@@ -39,23 +48,40 @@ sub find_root {
 	return $path;
 }
 
-sub ensure_dirs {
+=item ensure($trash_dir)
+
+Recursively mkdir $trash_dir/{files,info} if necessary.
+
+=cut
+
+sub ensure {
 	my ($trash_dir) = @_;
 	for ("$trash_dir/info", "$trash_dir/files") {
-		make_path($_, mode => 0700) unless -d;
+		unless (-d) {
+			make_path($_, mode => 0700) or return 0;
+		}
 	}
+	return 1;
 }
+
+=item create_info($trash_dir, $orig_path) -> ($name, $fh, $path)
+
+Securely create a .trashinfo file in $trash_dir with a basename similar
+to that of $orig_path; return the new basename, a writable filehandle,
+and for convenience the full path to the file.
+
+=cut
 
 sub create_info {
 	my ($trash_dir, $orig_path) = @_;
 	my $base = basename($orig_path);
 	my $i = 0;
-	my ($name, $fh, $info_name);
+	my ($name, $fh, $info_path);
 	while (1) {
 		$name = $i ? "$base-$i" : $base;
-		$info_name = "$trash_dir/info/$name.trashinfo";
-		if (sysopen($fh, $info_name, O_WRONLY|O_CREAT|O_EXCL)) {
-			return ($name, $fh, $info_name);
+		$info_path = "$trash_dir/info/$name.trashinfo";
+		if (sysopen($fh, $info_path, O_WRONLY|O_CREAT|O_EXCL)) {
+			return ($name, $fh, $info_path);
 		} else {
 			warn "trash: error: $! (for '$name')\n" unless $! == EEXIST;
 			if (++$i > 100) {
@@ -68,6 +94,12 @@ sub create_info {
 	}
 }
 
+=item write_info($fh, $orig_path)
+
+Write the [Trash Info] block for $orig_path to a filehandle.
+
+=cut
+
 sub write_info {
 	my ($info_fh, $orig_path) = @_;
 	print $info_fh "[Trash Info]\n";
@@ -75,9 +107,20 @@ sub write_info {
 	print $info_fh "DeletionDate=$now\n";
 }
 
+=item find_trash_dir($orig_path)
+
+Find the best trash directory to use, according to XDG Trash Dir spec.
+
+ * $home_trash if same device
+ * $root/.Trash/$UID if checks pass
+ * $root/.Trash-$UID if exists or can create
+ * $home_trash otherwise
+
+=cut
+
 sub find_trash_dir {
 	my ($orig_path) = @_;
-	ensure_dirs($home_trash);
+	ensure($home_trash);
 	my $fdev = dev($orig_path);
 	my $hdev = dev($home_trash);
 	if (!defined $fdev) {
@@ -86,15 +129,24 @@ sub find_trash_dir {
 		return $home_trash;
 	} else {
 		my $root = find_root($orig_path);
-		if (-d "$root/.Trash" && -k _) {
-			return "$root/.Trash/$<";
+		my $dir = "$root/.Trash";
+		if (-d $dir && ! -l _ && -k _ && ensure("$dir/$<")) {
+			return "$dir/$<";
 		}
-		if (-d "$root/.Trash-$<") {
-			return "$root/.Trash-$<";
+		$dir = "$root/.Trash-$<";
+		if (-d $dir || ensure($dir)) {
+			return $dir;
 		}
 	}
 	return $home_trash;
 }
+
+=item trash($path)
+
+Create a trashinfo file in the appropriate trash directory, then move
+actual $path there. If move fails, delete trashinfo and explode.
+
+=cut
 
 sub trash {
 	my ($path) = @_;
@@ -104,8 +156,8 @@ sub trash {
 	}
 	my $orig_path = realpath($path);
 	my $trash_dir = find_trash_dir($orig_path);
-	print "DEBUG: trash_dir = $trash_dir\n";
-	ensure_dirs($trash_dir);
+	print "DEBUG: trash_dir = $trash_dir\n" unless $trash_dir eq $home_trash;
+	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	write_info($info_fh, $orig_path);
 	close($info_fh);

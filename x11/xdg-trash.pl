@@ -24,6 +24,18 @@ sub dev {
 	(lstat(shift))[0];
 }
 
+=item my_abs_path($path)
+
+Canonicalize symlinks and relative paths.
+If $path itself is a symlink, do not canonicalize it.
+
+=cut
+
+sub my_abs_path {
+	my ($path) = @_;
+	realpath(dirname($path))."/".basename($path);
+}
+
 =item find_root($path)
 
 Find the root directory of the filesystem $path is in.
@@ -154,7 +166,7 @@ sub trash {
 		warn "trash: Not found: '$path'\n";
 		return;
 	}
-	my $orig_path = realpath($path);
+	my $orig_path = my_abs_path($path);
 	my $trash_dir = find_trash_dir($orig_path);
 	print "DEBUG: trash_dir = $trash_dir\n" unless $trash_dir eq $home_trash;
 	ensure($trash_dir);

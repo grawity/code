@@ -86,6 +86,8 @@ class Database(object):
 		self.order = list()
 		self.modified = False
 		self.readonly = False
+		self._modeline = "; vim: ft=accdb:"
+		self._adduuids = True
 
 	# Import
 
@@ -108,7 +110,9 @@ class Database(object):
 
 		for line in fh:
 			lineno += 1
-			if line.startswith("="):
+			if line.startswith("; vim:"):
+				self._modeline = line
+			elif line.startswith("="):
 				entry = Entry.parse(data, lineno=lastno)
 				if entry:
 					self.add(entry)
@@ -199,6 +203,8 @@ class Database(object):
 				continue
 			print(entry.dump(storage=storage), file=fh)
 		print("(last-write: %s)" % time.strftime("%Y-%m-%d %H:%M:%S"), file=fh)
+		if storage:
+			print(self._modeline, file=fh)
 
 	def to_structure(self):
 		return [entry.to_structure() for entry in self]

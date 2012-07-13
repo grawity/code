@@ -1,8 +1,8 @@
 #!/bin/bash
 # usb-unbind - unbind USB controllers to fix ASUS suspend bug
 
-# For pm-utils, install to /etc/pm/sleep.d/98usbbind
 # For systemd, install to /usr/lib/systemd/system-sleep/98usbbind
+# For pm-utils, install to /etc/pm/sleep.d/98usbbind
 
 dir="/run/pm-utils"
 prefix="$dir/usbbind_disabled_"
@@ -36,20 +36,29 @@ rebind_usb() {
 	done
 }
 
-case $* in
-	# pm-utils syntax
-	"hibernate"|"suspend")
-		unbind_usb;;
-	"thaw"|"resume")
-		rebind_usb;;
-	# systemd syntax
-	"pre hibernate"|"pre suspend")
-		unbind_usb;;
-	"post hibernate"|"post suspend")
-		rebind_usb;;
-	# rest
+if [ $# -eq 0 ]; then
+	echo "Usage: $0 {pre|post} {suspend|hibernate}"
+	exit 2
+fi
+
+case $1 in
+# handle legacy pm-utils syntax
+	suspend)
+		set -- pre suspend ;;
+	hibernate)
+		set -- pre hibernate ;;
+	resume)
+		set -- post suspend ;;
+	thaw)
+		set -- post hibernate ;;
+esac
+
+case $1-$2 in
+	pre-*)
+		unbind_usb ;;
+	post-*)
+		rebind_usb ;;
 	*)
-		echo "Invalid arguments." >&2
-		exit 2;;
-esac 2>&1 \
-| logger -t "usb-bind" -s
+		echo "Invalid arguments: $*" >&2
+		exit 2 ;;
+esac 2>&1 | logger -t "usb-bind" -s

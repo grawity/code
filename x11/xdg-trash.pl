@@ -36,7 +36,7 @@ sub my_abs_path {
 	realpath(dirname($path))."/".basename($path);
 }
 
-=item find_root($path)
+=item find_root($abs_path)
 
 Find the root directory of the filesystem $path is in.
 
@@ -46,15 +46,12 @@ Does not currently work with bind-mounted files; returns the mountpoint's parent
 
 sub find_root {
 	my ($path) = @_;
-	$path = realpath($path);
 	my $fdev = dev($path);
 	return undef if !defined $fdev;
 	my $prev = $path;
-	print "dev($path) = $fdev\n";
 	while ($path ne "/") {
 		$prev = $path;
 		$path = dirname($path);
-		print "dev($path) = ".dev($path)."\n";
 		return $prev if dev($path) != $fdev;
 	}
 	return $path;
@@ -142,7 +139,7 @@ sub find_trash_dir {
 	} else {
 		my $root = find_root($orig_path);
 		my $dir = "$root/.Trash";
-		if (-d $dir && ! -l _ && -k _ && ensure("$dir/$<")) {
+		if (-d $dir && ! -l $dir && -k $dir && ensure("$dir/$<")) {
 			return "$dir/$<";
 		}
 		$dir = "$root/.Trash-$<";
@@ -173,12 +170,17 @@ sub trash {
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	write_info($info_fh, $orig_path);
 	close($info_fh);
-	if (rename($orig_path, "$trash_dir/files/$name")) {
-		verbose("Trashed '$path'\n");
+	if (dev($orig_path) == dev($trash_dir)) {
+		if (rename($orig_path, "$trash_dir/files/$name")) {
+			verbose("Trashed '$path'\n");
+		} else {
+			unlink($info_name);
+			die "trash: Rename of '$path' failed: $!\n";
+		}
 	} else {
 		unlink($info_name);
-		die "rename: $!\n";
-	};
+		warn "trash: Skipped: '$path' (cannot trash to different filesystem yet)\n";
+	}
 }
 
 GetOptions(

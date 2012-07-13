@@ -1,0 +1,52 @@
+#!/bin/bash
+# usb-unbind - unbind USB controllers to fix ASUS suspend bug
+
+dir="/run/pm-utils"
+prefix="$dir/usbbind_disabled_"
+
+unbind_usb() {
+	[ -d "$dir" ] || mkdir -p "$dir"
+	local driver id
+	for driver in {e,x}hci_hcd; do
+		if cd "/sys/bus/pci/drivers/$driver" 2>/dev/null; then
+			for id in *:*:*; do
+				echo "Unbinding $id from $driver"
+				echo -n "$id" >unbind
+				echo "$id" >&3
+			done 3>"$prefix$driver"
+		fi
+	done
+}
+
+rebind_usb() {
+	[ -d "$dir" ] || return 0
+	local driver id
+	for driver in {e,x}hci_hcd; do
+		if cd "/sys/bus/pci/drivers/$driver" 2>/dev/null; then
+			tac "$prefix$driver" \
+			| while read -r id; do
+				echo "Rebinding $id to $driver"
+				echo -n "$id" >bind
+			done
+			rm -f "$prefix$driver"
+		fi
+	done
+}
+
+case $* in
+	# pm-utils syntax
+	"hibernate"|"suspend")
+		unbind_usb;;
+	"thaw"|"resume")
+		rebind_usb;;
+	# systemd syntax
+	"pre hibernate"|"pre suspend")
+		unbind_usb;;
+	"post hibernate"|"post suspend")
+		rebind_usb;;
+	# rest
+	*)
+		echo "Invalid arguments." >&2
+		exit 2;;
+esac 2>&1 \
+| logger -t "usb-bind" -i -s

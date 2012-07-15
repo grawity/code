@@ -4,12 +4,14 @@ git branch --list --all --no-color |
 sed -e 's/*/ /' |
 while read branch; do
 	width=20
+	branch=${branch%% *}
 	ref=$branch
 	case $ref in
+	*/HEAD)		continue;;
 	remotes/*)	color='magenta'; branch=${branch#remotes/};;
 	*)		color='yellow';;
 	esac
 	printf -v wbranch "%-*s" "$width" "$branch"
 	printf -v windent "%-*s" "${#wbranch}" ""
-	git log -1 --format=format:"%C($color)${wbranch}%C(reset) %s %C(blue)(%cr)%C(reset)" "$branch"
+	git log -1 --format=format:"%C($color)${wbranch}%C(reset) %s %C(blue)(%cr)%C(reset)" "$ref"
 done

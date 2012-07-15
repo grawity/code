@@ -24,7 +24,11 @@ PULL_ARGS="--rebase $PULL_ARGS"
 
 old=$(git rev-parse 'HEAD')
 
-git pull $PULL_ARGS
+if [[ $(git rev-parse --is-bare-repository) == "true" ]]; then
+	git fetch
+else
+	git pull $PULL_ARGS
+fi
 
 # show diffstat of all changes if we're pulling with --rebase. not
 # sure why git-pull only does this when merging.

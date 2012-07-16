@@ -1,10 +1,10 @@
+#define _XOPEN_SOURCE 500
+
 #include <stdio.h>
 #include <string.h>
 #include "util.h"
 #include <unistd.h>
 #include <stdlib.h>
-
-#define _XOPEN_SOURCE 500
 
 int main(int argc, char *argv[]) {
 	int i = 0;

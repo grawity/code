@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#define _XOPEN_SOURCE 500
+
 int main(int argc, char *argv[]) {
 	int i = 0;
 	char *cmd = argv[++i];
@@ -46,6 +48,7 @@ int main(int argc, char *argv[]) {
 	}
 	else {
 		fprintf(stderr, "Unknown function '%s'\n", cmd);
-		return 2;
 	}
+
+	return 2;
 }

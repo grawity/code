@@ -2,7 +2,7 @@
 # getnetrc - ~/.netrc query tool
 #
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-
+use v5.8;
 use warnings;
 use strict;
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
@@ -64,7 +64,7 @@ sub fmt {
 
 sub uri_encode {
 	my $str = shift;
-	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg if defined($str);
 	return $str;
 }
 
@@ -80,13 +80,15 @@ GetOptions(
 
 my $machine = shift @ARGV;
 my $login = shift @ARGV;
-exit msg_usage if !defined $machine;
+exit msg_usage()
+	unless defined($machine) && length($machine);
 
 my @machines;
 push @machines, $service.'@'.$machine
-	if length $service;
+	if defined($service) && length($service);
 push @machines, $machine;
-my $entry = lookup(\@machines, $login) // exit 1;
+my $entry = lookup(\@machines, $login)
+	|| exit 1;
 
 ### Display results
 my %output = (
@@ -100,7 +102,7 @@ my %output = (
 	S => $service,
 	);
 if ($format_url_encode) {
-	$output{$_} = uri_encode($output{$_} // "") for keys %output;
+	$output{$_} = uri_encode($output{$_}) for keys %output;
 }
 @output{"n", "0"} = ("\n", "\0");
 

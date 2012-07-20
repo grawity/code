@@ -60,7 +60,6 @@ if ($list) {
 			: $obj->ListNames;
 	say for sort @$names;
 } elsif (@ARGV and $wait) {
-	my @wanted = @ARGV;
 	my $obj = $bus->get_bus_object;
 	$obj->connect_to_signal("NameOwnerChanged", sub {
 		my ($bus_name, $old_owner, $new_owner) = @_;
@@ -70,6 +69,10 @@ if ($list) {
 			exit 0 if $wait eq 'any' || !@wanted;
 		}
 	});
+	my @wanted = @ARGV;
+	my @current = $obj->ListNames;
+	@wanted = grep {!($_ ~~ @current)} @wanted;
+	exit 0 if !@wanted;
 	Net::DBus::Reactor->main->run;
 } elsif (@ARGV) {
 	for my $name (@ARGV) {

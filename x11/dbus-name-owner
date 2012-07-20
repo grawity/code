@@ -5,12 +5,14 @@ use strict;
 use feature qw(say);
 use Getopt::Long;
 use Net::DBus;
+use Net::DBus::Reactor;
 
 my $bus;
 my $err = 0;
 my $activate = 0;
 my $quiet = 0;
 my $list = 0;
+my $wait = 0;
 
 sub usage {
 	say for
@@ -22,9 +24,13 @@ sub usage {
 	"  -q, --quiet            Remain silent, just set exit code",
 	"  -c, --activate         Try to launch services using DBus activation",
 	"  -l, --list             List all owned names (or activatable names with -c)",
+	"  -w, --wait             Wait for listed names to appear on bus",
+	"  --wait-any             Wait for /any/ of listed names to appear",
 	"",
 	"Without explicit bus specification, the heuristics implemented by Net::DBus",
 	"will be used (session if DBUS_SESSION_BUS_ADDRESS is set, system otherwise).",
+	"",
+	"--wait does not care if names go away after appearing.",
 	"",
 }
 
@@ -39,6 +45,8 @@ GetOptions(
 	"q|quiet"	=> \$quiet,
 	"c|activate"	=> \$activate,
 	"l|list"	=> \$list,
+	"w|wait"	=> \$wait,
+	"wait-any"	=> sub { $wait = "any"; },
 ) or do { usage(); exit 2; };
 
 $bus //= Net::DBus->find;
@@ -50,6 +58,18 @@ if ($list) {
 			? $obj->ListActivatableNames
 			: $obj->ListNames;
 	say for sort @$names;
+} elsif (@ARGV and $wait) {
+	my @wanted = @ARGV;
+	my $obj = $bus->get_bus_object;
+	$obj->connect_to_signal("NameOwnerChanged", sub {
+		my ($bus_name, $old_owner, $new_owner) = @_;
+		if ($bus_name ~~ @wanted && $new_owner) {
+			say "$bus_name taken by $new_owner" unless $quiet;
+			@wanted = grep {$_ ne $bus_name} @wanted;
+			exit 0 if $wait eq 'any' || !@wanted;
+		}
+	});
+	Net::DBus::Reactor->main->run;
 } elsif (@ARGV) {
 	for my $name (@ARGV) {
 		if ($activate) {

@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
 # trash - move files into XDG Trash
+use v5.10;
 use warnings;
 use strict;
 use Cwd qw(realpath);

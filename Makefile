@@ -16,13 +16,17 @@ KRB_LDLIBS := -lkrb5 -lcom_err
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
-else ifeq ($(UNAME),FreeBSD)
+endif
+ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
-else ifeq ($(UNAME),NetBSD)
+endif
+ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
-else ifeq ($(UNAME),CYGWIN_NT-5.1)
+endif
+ifeq ($(UNAME),CYGWIN_NT-5.1)
 	OSFLAGS := -DHAVE_CYGWIN
-else ifeq ($(UNAME),SunOS)
+endif
+ifeq ($(UNAME),SunOS)
 	OSFLAGS := -DHAVE_SOLARIS
 	KRB_LDLIBS := -lkrb5
 endif

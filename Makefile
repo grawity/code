@@ -85,5 +85,8 @@ $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xors:		misc/xors.c
 
-$(OBJ)/%: | pre
+$(OBJ)/%:		| dist/empty.c
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+# hack for old Make (unsupported order-only deps)
+dist/empty.c: pre

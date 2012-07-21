@@ -44,7 +44,7 @@ my $bus	= Net::DBus->session;
 my $sms	= $bus->get_service("org.gnome.SessionManager");
 my $sm	= $sms->get_object("/org/gnome/SessionManager");
 
-my @inhibitors =
+sub get_inhibitors {
 	sort {$a->{app_id} cmp $b->{app_id}}
 	map {
 		my $ih_path = $_;
@@ -59,21 +59,27 @@ my @inhibitors =
 		};
 		$v->{szflags} = join(",", flags2arr($v->{flags}));
 		$v;
-	}
-	@{$sm->GetInhibitors};
-
-my $len_app_id = max(11, maxlength app_id => @inhibitors);
-my $len_reason = max(6,  maxlength reason => @inhibitors);
-my $len_flags  = max(8,  maxlength szflags => @inhibitors);
-
-printf "%-*s  %-*s  %-*s\n",
-	$len_app_id,	"APPLICATION",
-	$len_reason,	"REASON",
-	$len_flags,	"INHIBITS";
-
-for my $v (@inhibitors) {
-	printf "%-*s  %-*s  %-*s\n",
-		$len_app_id,	$v->{app_id},
-		$len_reason,	$v->{reason},
-		$len_flags,	$v->{szflags};
+	} @{$sm->GetInhibitors};
 }
+
+sub display_inhibitors {
+	my (@inhibitors) = @_;
+
+	my $len_app_id = max(11, maxlength app_id => @inhibitors);
+	my $len_reason = max(6,  maxlength reason => @inhibitors);
+	my $len_flags  = max(8,  maxlength szflags => @inhibitors);
+
+	printf "%-*s  %-*s  %-*s\n",
+		$len_app_id,	"APPLICATION",
+		$len_reason,	"REASON",
+		$len_flags,	"INHIBITS";
+
+	for my $v (@inhibitors) {
+		printf "%-*s  %-*s  %-*s\n",
+			$len_app_id,	$v->{app_id},
+			$len_reason,	$v->{reason},
+			$len_flags,	$v->{szflags};
+	}
+}
+
+display_inhibitors(get_inhibitors);

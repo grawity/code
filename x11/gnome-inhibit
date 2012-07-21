@@ -54,19 +54,6 @@ sub string_to_flags {
 	}
 }
 
-sub inhibit {
-	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
-	if (!$cookie) {
-		print "$app_id: inhibit failed\n";
-		exit 1;
-	}
-}
-
-sub uninhibit {
-	$sm->Uninhibit($cookie);
-	$cookie = 0;
-}
-
 my $app_id	= "gnome-inhibit";
 my $top_xid	= 0;
 my $reason	= "User-initiated inhibit.";
@@ -96,7 +83,11 @@ my $bus	= Net::DBus->session;
 my $sms	= $bus->get_service("org.gnome.SessionManager");
 my $sm	= $sms->get_object("/org/gnome/SessionManager");
 
-inhibit();
+$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+if (!$cookie) {
+	print "$app_id: inhibit failed\n";
+	exit 1;
+}
 
 if (@cmd) {
 	print "$app_id: executing: @cmd\n";
@@ -105,12 +96,12 @@ if (@cmd) {
 } else {
 	$SIG{INT} = sub {
 		print "$app_id: SIGINT caught, exiting\n";
-		uninhibit();
+		$sm->Uninhibit($cookie);
 		exit(0);
 	};
 	print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
 	POSIX::pause();
 }
 
-uninhibit();
+$sm->Uninhibit($cookie);
 exit($return);

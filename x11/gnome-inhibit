@@ -78,16 +78,16 @@ sub get_inhibitors {
 	sort {$a->{app_id} cmp $b->{app_id}}
 	map {
 		my $ih = SessionManager($_);
-		my $v = {
-			path      => $ih_path,
+		my $flags = $ih->GetFlags;
+		{
+			path      => $_,
 			app_id    => $ih->GetAppId,
 			client_id => eval {$ih->GetClientId} // "(none)",
-			flags     => $ih->GetFlags,
+			flags     => $flags,
+			szflags   => flags_to_string($flags),
 			reason    => eval {$ih->GetReason} // "(none)",
 			xid       => $ih->GetToplevelXid,
 		};
-		$v->{szflags} = flags_to_string($v->{flags});
-		$v;
 	} @{SessionManager->GetInhibitors};
 }
 

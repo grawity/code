@@ -8,15 +8,15 @@ use warnings;
 use strict;
 use locale;
 
-use List::Util qw[max];
+use List::Util qw(max);
 use Net::DBus;
 
-use constant {
-	INHIBIT_LOGOUT		=> 1<<0,
-	INHIBIT_SWITCH_USER	=> 1<<1,
-	INHIBIT_SUSPEND		=> 1<<2,
-	INHIBIT_IDLE		=> 1<<3,
-};
+my %FLAGS = (
+	"logout"	=> 1<<0,
+	"switch-user"	=> 1<<1,
+	"suspend"	=> 1<<2,
+	"idle"		=> 1<<3,
+);
 
 sub usage {
 	say for
@@ -30,6 +30,11 @@ sub usage {
 sub maxlength {
 	my ($attr, @items) = @_;
 	(max map {length $_->{$attr}} @items) // 0;
+}
+
+sub flags2arr {
+	my ($bits) = @_;
+	$bits ? sort grep {$bits & $FLAGS{$_}} keys %FLAGS : "none";
 }
 
 usage if @ARGV;
@@ -51,15 +56,7 @@ my @inhibitors =
 			reason    => eval {$ih->GetReason} // "(none)",
 			xid       => $ih->GetToplevelXid,
 		};
-
-		my @flags = grep {defined} (
-			$v->{flags} & INHIBIT_LOGOUT      ? "logout"      : undef,
-			$v->{flags} & INHIBIT_SWITCH_USER ? "switch-user" : undef,
-			$v->{flags} & INHIBIT_SUSPEND     ? "suspend"     : undef,
-			$v->{flags} & INHIBIT_IDLE        ? "idle"        : undef,
-			$v->{flags} ? undef : "none",
-		);
-		$v->{szflags} = join(",", @flags);
+		$v->{szflags} = join(",", flags2arr($v->{flags}));
 		$v;
 	}
 	@{$sm->GetInhibitors};

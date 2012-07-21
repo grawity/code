@@ -16,6 +16,7 @@
 
 #ifdef KRB5_MIT
 #	define HAVE_COLLECTIONS
+#	define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif
 
 #ifdef KRB5_HEIMDAL
@@ -25,7 +26,15 @@
 #	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
 #	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
+#endif
+
+#ifndef HAVE_KRB5_CONFIG_PRINCIPALS
 #	define krb5_is_config_principal(ctx, princ)	(0)
+/*
+krb5_boolean krb5_is_config_principal(krb5_context, krb5_const_principal) {
+	return 0;
+}
+*/
 #endif
 
 char *progname = "pklist";

@@ -99,10 +99,10 @@ sub get_inhibitors {
 			path      => $_,
 			app_id    => $ih->GetAppId,
 			client_id => eval {$ih->GetClientId} // "(none)",
+			reason    => eval {$ih->GetReason} // "(none)",
 			flags     => $flags,
 			szflags   => flags_to_string($flags),
-			reason    => eval {$ih->GetReason} // "(none)",
-			xid       => $ih->GetToplevelXid,
+			top_xid   => $ih->GetToplevelXid,
 		};
 	} @{SessionManager->GetInhibitors};
 }
@@ -111,16 +111,16 @@ sub display_inhibitors {
 	my ($verbose, @inhibitors) = @_;
 
 	my %header = (
-		client_id	=> "CLIENT",
-		app_id		=> "APPLICATION",
-		reason		=> "REASON",
-		flags		=> "FLAG",
-		szflags		=> "INHIBITS",
-		xid		=> "WINDOW",
+		app_id    => "APPLICATION",
+		client_id => "CLIENT",
+		reason    => "REASON",
+		flags     => "FLAG",
+		szflags   => "INHIBITS",
+		top_xid   => "WINDOW",
 	);
 
 	my @fields = $verbose
-		? qw(client_id app_id reason flags szflags xid)
+		? qw(app_id reason flags szflags client_id top_xid)
 		: qw(app_id reason szflags);
 
 	my %len = map {$_ => max(length($header{$_}),
@@ -136,9 +136,9 @@ sub display_inhibitors {
 my $do_list	= 0;
 my $verbose	= 0;
 my $app_id	= "gnome-inhibit";
-my $top_xid	= 0;
 my $reason	= "User-initiated inhibit";
 my $flagstr	= "idle";
+my $top_xid	= 0;
 
 GetOptions(
 	'a|app-id=s'	=> \$app_id,

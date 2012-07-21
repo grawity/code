@@ -77,19 +77,21 @@ my $sm	= $bus->get_service("org.gnome.SessionManager")
 
 sub inhibit {
 	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
-	print "$app_id: inhibit ok ($cookie)\n";
+	if (!$cookie) {
+		print "$app_id: inhibit failed\n";
+		exit 1;
+	}
 }
 
 sub uninhibit {
 	$sm->Uninhibit($cookie);
-	print "$app_id: uninhibit ok\n";
 	$cookie = 0;
 }
 
 inhibit();
 
 if (@cmd) {
-	print "$app_id: executing command: @cmd\n";
+	print "$app_id: executing: @cmd\n";
 	$return = system {$cmd[0]} @cmd;
 	$return = POSIX::WEXITSTATUS($return);
 } else {

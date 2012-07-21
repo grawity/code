@@ -6,8 +6,9 @@
 use v5.10;
 use warnings;
 use strict;
-
+use locale;
 use Getopt::Long qw(:config no_ignore_case bundling);
+use List::Util qw(max);
 use Net::DBus;
 use POSIX;
 
@@ -19,10 +20,15 @@ my %FLAGS = (
 	"automount"	=> 1<<4,
 );
 
+my $bus	= Net::DBus->session;
+my $sms	= $bus->get_service("org.gnome.SessionManager");
+my $sm	= $sms->get_object("/org/gnome/SessionManager");
+
 sub usage {
 	say for
 	"Usage: gnome-inhibit [options]",
 	"       gnome-inhibit [options] <command> [args...]",
+	"       gnome-inhibit --list",
 	"",
 	"    -f, --flags <flags>         Inhibit flags (default: 'idle')",
 	"    -r, --reason <reason>       Inhibit reason",
@@ -36,6 +42,16 @@ sub usage {
 	"this tool will keep running until manually killed/terminated.",
 	;
 	exit(0);
+}
+
+sub maxlength {
+	my ($attr, @items) = @_;
+	(max map {length $_->{$attr}} @items) // 0;
+}
+
+sub flags_to_string {
+	my ($bits) = @_;
+	$bits ? join(",", sort grep {$bits & $FLAGS{$_}} keys %FLAGS) : "none";
 }
 
 sub string_to_flags {
@@ -55,6 +71,46 @@ sub string_to_flags {
 	return $flags;
 }
 
+sub get_inhibitors {
+	sort {$a->{app_id} cmp $b->{app_id}}
+	map {
+		my $ih_path = $_;
+		my $ih = $sms->get_object($ih_path);
+		my $v = {
+			path      => $ih_path,
+			app_id    => $ih->GetAppId,
+			client_id => eval {$ih->GetClientId} // "(none)",
+			flags     => $ih->GetFlags,
+			reason    => eval {$ih->GetReason} // "(none)",
+			xid       => $ih->GetToplevelXid,
+		};
+		$v->{szflags} = flags_to_string($v->{flags});
+		$v;
+	} @{$sm->GetInhibitors};
+}
+
+sub display_inhibitors {
+	my (@inhibitors) = @_;
+
+	my $len_app_id = max(11, maxlength app_id => @inhibitors);
+	my $len_reason = max(6,  maxlength reason => @inhibitors);
+	my $len_flags  = max(8,  maxlength szflags => @inhibitors);
+
+	printf "%-*s  %-*s  %-*s\n",
+		$len_app_id,	"APPLICATION",
+		$len_reason,	"REASON",
+		$len_flags,	"INHIBITS";
+
+	for my $v (@inhibitors) {
+		printf "%-*s  %-*s  %-*s\n",
+			$len_app_id,	$v->{app_id},
+			$len_reason,	$v->{reason},
+			$len_flags,	$v->{szflags};
+	}
+}
+
+my $do_list	= 0;
+
 my $app_id	= "gnome-inhibit";
 my $top_xid	= 0;
 my $reason	= "User-initiated inhibit.";
@@ -66,43 +122,45 @@ my @cmd		= ();
 my $return	= 0;
 
 GetOptions(
+	'l|list'	=> \$do_list,
 	'f|flags=s'	=> \$flagstr,
 	'r|reason=s'	=> \$reason,
 	'x|xid=i'	=> \$top_xid,
 	'help'		=> \&usage,
 ) or exit(2);
 
-$flags = string_to_flags($flagstr);
-if (!$flags) {
-	warn "Error: No inhibit flags given.\n";
-	exit 2;
-}
-
-@cmd = @ARGV;
-
-my $bus	= Net::DBus->session;
-my $sms	= $bus->get_service("org.gnome.SessionManager");
-my $sm	= $sms->get_object("/org/gnome/SessionManager");
-
-$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
-if (!$cookie) {
-	print "$app_id: inhibit failed\n";
-	exit 1;
-}
-
-if (@cmd) {
-	print "$app_id: executing: @cmd\n";
-	$return = system {$cmd[0]} @cmd;
-	$return = POSIX::WEXITSTATUS($return);
+if ($do_list) {
+	display_inhibitors(get_inhibitors);
+	exit(0);
 } else {
-	$SIG{INT} = sub {
-		print "$app_id: SIGINT caught, exiting\n";
-		$sm->Uninhibit($cookie);
-		exit(0);
-	};
-	print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
-	POSIX::pause();
-}
+	$flags = string_to_flags($flagstr);
+	if (!$flags) {
+		warn "Error: No inhibit flags given.\n";
+		exit 2;
+	}
 
-$sm->Uninhibit($cookie);
-exit($return);
+	@cmd = @ARGV;
+
+	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	if (!$cookie) {
+		print "$app_id: inhibit failed\n";
+		exit 1;
+	}
+
+	if (@cmd) {
+		print "$app_id: executing: @cmd\n";
+		$return = system {$cmd[0]} @cmd;
+		$return = POSIX::WEXITSTATUS($return);
+	} else {
+		$SIG{INT} = sub {
+			print "$app_id: SIGINT caught, exiting\n";
+			$sm->Uninhibit($cookie);
+			exit(0);
+		};
+		print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
+		POSIX::pause();
+	}
+
+	$sm->Uninhibit($cookie);
+	exit($return);
+}

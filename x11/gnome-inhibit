@@ -114,11 +114,6 @@ my $app_id	= "gnome-inhibit";
 my $top_xid	= 0;
 my $reason	= "User-initiated inhibit.";
 my $flagstr	= "idle";
-my $flags	= 0;
-
-my $cookie	= 0;
-my @cmd		= ();
-my $return	= 0;
 
 GetOptions(
 	'l|list'	=> \$do_list,
@@ -132,19 +127,20 @@ if ($do_list) {
 	display_inhibitors(get_inhibitors);
 	exit(0);
 } else {
-	$flags = string_to_flags($flagstr);
+	my $flags = string_to_flags($flagstr);
 	if (!$flags) {
 		warn "Error: No inhibit flags given.\n";
 		exit 2;
 	}
 
-	@cmd = @ARGV;
-
-	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	my $cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
 	if (!$cookie) {
 		print "$app_id: inhibit failed\n";
 		exit 1;
 	}
+
+	my @cmd = @ARGV;
+	my $return = 0;
 
 	if (@cmd) {
 		print "$app_id: executing: @cmd\n";

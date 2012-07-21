@@ -21,8 +21,12 @@ my %FLAGS = (
 );
 
 my $bus	= Net::DBus->session;
-my $sms	= $bus->get_service("org.gnome.SessionManager");
-my $sm	= $sms->get_object("/org/gnome/SessionManager");
+
+sub SessionManager {
+	$bus
+	->get_service("org.gnome.SessionManager")
+	->get_object(shift // "/org/gnome/SessionManager")
+}
 
 sub usage {
 	say for
@@ -73,8 +77,7 @@ sub string_to_flags {
 sub get_inhibitors {
 	sort {$a->{app_id} cmp $b->{app_id}}
 	map {
-		my $ih_path = $_;
-		my $ih = $sms->get_object($ih_path);
+		my $ih = SessionManager($_);
 		my $v = {
 			path      => $ih_path,
 			app_id    => $ih->GetAppId,
@@ -85,7 +88,7 @@ sub get_inhibitors {
 		};
 		$v->{szflags} = flags_to_string($v->{flags});
 		$v;
-	} @{$sm->GetInhibitors};
+	} @{SessionManager->GetInhibitors};
 }
 
 sub display_inhibitors {
@@ -133,7 +136,7 @@ if ($do_list) {
 		exit 2;
 	}
 
-	my $cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	my $cookie = SessionManager->Inhibit($app_id, $top_xid, $reason, $flags);
 	if (!$cookie) {
 		print "$app_id: inhibit failed\n";
 		exit 1;
@@ -149,13 +152,13 @@ if ($do_list) {
 	} else {
 		$SIG{INT} = sub {
 			print "$app_id: SIGINT caught, exiting\n";
-			$sm->Uninhibit($cookie);
+			SessionManager->Uninhibit($cookie);
 			exit(0);
 		};
 		print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
 		POSIX::pause();
 	}
 
-	$sm->Uninhibit($cookie);
+	SessionManager->Uninhibit($cookie);
 	exit($return);
 }

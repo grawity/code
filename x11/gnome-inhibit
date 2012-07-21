@@ -38,6 +38,35 @@ sub usage {
 	exit(0);
 }
 
+sub string_to_flags {
+	my $flagstr = shift;
+	my $flags = 0;
+	for (split(/[:,|]/, $flagstr)) {
+		if ($_ eq 'all') {
+			$flags |= 0x7fffffff;
+		} elsif (defined $FLAGS{$_}) {
+			$flags |= $FLAGS{$_};
+		} elsif (/^([0-9]+|0x[0-9a-f]+)$/) {
+			$flags |= int $_;
+		} else {
+			warn "Unknown inhibit flag: '$_'\n";
+		}
+	}
+}
+
+sub inhibit {
+	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
+	if (!$cookie) {
+		print "$app_id: inhibit failed\n";
+		exit 1;
+	}
+}
+
+sub uninhibit {
+	$sm->Uninhibit($cookie);
+	$cookie = 0;
+}
+
 my $app_id	= "gnome-inhibit";
 my $top_xid	= 0;
 my $reason	= "User-initiated inhibit.";
@@ -55,18 +84,10 @@ GetOptions(
 	'help'		=> \&usage,
 ) or exit(2);
 
-$flags = 0;
-
-for (split(/[:,|]/, $flagstr)) {
-	if ($_ eq 'all') {
-		$flags |= 0x7fffffff;
-	} elsif (defined $FLAGS{$_}) {
-		$flags |= $FLAGS{$_};
-	} elsif (/^([0-9]+|0x[0-9a-f]+)$/) {
-		$flags |= int $_;
-	} else {
-		die "Unknown inhibit flag: '$_'\n";
-	}
+$flags = string_to_flags($flagstr);
+if (!$flags) {
+	warn "Error: No inhibit flags given.\n";
+	exit 2;
 }
 
 @cmd = @ARGV;
@@ -74,19 +95,6 @@ for (split(/[:,|]/, $flagstr)) {
 my $bus	= Net::DBus->session;
 my $sms	= $bus->get_service("org.gnome.SessionManager");
 my $sm	= $sms->get_object("/org/gnome/SessionManager");
-
-sub inhibit {
-	$cookie = $sm->Inhibit($app_id, $top_xid, $reason, $flags);
-	if (!$cookie) {
-		print "$app_id: inhibit failed\n";
-		exit 1;
-	}
-}
-
-sub uninhibit {
-	$sm->Uninhibit($cookie);
-	$cookie = 0;
-}
 
 inhibit();
 

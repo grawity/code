@@ -33,9 +33,9 @@ sub maxlength {
 	(max map {length $_->{$attr}} @items) // 0;
 }
 
-sub flags2arr {
+sub flags_to_string {
 	my ($bits) = @_;
-	$bits ? sort grep {$bits & $FLAGS{$_}} keys %FLAGS : "none";
+	$bits ? join(",", sort grep {$bits & $FLAGS{$_}} keys %FLAGS) : "none";
 }
 
 usage if @ARGV;
@@ -57,7 +57,7 @@ sub get_inhibitors {
 			reason    => eval {$ih->GetReason} // "(none)",
 			xid       => $ih->GetToplevelXid,
 		};
-		$v->{szflags} = join(",", flags2arr($v->{flags}));
+		$v->{szflags} = flags_to_string($v->{flags});
 		$v;
 	} @{$sm->GetInhibitors};
 }

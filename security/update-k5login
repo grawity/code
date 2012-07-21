@@ -41,6 +41,25 @@ def read_rules(rules_file):
 
 	return principals, rules
 
+def test_mask(fqdn, mask):
+	if mask.startswith("!"):
+		return not fnmatch.fnmatch(fqdn, mask[1:])
+	else:
+		return fnmatch.fnmatch(fqdn, mask)
+
+def test_rule(fqdn, masks):
+	blacklist = [m[1:] for m in masks if m.startswith("!")]
+	whitelist = [m for m in masks if not m.startswith("!")]
+
+	func = lambda mask: test_mask(fqdn, mask)
+	ok = True
+	if blacklist:
+		ok = ok and not any(map(func, blacklist))
+	if whitelist:
+		ok = ok and any(map(func, whitelist))
+	return ok
+
+fqdn = getfqdn()
 rules_file = os.path.expanduser("~/lib/dotfiles/k5login.rules")
 k5login_file = os.path.expanduser("~/.k5login")
 verbose = False
@@ -51,7 +70,6 @@ for opt, optarg in opts:
 	elif opt == "-i":	rules_file = optarg
 	elif opt == "-o":	k5login_file = optarg
 
-fqdn = getfqdn()
 if verbose:
 	sys.stderr.write("fqdn: %s\n" % fqdn)
 	sys.stderr.write("rules_file: %s\n" % rules_file)
@@ -62,6 +80,6 @@ principals, rules = read_rules(rules_file)
 outfd = open(k5login_file, "w")
 for princ in principals:
 	masks = rules[princ]
-	if any(map(lambda mask: fnmatch.fnmatch(fqdn, mask), masks)):
+	if test_rule(fqdn, masks):
 		outfd.write(princ+"\n")
 outfd.close()

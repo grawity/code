@@ -57,11 +57,13 @@ GetOptions(
 
 $flags = 0;
 
-for (split(/[:,]/, $flagstr)) {
+for (split(/[:,|]/, $flagstr)) {
 	if ($_ eq 'all') {
 		$flags |= 0x7fffffff;
 	} elsif (defined $FLAGS{$_}) {
 		$flags |= $FLAGS{$_};
+	} elsif (/^([0-9]+|0x[0-9a-f]+)$/) {
+		$flags |= int $_;
 	} else {
 		die "Unknown inhibit flag: '$_'\n";
 	}

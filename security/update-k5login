@@ -17,6 +17,8 @@ def read_rules(rules_file):
 	defprinc = None
 	principals = []
 	rules = {}
+	rgroups = {}
+	isgroup = False
 	lineno = 0
 	for line in open(rules_file, "r"):
 		lineno += 1
@@ -26,7 +28,13 @@ def read_rules(rules_file):
 
 		if line[0].isspace():
 			masks = line.split()
+		elif line[0] == "+":
+			isgroup = True
+			line = line.split()
+			defprinc = line[0]
+			masks = line[1:]
 		else:
+			isgroup = False
 			line = line.split()
 			defprinc = line[0]
 			masks = line[1:]
@@ -34,10 +42,26 @@ def read_rules(rules_file):
 		if not defprinc:
 			sys.stderr.write("warning: missing principal on line %d\n" % lineno)
 			continue
-		if defprinc not in rules:
-			principals.append(defprinc)
-			rules[defprinc] = set()
-		rules[defprinc] |= set(masks)
+
+		if isgroup:
+			if defprinc not in rgroups:
+				rgroups[defprinc] = set()
+			rgroups[defprinc] |= set(masks)
+		else:
+			if defprinc not in rules:
+				principals.append(defprinc)
+				rules[defprinc] = set()
+			rules[defprinc] |= set(masks)
+
+	for rgroup in list(rgroups):
+		ngroup = "!"+rgroup
+		rgroups[ngroup] = set("!"+r for r in rgroups[rgroup])
+
+	for princ in rules:
+		for rgroup in rgroups:
+			if rgroup in rules[princ]:
+				rules[princ].remove(rgroup)
+				rules[princ] |= rgroups[rgroup]
 
 	return principals, rules
 

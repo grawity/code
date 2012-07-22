@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
-
 case $DESKTOP_SESSION in
-gnome|ubuntu)
-	gnome-session-quit --logout --force --no-prompt &&
-		echo Logging out of GNOME...
+gnome|gnome-*)
+	echo Logging out of GNOME...
+	gnome-session-quit --logout --force --no-prompt
 	;;
-kde-plasma)
-	qdbus org.kde.ksmserver /KSMServer logout 0 -1 -1 &&
-		echo Logging out of KDE...
+herbstluftwm)
+	echo Logging out of Herbstluftwm...
+	herbstclient quit
+	;;
+kde-plasma|kde-plasma-safe)
+	echo Logging out of KDE...
+	qdbus org.kde.ksmserver /KSMServer logout 0 -1 -1
 	;;
 [Oo]penbox)
-	openbox --exit &&
-		echo Logging out of Openbox...
+	echo Logging out of Openbox...
+	openbox --exit
+	;;
+ubuntu)
+	echo Logging out of Unity...
+	gnome-session-quit --logout --force --no-prompt
 	;;
 Windows_NT)
-	logoff.exe &&
-		echo Logging out of Windows...
+	echo Logging out of Windows...
+	logoff.exe
+	;;
+wmii)
+	echo Logging out of Wmii...
+	wmiir xwrite /ctl quit
+	;;
+xfce)
+	echo Logging out of Xfce4...
+	xfce4-session-logout --logout
 	;;
 *)
-	echo Unknown desktop environment!
+	echo Unknown desktop environment! >&2
+	exit 1
 esac
-

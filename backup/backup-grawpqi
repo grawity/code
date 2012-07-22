@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+root=/run/media/grawity/grawpqi/
+name=grawpqi
+
+test -e "$root/.hidden" || {
+	echo "Not mounted on $root" >&2
+	exit 1
+}
+
+# I will need to decide which is better.
+
+echo "== backing up with obnam =="
+
+obnam backup --exclude="/System Volume Information/" "$root"
+
+echo "== backing up with bup =="
+
+bup index --exclude="$root/System Volume Information" "$root"
+bup save --name="$name" --strip "$root"

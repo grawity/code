@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 500
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include "util.h"
@@ -48,6 +49,27 @@ int main(int argc, char *argv[]) {
 	}
 	else if (streq(cmd, "pause")) {
 		pause();
+	}
+	else if (streq(cmd, "wait")) {
+		pid_t pid;
+		char path[20]; // enough for /proc/ + 32-bit PID
+		if (argc < 3) {
+			fprintf(stderr, "Missing argument\n");
+			return 2;
+		} else {
+			pid = atoi(argv[++i]);
+			if (!pid)
+				return 2;
+		}
+		sprintf(path, "/proc/%d", pid);
+		while (access(path, F_OK) == 0)
+			sleep(1);
+		if (errno == ENOENT)
+			return 0;
+		else {
+			perror("access");
+			return 1;
+		}
 	}
 	else {
 		fprintf(stderr, "Unknown function '%s'\n", cmd);

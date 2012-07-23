@@ -1,0 +1,156 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use feature qw(say);
+use List::Util;
+use YAML::Syck;
+use Data::Dumper;
+use Net::Twitter::Lite;
+use JSON;
+
+our $TWEET_FILE = "$ENV{HOME}/Backup/tweets.json";
+
+our $twitter;
+
+sub max {
+	my ($a, $b) = @_;
+	$a > $b ? $a : $b;
+}
+
+sub min {
+	my ($a, $b) = @_;
+	$a < $b ? $a : $b;
+}
+
+sub load_twurl_secrets {
+	open(my $fh, "<", "$ENV{HOME}/.twurlrc");
+	my $conf = Load(eval {local $/; <$fh>});
+	close($fh);
+
+	my ($user, $ckey) = @{$conf->{configuration}{default_profile}};
+	my $profile = $conf->{profiles}{$user}{$ckey};
+	
+	return (username => $user,
+		consumer_key => $ckey,
+		consumer_secret => $profile->{consumer_secret},
+		access_token => $profile->{token},
+		access_secret => $profile->{secret});
+}
+
+sub fetch_entire_timeline {
+	my @tweets;
+	my @seen;
+	my $max;
+
+	say "Retrieving from start";
+
+	while (1) {
+		my %params = (
+			exclude_replies => "false",
+			include_rts => "true",
+			count => "200",
+		);
+		$params{max_id} = $max if defined $max;
+		my $timeline = eval {$twitter->user_timeline(\%params)};
+		if (!$timeline) {
+			warn "Failure: $@\n";
+			sleep 1;
+			redo;
+		}
+
+		my $num = 0;
+		for my $item (@$timeline) {
+			next if $item->{id} ~~ @seen;
+			push @tweets, $item;
+			$max = min($max //= $item->{id}, $item->{id});
+			push @seen, $item->{id};
+
+			printf STDERR "[%s] %s\n",
+				$item->{id},
+				$item->{text};
+			++$num;
+		}
+		last if $num == 0;
+	}
+
+	@tweets = reverse @tweets;
+	return \@tweets;
+}
+
+sub fetch_tweets_since {
+	my ($since) = @_;
+
+	my @tweets;
+	my @seen;
+
+	say "Resuming at $since";
+
+	while (1) {
+		my %params = (
+			exclude_replies => "false",
+			include_rts => "true",
+			count => "200",
+			since_id => $since,
+		);
+
+		my $timeline = eval {$twitter->user_timeline(\%params)};
+		if (!$timeline) {
+			warn "Failure: $@\n";
+			sleep 1;
+			redo;
+		}
+
+		my $num = 0;
+		for my $item (@$timeline) {
+			next if $item->{id} ~~ @seen;
+			push @tweets, $item;
+			push @seen, $item->{id};
+
+			printf STDERR "[%s] %s\n",
+				$item->{id},
+				$item->{text};
+			++$num;
+		}
+		last;
+	}
+
+	@tweets = reverse @tweets;
+	return \@tweets;
+}
+
+sub store_tweets {
+	my ($tweets) = @_;
+	print "Dumping ".scalar(@$tweets)." tweets\n";
+	open(my $f, ">", $TWEET_FILE);
+	print $f JSON->new->utf8->pretty->encode($tweets);
+	close($f);
+}
+
+sub load_tweets {
+	open(my $f, "<", $TWEET_FILE);
+	my $data = eval {local $/; <$f>};
+	close($f);
+	my $tweets = JSON->new->utf8->decode($data);
+	print "Loading ".scalar(@$tweets)." tweets\n";
+	return $tweets;
+}
+
+binmode STDOUT, ":utf8";
+binmode STDERR, ":utf8";
+
+my %secrets = load_twurl_secrets;
+
+$twitter = Net::Twitter::Lite->new(
+		legacy_lists_api => 0,
+		username => $secrets{username},
+		consumer_key => $secrets{consumer_key},
+		consumer_secret => $secrets{consumer_secret});
+$twitter->access_token($secrets{access_token});
+$twitter->access_token_secret($secrets{access_secret});
+
+#my $tweets = fetch_entire_timeline;
+my $tweets = load_tweets;
+my $since = $tweets->[-1]{id};
+my $new = fetch_tweets_since($since + 1);
+push @$tweets, @$new;
+store_tweets($tweets);

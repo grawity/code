@@ -1,0 +1,85 @@
+#!/usr/bin/env perl
+# cpuctl - hotplug CPUs on Linux
+
+use feature qw(say switch);
+
+sub rangesplit {
+	my ($str) = @_;
+	my @items;
+	for (split /,/, $str) {
+		when (/^(\d+)-(\d+)$/) {
+			push @items, $1..$2;
+		}
+		when (/^\d+$/) {
+			push @items, $_;
+		}
+		default {
+			warn "Not a number: $_\n";
+		}
+	}
+	@items;
+}
+
+sub put {
+	my ($file, $str) = @_;
+	if (open my $fh, ">", $file) {
+		say $fh $str;
+		close $fh;
+	} else {
+		warn "Cannot open $file: $!\n";
+	}
+}
+
+sub get {
+	my ($file) = @_;
+	if (open my $fh, "<", $file) {
+		chomp(my $str = <$fh>);
+		close $fh;
+		return $str;
+	} else {
+		warn "Cannot open $file: $!\n";
+	}
+}
+
+sub cpu {
+	"/sys/devices/system/cpu/cpu".shift;
+}
+
+sub allcpus {
+	grep {-e cpu($_)} 0..127;
+}
+
+sub hotpluggable {
+	my $path = cpu(shift)."/online";
+	-e $path ? $path : undef;
+}
+
+sub is_online {
+	my $path = hotpluggable(shift);
+	$path ? int get($path) : 1;
+}
+
+sub put_online {
+	my $path = hotpluggable(shift);
+	put($path, shift) if $path;
+}
+
+my $cmd = shift @ARGV;
+
+for ($cmd) {
+	when (undef) {
+		say "cpu $_: ".(is_online($_) ? "online" : "offline") for allcpus;
+	}
+	when ("online") {
+		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus;
+		@cpus = grep {hotpluggable($_)} @cpus;
+		say "Onlining CPUs: @cpus";
+		put("$_/online", "1") for map {cpu($_)} @cpus;
+	}
+	when ("offline") {
+		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus;
+		@cpus = grep {hotpluggable($_)} @cpus;
+		say "Offlining CPUs: @cpus";
+		put("$_/online", "0") for map {cpu($_)} @cpus;
+	}
+}

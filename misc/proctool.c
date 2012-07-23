@@ -46,6 +46,9 @@ int main(int argc, char *argv[]) {
 		} else
 			printf("%d\n", pgid);
 	}
+	else if (streq(cmd, "pause")) {
+		pause();
+	}
 	else {
 		fprintf(stderr, "Unknown function '%s'\n", cmd);
 	}

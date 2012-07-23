@@ -12,21 +12,23 @@ my $format		= "%l:%p";
 my $format_nonewline	= 0;
 my $format_url_encode	= 0;
 my $service		= undef;
+my $service_required	= 0;
 my $no_default		= 0;
 
 sub msg_usage {
-	print STDERR "Usage: getnetrc [-dnu] [-f format] [-s service] machine [login]\n";
+	print STDERR "Usage: getnetrc [-dnsu] [-f format] [service@]machine [login]\n";
 	return 2;
 }
+
 sub msg_help {
 	msg_usage;
 	print
 '
-  -d  ignore the default entry
-  -n  do not print final newline
-  -f  format the output as specified (default is %l:%p)
-  -s  try \'service@machine\' before \'machine\' (nonstandard)
-  -u  URL-encode each item separately
+  -d    disable fallback to \'default\' entry
+  -n    do not print final newline
+  -f    format the output as specified (default is %l:%p)
+  -s    if \'service@machine\' was given, disable fallback to \'machine\'
+  -u    URL-encode each item separately
 
 Format strings:
   %m, %h       result machine (hostname)
@@ -70,12 +72,12 @@ sub uri_encode {
 
 ### Command line options
 GetOptions(
-	"f=s"	=> \$format,
-	"n"	=> \$format_nonewline,
-	"u"	=> \$format_url_encode,
-	"s=s"	=> \$service,
-	"d"	=> \$no_default,
-	"help"	=> sub { exit msg_help },
+	"f|format=s"		=> \$format,
+	"n|no-newline"		=> \$format_nonewline,
+	"u|urlencode"		=> \$format_url_encode,
+	"s|service-required"	=> \$service_required,
+	"d|no-default"		=> \$no_default,
+	"help"			=> sub { exit msg_help },
 ) or exit msg_usage;
 
 my $machine = shift @ARGV;
@@ -83,10 +85,16 @@ my $login = shift @ARGV;
 exit msg_usage()
 	unless defined($machine) && length($machine);
 
+if ($machine =~ /^(.+)@(.+)$/) {
+	$service = $1;
+	$machine = $2;
+}
+
 my @machines;
 push @machines, $service.'@'.$machine
-	if defined($service) && length($service);
-push @machines, $machine;
+	if defined($service);
+push @machines, $machine
+	unless defined($service) && $service_required;
 my $entry = lookup(\@machines, $login)
 	|| exit 1;
 

@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
+have() { command -v "$1" >/dev/null 2>&1; }
+
 case $DESKTOP_SESSION in
 gnome|gnome-*)
 	echo Logging out of GNOME...
-	gnome-session-quit --logout --force --no-prompt
+	if have gnome-session-quit; then
+		gnome-session-quit --logout --force --no-prompt
+	elif have gnome-session-save; then
+		gnome-session-save --kill
+	fi
 	;;
 herbstluftwm)
 	echo Logging out of Herbstluftwm...

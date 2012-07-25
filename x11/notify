@@ -5,12 +5,19 @@
 
 use feature qw(say switch);
 use File::Path qw(make_path);
-use Net::DBus;
 use Getopt::Long qw(:config no_ignore_case bundling);
+use Net::DBus;
+
+my $bus = Net::DBus->session;
+
+sub Notifications {
+	$bus
+	->get_service("org.freedesktop.Notifications")
+	->get_object("/org/freedesktop/Notifications")
+}
 
 my $statedir	= ($ENV{XDG_CACHE_HOME} // $ENV{HOME}."/.cache") . "/notify/";
 
-my $urgency	= 1;
 my $icon	= "";
 my $id		= 0;
 my $summary	= "";
@@ -19,21 +26,19 @@ my @actions	= ();
 my @hints	= ();
 my %hints	= ();
 my $application	= "notify";
-my $timeout	= 3;
+my $timeout	= -1;
 my $statefile	= undef;
 my $oldbody	= "";
 my $appendbody	= 0;
-my $urgency	= undef;
 
 GetOptions(
-	'a|appname=s'	=> \$application,
+	'a|app-name=s'	=> \$application,
+	'A|append'	=> \$appendbody,
+	'h|hint=s'	=> \@hints,
 	'i|icon=s'	=> \$icon,
 	'r|replace=i'	=> \$id,
-	't|timeout=i'	=> \$timeout,
 	's|state=s'	=> \$statefile,
-	'A|append'	=> \$appendbody,
-	'u|urgency=s'	=> \$urgency,
-	'h|hint=s'	=> \@hints,
+	't|timeout=i'	=> \$timeout,
 ) or die "$@";
 
 $summary = shift(@ARGV) or die "notify: summary not given\n";
@@ -45,10 +50,12 @@ if (defined $statefile) {
 		# hassle as possible. Create the directories.
 		-d $statedir || make_path($statedir);
 	}
-	if (open(my $fh, "<", $statefile)) {
-		$id = int <$fh>;
-		chomp($oldbody = join("", <$fh>));
-		close($fh);
+	if (!defined $id) {
+		if (open(my $fh, "<", $statefile)) {
+			$id = int <$fh>;
+			chomp($oldbody = join("", <$fh>));
+			close($fh);
+		}
 	}
 }
 
@@ -59,33 +66,47 @@ if ($appendbody) {
 	$body = join("\n", grep {length} ($oldbody, $body));
 }
 
-if (defined $urgency) {
-	my $val;
-	given ($urgency) {
-		when ('low') { $val = 0; }
-		when ('normal') { $val = 1; }
-		when ('critical') { $val = 2; }
-		default {
-			die "notify: invalid urgency level (can be low, normal, critical)\n";
-		}
-	}
-	$hints{urgency} = Net::DBus::dbus_byte($val);
-}
-
 for (@hints) {
-	when ("resident") {
-		$hints{resident} = Net::DBus::dbus_boolean(1);
+	when (/^urgency=(.*)$/) {
+		for ($urgency) {
+			$val = 0 when "low";
+			$val = 1 when "normal";
+			$val = 2 when ["critical", "high"];
+			default {
+				die "notify: invalid urgency level\n";
+			}
+		}
+		$hints{urgency} = Net::DBus::dbus_byte($val);
 	}
-	when ("transient") {
-		$hints{transient} = Net::DBus::dbus_boolean(1);
+	when (/^(category|desktop-entry|image-path)=(.*)$/) {
+		$hints{$1} = Net::DBus::dbus_string($2);
+	}
+	when (/^(resident|transient)$/) {
+		$hints{$1} = Net::DBus::dbus_boolean(1);
+	}
+
+	when (/^str:([^=]+)=(.*)$/) {
+		$hints{$1} = Net::DBus::dbus_string($2);
 	}
 }
 
-my $bus = Net::DBus->session;
-my $svc = $bus->get_service("org.freedesktop.Notifications");
-my $obj = $svc->get_object("/org/freedesktop/Notifications");
+for ($timeout) {
+	when (-1) {
+		;
+	}
+	when (/^(\d+)s?$/) {
+		$timeout = $1 * 1000;
+	}
+	when (/^(\d+)ms$/) {
+		$timeout = $1;
+	}
+	default {
+		die "notify: invalid timeout\n";
+	}
+}
 
-$id = $obj->Notify($application,
+$id = Notifications->Notify(
+		$application,
 		$id,
 		$icon,
 		$summary,

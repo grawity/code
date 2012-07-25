@@ -1,5 +1,17 @@
 #!/bin/sh -eu
 
+list_configs() {
+	find "$EFI/loader/entries" \
+		\( -name "$ID.conf" -o -name "$ID-*.conf" \)\
+		-printf '%f\n' | sed "s/^$ID/linux/; s/\.conf\$//"
+}
+
+check_all() {
+	list-configs | while read kernel; do
+		check_kernel "$kernel"
+	done
+}
+
 check_kernel() {
 	local kernel=$1
 	local suffix=
@@ -67,11 +79,7 @@ else
 fi
 
 . /etc/os-release
-
 read -r MACHINE_ID < /etc/machine-id
-
 read -r BOOT_OPTIONS < /etc/kernel/cmdline
 
-KERNEL=${1:-'linux'}
-
-check_kernel "$KERNEL"
+check_kernel "${1:-'linux'}"

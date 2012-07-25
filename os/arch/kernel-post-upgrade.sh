@@ -43,7 +43,7 @@ install_kernel() {
 
 	echo "+ copying kernel to EFI system partition"
 	mkdir -p "$EFI/EFI/$ID"
-	cp -f "/boot/vmlinuz-$kernel"		"$EFI/EFI/$ID/vmlinuz-$kernel"
+	cp -f "/boot/vmlinuz-$kernel"		"$EFI/EFI/$ID/vmlinuz-$kernel.efi"
 	cp -f "/boot/initramfs-$kernel.img"	"$EFI/EFI/$ID/initramfs-$kernel.img"
 
 	parameters=(

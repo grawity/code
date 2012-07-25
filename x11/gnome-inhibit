@@ -21,7 +21,7 @@ my %FLAGS = (
 	"automount"	=> 1<<4,
 );
 
-my $bus	= Net::DBus->session;
+my $bus;
 
 sub SessionManager {
 	$bus
@@ -34,6 +34,7 @@ sub usage {
 	"Usage: gnome-inhibit [options] [<command> [args...]]",
 	"Usage: gnome-inhibit [options] {--list|--test}",
 	"",
+	"  -A, --always                  Run command even if gnome-session not running",
 	"  -a, --app-id <application>    Application name to identify ourselves as",
 	"  -f, --flags <flags>           Inhibitor flags (default: 'idle')",
 	"      --help                    This message",
@@ -146,6 +147,7 @@ sub display_inhibitors {
 
 my $do_list	= 0;
 my $do_test	= 0;
+my $always	= 0;
 my $verbose	= 0;
 my $app_id	= "gnome-inhibit";
 my $reason	= "User-initiated inhibit";
@@ -153,6 +155,7 @@ my $flagstr	= undef;
 my $top_xid	= 0;
 
 GetOptions(
+	'A|always'	=> \$always,
 	'a|app-id=s'	=> \$app_id,
 	'f|flags=s'	=> \$flagstr,
 	'l|list'	=> \$do_list,
@@ -163,11 +166,32 @@ GetOptions(
 	'help'		=> \&usage,
 ) or exit(2);
 
+if ($always) {
+	eval {$bus = Net::DBus->session};
+	if ($bus) {
+		$bus = undef unless eval {SessionManager};
+	}
+} else {
+	$bus = Net::DBus->session;
+	# will die if no bus
+}
+
 if ($do_list) {
+	if (!$bus) {
+		warn "gnome-session is not running.\n";
+		exit 0;
+	}
+
 	my $flags = string_to_flags($flagstr //= "0");
 	display_inhibitors($verbose, get_inhibitors($flags));
+
 	exit 0;
 } elsif ($do_test) {
+	if (!$bus) {
+		say "no" if $verbose;
+		exit 0;
+	}
+
 	my $flags = string_to_flags($flagstr //= "idle");
 	if (!$flags) {
 		warn "Error: No inhibit flags given.\n";
@@ -182,37 +206,43 @@ if ($do_list) {
 		exit 0;
 	}
 } else {
+	my $cookie;
+
 	my $flags = string_to_flags($flagstr //= "idle");
 	if (!$flags) {
 		warn "Error: No inhibit flags given.\n";
 		exit 2;
 	}
 
-	my $cookie = SessionManager->Inhibit($app_id, $top_xid, $reason, $flags);
-	if ($cookie) {
-		print "$app_id: inhibited: ".flags_to_string($flags)."\n" if $verbose;
+	if ($bus) {
+		$cookie = SessionManager->Inhibit($app_id, $top_xid, $reason, $flags);
+		if ($cookie) {
+			say "$app_id: inhibited: ".flags_to_string($flags) if $verbose;
+		} else {
+			warn "$app_id: inhibit failed\n";
+			exit 1;
+		}
 	} else {
-		warn "$app_id: inhibit failed\n";
-		exit 1;
+		say "$app_id: gnome-session not running; inhibit not added" if $verbose;
 	}
 
 	my @cmd = @ARGV;
 	my $return = 0;
 
 	if (@cmd) {
-		print "$app_id: executing: @cmd\n" if $verbose;
+		say "$app_id: executing: @cmd" if $verbose;
 		$return = system {$cmd[0]} @cmd;
 		$return = POSIX::WEXITSTATUS($return);
 	} else {
 		$SIG{INT} = sub {
-			print "$app_id: SIGINT caught, exiting\n" if $verbose;
-			SessionManager->Uninhibit($cookie);
+			say "$app_id: SIGINT caught, exiting" if $verbose;
+			SessionManager->Uninhibit($cookie) if $cookie;
 			exit 0;
 		};
-		print "$app_id: pausing until signal; use Ctrl-C to interrupt\n";
+		say "$app_id: pausing until signal; use Ctrl-C to interrupt";
 		POSIX::pause();
 	}
 
-	SessionManager->Uninhibit($cookie);
+	SessionManager->Uninhibit($cookie) if $cookie;
 	exit $return;
 }

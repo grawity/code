@@ -1,5 +1,55 @@
 #!/bin/sh -eu
 
+efi_install_kernel() {
+	local KERNEL=$1
+
+	local KERNEL_VERSION=$(pacman -Q "$KERNEL")
+	local KERNEL_VERSION=${KERNEL_VERSION#$KERNEL }
+
+	echo "Found $PRETTY_NAME ($KERNEL $KERNEL_VERSION)"
+
+	echo "Copying kernel to EFI system partition..."
+	mkdir -p "$EFI/EFI/$ID"
+	cp -f "/boot/vmlinuz-$KERNEL"		"$EFI/EFI/$ID/vmlinuz-$KERNEL.efi"
+	cp -f "/boot/initramfs-$KERNEL.img"	"$EFI/EFI/$ID/initramfs-$KERNEL.img"
+
+	if [[ $KERNEL == linux ]]; then
+		file=$ID
+	else
+		file=$ID-${KERNEL#linux-}
+	fi
+
+	config=(
+		"title"		"$PRETTY_NAME"
+		"title-version"	"$KERNEL_VERSION"
+		"title-machine"	"${MACHINE_ID:0:8}"
+		"linux"		"/EFI/$ID/vmlinuz-$KERNEL.efi"
+		"initrd"	"/EFI/$ID/initramfs-$KERNEL.img"
+		"options"	"$BOOT_OPTIONS"
+	)
+	echo "Generating bootloader config ($file.conf)..."
+	printf '%s\t%s\n' "${config[@]}" > "$EFI/loader/entries/$file.conf"
+}
+
+efi_remove_kernel() {
+	local KERNEL=$1
+
+	echo "Uninstalling $PRETTY_NAME ($KERNEL)"
+
+	echo "Removing kernel from EFI system partition..."
+	rm -f "$EFI/EFI/$ID/vmlinuz-$KERNEL.efi"
+	rm -f "$EFI/EFI/$ID/initramfs-$KERNEL.img"
+
+	if [[ $KERNEL == linux ]]; then
+		file=$ID
+	else
+		file=$ID-${KERNEL#linux-}
+	fi
+
+	echo "Removing bootloader config..."
+	rm -f "$EFI/loader/entries/$file.conf"
+}
+
 if [[ -d /boot/loader ]]; then
 	EFI=/boot
 elif [[ -d /boot/efi/loader ]]; then
@@ -21,36 +71,8 @@ read -r BOOT_OPTIONS < /etc/kernel/cmdline
 
 # find the kernel
 
-KERNEL_VERSION=$(pacman -Q "$KERNEL")
-KERNEL_VERSION=${KERNEL_VERSION#$KERNEL }
-
-echo "Found $PRETTY_NAME ($KERNEL $KERNEL_VERSION)"
-
-# copy kernel to EFI partition
-
-echo "Copying kernel to EFI system partition..."
-
-mkdir -p "$EFI/EFI/$ID"
-cp -f "/boot/vmlinuz-$KERNEL"		"$EFI/EFI/$ID/vmlinuz-$KERNEL.efi"
-cp -f "/boot/initramfs-$KERNEL.img"	"$EFI/EFI/$ID/initramfs-$KERNEL.img"
-
-# update Gummiboot config
-
-if [[ $KERNEL == linux ]]; then
-	file=$ID
+if [[ -e "/boot/vmlinuz-$KERNEL" ]]; then
+	efi_install_kernel "$KERNEL"
 else
-	file=$ID-${KERNEL#linux-}
+	efi_remove_kernel "$KERNEL"
 fi
-
-echo "Generating bootloader config ($file.conf)..."
-
-config=(
-	"title"		"$PRETTY_NAME"
-	"title-version"	"$KERNEL_VERSION"
-	"title-machine"	"${MACHINE_ID:0:8}"
-	"linux"		"/EFI/$ID/vmlinuz-$KERNEL.efi"
-	"initrd"	"/EFI/$ID/initramfs-$KERNEL.img"
-	"options"	"$BOOT_OPTIONS"
-)
-
-printf '%s\t%s\n' "${config[@]}" > "$EFI/loader/entries/$file.conf"

@@ -61,7 +61,7 @@ fi
 
 # read machine information
 
-KERNEL='linux' # the package name
+KERNEL=${1:-'linux'}
 
 . /etc/os-release
 

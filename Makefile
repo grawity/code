@@ -51,7 +51,7 @@ mrproper:
 BASIC_BINS := args proctool silentcat spawn strtool
 KRB_BINS := k5userok pklist
 LINUX_BINS := linux26 tapchown
-MISC_BINS := bgrep logwipe natsort writevt xor xors
+MISC_BINS := bgrep logwipe natsort ttysize writevt xor xors
 
 cc-basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 cc-krb: $(addprefix $(OBJ)/,$(KRB_BINS))
@@ -81,6 +81,7 @@ $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		misc/spawn.c
 $(OBJ)/strtool:		misc/strtool.c misc/util.c | misc/util.h
 $(OBJ)/tapchown:	net/tapchown.c
+$(OBJ)/ttysize:		misc/ttysize.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xors:		misc/xors.c

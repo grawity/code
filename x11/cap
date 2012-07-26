@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# cap - capture a screenshot to a PNG and upload to imgur.
+
+dir=~/Pictures/Screenshots
+date=$(date +"%Y-%m-%d")
+
+for (( count=0; count < 999; count++ )); do
+	printf -v name "Unnamed %s.%03d.png" "$date" "$count"
+	[[ ! -e $dir/$name && ! -e $dir/.$name.tmp ]] && break
+done
+
+tmp="$dir/.tmp.$name"
+img="$dir/$name"
+window=0
+
+case $1 in
+	'-f') window=0;;
+	'-w') window=1;;
+esac
+
+case $DESKTOP_SESSION in
+	gnome*)
+		if (( window ))
+		then arg='-w'
+		else arg='-f'
+		fi
+		gnome-screenshot-import $arg "$tmp";;
+	*)
+		if (( window ))
+		then arg='-b -s'
+		else arg=''
+		fi
+		scrot $arg "$tmp";;
+esac
+
+if [[ ! -f "$tmp" ]]; then
+	notify \
+		--app-name "Screenshot" \
+		--icon "error" \
+		--hint "category=transfer.error" \
+		"Screenshot failed."
+	exit 1
+fi
+
+mv -f "$tmp" "$img"
+
+echo "Captured to $dir/$name, uploading"
+
+id=$(notify \
+	--app-name "Screenshot" \
+	--icon "document-send" \
+	--hint "category=transfer" \
+	"Screenshot captured" \
+	"Uploading to imgur...")
+
+(trap exit TERM
+while sleep 1; do
+	notify \
+		--app-name "Screenshot" \
+		--icon "document-send" \
+		--hint "category=transfer" \
+		--replace "$id" \
+		"Screenshot captured" \
+		"Uploading to imgur..." >/dev/null
+done) &
+
+if output=$(imgur "$img" 2>&1); then
+	kill $!
+	notify \
+		--app-name "Screenshot" \
+		--icon "document-send" \
+		--hint "category=transfer.complete" \
+		--replace "$id" \
+		"Screenshot uploaded" \
+		"$output" >/dev/null
+else
+	kill $!
+	output="It is still stored at: file://$(urlencode -rp "$img")"
+	notify \
+		--app-name "Screenshot" \
+		--icon "document-send" \
+		--hint "category=transfer.error" \
+		--replace "$id" \
+		"Screenshot upload failed" \
+		"$output" >/dev/null
+fi
+
+wait

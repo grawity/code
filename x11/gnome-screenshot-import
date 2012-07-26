@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+# Capture a window or entire screen to a PNG file, output filename.
+#
+# Uses GNOME Shell's screenshot functionality, which means decorations
+# and window shadows get captured correctly (as transparent PNG).
+
+use feature qw(say switch);
+use File::Basename qw(dirname);
+use File::Path qw(make_path);
+use Getopt::Long;
+use Net::DBus;
+use POSIX qw(strftime);
+
+my $bus = Net::DBus->session;
+
+sub Shell {
+	$bus
+	->get_service("org.gnome.Shell")
+	->get_object("/org/gnome/Shell")
+}
+
+my $frame = 1;
+my $flash = 1;
+my $cursor = 0;
+my $mode = 'fullscreen';
+my $template = "$ENV{HOME}/Pictures/Screenshots/%Y%m%d.%H%M%S.png";
+my $file = undef;
+
+GetOptions(
+	'f|fullscreen'	=> sub { $mode = 'fullscreen' },
+	'w|window'	=> sub { $mode = 'window' },
+);
+
+$file = shift @ARGV;
+$file //= strftime($template, localtime);
+
+for (dirname $file) {
+	make_path unless -d;
+}
+
+for ($mode) {
+	when ('fullscreen') {
+		Shell->Screenshot($cursor, $flash, $file)
+		or die "Shell->Screenshot failed\n";
+	}
+	when ('window') {
+		Shell->ScreenshotWindow($frame, $cursor, $flash, $file)
+		or die "Shell->ScreenshotWindow failed\n";
+	}
+}
+
+say $file;

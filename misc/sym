@@ -3,7 +3,7 @@
 # (Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>)
 use warnings;
 use strict;
-use Cwd;
+use Cwd qw(realpath);
 use File::Basename;
 use File::Spec;
 use Getopt::Long qw(:config bundling no_ignore_case);
@@ -11,6 +11,20 @@ use Getopt::Long qw(:config bundling no_ignore_case);
 my $force = 0;
 my $verbose = 0;
 my $dest;
+
+sub trace { print shift if $ENV{DEBUG}; }
+
+=item my_abs_path($path)
+
+Canonicalize symlinks and relative paths.
+If $path itself is a symlink, do not canonicalize it.
+
+=cut
+
+sub my_abs_path {
+	my ($path) = @_;
+	realpath(dirname($path))."/".basename($path);
+}
 
 sub usage {
 	my $me = basename($0);
@@ -53,15 +67,19 @@ if (!@ARGV) {
 	usage;
 }
 
-$dest = Cwd::abs_path($dest);
+$dest = my_abs_path($dest);
 
 if (!defined $dest) {
 	die "error: target does not exist\n";
 } elsif (-d $dest) {
 	# target [target...] dest_dir
+	trace("sym: dest=$dest\n");
 	for my $target (@ARGV) {
+		trace("sym: target=$target\n");
 		my $reltarget = File::Spec->abs2rel($target, $dest);
+		trace("     reltarget=$reltarget\n");
 		my $link = File::Spec->catfile($dest, basename($target));
+		trace("     link=$link\n");
 		do_link($reltarget, $link);
 	}
 } elsif (scalar(@ARGV) > 1) {
@@ -69,7 +87,10 @@ if (!defined $dest) {
 	die "error: target is not a directory\n";
 } else {
 	# target dest
+	trace("sym: dest=$dest\n");
 	my $target = pop(@ARGV);
+	trace("sym: target=$target\n");
 	my $reltarget = File::Spec->abs2rel($target, dirname($dest));
+	trace("     reltarget=$reltarget\n");
 	do_link($reltarget, $dest);
 }

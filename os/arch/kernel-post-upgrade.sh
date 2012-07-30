@@ -50,8 +50,8 @@ install_kernel() {
 		"title"		"$PRETTY_NAME"
 		"title-version"	"$version"
 		"title-machine"	"${MACHINE_ID:0:8}"
-		"linux"		"/EFI/$ID/vmlinuz-$kernel.efi"
-		"initrd"	"/EFI/$ID/initramfs-$kernel.img"
+		"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
+		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
 		"options"	"$BOOT_OPTIONS"
 	)
 	echo "+ generating bootloader config"

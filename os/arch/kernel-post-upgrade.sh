@@ -5,7 +5,7 @@ same_fs() {
 }
 
 list_configs() {
-	find "$EFI/loader/entries" \
+	find "$ESP/loader/entries" \
 		\( -name "$ID.conf" -o -name "$ID-*.conf" \)\
 		-printf '%f\n' | sed "s/^$ID/linux/; s/\.conf\$//"
 }
@@ -46,9 +46,9 @@ install_kernel() {
 	echo "Found $PRETTY_NAME ($kernel $version)"
 
 	echo "+ copying kernel to EFI system partition"
-	mkdir -p "$EFI/EFI/$ID"
-	cp -f "/boot/vmlinuz-$kernel"		"$EFI/EFI/$ID/vmlinuz-$kernel.efi"
-	cp -f "/boot/initramfs-$kernel.img"	"$EFI/EFI/$ID/initramfs-$kernel.img"
+	mkdir -p "$ESP/EFI/$ID"
+	cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+	cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
 
 	parameters=(
 		"title"		"$PRETTY_NAME"
@@ -59,31 +59,31 @@ install_kernel() {
 		"options"	"$BOOT_OPTIONS"
 	)
 	echo "+ generating bootloader config"
-	mkdir -p "$EFI/loader/entries"
-	printf '%s\t%s\n' "${parameters[@]}" > "$EFI/loader/entries/$config.conf"
+	mkdir -p "$ESP/loader/entries"
+	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
 }
 
 remove_kernel() {
 	echo "Uninstalling $PRETTY_NAME ($kernel)"
 
 	echo "+ removing kernel from EFI system partition"
-	rm -f "$EFI/EFI/$ID/vmlinuz-$kernel.efi"
-	rm -f "$EFI/EFI/$ID/initramfs-$kernel.img"
+	rm -f "$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+	rm -f "$ESP/EFI/$ID/initramfs-$kernel.img"
 
 	echo "+ removing bootloader config"
-	rm -f "$EFI/loader/entries/$config.conf"
+	rm -f "$ESP/loader/entries/$config.conf"
 }
 
 if [[ -d /boot/EFI && -d /boot/loader ]]; then
-	EFI=/boot
+	ESP=/boot
 elif [[ -d /boot/efi/EFI && -d /boot/efi/loader ]]; then
-	EFI=/boot/efi
+	ESP=/boot/efi
 else
-	echo "error: EFI partition not found; please mkdir <efi>/loader" >&2
+	echo "error: EFI system partition not found; please mkdir <efi>/loader" >&2
 	exit 1
 fi
 
-echo "Found ESP at $EFI"
+echo "Found EFI system partition at $ESP"
 
 . /etc/os-release
 read -r MACHINE_ID < /etc/machine-id

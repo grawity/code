@@ -1,5 +1,9 @@
 #!/bin/sh -eu
 
+same_fs() {
+	test "$(stat -c %d "$1")" = "$(stat -c %d "$2")"
+}
+
 list_configs() {
 	find "$EFI/loader/entries" \
 		\( -name "$ID.conf" -o -name "$ID-*.conf" \)\

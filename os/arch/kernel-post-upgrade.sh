@@ -74,14 +74,16 @@ remove_kernel() {
 	rm -f "$EFI/loader/entries/$config.conf"
 }
 
-if [[ -d /boot/loader ]]; then
+if [[ -d /boot/EFI && -d /boot/loader ]]; then
 	EFI=/boot
-elif [[ -d /boot/efi/loader ]]; then
+elif [[ -d /boot/efi/EFI && -d /boot/efi/loader ]]; then
 	EFI=/boot/efi
 else
 	echo "error: EFI partition not found; please mkdir <efi>/loader" >&2
 	exit 1
 fi
+
+echo "Found ESP at $EFI"
 
 . /etc/os-release
 read -r MACHINE_ID < /etc/machine-id

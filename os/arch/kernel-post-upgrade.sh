@@ -59,6 +59,7 @@ install_kernel() {
 		"options"	"$BOOT_OPTIONS"
 	)
 	echo "+ generating bootloader config"
+	mkdir -p "$EFI/loader/entries"
 	printf '%s\t%s\n' "${parameters[@]}" > "$EFI/loader/entries/$config.conf"
 }
 

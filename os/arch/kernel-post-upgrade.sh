@@ -18,7 +18,7 @@ check_kernel() {
 	local config=$ID
 
 	if [[ $kernel != 'linux' ]]; then
-		suffix="-${kernel#'linux-'}"
+		suffix="-${kernel#linux-}"
 		config=$config$suffix
 	fi
 
@@ -82,4 +82,4 @@ fi
 read -r MACHINE_ID < /etc/machine-id
 read -r BOOT_OPTIONS < /etc/kernel/cmdline
 
-check_kernel "${1:-'linux'}"
+check_kernel "${1:-linux}"

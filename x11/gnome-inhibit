@@ -150,6 +150,7 @@ my $do_test	= 0;
 my $always	= 0;
 my $verbose	= 0;
 my $app_id	= "gnome-inhibit";
+my $log_id	= "gnome-inhibit";
 my $reason	= "User-initiated inhibit";
 my $flagstr	= undef;
 my $top_xid	= 0;
@@ -165,6 +166,10 @@ GetOptions(
 	'x|xid=o'	=> \$top_xid,
 	'help'		=> \&usage,
 ) or exit(2);
+
+if ($log_id ne $app_id) {
+	$log_id .= "($app_id)";
+}
 
 if ($always) {
 	eval {$bus = Net::DBus->session};
@@ -217,29 +222,29 @@ if ($do_list) {
 	if ($bus) {
 		$cookie = SessionManager->Inhibit($app_id, $top_xid, $reason, $flags);
 		if ($cookie) {
-			say "$app_id: inhibited: ".flags_to_string($flags) if $verbose;
+			say "$log_id: inhibited: ".flags_to_string($flags) if $verbose;
 		} else {
-			warn "$app_id: inhibit failed\n";
+			warn "$log_id: inhibit failed\n";
 			exit 1;
 		}
 	} else {
-		say "$app_id: gnome-session not running; inhibit not added" if $verbose;
+		say "$log_id: gnome-session not running; inhibit not added" if $verbose;
 	}
 
 	my @cmd = @ARGV;
 	my $return = 0;
 
 	if (@cmd) {
-		say "$app_id: executing: @cmd" if $verbose;
+		say "$log_id: executing: @cmd" if $verbose;
 		$return = system {$cmd[0]} @cmd;
 		$return = POSIX::WEXITSTATUS($return);
 	} else {
 		$SIG{INT} = sub {
-			say "$app_id: SIGINT caught, exiting" if $verbose;
+			say "$log_id: SIGINT caught, exiting" if $verbose;
 			SessionManager->Uninhibit($cookie) if $cookie;
 			exit 0;
 		};
-		say "$app_id: pausing until signal; use Ctrl-C to interrupt";
+		say "$log_id: pausing until signal; use Ctrl-C to interrupt";
 		POSIX::pause();
 	}
 

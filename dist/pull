@@ -5,9 +5,9 @@ set -e
 have() { command -v "$1" >/dev/null; }
 
 if [ -t 0 ]; then
-	log() { printf "\033[32m=\033[m %s\033[m\n" "$*"; }
+	log() { msg=$*; printf "\033[32m=\033[m %s\033[m\n" "$*"; }
 else
-	log() { true; }
+	log() { msg=$*; }
 fi
 
 silent() {
@@ -16,7 +16,10 @@ silent() {
 		rc=0
 	else
 		rc=$?
-		echo "('$1' returned $rc)"
+		echo "error: command '$1' returned $rc"
+		echo "= log: $msg"
+		echo "= cwd: $PWD"
+		echo "= args: $*"
 		cat "$tmp"
 	fi >&2
 	rm -f "$tmp"

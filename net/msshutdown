@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-use common::sense;
+use feature qw(say);
 use Getopt::Long qw(:config no_ignore_case);
 
 sub usage {
@@ -21,16 +21,15 @@ GetOptions(
 	't|timeout=i'	=> \$timeout,
 ) or exit usage();
 
-my $host = shift @ARGV
-	// exit usage();
+my $host = shift @ARGV // exit usage();
+
 my @args = ("remote.msrpc", $host);
 
 if ($abort) {
 	push @args, "abortshutdown";
-	warn "note: -f is meaningless\n"	if $force;
-	warn "note: -r is meaningless\n"	if $reboot;
-}
-else {
+	warn "note: -f is meaningless\n" if $force;
+	warn "note: -r is meaningless\n" if $reboot;
+} else {
 	push @args, "-t", ($timeout // 1);
 	push @args, "-f"		if $force;
 	push @args, "-r"		if $reboot;

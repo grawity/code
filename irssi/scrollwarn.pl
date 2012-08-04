@@ -3,7 +3,7 @@ use vars qw($VERSION %IRSSI);
 
 use Irssi;
 
-$VERSION = '0.1';
+$VERSION = '0.2';
 %IRSSI = (
 	name		=> 'scrollwarn',
 	description	=> 'Warns you if you were scrolled up when sending a message.',
@@ -17,7 +17,7 @@ sub check($) {
 	if (!$view->{bottom}) {
 		my $lines = $view->{ypos} - $view->{height};
 		$win->command("scrollback end");
-		$win->print("You were scrolled up by $lines lines. Message not sent.", "CLIENTERROR");
+		$win->print("You were scrolled up by $lines lines. Message not sent.", MSGLEVEL_CLIENTERROR);
 		return 0;
 	} else {
 		return 1;

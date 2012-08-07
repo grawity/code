@@ -83,7 +83,7 @@ function resolve($addr) {
 }
 
 # Colourize the provided string.
-function colour($addr, $b = false) {
+function colour($addr) {
 	 if (!$GLOBALS["use_colour"])
 		return $addr;
 
@@ -96,9 +96,6 @@ function colour($addr, $b = false) {
 	else
 		$c = "33";
 
-	if ($b)
-		$c = "1;$c";
-
 	return "\033[{$c}m{$addr}\033[m";
 }
 
@@ -108,16 +105,14 @@ function go($from, $depth = 0, $skip = array()) {
 	$visited[] = $from;
 
 	# print current address
-	print str_repeat(" ", $depth*3) . colour($from, true) . " = ";
+	print str_repeat(" ", $depth*3) . colour($from) . " = ";
 
 	$addresses = resolve($from); sort($addresses);
 
 	if (empty($addresses))
-		print colour("(none)", false);
+		print colour("(none)");
 	else
-		print implode(", ", array_map(function($a) {
-				return colour($a, false);
-				}, $addresses));
+		print implode(", ", $addresses);
 	print "\n";
 
 	# recursively look up the results

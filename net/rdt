@@ -84,18 +84,22 @@ function resolve($addr) {
 
 # Colourize the provided string.
 # IP addresses are detected automatically if $colour not given
-function colour($addr, $c = 0) {
+function colour($addr, $c = 0, $b = false) {
 	 if (!$GLOBALS["use_colour"])
 		return $addr;
 
 	if ($c > 0)
-		null;
+		$c = (string) $c;
 	elseif (is_inet4addr($addr))
-		$c = 35;
+		$c = "35";
 	elseif (is_inet6addr($addr))
-		$c = 36;
+		$c = "36";
 	else
-		$c = 33;
+		$c = "33";
+
+	if ($b)
+		$c = "1;$c";
+
 	return "\033[{$c}m{$addr}\033[m";
 }
 
@@ -105,14 +109,16 @@ function go($from, $depth = 0, $skip = array()) {
 	$visited[] = $from;
 
 	# print current address
-	print str_repeat(" ", $depth*3) . colour($from) . " = ";
+	print str_repeat(" ", $depth*3) . colour($from, 0, true) . " = ";
 
 	$addresses = resolve($from); sort($addresses);
 
 	if (empty($addresses))
-		print colour("(none)", 31);
+		print colour("(none)", 31, false);
 	else
-		print implode(", ", $addresses);
+		print implode(", ", array_map(function($a) {
+				return colour($a, 0, false);
+				}, $addresses));
 	print "\n";
 
 	# recursively look up the results

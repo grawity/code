@@ -39,6 +39,7 @@ else:
 		pass
 
 def print(*args):
+	args = map(str, args)
 	line = " ".join(args)+"\r\n"
 	fh = sys.stdout
 	fh.write(line.encode("utf-8"))
@@ -114,20 +115,28 @@ def forward(addr, req, flags):
 			cmdline += [req]
 		DEBUG('exec: using %r', cmdline)
 
-		if stdin:
-			proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
-			DEBUG('exec: writing %r', req)
-			proc.stdin.write(req + b'\n')
-			proc.stdin.close()
-			proc.wait()
-		else:
-			subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
+		try:
+			if stdin:
+				proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
+				DEBUG('exec: writing %r', req)
+				proc.stdin.write(req + b'\n')
+				proc.stdin.close()
+				proc.wait()
+			else:
+				subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
+		except OSError as e:
+			print("finger: internal error")
+			raise
 
 	elif addr.startswith(b"/"):
 		DEBUG('file: using %r', addr)
-		for line in open(addr, "rb"):
-			sys.stdout.write(line)
-		sys.stdout.flush()
+		try:
+			for line in open(addr, "rb"):
+				sys.stdout.write(line)
+			sys.stdout.flush()
+		except IOError as e:
+			print("finger: cannot open plan file")
+			raise
 
 	else:
 		if b"R" in flags:
@@ -213,10 +222,14 @@ def parseaddr(addr):
 
 def get_routes():
 	DEBUG("get_routes(%r)", rules_file)
-	for line in open(rules_file, "rb"):
-		line = line.strip()
-		if line and not line.startswith(b"#"):
-			yield line.split()
+	try:
+		for line in open(rules_file, "rb"):
+			line = line.strip()
+			if line and not line.startswith(b"#"):
+				yield line.split()
+	except IOError as e:
+		print("finger: cannot open configuration file")
+		raise
 
 try:
 	rules_file = sys.argv.pop(1)
@@ -228,4 +241,8 @@ if hasattr(sys.stdin, "detach"):
 if hasattr(sys.stdout, "detach"):
 	sys.stdout = sys.stdout.detach()
 
-accept()
+try:
+	accept()
+except Exception as e:
+	print(e)
+	sys.exit(1)

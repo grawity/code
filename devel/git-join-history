@@ -1,0 +1,45 @@
+#!/bin/sh
+
+msg() { printf "\e[1;32m==\e[m \e[1m%s\e[m\n" "$*"; }
+
+if [ $# -ne 2 ]; then
+	echo "Usage: git link-history <old> <new>"
+	echo ""
+	echo "<old> is last commit of old history"
+	echo "<new> is initial commit of new history"
+	exit 2
+fi >&2
+
+old_end=$1
+new_start=$2
+
+if git rev-parse --quiet --verify "${new_start}^" >/dev/null; then
+	echo "error: start of new history has a parent"
+	echo "(did you mix up the argument order?)"
+	git log "$new_start" -n 2
+	exit 1
+fi >&2
+
+set -exa
+# set HEAD to end of old history
+git checkout --quiet "$old_end"
+# take files from beginning of new history
+git rm --quiet -r -- .
+git checkout "$new_start" -- .
+# take info from beginning of new history
+GIT_COMMITTER_NAME=$(git log "$new_start" -n 1 --format=%an)
+GIT_COMMITTER_EMAIL=$(git log "$new_start" -n 1 --format=%ae)
+GIT_COMMITTER_DATE=$(git log "$new_start" -n 1 --format=%aD)
+# create a fake commit on top of old history
+git commit --quiet -C "$new_start" --allow-empty
+git replace "$new_start" "HEAD"
+set +x
+# switch back
+git checkout --quiet -
+# show
+msg "Old history ended at:"
+git log -n 1 "$old_end"
+msg "New history started at:"
+git --no-replace-objects log -n 2 "$new_start"
+msg "Fake commit inserted:"
+git log -n 2 "$new_start"

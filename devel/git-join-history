@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 msg() { printf "\e[1;32m==\e[m \e[1m%s\e[m\n" "$*"; }
 
@@ -10,36 +10,51 @@ if [ $# -ne 2 ]; then
 	exit 2
 fi >&2
 
-old_end=$1
-new_start=$2
+oldhead_ref=$1
+newinit_ref=$2
 
-if git rev-parse --quiet --verify "${new_start}^" >/dev/null; then
-	echo "error: start of new history has a parent"
-	echo "(did you mix up the argument order?)"
-	git log "$new_start" -n 2
+oldhead=$(git rev-parse --verify "$oldhead_ref")
+newinit=$(git rev-parse --verify "$newinit_ref")
+
+if [ "$oldhead" = "$newinit" ]; then
+	echo "error: identical commits given"
 	exit 1
 fi >&2
 
-set -exa
-# set HEAD to end of old history
-git checkout --quiet "$old_end"
-# take files from beginning of new history
-git rm --quiet -r -- .
-git checkout "$new_start" -- .
-# take info from beginning of new history
-GIT_COMMITTER_NAME=$(git log "$new_start" -n 1 --format=%an)
-GIT_COMMITTER_EMAIL=$(git log "$new_start" -n 1 --format=%ae)
-GIT_COMMITTER_DATE=$(git log "$new_start" -n 1 --format=%aD)
-# create a fake commit on top of old history
-git commit --quiet -C "$new_start" --allow-empty
-git replace "$new_start" "HEAD"
-set +x
-# switch back
-git checkout --quiet -
-# show
-msg "Old history ended at:"
-git log -n 1 "$old_end"
-msg "New history started at:"
-git --no-replace-objects log -n 2 "$new_start"
-msg "Fake commit inserted:"
-git log -n 2 "$new_start"
+git replace -d "$newinit"
+
+if git rev-parse --quiet --verify "$newinit^" >/dev/null; then
+	echo "error: start of new history has a parent"
+	echo "(did you mix up the argument order?)"
+	git log "$newinit" -n 2 --format=short
+	exit 1
+fi >&2
+
+if ! git rev-parse --quiet --verify "$oldhead^" >/dev/null; then
+	echo "error: end of old history has no parent"
+	echo "(did you mix up the argument order?)"
+	git log "$newinit" -n 2 --format=short
+	exit 1
+fi >&2
+
+take() { git log "$1" -n 1 --format="format:$2"; }
+
+GIT_AUTHOR_NAME=$(take "$newinit" "%an")
+GIT_AUTHOR_EMAIL=$(take "$newinit" "%ae")
+GIT_AUTHOR_DATE=$(take "$newinit" "%aD")
+GIT_COMMITTER_NAME=$(take "$newinit" "%cn")
+GIT_COMMITTER_EMAIL=$(take "$newinit" "%ce")
+GIT_COMMITTER_DATE=$(take "$newinit" "%cD")
+
+newfake=$(git cat-file commit "$newinit" \
+	| sed "/^tree /aparent $oldhead" \
+	| git hash-object -t commit -w --stdin)
+
+diff -u <(git cat-file commit "$newinit") --label "commit $newinit" \
+	<(git cat-file commit "$newfake") --label "commit $newfake" \
+	|| true
+
+git replace "$newinit" "$newfake"
+
+msg "Linked history:"
+git log -n 2 "$newinit"

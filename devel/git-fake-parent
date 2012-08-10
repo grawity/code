@@ -19,9 +19,10 @@ if [ "$oldhead" = "$newinit" ]; then
 	exit 1
 fi >&2
 
-if git rev-parse --quiet --verify "$newinit^" >/dev/null; then
+if parent=$(git rev-parse --quiet --verify "$newinit^"); then
 	echo "error: init-commit has a parent (did you mix up argument order?)"
-	git log "$newinit" -n 2 --decorate
+	echo "  commit: $newinit"
+	echo "  parent: $parent"
 	exit 1
 fi >&2
 

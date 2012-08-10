@@ -35,15 +35,6 @@ if ! git rev-parse --quiet --verify "$oldhead^" >/dev/null; then
 	exit 1
 fi >&2
 
-take() { git log "$1" -n 1 --format="format:$2"; }
-
-GIT_AUTHOR_NAME=$(take "$newinit" "%an")
-GIT_AUTHOR_EMAIL=$(take "$newinit" "%ae")
-GIT_AUTHOR_DATE=$(take "$newinit" "%aD")
-GIT_COMMITTER_NAME=$(take "$newinit" "%cn")
-GIT_COMMITTER_EMAIL=$(take "$newinit" "%ce")
-GIT_COMMITTER_DATE=$(take "$newinit" "%cD")
-
 newfake=$(git cat-file commit "$newinit" \
 	| sed "/^tree /aparent $oldhead" \
 	| git hash-object -t commit -w --stdin)

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ $# -ne 2 ]; then
+	echo "Usage: git fake-parent <init-commit> <fake-parent>"
+	echo ""
+	echo "Add a fake parent to a given commit using 'git replace'."
+	echo ""
+	echo "<init-commit> must be an initial commit; i.e. it mustn't have parents."
+	exit 2
+fi >&2
+
+newinit=$(git rev-parse --verify "$1")
+oldhead=$(git rev-parse --verify "$2")
+
+if [ "$oldhead" = "$newinit" ]; then
+	echo "error: a commit cannot be a parent of itself"
+	exit 1
+fi >&2
+
+if git rev-parse --quiet --verify "$newinit^" >/dev/null; then
+	echo "error: init-commit has a parent (did you mix up argument order?)"
+	git log "$newinit" -n 2 --decorate
+	exit 1
+fi >&2
+
+newfake=$(git cat-file commit "$newinit" \
+	| sed "1,/^$/{
+	           /^tree [0-9a-f]\+$/aparent $oldhead
+	       }" \
+	| git hash-object -t commit -w --stdin)
+
+diff -u <(git cat-file commit "$newinit") --label "commit $newinit" \
+	<(git cat-file commit "$newfake") --label "commit $newfake" \
+	|| true
+
+git replace -f "$newinit" "$newfake"

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ $# -ne 2 ]; then
+	echo "Usage: git link-history <current-branch> <history-branch>"
+	echo ""
+	echo "Prepend <history> as a parent of the initial commit of <current>."
+	exit 2
+fi
+
+oldhead=$(git rev-parse --verify "$1")
+newtail=$(git rev-list "$2" | tail -1)
+
+git fake-parent "$newtail" "$oldhead"
+
+git log -n 2 --decorate "$newtail"

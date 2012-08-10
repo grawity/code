@@ -9,9 +9,15 @@ if [ $# -ne 2 ]; then
 	exit 2
 fi
 
-newtail=$(git rev-list "$1" | tail -1)
-oldhead=$(git rev-parse --verify "$2")
+newtail=$(git --no-replace-objects rev-list "$1" | tail -1)
+oldhead=$(git --no-replace-objects rev-parse --verify "$2")
 
-git fake-parent "$newtail" "$oldhead"
+parent=$(git rev-parse --verify "$newtail^")
 
-git log -n 2 --decorate "$newtail"
+if [ -n "$parent" ]; then
+	echo "error: initial commit of $1 already has a fake parent"
+	exit 1
+else
+	git fake-parent "$newtail" "$oldhead"
+	git log -n 2 --decorate "$newtail"
+fi

@@ -21,8 +21,6 @@ if [ "$oldhead" = "$newinit" ]; then
 	exit 1
 fi >&2
 
-git replace -d "$newinit"
-
 if git rev-parse --quiet --verify "$newinit^" >/dev/null; then
 	echo "error: start of new history has a parent"
 	echo "(did you mix up the argument order?)"
@@ -54,7 +52,7 @@ diff -u <(git cat-file commit "$newinit") --label "commit $newinit" \
 	<(git cat-file commit "$newfake") --label "commit $newfake" \
 	|| true
 
-git replace "$newinit" "$newfake"
+git replace -f "$newinit" "$newfake"
 
 msg "Linked history:"
 git log -n 2 "$newinit"

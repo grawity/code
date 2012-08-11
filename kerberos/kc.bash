@@ -402,7 +402,7 @@ kc() {
 		;;
 	*)
 		# switch to a named or numbered ccache
-		local ccname= ccdirname= keyname= keyring=
+		local ccname= ccdirname= keyname= keyring= princ=
 
 		if ccname=$(_kc_expand_ccname "$cmd"); then
 			case $ccname in
@@ -430,7 +430,13 @@ kc() {
 			*)
 				export KRB5CCNAME=$ccname
 			esac
-			printf "Switched to %s\n" "$ccname"
+			if princ=$(pklist -P -c "$ccname" 2>/dev/null); then
+				printf "Switched to \e[1m%s\e[m (%s)\n" \
+					"$princ" "$ccname"
+			else
+				printf "New ccache (%s)\n" \
+					"$ccname"
+			fi
 			[[ $1 ]] && kinit "$@"
 		else
 			return 1

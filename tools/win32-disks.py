@@ -92,7 +92,7 @@ def GetMountVolume(path):
 def GetCanonicalName(disk):
 	target = QueryDosDevice(disk)
 	if target is None:
-		print "QueryDosDevice(%r) is %r" % (letter, target)
+		print("QueryDosDevice(%r) is %r" % (letter, target))
 		return None
 	elif target.startswith("\\??\\"):
 		# `subst`-mapped disk
@@ -134,8 +134,8 @@ def GetLogicalDriveStrings():
 
 LINE_FORMAT = "%-5s %-16s %-17s %10s %10s %5s"
 header = LINE_FORMAT % ("path", "label", "type", "size", "free", "used")
-print header
-print "-"*len(header)
+print(header)
+print("-"*len(header))
 
 Letters = GetLogicalDriveStrings()
 Letters.sort()
@@ -155,7 +155,7 @@ DosDevices = {}
 for letter in Letters:
 	target = DosDevices[letter] = QueryDosDevice(letter)
 	if target is None:
-		print "QueryDosDevice(%r) is %r" % (letter, target)
+		print("QueryDosDevice(%r) is %r" % (letter, target))
 	elif target.startswith("\\??\\"):
 		# `subst`-mapped disk
 		#target = target[:target.index("\0")]
@@ -169,7 +169,8 @@ for letter in Letters:
 		pass
 	elif target.startswith("UNC\\"):
 		# `subst`-mapped network disk
-		Maps[letter] = 
+		#Maps[letter] = 
+		pass
 	else:
 		Drives[letter] = GetMountVolume(letter)
 
@@ -210,21 +211,21 @@ for letter in Letters:
 	else:
 		strtype = drivetypes[type]
 
-	print LINE_FORMAT % (
+	print(LINE_FORMAT % (
 		letter,
 		label or "(unnamed)",
 		strtype,
 		prettySize(total),
 		prettySize(diskfree),
 		"%d%%" % used if used is not None else "-",
-	)
+	))
 
 	if isMapped:
-		print "%-5s ==> %s" % ("", target)
+		print("%-5s ==> %s" % ("", target))
 	else:
 		pathnames.remove(letter)
 		for path in pathnames:
-			print "%-5s <-- %s" % ("", path)
+			print("%-5s <-- %s" % ("", path))
 
 for root in Volumes.keys():
 	if root in Printed:
@@ -251,13 +252,13 @@ for root in Volumes.keys():
 	else:
 		strtype = drivetypes[type]
 
-	print LINE_FORMAT % (
+	print(LINE_FORMAT % (
 		"*",
 		label or "(unnamed)",
 		strtype,
 		prettySize(total),
 		prettySize(diskfree),
 		"%d%%" % used if used is not None else "-",
-	)
+	))
 	for path in pathnames:
-		print "%-5s <-- %s" % ("", path)
+		print("%-5s <-- %s" % ("", path))

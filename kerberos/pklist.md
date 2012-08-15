@@ -22,20 +22,20 @@ Basic format consists of tab-separated fields, the zeroth of which is type:
 
   * `cache`:
 
-      1. Kerberos 5 credential cache name
+     1. Kerberos 5 credential cache name
 
   * `principal`:
 
-      1. default client principal name
+     1. default client principal name
 
   * `ticket`:
 
-      1. client principal name
-      2. server principal name
-      3. "valid starting" time
-      4. expiry time
-      5. renewable until time (0 if ticket not renewable)
-      6. ticket flags
+     1. client principal name
+     2. server principal name
+     3. "valid starting" time
+     4. expiry time
+     5. renewable until time (0 if ticket not renewable)
+     6. ticket flags
 
   * `cfgticket`: same as `ticket`
 
@@ -43,12 +43,12 @@ In collection mode (`-l`), there are two additional line types:
 
   * `default`:
 
-      1. name of the default credential cache
+    1. name of the default credential cache
 
   * `cache`:
 
-      1. credential cache name (as `cache` above)
-      2. default client principal name (as `principal` above)
+    1. credential cache name (as `cache` above)
+    2. default client principal name (as `principal` above)
 
     These two lines are merged in order to display one cache per line.
 

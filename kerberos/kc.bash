@@ -445,3 +445,8 @@ kc() {
 	esac
 	return 0
 }
+
+if [[ -t 0 && -t 1 && $- != *i* ]]; then
+	echo "kc needs to be sourced (e.g. from your ~/.bashrc) for it to work."
+	false
+fi

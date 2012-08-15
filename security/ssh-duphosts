@@ -1,10 +1,45 @@
 #!/usr/bin/env python
-# ssh-duphosts v1.1
+# ssh-duphosts v1.2
 # Checks for duplicate entries in ~/.ssh/known_hosts
 from __future__ import print_function
+from operator import itemgetter
 import os
 import sys
 import getopt
+
+def is_ip(addr):
+	if addr.startswith("["):
+		addr = addr[1:addr.find("]:")]
+
+	if ":" in addr:
+		return True
+
+	if all(x.isdigit() for x in addr.split(".")):
+		return True
+
+	return False
+
+class Hostname(object):
+	def __init__(self, value):
+		self.value = value
+		self.comparable = value.split(",", 1)[0]
+
+	def __hash__(self):
+		return hash(self.value)
+
+	def __str__(self):
+		return str(self.value)
+
+	def __gt__(self, other):
+		self_d = is_ip(self.comparable)
+		other_d = is_ip(other.comparable)
+
+		if self_d and not other_d:
+			return True
+		elif other_d and not self_d:
+			return False
+		else:
+			return self.comparable > other.comparable
 
 knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
 do_filter = False
@@ -42,9 +77,18 @@ for line in fh:
 
 # print results
 if do_filter:
+	byhosts = {}
+
 	for entry in keys:
 		ktype, key = entry
-		hosts = ",".join(keys[entry])
+		hosts = sorted(keys[entry], key=Hostname)
+		hosts = ",".join(hosts)
+		hosts = Hostname(hosts)
+		byhosts[hosts, ktype] = key
+
+	for entry in sorted(byhosts, key=itemgetter(0)):
+		hosts, ktype = entry
+		key = byhosts[entry]
 		if ktype == "(sshv1-rsa)":
 			print(hosts, key)
 		else:

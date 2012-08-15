@@ -317,10 +317,10 @@ kc() {
 		_kc_expand_ccname "$1"
 		;;
 	=*)
-		local line=
+		local line= aliasfile=${XDG_CONFIG_HOME:-~/.config}/k5aliases
 
-		if if [[ -e ~/lib/k5aliases ]] &&
-		line=$(grep -w "^${cmd#=}" ~/lib/k5aliases); then
+		if if [[ -e $aliasfile ]] &&
+		line=$(grep -w "^${cmd#=}" "$aliasfile"); then
 			true
 		elif [[ -e ~/lib/dotfiles/k5aliases ]] &&
 		line=$(grep -w "^${cmd#=}" ~/lib/dotfiles/k5aliases); then

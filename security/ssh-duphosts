@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# ssh-duphosts v1.3
+# ssh-duphosts v1.4
 # Checks for duplicate entries in ~/.ssh/known_hosts
 from __future__ import print_function
 from operator import itemgetter
@@ -77,23 +77,27 @@ def print_duplicates(keys):
 			})
 			print("\t%s" % "\n\t".join(hosts))
 
-def print_merged(keys):
-	byhosts = {}
+def print_merged(bykey):
+	byhost = {}
 
-	for entry in keys:
+	for entry in bykey:
 		ktype, key = entry
-		hosts = sorted(keys[entry], key=Hostname)
-		hosts = ",".join(hosts)
-		hosts = Hostname(hosts)
-		byhosts[hosts, ktype] = key
+		host = sorted(bykey[entry], key=Hostname)
+		host = ",".join(host)
+		host = Hostname(host)
+		byhost[host, ktype] = key
 
-	for entry in sorted(byhosts, key=itemgetter(0)):
-		hosts, ktype = entry
-		key = byhosts[entry]
+	hosts = list(byhost.keys())
+	hosts.sort(key=itemgetter(1))
+	hosts.sort(key=itemgetter(0))
+
+	for entry in hosts:
+		host, ktype = entry
+		key = byhost[entry]
 		if ktype == "(sshv1-rsa)":
-			print(hosts, key)
+			print(host, key)
 		else:
-			print(hosts, ktype, key)
+			print(host, ktype, key)
 
 opt_input = os.path.expanduser("~/.ssh/known_hosts")
 opt_merge = False

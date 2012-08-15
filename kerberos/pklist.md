@@ -4,6 +4,8 @@
 
     cc -o pklist pklist.c -lkrb5 -lcom_err
 
+Or run `make pklist` from repository root.
+
 ## Command-line options
 
   * `-C`: also list config principals (used by Kerberos internally)

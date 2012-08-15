@@ -57,6 +57,7 @@ cc-basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 cc-krb: $(addprefix $(OBJ)/,$(KRB_BINS))
 cc-linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
 cc-misc: $(addprefix $(OBJ)/,$(MISC_BINS))
+pklist: $(OBJ)/pklist
 
 cc-all: cc-basic cc-krb cc-misc
 ifeq ($(UNAME),Linux)

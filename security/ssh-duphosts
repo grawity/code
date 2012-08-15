@@ -1,23 +1,11 @@
 #!/usr/bin/env python
-# ssh-duphosts v1.2
+# ssh-duphosts v1.3
 # Checks for duplicate entries in ~/.ssh/known_hosts
 from __future__ import print_function
 from operator import itemgetter
 import os
 import sys
 import getopt
-
-def is_ip(addr):
-	if addr.startswith("["):
-		addr = addr[1:addr.find("]:")]
-
-	if ":" in addr:
-		return True
-
-	if all(x.isdigit() for x in addr.split(".")):
-		return True
-
-	return False
 
 class Hostname(object):
 	def __init__(self, value):
@@ -41,42 +29,55 @@ class Hostname(object):
 		else:
 			return self.comparable > other.comparable
 
-knownhosts_path = os.path.expanduser("~/.ssh/known_hosts")
-do_filter = False
+def is_ip(addr):
+	if addr.startswith("["):
+		addr = addr[1:addr.find("]")]
 
-opts, args = getopt.getopt(sys.argv[1:], 'f')
-for opt, optarg in opts:
-	if opt in ('f', '-f'):
-		do_filter = True
-if args:
-	knownhosts_path = args.pop(0)
+	if ":" in addr:
+		return True
 
-keys = {}
-fh = open(knownhosts_path, "r")
+	if all(x.isdigit() for x in addr.split(".")):
+		return True
 
-# check for duplicates
-for line in fh:
-	line = line.strip()
-	if line == "" or line.startswith("#"):
-		continue
-	
-	host, ktype, key = line.split(" ", 2)
+	return False
 
-	try:
-		int(ktype)
-	except ValueError:
-		pass
-	else:
-		key = ktype + " " + key
-		ktype = "(sshv1-rsa)"
+def find_duplicates(fh):
+	keys = {}
 
-	if (ktype, key) in keys:
-		keys[ktype, key].append(host)
-	else:
-		keys[ktype, key] = [host]
+	for line in fh:
+		line = line.strip()
+		if line == "" or line.startswith("#"):
+			continue
 
-# print results
-if do_filter:
+		host, ktype, key = line.split(" ", 2)
+
+		try:
+			int(ktype)
+		except ValueError:
+			pass
+		else:
+			key = ktype + " " + key
+			ktype = "(sshv1-rsa)"
+
+		if (ktype, key) in keys:
+			keys[ktype, key].append(host)
+		else:
+			keys[ktype, key] = [host]
+
+	return keys
+
+def print_duplicates(keys):
+	for entry in keys:
+		hosts = keys[entry]
+		ktype, key = entry
+		if len(hosts) > 1:
+			print("Key [%(shortkey)s] has %(count)d entries:" % {
+				"shortkey": ktype + " ..." + key[-15:],
+				"count": len(hosts)
+			})
+			print("\t%s" % "\n\t".join(hosts))
+
+def print_merged(keys):
 	byhosts = {}
 
 	for entry in keys:
@@ -93,13 +94,26 @@ if do_filter:
 			print(hosts, key)
 		else:
 			print(hosts, ktype, key)
+
+opt_input = os.path.expanduser("~/.ssh/known_hosts")
+opt_merge = False
+
+opts, args = getopt.getopt(sys.argv[1:], 'm')
+for opt, optarg in opts:
+	if opt in ('m', '-m'):
+		opt_merge = True
+
+if args:
+	opt_input = args.pop(0)
+
+if opt_input == "-":
+	keys = find_duplicates(sys.stdin)
 else:
-	for entry in keys:
-		hosts = keys[entry]
-		ktype, key = entry
-		if len(hosts) > 1:
-			print("Key [%(shortkey)s] has %(count)d entries:" % {
-				"shortkey": ktype + " ..." + key[-15:],
-				"count": len(hosts)
-			})
-			print("\t%s" % "\n\t".join(hosts))
+	fh = open(opt_input, "r")
+	keys = find_duplicates(fh)
+	fh.close()
+
+if opt_merge:
+	print_merged(keys)
+else:
+	print_duplicates(keys)

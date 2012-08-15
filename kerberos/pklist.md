@@ -2,7 +2,7 @@
 
 ## Installation
 
-    make pklist
+    cc -o pklist pklist.c -lkrb5 -lcom_err
 
 ## Command-line options
 
@@ -20,58 +20,66 @@
 
 Basic format consists of tab-separated fields, the zeroth of which is type:
 
-  * `cache`:
+### "cache"
 
-     1. Kerberos 5 credential cache name
+In default mode:
 
-  * `principal`:
+ 1. Kerberos 5 credential cache name
 
-     1. default client principal name
+In "list collection caches" mode:
 
-  * `ticket`:
+ 1. credential cache name
+ 2. default client principal name (as `principal` above)
 
-     1. client principal name
-     2. server principal name
-     3. "valid starting" time
-     4. expiry time
-     5. renewable until time (0 if ticket not renewable)
-     6. ticket flags
+These two lines are merged in order to display one cache per line.
 
-  * `cfgticket`: same as `ticket`
+### "principal"
 
-In collection mode (`-l`), there are two additional line types:
+In default mode:
 
-  * `default`:
+ 1. default client principal name
 
-    1. name of the default credential cache
+In "list collection caches" mode, merged with `cache` as above.
 
-  * `cache`:
+### "ticket", "cfgticket"
 
-    1. credential cache name (as `cache` above)
-    2. default client principal name (as `principal` above)
+`ticket` is a normal Kerberos credential.
+`cfgticket` is used internally by libkrb5, and not shown by default
 
-    These two lines are merged in order to display one cache per line.
+ 1. client principal name
+ 2. server principal name
+ 3. "valid starting" time
+ 4. expiry time
+ 5. renewable until time (0 if ticket not renewable)
+ 6. ticket flags
+
+### "default"
+
+In "list collection caches" mode:
+
+ 1. name of the default credential cache
+
+## Headers
 
 Some modes output a header line, which has type in all uppercase (such as `CREDENTIALS`) and following fields acting as column headers for following output lines.
 
 When any of `-N`, `-P`, `-p`, `-R`, or `-r` is given, _only_ the requested data is displayed, without any type prefix.
 
+## Flags
+
 Flags mostly match those documented in `klist(1)`:
 
-  * `F` - Forwardable
-  * `f` - forwarded
-  * `P` - Proxiable
-  * `p` - proxy
-  * `D` - postDateable
-  * `d` - postdated
-  * `R` - Renewable
-  * `I` - Initial (`AP_REQ`)
-  * `i` - invalid
-  * `H` - hardware authenticated
-  * `A` - preAuthenticated
-  * `T` - transit policy checked
-  * `O` - Okay as delegate
-  * `a` - anonymous`
+  * `F`, `f` – Forwardable and forwarded
+  * `P`, `p` – Proxiable and proxy
+  * `D`, `d` – postDateable and postdated
+  * `R` – Renewable
+  * `I` – Initial (`AP_REQ`)
+  * `i` – invalid
+  * `A` – preAuthenticated
+  * `H` – hardware authenticated
+  * `T` – transit policy checked
+  * `O` – Okay as delegate
+  * `a` – anonymous`
 
 ## Collections
 

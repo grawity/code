@@ -39,7 +39,7 @@ sub load_twurl_secrets {
 
 sub fetch_entire_timeline {
 	my @tweets;
-	my @seen;
+	my %seen;
 	my $max;
 
 	say "Retrieving from start";
@@ -51,6 +51,7 @@ sub fetch_entire_timeline {
 			count => "200",
 		);
 		$params{max_id} = $max if defined $max;
+
 		my $timeline = eval {$twitter->user_timeline(\%params)};
 		if (!$timeline) {
 			warn "Failure: $@\n";
@@ -60,17 +61,16 @@ sub fetch_entire_timeline {
 
 		my $num = 0;
 		for my $item (@$timeline) {
-			next if $item->{id} ~~ @seen;
+			next if $seen{$item->{id_str}}++;
 			push @tweets, $item;
-			$max = min($max //= $item->{id}, $item->{id});
-			push @seen, $item->{id};
+			$max = $item->{id_str};
 
 			printf STDERR "[%s] %s\n",
-				$item->{id},
+				$item->{id_str},
 				$item->{text};
 			++$num;
 		}
-		last if $num == 0;
+		last if !$num;
 	}
 
 	@tweets = reverse @tweets;
@@ -81,7 +81,7 @@ sub fetch_tweets_since {
 	my ($since) = @_;
 
 	my @tweets;
-	my @seen;
+	my %seen;
 
 	say "Resuming at $since";
 
@@ -102,12 +102,11 @@ sub fetch_tweets_since {
 
 		my $num = 0;
 		for my $item (@$timeline) {
-			next if $item->{id} ~~ @seen;
+			next if $seen{$item->{id_str}}++;
 			push @tweets, $item;
-			push @seen, $item->{id};
 
 			printf STDERR "[%s] %s\n",
-				$item->{id},
+				$item->{id_str},
 				$item->{text};
 			++$num;
 		}
@@ -150,8 +149,8 @@ $twitter->access_token_secret($secrets{access_secret});
 
 my $tweets = load_tweets;
 if (defined $tweets) {
-	my $since = $tweets->[-1]{id};
-	my $new = fetch_tweets_since($since + 1);
+	my $since = $tweets->[-1]{id_str};
+	my $new = fetch_tweets_since($since);
 	push @$tweets, @$new;
 } else {
 	$tweets = fetch_entire_timeline;

@@ -1,12 +1,13 @@
 #!/usr/bin/env perl
 # dbus-name - manage DBus names
-use v5.16;
+use v5.14;
 use warnings;
 use Getopt::Long;
 use Net::DBus;
 use Net::DBus::Reactor;
 
 my $bus;
+my $busaddr;
 my $err = 0;
 my $activate = 0;
 my $quiet = 0;
@@ -36,12 +37,9 @@ sub usage {
 
 GetOptions(
 	"h|help"	=> sub { usage(); exit; },
-	"y|system"	=> sub { $bus = Net::DBus->system; },
-	"e|session"	=> sub { $bus = Net::DBus->session; },
-	"a|address=s"	=> sub {
-				my ($opt, $addr) = @_;
-				$bus = Net::DBus->new($addr);
-			},
+	"y|system"	=> sub { $busaddr = "system"; },
+	"e|session"	=> sub { $busaddr = "session"; },
+	"a|address=s"	=> \$busaddr,
 	"q|quiet"	=> \$quiet,
 	"c|activate"	=> \$activate,
 	"l|list"	=> \$list,
@@ -49,7 +47,20 @@ GetOptions(
 	"wait-any"	=> sub { $wait = "any"; },
 ) or do { usage(); exit 2; };
 
-$bus //= Net::DBus->find;
+for ($busaddr) {
+	when (undef) {
+		$bus = Net::DBus->find;
+	}
+	when ("system") {
+		$bus = Net::DBus->system;
+	}
+	when ("session") {
+		$bus = Net::DBus->session;
+	}
+	default {
+		$bus = Net::DBus->new($busaddr);
+	}
+}
 
 if ($list) {
 	warn "Note: --quiet does not make sense with --list.\n" if $quiet;

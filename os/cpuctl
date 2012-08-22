@@ -3,6 +3,11 @@
 
 use feature qw(say switch);
 
+sub err {
+	say STDERR @_;
+	our $err; ++$err;
+}
+
 sub rangesplit {
 	my ($str) = @_;
 	my @items;
@@ -14,7 +19,7 @@ sub rangesplit {
 			push @items, $_;
 		}
 		default {
-			warn "Not a number: $_\n";
+			err "Not a number: $_";
 		}
 	}
 	@items;
@@ -26,7 +31,7 @@ sub put {
 		say $fh $str;
 		close $fh;
 	} else {
-		warn "Cannot open $file: $!\n";
+		err "Cannot open $file: $!";
 	}
 }
 
@@ -37,7 +42,7 @@ sub get {
 		close $fh;
 		return $str;
 	} else {
-		warn "Cannot open $file: $!\n";
+		err "Cannot open $file: $!";
 	}
 }
 
@@ -83,3 +88,5 @@ for ($cmd) {
 		put("$_/online", "0") for map {cpu($_)} @cpus;
 	}
 }
+
+exit !!$err;

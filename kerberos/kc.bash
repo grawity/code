@@ -100,7 +100,7 @@ kc_list_caches() {
 	{
 		pklist -l -N | tr '\n' '\0'
 		# traditional
-		find "/tmp" -maxdepth 1 -name "krb5cc_*" \( -user "$UID" \
+		find "/tmp" -maxdepth 1 -name "krb5cc*" \( -user "$UID" \
 			-o -user "$USER" \) -printf "FILE:%p\0"
 		# grawity's own convention
 		# TODO: only check if different from current path
@@ -113,12 +113,16 @@ kc_list_caches() {
 			printf "KCM:%d\0" "$UID"
 		fi
 		# kernel keyrings
-		if [[ "$XDG_SESSION_ID" ]]; then
-			name="krb5cc.$UID.$XDG_SESSION_ID"
-			if keyctl search "@s" "keyring" "$name" >&/dev/null; then
-				printf "KEYRING:%s\0" "$name"
-			fi
-		fi
+		local s_keys=$(keyctl rlist @s 2>/dev/null)
+		local u_keys=$(keyctl rlist @u 2>/dev/null)
+		for key in $s_keys $u_keys; do
+			local desc=$(keyctl rdescribe "$key")
+			case $desc in
+			keyring\;*\;*\;*\;krb5cc.*)
+				printf "KEYRING:%s\0" "${desc#*;*;*;*;}"
+				;;
+			esac
+		done
 	} | sort -z -u | {
 		while read -rd '' c; do
 			if pklist -c "$c" >& /dev/null; then

@@ -1,0 +1,173 @@
+import sys
+import termios
+
+properties = {
+	"red": (0, 5),
+	"green": (0, 5),
+	"blue": (0, 5),
+	"color": (0, 15),
+	"gray": (0, 23),
+}
+
+class State(dict):
+	def copy(self):
+		return State(self)
+
+	def incr(self, *props):
+		for prop in props:
+			minval, maxval = properties[prop]
+			if self[prop] < maxval:
+				self[prop] += 1
+
+	def decr(self, *props):
+		for prop in props:
+			minval, maxval = properties[prop]
+			if self[prop] > minval:
+				self[prop] -= 1
+
+	def reset(self, *props):
+		for prop in props:
+			minval, maxval = properties[prop]
+			self[prop] = int((minval+maxval)/2.0)
+
+	def toggle(self, *flags):
+		for flag in flags:
+			if flag in self["flags"]:
+				self["flags"].remove(flag)
+			else:
+				self["flags"].add(flag)
+
+	def fmt(self, flags=True, bg=False):
+		out = ""
+
+		if flags and self["flags"]:
+			fmtstr = ";".join(map(str, sorted(self["flags"])))
+			out += "\033[%sm" % fmtstr
+
+		if self["mode"] == "sys":
+			color = self["color"]
+		elif self["mode"] == "rgb":
+			color = 16 + self["red"]*36 + self["green"]*6 + self["blue"]
+		elif self["mode"] == "gray":
+			color = 232 + self["gray"]
+		if bg:
+			out += "\033[48;5;%dm" % color
+		else:
+			out += "\033[38;5;%dm" % color
+
+		return out
+	
+	@property
+	def ansi(self):
+		return self.fmt(True)
+
+def getch():
+	import sys, tty, termios
+	fd = sys.stdin.fileno()
+	old = termios.tcgetattr(fd)
+	try:
+		#tty.setraw(fd)
+		return sys.stdin.read(1)
+	finally:
+		termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+def icanon(mode):
+	fd = sys.stdin.fileno()
+	flags = termios.tcgetattr(fd)
+	if mode:
+		flags[3] &= ~termios.ICANON & ~termios.ECHO
+	else:
+		flags[3] |= termios.ICANON | termios.ECHO
+	termios.tcsetattr(fd, 0, flags)
+
+def bar(name, state, prop):
+	minval, maxval = properties[prop]
+	newstate = state.copy()
+	out = "%10s: [" % name
+	for val in range(minval, maxval+1):
+		newstate[prop] = val
+		out += "%s##" % newstate.fmt(flags=False)
+	out += "\033[m] %d" % state[prop]
+	print(out)
+
+	out = "%10s   " % ""
+	for val in range(minval, maxval+1):
+		out += "^^" if val == state[prop] else "  "
+	print(out)
+
+state = State()
+state["mode"] = "rgb"
+state["flags"] = set()
+state.reset("red", "green", "blue", "color", "gray")
+
+icanon(True)
+
+while True:
+	print("\033[H\033[2J")
+
+	print("    ┌" + "─"*40 + "┐")
+	line = "    │\033[40m" + state.fmt() + "x"*20 + "\033[30m" \
+			+ state.fmt(bg=True) + "x"*20 + "\033[m│"
+	print("\n".join([line]*5))
+	print("    ├" + "─"*40 + "┤")
+	line = "    │\033[47m" + state.fmt() + "x"*20 + "\033[37m" \
+			+ state.fmt(bg=True) + "x"*20 + "\033[m│"
+	print("\n".join([line]*5))
+	print("    └" + "─"*40 + "┘")
+	print()
+
+	if state["mode"] == "sys":
+		print("      keys: color +/-")
+	elif state["mode"] == "rgb":
+		print("      keys: red 7/9, green 4/6, blue 1/3, all +/-")
+	elif state["mode"] == "gray":
+		print("      keys: level +/-")
+	
+	print("            mode g, format b/r/u/s, reset *")
+	print()
+
+	if state["mode"] == "sys":
+		bar("color", state, "color")
+	elif state["mode"] == "rgb":
+		bar("red", state, "red")
+		bar("green", state, "green")
+		bar("blue", state, "blue")
+	elif state["mode"] == "gray":
+		bar("gray", state, "gray")
+	
+	fmtstr = state.fmt(flags=True).replace("\033", "\\e")
+
+	print("%10s: %s" % ("ansi", fmtstr))
+
+	k = getch()
+	if k == "q":		break
+	elif k == "b":		state.toggle(1)
+	elif k == "u":		state.toggle(4)
+	elif k == "r":		state.toggle(7)
+	elif k == "s":		state.toggle(9)
+	elif state["mode"] == "rgb":
+		if k == "g":	state["mode"] = "sys"
+		elif k == "7":	state.decr("red")
+		elif k == "8":	state.reset("red")
+		elif k == "9":	state.incr("red")
+		elif k == "4":	state.decr("green")
+		elif k == "5":	state.reset("green")
+		elif k == "6":	state.incr("green")
+		elif k == "1":	state.decr("blue")
+		elif k == "2":	state.reset("blue")
+		elif k == "3":	state.incr("blue")
+		elif k == "-":	state.decr("red", "green", "blue")
+		elif k == "*":	state.reset("red", "green", "blue")
+		elif k == "+":	state.incr("red", "green", "blue")
+	elif state["mode"] == "sys":
+		if k == "g":		state["mode"] = "gray"
+		elif k in "741-":	state.decr("color")
+		elif k in "852*":	state.reset("color")
+		elif k in "963+":	state.incr("color")
+	elif state["mode"] == "gray":
+		if k == "g":		state["mode"] = "rgb"
+		elif k in "741-":	state.decr("gray")
+		elif k in "852*":	state.reset("gray")
+		elif k in "963+":	state.incr("gray")
+
+icanon(False)

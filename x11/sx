@@ -1,0 +1,21 @@
+#!/bin/sh
+
+vt=$(tty|sed s:^/dev/tty:vt:)
+
+if [ "$vt" = "not a tty" ]; then
+	echo "Unable to determine current VT"
+	exit 1
+fi
+
+export DISPLAY=$(next-display)
+export XAUTHORITY=~/.Xauthority
+
+echo "Starting Xorg on display $DISPLAY"
+
+xauth remove "${HOSTNAME}:${DISPLAY#:}"
+xauth remove "$DISPLAY"
+
+xauth add "$DISPLAY" "MIT-MAGIC-COOKIE-1" "$(mcookie)"
+
+exec xinit ~/.xinitrc "$@" -- "$DISPLAY" "$vt" -noreset \
+				-auth "$XAUTHORITY" -quiet < /dev/null

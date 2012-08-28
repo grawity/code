@@ -2,10 +2,11 @@
 
 vt=$(tty|sed s:^/dev/tty:vt:)
 
-if [ "$vt" = "not a tty" ]; then
+case $vt in
+"not a tty"|/dev/*)
 	echo "Unable to determine current VT"
-	exit 1
-fi
+	exit 1;;
+esac
 
 export DISPLAY=$(next-display)
 export XAUTHORITY=~/.Xauthority
@@ -17,5 +18,7 @@ xauth remove "$DISPLAY"
 
 xauth add "$DISPLAY" "MIT-MAGIC-COOKIE-1" "$(mcookie)"
 
-exec xinit ~/.xinitrc "$@" -- "$DISPLAY" "$vt" -noreset \
-				-auth "$XAUTHORITY" -quiet < /dev/null
+ln -sf "/tmp/.X11-unix/${DISPLAY#:}" "$XDG_RUNTIME_DIR/X11-display"
+
+exec xinit ~/.xinitrc "$@" -- "$DISPLAY" "$vt" \
+	-noreset -auth "$XAUTHORITY" -quiet < /dev/null > ~/.xsession-errors 2>&1

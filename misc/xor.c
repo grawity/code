@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 	int i, k = 0;
 
 	if (argc != 2) {
-		fprintf(stderr, "usage: xor <key>\n");
+		fprintf(stderr, "usage: xor <key>|0x<hex>\n");
 		return 2;
 	}
 

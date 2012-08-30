@@ -7,7 +7,7 @@ modes = {
 	"rgb": "256-color pallette – 6*6*6 RGB subset",
 	"gray": "256-color pallette – grayscale subset",
 	"sys": "256-color pallette – ansicolor subset",
-	"ansi": "ANSI 8-color pallette",
+	"iso": "ISO 8-color pallette",
 }
 
 properties = {
@@ -46,6 +46,18 @@ class State(dict):
 			else:
 				self["flags"].add(flag)
 
+	def getcolor(self, iso=False):
+		if iso and self["mode"] == "iso":
+			return self["color"]
+		elif self["mode"] == "sys":
+			return self["color"]
+		elif self["mode"] == "rgb":
+			return 16 + self["red"]*36 + self["green"]*6 + self["blue"]
+		elif self["mode"] == "gray":
+			return 232 + self["gray"]
+		else:
+			return None
+
 	def fmt(self, flags=True, bg=False):
 		out = ""
 
@@ -56,7 +68,7 @@ class State(dict):
 		if flags:
 			sgr += self["flags"]
 
-		if self["mode"] == "ansi":
+		if self["mode"] == "iso":
 			color = self["color"]
 			if color > 7:
 				color -= 8
@@ -71,20 +83,13 @@ class State(dict):
 
 		# output 256-color
 
-		if self["mode"] == "sys":
-			color = self["color"]
-		elif self["mode"] == "rgb":
-			color = 16 + self["red"]*36 + self["green"]*6 + self["blue"]
-		elif self["mode"] == "gray":
-			color = 232 + self["gray"]
-		else:
-			color = None
+		color = self.getcolor()
 
 		if color is not None:
 			out += "\033[%d;5;%dm" % (48 if bg else 38, color)
 
 		return out
-	
+
 	@property
 	def ansi(self):
 		return self.fmt(True)
@@ -135,19 +140,34 @@ icanon(True)
 
 char = "x"
 
+class Sgr(object):
+	BOLD = 1
+	DARK = 2
+	UNDERLINE = 4
+	REVERSE = 7
+	STRIKE = 9
+
+	names = {
+		BOLD: "bold",
+		DARK: "dark",
+		UNDERLINE: "underline",
+		REVERSE: "reverse",
+		STRIKE: "strike",
+	}
+
 while True:
 	print("\033[H\033[2J", end="")
 
 	print("    ┌" + "─"*20 + "┬" + "─"*20 + "┬" + "─"*20 + "┐")
 	print("    │%-20s│%-20s│%-20s│" %
-		("default bg", "ansi black bg", "ansi white bg"))
+		("default bg", "iso black bg", "iso white bg"))
 	line = "    │"
 	line += "\033[49m" + state.fmt() + char*20 + "\033[m│"
 	line += "\033[40m" + state.fmt() + char*20 + "\033[m│"
 	line += "\033[47m" + state.fmt() + char*20 + "\033[m│"
 	print("\n".join([line]*3))
 	print("    │%-20s│%-20s│%-20s│" %
-		("default fg", "ansi black fg", "ansi white fg"))
+		("default fg", "iso black fg", "iso white fg"))
 	line = "    │"
 	line += "\033[39m" + state.fmt(bg=True) + char*20 + "\033[m│"
 	line += "\033[30m" + state.fmt(bg=True) + char*20 + "\033[m│"
@@ -155,48 +175,44 @@ while True:
 	print("\n".join([line]*3))
 	print("    └" + "─"*20 + "┴" + "─"*20 + "┴" + "─"*20 + "┘")
 	print()
-	print("%11s" % "mode:", modes[state["mode"]])
-	print()
 
 	if state["mode"] == "rgb":
 		print("%11s" % "keys:", "red 7/9, green 4/6, blue 1/3, all +/-")
-	elif state["mode"] in {"sys", "ansi"}:
+	elif state["mode"] in {"sys", "iso"}:
 		print("%11s" % "keys:", "color +/-")
 	elif state["mode"] == "gray":
 		print("%11s" % "keys:", "level +/-")
-	
-	print("%11s" % "", "mode g/G, format b/r/u/s, reset 0")
+
+	print("%11s" % "", "mode g/G, format b/d/u/s/r, reset 0")
 	print()
 
 	if state["mode"] == "rgb":
 		bar("red", state, "red", 3)
 		bar("green", state, "green", 3)
 		bar("blue", state, "blue", 3)
-	elif state["mode"] in {"sys", "ansi"}:
+	elif state["mode"] in {"sys", "iso"}:
 		bar("color", state, "color", 2)
 	elif state["mode"] == "gray":
 		bar("gray", state, "gray", 1)
-	
+
+	print("%11s" % "mode:", modes[state["mode"]])
 	fmtfgstr = state.fmt(flags=True).replace("\033", "\\e")
 	fmtbgstr = state.fmt(flags=True, bg=True).replace("\033", "\\e")
-
-	if state["mode"] in {"sys", "ansi"}:
-		xres = state["color"]
-	elif state["mode"] == "rgb":
-		xres = 16 + state["red"]*36 + state["green"]*6 + state["blue"]
-	elif state["mode"] == "gray":
-		xres = 232 + state["gray"]
-	xres = "color%d" % xres
-
-	print("%11s" % "code:", fmtfgstr, "(fg),", fmtbgstr, "(bg),",
-		xres, "(Xresource)")
+	print("%11s" % "code:",
+		fmtfgstr, "(fg),",
+		fmtbgstr, "(bg)")
+	style = [Sgr.names[f] for f in state["flags"]]
+	style.append("color%d" % state.getcolor(iso=True))
+	print("%11s" % "name:", " + ".join(style))
 
 	k = getch()
 	if k == "q":		break
-	elif k == "b":		state.toggle(1)
-	elif k == "u":		state.toggle(4)
-	elif k == "r":		state.toggle(7)
-	elif k == "s":		state.toggle(9)
+	elif k == "b":		state.toggle(Sgr.BOLD)
+	elif k == "d":		state.toggle(Sgr.DARK)
+	elif k == "u":		state.toggle(Sgr.UNDERLINE)
+	elif k == "r":		state.toggle(Sgr.REVERSE)
+	#elif k == "B":		state.toggle(5)
+	elif k == "s":		state.toggle(Sgr.STRIKE)
 	elif state["mode"] == "rgb":
 		if k == "g":	state["mode"] = "sys"
 		elif k == "G":	state["mode"] = "gray"
@@ -213,12 +229,12 @@ while True:
 		elif k == "0":	state.reset("red", "green", "blue")
 		elif k == "+":	state.incr("red", "green", "blue")
 	elif state["mode"] == "sys":
-		if k == "g":		state["mode"] = "ansi"
+		if k == "g":		state["mode"] = "iso"
 		elif k == "G":		state["mode"] = "rgb"
 		elif k in "741-":	state.decr("color")
 		elif k in "8520":	state.reset("color")
 		elif k in "963+":	state.incr("color")
-	elif state["mode"] == "ansi":
+	elif state["mode"] == "iso":
 		if k == "g":		state["mode"] = "gray"
 		elif k == "G":		state["mode"] = "sys"
 		elif k in "741-":	state.decr("color")
@@ -226,7 +242,7 @@ while True:
 		elif k in "963+":	state.incr("color")
 	elif state["mode"] == "gray":
 		if k == "g":		state["mode"] = "rgb"
-		elif k == "G":		state["mode"] = "ansi"
+		elif k == "G":		state["mode"] = "iso"
 		elif k in "741-":	state.decr("gray")
 		elif k in "8520":	state.reset("gray")
 		elif k in "963+":	state.incr("gray")

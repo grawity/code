@@ -3,6 +3,13 @@ from __future__ import print_function
 import sys
 import termios
 
+modes = {
+	"rgb": "256-color pallette – 6*6*6 RGB subset",
+	"gray": "256-color pallette – grayscale subset",
+	"sys": "256-color pallette – ansicolor subset",
+	"ansi": "ANSI 8-color pallette",
+}
+
 properties = {
 	"red": (0, 5),
 	"green": (0, 5),
@@ -42,9 +49,27 @@ class State(dict):
 	def fmt(self, flags=True, bg=False):
 		out = ""
 
-		if flags and self["flags"]:
-			fmtstr = ";".join(map(str, sorted(self["flags"])))
-			out += "\033[%sm" % fmtstr
+		# output basic SGR
+
+		sgr = []
+
+		if flags:
+			sgr += self["flags"]
+
+		if self["mode"] == "ansi":
+			color = self["color"]
+			if color > 7:
+				color -= 8
+				if 1 not in sgr:
+					sgr.append(1)
+			color += 40 if bg else 30
+			sgr.append(color)
+
+		if len(sgr) > 0:
+			sgr.sort()
+			out += "\033[%sm" % ";".join(map(str, sgr))
+
+		# output 256-color
 
 		if self["mode"] == "sys":
 			color = self["color"]
@@ -52,10 +77,11 @@ class State(dict):
 			color = 16 + self["red"]*36 + self["green"]*6 + self["blue"]
 		elif self["mode"] == "gray":
 			color = 232 + self["gray"]
-		if bg:
-			out += "\033[48;5;%dm" % color
 		else:
-			out += "\033[38;5;%dm" % color
+			color = None
+
+		if color is not None:
+			out += "\033[%d;5;%dm" % (48 if bg else 38, color)
 
 		return out
 	
@@ -120,28 +146,45 @@ while True:
 	print("    └" + "─"*40 + "┘")
 	print()
 
-	if state["mode"] == "sys":
-		print("      keys: color +/-")
-	elif state["mode"] == "rgb":
-		print("      keys: red 7/9, green 4/6, blue 1/3, all +/-")
-	elif state["mode"] == "gray":
-		print("      keys: level +/-")
-	
-	print("            mode g, format b/r/u/s, reset *")
+	print("%11s" % "mode:", modes[state["mode"]])
 	print()
 
-	if state["mode"] == "sys":
-		bar("color", state, "color")
-	elif state["mode"] == "rgb":
+	if state["mode"] == "rgb":
+		print("%11s" % "keys:", "red 7/9, green 4/6, blue 1/3, all +/-")
+	elif state["mode"] in {"sys", "ansi"}:
+		print("%11s" % "keys:", "color +/-")
+	elif state["mode"] == "gray":
+		print("%11s" % "keys:", "level +/-")
+	
+	print("%11s" % "", "mode g/G, format b/r/u/s, reset *")
+	print()
+
+	if state["mode"] == "rgb":
 		bar("red", state, "red")
 		bar("green", state, "green")
 		bar("blue", state, "blue")
+	elif state["mode"] in {"sys", "ansi"}:
+		bar("color", state, "color")
 	elif state["mode"] == "gray":
 		bar("gray", state, "gray")
-	
-	fmtstr = state.fmt(flags=True).replace("\033", "\\e")
 
-	print("%10s: %s" % ("ansi", fmtstr))
+	print()
+	
+	fmtfgstr = state.fmt(flags=True).replace("\033", "\\e")
+	fmtbgstr = state.fmt(flags=True, bg=True).replace("\033", "\\e")
+
+	print("%11s" % "seq (fg):", fmtfgstr)
+	print("%11s" % "seq (bg):", fmtbgstr)
+
+	xres = 0
+	if state["mode"] in {"sys", "ansi"}:
+		xres = state["color"]
+	elif state["mode"] == "rgb":
+		xres = 16 + state["red"]*36 + state["green"]*6 + state["blue"]
+	elif state["mode"] == "gray":
+		xres = 232 + state["gray"]
+
+	print("%11s" % "resource:", "color%d" % xres)
 
 	k = getch()
 	if k == "q":		break
@@ -151,6 +194,7 @@ while True:
 	elif k == "s":		state.toggle(9)
 	elif state["mode"] == "rgb":
 		if k == "g":	state["mode"] = "sys"
+		elif k == "G":	state["mode"] = "gray"
 		elif k == "7":	state.decr("red")
 		elif k == "8":	state.reset("red")
 		elif k == "9":	state.incr("red")
@@ -164,12 +208,20 @@ while True:
 		elif k == "*":	state.reset("red", "green", "blue")
 		elif k == "+":	state.incr("red", "green", "blue")
 	elif state["mode"] == "sys":
+		if k == "g":		state["mode"] = "ansi"
+		elif k == "G":		state["mode"] = "rgb"
+		elif k in "741-":	state.decr("color")
+		elif k in "852*":	state.reset("color")
+		elif k in "963+":	state.incr("color")
+	elif state["mode"] == "ansi":
 		if k == "g":		state["mode"] = "gray"
+		elif k == "G":		state["mode"] = "sys"
 		elif k in "741-":	state.decr("color")
 		elif k in "852*":	state.reset("color")
 		elif k in "963+":	state.incr("color")
 	elif state["mode"] == "gray":
 		if k == "g":		state["mode"] = "rgb"
+		elif k == "G":		state["mode"] = "ansi"
 		elif k in "741-":	state.decr("gray")
 		elif k in "852*":	state.reset("gray")
 		elif k in "963+":	state.incr("gray")

@@ -131,18 +131,18 @@ state.reset("red", "green", "blue", "color", "gray")
 icanon(True)
 
 while True:
-	print("\033[H\033[2J")
+	print("\033[H\033[2J", end="")
 
 	print("    ┌" + "─"*40 + "┐")
 	print("    │%-20s%-20s│" % ("ansi black bg", "ansi black fg"))
 	line = "    │\033[40m" + state.fmt() + "x"*20 + "\033[30m" \
 			+ state.fmt(bg=True) + "x"*20 + "\033[m│"
-	print("\n".join([line]*5))
-	print("    ├" + "─"*40 + "┤")
+	print("\n".join([line]*3))
+	#print("    ├" + "─"*40 + "┤")
 	print("    │%-20s%-20s│" % ("ansi white bg", "ansi white fg"))
 	line = "    │\033[47m" + state.fmt() + "x"*20 + "\033[37m" \
 			+ state.fmt(bg=True) + "x"*20 + "\033[m│"
-	print("\n".join([line]*5))
+	print("\n".join([line]*3))
 	print("    └" + "─"*40 + "┘")
 	print()
 
@@ -167,24 +167,20 @@ while True:
 		bar("color", state, "color")
 	elif state["mode"] == "gray":
 		bar("gray", state, "gray")
-
-	print()
 	
 	fmtfgstr = state.fmt(flags=True).replace("\033", "\\e")
 	fmtbgstr = state.fmt(flags=True, bg=True).replace("\033", "\\e")
 
-	print("%11s" % "seq (fg):", fmtfgstr)
-	print("%11s" % "seq (bg):", fmtbgstr)
-
-	xres = 0
 	if state["mode"] in {"sys", "ansi"}:
 		xres = state["color"]
 	elif state["mode"] == "rgb":
 		xres = 16 + state["red"]*36 + state["green"]*6 + state["blue"]
 	elif state["mode"] == "gray":
 		xres = 232 + state["gray"]
+	xres = "color%d" % xres
 
-	print("%11s" % "resource:", "color%d" % xres)
+	print("%11s" % "code:", fmtfgstr, "(fg),", fmtbgstr, "(bg),",
+		xres, "(Xresource)")
 
 	k = getch()
 	if k == "q":		break

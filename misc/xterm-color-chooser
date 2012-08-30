@@ -130,22 +130,28 @@ state.reset("red", "green", "blue", "color", "gray")
 
 icanon(True)
 
+char = "x"
+
 while True:
 	print("\033[H\033[2J", end="")
 
-	print("    ┌" + "─"*40 + "┐")
-	print("    │%-20s%-20s│" % ("ansi black bg", "ansi black fg"))
-	line = "    │\033[40m" + state.fmt() + "x"*20 + "\033[30m" \
-			+ state.fmt(bg=True) + "x"*20 + "\033[m│"
+	print("    ┌" + "─"*20 + "┬" + "─"*20 + "┬" + "─"*20 + "┐")
+	print("    │%-20s│%-20s│%-20s│" %
+		("default bg", "ansi black bg", "ansi white bg"))
+	line = "    │"
+	line += "\033[49m" + state.fmt() + char*20 + "\033[m│"
+	line += "\033[40m" + state.fmt() + char*20 + "\033[m│"
+	line += "\033[47m" + state.fmt() + char*20 + "\033[m│"
 	print("\n".join([line]*3))
-	#print("    ├" + "─"*40 + "┤")
-	print("    │%-20s%-20s│" % ("ansi white bg", "ansi white fg"))
-	line = "    │\033[47m" + state.fmt() + "x"*20 + "\033[37m" \
-			+ state.fmt(bg=True) + "x"*20 + "\033[m│"
+	print("    │%-20s│%-20s│%-20s│" %
+		("default fg", "ansi black fg", "ansi white fg"))
+	line = "    │"
+	line += "\033[39m" + state.fmt(bg=True) + char*20 + "\033[m│"
+	line += "\033[30m" + state.fmt(bg=True) + char*20 + "\033[m│"
+	line += "\033[37m" + state.fmt(bg=True) + char*20 + "\033[m│"
 	print("\n".join([line]*3))
-	print("    └" + "─"*40 + "┘")
+	print("    └" + "─"*20 + "┴" + "─"*20 + "┴" + "─"*20 + "┘")
 	print()
-
 	print("%11s" % "mode:", modes[state["mode"]])
 	print()
 

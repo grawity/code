@@ -165,24 +165,24 @@ sub player_getprop {
 				mime-types
 				uri-schemes
 				[PLAYER]
-				player:can-control
-				player:can-go-next
-				player:can-go-prev
-				player:can-pause
-				player:can-play
-				player:can-seek
-				player:loop-status
-				player:metadata
-				player:position
-				player:position@track
-				player:rate
-				player:rate-max
-				player:rate-min
-				player:shuffle
-				player:status
-				player:volume
+				player/can-control
+				player/can-go-next
+				player/can-go-prev
+				player/can-pause
+				player/can-play
+				player/can-seek
+				player/loop-status
+				player/metadata
+				player/position
+				player/position@track
+				player/rate
+				player/rate-max
+				player/rate-min
+				player/shuffle
+				player/status
+				player/volume
 				[PLAYLIST]
-				playlist:active
+				playlist/active
 			);
 			exit;
 		}
@@ -224,28 +224,28 @@ sub player_getprop {
 
 		# player:
 
-		when ("player:can-control") {
+		when ("player/can-control") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanControl");
 		}
-		when ("player:can-go-next") {
+		when ("player/can-go-next") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoNext");
 		}
-		when ("player:can-go-prev") {
+		when ("player/can-go-prev") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoPrevious");
 		}
-		when ("player:can-pause") {
+		when ("player/can-pause") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPause");
 		}
-		when ("player:can-play") {
+		when ("player/can-play") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPlay");
 		}
-		when ("player:can-seek") {
+		when ("player/can-seek") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanSeek");
 		}
-		when ("player:loop-status") {
+		when ("player/loop-status") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "LoopStatus");
 		}
-		when ("player:metadata") {
+		when ("player/metadata") {
 			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
 			my @wantkeys = @_ ? @_ : keys(%$meta);
 			for my $key (@wantkeys) {
@@ -264,10 +264,10 @@ sub player_getprop {
 				}
 			}
 		}
-		when ("player:position") {
+		when ("player/position") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
 		}
-		when ("player:position\@track") {
+		when ("player/position\@track") {
 			my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
 			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
 			my $track = $meta->{"mpris:trackid"};
@@ -276,28 +276,28 @@ sub player_getprop {
 			}
 			say "$pos\@$track";
 		}
-		when ("player:rate") {
+		when ("player/rate") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "Rate");
 		}
-		when ("player:rate-max") {
+		when ("player/rate-max") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "MaximumRate");
 		}
-		when ("player:rate-min") {
+		when ("player/rate-min") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "MinimumRate");
 		}
-		when ("player:shuffle") {
+		when ("player/shuffle") {
 			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "Shuffle");
 		}
-		when ("player:status") {
+		when ("player/status") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
 		}
-		when ("player:volume") {
+		when ("player/volume") {
 			say $player->()->Get(MPRIS_PLAYER_IFACE, "Volume");
 		}
 
 		# playlist:
 
-		when ("playlist:active") {
+		when ("playlist/active") {
 			my $ret = $player->()->Get(MPRIS_PLAYLIST_IFACE, "ActivePlaylist");
 			my ($valid, $struct) = @$ret;
 			if ($valid) {
@@ -323,14 +323,14 @@ sub player_setprop {
 				"[APPLICATION]",
 				"fullscreen {on|off}",
 				"[PLAYER]",
-				"player:loop-status {None|Playlist|Track}",
-				"player:rate (player:rate-max)~(player:rate-min)",
-				"player:position <pos>[@<track>]",
-				"player:shuffle {on|off}",
-				"player:status {Paused|Playing|Stopped|Toggle}",
-				"player:volume 0.0~1.0",
+				"player/loop-status {None|Playlist|Track}",
+				"player/rate (player:rate-max)~(player:rate-min)",
+				"player/position <pos>[@<track>]",
+				"player/shuffle {on|off}",
+				"player/status {Paused|Playing|Stopped|Toggle}",
+				"player/volume 0.0~1.0",
 				"[PLAYLIST]",
-				"playlist:active <playlist-path>",
+				"playlist/active <playlist-path>",
 			);
 			exit;
 		}
@@ -340,7 +340,7 @@ sub player_setprop {
 			$player->()->Set(MPRIS_MAIN_IFACE, "Fullscreen", $arg);
 		}
 
-		when ("player:loop-status") {
+		when ("player/loop-status") {
 			my $arg = shift;
 			given ($arg) {
 				when ([undef, "help"]) {
@@ -362,7 +362,7 @@ sub player_setprop {
 			}
 			$player->()->Set(MPRIS_PLAYER_IFACE, "LoopStatus", $arg);
 		}
-		when ("player:position") {
+		when ("player/position") {
 			my $position = shift;
 			my $track;
 			if (!defined $position) {
@@ -379,7 +379,7 @@ sub player_setprop {
 			}
 			$player->()->SetPosition($track, $position);
 		}
-		when ("player:rate") {
+		when ("player/rate") {
 			my $arg = shift;
 			unless (defined $arg) {
 				my $min = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
@@ -392,11 +392,11 @@ sub player_setprop {
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Rate", $arg);
 		}
-		when ("player:shuffle") {
+		when ("player/shuffle") {
 			my $arg = frombool(shift);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Shuffle", $arg);
 		}
-		when ("player:status") {
+		when ("player/status") {
 			my $arg = shift;
 			given ($arg) {
 				when ([undef, "help"]) {
@@ -420,7 +420,7 @@ sub player_setprop {
 				}
 			}
 		}
-		when ("player:volume") {
+		when ("player/volume") {
 			my $arg = shift;
 			if ($arg ~~ [undef, "help"]) {
 				say "0.0 .. 1.0";
@@ -430,7 +430,7 @@ sub player_setprop {
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Volume", $arg);
 		}
 
-		when ("playlist:active") {
+		when ("playlist/active") {
 			my $arg = shift;
 			unless (defined $arg) {
 				my $orderings = $player->()->Get(MPRIS_PLAYLIST_IFACE,

@@ -5,6 +5,7 @@ use warnings;
 use strict;
 use feature qw(say switch);
 use Data::Dumper;
+use List::Util qw(max);
 use Net::DBus qw(:typing);
 use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
@@ -23,7 +24,7 @@ my $suffix_re = qr/[^.]+(?:\.instance-?\d+)?$/;
 sub usage {
 	say for
 	"Usage: mprisctl --list",
-	"       mprisctl [<player> [<cmd> [args...]]]",
+	"       mprisctl [<player|--all> [<cmd> [args...]]]",
 	"       mprisctl <player> activate",
 	"       mprisctl <player> is-running",
 	"",
@@ -55,7 +56,7 @@ sub track {
 sub saybool {
 	my $b = shift;
 	say $b ? "yes" : "no";
-	exit !$b;
+	return !$b;
 }
 
 sub int2time {
@@ -183,6 +184,7 @@ sub player_getprop {
 				[PLAYLIST]
 				playlist:active
 			);
+			exit;
 		}
 
 		when ("can-fullscreen") {
@@ -307,8 +309,7 @@ sub player_getprop {
 		}
 
 		default {
-			warn "Unknown property '$property'.\n";
-			exit 2;
+			dieusage("Unknown property '$property'.");
 		}
 	}
 }
@@ -331,6 +332,7 @@ sub player_setprop {
 				"[PLAYLIST]",
 				"playlist:active <playlist-path>",
 			);
+			exit;
 		}
 
 		when ("fullscreen") {
@@ -385,7 +387,7 @@ sub player_setprop {
 				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
 							"MaximumRate")} // 1.0;
 				say "$min ... $max";
-				exit;
+				return;
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Rate", $arg);
@@ -445,7 +447,7 @@ sub player_setprop {
 
 		default {
 			warn "Cannot set property '$property'.\n";
-			exit 2;
+			return 2;
 		}
 	}
 }
@@ -578,6 +580,9 @@ given ($player) {
 		listplayers(0);
 		exit;
 	}
+	when (/^(-a|--all)/) {
+		$bus_name = "all";
+	}
 	when (/^-/) {
 		# other dash-options
 		usage();
@@ -621,21 +626,33 @@ given ($cmd) {
 		say for sort keys %commands;
 	}
 	when ("activate") {
+		if ($bus_name eq "all") {
+			dieusage "Bus name not specified (--all won't work here).";
+		}
 		MediaPlayer($bus_name);
 	}
 	when ("is-running") {
+		if ($bus_name eq "all") {
+			dieusage "Bus name not specified (--all won't work here).";
+		}
 		saybool $bus->get_service_owner($bus_name);
 	}
 	default {
 		if (!exists $commands{$cmd}) {
 			dieusage "Unknown command '$cmd'.";
 		}
+		elsif ($bus_name eq "all") {
+			my @r = map {$commands{$cmd}->(MediaPlayer($_), @ARGV) // 0}
+				enumerate();
+			exit max @r;
+		}
 		elsif (!$bus->get_service_owner($bus_name)) {
 			warn "Player $bus_name is not running.\n";
 			exit 4;
 		}
 		else {
-			$commands{$cmd}->(MediaPlayer($bus_name), @ARGV);
+			my $r = $commands{$cmd}->(MediaPlayer($bus_name), @ARGV) // 0;
+			exit $r;
 		}
 	}
 }

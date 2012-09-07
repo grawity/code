@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/file.h>
 #include <sys/wait.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <assert.h>
 
@@ -61,8 +62,46 @@ char * get_lockfile(char *name, int shared) {
 	return path;
 }
 
+int closefds(void) {
+	DIR *dirp;
+	struct dirent *ent;
+	int fd;
+
+	dirp = opendir("/dev/fd");
+	if (!dirp) {
+		fprintf(stderr, "%s: failed to open /dev/fd: %m\n", arg0);
+		return 0;
+	}
+
+	while ((ent = readdir(dirp))) {
+		if (ent->d_name[0] == '.')
+			continue;
+		fd = atoi(ent->d_name);
+		if (fd != dirfd(dirp))
+			close(fd);
+	}
+
+	closedir(dirp);
+
+	fd = open("/dev/null", O_RDWR);
+	if (fd < 0) {
+		fprintf(stderr, "%s: failed to open /dev/null: %m\n", arg0);
+		return 0;
+	}
+
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+
+	if (fd != 0)
+		close(fd);
+
+	return 1;
+}
+
 int main(int argc, char *argv[]) {
 	char **cmd = NULL;
+	int do_closefd = 0;
 	int do_wait = 0;
 	int do_lock = 0;
 	int do_print_lockname = 0;
@@ -76,8 +115,11 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+Ll:Pw")) != -1) {
+	while ((opt = getopt(argc, argv, "+cLl:Pw")) != -1) {
 		switch (opt) {
+		case 'c':
+			do_closefd = 1;
+			break;
 #ifdef HAVE_FLOCK
 		case 'L':
 			lockshared = 1;
@@ -152,6 +194,10 @@ int main(int argc, char *argv[]) {
 		if (setsid() < 0) {
 			perror("setsid");
 			return 1;
+		}
+		if (do_closefd) {
+			if (!closefds())
+				return 1;
 		}
 		if (execvp(cmd[0], cmd) < 0) {
 			fprintf(stderr, "%s: failed to execute '%s': %m\n", arg0, cmd[0]);

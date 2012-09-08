@@ -107,12 +107,20 @@ if ($list) {
 	});
 	Net::DBus::Reactor->main->run;
 } elsif (@ARGV) {
+	my $obj = $bus->get_bus_object;
 	for my $name (@ARGV) {
 		if ($activate) {
 			eval {$bus->get_service($name)} or warn "$@";
 		}
 		my $owner = $bus->get_service_owner($name);
-		$quiet or say $name, " ", $owner // "(none)";
+		if (!$quiet) {
+			my $pid = $owner
+				? eval {$obj->GetConnectionUnixProcessID($owner)}
+				: undef;
+			say $name,
+				" ", $owner // "(none)",
+				" [", $pid // "none", "]";
+		}
 		$owner or ++$err;
 	}
 	exit !!$err;

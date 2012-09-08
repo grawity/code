@@ -17,6 +17,8 @@ my $wait = 0;
 sub usage {
 	say for
 	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] [-A] NAME...",
+	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] [-A] --list",
+	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] --wait",
 	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] {--wait|--wait-any} NAME...",
 	"",
 	"  -y, --system           Use system bus",
@@ -25,15 +27,16 @@ sub usage {
 	"",
 	"  -A, --activate         Try to launch services using DBus activation",
 	"  -l, --list             List all owned names (or activatable names with -A)",
-	"  -w, --wait             Wait for listed names to appear on bus",
-	"  --wait-any             Wait for /any/ of listed names to appear",
+	"  -w, --wait             Watch bus for name owner changes",
+	"  -w, --wait NAME...     Wait for listed names to appear on bus",
+	"  --wait-any NAME...     Wait for /any/ of listed names to appear",
 	"",
 	"  -q, --quiet            Remain silent, just set exit code",
 	"",
 	"Without explicit bus specification, the heuristics implemented by Net::DBus",
 	"will be used (session if DBUS_SESSION_BUS_ADDRESS is set, system otherwise).",
 	"",
-	"The --wait mode does not care if names go away after appearing.",
+	"The \"--wait NAME\" mode does not care if some names go away after appearing.",
 }
 
 GetOptions(
@@ -84,6 +87,24 @@ if ($list) {
 	my @current = $obj->ListNames;
 	@wanted = grep {!($_ ~~ @current)} @wanted;
 	exit 0 if !@wanted;
+	Net::DBus::Reactor->main->run;
+} elsif ($wait) {
+	my $obj = $bus->get_bus_object;
+	$obj->connect_to_signal("NameOwnerChanged", sub {
+		my ($bus_name, $old_owner, $new_owner) = @_;
+		return if $bus_name =~ /^:/;
+		my $state = length($old_owner)
+				? length($new_owner)
+				? "*"
+				: "-"
+				: length($new_owner)
+				? "+"
+				: "?";
+		say $state,
+			" ", $bus_name,
+			" ", length($old_owner) ? $old_owner : "(none)",
+			" ", length($new_owner) ? $new_owner : "(none)";
+	});
 	Net::DBus::Reactor->main->run;
 } elsif (@ARGV) {
 	for my $name (@ARGV) {

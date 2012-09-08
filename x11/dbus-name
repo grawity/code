@@ -94,16 +94,16 @@ if ($list) {
 		my ($bus_name, $old_owner, $new_owner) = @_;
 		return if $bus_name =~ /^:/;
 		my $state = length($old_owner)
-				? length($new_owner)
-				? "*"
-				: "-"
-				: length($new_owner)
-				? "+"
-				: "?";
+				? length($new_owner) ? "*" : "-"
+				: length($new_owner) ? "+" : "?";
+		my $new_pid = length($new_owner)
+				? eval {$obj->GetConnectionUnixProcessID($new_owner)}
+				: undef;
 		say $state,
 			" ", $bus_name,
 			" ", length($old_owner) ? $old_owner : "(none)",
-			" ", length($new_owner) ? $new_owner : "(none)";
+			" ", length($new_owner) ? $new_owner : "(none)",
+			" [", $new_pid // "none", "]";
 	});
 	Net::DBus::Reactor->main->run;
 } elsif (@ARGV) {

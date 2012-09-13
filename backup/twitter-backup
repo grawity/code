@@ -9,7 +9,7 @@ use Data::Dumper;
 use Net::Twitter::Lite;
 use JSON;
 
-our $TWEET_FILE = "$ENV{HOME}/Backup/tweets.json";
+our $DIR = "$ENV{HOME}/Backup";
 
 our $twitter;
 
@@ -36,6 +36,37 @@ sub load_twurl_secrets {
 		consumer_secret => $profile->{consumer_secret},
 		access_token => $profile->{token},
 		access_secret => $profile->{secret});
+}
+
+sub fetch_faves {
+	my @tweets;
+	my $page = 1;
+
+	say "Downloading all favorites";
+	while (1) {
+		my %params = (
+			page	=> "$page",
+		);
+		$page++;
+
+		say "Downloading page[$params{page}]";
+		
+		my $statuses = eval {$twitter->favorites(\%params)};
+		if (!$statuses) {
+			warn "Failure: $@\n"; sleep 1; redo;
+		}
+
+		say "Received ".scalar(@$statuses)." tweets.";
+		last if !@$statuses;
+
+		#my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
+		#last if !@new;
+		#push @tweets, @new;
+		push @tweets, @$statuses;
+	}
+
+	@tweets = reverse @tweets;
+	return \@tweets;
 }
 
 sub fetch_entire_timeline {
@@ -139,13 +170,21 @@ sub fetch_tweets_since {
 sub store_tweets {
 	my ($tweets) = @_;
 	print "Dumping ".scalar(@$tweets)." tweets\n";
-	open(my $f, ">", $TWEET_FILE);
+	open(my $f, ">", "$DIR/tweets.json");
+	print $f JSON->new->utf8->pretty->encode($tweets);
+	close($f);
+}
+
+sub store_tweets_to {
+	my ($tweets, $name) = @_;
+	print "Dumping ".scalar(@$tweets)." tweets\n";
+	open(my $f, ">", "$DIR/tweets-$name.json");
 	print $f JSON->new->utf8->pretty->encode($tweets);
 	close($f);
 }
 
 sub load_tweets {
-	open(my $f, "<", $TWEET_FILE) or return undef;
+	open(my $f, "<", "$DIR/tweets.json") or return undef;
 	my $data = eval {local $/; <$f>};
 	close($f);
 	my $tweets = JSON->new->utf8->decode($data);
@@ -176,3 +215,6 @@ if (defined $tweets) {
 	$tweets = fetch_entire_timeline;
 }
 store_tweets($tweets);
+
+my $faves = fetch_faves;
+store_tweets_to($faves, "favs");

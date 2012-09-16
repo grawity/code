@@ -17,7 +17,8 @@ sub check {
 	if (!$view->{bottom}) {
 		my $lines = $view->{ypos} - $view->{height};
 		$win->command("scrollback end");
-		$win->print("You were scrolled up by $lines lines. Message not sent.", MSGLEVEL_CLIENTERROR);
+		$win->print("You were scrolled up by $lines lines. Message not sent.",
+			MSGLEVEL_CLIENTERROR);
 		return 0;
 	} else {
 		return 1;
@@ -26,8 +27,7 @@ sub check {
 
 Irssi::signal_add("send text" => sub {
 	my ($line, $server, $witem) = @_;
-	my $win = Irssi::active_win;
-	if (!check($win)) {
+	if (!check(Irssi::active_win)) {
 		Irssi::signal_stop;
 	}
 });

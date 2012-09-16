@@ -1,17 +1,17 @@
 use strict;
+use utf8;
 use vars qw($VERSION %IRSSI);
-
 use Irssi;
 
-$VERSION = '0.2';
+$VERSION = '0.3';
 %IRSSI = (
 	name		=> 'scrollwarn',
 	description	=> 'Warns you if you were scrolled up when sending a message.',
-	contact		=> 'grawity@gmail.com',
+	contact		=> 'Mantas Mikulėnas <grawity@gmail.com>',
 	license		=> 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
 );
 
-sub check($) {
+sub check {
 	my ($win) = @_;
 	my $view = $win->view;
 	if (!$view->{bottom}) {

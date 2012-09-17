@@ -205,16 +205,20 @@ $twitter = Net::Twitter::Lite->new(
 $twitter->access_token($secrets{access_token});
 $twitter->access_token_secret($secrets{access_secret});
 
-my $tweets = load_tweets;
-if (defined $tweets) {
-	my %seen = map {$_->{id_str} => 1} @$tweets;
-	my $since = $tweets->[-1]{id_str};
-	my $new = fetch_tweets_since($since);
-	push @$tweets, grep {!$seen{$_->{id_str}}++} @$new;
-} else {
-	$tweets = fetch_entire_timeline;
-}
-store_tweets($tweets);
+my $mode = 'own';
 
-my $faves = fetch_faves;
-store_tweets_to($faves, "favs");
+if ($mode eq 'own') {
+	my $tweets = load_tweets;
+	if (defined $tweets) {
+		my %seen = map {$_->{id_str} => 1} @$tweets;
+		my $since = $tweets->[-1]{id_str};
+		my $new = fetch_tweets_since($since);
+		push @$tweets, grep {!$seen{$_->{id_str}}++} @$new;
+	} else {
+		$tweets = fetch_entire_timeline;
+	}
+	store_tweets($tweets);
+} elsif ($mode eq 'favs') {
+	my $faves = fetch_faves;
+	store_tweets_to($faves, "favs");
+}

@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+
+# this matches:
+#   filename:lineno
+#   filename:lineno:garbage
+#   filename:lineno garbage
+#   filename:/regex
+#   filename:/regex garbage
+
+my $re = qr/^ ([^:]+) : (\d+ | \/\S+) (?:[:\s].*)? $/mx;
+
+# this script is usually symlinked as ~/bin/vim, so
+# it needs to run the real vim by absolute path
+
+my $vim = "/usr/bin/vim";
+
+my @args;
+
+sub parse {
+	if (shift ~~ $re) {
+		my ($file, $cmd) = ($1, $2);
+		$file =~ s|^~/|$ENV{HOME}/|;
+		$cmd =~ s|^|+|;
+		return ($file, $cmd);
+	} else {
+		return;
+	}
+}
+
+if (@ARGV) {
+	for my $arg (@ARGV) {
+		if (my @r = parse($arg)) {
+			push @args, @r;
+		} else {
+			push @args, $arg;
+		}
+	}
+} else {
+	if (my @r = parse(`xclip -o -s primary`)) {
+		push @args, @r;
+	}
+}
+
+exec {$vim} "vim", @args;

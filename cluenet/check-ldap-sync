@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+use Net::LDAP;
+
+my @cluster =
+qw[
+	radian.cluenet.org
+	virgule.cluenet.org
+	panther.nathan7.eu
+];
+
+my @trees =
+qw[
+	dc=cluenet,dc=org
+	dc=nullroute,dc=eu,dc=org
+];
+
+my %conns;
+my %csns;
+my %rcsns;
+
+my $err = 0;
+
+for my $host (@cluster) {
+	print "querying '$host'\n";
+	my $conn = Net::LDAP->new($host);
+	if (!$conn) {
+		warn "error connecting to '$host'\n";
+		++$err;
+		next;
+	}
+	$conn->bind;
+	for my $base (@trees) {
+		my $res = $conn->search(
+				base => $base,
+				scope => "base",
+				filter => q(objectClass=*),
+				attrs => ["contextCSN"]);
+		if ($res->is_error) {
+			print "error connecting to \n";
+			next;
+		}
+		my @csn = 
+			map {$_->[0]}
+			sort {$a->[1] cmp $b->[1]}
+			map {[$_, (split(/#/, $_))[2]]}
+			($res->entries)[0]->get_value("contextCSN");
+		my $csn = join(" ", @csn);
+		$csns{$base}{$host} = $csn;
+		push @{$rcsns{$base}{$csn}}, $host;
+	}
+	$conn->unbind;
+}
+
+for my $base (@trees) {
+	my %csn = %{$csns{$base}};
+	my %rcsn = %{$rcsns{$base}};
+	my @groups = keys %rcsn;
+	if (@groups == 1) {
+		print "tree '$base' \e[1;32mok\e[;32m, all CSNs identical\e[m\n";
+		print "  host='$_'\n" for @{$rcsn{$groups[0]}};
+		print "  csn='$_'\n" for split(" ", $groups[0]);
+	} else {
+		my $num = @groups;
+		warn "tree '$base' \e[1;31mdesynced\e[;31m, $num different CSNs\e[m\n";
+		for my $csn (@groups) {
+			warn "  host='$_'\n" for @{$rcsn{$csn}};
+			warn "  csn='$_'\n" for split(" ", $csn);
+			warn "  ---\n" if --$num;
+		}
+		++$err;
+	}
+}
+
+exit $err;

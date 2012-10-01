@@ -103,23 +103,23 @@ class GainValue(object):
 
 		if (u'RVA2:%s' % mode) in tag:
 			# ID3v2.4 RVA2
-			print "Found ID3v2.4 RVA2 frame"
+			#print "Found ID3v2.4 RVA2 frame"
 			return self.from_rva2(mode, tag[u'RVA2:%s' % mode])
 		elif (u'TXXX:replaygain_%s_gain' % mode) in tag:
 			# ID3v2 foobar2000
-			print "Found ID3v2 foobar2000 tag"
+			#print "Found ID3v2 foobar2000 tag"
 			return self.from_string(mode,
 						tag[u'TXXX:replaygain_%s_gain' % mode],
 						tag[u'TXXX:replaygain_%s_peak' % mode])
 		elif ('----:com.apple.iTunes:replaygain_%s_gain' % mode) in tag:
 			# MP4 foobar2000
-			print "Found MP4 foobar2000 tag"
+			#print "Found MP4 foobar2000 tag"
 			return self.from_string(mode,
 						tag['----:com.apple.iTunes:replaygain_%s_gain' % mode],
 						tag['----:com.apple.iTunes:replaygain_%s_peak' % mode])
 		elif ('replaygain_%s_gain' % mode) in tag:
 			# FLAC
-			print "Found FLAC tag"
+			#print "Found FLAC tag"
 			return self.from_string(mode,
 						tag['replaygain_%s_gain' % mode],
 						tag['replaygain_%s_peak' % mode])

@@ -114,13 +114,23 @@ sub display_x11_list {
 }
 
 sub display_x11_current {
-	...;
+	return if $current->{num} < 0;
+	exec "notify",
+		"--app-name=Music",
+		"--state=+mm",
+		"--icon=sound",
+		"--transient",
+		"--urgency=low",
+		"--timeout=1s",
+		$current->{title},
+		"by ".$current->{artist};
 }
 
 sub display_x11_nak {
 	my $patterns = join(" ", @patterns);
 	exec "notify",
-		"--app-name=Music search",
+		"--app-name=Music",
+		"--state=+mm",
 		"--icon=error",
 		"--transient",
 		"--urgency=low",
@@ -131,7 +141,7 @@ sub display_x11_nak {
 sub display_list {
 	if (-t 0) {
 		goto &display_tty_list;
-	} else {
+	} elsif ($ENV{DISPLAY}) {
 		goto &display_x11_list;
 	}
 }
@@ -139,7 +149,7 @@ sub display_list {
 sub display_current {
 	if (-t 0) {
 		goto &display_tty_current;
-	} else {
+	} elsif ($ENV{DISPLAY}) {
 		goto &display_x11_current;
 	}
 }

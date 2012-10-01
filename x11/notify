@@ -39,7 +39,7 @@ GetOptions(
 	'i|icon=s'	=> \$icon,
 	'r|replace=i'	=> \$id,
 	's|state=s'	=> \$statefile,
-	't|timeout=i'	=> \$timeout,
+	't|timeout=s'	=> \$timeout,
 	'u|urgency=s'	=> sub { push @hints, "urgency=".$_[1] },
 	'resident'	=> sub { push @hints, "resident" },
 	'transient'	=> sub { push @hints, "transient" },
@@ -54,7 +54,7 @@ if (defined $statefile) {
 		# hassle as possible. Create the directories.
 		-d $statedir || make_path($statedir);
 	}
-	if (!defined $id) {
+	if (!$id) {
 		if (open(my $fh, "<", $statefile)) {
 			$id = int <$fh>;
 			chomp($oldbody = join("", <$fh>));
@@ -72,7 +72,7 @@ if ($appendbody) {
 
 for (@hints) {
 	when (/^urgency=(.*)$/) {
-		for ($urgency) {
+		for ($1) {
 			$val = 0 when "low";
 			$val = 1 when "normal";
 			$val = 2 when ["critical", "high"];

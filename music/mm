@@ -79,9 +79,14 @@ sub display_tty_current {
 	}
 }
 
+sub display_tty_nak {
+	print "No results.\n";
+}
+
 sub display_x11_list {
 	my @songs = @_;
 	my $count = @songs;
+	return unless $count >= 2;
 	my $patterns = join(" ", @patterns);
 	my ($in, $out);
 	my $pid = open2($out, $in,
@@ -112,6 +117,17 @@ sub display_x11_current {
 	...;
 }
 
+sub display_x11_nak {
+	my $patterns = join(" ", @patterns);
+	exec "notify",
+		"--app-name=Music search",
+		"--icon=error",
+		"--transient",
+		"--urgency=low",
+		"--timeout=1s",
+		"No results for '$patterns'";
+}
+
 sub display_list {
 	if (-t 0) {
 		goto &display_tty_list;
@@ -128,16 +144,28 @@ sub display_current {
 	}
 }
 
+sub display_nak {
+	if (-t 0) {
+		goto &display_tty_nak;
+	} elsif ($ENV{DISPLAY}) {
+		goto &display_x11_nak;
+	}
+}
+
 $current = get_current();
 
 @patterns = @ARGV;
 if (@patterns) {
 	@songs = search(@patterns);
-	if (@songs == 1) {
+	if (!@songs) {
+		display_nak;
+	} elsif (@songs == 1) {
 		$current = $songs[0];
 		play($current->{num});
+		display_list(@songs);
+	} else {
+		display_list(@songs);
 	}
-	display_list(@songs);
 } else {
 	display_current();
 }

@@ -33,6 +33,7 @@ my $fmt_input = "%position%\t%artist%\t%title%";
 
 sub get_current {
 	my ($song) = get_playlist("current");
+	$song //= {num => -1};
 	return $song;
 }
 
@@ -68,10 +69,14 @@ sub display_tty_list {
 }
 
 sub display_tty_current {
-	printf $fmt_current,
-		$current->{num},
-		$current->{artist},
-		$current->{title};
+	if ($current->{num} < 0) {
+		print "No song is playing.\n";
+	} else {
+		printf $fmt_current,
+			$current->{num},
+			$current->{artist},
+			$current->{title};
+	}
 }
 
 sub display_x11_list {

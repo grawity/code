@@ -76,7 +76,7 @@ class GainValue(object):
 	@classmethod
 	def from_string(self, mode, gain, peak):
 		rg_gain = float(gain[0].split(' ')[0])
-		rg_peak = float(peak[0])
+		rg_peak = float(peak[0].split(' ')[0])
 
 		gv = self(mode)
 		gv._raw_gain = gain

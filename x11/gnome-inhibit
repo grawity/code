@@ -91,7 +91,7 @@ sub string_to_flags {
 	my $flags = 0;
 	for (split /[:,|]/, $flagstr) {
 		if ($_ eq 'all') {
-			$flags |= 0xffffffff;
+			$flags |= 0x7fffffff;
 		} elsif ($_ eq 'sleep') {
 			$flags |= $FLAGS{suspend};
 		} elsif (defined $FLAGS{$_}) {
@@ -103,6 +103,9 @@ sub string_to_flags {
 		} else {
 			warn "Unknown inhibit flag: '$_'\n";
 		}
+	}
+	if ($flags >> 31) {
+		die "Inhibit bitmask too large (must be an uint32)\n";
 	}
 	return $flags;
 }

@@ -1111,6 +1111,7 @@ end
 require 'open-uri'
 require 'net/https'
 require 'optparse'
+require 'open3'
 
 require 'base64'
 
@@ -1224,6 +1225,8 @@ module Gist
 
     http.use_ssl = true
     http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http.cert_store = OpenSSL::X509::Store.new
+    http.cert_store.set_default_paths
     http.ca_file = ca_cert
 
     req = Net::HTTP::Post.new(url.path)
@@ -1294,12 +1297,18 @@ private
   end
 
   def auth
-    user  = config("github.user")
+    user     = config("github.user")
     password = config("github.password")
+    token    = config("github.token")
 
-    token = config("github.token")
     if password.to_s.empty? && !token.to_s.empty?
       abort "Please set GITHUB_PASSWORD or github.password instead of using a token."
+    end
+
+    if user.to_s.empty? || password.to_s.empty?
+      result   = gitcredential("fill", host: "github.com", protocol: "https")
+      user     = result["username"]
+      password = result["password"]
     end
 
     if user.to_s.empty? || password.to_s.empty?
@@ -1326,10 +1335,19 @@ private
     str_to_bool `git config --global #{key}`.strip
   end
 
+  def gitcredential(action, query)
+    query = query.map{ |kv| kv.join("=") }.join("\n")
+
+    result, status = Open3.capture2("git", "credential", action,
+                                    :stdin_data => query)
+
+    Hash[result.scan(/^(.+?)=(.*)$/)]
+  end
+
   def str_to_bool(str)
     if str.size > 0 and str[0].chr == '!'
       command = str[1, str.length]
-      value = `#{command}`
+      value = `#{command}`.strip
     else
       value = str
     end
@@ -1366,7 +1384,7 @@ __END__
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "GIST" "1" "March 2012" "GITHUB" "Gist Manual"
+.TH "GIST" "1" "July 2012" "GITHUB" "Gist Manual"
 .
 .SH "NAME"
 \fBgist\fR \- gist on the command line

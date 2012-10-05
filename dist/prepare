@@ -10,15 +10,21 @@ HOSTOBJ="obj/host.$HOSTNAME"
 
 # ensure $ARCHOBJ and $HOSTOBJ
 
-if test "${USEARCHOBJ:=n}" = "y"; then
+if test -d "$HOSTOBJ"; then
+	exit 0
+elif test "$USEARCHOBJ" = "y"; then
 	mkdir -p "$ARCHOBJ"
-
 	if test -L "$HOSTOBJ" || test ! -e "$HOSTOBJ"; then
+		echo "building for arch=$MACHTYPE"
 		rm -f "$HOSTOBJ"
 		ln -s "${ARCHOBJ##*/}" "$HOSTOBJ"
 	fi
-else
+elif test "$USEARCHOBJ" = "n"; then
 	if test ! -d "$HOSTOBJ"; then
+		echo "building for host=$HOSTNAME"
 		mkdir -p "$HOSTOBJ"
 	fi
+else
+	echo "first build: please set \$USEARCHOBJ=y/n" >&2
+	exit 1
 fi

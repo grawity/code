@@ -10,7 +10,7 @@ HOSTOBJ := obj/host.$(HOSTNAME)
 OBJ := $(HOSTOBJ)
 
 CC ?= gcc
-CFLAGS = -Wall -O2 $(OSFLAGS)
+CFLAGS = -Wall -g -O1 $(OSFLAGS)
 
 KRB_LDLIBS := -lkrb5 -lcom_err
 

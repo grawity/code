@@ -3,7 +3,9 @@
 UNAME := $(shell uname)
 HOSTNAME := $(shell hostname)
 #MACHTYPE := $(shell cc -dumpmachine)
-MACHTYPE := $(shell bash -c 'echo $$MACHTYPE')
+#MACHTYPE := $(shell bash -c 'echo $$MACHTYPE')
+#MACHTYPE := $(shell bash -c 'echo $$HOSTTYPE-$$OSTYPE')
+MACHTYPE := $(shell dist/prepare -m)
 
 ARCHOBJ := obj/arch.$(MACHTYPE)
 HOSTOBJ := obj/host.$(HOSTNAME)

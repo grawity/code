@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 set -e
 
-if ! test "$MAKELEVEL"; then
+test "$MAKELEVEL" ||
 	cd ~/code
-fi
+
+test "$MACHTYPE" ||
+	MACHTYPE="$HOSTTYPE-$OSTYPE"
+
+case $1 in
+'-m')
+	echo "$MACHTYPE"
+	exit;;
+esac
+
+# ensure $ARCHOBJ and $HOSTOBJ
 
 ARCHOBJ="obj/arch.$MACHTYPE"
 HOSTOBJ="obj/host.$HOSTNAME"
-
-# ensure $ARCHOBJ and $HOSTOBJ
 
 if test -d "$HOSTOBJ"; then
 	exit 0

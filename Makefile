@@ -1,43 +1,55 @@
-#!make
+# vim: ft=make
 
-UNAME := $(shell uname)
+comma := ,
+empty :=
+space := $(empty) $(empty)
+
+CC       ?= gcc
+CFLAGS    = -Wall -g -O1
+
+UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
-#MACHTYPE := $(shell cc -dumpmachine)
-#MACHTYPE := $(shell bash -c 'echo $$MACHTYPE')
-#MACHTYPE := $(shell bash -c 'echo $$HOSTTYPE-$$OSTYPE')
 MACHTYPE := $(shell dist/prepare -m)
 
-ARCHOBJ := obj/arch.$(MACHTYPE)
-HOSTOBJ := obj/host.$(HOSTNAME)
-OBJ := $(HOSTOBJ)
-
-CC ?= gcc
-CFLAGS = -Wall -g -O1 $(OSFLAGS)
-
-KRB_LDLIBS := -lkrb5 -lcom_err
+ARCHOBJ  := obj/arch.$(MACHTYPE)
+HOSTOBJ  := obj/host.$(HOSTNAME)
+OBJ      := $(HOSTOBJ)
+obj       = $(addprefix $(OBJ)/,$(1))
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
+	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
 ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
+	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
 ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
+	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
 ifeq ($(UNAME),CYGWIN_NT-5.1)
 	OSFLAGS := -DHAVE_CYGWIN
+	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
 ifeq ($(UNAME),SunOS)
 	OSFLAGS := -DHAVE_SOLARIS
 	KRB_LDLIBS := -lkrb5
 endif
 
+override CFLAGS += $(OSFLAGS)
+
 # misc targets
 
-.PHONY: pre all basic clean mrproper
+.PHONY: default pre clean mrproper
 
-DEFAULT: basic
+ifdef O
+default: $(call obj,$(subst $(comma),$(space),$(O)))
+endif
+
+ifndef O
+default: basic
+endif
 
 pre:
 	@dist/prepare
@@ -51,26 +63,22 @@ mrproper:
 # compile targets
 
 BASIC_BINS := args pause proctool silentcat spawn strtool
-KRB_BINS := k5userok pklist
+KRB_BINS   := k5userok pklist
 LINUX_BINS := linux26 subreaper tapchown
-MISC_BINS := bgrep logwipe natsort ttysize writevt xor xors
+MISC_BINS  := bgrep logwipe natsort ttysize writevt xor xors
 
-cc-basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
-cc-krb: $(addprefix $(OBJ)/,$(KRB_BINS))
-cc-linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
-cc-misc: $(addprefix $(OBJ)/,$(MISC_BINS))
-pklist: $(OBJ)/pklist
+.PHONY: all basic krb linux misc
 
-cc-all: cc-basic cc-krb cc-misc
+basic: $(call obj,$(BASIC_BINS))
+krb:   $(call obj,$(KRB_BINS))
+linux: $(call obj,$(LINUX_BINS))
+misc:  $(call obj,$(MISC_BINS))
+
+all: basic krb misc
+
 ifeq ($(UNAME),Linux)
-cc-all: cc-linux
+all: linux
 endif
-
-basic: cc-basic
-
-all: cc-all
-
-$(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
 
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
@@ -93,6 +101,8 @@ $(OBJ)/xors:		misc/xors.c
 
 $(OBJ)/%:		| dist/empty.c
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+$(call obj,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
 
 # hack for old Make (unsupported order-only deps)
 dist/empty.c: pre

@@ -95,6 +95,7 @@ int strip_tail(char *tail) {
 int main(int argc, char *argv[]) {
 	int i = 0;
 	char *cmd = argv[++i];
+	char *str;
 
 	if (argc < 2) {
 		fprintf(stderr, "Missing function\n");
@@ -103,31 +104,31 @@ int main(int argc, char *argv[]) {
 	else if (streq(cmd, "next")) {
 		if (argc < 3)
 			return 2;
-		char *str = argv[++i];
+		str = argv[++i];
 		return next_item(str, 0);
 	}
 	else if (streq(cmd, "nextw")) {
 		if (argc < 3)
 			return 2;
-		char *str = argv[++i];
+		str = argv[++i];
 		return next_item(str, 1);
 	}
 	else if (streq(cmd, "prev")) {
 		if (argc != 3)
 			return 2;
-		char *str = argv[++i];
+		str = argv[++i];
 		return prev_item(str, 0);
 	}
 	else if (streq(cmd, "prevw")) {
 		if (argc != 3)
 			return 2;
-		char *str = argv[++i];
+		str = argv[++i];
 		return prev_item(str, 1);
 	}
 	else if (streq(cmd, "rstrip")) {
 		if (argc != 3)
 			return 2;
-		char *str = argv[++i];
+		str = argv[++i];
 		return strip_tail(str);
 	}
 	else {

@@ -159,6 +159,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef HAVE_FLOCK
 	if (do_lock) {
+		char *env;
+
 		if (!lockname)
 			lockname = cmd[0];
 		lockfile = get_lockfile(lockname, lockshared);
@@ -181,7 +183,6 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 
-		char *env;
 		r = asprintf(&env, "SPAWN_LOCKFD=%d", lockfd);
 		assert(r > 0);
 		putenv(env);

@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 		return 2;
 	}
 	else if (streq(cmd, "getpgid")) {
-		pid_t pid;
+		pid_t pid, pgid;
 		if (argc < 3)
 			pid = 0;
 		else {
@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 			if (!pid)
 				return 2;
 		}
-		pid_t pgid = getpgid(pid);
+		pgid = getpgid(pid);
 		if (pgid < 0) {
 			perror("getpgid");
 			return 1;
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 			printf("%d\n", pgid);
 	}
 	else if (streq(cmd, "getsid")) {
-		pid_t pid;
+		pid_t pid, pgid;
 		if (argc < 3)
 			pid = 0;
 		else {
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 			if (!pid)
 				return 2;
 		}
-		pid_t pgid = getsid(pid);
+		pgid = getsid(pid);
 		if (pgid < 0) {
 			perror("getsid");
 			return 1;

@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+use feature "switch";
 
 # this matches:
 #   filename:lineno
@@ -7,7 +8,15 @@
 #   filename:/regex
 #   filename:/regex garbage
 
-my $re = qr/^ ([^:]+) : (\d+ | \/[^\/]\S*) (?:[:\s].*)? $/mx;
+my $specre = qr/^ ([^:]+) : (\d+ | \/[^\/]\S*) (?:[:\s].*)? $/mx;
+
+# this matches:
+#   ./path
+#   ./path:garbage
+#   /path
+#   /path:garbage
+
+my $pathre = qr/ (\.?\/[^:]+) /mx;
 
 # this script is usually symlinked as ~/bin/vim, so
 # it needs to run the real vim by absolute path
@@ -17,14 +26,22 @@ my $vim = "/usr/bin/vim";
 my @args = "vim";
 
 sub parse {
-	if (shift ~~ $re) {
-		my ($file, $cmd) = ($1, $2);
-		$file =~ s|^~/|$ENV{HOME}/|;
-		$cmd =~ s|^|+|;
-		return ($file, $cmd);
-	} else {
-		return;
+	for (shift) {
+		when ($specre) {
+			my ($file, $cmd) = ($1, $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			$cmd =~ s|^|+|;
+			return ($file, $cmd);
+		}
+		when ($pathre) {
+			my ($file) = ($1);
+			return ($file) if -e $file;
+		}
+		default {
+			return;
+		}
 	}
+	return;
 }
 
 if (@ARGV) {

@@ -57,6 +57,11 @@ def accept():
 
 def route(request):
 	DEBUG("route(%r)", request)
+
+	if request == b"/W" or request[:3] == b"/W ":
+		prefix = b"/W "
+		request = request[3:]
+
 	for rtent in get_routes():
 		rule = rtent[0]
 		nexthop = rtent[1]
@@ -97,7 +102,7 @@ def route(request):
 			DEBUG("nextreq = req")
 			nextreq = request
 
-		return nexthop, nextreq, flags
+		return nexthop, prefix+nextreq, flags
 	return None
 
 def forward(addr, req, flags):

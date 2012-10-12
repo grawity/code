@@ -68,7 +68,7 @@ sub ensure {
 	my ($trash_dir) = @_;
 	for ("$trash_dir/info", "$trash_dir/files") {
 		unless (-d) {
-			make_path($_, mode => 0700) or return 0;
+			make_path($_, {mode => 0700}) or return 0;
 		}
 	}
 	return 1;

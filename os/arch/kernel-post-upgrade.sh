@@ -89,10 +89,7 @@ echo "Found EFI system partition at $ESP"
 
 read -r MACHINE_ID < /etc/machine-id
 
-BOOT_OPTIONS=()
-while read -r line; do
-	BOOT_OPTIONS+=("$line")
-done < /etc/kernel/cmdline
+BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}
 
 check_kernel "${1:-linux}"

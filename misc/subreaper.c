@@ -5,6 +5,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifndef PR_SET_CHILD_SUBREAPER
+#define PR_SET_CHILD_SUBREAPER 36
+#endif
+
 int main(int argc, char *argv[]) {
 	pid_t pid = fork();
 	if (pid < 0) {

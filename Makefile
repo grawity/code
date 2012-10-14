@@ -12,7 +12,6 @@ HOSTNAME := $(shell hostname)
 MACHTYPE := $(shell dist/prepare -m)
 
 OBJ      ?= obj/host.$(HOSTNAME)
-obj       = $(addprefix $(OBJ)/,$(1))
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
@@ -41,11 +40,11 @@ override CFLAGS += $(OSFLAGS)
 
 .PHONY: default pre clean mrproper
 
-ifdef O
-default: $(call obj,$(subst $(comma),$(space),$(O)))
+ifdef obj
+default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))
 endif
 
-ifndef O
+ifndef obj
 default: basic
 endif
 
@@ -67,10 +66,10 @@ MISC_BINS  := bgrep logwipe natsort ttysize writevt xor xors
 
 .PHONY: all basic krb linux misc
 
-basic: $(call obj,$(BASIC_BINS))
-krb:   $(call obj,$(KRB_BINS))
-linux: $(call obj,$(LINUX_BINS))
-misc:  $(call obj,$(MISC_BINS))
+basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
+krb:   $(addprefix $(OBJ)/,$(KRB_BINS))
+linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
+misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
 
 all: basic krb misc
 
@@ -101,7 +100,7 @@ $(OBJ)/%:		| dist/empty.c
 	@echo [$(CC)] $@
 	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-$(call obj,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
+$(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
 
 # hack for old Make (unsupported order-only deps)
 dist/empty.c: pre

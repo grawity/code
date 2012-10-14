@@ -67,7 +67,12 @@ int main(int argc, char *argv[]) {
 	while ((opt = getopt(argc, argv, "eqtu:")) != -1) {
 		switch (opt) {
 		case 'e':
+#ifdef KRB5_PRINCIPAL_PARSE_ENTERPRISE
 			parseflags |= KRB5_PRINCIPAL_PARSE_ENTERPRISE;
+#else
+			fprintf(stderr, "%s: system does not support enterprise names\n", progname);
+			exit(2);
+#endif
 			break;
 		case 'q':
 			++quiet;

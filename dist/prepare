@@ -4,6 +4,8 @@ set -e
 test "$MAKELEVEL" ||
 	cd ~/code
 
+# Collect OS information
+
 test ! "$HOSTTYPE" &&
 	HOSTTYPE="$(uname -m)"
 
@@ -30,32 +32,47 @@ ARCHOBJ="obj/arch.$MACHTYPE"
 DISTOBJ="obj/dist.$DISTTYPE"
 HOSTOBJ="obj/host.$HOSTNAME"
 
-if test ! "$out" && test ! -d "$HOSTOBJ"; then
-	echo "first build: please set out=y/n/d" >&2
-	echo "  arch=$MACHTYPE" >&2
-	echo "  dist=$DISTTYPE" >&2
-	echo "  host=$HOSTNAME" >&2
-	exit 1
-elif test "$out" = "y"; then
-	OBJDIR="$ARCHOBJ"
-elif test "$out" = "n"; then
-	OBJDIR="$HOSTOBJ"
-elif test "$out" = "d"; then
-	OBJDIR="$DISTOBJ"
+if test "$out"; then
+	case $out in
+	a|y)	OBJDIR="$ARCHOBJ";;
+	d)	OBJDIR="$DISTOBJ";;
+	h|n)	OBJDIR="$HOSTOBJ";;
+	*)	echo "dist/prepare: invalid \$out value '$out'" >&2
+		exit 1;;
+	esac
+else
+	if test "$OBJ"; then
+		OBJDIR="$OBJ"
+	elif test -L "$HOSTOBJ"; then
+		OBJDIR="obj/$(readlink "$HOSTOBJ")"
+	elif test -d "$HOSTOBJ"; then
+		OBJDIR="$HOSTOBJ"
+	else
+		echo "first build: please set out=a/d/h" >&2
+		echo "  arch=$MACHTYPE" >&2
+		echo "  dist=$DISTTYPE" >&2
+		echo "  host=$HOSTNAME" >&2
+		exit 1
+	fi
 fi
 
 case $1 in
 	"-o")	echo "$OBJDIR"; exit;;
 esac
 
-if ! test -d "$HOSTOBJ"; then
-	echo "first build: creating $OBJDIR"
-	mkdir -p "$OBJDIR"
-fi
-
-if test "$OBJDIR" != "$HOSTOBJ"; then
-	if test -L "$HOSTOBJ" || test ! -e "$HOSTOBJ"; then
+if test "$out"; then
+	if test -L "$HOSTOBJ"; then
 		rm -f "$HOSTOBJ"
-		ln -s "${OBJDIR##*/}" "$HOSTOBJ"
 	fi
+
+	if test "$OBJDIR" != "$HOSTOBJ"; then
+		if test -d "$HOSTOBJ"; then
+			echo "dist/prepare: removing $HOSTOBJ"
+			rm -rf "$HOSTOBJ"
+		fi
+		ln -sf "${OBJDIR##*/}" "$HOSTOBJ"
+	fi
+
+	echo "dist/prepare: creating $OBJDIR"
+	mkdir -p "$OBJDIR"
 fi

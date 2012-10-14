@@ -11,9 +11,7 @@ UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
 MACHTYPE := $(shell dist/prepare -m)
 
-ARCHOBJ  := obj/arch.$(MACHTYPE)
-HOSTOBJ  := obj/host.$(HOSTNAME)
-OBJ      := $(HOSTOBJ)
+OBJ      ?= obj/host.$(HOSTNAME)
 obj       = $(addprefix $(OBJ)/,$(1))
 
 ifeq ($(UNAME),Linux)
@@ -55,7 +53,7 @@ pre:
 	@dist/prepare
 
 clean:
-	rm -rf $(ARCHOBJ) $(HOSTOBJ)
+	rm -rf obj/arch.* obj/dist.* obj/host.*
 
 mrproper:
 	git clean -dfX

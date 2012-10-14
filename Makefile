@@ -100,7 +100,8 @@ $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xors:		misc/xors.c
 
 $(OBJ)/%:		| dist/empty.c
-	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	@echo [$(CC)] $@
+	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 $(call obj,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
 

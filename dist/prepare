@@ -4,35 +4,58 @@ set -e
 test "$MAKELEVEL" ||
 	cd ~/code
 
-test "$MACHTYPE" ||
+test ! "$HOSTTYPE" &&
+	HOSTTYPE="$(uname -m)"
+
+test ! "$MACHTYPE" &&
 	MACHTYPE="$HOSTTYPE-$OSTYPE"
 
+test ! "$DISTTYPE" && {
+	if test -e "/etc/os-release"; then
+		DIST=$(. /etc/os-release && echo "$ID")
+	else
+		DIST="unknown"
+	fi
+	DISTTYPE="$HOSTTYPE-$(uname)-$DIST"
+}
+
 case $1 in
-'-m')
-	echo "$MACHTYPE"
-	exit;;
+	"-O")	echo "$OSTYPE"; exit;;
+	"-d")	echo "$DISTTYPE"; exit;;
+	"-h")	echo "$HOSTTYPE"; exit;;
+	"-m")	echo "$MACHTYPE"; exit;;
 esac
 
-# ensure $ARCHOBJ and $HOSTOBJ
-
 ARCHOBJ="obj/arch.$MACHTYPE"
+DISTOBJ="obj/dist.$DISTTYPE"
 HOSTOBJ="obj/host.$HOSTNAME"
 
-if test -d "$HOSTOBJ"; then
-	exit 0
-elif test "$USEARCHOBJ" = "y"; then
-	mkdir -p "$ARCHOBJ"
-	if test -L "$HOSTOBJ" || test ! -e "$HOSTOBJ"; then
-		echo "building for arch=$MACHTYPE"
-		rm -f "$HOSTOBJ"
-		ln -s "${ARCHOBJ##*/}" "$HOSTOBJ"
-	fi
-elif test "$USEARCHOBJ" = "n"; then
-	if test ! -d "$HOSTOBJ"; then
-		echo "building for host=$HOSTNAME"
-		mkdir -p "$HOSTOBJ"
-	fi
-else
-	echo "first build: please set \$USEARCHOBJ=y/n" >&2
+if test ! "$out"; then
+	echo "first build: please set out=y/n/d" >&2
+	echo "  arch=$MACHTYPE" >&2
+	echo "  dist=$DISTTYPE" >&2
+	echo "  host=$HOSTNAME" >&2
 	exit 1
+elif test "$out" = "y"; then
+	OBJDIR="$ARCHOBJ"
+elif test "$out" = "n"; then
+	OBJDIR="$HOSTOBJ"
+elif test "$out" = "d"; then
+	OBJDIR="$DISTOBJ"
+fi
+
+case $1 in
+	"-o")	echo "$OBJDIR"; exit;;
+esac
+
+if ! test -d "$HOSTOBJ"; then
+	echo "first build: creating $OBJDIR"
+	mkdir -p "$OBJDIR"
+fi
+
+if test "$OBJDIR" != "$HOSTOBJ"; then
+	if test -L "$HOSTOBJ" || test ! -e "$HOSTOBJ"; then
+		rm -f "$HOSTOBJ"
+		ln -s "${OBJDIR##*/}" "$HOSTOBJ"
+	fi
 fi

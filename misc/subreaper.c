@@ -12,6 +12,11 @@
 int main(int argc, char *argv[]) {
 	pid_t pid;
 
+	if (argc < 2) {
+		fprintf(stderr, "Usage: subreaper <cmd> [args...]\n");
+		return 2;
+	}
+
 	if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
 		perror("set_subreaper");
 

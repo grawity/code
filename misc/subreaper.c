@@ -10,14 +10,19 @@
 #endif
 
 int main(int argc, char *argv[]) {
-	pid_t pid = fork();
+	pid_t pid;
+
+	if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
+		perror("set_subreaper");
+
+	signal(SIGCHLD, SIG_IGN);
+
+	pid = fork();
 	if (pid < 0) {
 		perror("fork");
 		exit(1);
 	}
 	else if (pid) {
-		prctl(PR_SET_CHILD_SUBREAPER, 1);
-		signal(SIGCHLD, SIG_IGN);
 		waitpid(pid, 0, 0);
 		exit(0);
 	}

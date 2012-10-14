@@ -4,14 +4,13 @@ have() { command -v "$1" >/dev/null; }
 
 log() { printf "\033[32m=\033[m %s\033[m\n" "$*"; }
 
-warn() { printf "\033[1;33mwarning:\033[m %s\033[m\n" "$*"; ((++warnings)); }
+warn() { printf "\033[1;33mwarning:\033[m %s\033[m\n" "$*"; (( ++warnings )); }
 
-err() { printf "\033[1;31merror:\033[m %s\033[m\n" "$*"; ! ((++errors)); }
+err() { printf "\033[1;31merror:\033[m %s\033[m\n" "$*"; ! (( ++errors )); }
 
 confirm() {
 	printf "\033[1;36m(?)\033[m %s " "$*"
-	read -t 10 REPLY &&
-	[[ $REPLY == 'y' ]]
+	read REPLY && [[ $REPLY == y ]]
 }
 
 check-gpg-version() {
@@ -38,41 +37,42 @@ fi
 
 wants=(
 	crontab
-	!curl
+	curl!
 	gcc
-	!git
+	git!
 	$GPG
 	mailx
-	!perl
+	perl!
 )
 
 for bin in ${wants[@]}; do
 	case $bin in
-	!*)	bin=${bin#!}
+	*!)	bin=${bin%!}
 		have "$bin" || err  "$bin not installed";;
 	*)	have "$bin" || warn "$bin not installed";;
 	esac
 done
 
-((errors)) && exit 1
-((warnings)) && { confirm "continue with setup?" || exit 1; }
+(( errors ))   && exit 1
+(( warnings )) && { confirm "continue with setup?" || exit 1; }
+
 warnings=0
 
 FQDN=$(bin/fqdn)
 
 # set up dotfiles
 
-if [ ! -d ~/bin ]; then
+if [[ ! -d ~/bin ]]; then
 	mkdir -p ~/bin
 fi
 
-if [ ! -d ~/lib/dotfiles ]; then
+if [[ ! -d ~/lib/dotfiles ]]; then
 	log "cloning dotfiles.git"
 	mkdir -p ~/lib
 	git clone "git://github.com/grawity/dotfiles.git" ~/lib/dotfiles
 fi
 
-if [ ! "$PREFIX" ]; then
+if [[ ! "$PREFIX" ]]; then
 	log "installing dotfiles"
 	(cd ~/lib/dotfiles && ./install)
 	. ~/.profile
@@ -80,14 +80,14 @@ fi
 
 # fix location of ~/.local/man
 
-if [ -L "$PREFIX/man" ]; then
+if [[ -L "$PREFIX/man" ]]; then
 	rm -f "$PREFIX/man"
 	mkdir -p "$PREFIX/man"
 fi
 
-if [ -L "$PREFIX/share/man" ]; then
+if [[ -L "$PREFIX/share/man" ]]; then
 	true
-elif [ -d "$PREFIX/share/man" ]; then
+elif [[ -d "$PREFIX/share/man" ]]; then
 	log "moving manual pages"
 	cp -alf "$PREFIX/share/man" "$PREFIX/"
 	rm -rf "$PREFIX/share/man" "$PREFIX/man/index.db"
@@ -99,7 +99,7 @@ fi
 
 # install NullCA
 
-if [ ! -f ~/.pki/ca/nullroute.pem ]; then
+if [[ ! -f ~/.pki/ca/nullroute.pem ]]; then
 	log "installing CA certificates"
 	mkdir -p ~/.pki/ca
 	cp dist/nullroute.pem ~/.pki/ca/nullroute.pem
@@ -110,7 +110,7 @@ fi
 
 # set up authorized_keys
 
-if [ ! -s ~/.ssh/authorized_keys ]; then
+if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if ! have $GPG; then
 		warn "skipping sshupdate: 'gpg' missing"
 	elif ! check-gpg-version; then
@@ -143,9 +143,9 @@ if ! { have mailx && fgrep -qs NAILRC "$(which mailx)"; }; then
 	}
 fi
 
-if [ "$HOSTNAME" == "equal" ]; then
+if [[ "$HOSTNAME" == "equal" ]]; then
 	log "skipping .forward on this server"
-elif [ -s ~/.forward ]; then
+elif [[ -s ~/.forward ]]; then
 	log "mail is forwarded to $(sed 1q ~/.forward)"
 else
 	log "forwarding mail to $EMAIL"

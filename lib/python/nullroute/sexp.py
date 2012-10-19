@@ -24,16 +24,18 @@ DIGITS		= b"0123456789"
 WHITESPACE	= b" \t\v\f\r\n"
 PSEUDO_ALPHA	= b"-./_:*+="
 PUNCTUATION	= b'()[]{}|#"&\\'
-VERBATIM	= b"!%^~;',<>?"
+#VERBATIM	= b"!%^~;',<>?"		# Rivest's spec uses these
+VERBATIM	= b"!%^~'<>"		# nettle's sexp-conv is more permissive?
 
 TOKEN_CHARS	= DIGITS + ALPHA + PSEUDO_ALPHA
 
 HEX_DIGITS	= b"0123456789ABCDEFabcdef"
 B64_DIGITS	= b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
-PRINTABLE_CHARS	= bytearray(range(0x20, 0x80))
+PRINTABLE_CHARS	= bytes(range(0x20, 0x80))
+ESCAPE_CHARS	= b"\b\t\v\n\f\r\\"
 
-ESCAPE_CHARS	= {
+ESCAPE_CHARS_TB	= {
 	b"\b":	b"b",
 	b"\t":	b"t",
 	b"\v":	b"v",
@@ -339,18 +341,22 @@ def dump_string(obj, canonical=False, hex=False, hint=None):
 		obj = obj.encode("utf-8")
 
 	if canonical:
-		out = str(len(obj)).encode("utf-8") + b":" + obj
+		out = ("%d:" % len(obj)).encode("utf-8") + obj
 	elif is_token(obj):
 		out = bytes(obj)
 	elif is_quoteable(obj):
-		# MASSIVE UGLIFICATION
-		# PYTHON Y U NO CONCAT BYTES() AND INT()
 		out = bytearray(b'"')
+		# This sucks.
+		# In python2, iterates over 1-char strings.
+		# In python3, iterates over integers. NOT 1-char bytes()
+		# No, screw it. I officially drop Python 2 compatibility here.
 		for char in obj:
-			if char in ESCAPE_CHARS:
-				out += b"\\" + ESCAPE_CHARS[char]
+			if char in ESCAPE_CHARS_TB:
+				out += b"\\"
+				out += ESCAPE_CHARS_TB[char]
 			elif char in b"'\"":
-				out += b"\\" + char
+				out += b"\\"
+				out.append(char)
 			else:
 				out.append(char)
 		out += b'"'

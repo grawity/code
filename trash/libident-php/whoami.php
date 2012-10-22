@@ -3,10 +3,10 @@ header("Content-Type: text/plain; charset=utf-8");
 
 $i = array(
 	"server" => array(
-		"host" => $_SERVER["SERVER_ADDR"],
+		//"host" => $_SERVER["SERVER_ADDR"],
 		"port" => intval($_SERVER["SERVER_PORT"]),
 	),
-	"remote" => array(
+	"client" => array(
 		"host" => $_SERVER["REMOTE_ADDR"],
 		"port" => intval($_SERVER["REMOTE_PORT"]),
 	),
@@ -18,13 +18,13 @@ if (@include "libident.php") {
 	if (!$ident) {
 		$i["ident"] = array(
 			"status" => "failure",
-			"response type" => "unknown",
+			"response" => "unknown",
 		);
 	}
 	elseif ($ident->success) {
 		$i["ident"] = array(
 			"status" => "success",
-			"response type" => $ident->response_type,
+			"response" => $ident->response_type,
 			"user id" => $ident->userid,
 			"os type" => $ident->ostype,
 			"charset" => $ident->charset,
@@ -33,7 +33,7 @@ if (@include "libident.php") {
 	else {
 		$i["ident"] = array(
 			"status" => "failure",
-			"response type" => $ident->response_type,
+			"response" => $ident->response_type,
 			"additional" => $ident->add_info,
 		);
 	}
@@ -46,13 +46,14 @@ else {
 	);
 }
 
+print "Your Ident lookup results:\n";
+
 if (function_exists("yaml_emit"))
 	print yaml_emit($i, YAML_UTF8_ENCODING);
 else {
-	print "(Notice: missing 'yaml' module, fallback to print_r)\n";
+	print "(Notice: missing 'yaml' module)\n";
 	print_r($i);
 }
 
-?>
-
-(The above information is not logged.)
+print "\n";
+print "(The above information is not logged.)\n";

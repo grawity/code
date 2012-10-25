@@ -66,15 +66,25 @@ def keyring_diff(local, remote):
 	return to_remote, to_local
 
 def gpg_transport(src_args, dst_args, key_ids):
-	export_args = [	"--export-options", "export-local-sigs,export-sensitive-revkeys"]
-	import_args = [	"--verbose",
+	export_args =  ["--export-options", "export-local-sigs,export-sensitive-revkeys"]
+	import_args =  ["--verbose",
 			"--allow-non-selfsigned-uid",
 			"--import-options", "import-local-sigs"]
 
 	export_cmd = src_args + export_args + ["--export"] + ["0x%s" % id for id in key_ids]
 	import_cmd = dst_args + import_args + ["--import"]
 
+	gpg_pipe(export_cmd, import_cmd)
+
+def gpg_merge_ownertrust(src_args, dst_args):
+	export_cmd = src_args + ["--export-ownertrust"]
+	import_cmd = dst_args + ["--import-ownertrust"]
+
+	gpg_pipe(export_cmd, import_cmd)
+
+def gpg_pipe(export_cmd, import_cmd):
 	print(export_cmd)
+	print(import_cmd)
 
 	exporter = subprocess.Popen(export_cmd, stdout=subprocess.PIPE)
 	importer = subprocess.Popen(import_cmd, stdin=exporter.stdout)
@@ -84,7 +94,6 @@ def gpg_transport(src_args, dst_args, key_ids):
 		exporter.terminate()
 	else:
 		exporter.wait()
-
 
 h = gethostname().lower()
 
@@ -110,3 +119,6 @@ if to_remote:
 if to_local:
 	print("Importing %d keys" % len(to_local))
 	gpg_transport(remote_args, local_args, to_local)
+
+print("Exporting all ownertrusts")
+gpg_merge_ownertrust(local_args, remote_args)

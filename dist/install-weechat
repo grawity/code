@@ -1,0 +1,26 @@
+#!/bin/bash -ex
+
+repo=git://git.sv.gnu.org/weechat.git
+src=~/src/weechat
+prefix=~/lib/weechat
+ruby=$(which ruby)
+
+if [ -d "$src" ]; then
+	cd "$src"
+	git pull
+	if [ -d build ]; then
+		rm -rf prevbuild
+		mv build prevbuild
+	fi
+else
+	git clone "$repo" "$src"
+	cd "$src"
+fi
+mkdir build
+cd build
+cmake .. -D"PREFIX=$prefix" -D"RUBY_EXECUTABLE=$ruby" -D"ENABLE_NLS=OFF"
+make
+if [ -d ../prevbuild ]; then
+	(cd prevbuild && make uninstall) && true
+fi
+make install

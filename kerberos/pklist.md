@@ -8,7 +8,7 @@ Or run `make pklist` from repository root.
 
 ## Command-line options
 
-  * `-C`: also list config principals (used by Kerberos internally)
+  * `-C`: list config principals in raw form
   * `-c type:rest`: list contents of a specific ccache
   * `-l`: list ccaches in a collection
   * `-ll`: list contents of all ccaches
@@ -17,6 +17,7 @@ Or run `make pklist` from repository root.
   * `-p`: print only tickets' principal names
   * `-R`: print only the configured default realm
   * `-r fqdn`: print only the realm for given FQDN
+  * `-T`: print ticket data
 
 ## Output format
 
@@ -45,8 +46,9 @@ In "list collection caches" mode, merged with `cache` as above.
 
 ### "ticket", "cfgticket"
 
-`ticket` is a normal Kerberos credential.
-`cfgticket` is used internally by libkrb5, and not shown by default
+`ticket` is a normal Kerberos credential. `cfgticket` is a configuration item, used internally by krb5 and not shown in raw form unless `-C` is specified.
+
+If the ticket is a configuration ticket, or if `-T` is specified, the raw ticket data will be output as the last field.
 
  1. client principal name
  2. server principal name
@@ -54,6 +56,17 @@ In "list collection caches" mode, merged with `cache` as above.
  4. expiry time
  5. renewable until time (0 if ticket not renewable)
  6. ticket flags
+ 7. ticket data (only for `cfgticket` unless `-T` is specified)
+
+### "config"
+
+`config` is a configuration item, shown as a name/value pair with the name separated into multiple components.
+
+ 1. number of name components
+ 2. *multiple* name components
+ 3. value (octal-encoded)
+
+Common values for the first component are `fast_avail` (server supports FAST) and `pa_type` (preauth type used when obtaining this TGT). The second component in both cases is the TGT's server principal.
 
 ### "default"
 

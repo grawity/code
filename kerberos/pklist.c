@@ -42,6 +42,7 @@ krb5_context ctx;
 int show_cfg_tkts = 0;
 int show_collection = 0;
 int show_ccname_only = 0;
+int show_tktdata = 0;
 int show_defname_only = 0;
 int show_names_only = 0;
 int show_realm_only = 0;
@@ -64,7 +65,7 @@ int main(int argc, char *argv[]) {
 	char *hostname = NULL;
 	krb5_error_code retval;
 
-	while ((opt = getopt(argc, argv, "Cc:lNPpRr:")) != -1) {
+	while ((opt = getopt(argc, argv, "Cc:lNPpRr:T")) != -1) {
 		switch (opt) {
 		case 'C':
 			show_cfg_tkts = 1;
@@ -92,10 +93,13 @@ int main(int argc, char *argv[]) {
 			show_realm_only = 1;
 			hostname = optarg;
 			break;
+		case 'T':
+			show_tktdata = 1;
+			break;
 		case '?':
 		default:
 			fprintf(stderr,
-				"Usage: %s [-C] [-l] [-N | -P | -p | -R | -r hostname] [-c ccname]\n",
+				"Usage: %s [-C] [-l] [-T] [-N | -P | -p | -R | -r hostname] [-c ccname]\n",
 				progname);
 			fprintf(stderr,
 				"\n"
@@ -107,7 +111,8 @@ int main(int argc, char *argv[]) {
 				"\t-P         show default client principal\n"
 				"\t-p         only show principal names\n"
 				"\t-R         show default realm\n"
-				"\t-r host    show realm for given FQDN\n");
+				"\t-r host    show realm for given FQDN\n"
+				"\t-T         show ticket data\n");
 			exit(2);
 		}
 	}
@@ -236,7 +241,7 @@ int do_ccache(krb5_ccache cache) {
 			printf("cache\t%s\n", ccname);
 			printf("principal\t%s\n", princname);
 		}
-		printf("CREDENTIALS\tclient_name\tserver_name\tstart_time\texpiry_time\trenew_time\tflags\n");
+		printf("CREDENTIALS\tclient_name\tserver_name\tstart_time\texpiry_time\trenew_time\tflags\tticket_data\n");
 	}
 
 	retval = krb5_cc_start_seq_get(ctx, cache, &cursor);
@@ -249,8 +254,7 @@ int do_ccache(krb5_ccache cache) {
 		retval = krb5_cc_next_cred(ctx, cache, &cursor, &creds);
 		if (retval)
 			break;
-		if (show_cfg_tkts || !krb5_is_config_principal(ctx, creds.server))
-			show_cred(&creds);
+		show_cred(&creds);
 		krb5_free_cred_contents(ctx, &creds);
 	}
 
@@ -339,6 +343,17 @@ int do_collection() {
 #endif
 }
 
+void print_data(krb5_data *ticket) {
+	unsigned int i;
+	for (i = 0; i < ticket->length; i++) {
+		if (0x20 < ticket->data[i]
+			&& ticket->data[i] < 0x7f)
+			putchar(ticket->data[i]);
+		else
+			printf("\\%03o", (unsigned char) ticket->data[i]);
+	}
+}
+
 /*
  * output a single credential (ticket)
  */
@@ -347,6 +362,8 @@ void show_cred(register krb5_creds *cred) {
 	char		*clientname;
 	char		*servername;
 	char		*flags;
+	int		is_config;
+	int		i;
 
 	retval = krb5_unparse_name(ctx, cred->client, &clientname);
 	if (retval) {
@@ -367,28 +384,43 @@ void show_cred(register krb5_creds *cred) {
 
 	if (!cred->times.starttime)
 		cred->times.starttime = cred->times.authtime;
+
+	is_config = krb5_is_config_principal(ctx, cred->server);
 	
-	// "ticket" server client start renew flags
-	if (krb5_is_config_principal(ctx, cred->server))
-		printf("cfgticket");
-	else
-		printf("ticket");
+	if (is_config && !show_cfg_tkts) {
+		// "config" <arg>+ <value>
+		printf("config");
+		printf("\t%d", cred->server->length-1);
+		for (i = 1; i < cred->server->length; i++)
+			printf("\t%s", cred->server->data[i].data);
+		printf("\t");
+		print_data(&cred->ticket);
+		printf("\n");
+	} else {
+		// "ticket" <server> <client> <start> <renew> <flags> [data]
+		printf(is_config ? "cfgticket" : "ticket");
+		printf("\t%s", clientname);
+		printf("\t%s", servername);
+		printf("\t%ld", (unsigned long) cred->times.starttime);
+		printf("\t%ld", (unsigned long) cred->times.endtime);
+		printf("\t%ld", (unsigned long) cred->times.renew_till);
 
-	printf("\t%s", clientname);
-	printf("\t%s", servername);
-	printf("\t%ld", (unsigned long) cred->times.starttime);
-	printf("\t%ld", (unsigned long) cred->times.endtime);
-	printf("\t%ld", (unsigned long) cred->times.renew_till);
+		flags = strflags(cred);
+		if (flags && *flags)
+			printf("\t%s", flags);
+		else if (flags)
+			printf("\t-");
+		else
+			printf("\t?");
 
-	flags = strflags(cred);
-	if (flags && *flags)
-		printf("\t%s", flags);
-	else if (flags)
-		printf("\t-");
-	else
-		printf("\t?");
+		if (is_config || show_tktdata) {
+			printf("\t");
+			print_data(&cred->ticket);
+		} else
+			printf("\t-");
 
-	printf("\n");
+		printf("\n");
+	}
 
 cleanup:
 	if (clientname)

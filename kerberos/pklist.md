@@ -26,6 +26,8 @@ Basic format consists of tab-separated fields, the zeroth of which is type:
 
 ### "cache"
 
+Always the first line when describing a new credential cache.
+
 In default mode:
 
  1. Kerberos 5 credential cache name
@@ -77,7 +79,7 @@ In "list collection caches" mode:
 
 ## Headers
 
-Some modes output a header line, which has type in all uppercase (such as `CREDENTIALS`) and following fields acting as column headers for following output lines.
+Some modes output a header line, which has type in all uppercase (such as `CREDENTIALS`) and following fields acting as column headers for following output lines. This is only for informational purposes and should not be relied upon.
 
 When any of `-N`, `-P`, `-p`, `-R`, or `-r` is given, _only_ the requested data is displayed, without any type prefix.
 

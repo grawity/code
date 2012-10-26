@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 	while ((opt = getopt(argc, argv, "Cc:lNPpRr:T")) != -1) {
 		switch (opt) {
 		case 'C':
-			show_cfg_tkts = 1;
+			show_cfg_tkts++;
 			break;
 		case 'c':
 			ccname = optarg;
@@ -99,11 +99,12 @@ int main(int argc, char *argv[]) {
 		case '?':
 		default:
 			fprintf(stderr,
-				"Usage: %s [-C] [-l] [-T] [-N | -P | -p | -R | -r hostname] [-c ccname]\n",
+				"Usage: %s [-ClT] [-N|-P|-p|-R|-r hostname] [-c ccname]\n",
 				progname);
 			fprintf(stderr,
 				"\n"
-				"\t-C         also list config principals\n"
+				"\t-C         list configuration tickets\n"
+				"\t-CC        - show raw config ticket names\n"
 				"\t-c ccname  show contents of given ccache\n"
 				"\t-l         list known ccaches\n"
 				"\t-ll        - also show contents\n"
@@ -365,6 +366,10 @@ void show_cred(register krb5_creds *cred) {
 	int		is_config;
 	int		i;
 
+	is_config = krb5_is_config_principal(ctx, cred->server);
+	if (is_config && !show_cfg_tkts)
+		return;
+
 	retval = krb5_unparse_name(ctx, cred->client, &clientname);
 	if (retval) {
 		com_err(progname, retval, "while unparsing client name");
@@ -384,10 +389,8 @@ void show_cred(register krb5_creds *cred) {
 
 	if (!cred->times.starttime)
 		cred->times.starttime = cred->times.authtime;
-
-	is_config = krb5_is_config_principal(ctx, cred->server);
 	
-	if (is_config && !show_cfg_tkts) {
+	if (is_config && show_cfg_tkts == 1) {
 		// "config" <arg>+ <value>
 		printf("config");
 		printf("\t%d", cred->server->length-1);

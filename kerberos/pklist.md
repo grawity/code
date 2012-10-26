@@ -8,7 +8,8 @@ Or run `make pklist` from repository root.
 
 ## Command-line options
 
-  * `-C`: list config principals in raw form
+  * `-C`: list config principals
+  * `-CC`: list raw config principal names
   * `-c type:rest`: list contents of a specific ccache
   * `-l`: list ccaches in a collection
   * `-ll`: list contents of all ccaches
@@ -46,7 +47,7 @@ In "list collection caches" mode, merged with `cache` as above.
 
 ### "ticket", "cfgticket"
 
-`ticket` is a normal Kerberos credential. `cfgticket` is a configuration item, used internally by krb5 and not shown in raw form unless `-C` is specified.
+`ticket` is a normal Kerberos credential. `cfgticket` is a configuration item, used internally by krb5 and not shown unless `-CC` is specified.
 
 If the ticket is a configuration ticket, or if `-T` is specified, the raw ticket data will be output as the last field.
 
@@ -56,11 +57,11 @@ If the ticket is a configuration ticket, or if `-T` is specified, the raw ticket
  4. expiry time
  5. renewable until time (0 if ticket not renewable)
  6. ticket flags
- 7. ticket data (only for `cfgticket` unless `-T` is specified)
+ 7. ticket data (only if `-T` is given if a normal ticket)
 
 ### "config"
 
-`config` is a configuration item, shown as a name/value pair with the name separated into multiple components.
+`config` is a configuration item, shown as a name/value pair with the name separated into multiple components. Only shown if `-C` is specified.
 
  1. number of name components
  2. *multiple* name components

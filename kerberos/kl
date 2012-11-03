@@ -226,17 +226,16 @@ sub display_ccache {
 				my $nextrealm = $1;
 				$istgt = 1;
 
-				$color = $svrealm eq $nextrealm
-					? $COLOR_TGT_LOCAL
-					: $svrealm eq $defrealm
-					? $COLOR_TGT_CROSS
-					: $COLOR_TGT_DISTANT
-					;
+				$color = $svrealm eq $defrealm
+					? ($svrealm eq $nextrealm
+						? $COLOR_TGT_LOCAL
+						: $COLOR_TGT_CROSS)
+					: $COLOR_TGT_DISTANT;
 
 				$label .= "\e[1;${color}m${svname}\e[m";
 				$width += length $svname;
 
-				if ($svrealm eq $nextrealm) {
+				if ($svrealm eq $nextrealm && $svrealm eq $defrealm) {
 					$label .= " \e[${color}m(local)\e[m";
 					$width += length " (local)";
 				} else {

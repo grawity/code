@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+case $TERM in
+	[xkE]term*|rxvt*|cygwin|dtterm|termite)
+		titlestring='\e]0;%s\a';
+		wnamestring=;;
+	screen*)
+		titlestring='\e]0;%s\a';
+		wnamestring='\ek%s\e\\';;
+	*)
+		titlestring=;
+		wnamestring=;;
+esac
+
+settitle() { [[ $titlestring ]] && printf "$titlestring" "$*"; }
+
+setwname() { [[ $wnamestring ]] && printf "$wnamestring" "$*"; }
+
+if [[ $1 == "-w" ]]; then
+	shift
+	setwname "$*"
+else
+	settitle "$*"
+fi

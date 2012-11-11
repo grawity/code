@@ -1,38 +1,36 @@
 #!/usr/bin/env bash
 # Kerberos 'push' propagation over SSH
 
+umask 077
 realm=$1
 host=$2
-[[ $realm && $host ]] ||
-{
+key=~/.ssh/keys/kprop_${host##*@}
+
+if ! [[ $realm && $host ]]; then
 	echo "usage: ${0##*/} REALM SLAVEHOST" >&2
 	exit 2
-}
+fi
 
-key=~/.ssh/keys/kprop_${host##*@}
-[[ -f $key ]] ||
-{
+if ! [[ -f $key ]]; then
 	echo "error: key '$key' not found" >&2
 	exit 1
-}
+fi
 
-umask 077
 temp=$(mktemp -d "/tmp/kprop.XXXXXXXX")
-sudo kdb5_util -r "$realm" dump > "$temp/dump" ||
-{
+
+if ! sudo kdb5_util -r "$realm" dump > "$temp/dump"; then
 	e=$?
 	echo "error: dump failed" >&2
 	rm -rf "$temp"
 	exit $e
-}
+fi
 
-ssh -i "$key" -oPreferredAuthentications=publickey "$host" \
-	"sudo kdb5_util -r '$realm' load /dev/stdin" < "$temp/dump" ||
-{
+if ! ssh -i "$key" -oPreferredAuthentications=publickey "$host" \
+  "sudo kdb5_util -r '$realm' load /dev/stdin" < "$temp/dump"; then
 	e=$?
 	echo "error: transfer failed" >&2
 	rm -rf "$temp"
 	exit $e
-}
+fi
 
 rm -rf "$temp"

@@ -1,9 +1,29 @@
 #!/bin/sh
 
+getcgroup() {
+	local cg=$(awk -F":" '$2 == "name=systemd" {print $3}' /proc/self/cgroup)
+	echo "/sys/fs/cgroup/systemd/${cg#/}"
+}
+
+setcgroup() {
+	mkdir -p "$1" && echo "$$" > "$1/tasks"
+}
+
+killcgroup() {
+	local pids=$(< "$1/tasks")
+	[ "$pids" ] && kill -s ${2:-TERM} $pids
+}
+
+cd ~
+
 vt="vt$(fgconsole)" || {
 	echo "Unable to determine current VT"
 	exit 1
 }
+
+oldcg=$(getcgroup)
+newcg=$oldcg/x11-$$
+setcgroup "$newcg"
 
 export DISPLAY=$(next-display)
 export XAUTHORITY=~/.Xauthority
@@ -17,6 +37,13 @@ xauth add "$DISPLAY" "MIT-MAGIC-COOKIE-1" "$(mcookie)"
 
 ln -sf "/tmp/.X11-unix/X${DISPLAY#:}" "$XDG_RUNTIME_DIR/X11-display"
 
-exec xinit ~/.xinitrc "$@" -- "$DISPLAY" "$vt" \
-	-noreset -auth "$XAUTHORITY" -quiet -background none \
+xinit ~/.xinitrc "$@" -- "$DISPLAY" "$vt" \
+	-noreset -auth "$XAUTHORITY" -quiet \
 	< /dev/null > ~/.xsession-errors 2>&1
+
+# -background none
+
+setcgroup "$oldcg"
+killcgroup "$newcg" TERM
+(sleep 3
+killcgroup "$newcg" KILL) &

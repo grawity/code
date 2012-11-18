@@ -18,6 +18,7 @@ fmt() {
 			$C{PREFIX} = "\e[$ENV{prefix}m";
 			$C{PRIVATE} = "\e[$ENV{private}m";
 			$C{NOTICE} = "\e[$ENV{notice}m";
+			$C{TEXT} = "\e[$ENV{text}m";
 		} else {
 			%C = ();
 		}
@@ -58,7 +59,7 @@ fmt() {
 		$f_hdate = sprintf "$C{DATE}%s$C{RESET}", $sdate;
 		$f_ddate = sprintf "$C{DARK}%s$C{RESET}", $sdate;
 		$f_buffer = sprintf "$C{BUFFER}%s$C{RESET}", $sbuffer;
-		$f_msg = sprintf "$C{PREFIX}%s$C{RESET} %s", $from, $line;
+		$f_msg = sprintf "$C{PREFIX}%s$C{RESET} $C{TEXT}%s$C{RESET}", $from, $line;
 
 		if ($lastbuf eq $buffer) {
 			if ($firstdate > $udate-300) {
@@ -84,13 +85,14 @@ fmt() {
 	'
 }
 
-export date color prefix private notice
+export date color prefix private notice text
 
 date='38;5;102'
 color='38;5;102'
 prefix='38;5;145'
 private=$prefix
 notice=$prefix
+text='38;5;188'
 tail "$log" | fmt
 
 date=$'38;5;9m\e[1'
@@ -98,5 +100,5 @@ color='38;5;72'
 private='38;5;178'
 prefix='38;5;150'
 notice='38;5;66'
+text=''
 curl -s -C "$size" $opts "$url" | tee -a "$log" | fmt
-#tail "$log" | fmt

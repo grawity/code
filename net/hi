@@ -1,0 +1,102 @@
+#!/bin/sh
+# hi - download latest hilights from IRC log
+log=~/tmp/highlights.txt
+url=$(readlink ~/tmp/highlights.url)
+opts='-4'
+size=$(stat -c %s "$log")
+now=$(date +%s)
+
+fmt() {
+	perl -M'POSIX' -M'POSIX::strptime' -a -F'\t' -nE'
+		if (-t 1) {
+			$C{DARK} = "\e[38;5;8m";
+			$C{BOLD} = "\e[1m";
+			$C{RESET} = "\e[m";
+
+			$C{DATE} = "\e[$ENV{date}m";
+			$C{BUFFER} = "\e[$ENV{color}m";
+			$C{PREFIX} = "\e[$ENV{prefix}m";
+			$C{PRIVATE} = "\e[$ENV{private}m";
+			$C{NOTICE} = "\e[$ENV{notice}m";
+		} else {
+			%C = ();
+		}
+
+		($date, $buffer, @line) = @F;
+
+		@tm = POSIX::strptime($date, "%Y-%m-%d %H:%M:%S %z");
+		$udate = mktime(@tm);
+		$fmt = (time - $udate < 70000) ? "%H:%M" : "%b %-d, %H:%M";
+		$sdate = strftime($fmt, @tm);
+
+		$line = join("\t", @line);
+		chomp $line;
+
+		if ($buffer !~ /#/ && $line =~ s/^<\Q$buffer\E> (\S+) \(\S+\): //) {
+			$from = "-$1-";
+		} elsif ($buffer !~ /#/ && $line =~ s/^<(\S+)> (\1): //i) {
+			$from = "-$2-";
+		} elsif ($line =~ s/^<(\S+?)> //) {
+			$from = "<$1>";
+		} else {
+			$from = "";
+		}
+
+		if ($from =~ /^-/) {
+			$C{PREFIX} = $C{NOTICE};
+		} elsif ($buffer !~ /#/) {
+			$C{PREFIX} = $C{PRIVATE};
+		}
+
+		$sbuffer = $buffer;
+		$sbuffer =~ s/[.#]/$C{BOLD}$&/ if $C{BOLD};
+
+		$indent = " " x length($sdate);
+		$indent = " " x 1;
+
+		$f_dash = sprintf "$C{DARK}%s$C{RESET}", "--";
+		$f_hdate = sprintf "$C{DATE}%s$C{RESET}", $sdate;
+		$f_ddate = sprintf "$C{DARK}%s$C{RESET}", $sdate;
+		$f_buffer = sprintf "$C{BUFFER}%s$C{RESET}", $sbuffer;
+		$f_msg = sprintf "$C{PREFIX}%s$C{RESET} %s", $from, $line;
+
+		if ($lastbuf eq $buffer) {
+			if ($firstdate > $udate-300) {
+				print "${indent}${f_msg}\n";
+			}
+			elsif ($firstdate > $udate-1200 && time-$udate > 70000) {
+				print "${indent}${f_msg}\n";
+			}
+			else {
+				print "${f_dash} ${f_ddate} ${f_dash}\n";
+				print "${indent}${f_msg}\n";
+				$firstdate = $udate;
+			}
+		}
+		else {
+			print "${f_dash} ${f_hdate} ${f_buffer} ${f_dash}\n";
+			print "${indent}${f_msg}\n";
+			$firstdate = $udate;
+		}
+
+		$lastdate = $udate;
+		$lastbuf = $buffer;
+	'
+}
+
+export date color prefix private notice
+
+date='38;5;102'
+color='38;5;102'
+prefix='38;5;145'
+private=$prefix
+notice=$prefix
+tail "$log" | fmt
+
+date=$'38;5;9m\e[1'
+color='38;5;72'
+private='38;5;178'
+prefix='38;5;150'
+notice='38;5;66'
+curl -s -C "$size" $opts "$url" | tee -a "$log" | fmt
+#tail "$log" | fmt

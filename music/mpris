@@ -62,13 +62,39 @@ sub saybool {
 sub int2time {
 	my $int = shift // return "∞";
 
-	$int = int($int / 1000000);
+	$int = int($int / 1_000_000);
 	$int -= my $s = $int % 60; $int /= 60;
 	$int -= my $m = $int % 60; $int /= 60;
 	$int -= my $h = $int % 24; $int /= 25;
 
 	$h ? sprintf("%dh%02d:%02d", $h, $m, $s)
 	   :  sprintf("%d:%02d", $m, $s);
+}
+
+sub time2int {
+	my $time = shift;
+	my $secs = 0;
+
+	for ($time) {
+		when (undef) {
+			return undef;
+		}
+		when (/^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/) {
+			$secs += ($1 // 0) * 86400;
+			$secs += ($2 // 0) * 3600;
+			$secs += ($3 // 0) * 60;
+			$secs += ($4 // 0);
+		}
+		when (/^(?:(?:(\d+)[h:])?(\d+):)?(\d+(?:\.\d+)?)$/) {
+			$secs += ($1 // 0) * 3600;
+			$secs += ($2 // 0) * 60;
+			$secs += $3;
+		}
+		default {
+			return undef;
+		}
+	}
+	$secs * 1_000_000;
 }
 
 # frombool(str) - booleanize a string
@@ -368,17 +394,20 @@ sub player_setprop {
 			my $track;
 			if (!defined $position) {
 				dieusage "Missing position.";
-			} elsif ($position =~ /^(\d+)@(\d+)$/) {
+			} elsif ($position =~ /^(.+)@(\d+)$/) {
 				$position = $1;
 				$track = track($2);
-			} elsif ($position =~ /^\d+$/) {
+			} else {
 				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
 							"Metadata");
 				$track = $meta->{"mpris:trackid"} // track("1");
+			}
+			$position = time2int($position);
+			if (defined $position) {
+				$player->()->SetPosition($track, $position);
 			} else {
 				dieusage "Invalid position.";
 			}
-			$player->()->SetPosition($track, $position);
 		}
 		when ("player/rate") {
 			my $arg = shift;
@@ -525,8 +554,12 @@ my %commands = (
 	repeat => property("player/loop-status"),
 	seek => sub {
 		my $player = shift;
-		my $offset = shift;
-		$player->()->Seek($offset * 1_000_000);
+		my $offset = time2int(shift);
+		if (defined $offset) {
+			$player->()->Seek($offset);
+		} else {
+			dieusage "Invalid offset.";
+		}
 	},
 	set => sub {
 		player_setprop(@_);

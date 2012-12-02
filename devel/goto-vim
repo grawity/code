@@ -8,7 +8,12 @@ use feature "switch";
 #   filename:/regex
 #   filename:/regex garbage
 
-my $specre = qr/^ ([^:]+) : (\d+ | \/[^\/]\S*) (?:[:\s].*)? $/mx;
+my $specre = qr{ ^ ([^:]+) : (\d+ | /[^/]\S*) (?:[:\s].*)? $ }mx;
+
+# this matches:
+#   "a/foo/bar" → foo/bar
+
+my $diffpathre = qr{ ^ [a-z] / (.+) $ }mx;
 
 # this matches:
 #   ./path
@@ -16,7 +21,7 @@ my $specre = qr/^ ([^:]+) : (\d+ | \/[^\/]\S*) (?:[:\s].*)? $/mx;
 #   /path
 #   /path:garbage
 
-my $pathre = qr/ (\.?\/[^:]+) /mx;
+my $pathre = qr{ (\.? / [^:]+) }mx;
 
 # this script is usually symlinked as ~/bin/vim, so
 # it needs to run the real vim by absolute path
@@ -31,7 +36,11 @@ sub parse {
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
-			return ($file, $cmd);
+			return ($file, $cmd) if -e $file;
+		}
+		when ($diffpathre) {
+			my ($file) = ($1);
+			return ($file);
 		}
 		when ($pathre) {
 			my ($file) = ($1);

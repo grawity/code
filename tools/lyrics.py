@@ -1,5 +1,6 @@
-#!/usr/bin/python -u
+#!/usr/bin/python2 -u
 # Read and write lyrics tags.
+from __future__ import print_function
 import sys
 import getopt
 
@@ -8,6 +9,12 @@ try:
 except ImportError:
 	print >> sys.stderr, "The mutagen library is not installed."
 	sys.exit(42)
+
+def to_crlf(s):
+	return s.replace("\r\n", "\n").replace("\n", "\r\n")
+
+def from_crlf(s):
+	return s.replace("\r\n", "\n")
 
 # Turn off text mode stdio on Windows (otherwise it writes CR CR LF)
 if sys.platform == "win32":
@@ -41,7 +48,7 @@ lyricsfile = None
 try:
 	options, files = getopt.gnu_getopt(sys.argv[1:], "f:iox")
 except getopt.GetoptError as e:
-	print >> sys.stderr, "Error:", e
+	print(e, file=sys.stderr)
 	sys.exit(2)
 
 for opt, value in options:
@@ -55,28 +62,19 @@ if mode == "input":
 		f = sys.stdin
 	else:
 		f = open(lyricsfile, "r")
-
-	lyrics = f.read().decode("utf-8")
-
+	lyrics = to_crlf(f.read().decode("utf-8"))
 	for file in files:
 		write_id3(file, lyrics)
-		
 elif mode == "output":
 	if lyricsfile is None:
 		f = sys.stdout
 	else:
 		f = open(lyricsfile, "w")
-
 	for file in files:
 		lyrics = read_id3(file)
-		if lyrics is None: continue
-
-		sys.stdout.write(lyrics.encode("utf-8"))
-
-		# splitting required to bypass Windows text-mode stdio fuckage
-		#for line in lyrics.splitlines():
-		#	print line.strip().encode("utf-8")
-			
+		if lyrics:
+			lyrics = from_crlf(lyrics)
+			sys.stdout.write(lyrics.encode("utf-8"))
 elif mode == "kill":
 	for file in files:
 		write_id3(file, None)

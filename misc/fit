@@ -1,0 +1,67 @@
+#!/usr/bin/env perl
+# fit -- fit a rectangle inside a smaller one
+
+use utf8;
+use feature 'say';
+use List::Util qw(min);
+
+binmode STDOUT, ':utf8';
+
+my $current = shift(@ARGV);
+my $target = shift(@ARGV);
+
+if (!$current || !$target) {
+	warn $_ for
+	"Usage: fit <current-size> <target-size>\n",
+	"\n",
+	"Both sizes are in the form WxH or W:H.\n",
+	"\n",
+	"In target-dim, one of the dimensions may be missing.\n";
+	exit 1;
+}
+
+my ($curX, $curY) = $current =~ /^(\d+)[x:](\d+)$/;
+my ($tarX, $tarY) = $target =~ /^(\d+)?[x:](\d+)?$/;
+
+if (!$curX || !$curY) {
+	warn "Missing source dimensions.\n";
+	exit 1;
+}
+
+my $ratio = $curX / $curY;
+
+printf "(source ratio %.4f)\n", $ratio;
+
+my ($outX, $outY);
+
+if (!$tarX && !$tarY) {
+	warn "Missing target dimensions.\n";
+	exit 1;
+}
+elsif ($tarX && !$tarY) {
+	$outX = $tarX;
+	$outY = $outX / $ratio;
+}
+elsif (!$tarX && $tarY) {
+	$outY = $tarY;
+	$outX = $outY * $ratio;
+}
+else { # ($tarX && $tarY)
+	my $tRatio = $tarX / $tarY;
+	printf "(target ratio %.4f)\n", $tRatio;
+	if ($tRatio < $ratio) {
+		$outX = min($curX, $tarX);
+		$outY = $outX / $ratio;
+	}
+	else {
+		$outY = min($curY, $tarY);
+		$outX = $outY * $ratio;
+	}
+}
+
+printf "\e[1m"."%dx%d → %dx%d"."\e[m\n", $curX, $curY, $outX, $outY;
+
+my $oRatio = int(sprintf "%d", $outX) / int(sprintf "%d", $outY);
+
+printf "(output ratio %.4f)\n", $oRatio
+	if abs($oRatio - $ratio) >= 0.01;

@@ -9,18 +9,6 @@ same_fs() {
 	test "$(stat -c %d "$1")" = "$(stat -c %d "$2")"
 }
 
-list_configs() {
-	find "$ESP/loader/entries" \
-		\( -name "$ID.conf" -o -name "$ID-*.conf" \)\
-		-printf '%f\n' | sed "s/^$ID/linux/; s/\.conf\$//"
-}
-
-check_all() {
-	list-configs | while read kernel; do
-		check_kernel "$kernel"
-	done
-}
-
 check_kernel() {
 	local kernel=$1
 	local suffix=

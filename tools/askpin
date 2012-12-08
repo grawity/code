@@ -37,9 +37,15 @@ config=("SETPROMPT")
 	set -x
 }
 
-while getopts ':C:Dd:ghO:o:P:p:t:xW:' OPT; do
+if [[ $LC_ALL ]]; then
+	LC_MESSAGES=$LC_ALL
+	LC_CTYPE=$LC_ALL
+fi
+
+while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	$debug && echo "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
 	case "$OPT" in
+	c)	config+=("$OPTARG") ;;
 	C)	config+=("SETCANCEL $(encode "$OPTARG")") ;;
 	D)	debug=true ;;
 	d)	config+=("SETDESC $(encode "$OPTARG")") ;;
@@ -56,15 +62,29 @@ while getopts ':C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	esac
 done
 
+if [[ "${!OPTIND}" ]]; then
+	config+=("SETDESC $(encode "${!OPTIND}")")
+fi
+
 if [[ $GPG_TTY ]]; then
 	pinentry+=(--ttyname "$GPG_TTY")
 elif [[ -t 0 ]]; then
 	pinentry+=(--ttyname /dev/tty)
 fi
 
-if [[ "${!OPTIND}" ]]; then
-	config+=("SETDESC $(encode "${!OPTIND}")")
-fi
+: ${LANG:='en_US.UTF-8'}
+: ${LC_CTYPE:=$LANG}
+: ${LC_MESSAGES:=$LANG}
+
+#config+=(
+#	"OPTION lc-ctype $LC_CTYPE"
+#	"OPTION lc-messages $LC_CTYPE"
+#)
+
+pinentry+=(
+	--lc-ctype "$LC_CTYPE"
+	--lc-messages "$LC_MESSAGES"
+)
 
 configure() {
 	if (( $i == ${#config[@]} )); then

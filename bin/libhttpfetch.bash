@@ -1,7 +1,12 @@
 #!bash
+
+have() { command -v "$1" >&/dev/null; }
+
 http_fetch() {
-	local url="$1" out="${2:-/dev/stdout}"
-	if have curl; then
+	local url=$1 out=${2:-/dev/stdout}
+	if ! [[ $url && $url == "http://"* ]]; then
+		return 1
+	elif have curl; then
 		curl -LSsf -o "$out" "$url"
 	elif have wget; then
 		wget -q -O "$out" "$url"
@@ -13,8 +18,8 @@ http_fetch() {
 		links -source "$url" > "$out"
 	elif have elinks; then
 		elinks -source "$url" > "$out"
-	elif have python; then
-		python - "$url" > "$out" <<-'EOF'
+	elif have python2; then
+		python2 - "$url" > "$out" <<-'EOF'
 			import sys, urllib2
 			try: sys.stdout.write(urllib2.urlopen(sys.argv[1]).read())
 			except: sys.exit(1)
@@ -28,8 +33,8 @@ http_fetch() {
 		EOF
 	elif have php; then
 		php -d 'allow_url_fopen=On' -r '@readfile($argv[1]);' "$url" > "$out"
-	elif have perl && perl -mLWP::Simple -e'1' 2> /dev/null; then
-		perl -mLWP::Simple -e'getstore $ARGV[0], $ARGV[1]' "$url" "$out"
+	elif have perl && perl -m'LWP::Simple' -e'1' 2> /dev/null; then
+		perl -M'LWP::Simple' -e'getstore $ARGV[0], $ARGV[1]' "$url" "$out"
 	elif have tclsh; then
 		tclsh - "$url" > "$out" <<-'EOF'
 			package require http
@@ -40,5 +45,5 @@ http_fetch() {
 		echo "no HTTP client available" >&2
 		return 1
 	fi
-	[ -s "$out" ] # fail if output file empty
+	[[ -s $out ]] # fail if output file empty
 }

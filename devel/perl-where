@@ -1,0 +1,17 @@
+#!/usr/bin/env perl
+
+my $err = 0;
+
+for my $pkg (@ARGV) {
+	$pkg =~ s|::|/|g;
+
+	my @files = grep {-f} map {"$_/$pkg.pm"} @INC;
+
+	if (@files) {
+		print "$_\n" for @files;
+	} else {
+		warn "can't find $pkg.pm\n"; ++$err;
+	}
+}
+
+exit !!$err;

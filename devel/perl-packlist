@@ -1,0 +1,26 @@
+#!/usr/bin/env perl
+
+my $err = 0;
+
+for my $pkg (@ARGV) {
+	$pkg =~ s|::|/|g;
+
+	my @packs =
+		grep {-e}
+		map {$_."/".$pkg."/.packlist"}
+		map {$_, $_."/auto"} @INC;
+
+	for my $pack (@packs) {
+		if (open($pf, "<", $pack)) {
+			print for <$pf>;
+			close($pf);
+		}
+		print "$pack\n";
+	}
+
+	if (!@packs) {
+		warn "can't find packlist for $pkg\n"; ++$err;
+	}
+}
+
+exit !!$err;

@@ -1,14 +1,15 @@
 #!/usr/bin/env perl
-use warnings;
-use feature 'say';
+
+my %pkgs;
 
 for my $dir (@INC) {
 	open(my $fh, "<", "$dir/perllocal.pod") or next;
 	while (<$fh>) {
 		if (/^=head2 .+ L<(.+)\|.+>$/) {
 			$pkg = $1;
+			next if $pkgs{$pkg}++;
 			if ($pkg eq 'ack') {$pkg = 'App::Ack'}
-			say $pkg;
+			print "$pkg\n";
 		}
 	}
 	close($fh);

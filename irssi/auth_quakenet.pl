@@ -5,15 +5,19 @@ use vars qw($VERSION %IRSSI);
 
 ## Settings:
 #
-# quakenet_account (string) = <servertag>:<username>:<password>
-#   List of QuakeNet accounts, in format <servertag>:<username>:<password>
-#   Multiple accounts can be separated by spaces.
+# quakenet_account (string) = ( [<servertag>:]<username>:<password> )*
 #
-#   <servertag> can be empty to match all connections not already specified.
-#   (The script checks for QuakeNet and Q, so this is only useful if you have
-#   multiple accounts for some strange reason.)
+#   Your QuakeNet account details, in format <username>:<password>. Example:
+#
+#       /set quakenet_account [fishking]:iLOVEfish12345
+#
+#   Different accounts for different Irssi "networks" ("server tags") can be
+#   set in format <servertag>:<username>:<password> (space-separated). The
+#   account with empty (or missing) <servertag> will be used as the default
+#   account for all other connections.)
 #
 # quakenet_auth_allowed_mechs (string) = any
+#
 #   List of allowed mechanisms, separated by spaces.
 #   Can be "any" to allow all supported mechanisms.
 #
@@ -94,7 +98,17 @@ sub get_account {
 	my $accounts = Irssi::settings_get_str("quakenet_account");
 	my ($defuser, $defpass) = (undef, undef);
 	for my $acct (split /\s+/, $accounts) {
-		my ($tag, $user, $pass) = split(/:/, $acct, 3);
+		my ($tag, $user, $pass);
+
+		my @acct = split(/:/, $acct);
+		if (@acct == 3) {
+			($tag, $user, $pass) = @acct;
+		} elsif (@acct == 2) {
+			($tag, $user, $pass) = ("*", @acct);
+		} else {
+			next;
+		}
+
 		if (lc $tag eq lc $servertag) {
 			return ($user, $pass);
 		}
@@ -181,5 +195,5 @@ Irssi::settings_add_str("misc", "quakenet_auth_allowed_mechs", "any");
 Irssi::settings_add_str("misc", "quakenet_account", "");
 
 if (Irssi::settings_get_str("quakenet_account") eq "") {
-	Irssi::print("Set your QuakeNet account using /set quakenet_account quakenet:username:password");
+	Irssi::print("Set your QuakeNet account using /set quakenet_account username:password");
 }

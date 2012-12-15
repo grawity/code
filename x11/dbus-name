@@ -14,6 +14,7 @@ my $quiet = 0;
 my $list = 0;
 my $wait = 0;
 my $watch = 0;
+my $color = 0;
 
 sub usage {
 	say for
@@ -52,6 +53,15 @@ GetOptions(
 	"wait-any"	=> sub { $wait = "any"; },
 	"watch"		=> \$watch,
 ) or exit 2;
+
+$color = -t 1 && length($ENV{TERM}) > 0;
+
+my %color = (
+	"+"   => $color ? "\e[1;32m" : "",
+	"~"   => $color ? "\e[1;33m" : "",
+	"-"   => $color ? "\e[1;31m" : "",
+	reset => $color ? "\e[m"     : "",
+);
 
 for ($busaddr) {
 	when (undef) {
@@ -105,10 +115,10 @@ if ($list) {
 				? eval {$obj->GetConnectionUnixProcessID($new_owner)}
 				: undef;
 		if ($quiet) {
-			say $state,
+			say $color{$state}, $state, $color{reset},
 				" ", $bus_name;
 		} else {
-			say $state,
+			say $color{$state}, $state, $color{reset},
 				" ", $bus_name,
 				" ", length($old_owner) ? $old_owner : "(none)",
 				" ", length($new_owner) ? $new_owner : "(none)",

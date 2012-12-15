@@ -41,6 +41,8 @@ $VERSION = "1.0";
 
 require Digest::HMAC;
 
+my @preferred_mechs = qw(HMAC-SHA-256 HMAC-SHA-1 HMAC-MD5);
+
 my %supported_mechs = ();
 
 eval {
@@ -66,7 +68,7 @@ eval {
 		Irssi::print("WARNING: LEGACY-MD5 should not be used.");
 		my ($challenge, $username, $password) = @_;
 		Digest::MD5::md5_hex($password . " " . $challenge);
-	}
+	};
 };
 
 if (scalar keys %supported_mechs == 0) {
@@ -78,26 +80,21 @@ if (scalar keys %supported_mechs == 0) {
 sub hmac {
 	my ($fnhex, $fnraw, $challenge, $username, $password) = @_;
 	my $key = &$fnhex($username . ":" . &$fnhex($password));
-	return Digest::HMAC::hmac_hex($challenge, $key, $fnraw);
+	Digest::HMAC::hmac_hex($challenge, $key, $fnraw);
 }
 
-sub lci { my $t = shift; $t =~ tr/[\\]/{|}/; return lc($t); }
-
-my @preferred_mechs = qw(HMAC-SHA-256 HMAC-SHA-1 HMAC-MD5);
-
-Irssi::settings_add_str("misc", "quakenet_auth_allowed_mechs", "any");
-Irssi::settings_add_str("misc", "quakenet_account", "");
-
-if (Irssi::settings_get_str("quakenet_account") eq "") {
-	Irssi::print("Set your QuakeNet account using /set quakenet_account quakenet:username:password");
+sub lcnick {
+	my $str = shift;
+	$str =~ tr/[\\]/{|}/;
+	lc $str;
 }
 
 sub get_account {
 	my ($servertag) = @_;
 	my $accounts = Irssi::settings_get_str("quakenet_account");
 	my ($defuser, $defpass) = (undef, undef);
-	foreach my $acct (split / +/, $accounts) {
-		my ($tag, $user, $pass) = split /:/, $acct, 3;
+	for my $acct (split /\s+/, $accounts) {
+		my ($tag, $user, $pass) = split(/:/, $acct, 3);
 		if (lc $tag eq lc $servertag) {
 			return ($user, $pass);
 		}
@@ -112,8 +109,8 @@ Irssi::signal_add_last "event 001" => sub {
 	my ($server, $evargs, $srcnick, $srcaddr) = @_;
 	return unless $srcnick =~ /\.quakenet\.org$/;
 
-	my ($u, $p) = get_account($server->{tag});
-	return if (!defined $p) or ($p eq "");
+	my ($user, $pass) = get_account($server->{tag});
+	return if !length($pass);
 
 	$server->print("", "Authenticating to Q");
 	$server->send_message('Q@cserve.quakenet.org', "CHALLENGE", 1);
@@ -124,14 +121,16 @@ Irssi::signal_add_first "message irc notice" => sub {
 	return unless $server->mask_match_address('Q!*@cserve.quakenet.org', $nick, $address);
 
 	if ($msg =~ /^CHALLENGE ([0-9a-f]+) (.+)$/) {
-		my $challenge = $1;
-		my @server_mechs = split " ", $2;
 		Irssi::signal_stop();
 
-		my ($user, $password) = get_account($server->{tag});
-		return unless (defined $password) and ($password ne "");
-		$user = lci $user;
-		$password = substr $password, 0, 10;
+		my $challenge = $1;
+		my @server_mechs = split(" ", $2);
+
+		my ($user, $pass) = get_account($server->{tag});
+		return if !length($pass);
+
+		$user = lcnick($user);
+		$pass = substr($pass, 0, 10);
 
 		my $mech;
 		my @allowed_mechs = ();
@@ -139,39 +138,48 @@ Irssi::signal_add_first "message irc notice" => sub {
 		if ($allowed_mechs eq "ANY") {
 			# @preferred_mechs is sorted by strength
 			@allowed_mechs = @preferred_mechs;
-		}
-		else {
-			@allowed_mechs = split / +/, $allowed_mechs;
+		} else {
+			@allowed_mechs = split(/\s+/, $allowed_mechs);
 		}
 
 		# choose first mech supported by both sides
-		foreach my $m (@allowed_mechs) {
-			if (grep { $_ eq $m } @server_mechs
-				&& grep { $_ eq $m } (keys %supported_mechs))
-				{ $mech = $m; last; }
+		for my $m (@allowed_mechs) {
+			if (grep {$_ eq $m} @server_mechs &&
+			    grep {$_ eq $m} (keys %supported_mechs)) {
+				$mech = $m;
+				last;
+			}
 		}
 
 		if (!defined $mech) {
-			$server->print("", "Authentication failed: no mechanisms available");
-			$server->print("", "Server offers: ".join(", ", @server_mechs));
-			$server->print("", "Client supports: ".join(", ", keys %supported_mechs));
-			$server->print("", "Restricted to: ".join(", ", @allowed_mechs));
+			$server->print("", "Authentication failed (no mechanisms available)");
+			$server->print("", "  Server offers:   ".join(", ", @server_mechs));
+			$server->print("", "  Client supports: ".join(", ", keys %supported_mechs));
+			$server->print("", "  Restricted to:   ".join(", ", @allowed_mechs));
 			return;
 		}
 
 		my $authfn = $supported_mechs{$mech};
 
-		my $response = &$authfn($challenge, $user, $password);
+		my $response = &$authfn($challenge, $user, $pass);
 		$server->send_message('Q@cserve.quakenet.org', "CHALLENGEAUTH $user $response $mech", 1);
 	}
 	
 	elsif ($msg =~ /^You are now logged in as (.+?)\.$/) {
-		$server->print("", "Authentication successful, logged in as $1");
 		Irssi::signal_stop();
+		$server->print("", "Authentication successful, logged in as $1");
 	}
 
 	elsif ($msg =~ /^Username or password incorrect\.$/) {
-		$server->print("", "Authentication failed.");
 		Irssi::signal_stop();
+		$server->print("", "Authentication failed (username or password incorrect)");
 	}
 };
+
+Irssi::settings_add_str("misc", "quakenet_auth_allowed_mechs", "any");
+
+Irssi::settings_add_str("misc", "quakenet_account", "");
+
+if (Irssi::settings_get_str("quakenet_account") eq "") {
+	Irssi::print("Set your QuakeNet account using /set quakenet_account quakenet:username:password");
+}

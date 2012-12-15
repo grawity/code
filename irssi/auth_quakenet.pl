@@ -81,7 +81,7 @@ sub hmac {
 	return Digest::HMAC::hmac_hex($challenge, $key, $fnraw);
 }
 
-sub lci { my $t = shift; $t =~ tr/[\\]~/{|}^/; return lc($t); }
+sub lci { my $t = shift; $t =~ tr/[\\]/{|}/; return lc($t); }
 
 my @preferred_mechs = qw(HMAC-SHA-256 HMAC-SHA-1 HMAC-MD5);
 

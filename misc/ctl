@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+# ctl - write one-line strings to files
+#   To be used like `sysctl`, just for things outside /proc/sys.
+#   For example, ctl /sys/modules/snd_hda_intel/parameters/power_save=1
+use warnings;
+use strict;
+
+sub print_file_data {
+	my ($file, $data) = @_;
+	$data =~ s/\0/\\0/g;
+	$data =~ s/\n/\\n/g;
+	$data =~ s/\t/\\t/g;
+	$data =~ s/[\x00-\x1F\x80-\x9F]/sprintf("\\%03o", ord $&)/ge;
+	print "$file = $data\n";
+}
+
+sub write_ctl {
+	my ($file, $data) = @_;
+
+	if (open(my $fh, ">", $file)) {
+		print $fh $data."\n";
+		close $fh;
+		print_file_data($file, $data);
+	} else {
+		warn "ctl: $! on key '$file'\n";
+	}
+}
+
+sub read_ctl {
+	my ($file, $depth) = @_;
+
+	if (-d $file && -l $file) {
+		warn "ctl: skipping symlink '$file'\n";
+	} elsif (-d $file) {
+		if ($depth > 10) {
+			warn "ctl: stopping descent into '$file/*'\n";
+			return;
+		}
+		read_ctl($_, $depth+1) for glob("$file/*");
+	} elsif (-f $file) {
+		if (open(my $fh, "<", $file)) {
+			my $data;
+			if (read $fh, $data, 512) {
+				chomp $data;
+				print_file_data($file, $data);
+			} else {
+				print "$file empty\n";
+			}
+			close $fh;
+		} else {
+			warn "ctl: $! on key '$file'\n";
+		}
+	} elsif (-e $file) {
+		warn "ctl: skipping non-regular file '$file'\n";
+	} else {
+		warn "ctl: no such file '$file'\n";
+	}
+}
+
+push @ARGV, "." if !@ARGV;
+
+for (@ARGV) {
+	if (/^([^=]+)=(.*)$/) {
+		write_ctl($1, $2);
+	} else {
+		read_ctl($_, 0);
+	}
+}

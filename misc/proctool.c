@@ -47,9 +47,6 @@ int main(int argc, char *argv[]) {
 		} else
 			printf("%d\n", pgid);
 	}
-	else if (streq(cmd, "pause")) {
-		pause();
-	}
 	else if (streq(cmd, "wait")) {
 		pid_t pid;
 		char path[20]; // enough for /proc/ + 32-bit PID

@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+# systemd-lock-handler -- proxy between systemd-logind's "Lock" signal and your
+#   favourite screen lock command
+
+from __future__ import print_function
+import os, sys, dbus, dbus.mainloop.glib
+from gi.repository import GObject
+
+def lock_signal_handler():
+	global lock_command
+	os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
+
+# handle command line
+
+lock_command = ["/usr/lib/kde4/libexec/kscreenlocker", "--forcelock"]
+
+if len(sys.argv) > 1:
+	lock_command = sys.argv[1:]
+
+# obtain session ID
+
+try:
+	session_id = os.environ["XDG_SESSION_ID"]
+except KeyError:
+	print("error: $XDG_SESSION_ID not set; are you using pam_systemd?",
+		file=sys.stderr)
+	sys.exit(1)
+
+# connect to DBus
+
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+bus = dbus.SystemBus()
+obj = bus.get_object("org.freedesktop.login1",
+		"/org/freedesktop/login1/session/%s" % session_id)
+obj.connect_to_signal("Lock", lock_signal_handler,
+		dbus_interface="org.freedesktop.login1.Session")
+
+# start main loop
+
+try:
+	loop = GObject.MainLoop()
+	loop.run()
+except KeyboardInterrupt:
+	sys.exit(0)

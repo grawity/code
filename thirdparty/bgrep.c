@@ -1,15 +1,15 @@
 // Copyright 2009 Felix Domke <tmbinc@elitedvb.net>. All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 //    1. Redistributions of source code must retain the above copyright notice, this list of
 //       conditions and the following disclaimer.
-// 
+//
 //    2. Redistributions in binary form must reproduce the above copyright notice, this list
 //       of conditions and the following disclaimer in the documentation and/or other materials
 //       provided with the distribution.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER ``AS IS'' AND ANY EXPRESS OR IMPLIED
 // WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
 // FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> OR
@@ -19,7 +19,7 @@
 // ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // The views and conclusions contained in the software and documentation are those of the
 // authors and should not be interpreted as representing official policies, either expressed
 // or implied, of the copyright holder.
@@ -75,7 +75,7 @@ int searchfile(const char *filename, int fd, const unsigned char *value, const u
 			return match;
 		} else if (!r)
 			return match;
-		
+
 		int o, i;
 		for (o = offset ? 0 : len; o < r; ++o)
 		{
@@ -88,9 +88,9 @@ int searchfile(const char *filename, int fd, const unsigned char *value, const u
 				++match;
 			}
 		}
-		
+
 		offset += r;
-		
+
 	}
 
 	return match;
@@ -125,7 +125,7 @@ int recurse(const char *path, const unsigned char *value, const unsigned char *m
 		perror(path);
 		exit(3);
 	}
-	
+
 	struct dirent *d;
 	while ((d = readdir(dir)))
 	{
@@ -137,7 +137,7 @@ int recurse(const char *path, const unsigned char *value, const unsigned char *m
 		strcat(newpath, d->d_name);
 		match += recurse(newpath, value, mask, len);
 	}
-	
+
 	closedir(dir);
 
 	return match;
@@ -147,14 +147,14 @@ int main(int argc, char **argv)
 {
 	unsigned char value[0x100], mask[0x100];
 	int len = 0;
-	
+
 	if (argc < 2)
 	{
 		fprintf(stderr, "bgrep version: %s\n", BGREP_VERSION);
 		fprintf(stderr, "usage: %s <hex> [<path> [...]]\n", *argv);
 		return 1;
 	}
-	
+
 	char *h = argv[1];
 	while (*h && h[1] && len < 0x100)
 	{
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 		{
 			int v0 = ascii2hex(*h++);
 			int v1 = ascii2hex(*h++);
-			
+
 			if ((v0 == -1) || (v1 == -1))
 			{
 				fprintf(stderr, "invalid hex string!\n");
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 			value[len] = (v0 << 4) | v1; mask[len++] = 0xFF;
 		}
 	}
-	
+
 	if (!len || *h)
 	{
 		fprintf(stderr, "invalid/empty search string\n");
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 	}
 
 	int match = 0;
-	
+
 	if (argc < 3)
 		match += searchfile("stdin", 0, value, mask, len);
 	else

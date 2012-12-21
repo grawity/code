@@ -34,7 +34,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#define BGREP_VERSION "0.2"
+#define BGREP_VERSION "0.2+grawity1"
 
 int ascii2hex(char c)
 {
@@ -54,10 +54,11 @@ int ascii2hex(char c)
 		return -1;
 }
 
-void searchfile(const char *filename, int fd, const unsigned char *value, const unsigned char *mask, int len)
+int searchfile(const char *filename, int fd, const unsigned char *value, const unsigned char *mask, int len)
 {
 	off_t offset = 0;
 	unsigned char buf[1024];
+	unsigned int match = 0;
 
 	len--;
 
@@ -71,9 +72,9 @@ void searchfile(const char *filename, int fd, const unsigned char *value, const 
 		if (r < 0)
 		{
 			perror("read");
-			return;
+			return match;
 		} else if (!r)
-			return;
+			return match;
 		
 		int o, i;
 		for (o = offset ? 0 : len; o < r; ++o)
@@ -84,21 +85,26 @@ void searchfile(const char *filename, int fd, const unsigned char *value, const 
 			if (i > len)
 			{
 				printf("%s: %08llx\n", filename, (unsigned long long)(offset + o - len));
+				++match;
 			}
 		}
 		
 		offset += r;
 		
 	}
+
+	return match;
 }
 
-void recurse(const char *path, const unsigned char *value, const unsigned char *mask, int len)
+int recurse(const char *path, const unsigned char *value, const unsigned char *mask, int len)
 {
 	struct stat s;
+	unsigned int match = 0;
+
 	if (stat(path, &s))
 	{
 		perror("stat");
-		return;
+		return 0;
 	}
 	if (!S_ISDIR(s.st_mode))
 	{
@@ -107,10 +113,10 @@ void recurse(const char *path, const unsigned char *value, const unsigned char *
 			perror(path);
 		else
 		{
-			searchfile(path, fd, value, mask, len);
+			match += searchfile(path, fd, value, mask, len);
 			close(fd);
 		}
-		return;
+		return match;
 	}
 
 	DIR *dir = opendir(path);
@@ -129,10 +135,12 @@ void recurse(const char *path, const unsigned char *value, const unsigned char *
 		strcpy(newpath, path);
 		strcat(newpath, "/");
 		strcat(newpath, d->d_name);
-		recurse(newpath, value, mask, len);
+		match += recurse(newpath, value, mask, len);
 	}
 	
 	closedir(dir);
+
+	return match;
 }
 
 int main(int argc, char **argv)
@@ -177,14 +185,20 @@ int main(int argc, char **argv)
 		fprintf(stderr, "invalid/empty search string\n");
 		return 2;
 	}
+
+	int match = 0;
 	
 	if (argc < 3)
-		searchfile("stdin", 0, value, mask, len);
+		match += searchfile("stdin", 0, value, mask, len);
 	else
 	{
 		int c = 2;
+		int match = 0;
 		while (c < argc)
-			recurse(argv[c++], value, mask, len);
+			match += recurse(argv[c++], value, mask, len);
 	}
+
+	if (match == 0)
+		return 1;
 	return 0;
 }

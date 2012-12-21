@@ -105,9 +105,10 @@ private='38;5;178'
 prefix='38;5;150'
 notice='38;5;66'
 text=''
-curl -s -C "$size" $opts "$url" | tee -a "$log" | fmt
-
-case $? in
+out=$({ curl -s -S -C "$size" $opts "$url" 2>&3 | tee -a "$log" | fmt >&2; } 3>&1) 2>&1
+ret=$?
+case $ret in
+	0)  exit 0;;
 	33) exit 0;;
-	*) exit $?;
+	*)  echo -e "\e[33m$out\e[m" >&2; exit $ret;
 esac

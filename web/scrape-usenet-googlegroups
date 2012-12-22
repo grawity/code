@@ -5,17 +5,30 @@ use Data::Dumper;
 use HTML::TreeBuilder;
 use LWP::UserAgent;
 use URI;
+use File::Temp;
 
 my $ua = LWP::UserAgent->new;
 $ua->agent("Mozilla/4.0");
+
+my $x11_prompter = "$ENV{HOME}/code/x11/ask-captcha";
 
 our $gg_utoken;
 
 sub ui_captcha_prompt {
 	my ($img_url) = @_;
-	say STDERR "Challenge: $img_url";
-	print STDERR "Response: ";
-	chomp(my $response = <STDIN>);
+	my $response;
+	if (defined $ENV{DISPLAY} && -x $x11_prompter) {
+		my $tmp = File::Temp->new;
+		my $req = $ua->get($img_url, ":content_file" => $tmp->filename);
+
+		open(my $proc, "-|", $x11_prompter, $tmp->filename);
+		chomp($response = <$proc>);
+		close($proc);
+	} else {
+		say STDERR "Challenge: $img_url";
+		print STDERR "Response: ";
+		chomp($response = <STDIN>);
+	}
 	return $response;
 }
 

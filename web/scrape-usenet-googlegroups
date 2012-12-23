@@ -8,14 +8,14 @@ use LWP::ConnCache;
 use LWP::UserAgent;
 use URI;
 
-my $ua = LWP::UserAgent->new;
-$ua->agent("Mozilla/4.0");
-$ua->conn_cache(LWP::ConnCache->new);
-$ua->timeout(15);
+my $ua = LWP::UserAgent->new(
+		agent => "Mozilla/4.0",
+		timeout => 5,
+		keep_alive => 5,
+		show_progress => 1,
+		);
 
 my $x11_prompter = "$ENV{HOME}/code/x11/ask-captcha";
-
-our $gg_utoken;
 
 sub ui_captcha_prompt {
 	my ($img_url) = @_;
@@ -62,41 +62,28 @@ sub gg_follow_redirect {
 	return undef;
 }
 
-sub gg_get_path {
+sub gg_fetch_article {
 	my ($group, $mhash) = @_;
-	return "/group/$group/msg/$mhash";
-}
 
-sub gg_get_raw_url {
-	our $gg_utoken;
-	my ($group, $mhash) = @_;
-	my $path = gg_get_path($group, $mhash);
-	my $url = "http://groups.google.com$path?dmode=source&output=gplain";
-	if ($gg_utoken) {
-		$url .= "&utoken=$gg_utoken";
-	}
-	return $url;
-}
-
-sub gg_unlock_article {
-	my ($group, $mhash) = @_;
-	my $path = gg_get_path($group, $mhash);
-	my $interact_url = URI->new("http://groups.google.com/groups/unlock?_done=$path&msg=$mhash");
+	my $interact_url = URI->new("http://groups.google.com/groups/unlock");
+	my $raw_path = "/group/$group/msg/$mhash?dmode=source&output=gplain";
+	$interact_url->query_form(_done => $raw_path, msg => $mhash);
 
 	while (1) {
-		my ($req, $html, $tree);
-		$req = $ua->get($interact_url);
-		$html = $req->decoded_content;
-		$tree = HTML::TreeBuilder->new;
-		$tree->parse_content($html);
+		my $article;
+
+		my $req = $ua->get($interact_url);
+		my $tree = HTML::TreeBuilder->new;
+		$tree->parse_content($req->decoded_content);
 
 		# find CAPTCHA image
 		my ($captcha_t) = $tree->look_down(_tag => "img", src => qr/token/);
 		my $captcha_url = URI->new_abs($captcha_t->attr("src"), $interact_url);
 		my $response = ui_captcha_prompt($captcha_url);
 
-		# fill and submit the form
-		my ($form_t) = $tree->look_down(_tag => "form", action => qr/verify_captcha/);
+		# fill the form
+		my ($form_t) = $tree->look_down(_tag => "form",
+						action => qr/verify_captcha/);
 		my %query = map {$_->attr("name") => $_->attr("value")}
 				$form_t->look_down(_tag => "input");
 		$query{answer} = $response;
@@ -104,45 +91,28 @@ sub gg_unlock_article {
 		my $action_url = URI->new_abs($form_t->attr("action"), $interact_url);
 		$action_url->query_form(\%query);
 
-		my $redirect_url = follow_redirect($action_url);
-		my %params = $redirect_url->query_form;
+		# submit form, be redirected to $raw_path
+		$req = $ua->get($action_url);
+
+		my %params = $req->request->uri->query_form;
+
 		if ($params{utoken}) {
-			$gg_utoken = $params{utoken};
-			say "Unlocked: utoken = $gg_utoken";
-			return $gg_utoken;
+			$article = $req->decoded_content;
+			if ($article ~~ /^From:.+\.\.\.\@/mi) {
+				say "Unlock failed.";
+			} else {
+				$article =~ s/^\s+\n//;
+				return $article;
+			}
 		} elsif ($params{retry}) {
 			say "Unlock failed.";
-			next;
 		} else {
 			say "Redirected to hell knows where:";
 			say "  $redirect_url";
 			exit 1;
 		}
-	};
-}
-
-sub gg_needs_unlock {
-	my ($article) = @_;
-	if ($article ~~ /^From:.+\.\.\.\@/mi) {
-		$gg_utoken = undef;
-		return 1;
-	} else {
-		return 0;
 	}
-}
 
-sub gg_fetch_article {
-	my ($group, $mhash) = @_;
-	my $article;
-	do {
-		if (!$gg_utoken) {
-			$gg_utoken = gg_unlock_article($group, $mhash);
-		}
-		my $raw_url = gg_get_raw_url($group, $mhash);
-		my $req = $ua->get($raw_url);
-		$article = $req->decoded_content;
-		$article =~ s/^\s+\n//;
-	} while (gg_needs_unlock($article));
 	return $article;
 }
 

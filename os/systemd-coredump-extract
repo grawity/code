@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+
+# To be used on systems which have been configured to dump core into
+# systemd-journald, but don't yet have systemd-coredumpctl.
+
+from __future__ import print_function
+import sys
+import subprocess
+import struct
+
+def journal_read(match):
+	proc = subprocess.Popen(
+		["journalctl", "-o", "export"] + match,
+		stdout=subprocess.PIPE)
+	journal = proc.stdout
+	record = {}
+	while True:
+		line = journal.readline()
+		if not line:
+			break
+		elif line == b'\n':
+			yield record
+			record = {}
+		elif b'=' in line:
+			line = line.rstrip(b'\n')
+			key, val = line.split(b'=', 1)
+			key = key.decode("utf-8")
+			val = val.decode("utf-8")
+			# TODO: if needed, add support for multiple values
+			record[key] = val
+		else:
+			line = line.rstrip(b'\n')
+			key = line.decode("utf-8")
+			size = journal.read(8)
+			size, = struct.unpack("<Q", size)
+			val = b""
+			while size:
+				buf = journal.read(size)
+				val += buf
+				size -= len(buf)
+			journal.read(1)
+			# TODO: as above
+			record[key] = val
+	if record:
+		yield record
+
+match_id = "MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1"
+
+match = [match_id]
+for arg in sys.argv[1:]:
+	match.append(arg)
+	if arg == "+":
+		match.append(match_id)
+
+for record in journal_read(match):
+	pid = int(record["COREDUMP_PID"])
+	comm = record["COREDUMP_COMM"]
+	path = "%s.%d.core" % (comm, pid)
+	print("saving core dump of pid=%d comm=%r (%d bytes) to %r" % \
+		(pid, comm, len(record["COREDUMP"]), path))
+	with open(path, "wb") as fh:
+		fh.write(record["COREDUMP"])

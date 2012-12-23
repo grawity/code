@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use strict;
+use LWP::UserAgent;
+
+my $ua = LWP::UserAgent->new;
+
+sub get_raw_url {
+	my $id = shift;
+	if ($id =~ m|^http://article\.gmane\.org/.+?/\d+$|) {
+		return "$id/raw";
+	} else {
+		my $id_res = $ua->head("http://mid.gmane.org/$id");
+		my $art_url = $id_res->request->uri_canonical;
+		return "$art_url/raw";
+	}
+}
+
+sub fetch_raw {
+	my $mid = shift;
+	my $raw_url = get_raw_url($mid);
+	my $raw_res = $ua->get($raw_url);
+	return $raw_res->decoded_content;
+}
+
+for my $mid (@ARGV) {
+	print fetch_raw($mid);
+}

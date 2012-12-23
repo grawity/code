@@ -50,14 +50,19 @@ sub follow_redirect {
 
 sub gg_follow_redirect {
 	my ($msgid) = @_;
+
+	my $url_re = qr|//groups\.google\.com/group/([^/]+)/msg/(\w+)|;
+	if ($msgid ~~ $url_re) {
+		return ($1, $2);
+	}
+
 	my $msgid_url = "http://groups.google.com/groups?selm=$msgid";
 	my $final_url = follow_redirect($msgid_url);
-	if ($final_url ~~ m|//groups\.google\.com/group/([^/]+)/msg/(\w+)|) {
-		my ($group, $mhash) = ($1, $2);
-		return ($group, $mhash);
-	} else {
-		return undef;
+	if ($final_url ~~ $url_re) {
+		return ($1, $2);
 	}
+
+	return undef;
 }
 
 sub gg_get_path {

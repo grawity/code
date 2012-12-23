@@ -12,7 +12,7 @@ my $ua = LWP::UserAgent->new(
 		agent => "Mozilla/4.0",
 		timeout => 5,
 		keep_alive => 5,
-		show_progress => 1,
+		show_progress => $ENV{DEBUG},
 		);
 
 my $x11_prompter = "$ENV{HOME}/code/x11/ask-captcha";
@@ -22,7 +22,9 @@ sub ui_captcha_prompt {
 	my $response;
 	if (defined $ENV{DISPLAY} && -x $x11_prompter) {
 		my $tmp = File::Temp->new;
-		my $req = $ua->get($img_url, ":content_file" => $tmp->filename);
+		my $req; do {
+			$req = $ua->get($img_url, ":content_file" => $tmp->filename);
+		} while $req->header("Client-Warning");
 
 		open(my $proc, "-|", $x11_prompter, $tmp->filename);
 		chomp($response = <$proc>);
@@ -38,7 +40,7 @@ sub ui_captcha_prompt {
 sub follow_redirect {
 	my ($url) = @_;
 	my $req = $ua->head($url);
-	if ($req->is_success) {
+	if ($req && $req->request) {
 		return $req->request->uri;
 	} else {
 		return undef;
@@ -72,7 +74,10 @@ sub gg_fetch_article {
 	while (1) {
 		my $article;
 
-		my $req = $ua->get($interact_url);
+		my $req; do {
+			$req = $ua->get($interact_url);
+		} while $req->header("Client-Warning");
+
 		my $tree = HTML::TreeBuilder->new;
 		$tree->parse_content($req->decoded_content);
 
@@ -92,7 +97,9 @@ sub gg_fetch_article {
 		$action_url->query_form(\%query);
 
 		# submit form, be redirected to $raw_path
-		$req = $ua->get($action_url);
+		do {
+			$req = $ua->get($action_url);
+		} while $req->header("Client-Warning");
 
 		my %params = $req->request->uri->query_form;
 

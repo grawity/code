@@ -2,13 +2,19 @@
 use feature "say";
 
 use Data::Dumper;
+use File::Temp;
 use HTML::TreeBuilder;
+use HTTP::Cookies;
+use LWP::ConnCache;
 use LWP::UserAgent;
 use URI;
-use File::Temp;
 
 my $ua = LWP::UserAgent->new;
 $ua->agent("Mozilla/4.0");
+$ua->conn_cache(LWP::ConnCache->new);
+$ua->cookie_jar(HTTP::Cookies->new(file => "gg-cookies.txt", autosave => 1));
+$ua->timeout(15);
+$ua->show_progress(1);
 
 my $x11_prompter = "$ENV{HOME}/code/x11/ask-captcha";
 
@@ -105,6 +111,10 @@ sub gg_unlock_article {
 		} elsif ($params{retry}) {
 			say "Unlock failed.";
 			next;
+		} else {
+			say "Redirected to hell knows where:";
+			say "  $redirect_url";
+			exit 1;
 		}
 	};
 }

@@ -137,17 +137,17 @@ class Database(object):
 		return self
 
 	def add(self, entry, lineno=None):
-		if entry.itemno is None:
-			entry.itemno = self.count + 1
-		if entry.lineno is None:
-			entry.lineno = lineno
-
 		if entry.uuid is None:
 			entry.uuid = uuid.uuid4()
 		elif entry.uuid in self:
 			raise KeyError("Duplicate UUID %s" % entry.uuid)
 
+		entry.itemno = self.count + 1
+
 		self.count += 1
+
+		if entry.lineno is None:
+			entry.lineno = lineno
 
 		# Two uuid.UUID objects for the same UUID will also have the same hash.
 		# Hence, it is okay to use an uuid.UUID as a dict key. For now, anyway.
@@ -155,7 +155,28 @@ class Database(object):
 		self.entries[entry.uuid] = entry
 		self.order.append(entry.uuid)
 
+		return entry
+
+	def replace(self, entry):
+		if entry.uuid is None:
+			raise ValueError("Entry is missing UUID")
+
+		oldentry = self[entry.uuid]
+
+		entry.itemno = oldentry.itemno
+		entry.lineno = oldentry.lineno
+
+		self.entries[entry.uuid] = entry
+
+		return entry
+
 	# Lookup
+
+	def __contains__(self, key):
+		return key in self.entries
+
+	def __getitem__(self, key):
+		return self.entries[key]
 
 	def find_by_itemno(self, itemno):
 		uuid = self.order[itemno-1]
@@ -182,7 +203,7 @@ class Database(object):
 				yield entry
 
 	def find_by_uuid(self, uuid):
-		return self[uuid]
+		return self.entries[uuid]
 
 	# Aggregate lookup
 
@@ -263,6 +284,7 @@ class Entry(object):
 		self.name = None
 		self.tags = set()
 		self.uuid = None
+		self._broken = False
 
 	# Import
 
@@ -321,6 +343,7 @@ class Entry(object):
 						% lineno,
 						file=sys.stderr)
 					val = "<private[data lost]>"
+					self._broken = True
 
 				key = translate_field(key)
 
@@ -507,6 +530,22 @@ class Interactive(cmd.Cmd):
 
 		if full:
 			print(db._modeline)
+
+	def do_merge(self, arg):
+		newdb = Database()
+		newdb.parseinto(sys.stdin)
+		for newentry in newdb:
+			if newentry._broken:
+				print("(warning: skipped broken entry)", file=sys.stderr)
+				print(newentry.dump(storage=True), file=sys.stderr)
+				continue
+
+			try:
+				entry = db.replace(newentry)
+			except KeyError:
+				entry = db.add(newentry)
+			print(entry)
+			db.modified = True
 
 	def do_reveal(self, arg):
 		"""Display entry (including sensitive information)"""

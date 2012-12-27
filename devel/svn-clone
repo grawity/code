@@ -1,0 +1,31 @@
+#!/bin/sh
+# svn-clone -- mirror a SVN repository with history using svnsync
+
+src=$1
+dst=$2
+
+if [ ! "$dst" ]; then
+	dst=$src
+	while case $dst in */) true;; *) false;; esac; do
+		dst=${dst%/}
+	done
+	dst=${dst##*/}.svn
+fi
+
+echo "Cloning to ${dst}..."
+
+dsturl=file://$(readlink -f "$dst")
+
+if [ ! -e "$dst/format" ]; then
+	svnadmin create "$dst"
+fi
+
+if [ ! -e "$dst/hooks/pre-revprop-change" ]; then
+	ln -s $(which true) "$dst/hooks/pre-revprop-change"
+fi
+
+if ! grep -qs "^svn:sync-from-url" "$dst/db/revprops/0/0"; then
+	svnsync init "$dsturl" "$src"
+fi
+
+svnsync sync "$dsturl" "$src"

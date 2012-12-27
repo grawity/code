@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# pull -- update version control repositories to latest upstream versions
+
+is() {
+	printf '== Updating %s (%s)\n' "$(basename "$PWD")" "$1"
+}
+
+log:() {
+	printf '... %s\n' "$*"
+	"$@"
+}
+
+do_pull() {
+	if [[ -d .git/svn ]]; then
+		is "Git – SVN clone"
+		if remote=$(git config --get svn-remote.svn.url); then
+			rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
+			log: svnsync sync "$rroot"
+		fi
+		log: git svn fetch
+	elif [[ -d .git ]]; then
+		is "Git"
+		git pull
+	elif [[ -d .hg ]]; then
+		is "Mercurial"
+		hg pull --update
+	elif [[ -d .svn ]]; then
+		is "SVN"
+		svn update
+	elif [[ -d .bzr ]]; then
+		is "Bazaar"
+		bzr pull
+	elif [[ -d CVS ]]; then
+		is "CVS"
+		cvs -q up -d -P -A
+	elif [[ -f format && -f hooks/pre-revprop-change ]]; then
+		is "SVN – svnsync mirror"
+		svnsync sync "file://$PWD"
+	fi
+}
+
+if (( $# )); then
+	for dir; do
+		(cd "$dir" && do_pull)
+	done
+else
+	do_pull
+fi

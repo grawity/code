@@ -61,7 +61,7 @@ Irssi::signal_add_first("message public" => sub {
 			$isreplaying{$tag}{$target} = 0;
 			Irssi::signal_stop;
 		}
-	} elsif ($msg ~~ $replay_time_re) {
+	} elsif ($msg =~ $replay_time_re) {
 		my ($msg_stamp, $text) = ($1, $2);
 		my $time_fmt = Irssi::settings_get_str("timestamp_format");
 		my @now_tm = localtime;

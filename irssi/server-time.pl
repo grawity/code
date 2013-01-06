@@ -5,8 +5,13 @@ use Irssi;
 use POSIX;
 use POSIX::strptime;
 
-# Note: This requires that you use cap_sasl, and manually modify
-# it to also request the "znc.in/server-time" capability.
+# Note: Irssi does not allow signal handlers to override the event's
+# time. Therefore, this script has to do something quite ugly -- that
+# is, temporarily override your "timestamp_format" setting with the
+# static time of the event.
+
+# Note: This requires that you use cap_sasl, and manually modify it
+# to also request the "znc.in/server-time" capability.
 
 my %isreplaying;
 
@@ -82,16 +87,15 @@ Irssi::signal_add_first("server incoming" => sub {
 	if ($tags{time}) {
 		$time_fmt = Irssi::settings_get_str("timestamp_format");
 		my @msg_tm = parse_time_tag($tags{time});
-		if (!@msg_tm) { $time_fmt = undef; }
-		if (defined $time_fmt) {
+		if (@msg_tm) {
 			my $msg_tm = POSIX::strftime($time_fmt, @msg_tm);
 			Irssi::settings_set_str("timestamp_format", $msg_tm);
 			Irssi::signal_emit("setup changed");
+			Irssi::signal_continue($server, $rest);
+			Irssi::settings_set_str("timestamp_format", $time_fmt);
+			Irssi::signal_emit("setup changed");
+			return;
 		}
-	}
+	} 
 	Irssi::signal_continue($server, $rest);
-	if (defined $time_fmt) {
-		Irssi::settings_set_str("timestamp_format", $time_fmt);
-		Irssi::signal_emit("setup changed");
-	}
 });

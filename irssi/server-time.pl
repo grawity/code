@@ -5,9 +5,13 @@ use Irssi;
 use POSIX;
 use POSIX::strptime;
 
+# Note: This requires that you use cap_sasl, and manually modify
+# it to also request the "znc.in/server-time" capability.
+
 my %isreplaying;
 
 my $replay_time_re = qr/^\[(\d\d:\d\d:\d\d)\] (.*)$/;
+my $replay_time_fmt = "%H:%M:%S";
 
 my $unix_time_re = qr/^\d+\.\d+$/;
 
@@ -39,6 +43,8 @@ sub parse_time_tag {
 	}
 }
 
+# Handle old-style <nick> [hh:mm:ss] timestamps
+
 Irssi::signal_add_first("message public" => sub {
 	my ($server, $msg, $nick, $addr, $target) = @_;
 	my $tag = $server->{tag};
@@ -54,7 +60,7 @@ Irssi::signal_add_first("message public" => sub {
 		my ($msg_stamp, $text) = ($1, $2);
 		my $time_fmt = Irssi::settings_get_str("timestamp_format");
 		my @now_tm = localtime;
-		my @msg_tm = POSIX::strptime($msg_stamp, "%H:%M:%S");
+		my @msg_tm = POSIX::strptime($msg_stamp, $replay_time_fmt);
 		map {$msg_tm[$_] //= $now_tm[$_]} 0..$#msg_tm;
 		my $msg_tm = POSIX::strftime($time_fmt, @msg_tm);
 		Irssi::settings_set_str("timestamp_format", $msg_tm);
@@ -64,6 +70,8 @@ Irssi::signal_add_first("message public" => sub {
 		Irssi::signal_emit("setup changed");
 	}
 });
+
+# Handle new-style "server-time" timestamps
 
 Irssi::signal_add_first("server incoming" => sub {
 	my ($server, $data) = @_;

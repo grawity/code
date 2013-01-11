@@ -6,22 +6,29 @@ use Getopt::Std;
 my %opts;
 
 sub usage {
-	print STDERR "Usage: urlencode [-dr] [string]\n";
+	print STDERR "Usage: urlencode [-Adr] [string]\n";
 	print STDERR "\n";
+	print STDERR "    -A    encode for mq\n";
 	print STDERR "    -d    decode\n";
 	print STDERR "    -r    do not print newline\n";
 }
 
 sub decode {
-	s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	if ($opts{A}) { s/^:// }
+	s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
 }
 
 sub encode {
-	s/([^A-Za-z0-9_.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	if ($opts{A}) {
+		s/[\x00-\x1F %]/sprintf("%%%02X", ord($&))/seg;
+		s/^$|^:/:$&/;
+	} else {
+		s/[^A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/seg;
+	}
 }
 
 sub pencode {
-	s/([^\/A-Za-z0-9_.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	s/[^\/A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/seg;
 }
 
 sub do_things {
@@ -36,7 +43,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('dpr', \%opts);
+getopts('Adpr', \%opts);
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

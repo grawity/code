@@ -38,27 +38,36 @@ my $vim = "/usr/bin/vim";
 
 my @args = "vim";
 
+sub debug {
+	warn @_ if $ENV{DEBUG};
+}
+
 sub parse {
 	for (shift) {
 		when ($pythonre) {
+			debug "pythonre: $& -> '$1' '$2'\n";
 			my ($file, $line) = ($1, $2);
 			return ($file, "+".$line);
 		}
 		when ($specre) {
+			debug "specre: '$&' -> '$1' '$2'\n";
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
 		when ($diffpathre) {
+			debug "diffpathre: '$&'\n";
 			my ($file) = ($1);
 			return ($file);
 		}
 		when ($pathre) {
+			debug "pathre: '$&' -> '$1'\n";
 			my ($file) = ($1);
 			return ($file) if -e $file;
 		}
 		when (-e $_) {
+			debug "-e: $_\n";
 			return ($_);
 		}
 		default {

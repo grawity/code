@@ -16,7 +16,7 @@ my $bus = Net::DBus->session;
 sub Shell {
 	$bus
 	->get_service("org.gnome.Shell")
-	->get_object("/org/gnome/Shell")
+	->get_object(shift // "/org/gnome/Shell")
 }
 
 my $frame = 1;
@@ -38,13 +38,15 @@ for (dirname $file) {
 	make_path unless -d;
 }
 
+my $obj = Shell("/org/gnome/Shell/Screenshot");
+
 for ($mode) {
 	when ('fullscreen') {
-		Shell->Screenshot($cursor, $flash, $file)
+		$obj->Screenshot($cursor, $flash, $file)
 		or die "Shell->Screenshot failed\n";
 	}
 	when ('window') {
-		Shell->ScreenshotWindow($frame, $cursor, $flash, $file)
+		$obj->ScreenshotWindow($frame, $cursor, $flash, $file)
 		or die "Shell->ScreenshotWindow failed\n";
 	}
 }

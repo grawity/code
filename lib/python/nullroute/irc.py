@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+from __future__ import (print_function, unicode_literals)
+import base64
+import socket
 import re
 
 class InvalidPrefixError(Exception):
@@ -11,7 +13,7 @@ class Prefix(object):
 		self.user = user
 		self.host = host
 
-	_re_nuh = re.compile(r'^(.+)!([^!@]+)@([^!@]+)$')
+	_re_nuh = re.compile(br'^(.+)!([^!@]+)@([^!@]+)$')
 
 	@classmethod
 	def parse(cls, prefix):
@@ -20,7 +22,7 @@ class Prefix(object):
 		m = cls._re_nuh.match(prefix)
 		if m:
 			self.nick, self.user, self.host = m.groups()
-		elif "." in prefix:
+		elif b"." in prefix:
 			self.host = prefix
 		else:
 			self.nick = prefix
@@ -48,28 +50,28 @@ class Line(object):
 
 	@classmethod
 	def split(cls, line):
-		line = line.rstrip("\n")
-		line = line.split(" ")
+		line = line.rstrip(b"\n")
+		line = line.split(b" ")
 		i, n = 0, len(line)
 		parv = []
-		if i < n and line[i].startswith("@"):
+		if i < n and line[i].startswith(b"@"):
 			parv.append(line[i])
 			i += 1
-			while i < n and line[i] == "":
+			while i < n and line[i] == b"":
 				i += 1
-		if i < n and line[i].startswith(":"):
+		if i < n and line[i].startswith(b":"):
 			parv.append(line[i])
 			i += 1
-			while i < n and line[i] == "":
+			while i < n and line[i] == b"":
 				i += 1
 		while i < n:
-			if line[i].startswith(":"):
+			if line[i].startswith(b":"):
 				break
-			elif line[i] != "":
+			elif line[i] != b"":
 				parv.append(line[i])
 			i += 1
 		if i < n:
-			trailing = " ".join(line[i:])
+			trailing = b" ".join(line[i:])
 			parv.append(trailing[1:])
 		return parv
 
@@ -77,17 +79,17 @@ class Line(object):
 	def parse(cls, line):
 		parv = cls.split(line)
 		self = cls()
-		if parv and parv[0].startswith("@"):
+		if parv and parv[0].startswith(b"@"):
 			tags = parv.pop(0)
 			self.tags = {}
-			for item in tags[1:].split(";"):
-				if "=" in item:
-					k, v = item.split("=", 1)
+			for item in tags[1:].split(b";"):
+				if b"=" in item:
+					k, v = item.split(b"=", 1)
 				else:
 					k, v = item, True
 				self.tags[k] = v
 
-		if parv and parv[0].startswith(":"):
+		if parv and parv[0].startswith(b":"):
 			prefix = parv.pop(0)[1:]
 			self.prefix = Prefix.parse(prefix)
 
@@ -96,8 +98,56 @@ class Line(object):
 			self.args = parv
 
 		return self
-	
+
+	@classmethod
+	def unparse(cls, inputv):
+		parv = []
+		for par in inputv:
+			parv.append(par.encode("utf-8"))
+
+		if b" " in parv[-1]:
+			last = parv.pop()
+		else:
+			last = None
+		if any(b" " in par for par in parv):
+			raise ValueError("Space is only permitted in the last parameter")
+		if last is not None:
+			parv.append(b":" + last)
+
+		return b" ".join(parv)
+
 	def __repr__(self):
 		return "<IRC.Line: tags=%r prefix=%r cmd=%r args=%r>" % (
 						self.tags, self.prefix,
 						self.cmd, self.args)
+
+class Connection(object):
+	def __init__(self):
+		self.host = None
+		self.port = None
+		self.ai = None
+		self._fd = None
+		self._file = None
+
+	def connect(self, host, port, ssl=False):
+		self.ai = socket.getaddrinfo(host, str(port), 0, socket.SOCK_STREAM)
+		print(repr(self.ai))
+		for af, proto, _, cname, addr in self.ai:
+			self._fd = socket.socket(af, proto)
+			self._fd.connect(addr)
+			break
+		import io
+		self._fi = self._fd.makefile("rwb")
+
+	def writeraw(self, buf):
+		self._fi.write(buf+b"\r\n")
+		self._fi.flush()
+
+	def readraw(self):
+		return self._fi.readline()
+
+	def write(self, *args):
+		self.writeraw(Line.unparse(args))
+
+	def read(self):
+		return Line.parse(self.readraw())

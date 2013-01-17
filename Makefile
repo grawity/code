@@ -61,7 +61,7 @@ mrproper:
 
 BASIC_BINS := args pause proctool silentcat spawn strtool
 KRB_BINS   := k5userok pklist
-LINUX_BINS := linux26 subreaper tapchown
+LINUX_BINS := linux26 setns subreaper tapchown
 MISC_BINS  := bgrep logwipe natsort ttysize writevt xor xors
 
 .PHONY: all basic krb linux misc
@@ -86,6 +86,7 @@ $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
 $(OBJ)/pause:		misc/pause.c
 $(OBJ)/proctool:	misc/proctool.c misc/util.c | misc/util.h
+$(OBJ)/setns:		misc/setns.c
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		misc/spawn.c
 $(OBJ)/strtool:		misc/strtool.c misc/util.c | misc/util.h

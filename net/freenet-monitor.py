@@ -258,7 +258,7 @@ class Interface(object):
 
         row = Item()
         if self.last_id == reqid and self.last_kind == "progress":
-            row <<= Invisible("\033[2F" "\033[G" "\033[K")
+            row += Invisible("\033[2F" "\033[G" "\033[K")
         row += " " * len(item_status)
         row += item_failbar
         row += "\n"

@@ -5,6 +5,7 @@ import sys
 from pprint import pprint as pp
 import math
 from urllib.parse import unquote
+import termios
 
 DEBUG = os.environ.get("DEBUG", False)
 
@@ -36,6 +37,20 @@ def get_uri_filename(uri):
 
 def colored(c, s):
     return "\033[%sm%s\033[m" % (c, s)
+
+def get_screen_size_wxh():
+    def GWINSZ(fd):
+        import fcntl, termios, struct
+        try:
+            cr = struct.unpack("hh", fcntl.ioctl(fd, termios.TIOCGWINSZ, "\0\0\0\0"))
+        except:
+            return None
+        else:
+            return cr
+
+    cr = GWINSZ(0) or GWINSZ(1)
+
+    return cr[1], cr[0]
 
 class Block():
     Full    = "█"
@@ -98,23 +113,21 @@ class Item(list):
         if isinstance(other, list):
             return Item(list(self) + list(other))
         else:
-            return str(self) + str(other)
+            return NotImplemented
+            #return str(self) + str(other)
 
     def __radd__(self, other):
         if isinstance(other, list):
             return Item(list(other) + list(self))
         else:
-            return str(other) + str(self)
+            return NotImplemented
+            #return str(other) + str(self)
 
     def __iadd__(self, other):
         if isinstance(other, list):
             self.extend(list(other))
         else:
             self.append(other)
-        return self
-
-    def __ilshift__(self, other):
-        self.append(other)
         return self
 
     @property
@@ -138,6 +151,9 @@ class Interface(object):
     def display_progress(self, reqid, cooldown=False, failed=False):
         if cooldown and not (self.last_id == reqid and self.last_kind == "progress"):
             return
+        
+        screen_width, _ = get_screen_size_wxh()
+        remaining_width = screen_width
 
         data = c.data[reqid]
 
@@ -154,17 +170,7 @@ class Interface(object):
 
         # create items
 
-        id_short = truncate(reqid, 35, pad=True)
-
-        tmp_progress = math.ceil(progress * 1000)
-        if tmp_progress == 1000:
-            str_progress = "100%"
-        else:
-            str_progress = "%.1f%%" % (tmp_progress / 10)
-
-        # create progress bar
-
-        bar_width    = 30
+        bar_width    = math.floor(screen_width / 3)
         bar_color_fg = Color.Green
         bar_color_bg = None
 
@@ -182,52 +188,83 @@ class Interface(object):
         else:
             bar_color_fg = Color.Green
 
-        str_failbar = [Format("31"),
-                       "…" * i_failures,
-                       Format()]
+        item_failbar = Item([Format("31"),
+                             "…" * i_failures,
+                             Format()])
 
-        str_bar = [Format(bar_color_fg),
-                   Block.Shade[4] * i_progress,
-                   Format(bar_color_bg or bar_color_fg),
-                   Block.Shade[1] * (bar_width - i_progress),
-                   Format()]
+        item_mainbar = Item([Format(bar_color_fg),
+                             Block.Shade[4] * i_progress,
+                             Format(bar_color_bg or bar_color_fg),
+                             Block.Shade[1] * (bar_width - i_progress),
+                             Format()])
 
-        # misc
+        remaining_width -= len(item_mainbar)
 
-        _indicator_ = lambda color, char, num: Item([str(num), Format(color), char, Format()])
+        # create numeric indicators
 
         if job_type == "get":
             arrow = Glyph.Down[4 if realtime else 0]
         elif job_type == "put":
             arrow = Glyph.Up[1 if realtime else 0]
 
-        str_remain  = _indicator_(Color.Yellow,
-                                  arrow,
-                                  num_needed - num_success)
+        _indicator_ = lambda color, char, num: \
+                      Item([str(num), Format(color), char, Format()])
 
-        str_success = _indicator_(Color.Green,
-                                  Glyph.Check[2],
-                                  num_success)
+        item_remain  = _indicator_(Color.Yellow,
+                                   arrow,
+                                   num_needed - num_success)
 
-        str_failed  = _indicator_(Color.Red,
-                                  "!",
-                                  num_failed)
+        item_success = _indicator_(Color.Green,
+                                   Glyph.Check[2],
+                                   num_success)
 
-        str_status = Item([id_short])
-        str_status += str_remain.lpad(6)
-        str_status += str_success.lpad(6)
-        str_status += str_failed.lpad(6)
-        str_status <<= " "
+        item_failed  = _indicator_(Color.Red,
+                                   "!",
+                                   num_failed)
+
+        item_indicators = Item()
+        if remaining_width >= 37:
+            item_indicators += item_remain.lpad(6)
+        if remaining_width >= 45:
+            item_indicators += item_success.lpad(6)
+        if remaining_width >= 60:
+            item_indicators += item_failed.lpad(6)
+
+        remaining_width -= len(item_indicators)
+
+        # create progress indicator
+
+        tmp_progress = math.ceil(progress * 1000)
+        if tmp_progress == 1000:
+            str_progress = "100%"
+        else:
+            str_progress = "%.1f%%" % (tmp_progress / 10)
+
+        item_progress = Item(["%6s" % str_progress])
+
+        remaining_width -= len(item_progress)
+
+        # create reqid item
+
+        item_rightside = Item(item_indicators + [" "] + item_mainbar + item_progress)
+        
+        remaining_width -= len(" ")
+
+        id_short = truncate(reqid, remaining_width, pad=True)
+
+        # create final output
+
+        item_status = Item([id_short] + item_indicators + [" "])
 
         row = Item()
         if self.last_id == reqid and self.last_kind == "progress":
             row <<= Invisible("\033[2F" "\033[G" "\033[K")
-        row <<= " " * len(str_status)
-        row += str_failbar
-        row <<= "\n"
-        row += str_status
-        row += str_bar
-        row <<= "%6s" % str_progress
+        row += " " * len(item_status)
+        row += item_failbar
+        row += "\n"
+        row += item_status
+        row += item_mainbar
+        row += item_progress
 
         print(row)
 

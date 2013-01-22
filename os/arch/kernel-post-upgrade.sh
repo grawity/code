@@ -45,8 +45,8 @@ install_kernel() {
 
 	parameters=(
 		"title"		"$PRETTY_NAME"
-		"title-version"	"$version"
-		"title-machine"	"${MACHINE_ID:0:8}"
+		"version"	"$version"
+		"machine-id"	"$MACHINE_ID"
 		"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
 		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
 		"options"	"$BOOT_OPTIONS"

@@ -37,9 +37,15 @@ $runcommand &&
 
 export KRB5CCNAME=$ccname
 
+if [[ -d /run/lock ]]; then
+	lockdir=/run/lock
+else
+	lockdir=/var/lock
+fi
+
 lockfile=${ccname#FILE:}
 lockfile=${lockfile//'/'/'-'}
-lockfile=/run/lock/host-kinit.${lockfile#'-'}
+lockfile=$lockdir/host-kinit.${lockfile#'-'}
 
 args=(
 	-k "$KRB5CCNAME"	# explicit ccache for `ps`

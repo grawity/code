@@ -11,26 +11,29 @@ done
 
 tmp="$dir/.tmp.$name"
 img="$dir/$name"
-window=0
+mode=screen
+imgur=1
 
-case $1 in
-	'-f') window=0;;
-	'-w') window=1;;
-esac
+while getopts fwaN opt; do
+	case $opt in
+		f) mode=screen;;
+		w) mode=window;;
+		a) mode=area;;
+		N) imgur=0;;
+	esac
+done
 
-case $DESKTOP_SESSION in
-	gnome*)
-		if (( window ))
-		then arg='-w'
-		else arg='-f'
-		fi
-		gnome-screenshot-import $arg "$tmp";;
-	*)
-		if (( window ))
-		then arg='-b -s'
-		else arg=''
-		fi
-		scrot $arg "$tmp";;
+case $mode/$DESKTOP_SESSION in
+	area/*)
+		scrot -b -s "$tmp";;
+	window/gnome*)
+		gnome-screenshot-import -w "$tmp";;
+	screen/gnome*)
+		gnome-screenshot-import -f "$tmp";;
+	window/*)
+		scrot -b -s "$tmp";;
+	screen/*)
+		scrot "$tmp";;
 esac
 
 if [[ ! -f "$tmp" ]]; then
@@ -45,45 +48,50 @@ fi
 
 mv -f "$tmp" "$img"
 
-echo "Captured to $dir/$name, uploading"
+if (( imgur )); then
+	echo "Captured to $dir/$name, uploading"
 
-id=$(notify \
-	--app-name "Screenshot" \
-	--icon "document-send" \
-	--hint "category=transfer" \
-	"Screenshot captured" \
-	"Uploading to imgur...")
-
-(trap exit TERM
-while sleep 1; do
-	notify \
+	id=$(notify \
 		--app-name "Screenshot" \
 		--icon "document-send" \
 		--hint "category=transfer" \
-		--replace "$id" \
 		"Screenshot captured" \
-		"Uploading to imgur..." >/dev/null
-done) &
+		"Uploading to imgur...")
 
-if output=$(imgur "$img" 2>&1); then
-	kill $!
-	notify \
-		--app-name "Screenshot" \
-		--icon "document-send" \
-		--hint "category=transfer.complete" \
-		--replace "$id" \
-		"Screenshot uploaded" \
-		"$output" >/dev/null
+	(trap exit TERM
+	while sleep 1; do
+		notify \
+			--app-name "Screenshot" \
+			--icon "document-send" \
+			--hint "category=transfer" \
+			--replace "$id" \
+			"Screenshot captured" \
+			"Uploading to imgur..." >/dev/null
+	done) &
+
+	if output=$(imgur "$img" 2>&1); then
+		kill $!
+		notify \
+			--app-name "Screenshot" \
+			--icon "document-send" \
+			--hint "category=transfer.complete" \
+			--replace "$id" \
+			"Screenshot uploaded" \
+			"$output" >/dev/null
+	else
+		kill $!
+		output="It is still stored at: file://$(urlencode -rp "$img")"
+		notify \
+			--app-name "Screenshot" \
+			--icon "document-send" \
+			--hint "category=transfer.error" \
+			--replace "$id" \
+			"Screenshot upload failed" \
+			"$output" >/dev/null
+	fi
+
+	wait
 else
-	kill $!
-	output="It is still stored at: file://$(urlencode -rp "$img")"
-	notify \
-		--app-name "Screenshot" \
-		--icon "document-send" \
-		--hint "category=transfer.error" \
-		--replace "$id" \
-		"Screenshot upload failed" \
-		"$output" >/dev/null
+	echo "Captured to $dir/$name"
+	nautilus --select "file://$dir/$name" &
 fi
-
-wait

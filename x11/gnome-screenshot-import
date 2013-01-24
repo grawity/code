@@ -27,6 +27,7 @@ my $template = "$ENV{HOME}/Pictures/Screenshots/%Y%m%d.%H%M%S.png";
 my $file = undef;
 
 GetOptions(
+	'a|area'	=> sub { $mode = 'area' },
 	'f|fullscreen'	=> sub { $mode = 'fullscreen' },
 	'w|window'	=> sub { $mode = 'window' },
 );
@@ -41,6 +42,12 @@ for (dirname $file) {
 my $obj = Shell("/org/gnome/Shell/Screenshot");
 
 for ($mode) {
+	when ('area') {
+		my ($x, $y, $w, $h) = eval {$obj->SelectArea()}
+		or die "Shell->SelectArea failed\n";
+		$obj->ScreenshotArea($x, $y, $w, $h, $flash, $file)
+		or die "Shell->ScreenshotArea failed\n";
+	}
 	when ('fullscreen') {
 		$obj->Screenshot($cursor, $flash, $file)
 		or die "Shell->Screenshot failed\n";

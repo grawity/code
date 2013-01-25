@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+have() { command -v "$1" >&/dev/null; }
+
+detail=0
+
+while getopts "l" OPT; do
+	case $OPT in
+	'l') detail=1;;
+	esac
+done
+
+shift $((OPTIND-1))
+query=$1
+
+if (( detail )); then
+	query="/W $query"
+fi
+
+if [[ $query == *@* ]]; then
+	host=${query##*@}
+	query=${query%@*}
+else
+	host=localhost
+fi
+
+if [[ $host == *:* ]]; then
+	uhost=[$host]
+else
+	uhost=$host
+fi
+
+uquery=$(urlencode -- "$query")
+
+if false && have curl; then
+	curl "gopher://$uhost:79/0$uquery"
+elif have ncat; then
+	printf '%s\r\n' "$query" | ncat "$host" 79
+elif have socat; then
+	printf '%s\r\n' "$query" | socat -t10 -T10 stdio "tcp:$uhost:79"
+elif have lynx; then
+	# adds own header, footer
+	lynx -dump "finger://$host/$uquery"
+elif have nc; then
+	# may be IPv4-only
+	printf '%s\r\n' "$query" | nc "$host" 79
+fi

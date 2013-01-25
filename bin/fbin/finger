@@ -2,6 +2,10 @@
 
 have() { command -v "$1" >&/dev/null; }
 
+filter() { perl -pe 's/\033/"^".chr(ord($&)+0100)/ge'; }
+
+set -o pipefail
+
 detail=0
 
 while getopts "l" OPT; do
@@ -32,8 +36,8 @@ fi
 
 uquery=$(urlencode -- "$query")
 
-if false && have curl; then
-	curl "gopher://$uhost:79/0$uquery"
+if have curl; then
+	curl -sS "gopher://$uhost:79/0$uquery"
 elif have ncat; then
 	printf '%s\r\n' "$query" | ncat "$host" 79
 elif have socat; then
@@ -44,4 +48,7 @@ elif have lynx; then
 elif have nc; then
 	# may be IPv4-only
 	printf '%s\r\n' "$query" | nc "$host" 79
-fi
+else
+	echo "fbin/finger: No useful TCP client found." >&2
+	exit 1
+fi | filter

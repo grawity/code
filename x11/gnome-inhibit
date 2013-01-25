@@ -57,6 +57,9 @@ sub usage {
 	"If --test is given, the tool will exit with code 1 if any of the given",
 	"operations from --flags are inhibited.",
 	"",
+	"If both --list and --test are given, all inhibited actions will be listed in",
+	"terse form, optionally with --flags used as a list filter.",
+	"",
 	"If <command> is given, inhibit will last until the command exits; otherwise,",
 	"this tool calls pause() and keeps running until manually killed/terminated.",
 	;
@@ -81,9 +84,14 @@ sub printrow {
 	printf $fmt, @items;
 }
 
+sub flags_to_array {
+	my ($bits) = @_;
+	sort grep {$bits & $FLAGS{$_}} keys %FLAGS;
+}
+
 sub flags_to_string {
 	my ($bits) = @_;
-	$bits ? join(",", sort grep {$bits & $FLAGS{$_}} keys %FLAGS) : "none";
+	$bits ? join(",", flags_to_array($bits)) : "none";
 }
 
 sub string_to_flags {
@@ -197,7 +205,19 @@ if ($always) {
 	# will die if no bus
 }
 
-if ($do_list) {
+if ($do_list && $do_test) {
+	if (!$bus) {
+		warn "gnome-session is not running.\n";
+		exit 0;
+	}
+
+	my $filter = string_to_flags($flagstr //= "all");
+	my $flags = SessionManager->Get("org.gnome.Session",
+					"InhibitedActions") & $filter;
+	say for $flags ? flags_to_array($flags) : "none";
+
+	exit 0;
+} elsif ($do_list) {
 	if (!$bus) {
 		warn "gnome-session is not running.\n";
 		exit 0;

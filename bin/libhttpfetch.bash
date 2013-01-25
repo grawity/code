@@ -45,5 +45,5 @@ http_fetch() {
 		echo "no HTTP client available" >&2
 		return 1
 	fi
-	[[ -s $out ]] # fail if output file empty
+	[[ ! -f $out || -s $out ]] # fail if output file empty
 }

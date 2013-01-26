@@ -17,6 +17,12 @@ my $ua = LWP::UserAgent->new(
 
 my $x11_prompter = "$ENV{HOME}/code/x11/ask-captcha";
 
+sub urlencode {
+	my $str = shift;
+	$str =~ s/[^A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/seg;
+	return $str;
+}
+
 sub ui_captcha_prompt {
 	my ($img_url) = @_;
 	my $response;
@@ -55,7 +61,9 @@ sub gg_follow_redirect {
 		return ($1, $2);
 	}
 
-	my $msgid_url = "http://groups.google.com/groups?selm=$msgid";
+	my $msgid_enc = urlencode($msgid);
+
+	my $msgid_url = "http://groups.google.com/groups?selm=$msgid_enc";
 	my $final_url = follow_redirect($msgid_url);
 	if ($final_url ~~ $url_re) {
 		return ($1, $2);

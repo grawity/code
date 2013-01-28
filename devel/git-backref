@@ -38,12 +38,14 @@ git fsck --verbose 2>&1 \
 	set -- $line
 	if [ $1 = "Checking" ]; then
 		case $2 in
-		#commit|tag|tree)
-		commit)
+		commit|tag|tree)
 			type=$2 hash=$3
-			#if check-simple "$type" "$hash" "$wanted"; then
-			if check-recursive "$type" "$hash" "$wanted"; then
+			if [ "$hash" = "$wanted" ]; then
+				continue
+			elif check-simple "$type" "$hash" "$wanted"; then
 				echo "$type $hash"
+			elif check-recursive "$type" "$hash" "$wanted"; then
+				echo "$type $hash (indirect)"
 			fi
 		esac
 	fi

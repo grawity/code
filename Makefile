@@ -5,7 +5,7 @@ empty :=
 space := $(empty) $(empty)
 
 CC       ?= gcc
-CFLAGS    = -Wall -g -O1 -Wl,--as-needed
+CFLAGS    = -Wall -g -O1 -Wl,--as-needed -I./misc
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
@@ -84,15 +84,15 @@ $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
-$(OBJ)/pause:		misc/pause.c
-$(OBJ)/proctool:	misc/proctool.c misc/util.c | misc/util.h
-$(OBJ)/setns:		misc/setns.c
+$(OBJ)/pause:		system/pause.c
+$(OBJ)/proctool:	system/proctool.c misc/util.c | misc/util.h
+$(OBJ)/setns:		system/setns.c
 $(OBJ)/silentcat:	misc/silentcat.c
-$(OBJ)/spawn:		misc/spawn.c
+$(OBJ)/spawn:		system/spawn.c
 $(OBJ)/strtool:		misc/strtool.c misc/util.c | misc/util.h
-$(OBJ)/subreaper:	misc/subreaper.c
+$(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c
-$(OBJ)/ttysize:		misc/ttysize.c
+$(OBJ)/ttysize:		system/ttysize.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xors:		misc/xors.c

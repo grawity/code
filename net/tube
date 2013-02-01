@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# helper script for youtube-dl
+
+options=()
+urls=()
+
+for arg; do
+	case $arg in
+	http://*)
+		urls+=("$arg");;
+	*)
+		options+=("$arg");;
+	esac
+done
+
+options+=(#--write-description
+	  )#--write-info-json)
+
+for url in "${urls[@]}"; do
+	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
+	youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
+
+	test -s "$file" || continue
+
+	case $file in
+	*.flv)
+		temp=$file; file=${file%.*}.mp4
+		ffmpeg -i "$temp" -acodec copy -vcodec copy "$file" \
+			&& rm -f "$temp"
+		;;
+	esac
+
+	mp4tags -xid "youtube:$url" "$file"
+done

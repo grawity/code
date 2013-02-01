@@ -1,41 +1,41 @@
 #!/usr/bin/env bash
+
 usage() {
 	echo "usage: ${0##*/} [-e] [-w] <title>" >&2
 	exit 2
 }
 
-titlestring() {
-	case ${TERM:-dumb} in
-	[xkE]term*|rxvt*|cygwin|dtterm|termite)
-		printf %s "${ESC}]0;%s${BEL}";;
-	screen*)
-		printf %s "${ESC}k%s${ST}";;
-	vt300*)
-		printf %s "${ESC}]21;%s${ST}";;
-	esac;
-}
+ESC='\e' ST='\e\\' BEL='\007' EOL='' MODE='title'
 
-wnamestring() {
-	case ${TERM:-dumb} in
-	screen*)
-		printf %s "${ESC}k%s${ST}";;
-	esac
-}
-
-ESC='\e' ST='\e\\' BEL='\007' EOL='' FUNC='titlestring'
-
-if getopts "ew" OPT "$@"; then
+if getopts "ew" OPT; then
 	case $OPT in
 	'e')	ESC='\\e' ST='\\e\\\\' BEL='\\007' EOL='\n';;
-	'w')	FUNC='wnamestring';;
+	'w')	MODE='wname';;
 	'?')	usage;;
 	esac
 fi
 
+case $mode in
+'title')
+	case $TERM in
+	[xkE]term*|rxvt*|cygwin|dtterm|termite)
+		fmt="${ESC}]0;%s${BEL}";;
+	screen*)
+		fmt="${ESC}k%s${ST}";;
+	vt300*)
+		fmt="${ESC}]21;%s${ST}";;
+	*)
+		fmt="";;
+	esac;;
+'wname')
+	case $TERM in
+	screen*)
+		fmt="${ESC}k%s${ST}";;
+	*)
+		fmt="";;
+	esac;;
+esac
+
 title=${!OPTIND}
 
-if [[ $title ]]; then
-	printf "$($FUNC)${EOL}" "$title"
-else
-	usage
-fi
+printf "${fmt}${EOL}" "$title"

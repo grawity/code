@@ -1,24 +1,41 @@
 #!/usr/bin/env bash
+usage() {
+	echo "usage: ${0##*/} [-e] [-w] <title>" >&2
+	exit 2
+}
 
-case $TERM in
+titlestring() {
+	case ${TERM:-dumb} in
 	[xkE]term*|rxvt*|cygwin|dtterm|termite)
-		titlestring='\e]0;%s\a';
-		wnamestring=;;
+		printf %s "${ESC}]0;%s${BEL}";;
 	screen*)
-		titlestring='\e]0;%s\a';
-		wnamestring='\ek%s\e\\';;
-	*)
-		titlestring=;
-		wnamestring=;;
-esac
+		printf %s "${ESC}k%s${ST}";;
+	vt300*)
+		printf %s "${ESC}]21;%s${ST}";;
+	esac;
+}
 
-settitle() { [[ $titlestring ]] && printf "$titlestring" "$*"; }
+wnamestring() {
+	case ${TERM:-dumb} in
+	screen*)
+		printf %s "${ESC}k%s${ST}";;
+	esac
+}
 
-setwname() { [[ $wnamestring ]] && printf "$wnamestring" "$*"; }
+ESC='\e' ST='\e\\' BEL='\007' EOL='' FUNC='titlestring'
 
-if [[ $1 == "-w" ]]; then
-	shift
-	setwname "$*"
+if getopts "ew" OPT "$@"; then
+	case $OPT in
+	'e')	ESC='\\e' ST='\\e\\\\' BEL='\\007' EOL='\n';;
+	'w')	FUNC='wnamestring';;
+	'?')	usage;;
+	esac
+fi
+
+title=${!OPTIND}
+
+if [[ $title ]]; then
+	printf "$($FUNC)${EOL}" "$title"
 else
-	settitle "$*"
+	usage
 fi

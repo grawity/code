@@ -26,6 +26,12 @@ my $diffpathre = qr{ ^ [a-z] / (.+) $ }mx;
 
 my $pathre = qr{ (?<!\w) (\.? / [^:]+) }mx;
 
+# this matches grep context lines:
+#   filename-lineno-garbage
+# low priority because of possible ambiguity
+
+my $ctxspecre = qr{ ^ ([^:]+?) - (\d+) - .* $ }mx;
+
 # this matches:
 #   File "/foo/bar", line 123,
 
@@ -65,6 +71,13 @@ sub parse {
 			debug "pathre: '$&' -> '$1'\n";
 			my ($file) = ($1);
 			return ($file) if -e $file;
+		}
+		when ($ctxspecre) {
+			debug "ctxspecre: '$&' -> '$1' '$2'\n";
+			my ($file, $cmd) = ($1, $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			$cmd =~ s|^|+|;
+			return ($file, $cmd) if -e $file;
 		}
 		when (-e $_) {
 			debug "-e: $_\n";

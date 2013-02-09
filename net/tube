@@ -13,8 +13,8 @@ for arg; do
 	esac
 done
 
-options+=(#--write-description
-	  )#--write-info-json)
+options+=(--write-description)
+	  #--write-info-json)
 
 for url in "${urls[@]}"; do
 	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
@@ -31,4 +31,10 @@ for url in "${urls[@]}"; do
 	esac
 
 	mp4tags -xid "youtube:$url" "$file"
+
+	descr="$file.description"
+	if [[ -s "$descr" ]]; then
+		mp4tags -longdesc "$(< "$descr")" "$file"
+	fi
+	rm -f "$descr"
 done

@@ -18,8 +18,9 @@ options+=(--write-description)
 
 for url in "${urls[@]}"; do
 	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
-	youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
+	descr="$file.description"
 
+	youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
 	test -s "$file" || continue
 
 	case $file in
@@ -31,8 +32,6 @@ for url in "${urls[@]}"; do
 	esac
 
 	mp4tags -xid "youtube:$url" "$file"
-
-	descr="$file.description"
 	if [[ -s "$descr" ]]; then
 		mp4tags -longdesc "$(< "$descr")" "$file"
 	fi

@@ -26,6 +26,11 @@ fi
 
 if ! grep -qs "^svn:sync-from-url" "$dst/db/revprops/0/0"; then
 	svnsync init "$dsturl" "$src"
+
+	uuid=$(svnsync info "$dsturl" | sed -n 's/^Source Repository UUID: //p')
+	if [ "$uuid" ]; then
+		svnadmin setuuid "$dst" "$uuid"
+	fi
 fi
 
 svnsync sync "$dsturl" "$src"

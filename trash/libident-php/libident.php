@@ -133,6 +133,10 @@ class IdentReply {
 		if (!strlen($str))
 			return;
 
+		$this->parse($str);
+	}
+
+	function parse($str) {
 		$str = rtrim($str, "\r\n");
 		Ident::debug("parsing: $str\n");
 		$this->raw_reply = $str;

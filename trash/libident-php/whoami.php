@@ -15,6 +15,7 @@ $i = array(
 if (@include "libident.php") {
 	Ident\Ident::$timeout = 3;
 	$ident = Ident\query_cgiremote();
+
 	if (!$ident) {
 		$i["ident"] = array(
 			"status" => "failure",
@@ -37,7 +38,13 @@ if (@include "libident.php") {
 			"additional" => $ident->add_info,
 		);
 	}
-	$i["ident"]["raw reply"] = $ident->raw_reply;
+
+	if ($ident) {
+		$i["raw"] = array(
+			"request" => $ident->raw_request,
+			"reply" => $ident->raw_reply,
+		);
+	}
 }
 else {
 	$i["ident"] = array(

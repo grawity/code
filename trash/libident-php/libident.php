@@ -64,13 +64,15 @@ class Ident {
 		if (!$st)
 			return IdentReply::_failure("[$errno] $errstr");
 
-		fwrite($st, "$rport,$lport\r\n");
+		$req_str = "$rport,$lport";
+		fwrite($st, "$req_str\r\n");
 		$reply_str = fgets($st, 1024);
 		fclose($st);
 
 		$r = new IdentReply($reply_str);
 		$r->lhost = $lhost;
 		$r->rhost = $rhost;
+		$r->raw_request = $req_str;
 		return $r;
 	}
 
@@ -112,6 +114,7 @@ class Ident {
 }
 
 class IdentReply {
+	public $raw_request;
 	public $raw_reply;
 	public $response_type;
 	public $add_info;

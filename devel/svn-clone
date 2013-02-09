@@ -17,20 +17,25 @@ echo "Cloning to ${dst}..."
 dsturl=file://$(readlink -f "$dst")
 
 if [ ! -e "$dst/format" ]; then
+	echo "Creating empty local repository..."
 	svnadmin create "$dst"
 fi
 
 if [ ! -e "$dst/hooks/pre-revprop-change" ]; then
+	echo "Installing pre-revprop-change hook..."
 	ln -s $(which true) "$dst/hooks/pre-revprop-change"
 fi
 
 if ! grep -qs "^svn:sync-from-url" "$dst/db/revprops/0/0"; then
+	echo "Initializing svnsync..."
 	svnsync init "$dsturl" "$src"
 
 	uuid=$(svnsync info "$dsturl" | sed -n 's/^Source Repository UUID: //p')
 	if [ "$uuid" ]; then
+		echo "Setting local repository UUID to $uuid..."
 		svnadmin setuuid "$dst" "$uuid"
 	fi
 fi
 
+echo "Synchronizing local repository..."
 svnsync sync "$dsturl" "$src"

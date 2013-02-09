@@ -62,6 +62,30 @@ char * get_lockfile(char *name, int shared) {
 	return path;
 }
 
+int chdir_home(void) {
+	int r;
+	char *dir;
+
+	dir = getenv("HOME");
+	if (!dir)
+		goto fallback;
+
+	r = chdir(dir);
+	if (r == 0)
+		return 1;
+	else
+		fprintf(stderr, "%s: failed to chdir to '%s': %m\n", arg0, dir);
+
+fallback:
+	r = chdir("/");
+	if (r == 0)
+		return 1;
+	else
+		fprintf(stderr, "%s: failed to chdir to '/': %m\n", arg0);
+
+	return 0;
+}
+
 int closefds(void) {
 	DIR *dirp;
 	struct dirent *ent;
@@ -102,6 +126,7 @@ int closefds(void) {
 int main(int argc, char *argv[]) {
 	char **cmd = NULL;
 	int do_closefd = 0;
+	int do_chdir = 0;
 	int do_wait = 0;
 	int do_lock = 0;
 	int do_print_lockname = 0;
@@ -115,10 +140,13 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+cLl:Pw")) != -1) {
+	while ((opt = getopt(argc, argv, "+cdLl:Pw")) != -1) {
 		switch (opt) {
 		case 'c':
 			do_closefd = 1;
+			break;
+		case 'd':
+			do_chdir = 1;
 			break;
 #ifdef HAVE_FLOCK
 		case 'L':
@@ -188,6 +216,11 @@ int main(int argc, char *argv[]) {
 		putenv(env);
 	}
 #endif
+
+	if (do_chdir) {
+		if (!chdir_home())
+			return 1;
+	}
 
 	pid = fork();
 	switch (pid) {

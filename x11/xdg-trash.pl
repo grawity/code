@@ -15,7 +15,7 @@ our $VERBOSE = 1;
 
 my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
 
-my $home_trash = "$ENV{XDG_DATA_HOME}/Trash";
+my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
 
 sub verbose {
 	print @_ if $VERBOSE;

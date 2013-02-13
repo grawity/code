@@ -23,18 +23,18 @@ while getopts fwaN opt; do
 	esac
 done
 
-case $mode:$DESKTOP_SESSION in
-	area:gnome*)
-		gnome-screenshot-import -a "$tmp";;
-	window:gnome*)
-		gnome-screenshot-import -w "$tmp";;
-	screen:gnome*)
-		gnome-screenshot-import -f "$tmp";;
-	area:*|window:*)
-		scrot -b -s "$tmp";;
-	screen:*)
-		scrot "$tmp";;
-esac
+if dbus-name -q org.gnome.Shell; then
+	case $mode in
+		area)	gnome-screenshot-import -a "$tmp";;
+		window)	gnome-screenshot-import -w "$tmp";;
+		screen)	gnome-screenshot-import -f "$tmp";;
+	esac
+else
+	case $mode in
+		area|window)	scrot -b -s "$tmp";;
+		screen)		scrot "$tmp";;
+	esac
+fi
 
 if [[ ! -f "$tmp" ]]; then
 	notify \

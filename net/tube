@@ -30,6 +30,11 @@ for url in "${urls[@]}"; do
 	echo "url: $url"
 
 	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
+	f_name=${file%.*}
+	f_ext=${file##*.}
+	if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
+		file=$f_name.$f_ext
+	fi
 	descr="$file.description"
 
 	youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"

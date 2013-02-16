@@ -18,7 +18,17 @@ for arg; do
 	esac
 done
 
+re_youtube_full='^http://www.youtube.com/watch.*[?&]v=([A-Za-z0-9_-]+)(&|$)'
+re_youtube_short='^http://youtu.be/([A-Za-z0-9_-]+)(\?|$)'
+
 for url in "${urls[@]}"; do
+	if [[ $url =~ $re_youtube_full ]]; then
+		url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
+	elif [[ $url =~ $re_youtube_short ]]; then
+		url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
+	fi
+	echo "url: $url"
+
 	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
 	descr="$file.description"
 

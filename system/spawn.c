@@ -27,6 +27,46 @@ static int usage() {
 	return 2;
 }
 
+int mkdir_p(const char *path, mode_t mode) {
+	struct stat st;
+	const char *p, *e;
+	int r;
+
+	e = strrchr(path, '/');
+	if (!e)
+		return -EINVAL;
+	p = strndupa(path, e - path);
+
+	r = stat(p, &st);
+	if (r == 0 && !S_ISDIR(st.st_mode))
+		return -ENOTDIR;
+
+	p = path + strspn(path, "/");
+	for (;;) {
+		char *t;
+
+		e = p + strcspn(p, "/");
+		p = e + strspn(e, "/");
+		if (!*p)
+			break;
+
+		t = strndup(path, e - path);
+		if (!t)
+			return -ENOMEM;
+
+		r = mkdir(t, mode);
+		free(t);
+		if (r < 0 && errno != EEXIST)
+			return -errno;
+	}
+
+	r = mkdir(path, mode);
+	if (r < 0 && errno != EEXIST)
+		return -errno;
+
+	return 0;
+}
+
 char * get_ttyname() {
 	char *d, *i;
 	if ((d = getenv("DISPLAY"))) {
@@ -44,22 +84,6 @@ char * get_ttyname() {
 	return "batch";
 }
 
-int create_lockdir(char *dir) {
-	struct stat st;
-
-	if (stat(dir, &st) == 0) {
-		if (S_ISDIR(st.st_mode))
-			return 0;
-		else
-			return -ENOTDIR;
-	}
-	if (errno != ENOENT)
-		return -errno;
-	if (mkdir(dir, 0700) < 0)
-		return -errno;
-	return 0;
-}
-
 char * get_lockfile(char *name, int shared) {
 	int r;
 	char *rundir, *lockdir, *path;
@@ -74,7 +98,7 @@ char * get_lockfile(char *name, int shared) {
 	r = asprintf(&lockdir, "%s/lock", rundir);
 	assert(r > 0);
 
-	r = create_lockdir(lockdir);
+	r = mkdir_p(lockdir, 0700);
 	if (r < 0) {
 		fprintf(stderr, "%s: lockdir unavailable: %s\n",
 			arg0, strerror(-r));

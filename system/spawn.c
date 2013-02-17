@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/wait.h>
 #include <dirent.h>
@@ -42,14 +44,41 @@ char * get_ttyname() {
 	return "batch";
 }
 
+int create_lockdir(char *dir) {
+	struct stat st;
+
+	if (stat(dir, &st) == 0) {
+		if (S_ISDIR(st.st_mode))
+			return 0;
+		else
+			return -ENOTDIR;
+	}
+	if (errno != ENOENT)
+		return -errno;
+	if (mkdir(dir, 0700) < 0)
+		return -errno;
+	return 0;
+}
+
 char * get_lockfile(char *name, int shared) {
 	int r;
-	char *dir, *path;
+	char *rundir, *lockdir, *path;
 
-	dir = getenv("XDG_RUNTIME_DIR");
-	if (dir == NULL) {
-		fprintf(stderr, "%s: XDG_RUNTIME_DIR not set, cannot use lockfile\n", arg0);
-		exit(3);
+	rundir = getenv("XDG_RUNTIME_DIR");
+	if (!rundir) {
+		fprintf(stderr, "%s: XDG_RUNTIME_DIR not set, cannot use lockfile\n",
+			arg0);
+		return NULL;
+	}
+
+	r = asprintf(&lockdir, "%s/lock", rundir);
+	assert(r > 0);
+
+	r = create_lockdir(lockdir);
+	if (r < 0) {
+		fprintf(stderr, "%s: lockdir unavailable: %s\n",
+			arg0, strerror(-r));
+		return NULL;
 	}
 
 	if (shared)

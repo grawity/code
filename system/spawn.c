@@ -44,7 +44,7 @@ char * get_ttyname() {
 
 char * get_lockfile(char *name, int shared) {
 	int r;
-	char *dir, *disp, *path;
+	char *dir, *path;
 
 	dir = getenv("XDG_RUNTIME_DIR");
 	if (dir == NULL) {
@@ -53,11 +53,10 @@ char * get_lockfile(char *name, int shared) {
 	}
 
 	if (shared)
-		disp = "shared";
+		r = asprintf(&path, "%s/%s.lock", lockdir, name);
 	else
-		disp = get_ttyname();
+		r = asprintf(&path, "%s/%s.%s.lock", lockdir, name, get_ttyname());
 
-	r = asprintf(&path, "%s/%s.%s.lock", dir, name, disp);
 	assert(r > 0);
 	return path;
 }

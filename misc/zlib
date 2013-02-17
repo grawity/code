@@ -3,8 +3,8 @@ import getopt
 import zlib
 import sys
 
-def compress(inf, outf):
-	z = zlib.compressobj()
+def compress(inf, outf, level):
+	z = zlib.compressobj(level)
 	while True:
 		buf = inf.read(16384)
 		if buf:
@@ -15,7 +15,7 @@ def compress(inf, outf):
 			outf.write(buf)
 			break
 
-def decompress(inf, outf):
+def decompress(inf, outf, **kwargs):
 	z = zlib.decompressobj()
 	while True:
 		buf = inf.read(16384)
@@ -32,19 +32,22 @@ arg0 = sys.argv[0].split("/")[-1]
 inpath = "/dev/stdin"
 outpath = "/dev/stdout"
 mode = compress
+level = 6
 
 if arg0 in ("dezlib", "unzlib"):
 	mode = decompress
 
-opts, args = getopt.getopt(sys.argv[1:], "d")
+opts, args = getopt.getopt(sys.argv[1:], "d0123456789")
 
 for opt, optarg in opts:
 	if opt == "-d":
 		mode = decompress
+	elif opt[1] in "0123456789":
+		level = int(opt[1])
 
 if args:
 	inpath = args[0]
 
 with open(inpath, "rb") as inf:
 	with open(outpath, "wb") as outf:
-		mode(inf, outf)
+		mode(inf, outf, level=level)

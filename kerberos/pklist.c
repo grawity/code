@@ -360,8 +360,8 @@ void print_data(krb5_data *ticket) {
  */
 void show_cred(register krb5_creds *cred) {
 	krb5_error_code	retval;
-	char		*clientname;
-	char		*servername;
+	char		*clientname = NULL;
+	char		*servername = NULL;
 	char		*flags;
 	int		is_config;
 	int		i;

@@ -21,7 +21,7 @@
 char *arg0;
 
 static int usage() {
-	fprintf(stderr, "usage: %s [-L] [-l name] [-w] <command> [args]\n", arg0);
+	fprintf(stderr, "usage: %s [-L] [-l[name]] [-w] <command> [args]\n", arg0);
 	return 2;
 }
 
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+cdLl:Pw")) != -1) {
+	while ((opt = getopt(argc, argv, "+cdLl::Pw")) != -1) {
 		switch (opt) {
 		case 'c':
 			do_closefd = 1;
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'l':
 			do_lock = 1;
-			if (!strcmp(optarg, "-"))
+			if (!optarg || !strcmp(optarg, "-"))
 				lockname = NULL;
 			else
 				lockname = optarg;

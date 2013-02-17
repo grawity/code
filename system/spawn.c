@@ -150,6 +150,7 @@ int main(int argc, char *argv[]) {
 			break;
 #ifdef HAVE_FLOCK
 		case 'L':
+			do_lock = 1;
 			lockshared = 1;
 			break;
 		case 'l':

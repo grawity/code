@@ -85,11 +85,11 @@ $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
 $(OBJ)/pause:		system/pause.c
-$(OBJ)/proctool:	system/proctool.c misc/util.c | misc/util.h
+$(OBJ)/proctool:	system/proctool.c misc/util.c
 $(OBJ)/setns:		system/setns.c
 $(OBJ)/silentcat:	misc/silentcat.c
-$(OBJ)/spawn:		system/spawn.c
-$(OBJ)/strtool:		misc/strtool.c misc/util.c | misc/util.h
+$(OBJ)/spawn:		system/spawn.c misc/util.c
+$(OBJ)/strtool:		misc/strtool.c misc/util.c
 $(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/ttysize:		system/ttysize.c
@@ -97,8 +97,10 @@ $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xors:		misc/xors.c
 
+misc/util.c:		| misc/util.h
+
 $(OBJ)/%:		| dist/empty.c
-	@echo [$(CC)] $@
+	@echo [$(CC)] $@ : $^
 	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 $(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)

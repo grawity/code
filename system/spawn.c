@@ -1,11 +1,10 @@
 #define _GNU_SOURCE
+#include "util.h"
 #include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/wait.h>
 #include <dirent.h>
@@ -25,46 +24,6 @@ char *arg0;
 static int usage() {
 	fprintf(stderr, "usage: %s [-L] [-l[name]] [-w] <command> [args]\n", arg0);
 	return 2;
-}
-
-int mkdir_p(const char *path, mode_t mode) {
-	struct stat st;
-	const char *p, *e;
-	int r;
-
-	e = strrchr(path, '/');
-	if (!e)
-		return -EINVAL;
-	p = strndupa(path, e - path);
-
-	r = stat(p, &st);
-	if (r == 0 && !S_ISDIR(st.st_mode))
-		return -ENOTDIR;
-
-	p = path + strspn(path, "/");
-	for (;;) {
-		char *t;
-
-		e = p + strcspn(p, "/");
-		p = e + strspn(e, "/");
-		if (!*p)
-			break;
-
-		t = strndup(path, e - path);
-		if (!t)
-			return -ENOMEM;
-
-		r = mkdir(t, mode);
-		free(t);
-		if (r < 0 && errno != EEXIST)
-			return -errno;
-	}
-
-	r = mkdir(path, mode);
-	if (r < 0 && errno != EEXIST)
-		return -errno;
-
-	return 0;
 }
 
 char * get_ttyname() {

@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
-
 #include <sched.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 void usage(void) {
@@ -15,7 +15,7 @@ void usage(void) {
 }
 
 int main(int argc, char *argv[]) {
-	int r, fd, flags;
+	int r, fd;
 	char *nsname, **execargv;
 	char *endptr;
 

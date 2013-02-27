@@ -200,6 +200,11 @@ sub cmp_ccnames {
 	return $a eq $b;
 }
 
+sub switch_ccache {
+	my ($ccname) = @_;
+	...
+}
+
 $rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";
 $ccprefix = "/tmp/krb5cc_${UID}_";
 $runprefix = "$rundir/krb5cc";
@@ -228,7 +233,7 @@ $use_color = ($ENV{TERM} && -t 1);
 
 my $cmd = shift @ARGV;
 
-for ($cmd) {
+given ($cmd) {
 	when (["-h", "--help"]) {
 		say for
 		"Usage: kc [list]",
@@ -328,7 +333,8 @@ for ($cmd) {
 		}
 	}
 	when ("destroy") {
-		...
+		my @destroy = grep {defined} map {expand_ccname($_)} @ARGV;
+		system("kdestroy", "-c", $_) for @destroy;
 	}
 	when ("clean") {
 		...
@@ -355,7 +361,55 @@ for ($cmd) {
 		...
 	}
 	when (/.+@.+/) {
-		...
+		my $max_expiry = 0;
+		my $max_ccname;
+
+		for my $ccname (@caches) {
+			my $principal;
+			my $ccrealm;
+			my $expiry;
+			my $tgt_expiry;
+			my $init_expiry;
+
+			# TODO: deshell
+			chomp($principal = qx(pklist -Pc "$ccname"));
+			if ($principal ne $cmd) {
+				next;
+			}
+			$principal =~ /.*@(.+)$/
+				and $ccrealm = $1;
+
+			open(my $proc, "-|", "pklist", "-c", $ccname) or die "$!";
+			while (my $line = <$proc>) {
+				chomp($line);
+				my @l = split(/\t/, $line);
+				given (shift @l) {
+					when ("ticket") {
+						my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags) = @l;
+						if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
+							$tgt_expiry = $t_expiry;
+						}
+						if ($t_flags =~ /I/) {
+							$init_expiry = $t_expiry;
+						}
+					}
+				}
+			}
+			close($proc);
+
+			$expiry = $tgt_expiry || $init_expiry;
+			if ($expiry > $max_expiry) {
+				$max_expiry = $expiry;
+				$max_ccname = $ccname;
+			}
+		}
+
+		if ($max_expiry) {
+			switch_ccache($max_ccname);
+		} else {
+			switch_ccache("new");
+			system("kinit", $cmd, @ARGV);
+		}
 	}
 	default {
 		...

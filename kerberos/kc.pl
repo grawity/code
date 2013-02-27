@@ -412,6 +412,12 @@ given ($cmd) {
 		}
 	}
 	default {
-		...
+		my $ccname = expand_ccname($cmd);
+		if (defined $ccname) {
+			switch_ccache($ccname);
+			system("kinit", @ARGV) if @ARGV;
+		} else {
+			exit 1;
+		}
 	}
 }

@@ -42,8 +42,7 @@ sub interval {
 sub enum_ccaches {
 	my @ccaches;
 
-	open(my $proc, "-|", "pklist", "-l", "-N")
-		or die "'pklist' not found\n";
+	open(my $proc, "-|", "pklist", "-l", "-N") or die "$!";
 	push @ccaches, grep {chomp or 1} <$proc>;
 	close($proc);
 
@@ -261,6 +260,10 @@ sub switch_ccache {
 	return 1;
 }
 
+if (!grep {-x "$_/pklist"} map {$_ || "."} split(/:/, $ENV{PATH})) {
+	die "\e[1mError:\e[m Please install 'pklist' to use this tool.\n";
+}
+
 open(EVAL, ">&=", 3) or do {
 	warn "\e[1mWarning:\e[m Cache switching unavailable (could not open fd#3)\n";
 	$can_switch = 0;
@@ -322,8 +325,7 @@ given ($cmd) {
 			my $name_color = "";
 			my $princ_color = "";
 
-			open(my $proc, "-|", "pklist", "-c", $ccname)
-				or die "Please install 'pklist' to use this tool.\n";
+			open(my $proc, "-|", "pklist", "-c", $ccname) or die "$!";
 
 			while (<$proc>) {
 				chomp;

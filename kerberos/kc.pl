@@ -306,6 +306,9 @@ for ($cmd) {
 	when ("list") {
 		say for @caches;
 	}
+	when ("slist") {
+		say collapse_ccname($_) for @caches;
+	}
 	when (/^=(.*)$/) {
 		...
 	}

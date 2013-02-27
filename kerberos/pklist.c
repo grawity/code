@@ -47,6 +47,7 @@ int show_defname_only = 0;
 int show_names_only = 0;
 int show_realm_only = 0;
 int show_header_only = 0;
+int show_nothing = 0;
 int quiet_errors = 0;
 
 int do_realm(char*);
@@ -65,7 +66,7 @@ int main(int argc, char *argv[]) {
 	char *hostname = NULL;
 	krb5_error_code retval;
 
-	while ((opt = getopt(argc, argv, "Cc:lNPpRr:T")) != -1) {
+	while ((opt = getopt(argc, argv, "Cc:lNPpqRr:T")) != -1) {
 		switch (opt) {
 		case 'C':
 			show_cfg_tkts++;
@@ -85,6 +86,10 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'p':
 			show_names_only = 1;
+			break;
+		case 'q':
+			show_nothing = 1;
+			quiet_errors = 1;
 			break;
 		case 'R':
 			show_realm_only = 1;
@@ -111,6 +116,7 @@ int main(int argc, char *argv[]) {
 				"\t-N         only show ccache name\n"
 				"\t-P         show default client principal\n"
 				"\t-p         only show principal names\n"
+				"\t-q         quietly check if the ccache is valid\n"
 				"\t-R         show default realm\n"
 				"\t-r host    show realm for given FQDN\n"
 				"\t-T         show ticket data\n");
@@ -210,6 +216,11 @@ int do_ccache(krb5_ccache cache) {
 			com_err(progname, retval, "(ticket cache %s)", ccname);
 		else
 			com_err(progname, retval, "while obtaining default principal (ticket cache %s)", ccname);
+		goto cleanup;
+	}
+
+	if (show_nothing) {
+		status = 0;
 		goto cleanup;
 	}
 

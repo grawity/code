@@ -38,54 +38,56 @@ sub interval {
 sub enum_ccaches {
 	my @ccaches;
 
-	open(my $proc, "-|", "pklist", "-l")
+	open(my $proc, "-|", "pklist", "-l", "-N")
 		or die "'pklist' not found\n";
-	while (<$proc>) {
-		my @l = split(/\t/, $_);
-		given (shift @l) {
-			when ("cache") {
-				my ($ccache, $princ) = @l;
-				push @ccaches, $ccache;
-			}
-		}
-	}
+	push @ccaches, grep {chomp or 1} <$proc>;
 	close($proc);
 
 	# traditional
 
-	for my $file (glob "/tmp/krb5cc*") {
-		my $st = stat($file);
-		if (-f $st && $st->uid == $UID) {
-			push @ccaches, "FILE:$file";
-		}
+	push @ccaches,	map {"FILE:$_"}
+			grep {
+				my $st = stat($_);
+				-f $_ && $st->uid == $UID
+			}
+			glob("/tmp/krb5cc*");
+
+	# new
+
+	if ($ENV{XDG_RUNTIME_DIR} && -d "$ENV{XDG_RUNTIME_DIR}/krb5cc") {
+		push @ccaches,	map {"DIR::$_"}
+				glob("$ENV{XDG_RUNTIME_DIR}/krb5cc/tkt*");
 	}
 
 	# Heimdal kcmd
-	
+
 	if (-S "/var/run/.heim_org.h5l.kcm-socket") {
 		push @ccaches, "KCM:$UID";
 	}
 
 	# kernel keyrings
-	
+
 	my @keys = uniq map {split} grep {chomp or 1}
 		   qx(keyctl rlist \@s 2>/dev/null),
 		   qx(keyctl rlist \@u 2>/dev/null);
 	for my $key (@keys) {
+		# TODO: deshell
 		chomp(my $desc = qx(keyctl rdescribe "$key"));
 		if ($desc =~ /^keyring;.*?;.*?;.*?;(krb5cc\.*)$/) {
 			push @ccaches, "KEYRING:$1";
 		}
 	}
 
+	@ccaches = grep {system("pklist", "-q", "-c", $_) == 0}
+			uniq sort @ccaches;
+
 	my $have_current = ($cccurrent ~~ @ccaches);
 	my $have_default = ($ccdefault ~~ @ccaches);
-
 	if (!$have_current) {
 		push @ccaches, $cccurrent;
 	}
 
-	return uniq @ccaches;
+	return @ccaches;
 }
 
 sub expand_ccname {
@@ -180,6 +182,7 @@ if (-d "$ENV{XDG_RUNTIME_DIR}/krb5cc") {
 if ($cccurrent =~ m|^DIR::/*(.+)$|) {
 	$cccdir = $1;
 	if (-f "$cccdir/primary") {
+		# TODO: deshell
 		chomp($cccprimary = qx(cat "$cccdir/primary"));
 	} else {
 		$cccprimary = "tkt";
@@ -299,7 +302,7 @@ for ($cmd) {
 	when ("expand") {
 		say expand_ccname($_) for @ARGV;
 	}
-	when ("rlist") {
+	when ("list") {
 		say for @caches;
 	}
 	when (/^=(.*)$/) {

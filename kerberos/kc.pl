@@ -206,7 +206,7 @@ sub put_env {
 	given ($ENV{SHELL}) {
 		when (m{/(sh|bash|zsh)$}) {
 			$val =~ s/'/'\\''/g;
-			say "$key=\'$val\'; export $key";
+			say "$key=\'$val\'; export $key;";
 		}
 		default {
 			say "$key=$val";

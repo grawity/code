@@ -203,8 +203,15 @@ sub cmp_ccnames {
 sub put_env {
 	my ($key, $val) = @_;
 	$ENV{$key} = $val;
-	# TODO: print out in eval form
-	say "TODO: setenv $key $val";
+	given ($ENV{SHELL}) {
+		when (m{/(sh|bash|zsh)$}) {
+			$val =~ s/'/'\\''/g;
+			say "$key=\'$val\'; export $key";
+		}
+		default {
+			say "$key=$val";
+		}
+	}
 }
 
 sub switch_ccache {

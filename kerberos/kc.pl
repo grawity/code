@@ -203,13 +203,14 @@ sub cmp_ccnames {
 sub put_env {
 	my ($key, $val) = @_;
 	$ENV{$key} = $val;
+
 	given ($ENV{SHELL}) {
 		when (m{/(sh|bash|zsh)$}) {
 			$val =~ s/'/'\\''/g;
-			say "$key=\'$val\'; export $key;";
+			say EVAL "$key=\'$val\'; export $key;";
 		}
 		default {
-			say "$key=$val";
+			say EVAL "$key=$val";
 		}
 	}
 }
@@ -248,6 +249,8 @@ sub switch_ccache {
 		say "New ccache ($ccname)";
 	}
 }
+
+open(EVAL, ">&=", 3) or open(EVAL, ">/dev/null");
 
 $rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";
 $ccprefix = "/tmp/krb5cc_${UID}_";

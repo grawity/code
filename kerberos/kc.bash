@@ -5,8 +5,8 @@
 
 kc() {
 	local ev
-
-	ev=$(~/code/kerberos/kc.pl "$@") && eval "$ev"
+	{ ev=$(~/code/kerberos/kc.pl "$@" 3>&1 >&4); } 4>&1 \
+	&& eval "$ev"
 }
 
 if [[ -t 0 && -t 1 && $- != *i* ]]; then

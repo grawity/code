@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use feature qw(say switch);
 use English;
+use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
 
@@ -179,8 +180,8 @@ $cccprimary = "";
 if (-d "$ENV{XDG_RUNTIME_DIR}/krb5cc") {
 	$cccdir = "$ENV{XDG_RUNTIME_DIR}/krb5cc";
 }
-if ($cccurrent =~ m|^DIR::/*(.+)$|) {
-	$cccdir = $1;
+if ($cccurrent =~ m|^DIR::(.+)$|) {
+	$cccdir = dirname($1);
 	if (-f "$cccdir/primary") {
 		# TODO: deshell
 		chomp($cccprimary = qx(cat "$cccdir/primary"));

@@ -200,9 +200,46 @@ sub cmp_ccnames {
 	return $a eq $b;
 }
 
+sub put_env {
+	my ($key, $val) = @_;
+	$ENV{$key} = $val;
+	# TODO: print out in eval form
+	say "TODO: setenv $key $val";
+}
+
 sub switch_ccache {
 	my ($ccname) = @_;
-	...
+
+	given ($ccname) {
+		when (m|^DIR::(.+)$|) {
+			my $ccdirname = "DIR:".dirname($1);
+			put_env("KRB5CCNAME", $ccdirname);
+			system("kswitch", "-c", $ccname);
+		}
+		when (m|^KEYRING:(.*)$|) {
+			my $keyname = $1;
+			if (system(qq(keyctl request keyring "$keyname" > /dev/null 2>&1)) > 0) {
+				# Hack around something that loses keys added to @s if it equals @us
+				# TODO: deshell
+				chomp(my $sdesc = qx(keyctl rdescribe \@s 2> /dev/null));
+				chomp(my $udesc = qx(keyctl rdescribe \@us 2> /dev/null));
+				my $keyring = ($sdesc eq $udesc) ? '@us' : '@s';
+				# TODO: deshell
+				system(qq(keyctl newring "$keyname" "$keyring" > /dev/null));
+			}
+			put_env("KRB5CCNAME", $ccname);
+		}
+		default {
+			put_env("KRB5CCNAME", $ccname);
+		}
+	}
+
+	if (system("pklist", "-q") == 0) {
+		chomp(my $princ = qx(pklist -P));
+		say "Switched to \e[1m$princ\e[m ($ccname)";
+	} else {
+		say "New ccache ($ccname)";
+	}
 }
 
 $rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";

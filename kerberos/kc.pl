@@ -214,6 +214,7 @@ sub put_env {
 			say EVAL "$key=\'$val\'; export $key;";
 		}
 		default {
+			warn "\e[1mWarning:\e[m Unrecognized shell $ENV{SHELL}\n";
 			say EVAL "$key=$val";
 		}
 	}
@@ -466,17 +467,17 @@ given ($cmd) {
 		}
 
 		if ($max_expiry) {
-			switch_ccache($max_ccname);
+			switch_ccache($max_ccname) || exit 1;
 		} else {
-			switch_ccache("new")
-			&& system("kinit", $cmd, @ARGV);
+			switch_ccache("new") || exit 1;
+			system("kinit", $cmd, @ARGV);
 		}
 	}
 	default {
 		my $ccname = expand_ccname($cmd);
 		if (defined $ccname) {
-			switch_ccache($ccname)
-			&& system("kinit", @ARGV) if @ARGV;
+			switch_ccache($ccname) || exit 1;
+			system("kinit", @ARGV) if @ARGV;
 		} else {
 			exit 1;
 		}

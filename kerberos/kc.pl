@@ -107,8 +107,10 @@ sub expand_ccname {
 			return "KCM:$UID";
 		}
 		when (m|^\d\d?$|) {
-			# return $caches[i]
-			...;
+			my $i = int $_;
+			if ($i > 0 && $i <= @caches) {
+				return $caches[$i - 1];
+			}
 		}
 		# ^^foo
 		when (m|^\^\^(.*)$|) {

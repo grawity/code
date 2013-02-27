@@ -369,6 +369,8 @@ given ($cmd) {
 				$flag_color = ($expiry <= time) ? "1;31" : "1;32";
 				$name_color = $flag_color;
 				$princ_color = $name_color;
+			} else {
+				$princ_color ||= "38;5;66";
 			}
 
 			printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, $i;

@@ -60,6 +60,9 @@ sub enum_ccaches {
 	if (-d "$rundir/krb5cc") {
 		push @ccaches,	map {"DIR::$_"}
 				glob("$rundir/krb5cc/tkt*");
+
+		push @ccaches,	map {"DIR::$_"}
+				glob("$rundir/krb5cc_*/tkt*");
 	}
 
 	# Heimdal kcmd

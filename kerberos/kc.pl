@@ -138,7 +138,7 @@ sub collapse_ccname {
 		when ($ccdefault) {
 			return "@";
 		}
-		when (m|^DIR::\Q$cccdir\E/(tkt)?(.+)$|) {
+		when (m|^DIR::\Q$cccdir\E/(tkt)?(.*)$|) {
 			return ":$2";
 		}
 		when (m|^FILE:\Q$ccprefix\E(.*)$|) {

@@ -16,7 +16,8 @@ my $cccdir;
 my $cccprimary;
 my @caches;
 
-my $use_color;
+my $can_switch = 1;
+my $use_color = 1;
 
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
@@ -221,6 +222,10 @@ sub put_env {
 sub switch_ccache {
 	my ($ccname) = @_;
 
+	if (!$can_switch) {
+		return 0;
+	}
+
 	given ($ccname) {
 		when (m|^DIR::(.+)$|) {
 			my $ccdirname = "DIR:".dirname($1);
@@ -251,9 +256,15 @@ sub switch_ccache {
 	} else {
 		say "New ccache ($ccname)";
 	}
+
+	return 1;
 }
 
-open(EVAL, ">&=", 3) or open(EVAL, ">/dev/null");
+open(EVAL, ">&=", 3) or do {
+	warn "\e[1mWarning:\e[m Cache switching unavailable (could not open fd#3)\n";
+	$can_switch = 0;
+	open(EVAL, ">/dev/null");
+};
 
 $rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";
 $ccprefix = "/tmp/krb5cc_${UID}_";
@@ -457,15 +468,15 @@ given ($cmd) {
 		if ($max_expiry) {
 			switch_ccache($max_ccname);
 		} else {
-			switch_ccache("new");
-			system("kinit", $cmd, @ARGV);
+			switch_ccache("new")
+			&& system("kinit", $cmd, @ARGV);
 		}
 	}
 	default {
 		my $ccname = expand_ccname($cmd);
 		if (defined $ccname) {
-			switch_ccache($ccname);
-			system("kinit", @ARGV) if @ARGV;
+			switch_ccache($ccname)
+			&& system("kinit", @ARGV) if @ARGV;
 		} else {
 			exit 1;
 		}

@@ -7,7 +7,9 @@ use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
 
+my $rundir;
 my $ccprefix;
+my $runprefix;
 my $cccurrent;
 my $ccdefault;
 my $cccdir;
@@ -55,9 +57,9 @@ sub enum_ccaches {
 
 	# new
 
-	if ($ENV{XDG_RUNTIME_DIR} && -d "$ENV{XDG_RUNTIME_DIR}/krb5cc") {
+	if (-d "$rundir/krb5cc") {
 		push @ccaches,	map {"DIR::$_"}
-				glob("$ENV{XDG_RUNTIME_DIR}/krb5cc/tkt*");
+				glob("$rundir/krb5cc/tkt*");
 	}
 
 	# Heimdal kcmd
@@ -98,29 +100,47 @@ sub expand_ccname {
 			my (undef, $path) = tempfile($ccprefix."XXXXXX", OPEN => 0);
 			return "FILE:$path";
 		}
-		when (/^@?$/) {
+		when (["", "@"]) {
 			return $ccdefault;
 		}
-		when (/^kcm$/i) {
+		when (["KCM", "kcm"]) {
 			return "KCM:$UID";
 		}
-		when (/^\d\d?$/) {
+		when (m|^\d\d?$|) {
 			# return $caches[i]
 			...;
 		}
-		when (/^\^\^(.*)$/) {
+		# ^^foo
+		when (m|^\^\^(.*)$|) {
 			return "KEYRING:$1";
 		}
-		when (/^\^(.*)$/) {
+		# ^foo
+		when (m|^\^(.*)$|) {
 			return "KEYRING:krb5cc.$1";
 		}
-		when (":") {
+		# +foo
+		when (m|^\+$|) {
 			return "DIR:$cccdir";
 		}
-		when (/^:(.+)$/) {
-			return "DIR::$cccdir/tkt$1";
+		when (m|^\+(.*)$|) {
+			return "DIR::$cccdir/$1";
 		}
-		when (/:/) {
+		# :foo/bar
+		when (m|^:(.+)/$|) {
+			return "DIR:$runprefix"."_$1";
+		}
+		when (m|^:(.+)/(.+)$|) {
+			return "DIR::$runprefix"."_$1/$2";
+		}
+		# :foo
+		when (m|^:$|) {
+			return "DIR:$runprefix";
+		}
+		when (m|^:(.+)$|) {
+			return "DIR::$runprefix/$1";
+		}
+		# any
+		when (m|:|) {
 			return $_;
 		}
 		when (m|/|) {
@@ -138,8 +158,14 @@ sub collapse_ccname {
 		when ($ccdefault) {
 			return "@";
 		}
-		when (m|^DIR::\Q$cccdir\E/(tkt)?(.*)$|) {
-			return ":$2";
+		when (m|^DIR::\Q$runprefix\E_(.+)/(tkt.*)$|) {
+			return ":$1/$2";
+		}
+		when (m|^DIR::\Q$runprefix\E/(tkt.*)$|) {
+			return ":$1";
+		}
+		when (m|^DIR::\Q$cccdir\E/(tkt.*)$|) {
+			return "+$1";
 		}
 		when (m|^FILE:\Q$ccprefix\E(.*)$|) {
 			return $1;
@@ -172,13 +198,17 @@ sub cmp_ccnames {
 	return $a eq $b;
 }
 
+$rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";
 $ccprefix = "/tmp/krb5cc_${UID}_";
+$runprefix = "$rundir/krb5cc";
+
 chomp($cccurrent = qx(pklist -N));
 chomp($ccdefault = qx(unset KRB5CCNAME; pklist -N));
+
 $cccdir = "";
 $cccprimary = "";
-if (-d "$ENV{XDG_RUNTIME_DIR}/krb5cc") {
-	$cccdir = "$ENV{XDG_RUNTIME_DIR}/krb5cc";
+if (-d $runprefix) {
+	$cccdir = $runprefix;
 }
 if ($cccurrent =~ m|^DIR::(.+)$|) {
 	$cccdir = dirname($1);
@@ -189,6 +219,7 @@ if ($cccurrent =~ m|^DIR::(.+)$|) {
 		$cccprimary = "tkt";
 	}
 }
+
 @caches = enum_ccaches();
 
 $use_color = ($ENV{TERM} && -t 1);
@@ -308,6 +339,15 @@ for ($cmd) {
 	}
 	when ("slist") {
 		say collapse_ccname($_) for @caches;
+	}
+	when ("test-roundtrip") {
+		for my $name (@caches) {
+			my $tmp;
+			say ($tmp = $name);
+			say ($tmp = collapse_ccname($tmp));
+			say ($tmp = expand_ccname($tmp));
+			say '';
+		}
 	}
 	when (/^=(.*)$/) {
 		...

@@ -33,6 +33,8 @@ There even is ANSI color.
   * `@` – system default ccache, usually `FILE:/tmp/krb5cc_${uid}`
   * `:` – `DIR:${XDG_RUNTIME_DIR}/krb5cc`, a multi-TGT cache
   * `:name` – `DIR::${XDG_RUNTIME_DIR}/krb5cc/tkt${name}`, a single ccache in the directory
+  * `+` – current ccache if it is a DIR, same as `:` otherwise
+  * `+name` – if current ccache is a DIR, the specified ccache in that directory; otherwise, same as `:name`
   * `^name` – `KEYRING:krb5cc.${name}`, Linux kernel keyring (MIT Krb5)
   * `^^name` – `KEYRING:${name}` (same as above)
   * `kcm` – `KCM:${uid}`, "Kerberos Credential Manager" daemon (Heimdal)

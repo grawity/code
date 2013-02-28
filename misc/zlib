@@ -3,6 +3,14 @@ import getopt
 import zlib
 import sys
 
+def usage():
+	print("Usage: zlib [-d | -0..9] <file>")
+	print()
+	print("  -d      Decompress (inflate) the given file")
+	print("  -0..9   Set deflate level (default is 6)")
+	print()
+	print("If <file> is not given, stdin will be used instead.")
+
 def compress(inf, outf, level):
 	z = zlib.compressobj(level)
 	while True:
@@ -37,10 +45,17 @@ level = 6
 if arg0 in ("dezlib", "unzlib"):
 	mode = decompress
 
-opts, args = getopt.getopt(sys.argv[1:], "d0123456789")
+try:
+	opts, args = getopt.getopt(sys.argv[1:], "dh0123456789")
+except getopt.GetoptError:
+	usage()
+	exit(2)
 
 for opt, optarg in opts:
-	if opt == "-d":
+	elif opt == "-h":
+		usage()
+		exit()
+	elif opt == "-d":
 		mode = decompress
 	elif opt[1] in "0123456789":
 		level = int(opt[1])

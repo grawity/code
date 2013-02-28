@@ -15,6 +15,7 @@ my $rundir;
 my $ccprefix;
 my $runprefix;
 my $cccurrent;
+my $ccenviron;
 my $ccdefault;
 my $cccdir;
 my $cccprimary;
@@ -280,6 +281,7 @@ $runprefix = "$rundir/krb5cc";
 
 chomp($cccurrent = qx(pklist -N));
 chomp($ccdefault = qx(unset KRB5CCNAME; pklist -N));
+$ccenviron = $ENV{KRB5CCNAME} // "";
 
 $cccdir = "";
 $cccprimary = "";
@@ -312,7 +314,8 @@ given ($cmd) {
 		"       kc destroy <name|number>...";
 	}
 	when (undef) {
-		my $i = 1;
+		my $num = 0;
+
 		for my $ccname (@caches) {
 			my $shortname;
 			my $principal;
@@ -330,7 +333,6 @@ given ($cmd) {
 			my $princ_color = "";
 
 			open(my $proc, "-|", "pklist", "-c", $ccname) or die "$!";
-
 			while (<$proc>) {
 				chomp;
 				my @l = split(/\t/, $_);
@@ -354,9 +356,13 @@ given ($cmd) {
 			}
 			close($proc);
 
+			if (!defined $principal) {
+				next;
+			}
+
 			$shortname = collapse_ccname($ccname);
 
-			$expiry = $tgt_expiry || $init_expiry;
+			$expiry = $tgt_expiry || $init_expiry || 0;
 
 			if ($expiry) {
 				if ($expiry <= time) {
@@ -371,7 +377,7 @@ given ($cmd) {
 			}
 
 			if ($ccname eq $cccurrent) {
-				$item_flag = ($ccname eq $ENV{KRB5CCNAME}) ? "»" : "*";
+				$item_flag = ($ccname eq $ccenviron) ? "»" : "*";
 				$flag_color = ($expiry <= time) ? "1;31" : "1;32";
 				$name_color = $flag_color;
 				$princ_color = $name_color;
@@ -379,7 +385,7 @@ given ($cmd) {
 				$princ_color ||= "38;5;66";
 			}
 
-			printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, $i;
+			printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, ++$num;
 			printf "\e[%sm%-15s\e[m", $name_color, $shortname;
 			if (length $shortname > 15) {
 				printf "\n%20s", "";
@@ -387,9 +393,9 @@ given ($cmd) {
 			printf " \e[%sm%-40s\e[m", $princ_color, $principal;
 			printf " \e[%sm%s\e[m", $expiry_color, $expiry_str;
 			print "\n";
-			++$i;
 		}
-		if ($i == 1) {
+
+		if (!$num) {
 			say "No Kerberos credential caches found.";
 			exit 1;
 		}

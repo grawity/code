@@ -27,6 +27,11 @@
 
 #define CHUNK 16384
 
+enum {
+    MODE_DEFLATE,
+    MODE_INFLATE
+} mode;
+
 /* Compress from file source to file dest until EOF on source.
    def() returns Z_OK on success, Z_MEM_ERROR if memory could not be
    allocated for processing, Z_STREAM_ERROR if an invalid compression
@@ -172,34 +177,48 @@ void zerr(int ret)
     }
 }
 
+int usage(void)
+{
+    fputs("usage: zpipe [-d] < source > dest\n", stderr);
+    return 1;
+}
+
 /* compress or decompress from stdin to stdout */
 int main(int argc, char **argv)
 {
+    int i, mode = MODE_DEFLATE;
     int ret;
 
     /* avoid end-of-line conversions */
     SET_BINARY_MODE(stdin);
     SET_BINARY_MODE(stdout);
 
-    /* do compression if no arguments */
-    if (argc == 1) {
+    for (i = 1; argv[i]; ++i) {
+        char *argp = argv[i];
+        if (strcmp(argp, "-h") == 0 || strcmp(argp, "--help") == 0) {
+            usage();
+            return 0;
+        } else if (strcmp(argp, "-d") == 0) {
+            mode = MODE_INFLATE;
+        } else if (strncmp(argp, "-", 1) == 0) {
+            return usage();
+        } else {
+            return usage();
+        }
+    }
+
+    if (mode == MODE_DEFLATE) {
         ret = def(stdin, stdout, Z_DEFAULT_COMPRESSION);
         if (ret != Z_OK)
             zerr(ret);
         return ret;
-    }
-
-    /* do decompression if -d specified */
-    else if (argc == 2 && strcmp(argv[1], "-d") == 0) {
+    } else if (mode == MODE_INFLATE) {
         ret = inf(stdin, stdout);
         if (ret != Z_OK)
             zerr(ret);
         return ret;
     }
-
-    /* otherwise, report usage */
-    else {
-        fputs("zpipe usage: zpipe [-d] < source > dest\n", stderr);
-        return 1;
-    }
+    return 0;
 }
+
+/* vim: set ts=4:sw=4:et: */

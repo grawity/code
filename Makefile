@@ -5,7 +5,7 @@ empty :=
 space := $(empty) $(empty)
 
 CC       ?= gcc
-CFLAGS    = -Wall -g -O1 -Wl,--as-needed -I./misc
+CFLAGS    = -Wall -g -O1 -Wl,--as-needed
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
@@ -34,7 +34,7 @@ ifeq ($(UNAME),SunOS)
 	KRB_LDLIBS := -lkrb5
 endif
 
-override CFLAGS += $(OSFLAGS)
+override CFLAGS += -I./misc $(OSFLAGS)
 
 # misc targets
 

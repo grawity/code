@@ -1,6 +1,6 @@
 /* zpipe.c: example of proper use of zlib's inflate() and deflate()
    Not copyrighted -- provided to the public domain
-   Version 1.4  11 December 2005  Mark Adler */
+   Version 1.4+  11 December 2005  Mark Adler */
 
 /* Version history:
    1.0  30 Oct 2004  First version
@@ -10,6 +10,7 @@
    1.3   6 Apr 2005  Remove incorrect assertion in inf()
    1.4  11 Dec 2005  Add hack to avoid MSDOS end-of-line conversions
                      Avoid some compiler warnings for input and output buffers
+   1.4+     -        Local modifications by grawity@gmail.com (see Git history)
  */
 
 #include <stdio.h>

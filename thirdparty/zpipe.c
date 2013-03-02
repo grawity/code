@@ -186,6 +186,8 @@ int usage(void)
 /* compress or decompress from stdin to stdout */
 int main(int argc, char **argv)
 {
+    char *path = NULL;
+    FILE *input = stdin;
     int i, mode = MODE_DEFLATE;
     int ret;
 
@@ -202,18 +204,28 @@ int main(int argc, char **argv)
             mode = MODE_INFLATE;
         } else if (strncmp(argp, "-", 1) == 0) {
             return usage();
+        } else if (!path) {
+            path = argp;
         } else {
             return usage();
         }
     }
 
+    if (path) {
+        input = fopen(path, "rb");
+        if (!input) {
+            perror("zpipe");
+            return 1;
+        }
+    }
+
     if (mode == MODE_DEFLATE) {
-        ret = def(stdin, stdout, Z_DEFAULT_COMPRESSION);
+        ret = def(input, stdout, Z_DEFAULT_COMPRESSION);
         if (ret != Z_OK)
             zerr(ret);
         return ret;
     } else if (mode == MODE_INFLATE) {
-        ret = inf(stdin, stdout);
+        ret = inf(input, stdout);
         if (ret != Z_OK)
             zerr(ret);
         return ret;

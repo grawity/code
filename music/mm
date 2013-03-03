@@ -18,6 +18,9 @@ sub search {
 	for my $pattern (@patterns) {
 		if ($pattern =~ /^\d+$/) {
 			@songs = grep {$_->{num} == $pattern} @songs;
+		} elsif ($pattern =~ /^album:(.+)$/) {
+			my $pat = qr/$1/i;
+			@songs = grep {$_->{album} ~~ $pat} @songs;
 		} else {
 			my $pat = qr/$pattern/i;
 			@songs = grep {$_->{artist} ~~ $pat
@@ -29,7 +32,7 @@ sub search {
 	@songs;
 }
 
-my $fmt_input = "%position%\t%artist%\t%title%";
+my $fmt_input = "%position%\t%artist%\t%album%\t%title%";
 
 sub get_current {
 	my ($song) = get_playlist("current");
@@ -43,9 +46,10 @@ sub get_playlist {
 	open(my $f, "-|", "mpc", $cmd, "-f", $fmt_input);
 	while (my $item = <$f>) {
 		chomp($item);
-		my ($num, $artist, $title) = split(/\t/, $item);
+		my ($num, $artist, $album, $title) = split(/\t/, $item);
 		push @playlist, {num => $num,
 				artist => $artist,
+				album => $album,
 				title => $title};
 	}
 	close($f);

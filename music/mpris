@@ -4,10 +4,11 @@
 # MPRISv2 spec: http://specifications.freedesktop.org/mpris-spec/latest/
 use warnings;
 use strict;
-use feature qw(say switch);
+use feature qw(say state switch);
 use Data::Dumper;
 use List::Util qw(max);
 use Net::DBus qw(:typing);
+use Net::DBus::Reactor;
 use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
 	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
@@ -50,6 +51,14 @@ sub MediaPlayer {
 
 sub track {
 	"/org/mpris/MediaPlayer2/Track/".(shift // "1");
+}
+
+# Notifications() - return libnotify object
+
+sub Notifications {
+	$bus
+	->get_service("org.freedesktop.Notifications")
+	->get_object("/org/freedesktop/Notifications");
 }
 
 # saybool(bool) - print "yes"/"no" and exit with boolean status
@@ -172,6 +181,124 @@ sub list_players {
 		say "No MPRIS v2 players are running." if !@names;
 	} else {
 		say for @names;
+	}
+}
+
+sub _notify_show_notification {
+	my ($bus_name, $player, $status, $meta) = @_;
+
+	state %notification_id;
+	state %app_name;
+	state %app_desktop;
+
+	my $summary = $meta->{"xesam:title"};
+	my $body = "by ".join(", ", @{$meta->{"xesam:artist"}});
+
+	my $app_id = $bus_name;
+	$app_id =~ s/$prefix_re//;
+
+	$app_name{$bus_name} //= $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
+	$app_name{$bus_name} //= $app_id;
+
+	$app_desktop{$bus_name} //= $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
+	$app_desktop{$bus_name} //= $app_id;
+
+	my $icon;
+	for ($status) {
+		when ("Playing") { $icon = "media-playback-start-symbolic" }
+		when ("Paused")  { $icon = "media-playback-pause-symbolic" }
+		when ("Stopped") { $icon = "media-playback-stop-symbolic" }
+		default          { $icon = "audio-x-generic-symbolic" }
+	}
+
+	my %hints = (
+		"desktop-entry" => $app_desktop{$bus_name} . ".desktop",
+		transient => dbus_boolean(1),
+		urgency => dbus_byte(0),
+	);
+
+	$notification_id{$bus_name} = Notifications->Notify(
+					$app_name{$bus_name},
+					$notification_id{$bus_name} // 0,
+					$icon,
+					$summary,
+					$body,
+					[],
+					\%hints,
+					2*1000);
+}
+
+sub _notify_handle_propchange {
+	my ($bus_name, $interface, $changed, $invalidated) = @_;
+	my %changed = %$changed;
+	my @invalidated = @$invalidated;
+
+	state %status;
+	state %meta;
+
+	my $player = MediaPlayer($bus_name);
+	my $status;
+	my $meta;
+
+	if ("PlaybackStatus" ~~ %changed) {
+		$status = $changed{"PlaybackStatus"};
+	} elsif ("PlaybackStatus" ~~ @invalidated || !defined $status{$bus_name}) {
+		$status = $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+	} else {
+		$status = $status{$bus_name};
+	}
+
+	if ("Metadata" ~~ %changed) {
+		$meta = $changed{"Metadata"};
+	} elsif ("Metadata" ~~ @invalidated || !defined $meta{$bus_name}) {
+		$meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+	} else {
+		$meta = $meta{$bus_name};
+	}
+
+	my @old = ($status{$bus_name},
+		$meta{$bus_name}->{"xesam:artist"},
+		$meta{$bus_name}->{"xesam:title"});
+	my @new = ($status,
+		$meta->{"xesam:artist"},
+		$meta->{"xesam:title"});
+
+	if (@old ~~ @new) {
+		return;
+	}
+
+	$status{$bus_name} = $status;
+	$meta{$bus_name} = $meta;
+
+	_notify_show_notification($bus_name, $player, $status, $meta);
+}
+
+sub _notify_setup_propchange {
+	my $bus_name = shift;
+	my $player = MediaPlayer($bus_name);
+	$player->()->connect_to_signal("PropertiesChanged", sub {
+		_notify_handle_propchange($bus_name, @_);
+	});
+}
+
+sub notify_setup {
+	my $bus_name = shift;
+
+	state $bus_obj = $bus->get_bus_object;
+	state %sig_noc;
+	state %sig_pc;
+
+	if ($bus->get_service_owner($bus_name)) {
+		$sig_pc{$bus_name} = _notify_setup_propchange($bus_name);
+	} else {
+		$sig_noc{$bus_name} = $bus_obj->connect_to_signal("NameOwnerChanged", sub {
+			my ($changed_name, $old_owner, $new_owner) = @_;
+			if ($bus_name eq $changed_name && !$sig_pc{$bus_name}) {
+				$sig_pc{$bus_name} = _notify_setup_propchange($bus_name);
+				$bus_obj->disconnect_from_signal("NameOwnerChanged",
+					$sig_noc{$bus_name});
+			}
+		});
 	}
 }
 
@@ -691,6 +818,14 @@ given ($cmd) {
 		} else {
 			saybool $bus->get_service_owner($bus_name);
 		}
+	}
+	when ("notify") {
+		if ($bus_name eq "all") {
+			notify_setup($_) for enumerate();
+		} else {
+			notify_setup($bus_name);
+		}
+		Net::DBus::Reactor->main->run;
 	}
 	default {
 		if (!exists $commands{$cmd}) {

@@ -50,17 +50,18 @@ my $ih_cookie;
 my $old_status;
 my $watching;
 
+my $log_prefix	= $app_id;
 my $bus;
 my $sessmgr;
 
 sub trace {
 	my ($msg) = @_;
-	say "$app_id: $msg";
+	say "$log_prefix: $msg";
 }
 
 sub inhibit {
 	if ($ih_cookie) {
-		warn "$app_id: double inhibit attempted (have cookie $ih_cookie)";
+		warn "$log_prefix: double inhibit attempted (have cookie $ih_cookie)";
 		return;
 	}
 	$ih_cookie = $sessmgr->Inhibit($app_id, $top_xid, $reason, $flags);
@@ -69,7 +70,7 @@ sub inhibit {
 
 sub uninhibit {
 	if (!$ih_cookie) {
-		warn "$app_id: double uninhibit attempted";
+		warn "$log_prefix: double uninhibit attempted";
 		return;
 	}
 	$sessmgr->Uninhibit($ih_cookie);
@@ -111,6 +112,8 @@ sub init_watch {
 			$old_status = $new_status;
 		}
 	});
+
+	$app_id = $player_prop->Get("org.mpris.MediaPlayer2", "Identity") // $app_id;
 
 	$old_status = $player_prop->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
 	trace("status currently: $old_status");

@@ -284,8 +284,22 @@ sub _notify_handle_propchange {
 
 sub _notify_setup_propchange {
 	my $bus_name = shift;
-	my $player = MediaPlayer($bus_name);
-	$player->()->connect_to_signal("PropertiesChanged", sub {
+	my $player_obj = MediaPlayer($bus_name)->();
+	if (!$player_obj->_introspector->has_signal("PropertiesChanged")) {
+		# Qt4 is stupid, stupid, stupid for not including
+		# PropertiesChanged in the introspection data.
+		$player_obj->_introspector->add_signal(
+				"PropertiesChanged",
+				["string",
+				 ["dict", "string", ["variant"]],
+				 ["array", "string"]],
+				"org.freedesktop.DBus.Properties",
+				{},
+				["interface_name",
+				 "changed_properties",
+				 "invalidated_properties"]);
+	}
+	$player_obj->connect_to_signal("PropertiesChanged", sub {
 		_notify_handle_propchange($bus_name, @_);
 	});
 }

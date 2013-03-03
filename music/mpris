@@ -191,8 +191,17 @@ sub _notify_show_notification {
 	state %app_name;
 	state %app_desktop;
 
-	my $summary = $meta->{"xesam:title"};
-	my $body = "by ".join(", ", @{$meta->{"xesam:artist"}});
+	my $summary;
+	my $body;
+
+	if ($status eq "Stopped") {
+		$summary = "Stopped.";
+		$body = "";
+	} else {
+		my $artist = $meta->{"xesam:artist"} // ["unknown artist"];
+		$summary = $meta->{"xesam:title"} // "Unnamed song";
+		$body = "by ".join(", ", @$artist);
+	}
 
 	my $app_id = $bus_name;
 	$app_id =~ s/$prefix_re//;

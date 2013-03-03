@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# mpris - control MPRIS v2 compatible players
+# mpris - control MPRISv2 compatible players
 # Inspired-by: http://incise.org/mpris-remote.html
 # MPRISv2 spec: http://specifications.freedesktop.org/mpris-spec/latest/
 use warnings;
@@ -100,7 +100,7 @@ sub time2int {
 
 # frombool(str) - booleanize a string
 
-sub dieusage {
+sub die_usage {
 	warn shift."\n";
 	exit 2;
 }
@@ -110,7 +110,7 @@ sub frombool {
 	my $die = shift // 1;
 	given ($str) {
 		when (undef) {
-			$die ? dieusage "Missing boolean parameter." : undef;
+			$die ? die_usage "Missing boolean parameter." : undef;
 		}
 		when (/^(yes|true|on|1)$/i) {
 			return dbus_boolean(1);
@@ -119,7 +119,7 @@ sub frombool {
 			return dbus_boolean(0);
 		}
 		default {
-			$die ? dieusage "Invalid boolean parameter." : undef;
+			$die ? die_usage "Invalid boolean parameter." : undef;
 		}
 	}
 }
@@ -151,7 +151,7 @@ sub describe {
 	say $out;
 }
 
-sub checkversion {
+sub check_version {
 	my ($player, $bus_name) = @_;
 	if ($bus->get_service_owner($bus_name)) {
 	return 1;
@@ -164,7 +164,7 @@ sub checkversion {
 	}
 }
 
-sub listplayers {
+sub list_players {
 	my $verbose = shift;
 	my @names = enumerate();
 	if ($verbose) {
@@ -336,7 +336,7 @@ sub player_getprop {
 		}
 
 		default {
-			dieusage("Unknown property '$property'.");
+			die_usage("Unknown property '$property'.");
 		}
 	}
 	return 0;
@@ -385,7 +385,7 @@ sub player_setprop {
 					$arg = "Track";
 				}
 				default {
-					dieusage "Unknown arg status.";
+					die_usage "Unknown arg status.";
 				}
 			}
 			$player->()->Set(MPRIS_PLAYER_IFACE, "LoopStatus", $arg);
@@ -394,7 +394,7 @@ sub player_setprop {
 			my $position = shift;
 			my $track;
 			if (!defined $position) {
-				dieusage "Missing position.";
+				die_usage "Missing position.";
 			} elsif ($position =~ /^(.+)@(\d+)$/) {
 				$position = $1;
 				$track = track($2);
@@ -407,7 +407,7 @@ sub player_setprop {
 			if (defined $position) {
 				$player->()->SetPosition($track, $position);
 			} else {
-				dieusage "Invalid position.";
+				die_usage "Invalid position.";
 			}
 		}
 		when ("player/rate") {
@@ -447,7 +447,7 @@ sub player_setprop {
 					$player->()->PlayPause();
 				}
 				default {
-					dieusage "Unknown playback status.";
+					die_usage "Unknown playback status.";
 				}
 			}
 		}
@@ -543,7 +543,7 @@ my %commands = (
 		if (defined $uri) {
 			$player->()->OpenUri($uri);
 		} else {
-			dieusage "Missing URI.";
+			die_usage "Missing URI.";
 		}
 	},
 	quit => sub {
@@ -578,7 +578,7 @@ my %commands = (
 		if (defined $offset) {
 			$player->()->Seek($offset);
 		} else {
-			dieusage "Invalid offset.";
+			die_usage "Invalid offset.";
 		}
 	},
 	shuffle => property("player/shuffle"),
@@ -627,11 +627,11 @@ my $bus_name;
 
 given ($player) {
 	when (undef) {
-		listplayers(1);
+		list_players(1);
 		exit;
 	}
 	when (/^(-l|--list)/) {
-		listplayers(0);
+		list_players(0);
 		exit;
 	}
 	when (/^(-a|--all)/) {
@@ -659,7 +659,7 @@ given ($player) {
 	when (/^$suffix_re/) {
 		# suffix with optional .instance-[PID]
 		$bus_name = "org.mpris.MediaPlayer2.$player";
-		checkversion($player, $bus_name);
+		check_version($player, $bus_name);
 	}
 	when (/\./) {
 		# possible bus name (at least two components)
@@ -671,7 +671,7 @@ given ($player) {
 		# suffix (only one component)
 		# NOTE: /^$suffix_re/ above should catch all such instances
 		$bus_name = "org.mpris.MediaPlayer2.$player";
-		checkversion($player, $bus_name);
+		check_version($player, $bus_name);
 	}
 }
 
@@ -681,7 +681,7 @@ given ($cmd) {
 	}
 	when ("activate") {
 		if ($bus_name eq "all") {
-			dieusage "Bus name not specified (--all won't work here).";
+			die_usage "Bus name not specified (--all won't work here).";
 		}
 		MediaPlayer($bus_name);
 	}
@@ -694,7 +694,7 @@ given ($cmd) {
 	}
 	default {
 		if (!exists $commands{$cmd}) {
-			dieusage "Unknown command '$cmd'.";
+			die_usage "Unknown command '$cmd'.";
 		}
 		elsif ($bus_name eq "all") {
 			my @r = map {$commands{$cmd}->(MediaPlayer($_), @ARGV) // 0}

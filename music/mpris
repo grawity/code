@@ -308,11 +308,10 @@ sub notify_setup {
 	my $bus_name = shift;
 
 	state $bus_obj = $bus->get_bus_object;
-	state %sig_noc;
 	state %sig_pc;
 
 	if (!defined $bus_name) {
-		$sig_noc{any} = $bus_obj->connect_to_signal("NameOwnerChanged", sub {
+		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
 			if ($name =~ $prefix_re && !$sig_pc{$name}) {
 				$sig_pc{$name} = _notify_setup_propchange($name);
@@ -321,12 +320,10 @@ sub notify_setup {
 	} elsif ($bus->get_service_owner($bus_name)) {
 		$sig_pc{$bus_name} = _notify_setup_propchange($bus_name);
 	} else {
-		$sig_noc{$bus_name} = $bus_obj->connect_to_signal("NameOwnerChanged", sub {
+		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
 			if ($bus_name eq $name && !$sig_pc{$name}) {
 				$sig_pc{$name} = _notify_setup_propchange($name);
-				$bus_obj->disconnect_from_signal("NameOwnerChanged",
-					$sig_noc{$name});
 			}
 		});
 	}

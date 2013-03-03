@@ -504,21 +504,6 @@ my %commands = (
 	activate => sub {
 		# handled by main func
 	},
-	"fmt-meta" => sub {
-		my $player = shift;
-		my $format = shift // "%{xesam:artist} - %{xesam:album}";
-
-		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
-		while ($format =~ /%\{(\w+:\w+)\}/g) {
-			my $item = $meta->{$1} // "Unknown";
-			if (ref $item eq 'ARRAY') {
-				$item = join(", ", @$item);
-			}
-			$format =~ s//$item/;
-		}
-		say $format;
-		return 0;
-	},
 	get => sub {
 		player_getprop(@_);
 	},
@@ -563,6 +548,21 @@ my %commands = (
 	},
 	quit => sub {
 		shift->()->Quit();
+	},
+	printf => sub {
+		my $player = shift;
+		my $format = shift // "%{xesam:artist} - %{xesam:album}";
+
+		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+		while ($format =~ /%\{(\w+:\w+)\}/g) {
+			my $item = $meta->{$1} // "Unknown";
+			if (ref $item eq 'ARRAY') {
+				$item = join(", ", @$item);
+			}
+			$format =~ s//$item/;
+		}
+		say $format;
+		return 0;
 	},
 	raise => sub {
 		shift->()->Raise();

@@ -184,7 +184,7 @@ sub list_players {
 	}
 }
 
-sub _notify_show_notification {
+sub show_notification {
 	my ($bus_name, $player, $status, $meta) = @_;
 
 	state %notification_id;
@@ -279,7 +279,7 @@ sub _notify_handle_propchange {
 	$status{$bus_name} = $status;
 	$meta{$bus_name} = $meta;
 
-	_notify_show_notification($bus_name, $player, $status, $meta);
+	show_notification($bus_name, $player, $status, $meta);
 }
 
 sub _notify_setup_propchange {
@@ -666,6 +666,14 @@ my %commands = (
 	next => sub {
 		shift->()->Next();
 	},
+	notify => sub {
+		my $player = shift;
+		my $bus_name = $player->()->get_service->get_service_name;
+		my $status = $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+		show_notification($bus_name, $player, $status, $meta);
+		return 0;
+	},
 	pause => sub {
 		shift->()->Pause();
 	},
@@ -842,7 +850,7 @@ given ($cmd) {
 			saybool $bus->get_service_owner($bus_name);
 		}
 	}
-	when ("notify") {
+	when ("notify-idle") {
 		if ($bus_name eq "all") {
 			notify_setup($_) for enumerate();
 		} else {

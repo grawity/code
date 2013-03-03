@@ -26,6 +26,27 @@ silent() {
 	return $rc
 }
 
+force-pull() {
+	local tmprepo='git://nullroute.eu.org/grawity/dotfiles-tmp.git'
+	local date=$(date +%Y-%m-%d)
+	local tmpbranch="local/$HOSTNAME/$date"
+
+	if ! git pull --quiet --ff-only; then
+		git checkout --quiet -B local
+		git add --all :/
+		git commit --quiet --allow-empty \
+			-m "Local changes on $HOSTNAME at $date"
+		git push --quiet "$tmprepo" "+local:$tmpbranch"
+		git checkout --quiet -f master
+		git rm --quiet -rf .
+		git clean --quiet -fdX
+		git reset --quiet --hard origin/master
+		echo "Pushed local changes to:" >&2
+		echo "    $tmprepo $tmpbranch" >&2
+		git branch -D "$tmpbranch"
+	fi > /dev/null
+}
+
 if [ ! "$xyzzy" ]; then
 	export PATH="$HOME/code/bin:$PATH"
 
@@ -70,7 +91,7 @@ else
 	if [ -d ~/lib/dotfiles ]; then
 		log "fetching dotfiles.git"
 		(cd ~/lib/dotfiles
-		silent git pull --ff-only
+		force-pull
 		silent git repack -d)
 	else
 		log "cloning dotfiles.git"

@@ -282,8 +282,8 @@ sub _notify_handle_propchange {
 	show_notification($bus_name, $player, $status, $meta);
 }
 
-sub _notify_setup_propchange {
-	my $bus_name = shift;
+sub _event_setup_propchange {
+	my ($bus_name, $handler) = @_;
 	my $player_obj = MediaPlayer($bus_name)->();
 	if (!$player_obj->_introspector->has_signal("PropertiesChanged")) {
 		# Qt4 is stupid, stupid, stupid for not including
@@ -300,12 +300,12 @@ sub _notify_setup_propchange {
 				 "invalidated_properties"]);
 	}
 	$player_obj->connect_to_signal("PropertiesChanged", sub {
-		_notify_handle_propchange($bus_name, @_);
+		$handler->($bus_name, @_);
 	});
 }
 
-sub notify_setup {
-	my $bus_name = shift;
+sub event_setup {
+	my ($bus_name, $handler) = @_;
 
 	state $bus_obj = $bus->get_bus_object;
 	state %sig_pc;
@@ -314,16 +314,16 @@ sub notify_setup {
 		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
 			if ($name =~ $prefix_re && !$sig_pc{$name}) {
-				$sig_pc{$name} = _notify_setup_propchange($name);
+				$sig_pc{$name} = _event_setup_propchange($name, $handler);
 			}
 		});
 	} elsif ($bus->get_service_owner($bus_name)) {
-		$sig_pc{$bus_name} = _notify_setup_propchange($bus_name);
+		$sig_pc{$bus_name} = _event_setup_propchange($bus_name, $handler);
 	} else {
 		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
 			if ($bus_name eq $name && !$sig_pc{$name}) {
-				$sig_pc{$name} = _notify_setup_propchange($name);
+				$sig_pc{$name} = _event_setup_propchange($name, $handler);
 			}
 		});
 	}
@@ -855,11 +855,12 @@ given ($cmd) {
 		}
 	}
 	when ("notify-idle") {
+		my $handler = \&_notify_handle_propchange;
 		if ($bus_name eq "all") {
-			notify_setup(undef);
-			notify_setup($_) for enumerate();
+			event_setup(undef, $handler);
+			event_setup($_, $handler) for enumerate();
 		} else {
-			notify_setup($bus_name);
+			event_setup($bus_name, $handler);
 		}
 		say "Waiting for events...";
 		Net::DBus::Reactor->main->run;

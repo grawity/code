@@ -89,7 +89,7 @@ sub enum_ccaches {
 		}
 	}
 
-	@ccaches = grep {system("pklist", "-q", "-c", $_) == 0}
+	@ccaches = uniq sort @ccaches;
 			uniq sort @ccaches;
 
 	my $have_current = ($cccurrent ~~ @ccaches);
@@ -97,6 +97,8 @@ sub enum_ccaches {
 	if (!$have_current) {
 		push @ccaches, $cccurrent;
 	}
+
+	@ccaches = grep {system("pklist", "-q", "-c", $_) == 0} @ccaches;
 
 	return @ccaches;
 }

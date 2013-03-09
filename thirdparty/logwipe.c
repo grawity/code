@@ -460,7 +460,7 @@ usage()
 	printf("ACCT editing (%s)\n", ACCT_FILE);
 	printf("   Erase acct entries on tty :   wipe a [username] [tty]\n");
 #endif
-	exit(1);
+	exit(0);
 }
 
 

@@ -290,13 +290,11 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 	int		fd1;
 	struct lastlog	ll;
 	struct passwd	*pwd;
-	struct tm	*tm; 
+	struct tm	tm;
 	char		str[6];
 
 	printf("Patching %s .... ", LASTLOG_FILE);
 	fflush(stdout);
-
-	tm = (struct tm *) malloc( sizeof(struct tm) );
 	
         /*
 	 * Open the lastlog file.
@@ -332,27 +330,27 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 		str[2] = timestr[2];
 		str[3] = timestr[3];
 		str[4] = 0;
-		tm->tm_year = atoi(str)-1900;
+		tm.tm_year = atoi(str)-1900;
 		
 		str[0] = timestr[4];
 		str[1] = timestr[5];
 		str[2] = 0;
-		tm->tm_mon = atoi(str)-1;
+		tm.tm_mon = atoi(str)-1;
 		
 		str[0] = timestr[6];
 		str[1] = timestr[7];
-		tm->tm_mday = atoi(str);
+		tm.tm_mday = atoi(str);
 		
 		str[0] = timestr[8];
 		str[1] = timestr[9];
-		tm->tm_hour = atoi(str);
+		tm.tm_hour = atoi(str);
 		
 		str[0] = timestr[10];
 		str[1] = timestr[11];
-		tm->tm_min = atoi(str);
-		tm->tm_sec = 0;
+		tm.tm_min = atoi(str);
+		tm.tm_sec = 0;
 
-		ll.ll_time = mktime(tm);
+		ll.ll_time = mktime(&tm);
 	}
 
 	if (host)

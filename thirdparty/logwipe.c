@@ -439,21 +439,25 @@ usage()
 {
 	printf("USAGE: wipe [ u|w|l|a ] ...options...\n");
 	printf("\n");
-	printf("UTMP editing:\n");
+#ifdef HAVE_UTMPX
+	printf("UTMPX editing (%s, %s)\n", UTMP_FILE, UTMPX_FILE);
+#else
+	printf("UTMP editing (%s)\n", UTMP_FILE);
+#endif
 	printf("    Erase all usernames      :   wipe u [username]\n");
 	printf("    Erase one username on tty:   wipe u [username] [tty]\n");
 	printf("\n");
-	printf("WTMP editing:\n");
+	printf("WTMP editing (%s)\n", WTMP_FILE);
 	printf("   Erase last entry for user :   wipe w [username]\n");
 	printf("   Erase last entry on tty   :   wipe w [username] [tty]\n");
 	printf("\n");	
-	printf("LASTLOG editing:\n");
+	printf("LASTLOG editing (%s)\n", LASTLOG_FILE);
 	printf("   Blank lastlog for user    :   wipe l [username]\n");
 	printf("   Alter lastlog entry       :   wipe l [username] [tty] [time] [host]\n");
 	printf("	Where [time] is in the format [YYYYMMddhhmm]\n");
 	printf("\n");
 #ifndef NO_ACCT
-	printf("ACCT editing:\n");
+	printf("ACCT editing (%s)\n", ACCT_FILE);
 	printf("   Erase acct entries on tty :   wipe a [username] [tty]\n");
 #endif
 	exit(1);

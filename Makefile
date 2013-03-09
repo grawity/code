@@ -21,6 +21,9 @@ ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
 	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
+ifeq ($(UNAME),GNU)
+	OSFLAGS := -DHAVE_HURD -DNO_ACCT
+endif
 ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
 	KRB_LDLIBS := -lkrb5 -lcom_err

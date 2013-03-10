@@ -58,12 +58,16 @@ check_setting() {
 
 declare -i pid_shell=$PPID
 declare -i pid_term=$(ps -o 'ppid=' $pid_shell)
+declare -i pid_parent=$(ps -o 'ppid=' $pid_term)
 
 ps_shell=$(ps -o 'pid=,command=' $pid_shell)
 ps_terminal=$(ps -o 'pid=,command=' $pid_term)
+ps_parent=$(ps -o 'pid=,command=' $pid_parent)
 
-echo " * Shell:    $ps_shell"
+echo " * Parent:   $ps_parent"
 echo " * Terminal: $ps_terminal"
+echo " * Shell:    $ps_shell"
+echo ""
 
 unset ${!sy_*}
 declare -A sy_missing_locs
@@ -81,6 +85,13 @@ while IFS='=' read -d '' name value; do
 		declare "TERM_$name"="$value"
 	fi
 done < "/proc/$pid_term/environ"
+
+unset ${!PARN_*}
+while IFS='=' read -d '' name value; do
+	if [[ $name == LANG || $name == LC_* ]]; then
+		declare "PARN_$name"="$value"
+	fi
+done < "/proc/$pid_parent/environ"
 
 # Basic checks
 
@@ -100,6 +111,14 @@ else
 	t_main_charset=$(get_charset "$TERM_LANG")
 fi
 
+if [[ -z $PARN_LANG ]]; then
+	warn "(parent) LANG: not set"
+	p_main_charset='default'
+	(( ++sy_nolang ))
+else
+	p_main_charset=$(get_charset "$PARN_LANG")
+fi
+
 for name in LANG "${vars[@]}"; do
 	value=${!name}
 	locale=$(get_locale "$value")
@@ -108,9 +127,14 @@ for name in LANG "${vars[@]}"; do
 	t_value=${!t_name}
 	t_locale=$(get_locale "$t_value")
 	t_charset=$(get_charset "$t_value")
+	p_name="PARN_$name"
+	p_value=${!p_name}
+	p_locale=$(get_locale "$p_value")
+	p_charset=$(get_charset "$p_value")
 
 	check_setting "(shell) $name" "$value"
 	check_setting "(term) $name" "$t_value"
+	check_setting "(parent) $name" "$p_value"
 
 	if [[ "$name" == "LC_ALL" && -n "$value" ]]; then
 		warn "$name: should not be set ($value)"
@@ -129,6 +153,20 @@ for name in LANG "${vars[@]}"; do
 	elif [[ "$locale" != "$t_locale" ]]; then
 		warn "$name: lang mismatch between shell and terminal ($locale | $t_locale)"
 		(( ++sy_mismatch ))
+	fi
+
+	if [[ -n "$t_value" && -z "$p_value" ]]; then
+		warn "$name: set by terminal but not parent ($t_value | none)"
+		(( ++sy_p_mismatch ))
+	elif [[ -z "$t_value" && -n "$p_value" ]]; then
+		warn "$name: set by parent but not terminal (none | $p_value)"
+		(( ++sy_p_mismatch ))
+	elif [[ "$t_charset" != "$p_charset" ]]; then
+		warn "$name: charset mismatch between terminal and parent ($t_locale | $p_locale)"
+		(( ++sy_p_mismatch ))
+	elif [[ "$t_locale" != "$p_locale" ]]; then
+		warn "$name: lang mismatch between terminal and parent ($t_locale | $p_locale)"
+		(( ++sy_p_mismatch ))
 	fi
 done
 
@@ -154,6 +192,18 @@ fi
 if (( sy_mismatch )); then
 	problem "Shell and terminal have different locale settings."
 	echo " * Your .bashrc or similar startup scripts may be overriding them."
+fi
+
+if (( sy_p_mismatch )); then
+	: ${parn_locale:=$PARN_LC_ALL};	: ${parn_locale:=$PARN_LC_CTYPE}
+	: ${parn_locale:=$PARN_LANG};	: ${parn_locale:=empty}
+	: ${term_locale:=$TERM_LC_ALL};	: ${term_locale:=$TERM_LC_CTYPE}
+	: ${term_locale:=$TERM_LANG};	: ${term_locale:=empty}
+	problem "Terminal and its parent have different locale settings."
+	echo " * Your session doesn't have the right locale set, and your window manager"
+	echo "   is launching all programs using the $parn_locale locale. But your terminal"
+	echo "   hides the problem by setting its own locale to $term_locale."
+	echo " * Fix your system to set the locale at login or session startup time."
 fi
 
 if (( sy_lcall )); then

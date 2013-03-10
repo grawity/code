@@ -71,8 +71,9 @@ declare -A sy_nonutf8_vars
 
 # Read terminal's environment
 
-vars=("LC_CTYPE" "LC_NUMERIC" "LC_TIME" "LC_COLLATE" "LC_MONETARY" "LC_MESSAGES" "LC_PAPER"
-	"LC_NAME" "LC_ADDRESS" "LC_TELEPHONE" "LC_MEASUREMENT" "LC_IDENTIFICATION" "LC_ALL")
+vars=("LC_CTYPE" "LC_NUMERIC" "LC_TIME" "LC_COLLATE" "LC_MONETARY" "LC_MESSAGES"
+	"LC_PAPER" "LC_NAME" "LC_ADDRESS" "LC_TELEPHONE" "LC_MEASUREMENT"
+	"LC_IDENTIFICATION" "LC_ALL")
 
 unset ${!TERM_*}
 while IFS='=' read -d '' name value; do
@@ -109,7 +110,6 @@ for name in LANG "${vars[@]}"; do
 	t_charset=$(get_charset "$t_value")
 
 	check_setting "(shell) $name" "$value"
-
 	check_setting "(term) $name" "$t_value"
 
 	if [[ "$name" == "LC_ALL" && -n "$value" ]]; then
@@ -140,7 +140,7 @@ fi
 
 if (( sy_nolang )) && [[ $LANG && -z $TERM_LANG ]]; then
 	problem "Your terminal is missing \$LANG in its environment."
-	echo " * Locale variables should be set for the terminal emulator itself"
+	echo " * Locale variables must be set for the terminal emulator itself"
 	echo "   (and for the entire session), not only for the shell."
 elif (( sy_nolang )) && [[ -z $LANG && $TERM_LANG ]]; then
 	problem "Your shell is missing \$LANG in its environment."

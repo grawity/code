@@ -47,6 +47,7 @@ startup() {
 	#witray -s 24 &			echo "++ witray[$!]"
 	statusloop &			echo "++ statusloop[$!]"
 	statusloop_mpd &		echo "++ statusloop_mpd[$!]"
+	statusloop_vol &		echo "++ statusloop_vol[$!]"
 
 	[[ -f "$WMII_CONFDIR/startup" ]] &&
 		. "$WMII_CONFDIR/startup"
@@ -354,8 +355,6 @@ event_RightBarClick() {
 				1) mpc -q toggle || spawn mpd;;
 				2) ;;
 				3) ;;
-				#4) mpc -q volume "+5";;
-				#5) mpc -q volume "-5";;
 				4) ponymix increase 5;;
 				5) ponymix decrease 5;;
 			esac > /dev/null
@@ -720,10 +719,20 @@ statusloop_mpd() {
 
 	while true; do
 		status_mpd
-		status_volume
+		mpc idle >&/dev/null || sleep 5
+	done
+}
 
-		mpc idle >&/dev/null ||
-		sleep 5
+statusloop_vol() {
+	printf "StatusLoop" > /proc/self/comm
+
+	status_volume
+
+	stdbuf -o0 pactl subscribe |
+	while read -r line; do
+		if [[ $line == *change*on*sink* ]]; then
+			status_volume
+		fi
 	done
 }
 

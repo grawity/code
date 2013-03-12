@@ -187,7 +187,7 @@ class IdentReply {
 			$str .= "server error: [".$this->add_info."] ".strerror($this->add_info);
 			break;
 		case "USERID":
-			$str .= "userid={$this->userid} ostype={$this->ostype}";
+			$str .= "{$this->userid} (OS: {$this->ostype})";
 			break;
 		default:
 			$str .= "{$this->response_type}: {$this->add_info}";

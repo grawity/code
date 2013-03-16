@@ -58,8 +58,11 @@ check_setting() {
 	fi
 }
 
+shopt -s extglob
+
 checking_term=0
 checking_parent=0
+guessing_parent=""
 
 declare -i pid_shell=$PPID
 declare -i pid_term=$(ps -o 'ppid=' $pid_shell)
@@ -67,8 +70,16 @@ declare -i pid_parent=$(ps -o 'ppid=' $pid_term)
 
 if (( pid_term > 1 )) && [[ -r "/proc/$pid_term/environ" ]]; then
 	checking_term=1
-	if (( pid_parent > 1 )) && [[ -r "/proc/$pid_parent/environ" ]]; then
-		checking_parent=1
+	if (( pid_parent > 1 )); then
+		if [[ -r "/proc/$pid_parent/environ" ]]; then
+			checking_parent=1
+		fi
+	elif [[ $SESSION_MANAGER == */tmp/.ICE-unix/+([0-9]) ]]; then
+		guessing_parent="from \$SESSION_MANAGER"
+		pid_parent=${SESSION_MANAGER##*/tmp/.ICE-unix/}
+		if [[ -r "/proc/$pid_parent/environ" ]]; then
+			checking_parent=1
+		fi
 	fi
 fi
 
@@ -98,11 +109,16 @@ if (( checking_term )); then
 			declare "TERM_$name"="$value"
 		fi
 	done < "/proc/$pid_term/environ"
+elif [[ $ps_terminal == *' sshd:'* ]]; then
+	warn "I cannot check your terminal's settings over SSH, skipping."
 else
 	warn "Terminal's environment is inaccessible, skipping shell=term checks."
 fi
 
 if (( checking_parent )); then
+	if [[ $guessing_parent ]]; then
+		note "Tried to guess parent process $guessing_parent."
+	fi
 	unset ${!PARN_*}
 	while IFS='=' read -d '' name value; do
 		if [[ $name == LANG || $name == LC_* ]]; then

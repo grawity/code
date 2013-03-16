@@ -298,24 +298,24 @@ if (( n_warnings + n_notices )); then
 	echo ""
 fi
 
-if (( sy_total == 0 )); then
+if (( sy_total > 0 )); then
+	echo -e "\e[1m$sy_total problems found.\e[m Here's a quick UTF-8 test for you:  --> \xe2\x98\x85 <--"
+elif (( !checking_term )); then
+	echo -e "Looks good, but you still need to check your terminal:  --> \xe2\x98\x85 <--"
+else
 	printf "Looks good. \xe2\x99\xa5\n"
 	echo " * You are using the $LANG locale."
-	if (( checking_term )); then
-		echo " * Shell's locale matches terminal's locale."
-	else
-		echo " * Could not check if shell and terminal's locale settings match."
-	fi
+	echo " * Shell's locale matches terminal's locale."
 	if (( checking_parent )); then
 		echo " * Terminal's locale matches parent process locale."
 	else
 		echo " * Could not check if terminal and parent's locale settings match."
 	fi
-else
-	echo -e "\e[1m$sy_total problems found.\e[m Here's a quick UTF-8 test for you:  --> \xe2\x98\x85 <--"
-	echo " * 3 question marks -- your terminal does not correctly interpret UTF-8".
+fi
+
+if (( sy_total > 0 || !checking_term )); then
+	echo " * a star             -- font and terminal are okay."
+	echo " * 3 question marks   -- your terminal does not correctly interpret UTF-8".
 	echo " * a box or rectangle -- UTF-8 works fine, but you need a better font."
-	echo " * empty area -- you ${B}really${R} need a better font or something."
-	echo " * a star -- font and terminal are okay."
-	echo ""
+	echo " * empty area         -- you ${B}really${R} need a better font or something."
 fi

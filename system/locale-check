@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-warn() { printf "\e[31mwarning:\e[m %s\n" "$*"; } >&2
+warn() { printf "\e[31mwarning:\e[m %s\n" "$*"; ((++n_warnings)); } >&2
+
+note() { printf "\e[33mnotice:\e[m %s\n" "$*"; ((++n_notices)); }
 
 problem() { (( ++sy_total )); printf "\n\e[33mproblem:\e[m %s\n" "$*"; }
 
@@ -56,9 +58,19 @@ check_setting() {
 	fi
 }
 
+checking_term=0
+checking_parent=0
+
 declare -i pid_shell=$PPID
 declare -i pid_term=$(ps -o 'ppid=' $pid_shell)
 declare -i pid_parent=$(ps -o 'ppid=' $pid_term)
+
+if (( pid_term > 1 )) && [[ -r "/proc/$pid_term/environ" ]]; then
+	checking_term=1
+	if (( pid_parent > 1 )) && [[ -r "/proc/$pid_parent/environ" ]]; then
+		checking_parent=1
+	fi
+fi
 
 ps_shell=$(ps -o 'pid=,command=' $pid_shell)
 ps_terminal=$(ps -o 'pid=,command=' $pid_term)
@@ -79,19 +91,29 @@ vars=("LC_CTYPE" "LC_NUMERIC" "LC_TIME" "LC_COLLATE" "LC_MONETARY" "LC_MESSAGES"
 	"LC_PAPER" "LC_NAME" "LC_ADDRESS" "LC_TELEPHONE" "LC_MEASUREMENT"
 	"LC_IDENTIFICATION" "LC_ALL")
 
-unset ${!TERM_*}
-while IFS='=' read -d '' name value; do
-	if [[ $name == LANG || $name == LC_* ]]; then
-		declare "TERM_$name"="$value"
-	fi
-done < "/proc/$pid_term/environ"
+if (( checking_term )); then
+	unset ${!TERM_*}
+	while IFS='=' read -d '' name value; do
+		if [[ $name == LANG || $name == LC_* ]]; then
+			declare "TERM_$name"="$value"
+		fi
+	done < "/proc/$pid_term/environ"
+else
+	warn "Terminal's environment is inaccessible, skipping shell=term checks."
+fi
 
-unset ${!PARN_*}
-while IFS='=' read -d '' name value; do
-	if [[ $name == LANG || $name == LC_* ]]; then
-		declare "PARN_$name"="$value"
-	fi
-done < "/proc/$pid_parent/environ"
+if (( checking_parent )); then
+	unset ${!PARN_*}
+	while IFS='=' read -d '' name value; do
+		if [[ $name == LANG || $name == LC_* ]]; then
+			declare "PARN_$name"="$value"
+		fi
+	done < "/proc/$pid_parent/environ"
+elif (( checking_term )); then
+	warn "Parent's environment is inaccessible, skipping term=parent checks."
+else
+	note "Also skipping term=parent checks."
+fi
 
 # Basic checks
 
@@ -103,71 +125,85 @@ else
 	main_charset=$(get_charset "$LANG")
 fi
 
-if [[ -z $TERM_LANG ]]; then
-	warn "(term) LANG: not set"
-	t_main_charset='default'
-	(( ++sy_nolang ))
-else
-	t_main_charset=$(get_charset "$TERM_LANG")
+if (( checking_term )); then
+	if [[ -z $TERM_LANG ]]; then
+		warn "(term) LANG: not set"
+		t_main_charset='default'
+		(( ++sy_nolang ))
+	else
+		t_main_charset=$(get_charset "$TERM_LANG")
+	fi
 fi
 
-if [[ -z $PARN_LANG ]]; then
-	warn "(parent) LANG: not set"
-	p_main_charset='default'
-	(( ++sy_nolang ))
-else
-	p_main_charset=$(get_charset "$PARN_LANG")
+if (( checking_parent )); then
+	if [[ -z $PARN_LANG ]]; then
+		warn "(parent) LANG: not set"
+		p_main_charset='default'
+		(( ++sy_nolang ))
+	else
+		p_main_charset=$(get_charset "$PARN_LANG")
+	fi
 fi
 
 for name in LANG "${vars[@]}"; do
 	value=${!name}
 	locale=$(get_locale "$value")
 	charset=$(get_charset "$value")
-	t_name="TERM_$name"
-	t_value=${!t_name}
-	t_locale=$(get_locale "$t_value")
-	t_charset=$(get_charset "$t_value")
-	p_name="PARN_$name"
-	p_value=${!p_name}
-	p_locale=$(get_locale "$p_value")
-	p_charset=$(get_charset "$p_value")
+	(( checking_term )) && {
+		t_name="TERM_$name"
+		t_value=${!t_name}
+		t_locale=$(get_locale "$t_value")
+		t_charset=$(get_charset "$t_value")
+	}
+	(( checking_parent )) && {
+		p_name="PARN_$name"
+		p_value=${!p_name}
+		p_locale=$(get_locale "$p_value")
+		p_charset=$(get_charset "$p_value")
+	}
 
 	check_setting "(shell) $name" "$value"
-	check_setting "(term) $name" "$t_value"
-	check_setting "(parent) $name" "$p_value"
+	(( checking_term )) &&
+		check_setting "(term) $name" "$t_value"
+	(( checking_parent )) &&
+		check_setting "(parent) $name" "$p_value"
 
 	if [[ "$name" == "LC_ALL" && -n "$value" ]]; then
 		warn "$name: should not be set ($value)"
 		(( ++sy_lcall ))
 	fi
 
-	if [[ -n "$value" && -z "$t_value" ]]; then
-		warn "$name: set by shell but not terminal ($value | none)"
-		(( ++sy_mismatch ))
-	elif [[ -z "$value" && -n "$t_value" ]]; then
-		warn "$name: set by terminal but not shell (none | $t_value)"
-		(( ++sy_mismatch ))
-	elif [[ "$charset" != "$t_charset" ]]; then
-		warn "$name: charset mismatch between shell and terminal ($locale | $t_locale)"
-		(( ++sy_mismatch ))
-	elif [[ "$locale" != "$t_locale" ]]; then
-		warn "$name: lang mismatch between shell and terminal ($locale | $t_locale)"
-		(( ++sy_mismatch ))
-	fi
+	(( checking_term )) && {
+		if [[ -n "$value" && -z "$t_value" ]]; then
+			warn "$name: set by shell but not terminal ($value | none)"
+			(( ++sy_mismatch ))
+		elif [[ -z "$value" && -n "$t_value" ]]; then
+			warn "$name: set by terminal but not shell (none | $t_value)"
+			(( ++sy_mismatch ))
+		elif [[ "$charset" != "$t_charset" ]]; then
+			warn "$name: charset mismatch between shell and terminal ($locale | $t_locale)"
+			(( ++sy_mismatch ))
+		elif [[ "$locale" != "$t_locale" ]]; then
+			warn "$name: lang mismatch between shell and terminal ($locale | $t_locale)"
+			(( ++sy_mismatch ))
+		fi
+	}
 
-	if [[ -n "$t_value" && -z "$p_value" ]]; then
-		warn "$name: set by terminal but not parent ($t_value | none)"
-		(( ++sy_p_mismatch ))
-	elif [[ -z "$t_value" && -n "$p_value" ]]; then
-		warn "$name: set by parent but not terminal (none | $p_value)"
-		(( ++sy_p_mismatch ))
-	elif [[ "$t_charset" != "$p_charset" ]]; then
-		warn "$name: charset mismatch between terminal and parent ($t_locale | $p_locale)"
-		(( ++sy_p_mismatch ))
-	elif [[ "$t_locale" != "$p_locale" ]]; then
-		warn "$name: lang mismatch between terminal and parent ($t_locale | $p_locale)"
-		(( ++sy_p_mismatch ))
-	fi
+	(( checking_parent )) && {
+		if [[ -n "$t_value" && -z "$p_value" ]]; then
+			warn "$name: set by terminal but not parent ($t_value | none)"
+			(( ++sy_p_mismatch ))
+		elif [[ -z "$t_value" && -n "$p_value" ]]; then
+			warn "$name: set by parent but not terminal (none | $p_value)"
+			(( ++sy_p_mismatch ))
+		elif [[ "$t_charset" != "$p_charset" ]]; then
+			warn "$name: charset mismatch between terminal and parent ($t_locale | $p_locale)"
+			(( ++sy_p_mismatch ))
+		elif [[ "$t_locale" != "$p_locale" ]]; then
+			warn "$name: lang mismatch between terminal and parent ($t_locale | $p_locale)"
+			(( ++sy_p_mismatch ))
+		fi
+	}
 done
 
 if [[ ${LANG,,} == *'.utf8' ]]; then
@@ -242,15 +278,28 @@ if (( sy_utf8_dash )); then
 	echo " * To fix this, change \$LANG from \"$LANG\" to \"${LANG%.*}.utf-8\""
 fi
 
+if (( n_warnings + n_notices )); then
+	echo ""
+fi
+
 if (( sy_total == 0 )); then
-	printf "Looks good. \xe2\x99\xa5"
+	printf "Looks good. \xe2\x99\xa5\n"
+	echo " * You are using the $LANG locale."
+	if (( checking_term )); then
+		echo " * Shell's locale matches terminal's locale."
+	else
+		echo " * Could not check if shell and terminal's locale settings match."
+	fi
+	if (( checking_parent )); then
+		echo " * Terminal's locale matches parent process locale."
+	else
+		echo " * Could not check if terminal and parent's locale settings match."
+	fi
 else
-	printf "\n"
 	echo -e "\e[1m$sy_total problems found.\e[m Here's a quick UTF-8 test for you:  --> \xe2\x98\x85 <--"
 	echo " * 3 question marks -- your terminal does not correctly interpret UTF-8".
 	echo " * a box or rectangle -- UTF-8 works fine, but you need a better font."
 	echo " * empty area -- you ${B}really${R} need a better font or something."
 	echo " * a star -- font and terminal are okay."
+	echo ""
 fi
-
-printf "\n"

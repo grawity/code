@@ -1,0 +1,148 @@
+#!/usr/bin/env python
+import sys
+import os
+import subprocess
+import re
+import glob
+from pprint import pprint
+
+needed_re = re.compile(r'Shared library: \[(.+)\]$')
+
+def parse_ldconf(conf_path):
+	if not os.path.exists(conf_path):
+		print("warning: config file %s not found" % conf_path, file=sys.stderr)
+		return
+	for line in open(conf_path):
+		line = line.strip()
+		if not line or line.startswith("#"):
+			continue
+		line = line.split()
+		if line[0] == "include" and line[1]:
+			for incl_path in glob.glob(line[1]):
+				yield from parse_ldconf(incl_path)
+		else:
+			yield line[0]
+
+def get_lib_paths():
+	paths = []
+	if "LD_LIBRARY_PATH" in os.environ:
+		paths += os.environ["LD_LIBRARY_PATH"].split(":")
+	paths += parse_ldconf("/etc/ld.so.conf")
+	paths += ["/lib", "/usr/lib"]
+	return paths
+
+def find_in_path(paths, basename):
+	if basename.startswith("/"):
+		return basename
+	for _dir in paths:
+		path = os.path.join(_dir, basename)
+		if os.path.exists(path):
+			return path
+
+def read_needed(path):
+	"""
+	Read direct dependencies of an ELF file.
+	"""
+	deps = set()
+	proc = subprocess.Popen(["readelf", "-d", path], stdout=subprocess.PIPE)
+	for line in proc.stdout:
+		line = line.decode("utf-8")
+		m = needed_re.search(line)
+		if m:
+			deps.add(m.group(1))
+	return deps
+
+lib_paths = get_lib_paths()
+resolved_paths = dict()
+forward_deps = dict()
+reverse_deps = dict()
+missing_libs = set()
+
+exe_path = sys.argv[1]
+
+def find_missing(exe_path):
+	todo = {exe_path}
+
+	while todo:
+		elf_name = todo.pop()
+
+		if elf_name in forward_deps:
+			continue
+
+		if elf_name in resolved_paths:
+			elf_path = resolved_paths[elf_name]
+		else:
+			elf_path = find_in_path(lib_paths, elf_name)
+			resolved_paths[elf_name] = elf_path
+
+		if elf_path is None:
+			missing_libs.add(elf_name)
+			continue
+
+		deps = read_needed(elf_path)
+		forward_deps[elf_name] = deps
+
+		for dep in deps:
+			if dep not in reverse_deps:
+				reverse_deps[dep] = set()
+			reverse_deps[dep].add(elf_name)
+
+		todo |= deps
+
+def show_tree(item, deps, indent=0, ctx=None):
+	depth, branches = ctx or (0, [])
+	children = deps[item]
+	if depth == 0:
+		print(" "*indent + item)
+	branches += [None]
+	more = len(children)
+	for child in sorted(children):
+		more -= 1
+		branches[depth] = ("├" if more else "└") + "─"
+		print(" "*indent + "".join(branches) + child)
+		if child in deps:
+			branches[depth] = ("│" if more else " ") + " "
+			ctx = depth + 1, branches.copy()
+			show_tree(child, deps, indent, ctx)
+
+def walk_tree(head, deps):
+	children = deps[head[-1]]
+	for child in children:
+		chain = head + [child]
+		if child in deps:
+			yield from walk_tree(chain, deps)
+		else:
+			yield chain
+
+def show_missing():
+	for lib in missing_libs:
+		print("Missing: %s" % lib)
+		for user in reverse_deps[lib]:
+			print("         ← %s" % user)
+
+def show_reverse_tree():
+	print("Reverse dependencies:")
+	for lib in missing_libs:
+		show_tree(lib, reverse_deps, indent=2)
+
+def show_forward_tree():
+	only_deps = dict()
+	for lib in missing_libs:
+		for chain in walk_tree([lib], reverse_deps):
+			user = chain.pop()
+			while chain:
+				dep = chain.pop()
+				if user not in only_deps:
+					only_deps[user] = set()
+				only_deps[user].add(dep)
+				user = dep
+	print("Forward dependencies:")
+	show_tree(exe_path, only_deps, indent=2)
+
+find_missing(exe_path)
+
+show_missing()
+
+show_reverse_tree()
+
+show_forward_tree()

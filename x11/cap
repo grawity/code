@@ -72,7 +72,7 @@ if (( imgur )); then
 		"Uploading to imgur...")
 
 	(trap exit TERM
-	while sleep 1; do
+	while sleep 1 && test -e /proc/$$; do
 		notify \
 			--app-name "Screenshot" \
 			--icon "document-send" \
@@ -81,6 +81,7 @@ if (( imgur )); then
 			"Screenshot captured" \
 			"Uploading to imgur..." >/dev/null
 	done) &
+	trap "kill $!" EXIT
 
 	if output=$(imgur "$img" 2>&1) && [[ $output ]]; then
 		kill $!

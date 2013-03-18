@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # cap - capture a screenshot to a PNG and upload to imgur.
 
+osd() {
+	(( !osd )) ||
+	gdbus call -e \
+		-d org.gnome.Shell \
+		-o /org/gnome/Shell \
+		-m org.gnome.Shell.ShowOSD \
+		"$1" > /dev/null
+}
+
 dir=~/Pictures/Screenshots
 date=$(date +"%Y-%m-%d")
 
@@ -13,19 +22,23 @@ tmp="$dir/.tmp.$name"
 img="$dir/$name"
 mode=screen
 imgur=1
+osd=0
 
-while getopts fwaN opt; do
+while getopts fwaNO opt; do
 	case $opt in
 		f) mode=screen;;
 		w) mode=window;;
 		a) mode=area;;
 		N) imgur=0;;
+		O) osd=1;;
 	esac
 done
 
 if dbus-name -q org.gnome.Shell; then
 	case $mode in
-		area)	gnome-screenshot --file="$tmp" --area;;
+		area)	osd "{'icon': <'camera-photo-symbolic'>,
+			      'label': <'Select area'>}"
+			gnome-screenshot --file="$tmp" --area;;
 		window)	gnome-screenshot --file="$tmp" --window;;
 		screen)	gnome-screenshot --file="$tmp";;
 	esac

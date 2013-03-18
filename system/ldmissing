@@ -52,43 +52,6 @@ def read_needed(path):
 			deps.add(m.group(1))
 	return deps
 
-lib_paths = get_lib_paths()
-resolved_paths = dict()
-forward_deps = dict()
-reverse_deps = dict()
-missing_libs = set()
-
-exe_path = sys.argv[1]
-
-def find_missing(exe_path):
-	todo = {exe_path}
-
-	while todo:
-		elf_name = todo.pop()
-
-		if elf_name in forward_deps:
-			continue
-
-		if elf_name in resolved_paths:
-			elf_path = resolved_paths[elf_name]
-		else:
-			elf_path = find_in_path(lib_paths, elf_name)
-			resolved_paths[elf_name] = elf_path
-
-		if elf_path is None:
-			missing_libs.add(elf_name)
-			continue
-
-		deps = read_needed(elf_path)
-		forward_deps[elf_name] = deps
-
-		for dep in deps:
-			if dep not in reverse_deps:
-				reverse_deps[dep] = set()
-			reverse_deps[dep].add(elf_name)
-
-		todo |= deps
-
 def show_tree(item, deps, indent=0, ctx=None):
 	depth, branches = ctx or (0, [])
 	children = deps[item]
@@ -114,35 +77,73 @@ def walk_tree(head, deps):
 		else:
 			yield chain
 
-def show_missing():
-	for lib in missing_libs:
-		print("Missing: %s" % lib)
-		for user in reverse_deps[lib]:
-			print("         ← %s" % user)
+class LdMissing(object):
+	def __init__(self, exe_path):
+		self.exe_path = exe_path
+		self.lib_paths = get_lib_paths()
+		self.resolved_paths = dict()
+		self.forward_deps = dict()
+		self.reverse_deps = dict()
+		self.missing_libs = set()
 
-def show_reverse_tree():
-	print("Reverse dependencies:")
-	for lib in missing_libs:
-		show_tree(lib, reverse_deps, indent=2)
+	def find_missing(self):
+		todo = {self.exe_path}
 
-def show_forward_tree():
-	only_deps = dict()
-	for lib in missing_libs:
-		for chain in walk_tree([lib], reverse_deps):
-			user = chain.pop()
-			while chain:
-				dep = chain.pop()
-				if user not in only_deps:
-					only_deps[user] = set()
-				only_deps[user].add(dep)
-				user = dep
-	print("Forward dependencies:")
-	show_tree(exe_path, only_deps, indent=2)
+		while todo:
+			elf_name = todo.pop()
 
-find_missing(exe_path)
+			if elf_name in self.forward_deps:
+				continue
 
-show_missing()
+			if elf_name in self.resolved_paths:
+				elf_path = self.resolved_paths[elf_name]
+			else:
+				elf_path = find_in_path(self.lib_paths, elf_name)
+				self.resolved_paths[elf_name] = elf_path
 
-show_reverse_tree()
+			if elf_path is None:
+				self.missing_libs.add(elf_name)
+				continue
 
-show_forward_tree()
+			deps = read_needed(elf_path)
+			self.forward_deps[elf_name] = deps
+
+			for dep in deps:
+				if dep not in self.reverse_deps:
+					self.reverse_deps[dep] = set()
+				self.reverse_deps[dep].add(elf_name)
+
+			todo |= deps
+
+	def show_missing(self):
+		for lib in self.missing_libs:
+			print("Missing: %s" % lib)
+			for user in self.reverse_deps[lib]:
+				print("         ← %s" % user)
+
+	def show_reverse_tree(self):
+		print("Reverse dependencies:")
+		for lib in self.missing_libs:
+			show_tree(lib, self.reverse_deps, indent=2)
+
+	def show_forward_tree(self):
+		only_deps = dict()
+		for lib in self.missing_libs:
+			for chain in walk_tree([lib], self.reverse_deps):
+				user = chain.pop()
+				while chain:
+					dep = chain.pop()
+					if user not in only_deps:
+						only_deps[user] = set()
+					only_deps[user].add(dep)
+					user = dep
+		print("Forward dependencies:")
+		show_tree(self.exe_path, only_deps, indent=2)
+
+exe_path = sys.argv[1]
+
+ldm = LdMissing(exe_path)
+ldm.find_missing()
+ldm.show_missing()
+ldm.show_reverse_tree()
+ldm.show_forward_tree()

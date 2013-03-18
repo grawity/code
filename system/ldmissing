@@ -77,6 +77,19 @@ def walk_tree(head, deps):
 		else:
 			yield chain
 
+def flip_tree(heads, deps):
+	flipped_deps = dict()
+	for head in heads:
+		for chain in walk_tree([head], deps):
+			user = chain.pop()
+			while chain:
+				dep = chain.pop()
+				if user not in flipped_deps:
+					flipped_deps[user] = set()
+				flipped_deps[user].add(dep)
+				user = dep
+	return flipped_deps
+
 class LdMissing(object):
 	def __init__(self, exe_path):
 		self.exe_path = exe_path
@@ -127,18 +140,9 @@ class LdMissing(object):
 			show_tree(lib, self.reverse_deps, indent=2)
 
 	def show_forward_tree(self):
-		only_deps = dict()
-		for lib in self.missing_libs:
-			for chain in walk_tree([lib], self.reverse_deps):
-				user = chain.pop()
-				while chain:
-					dep = chain.pop()
-					if user not in only_deps:
-						only_deps[user] = set()
-					only_deps[user].add(dep)
-					user = dep
+		flipped_deps = flip_tree(self.missing_libs, self.reverse_deps)
 		print("Forward dependencies:")
-		show_tree(self.exe_path, only_deps, indent=2)
+		show_tree(self.exe_path, flipped_deps, indent=2)
 
 exe_path = sys.argv[1]
 

@@ -8,14 +8,20 @@ options=(
 	#--write-info-json
 	)
 urls=()
+tagopts=()
 
-for arg; do
+while (( $# )); do
+	arg=$1
 	case $arg in
 	http://*|https://*)
 		urls+=("$arg");;
+	-[a-z]*)
+		tagopts+=("$arg" "$2")
+		shift;;
 	*)
 		options+=("$arg");;
 	esac
+	shift
 done
 
 re_youtube_full='^https?://www.youtube.com/watch.*[?&]v=([A-Za-z0-9_-]+)(&|$)'
@@ -48,7 +54,7 @@ for url in "${urls[@]}"; do
 		;;
 	esac
 
-	mp4tags -xid "youtube:$url" "$file"
+	mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
 	if [[ -s "$descr" ]]; then
 		mp4tags -longdesc "$(< "$descr")" "$file"
 	fi

@@ -73,6 +73,9 @@ def show_tree(item, deps, indent=0, ctx=None):
 def walk_tree(head, deps):
 	children = deps[head[-1]]
 	for child in children:
+		if child in head:
+			raise ValueError("dependency loop detected at %r + %r" \
+				% (head, child))
 		chain = head + [child]
 		if child in deps and deps[child]:
 			yield from walk_tree(chain, deps)

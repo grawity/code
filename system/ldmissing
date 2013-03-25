@@ -24,6 +24,9 @@ def parse_ldconf(conf_path):
 			yield line[0]
 
 def get_lib_paths():
+	"""
+	Return an array of paths where ld.so searches for libraries.
+	"""
 	paths = []
 	if "LD_LIBRARY_PATH" in os.environ:
 		paths += os.environ["LD_LIBRARY_PATH"].split(":")
@@ -32,6 +35,13 @@ def get_lib_paths():
 	return paths
 
 def find_in_path(paths, basename):
+	"""
+	Return the first existing path of a file `basename` in given paths.
+	Return None if not found.
+
+	>>> find_in_path(os.environ["PATH"], "sh")
+	"/bin/sh"
+	"""
 	if basename.startswith("/"):
 		return basename
 	for _dir in paths:
@@ -53,6 +63,21 @@ def read_needed(path):
 	return deps
 
 def show_tree(item, deps, indent=0, ctx=None):
+	"""
+	Print dict `deps` {item: [children...]} starting at a given `item`
+	as an ASCII (actually Unicode) tree. Recurse for each new `item`
+	in `deps[item]`.
+
+	>>> deps = {"a": {"b", "c"}, "b": {"d"}, "c": {"b", "d"}}
+	>>> show_tree("a", deps)
+	a
+	├─b
+	│ └─d
+	└─c
+	  ├─b
+	  │ └─d
+	  └─d
+	"""
 	depth, branches = ctx or (0, [])
 	if depth == 0:
 		print(" "*indent + item)
@@ -71,6 +96,20 @@ def show_tree(item, deps, indent=0, ctx=None):
 			show_tree(child, deps, indent, ctx)
 
 def walk_tree(head, deps):
+	"""
+	Return a list containing all possible "chains" that start with `head`
+	where every item is followed by an item that directly depends on it.
+
+	>>> deps = {"a": {"b", "c"}, "b": {"c"}, "c": {"b", "d"}}
+	>>> deps
+	{'a': {'b', 'c'},
+	 'b': {'c'},
+	 'c': {'b', 'd'}}
+	>>> list(walk_tree(["a"], deps))
+	[['a', 'c', 'd'],
+	 ['a', 'c', 'b', 'd'],
+	 ['a', 'b', 'd']]
+	"""
 	children = deps[head[-1]]
 	for child in children:
 		if child in head:
@@ -83,6 +122,28 @@ def walk_tree(head, deps):
 			yield chain
 
 def flip_tree(heads, deps):
+	"""
+	Return a dict of reverse dependencies where each head in `heads`
+	becomes a tail if formatted as a tree. (The output is usually
+	formatted as *multiple* trees, one for each key in resulting deps.)
+
+	>>> deps
+	{'a': {'b', 'c'},
+	 'b': {'c'},
+	 'c': {'b', 'd'}}
+	>>> flip_tree(["a"], deps)
+	{'d': {'c', 'b'},
+	 'c': {'a'},
+	 'b': {'a', 'c'}}
+	>>> show_tree("d", flip_tree(["a"], deps))
+	d
+	├─b
+	│ ├─a
+	│ └─c
+	│   └─a
+	└─c
+	  └─a
+	"""
 	flipped_deps = dict()
 	for head in heads:
 		for chain in walk_tree([head], deps):

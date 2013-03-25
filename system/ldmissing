@@ -62,11 +62,10 @@ def read_needed(path):
 			deps.add(m.group(1))
 	return deps
 
-def show_tree(item, deps, indent=0, ctx=None):
+def show_tree(root, deps, indent=0, ctx=None):
 	"""
-	Print dict `deps` {item: [children...]} starting at a given `item`
-	as an ASCII (actually Unicode) tree. Recurse for each new `item`
-	in `deps[item]`.
+	Print dict `deps` {item: [children...]} starting at a given `root`
+	as a textual tree. Recurse for each item in `deps[root]` as new root.
 
 	>>> deps = {"a": {"b", "c"}, "b": {"d"}, "c": {"b", "d"}}
 	>>> show_tree("a", deps)
@@ -81,9 +80,9 @@ def show_tree(item, deps, indent=0, ctx=None):
 	depth, branches = ctx or (0, [])
 	if depth == 0:
 		print(" "*indent + item)
-	if item not in deps:
+	if root not in deps:
 		return
-	children = deps[item]
+	children = deps[root]
 	branches += [None]
 	more = len(children)
 	for child in sorted(children):
@@ -121,10 +120,10 @@ def walk_tree(head, deps):
 		else:
 			yield chain
 
-def flip_tree(heads, deps):
+def flip_tree(roots, deps):
 	"""
-	Return a dict of reverse dependencies where each head in `heads`
-	becomes a tail if formatted as a tree. (The output is usually
+	Return a dict of reverse dependencies where each root in `roots`
+	becomes a leaf if formatted as a tree. (The output is usually
 	formatted as *multiple* trees, one for each key in resulting deps.)
 
 	>>> deps
@@ -145,8 +144,8 @@ def flip_tree(heads, deps):
 	  └─a
 	"""
 	flipped_deps = dict()
-	for head in heads:
-		for chain in walk_tree([head], deps):
+	for root in roots:
+		for chain in walk_tree([root], deps):
 			user = chain.pop()
 			while chain:
 				dep = chain.pop()

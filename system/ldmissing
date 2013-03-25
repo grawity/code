@@ -62,13 +62,13 @@ def read_needed(path):
 			deps.add(m.group(1))
 	return deps
 
-def show_tree(root, deps, indent=0, ctx=None):
+def show_tree(root, tree, indent=0, ctx=None):
 	"""
-	Print dict `deps` {item: [children...]} starting at a given `root`
-	as a textual tree. Recurse for each item in `deps[root]` as new root.
+	Print dict `tree` {item: [children...]} starting at a given `root`
+	as a textual tree. Recurse for each item in `tree[root]` as new root.
 
-	>>> deps = {"a": {"b", "c"}, "b": {"d"}, "c": {"b", "d"}}
-	>>> show_tree("a", deps)
+	>>> tree = {"a": {"b", "c"}, "b": {"d"}, "c": {"b", "d"}}
+	>>> show_tree("a", tree)
 	a
 	├─b
 	│ └─d
@@ -80,62 +80,62 @@ def show_tree(root, deps, indent=0, ctx=None):
 	depth, branches = ctx or (0, [])
 	if depth == 0:
 		print(" "*indent + item)
-	if root not in deps:
+	if root not in tree:
 		return
-	children = deps[root]
+	children = tree[root]
 	branches += [None]
 	more = len(children)
 	for child in sorted(children):
 		more -= 1
 		branches[depth] = ("├" if more else "└") + "─"
 		print(" "*indent + "".join(branches) + child)
-		if child in deps:
+		if child in tree:
 			branches[depth] = ("│" if more else " ") + " "
 			ctx = depth + 1, branches.copy()
-			show_tree(child, deps, indent, ctx)
+			show_tree(child, tree, indent, ctx)
 
-def walk_tree(prefix, deps):
+def walk_tree(prefix, tree):
 	"""
 	Return a list containing all possible paths that start with `prefix`
-	and exist in the `deps` dict. (`prefix` must be a list, even if it
+	and exist in the `tree` dict. (`prefix` must be a list, even if it
 	consists of a single item only.)
 
-	>>> deps = {"a": {"b", "c"}, "b": {"c"}, "c": {"b", "d"}}
-	>>> deps
+	>>> tree = {"a": {"b", "c"}, "b": {"c"}, "c": {"b", "d"}}
+	>>> tree
 	{'a': {'b', 'c'},
 	 'b': {'c'},
 	 'c': {'b', 'd'}}
-	>>> list(walk_tree(["a"], deps))
+	>>> list(walk_tree(["a"], tree))
 	[['a', 'c', 'd'],
 	 ['a', 'c', 'b', 'd'],
 	 ['a', 'b', 'd']]
 	"""
-	children = deps[prefix[-1]]
+	children = tree[prefix[-1]]
 	for child in children:
 		if child in prefix:
 			raise ValueError("dependency loop detected at %r + %r" \
 				% (prefix, child))
 		chain = prefix + [child]
-		if child in deps and deps[child]:
-			yield from walk_tree(chain, deps)
+		if child in tree and tree[child]:
+			yield from walk_tree(chain, tree)
 		else:
 			yield chain
 
-def flip_tree(roots, deps):
+def flip_tree(roots, tree):
 	"""
 	Return a dict of reverse dependencies where each root in `roots`
 	becomes a leaf if formatted as a tree. (The output is usually
-	formatted as *multiple* trees, one for each key in resulting deps.)
+	formatted as *multiple* trees, one for each key in resulting tree.)
 
-	>>> deps
+	>>> tree
 	{'a': {'b', 'c'},
 	 'b': {'c'},
 	 'c': {'b', 'd'}}
-	>>> flip_tree(["a"], deps)
+	>>> flip_tree(["a"], tree)
 	{'d': {'c', 'b'},
 	 'c': {'a'},
 	 'b': {'a', 'c'}}
-	>>> show_tree("d", flip_tree(["a"], deps))
+	>>> show_tree("d", flip_tree(["a"], tree))
 	d
 	├─b
 	│ ├─a
@@ -144,17 +144,17 @@ def flip_tree(roots, deps):
 	└─c
 	  └─a
 	"""
-	flipped_deps = dict()
+	flipped_tree = dict()
 	for root in roots:
-		for chain in walk_tree([root], deps):
+		for chain in walk_tree([root], tree):
 			user = chain.pop()
 			while chain:
 				dep = chain.pop()
-				if user not in flipped_deps:
-					flipped_deps[user] = set()
-				flipped_deps[user].add(dep)
+				if user not in flipped_tree:
+					flipped_tree[user] = set()
+				flipped_tree[user].add(dep)
 				user = dep
-	return flipped_deps
+	return flipped_tree
 
 class LdMissing(object):
 	def __init__(self, exe_path):

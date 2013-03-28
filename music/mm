@@ -111,9 +111,14 @@ sub display_x11_list {
 			$item->{title};
 	}
 	close($in);
-	chomp(my $line = <$out>);
-	if (length $line) {
-		play($line);
+	my $line = <$out>;
+	if (defined $line) {
+		chomp $line;
+		$line =~ s/\|.*//; # For some reason, zenity started
+		                   # returning x|x instead of just x
+		if (length $line) {
+			play($line);
+		}
 	}
 }
 

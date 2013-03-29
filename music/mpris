@@ -721,10 +721,22 @@ my %commands = (
 		my $format = shift // "%{xesam:artist} - %{xesam:title}";
 
 		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
-		while ($format =~ /%\{(\w+:\w+)\}/g) {
+		my $fmt_re = qr/ %\{
+				( \w+:\w+ )
+				( \[\] | \[[^}\w]+\] )?
+			     \} /x;
+		while ($format =~ /$fmt_re/g) {
 			my $item = $meta->{$1} // "Unknown";
 			if (ref $item eq 'ARRAY') {
-				$item = join(", ", @$item);
+				if (!defined $2) {
+					$item = join(", ", @$item);
+				} elsif ($2 eq "[]") {
+					$item = join("\n", @$item);
+				} elsif ($2 =~ /^\[ (.+) \]$/x) {
+					$item = join($1, @$item);
+				} else {
+					$item = join($2, @$item);
+				}
 			}
 			$format =~ s//$item/;
 		}

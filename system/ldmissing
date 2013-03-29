@@ -168,10 +168,8 @@ def flip_tree(roots, tree):
 	return flipped_tree
 
 class LdMissing(object):
-	def __init__(self, exe_path):
-		os_paths = os.environ.get("PATH", "").split(":")
-
-		self.exe_path = find_in_path(os_paths, exe_path)
+	def __init__(self, exe_path=None):
+		self.exe_path = exe_path
 		self.lib_paths = get_lib_paths()
 		self.lib_rpaths = dict()
 		self.resolved_paths = dict()
@@ -180,6 +178,9 @@ class LdMissing(object):
 		self.missing_libs = set()
 
 	def find_missing(self):
+		if not self.exe_path.startswith("/"):
+			raise ValueError("exe_path must be an absolute path")
+
 		todo = {(None, self.exe_path)}
 
 		while todo:
@@ -229,10 +230,11 @@ class LdMissing(object):
 		show_tree(self.exe_path, flipped_deps, indent=2)
 
 if __name__ == "__main__":
+	os_paths = os.environ.get("PATH", "").split(":")
 	ldm = LdMissing()
 
 	for exe_path in sys.argv[1:]:
-		ldm = LdMissing(exe_path)
+		ldm.exe_path = find_in_path(os_paths, exe_path)
 		print("Scanning %s" % ldm.exe_path)
 		missing = ldm.find_missing()
 		if missing:

@@ -76,7 +76,7 @@ def read_needed(path):
 def is_terminal():
 	return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
-def show_tree(root, tree, indent=0, ctx=None):
+def show_tree(root, tree, indent=0, highlight=None, ctx=None):
 	"""
 	Print dict `tree` {item: [children...]} starting at a given `root`
 	as a textual tree. Recurse for each item in `tree[root]` as new root.
@@ -97,16 +97,23 @@ def show_tree(root, tree, indent=0, ctx=None):
 	if root not in tree:
 		return
 	branches += [None]
+	if not highlight:
+		highlight = dict()
 	children = tree[root]
 	more = len(children)
 	for child in sorted(children):
 		more -= 1
 		branches[depth] = ("├" if more else "└") + "─"
-		print(" "*indent + "".join(branches) + child)
+		prefix, suffix = "", ""
+		if is_terminal() and child in highlight:
+			color = highlight[child]
+			prefix = "\033[%sm" % color
+			suffix = "\033[m"
+		print(" "*indent + "".join(branches) + prefix + child + suffix)
 		if child in tree:
 			branches[depth] = ("│" if more else " ") + " "
 			ctx = depth + 1, branches.copy()
-			show_tree(child, tree, indent, ctx)
+			show_tree(child, tree, indent, highlight, ctx)
 
 def walk_tree(prefix, tree):
 	"""

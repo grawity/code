@@ -178,10 +178,10 @@ class LdMissing(object):
 		self.missing_libs = set()
 
 	def find_missing(self):
-		todo = {self.exe_path}
+		todo = {(None, self.exe_path)}
 
 		while todo:
-			elf_name = todo.pop()
+			parent, elf_name = todo.pop()
 
 			if elf_name in self.forward_deps:
 				continue
@@ -189,7 +189,8 @@ class LdMissing(object):
 			if elf_name in self.resolved_paths:
 				elf_path = self.resolved_paths[elf_name]
 			else:
-				elf_path = find_in_path(self.lib_paths, elf_name)
+				paths = self.lib_rpaths.get(parent, []) + self.lib_paths
+				elf_path = find_in_path(paths, elf_name)
 				self.resolved_paths[elf_name] = elf_path
 
 			if elf_path is None:
@@ -205,7 +206,7 @@ class LdMissing(object):
 					self.reverse_deps[dep] = set()
 				self.reverse_deps[dep].add(elf_name)
 
-			todo |= deps
+			todo |= {(elf_path, dep) for dep in deps}
 
 		return self.missing_libs
 

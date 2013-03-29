@@ -7,6 +7,7 @@ import glob
 from pprint import pprint
 
 needed_re = re.compile(r'Shared library: \[(.+)\]$')
+rpath_re = re.compile(r'Library rpath: \[(.+)\]$')
 
 def parse_ldconf(conf_path):
 	if not os.path.exists(conf_path):
@@ -54,13 +55,20 @@ def read_needed(path):
 	Read direct dependencies of an ELF file.
 	"""
 	deps = set()
+	rpaths = []
 	proc = subprocess.Popen(["readelf", "-d", path], stdout=subprocess.PIPE)
 	for line in proc.stdout:
 		line = line.decode("utf-8")
 		m = needed_re.search(line)
 		if m:
 			deps.add(m.group(1))
-	return deps
+			continue
+		m = rpath_re.search(line)
+		if m:
+			rpaths += m.group(1).split(":")
+			# TODO: parse $ORIGIN, $LIB, relative rpath
+			continue
+	return deps, rpaths
 
 # Functions for displaying dependency trees
 # (will not work for "normal" trees or graphs)
@@ -163,6 +171,7 @@ class LdMissing(object):
 	def __init__(self, exe_path):
 		self.exe_path = exe_path
 		self.lib_paths = get_lib_paths()
+		self.lib_rpaths = dict()
 		self.resolved_paths = dict()
 		self.forward_deps = dict()
 		self.reverse_deps = dict()
@@ -187,8 +196,9 @@ class LdMissing(object):
 				self.missing_libs.add(elf_name)
 				continue
 
-			deps = read_needed(elf_path)
+			deps, rpaths = read_needed(elf_path)
 			self.forward_deps[elf_name] = deps
+			self.lib_rpaths[elf_path] = rpaths
 
 			for dep in deps:
 				if dep not in self.reverse_deps:

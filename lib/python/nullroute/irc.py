@@ -28,6 +28,16 @@ class Prefix(object):
 			self.nick = prefix
 		return self
 
+	def unparse(self):
+		if not (self.nick is None or self.user is None or self.host is None):
+			return self.nick + b"!" + self.user + b"@" + self.host
+		elif self.nick:
+			return self.nick
+		elif self.host:
+			return self.host
+		else:
+			return None
+
 	def __str__(self):
 		if not (self.nick is None or self.user is None or self.host is None):
 			return "%s!%s@%s" % (self.nick, self.user, self.host)

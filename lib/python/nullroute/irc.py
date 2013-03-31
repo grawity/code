@@ -107,9 +107,7 @@ class Line(object):
 
 	@classmethod
 	def unparse(cls, inputv):
-		parv = []
-		for par in inputv:
-			parv.append(par.encode("utf-8"))
+		parv = [par.encode("utf-8") for par in inputv]
 
 		if b" " in parv[-1]:
 			last = parv.pop()

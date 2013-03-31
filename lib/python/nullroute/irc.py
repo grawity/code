@@ -116,8 +116,11 @@ class Line(object):
 		return self
 
 	@classmethod
-	def join(cls, inputv, strict=True):
-		parv = [par.encode("utf-8") for par in inputv]
+	def join(cls, inputv, strict=True, encode=True):
+		if encode:
+			parv = [par.encode("utf-8") for par in inputv]
+		else:
+			parv = inputv[:]
 
 		if b" " in parv[-1] or parv[-1].startswith(b":"):
 			last = parv.pop()
@@ -137,6 +140,23 @@ class Line(object):
 			parv.append(b":" + last)
 
 		return b" ".join(parv)
+
+	def unparse(self):
+		parv = []
+
+		if self.tags:
+			tags = [k if v is True else k + b"=" + v
+				for k, v in self.tags.items()]
+			parv.append(b"@" + b",".join(tags))
+
+		if self.prefix:
+			parv.append(b":" + self.prefix.unparse())
+
+		parv.append(self.cmd)
+
+		parv.extend(self.args)
+
+		return self.join(parv, encode=False)
 
 	def __repr__(self):
 		return "<IRC.Line: tags=%r prefix=%r cmd=%r args=%r>" % (

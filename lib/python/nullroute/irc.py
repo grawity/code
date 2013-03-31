@@ -106,7 +106,7 @@ class Line(object):
 		return self
 
 	@classmethod
-	def unparse(cls, inputv):
+	def unparse(cls, inputv, strict=True):
 		parv = [par.encode("utf-8") for par in inputv]
 
 		if b" " in parv[-1] or parv[-1].startswith(b":"):
@@ -114,13 +114,14 @@ class Line(object):
 		else:
 			last = None
 
-		if any(b" " in par for par in parv):
-			raise ValueError("Space is only allowed in last parameter")
+		if strict:
+			if any(b" " in par for par in parv):
+				raise ValueError("Space is only allowed in last parameter")
 
-		i = 2 if parv[0].startswith(b"@") else 1
+			i = 2 if parv[0].startswith(b"@") else 1
 
-		if any(par.startswith(b":") for par in parv[i:]):
-			raise ValueError("Only first or last parameter may start with ':'")
+			if any(par.startswith(b":") for par in parv[i:]):
+				raise ValueError("Only first or last parameter may start with ':'")
 
 		if last is not None:
 			parv.append(b":" + last)

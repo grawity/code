@@ -106,7 +106,7 @@ class Line(object):
 		return self
 
 	@classmethod
-	def unparse(cls, inputv, strict=True):
+	def join(cls, inputv, strict=True):
 		parv = [par.encode("utf-8") for par in inputv]
 
 		if b" " in parv[-1] or parv[-1].startswith(b":"):
@@ -159,7 +159,7 @@ class Connection(object):
 		return self._fi.readline()
 
 	def write(self, *args):
-		self.writeraw(Line.unparse(args))
+		self.writeraw(Line.join(args))
 
 	def read(self):
 		return Line.parse(self.readraw())

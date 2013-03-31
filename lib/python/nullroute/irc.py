@@ -116,8 +116,11 @@ class Line(object):
 
 		if any(b" " in par for par in parv):
 			raise ValueError("Space is only allowed in last parameter")
-		if any(par.startswith(b":") for par in parv):
-			raise ValueError("Only last parameter may start with ':'")
+
+		i = 2 if parv[0].startswith(b"@") else 1
+
+		if any(par.startswith(b":") for par in parv[i:]):
+			raise ValueError("Only first or last parameter may start with ':'")
 
 		if last is not None:
 			parv.append(b":" + last)

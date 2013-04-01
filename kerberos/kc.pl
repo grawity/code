@@ -24,6 +24,8 @@ my @caches;
 my $can_switch = 1;
 my $use_color = 1;
 
+sub TODO { die "Not yet implemented"; }
+
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
@@ -415,7 +417,7 @@ given ($cmd) {
 		system("kdestroy", "-c", $_) for @destroy;
 	}
 	when ("clean") {
-		...
+		TODO;
 	}
 	when ("expand") {
 		say expand_ccname($_) for @ARGV;
@@ -436,7 +438,7 @@ given ($cmd) {
 		}
 	}
 	when (/^=(.*)$/) {
-		...
+		TODO;
 	}
 	when (/.+@.+/) {
 		my $max_expiry = 0;

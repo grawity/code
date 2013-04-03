@@ -124,12 +124,16 @@ sub expand_ccname {
 				return $caches[$i - 1];
 			}
 		}
+		# ^^ and ^
+		when (["^^", "^"]) {
+			return "KEYRING:krb5cc";
+		}
 		# ^^foo
-		when (m|^\^\^(.*)$|) {
+		when (m|^\^\^(.+)$|) {
 			return "KEYRING:$1";
 		}
 		# ^foo
-		when (m|^\^(.*)$|) {
+		when (m|^\^(.+)$|) {
 			return "KEYRING:krb5cc.$1";
 		}
 		# +foo
@@ -193,7 +197,10 @@ sub collapse_ccname {
 		when ("KCM:$UID") {
 			return "KCM";
 		}
-		when (m|^KEYRING:krb5cc\.(.*)$|) {
+		when ("KEYRING:krb5cc") {
+			return "^";
+		}
+		when (m|^KEYRING:krb5cc\.(.+)$|) {
 			return "^$1";
 		}
 		when (m|^KEYRING:(.*)$|) {

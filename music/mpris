@@ -162,6 +162,24 @@ sub describe {
 	say $out;
 }
 
+# describe_as_separator(name) - show player identity, usable as separator
+
+sub describe_as_separator {
+	my $name = shift;
+	my $player = MediaPlayer($name);
+
+	if ($name =~ /^$prefix_re($suffix_re)/) {
+		$name = $1;
+	}
+
+	my $out = $name;
+
+	my $identity = eval {$player->()->Get(MPRIS_MAIN_IFACE, "Identity")};
+	$out .= " ($identity)" if defined $identity;
+
+	say "-- $out --";
+}
+
 sub check_version {
 	my ($player, $bus_name) = @_;
 	if ($bus->get_service_owner($bus_name)) {
@@ -887,7 +905,8 @@ given ($cmd) {
 			die_usage "Unknown command '$cmd'.";
 		}
 		elsif ($bus_name eq "all") {
-			my @r = map {$commands{$cmd}->(MediaPlayer($_), @ARGV) // 0}
+			my @r = map {describe_as_separator($_);
+				     $commands{$cmd}->(MediaPlayer($_), @ARGV) // 0}
 				enumerate();
 			exit max @r;
 		}

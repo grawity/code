@@ -8,6 +8,12 @@ opts='-4'
 size=$(stat -c %s "$log")
 now=$(date +%s)
 
+exec {fd}>>"$log"
+flock -x -w 10 $fd || {
+	echo "Already running." >&2
+	exit 1
+}
+
 fmt() {
 	perl -M'POSIX' -M'POSIX::strptime' -a -F'\t' -nE'
 		if (-t 1) {

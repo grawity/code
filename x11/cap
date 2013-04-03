@@ -81,10 +81,10 @@ if (( imgur )); then
 			"Screenshot captured" \
 			"Uploading to imgur...")
 	done) &
-	trap "kill $!" EXIT
+	trap "kill $! 2>/dev/null" EXIT
 
 	if output=$(imgur "$img" 2>&1) && [[ $output ]]; then
-		kill $!
+		kill $! 2>/dev/null
 		notify \
 			--app-name "Screenshot" \
 			--icon "document-send" \
@@ -93,7 +93,7 @@ if (( imgur )); then
 			"Screenshot uploaded" \
 			"$output" >/dev/null
 	else
-		kill $!
+		kill $! 2>/dev/null
 		output="It is still stored at: file://$(urlencode -rp "$img")"
 		notify \
 			--app-name "Screenshot" \

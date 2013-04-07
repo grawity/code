@@ -216,6 +216,9 @@ sub show_notification {
 
 	my $summary;
 	my $body;
+	my $app_id;
+	my $icon;
+	my %hints;
 
 	if ($status eq "Stopped") {
 		$summary = "Stopped.";
@@ -226,7 +229,7 @@ sub show_notification {
 		$body = "by ".join(", ", @$artist);
 	}
 
-	my $app_id = $bus_name;
+	$app_id = $bus_name;
 	$app_id =~ s/$prefix_re//;
 
 	$app_name{$bus_name} //= $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
@@ -235,7 +238,6 @@ sub show_notification {
 	$app_desktop{$bus_name} //= $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
 	$app_desktop{$bus_name} //= $app_id;
 
-	my $icon;
 	for ($status) {
 		when ("Playing") { $icon = "media-playback-start-symbolic" }
 		when ("Paused")  { $icon = "media-playback-pause-symbolic" }
@@ -247,7 +249,7 @@ sub show_notification {
 		$icon = $meta->{"mpris:artUrl"} // "audio-x-generic";
 	}
 
-	my %hints = (
+	%hints = (
 		"desktop-entry" => $app_desktop{$bus_name} . ".desktop",
 		transient => dbus_boolean(1),
 		urgency => dbus_byte(0),

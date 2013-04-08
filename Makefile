@@ -80,12 +80,17 @@ ifeq ($(UNAME),Linux)
 all: linux
 endif
 
-$(OBJ)/args:		misc/args.c
-$(OBJ)/bgrep:		thirdparty/bgrep.c
-$(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
+# libraries
+
 $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
 $(OBJ)/libfunlink.so:	LDLIBS += -ldl
 $(OBJ)/libfunlink.so:	system/libfunlink.c
+
+# executables
+
+$(OBJ)/args:		misc/args.c
+$(OBJ)/bgrep:		thirdparty/bgrep.c
+$(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
@@ -105,7 +110,11 @@ $(OBJ)/xors:		misc/xors.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c
 
+# extra files
+
 misc/util.c:		| misc/util.h
+
+# general rules
 
 $(OBJ)/%:		| dist/empty.c
 	@echo [$(CC)] $@ : $^
@@ -114,4 +123,5 @@ $(OBJ)/%:		| dist/empty.c
 $(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
 
 # hack for old Make (unsupported order-only deps)
+
 dist/empty.c: pre

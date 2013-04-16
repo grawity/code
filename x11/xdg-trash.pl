@@ -13,12 +13,18 @@ use POSIX qw(strftime);
 
 our $VERBOSE = 1;
 
+our $DO_PRINT_PATH = 0;
+
 my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
 
 my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
 
 sub verbose {
 	print @_ if $VERBOSE;
+}
+
+sub trace {
+	print "trash: ", @_ if $ENV{DEBUG};
 }
 
 sub dev {
@@ -165,8 +171,9 @@ sub trash {
 		return;
 	}
 	my $orig_path = my_abs_path($path);
+	trace("orig_path='$orig_path'\n");
 	my $trash_dir = find_trash_dir($orig_path);
-	print "DEBUG: trash_dir = $trash_dir\n" unless $trash_dir eq $home_trash;
+	trace("trash_dir='$trash_dir'\n");
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	write_info($info_fh, $orig_path);

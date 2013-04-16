@@ -196,13 +196,18 @@ sub trash {
 }
 
 GetOptions(
+	'path'		=> \$DO_PRINT_PATH,
 	'r|R|recursive'	=> sub { },
 	'f|force'	=> sub { },
 	'v|verbose!'	=> \$VERBOSE,
 ) or die;
 
 if (@ARGV) {
-	trash($_) for @ARGV;
+	if ($DO_PRINT_PATH) {
+		say find_trash_dir(my_abs_path($_)) // "(not found?)" for @ARGV;
+	} else {
+		trash($_) for @ARGV;
+	}
 } else {
 	warn "trash: No files given.\n";
 }

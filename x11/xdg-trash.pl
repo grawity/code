@@ -141,7 +141,15 @@ Find the best trash directory to use, according to XDG Trash Dir spec.
 sub find_trash_dir {
 	my ($orig_path) = @_;
 	ensure($home_trash);
+
+	trace("trying to find trash for path='$orig_path'\n");
 	my $fdev = dev($orig_path);
+	while (!defined $fdev) {
+		$orig_path = dirname($orig_path);
+		trace("...path not found, using parent='$orig_path'\n");
+		$fdev = dev($orig_path);
+	}
+
 	my $hdev = dev($home_trash);
 	if (!defined $fdev) {
 		return undef;

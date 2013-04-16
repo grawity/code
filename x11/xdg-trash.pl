@@ -8,6 +8,7 @@ use Errno qw(:POSIX);
 use Fcntl;
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
+use File::Spec::Functions;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use POSIX qw(strftime);
 
@@ -40,11 +41,11 @@ If $path itself is a symlink, do not canonicalize it.
 
 sub my_abs_path {
 	my ($path) = @_;
-	my $d = dirname($path);
 	my $b = basename($path);
+	my $d = dirname($path);
 	my $rd = realpath($d);
 	trace("abs: dir='$d' realdir='$rd' base='$b'\n");
-	realpath(dirname($path))."/".basename($path);
+	return $rd."/".$b;
 }
 
 =item find_root($abs_path)
@@ -157,11 +158,11 @@ sub find_trash_dir {
 		return $home_trash;
 	} else {
 		my $root = find_root($orig_path);
-		my $dir = "$root/.Trash";
+		my $dir = catdir($root, ".Trash");
 		if (-d $dir && ! -l $dir && -k $dir && ensure("$dir/$<")) {
 			return "$dir/$<";
 		}
-		$dir = "$root/.Trash-$<";
+		$dir = catdir($root, ".Trash-$<");
 		if (-d $dir || ensure($dir)) {
 			return $dir;
 		}

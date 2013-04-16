@@ -40,6 +40,10 @@ If $path itself is a symlink, do not canonicalize it.
 
 sub my_abs_path {
 	my ($path) = @_;
+	my $d = dirname($path);
+	my $b = basename($path);
+	my $rd = realpath($d);
+	trace("abs: dir='$d' realdir='$rd' base='$b'\n");
 	realpath(dirname($path))."/".basename($path);
 }
 

@@ -2,11 +2,6 @@
 # hi - download latest hilights from IRC log
 set -o pipefail
 log=~/tmp/highlights.txt
-url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
-url=$(readlink "$log.url")
-opts='-4'
-size=$(stat -c %s "$log")
-now=$(date +%s)
 
 touch "$log"
 exec {fd}<"$log"
@@ -102,6 +97,12 @@ fmt() {
 	'
 }
 
+url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
+url=$(readlink "$log.url")
+opts='-4'
+size=$(stat -c %s "$log")
+now=$(date +%s)
+
 export date color prefix private notice text
 
 date='38;5;102'
@@ -118,7 +119,8 @@ private='38;5;178'
 prefix='38;5;150'
 notice='38;5;66'
 text=''
-out=$({ curl -s -S -C "$size" $opts "$url" 2>&3 | tee -a "$log" | fmt >&2; } 3>&1) 2>&1
+out=$({ curl -s -S -C "$size" $opts "$url" 2>&3 \
+	| tee -a "$log" | fmt >&2; } 3>&1)
 ret=$?
 case $ret in
 	0)  exit 0;;

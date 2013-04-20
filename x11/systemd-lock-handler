@@ -23,19 +23,30 @@ def setup_signal(signal_handler):
 				dbus_interface="org.freedesktop.login1.Session")
 
 def handler_dbus_fdo():
-	pass
+	global arg0
+	print("%s: locking session using DBus" % arg0)
+
+	bus = dbus.SessionBus()
+
+	screensaver = bus.get_object("org.freedesktop.ScreenSaver",
+				     "/ScreenSaver")
+
+	Lock = screensaver.get_dbus_method("Lock",
+					   "org.freedesktop.ScreenSaver")
+
+	Lock()
 
 def handler_external():
 	global arg0, lock_command
 	print("%s: locking session using %s" % (arg0, lock_command[0]))
+
 	os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
 # handle command line
 
-lock_command = ["gdbus", "call", "-e", "-d", "org.freedesktop.ScreenSaver",
-		"-o", "/ScreenSaver", "-m", "org.freedesktop.ScreenSaver.Lock"]
-
 arg0 = sys.argv[0].split("/")[-1]
+
+lock_command = ["--dbus"]
 
 if len(sys.argv) > 1:
 	lock_command = sys.argv[1:]

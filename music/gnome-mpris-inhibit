@@ -8,12 +8,15 @@ use warnings;
 use strict;
 use Net::DBus;
 use Net::DBus::Reactor;
-use constant {
-	INHIBIT_LOGOUT		=> 1<<0,
-	INHIBIT_SWITCH_USER	=> 1<<1,
-	INHIBIT_SUSPEND		=> 1<<2,
-	INHIBIT_IDLE		=> 1<<3,
-};
+
+# Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
+my %FLAGS = (
+	"logout"	=> 1<<0,
+	"switch-user"	=> 1<<1,
+	"suspend"	=> 1<<2,
+	"idle"		=> 1<<3,
+	"automount"	=> 1<<4,
+);
 
 sub usage {
 	say for
@@ -25,6 +28,31 @@ sub usage {
 	"example, \"banshee\" for \"org.mpris.MediaPlayer2.banshee\".",
 	;
 	exit(2);
+}
+
+# copied from gnome-inhibit:
+sub string_to_flags {
+	my $flagstr = shift;
+	my $flags = 0;
+	for (split /[:,|]/, $flagstr) {
+		if ($_ eq 'all') {
+			$flags |= 0x7fffffff;
+		} elsif ($_ eq 'sleep') {
+			$flags |= $FLAGS{suspend};
+		} elsif (defined $FLAGS{$_}) {
+			$flags |= $FLAGS{$_};
+		} elsif (/^([0-9]+)$/) {
+			$flags |= int $_;
+		} elsif (/^(0x[0-9a-fA-F]+)$/) {
+			$flags |= hex $_;
+		} else {
+			warn "Unknown inhibit flag: '$_'\n";
+		}
+	}
+	if ($flags >> 31) {
+		die "Inhibit bitmask too large (must be an uint32)\n";
+	}
+	return $flags;
 }
 
 my $player_name = shift(@ARGV) // usage();
@@ -42,7 +70,8 @@ if ($player_name =~ /^-/) {
 my $app_id	= "gnome-mpris-inhibit ($player_name)";
 my $top_xid	= 0;
 my $reason	= "Media is playing.";
-my $flags	= INHIBIT_IDLE;
+my $flagstr	= "idle";
+my $flags	= string_to_flags($flagstr);
 
 # MPRIS variables
 my $player_bus_name = "org.mpris.MediaPlayer2.$player_name";

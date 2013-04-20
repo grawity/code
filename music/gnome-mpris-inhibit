@@ -6,6 +6,7 @@
 use v5.10;
 use warnings;
 use strict;
+use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
 
@@ -55,11 +56,18 @@ sub string_to_flags {
 	return $flags;
 }
 
+# Option parser
+
+my $flagstr	= "idle";
+
+GetOptions(
+	'f|flags=s'	=> \$flagstr,
+	'help'		=> \&usage,
+) or exit(2);
+
 my $player_name = shift(@ARGV) // usage();
 
-if ($player_name =~ /^-/) {
-	usage();
-} elsif ($player_name =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
+if ($player_name =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
 	$player_name = $1;
 } elsif ($player_name =~ /^org\.mpris\./) {
 	warn "error: MPRIS v1 interface is not supported\n";
@@ -67,13 +75,14 @@ if ($player_name =~ /^-/) {
 }
 
 # Inhibit API settings
+
 my $app_id	= "gnome-mpris-inhibit ($player_name)";
 my $top_xid	= 0;
 my $reason	= "Media is playing.";
-my $flagstr	= "idle";
 my $flags	= string_to_flags($flagstr);
 
 # MPRIS variables
+
 my $player_bus_name = "org.mpris.MediaPlayer2.$player_name";
 my $ih_cookie;
 my $old_status;

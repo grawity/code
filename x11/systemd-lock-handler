@@ -33,10 +33,13 @@ except KeyError:
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 bus = dbus.SystemBus()
-obj = bus.get_object("org.freedesktop.login1",
-		"/org/freedesktop/login1/session/%s" % session_id)
-obj.connect_to_signal("Lock", lock_signal_handler,
-		dbus_interface="org.freedesktop.login1.Session")
+manager = bus.get_object("org.freedesktop.login1", "/org/freedesktop/login1")
+session_path = manager.get_dbus_method("GetSession",
+			"org.freedesktop.login1.Manager")(session_id)
+
+session = bus.get_object("org.freedesktop.login1", session_path)
+session.connect_to_signal("Lock", lock_signal_handler,
+			dbus_interface="org.freedesktop.login1.Session")
 
 # start main loop
 

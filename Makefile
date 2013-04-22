@@ -121,7 +121,7 @@ misc/util.c:		| misc/util.h
 # general rules
 
 $(OBJ)/%:		| dist/empty.c
-	@echo [$(CC)] $@ : $^
+	@echo "    CC  $(notdir $@) ($^)"
 	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 $(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)

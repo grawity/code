@@ -61,7 +61,8 @@ clean:
 	rm -rf obj/arch.* obj/dist.* obj/host.*
 
 mrproper:
-	git clean -dfX
+	git clean -fdX
+	git checkout -f obj
 
 # compile targets
 

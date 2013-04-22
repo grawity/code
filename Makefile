@@ -45,10 +45,13 @@ override CFLAGS += -I./misc $(OSFLAGS)
 
 ifdef obj
 default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))
-endif
-
-ifndef obj
+else
+CURRENT_BINS := $(wildcard $(OBJ)/*)
+ifneq ($(CURRENT_BINS),)
+default: $(CURRENT_BINS)
+else
 default: basic
+endif
 endif
 
 pre:

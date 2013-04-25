@@ -141,7 +141,9 @@ else
 		SENDMAIL=sendmail
 	fi
 
-	if have $SENDMAIL && confirm "send test mail?"; then
+	if ! have $SENDMAIL; then
+		warn "'sendmail' missing, skipping test mail"
+	elif confirm "send test mail?"; then
 		{
 		echo "Subject: Test from $HOSTNAME"
 		echo "Date: $(date "+%a, %d %b %Y %H:%M:%S %z")"
@@ -149,8 +151,6 @@ else
 		echo ""
 		echo "Test mail from $USER($UID) at $FQDN"
 		} | $SENDMAIL -i "$EMAIL"
-	else
-		warn "'sendmail' missing, skipping test mail"
 	fi
 fi
 

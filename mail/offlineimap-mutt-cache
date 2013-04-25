@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
 # Tool to automatically update mutt cache.
 
-log() {
-	$verbose && echo "$*"
-	return 0
-}
-
-err() {
-	echo "$*" >&2
-	return 1
-}
+. lib.bash
 
 syncdir() {
 	local name=$1
@@ -39,32 +31,32 @@ syncdir() {
 
 	for mailfile in "${files[@]}"; do
 		basename=${mailfile##*/}
-		[[ $basename =~ $re ]] || {
+		if ! [[ $basename =~ $re ]]; then
 			err "non-OfflineIMAP message file: $basename"
 			continue
-		}
+		fi
 		uid=${BASH_REMATCH[1]}
 		cachefile=$cachedir/$validity-$uid
 		if [[ ! -f "$cachefile" ]]; then
-			log "$name/$validity-$uid: not found, caching"
+			say "$name/$validity-$uid: not found, caching"
 			ln -f "$mailfile" "$cachefile"
 		elif cmp "$mailfile" "$cachefile"; then
-			log "$name/$validity-$uid: okay"
+			say "$name/$validity-$uid: okay"
 		else
-			log "$name/$validity-$uid: mismatch, updating"
+			say "$name/$validity-$uid: mismatch, updating"
 			ln -f "$mailfile" "$cachefile"
 		fi
 	done
 }
 
-verbose=false
+VERBOSE=false
 mailroot=~/Backup/Mail
 oimap_cache=~/.cache/OfflineIMAP
 oimap_repo=Nullroute
 mutt_cache=~/.cache/mutt/@nullroute
 
 if [[ $1 == "-v" ]]; then
-	verbose=true
+	VERBOSE=true
 	shift
 fi
 
@@ -76,9 +68,8 @@ if ! (( $# )); then
 	set -- "${folders[@]}"
 fi
 
-err=0
 for d do
 	syncdir "$d"
-	(( err |= $? ))
 done
-exit $err
+
+! (( errors ))

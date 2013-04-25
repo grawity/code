@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
 		char *env;
 
 		if (!lockname)
-			lockname = cmd[0];
+			lockname = basename(cmd[0]);
 		lockfile = get_lockfile(lockname, lockshared);
 		if (do_print_lockname) {
 			printf("%s\n", lockfile);

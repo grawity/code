@@ -43,7 +43,7 @@ char * get_ttyname() {
 	return "batch";
 }
 
-char * get_lockfile(char *name, int shared) {
+char * get_lockfile(const char *name, int shared) {
 	int r;
 	char *rundir, *lockdir, *path;
 

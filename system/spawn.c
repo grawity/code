@@ -43,6 +43,13 @@ char * get_ttyname() {
 	return "batch";
 }
 
+void strip_slashes(char *name) {
+	char *i = name;
+	while (*i++)
+		if (*i == '/')
+			*i = '-';
+}
+
 char * get_lockfile(const char *name, int shared) {
 	int r;
 	char *rundir, *lockdir, *path;
@@ -203,6 +210,9 @@ int main(int argc, char *argv[]) {
 
 		if (!lockname)
 			lockname = basename(cmd[0]);
+
+		strip_slashes(lockname);
+
 		lockfile = get_lockfile(lockname, lockshared);
 		if (do_print_lockname) {
 			printf("%s\n", lockfile);

@@ -211,7 +211,8 @@ int main(int argc, char *argv[]) {
 
 		lockfd = open(lockfile, O_RDWR|O_CREAT, 0600);
 		if (lockfd < 0) {
-			perror("open(lockfile)");
+			fprintf(stderr, "%s: cannot open lockfile '%s': %m\n",
+				arg0, lockfile);
 			return 1;
 		}
 
@@ -219,7 +220,8 @@ int main(int argc, char *argv[]) {
 			if (errno == EWOULDBLOCK)
 				fprintf(stderr, "%s: already running\n", cmd[0]);
 			else
-				perror("flock");
+				fprintf(stderr, "%s: could not lock '%s': %m\n",
+					arg0, lockname);
 			return 1;
 		}
 
@@ -238,7 +240,8 @@ int main(int argc, char *argv[]) {
 	switch (pid) {
 	case 0:
 		if (setsid() < 0) {
-			perror("setsid");
+			fprintf(stderr, "%s: detaching from session failed: %m\n",
+				arg0);
 			return 1;
 		}
 		if (do_closefd) {
@@ -246,12 +249,13 @@ int main(int argc, char *argv[]) {
 				return 1;
 		}
 		if (execvp(cmd[0], cmd) < 0) {
-			fprintf(stderr, "%s: failed to execute '%s': %m\n", arg0, cmd[0]);
+			fprintf(stderr, "%s: failed to execute '%s': %m\n",
+				arg0, cmd[0]);
 			return 1;
 		}
 		return 0;
 	case -1:
-		perror("fork");
+		fprintf(stderr, "%s: fork failed: %m\n", arg0);
 		return 1;
 	default:
 		if (do_lock && lockfd) {

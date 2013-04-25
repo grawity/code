@@ -31,6 +31,7 @@ say() {
 
 warn() {
 	echo "$progname: warning: $*"
+	((++warnings))
 	return 0
 } >&2
 

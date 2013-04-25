@@ -108,6 +108,8 @@ if [[ ! -s ~/.ssh/authorized_keys ]]; then
 		log "configuring sshupdate"
 		security/update-authorized-keys -r
 	fi
+else
+	log "authorized_keys exists"
 fi
 
 # set up dist/pull
@@ -120,6 +122,8 @@ elif err=$(crontab -l 2>&1 >/dev/null) || [[ $err == "no crontab for $USER" ]]; 
 		log "adding dist/pull to crontab"
 		(crontab -l 2>/dev/null || true;
 			echo -e '@daily\t~/code/dist/pull') | crontab -
+	else
+		log "dist/pull is in crontab"
 	fi
 else
 	warn "unable to add dist/pull to crontab: '$err'"

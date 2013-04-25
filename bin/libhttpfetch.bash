@@ -1,7 +1,5 @@
 #!bash
 
-have() { command -v "$1" >&/dev/null; }
-
 http_fetch() {
 	local url=$1 out=${2:-/dev/stdout}
 	if ! [[ $url && $url == "http://"* ]]; then

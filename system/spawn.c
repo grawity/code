@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
 	if (do_lock) {
 		char *env;
 
-		if (!lockname)
+		if (!lockname || !*lockname)
 			lockname = basename(cmd[0]);
 
 		strip_slashes(lockname);

@@ -31,14 +31,12 @@ say() {
 
 warn() {
 	echo "$progname: warning: $*"
-	((++warnings))
-	return 0
+	(( ++warnings ))
 } >&2
 
 err() {
 	echo "$progname: error: $*"
-	((++errors))
-	return 1
+	! (( ++errors ))
 } >&2
 
 die() {

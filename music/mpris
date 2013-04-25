@@ -266,29 +266,7 @@ sub show_notification {
 					2*1000);
 }
 
-sub _handler_monitor_propchange {
-	my ($bus_name, $interface, $changed, $invalidated) = @_;
-	my %changed = %$changed;
-	my @invalidated = @$invalidated;
-
-	my $name = $bus_name;
-
-	if ($name =~ /^$prefix_re($suffix_re)/) {
-		$name = $1;
-	}
-
-	{
-		local $Data::Dumper::Indent = 0;
-		local $Data::Dumper::Terse = 1;
-
-		say "$name: PropertiesChanged: $_ = ".Dumper($changed{$_})
-			for keys %changed;
-		say "$name: PropertiesChanged: $_ invalidated"
-			for @invalidated;
-	}
-}
-
-sub _handler_notify_status_propchange {
+sub _notify_handle_propchange {
 	my ($bus_name, $interface, $changed, $invalidated) = @_;
 	my %changed = %$changed;
 	my @invalidated = @$invalidated;
@@ -718,9 +696,6 @@ my %commands = (
 	meta => sub {
 		player_getprop(shift, "player/metadata");
 	},
-	monitor => sub {
-		# handled by main func
-	},
 	next => sub {
 		shift->()->Next();
 	},
@@ -924,19 +899,8 @@ given ($cmd) {
 			saybool $bus->get_service_owner($bus_name);
 		}
 	}
-	when ("monitor") {
-		my $handler = \&_handler_monitor_propchange;
-		if ($bus_name eq "all") {
-			event_setup(undef, $handler);
-			event_setup($_, $handler) for enumerate();
-		} else {
-			event_setup($bus_name, $handler);
-		}
-		say "-- waiting for events";
-		Net::DBus::Reactor->main->run;
-	}
 	when ("notify-idle") {
-		my $handler = \&_handler_notify_status_propchange;
+		my $handler = \&_notify_handle_propchange;
 		if ($bus_name eq "all") {
 			event_setup(undef, $handler);
 			event_setup($_, $handler) for enumerate();

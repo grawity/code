@@ -45,9 +45,9 @@ die() {
 } >&2
 
 confirm() {
-	local prompt=$'\001\e[1;36m\002'"(?)"$'\001\e[m\002'" $1 "
+	local prompt=$'\001\033[1;36m\002'"(?)"$'\001\033[m\002'" $1 "
 	local answer="n"
-	read -ep "$prompt" -t 10 answer <>/dev/tty && [[ $answer == y ]]
+	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }
 
 backtrace() {

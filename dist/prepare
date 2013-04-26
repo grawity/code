@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+log() { echo "dist/prepare: $*"; }
+
 test "$MAKELEVEL" ||
 	cd ~/code
 
@@ -21,6 +23,8 @@ test ! "$DISTTYPE" && {
 	DISTTYPE="$HOSTTYPE-$(uname)-$DIST"
 }
 
+# Parse command line
+
 unset nofail
 
 case $1 in
@@ -37,6 +41,8 @@ case $1 in
 		nofail=y;;
 esac
 
+# Locate the build directory
+
 ARCHOBJ="obj/arch.$MACHTYPE"
 DISTOBJ="obj/dist.$DISTTYPE"
 HOSTOBJ="obj/host.$HOSTNAME"
@@ -46,7 +52,7 @@ if test "$out"; then
 	a|arch)	OBJDIR="$ARCHOBJ";;
 	d|dist)	OBJDIR="$DISTOBJ";;
 	h|host)	OBJDIR="$HOSTOBJ";;
-	*)	echo "dist/prepare: invalid \$out value '$out'" >&2
+	*)	log "invalid \$out value '$out'" >&2
 		exit 1;;
 	esac
 else
@@ -57,7 +63,7 @@ else
 	elif test -d "$HOSTOBJ"; then
 		OBJDIR="$HOSTOBJ"
 	elif [ ! "$nofail" ]; then
-		echo "first build: please set out=a/d/h" >&2
+		log "first build: please set out=a/d/h" >&2
 		echo "  arch=$MACHTYPE" >&2
 		echo "  dist=$DISTTYPE" >&2
 		echo "  host=$HOSTNAME" >&2
@@ -70,19 +76,24 @@ case $1 in
 	"-v")	echo "obj: ${OBJDIR-?}"; exit;;
 esac
 
+# Create build directory and update symlink
+
 if test "$out"; then
 	if test -L "$HOSTOBJ"; then
+		log "removing old symlink '$HOSTOBJ'"
 		rm -f "$HOSTOBJ"
 	fi
 
 	if test "$OBJDIR" != "$HOSTOBJ"; then
 		if test -d "$HOSTOBJ"; then
-			echo "dist/prepare: removing $HOSTOBJ"
+			log "removing old host directory '$HOSTOBJ'"
 			rm -rf "$HOSTOBJ"
 		fi
+
+		log "symlinking '$HOSTOBJ' to shared build directory"
 		ln -sf "${OBJDIR##*/}" "$HOSTOBJ"
 	fi
 
-	echo "dist/prepare: creating $OBJDIR"
+	log "creating build directory '$OBJDIR'"
 	mkdir -p "$OBJDIR"
 fi

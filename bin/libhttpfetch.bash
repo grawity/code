@@ -7,7 +7,7 @@ http_fetch() {
 		return 1
 	elif have curl; then
 		debug "found curl"
-		curl -LSsf -o "$out" "$url"
+		curl -gLSsf -o "$out" "$url"
 	elif have wget; then
 		debug "found wget"
 		wget -q -O "$out" "$url"

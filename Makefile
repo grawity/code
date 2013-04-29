@@ -66,10 +66,10 @@ mrproper:
 
 # compile targets
 
-BASIC_BINS := args pause proctool silentcat spawn strtool zlib
+BASIC_BINS := args natsort pause proctool silentcat spawn strtool zlib
 KRB_BINS   := k5userok pklist
 LINUX_BINS := linux26 setns subreaper tapchown
-MISC_BINS  := bgrep logwipe libfunlink.so natsort ttysize writevt xor xors
+MISC_BINS  := bgrep logwipe libfunlink.so ttysize writevt xor xors
 
 .PHONY: all basic krb linux misc
 

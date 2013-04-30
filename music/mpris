@@ -28,6 +28,7 @@ sub usage {
 	"Usage: mpris [<player|--all> [<cmd> [args...]]]",
 	"       mpris <player> {activate|is-running}",
 	"       mpris --list",
+	"       mpris --help commands",
 	"       mpris --help printf-formats",
 	"",
 	"This script implements the MPRIS v2.2 specification:",
@@ -39,6 +40,85 @@ sub help {
 	my $cmd = shift;
 	given ($cmd) {
 	    when (undef) { usage(); }
+	    when ("commands") {
+		say for
+		"# CONTROL",
+		"  next",
+		"  open-uri <uri>",
+		"  pause",
+		"  play",
+		"  playlist [<playlist-path>]",
+		"  prev",
+		"  repeat [{None|Playlist|Track}]",
+		"  seek [<pos>[@<track>]]",
+		"  set <property> <value>",
+		"  skip <offset>",
+		"  shuffle [{on|off}]",
+		"  stop",
+		"  toggle",
+		"# STATUS",
+		"  get <property>",
+		"  meta",
+		"  printf [<format>]",
+		"  notify-idle",
+		"  notify-once",
+		"  playlists",
+		"  summary",
+		"# APPLICATION",
+		"  activate",
+		"  is-running",
+		"  raise",
+		"  quit",
+		;
+	    }
+	    when ("get") {
+		say for
+		"# APPLICATION",
+		"  can-fullscreen",
+		"  can-raise",
+		"  can-quit",
+		"  desktop",
+		"  fullscreen",
+		"  has-track-list",
+		"  identity",
+		"  mime-types",
+		"  uri-schemes",
+		"# PLAYER",
+		"  player/can-control",
+		"  player/can-go-next",
+		"  player/can-go-prev",
+		"  player/can-pause",
+		"  player/can-play",
+		"  player/can-seek",
+		"  player/loop-status",
+		"  player/metadata",
+		"  player/position",
+		"  player/position\@track",
+		"  player/rate",
+		"  player/rate-max",
+		"  player/rate-min",
+		"  player/shuffle",
+		"  player/status",
+		"  player/volume",
+		"# PLAYLIST",
+		"  playlist/active",
+		;
+	    }
+	    when ("set") {
+		say for
+		"# APPLICATION",
+		"  fullscreen {on|off}",
+		"# PLAYER",
+		"  player/loop-status {None|Playlist|Track}",
+		"  player/rate (player:rate-max)~(player:rate-min)",
+		"  player/position <pos>[@<track>]",
+		"  player/shuffle {on|off}",
+		"  player/status {Paused|Playing|Stopped|Toggle}",
+		"  player/volume 0.0~1.0",
+		"# PLAYLIST",
+		"  playlist/active <playlist-path>",
+		;
+	    }
 	    when (/^printf(?:-formats)?$/) {
 		say for
 		"Usage: mpris <player> printf <format>",
@@ -385,38 +465,7 @@ sub player_getprop {
 	my $property = shift;
 	given ($property) {
 		when (undef) {
-			say for (
-				"# APPLICATION",
-				"  can-fullscreen",
-				"  can-raise",
-				"  can-quit",
-				"  desktop",
-				"  fullscreen",
-				"  has-track-list",
-				"  identity",
-				"  mime-types",
-				"  uri-schemes",
-				"# PLAYER",
-				"  player/can-control",
-				"  player/can-go-next",
-				"  player/can-go-prev",
-				"  player/can-pause",
-				"  player/can-play",
-				"  player/can-seek",
-				"  player/loop-status",
-				"  player/metadata",
-				"  player/position",
-				"  player/position\@track",
-				"  player/rate",
-				"  player/rate-max",
-				"  player/rate-min",
-				"  player/shuffle",
-				"  player/status",
-				"  player/volume",
-				"# PLAYLIST",
-				"  playlist/active",
-			);
-			exit;
+			return help("get");
 		}
 
 		when ("can-fullscreen") {
@@ -552,20 +601,7 @@ sub player_setprop {
 	my $property = shift;
 	given ($property) {
 		when (undef) {
-			say for (
-				"# APPLICATION",
-				"  fullscreen {on|off}",
-				"# PLAYER",
-				"  player/loop-status {None|Playlist|Track}",
-				"  player/rate (player:rate-max)~(player:rate-min)",
-				"  player/position <pos>[@<track>]",
-				"  player/shuffle {on|off}",
-				"  player/status {Paused|Playing|Stopped|Toggle}",
-				"  player/volume 0.0~1.0",
-				"# PLAYLIST",
-				"  playlist/active <playlist-path>",
-			);
-			exit;
+			return help("set");
 		}
 
 		when ("fullscreen") {
@@ -913,35 +949,7 @@ given ($player) {
 
 given ($cmd) {
 	when (undef) {
-		say for (
-			"# CONTROL",
-			"  next",
-			"  open-uri <uri>",
-			"  pause",
-			"  play",
-			"  playlist [<playlist-path>]",
-			"  prev",
-			"  repeat [{None|Playlist|Track}]",
-			"  seek [<pos>[@<track>]]",
-			"  set <property> <value>",
-			"  skip <offset>",
-			"  shuffle [{on|off}]",
-			"  stop",
-			"  toggle",
-			"# STATUS",
-			"  get <property>",
-			"  meta",
-			"  printf [<format>]",
-			"  notify-idle",
-			"  notify-once",
-			"  playlists",
-			"  summary",
-			"# APPLICATION",
-			"  activate",
-			"  is-running",
-			"  raise",
-			"  quit",
-		);
+		help("commands");
 	}
 	when ("activate") {
 		if ($bus_name eq "all") {

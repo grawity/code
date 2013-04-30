@@ -555,8 +555,7 @@ sub player_setprop {
 			my $arg = shift;
 			given ($arg) {
 				when (undef) {
-					say for qw(None Playlist Track);
-					return 2;
+					die_usage "Missing status: None, Playlist, Track";
 				}
 				when (/^(none|off)$/i) {
 					$arg = "None";
@@ -568,7 +567,7 @@ sub player_setprop {
 					$arg = "Track";
 				}
 				default {
-					die_usage "Unknown arg status.";
+					die_usage "Unknown loop status '$_'.";
 				}
 			}
 			$player->()->Set(MPRIS_PLAYER_IFACE, "LoopStatus", $arg);
@@ -577,7 +576,7 @@ sub player_setprop {
 			my $position = shift;
 			my $track;
 			if (!defined $position) {
-				die_usage "Missing position.";
+				die_usage "Missing position or position\@track.";
 			} elsif ($position =~ /^(.+)@(\d+)$/) {
 				$position = $1;
 				$track = track($2);
@@ -600,8 +599,7 @@ sub player_setprop {
 							"MinimumRate")} // 1.0;
 				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
 							"MaximumRate")} // 1.0;
-				say "$min ... $max";
-				return 2;
+				die_usage "Missing value:", "$min .. $max";
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Rate", $arg);
@@ -614,8 +612,7 @@ sub player_setprop {
 			my $arg = shift;
 			given ($arg) {
 				when (undef) {
-					say for qw(Playing Paused Stopped);
-					return 2;
+					die_usage "Missing status: Playing, Paused, Stopped";
 				}
 				when (/^(paused?)$/i) {
 					$player->()->Pause();
@@ -630,15 +627,14 @@ sub player_setprop {
 					$player->()->PlayPause();
 				}
 				default {
-					die_usage "Unknown playback status.";
+					die_usage "Unknown playback status '$_'.";
 				}
 			}
 		}
 		when ("player/volume") {
 			my $arg = shift;
 			if (!defined $arg) {
-				say "0.0 .. 1.0";
-				return 2;
+				die_usage "Missing value: 0.0 .. 1.0";
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Volume", $arg);
@@ -651,9 +647,10 @@ sub player_setprop {
 							"Orderings");
 				my $playlists = $player->()->GetPlaylists(0, 9999,
 							@$orderings[0], dbus_boolean(0));
+				warn "Missing playlist name:\n";
 				for my $playlist (@$playlists) {
 					my ($obj, $name, $icon) = @$playlist;
-					say "$obj ($name)";
+					warn "$obj ($name)\n";
 				}
 				return 2;
 			}
@@ -661,8 +658,7 @@ sub player_setprop {
 		}
 
 		default {
-			warn "Cannot set property '$property'.\n";
-			return 2;
+			die_usage "Cannot set property '$property'.";
 		}
 	}
 	return 0;

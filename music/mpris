@@ -25,13 +25,38 @@ my $suffix_re = qr/[^.]+(?:\.instance-?\d+)?$/;
 
 sub usage {
 	say for
-	"Usage: mpris --list",
-	"       mpris [<player|--all> [<cmd> [args...]]]",
+	"Usage: mpris [<player|--all> [<cmd> [args...]]]",
 	"       mpris <player> {activate|is-running}",
+	"       mpris --list",
+	"       mpris --help printf-formats",
 	"",
 	"This script implements the MPRIS v2.2 specification:",
 	"  http://specifications.freedesktop.org/mpris-spec/latest/",
 	;
+}
+
+sub help {
+	my $cmd = shift;
+	given ($cmd) {
+	    when (undef) { usage(); }
+	    when (/^printf(?:-formats)?$/) {
+		say for
+		"Usage: mpris <player> printf <format>",
+		"",
+		"In <format>, templates like %{property-name} are expanded to values shown by",
+		"the 'meta' or 'get player/metadata' subcommands; for example, %{xesam:title}",
+		"will expand to the current song's title. The default format is:",
+		"",
+		"    %{xesam:artist} - %{xesam:title}",
+		"",
+		"For multi-value properties such as %{xesam:artist} the property name optionally",
+		"can be suffixed with [] or [sep] to use a different separator, with [, ] being",
+		"default. Use [] to separate values by newlines. Note that the separator cannot",
+		"have letters or numbers. For example: %{xesam:artist[+]}",
+		;
+	    }
+	    default { usage(); }
+	}
 }
 
 # MediaPlayer(busname) - return player service closure
@@ -741,6 +766,10 @@ my %commands = (
 		my $player = shift;
 		my $format = shift // "%{xesam:artist} - %{xesam:title}";
 
+		if ($format eq "--help") {
+			return help("printf");
+		}
+
 		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
 		my $fmt_re = qr/ %\{
 				# property name
@@ -839,6 +868,10 @@ given ($player) {
 	}
 	when (/^(-a|--all)/) {
 		$bus_name = "all";
+	}
+	when (/^--help$/) {
+		help($cmd);
+		exit;
 	}
 	when (/^-/) {
 		# other dash-options

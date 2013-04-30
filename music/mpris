@@ -556,7 +556,7 @@ sub player_setprop {
 			given ($arg) {
 				when (undef) {
 					say for qw(None Playlist Track);
-					exit;
+					return 2;
 				}
 				when (/^(none|off)$/i) {
 					$arg = "None";
@@ -601,7 +601,7 @@ sub player_setprop {
 				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
 							"MaximumRate")} // 1.0;
 				say "$min ... $max";
-				return;
+				return 2;
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Rate", $arg);
@@ -615,7 +615,7 @@ sub player_setprop {
 			given ($arg) {
 				when (undef) {
 					say for qw(Playing Paused Stopped);
-					exit;
+					return 2;
 				}
 				when (/^(paused?)$/i) {
 					$player->()->Pause();
@@ -638,7 +638,7 @@ sub player_setprop {
 			my $arg = shift;
 			if (!defined $arg) {
 				say "0.0 .. 1.0";
-				exit;
+				return 2;
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Volume", $arg);
@@ -655,6 +655,7 @@ sub player_setprop {
 					my ($obj, $name, $icon) = @$playlist;
 					say "$obj ($name)";
 				}
+				return 2;
 			}
 			$player->()->ActivatePlaylist($arg);
 		}

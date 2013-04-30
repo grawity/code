@@ -22,6 +22,10 @@ my $prefix_re = qr/^org\.mpris\.MediaPlayer2\./;
 my $suffix_re = qr/[^.]+(?:\.instance-?\d+)?$/;
 
 # usage() - print usage text
+#
+# help(topic) - print help text
+#
+# die_usage(str) - like die(), but always exits with status 2
 
 sub usage {
 	say for
@@ -139,8 +143,23 @@ sub help {
 	}
 }
 
+sub die_usage {
+	warn shift."\n";
+	exit 2;
+}
+
+# saybool(bool) - print "yes"/"no" and exit with boolean status
+
+sub saybool {
+	my $b = shift;
+	say $b ? "yes" : "no";
+	return !$b;
+}
+
 # MediaPlayer(busname) - return player service closure
 #   ->([optional] object) - return object in service
+#
+# track(num) - return object path for track number
 
 sub MediaPlayer {
 	my $busname = shift;
@@ -150,8 +169,6 @@ sub MediaPlayer {
 		$service->get_object($path // "/org/mpris/MediaPlayer2");
 	};
 }
-
-# track(num) - return object path for track number
 
 sub track {
 	"/org/mpris/MediaPlayer2/Track/".(shift // "1");
@@ -165,13 +182,11 @@ sub Notifications {
 	->get_object("/org/freedesktop/Notifications");
 }
 
-# saybool(bool) - print "yes"/"no" and exit with boolean status
-
-sub saybool {
-	my $b = shift;
-	say $b ? "yes" : "no";
-	return !$b;
-}
+# int2time(seconds) - format number of seconds as human-readable time
+#
+# time2int(timestr) - parse human-readable time into number of seconds
+#
+# frombool(str) - parse a string as a boolean value
 
 sub int2time {
 	my $int = shift // return "∞";
@@ -211,13 +226,6 @@ sub time2int {
 	return $secs * 1_000_000;
 }
 
-# frombool(str) - booleanize a string
-
-sub die_usage {
-	warn shift."\n";
-	exit 2;
-}
-
 sub frombool {
 	my $str = shift;
 	my $die = shift // 1;
@@ -245,6 +253,8 @@ sub enumerate {
 }
 
 # describe(name) - show identity and status of player
+#
+# describe_as_separator(name) - show player identity, usable as separator
 
 sub describe {
 	my $name = shift;
@@ -264,8 +274,6 @@ sub describe {
 
 	say $out;
 }
-
-# describe_as_separator(name) - show player identity, usable as separator
 
 sub describe_as_separator {
 	my $name = shift;
@@ -459,6 +467,14 @@ sub event_setup {
 		});
 	}
 }
+
+# player_getprop(player, propname) - handler for "mpris get"
+
+# player_setprop(player, propname, ...) - handler for "mpris set"
+#
+# player_doprop(propname, player, @args) - handler for "set" if @args given, "get" otherwise
+#
+# property(...) - return closure calling player_doprop(...)
 
 sub player_getprop {
 	my $player = shift;

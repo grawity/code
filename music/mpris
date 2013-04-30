@@ -554,7 +554,7 @@ sub player_setprop {
 		when ("player/loop-status") {
 			my $arg = shift;
 			given ($arg) {
-				when ([undef, "help"]) {
+				when (undef) {
 					say for qw(None Playlist Track);
 					exit;
 				}
@@ -595,7 +595,7 @@ sub player_setprop {
 		}
 		when ("player/rate") {
 			my $arg = shift;
-			unless (defined $arg) {
+			if (!defined $arg) {
 				my $min = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
 							"MinimumRate")} // 1.0;
 				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
@@ -613,7 +613,7 @@ sub player_setprop {
 		when ("player/status") {
 			my $arg = shift;
 			given ($arg) {
-				when ([undef, "help"]) {
+				when (undef) {
 					say for qw(Playing Paused Stopped);
 					exit;
 				}
@@ -636,7 +636,7 @@ sub player_setprop {
 		}
 		when ("player/volume") {
 			my $arg = shift;
-			if ($arg ~~ [undef, "help"]) {
+			if (!defined $arg) {
 				say "0.0 .. 1.0";
 				exit;
 			}
@@ -646,7 +646,7 @@ sub player_setprop {
 
 		when ("playlist/active") {
 			my $arg = shift;
-			unless (defined $arg) {
+			if (!defined $arg) {
 				my $orderings = $player->()->Get(MPRIS_PLAYLIST_IFACE,
 							"Orderings");
 				my $playlists = $player->()->GetPlaylists(0, 9999,

@@ -20,10 +20,10 @@ do_pull() {
 		log: git svn fetch
 	elif [[ -d .git ]]; then
 		is "Git"
-		git pull
+		log: git pull
 	elif [[ -d .hg ]]; then
 		is "Mercurial"
-		hg pull --update
+		log: hg pull --update
 	elif [[ -d .svn ]]; then
 		is "SVN"
 		rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
@@ -33,16 +33,16 @@ do_pull() {
 		log: svn update
 	elif [[ -d .bzr ]]; then
 		is "Bazaar"
-		bzr pull
+		log: bzr pull
 	elif [[ -d CVS ]]; then
 		is "CVS"
-		cvs -q up -d -P -A
+		log: cvs -q up -d -P -A
 	elif [[ -f format && -f hooks/pre-revprop-change ]]; then
 		is "SVN – svnsync mirror"
-		svnsync sync "file://$PWD"
+		log: svnsync sync "file://$PWD"
 	elif [[ -f HEAD ]] && d=$(git rev-parse --git-dir 2>/dev/null); then
 		is "Git – bare repository"
-		git fetch
+		log: git fetch
 	fi
 }
 

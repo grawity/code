@@ -10,6 +10,10 @@ log:() {
 	"$@"
 }
 
+is_ignored() {
+	[[ -u . ]]
+}
+
 do_pull() {
 	if [[ -d .git/svn ]]; then
 		is "Git – SVN clone"
@@ -48,7 +52,7 @@ do_pull() {
 
 if (( $# )); then
 	for dir; do
-		(cd "$dir" && do_pull)
+		(cd "$dir" && ! is_ignored && do_pull)
 	done
 else
 	do_pull

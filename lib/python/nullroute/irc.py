@@ -13,7 +13,7 @@ class Prefix(object):
 		self.user = user
 		self.host = host
 
-	_re_nuh = re.compile(br'^(.+)!([^!@]+)@([^!@]+)$')
+	_re_nuh = re.compile(r'^(.+)!([^!@]+)@([^!@]+)$')
 
 	@classmethod
 	def parse(cls, prefix):
@@ -22,7 +22,7 @@ class Prefix(object):
 		m = cls._re_nuh.match(prefix)
 		if m:
 			self.nick, self.user, self.host = m.groups()
-		elif b"." in prefix:
+		elif "." in prefix:
 			self.host = prefix
 		else:
 			self.nick = prefix
@@ -30,7 +30,7 @@ class Prefix(object):
 
 	def unparse(self):
 		if not (self.nick is None or self.user is None or self.host is None):
-			return self.nick + b"!" + self.user + b"@" + self.host
+			return self.nick + "!" + self.user + "@" + self.host
 		elif self.nick:
 			return self.nick
 		elif self.host:
@@ -68,7 +68,7 @@ class Line(object):
 		and the IRCv3 message-tags extension.
 		"""
 
-		line = line.rstrip(b"\n")
+		line = line.rstrip(b"\r\n")
 		line = line.split(b" ")
 		i, n = 0, len(line)
 		parv = []
@@ -99,7 +99,7 @@ class Line(object):
 		return parv
 
 	@classmethod
-	def parse(cls, line):
+	def parse(cls, line, parse_prefix=True):
 		"""
 		Parse an IRC protocol line into a Line object consisting of
 		tags, prefix, command, and arguments.
@@ -119,8 +119,11 @@ class Line(object):
 				self.tags[k] = v
 
 		if parv and parv[0].startswith(b":"):
-			prefix = parv.pop(0)[1:]
-			self.prefix = Prefix.parse(prefix)
+			prefix = parv.pop(0)[1:].decode("utf-8", "replace")
+			if parse_prefix:
+				self.prefix = Prefix.parse(prefix)
+			else:
+				self.prefix = prefix
 
 		if parv:
 			self.cmd = parv.pop(0).upper().decode("utf-8", "replace")
@@ -130,29 +133,26 @@ class Line(object):
 
 	@classmethod
 	def join(cls, inputv, strict=True, encode=True):
-		if encode:
-			parv = [par.encode("utf-8") for par in inputv]
-		else:
-			parv = inputv[:]
+		parv = inputv[:]
 
-		if b" " in parv[-1] or parv[-1].startswith(b":"):
+		if " " in parv[-1] or parv[-1].startswith(":"):
 			last = parv.pop()
 		else:
 			last = None
 
 		if strict:
-			if any(b" " in par for par in parv):
+			if any(" " in par for par in parv):
 				raise ValueError("Space is only allowed in last parameter")
 
-			i = 2 if parv[0].startswith(b"@") else 1
+			i = 2 if parv[0].startswith("@") else 1
 
-			if any(par.startswith(b":") for par in parv[i:]):
+			if any(par.startswith(":") for par in parv[i:]):
 				raise ValueError("Only first or last parameter may start with ':'")
 
 		if last is not None:
-			parv.append(b":" + last)
+			parv.append(":" + last)
 
-		return b" ".join(parv)
+		return " ".join(parv)
 
 	def unparse(self):
 		parv = []
@@ -160,16 +160,16 @@ class Line(object):
 		if self.tags:
 			tags = [k if v is True else k + b"=" + v
 				for k, v in self.tags.items()]
-			parv.append(b"@" + b",".join(tags))
+			parv.append("@" + b",".join(tags))
 
 		if self.prefix:
-			parv.append(b":" + self.prefix.unparse())
+			parv.append(":" + self.prefix.unparse())
 
 		parv.append(self.cmd)
 
 		parv.extend(self.args)
 
-		return self.join(parv, encode=False)
+		return self.join(parv)
 
 	def __repr__(self):
 		return "<IRC.Line: tags=%r prefix=%r cmd=%r args=%r>" % (

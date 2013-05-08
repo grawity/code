@@ -6,6 +6,10 @@ from __future__ import print_function
 import os, sys, dbus, dbus.mainloop.glib
 from gi.repository import GLib
 
+def trace(*args):
+	global arg0
+	print("%s:" % arg0, *args)
+
 def setup_signal(signal_handler):
 	bus = dbus.SystemBus()
 
@@ -20,11 +24,10 @@ def setup_signal(signal_handler):
 	session = bus.get_object("org.freedesktop.login1", session_path)
 
 	session.connect_to_signal("Lock", signal_handler,
-				dbus_interface="org.freedesktop.login1.Session")
+				  dbus_interface="org.freedesktop.login1.Session")
 
 def handler_dbus_fdo():
-	global arg0
-	print("%s: locking session using DBus" % arg0)
+	trace("locking session using DBus")
 
 	bus = dbus.SessionBus()
 
@@ -37,8 +40,8 @@ def handler_dbus_fdo():
 	Lock()
 
 def handler_external():
-	global arg0, lock_command
-	print("%s: locking session using %s" % (arg0, lock_command[0]))
+	global lock_command
+	trace("locking session using %s" % lock_command[0])
 
 	os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
@@ -46,10 +49,7 @@ def handler_external():
 
 arg0 = sys.argv[0].split("/")[-1]
 
-lock_command = ["--dbus"]
-
-if len(sys.argv) > 1:
-	lock_command = sys.argv[1:]
+lock_command = sys.argv[1:] or ["--dbus"]
 
 # obtain session ID
 

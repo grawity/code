@@ -2,28 +2,37 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 int unlink(const char *path) {
 	static int (*real_unlink)(const char*);
-	const char *real;
-	char *new;
+	struct stat tmpst, pathst;
+	char *newname;
 
-	real = realpath(path, NULL);
-	if (!real)
-		real = path;
+	if (stat("/tmp", &tmpst) < 0)
+		goto real;
 
-	if (strncmp(real, "/tmp/", 5)) {
-		if (!real_unlink)
-			real_unlink = dlsym(RTLD_NEXT, "unlink");
-		return real_unlink(path);
-	} else if (asprintf(&new, "%s~", path) > 0)
-		return rename(path, new);
-	else
-		return 0;
+	if (lstat(path, &pathst) < 0)
+		goto real;
+
+	if (tmpst.st_dev != pathst.st_dev)
+		goto real;
+
+	if (asprintf(&newname, "%s~", path) <= 0)
+		goto real;
+
+	if (rename(path, newname) < 0)
+		goto real;
+
+	return 0;
+
+real:
+	if (!real_unlink)
+		real_unlink = dlsym(RTLD_NEXT, "unlink");
+
+	return real_unlink(path);
 }
 
 int unlinkat(int dirfd, const char *pathname, int flags) {

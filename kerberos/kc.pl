@@ -2,6 +2,7 @@
 # kc - Kerberos credential cache juggler
 # For cache switching to work, kc.sh must be sourced.
 use warnings;
+no warnings qw(experimental);
 use strict;
 use feature qw(say switch);
 use English;

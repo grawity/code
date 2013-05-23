@@ -1,4 +1,12 @@
-IrcMessage = Struct.new(:tags, :prefix, :argv)
+IrcMessage = Struct.new(:tags, :prefix, :argv) do
+	def unparse
+		vec = []
+		vec << "@" + tags	if tags
+		vec << ":" + prefix	if prefix
+		vec += argv		if argv
+		return join(vec)
+	end
+end
 
 def parse(str)
 	vec = str.chomp.split(" ")
@@ -23,4 +31,39 @@ def parse(str)
 		argv << trailing[1..-1]
 	end
 	return IrcMessage.new(tags, prefix, argv)
+end
+
+def join(args)
+	i = 0
+	vec = []
+	if args[i].start_with? "@"
+		if args[i] =~ /\s/
+			raise "Argument #{i} contains whitespace"
+		end
+		vec << args[i]
+		i += 1
+	end
+	if args[i].start_with? ":"
+		if args[i] =~ /\s/
+			raise "Argument #{i} contains whitespace"
+		end
+		vec << args[i]
+		i += 1
+	end
+	n = args.length - 1
+	while i < n
+		if args[i].start_with? ":"
+			raise "Argument #{i} starts with ':'"
+		elsif args[i] =~ /\s/
+			raise "Argument #{i} contains whitespace"
+		end
+		vec << args[i]
+		i += 1
+	end
+	if args[i].start_with? ":" or args[i] =~ /\s/
+		vec << ":" + args[i]
+	else
+		vec << args[i]
+	end
+	return vec.join(" ")
 end

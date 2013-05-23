@@ -43,7 +43,9 @@ class IRC
 		end
 		n = args.length - 1
 		while i < n
-			if args[i].start_with? ":"
+			if args[i].empty?
+				raise "Argument #{i} is empty"
+			elsif args[i].start_with? ":"
 				raise "Argument #{i} starts with ':'"
 			elsif args[i] =~ /\s/
 				raise "Argument #{i} contains whitespace"
@@ -51,7 +53,7 @@ class IRC
 			vec << args[i]
 			i += 1
 		end
-		if args[i].start_with? ":" or args[i] =~ /\s/
+		if args[i].empty? or args[i].start_with? ":" or args[i] =~ /\s/
 			vec << ":" + args[i]
 		else
 			vec << args[i]

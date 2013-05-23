@@ -2,7 +2,7 @@
 # kc - Kerberos credential cache juggler
 # For cache switching to work, kc.sh must be sourced.
 use warnings;
-no warnings qw(experimental);
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use strict;
 use feature qw(say switch);
 use English;

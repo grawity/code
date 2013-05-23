@@ -222,7 +222,7 @@ sub put_env {
 	my ($key, $val) = @_;
 	$ENV{$key} = $val;
 
-	given ($ENV{SHELL}) {
+	for ($ENV{SHELL}) {
 		when (m{/(sh|bash|zsh)$}) {
 			$val =~ s/'/'\\''/g;
 			say EVAL "$key=\'$val\'; export $key;";
@@ -241,7 +241,7 @@ sub switch_ccache {
 		return 0;
 	}
 
-	given ($ccname) {
+	for ($ccname) {
 		when (m|^DIR::(.+)$|) {
 			my $ccdirname = "DIR:".dirname($1);
 			put_env("KRB5CCNAME", $ccdirname);
@@ -314,7 +314,7 @@ $use_color = ($ENV{TERM} && -t 1);
 
 my $cmd = shift @ARGV;
 
-given ($cmd) {
+for ($cmd) {
 	when (["-h", "--help"]) {
 		say for
 		"Usage: kc [list]",
@@ -346,7 +346,7 @@ given ($cmd) {
 			while (<$proc>) {
 				chomp;
 				my @l = split(/\t/, $_);
-				given (shift @l) {
+				for (shift @l) {
 					when ("principal") {
 						($principal) = @l;
 						$principal =~ /.*@(.+)$/
@@ -469,7 +469,7 @@ given ($cmd) {
 			while (my $line = <$proc>) {
 				chomp($line);
 				my @l = split(/\t/, $line);
-				given (shift @l) {
+				for (shift @l) {
 					when ("ticket") {
 						my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags) = @l;
 						if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {

@@ -5,15 +5,15 @@ class IRC
 		tags = nil
 		prefix = nil
 		argv = []
-		if vec[i].start_with? "@"
+		if vec[i] =~ /^@/
 			tags = vec[i][1..-1]
 			i += 1
 		end
-		if vec[i].start_with? ":"
+		if vec[i] =~ /^:/
 			prefix = vec[i][1..-1]
 			i += 1
 		end
-		while i < vec.length and !vec[i].start_with? ":"
+		while i < vec.length and vec[i] !~ /^:/
 			argv << vec[i]
 			i += 1
 		end
@@ -28,14 +28,14 @@ class IRC
 		i = 0
 		vec = []
 		args = args.map(&:to_s)
-		if args[i].start_with? "@"
+		if args[i] =~ /^@/
 			if args[i] =~ /\s/
 				raise "Argument #{i} contains whitespace"
 			end
 			vec << args[i]
 			i += 1
 		end
-		if args[i].start_with? ":"
+		if args[i] =~ /^:/
 			if args[i] =~ /\s/
 				raise "Argument #{i} contains whitespace"
 			end

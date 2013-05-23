@@ -27,6 +27,7 @@ class IRC
 	def self.join(args)
 		i = 0
 		vec = []
+		args = args.map(&:to_s)
 		if args[i].start_with? "@"
 			if args[i] =~ /\s/
 				raise "Argument #{i} contains whitespace"

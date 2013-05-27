@@ -68,8 +68,7 @@ class Line(object):
 		and the IRCv3 message-tags extension.
 		"""
 
-		line = line.rstrip(b"\r\n")
-		line = line.split(b" ")
+		line = line.rstrip(b"\r\n").split(b" ")
 		i, n = 0, len(line)
 		parv = []
 
@@ -106,28 +105,31 @@ class Line(object):
 		"""
 
 		parv = cls.split(line)
+		i, n = 0, len(parv)
 		self = cls()
 
-		if parv and parv[0].startswith(b"@"):
-			tags = parv.pop(0).decode("utf-8", "replace")
-			self.tags = {}
-			for item in tags[1:].split(";"):
-				if "=" in item:
-					k, v = item.split("=", 1)
-				else:
-					k, v = item, True
-				self.tags[k] = v
+		parv = [p.decode("utf-8", "replace") for p in parv]
 
-		if parv and parv[0].startswith(b":"):
-			prefix = parv.pop(0)[1:].decode("utf-8", "replace")
+		if i < n and parv[i].startswith("@"):
+			tags = parv[i][1:]
+			i += 1
+			tags = [item.split("=", 1)
+					if "=" in item
+					else (item, True)
+					for item in tags.split(";")]
+			self.tags = dict(tags)
+
+		if i < n and parv[i].startswith(":"):
+			prefix = parv[i][1:]
+			i += 1
 			if parse_prefix:
 				self.prefix = Prefix.parse(prefix)
 			else:
 				self.prefix = prefix
 
-		if parv:
-			self.cmd = parv.pop(0).upper().decode("utf-8", "replace")
-			self.args = [p.decode("utf-8", "replace") for p in parv]
+		if i < n:
+			self.cmd = parv[i].upper()
+			self.args = parv[i:]
 
 		return self
 

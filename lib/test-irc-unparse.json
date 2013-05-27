@@ -1,0 +1,71 @@
+// no params
+[],						""
+[":foo"],					":foo"
+["@foo"],					"@foo"
+["@foo", ":bar"],				"@foo :bar"
+
+// simple join
+["foo", "bar", "baz", "asdf"],			"foo bar baz asdf"
+// simple join with trailing param
+["foo", "bar", "baz", "asdf quux"],		"foo bar baz :asdf quux"
+["foo", "bar", "baz", ""],			"foo bar baz :"
+["foo", "bar", "baz", ":asdf"],			"foo bar baz ::asdf"
+
+// invalid arg in the middle
+["foo", "bar baz", "asdf"],			null
+["foo", ":bar", "baz"],				null
+["foo", "bar", "", "baz"],			null
+
+// only trailing param
+["foo bar"],					null
+
+// prefixed join
+[":test", "foo", "bar", "baz", "asdf"],		":test foo bar baz asdf"
+// prefixed join with trailing param
+[":test", "foo", "bar", "baz", "asdf quux"],	":test foo bar baz :asdf quux"
+[":test", "foo", "bar", "baz", ""],		":test foo bar baz :"
+[":test", "foo", "bar", "baz", ":asdf"],	":test foo bar baz ::asdf"
+
+// prefix and invalid arg in the middle
+[":test", "foo", "bar baz", "asdf"],		null
+[":test", "foo", ":bar", "baz"],		null
+[":test", "foo", "bar", "", "baz"],		null
+// prefix containing whitespace
+[":test test", "foo", "bar", "baz"],		null
+
+// prefix with only trailing param
+[":foo", "bar"],				":foo bar"
+[":foo", "bar baz"],				":foo :bar baz"
+
+// tagged join
+["@test", "foo", "bar", "baz", "asdf"],		"@test foo bar baz asdf"
+// tagged join with trailing param
+["@test", "foo", "bar", "baz", "asdf quux"],	"@test foo bar baz :asdf quux"
+["@test", "foo", "bar", "baz", ""],		"@test foo bar baz :"
+["@test", "foo", "bar", "baz", ":asdf"],	"@test foo bar baz ::asdf"
+
+// tag and invalid arg in the middle
+["@test", "foo", "bar baz", "asdf"],		null
+["@test", "foo", ":bar", "baz"],		null
+["@test", "foo", "bar", "", "baz"],		null
+// tag containing whitespace
+["@test test", "foo", "bar", "baz"],		null
+
+// tag with only trailing param
+["@test", "bar"],				"@test bar"
+["@test", "bar baz"],				null
+
+// tagged and prefixed join
+["@test", ":test", "foo", "baz", "asdf"],	"@test :test foo baz asdf"
+// tagged and prefixed join with trailing param
+["@test", ":test", "foo", "baz", "asdf quux"],	"@test :test foo baz :asdf quux"
+["@test", ":test", "foo", "baz", ""],		"@test :test foo baz :"
+["@test", ":test", "foo", "baz", ":asdf"],	"@test :test foo baz ::asdf"
+
+// tag, prefix, and invalid arg in the middle
+["@test", ":test", "foo", "bar baz", "asdf"],	null
+["@test", ":test", "foo", ":bar", "baz"],	null
+["@test", ":test", "foo", "bar", "", "baz"],	null
+// tag or prefix containing whitespace
+["@test test", ":test", "foo", "bar", "baz"],	null
+["@test", ":test test", "foo", "bar", "baz"],	null

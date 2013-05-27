@@ -18,12 +18,13 @@ def run_test(file)
 	parse_test(file) do |input, wanted_output|
 		actual_output = yield input
 		if wanted_output == actual_output
-			puts " OK : #{input.inspect} -> #{actual_output.inspect}"
+			msg = " OK "
 			passed += 1
 		else
-			puts "FAIL: #{input.inspect} -> #{actual_output.inspect}"
+			msg = "FAIL"
 			failed += 1
 		end
+		puts "#{msg}: #{input.inspect} -> #{JSON.dump(actual_output)}"
 	end
 	puts "Tests: #{passed} passed, #{failed} failed"
 	return failed

@@ -16,11 +16,12 @@ def run_test(file, func):
 	for input, output in parse_test(file):
 		testout = func(input)
 		if output == testout:
-			print(" OK : %r -> %r" % (input, testout))
+			msg = " OK "
 			passed += 1
 		else:
-			print("FAIL: %r -> %r" % (input, testout))
+			msg = "FAIL"
 			failed += 1
+		print("%s: %r -> %s" % (msg, input, json.dumps(testout)))
 	print("Tests: %s passed, %d failed" % (passed, failed))
 	return failed
 

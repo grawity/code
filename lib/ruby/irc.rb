@@ -81,12 +81,16 @@ class IRC
 end
 
 class IRC::Message < Struct.new(:tags, :prefix, :argv)
-	def unparse
+	def to_a
 		vec = []
 		vec << "@" + tags	if tags
 		vec << ":" + prefix	if prefix
 		vec += argv			if argv
-		return IRC.join(vec)
+		return vec
+	end
+
+	def unparse
+		return IRC.join(self.to_a)
 	end
 end
 

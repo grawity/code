@@ -34,12 +34,7 @@ f = 0
 
 f += run_test "#{dir}/test-irc-parse.json" do |input|
 	begin
-		msg = IRC.parse(input)
-		parv = []
-		parv << "@" + msg.tags		if msg.tags
-		parv << ":" + msg.prefix	if msg.prefix
-		parv += msg.argv		if msg.argv
-		parv
+		IRC.parse(input).to_a
 	rescue RuntimeError
 		nil
 	end

@@ -35,6 +35,9 @@ class IRC
 			vec << args[i]
 			i += 1
 		end
+		if args[i] =~ /\s/
+			raise "Argument #{i} contains whitespace"
+		end
 		if args[i] =~ /^:/
 			if args[i] =~ /\s/
 				raise "Argument #{i} contains whitespace"

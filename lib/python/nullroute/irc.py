@@ -72,6 +72,9 @@ class Line(object):
 		i, n = 0, len(line)
 		parv = []
 
+		while i < n and line[i] == b"":
+			i += 1
+
 		if i < n and line[i].startswith(b"@"):
 			parv.append(line[i])
 			i += 1

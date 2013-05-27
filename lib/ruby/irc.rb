@@ -57,10 +57,12 @@ class IRC
 			vec << args[i]
 			i += 1
 		end
-		if args[i].empty? or args[i] =~ /^:/ or args[i] =~ /\s/
-			vec << ":" + args[i]
-		else
-			vec << args[i]
+		if i == n
+			if args[i].empty? or args[i] =~ /^:/ or args[i] =~ /\s/
+				vec << ":" + args[i]
+			else
+				vec << args[i]
+			end
 		end
 		return vec.join(" ")
 	end

@@ -132,25 +132,38 @@ class Line(object):
 		return self
 
 	@classmethod
-	def join(cls, inputv, strict=True, encode=True):
-		parv = inputv[:]
+	def join(cls, argv, strict=True, encode=True):
+		i, n = 0, len(argv)
 
-		if " " in parv[-1] or parv[-1].startswith(":"):
-			last = parv.pop()
-		else:
-			last = None
+		if i < n and argv[i].startswith("@"):
+			if " " in argv[i]:
+				raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+			i += 1
 
-		if strict:
-			if any(" " in par for par in parv):
-				raise ValueError("Space is only allowed in last parameter")
+		if i < n and " " in argv[i]:
+			raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
 
-			i = 2 if parv[0].startswith("@") else 1
+		if i < n and argv[i].startswith(":"):
+			if " " in argv[i]:
+				raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+			i += 1
 
-			if any(par.startswith(":") for par in parv[i:]):
-				raise ValueError("Only first or last parameter may start with ':'")
+		while i < n-1:
+			if not argv[i]:
+				raise ValueError("Argument %d is empty: %r" % (i, argv[i]))
+			elif argv[i].startswith(":"):
+				raise ValueError("Argument %d starts with ':': %r" % (i, argv[i]))
+			elif " " in argv[i]:
+				raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+			i += 1
 
-		if last is not None:
-			parv.append(":" + last)
+		parv = argv[:i]
+
+		if i < n:
+			if not argv[i] or argv[i].startswith(":") or " " in argv[i]:
+				parv.append(":%s" % argv[i])
+			else:
+				parv.append(argv[i])
 
 		return " ".join(parv)
 
@@ -206,3 +219,5 @@ class Connection(object):
 
 	def read(self):
 		return Line.parse(self.readraw())
+
+# vim: ts=4:sw=4

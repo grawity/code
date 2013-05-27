@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import sys
 import json
 
 import irc
@@ -21,6 +22,7 @@ def run_test(file, func):
 			print("FAIL: %r -> %r" % (input, testout))
 			failed += 1
 	print("Tests: %s passed, %d failed" % (passed, failed))
+	return failed
 
 def test_split(input):
 	input = input.encode("utf-8")
@@ -38,5 +40,9 @@ def test_join(input):
 		return None
 
 dir = "../.."
-run_test(dir+"/test-irc-parse.json", test_split)
-run_test(dir+"/test-irc-unparse.json", test_join)
+
+f = 0
+f += run_test(dir+"/test-irc-parse.json", test_split)
+f += run_test(dir+"/test-irc-unparse.json", test_join)
+
+sys.exit(f > 0)

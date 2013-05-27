@@ -1,21 +1,33 @@
 class IRC
 	def self.parse(str)
-		vec = str.chomp.split(" ")
+		vec = str.chomp.split(/ /, -1)
 		i = 0
 		tags = nil
 		prefix = nil
 		argv = []
+		while vec[i] and vec[i].empty?
+			i += 1
+		end
 		if vec[i] =~ /^@/
 			tags = vec[i][1..-1]
 			i += 1
+			while vec[i] and vec[i].empty?
+				i += 1
+			end
 		end
 		if vec[i] =~ /^:/
 			prefix = vec[i][1..-1]
 			i += 1
+			while vec[i] and vec[i].empty?
+				i += 1
+			end
 		end
 		while i < vec.length and vec[i] !~ /^:/
 			argv << vec[i]
 			i += 1
+			while vec[i] and vec[i].empty?
+				i += 1
+			end
 		end
 		if vec[i]
 			trailing = vec[i..-1].join(" ")

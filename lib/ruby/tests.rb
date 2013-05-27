@@ -28,7 +28,22 @@ def run_test(file)
 	puts "Tests: #{passed} passed, #{failed} failed"
 end
 
-run_test "../test-irc-unparse.json" do |input|
+dir = ".."
+
+run_test "#{dir}/test-irc-parse.json" do |input|
+	begin
+		msg = IRC.parse(input)
+		parv = []
+		parv << "@" + msg.tags		if msg.tags
+		parv << ":" + msg.prefix	if msg.prefix
+		parv += msg.argv		if msg.argv
+		parv
+	rescue RuntimeError
+		nil
+	end
+end
+
+run_test "#{dir}/test-irc-unparse.json" do |input|
 	begin
 		IRC.join(input)
 	rescue RuntimeError

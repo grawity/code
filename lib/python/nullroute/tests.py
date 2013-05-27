@@ -22,10 +22,21 @@ def run_test(file, func):
 			failed += 1
 	print("Tests: %s passed, %d failed" % (passed, failed))
 
+def test_split(input):
+	input = input.encode("utf-8")
+	try:
+		output = irc.Line.split(input)
+	except ValueError:
+		return None
+	else:
+		return [p.decode("utf-8", "replace") for p in output]
+
 def test_join(input):
 	try:
 		return irc.Line.join(input)
 	except ValueError:
 		return None
 
-run_test("../../test-irc-unparse.json", test_join)
+dir = "../.."
+run_test(dir+"/test-irc-parse.json", test_split)
+run_test(dir+"/test-irc-unparse.json", test_join)

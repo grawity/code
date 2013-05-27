@@ -46,4 +46,6 @@ f = 0
 f += run_test(dir+"/test-irc-parse.json", test_split)
 f += run_test(dir+"/test-irc-unparse.json", test_join)
 
+print("Total: %d failed" % f)
+
 sys.exit(f > 0)

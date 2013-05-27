@@ -49,4 +49,6 @@ f += run_test "#{dir}/test-irc-unparse.json" do |input|
 	end
 end
 
+puts "Total: #{f} failed"
+
 exit f == 0

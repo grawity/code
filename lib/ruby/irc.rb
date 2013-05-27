@@ -41,18 +41,18 @@ class IRC
 		vec = []
 		args = args.map(&:to_s)
 		if args[i] =~ /^@/
-			if args[i] =~ /\s/
-				raise "Argument #{i} contains whitespace"
+			if args[i] =~ / /
+				raise "Argument #{i} contains spaces"
 			end
 			vec << args[i]
 			i += 1
 		end
-		if args[i] =~ /\s/
-			raise "Argument #{i} contains whitespace"
+		if args[i] =~ / /
+			raise "Argument #{i} contains spaces"
 		end
 		if args[i] =~ /^:/
-			if args[i] =~ /\s/
-				raise "Argument #{i} contains whitespace"
+			if args[i] =~ / /
+				raise "Argument #{i} contains spaces"
 			end
 			vec << args[i]
 			i += 1
@@ -63,14 +63,14 @@ class IRC
 				raise "Argument #{i} is empty"
 			elsif args[i] =~ /^:/
 				raise "Argument #{i} starts with ':'"
-			elsif args[i] =~ /\s/
-				raise "Argument #{i} contains whitespace"
+			elsif args[i] =~ / /
+				raise "Argument #{i} contains spaces"
 			end
 			vec << args[i]
 			i += 1
 		end
 		if i == n
-			if args[i].empty? or args[i] =~ /^:/ or args[i] =~ /\s/
+			if args[i].empty? or args[i] =~ /^:/ or args[i] =~ / /
 				vec << ":" + args[i]
 			else
 				vec << args[i]

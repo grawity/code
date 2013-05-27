@@ -142,15 +142,15 @@ class Line(object):
 
 		if i < n and argv[i].startswith("@"):
 			if " " in argv[i]:
-				raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+				raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
 			i += 1
 
 		if i < n and " " in argv[i]:
-			raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+			raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
 
 		if i < n and argv[i].startswith(":"):
 			if " " in argv[i]:
-				raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+				raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
 			i += 1
 
 		while i < n-1:
@@ -159,7 +159,7 @@ class Line(object):
 			elif argv[i].startswith(":"):
 				raise ValueError("Argument %d starts with ':': %r" % (i, argv[i]))
 			elif " " in argv[i]:
-				raise ValueError("Argument %d contains whitespace: %r" % (i, argv[i]))
+				raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
 			i += 1
 
 		parv = argv[:i]

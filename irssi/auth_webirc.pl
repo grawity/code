@@ -15,17 +15,16 @@ my %networks;
 sub load_networks {
 	my $path = Irssi::get_irssi_dir . "/webirc.auth";
 	if (open(my $fh, "<", $path)) {
-		my ($tag, $key, $value);
+		my $tag;
 		while (<$fh>) {
 			if (/^[#;]/) {
 				next;
 			} elsif (/^(\w+)$/) {
-				$tag = $1;
-				$networks{$tag} = {};
-				print "tag = $1";
+				$networks{$tag = $1} = {};
 			} elsif (/^\s+(\w+?)=(.+)$/) {
 				$networks{$tag}{$1} = $2;
-				print "tag/$tag/$1 = $2";
+			} else {
+				warn "webirc.auth:$.: parse error: $_";
 			}
 		}
 		close($fh);

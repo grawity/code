@@ -43,7 +43,7 @@ def scrape(url):
 	infobar = commentarea.find("div", {"class": "infobar"})
 
 	if infobar is None:
-		thing = body.find("div", {"class": re.compile(r'\blink\b')})
+		thing = body.find("div", {"class": re.compile(r'\bthing\b.*\blink\b')})
 	else:
 		thing = commentarea
 
@@ -86,10 +86,11 @@ def scrape(url):
 	
 	# .entry > .usertext-body > .md
 
-	text = entry.find("div", {"class": "usertext-body"})\
-		.find("div", {"class": "md"})\
-		.renderContents()\
-		.strip()
+	txtbody = entry.find("div", {"class": "usertext-body"})
+	if txtbody:
+		text = txtbody.find("div", {"class": "md"}).renderContents() .strip()
+	else:
+		text = "(No content)"
 	
 	# output
 

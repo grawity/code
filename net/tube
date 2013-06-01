@@ -9,14 +9,15 @@ options=(
 	)
 urls=()
 tagopts=()
+kind=music
 
 while (( $# )); do
 	arg=$1
 	case $arg in
 	http://*|https://*)
 		urls+=("$arg");;
-	-kind)
-		tagopts+=(-type "$2"); shift;;
+	-kind|-type)
+		kind=$2; shift;;
 	-[a-z]*)
 		tagopts+=("$arg" "$2"); shift;;
 	*)
@@ -55,6 +56,7 @@ for url in "${urls[@]}"; do
 		;;
 	esac
 
+	tagopts+=(-type "$kind")
 	if [[ -s "$descr" ]]; then
 		tagopts+=(-longdesc "$(< "$descr")")
 	fi

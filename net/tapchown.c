@@ -18,11 +18,10 @@ static int usage() {
 }
 
 int main(int argc, char *argv[]) {
-	struct ifreq ifr;
+	int iftype = -1, fd, r;
 	char *ifname;
-	int fd, r;
 	uid_t owner;
-	int iftype = -1;
+	struct ifreq ifr = {};
 
 	arg0 = argv[0];
 
@@ -45,15 +44,15 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	ifr.ifr_flags = iftype | IFF_NO_PI;
+	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
+
 	fd = open(CLONEDEV, O_RDWR);
 	if (!fd) {
 		perror("open(" CLONEDEV ")");
 		return 1;
 	}
 
-	memset(&ifr, 0, sizeof(ifr));
-	ifr.ifr_flags = iftype | IFF_NO_PI;
-	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
 	r = ioctl(fd, TUNSETIFF, &ifr);
 	if (r < 0) {
 		perror("ioctl(TUNSETIFF)");

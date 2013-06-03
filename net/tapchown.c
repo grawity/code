@@ -13,25 +13,39 @@
 char *arg0;
 
 static int usage() {
-	printf("Usage: %s <ifname> <uid>\n", arg0);
+	printf("Usage: %s {-n|-p} <ifname> <uid>\n", arg0);
 	return 2;
 }
 
 int main(int argc, char *argv[]) {
-	int iftype = -1, fd, r;
-	char *ifname;
+	int iftype = -1, opt, fd, r;
+	char *argp, *ifname;
 	uid_t owner;
 	struct ifreq ifr = {};
 
 	arg0 = argv[0];
 
-	if (argc < 3) {
+	while ((opt = getopt(argc, argv, "np")) != -1) {
+		switch (opt) {
+		case 'n':
+			iftype = IFF_TUN;
+			break;
+		case 'p':
+			iftype = IFF_TAP;
+			break;
+		default:
+			return usage();
+		}
+	}
+
+	if (argc - optind < 2) {
 		fprintf(stderr, "%s: missing arguments\n", arg0);
 		return usage();
 	}
 
-	ifname = argv[1];
-	owner = atoi(argv[2]);
+	argp   = argv[optind];
+	ifname = argp++;
+	owner  = atoi(argp++);
 
 	if (iftype == -1) {
 		if (strncmp(ifname, "tun", 3) == 0)

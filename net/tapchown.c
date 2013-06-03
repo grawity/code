@@ -39,7 +39,8 @@ int main(int argc, char *argv[]) {
 		else if (strncmp(ifname, "tap", 3) == 0)
 			iftype = IFF_TAP;
 		else {
-			fprintf(stderr, "Unknown device type\n");
+			fprintf(stderr, "%s: unknown device type for '%s'\n",
+				arg0, ifname);
 			return 3;
 		}
 	}
@@ -49,19 +50,22 @@ int main(int argc, char *argv[]) {
 
 	fd = open(CLONEDEV, O_RDWR);
 	if (!fd) {
-		perror("open(" CLONEDEV ")");
+		fprintf(stderr, "%s: could not open control device %s: %m\n",
+			arg0, CLONEDEV);
 		return 1;
 	}
 
 	r = ioctl(fd, TUNSETIFF, &ifr);
 	if (r < 0) {
-		perror("ioctl(TUNSETIFF)");
+		fprintf(stderr, "%s: could not select interface '%s' (TUNSETIFF): %m\n",
+			arg0, ifname);
 		return 1;
 	}
 
 	r = ioctl(fd, TUNSETOWNER, owner);
 	if (r < 0) {
-		perror("ioctl(TUNSETOWNER)");
+		fprintf(stderr, "%s: could not set interface owner to %d: %m\n",
+			arg0, owner);
 		return 1;
 	}
 

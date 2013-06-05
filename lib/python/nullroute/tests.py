@@ -43,8 +43,8 @@ def test_join(input):
 dir = "../.."
 
 f = 0
-f += run_test(dir+"/test-irc-parse.json", test_split)
-f += run_test(dir+"/test-irc-unparse.json", test_join)
+f += run_test(dir+"/test-irc-split.txt", test_split)
+f += run_test(dir+"/test-irc-join.txt", test_join)
 
 print("Total: %d failed" % f)
 

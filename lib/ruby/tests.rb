@@ -33,7 +33,7 @@ end
 dir = ".."
 f = 0
 
-f += run_test "#{dir}/test-irc-parse.json" do |input|
+f += run_test "#{dir}/test-irc-split.txt" do |input|
 	begin
 		IRC.parse(input).to_a
 	rescue RuntimeError
@@ -41,7 +41,7 @@ f += run_test "#{dir}/test-irc-parse.json" do |input|
 	end
 end
 
-f += run_test "#{dir}/test-irc-unparse.json" do |input|
+f += run_test "#{dir}/test-irc-join.txt" do |input|
 	begin
 		IRC.join(input)
 	rescue RuntimeError

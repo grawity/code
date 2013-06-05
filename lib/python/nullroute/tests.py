@@ -28,11 +28,9 @@ def run_test(file, func):
 def test_split(input):
 	input = input.encode("utf-8")
 	try:
-		output = irc.Line.split(input)
+		return irc.Line.split(input)
 	except ValueError:
 		return None
-	else:
-		return [p.decode("utf-8", "replace") for p in output]
 
 def test_join(input):
 	try:

@@ -68,34 +68,35 @@ class Line(object):
 		and the IRCv3 message-tags extension.
 		"""
 
-		line = line.rstrip(b"\r\n").split(b" ")
+		line = line.decode("utf-8", "replace")
+		line = line.rstrip("\r\n").split(" ")
 		i, n = 0, len(line)
 		parv = []
 
-		while i < n and line[i] == b"":
+		while i < n and line[i] == "":
 			i += 1
 
-		if i < n and line[i].startswith(b"@"):
+		if i < n and line[i].startswith("@"):
 			parv.append(line[i])
 			i += 1
-			while i < n and line[i] == b"":
+			while i < n and line[i] == "":
 				i += 1
 
-		if i < n and line[i].startswith(b":"):
+		if i < n and line[i].startswith(":"):
 			parv.append(line[i])
 			i += 1
-			while i < n and line[i] == b"":
+			while i < n and line[i] == "":
 				i += 1
 
 		while i < n:
-			if line[i].startswith(b":"):
+			if line[i].startswith(":"):
 				break
-			elif line[i] != b"":
+			elif line[i] != "":
 				parv.append(line[i])
 			i += 1
 
 		if i < n:
-			trailing = b" ".join(line[i:])
+			trailing = " ".join(line[i:])
 			parv.append(trailing[1:])
 
 		return parv
@@ -110,8 +111,6 @@ class Line(object):
 		parv = cls.split(line)
 		i, n = 0, len(parv)
 		self = cls()
-
-		parv = [p.decode("utf-8", "replace") for p in parv]
 
 		if i < n and parv[i].startswith("@"):
 			tags = parv[i][1:]

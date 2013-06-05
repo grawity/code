@@ -116,11 +116,13 @@ class Line(object):
 		if i < n and parv[i].startswith("@"):
 			tags = parv[i][1:]
 			i += 1
-			tags = [item.split("=", 1)
-					if "=" in item
-					else (item, True)
-					for item in tags.split(";")]
-			self.tags = dict(tags)
+			self.tags = dict()
+			for item in tags.split(";"):
+				if "=" in item:
+					k, v = item.split("=")
+				else:
+					k, v = item, true
+				self.tags[k] = v
 
 		if i < n and parv[i].startswith(":"):
 			prefix = parv[i][1:]

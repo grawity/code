@@ -44,13 +44,15 @@ re_youtube_full='^https?://www.youtube.com/watch.*[?&]v=([A-Za-z0-9_-]+)([&#]|$)
 re_youtube_short='^https?://youtu.be/([A-Za-z0-9_-]+)([?#]|$)'
 
 for url in "${urls[@]}"; do
+	# make a canonical URL
 	if [[ $url =~ $re_youtube_full ]]; then
 		url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
 	elif [[ $url =~ $re_youtube_short ]]; then
 		url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
 	fi
-	echo "url: $url"
+	echo "Downloading $url"
 
+	# obtain the output filename
 	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
 	f_name=${file%.*}
 	f_ext=${file##*.}
@@ -59,9 +61,14 @@ for url in "${urls[@]}"; do
 	fi
 	descr="$file.description"
 
+	# download the video
 	youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
 	test -s "$file" || continue
 
+	# note file modification time
+	mtime=$(stat -c %Y "$file")
+
+	# convert the container
 	case $file in
 	*.flv)
 		temp=$file; file=${file%.*}.mp4
@@ -70,6 +77,7 @@ for url in "${urls[@]}"; do
 		;;
 	esac
 
+	# update file tags
 	tagopts+=(-type "$kind")
 	if [[ -s "$descr" ]]; then
 		tagopts+=(-longdesc "$(< "$descr")")
@@ -77,5 +85,9 @@ for url in "${urls[@]}"; do
 	mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
 	rm -f "$descr"
 
+	# restore file modification time
+	touch --date="@$mtime" "$file"
+
+	# display summary
 	mp4info "$file"
 done

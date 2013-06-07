@@ -32,18 +32,29 @@ class KeeperError(Exception):
 	pass
 
 class WrongTypeError(KeeperError, IOError):
+	_fmt = "wrong type %r of block %r (expected: %r)"
+
+	def __init__(self, type, score, expected):
+		self.type     = type
+		self.score    = score
+		self.expected = expected
+
+		self.msg = self._fmt % (type, to_hex(score), expected)
+		self.args = [self.msg]
+
+class WrongSubTypeError(WrongTypeError):
 	_fmt = "wrong type %r of block %r (expected: %r from ref %r)"
 
 	def __init__(self, type, score, reftype, refscore):
 		self.type     = type
 		self.score    = score
-		self.reftype  = reftype
+		self.expected = expected
 		self.refscore = refscore
 
-		self.msg = self._fmt % (type, to_hex(score), reftype, to_hex(refscore))
+		self.msg = self._fmt % (type, to_hex(score), expected, to_hex(refscore))
 		self.args = [self.msg]
 
-class WrongReftypeError(WrongTypeError, IOError):
+class WrongSubReftypeError(WrongSubTypeError):
 	_fmt = "wrong reftype %r of ref %r (expected: %r from ref %r)"
 
 class Backend(object):
@@ -216,15 +227,17 @@ class Keeper(object):
 	# store/retrieve a stream as a series of blocks with a given type
 	# - retrieval fails if all blocks aren't of the same type
 
-	def put_blocks_fd(self, fd, type="data") -> "score[]":
+	def put_blocks_fd(self, fd, type="data") -> "length, score[]":
 		scores = []
+		length = 0
 		while True:
 			buf = fd.read(self.blocksize)
+			length += len(buf)
 			if not buf and len(scores) > 0:
 				break
 			score = self.store.put(buf, type)
 			scores.append(score)
-		return scores
+		return length, scores
 
 	def get_block_fd(self, score, fd) -> "length, type":
 		buf, type = self.store.get(score, verify=True)
@@ -250,17 +263,16 @@ class Keeper(object):
 	#   or a 'ref' block containing the original type and a list of blocks
 	# - when storing, if refblock is too large to fit in a single block,
 	#   iterate until only one block score (roothash) is returned
-	# - header is always 'ref: <type>\n' with original type
-	#   (extra fields are ignored)
 	# - when retrieving, the original type is taken from the *first* header seen
 	#   (i.e. always from the roothash); this is enforced
 
 	def put_ref_fd(self, fd, type) -> "roothash":
 		if type == "ref":
 			raise ValueError("cannot use 'ref' as a ref subtype")
-		scores = self.put_blocks_fd(fd, type)
+		size, scores = self.put_blocks_fd(fd, type)
+		nblocks, depth = len(scores), 0
 		while len(scores) != 1:
-			header = "ref: %s\n" % type
+			header = "ref: %s %d %d %d\n" % (type, size, nblocks, depth)
 			header = header.encode("utf-8")
 			max_scores = math.floor((self.blocksize - len(header)) \
 						/ (self.store.hashlen*2 + 1))
@@ -273,8 +285,10 @@ class Keeper(object):
 				if buf.tell() > self.blocksize:
 					raise IOError("ref larger than blocksize")
 				buf.seek(0)
-				refscores += self.put_blocks_fd(buf, "ref")
+				_, subrefscores = self.put_blocks_fd(buf, "ref")
+				refscores += subrefscores
 			scores = refscores
+			depth += 1
 		return scores[0]
 
 	def get_ref_fd(self, roothash, fd):
@@ -296,7 +310,7 @@ class Keeper(object):
 				if reftype is None:
 					reftype = type
 				elif reftype != type:
-					raise WrongReftypeError(type, score, reftype, roothash)
+					raise WrongSubReftypeError(type, score, reftype, roothash)
 				refscores = buf.read().rstrip(b"\n").split(b"\n")
 				refscores.reverse()
 				scores += [from_hex(s) for s in refscores]
@@ -304,7 +318,7 @@ class Keeper(object):
 				if reftype is None:
 					reftype = type
 				elif reftype != type:
-					raise WrongTypeError(type, score, reftype, roothash)
+					raise WrongSubTypeError(type, score, reftype, roothash)
 				block = buf.read()
 				fd.write(block)
 		return reftype
@@ -375,16 +389,61 @@ class Keeper(object):
 bs = FileBackend(os.path.expanduser("~/tmp/data"))
 ss = Keeper(bs)
 
+def parse_ref(score):
+	_fields = ["type", "size", "numblocks", "depth"]
+	_types = [str, int, int, int]
+
+	buf = BytesIO()
+	_, type = ss.get_block_fd(score, buf)
+	buf.seek(0)
+	if type == "ref":
+		header = buf.readline()
+		header = header.decode("utf-8", "replace").rstrip("\n")
+		if not header.startswith("ref: "):
+			raise ValueError("malformed header %r in ref %r" \
+				% (header, to_hex(score))) from None
+		_, *rest = header.split(" ")
+		return dict(zip(_fields, [t(v) for t, v in zip(_types, rest)]))
+	else:
+		raise WrongTypeError(type, score, "ref")
+
 def print_stat(score, print_data=False):
 	try:
 		block, type = ss.store.get(score)
 	except KeyError:
 		block, type = "", "missing"
 	print("score", to_hex(score), "type", type, "size", len(block))
+	if type == "ref":
+		refdata = parse_ref(score)
+		print("└", "ref.type", refdata["type"], "ref.size", refdata["size"],
+			"ref.nblocks", refdata["numblocks"], "ref.depth", refdata["depth"])
 	if print_data:
 		sys.stdout.flush()
 		with open("/dev/stdout", "wb") as fh:
 			ss.get_blocks_fd([score], fh)
+
+
+def get_tree(score, prefix=".", verbose=False):
+	mkdir_parents(prefix)
+	for score, type, path in ss.recurse_tree(score):
+		if verbose:
+			print(to_hex(score), type, path)
+		f = os.path.join(prefix, path)
+		if type == "tree":
+			mkdir_parents(f)
+		elif type == "blob":
+			with open(f, "wb") as fd:
+				ss.get_ref_fd(score, fd)
+		elif type == "link":
+			target, _ = ss.store.get(score)
+			try:
+				os.unlink(f)
+			except FileNotFoundError:
+				pass
+			os.symlink(target, f)
+		else:
+			raise IOError("unknown treeitem type %r in tree %r" \
+				% (type, to_hex(score)))
 
 args = sys.argv[1:]
 cmd = args[0] if args else "help"
@@ -410,30 +469,16 @@ try:
 	elif cmd == "getdir":
 		dir, score = args[1:]
 		score = from_hex(score)
-		if dir != "-":
-			mkdir_parents(dir)
-		for score, type, path in ss.recurse_tree(score):
-			print(to_hex(score), type, path)
-			if dir == "-":
-				continue
-			f = os.path.join(dir, path)
-			if type == "tree":
-				mkdir_parents(f)
-			elif type == "blob":
-				with open(f, "wb") as fd:
-					ss.get_ref_fd(score, fd)
-			elif type == "link":
-				target, _ = ss.store.get(score)
-				try:
-					os.unlink(f)
-				except FileNotFoundError:
-					pass
-				os.symlink(target, f)
+		if dir == "-":
+			for score, type, path in ss.recurse_tree(score):
+				print(to_hex(score), type, path)
+		else:
+			get_tree(score, dir, verbose=True)
 	elif cmd == "put":
 		type, = args[1:]
 		file = "/dev/stdin"
 		with open(file, "rb") as fd:
-			scores = ss.put_blocks_fd(fd, type)
+			_, scores = ss.put_blocks_fd(fd, type)
 		for score in scores:
 			print(to_hex(score))
 	elif cmd == "get":

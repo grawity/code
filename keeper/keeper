@@ -295,6 +295,8 @@ class Keeper(object):
 		scores = [roothash]
 		scores.reverse()
 		reftype = None
+		refdepth = -1
+		curdepth = 0
 		while len(scores) > 0:
 			score = scores.pop()
 			buf = BytesIO()
@@ -305,7 +307,7 @@ class Keeper(object):
 				header = header.decode("utf-8", "replace").rstrip("\n")
 				if not header.startswith("ref: "):
 					raise ValueError("malformed header %r in ref %r" \
-						% (header, to_hex(score))) from None
+						% (header, to_hex(score)))
 				_, type, *rest = header.split(" ")
 				if reftype is None:
 					reftype = type
@@ -314,6 +316,14 @@ class Keeper(object):
 				refscores = buf.read().rstrip(b"\n").split(b"\n")
 				refscores.reverse()
 				scores += [from_hex(s) for s in refscores]
+				if len(rest) > 2:
+					if refdepth < 0:
+						refdepth = int(rest[2])
+						curdepth = refdepth
+					elif str(curdepth) != rest[2]:
+						raise ValueError("wrong depth %r in ref %r (expected %d) while following root ref %r of depth %d" \
+							% (rest[2], to_hex(score), curdepth, to_hex(roothash), refdepth))
+				curdepth -= 1
 			else:
 				if reftype is None:
 					reftype = type
@@ -390,8 +400,8 @@ bs = FileBackend(os.path.expanduser("~/tmp/data"))
 ss = Keeper(bs)
 
 def parse_ref(score):
-	_fields = ["type", "size", "numblocks", "depth"]
-	_types = [str, int, int, int]
+	fields = ["type", "size", "nblocks", "depth"]
+	types = [str, int, int, int]
 
 	buf = BytesIO()
 	_, type = ss.get_block_fd(score, buf)
@@ -402,8 +412,12 @@ def parse_ref(score):
 		if not header.startswith("ref: "):
 			raise ValueError("malformed header %r in ref %r" \
 				% (header, to_hex(score))) from None
+		refscores = buf.read().rstrip(b"\n").split(b"\n")
 		_, *rest = header.split(" ")
-		return dict(zip(_fields, [t(v) for t, v in zip(_types, rest)]))
+		rest = [t(v) for t, v in zip(types, rest)]
+		data = dict(zip(fields, rest))
+		data["scores"] = [from_hex(s) for s in refscores]
+		return data
 	else:
 		raise WrongTypeError(type, score, "ref")
 
@@ -412,16 +426,83 @@ def print_stat(score, print_data=False):
 		block, type = ss.store.get(score)
 	except KeyError:
 		block, type = "", "missing"
+
 	print("score", to_hex(score), "type", type, "size", len(block))
+
 	if type == "ref":
 		refdata = parse_ref(score)
-		print("└", "ref.type", refdata["type"], "ref.size", refdata["size"],
-			"ref.nblocks", refdata["numblocks"], "ref.depth", refdata["depth"])
+		print("└", "reftype", refdata["type"], "size", refdata["size"],
+			"nblocks", refdata["nblocks"], "depth", refdata["depth"])
+
 	if print_data:
 		sys.stdout.flush()
 		with open("/dev/stdout", "wb") as fh:
 			ss.get_blocks_fd([score], fh)
 
+def print_object_tree(score, name=None, ctx=None):
+	try:
+		block, type = ss.store.get(score)
+	except KeyError:
+		block, type = "", "missing"
+
+	if ctx:
+		graph, prev_nleft = ctx
+	else:
+		graph, prev_nleft = [], 0
+
+	children = []
+	subtitle = []
+
+	def print_branch(graph, *args):
+		print("".join(graph), end="")
+		print(*args)
+
+	if type == "ref":
+		data = parse_ref(score)
+		children = [(s, []) for s in data["scores"]]
+		subtitle = ["ref:", data["type"], "size", data["size"],
+				"nblocks", data["nblocks"]]
+	elif type == "tree":
+		children = [(s, ["file:", repr(n), "type", t])
+			    for s, t, n in ss.parse_tree(score)]
+
+	if name:
+		print_branch(graph, *name)
+		graph.append("╚" + "═")
+		if len(graph) > 1:
+			graph[-2] = ("│" if prev_nleft > 0 else " ") + " "
+
+	print_branch(graph, "score:", to_hex(score), "type", type, "size", len(block))
+
+	if subtitle:
+		graph.append("╚" + "═")
+		if len(graph) > 1:
+			graph[-2] = ("│" if graph[-2][0] == "├" else " ") + " "
+		print_branch(graph, *subtitle)
+	
+	if len(children) > 0:
+		nleft = len(children)
+		graph.append(None)
+		for child_score, child_name in children:
+			nleft -= 1
+			graph[-1] = ("├" if nleft > 0 else "└") + "─"
+			if subtitle:
+				if len(graph) > 2:
+					graph[-3] = ("│" if prev_nleft > 0 and not name else " ") + " "
+				if len(graph) > 1:
+					graph[-2] = " " + " "
+			else:
+				if len(graph) > 1:
+					graph[-2] = ("│" if prev_nleft > 0 and not name else " ") + " "
+			print_object_tree(child_score, child_name,
+					(graph, nleft))
+		graph.pop() 
+	
+	if subtitle:
+		graph.pop()
+
+	if name:
+		graph.pop()
 
 def get_tree(score, prefix=".", verbose=False):
 	mkdir_parents(prefix)
@@ -491,6 +572,10 @@ try:
 		scores = args[1:]
 		for score in map(from_hex, scores):
 			print_stat(score, True)
+	elif cmd == "rstat":
+		scores = args[1:]
+		for score in map(from_hex, scores):
+			print_object_tree(score)
 	elif cmd == "chkblock":
 		scores = [from_hex(score) for score in args[1:]]
 		ss.verify_blocks(scores)

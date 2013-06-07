@@ -1,0 +1,459 @@
+#!/usr/bin/env python3
+import os
+import sys
+import hashlib
+import binascii
+from io import BytesIO
+from stat import *
+import zlib
+import math
+
+ZERO = "\0" * 20
+
+def to_hex(s, bin=False):
+	#if isinstance(s, str):
+	#	s = s.encode("utf-8")
+	h = binascii.b2a_hex(s)
+	return h if bin else h.decode("utf-8")
+
+def from_hex(s):
+	#if isinstance(s, str):
+	#	s = s.encode("utf-8")
+	return binascii.a2b_hex(s)
+
+def mkdir_parents(path):
+	head, tail = os.path.split(path)
+	if head and not os.path.exists(head):
+		mkdir_parents(head)
+	if not os.path.exists(path):
+		os.mkdir(path)
+
+class KeeperError(Exception):
+	pass
+
+class WrongTypeError(KeeperError, IOError):
+	_fmt = "wrong type %r of block %r (expected: %r from ref %r)"
+
+	def __init__(self, type, score, reftype, refscore):
+		self.type     = type
+		self.score    = score
+		self.reftype  = reftype
+		self.refscore = refscore
+
+		self.msg = self._fmt % (type, to_hex(score), reftype, to_hex(refscore))
+		self.args = [self.msg]
+
+class WrongReftypeError(WrongTypeError, IOError):
+	_fmt = "wrong reftype %r of ref %r (expected: %r from ref %r)"
+
+class Backend(object):
+	def _make_header(self, type: "str", size: "int") -> "header: bytes[]":
+		return ("%s %d\n" % (type, size)).encode("utf-8")
+
+	def hash(self, block: "bytes[]", type: "str") -> "score: bytes[]":
+		h = hashlib.sha1()
+		h.update(self._make_header(type, len(block)))
+		h.update(block)
+		return h.digest()
+
+	@property
+	def hashlen(self):
+		return hashlib.sha1().digest_size
+
+	def put(self, block: "bytes[]", type: "str") -> "score: bytes[]":
+		raise NotImplementedError
+
+	def get(self, score: "bytes[]") -> ("block: bytes[]", "type: str"):
+		raise NotImplementedError
+
+	def contains(self, score: "bytes[]") -> "bool":
+		raise NotImplementedError
+
+	def discard(self, score: "bytes[]") -> "void":
+		raise NotImplementedError
+
+class FileBackend(Backend):
+	def __init__(self, path):
+		self.path = path
+
+	def _hash_to_path(self, score, mkdir=False):
+		if len(score) != self.hashlen:
+			raise ValueError("hash %r has bad length" % to_hex(score))
+		sz = to_hex(score)
+		d = self.path + "/" + sz[:2]
+		f = "/" + sz[2:]
+		if mkdir:
+			mkdir_parents(d)
+		return d + f
+
+	def put(self, block, type):
+		score = self.hash(block, type)
+		p = self._hash_to_path(score, mkdir=True)
+		if not os.path.exists(p):
+			print("put", type, to_hex(score), file=sys.stderr)
+			header = self._make_header(type, len(block))
+			with open(p, "wb") as fd:
+				fd.write(header)
+				fd.write(block)
+		else:
+			print("skip", type, to_hex(score), file=sys.stderr)
+			pass
+		return score
+
+	def get(self, score, verify=False):
+		p = self._hash_to_path(score)
+		if not os.path.exists(p):
+			raise KeyError(to_hex(score))
+		with open(p, "rb") as fd:
+			header = fd.readline().strip()
+			block = fd.read()
+		header = header.decode("utf-8")
+		type, size, *rest = header.split(" ")
+		if len(block) != int(size):
+			raise IOError("block %r corrupted (size %d, expected %d)" \
+				% (to_hex(score), len(block), int(size)))
+		block_hash = self.hash(block, type)
+		if score != block_hash:
+			raise IOError("block %r corrupted (actual hash %r)" \
+				% (to_hex(score), to_hex(block_hash)))
+		return block, type
+
+	def contains(self, score):
+		p = self._hash_to_path(score)
+		return os.path.exists(p)
+
+	def discard(self, score):
+		p = self._hash_to_path(score)
+		if os.path.exists(p):
+			os.unlink(p)
+
+class KeyValueBackend(Backend):
+	def __init__(self):
+		raise NotImplementedError
+
+	def _block_key(self, score):
+		return "%s.data" % to_hex(score)
+
+	def _type_key(self, score):
+		return "%s.type" % to_hex(score)
+
+	def _make_keys(self, score):
+		score_h = to_hex(score)
+		return "%s.data" % score_h, "%s.type" % score_h
+
+class MemcachedBackend(KeyValueBackend):
+	def __init__(self, host="localhost"):
+		import memcache
+		self.client = memcache.Client(host)
+
+	def put(self, block, type):
+		score = self.hash(block, type)
+		block_key, type_key = self._make_keys(score)
+		if self.client.add(type_key, type):
+			self.client.add(block_key, block)
+		return score
+
+	def get(self, score):
+		block_key, type_key = self._make_keys(score)
+		data = self.client.get_multi([block_key, type_key])
+		if block_key in data and type_key in data:
+			return data[block_key], data[type_key]
+		else:
+			raise KeyError(to_hex(score))
+
+	def contains(self, score):
+		return self.client.get(self._type_key(score)) is not None
+
+	def discard(self, score):
+		block_key, type_key = self._make_keys(score)
+		self.client.delete_multi([block_key, type_key])
+
+class RedisBackend(KeyValueBackend):
+	def __init__(self, host="localhost"):
+		import redis
+		self.client = redis.Redis(host)
+	
+	def put(self, block, type):
+		score = self.hash(block, type)
+		block_key, type_key = self._make_keys(score)
+		if self.client.setnx(type_key, type):
+			self.client.setnx(block_key, block)
+		return score
+	
+	def get(self, score):
+		block_key, type_key = self._make_keys(score)
+		type = self.client.get(type_key)
+		if type:
+			block = self.client.get(block_key)
+
+		if type and block:
+			return block, type
+		else:
+			raise KeyError(to_hex(score))
+
+	def contains(self, score):
+		return self.client.exists(self._type_key(score))
+	
+	def discard(self, score):
+		block_key, type_key = self._make_keys(score)
+		self.client.delete(block_key, type_key)
+
+class Keeper(object):
+	def __init__(self, blockstore):
+		#self.blocksize = 1*1024*1024
+		self.blocksize = 4*1024 - 128
+		self.store = blockstore
+	
+	def verify_blocks(self, scores) -> "badscores[]":
+		bad = []
+		for score in scores:
+			try:
+				self.store.get(score, verify=True)
+			except IOError:
+				bad.append(score)
+		return bad
+	
+	# store/retrieve a stream as a series of blocks with a given type
+	# - retrieval fails if all blocks aren't of the same type
+
+	def put_blocks_fd(self, fd, type="data") -> "score[]":
+		scores = []
+		while True:
+			buf = fd.read(self.blocksize)
+			if not buf and len(scores) > 0:
+				break
+			score = self.store.put(buf, type)
+			scores.append(score)
+		return scores
+
+	def get_block_fd(self, score, fd) -> "length, type":
+		buf, type = self.store.get(score, verify=True)
+		fd.write(buf)
+		return len(buf), type
+
+	def get_blocks_fd(self, scores, fd) -> "length, type":
+		length = 0
+		first_type = None
+		for score in scores:
+			buf, type = self.store.get(score, verify=True)
+			if first_type is None:
+				first_type = type
+			elif first_type != type:
+				raise IOError("got %s, expected %s while reading %s" \
+					% (type, first_type, to_hex(score)))
+			length += len(buf)
+			fd.write(buf)
+		return length, first_type
+	
+	# store/retrieve a stream as a refblock
+	# - either a standalone data block with the given type,
+	#   or a 'ref' block containing the original type and a list of blocks
+	# - when storing, if refblock is too large to fit in a single block,
+	#   iterate until only one block score (roothash) is returned
+	# - header is always 'ref: <type>\n' with original type
+	#   (extra fields are ignored)
+	# - when retrieving, the original type is taken from the *first* header seen
+	#   (i.e. always from the roothash); this is enforced
+
+	def put_ref_fd(self, fd, type) -> "roothash":
+		if type == "ref":
+			raise ValueError("cannot use 'ref' as a ref subtype")
+		scores = self.put_blocks_fd(fd, type)
+		while len(scores) != 1:
+			header = "ref: %s\n" % type
+			header = header.encode("utf-8")
+			max_scores = math.floor((self.blocksize - len(header)) \
+						/ (self.store.hashlen*2 + 1))
+			refscores = []
+			for i in range(0, len(scores), max_scores):
+				buf = BytesIO()
+				buf.write(header)
+				for score in scores[i:i+max_scores-1]:
+					buf.write(to_hex(score, bin=True) + b"\n")
+				if buf.tell() > self.blocksize:
+					raise IOError("ref larger than blocksize")
+				buf.seek(0)
+				refscores += self.put_blocks_fd(buf, "ref")
+			scores = refscores
+		return scores[0]
+
+	def get_ref_fd(self, roothash, fd):
+		scores = [roothash]
+		scores.reverse()
+		reftype = None
+		while len(scores) > 0:
+			score = scores.pop()
+			buf = BytesIO()
+			length, type = self.get_block_fd(score, buf)
+			buf.seek(0)
+			if type == "ref":
+				header = buf.readline()
+				header = header.decode("utf-8", "replace").rstrip("\n")
+				if not header.startswith("ref: "):
+					raise ValueError("malformed header %r in ref %r" \
+						% (header, to_hex(score))) from None
+				_, type, *rest = header.split(" ")
+				if reftype is None:
+					reftype = type
+				elif reftype != type:
+					raise WrongReftypeError(type, score, reftype, roothash)
+				refscores = buf.read().rstrip(b"\n").split(b"\n")
+				refscores.reverse()
+				scores += [from_hex(s) for s in refscores]
+			else:
+				if reftype is None:
+					reftype = type
+				elif reftype != type:
+					raise WrongTypeError(type, score, reftype, roothash)
+				block = buf.read()
+				fd.write(block)
+		return reftype
+
+	def get_ref(self, roothash):
+		fd = BytesIO()
+		type = self.get_ref_fd(roothash, fd)
+		fd.seek(0)
+		return fd.read(), type
+	
+	# convenience functions
+
+	def put_link(self, file):
+		block = os.readlink(file.encode("utf-8"))
+		return ss.store.put(block, "blob")
+
+	def put_file(self, file):
+		with open(file, "rb") as fd:
+			score = self.put_ref_fd(fd, "blob")
+		return score
+
+	def put_tree(self, dir):
+		buf = BytesIO()
+		names = os.listdir(dir)
+		names.sort()
+		for name in names:
+			path = os.path.join(dir, name)
+			stat = os.lstat(path)
+			if S_ISLNK(stat.st_mode):
+				type = b"link"
+				score = self.put_link(path)
+			elif S_ISDIR(stat.st_mode):
+				type = b"tree"
+				score = self.put_tree(path)
+			elif S_ISREG(stat.st_mode):
+				type = b"blob"
+				score = self.put_file(path)
+			else:
+				continue
+			buf.write(to_hex(score, bin=True) + b" " + type + b" " \
+				+ name.encode("utf-8") + b"\n")
+		buf.seek(0)
+		return self.put_ref_fd(buf, "tree")
+
+	def parse_tree(self, tree_score):
+		buf = BytesIO()
+		type = self.get_ref_fd(tree_score, buf)
+		#buf, type = ss.store.get(tree_score)
+		if type != "tree":
+			raise ValueError("got %s, expected %s" % (type, "tree"))
+		buf.seek(0)
+		for line in buf.readlines():
+			line = line.decode("utf-8").rstrip("\n")
+			try:
+				score, type, name = line.split(" ", 2)
+			except ValueError:
+				raise ValueError("bad line %r in tree %s" \
+					% (line, to_hex(tree_score)))
+			yield from_hex(score), type, name
+
+	def recurse_tree(self, score, path_prefix=""):
+		for score, type, name in self.parse_tree(score):
+			path = os.path.join(path_prefix, name)
+			yield score, type, path
+			if type == "tree":
+				yield from self.recurse_tree(score, path)
+
+bs = FileBackend(os.path.expanduser("~/tmp/data"))
+ss = Keeper(bs)
+
+def print_stat(score, print_data=False):
+	try:
+		block, type = ss.store.get(score)
+	except KeyError:
+		block, type = "", "missing"
+	print("score", to_hex(score), "type", type, "size", len(block))
+	if print_data:
+		sys.stdout.flush()
+		with open("/dev/stdout", "wb") as fh:
+			ss.get_blocks_fd([score], fh)
+
+args = sys.argv[1:]
+cmd = args[0] if args else "help"
+
+try:
+	if cmd == "putfile":
+		file, = args[1:]
+		if file == "-":
+			file = "/dev/stdin"
+		score = ss.put_file(file)
+		print(to_hex(score))
+	elif cmd == "getfile":
+		file, score = args[1:]
+		if file == "-":
+			file = "/dev/stdout"
+		score = from_hex(score)
+		with open(file, "wb") as fd:
+			ss.get_ref_fd(score, fd)
+	elif cmd == "putdir":
+		dir, = args[1:]
+		score = ss.put_tree(dir)
+		print(to_hex(score))
+	elif cmd == "getdir":
+		dir, score = args[1:]
+		score = from_hex(score)
+		if dir != "-":
+			mkdir_parents(dir)
+		for score, type, path in ss.recurse_tree(score):
+			print(to_hex(score), type, path)
+			if dir == "-":
+				continue
+			f = os.path.join(dir, path)
+			if type == "tree":
+				mkdir_parents(f)
+			elif type == "blob":
+				with open(f, "wb") as fd:
+					ss.get_ref_fd(score, fd)
+			elif type == "link":
+				target, _ = ss.store.get(score)
+				try:
+					os.unlink(f)
+				except FileNotFoundError:
+					pass
+				os.symlink(target, f)
+	elif cmd == "put":
+		type, = args[1:]
+		file = "/dev/stdin"
+		with open(file, "rb") as fd:
+			scores = ss.put_blocks_fd(fd, type)
+		for score in scores:
+			print(to_hex(score))
+	elif cmd == "get":
+		scores = args[1:]
+		file = "/dev/stdout"
+		scores = map(from_hex, scores)
+		with open(file, "wb") as fd:
+			ss.get_blocks_fd(scores, fd)
+	elif cmd == "stat":
+		scores = args[1:]
+		for score in map(from_hex, scores):
+			print_stat(score, True)
+	elif cmd == "chkblock":
+		scores = [from_hex(score) for score in args[1:]]
+		ss.verify_blocks(scores)
+	elif cmd == "discard":
+		scores = args[1:]
+		for score in map(from_hex, scores):
+			ss.store.discard(score)
+	else:
+		print("Unknown command", file=sys.stderr)
+except BrokenPipeError:
+	pass

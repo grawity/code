@@ -138,7 +138,7 @@ class Line(object):
 		return self
 
 	@classmethod
-	def join(cls, argv, strict=True, encode=True):
+	def join(cls, argv):
 		i, n = 0, len(argv)
 
 		if i < n and argv[i].startswith("@"):

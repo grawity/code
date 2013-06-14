@@ -77,10 +77,10 @@ Recursively mkdir $trash_dir/{files,info} if necessary.
 
 sub ensure {
 	my ($trash_dir) = @_;
-	for ("$trash_dir/info", "$trash_dir/files") {
-		unless (-d) {
-			make_path($_, {mode => 0700}) or return 0;
-		}
+	for ($trash_dir, "$trash_dir/info", "$trash_dir/files") {
+		next     if -d $_;
+		return 0 if -e $_;
+		make_path($_, {mode => 0700}) or return 0;
 	}
 	return 1;
 }

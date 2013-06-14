@@ -21,7 +21,7 @@ my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
 my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
 
 sub verbose {
-	print @_ if $VERBOSE;
+	print "\r\033[K", @_ if $VERBOSE;
 }
 
 sub trace {
@@ -82,6 +82,30 @@ sub ensure {
 		return 0 if -e $_;
 		make_path($_, {mode => 0700}) or return 0;
 	}
+	return 1;
+}
+
+=item xdev_move($source, $dest) -> $success
+
+Copy a file or directory $source to $dest recursively and delete the originals.
+
+=cut
+
+sub xdev_move {
+	my ($source, $dest) = @_;
+	my @opt;
+	trace("xdev_move: source='$source'\n");
+	trace("xdev_move: dest='$dest'\n");
+	verbose("Copying '$source' to \$HOME...");
+	@opt = qw(-a -H -A -X);
+	$ENV{DEBUG} and push @opt, qw(-v -h);
+	system("rsync", @opt, "$source", "$dest") == 0
+		or return 0;
+	verbose("Removing '$source' after copying...");
+	@opt = qw(-r -f);
+	$ENV{DEBUG} and push @opt, qw(-v);
+	system("rm", @opt, $source) == 0
+		or return 0;
 	return 1;
 }
 
@@ -190,18 +214,23 @@ sub trash {
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	write_info($info_fh, $orig_path);
-	close($info_fh);
+	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
-		if (rename($orig_path, "$trash_dir/files/$name")) {
+		if (rename($orig_path, $trashed_path)) {
 			verbose("Trashed '$path'\n");
 		} else {
 			unlink($info_name);
 			die "trash: Rename of '$path' failed: $!\n";
 		}
 	} else {
-		unlink($info_name);
-		warn "trash: Skipped: '$path' (cannot trash to different filesystem yet)\n";
+		if (xdev_move($orig_path, $trashed_path)) {
+			verbose("Trashed '$path' to \$HOME\n");
+		} else {
+			unlink($info_name);
+			die "trash: Copy of '$path' to '$trash_dir' failed.\n";
+		}
 	}
+	close($info_fh);
 }
 
 GetOptions(

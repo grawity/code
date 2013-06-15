@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <util.h>
 
 key_serial_t def_keyring = KEY_SPEC_USER_KEYRING;
 
@@ -66,7 +67,8 @@ void Env_free(struct Env *ptr) {
 }
 
 void update_key(char *name) {
-	char *value, *desc;
+	char *value;
+	_cleanup_free_ char *desc;
 	key_serial_t id;
 
 	if (name[0] == '+') {
@@ -94,8 +96,6 @@ void update_key(char *name) {
 		if (id)
 			keyctl_unlink(id, def_keyring);
 	}
-
-	free(name);
 }
 
 void remove_all_keys() {

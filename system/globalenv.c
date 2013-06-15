@@ -8,7 +8,16 @@
 #include <unistd.h>
 #include <util.h>
 
+char *arg0;
+
 key_serial_t def_keyring = KEY_SPEC_USER_KEYRING;
+
+static int usage() {
+	printf("Usage: %s <program> [<args>...]\n", arg0);
+	printf("       %s -s <env>...\n", arg0);
+	printf("       %s -x\n", arg0);
+	return 2;
+}
 
 struct Env {
 	key_serial_t id;
@@ -71,8 +80,8 @@ void update_key(char *name) {
 	if (name[0] == '+') {
 		name++;
 		if (strchr(name, '=')) {
-			fprintf(stderr, "globalenv: Invalid variable name '%s'\n",
-				name);
+			fprintf(stderr, "%s: Invalid variable name '%s'\n",
+				arg0, name);
 			return;
 		}
 		value = getenv(name);
@@ -128,7 +137,8 @@ int run_with_env(int argc, char *argv[]) {
 	if (argc) {
 		r = execvp(argv[0], argv);
 		if (r < 0) {
-			fprintf(stderr, "globalenv: Could not run '%s': %m\n", argv[0]);
+			fprintf(stderr, "%s: Could not run '%s': %m\n",
+				arg0, argv[0]);
 			return 1;
 		}
 	}
@@ -137,17 +147,32 @@ int run_with_env(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-	if (argc > 1 && !strcmp(argv[1], "-s")) {
-		--argc; ++argv;
-		while (argc > 1) {
-			update_key(argv[1]);
-			--argc; ++argv;
+	int opt, mode = 0;
+
+	arg0 = argv[0];
+
+	while ((opt = getopt(argc, argv, ":sx")) != -1) {
+		switch (opt) {
+		case 's':
+		case 'x':
+			mode = opt;
+			break;
+		default:
+			return usage();
 		}
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	if (mode == 's') {
+		while (*argv)
+			update_key(*argv++);
 		return 0;
-	} else if (argc > 1 && !strcmp(argv[1], "-x")) {
+	} else if (mode == 'x') {
 		remove_all_keys();
 		return 0;
 	} else {
-		return run_with_env(argc-1, argv+1);
+		return run_with_env(argc, argv);
 	}
 }

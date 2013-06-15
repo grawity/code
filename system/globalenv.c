@@ -94,6 +94,8 @@ void update_key(char *name) {
 		if (id)
 			keyctl_unlink(id, def_keyring);
 	}
+
+	free(name);
 }
 
 void remove_all_keys() {

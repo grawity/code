@@ -18,6 +18,13 @@ static int usage() {
 	printf("       %s -s <env>...\n", arg0);
 	printf("       %s -x\n", arg0);
 	printf("\n");
+	printf("Options:\n");
+	printf("  -c    run given command through the shell\n");
+	printf("  -s    update global environment with given values\n");
+	printf("  -x    remove all values from the global environment\n");
+	printf("\n");
+	printf("If <program> is not given, the global environment variables are printed.\n");
+	printf("\n");
 	printf("<env> may be 'KEY=value' to set a variable; 'KEY=' or 'KEY' to remove it;\n");
 	printf("or '+KEY' to import from current environment (adding or removing). Empty\n");
 	printf("values are not allowed.\n");

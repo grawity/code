@@ -140,7 +140,7 @@ void import_env(bool print_only) {
 }
 
 int print_env(void) {
-	import_env(false);
+	import_env(true);
 
 	return 0;
 }
@@ -148,7 +148,7 @@ int print_env(void) {
 int execvp_with_env(int argc, char *argv[]) {
 	int r;
 
-	import_env(true);
+	import_env(false);
 
 	r = execvp(argv[0], argv);
 	if (r < 0) {
@@ -163,7 +163,7 @@ int execvp_with_env(int argc, char *argv[]) {
 int system_with_env(char *arg) {
 	int r;
 
-	import_env(true);
+	import_env(false);
 
 	r = system(arg);
 	if (r < 0) {

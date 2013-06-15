@@ -15,11 +15,13 @@ key_serial_t def_keyring = KEY_SPEC_USER_KEYRING;
 static int usage() {
 	printf("Usage: %s <program> [<args>...]\n", arg0);
 	printf("       %s -c <shellcommand>\n", arg0);
+	printf("       %s [-e]\n", arg0);
 	printf("       %s -s <env>...\n", arg0);
 	printf("       %s -x\n", arg0);
 	printf("\n");
 	printf("Options:\n");
 	printf("  -c    run given command through the shell\n");
+	printf("  -e    shell-escape environment values when printing\n");
 	printf("  -s    update global environment with given values\n");
 	printf("  -x    remove all values from the global environment\n");
 	printf("\n");
@@ -135,6 +137,30 @@ int clear_env() {
 	return 0;
 }
 
+char * shell_escape(const char *str) {
+	char *output, *ptr;
+
+	output = malloc(strlen(str) * 2 + 3);
+
+	ptr = output;
+	*ptr++ = '"';
+	while (*str) {
+		switch (*str) {
+		case '"':
+		case '$':
+		case '\\':
+		case '`':
+			*ptr++ = '\\';
+		default:
+			*ptr++ = *str++;
+		}
+	}
+	*ptr++ = '"';
+	*ptr++ = '\0';
+
+	return output;
+}
+
 void import_env(void) {
 	struct Env *envlistp, *envp;
 
@@ -150,16 +176,22 @@ void import_env(void) {
 	Env_free(envlistp);
 }
 
-int print_env(void) {
+int print_env(bool escape) {
 	struct Env *envlistp, *envp;
 
 	envlistp = Env_enum();
 
 	Env_each(envp, envlistp) {
 		_cleanup_free_ char *value = NULL;
+		_cleanup_free_ char *escaped = NULL;
 
 		keyctl_read_alloc(envp->id, (void**)&value);
-		printf("%s=%s\n", envp->name, value);
+		if (escape) {
+			escaped = shell_escape(value);
+			printf("%s=%s\n", envp->name, escaped);
+		} else {
+			printf("%s=%s\n", envp->name, value);
+		}
 	}
 
 	Env_free(envlistp);
@@ -199,6 +231,7 @@ int system_with_env(char *arg) {
 
 int main(int argc, char *argv[]) {
 	int opt, mode = 0;
+	bool escape = false;
 
 	arg0 = argv[0];
 
@@ -210,6 +243,9 @@ int main(int argc, char *argv[]) {
 			if (mode)
 				return usage();
 			mode = opt;
+			break;
+		case 'e':
+			escape = true;
 			break;
 		default:
 			return usage();
@@ -237,6 +273,6 @@ int main(int argc, char *argv[]) {
 		if (argc)
 			return execvp_with_env(argc, argv);
 		else
-			return print_env();
+			return print_env(escape);
 	}
 }

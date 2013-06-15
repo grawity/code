@@ -15,7 +15,7 @@ struct Env {
 	struct Env *next;
 };
 
-struct Env * enum_environs(void) {
+struct Env * Env_enum(void) {
 	key_serial_t *ringp, *keyp;
 	size_t ringz;
 	struct Env *env = NULL, *lastenv = NULL;
@@ -90,7 +90,7 @@ void update_key(char *name) {
 void remove_all_keys() {
 	struct Env *envlistp, *envp;
 
-	envlistp = enum_environs();
+	envlistp = Env_enum();
 
 	Env_each(envp, envlistp) {
 		keyctl_unlink(envp->id, def_keyring);
@@ -99,11 +99,11 @@ void remove_all_keys() {
 	Env_free(envlistp);
 }
 
-int do_run_with_env(int argc, char *argv[]) {
+int run_with_env(int argc, char *argv[]) {
 	struct Env *envlistp, *envp;
 	int r;
 
-	envlistp = enum_environs();
+	envlistp = Env_enum();
 
 	Env_each(envp, envlistp) {
 		char *value = NULL;
@@ -136,13 +136,11 @@ int main(int argc, char *argv[]) {
 			update_key(argv[1]);
 			--argc; ++argv;
 		}
-
 		return 0;
 	} else if (argc > 1 && !strcmp(argv[1], "-x")) {
 		remove_all_keys();
-
 		return 0;
 	} else {
-		return do_run_with_env(argc-1, argv+1);
+		return run_with_env(argc-1, argv+1);
 	}
 }

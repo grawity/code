@@ -181,6 +181,8 @@ int main(int argc, char *argv[]) {
 		case 'c':
 		case 's':
 		case 'x':
+			if (mode)
+				return usage();
 			mode = opt;
 			break;
 		default:

@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+csx")) != -1) {
+	while ((opt = getopt(argc, argv, "+cesx")) != -1) {
 		switch (opt) {
 		case 'c':
 		case 's':

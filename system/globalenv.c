@@ -109,7 +109,7 @@ void update_env(char *name) {
 	}
 }
 
-void clear_env() {
+int clear_env() {
 	struct Env *envlistp, *envp;
 
 	envlistp = Env_enum();
@@ -119,6 +119,8 @@ void clear_env() {
 	}
 
 	Env_free(envlistp);
+
+	return 0;
 }
 
 void import_env(bool print_only) {
@@ -202,8 +204,10 @@ int main(int argc, char *argv[]) {
 			update_env(*argv++);
 		return 0;
 	} else if (mode == 'x') {
-		clear_env();
-		return 0;
+		if (argc == 0)
+			return clear_env();
+		else
+			return usage();
 	} else if (mode == 'c') {
 		if (argc == 1)
 			return system_with_env(argv[0]);

@@ -135,7 +135,7 @@ int clear_env() {
 	return 0;
 }
 
-void import_env(bool print_only) {
+void import_env(void) {
 	struct Env *envlistp, *envp;
 
 	envlistp = Env_enum();
@@ -144,17 +144,25 @@ void import_env(bool print_only) {
 		_cleanup_free_ char *value = NULL;
 
 		keyctl_read_alloc(envp->id, (void**)&value);
-		if (print_only)
-			printf("%s=%s\n", envp->name, value);
-		else
-			setenv(envp->name, value, true);
+		setenv(envp->name, value, true);
 	}
 
 	Env_free(envlistp);
 }
 
 int print_env(void) {
-	import_env(true);
+	struct Env *envlistp, *envp;
+
+	envlistp = Env_enum();
+
+	Env_each(envp, envlistp) {
+		_cleanup_free_ char *value = NULL;
+
+		keyctl_read_alloc(envp->id, (void**)&value);
+		printf("%s=%s\n", envp->name, value);
+	}
+
+	Env_free(envlistp);
 
 	return 0;
 }
@@ -162,7 +170,7 @@ int print_env(void) {
 int execvp_with_env(int argc, char *argv[]) {
 	int r;
 
-	import_env(false);
+	import_env();
 
 	r = execvp(argv[0], argv);
 	if (r < 0) {
@@ -177,7 +185,7 @@ int execvp_with_env(int argc, char *argv[]) {
 int system_with_env(char *arg) {
 	int r;
 
-	import_env(false);
+	import_env();
 
 	r = system(arg);
 	if (r < 0) {

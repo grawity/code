@@ -17,6 +17,10 @@ static int usage() {
 	printf("       %s -c <shellcommand>\n", arg0);
 	printf("       %s -s <env>...\n", arg0);
 	printf("       %s -x\n", arg0);
+	printf("\n");
+	printf("<env> may be 'KEY=value' to set a variable; 'KEY=' or 'KEY' to remove it;\n");
+	printf("or '+KEY' to import from current environment (adding or removing). Empty\n");
+	printf("values are not allowed.\n");
 	return 2;
 }
 

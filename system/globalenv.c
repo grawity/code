@@ -86,7 +86,7 @@ void Env_free(struct Env *ptr) {
 
 void update_env(char *name) {
 	char *value;
-	_cleanup_free_ char *desc;
+	_cleanup_free_ char *desc = NULL;
 	key_serial_t id;
 
 	if (name[0] == '+') {
@@ -101,6 +101,11 @@ void update_env(char *name) {
 		value = strchr(name, '=');
 		if (value)
 			*value++ = '\0';
+	}
+
+	if (!*name) {
+		fprintf(stderr, "%s: Empty variable name not allowed\n", arg0);
+		return;
 	}
 
 	asprintf(&desc, "env:%s", name);

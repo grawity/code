@@ -27,25 +27,22 @@ struct Env * Env_enum(void) {
 	     ringz > 0;
 	     ringz -= sizeof(key_serial_t), ++keyp)
 	{
-		char *rdesc = NULL, *desc;
+		_cleanup_free_ char *rdesc = NULL;
+		char *desc;
 
 		keyctl_describe_alloc(*keyp, &rdesc);
 		if (strncmp(rdesc, "user;", 5))
-			goto next;
+			continue;
 
 		desc = strrchr(rdesc, ';') + 1;
 		if (strncmp(desc, "env:", 4))
-			goto next;
+			continue;
 
 		lastenv = env;
 		env = malloc(sizeof(struct Env));
 		env->id = *keyp;
 		env->name = strdup(desc + 4);
 		env->next = lastenv;
-
-next:
-		if (rdesc)
-			free(rdesc);
 	}
 
 	free(ringp);
@@ -117,14 +114,13 @@ int run_with_env(int argc, char *argv[]) {
 	envlistp = Env_enum();
 
 	Env_each(envp, envlistp) {
-		char *value = NULL;
+		_cleanup_free_ char *value = NULL;
 
 		keyctl_read_alloc(envp->id, (void**)&value);
 		if (argc)
 			setenv(envp->name, value, true);
 		else
 			printf("%s=%s\n", envp->name, value);
-		free(value);
 	}
 
 	Env_free(envlistp);

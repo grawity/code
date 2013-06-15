@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 key_serial_t def_keyring = KEY_SPEC_USER_KEYRING;
 
@@ -15,7 +16,7 @@ struct Env {
 };
 
 struct Env * enum_environs(void) {
-	key_serial_t *ringp, *keyp, key;
+	key_serial_t *ringp, *keyp;
 	size_t ringz;
 	struct Env *env = NULL, *lastenv = NULL;
 
@@ -26,9 +27,8 @@ struct Env * enum_environs(void) {
 	     ringz -= sizeof(key_serial_t), ++keyp)
 	{
 		char *rdesc = NULL, *desc;
-		size_t descz;
 
-		descz = keyctl_describe_alloc(*keyp, &rdesc);
+		keyctl_describe_alloc(*keyp, &rdesc);
 		if (strncmp(rdesc, "user;", 5))
 			goto next;
 
@@ -89,7 +89,6 @@ void update_key(char *name) {
 
 void remove_all_keys() {
 	struct Env *envlistp, *envp;
-	int r;
 
 	envlistp = enum_environs();
 

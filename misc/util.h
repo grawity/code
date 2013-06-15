@@ -4,6 +4,8 @@
 
 int mkdir_p(const char *, mode_t);
 
+char * shell_escape(const char *);
+
 static inline int streq(const char *a, const char *b) {
 	return strcmp(a, b) == 0;
 }

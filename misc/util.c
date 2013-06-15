@@ -43,3 +43,27 @@ int mkdir_p(const char *path, mode_t mode) {
 
 	return 0;
 }
+
+char * shell_escape(const char *str) {
+	char *output, *ptr;
+
+	output = malloc(strlen(str) * 2 + 3);
+
+	ptr = output;
+	*ptr++ = '"';
+	while (*str) {
+		switch (*str) {
+		case '"':
+		case '$':
+		case '\\':
+		case '`':
+			*ptr++ = '\\';
+		default:
+			*ptr++ = *str++;
+		}
+	}
+	*ptr++ = '"';
+	*ptr++ = '\0';
+
+	return output;
+}

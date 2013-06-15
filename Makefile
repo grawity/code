@@ -95,7 +95,7 @@ $(OBJ)/libfunlink.so:	system/libfunlink.c
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
-$(OBJ)/globalenv:	system/globalenv.c | misc/util.h
+$(OBJ)/globalenv:	system/globalenv.c misc/util.c
 $(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c

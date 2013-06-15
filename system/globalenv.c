@@ -90,7 +90,7 @@ void update_key(char *name) {
 		if (value)
 			*value++ = '\0';
 	}
-	
+
 	asprintf(&desc, "env:%s", name);
 
 	if (value && *value) {
@@ -116,9 +116,8 @@ void remove_all_keys() {
 	Env_free(envlistp);
 }
 
-int run_with_env(int argc, char *argv[]) {
+void import_env(bool print_only) {
 	struct Env *envlistp, *envp;
-	int r;
 
 	envlistp = Env_enum();
 
@@ -126,21 +125,31 @@ int run_with_env(int argc, char *argv[]) {
 		_cleanup_free_ char *value = NULL;
 
 		keyctl_read_alloc(envp->id, (void**)&value);
-		if (argc)
-			setenv(envp->name, value, true);
-		else
+		if (print_only)
 			printf("%s=%s\n", envp->name, value);
+		else
+			setenv(envp->name, value, true);
 	}
 
 	Env_free(envlistp);
+}
 
-	if (argc) {
-		r = execvp(argv[0], argv);
-		if (r < 0) {
-			fprintf(stderr, "%s: Could not run '%s': %m\n",
-				arg0, argv[0]);
-			return 1;
-		}
+int print_env(void) {
+	import_env(false);
+
+	return 0;
+}
+
+int execvp_with_env(int argc, char *argv[]) {
+	int r;
+
+	import_env(true);
+
+	r = execvp(argv[0], argv);
+	if (r < 0) {
+		fprintf(stderr, "%s: Could not run '%s': %m\n",
+			arg0, argv[0]);
+		return 1;
 	}
 
 	return 0;
@@ -173,6 +182,9 @@ int main(int argc, char *argv[]) {
 		remove_all_keys();
 		return 0;
 	} else {
-		return run_with_env(argc, argv);
+		if (argc)
+			return execvp_with_env(argc, argv);
+		else
+			return print_env();
 	}
 }

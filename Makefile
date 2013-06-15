@@ -68,7 +68,7 @@ mrproper:
 
 BASIC_BINS := args natsort pause proctool silentcat spawn strtool zlib
 KRB_BINS   := k5userok pklist
-LINUX_BINS := linux26 setns subreaper tapchown
+LINUX_BINS := globalenv linux26 setns subreaper tapchown
 MISC_BINS  := bgrep logwipe libfunlink.so ttysize writevt xor xors
 
 .PHONY: all basic krb linux misc
@@ -94,6 +94,8 @@ $(OBJ)/libfunlink.so:	system/libfunlink.c
 
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
+$(OBJ)/globalenv:	LDLIBS += -lkeyutils
+$(OBJ)/globalenv:	system/globalenv.c
 $(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c

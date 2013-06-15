@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, ":sx")) != -1) {
+	while ((opt = getopt(argc, argv, "+sx")) != -1) {
 		switch (opt) {
 		case 's':
 		case 'x':

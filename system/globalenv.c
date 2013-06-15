@@ -85,7 +85,7 @@ void update_key(char *name) {
 	
 	asprintf(&desc, "env:%s", name);
 
-	if (value) {
+	if (value && *value) {
 		id = add_key("user", desc, (void *)value,
 		             strlen(value), def_keyring);
 	} else {

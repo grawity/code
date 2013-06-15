@@ -69,10 +69,19 @@ void update_key(char *name) {
 	char *value, *desc;
 	key_serial_t id;
 
-	value = strchr(name, '=');
-
-	if (value)
-		*value++ = '\0';
+	if (name[0] == '+') {
+		name++;
+		if (strchr(name, '=')) {
+			fprintf(stderr, "globalenv: Invalid variable name '%s'\n",
+				name);
+			return;
+		}
+		value = getenv(name);
+	} else {
+		value = strchr(name, '=');
+		if (value)
+			*value++ = '\0';
+	}
 	
 	asprintf(&desc, "env:%s", name);
 

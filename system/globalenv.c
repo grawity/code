@@ -14,6 +14,7 @@ key_serial_t def_keyring = KEY_SPEC_USER_KEYRING;
 
 static int usage() {
 	printf("Usage: %s <program> [<args>...]\n", arg0);
+	printf("       %s -c <shellcommand>\n", arg0);
 	printf("       %s -s <env>...\n", arg0);
 	printf("       %s -x\n", arg0);
 	return 2;
@@ -155,13 +156,29 @@ int execvp_with_env(int argc, char *argv[]) {
 	return 0;
 }
 
+int system_with_env(char *arg) {
+	int r;
+
+	import_env(true);
+
+	r = system(arg);
+	if (r < 0) {
+		fprintf(stderr, "%s: Could not run '%s': %m\n",
+			arg0, arg);
+		return 1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 	int opt, mode = 0;
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+sx")) != -1) {
+	while ((opt = getopt(argc, argv, "+csx")) != -1) {
 		switch (opt) {
+		case 'c':
 		case 's':
 		case 'x':
 			mode = opt;
@@ -181,6 +198,11 @@ int main(int argc, char *argv[]) {
 	} else if (mode == 'x') {
 		remove_all_keys();
 		return 0;
+	} else if (mode == 'c') {
+		if (argc == 1)
+			return system_with_env(argv[0]);
+		else
+			return usage();
 	} else {
 		if (argc)
 			return execvp_with_env(argc, argv);

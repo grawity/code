@@ -77,7 +77,7 @@ void Env_free(struct Env *ptr) {
 	}
 }
 
-void update_key(char *name) {
+void update_env(char *name) {
 	char *value;
 	_cleanup_free_ char *desc;
 	key_serial_t id;
@@ -109,7 +109,7 @@ void update_key(char *name) {
 	}
 }
 
-void remove_all_keys() {
+void clear_env() {
 	struct Env *envlistp, *envp;
 
 	envlistp = Env_enum();
@@ -199,10 +199,10 @@ int main(int argc, char *argv[]) {
 
 	if (mode == 's') {
 		while (*argv)
-			update_key(*argv++);
+			update_env(*argv++);
 		return 0;
 	} else if (mode == 'x') {
-		remove_all_keys();
+		clear_env();
 		return 0;
 	} else if (mode == 'c') {
 		if (argc == 1)

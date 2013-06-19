@@ -28,6 +28,18 @@ colwidth=11
 readc() { read -p "$(printf '%*s ' $colwidth "$1")" -r "${@:2}"; }
 echoc() { printf "%*s %s\n" $colwidth "$1" "${*:2}"; }
 
+readp() {
+	if [[ "$DISPLAY" ]]; then
+		printf '%*s ' $colwidth "$1"
+		local r=$(~/code/tools/askpin -p "$1" -t "${0##*/}" -W "$WINDOWID" \
+			-d "Generating a commitment for '$domain' at $date.")
+		declare -g "$2=$r"
+	else
+		readc "$1" -s "$2"
+	fi
+	printf '...\n'
+}
+
 domain=$1
 date=$2
 hash=$3
@@ -65,7 +77,7 @@ if ! [[ "$date" ]]; then
 	stop "Invalid date."
 fi
 
-readc "passphrase?" -s passphrase; echo "..."
+readp "passphrase?" passphrase
 
 if ! [[ "$passphrase" ]]; then
 	stop "Passphrase is empty."

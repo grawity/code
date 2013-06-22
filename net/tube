@@ -85,6 +85,11 @@ for url in "${urls[@]}"; do
 	mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
 	rm -f "$descr"
 
+	# set some standard xattrs
+	{ setfattr -n "user.xdg.origin.url"   -v "$url" "$file"
+	  setfattr -n "user.xdg.referrer.url" -v "$url" "$file"
+	} >& /dev/null
+
 	# restore file modification time
 	touch --date="@$mtime" "$file"
 

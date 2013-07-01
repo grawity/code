@@ -83,18 +83,31 @@ sub ip2host {
 	return $name;
 }
 
+sub format_name {
+	my $name = shift;
+	if (length $name == 16) {
+		$name =~ s/(.)$/sprintf "<%02X>", ord $1/e;
+	} elsif ($name =~ /#([0-9a-f]{2})$/i) {
+		$name =~ s//"<".uc($1).">"/e;
+	}
+	$name =~ s/[^\x21-\x7e]/sprintf "\\x%02X", ord $&/ge;
+	return $name;
+}
+
 sub lookup {
 	my $name = shift;
 	my $suffix = shift // 0x00;
 	$name = sprintf "%s#%02x", $name, $suffix;
-	nmblookup($name);
+	return nmblookup($name);
 }
 
 sub nmbstat {
+	my @names = @_;
 	my @results;
 	my $addr;
-	printlog("resolving @_ using NBSTAT");
-	open my $fd, "-|", (@nmblookup_args, "--status", @_);
+	my @safe_names = map {"'$_'"} map {format_name($_)} @names;
+	printlog("resolving @safe_names using NBSTAT");
+	open my $fd, "-|", (@nmblookup_args, "--status", @names);
 	while (<$fd>) {
 		my @r;
 		if (@r = /^Looking up status of (\S+)$/) {

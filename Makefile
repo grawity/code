@@ -66,7 +66,7 @@ mrproper:
 
 # compile targets
 
-BASIC_BINS := args natsort pause proctool silentcat spawn strtool zlib
+BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool zlib
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv linux26 setns subreaper tapchown
 MISC_BINS  := bgrep logwipe libfunlink.so ttysize writevt xor xors
@@ -99,6 +99,8 @@ $(OBJ)/globalenv:	system/globalenv.c misc/util.c
 $(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
+$(OBJ)/mkpasswd:	LDLIBS += -lcrypt
+$(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
 $(OBJ)/pause:		system/pause.c

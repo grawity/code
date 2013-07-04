@@ -8,19 +8,14 @@ ruby=$(which ruby)
 if [ -d "$src" ]; then
 	cd "$src"
 	git pull
-	if [ -d build ]; then
-		rm -rf prevbuild
-		mv build prevbuild
-	fi
 else
 	git clone "$repo" "$src"
 	cd "$src"
 fi
+git checkout -f
+git clean -fdx
 mkdir build
 cd build
 cmake .. -D"PREFIX=$prefix" -D"RUBY_EXECUTABLE=$ruby" -D"ENABLE_NLS=OFF"
 make
-if [ -d ../prevbuild ]; then
-	(cd prevbuild && make uninstall) && true
-fi
 make install

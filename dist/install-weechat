@@ -5,14 +5,21 @@ src=~/src/weechat
 prefix=~/lib/weechat
 ruby=$(which ruby)
 
-if [ -d "$src" ]; then
-	cd "$src"
-	git pull
-else
+commit="$1"
+
+if [ ! -d "$src" ]; then
 	git clone "$repo" "$src"
-	cd "$src"
 fi
-git checkout -f
+
+git fetch
+
+if [ "$commit" ]; then
+	git checkout -f "$commit"
+else
+	git checkout -f master
+	git merge --ff-only @{upstream}
+fi
+
 git clean -fdx
 
 mkdir build

@@ -27,6 +27,7 @@ colwidth=11
 readc() { read -p "$(printf '%*s ' $colwidth "$1")" -r "${@:2}"; }
 echoc() { printf "%*s %s\n" $colwidth "$1" "${*:2}"; }
 
+reads() { readc "$1" -e -i "${!2}" "$2"; }
 readp() {
 	if [[ "$DISPLAY" ]]; then
 		printf '%*s ' $colwidth "$1"
@@ -57,7 +58,7 @@ esac
 if [[ "$domain" ]]; then
 	echoc "domain:" "$domain"
 else
-	readc "domain?" -e -i "$domain" domain
+	reads "domain?" domain
 fi
 
 if ! [[ "$domain" ]]; then
@@ -68,7 +69,7 @@ if [[ "$date" ]]; then
 	date=$(fmtdate "$date")
 	echoc "date:" "$date"
 else
-	readc "date?" -e -i "$date" date
+	reads "date?" date
 	date=$(fmtdate "${date:-today}")
 fi
 

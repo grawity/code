@@ -45,6 +45,17 @@ sub interval {
 	else		{ "${s} secs" }
 }
 
+sub read_file {
+	my ($path) = @_;
+	my $output;
+
+	open(my $file, "<", $path) or die "$!";
+	chomp($output = <$file>);
+	close($file);
+
+	return $output;
+}
+
 sub enum_ccaches {
 	my @ccaches;
 
@@ -301,8 +312,7 @@ if (-d $runprefix) {
 if ($cccurrent =~ m|^DIR::(.+)$|) {
 	$cccdir = dirname($1);
 	if (-f "$cccdir/primary") {
-		# TODO: deshell
-		chomp($cccprimary = qx(cat "$cccdir/primary"));
+		$cccprimary = read_file("$cccdir/primary");
 	} else {
 		$cccprimary = "tkt";
 	}

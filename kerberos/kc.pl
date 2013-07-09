@@ -45,6 +45,17 @@ sub interval {
 	else		{ "${s} secs" }
 }
 
+sub read_proc {
+	my @argv = @_;
+	my $output;
+
+	open(my $proc, "-|", @argv) or die "$!";
+	chomp($output = <$proc>);
+	close($proc);
+
+	return $output;
+}
+
 sub read_file {
 	my ($path) = @_;
 	my $output;
@@ -94,8 +105,7 @@ sub enum_ccaches {
 		   qx(keyctl rlist \@s 2>/dev/null),
 		   qx(keyctl rlist \@u 2>/dev/null);
 	for my $key (@keys) {
-		# TODO: deshell
-		chomp(my $desc = qx(keyctl rdescribe "$key"));
+		my $desc = read_proc("keyctl", "rdescribe", $key);
 		if ($desc =~ /^keyring;.*?;.*?;.*?;(krb5cc\.*)$/) {
 			push @ccaches, "KEYRING:$1";
 		}
@@ -422,7 +432,7 @@ for ($cmd) {
 	}
 	when ("purge") {
 		for my $ccname (@caches) {
-			chomp(my $principal = qx(pklist -c "$ccname" -P));
+			my $principal = read_proc("pklist", "-c", $ccname, "-P");
 			say "Renewing credentials for $principal in $ccname";
 			system("kinit", "-c", $ccname, "-R") == 0
 				|| system("kdestroy", "-c", $ccname);
@@ -467,8 +477,7 @@ for ($cmd) {
 			my $tgt_expiry;
 			my $init_expiry;
 
-			# TODO: deshell
-			chomp($principal = qx(pklist -Pc "$ccname"));
+			$principal = read_proc("pklist", "-P", "-c", $ccname);
 			if ($principal ne $cmd) {
 				next;
 			}

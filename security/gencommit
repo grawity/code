@@ -14,10 +14,9 @@
 #
 #     public = hashfunc ( secret )
 #
-#     commitment = public + " " + date + " " + hashfunc
+#     commitment = public + " " + domain + " " + date + " " + hashfunc
 
 fmtseed() { printf '%s %s %s' "$@"; }
-fmtcommit() { printf '%s %s %s' "$@"; }
 fmtdate() { date -d "$1" +'%Y-%m-%d'; }
 fmthashfunc() { printf '%s' "$1" | tr 'A-Z' 'a-z' | tr -d -c 'a-z0-9'; }
 
@@ -83,12 +82,12 @@ if ! [[ "$passphrase" ]]; then
 	stop "Passphrase is empty."
 fi
 
-echoc "seed:" "$(fmtseed "$domain" "$date" "...")"
-
 secret=$(fmtseed "$domain" "$date" "$passphrase" | hash)
+
+public=$(printf '%s' "$secret" | hash)
+
+echoc "hash input:" "$(fmtseed "$domain" "$date" "...")"
 
 echoc "secret:" "$(printf '\e[31m%s\e[m' "$secret")"
 
-commitment=$(printf '%s' "$secret" | hash)
-
-echoc "commitment:" "$(fmtcommit "$commitment" "$date" "$hash")"
+echoc "commitment:" "$(printf '\e[32m%s\e[m' "$public") $domain $date $hash"

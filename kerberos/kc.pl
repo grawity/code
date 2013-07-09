@@ -4,7 +4,7 @@
 use warnings;
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use strict;
-use feature qw(say switch);
+use feature qw(say state switch);
 use English;
 use File::Basename;
 use File::stat;
@@ -45,10 +45,58 @@ sub interval {
 	else		{ "${s} secs" }
 }
 
+sub which {
+	my $name = shift;
+	state %paths;
+
+	return $name if $name =~ m|/|;
+
+	if (!exists $paths{$name}) {
+		($paths{$name}) = grep {-x}
+				map {"$_/$name"}
+				map {$_ || "."}
+				split(/:/, $ENV{PATH});
+	}
+
+	return $paths{$name};
+}
+
+sub run_proc {
+	my @argv = @_;
+
+	$argv[0] = which($argv[0]);
+
+	return system(@argv);
+}
+
+sub read_proc {
+	my @argv = @_;
+	my $output;
+
+	$argv[0] = which($argv[0]);
+
+	open(my $proc, "-|", @argv) or die "$!";
+	chomp($output = <$proc>);
+	close($proc);
+
+	return $output;
+}
+
+sub read_file {
+	my ($path) = @_;
+	my $output;
+
+	open(my $file, "<", $path) or die "$!";
+	chomp($output = <$file>);
+	close($file);
+
+	return $output;
+}
+
 sub enum_ccaches {
 	my @ccaches;
 
-	open(my $proc, "-|", "pklist", "-l", "-N") or die "$!";
+	open(my $proc, "-|", which("pklist"), "-l", "-N") or die "$!";
 	push @ccaches, grep {chomp or 1} <$proc>;
 	close($proc);
 
@@ -83,8 +131,7 @@ sub enum_ccaches {
 		   qx(keyctl rlist \@s 2>/dev/null),
 		   qx(keyctl rlist \@u 2>/dev/null);
 	for my $key (@keys) {
-		# TODO: deshell
-		chomp(my $desc = qx(keyctl rdescribe "$key"));
+		my $desc = read_proc("keyctl", "rdescribe", $key);
 		if ($desc =~ /^keyring;.*?;.*?;.*?;(krb5cc\.*)$/) {
 			push @ccaches, "KEYRING:$1";
 		}
@@ -99,7 +146,7 @@ sub enum_ccaches {
 		push @ccaches, $cccurrent;
 	}
 
-	@ccaches = grep {system("pklist", "-q", "-c", $_) == 0} @ccaches;
+	@ccaches = grep {run_proc("pklist", "-q", "-c", $_) == 0} @ccaches;
 
 	return @ccaches;
 }
@@ -245,7 +292,7 @@ sub switch_ccache {
 		when (m|^DIR::(.+)$|) {
 			my $ccdirname = "DIR:".dirname($1);
 			put_env("KRB5CCNAME", $ccdirname);
-			system("kswitch", "-c", $ccname);
+			run_proc("kswitch", "-c", $ccname);
 		}
 		when (m|^KEYRING:(.*)$|) {
 			my $keyname = $1;
@@ -265,8 +312,8 @@ sub switch_ccache {
 		}
 	}
 
-	if (system("pklist", "-q") == 0) {
-		chomp(my $princ = qx(pklist -P));
+	if (run_proc("pklist", "-q") == 0) {
+		my $princ = read_proc("pklist", "-P");
 		say "Switched to \e[1m$princ\e[m ($ccname)";
 	} else {
 		say "New ccache ($ccname)";
@@ -275,7 +322,7 @@ sub switch_ccache {
 	return 1;
 }
 
-if (!grep {-x "$_/pklist"} map {$_ || "."} split(/:/, $ENV{PATH})) {
+if (!which("pklist")) {
 	die "\e[1mError:\e[m Please install 'pklist' to use this tool.\n";
 }
 
@@ -301,8 +348,7 @@ if (-d $runprefix) {
 if ($cccurrent =~ m|^DIR::(.+)$|) {
 	$cccdir = dirname($1);
 	if (-f "$cccdir/primary") {
-		# TODO: deshell
-		chomp($cccprimary = qx(cat "$cccdir/primary"));
+		$cccprimary = read_file("$cccdir/primary");
 	} else {
 		$cccprimary = "tkt";
 	}
@@ -342,7 +388,7 @@ for ($cmd) {
 			my $name_color = "";
 			my $princ_color = "";
 
-			open(my $proc, "-|", "pklist", "-c", $ccname) or die "$!";
+			open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
 			while (<$proc>) {
 				chomp;
 				my @l = split(/\t/, $_);
@@ -412,15 +458,15 @@ for ($cmd) {
 	}
 	when ("purge") {
 		for my $ccname (@caches) {
-			chomp(my $principal = qx(pklist -c "$ccname" -P));
+			my $principal = read_proc("pklist", "-c", $ccname, "-P");
 			say "Renewing credentials for $principal in $ccname";
-			system("kinit", "-c", $ccname, "-R") == 0
-				|| system("kdestroy", "-c", $ccname);
+			run_proc("kinit", "-c", $ccname, "-R") == 0
+			|| run_proc("kdestroy", "-c", $ccname);
 		}
 	}
 	when ("destroy") {
 		my @destroy = grep {defined} map {expand_ccname($_)} @ARGV;
-		system("kdestroy", "-c", $_) for @destroy;
+		run_proc("kdestroy", "-c", $_) for @destroy;
 	}
 	when ("clean") {
 		TODO;
@@ -457,15 +503,14 @@ for ($cmd) {
 			my $tgt_expiry;
 			my $init_expiry;
 
-			# TODO: deshell
-			chomp($principal = qx(pklist -Pc "$ccname"));
+			$principal = read_proc("pklist", "-P", "-c", $ccname);
 			if ($principal ne $cmd) {
 				next;
 			}
 			$principal =~ /.*@(.+)$/
 				and $ccrealm = $1;
 
-			open(my $proc, "-|", "pklist", "-c", $ccname) or die "$!";
+			open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
 			while (my $line = <$proc>) {
 				chomp($line);
 				my @l = split(/\t/, $line);
@@ -494,14 +539,14 @@ for ($cmd) {
 			switch_ccache($max_ccname) || exit 1;
 		} else {
 			switch_ccache("new") || exit 1;
-			system("kinit", $cmd, @ARGV);
+			run_proc("kinit", $cmd, @ARGV);
 		}
 	}
 	default {
 		my $ccname = expand_ccname($cmd);
 		if (defined $ccname) {
 			switch_ccache($ccname) || exit 1;
-			system("kinit", @ARGV) if @ARGV;
+			run_proc("kinit", @ARGV) if @ARGV;
 		} else {
 			exit 1;
 		}

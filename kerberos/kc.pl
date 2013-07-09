@@ -138,7 +138,6 @@ sub enum_ccaches {
 	}
 
 	@ccaches = uniq sort @ccaches;
-			uniq sort @ccaches;
 
 	my $have_current = ($cccurrent ~~ @ccaches);
 	my $have_default = ($ccdefault ~~ @ccaches);

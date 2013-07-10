@@ -17,6 +17,9 @@ http_fetch() {
 	elif have w3m; then
 		debug "found w3m"
 		w3m -o 'auto_uncompress=1' -dump_source "$url" > "$out"
+	elif have fetch; then
+		debug "found libfetch"
+		fetch -o "$out" "$url"
 	elif have links; then
 		debug "found Links"
 		links -source "$url" > "$out"

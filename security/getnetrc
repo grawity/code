@@ -47,13 +47,18 @@ exception of the \'service@machine\' extension specific to grawity\'s netrc.
 
 sub lookup {
 	my ($machines, $login) = @_;
+	my $fallback;
 	for my $machine (@$machines) {
 		my $en = Net::Netrc->lookup($machine, $login);
-		unless (!defined $en or (!defined $en->{machine} and $no_default)) {
-			return $en;
+		if (defined $en) {
+			if (defined $en->{machine}) {
+				return $en;
+			} else {
+				$fallback //= $en;
+			}
 		}
 	}
-	return undef;
+	return $fallback;
 }
 
 # parse format string

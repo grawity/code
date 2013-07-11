@@ -35,6 +35,24 @@ class State(dict):
 			if self[prop] > minval:
 				self[prop] -= 1
 
+	def incr_carry(self, *props):
+		for prop in props:
+			minval, maxval = properties[prop]
+			if self[prop] < maxval:
+				self[prop] += 1
+				break
+			else:
+				self[prop] = 0
+
+	def decr_carry(self, *props):
+		for prop in props:
+			minval, maxval = properties[prop]
+			if self[prop] > minval:
+				self[prop] -= 1
+				break
+			else:
+				self[prop] = maxval
+
 	def reset(self, *props):
 		for prop in props:
 			minval, maxval = properties[prop]
@@ -232,6 +250,8 @@ while True:
 		elif k in "-":	state.decr("red", "green", "blue")
 		elif k in "0":	state.reset("red", "green", "blue")
 		elif k in "+":	state.incr("red", "green", "blue")
+		elif k in "/":	state.decr_carry("blue", "green", "red")
+		elif k in "*":	state.incr_carry("blue", "green", "red")
 	elif state["mode"] == "sys":
 		if k == "g":		state["mode"] = "iso"
 		elif k == "G":		state["mode"] = "rgb"

@@ -90,25 +90,30 @@ $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
 $(OBJ)/libfunlink.so:	LDLIBS += -ldl
 $(OBJ)/libfunlink.so:	system/libfunlink.c
 
+# objects
+
+$(OBJ)/misc_util.o:	misc/util.c | misc/util.h
+$(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
+
 # executables
 
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
-$(OBJ)/globalenv:	system/globalenv.c misc/util.c
+$(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/mkpasswd:	LDLIBS += -lcrypt
 $(OBJ)/mkpasswd:	security/mkpasswd.c
-$(OBJ)/natsort:		thirdparty/natsort.c thirdparty/strnatcmp.c
+$(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
 $(OBJ)/pause:		system/pause.c
-$(OBJ)/proctool:	system/proctool.c misc/util.c
+$(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/setns:		system/setns.c
 $(OBJ)/silentcat:	misc/silentcat.c
-$(OBJ)/spawn:		system/spawn.c misc/util.c
-$(OBJ)/strtool:		misc/strtool.c misc/util.c
+$(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
+$(OBJ)/strtool:		misc/strtool.c $(OBJ)/misc_util.o
 $(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/ttysize:		system/ttysize.c
@@ -118,14 +123,14 @@ $(OBJ)/xors:		misc/xors.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c
 
-# extra files
-
-misc/util.c:		| misc/util.h
-
 # general rules
 
+$(OBJ)/%.o:
+	@echo "  CC    $(notdir $@) ($<)"
+	@$(COMPILE.c) $(OUTPUT_OPTION) $<
+
 $(OBJ)/%:		| dist/empty.c
-	@echo "    CC  $(notdir $@) ($^)"
+	@echo "  CCLD  $(notdir $@) ($^)"
 	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 $(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)

@@ -133,7 +133,7 @@ $(OBJ)/%:		| dist/empty.c
 	@echo "  CCLD  $(notdir $@) ($^)"
 	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-$(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS = $(KRB_LDLIBS)
+$(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS += $(KRB_LDLIBS)
 
 # hack for old Make (unsupported order-only deps)
 

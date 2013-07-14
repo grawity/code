@@ -22,6 +22,11 @@ log() {
 	echo "-- $*"
 }
 
+status() {
+	settitle "$progname: $*"
+	log "$*"
+}
+
 say() {
 	if [[ $VERBOSE ]]; then
 		echo "$*"

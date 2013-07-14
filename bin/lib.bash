@@ -22,6 +22,11 @@ log() {
 	echo "-- $*"
 }
 
+status() {
+	log "$*"
+	settitle "$progname: $*"
+}
+
 say() {
 	if [[ $VERBOSE ]]; then
 		echo "$*"
@@ -51,7 +56,7 @@ confirm() {
 }
 
 backtrace() {
-	echo "call stack:"
+	echo "$progname: call stack:"
 	for i in "${!BASH_SOURCE[@]}"; do
 		echo "... ${BASH_SOURCE[i]}:${BASH_LINENO[i]} @ ${FUNCNAME[i]}"
 	done
@@ -75,6 +80,13 @@ use() {
 
 have() {
 	command -v "$1" >&/dev/null
+}
+
+older_than() {
+	local file=$1 date=$2 filets= datets=
+	filets=$(stat -c %y "$file")
+	datets=$(date +%s -d "$date ago")
+	(( filets < datets ))
 }
 
 ## Final

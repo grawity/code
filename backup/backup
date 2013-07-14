@@ -2,11 +2,12 @@
 
 . lib.bash
 
-log() {
+status() {
 	if [[ -t 0 ]]
 		then printf '\e[1;36m--\e[m \e[36m%s\e[m\n' "$*"
 		else printf '-- %s\n' "$*"
 	fi
+	settitle "$progname: $*"
 }
 
 umask 077
@@ -83,7 +84,7 @@ case $job in
 		do_unison Attic-snow -batch
 		;;
 	push-hd)
-		say "Repacking repositories..."
+		log "Repacking repositories..."
 		git all-repack ~/projects
 		#dirs=(	~/{bin,projects,code,lib/dotfiles}
 		#	~/{.ecryptfs,Private}
@@ -100,7 +101,7 @@ case $job in
 		do_rsync decay:irclogs/ ~/Attic/Chatlogs/current/
 		;;
 	servers)
-		for host in $(cat ~/Backup/hosts.txt); do
+		for host in $(< ~/Backup/hosts.txt); do
 			$0 @$host
 		done
 		$0 irc
@@ -112,11 +113,11 @@ case $job in
 			-F
 		;;
 	cluenet)
-		say "Downloading accounts.git from virgule..."
+		log "Downloading accounts.git from virgule..."
 		(cd "$b/virgule.cluenet.org/accounts/"
 		do_kstart git pull origin)
 
-		say "Downloading all backups from radian..."
+		log "Downloading all backups from radian..."
 		(cd "$b/radian.cluenet.org/accounts/"
 		do_kstart git pull origin)
 		do_kstart rsync -aHAXvz --delete \
@@ -145,9 +146,9 @@ case $job in
 		host=virgule
 		path=pub/git
 		dst=~/Backup/nullroute-git/
-		say "Repacking remote repositories..."
+		log "Repacking remote repositories..."
 		ssh $host "git all-repack ~/$path"
-		say "Updating local backup..."
+		log "Updating local backup..."
 		do_rsync --copy-links "$host:$path/" "$dst"
 		;;
 	twitter)

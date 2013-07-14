@@ -125,7 +125,7 @@ $(OBJ)/zlib:		thirdparty/zpipe.c
 
 # general rules
 
-$(OBJ)/%.o:
+$(OBJ)/%.o:		| dist/empty.c
 	@echo "  CC    $(notdir $@) ($<)"
 	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 

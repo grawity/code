@@ -27,20 +27,18 @@ test "$DISTTYPE" || {
 
 unset nofail
 
-while getopts 'DOdhmu:v' OPT; do
-case -$OPT in
-	"-D")	echo "$DIST"; exit;;
-	"-O")	echo "$OSTYPE"; exit;;
-	"-d")	echo "$DISTTYPE"; exit;;
-	"-h")	echo "$HOSTTYPE"; exit;;
-	"-m")	echo "$MACHTYPE"; exit;;
-	"-u")	out=$OPTARG;;
-	"-v")	echo "ostype:   O=$OSTYPE";
-		echo "dist:     D=$DIST";
-		echo "hosttype: h=$HOSTTYPE";
-		echo "machtype: m=$MACHTYPE";
-		echo "disttype: d=$DISTTYPE";
+while getopts 'DOdhmou:v' OPT; do
+case $OPT in
+	"D")	echo "$DIST"; exit;;
+	"O")	echo "$OSTYPE"; exit;;
+	"d")	echo "$DISTTYPE"; exit;;
+	"h")	echo "$HOSTTYPE"; exit;;
+	"m")	echo "$MACHTYPE"; exit;;
+	"o")	RUNOPT=$OPT;;
+	"u")	out=$OPTARG;;
+	"v")	RUNOPT=$OPT;
 		nofail=y;;
+	"?")	exit 2;;
 esac
 done
 
@@ -74,9 +72,15 @@ else
 	fi
 fi
 
-case $1 in
-	"-o")	echo "$OBJDIR"; exit;;
-	"-v")	echo "obj:      o=${OBJDIR-?}"; exit;;
+case $RUNOPT in
+	"o")	echo "$OBJDIR"; exit;;
+	"v")	echo "ostype:   O=$OSTYPE";
+		echo "dist:     D=$DIST";
+		echo "hosttype: h=$HOSTTYPE";
+		echo "machtype: m=$MACHTYPE";
+		echo "disttype: d=$DISTTYPE";
+		echo "obj:      o=${OBJDIR-?}";
+		exit;;
 esac
 
 # Create build directory and update symlink

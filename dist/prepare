@@ -11,6 +11,7 @@ test "$MAKELEVEL" ||
 # Variables:
 #
 #   $OSTYPE	- system		- set by default in GNU bash
+#					| with fallback $(uname)
 #
 #   $HOSTTYPE	- architecture		- set by default in GNU bash
 #   					| with fallback $(uname -m)
@@ -19,6 +20,7 @@ test "$MAKELEVEL" ||
 #   					| with fallback $HOSTTYPE-$OSTYPE
 #
 #   $HOSTNAME	- hostname		- set by default in GNU bash
+#					| with fallback $(hostname)
 #
 #   $DIST	- distro		- detected from various sources
 #   					| from /etc/os-release $ID
@@ -26,6 +28,11 @@ test "$MAKELEVEL" ||
 #					| from distro-specific files
 #
 #   $DISTTYPE	- arch-kernel-distro	- built from $HOSTTYPE-$(uname)-$DIST
+
+test "$OSTYPE" || {
+	log "warning: system does not set \$OSTYPE" >&2
+	OSTYPE="$(uname)"
+}
 
 test "$HOSTTYPE" || {
 	log "warning: system does not set \$HOSTTYPE" >&2
@@ -48,6 +55,11 @@ test "$DISTTYPE" || {
 		DIST="unknown"
 	fi
 	DISTTYPE="$HOSTTYPE-$(uname)-$DIST"
+}
+
+test "$HOSTNAME" || {
+	log "warning: system does not set \$HOSTNAME" >&2
+	HOSTNAME="$(hostname)"
 }
 
 # Parse command line

@@ -50,17 +50,27 @@ int main(int argc, char *argv[]) {
 	else if (streq(cmd, "wait")) {
 		pid_t pid;
 		char path[20]; // enough for /proc/ + 32-bit PID
-		if (argc < 3) {
+		int interval = 1;
+		if (argc > 2) {
+			pid = atoi(argv[++i]);
+			if (!pid) {
+				fprintf(stderr, "Bad PID\n");
+				return 2;
+			}
+		} else {
 			fprintf(stderr, "Missing argument\n");
 			return 2;
-		} else {
-			pid = atoi(argv[++i]);
-			if (!pid)
+		}
+		if (argc > 3) {
+			interval = atoi(argv[++i]);
+			if (!interval) {
+				fprintf(stderr, "Bad interval\n");
 				return 2;
+			}
 		}
 		sprintf(path, "/proc/%d", pid);
 		while (access(path, F_OK) == 0)
-			sleep(1);
+			sleep(interval);
 		if (errno == ENOENT)
 			return 0;
 		else {

@@ -3,6 +3,25 @@ set -e
 
 log() { echo "dist/prepare: $*"; }
 
+usage() {
+	echo "Usage: dist/prepare {-D|-O|-d|-h|-m|-o|-v}"
+	echo "       dist/prepare -u {arch|dist|host}"
+	echo ""
+	echo "  -D    print distribution"
+	echo "  -O    print GNU ostype"
+	echo "  -d    print \$dist"
+	echo "  -h    print GNU hosttype"
+	echo "  -m    print GNU machtype (\$arch)"
+	echo "  -o    print object directory for chosen -u"
+	echo "  -u    use given object directory (arch, dist, host)"
+	echo "  -v    print all collected information"
+	echo ""
+	echo "Object directory types:"
+	echo "  arch  \"arch.\$MACHTYPE\""
+	echo "  dist  \"dist.\$HOSTTYPE-\$(uname)-\$DIST\""
+	echo "  host  \"host.\$(hostname)\""
+}
+
 test "$MAKELEVEL" ||
 	cd ~/code
 
@@ -77,7 +96,7 @@ case $OPT in
 	"u")	out=$OPTARG;;
 	"v")	RUNOPT=$OPT;
 		nofail=y;;
-	"?")	exit 2;;
+	"?")	usage; exit 2;;
 esac
 done
 

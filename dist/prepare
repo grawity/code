@@ -8,6 +8,23 @@ test "$MAKELEVEL" ||
 
 # Collect OS information
 
+# Variables:
+#
+#   $OSTYPE	- system		- set by default in GNU bash
+#
+#   $HOSTTYPE	- architecture		- set by default in GNU bash
+#   					| with fallback $(uname -m)
+#
+#   $MACHTYPE	- arch-company-system	- set by default in GNU bash
+#   					| with fallback $HOSTTYPE-$OSTYPE
+#
+#   $DIST	- distro		- detected from various sources
+#   					| from /etc/os-release $ID
+#   					| from /etc/lsb-release $DISTRIB_ID
+#					| from distro-specific files
+#
+#   $DISTTYPE	- arch-kernel-distro	- built from $HOSTTYPE-$(uname)-$DIST
+
 test "$HOSTTYPE" ||
 	HOSTTYPE="$(uname -m)"
 
@@ -76,6 +93,8 @@ else
 	fi
 fi
 
+# Handle remaining command-line options
+
 case $RUNOPT in
 	"o")	echo "$OBJDIR"; exit;;
 	"v")	echo "ostype:   O=${OSTYPE-?}";
@@ -87,7 +106,7 @@ case $RUNOPT in
 		exit;;
 esac
 
-# Create build directory and update symlink
+# Create build directory and re-symlink $HOSTOBJ to point to it
 
 if test "$out"; then
 	if test -L "$HOSTOBJ"; then

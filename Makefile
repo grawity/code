@@ -79,10 +79,12 @@ linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
 misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
 
 all: basic krb misc
-
 ifeq ($(UNAME),Linux)
 all: linux
 endif
+
+# advertised in the pklist readme
+pklist: $(OBJ)/pklist
 
 # libraries
 

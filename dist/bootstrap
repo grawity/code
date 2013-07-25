@@ -162,4 +162,24 @@ if have perl && ! have cpanm; then
 	fi
 fi
 
+# set up misc
+
+collect_url=git://nullroute.eu.org/trash.git
+collect_ref=refs/collect/$HOSTNAME
+
+if (
+	t_file='100644 blob'
+	b_collect=$(dist/collect | git mkobject)
+	b_prepare=$(dist/prepare -v | git mkobject)
+	b_tree=$(printf '%s %s %s\t%s\n' \
+		$t_file $b_collect 'dist-collect' \
+		$t_file $b_prepare 'dist-prepare' \
+		| git mktree)
+	b_commit=$(echo "System information about $FQDN" | git commit-tree $b_tree)
+	git push --quiet $collect_url $b_commit:$collect_ref
+); then
+	log "collected system information in $collect_ref"
+fi
+
+
 wait

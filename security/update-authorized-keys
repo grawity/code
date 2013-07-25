@@ -67,12 +67,13 @@ fetch() {
 }
 
 verify() {
-	local file=$1 out=
-	debug "verifying signature of $file"
-	if out=$($GPG --status-fd 1 --verify "$file" 2>/dev/null) &&
-	   grep -qs "^\[GNUPG:\] VALIDSIG $KEYFP " <<<"$out" &&
-	   grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<<"$out"; then
-		say "$out"
+	local input=$1 output=$2 status=
+
+	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
+	                 --decrypt "$input" 2> /dev/null) \
+	&& grep -qs "^\[GNUPG:\] VALIDSIG $KEYFP " <<< "$status" \
+	&& grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$status"; then
+		say "$status"
 	else
 		echo "$out" >&2
 		err "failed to verify $file"
@@ -133,18 +134,28 @@ fi
 
 mkdir -p -m 0700 "${file%/*}"
 
-temp=$(mktemp "$file.XXXXXXXX") || exit
+tmp_signed=$(mktemp "$file.XXXXXXXX")
 
-if fetch "$SRCURL" "$temp" && verify "$temp"; then
-	{
-	echo "# updated: at $(date +"%Y-%m-%d %H:%M")"
-	echo "# updated: from $SRCURL"
-	$GPG --decrypt "$temp" 2>/dev/null
-	if [ -s "$file.local" ]; then
-		echo "# updated: from $file.local"
-		cat "$file.local"
-	fi
-	} | filter_keys >"$file"
+if ! fetch "$SRCURL" "$tmp_signed"; then
+	rm -f "$tmp_signed"
+	die "fetch of $SRCURL failed"
 fi
 
-rm -f "$temp"
+tmp_plain=$(mktemp "$file.XXXXXXXX")
+
+if ! verify "$tmp_signed" "$tmp_plain"; then
+	rm -f "$tmp_plain"
+	die "verification of $tmp_signed failed"
+fi
+
+{ echo "# updated: at $(date +"%Y-%m-%d %H:%M")"
+  echo "# updated: from $SRCURL"
+  cat "$tmp_plain"
+  if [ -s "$file.local" ]; then
+	echo "# updated: from $file.local"
+	cat "$file.local"
+  fi
+  echo "# updated: end"
+} | filter_keys >"$file"
+
+rm -f "$tmp_plain" "$tmp_signed"

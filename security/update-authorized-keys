@@ -37,11 +37,11 @@ usage() {
 } >&2
 
 recv_key() {
-	local key=$1 out=
-	if out=$($GPG --keyserver "$KEYSERVER" --recv-key "$key" 2>&1); then
-		say "$out"
+	local key=$1 status=
+	if status=$($GPG --keyserver "$KEYSERVER" --recv-key "$key" 2>&1); then
+		say "$status"
 	else
-		echo "$out" >&2
+		echo "$status" >&2
 		warn "failed to receive key $key from $KEYSERVER"
 		return 1
 	fi
@@ -62,7 +62,6 @@ fetch() {
 		sleep $retry_wait
 		(( retry_wait *= 2 ))
 	done
-	err "failed to fetch $url"
 	return 1
 }
 
@@ -75,8 +74,7 @@ verify() {
 	&& grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$status"; then
 		say "$status"
 	else
-		echo "$out" >&2
-		err "failed to verify $file"
+		echo "$status" >&2
 		return 1
 	fi
 }
@@ -116,7 +114,7 @@ else
 fi
 
 # ensure key exists in keyring
-	
+
 if $import; then
 	if confirm "import key $KEYFP?"; then
 		VERBOSE=true recv_key "$KEYFP" &&
@@ -124,7 +122,7 @@ if $import; then
 	else
 		exit
 	fi
-elif $GPG --list-keys "$KEYFP" >/dev/null; then
+elif $GPG --list-keys "$KEYFP" > /dev/null; then
 	recv_key "$KEYFP"
 else
 	die "key $KEYFP not in keyring"
@@ -156,6 +154,6 @@ fi
 	cat "$file.local"
   fi
   echo "# updated: end"
-} | filter_keys >"$file"
+} | filter_keys > "$file"
 
 rm -f "$tmp_plain" "$tmp_signed"

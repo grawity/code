@@ -270,16 +270,12 @@ sub collapse_ccname {
 
 sub cmp_ccnames {
 	my ($a, $b) = @_;
-	$a = "FILE:$a" unless $a =~ /:/;
-	$b = "FILE:$b" unless $b =~ /:/;
-	return 1 if $a eq $b;
-}
-
-sub cmp_ccnames_gen {
-	my ($a, $b) = @_;
 	my $primary = "tkt";
 
-	return 1 if cmp_ccnames($a, $b);
+	$a = "FILE:$a" unless $a =~ /:/;
+	$b = "FILE:$b" unless $b =~ /:/;
+
+	return 1 if $a eq $b;
 
 	if ($a =~ /^DIR:([^:].*)$/) {
 		if (-e "$1/primary") {
@@ -299,15 +295,15 @@ sub cmp_ccnames_gen {
 }
 
 sub ccache_is_default {
-	return cmp_ccnames_gen(shift, $ccdefault);
+	return cmp_ccnames(shift, $ccdefault);
 }
 
 sub ccache_is_environ {
-	return cmp_ccnames_gen(shift, $ccenviron);
+	return cmp_ccnames(shift, $ccenviron);
 }
 
 sub ccache_is_current {
-	return cmp_ccnames_gen(shift, $cccurrent);
+	return cmp_ccnames(shift, $cccurrent);
 }
 
 sub put_env {

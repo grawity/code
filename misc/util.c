@@ -6,13 +6,14 @@
 
 int mkdir_p(const char *path, mode_t mode) {
 	struct stat st;
-	const char *p, *e;
+	_cleanup_free_ const char *p = NULL;
+	const char *e;
 	int r;
 
 	e = strrchr(path, '/');
 	if (!e)
 		return -EINVAL;
-	p = strndupa(path, e - path);
+	p = strndup(path, e - path);
 
 	r = stat(p, &st);
 	if (r == 0 && !S_ISDIR(st.st_mode))

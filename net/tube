@@ -7,7 +7,7 @@ options=(
 	--write-description
 	#--write-info-json
 	)
-urls=()
+url=''
 tagopts=()
 kind=music
 
@@ -15,7 +15,12 @@ while (( $# )); do
 	arg=$1
 	case $arg in
 	http://*|https://*)
-		urls+=("$arg");;
+		if [[ $url ]]; then
+			echo "error: Only one URL can be specified" >&2
+			exit 1
+		else
+			url=$arg
+		fi;;
 	-kind|-type)
 		kind=$2; shift;;
 	-title)
@@ -40,8 +45,8 @@ while (( $# )); do
 	shift
 done
 
-if (( ${#urls[@]} == 0 )); then
-	echo "Usage: tube [-tagopt...] [--dlopt...] URL..."
+if [[ ! $url ]]; then
+	echo "Usage: tube [-tagopt...] [--dlopt...] URL"
 	echo
 	echo " -tagopt    mp4tag option"
 	echo " --dlopt    youtube-dl option"
@@ -51,59 +56,57 @@ fi
 re_youtube_full='^https?://www.youtube.com/watch.*[?&]v=([A-Za-z0-9_-]+)([&#]|$)'
 re_youtube_short='^https?://youtu.be/([A-Za-z0-9_-]+)([?#]|$)'
 
-for url in "${urls[@]}"; do
-	# make a canonical URL
-	if [[ $url =~ $re_youtube_full ]]; then
-		url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
-	elif [[ $url =~ $re_youtube_short ]]; then
-		url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
-	fi
-	echo "Downloading $url"
+# make a canonical URL
+if [[ $url =~ $re_youtube_full ]]; then
+	url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
+elif [[ $url =~ $re_youtube_short ]]; then
+	url="http://www.youtube.com/watch?v=${BASH_REMATCH[1]}"
+fi
+echo "Downloading $url"
 
-	# obtain the output filename
-	file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
-	f_name=${file%.*}
-	f_ext=${file##*.}
-	if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
-		file=$f_name.$f_ext
-	fi
-	descr="$file.description"
+# obtain the output filename
+file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
+f_name=${file%.*}
+f_ext=${file##*.}
+if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
+	file=$f_name.$f_ext
+fi
+descr="$file.description"
 
-	# download the video
-	youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
-	test -s "$file" || continue
+# download the video
+youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
+test -s "$file" || continue
 
-	# note file modification time
-	mtime=$(stat -c %Y "$file")
+# note file modification time
+mtime=$(stat -c %Y "$file")
 
-	# convert the container
-	case $file in
-	*.flv)
-		temp=$file; file=${file%.*}.mp4
-		ffmpeg -i "$temp" -acodec copy -vcodec copy "$file" \
-			&& rm -f "$temp"
-		;;
-	esac
+# convert the container
+case $file in
+*.flv)
+	temp=$file; file=${file%.*}.mp4
+	ffmpeg -i "$temp" -acodec copy -vcodec copy "$file" \
+		&& rm -f "$temp"
+	;;
+esac
 
-	# update file tags
-	tagopts+=(-type "$kind")
-	if [[ -s "$descr" ]]; then
-		tagopts+=(-longdesc "$(< "$descr")")
-	fi
-	mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
-	rm -f "$descr"
+# update file tags
+tagopts+=(-type "$kind")
+if [[ -s "$descr" ]]; then
+	tagopts+=(-longdesc "$(< "$descr")")
+fi
+mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
+rm -f "$descr"
 
-	# set some standard xattrs
-	{ setfattr -n "user.xdg.origin.url"   -v "$url" "$file"
-	  setfattr -n "user.xdg.referrer.url" -v "$url" "$file"
-	} >& /dev/null
+# set some standard xattrs
+{ setfattr -n "user.xdg.origin.url"   -v "$url" "$file"
+  setfattr -n "user.xdg.referrer.url" -v "$url" "$file"
+} >& /dev/null
 
-	# restore file modification time
-	touch --date="@$mtime" "$file"
+# restore file modification time
+touch --date="@$mtime" "$file"
 
-	# display summary
-	mp4info "$file"
-done
+# display summary
+mp4info "$file"
 
 if [[ $DISPLAY || $PULSE_SERVER ]]; then
 	sound='/usr/share/sounds/freedesktop/stereo/complete.oga'

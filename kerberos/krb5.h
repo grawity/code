@@ -14,6 +14,9 @@
 #elif defined(HAVE_NETBSD)
 #	include <krb5/krb5.h>
 #	include <krb5/com_err.h>
+#elif defined(HAVE_OPENBSD)
+#	include <kerberosV/krb5.h>
+#	include <kerberosV/com_err.h>
 #elif defined(HAVE_SOLARIS)
 #	include <kerberosv5/krb5.h>
 #	include <kerberosv5/com_err.h>

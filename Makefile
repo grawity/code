@@ -28,6 +28,7 @@ endif
 ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
 	KRB_LDLIBS := -lkrb5 -lcom_err
+	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),OpenBSD)
 	OSFLAGS := -DHAVE_OPENBSD

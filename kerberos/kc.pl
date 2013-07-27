@@ -277,10 +277,25 @@ sub cmp_ccnames {
 
 sub cmp_ccnames_gen {
 	my ($a, $b) = @_;
+	my $primary = "tkt";
+
 	return 1 if cmp_ccnames($a, $b);
-	if ($b =~ /^DIR:([^:].+)$/) {
-		return ($a =~ /^DIR::\Q$1\E\/tkt/);
+
+	if ($a =~ /^DIR:([^:].*)$/) {
+		if (-e "$1/primary") {
+			$primary = read_file("$1/primary");
+		}
+		return 1 if $b eq "DIR::$1/$primary";
 	}
+
+	if ($b =~ /^DIR:([^:].*)$/) {
+		if (-e "$1/primary") {
+			$primary = read_file("$1/primary");
+		}
+		return 1 if $a eq "DIR::$1/$primary";
+	}
+
+	return 0;
 }
 
 sub ccache_is_default {

@@ -432,12 +432,17 @@ for ($cmd) {
 
 			$shortname = collapse_ccname($ccname);
 
+			if (ccache_is_environ($ccname)) {
+				$item_flag = "»";
+			} elsif (ccache_is_current($ccname)) {
+				$item_flag = "*";
+			}
+
 			$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
 			if (!$valid) {
 				my $bold = ccache_is_current($ccname) ? "1;" : "";
 				$principal = "(no tickets)";
 				$expiry_str = "  —";
-				$item_flag = ccache_is_environ($ccname) ? "»" : "*";
 				$flag_color = $bold."35";
 				$name_color = $bold."35";
 				$princ_color = $bold."35";
@@ -487,7 +492,6 @@ for ($cmd) {
 			}
 
 			if ($ccname eq $cccurrent) {
-				$item_flag = ccache_is_environ($ccname) ? "»" : "*";
 				$flag_color = ($expiry <= time) ? "1;31" : "1;32";
 				$name_color = $flag_color;
 				$princ_color = $name_color;

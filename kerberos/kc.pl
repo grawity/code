@@ -434,12 +434,13 @@ for ($cmd) {
 
 			$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
 			if (!$valid) {
+				my $bold = ccache_is_current($ccname) ? "1;" : "";
 				$principal = "(no tickets)";
 				$expiry_str = "  —";
-				$item_flag = "»";
-				$flag_color = "1;35";
-				$name_color = "1;35";
-				$princ_color = "1;35";
+				$item_flag = ccache_is_environ($ccname) ? "»" : "*";
+				$flag_color = $bold."35";
+				$name_color = $bold."35";
+				$princ_color = $bold."35";
 				goto do_print;
 			}
 

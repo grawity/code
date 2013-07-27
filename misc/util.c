@@ -12,7 +12,7 @@ int mkdir_p(const char *path, mode_t mode) {
 	e = strrchr(path, '/');
 	if (!e)
 		return -EINVAL;
-	p = strndup(path, e - path);
+	p = strndupa(path, e - path);
 
 	r = stat(p, &st);
 	if (r == 0 && !S_ISDIR(st.st_mode))

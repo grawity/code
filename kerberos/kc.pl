@@ -147,6 +147,9 @@ sub enum_ccaches {
 	@ccaches = grep {run_proc("pklist", "-q", "-c", $_) == 0} @ccaches;
 
 	my $have_environ = ($ccenviron ~~ @ccaches);
+	if (!$have_environ && $ccenviron =~ /^DIR:([^:].+)$/) {
+		$have_environ = (/^DIR::$1\/tkt/ ~~ @ccaches);
+	}
 	if (!$have_environ) {
 		push @ccaches, $ccenviron;
 	}

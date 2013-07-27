@@ -432,7 +432,7 @@ for ($cmd) {
 				$item_flag = "»";
 				$flag_color = "1;35";
 				$name_color = "1;35";
-				$princ_color = "35";
+				$princ_color = "1;35";
 				goto do_print;
 			}
 

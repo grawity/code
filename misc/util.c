@@ -6,8 +6,7 @@
 
 int mkdir_p(const char *path, mode_t mode) {
 	struct stat st;
-	_cleanup_free_ const char *p = NULL;
-	const char *e;
+	const char *p, *e;
 	int r;
 
 	e = strrchr(path, '/');

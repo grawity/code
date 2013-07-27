@@ -137,13 +137,11 @@ sub enum_ccaches {
 		}
 	}
 
-	@ccaches = uniq sort @ccaches;
-
 	# filter out invalid ccaches
 
 	@ccaches = grep {run_proc("pklist", "-q", "-c", $_) == 0} @ccaches;
 
-	# special ccaches (inserted at the end, never filtered)
+	# special ccaches (never filtered)
 
 	my $have_current = ($cccurrent ~~ @ccaches);
 	if (!$have_current) {
@@ -161,6 +159,8 @@ sub enum_ccaches {
 			push @ccaches, $ccdefault;
 		}
 	}
+
+	@ccaches = uniq sort @ccaches;
 
 	return @ccaches;
 }

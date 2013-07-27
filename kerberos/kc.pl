@@ -391,6 +391,21 @@ for ($cmd) {
 			my $name_color = "";
 			my $princ_color = "";
 
+			$shortname = collapse_ccname($ccname);
+
+			if ($ccname eq $ccenviron) {
+				my $valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
+				if (!$valid) {
+					$principal = "(no tickets)";
+					$expiry_str = "  —";
+					$item_flag = "»";
+					$flag_color = "1;35";
+					$name_color = "1;35";
+					$princ_color = "35";
+					goto do_print;
+				}
+			}
+
 			open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
 			while (<$proc>) {
 				chomp;
@@ -419,8 +434,6 @@ for ($cmd) {
 				next;
 			}
 
-			$shortname = collapse_ccname($ccname);
-
 			$expiry = $tgt_expiry || $init_expiry || 0;
 
 			if ($expiry) {
@@ -444,6 +457,7 @@ for ($cmd) {
 				$princ_color ||= "38;5;66";
 			}
 
+do_print:
 			printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, ++$num;
 			printf "\e[%sm%-15s\e[m", $name_color, $shortname;
 			if (length $shortname > 15) {

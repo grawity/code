@@ -407,6 +407,7 @@ for ($cmd) {
 		my $num = 0;
 
 		for my $ccname (@caches) {
+			my $valid;
 			my $shortname;
 			my $principal;
 			my $ccrealm;
@@ -424,17 +425,15 @@ for ($cmd) {
 
 			$shortname = collapse_ccname($ccname);
 
-			if ($ccname eq $ccenviron) {
-				my $valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
-				if (!$valid) {
-					$principal = "(no tickets)";
-					$expiry_str = "  —";
-					$item_flag = "»";
-					$flag_color = "1;35";
-					$name_color = "1;35";
-					$princ_color = "35";
-					goto do_print;
-				}
+			$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
+			if (!$valid) {
+				$principal = "(no tickets)";
+				$expiry_str = "  —";
+				$item_flag = "»";
+				$flag_color = "1;35";
+				$name_color = "1;35";
+				$princ_color = "35";
+				goto do_print;
 			}
 
 			open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";

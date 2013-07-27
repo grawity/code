@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 				return 2;
 			}
 		}
-		sprintf(path, "/proc/%d", pid);
+		snprintf(path, sizeof(path), "/proc/%d", pid);
 		while (access(path, F_OK) == 0)
 			sleep(interval);
 		if (errno == ENOENT)

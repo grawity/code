@@ -5,7 +5,7 @@ empty :=
 space := $(empty) $(empty)
 
 CC       ?= gcc
-CFLAGS    = -pipe -Wall -Wno-unused-result -O1 -g -Wl,--as-needed
+CFLAGS    = -pipe -Wall -O1 -g -Wl,--as-needed
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)

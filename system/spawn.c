@@ -19,7 +19,7 @@
 #  undef HAVE_FLOCK
 #endif
 
-#ifdef HAVE_OPENBSD
+#if defined(HAVE_NETBSD) || defined(HAVE_OPENBSD)
 #  include <libgen.h>
 #endif
 

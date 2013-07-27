@@ -93,6 +93,18 @@ sub read_file {
 	return $output;
 }
 
+sub ccache_is_environ {
+	my ($ccache) = @_;
+
+	return 1 if ($ccache eq $ccenviron);
+
+	if ($ccenviron =~ /^DIR:([^:].+)$/) {
+		return ($ccache =~ /^DIR::\Q$1\E\/tkt/);
+	}
+
+	return 0;
+}
+
 sub enum_ccaches {
 	my @ccaches;
 
@@ -146,10 +158,7 @@ sub enum_ccaches {
 
 	@ccaches = grep {run_proc("pklist", "-q", "-c", $_) == 0} @ccaches;
 
-	my $have_environ = ($ccenviron ~~ @ccaches);
-	if (!$have_environ && $ccenviron =~ /^DIR:([^:].+)$/) {
-		$have_environ = (/^DIR::\Q$1\E\/tkt/ ~~ @ccaches);
-	}
+	my $have_environ = grep {ccache_is_environ($_)} @ccaches;
 	if (!$have_environ) {
 		push @ccaches, $ccenviron;
 	}

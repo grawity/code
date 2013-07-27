@@ -16,6 +16,7 @@ OBJ      ?= obj/host.$(HOSTNAME)
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
 	KRB_LDLIBS := -lkrb5 -lcom_err
+	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
@@ -106,7 +107,7 @@ $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
-$(OBJ)/mkpasswd:	LDLIBS += -lcrypt
+$(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 $(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h

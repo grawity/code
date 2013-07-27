@@ -166,7 +166,9 @@ fi
 collect_url=git://nullroute.eu.org/trash.git
 collect_ref=refs/collect/$HOSTNAME
 
-if (
+if [[ -e ~/.cache/dist-collected ]]; then
+	true
+elif (
 	t_file='100644 blob'
 	b_collect=$(dist/collect | git mkobject)
 	b_prepare=$(dist/prepare -v | git mkobject)
@@ -175,6 +177,7 @@ if (
 		$t_file $b_prepare 'dist-prepare' \
 		| git mktree)
 	b_commit=$(echo "System information about $FQDN" | git commit-tree $b_tree)
+	echo "$b_commit $collect_ref" > ~/.cache/dist-collected
 	git push --quiet $collect_url $b_commit:$collect_ref
 ); then
 	log "collected system information in $collect_ref"

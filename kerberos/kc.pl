@@ -461,7 +461,7 @@ for ($cmd) {
 			}
 
 			if ($ccname eq $cccurrent) {
-				$item_flag = ($ccname eq $ccenviron) ? "»" : "*";
+				$item_flag = ccache_is_environ($ccname) ? "»" : "*";
 				$flag_color = ($expiry <= time) ? "1;31" : "1;32";
 				$name_color = $flag_color;
 				$princ_color = $name_color;

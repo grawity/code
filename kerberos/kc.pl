@@ -93,30 +93,6 @@ sub read_file {
 	return $output;
 }
 
-sub ccache_is_default {
-	my ($ccache) = @_;
-
-	return 1 if ($ccache eq $ccdefault);
-
-	if ($ccenviron =~ /^DIR:([^:].+)$/) {
-		return ($ccache =~ /^DIR::\Q$1\E\/tkt/);
-	}
-
-	return 0;
-}
-
-sub ccache_is_environ {
-	my ($ccache) = @_;
-
-	return 1 if ($ccache eq $ccenviron);
-
-	if ($ccenviron =~ /^DIR:([^:].+)$/) {
-		return ($ccache =~ /^DIR::\Q$1\E\/tkt/);
-	}
-
-	return 0;
-}
-
 sub enum_ccaches {
 	my @ccaches;
 
@@ -296,7 +272,27 @@ sub cmp_ccnames {
 	my ($a, $b) = @_;
 	$a = "FILE:$a" unless $a =~ /:/;
 	$b = "FILE:$b" unless $b =~ /:/;
-	return $a eq $b;
+	return 1 if $a eq $b;
+}
+
+sub cmp_ccnames_gen {
+	my ($a, $b) = @_;
+	return 1 if cmp_ccnames($a, $b);
+	if ($b =~ /^DIR:([^:].+)$/) {
+		return ($a =~ /^DIR::\Q$1\E\/tkt/);
+	}
+}
+
+sub ccache_is_default {
+	return cmp_ccnames_gen(shift, $ccdefault);
+}
+
+sub ccache_is_environ {
+	return cmp_ccnames_gen(shift, $ccenviron);
+}
+
+sub ccache_is_current {
+	return cmp_ccnames_gen(shift, $cccurrent);
 }
 
 sub put_env {

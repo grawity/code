@@ -95,7 +95,7 @@ $(OBJ)/libfunlink.so:	system/libfunlink.c
 
 # objects
 
-$(OBJ)/misc_util.o:	misc/util.c | misc/util.h
+$(OBJ)/misc_util.o:	misc/util.c misc/util.h
 $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
 
 # executables

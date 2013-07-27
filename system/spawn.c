@@ -19,6 +19,10 @@
 #  undef HAVE_FLOCK
 #endif
 
+#ifdef HAVE_OPENBSD
+#  include <libgen.h>
+#endif
+
 char *arg0;
 
 static int usage() {

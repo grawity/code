@@ -29,6 +29,9 @@ ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
 	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
+ifeq ($(UNAME),OpenBSD)
+	OSFLAGS := -DHAVE_OPENBSD
+endif
 ifeq ($(UNAME),CYGWIN_NT-5.1)
 	OSFLAGS := -DHAVE_CYGWIN
 	KRB_LDLIBS := -lkrb5 -lcom_err

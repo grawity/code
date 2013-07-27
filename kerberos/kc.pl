@@ -148,7 +148,7 @@ sub enum_ccaches {
 
 	my $have_environ = ($ccenviron ~~ @ccaches);
 	if (!$have_environ && $ccenviron =~ /^DIR:([^:].+)$/) {
-		$have_environ = (/^DIR::$1\/tkt/ ~~ @ccaches);
+		$have_environ = (/^DIR::\Q$1\E\/tkt/ ~~ @ccaches);
 	}
 	if (!$have_environ) {
 		push @ccaches, $ccenviron;

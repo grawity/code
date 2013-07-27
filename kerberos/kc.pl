@@ -140,12 +140,16 @@ sub enum_ccaches {
 	@ccaches = uniq sort @ccaches;
 
 	my $have_current = ($cccurrent ~~ @ccaches);
-	my $have_default = ($ccdefault ~~ @ccaches);
 	if (!$have_current) {
 		push @ccaches, $cccurrent;
 	}
 
 	@ccaches = grep {run_proc("pklist", "-q", "-c", $_) == 0} @ccaches;
+
+	my $have_environ = ($ccenviron ~~ @ccaches);
+	if (!$have_environ) {
+		push @ccaches, $ccenviron;
+	}
 
 	return @ccaches;
 }

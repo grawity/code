@@ -203,21 +203,21 @@ sub expand_ccname {
 			return "DIR:$cccdir";
 		}
 		when (m|^\+(.*)$|) {
-			return "DIR::$cccdir/$1";
+			return "DIR::$cccdir/tkt$1";
 		}
 		# :foo/bar
 		when (m|^:(.+)/$|) {
 			return "DIR:$runprefix"."_$1";
 		}
 		when (m|^:(.+)/(.+)$|) {
-			return "DIR::$runprefix"."_$1/$2";
+			return "DIR::$runprefix"."_$1/tkt$2";
 		}
 		# :foo
 		when (m|^:$|) {
 			return "DIR:$runprefix";
 		}
 		when (m|^:(.+)$|) {
-			return "DIR::$runprefix/$1";
+			return "DIR::$runprefix/tkt$1";
 		}
 		# any
 		when (m|:|) {
@@ -238,13 +238,13 @@ sub collapse_ccname {
 		when ($ccdefault) {
 			return "@";
 		}
-		when (m|^DIR::\Q$runprefix\E_(.+)/(tkt.*)$|) {
+		when (m|^DIR::\Q$runprefix\E_(.+)/tkt(.*)$|) {
 			return ":$1/$2";
 		}
-		when (m|^DIR::\Q$runprefix\E/(tkt.*)$|) {
+		when (m|^DIR::\Q$runprefix\E/tkt(.*)$|) {
 			return ":$1";
 		}
-		when (m|^DIR::\Q$cccdir\E/(tkt.*)$|) {
+		when (m|^DIR::\Q$cccdir\E/tkt(.*)$|) {
 			return "+$1";
 		}
 		when (m|^FILE:\Q$ccprefix\E(.*)$|) {

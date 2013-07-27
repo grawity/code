@@ -139,12 +139,18 @@ sub enum_ccaches {
 
 	@ccaches = uniq sort @ccaches;
 
+	# current ccache if not detected yet (inserted at the end)
+
 	my $have_current = ($cccurrent ~~ @ccaches);
 	if (!$have_current) {
 		push @ccaches, $cccurrent;
 	}
 
+	# filter out invalid ccaches
+
 	@ccaches = grep {run_proc("pklist", "-q", "-c", $_) == 0} @ccaches;
+
+	# special ccaches (inserted at the end, never filtered)
 
 	if (length $ccenviron) {
 		my $have_environ = grep {ccache_is_environ($_)} @ccaches;

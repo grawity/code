@@ -24,6 +24,7 @@ ifeq ($(UNAME),FreeBSD)
 endif
 ifeq ($(UNAME),GNU)
 	OSFLAGS := -DHAVE_HURD -DNO_ACCT
+	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD

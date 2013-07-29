@@ -180,7 +180,7 @@ void zerr(int ret)
 
 int usage(void)
 {
-    fputs("usage: zpipe [-d] < source > dest\n", stderr);
+    fputs("usage: zpipe [-d0123456789] < source > dest\n", stderr);
     return 1;
 }
 
@@ -190,6 +190,7 @@ int main(int argc, char **argv)
     char *path = NULL;
     FILE *input = stdin;
     int i, mode = MODE_DEFLATE;
+    int level = Z_DEFAULT_COMPRESSION;
     int ret;
 
     /* avoid end-of-line conversions */
@@ -203,6 +204,8 @@ int main(int argc, char **argv)
             return 0;
         } else if (strcmp(argp, "-d") == 0) {
             mode = MODE_INFLATE;
+        } else if (argp[0] == '-' && argp[1] >= '0' && argp[1] <= '9' && argp[2] == 0) {
+            level = argp[1] - '0';
         } else if (strncmp(argp, "-", 1) == 0) {
             return usage();
         } else if (!path) {
@@ -221,7 +224,7 @@ int main(int argc, char **argv)
     }
 
     if (mode == MODE_DEFLATE) {
-        ret = def(input, stdout, Z_DEFAULT_COMPRESSION);
+        ret = def(input, stdout, level);
         if (ret != Z_OK)
             zerr(ret);
         return ret;

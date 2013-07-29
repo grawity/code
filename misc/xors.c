@@ -18,9 +18,9 @@ int main(int argc, char *argv[]) {
 	if (argc == 3) {
 		key = atoi(argv[1]);
 		incr = atoi(argv[2]);
-	}
-	else
+	} else {
 		usage();
+	}
 
 	while ((buflen = read(0, buf, BUFSIZE))) {
 		for (i = 0; i < buflen; i++) {
@@ -30,5 +30,6 @@ int main(int argc, char *argv[]) {
 		}
 		write(1, buf, buflen);
 	}
+
 	return 0;
 }

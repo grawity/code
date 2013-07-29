@@ -4,19 +4,23 @@
 
 #define LINESZ 512
 
+/* null-terminate a string at first \n
+ */
+
 static char * cut(char *line) {
 	char *c;
+
 	for (c = line; *c; c++) {
 		if (*c == '\n') {
 			*c = '\0';
 			return c;
 		}
 	}
+
 	return c;
 }
 
-/*
- * print line after first match
+/* print line after first match
  */
 
 int next_item(char *want, int wrap) {
@@ -24,26 +28,30 @@ int next_item(char *want, int wrap) {
 	char b[LINESZ] = {0};
 	char *line[2] = {a, b};
 	int n = 0, found = 0;
+
 	for (;; n=1) {
 		if (!fgets(line[n], LINESZ, stdin))
 			break;
+
 		cut(line[n]);
+
 		if (found) {
 			printf("%s\n", line[n]);
 			return 0;
-		} else if (!strcmp(line[n], want))
+		} else if (!strcmp(line[n], want)) {
 			found = 1;
+		}
 	}
-	if (!found || !wrap || !n)
+
+	if (!found || !wrap || !n) {
 		return 1;
-	else {
+	} else {
 		printf("%s\n", line[0]);
 		return 0;
 	}
 }
 
-/*
- * print line before first match
+/* print line before first match
  */
 
 int prev_item(char *want, int wrap) {
@@ -51,21 +59,26 @@ int prev_item(char *want, int wrap) {
 	char b[LINESZ] = {0};
 	char *line[2] = {a, b};
 	int n = 0, count = 0;
+
 	for (;; n=!n, ++count) {
 		if (!fgets(line[n], LINESZ, stdin))
 			return 1;
+
 		cut(line[n]);
+
 		if (!strcmp(line[n], want)) {
 			if (count) {
 				printf("%s\n", line[!n]);
 				return 0;
-			} else
+			} else {
 				break;
+			}
 		}
 	}
-	if (count || !wrap)
+
+	if (count || !wrap) {
 		return 1;
-	else {
+	} else {
 		while (fgets(line[n], LINESZ, stdin))
 			;
 		cut(line[n]);
@@ -74,20 +87,22 @@ int prev_item(char *want, int wrap) {
 	}
 }
 
-/*
- * remove text from end of the line
+/* remove text from end of the line
  */
 
 int strip_tail(char *tail) {
 	char line[LINESZ], *pos;
 	int len, tlen = strlen(tail);
+
 	for (;;) {
 		if (!fgets(line, LINESZ, stdin))
 			return 0;
+
 		len = cut(line) - line;
 		pos = line + len - tlen;
 		if (len >= tlen && streq(pos, tail))
 			*pos = '\0';
+
 		printf("%s\n", line);
 	}
 }

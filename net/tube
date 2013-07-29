@@ -10,6 +10,7 @@ options=(
 url=''
 tagopts=()
 kind=music
+justaudio=0
 
 while (( $# )); do
 	arg=$1
@@ -21,6 +22,8 @@ while (( $# )); do
 		else
 			url=$arg
 		fi;;
+	-justaudio)
+		justaudio=1;;
 	-kind|-type)
 		kind=$2; shift;;
 	-title)
@@ -84,8 +87,18 @@ mtime=$(stat -c %Y "$file")
 case $file in
 *.flv)
 	temp=$file; file=${file%.*}.mp4
-	ffmpeg -i "$temp" -acodec copy -vcodec copy "$file" \
+	if (( justaudio )); then
+		ffmpeg -i "$temp" -acodec copy -vn "$file"
+	else
+		ffmpeg -i "$temp" -acodec copy -vcodec copy "$file"
+	fi && rm -f "$temp"
+	;;
+*.mp4)
+	if (( justaudio )); then
+		temp=$file; file=${file%.*}.m4a
+		ffmpeg -i "$temp" -acodec copy -vn "$file" \
 		&& rm -f "$temp"
+	fi
 	;;
 esac
 

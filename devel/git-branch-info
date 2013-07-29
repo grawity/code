@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # git-branch-info - verbose branch list
 git branch --all --no-color |
-sed -e 's/*/ /' |
+sed -e 's/\*/ /' |
 while read branch; do
-	width=20
 	branch=${branch%% *}
 	ref=$branch
 	case $ref in
@@ -11,7 +10,5 @@ while read branch; do
 	remotes/*)	color='magenta'; branch=${branch#remotes/};;
 	*)		color='yellow';;
 	esac
-	printf -v wbranch "%-*s" "$width" "$branch"
-	printf -v windent "%-*s" "${#wbranch}" ""
-	git log -1 --format=format:"%C($color)${wbranch}%C(reset) %s %C(blue)(%cr)%C(reset)" "$ref"
+	git log -1 --format=format:"%C($color)${branch}%C(reset) %s %C(blue)(%cr)%C(reset)" "$ref"
 done

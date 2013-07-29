@@ -77,20 +77,13 @@ case $job in
 	remote)
 		$0 twitter
 		$0 servers
-		#$0 nullroute-git
+		$0 irc
+		$0 gale
 		;;
 	push-hd)
-		log "Repacking repositories..."
-		git all-repack ~/projects
-		#dirs=(	~/{bin,projects,code,lib/dotfiles}
-		#	~/{.ecryptfs,Private}
-		#	~/{Music,Pictures,Videos}
-		#	~/{Attic,Backup,Dropbox,public_html}
-		#	~/Downloads
-		#	~/src/irc
-		#)
-		dirs=( ~ ) 
-		do_obnam "${dirs[@]}"
+		do_rsync ~/Attic/Chatlogs/ofb.net/ \
+			$b/Attic/Chatlogs/ofb.net/ ;
+		do_obnam ~
 		;;
 	# jobs
 	irc)
@@ -127,12 +120,13 @@ case $job in
 		(cd "$b/radian.cluenet.org/accounts/"
 		do_kstart git pull origin)
 		do_kstart rsync -aHAXvz --delete \
-			--exclude "/accounts/.git" \
 			"root@radian.cluenet.org:/backup/" \
-			"$b/radian.cluenet.org/backup/"
+			"$b/radian.cluenet.org/backup/" \
+			--exclude "/accounts/.git" ;
 		do_kstart rsync -aHAXvz --delete \
 			"root@radian.cluenet.org:/var/www/" \
-			"$b/radian.cluenet.org/www/"
+			"$b/radian.cluenet.org/www/" \
+			--exclude "/main/cluewikicache/" ;
 		;;
 	grawpqi)
 		dir=/run/media/grawity/grawpqi/

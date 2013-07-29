@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 {
     char *path = NULL;
     FILE *input = stdin;
-    int i, mode = MODE_DEFLATE;
+    int mode = MODE_DEFLATE;
     int level = Z_DEFAULT_COMPRESSION;
     int opt, ret;
 

@@ -191,29 +191,27 @@ int main(int argc, char **argv)
     FILE *input = stdin;
     int i, mode = MODE_DEFLATE;
     int level = Z_DEFAULT_COMPRESSION;
-    int ret;
+    int opt, ret;
 
     /* avoid end-of-line conversions */
     SET_BINARY_MODE(stdin);
     SET_BINARY_MODE(stdout);
 
-    for (i = 1; argv[i]; ++i) {
-        char *argp = argv[i];
-        if (strcmp(argp, "-h") == 0 || strcmp(argp, "--help") == 0) {
+    while ((opt = getopt(argc, argv, "d0123456789")) != -1) {
+        if (opt >= '0' && opt <= '9')
+            level = opt - '0';
+        else if (opt == 'd')
+            mode = MODE_INFLATE;
+        else {
             usage();
             return 0;
-        } else if (strcmp(argp, "-d") == 0) {
-            mode = MODE_INFLATE;
-        } else if (argp[0] == '-' && argp[1] >= '0' && argp[1] <= '9' && argp[2] == 0) {
-            level = argp[1] - '0';
-        } else if (strncmp(argp, "-", 1) == 0) {
-            return usage();
-        } else if (!path) {
-            path = argp;
-        } else {
-            return usage();
         }
     }
+
+    if (!path)
+        path = argv[optind];
+    else
+        return usage();
 
     if (path) {
         input = fopen(path, "rb");
@@ -234,6 +232,7 @@ int main(int argc, char **argv)
             zerr(ret);
         return ret;
     }
+
     return 0;
 }
 

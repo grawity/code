@@ -9,13 +9,23 @@
  *      Ultrix, AIX, IRIX, Digital UNIX, BSDI, NetBSD, HP/UX.
  */
 
+#define HAVE_LASTLOG
+#define HAVE_UTMP
+
+#ifdef HAVE_FREEBSD
+#undef HAVE_LASTLOG
+#undef HAVE_UTMP
+#define HAVE_UTMPX
+#define NO_ACCT
+#define ut_name ut_user
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #ifndef NO_ACCT
 #include <sys/acct.h>
 #endif
-#include <utmp.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -32,6 +42,10 @@
 
 #ifdef HAVE_LASTLOG_H
 #include <lastlog.h>
+#endif
+
+#ifdef HAVE_UTMP
+#include <utmp.h>
 #endif
 
 #ifdef HAVE_UTMPX
@@ -125,6 +139,7 @@ copy_file(char *src, char *dst)
 /*
  * UTMP editing.
  */
+#ifdef HAVE_UTMP
 void
 wipe_utmp(char *who, char *line)
 {
@@ -159,6 +174,7 @@ wipe_utmp(char *who, char *line)
 
 	printf("Done.\n");
 }
+#endif
 
 /*
  * UTMPX editing if supported.
@@ -201,6 +217,7 @@ wipe_utmpx(char *who, char *line)
 /*
  * WTMP editing.
  */
+#ifdef HAVE_UTMP
 void
 wipe_wtmp(char *who, char *line)
 {
@@ -239,6 +256,7 @@ skip:
 
 	printf("Done.\n");
 }
+#endif
 
 
 /*
@@ -289,6 +307,7 @@ skip:
 /*
  * LASTLOG editing.
  */
+#ifdef HAVE_LASTLOG
 void
 wipe_lastlog(char *who, char *line, char *timestr, char *host)
 {
@@ -367,6 +386,7 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 
 	printf("Done.\n");
 }
+#endif
 
 
 #ifndef NO_ACCT
@@ -486,10 +506,12 @@ main(int argc, char *argv[])
 	switch (c) {
 		/* UTMP */
 		case 'U' :
+#ifdef HAVE_UTMP
 			if (argc == 3)
 				wipe_utmp(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_utmp(argv[2], argv[3]);
+#endif
 #ifdef HAVE_UTMPX
 			if (argc == 3)
 				wipe_utmpx(argv[2], (char *) NULL);
@@ -499,10 +521,12 @@ main(int argc, char *argv[])
 			break;
 		/* WTMP */
 		case 'W' :
+#ifdef HAVE_UTMP
 			if (argc == 3)
 				wipe_wtmp(argv[2], (char *) NULL);
 			if (argc == 4)
 				wipe_wtmp(argv[2], argv[3]);
+#endif
 #ifdef HAVE_UTMPX
 			if (argc == 3)
 				wipe_wtmpx(argv[2], (char *) NULL);
@@ -510,6 +534,7 @@ main(int argc, char *argv[])
 				wipe_wtmpx(argv[2], argv[3]);
 #endif
 			break;
+#ifdef HAVE_LASTLOG
 		/* LASTLOG */
 		case 'L' :
 			if (argc == 3)
@@ -525,6 +550,7 @@ main(int argc, char *argv[])
 				wipe_lastlog(argv[2], argv[3], argv[4],
 						argv[5]);
 			break;
+#endif
 #ifndef NO_ACCT
 		/* ACCT */
 		case 'A' :

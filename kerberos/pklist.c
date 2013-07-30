@@ -28,15 +28,6 @@
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
 #endif
 
-#ifndef HAVE_KRB5_CONFIG_PRINCIPALS
-#	define krb5_is_config_principal(ctx, princ)	(0)
-/*
-krb5_boolean krb5_is_config_principal(krb5_context, krb5_const_principal) {
-	return 0;
-}
-*/
-#endif
-
 char *progname = "pklist";
 krb5_context ctx;
 int show_cfg_tkts = 0;
@@ -58,6 +49,15 @@ void show_cred(register krb5_creds*);
 char* strflags(register krb5_creds*);
 krb5_error_code krb5_cc_get_principal_name(krb5_context, krb5_ccache, char**);
 krb5_ccache resolve_ccache(char*);
+
+#ifndef HAVE_KRB5_CONFIG_PRINCIPALS
+/*
+ * This is bad, but allows correct handling of MIT ccaches on a Heimdal system.
+ */
+krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_principal princ) {
+	return strcmp(princ->realm, "X-CACHECONF:") == 0;
+}
+#endif
 
 int main(int argc, char *argv[]) {
 	int opt;

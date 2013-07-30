@@ -13,6 +13,8 @@ MACHTYPE := $(shell dist/prepare -m)
 
 OBJ      ?= obj/host.$(HOSTNAME)
 
+DL_LDLIBS := -ldl
+
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
 	KRB_LDLIBS := -lkrb5 -lcom_err
@@ -22,6 +24,7 @@ ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
 	KRB_LDLIBS := -lkrb5 -lcom_err
 	CRYPT_LDLIBS := -lcrypt
+	DL_LDLIBS := $(empty)
 endif
 ifeq ($(UNAME),GNU)
 	OSFLAGS := -DHAVE_HURD -DNO_ACCT
@@ -97,7 +100,7 @@ pklist: $(OBJ)/pklist
 # libraries
 
 $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
-$(OBJ)/libfunlink.so:	LDLIBS += -ldl
+$(OBJ)/libfunlink.so:	LDLIBS += $(DL_LDLIBS)
 $(OBJ)/libfunlink.so:	system/libfunlink.c
 
 # objects

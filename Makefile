@@ -145,7 +145,7 @@ $(OBJ)/%.o:		| dist/empty.c
 	@$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 $(OBJ)/%:		| dist/empty.c
-	@echo "  CCLD  $(notdir $@) ($^)"
+	@echo "  CCLD  $(notdir $@) ($<)"
 	@$(LINK.c) -Wl,--as-needed $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 # hack for old Make (unsupported order-only deps)

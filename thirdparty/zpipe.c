@@ -26,6 +26,10 @@
 #  define SET_BINARY_MODE(file)
 #endif
 
+#if defined(__FreeBSD__)
+#  include <unistd.h> /* getopt */
+#endif
+
 #define CHUNK 16384
 
 enum {

@@ -115,14 +115,14 @@ $(OBJ)/bgrep:		thirdparty/bgrep.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
-$(OBJ)/k5userok:	kerberos/k5userok.c | kerberos/krb5.h
+$(OBJ)/k5userok:	kerberos/k5userok.c kerberos/krb5.h
 $(OBJ)/linux26:		thirdparty/linux26.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
-$(OBJ)/pklist:		kerberos/pklist.c | kerberos/krb5.h
+$(OBJ)/pklist:		kerberos/pklist.c kerberos/krb5.h
 $(OBJ)/pause:		system/pause.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/setns:		system/setns.c

@@ -408,9 +408,15 @@ void show_cred(register krb5_creds *cred) {
 	if (is_config && show_cfg_tkts == 1) {
 		// "config" <arg>+ <value>
 		printf("config");
+#ifdef KRB5_MIT
 		printf("\t%d", cred->server->length-1);
 		for (i = 1; i < cred->server->length; i++)
 			printf("\t%s", cred->server->data[i].data);
+#else
+		printf("\t%d", cred->server->name.name_string.len-1);
+		for (i = 1; i < cred->server->name.name_string.len; i++)
+			printf("\t%s", cred->server->name.name_string.val[i]);
+#endif
 		printf("\t");
 		print_data(&cred->ticket);
 		printf("\n");

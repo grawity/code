@@ -13,36 +13,31 @@ MACHTYPE := $(shell dist/prepare -m)
 
 OBJ      ?= obj/host.$(HOSTNAME)
 
-DL_LDLIBS := -ldl
+CRYPT_LDLIBS := -lcrypt
+DL_LDLIBS    := -ldl
+KRB5_LDLIBS  := -lkrb5 -lcom_err
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
-	KRB_LDLIBS := -lkrb5 -lcom_err
-	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
-	KRB_LDLIBS := -lkrb5 -lcom_err
-	CRYPT_LDLIBS := -lcrypt
 	DL_LDLIBS := $(empty)
 endif
 ifeq ($(UNAME),GNU)
 	OSFLAGS := -DHAVE_HURD -DNO_ACCT
-	KRB_LDLIBS := -lkrb5 -lcom_err
-	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD
-	KRB_LDLIBS := -lkrb5 -lcom_err
-	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),OpenBSD)
 	OSFLAGS := -DHAVE_OPENBSD
-	KRB_LDLIBS := -lkrb5 -lcom_err -lcrypto
+	CRYPT_LDLIBS := $(empty)
+	DL_LDLIBS    := $(empty)
+	KRB_LDLIBS   := -lkrb5 -lcom_err -lcrypto
 endif
 ifeq ($(UNAME),CYGWIN_NT-5.1)
 	OSFLAGS := -DHAVE_CYGWIN
-	KRB_LDLIBS := -lkrb5 -lcom_err
 endif
 ifeq ($(UNAME),SunOS)
 	OSFLAGS := -DHAVE_SOLARIS

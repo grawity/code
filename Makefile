@@ -21,6 +21,7 @@ endif
 ifeq ($(UNAME),FreeBSD)
 	OSFLAGS := -DHAVE_FREEBSD
 	KRB_LDLIBS := -lkrb5 -lcom_err
+	CRYPT_LDLIBS := -lcrypt
 endif
 ifeq ($(UNAME),GNU)
 	OSFLAGS := -DHAVE_HURD -DNO_ACCT

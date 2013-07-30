@@ -15,7 +15,7 @@ OBJ      ?= obj/host.$(HOSTNAME)
 
 CRYPT_LDLIBS := -lcrypt
 DL_LDLIBS    := -ldl
-KRB5_LDLIBS  := -lkrb5 -lcom_err
+KRB_LDLIBS   := -lkrb5 -lcom_err
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX

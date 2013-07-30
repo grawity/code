@@ -9,14 +9,9 @@
  *      Ultrix, AIX, IRIX, Digital UNIX, BSDI, NetBSD, HP/UX.
  */
 
-#define HAVE_LASTLOG
-#define HAVE_UTMP
+#include "feature.h"
 
-#ifdef HAVE_FREEBSD
-#undef HAVE_LASTLOG
-#undef HAVE_UTMP
-#define HAVE_UTMPX
-#define NO_ACCT
+#ifdef __FreeBSD__
 #define ut_name ut_user
 #endif
 

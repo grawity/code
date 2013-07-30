@@ -357,12 +357,16 @@ int do_collection() {
 
 void print_data(krb5_data *ticket) {
 	unsigned int i;
+#ifdef KRB5_MIT
+	unsigned char *data = ticket->data;
+#else
+	unsigned char *data = (unsigned char *) ticket->data;
+#endif
 	for (i = 0; i < ticket->length; i++) {
-		if (0x20 < ticket->data[i]
-			&& ticket->data[i] < 0x7f)
-			putchar(ticket->data[i]);
+		if (0x20 < data[i] && data[i] < 0x7f)
+			putchar(data[i]);
 		else
-			printf("\\%03o", (unsigned char) ticket->data[i]);
+			printf("\\%03o", data[i]);
 	}
 }
 

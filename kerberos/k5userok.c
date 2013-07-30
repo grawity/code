@@ -15,11 +15,22 @@
 #include <unistd.h>
 #include <pwd.h>
 
+char *progname = "k5userok";
+
 #ifdef KRB5_HEIMDAL
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
 #endif
 
-char *progname = "k5userok";
+#ifdef __OpenBSD__
+krb5_error_code krb5_parse_name_flags(krb5_context ctx, const char *name,
+				      int flags, krb5_principal *princ)
+{
+	if (flags)
+		return KRB5KRB_ERR_GENERIC;
+
+	return krb5_parse_name(ctx, name, princ);
+}
+#endif
 
 char *get_username(void) {
 	struct passwd *pw;

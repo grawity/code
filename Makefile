@@ -5,7 +5,7 @@ empty :=
 space := $(empty) $(empty)
 
 CC       ?= gcc
-CFLAGS    = -pipe -Wall -O1 -g -Wl,--as-needed
+CFLAGS    = -pipe -Wall -O1 -g
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
@@ -144,7 +144,7 @@ $(OBJ)/%.o:		| dist/empty.c
 
 $(OBJ)/%:		| dist/empty.c
 	@echo "  CCLD  $(notdir $@) ($^)"
-	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	@$(LINK.c) -Wl,--as-needed $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 $(addprefix $(OBJ)/,$(KRB_BINS)): LDLIBS += $(KRB_LDLIBS)
 

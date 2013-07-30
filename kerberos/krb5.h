@@ -1,9 +1,3 @@
-#if 0
-#if defined(__SVR4) && defined(__sun)
-#  define HAVE_SOLARIS
-#endif
-#endif
-
 #if defined(HAVE_LINUX)
 #	include <krb5/krb5.h>
 #elif defined(HAVE_CYGWIN)

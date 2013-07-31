@@ -28,6 +28,10 @@
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
 #endif
 
+#ifdef __NetBSD__
+#	define HAVE_KRB5_CONFIG_PRINCIPALS
+#endif
+
 char *progname = "pklist";
 krb5_context ctx;
 int show_cfg_tkts = 0;

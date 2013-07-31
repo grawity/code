@@ -78,7 +78,7 @@ KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv linux26 setns subreaper tapchown
 MISC_BINS  := bgrep logwipe libfunlink.so ttysize writevt xor xors
 
-.PHONY: all basic krb linux misc
+.PHONY: all basic krb linux misc pklist
 
 basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 krb:   $(addprefix $(OBJ)/,$(KRB_BINS))

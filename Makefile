@@ -75,8 +75,8 @@ mrproper:
 
 BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool zlib
 KRB_BINS   := k5userok pklist
-LINUX_BINS := globalenv linux26 setns subreaper tapchown
-MISC_BINS  := bgrep logwipe libfunlink.so ttysize writevt xor xors
+LINUX_BINS := globalenv libfunlink.so linux26 setns subreaper tapchown
+MISC_BINS  := bgrep logwipe ttysize writevt xor xors
 
 .PHONY: all basic krb linux misc pklist
 

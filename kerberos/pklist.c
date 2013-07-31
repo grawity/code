@@ -357,11 +357,9 @@ int do_collection() {
 
 void print_data(krb5_data *ticket) {
 	unsigned int i;
-#ifdef KRB5_MIT
-	unsigned char *data = ticket->data;
-#else
+	/* ticket->data is char* on MIT, void* on Heimdal */
 	unsigned char *data = (unsigned char *) ticket->data;
-#endif
+
 	for (i = 0; i < ticket->length; i++) {
 		if (0x20 < data[i] && data[i] < 0x7f)
 			putchar(data[i]);

@@ -123,7 +123,7 @@ $(OBJ)/pause:		system/pause.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/setns:		system/setns.c
 $(OBJ)/silentcat:	misc/silentcat.c
-$(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
+$(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o misc/feature.h
 $(OBJ)/strtool:		misc/strtool.c $(OBJ)/misc_util.o
 $(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c

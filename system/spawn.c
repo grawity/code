@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "feature.h"
 #include "util.h"
 #include <errno.h>
 #include <getopt.h>
@@ -11,14 +12,7 @@
 #include <unistd.h>
 #include <assert.h>
 
-/* Todo: move to a header */
-
-#define HAVE_FLOCK
-
-#ifdef HAVE_SOLARIS
-#  undef HAVE_FLOCK
-#endif
-
+/* TODO: use native defines */
 #if defined(HAVE_NETBSD) || defined(HAVE_OPENBSD) || defined(__FreeBSD__)
 #  include <libgen.h>
 #endif

@@ -11,6 +11,7 @@ use Getopt::Long qw(:config bundling no_ignore_case);
 my $force = 0;
 my $verbose = 0;
 my $dest;
+my $realpath = 0;
 
 sub trace { print shift if $ENV{DEBUG}; }
 
@@ -30,6 +31,8 @@ sub usage {
 	my $me = basename($0);
 	print STDERR "usage: $me [-f] TARGET LINKNAME\n";
 	print STDERR "       $me [-f] TARGET... DIRECTORY\n";
+	print STDERR "       $me -r FILE...  ('realpath' emulation)\n";
+	print STDERR "       $me -rr FILE... ('realpath -m' emulation)\n";
 	exit 2;
 }
 
@@ -50,9 +53,41 @@ sub do_link {
 
 GetOptions(
 	"f|force" => \$force,
+	"r|realpath+" => \$realpath,
 	"t|target-directory=s" => \$dest,
 	"v|verbose" => \$verbose,
 ) or usage;
+
+if ($realpath > 1) {
+	# `/usr/bin/realpath -m` emulation mode
+	my $err;
+	for my $file (@ARGV) {
+		my $real = realpath($file);
+		if (!defined $real) {
+			if (-l $file) {
+				$file = readlink($file);
+				if (!defined $file) {
+					++$err; warn "readlink: '$file': $!\n"; next;
+				}
+			}
+			$real = File::Spec->rel2abs($file);
+		}
+		print "$real\n";
+	}
+	exit !!$err;
+}
+elsif ($realpath > 0) {
+	# `/usr/bin/realpath` emulation mode
+	my $err;
+	for my $file (@ARGV) {
+		my $real = realpath($file);
+		if (!defined $real) {
+			++$err; warn "realpath: '$file': $!\n"; next;
+		}
+		print "$real\n";
+	}
+	exit !!$err;
+}
 
 if (!defined $dest) {
 	if (scalar(@ARGV) > 1) {

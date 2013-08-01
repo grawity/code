@@ -2,6 +2,8 @@
 
 have() { command -v "$1" >&/dev/null; }
 
+: ${CC=cc}
+
 echo "ostype:"
   echo ".gnu.ostype = $OSTYPE"
   echo ".uname.kernel = $(uname)"
@@ -17,7 +19,9 @@ echo "arch:"
   echo ".gnu.machtype = $MACHTYPE"
   echo ".uname.machine = $(uname -m)"
   echo ".uname.processor = $(uname -p)"
-  echo ".cc.dumpmachine = $(cc -dumpmachine)"
+  have $CC && {
+    echo ".cc.dumpmachine = $($CC -dumpmachine)"
+  }
   echo ".perl.arch = $(perl -MConfig -e 'print "$Config{archname}\n"')"
   have ruby && {
     echo ".ruby.platform = $(ruby -e 'puts RUBY_PLATFORM')"

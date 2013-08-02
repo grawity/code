@@ -93,6 +93,26 @@ sub read_file {
 	return $output;
 }
 
+sub read_aliases {
+	my $path = "$ENV{HOME}/lib/dotfiles/k5aliases";
+	my %aliases;
+
+	open(my $file, "<", "$ENV{HOME}/lib/dotfiles/k5aliases") or return ();
+	while (my $line = <$file>) {
+		next if $line =~ /^#/;
+		chomp $line;
+		my ($alias, @args) = split(/\s+/, $line);
+		if (@args) {
+			$aliases{$alias} = \@args;
+		} else {
+			warn "$path:$.: not enough parameters\n";
+		}
+	}
+	close($file);
+
+	return %aliases;
+}
+
 sub enum_ccaches {
 	my @ccaches;
 
@@ -553,7 +573,17 @@ do_print:
 		}
 	}
 	when (/^=(.*)$/) {
-		TODO;
+		my %aliases = read_aliases();
+		my $alias = $aliases{$1};
+		if (!defined $alias) {
+			warn "Alias '$1' not defined.\n";
+			exit 1;
+		}
+		my $ccname = expand_ccname($1);
+		switch_ccache($ccname);
+		if (run_proc("klist", "-s") > 0) {
+			exit run_proc("kinit", @$alias) >> 8;
+		}
 	}
 	when (/.+@.+/) {
 		my $max_expiry = 0;

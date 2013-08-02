@@ -23,8 +23,6 @@ my @caches;
 my $can_switch = 1;
 my $use_color = 1;
 
-sub TODO { die "Not yet implemented"; }
-
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
@@ -552,7 +550,8 @@ do_print:
 		run_proc("kdestroy", "-c", $_) for @destroy;
 	}
 	when ("clean") {
-		TODO;
+		say "Destroying all credential caches.";
+		run_proc("kdestroy", "-c", $_) for @caches;
 	}
 	when ("expand") {
 		say expand_ccname($_) for @ARGV;

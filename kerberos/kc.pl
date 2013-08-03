@@ -451,6 +451,7 @@ for ($cmd) {
 			my $flag_color = "";
 			my $name_color = "";
 			my $princ_color = "";
+			my $service_color = "35";
 
 			$shortname = collapse_ccname($ccname);
 
@@ -530,6 +531,12 @@ do_print:
 			printf " \e[%sm%-40s\e[m", $princ_color, $principal;
 			printf " \e[%sm%s\e[m", $expiry_color, $expiry_str;
 			print "\n";
+
+			if (defined $ccrealm && defined $init_service
+			    && $init_service ne "krbtgt/".$ccrealm."@".$ccrealm) {
+				printf "%20s", "";
+				printf " for \e[%sm%s\e[m\n", $service_color, $init_service;
+			}
 		}
 
 		if (!$num) {

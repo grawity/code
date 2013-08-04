@@ -1,4 +1,7 @@
-#define _XOPEN_SOURCE 700
+#if !defined(HAVE_SOLARIS)
+#  define _XOPEN_SOURCE 700
+#endif
+
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>

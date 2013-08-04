@@ -59,9 +59,9 @@ krb5_error_code krb5_cc_get_principal_name(krb5_context, krb5_ccache, char**);
 krb5_ccache resolve_ccache(char*);
 
 #ifndef HAVE_KRB5_CONFIG_PRINCIPALS
-static inline
 krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_const_principal princ) {
-	return strcmp(krb5_princ_realm(ctx, princ), "X-CACHECONF:") == 0;
+	const char *realm = (const char *) krb5_princ_realm(ctx, princ);
+	return strcmp(realm, "X-CACHECONF:") == 0;
 }
 #endif
 

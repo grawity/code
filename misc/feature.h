@@ -9,6 +9,10 @@
 #  define NO_ACCT
 #endif
 
+#ifdef HAVE_HURD
+#  define NO_ACCT
+#endif
+
 #ifdef HAVE_SOLARIS
 #  undef  HAVE_FLOCK
 #endif

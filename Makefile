@@ -26,7 +26,7 @@ ifeq ($(UNAME),FreeBSD)
 	DL_LDLIBS := $(empty)
 endif
 ifeq ($(UNAME),GNU)
-	OSFLAGS := -DHAVE_HURD -DNO_ACCT
+	OSFLAGS := -DHAVE_HURD
 endif
 ifeq ($(UNAME),NetBSD)
 	OSFLAGS := -DHAVE_NETBSD

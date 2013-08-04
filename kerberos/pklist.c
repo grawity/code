@@ -55,11 +55,13 @@ krb5_error_code krb5_cc_get_principal_name(krb5_context, krb5_ccache, char**);
 krb5_ccache resolve_ccache(char*);
 
 #ifndef HAVE_KRB5_CONFIG_PRINCIPALS
-/*
- * This is bad, but allows correct handling of MIT ccaches on a Heimdal system.
- */
-krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_principal princ) {
-	return strcmp(princ->realm, "X-CACHECONF:") == 0;
+krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_const_principal princ) {
+#  ifdef KRB5_MIT
+	char *realm = princ->realm.data;
+#  else
+	char *realm = princ->realm;
+#  endif
+	return strcmp(realm, "X-CACHECONF:") == 0;
 }
 #endif
 

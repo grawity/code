@@ -14,7 +14,7 @@
 #include <string.h>
 #include "krb5.h"
 
-#ifdef KRB5_MIT
+#if defined(KRB5_MIT) && !defined(KRB5_MIT_SOLARIS)
 #	define HAVE_COLLECTIONS
 #	define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif

@@ -15,12 +15,12 @@
 #include "krb5.h"
 
 #if defined(KRB5_MIT) && !defined(KRB5_MIT_SOLARIS)
-#  define HAVE_COLLECTIONS
+#  define HAVE_KRB5_COLLECTIONS
 #  define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif
 
 #ifdef KRB5_HEIMDAL
-#  ifdef HAVE_COLLECTIONS
+#  ifdef HAVE_KRB5_COLLECTIONS
 #    include <krb5_ccapi.h>
 #  endif
 #  define krb5_free_default_realm(ctx, realm) krb5_xfree(realm)
@@ -332,7 +332,7 @@ int do_ccache_by_name(char *name) {
  * Display all ccaches in a collection, in short form.
  */
 int do_collection() {
-#ifdef HAVE_COLLECTIONS
+#ifdef HAVE_KRB5_COLLECTIONS
 	krb5_error_code		retval;
 	krb5_cccol_cursor	cursor;
 	krb5_ccache		cache;
@@ -344,7 +344,7 @@ int do_collection() {
 		printf("COLLECTION\tccname\tprincipal\n");
 	}
 
-#ifdef HAVE_COLLECTIONS
+#ifdef HAVE_KRB5_COLLECTIONS
 	if ((retval = krb5_cccol_cursor_new(ctx, &cursor))) {
 		com_err(progname, retval, "while listing ccache collection");
 		exit(1);

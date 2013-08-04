@@ -4,17 +4,16 @@ comma := ,
 empty :=
 space := $(empty) $(empty)
 
+UNAME    := $(shell uname)
+HOSTNAME := $(shell hostname)
+MACHTYPE := $(shell dist/prepare -m)
+OBJ      ?= obj/host.$(HOSTNAME)
+
 ifeq ($(origin CC),default)
 CC       := gcc
 endif
 CFLAGS   := -pipe -Wall -O1 -g
 LDFLAGS  := -Wl,--as-needed
-
-UNAME    := $(shell uname)
-HOSTNAME := $(shell hostname)
-MACHTYPE := $(shell dist/prepare -m)
-
-OBJ      ?= obj/host.$(HOSTNAME)
 
 CRYPT_LDLIBS := -lcrypt
 DL_LDLIBS    := -ldl

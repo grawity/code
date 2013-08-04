@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 			perror("getpgid");
 			return 1;
 		} else
-			printf("%lu\n", pgid);
+			printf("%lu\n", (unsigned long) pgid);
 	}
 	else if (streq(cmd, "getsid")) {
 		pid_t pid, pgid;
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 			perror("getsid");
 			return 1;
 		} else
-			printf("%lu\n", pgid);
+			printf("%lu\n", (unsigned long) pgid);
 	}
 	else if (streq(cmd, "wait")) {
 		pid_t pid;
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 				return 2;
 			}
 		}
-		snprintf(path, sizeof(path), "/proc/%lu", pid);
+		snprintf(path, sizeof(path), "/proc/%lu", (unsigned long) pid);
 		while (access(path, F_OK) == 0)
 			sleep(interval);
 		if (errno == ENOENT)

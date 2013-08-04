@@ -55,6 +55,7 @@ krb5_error_code krb5_cc_get_principal_name(krb5_context, krb5_ccache, char**);
 krb5_ccache resolve_ccache(char*);
 
 #ifndef HAVE_KRB5_CONFIG_PRINCIPALS
+static inline
 krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_const_principal princ) {
 #  ifdef KRB5_MIT
 	char *realm = princ->realm.data;

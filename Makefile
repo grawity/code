@@ -6,6 +6,7 @@ space := $(empty) $(empty)
 
 CC       ?= gcc
 CFLAGS    = -pipe -Wall -O1 -g
+LDFLAGS   = -Wl,--as-needed
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
@@ -142,7 +143,7 @@ $(OBJ)/%.o:		| dist/empty.c
 
 $(OBJ)/%:		| dist/empty.c
 	@echo "  CCLD  $(notdir $@) ($<)"
-	@$(LINK.c) -Wl,--as-needed $^ $(LOADLIBES) $(LDLIBS) -o $@
+	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 # hack for old Make (unsupported order-only deps)
 

@@ -148,14 +148,15 @@ int main(int argc, char *argv[]) {
 	int do_chdir = 0;
 	int do_wait = 0;
 	int do_lock = 0;
+#ifdef HAVE_FLOCK
 	int do_print_lockname = 0;
 	char *lockname = NULL;
 	int lockshared = 0;
 	char *lockfile;
-	int opt;
-	int lockfd = 0;
-	int pid;
 	int r;
+#endif
+	int opt, pid;
+	int lockfd = 0;
 
 	arg0 = argv[0];
 

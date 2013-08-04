@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 			perror("getpgid");
 			return 1;
 		} else
-			printf("%d\n", pgid);
+			printf("%lu\n", pgid);
 	}
 	else if (streq(cmd, "getsid")) {
 		pid_t pid, pgid;
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 			perror("getsid");
 			return 1;
 		} else
-			printf("%d\n", pgid);
+			printf("%lu\n", pgid);
 	}
 	else if (streq(cmd, "wait")) {
 		pid_t pid;

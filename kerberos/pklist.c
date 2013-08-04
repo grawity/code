@@ -19,6 +19,9 @@
 #  define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif
 
+/* Solaris actually has MIT Kerberos that uses config principals, and defines
+ * the relevant function, but fails to actually link it. */
+
 #ifdef KRB5_HEIMDAL
 #  ifdef HAVE_KRB5_COLLECTIONS
 #    include <krb5_ccapi.h>

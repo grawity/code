@@ -15,21 +15,21 @@
 #include "krb5.h"
 
 #if defined(KRB5_MIT) && !defined(KRB5_MIT_SOLARIS)
-#	define HAVE_COLLECTIONS
-#	define HAVE_KRB5_CONFIG_PRINCIPALS
+#  define HAVE_COLLECTIONS
+#  define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif
 
 #ifdef KRB5_HEIMDAL
-#	ifdef HAVE_COLLECTIONS
-#		include <krb5_ccapi.h>
-#	endif
-#	define krb5_free_default_realm(ctx, realm)	krb5_xfree(realm)
-#	define krb5_free_host_realm(ctx, realm)		krb5_xfree(realm)
-#	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
+#  ifdef HAVE_COLLECTIONS
+#    include <krb5_ccapi.h>
+#  endif
+#  define krb5_free_default_realm(ctx, realm) krb5_xfree(realm)
+#  define krb5_free_host_realm(ctx, realm)    krb5_xfree(realm)
+#  define krb5_free_unparsed_name(ctx, name)  krb5_xfree(name)
 #endif
 
 #ifdef __NetBSD__
-#	define HAVE_KRB5_CONFIG_PRINCIPALS
+#  define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif
 
 char *progname = "pklist";

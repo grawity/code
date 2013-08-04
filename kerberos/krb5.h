@@ -1,28 +1,28 @@
 #if defined(HAVE_LINUX)
-#	include <krb5/krb5.h>
+#  include <krb5/krb5.h>
 #elif defined(HAVE_CYGWIN)
-#	include <krb5.h>
+#  include <krb5.h>
 #elif defined(HAVE_FREEBSD)
-#	include <krb5.h>
-#	include <com_err.h>
+#  include <krb5.h>
+#  include <com_err.h>
 #elif defined(HAVE_NETBSD)
-#	include <krb5/krb5.h>
-#	include <krb5/com_err.h>
+#  include <krb5/krb5.h>
+#  include <krb5/com_err.h>
 #elif defined(HAVE_OPENBSD)
-#	include <kerberosV/krb5.h>
-#	include <kerberosV/com_err.h>
+#  include <kerberosV/krb5.h>
+#  include <kerberosV/com_err.h>
 #elif defined(HAVE_SOLARIS)
-#	include <kerberosv5/krb5.h>
-#	include <kerberosv5/com_err.h>
+#  include <kerberosv5/krb5.h>
+#  include <kerberosv5/com_err.h>
 #else
-#	include <krb5.h>
+#  include <krb5.h>
 #endif
 
 #if defined(KRB5_KRB5_H_INCLUDED)
-#	define KRB5_MIT
+#  define KRB5_MIT
 #elif defined(_KRB5_H)
-#	define KRB5_MIT
-#	define KRB5_MIT_SOLARIS
+#  define KRB5_MIT
+#  define KRB5_MIT_SOLARIS
 #elif defined(__KRB5_H__)
-#	define KRB5_HEIMDAL
+#  define KRB5_HEIMDAL
 #endif

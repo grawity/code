@@ -12,9 +12,12 @@
 #include <unistd.h>
 #include <assert.h>
 
-/* TODO: use native defines */
-#if defined(HAVE_NETBSD) || defined(HAVE_OPENBSD) || defined(__FreeBSD__)
+#if defined(HAVE_NETBSD) || defined(HAVE_OPENBSD) || defined(HAVE_FREEBSD)
 #  include <libgen.h>
+#endif
+
+#if defined(HAVE_SOLARIS)
+#  include <fcntl.h>
 #endif
 
 char *arg0;

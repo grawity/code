@@ -21,7 +21,7 @@ char *progname = "k5userok";
 #	define krb5_free_unparsed_name(ctx, name)	krb5_xfree(name)
 #endif
 
-#ifdef __OpenBSD__
+#if defined(__OpenBSD__) || defined(HAVE_SOLARIS)
 krb5_error_code krb5_parse_name_flags(krb5_context ctx, const char *name,
 				      int flags, krb5_principal *princ)
 {

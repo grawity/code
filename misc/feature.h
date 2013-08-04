@@ -9,7 +9,6 @@
 #define NO_ACCT
 #endif
 
-/* TODO: use a builtin define */
 #ifdef HAVE_SOLARIS
 #undef  HAVE_FLOCK
 #endif

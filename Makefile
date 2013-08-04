@@ -6,7 +6,6 @@ space := $(empty) $(empty)
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)
-MACHTYPE := $(shell dist/prepare -m)
 OBJ      ?= obj/host.$(HOSTNAME)
 
 ifeq ($(origin CC),default)

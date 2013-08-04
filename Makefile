@@ -4,9 +4,11 @@ comma := ,
 empty :=
 space := $(empty) $(empty)
 
-CC       ?= gcc
-CFLAGS    = -pipe -Wall -O1 -g
-LDFLAGS   = -Wl,--as-needed
+ifeq ($(origin CC),default)
+CC       := gcc
+endif
+CFLAGS   := -pipe -Wall -O1 -g
+LDFLAGS  := -Wl,--as-needed
 
 UNAME    := $(shell uname)
 HOSTNAME := $(shell hostname)

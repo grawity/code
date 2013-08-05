@@ -159,8 +159,6 @@ sub saybool {
 
 # MediaPlayer(busname) - return player service closure
 #   ->([optional] object) - return object in service
-#
-# track(num) - return object path for track number
 
 sub MediaPlayer {
 	my $busname = shift;
@@ -169,10 +167,6 @@ sub MediaPlayer {
 		my $path = shift;
 		$service->get_object($path // "/org/mpris/MediaPlayer2");
 	};
-}
-
-sub track {
-	"/org/mpris/MediaPlayer2/Track/".(shift // "1");
 }
 
 # Notifications() - return libnotify object
@@ -654,13 +648,21 @@ sub player_setprop {
 			my $track;
 			if (!defined $position) {
 				die_usage "Missing position or position\@track.";
-			} elsif ($position =~ /^(.+)@(\d+)$/) {
+			} elsif ($position =~ /^(,+)@(\d+)$/) {
 				$position = $1;
-				$track = track($2);
+				$track = "/org/mpris/MediaPlayer2/Track/$2";
+			} elsif ($position =~ /^(.+)@(\/.+)$/) {
+				$position = $1;
+				$track = $2;
+			} elsif ($position =~ /@/) {
+				die_usage "Invalid track.";
 			} else {
 				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
 							"Metadata");
-				$track = $meta->{"mpris:trackid"} // track("1");
+				$track = $meta->{"mpris:trackid"};
+				if (!defined $track) {
+					die_usage "Couldn't get current track ID.";
+				}
 			}
 			$position = time2int($position);
 			if (defined $position) {

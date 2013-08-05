@@ -564,7 +564,10 @@ sub player_getprop {
 			my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
 			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
 			my $track = $meta->{"mpris:trackid"};
-			if ($track =~ m|^/org/mpris/MediaPlayer2/Track/(\d+)$|) {
+			if (!defined $track) {
+				die_usage "Couldn't get current track ID.";
+			}
+			elsif ($track =~ m|^/org/mpris/MediaPlayer2/Track/(\d+)$|) {
 				$track = $1;
 			}
 			say "$pos\@$track";

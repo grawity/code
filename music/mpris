@@ -199,17 +199,31 @@ sub time2int {
 	my $time = shift;
 	my $secs = 0;
 
+	my $re_dhms = qr/^ (?: (\d+) d )?
+			   (?: (\d+) h )?
+			   (?: (\d+) m )?
+			   (?: (\d+) s )? $/x;
+
+	my $re_hmsu = qr/^ (?:
+			      (?: (\d+) [h:] )?	# optional hours
+			      (\d+):		# minutes
+			   )?
+			   (
+			      \d+		# seconds
+			      (?: \.\d+ )?	# optional millimicronanoseconds
+			   ) $/x;
+
 	for ($time) {
 		when (undef) {
 			return undef;
 		}
-		when (/^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/) {
+		when (/$re_dhms/) {
 			$secs += ($1 // 0) * 86400;
 			$secs += ($2 // 0) * 3600;
 			$secs += ($3 // 0) * 60;
 			$secs += ($4 // 0);
 		}
-		when (/^(?:(?:(\d+)[h:])?(\d+):)?(\d+(?:\.\d+)?)$/) {
+		when (/$re_hmsu/) {
 			$secs += ($1 // 0) * 3600;
 			$secs += ($2 // 0) * 60;
 			$secs += $3;
@@ -218,6 +232,7 @@ sub time2int {
 			return undef;
 		}
 	}
+
 	return $secs * 1_000_000;
 }
 

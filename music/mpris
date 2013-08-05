@@ -217,6 +217,15 @@ sub time2int {
 		when (undef) {
 			return undef;
 		}
+		when (/^\d+$/) {
+			$secs = $_;
+			if ($secs > 100_000) {
+				# more than 27 hours? very likely to be already
+				# in microseconds, just like 'get player/position'
+				# used to output
+				$secs /= 1_000_000;
+			}
+		}
 		when (/$re_dhms/) {
 			$secs += ($1 // 0) * 86400;
 			$secs += ($2 // 0) * 3600;

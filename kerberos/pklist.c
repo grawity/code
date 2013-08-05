@@ -459,8 +459,6 @@ cleanup:
 
 /*
  * return Kerberos credential flags in ASCII
- *
- * TODO: can MIT and Heimdal use the same code?
  */
 char * strflags(register krb5_creds *cred) {
 	static char buf[16];

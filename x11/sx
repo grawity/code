@@ -1,29 +1,11 @@
 #!/bin/sh
 
-getcgroup() {
-	local cg=$(awk -F":" '$2 == "name=systemd" {print $3}' /proc/self/cgroup)
-	echo "/sys/fs/cgroup/systemd/${cg#/}"
-}
-
-setcgroup() {
-	mkdir -p "$1" && echo "$$" > "$1/cgroup.procs"
-}
-
-killcgroup() {
-	local pids=$(< "$1/cgroup.procs")
-	[ "$pids" ] && kill -s ${2:-TERM} $pids
-}
-
 cd ~
 
 vt="vt$(fgconsole)" || {
 	echo "Unable to determine current VT"
 	exit 1
 }
-
-oldcg=$(getcgroup)
-newcg=$oldcg/x11-$$
-setcgroup "$newcg"
 
 export DISPLAY=$(next-display)
 export XAUTHORITY=~/.Xauthority
@@ -41,9 +23,3 @@ ln -sf "/tmp/.X11-unix/X${DISPLAY#:}" "$XDG_RUNTIME_DIR/X11-display"
 xinit ~/.xinitrc "$@" -- "$DISPLAY" "$vt" \
 	-noreset -auth "$XAUTHORITY" -quiet -background none \
 	< /dev/null > "$XDG_CACHE_HOME/xsession.log" 2>&1
-
-setcgroup "$oldcg"
-killcgroup "$newcg" TERM
-(sleep 3
-killcgroup "$newcg" KILL
-find "$newcg" -type d -delete) &

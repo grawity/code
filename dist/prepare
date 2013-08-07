@@ -143,6 +143,17 @@ case $RUNOPT in
 		exit;;
 esac
 
+# If $OBJ is in the environment, consider it a temporary override; do not touch
+# the $HOSTOBJ symlink.
+
+if test "$OBJDIR" = "$OBJ"; then
+	if ! test -d "$OBJDIR"; then
+		log "creating build directory '$OBJDIR'"
+		mkdir -p "$OBJDIR"
+	fi
+	exit
+fi
+
 # Create build directory and re-symlink $HOSTOBJ to point to it
 
 if test "$out" || ( test "$OBJDIR" && test ! -d "$OBJDIR" ); then

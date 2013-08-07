@@ -5,7 +5,7 @@ empty :=
 space := $(empty) $(empty)
 
 UNAME    := $(shell uname)
-OBJ      ?= $(shell dist/prepare -o)
+OBJ      := $(shell dist/prepare -o)
 
 ifeq ($(origin CC),default)
 CC       := gcc

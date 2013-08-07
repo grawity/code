@@ -5,8 +5,7 @@ empty :=
 space := $(empty) $(empty)
 
 UNAME    := $(shell uname)
-HOSTNAME := $(shell hostname)
-OBJ      ?= obj/host.$(HOSTNAME)
+OBJ      ?= $(shell dist/prepare -o)
 
 ifeq ($(origin CC),default)
 CC       := gcc

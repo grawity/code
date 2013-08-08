@@ -1,11 +1,24 @@
 #!/usr/bin/env perl
+use v5.10.1;
+no warnings;
 use File::Spec;
+
+my $TERM = (-t 1 ? $ENV{TERM} : undef) // "dumb";
 
 my %GRAPH = (
 	sm => "│ ",
 	im => "├─",
 	ie => "└─",
 	se => "  ",
+	ct => do { given ($TERM) {
+		when ("dumb")       { "" }
+		when (/-256color$/) { "\e[38;5;241m" }
+		default             { "\e[36m" }
+	} },
+	cr => do { given ($TERM) {
+		when ("dumb") { "" }
+		default       { "\e[m" }
+	} },
 );
 
 my $tree = {};
@@ -36,7 +49,7 @@ sub tree {
 	while (@keys) {
 		my $item = shift @keys;
 		$graph->[$depth] = $depth ? @keys ? $GRAPH{im} : $GRAPH{ie} : "";
-		print "@$graph", $item, "\n";
+		print $GRAPH{ct}, "@$graph", $GRAPH{cr}, $item, "\n";
 		next if $maxdepth && $depth >= $maxdepth;
 		$graph->[$depth] = $depth ? @keys ? $GRAPH{sm} : $GRAPH{se} : "";
 		tree($branch->{$item}, $depth+1, $graph);

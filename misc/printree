@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 my $tree = {};
+my $maxdepth = 0;
 
 sub put {
 	my $branch = shift;
@@ -16,8 +17,14 @@ sub tree {
 	my $depth = shift // 0;
 	for my $item (sort keys %$branch) {
 		print "    "x$depth, $item, "\n";
-		tree($branch->{$item}, $depth+1);
+		if (!$maxdepth || $depth < $maxdepth) {
+			tree($branch->{$item}, $depth+1);
+		}
 	}
+}
+
+if ($ARGV[0] =~ /^-(\d+)$/) {
+	$maxdepth = $1;
 }
 
 while (<STDIN>) {

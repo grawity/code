@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-use Data::Dumper;
 
 my $tree = {};
 
@@ -12,8 +11,17 @@ sub put {
 	}
 }
 
+sub tree {
+	my $branch = shift // $tree;
+	my $depth = shift // 0;
+	for my $item (sort keys %$branch) {
+		print "    "x$depth, $item, "\n";
+		tree($branch->{$item}, $depth+1);
+	}
+}
+
 while (<STDIN>) {
 	chomp; put($tree, $_);
 }
 
-print Dumper($tree);
+tree();

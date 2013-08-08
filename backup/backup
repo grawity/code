@@ -67,6 +67,12 @@ b="/mnt/backup"
 
 job=${1%/}; shift
 
+case $job in
+	--jobs)
+		sed -rn '/^case \$job in$/,/^esac$/ { s/^\t(\S+)\)$/\1/p }' "$0"
+		exit ;;
+esac
+
 mkdir -p ~/Backup/.log
 exec {fd}>~/Backup/.log/$job.log
 flock -x -n $fd || die "job $job is already running"
@@ -74,32 +80,33 @@ flock -x -n $fd || die "job $job is already running"
 status "running job '$job'"
 
 case $job in
-	remote)
-		$0 twitter
-		$0 servers
-		$0 irc
-		$0 gale
-		;;
 	push-hd)
 		do_rsync ~/Attic/Chatlogs/ofb.net/ \
 			$b/Attic/Chatlogs/ofb.net/ ;
 		do_obnam ~
 		;;
-	# jobs
-	irc)
-		do_rsync decay:irclogs/ ~/Attic/Chatlogs/current/
+	online)
+		$0 twitter
+		$0 servers
+		$0 irc
+		$0 gale
 		;;
 	servers)
 		for host in $(< ~/Backup/hosts.txt); do
 			$0 @$host
 		done
-		$0 irc
 		;;
 	@*)
 		host=${job#@}
 		do_rsync $host: ~/Backup/Homes/$host/ \
 			-f "merge $HOME/Backup/global-rsync-filter" \
 			-F
+		;;
+	twitter)
+		~/code/backup/twitter-backup
+		;;
+	irc)
+		do_rsync decay:irclogs/ ~/Attic/Chatlogs/current/
 		;;
 	gale)
 		do_rsync \
@@ -150,12 +157,6 @@ case $job in
 		ssh $host "git all-repack ~/$path"
 		log "Updating local backup..."
 		do_rsync --copy-links "$host:$path/" "$dst"
-		;;
-	twitter)
-		~/code/backup/twitter-backup
-		;;
-	lsjobs)
-		sed -rn '/^case \$job in$/,/^esac$/ { s/^\t(\S+)\)$/\1/p }' "$0"
 		;;
 	*)
 		die "unknown job '$job'"

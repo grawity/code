@@ -1,6 +1,13 @@
 #!/usr/bin/env perl
 use File::Spec;
 
+my %GRAPH = (
+	sm => "│ ",
+	im => "├─",
+	ie => "└─",
+	se => "  ",
+);
+
 my $tree = {};
 my $maxdepth = 0;
 my $path;
@@ -24,12 +31,17 @@ sub put {
 sub tree {
 	my $branch = shift // $tree;
 	my $depth = shift // 0;
-	for my $item (sort keys %$branch) {
-		print "    "x$depth, $item, "\n";
-		if (!$maxdepth || $depth < $maxdepth) {
-			tree($branch->{$item}, $depth+1);
-		}
+	my $graph = shift // [];
+	my @keys = sort keys %$branch;
+	while (@keys) {
+		my $item = shift @keys;
+		$graph->[$depth] = $depth ? @keys ? $GRAPH{im} : $GRAPH{ie} : "";
+		print "@$graph", $item, "\n";
+		next if $maxdepth && $depth >= $maxdepth;
+		$graph->[$depth] = $depth ? @keys ? $GRAPH{sm} : $GRAPH{se} : "";
+		tree($branch->{$item}, $depth+1, $graph);
 	}
+	pop $graph;
 }
 
 for (@ARGV) {

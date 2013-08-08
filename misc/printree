@@ -1,11 +1,19 @@
 #!/usr/bin/env perl
+use File::Spec;
 
 my $tree = {};
 my $maxdepth = 0;
 
+sub split_path {
+	my $path = File::Spec->canonpath(shift);
+	$path =~ s!(^|/) [^/]+ / \.\. (/|$)!$1$2!gx;
+	$path =~ s!^/!!;
+	split m!/!, $path;
+}
+
 sub put {
 	my $branch = shift;
-	my @path = split m|/|, shift;
+	my @path = split_path(shift);
 	while (@path) {
 		my $head = shift @path;
 		$branch = ($branch->{$head} //= {});

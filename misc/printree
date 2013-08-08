@@ -46,6 +46,15 @@ sub put {
 	return $branch;
 }
 
+sub deepcount {
+	my $branch = shift;
+	my $count = 0;
+	for (values %$branch) {
+		$count += 1 + deepcount($_);
+	}
+	return $count;
+}
+
 sub tree {
 	my $branch = shift // $tree;
 	my $depth = shift // 0;
@@ -55,6 +64,9 @@ sub tree {
 	while (@keys) {
 		my $item = shift @keys;
 		my $children = keys $branch->{$item};
+		if ($shallow && $children) {
+			$children = deepcount($branch->{$item});
+		}
 		$graph->[$depth] = $depth ? @keys ? $GRAPH{im} : $GRAPH{ie} : "";
 		print	$GRAPH{ct},
 			"@$graph",

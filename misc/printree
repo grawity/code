@@ -12,7 +12,12 @@ my %GRAPH = (
 	se => "  ",
 	ct => do { given ($TERM) {
 		when ("dumb")       { "" }
-		when (/-256color$/) { "\e[38;5;241m" }
+		when (/-256color$/) { "\e[38;5;59m" }
+		default             { "\e[36m" }
+	} },
+	cs => do { given ($TERM) {
+		when ("dumb")       { "" }
+		when (/-256color$/) { "\e[38;5;109m" }
 		default             { "\e[36m" }
 	} },
 	cr => do { given ($TERM) {
@@ -46,11 +51,20 @@ sub tree {
 	my $depth = shift // 0;
 	my $graph = shift // [];
 	my @keys = sort keys %$branch;
+	my $shallow = $maxdepth && $depth >= $maxdepth;
 	while (@keys) {
 		my $item = shift @keys;
+		my $collapsed = $shallow && keys $branch->{$item};
 		$graph->[$depth] = $depth ? @keys ? $GRAPH{im} : $GRAPH{ie} : "";
-		print $GRAPH{ct}, "@$graph", $GRAPH{cr}, $item, "\n";
-		next if $maxdepth && $depth >= $maxdepth;
+		print	$GRAPH{ct},
+			"@$graph",
+			$collapsed ? $GRAPH{cs} : $GRAPH{cr},
+			$item,
+			$GRAPH{ct},
+			$collapsed ? "/" : "",
+			$GRAPH{cr},
+			"\n";
+		next if $shallow;
 		$graph->[$depth] = $depth ? @keys ? $GRAPH{sm} : $GRAPH{se} : "";
 		tree($branch->{$item}, $depth+1, $graph);
 	}

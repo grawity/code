@@ -9,6 +9,10 @@ no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 
 my $fileurlre = qr{ \b file:// (/\S+) }mx;
 
+# this matches URLs:
+
+my $urlre = qr{ \b ((?:https?|ftps?|sftp) :// \S+) }mx;
+
 # this matches:
 #   filename:lineno
 #   filename:lineno:garbage
@@ -70,6 +74,11 @@ sub parse {
 			debug "fileurlre: '$&' -> '$1'\n";
 			my ($file) = (urldecode($1));
 			return ($file) if -e $file;
+		}
+		when ($urlre) {
+			debug "urlre: '$&'\n";
+			my ($url) = ($1);
+			return ($url);
 		}
 		when ($specre) {
 			debug "specre: '$&' -> '$1' '$2'\n";

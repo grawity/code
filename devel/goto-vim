@@ -4,6 +4,11 @@
 use feature qw(switch);
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 
+# this matches (url-decoded):
+#   file:///foo/bar → /foo/bar
+
+my $fileurlre = qr{ \b file:// (/\S+) }mx;
+
 # this matches:
 #   filename:lineno
 #   filename:lineno:garbage
@@ -14,7 +19,7 @@ no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 my $specre = qr{ ^ ([^:]+) : (\d+ | /[^/]\S*) (?:[:\s].*)? $ }mx;
 
 # this matches:
-#   "a/foo/bar" → foo/bar
+#   a/foo/bar → foo/bar
 
 my $diffpathre = qr{ ^ [a-z] / (.+) $ }mx;
 
@@ -48,12 +53,23 @@ sub debug {
 	warn @_ if $ENV{DEBUG};
 }
 
+sub urldecode {
+	my $str = shift;
+	$str =~ s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	return $str;
+}
+
 sub parse {
 	for (shift) {
 		when ($pythonre) {
 			debug "pythonre: $& -> '$1' '$2'\n";
 			my ($file, $line) = ($1, $2);
 			return ($file, "+".$line);
+		}
+		when ($fileurlre) {
+			debug "fileurlre: '$&' -> '$1'\n";
+			my ($file) = (urldecode($1));
+			return ($file) if -e $file;
 		}
 		when ($specre) {
 			debug "specre: '$&' -> '$1' '$2'\n";

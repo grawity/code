@@ -3,6 +3,7 @@ use File::Spec;
 
 my $tree = {};
 my $maxdepth = 0;
+my $path;
 
 sub split_path {
 	my $path = File::Spec->canonpath(shift);
@@ -20,6 +21,15 @@ sub put {
 	}
 }
 
+sub walk {
+	my $branch = shift;
+	my @path = split_path(shift);
+	for (@path) {
+		$branch = $branch->{$_};
+	}
+	return $branch;
+}
+
 sub tree {
 	my $branch = shift // $tree;
 	my $depth = shift // 0;
@@ -31,12 +41,20 @@ sub tree {
 	}
 }
 
-if ($ARGV[0] =~ /^-(\d+)$/) {
-	$maxdepth = $1;
+for (@ARGV) {
+	if (/^-(\d+)$/) {
+		$maxdepth = $1;
+	} else {
+		$path = $_;
+	}
 }
 
 while (<STDIN>) {
 	chomp; put($tree, $_);
 }
 
-tree();
+my $branch = $tree;
+if ($path) {
+	$branch = walk($branch, $path);
+}
+tree($branch);

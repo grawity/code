@@ -453,6 +453,8 @@ for ($cmd) {
 			my $princ_color = "";
 			my $service_color = "35";
 
+			my $num_tickets;
+
 			$shortname = collapse_ccname($ccname);
 
 			if (ccache_is_environ($ccname)) {
@@ -464,11 +466,12 @@ for ($cmd) {
 			$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
 			if (!$valid) {
 				my $bold = ccache_is_current($ccname) ? "1;" : "";
-				$principal = "(no tickets)";
-				$expiry_str = "  —";
+				$principal = "(none)";
+				$expiry_str = "(nonexistent)";
 				$flag_color = $bold."35";
 				$name_color = $bold."35";
 				$princ_color = $bold."35";
+				$expiry_color = "35";
 				goto do_print;
 			}
 
@@ -483,7 +486,9 @@ for ($cmd) {
 							and $ccrealm = $1;
 					}
 					when ("ticket") {
-						my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags, undef) = @l;
+						my ($t_client, $t_service, undef,
+							$t_expiry, undef, $t_flags, undef) = @l;
+
 						if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
 							$tgt_expiry = $t_expiry;
 						}
@@ -491,6 +496,8 @@ for ($cmd) {
 							$init_service = $t_service;
 							$init_expiry = $t_expiry;
 						}
+
+						++$num_tickets;
 					}
 				}
 			}
@@ -498,6 +505,16 @@ for ($cmd) {
 
 			if (!defined $principal) {
 				next;
+			}
+
+			if (!$num_tickets) {
+				my $bold = ccache_is_current($ccname) ? "1;" : "";
+				$expiry_str = "(no tickets)";
+				$flag_color = $bold."35";
+				$name_color = $bold."35";
+				$princ_color = $bold."35";
+				$expiry_color = "35";
+				goto do_print;
 			}
 
 			$expiry = $tgt_expiry || $init_expiry || 0;

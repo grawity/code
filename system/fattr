@@ -1,0 +1,46 @@
+#!/usr/bin/env perl
+
+my %trans = (
+	origin  => "user.xdg.origin.url",
+	referer => "user.xdg.referrer.url",
+);
+
+my %attrs;
+my @files;
+
+my $attr_re = qr|[^/=]+|;
+
+for (@ARGV) {
+	if (/^($attr_re)=(.*)$/) {
+		my $key = $1;
+		if (defined $trans{$key}) {
+			$key = $trans{$key};
+		} elsif ($key !~ /\./) {
+			$key = "user.".$key;
+		}
+		$attrs{$key} = $2;
+	}
+	else {
+		push @files, $_;
+	}
+}
+
+my $exit = 0;
+
+if (%attrs) {
+	for my $key (keys %attrs) {
+		my $val = $attrs{$key};
+		my $ret;
+		if (length $val) {
+			$ret = system "setfattr", "-n", $key, "-v", $val, "--", @files;
+		} else {
+			$ret = system "setfattr", "-x", $key, "--", @files;
+		}
+		$exit |= $ret > 0;
+	}
+} else {
+	my $ret = system "getfattr", "--absolute-names", "-m", "-", "-d", @files;
+	$exit |= $ret > 0;
+}
+
+exit $exit;

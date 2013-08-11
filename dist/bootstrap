@@ -4,11 +4,11 @@ PATH=${base:=$HOME/code}/bin:$PATH
 
 . lib.bash || exit
 
-log() { printf "\033[32m=\033[m %s\033[m\n" "$*"; }
+log()  { printf "\033[32m=\033[m %s\033[m\n" "$*"; }
 
 warn() { printf "\033[1;33mwarning:\033[m %s\033[m\n" "$*"; (( ++warnings )); }
 
-err() { printf "\033[1;31merror:\033[m %s\033[m\n" "$*"; ! (( ++errors )); }
+err()  { printf "\033[1;31merror:\033[m %s\033[m\n" "$*";   ! (( ++errors )); }
 
 check-gpg-version() {
 	$GPG --version | sed 's/gpg (GnuPG) //; q' | {
@@ -17,7 +17,7 @@ check-gpg-version() {
 	}
 }
 
-if [[ $LOGNAME != grawity ]]; then
+if [[ $USER != grawity ]]; then
 	warn "This script should not be used by anyone else than grawity."
 	warn "  It installs grawity's SSH authorized_keys, their Kerberos"
 	warn "  ~/.k5login, and forwards all mail to their inbox."
@@ -30,21 +30,12 @@ fi
 errors=0
 warnings=0
 
-if have gpg2; then
-	GPG=gpg2
-else
-	GPG=gpg
+if have gpg2
+	then GPG=gpg2
+	else GPG=gpg
 fi
 
-wants=(
-	crontab
-	curl!
-	gcc
-	git!
-	$GPG
-	mailx
-	perl!
-)
+wants=( crontab curl! gcc git! $GPG mailx perl! )
 
 for bin in ${wants[@]}; do
 	case $bin in
@@ -106,9 +97,9 @@ fi
 
 if [[ ! -s ~/.ssh/authorized_keys ]]; then
 	if ! have $GPG; then
-		warn "skipping sshupdate: 'gpg' missing"
+		warn "skipping sshupdate: 'gpg' or 'gpg2' missing"
 	elif ! check-gpg-version; then
-		warn "skipping sshupdate: 'gpg' too old"
+		warn "skipping sshupdate: '$GPG' too old (wanted ≥ v1.4)"
 	else
 		log "configuring sshupdate"
 		security/update-authorized-keys -r
@@ -122,8 +113,7 @@ fi
 if ! have crontab; then
 	warn "not adding dist/pull: 'crontab' missing"
 elif err=$(crontab -l 2>&1 >/dev/null) || [[ $err == "no crontab for $USER" ]]; then
-	if ! crontab -l 2>/dev/null |
-		egrep -qs "[[:space:]]ID=pull[[:space:]]|code/dist/pull"; then
+	if ! crontab -l 2>/dev/null | egrep -qs "code/dist/pull"; then
 		log "adding dist/pull to crontab"
 		(crontab -l 2>/dev/null || true;
 			echo -e '@daily\t~/code/dist/pull') | crontab -

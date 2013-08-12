@@ -21,8 +21,6 @@ if [[ ! $_inhibited ]]; then
 		--always -- "$0" "$@"
 fi
 
-log_backup() { log "backing up ${@/#$HOME/~}"; }
-
 obnam_default=()
 
 obnam_rain=(
@@ -37,12 +35,32 @@ do_obnam() {
 		shift
 	fi
 	profile="obnam_${profile}[@]"
-	log_backup "$@"
+
+	log "backing up $*"
 	schedtool -B -e obnam backup "${!profile}" "$@"
 }
 
 do_rsync() {
-	rsync -avzHAX --del "$@"
+	local src=$1 dest=$2; shift 2
+
+	log "rsyncing $src -> $dest"
+	rsync -aHAXvz --del "$src" "$dest" "$@"
+}
+
+local_rsync() {
+	local src=$1
+
+	case $src in
+	$HOME/*) do_rsync "$src" "$b/${src#$HOME/}";;
+	*)       do_rsync "$src" "$b/_root/${src#/}";;
+	esac
+}
+
+do_pull() {
+	local dir=$1 url=$(cd "$1" && git config remote.origin.url)
+
+	log "pulling $url -> $dir"
+	(cd "$dir" && git pull --ff-only origin)
 }
 
 do_unison() {
@@ -50,15 +68,20 @@ do_unison() {
 	unison "$@" -auto -terse
 }
 
-# Run arguments after acquiring a TGT via keytab.
-do_kstart() {
-	princ=${princ:-'grawity/backup@CLUENET.ORG'}
-	k5start -L -q -f "$b/backup.keytab" -u "$princ" -- "$@"
+do_kinit() {
+	log "obtaining Kerberos tickets for $princ"
+	k5start_base=$(mktemp -d /tmp/backup_XXXXXXXX)
+	export KRB5CCNAME="FILE:${k5start_base}/krb5cc"
+	k5start -K 15 -b -p "${k5start_base}/pid" -L -q "$@"
+	trap 'do_kdestroy' EXIT
 }
 
-recurse_git() {
-	find "$1" -name "*.git" -type d -prune \
-		-exec git --git-dir {} "${@:2}" \;
+do_kdestroy() {
+	if [ -e "$k5start_base/pid" ]; then
+		kill $(< "${k5start_base}/pid")
+		unset KRB5CCNAME
+		rm -rf "$k5start_base"
+	fi
 }
 
 set -e
@@ -81,8 +104,7 @@ status "running job '$job'"
 
 case $job in
 	push-hd)
-		do_rsync ~/Attic/Chatlogs/ofb.net/ \
-			$b/Attic/Chatlogs/ofb.net/ ;
+		local_rsync ~/Attic/Chatlogs/ofb.net/
 		do_obnam ~
 		;;
 	online)
@@ -98,8 +120,8 @@ case $job in
 		;;
 	@*)
 		host=${job#@}
-		do_rsync $host: ~/Backup/Homes/$host/ \
-			-f "merge $HOME/Backup/global-rsync-filter" \
+		do_rsync $host: ~/Backup/Homes/$host/			\
+			-f "merge $HOME/Backup/global-rsync-filter"	\
 			-F
 		;;
 	twitter)
@@ -110,53 +132,41 @@ case $job in
 		;;
 	gale)
 		do_rsync \
-			ofb.net:'~jtr/glog/' \
-			~/Attic/Chatlogs/ofb.net/jtr-glog/ \
-			--exclude "/:glog.out" ;
+			ofb.net:'~jtr/glog/'			\
+			~/Attic/Chatlogs/ofb.net/jtr-glog/	\
+			--exclude "/:glog.out"			\
+			;
 		do_rsync \
-			ofb.net:'~egnor/etc/gale/auth/' \
-			~/Attic/Chatlogs/ofb.net/cached-keys/ \
-			--exclude "tmp.*" ;
+			ofb.net:'~egnor/etc/gale/auth/'		\
+			~/Attic/Chatlogs/ofb.net/cached-keys/	\
+			--exclude "tmp.*"			\
+			;
 		;;
 	cluenet)
-		log "Downloading accounts.git from virgule..."
-		(cd "$b/virgule.cluenet.org/accounts/"
-		do_kstart git pull origin)
+		dir=$b/Backup/Cluenet
 
-		log "Downloading all backups from radian..."
-		(cd "$b/radian.cluenet.org/accounts/"
-		do_kstart git pull origin)
-		do_kstart rsync -aHAXvz --delete \
-			"root@radian.cluenet.org:/backup/" \
-			"$b/radian.cluenet.org/backup/" \
-			--exclude "/accounts/.git" ;
-		do_kstart rsync -aHAXvz --delete \
-			"root@radian.cluenet.org:/var/www/" \
-			"$b/radian.cluenet.org/www/" \
-			--exclude "/main/cluewikicache/" ;
+		do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
+			
+		do_pull $dir/virgule/accounts/
+		do_pull $dir/radian/accounts/
+		do_pull $dir/radian/ircd-config/
+		do_rsync \
+			root@radian.cluenet.org:/backup/	\
+			$dir/radian/backup/			\
+			--exclude "/accounts/.git"		\
+			;
+		do_rsync \
+			root@radian.cluenet.org:/var/www/	\
+			$dir/radian/www/			\
+			--exclude "/main/cluewikicache/"	\
+			;
+
+		do_kdestroy
 		;;
 	grawpqi)
 		dir=/run/media/grawity/grawpqi/
 		mountpoint -q "$dir" || die "'grawpqi' not mounted"
 		do_obnam @rain "$dir"
-		;;
-	linux)
-		do_rsync --exclude='config' \
-			--exclude='index' \
-			~/src/linux/.git/ \
-			/mnt/backup/git-repos/linux.git/
-		;;
-	music)
-		unison-x11 Music
-		;;
-	nullroute-git)
-		host=virgule
-		path=pub/git
-		dst=~/Backup/nullroute-git/
-		log "Repacking remote repositories..."
-		ssh $host "git all-repack ~/$path"
-		log "Updating local backup..."
-		do_rsync --copy-links "$host:$path/" "$dst"
 		;;
 	*)
 		die "unknown job '$job'"

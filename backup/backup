@@ -10,17 +10,6 @@ status() {
 	settitle "$progname: $*"
 }
 
-umask 077
-
-if [[ ! $_inhibited ]]; then
-	export _inhibited=$$
-	exec gnome-inhibit \
-		--who "backup" \
-		--what "suspend" \
-		--why "Performing a backup" \
-		--always -- "$0" "$@"
-fi
-
 obnam_default=()
 
 obnam_rain=(
@@ -40,11 +29,21 @@ do_obnam() {
 	schedtool -B -e obnam backup "${!profile}" "$@"
 }
 
+do_rsnapshot() {
+	local profile=home
+	if [[ $1 == @* ]]; then
+		profile=${1#@}
+		shift
+	fi
+
+	schedtool -B -e rsnapshot -c ~/Backup/config/rsnapshot-$profile.conf "$@"
+}
+
 do_rsync() {
 	local src=$1 dest=$2; shift 2
 
 	log "rsyncing $src -> $dest"
-	rsync -aHAXvz --del "$src" "$dest" "$@"
+	rsync "$src" "$dest" -aHAXvzh --delete-after --delete-excluded "$@"
 }
 
 local_rsync() {
@@ -84,7 +83,18 @@ do_kdestroy() {
 	fi
 }
 
+if [[ ! $_inhibited ]]; then
+	export _inhibited=$$
+	exec gnome-inhibit \
+		--who "backup" \
+		--what "suspend" \
+		--why "Performing a backup" \
+		--always -- "$0" "$@"
+fi
+
 set -e
+
+umask 077
 
 b="/mnt/backup"
 
@@ -104,8 +114,10 @@ status "running job '$job'"
 
 case $job in
 	push-hd)
+		#do_obnam ~
+		do_rsnapshot @home sync
+		do_rsnapshot @home gen
 		local_rsync ~/Attic/Chatlogs/ofb.net/
-		do_obnam ~
 		;;
 	online)
 		$0 twitter
@@ -120,45 +132,50 @@ case $job in
 		;;
 	@*)
 		host=${job#@}
+		dests=()
+		for dir in ~/Backup/Homes/*/; do
+			dests+=(--copy-dest "$dir")
+		done
 		do_rsync $host: ~/Backup/Homes/$host/			\
-			-f "merge $HOME/Backup/global-rsync-filter"	\
-			-F
+			-f "merge $HOME/Backup/global-rsync-filter" -F	\
+			"${dests[@]}"
 		;;
 	twitter)
 		~/code/backup/twitter-backup
 		;;
 	irc)
-		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
+		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/	\
+			--copy-dest ~/Backup/Homes/
 		;;
 	gale)
 		do_rsync \
 			ofb.net:'~jtr/glog/'			\
 			~/Attic/Chatlogs/ofb.net/jtr-glog/	\
-			--exclude "/:glog.out"			\
+			--exclude '/:glog.out'			\
 			;
 		do_rsync \
 			ofb.net:'~egnor/etc/gale/auth/'		\
 			~/Attic/Chatlogs/ofb.net/cached-keys/	\
-			--exclude "tmp.*"			\
+			--exclude 'tmp.*'			\
 			;
 		;;
 	cluenet)
 		dir=$b/Backup/Cluenet
 
 		do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
-			
+
 		do_pull $dir/virgule/accounts/
 		do_pull $dir/radian/accounts/
 		do_pull $dir/radian/ircd-config/
 		do_rsync \
 			root@radian.cluenet.org:/backup/	\
 			$dir/radian/backup/			\
-			--exclude "/accounts/.git"		\
+			--exclude '/accounts/'			\
 			;
 		do_rsync \
 			root@radian.cluenet.org:/var/www/	\
 			$dir/radian/www/			\
-			--exclude "/main/cluewikicache/"	\
+			--exclude '/main/cluewikicache/'	\
 			;
 
 		do_kdestroy

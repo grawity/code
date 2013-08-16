@@ -36,7 +36,8 @@ do_rsnapshot() {
 		shift
 	fi
 
-	schedtool -B -e rsnapshot -c ~/Backup/config/rsnapshot-$profile.conf "$@"
+	schedtool -D -e ionice -c 3 \
+	rsnapshot -c ~/Backup/config/rsnapshot-$profile.conf "$@"
 }
 
 do_rsync() {
@@ -116,7 +117,7 @@ case $job in
 	push-hd)
 		#do_obnam ~
 		do_rsnapshot @home sync
-		do_rsnapshot @home gen
+		do_rsnapshot @home snapshot
 		local_rsync ~/Attic/Chatlogs/ofb.net/
 		;;
 	online)

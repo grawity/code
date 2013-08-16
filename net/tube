@@ -11,6 +11,8 @@ url=''
 tagopts=()
 kind=music
 justaudio=0
+m_artist=''
+m_song=''
 
 while (( $# )); do
 	arg=$1
@@ -26,8 +28,12 @@ while (( $# )); do
 		justaudio=1;;
 	-kind|-type)
 		kind=$2; shift;;
-	-title)
+	-title|-song)
+		m_song=$2;
 		tagopts+=(-song "$2"); shift;;
+	-artist)
+		m_artist=$2;
+		tagopts+=("$arg" "$2"); shift;;
 	-disc|-disk)
 		if [[ $2 == */* ]]; then
 			tagopts+=(-disk "${2%%/*}" -disks "${2##*/}")
@@ -74,6 +80,9 @@ echo "Downloading $url"
 file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
 f_name=${file%.*}
 f_ext=${file##*.}
+if [[ $m_artist && $m_song ]]; then
+	f_name="$m_artist - $m_song"
+fi
 if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
 	file=$f_name.$f_ext
 fi

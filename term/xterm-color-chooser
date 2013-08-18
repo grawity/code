@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # encoding: utf-8
 from __future__ import print_function
+import os
 import sys
 import termios
+import json
 
 modes = {
 	"rgb": "256-color pallette – 6*6*6 RGB subset",
@@ -20,9 +22,52 @@ properties = {
 	"gray": (0, 23),
 }
 
+state_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+state_path = os.path.join(state_dir, "xterm-color-chooser.json")
+
 class State(dict):
 	def copy(self):
 		return State(self)
+
+	def init(self):
+		self["mode"] = "rgb"
+		self["flags"] = set()
+		self["favcolors"] = []
+		self["favstates"] = {}
+		self.reset("red", "green", "blue", "color", "gray")
+
+	def load(self, data, recurse=True):
+		self.init()
+		for prop in properties:
+			self[prop] = data[prop]
+		self["flags"] = set(data["flags"])
+		if "favstates" in data:
+			self["favcolors"] = data["favcolors"][:]
+			self["favstates"] = {st: State().load(data["favstates"][st])
+			                    for st in data["favstates"]}
+		return self
+
+	def save(self, recurse=True):
+		data = {}
+		for prop in properties:
+			data[prop] = self[prop]
+		data["flags"] = list(self["flags"])
+		if recurse:
+			data["favcolors"] = self["favcolors"][:]
+			data["favstates"] = {st: self["favstates"][st].save(False)
+			                     for st in self["favstates"]}
+		return data
+
+	def load_persistent(self):
+		try:
+			with open(state_path, "r") as fh:
+				self.load(json.load(fh))
+		except:
+			pass
+
+	def save_persistent(self):
+		with open(state_path, "w") as fh:
+			json.dump(self.save(), fh)
 
 	def incr(self, *props):
 		for prop in props:
@@ -67,7 +112,7 @@ class State(dict):
 				self["flags"].add(flag)
 
 	def toggle_fav(self):
-		col = self.getcolor()
+		col = str(self.getcolor())
 		if col in self["favstates"]:
 			del self["favstates"][col]
 			self["favcolors"].remove(col)
@@ -172,11 +217,8 @@ if not sys.stdin.isatty():
 	sys.stdin = open("/dev/tty", "r")
 
 state = State()
-state["mode"] = "rgb"
-state["flags"] = set()
-state["favcolors"] = []
-state["favstates"] = {}
-state.reset("red", "green", "blue", "color", "gray")
+state.init()
+state.load_persistent()
 
 sys.stdout.write("\033[?47h") # enable alternate buffer
 sys.stdout.write("\033[?25l") # hide cursor
@@ -337,3 +379,4 @@ icanon(False)
 sys.stdout.write("\033[?25h") # show cursor
 sys.stdout.write("\033[?47l") # disable alternate buffer
 sys.stdout.flush()
+state.save_persistent()

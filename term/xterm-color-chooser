@@ -132,14 +132,16 @@ def icanon(mode):
 		flags[3] |= termios.ICANON | termios.ECHO
 	termios.tcsetattr(fd, 0, flags)
 
-def bar(name, state, prop, scale=2):
+def bar(name, state, prop, scale=2, keys=""):
 	minval, maxval = properties[prop]
 	newstate = state.copy()
 	out = "%10s: [" % name
 	for val in range(minval, maxval+1):
 		newstate[prop] = val
 		out += newstate.fmt(flags=False) + "#"*scale
-	out += "\033[m] %d" % state[prop]
+	out += "\033[m] %-3d" % state[prop]
+	if keys:
+		out += " (keys: %s)" % keys
 	print(out)
 
 	out = "%10s   " % ""
@@ -212,13 +214,13 @@ while True:
 	print()
 
 	if state["mode"] == "rgb":
-		bar("red", state, "red", 3)
-		bar("green", state, "green", 3)
-		bar("blue", state, "blue", 3)
+		bar("red",   state, "red",   3, "7/9 or q/e")
+		bar("green", state, "green", 3, "4/6 or a/d")
+		bar("blue",  state, "blue",  3, "1/3 or z/c")
 	elif state["mode"] in {"sys", "iso"}:
-		bar("color", state, "color", 2)
+		bar("color", state, "color", 2, "+/- or q/e")
 	elif state["mode"] == "gray":
-		bar("gray", state, "gray", 1)
+		bar("gray",  state, "gray",  1, "+/- or q/e")
 
 	print("%11s" % "mode:", modes[state["mode"]])
 	fmtfgstr = state.fmt(flags=True).replace("\033", "\\e")

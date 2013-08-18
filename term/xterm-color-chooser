@@ -12,6 +12,7 @@ modes = {
 }
 
 properties = {
+	"mode": None,
 	"red": (0, 5),
 	"green": (0, 5),
 	"blue": (0, 5),
@@ -64,6 +65,24 @@ class State(dict):
 				self["flags"].remove(flag)
 			else:
 				self["flags"].add(flag)
+
+	def toggle_fav(self):
+		col = self.getcolor()
+		if col in self["favstates"]:
+			del self["favstates"][col]
+			self["favcolors"].remove(col)
+		else:
+			self["favstates"][col] = self.copy()
+			self["favcolors"].append(col)
+
+	def load_fav(self, pos):
+		try:
+			col = self["favcolors"][pos]
+		except IndexError:
+			return
+
+		for prop in properties:
+			self[prop] = self["favstates"][col][prop]
 
 	def getcolor(self, iso=False):
 		if iso and self["mode"] == "iso":
@@ -155,6 +174,8 @@ if not sys.stdin.isatty():
 state = State()
 state["mode"] = "rgb"
 state["flags"] = set()
+state["favcolors"] = []
+state["favstates"] = {}
 state.reset("red", "green", "blue", "color", "gray")
 
 sys.stdout.write("\033[?47h") # enable alternate buffer
@@ -163,6 +184,7 @@ sys.stdout.flush()
 icanon(True)
 
 char = "x"
+wait_fav = False
 
 class Sgr(object):
 	BOLD = 1
@@ -202,8 +224,9 @@ while True:
 	print("    └" + "─"*20 + "┴" + "─"*20 + "┴" + "─"*20 + "┘")
 	print()
 
-	print("%11s" % "keys:", "mode g/G, format b/D/i/u/S/r, exit Q")
 	indent = "%11s" % ""
+
+	print("%11s" % "keys:", "mode g/G, format b/D/i/u/S/r, exit Q")
 	if state["mode"] == "rgb":
 		print(indent, "red 7/9 (q/e), green 4/6 (a/d), blue 1/3 (z/c)")
 		print(indent, "all +/-, reset 8/5/2 (w/s/x), reset all 0")
@@ -232,8 +255,39 @@ while True:
 	style.append("color%d" % state.getcolor(iso=True))
 	print("%11s" % "name:", " + ".join(style))
 
+	favs = state["favcolors"]
+	print()
+	line, count, prefix = "", 0, "favs:"
+	if favs:
+		for pos, col in enumerate(favs):
+			st = state["favstates"][col]
+			fmt = st.fmt(flags=False, bg=True)
+			num = pos+1
+			if num == 10:
+				num = 0
+			elif num > 10:
+				num = chr(ord('a') + num - 11)
+			if count == 8:
+				print("%11s" % prefix, line)
+				line, count, prefix = "", 0, ""
+			line += "%s" % (num) + fmt + " "*4 + "\033[m, "
+			count += 1
+		print("%11s" % prefix, line)
+		prefix = ""
+	print("%11s" % prefix, "add F, jump f",
+		"(waiting for index)" if wait_fav else "+ index")
+
 	k = getch()
 	if k == "Q":		break
+	elif wait_fav:
+		if k in "123456789":	k = int(k)
+		elif k == "0":		k = 10
+		elif ord('a') <= ord(k) <= ord('z'):
+					k = ord(k)-ord('a')+11
+		else:			k = None
+		if k is not None:
+			state.load_fav(k-1)
+		wait_fav = False
 	elif k == "b":		state.toggle(Sgr.BOLD)
 	elif k == "D":		state.toggle(Sgr.DARK)
 	elif k == "i":		state.toggle(Sgr.ITALIC)
@@ -241,6 +295,8 @@ while True:
 	elif k == "r":		state.toggle(Sgr.REVERSE)
 	#elif k == "B":		state.toggle(5)
 	elif k == "S":		state.toggle(Sgr.STRIKE)
+	elif k == "F":		state.toggle_fav()
+	elif k == "f":		wait_fav = True
 	elif state["mode"] == "rgb":
 		if k == "g":	state["mode"] = "sys"
 		elif k == "G":	state["mode"] = "gray"

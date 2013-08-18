@@ -14,7 +14,8 @@ modes = {
 }
 
 properties = {
-	"mode": None,
+	"mode": (None, lambda: "rgb"),
+	"flags": (None, set),
 	"red": (0, 5),
 	"green": (0, 5),
 	"blue": (0, 5),
@@ -102,7 +103,10 @@ class State(dict):
 	def reset(self, *props):
 		for prop in props:
 			minval, maxval = properties[prop]
-			self[prop] = int((minval+maxval)/2.0)
+			if minval is None:
+				self[prop] = maxval()
+			else:
+				self[prop] = int((minval+maxval)/2.0)
 
 	def toggle(self, *flags):
 		for flag in flags:
@@ -127,6 +131,8 @@ class State(dict):
 			return
 
 		for prop in properties:
+			if prop == "flags":
+				continue
 			self[prop] = self["favstates"][col][prop]
 
 	def getcolor(self, iso=False):
@@ -352,7 +358,7 @@ while True:
 		elif k in "2x":	state.reset("blue")
 		elif k in "3c":	state.incr("blue")
 		elif k in "-":	state.decr("red", "green", "blue")
-		elif k in "0":	state.reset("red", "green", "blue")
+		elif k in "0":	state.reset("red", "green", "blue", "flags")
 		elif k in "+":	state.incr("red", "green", "blue")
 		elif k in "/":	state.decr_carry("blue", "green", "red")
 		elif k in "*":	state.incr_carry("blue", "green", "red")
@@ -360,7 +366,7 @@ while True:
 		if k == "g":		state["mode"] = "iso"
 		elif k == "G":		state["mode"] = "rgb"
 		elif k in "741qaz-":	state.decr("color")
-		elif k in "852wsx0":	state.reset("color")
+		elif k in "852wsx0":	state.reset("color", "flags")
 		elif k in "963edc+":	state.incr("color")
 	elif state["mode"] == "iso":
 		if k == "g":		state["mode"] = "gray"
@@ -372,7 +378,7 @@ while True:
 		if k == "g":		state["mode"] = "rgb"
 		elif k == "G":		state["mode"] = "iso"
 		elif k in "741qaz-":	state.decr("gray")
-		elif k in "852wsx0":	state.reset("gray")
+		elif k in "852wsx0":	state.reset("gray", "flags")
 		elif k in "963edc+":	state.incr("gray")
 
 icanon(False)

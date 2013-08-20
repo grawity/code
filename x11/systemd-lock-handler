@@ -29,7 +29,7 @@ def handler_dbus_fdo():
 
 def handler_external():
 	global lock_command
-	trace("locking session using %s" % lock_command[0])
+	trace("locking session using %r" % lock_command[0])
 	os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
 def main():
@@ -46,8 +46,10 @@ def main():
 	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 	if lock_command == ["--dbus"]:
+		trace("using freedesktop.org DBus API")
 		setup_signal(handler_dbus_fdo)
 	else:
+		trace("using external command %r" % lock_command[0])
 		setup_signal(handler_external)
 
 	trace("waiting for lock signals on session %s" % session_id)

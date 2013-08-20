@@ -98,6 +98,8 @@ pklist: $(OBJ)/pklist
 $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
 $(OBJ)/libfunlink.so:	LDLIBS += $(DL_LDLIBS)
 $(OBJ)/libfunlink.so:	system/libfunlink.c
+$(OBJ)/libfunsync.so:	CFLAGS += -shared
+$(OBJ)/libfunsync.so:	system/libfunsync.c
 
 # objects
 

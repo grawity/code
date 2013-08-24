@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-PATH=${base:=$HOME/code}/bin:$PATH
+: ${BASE:=$HOME/code}
 
-. lib.bash || exit
+. $BASE/bin/lib.bash || exit
 
 log()  { printf "\033[32m=\033[m %s\033[m\n" "$*"; }
 
@@ -10,173 +10,126 @@ warn() { printf "\033[1;33mwarning:\033[m %s\033[m\n" "$*"; (( ++warnings )); }
 
 err()  { printf "\033[1;31merror:\033[m %s\033[m\n" "$*";   ! (( ++errors )); }
 
+pick() { until have $1; do shift; (( $# )) || return; done; echo $1; }
+
 check-gpg-version() {
-	$GPG --version | sed 's/gpg (GnuPG) //; q' | {
+	$gpg --version | sed 's/gpg (GnuPG) //; q' | {
 		IFS="." read -r major minor rest
 		(( major >= 2 )) || (( major == 1 && minor >= 4 ))
 	}
 }
 
-if [[ $USER != grawity ]]; then
-	warn "This script should not be used by anyone else than grawity."
-	warn "  It installs grawity's SSH authorized_keys, their Kerberos"
+# set up own environment
+
+PATH=$BASE/bin:$PATH
+
+OWNER=grawity
+EMAIL=grawity@gmail.com
+
+if [[ "$USER" != "$OWNER" ]]; then
+	warn "This script should not be used by anyone else than $OWNER."
+	warn "  It installs $OWNER's SSH authorized_keys, their Kerberos"
 	warn "  ~/.k5login, and forwards all mail to their inbox."
 	warn "  I'm fairly sure you do not want any of that, do you?"
 	confirm "continue anyway?" || exit
 fi
 
-# check for necessary programs
-
 errors=0
 warnings=0
 
-if have gpg2
-	then GPG=gpg2
-	else GPG=gpg
-fi
+# check for necessary programs
 
-wants=( crontab curl! gcc git! $GPG mailx perl! )
+wants="crontab curl! gcc git! mailx perl!"
 
-for bin in ${wants[@]}; do
+for bin in $wants; do
 	case $bin in
 	*!)	bin=${bin%!}
-		have "$bin" || err  "$bin not installed";;
-	*)	have "$bin" || warn "$bin not installed";;
+		have "$bin" || err  "'$bin' not installed";;
+	*)	have "$bin" || warn "'$bin' not installed";;
 	esac
 done
+
+gpg=$(pick gpg2 gpg) || err "'gpg' not installed"
 
 (( errors ))   && { err "required tools missing";    exit 1; }
 (( warnings )) && { confirm "continue bootstrap?" || exit 1; }
 
-# set up dotfiles
-
 warnings=0
 
-cd ~/code
+# base layout and dotfiles
 
-EMAIL=grawity@gmail.com
+cd $BASE
 
-FQDN=$(bin/fqdn)
-
-mkdir -p ~/bin
-
-mkdir -p -m0700 ~/.cache
+umask 077
+mkdir -p -m 0755 ~/bin
+mkdir -p -m 0755 ~/lib
+mkdir -p -m 0700 ~/.cache
 
 if [[ ! -d ~/lib/dotfiles ]]; then
 	log "cloning dotfiles.git"
-	mkdir -p ~/lib
 	git clone "https://github.com/grawity/dotfiles.git" ~/lib/dotfiles
 fi
 
 if [[ ! "$PREFIX" ]]; then
 	log "installing dotfiles"
 	~/lib/dotfiles/install
-	. ~/.profile
+	. ~/lib/dotfiles/environ
 fi
 
-# fix location of ~/.local/man
+# initial authorized_keys fetch
 
-if [[ -L "$PREFIX/man" ]]; then
-	rm -f "$PREFIX/man"
-	mkdir -p "$PREFIX/man"
-fi
-
-if [[ -L "$PREFIX/share/man" ]]; then
-	true
-elif [[ -d "$PREFIX/share/man" ]]; then
-	log "moving manual pages"
-	cp -alf "$PREFIX/share/man" "$PREFIX/"
-	rm -rf "$PREFIX/share/man" "$PREFIX/man/index.db"
-	ln -s "../man" "$PREFIX/share/man"
+if [[ -s ~/.ssh/authorized_keys ]]; then
+	log "authorized_keys already configured"
+elif [[ ! "$gpg" ]]; then
+	warn "skipping authorized_keys (GnuPG missing)"
+elif ! check-gpg-version; then
+	warn "skipping authorized_keys ('$gpg' older than v1.4)"
 else
-	mkdir -p "$PREFIX/share"
-	ln -s "../man" "$PREFIX/share/man"
+	log "configuring authorized_keys"
+	security/update-authorized-keys -r
 fi
 
-# set up authorized_keys
-
-if [[ ! -s ~/.ssh/authorized_keys ]]; then
-	if ! have $GPG; then
-		warn "skipping sshupdate: 'gpg' or 'gpg2' missing"
-	elif ! check-gpg-version; then
-		warn "skipping sshupdate: '$GPG' too old (wanted ≥ v1.4)"
-	else
-		log "configuring sshupdate"
-		security/update-authorized-keys -r
-	fi
-else
-	log "authorized_keys exists"
-fi
-
-# set up dist/pull
+# nightly dist/pull cronjob
 
 if ! have crontab; then
-	warn "not adding dist/pull: 'crontab' missing"
-elif err=$(crontab -l 2>&1 >/dev/null) || [[ $err == "no crontab for $USER" ]]; then
-	if ! crontab -l 2>/dev/null | egrep -qs "code/dist/pull"; then
-		log "adding dist/pull to crontab"
-		(crontab -l 2>/dev/null || true;
-			echo -e '@daily\t~/code/dist/pull') | crontab -
-	else
-		log "dist/pull is in crontab"
-	fi
+	warn "skipping dist/pull cronjob ('crontab' missing)"
 else
-	warn "unable to add dist/pull to crontab: '$err'"
+	err=$(crontab -l 2>&1 >/dev/null)
+
+	if [[ "$err" == "no crontab for $USER" ]]; then
+		err=""
+	fi
+
+	if [[ "$err" ]]; then
+		warn "skipping dist/pull cronjob: '$err'"
+	elif ! crontab -l 2>/dev/null | egrep -qs "/dist/pull"; then
+		log "adding dist/pull cronjob"
+		(crontab -l 2>/dev/null
+		 echo "@daily	~/code/dist/pull") | crontab -
+	else
+		log "dist/pull cronjob already configured"
+	fi
 fi
 
-if [[ "$HOSTNAME" == "equal" ]]; then
-	log "skipping .forward on this server"
+# mail forwarding
+
+if [[ -e ~/.noforward ]]; then
+	log "skipping mail forwarding (found ~/.noforward)"
 elif [[ -s ~/.forward ]]; then
-	log "mail is forwarded to $(sed 1q ~/.forward)"
+	log "mail forwarding already configured (to $(sed 1q ~/.forward))"
 else
 	log "forwarding mail to $EMAIL"
 	echo "$EMAIL" > ~/.forward
 
-	if have /usr/lib/sendmail; then
-		SENDMAIL=/usr/lib/sendmail
-	elif have /usr/sbin/sendmail; then
-		SENDMAIL=/usr/sbin/sendmail
-	else
-		SENDMAIL=sendmail
-	fi
-
-	if ! have $SENDMAIL; then
-		warn "'sendmail' missing, skipping test mail"
+	if ! sendmail=$(pick /usr/{lib,sbin}/sendmail); then
+		warn "'sendmail' not installed"
 	elif confirm "send test mail?"; then
 		{
 		echo "Subject: Test from $HOSTNAME"
 		echo "Date: $(date "+%a, %d %b %Y %H:%M:%S %z")"
 		echo "To: <$EMAIL>"
 		echo ""
-		echo "Test mail from $USER($UID) at $FQDN"
-		} | $SENDMAIL -i "$EMAIL"
+		echo "Test mail from $USER ($UID) at $(fqdn || hostname)"
+		} | $sendmail -i "$EMAIL"
 	fi
-fi
-
-if have perl && ! have cpanm; then
-	if confirm "cpanminus missing, install?"; then
-		dist/install-cpanm
-	fi
-fi
-
-# set up misc
-
-collect_url=git://nullroute.eu.org/trash.git
-collect_ref=refs/collect/$HOSTNAME
-
-if [[ -e ~/.cache/dist-collected ]]; then
-	true
-elif (
-	t_file='100644 blob'
-	b_collect=$(dist/collect | git mkobject)
-	b_prepare=$(dist/prepare -v | git mkobject)
-	b_tree=$(printf '%s %s %s\t%s\n' \
-		$t_file $b_collect 'dist-collect' \
-		$t_file $b_prepare 'dist-prepare' \
-		| git mktree)
-	b_commit=$(echo "System information about $FQDN" | git commit-tree $b_tree)
-	echo "$b_commit $collect_ref" > ~/.cache/dist-collected
-	git push --quiet $collect_url $b_commit:$collect_ref
-); then
-	log "collected system information in $collect_ref"
 fi

@@ -1,29 +1,29 @@
 #!/usr/bin/env perl
 use Net::LDAP;
 
-my @cluster =
-qw[
-	radian.cluenet.org
-	virgule.cluenet.org
-	panther.nathan7.eu
-	tide.nullroute.eu.org
-	wolke.nullroute.eu.org
-];
+sub uniq (@) { my %seen = (); grep { not $seen{$_}++ } @_; }
 
-my @trees =
-qw[
-	dc=cluenet,dc=org
-	dc=nullroute,dc=eu,dc=org
-	cn=config
-];
+my @domains = qw[ cluenet.org nullroute.eu.org ];
+
+my @cluster = ();
+
+my @trees = qw[ cn=config ];
+
+push @cluster,
+	map {[split / /]->[3]}
+	grep {chomp||1}
+	map {`dig +short _ldap._tcp.$_. srv`}
+	@domains;
+
+push @trees,
+	map {join ",", map {"dc=$_"} split /\./, $_}
+	@domains);
 
 my %conns;
 my %csns;
 my %rcsns;
 
 my $err = 0;
-
-
 
 my %F = (
 	bold	=> "\e[1m",
@@ -34,7 +34,7 @@ my %F = (
 
 %F = map {$_ => ""} keys %f if !-t 0;
 
-for my $host (@cluster) {
+for my $host (uniq @cluster) {
 	print "querying '$host'\n";
 	my $conn = Net::LDAP->new($host);
 	if (!$conn) {

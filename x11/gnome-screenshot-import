@@ -13,10 +13,27 @@ use Getopt::Long;
 use Net::DBus;
 use POSIX qw(strftime);
 
-my $bus = Net::DBus->session;
+sub get_userdir {
+	my $name = shift;
+	my @confdirs = ($ENV{XDG_CONFIG_HOME} // $ENV{HOME}."/.config"),
+			split(/:/, $ENV{XDG_CONFIG_DIRS} // ""));
+	my ($conffile) = grep {-e} map {$_."/user-dirs.dirs")} @confdirs;
+	my $userdir;
+	if (open(my $fh, "<", $conffile)) {
+		my $envname = "XDG_".uc($name)."_DIR";
+		while (<$fh>) {
+			next if /^#/ || /^$/;
+			next unless /^\Q$envname\E="?(.+?)"?$/;
+			$userdir = $1;
+			$userdir =~ s|^\$HOME/|$ENV{HOME}/|;
+		}
+		close($fh);
+	}
+	return $userdir // $ENV{HOME}."/".ucfirst($name);
+}
 
 sub Shell {
-	$bus
+	Net::DBus->session
 	->get_service("org.gnome.Shell")
 	->get_object(shift // "/org/gnome/Shell")
 }
@@ -64,4 +81,4 @@ for ($mode) {
 	}
 }
 
-say rel2abs($file, $ENV{HOME}."/Pictures");
+say rel2abs($file, get_userdir("pictures"));

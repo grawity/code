@@ -70,12 +70,18 @@ function resolve($addr) {
 	if (empty($rr))
 		return $addresses;
 	foreach ($rr as $record) {
-		if (isset($record["ip"]))
+		switch ($record["type"]) {
+		case "A":
 			$addresses[] = $record["ip"];
-		elseif (isset($record["ipv6"]))
+			break;
+		case "AAAA":
 			$addresses[] = $record["ipv6"];
-		elseif (isset($record["target"]))
+			break;
+		case "CNAME":
+		case "PTR":
 			$addresses[] = $record["target"];
+			break;
+		}
 	}
 	return $addresses;
 }

@@ -47,34 +47,6 @@ force-pull() {
 	fi > /dev/null
 }
 
-fix-origin-url() {
-	local dir=$(git rev-parse --show-toplevel)
-	local url=$(git config remote.origin.url)
-
-	case $url in
-	https://*)
-		true
-		;;
-	git://*|http://*)
-		local new="https://${url#*://}"
-		log "updating origin for $dir"
-		if silent git fetch "$new"; then
-			git config remote.origin.url "$new"
-			echo "Repository $dir origin updated:" >&2
-			echo "    old URL: $url" >&2
-			echo "    new URL: $new" >&2
-			true
-		else
-			echo "Test fetch from $new failed." >&2
-			echo "Repository $dir still uses insecure origin:" >&2
-			echo "    old URL: $url" >&2
-			echo "    new URL: $new" >&2
-			false
-		fi
-		;;
-	esac
-}
-
 if [ ! "$xyzzy" ]; then
 	export PATH="$HOME/code/bin:$PATH"
 
@@ -90,8 +62,6 @@ if [ ! "$xyzzy" ]; then
 	silent git repack -d
 	xyzzy=42 exec dist/pull
 else
-	fix-origin-url
-
 	case `fqdn` in
 		*.cluenet.org|*.nathan7.eu|*.nullroute.eu.org)
 			touch ~/.k5login
@@ -121,7 +91,6 @@ else
 	if [ -d ~/lib/dotfiles ]; then
 		log "fetching dotfiles.git"
 		(cd ~/lib/dotfiles
-		fix-origin-url
 		force-pull
 		silent git repack -d)
 

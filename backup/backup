@@ -133,11 +133,12 @@ case $job in
 		for host in wolke sky tide; do
 			$0 root@$host
 		done
+		$0 nanobot
 		;;
 	root@*)
 		host=$job
-		do_rsync $host:/ ~/Backup/Server-roots/${host#root@}/		\
-			-f "merge $HOME/Backup/Server-roots/rsync-filter"	\
+		do_rsync $host:/ ~/Backup/Roots/${host#root@}/		\
+			-f "merge $HOME/Backup/Roots/rsync-filter"	\
 			--one-file-system --fake-super
 		;;
 	@*)
@@ -150,12 +151,14 @@ case $job in
 			-f "merge $HOME/Backup/global-rsync-filter" -F	\
 			"${dests[@]}"
 		;;
+	nanobot)
+		do_rsync root@panther:/home/nanobot/ ~/Backup/nanobot/
+		;;
 	twitter)
 		~/code/backup/twitter-backup
 		;;
 	irc)
-		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/	\
-			--copy-dest ~/Backup/Homes/
+		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
 		;;
 	gale)
 		do_rsync \

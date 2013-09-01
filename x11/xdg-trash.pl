@@ -12,6 +12,7 @@ use File::Spec::Functions;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use POSIX qw(strftime);
 
+our $INTERACTIVE = 0;
 our $VERBOSE = 1;
 
 our $DO_PRINT_PATH = 0;
@@ -26,6 +27,10 @@ sub verbose {
 
 sub trace {
 	print "trash: ", @_ if $ENV{DEBUG};
+}
+
+sub confirm {
+	print "trash: ", shift, " "; $|++; <STDIN> =~ /^y/i;
 }
 
 sub dev {
@@ -207,6 +212,9 @@ sub trash {
 		warn "trash: Not found: '$path'\n";
 		return;
 	}
+	if ($INTERACTIVE) {
+		confirm("Kill file <$path>?") || return;
+	}
 	my $orig_path = my_abs_path($path);
 	trace("orig_path='$orig_path'\n");
 	my $trash_dir = find_trash_dir($orig_path);
@@ -235,6 +243,7 @@ sub trash {
 
 GetOptions(
 	'path'		=> \$DO_PRINT_PATH,
+	'i|interactive!'=> \$INTERACTIVE,
 	'r|R|recursive'	=> sub { },
 	'f|force'	=> sub { },
 	'v|verbose!'	=> \$VERBOSE,

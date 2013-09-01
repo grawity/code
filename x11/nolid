@@ -2,15 +2,16 @@
 # nolid - disable suspend and lid-close handling while a command runs
 
 lock="$XDG_RUNTIME_DIR/nolid.lock"
+hold="$XDG_RUNTIME_DIR/nolid.hold"
 
 case $1 in
 	-h|--hold)
-		touch "$lock"
-		nolid inotifywait -qqe delete_self "$lock" &
+		touch "$hold"
+		spawn -dc nolid inotifywait -qqe delete_self "$hold" &
 		echo "Held."
 		exit;;
 	-r|--unhold|--release)
-		rm -f "$lock"
+		rm -f "$hold"
 		echo "Released."
 		exit;;
 esac
@@ -19,10 +20,15 @@ name="nolid"
 if [ -t 0 ]; then
 	tty=$(tty)
 	name="$name on ${tty#/dev/}"
+	settitle "nolid${1:+: $1}"
 fi
-settitle "nolid${1:+: $1}"
 
-exec systemd-inhibit --who="$name" \
+touch "$lock"
+
+trap 'flock -xn "$lock" rm -f "$lock"' EXIT
+
+flock -s "$lock" \
+	systemd-inhibit --who="$name" \
 	--what="sleep:handle-lid-switch" \
 	--why="Manually inhibited" \
 	gnome-inhibit --always \

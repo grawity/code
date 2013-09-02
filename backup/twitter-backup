@@ -168,27 +168,22 @@ sub fetch_tweets_since {
 }
 
 sub store_tweets {
-	my ($tweets) = @_;
-	print "Dumping ".scalar(@$tweets)." tweets\n";
-	open(my $f, ">", "$DIR/tweets.json");
-	print $f JSON->new->utf8->pretty->encode($tweets);
-	close($f);
-}
-
-sub store_tweets_to {
 	my ($tweets, $name) = @_;
-	print "Dumping ".scalar(@$tweets)." tweets\n";
-	open(my $f, ">", "$DIR/tweets-$name.json");
+	my $file = ($name ? "tweets-$name" : "tweets") . ".json";
+	print "Dumping ".scalar(@$tweets)." tweets to $file\n";
+	open(my $f, ">", "$DIR/$file");
 	print $f JSON->new->utf8->pretty->encode($tweets);
 	close($f);
 }
 
 sub load_tweets {
-	open(my $f, "<", "$DIR/tweets.json") or return undef;
+	my ($name) = @_;
+	my $file = ($name ? "tweets-$name" : "tweets") . ".json";
+	open(my $f, "<", "$DIR/$file") or return undef;
 	my $data = eval {local $/; <$f>};
 	close($f);
 	my $tweets = JSON->new->utf8->decode($data);
-	print "Loading ".scalar(@$tweets)." tweets\n";
+	print "Loading ".scalar(@$tweets)." tweets from $file\n";
 	return $tweets;
 }
 
@@ -220,5 +215,5 @@ if ($mode eq 'own') {
 	store_tweets($tweets);
 } elsif ($mode eq 'favs') {
 	my $faves = fetch_faves;
-	store_tweets_to($faves, "favs");
+	store_tweets($faves, "favs");
 }

@@ -17,50 +17,33 @@ sub get_filename {
 
 our $twitter;
 
-sub load_twurl_secrets {
-	open(my $fh, "<", "$ENV{HOME}/.trc");
+sub load_secrets {
+	open(my $fh, "<", $ENV{HOME}."/.trc");
 	my $conf = Load(eval {local $/; <$fh>});
 	close($fh);
 
-	my ($user, $ckey) = @{$conf->{configuration}{default_profile}};
-	my $profile = $conf->{profiles}{$user}{$ckey};
+	my ($user, $key) = @{$conf->{configuration}{default_profile}};
+	my $profile = $conf->{profiles}{$user}{$key};
 
-	return (username => $user,
-		consumer_key => $ckey,
-		consumer_secret => $profile->{consumer_secret},
-		access_token => $profile->{token},
-		access_secret => $profile->{secret});
+	return (username	=> $user,
+		consumer_key	=> $key,
+		consumer_secret	=> $profile->{consumer_secret},
+		access_token	=> $profile->{token},
+		access_secret	=> $profile->{secret});
 }
 
-sub fetch_faves {
-	my @tweets;
-	my $page = 1;
+sub init_api {
+	my %secrets = load_secrets();
 
-	say "Downloading all favorites";
-	while (1) {
-		my %params = (
-			page	=> "$page",
-		);
-		$page++;
+	$twitter = Net::Twitter::Lite::WithAPIv1_1->new(
+			username	=> $secrets{username},
+			consumer_key	=> $secrets{consumer_key},
+			consumer_secret	=> $secrets{consumer_secret});
 
-		print "Downloading page $params{page}... "; $|++;
-		
-		my $statuses = eval {$twitter->favorites(\%params)};
-		if (!$statuses) {
-			warn "Failure: $@\n"; sleep 1; redo;
-		}
+	$twitter->access_token($secrets{access_token});
+	$twitter->access_token_secret($secrets{access_secret});
 
-		say "Received ".scalar(@$statuses)." tweets.";
-		last if !@$statuses;
-
-		#my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
-		#last if !@new;
-		#push @tweets, @new;
-		push @tweets, @$statuses;
-	}
-
-	@tweets = reverse @tweets;
-	return \@tweets;
+	return $twitter;
 }
 
 sub fetch_entire_timeline {
@@ -161,53 +144,86 @@ sub fetch_tweets_since {
 	return \@tweets;
 }
 
+sub fetch_all_favourites {
+	my @tweets;
+	my $page = 1;
+
+	say "Downloading all favorites";
+	while (1) {
+		my %params = (
+			page	=> "$page",
+		);
+		$page++;
+
+		print "Downloading page $params{page}... "; $|++;
+
+		my $statuses = eval {$twitter->favorites(\%params)};
+		if (!$statuses) {
+			warn "Failure: $@\n"; sleep 1; redo;
+		}
+
+		say "Received ".scalar(@$statuses)." tweets.";
+		last if !@$statuses;
+
+		#my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
+		#last if !@new;
+		#push @tweets, @new;
+		push @tweets, @$statuses;
+	}
+
+	@tweets = reverse @tweets;
+	return \@tweets;
+}
+
 sub store_tweets {
 	my ($tweets, $name) = @_;
+
 	my $file = get_filename($name);
 	print "Dumping ".scalar(@$tweets)." tweets to $file\n";
-	open(my $f, ">", $file);
-	print $f JSON->new->utf8->pretty->encode($tweets);
-	close($f);
+	if (open(my $f, ">", $file)) {
+		print $f JSON->new->utf8->pretty->encode($tweets);
+		close($f);
+	} else {
+		die "$!";
+	}
 }
 
 sub load_tweets {
 	my ($name) = @_;
+
 	my $file = get_filename($name);
-	open(my $f, "<", $file) or return undef;
-	my $data = eval {local $/; <$f>};
-	close($f);
+	my $data;
+	if (open(my $f, "<", $file)) {
+		$data = eval {local $/; <$f>};
+		close($f);
+	} else {
+		return undef;
+	}
 	my $tweets = JSON->new->utf8->decode($data);
 	print "Loading ".scalar(@$tweets)." tweets from $file\n";
+
 	return $tweets;
 }
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
-my %secrets = load_twurl_secrets;
-
-$twitter = Net::Twitter::Lite::WithAPIv1_1->new(
-		legacy_lists_api => 0,
-		username => $secrets{username},
-		consumer_key => $secrets{consumer_key},
-		consumer_secret => $secrets{consumer_secret});
-$twitter->access_token($secrets{access_token});
-$twitter->access_token_secret($secrets{access_secret});
-
+$twitter = init_api();
 my $mode = shift(@ARGV) // 'own';
+my $tweets;
 
 if ($mode eq 'own') {
-	my $tweets = load_tweets;
+	$tweets = load_tweets();
 	if (defined $tweets) {
 		my %seen = map {$_->{id_str} => 1} @$tweets;
 		my $since = $tweets->[-1]{id_str};
 		my $new = fetch_tweets_since($since);
 		push @$tweets, grep {!$seen{$_->{id_str}}++} @$new;
 	} else {
-		$tweets = fetch_entire_timeline;
+		$tweets = fetch_entire_timeline();
 	}
 	store_tweets($tweets);
 } elsif ($mode eq 'favs') {
-	my $faves = fetch_faves;
-	store_tweets($faves, "favs");
+	$tweets = fetch_all_favourites();
+	store_tweets($tweets, "favs");
 }

@@ -210,10 +210,10 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 $twitter = init_api();
-my $mode = shift(@ARGV) // 'own';
+my $mode = shift(@ARGV) // '-t';
 my $tweets;
 
-if ($mode eq 'own') {
+if ($mode eq '-t') {
 	$tweets = load_tweets();
 	if (defined $tweets) {
 		my %seen = map {$_->{id_str} => 1} @$tweets;
@@ -224,7 +224,7 @@ if ($mode eq 'own') {
 		$tweets = fetch_entire_timeline();
 	}
 	store_tweets($tweets);
-} elsif ($mode eq 'favs') {
+} elsif ($mode eq '-f') {
 	$tweets = fetch_all_favourites();
 	store_tweets($tweets, "favs");
 }

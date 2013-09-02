@@ -20,11 +20,23 @@ getsel() {
 	fi
 }
 
+putclip() {
+	if [ "$DISPLAY" ]; then
+		if have xclip; then
+			echo "$1" | xclip -in -selection clipboard
+		elif have xsel; then
+			echo "$1" | xsel -i -b
+		fi
+	fi
+	putclip() { true; }
+}
+
 post() {
 	local url=$(curl -sF "sprunge=<$1" http://sprunge.us/)
 	if [ "$url" ]; then
 		seturl "$1" $url
 		echo $url
+		putclip $url
 	else
 		echo "...failed"
 	fi

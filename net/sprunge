@@ -19,7 +19,14 @@ if [ ! "$1" ] || [ "$1" == "-" ]; then
 	# curl handles stdin buffering in a funny way, often
 	# resulting in only the first write() to be pastebinned
 	file=`mktemp /tmp/sprunge.XXXXXXXX`
-	cat > "$file"
+	if [ ! "$1" ] && [ -t 0 ] && [ "$DISPLAY" ]; then
+		xclip -out -selection primary > "$file"
+	elif [ -t 0 ]; then
+		echo -e "\e[1mInput text to pastebin:\e[m"
+		cat > "$file"
+	else
+		cat > "$file"
+	fi
 	if [ -s "$file" ]; then
 		post "$file"
 	else

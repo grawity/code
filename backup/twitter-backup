@@ -9,7 +9,11 @@ use Data::Dumper;
 use Net::Twitter::Lite::WithAPIv1_1;
 use JSON;
 
-our $DIR = "$ENV{HOME}/Backup";
+sub get_filename {
+	my ($name) = @_;
+
+	$ENV{HOME}."/Backup/tweets".($name ? "-".$name : "").".json";
+}
 
 our $twitter;
 
@@ -159,17 +163,17 @@ sub fetch_tweets_since {
 
 sub store_tweets {
 	my ($tweets, $name) = @_;
-	my $file = ($name ? "tweets-$name" : "tweets") . ".json";
+	my $file = get_filename($name);
 	print "Dumping ".scalar(@$tweets)." tweets to $file\n";
-	open(my $f, ">", "$DIR/$file");
+	open(my $f, ">", $file);
 	print $f JSON->new->utf8->pretty->encode($tweets);
 	close($f);
 }
 
 sub load_tweets {
 	my ($name) = @_;
-	my $file = ($name ? "tweets-$name" : "tweets") . ".json";
-	open(my $f, "<", "$DIR/$file") or return undef;
+	my $file = get_filename($name);
+	open(my $f, "<", $file) or return undef;
 	my $data = eval {local $/; <$f>};
 	close($f);
 	my $tweets = JSON->new->utf8->decode($data);

@@ -145,31 +145,48 @@ sub fetch_tweets_since {
 }
 
 sub fetch_all_favourites {
-	my @tweets;
-	my $page = 1;
+	# start with latest
+	# repeat with max_id = lowest id from previous fetch
 
-	say "Downloading all favorites";
+	my @tweets;
+	my %seen;
+	my $next_max_id;
+
+	say "Downloading entire favorites (latest to oldest)";
+
 	while (1) {
 		my %params = (
-			page	=> "$page",
+			count		=> "200",
+			exclude_replies	=> "false",
+			include_rts	=> "true",
 		);
 
-		print "Downloading page $params{page}... "; $|++;
+		my $msg = "Downloading $params{count} tweets";
+		if (defined $next_max_id) {
+			$params{max_id} = $next_max_id;
+			$msg .= " up to $params{max_id}";
+		}
+		say $msg;
 
-		my $statuses = eval {$twitter->favorites(\%params)};
-		if (!$statuses) {
+		my $timeline = eval {$twitter->favorites(\%params)};
+		if (!$timeline) {
 			warn "Failure: $@\n"; sleep 1; redo;
 		}
 
-		say "Received ".scalar(@$statuses)." tweets.";
-		last if !@$statuses;
+		say "Received ".scalar(@$timeline)." tweets.";
+		last if !@$timeline;
 
-		#my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
-		#last if !@new;
-		#push @tweets, @new;
-		push @tweets, @$statuses;
+		my $min_id = $timeline->[-1]->{id_str};
+		my $max_id = $timeline->[0]->{id_str};
+		say "  newest: $max_id";
+		say "  oldest: $min_id";
 
-		$page++;
+		# timeline is sorted newest → oldest
+		my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
+		last if !@new;
+		push @tweets, @new;
+
+		$next_max_id = $min_id;
 	}
 
 	@tweets = reverse @tweets;

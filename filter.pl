@@ -5,10 +5,12 @@ use strict;
 use constant {ACCEPT => 1, REJECT => 0};
 use IO::Poll qw(POLLIN POLLHUP);
 use IO::Socket::INET;
+use IO::Socket::SSL;
 use Socket qw(SHUT_RDWR);
 
 my $listenport;
 my $connecthost;
+my $connectssl;
 my $connectport;
 my @listeners;
 my $verbose;
@@ -92,12 +94,25 @@ sub accept_conn {
 
 	trace("accepted connection $client_conn");
 
-	my $server_conn = IO::Socket::INET->new(
+	my $server_conn;
+
+	if ($connectssl) {
+		$server_conn = IO::Socket::SSL->new(
+					PeerAddr => $connecthost,
+					PeerPort => $connectport,
+					Proto => "tcp",
+					MultiHomed => 1,
+					SSL_verify_mode => SSL_VERIFY_PEER,
+					SSL_ca_path => "/etc/ssl/certs",
+				) or die "connect failed: $@\n";
+	} else {
+		$server_conn = IO::Socket::INET->new(
 					PeerAddr => $connecthost,
 					PeerPort => $connectport,
 					Proto => "tcp",
 					MultiHomed => 1,
 				) or die "connect failed: $@\n";
+	}
 
 	my $poll = IO::Poll->new;
 	my %buf;
@@ -176,9 +191,10 @@ for (@ARGV) {
 	if (/^(\d+)$/) {
 		$listenport = $1;
 	}
-	elsif (/^(.+):(\d+)$/) {
+	elsif (/^(.+):(\+?)(\d+)$/) {
 		$connecthost = $1;
-		$connectport = $2;
+		$connectssl = ($2 eq "+");
+		$connectport = $3;
 	}
 	elsif ($_ eq "-v") {
 		$verbose = 1;

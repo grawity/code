@@ -32,6 +32,7 @@ sub filter_outgoing {
 sub filter_incoming {
 	my $data = shift;
 	for ($data) {
+		return REJECT if /سمَـَّوُوُحخ/ or /مارتيخ/;
 		return REJECT if /this is an example regex/;
 	}
 	return ACCEPT;

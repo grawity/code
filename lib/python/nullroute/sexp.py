@@ -14,10 +14,7 @@
 
 from __future__ import print_function
 import base64
-try:
-	from io import StringIO
-except ImportError:
-	from StringIO import StringIO
+from io import BytesIO
 
 ALPHA		= b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 DIGITS		= b"0123456789"
@@ -50,7 +47,7 @@ class SexpParser(object):
 		self.bytesize = 8
 		self.bits = 0
 		self.nBits = 0
-		self.buf = buf if hasattr(buf, "read") else StringIO(buf)
+		self.buf = buf if hasattr(buf, "read") else BytesIO(buf)
 		self.char = ""
 		self.advance()
 
@@ -114,8 +111,9 @@ class SexpParser(object):
 
 				if self.nBits >= 8:
 					self.nBits -= 8
-					self.char = chr((self.bits >> self.nBits) & 0xFF)
+					byte = (self.bits >> self.nBits) & 0xFF
 					self.bits &= (1 << self.nBits)-1
+					self.char = bytes([byte])
 					return self.char
 
 	def skip_whitespace(self):
@@ -132,8 +130,7 @@ class SexpParser(object):
 		"""Skip the next character if it matches expectations."""
 		if len(char) != 1:
 			raise ValueError("only single characters allowed")
-
-		if not self.char:
+		elif not self.char:
 			raise IOError("EOF found where %r expected" % char)
 		elif self.char == char:
 			self.advance()
@@ -147,7 +144,7 @@ class SexpParser(object):
 		while self.char and self.char in TOKEN_CHARS:
 			out += self.char
 			self.advance()
-		print("scan_simple_string ->", repr(out))
+		#print("scan_simple_string ->", repr(out))
 		return out
 
 	def scan_decimal(self):
@@ -373,7 +370,7 @@ def dump_string(obj, canonical=False, hex=False, hint=None):
 		return out
 
 def dump_hint(obj, canonical=False):
-	return b"[%s]" % dump_string(obj, canonical)
+	return b"[" + dump_string(obj, canonical) + b"]"
 
 def dump_list(obj, canonical=False):
 	out = b"("

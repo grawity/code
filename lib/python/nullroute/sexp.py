@@ -325,6 +325,8 @@ def dump(obj, canonical=False, transport=False):
 		exp = dump_list(obj.items(), canonical)
 	elif isinstance(obj, (list, tuple)):
 		exp = dump_list(obj, canonical)
+	elif isinstance(obj, int):
+		exp = dump_string(str(obj), canonical)
 	else:
 		raise TypeError("unsupported object type %r of %r" % (type(obj), obj))
 

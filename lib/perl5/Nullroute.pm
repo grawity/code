@@ -29,11 +29,7 @@ sub daemonize {
 	}
 }
 
-sub forked(&) {
-	my $sub = shift;
-	my $pid = fork();
-	if ($pid) {return $pid} else {exit &$sub}
-}
+sub forked(&) { fork || exit shift->(); }
 
 sub readfile {
 	my ($file) = @_;

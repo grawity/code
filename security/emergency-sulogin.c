@@ -135,13 +135,13 @@ static struct passwd *getrootpwent(void)
 	static char sline[256];
 	char *p;
 
-	pwent.pw_name = "root";
+	pwent.pw_name   = "root";
 	pwent.pw_passwd = "";
-	pwent.pw_gecos = "Super User";
-	pwent.pw_dir = "/";
-	pwent.pw_shell = "";
-	pwent.pw_uid = 0;
-	pwent.pw_gid = 0;
+	pwent.pw_uid    = 0;
+	pwent.pw_gid    = 0;
+	pwent.pw_gecos  = "Super User";
+	pwent.pw_dir    = "/";
+	pwent.pw_shell  = "";
 
 	if ((fp = fopen(_PATH_PASSWD, "r")) == NULL) {
 		warn("cannot open %s", _PATH_PASSWD);
@@ -195,7 +195,8 @@ static struct passwd *getrootpwent(void)
 	return &pwent;
 }
 
-static char *getpasswd(void) {
+static char *getpasswd(void)
+{
 	struct termios old, tty;
 	static char pass[128];
 	char *ret = pass;
@@ -227,7 +228,8 @@ static char *getpasswd(void) {
 	return ret;
 }
 
-bool authenticate(struct passwd *pwent) {
+bool authenticate(struct passwd *pwent)
+{
 	char *p;
 
 	if (!pwent->pw_passwd[0]) {
@@ -244,7 +246,8 @@ bool authenticate(struct passwd *pwent) {
 	return streq(crypt(p, pwent->pw_passwd), pwent->pw_passwd);
 }
 
-static void sushell(struct passwd *pwent) {
+static void sushell(struct passwd *pwent)
+{
 	char home[PATH_MAX];
 	char *p;
 	char *shell;
@@ -303,7 +306,8 @@ static void sushell(struct passwd *pwent) {
 	warn("%s: exec failed", "/bin/sh");
 }
 
-static void fixtty(void) {
+static void fixtty(void)
+{
 	struct termios tp;
 	int x = 0, fl = 0;
 
@@ -332,7 +336,8 @@ static void fixtty(void) {
 		warn("tcsetattr failed");
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
 	int tries = 3;
 	struct passwd *pwent;
 

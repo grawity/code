@@ -94,9 +94,7 @@ endif
 pklist: $(OBJ)/pklist
 
 emergency-sulogin: $(OBJ)/emergency-sulogin
-	@sudo chown -v root:wheel $<
-	@sudo chmod -v u=rxs,g=rx,o= $<
-	@sudo cp -av $< /usr/bin/emergency-sulogin
+	sudo install -o 'root' -g 'wheel' -m 'u=rxs,g=rx,o=' $< /usr/bin/$@
 
 # libraries
 

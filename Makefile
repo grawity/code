@@ -93,6 +93,11 @@ endif
 # advertised in the pklist readme
 pklist: $(OBJ)/pklist
 
+emergency-sulogin: $(OBJ)/emergency-sulogin
+	@sudo chown -v root:wheel $<
+	@sudo chmod -v u=rxs,g=rx,o= $<
+	@sudo cp -av $< /usr/bin/emergency-sulogin
+
 # libraries
 
 $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
@@ -135,6 +140,9 @@ $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xors:		misc/xors.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c
+
+$(OBJ)/emergency-sulogin:	LDLIBS += $(CRYPT_LDLIBS) -static
+$(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
 
 # general rules
 

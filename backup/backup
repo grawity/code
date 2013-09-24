@@ -150,12 +150,24 @@ case $job in
 		$0 gale
 		;;
 	servers)
+		homes=()
+		roots=()
 		for host in $(< ~/Backup/hosts.txt); do
+			until [[ $host == *[a-z] ]]; do
+				case $host in
+				*!)	host=${host%!}; roots+=($host);;
+				esac
+			done
+			homes+=($host)
+		done
+
+		for host in ${homes[@]}; do
 			$0 @$host
 		done
-		for host in wolke sky tide; do
+		for host in ${roots[@]}; do
 			$0 root@$host
 		done
+
 		$0 nanobot
 		;;
 	root@*)

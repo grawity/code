@@ -20,6 +20,8 @@
 
 #if defined(KRB5_KRB5_H_INCLUDED)
 #  define KRB5_MIT
+#  define HAVE_KRB5_COLLECTIONS
+#  define HAVE_KRB5_CONFIG_PRINCIPALS
 #elif defined(_KRB5_H)
 #  define KRB5_MIT
 #  define KRB5_MIT_SOLARIS

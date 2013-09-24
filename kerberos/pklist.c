@@ -14,11 +14,6 @@
 #include <string.h>
 #include "krb5.h"
 
-#if defined(KRB5_MIT) && !defined(KRB5_MIT_SOLARIS)
-#  define HAVE_KRB5_COLLECTIONS
-#  define HAVE_KRB5_CONFIG_PRINCIPALS
-#endif
-
 /* Solaris actually has MIT Kerberos that uses config principals, and defines
  * the relevant function, but fails to actually link it. */
 

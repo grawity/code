@@ -2,6 +2,29 @@
 
 . lib.bash
 
+openlog() {
+	local lock=~/Backup/.log/$1.log
+	mkdir -p ${lock%/*}
+	exec {fd}<>$lock
+	flock -x -n $fd || {
+		if read -r ldate lstatus < "$lock" || true; then
+			lmsg="$lstatus on $ldate"
+		else
+			lmsg="status unknown"
+		fi
+		die "job $job is already running ($lmsg)"
+	}
+}
+
+putlog() {
+	echo "$(date -Isecond) $*" >&$fd
+}
+
+resetlog() {
+	truncate -s 0 /dev/fd/$fd
+	putlog "$*"
+}
+
 status() {
 	if [[ -t 1 ]]
 		then printf '\e[1;36m--\e[m \e[36m%s\e[m\n' "$*"
@@ -107,10 +130,8 @@ case $job in
 		exit ;;
 esac
 
-mkdir -p ~/Backup/.log
-exec {fd}>~/Backup/.log/$job.log
-flock -x -n $fd || die "job $job is already running"
-
+openlog "$job"
+resetlog "started"
 status "running job '$job'"
 
 case $job in
@@ -206,4 +227,4 @@ case $job in
 		;;
 esac
 
-echo "$(date -Isecond)" >&$fd
+resetlog "done"

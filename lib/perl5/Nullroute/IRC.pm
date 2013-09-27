@@ -11,14 +11,14 @@ sub split_line {
 	while ($i < $n && !length($vec[$i])) {
 		++$i;
 	}
-	if ($i < $n && $vec[$i] =~ /^@/) {
+	if ($i < $n && $vec[$i] =~ /^@/o) {
 		push @argv, $vec[$i];
 		++$i;
 		while ($i < $n && !length($vec[$i])) {
 			++$i;
 		}
 	}
-	if ($i < $n && $vec[$i] =~ /^:/) {
+	if ($i < $n && $vec[$i] =~ /^:/o) {
 		push @argv, $vec[$i];
 		++$i;
 		while ($i < $n && !length($vec[$i])) {

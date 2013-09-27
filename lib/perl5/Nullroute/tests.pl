@@ -56,6 +56,11 @@ sub run_test {
 		printf "%s: %s -> %s\n", $msg,
 			$json->encode($input),
 			$json->encode($actual_output);
+		if ($msg eq "FAIL") {
+			printf "\e[33m%s: %s -> %s\e[m\n", "WANT",
+				$json->encode($input),
+				$json->encode($wanted_output);
+		}
 	}
 	print "Tests: $passed passed, $failed failed\n";
 	return $failed;

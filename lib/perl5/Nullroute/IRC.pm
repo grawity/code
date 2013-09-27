@@ -5,7 +5,7 @@ use strict;
 sub split_line {
 	my ($str) = @_;
 	chomp($str);
-	my @vec = split(/ /, $str);
+	my @vec = split(/ /, $str, -1);
 	my ($i, $n) = (0, scalar @vec);
 	my ($tags, $prefix, @argv);
 	while ($i < $n && !length($vec[$i])) {

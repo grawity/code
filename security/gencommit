@@ -30,14 +30,15 @@ echoc() { printf "%*s %s\n" $colwidth "$1" "${*:2}"; }
 reads() { readc "$1" -e -i "${!2}" "$2"; }
 readp() {
 	if [[ "$DISPLAY" ]]; then
-		printf '%*s ' $colwidth "$1"
+		printf '%*s (starting pinentry)' $colwidth "$1"
 		local r=$(~/code/tools/askpin -p "$1" -t "${0##*/}" -W "$WINDOWID" \
 			-d "Generating a commitment for '$domain' at $date.")
 		declare -g "$2=$r"
+		printf '\n'
 	else
 		readc "$1" -s "$2"
+		printf '...\n'
 	fi
-	printf '...\n'
 }
 
 domain=$1

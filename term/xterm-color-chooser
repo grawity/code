@@ -147,6 +147,22 @@ class State(dict):
 		else:
 			return None
 
+	def setcolor(self, color):
+		if color <= 15:
+			self["mode"] = iso
+			self["color"] = color
+		elif color <= 231:
+			self["mode"] = "rgb"
+			color -= 16
+			self["blue"] = color % 6
+			color = (color - self["blue"]) / 6
+			self["green"] = color % 6
+			color = (color - self["green"]) / 6
+			self["red"] = color
+		elif color <= 255:
+			self["mode"] = "gray"
+			self["gray"] = color - 232
+
 	def fmt(self, flags=True, bg=False):
 		out = ""
 
@@ -336,6 +352,11 @@ while True:
 		if k is not None:
 			state.load_fav(k-1)
 		wait_fav = False
+	elif k == "n":
+		icanon(False)
+		n = input()
+		icanon(True)
+		state.setcolor(int(n))
 	elif k == "b":		state.toggle(Sgr.BOLD)
 	elif k == "D":		state.toggle(Sgr.DARK)
 	elif k == "i":		state.toggle(Sgr.ITALIC)

@@ -1,27 +1,72 @@
 #!/usr/bin/env bash
 
-warn() { printf "\033[1;33mwarning:\033[m %s\033[m\n" "$*"; (( ++warnings )); }
+. lib.bash || exit
 
+warn() { printf "\033[1;33mwarning:\033[m %s\033[m\n" "$*"; (( ++warnings )); }
 err()  { printf "\033[1;31merror:\033[m %s\033[m\n" "$*";   ! (( ++errors )); }
 
-src=~/lib/dotfiles
-roots='Cluenet nullroute'
-dst=/usr/local/share/ca-certificates
+# locate the certificates
 
-cd "$src/ca-certs"
+roots='Cluenet nullroute'
+
+cd ~/lib/dotfiles/ca-certs
 
 for ca in $roots; do
 	if [[ ! -e "$ca.pem" ]]; then
 		err "root '$ca' not found in source dir"
-	elif [[ -e "$dst/$ca.crt" ]]; then
-		warn "root '$ca' already installed"
 	fi
 done
 
 (( ! errors )) || exit
 
+# parse the updater configuration
+
+updater=$(command -v update-ca-certificates 2>/dev/null)
+
+if [[ ! "$updater" ]]; then
+	err "'update-ca-certificates' not found" || exit
+fi
+
+declare $(egrep "^(|LOCAL|ETC)CERT[A-Z]+=[^ ]+$" "$updater")
+
+if [[ ! "$ETCCERTSDIR" || ! "$CERTSCONF" ]]; then
+	err "sanity check: missing variables in updater script"
+fi
+
+if [[ "$LOCALCERTSDIR" ]]; then
+	mode='local'
+	dst="$LOCALCERTSDIR"
+else
+	mode='site'
+	dst="$CERTSDIR/site"
+fi
+
+(( ! errors )) || exit
+
+# perform the installation
+
+if [[ "$mode" == 'site' ]]; then
+	log "removing existing site-local certificates"
+	sudo rm -rf "$dst"
+fi
+
+log "installing to $dst"
 for ca in $roots; do
 	sudo install -v -D -m 0644 "$ca.pem" "$dst/$ca.crt"
 done
 
+if [[ "$mode" == 'site' ]]; then
+	log "updating $CERTSCONF"
+	temp=$(mktemp "/tmp/ca-certificates.XXXXXXXX")
+	(
+		egrep -v "^!?site/" "$CERTSCONF"
+		for ca in $roots; do
+			echo "site/$ca.crt"
+		done
+	) > "$temp"
+	sudo cp "$temp" "$CERTSCONF"
+	rm -f "$temp"
+fi
+
+log "running update-ca-certificates"
 sudo update-ca-certificates

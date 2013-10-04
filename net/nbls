@@ -76,7 +76,7 @@ my @nmblookup_args = ("nmblookup");
 
 sub ip2host {
 	my $addr = shift;
-	printlog("resolving $addr using DNS");
+	trace("resolving $addr using DNS");
 	my $name = gethostbyaddr(inet_aton($addr), AF_INET) // "";
 	$name = lc $name;
 	$name =~ s/\..*//;
@@ -106,13 +106,13 @@ sub nmbstat {
 	my @results;
 	my $addr;
 	my @safe_names = map {"'$_'"} map {format_name($_)} @names;
-	printlog("resolving @safe_names using NBSTAT");
+	trace("resolving @safe_names using NBSTAT");
 	open my $fd, "-|", (@nmblookup_args, "--status", @names);
 	while (<$fd>) {
 		my @r;
 		if (@r = /^Looking up status of (\S+)$/) {
 			$addr = $r[0];
-			printlog("NBSTAT: querying status of $addr");
+			trace("NBSTAT: querying status of $addr");
 		}
 		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+) \s (\w) \s <(\w+)>/ix) {
 			my ($name, $suffix, $nametype, $nodetype, $status) = @r;
@@ -124,11 +124,11 @@ sub nmbstat {
 			push @results, {name => $name, suffix => $suffix, addr => $addr,
 				is_group => ($nametype eq "GROUP"), node_type => $nodetype,
 				status => $status};
-			printlog("NBSTAT: ...has name '$name' ($nametype/$nodetype)");
+			trace("NBSTAT: ...has name '$name' ($nametype/$nodetype)");
 		}
 	}
 	close $fd;
-	printlog("have ".(scalar @results)." results from NBSTAT");
+	trace("have ".(scalar @results)." results from NBSTAT");
 	return @results;
 }
 
@@ -144,7 +144,7 @@ my $do_header = 1;
 my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
 my $do_root_port = 0;
 
-sub printlog {
+sub trace {
 	if ($do_verbose) {
 		my $msg = shift;
 		printf STDERR "- $msg\n", @_;
@@ -168,7 +168,7 @@ if ($do_root_port) {
 }
 
 # Discover the network's master browsers
-printlog("querying names of master browsers");
+trace("querying names of master browsers");
 for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
 	next if grep {$_->{name} eq $entry->{name}
 		&& $_->{suffix} eq $entry->{suffix}
@@ -178,7 +178,7 @@ for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
 	if ($entry->{suffix} == $SUFFIX{workstation}) {
 		if ($entry->{is_group}) {
 			next if $entry->{name} ~~ @next_wgs;
-			printlog("adding '$entry->{name}' from $entry->{addr}");
+			trace("adding '$entry->{name}' from $entry->{addr}");
 			push @next_wgs, $entry->{name};
 		}
 	}
@@ -192,7 +192,7 @@ while (@next_wgs) {
 	for my $wg (@more_wgs) {
 		next if $wg ~~ @workgroups;
 		push @workgroups, $wg;
-		printlog("querying names of '$wg' members");
+		trace("querying names of '$wg' members");
 		for my $entry (nmbstat($wg)) {
 			next if grep {$_->{name} eq $entry->{name}
 				&& $_->{suffix} eq $entry->{suffix}
@@ -203,7 +203,7 @@ while (@next_wgs) {
 				if ($entry->{is_group}) {
 					next if $entry->{name} ~~ @workgroups;
 					next if $entry->{name} ~~ @next_wgs;
-					printlog("adding '$entry->{name}' from $entry->{addr}");
+					trace("adding '$entry->{name}' from $entry->{addr}");
 					push @next_wgs, $entry->{name};
 				}
 			}
@@ -226,7 +226,7 @@ my %names;
 $names{$_->{name}}++ for @network;
 my %addresses;
 $addresses{$_->{addr}}++ for @network;
-printlog("%d entries discovered, %d unique names, %d hosts",
+trace("%d entries discovered, %d unique names, %d hosts",
 	scalar @network, scalar keys %names, scalar keys %addresses);
 
 # Look up DNS names for all entries. Add missing fields.

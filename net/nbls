@@ -6,6 +6,7 @@ use strict;
 use Data::Dumper;
 use Socket;
 use Getopt::Long qw(:config bundling no_ignore_case);
+use Sys::Hostname;
 
 my %SUFFIX = (
 	workstation		=> 0x00,
@@ -133,6 +134,9 @@ sub nmbstat {
 	return @results;
 }
 
+my $msbrowse_name = "\x01\x02__MSBROWSE\x02#01";
+
+my @initial = ($msbrowse_name, hostname);
 my @masters;
 my @network;
 my @workgroups;
@@ -159,6 +163,7 @@ GetOptions(
 	"s|short+"	=> \$do_concise,
 	"S|suffix=o"	=> \$want_suffix,
 	"v|verbose"	=> \$do_verbose,
+	"i|initial=s"	=> sub { my ($opt, $arg) = @_; push @initial, "$arg"; },
 ) or die $!;
 
 if ($do_root_port) {
@@ -170,18 +175,23 @@ if ($do_root_port) {
 
 # Discover the network's master browsers
 trace("querying names of master browsers");
-for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
-	next if grep {$_->{name} eq $entry->{name}
-		&& $_->{suffix} eq $entry->{suffix}
-		&& $_->{addr} eq $entry->{addr}} @network;
-	push @network, $entry;
 
-	if ($entry->{suffix} == $SUFFIX{workstation}) {
-		if ($entry->{is_group}) {
-			next if $entry->{name} ~~ @next_wgs;
-			trace("adding %s from %s",
-				format_name($entry->{name}), $entry->{addr});
-			push @next_wgs, $entry->{name};
+for my $name (@initial) {
+	for my $entry (nmbstat($name)) {
+		next if grep {$_->{name} eq $entry->{name}
+			&& $_->{suffix} eq $entry->{suffix}
+			&& $_->{addr} eq $entry->{addr}} @network;
+		trace("adding result %s [%s]",
+			format_name($entry->{name}), $entry->{addr});
+		push @network, $entry;
+
+		if ($entry->{suffix} == $SUFFIX{workstation}) {
+			if ($entry->{is_group}) {
+				next if $entry->{name} ~~ @next_wgs;
+				trace("adding workgroup %s [from %s]",
+					format_name($entry->{name}), $entry->{addr});
+				push @next_wgs, $entry->{name};
+			}
 		}
 	}
 }
@@ -205,7 +215,7 @@ while (@next_wgs) {
 				if ($entry->{is_group}) {
 					next if $entry->{name} ~~ @workgroups;
 					next if $entry->{name} ~~ @next_wgs;
-					trace("adding %s from %s",
+					trace("adding workgroup %s [from %s]",
 						format_name($entry->{name}),
 						$entry->{addr});
 					push @next_wgs, $entry->{name};

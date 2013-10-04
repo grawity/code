@@ -112,6 +112,7 @@ sub nmbstat {
 		my @r;
 		if (@r = /^Looking up status of (\S+)$/) {
 			$addr = $r[0];
+			printlog("NBSTAT: querying status of $addr");
 		}
 		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+) \s (\w) \s <(\w+)>/ix) {
 			my ($name, $suffix, $nametype, $nodetype, $status) = @r;
@@ -123,9 +124,11 @@ sub nmbstat {
 			push @results, {name => $name, suffix => $suffix, addr => $addr,
 				is_group => ($nametype eq "GROUP"), node_type => $nodetype,
 				status => $status};
+			printlog("NBSTAT: ...has name '$name' ($nametype/$nodetype)");
 		}
 	}
 	close $fd;
+	printlog("have ".(scalar @results)." results from NBSTAT");
 	return @results;
 }
 

@@ -76,7 +76,7 @@ my @nmblookup_args = ("nmblookup");
 
 sub ip2host {
 	my $addr = shift;
-	trace("resolving $addr using DNS");
+	trace("resolving %s using DNS", $addr);
 	my $name = gethostbyaddr(inet_aton($addr), AF_INET) // "";
 	$name = lc $name;
 	$name =~ s/\..*//;
@@ -106,13 +106,13 @@ sub nmbstat {
 	my @results;
 	my $addr;
 	my @safe_names = map {"'$_'"} map {format_name($_)} @names;
-	trace("resolving @safe_names using NBSTAT");
+	trace("resolving %s using NBSTAT", "@safe_names");
 	open my $fd, "-|", (@nmblookup_args, "--status", @names);
 	while (<$fd>) {
 		my @r;
 		if (@r = /^Looking up status of (\S+)$/) {
 			$addr = $r[0];
-			trace("NBSTAT: querying status of $addr");
+			trace("NBSTAT: querying status of %s", $addr);
 		}
 		elsif (@r = /^\t (\S+) \s+ <([0-9a-f]{2})> \s . \s (?:<(\w+)>|\s+) \s (\w) \s <(\w+)>/ix) {
 			my ($name, $suffix, $nametype, $nodetype, $status) = @r;
@@ -124,11 +124,12 @@ sub nmbstat {
 			push @results, {name => $name, suffix => $suffix, addr => $addr,
 				is_group => ($nametype eq "GROUP"), node_type => $nodetype,
 				status => $status};
-			trace("NBSTAT: ...has name '$name' ($nametype/$nodetype)");
+			trace("NBSTAT: ...has name %s (%s/%s)",
+				format_name($name), $nametype, $nodetype);
 		}
 	}
 	close $fd;
-	trace("have ".(scalar @results)." results from NBSTAT");
+	trace("have %d results from NBSTAT %s", scalar @results, "@safe_names");
 	return @results;
 }
 
@@ -178,7 +179,8 @@ for my $entry (nmbstat("\x01\x02__MSBROWSE__\x02#01")) {
 	if ($entry->{suffix} == $SUFFIX{workstation}) {
 		if ($entry->{is_group}) {
 			next if $entry->{name} ~~ @next_wgs;
-			trace("adding '$entry->{name}' from $entry->{addr}");
+			trace("adding %s from %s",
+				format_name($entry->{name}), $entry->{addr});
 			push @next_wgs, $entry->{name};
 		}
 	}
@@ -192,7 +194,7 @@ while (@next_wgs) {
 	for my $wg (@more_wgs) {
 		next if $wg ~~ @workgroups;
 		push @workgroups, $wg;
-		trace("querying names of '$wg' members");
+		trace("querying names of %s members", format_name($wg));
 		for my $entry (nmbstat($wg)) {
 			next if grep {$_->{name} eq $entry->{name}
 				&& $_->{suffix} eq $entry->{suffix}
@@ -203,7 +205,9 @@ while (@next_wgs) {
 				if ($entry->{is_group}) {
 					next if $entry->{name} ~~ @workgroups;
 					next if $entry->{name} ~~ @next_wgs;
-					trace("adding '$entry->{name}' from $entry->{addr}");
+					trace("adding %s from %s",
+						format_name($entry->{name}),
+						$entry->{addr});
 					push @next_wgs, $entry->{name};
 				}
 			}

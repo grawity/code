@@ -73,10 +73,7 @@ class Prefix(object):
 		return "<IRC.Prefix: %r ! %r @ %r>" % (self.nick, self.user, self.host)
 
 	def to_a(self):
-		if self.is_server:
-			return [self.nick, self.user, None, self.host]
-		else:
-			return [self.nick, self.user, self.host, None]
+		return [self.nick, self.user, self.host, self.is_server]
 
 class Line(object):
 	"""

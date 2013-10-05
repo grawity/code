@@ -25,6 +25,9 @@ def run_test(file)
 			failed += 1
 		end
 		puts "#{msg}: #{input.inspect} -> #{JSON.dump(actual_output)}"
+		if msg == "FAIL"
+			puts "\e[33mWANT: #{input.inspect} -> #{JSON.dump(wanted_output)}\e[m"
+		end
 	end
 	puts "Tests: #{passed} passed, #{failed} failed"
 	return failed
@@ -45,6 +48,14 @@ f += run_test "#{dir}/test-irc-join.txt" do |input|
 	begin
 		IRC.join(input)
 	rescue RuntimeError
+		nil
+	end
+end
+
+f += run_test "#{dir}/test-irc-prefix-split.txt" do |input|
+	begin
+		IRC::Prefix.parse(input).to_a
+	rescue RuntimeError => e
 		nil
 	end
 end

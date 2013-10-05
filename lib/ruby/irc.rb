@@ -80,6 +80,55 @@ class IRC
 	end
 end
 
+class IRC::Prefix < Struct.new(:nick, :user, :host, :is_server?)
+	def self.parse(str)
+		if str.length == 0
+			raise "Nickname is empty"
+		end
+
+		dpos = str.index(".") || -1
+		upos = str.index("!") || -1
+		hpos = str.index("@") || -1
+
+		if 0 <= hpos and hpos < upos
+			upos = -1
+		end
+
+		if upos == 0 || hpos == 0
+			raise "Nickname is empty"
+		end
+
+		if 0 <= dpos && (dpos < upos && dpos < hpos)
+			raise "Nickname contains dots"
+		end
+
+		nick = nil
+		user = nil
+		host = nil
+		is_server = false
+
+		if upos >= 0
+			nick = str[0..upos-1]
+			if hpos >= 0
+				user = str[upos+1..hpos-1]
+				host = str[hpos+1..-1]
+			else
+				user = str[upos+1..-1]
+			end
+		elsif hpos >= 0
+			nick = str[0..hpos-1]
+			host = str[hpos+1..-1]
+		elsif dpos >= 0
+			host = str
+			is_server = true
+		else
+			nick = str
+		end
+
+		return IRC::Prefix.new(nick, user, host, is_server)
+	end
+end
+
 class IRC::Message < Struct.new(:tags, :prefix, :argv)
 	def to_a
 		vec = []

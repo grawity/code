@@ -44,14 +44,23 @@ def test_join(input):
 def test_prefix_split(input):
 	try:
 		p = irc.Prefix.parse(input)
-		if p is None:
-			return None
-		elif p.is_server:
-			return [p.nick, p.user, None, p.host]
+		if p:
+			return p.to_a()
 		else:
-			return [p.nick, p.user, p.host, None]
+			return None
 	except ValueError:
 		return None
+
+def test_parse(input):
+	p = irc.Line.parse(input)
+	tags = ["%s=%s" % (k, v) for k, v in p.tags.items()]
+	if not tags:
+		tags = None
+	if p.prefix:
+		prefix = p.prefix.to_a()
+	else:
+		prefix = None
+	return [tags, prefix, p.args]
 
 dir = "../.."
 
@@ -59,6 +68,7 @@ f = 0
 f += run_test(dir+"/test-irc-split.txt", test_split)
 f += run_test(dir+"/test-irc-join.txt", test_join)
 f += run_test(dir+"/test-irc-prefix-split.txt", test_prefix_split)
+f += run_test(dir+"/test-irc-parse.txt", test_parse)
 
 print("Total: %d failed" % f)
 

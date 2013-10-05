@@ -22,6 +22,9 @@ def run_test(file, func):
 			msg = "FAIL"
 			failed += 1
 		print("%s: %r -> %s" % (msg, input, json.dumps(actual_output)))
+		if msg == "FAIL":
+			print("\033[33m%s: %r -> %s\033[m" % ("WANT",
+				input, json.dumps(wanted_output)))
 	print("Tests: %s passed, %d failed" % (passed, failed))
 	return failed
 

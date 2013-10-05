@@ -47,7 +47,7 @@ def test_prefix_split(input):
 		if p is None:
 			return None
 		elif p.is_server:
-			return [None, None, None, p.host]
+			return [p.nick, p.user, None, p.host]
 		else:
 			return [p.nick, p.user, p.host, None]
 	except ValueError:

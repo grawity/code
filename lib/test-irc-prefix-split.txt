@@ -1,0 +1,36 @@
+// vim: ft=javascript
+
+// empty hostmask is strange
+"",				null
+"!user",			null
+"@host",			null
+"!user@host",			null
+"!@host",			null
+"!user@",			null
+
+// null host is forbidden by RFC 2812 but still allowed by RFC 1459
+"nick",				["nick", null, null, null]
+"nick!user",			["nick", "user", null, null]
+
+// normal hostmasks
+"nick@host",			["nick", null, "host", null]
+"nick!user@host",		["nick", "user", "host", null]
+
+// a nickname with dots is always a server name
+"se.rv.er",			[null, null, null, "se.rv.er"]
+
+// make sure this is not confused with server name
+"nick!us.er@host",		["nick", "us.er", "host", null]
+"nick!user@ho.st",		["nick", "user", "ho.st", null]
+"ni.ck!user@host",		null
+
+// empty fields, not 100% valid but let it pass
+"nick!",			["nick", "", null, null]
+"nick@",			["nick", null, "", null]
+"nick!@",			["nick", "", "", null]
+
+// multiple separators, same as above (Psyc does this sometimes)
+"nick!user!resu@host",		["nick", "user!resu", "host", null]
+"nick!user@host!resu",		["nick", "user", "host!resu", null]
+"nick!user@host@tsoh",		["nick", "user", "host@tsoh", null]
+"nick@host!resu",		["nick", null, "host!resu", null]

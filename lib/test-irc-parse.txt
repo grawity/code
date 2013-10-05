@@ -1,0 +1,36 @@
+// vim: ft=javascript
+
+// this assumes that the parser already passes test-irc-split.txt and
+// test-irc-prefix-split.txt
+//
+// it is allowed for 'tags' and 'prefix' to be an empty list, dict, or other
+// object instead of null
+//
+// if 'tags' is stored in a dict, the test process should convert it to a list
+// containing key=value pairs (or just key if value is zero-length), and sort
+// asciibetically
+//
+// if 'prefix' is stored in a dict or object, the test process should convert
+// it to a list containing [nick, user, host, server]
+
+[],					[null, null, []
+[""],					[null, null, [""]]
+["foo"],				[null, null, ["foo"]]
+["foo", "bar"],				[null, null, ["foo", "bar"]]
+
+// just a prefix
+[":foo", "bar", "baz"],			[null, ["foo", null, null, null], ["bar", "baz"]]
+[":foo.", "bar", "baz"],		[null, [null, null, null, "foo."], ["bar", "baz"]]
+
+// just tags
+["@foo", "bar", "baz"],			[["foo"], null, ["bar", "baz"]]
+["@c=d;e;a=b;f=", "foo", "bar"],	[["a=b", "c=d", "e", "f"], null, ["foo", "bar"]]
+
+// tags and prefix
+["@foo;bar=baz", ":quux", "ab", "cd"],	[["bar=baz", "foo"], ["quux", null, null, null], ["ab", "cd"]]
+
+// bad separator (a common typo)
+["@c=d,e,a=b,f=", "foo", "bar"],	[["c=d,e,a=b,f="], null, ["foo", "bar"]]
+
+// wrongly ordered; after the prefix always comes the command
+[":foo", "@bar", "baz"],		[null, ["foo", null, null, null], ["@bar", "baz"]]

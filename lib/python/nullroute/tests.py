@@ -41,11 +41,24 @@ def test_join(input):
 	except ValueError:
 		return None
 
+def test_prefix_split(input):
+	try:
+		p = irc.Prefix.parse(input)
+		if p is None:
+			return None
+		elif p.is_server:
+			return [None, None, None, p.host]
+		else:
+			return [p.nick, p.user, p.host, None]
+	except ValueError:
+		return None
+
 dir = "../.."
 
 f = 0
 f += run_test(dir+"/test-irc-split.txt", test_split)
 f += run_test(dir+"/test-irc-join.txt", test_join)
+f += run_test(dir+"/test-irc-prefix-split.txt", test_prefix_split)
 
 print("Total: %d failed" % f)
 

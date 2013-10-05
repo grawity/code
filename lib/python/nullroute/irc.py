@@ -8,24 +8,45 @@ class InvalidPrefixError(Exception):
 	pass
 
 class Prefix(object):
-	def __init__(self, nick=None, user=None, host=None):
+	def __init__(self, nick=None, user=None, host=None, is_server=False):
 		self.nick = nick
 		self.user = user
 		self.host = host
-
-	_re_nuh = re.compile(r'^(.+)!([^!@]+)@([^!@]+)$')
+		self.is_server = is_server
 
 	@classmethod
 	def parse(cls, prefix):
-		# TODO: I seem to remember having seen prefixes in form !server.tld
+		if len(prefix) == 0:
+			return None
+
+		dpos = prefix.find(".") + 1
+		upos = prefix.find("!") + 1
+		hpos = prefix.find("@") + 1
+		if 0 < hpos < upos:
+			upos = 0
+
+		if upos == 1 or hpos == 1:
+			return None
+		if 0 < dpos < min(upos, hpos):
+			return None
+
 		self = cls()
-		m = cls._re_nuh.match(prefix)
-		if m:
-			self.nick, self.user, self.host = m.groups()
-		elif "." in prefix:
+		if upos > 0:
+			self.nick = prefix[:upos-1]
+			if hpos > 0:
+				self.user = prefix[upos:hpos-1]
+				self.host = prefix[hpos:]
+			else:
+				self.user = prefix[upos:]
+		elif hpos > 0:
+			self.nick = prefix[:hpos-1]
+			self.host = prefix[hpos:]
+		elif dpos > 0:
 			self.host = prefix
+			self.is_server = True
 		else:
 			self.nick = prefix
+
 		return self
 
 	def unparse(self):

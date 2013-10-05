@@ -53,8 +53,11 @@ def test_prefix_split(input):
 
 def test_parse(input):
 	p = irc.Line.parse(input)
-	tags = ["%s=%s" % (k, v) for k, v in p.tags.items()]
-	if not tags:
+	tags = [k if v is True or v == "" else "%s=%s" % (k, v)
+		for k, v in p.tags.items()]
+	if tags:
+		tags.sort()
+	else:
 		tags = None
 	if p.prefix:
 		prefix = p.prefix.to_a()

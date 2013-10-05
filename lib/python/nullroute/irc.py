@@ -145,9 +145,9 @@ class Line(object):
 			self.tags = dict()
 			for item in tags.split(";"):
 				if "=" in item:
-					k, v = item.split("=")
+					k, v = item.split("=", 1)
 				else:
-					k, v = item, true
+					k, v = item, True
 				self.tags[k] = v
 
 		if i < n and parv[i].startswith(":"):

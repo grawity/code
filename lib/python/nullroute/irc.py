@@ -135,10 +135,7 @@ class Line(object):
 		tags, prefix, command, and arguments.
 		"""
 
-		if type(line) == list:
-			parv = line
-		else:
-			parv = cls.split(line)
+		parv = cls.split(line)
 		i, n = 0, len(parv)
 		self = cls()
 

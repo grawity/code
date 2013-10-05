@@ -52,6 +52,7 @@ def test_prefix_split(input):
 		return None
 
 def test_parse(input):
+	input = input.encode("utf-8")
 	p = irc.Line.parse(input)
 	tags = [k if v is True or v == "" else "%s=%s" % (k, v)
 		for k, v in p.tags.items()]

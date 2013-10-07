@@ -1,4 +1,9 @@
-#!/bin/bash -ex
+#!/usr/bin/env bash
+. lib.bash || exit
+
+if [[ ! "$PREFIX" ]]; then
+	die "\$PREFIX not set"
+fi
 
 repo=git://git.sv.gnu.org/weechat.git
 src=~/src/weechat
@@ -6,18 +11,25 @@ ruby=$(which ruby)
 
 commit="$1"
 
-if [ ! -d "$src" ]; then
-	git clone "$repo" "$src"
+if [[ ! "$ruby" ]]; then
+	die "missing 'ruby' executable"
 fi
 
-cd "$src"
-git fetch
+if [[ -d "$src" ]]; then
+	cd "$src"
+	log "updating $src"
+	git fetch
+else
+	log "cloning $repo to $src"
+	git clone "$repo" "$src"
+	cd "$src"
+fi
 
-if [ "$commit" ]; then
+if [[ "$commit" ]]; then
 	git checkout -f "$commit"
 else
 	git checkout -f master
-	git merge --ff-only @{upstream}
+	git merge --ff-only '@{upstream}'
 fi
 
 git clean -fdx

@@ -17,6 +17,8 @@ CRYPT_LDLIBS := -lcrypt
 DL_LDLIBS    := -ldl
 KRB_LDLIBS   := -lkrb5 -lcom_err
 
+# OS-dependent flags
+
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
 endif
@@ -42,6 +44,18 @@ endif
 ifeq ($(UNAME),SunOS)
 	OSFLAGS := -DHAVE_SOLARIS
 	KRB_LDLIBS := -lkrb5
+endif
+
+# detect Kerberos vendor
+# (this is not used for KRB_LDLIBS to avoid unnecessary library links)
+
+KRB_VENDOR   := $(shell krb5-config --vendor 2>/dev/null || echo unknown)
+
+ifeq ($(KRB_VENDOR),Heimdal)
+	OSFLAGS += -DKRB5_HEIMDAL
+endif
+ifeq ($(KRB_VENDOR),Massachusetts Institute of Technology)
+	OSFLAGS += -DKRB5_MIT
 endif
 
 override CFLAGS += -I./misc $(OSFLAGS)

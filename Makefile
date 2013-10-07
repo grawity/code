@@ -60,6 +60,14 @@ endif
 
 override CFLAGS += -I./misc $(OSFLAGS)
 
+ifeq ($(V),1)
+	verbose_hide := $(empty)
+	verbose_echo := :
+else
+	verbose_hide := @
+	verbose_echo := echo
+endif
+
 # misc targets
 
 .PHONY: default pre clean mrproper
@@ -159,12 +167,12 @@ $(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
 # general rules
 
 $(OBJ)/%.o:		| dist/empty.c
-	@echo "  CC    $(notdir $@) ($<)"
-	@$(COMPILE.c) $(OUTPUT_OPTION) $<
+	@$(verbose_echo) "  CC    $(notdir $@) ($<)"
+	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $<
 
 $(OBJ)/%:		| dist/empty.c
-	@echo "  CCLD  $(notdir $@) ($<)"
-	@$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+	@$(verbose_echo) "  CCLD  $(notdir $@) ($<)"
+	$(verbose_hide)$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 # hack for old Make (unsupported order-only deps)
 

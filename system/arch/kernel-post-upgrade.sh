@@ -5,6 +5,10 @@ die() {
 	exit 1
 }
 
+try_esp() {
+	mountpoint -q "$1" && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
+}
+
 check_kernel() {
 	local kernel=$1
 	local suffix=
@@ -39,6 +43,7 @@ install_kernel() {
 	cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 	cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
 
+	echo "+ generating bootloader config"
 	parameters=(
 		"title"		"$PRETTY_NAME"
 		"version"	"$version"
@@ -47,7 +52,6 @@ install_kernel() {
 		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
 		"options"	"$BOOT_OPTIONS"
 	)
-	echo "+ generating bootloader config"
 	mkdir -p "$ESP/loader/entries"
 	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
 }
@@ -65,9 +69,9 @@ remove_kernel() {
 
 unset ID NAME PRETTY_NAME MACHINE_ID BOOT_OPTIONS
 
-if [[ -d /boot/efi/EFI && -d /boot/efi/loader ]]; then
+if try_esp /boot/efi; then
 	ESP=/boot/efi
-elif [[ -d /boot/EFI && -d /boot/loader ]]; then
+elif try_esp /boot; then
 	ESP=/boot
 else
 	die "error: EFI system partition not found; please \`mkdir <efisys>/loader\`"

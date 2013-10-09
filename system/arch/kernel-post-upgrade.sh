@@ -5,10 +5,6 @@ die() {
 	exit 1
 }
 
-same_fs() {
-	test "$(stat -c %d "$1")" = "$(stat -c %d "$2")"
-}
-
 check_kernel() {
 	local kernel=$1
 	local suffix=

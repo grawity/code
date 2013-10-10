@@ -24,7 +24,10 @@
 #  define krb5_free_default_realm(ctx, realm) krb5_xfree(realm)
 #  define krb5_free_host_realm(ctx, realm)    krb5_xfree(realm)
 #  define krb5_free_unparsed_name(ctx, name)  krb5_xfree(name)
-#  define krb5_princ_realm(ctx, princ)        krb5_principal_get_realm(ctx, princ)
+#endif
+
+#ifdef KRB5_MIT
+#  define krb5_principal_get_realm(ctx, princ) (krb5_princ_realm(ctx, princ)->data)
 #endif
 
 #ifdef __NetBSD__
@@ -55,7 +58,7 @@ krb5_ccache resolve_ccache(char*);
 
 #ifndef HAVE_KRB5_CONFIG_PRINCIPALS
 krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_const_principal princ) {
-	const char *realm = (const char *) krb5_princ_realm(ctx, princ);
+	const char *realm = krb5_principal_get_realm(ctx, princ);
 	return strcmp(realm, "X-CACHECONF:") == 0;
 }
 #endif

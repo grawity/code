@@ -18,15 +18,13 @@
 #  include <krb5.h>
 #endif
 
-#if !defined(KRB5_MIT) && !defined(KRB5_HEIMDAL)
-#  if defined(KRB5_KRB5_H_INCLUDED)
-#    define KRB5_MIT
-#    define HAVE_KRB5_COLLECTIONS
-#    define HAVE_KRB5_CONFIG_PRINCIPALS
-#  elif defined(_KRB5_H)
-#    define KRB5_MIT
-#    define KRB5_MIT_SOLARIS
-#  elif defined(__KRB5_H__)
-#    define KRB5_HEIMDAL
-#  endif
+#if defined(KRB5_KRB5_H_INCLUDED)
+#  define KRB5_MIT
+#  define HAVE_KRB5_COLLECTIONS
+#  define HAVE_KRB5_CONFIG_PRINCIPALS
+#elif defined(_KRB5_H)
+#  define KRB5_MIT
+#  define KRB5_MIT_SOLARIS
+#elif defined(__KRB5_H__)
+#  define KRB5_HEIMDAL
 #endif

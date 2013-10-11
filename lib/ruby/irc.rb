@@ -86,9 +86,13 @@ class IRC::Prefix < Struct.new(:nick, :user, :host, :is_server?)
 			raise "Nickname is empty"
 		end
 
-		dpos = str.index(".") || -1
-		upos = str.index("!") || -1
-		hpos = str.index("@") || -1
+		dpos = str.index(".")
+		upos = str.index("!")
+		hpos = str.index("@", upos || 0)
+
+		dpos ||= -1
+		upos ||= -1
+		hpos ||= -1
 
 		if 0 <= hpos and hpos < upos
 			upos = -1

@@ -21,9 +21,7 @@ class Prefix(object):
 
 		dpos = prefix.find(".") + 1
 		upos = prefix.find("!") + 1
-		hpos = prefix.find("@") + 1
-		if 0 < hpos < upos:
-			upos = 0
+		hpos = prefix.find("@", upos) + 1
 
 		if upos == 1 or hpos == 1:
 			return None

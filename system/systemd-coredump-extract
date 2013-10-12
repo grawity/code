@@ -15,6 +15,7 @@ import tempfile
 BUF_MAX = 80 << 20
 
 def journal_read(match):
+	global BUF_MAX
 	proc = subprocess.Popen(
 		["journalctl", "-o", "export"] + match,
 		stdout=subprocess.PIPE)
@@ -44,7 +45,13 @@ def journal_read(match):
 					delete=False)
 				while size > 0:
 					left = min(BUF_MAX, size)
-					buf = journal.read(left)
+					try:
+						buf = journal.read(left)
+					except MemoryError:
+						BUF_MAX -= (8 << 20)
+						if BUF_MAX <= 0:
+							raise
+						continue
 					file.write(buf)
 					size -= len(buf)
 				journal.read(1)

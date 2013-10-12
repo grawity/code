@@ -4,9 +4,15 @@
 # systemd-journald, but don't yet have systemd-coredumpctl.
 
 from __future__ import print_function
-import sys
-import subprocess
+import os
+import shutil
 import struct
+import subprocess
+import sys
+import tempfile
+
+# Use temporary files above 80 MB – adjust to your free memory
+BUF_MAX = 80 << 20
 
 def journal_read(match):
 	proc = subprocess.Popen(
@@ -33,14 +39,27 @@ def journal_read(match):
 			key = line.decode("utf-8")
 			size = journal.read(8)
 			size, = struct.unpack("<Q", size)
-			val = b""
-			while size > 0:
-				buf = journal.read(size)
-				val += buf
-				size -= len(buf)
-			journal.read(1)
-			# TODO: as above
-			record[key] = val
+			if size > BUF_MAX:
+				file = tempfile.NamedTemporaryFile(dir="/var/tmp",
+					delete=False)
+				while size > 0:
+					left = min(BUF_MAX, size)
+					buf = journal.read(left)
+					file.write(buf)
+					size -= len(buf)
+				journal.read(1)
+				# TODO: as above
+				record[key] = (file.tell(), file.name)
+				file.close()
+			else:
+				val = b""
+				while size > 0:
+					buf = journal.read(size)
+					val += buf
+					size -= len(buf)
+				journal.read(1)
+				# TODO: as above
+				record[key] = val
 	if record:
 		yield record
 
@@ -56,7 +75,18 @@ for record in journal_read(match):
 	pid = int(record["COREDUMP_PID"])
 	comm = record["COREDUMP_COMM"]
 	path = "%s.%d.core" % (comm, pid)
-	print("saving core dump of pid=%d comm=%r (%d bytes) to %r" % \
-		(pid, comm, len(record["COREDUMP"]), path))
-	with open(path, "wb") as fh:
-		fh.write(record["COREDUMP"])
+	core = record["COREDUMP"]
+
+	if type(core) is tuple:
+		size, temp_path = core
+		with open(temp_path, "rb") as in_fh:
+			os.unlink(temp_path)
+			with open(path, "wb") as out_fh:
+				shutil.copyfileobj(in_fh, out_fh)
+	else:
+		size = len(core)
+		with open(path, "wb") as out_fh:
+			out_fh.write(core)
+
+	print("saved core dump of pid=%d comm=%r (%d bytes) to %r" % \
+		(pid, comm, size, path))

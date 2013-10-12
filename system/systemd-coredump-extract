@@ -79,10 +79,15 @@ for arg in sys.argv[1:]:
 		match.append(match_id)
 
 for record in journal_read(match):
-	pid = int(record["COREDUMP_PID"])
-	comm = record["COREDUMP_COMM"]
+	try:
+		pid = int(record["COREDUMP_PID"])
+		comm = record["COREDUMP_COMM"]
+		core = record["COREDUMP"]
+	except KeyError as e:
+		print("skipped incomplete record (missing %r field)" % e.args)
+		continue
+
 	path = "%s.%d.core" % (comm, pid)
-	core = record["COREDUMP"]
 
 	if type(core) is tuple:
 		size, temp_path = core

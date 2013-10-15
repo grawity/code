@@ -38,18 +38,26 @@ install_kernel() {
 
 	echo "Found $PRETTY_NAME ($kernel $version)"
 
-	echo "+ copying kernel to EFI system partition"
-	mkdir -p "$ESP/EFI/$ID"
-	cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
-	cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+	if [[ $ESP = "/boot" ]]; then
+		kernel_path="\\vmlinuz-$kernel"
+		initrd_path="\\initramfs-$kernel.img"
+	else
+		echo "+ copying kernel to EFI system partition"
+		mkdir -p "$ESP/EFI/$ID"
+		cp -f "/boot/vmlinuz-$kernel"       "$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+		cp -f "/boot/initramfs-$kernel.img" "$ESP/EFI/$ID/initramfs-$kernel.img"
+
+		kernel_path="\\EFI\\$ID\\vmlinuz-$kernel.efi"
+		initrd_path="\\EFI\\$ID\\initramfs-$kernel.img"
+	fi
 
 	echo "+ generating bootloader config"
 	parameters=(
 		"title"		"$PRETTY_NAME"
 		"version"	"$version"
 		"machine-id"	"$MACHINE_ID"
-		"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
-		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
+		"linux"		"$kernel_path"
+		"initrd"	"$initrd_path"
 		"options"	"$BOOT_OPTIONS"
 	)
 	mkdir -p "$ESP/loader/entries"

@@ -36,7 +36,7 @@ install_kernel() {
 		return 1
 	fi
 
-	echo "Found $PRETTY_NAME ($kernel $version)"
+	echo "Installing package: $kernel $version as \"$PRETTY_NAME\""
 
 	echo "+ copying kernel to EFI system partition"
 	mkdir -p "$ESP/EFI/$ID"
@@ -57,7 +57,7 @@ install_kernel() {
 }
 
 remove_kernel() {
-	echo "Uninstalling $PRETTY_NAME ($kernel)"
+	echo "Uninstalling package: $kernel"
 
 	echo "+ removing kernel from EFI system partition"
 	rm -f "$ESP/EFI/$ID/vmlinuz-$kernel.efi"

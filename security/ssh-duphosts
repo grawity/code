@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# ssh-duphosts v1.4
-# Checks for duplicate entries in ~/.ssh/known_hosts
+# ssh-duphosts -- checks for duplicate entries in ~/.ssh/known_hosts
 from __future__ import print_function
 from operator import itemgetter
 import os
@@ -84,19 +83,23 @@ def print_duplicates(keys):
 			})
 			print("\t%s" % "\n\t".join(hosts))
 
-def print_merged(bykey):
+def print_merged(bykey, unmerge=False):
 	byhost = {}
 
 	for entry in bykey:
 		ktype, key = entry
-		host = set()
+		hosts = set()
 		for item in bykey[entry]:
-			host |= set(item.split(","))
-		host.discard("")
-		host = sorted(host, key=Hostname)
-		host = ",".join(host)
-		host = Hostname(host)
-		byhost[host, ktype] = key
+			hosts |= set(item.split(","))
+		hosts.discard("")
+		if unmerge:
+			for host in hosts:
+				host = Hostname(host)
+				byhost[host, ktype] = key
+		else:
+			hosts = sorted(hosts, key=Hostname)
+			host = Hostname(",".join(hosts))
+			byhost[host, ktype] = key
 
 	hosts = list(byhost.keys())
 	hosts.sort(key=itemgetter(1))
@@ -112,11 +115,14 @@ def print_merged(bykey):
 
 opt_input = os.path.expanduser("~/.ssh/known_hosts")
 opt_merge = False
+opt_unmerge = False
 
-opts, args = getopt.getopt(sys.argv[1:], 'm')
+opts, args = getopt.getopt(sys.argv[1:], 'mM')
 for opt, optarg in opts:
 	if opt in ('m', '-m'):
 		opt_merge = True
+	elif opt in ('M', '-M'):
+		opt_unmerge = True
 
 if args:
 	opt_input = args.pop(0)
@@ -128,7 +134,7 @@ else:
 	keys = find_duplicates(fh)
 	fh.close()
 
-if opt_merge:
-	print_merged(keys)
+if opt_merge or opt_unmerge:
+	print_merged(keys, opt_unmerge)
 else:
 	print_duplicates(keys)

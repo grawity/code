@@ -38,6 +38,7 @@ usage() {
 
 recv_key() {
 	local key=$1 status=
+	debug "retrieving key '$key'"
 	if status=$($GPG --keyserver "$KEYSERVER" --recv-key "$key" 2>&1); then
 		say "$status"
 	else
@@ -69,7 +70,7 @@ fetch() {
 
 verify() {
 	local input=$1 output=$2 status=
-
+	debug "verifying '$input' to '$output'"
 	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
 	                 --decrypt "$input" 2> /dev/null) \
 	&& grep -qs "^\[GNUPG:\] VALIDSIG $KEYFP " <<< "$status" \

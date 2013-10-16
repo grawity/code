@@ -18,9 +18,6 @@ print_msg() {
 		else color='' reset=''
 	fi
 	printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
-	if (( DEBUG > 1 )); then
-		backtrace 2
-	fi
 }
 
 debug() {
@@ -54,16 +51,19 @@ say() {
 
 warn() {
 	print_msg 'warning' "$*" '\e[1;33m'
+	if (( DEBUG > 1 )); then backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
 	print_msg 'error' "$*" '\e[1;31m'
+	if (( DEBUG > 1 )); then backtrace; fi
 	! (( ++errors ))
 } >&2
 
 die() {
 	print_msg 'error' "$*" '\e[1;31m'
+	if (( DEBUG > 1 )); then backtrace; fi
 	exit 1
 } >&2
 

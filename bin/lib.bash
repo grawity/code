@@ -24,8 +24,13 @@ print_msg() {
 }
 
 debug() {
+	local color reset
+	if [[ -t 1 ]]
+		then colorfunc='\e[36m' reset='\e[m'
+		else colorfunc='' reset=''
+	fi
 	if [[ $DEBUG ]]; then
-		printf "%s[%s]: (%s) %s\n" \
+		printf "%s[%s]: ${colorfunc}(%s)${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
 	fi
 	return 0

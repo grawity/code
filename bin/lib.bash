@@ -45,7 +45,7 @@ say() {
 }
 
 warn() {
-	print_msg 'warning' "$*" '\e[1;32m'
+	print_msg 'warning' "$*" '\e[1;33m'
 	(( ++warnings ))
 } >&2
 

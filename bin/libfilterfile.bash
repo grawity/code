@@ -44,6 +44,9 @@ filter_file() {
 			((++skipped))
 			continue
 		else
+			if [[ $line == '#'[^\ ]* ]]; then
+				warn "unknown directive '${line%% *}' ignored"
+			fi
 			echo "$line"
 		fi
 	done

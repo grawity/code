@@ -66,9 +66,10 @@ confirm() {
 }
 
 backtrace() {
-	echo "$progname: call stack:"
+	printf "%s: call stack:\n" "$progname"
 	for i in "${!BASH_SOURCE[@]}"; do
-		echo "... ${BASH_SOURCE[i]}:${BASH_LINENO[i]} @ ${FUNCNAME[i]}"
+		printf "... %s:%s @ %s\n" \
+			"${BASH_SOURCE[i]}" "${BASH_LINENO[i]}" "${FUNCNAME[i]}"
 	done
 } >&2
 

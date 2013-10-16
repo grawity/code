@@ -46,7 +46,7 @@ status() {
 }
 
 say() {
-	if [[ $VERBOSE ]]; then
+	if [[ $VERBOSE || $DEBUG ]]; then
 		printf "%s\n" "$*"
 	fi
 	return 0

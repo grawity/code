@@ -43,7 +43,9 @@ status() {
 }
 
 say() {
-	if [[ $VERBOSE || $DEBUG ]]; then
+	if [[ $DEBUG ]]; then
+		print_msg 'info' "$*" '\e[1;34m'
+	elif [[ $VERBOSE ]]; then
 		printf "%s\n" "$*"
 	fi
 	return 0

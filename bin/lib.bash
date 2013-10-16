@@ -18,6 +18,9 @@ print_msg() {
 		else color='' reset=''
 	fi
 	printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
+	if (( DEBUG > 1 )); then
+		backtrace 2
+	fi
 }
 
 debug() {
@@ -66,8 +69,9 @@ confirm() {
 }
 
 backtrace() {
-	printf "%s: call stack:\n" "$progname"
-	for i in "${!BASH_SOURCE[@]}"; do
+	local -i i=${1:-1}
+	printf "%s[%s]: call stack:\n" "$progname" "$$"
+	for (( 1; i < ${#BASH_SOURCE[@]}; i++ )); do
 		printf "... %s:%s @ %s\n" \
 			"${BASH_SOURCE[i]}" "${BASH_LINENO[i]}" "${FUNCNAME[i]}"
 	done

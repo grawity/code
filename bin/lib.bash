@@ -29,7 +29,7 @@ debug() {
 } >&2
 
 log() {
-	printf "-- %s\n" "$*"
+	printf -- "-- %s\n" "$*"
 }
 
 status() {

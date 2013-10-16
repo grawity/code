@@ -4,7 +4,7 @@ http_fetch() {
 	local url=$1 out=${2:-/dev/stdout}
 	if ! [[ $url && $url == "http://"* ]]; then
 		err "non-http URL given"
-		return 1
+		return 99
 	elif have curl; then
 		debug "found curl"
 		curl -gLSsf -o "$out" "$url"
@@ -56,7 +56,7 @@ http_fetch() {
 		EOF
 	else
 		err "no HTTP client available"
-		return 1
+		return 99
 	fi
 	[[ ! -f $out || -s $out ]] # fail if output file empty
 }

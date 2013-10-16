@@ -11,6 +11,15 @@ fi
 
 progname=${0##*/}
 
+print_msg() {
+	local prefix=$1 msg=$2 color reset
+	if [[ -t 1 ]]
+		then color=$3 reset=${color:+'\e[m'}
+		else color='' reset=''
+	fi
+	printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
+}
+
 debug() {
 	if [[ $DEBUG ]]; then
 		echo "$progname[$$]: (${FUNCNAME[1]}) $*"
@@ -35,17 +44,17 @@ say() {
 }
 
 warn() {
-	echo "$progname: warning: $*"
+	print_msg 'warning' "$*" '\e[1;32m'
 	(( ++warnings ))
 } >&2
 
 err() {
-	echo "$progname: error: $*"
+	print_msg 'error' "$*" '\e[1;31m'
 	! (( ++errors ))
 } >&2
 
 die() {
-	echo "$progname: error: $*"
+	print_msg 'error' "$*" '\e[1;31m'
 	exit 1
 } >&2
 

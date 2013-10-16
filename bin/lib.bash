@@ -22,13 +22,14 @@ print_msg() {
 
 debug() {
 	if [[ $DEBUG ]]; then
-		echo "$progname[$$]: (${FUNCNAME[1]}) $*"
+		printf "%s[%s]: (%s) %s\n" \
+			"$progname" "$$" "${FUNCNAME[1]}" "$*"
 	fi
 	return 0
 } >&2
 
 log() {
-	echo "-- $*"
+	printf "-- %s\n" "$*"
 }
 
 status() {
@@ -38,7 +39,7 @@ status() {
 
 say() {
 	if [[ $VERBOSE ]]; then
-		echo "$*"
+		printf "%s\n" "$*"
 	fi
 	return 0
 }

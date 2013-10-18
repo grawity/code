@@ -69,6 +69,21 @@ die() {
 	exit 1
 } >&2
 
+xwarn() {
+	printf '%s\n' "$*"
+	(( ++warnings ))
+} >&2
+
+xerr() {
+	printf '%s\n' "$*"
+	! (( ++errors ))
+} >&2
+
+xdie() {
+	printf '%s\n' "$*"
+	exit 1
+} >&2
+
 confirm() {
 	local prompt=$'\001\033[1;36m\002'"(?)"$'\001\033[m\002'" $1 "
 	local answer="n"

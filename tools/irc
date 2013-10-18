@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+host=virgule.cluenet.org
+
+export MOSH_TITLE_NOPREFIX='y'
+
+opt=(
+	1049	# alternate screen
+	2004	# bracketed paste
+	#1006	# SGR mouse tracking
+	1005	# UTF-8 mouse tracking
+	1002	# cell mouse tracking
+)
+
+printf '\e[H\e[2J'
+printf '\e[?%sh' ${opt[@]}
+printf '\e[H\e[2J'
+mosh $host -- tmux attach -t irc
+printf '\e[?%sl' $(printf '%s\n' ${opt[@]} | tac)
+printf '\e[H\e[2J'
+
+hi >&/dev/null &

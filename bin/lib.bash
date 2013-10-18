@@ -119,6 +119,10 @@ have() {
 	command -v "$1" >&/dev/null
 }
 
+now() {
+	date +%s "$@"
+}
+
 older_than() {
 	local file=$1 date=$2 filets= datets=
 	filets=$(stat -c %y "$file")

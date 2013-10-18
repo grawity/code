@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 host=virgule.cluenet.org
+
+lock=$XDG_RUNTIME_DIR/.irc.lock
+
+if [[ -e "$lock" ]]; then
+	now=$(now)
+	then=$(stat -c %Y "$lock")
+	if (( now - then < 60 )); then
+		case $(<"$lock") in
+		in) die "You just did that.";;
+		out) die "You just left IRC. Take some time off.";;
+		esac
+	fi
+fi
 
 export MOSH_TITLE_NOPREFIX='y'
 
@@ -12,11 +27,15 @@ opt=(
 	1002	# cell mouse tracking
 )
 
+echo 'in' > "$lock"
+
 printf '\e[H\e[2J'
 printf '\e[?%sh' ${opt[@]}
 printf '\e[H\e[2J'
 mosh $host -- tmux attach -t irc
 printf '\e[?%sl' $(printf '%s\n' ${opt[@]} | tac)
 printf '\e[H\e[2J'
+
+echo 'out' > "$lock"
 
 hi >&/dev/null &

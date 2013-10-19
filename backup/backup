@@ -139,9 +139,18 @@ case $job in
 		#do_obnam ~
 		#do_rsnapshot @home sync
 		#do_rsnapshot @home snapshot
-		do_rsync ~/ $b/latest/ -FxP
-		local_rsync ~/Attic/Galelogs/
-		echo Bleh.
+		if [[ $1 ]]; then
+			sub=$(readlink -f "$1")
+			if [[ "$sub" != "$HOME"/* ]]; then
+				die "path \"$sub\" is outside \$HOME"
+			fi
+			sub=${sub#$HOME/}
+			sub=${sub%/}
+			do_rsync ~/"$sub"/ $b/latest/"$sub"/ -FxP
+		else
+			do_rsync ~/ $b/latest/ -FxP
+			local_rsync ~/Attic/Galelogs/
+		fi
 		;;
 	online)
 		$0 twitter

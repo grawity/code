@@ -5,6 +5,7 @@
 host=virgule.cluenet.org
 
 lock=$XDG_RUNTIME_DIR/.irc.lock
+xlock=$lock@$XDG_SESSION_ID
 
 if [[ -e "$lock" ]]; then
 	now=$(now)
@@ -17,8 +18,9 @@ if [[ -e "$lock" ]]; then
 	fi
 fi
 
-exec {fd}<>"$lock@$XDG_SESSION_ID"
+exec {fd}<>"$xlock"
 flock -xn $fd || die "You're already connected."
+echo 'in' > "$lock"
 
 export MOSH_TITLE_NOPREFIX='y'
 
@@ -30,8 +32,6 @@ opt=(
 	1002	# cell mouse tracking
 )
 
-echo 'in' > "$lock"
-
 printf '\e[H\e[2J'
 printf '\e[?%sh' ${opt[@]}
 printf '\e[H\e[2J'
@@ -39,6 +39,7 @@ mosh $host -- tmux attach -t irc
 printf '\e[?%sl' $(printf '%s\n' ${opt[@]} | tac)
 printf '\e[H\e[2J'
 
-echo 'out' > "$lock"
-
 hi >&/dev/null &
+
+echo 'out' > "$lock"
+exec rm -f "$xlock"

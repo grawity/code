@@ -19,8 +19,12 @@ sub write_ctl {
 
 	if (open(my $fh, ">", $file)) {
 		print $fh $data."\n";
+		if ($fh->flush) {
+			print_file_data($file, $data);
+		} else {
+			warn "ctl: key '$file': $!\n";
+		}
 		close $fh;
-		print_file_data($file, $data);
 	} else {
 		warn "ctl: key '$file': $!\n";
 	}

@@ -5,6 +5,10 @@
 use warnings;
 use strict;
 
+my $err;
+
+sub err($) { warn @_; ++$err; }
+
 sub print_file_data {
 	my ($file, $data) = @_;
 	$data =~ s/\0/\\0/g;
@@ -22,11 +26,11 @@ sub write_ctl {
 		if ($fh->flush) {
 			print_file_data($file, $data);
 		} else {
-			warn "ctl: key '$file': $!\n";
+			err "ctl: key '$file': $!\n";
 		}
 		close $fh;
 	} else {
-		warn "ctl: key '$file': $!\n";
+		err "ctl: key '$file': $!\n";
 	}
 }
 
@@ -53,12 +57,12 @@ sub read_ctl {
 			}
 			close $fh;
 		} else {
-			warn "ctl: key '$file': $!\n";
+			err "ctl: key '$file': $!\n";
 		}
 	} elsif (-e $file || -l $file) {
 		warn "ctl: skipping non-regular file '$file'\n";
 	} else {
-		warn "ctl: no such file '$file'\n";
+		err "ctl: no such file '$file'\n";
 	}
 }
 
@@ -71,3 +75,5 @@ for (@ARGV) {
 		read_ctl($_, 0);
 	}
 }
+
+exit !!$err;

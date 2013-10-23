@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 500
 
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -58,6 +59,13 @@ int main(int argc, char *argv[]) {
 		passwd = getpass("Password: ");
 
 	hash = crypt(passwd, salt);
-	printf("%s\n", hash);
-	return 0;
+
+	if (hash)
+		printf("%s\n", hash);
+	else if (errno == EINVAL)
+		fprintf(stderr, "%s: Invalid salt or hash algorithm\n", argv[0]);
+	else
+		perror(argv[0]);
+
+	return !hash;
 }

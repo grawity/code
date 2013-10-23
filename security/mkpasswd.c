@@ -20,7 +20,7 @@ char *makesalt(char algo) {
 	salt[j++] = '$';
 	salt[j++] = algo;
 	salt[j++] = '$';
-	while (i<sizeof(buf)) {
+	while (i < sizeof(buf)) {
 		char a = i < sizeof(buf) ? buf[i++] : 0;
 		char b = i < sizeof(buf) ? buf[i++] : 0;
 		char c = i < sizeof(buf) ? buf[i++] : 0;
@@ -36,12 +36,27 @@ char *makesalt(char algo) {
 	return strdup(salt);
 }
 
-int main(void) {
-	char *salt, *passwd, *hash;
-	char algo = '5';
+int main(int argc, char *argv[]) {
+	char *salt = NULL, *passwd = NULL;
+	char *hash;
+	int c;
 
-	salt = makesalt(algo);
-	passwd = getpass("Password: ");
+	while ((c = getopt(argc, argv, "p:s:")) != -1) {
+		switch (c) {
+		case 'p':
+			passwd = optarg;
+			break;
+		case 's':
+			salt = optarg;
+			break;
+		}
+	}
+
+	if (!salt)
+		salt = makesalt('5');
+	if (!passwd)
+		passwd = getpass("Password: ");
+
 	hash = crypt(passwd, salt);
 	printf("%s\n", hash);
 	return 0;

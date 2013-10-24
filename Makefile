@@ -56,7 +56,7 @@ endif
 
 # misc targets
 
-.PHONY: default pre clean mrproper -W
+.PHONY: default pre clean mrproper
 
 ifdef obj
 default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))

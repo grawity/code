@@ -56,7 +56,7 @@ endif
 
 # misc targets
 
-.PHONY: default pre clean mrproper
+.PHONY: default pre clean mrproper -W
 
 ifdef obj
 default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))
@@ -152,14 +152,16 @@ $(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
 
 # general rules
 
-$(OBJ)/%.o:		| dist/empty.c
-	@$(verbose_echo) "  CC    $(notdir $@) ($<)"
-	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $<
+$(OBJ)/%.o:		| -W
+	@$(verbose_echo) "  CC    $(notdir $@) ($^)"
+	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $^
 
-$(OBJ)/%:		| dist/empty.c
+$(OBJ)/%:		| -W
 	@$(verbose_echo) "  CCLD  $(notdir $@) ($<)"
 	$(verbose_hide)$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
-# hack for old Make (unsupported order-only deps)
+# hack for old `make` that does not support order-only dependencies (i.e. where
+# $^ has both normal and order-only deps); e.g. Fedora Core 2 would include
+# 'pre' as the first dependency in $^ and $< causing breakage.
 
-dist/empty.c: pre
+-W: pre

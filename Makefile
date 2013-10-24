@@ -154,15 +154,18 @@ $(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
 # $^ has both normal and order-only deps); e.g. Fedora Core 2 would include
 # 'pre' as the first dependency in $^ and $< causing breakage.
 
-arg  = $(firstword $(patsubst pre,,$(1)))
-args = $(strip $(patsubst pre,,$(1)))
+dummy = dist/empty.c
+arg   = $(firstword $(patsubst $(dummy),,$(1)))
+args  = $(strip $(patsubst $(dummy),,$(1)))
+
+$(dummy):		pre
 
 # general rules
 
-$(OBJ)/%.o:		pre
+$(OBJ)/%.o:		| $(dummy)
 	@$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
 	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)
 
-$(OBJ)/%:		pre
+$(OBJ)/%:		| $(dummy)
 	@$(verbose_echo) "  CCLD  $(notdir $@) ($(call args,$^))"
 	$(verbose_hide)$(LINK.c) $(call args,$^) $(LOADLIBES) $(LDLIBS) -o $@

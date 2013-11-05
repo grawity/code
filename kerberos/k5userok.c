@@ -22,9 +22,13 @@ char *progname = "k5userok";
 #endif
 
 #if defined(HAVE_OPENBSD) || defined(HAVE_SOLARIS)
-static inline
-krb5_error_code krb5_parse_name_flags(krb5_context ctx, const char *name,
-				      int flags, krb5_principal *princ)
+#  define NEED_KRB5_PARSE_NAME_FLAGS
+#endif
+
+#ifdef NEED_KRB5_PARSE_NAME_FLAGS
+static inline krb5_error_code
+krb5_parse_name_flags(krb5_context ctx, const char *name,
+		      int flags, krb5_principal *princ)
 {
 	if (flags)
 		return KRB5KRB_ERR_GENERIC;

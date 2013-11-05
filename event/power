@@ -1,0 +1,55 @@
+#!/bin/bash
+. ~/bin/event/functions
+
+set_brightness() {
+	gdbus call -e -d "org.gnome.SettingsDaemon" \
+		-o "/org/gnome/SettingsDaemon/Power" \
+		-m "org.gnome.SettingsDaemon.Power.Screen.SetPercentage" "$1"
+}
+
+case $event in
+	sleep|lid-close)
+		#spawn mc-presence away
+
+		if [[ -e ~/inhibit-mpd-suspend ]]; then
+			rm -f ~/inhibit-mpd-suspend
+			state[mpd]=false
+		else
+			mpd=$(mpc | sed -rn 's/^\[(\w+)\].*/\1/p')
+			if [[ $mpd == 'playing' ]]; then
+				mpc -q pause
+				state[mpd]=true
+			else
+				state[mpd]=false
+			fi
+		fi
+		;;
+	wake|lid-open)
+		synclient $(< ~/.config/synclient.conf)
+		#xset dpms force on
+		#spawn kinit -R
+		#spawn pkinit
+		#spawn mc-presence available
+
+		if [[ ${state[mpd]} == 'true' ]]; then
+			mpc -q play
+		fi
+		;;
+	#ac-plug)
+	#	hour=`date +%-H`
+	#	if (( hour <= 7 || hour >= 22 )); then
+	#		b=0
+	#	elif (( hour <= 9 || hour >= 20 )); then
+	#		b=20
+	#	elif (( hour <= 11 || hour >= 18 )); then
+	#		b=40
+	#	else
+	#		#b=60
+	#		b=40
+	#	fi
+	#	set_brightness $b
+	#	;;
+	#ac-unplug)
+	#	set_brightness 20
+	#	;;
+esac

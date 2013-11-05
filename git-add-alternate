@@ -1,0 +1,37 @@
+#!/bin/sh
+thisgit=$(git rev-parse --git-dir)
+thisalts=$thisgit/objects/info/alternates
+
+mkdir -p "${thisalts%/*}"
+
+if ! (( $# )); then
+	if [ -s "$thisalts" ]; then
+		cat "$thisalts"
+	else
+		echo "(no alternates)" >&2
+	fi
+	exit
+fi
+
+for thatgit; do
+	if [[ $thatgit == - ]]; then
+		echo "- reset"
+		rm -f "$thisalts"
+	else
+		thatgit=${thatgit%/}
+		thatgit=${thatgit%/objects}
+		thatgit=${thatgit%/.git}
+		if [ -e $thatgit/.git/objects ]; then
+			thatobj=$thatgit/.git/objects
+		elif [ -e $thatgit/objects ]; then
+			thatobj=$thatgit/objects
+		else
+			echo "$thatgit: bad alternate" >&2
+		fi
+		echo "+ add $thatobj"
+		echo "$thatobj" >> "$thisalts"
+	fi
+done
+
+echo "~ repack"
+git repack -d -a -l

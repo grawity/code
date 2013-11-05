@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+from operator import itemgetter
+import sys
+from pprint import pprint
+
+inputs = ["ąčęėįšųūžĄČĘĖĮŠŲŪŽ", "„", "“"]
+
+charsets = {"cp770", "cp771", "cp772", "cp773", "cp774", "cp775",
+            "iso8859-4", "iso8859-13", "windows-1257", "winbaltrim"}
+
+translations = {
+	"ąčęėįšųūžĄČĘĖĮŠŲŪŽ": {
+		"cp770": b"\x85\x87\x8a\x82\x8d\x9e\x97\x96\x91\x8f\x80\x8b\x90\xad\x9f\xa7\xa6\x92",
+		"cp771": b"\xdd\xdf\xf1\xf3\xf5\xf7\xf9\xfb\xfd\xdc\xde\xf0\xf2\xf4\xf6\xf8\xfa\xfc",
+		"cp772": b"\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xb5\xb6\xb7\xb8\xbd\xbe\xc6\xc7\xcf",
+		"cp773": b"\xdd\xdf\xf1\xf3\xf5\xf7\xf9\xfb\xfd\xdc\xde\xf0\xf2\xf4\xf6\xf8\xfa\xfc",
+		"cp774": b"\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xb5\xb6\xb7\xb8\xbd\xbe\xc6\xc7\xcf",
+		"cp775": b"\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xb5\xb6\xb7\xb8\xbd\xbe\xc6\xc7\xcf",
+		"iso8859-4":    b"\xb1\xe8\xea\xec\xe7\xb9\xf9\xfe\xbe\xa1\xc8\xca\xcc\xc7\xa9\xd9\xde\xae",
+		"iso8859-13":   b"\xe0\xe8\xe6\xeb\xe1\xf0\xf8\xfb\xfe\xc0\xc8\xc6\xcb\xc1\xd0\xd8\xdb\xde",
+		"windows-1257": b"\xe0\xe8\xe6\xeb\xe1\xf0\xf8\xfb\xfe\xc0\xc8\xc6\xcb\xc1\xd0\xd8\xdb\xde",
+	},
+	"„": {
+		"cp770": b"\x9d",
+		"cp772": b"\xf4",
+		"cp774": b"\xf4",
+		"cp775": b"\xf7",
+		"iso8859-13":   b"\xa5",
+		"windows-1257": b"\x84",
+	},
+	"“": {
+		"cp772": b"\xf5",
+		"cp774": b"\xf5",
+		"cp775": b"\xf2",
+		"iso8859-13":   b"\xb4",
+		"windows-1257": b"\x93",
+	},
+}
+
+asciibytes = bytes(range(128))
+allbytes = bytes(range(256))
+extbytes = bytes(range(128, 256))
+
+charsets_with_byte = {input: {byte: {charset
+                                     for (charset, translation)
+                                     in translations[input].items()
+				     if byte in translation}
+			      for byte in extbytes}
+		      for input in translations}
+
+translation_bytes = {input: {byte for byte in extbytes
+                             if any(byte in translations[input][charset]
+				    for charset in translations[input])}
+		     for input in translations}
+
+for file in sys.argv[1:]:
+	filedata = open(file, "rb").read()
+	filebytes = {byte: 0 for byte in allbytes}
+	for byte in filedata:
+		filebytes[byte] += 1
+	possible = {charset: 0 for charset in charsets}
+	fileextbytes = {byte for byte in extbytes if filebytes[byte] > 0}
+	threshold = len(fileextbytes) * 0.7
+	for byte in fileextbytes:
+		for input in inputs:
+			#if byte not in translation_bytes[input]:
+			#	continue
+			for charset in charsets_with_byte[input][byte]:
+				possible[charset] += 1
+	counts = [(charset, count)
+	          for (charset, count) in possible.items()
+	          if count > threshold]
+	counts.sort(key=itemgetter(1))
+	counts.reverse()
+	print("%s:" % file)
+	for charset, count in counts:
+		print("%6d %s" % (count, charset))

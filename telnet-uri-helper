@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+opts=()
+uri=$1
+uri=${uri#telnet://}
+uri=${uri%/}
+if [[ $uri == *@* ]]; then
+	opts+=('--user' "${uri%@*}")
+	uri=${uri##*@}
+else
+	opts+=('--no-login')
+fi
+exec telnet "${opts[@]}" "$uri"

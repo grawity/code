@@ -1,0 +1,18 @@
+#!/bin/sh
+case $PROXY in
+ssh:*)
+	proxy_proto=${PROXY%%:*};
+	proxy_host=${PROXY#*:};;
+esac
+
+case $1 in
+*:*) dest_host="[$1]";;
+*)   dest_host="$1";;
+esac
+
+dest_port=$2
+
+case $proxy_proto in
+ssh)
+	exec ssh "$proxy_host" -W "$dest_host:$dest_port" ;;
+esac

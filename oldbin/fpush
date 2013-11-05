@@ -1,0 +1,28 @@
+#!/bin/bash
+exec rsync -vrtO \
+	--exclude 'Thumbs.db' \
+	--exclude '.#lk*' \
+	--exclude '*~' \
+	--exclude '*.bak' \
+	"$@"
+
+root=$HOME/fs/$1
+if ! mountpoint -q "$root"; then
+	~/code/tools/fsu "$1"
+fi
+if [[ ${0##*/} == fpush ]]; then
+	src=$HOME
+	dst=${root%/}
+else
+	src=${root%/}
+	dst=$HOME
+fi
+dir=$(readlink -f "$2")
+dir=${dir#${HOME%/}/}
+src+=/${dir%/}/
+dst+=/${dir%/}/
+echo "$src -> $dst"
+exec rsync -vrtO --filter '
+	exclude Thumbs.db
+	exclude .#lk*
+	' "$src" "$dst" "${@:3}"

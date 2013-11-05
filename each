@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+dirs=()
+tcmd=()
+do_dirs=true
+
+for arg; do
+	if $do_dir; then
+		if [[ $arg == "--" ]]; then
+			shift
+			do_dir=false
+		else
+			dirs+=("$arg")
+		fi
+	else
+		tcmd+=("$arg")
+	fi
+done
+
+for dir in "${dirs[@]}"; do
+	xcmd=()
+	for arg in "${tcmd[@]}"; do
+		arg=${arg//'{}'/"$dir"}
+		arg=${arg//'{.}'/"$(readlink -f "$dir")"}
+		xcmd+=("$arg")
+	done
+	echo "-- $dir"
+	(if [[ -d $dir ]]; then
+		cd "$dir"
+	else
+		cd "$(dirname "$dir")"
+	fi && "${xcmd[@]}")
+done

@@ -1,0 +1,387 @@
+#!/usr/bin/env bash
+# gbuild - automatically build autoconf-based GNOME programs
+
+[[ $gnome ]] || exec gdevel "$0" "$@"
+
+srcdir="$HOME/src/gnome"
+
+cachedir="$XDG_CACHE_HOME/gbuild"
+
+## buildopt configuration
+
+export V=${V:-0}
+
+WITH_WAYLAND=n
+
+export LINGUAS='en'
+
+## buildopt convenience macros
+
+y() { true; }
+
+n() { false; }
+
+using() {
+	local var="WITH_${1^^}"
+	[[ ${!var} == y ]]
+}
+
+fix_werror() {
+	log "workaround: disabling -Werror"
+	shopt -s globstar
+	sed -i -e 's/-Werror\>//g' \
+		-e 's/-Werror=\([a-z]*\)\>//g' \
+		-e 's/--fatal-warnings\>//g' \
+		-e '/^INTROSPECTION_SCANNER_ARGS/ s/--warn-error\>//g' \
+		**/Makefile
+}
+
+## convenience macros
+
+title() { printf '\e]0;%s\007' "$*"; }
+
+prepend() {
+	local var="${1}[@]"
+	eval "$var"='( "${@:2}" "${!var}" )'
+}
+
+first() { while [[ $1 ]]; do if [[ -e $1 ]]; then echo "$1"; return; fi; shift; done; }
+
+## build functions
+
+# Assume that http://people.gnome.org/~walters/docs/build-api.txt is followed by the app.
+
+pre_autogen() { :; }
+
+run_autogen() {
+	rm -f "config.log"
+
+	if [[ -x "autogen" ]]; then
+		log "running ./autogen"
+		NOCONFIGURE=1 ./autogen "$@" || return $?
+	elif [[ -x "autogen.sh" ]]; then
+		log "running ./autogen.sh"
+		NOCONFIGURE=1 ./autogen.sh "$@" || return $?
+	else
+		log "no autogen script found"
+		return
+	fi
+
+	ran_autogen=true
+}
+
+pre_configure() { :; }
+
+run_configure() {
+	if $ran_autogen && [[ -e "config.log" ]]; then
+		warn "configure already ran by autogen"
+		return
+	fi
+
+	if [[ -x "configure" ]]; then
+		log "running ./configure"
+		./configure "$@" || return $?
+	else
+		die "no ./configure script found"
+	fi
+
+	ran_configure=true
+}
+
+run_autogen_configure() {
+	run_autogen "$@" "${configure[@]}" &&
+	run_configure "$@" "${configure[@]}"
+}
+
+pre_make() { :; }
+
+run_make() {
+	log "running 'make' to build"
+	make "$@" all
+}
+
+pre_install() { :; }
+
+run_install() {
+	log "running 'make' to install"
+	local tempdest="$cachedir/pkg/$name.pkg"
+
+	if $clean_tempdest; then
+		rm -rf "$tempdest"
+	fi &&
+	mkdir -p "$tempdest" &&
+	make DESTDIR="$tempdest/" "$@" install &&
+	pkg_install "$tempdest"
+}
+
+post_install() { :; }
+
+pkg_makelist() {
+	local dir=$1
+	find "$dir" -printf '%Y %m ./%P\n'
+}
+
+pkg_uninstall_pkg() {
+	local filelist="$cachedir/files/$name.files"
+	local oldlist="$cachedir/files-old/$name.files"
+	local tempdest="$cachedir/pkg/$name.pkg"
+
+	if test -e "$filelist"; then
+		log "uninstalling package"
+		pkg_uninstall "$filelist" &&
+		rm -rf "$tempdest" &&
+		mkdir -p "${oldlist%/*}"
+		mv "$filelist" "$oldlist" &&
+		pkg_stats "$oldlist"
+	else
+		log "package not installed yet"
+	fi
+}
+
+pkg_install() {
+	local tempdest=$1
+	local filelist="$cachedir/files/$name.files"
+	local oldlist="$cachedir/files-old/$name.files"
+	local tempprefix="${tempdest%/}/${prefix#/}"
+
+	if test -e "$filelist"; then
+		log "uninstalling old version"
+		pkg_uninstall "$filelist" &&
+		mv "$filelist" "$oldlist" &&
+		pkg_stats "$oldlist"
+	fi
+
+	log "installing to file system"
+	mkdir -p "${filelist%/*}" "$cachedir/pkg"
+	pkg_makelist "$tempprefix" > "$filelist" &&
+	(cd "$tempprefix" && find | bsdcpio --quiet -o) |
+		tee >(gzip > "$cachedir/pkg/$name.cpio.gz") |
+		(cd "$prefix" && bsdcpio --quiet -i) &&
+	pkg_stats "$filelist"
+
+	glib-compile-schemas "$prefix/share/glib-2.0/schemas" &
+}
+
+pkg_uninstall() {
+	local filelist=$1
+
+	tac "$filelist" |
+	while read -r ftype mode path; do
+		path="$prefix/${path#./}"
+		case $ftype in
+		d) rmdir --ignore-fail-on-non-empty "$path";;
+		?) rm -f "$path";;
+		esac
+	done
+}
+
+pkg_stats() {
+	local filelist=$1 ndirs=0 nfiles=0
+	while read -r ftype mode path; do
+		case $ftype in
+		d) (( ++ndirs ));;
+		?) (( ++nfiles ));;
+		esac
+	done < "$filelist"
+	echo "$ndirs directories, $nfiles files"
+}
+
+tag_post() {
+	chmod -t .
+	if [[ -d .git ]]; then
+		log "Built $name $(git describe --always "$newref")"
+		git tag -f "last-build" "$newref"
+		git tag -f "build-$(date +%Y%m%d)" "$newref"
+	else
+		log "Built $name"
+	fi
+}
+
+## main code
+
+. libbleh.bash
+
+# settings
+prefix="$gnome"
+clean_tempdest=true
+do_uninstall=false
+need_clean=false
+need_autogen=false
+need_configure=false
+ran_autogen=false
+ran_configure=false
+use_python2=false
+use_python2_compat=false
+use_system_vala=false
+update=false
+
+args=("$@")
+
+while getopts 'acCpPuU' OPT; do case $OPT in
+'a')	log "forcing autogen"
+	need_autogen=true;;
+'c')	need_clean=true;;
+'p')	use_python2=true;;
+'P')	use_python2_compat=true;;
+'U')	do_uninstall=true;;
+'u')	update=true;;
+'C')	clean_tempdest=false;;
+esac; done
+shift $((--OPTIND))
+
+case $1 in
+new)
+	exec tig last-build.. || exit
+	;;
+lg)
+	exec git lg last-build.. || exit
+	;;
+tag)
+	git tag -f last-build
+	exit
+	;;
+*)
+	cd "$1"
+	shift
+	;;
+esac
+
+# state
+
+name=$(basename "$PWD")
+
+title "Building $name"
+
+if [[ ! $_inhibited ]]; then
+	export _inhibited=$$
+	exec gnome-inhibit \
+		--who "gbuild" \
+		--what "suspend" \
+		--why "Building $name" \
+		--always -- "$0" "${args[@]}"
+fi
+
+if $do_uninstall; then
+	pkg_uninstall_pkg
+	exit
+fi
+
+newref=$(git rev-parse HEAD 2>/dev/null)
+
+if $update; then
+	oldref=$(git rev-parse last-build 2>/dev/null)
+	if [[ $oldref ]] && [[ $oldref == $newref ]]; then
+		echo "no update needed"
+		exit
+	else
+		tig "${oldref}...${newref}"
+	fi
+fi
+
+## Read build configuration
+
+configure=(
+	"--prefix=$prefix"
+	"--enable-dependency-tracking"		# faster rebuilds
+	"--enable-introspection"		# GIR
+	"--enable-more-warnings=no"
+	"--enable-systemd"
+	"--disable-documentation"
+	"--disable-tests"
+	"--with-session-tracking=systemd"
+	"--with-systemdsystemunitdir=$prefix/lib/systemd/system"
+	"--with-udev-dir=$prefix/lib/udev"
+	"--with-xorg-conf-dir=$prefix/share/X11/xorg.conf.d"
+)
+
+make=()
+
+for f in .{,git,hg,bzr,svn}/Buildopt
+do
+	if [[ -e $f ]]; then
+		log "reading build options from $f"
+		. "$f"
+		buildopt=$f
+	fi
+done
+
+if [[ "${configure[0]}" != "--prefix="* ]]; then
+	die "\$configure was overwritten by $buildopt"
+fi
+
+if [[ $pythoncompat == true ]]; then
+	warn "obsolete buildopt"
+	exec $EDITOR $buildopt
+fi
+
+## Adjust build environment
+
+if [[ $use_python2_compat == true ]]; then
+	log "using Python 2 in path-compat mode"
+	export PATH="$HOME/bin/compat/python2:$PATH"
+elif [[ $use_python2 == true ]]; then
+	log "using Python 2"
+	export PYTHON=$(which python2)
+fi
+
+if [[ $use_system_vala == true ]]; then
+	log "using system Vala"
+	export VALAC="/usr/bin/valac"
+fi
+
+## Clean repository
+
+if $need_clean; then
+	log "cleaning repository and resetting to HEAD"
+	git reset --hard
+	git clean -q -f -d -X
+fi
+
+## Prepare for build
+
+if $need_autogen; then
+	:
+elif [[ ! -e configure ]]; then
+	log "configure not found, forcing autogen"
+	need_autogen=true
+elif [[ configure.ac -nt configure ]]; then
+	log "configure.ac was updated, forcing autogen"
+	need_autogen=true
+fi
+
+makefile='Makefile'
+[[ -e GNUmakefile ]] &&
+	makefile='GNUmakefile'
+
+if $need_configure; then
+	:
+elif [[ ! -e "$makefile" ]]; then
+	log "Makefile not found, forcing configure"
+	need_configure=true
+elif [[ "$buildopt" -nt "$makefile" ]]; then
+	log "Buildopt was updated, forcing configure"
+	need_configure=true
+fi
+
+## Start build
+
+if $need_autogen; then
+	run_autogen "${configure[@]}"
+fi &&
+if $need_autogen || $need_configure; then
+	run_configure "${configure[@]}"
+fi &&
+pre_make &&
+run_make "${make[@]}" &&
+pre_install &&
+run_install "${make[@]}" &&
+post_install &&
+tag_post
+
+if $ran_autogen && ! $ran_configure; then
+	warn "autogen ignores \$NOCONFIGURE"
+fi
+
+if [[ $GBUILD_GC ]]; then
+	git gc
+fi

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+have() { command -v "$1" >& /dev/null; }
+
+if [ -d /run/systemd/system ]; then
+    init=systemd
+fi
+
+cmd=$1; shift
+
+case $init in
+    systemd)
+	case $cmd in
+	    enable|disable|start|stop|status)
+		systemctl $cmd "$@";;
+	esac;;
+    debian)
+	case $cmd in
+	    start|stop)
+		for sv; { service "$sv" $cmd; };;
+	    enable|disable)
+		for sv; { update-rc.d "$sv" $cmd; };;
+	esac;;
+    upstart)
+	case $cmd in
+	    start|stop)
+		for sv; { $cmd "$sv"; };;
+	esac;;
+esac

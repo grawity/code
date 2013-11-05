@@ -1,0 +1,61 @@
+#!/bin/bash
+queue=$(mktemp)
+nproc=$(nproc)
+children=()
+
+runjob() {
+	printf '\e[34m[%d] %s\e[m\n' "$RUNNER" "$1"
+	eval "$1"
+	if (( $? )); then
+		printf '\e[31m[%d] %s\e[m\n' "$RUNNER" "failed"
+	else
+		printf '\e[32m[%d] %s\e[m\n' "$RUNNER" "done"
+	fi
+}
+
+runqueue() {
+	while true; do
+		item=$(
+			flock -x $qfd
+			head -n 1 <&$qfd
+		)
+		[[ $item ]] || break
+		runjob "$item"
+	done
+}
+
+interrupt() {
+	kill -9 ${children[@]}
+	cleanup
+}
+
+cleanup() {
+	trap - EXIT
+	rm -f "$queue"
+}
+
+usage() {
+	echo "${0##*/} [-j jobs] < queuefile" >&2
+}
+
+while getopts 'j:' OPT; do
+	case $OPT in
+		"j")	nproc=$OPTARG;;
+		"?")	usage; exit 2;;
+	esac
+done
+
+cat >"$queue"
+exec {qfd}<"$queue"
+
+for (( i=0; i<nproc; i++ )); do
+	RUNNER=$i runqueue &
+	children[$i]=$!
+done
+
+trap 'interrupt; exit' INT TERM QUIT
+trap 'cleanup; exit' EXIT
+
+for (( i=0; i<nproc; i++ )); do
+	wait
+done

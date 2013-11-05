@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+dir=${1:-$PWD}
+args=()
+if [[ ! -e "$dir" ]]; then
+	echo "$dir: not found" >&2
+	exit 1
+fi
+dir=$(readlink -f "$dir")
+while [[ $dir ]]; do
+	args+=("$dir")
+	dir=${dir%/*}
+done
+if [[ ${args[-1]} != "/" ]]; then
+	args+=("/")
+fi
+exec getfacl -atp "${args[@]}"

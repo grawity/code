@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+cgroot="/sys/fs/cgroup/systemd"
+oldcg=$(awk -F":" '$2 == "name=systemd" {print $3}' /proc/self/cgroup)
+#oldcg="/user/$(logname)/${XDG_SESSION_ID:-$(cat /proc/self/sessionid)}"
+case $1 in
+/*)	newcg=$1;;
+*)	newcg=$oldcg/$1;;
+esac
+oldcg=$cgroot/${oldcg#/}
+newcg=$cgroot/${newcg#/}
+
+mkdir -p "$newcg" || exit
+
+pids=${*:2}
+echo -n "$newcg"
+for pid in ${pids:-$$}; do
+	echo $pid > $newcg/cgroup.procs
+	echo -n " $pid"
+done
+echo

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+default='gnome-session'
+
+sessions="
+	systemd		systemd-user
+	GNOME		gnome-session
+	Openbox		openbox-session
+	KDE		startkde
+	wmii		wmii
+	Xterm		xterm
+"
+
+list_sessions() {
+	printf '%s\n' $sessions
+	exit
+	for f in /usr/share/xsessions/*.desktop; do
+		name=`awk -F'=' '$1 == "Name" {print $2}' "$f"`
+		cmd=`awk -F'=' '$1 == "Exec" {print $2}' "$f"`
+		printf '%s\t%s\n' "$name" "$cmd"
+	done | sort | tr '\t' '\n'
+}
+
+selector() {
+	zenity --list \
+		--title="Logon session" \
+		--text="Select X11 session:" \
+		--column="Session" \
+		--column="Command" \
+		--hide-column=2 \
+		--hide-header \
+		--print-column=ALL \
+		--separator=' ' \
+		--height=250 \
+		--ok-label="Login" \
+		--cancel-label="Exit" \
+		--timeout=5 \
+		;
+}
+
+out=$(list_sessions | selector) || exit
+set -- ${out:-default $default}
+session=$1
+command=$2
+
+export DESKTOP_SESSION=${session,,}
+exec $command

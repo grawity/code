@@ -1,0 +1,22 @@
+#!/bin/sh
+# convenience wrapper for signing Linux kernel modules
+
+priv() {
+	if (( UID )); then sudo "$@"; else "$@"; fi
+}
+
+src=~/src/linux
+
+cert=$src/signing_key.x509
+key=$src/signing_key.priv
+hash=$(cd "$src" && . ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
+
+for file; do
+	echo -n "${file##*/}: "
+	if grep -qs "~Module signature appended~" "$file"; then
+		echo "already signed"
+	else
+		echo "signing"
+		priv "$src/scripts/sign-file" "$hash" "$key" "$cert" "$file"
+	fi
+done

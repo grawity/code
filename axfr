@@ -1,0 +1,33 @@
+#!/bin/sh
+
+try_axfr() {
+	local domain=$1 server=$2
+	local tmp=$(mktemp /tmp/axfr.XXXXXXXX) ret=true
+	echo "; Trying $server"
+	dig $domain axfr @$server > $tmp
+	if grep -qs '^;; XFR size:' $tmp
+	then cat $tmp
+	else ret=false
+	fi
+	rm -f $tmp
+	$ret
+}
+
+domain=$1
+
+rr_soa=$(dig +noall +answer +authority "$domain" SOA | awk '$4 == "SOA" {print $5}')
+
+rr_ns=$(dig +noall +answer +authority "$domain" NS | awk '$4 == "NS" {print $5}')
+
+for ns in $rr_soa; do
+	try_axfr $domain $ns && exit
+done
+
+for ns in $rr_ns; do
+	if [ $ns = $rr_soa ]; then
+		continue
+	fi
+	try_axfr $domain $ns && exit
+done
+
+exit 1

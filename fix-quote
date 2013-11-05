@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+use utf8;
+
+sub nickify {
+	my ($time, $nick) = ($1, $2);
+	if ($nick ~~ /^[@+]?[{}\[\]|\\a-z0-9]/i) {
+		return "$time <$nick>";
+	} else {
+		return "$time  $nick";
+	}
+}
+
+print "%\n";
+my $line = "";
+while (<>) {
+	if (/│\d+:\d+.+│/) {
+		# rm buflist
+		s/^[^│]+│//;
+		# rm nicklist
+		s/ *│ [^│]+?$//;
+	}
+	# skip trackbar
+	next if /^(- )+\s*/;
+	if (/^\d/) {
+		s/^(\d.+?) +(\S+) [│|]/nickify/e;
+		print $line if $.;
+		$line = $_;
+	} else {
+		s/^ +│ / /;
+		chomp $line;
+		$line .= $_;
+	}
+}
+print $line;

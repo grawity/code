@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+for srcfile; do
+	dir=$(dirname "$srcfile")
+	name=$(basename "$srcfile")
+	name=${name%.*}
+	tmpfile=$dir/.temp-$$.$name.png
+	outfile=$dir/$name.png
+	convert "$srcfile" "$tmpfile" &&
+	pngcrush "$tmpfile" "$outfile" &&
+	rm -f "$tmpfile" &&
+	: trash "$srcfile"
+done

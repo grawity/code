@@ -1,0 +1,14 @@
+#!/bin/bash
+# Remove stale lock files by Windows GPG
+for file in ~/.gnupg/{pubring,secring,trustdb}.gpg; do
+	if [[ -e "${file}.lock" ]]; then
+		exec {fd}<"${file}.lock"
+		read -r -u $fd pid
+		read -r -u $fd host
+		exec {fd}<&-
+		if [[ $host != $HOSTNAME ]] || [[ ! -d /proc/$pid ]]; then
+			rm -f "${file}.lock"
+		fi
+	fi
+done
+exec /usr/bin/gpg "$@"

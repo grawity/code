@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# go - quick connection script
+
+. libbleh.bash
+
+do_sshfs() {
+	local src=$1 mtpt=$2
+	mkdir -p "$mtpt"
+	mountpoint -q "$mtpt" ||
+		sshfs -o idmap=none "$src" "$mtpt"
+	echo "Mounted sshfs#$src on $mtpt"
+}
+
+do_rdp() {
+	local host=$1
+	spawn mstsc "$host" -D -g workarea
+	#spawn mstsc "$host" -f
+}
+
+do_ssh() {
+	exec ssh "$@"
+}
+
+cd ~
+
+[[ $0 != */go ]] &&
+	set -- "${0##*/}" "$@"
+
+case $1 in
+snow)
+	host="snow"
+	if [[ $2 == "fs" ]]; then
+		do_sshfs "$host:/" "$XDG_RUNTIME_DIR/fs/snow"
+	elif [[ $2 == "suspend" || $2 == "hibernate" ]]; then
+		do_ssh "$host" -oControlPersist=no \
+			-oServerAliveInterval=1 \
+			-oServerAliveCountMax=5 \
+			"$2" &
+	elif [[ $2 == "rdp" || (! $2 && ! -t 0) ]]; then
+		do_rdp "$host"
+	else
+		do_ssh "$host" "${@:2}"
+	fi
+	;;
+
+'')	echo "Usage: $0 <host>"
+	exit 2
+	;;
+*)	die "Unknown host '$rhost'";
+esac

@@ -1,0 +1,76 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Convert::Bencode qw(bencode bdecode);
+use JSON;
+use feature qw(say);
+
+sub mktree {
+	my ($items) = @_;
+
+	my %folders = ();
+
+	for my $item (@$items) {
+		my @path = @{$item->{path}};
+		my $name = pop @path;
+		my $path = join "/", @path;
+		#push @{$folders{$path}{items}}, $name;
+		pop @path;
+		my $parent = join "/", @path;
+		say "name=$name path=$path parent=$parent";
+		$folders{$parent}{dirs}{$path} = 1;
+	}
+
+	use Data::Dumper;
+	print Dumper(\%folders);
+	return;
+
+	my $func;
+	$func = sub {
+		my ($indent, $root) = @_;
+
+		my @dirs = grep {$_ ne $root}
+			sort keys %{$folders{$root}{dirs}};
+		my @items = sort @{$folders{$root}{items}};
+
+		my $i = @dirs + @items;
+		for (@dirs) {
+			print "  "x$indent,
+				--$i ? " ├ " : " └ ",
+				$_."/", "\n";
+			$func->($indent+1, $_) for @dirs;
+		}
+		for (@items) {
+			print "  "x$indent,
+				--$i ? " ├ " : " └ ",
+				$_, "\n";
+		}
+	};
+
+	$func->(1, "");
+}
+
+my $benc = do { local $/; <STDIN>; };
+my $data = bdecode($benc);
+my $mode = "json";
+
+if ($mode eq "json") {
+	my $p = length $data->{info}{pieces};
+	$data->{info}{pieces} = undef;
+	print to_json($data, {
+			ascii => 1,
+			#utf8 => 1,
+			indent => 1,
+			space_after => 1,
+			canonical => 1,
+			});
+}
+else {
+	my $info = $data->{info};
+	my $files = $info->{files};
+	for my $file (@$files) {
+		my $name = join("/", @{$file->{path}});
+		#say $name;
+	}
+	mktree($files);
+}

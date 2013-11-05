@@ -1,0 +1,30 @@
+#!/bin/sh -e
+
+if ! which signtool > /devnull 2>&1; then
+	echo "error: You need the 'signtool' command from the NSS library." >&2
+	exit 1
+fi
+
+if ! which zip > /dev/null 2>&1; then
+	echo "error: You need the 'zip' command." >&2
+	exit 1
+fi
+
+if ! [ -f install.rdf ]; then
+	echo "error: This directory does not contain a valid XPI extension." >&2
+	exit 1
+fi
+
+nssdb="sql:$HOME/.pki/nssdb"
+nsscert='grawity - code signing'
+
+outfile="${1:-${PWD##*/}}.xpi"
+
+(shopt -s nullglob; rm -f *.xpi)
+
+signtool -d "$nssdb" -k "$nsscert" .
+
+zip "$outfile" ./META-INF/zigbert.rsa
+zip -r -D -x "$outfile" @ "$outfile" .
+
+echo "=> Created $outfile"

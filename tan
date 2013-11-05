@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+root=~/.run/media/grawpqi/Private/codecard
+
+localpwfile=~/Private/.codecard.key
+mediapwfile=~/.run/media/grawpqi/Private/.codecard.key
+
+decrypt() {
+	local file=$root/$1.gpg
+	cat "$file" \
+	| gpg -d --batch --passphrase-file="$localpwfile" \
+	| gpg -d --batch --passphrase-file="$mediapwfile" \
+	| gpg -d
+} 2>/dev/null
+
+encrypt() {
+	local file=$root/$1.gpg
+	cat \
+	| gpg -c \
+	| gpg -c --batch --passphrase-file="$mediapwfile" \
+	| gpg -c --batch --passphrase-file="$localpwfile" \
+	> "$file"
+} 2>/dev/null
+
+reveal() {
+	decrypt "all" | awk "NR == $1 {print \$2; exit}" | xsel -i -b
+	(sleep 5; xsel -c; xsel -c -b) &
+}
+
+unset GPG_AGENT_INFO
+
+[[ $1 == all ]] && {
+	decrypt "all"
+	exit
+}
+
+[[ $1 ]] &&
+reveal "$@"

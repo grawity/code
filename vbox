@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+cmd=$1; shift
+vm=$1; shift
+
+case $cmd in
+ls)
+	vboxmanage list vms
+	;;
+lsr|lsrun|lsrunning)
+	vboxmanage list runningvms
+	;;
+start)
+	vboxmanage startvm "$vm"
+	;;
+pause|resume|reset|poweroff)
+	vboxmanage controlvm "$vm" "$cmd"
+	;;
+save)
+	vboxmanage controlvm "$vm" savestate
+	;;
+ctl)
+	vboxmanage controlvm "$@"
+	;;
+get)
+	if [[ ! $1 ]]; then
+		set -- 'enumerate'
+	fi
+	vboxmanage getextradata "$vm" "$@"
+	;;
+set)
+	vboxmanage setextradata "$vm" "$@"
+	;;
+fixvesa)
+	vboxmanage setextradata "$vm" "CustomVideoMode1" "1366x768x32"
+	;;
+fixup)
+	vboxmanage modifyvm "$vm" \
+		--boot1 disk			\
+		--boot2 floppy			\
+		--boot3 dvd			\
+		--pae on			\
+		--ioapic on			\
+		--audio pulse			\
+		--nic1 bridged			\
+		--bridgeadapter1 "vmbr"		;
+	;;
+*)
+	echo bad command
+esac

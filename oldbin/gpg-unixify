@@ -1,0 +1,16 @@
+#!/bin/bash
+host=$1
+
+localport=$(( (RANDOM / 2) + 32000 ))
+remoteport=$(( (RANDOM / 2) + 32000 ))
+cookie=~/.gnupg/agent-cookie
+
+unixify -c "$cookie" localhost:$localport ${GPG_AGENT_INFO%%:*} &
+ssh "$host" -t -R $remoteport:localhost:$localport "
+	socket=~/S.gpg-agent
+	(umask 077;
+		code/bin/unixify -C $cookie \"\$socket\" localhost:$remoteport &)
+	export GPG_AGENT_INFO=\$socket:0:1
+	exec \$SHELL -l
+"
+

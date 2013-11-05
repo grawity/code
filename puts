@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+
+def unescape_c_string(s)
+    state = 0
+    res = ""
+    acc = 0
+    len = 0
+    s.each_char do |c|
+        case state
+        when 0
+            case c
+            when "\\" then state = 1
+            else res << c
+            end
+        when 1
+            case c
+            when "x" then state = 2; acc = 0; len = 0
+            when "n" then res << "\n"; state = 0
+            when "t" then res << "\t"; state = 0
+            when "\\" then res << "\\"; state = 0
+            else res << "\\"; res << c; state = 0
+            end
+        when 2
+            case c
+            when /[0-9a-fA-F]/
+                acc <<= 4; acc |= c.to_i(16); len += 1
+                if len == 2
+                    res << acc.chr; state = 0
+                end
+            else
+                res << acc.chr; res << c; state = 0
+            end
+        end
+    end
+    return res
+end
+
+
+ARGV.each do |s|
+	print unescape_c_string(s)
+end
+
+# vim: ts=4 sw=4 et

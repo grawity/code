@@ -1,0 +1,33 @@
+#!/usr/bin/env perl
+
+my $re = qr{ ^
+		(?: (\d+) : )?
+		(\d+) / (\d+)
+		(?: \. (\d+) )?
+		(?: \@ (\w+) )?
+	$ }x;
+
+sub to_dns {
+	my ($z, $n, $f, $p, $d) = @_;
+	my $domain = "binkp.net";
+	return
+		(defined $p ? "p$p." : "").
+		"f$f.n$n.z$z.$domain";
+}
+
+sub to_fido {
+	my ($z, $n, $f, $p, $d) = @m;
+	return
+		(defined $z ? "$z:" : "").
+		"$n/$f".
+		(defined $p ? ".$p" : "").
+		(defined $d ? "@$d" : "");
+}
+
+my $in = shift @ARGV;
+
+if (my @m = $in =~ $re) {
+	print to_dns(@m)."\n";
+} else {
+	exit 1;
+}

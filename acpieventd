@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# acpieventd - ACPI event listener
+
+exec acpi_listen | while read line; do
+	(
+	[[ $SPAWN_LOCKFD ]] &&
+		exec {SPAWN_LOCKFD}>&-
+	~/bin/event/acpi $line
+	)
+done

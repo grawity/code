@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+dstroot=/mnt/backup
+srcroot=/mnt/backup/latest
+locroot=$HOME
+
+todo=()
+
+for dir; do
+	dir=$(readlink -f "$dir")
+
+	while [[ $dir == */ ]]; do
+		dir=${dir%/}
+	done
+
+	case $dir in
+	"$srcroot"/*)	todo+=("${dir#"$srcroot"/}");;
+	"$locroot"/*)	todo+=("${dir#"$locroot"/}");;
+	*)		err "path '$dir' is outside home";;
+	esac
+done
+
+(( ! errors )) || exit
+
+for rel in "${todo[@]}"; do
+	if [[ $rel != Attic/* ]]; then
+		warn "path \"$rel\" is outside ~/Attic"
+		if ! confirm "relocate to \"Attic/$rel\"?"; then
+			(( ++skip ))
+			continue
+		fi
+	fi
+
+	if [[ $rel == Attic/* ]]; then
+		target=$dstroot/$rel
+	else
+		target=$dstroot/Attic/$rel
+	fi
+
+	if [[ -e "$target" ]]; then
+		warn "path '$rel' already exists in attic"
+		ls -ld "$target"
+		continue
+	fi
+
+	parent=${target%/*}
+
+	mkdir -p "$parent"
+
+	log "moving '$rel' from backup to attic"
+	mv -v "$srcroot/$rel" "$target"
+
+	log "removing '$rel' from home"
+	trash "$locroot/$rel"
+done
+
+if (( skip )); then
+	warn "skipped $skip items out of ${#todo[@]}"
+fi
+
+true

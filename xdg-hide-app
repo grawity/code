@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# xdg-hide-app - hide an application from XDG menus
+
+: ${XDG_DATA_HOME:=$HOME/.local/share}
+: ${XDG_DATA_DIRS:=/usr/local/share:/usr/share}
+
+findentry() {
+	local IFS=":" path= file=
+	for path in $XDG_DATA_HOME $XDG_DATA_DIRS; do
+		file="${path%/}/applications/$1"
+		if [[ -f $file ]]; then
+			echo "$file"
+			return
+		fi
+	done
+	return 1
+}
+
+for app; do
+	if [[ $app != *.desktop ]]; then
+		app=$app.desktop
+	fi
+	orig=$(findentry "$app")
+	new="${XDG_DATA_HOME%/}/applications/$app"
+	mkdir -p "${new%/*}"
+	[[ -f $new ]] || cp "$orig" "$new"
+	echo -e "\n# application hidden\nNoDisplay=true" >> "$new"
+	echo "$app" >> "${XDG_DATA_HOME%/}/applications/hidden.txt"
+	echo "hid $app"
+done

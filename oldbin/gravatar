@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use feature 'say';
+use Getopt::Long;
+use URI::Escape qw(uri_escape);
+use Digest::MD5 qw(md5_hex);
+
+sub get_base_url {
+	my ($email, %args) = @_;
+	my $hash = md5_hex($email);
+	my $base = "https://www.gravatar.com/avatar/$hash";
+	my @args = map {join("=", uri_escape($_), uri_escape($args{$_}))} keys %args;
+	my $args = join("&", @args);
+	return $args ? join("?", $base, $args) : $base;
+}
+
+my $size = undef;
+my %args;
+
+GetOptions(
+	"size=i"	=> \$size,
+);
+
+if (defined $size) {
+	$args{"s"} = $size;
+}
+
+say get_base_url($_, %args) for @ARGV;

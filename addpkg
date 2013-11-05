@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+carch=`uname -m`
+dir=~/pkg/my-repo
+db=$dir/grawity.db.tar.gz
+
+pkgfiles=()
+auxfiles=()
+
+. PKGBUILD
+
+makepkg -f --sign
+
+for file in ./$pkgname-$pkgver-$pkgrel-*; do
+	case $file in
+	*.sig)	auxfiles+=($file);;
+	*)	pkgfiles+=($file);;
+	esac
+done
+
+repo-remove --sign "$db" "$pkgname"
+repo-add --sign "$db" "${pkgfiles[@]}"
+
+for file in "$dir"/$pkgname-*; do
+	case ${file##*/} in
+	$pkgname-$pkgver-$pkgrel-*)
+		;;
+	*)
+		rm -vf "$file";;
+	esac
+done
+
+cp -vf "${pkgfiles[@]}" "${auxfiles[@]}" "$dir/"
+
+rsync -avhzHAX "$dir/" "virgule:nullroute/pkg/$carch/"

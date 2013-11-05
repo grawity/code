@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+
+. lib.bash
+
+# create file list from directory
+list_create() {
+	local dir="$1"
+	find "$dir" -printf '%Y %m ./%P\n'
+}
+
+# remove files according to list
+list_remove() {
+	local list="$1"
+	local ftype mode path
+
+	tac "$list" | while read -r ftype mode path; do
+		path="$PREFIX/${path#./}"
+		case $ftype in
+		d) test -d "$path" && rmdir --ignore-fail-on-non-empty "$path";;
+		?) rm -f "$path";;
+		esac
+	done
+}
+
+# display statistics of file list
+list_stats() {
+	local list="$1"
+	local ndirs=0 nfiles=0
+	local ftype mode path
+	
+	while read -r ftype mode path; do
+		case $ftype in
+		d) (( ++ndirs ));;
+		?) (( ++nfiles ));;
+		esac
+	done < "$list"
+
+	echo "$ndirs directories, $nfiles files"
+}
+
+dist_install() {
+	local dest="${1%/}/" args=("${@:2}")
+
+	rm -rf "$dest"
+	mkdir -p "$dest"
+
+	make DESTDIR="$dest" "${args[@]}" install
+}
+
+dir_copy() {
+	(cd "$1" && find | bsdcpio --quiet -o) \
+		| pv -c -b -p \
+		| (cd "$2" && bsdcpio --quiet -i)
+}
+
+DBDIR="$HOME/.local/pkg"
+CACHEDIR="$HOME/.cache/pkg"
+PREFIX="$HOME/lib"
+
+name=$(basename "$PWD")
+
+mkdir -p "$DBDIR"
+
+mkdir -p "$CACHEDIR/install"
+
+filelist="$DBDIR/$name.files"
+
+tempdest="$CACHEDIR/install/$name"
+
+makeargs=()
+
+case $1 in
+install)
+	dist_install "$tempdest"
+
+	if test -e "$filelist"; then
+		log "uninstalling old version"
+		pkg stats &&
+		pkg remove
+	fi
+
+	log "installing to file system"
+	list_create "$tempdest/$PREFIX" > "$filelist"
+	dir_copy "$tempdest/$PREFIX" "$PREFIX"
+	list_stats "$filelist"
+	;;
+
+remove)
+	if ! test -e "$filelist"; then
+		die "filelist $filelist not found"
+	fi
+
+	list_stats "$filelist"	
+	list_remove "$filelist"
+
+	mv "$filelist" "$filelist-old"
+	;;
+
+ls-files)
+	cat "$filelist"
+	;;
+
+pkg-stats)
+	list_stats "$filelist"
+	;;
+
+eval)
+	eval "${@:2}"
+	;;
+
+esac

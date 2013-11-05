@@ -1,0 +1,237 @@
+#!/usr/bin/env perl
+use feature 'say';
+use Data::Dumper;
+use Net::DNS;
+use Net::LDAP;
+use List::MoreUtils qw(uniq);
+
+my $res = Net::DNS::Resolver->new;
+my $ans;
+
+my %do;
+$do{kerberos} = 1;
+$do{mail} = 1;
+$do{verbose} = 1;
+$do{ldap} = 1;
+$do{xmpp} = 1;
+
+sub status {
+	print STDERR "\r\033[K", shift; $|++;
+}
+
+sub done {
+	print STDERR "\r\033[K"; $|++;
+}
+
+sub find_dom {
+	my ($lhs, $rhs, $type) = @_;
+	my @rhs = split(/\./, $rhs);
+	while (@rhs) {
+		my $dom = join(".", @rhs);
+		my $qry = join(".", grep {defined} ($lhs, @rhs));
+		my $ans = $res->query($qry, $type);
+		return ($ans, $dom) if $ans;
+		shift @rhs;
+	}
+}
+
+$res->{dnssec} = 1;
+
+sub get_spf {
+	my ($dom) = @_;
+	my ($ans, @spf);
+	$ans = $res->query($dom, "SPF");
+	if ($ans) {
+		push @spf,
+			grep {s/^v=spf1\s//}
+			map {$_->txtdata}
+			grep {$_->type eq "SPF"}
+			$ans->answer;
+	}
+	$ans = $res->query($dom, "TXT");
+	if ($ans) {
+		push @spf,
+			grep {s/^v=spf1\s//}
+			map {$_->txtdata}
+			grep {$_->type eq "TXT"}
+			$ans->answer;
+	}
+	return uniq @spf;
+}
+
+for my $host (@ARGV) {
+	my $domain;
+	my @dom;
+	my @ns;
+	my $secure = 0;
+
+	status "Looking up SOA...";
+	$ans = $res->send($host, "SOA");
+	for my $rr ($ans->answer, $ans->authority) {
+		if ($rr->type eq "SOA") {
+			$domain = $rr->name;
+			push @dom, $domain . ($ans->header->ad
+						? " (\e[38;5;10msecure\e[m)"
+						: " (\e[38;5;3minsecure\e[m)");
+		}
+	}
+
+	status "Looking up nameservers...";
+	$ans = $res->query($domain, "NS");
+	$secure = $ans->header->ad;
+	for my $rr ($ans->answer, $ans->authority) {
+		if ($rr->type eq "NS") {
+			push @ns, $rr->nsdname;
+		}
+	}
+
+	status "Looking up Active Directory...";
+	($ans, $domain) = find_dom("_ldap._tcp._msdcs", $host, "SRV");
+	push @dom, "$domain (Active Directory)" if $ans;
+	done;
+
+	if (@dom) {
+		say "Domain:";
+		say "\tdomain: $_" for @dom;
+		say "\tnameserver: $_" for @ns;
+	}
+
+	if ($do{mail}) {
+		status "Looking up mail servers...";
+		$ans = $res->query($host, "MX");
+		done;
+		if ($ans) {
+			say "Mail:";
+			say "\tdomain: $host";
+			say "\tmailserver: $_"
+				for uniq map {"[".$_->preference."] ".$_->exchange}
+				sort {$a->preference <=> $b->preference}
+				sort {$a->exchange cmp $b->exchange}
+				grep {$_->type eq 'MX'} $ans->answer;
+		}
+
+		status "Looking up mail server configuration...";
+		my @spf = get_spf($host);
+		my $dmarcans = $res->query("_dmarc.$host", "TXT");
+		done;
+		if ($dmarcans) {
+			my $policy = ($dmarcans->answer)[0]->txtdata;
+			my %policy = map {split /=/, $_, 2} split /;\s*/, $policy;
+			my @mode;
+			push @mode, {
+				none => "only send reports",
+				quarantine => "mark as spam",
+				reject => "SMTP-reject"}->{$policy{p}};
+			push @mode, "report to $policy{rua}"
+				if exists $policy{rua};
+			push @mode, "strict SPF"
+				if ($policy{aspf} // "r") eq "s";
+			say "\tDMARC: ".join("; ", @mode);
+		}
+		say "\tSPF: $_" for @spf; 
+	}
+
+	if ($do{kerberos}) {
+		my $krealm;
+		my @kdc;
+		status "Looking up Kerberos realm...";
+		($ans, $domain) = find_dom("_kerberos", $host, "TXT");
+		done;
+		if ($ans && grep {$_->type eq 'TXT'} $ans->answer) {
+			$krealm = ($ans->answer)[0]->txtdata;
+			if ($krealm =~ /^v=/) {
+				$krealm = undef;
+			} else {
+				if ($do{verbose}) {
+					say "Kerberos:";
+					say "\trealm: $krealm";
+					status "Looking up Kerberos KDCs...";
+					$ans = $res->query("_kerberos._udp.$krealm", "SRV");
+					push @kdc, $ans->answer if defined $ans;
+					$ans = $res->query("_kerberos-master._udp.$krealm", "SRV");
+					push @kdc, $ans->answer if defined $ans;
+					done;
+					say "\tkdc server: $_"
+						for uniq map {"[".$_->priority."] ".$_->target}
+						sort {$a->priority <=> $b->priority}
+						sort {$a->weight <=> $b->weight}
+						sort {$a->target cmp $b->target}
+						grep {$_->type eq 'SRV'} @kdc;
+				} else {
+					say "Kerberos: $krealm";
+				}
+			}
+		}
+	}
+
+	if ($do{ldap}) {
+		status "Looking up LDAP servers...";
+		($ans, $domain) = find_dom("_ldap._tcp", $host, "SRV");
+		if ($ans) {
+			my @bases;
+			my @servers =	sort {$a->priority <=> $b->priority}
+					sort {$a->weight <=> $b->weight}
+					sort {$a->target cmp $b->target}
+					grep {$_->type eq 'SRV'} $ans->answer;
+			for my $item (@servers) {
+				my $host = $item->target;
+				status "Looking up LDAP contexts on $host...";
+				my $ldap = Net::LDAP->new($host);
+				if ($ldap) {
+					$ldap->bind;
+					my $res = $ldap->search(base => '',
+							scope => 'base',
+							filter => q(objectClass=*),
+							attrs => ['+']);
+					$ldap->unbind;
+					push @bases, $_->get_value("namingContexts")
+						for $res->entries;
+					last;
+				}
+			}
+			done;
+			say "LDAP:";
+			say "\tbasedn: $_" for @bases;
+			say "\tserver: $_"
+				for uniq map {"[".$_->priority."] ".$_->target}
+					@servers;
+		}
+	}
+
+	if ($do{xmpp}) {
+		status "Looking up XMPP servers...";
+		($cans, $domain) = find_dom("_xmpp-client._tcp", $host, "SRV");
+		($sans, $domain) = find_dom("_xmpp-server._tcp", $host, "SRV");
+		done;
+		if ($cans || $sans) {
+			if ($do{verbose}) {
+				say "XMPP:";
+				say "\tdomain: $domain";
+				if ($cans) {
+					say "\tserver: $_" for
+						uniq
+						map {"[".$_->priority."] ".$_->target}
+						sort {$a->priority <=> $b->priority}
+						sort {$a->weight <=> $b->weight}
+						sort {$a->target cmp $b->target}
+						grep {$_->type eq 'SRV'} $cans->answer;
+				}
+				if ($sans) {
+					say "\ts2s server: $_" for
+						uniq
+						map {"[".$_->priority."] ".$_->target}
+						sort {$a->priority <=> $b->priority}
+						sort {$a->weight <=> $b->weight}
+						sort {$a->target cmp $b->target}
+						grep {$_->type eq 'SRV'} $sans->answer;
+				}
+			} else {
+				say "XMPP: $domain";
+				say "\t(no client access)" if !$cans;
+				say "\t(not federated)" if !$sans;
+			}
+		}
+	}
+
+	say "";
+}

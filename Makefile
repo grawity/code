@@ -49,10 +49,10 @@ override CFLAGS += -I./misc $(OSFLAGS) $(cflags)
 
 ifeq ($(V),1)
 	verbose_hide := $(empty)
-	verbose_echo := :
+	verbose_echo := @:
 else
 	verbose_hide := @
-	verbose_echo := echo
+	verbose_echo := @echo
 endif
 
 # misc targets
@@ -71,7 +71,7 @@ endif
 endif
 
 pre:
-	@dist/prepare
+	$(verbose_hide) dist/prepare
 
 clean:
 	rm -rf obj/arch.* obj/dist.* obj/host.*
@@ -164,9 +164,9 @@ $(dummy):		pre
 # general rules
 
 $(OBJ)/%.o:		| $(dummy)
-	@$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
-	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)
+	$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
+	$(verbose_hide) $(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)
 
 $(OBJ)/%:		| $(dummy)
-	@$(verbose_echo) "  CCLD  $(notdir $@) ($(call args,$^))"
-	$(verbose_hide)$(LINK.c) $(call args,$^) $(LOADLIBES) $(LDLIBS) -o $@
+	$(verbose_echo) "  CCLD  $(notdir $@) ($(call args,$^))"
+	$(verbose_hide) $(LINK.c) $(call args,$^) $(LOADLIBES) $(LDLIBS) -o $@

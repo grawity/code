@@ -21,7 +21,7 @@ print_msg() {
 }
 
 debug() {
-	local color reset
+	local colorfunc reset
 	if [[ -t 1 ]]
 		then colorfunc='\e[36m' reset='\e[m'
 		else colorfunc='' reset=''

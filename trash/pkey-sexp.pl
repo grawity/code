@@ -5,11 +5,11 @@
 # Usage (private key):
 #
 #     ./pkey-sexp.pl ~/.ssh/id_rsa -p "passphrase" \ 
-#         | sexp-conv -s transport | lsh-writekey -o ~/.lsh/identity
+#         | sexp-conv -s transport | lsh-keygen --read-raw [-o ~/.lsh/identity]
 #
-#     * lsh-writekey will also output identity.pub to the same directory.
+#     * lsh-keygen will also output identity.pub to the same directory.
 #
-#     * Use 'lsh-writekey --label' as the equivalent to key comment.
+#     * Use '--label=...' as the equivalent to key comment.
 #
 # Usage (public key):
 #
@@ -27,7 +27,7 @@
 #       pkcs1-conv, able to import RSA-PKCS#1 keys. Usage:
 #         openssl rsa -in id_rsa | pkcs1-conv > identity
 #           (outputs decrypted private key)
-#         openssl rsa -in id_rsa | pkcs1-conv | lsh-writekey
+#         openssl rsa -in id_rsa | pkcs1-conv | lsh-keygen --read-raw
 #           (public and encrypted private)
 #         ssh-keygen -f id_rsa -em PEM | pkcs1-conv > identity.pub
 #           (public key)

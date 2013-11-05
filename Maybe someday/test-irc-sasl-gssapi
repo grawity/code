@@ -1,0 +1,66 @@
+#!/usr/bin/env perl
+use IO::Socket::INET;
+use MIME::Base64;
+use Authen::SASL;
+
+my $host = "irc.cluenet.org";
+my $port = 6667;
+my $sasl_host = $host;
+
+my $sock = IO::Socket::INET->new(PeerAddr => $host, PeerPort => $port);
+
+sub put {
+	my $str = shift;
+	print "\e[1;36m-->\e[;36m $str\e[m\n";
+	$sock->print("$str\r\n");
+}
+
+put($_) for (
+	"CAP REQ :sasl",
+	"NICK test",
+	"USER a a a a",
+	"AUTHENTICATE GSSAPI",
+);
+
+my ($authzid) = @ARGV;
+
+my $sasl = Authen::SASL->new(
+			mechanism => "GSSAPI",
+			callback => {
+				username => sub {$authzid // ""},
+			});
+my $conn = $sasl->client_new("irc", $sasl_host);
+my $started = 0;
+
+while (<$sock>) {
+	s/\r\n$//;
+	print "\e[1;35m<--\e[;35m $_\e[m\n";
+	if (/^AUTHENTICATE (.+)$/) {
+		my $in = $1 eq '+' ? '' : decode_base64($1);
+		my $out;
+		if (!$started++) {
+			if ($in) {
+				$out = $conn->client_start();
+				$out = $conn->client_step($in);
+			} else {
+				$out = $conn->client_start();
+			}
+		} else {
+			$out = $conn->client_step($in);
+		}
+		$out = ($out // '') eq '' ? '+' : encode_base64($out, '');
+
+		while (length $out >= 400) {
+			my $sub = substr($out, 0, 400, '');
+			put("AUTHENTICATE $sub");
+		}
+		if (length $out) {
+			put("AUTHENTICATE $out");
+		} else {
+			put("AUTHENTICATE +");
+		}
+	}
+	elsif (/ 90\d /) {
+		put("QUIT");
+	}
+}

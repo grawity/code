@@ -1,0 +1,85 @@
+#!/bin/bash
+# Fork to background and randomly move the Xterm window
+# Status: working, useless
+
+if [[ -z $tty ]]; then
+	export tty=$(tty)
+	exec bash < "$0"
+fi
+
+Move() {
+	printf "\e[3;%d;%dt" "$@"
+}
+Raise() {
+	printf "\e[5t"
+}
+Lower() {
+	printf "\e[6t"
+}
+Maximize() {
+	printf "\e[9;%dt" "$@"
+}
+TextResize() {
+	printf "\e[8;%d;%dt" "$@"
+}
+req_Position() {
+	printf "\e[13t"
+	read -sd 't' -u "${rt:-0}" var
+	[[ $var =~ '[3;'([[:digit:]]+)';'([[:digit:]]+)$ ]] &&
+		x=${BASH_REMATCH[1]} y=${BASH_REMATCH[2]}
+}
+req_Size() {
+	[[ $1 == -m ]] && Maximize 1
+	printf "\e[14t"
+	[[ $1 == -m ]] && Maximize 0
+	read -sd 't' -u "${rt:-0}" var
+	[[ $var =~ '[4;'([[:digit:]]+)';'([[:digit:]]+)$ ]] &&
+		h=${BASH_REMATCH[1]} w=${BASH_REMATCH[2]}
+}
+req_TextSize() {
+	printf "\e[18t"
+	read -sd 't' -u "${rt:-0}" var
+	[[ $var =~ '[8;'([[:digit:]]+)';'([[:digit:]]+)$ ]] &&
+		h=${BASH_REMATCH[1]} w=${BASH_REMATCH[2]}
+}
+
+exec {rt}<"$tty" {wt}>"$tty"
+
+req_Position && oldX=$x oldY=$y
+req_Size && oldH=$h oldW=$w
+req_TextSize && oldTH=$h oldTW=$w
+req_Size -m && screenH=$h screenW=$w
+
+trap "Move $oldX $oldY; TextResize $oldTH $oldTW; exit" INT QUIT TERM EXIT
+
+offset=3
+while false; do
+	Move $((x-offset)) $oldY
+	sleep 0.01
+	Move $((x+offset)) $oldY
+	sleep 0.01
+done &
+
+while true; do
+	sleep 10
+	idle=$(( `date +%s` - `stat -c %X "$tty"` ))
+	(( idle < 100 )) && continue
+	
+	#x=$(( RANDOM % (screenH-oldH) ))
+	#y=$(( RANDOM % (screenW-oldW) ))
+
+	max=100
+	x=$(( x + (RANDOM % max*2) - max ))
+	y=$(( y + (RANDOM % max*2) - max ))
+
+	Move $x $y
+	sleep 100
+done &
+
+#	[[ $idle =~ ;^1:[[:digit:]]{2}$ ]] && continue
+
+echo "$0: line 43: syntax error in conditional expression: unexpected token \`;'"
+echo "$0: line 43: syntax error near \`;^'"
+echo "$0: line 43: \`   [[ \$idle =~ ;^1:[[:digit:]]{2}$ ]] && continue'"
+
+exit 2

@@ -1,0 +1,89 @@
+#!/bin/bash
+# kdb5_util dump incremental diff tool.
+# Status: working, but unnecessarily complex.
+#   (Written due to iprop not working when server's rDNS is in a different domain)
+
+REALM=$(pkinit -R)
+MODE=dump
+while getopts 'ir:' OPT; do
+	case $OPT in
+	'i')	MODE=load;;
+	'r')	REALM=$OPTARG;;
+	esac
+done
+
+die() {
+	echo "$*" >&2
+	exit 1
+}
+
+do_dump() {
+	echo "realm $REALM"
+	local dir="/var/lib/krb5kdc/$REALM.kprop"
+	local dir="/tmp/$REALM-out"
+	mkdir -pm 0700 "$dir"
+	local serial_file="$dir/serial"
+	[[ -f $serial_file ]] || echo "0" >"$serial_file"
+	local old_sn=$(<"$serial_file")
+	local old_dump="$dir/dump.$old_sn"
+	local new_sn=$((old_sn+1))
+	local new_dump="$dir/dump.$new_sn"
+	local diff="$dir/diff.$new_sn"
+	kdb5_util -r "$REALM" dump >"$new_dump"
+	if [[ -f $old_dump ]]; then
+		if diff -u "$old_dump" "$new_dump" >"$diff"; then
+			echo "ok same $new_sn" 0 0
+			rm -f "$diff"
+		else
+			echo "ok diff $new_sn" $(wc -l <"$diff") $(stat -c %s "$diff")
+			cat "$diff"
+		fi
+	else
+		echo "ok full $new_sn" $(wc -l <"$new_dump") $(stat -c %s "$new_dump")
+		cat "$new_dump"
+	fi
+	echo "$new_sn" >"$serial_file"
+}
+
+do_load() {
+	local dir="/var/lib/krb5kdc/$REALM.kprop"
+	local dir="/tmp/$REALM-in"
+	mkdir -pm 0700 "$dir"
+	local rest= status= realm= mode= new_sn= lines= bytes=
+	read -r status realm _
+	if [[ $status == 'realm' ]]; then
+		if [[ $realm != $REALM ]]; then
+			die "realm mismatch (expected '$REALM', got '$realm')"
+		fi
+	else
+		die "protocol mismatch (expected 'realm', got '$status')"
+	fi
+	read -r status rest
+	read -r mode new_sn lines bytes _ <<< "$rest"
+	local old_sn=$((new_sn-1))
+	local old_dump="$dir/dump.$old_sn"
+	local new_dump="$dir/dump.$new_sn"
+	local diff="$dir/diff.$new_sn"
+	if [[ $status == 'ok' ]]; then
+		if [[ $mode == 'same' ]]; then
+			if (( new_sn == 0 )); then
+				die "protocol mismatch (got 'same' for serial $new_sn)"
+			fi
+			echo "got 'same': ln $old_dump $new_dump"
+			ln "$old_dump" "$new_dump"
+		elif [[ $mode == 'full' ]]; then
+			echo "got 'full': read $lines lines to $new_dump"
+			head -n "$lines" >"$new_dump"
+		elif [[ $mode == 'diff' ]]; then
+			echo "got 'diff': read $lines lines to $diff"
+			head -n "$lines" >"$diff"
+			echo "applying diff"
+			cp "$old_dump" "$new_dump"
+			patch "$new_dump" "$diff"
+		fi
+	else
+		die "protocol mismatch (expected 'ok', got '$status')"
+	fi
+}
+
+do_$MODE

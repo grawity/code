@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+declare -ri SIZEOF_UTMP=384
+declare -i  NUM_ENTRIES=16
+declare -r  WTMP="/var/log/wtmp"
+
+declare -ri NUM_BYTES=$(( SIZEOF_UTMP * NUM_ENTRIES ))
+
+mv "$WTMP" "$WTMP.tmp"
+
+install -m 0664 -o root -g utmp "$WTMP"
+
+head -c "-$NUM_BYTES" "$WTMP.tmp" >> "$WTMP.old"
+
+tail -c "$NUM_BYTES" "$WTMP.tmp" > "$WTMP"

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+always() {
+	blockdev --setfra 6144 /dev/sda3
+}
+
+set_battery() {
+	echo "Switching tunables to battery mode"
+
+	# enable laptop mode
+	echo 1 > /proc/sys/vm/laptop_mode
+
+	# set default readahead
+	#for dev in /dev/sda; do
+	#	blockdev --setfra 3072 $dev
+	#done
+
+	# disable WoL
+	ethtool -s eth0 wol d
+
+	# enable SATA power management
+	for f in /sys/class/scsi_host/*/link_power_management_policy; do
+		echo min_power > $f
+	done
+
+	# turn up disk power management
+	hdparm -B 1 /dev/sda
+
+	# set cpufreq governor
+	#cpufreq-set -r -g powersave
+}
+
+set_acpower() {
+	echo "Switching tunables to AC mode"
+
+	# set cpufreq governor
+	#cpufreq-set -r -g ondemand
+
+	# turn down disk power management
+	hdparm -B 127 /dev/sda
+
+	# disable SATA power management
+	for f in /sys/class/scsi_host/*/link_power_management_policy; do
+		echo max_performance > $f
+	done
+
+	# enable WoL
+	ethtool -s eth0 wol g
+
+	# set default readahead
+	#for dev in /dev/sda; do
+	#	blockdev --setfra 256 $dev
+	#done
+
+	# disable laptop mode
+	echo 0 > /proc/sys/vm/laptop_mode
+}
+
+case $1 in
+ac)
+	set_acpower;;
+bat)
+	set_battery;;
+auto)
+	if on_ac_power; then
+		set_acpower
+	else
+		set_battery
+	fi;;
+esac 2>&1 | systemd-cat -t laptopd

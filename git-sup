@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+
+sub git {
+	my ($fd, @out);
+	if (open $fd, "-|", "git", @_) {
+		@out = grep { chomp || 1 } <$fd>;
+		close $fd;
+	}
+	@out;
+}
+
+my @remotes =
+	git("remote");
+
+my %local_refs =
+	map { m|^(\w+)\s+(refs/\S+)$| ? ($2 => $1) : () }
+	git("show-ref");
+
+for my $remote (@remotes) {
+	my %remote_refs =
+		map { m|^(\w+)\s+(refs/\S+)$| ? ($2 => $1) : () }
+		git("ls-remote", $remote);
+
+	my @updates =
+		grep { $_->{rsha} ne $_->{lsha} }
+		map {
+			my $lref = $rref = $_;
+			$lref =~ s|^refs/heads/|refs/remotes/$remote/|;
+			{ rref => $rref, rsha => $remote_refs{$rref},
+			  lref => $lref, lsha => $local_refs{$lref} }
+		}
+		sort
+		grep { m[^refs/(heads|tags)/] }
+		grep { !/\^\{\}$/ }
+		keys %remote_refs;
+	
+	if (@updates) {
+		print "Updated in $remote:\n";
+		printf "  %s:\n    from %s\n    to   %s\n", @$_ for
+			map { [$_->{rref}, $_->{lsha}, $_->{rsha}] }
+			@updates;
+	}
+}

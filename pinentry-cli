@@ -1,0 +1,37 @@
+#!/usr/bin/env python2
+import sys
+from urllib import quote, unquote
+
+config = {
+	"PROMPT":	"Password"
+}
+
+def handle(line):
+	if line[0] == "SETCANCEL":
+		config["CANCEL"] = unquote(line[1])
+	elif line[0] == "SETOK":
+		config["OK"] = unquote(line[1])
+	elif line[0] == "SETDESC":
+		config["DESC"] = unquote(line[1])
+	elif line[0] == "SETPROMPT":
+		config["PROMPT"] = unquote(line[1])
+	elif line[0] == "GETPIN":
+		with open("/dev/tty", "r+") as tty:
+			if "DESC" in config:
+				tty.write("%s\n" % config["DESC"])
+			tty.write("%s: " % config["PROMPT"])
+			tty.flush()
+			ans = tty.readline().rstrip("\n")
+		return "D %s\n" % ans
+
+
+while True:
+	line = sys.stdin.readline()
+	if not line:
+		break
+
+	line = line.rstrip("\n").split(" ", 1)
+	out = handle(line)
+	if out:
+		sys.stdout.write(out)
+		sys.stdout.flush()

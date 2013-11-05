@@ -10,6 +10,7 @@ OBJ      := $(shell dist/prepare -o)
 ifeq ($(origin CC),default)
 CC       := gcc
 endif
+
 CFLAGS   := -pipe -Wall -O1 -g
 LDFLAGS  := -Wl,--as-needed
 
@@ -44,7 +45,7 @@ ifeq ($(UNAME),SunOS)
 	KRB_LDLIBS := -lkrb5
 endif
 
-override CFLAGS += -I./misc $(OSFLAGS)
+override CFLAGS += -I./misc $(OSFLAGS) $(cflags)
 
 ifeq ($(V),1)
 	verbose_hide := $(empty)

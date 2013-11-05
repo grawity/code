@@ -59,6 +59,7 @@ endif
 
 .PHONY: default pre clean mrproper
 
+default: pre
 ifdef obj
 default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))
 else
@@ -70,15 +71,43 @@ default: basic
 endif
 endif
 
-pre:
-	$(verbose_hide) dist/prepare
-
 clean:
 	rm -rf obj/arch.* obj/dist.* obj/host.*
 
 mrproper:
 	git clean -fdX
 	git checkout -f obj
+
+pre   := $(OBJ)/.prepare
+dummy := dist/empty.c
+arg    = $(firstword $(patsubst $(dummy),,$(1)))
+args   = $(strip $(patsubst $(dummy),,$(1)))
+
+pre:
+	$(verbose_hide) dist/prepare
+
+$(pre):
+	$(verbose_hide) dist/prepare
+	$(verbose_hide) touch $@
+
+$(OBJ)/%.h: $(pre) dist/configure
+	$(verbose_echo) "  GEN   $(notdir $@)"
+	$(verbose_hide) dist/configure $@
+
+$(dummy): $(pre)
+$(dummy): $(OBJ)/config.h
+$(dummy): $(OBJ)/config-krb5.h
+	$(verbose_hide) touch $@
+
+# compile recipes
+
+$(OBJ)/%.o: $(dummy)
+	$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
+	$(verbose_hide) $(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)
+
+$(OBJ)/%: $(dummy)
+	$(verbose_echo) "  CCLD  $(notdir $@) ($(call args,$^))"
+	$(verbose_hide) $(LINK.c) $(call args,$^) $(LOADLIBES) $(LDLIBS) -o $@
 
 # compile targets
 
@@ -150,23 +179,3 @@ $(OBJ)/zlib:		thirdparty/zpipe.c
 
 $(OBJ)/emergency-sulogin:	LDLIBS += $(CRYPT_LDLIBS) -static
 $(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
-
-# hack for old `make` that does not support order-only dependencies (i.e. where
-# $^ has both normal and order-only deps); e.g. Fedora Core 2 would include
-# 'pre' as the first dependency in $^ and $< causing breakage.
-
-dummy = dist/empty.c
-arg   = $(firstword $(patsubst $(dummy),,$(1)))
-args  = $(strip $(patsubst $(dummy),,$(1)))
-
-$(dummy):		pre
-
-# general rules
-
-$(OBJ)/%.o:		| $(dummy)
-	$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
-	$(verbose_hide) $(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)
-
-$(OBJ)/%:		| $(dummy)
-	$(verbose_echo) "  CCLD  $(notdir $@) ($(call args,$^))"
-	$(verbose_hide) $(LINK.c) $(call args,$^) $(LOADLIBES) $(LDLIBS) -o $@

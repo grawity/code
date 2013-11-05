@@ -1,0 +1,153 @@
+#!/bin/sh -e
+# mklinux – script to compile and install a Linux kernel for my laptop
+
+log() { printf '\e[1;36m*\e[m \e[36m%s\e[m\n' "$*";
+	case $TERM in xterm*)
+		printf '\e]2;%s\a' "$*";
+	esac; }
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
+
+if [ ! "$noidle" ]; then
+	ionice -c 3 -p $$
+	schedtool -n 10 -D $$
+fi
+
+if mountpoint -q /boot/efi && test -d /boot/efi/loader; then
+	esp="/boot/efi"
+elif mountpoint -q /boot && test -d /boot/loader; then
+	esp="/boot"
+else
+	die "error: ESP not mounted"
+fi
+
+t_begin=$(date +%s)
+
+log "prepare kernel: ..."
+
+make prepare
+release=$(make kernelrelease)
+sighash=$(. ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
+
+log "build kernel: $release"
+
+make
+
+t_compile=$(date +%s)
+
+log "install kernel: $release"
+
+kernel="/EFI/custom/bisect.efi"
+initrd="/EFI/custom/bisect.rd"
+
+if ! grep -qsxF "$release" .custom-kernels; then
+	echo "$release" >> .custom-kernels
+fi
+sudo install -D arch/x86/boot/bzImage "$esp/$kernel"
+sudo make modules_install
+
+log "build initramfs"
+
+sudo mkinitcpio -n -k "$esp/$kernel" -g "$esp/$initrd"
+
+log "configure bootloader"
+
+osname=$(. /etc/os-release && echo "$PRETTY_NAME")
+machineid=$(cat /etc/machine-id)
+options=$(cat /etc/kernel/cmdline | grep "^[^#]" | tr -s "\n" " ")
+#ptions="$options radeon.dpm=1"
+when=$(date +"%a %H:%M")
+
+echo "adding entry: bisect-n.conf"
+
+sudo tee "$esp/loader/entries/bisect-n.conf" <<!
+title           $osname
+version         $release ($when)
+machine-id      $machineid
+linux           $kernel
+initrd          $initrd
+options         $options
+!
+
+#echo "adding entry: bisect-e.conf"
+#
+#sudo tee "$esp/loader/entries/bisect-e.conf" <<!
+#title           $osname
+#version         $release (emerg)
+#machine-id      $machineid
+#linux           $kernel
+#initrd          $initrd
+#options         $options rw emergency
+#!
+
+log "build third-party modules"
+
+#dkms status | sed -rn '/^(.+), (.+): added$/{s!!\1/\2!p}' | 
+vbox_rel=$(pacman -Q virtualbox-host-dkms | awk '{print $2}' | sed 's/-.*//')
+
+emods=(vboxhost/$vbox_rel)
+
+for mod in ${emods[@]}; do
+	mname=${mod%%/*}
+	echo -n "$mod: "
+	echo -n "uninstall..."
+	sudo dkms uninstall "$mod" -k "$release" -q || true
+	echo -n "clean..."
+	sudo rm -rf "/var/lib/dkms/$mod/$release"
+	sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
+	echo -n "install..."
+	sudo dkms install "$mod" -k "$release" -q
+	echo "done."
+done
+
+log "clean old kernels"
+
+cur_rel=$(uname -r)
+while read -r old_rel _; do
+	echo -n "clean $old_rel: "
+	if [ "$old_rel" = "$release" ]; then
+		echo "latest."
+		echo "$old_rel" >&3
+	elif [ "$old_rel" = "$cur_rel" ]; then
+		echo "current."
+		echo "$old_rel" >&3
+	else
+		echo -n "dkms..."
+		for mod in ${emods[@]}; do
+			mname=${mod%%/*}
+			sudo dkms uninstall "$mod" -k "$old_rel" -q || true
+			sudo rm -rf "/var/lib/dkms/$mod/$old_rel"
+			sudo rm -rf "/var/lib/dkms/$mname/kernel-$old_rel-$(uname -m)"
+		done
+		echo -n "modules..."
+		sudo rm -rf "/usr/lib/modules/$old_rel"
+		echo "done."
+	fi
+done < .custom-kernels 3> .custom-kernels.tmp
+mv .custom-kernels.tmp .custom-kernels
+
+log "sign third-party modules"
+
+{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
+  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
+} | while read -r file; do
+	echo -n "sign ${file##*/}: "
+	if grep -qs "~Module signature appended~" "$file"; then
+		echo "already signed"
+	else
+		sign "$file"
+		echo "OK"
+	fi
+done
+
+t_install=$(date +%s)
+
+log "installed: $release"
+
+echo "kernel: $kernel"
+echo "initrd: $initrd"
+
+log "compiled in $(interval $[t_compile-t_begin])"
+log "finished in $(interval $[t_install-t_begin])"

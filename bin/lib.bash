@@ -42,7 +42,12 @@ log() {
 	if [[ $DEBUG ]]; then
 		print_msg 'log' "$*" '\e[1;32m'
 	else
-		printf -- "-- %s\n" "$*"
+		local color reset
+		if [[ -t 1 ]]
+			then color='\e[32m' reset='\e[m'
+			else color='' reset=''
+		fi
+		printf -- "${color}--${reset} %s\n" "$*"
 	fi
 }
 

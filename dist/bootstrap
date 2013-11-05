@@ -4,11 +4,10 @@
 
 . $BASE/bin/lib.bash || exit
 
+progname='dist/bootstrap'
+progname_prefix=0
+
 log()  { printf "\e[32m=\e[m %s\e[m\n" "$*"; }
-
-warn() { printf "\e[1;33mwarning:\e[m %s\e[m\n" "$*"; (( ++warnings )); }
-
-err()  { printf "\e[1;31merror:\e[m %s\e[m\n" "$*";   ! (( ++errors )); }
 
 pick() { until have "$1"; do shift; (( $# )) || return; done; echo "$1"; }
 
@@ -34,8 +33,7 @@ if [[ "$USER" != "$OWNER" ]]; then
 	confirm "continue anyway?" || exit
 fi
 
-errors=0
-warnings=0
+errors=0 warnings=0
 
 # check for necessary programs
 
@@ -51,7 +49,7 @@ done
 
 gpg=$(pick gpg2 gpg) || err "'gpg' not installed"
 
-(( errors ))   && { err "required tools missing";    exit 1; }
+(( errors ))   && die "required tools missing"
 (( warnings )) && { confirm "continue bootstrap?" || exit 1; }
 
 warnings=0

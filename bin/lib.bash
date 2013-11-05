@@ -10,6 +10,7 @@ fi
 ## Logging
 
 progname=${0##*/}
+progname_prefix=1
 
 print_msg() {
 	local prefix=$1 msg=$2 color reset
@@ -17,7 +18,11 @@ print_msg() {
 		then color=$3 reset=${color:+'\e[m'}
 		else color='' reset=''
 	fi
-	printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
+	if [[ $DEBUG || $progname_prefix -gt 0 ]]; then
+		printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
+	else
+		printf "${color}%s:${reset} %s\n" "$prefix" "$msg"
+	fi
 }
 
 debug() {
@@ -137,8 +142,3 @@ older_than() {
 ## Final
 
 debug "lib.bash loaded by $0 from $__LIBROOT"
-
-#if ! have "${BASH_SOURCE[0]##*/}"; then
-#	debug "adding $__LIBROOT to \$PATH"
-#	PATH="$__LIBROOT:$PATH"
-#fi

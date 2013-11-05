@@ -13,7 +13,7 @@ void usage(void) {
 int main(int argc, char *argv[]) {
 	unsigned char buf[BUFSIZE];
 	size_t buflen;
-	int i, key = 0, incr = 1;
+	unsigned i, key = 0, incr = 1;
 
 	if (argc == 3) {
 		key = atoi(argv[1]);

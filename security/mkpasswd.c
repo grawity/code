@@ -12,7 +12,7 @@ static char base64[] = "abcdefghijklmnopqrstuvwxyz"
 
 char *makesalt(char algo) {
 	char buf[12], salt[20];
-	int i=0, j=0, fd;
+	unsigned i=0, j=0, fd;
 
 	fd = open("/dev/urandom", O_RDONLY);
 	read(fd, buf, 12);

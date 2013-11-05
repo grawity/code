@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 	int iftype = -1, opt, fd, r;
 	char *argp, *ifname;
 	uid_t owner;
-	struct ifreq ifr = {};
+	struct ifreq ifr;
 
 	arg0 = argv[0];
 
@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	bzero(&ifr, sizeof(ifr));
 	ifr.ifr_flags = iftype | IFF_NO_PI;
 	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
 

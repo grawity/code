@@ -9,8 +9,8 @@ int main(int argc, char *argv[]) {
 	char *key;
 	size_t buflen;
 	unsigned char buf[BUFSIZE];
-	int keylen;
-	int i, k = 0;
+	unsigned keylen;
+	unsigned i, k = 0;
 
 	if (argc != 2) {
 		fprintf(stderr, "usage: xor <key>|0x<hex>\n");

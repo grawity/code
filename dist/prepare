@@ -68,10 +68,15 @@ test "$DISTTYPE" || {
 		DIST=$(. /etc/os-release && echo "$ID")
 	elif test -e "/etc/lsb-release"; then
 		DIST=$(. /etc/lsb-release && echo "$DISTRIB_ID")
-	elif test -e "/etc/debian_version"; then
-		DIST="debian"
-	else
-		DIST="unknown"
+	fi
+	if test ! "$DIST"; then
+		if test -e "/etc/debian_version"; then
+			DIST="debian"
+		elif test -e "/etc/fedora-release"; then
+			DIST="fedora"
+		else
+			DIST="unknown"
+		fi
 	fi
 	DISTTYPE="$HOSTTYPE-$(uname)-$DIST"
 }

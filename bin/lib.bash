@@ -34,7 +34,11 @@ debug() {
 } >&2
 
 log() {
-	printf -- "-- %s\n" "$*"
+	if [[ $DEBUG ]]; then
+		print_msg 'log' "$*" '\e[1;32m'
+	else
+		printf -- "-- %s\n" "$*"
+	fi
 }
 
 status() {

@@ -6,9 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 
-static char base64[] = "abcdefghijklmnopqrstuvwxyz"
-			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-			"0123456789./";
+char base64[] = "abcdefghijklmnopqrstuvwxyz"
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		"0123456789./";
 
 char *makesalt(char algo) {
 	char buf[12], salt[20];

@@ -150,16 +150,22 @@ $(OBJ)/zlib:		thirdparty/zpipe.c
 $(OBJ)/emergency-sulogin:	LDLIBS += $(CRYPT_LDLIBS) -static
 $(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
 
+# hack for old `make` that does not support order-only dependencies (i.e. where
+# $^ has both normal and order-only deps); e.g. Fedora Core 2 would include
+# 'pre' as the first dependency in $^ and $< causing breakage.
+
+dummy = dist/empty.c
+arg   = $(firstword $(patsubst $(dummy),,$(1)))
+args  = $(strip $(patsubst $(dummy),,$(1)))
+
+$(dummy):		pre
+
 # general rules
 
-$(OBJ)/%.o:		| dist/empty.c
-	@$(verbose_echo) "  CC    $(notdir $@) ($<)"
-	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $<
+$(OBJ)/%.o:		| $(dummy)
+	@$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
+	$(verbose_hide)$(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)
 
-$(OBJ)/%:		| dist/empty.c
-	@$(verbose_echo) "  CCLD  $(notdir $@) ($<)"
-	$(verbose_hide)$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-# hack for old Make (unsupported order-only deps)
-
-dist/empty.c: pre
+$(OBJ)/%:		| $(dummy)
+	@$(verbose_echo) "  CCLD  $(notdir $@) ($(call args,$^))"
+	$(verbose_hide)$(LINK.c) $(call args,$^) $(LOADLIBES) $(LDLIBS) -o $@

@@ -8,6 +8,8 @@ err()  { printf "\033[1;31merror:\033[m %s\033[m\n" "$*";   ! (( ++errors )); }
 # locate the certificates
 
 roots='Cluenet nullroute'
+errors=0
+total=0
 
 cd ~/lib/dotfiles/ca-certs
 
@@ -36,9 +38,11 @@ fi
 if [[ "$LOCALCERTSDIR" ]]; then
 	mode='local'
 	dst="$LOCALCERTSDIR"
+	say "using site-local path: $dst"
 else
 	mode='site'
 	dst="$CERTSDIR/site"
+	say "using subdirectory in global path: $dst"
 fi
 
 (( ! errors )) || exit
@@ -46,17 +50,21 @@ fi
 # perform the installation
 
 if [[ "$mode" == 'site' ]]; then
-	log "removing existing site-local certificates"
+	log "removing custom roots from global path"
 	sudo rm -rf "$dst"
 fi
 
 log "installing to $dst"
 for ca in $roots; do
-	sudo install -v -D -m 0644 "$ca.pem" "$dst/$ca.crt"
+	if sudo install -v -D -m 0644 "$ca.pem" "$dst/$ca.crt"; then
+		(( ++total ))
+	else
+		(( ++errors ))
+	fi
 done
 
 if [[ "$mode" == 'site' ]]; then
-	log "updating $CERTSCONF"
+	log "adding custom roots to global config: $CERTSCONF"
 	temp=$(mktemp "/tmp/ca-certificates.XXXXXXXX")
 	(
 		egrep -v "^!?site/" "$CERTSCONF"
@@ -70,3 +78,6 @@ fi
 
 log "running update-ca-certificates"
 sudo update-ca-certificates
+
+log "installed $total certificates"
+(( ! errors ))

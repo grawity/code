@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. lib.bash
+. lib.bash || exit
 
 openlog() {
 	local lock=~/Backup/.log/$1.log
@@ -26,10 +26,13 @@ resetlog() {
 }
 
 status() {
-	if [[ -t 1 ]]
-		then printf '\e[1;36m--\e[m \e[36m%s\e[m\n' "$*"
-		else printf '%s\n' "-- $*"
+	local colorstr colorpfx reset
+	if [[ -t 1 ]]; then
+		colorstr='\e[38;5;14m'
+		colorpfx='\e[36m'
+		reset='\e[m'
 	fi
+	printf "${colorpfx}#${reset} ${colorstr}%s${reset}\n" "$*"
 	settitle "$progname: $*"
 }
 
@@ -133,6 +136,7 @@ esac
 openlog "$job"
 resetlog "started"
 status "running job '$job'"
+t_begin=$(now)
 
 case $job in
 	push-hd)
@@ -253,4 +257,6 @@ case $job in
 		;;
 esac
 
+t_end=$(now)
+log "job '$job' finished in $(interval $[t_end-t_begin])"
 resetlog "done"

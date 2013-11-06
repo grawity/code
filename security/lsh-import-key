@@ -40,25 +40,30 @@ use Math::Pari;
 use Nullroute::Lib qw(_die);
 use Data::Dumper;
 
+sub write_bignum {
+	my $bn = shift;
+	my $hex = lc Crypt::OpenSSL::Bignum->new_from_decimal($bn)->to_hex;
+	# Numbers are signed, so the most significiant bit must be 0.
+	if ($hex =~ /^[89a-f]/i) {
+		print "#00$hex#";
+	} else {
+		print "#$hex#";
+	}
+}
+
 sub write_sexp {
 	my ($sexp) = @_;
 	if (ref $sexp eq 'ARRAY') {
 		my $i = 0;
 		print "(";
 		for my $item (@$sexp) {
-			$i++ and print " ";
+			print " " if $i++;
 			write_sexp($item);
 		}
 		print ")";
 	}
 	elsif (ref $sexp eq 'Math::Pari') {
-		my $hex = lc Crypt::OpenSSL::Bignum->new_from_decimal($sexp)->to_hex;
-		# Numbers are signed, so the most significiant bit must be 0.
-		if ($hex =~ /^[89a-f]/i) {
-			print "#00$hex#";
-		} else {
-			print "#$hex#";
-		}
+		write_bignum($sexp);
 	}
 	else {
 		print $sexp;

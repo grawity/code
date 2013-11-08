@@ -166,23 +166,34 @@ case $job in
 	servers)
 		homes=()
 		roots=()
+		fail=()
+
 		for host in $(< ~/Backup/hosts.txt); do
 			until [[ $host == *[a-z] ]]; do
 				case $host in
-				*!)	host=${host%!}; roots+=($host);;
+				*!) host=${host%!}; roots+=($host);;
 				esac
 			done
 			homes+=($host)
 		done
 
 		for host in ${homes[@]}; do
-			$0 @$host
-		done
-		for host in ${roots[@]}; do
-			$0 root@$host
+			$0 @$host ||
+			fail+=(@$host)
 		done
 
-		$0 nanobot
+		for host in ${roots[@]}; do
+			$0 root@$host ||
+			fail+=(root@$host)
+		done
+
+		$0 nanobot ||
+		fail+=(nanobot)
+
+		if (( ${#fail[@]} )); then
+			_fail=${fail[*]}
+			err "backup failed for ${_fail// /, }"
+		fi
 		;;
 	root@*)
 		host=$job

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # go - quick connection script
 
-. libbleh.bash
+. lib.bash || exit
 
 do_sshfs() {
 	local src=$1 mtpt=$2
@@ -23,11 +23,16 @@ do_ssh() {
 
 cd ~
 
-[[ $0 != */go ]] &&
+case ${0##*/} in
+    go|goto-server)
+	;;
+    *)
 	set -- "${0##*/}" "$@"
+	;;
+esac
 
 case $1 in
-snow)
+    snow)
 	host="snow"
 	if [[ $2 == "fs" ]]; then
 		do_sshfs "$host:/" "$XDG_RUNTIME_DIR/fs/snow"
@@ -42,9 +47,10 @@ snow)
 		do_ssh "$host" "${@:2}"
 	fi
 	;;
-
-'')	echo "Usage: $0 <host>"
+    '')
+	echo "Usage: $0 <host>"
 	exit 2
 	;;
-*)	die "Unknown host '$rhost'";
+    *)
+	die "unknown host '$1'";
 esac

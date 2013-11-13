@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 run-term() {
 	spawn gnome-terminal -x "$@"
 	#spawn xterm -e "$@"
@@ -27,11 +29,14 @@ scheme=${url%%:*}
 hier=${url#*:}
 
 case $scheme in
-telnet)
+    telnet)
 	hier=${hier#//}
 	authr=${hier%%/*}
 	split_authority "$authr"
 	: ${port:=telnet}
 	run-term telnet "$domain" "$port"
+	;;
+    *)
+	die "unknown scheme '$scheme'"
 	;;
 esac

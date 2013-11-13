@@ -1,7 +1,7 @@
 #!/bin/bash
 # tag - common MP3 tag manipulation tasks
 
-. lib.bash
+. lib.bash || exit
 
 case $1 in
 	fix)
@@ -22,7 +22,6 @@ case $1 in
 		eyeD3 --rename="$HOME/Music/%A/%a/%n. %t" "${@:2}"
 		;;
 	*)
-		echo "Unknown command '$1'." >&2
-		exit 2
+		die "unknown command '$1'"
 		;;
 esac

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
+# wrap the relevant service control commands
 
 have() { command -v "$1" >& /dev/null; }
 
 if [ -d /run/systemd/system ]; then
-    init=systemd
+	init=systemd
+else
+	die "unknown init system '$init'"
 fi
 
 cmd=$1; shift
@@ -26,4 +29,6 @@ case $init in
 	    start|stop)
 		for sv; { $cmd "$sv"; };;
 	esac;;
+    *)
+	die "unknown init system '$init'";;
 esac

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. lib.bash
+. lib.bash || exit
 
 sizes=(
 	[144]=1474560
@@ -37,11 +37,14 @@ umount|unmount|u)
 	until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
 	echo "unmounted: $mtpt"
 	;;
-*)
+'')
 	{
 	echo "usage: fd make <name>"
 	echo "       fd mount <name>"
 	echo "       fd umount"
 	} >&2
-	exit 2
+	;;
+*)
+	die "unknown command '$1'"
+	;;
 esac

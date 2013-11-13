@@ -1,7 +1,7 @@
 #!bash
 # libfilterfile.bash - filter a text file using cpp-like #if/#endif statements
 
-. lib.bash
+. lib.bash || exit
 
 filter_file() {
 	local maskfunc=${1:-false}

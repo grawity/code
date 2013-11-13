@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ ! "$_DYM" ] && [ -t 1 ] && [ $# -eq 2 ] && [ -f "$1" ] && [ ! -f "$2" ]; then
+if [ ! "$_DYM" ] && [ -t 1 ] && [ $# -eq 2 ] && case $2 in +*|/*) false;; *) true;; esac && [ -f "$1" ] && [ ! -f "$2" ]; then
 	read -n 1 -p "Did you mean 'mv' again? " REPLY
 	if [ "$REPLY" = "y" ]; then
 		echo "eah, I suck"

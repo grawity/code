@@ -22,7 +22,7 @@ sub forked(&) { fork || exit shift->(); }
 sub handle_client {
 	my $client = shift;
 
-	my ($buf, $hdr);
+	my ($buf, $hdr, $oldhdr);
 
 	my $upstream = IO::Socket::INET->new(
 			PeerHost => "127.0.0.1",
@@ -80,15 +80,15 @@ sub handle_client {
 
 	$client->autoflush(0);
 	while ($buf = <$upstream>) {
-		$hdr = rchomp($buf);
+		$hdr = $oldhdr = rchomp($buf);
 		if (!length $hdr) {
-			$client->print("Via: 1.1 fooproxy\r\n");
+			$client->print("Via: 1.0 fooproxy\r\n");
 		}
 		elsif ($hdr =~ /^Content-Type:/i) {
-			$client->print("X-Original-".$hdr."\r\n");
 			$hdr =~ s/\s*;.*$//;
 		}
 		$client->print($hdr."\r\n");
+		$client->print("X-Original-".$hdr."\r\n") if $hdr ne $oldhdr;
 		last if !length $hdr;
 	}
 	$client->flush;

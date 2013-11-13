@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# oath-qr -- generate QR codes for OATH-TOTP softtokens
+#
+# https://code.google.com/p/google-authenticator/wiki/KeyUriFormat
+
+account=""
+issuer=""
+secret=""
+
+colwidth=11
+
+readc() { read -p "$(printf '%*s ' $colwidth "$1")" -r "${@:2}"; }
+echoc() { printf "%*s %s\n" $colwidth "$1" "${*:2}"; }
+
+reads() { readc "$1" -e -i "${!2}" "$2"; }
+readp() { readc "$1" -s "$2"; printf '...\n'; }
+
+reads  "issuer?" issuer
+reads "account?" account
+readp  "secret?" secret
+
+[[ $issuer && $account && $secret ]] || exit
+
+label="$(urlencode "$issuer"):$(urlencode "$account")"
+
+secret=${secret// /}
+secret=${secret^^}
+
+params="secret=$secret&issuer=$(urlencode "$issuer")"
+
+uri=$(printf "otpauth://%s/%s?%s" "totp" "$label" "$params")
+
+tput smcup; clear
+
+echo
+echoc  "issuer:" "$issuer"
+echoc "account:" "$account"
+echoc  "secret:" "$secret"
+echoc     "URI:" "$uri"
+echo
+qrencode -o- -tUTF8 "$uri" | sed "1s/^/$(echoc 'QR code:')/; 2,\$s/^/$(echoc '')/"
+echo
+readc   "clear?" -s -t 15 -N 1
+
+clear; tput rmcup

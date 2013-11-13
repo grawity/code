@@ -17,13 +17,7 @@ sub rchomp($) {
 	return $str;
 }
 
-sub forked(&) {
-	if (my $pid = fork) {
-		return $pid;
-	} else {
-		$_[0]->(); exit;
-	}
-}
+sub forked(&) { fork || exit shift->(); }
 
 sub handle_client {
 	my $client = shift;
@@ -36,9 +30,11 @@ sub handle_client {
 
 	if (!$upstream) {
 		my $err = "$!";
+		my $reply = "Cannot connect to upstream: $err\r\n";
 		$client->print("HTTP/1.0 502 Bad Gateway\r\n");
+		$client->print("Content-Length: ".length($reply)."\r\n");
 		$client->print("\r\n");
-		$client->print("Cannot connect to upstream: $err\r\n");
+		$client->print($reply);
 		$client->flush;
 		die "cannot connect to upstream: $err\n";
 	}
@@ -66,9 +62,11 @@ sub handle_client {
 	$upstream->autoflush(1);
 
 	unless ($method eq 'HEAD' || $method eq 'GET') {
+		my $reply = "Method $method not supported by fooproxy.\r\n";
 		$client->print("HTTP/1.0 501 Not Implemented\r\n");
+		$client->print("Content-Length: ".length($reply)."\r\n");
 		$client->print("\r\n");
-		$client->print("Method $method not supported by fooproxy.\r\n");
+		$client->print($reply);
 		$client->flush;
 		exit;
 	}
@@ -121,20 +119,16 @@ for (shift @ARGV) {
 		$mode = "daemon";
 	}
 	when (/^--inetd(-nowait)?$/) {
-		$mode = "fdclient";
-		$fd = 0;
+		$mode = "fdclient"; $fd = 0;
 	}
 	when ("--inetd-wait") {
-		$mode = "fdlisten";
-		$fd = 0;
+		$mode = "fdlisten"; $fd = 0;
 	}
 	when ("--systemd") {
-		$mode = "fdlisten";
-		$fd = 3;
+		$mode = "fdlisten"; $fd = 3;
 	}
 	when (/^--listen-fd=(\d+)$/) {
-		$mode = "fdlisten";
-		$fd = $1;
+		$mode = "fdlisten"; $fd = int $1;
 	}
 	default {
 		warn "Unknown option: $_\n";

@@ -78,7 +78,7 @@ err() {
 } >&2
 
 die() {
-	print_msg 'error' "$*" '\e[1;31m'
+	print_msg 'fatal' "$*" '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit 1
 } >&2

@@ -1,0 +1,64 @@
+#!/usr/bin/env perl
+no warnings qw(experimental);
+use feature qw(switch);
+use File::stat;
+
+my $infile = shift(@ARGV);
+my $outfile = $infile;
+$outfile =~ s/\.[^.]+?$/.mp4/;
+
+if ($infile eq $outfile) {
+	die "same file: $outfile\n";
+}
+
+my @ff_args = ("ffmpeg",
+		-i => $infile,
+		-acodec => "copy",
+		-vcodec => "copy");
+
+my %tag_args = (-type => "music");
+
+for (@ARGV) {
+	when (/^(year|date)=(.+)/) {
+		push @ff_args, -metadata => "date=$2";
+	}
+	when (/^(name|song|title)=(.*)/) {
+		push @ff_args, -metadata => "title=$2";
+	}
+	when (/^season=(.*)/) {
+		push @ff_args, -metadata => "season_number=$1";
+	}
+	when (/^episode=(.*)/) {
+		push @ff_args, -metadata => "episode_id=$1";
+	}
+	when (/^type=(.*)/) {
+		$tag_args{-type} = $1;
+	}
+	when (/=/) {
+		push @ff_args, -metadata => $_;
+	}
+	default {
+		die "bad argument: $_\n";
+	}
+}
+
+my @tag_args = ("mp4tags", $outfile, %tag_args);
+
+my $st = stat($infile);
+
+push @ff_args, $outfile;
+
+print join(" ", map {/[ $()*?<>;=]/ ? "'$_'" : $_} @ff_args), "\n";
+
+system {"ffmpeg"} @ff_args;
+
+system {"mp4tags"} @tag_args;
+
+system "mp4info", $outfile;
+
+if (-e $outfile) {
+	system "trash", $infile;
+	utime(undef, $st->mtime, $outfile);
+} else {
+	exit 1;
+}

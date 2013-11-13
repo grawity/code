@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 . lib.bash || exit
+progname='fbin/finger'
 
 filter() { perl -pe 's/\033/"^".chr(ord($&)+0100)/ge'; }
 
@@ -61,6 +62,5 @@ elif have nc; then
 	# may be IPv4-only, may be oneaddr
 	printf '%s\r\n' "$query" | nc "$host" 79
 else
-	echo "fbin/finger: No useful TCP client found." >&2
-	exit 1
+	die "no useful TCP client found"
 fi | filter

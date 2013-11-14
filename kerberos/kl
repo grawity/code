@@ -180,6 +180,12 @@ sub display_ccache {
 
 do_print:
 
+	my $COLOR_TGT_LOCAL	= "32"; # same realm as client
+	my $COLOR_TGT_CROSS	= "35"; # immediate cross realm
+	my $COLOR_TGT_DISTANT	= "35"; # distant cross realm
+	my $COLOR_NO_TGT	= "34"; # tickets with no corresponding TGT
+	my $COLOR_REFERRAL	= "34"; # tickets with empty realm
+
 	say "" if $counter++;
 
 	say "Credentials for \e[1m${defprinc}\e[m";
@@ -203,20 +209,16 @@ do_print:
 		if (!@{$tgtcreds{$realm}}) {
 			my ($color, $label);
 			if ($realm eq '') {
-				$color = "34";
+				$color = $COLOR_REFERRAL;
 				$label = "\e[1;${color}m(referral tickets)\e[m";
 			} else {
-				$color = "35";
+				$color = $COLOR_NO_TGT;
 				$label = "\e[${color}mrealm: \e[1m${realm}\e[m";
 				$label .= " \e[${color}m(no TGT found)\e[m";
 			}
 
 			say " "x4, $label;
 		}
-
-		my $COLOR_TGT_LOCAL	= "32";
-		my $COLOR_TGT_CROSS	= "35";
-		my $COLOR_TGT_DISTANT	= "35";
 
 		for my $tkt (@creds) {
 			my $color = "0";

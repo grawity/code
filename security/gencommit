@@ -41,20 +41,24 @@ readp() {
 	fi
 }
 
+fhash_openssl() { openssl "$1" -r | awk '{print $1}'; }
+
+fhash=(
+	[sha1]=fhash_openssl
+	[sha256]=fhash_openssl
+)
+
+hash() { "${fhash[hash]}" "$hash" "$@"; }
+
 domain=$1
 date=$2
 hash=$3
 hash=$(fmthashfunc "${hash:-sha1}")
 
-case $hash in
-    sha1)
-	hash() { sha1sum | awk '{print $1}'; };;
-    sha256)
-	hash() { sha256sum | awk '{print $1}'; };;
-    *)
+if [[ ! "${fhash[hash]}" ]]; then
 	echo "Unsupported hash '$hash'" >&2
 	exit 1
-esac
+fi
 
 if [[ "$domain" ]]; then
 	echoc "domain:" "$domain"

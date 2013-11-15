@@ -42,13 +42,13 @@ readp() {
 }
 
 fhash_openssl() { openssl "$1" -r | awk '{print $1}'; }
+fhmac_openssl() { openssl "$1" -r -hmac "$2" | awk '{print $1}'; }
 
-fhash=(
-	[sha1]=fhash_openssl
-	[sha256]=fhash_openssl
-)
+fhash=([sha1]=fhash_openssl [sha256]=fhash_openssl)
+fhmac=([sha1]=fhmac_openssl [sha256]=fhmac_openssl)
 
 hash() { "${fhash[hash]}" "$hash" "$@"; }
+hmac() { "${fhmac[hmac]}" "$hmac" "$@"; }
 
 domain=$1
 date=$2
@@ -59,6 +59,8 @@ if [[ ! "${fhash[hash]}" ]]; then
 	echo "Unsupported hash '$hash'" >&2
 	exit 1
 fi
+
+#hmac=sha1
 
 if [[ "$domain" ]]; then
 	echoc "domain:" "$domain"
@@ -88,7 +90,11 @@ if ! [[ "$passphrase" ]]; then
 	stop "Passphrase is empty."
 fi
 
-secret=$(fmtseed "$domain" "$date" "$passphrase" | hash)
+if [[ "$hmac" ]]; then
+	secret=$(fmtseed "$domain" "$date" | hmac "$passphrase")
+else
+	secret=$(fmtseed "$domain" "$date" "$passphrase" | hash)
+fi
 
 public=$(printf '%s' "$secret" | hash)
 

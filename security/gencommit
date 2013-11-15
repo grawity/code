@@ -60,8 +60,6 @@ if [[ ! "${fhash[hash]}" ]]; then
 	exit 1
 fi
 
-#hmac=sha1
-
 if [[ "$domain" ]]; then
 	echoc "domain:" "$domain"
 else
@@ -84,11 +82,19 @@ if ! [[ "$date" ]]; then
 	stop "Invalid date."
 fi
 
+if (( $(date +%s -d "$date") < $(date +%s -d "2013-11-15") )); then
+	unset hmac
+else
+	hmac=sha1
+fi
+
 readp "passphrase?" passphrase
 
 if ! [[ "$passphrase" ]]; then
 	stop "Passphrase is empty."
 fi
+
+# generate the site secret that might be revealed to admins
 
 if [[ "$hmac" ]]; then
 	secret=$(fmtseed "$domain" "$date" | hmac "$passphrase")
@@ -96,9 +102,15 @@ else
 	secret=$(fmtseed "$domain" "$date" "$passphrase" | hash)
 fi
 
+# hash the secret to generate the public value
+
 public=$(printf '%s' "$secret" | hash)
 
+# print out
+
 echoc "hash input:" "$(fmtseed "$domain" "$date" "...")"
+
+echoc "hash algo:" "$hash, ${hmac:-none}"
 
 echoc "secret:" "$(printf '\e[31m%s\e[m' "$secret")"
 

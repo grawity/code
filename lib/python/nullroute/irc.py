@@ -130,13 +130,20 @@ class Line(object):
 		tags, prefix, command, and arguments.
 		"""
 
-		parv = cls.split(line)
+		line = line.decode("utf-8", "replace")
+		parv = line.rstrip("\r\n").split(" ")
 		i, n = 0, len(parv)
 		self = cls()
+
+		while i < n and parv[i] == "":
+			i += 1
 
 		if i < n and parv[i].startswith("@"):
 			tags = parv[i][1:]
 			i += 1
+			while i < n and parv[i] == "":
+				i += 1
+
 			self.tags = dict()
 			for item in tags.split(";"):
 				if "=" in item:
@@ -148,6 +155,9 @@ class Line(object):
 		if i < n and parv[i].startswith(":"):
 			prefix = parv[i][1:]
 			i += 1
+			while i < n and parv[i] == "":
+				i += 1
+
 			if parse_prefix:
 				self.prefix = Prefix.parse(prefix)
 			else:
@@ -155,7 +165,15 @@ class Line(object):
 
 		if i < n:
 			self.cmd = parv[i].upper()
-			self.args = parv[i:]
+
+		while i < n:
+			if parv[i].startswith(":"):
+				trailing = " ".join(parv[i:])
+				self.args.append(trailing[1:])
+				break
+			elif parv[i] != "":
+				self.args.append(parv[i])
+			i += 1
 
 		return self
 

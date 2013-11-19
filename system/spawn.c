@@ -143,6 +143,16 @@ int closefds(void) {
 	return 1;
 }
 
+void fixenv() {
+	unsetenv("COLORTERM");
+	unsetenv("GPG_TTY");
+	unsetenv("SHLVL");
+	unsetenv("TERM");
+	unsetenv("VTE_VERSION");
+	unsetenv("WINDOWID");
+	unsetenv("WINDOWPATH");
+}
+
 int main(int argc, char *argv[]) {
 	char **cmd = NULL;
 	int do_closefd = 0;
@@ -252,6 +262,7 @@ int main(int argc, char *argv[]) {
 	pid = fork();
 	switch (pid) {
 	case 0:
+		fixenv();
 		if (setsid() < 0) {
 			fprintf(stderr, "%s: detaching from session failed: %m\n",
 				arg0);

@@ -33,10 +33,10 @@ def run_test(file)
 	return failed
 end
 
-dir = ".."
+dir = "../tests"
 f = 0
 
-f += run_test "#{dir}/test-irc-split.txt" do |input|
+f += run_test "#{dir}/irc-split.txt" do |input|
 	begin
 		IRC.parse(input).to_a
 	rescue RuntimeError
@@ -44,7 +44,7 @@ f += run_test "#{dir}/test-irc-split.txt" do |input|
 	end
 end
 
-f += run_test "#{dir}/test-irc-join.txt" do |input|
+f += run_test "#{dir}/irc-join.txt" do |input|
 	begin
 		IRC.join(input)
 	rescue RuntimeError
@@ -52,7 +52,7 @@ f += run_test "#{dir}/test-irc-join.txt" do |input|
 	end
 end
 
-f += run_test "#{dir}/test-irc-prefix-split.txt" do |input|
+f += run_test "#{dir}/irc-prefix-split.txt" do |input|
 	begin
 		IRC::Prefix.parse(input).to_a
 	rescue RuntimeError => e

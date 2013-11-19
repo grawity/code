@@ -1,6 +1,6 @@
 <?php
 
-require "php/irc.php";
+require "irc.php";
 
 function parse_test($file) {
 	$tests = array();
@@ -32,14 +32,14 @@ function run_test($file, $func) {
 	return $failed;
 }
 
-$dir = "..";
+$dir = "../tests";
 $f = 0;
 
-$f += run_test("$dir/test-irc-split.txt", function($input) {
+$f += run_test("$dir/irc-split.txt", function($input) {
 	return IRC\Line::split($input);
 });
 
-$f += run_test("$dir/test-irc-join.txt", function($input) {
+$f += run_test("$dir/irc-join.txt", function($input) {
 	return IRC\Line::join($input);
 });
 

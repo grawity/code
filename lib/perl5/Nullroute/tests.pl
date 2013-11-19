@@ -77,11 +77,11 @@ sub test_join {
 	return "nil";
 }
 
-my $dir = "../..";
+my $dir = "../../tests";
 
 my $f = 0;
-$f += run_test("$dir/test-irc-split.txt", \&test_split);
-#$f += run_test("$dir/test-irc-join.txt", \&test_join);
+$f += run_test("$dir/irc-split.txt", \&test_split);
+#$f += run_test("$dir/irc-join.txt", \&test_join);
 
 print "Total: $f failed\n";
 

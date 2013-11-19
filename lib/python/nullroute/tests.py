@@ -66,13 +66,13 @@ def test_parse(input):
 		prefix = None
 	return [tags, prefix, p.args]
 
-dir = "../.."
+dir = "../../tests"
 
 f = 0
-f += run_test(dir+"/test-irc-split.txt", test_split)
-f += run_test(dir+"/test-irc-join.txt", test_join)
-f += run_test(dir+"/test-irc-prefix-split.txt", test_prefix_split)
-f += run_test(dir+"/test-irc-parse.txt", test_parse)
+f += run_test(dir+"/irc-split.txt", test_split)
+f += run_test(dir+"/irc-join.txt", test_join)
+f += run_test(dir+"/irc-prefix-split.txt", test_prefix_split)
+f += run_test(dir+"/irc-parse.txt", test_parse)
 
 print("Total: %d failed" % f)
 

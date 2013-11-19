@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 # ssh-duphosts -- checks for duplicate entries in ~/.ssh/known_hosts
-from __future__ import print_function
 from operator import itemgetter
 import os
 import sys
 import getopt
+
+def xprint(*args, **kwargs):
+    file = kwargs.get("file", sys.stdout)
+    args = " ".join(map(str, args))
+    file.write(args + "\n")
+    file.flush()
 
 class Hostname(object):
 	def __init__(self, value):
@@ -58,7 +63,7 @@ def find_duplicates(fh):
 			else:
 				host, ktype, key = line.split(" ", 2)
 		except ValueError:
-			print("bad line %r" % line, file=sys.stderr)
+			xprint("bad line %r" % line, file=sys.stderr)
 			continue
 
 		if ktype.isdigit():
@@ -77,11 +82,11 @@ def print_duplicates(keys):
 		hosts = keys[entry]
 		ktype, key = entry
 		if len(hosts) > 1:
-			print("Key [%(shortkey)s] has %(count)d entries:" % {
+			xprint("Key [%(shortkey)s] has %(count)d entries:" % {
 				"shortkey": ktype + " ..." + key[-15:],
 				"count": len(hosts)
 			})
-			print("\t%s" % "\n\t".join(hosts))
+			xprint("\t%s" % "\n\t".join(hosts))
 
 def print_merged(bykey, unmerge=False):
 	byhost = {}
@@ -109,9 +114,9 @@ def print_merged(bykey, unmerge=False):
 		host, ktype = entry
 		key = byhost[entry]
 		if ktype == "(sshv1-rsa)":
-			print(host, key)
+			xprint(host, key)
 		else:
-			print(host, ktype, key)
+			xprint(host, ktype, key)
 
 opt_input = os.path.expanduser("~/.ssh/known_hosts")
 opt_merge = False

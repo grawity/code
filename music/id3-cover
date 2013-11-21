@@ -4,142 +4,142 @@ import getopt
 from mutagen import mp3, id3
 
 def usage():
-	print >> sys.stderr, """\
+    print >> sys.stderr, """\
 import: cover -i [-f imagefile] audio_file [audio_file ...]
 export: cover -e [-f imagefile] audio_file
 remove: cover -x audio_file [audio_file ...]
 """
-	sys.exit(2)
+    sys.exit(2)
 
 def fileext_to_type(ext):
-	return {
-		None:	None,
-		"jpeg":	"image/jpeg",
-		"jpg":	"image/jpeg",
-		"png":	"image/png",
-	}.get(ext[1:], None)
+    return {
+        None:   None,
+        "jpeg": "image/jpeg",
+        "jpg":  "image/jpeg",
+        "png":  "image/png",
+    }.get(ext[1:], None)
 
 def type_to_fileext(type):
-	return {
-		None:			None,
-		"image/jpeg":	".jpeg",
-		"image/png":	".png",
-	}.get(type, "jpeg")
+    return {
+        None:           None,
+        "image/jpeg":   ".jpeg",
+        "image/png":    ".png",
+    }.get(type, "jpeg")
 
 def export_cover(file, cover_file):
-	try:
-		filetag = mp3.MP3(file)
-	except BaseException as e:
-		print >> sys.stderr, "Error:", e
-		return False
+    try:
+        filetag = mp3.MP3(file)
+    except BaseException as e:
+        print >> sys.stderr, "Error:", e
+        return False
 
-	if "APIC:" not in filetag:
-		print >> sys.stderr, "Error: No cover image (APIC frame not found)"
-		return False
+    if "APIC:" not in filetag:
+        print >> sys.stderr, "Error: No cover image (APIC frame not found)"
+        return False
 
-	with open(cover_file or "/dev/stdout", "wb") as cover_fh:
-		if verbose:
-			print >> sys.stderr, "Exporting image: %s" % cover_file
-		cover_fh.write(filetag["APIC:"].data)
-	return True
+    with open(cover_file or "/dev/stdout", "wb") as cover_fh:
+        if verbose:
+            print >> sys.stderr, "Exporting image: %s" % cover_file
+        cover_fh.write(filetag["APIC:"].data)
+    return True
 
 def import_cover(file, image_data, image_type="image/jpeg"):
-	TYPE_FRONT_COVER = 3
-	ENC_UTF8 = 3
-	
-	try:
-		filetag = mp3.MP3(file)
-	except BaseException as e:
-		print >> sys.stderr, "Error:", e
-		return False
+    TYPE_FRONT_COVER = 3
+    ENC_UTF8 = 3
 
-	filetag.tags.add(id3.APIC(
-		data=image_data,
-		mime=image_type,
-		type=TYPE_FRONT_COVER,
-		desc=u"",
-		encoding=ENC_UTF8))
+    try:
+        filetag = mp3.MP3(file)
+    except BaseException as e:
+        print >> sys.stderr, "Error:", e
+        return False
 
-	if verbose:
-		print >> sys.stderr, "Updating tags: %s" % file
-	try:
-		filetag.save()
-	except BaseException as e:
-		print >> sys.stderr, "Error:", e
-		return False
-	else:
-		return True
+    filetag.tags.add(id3.APIC(
+        data=image_data,
+        mime=image_type,
+        type=TYPE_FRONT_COVER,
+        desc=u"",
+        encoding=ENC_UTF8))
+
+    if verbose:
+        print >> sys.stderr, "Updating tags: %s" % file
+    try:
+        filetag.save()
+    except BaseException as e:
+        print >> sys.stderr, "Error:", e
+        return False
+    else:
+        return True
 
 def remove_cover(file):
-	try:
-		filetag = mp3.MP3(file)
-	except BaseException as e:
-		print >> sys.stderr, "Error:", e
-		return False
+    try:
+        filetag = mp3.MP3(file)
+    except BaseException as e:
+        print >> sys.stderr, "Error:", e
+        return False
 
-	if "APIC:" in filetag:
-		del filetag["APIC:"]
-	
-	if verbose:
-		print >> sys.stderr, "Updating tags: %s" % file
-	try:
-		filetag.save()
-	except BaseException as e:
-		print >> sys.stderr, "Error:", e
-		return False
-	else:
-		return True
+    if "APIC:" in filetag:
+        del filetag["APIC:"]
+
+    if verbose:
+        print >> sys.stderr, "Updating tags: %s" % file
+    try:
+        filetag.save()
+    except BaseException as e:
+        print >> sys.stderr, "Error:", e
+        return False
+    else:
+        return True
 
 try:
-	options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
+    options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
-	print >> sys.stderr, "Error:", e
-	usage()
+    print >> sys.stderr, "Error:", e
+    usage()
 
 mode = None
 cover_file = None
 verbose = False
 
 for opt, value in options:
-	if   opt == "-e": mode = "export"
-	elif opt == "-f": cover_file = value
-	elif opt == "-i": mode = "import"
-	elif opt == "-o": mode = "export"
-	elif opt == "-v": verbose = True
-	elif opt == "-x": mode = "kill"
+    if   opt == "-e": mode = "export"
+    elif opt == "-f": cover_file = value
+    elif opt == "-i": mode = "import"
+    elif opt == "-o": mode = "export"
+    elif opt == "-v": verbose = True
+    elif opt == "-x": mode = "kill"
 
 if len(files) < 1:
-	print >> sys.stderr, "Error: no mp3 files specified"
-	usage()
+    print >> sys.stderr, "Error: no mp3 files specified"
+    usage()
 
 if mode == "import":
-	if cover_file:
-		cover_fh = open(cover_file, 'rb')
-		ext = os.path.splitext(cover_file)
-		image_type = fileext_to_type(ext)
-	else:
-		cover_fh = sys.stdin
-		image_type = None #"image/jpeg"
-	image_data = cover_fh.read()
-	for audiofile in files:
-		import_cover(audiofile, image_data, image_type)
+    if cover_file:
+        cover_fh = open(cover_file, 'rb')
+        ext = os.path.splitext(cover_file)
+        image_type = fileext_to_type(ext)
+    else:
+        cover_fh = sys.stdin
+        image_type = None #"image/jpeg"
+    image_data = cover_fh.read()
+    for audiofile in files:
+        import_cover(audiofile, image_data, image_type)
 
 elif mode == "export":
-	if len(files) > 1:
-		print >> sys.stderr, "Error: cannot export multiple covers to one file"
-		usage()
+    if len(files) > 1:
+        print >> sys.stderr, "Error: cannot export multiple covers to one file"
+        usage()
 
-	ret = export_cover(files[0], cover_file)
+    ret = export_cover(files[0], cover_file)
 
-	sys.exit(0 if ret else 1)
+    sys.exit(0 if ret else 1)
 
 elif mode == "kill":
-	ret = True
+    ret = True
 
-	for audiofile in files:
-		ret = remove_cover(audiofile) and ret
-	
-	sys.exit(0 if ret else 1)
+    for audiofile in files:
+        ret = remove_cover(audiofile) and ret
+
+    sys.exit(0 if ret else 1)
 
 else:
-	usage()
+    usage()

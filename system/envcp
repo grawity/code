@@ -4,35 +4,34 @@ import os
 import sys
 
 def usage():
-	print("Usage: envcp pid command [args ...]", file=sys.stderr)
-	sys.exit(2)
+    print("Usage: envcp pid command [args ...]", file=sys.stderr)
+    sys.exit(2)
 
 def read_env(pid):
-	try:
-		fd = open("/proc/%d/environ" % pid, "rb")
-	except IOError as e:
-		print("error: [%d] %s: %s" % (e.errno, e.strerror,
-			e.filename))
-		return None
-	env = fd.read().split(b'\0')
-	return dict(k.split(b'=', 1) for k in env if k != b'')
+    try:
+        fd = open("/proc/%d/environ" % pid, "rb")
+    except IOError as e:
+        print("error: [%d] %s: %s" % (e.errno, e.strerror, e.filename))
+        return None
+    env = fd.read().split(b'\0')
+    return dict(k.split(b'=', 1) for k in env if k != b'')
 
 try:
-	pid = int(sys.argv[1])
-	cmd = sys.argv[2:]
+    pid = int(sys.argv[1])
+    cmd = sys.argv[2:]
 except IndexError:
-	# not enough arguments
-	usage()
+    # not enough arguments
+    usage()
 except ValueError:
-	# pid is not integer
-	print("error: pid must be an integer", file=sys.stderr())
-	usage()
+    # pid is not integer
+    print("error: pid must be an integer", file=sys.stderr())
+    usage()
 
 if not len(cmd):
-	cmd = ["/usr/bin/env"]
+    cmd = ["/usr/bin/env"]
 
 env = read_env(pid)
 if env:
-	os.execvpe(cmd[0], cmd, env)
+    os.execvpe(cmd[0], cmd, env)
 else:
-	sys.exit(1)
+    sys.exit(1)

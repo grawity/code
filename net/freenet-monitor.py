@@ -151,7 +151,7 @@ class Interface(object):
     def display_progress(self, reqid, cooldown=False, failed=False):
         if cooldown and not (self.last_id == reqid and self.last_kind == "progress"):
             return
-        
+
         screen_width, _ = get_screen_size_wxh()
         remaining_width = screen_width
 
@@ -247,7 +247,7 @@ class Interface(object):
         # create reqid item
 
         item_rightside = Item(item_indicators + [" "] + item_mainbar + item_progress)
-        
+
         remaining_width -= len(" ")
 
         id_short = truncate(reqid, remaining_width, pad=True)
@@ -688,5 +688,3 @@ try:
    main()
 except KeyboardInterrupt:
    sys.exit()
-
-# vim: ts=4:sw=4:et

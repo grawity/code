@@ -101,7 +101,13 @@ sub read_aliases {
 		chomp $line;
 		my ($alias, @args) = split(/\s+/, $line);
 		if (@args) {
-			for (@args) { s|^~/|$ENV{HOME}/|; }
+			my %vars = (
+				PRINCIPAL => $args[0],
+			);
+			for (@args) {
+				s|^~/|$ENV{HOME}/|;
+				s|\$([A-Z]+)|$vars{$1}|g;
+			}
 			$aliases{$alias} = \@args;
 		} else {
 			warn "$path:$.: not enough parameters\n";

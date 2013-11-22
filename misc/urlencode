@@ -11,6 +11,7 @@ sub usage {
 	"\n",
 	"    -A    encode for mq\n",
 	"    -d    decode\n",
+	"    -o    oct-encode (\\123)\n",
 	"    -p    encode full path (allowing slashes)\n",
 	"    -r    do not print newline\n",
 	"    -x    hex-encode (\\xAB)\n";
@@ -28,6 +29,8 @@ sub encode {
 		s/^$|^:/:$&/;
 	} elsif ($opts{x}) {
 		s/[^A-Za-z0-9_. \/-]/sprintf("\\x%02X", ord($&))/seg;
+	} elsif ($opts{o}) {
+		s/[^A-Za-z0-9_. \/-]/sprintf("\\%03o", ord($&))/seg;
 	} elsif ($opts{p}) {
 		s/[^\/A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
 	} else {
@@ -45,7 +48,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('Adprx', \%opts) || usage;
+getopts('Adoprx', \%opts) || usage;
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

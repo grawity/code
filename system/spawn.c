@@ -23,7 +23,7 @@
 
 char *arg0;
 
-static int usage() {
+static int usage(void) {
 	fprintf(stderr, "usage: %s [-cdLPw] [-l[name]] <command> [args]\n", arg0);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "  -c        close all file descriptors\n");
@@ -35,7 +35,7 @@ static int usage() {
 	return 2;
 }
 
-char * get_ttyname() {
+char * get_ttyname(void) {
 	char *d, *i;
 	if ((d = getenv("DISPLAY"))) {
 		if ((i = strrchr(d, '.')))
@@ -150,7 +150,7 @@ int closefds(void) {
 	return 1;
 }
 
-void fixenv() {
+void fixenv(void) {
 	unsetenv("COLORTERM");
 	unsetenv("GPG_TTY");
 	unsetenv("SHLVL");

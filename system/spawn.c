@@ -24,7 +24,14 @@
 char *arg0;
 
 static int usage() {
-	fprintf(stderr, "usage: %s [-L] [-l[name]] [-w] <command> [args]\n", arg0);
+	fprintf(stderr, "usage: %s [-cdLPw] [-l[name]] <command> [args]\n", arg0);
+	fprintf(stderr, "\n");
+	fprintf(stderr, "  -c        close all file descriptors\n");
+	fprintf(stderr, "  -d        change working directory to $HOME\n");
+	fprintf(stderr, "  -L        use a shared lock file instead of session\n");
+	fprintf(stderr, "  -l NAME   use given lock name instead of command name\n");
+	fprintf(stderr, "  -P        only print the lock file path\n");
+	fprintf(stderr, "  -w        fork the command and wait until it exits\n");
 	return 2;
 }
 

@@ -26,11 +26,12 @@ FQDN=$(fqdn || hostname)
 . libhttpfetch.bash	|| exit
 
 usage() {
-	echo "Usage: $progname [-Frv]"
+	echo "Usage: $progname [-FKrv]"
 	echo ""
-	echo "  -F  test key filter"
-	echo "  -r  receive signing key"
-	echo "  -v  verbose"
+	echo "  -F        test key filter"
+	echo "  -k URI    use another keyserver"
+	echo "  -r        receive signing key"
+	echo "  -v        verbose"
 	echo ""
 	echo -e "\e[1mWARNING: This script will replace your keys with grawity's!\e[m"
 	exit 2
@@ -90,9 +91,10 @@ filter=false
 import=false
 file="$HOME/.ssh/authorized_keys"
 
-while getopts "Frv" OPT "$@"; do
+while getopts "Fkrv" OPT "$@"; do
 	case "$OPT" in
 	'F')	filter=true;;
+	'k')	KEYSERVER=$OPTARG;;
 	'r')	import=true;;
 	'v')	VERBOSE=true;;
 	'?')	usage;;

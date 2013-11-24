@@ -33,11 +33,12 @@ silent() {
 
 force-pull() {
 	local date=$(date +%Y-%m-%d)
-	if ! git pull --quiet --ff-only; then
+	git fetch --quiet origin
+	if ! git merge --quiet --ff-only origin/master; then
 		git stash save "Local changes on $HOSTNAME at $date"
-		git checkout --quiet -f 'master'
+		git checkout --quiet -f master
 		git rm --quiet -rf .
-		git reset --quiet --hard 'origin/master'
+		git reset --quiet --hard origin/master
 		git stash apply || git merge --abort
 	fi > /dev/null
 }

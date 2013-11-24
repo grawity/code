@@ -25,6 +25,8 @@ FQDN=$(fqdn || hostname)
 . libfilterfile.bash	|| exit
 . libhttpfetch.bash	|| exit
 
+progname_prefix=0
+
 usage() {
 	echo "Usage: $progname [-FKrv]"
 	echo ""
@@ -53,7 +55,7 @@ fetch() {
 	local url=$1 out=$2
 	local max_tries=3 retry_wait=3 attempt=1
 	while true; do
-		say "fetching $url (#$attempt)"
+		debug "fetching $url (#$attempt)"
 		if http_fetch "$url" "$out"; then
 			return 0
 		elif (( $? == 99 )); then
@@ -132,12 +134,15 @@ fi
 # ensure key exists in keyring
 
 if $import; then
-	if confirm "import key $KEYFP?"; then
-		VERBOSE=true recv_key "$KEYFP" &&
-		echo "$KEYFP:6:" | $GPG --import-ownertrust
-	else
-		exit
-	fi
+	VERBOSE=true recv_key "$KEYFP" && {
+		log "imported owner's key into keyring"
+		if confirm "mark this key as ultimately trusted?"; then
+			(echo "$KEYFP:6:" | $GPG --import-ownertrust) &&
+			log "key's ownertrust updated"
+		else
+			err "only ultimately trusted keys are accepted"
+		fi
+	} || exit
 elif $GPG --list-keys "$KEYFP" > /dev/null; then
 	recv_key "$KEYFP"
 else

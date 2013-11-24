@@ -37,7 +37,8 @@ force-pull() {
 	local tmpbranch="tmp/$HOSTNAME/$date"
 
 	if ! git pull --quiet --ff-only; then
-		git checkout --quiet -B local
+		git branch -D local || true
+		git checkout --quiet -b local
 		git add --all :/
 		git commit --quiet --allow-empty \
 			-m "Local changes on $HOSTNAME at $date"
@@ -48,7 +49,7 @@ force-pull() {
 		git reset --quiet --hard origin/master
 		echo "Pushed local changes to:" >&2
 		echo "    $tmprepo $tmpbranch" >&2
-		git branch -D local
+		git branch -D local || true
 	fi > /dev/null
 }
 

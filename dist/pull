@@ -31,16 +31,9 @@ silent() {
 	return $rc
 }
 
-force-pull() {
-	local date=$(date +%Y-%m-%d)
-	git fetch --quiet origin
-	if ! git merge --quiet --ff-only origin/master; then
-		git stash save "Local changes on $HOSTNAME at $date"
-		git checkout --quiet -f master
-		git rm --quiet -rf .
-		git reset --quiet --hard origin/master
-		git stash apply || git merge --abort
-	fi > /dev/null
+git-on-master() {
+	local ref="$(git symbolic-ref HEAD 2>/dev/null)"
+	[ "$ref" = "refs/heads/master" ]
 }
 
 if [ ! "$xyzzy" ]; then
@@ -86,9 +79,20 @@ else
 
 	if [ -d ~/lib/dotfiles ]; then
 		log "fetching dotfiles.git"
-		( cd ~/lib/dotfiles
-		  force-pull
-		  silent git repack -d )
+		(
+		cd ~/lib/dotfiles
+		git fetch --quiet origin
+		if if git-on-master; then
+			git merge --quiet --ff-only origin/master
+		else
+			false
+		fi; then
+			git stash save
+			git checkout --quiet -f master
+			git reset --quiet --hard origin/master
+		fi
+		silent git repack -d
+		)
 
 		log "running dotfiles/install"
 		~/lib/dotfiles/install

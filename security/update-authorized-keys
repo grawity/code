@@ -70,14 +70,25 @@ fetch() {
 }
 
 verify() {
-	local input=$1 output=$2 status=
+	local input=$1 output=$2 status= errors=0
 	debug "verifying '$input' to '$output'"
 	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
-	                 --decrypt "$input" 2> /dev/null) \
-	&& grep -qs "^\[GNUPG:\] VALIDSIG $KEYFP " <<< "$status" \
-	&& grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$status"; then
-		say "$status"
+	                 --decrypt "$input" 2> /dev/null); then
+		if ! grep -qs "^\[GNUPG:\] VALIDSIG $KEYFP " <<< "$status"; then
+			err "file has invalid signature"
+		fi
+		if ! grep -qs "^\[GNUPG:\] TRUST_ULTIMATE\$" <<< "$status"; then
+			err "signer's key is not ultimately trusted"
+		fi
+		if (( errors )); then
+			echo "$status" >&2
+			return 1
+		else
+			say "$status"
+			return 0
+		fi
 	else
+		err "unknown GnuPG error occured"
 		echo "$status" >&2
 		return 1
 	fi
@@ -130,7 +141,7 @@ if $import; then
 elif $GPG --list-keys "$KEYFP" > /dev/null; then
 	recv_key "$KEYFP"
 else
-	die "key $KEYFP not in keyring"
+	die "key $KEYFP not found in keyring"
 fi
 
 # download new pubkeys

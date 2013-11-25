@@ -24,16 +24,17 @@ def iter_commits() -> "commit sha[]":
     for line in proc.stdout:
         yield line.rstrip()
 
-def recurse_tree_for_blob(tree_sha, blob_sha, path=b""):
+def recurse_tree_for_blob(tree_sha, blob_sha):
     global seen_trees
     if tree_sha not in seen_trees:
         result = None
         for item_type, item_sha, item_name in get_tree_items(tree_sha):
-            item_path = path + b"/" + item_name
             if item_type == b"blob" and item_sha == blob_sha:
-                result = item_path
+                result = item_name
             elif item_type == b"tree":
-                result = recurse_tree_for_blob(item_sha, blob_sha, item_path)
+                result = recurse_tree_for_blob(item_sha, blob_sha)
+                if result:
+                    result = item_name + b"/" + result
             if result:
                 break
         seen_trees[tree_sha] = result

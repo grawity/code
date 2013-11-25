@@ -84,14 +84,16 @@ else
 		(
 		cd ~/lib/dotfiles
 		git fetch --quiet origin
-		if if git-on-master; then
-			git merge --quiet --ff-only origin/master
+		if if ! git-on-master; then
+			true
+		elif ! git merge --quiet --ff-only origin/master; then
+			true
 		else
 			false
 		fi; then
 			git stash save
-			git checkout --quiet -f master
-			git reset --quiet --hard origin/master
+			git checkout -f master
+			git reset --hard origin/master
 		fi
 		silent git repack -d
 		)

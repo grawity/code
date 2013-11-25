@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+# Takes a file and finds all commits that reference the corresponding blob
+import sys
+import subprocess
+
+def get_tree_items(sha) -> "sha[]":
+    proc = subprocess.Popen(["git", "ls-tree", sha_hex(sha)],
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        _, item_type, item_sha, item_name = line.rstrip(b"\n").split(None, 3)
+        yield (item_type, item_sha, item_name)
+
+def get_commit_tree(sha) -> "tree sha":
+    proc = subprocess.Popen(["git", "cat-file", "commit", sha_hex(sha)],
+                            stdout=subprocess.PIPE)
+    line = proc.stdout.readline()
+    if line[:5] == b"tree ":
+        return sha_unhex(line[5:45])
+    else:
+        raise IOError("malformed commit %r" % sha_fmt(sha))
+
+def iter_commits() -> "commit sha[]":
+    proc = subprocess.Popen(["git", "rev-list", "HEAD"],
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        yield line.rstrip()
+
+def recurse_tree_for_blob(tree_sha, blob_sha):
+    global seen_trees
+    if tree_sha not in seen_trees:
+        result = None
+        for item_type, item_sha, item_name in get_tree_items(tree_sha):
+            if item_type == b"blob" and item_sha == blob_sha:
+                result = item_name
+            elif item_type == b"tree":
+                result = recurse_tree_for_blob(item_sha, blob_sha)
+                if result:
+                    result = item_name + b"/" + result
+            if result:
+                break
+        seen_trees[tree_sha] = result
+    return seen_trees[tree_sha]
+
+def hash_file(path) -> "blob sha":
+    proc = subprocess.Popen(["git", "hash-object", path],
+                            stdout=subprocess.PIPE)
+    line = proc.stdout.readline()
+    if line:
+        sha = sha_unhex(line.rstrip())
+        return sha
+    else:
+        raise IOError("could not hash blob")
+
+def sha_fmt(sha) -> "str":
+    return sha.decode("us-ascii")
+
+def sha_hex(sha) -> "hexstr":
+    return sha
+
+def sha_unhex(hexstr) -> "sha":
+    return hexstr
+
+def status(msg=""):
+    sys.stderr.write("\r\033[K\033[32m%s\033[m\r" % msg)
+    sys.stderr.flush()
+
+path = sys.argv[1]
+
+file_sha = hash_file(path)
+
+seen_trees = {}
+
+n_commits = 0
+
+found_commits = []
+
+last_path = None
+
+def print_results(commits, blob_path):
+    n_found = len(commits)
+    if n_found == 0:
+        return
+    elif n_found == 1:
+        print("found at %r in 1 commit" % blob_path)
+        print("   commit %s" % sha_fmt(commits[0]))
+    else:
+        print("found at %r in %d commits" % (blob_path, n_found))
+        print("   latest %s" % sha_fmt(commits[0]))
+        print("   oldest %s" % sha_fmt(commits[-1]))
+
+try:
+    for commit_sha in iter_commits():
+        n_commits += 1
+        if n_commits % 10 == 0:
+            status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))
+        tree_sha = get_commit_tree(commit_sha)
+        blob_path = recurse_tree_for_blob(tree_sha, file_sha)
+        if blob_path == last_path:
+            if blob_path is not None:
+                found_commits.append(commit_sha)
+        else:
+            status()
+            if found_commits:
+                status()
+                print_results(found_commits, last_path)
+                found_commits = []
+            if blob_path:
+                found_commits.append(commit_sha)
+            last_path = blob_path
+except KeyboardInterrupt:
+    status("interrupted at commit %s" % (sha_fmt(commit_sha)))
+    print()
+    print_results(found_commits, last_path)
+else:
+    status("finished after %d commits" % n_commits)
+    print()
+    print_results(found_commits, last_path)

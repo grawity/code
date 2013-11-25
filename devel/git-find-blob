@@ -72,10 +72,15 @@ n_commits = 0
 try:
     for commit_sha in iter_commits():
         n_commits += 1
-        status("checking commit %s [%d]" % (sha_fmt(commit_sha), n_commits))
+        if n_commits % 10 == 0:
+            status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))
         tree_sha = get_commit_tree(commit_sha)
         if recurse_tree_for_blob(tree_sha, file_sha):
             status()
             print("found in commit %s" % sha_fmt(commit_sha))
 except KeyboardInterrupt:
     status("interrupted at commit %s" % (sha_fmt(commit_sha)))
+    print()
+else:
+    status("finished after %d commits" % n_commits)
+    print()

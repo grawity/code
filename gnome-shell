@@ -1,5 +1,13 @@
 #!/bin/sh
 while {
-	/usr/bin/gnome-shell "$@" ||
-	zenity --question "Failwhale" --text="GNOME Shell crashed. Restart?"
+	start=$(date +%s)
+	/usr/bin/gnome-shell "$@" || {
+		end=$(date +%s)
+		if (( end - start < 3 )); then
+			msg="Looks like it's fucked. Restart anyway?"
+		else
+			msg="GNOME Shell crashed. Restart"
+		fi
+		zenity --question "Failwhale" --text="$msg"
+	}
 }; do true; done

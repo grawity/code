@@ -71,6 +71,8 @@ seen_trees = {}
 
 n_commits = 0
 
+last_path = None
+
 try:
     for commit_sha in iter_commits():
         n_commits += 1
@@ -81,7 +83,9 @@ try:
         if blob_path:
             status()
             print("found in commit %s" % sha_fmt(commit_sha))
-            print("                └ %s" % blob_path.decode("utf-8"))
+            if blob_path != last_path:
+                print("                └ %s" % blob_path.decode("utf-8"))
+                last_path = blob_path
 except KeyboardInterrupt:
     status("interrupted at commit %s" % (sha_fmt(commit_sha)))
     print()

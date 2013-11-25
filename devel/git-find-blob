@@ -57,13 +57,22 @@ def sha_hex(sha) -> "hexstr":
 def sha_unhex(hexstr) -> "sha":
     return hexstr
 
+def status(msg=""):
+    sys.stderr.write("\r\033[K%s\r" % msg)
+    sys.stderr.flush()
+
 path = sys.argv[1]
 
 file_sha = hash_file(path)
 
 seen_trees = {}
 
+n_commits = 0
+
 for commit_sha in iter_commits():
+    n_commits += 1
+    status("checking commit %s [%d]" % (sha_fmt(commit_sha), n_commits))
     tree_sha = get_commit_tree(commit_sha)
     if recurse_tree_for_blob(tree_sha, file_sha):
+        status()
         print("found in commit %s" % sha_fmt(commit_sha))

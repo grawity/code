@@ -71,7 +71,21 @@ seen_trees = {}
 
 n_commits = 0
 
+found_commits = []
+
 last_path = None
+
+def print_results(commits, blob_path):
+    n_found = len(commits)
+    if n_found == 0:
+        return
+    elif n_found == 1:
+        print("found at %r in 1 commit" % blob_path)
+        print("   commit %s" % sha_fmt(commits[0]))
+    else:
+        print("found at %r in %d commits" % (blob_path, n_found))
+        print("   latest %s" % sha_fmt(commits[0]))
+        print("   oldest %s" % sha_fmt(commits[-1]))
 
 try:
     for commit_sha in iter_commits():
@@ -80,15 +94,23 @@ try:
             status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))
         tree_sha = get_commit_tree(commit_sha)
         blob_path = recurse_tree_for_blob(tree_sha, file_sha)
-        if blob_path:
+        if blob_path == last_path:
+            if blob_path is not None:
+                found_commits.append(commit_sha)
+        else:
             status()
-            if blob_path != last_path:
-                print("                ┌ %s" % blob_path.decode("utf-8"))
-                last_path = blob_path
-            print("found in commit %s" % sha_fmt(commit_sha))
+            if found_commits:
+                status()
+                print_results(found_commits, last_path)
+                found_commits = []
+            if blob_path:
+                found_commits.append(commit_sha)
+            last_path = blob_path
 except KeyboardInterrupt:
     status("interrupted at commit %s" % (sha_fmt(commit_sha)))
     print()
+    print_results(found_commits, last_path)
 else:
     status("finished after %d commits" % n_commits)
     print()
+    print_results(found_commits, last_path)

@@ -3,6 +3,8 @@
 import sys
 import subprocess
 
+batch_proc = None
+
 def get_tree_items(sha) -> "sha[]":
     proc = subprocess.Popen(["git", "ls-tree", sha],
                             stdout=subprocess.PIPE)
@@ -11,13 +13,18 @@ def get_tree_items(sha) -> "sha[]":
         yield (item_type, item_sha, item_name)
 
 def get_commit_tree(sha) -> "tree sha":
-    proc = subprocess.Popen(["git", "cat-file", "commit", sha],
-                            stdout=subprocess.PIPE)
-    line = proc.stdout.readline()
-    if line[:5] == b"tree ":
-        return line[5:45]
+    global batch_proc
+    if not batch_proc:
+        batch_proc = subprocess.Popen(["git", "cat-file", "--batch-check"],
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    batch_proc.stdin.write(sha + b"^{tree}\n")
+    batch_proc.stdin.flush()
+    line = batch_proc.stdout.readline()
+    obj_sha, obj_type_size = line.rstrip().split(None, 1)
+    if obj_type_size == b"missing":
+        raise IOError("failed to dereference %s^{tree}" % sha_fmt(sha))
     else:
-        raise IOError("malformed commit %r" % sha_fmt(sha))
+        return obj_sha
 
 def iter_commits() -> "commit sha[]":
     proc = subprocess.Popen(["git", "rev-list", "HEAD"],

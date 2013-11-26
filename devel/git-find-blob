@@ -4,18 +4,18 @@ import sys
 import subprocess
 
 def get_tree_items(sha) -> "sha[]":
-    proc = subprocess.Popen(["git", "ls-tree", sha_hex(sha)],
+    proc = subprocess.Popen(["git", "ls-tree", sha],
                             stdout=subprocess.PIPE)
     for line in proc.stdout:
         _, item_type, item_sha, item_name = line.rstrip(b"\n").split(None, 3)
-        yield (item_type, sha_unhex(item_sha), item_name)
+        yield (item_type, item_sha, item_name)
 
 def get_commit_tree(sha) -> "tree sha":
-    proc = subprocess.Popen(["git", "cat-file", "commit", sha_hex(sha)],
+    proc = subprocess.Popen(["git", "cat-file", "commit", sha],
                             stdout=subprocess.PIPE)
     line = proc.stdout.readline()
     if line[:5] == b"tree ":
-        return sha_unhex(line[5:45])
+        return line[5:45]
     else:
         raise IOError("malformed commit %r" % sha_fmt(sha))
 
@@ -23,7 +23,7 @@ def iter_commits() -> "commit sha[]":
     proc = subprocess.Popen(["git", "rev-list", "HEAD"],
                             stdout=subprocess.PIPE)
     for line in proc.stdout:
-        yield sha_unhex(line.rstrip())
+        yield line.rstrip()
 
 def recurse_tree_for_blob(tree_sha, blob_sha):
     global seen_trees
@@ -46,19 +46,12 @@ def hash_file(path) -> "blob sha":
                             stdout=subprocess.PIPE)
     line = proc.stdout.readline()
     if line:
-        sha = sha_unhex(line.rstrip())
-        return sha
+        return line.rstrip()
     else:
         raise IOError("could not hash blob")
 
 def sha_fmt(sha) -> "str":
-    return sha_hex(sha).decode("us-ascii")
-
-def sha_hex(sha) -> "hexstr":
-    return sha
-
-def sha_unhex(hexstr) -> "sha":
-    return hexstr
+    return sha.decode("us-ascii")
 
 def status(msg=""):
     sys.stderr.write("\r\033[K\033[32m%s\033[m\r" % msg)

@@ -158,6 +158,9 @@ void fixenv(void) {
 	unsetenv("VTE_VERSION");
 	unsetenv("WINDOWID");
 	unsetenv("WINDOWPATH");
+	unsetenv("XTERM_LOCALE");
+	unsetenv("XTERM_SHELL");
+	unsetenv("XTERM_VERSION");
 }
 
 int main(int argc, char *argv[]) {

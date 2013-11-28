@@ -593,6 +593,10 @@ do_print:
 	when ("slist") {
 		say collapse_ccname($_) for @caches;
 	}
+	when ("trace") {
+		$ENV{KRB5_TRACE} = "/dev/stderr";
+		system {$ARGV[0]} @ARGV;
+	}
 	when ("test-roundtrip") {
 		for my $name (@caches) {
 			my $tmp;

@@ -15,6 +15,7 @@ class Report(object):
         self.name = pathname
         self.files = 0
         self.unsync = 0
+        self.unsync_a = []
         self.missings = 0
         self.errors = []
         self.exceptions = {}
@@ -31,12 +32,13 @@ class Report(object):
         self.errors.append((filename, Ex, value, trace))
         self.files += 1
 
-    def success(self, id3):
+    def success(self, filename, id3):
         self.versions.setdefault(id3.version, 0)
         self.versions[id3.version] += 1
         self.files += 1
         if id3.f_unsynch:
             self.unsync += 1
+            self.unsync_a.append(filename)
 
     def __str__(self):
         strings = ["-- Report for %s --" % self.name]
@@ -54,6 +56,10 @@ class Report(object):
         items.sort()
         for v, i in items:
             strings.append("  %s\t%d" % (".".join(map(str, v)), i))
+
+        strings.append("\nUnsync:")
+        for f in self.unsync_a:
+            strings.append("# %s" % f)
 
         if self.exceptions:
             strings.append("\nExceptions:")
@@ -99,7 +105,7 @@ def check_dir(path):
                 if mp3.tags is None:
                     rep.missing(ffn)
                 else:
-                    rep.success(mp3.tags)
+                    rep.success(ffn, mp3.tags)
 
     print str(rep)
 

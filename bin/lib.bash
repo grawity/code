@@ -7,10 +7,16 @@ else
 	__LIBROOT=${BASH_SOURCE[0]%/*}
 fi
 
+if [[ $__LIBLVL ]]; then
+	(( ++__LIBLVL ))
+else
+	export __LIBLVL=0
+fi
+
 ## Logging
 
 progname=${0##*/}
-progname_prefix=1
+progname_prefix=-1
 
 print_msg() {
 	local prefix=$1 msg=$2 color reset
@@ -18,7 +24,8 @@ print_msg() {
 		then color=$3 reset=${color:+'\e[m'}
 		else color='' reset=''
 	fi
-	if [[ $DEBUG || $progname_prefix -gt 0 ]]; then
+	if [[ $DEBUG || $progname_prefix -gt 0 ||
+	      ( $progname_prefix -le 0 && $__LIBLVL -gt 0 ) ]]; then
 		printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
 	else
 		printf "${color}%s:${reset} %s\n" "$prefix" "$msg"

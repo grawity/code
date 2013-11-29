@@ -20,9 +20,8 @@ progname_prefix=-1
 
 print_msg() {
 	local prefix=$1 msg=$2 color reset
-	if [[ -t 1 ]]
-		then color=$3 reset=${color:+'\e[m'}
-		else color='' reset=''
+	if [[ -t 1 ]]; then
+		color=$3 reset=${color:+'\e[m'}
 	fi
 	if [[ $DEBUG || $progname_prefix -gt 0 ||
 	      ( $progname_prefix -le 0 && $__LIBLVL -gt 0 ) ]]; then
@@ -34,9 +33,8 @@ print_msg() {
 
 debug() {
 	local colorfunc reset
-	if [[ -t 1 ]]
-		then colorfunc='\e[36m' reset='\e[m'
-		else colorfunc='' reset=''
+	if [[ -t 1 ]]; then
+		colorfunc='\e[36m' reset='\e[m'
 	fi
 	if [[ $DEBUG ]]; then
 		printf "%s[%s]: ${colorfunc}(%s)${reset} %s\n" \
@@ -50,9 +48,8 @@ log() {
 		print_msg 'log' "$*" '\e[1;32m'
 	else
 		local color reset
-		if [[ -t 1 ]]
-			then color='\e[32m' reset='\e[m'
-			else color='' reset=''
+		if [[ -t 1 ]]; then
+			color='\e[32m' reset='\e[m'
 		fi
 		printf -- "${color}--${reset} %s\n" "$*"
 	fi
@@ -123,7 +120,7 @@ backtrace() {
 ## Various
 
 use() {
-	local lib= file=
+	local lib file
 	for lib; do
 		file="lib$lib.bash"
 		if have "$file"; then
@@ -145,7 +142,7 @@ now() {
 }
 
 older_than() {
-	local file=$1 date=$2 filets= datets=
+	local file=$1 date=$2 filets datets
 	filets=$(stat -c %y "$file")
 	datets=$(date +%s -d "$date ago")
 	(( filets < datets ))

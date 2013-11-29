@@ -241,6 +241,7 @@ def list_tags(filenames):
 
 
 def list_tags_raw(filenames):
+    encodings = ["latin1", "utf16", "utf16-be", "utf8"]
     for filename in filenames:
         print "Raw IDv2 tag info for %s:" % filename
         try:
@@ -249,7 +250,14 @@ def list_tags_raw(filenames):
             print str(err)
         else:
             for frame in id3.values():
-                print repr(frame)
+                r = repr(frame)
+                if hasattr(frame, "encoding"):
+                    s = "encoding=%d," % frame.encoding
+                    t = "encoding=%r," % encodings[frame.encoding]
+                    r = r.replace(s, t)
+                if len(r) > 90:
+                    r = r[:90-3] + "..."
+                print r
 
 
 def main(argv):

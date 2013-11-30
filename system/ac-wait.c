@@ -4,8 +4,10 @@
 #include <libudev.h>
 #include <poll.h>
 
-static inline bool is_one(const char *x) {
-	return (x && *x == '1');
+static inline bool is_online(struct udev_device *dev) {
+	const char *value = udev_device_get_sysattr_value(dev, "online");
+
+	return (value && *value == '1');
 }
 
 int main(void) {
@@ -13,16 +15,13 @@ int main(void) {
 	struct udev_monitor *mon;
 	struct udev_device *dev;
 	struct pollfd pf[1];
-	const char *value;
 	int ret;
 
 	udev = udev_new();
 
 	dev = udev_device_new_from_subsystem_sysname(udev, "power_supply", "AC0");
 
-	value = udev_device_get_sysattr_value(dev, "online");
-
-	if (is_one(value)) {
+	if (is_online(dev)) {
 		printf("online, waiting\n");
 	} else {
 		printf("offline, exiting\n");
@@ -52,8 +51,7 @@ int main(void) {
 		if (strncmp(sysname, "AC", 2) != 0)
 			continue;
 
-		value = udev_device_get_sysattr_value(dev, "online");
-		if (is_one(value)) {
+		if (is_online(dev)) {
 			printf("online\n");
 		} else {
 			printf("offline\n");

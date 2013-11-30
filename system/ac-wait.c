@@ -4,7 +4,9 @@
 #include <libudev.h>
 #include <poll.h>
 
-#define IS_ONE(x) ((x) && *(x) == '1')
+static inline bool is_one(const char *x) {
+	return (x && *x == '1');
+}
 
 int main(void) {
 	struct udev *udev;
@@ -20,7 +22,7 @@ int main(void) {
 
 	value = udev_device_get_sysattr_value(dev, "online");
 
-	if (IS_ONE(value)) {
+	if (is_one(value)) {
 		printf("online, waiting\n");
 	} else {
 		printf("offline, exiting\n");
@@ -45,12 +47,13 @@ int main(void) {
 		const char *sysname;
 
 		dev = udev_monitor_receive_device(mon);
+
 		sysname = udev_device_get_sysname(dev);
 		if (strncmp(sysname, "AC", 2) != 0)
 			continue;
-		value = udev_device_get_sysattr_value(dev, "online");
 
-		if (IS_ONE(value)) {
+		value = udev_device_get_sysattr_value(dev, "online");
+		if (is_one(value)) {
 			printf("online\n");
 		} else {
 			printf("offline\n");

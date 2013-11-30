@@ -149,6 +149,8 @@ $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
 
 # executables
 
+$(OBJ)/ac-wait:		LDLIBS += -ludev
+$(OBJ)/ac-wait:		system/ac-wait.c
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils

@@ -111,24 +111,24 @@ copy_file(char *src, char *dst)
 	char	buf[BUFFSIZE];
 
 	if ((fd1 = open(src, O_RDONLY)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s during copy.\n", src);
+		fprintf(stderr, "fatal: could not open %s for copy: %m\n", src);
 		return;
 	}
 
 	if ((fd2 = open(dst, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0) {
-		fprintf(stderr, "ERROR: Creating %s during copy.\n", dst);
+		fprintf(stderr, "fatal: could not open %s for copy: %m\n", dst);
 		return;
 	}
 
 	while ((n = read(fd1, buf, BUFFSIZE)) > 0) {
 		if (write(fd2, buf, n) != n) {
-			fprintf(stderr, "ERROR: Write error during copy.\n");
+			fprintf(stderr, "fatal: write error during copy: %m\n");
 			return;
 		}
 	}
 
 	if (n < 0) {
-		fprintf(stderr, "ERROR: Read error during copy.\n");
+		fprintf(stderr, "fatal: read error during copy: %m\n");
 		return;
 	}
 
@@ -154,7 +154,7 @@ wipe_utmp(char *who, char *line)
 	 * Open the utmp file.
 	 */
 	if ((fd1 = open(UTMP_FILE, O_RDWR)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s\n", UTMP_FILE);
+		fprintf(stderr, "fatal: could not open %s: %m\n", UTMP_FILE);
 		return;
 	}
 
@@ -194,7 +194,7 @@ wipe_utmpx(char *who, char *line)
 	 * Open the utmp file and temporary file.
 	 */
 	if ((fd1 = open(UTMPX_FILE, O_RDWR)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s\n", UTMPX_FILE);
+		fprintf(stderr, "fatal: could not open %s: %m\n", UTMPX_FILE);
 		return;
 	}
 
@@ -232,7 +232,7 @@ wipe_wtmp(char *who, char *line)
 	 * Open the wtmp file and temporary file.
 	 */
 	if ((fd1 = open(WTMP_FILE, O_RDWR)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s\n", WTMP_FILE);
+		fprintf(stderr, "fatal: could not open %s: %m\n", WTMP_FILE);
 		return;
 	}
 
@@ -277,7 +277,7 @@ wipe_wtmpx(char *who, char *line)
 	 * Open the utmp file and temporary file.
 	 */
 	if ((fd1 = open(WTMPX_FILE, O_RDWR)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s\n", WTMPX_FILE);
+		fprintf(stderr, "fatal: could not open %s: %m\n", WTMPX_FILE);
 		return;
 	}
 
@@ -325,12 +325,12 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 	 * Open the lastlog file.
 	 */
 	if ((fd1 = open(LASTLOG_FILE, O_RDWR)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s\n", LASTLOG_FILE);
+		fprintf(stderr, "fatal: could not open %s: %m\n", LASTLOG_FILE);
 		return;
 	}
 
 	if ((pwd = getpwnam(who)) == NULL) {
-		fprintf(stderr, "ERROR: Can't find user in passwd.\n");
+		fprintf(stderr, "fatal: could not find user '%s'\n", who);
 		return;
 	}
 
@@ -343,7 +343,7 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 	if (timestr) {
 		/* YYYYMMddhhmm */
 		if (strlen(timestr) != 12) {
-			fprintf(stderr, "ERROR: Time format is YYYYMMddhhmm.\n");
+			fprintf(stderr, "fatal: time must be specified as YYYYMMddhhmm\n");
 			return;
 		}
 
@@ -411,7 +411,7 @@ wipe_acct(char *who, char *line)
 	 * Open the acct file and temporary file.
 	 */
 	if ((fd1 = open(ACCT_FILE, O_RDONLY)) < 0) {
-		fprintf(stderr, "ERROR: Opening %s\n", ACCT_FILE);
+		fprintf(stderr, "fatal: could not open %s: %m\n", ACCT_FILE);
 		return;
 	}
 
@@ -419,12 +419,12 @@ wipe_acct(char *who, char *line)
 	 * Grab a unique temporary filename.
 	 */
 	if ((fd2 = mkstemp(tmpf)) < 0) {
-		fprintf(stderr, "ERROR: Opening tmp ACCT file\n");
+		fprintf(stderr, "fatal: could not open temporary file: %m\n");
 		return;
 	}
 
 	if ((pwd = getpwnam(who)) == NULL) {
-		fprintf(stderr, "ERROR: Can't find user in passwd.\n");
+		fprintf(stderr, "fatal: could not find user '%s'\n", who);
 		return;
 	}
 
@@ -434,7 +434,7 @@ wipe_acct(char *who, char *line)
 	strcpy(ttyn, "/dev/");
 	strcat(ttyn, line);
 	if (stat(ttyn, &sbuf) < 0) {
-		fprintf(stderr, "ERROR: Determining tty device number.\n");
+		fprintf(stderr, "fatal: could not determine device number for tty: %m\n");
 		return;
 	}
 
@@ -449,7 +449,7 @@ wipe_acct(char *who, char *line)
 	copy_file(tmpf, ACCT_FILE);
 
 	if ( unlink(tmpf) < 0 ) {
-		fprintf(stderr, "ERROR: Unlinking tmp WTMP file.\n");
+		fprintf(stderr, "fatal: could not unlink temp file: %m\n");
 		return;
 	}
 

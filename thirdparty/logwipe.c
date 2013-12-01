@@ -159,8 +159,10 @@ void wipe_utmp(char *name, char *line)
 			continue;
 		if (line && strncmp(ut.ut_line, line, sizeof(ut.ut_line)))
 			continue;
-		printf("erasing: id='%s' name='%s' line='%s'\n",
-			ut.ut_id, ut.ut_name, ut.ut_line);
+		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+			(int) sizeof(ut.ut_id), ut.ut_id,
+			(int) sizeof(ut.ut_name), ut.ut_name,
+			(int) sizeof(ut.ut_line), ut.ut_line);
 		lseek(fd, -sizeof(ut), SEEK_CUR);
 		write(fd, &new, sizeof(ut));
 	}
@@ -186,8 +188,10 @@ void wipe_utmpx(char *name, char *line)
 			continue;
 		if (line && strncmp(utx.ut_line, line, sizeof(utx.ut_line)))
 			continue;
-		printf("erasing: id='%s' name='%s' line='%s'\n",
-			utx.ut_id, utx.ut_name, utx.ut_line);
+		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+			(int) sizeof(utx.ut_id), utx.ut_id,
+			(int) sizeof(utx.ut_name), utx.ut_name,
+			(int) sizeof(utx.ut_line), utx.ut_line);
 		lseek(fd, -sizeof(utx), SEEK_CUR);
 		write(fd, &new, sizeof(utx));
 	}
@@ -214,8 +218,10 @@ void wipe_wtmp(char *name, char *line)
 			goto skip;
 		if (line && strncmp(ut.ut_line, line, sizeof(ut.ut_line)))
 			goto skip;
-		printf("erasing: id='%s' name='%s' line='%s'\n",
-			ut.ut_id, ut.ut_name, ut.ut_line);
+		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+			(int) sizeof(ut.ut_id), ut.ut_id,
+			(int) sizeof(ut.ut_name), ut.ut_name,
+			(int) sizeof(ut.ut_line), ut.ut_line);
 		lseek(fd, -sizeof(ut), SEEK_CUR);
 		write(fd, &new, sizeof(ut));
 		break;
@@ -245,8 +251,10 @@ void wipe_wtmpx(char *name, char *line)
 			goto skip;
 		if (line && strncmp(utx.ut_line, line, sizeof(utx.ut_line)))
 			goto skip;
-		printf("erasing: id='%s' name='%s' line='%s'\n",
-			utx.ut_id, utx.ut_name, utx.ut_line);
+		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+			(int) sizeof(utx.ut_id), utx.ut_id,
+			(int) sizeof(utx.ut_name), utx.ut_name,
+			(int) sizeof(utx.ut_line), utx.ut_line);
 		lseek(fd, -sizeof(utx), SEEK_CUR);
 		write(fd, &new, sizeof(utx));
 		break;

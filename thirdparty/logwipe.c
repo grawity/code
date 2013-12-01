@@ -49,49 +49,42 @@
 #include <utmpx.h>
 #endif
 
-/*
- * Try to use the paths out of the include files.
- * But if we can't find any, revert to the defaults.
- */
 #ifndef UTMP_FILE
-#ifdef _PATH_UTMP
-#define UTMP_FILE	_PATH_UTMP
-#else
-#define UTMP_FILE	"/var/adm/utmp"
-#endif
+#  ifdef _PATH_UTMP
+#    define UTMP_FILE _PATH_UTMP
+#  else
+#    define UTMP_FILE "/var/adm/utmp"
+#  endif
 #endif
 
 #ifndef WTMP_FILE
-#ifdef _PATH_WTMP
-#define WTMP_FILE	_PATH_WTMP
-#else
-#define WTMP_FILE	"/var/adm/wtmp"
-#endif
+#  ifdef _PATH_WTMP
+#    define WTMP_FILE _PATH_WTMP
+#  else
+#    define WTMP_FILE "/var/adm/wtmp"
+#  endif
 #endif
 
 #ifndef LASTLOG_FILE
-#ifdef _PATH_LASTLOG
-#define LASTLOG_FILE	_PATH_LASTLOG
-#else
-#define LASTLOG_FILE	"/var/adm/lastlog"
-#endif
+#  ifdef _PATH_LASTLOG
+#    define LASTLOG_FILE _PATH_LASTLOG
+#  else
+#    define LASTLOG_FILE "/var/adm/lastlog"
+#  endif
 #endif
 
 #ifndef ACCT_FILE
-#define ACCT_FILE	"/var/adm/pacct"
+#  define ACCT_FILE "/var/adm/pacct"
 #endif
 
 #ifdef HAVE_UTMPX
-
-#ifndef UTMPX_FILE
-#define UTMPX_FILE	"/var/adm/utmpx"
+#  ifndef UTMPX_FILE
+#    define UTMPX_FILE "/var/adm/utmpx"
+#  endif
+#  ifndef WTMPX_FILE
+#    define WTMPX_FILE "/var/adm/wtmpx"
+#  endif
 #endif
-
-#ifndef WTMPX_FILE
-#define WTMPX_FILE	"/var/adm/wtmpx"
-#endif
-
-#endif /* HAVE_UTMPX */
 
 #define BUFFSIZE	8192
 

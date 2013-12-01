@@ -142,83 +142,55 @@ copy_file(char *src, char *dst)
 	close(fd2);
 }
 
-
-/*
- * UTMP editing.
- */
-#ifdef HAVE_UTMP
-void
-wipe_utmp(char *who, char *line)
+void wipe_utmp(char *name, char *line)
 {
-	int 		fd1;
-	struct utmp	ut;
+#ifdef HAVE_UTMP
+	int fd;
+	struct utmp ut;
+	struct utmp new = { .ut_type = DEAD_PROCESS };
 
-	printf("Patching %s .... ", UTMP_FILE);
-	fflush(stdout);
-
-	/*
-	 * Open the utmp file.
-	 */
-	if ((fd1 = open(UTMP_FILE, O_RDWR)) < 0) {
+	if ((fd = open(UTMP_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "fatal: could not open %s: %m\n", UTMP_FILE);
 		return;
 	}
 
-	/*
-	 * Copy utmp file excluding relevent entries.
-	 */
-	while (read(fd1, &ut, sizeof(ut)) > 0) {
-		if (strncmp(ut.ut_name, who, strlen(who)) != 0)
+	while (read(fd, &ut, sizeof(ut)) > 0) {
+		if (name && strncmp(ut.ut_name, name, sizeof(ut.ut_name)))
 			continue;
-		if (line && strncmp(ut.ut_line, line, strlen(line)) != 0)
+		if (line && strncmp(ut.ut_line, line, sizeof(ut.ut_line)))
 			continue;
-		bzero((char *) &ut, sizeof(ut));
-		lseek(fd1, (int) -sizeof(ut), SEEK_CUR);
-		write(fd1, &ut, sizeof(ut));
+		lseek(fd, -sizeof(ut), SEEK_CUR);
+		write(fd, &new, sizeof(ut));
 	}
 
-	close(fd1);
-
-	printf("Done.\n");
-}
+	close(fd);
 #endif
+}
 
-/*
- * UTMPX editing if supported.
- */
-#ifdef HAVE_UTMPX
-void
-wipe_utmpx(char *who, char *line)
+void wipe_utmpx(char *name, char *line)
 {
-	int 		fd1;
-	struct utmpx	utx;
+#ifdef HAVE_UTMPX
+	int fd;
+	struct utmpx utx;
+	struct utmpx new = { .ut_type = DEAD_PROCESS };
 
-	printf("Patching %s .... ", UTMPX_FILE);
-	fflush(stdout);
-
-	/*
-	 * Open the utmp file and temporary file.
-	 */
-	if ((fd1 = open(UTMPX_FILE, O_RDWR)) < 0) {
+	if ((fd = open(UTMPX_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "fatal: could not open %s: %m\n", UTMPX_FILE);
 		return;
 	}
 
-	while (read(fd1, &utx, sizeof(utx)) > 0) {
-		if (strncmp(utx.ut_name, who, strlen(who)) != 0)
+	while (read(fd, &utx, sizeof(utx)) > 0) {
+		if (name && strncmp(utx.ut_name, name, sizeof(utx.ut_name)))
 			continue;
-		if (line && strncmp(utx.ut_line, line, strlen(line)) != 0)
+		if (line && strncmp(utx.ut_line, line, sizeof(utx.ut_line)))
 			continue;
-		bzero((char *) &utx, sizeof(utx));
-		lseek(fd1, (int) -sizeof(utx), SEEK_CUR);
-		write(fd1, &utx, sizeof(utx));
+		lseek(fd, -sizeof(utx), SEEK_CUR);
+		write(fd, &new, sizeof(utx));
 	}
 
-	close(fd1);
-
-	printf("Done.\n");
-}
+	close(fd);
 #endif
+}
 
 
 /*

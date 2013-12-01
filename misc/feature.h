@@ -6,11 +6,13 @@
 #  undef  HAVE_LASTLOG
 #  undef  HAVE_UTMP
 #  define HAVE_UTMPX
-#  define NO_ACCT
 #endif
 
-#ifdef HAVE_HURD
-#  define NO_ACCT
+#ifdef __linux__
+#  define HAVE_ACCT
+#  ifndef ACCT_FILE
+#    define ACCT_FILE "/var/log/account/pacct"
+#  endif
 #endif
 
 #ifdef HAVE_SOLARIS

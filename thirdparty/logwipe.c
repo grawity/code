@@ -20,7 +20,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
-#ifndef NO_ACCT
+#ifdef HAVE_ACCT
 #include <sys/acct.h>
 #endif
 #include <fcntl.h>
@@ -314,12 +314,12 @@ void wipe_lastlog(char *name, char *line, char *timestr, char *host)
 
 void wipe_acct(char *name, char *line)
 {
-#ifndef NO_ACCT
+#ifdef HAVE_ACCT
 	int fd;
 	struct passwd *pw;
 	char ttyn[50];
 	struct stat st;
-	struct acct ac;
+	struct acct_v3 ac;
 	off_t pos = 0, skip = 0;
 
 	if ((pw = getpwnam(name)) == NULL) {
@@ -327,7 +327,7 @@ void wipe_acct(char *name, char *line)
 		return;
 	}
 
-	if ((fd = open(ACCT_FILE, O_RDONLY)) < 0) {
+	if ((fd = open(ACCT_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "fatal: could not open %s: %m\n", ACCT_FILE);
 		return;
 	}
@@ -339,18 +339,22 @@ void wipe_acct(char *name, char *line)
 	}
 
 	while (pread(fd, &ac, sizeof(ac), pos) > 0) {
+		printf("entry: uid=%u tty=%u\n", ac.ac_uid, ac.ac_tty);
 		if (ac.ac_uid == pw->pw_uid && ac.ac_tty == st.st_rdev) {
 			skip += sizeof(ac);
 		} else if (skip > 0) {
-			printf("copying from @%lu to @%lu\n", pos, pos-skip);
-			pwrite(fd, &ac, sizeof(ac), pos-skip);
+			if (pwrite(fd, &ac, sizeof(ac), pos-skip) < 0) {
+				printf("copying from @%lu to @%lu\n", pos, pos-skip);
+				fprintf(stderr, "error: write failed: %m\n");
+			}
 		}
 		pos += sizeof(ac);
 	}
 
 	if (skip > 0) {
 		printf("skipped %lu entries\n", skip/sizeof(ac));
-		printf("truncating to %lu entries\n", (pos-skip)/sizeof(ac));
+		printf("truncating to %lu (%lu entries)\n",
+			pos-skip, (pos-skip)/sizeof(ac));
 		ftruncate(fd, pos-skip);
 	}
 
@@ -378,7 +382,7 @@ usage()
 	printf("   l <user>                       blank entry for user\n");
 	printf("   l <user> <tty> <time> <host>   alter entry for user\n");
 	printf("\n");
-#ifndef NO_ACCT
+#ifdef HAVE_ACCT
 	printf("acct (%s)\n", ACCT_FILE);
 	printf("   a <user> <tty>                 erase all matching entries\n");
 	printf("\n");
@@ -447,7 +451,7 @@ main(int argc, char *argv[])
 #endif
 		break;
 	case 'a': /* acct */
-#ifndef NO_ACCT
+#ifdef HAVE_ACCT
 		if (argc != 4)
 			usage();
 		wipe_acct(argv[2], argv[3]);

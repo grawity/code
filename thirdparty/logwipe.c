@@ -93,6 +93,12 @@
 
 #define BUFFSIZE	8192
 
+char *arg0;
+
+char *basename(char *path) {
+	char *p = rindex(path, '/');
+	return p ? p : path;
+}
 
 /*
  * This function will copy the src file to the dst file.
@@ -455,37 +461,38 @@ wipe_acct(char *who, char *line)
 void
 usage()
 {
-	printf("USAGE: wipe [ u|w|l|a ] ...options...\n");
+	printf("USAGE: %s [ u|w|l|a ] ...options...\n", arg0);
 	printf("\n");
 #ifdef HAVE_UTMPX
 	printf("UTMPX editing (%s, %s)\n", UTMP_FILE, UTMPX_FILE);
 #else
 	printf("UTMP editing (%s)\n", UTMP_FILE);
 #endif
-	printf("    Erase all usernames      :   wipe u [username]\n");
-	printf("    Erase one username on tty:   wipe u [username] [tty]\n");
+	printf("    Erase all usernames      :   %s u [username]\n", arg0);
+	printf("    Erase one username on tty:   %s u [username] [tty]\n", arg0);
 	printf("\n");
 	printf("WTMP editing (%s)\n", WTMP_FILE);
-	printf("   Erase last entry for user :   wipe w [username]\n");
-	printf("   Erase last entry on tty   :   wipe w [username] [tty]\n");
+	printf("   Erase last entry for user :   %s w [username]\n", arg0);
+	printf("   Erase last entry on tty   :   %s w [username] [tty]\n", arg0);
 	printf("\n");
 	printf("LASTLOG editing (%s)\n", LASTLOG_FILE);
-	printf("   Blank lastlog for user    :   wipe l [username]\n");
-	printf("   Alter lastlog entry       :   wipe l [username] [tty] [time] [host]\n");
+	printf("   Blank lastlog for user    :   %s l [username]\n", arg0);
+	printf("   Alter lastlog entry       :   %s l [username] [tty] [time] [host]\n", arg0);
 	printf("	Where [time] is in the format [YYYYMMddhhmm]\n");
 	printf("\n");
 #ifndef NO_ACCT
 	printf("ACCT editing (%s)\n", ACCT_FILE);
-	printf("   Erase acct entries on tty :   wipe a [username] [tty]\n");
+	printf("   Erase acct entries on tty :   %s a [username] [tty]\n", arg0);
 #endif
 	exit(0);
 }
-
 
 int
 main(int argc, char *argv[])
 {
 	char	c;
+
+	arg0 = basename(argv[0]);
 
 	if (argc < 3)
 		usage();

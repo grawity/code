@@ -312,73 +312,51 @@ void wipe_lastlog(char *name, char *line, char *timestr, char *host)
 #endif
 }
 
-
-#ifndef NO_ACCT
-/*
- * ACCOUNT editing.
- */
-void
-wipe_acct(char *who, char *line)
+void wipe_acct(char *name, char *line)
 {
-	int		fd1, fd2;
-	struct acct	ac;
-	char		ttyn[50];
-	struct passwd   *pwd;
-	struct stat	sbuf;
-	char		*tmpf = "/tmp/acct_XXXXXX";
+#ifndef NO_ACCT
+	int fd;
+	struct passwd *pw;
+	char ttyn[50];
+	struct stat st;
+	struct acct ac;
+	off_t pos = 0, skip = 0;
 
-	printf("Patching %s ... ", ACCT_FILE);
-	fflush(stdout);
+	if ((pw = getpwnam(name)) == NULL) {
+		fprintf(stderr, "fatal: could not find user '%s'\n", name);
+		return;
+	}
 
-        /*
-	 * Open the acct file and temporary file.
-	 */
-	if ((fd1 = open(ACCT_FILE, O_RDONLY)) < 0) {
+	if ((fd = open(ACCT_FILE, O_RDONLY)) < 0) {
 		fprintf(stderr, "fatal: could not open %s: %m\n", ACCT_FILE);
 		return;
 	}
 
-	/*
-	 * Grab a unique temporary filename.
-	 */
-	if ((fd2 = mkstemp(tmpf)) < 0) {
-		fprintf(stderr, "fatal: could not open temporary file: %m\n");
-		return;
-	}
-
-	if ((pwd = getpwnam(who)) == NULL) {
-		fprintf(stderr, "fatal: could not find user '%s'\n", who);
-		return;
-	}
-
-	/*
-	 * Determine tty's device number
-	 */
-	strcpy(ttyn, "/dev/");
-	strcat(ttyn, line);
-	if (stat(ttyn, &sbuf) < 0) {
+	snprintf(ttyn, sizeof(ttyn), "/dev/%s", line);
+	if (stat(ttyn, &st) < 0) {
 		fprintf(stderr, "fatal: could not determine device number for tty: %m\n");
 		return;
 	}
 
-	while (read(fd1, &ac, sizeof(ac)) > 0) {
-		if (!(ac.ac_uid == pwd->pw_uid && ac.ac_tty == sbuf.st_rdev))
-			write(fd2, &ac, sizeof(ac));
+	while (pread(fd, &ac, sizeof(ac), pos) > 0) {
+		if (ac.ac_uid == pw->pw_uid && ac.ac_tty == st.st_rdev) {
+			skip += sizeof(ac);
+		} else if (skip > 0) {
+			printf("copying from @%lu to @%lu\n", pos, pos-skip);
+			pwrite(fd, &ac, sizeof(ac), pos-skip);
+		}
+		pos += sizeof(ac);
 	}
 
-	close(fd1);
-	close(fd2);
-
-	copy_file(tmpf, ACCT_FILE);
-
-	if ( unlink(tmpf) < 0 ) {
-		fprintf(stderr, "fatal: could not unlink temp file: %m\n");
-		return;
+	if (skip > 0) {
+		printf("skipped %lu entries\n", skip/sizeof(ac));
+		printf("truncating to %lu entries\n", (pos-skip)/sizeof(ac));
+		ftruncate(fd, pos-skip);
 	}
 
-	printf("Done.\n");
-}
+	close(fd);
 #endif
+}
 
 
 void

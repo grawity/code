@@ -86,8 +86,6 @@
 #  endif
 #endif
 
-#define BUFFSIZE	8192
-
 char *arg0;
 
 inline char *basename(char *path) {
@@ -97,42 +95,6 @@ inline char *basename(char *path) {
 
 inline void bzero(void *s, size_t n) {
 	memset(s, 0, n);
-}
-
-/*
- * This function will copy the src file to the dst file.
- */
-void
-copy_file(char *src, char *dst)
-{
-	int 	fd1, fd2;
-	int	n;
-	char	buf[BUFFSIZE];
-
-	if ((fd1 = open(src, O_RDONLY)) < 0) {
-		fprintf(stderr, "fatal: could not open %s for copy: %m\n", src);
-		return;
-	}
-
-	if ((fd2 = open(dst, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0) {
-		fprintf(stderr, "fatal: could not open %s for copy: %m\n", dst);
-		return;
-	}
-
-	while ((n = read(fd1, buf, BUFFSIZE)) > 0) {
-		if (write(fd2, buf, n) != n) {
-			fprintf(stderr, "fatal: write error during copy: %m\n");
-			return;
-		}
-	}
-
-	if (n < 0) {
-		fprintf(stderr, "fatal: read error during copy: %m\n");
-		return;
-	}
-
-	close(fd1);
-	close(fd2);
 }
 
 void wipe_utmp(char *name, char *line)

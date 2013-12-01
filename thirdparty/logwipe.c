@@ -468,77 +468,74 @@ usage()
 int
 main(int argc, char *argv[])
 {
-	char	c;
+	char c;
 
 	arg0 = basename(argv[0]);
 
 	if (argc < 3)
 		usage();
 
-	/*
-	 * First character of first argument determines which file to edit.
-	 */
-	c = toupper(argv[1][0]);
+	c = tolower(argv[1][0]);
 
-	/*
-	 * UTMP editing.
-	 */
 	switch (c) {
-		/* UTMP */
-		case 'U' :
+	case 'u': /* utmp */
 #ifdef HAVE_UTMP
-			if (argc == 3)
-				wipe_utmp(argv[2], (char *) NULL);
-			if (argc == 4)
-				wipe_utmp(argv[2], argv[3]);
+		if (argc == 3)
+			wipe_utmp(argv[2], (char *) NULL);
+		if (argc == 4)
+			wipe_utmp(argv[2], argv[3]);
 #endif
 #ifdef HAVE_UTMPX
-			if (argc == 3)
-				wipe_utmpx(argv[2], (char *) NULL);
-			if (argc == 4)
-				wipe_utmpx(argv[2], argv[3]);
+		if (argc == 3)
+			wipe_utmpx(argv[2], (char *) NULL);
+		if (argc == 4)
+			wipe_utmpx(argv[2], argv[3]);
 #endif
-			break;
-		/* WTMP */
-		case 'W' :
+		break;
+	case 'w': /* wtmp */
 #ifdef HAVE_UTMP
-			if (argc == 3)
-				wipe_wtmp(argv[2], (char *) NULL);
-			if (argc == 4)
-				wipe_wtmp(argv[2], argv[3]);
+		if (argc == 3)
+			wipe_wtmp(argv[2], (char *) NULL);
+		if (argc == 4)
+			wipe_wtmp(argv[2], argv[3]);
 #endif
 #ifdef HAVE_UTMPX
-			if (argc == 3)
-				wipe_wtmpx(argv[2], (char *) NULL);
-			if (argc == 4)
-				wipe_wtmpx(argv[2], argv[3]);
+		if (argc == 3)
+			wipe_wtmpx(argv[2], (char *) NULL);
+		if (argc == 4)
+			wipe_wtmpx(argv[2], argv[3]);
 #endif
-			break;
+		break;
+	case 'l': /* lastlog */
 #ifdef HAVE_LASTLOG
-		/* LASTLOG */
-		case 'L' :
-			if (argc == 3)
-				wipe_lastlog(argv[2], (char *) NULL,
-					(char *) NULL, (char *) NULL);
-			if (argc == 4)
-				wipe_lastlog(argv[2], argv[3], (char *) NULL,
-						(char *) NULL);
-			if (argc == 5)
-				wipe_lastlog(argv[2], argv[3], argv[4],
-						(char *) NULL);
-			if (argc == 6)
-				wipe_lastlog(argv[2], argv[3], argv[4],
-						argv[5]);
-			break;
+		if (argc == 3)
+			wipe_lastlog(argv[2], (char *) NULL,
+				(char *) NULL, (char *) NULL);
+		if (argc == 4)
+			wipe_lastlog(argv[2], argv[3], (char *) NULL,
+					(char *) NULL);
+		if (argc == 5)
+			wipe_lastlog(argv[2], argv[3], argv[4],
+					(char *) NULL);
+		if (argc == 6)
+			wipe_lastlog(argv[2], argv[3], argv[4],
+					argv[5]);
+#else
+		fprintf(stderr, "fatal: lastlog support unavailable\n");
 #endif
+		break;
+	case 'a': /* acct */
 #ifndef NO_ACCT
-		/* ACCT */
-		case 'A' :
-			if (argc != 4)
-				usage();
-			wipe_acct(argv[2], argv[3]);
-			break;
+		if (argc != 4)
+			usage();
+		wipe_acct(argv[2], argv[3]);
+#else
+		fprintf(stderr, "fatal: acct support unavailable\n");
 #endif
+		break;
+	default:
+		fprintf(stderr, "fatal: unknown command '%s'\n", argv[1]);
+		return 1;
 	}
 
 	return 0;

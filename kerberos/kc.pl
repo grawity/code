@@ -23,6 +23,18 @@ my @caches;
 my $can_switch = 1;
 my $use_color = 1;
 
+sub _xmsg {
+	my $prefix = shift;
+	my $msg = shift;
+	my $color = $use_color ? shift : "";
+	my $reset = $use_color ? "\e[m" : "";
+	warn "${color}${prefix}:${reset} ${msg}\n";
+}
+
+sub _warn { _xmsg("warning", shift, "\e[1;33m"); }
+sub _err  { _xmsg("error", shift, "\e[1;31m"); }
+sub _die  { _err(shift); exit 1; }
+
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
@@ -345,7 +357,7 @@ sub put_env {
 			say EVAL "$key=\'$val\'; export $key;";
 		}
 		default {
-			warn "\e[1;33mwarning:\e[m unrecognized shell $ENV{SHELL}\n";
+			_warn("unrecognized shell $ENV{SHELL}");
 			say EVAL "$key=$val";
 		}
 	}
@@ -393,11 +405,11 @@ sub switch_ccache {
 }
 
 if (!which("pklist")) {
-	die "\e[1;31merror:\e[m 'pklist' must be installed to use this tool\n";
+	_die("'pklist' must be installed to use this tool");
 }
 
 open(EVAL, ">&=", 3) or do {
-	warn "\e[1;33mwarning:\e[m cache switching unavailable (could not open fd#3)\n";
+	_warn("cache switching unavailable (could not open fd#3)");
 	$can_switch = 0;
 	open(EVAL, ">/dev/null");
 };
@@ -426,7 +438,7 @@ if ($cccurrent =~ m|^DIR::(.+)$|) {
 
 @caches = enum_ccaches();
 
-$use_color = ($ENV{TERM} && -t 1);
+$use_color = ($ENV{TERM} && $ENV{TERM} ne "dumb" && -t 1);
 
 my $cmd = shift @ARGV;
 
@@ -610,7 +622,7 @@ do_print:
 		my %aliases = read_aliases();
 		my $alias = $aliases{$1};
 		if (!defined $alias) {
-			warn "\e[1;31merror:\e[m alias '$1' not defined\n";
+			_die("alias '$1' not defined");
 			exit 1;
 		}
 		my $ccname = expand_ccname($1);

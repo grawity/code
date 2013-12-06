@@ -21,13 +21,12 @@ my $cccprimary;
 my @caches;
 
 my $can_switch = 1;
-my $use_color = 1;
 
 sub _xmsg {
 	my $prefix = shift;
 	my $msg = shift;
-	my $color = $use_color ? shift : "";
-	my $reset = $use_color ? "\e[m" : "";
+	my $color = (-t 2) ? shift : "";
+	my $reset = (-t 2) ? "\e[m" : "";
 	warn "${color}${prefix}:${reset} ${msg}\n";
 }
 
@@ -437,8 +436,6 @@ if ($cccurrent =~ m|^DIR::(.+)$|) {
 }
 
 @caches = enum_ccaches();
-
-$use_color = ($ENV{TERM} && $ENV{TERM} ne "dumb" && -t 1);
 
 my $cmd = shift @ARGV;
 

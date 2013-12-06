@@ -345,7 +345,7 @@ sub put_env {
 			say EVAL "$key=\'$val\'; export $key;";
 		}
 		default {
-			warn "\e[1mWarning:\e[m Unrecognized shell $ENV{SHELL}\n";
+			warn "\e[1;33mwarning:\e[m unrecognized shell $ENV{SHELL}\n";
 			say EVAL "$key=$val";
 		}
 	}
@@ -393,11 +393,11 @@ sub switch_ccache {
 }
 
 if (!which("pklist")) {
-	die "\e[1mError:\e[m Please install 'pklist' to use this tool.\n";
+	die "\e[1;31merror:\e[m 'pklist' must be installed to use this tool\n";
 }
 
 open(EVAL, ">&=", 3) or do {
-	warn "\e[1mWarning:\e[m Cache switching unavailable (could not open fd#3)\n";
+	warn "\e[1;33mwarning:\e[m cache switching unavailable (could not open fd#3)\n";
 	$can_switch = 0;
 	open(EVAL, ">/dev/null");
 };
@@ -610,7 +610,7 @@ do_print:
 		my %aliases = read_aliases();
 		my $alias = $aliases{$1};
 		if (!defined $alias) {
-			warn "Alias '$1' not defined.\n";
+			warn "\e[1;31merror:\e[m alias '$1' not defined\n";
 			exit 1;
 		}
 		my $ccname = expand_ccname($1);

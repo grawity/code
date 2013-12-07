@@ -7,11 +7,10 @@ else
 	__LIBROOT=${BASH_SOURCE[0]%/*}
 fi
 
-if [[ $__LIBLVL ]]; then
-	(( ++__LIBLVL ))
-else
-	export __LIBLVL=0
-fi
+# $LVL is like $SHLVL, but zero for programs ran interactively;
+# it is used to decide when to prefix errors with program name.
+
+_lvl=$(( LVL++ )); export LVL
 
 ## Logging
 
@@ -24,7 +23,7 @@ print_msg() {
 		color=$3 reset=${color:+'\e[m'}
 	fi
 	if [[ $DEBUG || $progname_prefix -gt 0 ||
-	      ( $progname_prefix -le 0 && $__LIBLVL -gt 0 ) ]]; then
+	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
 		printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
 	else
 		printf "${color}%s:${reset} %s\n" "$prefix" "$msg"

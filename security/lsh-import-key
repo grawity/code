@@ -37,6 +37,7 @@ use Getopt::Long qw(:config bundling no_ignore_case);
 use Crypt::Keys;
 use Crypt::OpenSSL::Bignum;
 use Math::Pari;
+use Nullroute::Lib qw(_die);
 use Data::Dumper;
 
 sub write_sexp {
@@ -68,11 +69,11 @@ my ($file, $passphrase, $key, $f, %d, $sexp);
 
 GetOptions(
 	"p|passphrase=s" => \$passphrase,
-) or die "error: usage";
+) or _die("usage");
 
 $file = shift(@ARGV);
 $key = Crypt::Keys->read(Filename => $file, Passphrase => $passphrase)
-	or die "error: failed to load key: $file\n";
+	or _die("failed to load key: $file");
 
 $f = $key->{Format};
 %d = %{$key->{Data}};
@@ -128,7 +129,7 @@ elsif ($f =~ /^Public::DSA::/) {
 }
 else {
 	print Dumper($key)."\n";
-	die "error: unsupported key type $f\n";
+	_die("unsupported key type $f");
 }
 write_sexp($sexp);
 print "\n";

@@ -2,65 +2,78 @@
 
 . lib.bash || exit
 
-dstroot=/mnt/backup
-srcroot=/mnt/backup/latest
-locroot=$HOME
+DISK=/mnt/backup
+ARCHIVE=$DISK
+BACKUP=$DISK/latest
 
 todo=()
 
-if ! mountpoint -q "$dstroot"; then
-	die "backup disk not mounted on '$dstroot'"
+if ! mountpoint -q "$DISK"; then
+	die "backup disk not mounted on '$DISK'"
 fi
 
-for dir; do
-	dir=$(readlink -f "$dir")
+abspath() { realpath -s "$1" | sed 's|/*$||'; }
+follow()  { readlink -f "$1" | sed 's|/*$||'; }
 
-	while [[ $dir == */ ]]; do
-		dir=${dir%/}
-	done
+for dir; do
+	dir=$(abspath "$dir")
 
 	case $dir in
-	"$srcroot"/*)	todo+=("${dir#"$srcroot"/}");;
-	"$locroot"/*)	todo+=("${dir#"$locroot"/}");;
+	"$HOME"/*)	todo+=("${dir#"$HOME"/}");;
+	"$BACKUP"/*)	todo+=("${dir#"$BACKUP"/}");;
 	*)		err "path '$dir' is outside home";;
 	esac
 done
 
-(( ! errors )) || exit
+(( !errors )) || exit
 
-for rel in "${todo[@]}"; do
-	if [[ $rel != Attic/* ]]; then
-		warn "path \"$rel\" is outside ~/Attic"
-		if ! confirm "relocate to \"Attic/$rel\"?"; then
-			(( ++skip ))
+skip=${#todo[@]}
+
+for subpath in "${todo[@]}"; do
+	want_relocate=0
+
+	if [[ $subpath == Attic/* ]]; then
+		archive_path="$ARCHIVE/$subpath"
+	else
+		want_relocate=1
+		archive_path="$ARCHIVE/Attic/$subpath"
+	fi
+
+	if [[ -e "$archive_path" ]]; then
+		err "path '$subpath' already exists in attic"
+		continue
+	fi
+
+	if [[ -L "$HOME/$subpath" ]]; then
+		err "path '$subpath' is a symlink"
+		continue
+	fi
+
+	if [[ ! -e "$BACKUP/$subpath" ]]; then
+		err "path '$subpath' not found in backup"
+		continue
+	fi
+
+	if (( want_relocate )); then
+		warn "path \"$subpath\" is outside ~/Attic"
+		if ! confirm "relocate to \"Attic/$subpath\"?"; then
 			continue
 		fi
 	fi
 
-	if [[ $rel == Attic/* ]]; then
-		target=$dstroot/$rel
-	else
-		target=$dstroot/Attic/$rel
-	fi
+	notice "archiving $subpath"
+	mkdir -p "${archive_path%/*}"
 
-	if [[ -e "$target" ]]; then
-		warn "path '$rel' already exists in attic"
-		ls -ld "$target"
-		continue
-	fi
+	log "moving from backup to attic"
+	mv "$BACKUP/$subpath" "$archive_path"
 
-	parent=${target%/*}
+	log "moving from home to trash"
+	trash --no-verbose "$HOME/$subpath"
 
-	mkdir -p "$parent"
+	log "symlinking from home to attic"
+	ln -s "$archive_path" "$HOME/$subpath"
 
-	log "moving '$rel' from backup to attic"
-	mv -v "$srcroot/$rel" "$target"
-
-	log "moving '$rel' from home to trash"
-	trash "$locroot/$rel"
-
-	log "symlinking '$rel' from home to attic"
-	ln -s "$target" "$locroot/$rel"
+	(( --skip ))
 done
 
 if (( skip )); then

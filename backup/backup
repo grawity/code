@@ -36,6 +36,10 @@ status() {
 	settitle "$progname: $*"
 }
 
+mounted:() {
+	mountpoint -q "$1" || die "backup disk not mounted"
+}
+
 obnam_default=()
 
 obnam_rain=(
@@ -140,9 +144,8 @@ t_begin=$(now)
 
 case $job in
 	push-hd)
-		#do_obnam ~
-		#do_rsnapshot @home sync
-		#do_rsnapshot @home snapshot
+		mounted: $b
+
 		if [[ $1 ]]; then
 			sub=$(readlink -f "$1")
 			if [[ "$sub" != "$HOME"/* ]]; then

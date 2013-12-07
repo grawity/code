@@ -42,6 +42,15 @@ debug() {
 	return 0
 } >&2
 
+say() {
+	if [[ $DEBUG ]]; then
+		print_msg 'info' "$*" '\e[1;34m'
+	elif [[ $VERBOSE ]]; then
+		printf "%s\n" "$*"
+	fi
+	return 0
+}
+
 log() {
 	if [[ $DEBUG ]]; then
 		print_msg 'log' "$*" '\e[1;32m'
@@ -57,15 +66,6 @@ log() {
 status() {
 	log "$*"
 	settitle "$progname: $*"
-}
-
-say() {
-	if [[ $DEBUG ]]; then
-		print_msg 'info' "$*" '\e[1;34m'
-	elif [[ $VERBOSE ]]; then
-		printf "%s\n" "$*"
-	fi
-	return 0
 }
 
 warn() {

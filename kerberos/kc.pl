@@ -10,6 +10,9 @@ use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
 
+$::arg0 = "kc";
+$::arg0prefix = $ENV{LVL}++ || $ENV{DEBUG};
+
 my $rundir;
 my $ccprefix;
 my $runprefix;
@@ -27,7 +30,9 @@ sub _xmsg {
 	my $msg = shift;
 	my $color = (-t 2) ? shift : "";
 	my $reset = (-t 2) ? "\e[m" : "";
-	warn "${color}${prefix}:${reset} ${msg}\n";
+	my $name = $::arg0prefix ? "$::arg0: " : "";
+
+	warn "${name}${color}${prefix}:${reset} ${msg}\n";
 }
 
 sub _warn { _xmsg("warning", shift, "\e[1;33m"); }

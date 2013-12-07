@@ -9,9 +9,9 @@ use English;
 use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
+use Nullroute::Lib qw(_warn _die uniq);
 
 $::arg0 = "kc";
-$::arg0prefix = $ENV{LVL}++ || $ENV{DEBUG};
 
 my $rundir;
 my $ccprefix;
@@ -24,22 +24,6 @@ my $cccprimary;
 my @caches;
 
 my $can_switch = 1;
-
-sub _xmsg {
-	my $prefix = shift;
-	my $msg = shift;
-	my $color = (-t 2) ? shift : "";
-	my $reset = (-t 2) ? "\e[m" : "";
-	my $name = $::arg0prefix ? "$::arg0: " : "";
-
-	warn "${name}${color}${prefix}:${reset} ${msg}\n";
-}
-
-sub _warn { _xmsg("warning", shift, "\e[1;33m"); }
-sub _err  { _xmsg("error", shift, "\e[1;31m"); }
-sub _die  { _err(shift); exit 1; }
-
-sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
 	my $end = shift;

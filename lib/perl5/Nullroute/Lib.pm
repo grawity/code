@@ -1,6 +1,7 @@
 #!perl
 package Nullroute::Lib;
 use base "Exporter";
+use File::Basename;
 
 our @EXPORT = qw(
 	_warn
@@ -8,7 +9,10 @@ our @EXPORT = qw(
 	_die
 	forked
 	readfile
+	uniq
 );
+
+$::arg0 //= basename($0);
 
 $::arg0prefix = $ENV{LVL}++ || $ENV{DEBUG};
 
@@ -38,5 +42,7 @@ sub readfile {
 	close($fh);
 	wantarray ? @lines : shift @lines;
 }
+
+sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 1;

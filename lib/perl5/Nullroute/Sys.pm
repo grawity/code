@@ -1,7 +1,32 @@
 #!perl
 package Nullroute::Sys;
-use Nullroute qw(readfile);
+use base "Exporter";
+use POSIX;
+use Nullroute::Lib qw(forked readfile);
 use Sys::Hostname qw(hostname);
+
+our @EXPORT = qw(
+	daemonize
+);
+
+sub daemonize {
+	chdir("/")
+		or die "can't chdir to /: $!";
+	open(STDIN, "<", "/dev/null")
+		or die "can't read /dev/null: $!";
+	open(STDOUT, ">", "/dev/null")
+		or die "can't write /dev/null: $!";
+	my $pid = fork()
+		// die("can't fork: $!");
+
+	if ($pid) {
+		exit;
+	} else {
+		if (POSIX::setsid() < 0) {
+			warn "setsid failed: $!";
+		}
+	}
+}
 
 sub gethostid {
 	if (-f "/etc/machine-id") {
@@ -9,7 +34,7 @@ sub gethostid {
 	} elsif (-f "/var/lib/dbus/machine-id") {
 		return readfile("/var/lib/dbus/machine-id");
 	} else {
-		return "name=".hostname;
+		return "name=".hostname();
 	}
 }
 
@@ -21,3 +46,4 @@ sub getbootid {
 	}
 }
 
+1;

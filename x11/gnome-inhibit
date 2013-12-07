@@ -10,6 +10,7 @@ use locale;
 use Getopt::Long qw(:config no_ignore_case bundling require_order);
 use List::Util qw(max);
 use Net::DBus;
+use Nullroute::Lib qw(_warn _err _die);
 use POSIX;
 
 # Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
@@ -109,11 +110,11 @@ sub string_to_flags {
 		} elsif (/^(0x[0-9a-fA-F]+)$/) {
 			$flags |= hex $_;
 		} else {
-			warn "Unknown inhibit flag: '$_'\n";
+			_warn("unknown inhibit flag: '$_'");
 		}
 	}
 	if ($flags >> 31) {
-		die "Inhibit bitmask too large (must be an uint32)\n";
+		_die("inhibit bitmask too large (must be an uint32)");
 	}
 	return $flags;
 }
@@ -172,11 +173,12 @@ my $do_list	= 0;
 my $do_test	= 0;
 my $always	= 0;
 my $verbose	= !!$ENV{DEBUG};
-my $app_id	= "gnome-inhibit";
-my $log_id	= "gnome-inhibit";
+my $app_id	= $::arg0;
 my $reason	= "User-initiated inhibit";
 my $flagstr	= undef;
 my $top_xid	= 0;
+
+sub _info { say $::arg0.": ".shift if $verbose; }
 
 GetOptions(
 	'A|always'	=> \$always,
@@ -195,17 +197,16 @@ GetOptions(
 
 if (@ARGV && ($do_list || $do_test)) {
 	if (defined $flagstr) {
-		warn "$log_id: Extra arguments ignored.\n";
+		_warn("extra arguments ignored");
 	} else {
-		warn "$log_id: Use --flags to filter by inhibit action.\n";
 		$flagstr //= join(",", @ARGV);
 	}
 }
 
 # Main code
 
-if ($log_id ne $app_id) {
-	$log_id .= "($app_id)";
+if ($::arg0 ne $app_id) {
+	$::arg0 .= "($app_id)";
 }
 
 if ($always) {
@@ -220,7 +221,7 @@ if ($always) {
 
 if ($do_list && $do_test) {
 	if (!$bus) {
-		warn "gnome-session is not running.\n";
+		_warn("gnome-session is not running");
 		exit 0;
 	}
 
@@ -232,7 +233,7 @@ if ($do_list && $do_test) {
 	exit 0;
 } elsif ($do_list) {
 	if (!$bus) {
-		warn "gnome-session is not running.\n";
+		_warn("gnome-session is not running");
 		exit 0;
 	}
 
@@ -248,7 +249,7 @@ if ($do_list && $do_test) {
 
 	my $flags = string_to_flags($flagstr //= "idle");
 	if (!$flags) {
-		warn "Error: No inhibit flags given.\n";
+		_err("no inhibit flags given");
 		exit 2;
 	}
 
@@ -264,36 +265,36 @@ if ($do_list && $do_test) {
 
 	my $flags = string_to_flags($flagstr //= "idle");
 	if (!$flags) {
-		warn "Error: No inhibit flags given.\n";
+		_err("no inhibit flags given");
 		exit 2;
 	}
 
 	if ($bus) {
 		$cookie = SessionManager->Inhibit($app_id, $top_xid, $reason, $flags);
 		if ($cookie) {
-			say "$log_id: inhibited: ".flags_to_string($flags) if $verbose;
+			_info("inhibited: ".flags_to_string($flags));
 		} else {
-			warn "$log_id: inhibit failed\n";
+			_err("inhibit failed");
 			exit 1;
 		}
 	} else {
-		say "$log_id: gnome-session not running; inhibit not added" if $verbose;
+		_info("gnome-session not running; inhibit not added");
 	}
 
 	my @cmd = @ARGV;
 	my $return = 0;
 
 	if (@cmd) {
-		say "$log_id: executing: @cmd" if $verbose;
+		_info("executing: @cmd");
 		$return = system {$cmd[0]} @cmd;
 		$return = POSIX::WEXITSTATUS($return);
 	} else {
 		$SIG{INT} = sub {
-			say "$log_id: SIGINT caught, exiting" if $verbose;
+			_info("SIGINT caught, exiting");
 			SessionManager->Uninhibit($cookie) if $cookie;
 			exit 0;
 		};
-		say "$log_id: pausing until signal; use Ctrl-C to interrupt";
+		say "$::arg0: pausing until signal; use Ctrl-C to interrupt";
 		POSIX::pause();
 	}
 

@@ -68,6 +68,18 @@ status() {
 	settitle "$progname: $*"
 }
 
+notice() {
+	if [[ $DEBUG ]]; then
+		print_msg 'notice' "$*" '\e[1;35m'
+	else
+		local color reset
+		if [[ -t 1 ]]; then
+			color='\e[35m' reset='\e[m'
+		fi
+		printf -- "${color}==${reset} %s\n" "$*"
+	fi
+} >&2
+
 warn() {
 	print_msg 'warning' "$*" '\e[1;33m'
 	if (( DEBUG > 1 )); then backtrace; fi

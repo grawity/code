@@ -1,18 +1,17 @@
-#!/bin/sh -e
+#!/usr/bin/env bash
+
+. lib.bash || exit
 
 if ! which signtool > /devnull 2>&1; then
-	echo "error: You need the 'signtool' command from the NSS library." >&2
-	exit 1
+	die "You need the 'signtool' command from the NSS library."
 fi
 
 if ! which zip > /dev/null 2>&1; then
-	echo "error: You need the 'zip' command." >&2
-	exit 1
+	die "You need the 'zip' command."
 fi
 
 if ! [ -f install.rdf ]; then
-	echo "error: This directory does not contain a valid XPI extension." >&2
-	exit 1
+	die "This directory does not contain a valid XPI extension."
 fi
 
 nssdb="sql:$HOME/.pki/nssdb"
@@ -27,4 +26,4 @@ signtool -d "$nssdb" -k "$nsscert" .
 zip "$outfile" ./META-INF/zigbert.rsa
 zip -r -D -x "$outfile" @ "$outfile" .
 
-echo "=> Created $outfile"
+log "Created $outfile"

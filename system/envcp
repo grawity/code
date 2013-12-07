@@ -2,16 +2,18 @@
 from __future__ import print_function
 import os
 import sys
+from nullroute import *
 
 def usage():
-    print("Usage: envcp pid command [args ...]", file=sys.stderr)
+    print("Usage: envcp <pid> <command> [args ...]",
+          file=sys.stderr)
     sys.exit(2)
 
 def read_env(pid):
     try:
         fd = open("/proc/%d/environ" % pid, "rb")
     except IOError as e:
-        print("error: [%d] %s: %s" % (e.errno, e.strerror, e.filename))
+        err("[%d] %s: %s" % (e.errno, e.strerror, e.filename))
         return None
     env = fd.read().split(b'\0')
     return dict(k.split(b'=', 1) for k in env if k != b'')
@@ -24,7 +26,7 @@ except IndexError:
     usage()
 except ValueError:
     # pid is not integer
-    print("error: pid must be an integer", file=sys.stderr())
+    err("pid must be an integer")
     usage()
 
 if not len(cmd):

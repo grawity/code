@@ -1,14 +1,18 @@
 #!/usr/bin/env python2
+from __future__ import print_function
 import sys, os
 import getopt
 from mutagen import mp3, id3
+from nullroute import *
+
+def trace(msg):
+    print(msg, file=sys.stderr)
 
 def usage():
-    print >> sys.stderr, """\
-import: cover -i [-f imagefile] audio_file [audio_file ...]
-export: cover -e [-f imagefile] audio_file
-remove: cover -x audio_file [audio_file ...]
-"""
+    print("usage:")
+    print("    import: cover -i [-f imagefile] audio_file [audio_file ...]")
+    print("    export: cover -e [-f imagefile] audio_file")
+    print("    remove: cover -x audio_file [audio_file ...]")
     sys.exit(2)
 
 def fileext_to_type(ext):
@@ -30,16 +34,16 @@ def export_cover(file, cover_file):
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
-        print >> sys.stderr, "Error:", e
+        err(e)
         return False
 
     if "APIC:" not in filetag:
-        print >> sys.stderr, "Error: No cover image (APIC frame not found)"
+        err("no cover image (APIC frame not found)")
         return False
 
     with open(cover_file or "/dev/stdout", "wb") as cover_fh:
         if verbose:
-            print >> sys.stderr, "Exporting image: %s" % cover_file
+            trace("exporting image: %s" % cover_file)
         cover_fh.write(filetag["APIC:"].data)
     return True
 
@@ -50,7 +54,7 @@ def import_cover(file, image_data, image_type="image/jpeg"):
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
-        print >> sys.stderr, "Error:", e
+        err(e)
         return False
 
     filetag.tags.add(id3.APIC(
@@ -61,11 +65,11 @@ def import_cover(file, image_data, image_type="image/jpeg"):
         encoding=ENC_UTF8))
 
     if verbose:
-        print >> sys.stderr, "Updating tags: %s" % file
+        trace("updating tags: %s" % file)
     try:
         filetag.save()
     except BaseException as e:
-        print >> sys.stderr, "Error:", e
+        err(e)
         return False
     else:
         return True
@@ -74,18 +78,18 @@ def remove_cover(file):
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
-        print >> sys.stderr, "Error:", e
+        err(e)
         return False
 
     if "APIC:" in filetag:
         del filetag["APIC:"]
 
     if verbose:
-        print >> sys.stderr, "Updating tags: %s" % file
+        trace("updating tags: %s" % file)
     try:
         filetag.save()
     except BaseException as e:
-        print >> sys.stderr, "Error:", e
+        err(e)
         return False
     else:
         return True
@@ -93,12 +97,12 @@ def remove_cover(file):
 try:
     options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
-    print >> sys.stderr, "Error:", e
+    err(e)
     usage()
 
 mode = None
 cover_file = None
-verbose = False
+verbose = os.getenv("DEBUG")
 
 for opt, value in options:
     if   opt == "-e": mode = "export"
@@ -108,8 +112,12 @@ for opt, value in options:
     elif opt == "-v": verbose = True
     elif opt == "-x": mode = "kill"
 
+if not mode:
+    err("mode not specified")
+    usage()
+
 if len(files) < 1:
-    print >> sys.stderr, "Error: no mp3 files specified"
+    err("no .mp3 files specified")
     usage()
 
 if mode == "import":
@@ -126,8 +134,7 @@ if mode == "import":
 
 elif mode == "export":
     if len(files) > 1:
-        print >> sys.stderr, "Error: cannot export multiple covers to one file"
-        usage()
+        die("cannot export multiple covers to one file")
 
     ret = export_cover(files[0], cover_file)
 
@@ -142,4 +149,4 @@ elif mode == "kill":
     sys.exit(0 if ret else 1)
 
 else:
-    usage()
+    die("bad mode")

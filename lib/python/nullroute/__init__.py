@@ -1,12 +1,16 @@
 from __future__ import print_function
 import sys
 
-def warn(*args):
-    print("\033[1;33mwarning:\033[m", " ".join(args), file=sys.stderr)
+def _log(prefix, msg, color=""):
+    print("\033[%sm%s:\033[m %s" % (color, prefix, msg),
+          file=sys.stderr)
 
-def err(*args):
-    print("\033[1;31merror:\033[m", " ".join(args), file=sys.stderr)
+def warn(msg):
+    _log("warning", msg, "1;33")
 
-def die(*args):
-    err(*args)
+def err(msg):
+    _log("error", msg, "1;31")
+
+def die(msg):
+    err(msg)
     sys.exit(1)

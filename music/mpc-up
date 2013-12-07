@@ -9,7 +9,15 @@ mpc -q --wait update && {
 # sort playlist by title and artist
 	sorted=$(mktemp)
 	mpc playlist -f '%title%[ - %artist%]\b%file%' \
-		| sed 1d | sort -t $'\b' -k 1 | cut -d $'\b' -f 2- > "$sorted"
+		| sed 1d \
+		| perl -e \
+			'sub f {
+				my $v = lc shift;
+				$v =~ s/^(a|the) //;
+				return $v;
+			}
+			print for sort {f($a) cmp f($b)} <>' \
+		| cut -d $'\b' -f 2- > "$sorted"
 	mpc -q crop || mpc -q clear
 	mpc add < "$sorted"
 	rm -f "$sorted"

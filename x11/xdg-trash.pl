@@ -11,6 +11,7 @@ use File::Path qw(make_path);
 use File::Spec::Functions;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use POSIX qw(strftime);
+use Nullroute::Lib qw(_err _die);
 
 our $INTERACTIVE = 0;
 our $VERBOSE = 1;
@@ -133,9 +134,9 @@ sub create_info {
 		if (sysopen($fh, $info_path, O_WRONLY|O_CREAT|O_EXCL)) {
 			return ($name, $fh, $info_path);
 		} else {
-			warn "trash: error: $! (for '$name')\n" unless $! == EEXIST;
+			_err("$! (for '$name')") unless $! == EEXIST;
 			if (++$i > 100) {
-				warn "trash: error: Cannot store trashinfo for $base\n";
+				_err("cannot store trashinfo for $base");
 				return undef;
 			} else {
 				next;
@@ -209,7 +210,7 @@ actual $path there. If move fails, delete trashinfo and explode.
 sub trash {
 	my ($path) = @_;
 	if (!lstat($path)) {
-		warn "trash: Not found: '$path'\n";
+		_err("not found: '$path'");
 		return;
 	}
 	if ($INTERACTIVE) {
@@ -228,14 +229,14 @@ sub trash {
 			verbose("Trashed '$path'\n");
 		} else {
 			unlink($info_name);
-			die "trash: Rename of '$path' failed: $!\n";
+			_die("rename of '$path' failed: $!");
 		}
 	} else {
 		if (xdev_move($orig_path, $trashed_path)) {
 			verbose("Trashed '$path' to \$HOME\n");
 		} else {
 			unlink($info_name);
-			die "trash: Copy of '$path' to '$trash_dir' failed.\n";
+			_die("copy of '$path' to '$trash_dir' failed");
 		}
 	}
 	close($info_fh);
@@ -256,5 +257,5 @@ if (@ARGV) {
 		trash($_) for @ARGV;
 	}
 } else {
-	warn "trash: No files given.\n";
+	_err("no files given");
 }

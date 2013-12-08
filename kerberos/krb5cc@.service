@@ -1,12 +1,19 @@
 [Unit]
 Description=Kerberos machine credentials (%i instance)
+
+# services that we require
 After=krb5-kdc.service
-After=named.service
 After=network.target
-After=unbound.service
+After=nss-lookup.target
+# active targets that we require
+Wants=network-online.target
+After=network-online.target
+
+# targets that require us
 Wants=remote-fs-pre.target
-Before=nslcd.service
 Before=remote-fs-pre.target
+# services that require us
+Before=nslcd.service
 
 [Service]
 Type=forking

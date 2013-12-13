@@ -351,6 +351,55 @@ sub put_env {
 	}
 }
 
+sub find_ccache_for_principal {
+	my ($arg) = @_;
+
+	my $max_expiry = 0;
+	my $max_ccname;
+
+	for my $ccname (@caches) {
+		my $principal;
+		my $ccrealm;
+		my $expiry;
+		my $tgt_expiry;
+		my $init_expiry;
+
+		$principal = read_proc("pklist", "-P", "-c", $ccname);
+		if ($principal ne $arg) {
+			next;
+		}
+		if ($principal =~ /.*@(.+)$/) {
+			$ccrealm = $1;
+		}
+
+		open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
+		while (my $line = <$proc>) {
+			chomp($line);
+			my @l = split(/\t/, $line);
+			for (shift @l) {
+				when ("ticket") {
+					my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags) = @l;
+					if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
+						$tgt_expiry = $t_expiry;
+					}
+					if ($t_flags =~ /I/) {
+						$init_expiry = $t_expiry;
+					}
+				}
+			}
+		}
+		close($proc);
+
+		$expiry = $tgt_expiry || $init_expiry;
+		if ($expiry > $max_expiry) {
+			$max_expiry = $expiry;
+			$max_ccname = $ccname;
+		}
+	}
+
+	return ($max_ccname, $max_expiry);
+}
+
 sub switch_ccache {
 	my ($ccname) = @_;
 
@@ -618,50 +667,10 @@ do_print:
 		}
 	}
 	when (/.+@.+/) {
-		my $max_expiry = 0;
-		my $max_ccname;
+		my ($ccname, $expiry) = find_ccache_for_principal($cmd);
 
-		for my $ccname (@caches) {
-			my $principal;
-			my $ccrealm;
-			my $expiry;
-			my $tgt_expiry;
-			my $init_expiry;
-
-			$principal = read_proc("pklist", "-P", "-c", $ccname);
-			if ($principal ne $cmd) {
-				next;
-			}
-			$principal =~ /.*@(.+)$/
-				and $ccrealm = $1;
-
-			open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
-			while (my $line = <$proc>) {
-				chomp($line);
-				my @l = split(/\t/, $line);
-				for (shift @l) {
-					when ("ticket") {
-						my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags) = @l;
-						if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
-							$tgt_expiry = $t_expiry;
-						}
-						if ($t_flags =~ /I/) {
-							$init_expiry = $t_expiry;
-						}
-					}
-				}
-			}
-			close($proc);
-
-			$expiry = $tgt_expiry || $init_expiry;
-			if ($expiry > $max_expiry) {
-				$max_expiry = $expiry;
-				$max_ccname = $ccname;
-			}
-		}
-
-		if ($max_expiry) {
-			switch_ccache($max_ccname) || exit 1;
+		if ($expiry) {
+			switch_ccache($ccname) || exit 1;
 		} else {
 			switch_ccache("new") || exit 1;
 			run_proc("kinit", $cmd, @ARGV);

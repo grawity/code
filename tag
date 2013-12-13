@@ -30,6 +30,10 @@ case $cmd in
 		log "Converting tags to $e"
 		eyeD3 -Q --force-update --encoding $e "$@"
 		;;
+	no-v1)
+		log "Removing ID3v1"
+		mid3v2 --delete-v1 "$@"
+		;;
 	etouch)
 		log "Updating tags (removes unsync frames, etc.)"
 		eyeD3 -Q --force-update "$@"

@@ -23,8 +23,15 @@ encrypt() {
 } 2>/dev/null
 
 reveal() {
-	decrypt "all" | awk "NR == $1 {print \$2; exit}" | xsel -i -b
-	(sleep 5; xsel -c; xsel -c -b) &
+	decrypt "all" | awk "NR == $1 {print \$2; exit}" |
+	if [[ "$DISPLAY" ]]; then
+		xsel -i -b
+		(sleep 5; xsel -c; xsel -c -b) &
+	else
+		read tan
+		printf '%s ' $tan
+		(sleep 5; printf '\rXXXXXX\r\e[J\n')
+	fi
 }
 
 unset GPG_AGENT_INFO

@@ -69,12 +69,20 @@ sub run_proc {
 
 sub read_proc {
 	my @argv = @_;
-	my $output;
+	my ($proc, $pid, $output);
 
 	$argv[0] = which($argv[0]);
 
-	open(my $proc, "-|", @argv) or die "$!";
-	chomp($output = <$proc>);
+	$pid = open($proc, "-|") // _die("could not fork: $!");
+
+	if (!$pid) {
+		no warnings;
+		open(STDERR, ">/dev/null");
+		exec({$argv[0]} @argv);
+		_die("could not exec $argv[0]: $!");
+	}
+
+	chomp($output = <$proc> // "");
 	close($proc);
 
 	return $output;
@@ -84,7 +92,7 @@ sub read_file {
 	my ($path) = @_;
 	my $output;
 
-	open(my $file, "<", $path) or die "$!";
+	open(my $file, "<", $path) or _die("could not open $path: $!");
 	chomp($output = <$file>);
 	close($file);
 

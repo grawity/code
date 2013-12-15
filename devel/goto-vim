@@ -65,6 +65,18 @@ sub urldecode {
 	return $str;
 }
 
+sub shescape {
+	my $str = shift;
+	if ($str =~ /!/) {
+		$str =~ s/'/'\\''/g;
+		$str = qq['$str'];
+	}
+	elsif ($str =~ s/[`"\$\\]/\\$&/g or $str =~ /\s/) {
+		$str = qq["$str"];
+	}
+	return $str;
+}
+
 sub parse {
 	for (shift) {
 		when ($pythonre) {
@@ -132,7 +144,7 @@ if (@ARGV) {
 } elsif (length $ENV{DISPLAY}) {
 	if (my @r = parse(`xclip -o -s primary`)) {
 		push @args, @r;
-		print "@args\n";
+		print join(" ", map {shescape($_)} @args), "\n";
 	}
 }
 

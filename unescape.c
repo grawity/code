@@ -18,6 +18,8 @@ const char escapes[256] = {
 	['r'] = '\r',
 	['t'] = '\t',
 	['v'] = '\v',
+	/* `echo` compatibility; */
+	['e'] = '\033',
 	/* needed for keep_backslash mode: */
 	['\''] = '\'',
 	['\"'] = '\"',

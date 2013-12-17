@@ -58,7 +58,7 @@ static void putchar_utf8(int ch) {
 }
 
 static void process(FILE *fp) {
-	int ch, state = None, acc, len, maxlen, val;
+	int ch, state = None, letter, acc, len, maxlen, val;
 
 	while ((ch = getc(fp)) != EOF) {
 		switch (state) {
@@ -71,19 +71,19 @@ static void process(FILE *fp) {
 		case Escape:
 			switch (ch) {
 			case 'x':
-				acc = len = 0; maxlen = 2;
-				state = HexEscape;
-				break;
 			case 'u':
-				acc = len = 0; maxlen = 4;
-				state = HexEscape;
-				break;
 			case 'U':
-				acc = len = 0; maxlen = 8;
+				acc = 0;
+				len = 0;
+				letter = ch;
+				maxlen = (ch == 'x') ? 2 :
+				         (ch == 'u') ? 4 :
+					 (ch == 'U') ? 8 : -1;
 				state = HexEscape;
 				break;
 			case '0'...'7':
-				acc = htoi(ch); len = 1;
+				acc = htoi(ch);
+				len = 1;
 				state = OctEscape;
 				break;
 			default:
@@ -110,7 +110,7 @@ static void process(FILE *fp) {
 					putchar_utf8(acc);
 				else {
 					putchar('\\');
-					putchar('x');
+					putchar(letter);
 				}
 				ungetc(ch, fp);
 				state = None;

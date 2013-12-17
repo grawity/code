@@ -30,14 +30,10 @@ int keep_backslash = 0;
 
 static int htoi(char ch) {
 	switch (ch) {
-	case '0'...'9':
-		return ch - '0';
-	case 'a'...'f':
-		return ch - 'a' + 10;
-	case 'A'...'F':
-		return ch - 'A' + 10;
-	default:
-		return -1;
+	case '0'...'9': return ch - '0';
+	case 'a'...'f': return ch - 'a' + 10;
+	case 'A'...'F': return ch - 'A' + 10;
+	default:        return -1;
 	}
 }
 
@@ -67,38 +63,33 @@ static void process(FILE *fp) {
 	while ((ch = getc(fp)) != EOF) {
 		switch (state) {
 		case None:
-			if (ch == '\\') {
+			if (ch == '\\')
 				state = Escape;
-			} else {
+			else
 				putchar(ch);
-			}
 			break;
 		case Escape:
 			switch (ch) {
 			case 'x':
-				acc = len = 0;
-				maxlen = 2;
+				acc = len = 0; maxlen = 2;
 				state = HexEscape;
 				break;
 			case 'u':
-				acc = len = 0;
-				maxlen = 4;
+				acc = len = 0; maxlen = 4;
 				state = HexEscape;
 				break;
 			case 'U':
-				acc = len = 0;
-				maxlen = 8;
+				acc = len = 0; maxlen = 8;
 				state = HexEscape;
 				break;
 			case '0'...'7':
-				acc = htoi(ch);
-				len = 1;
+				acc = htoi(ch); len = 1;
 				state = OctEscape;
 				break;
 			default:
-				if (escapes[ch]) {
+				if (escapes[ch])
 					putchar(escapes[ch]);
-				} else {
+				else {
 					if (keep_backslash)
 						putchar('\\');
 					putchar(ch);
@@ -115,9 +106,9 @@ static void process(FILE *fp) {
 					state = None;
 				}
 			} else {
-				if (len) {
+				if (len)
 					putchar_utf8(acc);
-				} else {
+				else {
 					putchar('\\');
 					putchar('x');
 				}
@@ -169,9 +160,9 @@ int main(int argc, char *argv[]) {
 	argc -= optind-1;
 	argv += optind-1;
 
-	if (argc <= 1) {
+	if (argc <= 1)
 		process(stdin);
-	} else {
+	else {
 		for (i = 1; i < argc; i++) {
 			if (!strcmp(argv[i], "-"))
 				fp = stdin;

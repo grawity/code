@@ -18,14 +18,14 @@ char escapes[256] = {
 	['v'] = '\v',
 };
 
-int htoi(char c) {
-	switch (c) {
+int htoi(char ch) {
+	switch (ch) {
 	case '0'...'9':
-		return c - '0';
+		return ch - '0';
 	case 'a'...'f':
-		return c - 'a' + 10;
+		return ch - 'a' + 10;
 	case 'A'...'F':
-		return c - 'A' + 10;
+		return ch - 'A' + 10;
 	default:
 		return -1;
 	}
@@ -50,19 +50,19 @@ void putchar_utf8(int ch) {
 }
 
 void process(FILE *f) {
-	int c, state = None, acc, len, maxlen, val;
+	int ch, state = None, acc, len, maxlen, val;
 
-	while ((c = getc(f)) != EOF) {
+	while ((ch = getc(f)) != EOF) {
 		switch (state) {
 		case None:
-			if (c == '\\') {
+			if (ch == '\\') {
 				state = Escape;
 			} else {
-				putchar(c);
+				putchar(ch);
 			}
 			break;
 		case Escape:
-			switch (c) {
+			switch (ch) {
 			case 'x':
 				acc = len = 0;
 				maxlen = 2;
@@ -79,21 +79,21 @@ void process(FILE *f) {
 				state = HexEscape;
 				break;
 			case '0'...'7':
-				acc = htoi(c);
+				acc = htoi(ch);
 				len = 1;
 				state = OctEscape;
 				break;
 			default:
-				if (escapes[c]) {
-					putchar(escapes[c]);
+				if (escapes[ch]) {
+					putchar(escapes[ch]);
 				} else {
-					putchar(c);
+					putchar(ch);
 				}
 				state = None;
 			}
 			break;
 		case HexEscape:
-			val = htoi(c);
+			val = htoi(ch);
 			if (val >= 0) {
 				acc = (acc << 4) | val;
 				if (++len == maxlen) {
@@ -107,12 +107,12 @@ void process(FILE *f) {
 					putchar('\\');
 					putchar('x');
 				}
-				ungetc(c, f);
+				ungetc(ch, f);
 				state = None;
 			}
 			break;
 		case OctEscape:
-			val = htoi(c);
+			val = htoi(ch);
 			if (val >= 0 && val < 8) {
 				acc = (acc << 3) | val;
 				if (++len == 3) {
@@ -121,7 +121,7 @@ void process(FILE *f) {
 				}
 			} else {
 				putchar(acc);
-				ungetc(c, f);
+				ungetc(ch, f);
 				state = None;
 			}
 			break;

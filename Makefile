@@ -111,7 +111,7 @@ $(OBJ)/%: $(dummy)
 
 # compile targets
 
-BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool zlib
+BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool unescape zlib
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv libfunlink.so linux26 setns subreaper tapchown
 MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf
@@ -173,6 +173,7 @@ $(OBJ)/strtool:		misc/strtool.c $(OBJ)/misc_util.o
 $(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/ttysize:		system/ttysize.c
+$(OBJ)/unescape:	misc/unescape.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xorf:		misc/xorf.c

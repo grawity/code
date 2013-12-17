@@ -8,10 +8,6 @@ enum {
 };
 
 char escapes[256] = {
-	['\''] = '\'',
-	['\\'] = '\\',
-	['"'] = '"',
-	['?'] = '?',
 	['0'] = '\0',
 	['a'] = '\a',
 	['b'] = '\b',
@@ -91,7 +87,6 @@ void process(FILE *f) {
 				if (escapes[c]) {
 					putchar(escapes[c]);
 				} else {
-					putchar('\\');
 					putchar(c);
 				}
 				state = None;

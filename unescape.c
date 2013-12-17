@@ -7,7 +7,7 @@ enum {
 	OctEscape
 };
 
-char escapes[256] = {
+const char escapes[256] = {
 	['0'] = '\0',
 	['a'] = '\a',
 	['b'] = '\b',

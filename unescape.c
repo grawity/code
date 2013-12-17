@@ -120,11 +120,7 @@ void process(FILE *f) {
 					state = None;
 				}
 			} else {
-				if (len) {
-					putchar(acc);
-				} else {
-					putchar('\\');
-				}
+				putchar(acc);
 				ungetc(c, f);
 				state = None;
 			}

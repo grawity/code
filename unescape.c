@@ -102,7 +102,7 @@ void process(FILE *f) {
 				}
 			} else {
 				if (len) {
-					putchar(acc);
+					putchar_utf8(acc);
 				} else {
 					putchar('\\');
 					putchar('x');

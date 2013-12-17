@@ -134,6 +134,15 @@ static void process(FILE *fp) {
 	}
 }
 
+int usage(void) {
+	printf("Usage: unescape [-b] [files...]\n");
+	printf("\n");
+	printf("  -b    keep backslashes in unknown escapes (like `echo`)\n");
+	printf("        (the default is to discard them, like C/C++)\n");
+	printf("\n");
+	return 2;
+}
+
 int main(int argc, char *argv[]) {
 	int i, r = 0, opt;
 	FILE *fp;
@@ -143,6 +152,8 @@ int main(int argc, char *argv[]) {
 		case 'b':
 			keep_backslash = 1;
 			break;
+		default:
+			return usage();
 		}
 	}
 

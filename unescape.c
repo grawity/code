@@ -44,15 +44,23 @@ int main(void) {
 			}
 			break;
 		case Escape:
-			if (c == 'x') {
+			switch (c) {
+			case 'x':
 				acc = len = 0;
 				state = HexEscape;
-			} else if (escapes[c]) {
-				putchar(escapes[c]);
-				state = None;
-			} else {
-				putchar('\\');
-				putchar(c);
+				break;
+			case '0'...'7':
+				acc = htoi(c);
+				len = 1;
+				state = OctEscape;
+				break;
+			default:
+				if (escapes[c]) {
+					putchar(escapes[c]);
+				} else {
+					putchar('\\');
+					putchar(c);
+				}
 				state = None;
 			}
 			break;
@@ -70,6 +78,24 @@ int main(void) {
 				} else {
 					putchar('\\');
 					putchar('x');
+				}
+				ungetchar(c);
+				state = None;
+			}
+			break;
+		case OctEscape:
+			val = htoi(c);
+			if (val >= 0 && val < 8) {
+				acc = (acc << 3) | val;
+				if (++len == 3) {
+					putchar(acc);
+					state = None;
+				}
+			} else {
+				if (len) {
+					putchar(acc);
+				} else {
+					putchar('\\');
 				}
 				ungetchar(c);
 				state = None;

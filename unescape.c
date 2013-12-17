@@ -57,7 +57,8 @@ static void putchar_utf8(int ch) {
 }
 
 static void process(FILE *fp) {
-	int ch, state = None, letter, acc, len, maxlen, val;
+	int ch, state = None, letter,
+	    acc = 0, len = 0, maxlen = 0, val;
 
 	while ((ch = getc(fp)) != EOF) {
 		switch (state) {

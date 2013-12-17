@@ -22,6 +22,9 @@ print_msg() {
 	if [[ -t 1 ]]; then
 		color=$3 reset=${color:+'\e[m'}
 	fi
+	if [[ $DEBUG ]]; then
+		local progname="$progname[$$]"
+	fi
 	if [[ $DEBUG || $progname_prefix -gt 0 ||
 	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
 		printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"

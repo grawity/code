@@ -49,10 +49,10 @@ static void putchar_utf8(int ch) {
 	}
 }
 
-static void process(FILE *f) {
+static void process(FILE *fp) {
 	int ch, state = None, acc, len, maxlen, val;
 
-	while ((ch = getc(f)) != EOF) {
+	while ((ch = getc(fp)) != EOF) {
 		switch (state) {
 		case None:
 			if (ch == '\\') {
@@ -107,7 +107,7 @@ static void process(FILE *f) {
 					putchar('\\');
 					putchar('x');
 				}
-				ungetc(ch, f);
+				ungetc(ch, fp);
 				state = None;
 			}
 			break;
@@ -121,7 +121,7 @@ static void process(FILE *f) {
 				}
 			} else {
 				putchar(acc);
-				ungetc(ch, f);
+				ungetc(ch, fp);
 				state = None;
 			}
 			break;
@@ -129,8 +129,28 @@ static void process(FILE *f) {
 	}
 }
 
-int main(void) {
-	process(stdin);
+int main(int argc, char *argv[]) {
+	int i, r = 0;
+	FILE *fp;
 
-	return 0;
+	if (argc <= 1) {
+		process(stdin);
+	} else {
+		for (i = 1; i < argc; i++) {
+			if (!strcmp(argv[i], "-"))
+				fp = stdin;
+			else
+				fp = fopen(argv[i], "rb");
+			if (!fp) {
+				fprintf(stderr, "error: failed to open %s: %m\n", argv[i]);
+				r = 1;
+				continue;
+			}
+			process(fp);
+			if (fp != stdin)
+				fclose(fp);
+		}
+	}
+
+	return r;
 }

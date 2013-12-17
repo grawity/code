@@ -18,7 +18,7 @@ char escapes[256] = {
 	['v'] = '\v',
 };
 
-int htoi(char ch) {
+static int htoi(char ch) {
 	switch (ch) {
 	case '0'...'9':
 		return ch - '0';
@@ -31,7 +31,7 @@ int htoi(char ch) {
 	}
 }
 
-void putchar_utf8(int ch) {
+static void putchar_utf8(int ch) {
 	if (ch < 0x80) {
 		putchar(ch);
 	} else if (ch < 0x800) {
@@ -49,7 +49,7 @@ void putchar_utf8(int ch) {
 	}
 }
 
-void process(FILE *f) {
+static void process(FILE *f) {
 	int ch, state = None, acc, len, maxlen, val;
 
 	while ((ch = getc(f)) != EOF) {

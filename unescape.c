@@ -144,7 +144,7 @@ static void process(FILE *fp) {
 	}
 }
 
-int usage(void) {
+static int usage(void) {
 	printf("Usage: unescape [-b] [files...]\n");
 	printf("\n");
 	printf("  -b    keep backslashes in unknown escapes (like `echo`)\n");

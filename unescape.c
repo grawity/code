@@ -56,6 +56,8 @@ static void putchar_utf8(int ch) {
 		putchar(((ch >> 12) & 0x3F) | 0x80);
 		putchar(((ch >> 6) & 0x3F) | 0x80);
 		putchar((ch & 0x3F) | 0x80);
+	} else {
+		printf("�");
 	}
 }
 

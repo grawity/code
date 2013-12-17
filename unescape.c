@@ -17,6 +17,10 @@ const char escapes[256] = {
 	['r'] = '\r',
 	['t'] = '\t',
 	['v'] = '\v',
+	/* needed for keep_backslash mode: */
+	['\''] = '\'',
+	['\"'] = '\"',
+	['\\'] = '\\',
 };
 
 int keep_backslash = 0;

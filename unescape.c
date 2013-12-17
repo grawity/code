@@ -27,14 +27,10 @@ int htoi(char c) {
 	}
 }
 
-int ungetchar(char x) {
-	return ungetc(x, stdin);
-}
-
-int main(void) {
+void process(FILE *f) {
 	int c, state = None, acc, len, val;
 
-	while ((c = getchar()) != EOF) {
+	while ((c = getc(f)) != EOF) {
 		switch (state) {
 		case None:
 			if (c == '\\') {
@@ -79,7 +75,7 @@ int main(void) {
 					putchar('\\');
 					putchar('x');
 				}
-				ungetchar(c);
+				ungetc(c, f);
 				state = None;
 			}
 			break;
@@ -97,12 +93,16 @@ int main(void) {
 				} else {
 					putchar('\\');
 				}
-				ungetchar(c);
+				ungetc(c, f);
 				state = None;
 			}
 			break;
 		}
 	}
+}
+
+int main(void) {
+	process(stdin);
 
 	return 0;
 }

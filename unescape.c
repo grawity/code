@@ -132,6 +132,16 @@ static void process(FILE *fp) {
 			break;
 		}
 	}
+
+	switch (state) {
+		case Escape:
+			putchar('\\');
+			break;
+		case HexEscape:
+		case OctEscape:
+			putchar_utf8(acc);
+			break;
+	}
 }
 
 int usage(void) {

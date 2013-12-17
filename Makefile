@@ -114,7 +114,7 @@ $(OBJ)/%: $(dummy)
 BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool zlib
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv libfunlink.so linux26 setns subreaper tapchown
-MISC_BINS  := bgrep logwipe ttysize writevt xor xors
+MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf
 
 .PHONY: all basic krb linux misc pklist
 
@@ -175,6 +175,7 @@ $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/ttysize:		system/ttysize.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c
+$(OBJ)/xorf:		misc/xorf.c
 $(OBJ)/xors:		misc/xors.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c

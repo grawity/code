@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 
 enum {
 	None,
@@ -17,6 +18,8 @@ const char escapes[256] = {
 	['t'] = '\t',
 	['v'] = '\v',
 };
+
+int keep_backslash = 0;
 
 static int htoi(char ch) {
 	switch (ch) {
@@ -87,6 +90,8 @@ static void process(FILE *fp) {
 				if (escapes[ch]) {
 					putchar(escapes[ch]);
 				} else {
+					if (keep_backslash)
+						putchar('\\');
 					putchar(ch);
 				}
 				state = None;
@@ -130,8 +135,19 @@ static void process(FILE *fp) {
 }
 
 int main(int argc, char *argv[]) {
-	int i, r = 0;
+	int i, r = 0, opt;
 	FILE *fp;
+
+	while ((opt = getopt(argc, argv, "b")) != -1) {
+		switch (opt) {
+		case 'b':
+			keep_backslash = 1;
+			break;
+		}
+	}
+
+	argc -= optind-1;
+	argv += optind-1;
 
 	if (argc <= 1) {
 		process(stdin);

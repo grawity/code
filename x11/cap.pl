@@ -15,9 +15,10 @@ use POSIX qw(strftime);
 
 sub get_userdir {
 	my $name = shift;
-	my @confdirs = ($ENV{XDG_CONFIG_HOME} // $ENV{HOME}."/.config"),
-			split(/:/, $ENV{XDG_CONFIG_DIRS} // ""));
-	my ($conffile) = grep {-e} map {$_."/user-dirs.dirs")} @confdirs;
+	my @confdirs =
+		$ENV{XDG_CONFIG_HOME} // $ENV{HOME}."/.config",
+		split(/:/, $ENV{XDG_CONFIG_DIRS} // "");
+	my ($conffile) = grep {-e} map {$_."/user-dirs.dirs"} @confdirs;
 	my $userdir;
 	if (open(my $fh, "<", $conffile)) {
 		my $envname = "XDG_".uc($name)."_DIR";
@@ -29,7 +30,8 @@ sub get_userdir {
 		}
 		close($fh);
 	}
-	return $userdir // $ENV{HOME}."/".ucfirst($name);
+	$userdir //= $ENV{HOME}."/".ucfirst($name);
+	return $userdir;
 }
 
 sub Shell {

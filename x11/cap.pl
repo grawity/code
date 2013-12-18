@@ -61,21 +61,11 @@ sub notify {
 		$opts{timeout} // 1*1000);
 }
 
-sub unique_name {
-	my $dir = shift;
-	my $date = strftime("%Y-%m-%d", localtime);
-	for (my $i = 0; $i <= 999; $i++) {
-		my $file = sprintf("Screenshots/%s.%03d.png", $date, $i);
-		return $file if !-e $file;
-	}
-	return undef;
-}
-
 my $frame = 1;
 my $flash = 1;
 my $cursor = 0;
 my $mode = 'fullscreen';
-my $dir = get_userdir("pictures");
+my $template = "Screenshots/%Y-%m-%d.%H%M%S.png";
 my $file = undef;
 
 GetOptions(
@@ -87,7 +77,7 @@ GetOptions(
 	'flash!'	=> \$flash,
 ) or exit 2;
 
-$file = unique_name($dir);
+$file = strftime($template, localtime);
 
 for (dirname $file) {
 	make_path unless -d;
@@ -114,7 +104,7 @@ for ($mode) {
 	}
 }
 
-$file = rel2abs($file, $dir);
+$file = rel2abs($file, get_userdir("pictures"));
 
 if (! -f $file) {
 	notify("Screenshot failed.",

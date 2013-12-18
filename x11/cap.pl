@@ -11,7 +11,7 @@ use File::Path qw(make_path);
 use File::Spec::Functions qw(rel2abs);
 use Getopt::Long qw(:config no_ignore_case);
 use Net::DBus;
-use POSIX qw(strftime);
+use POSIX qw(strftime :sys_wait_h);
 
 sub get_userdir {
 	my $name = shift;
@@ -119,3 +119,47 @@ if (! -f $file) {
 }
 
 say $file;
+
+my $upload_pid;
+my $upload_output;
+
+local $SIG{CHLD} = sub {
+	my $pid = waitpid(-1, WNOHANG);
+	if ($pid == $upload_pid) {
+		$upload_pid = 0;
+	}
+};
+
+$upload_pid = open(my $upload_proc, "-|") || do {
+	open(STDERR, ">&", \*STDOUT);
+	exec("imgur", $file);
+};
+
+while ($upload_pid) {
+	notify("Screenshot captured",
+		body => "Uploading...",
+		hints => {
+			category => "transfer",
+		});
+	sleep 1;
+}
+
+$upload_output = do { local $/; <$upload_proc> };
+
+print $upload_output;
+chomp $upload_output;
+
+if ($? == 0) {
+	notify("Screenshot uploaded",
+		body => $upload_output,
+		hints => {
+			category => "transfer.complete",
+		});
+} else {
+	notify("Screenshot upload failed",
+		body => $upload_output,
+		icon => "error",
+		hints => {
+			category => "transfer.error",
+		});
+}

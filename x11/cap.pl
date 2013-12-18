@@ -70,17 +70,14 @@ my $file = undef;
 
 GetOptions(
 	'a|area'	=> sub { $mode = 'area' },
-	'F|fullscreen'	=> sub { $mode = 'fullscreen' },
+	'f|fullscreen'	=> sub { $mode = 'fullscreen' },
 	'w|window'	=> sub { $mode = 'window' },
-	'f|file=s'	=> sub { (undef, $template) = @_ },
 	'frame!'	=> \$frame,
 	'cursor!'	=> \$cursor,
 	'flash!'	=> \$flash,
 ) or exit 2;
 
-$file = shift @ARGV;
-
-$file //= strftime($template, localtime);
+$file = strftime($template, localtime);
 
 for (dirname $file) {
 	make_path unless -d;

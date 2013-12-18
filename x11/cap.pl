@@ -4,7 +4,7 @@
 # Uses GNOME Shell's screenshot functionality, which means decorations
 # and window shadows get captured correctly (as transparent PNG).
 
-use feature qw(say switch);
+use feature qw(say state switch);
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use File::Basename qw(dirname);
 use File::Path qw(make_path);
@@ -38,6 +38,27 @@ sub Shell {
 	Net::DBus->session
 	->get_service("org.gnome.Shell")
 	->get_object(shift // "/org/gnome/Shell")
+}
+
+sub Notifications {
+	Net::DBus->session
+	->get_service("org.freedesktop.Notifications")
+	->get_object("/org/freedesktop/Notifications")
+}
+
+sub notify {
+	state $id = 0;
+	my ($summary, %opts) = @_;
+
+	$id = Notifications->Notify(
+		$opts{app} // "Screenshot",
+		$id,
+		$opts{icon} // "document-send",
+		$summary,
+		$opts{body},
+		$opts{actions} // [],
+		$opts{hints} // {},
+		$opts{timeout} // 1*1000);
 }
 
 my $frame = 1;
@@ -86,4 +107,15 @@ for ($mode) {
 	}
 }
 
-say rel2abs($file, get_userdir("pictures"));
+$file = rel2abs($file, get_userdir("pictures"));
+
+if (! -f $file) {
+	notify("Screenshot failed.",
+		icon => "error",
+		hints => {
+			category => "transfer",
+		});
+	exit 1;
+}
+
+say $file;

@@ -9,7 +9,7 @@ no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use File::Basename qw(dirname);
 use File::Path qw(make_path);
 use File::Spec::Functions qw(rel2abs);
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use Net::DBus;
 use POSIX qw(strftime);
 
@@ -53,9 +53,10 @@ GetOptions(
 	'frame!'	=> \$frame,
 	'cursor!'	=> \$cursor,
 	'flash!'	=> \$flash,
-);
+) or exit 2;
 
 $file = shift @ARGV;
+
 $file //= strftime($template, localtime);
 
 for (dirname $file) {

@@ -69,6 +69,8 @@ my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
 
 for ($mode) {
 	when ('area') {
+		Shell->ShowOSD({icon => "camera-photo-symbolic",
+				label => "Select area"});
 		my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
 		or die "Shell->SelectArea failed\n";
 		$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file)

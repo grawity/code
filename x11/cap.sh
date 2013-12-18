@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# cap - capture a screenshot to a PNG and upload to imgur.
+
+osd() {
+	(( !osd )) ||
+	gdbus call -e \
+		-d org.gnome.Shell \
+		-o /org/gnome/Shell \
+		-m org.gnome.Shell.ShowOSD \
+		"$1" > /dev/null
+}
+
+dir=~/Pictures/Screenshots
+date=$(date +"%Y-%m-%d")
+
+for (( count=0; count < 999; count++ )); do
+	printf -v name "%s.%03d.png" "$date" "$count"
+	[[ ! -e $dir/$name && ! -e $dir/.$name.tmp ]] && break
+done
+
+tmp="$dir/.tmp.$name"
+img="$dir/$name"
+mode=screen
+imgur=1
+osd=0
+
+while getopts fwaNO opt; do
+	case $opt in
+		f) mode=screen;;
+		w) mode=window;;
+		a) mode=area;;
+		N) imgur=0;;
+		O) osd=1;;
+	esac
+done
+
+if dbus-name -q org.gnome.Shell; then
+	case $mode in
+		area)	osd "{'icon': <'camera-photo-symbolic'>,
+			      'label': <'Select area'>}"
+			gnome-screenshot --file="$tmp" --area;;
+		window)	gnome-screenshot --file="$tmp" --window;;
+		screen)	gnome-screenshot --file="$tmp";;
+	esac
+else
+	case $mode in
+		area|window)	scrot -b -s "$tmp";;
+		screen)		scrot "$tmp";;
+	esac
+fi
+
+if [[ ! -f "$tmp" ]]; then
+	notify \
+		--app-name "Screenshot" \
+		--icon "error" \
+		--hint "category=transfer.error" \
+		--hint "transient" \
+		"Screenshot failed."
+	exit 1
+fi
+
+mv -f "$tmp" "$img"
+
+if (( imgur )); then
+	echo "Captured to $dir/$name – uploading"
+
+	id=$(notify \
+		--app-name "Screenshot" \
+		--icon "document-send" \
+		--hint "category=transfer" \
+		"Screenshot captured" \
+		"Uploading to imgur...")
+
+	(trap exit TERM
+	while sleep 1 && test -e /proc/$$; do
+		id=$(notify \
+			--app-name "Screenshot" \
+			--icon "document-send" \
+			--hint "category=transfer" \
+			--replace "$id" \
+			"Screenshot captured" \
+			"Uploading to imgur...")
+	done) &
+	trap "kill $! 2>/dev/null" EXIT
+
+	if output=$(imgur "$img" 2>&1) && [[ $output ]]; then
+		kill $! 2>/dev/null
+		notify \
+			--app-name "Screenshot" \
+			--icon "document-send" \
+			--hint "category=transfer.complete" \
+			--replace "$id" \
+			"Screenshot uploaded" \
+			"$output" >/dev/null
+	else
+		kill $! 2>/dev/null
+		output="It is still stored at: file://$(urlencode -rp "$img")"
+		notify \
+			--app-name "Screenshot" \
+			--icon "document-send" \
+			--hint "category=transfer.error" \
+			--replace "$id" \
+			"Screenshot upload failed" \
+			"$output" >/dev/null
+	fi
+
+	echo "$output"
+
+	wait
+else
+	echo "Captured to $dir/$name"
+fi

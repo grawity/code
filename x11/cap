@@ -1,112 +1,162 @@
-#!/usr/bin/env bash
-# cap - capture a screenshot to a PNG and upload to imgur.
+#!/usr/bin/env perl
+# Capture a window or entire screen to a PNG file, output filename.
+#
+# Uses GNOME Shell's screenshot functionality, which means decorations
+# and window shadows get captured correctly (as transparent PNG).
 
-osd() {
-	(( !osd )) ||
-	gdbus call -e \
-		-d org.gnome.Shell \
-		-o /org/gnome/Shell \
-		-m org.gnome.Shell.ShowOSD \
-		"$1" > /dev/null
+use feature qw(say state switch);
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use File::Basename qw(dirname);
+use File::Path qw(make_path);
+use File::Spec::Functions qw(rel2abs);
+use Getopt::Long qw(:config no_ignore_case);
+use Net::DBus;
+use POSIX qw(strftime :sys_wait_h);
+
+sub get_userdir {
+	my $name = shift;
+	my @confdirs =
+		$ENV{XDG_CONFIG_HOME} // $ENV{HOME}."/.config",
+		split(/:/, $ENV{XDG_CONFIG_DIRS} // "");
+	my ($conffile) = grep {-e} map {$_."/user-dirs.dirs"} @confdirs;
+	my $userdir;
+	if (open(my $fh, "<", $conffile)) {
+		my $envname = "XDG_".uc($name)."_DIR";
+		while (<$fh>) {
+			next if /^#/ || /^$/;
+			next unless /^\Q$envname\E="?(.+?)"?$/;
+			$userdir = $1;
+			$userdir =~ s|^\$HOME/|$ENV{HOME}/|;
+		}
+		close($fh);
+	}
+	$userdir //= $ENV{HOME}."/".ucfirst($name);
+	return $userdir;
 }
 
-dir=~/Pictures/Screenshots
-date=$(date +"%Y-%m-%d")
+sub Shell {
+	Net::DBus->session
+	->get_service("org.gnome.Shell")
+	->get_object(shift // "/org/gnome/Shell")
+}
 
-for (( count=0; count < 999; count++ )); do
-	printf -v name "%s.%03d.png" "$date" "$count"
-	[[ ! -e $dir/$name && ! -e $dir/.$name.tmp ]] && break
-done
+sub Notifications {
+	Net::DBus->session
+	->get_service("org.freedesktop.Notifications")
+	->get_object("/org/freedesktop/Notifications")
+}
 
-tmp="$dir/.tmp.$name"
-img="$dir/$name"
-mode=screen
-imgur=1
-osd=0
+sub notify {
+	state $id = 0;
+	my ($summary, %opts) = @_;
 
-while getopts fwaNO opt; do
-	case $opt in
-		f) mode=screen;;
-		w) mode=window;;
-		a) mode=area;;
-		N) imgur=0;;
-		O) osd=1;;
-	esac
-done
+	$id = Notifications->Notify(
+		$opts{app} // "Screenshot",
+		$id,
+		$opts{icon} // "document-send",
+		$summary,
+		$opts{body},
+		$opts{actions} // [],
+		$opts{hints} // {},
+		$opts{timeout} // 1*1000);
+}
 
-if dbus-name -q org.gnome.Shell; then
-	case $mode in
-		area)	osd "{'icon': <'camera-photo-symbolic'>,
-			      'label': <'Select area'>}"
-			gnome-screenshot --file="$tmp" --area;;
-		window)	gnome-screenshot --file="$tmp" --window;;
-		screen)	gnome-screenshot --file="$tmp";;
-	esac
-else
-	case $mode in
-		area|window)	scrot -b -s "$tmp";;
-		screen)		scrot "$tmp";;
-	esac
-fi
+my $frame = 1;
+my $flash = 1;
+my $cursor = 0;
+my $mode = 'fullscreen';
+my $template = "Screenshots/%Y-%m-%d.%H%M%S.png";
+my $file = undef;
 
-if [[ ! -f "$tmp" ]]; then
-	notify \
-		--app-name "Screenshot" \
-		--icon "error" \
-		--hint "category=transfer.error" \
-		--hint "transient" \
-		"Screenshot failed."
-	exit 1
-fi
+GetOptions(
+	'a|area'	=> sub { $mode = 'area' },
+	'f|fullscreen'	=> sub { $mode = 'fullscreen' },
+	'w|window'	=> sub { $mode = 'window' },
+	'frame!'	=> \$frame,
+	'cursor!'	=> \$cursor,
+	'flash!'	=> \$flash,
+) or exit 2;
 
-mv -f "$tmp" "$img"
+$file = strftime($template, localtime);
 
-if (( imgur )); then
-	echo "Captured to $dir/$name – uploading"
+for (dirname $file) {
+	make_path unless -d;
+}
 
-	id=$(notify \
-		--app-name "Screenshot" \
-		--icon "document-send" \
-		--hint "category=transfer" \
-		"Screenshot captured" \
-		"Uploading to imgur...")
+my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
 
-	(trap exit TERM
-	while sleep 1 && test -e /proc/$$; do
-		id=$(notify \
-			--app-name "Screenshot" \
-			--icon "document-send" \
-			--hint "category=transfer" \
-			--replace "$id" \
-			"Screenshot captured" \
-			"Uploading to imgur...")
-	done) &
-	trap "kill $! 2>/dev/null" EXIT
+for ($mode) {
+	when ('area') {
+		Shell->ShowOSD({icon => "camera-photo-symbolic",
+				label => "Select area"});
+		my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
+		or die "Shell->SelectArea failed\n";
+		$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file)
+		or die "Shell->ScreenshotArea failed\n";
+	}
+	when ('fullscreen') {
+		$ShellScreenshot->Screenshot($cursor, $flash, $file)
+		or die "Shell->Screenshot failed\n";
+	}
+	when ('window') {
+		$ShellScreenshot->ScreenshotWindow($frame, $cursor, $flash, $file)
+		or die "Shell->ScreenshotWindow failed\n";
+	}
+}
 
-	if output=$(imgur "$img" 2>&1) && [[ $output ]]; then
-		kill $! 2>/dev/null
-		notify \
-			--app-name "Screenshot" \
-			--icon "document-send" \
-			--hint "category=transfer.complete" \
-			--replace "$id" \
-			"Screenshot uploaded" \
-			"$output" >/dev/null
-	else
-		kill $! 2>/dev/null
-		output="It is still stored at: file://$(urlencode -rp "$img")"
-		notify \
-			--app-name "Screenshot" \
-			--icon "document-send" \
-			--hint "category=transfer.error" \
-			--replace "$id" \
-			"Screenshot upload failed" \
-			"$output" >/dev/null
-	fi
+$file = rel2abs($file, get_userdir("pictures"));
 
-	echo "$output"
+if (! -f $file) {
+	notify("Screenshot failed.",
+		icon => "error",
+		hints => {
+			category => "transfer",
+		});
+	exit 1;
+}
 
-	wait
-else
-	echo "Captured to $dir/$name"
-fi
+say $file;
+
+my $upload_pid;
+my $upload_output;
+
+local $SIG{CHLD} = sub {
+	my $pid = waitpid(-1, WNOHANG);
+	if ($pid == $upload_pid) {
+		$upload_pid = 0;
+	}
+};
+
+$upload_pid = open(my $upload_proc, "-|") || do {
+	open(STDERR, ">&", \*STDOUT);
+	exec("imgur", $file);
+};
+
+while ($upload_pid) {
+	notify("Screenshot captured",
+		body => "Uploading...",
+		hints => {
+			category => "transfer",
+		});
+	sleep 1;
+}
+
+$upload_output = do { local $/; <$upload_proc> };
+
+print $upload_output;
+chomp $upload_output;
+
+if ($? == 0) {
+	notify("Screenshot uploaded",
+		body => $upload_output,
+		hints => {
+			category => "transfer.complete",
+		});
+} else {
+	notify("Screenshot upload failed",
+		body => $upload_output,
+		icon => "error",
+		hints => {
+			category => "transfer.error",
+		});
+}

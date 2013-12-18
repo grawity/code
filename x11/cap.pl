@@ -65,21 +65,21 @@ for (dirname $file) {
 	make_path unless -d;
 }
 
-my $obj = Shell("/org/gnome/Shell/Screenshot");
+my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
 
 for ($mode) {
 	when ('area') {
-		my ($x, $y, $w, $h) = eval {$obj->SelectArea()}
+		my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
 		or die "Shell->SelectArea failed\n";
-		$obj->ScreenshotArea($x, $y, $w, $h, $flash, $file)
+		$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file)
 		or die "Shell->ScreenshotArea failed\n";
 	}
 	when ('fullscreen') {
-		$obj->Screenshot($cursor, $flash, $file)
+		$ShellScreenshot->Screenshot($cursor, $flash, $file)
 		or die "Shell->Screenshot failed\n";
 	}
 	when ('window') {
-		$obj->ScreenshotWindow($frame, $cursor, $flash, $file)
+		$ShellScreenshot->ScreenshotWindow($frame, $cursor, $flash, $file)
 		or die "Shell->ScreenshotWindow failed\n";
 	}
 }

@@ -97,6 +97,54 @@ inline void bzero(void *s, size_t n) {
 	memset(s, 0, n);
 }
 
+const char *types[] = {
+	[RUN_LVL]	= "RUN_LVL",
+	[BOOT_TIME]	= "BOOT_TIME",
+	[NEW_TIME]	= "NEW_TIME",
+	[OLD_TIME]	= "OLD_TIME",
+	[INIT_PROCESS]	= "INIT_PROCESS",
+	[LOGIN_PROCESS]	= "LOGIN_PROCESS",
+	[USER_PROCESS]	= "USER_PROCESS",
+	[DEAD_PROCESS]	= "DEAD_PROCESS",
+	[ACCOUNTING]	= "ACCOUNTING",
+};
+
+void dump_utmp()
+{
+#ifdef HAVE_UTMP
+	int fd;
+	struct utmp ut;
+
+	if ((fd = open(UTMP_FILE, O_RDONLY)) < 0) {
+		fprintf(stderr, "fatal: could not open %s: %m\n", UTMP_FILE);
+		return;
+	}
+
+#define str(var) (int) sizeof(var), var
+
+	while (read(fd, &ut, sizeof(ut)) > 0) {
+		printf("* type: %s\n"
+		       "   pid: %u, sid: %u\n"
+		       "  line: \"%.*s\"\n"
+		       "    id: \"%.*s\"\n"
+		       "  user: \"%.*s\"\n"
+		       "  host: \"%.*s\"\n"
+		       "\n",
+			types[ut.ut_type],
+			ut.ut_pid, ut.ut_session,
+			str(ut.ut_line),
+			str(ut.ut_id),
+			str(ut.ut_user),
+			str(ut.ut_host)
+			);
+	}
+
+#undef str
+
+	close(fd);
+#endif
+}
+
 void wipe_utmp(char *name, char *line)
 {
 #ifdef HAVE_UTMP
@@ -353,7 +401,7 @@ main(int argc, char *argv[])
 
 	arg0 = basename(argv[0]);
 
-	if (argc < 3)
+	if (argc < 2)
 		usage();
 
 	c = tolower(argv[1][0]);
@@ -361,6 +409,8 @@ main(int argc, char *argv[])
 	switch (c) {
 	case 'u': /* utmp */
 #ifdef HAVE_UTMP
+		if (argc == 2)
+			dump_utmp();
 		if (argc == 3)
 			wipe_utmp(argv[2], (char *) NULL);
 		if (argc == 4)

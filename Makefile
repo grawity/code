@@ -167,6 +167,7 @@ $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/setns:		system/setns.c
+$(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
 $(OBJ)/strtool:		misc/strtool.c $(OBJ)/misc_util.o

@@ -3,11 +3,12 @@
 #include <stdlib.h>
 
 void prsigs(char *k, char *v) {
-	unsigned long long i, sp;
+	unsigned i;
+	unsigned long long sp;
 
 	sp = strtoul(v, NULL, 16);
 
-	printf("%s: %016x\n\n", k, sp);
+	printf("%s: %016llx\n\n", k, sp);
 
 	if (!sp)
 		printf("  (no signal bits set)\n");

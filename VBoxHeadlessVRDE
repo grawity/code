@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+vm=$1
+port=0
+
+_minport=43000
+while read -r _vm _port _; do
+	if [[ "$_vm" == "$vm" ]]; then
+		port=$_port
+	elif (( _port > _minport )); then
+		_minport=$_port
+	fi
+done < ~/lib/vm/rdp-ports
+
+if (( ! port )); then
+	port=$(( _minport+1 ))
+	echo "$vm $port" >> ~/lib/vm/rdp-ports
+fi
+
+echo "Starting VM \"$vm\" on port $port"
+
+exec VBoxHeadless -s "$vm" -v on -e TCP/Ports="$port"

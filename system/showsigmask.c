@@ -4,18 +4,18 @@
 
 void prsigs(char *k, char *v) {
 	unsigned i;
-	unsigned long long sp, bit;
+	unsigned long long arg, bit;
 
-	sp = strtoul(v, NULL, 16);
+	arg = strtoul(v, NULL, 16);
 
-	printf("%s: %016llx\n\n", k, sp);
+	printf("%s: %016llx\n\n", k, arg);
 
-	if (!sp)
+	if (!arg)
 		printf("  (no signal bits set)\n");
 
 	for (i=0; i<64; i++) {
 		bit = 1ULL << i;
-		if (sp & bit)
+		if (arg & bit)
 			printf("  %3u [%16llx]: %s\n", i+1, bit, strsignal(i+1));
 	}
 

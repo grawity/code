@@ -13,6 +13,22 @@ if ! (( $# )); then
 	exit
 fi
 
+do_reset=0
+do_repack=0
+
+for thatgit; do
+	if [[ $thatgit == - ]]; then
+		do_reset=1
+	else
+		do_repack=1
+	fi
+done
+
+if (( do_reset )); then
+	echo "~ repack (local)"
+	git repack -d -a
+fi
+
 for thatgit; do
 	if [[ $thatgit == - ]]; then
 		echo "- reset"
@@ -33,5 +49,7 @@ for thatgit; do
 	fi
 done
 
-echo "~ repack"
-git repack -d -a -l
+if (( do_repack )); then
+	echo "~ repack"
+	git repack -d -a -l
+fi

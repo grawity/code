@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 void prsigs(char *k, char *v) {
-	unsigned i;
+	unsigned i, sig;
 	unsigned long long arg, bit;
 
 	arg = strtoul(v, NULL, 16);
@@ -14,9 +14,11 @@ void prsigs(char *k, char *v) {
 		printf("  (no signal bits set)\n");
 
 	for (i=0; i<64; i++) {
+		sig = i + 1;
 		bit = 1ULL << i;
+
 		if (arg & bit)
-			printf("  %3u [%16llx]: %s\n", i+1, bit, strsignal(i+1));
+			printf("  %3u [%16llx]: %s\n", sig, bit, strsignal(sig));
 	}
 
 	printf("\n");

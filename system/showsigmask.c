@@ -5,6 +5,24 @@
 
 extern const char *const sys_sigabbrev[NSIG];
 
+const char * strsigabbrev(int sig) {
+	static char rt_sigabbrev[NSIG][12];
+
+	if (sys_sigabbrev[sig])
+		return sys_sigabbrev[sig];
+	else if (sig == SIGRTMIN)
+		return "RTMIN";
+	else if (sig == SIGRTMAX)
+		return "RTMAX";
+	else if (sig > SIGRTMIN && sig < SIGRTMAX) {
+		if (!*rt_sigabbrev[sig])
+			snprintf(rt_sigabbrev[sig], 12, "RTMIN+%d", sig - SIGRTMIN);
+		return rt_sigabbrev[sig];
+	}
+	else
+		return "-";
+}
+
 void prsigs(char *k, char *v) {
 	unsigned i, sig;
 	unsigned long long arg, bit;
@@ -22,7 +40,7 @@ void prsigs(char *k, char *v) {
 
 		if (arg & bit)
 			printf("  [%16llx]  %3u | %-8s | %s\n",
-				bit, sig, sys_sigabbrev[sig], strsignal(sig));
+				bit, sig, strsigabbrev(sig), strsignal(sig));
 	}
 
 	printf("\n");

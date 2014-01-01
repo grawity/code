@@ -26,7 +26,9 @@ int main(int argc, char *argv[]) {
 	char *k, *v;
 
 	if (argc > 1) {
-		prsigs("arg", argv[1]);
+		int i = 0;
+		while (argv[++i])
+			prsigs("arg", argv[i]);
 		return 0;
 	}
 

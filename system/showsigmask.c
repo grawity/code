@@ -1,6 +1,9 @@
+#include <signal.h> /* NSIG */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+extern const char *const sys_sigabbrev[NSIG];
 
 void prsigs(char *k, char *v) {
 	unsigned i, sig;
@@ -18,7 +21,8 @@ void prsigs(char *k, char *v) {
 		bit = 1ULL << i;
 
 		if (arg & bit)
-			printf("  %3u [%16llx]: %s\n", sig, bit, strsignal(sig));
+			printf("  [%16llx]  %3u | %-8s | %s\n",
+				bit, sig, sys_sigabbrev[sig], strsignal(sig));
 	}
 
 	printf("\n");

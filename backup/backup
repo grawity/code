@@ -129,6 +129,8 @@ umask 077
 
 b="/mnt/backup"
 
+while [[ $1 ]]; do {
+
 job=${1%/}; shift
 
 case $job in
@@ -146,7 +148,7 @@ case $job in
 	push-hd)
 		mounted: $b
 
-		if [[ $1 ]]; then
+		if [[ $1 && $1 != / ]]; then
 			sub=$(readlink -f "$1")
 			if [[ "$sub" != "$HOME"/* ]]; then
 				die "path \"$sub\" is outside \$HOME"
@@ -281,3 +283,5 @@ esac
 t_end=$(now)
 log "job '$job' finished in $(interval $[t_end-t_begin])"
 resetlog "done"
+
+}; done

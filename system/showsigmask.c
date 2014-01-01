@@ -18,8 +18,7 @@ const char * strsigabbrev(int sig) {
 		if (!*rt_sigabbrev[sig])
 			snprintf(rt_sigabbrev[sig], 12, "RTMIN+%d", sig - SIGRTMIN);
 		return rt_sigabbrev[sig];
-	}
-	else
+	} else
 		return "-";
 }
 
@@ -60,9 +59,12 @@ int main(int argc, char *argv[]) {
 	fp = fopen("/proc/self/status", "r");
 
 	while (fscanf(fp, "%m[^:]: %m[^\n]\n", &k, &v) > 0) {
-		if (!strcmp(k, "SigBlk")) prsigs("blocked", v);
-		else if (!strcmp(k, "SigIgn")) prsigs("ignored", v);
-		else if (!strcmp(k, "SigCgt")) prsigs("caught", v);
+		if (!strcmp(k, "SigBlk"))
+			prsigs("blocked", v);
+		else if (!strcmp(k, "SigIgn"))
+			prsigs("ignored", v);
+		else if (!strcmp(k, "SigCgt"))
+			prsigs("caught", v);
 
 		free(k);
 		free(v);

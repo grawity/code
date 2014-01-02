@@ -113,9 +113,9 @@ $(OBJ)/%: $(dummy)
 
 BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool unescape
 KRB_BINS   := k5userok pklist
-LINUX_BINS := globalenv libfunlink.so tapchown
+LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
 MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf zlib
-JUNK_BINS  := linux26 setns subreaper
+JUNK_BINS  := ac-wait linux26 setns subreaper
 
 .PHONY: all basic krb linux misc pklist
 

@@ -113,8 +113,9 @@ $(OBJ)/%: $(dummy)
 
 BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool unescape
 KRB_BINS   := k5userok pklist
-LINUX_BINS := globalenv libfunlink.so linux26 setns subreaper tapchown
+LINUX_BINS := globalenv libfunlink.so tapchown
 MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf zlib
+JUNK_BINS  := linux26 setns subreaper
 
 .PHONY: all basic krb linux misc pklist
 
@@ -122,6 +123,7 @@ basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 krb:   $(addprefix $(OBJ)/,$(KRB_BINS))
 linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
 misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
+junk:  $(addprefix $(OBJ)/,$(JUNK_BINS))
 
 all: basic krb misc
 ifeq ($(UNAME),Linux)

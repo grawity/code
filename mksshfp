@@ -11,6 +11,8 @@ keytypes = {
     "ssh-rsa":              1,
     "ssh-dss":              2,
     "ecdsa-sha2-nistp256":  3,
+    "ecdsa-sha2-nistp384":  3,
+    "ecdsa-sha2-nistp521":  3,
 }
 
 hashtypes = [
@@ -23,7 +25,12 @@ def parse(path):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        key = authorized_keys.PublicKey(line)
+        try:
+            key = authorized_keys.PublicKey(line)
+        except ValueError:
+            print("Warning: Parse error at: %r" % line,
+                  file=sys.stderr)
+            continue
         if key.algo not in keytypes:
             print("Warning: No SSHFP type for '%s' keys." % key.algo,
                   file=sys.stderr)

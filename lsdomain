@@ -115,7 +115,12 @@ for my $host (@ARGV) {
 		my $dmarcans = $res->query("_dmarc.$host", "TXT");
 		done;
 		if ($dmarcans) {
-			my $policy = ($dmarcans->answer)[0]->txtdata;
+			my $policy;
+			for my $ans ($dmarcans->answer) {
+				if ($ans->type eq "TXT") {
+					$policy = $ans->txtdata;
+				}
+			}
 			my %policy = map {split /=/, $_, 2} split /;\s*/, $policy;
 			my @mode;
 			push @mode, {

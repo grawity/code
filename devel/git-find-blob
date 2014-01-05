@@ -5,14 +5,14 @@ import subprocess
 
 batch_proc = None
 
-def get_tree_items(sha) -> "sha[]":
+def get_tree_items(sha):
     proc = subprocess.Popen(["git", "ls-tree", sha],
                             stdout=subprocess.PIPE)
     for line in proc.stdout:
         _, item_type, item_sha, item_name = line.rstrip(b"\n").split(None, 3)
         yield (item_type, item_sha, item_name)
 
-def get_commit_tree(sha) -> "tree sha":
+def get_commit_tree(sha):
     global batch_proc
     if not batch_proc:
         batch_proc = subprocess.Popen(["git", "cat-file", "--batch-check"],
@@ -26,7 +26,7 @@ def get_commit_tree(sha) -> "tree sha":
     else:
         return obj_sha
 
-def iter_commits() -> "commit sha[]":
+def iter_commits():
     proc = subprocess.Popen(["git", "rev-list", "HEAD"],
                             stdout=subprocess.PIPE)
     for line in proc.stdout:
@@ -48,7 +48,7 @@ def recurse_tree_for_blob(tree_sha, blob_sha):
         seen_trees[tree_sha] = result
     return seen_trees[tree_sha]
 
-def hash_file(path) -> "blob sha":
+def hash_file(path):
     proc = subprocess.Popen(["git", "hash-object", path],
                             stdout=subprocess.PIPE)
     line = proc.stdout.readline()
@@ -57,7 +57,7 @@ def hash_file(path) -> "blob sha":
     else:
         raise IOError("could not hash blob")
 
-def sha_fmt(sha) -> "str":
+def sha_fmt(sha):
     return sha.decode("us-ascii")
 
 def status(msg=""):

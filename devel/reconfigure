@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+{
+	if [[ configure.ac -nt configure ]]; then
+		echo 'NOCONFIGURE=1 ./autogen.sh'
+	fi
+
+	if [[ -e config.log ]]; then
+		sed -n '/^  \$ /{s///;p;q}' config.log
+	else
+		echo './configure --prefix="$PREFIX"'
+	fi
+} | sh -x

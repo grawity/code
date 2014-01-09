@@ -24,8 +24,9 @@ sub usage {
 	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] {--wait|--wait-any} NAME...",
 	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] --watch",
 	"",
-	"  -y, --system           Use system bus",
-	"  -e, --session          Use session bus",
+	"  -y, --system           Connect to the system bus",
+	"  -e, --session          Connect to the session bus",
+	"      --user             Connect to the user bus",
 	"  -a, --address=ADDR     Connect to given D-Bus address",
 	"",
 	"  -A, --activate         Try to launch services using D-Bus activation",
@@ -47,6 +48,7 @@ GetOptions(
 	"h|help"	=> sub { usage(); exit; },
 	"y|system"	=> sub { $busaddr = "system"; },
 	"e|session"	=> sub { $busaddr = "session"; },
+	"user"		=> sub { $busaddr = "user"; },
 	"a|address=s"	=> \$busaddr,
 	"q|quiet"	=> \$quiet,
 	"A|activate"	=> \$activate,
@@ -74,6 +76,14 @@ for ($busaddr) {
 	}
 	when ("session") {
 		$bus = Net::DBus->session;
+	}
+	when ("user") {
+		my $rundir = $ENV{XDG_RUNTIME_DIR} // "/run/user/$<";
+		$busaddr = join(";",
+			"kernel:path=/dev/kdbus/$<-user/bus",
+			"unix:path=$rundir/bus",
+		);
+		$bus = Net::DBus->new(address => $busaddr);
 	}
 	default {
 		$bus = Net::DBus->new(address => $busaddr);

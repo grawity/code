@@ -14,6 +14,8 @@ modes = {
     "tcrgb": "True-color RGB mode",
 }
 
+mode_list = ["rgb", "gray", "sys", "iso", "tcrgb"]
+
 properties = {
     "mode": (None, lambda: "rgb"),
     "flags": (None, set),
@@ -87,15 +89,25 @@ class State(dict):
 
     def incr(self, *props):
         for prop in props:
-            minval, maxval = properties[prop]
-            if self[prop] < maxval:
-                self[prop] += 1
+            if prop == "mode":
+                cur = mode_list.index(self[prop])
+                next = (cur + 1) % len(mode_list)
+                self[prop] = mode_list[next]
+            else:
+                minval, maxval = properties[prop]
+                if self[prop] < maxval:
+                    self[prop] += 1
 
     def decr(self, *props):
         for prop in props:
-            minval, maxval = properties[prop]
-            if self[prop] > minval:
-                self[prop] -= 1
+            if prop == "mode":
+                cur = mode_list.index(self[prop])
+                next = (cur - 1) % len(mode_list)
+                self[prop] = mode_list[next]
+            else:
+                minval, maxval = properties[prop]
+                if self[prop] > minval:
+                    self[prop] -= 1
 
     def incr_carry(self, *props):
         for prop in props:
@@ -409,9 +421,10 @@ while True:
     elif k == "S":      state.toggle(Sgr.STRIKE)
     elif k == "F":      state.toggle_fav()
     elif k == "f":      wait_fav = True
+    elif k == "g":      state.incr("mode")
+    elif k == "G":      state.decr("mode")
     elif state["mode"] == "rgb":
-        if k == "g":    state["mode"] = "sys"
-        elif k == "G":  state["mode"] = "gray"
+        if None: pass
         elif k in "7q": state.decr("red")
         elif k in "8w": state.reset("red")
         elif k in "9e": state.incr("red")
@@ -427,26 +440,22 @@ while True:
         elif k in "/":  state.decr_carry("blue", "green", "red")
         elif k in "*":  state.incr_carry("blue", "green", "red")
     elif state["mode"] == "sys":
-        if k == "g":            state["mode"] = "iso"
-        elif k == "G":          state["mode"] = "rgb"
+        if None: pass
         elif k in "741qaz-":    state.decr("color")
         elif k in "852wsx0":    state.reset("color", "flags")
         elif k in "963edc+":    state.incr("color")
     elif state["mode"] == "iso":
-        if k == "g":            state["mode"] = "gray"
-        elif k == "G":          state["mode"] = "sys"
+        if None: pass
         elif k in "741qaz-":    state.decr("color")
         elif k in "852wsx0":    state.reset("color")
         elif k in "963edc+":    state.incr("color")
     elif state["mode"] == "gray":
-        if k == "g":            state["mode"] = "tcrgb"
-        elif k == "G":          state["mode"] = "iso"
+        if None: pass
         elif k in "741qaz-":    state.decr("gray")
         elif k in "852wsx0":    state.reset("gray", "flags")
         elif k in "963edc+":    state.incr("gray")
     elif state["mode"] == "tcrgb":
-        if k == "g":    state["mode"] = "rgb"
-        elif k == "G":  state["mode"] = "gray"
+        if None: pass
         elif k in "7q": state.decr("tcred")
         elif k in "8w": state.reset("tcred")
         elif k in "9e": state.incr("tcred")

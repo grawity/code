@@ -26,6 +26,15 @@ properties = {
 state_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
 state_path = os.path.join(state_dir, "xterm-color-chooser.json")
 
+def screen_init(mode):
+    if mode:
+        sys.stdout.write("\033[?47h") # enable alternate buffer
+        sys.stdout.write("\033[?25l") # hide cursor
+    else:
+        sys.stdout.write("\033[?25h") # show cursor
+        sys.stdout.write("\033[?47l") # disable alternate buffer
+    sys.stdout.flush()
+
 class State(dict):
     def copy(self):
         return State(self)
@@ -239,9 +248,7 @@ state = State()
 state.init()
 state.load_persistent()
 
-sys.stdout.write("\033[?47h") # enable alternate buffer
-sys.stdout.write("\033[?25l") # hide cursor
-sys.stdout.flush()
+screen_init(True)
 icanon(True)
 
 char = "x"
@@ -400,7 +407,5 @@ while True:
         elif k in "963edc+":    state.incr("gray")
 
 icanon(False)
-sys.stdout.write("\033[?25h") # show cursor
-sys.stdout.write("\033[?47l") # disable alternate buffer
-sys.stdout.flush()
+screen_init(False)
 state.save_persistent()

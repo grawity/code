@@ -25,6 +25,7 @@ properties = {
     "tcred": (0, 255),
     "tcgreen": (0, 255),
     "tcblue": (0, 255),
+    "barfill": (list, "#█"),
 }
 
 state_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
@@ -50,7 +51,7 @@ class State(dict):
         self["favstates"] = {}
         self.reset("red", "green", "blue",
                    "tcred", "tcgreen", "tcblue",
-                   "color", "gray")
+                   "color", "gray", "barfill")
 
     def load(self, data, recurse=True):
         self.init()
@@ -270,7 +271,7 @@ def bar(name, state, prop, scale=2, keys=""):
     out = "%10s: [" % name
     for val in range(minval, maxval+1, step):
         newstate[prop] = val
-        out += newstate.fmt(flags=False) + "#"*scale
+        out += newstate.fmt(flags=False) + state["barfill"]*scale
     out += "\033[m] %-3d" % state[prop]
     if keys:
         out += " (keys: %s)" % keys
@@ -411,6 +412,7 @@ while True:
         n = input()
         icanon(True)
         state.setcolor(int(n))
+    elif k == "#":      state.incr("barfill")
     elif k == "b":      state.toggle(Sgr.BOLD)
     elif k == "i":      state.toggle(Sgr.ITALIC)
     elif k == "k":      state.toggle(Sgr.DARK)

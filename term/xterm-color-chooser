@@ -14,10 +14,8 @@ modes = {
     "tcrgb": "True-color RGB mode",
 }
 
-mode_list = ["rgb", "gray", "sys", "iso", "tcrgb"]
-
 properties = {
-    "mode": (None, lambda: "rgb"),
+    "mode": (list, ["rgb", "gray", "sys", "iso", "tcrgb"]),
     "flags": (None, set),
     "red": (0, 5),
     "green": (0, 5),
@@ -89,23 +87,23 @@ class State(dict):
 
     def incr(self, *props):
         for prop in props:
-            if prop == "mode":
-                cur = mode_list.index(self[prop])
-                next = (cur + 1) % len(mode_list)
-                self[prop] = mode_list[next]
+            minval, maxval = properties[prop]
+            if minval is list:
+                cur = maxval.index(self[prop])
+                next = (cur + 1) % len(maxval)
+                self[prop] = maxval[next]
             else:
-                minval, maxval = properties[prop]
                 if self[prop] < maxval:
                     self[prop] += 1
 
     def decr(self, *props):
         for prop in props:
-            if prop == "mode":
-                cur = mode_list.index(self[prop])
-                next = (cur - 1) % len(mode_list)
-                self[prop] = mode_list[next]
+            minval, maxval = properties[prop]
+            if minval is list:
+                cur = maxval.index(self[prop])
+                next = (cur - 1) % len(maxval)
+                self[prop] = maxval[next]
             else:
-                minval, maxval = properties[prop]
                 if self[prop] > minval:
                     self[prop] -= 1
 
@@ -132,6 +130,8 @@ class State(dict):
             minval, maxval = properties[prop]
             if minval is None:
                 self[prop] = maxval()
+            elif minval is list:
+                self[prop] = maxval[0]
             else:
                 self[prop] = int((minval+maxval)/2.0)
 

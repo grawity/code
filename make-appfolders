@@ -1,0 +1,54 @@
+#!/usr/bin/env perl
+# make-appfolders -- generate GNOME Shell app-folder configuration
+my %apps;
+my %names;
+my $this;
+
+sub app2desktop {
+	my $name = shift;
+	$name =~ s|/|-|g;
+	$name .= ".desktop" unless $name =~ /\.desktop$/;
+	return $name;
+}
+
+sub strfmt { "'".shift()."'" }
+
+sub listfmt { "[".join(", ", map {strfmt($_)} @_)."]" }
+
+sub section {
+	my ($path, $items) = @_;
+	my $str = "[".$path."]\n";
+	for my $key (keys %$items) {
+		$str .= $key."=".$items->{$key}."\n";
+	}
+	$str .= "\n";
+	print $str;
+	$str;
+}
+
+while (<>) {
+	if (/^\t(.+)$/) {
+		push @$this, $1;
+	}
+	elsif (/^(.+): (.+)$/) {
+		$names{$1} = $2;
+		$apps{$1} = $this = [];
+	}
+}
+
+my $root = "/org/gnome/desktop/app-folders/";
+
+system "dconf", "reset", "-f", $root."folders/";
+
+open my $proc, "|-", "dconf", "load", $root;
+
+print $proc section "/" => {
+	"folder-children" => listfmt(sort keys %names),
+};
+
+print $proc section "folders/$_" => {
+	name => strfmt($names{$_}),
+	apps => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
+} for sort keys %names;
+
+close $proc;

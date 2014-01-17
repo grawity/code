@@ -1,14 +1,16 @@
 # S-exp parser and dumper
-# (c) 2011 Mantas M. <grawity@gmail.com>
+#
+# (c) 2011 Mantas Mikulėnas <grawity@gmail.com>
+# Based on C source code from <http://people.csail.mit.edu/rivest/sexp.html>
+# (c) 1997 Ronald Rivest <rivest@mit.edu>
+# Released under "MIT License" <http://www.gnu.org/licenses/license-list.html#Expat>
 #
 # The simple S-expression format is used by various crypto software, including:
 #
+#   - libgcrypt and nettle, for representing various kinds of keys
+#   - most Off-the-Record IM encryption implementations, for storing OTR keypairs
 #   - 'lsh' SSH server/client, for storing keys
-#   - most Off-the-Record IM encryption, for storing OTR keypairs
 #   - GnuPG 'gpgsm', for storing private keys (private-keys-v1.d)
-#
-# Parser code ripped from http://people.csail.mit.edu/rivest/sexp.html
-# (c) 1997 Ronald Rivest
 
 from __future__ import print_function
 import base64

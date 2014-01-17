@@ -17,32 +17,28 @@ sub daemonize {
 		or die "can't write /dev/null: $!";
 	my $pid = fork()
 		// die("can't fork: $!");
-
-	if ($pid) {
-		exit;
-	} else {
-		if (POSIX::setsid() < 0) {
-			warn "setsid failed: $!";
-		}
+	exit if $pid;
+	if (POSIX::setsid() < 0) {
+		warn "setsid failed: $!";
 	}
 }
 
 sub gethostid {
-	if (-f "/etc/machine-id") {
-		return readfile("/etc/machine-id");
-	} elsif (-f "/var/lib/dbus/machine-id") {
-		return readfile("/var/lib/dbus/machine-id");
-	} else {
-		return "name=".hostname();
+	my @id_files = (
+		"/etc/machine-id",
+		"/var/lib/dbus/machine-id",
+		"/var/db/dbus/machine-id",
+	);
+	for my $file (@id_files) {
+		return readfile($file) if -f $file;
 	}
+	return "name=".hostname();
 }
 
 sub getbootid {
-	if (-f "/proc/sys/kernel/random/boot_id") {
-		return readfile("/proc/sys/kernel/random/boot_id");
-	} else {
-		return undef;
-	}
+	my $id_file = "/proc/sys/kernel/random/boot_id";
+	return readfile($id_file) if -f $id_file;
+	return undef;
 }
 
 1;

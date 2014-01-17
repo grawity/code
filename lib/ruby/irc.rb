@@ -1,3 +1,8 @@
+# Parser for IRC protocol messages (RFC 1459 + IRCv3 message-tag extension)
+#
+# (c) Mantas Mikulėnas <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
 class IRC
 	def self.parse(str)
 		vec = str.chomp.split(/ /, -1)

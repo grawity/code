@@ -1,3 +1,8 @@
+# Parser for IRC protocol messages (RFC 1459 + IRCv3 message-tag extension)
+#
+# (c) Mantas Mikulėnas <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
 from __future__ import (print_function, unicode_literals)
 import base64
 import socket

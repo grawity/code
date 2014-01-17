@@ -1,3 +1,8 @@
+# Parser for IRC protocol messages (RFC 1459 + IRCv3 message-tag extension)
+#
+# (c) Mantas Mikulėnas <grawity@gmail.com>
+# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+
 package Nullroute::IRC;
 use warnings;
 use strict;

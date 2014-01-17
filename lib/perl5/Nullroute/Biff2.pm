@@ -1,4 +1,3 @@
-#!perl
 package Nullroute::Biff2;
 use common::sense;
 use Carp;

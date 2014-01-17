@@ -1,4 +1,3 @@
-#!perl
 package Nullroute::Lib;
 use base "Exporter";
 use File::Basename;

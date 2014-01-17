@@ -1,4 +1,3 @@
-#!perl
 package Nullroute::Sys;
 use base "Exporter";
 use POSIX;

@@ -1,4 +1,3 @@
-#!perl
 package Nullroute::KitchenSink;
 use common::sense;
 use base "Exporter";

@@ -150,7 +150,7 @@ int closefds(void) {
 	return 1;
 }
 
-void fixenv(void) {
+void fixenv(int unset_session) {
 	unsetenv("COLORTERM");
 	unsetenv("GPG_TTY");
 	unsetenv("SHLVL");
@@ -161,12 +161,18 @@ void fixenv(void) {
 	unsetenv("XTERM_LOCALE");
 	unsetenv("XTERM_SHELL");
 	unsetenv("XTERM_VERSION");
+	if (unset_session) {
+		unsetenv("DESKTOP_SESSION");
+		unsetenv("GDMSESSION");
+		unsetenv("GNOME_DESKTOP_SESSION_ID");
+	}
 }
 
 int main(int argc, char *argv[]) {
 	char **cmd = NULL;
 	int do_closefd = 0;
 	int do_chdir = 0;
+	int do_unsetenv = 1;
 	int do_wait = 0;
 	int do_lock = 0;
 #ifdef HAVE_FLOCK
@@ -181,13 +187,16 @@ int main(int argc, char *argv[]) {
 
 	arg0 = argv[0];
 
-	while ((opt = getopt(argc, argv, "+cdLl::Pw")) != -1) {
+	while ((opt = getopt(argc, argv, "+cdeLl::Pw")) != -1) {
 		switch (opt) {
 		case 'c':
 			do_closefd = 1;
 			break;
 		case 'd':
 			do_chdir = 1;
+			break;
+		case 'e':
+			do_unsetenv++;
 			break;
 #ifdef HAVE_FLOCK
 		case 'L':
@@ -272,7 +281,7 @@ int main(int argc, char *argv[]) {
 	pid = fork();
 	switch (pid) {
 	case 0:
-		fixenv();
+		fixenv(do_unsetenv - 1);
 		if (setsid() < 0) {
 			fprintf(stderr, "%s: detaching from session failed: %m\n",
 				arg0);

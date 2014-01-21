@@ -318,7 +318,11 @@ class Sgr(object):
         STRIKE:     "strike",
     }
 
-while True:
+def main():
+    global state
+    global char
+    global wait_fav
+
     screen_clear()
 
     print("    ┌" + "─"*20 + "┬" + "─"*20 + "┬" + "─"*20 + "┐")
@@ -402,7 +406,7 @@ while True:
         "(waiting for index)" if wait_fav else "+ index")
 
     k = getch()
-    if k == "Q":        break
+    if k == "Q":        return False
     elif wait_fav:
         if k in "123456789":    k = int(k)
         elif k == "0":      k = 10
@@ -477,6 +481,14 @@ while True:
         elif k in "/":  state.decr_carry("tcblue", "tcgreen", "tcred")
         elif k in "*":  state.incr_carry("tcblue", "tcgreen", "tcred")
 
-icanon(False)
-screen_init(False)
-state.save_persistent()
+    return True
+
+try:
+    while main():
+        pass
+except KeyboardInterrupt:
+    pass
+finally:
+    icanon(False)
+    screen_init(False)
+    state.save_persistent()

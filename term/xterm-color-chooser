@@ -35,9 +35,14 @@ def screen_init(mode):
     if mode:
         sys.stdout.write("\033[?47h") # enable alternate buffer
         sys.stdout.write("\033[?25l") # hide cursor
+        sys.stdout.write("\033]0;%s\007" % "xterm-color-chooser")
     else:
         sys.stdout.write("\033[?25h") # show cursor
         sys.stdout.write("\033[?47l") # disable alternate buffer
+    sys.stdout.flush()
+
+def screen_clear():
+    sys.stdout.write("\033[H" + "\033[2J")
     sys.stdout.flush()
 
 class State(dict):
@@ -314,7 +319,7 @@ class Sgr(object):
     }
 
 while True:
-    print("\033[H\033[2J", end="")
+    screen_clear()
 
     print("    ┌" + "─"*20 + "┬" + "─"*20 + "┬" + "─"*20 + "┐")
     print("    │%-20s│%-20s│%-20s│" %

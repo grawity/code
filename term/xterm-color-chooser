@@ -288,19 +288,6 @@ def bar(name, state, prop, scale=2, keys=""):
         out += ("^" if val == cur else " ") * scale
     print(out)
 
-if not sys.stdin.isatty():
-    sys.stdin = open("/dev/tty", "r")
-
-state = State()
-state.init()
-state.load_persistent()
-
-screen_init(True)
-icanon(True)
-
-char = "x"
-wait_fav = False
-
 class Sgr(object):
     BOLD = 1
     DARK = 2
@@ -318,13 +305,12 @@ class Sgr(object):
         STRIKE:     "strike",
     }
 
-def main():
-    global state
-    global char
+def main(state):
     global wait_fav
 
     screen_clear()
 
+    char = "x"
     print("    ┌" + "─"*20 + "┬" + "─"*20 + "┬" + "─"*20 + "┐")
     print("    │%-20s│%-20s│%-20s│" %
         ("default bg", "iso black bg", "iso white bg"))
@@ -483,8 +469,20 @@ def main():
 
     return True
 
+if not sys.stdin.isatty():
+    sys.stdin = open("/dev/tty", "r")
+
+state = State()
+state.init()
+state.load_persistent()
+
+screen_init(True)
+icanon(True)
+
+wait_fav = False
+
 try:
-    while main():
+    while main(state):
         pass
 except KeyboardInterrupt:
     pass

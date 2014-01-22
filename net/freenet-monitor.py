@@ -14,7 +14,7 @@ def format_size(nbytes, si=False):
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))
     if exp == 0:
-        return "%.2f B" % quot
+        return "%.2f B" % nbytes
     elif exp < len(prefixes):
         quot = nbytes / div**exp
         return "%.2f %sB" % (quot, prefixes[exp])

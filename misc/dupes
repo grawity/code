@@ -36,7 +36,7 @@ def ttywidth():
     return _ttywidth
 
 def status(*args):
-    if isatty():
+    if isatty() and not opts.verbose:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
         msg = msg[:ttywidth()]
@@ -59,7 +59,7 @@ def enum_files(root_dir):
 def get_header(path):
     if path not in file_headers:
         if opts.verbose:
-            print("reading", path)
+            print("reading", path, file=sys.stderr)
         with open(path, "rb") as fh:
             file_headers[path] = fh.read(header_size)
     return file_headers[path]
@@ -67,7 +67,7 @@ def get_header(path):
 def hash_file(path):
     if path not in file_hashes:
         if opts.verbose:
-            print("hashing", path)
+            print("hashing", path, file=sys.stderr)
         h = hashlib.sha1()
         with open(path, "rb") as fh:
             buf = True

@@ -4,6 +4,7 @@
 import os
 import sys
 import stat
+import binascii
 import hashlib
 from collections import defaultdict
 from optparse import OptionParser
@@ -76,6 +77,9 @@ def hash_file(path):
                 h.update(buf)
         file_hashes[path] = h.digest()
     return file_hashes[path]
+
+def fmt_hash(hash):
+    return binascii.b2a_hex(hash).decode("utf-8")
 
 def find_duplicates(root_dirs):
     # dicts keeping duplicate items
@@ -156,6 +160,8 @@ if __name__ == "__main__":
         version=cli_version)
     op.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False,
         help="show files as they are processed")
+    op.add_option("-l", "--list", dest="list", action="store_true", default=False,
+        help="output files as a list of hashes")
 
     opts, args = op.parse_args()
     if args:
@@ -165,10 +171,14 @@ if __name__ == "__main__":
 
     try:
         for paths in find_duplicates(root_dir):
-            print("Duplicates:")
-            for path in paths:
-                print("    ", path)
-            # do something with duplicates here.
+            if opts.list:
+                hash = hash_file(paths[0])
+                for path in paths:
+                    print(fmt_hash(hash), path)
+            else:
+                print("Duplicates:")
+                for path in paths:
+                    print("    ", path)
     except KeyboardInterrupt:
         status()
         print("Interrupted.")

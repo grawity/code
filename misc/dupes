@@ -18,8 +18,10 @@ _ttywidth = None
 # header and hash caches, to avoid reading
 # or hashing the same file twice
 header_size = 512
+file_sizes = {}     # path → size
 file_headers = {}   # path → header
 file_hashes = {}    # path → hash
+total_wasted = 0
 
 def isatty():
     global _isatty
@@ -81,6 +83,9 @@ def hash_file(path):
 def fmt_hash(hash):
     return binascii.b2a_hex(hash).decode("utf-8")
 
+def fmt_size(bytes):
+    return "%d bytes" % bytes
+
 def find_duplicates(root_dirs):
     # dicts keeping duplicate items
     known_sizes = defaultdict(list)     # size → path[]
@@ -99,6 +104,7 @@ def find_duplicates(root_dirs):
             st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
                 continue
+            file_sizes[path] = st.st_size
             known_sizes[st.st_size].append(path)
 
     status()
@@ -161,7 +167,7 @@ if __name__ == "__main__":
     op.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False,
         help="show files as they are processed")
     op.add_option("-l", "--list", dest="list", action="store_true", default=False,
-        help="output files as a list of hashes")
+        help="output files as a sortable list")
 
     opts, args = op.parse_args()
     if args:
@@ -171,18 +177,24 @@ if __name__ == "__main__":
 
     try:
         for paths in find_duplicates(root_dir):
+            size = file_sizes[paths[0]]
+            hash = hash_file(paths[0])
+            wasted = size * (len(paths) - 1)
             if opts.list:
-                hash = hash_file(paths[0])
                 for path in paths:
-                    print(fmt_hash(hash), path)
+                    print(wasted, fmt_hash(hash), path)
             else:
-                print("Duplicates:")
+                print("Duplicates (%s wasted):" % fmt_size(wasted))
                 for path in paths:
                     print("    ", path)
+            total_wasted += wasted
     except KeyboardInterrupt:
         status()
         print("Interrupted.")
 
-    if opts.verbose:
-        print("%d files compared by header" % len(file_headers))
-        print("%d files compared by hash" % len(file_hashes))
+    if opts.verbose or opts.list:
+        print("; %d files compared by header" % len(file_headers))
+        print("; %d files compared by hash" % len(file_hashes))
+        print("; %s wasted by duplicates" % fmt_size(total_wasted))
+    else:
+        print("Total %s wasted." % fmt_size(total_wasted))

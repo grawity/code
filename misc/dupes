@@ -76,10 +76,15 @@ def find_duplicates(root_dirs):
     known_headers = defaultdict(list)   # (size, header) → path[]
     known_hashes = defaultdict(list)    # (size, hash) → path[]
 
+    n_size = 0
+    n_head = 0
+    n_hash = 0
+
     # find files identical in size
     for root_dir in root_dirs:
         for path in enum_files(root_dir):
-            status("stat", path)
+            n_size += 1
+            status("stat (%d)" % n_size, path)
             st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
                 continue
@@ -93,7 +98,8 @@ def find_duplicates(root_dirs):
             continue
 
         for path in paths:
-            status("head", path)
+            n_head += 1
+            status("head (%d/%d)" % (n_head, n_size), path)
             header = get_header(path)
             known_headers[size, header].append(path)
 
@@ -111,7 +117,8 @@ def find_duplicates(root_dirs):
             continue
 
         for path in paths:
-            status("hash", path)
+            n_hash += 1
+            status("hash (%d/%d)" % (n_hash, n_head), path)
             filehash = hash_file(path)
             known_hashes[size, filehash].append(path)
 

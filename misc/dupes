@@ -11,6 +11,7 @@ from optparse import OptionParser
 # this doesn't need to be declared here
 # I'm just doing so as a reminder that `opts` is global
 opts = None
+_isatty = None
 _ttywidth = None
 
 # header and hash caches, to avoid reading
@@ -18,6 +19,12 @@ _ttywidth = None
 header_size = 512
 file_headers = {}   # path → header
 file_hashes = {}    # path → hash
+
+def isatty():
+    global _isatty
+    if _isatty is None:
+        _isatty = sys.stderr.isatty()
+    return _isatty
 
 def ttywidth():
     global _ttywidth
@@ -29,7 +36,7 @@ def ttywidth():
     return _ttywidth
 
 def status(*args):
-    if sys.stderr.isatty():
+    if isatty():
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
         msg = msg[:ttywidth()]

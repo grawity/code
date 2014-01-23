@@ -1,0 +1,38 @@
+#!/bin/bash
+
+. lib.bash || exit
+
+case ${0##*/} in
+    tarball) ext=tgz;;
+    zipball) ext=zip;;
+esac
+
+do_archive() {
+	local dir=$1 out=$2 attr=$1/_attributes
+
+	getfattr -R --dump "$dir" > "$attr"
+	test -s "$attr" || rm -f "$attr"
+
+	case $out in
+	    *.tgz) tar --xattrs -cvzf "$out" "$dir";;
+	    *.zip) zip -r "$out" "$dir";;
+	esac
+}
+
+dir=${1%/}
+out=${1%/}.$ext
+
+for file in "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do
+	if [[ -e "$file" ]]; then
+		die "$file already exists"
+	fi
+done
+
+if do_archive "$dir" "$out"; then
+	chmod a-w "$out"
+	log "archived to $out"
+	ls -l "$out"
+	rm -rf "$dir/"
+else
+	die "archiving failed"
+fi

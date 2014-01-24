@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+# denettalk - bruteforce Nettalk's "NTCTC001" encrypted messages
+# (ported from Haskell version at <http://lpaste.net/85305>)
+
+import sys, re
+
+codeChr = "0123456789abcdefghijklmnopqrstuvwxyz!?#%-+"
+multPl = 71
+
+def decrypt(tpass, msg):
+    def go(i, lastCVal, rest):
+        if len(rest) < 2:
+            return ""
+        c1, c2, *rest = rest
+        i1 = codeChr.find(c1)
+        i2 = codeChr.find(c2)
+        charVal = (i2 * 42 + i1 - tpass + multPl * i - lastCVal * (13 + i * 7)) % 1764
+        return chr(charVal % 256) + go(i+1, i2+1, rest)
+    return go(1, 0, msg[10:])
+
+def hax0r(enc):
+    for key in range(1764):
+        msg = decrypt(key, enc)
+        if msg.endswith("<>"):
+            yield msg[:-2]
+
+def is_printable(s):
+    return all(32 <= ord(c) <= 127 or c in '\t' for c in s)
+
+def escaped(s):
+    return repr(s)[1:-1]
+
+rx = re.compile(r"\[NTCTC001\|(.+?)\]")
+for line in sys.stdin:
+    line = line.strip()
+    print("  ", line)
+    for m in rx.finditer(line):
+        for msg in set(hax0r(m.group(0))):
+            print("!!", line[:m.start(0)] + escaped(msg) + line[m.end(0):])

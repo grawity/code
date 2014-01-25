@@ -15,7 +15,8 @@ Irssi::signal_add("send text" => sub {
 	my ($line, $server, $witem) = @_;
 	if ($line =~ m|^\s+/(\w+)|) {
 		Irssi::command("scrollback end");
-		$witem->print("Stopped command /$1 from being sent to channel.",
+		$witem //= Irssi::active_win;
+		$witem->print("Stopped command \002/$1\002 from being sent to channel.",
 			MSGLEVEL_CLIENTERROR);
 		Irssi::signal_stop;
 	}

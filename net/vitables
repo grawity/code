@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+case ${0##*/} in
+	vi6tables)
+		iptables='ip6tables';;
+	vitables|*)
+		iptables='iptables';;
+esac
+
+temp=$(mktemp /tmp/iptables.XXXXXXXX.tmp)
+orig=$(mktemp /tmp/iptables.XXXXXXXX.tmp)
+r=0
+
+sudo $iptables-save > "$temp"
+cp "$temp" "$orig"
+
+while true; do
+	$EDITOR "$temp"
+	if cmp -s "$temp" "$orig"; then
+		log "no changes made"
+		break
+	elif sudo $iptables-restore < "$temp"; then
+		log "rules reloaded successfully"
+		break
+	elif ! confirm "error: failed to load rules; edit again?"; then
+		r=1; break
+	else
+		break
+	fi
+done
+
+rm -f "$temp" "$orig"
+exit $r

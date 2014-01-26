@@ -3,7 +3,7 @@ use utf8;
 use vars qw($VERSION %IRSSI);
 use Irssi;
 
-$VERSION = '0.1';
+$VERSION = '0.2';
 %IRSSI = (
 	name		=> 'spacefail',
 	description	=> 'Warns you if you have extra spaces before /command',

@@ -25,8 +25,8 @@ do_extract() {
     local f=$1 d=_out.${1%.*}/
     mkdir -p "$d"
     case $f in
-	*.tar.*|*.cab)
-	    bsdtar xvf "$f";;
+	*.tar.*|*.cab|*.tbz2|*.tgz)
+	    bsdtar -xvf "$f" -C "$d";;
 	*.bz2)
 	    do_pv "$f" bzip2;;
 	*.gz)
@@ -35,6 +35,8 @@ do_extract() {
 	    7za x -o"$d" "$f";;
 	*.rar)
 	    rar x "$f" "$d/";;
+	*.zip)
+	    unzip -d "$d" "$f";;
 	*)
 	    echo Unknown file type >&2; exit 1;;
     esac

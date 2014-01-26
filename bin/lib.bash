@@ -117,7 +117,19 @@ xdie() {
 } >&2
 
 confirm() {
-	local prompt=$'\001\033[1;36m\002'"(?)"$'\001\033[m\002'" $1 "
+	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
+	case $text in
+	    "error: "*)
+		prefix="(!)"
+		color=$'\e[1;31m';;
+	    "warning: "*)
+		prefix="(!)"
+		color=$'\e[1;33m';;
+	    *)
+		prefix="(?)"
+		color=$'\e[1;36m';;
+	esac
+	local prompt=${si}${color}${so}${prefix}${si}${reset}${so}" "${text}" "
 	local answer="n"
 	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }

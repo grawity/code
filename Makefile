@@ -155,6 +155,7 @@ $(OBJ)/ac-wait:		LDLIBS += -ludev
 $(OBJ)/ac-wait:		system/ac-wait.c
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
+$(OBJ)/codeset:		misc/codeset.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)

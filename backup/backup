@@ -149,15 +149,19 @@ case $job in
 	push-hd)
 		mounted: $b
 
-		if [[ $1 && $1 != / ]]; then
-			sub=$(readlink -f "$1")
+		consumed=0
+
+		while [[ $1 && $1 != / ]]; do
+			sub=$(readlink -f "$1"); shift; (( ++consumed ))
 			if [[ "$sub" != "$HOME"/* ]]; then
 				die "path \"$sub\" is outside \$HOME"
 			fi
 			sub=${sub#$HOME/}
 			sub=${sub%/}
 			do_rsync ~/"$sub"/ $b/latest/"$sub"/ -FxP
-		else
+		done
+
+		if (( consumed == 0 )); then
 			do_rsync ~/ $b/latest/ -FxP
 			local_rsync ~/Attic/Galelogs/
 		fi

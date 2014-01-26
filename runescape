@@ -19,4 +19,11 @@ case $1 in
 	shift; set -- "--prmfile=$f.prm" "$@";;
 esac
 
-exec ~/.local/rsu-client/runescape/runescape --unixquery "$@"
+~/.local/rsu-client/runescape/runescape --unixquery "$@" & pid=$!
+
+xprop -spy -root | while read _ && test -e /proc/$pid; do
+	ids=$(wmctrl -lx | awk '$3 ~ /\.jagexappletviewer$/ {print $1}')
+	for id in $ids; do
+		xprop -f _GTK_THEME_VARIANT 8u -set _GTK_THEME_VARIANT dark -id $id
+	done
+done

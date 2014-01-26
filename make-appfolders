@@ -1,8 +1,12 @@
 #!/usr/bin/env perl
 # make-appfolders -- generate GNOME Shell app-folder configuration
 my %apps;
+my %cats;
+my %excl;
 my %names;
-my $this;
+my $this_apps;
+my $this_cats;
+my $this_excl;
 
 sub app2desktop {
 	my $name = shift;
@@ -28,11 +32,20 @@ sub section {
 
 while (<>) {
 	if (/^\t(.+)$/) {
-		push @$this, $1;
+		my $name = $1;
+		if ($name =~ s/^!//) {
+			push @$this_excl, $name;
+		} elsif ($name =~ s/^@//) {
+			push @$this_cats, $name;
+		} else {
+			push @$this_apps, $name;
+		}
 	}
 	elsif (/^(.+): (.+)$/) {
 		$names{$1} = $2;
-		$apps{$1} = $this = [];
+		$apps{$1} = $this_apps = [];
+		$cats{$1} = $this_cats = [];
+		$excl{$1} = $this_excl = [];
 	}
 }
 
@@ -47,8 +60,10 @@ print $proc section "/" => {
 };
 
 print $proc section "folders/$_" => {
-	name => strfmt($names{$_}),
-	apps => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
+	"name" => strfmt($names{$_}),
+	"apps" => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
+	"categories" => listfmt(sort @{$cats{$_}}),
+	"excluded-apps" => listfmt(sort map {app2desktop($_)} @{$excl{$_}}),
 } for sort keys %names;
 
 close $proc;

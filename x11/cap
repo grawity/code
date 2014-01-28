@@ -89,6 +89,7 @@ my $mode = 'fullscreen';
 my $template = "Screenshots/%Y-%m-%d.%H%M%S.png";
 my $file = undef;
 my $upload = 1;
+my $temporary = 0;
 
 GetOptions(
 	'a|area'	=> sub { $mode = 'area' },
@@ -98,7 +99,12 @@ GetOptions(
 	'frame!'	=> \$frame,
 	'cursor!'	=> \$cursor,
 	'flash!'	=> \$flash,
+	't|temporary!'	=> \$temporary,
 ) or exit 2;
+
+if ($temporary) {
+	$template =~ s/[^.]+?$/temp.$&/;
+}
 
 $file = strftime($template, localtime);
 
@@ -180,6 +186,7 @@ if ($upload) {
 				category => "transfer.complete",
 			});
 		log_upload($upload_output);
+		unlink($file) if $temporary;
 	} else {
 		notify("Screenshot upload failed",
 			body => $upload_output,

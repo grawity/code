@@ -61,6 +61,27 @@ sub notify {
 		$opts{timeout} // 1*1000);
 }
 
+sub log_upload {
+	my ($output) = @_;
+	my $image_url;
+	my $delete_url;
+
+	if ($output =~ m|^(http://i\.imgur\.com/.+)$|m) {
+		$image_url = $1;
+	}
+	if ($output =~ m|^(http://imgur\.com/delete/.+)$|m) {
+		$delete_url = $1;
+	}
+
+	if ($image_url) {
+		open(my $fh, ">>", rel2abs(".uploads", get_userdir("Pictures")));
+		if ($fh) {
+			print $fh $image_url, " ", $delete_url // "-", "\n";
+			close $fh;
+		}
+	}
+}
+
 my $frame = 1;
 my $flash = 1;
 my $cursor = 0;
@@ -106,7 +127,7 @@ for ($mode) {
 	}
 }
 
-$file = rel2abs($file, get_userdir("pictures"));
+$file = rel2abs($file, get_userdir("Pictures"));
 
 if (! -f $file) {
 	notify("Screenshot failed.",
@@ -158,6 +179,7 @@ if ($upload) {
 			hints => {
 				category => "transfer.complete",
 			});
+		log_upload($upload_output);
 	} else {
 		notify("Screenshot upload failed",
 			body => $upload_output,

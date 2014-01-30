@@ -85,7 +85,17 @@ found_commits = []
 
 last_path = None
 
+def print_initial_result(commit, blob_path):
+    print("found at %r ..." % blob_path)
+    print("   commit %s" % sha_fmt(commit))
+
+def print_final_result(commits, blob_path):
+    n_found = len(commits)
+    if n_found > 1:
+        print("   …up to %s (%d commits)" % (sha_fmt(commits[1]), n_found))
+
 def print_results(commits, blob_path):
+    # TODO: Do away with this function
     n_found = len(commits)
     if n_found == 0:
         return
@@ -94,8 +104,8 @@ def print_results(commits, blob_path):
         print("   commit %s" % sha_fmt(commits[0]))
     else:
         print("found at %r in %d commits" % (blob_path, n_found))
-        print("   latest %s" % sha_fmt(commits[0]))
-        print("   oldest %s" % sha_fmt(commits[-1]))
+        print("   commit %s" % sha_fmt(commits[0]))
+        print("   …up to %s" % sha_fmt(commits[-1]))
 
 try:
     for commit_sha in iter_commits():
@@ -109,11 +119,12 @@ try:
                 found_commits.append(commit_sha)
         else:
             status()
-            if found_commits:
-                status()
-                print_results(found_commits, last_path)
+            if len(found_commits) > 0:
+                print_final_result(found_commits, last_path)
                 found_commits = []
-            if blob_path:
+            if blob_path is not None:
+                if len(found_commits) == 0:
+                    print_initial_result(commit_sha, blob_path)
                 found_commits.append(commit_sha)
             last_path = blob_path
 except KeyboardInterrupt:

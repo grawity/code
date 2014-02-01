@@ -64,9 +64,9 @@ elif [ ! -f "$motd" ]; then
 	# motd removed
 	if $diff; then
 		diff -uN "$cached" "$motd"
+	else
+		echo "motd: removed" >&2
 	fi
-
-	$diff || echo "motd: removed" >&2
 	rm "$cached"
 
 elif ! cmp -s "$cached" "$motd"; then
@@ -76,12 +76,12 @@ elif ! cmp -s "$cached" "$motd"; then
 	else
 		cat "$motd"
 	fi
-
 	echo "motd: updated $(sfdate "$motd")" >&2
 	copy "$motd" "$cached"
 
 else
 	# no change
+	$quiet || cat "$motd"
 	$quiet || echo "motd: no changes (last updated $(sfdate "$motd"))" >&2
 	copy "$motd" "$cached" # in case local copy is newer
 fi

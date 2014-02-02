@@ -53,21 +53,27 @@ class Prefix(object):
         return self
 
     def unparse(self):
-        if not (self.nick is None or self.user is None or self.host is None):
-            return self.nick + "!" + self.user + "@" + self.host
-        elif self.nick:
-            return self.nick
-        elif self.host:
+        if self.nick is not None:
+            res = self.nick
+            if self.user is not None:
+                res += "!" + self.user
+            if self.host is not None:
+                res += "@" + self.host
+            return res
+        elif self.host is not None:
             return self.host
         else:
             return None
 
     def __str__(self):
-        if not (self.nick is None or self.user is None or self.host is None):
-            return "%s!%s@%s" % (self.nick, self.user, self.host)
-        elif self.nick:
-            return self.nick
-        elif self.host:
+        if self.nick is not None:
+            res = self.nick
+            if self.user is not None:
+                res += "!" + self.user
+            if self.host is not None:
+                res += "@" + self.host
+            return res
+        elif self.host is not None:
             return self.host
         else:
             return "(empty)"

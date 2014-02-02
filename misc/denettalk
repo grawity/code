@@ -18,11 +18,30 @@ def decrypt(tpass, msg):
         return chr(charVal % 256) + go(i+1, i2+1, rest)
     return go(1, 0, msg[10:])
 
-def hax0r(enc):
+def try_all(enc):
     for key in range(1764):
         msg = decrypt(key, enc)
         if msg.endswith("<>"):
             yield msg[:-2]
+
+def hax0r(enc):
+    from collections import defaultdict
+
+    # sometimes up to 10 different keys may work – most of them will decrypt to
+    # the correct plaintext, others will decrypt ~80% correctly but have
+    # garbage in some places; so try all keys but return only the version that
+    # occurs most often.
+
+    variants = defaultdict(int)
+    for msg in try_all(enc):
+        variants[msg] += 1
+
+    variants = list(variants.items())
+    variants.sort(key=lambda x: x[1])
+
+    yield variants[-1][0]
+    #variants.reverse()
+    #return ["%s (%d)" % x for x in variants]
 
 def is_printable(s):
     return all(32 <= ord(c) <= 127 or c in '\t' for c in s)
@@ -36,7 +55,7 @@ for line in sys.stdin:
     m = rx.search(line)
     if m:
         print("-", line)
-        for msg in set(hax0r(m.group(0))):
+        for msg in hax0r(m.group(0)):
             print("+", line[:m.start(0)] + escaped(msg) + line[m.end(0):])
     else:
         print(" ", line)

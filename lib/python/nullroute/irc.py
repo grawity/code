@@ -13,9 +13,12 @@ class InvalidPrefixError(Exception):
 
 class Prefix(object):
     def __init__(self, nick=None, user=None, host=None, is_server=False):
-        self.nick = nick
-        self.user = user
-        self.host = host
+        if is_server:
+            self.host = host or nick
+        else:
+            self.nick = nick
+            self.user = user
+            self.host = host
         self.is_server = is_server
 
     @classmethod
@@ -70,7 +73,10 @@ class Prefix(object):
             return "(empty)"
 
     def __repr__(self):
-        return "<IRC.Prefix: %r ! %r @ %r>" % (self.nick, self.user, self.host)
+        if self.is_server:
+            return "Prefix(%r, is_server=%r)" % (self.host, self.is_server)
+        else:
+            return "Prefix(%r, %r, %r)" % (self.nick, self.user, self.host)
 
     def to_a(self):
         return [self.nick, self.user, self.host, self.is_server]

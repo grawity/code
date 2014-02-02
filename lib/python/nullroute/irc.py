@@ -29,8 +29,6 @@ class Prefix(object):
 
         if upos == 1 or hpos == 1:
             return None
-        if 0 < dpos < min(upos, hpos):
-            return None
 
         self = cls()
         if upos > 0:

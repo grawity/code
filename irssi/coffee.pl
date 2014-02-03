@@ -3,7 +3,7 @@ use utf8;
 use vars qw($VERSION %IRSSI);
 use Irssi;
 
-$VERSION = '0.2';
+$VERSION = '0.3';
 %IRSSI = (
 	name		=> 'spacefail',
 	description	=> 'Warns you if you have extra spaces before /command',
@@ -13,11 +13,17 @@ $VERSION = '0.2';
 
 Irssi::signal_add("send text" => sub {
 	my ($line, $server, $witem) = @_;
+
+	$witem //= Irssi::active_win;
+
 	if ($line =~ m|^\s+/(\w+)|) {
-		Irssi::command("scrollback end");
-		$witem //= Irssi::active_win;
+		$witem->command("scrollback end");
 		$witem->print("Stopped command \002/$1\002 from being sent to channel.",
 			MSGLEVEL_CLIENTERROR);
+		Irssi::signal_stop;
+	}
+	elsif ($line eq 'ls') {
+		$witem->command("names");
 		Irssi::signal_stop;
 	}
 });

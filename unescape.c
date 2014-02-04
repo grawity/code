@@ -91,6 +91,8 @@ static void process(FILE *fp) {
 				if (escapes[ch])
 					putchar(escapes[ch]);
 				else {
+					warnx("unknown escape \\%c at %lu",
+						ch, ftell(fp));
 					if (keep_backslash)
 						putchar('\\');
 					putchar(ch);

@@ -57,7 +57,7 @@ static void putchar_utf8(int ch) {
 	}
 }
 
-static void process(FILE *fp) {
+static void process(FILE *fp, char *fn) {
 	int ch, state = None, letter,
 	    acc = 0, len = 0, maxlen = 0, val;
 
@@ -91,8 +91,8 @@ static void process(FILE *fp) {
 				if (escapes[ch])
 					putchar(escapes[ch]);
 				else {
-					warnx("unknown escape \\%c at %lu",
-						ch, ftell(fp));
+					warnx("%s:%lu: unknown escape \\%c",
+						fn, ftell(fp), ch);
 					if (keep_backslash)
 						putchar('\\');
 					putchar(ch);
@@ -112,8 +112,8 @@ static void process(FILE *fp) {
 				if (len)
 					putchar_utf8(acc);
 				else {
-					warnx("missing hex digit for \\%c at %lu",
-						letter, ftell(fp));
+					warnx("%s:%lu: missing hex digit for \\%c",
+						fn, ftell(fp), letter);
 					putchar('\\');
 					putchar(letter);
 				}
@@ -147,8 +147,8 @@ static void process(FILE *fp) {
 			if (len)
 				putchar_utf8(acc);
 			else {
-				warnx("missing hex digit for \\%c at %lu",
-					letter, ftell(fp));
+				warnx("%s:%lu: missing hex digit for \\%c",
+					fn, ftell(fp), letter);
 				putchar('\\');
 				putchar(letter);
 			}
@@ -169,6 +169,7 @@ static int usage(void) {
 int main(int argc, char *argv[]) {
 	int i, r = 0, opt;
 	char *data = NULL;
+	char *fn;
 	FILE *fp;
 
 	while ((opt = getopt(argc, argv, "a:b")) != -1) {
@@ -189,24 +190,25 @@ int main(int argc, char *argv[]) {
 
 	if (data) {
 		fp = fmemopen(data, strlen(data), "rb");
-		process(fp);
+		process(fp, "stdin");
 		fclose(fp);
 	}
 	else if (argc <= 1) {
-		process(stdin);
+		process(stdin, "stdin");
 	}
 	else {
 		for (i = 1; i < argc; i++) {
-			if (!strcmp(argv[i], "-"))
-				fp = stdin;
+			fn = argv[i];
+			if (!strcmp(fn, "-"))
+				fp = stdin, fn = "stdin";
 			else
-				fp = fopen(argv[i], "rb");
+				fp = fopen(fn, "rb");
 			if (!fp) {
-				warn("failed to open %s", argv[i]);
+				warn("failed to open %s", fn);
 				r = 1;
 				continue;
 			}
-			process(fp);
+			process(fp, fn);
 			if (fp != stdin)
 				fclose(fp);
 		}

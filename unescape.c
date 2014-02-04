@@ -60,8 +60,9 @@ static void putchar_utf8(int ch) {
 static void process(FILE *fp, char *fn) {
 	int ch, state = None, letter,
 	    acc = 0, len = 0, maxlen = 0, val;
+	size_t pos = 0;
 
-	while ((ch = getc(fp)) != EOF) {
+	while (++pos, (ch = getc(fp)) != EOF) {
 		switch (state) {
 		case None:
 			if (ch == '\\')
@@ -92,7 +93,7 @@ static void process(FILE *fp, char *fn) {
 					putchar(escapes[ch]);
 				else {
 					warnx("%s:%lu: unknown escape \\%c",
-						fn, ftell(fp), ch);
+						fn, pos, ch);
 					if (keep_backslash)
 						putchar('\\');
 					putchar(ch);
@@ -113,7 +114,7 @@ static void process(FILE *fp, char *fn) {
 					putchar_utf8(acc);
 				else {
 					warnx("%s:%lu: missing hex digit for \\%c",
-						fn, ftell(fp), letter);
+						fn, pos, letter);
 					putchar('\\');
 					putchar(letter);
 				}
@@ -148,7 +149,7 @@ static void process(FILE *fp, char *fn) {
 				putchar_utf8(acc);
 			else {
 				warnx("%s:%lu: missing hex digit for \\%c",
-					fn, ftell(fp), letter);
+					fn, pos, letter);
 				putchar('\\');
 				putchar(letter);
 			}

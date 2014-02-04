@@ -1,0 +1,14 @@
+#!/bin/sh
+
+die() { echo "fatal: $*"; exit 1; } >&2
+
+case $1 in
+    start)
+	exec tmux start-server \; wait-for systemd ;;
+    stop)
+	exec tmux wait-for -S systemd \; kill-server ;;
+    '')
+	die "missing command" ;;
+    *)
+	die "unknown command '$1'" ;;
+esac

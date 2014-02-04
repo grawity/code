@@ -62,7 +62,7 @@ static void process(FILE *fp, char *fn) {
 	    acc = 0, len = 0, maxlen = 0, val;
 	size_t pos = 0;
 
-	while (++pos, (ch = getc(fp)) != EOF) {
+	while ((ch = getc(fp)) != EOF && ++pos) {
 		switch (state) {
 		case None:
 			if (ch == '\\')

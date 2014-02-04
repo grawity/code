@@ -1,3 +1,4 @@
+#include <err.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -26,6 +27,7 @@ const char escapes[256] = {
 };
 
 int keep_backslash = 0;
+int warn_bad_escapes = 1;
 
 static int htoi(char ch) {
 	switch (ch) {
@@ -56,11 +58,17 @@ static void putchar_utf8(int ch) {
 	}
 }
 
-static void process(FILE *fp) {
+static void process(FILE *fp, char *fn) {
 	int ch, state = None, letter,
 	    acc = 0, len = 0, maxlen = 0, val;
+	size_t pos = 0;
 
-	while ((ch = getc(fp)) != EOF) {
+#define fwarnx(fmt, ...) \
+	if (warn_bad_escapes) { \
+		warnx("%s:%lu: " fmt, fn, pos, __VA_ARGS__); \
+	}
+
+	while ((ch = getc(fp)) != EOF && ++pos) {
 		switch (state) {
 		case None:
 			if (ch == '\\')
@@ -78,7 +86,7 @@ static void process(FILE *fp) {
 				letter = ch;
 				maxlen = (ch == 'x') ? 2 :
 				         (ch == 'u') ? 4 :
-					 (ch == 'U') ? 8 : -1;
+				         (ch == 'U') ? 8 : -1;
 				state = HexEscape;
 				break;
 			case '0'...'7':
@@ -90,6 +98,7 @@ static void process(FILE *fp) {
 				if (escapes[ch])
 					putchar(escapes[ch]);
 				else {
+					fwarnx("unknown escape \\%c", ch);
 					if (keep_backslash)
 						putchar('\\');
 					putchar(ch);
@@ -109,6 +118,7 @@ static void process(FILE *fp) {
 				if (len)
 					putchar_utf8(acc);
 				else {
+					fwarnx("missing hex digit for \\%c", letter);
 					putchar('\\');
 					putchar(letter);
 				}
@@ -139,28 +149,47 @@ static void process(FILE *fp) {
 			break;
 		case HexEscape:
 		case OctEscape:
-			putchar_utf8(acc);
+			if (len)
+				putchar_utf8(acc);
+			else {
+				fwarnx("missing hex digit for \\%c", letter);
+				putchar('\\');
+				putchar(letter);
+			}
 			break;
 	}
+
+#undef fwarnx
+
 }
 
 static int usage(void) {
-	printf("Usage: unescape [-b] [files...]\n");
+	printf("Usage: unescape [-a text] [-bq] [files...]\n");
 	printf("\n");
-	printf("  -b    keep backslashes in unknown escapes (like `echo`)\n");
-	printf("        (the default is to discard them, like C/C++)\n");
+	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
+	printf("  -b        keep backslashes in unknown escapes (like `echo`)\n");
+	printf("            (the default is to discard them, like C/C++)\n");
+	printf("  -q        stay quiet about unknown or truncated escapes\n");
 	printf("\n");
 	return 2;
 }
 
 int main(int argc, char *argv[]) {
 	int i, r = 0, opt;
+	char *data = NULL;
+	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "b")) != -1) {
+	while ((opt = getopt(argc, argv, "a:bq")) != -1) {
 		switch (opt) {
+		case 'a':
+			data = optarg;
+			break;
 		case 'b':
 			keep_backslash = 1;
+			break;
+		case 'q':
+			warn_bad_escapes = 0;
 			break;
 		default:
 			return usage();
@@ -170,20 +199,27 @@ int main(int argc, char *argv[]) {
 	argc -= optind-1;
 	argv += optind-1;
 
-	if (argc <= 1)
-		process(stdin);
+	if (data) {
+		fp = fmemopen(data, strlen(data), "rb");
+		process(fp, "stdin");
+		fclose(fp);
+	}
+	else if (argc <= 1) {
+		process(stdin, "stdin");
+	}
 	else {
 		for (i = 1; i < argc; i++) {
-			if (!strcmp(argv[i], "-"))
-				fp = stdin;
+			fn = argv[i];
+			if (!strcmp(fn, "-"))
+				fp = stdin, fn = "stdin";
 			else
-				fp = fopen(argv[i], "rb");
+				fp = fopen(fn, "rb");
 			if (!fp) {
-				fprintf(stderr, "error: failed to open %s: %m\n", argv[i]);
+				warn("failed to open %s", fn);
 				r = 1;
 				continue;
 			}
-			process(fp);
+			process(fp, fn);
 			if (fp != stdin)
 				fclose(fp);
 		}

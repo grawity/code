@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # tag - common MP3 tag manipulation tasks
 
 . lib.bash || exit

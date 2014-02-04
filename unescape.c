@@ -1,3 +1,4 @@
+#include <err.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -109,6 +110,8 @@ static void process(FILE *fp) {
 				if (len)
 					putchar_utf8(acc);
 				else {
+					warnx("missing hex digit for \\%c at %lu",
+						letter, ftell(fp));
 					putchar('\\');
 					putchar(letter);
 				}
@@ -142,6 +145,8 @@ static void process(FILE *fp) {
 			if (len)
 				putchar_utf8(acc);
 			else {
+				warnx("missing hex digit for \\%c at %lu",
+					letter, ftell(fp));
 				putchar('\\');
 				putchar(letter);
 			}
@@ -195,7 +200,7 @@ int main(int argc, char *argv[]) {
 			else
 				fp = fopen(argv[i], "rb");
 			if (!fp) {
-				fprintf(stderr, "error: failed to open %s: %m\n", argv[i]);
+				warn("failed to open %s", argv[i]);
 				r = 1;
 				continue;
 			}

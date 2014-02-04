@@ -145,20 +145,25 @@ static void process(FILE *fp) {
 }
 
 static int usage(void) {
-	printf("Usage: unescape [-b] [files...]\n");
+	printf("Usage: unescape [-a text] [-b] [files...]\n");
 	printf("\n");
-	printf("  -b    keep backslashes in unknown escapes (like `echo`)\n");
-	printf("        (the default is to discard them, like C/C++)\n");
+	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
+	printf("  -b        keep backslashes in unknown escapes (like `echo`)\n");
+	printf("            (the default is to discard them, like C/C++)\n");
 	printf("\n");
 	return 2;
 }
 
 int main(int argc, char *argv[]) {
 	int i, r = 0, opt;
+	char *data = NULL;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "b")) != -1) {
+	while ((opt = getopt(argc, argv, "a:b")) != -1) {
 		switch (opt) {
+		case 'a':
+			data = optarg;
+			break;
 		case 'b':
 			keep_backslash = 1;
 			break;
@@ -170,8 +175,14 @@ int main(int argc, char *argv[]) {
 	argc -= optind-1;
 	argv += optind-1;
 
-	if (argc <= 1)
+	if (data) {
+		fp = fmemopen(data, strlen(data), "rb");
+		process(fp);
+		fclose(fp);
+	}
+	else if (argc <= 1) {
 		process(stdin);
+	}
 	else {
 		for (i = 1; i < argc; i++) {
 			if (!strcmp(argv[i], "-"))

@@ -139,7 +139,12 @@ static void process(FILE *fp) {
 			break;
 		case HexEscape:
 		case OctEscape:
-			putchar_utf8(acc);
+			if (len)
+				putchar_utf8(acc);
+			else {
+				putchar('\\');
+				putchar(letter);
+			}
 			break;
 	}
 }

@@ -27,6 +27,7 @@ const char escapes[256] = {
 };
 
 int keep_backslash = 0;
+int warn_bad_escapes = 1;
 
 static int htoi(char ch) {
 	switch (ch) {
@@ -62,6 +63,11 @@ static void process(FILE *fp, char *fn) {
 	    acc = 0, len = 0, maxlen = 0, val;
 	size_t pos = 0;
 
+#define fwarnx(fmt, ...) \
+	if (warn_bad_escapes) { \
+		warnx("%s:%lu: " fmt, fn, pos, __VA_ARGS__); \
+	}
+
 	while ((ch = getc(fp)) != EOF && ++pos) {
 		switch (state) {
 		case None:
@@ -92,8 +98,7 @@ static void process(FILE *fp, char *fn) {
 				if (escapes[ch])
 					putchar(escapes[ch]);
 				else {
-					warnx("%s:%lu: unknown escape \\%c",
-						fn, pos, ch);
+					fwarnx("unknown escape \\%c", ch);
 					if (keep_backslash)
 						putchar('\\');
 					putchar(ch);
@@ -113,8 +118,7 @@ static void process(FILE *fp, char *fn) {
 				if (len)
 					putchar_utf8(acc);
 				else {
-					warnx("%s:%lu: missing hex digit for \\%c",
-						fn, pos, letter);
+					fwarnx("missing hex digit for \\%c", letter);
 					putchar('\\');
 					putchar(letter);
 				}
@@ -148,21 +152,24 @@ static void process(FILE *fp, char *fn) {
 			if (len)
 				putchar_utf8(acc);
 			else {
-				warnx("%s:%lu: missing hex digit for \\%c",
-					fn, pos, letter);
+				fwarnx("missing hex digit for \\%c", letter);
 				putchar('\\');
 				putchar(letter);
 			}
 			break;
 	}
+
+#undef fwarnx
+
 }
 
 static int usage(void) {
-	printf("Usage: unescape [-a text] [-b] [files...]\n");
+	printf("Usage: unescape [-a text] [-bq] [files...]\n");
 	printf("\n");
 	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
 	printf("  -b        keep backslashes in unknown escapes (like `echo`)\n");
 	printf("            (the default is to discard them, like C/C++)\n");
+	printf("  -q        stay quiet about unknown or truncated escapes\n");
 	printf("\n");
 	return 2;
 }
@@ -173,13 +180,16 @@ int main(int argc, char *argv[]) {
 	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "a:b")) != -1) {
+	while ((opt = getopt(argc, argv, "a:bq")) != -1) {
 		switch (opt) {
 		case 'a':
 			data = optarg;
 			break;
 		case 'b':
 			keep_backslash = 1;
+			break;
+		case 'q':
+			warn_bad_escapes = 0;
 			break;
 		default:
 			return usage();

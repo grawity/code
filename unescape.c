@@ -78,7 +78,7 @@ static void process(FILE *fp) {
 				letter = ch;
 				maxlen = (ch == 'x') ? 2 :
 				         (ch == 'u') ? 4 :
-					 (ch == 'U') ? 8 : -1;
+				         (ch == 'U') ? 8 : -1;
 				state = HexEscape;
 				break;
 			case '0'...'7':

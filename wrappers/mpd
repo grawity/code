@@ -1,0 +1,24 @@
+#!/bin/sh
+# wrapper for mpd (flock)
+
+[ -d ~/.cache/mpd ] ||
+	mkdir -p -m 0700 ~/.cache/mpd
+
+mpd="/usr/bin/mpd"
+
+case $1 in
+-k)
+	exec $mpd --kill
+	;;
+--help|--version)
+	exec $mpd "$@"
+	;;
+*)
+	exec {fd}>> ~/.run/mpd.pid
+	flock -xn $fd || {
+		echo "mpd: already running"
+		exit
+	}
+	export PULSE_PROP='application.icon_name=sonata'
+	exec $mpd "$@"
+esac

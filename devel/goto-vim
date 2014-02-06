@@ -105,6 +105,10 @@ sub parse {
 			my ($url) = ($1);
 			return ($url);
 		}
+		when (-e $_) {
+			debug "-e: $_\n";
+			return ($_);
+		}
 		when ($vimre) {
 			debug "vimre: '$&' -> '$1' '$2'\n";
 			my ($file, $cmd) = (shunescape($1), $2);
@@ -134,10 +138,6 @@ sub parse {
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
-		}
-		when (-e $_) {
-			debug "-e: $_\n";
-			return ($_);
 		}
 		when (/^(.+)$/m && -e $1) {
 			debug "-e: $1\n";

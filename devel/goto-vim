@@ -15,6 +15,12 @@ my $fileurlre = qr{ \b file:// (/\S+) }mx;
 my $urlre = qr{ \b ((?:https?|ftps?|sftp) :// \S+) }mx;
 
 # this matches:
+#   filename +lineno
+#   vim filename +lineno
+
+my $vimre = qr{ ^ (?:vim\s+)? (.+) \s+ (\+\d+) $ }mx;
+
+# this matches:
 #   filename:lineno
 #   filename:lineno:garbage
 #   filename:lineno,garbage
@@ -77,6 +83,11 @@ sub shescape {
 	return $str;
 }
 
+sub shunescape {
+	# do not bother with this just yet...
+	shift;
+}
+
 sub parse {
 	for (shift) {
 		when ($pythonre) {
@@ -93,6 +104,12 @@ sub parse {
 			debug "urlre: '$&'\n";
 			my ($url) = ($1);
 			return ($url);
+		}
+		when ($vimre) {
+			debug "vimre: '$&' -> '$1' '$2'\n";
+			my ($file, $cmd) = (shunescape($1), $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			return ($file, $cmd) if -e $file;
 		}
 		when ($specre) {
 			debug "specre: '$&' -> '$1' '$2'\n";

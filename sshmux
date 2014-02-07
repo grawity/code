@@ -4,19 +4,24 @@
 
 prefix="$HOME/.ssh/S.$HOSTNAME."
 
+parse_socket() {
+	addr="${socket#$prefix}"
+	user="${addr%@*}"
+	temp="${addr##*@}"
+	host="${temp%:*}"
+	port="${temp##*:}"
+}
+
+ssh_control() {
+	ssh "$host" -l "$user" -p "$port" -S "$socket" "$@"
+}
+
 do_list() {
 	printf '%-40s%s\n' "SERVER NAME" "STATUS"
-
 	for socket in "$prefix"*; do
-		if ! test -e "$socket"; then
-			continue
-		fi
-		addr="${socket#$prefix}"
-		user="${addr%@*}"
-		host="${addr##@*}"
-		port="${host##*:}"
-		host="${host%:*}"
-		if ! status=$(ssh "$host" -l "$user" -p "$port" -O check 2>&1); then
+		test -S "$socket" || continue
+		parse_socket
+		if ! status=$(ssh_control -O check 2>&1); then
 			status="${status/#Control socket connect(*): /Control socket: }"
 		fi
 		printf '%-40s%s\n' "$addr" "$status"
@@ -26,13 +31,14 @@ do_list() {
 do_kill() {
 	for socket in "$prefix"*; do
 		test -S "$socket" || continue
-		echo "${socket##*/}"
-		ssh -S "$socket" fakehost -O stop || rm -v "$socket"
+		parse_socket
+		log "stopping $addr"
+		ssh_control -O stop || rm -v "$socket"
 	done
 }
 
 case $1 in
--k) do_kill;;
-'') do_list;;
-*)  die "unknown option '$1'";;
+    -k) do_kill;;
+    '') do_list;;
+    *)  die "unknown option '$1'";;
 esac

@@ -48,7 +48,7 @@ class SexpParser(object):
         self.bits = 0
         self.nBits = 0
         self.buf = buf if hasattr(buf, "read") else BytesIO(buf)
-        self.char = ""
+        self.char = b""
         self.advance()
 
     def __iter__(self):

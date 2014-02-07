@@ -30,9 +30,7 @@ HEX_DIGITS      = b"0123456789ABCDEFabcdef"
 B64_DIGITS      = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
 PRINTABLE_CHARS = bytes(range(0x20, 0x80))
-ESCAPE_CHARS    = b"\b\t\v\n\f\r\\"
-
-ESCAPE_CHARS_TB = {
+ESCAPE_CHARS = {
     b"\b":  b"b",
     b"\t":  b"t",
     b"\v":  b"v",
@@ -342,9 +340,9 @@ def dump_string(obj, canonical=False, hex=False, hint=None):
         # In python3, iterates over integers. NOT 1-char bytes()
         # No, screw it. I officially drop Python 2 compatibility here.
         for char in obj:
-            if char in ESCAPE_CHARS_TB:
+            if char in ESCAPE_CHARS:
                 out += b"\\"
-                out += ESCAPE_CHARS_TB[char]
+                out += ESCAPE_CHARS[char]
             elif char in b"'\"":
                 out += b"\\"
                 out.append(char)

@@ -184,26 +184,18 @@ class SexpParser(object):
                     raise ValueError("quoted string ended too early (expected %d)" % length)
             elif self.char == b"\\":
                 c = self.advance()
-                if c == b"\r":
-                    continue
-                elif c == b"\n":
+                if c in b"\r\n":
                     continue
                 elif c in b"0123":
                     s = c + self.advance() + self.advance()
                     val = int(s, 8)
                     out += chr(val)
-                elif c == b"b":
-                    out += b"\b"
-                elif c == b"f":
-                    out += b"\f"
-                elif c == b"n":
-                    out += b"\n"
-                elif c == b"r":
-                    out += b"\r"
-                elif c == b"t":
-                    out += b"\t"
-                elif c == b"v":
-                    out += b"\v"
+                elif c == b"b": out += b"\b"
+                elif c == b"f": out += b"\f"
+                elif c == b"n": out += b"\n"
+                elif c == b"r": out += b"\r"
+                elif c == b"t": out += b"\t"
+                elif c == b"v": out += b"\v"
                 elif c == b"x":
                     s = self.advance() + self.advance()
                     val = int(s, 16)

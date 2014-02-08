@@ -12,8 +12,10 @@ our @EXPORT = qw(
 );
 
 $::arg0 //= basename($0);
-
 $::arg0prefix = $ENV{LVL}++ || $ENV{DEBUG};
+
+$::warnings = 0;
+$::errors = 0;
 
 sub _msg {
 	my $prefix = shift;
@@ -26,9 +28,9 @@ sub _msg {
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
 
-sub _warn { _msg("warning", shift, "\e[1;33m"); }
+sub _warn { _msg("warning", shift, "\e[1;33m"); ++$::warnings; }
 
-sub _err  { _msg("error", shift, "\e[1;31m"); }
+sub _err  { _msg("error", shift, "\e[1;31m"); ++$::errors; }
 
 sub _die  { _err(shift); exit 1; }
 

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# second-level wrapper to set global arguments, called by the `secondlife`,
+# `firestorm`, and other first-level wrappers which set viewer-specific
+# variables
+
+. lib.bash || exit
+
+exe=$1; shift
+
+if ! [[ $exe ]]; then
+	die "missing executable path"
+elif ! [[ -f $exe && -x $exe ]]; then
+	die "not an executable: $exe"
+fi
+
+args=('--novoice')
+
+for arg; do
+	case $arg in
+	    @*)
+		name=${arg#@}
+		debug "looking up login '$name' in .netrc"
+		creds=$(getnetrc -df '%a %p' secondlife.com "$name")
+		if [[ $creds ]]; then
+			debug "found credentials: $creds"
+			args+=('--login' $creds)
+		else
+			err "login '$name' not found in .netrc"
+		fi
+		;;
+	    *)
+		args+=("$arg")
+		;;
+	esac
+done
+
+(( ! errors )) || exit
+
+exec "$exe" "${args[@]}"

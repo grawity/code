@@ -34,7 +34,7 @@ sub _err  { _msg("error", shift, "\e[1;31m"); ++$::errors; }
 
 sub _die  { _err(shift); exit 1; }
 
-sub forked(&) { fork || exit shift->(); }
+sub forked (&) { fork || exit shift->(); }
 
 sub readfile {
 	my ($file) = @_;
@@ -45,6 +45,6 @@ sub readfile {
 	wantarray ? @lines : shift @lines;
 }
 
-sub uniq { my %seen; grep {!$seen{$_}++} @_; }
+sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
 
 1;

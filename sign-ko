@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # convenience wrapper for signing Linux kernel modules
 
+. lib.bash || exit
+
 src=~/src/linux
 
 cert=$src/signing_key.x509
 key=$src/signing_key.priv
 
 hash=$(cd "$src" && . ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
+
+[[ -e "$cert" ]] || die "certificate not found: $cert"
+[[ -e "$key" ]]  || die "private key not found: $key"
 
 for file; do
 	echo -n "${file##*/}: "

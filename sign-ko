@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # convenience wrapper for signing Linux kernel modules
 
-priv() {
-	if (( UID )); then sudo "$@"; else "$@"; fi
-}
-
 src=~/src/linux
 
 cert=$src/signing_key.x509
 key=$src/signing_key.priv
+
 hash=$(cd "$src" && . ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
 
 for file; do
@@ -16,7 +13,13 @@ for file; do
 	if grep -qs "~Module signature appended~" "$file"; then
 		echo "already signed"
 	else
+		if (( UID == 0 )); then
+			need_root=
+		elif ! [[ -w "$file" && -w "${file%/*}" ]]; then
+			need_root=y
+		fi
+
 		echo "signing"
-		priv "$src/scripts/sign-file" "$hash" "$key" "$cert" "$file"
+		${need_root:+sudo} "$src/scripts/sign-file" "$hash" "$key" "$cert" "$file"
 	fi
 done

@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+use feature qw(say);
+use Nullroute::Lib;
+
+$histfile = shift @ARGV // _die("missing histfile argument");
+
+if (open my $f, "<", $histfile) {
+	@history = grep {chomp || 1} <$f>;
+	close $f;
+} else {
+	if ($!{ENOENT}) {
+		exit;
+	} else {
+		_die("could not open histfile: $!");
+	}
+}
+
+exit if !@history;
+
+$last = $history[$#history];
+
+%count = ();
+$count{$_}++ for @history;
+
+@sorted =
+	sort {$count{$a} <=> $count{$b}}
+	grep {$_ ne $last}
+	uniq @history;
+
+say $last;
+say for reverse @sorted;

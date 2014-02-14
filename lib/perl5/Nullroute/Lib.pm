@@ -28,6 +28,13 @@ sub _msg {
 	my $name = $::arg0 . ($::debug ? "[$$]" : "");
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
+	if ($prefix eq "debug") {
+		my @frame = caller(2); # stack frame below _debug()
+		$frame[3] =~ s/^main:://;
+		#$msg = $frame[1].":".$frame[2]." (".$frame[3].") ".$msg;
+		$msg = "(".$frame[3].") ".$msg;
+	}
+
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
 

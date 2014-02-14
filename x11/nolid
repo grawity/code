@@ -6,6 +6,8 @@ hold="$XDG_RUNTIME_DIR/nolid.hold"
 
 export _NOLID=1
 
+notify=0
+
 case $1 in
 	-h|--hold)
 		touch "$hold"
@@ -16,6 +18,9 @@ case $1 in
 		rm -f "$hold"
 		echo "Released."
 		exit;;
+	-n|--notify)
+		notify=1
+		shift;;
 esac
 
 name="nolid"
@@ -38,3 +43,16 @@ flock -s "$lock" \
 	--what="suspend" \
 	--why="Manually inhibited" \
 	"${@:-pause}"
+
+r=$?
+
+if [ $notify -eq 1 ]; then
+	if [ $r -eq 0 ]; then
+		msg="exited successfully"
+	else
+		msg="failed (exit status $r)"
+	fi
+	notify-send "Lid inhibit removed" "'$1' $msg"
+fi
+
+exit $r

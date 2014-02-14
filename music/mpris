@@ -10,6 +10,7 @@ use Data::Dumper;
 use List::Util qw(max);
 use Net::DBus qw(:typing);
 use Net::DBus::Reactor;
+use Nullroute::Lib;
 use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
 	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
@@ -374,14 +375,16 @@ sub show_notification {
 		default          { $icon = "audio-x-generic-symbolic" }
 	}
 
-	if ($status eq "Playing") {
-		$icon = $meta->{"mpris:artUrl"} // "audio-x-generic";
+	if ($status eq "Playing" && ($ENV{DESKTOP_SESSION} // "") =~ /gnome/i) {
+		$icon = $meta->{"mpris:artUrl"} // $icon;
 	}
+
+	_debug("show_notification: status=$status, icon='$icon'");
 
 	%hints = (
 		"desktop-entry" => $app_desktop{$bus_name} . ".desktop",
-		transient => dbus_boolean(1),
-		urgency => dbus_byte(0),
+		"transient" => dbus_boolean(1),
+		"urgency" => dbus_byte(0),
 	);
 
 	$notification_id{$bus_name} = Notifications->Notify(

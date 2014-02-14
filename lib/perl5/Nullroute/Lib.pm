@@ -38,7 +38,7 @@ sub _msg {
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
 
-sub _debug { _msg("debug", shift, "\e[1;35m") if $::debug; }
+sub _debug { _msg("debug", shift, "\e[36m") if $::debug; }
 
 sub _warn  { _msg("warning", shift, "\e[1;33m"); ++$::warnings; }
 

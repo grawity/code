@@ -11,13 +11,13 @@ _todo_show() {
 }
 
 todo() {
-	if [[ $1 == /* ]]; then
-		local addr=$1
-		if [[ $addr != /*/ ]]; then
-			addr+=/
+	local arg=$*
+	if [[ $arg == /* ]]; then
+		if [[ $arg != /*/ ]]; then
+			arg+='/'
 		fi
-		_todo_show | sed -n "${addr}p"
-	elif [[ $1 ]]; then
+		_todo_show | sed -n "${arg}p"
+	elif [[ $arg ]]; then
 		echo "$(date +"$date_fmt")$date_sep$*" >> "$file"
 		_todo_show | tail -n 1
 	elif [[ -s ~/lib/todo ]]; then
@@ -30,15 +30,24 @@ vitodo() {
 }
 
 rmtodo() {
-	local addr=${1:-'$'}
-	local tmp=${file%/*}/.todo.tmp
-	if [[ $addr == /* && $addr != /*/ ]]; then
-		addr+=/
-	elif [[ $addr == *, ]]; then
-		addr+='$'
+	local pcmd dcmd addr
+	if (( ! $# )); then
+		set -- '$'
 	fi
-	_todo_show | sed -n "${addr}p" &&
-	sed "${addr}d" "$file" > "$tmp" &&
+	for addr; do
+		if [[ ! $addr ]]; then
+			addr='$'
+		elif [[ $addr == /* && $addr != /*/ ]]; then
+			addr+='/'
+		elif [[ $addr == *, ]]; then
+			addr+='$'
+		fi
+		pcmd+="${addr}p;"
+		dcmd+="${addr}d;"
+	done
+	local tmp=${file%/*}/.todo.tmp
+	_todo_show | sed -n "$pcmd" &&
+	sed "$dcmd" "$file" > "$tmp" &&
 	cp "$tmp" "$file" &&
 	rm -f "$tmp"
 }
@@ -53,11 +62,10 @@ if [[ -f ~/todo ]] && [[ ! -e $file ]]; then
 fi
 
 cmd=${0##*/}
-arg=$*
 
 case $cmd in
     todo|vitodo|rmtodo)
-	$cmd "$arg";;
+	$cmd "$@";;
     *)
 	todo;;
 esac

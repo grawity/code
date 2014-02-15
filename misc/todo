@@ -6,7 +6,7 @@ date_fmt="'%y %b %_d"
 
 date_sep=" – "
 
-_todo_show() {
+lstodo() {
 	nl -ba -s". " -w3 "$file"
 }
 
@@ -16,12 +16,12 @@ todo() {
 		if [[ $arg != /*/ ]]; then
 			arg+='/'
 		fi
-		_todo_show | sed -n "${arg}p"
+		lstodo | sed -n "${arg}p"
 	elif [[ $arg ]]; then
 		echo "$(date +"$date_fmt")$date_sep$*" >> "$file"
-		_todo_show | tail -n 1
+		lstodo | tail -n 1
 	elif [[ -s ~/lib/todo ]]; then
-		_todo_show
+		lstodo
 	fi
 }
 
@@ -46,7 +46,7 @@ rmtodo() {
 		dcmd+="${addr}d;"
 	done
 	local tmp=${file%/*}/.todo.tmp
-	_todo_show | sed -n "$pcmd" &&
+	lstodo | sed -n "$pcmd" &&
 	sed "$dcmd" "$file" > "$tmp" &&
 	cp "$tmp" "$file" &&
 	rm -f "$tmp"
@@ -64,7 +64,7 @@ fi
 cmd=${0##*/}
 
 case $cmd in
-    todo|vitodo|rmtodo)
+    todo|lstodo|vitodo|rmtodo)
 	$cmd "$@";;
     *)
 	todo;;

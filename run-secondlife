@@ -28,6 +28,10 @@ for arg; do
 			err "login '$name' not found in .netrc"
 		fi
 		;;
+	    secondlife://*)
+		uri=$arg
+		args+=('--url' "$arg")
+		;;
 	    *)
 		args+=("$arg")
 		;;
@@ -35,5 +39,13 @@ for arg; do
 done
 
 (( ! errors )) || exit
+
+if [[ $uri ]] && dbus-name -e -q com.secondlife.ViewerAppAPIService; then
+	log "activating existing viewer instance"
+	exec gdbus call -e -d com.secondlife.ViewerAppAPIService \
+			   -o /com/secondlife/ViewerAppAPI \
+			   -m com.secondlife.ViewerAppAPI.GoSLURL \
+			   "'$uri'" > /dev/null
+fi
 
 exec "$exe" "${args[@]}"

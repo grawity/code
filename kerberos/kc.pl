@@ -114,7 +114,7 @@ sub read_aliases {
 			);
 			for (@args) {
 				s|^~/|$ENV{HOME}/|;
-				s|\$([A-Z]+)|$vars{$1}|g;
+				s|\$\{([A-Z]+)\}|$vars{$1}|g;
 			}
 			$aliases{$alias} = \@args;
 		} else {

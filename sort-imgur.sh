@@ -44,7 +44,7 @@ for file in *.jpg *.jpeg *.png *.gif; do
 	case $ref in
 	/r/awwnime/*)
 		put "$file" ~/Pictures/r-awwnime/;;
-	/r/bdsm/*)
+	/r/bdsm/*|/r/bdsmgw/*)
 		put "$file" ~/Pictures/Porn;;
 	/r/pantsu/*)
 		put "$file" ~/Pictures/Ero/;;

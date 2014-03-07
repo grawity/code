@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+sep:() { echo; echo "-- $1 --"; echo; }
+
 . lib.bash
 
 messages() {
@@ -14,6 +16,18 @@ messages() {
 	true
 }
 
+sep: "messages (normal)"
+
 DEBUG='' messages
 
+sep: "messages (\$DEBUG)"
+
 DEBUG=1 messages
+
+sep: "backtraces (\$DEBUG=2)"
+
+foo() { bar; }
+bar() { baz; }
+baz() { warn "something failed"; }
+
+DEBUG=2 foo

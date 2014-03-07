@@ -29,13 +29,15 @@ case $1 in
 	mtpt=$XDG_RUNTIME_DIR/fd
 	mkdir -p "$mtpt"
 	sudo mount "$name" "$mtpt" -o loop,uid=$UID
-	echo "mounted: $mtpt"
+	echo "mounted: $name -> $mtpt"
 	;;
     umount|unmount|u)
 	mtpt=$XDG_RUNTIME_DIR/fd
+	ldev=$(findmnt -n -o SOURCE "$mtpt")
+	file=$(losetup -n -O BACK-FILE "$ldev")
 	sudo umount "$mtpt"
 	until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
-	echo "unmounted: $mtpt"
+	echo "unmounted: $file -> $mtpt"
 	;;
     '')
 	{

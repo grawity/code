@@ -61,6 +61,17 @@ do_dconf() {
 	fi
 }
 
+do_xfconf() {
+	local channel=$1 path=$2 value=$3
+	if [[ $value == '-' || $value == 'reset' ]]; then
+		xfconf-query -c "$channel" -p "$path" --reset
+	elif [[ $value ]]; then
+		xfconf-query -c "$channel" -p "$path" --set "$value"
+	else
+		xfconf-query -c "$channel" -p "$path"
+	fi
+}
+
 tweak=$1 value=$2
 
 case $tweak in
@@ -78,6 +89,12 @@ gtk-theme)
 	;;
 wm-theme)
 	do_gsettings org.gnome.desktop.wm.preferences theme "$value"
+	;;
+xfce/gtk-theme)
+	do_xfconf xsettings /Net/ThemeName "$value"
+	;;
+xfce/wm-theme)
+	do_xfconf xfwm4 /general/theme "$value"
 	;;
 *)
 	die "unknown setting '$tweak'"

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-log() { echo "dist/prepare: $*" >&2; }
+log()  { echo "dist/prepare: $*" >&2; }
+warn() { log "warning: $*"; }
+die()  { log "error: $*"; exit 1; }
 
 usage() {
 	echo "Usage: dist/prepare {-D|-O|-d|-h|-m|-o|-v}"
@@ -49,17 +51,17 @@ test "$MAKELEVEL" ||
 #   $DISTTYPE	- arch-kernel-distro	- built from $HOSTTYPE-$(uname)-$DIST
 
 test "$OSTYPE" || {
-	log "warning: system does not set \$OSTYPE" >&2
+	warn "system does not set \$OSTYPE"
 	OSTYPE="$(uname)"
 }
 
 test "$HOSTTYPE" || {
-	log "warning: system does not set \$HOSTTYPE" >&2
+	warn "system does not set \$HOSTTYPE"
 	HOSTTYPE="$(uname -m)"
 }
 
 test "$MACHTYPE" || {
-	log "warning: system does not set \$MACHTYPE" >&2
+	warn "system does not set \$MACHTYPE"
 	MACHTYPE="$HOSTTYPE-$OSTYPE"
 }
 
@@ -82,7 +84,7 @@ test "$DISTTYPE" || {
 }
 
 test "$HOSTNAME" || {
-	log "warning: system does not set \$HOSTNAME" >&2
+	warn "system does not set \$HOSTNAME"
 	HOSTNAME="$(hostname)"
 }
 
@@ -115,8 +117,7 @@ if test "$out"; then
 	a|arch)	OBJDIR="$ARCHOBJ";;
 	d|dist)	OBJDIR="$DISTOBJ";;
 	h|host)	OBJDIR="$HOSTOBJ";;
-	*)	log "invalid \$out value '$out'" >&2
-		exit 1;;
+	*)	die "invalid \$out value '$out'";;
 	esac
 else
 	if test "$OBJ"; then

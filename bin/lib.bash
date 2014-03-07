@@ -41,9 +41,9 @@ print_msg() {
 }
 
 print_fmsg() {
-	local level=$1 msg=$2 color=$3 fprefix=$4 fcolor=$5 reset
+	local level=$1 msg=$2 lcolor=$3 fprefix=$4 fcolor=$5 color reset
 	if [[ $DEBUG ]]; then
-		print_msg "$level" "$msg" "$color"
+		print_msg "$level" "$msg" "$lcolor"
 		return
 	fi
 	if [[ -t 1 ]]; then

@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # wrapper for 'qemu-system-*' choosing the apropriate architecture and KVM flag
 
-carch=`uname -m`
-: ${arch:=$carch}
+: ${arch:=`uname -m`}
 
 case $arch in
-i?86|x86_64)	kvm='-enable-kvm';;
-*)		kvm='';;
+    i?86|x86_64)
+	kvm='-enable-kvm';;
+    *)
+	kvm='';;
 esac
 
 xargs=()
 
 for arg; do
 	case $arg in
-	-no-kvm)	kvm='';;
-	*)		xargs+=("$arg");;
+	    -no-kvm)
+		kvm='';;
+	    *)
+		xargs+=("$arg");;
 	esac
 done
 
@@ -26,6 +29,6 @@ args=(
 	-net "nic,model=pcnet"
 	-net "vde"
 	"${xargs[@]}"
-	)
+)
 
 exec "${args[@]}"

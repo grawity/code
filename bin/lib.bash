@@ -30,10 +30,9 @@ print_msg() {
 		color=$3 reset=${color:+'\e[m'}
 	fi
 	if [[ $DEBUG ]]; then
-		local progname="$progname[$$]"
+		local progname="$progname[$$]" progname_prefix=1
 	fi
-	if [[ $DEBUG || $progname_prefix -gt 0 ||
-	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
+	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
 		nprefix="$progname: "
 	fi
 	printf "%s${color}%s:${reset} %s\n" "$nprefix" "$prefix" "$msg"
@@ -48,8 +47,7 @@ print_fmsg() {
 	if [[ -t 1 ]]; then
 		color="$fcolor" reset='\e[m'
 	fi
-	if [[ $progname_prefix -gt 0 ||
-	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
+	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
 		nprefix="$progname: "
 	fi
 	printf "%s${color}%s${reset} %s\n" "$nprefix" "$fprefix" "$msg"

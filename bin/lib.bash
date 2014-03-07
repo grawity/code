@@ -25,7 +25,7 @@ progname=${0##*/}
 progname_prefix=-1
 
 print_msg() {
-	local prefix=$1 msg=$2 color reset
+	local prefix=$1 msg=$2 color reset nprefix
 	if [[ -t 1 ]]; then
 		color=$3 reset=${color:+'\e[m'}
 	fi
@@ -34,10 +34,9 @@ print_msg() {
 	fi
 	if [[ $DEBUG || $progname_prefix -gt 0 ||
 	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
-		printf "%s: ${color}%s:${reset} %s\n" "$progname" "$prefix" "$msg"
-	else
-		printf "${color}%s:${reset} %s\n" "$prefix" "$msg"
+		nprefix="$progname: "
 	fi
+	printf "%s${color}%s:${reset} %s\n" "$nprefix" "$prefix" "$msg"
 }
 
 print_fmsg() {
@@ -51,10 +50,9 @@ print_fmsg() {
 	fi
 	if [[ $progname_prefix -gt 0 ||
 	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
-		printf -- "%s: ${color}%s${reset} %s\n" "$progname" "$fprefix" "$msg"
-	else
-		printf -- "${color}%s${reset} %s\n" "$fprefix" "$msg"
+		nprefix="$progname: "
 	fi
+	printf "%s${color}%s${reset} %s\n" "$nprefix" "$fprefix" "$msg"
 }
 
 debug() {

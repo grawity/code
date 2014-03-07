@@ -58,7 +58,7 @@ print_fmsg() {
 }
 
 debug() {
-	local colorfunc reset
+	local color reset
 	if [[ -t 1 ]]; then
 		color='\e[36m' reset='\e[m'
 	fi

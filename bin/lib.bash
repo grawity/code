@@ -151,8 +151,8 @@ backtrace() {
 	printf "%s[%s]: call stack:\n" "$progname" "$$"
 	for (( 1; i < ${#BASH_SOURCE[@]}; i++ )); do
 		printf "... %s:%s: %s -> %s\n" \
-			"${BASH_SOURCE[i]}" "${BASH_LINENO[i]}" \
-			"${FUNCNAME[i+1]:-?}" "${FUNCNAME[i]}"
+			"${BASH_SOURCE[i]}" "${BASH_LINENO[i-1]}" \
+			"${FUNCNAME[i]:-?}" "${FUNCNAME[i-1]}"
 	done
 } >&2
 

@@ -83,8 +83,12 @@ status() {
 	settitle "$progname: $*"
 }
 
+log2() {
+	print_fmsg 'log2' "$*" '\e[1;35m' '==' '\e[35m'
+}
+
 notice() {
-	print_fmsg 'notice' "$*" '\e[1;35m' '==' '\e[35m'
+	print_fmsg 'notice' "$*" '\e[1;35m' '!' '\e[1;35m'
 } >&2
 
 warn() {

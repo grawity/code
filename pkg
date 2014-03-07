@@ -39,6 +39,20 @@ list_stats() {
 }
 
 dist_configure() {
+	if test -e configure.ac; then
+		if test ! -e configure || test configure.ac -nt configure; then
+			notice "'configure' is older than 'configure.ac'"
+			if test -x autogen.sh; then
+				log "updating configure through ./autogen.sh"
+				NOCONFIGURE=1 ./autogen.sh
+			else
+				log "updating configure through autoreconf"
+				autoreconf -i -f
+			fi
+		fi
+	fi
+
+	log "configuring for $PREFIX"
 	./configure --prefix="$PREFIX" "$@"
 }
 

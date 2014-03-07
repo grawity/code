@@ -2,9 +2,11 @@
 
 umask 077
 
+. lib.bash || exit
+
 case ${0##*/} in
-"gpgin")	mode=encrypt;;
-"gpgout")	mode=decrypt;;
+    gpgin)  mode=encrypt;;
+    gpgout) mode=decrypt;;
 esac
 
 archive=$1
@@ -25,9 +27,10 @@ for dir in "${keydirs[@]}"; do
 done
 
 case $mode in
-"encrypt")
+    encrypt)
 	if [[ ! $keyfile ]]; then
 		keyfile="${keydirs[0]}/$keybase"
+		log "generating keyfile: $keyfile"
 		tr -dc "A-Za-z0-9" < /dev/urandom | head -c 64 > "$keyfile"
 	fi
 	options+=( --batch --passphrase-file "$keyfile" )
@@ -35,10 +38,9 @@ case $mode in
 	gpg "${options[@]}" --symmetric \
 	| pv -N "gpg" > "$archive"
 	;;
-"decrypt")
+    decrypt)
 	if [[ ! $keyfile ]]; then
-		echo "Key file not found" >&2
-		exit 1
+		die "key file not found"
 	fi
 	options+=( --batch --passphrase-file "$keyfile" )
 	options+=( --no-tty --no-mdc-warning )

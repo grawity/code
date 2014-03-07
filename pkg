@@ -38,6 +38,10 @@ list_stats() {
 	echo "$ndirs directories, $nfiles files"
 }
 
+dist_configure() {
+	./configure --prefix="$PREFIX" "$@"
+}
+
 dist_install() {
 	local dest="${1%/}/" args=("${@:2}")
 
@@ -70,7 +74,13 @@ tempdest="$CACHEDIR/install/$name"
 
 makeargs=()
 
-case $1 in
+cmd=$1; shift
+
+case $cmd in
+configure)
+	dist_configure "$@"
+	;;
+
 install)
 	dist_install "$tempdest"
 

@@ -41,14 +41,18 @@ print_msg() {
 }
 
 print_fmsg() {
-	local level=$1 msg=$2 color=$3 fprefix=$4 fcolor=$5
+	local level=$1 msg=$2 color=$3 fprefix=$4 fcolor=$5 reset
 	if [[ $DEBUG ]]; then
 		print_msg "$level" "$msg" "$color"
+		return
+	fi
+	if [[ -t 1 ]]; then
+		color="$fcolor" reset='\e[m'
+	fi
+	if [[ $progname_prefix -gt 0 ||
+	      ( $progname_prefix -le 0 && $_lvl -gt 0 ) ]]; then
+		printf -- "%s: ${color}%s${reset} %s\n" "$progname" "$fprefix" "$msg"
 	else
-		local color reset
-		if [[ -t 1 ]]; then
-			color="$fcolor" reset='\e[m'
-		fi
 		printf -- "${color}%s${reset} %s\n" "$fprefix" "$msg"
 	fi
 }

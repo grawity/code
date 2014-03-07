@@ -40,6 +40,19 @@ print_msg() {
 	fi
 }
 
+print_fmsg() {
+	local level=$1 msg=$2 color=$3 fprefix=$4 fcolor=$5
+	if [[ $DEBUG ]]; then
+		print_msg "$level" "$msg" "$color"
+	else
+		local color reset
+		if [[ -t 1 ]]; then
+			color="$fcolor" reset='\e[m'
+		fi
+		printf -- "${color}%s${reset} %s\n" "$fprefix" "$msg"
+	fi
+}
+
 debug() {
 	local colorfunc reset
 	if [[ -t 1 ]]; then
@@ -62,15 +75,7 @@ say() {
 }
 
 log() {
-	if [[ $DEBUG ]]; then
-		print_msg 'log' "$*" '\e[1;32m'
-	else
-		local color reset
-		if [[ -t 1 ]]; then
-			color='\e[32m' reset='\e[m'
-		fi
-		printf -- "${color}--${reset} %s\n" "$*"
-	fi
+	print_fmsg 'log' "$*" '\e[1;32m' '--' '\e[32m'
 }
 
 status() {
@@ -79,15 +84,7 @@ status() {
 }
 
 notice() {
-	if [[ $DEBUG ]]; then
-		print_msg 'notice' "$*" '\e[1;35m'
-	else
-		local color reset
-		if [[ -t 1 ]]; then
-			color='\e[35m' reset='\e[m'
-		fi
-		printf -- "${color}==${reset} %s\n" "$*"
-	fi
+	print_fmsg 'notice' "$*" '\e[1;35m' '==' '\e[35m'
 } >&2
 
 warn() {

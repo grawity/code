@@ -11,7 +11,7 @@ use File::Path qw(make_path);
 use File::Spec::Functions;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use POSIX qw(strftime);
-use Nullroute::Lib qw(_err _die);
+use Nullroute::Lib qw(_debug _err _die);
 
 our $INTERACTIVE = 0;
 our $VERBOSE = 1;
@@ -27,11 +27,11 @@ sub verbose {
 }
 
 sub trace {
-	print "trash: ", @_, "\n" if $ENV{DEBUG};
+	goto &_debug;
 }
 
 sub confirm {
-	print "trash: ", shift, " "; $|++; <STDIN> =~ /^y/i;
+	print "$::arg0: ", shift, " "; $|++; <STDIN> =~ /^y/i;
 }
 
 sub dev {

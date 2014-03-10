@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # hi - download latest hilights from IRC log
+
+. lib.bash || exit
+
 set -o pipefail
 log=~/tmp/highlights.txt
 
 touch "$log"
 exec {fd}<"$log"
-flock --exclusive --timeout 3 $fd || {
-	echo "Already running." >&2
-	exit 1
-}
+flock --exclusive --timeout 3 $fd || die "another instance running"
 
 fmt() {
 	perl -M'POSIX' -M'POSIX::strptime' -a -F'\t' -nE'
@@ -101,7 +101,8 @@ fmt() {
 }
 
 url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
-url=$(readlink "$log.url")
+url=$(readlink "$log.url") ||
+die "could not find URL for $log"
 opts='-4'
 size=$(stat -c %s "$log")
 now=$(date +%s)

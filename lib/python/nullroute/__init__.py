@@ -12,5 +12,5 @@ def err(msg):
     _log("error", msg, "1;31")
 
 def die(msg):
-    err(msg)
+    _log("fatal", msg, "1;31")
     sys.exit(1)

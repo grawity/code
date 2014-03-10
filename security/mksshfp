@@ -4,6 +4,7 @@
 from __future__ import print_function
 import sys
 import hashlib
+import nullroute as lib
 import nullroute.authorized_keys as authorized_keys
 
 keytypes = {
@@ -27,12 +28,10 @@ def parse(path):
         try:
             key = authorized_keys.PublicKey(line)
         except ValueError:
-            print("Warning: Parse error at: %r" % line,
-                  file=sys.stderr)
+            lib.warn("parse error at: %r" % line)
             continue
         if key.algo not in keytypes:
-            print("Warning: No SSHFP type for '%s' keys." % key.algo,
-                  file=sys.stderr)
+            lib.warn("no SSHFP type for '%s' keys" % key.algo)
             continue
         for hash_id, hash_func in hashtypes:
             keyhash = hash_func(key.blob)
@@ -46,8 +45,11 @@ def parse(path):
                                         keyhash.hexdigest())
             }
 
-host = sys.argv[1]
-infile = sys.argv[2]
+try:
+    host = sys.argv[1]
+    infile = sys.argv[2]
+except IndexError:
+    lib.die("missing host and pubkey-file parameters")
 
 for entry in parse(infile):
     print(repr(entry["key"]))

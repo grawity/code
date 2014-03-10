@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
+
+. lib.bash || exit
+
+_die() {
+	zenity --error --title "" --text "$*"
+	die "$*"
+}
+
 path="$HOME/Private"
-dpath="${path/#${HOME%/}/~}"
+dpath=${path/#${HOME%/}'/'/'~/'}
 lock="$HOME/.ecryptfs/Private.mnt"
 
 if [[ $1 == "--nowait" ]]; then
-	exec {fd}<"$lock" && flock -x -n $fd || {
-		echo "Another unlock prompt already running"
-		exit 1
-	}
+	exec {fd}<"$lock" && flock -x -n $fd ||
+		die "another unlock prompt already running"
 else
 	if mountpoint -q "$path"; then
+		say "$dpath already mounted, exiting"
 		exit 0
 	else
 		exec {fd}<"$lock" || exit 1
@@ -23,15 +30,9 @@ else
 	fi
 fi
 
-err() {
-	echo "${0##*/}: $*" >&2
-	zenity --error --title "" --text "$*"
-	exit 1
-}
-
 pw=$(zenity --entry \
 	--title "Unlock private files" \
-	--text "Your private directory is locked.\n\nEnter password for ~/Private/" \
+	--text "Your private directory is locked.\n\nEnter password for $dpath" \
 	--hide-text \
 	--ok-label "Unlock" \
 ) || exit 1
@@ -40,8 +41,8 @@ wrapped=~/.ecryptfs/wrapped-passphrase
 
 # Twice. Sometimes it "forgets" to insert the FNEK. Fucker.
 printf '%s' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring "$wrapped" - ||
-	err "Failed to unlock your private files."
+	_die "Failed to unlock your private files."
 #printf '%s\n' "$pw" | ecryptfs-insert-wrapped-passphrase-into-keyring "$wrapped" - ||
-#	err "Failed to unlock your private files."
+#	_die "Failed to unlock your private files."
 ecryptfs-mount-private </dev/null ||
-	err "Failed to mount ~/Private/."
+	_die "Failed to mount $dpath."

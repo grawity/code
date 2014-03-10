@@ -62,7 +62,7 @@ my $vim = "/usr/bin/vim";
 my @args = "vim";
 
 sub debug {
-	warn @_ if $ENV{DEBUG};
+	warn shift."\n" if $ENV{DEBUG};
 }
 
 sub urldecode {
@@ -91,56 +91,56 @@ sub shunescape {
 sub parse {
 	for (shift) {
 		when ($pythonre) {
-			debug "pythonre: $& -> '$1' '$2'\n";
+			debug "pythonre: $& -> '$1' '$2'";
 			my ($file, $line) = ($1, $2);
 			return ($file, "+".$line);
 		}
 		when ($fileurlre) {
-			debug "fileurlre: '$&' -> '$1'\n";
+			debug "fileurlre: '$&' -> '$1'";
 			my ($file) = (urldecode($1));
 			return ($file) if -e $file;
 		}
 		when ($urlre) {
-			debug "urlre: '$&'\n";
+			debug "urlre: '$&'";
 			my ($url) = ($1);
 			return ($url);
 		}
 		when (-e $_) {
-			debug "-e: $_\n";
+			debug "-e: $_";
 			return ($_);
 		}
 		when ($vimre) {
-			debug "vimre: '$&' -> '$1' '$2'\n";
+			debug "vimre: '$&' -> '$1' '$2'";
 			my ($file, $cmd) = (shunescape($1), $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			return ($file, $cmd) if -e $file;
 		}
 		when ($specre) {
-			debug "specre: '$&' -> '$1' '$2'\n";
+			debug "specre: '$&' -> '$1' '$2'";
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
 		when ($diffpathre) {
-			debug "diffpathre: '$&'\n";
+			debug "diffpathre: '$&'";
 			my ($file) = ($1);
 			return ($file);
 		}
 		when ($pathre) {
-			debug "pathre: '$&' -> '$1'\n";
+			debug "pathre: '$&' -> '$1'";
 			my ($file) = ($1);
 			return ($file) if -e $file;
 		}
 		when ($ctxspecre) {
-			debug "ctxspecre: '$&' -> '$1' '$2'\n";
+			debug "ctxspecre: '$&' -> '$1' '$2'";
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
 		when (/^(.+)$/m && -e $1) {
-			debug "-e: $1\n";
+			debug "-e: $1";
 			return ($1);
 		}
 		default {

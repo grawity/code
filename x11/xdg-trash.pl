@@ -23,11 +23,11 @@ my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
 my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
 
 sub verbose {
-	print "\r\033[K", @_ if $VERBOSE;
+	print "\r\033[K", @_, "\n" if $VERBOSE;
 }
 
 sub trace {
-	print "trash: ", @_ if $ENV{DEBUG};
+	print "trash: ", @_, "\n" if $ENV{DEBUG};
 }
 
 sub confirm {
@@ -50,7 +50,7 @@ sub my_abs_path {
 	my $b = basename($path);
 	my $d = dirname($path);
 	my $rd = realpath($d);
-	trace("abs: dir='$d' realdir='$rd' base='$b'\n");
+	trace("abs: dir='$d' realdir='$rd' base='$b'");
 	return $rd."/".$b;
 }
 
@@ -100,8 +100,8 @@ Copy a file or directory $source to $dest recursively and delete the originals.
 sub xdev_move {
 	my ($source, $dest) = @_;
 	my @opt;
-	trace("xdev_move: source='$source'\n");
-	trace("xdev_move: dest='$dest'\n");
+	trace("xdev_move: source='$source'");
+	trace("xdev_move: dest='$dest'");
 	verbose("Copying '$source' to \$HOME...");
 	@opt = qw(-a -H -A -X);
 	$ENV{DEBUG} and push @opt, qw(-v -h);
@@ -173,11 +173,11 @@ sub find_trash_dir {
 	my ($orig_path) = @_;
 	ensure($home_trash);
 
-	trace("trying to find trash for path='$orig_path'\n");
+	trace("trying to find trash for path='$orig_path'");
 	my $fdev = dev($orig_path);
 	while (!defined $fdev) {
 		$orig_path = dirname($orig_path);
-		trace("...path not found, using parent='$orig_path'\n");
+		trace("...path not found, using parent='$orig_path'");
 		$fdev = dev($orig_path);
 	}
 
@@ -217,23 +217,23 @@ sub trash {
 		confirm("Kill file <$path>?") || return;
 	}
 	my $orig_path = my_abs_path($path);
-	trace("orig_path='$orig_path'\n");
+	trace("orig_path='$orig_path'");
 	my $trash_dir = find_trash_dir($orig_path);
-	trace("trash_dir='$trash_dir'\n");
+	trace("trash_dir='$trash_dir'");
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	write_info($info_fh, $orig_path);
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
 		if (rename($orig_path, $trashed_path)) {
-			verbose("Trashed '$path'\n");
+			verbose("Trashed '$path'");
 		} else {
 			unlink($info_name);
 			_die("rename of '$path' failed: $!");
 		}
 	} else {
 		if (xdev_move($orig_path, $trashed_path)) {
-			verbose("Trashed '$path' to \$HOME\n");
+			verbose("Trashed '$path' to \$HOME");
 		} else {
 			unlink($info_name);
 			_die("copy of '$path' to '$trash_dir' failed");

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # nolid - disable suspend and lid-close handling while a command runs
 
 lock="$XDG_RUNTIME_DIR/nolid.lock"
@@ -7,6 +7,12 @@ hold="$XDG_RUNTIME_DIR/nolid.hold"
 export _NOLID=1
 
 notify=0
+name="nolid"
+
+if [[ -t 0 ]]; then
+	tty=$(tty)
+	name="$name on ${tty#/dev/}"
+fi
 
 case $1 in
 	-h|--hold)
@@ -23,10 +29,7 @@ case $1 in
 		shift;;
 esac
 
-name="nolid"
-if [ -t 0 ]; then
-	tty=$(tty)
-	name="$name on ${tty#/dev/}"
+if [[ -t 0 ]]; then
 	settitle "nolid${1:+: $1}"
 fi
 
@@ -50,10 +53,10 @@ r=$?
 
 t_end=$(date +%s)
 
-if [ $notify -eq 1 ]; then
-	seconds=$(expr $t_end - $t_start)
+if (( notify )); then
+	seconds=$((t_end - t_start))
 	duration=$(interval $seconds)
-	if [ $r -eq 0 ]; then
+	if (( r == 0 )); then
 		msg="exited successfully"
 	else
 		msg="failed (exit status $r)"

@@ -32,10 +32,12 @@ i=0
 debug=false
 config=("SETPROMPT")
 
-[[ $DEBUG ]] && {
+if [[ $DEBUG ]]; then
 	debug=true
-	set -x
-}
+	if (( DEBUG > 1 )); then
+		set -x
+	fi
+fi
 
 if [[ $LC_ALL ]]; then
 	LC_MESSAGES=$LC_ALL
@@ -43,7 +45,7 @@ if [[ $LC_ALL ]]; then
 fi
 
 while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
-	$debug && echo "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
+	trace "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
 	case "$OPT" in
 	c)	config+=("$OPTARG") ;;
 	C)	config+=("SETCANCEL $(encode "$OPTARG")") ;;
@@ -95,25 +97,27 @@ configure() {
 	fi
 }
 
+trace() {
+	$debug && echo "$*" >&2 || true
+}
+
 out() {
-	$debug && echo "out: $*" >&2
+	trace "out: $*"
 	echo "$*" >&$out
 }
 
 trap "trap - SIGTERM; kill \$pinentry_pid" EXIT SIGINT SIGHUP SIGTERM SIGQUIT
 
 # spawn the pinentry program
-$debug && echo "command:" "${pinentry[@]}"
+trace "command: ${pinentry[*]}"
 coproc "${pinentry[@]}"; pinentry_pid=$!
 in=${COPROC[0]}
 out=${COPROC[1]}
 
 nextstate=configure
 while read status rest <&$in; do
-	$debug && {
-		echo "State: $nextstate"
-		echo "in: $status {$rest}"
-	} >&2
+	trace "State: $nextstate"
+	trace "in: $status {$rest}"
 	case "$nextstate" in
 	configure)
 		case "$status" in

@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # nolid - disable suspend and lid-close handling while a command runs
 
+. lib.bash || exit
+
 lock="$XDG_RUNTIME_DIR/nolid.lock"
 hold="$XDG_RUNTIME_DIR/nolid.hold"
 
-export _NOLID=1
+if [[ $_NOLID ]]; then
+	warn "ignoring nested lock"
+	exec "$@" || exit
+else
+	export _NOLID=1
+fi
 
 notify=0
 name="nolid"

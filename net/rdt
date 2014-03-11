@@ -64,8 +64,12 @@ function resolve($addr) {
 		$rr = @dns_get_record($addr, DNS_PTR);
 	} else {
 		$rr = @dns_get_record($addr, DNS_CNAME);
-		if (empty($rr))
-			$rr = @dns_get_record($addr, DNS_ANY);
+		if (empty($rr)) {
+			$rr4 = @dns_get_record($addr, DNS_A);
+			$rr6 = @dns_get_record($addr, DNS_AAAA);
+			$rr = array_merge($rr4 ? $rr4 : null,
+			                  $rr6 ? $rr6 : null);
+		}
 	}
 
 	$addresses = array();

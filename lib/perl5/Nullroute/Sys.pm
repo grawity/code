@@ -6,6 +6,8 @@ use Sys::Hostname qw(hostname);
 
 our @EXPORT = qw(
 	daemonize
+	gethostid
+	getbootid
 );
 
 sub daemonize {

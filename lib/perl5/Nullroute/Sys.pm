@@ -6,8 +6,8 @@ use Sys::Hostname qw(hostname);
 
 our @EXPORT = qw(
 	daemonize
-	gethostid
-	getbootid
+	hostid
+	bootid
 );
 
 sub daemonize {
@@ -25,7 +25,7 @@ sub daemonize {
 	}
 }
 
-sub gethostid {
+sub hostid {
 	my @id_files = (
 		"/etc/machine-id",
 		"/var/lib/dbus/machine-id",
@@ -37,7 +37,7 @@ sub gethostid {
 	return "name=".hostname();
 }
 
-sub getbootid {
+sub bootid {
 	my $id_file = "/proc/sys/kernel/random/boot_id";
 	return readfile($id_file) if -f $id_file;
 	return undef;

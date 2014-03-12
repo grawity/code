@@ -25,7 +25,7 @@ sub daemonize {
 	}
 }
 
-sub hostid {
+sub _hostid {
 	my @id_files = (
 		"/etc/machine-id",
 		"/var/lib/dbus/machine-id",
@@ -37,10 +37,14 @@ sub hostid {
 	return "name=".hostname();
 }
 
-sub bootid {
+sub hostid { $::hostid //= _hostid(); }
+
+sub _bootid {
 	my $id_file = "/proc/sys/kernel/random/boot_id";
 	return readfile($id_file) if -f $id_file;
 	return undef;
 }
+
+sub bootid { $::bootid //= _bootid(); }
 
 1;

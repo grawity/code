@@ -23,10 +23,10 @@ if (@ttys) {
 	my $utmp = Sys::Utmp->new;
 	while (my $ut = $utmp->getutent) {
 		my $t = $ut->ut_line;
-		if ($ut->ut_type == USER_PROCESS && $t ~~ %ttys) {
+		if ($ut->ut_type == USER_PROCESS && $ttys{$t}) {
 			# this belongs to our tmux session
 			my $h = $ut->ut_host;
-			if ($h ~~ $re) {
+			if ($h =~ $re) {
 				# this is a detached mosh session, ignore
 				print "line $t is detached: $h\n" if $verbose;
 				delete $ttys{$t};

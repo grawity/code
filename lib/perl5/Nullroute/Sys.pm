@@ -1,6 +1,6 @@
 package Nullroute::Sys;
 use base "Exporter";
-use POSIX;
+use POSIX ();
 use Nullroute::Lib qw(forked readfile);
 use Sys::Hostname qw(hostname);
 

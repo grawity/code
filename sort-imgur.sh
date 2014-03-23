@@ -51,6 +51,6 @@ for file in *.jpg *.jpeg *.png *.gif; do
 	/r/ecchi/*|/r/hentai/*|http://gelbooru.com/*)
 		put "$file" ~/Pictures/Ero/;;
 	*)
-		printf '\e[33m%s\e[m %s\n' "unknown:" "$ref";;
+		printf '\e[33m%s\e[m %s\n' "unknown:" "\"$file\" from $ref";;
 	esac
 done

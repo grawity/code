@@ -8,6 +8,7 @@ our @EXPORT = qw(
 	daemonize
 	hostid
 	bootid
+	sessionid
 );
 
 sub daemonize {
@@ -46,5 +47,21 @@ sub _bootid {
 }
 
 sub bootid { $::bootid //= _bootid(); }
+
+sub _sessionid {
+	my @items;
+	push @items, bootid() // "boot=?";
+	push @items, $ENV{XDG_SESSION_ID} // "session=?";
+	join(":", @items);
+}
+
+sub sessionid { $::sessionid //= _sessionid(); }
+
+sub _ttyname {
+	if ((-t 1) && (my $name = POSIX::ttyname(1))) {
+		$name =~ s!^/dev/!!;
+		return $name;
+	}
+}
 
 1;

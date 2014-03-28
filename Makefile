@@ -125,7 +125,7 @@ linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
 misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
 junk:  $(addprefix $(OBJ)/,$(JUNK_BINS))
 
-all: basic krb misc
+all: basic krb misc junk
 ifeq ($(UNAME),Linux)
 all: linux
 endif

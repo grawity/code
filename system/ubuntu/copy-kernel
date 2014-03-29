@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+ESP=/boot/efi
+
+if ! mountpoint -q "$ESP"; then
+	echo "ESP not mounted at $ESP!" >&2
+	exit 1
+fi
+
+version=$1
+initrd_path=$2
+kernel_path=/boot/vmlinuz-$version
+
+osname=$(. /etc/os-release && echo "${PRETTY_NAME:-$NAME}" | sed 's/ (.*//')
+machineid=$(dbus-uuidgen --get 2>/dev/null || echo unknown)
+options=$(cat /etc/kernel/cmdline | grep "^[^#]" | tr -s "\n" " ")
+
+echo "Copying kernel $version to EFI system partition"
+
+cp -v "$initrd_path" "$ESP/EFI/ubuntu/initrd.img"
+cp -v "$kernel_path" "$ESP/EFI/ubuntu/vmlinuz.efi"
+
+echo "Generating boot loader entry for $osname ($version)"
+
+cat > "$ESP/loader/entries/ubuntu.conf" <<!
+title		$osname
+version		$version
+machine-id	$machineid
+linux		\\EFI\\ubuntu\\initrd.img
+initrd		\\EFI\\ubuntu\\vmlinuz.efi
+options		$options
+!

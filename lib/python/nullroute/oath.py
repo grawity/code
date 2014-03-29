@@ -4,9 +4,7 @@ import struct
 import time
 
 def HOTP(K, C, digits=6):
-    #C_bytes = C.to_bytes(8, "big")
     C_bytes = struct.pack(b"!Q", C)
-    print(repr(C), repr(C_bytes))
     hmac_sha1 = hmac.new(key=K, msg=C_bytes, digestmod=sha1).hexdigest()
     return Truncate(hmac_sha1)[-digits:]
 

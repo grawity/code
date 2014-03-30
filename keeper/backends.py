@@ -9,12 +9,12 @@ class Backend(object):
 
     blocksize = None
 
-    def _make_header(self, type: "str", size: "int") -> "header: bytes[]":
-        return ("%s %d\n" % (type, size)).encode("utf-8")
+    def _make_header(self, kind: "str", size: "int") -> "header: bytes[]":
+        return ("%s %d\n" % (kind, size)).encode("utf-8")
 
-    def hash(self, block: "bytes[]", type: "str") -> "score: bytes[]":
+    def hash(self, block: "bytes[]", kind: "str") -> "score: bytes[]":
         h = hashlib.sha1()
-        h.update(self._make_header(type, len(block)))
+        h.update(self._make_header(kind, len(block)))
         h.update(block)
         return h.digest()
 
@@ -22,13 +22,13 @@ class Backend(object):
     def hashlen(self):
         return hashlib.sha1().digest_size
 
-    def put(self, block: "bytes[]", type: "str") -> "score: bytes[]":
+    def put(self, block: "bytes[]", kind: "str") -> "score: bytes[]":
         raise NotImplementedError
 
-    def get(self, score: "bytes[]") -> ("block: bytes[]", "type: str"):
+    def get(self, score: "bytes[]") -> ("block: bytes[]", "kind: str"):
         raise NotImplementedError
 
-    def type(self, score: "bytes[]") -> "type: str":
+    def kind(self, score: "bytes[]") -> "kind: str":
         raise NotImplementedError
 
     def contains(self, score: "bytes[]") -> "bool":
@@ -46,23 +46,20 @@ class FileBackend(Backend): # {{{
             raise ValueError("hash %r has bad length" % to_hex(score))
         sz = to_hex(score)
         d = self.path + "/" + sz[:2]
-        f = "/" + sz[2:]
+        f = "/" + sz
         if mkdir:
             mkdir_parents(d)
         return d + f
 
-    def put(self, block, type):
-        score = self.hash(block, type)
+    def put(self, block, kind):
+        score = self.hash(block, kind)
         p = self._hash_to_path(score, mkdir=True)
         if not os.path.exists(p):
-            print("put", type, to_hex(score), file=sys.stderr)
-            header = self._make_header(type, len(block))
+            print("put %s [%s %s]" % (to_hex(score), kind, len(block)), file=sys.stderr)
+            header = self._make_header(kind, len(block))
             with open(p, "wb") as fd:
                 fd.write(header)
                 fd.write(block)
-        else:
-            print("skip", type, to_hex(score), file=sys.stderr)
-            pass
         return score
 
     def get(self, score):
@@ -73,23 +70,23 @@ class FileBackend(Backend): # {{{
             header = fd.readline().strip()
             block = fd.read()
         header = header.decode("utf-8")
-        type, size, *rest = header.split(" ")
+        kind, size, *rest = header.split(" ")
         if len(block) != int(size):
-            raise SizeMismatchError(score, type, len(block), int(size))
-        block_hash = self.hash(block, type)
+            raise SizeMismatchError(score, kind, len(block), int(size))
+        block_hash = self.hash(block, kind)
         if score != block_hash:
-            raise HashMismatchError(score, type, block_hash)
-        return block, type
+            raise HashMismatchError(score, kind, block_hash)
+        return block, kind
 
-    def type(self, score):
+    def kind(self, score):
         p = self._hash_to_path(score)
         if not os.path.exists(p):
             raise KeyError(to_hex(score))
         with open(p, "rb") as fd:
             header = fd.readline().strip()
         header = header.decode("utf-8")
-        type, size, *rest = header.split(" ")
-        return type
+        kind, size, *rest = header.split(" ")
+        return kind
 
     def contains(self, score):
         p = self._hash_to_path(score)
@@ -107,7 +104,7 @@ class LimitedFileBackend(FileBackend):
 
 class KeyValueBackend(Backend): # {{{
     """ Abstract class for a key/value-based backend; i.e. one that does
-    not support partial retrievals. It uses separate keys for type and
+    not support partial retrievals. It uses separate keys for kind and
     data. """
 
     def __init__(self):
@@ -116,7 +113,7 @@ class KeyValueBackend(Backend): # {{{
     def _block_key(self, score):
         return "%s.data" % to_hex(score)
 
-    def _type_key(self, score):
+    def _kind_key(self, score):
         return "%s.type" % to_hex(score)
 
     def _make_keys(self, score):
@@ -124,11 +121,11 @@ class KeyValueBackend(Backend): # {{{
         return "%s.data" % score_h, "%s.type" % score_h
     
     def get(self, score):
-        block, type = self._get_unverified(score)
-        block_hash = self.hash(block, type)
+        block, kind = self._get_unverified(score)
+        block_hash = self.hash(block, kind)
         if score != block_hash:
-            raise HashMismatchError(score, type, block_hash)
-        return block, type
+            raise HashMismatchError(score, kind, block_hash)
+        return block, kind
 # }}}
 
 class MemcacheBackend(KeyValueBackend): # {{{
@@ -138,34 +135,35 @@ class MemcacheBackend(KeyValueBackend): # {{{
         import memcache
         self.client = memcache.Client([host])
 
-    def put(self, block, type):
-        score = self.hash(block, type)
-        block_key, type_key = self._make_keys(score)
-        if self.client.add(type_key, type):
+    def put(self, block, kind):
+        score = self.hash(block, kind)
+        block_key, kind_key = self._make_keys(score)
+        if self.client.add(kind_key, kind):
             self.client.add(block_key, block)
-            print("put %s:%s [%s]" % (type, to_hex(score), len(block)), file=sys.stderr)
+            print("put %s [%s %s]" % (to_hex(score), kind, len(block)), file=sys.stderr)
         else:
-            print("have %s:%s [%s]" % (type, to_hex(score), len(block)), file=sys.stderr)
+            pass
+            #print("have %s [%s %s]" % (to_hex(score), kind, len(block)), file=sys.stderr)
         return score
 
     def _get_unverified(self, score):
-        block_key, type_key = self._make_keys(score)
-        data = self.client.get_multi([block_key, type_key])
-        if block_key in data and type_key in data:
-            return data[block_key], data[type_key]
+        block_key, kind_key = self._make_keys(score)
+        data = self.client.get_multi([block_key, kind_key])
+        if block_key in data and kind_key in data:
+            return data[block_key], data[kind_key]
         else:
             raise KeyError(to_hex(score))
 
-    def type(self, score):
-        _, type_key = self._make_keys(score)
-        return self.client.get(type_key)
+    def kind(self, score):
+        _, kind_key = self._make_keys(score)
+        return self.client.get(kind_key)
 
     def contains(self, score):
-        return self.client.get(self._type_key(score)) is not None
+        return self.client.get(self._kind_key(score)) is not None
 
     def discard(self, score):
-        block_key, type_key = self._make_keys(score)
-        self.client.delete_multi([block_key, type_key])
+        block_key, kind_key = self._make_keys(score)
+        self.client.delete_multi([block_key, kind_key])
 
 # }}}
 
@@ -176,34 +174,34 @@ class RedisBackend(KeyValueBackend): # {{{
         import redis
         self.client = redis.Redis(host)
 
-    def put(self, block, type):
-        score = self.hash(block, type)
-        block_key, type_key = self._make_keys(score)
-        if self.client.setnx(type_key, type):
+    def put(self, block, kind):
+        score = self.hash(block, kind)
+        block_key, kind_key = self._make_keys(score)
+        if self.client.setnx(kind_key, kind):
             self.client.setnx(block_key, block)
         return score
 
     def _get_unverified(self, score):
-        block_key, type_key = self._make_keys(score)
-        type = self.client.get(type_key)
-        if type:
+        block_key, kind_key = self._make_keys(score)
+        kind = self.client.get(kind_key)
+        if kind:
             block = self.client.get(block_key)
 
-        if type and block:
-            return block, type
+        if kind and block:
+            return block, kind
         else:
             raise KeyError(to_hex(score))
 
-    def type(self, score):
-        _, type_key = self._make_keys(score)
-        return self.client.get(type_key)
+    def kind(self, score):
+        _, kind_key = self._make_keys(score)
+        return self.client.get(kind_key)
 
     def contains(self, score):
-        return self.client.exists(self._type_key(score))
+        return self.client.exists(self._kind_key(score))
 
     def discard(self, score):
-        block_key, type_key = self._make_keys(score)
-        self.client.delete(block_key, type_key)
+        block_key, kind_key = self._make_keys(score)
+        self.client.delete(block_key, kind_key)
 
 # }}}
 

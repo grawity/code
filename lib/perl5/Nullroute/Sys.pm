@@ -35,6 +35,14 @@ sub _hostid {
 	for my $file (@id_files) {
 		return readfile($file) if -f $file;
 	}
+	if ($^O eq "freebsd") {
+		my $file = "/etc/hostid";
+		if (-e $file && (stat $file)[7] > 10) {
+			my $id = readfile($file);
+			$id =~ s/-//g;
+			return $id;
+		}
+	}
 	return "name=".hostname();
 }
 

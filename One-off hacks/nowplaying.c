@@ -2,8 +2,8 @@
 pkg = glib-2.0 gio-2.0
 app = nowplaying
 
-CFLAGS  = $(shell pkg-config --cflags $(pkgs)) -x c
-LDFLAGS = $(shell pkg-config --libs $(pkgs))
+CFLAGS  = $(shell pkg-config --cflags $(pkg)) -x c
+LDFLAGS = $(shell pkg-config --libs $(pkg))
 
 $(app): $(MAKEFILE_LIST)
 

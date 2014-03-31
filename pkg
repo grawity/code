@@ -27,7 +27,7 @@ list_stats() {
 	local list="$1"
 	local ndirs=0 nfiles=0
 	local ftype mode path
-	
+
 	while read -r ftype mode path; do
 		case $ftype in
 		d) (( ++ndirs ));;
@@ -114,13 +114,19 @@ remove)
 		die "filelist $filelist not found"
 	fi
 
-	list_stats "$filelist"	
+	list_stats "$filelist"
 	list_remove "$filelist"
 
 	mv "$filelist" "$filelist-old"
 	;;
 
-ls|ls-files)
+ls)
+	for f in "$DBDIR"/*.files; do
+		basename "$f" .files
+	done
+	;;
+
+files)
 	if ! test -e "$filelist"; then
 		die "filelist $filelist not found"
 	fi
@@ -136,7 +142,6 @@ eval)
 	eval "${@:2}"
 	;;
 
-*)
-	die "unknown command '$1'"
-	;;
+'')	die "missing command";;
+*)	die "unknown command '$1'";;
 esac

@@ -18,7 +18,10 @@ cp "$temp" "$orig"
 
 while true; do
 	$EDITOR "$temp"
-	if cmp -s "$temp" "$orig"; then
+	if ! grep -qs '^[^#]' "$temp"; then
+		log "file empty, reload aborted"
+		break
+	elif cmp -s "$temp" "$orig"; then
 		log "no changes made"
 		break
 	elif sudo $iptables-restore < "$temp"; then

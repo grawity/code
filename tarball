@@ -11,9 +11,11 @@ esac
 do_archive() {
 	local dir=$1 out=$2 attr=$1/_attributes
 
+	log "dumping extended attributes"
 	getfattr -R --dump "$dir" > "$attr"
 	test -s "$attr" || rm -f "$attr"
 
+	log "archiving files"
 	case $out in
 	    *.tgz) tar --xattrs -cvzf "$out" "$dir";;
 	    *.zip) zip -r "$out" "$dir";;
@@ -29,10 +31,13 @@ for file in "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do
 	fi
 done
 
+log2 "creating archive \"$out\""
+
 if do_archive "$dir" "$out"; then
 	chmod a-w "$out"
-	log "archived to $out"
+	log "archived to \"$out\""
 	ls -lh "$out"
+	log "removing original"
 	rm -rf "$dir/"
 	log "original directory removed"
 else

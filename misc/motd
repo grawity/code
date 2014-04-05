@@ -16,9 +16,9 @@ usage() {
 	exit 2
 }
 
-sdate() { date -d "@$1" +"%Y-%m-%d %H:%M"; }
+sdate() { perl -MPOSIX -e 'print strftime "%F %H:%M", localtime $ARGV[0]' "$1"; }
 sfdate() { sdate "$(mtime "$1")"; }
-mtime() { stat -Lc %Y "$1"; }
+mtime() { perl -e 'print ((stat $ARGV[0])[9])' "$1"; }
 
 copy() { mkdir -p "${2%/*}"; cp "$1" "$2" && touch -r "$1" "$2"; }
 

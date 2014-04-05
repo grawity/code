@@ -23,24 +23,41 @@ while read -r row; do
 	fi
 done
 
+declare -i r=0 c=0
+
+#pp() {
+#	printf '  char[%s,%s]{%s} above{%s} right{%s} below{%s} left{%s}\n' \
+#		"$r" "$c" "$char" "$above" "$right" "$below" "$left"
+#	declare -p row_above
+#	declare -p row_below
+#}
+
 for (( r=0; r < height; r++ )); do
 	row=${rows[r]}
+	if (( r > 0 ))
+		then row_above=${rows[r-1]}
+		else row_above=''
+	fi
+	if (( r < height-1 ))
+		then row_below=${rows[r+1]}
+		else row_below=''
+	fi
 	out=''
-	for (( c=0; c < width; c++ )); do
+	for (( c=0; c < ${#row}; c++ )); do
 		char=${row:c:1}
-		if (( r > 0 ))
-			then above=${rows[r-1]:c:1}
+		if (( c < ${#row_above} ))
+			then above=${row_above:c:1}
 			else above=' '
 		fi
-		if (( r < height-1 ))
-			then below=${rows[r+1]:c:1}
+		if (( c < ${#row_below} ))
+			then below=${row_below:c:1}
 			else below=' '
 		fi
 		if (( c > 0 ))
 			then left=${row:c-1:1}
 			else left=' '
 		fi
-		if (( c < width-1 ))
+		if (( c < ${#row}-1 ))
 			then right=${row:c+1:1}
 			else right=' '
 		fi

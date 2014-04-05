@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+test -t 0 && exec "$0" <<'!'
++---+-----------------+
+|   |                 |
++===+-------+---------+
+|           |         |
+|           |         |
+|           |         |
++-----------+=========+
+!
+
+declare -i width=0
+declare -i height=0
+declare -a rows=()
+
+while read -r row && [[ $row ]]; do
+	declare -i len=${#row}
+	echo "input: $row"
+	rows[height++]=$row
+	if (( len > width )); then
+		width=$len
+	fi
+done
+
+for (( r=0; r < height; r++ )); do
+	row=${rows[r]}
+	out=''
+	for (( c=0; c < width; c++ )); do
+		char=${row:c:1}
+		if (( r > 0 ))
+			then above=${rows[r-1]:c:1}
+			else above=' '
+		fi
+		if (( r < height-1 ))
+			then below=${rows[r+1]:c:1}
+			else below=' '
+		fi
+		if (( c > 0 ))
+			then left=${row:c-1:1}
+			else left=' '
+		fi
+		if (( c < width-1 ))
+			then right=${row:c+1:1}
+			else right=' '
+		fi
+		case $char:$above:$right:$below:$left in
+			'-':*) out+='─';;
+			'|':*) out+='│';;
+			'=':*) out+='═';;
+
+			'+:|:-: : ') out+='└';;
+			'+:|:-: :-') out+='┴';;
+			'+:|: : :-') out+='┘';;
+			'+:|: :|:-') out+='┤';;
+			'+: : :|:-') out+='┐';;
+			'+: :-:|:-') out+='┬';;
+			'+: :-:|: ') out+='┌';;
+			'+:|:-:|: ') out+='├';;
+
+			'+:|:=: : ') out+='╘';;
+			'+:|:=: :=') out+='┴';;
+			'+:|: : :=') out+='╛';;
+			'+:|: :|:=') out+='╡';;
+			'+: : :|:=') out+='┐';;
+			'+: :=:|:=') out+='┬';;
+			'+: :=:|: ') out+='┌';;
+			'+:|:=:|: ') out+='╞';;
+
+			'+:|:=: :-') out+='┴';;
+			'+:|:-: :=') out+='┴';;
+
+			'+: :=:|:-') out+='┬';;
+			'+: :-:|:=') out+='┬';;
+
+			*) out+=$char;;
+		esac
+	done
+	printf 'output: %s\n' "$out"
+done

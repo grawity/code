@@ -168,7 +168,3 @@ older_than() {
 	datets=$(date +%s -d "$date ago")
 	(( filets < datets ))
 }
-
-## Final
-
-debug "lib.bash loaded by $0"

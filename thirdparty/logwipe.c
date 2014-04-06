@@ -98,7 +98,12 @@ inline void bzero(void *s, size_t n) {
 }
 
 const char *types[] = {
+#ifdef EMPTY
+	[EMPTY]		= "EMPTY",
+#endif
+#ifdef RUN_LVL
 	[RUN_LVL]	= "RUN_LVL",
+#endif
 	[BOOT_TIME]	= "BOOT_TIME",
 	[NEW_TIME]	= "NEW_TIME",
 	[OLD_TIME]	= "OLD_TIME",
@@ -106,7 +111,9 @@ const char *types[] = {
 	[LOGIN_PROCESS]	= "LOGIN_PROCESS",
 	[USER_PROCESS]	= "USER_PROCESS",
 	[DEAD_PROCESS]	= "DEAD_PROCESS",
+#ifdef ACCOUNTING
 	[ACCOUNTING]	= "ACCOUNTING",
+#endif
 };
 
 void dump_utmp()

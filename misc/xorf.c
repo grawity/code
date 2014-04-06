@@ -23,12 +23,13 @@ int main(int argc, char *argv[]) {
 	size_t lenA, lenB, lenX;
 	unsigned i;
 
-	if (argc == 3) {
-		fileA = argv[1];
-		fileB = argv[2];
-	} else {
+	if (argc != 3) {
 		usage();
+		return 2;
 	}
+
+	fileA = argv[1];
+	fileB = argv[2];
 
 	fdA = open(fileA, O_RDONLY);
 	if (fdA < 0)

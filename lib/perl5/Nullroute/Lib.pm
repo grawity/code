@@ -33,7 +33,8 @@ sub _msg {
 		$frame[3] //= "main";
 		$frame[3] =~ s/^main:://;
 		#$msg = $frame[1].":".$frame[2]." (".$frame[3].") ".$msg;
-		$msg = "(".$frame[3].") ".$msg;
+		#$msg = "(".$frame[3].") ".$msg;
+		$prefix = $prefix." (".$frame[3].")";
 	}
 
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";

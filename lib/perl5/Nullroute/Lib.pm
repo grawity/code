@@ -30,6 +30,7 @@ sub _msg {
 
 	if ($prefix eq "debug") {
 		my @frame = caller(2); # stack frame below _debug()
+		$frame[3] //= "main";
 		$frame[3] =~ s/^main:://;
 		#$msg = $frame[1].":".$frame[2]." (".$frame[3].") ".$msg;
 		$msg = "(".$frame[3].") ".$msg;

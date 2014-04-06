@@ -171,4 +171,4 @@ older_than() {
 
 ## Final
 
-debug "lib.bash loaded by $0 from $__LIBROOT"
+debug "lib.bash loaded by $0"

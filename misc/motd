@@ -2,6 +2,9 @@
 # motd - display /etc/motd only when it is updated
 # WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
+msg() { echo "motd: $*" >&2; }
+err() { echo "motd: $*" >&2; }
+
 usage() {
 	echo "usage: motd [-Ddfq] [-o oldpath] [path]"
 	echo ""
@@ -32,7 +35,7 @@ while getopts ":Ddfho:q" OPT; do
 	d)	diff=true ;;
 	o)	cached=$OPTARG ;;
 	q)	quiet=true ;;
-	\?)	echo "motd: illegal option '$OPTARG'" >&2
+	\?)	err "unknown option '-$OPTARG'"
 		usage ;;
 	esac
 done; shift $(( OPTIND-1 ))
@@ -44,13 +47,13 @@ if [ ! -f "$cached" ]; then
 	# motd added (first run on this host)
 	if [ -s "$motd" ]; then
 		cat "$motd"
-		$quiet || echo "motd: new (last update $(sfdate "$motd"))" >&2
+		$quiet || msg "new (last update $(sfdate "$motd"))"
 		copy "$motd" "$cached"
 	elif [ -f "$motd" ]; then
-		$quiet || echo "motd: empty (last update $(sfdate "$motd"))" >&2
+		$quiet || msg "empty (last update $(sfdate "$motd"))"
 		copy "$motd" "$cached"
 	else
-		$quiet || echo "motd: no /etc/motd found" >&2
+		$quiet || msg "no /etc/motd found"
 	fi
 
 elif [ ! -f "$motd" ]; then
@@ -58,7 +61,7 @@ elif [ ! -f "$motd" ]; then
 	if $diff; then
 		diff -uN "$cached" "$motd"
 	else
-		echo "motd: /etc/motd was removed" >&2
+		msg "/etc/motd was removed"
 	fi
 	rm "$cached"
 
@@ -69,7 +72,7 @@ elif ! cmp -s "$cached" "$motd"; then
 	else
 		cat "$motd"
 	fi
-	echo "motd: updated (last update $(sfdate "$motd"))" >&2
+	msg "updated (last update $(sfdate "$motd"))"
 	copy "$motd" "$cached"
 
 else
@@ -77,6 +80,6 @@ else
 	if ! $diff; then
 		$quiet || cat "$motd"
 	fi
-	$quiet || echo "motd: unchanged (last update $(sfdate "$motd"))" >&2
+	$quiet || msg "unchanged (last update $(sfdate "$motd"))"
 	copy "$motd" "$cached" # in case local copy is newer
 fi

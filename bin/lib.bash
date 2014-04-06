@@ -154,20 +154,6 @@ backtrace() {
 
 ## Various
 
-use() {
-	local lib file
-	for lib; do
-		file="lib$lib.bash"
-		if have "$file"; then
-			debug "loading $file from path"
-		else
-			debug "loading $file from libroot"
-			file="$__LIBROOT/$file"
-		fi
-		. "$__LIBROOT/$file" || die "failed to load $file"
-	done
-}
-
 have() {
 	command -v "$1" >&/dev/null
 }

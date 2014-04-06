@@ -17,9 +17,9 @@ usage() {
 	exit 2
 }
 
-sdate() { perl -MPOSIX -e 'print strftime "%F %H:%M", localtime $ARGV[0]' "$1"; }
-sfdate() { sdate "$(mtime "$1")"; }
 mtime() { perl -e 'print ((stat $ARGV[0])[9])' "$1"; }
+sdate() { perl -MPOSIX -e 'print strftime "%F %H:%M", localtime $ARGV[0]' "$1"; }
+when() { sdate "$(mtime "$motd")"; }
 
 copy() { mkdir -p "${2%/*}"; cp "$1" "$2" && touch -r "$1" "$2"; }
 
@@ -47,10 +47,10 @@ if [ ! -f "$cached" ]; then
 	# motd added (first run on this host)
 	if [ -s "$motd" ]; then
 		cat "$motd"
-		$quiet || msg "/etc/motd added (last update $(sfdate "$motd"))"
+		$quiet || msg "/etc/motd added (last update $(when))"
 		copy "$motd" "$cached"
 	elif [ -f "$motd" ]; then
-		$quiet || msg "/etc/motd is empty (last update $(sfdate "$motd"))"
+		$quiet || msg "/etc/motd is empty (last update $(when))"
 		copy "$motd" "$cached"
 	else
 		$quiet || msg "/etc/motd is missing"
@@ -72,7 +72,7 @@ elif ! cmp -s "$cached" "$motd"; then
 	else
 		cat "$motd"
 	fi
-	msg "updated (last update $(sfdate "$motd"))"
+	msg "updated (last update $(when))"
 	copy "$motd" "$cached"
 
 else
@@ -80,6 +80,6 @@ else
 	if ! $diff; then
 		$quiet || cat "$motd"
 	fi
-	$quiet || msg "unchanged (last update $(sfdate "$motd"))"
+	$quiet || msg "unchanged (last update $(when))"
 	copy "$motd" "$cached" # in case local copy is newer
 fi

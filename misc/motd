@@ -41,13 +41,16 @@ done; shift $(( OPTIND-1 ))
 
 # do the job
 if [ ! -f "$cached" ]; then
-	# motd added (first run on this host?)
+	# motd added (first run on this host)
 	if [ -s "$motd" ]; then
 		cat "$motd"
-		$quiet || echo "motd: last updated $(sfdate "$motd")" >&2
+		$quiet || echo "motd: new (last update $(sfdate "$motd"))" >&2
+		copy "$motd" "$cached"
+	elif [ -f "$motd" ]; then
+		$quiet || echo "motd: empty (last update $(sfdate "$motd"))" >&2
 		copy "$motd" "$cached"
 	else
-		$quiet || echo "no motd" >&2
+		$quiet || echo "motd: no /etc/motd found" >&2
 	fi
 
 elif [ ! -f "$motd" ]; then
@@ -55,7 +58,7 @@ elif [ ! -f "$motd" ]; then
 	if $diff; then
 		diff -uN "$cached" "$motd"
 	else
-		echo "motd: removed" >&2
+		echo "motd: /etc/motd was removed" >&2
 	fi
 	rm "$cached"
 
@@ -66,12 +69,12 @@ elif ! cmp -s "$cached" "$motd"; then
 	else
 		cat "$motd"
 	fi
-	echo "motd: updated $(sfdate "$motd")" >&2
+	echo "motd: updated (last update $(sfdate "$motd"))" >&2
 	copy "$motd" "$cached"
 
 else
 	# no change
 	$quiet || cat "$motd"
-	$quiet || echo "motd: no changes (last updated $(sfdate "$motd"))" >&2
+	$quiet || echo "motd: unchanged (last update $(sfdate "$motd"))" >&2
 	copy "$motd" "$cached" # in case local copy is newer
 fi

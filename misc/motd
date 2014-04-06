@@ -5,7 +5,6 @@
 usage() {
 	echo "usage: motd [-Ddfq] [-o oldpath] [path]"
 	echo ""
-	echo "    -D       always show diff, even if not cached"
 	echo "    -d       show diff if cached motd exists"
 	echo "    -o path  use a different local cache path"
 	echo "    -q       do not display modification time"
@@ -25,14 +24,12 @@ copy() { mkdir -p "${2%/*}"; cp "$1" "$2" && touch -r "$1" "$2"; }
 motd=/etc/motd
 cached=$HOME/.cache/motd-$(hostname)
 diff=false
-conddiff=false
 quiet=false
 
 # parse options
 while getopts ":Ddfho:q" OPT; do
 	case $OPT in
-	D)	diff=true conddiff=false ;;
-	d)	diff=true conddiff=true ;;
+	d)	diff=true ;;
 	o)	cached=$OPTARG ;;
 	q)	quiet=true ;;
 	\?)	echo "motd: illegal option '$OPTARG'" >&2
@@ -46,7 +43,7 @@ done; shift $(( OPTIND-1 ))
 if [ ! -f "$cached" ]; then
 	# motd added (first run on this host?)
 	if [ -f "$motd" ]; then
-		if $diff && ! $conddiff; then
+		if $diff; then
 			diff -uN "$cached" "$motd" && echo "motd: no changes"
 		else
 			cat "$motd"

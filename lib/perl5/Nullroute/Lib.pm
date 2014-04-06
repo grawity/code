@@ -61,4 +61,6 @@ sub readfile {
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
 
+_debug("Lib.pm loaded by $0");
+
 1;

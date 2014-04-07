@@ -95,8 +95,7 @@ void update_env(char *name) {
 	if (name[0] == '+') {
 		name++;
 		if (strchr(name, '=')) {
-			fprintf(stderr, "%s: Invalid variable name '%s'\n",
-				arg0, name);
+			warnx("invalid variable name '%s'", name);
 			return;
 		}
 		value = getenv(name);
@@ -107,7 +106,7 @@ void update_env(char *name) {
 	}
 
 	if (!*name) {
-		fprintf(stderr, "%s: Empty variable name not allowed\n", arg0);
+		warnx("empty variable name not allowed");
 		return;
 	}
 
@@ -195,8 +194,7 @@ int execvp_with_env(int argc, char *argv[]) {
 
 	r = execvp(argv[0], argv);
 	if (r < 0) {
-		fprintf(stderr, "%s: Could not run '%s': %m\n",
-			arg0, argv[0]);
+		warn("could not run '%s'", argv[0]);
 		return 1;
 	}
 
@@ -210,8 +208,7 @@ int system_with_env(char *arg) {
 
 	r = system(arg);
 	if (r < 0) {
-		fprintf(stderr, "%s: Could not run '%s': %m\n",
-			arg0, arg);
+		warn("could not run '%s'", arg);
 		return 1;
 	}
 

@@ -158,6 +158,10 @@ case $job in
 
 		consumed=0
 
+		if [[ ! -e $b/Home ]]; then
+			die "you forgot to mv 'latest' 'Home'"
+		fi
+
 		while [[ $1 && $1 != / ]]; do
 			sub=$(readlink -f "$1"); shift; (( ++consumed ))
 			if [[ "$sub" != "$HOME"/* ]]; then
@@ -165,11 +169,11 @@ case $job in
 			fi
 			sub=${sub#$HOME/}
 			sub=${sub%/}
-			do_rsync ~/"$sub"/ $b/latest/"$sub"/ -FxP
+			do_rsync ~/"$sub"/ $b/Home/"$sub"/ -FxP
 		done
 
 		if (( consumed == 0 )); then
-			do_rsync ~/ $b/latest/ -FxP
+			do_rsync ~/ $b/Home/ -FxP
 			local_rsync ~/Attic/Galelogs/
 		fi
 		;;

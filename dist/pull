@@ -71,13 +71,11 @@ else
 		(
 		cd ~/lib/dotfiles
 		git fetch --quiet origin
-		if if ! git-on-master; then
-			true
-		elif ! git merge --quiet --ff-only origin/master; then
-			true
-		else
-			false
-		fi; then
+		stash=true
+		if git-on-master && git merge --quiet --ff-only origin/master; then
+			stash=false
+		fi
+		if $stash; then
 			git stash save
 			git checkout -f master
 			git reset --hard origin/master

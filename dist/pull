@@ -99,12 +99,16 @@ else
 	# rwho
 
 	if [ -d ~/lib/rwho ]; then
-		log "updating rwho"
 		(
 		cd ~/lib/rwho
-		silent git pull --ff-only
-		if ./agent-linux/rwho-agent.sh status >/dev/null; then
-			./agent-linux/rwho-agent.sh update
+		if git-on-master; then
+			log "updating rwho"
+			silent git pull --ff-only
+			if ./agent-linux/rwho-agent.sh status >/dev/null; then
+				./agent-linux/rwho-agent.sh update
+			fi
+		else
+			log "skipping rwho update (not on master)"
 		fi
 		)
 	fi &

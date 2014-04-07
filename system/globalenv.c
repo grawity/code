@@ -117,19 +117,26 @@ void update_env(char *name) {
 		             strlen(value), def_keyring);
 	} else {
 		id = keyctl_search(def_keyring, "user", desc, 0);
-
-		if (id)
-			keyctl_unlink(id, def_keyring);
+		if (id) {
+			r = keyctl_unlink(id, def_keyring);
+			if (r < 0)
+				warn("could not unlink key %d (%s)", id, name);
+		}
 	}
 }
 
 int clear_env() {
 	struct Env *envlistp, *envp;
+	int r;
 
 	envlistp = Env_enum();
 
 	Env_each(envp, envlistp) {
-		keyctl_unlink(envp->id, def_keyring);
+		r = keyctl_unlink(envp->id, def_keyring);
+		if (r < 0) {
+			warn("could not unlink key %d (%s)", envp->id, envp->name);
+			continue;
+		}
 	}
 
 	Env_free(envlistp);

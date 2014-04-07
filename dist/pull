@@ -48,9 +48,10 @@ if [ ! "$xyzzy" ]; then
 	log "fetching code.git"
 	cd ~/code
 	silent git pull
-	silent git repack -d
 	xyzzy=42 exec dist/pull
 else
+	silent nice git repack -d &
+
 	case `fqdn` in
 	    *.cluenet.org|*.nathan7.eu|*.nullroute.eu.org)
 		touch ~/.k5login
@@ -80,7 +81,7 @@ else
 			git checkout -f master
 			git reset --hard origin/master
 		fi
-		silent git repack -d
+		silent nice git repack -d &
 		)
 
 		log "running dotfiles/install"

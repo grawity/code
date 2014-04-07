@@ -103,7 +103,7 @@ sub read_aliases {
 	my $path = "$ENV{HOME}/lib/dotfiles/k5aliases";
 	my %aliases;
 
-	open(my $file, "<", "$ENV{HOME}/lib/dotfiles/k5aliases") or return ();
+	open(my $file, "<", $path) or return ();
 	while (my $line = <$file>) {
 		next if $line =~ /^#/;
 		chomp $line;

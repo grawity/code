@@ -672,6 +672,12 @@ do_print:
 			say '';
 		}
 	}
+	when ("dump-aliases") {
+		my %aliases = read_aliases();
+		for (sort keys %aliases) {
+			say $_."\t-> ".join(" ", @{$aliases{$_}});
+		}
+	}
 	when (/^=(.*)$/) {
 		my %aliases = read_aliases();
 		my $alias = $aliases{$1};

@@ -13,6 +13,7 @@ sub usage {
 	"    -d    decode\n",
 	"    -o    oct-encode (\\123)\n",
 	"    -p    encode full path (allowing slashes)\n",
+	"    -q    encode quoted-printable\n",
 	"    -r    do not print newline\n",
 	"    -x    hex-encode (\\xAB)\n";
 	exit;
@@ -33,6 +34,8 @@ sub encode {
 		s/[^A-Za-z0-9_. \/-]/sprintf("\\%03o", ord($&))/seg;
 	} elsif ($opts{p}) {
 		s/[^\/A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
+	} elsif ($opts{"q"}) {
+		s/[^\x21-\x3C\x3E-\x7E]/sprintf("=%02X", ord($&))/seg;
 	} else {
 		s/[^A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
 	}
@@ -48,7 +51,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('Adoprx', \%opts) || usage;
+getopts('Adopqrx', \%opts) || usage;
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

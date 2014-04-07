@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <util.h>
+#include <err.h>
 
 char *arg0;
 
@@ -139,13 +140,19 @@ int clear_env() {
 
 void import_env(void) {
 	struct Env *envlistp, *envp;
+	int r;
 
 	envlistp = Env_enum();
 
 	Env_each(envp, envlistp) {
 		_cleanup_free_ char *value = NULL;
 
-		keyctl_read_alloc(envp->id, (void**)&value);
+		r = keyctl_read_alloc(envp->id, (void**)&value);
+		if (r < 0) {
+			warn("could not read key %d (%s)", envp->id, envp->name);
+			continue;
+		}
+
 		setenv(envp->name, value, true);
 	}
 
@@ -154,6 +161,7 @@ void import_env(void) {
 
 int print_env(bool escape) {
 	struct Env *envlistp, *envp;
+	int r;
 
 	envlistp = Env_enum();
 
@@ -161,7 +169,12 @@ int print_env(bool escape) {
 		_cleanup_free_ char *value = NULL;
 		_cleanup_free_ char *escaped = NULL;
 
-		keyctl_read_alloc(envp->id, (void**)&value);
+		r = keyctl_read_alloc(envp->id, (void**)&value);
+		if (r < 0) {
+			warn("could not read key %d (%s)", envp->id, envp->name);
+			continue;
+		}
+
 		if (escape) {
 			escaped = shell_escape(value);
 			printf("%s=%s\n", envp->name, escaped);

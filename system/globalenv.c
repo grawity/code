@@ -119,8 +119,10 @@ void update_env(char *name) {
 		id = keyctl_search(def_keyring, "user", desc, 0);
 		if (id) {
 			r = keyctl_unlink(id, def_keyring);
-			if (r < 0)
-				warn("could not unlink key %d (%s)", id, name);
+			if (r < 0) {
+				warn("could not remove variable '%s' (%u)",
+					name, id);
+			}
 		}
 	}
 }
@@ -134,7 +136,8 @@ int clear_env() {
 	Env_each(envp, envlistp) {
 		r = keyctl_unlink(envp->id, def_keyring);
 		if (r < 0) {
-			warn("could not unlink key %d (%s)", envp->id, envp->name);
+			warn("could not remove variable '%s' (%u)",
+				envp->name, envp->id);
 			continue;
 		}
 	}
@@ -155,7 +158,8 @@ void import_env(void) {
 
 		r = keyctl_read_alloc(envp->id, (void**)&value);
 		if (r < 0) {
-			warn("could not read key %d (%s)", envp->id, envp->name);
+			warn("could not read variable '%s' (%u)",
+				envp->name, envp->id);
 			continue;
 		}
 
@@ -177,7 +181,8 @@ int print_env(bool escape) {
 
 		r = keyctl_read_alloc(envp->id, (void**)&value);
 		if (r < 0) {
-			warn("could not read key %d (%s)", envp->id, envp->name);
+			warn("could not read variable '%s' (%u)",
+				envp->name, envp->id);
 			continue;
 		}
 

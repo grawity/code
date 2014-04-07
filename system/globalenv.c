@@ -91,6 +91,7 @@ void update_env(char *name) {
 	char *value;
 	_cleanup_free_ char *desc = NULL;
 	key_serial_t id;
+	int r;
 
 	if (name[0] == '+') {
 		name++;

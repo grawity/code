@@ -226,8 +226,10 @@ int main(int argc, char *argv[]) {
 		case 'c':
 		case 's':
 		case 'x':
-			if (mode)
+			if (mode) {
+				warnx("too many actions given");
 				return usage();
+			}
 			mode = opt;
 			break;
 		case 'e':

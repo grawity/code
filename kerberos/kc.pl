@@ -99,11 +99,10 @@ sub read_file {
 	return $output;
 }
 
-sub read_aliases {
-	my $path = "$ENV{HOME}/lib/dotfiles/k5aliases";
-	my %aliases;
+sub read_aliases_from_file {
+	my ($path, $aliases) = @_;
 
-	open(my $file, "<", $path) or return ();
+	open(my $file, "<", $path) or return;
 	while (my $line = <$file>) {
 		next if $line =~ /^#/;
 		chomp $line;
@@ -116,12 +115,24 @@ sub read_aliases {
 				s|^~/|$ENV{HOME}/|;
 				s|\$\{([A-Z]+)\}|$vars{$1}|g;
 			}
-			$aliases{$alias} = \@args;
+			$aliases->{$alias} = \@args;
 		} else {
 			warn "$path:$.: not enough parameters\n";
 		}
 	}
 	close($file);
+}
+
+sub read_aliases {
+	my @paths = (
+		"$ENV{HOME}/lib/dotfiles/k5aliases",
+		"$ENV{HOME}/lib/k5aliases",
+	);
+	my %aliases;
+
+	for my $path (@paths) {
+		read_aliases_from_file($path, \%aliases);
+	}
 
 	return %aliases;
 }

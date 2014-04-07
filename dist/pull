@@ -31,9 +31,8 @@ silent() {
 	return $rc
 }
 
-git-on-master() {
-	local ref="$(git symbolic-ref HEAD 2>/dev/null)"
-	[ "$ref" = "refs/heads/master" ]
+on_master() {
+	[ "$(git symbolic-ref HEAD 2>/dev/null)" = "refs/heads/master" ]
 }
 
 if [ ! "$xyzzy" ]; then
@@ -73,7 +72,7 @@ else
 		cd ~/lib/dotfiles
 		git fetch --quiet origin
 		stash=true
-		if git-on-master && git merge --quiet --ff-only origin/master; then
+		if on_master && git merge --quiet --ff-only origin/master; then
 			stash=false
 		fi
 		if $stash; then
@@ -100,7 +99,7 @@ else
 	if [ -d ~/lib/rwho ]; then
 		(
 		cd ~/lib/rwho
-		if git-on-master; then
+		if on_master; then
 			log "updating rwho"
 			silent git pull --ff-only
 			if agent-linux/rwho-agent.sh status >/dev/null; then
@@ -111,6 +110,6 @@ else
 		fi
 		)
 	fi &
-fi
 
-wait
+	wait
+fi

@@ -241,21 +241,22 @@ int main(int argc, char *argv[]) {
 	argc -= optind;
 	argv += optind;
 
-	if (mode == 's') {
+	switch (mode) {
+	case 's': /* set from command line */
 		while (*argv)
 			update_env(*argv++);
 		return 0;
-	} else if (mode == 'x') {
+	case 'x': /* remove all */
 		if (argc == 0)
 			return clear_env();
 		else
 			return usage();
-	} else if (mode == 'c') {
+	case 'c': /* run shell command */
 		if (argc == 1)
 			return system_with_env(argv[0]);
 		else
 			return usage();
-	} else {
+	default: /* run argv */
 		if (argc)
 			return execvp_with_env(argc, argv);
 		else

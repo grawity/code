@@ -38,8 +38,7 @@ sub interval {
 
 	if ($d > 1)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
-	elsif ($m > 1)	{ "${m} mins" }
-	elsif ($s > 45)	{ "a minute" }
+	elsif ($m > 0)	{ "${m} mins" }
 	else		{ "${s} secs" }
 }
 

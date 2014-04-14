@@ -131,14 +131,15 @@ sub create_info {
 	my $base = basename($orig_path);
 	my $i = 0;
 	my ($name, $fh, $info_path);
-	while ($i < 100) {
+	while ($i < 1000) {
 		$name = $i ? "$base-$i" : $base;
 		$info_path = "$trash_dir/info/$name.trashinfo";
 		if (sysopen($fh, $info_path, O_WRONLY|O_CREAT|O_EXCL)) {
+			trace("found free info_path='$info_path'");
 			return ($name, $fh, $info_path);
 		} elsif ($! == EEXIST) {
 			trace("'$name.trashinfo' already exists, trying next...")
-				if !($i % 10);
+				if ($i % 25 == 0);
 		} else {
 			_err("cannot create '$info_path' ($!)");
 			return undef;

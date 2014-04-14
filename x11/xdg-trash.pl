@@ -268,3 +268,5 @@ if (@ARGV) {
 } else {
 	_err("no files given");
 }
+
+exit(!!$::errors);

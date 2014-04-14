@@ -128,21 +128,20 @@ sub create_info {
 	my $base = basename($orig_path);
 	my $i = 0;
 	my ($name, $fh, $info_path);
-	while (1) {
+	while ($i < 100) {
 		$name = $i ? "$base-$i" : $base;
 		$info_path = "$trash_dir/info/$name.trashinfo";
 		if (sysopen($fh, $info_path, O_WRONLY|O_CREAT|O_EXCL)) {
 			return ($name, $fh, $info_path);
 		} else {
 			_err("$! (for '$name')") unless $! == EEXIST;
-			if (++$i > 100) {
-				_err("cannot store trashinfo for $base");
-				return undef;
-			} else {
-				next;
-			}
 		}
+		trace("'$name.trashinfo' already exists, trying next...") if !($i % 10);
+		++$i;
 	}
+	trace("giving up after $i failures");
+	_err("cannot create .trashinfo file (too many items named '$base')");
+	return undef;
 }
 
 =item write_info($fh, $orig_path)

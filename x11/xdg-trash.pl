@@ -224,6 +224,9 @@ sub trash {
 	trace("trash_dir='$trash_dir'");
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
+	if (!$info_fh) {
+		_die("moving '$path' to trash failed");
+	}
 	write_info($info_fh, $orig_path);
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {

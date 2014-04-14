@@ -133,10 +133,13 @@ sub create_info {
 		$info_path = "$trash_dir/info/$name.trashinfo";
 		if (sysopen($fh, $info_path, O_WRONLY|O_CREAT|O_EXCL)) {
 			return ($name, $fh, $info_path);
+		} elsif ($! == EEXIST) {
+			trace("'$name.trashinfo' already exists, trying next...")
+				if !($i % 10);
 		} else {
-			_err("$! (for '$name')") unless $! == EEXIST;
+			_err("cannot create '$info_path' ($!)");
+			return undef;
 		}
-		trace("'$name.trashinfo' already exists, trying next...") if !($i % 10);
 		++$i;
 	}
 	trace("giving up after $i failures");

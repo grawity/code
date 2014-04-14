@@ -137,14 +137,12 @@ sub create_info {
 			trace("'$name.trashinfo' already exists, trying next...")
 				if !($i % 10);
 		} else {
-			_err("cannot create '$info_path' ($!)");
-			return undef;
+			return (undef, undef, "$! when creating '$info_path'");
 		}
 		++$i;
 	}
 	trace("giving up after $i failures");
-	_err("cannot create .trashinfo file (too many items named '$base')");
-	return undef;
+	return (undef, undef, "too many items named '$base'");
 }
 
 =item write_info($fh, $orig_path)
@@ -225,7 +223,7 @@ sub trash {
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	if (!$info_fh) {
-		_err("failed to move '$path' to trash");
+		_err("failed to move '$path' to trash: $info_name");
 		return;
 	}
 	write_info($info_fh, $orig_path);

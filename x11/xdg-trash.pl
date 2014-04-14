@@ -225,7 +225,8 @@ sub trash {
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	if (!$info_fh) {
-		_die("moving '$path' to trash failed");
+		_err("failed to move '$path' to trash");
+		return;
 	}
 	write_info($info_fh, $orig_path);
 	my $trashed_path = "$trash_dir/files/$name";
@@ -234,14 +235,14 @@ sub trash {
 			verbose("Trashed '$path'");
 		} else {
 			unlink($info_name);
-			_die("rename of '$path' failed: $!");
+			_die("failed to rename '$path': $!");
 		}
 	} else {
 		if (xdev_move($orig_path, $trashed_path)) {
 			verbose("Trashed '$path' to \$HOME");
 		} else {
 			unlink($info_name);
-			_die("copy of '$path' to '$trash_dir' failed");
+			_die("failed to copy '$path' to '$trash_dir'");
 		}
 	}
 	close($info_fh);

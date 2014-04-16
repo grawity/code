@@ -13,7 +13,7 @@ filter_file() {
 			debug "matching '$mask' using '$maskfunc'"
 			if $maskfunc "$mask"; then
 				matched=true
-				((++matchedconds))
+				(( ++matchedconds ))
 			else
 				matched=false
 			fi
@@ -26,7 +26,7 @@ filter_file() {
 				continue
 			fi
 
-			if ((matchedconds == 0)); then
+			if (( matchedconds == 0 )); then
 				debug "start else region"
 				matched=true
 				continue
@@ -41,7 +41,7 @@ filter_file() {
 			debug "end masked region, skipped $skipped lines"
 			continue
 		elif $masked && ! $matched; then
-			((++skipped))
+			(( ++skipped ))
 			continue
 		else
 			if [[ $line == '#'[a-z]* ]]; then

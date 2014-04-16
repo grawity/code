@@ -191,10 +191,12 @@ sub int2time {
 	$int = int($int / 1_000_000);
 	$int -= my $s = $int % 60; $int /= 60;
 	$int -= my $m = $int % 60; $int /= 60;
-	$int -= my $h = $int % 24; $int /= 25;
+	$int -= my $h = $int % 24; $int /= 24;
+	$int -= my $d = $int;
 
-	$h ? sprintf("%dh%02d:%02d", $h, $m, $s)
-	   : sprintf("%d:%02d", $m, $s);
+	$d ? sprintf("%dd%dh%dm%ds", $d, $h, $m, $s)
+	   : $h ? sprintf("%dh%02d:%02d", $h, $m, $s)
+	        : sprintf("%d:%02d", $m, $s);
 }
 
 sub time2int {

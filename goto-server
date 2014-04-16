@@ -13,11 +13,14 @@ do_sshfs() {
 
 do_rdp() {
 	local host=$1
+	debug "using RDP to $host"
 	spawn mstsc "$host" -D -g workarea
 	#spawn mstsc "$host" -f
+	debug "spawned 'mstsc...'"
 }
 
 do_ssh() {
+	debug "using SSH to $1"
 	exec ssh "$@"
 }
 
@@ -48,8 +51,8 @@ case $1 in
 	fi
 	;;
     '')
-	echo "Usage: $0 <host>"
-	exit 2
+	echo "Usage: $progname <host>" >&2
+	die "missing host name"
 	;;
     *)
 	die "unknown host '$1'";

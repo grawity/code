@@ -1,4 +1,4 @@
-#!bash
+# vim: ft=sh
 . lib.bash
 
 # create a temporary file on RAM

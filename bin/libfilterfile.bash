@@ -1,4 +1,4 @@
-#!bash
+# vim: ft=sh
 # libfilterfile.bash - filter a text file using cpp-like #if/#endif statements
 
 . lib.bash || exit

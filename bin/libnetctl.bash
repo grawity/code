@@ -1,4 +1,4 @@
-#!bash
+# vim: ft=sh
 . lib.bash || exit
 
 : ${VIRTUALBOX_LIBEXEC:='/usr/lib/virtualbox'}

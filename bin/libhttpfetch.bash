@@ -1,4 +1,4 @@
-#!bash
+# vim: ft=sh
 
 http_fetch() {
 	local url=$1 out=${2:-/dev/stdout}

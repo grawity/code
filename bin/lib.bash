@@ -1,4 +1,4 @@
-#!bash
+# vim: ft=sh
 # lib.bash - a few very basic functions for bash cripts
 
 if [[ $__LIBROOT ]]; then

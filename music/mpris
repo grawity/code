@@ -21,7 +21,8 @@ use constant {
 my $bus = Net::DBus->session;
 
 my $prefix_re = qr/^org\.mpris\.MediaPlayer2\./;
-my $suffix_re = qr/[^.]+(?:\.instance-?\d+)?$/;
+my $instance_re = qr/\.instance-?\d+$/;
+my $suffix_re = qr/[^.]+(?:$instance_re)?$/;
 
 # usage() - print usage text
 #
@@ -270,6 +271,17 @@ sub frombool {
 sub enumerate {
 	my $names = $bus->get_bus_object->ListNames();
 	sort grep {/$prefix_re/} @$names;
+}
+
+# enumerate_unique() - list bus names avoiding duplicates (vlc / vlc.instanceXXX)
+
+sub enumerate_unique {
+	my @names = enumerate();
+	my %names = map {$_ => 1} @names;
+	# collect basenames of bus names that have an instance suffix
+	my %dupes = map {$_ => 1} grep {s/$instance_re//} map {$_} @names;
+	delete $names{$_} for keys %dupes;
+	keys %names;
 }
 
 # describe(name) - show identity and status of player
@@ -1012,7 +1024,7 @@ for ($cmd) {
 	}
 	when ("is-running") {
 		if ($bus_name eq "all") {
-			saybool enumerate();
+			saybool enumerate_unique();
 		} else {
 			saybool $bus->get_service_owner($bus_name);
 		}
@@ -1021,7 +1033,7 @@ for ($cmd) {
 		my $handler = \&_notify_handle_propchange;
 		if ($bus_name eq "all") {
 			event_setup(undef, $handler);
-			event_setup($_, $handler) for enumerate();
+			event_setup($_, $handler) for enumerate_unique();
 		} else {
 			event_setup($bus_name, $handler);
 		}
@@ -1035,7 +1047,7 @@ for ($cmd) {
 		elsif ($bus_name eq "all") {
 			my @r = map {describe_as_separator($_);
 				     $commands{$cmd}->(MediaPlayer($_), @ARGV) // 0}
-				enumerate();
+				enumerate_unique();
 			exit max @r;
 		}
 		elsif (!$bus->get_service_owner($bus_name)) {

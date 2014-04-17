@@ -39,16 +39,14 @@ def iter_commits():
 def recurse_tree_for_blob(tree_sha, blob_sha):
     global seen_trees
     if tree_sha not in seen_trees:
-        result = None
+        result = set()
         for item_type, item_sha, item_name in get_tree_items(tree_sha):
             if item_type == b"blob" and item_sha == blob_sha:
-                result = item_name
+                result.add(item_name)
             elif item_type == b"tree":
-                result = recurse_tree_for_blob(item_sha, blob_sha)
-                if result:
-                    result = item_name + b"/" + result
-            if result:
-                break
+                found = recurse_tree_for_blob(item_sha, blob_sha)
+                if found:
+                    result |= {item_name + b"/" + path for path in found}
         seen_trees[tree_sha] = result
     return seen_trees[tree_sha]
 
@@ -115,14 +113,14 @@ try:
         tree_sha = get_commit_tree(commit_sha)
         blob_path = recurse_tree_for_blob(tree_sha, file_sha)
         if blob_path == last_path:
-            if blob_path is not None:
+            if blob_path:
                 found_commits.append(commit_sha)
         else:
             status()
             if len(found_commits) > 0:
                 print_final_result(found_commits, last_path)
                 found_commits = []
-            if blob_path is not None:
+            if blob_path:
                 if len(found_commits) == 0:
                     print_initial_result(commit_sha, blob_path)
                 found_commits.append(commit_sha)

@@ -111,7 +111,8 @@ $(OBJ)/%: $(dummy)
 
 # compile targets
 
-BASIC_BINS := args mkpasswd natsort pause proctool silentcat spawn strtool unescape
+BASIC_BINS := args gettime mkpasswd natsort pause proctool silentcat spawn
+BASIC_BINS += strtool unescape
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
 MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf zlib
@@ -155,6 +156,7 @@ $(OBJ)/ac-wait:		LDLIBS += -ludev
 $(OBJ)/ac-wait:		system/ac-wait.c
 $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
+$(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/codeset:		misc/codeset.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o

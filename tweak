@@ -92,6 +92,31 @@ wallpaper)
 		cd ~/Pictures/Wallpapers
 		value=$(find -type f | egrep '\.(jpe?g|png)$' | grep -v NSFW |
 			shuf | head -1)
+	elif [[ ! $value ]]; then
+		do_gsettings org.gnome.desktop.background picture-uri
+		exit
+	fi
+	if [[ $value == \'*\' ]]; then
+		value=${value#\'}
+		value=${value%\'}
+	fi
+	if [[ $value == file://* ]]; then
+		value=${value#'file://'}
+		value=$(urlencode -d "$value")
+	fi
+	if [[ $value != /* ]]; then
+		value=$PWD/$value
+	fi
+	if [[ ! -e $value ]]; then
+		base=$(basename "$value")
+		log "trying to find $base"
+		new=$(find "$PWD" -type f -name "$base" | head -n 1)
+		if [[ $new && -e $new ]]; then
+			log "found at $new"
+			value=$new
+		else
+			die "not found: $value"
+		fi
 	fi
 	do_gsettings org.gnome.desktop.background picture-uri "$value" --uri
 	;;

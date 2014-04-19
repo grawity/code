@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 origin() { attr -q -g 'xdg.origin.url' "$1"; } 2>/dev/null
 
 referer() { attr -q -g 'xdg.referrer.url' "$1"; } 2>/dev/null
@@ -16,8 +18,9 @@ put() {
 		fi
 		srcbase=$srcname.$((++ctr)).$srcext
 	done
-	mv -i "$src" "$dst/$srcbase"
-	printf '\e[32m%s\e[m ‘%s’ → ‘%s’\n' "sorted:" "$src" "${dst/#$HOME/~}"
+	if mv -i "$src" "$dst/$srcbase"; then
+		printf '\e[32m%s\e[m ‘%s’ → ‘%s’\n' "sorted:" "$src" "${dst/#$HOME/~}"
+	fi
 }
 
 cd ~/Downloads
@@ -25,13 +28,18 @@ cd ~/Downloads
 shopt -s nullglob
 
 for file in *.jpg *.jpeg *.png *.gif; do
+	debug "file: $file"
+
 	ref=$(referer "$file")
+	debug "-- referer: ${ref:-none}"
 	if [[ ! $ref ]]; then
 		ref=$(origin "$file")
+		debug "-- origin: ${ref:-none}"
 	fi
+
 	case $ref in
 	"")
-		printf '\e[33m%s\e[m %s\n' "empty:" "$file"; continue;;
+		printf '\e[33m%s\e[m %s\n' "no-origin:" "$file"; continue;;
 	http://imgur.com/r/*)
 		ref=${ref#http://imgur.com};;
 	http://www.*)
@@ -41,6 +49,9 @@ for file in *.jpg *.jpeg *.png *.gif; do
 	https://*)
 		ref=http:${ref#https:};;
 	esac
+
+	debug "-- canonical: $ref"
+
 	case $ref in
 	/r/awwnime/*)
 		put "$file" ~/Pictures/r-awwnime/;;

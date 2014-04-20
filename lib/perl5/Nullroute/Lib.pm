@@ -57,7 +57,7 @@ sub _err   { _msg("error", shift, "\e[1;31m"); ++$::errors; }
 
 sub _die   { _err(shift); exit 1; }
 
-sub _usage { _msg("usage", ($0." ".shift), ""); }
+sub _usage { _msg("usage", ($::arg0 . " " . shift), ""); }
 
 sub forked (&) { fork || exit shift->(); }
 

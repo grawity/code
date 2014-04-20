@@ -8,6 +8,7 @@ our @EXPORT = qw(
 	_warn
 	_err
 	_die
+	_usage
 	forked
 	readfile
 	uniq
@@ -20,6 +21,8 @@ $::arg0prefix = $ENV{LVL}++ || $ENV{DEBUG};
 
 $::warnings = 0;
 $::errors = 0;
+
+my $seen_usage = 0;
 
 sub _msg {
 	my $prefix = shift;
@@ -37,6 +40,9 @@ sub _msg {
 		#$msg = "(".$frame[3].") ".$msg;
 		$prefix = $prefix." (".$frame[3].")";
 	}
+	elsif ($prefix eq "usage" && !$::debug && $seen_usage++) {
+		$prefix = "   or";
+	}
 
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
@@ -50,6 +56,8 @@ sub _warn  { _msg("warning", shift, "\e[1;33m"); ++$::warnings; }
 sub _err   { _msg("error", shift, "\e[1;31m"); ++$::errors; }
 
 sub _die   { _err(shift); exit 1; }
+
+sub _usage { _msg("usage", ($0." ".shift), ""); }
 
 sub forked (&) { fork || exit shift->(); }
 

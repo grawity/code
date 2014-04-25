@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+lockpath='/var/lib/pacman/db.lck'
+dbpath='/var/lib/pacman/local'
+
+db_lock() {
+	touch "$lockpath.$$"
+	ln "$lockpath.$$" "$lockpath"
+}
+
+db_unlock() {
+	rm -f "$lockpath.$$" "$lockpath"
+	trap - EXIT
+}
+
+_die() {
+	db_unlock
+	die "$@"
+}
+
+fix_desc_version() {
+	local newver=$1
+	local line now=0
+	while read -r line; do
+		if (( now )); then
+			line=$newver
+			now=0
+		elif [[ $line == "%VERSION%" ]]; then
+			now=1
+		fi
+		printf '%s\n' "$line"
+	done
+}
+
+pkgname=$1
+oldver=$2; oldpkg="$pkgname-$oldver"; olddir="$dbpath/$oldpkg"
+newver=$3; newpkg="$pkgname-$newver"; newdir="$dbpath/$newpkg"
+
+[[ $pkgname && $oldver && $newver ]] || {
+	echo "usage: $progname <pkg-name> <old-version> <new-version>" >&2
+	die "missing parameters"
+}
+
+(( UID == 0 )) && [[ -w $dbdir ]] ||
+	die "must be run as root"
+
+trap 'die "interrupted - database remains locked"' EXIT
+
+db_lock ||
+	die "database is locked"
+
+test -e "$olddir/desc" ||
+	_die "package '$oldpkg' not found"
+
+mkdir "$newdir" ||
+	_die "package '$newpkg' already exists"
+
+log "renaming package '$oldpkg' to '$newpkg'"
+
+rsync -a "$olddir/" "$newdir/" || {
+	rm -rf "$newdir"
+	_die "could not copy '$oldpkg' to '$newpkg'"
+}
+
+fix_desc_version "$newver" < "$olddir/desc" > "$newdir/desc" || {
+	rm -rf "$newdir"
+	_die "could not update version of '$newpkg'"
+}
+
+rm -rf "$olddir" ||
+	_die "could not remove old package '$oldpkg'"
+
+db_unlock

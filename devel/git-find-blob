@@ -66,15 +66,6 @@ def status(msg=""):
     sys.stderr.write("\r\033[K\033[32m%s\033[m\r" % msg)
     sys.stderr.flush()
 
-path = sys.argv[1]
-
-if sha_re.match(path):
-    print("assuming %r is a blob hash" % path)
-    file_sha = path.encode("us-ascii")
-else:
-    print("assuming %r is a file to hash" % path)
-    file_sha = hash_file(path)
-
 seen_trees = {}
 
 def print_initial_result(commit, blob_path):
@@ -100,6 +91,15 @@ def print_results(commits, blob_path):
         print("   …up to %s" % sha_fmt(commits[-1]))
 
 def main():
+    path = sys.argv[1]
+
+    if sha_re.match(path):
+        print("assuming %r is a blob hash" % path)
+        file_sha = path.encode("us-ascii")
+    else:
+        print("assuming %r is a file to hash" % path)
+        file_sha = hash_file(path)
+
     try:
         n_commits = 0
         found_commits = []

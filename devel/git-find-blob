@@ -77,12 +77,6 @@ else:
 
 seen_trees = {}
 
-n_commits = 0
-
-found_commits = []
-
-last_path = None
-
 def print_initial_result(commit, blob_path):
     print("found at %r ..." % blob_path)
     print("   commit %s" % sha_fmt(commit))
@@ -105,31 +99,39 @@ def print_results(commits, blob_path):
         print("   commit %s" % sha_fmt(commits[0]))
         print("   …up to %s" % sha_fmt(commits[-1]))
 
-try:
-    for commit_sha in iter_commits():
-        n_commits += 1
-        if n_commits % 5 == 0:
-            status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))
-        tree_sha = get_commit_tree(commit_sha)
-        blob_path = recurse_tree_for_blob(tree_sha, file_sha)
-        if blob_path == last_path:
-            if blob_path:
-                found_commits.append(commit_sha)
-        else:
-            status()
-            if len(found_commits) > 0:
-                print_final_result(found_commits, last_path)
-                found_commits = []
-            if blob_path:
-                if len(found_commits) == 0:
-                    print_initial_result(commit_sha, blob_path)
-                found_commits.append(commit_sha)
-            last_path = blob_path
-except KeyboardInterrupt:
-    status("interrupted at commit %s" % (sha_fmt(commit_sha)))
-    print()
-    print_results(found_commits, last_path)
-else:
-    status("finished after %d commits" % n_commits)
-    print()
-    print_results(found_commits, last_path)
+def main():
+    try:
+        n_commits = 0
+        found_commits = []
+        last_path = None
+
+        for commit_sha in iter_commits():
+            n_commits += 1
+            if n_commits % 5 == 0:
+                status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))
+            tree_sha = get_commit_tree(commit_sha)
+            blob_path = recurse_tree_for_blob(tree_sha, file_sha)
+            if blob_path == last_path:
+                if blob_path:
+                    found_commits.append(commit_sha)
+            else:
+                status()
+                if len(found_commits) > 0:
+                    print_final_result(found_commits, last_path)
+                    found_commits = []
+                if blob_path:
+                    if len(found_commits) == 0:
+                        print_initial_result(commit_sha, blob_path)
+                    found_commits.append(commit_sha)
+                last_path = blob_path
+    except KeyboardInterrupt:
+        status("interrupted at commit %s" % (sha_fmt(commit_sha)))
+        print()
+        print_results(found_commits, last_path)
+    else:
+        status("finished after %d commits" % n_commits)
+        print()
+        print_results(found_commits, last_path)
+
+if __name__ == '__main__':
+	main()

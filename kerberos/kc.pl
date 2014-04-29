@@ -98,6 +98,13 @@ sub read_file {
 	return $output;
 }
 
+sub get_keytab_path {
+	my ($princ) = @_;
+
+	# TODO: depend on hostname
+	"$ENV{HOME}/Private/keys/login/krb-$princ.keytab";
+}
+
 sub read_aliases_from_file {
 	my ($path, $aliases) = @_;
 
@@ -109,6 +116,7 @@ sub read_aliases_from_file {
 		if (@args) {
 			my %vars = (
 				PRINCIPAL => $args[0],
+				KEYTAB => get_keytab_path($args[0]),
 			);
 			for (@args) {
 				s|^~/|$ENV{HOME}/|;

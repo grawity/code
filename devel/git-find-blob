@@ -12,7 +12,7 @@ import sys
 
 batch_proc = None
 
-sha_re = re.compile(r'^[0-9a-f]{40}$')
+seen_trees = {}
 
 def get_tree_items(sha):
     proc = subprocess.Popen(["git", "ls-tree", sha],
@@ -71,8 +71,6 @@ def status(msg=""):
     sys.stderr.write("\r\033[K\033[32m%s\033[m\r" % msg)
     sys.stderr.flush()
 
-seen_trees = {}
-
 def print_initial_result(commit, blob_path):
     print("found at %r ..." % blob_path)
     print("   commit %s" % sha_fmt(commit))
@@ -83,7 +81,6 @@ def print_final_result(commits, blob_path):
         print("   …up to %s (%d commits)" % (sha_fmt(commits[1]), n_found))
 
 def print_results(commits, blob_path):
-    # TODO: Do away with this function
     n_found = len(commits)
     if n_found == 0:
         return
@@ -99,6 +96,8 @@ def main():
     if len(sys.argv) != 2:
         print(__doc__)
         exit(1)
+
+    sha_re = re.compile(r'^[0-9a-f]{40}$')
 
     path = sys.argv[1]
 

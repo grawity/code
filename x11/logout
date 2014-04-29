@@ -22,7 +22,7 @@ if [[ $session == default ]]; then
 			case $name in
 			    org.enlightenment.wm.service)
 				debug "found Enlightenment WM ($name)"
-				session=enlightenment
+				session=enlightenment; EVERSION=
 				;;
 			    org.gnome.SessionManager)
 				debug "found GNOME session manager ($name)"
@@ -44,13 +44,14 @@ else
 fi
 
 case $session in
-    enlightenment)
-	name=Enlightenment
-	cmd='enlightenment_remote -exit'
-	;;
-    enlightenment16)
-	name='Enlightenment 16'
-	cmd='eesh exit'
+    enlightenment*)
+	if [[ $EVERSION == 1.0.* ]]; then
+	    name='Enlightenment 16'
+	    cmd='eesh exit'
+	else
+	    name=Enlightenment
+	    cmd='enlightenment_remote -exit'
+	fi
 	;;
     gnome|gnome-*)
 	name=GNOME

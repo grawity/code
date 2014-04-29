@@ -2,8 +2,10 @@
 # Takes a file and finds all commits that reference the corresponding blob
 
 """Usage:
-git find-blob <file to find>
-git find-blob <blob SHA>"""
+    git find-blob <file to find> [start-commit]
+    git find-blob <blob SHA> [start-commit]
+
+If <start-commit> is not specified, HEAD is used."""
 
 from __future__ import print_function
 import re
@@ -35,8 +37,8 @@ def get_commit_tree(sha):
     else:
         return obj_sha
 
-def iter_commits():
-    proc = subprocess.Popen(["git", "rev-list", "HEAD"],
+def iter_commits(start="HEAD"):
+    proc = subprocess.Popen(["git", "rev-list", start],
                             stdout=subprocess.PIPE)
     for line in proc.stdout:
         yield line.rstrip()
@@ -93,7 +95,7 @@ def print_results(commits, blob_path):
         print("   …until %s" % sha_fmt(commits[-1]))
 
 def main():
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print(__doc__)
         exit(1)
 
@@ -108,12 +110,18 @@ def main():
         print("assuming %r is a file to hash" % path)
         file_sha = hash_file(path)
 
+    if len(sys.argv) > 2:
+        start_commit = sys.argv[2]
+        print("starting at commit %r" % start_commit)
+    else:
+        start_commit = "HEAD"
+
     try:
         n_commits = 0
         found_commits = []
         last_path = None
 
-        for commit_sha in iter_commits():
+        for commit_sha in iter_commits(start_commit):
             n_commits += 1
             if n_commits % 5 == 0:
                 status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))

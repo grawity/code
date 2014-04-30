@@ -79,10 +79,22 @@ do_rsnapshot() {
 do_rsync() {
 	local src=$1 dest=$2; shift 2
 
+	local args=()
+
+	if [[ $src == "/" ]]; then
+		args+=(sudo)
+	fi
+
+	args+=(rsync "$src" "$dest"
+		-aHAXvzh
+		--info=progress2
+		--delete-after
+		--delete-excluded
+		"$@")
+
 	log "rsyncing $src -> $dest"
 	# note: add -x to jobs instead of here
-	rsync "$src" "$dest" -aHAXvzh --info=progress2 \
-		--delete-after --delete-excluded "$@"
+	"${args[@]}"
 }
 
 local_rsync() {

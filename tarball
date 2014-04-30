@@ -23,15 +23,17 @@ do_archive() {
 }
 
 get_timestamp() {
-	find "$1" -type f -printf '%TF\n' | sort -u | tail -1
+	find "$1" -type f -printf '%Ts\n' | sort -u | tail -1
 }
 
 dir=${1%/}
 
+ts=$(get_timestamp "$dir")
+
 if [[ $2 == --now ]]; then
 	out=$dir-$(date +%F).$ext
 elif [[ $2 == --date ]]; then
-	out=$dir-$(get_timestamp "$dir").$ext
+	out=$dir-$(date +%F -d "@$ts").$ext
 else
 	out=${2:-$dir}.$ext
 fi

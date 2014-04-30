@@ -22,12 +22,16 @@ do_archive() {
 	esac
 }
 
+get_timestamp() {
+	find "$1" -type f -printf '%TF\n' | sort -u | tail -1
+}
+
 dir=${1%/}
 
 if [[ $2 == --now ]]; then
 	out=$dir-$(date +%F).$ext
 elif [[ $2 == --date ]]; then
-	out=$dir-$(find "$dir" -printf '%TF\n' | sort -u | tail -1).$ext
+	out=$dir-$(get_timestamp "$dir").$ext
 else
 	out=${2:-$dir}.$ext
 fi

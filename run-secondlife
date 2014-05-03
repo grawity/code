@@ -14,6 +14,7 @@ $::bus = Net::DBus->session;
 
 my $exe;
 my $uri;
+my @login;
 my @sl_args;
 
 $exe = shift @ARGV;
@@ -41,7 +42,7 @@ for my $arg (@ARGV) {
 					: split(/\s+/, $name);
 			_debug("using account '@acct' from .netrc");
 			push @sl_args,
-				("--login", @acct, $entry->{password});
+				@login = ("--login", @acct, $entry->{password});
 		}
 	}
 	elsif ($arg =~ m!^secondlife://!) {
@@ -55,7 +56,10 @@ for my $arg (@ARGV) {
 exit 1 if $::errors;
 
 if (defined $uri) {
-	if ($::bus->get_service_owner(SL_BUS_NAME)) {
+	if (@login) {
+		_debug("want new instance because --login was given");
+	}
+	elsif ($::bus->get_service_owner(SL_BUS_NAME)) {
 		_log("activating existing viewer instance");
 
 		eval {

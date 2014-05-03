@@ -5,11 +5,14 @@ use warnings;
 use strict;
 use Net::DBus;
 use Net::Netrc;
-use Nullroute::Lib qw(_debug _warn _err _die);
-use constant SL_DOMAIN => "secondlife.com";
-use constant SL_BUS_NAME => "com.secondlife.ViewerAppAPIService";
-use constant SL_BUS_PATH => "/com/secondlife/ViewerAppAPI";
+use Nullroute::Lib qw(_debug _warn _die);
+use constant {
+	SL_DOMAIN => "secondlife.com",
+	SL_BUS_NAME => "com.secondlife.ViewerAppAPIService",
+	SL_BUS_PATH => "/com/secondlife/ViewerAppAPI",
+};
 
+# TODO: move this to Lib.pm
 sub _log { print "-- ".shift."\n"; }
 
 $::bus = Net::DBus->session;
@@ -35,9 +38,9 @@ for my $arg (@ARGV) {
 		_debug("looking up login '$name' for '$domain' in .netrc");
 		my $entry = Net::Netrc->lookup($domain, $name);
 		if (!$entry || !defined $entry->{machine}) {
-			_err("login '$name' not found in .netrc");
+			_die("login '$name' not found in .netrc");
 		} elsif (!defined $entry->{password}) {
-			_err("password for '$name' missing from .netrc");
+			_die("password for '$name' missing from .netrc");
 		} else {
 			my @acct = defined($entry->{account})
 					? split(/\s+/, $entry->{account})
@@ -55,8 +58,6 @@ for my $arg (@ARGV) {
 	}
 }
 
-exit 1 if $::errors;
-
 if (defined $url) {
 	if (@args > 1) {
 		_debug("command line given, starting new instance");
@@ -72,7 +73,7 @@ if (defined $url) {
 		};
 
 		if ($@) {
-			_warn("failed to contact the viewer: $@");
+			_warn("could not contact the viewer: $@");
 		} else {
 			exit 0;
 		}
@@ -87,4 +88,5 @@ if ($::debug) {
 	_debug(" - with arg '$_'") for @default_args, @args;
 }
 
-exec {$exe} ($exe, @default_args, @args);
+exec {$exe} ($exe, @default_args, @args)
+or _die("could not run '$exe': $!");

@@ -5,6 +5,9 @@ def _log(prefix, msg, color=""):
     print("\033[%sm%s:\033[m %s" % (color, prefix, msg),
           file=sys.stderr)
 
+def debug(msg):
+    _log("debug", msg, "36")
+
 def warn(msg):
     _log("warning", msg, "1;33")
 

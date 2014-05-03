@@ -17,6 +17,17 @@ my $wait = 0;
 my $watch = 0;
 my $color = 0;
 
+sub get_conn_pid {
+	my ($conn) = @_;
+
+	if (length($conn)) {
+		my $obj = $bus->get_bus_object;
+		return eval {$obj->GetConnectionUnixProcessID($conn)};
+	} else {
+		return undef;
+	}
+}
+
 sub usage {
 	say for
 	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] [-A] NAME...",
@@ -133,9 +144,7 @@ if ($list) {
 			say $color{$state}, $state, $color{reset},
 				" ", $bus_name;
 		} else {
-			my $new_pid = length($new_owner)
-				? eval {$obj->GetConnectionUnixProcessID($new_owner)}
-				: undef;
+			my $new_pid = get_conn_pid($new_owner);
 			say $color{$state}, $state, $color{reset},
 				" ", $bus_name,
 				" ", length($old_owner) ? $old_owner : "(none)",
@@ -153,9 +162,7 @@ if ($list) {
 		}
 		my $owner = $bus->get_service_owner($name);
 		if (!$quiet) {
-			my $pid = $owner
-				? eval {$obj->GetConnectionUnixProcessID($owner)}
-				: undef;
+			my $pid = get_conn_pid($owner);
 			say $name,
 				" ", $owner // "(none)",
 				" [", $pid // "none", "]";

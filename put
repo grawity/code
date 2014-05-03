@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# put -- get rid of no-longer-useful files
+
+. lib.bash || exit
+
+_put() {
+	local src=$1 dst=$2
+
+	if [[ ! -e "$dstdir/$dst" ]]; then
+		log "moving to \"${dst#$HOME/}\""
+		mv -i "$src" "$dst"
+	else
+		false
+	fi
+}
+
+dir="$HOME/Attic/Misc"
+
+for arg; do
+	name=${arg##*/}
+	if [[ $name == *.* ]]; then
+		base=${name%.*}
+		ext=${name##*.}
+	else
+		base=$name
+		ext=
+	fi
+
+	dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
+	mkdir -p "$dstdir"
+
+	_put "$arg" "$dstdir/$name" ||
+	for (( count=0; count < 9999; count++ )); do
+		_put "$arg" "$dstdir/$base-$count${ext+.}$ext" && break
+	done
+done

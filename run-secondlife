@@ -16,7 +16,7 @@ my @default_args = ("--novoice");
 
 my $exe;
 my $uri;
-my @sl_args;
+my @args;
 
 $exe = shift @ARGV;
 if (!defined $exe) {
@@ -41,22 +41,22 @@ for my $arg (@ARGV) {
 					? split(/\s+/, $entry->{account})
 					: split(/\s+/, $name);
 			_debug("using account '@acct' from .netrc");
-			push @sl_args,
+			push @args,
 				("--login", @acct, $entry->{password});
 		}
 	}
 	elsif ($arg =~ m!^secondlife://!) {
-		push @sl_args, $uri = $arg;
+		push @args, $uri = $arg;
 	}
 	else {
-		push @sl_args, $arg;
+		push @args, $arg;
 	}
 }
 
 exit 1 if $::errors;
 
 if (defined $uri) {
-	if (@sl_args > 1) {
+	if (@args > 1) {
 		_debug("command line given, starting new instance");
 	}
 	elsif ($::bus->get_service_owner(SL_BUS_NAME)) {
@@ -82,7 +82,7 @@ if (defined $uri) {
 
 if ($::debug) {
 	_debug("starting '$exe'");
-	_debug(" - with arg '$_'") for @sl_args;
+	_debug(" - with arg '$_'") for @args;
 }
 
-exec {$exe} ($exe, @default_args, @sl_args);
+exec {$exe} ($exe, @default_args, @args);

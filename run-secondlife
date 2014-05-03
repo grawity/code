@@ -12,9 +12,10 @@ sub _log { print "-- ".shift."\n"; }
 
 $::bus = Net::DBus->session;
 
+my @default_args = ("--novoice");
+
 my $exe;
 my $uri;
-my @login;
 my @sl_args;
 
 $exe = shift @ARGV;
@@ -25,7 +26,6 @@ elsif (!-f $exe || !-x $exe) {
 	_die("not an executable: $exe");
 }
 
-@sl_args = ("--novoice");
 for my $arg (@ARGV) {
 	if ($arg =~ /^@(.+)$/) {
 		my $name = $1;
@@ -42,20 +42,11 @@ for my $arg (@ARGV) {
 					: split(/\s+/, $name);
 			_debug("using account '@acct' from .netrc");
 			push @sl_args,
-				@login = ("--login", @acct, $entry->{password});
+				("--login", @acct, $entry->{password});
 		}
 	}
 	elsif ($arg =~ m!^secondlife://!) {
-		$uri = $arg;
-		push @sl_args, ("--url", $arg);
-	}
-	elsif ($arg eq "--login") {
-		@login = ($arg);
-		push @sl_args, $arg;
-	}
-	elsif (@login > 0 && @login < 4) {
-		push @login, $arg;
-		push @sl_args, $arg;
+		push @sl_args, $uri = $arg;
 	}
 	else {
 		push @sl_args, $arg;
@@ -65,8 +56,8 @@ for my $arg (@ARGV) {
 exit 1 if $::errors;
 
 if (defined $uri) {
-	if (@login) {
-		_debug("want new instance because --login was given");
+	if (@sl_args > 1) {
+		_debug("command line given, starting new instance");
 	}
 	elsif ($::bus->get_service_owner(SL_BUS_NAME)) {
 		_log("activating existing viewer instance");
@@ -84,6 +75,9 @@ if (defined $uri) {
 			exit 0;
 		}
 	}
+	else {
+		_debug("viewer not found in DBus, starting new instance");
+	}
 }
 
 if ($::debug) {
@@ -91,4 +85,4 @@ if ($::debug) {
 	_debug(" - with arg '$_'") for @sl_args;
 }
 
-exec {$exe} ($exe, @sl_args);
+exec {$exe} ($exe, @default_args, @sl_args);

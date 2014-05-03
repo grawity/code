@@ -30,7 +30,7 @@ for my $arg (@ARGV) {
 		...;
 	}
 	elsif ($arg =~ m!^secondlife://!) {
-		push @sl_args, $uri = $arg;
+		push @sl_args, ("--url", $uri = $arg);
 	}
 	else {
 		push @sl_args, $arg;

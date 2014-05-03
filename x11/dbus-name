@@ -17,12 +17,41 @@ my $wait = 0;
 my $watch = 0;
 my $color = 0;
 
+sub read_line {
+	my ($file) = @_;
+
+	if (open my $fh, "<", $file) {
+		my $line = <$fh>;
+		chomp $line;
+		close $fh;
+		return $line;
+	}
+}
+
 sub get_conn_pid {
 	my ($conn) = @_;
 
 	if (length($conn)) {
 		my $obj = $bus->get_bus_object;
 		return eval {$obj->GetConnectionUnixProcessID($conn)};
+	} else {
+		return undef;
+	}
+}
+
+sub get_pid_cmdline {
+	my ($pid) = @_;
+
+	read_line("/proc/$pid/comm");
+}
+
+sub get_conn_name {
+	my ($conn) = @_;
+
+	my $pid = get_conn_pid($conn);
+	if ($pid) {
+		my $name = get_pid_cmdline($pid) // "?";
+		return "$pid/$name";
 	} else {
 		return undef;
 	}
@@ -144,13 +173,13 @@ if ($list) {
 			say $color{$state}, $state, $color{reset},
 				" ", $bus_name;
 		} else {
-			my $new_pid = get_conn_pid($new_owner);
+			my $new_proc = get_conn_name($new_owner);
 			say $color{$state}, $state, $color{reset},
 				" ", $bus_name,
 				" ", length($old_owner) ? $old_owner : "(none)",
 				" ", length($new_owner) ? $new_owner : "(none)",
 				length($new_owner)
-					? (" [", $new_pid // "none", "]") : ();
+					? (" [", $new_proc // "none", "]") : ();
 		}
 	});
 	Net::DBus::Reactor->main->run;
@@ -162,10 +191,10 @@ if ($list) {
 		}
 		my $owner = $bus->get_service_owner($name);
 		if (!$quiet) {
-			my $pid = get_conn_pid($owner);
+			my $proc = get_conn_name($owner);
 			say $name,
 				" ", $owner // "(none)",
-				" [", $pid // "none", "]";
+				" [", $proc // "none", "]";
 		}
 		$owner or ++$err;
 	}

@@ -2,7 +2,9 @@
 use warnings;
 use strict;
 use Net::DBus;
+use Net::Netrc;
 use Nullroute::Lib qw(_debug _warn _err _die);
+use constant SL_DOMAIN => "secondlife.com";
 use constant SL_BUS_NAME => "com.secondlife.ViewerAppAPIService";
 use constant SL_BUS_PATH => "/com/secondlife/ViewerAppAPI";
 
@@ -26,8 +28,21 @@ elsif (!-f $exe || !-x $exe) {
 for my $arg (@ARGV) {
 	if ($arg =~ /^@(.+)$/) {
 		my $name = $1;
-		_debug("looking up login '$name' in .netrc");
-		...;
+		my $domain = SL_DOMAIN;
+		_debug("looking up login '$name' for '$domain' in .netrc");
+		my $entry = Net::Netrc->lookup($domain, $name);
+		if (!$entry || !defined $entry->{machine}) {
+			_err("login '$name' not found in .netrc");
+		} elsif (!defined $entry->{password}) {
+			_err("password for '$name' missing from .netrc");
+		} else {
+			my @acct = defined($entry->{account})
+					? split(/\s+/, $entry->{account})
+					: split(/\s+/, $name);
+			_debug("using account '@acct' from .netrc");
+			push @sl_args,
+				("--login", @acct, $entry->{password});
+		}
 	}
 	elsif ($arg =~ m!^secondlife://!) {
 		push @sl_args, ("--url", $uri = $arg);

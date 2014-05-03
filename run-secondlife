@@ -1,51 +1,81 @@
-#!/usr/bin/env bash
-# second-level wrapper to set global arguments, called by the `secondlife`,
-# `firestorm`, and other first-level wrappers which set viewer-specific
-# variables
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Net::DBus;
+use Net::Netrc;
+use Nullroute::Lib qw(_debug _warn _err _die);
+use constant SL_DOMAIN => "secondlife.com";
+use constant SL_BUS_NAME => "com.secondlife.ViewerAppAPIService";
+use constant SL_BUS_PATH => "/com/secondlife/ViewerAppAPI";
 
-. lib.bash || exit
+sub _log { print "-- ".shift."\n"; }
 
-exe=$1; shift
+$::bus = Net::DBus->session;
 
-if ! [[ $exe ]]; then
-	die "missing executable path"
-elif ! [[ -f $exe && -x $exe ]]; then
-	die "not an executable: $exe"
-fi
+my $exe;
+my $uri;
+my @sl_args;
 
-args=('--novoice')
+$exe = shift @ARGV;
+if (!defined $exe) {
+	_die("missing executable path");
+}
+elsif (!-f $exe || !-x $exe) {
+	_die("not an executable: $exe");
+}
 
-for arg; do
-	case $arg in
-	    @*)
-		name=${arg#@}
-		debug "looking up login '$name' in .netrc"
-		creds=$(getnetrc -df '%a %p' secondlife.com "$name")
-		if [[ $creds ]]; then
-			debug "found credentials: $creds"
-			args+=('--login' $creds)
-		else
-			err "login '$name' not found in .netrc"
-		fi
-		;;
-	    secondlife://*)
-		uri=$arg
-		args+=('--url' "$arg")
-		;;
-	    *)
-		args+=("$arg")
-		;;
-	esac
-done
+@sl_args = ("--novoice");
+for my $arg (@ARGV) {
+	if ($arg =~ /^@(.+)$/) {
+		my $name = $1;
+		my $domain = SL_DOMAIN;
+		_debug("looking up login '$name' for '$domain' in .netrc");
+		my $entry = Net::Netrc->lookup($domain, $name);
+		if (!$entry || !defined $entry->{machine}) {
+			_err("login '$name' not found in .netrc");
+		} elsif (!defined $entry->{password}) {
+			_err("password for '$name' missing from .netrc");
+		} else {
+			my @acct = defined($entry->{account})
+					? split(/\s+/, $entry->{account})
+					: split(/\s+/, $name);
+			_debug("using account '@acct' from .netrc");
+			push @sl_args,
+				("--login", @acct, $entry->{password});
+		}
+	}
+	elsif ($arg =~ m!^secondlife://!) {
+		push @sl_args, ("--url", $uri = $arg);
+	}
+	else {
+		push @sl_args, $arg;
+	}
+}
 
-(( ! errors )) || exit
+exit 1 if $::errors;
 
-if [[ $uri ]] && dbus-name -e -q com.secondlife.ViewerAppAPIService; then
-	log "activating existing viewer instance"
-	exec gdbus call -e -d com.secondlife.ViewerAppAPIService \
-			   -o /com/secondlife/ViewerAppAPI \
-			   -m com.secondlife.ViewerAppAPI.GoSLURL \
-			   "'$uri'" > /dev/null
-fi
+if (defined $uri) {
+	if ($::bus->get_service_owner(SL_BUS_NAME)) {
+		_log("activating existing viewer instance");
 
-exec "$exe" "${args[@]}"
+		eval {
+			$::bus
+			->get_service(SL_BUS_NAME)
+			->get_object(SL_BUS_PATH)
+			->GoSLURL($uri);
+		};
+
+		if ($@) {
+			_warn("failed to contact the viewer: $@");
+		} else {
+			exit 0;
+		}
+	}
+}
+
+if ($::debug) {
+	_debug("starting '$exe'");
+	_debug(" - with arg '$_'") for @sl_args;
+}
+
+exec {$exe} ($exe, @sl_args);

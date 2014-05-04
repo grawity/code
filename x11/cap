@@ -11,6 +11,7 @@ use File::Path qw(make_path);
 use File::Spec::Functions qw(rel2abs);
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Net::DBus;
+use Nullroute::Lib qw(_debug);
 use POSIX qw(strftime :sys_wait_h);
 
 sub get_userdir {
@@ -66,6 +67,7 @@ my $flash = 1;
 my $cursor = 0;
 my $mode = 'fullscreen';
 my $template = "Screenshots/%Y-%m-%d.%H%M%S.png";
+my $file_rel = undef;
 my $file = undef;
 my $upload = 1;
 my $temporary = 0;
@@ -85,7 +87,11 @@ if ($temporary) {
 	$template =~ s/[^.]+?$/temp.$&/;
 }
 
-$file = strftime($template, localtime);
+$file_rel = strftime($template, localtime);
+$file = rel2abs($file_rel, get_userdir("Pictures"));
+
+_debug("rel path: $file_rel");
+_debug("abs path: $file");
 
 for (dirname $file) {
 	make_path($_) unless -d $_;
@@ -111,8 +117,6 @@ for ($mode) {
 		or die "Shell->ScreenshotWindow failed\n";
 	}
 }
-
-$file = rel2abs($file, get_userdir("Pictures"));
 
 if (! -f $file) {
 	notify("Screenshot failed.",

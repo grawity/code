@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-sep:() { echo; echo "-- $1 --"; echo; }
+--() { echo; echo "-- $*"; echo; }
 
 . lib.bash
 
@@ -16,15 +16,15 @@ messages() {
 	true
 }
 
-sep: "messages (normal)"
+-- "messages (normal)" --
 
 DEBUG='' messages
 
-sep: "messages (\$DEBUG)"
+-- "messages (\$DEBUG)" --
 
 DEBUG=1 messages
 
-sep: "backtraces (\$DEBUG=2)"
+-- "backtraces (\$DEBUG=2)" --
 
 foo() { bar; }
 bar() { baz; }

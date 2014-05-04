@@ -488,7 +488,7 @@ sub event_setup {
 	if (!defined $bus_name) {
 		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
-			if ($name =~ $prefix_re && !$sig_pc{$name}) {
+			if ($new_owner && $name =~ $prefix_re && !$sig_pc{$name}) {
 				$sig_pc{$name} = _event_setup_propchange($name, $handler);
 			}
 		});
@@ -497,7 +497,7 @@ sub event_setup {
 	} else {
 		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
-			if ($bus_name eq $name && !$sig_pc{$name}) {
+			if ($new_owner && $bus_name eq $name && !$sig_pc{$name}) {
 				$sig_pc{$name} = _event_setup_propchange($name, $handler);
 			}
 		});

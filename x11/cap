@@ -35,6 +35,11 @@ sub get_userdir {
 	return $userdir;
 }
 
+sub has_Shell {
+	Net::DBus->session
+	->get_service_owner("org.gnome.Shell")
+}
+
 sub Shell {
 	Net::DBus->session
 	->get_service("org.gnome.Shell")
@@ -97,24 +102,42 @@ for (dirname $file) {
 	make_path($_) unless -d $_;
 }
 
-my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
+if (has_Shell) {
+	_debug("using GNOME Shell interface");
 
-for ($mode) {
-	when ('area') {
-		Shell->ShowOSD({icon => "camera-photo-symbolic",
-				label => "Select area"});
-		my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
-		or die "Shell->SelectArea failed\n";
-		$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file)
-		or die "Shell->ScreenshotArea failed\n";
+	my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
+
+	for ($mode) {
+		when ('area') {
+			Shell->ShowOSD({icon => "camera-photo-symbolic",
+					label => "Select area"});
+			my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
+			or die "Shell->SelectArea failed\n";
+			$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file_rel)
+			or die "Shell->ScreenshotArea failed\n";
+		}
+		when ('fullscreen') {
+			$ShellScreenshot->Screenshot($cursor, $flash, $file_rel)
+			or die "Shell->Screenshot failed\n";
+		}
+		when ('window') {
+			$ShellScreenshot->ScreenshotWindow($frame, $cursor, $flash, $file_rel)
+			or die "Shell->ScreenshotWindow failed\n";
+		}
 	}
-	when ('fullscreen') {
-		$ShellScreenshot->Screenshot($cursor, $flash, $file)
-		or die "Shell->Screenshot failed\n";
-	}
-	when ('window') {
-		$ShellScreenshot->ScreenshotWindow($frame, $cursor, $flash, $file)
-		or die "Shell->ScreenshotWindow failed\n";
+} else {
+	_debug("using fallback method (scrot)");
+
+	for ($mode) {
+		when ('area') {
+			system("scrot", "-s", $file);
+		}
+		when ('fullscreen') {
+			system("scrot", $file);
+		}
+		when ('window') {
+			system("scrot", "-s", $file);
+		}
 	}
 }
 

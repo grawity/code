@@ -88,7 +88,7 @@ sub display_tty_nak {
 	print "No results.\n";
 }
 
-sub display_x11_list {
+sub _display_x11_list_zenity {
 	my @songs = @_;
 	my $count = @songs;
 	return unless $count >= 2;
@@ -120,6 +120,41 @@ sub display_x11_list {
 		if (length $line) {
 			play($line);
 		}
+	}
+}
+
+sub _display_x11_list_dmenu {
+	my @songs = @_;
+	my $count = @songs;
+	return unless $count >= 2;
+	my ($in, $out);
+	my $pid = open2($out, $in,
+			"dmenu",
+			"-i", # case-insensitive
+			"-l", "12",
+			"-p", "song »",);
+	for my $item (@songs) {
+		printf $in "%s – %s\n",
+			$item->{artist},
+			$item->{title};
+	}
+	close($in);
+	my $line = <$out>;
+	if (defined $line) {
+		chomp $line;
+		if (length $line) {
+			play($line);
+		}
+	}
+}
+
+sub display_x11_list {
+	my $session = $ENV{DESKTOP_SESSION} // "default";
+
+	if ($session =~ /^(gnome|kde)/) {
+		goto &_display_x11_list_zenity;
+	} else {
+		goto &_display_x11_list_dmenu;
 	}
 }
 

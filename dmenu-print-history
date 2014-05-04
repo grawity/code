@@ -7,7 +7,8 @@ $histfile = shift @ARGV // _die("missing histfile argument");
 _debug("loading history from $histfile");
 
 if (open my $f, "<", $histfile) {
-	@history = grep {chomp; s/^\d+ //; 1} <$f>;
+	@history = map {/^(\d+) (.+)$/ ? [$1, $2] : [0, $_]}
+	           grep {chomp; 1} <$f>;
 	close $f;
 } else {
 	if ($!{ENOENT}) {
@@ -23,10 +24,33 @@ if (!@history) {
 	exit;
 }
 
+my %items;
+for (@history) {
+	my ($time, $item) = @$_;
+	if ($items{$item} < $time) {
+		$items{$item} = int $time;
+	}
+}
+
+@history = map {$_->[1]} @history;
+
 $last = $history[$#history];
 
 %count = ();
 $count{$_}++ for @history;
+
+for (keys %items) {
+	my $age = time - $items{$_};
+	my $mult;
+
+	if    ($age < 3600)	{ $mult = 4; }
+	elsif ($age < 86400)	{ $mult = 2; }
+	elsif ($items{$_} == 0)	{ $mult = 1; }
+	elsif ($age < 604800)	{ $mult = 1/2; }
+	else			{ $mult = 1/4; }
+
+	$count{$_} *= $mult;
+}
 
 @sorted =
 	sort {$count{$a} <=> $count{$b}}

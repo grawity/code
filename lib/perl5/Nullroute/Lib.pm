@@ -5,6 +5,7 @@ use File::Basename;
 our @EXPORT = qw(
 	_debug
 	_info
+	_notice
 	_warn
 	_err
 	_die
@@ -50,6 +51,8 @@ sub _msg {
 sub _debug { _msg("debug", shift, "\e[36m") if $::debug; }
 
 sub _info  { _msg("info", shift, "\e[1;34m") if $::debug; }
+
+sub _notice { _msg("notice", shift, "\e[1;35m"); }
 
 sub _warn  { _msg("warning", shift, "\e[1;33m"); ++$::warnings; }
 

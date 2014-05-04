@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# sl-fake-vram -- fix Xorg.log to make SecondLife find the right amount of VRAM
+
+if [[ $DISPLAY == :* ]]; then
+	disp=${DISPLAY#:}
+	disp=${disp%%.*}
+else
+	disp=0
+fi
+
+MB=${1:-1024}
+KB=$(( MB * 1024 ))
+
+echo "pretending we have ${KB} kB of VRAM"
+
+echo "fake: Memory: ${KB} kB" \
+  | sudo sh -c "dd of='/var/log/Xorg.$disp.log' conv=notrunc &> /dev/null"

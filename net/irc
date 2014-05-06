@@ -7,6 +7,10 @@ host=virgule.cluenet.org
 lock=$XDG_RUNTIME_DIR/.irc.lock
 xlock=$lock@$XDG_SESSION_ID
 
+export MOSH_TITLE_NOPREFIX='y'
+
+r=0
+
 if [[ -e "$lock" && "$REALLY" != "yes" ]]; then
 	now=$(now)
 	then=$(stat -c %Y "$lock")
@@ -22,8 +26,6 @@ exec {fd}<>"$xlock"
 flock -xn $fd || die "You're already connected."
 echo 'in' > "$lock"
 
-export MOSH_TITLE_NOPREFIX='y'
-
 opt=(
 	1049	# alternate screen
 	2004	# bracketed paste
@@ -35,7 +37,11 @@ opt=(
 printf '\e[H\e[2J'
 printf '\e[?%sh' ${opt[@]}
 printf '\e[H\e[2J'
-mosh $host -- tmux attach -t irc
+mosh $host -- tmux attach -t irc || {
+	r=$?
+	err "mosh exited with status $r"
+	read -rsN1
+}
 printf '\e[?%sl' $(printf '%s\n' ${opt[@]} | tac)
 printf '\e[H\e[2J'
 
@@ -43,3 +49,7 @@ hi >&/dev/null &
 
 echo 'out' > "$lock"
 rm -f "$xlock"
+
+(( ! r )) || err "mosh exited with status $r"
+
+exit $r

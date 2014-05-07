@@ -1,36 +1,20 @@
 #!/usr/bin/env bash
 # ssh-authz-update - authorized_keys updater tool
-#
-# Supports filtering keys by hostname or FQDN.
-#   - Start filtered region with '#if <glob>' where <glob> is bash's extended glob.
-#     <glob> will be checked against both the hostname from $(hostname) and the FQDN from DNS.
-#   - There is no '#elseif' or nesting; use '#if' to start a new region.
-#   - End region with '#endif'.
-# Example:
-#   ssh-rsa .... global key
-#   #if *.cluenet.org
-#   ssh-rsa .... cluenet-only key
-#   #if @(*.home|*.nullroute.eu.org)
-#   ssh-rsa .... home-only key
-#   #endif
 
 SRCURL="http://nullroute.eu.org/~grawity/files/authorized_keys.txt"
 KEYFP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 [[ $KEYSERVER ]] || KEYSERVER="hkp://pgp.mit.edu"
 
 PATH="$HOME/code/bin:$PATH"
-FQDN=$(fqdn || hostname)
 
 . lib.bash		|| exit
-. libfilterfile.bash	|| exit
 . libhttpfetch.bash	|| exit
 
 progname_prefix=0
 
 usage() {
-	echo "Usage: $progname [-FKrv]"
+	echo "Usage: $progname [-Krv]"
 	echo ""
-	echo "  -F        test key filter"
 	echo "  -k URI    use another keyserver"
 	echo "  -r        receive signing key"
 	echo "  -v        verbose"
@@ -96,17 +80,11 @@ verify() {
 	fi
 }
 
-filter_keys() {
-	filter_file 'match_hostname'
-}
-
-filter=false
 import=false
 file="$HOME/.ssh/authorized_keys"
 
-while getopts "Fkrv" OPT "$@"; do
+while getopts "krv" OPT "$@"; do
 	case "$OPT" in
-	'F')	filter=true;;
 	'k')	KEYSERVER=$OPTARG;;
 	'r')	import=true;;
 	'v')	VERBOSE=true;;
@@ -115,11 +93,6 @@ while getopts "Fkrv" OPT "$@"; do
 done
 
 umask 077
-
-if $filter; then
-	filter_keys
-	exit
-fi
 
 # find the tool
 
@@ -176,7 +149,7 @@ fi
 	cat "$file.local"
   fi
   echo "# updated: end"
-} | filter_keys > "$file"
+} > "$file"
 
 rm -f "$tmp_plain" "$tmp_signed"
 

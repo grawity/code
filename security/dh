@@ -21,7 +21,24 @@ def buf_to_hex(buf)
 	buf.unpack("H*")[0]
 end
 
-params = <<EOF
+builtin_params = {}
+
+builtin_params[512] = <<EOF
+-----BEGIN DH PARAMETERS-----
+MEYCQQCKWqXw186zTL4nVOVj5CJRXvN0I3WDowMk8OYUsR6Dy43C7KnFS7MG59lr
+Wc5GFJTTVawkEcgecLh30CkaEVhLAgEC
+-----END DH PARAMETERS-----
+EOF
+
+builtin_params[1024] = <<EOF
+-----BEGIN DH PARAMETERS-----
+MIGHAoGBAPcVYFqTRcfOBpBrtS41hSPtj/0OfxNSxFjUWnB81Vw3SKLbCYuvpKdv
+GWKBb9ECvlKgfdIhs44tsA9nL8uXZOVqAQhCbldaL9gafPGCOFcU+aP/2j1eOUJO
+/tPOCUxp9jP1mbIQKRZ0wMXG1n6f+zrwsFP+Cwt6bSEhHwIsfEC7AgEC
+-----END DH PARAMETERS-----
+EOF
+
+builtin_params[2048] = <<EOF
 -----BEGIN DH PARAMETERS-----
 MIIBCAKCAQEAtp9N1rD42nLs1Jsj72RTYmY2FL9S3844VgIpwE+xOfiA2PGNNC2W
 mpH4pfBlPEtBR20wpZe6pIGOGeQByImwedYqvFG7azKVyhA+cwrKa63O6Mz6rSzH
@@ -32,8 +49,24 @@ yb4R9IjvvZywjDmgQX8pmY7sOhAE+gb7/5I27NGlVQrSt9xEpgxethmGlMOTR5fu
 -----END DH PARAMETERS-----
 EOF
 
-other_public = nil
+builtin_params[4096] = <<EOF
+-----BEGIN DH PARAMETERS-----
+MIICCAKCAgEAokXmNXJPJxbeQVNoBlZY66ekZnsd1CeGd1BFfKpKFmyJT4TfkDm/
+L0CDmHOU+UsK2+HvVNbY4K2u+oWGBLuIHTGbLZ4nxhY4hE6iquz+9wuJ1vOL34Kd
+dN7KqgiEbaATQPWlYfF604MO6sypEpb0tWS7HGSEhpjdOVlyQZpCfK+Wsd08Y7be
+8V9mCNqh8DwwSEMSWTI9bL0/pgLJ4GnbyfT9Hh14xeFkavdmjyR7lhg52t6P1L7Q
+bSjT+Exh0vOhCUGnZDAfzyWUPOtVpTL2DX0CzSu6DfDxfgl9/Bo6u/yOqmE5jpLB
++9RA7EfiU31E/O9NLxWlzX6TXpQpl7DdDPShDCrproAV6TuLnra3uShTL8pzzfyy
+Yw9NOtp5QdZVHSCd0CU3g5v+D5X71BVrs+z+2iljSgEB84pI58vzZchsFhQyfvjC
+/KC5/NVDQnp6z+vbbuzDB96E+5/f3XkPZkWPtXY50Qlp36hQrnjeMG8W4zvnmLtY
+dQbi34ZoeZlrNsbeW+pBdZp2VYg0Pexf0VR54gJAPIU75b0/vCPff6wWqlIaVsXR
+sdt2cffTKR8EgpVAuSXh9DUYyNOBDAHo3DYQ4Swi1a8SOtNLE9YLDKxFdv946H9F
+knd6YRUfA6+2izlFIkMZHXwubpjk1ME0hG+XkFwoijza/HEVIzMpfEMCAQI=
+-----END DH PARAMETERS-----
+EOF
 
+params = builtin_params[2048]
+other_public = nil
 secret_file = nil
 
 OptionParser.new do |opts|
@@ -47,10 +80,17 @@ OptionParser.new do |opts|
 	opts.on("-o", "--write-secret FILE", String, "Write shared secret to file") do |s|
 		secret_file = s
 	end
+	opts.on("-b", "--bits BITS", Integer, "Size of built-in DH parameters") do |i|
+		if builtin_params[i]
+			params = builtin_params[i]
+		else
+			avail = builtin_params.keys.sort.map(&:to_s).join(", ")
+			abort "I only have built-in parameters of #{avail} bits."
+		end
+	end
 end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
-
 dh.generate_key!
 
 puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"

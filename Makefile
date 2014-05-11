@@ -116,7 +116,7 @@ BASIC_BINS += strtool unescape
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
 MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf zlib
-JUNK_BINS  := ac-wait linux26 setns subreaper
+JUNK_BINS  := ac-wait linux26 setns subreaper libwcwidth.so
 
 .PHONY: all basic krb linux misc pklist
 
@@ -144,6 +144,9 @@ $(OBJ)/libfunlink.so:	LDLIBS += $(DL_LDLIBS)
 $(OBJ)/libfunlink.so:	system/libfunlink.c
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	system/libfunsync.c
+$(OBJ)/libwcwidth.so:	CFLAGS += -shared -fPIC \
+				-Dmk_wcwidth=wcwidth -Dmk_wcswidth=wcswidth
+$(OBJ)/libwcwidth.so:	thirdparty/wcwidth.c
 
 # objects
 

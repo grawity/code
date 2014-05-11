@@ -45,22 +45,16 @@ for (@history) {
 
 @history = map {$_->[1]} @history;
 
-$last = $history[$#history];
-
 %count = ();
 $count{$_} += 1 for @history;
 $count{$_} *= rank($time{$_}) for keys %time;
 
 @sorted =
 	sort {$count{$a} <=> $count{$b}}
-	grep {$_ ne $last}
 	uniq @history;
 
 if ($::debug) {
 	_debug("popular item: '$_' ($count{$_})") for @sorted;
-	_debug("last-used item: '$_' ($count{$_})") for $last;
 }
-
-say $last;
 
 say for reverse @sorted;

@@ -1,106 +1,54 @@
-#!/usr/bin/env perl
-use warnings;
-use strict;
-use Crypt::DH;
-use Getopt::Long;
-use Crypt::OpenSSL::Bignum;
-use MIME::Base64;
+#!/usr/bin/env ruby
+require 'base64'
+require 'openssl'
 
-sub bn_from_binary {
-	Crypt::OpenSSL::Bignum->new_from_bin(shift)->to_decimal;
-}
+def bn_output(bn)
+	hex = bn.to_s(16)
+	raw = [hex].pack("H*")
+	b64 = Base64.strict_encode64(raw)
+	return b64
+end
 
-sub bn_to_binary {
-	Crypt::OpenSSL::Bignum->new_from_decimal((shift)->bstr)->to_bin;
-}
+def bn_input(str)
+	b64 = str
+	raw = Base64.decode64(str)
+	hex = raw.unpack("H*")[0]
+	OpenSSL::BN.new(hex, 16)
+end
 
-sub bn_from_base64 {
-	bn_from_binary(decode_base64(shift));
-}
+def buf_to_hex(buf)
+	buf.unpack("H*")[0]
+end
 
-sub bn_to_base64 {
-	encode_base64(bn_to_binary(shift));
-}
+params = <<EOF
+-----BEGIN DH PARAMETERS-----
+MIIBCAKCAQEAtp9N1rD42nLs1Jsj72RTYmY2FL9S3844VgIpwE+xOfiA2PGNNC2W
+mpH4pfBlPEtBR20wpZe6pIGOGeQByImwedYqvFG7azKVyhA+cwrKa63O6Mz6rSzH
+pF8uk6lBLvbgvVQeSAImavnc9bsJ1k3+8/CteCiindUu6Njw7KHAjYq8S1vQSfDL
+U0BQnV5mdbI7WvJ/rkDzLTa9DDEvHk+W3bMDCTNWJf4I10Vlz3UM+fbozpxAkfnm
+yb4R9IjvvZywjDmgQX8pmY7sOhAE+gb7/5I27NGlVQrSt9xEpgxethmGlMOTR5fu
+5/rkR/oeqjqxLzy/ebLXL+t2G9b9GXwJSwIBAg==
+-----END DH PARAMETERS-----
+EOF
 
-sub bn_to_hex {
-	my $bn = shift;
-	my $str = $bn->as_hex;
-	$str =~ s/^0x//;
-	$str;
-}
+other_public = nil
 
-sub bn_from_hex {
-	my $str = shift;
-	$str =~ s/^0x//;
-	$str =~ s/[^0-9a-f]//g;
-	Math::BigInt->new("0x$str");
-}
+dh = OpenSSL::PKey::DH.new(params)
 
-sub bn_ok {
-	my $bn = shift;
-	$bn && !$bn->is_zero && !$bn->is_nan;
-}
+dh.generate_key!
 
-sub opt_bigint {
-	my ($var, $name) = @_;
-	sub {
-		my ($opt, $arg) = @_;
-		$arg = bn_from_hex($arg);
-		if (!bn_ok($arg)) { die "could not parse $name: $arg\n"; }
-		$$var = $arg;
-	}
-}
+puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
 
-my $p;
-my $g;
-my $y;
+if other_public.nil?
+	print "their public key? "
+	STDOUT.flush
+	other_public = bn_input(gets)
+end
 
-$p = bn_from_hex("
-00:b6:9f:4d:d6:b0:f8:da:72:ec:d4:9b:23:ef:64:
-53:62:66:36:14:bf:52:df:ce:38:56:02:29:c0:4f:
-b1:39:f8:80:d8:f1:8d:34:2d:96:9a:91:f8:a5:f0:
-65:3c:4b:41:47:6d:30:a5:97:ba:a4:81:8e:19:e4:
-01:c8:89:b0:79:d6:2a:bc:51:bb:6b:32:95:ca:10:
-3e:73:0a:ca:6b:ad:ce:e8:cc:fa:ad:2c:c7:a4:5f:
-2e:93:a9:41:2e:f6:e0:bd:54:1e:48:02:26:6a:f9:
-dc:f5:bb:09:d6:4d:fe:f3:f0:ad:78:28:a2:9d:d5:
-2e:e8:d8:f0:ec:a1:c0:8d:8a:bc:4b:5b:d0:49:f0:
-cb:53:40:50:9d:5e:66:75:b2:3b:5a:f2:7f:ae:40:
-f3:2d:36:bd:0c:31:2f:1e:4f:96:dd:b3:03:09:33:
-56:25:fe:08:d7:45:65:cf:75:0c:f9:f6:e8:ce:9c:
-40:91:f9:e6:c9:be:11:f4:88:ef:bd:9c:b0:8c:39:
-a0:41:7f:29:99:8e:ec:3a:10:04:fa:06:fb:ff:92:
-36:ec:d1:a5:55:0a:d2:b7:dc:44:a6:0c:5e:b6:19:
-86:94:c3:93:47:97:ee:e7:fa:e4:47:fa:1e:aa:3a:
-b1:2f:3c:bf:79:b2:d7:2f:eb:76:1b:d6:fd:19:7c:
-09:4b
-");
+secret = dh.compute_key(other_public)
 
-$g = bn_from_hex("02");
+puts "shared secret: \e[31m#{buf_to_hex(secret)}\e[m"
 
-GetOptions(
-	'p|prime=s'     => opt_bigint(\$p, "p"),
-	'g|generator=s' => opt_bigint(\$g, "g"),
-	'y|pubkey=s'    => opt_bigint(\$y, "y"),
-);
+hash = OpenSSL::Digest::SHA1.digest(secret)
 
-if (!bn_ok($p)) { die "could not parse p: $p\n" }
-if (!bn_ok($g)) { die "could not parse g: $g\n" }
-
-my $dh = Crypt::DH->new;
-$dh->p($p);
-$dh->g($g);
-$dh->generate_keys;
-
-print "my public key: \e[32m".bn_to_hex($dh->pub_key)."\e[m\n";
-
-if (!$y) {
-	print "their public key? "; $|++;
-	$y = bn_from_hex(scalar <STDIN>);
-}
-if (!bn_ok($y)) { die "could not parse y: $y\n" }
-
-my $secret = $dh->compute_secret($y);
-print "shared secret: \e[31m".bn_to_hex($secret)."\e[m\n";
-
-print bn_to_base64($secret)."\n";
+puts "hash of secret: \e[33m#{buf_to_hex(hash)}\e[m"

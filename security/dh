@@ -6,6 +6,7 @@ require 'openssl'
 require 'optparse'
 
 def bn_output(bn)
+    return nil if !bn
     hex = bn.to_s(16)
     raw = [hex].pack("H*")
     b64 = Base64.strict_encode64(raw)
@@ -13,6 +14,7 @@ def bn_output(bn)
 end
 
 def bn_input(str)
+    return nil if !str
     b64 = str
     raw = Base64.decode64(str)
     hex = raw.unpack("H*")[0]
@@ -111,7 +113,7 @@ if other_public.nil?
         print "their public key? "
         STDOUT.flush
     end
-    other_public = bn_input(gets)
+    other_public = bn_input(gets) or exit
 end
 
 if (dh.p.num_bits - other_public.num_bits).abs > 16

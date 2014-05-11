@@ -3,6 +3,24 @@ use warnings;
 use strict;
 use Crypt::DH;
 use Getopt::Long;
+use Crypt::OpenSSL::Bignum;
+use MIME::Base64;
+
+sub bn_from_binary {
+	Crypt::OpenSSL::Bignum->new_from_bin(shift)->to_decimal;
+}
+
+sub bn_to_binary {
+	Crypt::OpenSSL::Bignum->new_from_decimal((shift)->bstr)->to_bin;
+}
+
+sub bn_from_base64 {
+	bn_from_binary(decode_base64(shift));
+}
+
+sub bn_to_base64 {
+	encode_base64(bn_to_binary(shift));
+}
 
 sub bn_to_hex {
 	my $bn = shift;
@@ -84,3 +102,5 @@ if (!bn_ok($y)) { die "could not parse y: $y\n" }
 
 my $secret = $dh->compute_secret($y);
 print "shared secret: \e[31m".bn_to_hex($secret)."\e[m\n";
+
+print bn_to_base64($secret)."\n";

@@ -1,0 +1,77 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Crypt::DH;
+use Getopt::Long;
+
+sub bn2hex {
+	my $bn = shift;
+	my $str = $bn->as_hex;
+	$str =~ s/^0x//;
+	$str;
+}
+
+sub hex2bn {
+	my $str = shift;
+	$str =~ s/^0x//;
+	$str =~ s/[^0-9a-f]//g;
+	Math::BigInt->new("0x$str");
+}
+
+sub bn_ok {
+	my $bn = shift;
+	$bn && !$bn->is_zero && !$bn->is_nan;
+}
+
+my $p;
+my $g;
+my $y;
+
+$p = hex2bn("
+00:d7:2a:98:82:4a:6a:3a:09:bd:c9:2b:da:7e:fa:
+56:40:fe:56:53:1f:10:2e:74:f6:12:d3:82:6b:7c:
+a5:06:06:14:ae:b1:bc:bf:43:b3:00:16:69:27:24:
+48:d7:42:27:8b:93:f1:73:54:a0:67:07:1f:aa:9f:
+11:14:86:b7:51:3b:f9:06:d2:00:00:a9:a4:5e:3a:
+21:19:10:a2:f4:71:86:3e:76:e6:4a:61:92:2e:b7:
+39:29:f4:3b:e9:31:30:be:0f:96:36:f1:61:24:0c:
+67:19:62:77:88:4a:1e:31:10:6f:b6:57:a9:1f:20:
+f1:74:49:29:bb:9d:8e:7b:2b
+");
+
+$g = hex2bn("02");
+
+sub opt_bigint {
+	my ($var, $name) = @_;
+	sub {
+		my ($opt, $arg) = @_;
+		$arg = hex2bn($arg);
+		if (!bn_ok($arg)) { die "could not parse $name: $arg\n"; }
+		$$var = $arg;
+	}
+}
+
+GetOptions(
+	'p|prime=s'     => opt_bigint(\$p, "p"),
+	'g|generator=s' => opt_bigint(\$g, "g"),
+	'y|pubkey=s'    => opt_bigint(\$y, "y"),
+);
+
+if (!bn_ok($p)) { die "could not parse p: $p\n" }
+if (!bn_ok($g)) { die "could not parse g: $g\n" }
+
+my $dh = Crypt::DH->new;
+$dh->p($p);
+$dh->g($g);
+$dh->generate_keys;
+
+print "my public key: \e[32m".bn2hex($dh->pub_key)."\e[m\n";
+
+if (!$y) {
+	print "their public key? "; $|++;
+	$y = hex2bn(scalar <STDIN>);
+}
+if (!bn_ok($y)) { die "could not parse y: $y\n" }
+
+my $secret = $dh->compute_secret($y);
+print "shared secret: \e[31m".bn2hex($secret)."\e[m\n";

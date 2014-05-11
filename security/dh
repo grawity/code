@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'base64'
 require 'openssl'
+require 'optparse'
 
 def bn_output(bn)
 	hex = bn.to_s(16)
@@ -32,6 +33,13 @@ yb4R9IjvvZywjDmgQX8pmY7sOhAE+gb7/5I27NGlVQrSt9xEpgxethmGlMOTR5fu
 EOF
 
 other_public = nil
+
+OptionParser.new do |opts|
+	opts.banner = "Usage: dh [options]"
+	opts.on("-y", "--pubkey KEY", String, "Other party's public key") do |s|
+		other_public = bn_input(s)
+	end
+end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
 

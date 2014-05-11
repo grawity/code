@@ -68,6 +68,7 @@ knd6YRUfA6+2izlFIkMZHXwubpjk1ME0hG+XkFwoijza/HEVIzMpfEMCAQI=
 EOF
 
 params = builtin_params[2048]
+my_private = nil
 other_public = nil
 secret_file = nil
 
@@ -76,7 +77,10 @@ OptionParser.new do |opts|
     opts.on("-P", "--params FILE", String, "Read DH parameters from file") do |s|
         params = File.read(s)
     end
-    opts.on("-y", "--pubkey KEY", String, "Other party's public key") do |s|
+    opts.on("-r", "--my-privkey KEY", String, "My private key") do |s|
+        my_private = bn_input(s)
+    end
+    opts.on("-y", "--their-pubkey KEY", String, "Other party's public key") do |s|
         other_public = bn_input(s)
     end
     opts.on("-o", "--write-secret FILE", String, "Write shared secret to file") do |s|
@@ -93,11 +97,16 @@ OptionParser.new do |opts|
 end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
+
+if my_private
+    dh.priv_key = my_private
+end
 dh.generate_key!
 
 puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
 
 if other_public.nil?
+    puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m" if my_private.nil?
     if STDIN.tty?
         print "their public key? "
         STDOUT.flush

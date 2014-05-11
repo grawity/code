@@ -1,24 +1,26 @@
 #!/usr/bin/env ruby
+# dh -- Diffie-Hellman key exchange
+
 require 'base64'
 require 'openssl'
 require 'optparse'
 
 def bn_output(bn)
-	hex = bn.to_s(16)
-	raw = [hex].pack("H*")
-	b64 = Base64.strict_encode64(raw)
-	return b64
+    hex = bn.to_s(16)
+    raw = [hex].pack("H*")
+    b64 = Base64.strict_encode64(raw)
+    return b64
 end
 
 def bn_input(str)
-	b64 = str
-	raw = Base64.decode64(str)
-	hex = raw.unpack("H*")[0]
-	OpenSSL::BN.new(hex, 16)
+    b64 = str
+    raw = Base64.decode64(str)
+    hex = raw.unpack("H*")[0]
+    OpenSSL::BN.new(hex, 16)
 end
 
 def buf_to_hex(buf)
-	buf.unpack("H*")[0]
+    buf.unpack("H*")[0]
 end
 
 builtin_params = {}
@@ -70,24 +72,24 @@ other_public = nil
 secret_file = nil
 
 OptionParser.new do |opts|
-	opts.banner = "Usage: dh [options]"
-	opts.on("-P", "--params FILE", String, "Read DH parameters from file") do |s|
-		params = File.read(s)
-	end
-	opts.on("-y", "--pubkey KEY", String, "Other party's public key") do |s|
-		other_public = bn_input(s)
-	end
-	opts.on("-o", "--write-secret FILE", String, "Write shared secret to file") do |s|
-		secret_file = s
-	end
-	opts.on("-b", "--bits BITS", Integer, "Size of built-in DH parameters") do |i|
-		if builtin_params[i]
-			params = builtin_params[i]
-		else
-			avail = builtin_params.keys.sort.map(&:to_s).join(", ")
-			abort "I only have built-in parameters of #{avail} bits."
-		end
-	end
+    opts.banner = "Usage: dh [options]"
+    opts.on("-P", "--params FILE", String, "Read DH parameters from file") do |s|
+        params = File.read(s)
+    end
+    opts.on("-y", "--pubkey KEY", String, "Other party's public key") do |s|
+        other_public = bn_input(s)
+    end
+    opts.on("-o", "--write-secret FILE", String, "Write shared secret to file") do |s|
+        secret_file = s
+    end
+    opts.on("-b", "--bits BITS", Integer, "Size of built-in DH parameters") do |i|
+        if builtin_params[i]
+            params = builtin_params[i]
+        else
+            avail = builtin_params.keys.sort.map(&:to_s).join(", ")
+            abort "I only have built-in parameters of #{avail} bits."
+        end
+    end
 end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
@@ -96,30 +98,32 @@ dh.generate_key!
 puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
 
 if other_public.nil?
-	if STDIN.tty?
-		print "their public key? "
-		STDOUT.flush
-	end
-	other_public = bn_input(gets)
+    if STDIN.tty?
+        print "their public key? "
+        STDOUT.flush
+    end
+    other_public = bn_input(gets)
 end
 
 if (dh.p.num_bits - other_public.num_bits).abs > 16
-	abort "key size mismatch: their public key is #{other_public.num_bits} bits;" \
-		+ " expected approx. #{dh.p.num_bits} bits"
+    abort "key size mismatch: their public key is #{other_public.num_bits} bits;" \
+        + " expected approx. #{dh.p.num_bits} bits"
 end
 
 secret = dh.compute_key(other_public)
 length = "#{secret.length * 8} bits"
 
 if secret_file.nil?
-	puts "shared secret (#{length}): \e[31m#{buf_to_hex(secret)}\e[m"
+    puts "shared secret (#{length}): \e[31m#{buf_to_hex(secret)}\e[m"
 else
-	File.open(secret_file, "wb") do |f|
-		f.write(secret)
-	end
-	puts "shared secret (#{length}) written to \"#{secret_file}\""
+    File.open(secret_file, "wb") do |f|
+        f.write(secret)
+    end
+    puts "shared secret (#{length}) written to \"#{secret_file}\""
 end
 
 hash = OpenSSL::Digest::SHA1.digest(secret)
 
 puts "hash of secret: \e[33m#{buf_to_hex(hash)}\e[m"
+
+# vim: ts=4:sw=4:et

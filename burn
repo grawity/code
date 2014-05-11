@@ -3,11 +3,13 @@
 . lib.bash || exit
 
 iso=$1
-toc=${1%.iso}.toc
+toc=$(mktemp "/tmp/burn-XXXXXXXX.toc")
 
 [[ -s "$iso" ]] || die "image file not found: $iso"
 
 [[ ! -s "$toc" ]] || die "TOC file already exists: $toc"
+
+trap 'rm -f "$toc"; exit' INTR
 
 printf 'TRACK MODE1\nDATAFILE "%s"\n' "$iso" > "$toc"
 

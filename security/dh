@@ -25,9 +25,9 @@ def buf_to_hex(buf)
     buf.unpack("H*")[0]
 end
 
-def check_key_size!(dh, pub)
-    if (dh.p.num_bits - pub.num_bits).abs > 16
-        abort "key size mismatch: their public key is #{pub.num_bits} bits," \
+def check_key_size!(dh, key, descr)
+    if (dh.p.num_bits - key.num_bits).abs > 16
+        abort "key size mismatch: #{descr} is #{key.num_bits} bits," \
             + " should be #{dh.p.num_bits} bits"
     end
 end
@@ -108,10 +108,11 @@ end.parse!
 dh = OpenSSL::PKey::DH.new(params)
 
 if !other_public.nil?
-    check_key_size!(dh, other_public)
+    check_key_size!(dh, other_public, "their public key")
 end
 
 if !my_private.nil?
+    check_key_size!(dh, my_private, "my private key")
     dh.priv_key = my_private
 end
 
@@ -126,7 +127,7 @@ if other_public.nil?
         STDOUT.flush
     end
     other_public = bn_input(gets) or exit
-    check_key_size!(dh, other_public)
+    check_key_size!(dh, other_public, "their public key")
 end
 
 secret = dh.compute_key(other_public)

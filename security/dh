@@ -86,7 +86,7 @@ OptionParser.new do |opts|
     opts.on("-P", "--params FILE", String, "Read DH parameters from file") do |s|
         params = File.read(s)
     end
-    opts.on("-r", "--my-privkey KEY", String, "My private key") do |s|
+    opts.on("-r", "--resume-with-privkey KEY", String, "Re-use old private key") do |s|
         my_private = bn_input(s)
     end
     opts.on("-y", "--their-pubkey KEY", String, "Other party's public key") do |s|
@@ -113,6 +113,7 @@ end
 
 if !my_private.nil?
     check_key_size!(dh, my_private, "my private key")
+    STDERR.puts "\e[33mreminder: do not use the same private key twice!\e[m"
     dh.priv_key = my_private
 end
 

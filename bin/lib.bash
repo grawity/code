@@ -39,18 +39,23 @@ print_msg() {
 }
 
 print_fmsg() {
-	local level=$1 msg=$2 lcolor=$3 fprefix=$4 fcolor=$5 color reset
+	local level=$1 msg=$2 lcolor=$3 fprefix=$4 fcolor=$5
+	local pfx_color msg_color reset
 	if [[ $DEBUG ]]; then
 		print_msg "$level" "$msg" "$lcolor"
 		return
 	fi
 	if [[ -t 1 ]]; then
-		color="$fcolor" reset='\e[m'
+		pfx_color="$fcolor" reset='\e[m'
+		if [[ $level == log2 ]]; then
+			msg_color=$'\e[1m'
+		fi
 	fi
 	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
 		nprefix="$progname: "
 	fi
-	printf "%s${color}%s${reset} %s\n" "$nprefix" "$fprefix" "$msg"
+	printf "%s${pfx_color}%s${reset} ${msg_color}%s${reset}\n" \
+		"$nprefix" "$fprefix" "$msg"
 }
 
 debug() {

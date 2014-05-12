@@ -88,13 +88,17 @@ params = builtin_params[2048]
 my_private = nil
 other_public = nil
 secret_file = nil
+show_private = false
 
 OptionParser.new do |opts|
     opts.banner = "Usage: dh [options]"
     opts.on("-P", "--params FILE", String, "Read DH parameters from file") do |s|
         params = File.read(s)
     end
-    opts.on("-r", "--resume-with-privkey KEY", String, "Re-use old private key") do |s|
+    opts.on("-R", "--resumable", "Display our private key") do |t|
+        show_private = t
+    end
+    opts.on("-r", "--resume-with-privkey KEY", String, "Reuse old private key") do |s|
         my_private = bn_input(s)
     end
     opts.on("-y", "--their-pubkey KEY", String, "Other party's public key") do |s|
@@ -130,7 +134,9 @@ dh.generate_key!
 puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
 
 if !other_public
-    puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m" if !my_private
+    if show_private && !my_private
+        puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m"
+    end
     other_public = bn_input(ask("their public key?")) or exit
     check_key_size!(dh, other_public, "their public key")
 end

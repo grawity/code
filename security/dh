@@ -115,22 +115,22 @@ end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
 
-if !other_public.nil?
+if other_public
     check_key_size!(dh, other_public, "their public key")
 end
 
-if !my_private.nil?
+if my_private
     check_key_size!(dh, my_private, "my private key")
-    STDERR.puts "\e[33mreminder: do not use the same private key twice!\e[m"
     dh.priv_key = my_private
+    STDERR.puts "\e[33mreminder: do not use the same private key twice!\e[m"
 end
 
 dh.generate_key!
 
 puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
 
-if other_public.nil?
-    puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m" if my_private.nil?
+if !other_public
+    puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m" if !my_private
     other_public = bn_input(ask("their public key?")) or exit
     check_key_size!(dh, other_public, "their public key")
 end
@@ -138,7 +138,7 @@ end
 secret = dh.compute_key(other_public)
 length = "#{secret.length * 8} bits"
 
-if secret_file.nil?
+if !secret_file
     puts "shared secret (#{length}): \e[36m#{buf_to_hex(secret)}\e[m"
 else
     File.open(secret_file, "wb") do |f|

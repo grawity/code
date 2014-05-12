@@ -25,6 +25,14 @@ def buf_to_hex(buf)
     buf.unpack("H*")[0]
 end
 
+def ask(str)
+    if STDIN.tty?
+        STDOUT.print "#{str} "
+        STDOUT.flush
+    end
+    STDIN.gets
+end
+
 def check_key_size!(dh, key, descr)
     if (dh.p.num_bits - key.num_bits).abs > 16
         abort "key size mismatch: #{descr} is #{key.num_bits} bits," \
@@ -123,11 +131,7 @@ puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
 
 if other_public.nil?
     puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m" if my_private.nil?
-    if STDIN.tty?
-        print "their public key? "
-        STDOUT.flush
-    end
-    other_public = bn_input(gets) or exit
+    other_public = bn_input(ask("their public key?")) or exit
     check_key_size!(dh, other_public, "their public key")
 end
 

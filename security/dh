@@ -25,6 +25,13 @@ def buf_to_hex(buf)
     buf.unpack("H*")[0]
 end
 
+def check_key_size!(dh, pub)
+    if (dh.p.num_bits - pub.num_bits).abs > 16
+        abort "key size mismatch: their public key is #{pub.num_bits} bits," \
+            + " should be #{dh.p.num_bits} bits"
+    end
+end
+
 builtin_params = {}
 
 builtin_params[512] = <<EOF
@@ -100,9 +107,14 @@ end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
 
-if my_private
+if !other_public.nil?
+    check_key_size!(dh, other_public)
+end
+
+if !my_private.nil?
     dh.priv_key = my_private
 end
+
 dh.generate_key!
 
 puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
@@ -114,11 +126,7 @@ if other_public.nil?
         STDOUT.flush
     end
     other_public = bn_input(gets) or exit
-end
-
-if (dh.p.num_bits - other_public.num_bits).abs > 16
-    abort "key size mismatch: their public key is #{other_public.num_bits} bits;" \
-        + " expected approx. #{dh.p.num_bits} bits"
+    check_key_size!(dh, other_public)
 end
 
 secret = dh.compute_key(other_public)

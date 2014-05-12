@@ -92,28 +92,41 @@ show_private = false
 
 OptionParser.new do |opts|
     opts.banner = "Usage: dh [options]"
-    opts.on("-P", "--params FILE", String, "Read DH parameters from file") do |s|
-        params = File.read(s)
-    end
-    opts.on("-R", "--resumable", "Display our private key") do |t|
-        show_private = t
-    end
-    opts.on("-r", "--resume-with-privkey KEY", String, "Reuse old private key") do |s|
-        my_private = bn_input(s)
-    end
+
+    opts.separator("")
+
     opts.on("-y", "--their-pubkey KEY", String, "Other party's public key") do |s|
         other_public = bn_input(s)
     end
     opts.on("-o", "--write-secret FILE", String, "Write shared secret to file") do |s|
         secret_file = s
     end
-    opts.on("-b", "--bits BITS", Integer, "Size of built-in DH parameters") do |i|
+
+    opts.separator("")
+    opts.separator("Security level:")
+    opts.separator("")
+
+    opts.on("-b", "--dh-bits BITS", Integer, "Size of built-in DH parameters") do |i|
         if builtin_params[i]
             params = builtin_params[i]
         else
             avail = builtin_params.keys.sort.map(&:to_s).join(", ")
             abort "I only have built-in parameters of #{avail} bits."
         end
+    end
+    opts.on("-P", "--dh-params FILE", String, "Read DH parameters from file") do |s|
+        params = File.read(s)
+    end
+
+    opts.separator("")
+    opts.separator("Advanced options:")
+    opts.separator("")
+
+    opts.on("-R", "--resumable", "Display our private key") do |t|
+        show_private = t
+    end
+    opts.on("-r", "--resume-with-privkey KEY", String, "Reuse old private key") do |s|
+        my_private = bn_input(s)
     end
 end.parse!
 

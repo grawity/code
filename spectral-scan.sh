@@ -20,6 +20,8 @@ if [ $(id -u) -eq 0 ]; then
 else
 	touch "$tmp"
 	if sudo "$0" "$tmp" > /dev/null; then
-		fft_eval "$tmp"
+		(cd ~/src/misc/FFT_eval && fft_eval "$tmp")
+		#(cd ~/src/misc/ath_spectral/UI &&
+		# LD_LIBRARY_PATH=qwt/lib athScan/athScan "$tmp")
 	fi
 fi

@@ -4,7 +4,11 @@
 . lib.bash || exit
 
 is() {
-	log2 $'\e[1m'"Updating $(basename "$PWD") ($1)"$'\e[m'
+	if [[ $1 == none ]]; then
+		log2 $'\e[m'"Skipping \"$(basename "$PWD")\" (unknown)"
+	else
+		log2 $'\e[1m'"Updating \"$(basename "$PWD")\" ($1)"$'\e[m'
+	fi
 }
 
 log:() {
@@ -62,6 +66,8 @@ do_pull() {
 	elif [[ -f HEAD ]] && d=$(git rev-parse --git-dir 2>/dev/null); then
 		is "Git – bare repository"
 		log: git fetch
+	else
+		is none
 	fi
 }
 

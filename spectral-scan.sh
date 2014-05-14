@@ -13,10 +13,10 @@ if [ $(id -u) -eq 0 ]; then
 		echo "Missing $dbg" >&2
 		exit 1
 	fi
-	ctl $dbg/spectral_scan_ctl=chanscan
+	echo 'chanscan' > $dbg/spectral_scan_ctl
 	iw $nif scan
 	cat $dbg/spectral_scan0 > "$1"
-	ctl $dbg/spectral_scan_ctl=disable
+	echo 'disable' > $dbg/spectral_scan_ctl
 else
 	touch "$tmp"
 	if sudo "$0" "$tmp" > /dev/null; then

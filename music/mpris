@@ -20,6 +20,8 @@ use constant {
 
 my $bus = Net::DBus->session;
 
+my %notification_bus;
+
 my $prefix_re = qr/^org\.mpris\.MediaPlayer2\./;
 my $instance_re = qr/\.instance-?\d+$/;
 my $suffix_re = qr/[^.]+(?:$instance_re)?$/;
@@ -351,6 +353,39 @@ sub list_players {
 	}
 }
 
+sub _notify_handle_action {
+	my ($id, $action) = @_;
+
+	my $bus_name;
+	my $player;
+
+	$bus_name = $notification_bus{$id};
+
+	if (!$bus_name) {
+		_debug("invoked '$action' for unknown notification $id");
+		return;
+	}
+
+	_debug("invoked '$action' for player '$bus_name'");
+
+	$player = MediaPlayer($bus_name);
+
+	for ($action) {
+		when ("media-skip-backward") {
+			$player->()->Previous();
+		}
+		when ("media-playback-start") {
+			$player->()->Play();
+		}
+		when ("media-playback-pause") {
+			$player->()->Pause();
+		}
+		when ("media-skip-forward") {
+			$player->()->Next();
+		}
+	}
+}
+
 sub show_notification {
 	my ($bus_name, $player, $status, $meta) = @_;
 
@@ -362,7 +397,9 @@ sub show_notification {
 	my $body;
 	my $app_id;
 	my $icon;
+	my @actions;
 	my %hints;
+	my $new_id;
 
 	if ($status eq "Stopped") {
 		$summary = "Stopped.";
@@ -395,27 +432,34 @@ sub show_notification {
 
 	_debug("status=$status, icon='$icon'");
 
+	@actions = (
+		"media-skip-backward" => "Previous",
+		$status eq "Playing"
+			? ("media-playback-pause" => "Pause")
+			: ("media-playback-start" => "Play"),
+		"media-skip-forward" => "Next",
+	);
+
 	%hints = (
+		"action-icons" => dbus_boolean(1),
 		"category" => "x-gnome.music",
 		"desktop-entry" => $app_desktop{$bus_name},
+		"resident" => dbus_boolean(1),
 		"urgency" => dbus_byte(0),
 	);
 
-	if ($status eq "Playing") {
-		$hints{"resident"} = dbus_boolean(1);
-	} else {
-		$hints{"transient"} = dbus_boolean(1);
-	}
+	$new_id = Notifications->Notify(
+			$app_name{$bus_name},
+			$notification_id{$bus_name} // 0,
+			$icon,
+			$summary,
+			$body,
+			\@actions,
+			\%hints,
+			2*1000);
 
-	$notification_id{$bus_name} = Notifications->Notify(
-					$app_name{$bus_name},
-					$notification_id{$bus_name} // 0,
-					$icon,
-					$summary,
-					$body,
-					[],
-					\%hints,
-					2*1000);
+	$notification_id{$bus_name} = $new_id;
+	$notification_bus{$new_id} = $bus_name;
 }
 
 sub _notify_handle_propchange {
@@ -1057,6 +1101,8 @@ for ($cmd) {
 		} else {
 			event_setup($bus_name, $handler);
 		}
+		Notifications->connect_to_signal("ActionInvoked",
+						\&_notify_handle_action);
 		say "Waiting for events...";
 		Net::DBus::Reactor->main->run;
 	}

@@ -396,10 +396,16 @@ sub show_notification {
 	_debug("status=$status, icon='$icon'");
 
 	%hints = (
+		"category" => "x-gnome.music",
 		"desktop-entry" => $app_desktop{$bus_name},
-		"transient" => dbus_boolean(1),
 		"urgency" => dbus_byte(0),
 	);
+
+	if ($status eq "Playing") {
+		$hints{"resident"} = dbus_boolean(1);
+	} else {
+		$hints{"transient"} = dbus_boolean(1);
+	}
 
 	$notification_id{$bus_name} = Notifications->Notify(
 					$app_name{$bus_name},

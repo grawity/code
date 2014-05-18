@@ -104,18 +104,21 @@ def print_info(data, buffer, args):
             #status = all_props.get('PlaybackStatus', 'Stopped')
             #metadata = all_props.get('Metadata', {})
 
-            artist = u', '.join(metadata.get('xesam:artist', [u'Unknown artist']))
-            genre  = u'/'.join(metadata.get('xesam:genre', []))
-            album  = metadata.get('xesam:album', None)
-            track  = metadata.get('xesam:trackNumber', None)
-            title  = metadata.get('xesam:title', u'Unknown title')
-            year   = metadata.get('xesam:contentCreated', None)
+            if status == 'Stopped':
+                msg = u'not listening to anything on %s' % player_name
+            else:
+                artist = u', '.join(metadata.get('xesam:artist', [u'Unknown artist']))
+                genre  = u'/'.join(metadata.get('xesam:genre', []))
+                album  = metadata.get('xesam:album', None)
+                track  = metadata.get('xesam:trackNumber', None)
+                title  = metadata.get('xesam:title', u'Unknown title')
+                year   = metadata.get('xesam:contentCreated', None)
 
-            msg = u'"%s" by %s' % (title, artist)
-            if album:
-                msg += u' from "%s"' % album
-            if year:
-                msg += u' (%s)' % year
+                msg = u'"%s" by %s' % (title, artist)
+                if album:
+                    msg += u' from "%s"' % album
+                if year:
+                    msg += u' (%s)' % year
 
             msg = msg.encode('utf-8')
 

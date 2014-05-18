@@ -97,17 +97,12 @@ def print_info(data, buffer, args):
             player_obj = get_player(player_name)
             prop_if = dbus.Interface(player_obj, IF_DBUS_PROP)
 
-            try:
-                identity = prop_if.Get(IF_MPRIS_ROOT, 'Identity')
-            except KeyError:
-                identity = player_name
+            _props = prop_if.GetAll(IF_MPRIS_ROOT)
+            identity = _props.get('Identity', player_name)
 
-            status = prop_if.Get(IF_MPRIS_PLAYER, 'PlaybackStatus')
-            metadata = prop_if.Get(IF_MPRIS_PLAYER, 'Metadata')
-
-            #all_props = prop_if.GetAll(IF_MPRIS_PLAYER)
-            #status = all_props.get('PlaybackStatus', 'Stopped')
-            #metadata = all_props.get('Metadata', {})
+            _props = prop_if.GetAll(IF_MPRIS_PLAYER)
+            status   = _props.get('PlaybackStatus', 'Stopped')
+            metadata = _props.get('Metadata', {})
 
             if status == 'Stopped':
                 msg = u'not listening to anything on %s' % identity

@@ -28,6 +28,8 @@
 
 ###
 # ChangeLog:
+#  0.4.1 - grawity:
+#   * inform the user about MPRIS v1 players
 #  0.4 - grawity:
 #   * ported to MPRIS v2
 #  0.3 - Johannes:
@@ -49,7 +51,7 @@ try:
     import weechat
     weechat.register('mpris_np',
                      'Mantas Mikulėnas <grawity@gmail.com>, Johannes Nixdorf <mixi@shadowice.org>',
-                     '0.4',
+                     '0.4.1',
                      'BSD',
                      'Print information on the currently played song',
                      '',
@@ -58,7 +60,8 @@ except ImportError:
     print('This script must be called from inside weechat')
     raise
 
-BUS_NAME_PREFIX     = 'org.mpris.MediaPlayer2.'
+BUS_NAME_PREFIX_V2 = 'org.mpris.MediaPlayer2.'
+BUS_NAME_PREFIX_V1 = 'org.mpris.'
 
 IF_MPRIS_ROOT   = 'org.mpris.MediaPlayer2'
 IF_MPRIS_PLAYER = 'org.mpris.MediaPlayer2.Player'
@@ -72,15 +75,15 @@ class FubarException(Exception):
 
     """
 
-def list_players():
+def list_players(prefix=BUS_NAME_PREFIX_V2):
     bus = dbus.SessionBus()
-    return [name[len(BUS_NAME_PREFIX):] for name in bus.list_names()
-                                        if name.startswith(BUS_NAME_PREFIX)]
+    return [name[len(prefix):] for name in bus.list_names()
+                               if name.startswith(prefix)]
 
 def get_player(name):
     bus = dbus.SessionBus()
     try:
-        return bus.get_object(BUS_NAME_PREFIX + name, '/org/mpris/MediaPlayer2')
+        return bus.get_object(BUS_NAME_PREFIX_V2 + name, '/org/mpris/MediaPlayer2')
     except TypeError:
         raise FubarException()
 
@@ -127,8 +130,15 @@ def print_info(data, buffer, args):
 
     else:
         players = list_players()
-        players.sort()
-        err = 'running players: %s' % ', '.join(players)
+        if players:
+            players.sort()
+            err = 'running players: %s' % ', '.join(players)
+        else:
+            err = 'no MPRIS v2 players are running'
+            v1_players = [p for p in list_players(BUS_NAME_PREFIX_V1) if '.' not in p]
+            if v1_players:
+                err += ' (I found "%s", but it only supports MPRIS v1)' \
+                       % ('" and "'.join(v1_players))
 
     if err:
         weechat.prnt(buffer, 'np: %s' % err)

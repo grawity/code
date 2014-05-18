@@ -28,6 +28,8 @@
 
 ###
 # ChangeLog:
+#  0.4.2 - grawity:
+#   * show a better message in "Stopped" state
 #  0.4.1 - grawity:
 #   * inform the user about MPRIS v1 players
 #  0.4 - grawity:
@@ -51,7 +53,7 @@ try:
     import weechat
     weechat.register('mpris_np',
                      'Mantas Mikulėnas <grawity@gmail.com>, Johannes Nixdorf <mixi@shadowice.org>',
-                     '0.4.1',
+                     '0.4.2',
                      'BSD',
                      'Print information on the currently played song',
                      '',

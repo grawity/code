@@ -22,6 +22,10 @@ while (( $# )); do
 		'via')		via=$2; shift;;
 		'using')	using=$2; shift;;
 		'eap')		eap=$2; shift;;
+		'user')		_user=$2; shift;;
+		'pass')		_pass=$2; shift;;
+		'host')		_host=$2; shift;;
+		'secret')	_secret=$2; shift;;
 		*)		err "bad arg: \"$1\"";;
 		esac
 	fi
@@ -36,15 +40,18 @@ done
 
 # load parameters
 
-_user=${user[$self]}
-_pass=${pass[$self]}
-_host=${host[$via]}
-_secret=${secret[$via]}
+[[ $_user ]]	|| _user=${user[$self]}
+[[ $_pass ]]	|| _pass=${pass[$self]}
+[[ $_host ]]	|| _host=${host[$via]}
+[[ $_secret ]]	|| _secret=${secret[$via]}
+
 _eap=${eap^^}
 _mech=${using:-mschap}
 
-[[ $_user && $_pass ]]		|| err "missing username for '$self'"
-[[ $_host && $_secret ]]	|| err "missing server for '$via'"
+[[ $_user ]]			|| err "missing username for '$self'"
+[[ $_pass ]]			|| err "missing password for '$self'"
+[[ $_host ]]			|| err "missing RADIUS server for '$via'"
+[[ $_secret ]]			|| err "missing RADIUS secret for '$via'"
 
 case $_mech in
 'pap')		_phase2='PAP';;

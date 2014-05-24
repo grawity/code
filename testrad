@@ -11,7 +11,7 @@ test -x 'bin/eapol_test'	|| err "missing './bin/eapol_test'"
 
 declare -- self via using eap
 declare -A name user pass host secret _alias_
-declare -- _user _pass _host _secret _mech _outer
+declare -- _user _pass _host _port _secret _mech _outer
 
 # parse arguments
 
@@ -29,6 +29,7 @@ while (( $# )); do
 		'outer')	_outer=$2; shift;;
 		'pass')		_pass=$2; shift;;
 		'host')		_host=$2; shift;;
+		'port')		_port=$2; shift;;
 		'secret')	_secret=$2; shift;;
 		*)		err "bad arg: \"$1\"";;
 		esac
@@ -57,6 +58,7 @@ done
 [[ $_user ]]	|| _user=${user[$self]}
 [[ $_pass ]]	|| _pass=${pass[$self]}
 [[ $_host ]]	|| _host=${host[$via]}
+[[ $_port ]]	|| _port=${port[$via]:-1812}
 [[ $_secret ]]	|| _secret=${secret[$via]}
 [[ $_outer ]]	|| _outer=${_user}
 
@@ -87,14 +89,14 @@ if [[ $eap ]]; then
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""
 	fi
-	cmd=(rad_eap_test -H "$_host" -P 1812 -S "$_secret" -u "$_user" -p "$_pass"
+	cmd=(rad_eap_test -H "$_host" -P "$_port" -S "$_secret" -u "$_user" -p "$_pass"
 	                  -A "$_outer" -m WPA-EAP -v -e "$_eap" -2 "$_phase2")
 else
 	log "using direct $_phase2"
 	if [[ "$_outer" != "$_user" ]]; then
 		warn "anonymous identity \"$_outer\" not supported without EAP"
 	fi
-	cmd=(radtest -t "$_mech" "$_user" "$_pass" "$_host" 0 "$_secret")
+	cmd=(radtest -t "$_mech" "$_user" "$_pass" "$_host:$_port" 0 "$_secret")
 fi
 
 echo "+ ${cmd[*]}"

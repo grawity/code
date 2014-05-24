@@ -94,7 +94,10 @@ do_rsync() {
 
 	log "rsyncing $src -> $dest"
 	# note: add -x to jobs instead of here
-	"${args[@]}"
+	"${args[@]}"; r=$?
+
+	(( !r )) ||	# success
+	(( r == 24 ))	# files vanished
 }
 
 local_rsync() {

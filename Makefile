@@ -116,7 +116,7 @@ BASIC_BINS += strtool unescape
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
 MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf zlib
-JUNK_BINS  := ac-wait setns subreaper libwcwidth.so
+JUNK_BINS  := ac-wait subreaper libwcwidth.so
 
 .PHONY: all basic krb linux misc pklist
 
@@ -173,7 +173,6 @@ $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
-$(OBJ)/setns:		system/setns.c
 $(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o

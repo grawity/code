@@ -38,7 +38,7 @@ sub notify {
 		$opts{body},
 		$opts{actions} // [],
 		$opts{hints} // {},
-		$opts{timeout} // 1*1000);
+		$opts{timeout} // 1_000);
 }
 
 for my $dev_p (@{UPower->EnumerateDevices()}) {
@@ -68,7 +68,8 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 					hints => {
 						transient => Net::DBus::dbus_boolean(1),
 						urgency => Net::DBus::dbus_byte(2),
-					});
+					},
+					timeout => 10_000);
 			}
 
 			if ($state == $STATE{discharging} && $charge <= 5) {

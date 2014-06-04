@@ -11,7 +11,7 @@ use constant {
 my @STATE = qw(unknown charging discharging fully_charged
                pending_charge pending_discharge);
 
-my %STATE = map {$STATE[$_] => $_} @STATE;
+my %STATE = map {$STATE[$_] => $_} 0..$#STATE;
 
 my $bus = Net::DBus->system;
 

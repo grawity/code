@@ -116,6 +116,8 @@ def send(line):
 
 def recv():
     line = sys.stdin.readline()
+    if line is None or line == "":
+        return None
     frame = Frame.parse(line, parse_prefix=False)
     trace("<-- %r" % frame)
     return frame
@@ -139,7 +141,12 @@ send("USER %(nick)s * * %(nick)s" % settings)
 while True:
     frame = recv()
 
-    if frame.cmd == "PING":
+    if frame is None:
+        break
+    elif frame.cmd == "ERROR":
+        trace("Server error: \"%s\"" % " ".join(frame.args[1:]))
+        break
+    elif frame.cmd == "PING":
         send("PONG %s" % " ".join(frame.args))
     elif frame.cmd == "CAP":
         sub = frame.args[2].upper()

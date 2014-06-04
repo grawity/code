@@ -139,10 +139,10 @@ while True:
     if frame.cmd == "PING":
         send("PONG %s" % " ".join(frame.args))
     elif frame.cmd == "CAP":
-        sub = frame.args[1].upper()
+        sub = frame.args[2].upper()
         if sub == "LS":
-            print("Server offers capabilities: %s" % frame.args[2])
-            offered_caps = set(frame.args[2].split())
+            print("Server offers capabilities: %s" % frame.args[3])
+            offered_caps = set(frame.args[3].split())
             missing_caps = required_caps - offered_caps
             if missing_caps:
                 print("Server is missing required capabilities: %s" % missing_caps)
@@ -150,14 +150,14 @@ while True:
             request_caps = offered_caps & (wanted_caps | required_caps)
             send("CAP REQ :%s" % " ".join(request_caps))
         elif sub == "ACK":
-            acked_caps = set(frame.args[2].split())
+            acked_caps = set(frame.args[3].split())
             enabled_caps |= acked_caps
             if "sasl" in acked_caps:
                 sasl_mech = SaslPLAIN(username=settings["nick"],
                                        password=settings["pass"])
                 send("AUTHENTICATE %s" % sasl_mech.name)
         elif sub == "NAK":
-            print("Server refused capabilities: %s" % frame.args[2])
+            print("Server refused capabilities: %s" % frame.args[3])
             send("QUIT")
     elif frame.cmd == "AUTHENTICATE":
         data = frame.args[1]

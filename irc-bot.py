@@ -108,7 +108,7 @@ def b64chunked(buf):
 
 def send(line):
     line = (line + "\r\n").encode("utf-8")
-    print("sending: %r" % line, file=sys.stderr)
+    trace("--> %r" % line)
     if hasattr(sys.stdout, "detach"):
         sys.stdout = sys.stdout.detach()
     sys.stdout.write(line)
@@ -117,8 +117,11 @@ def send(line):
 def recv():
     line = sys.stdin.readline()
     frame = Frame.parse(line, parse_prefix=False)
-    print("received: %r" % frame, file=sys.stderr)
+    trace("<-- %r" % frame)
     return frame
+
+def trace(*a):
+    print(*a, file=sys.stderr)
 
 settings = {"nick": "grawity", "pass": "foo"}
 
@@ -141,11 +144,11 @@ while True:
     elif frame.cmd == "CAP":
         sub = frame.args[2].upper()
         if sub == "LS":
-            print("Server offers capabilities: %s" % frame.args[3])
             offered_caps = set(frame.args[3].split())
+            trace("Server offers capabilities: %s" % offered_caps)
             missing_caps = required_caps - offered_caps
             if missing_caps:
-                print("Server is missing required capabilities: %s" % missing_caps)
+                trace("Server is missing required capabilities: %s" % missing_caps)
                 send("QUIT")
             request_caps = offered_caps & (wanted_caps | required_caps)
             send("CAP REQ :%s" % " ".join(request_caps))
@@ -157,7 +160,7 @@ while True:
                                        password=settings["pass"])
                 send("AUTHENTICATE %s" % sasl_mech.name)
         elif sub == "NAK":
-            print("Server refused capabilities: %s" % frame.args[3])
+            trace("Server refused capabilities: %s" % frame.args[3])
             send("QUIT")
     elif frame.cmd == "AUTHENTICATE":
         data = frame.args[1]
@@ -172,16 +175,16 @@ while True:
             for chunk in b64chunked(outbuf):
                 send("AUTHENTICATE " + chunk)
     elif frame.cmd == "903":
-        print("Authentication successful!")
+        trace("Authentication successful!")
         send("CAP END")
     elif frame.cmd == "904":
         if sasl_mech.stage == 0:
-            print("Authentication failed because server does not support SASL PLAIN")
+            trace("Authentication failed because server does not support SASL PLAIN")
         else:
-            print("Authentication failed because the credentials were incorrect")
+            trace("Authentication failed because the credentials were incorrect")
         send("QUIT")
     elif frame.cmd == "908":
-        print("Authentication failed because server does not support SASL PLAIN")
+        trace("Authentication failed because server does not support SASL PLAIN")
         send("QUIT")
     elif frame.cmd == "PRIVMSG":
         pass # example

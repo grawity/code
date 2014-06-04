@@ -122,7 +122,11 @@ def recv():
 
 settings = {"nick": "grawity", "pass": "foo"}
 
+required_caps = {"sasl"}
+wanted_caps = {"multi-prefix"}
+
 sasl_mech = None
+enabled_caps = set()
 
 send("CAP LS")
 send("PASS %(nick)s:%(pass)s" % settings)
@@ -137,21 +141,23 @@ while True:
     elif frame.cmd == "CAP":
         sub = frame.args[1].upper()
         if sub == "LS":
-            offer_caps = set(frame.args[2].split())
-            want_caps = {"sasl", "multi-prefix"}
-            request_caps = " ".join(offer_caps & want_caps)
-            send("CAP REQ :%s" % request_caps)
+            print("Server offers capabilities: %s" % frame.args[2])
+            offered_caps = set(frame.args[2].split())
+            missing_caps = required_caps - offered_caps
+            if missing_caps:
+                print("Server is missing required capabilities: %s" % missing_caps)
+                send("QUIT")
+            request_caps = offered_caps & (wanted_caps | required_caps)
+            send("CAP REQ :%s" % " ".join(request_caps))
         elif sub == "ACK":
             acked_caps = set(frame.args[2].split())
+            enabled_caps |= acked_caps
             if "sasl" in acked_caps:
                 sasl_mech = SaslPLAIN(username=settings["nick"],
                                        password=settings["pass"])
                 send("AUTHENTICATE %s" % sasl_mech.name)
-            else:
-                print("Server does not offer SASL (%s)" % args[1])
-                send("QUIT")
         elif sub == "NAK":
-            print("Server refused capabilities: %s" % args[1])
+            print("Server refused capabilities: %s" % frame.args[2])
             send("QUIT")
     elif frame.cmd == "AUTHENTICATE":
         data = frame.args[1]

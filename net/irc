@@ -47,9 +47,13 @@ printf '\e[H\e[2J'
 
 hi >&/dev/null &
 
-echo 'out' > "$lock"
-rm -f "$xlock"
+if (( r )); then
+	rm -f "$lock"
+	err "mosh exited with status $r"
+else
+	echo 'out' > "$lock"
+fi
 
-(( ! r )) || err "mosh exited with status $r"
+rm -f "$xlock"
 
 exit $r

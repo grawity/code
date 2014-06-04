@@ -108,12 +108,16 @@ def b64chunked(buf):
 
 def send(line):
     line = (line + "\r\n").encode("utf-8")
-    print("sending: %r" % line)
+    print("sending: %r" % line, file=sys.stderr)
+    if hasattr(sys.stdout, "detach"):
+        sys.stdout = sys.stdout.detach()
+    sys.stdout.write(line)
+    sys.stdout.flush()
 
 def recv():
     line = sys.stdin.readline()
-    frame = Frame.parse(line)
-    print("received: %r" % frame)
+    frame = Frame.parse(line, parse_prefix=False)
+    print("received: %r" % frame, file=sys.stderr)
     return frame
 
 settings = {"nick": "grawity", "pass": "foo"}
@@ -123,7 +127,7 @@ sasl_mech = None
 send("CAP LS")
 send("PASS %(nick)s:%(pass)s" % settings)
 send("NICK %(nick)s" % settings)
-send("USER ........")
+send("USER %(nick)s * * %(nick)s" % settings)
 
 while True:
     frame = recv()

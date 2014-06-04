@@ -161,7 +161,7 @@ while True:
         trace("Server error: \"%s\"" % " ".join(frame.args[1:]))
         break
     elif frame.cmd == "PING":
-        send("PONG %s" % " ".join(frame.args))
+        send("PONG %s" % " ".join(frame.args[1:]))
     elif frame.cmd == "CAP":
         sub = frame.args[2].upper()
         if sub == "LS":

@@ -125,10 +125,24 @@ def recv():
 def trace(*a):
     print(*a, file=sys.stderr)
 
-settings = {"nick": "grawity", "pass": "foo"}
+settings = {
+    "nick": "grawity",
+    "pass": "foo",
+}
 
-required_caps = {"sasl"}
-wanted_caps = {"multi-prefix"}
+required_caps = {
+    "multi-prefix",
+    "sasl",
+}
+
+wanted_caps = {
+    "account-notify",
+    "away-notify",
+    "extended-join",
+    "server-time",
+    "znc.in/server-time",
+    "znc.in/server-time-iso",
+}
 
 sasl_mech = None
 enabled_caps = set()

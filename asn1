@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# asn1 -- convenience wrapper for 'dumpasn1', which requires seek() support for
+# certain functions
+
+f=$(mktemp /tmp/asn1.XXXXXXXX)
+
+cat > "$f"
+
+if [[ -s "$f" ]]; then
+	if grep -qs "^-----" "$f"; then
+		f2=$(mktemp /tmp/asn1.XXXXXXXX)
+		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
+				/^[A-Za-z0-9+/=]*$/p
+			}' < "$f" | base64 -d > "$f2"
+		mv -f "$f2" "$f"
+	fi
+
+	dumpasn1 "$@" "$f"
+fi
+
+rm -f "$f"

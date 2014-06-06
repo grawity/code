@@ -17,7 +17,9 @@ _put() {
 dir="$HOME/Attic/Misc"
 
 for arg; do
+	arg=${arg%/}
 	name=${arg##*/}
+	debug "name='$name'"
 	if [[ $name == *.* ]]; then
 		base=${name%.*}
 		ext=${name##*.}
@@ -25,8 +27,10 @@ for arg; do
 		base=$name
 		ext=
 	fi
+	debug "... base='$base' ext='$ext'"
 
 	dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
+	debug "... dstdir='$dstdir'"
 	mkdir -p "$dstdir"
 
 	_put "$arg" "$dstdir/$name" ||

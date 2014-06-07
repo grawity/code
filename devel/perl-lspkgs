@@ -1,9 +1,14 @@
 #!/usr/bin/env perl
 # perl-lspkgs - list locally installed Perl packages
 
+sub _debug {
+	warn "@_\n" if $ENV{DEBUG};
+}
+
 my %pkgs;
 
 for my $dir (@INC) {
+	_debug("reading '$dir/perllocal.pod'");
 	open(my $fh, "<", "$dir/perllocal.pod") or next;
 	while (<$fh>) {
 		if (/^=head2 .+ L<(.+)\|.+>$/) {

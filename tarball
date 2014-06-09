@@ -3,6 +3,8 @@
 
 . lib.bash || exit
 
+set -e
+
 case ${0##*/} in
     tarball) ext=tgz;;
     zipball) ext=zip;;
@@ -27,6 +29,12 @@ get_timestamp() {
 }
 
 dir=${1%/}
+
+if [[ ! $1 ]]; then
+	die "missing directory argument"
+elif [[ ! -d $1 ]]; then
+	die "path is not a directory"
+fi
 
 ts=$(get_timestamp "$dir")
 

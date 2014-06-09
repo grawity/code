@@ -16,7 +16,16 @@ _put() {
 
 dir="$HOME/Attic/Misc"
 
+if ! (( $# )); then
+	die "files to hide not specified"
+fi
+
 for arg; do
+	if [[ ! -e $arg ]]; then
+		err "item \"$arg\" not found"
+		continue
+	fi
+
 	arg=${arg%/}
 	name=${arg##*/}
 	debug "name='$name'"
@@ -38,3 +47,5 @@ for arg; do
 		_put "$arg" "$dstdir/$base-$count${ext+.}$ext" && break
 	done
 done
+
+(( ! errors ))

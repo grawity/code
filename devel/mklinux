@@ -15,6 +15,17 @@ log() { printf '\e[1;36m*\e[m \e[36m%s\e[m\n' "$*";
 
 sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
 
+_build_kdbus() {
+	local release=$1
+	local build="/tmp/kdbus-build-$$"
+
+	git clone -s ~/src/os-tools/kdbus "$build"
+	make -C "$build" KERNELDIR="/usr/lib/modules/$release/build"
+	sudo install -m0644 "$build/kdbus.ko" \
+		"/usr/lib/modules/$release/kernel/misc/kdbus.ko"
+	rm -rf "$build"
+}
+
 if [ ! "$noidle" ]; then
 	ionice -c 3 -p $$
 	schedtool -n 10 -D $$
@@ -104,6 +115,10 @@ for mod in ${emods[@]}; do
 		warn "build failed for $mod"
 	fi
 done
+
+_build_kdbus "$release"
+
+sudo depmod "$release"
 
 log "clean old kernels"
 

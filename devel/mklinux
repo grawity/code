@@ -123,9 +123,12 @@ sudo depmod "$release"
 log "clean old kernels"
 
 cur_rel=$(uname -r)
-while read -r old_rel _; do
+while read -r old_rel keep _; do
 	echo -n "clean $old_rel: "
-	if [ "$old_rel" = "$release" ]; then
+	if [ "$keep" = "keep" ]; then
+		echo "pinned."
+		echo "$old_rel $keep" >&3
+	elif [ "$old_rel" = "$release" ]; then
 		echo "latest."
 		echo "$old_rel" >&3
 	elif [ "$old_rel" = "$cur_rel" ]; then

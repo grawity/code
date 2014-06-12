@@ -16,7 +16,7 @@ readcred() {
 	local nouser=false
 	local fmt='username=%s\npassword=%s\n'
 	local prompt=''
-	local user=$LOGNAME
+	local user=${user:-$LOGNAME}
 	local pass=
 	while getopts 'Uf:p:u:' OPT; do
 		case $OPT in
@@ -101,6 +101,9 @@ getnetrc_fqdn() {
 	local host=$1 service=$2 fmt=$3
 	local fqdn=$(fqdn "$host")
 	debug "searching .netrc for $service@$host/$fqdn"
+	getnetrc -df "$fmt" "$service@$host" "$user" ||
+	{ [[ $host != $fqdn ]] &&
+	getnetrc -df "$fmt" "$service@$fqdn" "$user"; } ||
 	getnetrc -df "$fmt" "$service@$host" ||
 	{ [[ $host != $fqdn ]] &&
 	getnetrc -df "$fmt" "$service@$fqdn"; }

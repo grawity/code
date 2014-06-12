@@ -25,6 +25,9 @@ function ip_cidr($host, $mask) {
 	$host = ip_expand($host);
 	$net = ip_expand($net);
 
+	// FIXME: if ip_expand strips off the v6mapped prefix from $net,
+	// it also needs to adjust $len accordingly.
+
 	if ($host === null || $net === null || strlen($host) !== strlen($net))
 		return false;
 

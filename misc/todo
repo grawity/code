@@ -10,6 +10,12 @@ lstodo() {
 	nl -ba -s". " -w3 "$file"
 }
 
+edit() {
+	sed "$1" "$file" > "$file.tmp~" &&
+	cp "$file.tmp~" "$file" &&
+	rm -f "$file.tmp~"
+}
+
 todo() {
 	local arg=$*
 	if [[ $arg == /* ]]; then
@@ -28,10 +34,7 @@ todo() {
 vitodo() {
 	local arg=$*
 	if [[ $arg == */* ]]; then
-		sed "$arg" "$file" > "$file.tmp~" &&
-		cp "$file.tmp~" "$file" &&
-		rm -f "$file.tmp~" &&
-		lstodo
+		edit "$arg" && lstodo
 	else
 		eval "${EDITOR:-vi} ~/lib/todo"
 	fi
@@ -53,10 +56,7 @@ rmtodo() {
 		pcmd+="${addr}p;"
 		dcmd+="${addr}d;"
 	done
-	lstodo | sed -n "$pcmd" &&
-	sed "$dcmd" "$file" > "$file.tmp~" &&
-	cp "$file.tmp~" "$file" &&
-	rm -f "$file.tmp~"
+	lstodo | sed -n "$pcmd" && edit "$dcmd"
 }
 
 if [[ ! -d ${file%/*} ]]; then

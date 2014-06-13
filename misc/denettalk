@@ -50,12 +50,22 @@ def escaped(s):
     return repr(s)[1:-1]
 
 rx = re.compile(r"\[NTCTC001\|(.+?)\]")
-for line in sys.stdin:
-    line = line.strip()
-    m = rx.search(line)
-    if m:
-        print("-", line)
-        for msg in hax0r(m.group(0)):
-            print("+", line[:m.start(0)] + escaped(msg) + line[m.end(0):])
-    else:
-        print(" ", line)
+
+if len(sys.argv) > 1:
+    # decrypt arguments
+    for line in sys.argv[1:]:
+        m = rx.search(line)
+        if m:
+            for msg in hax0r(m.group(0)):
+                print(line[:m.start(0)] + escaped(msg) + line[m.end(0):])
+else:
+    # act as a filter
+    for line in sys.stdin:
+        line = line.strip()
+        m = rx.search(line)
+        if m:
+            print("-", line)
+            for msg in hax0r(m.group(0)):
+                print("+", line[:m.start(0)] + escaped(msg) + line[m.end(0):])
+        else:
+            print(" ", line)

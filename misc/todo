@@ -26,7 +26,15 @@ todo() {
 }
 
 vitodo() {
-	eval "${EDITOR:-vi} ~/lib/todo"
+	local arg=$*
+	if [[ $arg == */* ]]; then
+		sed "$arg" "$file" > "$file.tmp~" &&
+		cp "$file.tmp~" "$file" &&
+		rm -f "$file.tmp~" &&
+		lstodo
+	else
+		eval "${EDITOR:-vi} ~/lib/todo"
+	fi
 }
 
 rmtodo() {

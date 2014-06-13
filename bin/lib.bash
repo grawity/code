@@ -93,7 +93,7 @@ log2() {
 }
 
 notice() {
-	print_fmsg 'notice' "$*" '\e[1;35m' '!' '\e[1;35m'
+	print_fmsg 'notice' "$*" '\e[1;35m' '**' '\e[1;35m'
 } >&2
 
 warn() {

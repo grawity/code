@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-test -t 0 && exec "$0" <<'!'
+test -t 0 && DEBUG=1 exec "$0" <<'!'
 +---+-----------------+
 |   |                 |
 +===+-------+---------+
@@ -16,7 +16,9 @@ declare -a rows=()
 
 while IFS='' read -r row; do
 	declare -i len=${#row}
-	echo "input: $row"
+	if [[ $DEBUG ]]
+		then echo "input: $row"
+	fi
 	rows[height++]=$row
 	if (( len > width )); then
 		width=$len
@@ -95,5 +97,8 @@ for (( r=0; r < height; r++ )); do
 			*) out+=$char;;
 		esac
 	done
-	printf 'output: %s\n' "$out"
+	if [[ $DEBUG ]]
+		then printf 'output: %s\n' "$out"
+		else printf '%s\n' "$out"
+	fi
 done

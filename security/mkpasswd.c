@@ -33,7 +33,7 @@ int randsalt(void *buf, ssize_t len) {
 }
 
 char *makesalt(char algo) {
-	char buf[12], salt[20];
+	char buf[12], salt[20+1];
 	unsigned i=0, j=0;
 
 	if (!randsalt(buf, sizeof(buf)))

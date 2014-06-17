@@ -43,10 +43,13 @@ char *makesalt(char algo) {
 	salt[j++] = algo;
 	salt[j++] = '$';
 	while (i < sizeof(buf)) {
-		unsigned char a = i < sizeof(buf) ? buf[i++] : 0;
-		unsigned char b = i < sizeof(buf) ? buf[i++] : 0;
-		unsigned char c = i < sizeof(buf) ? buf[i++] : 0;
-		unsigned long triple = (a << 020) | (b << 010) | c;
+		unsigned char a, b, c;
+		unsigned triple;
+
+		a = i < sizeof(buf) ? buf[i++] : 0;
+		b = i < sizeof(buf) ? buf[i++] : 0;
+		c = i < sizeof(buf) ? buf[i++] : 0;
+		triple = (a << 020) | (b << 010) | c;
 		salt[j++] = base64[(triple >> 3*6) & 077];
 		salt[j++] = base64[(triple >> 2*6) & 077];
 		salt[j++] = base64[(triple >> 1*6) & 077];

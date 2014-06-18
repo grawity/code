@@ -19,7 +19,7 @@ usage() {
 }
 
 debug() {
-	if $debug; then
+	if [[ $DEBUG ]]; then
 		echo "$*" >&2
 	fi
 }
@@ -35,14 +35,10 @@ encode() {
 pinentry=(pinentry)
 
 i=0
-debug=false
 config=("SETPROMPT")
 
-if [[ $DEBUG ]]; then
-	debug=true
-	if (( DEBUG > 1 )); then
-		set -x
-	fi
+if (( DEBUG > 1 )); then
+	set -x
 fi
 
 if [[ $LC_ALL ]]; then
@@ -55,7 +51,7 @@ while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	case "$OPT" in
 	c)	config+=("$OPTARG") ;;
 	C)	config+=("SETCANCEL $(encode "$OPTARG")") ;;
-	D)	debug=true ;;
+	D)	DEBUG=1 ;;
 	d)	config+=("SETDESC $(encode "$OPTARG")") ;;
 	g)	pinentry+=(--no-global-grab) ;;
 	h)	usage ;;

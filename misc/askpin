@@ -18,6 +18,12 @@ usage() {
 	exit 2
 }
 
+trace() {
+	if $debug; then
+		echo "$*" >&2
+	fi
+}
+
 encode() {
 	printf '%s' "$*" |
 	perl -pe "s/([^A-Za-z0-9_.!~*'()-])/sprintf(\"%%%02X\", ord(\$1))/seg"
@@ -95,10 +101,6 @@ configure() {
 		out "${config[$i]}"
 		(( ++i ))
 	fi
-}
-
-trace() {
-	$debug && echo "$*" >&2 || true
 }
 
 out() {

@@ -18,7 +18,7 @@ usage() {
 	exit 2
 }
 
-trace() {
+debug() {
 	if $debug; then
 		echo "$*" >&2
 	fi
@@ -51,7 +51,7 @@ if [[ $LC_ALL ]]; then
 fi
 
 while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
-	trace "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
+	debug "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
 	case "$OPT" in
 	c)	config+=("$OPTARG") ;;
 	C)	config+=("SETCANCEL $(encode "$OPTARG")") ;;
@@ -104,22 +104,22 @@ configure() {
 }
 
 out() {
-	trace "out: $*"
+	debug "out: $*"
 	echo "$*" >&$out
 }
 
 trap "trap - SIGTERM; kill \$pinentry_pid" EXIT SIGINT SIGHUP SIGTERM SIGQUIT
 
 # spawn the pinentry program
-trace "command: ${pinentry[*]}"
+debug "command: ${pinentry[*]}"
 coproc "${pinentry[@]}"; pinentry_pid=$!
 in=${COPROC[0]}
 out=${COPROC[1]}
 
 nextstate=configure
 while read status rest <&$in; do
-	trace "State: $nextstate"
-	trace "in: $status {$rest}"
+	debug "State: $nextstate"
+	debug "in: $status {$rest}"
 	case "$nextstate" in
 	configure)
 		case "$status" in

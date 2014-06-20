@@ -32,17 +32,20 @@ echo "arch:"
     echo ".ruby.platform = $(ruby -e 'puts RUBY_PLATFORM')"
   }
 echo "dist:"
-  if test -f /etc/os-release
-    then f=/etc/os-release
-  elif test -f /usr/lib/os-release
-    then f=/usr/lib/os-release
-  fi
-  test -f "$f" && (
+  test -f /etc/os-release && (
     . /etc/os-release
-    echo ".os-release.id = $ID"
+    echo ".os-release[etc].id = $ID"
     test "$ID_LIKE" &&
-      echo ".os-release.like = $ID_LIKE"
+      echo ".os-release[etc].like = $ID_LIKE"
     test "$NAME" &&
-      echo ".os-release.name = $NAME"
+      echo ".os-release[etc].name = $NAME"
+  )
+  test -f /usr/lib/os-release && (
+    . /usr/lib/os-release
+    echo ".os-release[usr].id = $ID"
+    test "$ID_LIKE" &&
+      echo ".os-release[usr].like = $ID_LIKE"
+    test "$NAME" &&
+      echo ".os-release[usr].name = $NAME"
   )
 true

@@ -202,11 +202,14 @@ do_print:
 	say "    ", join(", ", @expirystr) if @expirystr;
 	say "";
 
-	my @realms = uniq sort {$a eq '' ? 1 :
+	my @realms = uniq grep {$_ ne $defrealm}
+			  sort {$a eq '' ? 1 :
 				$b eq '' ? -1 :
 				$a cmp $b} (@extrealms);
 
 	for my $realm ($defrealm, @realms) {
+		_debug("loop[realm='$realm']");
+
 		$tgtcreds{$realm} //= [];
 		$creds{$realm} //= [];
 

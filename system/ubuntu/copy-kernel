@@ -8,11 +8,19 @@ if ! mountpoint -q "$ESP"; then
 	exit 1
 fi
 
+if [[ -e /etc/os-release ]]; then
+	os_release=/etc/os-release
+elif [[ -e /usr/lib/os-release ]]; then
+	os_release=/usr/lib/os-release
+else
+	echo "/usr/lib/os-release not found or invalid; see os-release(5)"
+fi
+
 version=$1
 initrd_path=$2
 kernel_path=/boot/vmlinuz-$version
 
-osname=$(. /etc/os-release && echo "${PRETTY_NAME:-$NAME}" | sed 's/ (.*//')
+osname=$(. "$os_release" && echo "${PRETTY_NAME:-$NAME}" | sed 's/ (.*//')
 machineid=$(dbus-uuidgen --get 2>/dev/null || echo unknown)
 options=$(cat /etc/kernel/cmdline | grep "^[^#]" | tr -s "\n" " ")
 

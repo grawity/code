@@ -1,7 +1,7 @@
 #!/usr/bin/bash -eu
 
 die() {
-	echo "$*" >&2
+	echo "error: $*" >&2
 	exit 1
 }
 
@@ -32,8 +32,8 @@ install_kernel() {
 	if version=$(pacman -Q "$kernel" 2>/dev/null); then
 		version=${version#"$kernel "}${suffix}
 	else
-		echo "error: package '$kernel' does not exist"
-		return 1
+		(die "package '$kernel' does not exist")
+		return
 	fi
 
 	echo "Installing package: $kernel $version as \"$PRETTY_NAME\""
@@ -74,7 +74,7 @@ if try_esp /boot/efi; then
 elif try_esp /boot; then
 	ESP=/boot
 else
-	die "error: EFI system partition not found; please \`mkdir <efisys>/loader\`"
+	die "EFI system partition not found; please \`mkdir <efisys>/loader\`"
 fi
 
 echo "Found EFI system partition at $ESP"
@@ -84,23 +84,23 @@ if [[ -e /etc/os-release ]]; then
 elif [[ -e /usr/lib/os-release ]]; then
 	os_release=/usr/lib/os-release
 else
-	die "error: /usr/lib/os-release not found or invalid; see os-release(5)"
+	die "/usr/lib/os-release not found or invalid; see os-release(5)"
 fi
 
 . "$os_release" ||
-	die "error: $os_release not found or invalid; see os-release(5)"
+	die "$os_release not found or invalid; see os-release(5)"
 
 [[ ${PRETTY_NAME:=$NAME} ]] ||
-	die "error: $os_release is missing both PRETTY_NAME and NAME; see os-release(5)"
+	die "$os_release is missing both PRETTY_NAME and NAME; see os-release(5)"
 
 [[ $ID ]] ||
-	die "error: $os_release is missing ID; see os-release(5)"
+	die "$os_release is missing ID; see os-release(5)"
 
 read -r MACHINE_ID < /etc/machine-id ||
-	die "error: /etc/machine-id not found or empty; see machine-id(5)"
+	die "/etc/machine-id not found or empty; see machine-id(5)"
 
 [[ -s /etc/kernel/cmdline ]] ||
-	die "error: /etc/kernel/cmdline not found or empty; please configure it"
+	die "/etc/kernel/cmdline not found or empty; please configure it"
 
 BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}

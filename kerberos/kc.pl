@@ -9,7 +9,7 @@ use English;
 use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
-use Nullroute::Lib qw(_warn _die uniq);
+use Nullroute::Lib qw(_debug _warn _die uniq);
 
 $::arg0 = "kc";
 
@@ -24,6 +24,12 @@ my $cccprimary;
 my @caches;
 
 my $can_switch = 1;
+
+sub _debugvar {
+	my ($var, $val) = @_;
+	@_ = ($var."='".($val//"")."'");
+	goto &_debug;
+}
 
 sub interval {
 	my $end = shift;
@@ -537,6 +543,8 @@ for ($cmd) {
 
 			$shortname = collapse_ccname($ccname);
 
+			_debug("examining ccache '$ccname' aka '$shortname'");
+
 			if (ccache_is_environ($ccname)) {
 				$item_flag = "»";
 			} elsif (ccache_is_current($ccname)) {
@@ -559,6 +567,7 @@ for ($cmd) {
 			while (<$proc>) {
 				chomp;
 				my @l = split(/\t/, $_);
+				_debug("- pklist output: '@l'");
 				for (shift @l) {
 					when ("principal") {
 						($principal) = @l;
@@ -584,6 +593,7 @@ for ($cmd) {
 			close($proc);
 
 			if (!defined $principal) {
+				_debug("no client principal in output, skipping ccache");
 				next;
 			}
 
@@ -620,6 +630,14 @@ for ($cmd) {
 			}
 
 do_print:
+			_debugvar("init_service", $init_service);
+			_debugvar("ccrealm", $ccrealm);
+
+			if ($ccrealm eq "WELLKNOWN:ANONYMOUS" && $init_service =~ /^krbtgt\/.*@(.+)$/) {
+				$ccrealm = $1;
+				$principal = "\@$1 (anonymous)";
+			}
+
 			printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, ++$num;
 			printf "\e[%sm%-15s\e[m", $name_color, $shortname;
 			if (length $shortname > 15) {
@@ -700,7 +718,6 @@ do_print:
 	}
 	when (/.+@.+/) {
 		my ($ccname, $expiry) = find_ccache_for_principal($cmd);
-
 		if ($expiry) {
 			switch_ccache($ccname) || exit 1;
 		} else {

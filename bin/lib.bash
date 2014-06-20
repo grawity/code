@@ -19,6 +19,11 @@ _lvl=$(( LVL++ )); export LVL
 : ${XDG_DATA_HOME:=$HOME/.local/share}
 : ${XDG_DATA_DIRS:=/usr/local/share:/usr/share}
 
+if [[ -e /etc/os-release ]]
+	then _path_os_release="/etc/os-release"
+	else _path_os_release="/usr/lib/os-release"
+fi
+
 ## Logging
 
 progname=${0##*/}

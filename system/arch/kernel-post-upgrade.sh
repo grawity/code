@@ -79,14 +79,22 @@ fi
 
 echo "Found EFI system partition at $ESP"
 
-. /etc/os-release ||
-	die "error: /etc/os-release not found or invalid; see os-release(5)"
+if [[ -e /etc/os-release ]]; then
+	os_release=/etc/os-release
+elif [[ -e /usr/lib/os-release ]]; then
+	os_release=/usr/lib/os-release
+else
+	die "error: /usr/lib/os-release not found or invalid; see os-release(5)"
+fi
+
+. "$os_release" ||
+	die "error: $os_release not found or invalid; see os-release(5)"
 
 [[ ${PRETTY_NAME:=$NAME} ]] ||
-	die "error: /etc/os-release is missing both PRETTY_NAME and NAME; see os-release(5)"
+	die "error: $os_release is missing both PRETTY_NAME and NAME; see os-release(5)"
 
 [[ $ID ]] ||
-	die "error: /etc/os-release is missing ID; see os-release(5)"
+	die "error: $os_release is missing ID; see os-release(5)"
 
 read -r MACHINE_ID < /etc/machine-id ||
 	die "error: /etc/machine-id not found or empty; see machine-id(5)"

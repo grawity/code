@@ -74,6 +74,22 @@ print_fmsg() {
 		"$nprefix" "$fprefix" "$msg"
 }
 
+# print_xmsg(format, args...)
+#
+# Print a log message with an entirely custom format and parameters. Almost
+# like `printf` but adds the program name when necessary.
+
+print_xmsg() {
+	local nprefix
+	if [[ $DEBUG ]]; then
+		local progname="$progname[$$]" progname_prefix=1
+	fi
+	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
+		nprefix="$progname: "
+	fi
+	printf "%s$1\n" "$nprefix" "${@:2}"
+}
+
 debug() {
 	local color reset
 	if [[ -t 1 ]]; then

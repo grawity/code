@@ -39,6 +39,12 @@ fi
 
 uquery=$(urlencode -- "$query")
 
+gateurl="http://nullroute.eu.org/finger/?q=$uquery@$host&raw=1"
+
+debug "query: '$query' @ '$host'"
+debug "query (encoded): '$uquery'"
+debug "gateway: '$gateurl'"
+
 if have curl && curl -V | grep -wqs gopher; then
 	debug "found curl with Gopher support"
 	curl -gsS "gopher://$uhost:79/0$uquery"
@@ -61,6 +67,9 @@ elif have nc; then
 	debug "found some-or-other netcat"
 	# may be IPv4-only, may be oneaddr
 	printf '%s\r\n' "$query" | nc "$host" 79
+elif have http-get; then
+	notice "using web gateway"
+	http-get "$gateurl"
 else
 	die "no useful TCP client found"
 fi | filter

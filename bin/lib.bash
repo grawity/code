@@ -29,8 +29,13 @@ fi
 progname=${0##*/}
 progname_prefix=-1
 
+# print_msg(level_prefix, msg, level_color)
+#
+# Print a log message with level prefix like "warning" or "error" and a given
+# color for the prefix. Used for warn/die type messages.
+
 print_msg() {
-	local prefix=$1 msg=$2 color reset nprefix
+	local lprefix=$1 msg=$2 color reset nprefix
 	if [[ -t 1 ]]; then
 		color=$3 reset=${color:+'\e[m'}
 	fi
@@ -40,8 +45,14 @@ print_msg() {
 	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
 		nprefix="$progname: "
 	fi
-	printf "%s${color}%s:${reset} %s\n" "$nprefix" "$prefix" "$msg"
+	printf "%s${color}%s:${reset} %s\n" "$nprefix" "$lprefix" "$msg"
 }
+
+# print_fmsg(level_prefix, msg, level_color, fancy_prefix, fancy_color)
+#
+# Print a log message with given "fancy" prefix like "==" or "*" and a given
+# color for the prefix. If $DEBUG is set, will call print_msg() instead. Used
+# for log/info type messages.
 
 print_fmsg() {
 	local level=$1 msg=$2 lcolor=$3 fprefix=$4 fcolor=$5

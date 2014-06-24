@@ -633,7 +633,8 @@ do_print:
 			_debugvar("init_service", $init_service);
 			_debugvar("ccrealm", $ccrealm);
 
-			if ($ccrealm eq "WELLKNOWN:ANONYMOUS" && $init_service =~ /^krbtgt\/.*@(.+)$/) {
+			if (defined $ccrealm && $ccrealm eq "WELLKNOWN:ANONYMOUS"
+			    && $init_service =~ /^krbtgt\/.*@(.+)$/) {
 				$ccrealm = $1;
 				$principal = "\@$1 (anonymous)";
 			}

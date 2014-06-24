@@ -1,8 +1,14 @@
 package Nullroute::Lib;
 use base "Exporter";
 use File::Basename;
+use constant {
+	true => 1,
+	false => 0,
+};
 
 our @EXPORT = qw(
+	true
+	false
 	_debug
 	_info
 	_notice

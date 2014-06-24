@@ -11,6 +11,7 @@ our @EXPORT = qw(
 	false
 	_debug
 	_info
+	_log
 	_notice
 	_warn
 	_err
@@ -32,9 +33,9 @@ $::errors = 0;
 my $seen_usage = 0;
 
 sub _msg {
-	my $prefix = shift;
-	my $msg = shift;
-	my $color = (-t 2) ? shift : "";
+	my ($prefix, $msg, $color) = @_;
+
+	my $color = (-t 2) ? $color : "";
 	my $reset = (-t 2) ? "\e[m" : "";
 	my $name = $::arg0 . ($::debug ? "[$$]" : "");
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
@@ -54,9 +55,23 @@ sub _msg {
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
 
+sub _fmsg {
+	return _msg(@_) if $::debug;
+
+	my ($prefix, $msg, $color, $fmt_prefix, $fmt_color) = @_;
+
+	my $color = (-t 2) ? $fmt_color : "";
+	my $reset = (-t 2) ? "\e[m" : "";
+	my $nameprefix = $::arg0prefix ? "$name: " : "";
+
+	warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
+}
+
 sub _debug  { _msg("debug", shift, "\e[36m") if $::debug; }
 
 sub _info   { _msg("info", shift, "\e[1;34m") if $::debug; }
+
+sub _log    { _fmsg("log", shift, "\e[32m", "--", "\e[32m"); }
 
 sub _notice { _msg("notice", shift, "\e[1;35m"); }
 

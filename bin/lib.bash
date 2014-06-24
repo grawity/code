@@ -112,7 +112,7 @@ say() {
 }
 
 log() {
-	print_fmsg "$*" 'log' '\e[32m' '--' '\e[32m'
+	print_fmsg "$*" 'log' '\e[1;32m' '--' '\e[32m'
 }
 
 status() {

@@ -72,7 +72,7 @@ sub _debug  { _msg(shift, "debug", "\e[36m") if $::debug; }
 
 sub _info   { _msg(shift, "info", "\e[1;34m") if $::debug; }
 
-sub _log    { _fmsg(shift, "log", "\e[32m", "--", "\e[32m"); }
+sub _log    { _fmsg(shift, "log", "\e[1;32m", "--", "\e[32m"); }
 
 sub _notice { _msg(shift, "notice", "\e[1;35m"); }
 

@@ -19,6 +19,7 @@ our @EXPORT = qw(
 	_usage
 	forked
 	readfile
+	trim
 	uniq
 );
 
@@ -93,6 +94,8 @@ sub readfile {
 	close($fh);
 	wantarray ? @lines : shift @lines;
 }
+
+sub trim { map {s/^\s+//; s/\s+$//; $_} @_; }
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
 

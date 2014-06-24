@@ -29,13 +29,13 @@ fi
 progname=${0##*/}
 progname_prefix=-1
 
-# print_msg(level_prefix, msg, level_color)
+# print_msg(msg, level_prefix, level_color)
 #
 # Print a log message with level prefix like "warning" or "error" and a given
 # color for the prefix. Used for warn/die type messages.
 
 print_msg() {
-	local lprefix=$1 msg=$2 color reset nprefix
+	local msg=$1 lprefix=$2 color reset nprefix
 	if [[ -t 1 ]]; then
 		color=$3 reset=${color:+'\e[m'}
 	fi
@@ -48,22 +48,22 @@ print_msg() {
 	printf "%s${color}%s:${reset} %s\n" "$nprefix" "$lprefix" "$msg"
 }
 
-# print_fmsg(level_prefix, msg, level_color, fancy_prefix, fancy_color)
+# print_fmsg(msg, level_prefix, level_color, fancy_prefix, fancy_color)
 #
 # Print a log message with given "fancy" prefix like "==" or "*" and a given
 # color for the prefix. If $DEBUG is set, will call print_msg() instead. Used
 # for log/info type messages.
 
 print_fmsg() {
-	local level=$1 msg=$2 lcolor=$3 fprefix=$4 fcolor=$5
+	local msg=$1 lprefix=$2 lcolor=$3 fprefix=$4 fcolor=$5
 	local pfx_color msg_color reset
 	if [[ $DEBUG ]]; then
-		print_msg "$level" "$msg" "$lcolor"
+		print_msg "$msg" "$lprefix" "$lcolor"
 		return
 	fi
 	if [[ -t 1 ]]; then
 		pfx_color="$fcolor" reset='\e[m'
-		if [[ $level == log2 ]]; then
+		if [[ $lprefix == log2 ]]; then
 			msg_color=$'\e[1m'
 		fi
 	fi
@@ -104,7 +104,7 @@ debug() {
 
 say() {
 	if [[ $DEBUG ]]; then
-		print_msg 'info' "$*" '\e[1;34m'
+		print_msg "$*" 'info' '\e[1;34m'
 	elif [[ $VERBOSE ]]; then
 		printf "%s\n" "$*"
 	fi
@@ -112,7 +112,7 @@ say() {
 }
 
 log() {
-	print_fmsg 'log' "$*" '\e[32m' '--' '\e[32m'
+	print_fmsg "$*" 'log' '\e[32m' '--' '\e[32m'
 }
 
 status() {
@@ -121,27 +121,27 @@ status() {
 }
 
 log2() {
-	print_fmsg 'log2' "$*" '\e[1;35m' '==' '\e[35m'
+	print_fmsg "$*" 'log2' '\e[1;35m' '==' '\e[35m'
 }
 
 notice() {
-	print_fmsg 'notice' "$*" '\e[1;35m' '**' '\e[1;35m'
+	print_fmsg "$*" 'notice' '\e[1;35m' '**' '\e[1;35m'
 } >&2
 
 warn() {
-	print_msg 'warning' "$*" '\e[1;33m'
+	print_msg "$*" 'warning' '\e[1;33m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
-	print_msg 'error' "$*" '\e[1;31m'
+	print_msg "$*" 'error' '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	! (( ++errors ))
 } >&2
 
 die() {
-	print_msg 'fatal' "$*" '\e[1;31m'
+	print_msg "$*" 'fatal' '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit 1
 } >&2

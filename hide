@@ -26,6 +26,8 @@ for arg; do
 		continue
 	fi
 
+	src=$(readlink -f "$arg")
+
 	arg=${arg%/}
 	name=${arg##*/}
 	debug "name='$name'"
@@ -42,10 +44,15 @@ for arg; do
 	debug "... dstdir='$dstdir'"
 	mkdir -p "$dstdir"
 
-	_put "$arg" "$dstdir/$name" ||
+	dst="$dstdir/$name"
+	_put "$arg" "$dst" ||
 	for (( count=0; count < 9999; count++ )); do
-		_put "$arg" "$dstdir/$base-$count${ext+.}$ext" && break
+		dst="$dstdir/$base-$count${ext+.}$ext"
+		_put "$arg" "$dst" && break
 	done
+
+	setfattr -h -n "user.stashed.from" -v "$src"               "$dst" &&
+	setfattr -h -n "user.stashed.when" -v "$(date "+%FT%T%z")" "$dst"
 done
 
 (( ! errors ))

@@ -33,12 +33,13 @@ do_kill() {
 		test -S "$socket" || continue
 		parse_socket
 		log "stopping $addr"
-		ssh_control -O stop || rm -v "$socket"
+		ssh_control -O ${1:-stop} || rm -v "$socket"
 	done
 }
 
 case $1 in
-    -k) do_kill;;
+    -k) do_kill 'stop';;
+    -K) do_kill 'exit';;
     '') do_list;;
     *)  die "unknown option '$1'";;
 esac

@@ -32,6 +32,8 @@ $::arg0prefix = $::nested || $::debug;
 $::warnings = 0;
 $::errors = 0;
 
+my $pre_output = undef;
+
 my $seen_usage = 0;
 
 sub _msg {
@@ -54,6 +56,8 @@ sub _msg {
 		$prefix = "   or";
 	}
 
+	if ($pre_output) { $pre_output->(); }
+
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
 
@@ -65,6 +69,8 @@ sub _fmsg {
 	my $color = (-t 2) ? $fmt_color : "";
 	my $reset = (-t 2) ? "\e[m" : "";
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
+
+	if ($pre_output) { $pre_output->(); }
 
 	warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
 }

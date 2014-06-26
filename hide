@@ -6,12 +6,12 @@
 _put() {
 	local src=$1 dst=$2
 
-	if [[ ! -e "$dst" ]]; then
+	(set -o noclobber
+	{ exec {fd}>"$dst"; } 2>/dev/null && {
 		log "moving to \"${dst#$HOME/}\""
-		mv -i "$src" "$dst"
-	else
-		false
-	fi
+		mv -f "$src" "$dst"
+		exec {fd}>&-
+	})
 }
 
 dir="$HOME/Attic/Misc"

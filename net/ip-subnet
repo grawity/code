@@ -1,0 +1,19 @@
+#!/usr/bin/python
+# print summarized CIDR masks for a given IP address range
+
+import sys
+import nullroute as lib
+from ipaddress import *
+
+try:
+    network = ip_network(sys.argv[1])
+    submask = int(sys.argv[2][1:])
+
+    subnets = network.subnets(submask - network.prefixlen)
+
+    for net in subnets:
+        print(net)
+except IndexError:
+    lib.die("not enough arguments")
+except ValueError as e:
+    lib.die(e)

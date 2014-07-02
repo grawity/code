@@ -1,25 +1,47 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python
+import os
+import sys
+import ipaddress
+import subprocess
+import nullroute as lib
 
-iface=eth0
-ip4_start=192.168.1.1
-ip4_end=192.168.1.254
-ip4_mask=255.255.255.0
-leasetime=1h
+interface = "eth0"
+lease_time = "1h"
+ip4_dns = "8.8.8.8"
 
-args=(
-	--no-daemon
-	# ignore default config
-	--conf-file=/dev/null
-	--no-hosts
-	--leasefile-ro
-	# turn off DNS
-	--port=0
-	# set up DHCP
-	--interface="$iface"
-	--bind-dynamic
-	#--bind-interfaces
-	--dhcp-range="$ip4_start,$ip4_end,$ip4_mask,$leasetime"
-	--dhcp-option="option:dns-server,0.0.0.0"
-)
+try:
+    ip4_range = sys.argv[1]
+except IndexError:
+    ip4_range = "192.168.1.0/24"
 
-sudo dnsmasq "${args[@]}"
+try:
+    ip4_range = ipaddress.IPv4Network(ip4_range)
+except ValueError as e:
+    lib.die("bad range: %s" % e)
+
+if ip4_range.num_addresses < 8:
+    lib.die("chosen range %s too small" % ip4_range)
+
+ip4_start = ip4_range.network_address + 1
+ip4_end   = ip4_range.broadcast_address - 1
+ip4_mask  = ip4_range.netmask
+
+args = [
+    "/usr/bin/sudo",
+    "/usr/bin/dnsmasq",
+    "--no-daemon",
+    # ignore default config
+    "--conf-file=/dev/null",
+    "--no-hosts",
+    "--leasefile-ro",
+    # turn off DNS
+    "--port=0",
+    # set up DHCP
+    "--interface=%s" % interface,
+    "--bind-dynamic",
+    #"--bind-interfaces",
+    "--dhcp-range=%s,%s,%s,%s" % (ip4_start, ip4_end, ip4_mask, lease_time),
+    "--dhcp-option=option:dns-server,%s" % ip4_dns,
+]
+
+os.execv(args[0], args)

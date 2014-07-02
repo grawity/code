@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+iface=eth0
+ip4_start=192.168.1.1
+ip4_end=192.168.1.254
+ip4_mask=255.255.255.0
+leasetime=1h
+
+args=(
+	--no-daemon
+	# ignore default config
+	--conf-file=/dev/null
+	--no-hosts
+	--leasefile-ro
+	# turn off DNS
+	--port=0
+	# set up DHCP
+	--interface="$iface"
+	--bind-dynamic
+	#--bind-interfaces
+	--dhcp-range="$ip4_start,$ip4_end,$ip4_mask,$leasetime"
+	--dhcp-option="option:dns-server,0.0.0.0"
+)
+
+sudo dnsmasq "${args[@]}"

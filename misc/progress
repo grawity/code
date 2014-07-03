@@ -1,0 +1,21 @@
+#!/usr/bin/env perl
+# progress - summarize line-based stdout to one dynamic progress line
+
+$| = 1;
+
+$width = int(`stty size </dev/tty | awk '{print \$2}'`);
+
+$last = time;
+
+while (++$i, $str = <STDIN>) {
+	$now = time;
+	next if $now - $last < 1;
+	$last = $now;
+
+	chomp($str);
+	$pre = sprintf("%d ", ++$i);
+	$str = substr($str, 0, $width - length($pre));
+	printf("\r\033[K%s%s\r", $pre, $str);
+}
+
+printf("\r\033[K%s\n", "$i items");

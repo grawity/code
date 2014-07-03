@@ -5,11 +5,6 @@
 
 set -e
 
-case ${0##*/} in
-    tarball) ext=tgz;;
-    zipball) ext=zip;;
-esac
-
 do_archive() {
 	local dir=$1 out=$2 attr=$1/_attributes
 
@@ -27,6 +22,15 @@ do_archive() {
 get_timestamp() {
 	find "$1" -type f -printf '%Ts\n' | sort -u | tail -1
 }
+
+case ${0##*/} in
+    tarball) ext=tgz;;
+    zipball) ext=zip;;
+esac
+
+if (( UID == 0 )); then
+	umask 077
+fi
 
 dir=${1%/}
 

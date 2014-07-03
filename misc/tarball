@@ -14,7 +14,7 @@ do_archive() {
 
 	log "archiving files"
 	case $out in
-	    *.tgz) tar --xattrs -cvzf "$out" "$dir" > >(progress);;
+	    *.tgz) tar -cvzf "$out" "$dir" > >(progress);;
 	    *.zip) zip -r "$out" "$dir";;
 	esac
 }
@@ -30,6 +30,10 @@ esac
 
 if (( UID == 0 )); then
 	umask 077
+fi
+
+if [[ ! $OLD_TAR ]]; then
+	export TAR_OPTIONS="--xattrs"
 fi
 
 dir=${1%/}

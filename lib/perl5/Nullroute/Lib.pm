@@ -1,5 +1,6 @@
 package Nullroute::Lib;
 use base "Exporter";
+use Carp;
 use File::Basename;
 use constant {
 	true => 1,
@@ -18,6 +19,7 @@ our @EXPORT = qw(
 	_die
 	_usage
 	forked
+	randstr
 	readfile
 	trim
 	uniq
@@ -93,10 +95,17 @@ sub _usage  { _msg($::arg0." ".shift, "usage", ""); }
 
 sub forked (&) { fork || exit shift->(); }
 
+sub randstr {
+	my $len = shift // 12;
+
+	my @chars = ('A'..'Z', 'a'..'z', '0'..'9');
+	join "", map {$chars[int rand @chars]} 1..$len;
+}
+
 sub readfile {
 	my ($file) = @_;
 
-	open(my $fh, "<", $file) or die "$!";
+	open(my $fh, "<", $file) or croak "$!";
 	grep {chomp} my @lines = <$fh>;
 	close($fh);
 	wantarray ? @lines : shift @lines;

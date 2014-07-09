@@ -1,5 +1,6 @@
 package Nullroute::KitchenSink;
-use common::sense;
+use warnings;
+use strict;
 use base "Exporter";
 use IO::Socket::UNIX;
 

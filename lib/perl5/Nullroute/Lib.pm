@@ -34,7 +34,7 @@ $::arg0prefix = $::nested || $::debug;
 $::warnings = 0;
 $::errors = 0;
 
-my $pre_output = undef;
+our $pre_output = undef;
 
 my $seen_usage = 0;
 

@@ -12,10 +12,10 @@ sub ldap_format_error {
 	my ($res, $dn) = @_;
 
 	utf8::decode($res->error);
-	my $text = "LDAP error: ".$res->error."\n";
-	$text .= "\tcode: ".$res->error_name."\n" if $::debug;
-	$text .= "\tfailed: $dn\n"                if $dn;
-	$text .= "\tmatched: ".$res->dn."\n"      if $res->dn;
+	my $text = "LDAP error: ".$res->error;
+	$text .= "\n\tcode: ".$res->error_name if $::debug;
+	$text .= "\n\tfailed: ".$dn            if $dn;
+	$text .= "\n\tmatched: ".$res->dn      if $res->dn;
 	return $text;
 }
 

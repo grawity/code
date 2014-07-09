@@ -1,3 +1,5 @@
+# Miscellaneous utility functions for my LDAP scripts.
+
 package Nullroute::LDAP;
 use base "Exporter";
 use Nullroute::Lib;
@@ -21,7 +23,6 @@ sub ldap_check {
 	my ($res, $dn) = @_;
 
 	if ($res->is_error) {
-		log_done();
 		my $text = ldap_format_error($res, $dn);
 		_die($text);
 	}

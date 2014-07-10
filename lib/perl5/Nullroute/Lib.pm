@@ -47,9 +47,14 @@ sub _msg {
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
 	if ($prefix eq "debug") {
-		my @frame = caller(2); # stack frame below _debug()
-		$frame[3] //= "main";
-		$frame[3] =~ s/^main:://;
+		my $n = 1;
+		my @frame;
+		do {
+			++$n;
+			@frame = caller($n); # stack frame below _debug()
+			$frame[3] //= "main";
+			$frame[3] =~ s/^main:://;
+		} while ($frame[3] eq "__ANON__");
 		#$msg = $frame[1].":".$frame[2]." (".$frame[3].") ".$msg;
 		#$msg = "(".$frame[3].") ".$msg;
 		$prefix = $prefix." (".$frame[3].")";

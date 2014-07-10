@@ -13,9 +13,12 @@ use Net::DBus::Reactor;
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug));
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
 	} else {
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
 	}
 }
 
@@ -38,7 +41,7 @@ my $suffix_re = qr/[^.]+(?:$instance_re)?$/;
 #
 # help(topic) - print help text
 #
-# die_usage(str) - like die(), but always exits with status 2
+# _die2(str) - like _die(), but always exits with status 2
 
 sub usage {
 	say for
@@ -156,10 +159,7 @@ sub help {
 	}
 }
 
-sub die_usage {
-	warn shift."\n";
-	exit 2;
-}
+sub _die2 { _err(shift); exit 2; }
 
 # saybool(bool) - print "yes"/"no" and exit with boolean status
 
@@ -264,7 +264,7 @@ sub frombool {
 	my $die = shift // 1;
 	for ($str) {
 		when (undef) {
-			$die ? die_usage "Missing boolean parameter." : undef;
+			$die ? _die2("missing boolean parameter") : undef;
 		}
 		when (/^(yes|true|on|1)$/i) {
 			return dbus_boolean(1);
@@ -273,7 +273,7 @@ sub frombool {
 			return dbus_boolean(0);
 		}
 		default {
-			$die ? die_usage "Invalid boolean parameter." : undef;
+			$die ? _die2("invalid boolean parameter '$str'") : undef;
 		}
 	}
 }
@@ -669,7 +669,7 @@ sub player_getprop {
 			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
 			my $track = $meta->{"mpris:trackid"};
 			if (!defined $track) {
-				die_usage "Couldn't get current track ID.";
+				_die2("couldn't get current track ID");
 			}
 			elsif ($track =~ m|^/org/mpris/MediaPlayer2/Track/(\d+)$|) {
 				$track = $1;
@@ -709,7 +709,7 @@ sub player_getprop {
 		}
 
 		default {
-			die_usage("Unknown property '$property'.");
+			_die2("unknown property '$property'");
 		}
 	}
 	# implicit return
@@ -733,7 +733,7 @@ sub player_setprop {
 			my $arg = shift;
 			for ($arg) {
 				when (undef) {
-					die_usage "Missing status: None, Playlist, Track";
+					_die2("missing status {None, Playlist, Track}");
 				}
 				when (/^(none|off)$/i) {
 					$arg = "None";
@@ -745,7 +745,7 @@ sub player_setprop {
 					$arg = "Track";
 				}
 				default {
-					die_usage "Unknown loop status '$_'.";
+					_die2("unknown loop status '$_'");
 				}
 			}
 			$player->()->Set(MPRIS_PLAYER_IFACE, "LoopStatus", $arg);
@@ -754,7 +754,7 @@ sub player_setprop {
 			my $position = shift;
 			my $track;
 			if (!defined $position) {
-				die_usage "Missing position or position\@track.";
+				_die2("missing position or position\@track");
 			} elsif ($position =~ /^(,+)@(\d+)$/) {
 				$position = $1;
 				$track = "/org/mpris/MediaPlayer2/Track/$2";
@@ -762,20 +762,20 @@ sub player_setprop {
 				$position = $1;
 				$track = $2;
 			} elsif ($position =~ /@/) {
-				die_usage "Invalid track.";
+				_die2("invalid track number '$position'");
 			} else {
 				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
 							"Metadata");
 				$track = $meta->{"mpris:trackid"};
 				if (!defined $track) {
-					die_usage "Couldn't get current track ID.";
+					_die2("couldn't get current track ID");
 				}
 			}
 			$position = time2int($position);
 			if (defined $position) {
 				$player->()->SetPosition($track, $position);
 			} else {
-				die_usage "Invalid position.";
+				_die2("invalid position '$position'");
 			}
 		}
 		when ("player/rate") {
@@ -785,7 +785,7 @@ sub player_setprop {
 							"MinimumRate")} // 1.0;
 				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
 							"MaximumRate")} // 1.0;
-				die_usage "Missing value:", "$min .. $max";
+				_die2("missing value [$min .. $max]");
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Rate", $arg);
@@ -798,7 +798,7 @@ sub player_setprop {
 			my $arg = shift;
 			for ($arg) {
 				when (undef) {
-					die_usage "Missing status: Playing, Paused, Stopped";
+					_die2("missing status {Playing, Paused, Stopped}");
 				}
 				when (/^(paused?)$/i) {
 					$player->()->Pause();
@@ -813,14 +813,14 @@ sub player_setprop {
 					$player->()->PlayPause();
 				}
 				default {
-					die_usage "Unknown playback status '$_'.";
+					_die2("unknown playback status '$_'");
 				}
 			}
 		}
 		when ("player/volume") {
 			my $arg = shift;
 			if (!defined $arg) {
-				die_usage "Missing value: 0.0 .. 1.0";
+				_die2("missing value [0.0 .. 1.0]");
 			}
 			$arg = dbus_double($arg);
 			$player->()->Set(MPRIS_PLAYER_IFACE, "Volume", $arg);
@@ -844,7 +844,7 @@ sub player_setprop {
 		}
 
 		default {
-			die_usage "Cannot set property '$property'.";
+			_die2("property '$property' is read-only or unknown");
 		}
 	}
 	return 0;
@@ -920,7 +920,7 @@ my %commands = (
 		if (defined $uri) {
 			$player->()->OpenUri($uri);
 		} else {
-			die_usage "Missing URI.";
+			_die2("missing URI to open");
 		}
 	},
 	quit => sub {
@@ -973,7 +973,7 @@ my %commands = (
 		if (defined $offset) {
 			$player->()->Seek($offset);
 		} else {
-			die_usage "Invalid offset.";
+			_die2("invalid seek offset");
 		}
 	},
 	shuffle => property("player/shuffle"),
@@ -1056,11 +1056,12 @@ for ($player) {
 	}
 	when (/^org\.mpris\.([^.]+)/) {
 		# full MPRIS v1 bus name
-		warn "\033[1;31mMPRIS v1 is not supported by this script; please use MPRIS v2.\033[m\n";
+		_err("MPRIS v1 is not supported by this script");
 		$bus_name = "org.mpris.MediaPlayer2.$1";
 		if ($bus->get_service_owner($bus_name)) {
-			warn "\033[1;33mWill try MPRIS v2 using bus name $bus_name ...\033[m\n";
+			warn "\e[1;33mtrying MPRIS v2 using bus name '$bus_name'\e[m\n";
 		} else {
+			_err("ask player author to implement MPRIS v2");
 			exit 3;
 		}
 	}
@@ -1090,7 +1091,7 @@ for ($cmd) {
 	}
 	when ("activate") {
 		if ($bus_name eq "all") {
-			die_usage "Bus name not specified (--all won't work here).";
+			_die2("bus name not specified (--all won't work here)");
 		}
 		MediaPlayer($bus_name);
 	}
@@ -1116,7 +1117,7 @@ for ($cmd) {
 	}
 	default {
 		if (!exists $commands{$cmd}) {
-			die_usage "Unknown command '$cmd'.";
+			_die2("unknown command '$cmd'");
 		}
 		elsif ($bus_name eq "all") {
 			my @r = map {describe_as_separator($_);
@@ -1125,7 +1126,7 @@ for ($cmd) {
 			exit max @r;
 		}
 		elsif (!$bus->get_service_owner($bus_name)) {
-			warn "Player $bus_name is not running.\n";
+			_err("player '$bus_name' is not running");
 			exit 4;
 		}
 		else {

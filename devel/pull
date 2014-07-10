@@ -84,23 +84,27 @@ do_pull() {
 	fi
 }
 
-if (( ! $# )) && [[ -s Pullfile ]]; then
-	set -- $(grep '^[^#]' Pullfile)
-fi
+do_main() {
+	if (( ! $# )) && [[ -s Pullfile ]]; then
+		set -- $(grep '^[^#]' Pullfile)
+	fi
 
-if (( ! $# )); then
-	set -- */
-fi
+	if (( ! $# )); then
+		set -- */
+	fi
 
-if (( $# )); then
-	declare -A did
-	for dir; do
-		dir=$(readlink -f "$dir")
-		if [[ ! ${did[$dir]} ]]; then
-			did[$dir]=y
-			(cd "$dir" && ! is_ignored && do_pull)
-		fi
-	done
-else
-	do_pull
-fi
+	if (( $# )); then
+		declare -A did
+		for dir; do
+			dir=$(readlink -f "$dir")
+			if [[ ! ${did[$dir]} ]]; then
+				did[$dir]=y
+				(cd "$dir" && ! is_ignored && do_pull)
+			fi
+		done
+	else
+		do_pull
+	fi
+}
+
+do_main "$@"

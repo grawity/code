@@ -57,9 +57,8 @@ sub _msg {
 			$frame[3] //= "main";
 			$frame[3] =~ s/^main:://;
 		} while ($frame[3] eq "__ANON__");
-		#$msg = $frame[1].":".$frame[2]." (".$frame[3].") ".$msg;
-		#$msg = "(".$frame[3].") ".$msg;
-		$prefix = $prefix." (".$frame[3].")";
+		$prefix .= " ".$frame[1].":".$frame[2] if $::debug > 1;
+		$prefix .= " (".$frame[3].")";
 	}
 	elsif ($prefix eq "usage" && !$::debug && $seen_usage++) {
 		$prefix = "   or";

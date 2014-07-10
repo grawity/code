@@ -100,13 +100,17 @@ out() {
 	echo "$*" >&$out
 }
 
-trap "trap - SIGTERM; kill \$pinentry_pid" EXIT SIGINT SIGHUP SIGTERM SIGQUIT
+trap "trap - INT HUP TERM QUIT; kill \$pinentry_pid 2>/dev/null" \
+	EXIT INT HUP TERM QUIT
 
 # spawn the pinentry program
 debug "command: ${pinentry[*]}"
-coproc "${pinentry[@]}"; pinentry_pid=$!
+coproc { "${pinentry[@]}" 2>/dev/null \
+	|| die "could not launch pinentry (${pinentry[0]})"; }
+pinentry_pid=$!
 in=${COPROC[0]}
 out=${COPROC[1]}
+ok=0
 
 nextstate=configure
 while read status rest <&$in; do
@@ -116,6 +120,7 @@ while read status rest <&$in; do
 	configure)
 		case "$status" in
 		OK)
+			ok=1
 			configure || {
 				out 'GETPIN'
 				nextstate=waitinput
@@ -140,3 +145,5 @@ while read status rest <&$in; do
 		esac ;;
 	esac
 done
+
+(( ok ))

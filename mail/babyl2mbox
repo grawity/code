@@ -10,11 +10,23 @@
 #
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 
-use warnings;
+use feature qw(switch);
 use strict;
-use feature 'switch';
+use warnings;
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use POSIX qw(strftime);
 use constant TIMEFMT_MBOX => '%a %b %_d %H:%M:%S %Y';
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
 
 my $count;
 my $msgstatus;
@@ -34,7 +46,7 @@ sub parse_date {
 		if ($yr >= 100) { $yr -= 1900; }
 		return ($sec, $mn, $hr, $day, $MONTHS{$mon}, $yr);
 	} else {
-		warn "unparsed date: $str\n";
+		_warn("unparseable date: $str");
 	}
 }
 
@@ -62,7 +74,7 @@ sub output_header {
 }
 
 if (!@ARGV and -t 0) {
-	warn "Expecting BABYL mail file as stdin.\n";
+	_die("expecting BABYL mail file as stdin");
 }
 
 $state = "babyl-options-header";
@@ -74,7 +86,7 @@ while (<STDIN>) {
 		if ($_ eq "BABYL OPTIONS:") {
 			$state = "babyl-options";
 		} else {
-			warn "expected BABYL options section at first line\n";
+			_die("expected BABYL options section at first line");
 		}
 	}
 	elsif ($_ eq "\037\014") {
@@ -92,7 +104,7 @@ while (<STDIN>) {
 	elsif ($state eq "babyl-options") {
 		if (/^Version: (\d+)/) {
 			if ($1 != 5) {
-				warn "script not tested with BABYL version $1\n";
+				_warn("script not tested with BABYL version $1");
 			}
 		}
 	}

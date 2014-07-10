@@ -3,7 +3,7 @@ from __future__ import print_function
 import sys, os
 import getopt
 from mutagen import mp3, id3
-from nullroute import *
+import nullroute as lib
 
 def trace(msg):
     print(msg, file=sys.stderr)
@@ -34,11 +34,11 @@ def export_cover(file, cover_file):
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
-        err(e)
+        lib.err(e)
         return False
 
     if "APIC:" not in filetag:
-        err("no cover image (APIC frame not found)")
+        lib.err("no cover image (APIC frame not found)")
         return False
 
     with open(cover_file or "/dev/stdout", "wb") as cover_fh:
@@ -54,7 +54,7 @@ def import_cover(file, image_data, image_type="image/jpeg"):
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
-        err(e)
+        lib.err(e)
         return False
 
     filetag.tags.add(id3.APIC(
@@ -69,7 +69,7 @@ def import_cover(file, image_data, image_type="image/jpeg"):
     try:
         filetag.save()
     except BaseException as e:
-        err(e)
+        lib.err(e)
         return False
     else:
         return True
@@ -78,7 +78,7 @@ def remove_cover(file):
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
-        err(e)
+        lib.err(e)
         return False
 
     if "APIC:" in filetag:
@@ -89,7 +89,7 @@ def remove_cover(file):
     try:
         filetag.save()
     except BaseException as e:
-        err(e)
+        lib.err(e)
         return False
     else:
         return True
@@ -97,7 +97,7 @@ def remove_cover(file):
 try:
     options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
-    err(e)
+    lib.err(e)
     usage()
 
 mode = None
@@ -113,11 +113,11 @@ for opt, value in options:
     elif opt == "-x": mode = "kill"
 
 if not mode:
-    err("mode not specified")
+    lib.err("mode not specified")
     usage()
 
 if len(files) < 1:
-    err("no .mp3 files specified")
+    lib.err("no .mp3 files specified")
     usage()
 
 if mode == "import":
@@ -134,7 +134,7 @@ if mode == "import":
 
 elif mode == "export":
     if len(files) > 1:
-        die("cannot export multiple covers to one file")
+        lib.die("cannot export multiple covers to one file")
 
     ret = export_cover(files[0], cover_file)
 
@@ -149,4 +149,4 @@ elif mode == "kill":
     sys.exit(0 if ret else 1)
 
 else:
-    die("bad mode")
+    lib.die("bad mode %r" % mode)

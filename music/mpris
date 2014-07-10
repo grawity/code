@@ -10,7 +10,15 @@ use Data::Dumper;
 use List::Util qw(max);
 use Net::DBus qw(:typing);
 use Net::DBus::Reactor;
-use Nullroute::Lib qw(_debug);
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug));
+	} else {
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+	}
+}
+
 use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
 	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',

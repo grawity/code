@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <locale.h>
 #include <stdbool.h>
+#include <errno.h>
 
 #ifdef HAVE_LIBSELINUX
 # include <selinux/selinux.h>
@@ -255,7 +256,13 @@ static void try_shell(const char *shell, const char *loader)
 	else
 		execl(shell, shell, NULL);
 
-	warn("%s: exec failed", shell);
+	if (errno == ENOENT && access(shell, X_OK) == 0) {
+		warnx("%s: exec failed due to missing interpreter", shell);
+		if (!loader)
+			warnx("you should point $LDPATH at a working ld-linux.so");
+	}
+	else
+		warn("%s: exec failed", shell);
 }
 
 static void sushell(struct passwd *pwent)

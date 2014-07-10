@@ -540,18 +540,18 @@ sub event_setup {
 		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
 			if ($new_owner && $name =~ $prefix_re && !$sig_pc{$name}) {
-				say "Found player: $name";
+				_debug("found player: $name");
 				$sig_pc{$name} = _event_setup_propchange($name, $handler);
 			}
 		});
 	} elsif ($bus->get_service_owner($bus_name)) {
-		say "Found player: $bus_name";
+		_debug("found player: $bus_name");
 		$sig_pc{$bus_name} = _event_setup_propchange($bus_name, $handler);
 	} else {
 		$bus_obj->connect_to_signal("NameOwnerChanged", sub {
 			my ($name, $old_owner, $new_owner) = @_;
 			if ($new_owner && $bus_name eq $name && !$sig_pc{$name}) {
-				say "Found player: $name";
+				_debug("found player: $name");
 				$sig_pc{$name} = _event_setup_propchange($name, $handler);
 			}
 		});
@@ -1103,7 +1103,7 @@ for ($cmd) {
 		}
 		Notifications->connect_to_signal("ActionInvoked",
 						\&_notify_handle_action);
-		say "Waiting for events...";
+		_debug("waiting for events");
 		Net::DBus::Reactor->main->run;
 	}
 	default {

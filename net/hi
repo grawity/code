@@ -11,23 +11,33 @@ exec {fd}<"$log" || die "cannot open highlight cache"
 flock -x -w3 $fd || die "another instance is running"
 
 fmt() {
-	perl -M'POSIX' -M'POSIX::strptime' -a -F'\t' -nE'
-		if (-t 1) {
-			$C{DARK} = "\e[38;5;8m";
-			$C{BOLD} = "\e[1m";
-			$C{RESET} = "\e[m";
+	perl -M'POSIX' -M'POSIX::strptime' -E'
 
-			$C{DATE} = "\e[$ENV{date}m";
-			$C{BUFFER} = "\e[$ENV{color}m";
-			$C{PREFIX} = "\e[$ENV{prefix}m";
-			$C{PRIVATE} = "\e[$ENV{private}m";
-			$C{NOTICE} = "\e[$ENV{notice}m";
-			$C{TEXT} = "\e[$ENV{text}m";
-		} else {
-			%C = ();
-		}
+	if (-t 1) {
+		$C{DARK} = "\e[38;5;8m";
+		$C{BOLD} = "\e[1m";
+		$C{RESET} = "\e[m";
 
-		($date, $buffer, @line) = @F;
+		$C{DATE} = "\e[$ENV{date}m";
+		$C{BUFFER} = "\e[$ENV{color}m";
+		$C{PREFIX} = "\e[$ENV{prefix}m";
+		$C{PRIVATE} = "\e[$ENV{private}m";
+		$C{NOTICE} = "\e[$ENV{notice}m";
+		$C{TEXT} = "\e[$ENV{text}m";
+	} else {
+		%C = ();
+	}
+
+	if ($ENV{maxlines}) {
+		$max = abs int ($ENV{maxlines} || 0);
+	} else {
+		$max = -1;
+	}
+
+	@lines = ();
+
+	for (<>) {
+		($date, $buffer, @line) = split(/\t/);
 
 		@tm = POSIX::strptime($date, "%Y-%m-%d %H:%M:%S %z");
 		$udate = mktime(@tm);
@@ -62,6 +72,16 @@ fmt() {
 		next if ($buffer eq "freenode" && $from =~ /^-(alis|phrik)-$/i);
 		next if ($from =~ /^-Global-$/i && $line =~ /\[(Logon|Random) News -/);
 		next if $line =~ /You are connected to .* with TLS.*/;
+
+		push @lines, [$buffer, $from, $line];
+	}
+
+	if ($max >= 0) {
+		@lines = @lines[$#lines+1-$max..$#lines];
+	}
+
+	for (@lines) {
+		($buffer, $from, $line) = @$_;
 
 		if ($from =~ /^-/) {
 			$C{PREFIX} = $C{NOTICE};
@@ -102,7 +122,7 @@ fmt() {
 
 		$lastdate = $udate;
 		$lastbuf = $buffer;
-	'
+	}'
 }
 
 url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
@@ -112,7 +132,7 @@ opts='-4'
 size=$(stat -c %s "$log")
 now=$(date +%s)
 
-export date color prefix private notice text
+export date color prefix private notice text maxlines
 
 debug "local cache is <$log>"
 
@@ -122,8 +142,9 @@ prefix='38;5;145'
 private=$prefix
 notice=$prefix
 text='38;5;188'
+maxlines=${1:-"-3"}
 
-tail ${1:-"-3"} "$log" | fmt
+cat "$log" | fmt
 
 debug "remote URL is <$url>"
 
@@ -133,6 +154,7 @@ private='38;5;178'
 prefix='38;5;150'
 notice='38;5;66'
 text=''
+maxlines=''
 
 tmp="$log.tmp"
 out=$({ curl -s -S -C "$size" $opts "$url" > "$log.tmp"; } 2>&1)

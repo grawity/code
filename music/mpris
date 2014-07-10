@@ -2,10 +2,10 @@
 # mpris - control MPRISv2 compatible players
 # Inspired-by: http://incise.org/mpris-remote.html
 # MPRISv2 spec: http://specifications.freedesktop.org/mpris-spec/latest/
+use feature qw(say state switch);
+use strict;
 use warnings;
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
-use strict;
-use feature qw(say state switch);
 use Data::Dumper;
 use List::Util qw(max);
 use Net::DBus qw(:typing);
@@ -147,7 +147,7 @@ sub help {
 		"the 'meta' or 'get player/metadata' subcommands; for example, %{xesam:title}",
 		"will expand to the current song's title. The default format is:",
 		"",
-		"    %{xesam:artist} - %{xesam:title}",
+		"    %{xesam:artist} – %{xesam:title}",
 		"",
 		"For multi-value properties such as %{xesam:artist} the property name optionally",
 		"can be suffixed with [] or [sep] to use a different separator, with [, ] being",
@@ -314,7 +314,7 @@ sub describe {
 	$out .= " ($identity)" if defined $identity;
 
 	my $status = eval {$player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus")};
-	$out .= " - $status" if defined $status;
+	$out .= " – $status" if defined $status;
 
 	say $out;
 }
@@ -928,7 +928,7 @@ my %commands = (
 	},
 	printf => sub {
 		my $player = shift;
-		my $format = shift // "%{xesam:artist} - %{xesam:title}";
+		my $format = shift // "%{xesam:artist} – %{xesam:title}";
 
 		if ($format eq "--help") {
 			return help("printf");
@@ -994,7 +994,7 @@ my %commands = (
 				$artist = join(", ", @$artist);
 			}
 			my $track = $meta{"xesam:title"} // "Unknown track";
-			say "[$status] $artist - $track ($pos/$len)";
+			say "[$status] $artist – $track ($pos/$len)";
 			my $width = max map {length $_} keys %meta;
 			for my $key (sort keys %meta) {
 				my $value = $meta{$key};

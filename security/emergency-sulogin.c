@@ -251,6 +251,7 @@ static void sushell(struct passwd *pwent)
 	char home[PATH_MAX];
 	char *p;
 	char *shell;
+	char *loader;
 
 	if (pwent && chdir(pwent->pw_dir) != 0) {
 		warn("could not change directory to %s", pwent->pw_dir);
@@ -268,6 +269,11 @@ static void sushell(struct passwd *pwent)
 		shell = pwent->pw_shell;
 	else
 		shell = "/bin/sh";
+
+	if ((p = getenv("LDPATH")))
+		loader = p;
+	else
+		loader = NULL;
 
 	if (getcwd(home, sizeof(home)))
 		setenv("HOME", home, 1);
@@ -298,11 +304,17 @@ static void sushell(struct passwd *pwent)
 #endif
 
 	setenv("SHELL", shell, 1);
-	execl(shell, shell, NULL);
+	if (loader)
+		execl(loader, loader, shell, NULL);
+	else
+		execl(shell, shell, NULL);
 	warn("%s: exec failed", shell);
 
 	setenv("SHELL", "/bin/sh", 1);
-	execl("/bin/sh", "sh", NULL);
+	if (loader)
+		execl(loader, loader, "/bin/sh", NULL);
+	else
+		execl("/bin/sh", "sh", NULL);
 	warn("%s: exec failed", "/bin/sh");
 }
 

@@ -11,11 +11,10 @@ use Nullroute::Lib;
 sub ldap_format_error {
 	my ($res, $dn) = @_;
 
-	utf8::decode($res->error);
 	my $text = "LDAP error: ".$res->error;
-	$text .= "\n\tcode: ".$res->error_name if $::debug;
-	$text .= "\n\tfailed: ".$dn            if $dn;
-	$text .= "\n\tmatched: ".$res->dn      if $res->dn;
+	$text .= "\n * error code: ".$res->error_name if $::debug;
+	$text .= "\n * failed entry: ".$dn            if $dn;
+	$text .= "\n * matched entry: ".$res->dn      if $res->dn;
 	return $text;
 }
 

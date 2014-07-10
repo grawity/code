@@ -10,6 +10,7 @@ use constant {
 our @EXPORT = qw(
 	true
 	false
+	_say
 	_debug
 	_info
 	_log
@@ -85,6 +86,16 @@ sub _fmsg {
 	warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
 
 	if ($post_output) { $post_output->($msg, $prefix); }
+}
+
+sub _say {
+	my ($msg) = @_;
+
+	if ($pre_output) { $pre_output->($msg, ""); }
+
+	print "${msg}\n";
+
+	if ($post_output) { $post_output->($msg, ""); }
 }
 
 sub _debug  { _msg(shift, "debug", "\e[36m") if $::debug; }

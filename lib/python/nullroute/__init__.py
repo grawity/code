@@ -12,10 +12,12 @@ def debug(msg):
     return _log("debug", msg, "36")
 
 def warn(msg):
+    global num_warnings
     num_warnings += 1
     return _log("warning", msg, "1;33")
 
 def err(msg):
+    global num_errors
     num_errors += 1
     return _log("error", msg, "1;31")
 
@@ -24,4 +26,5 @@ def die(msg):
     sys.exit(1)
 
 def exit():
+    global num_errors
     sys.exit(1 if num_errors else 0)

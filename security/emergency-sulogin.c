@@ -246,6 +246,18 @@ bool authenticate(struct passwd *pwent)
 	return streq(crypt(p, pwent->pw_passwd), pwent->pw_passwd);
 }
 
+static void try_shell(const char *shell, const char *loader)
+{
+	setenv("SHELL", shell, 1);
+
+	if (loader)
+		execl(loader, loader, shell, NULL);
+	else
+		execl(shell, shell, NULL);
+
+	warn("%s: exec failed", shell);
+}
+
 static void sushell(struct passwd *pwent)
 {
 	char home[PATH_MAX];
@@ -303,19 +315,8 @@ static void sushell(struct passwd *pwent)
 	}
 #endif
 
-	setenv("SHELL", shell, 1);
-	if (loader)
-		execl(loader, loader, shell, NULL);
-	else
-		execl(shell, shell, NULL);
-	warn("%s: exec failed", shell);
-
-	setenv("SHELL", "/bin/sh", 1);
-	if (loader)
-		execl(loader, loader, "/bin/sh", NULL);
-	else
-		execl("/bin/sh", "sh", NULL);
-	warn("%s: exec failed", "/bin/sh");
+	try_shell(shell, loader);
+	try_shell("/bin/sh", loader);
 }
 
 static void fixtty(void)

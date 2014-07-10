@@ -41,7 +41,7 @@ our $post_output = undef;
 my $seen_usage = 0;
 
 sub _msg {
-	my ($msg, $prefix, $color) = @_;
+	my ($msg, $prefix, $color, %opt) = @_;
 
 	my $color = (-t 2) ? $color : "";
 	my $reset = (-t 2) ? "\e[m" : "";
@@ -49,11 +49,11 @@ sub _msg {
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
 	if ($prefix eq "debug") {
-		my $n = 1;
+		my $skip = ($opt{skip} || 0) + 1;
 		my @frame;
 		do {
-			++$n;
-			@frame = caller($n); # stack frame below _debug()
+			++$skip;
+			@frame = caller($skip);
 			$frame[3] //= "main";
 			$frame[3] =~ s/^main:://;
 		} while ($frame[3] eq "__ANON__");
@@ -97,7 +97,7 @@ sub _say {
 	if ($post_output) { $post_output->($msg, ""); }
 }
 
-sub _debug  { _msg(shift, "debug", "\e[36m") if $::debug; }
+sub _debug  { _msg(shift, "debug", "\e[36m", @_) if $::debug; }
 
 sub _info   { _msg(shift, "info", "\e[1;34m"); }
 

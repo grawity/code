@@ -363,8 +363,10 @@ int main(int argc, char **argv)
 
 	setlocale(LC_ALL, "");
 
-	if (geteuid() != 0)
-		errx(EXIT_FAILURE, "root privileges (setuid bit) required");
+	/* make sure we're either setuid root, or have CAP_SET{UID,GID} */
+
+	if (setregid(0, 0) != 0 || setreuid(0, 0) != 0)
+		err(EXIT_FAILURE, "cannot obtain root privileges");
 
 	if (getpid() == 1) {
 		setsid();

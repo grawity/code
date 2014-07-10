@@ -41,6 +41,8 @@ struct sigaction saved_sigint;
 struct sigaction saved_sigtstp;
 struct sigaction saved_sigquit;
 
+char *opt_loader;
+
 static void mask_signal(int signal, void (*handler)(int),
 		struct sigaction *origaction)
 {
@@ -259,7 +261,7 @@ static void try_shell(const char *shell, const char *loader)
 	if (errno == ENOENT && access(shell, X_OK) == 0) {
 		warnx("%s: exec failed due to missing interpreter", shell);
 		if (!loader)
-			warnx("you should point $LDPATH at a working ld-linux.so");
+			warnx("use option -L to specify a working ld-linux.so");
 	}
 	else
 		warn("%s: exec failed", shell);
@@ -292,7 +294,7 @@ static void sushell(struct passwd *pwent)
 	if ((p = getenv("LDPATH")))
 		loader = p;
 	else
-		loader = NULL;
+		loader = opt_loader;
 
 	if (getcwd(home, sizeof(home)))
 		setenv("HOME", home, 1);
@@ -358,10 +360,21 @@ static void fixtty(void)
 
 int main(int argc, char *argv[])
 {
+	int opt;
 	int tries = 1;
 	struct passwd *pwent;
 
 	setlocale(LC_ALL, "");
+
+	while ((opt = getopt(argc, argv, "L:")) != -1) {
+		switch (opt) {
+		case 'L':
+			opt_loader = optarg;
+			break;
+		default:
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	/* make sure we're either setuid root, or have CAP_SET{UID,GID} */
 

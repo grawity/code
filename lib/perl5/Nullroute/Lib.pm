@@ -35,6 +35,7 @@ $::warnings = 0;
 $::errors = 0;
 
 our $pre_output = undef;
+our $post_output = undef;
 
 my $seen_usage = 0;
 
@@ -66,6 +67,8 @@ sub _msg {
 	if ($pre_output) { $pre_output->($msg, $prefix); }
 
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
+
+	if ($post_output) { $post_output->($msg, $prefix); }
 }
 
 sub _fmsg {
@@ -80,6 +83,8 @@ sub _fmsg {
 	if ($pre_output) { $pre_output->($msg, $prefix); }
 
 	warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
+
+	if ($post_output) { $post_output->($msg, $prefix); }
 }
 
 sub _debug  { _msg(shift, "debug", "\e[36m") if $::debug; }

@@ -356,9 +356,9 @@ static void fixtty(void)
 		warn("tcsetattr failed");
 }
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
-	int tries = 3;
+	int tries = 1;
 	struct passwd *pwent;
 
 	setlocale(LC_ALL, "");
@@ -393,8 +393,6 @@ int main(int argc, char **argv)
 	if (tries >= 0) {
 		sushell(pwent);
 		warnx("unable to run any shell, you're screwed");
-	} else {
-		warnx("access denied");
 	}
 
 	return EXIT_FAILURE;

@@ -63,7 +63,7 @@ sub _msg {
 		$prefix = "   or";
 	}
 
-	if ($pre_output) { $pre_output->(); }
+	if ($pre_output) { $pre_output->($msg, $prefix); }
 
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 }
@@ -77,7 +77,7 @@ sub _fmsg {
 	my $reset = (-t 2) ? "\e[m" : "";
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
-	if ($pre_output) { $pre_output->(); }
+	if ($pre_output) { $pre_output->($msg, $prefix); }
 
 	warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
 }

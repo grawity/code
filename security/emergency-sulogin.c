@@ -229,7 +229,7 @@ static char *getpasswd(void)
 	return ret;
 }
 
-bool authenticate(struct passwd *pwent)
+static bool authenticate(struct passwd *pwent)
 {
 	char *p;
 

@@ -1,7 +1,13 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use Nullroute::Lib qw(_die);
+use Nullroute::Lib qw(_debug _die);
+
+sub _system {
+	my (@args) = @_;
+	_debug("running: @args");
+	system {$args[0]} @args;
+}
 
 # http://freedesktop.org/wiki/CommonExtendedAttributes/
 
@@ -47,14 +53,17 @@ if (%attrs) {
 		my $val = $attrs{$key};
 		my $ret;
 		if (length $val) {
-			$ret = system "setfattr", "-n", $key, "-v", $val, "--", @files;
+			_debug("setting '$key' to '$val'");
+			$ret = _system("setfattr", "-n", $key,
+					"-v", $val, "--", @files);
 		} else {
-			$ret = system "setfattr", "-x", $key, "--", @files;
+			_debug("removing '$key'");
+			$ret = _system("setfattr", "-x", $key, "--", @files);
 		}
 		$exit |= $ret > 0;
 	}
 } else {
-	my $ret = system "getfattr", "--absolute-names", "-m", "-", "-d", @files;
+	my $ret = _system("getfattr", "--absolute-names", "-m", "-", "-d", @files);
 	$exit |= $ret > 0;
 }
 

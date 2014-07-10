@@ -41,7 +41,10 @@ struct sigaction saved_sigint;
 struct sigaction saved_sigtstp;
 struct sigaction saved_sigquit;
 
-char *opt_loader;
+struct {
+	char *loader;
+	char *shell;
+} opts;
 
 static void mask_signal(int signal, void (*handler)(int),
 		struct sigaction *origaction)
@@ -286,6 +289,8 @@ static void sushell(struct passwd *pwent)
 
 	if ((p = getenv("SUSHELL")))
 		shell = p;
+	else if (opts.shell)
+		shell = opts.shell;
 	else if (pwent && *pwent->pw_shell)
 		shell = pwent->pw_shell;
 	else
@@ -294,7 +299,7 @@ static void sushell(struct passwd *pwent)
 	if ((p = getenv("LDPATH")))
 		loader = p;
 	else
-		loader = opt_loader;
+		loader = opts.loader;
 
 	if (getcwd(home, sizeof(home)))
 		setenv("HOME", home, 1);
@@ -366,10 +371,13 @@ int main(int argc, char *argv[])
 
 	setlocale(LC_ALL, "");
 
-	while ((opt = getopt(argc, argv, "L:")) != -1) {
+	while ((opt = getopt(argc, argv, "L:S:")) != -1) {
 		switch (opt) {
 		case 'L':
-			opt_loader = optarg;
+			opts.loader = optarg;
+			break;
+		case 'S':
+			opts.shell = optarg;
 			break;
 		default:
 			exit(EXIT_FAILURE);

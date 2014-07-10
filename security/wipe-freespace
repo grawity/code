@@ -1,15 +1,25 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 dir="$1"
 
-cmd=()
+[[ "$dir" ]] || die "missing filesystem parameter"
 
-case $DESKTOP_SESSION in
-	gnome*|ubuntu*)
-		cmd+=(gnome-inhibit -f suspend -a "Disk wipe"
-			-r "Performing free space wipe");;
-esac
+[[ -d "$dir" ]] || die "given path is not a directory"
 
-cmd+=(sudo)
+cmd=(
+	gnome-inhibit
+		--who "${0##*/}"
+		--what "suspend"
+		--why "Cleaning free disk space"
+		--always
+	sudo
+	scrub
+		--freespace
+		--no-signature
+		--pattern random
+		"$dir/scrub"
+)
 
-"${cmd[@]}" scrub --freespace --no-signature --pattern random "$dir/scrub"
+"${cmd[@]}"

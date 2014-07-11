@@ -8,6 +8,7 @@ use Data::Dumper;
 use JSON;
 use List::Util;
 use Net::Twitter::Lite::WithAPIv1_1;
+use Nullroute::Lib qw(_debug _warn _err _die);
 use YAML::Syck;
 
 sub get_filename {
@@ -74,7 +75,7 @@ sub fetch_entire_timeline {
 
 		my $timeline = eval {$twitter->user_timeline(\%params)};
 		if (!$timeline) {
-			warn "Failure: $@\n"; sleep 1; redo;
+			_err("$@; retrying"); sleep 1; redo;
 		}
 
 		say "Received ".scalar(@$timeline)." tweets.";
@@ -123,7 +124,7 @@ sub fetch_tweets_since {
 
 		my $timeline = eval {$twitter->user_timeline(\%params)};
 		if (!$timeline) {
-			warn "Failure: $@\n"; sleep 1; redo;
+			_err("$@; retrying"); sleep 1; redo;
 		}
 
 		say "Received ".scalar(@$timeline)." tweets.";
@@ -172,7 +173,7 @@ sub fetch_all_favourites {
 
 		my $timeline = eval {$twitter->favorites(\%params)};
 		if (!$timeline) {
-			warn "Failure: $@\n"; sleep 1; redo;
+			_err("$@; retrying"); sleep 1; redo;
 		}
 
 		say "Received ".scalar(@$timeline)." tweets.";
@@ -199,12 +200,12 @@ sub store_tweets {
 	my ($tweets, $name) = @_;
 
 	my $file = get_filename($name);
-	print "Dumping ".scalar(@$tweets)." tweets to $file\n";
+	say "Dumping ".scalar(@$tweets)." tweets to $file";
 	if (open(my $f, ">", $file)) {
 		print $f JSON->new->pretty->encode($tweets);
 		close($f);
 	} else {
-		die "$!";
+		_die("couldn't open tweet file for writing: $!");
 	}
 }
 
@@ -216,11 +217,14 @@ sub load_tweets {
 	if (open(my $f, "<", $file)) {
 		$data = eval {local $/; <$f>};
 		close($f);
-	} else {
+	} elsif ($!{ENOENT}) {
+		_debug("couldn't open tweet file for reading: $!");
 		return undef;
+	} else {
+		_err("couldn't open tweet file for reading: $!");
 	}
 	my $tweets = JSON->new->decode($data);
-	print "Loading ".scalar(@$tweets)." tweets from $file\n";
+	say "Loading ".scalar(@$tweets)." tweets from $file";
 
 	return $tweets;
 }

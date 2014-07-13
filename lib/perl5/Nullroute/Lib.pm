@@ -19,6 +19,7 @@ our @EXPORT = qw(
 	_err
 	_die
 	_usage
+	_exit
 	forked
 	randstr
 	readfile
@@ -115,6 +116,8 @@ sub _err    { _msg(shift, "error", "\e[1;31m"); ++$::errors; }
 sub _die    { _err(shift); exit int(shift // 1); }
 
 sub _usage  { _msg($::arg0." ".shift, "usage", ""); }
+
+sub _exit   { exit ($::errors > 0); }
 
 sub forked (&) { fork || exit shift->(); }
 

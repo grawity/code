@@ -18,6 +18,7 @@ sub _xdg_basedir {
 	my ($env, $fallback, $suffix) = @_;
 
 	my $base = $ENV{$env} // catdir($ENV{HOME}, $fallback);
+
 	length($suffix) ? catfile($base, $suffix) : $base;
 }
 
@@ -33,6 +34,7 @@ sub _xdg_basedirs {
 	my @paths =
 		$local_func ? $local_func->($suffix) : (),
 		map {catfile($_, $suffix)} @sys_base;
+
 	_debug("checking for {@paths}");
 	grep {-e} @paths;
 }
@@ -69,19 +71,22 @@ sub _xdg_userdir {
 
 sub xdg_userdir {
 	my ($name, $suffix) = @_;
-	my ($env, $fallback);
 
-	$name = uc($name);
+	my ($base, $env, $fallback);
 
 	if ($name =~ /^public(?:share)?$/i) {
-		$env = "XDG_PUBLICSHARE_DIR";
+		$name = "publicshare";
 		$fallback = "Public";
+	} elsif ($name =~ /^downloads?$/i) {
+		$name = "download";
+		$fallback = "Downloads";
 	} else {
-		$env = "XDG_".uc($name)."_DIR";
 		$fallback = ucfirst($name);
 	}
 
-	my $base = _xdg_userdir($env) // catdir($ENV{HOME}, $fallback);
+	$env = "XDG_".uc($name)."_DIR";
+
+	$base = _xdg_userdir($env) // catdir($ENV{HOME}, $fallback);
 
 	length($suffix) ? catfile($base, $suffix) : $base;
 }

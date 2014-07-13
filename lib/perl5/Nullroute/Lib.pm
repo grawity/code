@@ -76,16 +76,16 @@ sub _fmsg {
 
 	my ($msg, $prefix, $color, $fmt_prefix, $fmt_color) = @_;
 
-	my $color = (-t 2) ? $fmt_color : "";
-	my $reset = (-t 2) ? "\e[m" : "";
+	my $color = (-t 1) ? $fmt_color : "";
+	my $reset = (-t 1) ? "\e[m" : "";
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
 	if ($pre_output) { $pre_output->($msg, $prefix); }
 
 	if (length $fmt_prefix) {
-		warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
+		print "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
 	} else {
-		warn "${nameprefix}${msg}\n";
+		print "${nameprefix}${msg}\n";
 	}
 
 	if ($post_output) { $post_output->($msg, $prefix); }

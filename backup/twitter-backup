@@ -100,55 +100,6 @@ sub fetch_entire_timeline {
 	return \@tweets;
 }
 
-sub fetch_tweets_since {
-	# start with oldest since_id
-	# repeat with since_id = highest id from previous fetch
-
-	my @tweets;
-	my %seen;
-	my $next_since_id = shift;
-
-	say "Downloading tweets since $next_since_id to latest";
-
-	while (1) {
-		my %params = (
-			count		=> "200",
-			exclude_replies	=> "false",
-			include_rts	=> "true",
-		);
-
-		my $msg = "Downloading $params{count} tweets";
-		if (defined $next_since_id) {
-			$params{since_id} = $next_since_id;
-			$msg .= " since $params{since_id}"
-		}
-		say $msg;
-
-		my $timeline = eval {$twitter->user_timeline(\%params)};
-		if (!$timeline) {
-			_err("$@; retrying"); sleep 1; redo;
-		}
-
-		say "Received ".scalar(@$timeline)." tweets.";
-		last if !@$timeline;
-
-		my $min_id = $timeline->[-1]->{id_str};
-		my $max_id = $timeline->[0]->{id_str};
-		say "  newest: $max_id";
-		say "  oldest: $min_id";
-
-		# timeline is sorted newest → oldest
-		my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
-		last if !@new;
-		push @tweets, @new;
-
-		$next_since_id = $max_id;
-	}
-
-	@tweets = reverse @tweets;
-	return \@tweets;
-}
-
 sub fetch_all_favourites {
 	# start with latest
 	# repeat with max_id = lowest id from previous fetch
@@ -239,7 +190,6 @@ if ($mode eq '-t') {
 	$tweets = load_tweets();
 	if (defined $tweets) {
 		my %seen = map {$_->{id_str} => 1} @$tweets;
-		my $since = $tweets->[-1]{id_str};
 		my $new = fetch_entire_timeline(\%seen);
 		push @$tweets, @$new;
 	} else {

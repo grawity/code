@@ -29,10 +29,6 @@ sub verbose {
 		{ print "\r\033[K", @_, "\n"; }
 }
 
-sub trace {
-	goto &Nullroute::Lib::_debug;
-}
-
 sub confirm {
 	print "$::arg0: ", shift, " "; $|++; <STDIN> =~ /^y/i;
 }
@@ -53,7 +49,7 @@ sub my_abs_path {
 	my $b = basename($path);
 	my $d = dirname($path);
 	my $rd = realpath($d);
-	trace("abs: dir='$d' realdir='$rd' base='$b'");
+	_debug("abs: dir='$d' realdir='$rd' base='$b'");
 	return $rd."/".$b;
 }
 
@@ -103,8 +99,8 @@ Copy a file or directory $source to $dest recursively and delete the originals.
 sub xdev_move {
 	my ($source, $dest) = @_;
 	my @opt;
-	trace("xdev_move: source='$source'");
-	trace("xdev_move: dest='$dest'");
+	_debug("xdev_move: source='$source'");
+	_debug("xdev_move: dest='$dest'");
 	verbose("Copying '$source' to \$HOME...");
 	@opt = qw(-a -H -A -X);
 	$ENV{DEBUG} and push @opt, qw(-v -h);
@@ -135,10 +131,10 @@ sub create_info {
 		$name = $i ? "$base-$i" : $base;
 		$info_path = "$trash_dir/info/$name.trashinfo";
 		if (sysopen($fh, $info_path, O_WRONLY|O_CREAT|O_EXCL)) {
-			trace("found free info_path='$info_path'");
+			_debug("found free info_path='$info_path'");
 			return ($name, $fh, $info_path);
 		} elsif ($! == EEXIST) {
-			trace("'$name.trashinfo' already exists, trying next...")
+			_debug("'$name.trashinfo' already exists, trying next...")
 				if ($i % 25 == 0);
 		} else {
 			_err("cannot create '$info_path' ($!)");
@@ -146,7 +142,7 @@ sub create_info {
 		}
 		++$i;
 	}
-	trace("giving up after $i failures");
+	_debug("giving up after $i failures");
 	_err("cannot create .trashinfo file (too many items named '$base')");
 	return undef;
 }
@@ -179,11 +175,11 @@ sub find_trash_dir {
 	my ($orig_path) = @_;
 	ensure($home_trash);
 
-	trace("trying to find trash for path='$orig_path'");
+	_debug("trying to find trash for path='$orig_path'");
 	my $fdev = dev($orig_path);
 	while (!defined $fdev) {
 		$orig_path = dirname($orig_path);
-		trace("...path not found, using parent='$orig_path'");
+		_debug("...path not found, using parent='$orig_path'");
 		$fdev = dev($orig_path);
 	}
 
@@ -223,9 +219,9 @@ sub trash {
 		confirm("Kill file <$path>?") || return;
 	}
 	my $orig_path = my_abs_path($path);
-	trace("orig_path='$orig_path'");
+	_debug("orig_path='$orig_path'");
 	my $trash_dir = find_trash_dir($orig_path);
-	trace("trash_dir='$trash_dir'");
+	_debug("trash_dir='$trash_dir'");
 	ensure($trash_dir);
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	if (!$info_fh) {

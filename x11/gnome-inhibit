@@ -10,8 +10,21 @@ use locale;
 use Getopt::Long qw(:config no_ignore_case bundling require_order);
 use List::Util qw(max);
 use Net::DBus;
-use Nullroute::Lib qw(_warn _err _die);
 use POSIX;
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+	} else {
+		$::arg0 = $0;
+		$::arg0 =~ s!.*/!!;
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _info  { say $::arg0.": ".shift; }
+		sub _warn  { warn "warning: @_\n"; }
+		sub _err   { warn "error: @_\n"; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
 
 # Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
 my %FLAGS = (
@@ -173,13 +186,10 @@ sub display_inhibitors {
 my $do_list	= 0;
 my $do_test	= 0;
 my $always	= 0;
-my $verbose	= !!$ENV{DEBUG};
 my $app_id	= $::arg0;
 my $reason	= "User-initiated inhibit";
 my $flagstr	= undef;
 my $top_xid	= 0;
-
-sub _info { say $::arg0.": ".shift if $verbose; }
 
 GetOptions(
 	'A|always'	=> \$always,
@@ -281,29 +291,30 @@ if ($do_list && $do_test) {
 	if ($bus) {
 		$cookie = SessionManager->Inhibit($app_id, $top_xid, $reason, $flags);
 		if ($cookie) {
-			_info("inhibited: ".flags_to_string($flags));
+			_debug("inhibited: ".flags_to_string($flags)." ($cookie)");
 		} else {
 			_err("inhibit failed");
 			exit 1;
 		}
 	} else {
-		_info("gnome-session not running; inhibit not added");
+		_debug("gnome-session not running; inhibit not added");
 	}
 
 	my @cmd = @ARGV;
 	my $return = 0;
 
 	if (@cmd) {
-		_info("executing: @cmd");
+		_debug("executing: @cmd");
 		$return = system {$cmd[0]} @cmd;
 		$return = POSIX::WEXITSTATUS($return);
+		_debug("command returned status $return");
 	} else {
 		$SIG{INT} = sub {
-			_info("SIGINT caught, exiting");
+			_debug("SIGINT caught, exiting");
 			SessionManager->Uninhibit($cookie) if $cookie;
 			exit 0;
 		};
-		say "$::arg0: pausing until signal; use Ctrl-C to interrupt";
+		_info("pausing until signal; use Ctrl-C to interrupt");
 		POSIX::pause();
 	}
 

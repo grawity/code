@@ -7,6 +7,11 @@ $width = int(`stty size </dev/tty | awk '{print \$2}'`);
 $count = 0;
 $last = time;
 
+$SIG{INT} = sub {
+	printf("\r\033[K%s\n", "$count items (interrupted)");
+	exit 1;
+};
+
 while (++$count, $str = <STDIN>) {
 	$now = time;
 	next if $now - $last < 1;

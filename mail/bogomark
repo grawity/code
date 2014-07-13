@@ -2,12 +2,13 @@
 # bogomark - mark all files in a Maildir as ham or spam using bogofilter.
 
 : ${XDG_CACHE_HOME:="$HOME/.cache"}
+: ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
 MAILDIR="$HOME/Mail"
 FS_LAYOUT=false
 
 lock() {
-	exec {lockfd}>"$XDG_CACHE_HOME/bogomark.lock"
+	exec {lockfd}>"$XDG_RUNTIME_DIR/bogomark.lock"
 	if ! flock -xn $lockfd; then
 		echo "bogomark: another instance running" >&2
 		exit 1
@@ -16,7 +17,7 @@ lock() {
 
 unlock() {
 	exec {lockfd}>&-
-	rm -f "$XDG_CACHE_HOME/bogomark.lock"
+	rm -f "$XDG_RUNTIME_DIR/bogomark.lock"
 }
 
 usage() {

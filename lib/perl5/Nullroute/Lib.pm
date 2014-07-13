@@ -82,7 +82,11 @@ sub _fmsg {
 
 	if ($pre_output) { $pre_output->($msg, $prefix); }
 
-	warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
+	if (length $fmt_prefix) {
+		warn "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
+	} else {
+		warn "${nameprefix}${msg}\n";
+	}
 
 	if ($post_output) { $post_output->($msg, $prefix); }
 }
@@ -99,7 +103,7 @@ sub _say {
 
 sub _debug  { _msg(shift, "debug", "\e[36m", @_) if $::debug; }
 
-sub _info   { _msg(shift, "info", "\e[1;34m"); }
+sub _info   { _fmsg(shift, "info", "\e[1;34m", "", ""); }
 
 sub _log    { _fmsg(shift, "log", "\e[1;32m", "--", "\e[32m"); }
 

@@ -48,15 +48,16 @@ sub usage {
 	"      --help                    This message",
 	"  -l, --list                    List active inhibitors",
 	"  -t, --test                    Test if any inhibitors are present",
-	"  -v, --verbose                 Verbose mode",
 	"",
 	"Flags can be specified as a comma- or colon-separated list, or the word \'all\'.",
 	"Supported flags are: ".join(" ", sort keys %FLAGS),
 	"",
 	"If --list is given, --flags will be used as a list filter (default: show all).",
+	"Specify --list twice to get more verbose output.",
 	"",
 	"If --test is given, the tool will exit with code 1 if any of the given",
-	"operations from --flags are inhibited.",
+	"operations from --flags are inhibited. Specify --test twice to get verbose",
+	"output.",
 	"",
 	"If both --list and --test are given, all inhibited actions will be listed in",
 	"terse form, optionally with --flags used as a list filter.",
@@ -184,10 +185,9 @@ GetOptions(
 	'A|always'	=> \$always,
 	'a|app-id=s'	=> \$app_id,
 	'f|flags=s'	=> \$flagstr,
-	'l|list'	=> \$do_list,
+	'l|list+'	=> \$do_list,
 	'r|reason=s'	=> \$reason,
-	't|test'	=> \$do_test,
-	'v|verbose'	=> \$verbose,
+	't|test+'	=> \$do_test,
 	'what=s'	=> \$flagstr,
 	'who=s'		=> \$app_id,
 	'why=s'		=> \$reason,
@@ -220,6 +220,11 @@ if ($always) {
 }
 
 if ($do_list && $do_test) {
+	if ($do_list > 1 || $do_test > 1) {
+		_err("specifying both -l and -t multiple times doesn't make sense");
+		exit 2;
+	}
+
 	if (!$bus) {
 		_warn("gnome-session is not running");
 		exit 0;
@@ -232,6 +237,8 @@ if ($do_list && $do_test) {
 
 	exit 0;
 } elsif ($do_list) {
+	my $verbose = ($do_list > 1);
+
 	if (!$bus) {
 		_warn("gnome-session is not running");
 		exit 0;
@@ -242,6 +249,8 @@ if ($do_list && $do_test) {
 
 	exit 0;
 } elsif ($do_test) {
+	my $verbose = ($do_test > 1);
+
 	if (!$bus) {
 		say "no" if $verbose;
 		exit 0;

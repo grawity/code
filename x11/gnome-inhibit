@@ -308,16 +308,9 @@ if ($do_list && $do_test) {
 		$return = system {$cmd[0]} @cmd;
 		$return = POSIX::WEXITSTATUS($return);
 		_debug("command returned status $return");
+		exit $return;
 	} else {
-		$SIG{INT} = sub {
-			_debug("SIGINT caught, exiting");
-			SessionManager->Uninhibit($cookie) if $cookie;
-			exit 0;
-		};
 		_info("pausing until signal; use Ctrl-C to interrupt");
 		POSIX::pause();
 	}
-
-	SessionManager->Uninhibit($cookie) if $cookie;
-	exit $return;
 }

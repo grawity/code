@@ -11,7 +11,20 @@ use File::Path qw(make_path);
 use File::Spec::Functions;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use POSIX qw(strftime);
-use Nullroute::Lib qw(_warn _err _die);
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+	} else {
+		our ($arg0,$warnings, $errors);
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _info  { print "@_\n"; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
 
 our $INTERACTIVE = 0;
 our $VERBOSE = 1;
@@ -23,10 +36,8 @@ my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
 my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
 
 sub verbose {
-	if ($::debug)
-		{ goto &Nullroute::Lib::_info; }
-	elsif ($VERBOSE)
-		{ print "\r\033[K", @_, "\n"; }
+	goto &_info if $::debug;
+	print "\r\033[K", @_, "\n" if $VERBOSE;
 }
 
 sub confirm {

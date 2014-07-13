@@ -14,10 +14,10 @@ _lvl=$(( LVL++ )); export LVL
 
 ## Variable defaults
 
-: ${XDG_CACHE_HOME:=$HOME/.cache}
-: ${XDG_CONFIG_HOME:=$HOME/.config}
-: ${XDG_DATA_HOME:=$HOME/.local/share}
-: ${XDG_DATA_DIRS:=/usr/local/share:/usr/share}
+: ${XDG_CACHE_HOME:="$HOME/.cache"}
+: ${XDG_CONFIG_HOME:="$HOME/.config"}
+: ${XDG_DATA_HOME:="$HOME/.local/share"}
+: ${XDG_DATA_DIRS:="/usr/local/share:/usr/share"}
 
 if [[ -e /etc/os-release ]]
 	then _path_os_release="/etc/os-release"

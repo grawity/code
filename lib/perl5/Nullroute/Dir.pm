@@ -8,6 +8,9 @@ our @EXPORT = qw(
 	xdg_cache
 	xdg_data
 	xdg_runtime
+
+	xdg_configs
+
 	xdg_userdir
 );
 
@@ -23,12 +26,29 @@ sub xdg_config  { _xdg_basedir("XDG_CONFIG_HOME", ".config",      @_); }
 sub xdg_data    { _xdg_basedir("XDG_DATA_HOME",   ".local/share", @_); }
 sub xdg_runtime { _xdg_basedir("XDG_RUNTIME_DIR", xdg_cache(@_),  @_); }
 
+sub _xdg_basedirs {
+	my ($local_func, $sys_env, $sys_fallback, $suffix) = @_;
+
+	my @sys_base = split(/:/, $ENV{$sys_env} // $sys_fallback);
+	my @paths =
+		$local_func ? $local_func->($suffix) : (),
+		map {catfile($_, $suffix)} @sys_base;
+	_debug("checking for {@paths}");
+	grep {-e} @paths;
+}
+
+sub xdg_configs { _xdg_basedirs(\&xdg_config, "XDG_CONFIG_DIRS", "/etc/xdg", @_); }
+
 sub _xdg_userdir {
 	my ($env) = @_;
 
-	my $conf = xdg_config("user-dirs.dirs");
+	my ($conf) = xdg_configs("user-dirs.dirs");
 
-	if (open(my $file, "<", $conf)) {
+	if (!$conf) {
+		_debug("could not find 'user-dirs.dirs' in any XDG config path");
+	} elsif (!open(my $file, "<", $conf)) {
+		_debug("could not open \"$conf\": $!");
+	} else {
 		_debug("trying to find \$$env in \"$conf\"");
 		while (<$file>) {
 			next unless /^\Q$env\E=(.+)$/;
@@ -42,8 +62,6 @@ sub _xdg_userdir {
 		}
 		close($file);
 		_debug("no results, giving up");
-	} else {
-		_debug("could not open \"$conf\": $!");
 	}
 
 	return undef;

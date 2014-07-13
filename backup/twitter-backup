@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
 use bignum;
-use feature qw(say);
 use open qw(:std :utf8);
 use strict;
 use warnings;
@@ -8,7 +7,7 @@ use Data::Dumper;
 use JSON;
 use List::Util;
 use Net::Twitter::Lite::WithAPIv1_1;
-use Nullroute::Lib qw(_debug _warn _err _die);
+use Nullroute::Lib;
 use YAML::Syck;
 
 sub get_filename {
@@ -58,7 +57,7 @@ sub fetch_entire_timeline {
 	my @tweets;
 	my $next_max_id;
 
-	say "Downloading entire timeline (latest to oldest)";
+	_log("downloading entire timeline (latest to oldest)");
 
 	while (1) {
 		my %params = (
@@ -72,24 +71,24 @@ sub fetch_entire_timeline {
 			$params{max_id} = $next_max_id;
 			$msg .= " up to $params{max_id}";
 		}
-		say $msg;
+		_info($msg);
 
 		my $timeline = eval {$twitter->user_timeline(\%params)};
 		if (!$timeline) {
 			_err("$@; retrying"); sleep 1; redo;
 		}
 
-		say "Received ".scalar(@$timeline)." tweets.";
+		_info("Received ".scalar(@$timeline)." tweets.");
 		last if !@$timeline;
 
 		my $min_id = $timeline->[-1]->{id_str};
 		my $max_id = $timeline->[0]->{id_str};
-		say "  newest: $max_id";
-		say "  oldest: $min_id";
+		_info("  newest: $max_id");
+		_info("  oldest: $min_id");
 
 		# timeline is sorted newest → oldest
 		my @new = grep {!$seen->{$_->{id_str}}++} @$timeline;
-		say "  unseen: ".scalar(@new);
+		_info("  unseen: ".scalar(@new));
 		last if !@new;
 		push @tweets, @new;
 
@@ -108,7 +107,7 @@ sub fetch_all_favourites {
 	my %seen;
 	my $next_max_id;
 
-	say "Downloading entire favorites (latest to oldest)";
+	_log("downloading all favorites (latest to oldest)");
 
 	while (1) {
 		my %params = (
@@ -122,20 +121,20 @@ sub fetch_all_favourites {
 			$params{max_id} = $next_max_id;
 			$msg .= " up to $params{max_id}";
 		}
-		say $msg;
+		_info($msg);
 
 		my $timeline = eval {$twitter->favorites(\%params)};
 		if (!$timeline) {
 			_err("$@; retrying"); sleep 1; redo;
 		}
 
-		say "Received ".scalar(@$timeline)." tweets.";
+		_info("Received ".scalar(@$timeline)." tweets.");
 		last if !@$timeline;
 
 		my $min_id = $timeline->[-1]->{id_str};
 		my $max_id = $timeline->[0]->{id_str};
-		say "  newest: $max_id";
-		say "  oldest: $min_id";
+		_info("  newest: $max_id");
+		_info("  oldest: $min_id");
 
 		# timeline is sorted newest → oldest
 		my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
@@ -153,13 +152,13 @@ sub store_tweets {
 	my ($tweets, $name) = @_;
 
 	my $file = get_filename($name);
-	say "Dumping ".scalar(@$tweets)." tweets to $file";
 	if (open(my $f, ">", $file)) {
 		print $f JSON->new->pretty->encode($tweets);
 		close($f);
 	} else {
 		_die("couldn't open tweet file for writing: $!");
 	}
+	_log("stored ".scalar(@$tweets)." tweets to $file");
 }
 
 sub load_tweets {
@@ -177,7 +176,7 @@ sub load_tweets {
 		_err("couldn't open tweet file for reading: $!");
 	}
 	my $tweets = JSON->new->decode($data);
-	say "Loading ".scalar(@$tweets)." tweets from $file";
+	_log("loaded ".scalar(@$tweets)." tweets from $file");
 
 	return $tweets;
 }

@@ -52,7 +52,7 @@ sub _msg {
 		my $skip = ($opt{skip} || 0) + 1;
 		my @frame;
 		do {
-			@frame = caller($skip++);
+			@frame = caller(++$skip);
 			$frame[3] //= "main";
 			$frame[3] =~ s/^main:://;
 		} while ($frame[3] eq "__ANON__");

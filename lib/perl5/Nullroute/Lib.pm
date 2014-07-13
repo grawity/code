@@ -52,8 +52,7 @@ sub _msg {
 		my $skip = ($opt{skip} || 0) + 1;
 		my @frame;
 		do {
-			++$skip;
-			@frame = caller($skip);
+			@frame = caller($skip++);
 			$frame[3] //= "main";
 			$frame[3] =~ s/^main:://;
 		} while ($frame[3] eq "__ANON__");
@@ -113,7 +112,7 @@ sub _warn   { _msg(shift, "warning", "\e[1;33m"); ++$::warnings; }
 
 sub _err    { _msg(shift, "error", "\e[1;31m"); ++$::errors; }
 
-sub _die    { _err(shift); exit 1; }
+sub _die    { _err(shift); exit int(shift // 1); }
 
 sub _usage  { _msg($::arg0." ".shift, "usage", ""); }
 

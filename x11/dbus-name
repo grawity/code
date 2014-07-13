@@ -15,7 +15,7 @@ my $quiet = 0;
 my $list = 0;
 my $wait = 0;
 my $watch = 0;
-my $color = 0;
+my $color = undef;
 
 sub read_line {
 	my ($file) = @_;
@@ -78,6 +78,8 @@ sub usage {
 	"  -q, --quiet            Remain silent, just set exit code if name exists",
 	"                         In wait/watch mode: don't show PIDs and unique names",
 	"",
+	"  --[no-]color           Always/never use colored output",
+	"",
 	"Without explicit bus specification, the heuristics implemented by Net::DBus",
 	"will be used (session if DBUS_SESSION_BUS_ADDRESS is set, system otherwise).",
 	"",
@@ -90,6 +92,7 @@ GetOptions(
 	"e|session"	=> sub { $busaddr = "session"; },
 	"user"		=> sub { $busaddr = "user"; },
 	"a|address=s"	=> \$busaddr,
+	"color!"	=> \$color,
 	"q|quiet"	=> \$quiet,
 	"A|activate"	=> \$activate,
 	"l|list"	=> \$list,
@@ -98,7 +101,7 @@ GetOptions(
 	"watch"		=> \$watch,
 ) or exit 2;
 
-$color = -t 1 && length($ENV{TERM} // "") > 0;
+$color //= -t 1 && length($ENV{TERM} // "") > 0;
 
 my %color = (
 	"+"   => $color ? "\e[1;32m" : "",

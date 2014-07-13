@@ -14,6 +14,11 @@ our @EXPORT = qw(
 	xdg_userdir
 );
 
+my %XDG_FALLBACK = (
+	DOWNLOAD    => "Downloads",
+	PUBLICSHARE => "Public",
+);
+
 sub _xdg_basedir {
 	my ($env, $fallback, $suffix) = @_;
 
@@ -72,21 +77,10 @@ sub _xdg_userdir {
 sub xdg_userdir {
 	my ($name, $suffix) = @_;
 
-	my ($base, $env, $fallback);
-
-	if ($name =~ /^public(?:share)?$/i) {
-		$name = "publicshare";
-		$fallback = "Public";
-	} elsif ($name =~ /^downloads?$/i) {
-		$name = "download";
-		$fallback = "Downloads";
-	} else {
-		$fallback = ucfirst($name);
-	}
-
-	$env = "XDG_".uc($name)."_DIR";
-
-	$base = _xdg_userdir($env) // catdir($ENV{HOME}, $fallback);
+	my $name = uc($name);
+	my $env = "XDG_".$name."_DIR";
+	my $fallback = $XDG_FALLBACK{$name} // ucfirst($name);
+	my $base = _xdg_userdir($env) // catdir($ENV{HOME}, $fallback);
 
 	length($suffix) ? catfile($base, $suffix) : $base;
 }

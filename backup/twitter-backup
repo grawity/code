@@ -53,8 +53,9 @@ sub fetch_entire_timeline {
 	# start with latest
 	# repeat with max_id = lowest id from previous fetch
 
+	my ($seen) = @_;
+
 	my @tweets;
-	my %seen;
 	my $next_max_id;
 
 	say "Downloading entire timeline (latest to oldest)";
@@ -87,7 +88,8 @@ sub fetch_entire_timeline {
 		say "  oldest: $min_id";
 
 		# timeline is sorted newest → oldest
-		my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
+		my @new = grep {!$seen->{$_->{id_str}}++} @$timeline;
+		say "  unseen: ".scalar(@new);
 		last if !@new;
 		push @tweets, @new;
 
@@ -238,8 +240,8 @@ if ($mode eq '-t') {
 	if (defined $tweets) {
 		my %seen = map {$_->{id_str} => 1} @$tweets;
 		my $since = $tweets->[-1]{id_str};
-		my $new = fetch_tweets_since($since);
-		push @$tweets, grep {!$seen{$_->{id_str}}++} @$new;
+		my $new = fetch_entire_timeline(\%seen);
+		push @$tweets, @$new;
 	} else {
 		$tweets = fetch_entire_timeline();
 	}

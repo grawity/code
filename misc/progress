@@ -4,18 +4,18 @@
 $| = 1;
 
 $width = int(`stty size </dev/tty | awk '{print \$2}'`);
-
+$count = 0;
 $last = time;
 
-while (++$i, $str = <STDIN>) {
+while (++$count, $str = <STDIN>) {
 	$now = time;
 	next if $now - $last < 1;
 	$last = $now;
 
 	chomp($str);
-	$pre = sprintf("%d ", $i);
+	$pre = sprintf("%d ", $count);
 	$str = substr($str, 0, $width - length($pre));
 	printf("\r\033[K%s%s\r", $pre, $str);
 }
 
-printf("\r\033[K%s\n", "$i items");
+printf("\r\033[K%s\n", "$count items");

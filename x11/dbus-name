@@ -104,6 +104,7 @@ my %color = (
 	"+"   => $color ? "\e[1;32m" : "",
 	"~"   => $color ? "\e[1;33m" : "",
 	"-"   => $color ? "\e[1;31m" : "",
+	gray  => $color ? "\e[1;30m" : "",
 	reset => $color ? "\e[m"     : "",
 );
 
@@ -170,16 +171,21 @@ if ($list) {
 				? length($new_owner) ? "~" : "-"
 				: length($new_owner) ? "+" : "?";
 		if ($quiet) {
-			say $color{$state}, $state, $color{reset},
+			say $color{$state}, $state, $color{"reset"},
 				" ", $bus_name;
 		} else {
 			my $new_proc = get_conn_name($new_owner);
-			say $color{$state}, $state, $color{reset},
+			say $color{$state}, $state, $color{"reset"},
 				" ", $bus_name,
-				" ", length($old_owner) ? $old_owner : "(none)",
-				" ", length($new_owner) ? $new_owner : "(none)",
-				length($new_owner)
-					? (" [", $new_proc // "none", "]") : ();
+				" ",
+					length($old_owner) ? $color{"-"} : $color{"gray"},
+					length($old_owner) ? $old_owner : "(none)",
+					$color{"reset"},
+				" ",
+					length($new_owner) ? $color{"+"} : $color{"gray"},
+					length($new_owner) ? $new_owner : "(none)",
+					$color{"reset"},
+				length($new_owner) ? (" [", $new_proc // "none", "]") : ();
 		}
 	});
 	Net::DBus::Reactor->main->run;

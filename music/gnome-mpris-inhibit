@@ -7,6 +7,11 @@ use strict;
 use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
+use constant {
+	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
+	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
+	MPRIS_PLAYER_IFACE	=> 'org.mpris.MediaPlayer2.Player',
+};
 
 my %FLAGS = (
 # Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
@@ -141,16 +146,16 @@ sub init_watch {
 
 	my $player_prop = $bus->get_service($player_bus_name)
 			->get_object("/org/mpris/MediaPlayer2")
-			->as_interface("org.freedesktop.DBus.Properties");
+			->as_interface(DBUS_PROPERTY_IFACE);
 
 	$player_prop->connect_to_signal("PropertiesChanged", sub {
 		my ($iface, $changed, $invalidated) = @_;
-		if ($iface eq "org.mpris.MediaPlayer2.Player") {
+		if ($iface eq MPRIS_PLAYER_IFACE) {
 			my $new_status;
 			if ("PlaybackStatus" ~~ $changed) {
 				$new_status = $changed->{PlaybackStatus};
 			} elsif ("PlaybackStatus" ~~ $invalidated) {
-				$new_status = $player_prop->Get("org.mpris.MediaPlayer2.Player",
+				$new_status = $player_prop->Get(MPRIS_PLAYER_IFACE,
 								"PlaybackStatus");
 			} else {
 				return;
@@ -168,9 +173,9 @@ sub init_watch {
 		}
 	});
 
-	$app_id = $player_prop->Get("org.mpris.MediaPlayer2", "Identity") // $app_id;
+	$app_id = $player_prop->Get(MPRIS_MAIN_IFACE, "Identity") // $app_id;
 
-	$old_status = $player_prop->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
+	$old_status = $player_prop->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
 	trace("status currently: $old_status");
 	if ($old_status eq 'Playing') {
 		inhibit();

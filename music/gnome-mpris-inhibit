@@ -8,6 +8,18 @@ use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
 
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($arg0, $warnings, $errors);
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
 # Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
 my %FLAGS = (
 	"logout"	=> 1<<0,
@@ -24,9 +36,7 @@ sub usage {
 	"Prevents system from automatically going into suspend while music is playing.",
 	"",
 	"<playername> is the last component of the player's MPRISv2 D-Bus name; for",
-	"example, \"banshee\" for \"org.mpris.MediaPlayer2.banshee\".",
-	;
-	exit(2);
+	"example, \"banshee\" for \"org.mpris.MediaPlayer2.banshee\".";
 }
 
 # copied from gnome-inhibit:
@@ -45,31 +55,36 @@ sub string_to_flags {
 		} elsif (/^(0x[0-9a-fA-F]+)$/) {
 			$flags |= hex $_;
 		} else {
-			warn "Unknown inhibit flag: '$_'\n";
+			_warn("unknown inhibit flag: '$_'");
 		}
 	}
 	if ($flags >> 31) {
-		die "Inhibit bitmask too large (must be an uint32)\n";
+		_die("inhibit bitmask too large (must be an uint32)");
 	}
 	return $flags;
 }
 
 # Option parser
 
-my $flagstr	= "idle";
+my $flagstr = "idle";
 
 GetOptions(
+	'h|help'	=> sub { usage(), exit; },
 	'f|flags=s'	=> \$flagstr,
-	'help'		=> \&usage,
 ) or exit(2);
 
-my $player_name = shift(@ARGV) // usage();
+my $player_name = shift(@ARGV);
 
-if ($player_name =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
-	$player_name = $1;
-} elsif ($player_name =~ /^org\.mpris\./) {
-	warn "error: MPRIS v1 interface is not supported\n";
-	exit(1);
+for ($player_name) {
+	if (!defined $_) {
+		_die("missing player name");
+	}
+	elsif (/^org\.mpris\.MediaPlayer2\.(.+)$/) {
+		$player_name = $1;
+	}
+	elsif (/^org\.mpris\./) {
+		_die("MPRISv1 interface is not supported");
+	}
 }
 
 # Inhibit API settings
@@ -86,36 +101,30 @@ my $ih_cookie;
 my $old_status;
 my $watching;
 
-my $log_prefix	= $app_id;
 my $bus;
 my $sessmgr;
 
-sub trace {
-	my ($msg) = @_;
-	say "$log_prefix: $msg" if $ENV{DEBUG};
-}
-
 sub inhibit {
 	if ($ih_cookie) {
-		warn "$log_prefix: double inhibit attempted (have cookie $ih_cookie)";
+		_warn("double inhibit attempted (have cookie $ih_cookie)");
 		return;
 	}
 	$ih_cookie = $sessmgr->Inhibit($app_id, $top_xid, $reason, $flags);
-	trace("inhibit ok ($ih_cookie)");
+	_debug("inhibit ok ($ih_cookie)");
 }
 
 sub uninhibit {
 	if (!$ih_cookie) {
-		warn "$log_prefix: double uninhibit attempted";
+		_warn("double uninhibit attempted");
 		return;
 	}
 	$sessmgr->Uninhibit($ih_cookie);
 	$ih_cookie = 0;
-	trace("uninhibit ok");
+	_debug("uninhibit ok");
 }
 
 sub init_watch {
-	trace("started watching");
+	_debug("started watching");
 
 	$sessmgr = $bus->get_service("org.gnome.SessionManager")
 			->get_object("/org/gnome/SessionManager");
@@ -136,7 +145,7 @@ sub init_watch {
 			} else {
 				return;
 			}
-			trace("status change: $old_status -> $new_status");
+			_debug("status change: $old_status -> $new_status");
 
 			if ($new_status eq $old_status) {
 				return;
@@ -152,7 +161,7 @@ sub init_watch {
 	$app_id = $player_prop->Get("org.mpris.MediaPlayer2", "Identity") // $app_id;
 
 	$old_status = $player_prop->Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus");
-	trace("status currently: $old_status");
+	_debug("status currently: $old_status");
 	if ($old_status eq 'Playing') {
 		inhibit();
 	}
@@ -169,10 +178,10 @@ $dbus->connect_to_signal("NameOwnerChanged", sub {
 	my ($name, $old_owner, $new_owner) = @_;
 	if ($name eq $player_bus_name) {
 		if ($old_owner eq "" and $new_owner ne "") {
-			trace("$name claimed");
+			_debug("$name claimed");
 			init_watch() if !$watching;
 		} elsif ($old_owner ne "" and $new_owner eq "") {
-			trace("$name disappeared");
+			_debug("$name disappeared");
 			uninhibit() if $ih_cookie;
 			$old_status = 'Stopped';
 		}
@@ -182,7 +191,7 @@ $dbus->connect_to_signal("NameOwnerChanged", sub {
 if (defined $bus->get_service_owner($player_bus_name)) {
 	init_watch();
 } else {
-	trace("waiting for $player_bus_name to appear");
+	_debug("waiting for $player_bus_name to appear");
 }
 
 my $reactor = Net::DBus::Reactor->main;

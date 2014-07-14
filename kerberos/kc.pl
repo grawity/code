@@ -36,6 +36,16 @@ my @caches;
 
 my $can_switch = 1;
 
+sub usage {
+	say for
+	"Usage: kc",
+	"       kc <name>|\"@\" [kinit_args]",
+	"       kc <number>",
+	"       kc {list|slist}",
+	"       kc purge",
+	"       kc destroy <name|number>...";
+}
+
 sub _debugvar {
 	my ($var, $val) = @_;
 	@_ = ($var."='".($val//"")."'");
@@ -656,12 +666,7 @@ my $cmd = shift @ARGV;
 
 for ($cmd) {
 	when (["-h", "--help"]) {
-		say for
-		"Usage: kc [list]",
-		"       kc <name>|\"@\" [kinit_args]",
-		"       kc <number>",
-		"       kc purge",
-		"       kc destroy <name|number>...";
+		usage();
 	}
 	when (undef) {
 		my $num = 0;

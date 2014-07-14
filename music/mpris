@@ -10,24 +10,24 @@ use Data::Dumper;
 use List::Util qw(max);
 use Net::DBus qw(:typing);
 use Net::DBus::Reactor;
-
-BEGIN {
-	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _warn _err _die));
-	} else {
-		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
-		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
-		sub _err   { warn "error: @_\n"; ++$::errors; }
-		sub _die   { _err(@_); exit 1; }
-	}
-}
-
 use constant {
 	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
 	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
 	MPRIS_PLAYER_IFACE	=> 'org.mpris.MediaPlayer2.Player',
 	MPRIS_PLAYLIST_IFACE	=> 'org.mpris.MediaPlayer2.Playlists',
 };
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($warnings, $errors);
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
 
 my $bus = Net::DBus->session;
 
@@ -1048,7 +1048,7 @@ for ($player) {
 	when (/^-/) {
 		# other dash-options
 		usage();
-		exit;
+		exit 2;
 	}
 	when (/^$prefix_re/) {
 		# full MPRIS v2 bus name

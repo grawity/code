@@ -8,15 +8,24 @@ use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
 
+my %FLAGS = (
+# Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
+	"logout"	=> 1<<0,
+	"switch-user"	=> 1<<1,
+	"suspend"	=> 1<<2,
+	"idle"		=> 1<<3,
+	"automount"	=> 1<<4,
+);
+
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _warn _err _die));
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
 	} else {
 		our ($warnings, $errors);
 		$::arg0 = (split m!/!, $0)[-1];
 		$::debug = !!$ENV{DEBUG};
 		sub _debug { warn "debug: @_\n" if $::debug; }
-		sub _info  { say "$::arg0: @_"; }
+		sub _info  { say "@_"; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
@@ -26,18 +35,8 @@ BEGIN {
 my $verbose = 0;
 
 sub trace {
-	goto &_debug if $::debug;
-	goto &_info if $verbose;
+	goto &_info if $::debug || $verbose;
 }
-
-# Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
-my %FLAGS = (
-	"logout"	=> 1<<0,
-	"switch-user"	=> 1<<1,
-	"suspend"	=> 1<<2,
-	"idle"		=> 1<<3,
-	"automount"	=> 1<<4,
-);
 
 # copied from gnome-inhibit:
 sub string_to_flags {
@@ -82,7 +81,7 @@ GetOptions(
 	'h|help'	=> sub { usage(), exit; },
 	'f|flags=s'	=> \$flagstr,
 	'v|verbose!'	=> \$verbose,
-) or exit(2);
+) or exit 2;
 
 my $player_name = shift(@ARGV);
 

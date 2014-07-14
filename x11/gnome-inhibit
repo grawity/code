@@ -1,8 +1,5 @@
 #!/usr/bin/env perl
 # gnome-inhibit - temporarily suspend "session idle" check in GNOME
-#
-# © 2012 Mantas M. <grawity@gmail.com>
-# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 use v5.10;
 use warnings;
 use strict;
@@ -12,22 +9,8 @@ use List::Util qw(max);
 use Net::DBus;
 use POSIX;
 
-BEGIN {
-	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
-	} else {
-		our ($warnings, $errors);
-		$::arg0 = (split m!/!, $0)[-1];
-		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
-		sub _info  { say "$::arg0: @_"; }
-		sub _warn  { warn "warning: @_\n"; }
-		sub _err   { warn "error: @_\n"; }
-		sub _die   { _err(@_); exit 1; }
-	}
-}
-
-# Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
 my %FLAGS = (
+# Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
 	"logout"	=> 1<<0,
 	"switch-user"	=> 1<<1,
 	"suspend"	=> 1<<2,
@@ -35,49 +18,27 @@ my %FLAGS = (
 	"automount"	=> 1<<4,
 );
 
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+	} else {
+		our ($warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _info  { say "@_"; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
 my $bus;
 
 sub SessionManager {
 	$bus
 	->get_service("org.gnome.SessionManager")
 	->get_object(shift // "/org/gnome/SessionManager")
-}
-
-sub usage {
-	say for
-	"Usage: gnome-inhibit [options] [<command> [args...]]",
-	"Usage: gnome-inhibit [options] {--list|--test}",
-	"",
-	# for compatibility with systemd-inhibit
-	"  --who <application>           Application name (alias for --app-id)",
-	"  --what <flags>                Inhibitor flags  (alias for --flags)",
-	"  --why <reason>                Inhibit reason   (alias for --reason)",
-	"",
-	"  -a, --app-id <application>    Application name to identify ourselves as",
-	"  -f, --flags <flags>           Inhibitor flags (default: \"idle\")",
-	"  -r, --reason <reason>         Inhibit reason",
-	"",
-	"  -A, --always                  Run command even if gnome-session not running",
-	"      --help                    This message",
-	"  -l, --list                    List active inhibitors",
-	"  -t, --test                    Test if any inhibitors are present",
-	"  -v, --verbose                 More output for --list or --test",
-	"",
-	"Flags can be specified as a comma- or colon-separated list, or the word \'all\'.",
-	"Supported flags are: ".join(" ", sort keys %FLAGS),
-	"",
-	"If --list is given, --flags will be used as a list filter (default: show all).",
-	"",
-	"If --test is given, the tool will exit with code 1 if any of the given",
-	"operations from --flags are inhibited.",
-	"",
-	"If both --list and --test are given, all inhibited actions will be listed in",
-	"terse form, optionally with --flags used as a list filter.",
-	"",
-	"If <command> is given, inhibit will last until the command exits; otherwise,",
-	"this tool calls pause() and keeps running until manually killed/terminated.",
-	;
-	exit 0;
 }
 
 sub maxlength {
@@ -180,6 +141,41 @@ sub display_inhibitors {
 	}
 }
 
+sub usage {
+	say for
+	"Usage: gnome-inhibit [options] [<command> [args...]]",
+	"Usage: gnome-inhibit [options] {--list|--test}",
+	"",
+	# for compatibility with systemd-inhibit
+	"  --who <application>           Application name (alias for --app-id)",
+	"  --what <flags>                Inhibitor flags  (alias for --flags)",
+	"  --why <reason>                Inhibit reason   (alias for --reason)",
+	"",
+	"  -a, --app-id <application>    Application name to identify ourselves as",
+	"  -f, --flags <flags>           Inhibitor flags (default: \"idle\")",
+	"  -r, --reason <reason>         Inhibit reason",
+	"",
+	"  -A, --always                  Run command even if gnome-session not running",
+	"      --help                    This message",
+	"  -l, --list                    List active inhibitors",
+	"  -t, --test                    Test if any inhibitors are present",
+	"  -v, --verbose                 More output for --list or --test",
+	"",
+	"Flags can be specified as a comma- or colon-separated list, or the word \'all\'.",
+	"Supported flags are: ".join(" ", sort keys %FLAGS),
+	"",
+	"If --list is given, --flags will be used as a list filter (default: show all).",
+	"",
+	"If --test is given, the tool will exit with code 1 if any of the given",
+	"operations from --flags are inhibited.",
+	"",
+	"If both --list and --test are given, all inhibited actions will be listed in",
+	"terse form, optionally with --flags used as a list filter.",
+	"",
+	"If <command> is given, inhibit will last until the command exits; otherwise,",
+	"this tool calls pause() and keeps running until manually killed/terminated.";
+}
+
 # Option parser
 
 my $do_list	= 0;
@@ -192,6 +188,7 @@ my $flagstr	= undef;
 my $top_xid	= 0;
 
 GetOptions(
+	'help'		=> sub { usage(); exit; },
 	'A|always'	=> \$always,
 	'a|app-id=s'	=> \$app_id,
 	'f|flags=s'	=> \$flagstr,
@@ -203,8 +200,7 @@ GetOptions(
 	'who=s'		=> \$app_id,
 	'why=s'		=> \$reason,
 	'x|xid=o'	=> \$top_xid,
-	'help'		=> \&usage,
-) or exit(2);
+) or exit 2;
 
 if (@ARGV && ($do_list || $do_test)) {
 	if (defined $flagstr) {

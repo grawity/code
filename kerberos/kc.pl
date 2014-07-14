@@ -9,7 +9,18 @@ use English;
 use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
-use Nullroute::Lib qw(_debug _warn _die uniq);
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($arg0, $warnings, $errors);
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
 
 $::arg0 = "kc";
 
@@ -30,6 +41,8 @@ sub _debugvar {
 	@_ = ($var."='".($val//"")."'");
 	goto &_debug;
 }
+
+sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
 	my ($end, $start) = @_;

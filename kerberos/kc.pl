@@ -514,10 +514,8 @@ sub do_print_ccache {
 
 	_debug("examining ccache '$ccname' aka '$shortname'");
 
-	if (ccache_is_environ($ccname)) {
+	if (ccache_is_current($ccname)) {
 		$item_flag = "»";
-	} elsif (ccache_is_current($ccname)) {
-		$item_flag = "✱";
 	}
 
 	$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;

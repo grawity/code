@@ -10,6 +10,7 @@ BEGIN {
 	if (eval {require Nullroute::Lib}) {
 		Nullroute::Lib->import(qw(_debug _warn _err _die));
 	} else {
+		our ($arg0, $warnings, $errors);
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ++$::errors; }
@@ -32,10 +33,10 @@ sub usage {
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
 sub interval {
-	my $end = shift;
-	my $start = shift // time;
+	my ($end, $start) = @_;
 	my ($dif, $s, $m, $h, $d);
 
+	$start //= time;
 	$dif = $end - $start;
 	$dif -= $s = $dif % 60; $dif /= 60;
 	$dif -= $m = $dif % 60; $dif /= 60;

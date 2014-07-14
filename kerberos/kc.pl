@@ -473,6 +473,144 @@ sub switch_ccache {
 	return 1;
 }
 
+sub do_print_ccache {
+	my ($ccname, $num) = @_;
+
+	my $valid;
+	my $shortname;
+	my $principal;
+	my $ccrealm;
+	my $expiry;
+	my $tgt_expiry;
+	my $init_service;
+	my $init_expiry;
+
+	my $expiry_str = "";
+	my $expiry_color = "";
+	my $item_flag = "";
+	my $flag_color = "";
+	my $name_color = "";
+	my $princ_color = "";
+	my $service_color = "35";
+
+	my $num_tickets;
+
+	$shortname = collapse_ccname($ccname);
+
+	_debug("examining ccache '$ccname' aka '$shortname'");
+
+	if (ccache_is_environ($ccname)) {
+		$item_flag = "»";
+	} elsif (ccache_is_current($ccname)) {
+		$item_flag = "✱";
+	}
+
+	$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
+	if (!$valid) {
+		my $bold = ccache_is_current($ccname) ? "1;" : "";
+		$principal = "(none)";
+		$expiry_str = "(nonexistent)";
+		$flag_color = $bold."35";
+		$name_color = $bold."35";
+		$princ_color = $bold."35";
+		$expiry_color = "35";
+		goto do_print;
+	}
+
+	open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
+	while (<$proc>) {
+		chomp;
+		my @l = split(/\t/, $_);
+		_debug("- pklist output: '@l'");
+		for (shift @l) {
+			when ("principal") {
+				($principal) = @l;
+				$principal =~ /.*@(.+)$/
+					and $ccrealm = $1;
+			}
+			when ("ticket") {
+				my ($t_client, $t_service, undef,
+					$t_expiry, undef, $t_flags, undef) = @l;
+
+				if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
+					$tgt_expiry = $t_expiry;
+				}
+				if ($t_flags =~ /I/) {
+					$init_service = $t_service;
+					$init_expiry = $t_expiry;
+				}
+
+				++$num_tickets;
+			}
+		}
+	}
+	close($proc);
+
+	if (!defined $principal) {
+		_debug("no client principal in output, skipping ccache");
+		return 0;
+	}
+
+	if (!$num_tickets) {
+		my $bold = ccache_is_current($ccname) ? "1;" : "";
+		$expiry_str = "(no tickets)";
+		$flag_color = $bold."35";
+		$name_color = $bold."35";
+		$princ_color = $bold."35";
+		$expiry_color = "35";
+		goto do_print;
+	}
+
+	$expiry = $tgt_expiry || $init_expiry || 0;
+
+	if ($expiry) {
+		if ($expiry <= time) {
+			$expiry_str = "(expired)";
+			$expiry_color = "31";
+			$item_flag = "×";
+			$flag_color = "31";
+		} else {
+			$expiry_str = interval($expiry);
+			$expiry_color = ($expiry > time + 1200) ? "" : "33";
+		}
+	}
+
+	if ($ccname eq $cccurrent) {
+		$flag_color = ($expiry <= time) ? "1;31" : "1;32";
+		$name_color = $flag_color;
+		$princ_color = $name_color;
+	} else {
+		$princ_color ||= "38;5;66";
+	}
+
+do_print:
+	_debugvar("init_service", $init_service);
+	_debugvar("ccrealm", $ccrealm);
+
+	if (defined $ccrealm && $ccrealm eq "WELLKNOWN:ANONYMOUS"
+	    && $init_service =~ /^krbtgt\/.*@(.+)$/) {
+		$ccrealm = $1;
+		$principal = "\@$1 (anonymous)";
+	}
+
+	printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, $num+1;
+	printf "\e[%sm%-15s\e[m", $name_color, $shortname;
+	if (length $shortname > 15) {
+		printf "\n%20s", "";
+	}
+	printf " \e[%sm%-40s\e[m", $princ_color, $principal;
+	printf " \e[%sm%s\e[m", $expiry_color, $expiry_str;
+	print "\n";
+
+	if (defined $ccrealm && defined $init_service
+	    && $init_service ne "krbtgt/".$ccrealm."@".$ccrealm) {
+		printf "%20s", "";
+		printf " for \e[%sm%s\e[m\n", $service_color, $init_service;
+	}
+
+	return 1;
+}
+
 if (!which("pklist")) {
 	_die("'pklist' must be installed to use this tool");
 }
@@ -520,141 +658,9 @@ for ($cmd) {
 	}
 	when (undef) {
 		my $num = 0;
-
 		for my $ccname (@caches) {
-			my $valid;
-			my $shortname;
-			my $principal;
-			my $ccrealm;
-			my $expiry;
-			my $tgt_expiry;
-			my $init_service;
-			my $init_expiry;
-
-			my $expiry_str = "";
-			my $expiry_color = "";
-			my $item_flag = "";
-			my $flag_color = "";
-			my $name_color = "";
-			my $princ_color = "";
-			my $service_color = "35";
-
-			my $num_tickets;
-
-			$shortname = collapse_ccname($ccname);
-
-			_debug("examining ccache '$ccname' aka '$shortname'");
-
-			if (ccache_is_environ($ccname)) {
-				$item_flag = "»";
-			} elsif (ccache_is_current($ccname)) {
-				$item_flag = "✱";
-			}
-
-			$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
-			if (!$valid) {
-				my $bold = ccache_is_current($ccname) ? "1;" : "";
-				$principal = "(none)";
-				$expiry_str = "(nonexistent)";
-				$flag_color = $bold."35";
-				$name_color = $bold."35";
-				$princ_color = $bold."35";
-				$expiry_color = "35";
-				goto do_print;
-			}
-
-			open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
-			while (<$proc>) {
-				chomp;
-				my @l = split(/\t/, $_);
-				_debug("- pklist output: '@l'");
-				for (shift @l) {
-					when ("principal") {
-						($principal) = @l;
-						$principal =~ /.*@(.+)$/
-							and $ccrealm = $1;
-					}
-					when ("ticket") {
-						my ($t_client, $t_service, undef,
-							$t_expiry, undef, $t_flags, undef) = @l;
-
-						if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
-							$tgt_expiry = $t_expiry;
-						}
-						if ($t_flags =~ /I/) {
-							$init_service = $t_service;
-							$init_expiry = $t_expiry;
-						}
-
-						++$num_tickets;
-					}
-				}
-			}
-			close($proc);
-
-			if (!defined $principal) {
-				_debug("no client principal in output, skipping ccache");
-				next;
-			}
-
-			if (!$num_tickets) {
-				my $bold = ccache_is_current($ccname) ? "1;" : "";
-				$expiry_str = "(no tickets)";
-				$flag_color = $bold."35";
-				$name_color = $bold."35";
-				$princ_color = $bold."35";
-				$expiry_color = "35";
-				goto do_print;
-			}
-
-			$expiry = $tgt_expiry || $init_expiry || 0;
-
-			if ($expiry) {
-				if ($expiry <= time) {
-					$expiry_str = "(expired)";
-					$expiry_color = "31";
-					$item_flag = "×";
-					$flag_color = "31";
-				} else {
-					$expiry_str = interval($expiry);
-					$expiry_color = ($expiry > time + 1200) ? "" : "33";
-				}
-			}
-
-			if ($ccname eq $cccurrent) {
-				$flag_color = ($expiry <= time) ? "1;31" : "1;32";
-				$name_color = $flag_color;
-				$princ_color = $name_color;
-			} else {
-				$princ_color ||= "38;5;66";
-			}
-
-do_print:
-			_debugvar("init_service", $init_service);
-			_debugvar("ccrealm", $ccrealm);
-
-			if (defined $ccrealm && $ccrealm eq "WELLKNOWN:ANONYMOUS"
-			    && $init_service =~ /^krbtgt\/.*@(.+)$/) {
-				$ccrealm = $1;
-				$principal = "\@$1 (anonymous)";
-			}
-
-			printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, ++$num;
-			printf "\e[%sm%-15s\e[m", $name_color, $shortname;
-			if (length $shortname > 15) {
-				printf "\n%20s", "";
-			}
-			printf " \e[%sm%-40s\e[m", $princ_color, $principal;
-			printf " \e[%sm%s\e[m", $expiry_color, $expiry_str;
-			print "\n";
-
-			if (defined $ccrealm && defined $init_service
-			    && $init_service ne "krbtgt/".$ccrealm."@".$ccrealm) {
-				printf "%20s", "";
-				printf " for \e[%sm%s\e[m\n", $service_color, $init_service;
-			}
+			$num += do_print_ccache($ccname, $num);
 		}
-
 		if (!$num) {
 			say "No Kerberos credential caches found.";
 			exit 1;

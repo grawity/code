@@ -56,8 +56,8 @@ sub _msg {
 		do {
 			@frame = caller(++$skip);
 			$frame[3] //= "main";
-			$frame[3] =~ s/^main:://;
-		} while ($frame[3] eq "__ANON__");
+		} while ($frame[3] =~ /::__ANON__$/);
+		$frame[3] =~ s/^main:://;
 		$prefix .= " ".($frame[1]//"?").":".($frame[2]//"?") if $::debug > 1;
 		$prefix .= " (".$frame[3].")";
 	}

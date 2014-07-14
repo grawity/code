@@ -84,8 +84,12 @@ sub display_ccache {
 	# read tickets from ccache
 
 	if (defined $ccache) {
+		_debug("examining ccache '$ccache'");
 		push @pklist_args, ("-c", $ccache);
+	} else {
+		_debug("examining system default ccache");
 	}
+
 	open(my $proc, "-|", "pklist", @pklist_args)
 		or _die("'pklist' must be installed to use this tool");
 
@@ -202,7 +206,7 @@ do_print:
 				$a cmp $b} (@extrealms);
 
 	for my $realm ($defrealm, @realms) {
-		_debug("loop[realm='$realm']");
+		_debug("printing tickets for realm '$realm'");
 
 		$tgtcreds{$realm} //= [];
 		$creds{$realm} //= [];

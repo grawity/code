@@ -13,10 +13,10 @@ BEGIN {
 		Nullroute::Lib->import(qw(_debug _warn _err _die));
 	} else {
 		our ($warnings, $errors);
-		$::arg0 = $0;
-		$::arg0 =~ s!.*/!!;
+		$::arg0 = (split m!/!, $0)[-1];
 		$::debug = !!$ENV{DEBUG};
 		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _info  { say "$::arg0: @_"; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
@@ -27,7 +27,7 @@ my $verbose = 0;
 
 sub trace {
 	goto &_debug if $::debug;
-	print "$::arg0: @_\n" if $verbose;
+	goto &_info if $verbose;
 }
 
 # Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)

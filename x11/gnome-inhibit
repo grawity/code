@@ -17,10 +17,9 @@ BEGIN {
 		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
 	} else {
 		our ($warnings, $errors);
-		$::arg0 = $0;
-		$::arg0 =~ s!.*/!!;
+		$::arg0 = (split m!/!, $0)[-1];
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
-		sub _info  { say $::arg0.": ".shift; }
+		sub _info  { say "$::arg0: @_"; }
 		sub _warn  { warn "warning: @_\n"; }
 		sub _err   { warn "error: @_\n"; }
 		sub _die   { _err(@_); exit 1; }

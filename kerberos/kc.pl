@@ -582,7 +582,7 @@ sub do_print_ccache {
 		if ($expiry <= time) {
 			$expiry_str = "(expired)";
 			$expiry_color = "31";
-			$item_flag = "×";
+			$item_flag //= "×";
 			$flag_color = "1;31";
 		} else {
 			$expiry_str = interval($expiry);

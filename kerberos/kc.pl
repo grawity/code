@@ -580,7 +580,7 @@ sub do_print_ccache {
 
 	if ($expiry) {
 		if ($expiry <= time) {
-			$expiry_str = "(expired)";
+			$expiry_str = "expired";
 			$expiry_color = "31";
 			$item_flag //= "×";
 			$flag_color = "1;31";
@@ -614,7 +614,7 @@ do_print:
 		printf "\n%20s", "";
 	}
 	printf " \e[%sm%-40s\e[m", $princ_color, $principal;
-	printf " \e[%sm%s\e[m", $expiry_color, $expiry_str;
+	printf " \e[%sm%8s\e[m", $expiry_color, $expiry_str;
 	print "\n";
 
 	if (defined $ccrealm && defined $init_service

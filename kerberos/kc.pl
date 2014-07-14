@@ -32,10 +32,10 @@ sub _debugvar {
 }
 
 sub interval {
-	my $end = shift;
-	my $start = shift // time;
+	my ($end, $start) = @_;
 	my ($dif, $s, $m, $h, $d);
 
+	$start //= time;
 	$dif = $end - $start;
 	$dif -= $s = $dif % 60; $dif /= 60;
 	$dif -= $m = $dif % 60; $dif /= 60;
@@ -49,7 +49,7 @@ sub interval {
 }
 
 sub which {
-	my $name = shift;
+	my ($name) = @_;
 	state %paths;
 
 	return $name if $name =~ m|/|;
@@ -65,7 +65,7 @@ sub which {
 }
 
 sub run_proc {
-	my @argv = @_;
+	my (@argv) = @_;
 
 	$argv[0] = which($argv[0]);
 
@@ -73,7 +73,7 @@ sub run_proc {
 }
 
 sub read_proc {
-	my @argv = @_;
+	my (@argv) = @_;
 	my ($proc, $pid, $output);
 
 	$argv[0] = which($argv[0]);
@@ -355,17 +355,11 @@ sub cmp_ccnames {
 	return 0;
 }
 
-sub ccache_is_default {
-	return cmp_ccnames(shift, $ccdefault);
-}
+sub ccache_is_default { cmp_ccnames(shift, $ccdefault); }
 
-sub ccache_is_environ {
-	return cmp_ccnames(shift, $ccenviron);
-}
+sub ccache_is_environ { cmp_ccnames(shift, $ccenviron); }
 
-sub ccache_is_current {
-	return cmp_ccnames(shift, $cccurrent);
-}
+sub ccache_is_current { cmp_ccnames(shift, $cccurrent); }
 
 sub put_env {
 	my ($key, $val) = @_;
@@ -377,7 +371,7 @@ sub put_env {
 			say EVAL "$key=\'$val\'; export $key;";
 		}
 		default {
-			_warn("unrecognized shell $ENV{SHELL}");
+			_warn("unrecognized shell \"$ENV{SHELL}\"");
 			say EVAL "$key=$val";
 		}
 	}
@@ -435,9 +429,7 @@ sub find_ccache_for_principal {
 sub switch_ccache {
 	my ($ccname) = @_;
 
-	if (!$can_switch) {
-		return 0;
-	}
+	return 0 if !$can_switch;
 
 	for ($ccname) {
 		when (m|^DIR::(.+)$|) {
@@ -525,8 +517,10 @@ sub do_print_ccache {
 		for (shift @l) {
 			when ("principal") {
 				($principal) = @l;
-				$principal =~ /.*@(.+)$/
-					and $ccrealm = $1;
+
+				if ($principal =~ /.*@(.+)$/) {
+					$ccrealm = $1;
+				}
 			}
 			when ("ticket") {
 				my ($t_client, $t_service, undef,
@@ -698,10 +692,12 @@ for ($cmd) {
 	when ("test-roundtrip") {
 		for my $name (@caches) {
 			my $tmp;
-			say ($tmp = $name);
-			say ($tmp = collapse_ccname($tmp));
-			say ($tmp = expand_ccname($tmp));
-			say '';
+			say " original: ", ($tmp = $name);
+			say "collapsed: ", ($tmp = collapse_ccname($tmp));
+			say " expanded: ", ($tmp = expand_ccname($tmp));
+			say "   result: ", ($tmp eq $name ? "\e[1;32mPASS\e[m"
+			                                  : "\e[1;31mFAIL\e[m");
+			say "";
 		}
 	}
 	when ("dump-aliases") {

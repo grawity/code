@@ -25,6 +25,7 @@ our @EXPORT = qw(
 	readfile
 	trim
 	uniq
+	xml_escape
 );
 
 $::arg0 //= basename($0);
@@ -140,5 +141,13 @@ sub readfile {
 sub trim { map {s/^\s+//; s/\s+$//; $_} @_; }
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
+
+sub xml_escape {
+	my $str = shift;
+
+	my %chars = ('&' => "amp", '<' => "lt", '>' => "gt", '"' => "quot");
+	$str =~ s/[&<>"]/\&$chars{${^MATCH}};/gp;
+	return $str;
+}
 
 1;

@@ -16,7 +16,7 @@ BEGIN {
 	if (eval {require Nullroute::Lib}) {
 		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
 	} else {
-		our ($arg0,$warnings, $errors);
+		our ($arg0, $warnings, $errors);
 		$::debug = !!$ENV{DEBUG};
 		sub _debug { warn "debug: @_\n" if $::debug; }
 		sub _info  { print "@_\n"; }

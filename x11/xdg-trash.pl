@@ -27,22 +27,16 @@ BEGIN {
 	}
 }
 
-our $INTERACTIVE = 0;
-our $VERBOSE = 1;
+my $verbose = 1;
+my $interactive = 0;
 
-our $DO_PRINT_PATH = 0;
-
-my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
-
-my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
-
-sub verbose {
+sub trace {
 	goto &_info if $::debug;
-	print "\r\033[K", @_, "\n" if $VERBOSE;
+	print "\r\033[K@_\n" if $verbose;
 }
 
 sub confirm {
-	print "$::arg0: ", shift, " "; $|++; <STDIN> =~ /^y/i;
+	print "$::arg0: @_ "; $|++; <STDIN> =~ /^y/i;
 }
 
 sub dev {
@@ -113,12 +107,12 @@ sub xdev_move {
 	my @opt;
 	_debug("xdev_move: source='$source'");
 	_debug("xdev_move: dest='$dest'");
-	verbose("Copying '$source' to \$HOME...");
+	trace("Copying '$source' to \$HOME...");
 	@opt = qw(-a -H -A -X);
 	$ENV{DEBUG} and push @opt, qw(-v -h);
 	system("rsync", @opt, "$source", "$dest") == 0
 		or return 0;
-	verbose("Removing '$source' after copying...");
+	trace("Removing '$source' after copying...");
 	@opt = qw(-r -f);
 	$ENV{DEBUG} and push @opt, qw(-v);
 	system("rm", @opt, $source) == 0
@@ -167,6 +161,9 @@ Write the [Trash Info] block for $orig_path to a filehandle.
 
 sub write_info {
 	my ($info_fh, $orig_path) = @_;
+
+	my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
+
 	print $info_fh "[Trash Info]\n";
 	print $info_fh "Path=$orig_path\n";
 	print $info_fh "DeletionDate=$now\n";
@@ -185,6 +182,9 @@ Find the best trash directory to use, according to XDG Trash Dir spec.
 
 sub find_trash_dir {
 	my ($orig_path) = @_;
+
+	my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
+
 	ensure($home_trash);
 
 	_debug("trying to find trash for path='$orig_path'");
@@ -227,7 +227,7 @@ sub trash {
 		_err("not found: '$path'");
 		return;
 	}
-	if ($INTERACTIVE) {
+	if ($interactive) {
 		confirm("Kill file <$path>?") || return;
 	}
 	my $orig_path = my_abs_path($path);
@@ -244,14 +244,14 @@ sub trash {
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
 		if (rename($orig_path, $trashed_path)) {
-			verbose("Trashed '$path'");
+			trace("Trashed '$path'");
 		} else {
 			unlink($info_name);
 			_die("failed to rename '$path': $!");
 		}
 	} else {
 		if (xdev_move($orig_path, $trashed_path)) {
-			verbose("Trashed '$path' to \$HOME");
+			trace("Trashed '$path' to \$HOME");
 		} else {
 			unlink($info_name);
 			_die("failed to copy '$path' to '$trash_dir'");
@@ -260,22 +260,41 @@ sub trash {
 	close($info_fh);
 }
 
-GetOptions(
-	'path'		=> \$DO_PRINT_PATH,
-	'i|interactive!'=> \$INTERACTIVE,
-	'r|R|recursive'	=> sub { },
-	'f|force'	=> sub { },
-	'v|verbose!'	=> \$VERBOSE,
-) or die;
-
-if (@ARGV) {
-	if ($DO_PRINT_PATH) {
-		say find_trash_dir(my_abs_path($_)) // "(not found?)" for @ARGV;
-	} else {
-		trash($_) for @ARGV;
-	}
-} else {
-	_err("no files given");
+sub usage {
+	say for
+	"Usage: $::arg0 [options] <file>...",
+	"",                       #
+	"  -f, --force            Ignored (compatibility with `rm`)",
+	"  -i, --[no-]interactive Prompt before removing a file",
+	"  -r, --recursive        Ignored (compatibility with `rm`)",
+	"  -v, --[no-]verbose     Show files being removed",
+	"",
+	"      --find-trash       Only print the trash directory";
 }
 
-exit(!!$::errors);
+# Option parser
+
+my $print_path = 0;
+
+GetOptions(
+	'help'		=> sub { usage(); exit; },
+	'find-trash!'	=> \$print_path,
+	'f|force'	=> sub { },
+	'i|interactive!'=> \$interactive,
+	'r|R|recursive'	=> sub { },
+	'v|verbose!'	=> \$verbose,
+) or exit 2;
+
+if (!@ARGV) {
+	_die("no files given");
+}
+
+# Main code
+
+if ($print_path) {
+	say find_trash_dir(my_abs_path($_)) // "(not found?)" for @ARGV;
+} else {
+	trash($_) for @ARGV;
+}
+
+exit !!$::errors;

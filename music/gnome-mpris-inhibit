@@ -171,10 +171,9 @@ sub init_watch {
 
 $bus = Net::DBus->session;
 
-my $dbus = $bus->get_service("org.freedesktop.DBus")
-		->get_object("/org/freedesktop/DBus");
-
-$dbus->connect_to_signal("NameOwnerChanged", sub {
+$bus
+->get_bus_object
+->connect_to_signal("NameOwnerChanged", sub {
 	my ($name, $old_owner, $new_owner) = @_;
 	if ($name eq $player_bus_name) {
 		if ($old_owner eq "" and $new_owner ne "") {

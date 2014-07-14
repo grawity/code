@@ -48,8 +48,7 @@ sub usage {
 	"Usage: mpris [{<player>|--all} <cmd> [args...]]",
 	"       mpris <player> {activate|is-running}",
 	"       mpris --list",
-	"       mpris --help commands",
-	"       mpris --help printf-formats",
+	"       mpris --help {commands|get|set|printf}",
 	"",
 	"This script implements the MPRIS v2.2 specification:",
 	"  http://specifications.freedesktop.org/mpris-spec/latest/",
@@ -579,9 +578,16 @@ sub player_getprop {
 	my $property = shift;
 	for ($property) {
 		when (undef) {
+			_err("missing property name");
 			help("get");
 			return 2;
 		}
+		when (["properties", "--help"]) {
+			help("get");
+			return 0;
+		}
+
+		# main:
 
 		when ("can-fullscreen") {
 			saybool eval {$player->()->Get(MPRIS_MAIN_IFACE,
@@ -720,9 +726,16 @@ sub player_setprop {
 	my $property = shift;
 	for ($property) {
 		when (undef) {
+			_err("missing property name");
 			help("set");
 			return 2;
 		}
+		when (["properties", "--help"]) {
+			help("set");
+			return 0;
+		}
+
+		# main:
 
 		when ("fullscreen") {
 			my $arg = frombool(shift);
@@ -1046,9 +1059,7 @@ for ($player) {
 		exit;
 	}
 	when (/^-/) {
-		# other dash-options
-		usage();
-		exit 2;
+		_die2("unknown option '$player'");
 	}
 	when (/^$prefix_re/) {
 		# full MPRIS v2 bus name
@@ -1086,8 +1097,12 @@ for ($player) {
 
 for ($cmd) {
 	when (undef) {
+		_err("missing command");
 		help("commands");
 		exit 2;
+	}
+	when (["commands", "--help"]) {
+		help("commands");
 	}
 	when ("activate") {
 		if ($bus_name eq "all") {

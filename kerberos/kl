@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use feature qw(say switch);
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
-use Getopt::Std;
+use Getopt::Long qw(:config bundling);
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
@@ -19,16 +19,6 @@ BEGIN {
 }
 
 my $counter;
-
-sub usage {
-	say for
-		"Usage: kl [-c <ccname> | -l]",
-		"",
-		"\t-c       show contents of given ccache",
-		"\t-l       list known ccaches",
-		;
-	exit 2;
-}
 
 sub uniq { my %seen; grep {!$seen{$_}++} @_; }
 
@@ -217,7 +207,7 @@ do_print:
 		$creds{$realm} //= [];
 
 		my @creds = (@{$tgtcreds{$realm}},
-				sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
+			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
 
 		my $num_tgt = 0;
 		my $num_srv = 0;
@@ -323,21 +313,28 @@ do_print:
 	return 0;
 }
 
-my %opts;
-my $ccache	= undef;
-my $list_all	= undef;
-
-getopts('c:lL', \%opts) or usage();
-if (exists $opts{c}) {
-	$ccache = $opts{c};
-	$list_all = 0;
-} elsif (exists $opts{l}) {
-	$list_all = 1;
-} elsif (exists $opts{L}) {
-	$list_all = 0;
+sub usage {
+	say for
+	"Usage: kl [-c <ccname> | -l]",
+	"",                       #
+	"  -c, --cache=PATH       Show contents of given ccache",
+	"  -l, --[no-]list        List known ccaches";
 }
 
-if (defined(my $defcc = $ccache // $ENV{KRB5CCNAME})) {
+my $ccache;
+my $list_all;
+
+GetOptions(
+	"h|help"	=> sub { usage(); exit; },
+	"c|cache=s"	=> \$ccache,
+	"l|list!"	=> \$list_all,
+) or exit 2;
+
+my $defcc = $ccache // $ENV{KRB5CCNAME};
+
+if (defined $ccache) {
+	$list_all = 0;
+} elsif (defined $defcc) {
 	$list_all //= ($defcc =~ /^DIR:[^:]/);
 }
 

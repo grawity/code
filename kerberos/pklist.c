@@ -161,7 +161,8 @@ int do_realm(char *hostname) {
 	if (hostname) {
 		retval = krb5_get_host_realm(ctx, hostname, &realm);
 		if (retval) {
-			com_err(progname, retval, "while obtaining realm for %s", hostname);
+			com_err(progname, retval,
+				"while obtaining realm for %s", hostname);
 			exit(1);
 		}
 		printf("%s\n", *realm);
@@ -211,9 +212,11 @@ int do_ccache(krb5_ccache cache) {
 		if (quiet_errors)
 			;
 		else if (retval == KRB5_FCC_NOFILE)
-			com_err(progname, retval, "(ticket cache %s)", ccname);
+			com_err(progname, retval,
+				"(ticket cache %s)", ccname);
 		else
-			com_err(progname, retval, "while setting cache flags (ticket cache %s)", ccname);
+			com_err(progname, retval,
+				"while setting cache flags (ticket cache %s)", ccname);
 		goto cleanup;
 	}
 
@@ -224,7 +227,9 @@ int do_ccache(krb5_ccache cache) {
 		else if (retval == KRB5_FCC_NOFILE)
 			com_err(progname, retval, "(ticket cache %s)", ccname);
 		else
-			com_err(progname, retval, "while obtaining default principal (ticket cache %s)", ccname);
+			com_err(progname, retval,
+				"while obtaining default principal (ticket cache %s)",
+				ccname);
 		goto cleanup;
 	}
 
@@ -262,7 +267,8 @@ int do_ccache(krb5_ccache cache) {
 			printf("cache\t%s\n", ccname);
 			printf("principal\t%s\n", princname);
 		}
-		printf("CREDENTIALS\tclient_name\tserver_name\tstart_time\texpiry_time\trenew_time\tflags\tticket_data\n");
+		printf("CREDENTIALS\tclient_name\tserver_name\t"
+			"start_time\texpiry_time\trenew_time\tflags\tticket_data\n");
 	}
 
 	retval = krb5_cc_start_seq_get(ctx, cache, &cursor);

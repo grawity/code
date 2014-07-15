@@ -13,6 +13,7 @@ BEGIN {
 		Nullroute::Lib->import(qw(_debug _warn _err _die));
 	} else {
 		our ($arg0, $warnings, $errors);
+		$::arg0 = basename($0);
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ++$::errors; }
@@ -65,12 +66,11 @@ sub collapse {
 }
 
 sub usage {
-	my $me = basename($0);
 	print "$_\n" for
-	"Usage: $me [-f] TARGET LINKNAME",
-	"       $me [-f] TARGET... DIRECTORY",
-	"       $me -r FILE...  ('realpath' emulation)",
-	"       $me -rr FILE... ('realpath -m' emulation)";
+	"Usage: $::arg0 [-f] TARGET LINKNAME",
+	"       $::arg0 [-f] TARGET... DIRECTORY",
+	"       $::arg0 -r FILE...  ('realpath' emulation)",
+	"       $::arg0 -rr FILE... ('realpath -m' emulation)";
 }
 
 # Option parsing
@@ -87,14 +87,12 @@ GetOptions(
 
 if ($realpath > 1) {
 	# `/usr/bin/realpath -m` emulation mode
-	my $err;
 	for my $file (@ARGV) {
 		my $real = realpath($file);
 		if (!defined $real) {
 			if (-l $file) {
 				$file = readlink($file);
 				if (!defined $file) {
-					++$err;
 					_err("readlink: '$file': $!");
 					next;
 				}
@@ -104,37 +102,29 @@ if ($realpath > 1) {
 		}
 		print "$real\n";
 	}
-	exit !!$err;
+	exit !!$::errors;
 }
 elsif ($realpath > 0) {
 	# `/usr/bin/realpath` emulation mode
-	my $err;
 	for my $file (@ARGV) {
 		my $real = realpath($file);
 		if (!defined $real) {
-			++$err;
 			_err("realpath: '$file': $!");
 			next;
 		}
 		print "$real\n";
 	}
-	exit !!$err;
+	exit !!$::errors;
 }
 
 # Main code (normal mode)
 
 if (!defined $dest) {
-	if (scalar(@ARGV) > 1) {
-		# pop last item as destination directory
-		$dest = pop(@ARGV);
-	} else {
-		$dest = ".";
-	}
+	$dest = (@ARGV > 1) ? pop @ARGV : ".";
 }
 
 if (!@ARGV) {
-	usage();
-	exit 2;
+	_die("missing link target", 2);
 }
 
 $dest = my_abs_path($dest);
@@ -152,11 +142,11 @@ if (!defined $dest) {
 		_debug("    link=$link");
 		do_link($reltarget, $link);
 	}
-} elsif (scalar(@ARGV) > 1) {
-	# target target... dest_file
-	_die("target is not a directory");
 } else {
 	# target dest
+	if (@ARGV > 1) {
+		_die("target is not a directory");
+	}
 	_debug("dest=$dest");
 	my $target = pop(@ARGV);
 	_debug("target=$target");

@@ -84,7 +84,7 @@ if (defined $statefile) {
 	if ($statefile =~ s/^\+/$statedir/) {
 		# If +name given as state file, the user wants as little
 		# hassle as possible. Create the directories.
-		-d $statedir || make_path($statedir);
+		make_path($statedir) if !-d $statedir;
 	}
 	if (!$id) {
 		if (open(my $fh, "<", $statefile)) {
@@ -96,7 +96,7 @@ if (defined $statefile) {
 }
 
 if ($appendbody) {
-	unless (defined $statefile) {
+	if (!defined $statefile) {
 		_warn("--append is useless without state file");
 	}
 	$body = join("\n", grep {length} ($oldbody, $body));
@@ -113,7 +113,7 @@ for (@hints) {
 				_die("invalid urgency level '$_'", 2);
 			}
 		}
-		$hints{urgency} = Net::DBus::dbus_byte($val);
+		$hints{"urgency"} = Net::DBus::dbus_byte($val);
 	}
 	when (/^(category|desktop-entry|image-path|synchronous)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_string($2);
@@ -124,7 +124,6 @@ for (@hints) {
 	when (/^(icon-only)$/) {
 		$hints{$1} = Net::DBus::dbus_string("");
 	}
-	# Generic
 	when (/^bool:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_boolean($2);
 	}
@@ -144,7 +143,7 @@ for ($timeout) {
 		;
 	}
 	when (/^(\d+)s?$/) {
-		$timeout = $1 * 1000;
+		$timeout = $1 * 1_000;
 	}
 	when (/^(\d+)ms$/) {
 		$timeout = $1;
@@ -154,21 +153,23 @@ for ($timeout) {
 	}
 }
 
-$id = Notifications->Notify(
-		$application,
-		$id,
-		$icon,
-		$summary,
-		$body,
-		\@actions,
-		\%hints,
-		$timeout);
+$id = Notifications->Notify($application,
+                            $id,
+                            $icon,
+                            $summary,
+                            $body,
+                            \@actions,
+                            \%hints,
+                            $timeout);
 
 if (defined $statefile) {
-	open(my $fh, ">", $statefile) or _die("cannot update state: $!");
-	say $fh $id;
-	say $fh $body;
-	close($fh);
+	if (open(my $fh, ">", $statefile)) {
+		say $fh $id;
+		say $fh $body;
+		close($fh);
+	} else {
+		_die("cannot update state: $!");
+	}
 } else {
 	say $id;
 }

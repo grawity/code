@@ -176,7 +176,8 @@ sub read_aliases {
 sub enum_ccaches {
 	my @ccaches;
 
-	open(my $proc, "-|", which("pklist"), "-l", "-N") or die "$!";
+	open(my $proc, "-|", which("pklist"), "-l", "-N")
+	or _die("could not run 'pklist': $!");
 	push @ccaches, grep {chomp or 1} <$proc>;
 	close($proc);
 
@@ -421,7 +422,8 @@ sub find_ccache_for_principal {
 			$ccrealm = $1;
 		}
 
-		open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
+		open(my $proc, "-|", which("pklist"), "-c", $ccname)
+		or _die("could not run 'pklist': $!");
 		while (my $line = <$proc>) {
 			chomp($line);
 			my @l = split(/\t/, $line);
@@ -530,7 +532,8 @@ sub do_print_ccache {
 		goto do_print;
 	}
 
-	open(my $proc, "-|", which("pklist"), "-c", $ccname) or die "$!";
+	open(my $proc, "-|", which("pklist"), "-c", $ccname)
+	or _die("could not run 'pklist': $!");
 	while (<$proc>) {
 		chomp;
 		my @l = split(/\t/, $_);

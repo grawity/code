@@ -32,8 +32,13 @@ sub usage {
 	"",
 	"  -c, --category=TYPE    Specify notification category",
 	"  -u, --urgency=LEVEL    Add an urgency hint (low, normal, high)",
-	"      --resident         Add the 'resident' hint",
-	"      --transient        Add the 'transient' hint",
+	"      --resident         Add the GNOME Shell 'resident' hint",
+	"      --transient        Add the GNOME Shell 'transient' hint",
+	"      --icon-only        Add the notify-osd 'icon-only' hint",
+	"      --synchronous=NAME Add the notify-osd 'synchronous' hint",
+	"      --image-path=PATH  Add the 'image-path' hint",
+	"      --desktop-entry=NAME",
+	"                         Add the 'desktop-entry' hint",
 	"  -h, --hint=HINT[=VAL]  Add a custom hint",
 	"",
 	"Other behavior:",
@@ -58,6 +63,9 @@ my $statefile	= undef;
 my $oldbody	= "";
 my $appendbody	= 0;
 
+sub add_bool_hint { push @hints, $_[0]; }
+sub add_str_hint  { push @hints, $_[0]."=".$_[1]; }
+
 GetOptions(
 	'help'		=> sub { usage(); exit; },
 	'a|app-name=s'	=> \$application,
@@ -69,8 +77,13 @@ GetOptions(
 	's|state=s'	=> \$statefile,
 	't|timeout=s'	=> \$timeout,
 	'u|urgency=s'	=> sub { push @hints, "urgency=".$_[1] },
-	'resident'	=> sub { push @hints, "resident" },
-	'transient'	=> sub { push @hints, "transient" },
+	# well-known hints
+	'desktop-entry=s'	=> \&add_str_hint,
+	'icon-only'		=> \&add_bool_hint,
+	'image-path=s'		=> \&add_str_hint,
+	'resident'		=> \&add_bool_hint,
+	'synchronous=s'		=> \&add_str_hint,
+	'transient'		=> \&add_bool_hint,
 ) or exit 2;
 
 if (!@ARGV) {

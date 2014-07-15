@@ -111,32 +111,9 @@ if (defined $link_dir) {
 	if (!-d $link_dir) {
 		_die("destination \"$link_dir\" is not a directory");
 	}
-
-	if (!@ARGV) {
-		_die("missing link target(s)");
-	}
-
-	for my $target (@ARGV) {
-		my $abs_target;
-		my $rel_target;
-		my $link_name;
-
-		_debug("* argument: \"$target\"");
-		$abs_target = File::Spec->rel2abs($target);
-		_debug("  - absolute: \"$abs_target\"");
-		$rel_target = File::Spec->abs2rel($target, $link_dir);
-		_debug("  - relative: \"$rel_target\"");
-		$link_name = File::Spec->catfile($link_dir, basename($target));
-		_debug("  link name: \"$link_name\"");
-
-		do_link($rel_target, $link_name);
-	}
-} else {
+}
+else {
 	my $link_dest = pop(@ARGV) // ".";
-
-	if (!@ARGV) {
-		_die("missing link target(s)");
-	}
 
 	if (-d $link_dest || $link_dest =~ m|/$|) {
 		$link_dir = $link_dest;
@@ -147,21 +124,27 @@ if (defined $link_dir) {
 		$link_dir = dirname($link_dest);
 	}
 
-	for my $target (@ARGV) {
-		my $abs_target;
-		my $rel_target;
-		my $link_name;
+	_debug("link directory: \"$link_dir\"");
+}
 
-		_debug("* argument: \"$target\"");
-		$abs_target = File::Spec->rel2abs($target);
-		_debug("  - absolute: \"$abs_target\"");
-		$rel_target = File::Spec->abs2rel($target, $link_dir);
-		_debug("  - relative: \"$rel_target\"");
-		$link_name = File::Spec->catfile($link_dir, basename($target));
-		_debug("  link name: \"$link_name\"");
+if (!@ARGV) {
+	_die("missing link target(s)");
+}
 
-		do_link($rel_target, $link_name);
-	}
+for my $target (@ARGV) {
+	my $abs_target;
+	my $rel_target;
+	my $link_name;
+
+	_debug("* argument: \"$target\"");
+	$abs_target = File::Spec->rel2abs($target);
+	_debug("  - absolute: \"$abs_target\"");
+	$rel_target = File::Spec->abs2rel($target, $link_dir);
+	_debug("  - relative: \"$rel_target\"");
+	$link_name = File::Spec->catfile($link_dir, basename($target));
+	_debug("  link name: \"$link_name\"");
+
+	do_link($rel_target, $link_name);
 }
 
 exit !!$::errors;

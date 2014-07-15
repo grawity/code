@@ -42,6 +42,18 @@ sub do_link {
 	}
 }
 
+sub collapse {
+	my ($path) = @_;
+	my @path = File::Spec->splitdir($path);
+	my @out;
+	for (@path) {
+		if ($_ eq "..")    { pop @out; }
+		elsif ($_ eq ".")  { next; }
+		else               { push @out, $_; }
+	}
+	File::Spec->catdir("", @out);
+}
+
 sub usage {
 	my $me = basename($0);
 	print "$_\n" for
@@ -76,6 +88,7 @@ if ($realpath > 1) {
 				}
 			}
 			$real = File::Spec->rel2abs($file);
+			$real = collapse($real);
 		}
 		print "$real\n";
 	}

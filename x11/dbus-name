@@ -7,6 +7,8 @@ use Getopt::Long qw(:config bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
 
+$::arg0 = (split m!/!, $0)[-1];
+
 my $bus;
 my $busaddr;
 my $err = 0;
@@ -59,10 +61,10 @@ sub get_conn_name {
 
 sub usage {
 	say for
-	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] [-A] NAME...",
-	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] [-A] --list",
-	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] {--wait|--wait-any} NAME...",
-	"Usage: dbus-name {-y|-e|-a ADDRESS} [-q] --watch",
+	"Usage: $::arg0 {-y|-e|-a ADDRESS} [-q] [-A] NAME...",
+	"       $::arg0 {-y|-e|-a ADDRESS} [-q] [-A] --list",
+	"       $::arg0 {-y|-e|-a ADDRESS} [-q] {--wait|--wait-any} NAME...",
+	"       $::arg0 {-y|-e|-a ADDRESS} [-q] --watch",
 	"",                       #
 	"  -y, --system           Connect to the system bus",
 	"  -e, --session          Connect to the session bus",
@@ -77,11 +79,10 @@ sub usage {
 	"",
 	"  -q, --quiet            Remain silent, just set exit code if name exists",
 	"                         In wait/watch mode: don't show PIDs and unique names",
-	"",
 	"  --[no-]color           Always/never use colored output",
 	"",
 	"Without explicit bus specification, the heuristics implemented by Net::DBus",
-	"will be used (session if DBUS_SESSION_BUS_ADDRESS is set, system otherwise).",
+	"will be used (session if \$DBUS_SESSION_BUS_ADDRESS is set, system otherwise).",
 	"",
 	"The \"--wait NAME\" mode does not care if some names go away after appearing.",
 }

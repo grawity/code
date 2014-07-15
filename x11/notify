@@ -1,10 +1,14 @@
 #!/usr/bin/env perl
 # notify - libnotify command-line interface not entirely unlike 'notify-send'
+use warnings;
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use strict;
 use feature qw(say switch);
 use File::Path qw(make_path);
 use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
+use Nullroute::Dir;
+use Nullroute::Lib qw(_debug _warn _err _die);
 
 my $bus = Net::DBus->session;
 
@@ -14,7 +18,32 @@ sub Notifications {
 	->get_object("/org/freedesktop/Notifications")
 }
 
-my $statedir	= ($ENV{XDG_CACHE_HOME} // $ENV{HOME}."/.cache") . "/notify/";
+sub usage {
+	say for
+	"Usage: $::arg0 [options] <title> [body]",
+	"",                       #
+	"Basic metadata:",
+	"",
+	"  -a, --app-name=NAME    Specify application name",
+	"  -i, --icon=NAME        Specify notification icon",
+	"  -t, --timeout=TIME     Specify timeout ('XXs' or 'XXms')",
+	"",
+	"Extended hints:",
+	"",
+	"  -c, --category=TYPE    Specify notification category",
+	"  -u, --urgency=LEVEL    Add an urgency hint (low, normal, high)",
+	"      --resident         Add the 'resident' hint",
+	"      --transient        Add the 'transient' hint",
+	"  -h, --hint=HINT[=VAL]  Add a custom hint",
+	"",
+	"Other behavior:",
+	"",
+	"  -A, --append           Append body text",
+	"  -r, --replace=ID       Replace old notification with given ID",
+	"  -s, --state=NAME       Keep persistent state under given name",
+}
+
+my $statedir	= xdg_cache("notify");
 
 my $icon	= "";
 my $id		= 0;
@@ -30,6 +59,7 @@ my $oldbody	= "";
 my $appendbody	= 0;
 
 GetOptions(
+	'help'		=> sub { usage(); exit; },
 	'a|app-name=s'	=> \$application,
 	'A|append'	=> \$appendbody,
 	'c|category=s'	=> sub { push @hints, "category=".$_[1] },
@@ -41,9 +71,13 @@ GetOptions(
 	'u|urgency=s'	=> sub { push @hints, "urgency=".$_[1] },
 	'resident'	=> sub { push @hints, "resident" },
 	'transient'	=> sub { push @hints, "transient" },
-) or die "$@";
+) or exit 2;
 
-$summary = shift(@ARGV) or die "notify: summary not given\n";
+if (!@ARGV) {
+	_die("missing notification summary", 2);
+}
+
+$summary = shift @ARGV;
 $body = join(" ", @ARGV);
 
 if (defined $statefile) {
@@ -63,19 +97,20 @@ if (defined $statefile) {
 
 if ($appendbody) {
 	unless (defined $statefile) {
-		warn "notify: --append is useless without state file\n";
+		_warn("--append is useless without state file");
 	}
 	$body = join("\n", grep {length} ($oldbody, $body));
 }
 
 for (@hints) {
 	when (/^urgency=(.*)$/) {
+		my $val;
 		for ($1) {
 			$val = 0 when "low";
 			$val = 1 when "normal";
 			$val = 2 when ["critical", "high"];
 			default {
-				die "notify: invalid urgency level\n";
+				_die("invalid urgency level '$_'", 2);
 			}
 		}
 		$hints{urgency} = Net::DBus::dbus_byte($val);
@@ -99,6 +134,9 @@ for (@hints) {
 	when (/^str:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_string($2);
 	}
+	default {
+		_die("invalid hint parameter '$_'", 2);
+	}
 }
 
 for ($timeout) {
@@ -112,7 +150,7 @@ for ($timeout) {
 		$timeout = $1;
 	}
 	default {
-		die "notify: invalid timeout\n";
+		_die("invalid timeout value '$_'", 2);
 	}
 }
 
@@ -127,7 +165,7 @@ $id = Notifications->Notify(
 		$timeout);
 
 if (defined $statefile) {
-	open(my $fh, ">", $statefile) or die "notify: cannot update state: $!\n";
+	open(my $fh, ">", $statefile) or _die("cannot update state: $!");
 	say $fh $id;
 	say $fh $body;
 	close($fh);

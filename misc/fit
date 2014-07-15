@@ -6,26 +6,28 @@ use strict;
 use utf8;
 use warnings;
 use List::Util qw(min);
+use Nullroute::Lib;
 
-my $current = shift(@ARGV);
-my $target = shift(@ARGV);
+sub usage {
+	say for
+	"Usage: $::arg0 <current-WxH> <target-WxH>",
+	"",
+	"In target dimensions, either W or H should be omitted.",
+}
+
+my $current = shift @ARGV;
+my $target = shift @ARGV;
 
 if (!$current || !$target) {
-	warn $_ for
-	"Usage: fit <current-size> <target-size>\n",
-	"\n",
-	"Both sizes are in the form WxH or W:H.\n",
-	"\n",
-	"In target-dim, one of the dimensions may be missing.\n";
-	exit 1;
+	usage();
+	exit 2;
 }
 
 my ($curX, $curY) = $current =~ /^(\d+)[x:](\d+)$/;
 my ($tarX, $tarY) = $target =~ /^(\d+)?[x:](\d+)?$/;
 
 if (!$curX || !$curY) {
-	warn "Missing source dimensions.\n";
-	exit 1;
+	_die("missing source dimensions");
 }
 
 my $ratio = $curX / $curY;
@@ -35,8 +37,7 @@ printf "(source ratio %.4f)\n", $ratio;
 my ($outX, $outY);
 
 if (!$tarX && !$tarY) {
-	warn "Missing target dimensions.\n";
-	exit 1;
+	_die("missing target dimensions");
 }
 elsif ($tarX && !$tarY) {
 	$outX = $tarX;

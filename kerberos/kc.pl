@@ -15,14 +15,14 @@ BEGIN {
 		Nullroute::Lib->import(qw(_debug _warn _err _die));
 	} else {
 		our ($arg0, $warnings, $errors);
-		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ! ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
 	}
 }
-
-$::arg0 = "kc";
 
 my $rundir;
 my $ccprefix;
@@ -38,12 +38,12 @@ my $can_switch = 1;
 
 sub usage {
 	say for
-	"Usage: kc",
-	"       kc <name>|\"@\" [kinit_args]",
-	"       kc <number>",
-	"       kc {list|slist}",
-	"       kc purge",
-	"       kc destroy <name|number>...";
+	"Usage: $::arg0",
+	"       $::arg0 <name>|\"@\" [kinit_args]",
+	"       $::arg0 <number>",
+	"       $::arg0 {list|slist}",
+	"       $::arg0 purge",
+	"       $::arg0 destroy <name|number>...";
 }
 
 sub _debugvar {

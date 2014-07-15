@@ -1,8 +1,5 @@
 #!/usr/bin/env perl
 # gnome-mpris-keybind - forward media keys in GNOME to a MPRISv2-capable player
-#
-# © 2011 Mantas M. <grawity@gmail.com>
-# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
 use v5.10;
 use warnings;
 no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
@@ -10,55 +7,69 @@ use strict;
 use Net::DBus;
 use Net::DBus::Reactor;
 
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+	} else {
+		our ($warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
 sub usage {
 	say for
 	"Usage: gnome-mpris-keybind <playername>",
 	"",
 	"<playername> is the last component of the player's MPRISv2 D-Bus name; for",
-	"example, \"mpd\" for \"org.mpris.MediaPlayer2.mpd\".",
-	;
-	exit 2;
+	"example, \"mpd\" for \"org.mpris.MediaPlayer2.mpd\".";
 }
 
-my $player_name = shift(@ARGV) // usage();
+# Main code
 
-if ($player_name =~ /^-/) {
-	usage();
-} elsif ($player_name =~ /^org\.mpris\.MediaPlayer2\.(.+)$/) {
-	$player_name = $1;
-} elsif ($player_name =~ /^org\.mpris\./) {
-	warn "error: MPRIS v1 interface is not supported\n";
-	exit(1);
-}
+my $player_name = shift @ARGV;
 
-my $app_id	= "gnome-mpris-keybind ($player_name)";
-
-my $bus		= Net::DBus->session;
-my $mp_player	= $bus->get_service("org.mpris.MediaPlayer2.$player_name")
-			->get_object("/org/mpris/MediaPlayer2");
-my $gsd_mmkeys	= $bus->get_service("org.gnome.SettingsDaemon")
-			->get_object("/org/gnome/SettingsDaemon/MediaKeys");
-
-$gsd_mmkeys->connect_to_signal("MediaPlayerKeyPressed", sub {
-	my ($app_id, $key) = @_;
-	for ($key) {
-		when ("Play") {
-			$mp_player->PlayPause();
-		}
-		when ("Stop") {
-			$mp_player->Stop();
-		}
-		when ("Next") {
-			$mp_player->Next();
-		}
-		when ("Previous") {
-			$mp_player->Previous();
-		}
+for ($player_name) {
+	if (!defined $_) {
+		_die("missing player name", 2);
 	}
+	elsif ($_ eq "--help") {
+		usage();
+		exit;
+	}
+	elsif (/^org\.mpris\.MediaPlayer2\.(.+)$/) {
+		$player_name = $1;
+	}
+	elsif (/^org\.mpris\./) {
+		_die("MPRIS v1 interface is not supported");
+	}
+}
+
+my $app_id = "gnome-mpris-keybind ($player_name)";
+
+my $bus = Net::DBus->session;
+
+my $player = $bus->get_service("org.mpris.MediaPlayer2.$player_name")
+                 ->get_object("/org/mpris/MediaPlayer2");
+
+my $gsd = $bus->get_service("org.gnome.SettingsDaemon")
+              ->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+
+$gsd->connect_to_signal("MediaPlayerKeyPressed", sub {
+	my ($key_app_id, $key) = @_;
+
+	return if $key_app_id ne $app_id;
+
+	if ($key eq "Play")        { $player->PlayPause(); }
+	elsif ($key eq "Stop")     { $player->Stop(); }
+	elsif ($key eq "Next")     { $player->Next(); }
+	elsif ($key eq "Previous") { $player->Previous(); }
 });
 
-$gsd_mmkeys->GrabMediaPlayerKeys($app_id, 0);
+$gsd->GrabMediaPlayerKeys($app_id, 0);
 
-my $reactor = Net::DBus::Reactor->main;
-$reactor->run;
-exit(0);
+Net::DBus::Reactor->main->run;

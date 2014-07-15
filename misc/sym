@@ -23,6 +23,7 @@ BEGIN {
 
 my $force = 0;
 my $verbose = 0;
+my $dry_run = 0;
 my $link_dir;
 my $realpath = 0;
 
@@ -40,7 +41,10 @@ sub collapse {
 
 sub do_link {
 	my ($target, $link) = @_;
+
 	print "'$link' -> '$target'\n" if $verbose;
+
+	return if $dry_run;
 
 	if ($force && (-l $link || -e $link)) {
 		_debug("removing existing \"$link\"");
@@ -53,8 +57,8 @@ sub do_link {
 
 sub usage {
 	print "$_\n" for
-	"Usage: $::arg0 [-f] TARGET LINKNAME",
-	"       $::arg0 [-f] TARGET... DIRECTORY",
+	"Usage: $::arg0 [-fv] TARGET LINKNAME",
+	"       $::arg0 [-fv] TARGET... DIRECTORY",
 	"       $::arg0 -r FILE...  ('realpath' emulation)",
 	"       $::arg0 -rr FILE... ('realpath -m' emulation)";
 }
@@ -67,7 +71,10 @@ GetOptions(
 	"r|realpath+"		=> \$realpath,
 	"t|target-directory=s"	=> \$link_dir,
 	"v|verbose!"		=> \$verbose,
+	"dry-run!"		=> \$dry_run,
 ) or exit 2;
+
+$verbose ||= $dry_run;
 
 # Main code (realpath mode)
 

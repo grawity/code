@@ -116,9 +116,10 @@ if ($appendbody) {
 }
 
 for (@hints) {
-	when (/^urgency=(.*)$/) {
-		my $val;
-		for ($1) {
+	_debug("parsing hint: $_");
+	when (/^(urgency)=(.*)$/) {
+		my ($key, $val) = ($1, $2);
+		for ($val) {
 			$val = 0 when ["0", "low"];
 			$val = 1 when ["1", "normal"];
 			$val = 2 when ["2", "high", "critical"];
@@ -126,9 +127,20 @@ for (@hints) {
 				_die("invalid urgency level '$_'", 2);
 			}
 		}
-		$hints{"urgency"} = Net::DBus::dbus_byte($val);
+		$hints{$key} = Net::DBus::dbus_byte($val);
 	}
-	when (/^(category|desktop-entry|image-path|synchronous)=(.*)$/) {
+	when (/^(desktop-entry)=(.*)$/) {
+		my ($key, $val) = ($1, $2);
+		# TODO: did I get this right?
+		if ($val =~ m!/!) {
+			_die("'$key' cannot have paths");
+		}
+		elsif ($val =~ /\.desktop$/) {
+			_warn("'$key' should not have a file extension");
+		}
+		$hints{$key} = $val;
+	}
+	when (/^(category|image-path|synchronous)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_string($2);
 	}
 	when (/^(resident|transient)$/) {

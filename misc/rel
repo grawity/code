@@ -1,45 +1,58 @@
 #!/usr/bin/env perl
-# Display the relative path to a file from a given base.
+# rel - display the relative path to a file from a given base
+use warnings;
 use strict;
 use Cwd;
 use File::Spec;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Data::Dumper;
 
-my $base = $ENV{HOME};
-my $debug = 0;
-
-sub msg_usage {
-	print "Usage: rel [-b base] path\n";
-	return 2;
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($arg0, $warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
 }
+
+my $base = $ENV{HOME};
 
 sub do_rel {
 	my ($base, $path) = @_;
 	my $abs = Cwd::abs_path($path);
 	if (!defined $abs) {
-		print STDERR "error: '$path' does not exist\n";
-		return;
+		return _err("'$path' does not exist");
 	}
 	my $rel = File::Spec->abs2rel($abs, $base);
-	if ($debug) {
-		print STDERR Dumper({
-			given => $path,
-			given_abs => $abs,
-			base => $base,
-			rebased => $rel,
-			rebased_abs => Cwd::abs_path($rel),
-		});
+	if ($::debug) {
+		_debug("* given path: \"$path\"");
+		_debug("    absolute: \"$abs\"");
+		_debug("  given base: \"$base\"");
+		_debug("     rebased: \"$rel\"");
 	}
 	print "$rel\n";
 }
 
+sub usage {
+	print "$_\n" for
+	"Usage: $::arg0 [-b base] <path>...",
+	"",                       #
+	"  -b, --base=PATH        Base for making relative paths",
+}
+
 GetOptions(
-	"b|base=s" => \$base,
-	"D|debug" => \$debug)
-	or exit(msg_usage);
+	"help"		=> sub { usage(); exit; },
+	"b|base=s"	=> \$base,
+) or exit 2;
 
 $base = Cwd::abs_path($base);
+
 if (@ARGV) {
 	do_rel($base, $_) for @ARGV;
 } else {

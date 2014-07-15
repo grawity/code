@@ -27,15 +27,6 @@ sub my_abs_path {
 	realpath(dirname($path))."/".basename($path);
 }
 
-sub usage {
-	my $me = basename($0);
-	print STDERR "usage: $me [-f] TARGET LINKNAME\n";
-	print STDERR "       $me [-f] TARGET... DIRECTORY\n";
-	print STDERR "       $me -r FILE...  ('realpath' emulation)\n";
-	print STDERR "       $me -rr FILE... ('realpath -m' emulation)\n";
-	exit 2;
-}
-
 sub do_link {
 	my ($target, $link) = @_;
 	$verbose && print "'$link' -> '$target'\n";
@@ -51,12 +42,26 @@ sub do_link {
 	}
 }
 
+sub usage {
+	my $me = basename($0);
+	print "$_\n" for
+	"Usage: $me [-f] TARGET LINKNAME",
+	"       $me [-f] TARGET... DIRECTORY",
+	"       $me -r FILE...  ('realpath' emulation)",
+	"       $me -rr FILE... ('realpath -m' emulation)";
+}
+
+# Option parsing
+
 GetOptions(
-	"f|force" => \$force,
-	"r|realpath+" => \$realpath,
-	"t|target-directory=s" => \$dest,
-	"v|verbose" => \$verbose,
-) or usage;
+	"h|help"		=> sub { usage(); exit; },
+	"f|force!"		=> \$force,
+	"r|realpath+"		=> \$realpath,
+	"t|target-directory=s"	=> \$dest,
+	"v|verbose!"		=> \$verbose,
+) or exit 2;
+
+# Main code (realpath mode)
 
 if ($realpath > 1) {
 	# `/usr/bin/realpath -m` emulation mode
@@ -88,6 +93,8 @@ elsif ($realpath > 0) {
 	}
 	exit !!$err;
 }
+
+# Main code (normal mode)
 
 if (!defined $dest) {
 	if (scalar(@ARGV) > 1) {

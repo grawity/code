@@ -38,21 +38,6 @@ sub my_abs_path {
 	realpath(dirname($path))."/".basename($path);
 }
 
-sub do_link {
-	my ($target, $link) = @_;
-	$verbose && print "'$link' -> '$target'\n";
-	if (-l $link or -e $link) {
-		if ($force) {
-			unlink($link);
-			symlink($target, $link) or _warn("could not create symlink: $!");
-		} else {
-			_err("$link: already exists");
-		}
-	} else {
-		symlink($target, $link) or _warn("could not create symlink: $!");
-	}
-}
-
 sub collapse {
 	my ($path) = @_;
 	my @path = File::Spec->splitdir($path);
@@ -63,6 +48,19 @@ sub collapse {
 		else               { push @out, $_; }
 	}
 	File::Spec->catdir("", @out);
+}
+
+sub do_link {
+	my ($target, $link) = @_;
+	print "'$link' -> '$target'\n" if $verbose;
+
+	if ($force && (-l $link || -e $link)) {
+		_debug("removing existing \"$link\"");
+		unlink($link) or return _err("could not remove \"$link\": $!");
+	}
+
+	_debug("creating \"$link\" (target: \"$target\")");
+	symlink($target, $link) or return _err("could not create \"$link\": $!");
 }
 
 sub usage {

@@ -8,12 +8,22 @@ use File::Basename;
 use File::Spec;
 use Getopt::Long qw(:config bundling no_ignore_case);
 
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($arg0, $warnings, $errors);
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
 my $force = 0;
 my $verbose = 0;
 my $dest;
 my $realpath = 0;
-
-sub trace { print shift if $ENV{DEBUG}; }
 
 =item my_abs_path($path)
 
@@ -33,12 +43,12 @@ sub do_link {
 	if (-l $link or -e $link) {
 		if ($force) {
 			unlink($link);
-			symlink($target, $link) or warn "$!";
+			symlink($target, $link) or _warn("could not create symlink: $!");
 		} else {
-			warn "$link: already exists\n";
+			_err("$link: already exists");
 		}
 	} else {
-		symlink($target, $link) or warn "$!";
+		symlink($target, $link) or _warn("could not create symlink: $!");
 	}
 }
 
@@ -84,7 +94,9 @@ if ($realpath > 1) {
 			if (-l $file) {
 				$file = readlink($file);
 				if (!defined $file) {
-					++$err; warn "readlink: '$file': $!\n"; next;
+					++$err;
+					_err("readlink: '$file': $!");
+					next;
 				}
 			}
 			$real = File::Spec->rel2abs($file);
@@ -100,7 +112,9 @@ elsif ($realpath > 0) {
 	for my $file (@ARGV) {
 		my $real = realpath($file);
 		if (!defined $real) {
-			++$err; warn "realpath: '$file': $!\n"; next;
+			++$err;
+			_err("realpath: '$file': $!");
+			next;
 		}
 		print "$real\n";
 	}
@@ -125,27 +139,27 @@ if (!@ARGV) {
 $dest = my_abs_path($dest);
 
 if (!defined $dest) {
-	die "error: target does not exist\n";
+	_die("target does not exist");
 } elsif (-d $dest) {
 	# target [target...] dest_dir
-	trace("sym: dest=$dest\n");
+	_debug("dest=$dest");
 	for my $target (@ARGV) {
-		trace("sym: target=$target\n");
+		_debug("target=$target");
 		my $reltarget = File::Spec->abs2rel($target, $dest);
-		trace("     reltarget=$reltarget\n");
+		_debug("    reltarget=$reltarget");
 		my $link = File::Spec->catfile($dest, basename($target));
-		trace("     link=$link\n");
+		_debug("    link=$link");
 		do_link($reltarget, $link);
 	}
 } elsif (scalar(@ARGV) > 1) {
 	# target target... dest_file
-	die "error: target is not a directory\n";
+	_die("target is not a directory");
 } else {
 	# target dest
-	trace("sym: dest=$dest\n");
+	_debug("dest=$dest");
 	my $target = pop(@ARGV);
-	trace("sym: target=$target\n");
+	_debug("target=$target");
 	my $reltarget = File::Spec->abs2rel($target, dirname($dest));
-	trace("     reltarget=$reltarget\n");
+	_debug("    reltarget=$reltarget");
 	do_link($reltarget, $dest);
 }

@@ -379,7 +379,7 @@ void print_data(krb5_data *ticket) {
 		if (0x20 < data[i] && data[i] < 0x7f)
 			putchar(data[i]);
 		else
-			printf("\\%03o", data[i]);
+			printf("\\x%02X", data[i]);
 	}
 }
 

@@ -1,11 +1,23 @@
 #!/usr/bin/env perl
+use warnings;
+use strict;
 use feature qw(say);
 use Getopt::Long qw(:config no_ignore_case);
+use Nullroute::Lib;
 
 sub usage {
-	say "Usage: msshutdown [-c comment] [-f] [-r] [-t timeout] host";
-	return 2;
+	say for
+	"Usage: msshutdown [-c comment] [-f] [-r] [-t timeout] <host>",
+	"       msshutdown --abort <host>",
+	"",                       #
+	"  -a, --abort            Abort a pending shutdown",
+	"  -c, --comment=TEXT     Show text in the shutdown warning",
+	"  -f, --force            Shut down even if console is locked",
+	"  -r, --reboot           Reboot instead of powering off",
+	"  -t, --timeout=SECS     Set shutdown warning timer in seconds",
 }
+
+# Option parsing
 
 my $abort;
 my $force;
@@ -14,26 +26,38 @@ my $comment;
 my $timeout;
 
 GetOptions(
+	"help"		=> sub { usage(); exit; },
 	'a|abort'	=> \$abort,
 	'c|comment=s'	=> \$comment,
 	'f|force'	=> \$force,
 	'r|reboot'	=> \$reboot,
 	't|timeout=i'	=> \$timeout,
-) or exit usage();
+) or exit 2;
 
-my $host = shift @ARGV // exit usage();
+if (!@ARGV) {
+	_die("missing hostname", 2);
+}
+
+my $host = shift @ARGV;
+
+# Main code
 
 my @args = ("remote.msrpc", $host);
 
 if ($abort) {
 	push @args, "abortshutdown";
-	warn "note: -f is meaningless\n" if $force;
-	warn "note: -r is meaningless\n" if $reboot;
+	_warn("-c is meaningless when aborting") if defined $comment;
+	_warn("-f is meaningless when aborting") if $force;
+	_warn("-r is meaningless when aborting") if $reboot;
+	_warn("-t is meaningless when aborting") if $timeout;
 } else {
-	push @args, "-t", ($timeout // 1);
+	push @args, "-C", $comment	if defined $comment;
 	push @args, "-f"		if $force;
 	push @args, "-r"		if $reboot;
-	push @args, "-C", $comment	if defined $comment;
+	push @args, "-t", ($timeout // 1);
 	push @args, "shutdown";
 }
+
+_debug("running command: @args");
+
 exec(@args);

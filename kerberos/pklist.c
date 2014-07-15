@@ -34,7 +34,7 @@
 #  define HAVE_KRB5_CONFIG_PRINCIPALS
 #endif
 
-char *progname = "pklist";
+char *progname;
 krb5_context ctx;
 int show_cfg_tkts = 0;
 int show_collection = 0;
@@ -63,12 +63,33 @@ krb5_boolean krb5_is_config_principal(krb5_context ctx, krb5_const_principal pri
 }
 #endif
 
+void usage(FILE *f) {
+	fprintf(f,
+	"Usage: %s [-ClT] [-N|-P|-p|-R|-r <hostname>] [-c <ccname>]\n"
+	"\n"
+	"  -C           List configuration tickets\n"
+	"  -CC          - show raw config ticket names\n"
+	"  -c <ccname>  Show contents of given ccache\n"
+	"  -l           List known ccaches\n"
+	"  -ll          - also show contents\n"
+	"  -N           Only show ccache name\n"
+	"  -P           Show default client principal\n"
+	"  -p           Only show principal names\n"
+	"  -q           Quietly check if the ccache is valid\n"
+	"  -R           Show default realm\n"
+	"  -r <host>    Show realm for given FQDN\n"
+	"  -T           Show ticket data\n",
+	progname);
+}
+
 int main(int argc, char *argv[]) {
 	int opt;
 	int ret;
 	char *ccname = NULL;
 	char *hostname = NULL;
 	krb5_error_code retval;
+
+	progname = basename(argv[0]);
 
 	while ((opt = getopt(argc, argv, "Cc:lNPpqRr:T")) != -1) {
 		switch (opt) {
@@ -107,23 +128,7 @@ int main(int argc, char *argv[]) {
 			break;
 		case '?':
 		default:
-			fprintf(stderr,
-				"Usage: %s [-ClT] [-N|-P|-p|-R|-r hostname] [-c ccname]\n",
-				progname);
-			fprintf(stderr,
-				"\n"
-				"\t-C         list configuration tickets\n"
-				"\t-CC        - show raw config ticket names\n"
-				"\t-c ccname  show contents of given ccache\n"
-				"\t-l         list known ccaches\n"
-				"\t-ll        - also show contents\n"
-				"\t-N         only show ccache name\n"
-				"\t-P         show default client principal\n"
-				"\t-p         only show principal names\n"
-				"\t-q         quietly check if the ccache is valid\n"
-				"\t-R         show default realm\n"
-				"\t-r host    show realm for given FQDN\n"
-				"\t-T         show ticket data\n");
+			usage(stderr);
 			exit(2);
 		}
 	}

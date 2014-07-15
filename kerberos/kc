@@ -2,7 +2,6 @@
 # kc - Kerberos credential cache juggler
 # For cache switching to work, kc.sh must be sourced.
 use warnings;
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use strict;
 use feature qw(say state switch);
 use English;
@@ -249,63 +248,63 @@ sub enum_ccaches {
 sub expand_ccname {
 	my ($name) = @_;
 	for ($name) {
-		when ("new") {
+		if (m|^new$|) {
 			my (undef, $path) = tempfile($ccprefix."XXXXXX", OPEN => 0);
 			return "FILE:$path";
 		}
-		when (["", "@"]) {
+		elsif (m|^@?$|) {
 			return $ccdefault;
 		}
-		when (["KCM", "kcm"]) {
+		elsif (m|^KCM$|i) {
 			return "KCM:$UID";
 		}
-		when (m|^\d\d?$|) {
+		elsif (m|^\d\d?$|) {
 			my $i = int $_;
 			if ($i > 0 && $i <= @caches) {
 				return $caches[$i - 1];
 			}
 		}
 		# ^^ and ^
-		when (["^^", "^"]) {
+		elsif (m|^\^\^?$|) {
 			return "KEYRING:krb5cc";
 		}
 		# ^^foo
-		when (m|^\^\^(.+)$|) {
+		elsif (m|^\^\^(.+)$|) {
 			return "KEYRING:$1";
 		}
 		# ^foo
-		when (m|^\^(.+)$|) {
+		elsif (m|^\^(.+)$|) {
 			return "KEYRING:krb5cc.$1";
 		}
 		# +foo
-		when (m|^\+$|) {
+		elsif (m|^\+$|) {
 			return "DIR:$cccdir";
 		}
-		when (m|^\+(.*)$|) {
+		elsif (m|^\+(.*)$|) {
 			return "DIR::$cccdir/tkt$1";
 		}
 		# :foo/bar
-		when (m|^:(.+)/$|) {
+		elsif (m|^:(.+)/$|) {
 			return "DIR:$runprefix"."_$1";
 		}
-		when (m|^:(.+)/(.+)$|) {
+		elsif (m|^:(.+)/(.+)$|) {
 			return "DIR::$runprefix"."_$1/tkt$2";
 		}
 		# :foo
-		when (m|^:$|) {
+		elsif (m|^:$|) {
 			return "DIR:$runprefix";
 		}
-		when (m|^:(.+)$|) {
+		elsif (m|^:(.+)$|) {
 			return "DIR::$runprefix/tkt$1";
 		}
 		# any
-		when (m|:|) {
+		elsif (m|:|) {
 			return $_;
 		}
-		when (m|/|) {
+		elsif (m|/|) {
 			return "FILE:$_";
 		}
-		default {
+		else {
 			return "FILE:$ccprefix$_";
 		}
 	}
@@ -314,40 +313,40 @@ sub expand_ccname {
 sub collapse_ccname {
 	my ($name) = @_;
 	for ($name) {
-		when ($ccdefault) {
+		if ($_ eq $ccdefault) {
 			return "@";
 		}
-		when (m|^DIR::\Q$runprefix\E_(.+)/tkt(.*)$|) {
+		elsif (m|^DIR::\Q$runprefix\E_(.+)/tkt(.*)$|) {
 			return ":$1/$2";
 		}
-		when (m|^DIR::\Q$runprefix\E/tkt(.*)$|) {
+		elsif (m|^DIR::\Q$runprefix\E/tkt(.*)$|) {
 			return ":$1";
 		}
-		when (m|^DIR::\Q$cccdir\E/tkt(.*)$|) {
+		elsif (m|^DIR::\Q$cccdir\E/tkt(.*)$|) {
 			return "+$1";
 		}
-		when (m|^FILE:\Q$ccprefix\E(.*)$|) {
+		elsif (m|^FILE:\Q$ccprefix\E(.*)$|) {
 			return $1;
 		}
-		when (m|^FILE:(/.*)$|) {
+		elsif (m|^FILE:(/.*)$|) {
 			return $1;
 		}
-		#when ("API:$principal") {
+		#elsif ($_ eq "API:$principal") {
 		#	return "API:";
 		#}
-		when ("KCM:$UID") {
+		elsif ($_ eq "KCM:$UID") {
 			return "KCM";
 		}
-		when ("KEYRING:krb5cc") {
+		elsif ($_ eq "KEYRING:krb5cc") {
 			return "^";
 		}
-		when (m|^KEYRING:krb5cc\.(.+)$|) {
+		elsif (m|^KEYRING:krb5cc\.(.+)$|) {
 			return "^$1";
 		}
-		when (m|^KEYRING:(.*)$|) {
+		elsif (m|^KEYRING:(.*)$|) {
 			return "^^$1";
 		}
-		default {
+		else {
 			return $_;
 		}
 	}
@@ -390,11 +389,11 @@ sub put_env {
 	$ENV{$key} = $val;
 
 	for ($ENV{SHELL}) {
-		when (m{/(sh|bash|zsh)$}) {
+		if (m{/(sh|bash|zsh)$}) {
 			$val =~ s/'/'\\''/g;
 			say EVAL "$key=\'$val\'; export $key;";
 		}
-		default {
+		else {
 			_warn("unrecognized shell \"$ENV{SHELL}\"");
 			say EVAL "$key=$val";
 		}
@@ -428,7 +427,7 @@ sub find_ccache_for_principal {
 			chomp($line);
 			my @l = split(/\t/, $line);
 			for (shift @l) {
-				when ("ticket") {
+				if ($_ eq "ticket") {
 					my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags) = @l;
 					if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
 						$tgt_expiry = $t_expiry;
@@ -457,12 +456,12 @@ sub switch_ccache {
 	return 0 if !$can_switch;
 
 	for ($ccname) {
-		when (m|^DIR::(.+)$|) {
+		if (m|^DIR::(.+)$|) {
 			my $ccdirname = "DIR:".dirname($1);
 			put_env("KRB5CCNAME", $ccdirname);
 			run_proc("kswitch", "-c", $ccname);
 		}
-		when (m|^KEYRING:(.*)$|) {
+		elsif (m|^KEYRING:(.*)$|) {
 			my $keyname = $1;
 			if (system(qq(keyctl request keyring "$keyname" > /dev/null 2>&1)) > 0) {
 				# Hack around something that loses keys added to @s if it equals @us
@@ -475,7 +474,7 @@ sub switch_ccache {
 			}
 			put_env("KRB5CCNAME", $ccname);
 		}
-		default {
+		else {
 			put_env("KRB5CCNAME", $ccname);
 		}
 	}
@@ -539,14 +538,14 @@ sub do_print_ccache {
 		my @l = split(/\t/, $_);
 		_debug("- pklist output: '@l'");
 		for (shift @l) {
-			when ("principal") {
+			if ($_ eq "principal") {
 				($principal) = @l;
 
 				if ($principal =~ /.*@(.+)$/) {
 					$ccrealm = $1;
 				}
 			}
-			when ("ticket") {
+			elsif ($_ eq "ticket") {
 				my ($t_client, $t_service, undef,
 					$t_expiry, undef, $t_flags, undef) = @l;
 
@@ -666,10 +665,7 @@ if ($cccurrent =~ m|^DIR::(.+)$|) {
 my $cmd = shift @ARGV;
 
 for ($cmd) {
-	when (["-h", "--help"]) {
-		usage();
-	}
-	when (undef) {
+	if (!defined $_) {
 		my $num = 0;
 		for my $ccname (@caches) {
 			$num += do_print_ccache($ccname, $num);
@@ -679,7 +675,11 @@ for ($cmd) {
 			exit 1;
 		}
 	}
-	when ("purge") {
+	elsif (/^--help$/) {
+		usage();
+		exit;
+	}
+	elsif ($_ eq "purge") {
 		for my $ccname (@caches) {
 			my $principal = read_proc("pklist", "-c", $ccname, "-P");
 			say "Renewing credentials for $principal in $ccname";
@@ -687,28 +687,28 @@ for ($cmd) {
 			|| run_proc("kdestroy", "-c", $ccname);
 		}
 	}
-	when ("destroy") {
+	elsif ($_ eq "destroy") {
 		my @destroy = grep {defined} map {expand_ccname($_)} @ARGV;
 		run_proc("kdestroy", "-c", $_) for @destroy;
 	}
-	when ("clean") {
+	elsif ($_ eq "clean") {
 		say "Destroying all credential caches.";
 		run_proc("kdestroy", "-c", $_) for @caches;
 	}
-	when ("expand") {
+	elsif ($_ eq "expand") {
 		say expand_ccname($_) for @ARGV;
 	}
-	when ("list") {
+	elsif ($_ eq "list") {
 		say for @caches;
 	}
-	when ("slist") {
+	elsif ($_ eq "slist") {
 		say collapse_ccname($_) for @caches;
 	}
-	when ("trace") {
+	elsif ($_ eq "trace") {
 		$ENV{KRB5_TRACE} = "/dev/stderr";
 		system {$ARGV[0]} @ARGV;
 	}
-	when ("test-roundtrip") {
+	elsif ($_ eq "test-roundtrip") {
 		for my $name (@caches) {
 			my $tmp;
 			say " original: ", ($tmp = $name);
@@ -719,13 +719,13 @@ for ($cmd) {
 			say "";
 		}
 	}
-	when ("dump-aliases") {
+	elsif ($_ eq "dump-aliases") {
 		my %aliases = read_aliases();
 		for (sort keys %aliases) {
 			say $_."\t-> ".join(" ", @{$aliases{$_}});
 		}
 	}
-	when (/^=(.*)$/) {
+	elsif (/^=(.*)$/) {
 		my %aliases = read_aliases();
 		my $alias = $aliases{$1};
 		if (!defined $alias) {
@@ -738,7 +738,7 @@ for ($cmd) {
 			exit run_proc("kinit", @$alias) >> 8;
 		}
 	}
-	when (/.+@.+/) {
+	elsif (/.+@.+/) {
 		my ($ccname, $expiry) = find_ccache_for_principal($cmd);
 		if ($expiry) {
 			switch_ccache($ccname) || exit 1;
@@ -747,7 +747,7 @@ for ($cmd) {
 			run_proc("kinit", $cmd, @ARGV);
 		}
 	}
-	default {
+	else {
 		my $ccname = expand_ccname($cmd);
 		if (defined $ccname) {
 			switch_ccache($ccname) || exit 1;

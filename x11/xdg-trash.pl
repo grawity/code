@@ -22,7 +22,7 @@ BEGIN {
 		sub _debug { warn "debug: @_\n" if $::debug; }
 		sub _info  { print "@_\n"; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
-		sub _err   { warn "error: @_\n"; ++$::errors; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
 	}
 }

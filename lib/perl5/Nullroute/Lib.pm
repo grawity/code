@@ -112,7 +112,7 @@ sub _notice { _msg(shift, "notice", "\e[1;35m"); }
 
 sub _warn   { _msg(shift, "warning", "\e[1;33m"); ++$::warnings; }
 
-sub _err    { _msg(shift, "error", "\e[1;31m"); ++$::errors; }
+sub _err    { _msg(shift, "error", "\e[1;31m"); ! ++$::errors; }
 
 sub _die    { _err(shift); exit int(shift // 1); }
 

@@ -21,6 +21,23 @@ BEGIN {
 	}
 }
 
+my $bus;
+my $app_id;
+my $player_name;
+my $player;
+
+sub SettingsDaemon {
+	$bus
+	->get_service("org.gnome.SettingsDaemon")
+	->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+}
+
+sub MediaPlayer2 {
+	$bus
+	->get_service("org.mpris.MediaPlayer2.".shift)
+	->get_object(shift // "/org/mpris/MediaPlayer2");
+}
+
 sub usage {
 	say for
 	"Usage: gnome-mpris-keybind <playername>",
@@ -31,7 +48,7 @@ sub usage {
 
 # Main code
 
-my $player_name = shift @ARGV;
+$player_name = shift @ARGV;
 
 for ($player_name) {
 	if (!defined $_) {
@@ -49,20 +66,30 @@ for ($player_name) {
 	}
 }
 
-my $app_id = "gnome-mpris-keybind ($player_name)";
+$app_id = "gnome-mpris-keybind ($player_name)";
 
-my $bus = Net::DBus->session;
+$bus = Net::DBus->session;
 
-my $player = $bus->get_service("org.mpris.MediaPlayer2.$player_name")
-                 ->get_object("/org/mpris/MediaPlayer2");
-
-my $gsd = $bus->get_service("org.gnome.SettingsDaemon")
-              ->get_object("/org/gnome/SettingsDaemon/MediaKeys");
+my $gsd = eval {SettingsDaemon()};
+if (!$gsd) {
+	_die("GNOME Settings Daemon is not running");
+}
 
 $gsd->connect_to_signal("MediaPlayerKeyPressed", sub {
 	my ($key_app_id, $key) = @_;
 
-	return if $key_app_id ne $app_id;
+	_debug("key pressed: \"$key\"");
+	if ($key_app_id ne $app_id) {
+		_warn("got signal for wrong app_id \"$key_app_id\", ignoring");
+		return;
+	}
+
+	$player //= eval {MediaPlayer2($player_name)};
+	if (!$player) {
+		chomp($@);
+		_warn("player \"$player_name\" not running ($@)");
+		return;
+	}
 
 	if ($key eq "Play")        { $player->PlayPause(); }
 	elsif ($key eq "Stop")     { $player->Stop(); }
@@ -72,4 +99,5 @@ $gsd->connect_to_signal("MediaPlayerKeyPressed", sub {
 
 $gsd->GrabMediaPlayerKeys($app_id, 0);
 
+_debug("entering main loop");
 Net::DBus::Reactor->main->run;

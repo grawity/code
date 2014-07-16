@@ -45,9 +45,9 @@ our $post_output = undef;
 my $seen_usage = 0;
 
 sub _msg {
-	my ($msg, $prefix, $color, %opt) = @_;
+	my ($msg, $prefix, $pfx_color, %opt) = @_;
 
-	my $color = (-t 2) ? $color : "";
+	my $color = (-t 2) ? $pfx_color : "";
 	my $reset = (-t 2) ? "\e[m" : "";
 	my $name = $::arg0 . ($::debug ? "[$$]" : "");
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
@@ -77,7 +77,7 @@ sub _msg {
 sub _fmsg {
 	return _msg(@_) if $::debug;
 
-	my ($msg, $prefix, $color, $fmt_prefix, $fmt_color) = @_;
+	my ($msg, $prefix, $pfx_color, $fmt_prefix, $fmt_color) = @_;
 
 	my $color = (-t 1) ? $fmt_color : "";
 	my $reset = (-t 1) ? "\e[m" : "";

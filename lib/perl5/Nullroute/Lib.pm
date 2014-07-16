@@ -1,5 +1,7 @@
 package Nullroute::Lib;
 use base "Exporter";
+use warnings;
+use strict;
 use Carp;
 use File::Basename;
 use constant {

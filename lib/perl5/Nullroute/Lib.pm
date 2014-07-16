@@ -81,6 +81,7 @@ sub _fmsg {
 
 	my $color = (-t 1) ? $fmt_color : "";
 	my $reset = (-t 1) ? "\e[m" : "";
+	my $name = $::arg0 . ($::debug ? "[$$]" : "");
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
 	if ($pre_output) { $pre_output->($msg, $prefix); }

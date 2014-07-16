@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-no warnings qw(experimental);
-use feature qw(switch);
+use warnings;
+use strict;
 use File::stat;
 
 my $infile = shift(@ARGV);
@@ -19,25 +19,25 @@ my @ff_args = ("ffmpeg",
 my %tag_args = (-type => "music");
 
 for (@ARGV) {
-	when (/^(year|date)=(.+)/) {
+	if (/^(year|date)=(.+)/) {
 		push @ff_args, -metadata => "date=$2";
 	}
-	when (/^(name|song|title)=(.*)/) {
+	elsif (/^(name|song|title)=(.*)/) {
 		push @ff_args, -metadata => "title=$2";
 	}
-	when (/^season=(.*)/) {
+	elsif (/^season=(.*)/) {
 		push @ff_args, -metadata => "season_number=$1";
 	}
-	when (/^episode=(.*)/) {
+	elsif (/^episode=(.*)/) {
 		push @ff_args, -metadata => "episode_id=$1";
 	}
-	when (/^type=(.*)/) {
+	elsif (/^type=(.*)/) {
 		$tag_args{-type} = $1;
 	}
-	when (/=/) {
+	elsif (/=/) {
 		push @ff_args, -metadata => $_;
 	}
-	default {
+	else {
 		die "bad argument: $_\n";
 	}
 }

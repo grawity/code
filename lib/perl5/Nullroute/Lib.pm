@@ -33,7 +33,7 @@ our @EXPORT = qw(
 $::arg0 //= basename($0);
 
 $::nested = $ENV{LVL}++;
-$::debug = int $ENV{DEBUG};
+$::debug = !!$ENV{DEBUG};
 $::arg0prefix = $::nested || $::debug;
 
 $::warnings = 0;

@@ -2,13 +2,21 @@
 use warnings;
 use strict;
 use File::stat;
+use Nullroute::Lib;
 
-my $infile = shift(@ARGV);
+my $infile = shift @ARGV;
+
+if (!$infile) {
+	_die("missing input file", 2);
+} elsif (!-f $infile) {
+	_die("input file \"$infile\" does not exist");
+}
+
 my $outfile = $infile;
 $outfile =~ s/\.[^.]+?$/.mp4/;
 
 if ($infile eq $outfile) {
-	die "same file: $outfile\n";
+	_die("input and output are the same file");
 }
 
 my @ff_args = ("ffmpeg",
@@ -38,7 +46,7 @@ for (@ARGV) {
 		push @ff_args, -metadata => $_;
 	}
 	else {
-		die "bad argument: $_\n";
+		_die("unknown option '$_'", 2);
 	}
 }
 

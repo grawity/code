@@ -117,6 +117,8 @@ elsif ($realpath > 0) {
 
 # Main code (normal mode)
 
+my $link_dest;
+
 if (defined $link_dir) {
 	_debug("link directory: \"$link_dir\"");
 
@@ -125,7 +127,9 @@ if (defined $link_dir) {
 	}
 }
 else {
-	my $link_dest = pop(@ARGV) // ".";
+	$link_dest = (@ARGV > 1) ? pop @ARGV : ".";
+
+	_debug("destination: \"$link_dest\"");
 
 	if (-d $link_dest || $link_dest =~ m|/$|) {
 		$link_dir = $link_dest;
@@ -153,7 +157,12 @@ for my $target (@ARGV) {
 	_debug("  - absolute: \"$abs_target\"");
 	$rel_target = File::Spec->abs2rel($target, $link_dir);
 	_debug("  - relative: \"$rel_target\"");
-	$link_name = File::Spec->catfile($link_dir, basename($target));
+
+	if (defined $link_dest && !-d $link_dest) {
+		$link_name = $link_dest;
+	} else {
+		$link_name = File::Spec->catfile($link_dir, basename($target));
+	}
 	_debug("  link name: \"$link_name\"");
 
 	do_link($rel_target, $link_name);

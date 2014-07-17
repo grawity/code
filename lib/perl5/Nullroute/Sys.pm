@@ -11,6 +11,10 @@ our @EXPORT = qw(
 	sessionid
 );
 
+my $hostid;
+my $bootid;
+my $sessionid;
+
 sub daemonize {
 	chdir("/")
 		or die "can't chdir to /: $!";
@@ -46,7 +50,7 @@ sub _hostid {
 	return "name=".hostname();
 }
 
-sub hostid { $::hostid //= _hostid(); }
+sub hostid { $hostid //= _hostid(); }
 
 sub _bootid {
 	my $id_file = "/proc/sys/kernel/random/boot_id";
@@ -54,7 +58,7 @@ sub _bootid {
 	return undef;
 }
 
-sub bootid { $::bootid //= _bootid(); }
+sub bootid { $bootid //= _bootid(); }
 
 sub _sessionid {
 	my @items;
@@ -63,7 +67,7 @@ sub _sessionid {
 	join(":", @items);
 }
 
-sub sessionid { $::sessionid //= _sessionid(); }
+sub sessionid { $sessionid //= _sessionid(); }
 
 sub _ttyname {
 	if ((-t 1) && (my $name = POSIX::ttyname(1))) {

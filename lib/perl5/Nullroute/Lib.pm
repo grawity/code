@@ -23,6 +23,7 @@ our @EXPORT = qw(
 	_usage
 	_exit
 	forked
+	interval
 	randstr
 	readfile
 	trim
@@ -124,6 +125,23 @@ sub _usage  { _msg($::arg0." ".shift, "usage", ""); }
 sub _exit   { exit ($::errors > 0); }
 
 sub forked (&) { fork || exit shift->(); }
+
+sub interval {
+	my ($end, $start) = @_;
+	my ($dif, $s, $m, $h, $d);
+
+	$start //= time;
+	$dif = $end - $start;
+	$dif -= $s = $dif % 60; $dif /= 60;
+	$dif -= $m = $dif % 60; $dif /= 60;
+	$dif -= $h = $dif % 24; $dif /= 24;
+	$d = $dif + 0;
+
+	if ($d > 1)	{ "${d}d ${h}h" }
+	elsif ($h > 0)	{ "${h}h ${m}m" }
+	elsif ($m > 0)	{ "${m} mins" }
+	else		{ "${s} secs" }
+}
 
 sub randstr {
 	my $len = shift // 12;

@@ -1,12 +1,15 @@
 #!/usr/bin/env perl
 # © 2014 Mantas Mikulėnas <grawity@gmail.com>
 # Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-use Net::DBus;
+use Net::DBus qw(:typing);
 use Net::DBus::Reactor;
 use feature qw(state);
 use constant {
 	UP_DEVICE_IFACE		=> "org.freedesktop.UPower.Device",
 	DBUS_PROPERTY_IFACE	=> "org.freedesktop.DBus.Properties",
+	NOTIFY_URGENCY_LOW	=> 0,
+	NOTIFY_URGENCY_NORMAL	=> 1,
+	NOTIFY_URGENCY_HIGH	=> 2,
 };
 
 my @STATE = qw(unknown charging discharging fully_charged
@@ -48,8 +51,8 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 		$dev
 		->as_interface(DBUS_PROPERTY_IFACE) #sigh
 		->connect_to_signal("PropertiesChanged", sub {
-			my ($iface, $changed, $invalidated) = @_;
-			return unless $iface eq UP_DEVICE_IFACE;
+			my ($interface, $changed, $invalidated) = @_;
+			return unless $interface eq UP_DEVICE_IFACE;
 			return unless (exists $changed->{Percentage}
 			               || exists $changed->{State});
 
@@ -66,8 +69,8 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 					body => "The battery is at $charge%.",
 					icon => $icon,
 					hints => {
-						transient => Net::DBus::dbus_boolean(1),
-						urgency => Net::DBus::dbus_byte(2),
+						transient => dbus_boolean(1),
+						urgency => dbus_byte(NOTIFY_URGENCY_HIGH),
 					},
 					timeout => 10_000);
 			}

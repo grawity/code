@@ -1,7 +1,7 @@
 package Nullroute::Sys;
 use base "Exporter";
 use POSIX ();
-use Nullroute::Lib qw(forked readfile);
+use Nullroute::Lib;
 use Sys::Hostname qw(hostname);
 
 our @EXPORT = qw(
@@ -17,17 +17,16 @@ my $sessionid;
 
 sub daemonize {
 	chdir("/")
-		or die "can't chdir to /: $!";
+		or _die("could not chdir to /: $!");
 	open(STDIN, "<", "/dev/null")
-		or die "can't read /dev/null: $!";
+		or _die("could not open < /dev/null: $!");
 	open(STDOUT, ">", "/dev/null")
-		or die "can't write /dev/null: $!";
+		or _die("could not open > /dev/null: $!");
 	my $pid = fork()
-		// die("can't fork: $!");
+		// _die("could not fork: $!");
 	exit if $pid;
-	if (POSIX::setsid() < 0) {
-		warn "setsid failed: $!";
-	}
+	POSIX::setsid() >= 0
+		or _warn("could not leave session: $!");
 }
 
 sub _hostid {
@@ -53,8 +52,10 @@ sub _hostid {
 sub hostid { $hostid //= _hostid(); }
 
 sub _bootid {
-	my $id_file = "/proc/sys/kernel/random/boot_id";
-	return readfile($id_file) if -f $id_file;
+	if ($^O eq "linux") {
+		my $f = "/proc/sys/kernel/random/boot_id";
+		return readfile($f) if -r $f;
+	}
 	return undef;
 }
 
@@ -62,9 +63,10 @@ sub bootid { $bootid //= _bootid(); }
 
 sub _sessionid {
 	my @items;
-	push @items, bootid() // "boot=?";
-	push @items, $ENV{XDG_SESSION_ID} // "session=?";
-	join(":", @items);
+	if (defined $ENV{XDG_SESSION_ID}) {
+		return "xdg.".$ENV{XDG_SESSION_ID};
+	}
+	return undef;
 }
 
 sub sessionid { $sessionid //= _sessionid(); }

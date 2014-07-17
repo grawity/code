@@ -44,6 +44,8 @@ sub notify {
 		$opts{timeout} // 1_000);
 }
 
+my $devices = 0;
+
 for my $dev_p (@{UPower->EnumerateDevices()}) {
 	my $dev = UPower($dev_p);
 	if ($dev->Get(UP_DEVICE_IFACE, "IsRechargeable")) {
@@ -80,7 +82,13 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 				system("systemctl", "suspend");
 			}
 		});
+		++$devices;
 	}
+}
+
+if (!$devices) {
+	warn "No battery devices found\n";
+	exit 1;
 }
 
 Net::DBus::Reactor->main->run;

@@ -6,6 +6,7 @@ use strict;
 use Data::Dumper;
 use Socket;
 use Getopt::Long qw(:config bundling no_ignore_case);
+use Nullroute::Lib;
 use Sys::Hostname;
 
 my %SUFFIX = (
@@ -135,14 +136,15 @@ sub nmbstat {
 }
 
 my $msbrowse_name = "\x01\x02__MSBROWSE\x02#01";
+my @def_workgroups = qw(WORKGROUP);
 
-my @initial = ($msbrowse_name, hostname);
+my @initial = ($msbrowse_name, @def_workgroups, hostname);
 my @masters;
 my @network;
 my @workgroups;
 my @next_wgs;
 
-my $do_verbose = !!$ENV{DEBUG};
+my $do_verbose = $::debug;
 my $do_concise = 0;
 my $want_suffix = 0x20;
 my $do_header = 1;
@@ -150,10 +152,9 @@ my $do_color = (-t 1 or defined $ENV{FORCE_COLOR});
 my $do_root_port = 0;
 
 sub trace {
-	if ($do_verbose) {
-		my $msg = shift;
-		printf STDERR "- $msg\n", @_;
-	}
+	@_ = sprintf(shift, @_);
+	goto &_info if $::debug;
+	warn "- @_\n" if $do_verbose;
 }
 
 GetOptions(

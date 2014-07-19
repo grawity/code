@@ -80,7 +80,12 @@ do_pull() {
 		log: svnsync sync "file://$PWD"
 	elif [[ -f HEAD ]] && d=$(git rev-parse --git-dir 2>/dev/null); then
 		is "Git – bare repository"
+		old_head=$(git rev-parse --verify HEAD)
 		log: git fetch
+		new_head=$(git rev-parse --verify HEAD)
+		if [[ "$new_head" != "$old_head" ]]; then
+			git --no-pager diff --stat "$old_head" "$new_head"
+		fi
 	else
 		is none
 	fi

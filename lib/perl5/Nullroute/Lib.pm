@@ -53,7 +53,7 @@ sub _msg {
 	my $name = $::arg0 . ($::debug ? "[$$]" : "");
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
-	if ($prefix eq "debug") {
+	if ($prefix eq "debug" || $::debug >= 2) {
 		my $skip = ($opt{skip} || 0) + 1;
 		my @frame;
 		do {
@@ -61,7 +61,8 @@ sub _msg {
 			$frame[3] //= "main";
 		} while ($frame[3] =~ /::__ANON__$/);
 		$frame[3] =~ s/^main:://;
-		$prefix .= " ".($frame[1]//"?").":".($frame[2]//"?") if $::debug > 1;
+		$prefix .= " @ ".($frame[1] // "?").":".($frame[2] // "?")
+			if $::debug >= 3;
 		$prefix .= " (".$frame[3].")";
 	}
 	elsif ($prefix eq "usage" && !$::debug && $seen_usage++) {

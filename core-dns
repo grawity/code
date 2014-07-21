@@ -41,6 +41,9 @@ do_journal() {
 	local file=$1 num=${2:-15}
 	echo -e "\e[1mShowing $num latest entries:\e[m"
 	named-journalprint "$file" | awk '$5 != "SOA"' | tail -$num \
+	| while read -r a b c; do
+		printf '%s %-26s %s\n' "$a" "$b" "$c"
+	done \
 	| sed 's/^add/\x1B[32m&\x1B[m/; s/^del/\x1B[31m&\x1B[m/; s/$/\x1B[m/'
 }
 

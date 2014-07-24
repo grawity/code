@@ -4,6 +4,9 @@ import sys
 num_warnings = 0
 num_errors = 0
 
+def window_title(msg):
+    print("\033]2;%s\007" % msg, file=sys.stderr)
+
 def _log(prefix, msg, color=""):
     print("\033[%sm%s:\033[m %s" % (color, prefix, msg),
           file=sys.stderr)

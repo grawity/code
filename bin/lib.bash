@@ -205,3 +205,7 @@ older_than() {
 	datets=$(date +%s -d "$date ago")
 	(( filets < datets ))
 }
+
+if (( DEBUG > 1 )); then
+	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[0]}"
+fi

@@ -173,4 +173,6 @@ sub xml_escape {
 	return $str;
 }
 
+_debug("[$ENV{LVL}] lib.pm loaded by $0") if $::debug >= 2;
+
 1;

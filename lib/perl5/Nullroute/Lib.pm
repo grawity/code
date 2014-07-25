@@ -78,7 +78,7 @@ sub _msg {
 }
 
 sub _fmsg {
-	return _msg(@_) if $::debug;
+	goto &_msg if $::debug;
 
 	my ($msg, $prefix, $pfx_color, $fmt_prefix, $fmt_color) = @_;
 

@@ -29,7 +29,7 @@ fi
 progname=${0##*/}
 progname_prefix=-1
 
-# lib::msg(text, level_prefix, level_color, [fancy_prefix, fancy_color])
+# lib::msg(text, level_prefix, level_color, [fancy_prefix, fancy_color, [text_color]])
 #
 # Print a log message.
 #
@@ -44,7 +44,9 @@ lib::msg() {
 	local text=$1
 	local level_prefix=$2 level_color=$3
 	local fancy_prefix=$4 fancy_color=$5
-	local name_prefix= prefix= color= reset= msg_color= msg_reset=
+	local text_color=$6
+
+	local name_prefix prefix color reset msg_color msg_reset
 
 	if [[ $DEBUG ]]; then
 		fancy_prefix=
@@ -59,10 +61,8 @@ lib::msg() {
 	if [[ -t 1 ]]; then
 		color=${fancy_color:-$level_color}
 		reset=${color:+'\e[m'}
-		if [[ $level_prefix == log2 ]]; then
-			msg_color='\e[1m'
-			msg_reset='\e[m'
-		fi
+		msg_color=${text_color}
+		msg_reset=${msg_color:+'\e[m'}
 	fi
 
 	printf "%s${color}%s${reset} ${msg_color}%s${msg_reset}\n" \
@@ -75,7 +75,7 @@ lib::msg() {
 # like `printf` but adds the program name when necessary.
 
 print_xmsg() {
-	local name_prefix=
+	local name_prefix
 
 	if [[ $DEBUG ]]; then
 		name_prefix="$progname[$$]: "
@@ -117,7 +117,7 @@ status() {
 }
 
 log2() {
-	lib::msg "$*" 'log2' '\e[1;35m' '==' '\e[35m'
+	lib::msg "$*" 'log2' '\e[1;35m' '==' '\e[35m' '\e[1m'
 }
 
 notice() {

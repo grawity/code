@@ -8,9 +8,7 @@ hold="$XDG_RUNTIME_DIR/nolid.hold"
 
 if [[ $_NOLID ]]; then
 	warn "ignoring nested lock"
-	exec "$@" || exit
-else
-	export _NOLID=1
+	exec env LVL="$_lvl" "$@" || exit
 fi
 
 name="nolid"
@@ -53,16 +51,17 @@ touch "$lock"
 
 trap 'flock -xn "$lock" rm -f "$lock"' EXIT
 
-lib::is_nested -= 2
-
 flock -s "$lock" \
 	systemd-inhibit --who="$name" \
-	--what="sleep:handle-lid-switch" \
-	--why="Manually inhibited" \
+		--what="sleep:handle-lid-switch" \
+		--why="Manually inhibited" \
 	gnome-inhibit --always \
-	--who="$name" \
-	--what="suspend" \
-	--why="Manually inhibited" \
+		--who="$name" \
+		--what="suspend" \
+		--why="Manually inhibited" \
+	env \
+		LVL="$_lvl" \
+		_NOLID="1" \
 	"${@:-ac-wait}"
 
 r=$?

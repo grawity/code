@@ -9,6 +9,7 @@ messages() {
 	err "error message"
 	warn "warning message"
 	notice "notice message"
+	TERM= status "status message"
 	log2 "log2 message"
 	log "log message"
 	say "info message"
@@ -16,18 +17,20 @@ messages() {
 	true
 }
 
--- "messages (normal)" --
+-- 'messages (normal)' --
 
 DEBUG='' messages
 
--- "messages (\$DEBUG)" --
+-- 'messages ($DEBUG)' --
 
 DEBUG=1 messages
 
--- "backtraces (\$DEBUG=2)" --
+-- 'backtraces ($DEBUG=2)' --
 
 foo() { bar; }
 bar() { baz; }
 baz() { warn "something failed"; }
 
 DEBUG=2 foo
+
+true

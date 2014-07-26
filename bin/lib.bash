@@ -111,13 +111,13 @@ log() {
 	lib::msg "$*" 'log' '\e[1;32m' '--' '\e[32m'
 }
 
-status() {
-	log "$*"
-	settitle "$progname: $*"
-}
-
 log2() {
 	lib::msg "$*" 'log2' '\e[1;35m' '==' '\e[35m' '\e[1m'
+}
+
+status() {
+	lib::msg "$*" 'status' '\e[1;36m' '#' '\e[36m' '\e[38;5;14m'
+	settitle "$progname: $*"
 }
 
 notice() {

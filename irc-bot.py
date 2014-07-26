@@ -121,7 +121,7 @@ def b64chunked(buf):
 
 def send(line):
     line = (line + "\r\n").encode("utf-8")
-    trace("--> %r" % line)
+    trace("\033[35m--> %r\033[m" % line)
     if hasattr(sys.stdout, "detach"):
         sys.stdout = sys.stdout.detach()
     sys.stdout.write(line)
@@ -132,7 +132,7 @@ def recv():
     if line is None or line == "":
         return None
     frame = Frame.parse(line, parse_prefix=False)
-    trace("<-- %r" % frame)
+    trace("\033[36m<-- %r\033[m" % frame)
     return frame
 
 def trace(*a):
@@ -145,7 +145,7 @@ settings = {
 
 required_caps = {
     "multi-prefix",
-    "sasl",
+    #"sasl",
 }
 
 wanted_caps = {
@@ -159,9 +159,26 @@ wanted_caps = {
 
 sasl_mech = None
 enabled_caps = set()
+current_nick = settings["nick"]
+nick_counter = 0
+isupport = {
+    "PREFIX":       "(ov)@+",
+    "PREFIX.modes": {"o": "@", "v": "+"},
+    "PREFIX.chars": {"@": "o", "+": "v"},
+    "PREFIX.ranks": {"o": 2, "@": 2,
+                     "v": 1, "+": 1},
+    "CHANTYPES":    "#",
+    "CHANMODES":    "b,k,l,imnpst",
+    "CHANMODES.a":  "b",
+    "CHANMODES.b":  "k",
+    "CHANMODES.c":  "l",
+    "CHANMODES.d":  "imnpst",
+    "NICKLEN":      9,
+    "CASEMAPPING":  "rfc1459",
+}
 
 send("CAP LS")
-send("PASS %(nick)s:%(pass)s" % settings)
+#send("PASS %(nick)s:%(pass)s" % settings)
 send("NICK %(nick)s" % settings)
 send("USER %(nick)s * * %(nick)s" % settings)
 
@@ -193,7 +210,10 @@ while True:
             if "sasl" in acked_caps:
                 sasl_mech = SaslPLAIN(username=settings["nick"],
                                        password=settings["pass"])
+                trace("Starting SASL %s authentication" % sasl_mech.name)
                 send("AUTHENTICATE %s" % sasl_mech.name)
+            else:
+                send("CAP END")
         elif sub == "NAK":
             refused_caps = set(frame.args[3].split())
             trace("Server refused capabilities: %s" % refused_caps)
@@ -210,6 +230,58 @@ while True:
         if outbuf is not None:
             for chunk in b64chunked(outbuf):
                 send("AUTHENTICATE " + chunk)
+    elif frame.cmd == "001":
+        pass
+    elif frame.cmd == "005":
+        isupport_tokens = frame.args[2:-1]
+        for isupport_item in isupport_tokens:
+            if "=" in isupport_item:
+                k, v = isupport_item.split("=", 1)
+                if k == "CHANMODES":
+                    a, b, c, d = v.split(",", 3)
+                    isupport["CHANMODES.a"] = a
+                    isupport["CHANMODES.b"] = b
+                    isupport["CHANMODES.c"] = c
+                    isupport["CHANMODES.d"] = d
+                elif k in {"CHANLIMIT", "MAXLIST"}:
+                    isupport["%s.types" % k] = {}
+                    limit_tokens = v.split(",")
+                    for limit_item in limit_tokens:
+                        types, limit = limit_item.split(":", 1)
+                        for type in types:
+                            isupport["%s.types" % k][type] = int(limit)
+                elif k in {"CHANNELLEN", "NICKLEN", "MODES", "MONITOR", "TOPICLEN"}:
+                    v = int(v)
+                elif k in "EXTBAN":
+                    char, types = v.split(",", 1)
+                    isupport["EXTBAN.char"] = char
+                    isupport["EXTBAN.types"] = types
+                elif k == "NAMESX":
+                    if "multi-prefix" not in enabled_caps:
+                        send("PROTOCTL NAMESX")
+                elif k == "UHNAMES":
+                    if "userhost-in-names" not in enabled_caps:
+                        send("PROTOCTL UHNAMES")
+                elif k == "PREFIX":
+                    isupport["PREFIX.modes"] = {}
+                    isupport["PREFIX.chars"] = {}
+                    modes, chars = v[1:].split(")", 1)
+                    num = len(modes)
+                    for i in range(num):
+                        isupport["PREFIX.modes"][modes[i]] = chars[i]
+                        isupport["PREFIX.chars"][chars[i]] = modes[i]
+                        isupport["PREFIX.ranks"][modes[i]] = num - i
+                        isupport["PREFIX.ranks"][chars[i]] = num - i
+            else:
+                k, v = isupport_item, True
+            isupport[k] = v
+        from pprint import pformat
+        trace(pformat(isupport))
+    elif frame.cmd == "433":
+        trace("Nickname %r is already in use" % settings["nick"])
+        nick_counter += 1
+        current_nick = "%s%d" % (settings["nick"], nick_counter)
+        send("NICK " + current_nick)
     elif frame.cmd == "903":
         trace("Authentication successful!")
         send("CAP END")

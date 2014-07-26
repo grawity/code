@@ -29,49 +29,44 @@ fi
 progname=${0##*/}
 progname_prefix=-1
 
-# print_msg(msg, level_prefix, level_color)
+# lib::msg(text, level_prefix, level_color, [fancy_prefix, fancy_color])
 #
-# Print a log message with level prefix like "warning" or "error" and a given
-# color for the prefix. Used for warn/die type messages.
-
-print_msg() {
-	local msg=$1 lprefix=$2 color reset nprefix
-	if [[ -t 1 ]]; then
-		color=$3 reset=${color:+'\e[m'}
-	fi
-	if [[ $DEBUG ]]; then
-		local progname="$progname[$$]" progname_prefix=1
-	fi
-	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
-		nprefix="$progname: "
-	fi
-	printf "%s${color}%s:${reset} %s\n" "$nprefix" "$lprefix" "$msg"
-}
-
-# print_fmsg(msg, level_prefix, level_color, fancy_prefix, fancy_color)
+# Print a log message.
 #
-# Print a log message with given "fancy" prefix like "==" or "*" and a given
-# color for the prefix. If $DEBUG is set, will call print_msg() instead. Used
-# for log/info type messages.
+#   level_prefix: message level like "warning" or "error"
+#   level_color:  color to use when printing message level prefix
+#   fancy_prefix: symbolic level indicator like "==" or "*"
+#   fancy_color:  color to use when printing symbolic prefix
+#
+# If $DEBUG is set, $fancy_prefix and $fancy_color will be ignored.
 
-print_fmsg() {
-	local msg=$1 lprefix=$2 lcolor=$3 fprefix=$4 fcolor=$5
-	local pfx_color msg_color reset
+lib::msg() {
+	local text=$1
+	local level_prefix=$2 level_color=$3
+	local fancy_prefix=$4 fancy_color=$5
+	local name_prefix= prefix= color= reset= msg_color= msg_reset=
+
 	if [[ $DEBUG ]]; then
-		print_msg "$msg" "$lprefix" "$lcolor"
-		return
+		fancy_prefix=
+		fancy_color=
+		name_prefix="$progname[$$]: "
+	elif (( progname_prefix > 0 )) || (( progname_prefix < 0 && _lvl > 0 )); then
+		name_prefix="$progname: "
 	fi
+
+	prefix=${fancy_prefix:-$level_prefix:}
+
 	if [[ -t 1 ]]; then
-		pfx_color="$fcolor" reset='\e[m'
-		if [[ $lprefix == log2 ]]; then
-			msg_color=$'\e[1m'
+		color=${fancy_color:-$level_color}
+		reset=${color:+'\e[m'}
+		if [[ $level_prefix == log2 ]]; then
+			msg_color='\e[1m'
+			msg_reset='\e[m'
 		fi
 	fi
-	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
-		nprefix="$progname: "
-	fi
-	printf "%s${pfx_color}%s${reset} ${msg_color}%s${reset}\n" \
-		"$nprefix" "$fprefix" "$msg"
+
+	printf "%s${color}%s${reset} ${msg_color}%s${msg_reset}\n" \
+		"$name_prefix" "$prefix" "$text"
 }
 
 # print_xmsg(format, args...)
@@ -80,14 +75,15 @@ print_fmsg() {
 # like `printf` but adds the program name when necessary.
 
 print_xmsg() {
-	local nprefix
+	local name_prefix=
+
 	if [[ $DEBUG ]]; then
-		local progname="$progname[$$]" progname_prefix=1
-	fi
-	if (( progname_prefix > 0 || ( progname_prefix < 0 && _lvl ) )); then
+		name_prefix="$progname[$$]: "
+	elif (( progname_prefix > 0 )) || (( progname_prefix < 0 && _lvl > 0 )); then
 		nprefix="$progname: "
 	fi
-	printf "%s$1\n" "$nprefix" "${@:2}"
+
+	printf "%s$1\n" "$name_prefix" "${@:2}"
 }
 
 debug() {
@@ -104,7 +100,7 @@ debug() {
 
 say() {
 	if [[ $DEBUG ]]; then
-		print_msg "$*" 'info' '\e[1;34m'
+		lib::msg "$*" 'info' '\e[1;34m'
 	elif [[ $VERBOSE ]]; then
 		printf "%s\n" "$*"
 	fi
@@ -112,7 +108,7 @@ say() {
 }
 
 log() {
-	print_fmsg "$*" 'log' '\e[1;32m' '--' '\e[32m'
+	lib::msg "$*" 'log' '\e[1;32m' '--' '\e[32m'
 }
 
 status() {
@@ -121,27 +117,27 @@ status() {
 }
 
 log2() {
-	print_fmsg "$*" 'log2' '\e[1;35m' '==' '\e[35m'
+	lib::msg "$*" 'log2' '\e[1;35m' '==' '\e[35m'
 }
 
 notice() {
-	print_fmsg "$*" 'notice' '\e[1;35m' '**' '\e[1;35m'
+	lib::msg "$*" 'notice' '\e[1;35m' '**' '\e[1;35m'
 } >&2
 
 warn() {
-	print_msg "$*" 'warning' '\e[1;33m'
+	lib::msg "$*" 'warning' '\e[1;33m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
-	print_msg "$*" 'error' '\e[1;31m'
+	lib::msg "$*" 'error' '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	! (( ++errors ))
 } >&2
 
 die() {
-	print_msg "$*" 'fatal' '\e[1;31m'
+	lib::msg "$*" 'fatal' '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit 1
 } >&2

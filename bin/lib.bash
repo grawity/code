@@ -211,5 +211,5 @@ lib::is_nested() {
 }
 
 if (( DEBUG > 1 )); then
-	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[0]}"
+	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"
 fi

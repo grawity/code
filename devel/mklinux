@@ -6,14 +6,38 @@ set -e
 . lib.bash || exit
 
 progname='mklinux'
-progname_prefix=0
 
 sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
+
+_build_dkms() {
+	#dkms status | sed -rn '/^(.+), (.+): added$/{s!!\1/\2!p}' |
+	vbox_rel=$(pacman -Q virtualbox-host-dkms | awk '{print $2}' | sed 's/-.*//')
+
+	emods=(vboxhost/$vbox_rel)
+
+	for mod in ${emods[@]}; do
+		mname=${mod%%/*}
+		echo -n "$mod: "
+		echo -n "uninstall..."
+		sudo dkms uninstall "$mod" -k "$release" -q || true
+		echo -n "clean..."
+		sudo rm -rf "/var/lib/dkms/$mod/$release"
+		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
+		echo -n "install..."
+		if sudo dkms install "$mod" -k "$release" -q; then
+			echo "done."
+		else
+			echo "failed."
+			warn "build failed for $mod"
+		fi
+	done
+}
 
 _build_kdbus() {
 	local release=$1
 	local build="/tmp/kdbus-build-$$"
 
+	log "building kdbus"
 	git clone -s ~/src/os-tools/kdbus "$build"
 	make -C "$build" KERNELDIR="/usr/lib/modules/$release/build"
 	sudo install -Dm0644 "$build/kdbus.ko" \
@@ -34,9 +58,8 @@ else
 	die "ESP not mounted"
 fi
 
-t_begin=$(gettime -m)
-
 status "prepare kernel: ..."
+t_begin=$(gettime -m)
 
 make prepare
 release=$(make kernelrelease)
@@ -47,9 +70,8 @@ status "build kernel: $release"
 
 make
 
-t_compile=$(gettime -m)
-
 status "install kernel: $release"
+t_compile=$(gettime -m)
 
 kernel="/EFI/custom/bisect.efi"
 initrd="/EFI/custom/bisect.rd"
@@ -68,11 +90,9 @@ status "configure bootloader"
 
 osname=$(. ${_path_os_release} && echo "${PRETTY_NAME:-$NAME}")
 machineid=$(cat /etc/machine-id)
-options=$(cat /etc/kernel/cmdline{,.bisect} 2>/dev/null \
-          | grep "^[^#]" | tr -s "\n" " ")
+options=$(cat /etc/kernel/cmdline{,.bisect} 2>/dev/null | grep "^[^#]" | tr -s "\n" " ")
 
-echo "adding entry: bisect.conf"
-
+log "adding entry: bisect.conf"
 sudo tee "$esp/loader/entries/bisect.conf" <<!
 title           $osname
 version         $shortrel
@@ -82,37 +102,15 @@ initrd          $initrd
 options         $options
 !
 
-# foo
+status "install to legacy /boot"
+
 sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
 sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
-# foo
 
 status "build third-party modules"
 
-#dkms status | sed -rn '/^(.+), (.+): added$/{s!!\1/\2!p}' | 
-vbox_rel=$(pacman -Q virtualbox-host-dkms | awk '{print $2}' | sed 's/-.*//')
-
-emods=(vboxhost/$vbox_rel)
-
-for mod in ${emods[@]}; do
-	mname=${mod%%/*}
-	echo -n "$mod: "
-	echo -n "uninstall..."
-	sudo dkms uninstall "$mod" -k "$release" -q || true
-	echo -n "clean..."
-	sudo rm -rf "/var/lib/dkms/$mod/$release"
-	sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
-	echo -n "install..."
-	if sudo dkms install "$mod" -k "$release" -q; then
-		echo "done."
-	else
-		echo "failed."
-		warn "build failed for $mod"
-	fi
-done
-
+_build_dkms "$release"
 _build_kdbus "$release"
-
 sudo depmod "$release"
 
 status "clean old kernels"
@@ -155,9 +153,8 @@ status "sign third-party modules"
 	fi
 done
 
-t_install=$(gettime -m)
-
 status "installed: $release"
+t_install=$(gettime -m)
 
 git update-ref -m "installed kernel" refs/tags/last-build HEAD
 

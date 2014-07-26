@@ -45,6 +45,7 @@ lib::msg() {
 	local level_prefix=$2 level_color=$3
 	local fancy_prefix=$4 fancy_color=$5
 	local text_color=$6
+	local -i skip_func=$7
 
 	local name_prefix prefix color reset msg_color msg_reset
 
@@ -52,6 +53,9 @@ lib::msg() {
 		fancy_prefix=
 		fancy_color=
 		name_prefix="$progname[$$]: "
+		if (( DEBUG >= 2 )); then
+			level_prefix+=" (${FUNCNAME[2+skip_func]})"
+		fi
 	elif (( progname_prefix > 0 )) || (( progname_prefix < 0 && _lvl > 0 )); then
 		name_prefix="$progname: "
 	fi

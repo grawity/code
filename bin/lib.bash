@@ -202,6 +202,10 @@ older_than() {
 	(( filets < datets ))
 }
 
+lib::is_nested() {
+	(( LVL "$@" ))
+}
+
 if (( DEBUG > 1 )); then
 	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[0]}"
 fi

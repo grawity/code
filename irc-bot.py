@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import base64, sys
 
 class Frame(object):
@@ -61,13 +62,13 @@ class Frame(object):
         return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" \
                % (self.tags, self.prefix, self.cmd, self.args)
 
-class Sasl(object):
+class SaslMechanism(object):
     def __init__(self):
         self.stage = 0
         self.inbuf = b""
 
     def do_step(self, inbuf):
-        return b""
+        return None
 
     def feed(self, inbuf):
         self.inbuf += inbuf
@@ -83,18 +84,30 @@ class Sasl(object):
         self.inbuf = b""
         return outbuf
 
-class SaslPLAIN(Sasl):
+class SaslEXTERNAL(SaslMechanism):
+    name = "EXTERNAL"
+
+    def __init__(self, authzid=None):
+        super().__init__()
+        self.authz = authzid or ""
+
+    def do_step(self, inbuf):
+        if self.stage == 0:
+            return self.authz.encode("utf-8")
+
+class SaslPLAIN(SaslMechanism):
     name = "PLAIN"
 
-    def __init__(self, username, password):
+    def __init__(self, username, password, authzid=None):
         super().__init__()
-        self.authz = username
+        self.authz = authzid or username
         self.authn = username
         self.passwd = password
 
     def do_step(self, inbuf):
-        buf = "%s\0%s\0%s" % (self.authz, self.authn, self.passwd)
-        return buf.encode("utf-8")
+        if self.stage == 0:
+            buf = "%s\0%s\0%s" % (self.authz, self.authn, self.passwd)
+            return buf.encode("utf-8")
 
 def b64chunked(buf):
     buf = base64.b64encode(buf).decode("utf-8")
@@ -175,13 +188,15 @@ while True:
             send("CAP REQ :%s" % " ".join(request_caps))
         elif sub == "ACK":
             acked_caps = set(frame.args[3].split())
+            trace("Server enabled capabilities: %s" % acked_caps)
             enabled_caps |= acked_caps
             if "sasl" in acked_caps:
                 sasl_mech = SaslPLAIN(username=settings["nick"],
                                        password=settings["pass"])
                 send("AUTHENTICATE %s" % sasl_mech.name)
         elif sub == "NAK":
-            trace("Server refused capabilities: %s" % frame.args[3])
+            refused_caps = set(frame.args[3].split())
+            trace("Server refused capabilities: %s" % refused_caps)
             send("QUIT")
     elif frame.cmd == "AUTHENTICATE":
         data = frame.args[1]

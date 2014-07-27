@@ -43,7 +43,7 @@ my $diffpathre = qr{ ^ [a-z] / (.+) $ }mx;
 #   /path
 #   /path:garbage
 
-my $pathre = qr{ (?<!\w) (\.? / [^:]+) }mx;
+my $pathre = qr{ (?<!\w) ([~.]? / [^:]+) }mx;
 
 # this matches grep context lines:
 #   filename-lineno-garbage
@@ -128,6 +128,7 @@ sub parse {
 		when ($pathre) {
 			_debug("pathre: '$&' -> '$1'");
 			my ($file) = ($1);
+			$file =~ s|^~/|$ENV{HOME}/|;
 			return ($file) if -e $file;
 		}
 		when ($ctxspecre) {

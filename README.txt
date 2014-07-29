@@ -51,10 +51,9 @@ The not really useful stuff:
 
 The "that's nice... but what's it good for?" stuff:
 
-  misc/
-    denettalk           – decrypt Nettalk "NCTCTC001"-encrypted messages
   security/
     accdb/              – plain-text account & password database
+    denettalk           – decrypt Nettalk "NCTCTC001"-encrypted messages
     dh                  – do a D-H key exchange over IRC or whatever
     ssh-duphosts        – clean up ~/.ssh/known_hosts
     ssh-publickeyd      – backend for SecureCRT's "public key assistant"

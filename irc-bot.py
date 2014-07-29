@@ -115,23 +115,30 @@ class IrcClient(object):
                 return name[:i], name[i:]
         raise ValueError("name %r has only prefix characters" % name)
 
-    def send(self, line):
-        line = (line + "\r\n").encode("utf-8")
-        trace("\033[35m--> %r\033[m" % line)
+    def send_raw(self, buf):
+        trace("\033[35m--> %r\033[m" % buf)
         if hasattr(sys.stdout, "detach"):
             sys.stdout = sys.stdout.detach()
-        sys.stdout.write(line)
+        sys.stdout.write(buf)
         sys.stdout.flush()
 
+    def send(self, line):
+        buf = (line + "\r\n").encode("utf-8")
+        return self.send_raw(buf)
+
     def sendv(self, *args):
-        line = " ".join(args)
-        return self.send(line)
+        buf = Frame.join(args)
+        return self.send_raw(buf)
+
+    def recv_raw(self):
+        buf = sys.stdin.readline()
+        if buf == "":
+            return None
+        return buf
 
     def recv(self):
-        line = sys.stdin.readline()
-        if line is None or line == "":
-            return None
-        frame = Frame.parse(line, parse_prefix=False)
+        buf = self.recv_raw()
+        frame = Frame.parse(buf, parse_prefix=False)
         trace("\033[36m<-- %r\033[m" % frame)
         return frame
 

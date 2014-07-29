@@ -157,7 +157,7 @@ class IrcClient(object):
             trace("Server error: \"%s\"" % " ".join(frame.args[1:]))
             return False
         elif frame.cmd == "PING":
-            send("PONG %s" % " ".join(frame.args[1:]))
+            self.send("PONG %s" % " ".join(frame.args[1:]))
         elif frame.cmd == "CAP":
             sub = frame.args[2].upper()
             if sub == "LS":
@@ -166,7 +166,7 @@ class IrcClient(object):
                 missing_caps = self.required_caps - offered_caps
                 if missing_caps:
                     trace("Server is missing required capabilities: %s" % missing_caps)
-                    send("QUIT")
+                    self.send("QUIT")
                 request_caps = offered_caps & (self.wanted_caps | self.required_caps)
                 self.send("CAP REQ :%s" % " ".join(request_caps))
             elif sub == "ACK":
@@ -227,10 +227,10 @@ class IrcClient(object):
                         isupport["EXTBAN.types"] = set(types)
                     elif k == "NAMESX":
                         if "multi-prefix" not in enabled_caps:
-                            send("PROTOCTL NAMESX")
+                            self.send("PROTOCTL NAMESX")
                     elif k == "UHNAMES":
                         if "userhost-in-names" not in enabled_caps:
-                            send("PROTOCTL UHNAMES")
+                            self.send("PROTOCTL UHNAMES")
                     elif k == "PREFIX":
                         self.isupport["PREFIX.modes"] = {}
                         self.isupport["PREFIX.chars"] = {}
@@ -302,7 +302,7 @@ class IrcClient(object):
             if ok == False:
                 break
 
-    def send_message(rcpt, text):
+    def send_message(self, rcpt, text):
         self.sendv("PRIVMSG", rcpt, text)
 
 class PipeWrapper(object):

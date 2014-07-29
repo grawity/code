@@ -20,16 +20,26 @@
 // just a prefix
 ":foo bar baz",			[null, ["foo", null, null, false], ["bar", "baz"]]
 ":foo. bar baz",		[null, [null, null, "foo.", true], ["bar", "baz"]]
+":foo.qux bar baz",		[null, [null, null, "foo.qux", true], ["bar", "baz"]]
+":a!b foo bar",			[null, ["a", "b", null, false], ["foo", "bar"]]
+":a@c foo bar",			[null, ["a", null, "c", false], ["foo", "bar"]]
+":a!b@c foo bar",		[null, ["a", "b", "c", false], ["foo", "bar"]]
+
+// weird prefix
+":a!b@c!d foo bar",		[null, ["a", "b", "c!d", false], ["foo", "bar"]]
+":a@b!c@d foo bar",		[null, ["a@b", "c", "d", false], ["foo", "bar"]]
+":a!b!c@d@e foo bar",		[null, ["a", "b!c", "d@e", false], ["foo", "bar"]]
+":a!b@c!d@e foo bar",		[null, ["a", "b", "c!d@e", false], ["foo", "bar"]]
 
 // just tags
 "@foo bar baz",			[["foo"], null, ["bar", "baz"]]
 "@c=d;e;a=b;f= foo bar",	[["a=b", "c=d", "e", "f"], null, ["foo", "bar"]]
 
-// tags and prefix
-"@foo;bar=baz :quux ab cd",	[["bar=baz", "foo"], ["quux", null, null, false], ["ab", "cd"]]
+// tags and prefix (a dumb split(/ :/) would misparse this as tags + 1 trailing param)
+"@c;a=b :quux ab cd",		[["a=b", "c"], ["quux", null, null, false], ["ab", "cd"]]
 
-// bad separator (a common typo)
+// bad tag separator (a common typo)
 "@c=d,e,a=b,f= foo bar",	[["c=d,e,a=b,f="], null, ["foo", "bar"]]
 
-// wrongly ordered; after the prefix always comes the command
+// wrongly ordered (tags are always before prefix, not after)
 ":foo @bar baz",		[null, ["foo", null, null, false], ["@bar", "baz"]]

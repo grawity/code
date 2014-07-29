@@ -66,7 +66,9 @@ def trace(*a):
 
 
 class IrcClient(object):
-    def __init__(self):
+    def __init__(self, conn):
+        self.conn = conn
+
         self.settings = {
             "nick": "grawity",
             "pass": "foo",
@@ -117,10 +119,8 @@ class IrcClient(object):
 
     def send_raw(self, buf):
         trace("\033[35m--> %r\033[m" % buf)
-        if hasattr(sys.stdout, "detach"):
-            sys.stdout = sys.stdout.detach()
-        sys.stdout.write(buf)
-        sys.stdout.flush()
+        self.conn.write(buf)
+        self.conn.flush()
 
     def send(self, line):
         buf = (line + "\r\n").encode("utf-8")
@@ -131,13 +131,15 @@ class IrcClient(object):
         return self.send_raw(buf)
 
     def recv_raw(self):
-        buf = sys.stdin.readline()
+        buf = self.conn.readline()
         if buf == b"":
             return None
         return buf
 
     def recv(self):
         buf = self.recv_raw()
+        if buf is None:
+            return None
         frame = Frame.parse(buf, parse_prefix=False)
         trace("\033[36m<-- %r\033[m" % frame)
         return frame
@@ -303,7 +305,32 @@ class IrcClient(object):
     def send_message(rcpt, text):
         self.sendv("PRIVMSG", rcpt, text)
 
-sys.stdin = sys.stdin.detach()
-client = IrcClient()
+class PipeWrapper(object):
+    def __init__(self, rd, wr):
+        self.rd = rd
+        self.wr = wr
+
+    @classmethod
+    def from_stdio(klass):
+        if hasattr(sys.stdin, "detach"):
+            sys.stdin = sys.stdin.detach()
+        if hasattr(sys.stdout, "detach"):
+            sys.stdout = sys.stdout.detach()
+        return klass(sys.stdin, sys.stdout)
+
+    def read(self, size):
+        return self.rd.read(size)
+
+    def readline(self):
+        return self.rd.readline()
+
+    def write(self, buf):
+        return self.wr.write(buf)
+
+    def flush(self):
+        return self.wr.flush()
+
+conn = PipeWrapper.from_stdio()
+client = IrcClient(conn)
 for event, data in client.run():
     trace("%s:" % event, pformat(data))

@@ -183,6 +183,11 @@ class IrcClient(object):
                 if missing_caps:
                     trace("Server is missing required capabilities: %s" % missing_caps)
                     self.send("QUIT")
+                    yield "disconnected", {
+                        "reason":   "missing-caps",
+                        "caps":     missing_caps,
+                        "refused":  False,
+                    }
                 request_caps = offered_caps & (self.wanted_caps | self.required_caps)
                 self.send("CAP REQ :%s" % " ".join(request_caps))
             elif sub == "ACK":
@@ -200,6 +205,11 @@ class IrcClient(object):
                 refused_caps = set(frame.args[3].split())
                 trace("Server refused capabilities: %s" % refused_caps)
                 self.send("QUIT")
+                yield "disconnected", {
+                    "reason":   "missing-caps",
+                    "caps":     refused_caps,
+                    "refused":  True,
+                }
         elif frame.cmd == "AUTHENTICATE":
             data = frame.args[1]
             if data == "+":
@@ -209,9 +219,12 @@ class IrcClient(object):
                 outbuf = self.sasl_mech.feed(inbuf)
             else:
                 outbuf = self.sasl_mech.next(inbuf)
-            if outbuf is not None:
-                for chunk in b64chunked(outbuf):
-                    self.send("AUTHENTICATE " + chunk)
+            if outbuf is None:
+                trace("SASL mechanism did not return any data")
+                self.send("QUIT")
+                yield "disconnected", {"reason": "auth-failed"}
+            for chunk in b64chunked(outbuf):
+                self.send("AUTHENTICATE " + chunk)
         elif frame.cmd == "001":
             yield from self.check_low_connected()
         elif frame.cmd == "005":
@@ -278,12 +291,12 @@ class IrcClient(object):
             else:
                 trace("Authentication failed; the credentials were incorrect")
             self.send("QUIT")
-            yield "disconnected", {"reason": "auth-fail"}
+            yield "disconnected", {"reason": "auth-failed"}
         elif frame.cmd == "908":
             trace("Authentication failed; server does not support SASL %r" %
                   (self.sasl_mech.name))
             self.send("QUIT")
-            yield "disconnected", {"reason": "auth-fail"}
+            yield "disconnected", {"reason": "auth-failed"}
         elif frame.cmd == "PRIVMSG":
             if len(frame.args) != 3:
                 return True

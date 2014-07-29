@@ -97,8 +97,8 @@ class Frame(object):
     @classmethod
     def split(cls, line):
         """
-        Split an IRC protocol line into tokens as defined in RFC 1459
-        and the IRCv3 message-tags extension.
+        Decode an IRC protocol line as UTF-8 and split into tokens as defined
+        in RFC 1459 and the IRCv3 message-tags extension.
         """
 
         line = line.decode("utf-8", "replace")
@@ -137,8 +137,8 @@ class Frame(object):
     @classmethod
     def parse(cls, line, parse_prefix=True):
         """
-        Parse an IRC protocol line into a Frame object consisting of
-        tags, prefix, command, and arguments.
+        Decode an IRC protocol line as UTF-8 and parse into a Frame object
+        consisting of tags, prefix, command, and arguments.
         """
 
         line = line.decode("utf-8", "replace")
@@ -192,7 +192,7 @@ class Frame(object):
     def join(cls, argv):
         """
         Join a parameter array into an IRC protocol line (without constructing
-        an intermediate Frame object).
+        an intermediate Frame object), and encode as UTF-8.
         """
 
         i, n = 0, len(argv)
@@ -227,18 +227,21 @@ class Frame(object):
             else:
                 parv.append(argv[i])
 
-        return " ".join(parv)
+        line = " ".join(parv) + "\r\n"
+        line = line.encode("utf-8")
+
+        return line
 
     def unparse(self):
         parv = []
 
         if self.tags:
             tags = [k if v is True else k + b"=" + v
-                for k, v in self.tags.items()]
-            parv.append("@" + b",".join(tags))
+                    for k, v in self.tags.items()]
+            parv.append("@" + ";".join(tags))
 
         if self.prefix:
-            parv.append(":" + self.prefix.unparse())
+            parv.append(":" + str(self.prefix))
 
         parv.append(self.cmd)
 
@@ -247,7 +250,7 @@ class Frame(object):
         return self.join(parv)
 
     def __repr__(self):
-        return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" %
+        return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" % \
                 (self.tags, self.prefix, self.cmd, self.args)
 
 class Connection(object):

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import base64, sys
+import base64
+import sys
+from pprint import pformat
 
 class Frame(object):
     def __init__(self, tags=None, prefix=None, cmd=None, args=None):
@@ -119,180 +121,192 @@ def b64chunked(buf):
     if not 0 < len(last) < size:
         yield "+"
 
-def send(line):
-    line = (line + "\r\n").encode("utf-8")
-    trace("\033[35m--> %r\033[m" % line)
-    if hasattr(sys.stdout, "detach"):
-        sys.stdout = sys.stdout.detach()
-    sys.stdout.write(line)
-    sys.stdout.flush()
-
-def recv():
-    line = sys.stdin.readline()
-    if line is None or line == "":
-        return None
-    frame = Frame.parse(line, parse_prefix=False)
-    trace("\033[36m<-- %r\033[m" % frame)
-    return frame
-
 def trace(*a):
     print(*a, file=sys.stderr)
 
-settings = {
-    "nick": "grawity",
-    "pass": "foo",
-}
 
-required_caps = {
-    "multi-prefix",
-    #"sasl",
-}
+class IrcClient(object):
+    def __init__(self):
+        self.settings = {
+            "nick": "grawity",
+            "pass": "foo",
+        }
 
-wanted_caps = {
-    "account-notify",
-    "away-notify",
-    "extended-join",
-    "server-time",
-    "znc.in/server-time",
-    "znc.in/server-time-iso",
-}
+        self.required_caps = {
+            "multi-prefix",
+            #"sasl",
+        }
 
-sasl_mech = None
-enabled_caps = set()
-current_nick = settings["nick"]
-nick_counter = 0
-isupport = {
-    "PREFIX":       "(ov)@+",
-    "PREFIX.modes": {"o": "@", "v": "+"},
-    "PREFIX.chars": {"@": "o", "+": "v"},
-    "PREFIX.ranks": {"o": 2, "@": 2,
-                     "v": 1, "+": 1},
-    "CHANTYPES":    "#",
-    "CHANMODES":    "b,k,l,imnpst",
-    "CHANMODES.a":  "b",
-    "CHANMODES.b":  "k",
-    "CHANMODES.c":  "l",
-    "CHANMODES.d":  "imnpst",
-    "NICKLEN":      9,
-    "CASEMAPPING":  "rfc1459",
-}
+        self.wanted_caps = {
+            "account-notify",
+            "away-notify",
+            "extended-join",
+            "server-time",
+            "znc.in/server-time",
+            "znc.in/server-time-iso",
+        }
 
-send("CAP LS")
-#send("PASS %(nick)s:%(pass)s" % settings)
-send("NICK %(nick)s" % settings)
-send("USER %(nick)s * * %(nick)s" % settings)
+        self.sasl_mech = None
+        self.enabled_caps = set()
+        self.current_nick = self.settings["nick"]
+        self.nick_counter = 0
+        self.isupport = {
+            "PREFIX":       "(ov)@+",
+            "PREFIX.modes": {"o": "@", "v": "+"},
+            "PREFIX.chars": {"@": "o", "+": "v"},
+            "PREFIX.ranks": {"o": 2, "@": 2,
+                             "v": 1, "+": 1},
+            "CHANTYPES":    "#",
+            "CHANMODES":    "b,k,l,imnpst",
+            "CHANMODES.a":  "b",
+            "CHANMODES.b":  "k",
+            "CHANMODES.c":  "l",
+            "CHANMODES.d":  "imnpst",
+            "NICKLEN":      9,
+            "CASEMAPPING":  "rfc1459",
+        }
 
-while True:
-    frame = recv()
+    def send(self, line):
+        line = (line + "\r\n").encode("utf-8")
+        trace("\033[35m--> %r\033[m" % line)
+        if hasattr(sys.stdout, "detach"):
+            sys.stdout = sys.stdout.detach()
+        sys.stdout.write(line)
+        sys.stdout.flush()
 
-    if frame is None:
-        break
-    elif frame.cmd == "ERROR":
-        trace("Server error: \"%s\"" % " ".join(frame.args[1:]))
-        break
-    elif frame.cmd == "PING":
-        send("PONG %s" % " ".join(frame.args[1:]))
-    elif frame.cmd == "CAP":
-        sub = frame.args[2].upper()
-        if sub == "LS":
-            offered_caps = set(frame.args[3].split())
-            trace("Server offers capabilities: %s" % offered_caps)
-            missing_caps = required_caps - offered_caps
-            if missing_caps:
-                trace("Server is missing required capabilities: %s" % missing_caps)
-                send("QUIT")
-            request_caps = offered_caps & (wanted_caps | required_caps)
-            send("CAP REQ :%s" % " ".join(request_caps))
-        elif sub == "ACK":
-            acked_caps = set(frame.args[3].split())
-            trace("Server enabled capabilities: %s" % acked_caps)
-            enabled_caps |= acked_caps
-            if "sasl" in acked_caps:
-                sasl_mech = SaslPLAIN(username=settings["nick"],
-                                       password=settings["pass"])
-                trace("Starting SASL %s authentication" % sasl_mech.name)
-                send("AUTHENTICATE %s" % sasl_mech.name)
-            else:
-                send("CAP END")
-        elif sub == "NAK":
-            refused_caps = set(frame.args[3].split())
-            trace("Server refused capabilities: %s" % refused_caps)
-            send("QUIT")
-    elif frame.cmd == "AUTHENTICATE":
-        data = frame.args[1]
-        if data == "+":
-            outbuf = sasl_mech.next()
-        elif len(data) == 400:
-            inbuf = b64decode(data)
-            outbuf = sasl_mech.feed(inbuf)
-        else:
-            outbuf = sasl_mech.next(inbuf)
-        if outbuf is not None:
-            for chunk in b64chunked(outbuf):
-                send("AUTHENTICATE " + chunk)
-    elif frame.cmd == "001":
-        pass
-    elif frame.cmd == "005":
-        isupport_tokens = frame.args[2:-1]
-        for isupport_item in isupport_tokens:
-            if "=" in isupport_item:
-                k, v = isupport_item.split("=", 1)
-                if k == "CHANMODES":
-                    a, b, c, d = v.split(",", 3)
-                    isupport["CHANMODES.a"] = a
-                    isupport["CHANMODES.b"] = b
-                    isupport["CHANMODES.c"] = c
-                    isupport["CHANMODES.d"] = d
-                elif k in {"CHANLIMIT", "MAXLIST"}:
-                    isupport["%s.types" % k] = {}
-                    limit_tokens = v.split(",")
-                    for limit_item in limit_tokens:
-                        types, limit = limit_item.split(":", 1)
-                        for type in types:
-                            isupport["%s.types" % k][type] = int(limit)
-                elif k in {"CHANNELLEN", "NICKLEN", "MODES", "MONITOR", "TOPICLEN"}:
-                    v = int(v)
-                elif k in "EXTBAN":
-                    char, types = v.split(",", 1)
-                    isupport["EXTBAN.char"] = char
-                    isupport["EXTBAN.types"] = types
-                elif k == "NAMESX":
-                    if "multi-prefix" not in enabled_caps:
-                        send("PROTOCTL NAMESX")
-                elif k == "UHNAMES":
-                    if "userhost-in-names" not in enabled_caps:
-                        send("PROTOCTL UHNAMES")
-                elif k == "PREFIX":
-                    isupport["PREFIX.modes"] = {}
-                    isupport["PREFIX.chars"] = {}
-                    modes, chars = v[1:].split(")", 1)
-                    num = len(modes)
-                    for i in range(num):
-                        isupport["PREFIX.modes"][modes[i]] = chars[i]
-                        isupport["PREFIX.chars"][chars[i]] = modes[i]
-                        isupport["PREFIX.ranks"][modes[i]] = num - i
-                        isupport["PREFIX.ranks"][chars[i]] = num - i
-            else:
-                k, v = isupport_item, True
-            isupport[k] = v
-        from pprint import pformat
-        trace(pformat(isupport))
-    elif frame.cmd == "433":
-        trace("Nickname %r is already in use" % settings["nick"])
-        nick_counter += 1
-        current_nick = "%s%d" % (settings["nick"], nick_counter)
-        send("NICK " + current_nick)
-    elif frame.cmd == "903":
-        trace("Authentication successful!")
-        send("CAP END")
-    elif frame.cmd == "904":
-        if sasl_mech.stage == 0:
-            trace("Authentication failed because server does not support SASL PLAIN")
-        else:
-            trace("Authentication failed because the credentials were incorrect")
-        send("QUIT")
-    elif frame.cmd == "908":
-        trace("Authentication failed because server does not support SASL PLAIN")
-        send("QUIT")
-    elif frame.cmd == "PRIVMSG":
-        pass # example
+    def recv(self):
+        line = sys.stdin.readline()
+        if line is None or line == "":
+            return None
+        frame = Frame.parse(line, parse_prefix=False)
+        trace("\033[36m<-- %r\033[m" % frame)
+        return frame
+
+    def handshake(self):
+        self.send("CAP LS")
+        #self.send("PASS %(nick)s:%(pass)s" % self.settings)
+        self.send("NICK %(nick)s" % self.settings)
+        self.send("USER %(nick)s * * %(nick)s" % self.settings)
+
+    def run(self):
+        self.handshake()
+
+        while True:
+            frame = self.recv()
+
+            if frame is None:
+                break
+            elif frame.cmd == "ERROR":
+                trace("Server error: \"%s\"" % " ".join(frame.args[1:]))
+                break
+            elif frame.cmd == "PING":
+                send("PONG %s" % " ".join(frame.args[1:]))
+            elif frame.cmd == "CAP":
+                sub = frame.args[2].upper()
+                if sub == "LS":
+                    offered_caps = set(frame.args[3].split())
+                    trace("Server offers capabilities: %s" % offered_caps)
+                    missing_caps = self.required_caps - offered_caps
+                    if missing_caps:
+                        trace("Server is missing required capabilities: %s" % missing_caps)
+                        send("QUIT")
+                    request_caps = offered_caps & (self.wanted_caps | self.required_caps)
+                    self.send("CAP REQ :%s" % " ".join(request_caps))
+                elif sub == "ACK":
+                    acked_caps = set(frame.args[3].split())
+                    trace("Server enabled capabilities: %s" % acked_caps)
+                    self.enabled_caps |= acked_caps
+                    if "sasl" in acked_caps:
+                        self.sasl_mech = SaslPLAIN(username=self.settings["nick"],
+                                                   password=self.settings["pass"])
+                        trace("Starting SASL %s authentication" % self.sasl_mech.name)
+                        self.send("AUTHENTICATE %s" % self.sasl_mech.name)
+                    else:
+                        self.send("CAP END")
+                elif sub == "NAK":
+                    refused_caps = set(frame.args[3].split())
+                    trace("Server refused capabilities: %s" % refused_caps)
+                    self.send("QUIT")
+            elif frame.cmd == "AUTHENTICATE":
+                data = frame.args[1]
+                if data == "+":
+                    outbuf = self.sasl_mech.next()
+                elif len(data) == 400:
+                    inbuf = b64decode(data)
+                    outbuf = self.sasl_mech.feed(inbuf)
+                else:
+                    outbuf = self.sasl_mech.next(inbuf)
+                if outbuf is not None:
+                    for chunk in b64chunked(outbuf):
+                        self.send("AUTHENTICATE " + chunk)
+            elif frame.cmd == "001":
+                pass
+            elif frame.cmd == "005":
+                isupport_tokens = frame.args[2:-1]
+                for isupport_item in isupport_tokens:
+                    if "=" in isupport_item:
+                        k, v = isupport_item.split("=", 1)
+                        if k == "CHANMODES":
+                            a, b, c, d = v.split(",", 3)
+                            self.isupport["CHANMODES.a"] = a
+                            self.isupport["CHANMODES.b"] = b
+                            self.isupport["CHANMODES.c"] = c
+                            self.isupport["CHANMODES.d"] = d
+                        elif k in {"CHANLIMIT", "MAXLIST"}:
+                            self.isupport["%s.types" % k] = {}
+                            limit_tokens = v.split(",")
+                            for limit_item in limit_tokens:
+                                types, limit = limit_item.split(":", 1)
+                                for type in types:
+                                    self.isupport["%s.types" % k][type] = int(limit)
+                        elif k in {"CHANNELLEN", "NICKLEN", "MODES",
+                                   "MONITOR", "TOPICLEN"}:
+                            v = int(v)
+                        elif k in "EXTBAN":
+                            char, types = v.split(",", 1)
+                            isupport["EXTBAN.char"] = char
+                            isupport["EXTBAN.types"] = types
+                        elif k == "NAMESX":
+                            if "multi-prefix" not in enabled_caps:
+                                send("PROTOCTL NAMESX")
+                        elif k == "UHNAMES":
+                            if "userhost-in-names" not in enabled_caps:
+                                send("PROTOCTL UHNAMES")
+                        elif k == "PREFIX":
+                            self.isupport["PREFIX.modes"] = {}
+                            self.isupport["PREFIX.chars"] = {}
+                            modes, chars = v[1:].split(")", 1)
+                            num = len(modes)
+                            for i in range(num):
+                                self.isupport["PREFIX.modes"][modes[i]] = chars[i]
+                                self.isupport["PREFIX.chars"][chars[i]] = modes[i]
+                                self.isupport["PREFIX.ranks"][modes[i]] = num - i
+                                self.isupport["PREFIX.ranks"][chars[i]] = num - i
+                    else:
+                        k, v = isupport_item, True
+                    self.isupport[k] = v
+                trace(pformat(self.isupport))
+            elif frame.cmd == "433":
+                trace("Nickname %r is already in use" % self.settings["nick"])
+                nick_counter += 1
+                self.current_nick = "%s%d" % (self.settings["nick"], self.nick_counter)
+                self.send("NICK " + self.current_nick)
+            elif frame.cmd == "903":
+                trace("Authentication successful!")
+                self.send("CAP END")
+            elif frame.cmd == "904":
+                if self.sasl_mech.stage == 0:
+                    trace("Authentication failed; server does not support SASL %r" %
+                          (self.sasl_mech.name))
+                else:
+                    trace("Authentication failed; the credentials were incorrect")
+                self.send("QUIT")
+            elif frame.cmd == "908":
+                trace("Authentication failed; server does not support SASL %r" %
+                      (self.sasl_mech.name))
+                self.send("QUIT")
+            elif frame.cmd == "PRIVMSG":
+                pass # example
+
+client = IrcClient()
+client.run()

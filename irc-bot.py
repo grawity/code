@@ -285,24 +285,24 @@ class IrcClient(object):
             self.send("QUIT")
             yield "disconnected", {"reason": "auth-fail"}
         elif frame.cmd == "PRIVMSG":
-            if len(frame.args) != 2:
+            if len(frame.args) != 3:
                 return True
             _, rcpt, text = frame.args
             yield "message", {
                 "from":     frame.prefix,
                 "to":       rcpt,
                 "text":     text,
-                "private":  self.is_channel(rcpt),
+                "private":  not self.is_channel(rcpt),
             }
         elif frame.cmd == "NOTICE":
-            if len(frame.args) != 2:
+            if len(frame.args) != 3:
                 return True
             _, rcpt, text = frame.args
             yield "notice", {
                 "from":     frame.prefix,
                 "to":       rcpt,
                 "text":     text,
-                "private":  self.is_channel(rcpt),
+                "private":  not self.is_channel(rcpt),
             }
         return True
 

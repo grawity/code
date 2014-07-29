@@ -42,21 +42,24 @@ The not really useful stuff:
     kc                  – manage Kerberos ticket caches
     kl                  – like 'klist' except better
     pklist              – like 'klist' except machine-readable
-  lib/python/nullroute/
-    authorized_keys.py  – parse ~/.ssh/authorized_keys
-    sexp.py             – parse Ron Rivest's S-expressions
   system/
-    locale-check        – half-assed attempt to verify your locale settings
     upowermon.pl        – suspend when UPower claims it's low on battery
 
 The "that's nice... but what's it good for?" stuff:
 
+  lib/python/nullroute/
+    authorized_keys.py  – parse ~/.ssh/authorized_keys
+    sexp.py             – parse Ron Rivest's S-expressions
+  misc/
+    uniboxify           – convert ASCII box drawings to Unicode box drawings
   security/
     accdb/              – plain-text account & password database
     denettalk           – decrypt Nettalk "NCTCTC001"-encrypted messages
     dh                  – do a D-H key exchange over IRC or whatever
     ssh-duphosts        – clean up ~/.ssh/known_hosts
     ssh-publickeyd      – backend for SecureCRT's "public key assistant"
+  system/
+    locale-check        – half-assed attempt to verify your locale settings
 
 The IRC protocol parser collection:
 

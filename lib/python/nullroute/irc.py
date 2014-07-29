@@ -214,7 +214,7 @@ class Frame(object):
             if not argv[i]:
                 raise ValueError("Argument %d is empty: %r" % (i, argv[i]))
             elif argv[i].startswith(":"):
-                raise ValueError("Argument %d starts with ':': %r" % (i, argv[i]))
+                raise ValueError("Argument %d starts with colon: %r" % (i, argv[i]))
             elif " " in argv[i]:
                 raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
             i += 1

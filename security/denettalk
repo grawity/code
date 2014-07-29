@@ -4,8 +4,11 @@
 
 import sys, re
 
+# the algorithm, ported from Haskell version by unknown author
+
 codeChr = "0123456789abcdefghijklmnopqrstuvwxyz!?#%-+"
 multPl = 71
+num_keys = 1764
 
 def decrypt(tpass, msg):
     def go(i, lastCVal, rest):
@@ -18,8 +21,15 @@ def decrypt(tpass, msg):
         return chr(charVal % 256) + go(i+1, i2+1, rest)
     return go(1, 0, msg[10:])
 
+# the optimized bruteforce
+
+all_keys = [0, 256, 996, 1252, 1508]    # working for all but 2 samples
+all_keys += [1153, 1409, 1665]          # working for the remaining 2 samples
+all_keys += [k for k in range(num_keys)
+                if k not in all_keys]
+
 def try_all(enc):
-    for key in range(1764):
+    for key in all_keys:
         msg = decrypt(key, enc)
         if msg.endswith("<>"):
             yield msg[:-2]
@@ -27,21 +37,33 @@ def try_all(enc):
 def hax0r(enc):
     from collections import defaultdict
 
-    # sometimes up to 10 different keys may work – most of them will decrypt to
+    # Sometimes up to 5 different keys may work – most of them will decrypt to
     # the correct plaintext, others will decrypt ~80% correctly but have
     # garbage in some places; so try all keys but return only the version that
     # occurs most often.
+    #
+    # However, these 5 keys are the same in all but two samples I've seen in
+    # the wild (i.e. pastebinned), therefore try_all() will test them first,
+    # and the below loop will stop searching after 3 hits.
+    #
+    # Therefore, optimize the script for most commonly seen keys, in case
+    # another idiot decides to try out Nettalk again.
+    #
+    # THIS IS WHY YOU DON'T MAKE YOUR OWN CRYPTO ALGORITHMS, KIDS.
 
     variants = defaultdict(int)
     for msg in try_all(enc):
         variants[msg] += 1
+        if variants[msg] >= 3:
+            break
 
     variants = list(variants.items())
     variants.sort(key=lambda x: x[1])
 
     yield variants[-1][0]
-    #variants.reverse()
     #return ["%s (%d)" % x for x in variants]
+
+# the user interface
 
 def is_printable(s):
     return all(32 <= ord(c) <= 127 or c in '\t' for c in s)
@@ -52,14 +74,12 @@ def escaped(s):
 rx = re.compile(r"\[NTCTC001\|(.+?)\]")
 
 if len(sys.argv) > 1:
-    # decrypt arguments
     for line in sys.argv[1:]:
         m = rx.search(line)
         if m:
             for msg in hax0r(m.group(0)):
                 print(line[:m.start(0)] + escaped(msg) + line[m.end(0):])
 else:
-    # act as a filter
     for line in sys.stdin:
         line = line.strip()
         m = rx.search(line)

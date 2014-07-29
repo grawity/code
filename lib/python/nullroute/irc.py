@@ -87,10 +87,7 @@ class Prefix(object):
     def to_a(self):
         return [self.nick, self.user, self.host, self.is_server]
 
-class Line(object):
-    """
-    An IRC protocol line.
-    """
+class Frame(object):
     def __init__(self, tags=None, prefix=None, cmd=None, args=None):
         self.tags = tags or {}
         self.prefix = prefix
@@ -140,7 +137,7 @@ class Line(object):
     @classmethod
     def parse(cls, line, parse_prefix=True):
         """
-        Parse an IRC protocol line into a Line object consisting of
+        Parse an IRC protocol line into a Frame object consisting of
         tags, prefix, command, and arguments.
         """
 
@@ -193,6 +190,11 @@ class Line(object):
 
     @classmethod
     def join(cls, argv):
+        """
+        Join a parameter array into an IRC protocol line (without constructing
+        an intermediate Frame object).
+        """
+
         i, n = 0, len(argv)
 
         if i < n and argv[i].startswith("@"):
@@ -245,9 +247,8 @@ class Line(object):
         return self.join(parv)
 
     def __repr__(self):
-        return "<IRC.Line: tags=%r prefix=%r cmd=%r args=%r>" % (
-                        self.tags, self.prefix,
-                        self.cmd, self.args)
+        return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" %
+                (self.tags, self.prefix, self.cmd, self.args)
 
 class Connection(object):
     def __init__(self):
@@ -275,7 +276,7 @@ class Connection(object):
         return self._fi.readline()
 
     def write(self, *args):
-        self.writeraw(Line.join(args))
+        self.writeraw(Frame.join(args))
 
     def read(self):
-        return Line.parse(self.readraw())
+        return Frame.parse(self.readraw())

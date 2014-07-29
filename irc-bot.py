@@ -156,15 +156,24 @@ class IrcClient(object):
             "PREFIX.chars": {"@": "o", "+": "v"},
             "PREFIX.ranks": {"o": 2, "@": 2,
                              "v": 1, "+": 1},
-            "CHANTYPES":    "#",
+            "CHANTYPES":    set("#"),
             "CHANMODES":    "b,k,l,imnpst",
-            "CHANMODES.a":  "b",
-            "CHANMODES.b":  "k",
-            "CHANMODES.c":  "l",
-            "CHANMODES.d":  "imnpst",
+            "CHANMODES.a":  set("b"),
+            "CHANMODES.b":  set("k"),
+            "CHANMODES.c":  set("l"),
+            "CHANMODES.d":  set("imnpst"),
             "NICKLEN":      9,
             "CASEMAPPING":  "rfc1459",
         }
+
+    def is_channel(self, name):
+        return name[0] in self.isupport["CHANTYPES"]
+
+    def strip_prefix(self, name):
+        for i, c in enumerate(name):
+            if c not in self.isupport["PREFIX.chars"]:
+                return name[:i], name[i:]
+        raise ValueError("name %r has only prefix characters" % name)
 
     def send(self, line):
         line = (line + "\r\n").encode("utf-8")
@@ -173,6 +182,10 @@ class IrcClient(object):
             sys.stdout = sys.stdout.detach()
         sys.stdout.write(line)
         sys.stdout.flush()
+
+    def sendv(self, *args):
+        line = " ".join(args)
+        return self.send(line)
 
     def recv(self):
         line = sys.stdin.readline()
@@ -248,10 +261,10 @@ class IrcClient(object):
                         k, v = isupport_item.split("=", 1)
                         if k == "CHANMODES":
                             a, b, c, d = v.split(",", 3)
-                            self.isupport["CHANMODES.a"] = a
-                            self.isupport["CHANMODES.b"] = b
-                            self.isupport["CHANMODES.c"] = c
-                            self.isupport["CHANMODES.d"] = d
+                            self.isupport["CHANMODES.a"] = set(a)
+                            self.isupport["CHANMODES.b"] = set(b)
+                            self.isupport["CHANMODES.c"] = set(c)
+                            self.isupport["CHANMODES.d"] = set(d)
                         elif k in {"CHANLIMIT", "MAXLIST"}:
                             self.isupport["%s.types" % k] = {}
                             limit_tokens = v.split(",")
@@ -262,10 +275,12 @@ class IrcClient(object):
                         elif k in {"CHANNELLEN", "NICKLEN", "MODES",
                                    "MONITOR", "TOPICLEN"}:
                             v = int(v)
-                        elif k in "EXTBAN":
+                        elif k == "CHANTYPES":
+                            v = set(v)
+                        elif k == "EXTBAN":
                             char, types = v.split(",", 1)
                             isupport["EXTBAN.char"] = char
-                            isupport["EXTBAN.types"] = types
+                            isupport["EXTBAN.types"] = set(types)
                         elif k == "NAMESX":
                             if "multi-prefix" not in enabled_caps:
                                 send("PROTOCTL NAMESX")
@@ -306,7 +321,29 @@ class IrcClient(object):
                       (self.sasl_mech.name))
                 self.send("QUIT")
             elif frame.cmd == "PRIVMSG":
-                pass # example
+                if len(frame.args) != 2:
+                    continue
+                _, rcpt, text = frame.args
+                yield "message", {
+                    "from":     frame.prefix,
+                    "to":       rcpt,
+                    "text":     text,
+                    "private":  self.is_channel(rcpt),
+                }
+            elif frame.cmd == "NOTICE":
+                if len(frame.args) != 2:
+                    continue
+                _, rcpt, text = frame.args
+                yield "notice", {
+                    "from":     frame.prefix,
+                    "to":       rcpt,
+                    "text":     text,
+                    "private":  self.is_channel(rcpt),
+                }
+
+    def send_message(rcpt, text):
+        self.sendv("PRIVMSG", rcpt, text)
 
 client = IrcClient()
-client.run()
+for event, data in client.run():
+    trace("%s:" % event, pformat(data))

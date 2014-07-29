@@ -252,8 +252,8 @@ class IrcClient(object):
                         v = set(v)
                     elif k == "EXTBAN":
                         char, types = v.split(",", 1)
-                        isupport["EXTBAN.char"] = char
-                        isupport["EXTBAN.types"] = set(types)
+                        self.isupport["EXTBAN.char"] = char
+                        self.isupport["EXTBAN.types"] = set(types)
                     elif k == "NAMESX":
                         if "multi-prefix" not in enabled_caps:
                             self.send("PROTOCTL NAMESX")

@@ -8,7 +8,7 @@ import base64
 import socket
 import re
 
-class InvalidPrefixError(Exception):
+class InvalidPrefixError(ValueError):
     pass
 
 class Prefix(object):

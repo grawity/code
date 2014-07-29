@@ -2,67 +2,7 @@
 import base64
 import sys
 from pprint import pformat
-
-class Frame(object):
-    def __init__(self, tags=None, prefix=None, cmd=None, args=None):
-        self.tags = tags or {}
-        self.prefix = prefix
-        self.cmd = cmd
-        self.args = args or []
-
-    @classmethod
-    def parse(cls, line, parse_prefix=True):
-        if hasattr(line, "decode"):
-            line = line.decode("utf-8", "replace")
-        parv = line.rstrip("\r\n").split(" ")
-        i, n = 0, len(parv)
-        self = cls()
-
-        while i < n and parv[i] == "":
-            i += 1
-
-        if i < n and parv[i].startswith("@"):
-            tags = parv[i][1:]
-            i += 1
-            while i < n and parv[i] == "":
-                i += 1
-
-            self.tags = dict()
-            for item in tags.split(";"):
-                if "=" in item:
-                    k, v = item.split("=", 1)
-                else:
-                    k, v = item, True
-                self.tags[k] = v
-
-        if i < n and parv[i].startswith(":"):
-            prefix = parv[i][1:]
-            i += 1
-            while i < n and parv[i] == "":
-                i += 1
-
-            if parse_prefix:
-                self.prefix = Prefix.parse(prefix)
-            else:
-                self.prefix = prefix
-
-        if i < n:
-            self.cmd = parv[i].upper()
-
-        while i < n:
-            if parv[i].startswith(":"):
-                trailing = " ".join(parv[i:])
-                self.args.append(trailing[1:])
-                break
-            elif parv[i] != "":
-                self.args.append(parv[i])
-            i += 1
-
-        return self
-
-    def __repr__(self):
-        return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" \
-               % (self.tags, self.prefix, self.cmd, self.args)
+from nullroute.irc import Frame
 
 class SaslMechanism(object):
     def __init__(self):

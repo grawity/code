@@ -107,6 +107,8 @@ class IrcClient(object):
             "NICKLEN":      9,
             "CASEMAPPING":  "rfc1459",
         }
+        self.low_connected = False
+        self.high_connected = False
 
     def is_channel(self, name):
         return name[0] in self.isupport["CHANTYPES"]
@@ -150,11 +152,25 @@ class IrcClient(object):
         self.send("NICK %(nick)s" % self.settings)
         self.send("USER %(nick)s * * %(nick)s" % self.settings)
 
+    def check_low_connected(self):
+        if not self.low_connected:
+            self.low_connected = True
+            yield "connected", {"early": True}
+
+    def check_high_connected(self):
+        if not self.high_connected:
+            yield from self.check_low_connected()
+            self.high_connected = True
+            yield "connected", {"early": False}
+
     def process_frame(self, frame):
         if frame is None:
+            yield "disconnected", {"reason": "connection-lost"}
             return False
         elif frame.cmd == "ERROR":
-            trace("Server error: \"%s\"" % " ".join(frame.args[1:]))
+            error = " ".join(frame.args[1:])
+            trace("Server error: %r" % error)
+            yield "disconnected", {"reason": "server-error", "error": error}
             return False
         elif frame.cmd == "PING":
             self.send("PONG %s" % " ".join(frame.args[1:]))
@@ -197,7 +213,7 @@ class IrcClient(object):
                 for chunk in b64chunked(outbuf):
                     self.send("AUTHENTICATE " + chunk)
         elif frame.cmd == "001":
-            pass
+            yield from self.check_low_connected()
         elif frame.cmd == "005":
             isupport_tokens = frame.args[2:-1]
             for isupport_item in isupport_tokens:
@@ -245,6 +261,8 @@ class IrcClient(object):
                     k, v = isupport_item, True
                 self.isupport[k] = v
             trace(pformat(self.isupport))
+        elif frame.cmd == "XXX END OF MOTD":
+            yield from self.check_high_connected()
         elif frame.cmd == "433":
             trace("Nickname %r is already in use" % self.settings["nick"])
             nick_counter += 1
@@ -260,10 +278,12 @@ class IrcClient(object):
             else:
                 trace("Authentication failed; the credentials were incorrect")
             self.send("QUIT")
+            yield "disconnected", {"reason": "auth-fail"}
         elif frame.cmd == "908":
             trace("Authentication failed; server does not support SASL %r" %
                   (self.sasl_mech.name))
             self.send("QUIT")
+            yield "disconnected", {"reason": "auth-fail"}
         elif frame.cmd == "PRIVMSG":
             if len(frame.args) != 2:
                 return True

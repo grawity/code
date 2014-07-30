@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+if [[ ! -t 0 ]]; then
+	echo "something on $HOSTNAME is still using the old rwhod.sh!" >&2
+fi
+
 OLD_DIR=$(dirname "$0")
 
 if (( $UID > 0 )); then

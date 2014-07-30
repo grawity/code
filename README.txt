@@ -43,7 +43,7 @@ The not really useful stuff:
     kl                  – like 'klist' except better
     pklist              – like 'klist' except machine-readable
   system/
-    upowermon.pl        – suspend when UPower claims it's low on battery
+    upower-monitor      – suspend when UPower claims it's low on battery
 
 The "that's nice... but what's it good for?" stuff:
 

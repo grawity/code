@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+umask 077
+
+. lib.bash || exit
+
+case ${0##*/} in
+    gpgin)  mode=encrypt;;
+    gpgout) mode=decrypt;;
+esac
+
+archive=$1
+name=${archive##*/}
+name=${name%.*}
+name=${name%.tar}
+
+options=()
+keydirs=( ~/Private/keys /run/media/grawity/grawpqi/Private/keys )
+keybase="storage/archive-${name##*/}.key"
+
+keyfile=
+for dir in "${keydirs[@]}"; do
+	if [[ -e "$dir/$keybase" ]]; then
+		keyfile="$dir/$keybase"
+		break
+	fi
+done
+
+case $mode in
+    encrypt)
+	if [[ ! $keyfile ]]; then
+		keyfile="${keydirs[0]}/$keybase"
+		log "generating keyfile: $keyfile"
+		tr -dc "A-Za-z0-9" < /dev/urandom | head -c 64 > "$keyfile"
+	fi
+	options+=( --batch --passphrase-file "$keyfile" )
+	options+=( --no-tty )
+	gpg "${options[@]}" --symmetric \
+	| pv -N "gpg" > "$archive"
+	;;
+    decrypt)
+	if [[ ! $keyfile ]]; then
+		die "key file not found"
+	fi
+	options+=( --batch --passphrase-file "$keyfile" )
+	options+=( --no-tty --no-mdc-warning )
+	pv -N "gpg" "$archive" \
+	| gpg "${options[@]}" --decrypt
+	;;
+esac

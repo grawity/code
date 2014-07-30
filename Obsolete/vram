@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+
+$prev_total = 0;
+$prev_used = 0;
+
+sub getsize {
+	@size = map {int $_} split /\s/, `stty size`;
+}
+
+sub getvalues {
+	my @m;
+	open my $f, "<", "/sys/kernel/debug/dri/0/radeon_vram_mm";
+	return if !$f;
+	while (<$f>) {
+		last if @m = /^total: (\d+), used (\d+) free (\d+)$/;
+	}
+	close $f;
+	return map {$_ >> 8} @m;
+}
+
+sub draw {
+	($height, $width) = @size;
+
+	($total, $used) = getvalues();
+
+	if ($total) {
+		$p_used = $used / $total * 100;
+		$color = $p_used > 90 ? 31
+		       : $p_used > 75 ? 33
+		       : 32 ;
+		$prev_total = $total;
+		$prev_used = $used;
+	} else {
+		$p_used = $prev_used / $prev_total * 100;
+		$color = 31;
+	}
+
+	$left = sprintf "%3d%%", $p_used;
+	$right = sprintf "(%d/%d MB)", $used, $total;
+	$right = sprintf "%*s", (6 + length($total)*2), $right;
+
+	$width -= 1 + length $left;
+	$width -= 1 + length $right;
+
+
+	$w_used = $width * ($p_used / 100);
+	$frac = ($w_used * 10) % 10;
+	$w_used = int $w_used;
+
+	$bar = "";
+
+	$bar .= "█" x $w_used;
+	if ($frac >= 6) {
+		$bar .= "▓"; $w_frac = 1;
+	} elsif ($frac >= 3) {
+		$bar .= "▒"; $w_frac = 1;
+	} else {
+		$w_frac = 0;
+	}
+	$bar .= "░" x ($width - ($w_used + $w_frac));
+
+	return "${left} \e[${color}m${bar}\e[m ${right}";
+}
+
+getsize();
+
+#open STDERR, ">", "/dev/null";
+
+do {
+	$str = draw();
+	if (defined $str) {
+		printf "\e[J%s\r", $str; $|++;
+	}
+} while sleep 1;

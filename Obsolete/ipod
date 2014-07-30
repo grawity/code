@@ -1,0 +1,281 @@
+#!/bin/bash
+
+. lib.bash || exit
+
+srcroot="$HOME/Music"
+ipod="/run/media/grawity/flurry"
+if [[ ! -d $ipod ]]; then
+	ipod="/media/flurry"
+fi
+destroot="$ipod/Music"
+dbroot="$XDG_CACHE_HOME/ipodsync"
+
+tempdir=`mktemp -d /tmp/ipodsync.XXXXXXXX`
+
+copytags() {
+	# TODO: move to proper place
+	~/copytags "$@"
+}
+
+id3-copygain() {
+	~/code/music/rg-copytags "$@"
+}
+
+# Utility functions
+
+temp() {
+	mktemp "$tempdir/XXXXXXXX$1"
+}
+
+dediff() {
+	diff -u "$@" |
+	grep '^[+-][^+-]' |
+	sort |
+	sed -rn 's/^\+(.*)$/\x1B[32m\1\x1B[m/p; s/^-(.*)$/\x1B[31m\1\x1B[m/p'
+}
+
+decomment() {
+	grep '^[^#]'
+}
+
+listdir() {
+	find "$1" \( -name 'iTunes' -prune \) \
+		-o -type f -not \( -name '*.jpg' -o -name '*.png' \) -printf '%P\n'
+}
+
+only_both() {
+	comm -12 "$@"
+}
+
+only_left() {
+	comm -23 "$@"
+}
+
+only_right() {
+	comm -13 "$@"
+}
+
+rmd() {
+	local file=
+	for file; do
+		rmdir --parents --ignore-fail-on-non-empty "${file%/*}"
+	done
+}
+
+playing() {
+	mpc current -f '%file%'
+}
+
+# Atomic song database operations
+
+db_append() {
+	local dbname=$1 files=("${@:2}")
+	local dbfile=$dbroot/sync-$dbname.db
+	local temp=$(mktemp "$dbroot/temp-XXXXXXXX.db")
+	touch "$dbfile"
+	(flock -xw 30 $fd || exit 1
+		{ cat "$dbfile"; printf '%s\n' "${files[@]}"; } | sort -u > "$temp" &&
+		mv "$temp" "$dbfile"
+	) {fd}<"$dbfile"
+}
+
+db_remove() {
+	local dbname=$1 files=("${@:2}")
+	local dbfile=$dbroot/sync-$dbname.db
+	local temp=$(mktemp "$dbroot/temp-XXXXXXXX.db")
+	touch "$dbfile"
+	(flock -xw 30 $fd || exit 1
+		grep -vxFf <(printf '%s\n' "${files[@]}") "$dbfile" > "$temp" &&
+		mv "$temp" "$dbfile"
+	) {fd}<"$dbfile"
+}
+
+db_print() {
+	local dbname=$1
+	local dbfile=$dbroot/sync-$dbname.db
+	touch "$dbfile"
+	cat "$dbfile"
+}
+
+db_scandir() {
+	local dbname=$1
+	local rootdir=
+	case $dbname in
+		ipod)	rootdir=$destroot;;
+		local)	rootdir=$srcroot;;
+	esac
+	listdir "$rootdir" | sort
+}
+
+db_reindex() {
+	local dbname=$1
+	local dbfile=$dbroot/sync-$dbname.db
+	local temp=$(mktemp "$dbroot/temp-XXXXXXXX.db")
+	db_scandir "$dbname" > "$temp" && {
+		(flock -xw 30 $fd || exit 1
+			mv "$temp" "$dbfile"
+			echo "$dbname: $(wc -l <"$dbfile") files"
+		) {fd}<"$dbfile"
+	}
+}
+
+# Copy song to iPod, reencoding as 192 VBR MP3
+
+reencode_song() {
+	if [[ ! -e $1 ]]; then
+		echo >&2 "not found: $1"
+		return 1
+	fi
+
+	if [[ -d $1 ]]; then
+		echo "descending into '$1'"
+		for f in "$1"/*; do
+			reencode_song "$f"
+		done
+		return
+	fi
+
+	local ext=mp3
+
+	local src=$(readlink -f "$1")
+	local external=0
+	local srcsize=$(stat -c '%s' "$src")
+	local dest=
+	local name=${src#$srcroot/}
+	if [[ "$name" == "$src" ]]; then
+		name=${src##*/}
+		external=1
+		dest=$destroot/../TODO/${name%.*}.$ext
+	else
+		external=0
+		dest=$destroot/${name%.*}.$ext
+	fi
+
+	declare -p dest external src name
+
+	local temp=$(temp ".$ext")
+
+	printf "\e[34mencoding '%s'\e[m\n" "$name"
+	ffmpeg -y -i "$src" -aq 3 -vn "$temp" 2>/dev/null
+	id3-cover -x "$temp"
+
+	local dstsize=$(stat -c '%s' "$temp")
+	local sizediff=$(( (srcsize - dstsize) ))
+	if (( dstsize < srcsize - 768*1024 )); then
+		id3-copygain "$src" "$temp"
+	else
+		printf "\e[33mreencoding not effective enough, using original\e[m\n"
+		dest=${dest%/*}/$name
+		cp "$src" "$temp"
+	fi
+	mkdir -p "${dest%/*}"
+	if mv "$temp" "$dest"; then
+		if (( ! external )); then
+			db_append ipod "$name"
+		fi
+		du -bhs "$src" "$dest"
+	else
+		du -bhs "$src" "$temp"
+		rm -f "$temp" "$dest"
+		exit 1
+	fi
+}
+
+cmd=$1; shift
+
+case $cmd in
+	push)
+		[[ $1 ]] || set -- "$srcroot/$(playing)"
+		ipod-convert -p "$srcroot" "$destroot" "$@"
+		exit;
+		for file; do
+			reencode_song "$file"
+		done
+		;;
+	
+	diff)
+		db_reindex local
+		dediff <(db_print local) <(db_scandir ipod)
+		;;
+
+	changes)
+		dediff <(db_print ipod) <(db_scandir ipod)
+		;;
+	
+	queue)
+		for file; do
+			db_append queue "$file"
+		done
+		;;
+	
+	runq)
+		db_print queue | {
+			while read -r file; do
+				reencode_song "$file"
+				db_remove queue "$file"
+			done
+		}
+		;;
+	
+	sync)
+		removed=`temp`
+		# (ipod.db and !ipod.fs) and local.fs
+		only_left <(db_print ipod) <(db_scandir ipod) |
+		only_both /dev/stdin <(db_scandir local) > "$removed"
+		if [[ -s $removed ]]; then
+			{
+				echo "# These files were removed from iPod."
+				echo "# Delete to remove locally."
+				cat "$removed"
+			} |
+			vipe |
+			decomment |
+			comm -23 "$removed" /dev/stdin |
+			while read -r file; do
+				rm -v "$srcroot/$file"
+				rmd "$srcroot/$file"
+			done
+		fi
+
+		# (ipod.fs and !local.fs) and local.db
+		comm -23 <(db_scandir ipod) <(db_scandir local) \
+		| comm -12 /dev/stdin <(db_print local) \
+		> "$removed"
+		if [[ -s "$removed" ]]; then
+			{
+				echo "# These files were removed locally."
+				echo "# Delete to remove from iPod."
+				cat "$removed"
+			} \
+			| vipe \
+			| decomment \
+			| comm -23 "$removed" /dev/stdin \
+			| while read -r file; do
+				rm -v "$destroot/$file"
+				rmd "$destroot/$file"
+			done
+		fi
+
+		db_reindex local
+		db_reindex ipod
+		;;
+
+	db-add)
+		db_append "$@"
+		;;
+	db-remove)
+		db_remove "$@"
+		;;
+	reindex)
+		db_reindex local
+		db_reindex ipod
+		;;
+	dump)
+		db_print ipod
+		;;
+	_listdir)
+		listdir "$@"
+		;;
+esac
+
+rm -rf "$tempdir"

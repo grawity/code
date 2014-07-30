@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+do_git_mirror() {
+	local src=$1 dst=$Spool/out/$2 dstname=$2
+	if [[ ! -d $dst ]]; then
+		log "adding repo $src"
+		git clone --mirror "$src" "$dst"
+		origin=$(cd "$src" && git config remote.origin.url)
+		debug "copying origin: $origin"
+		(cd "$dst" && git remote set-url origin "$origin")
+	else
+		log "updating from repo $src"
+		(cd "$src" && git push --mirror "$dst")
+	fi
+}
+
+do_rsync_get() {
+	local src=$Spool/in/$1/ dst=$2/
+	log "moving $src to $dst"
+	sudo rsync -rtOuv --remove-source-files --no-perms "$src" "$dst"
+}
+
+Spool=/run/media/$USER/grawpqi
+
+debug "spool directory: $Spool"
+
+if [[ ! -d $Spool ]]; then
+	die "spool directory unavailable"
+fi
+
+cmd=$1; shift
+
+case $cmd in
+push)
+	$0 push-git
+	$0 push-pacman
+	;;
+push-git)
+	do_git_mirror ~/code			'code.git'
+	do_git_mirror ~/lib/dotfiles		'dotfiles.git'
+	do_git_mirror ~/public_html/website	'website.git'
+	do_git_mirror ~/public_html/nullroute	'nullroute.git'
+	do_git_mirror ~/Private/NullCA		'nullca.git'
+	;;
+push-pacman)
+	tar cvzf "$Spool/out/pacman-db.tgz" /var/lib/pacman/local
+	;;
+get-pacman)
+	do_rsync_get 'pkg'  /var/cache/pacman/pkg
+	do_rsync_get 'sync' /var/lib/pacman/sync
+	;;
+*)
+	die "unknown command '$cmd'"
+esac

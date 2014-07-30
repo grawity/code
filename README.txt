@@ -4,7 +4,7 @@ Started off as your regular ~/bin dump – with two Finger implementations and a
 web server written in PHP. Later got pushed over to ~/code, to make place for
 the horde of overgrown aliases that have since taken over ~/bin (which I didn't
 consider commit-worthy at first, but then I suddenly had 250 scripts in ~/code
-and almost 200 in ~/bin and *four* different Finger implementations...)
+and almost 200 in ~/bin and *five* different Finger implementations...)
 
 tl;dr I write a lot of useless scripts
 
@@ -60,6 +60,8 @@ The "that's nice... but what's it good for?" stuff:
     ssh-publickeyd      – backend for SecureCRT's "public key assistant"
   system/
     locale-check        – half-assed attempt to verify your locale settings
+  win32/
+    identd/             – a full-featured Ident daemon for Windows
 
 The IRC protocol parser collection:
 

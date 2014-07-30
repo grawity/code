@@ -115,7 +115,7 @@ BASIC_BINS := args gettime mkpasswd natsort pause proctool silentcat spawn
 BASIC_BINS += strtool unescape
 KRB_BINS   := k5userok pklist
 LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
-MISC_BINS  := bgrep logwipe ttysize writevt xor xors xorf zlib
+MISC_BINS  := bgrep logwipe writevt xor xors xorf zlib
 JUNK_BINS  := ac-wait subreaper libwcwidth.so
 
 .PHONY: all basic krb linux misc pklist
@@ -179,7 +179,6 @@ $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
 $(OBJ)/strtool:		misc/strtool.c $(OBJ)/misc_util.o
 $(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c
-$(OBJ)/ttysize:		system/ttysize.c
 $(OBJ)/unescape:	misc/unescape.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/xor:		misc/xor.c

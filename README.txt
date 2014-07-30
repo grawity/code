@@ -60,8 +60,6 @@ The "that's nice... but what's it good for?" stuff:
     ssh-publickeyd      – backend for SecureCRT's "public key assistant"
   system/
     locale-check        – half-assed attempt to verify your locale settings
-  win32/
-    identd/             – a full-featured Ident daemon for Windows
 
 The IRC protocol parser collection:
 

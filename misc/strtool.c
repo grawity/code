@@ -4,8 +4,7 @@
 
 #define LINESZ 512
 
-/* null-terminate a string at first \n
- */
+/* null-terminate a string at first \n */
 
 static char * cut(char *line) {
 	char *c;
@@ -13,15 +12,14 @@ static char * cut(char *line) {
 	for (c = line; *c; c++) {
 		if (*c == '\n') {
 			*c = '\0';
-			return c;
+			break;
 		}
 	}
 
 	return c;
 }
 
-/* print line after first match
- */
+/* print line after first match */
 
 int next_item(char *want, int wrap) {
 	char a[LINESZ] = {0};
@@ -51,8 +49,7 @@ int next_item(char *want, int wrap) {
 	}
 }
 
-/* print line before first match
- */
+/* print line before first match */
 
 int prev_item(char *want, int wrap) {
 	char a[LINESZ] = {0};
@@ -87,8 +84,7 @@ int prev_item(char *want, int wrap) {
 	}
 }
 
-/* remove text from end of the line
- */
+/* remove text from end of the line */
 
 int strip_tail(char *tail) {
 	char line[LINESZ], *pos;

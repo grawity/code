@@ -4,8 +4,8 @@ comma := ,
 empty :=
 space := $(empty) $(empty)
 
-UNAME    := $(shell uname)
-OBJ      := $(shell dist/prepare -o)
+UNAME    != uname
+OBJ      != dist/prepare -o
 
 ifeq ($(origin CC),default)
 CC       := gcc

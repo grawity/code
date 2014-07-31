@@ -12,6 +12,11 @@ ref=$1 prefix=$2
 
 require_work_tree
 
+if [[ -d $ref ]] && ! git rev-parse --verify "$ref" >& /dev/null; then
+	git fetch "$ref"
+	ref='FETCH_HEAD'
+fi
+
 git merge -s ours --no-commit "$ref"
 
 git read-tree --prefix="${prefix%/}/" -u "$ref"

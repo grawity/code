@@ -94,7 +94,7 @@ GetOptions(
 	"A|activate"	=> \$activate,
 	"a|address=s"	=> \$busaddr,
 	"color!"	=> \$color,
-	"l|list"	=> \$list,
+	"l|list+"	=> \$list,
 	"q|quiet"	=> \$quiet,
 	"e|session"	=> sub { $busaddr = "session"; },
 	"y|system"	=> sub { $busaddr = "system"; },
@@ -147,13 +147,26 @@ if ($list) {
 	my $names = $activate
 			? $obj->ListActivatableNames
 			: $obj->ListNames;
+	my @names = @$names;
 	if ($quiet) {
-		$names = [grep {!/^:/} @$names];
+		@names = grep {!/^:/} @names;
 	}
 	if (eval {require Sort::Naturally}) {
-		say for Sort::Naturally::nsort(@$names);
+		@names = Sort::Naturally::nsort(@names);
 	} else {
-		say for sort @$names;
+		@names = sort @names;
+	}
+	if ($list > 1) {
+		for my $name (@names) {
+			my $owner = $bus->get_service_owner($name);
+			my $proc = get_conn_name($owner);
+			say $name,
+				" ", $owner // "(none)",
+				" [", $proc // "none", "]";
+			$owner or ++$err;
+		}
+	} else {
+		say for @names;
 	}
 } elsif (@ARGV and $wait) {
 	my $obj = $bus->get_bus_object;

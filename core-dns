@@ -23,18 +23,24 @@ do_nsupdate() {
 		"zone $zone"					\
 		"$@"							\
 		"send"							\
-	| nsupdate -k "$UpdateKey";
+	| nsupdate -k "$UpdateKey"
 }
 
-do_dig() { dig "@$Bindhost" -p "$Bindport" +domain="$zone" "$@"; }
+do_dig() {
+	dig "@$Bindhost" -p "$Bindport" +domain="$zone" "$@"
+}
 
-do_lookup() { do_dig +noall +answer +nocl "$@"; }
+do_lookup() {
+	do_dig +noall +answer +nocl "$@"
+}
 
-do_axfr() { do_dig +noall +answer +nocl -t AXFR -q "$1."; }
+do_axfr() {
+	do_dig +noall +answer +nocl -t AXFR -q "$1."
+}
 
 do_edit() {
 	local zone=$1 file=$2
-	rndc freeze "$zone" && sudo $EDITOR "$file" && rndc thaw "$zone"
+	rndc freeze "$zone" && sudoedit "$file" && rndc thaw "$zone"
 }
 
 do_journal() {
@@ -47,7 +53,9 @@ do_journal() {
 	| sed 's/^add/\x1B[32m&\x1B[m/; s/^del/\x1B[31m&\x1B[m/; s/$/\x1B[m/'
 }
 
-ttl() { echo ${ttl:=$(do_dig +short "$zone." SOA | awk '{print $7}')}; }
+ttl() {
+	echo ${ttl:=$(do_dig +short "$zone." SOA | awk '{print $7}')}
+}
 
 cmd=$1; shift; case $cmd in
 	add)
@@ -102,6 +110,8 @@ cmd=$1; shift; case $cmd in
 		do_lookup "$Rzone." SOA ;;
 	ttl)
 		ttl ;;
+	'')
+		die "missing command" ;;
 	*)
 		die "unknown command '$cmd'" ;;
 esac

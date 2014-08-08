@@ -3,7 +3,7 @@ header("Content-Type: text/plain; charset=utf-8");
 
 $i = array(
 	"server" => array(
-		//"host" => $_SERVER["SERVER_ADDR"],
+		"host" => $_SERVER["SERVER_ADDR"],
 		"port" => intval($_SERVER["SERVER_PORT"]),
 	),
 	"client" => array(

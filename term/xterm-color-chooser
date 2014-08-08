@@ -11,11 +11,11 @@ modes = {
     "gray": "256-color pallette – grayscale subset",
     "sys": "256-color pallette – ansicolor subset",
     "iso": "ISO 8-color pallette",
-    "tcrgb": "True-color RGB mode",
+    "rgb888": "True-color RGB mode",
 }
 
 properties = {
-    "mode": (list, ["rgb", "gray", "sys", "iso", "tcrgb"]),
+    "mode": (list, ["rgb", "gray", "sys", "iso", "rgb888"]),
     "flags": (None, set),
     "red": (0, 5),
     "green": (0, 5),
@@ -177,7 +177,7 @@ class State(dict):
             return 16 + self["red"]*36 + self["green"]*6 + self["blue"]
         elif self["mode"] == "gray":
             return 232 + self["gray"]
-        elif self["mode"] == "tcrgb":
+        elif self["mode"] == "rgb888":
             return 0xFF000000 \
                 + self["tcred"]*0x10000 \
                 + self["tcgreen"]*0x100 \
@@ -198,7 +198,7 @@ class State(dict):
             self["mode"] = "gray"
             self["gray"] = color - 232
         elif color <= 0xFFFFFFFF:
-            self["mode"] = "tcrgb";         color -= 0xFF000000
+            self["mode"] = "rgb888";        color -= 0xFF000000
             self["tcblue"] = color % 256;   color >>= 8
             self["tcgreen"] = color % 256;  color >>= 8
             self["tcred"] = color
@@ -228,7 +228,7 @@ class State(dict):
 
         # output 256-color
 
-        if self["mode"] == "tcrgb":
+        if self["mode"] == "rgb888":
             out += "\033[%d;2;%d;%d;%dm" % (48 if bg else 38,
                                             self["tcred"],
                                             self["tcgreen"],
@@ -332,7 +332,7 @@ def main(state):
     indent = "%11s" % ""
 
     print("%11s" % "keys:", "mode g/G, format b/k/i/u/S/r, bar #, exit Q")
-    if state["mode"] in {"rgb", "tcrgb"}:
+    if state["mode"] in {"rgb", "rgb888"}:
         print(indent, "red 7/9 (q/e), green 4/6 (a/d), blue 1/3 (z/c)")
         print(indent, "all +/-, reset 8/5/2 (w/s/x), reset all 0")
     elif state["mode"] in {"sys", "iso"}:
@@ -349,7 +349,7 @@ def main(state):
         bar("color", state, "color", 2, "+/- or q/e")
     elif state["mode"] == "gray":
         bar("gray",  state, "gray",  1, "+/- or q/e")
-    elif state["mode"] == "tcrgb":
+    elif state["mode"] == "rgb888":
         bar("red",   state, "tcred",   -8, "7/9 or q/e")
         bar("green", state, "tcgreen", -8, "4/6 or a/d")
         bar("blue",  state, "tcblue",  -8, "1/3 or z/c")
@@ -361,7 +361,7 @@ def main(state):
         fmtfgstr, "(fg),",
         fmtbgstr, "(bg)")
     style = [Sgr.names[f] for f in state["flags"]]
-    if state["mode"] == "tcrgb":
+    if state["mode"] == "rgb888":
         style.append("#%02x%02x%02x" % (state["tcred"],
                                         state["tcgreen"],
                                         state["tcblue"]))
@@ -450,7 +450,7 @@ def main(state):
         elif k in "741qaz-":    state.decr("gray")
         elif k in "852wsx0":    state.reset("gray", "flags")
         elif k in "963edc+":    state.incr("gray")
-    elif state["mode"] == "tcrgb":
+    elif state["mode"] == "rgb888":
         if None: pass
         elif k in "7q": state.decr("tcred")
         elif k in "8w": state.reset("tcred")

@@ -23,16 +23,16 @@ if (@include "libident.php") {
 		);
 	}
 	elseif ($ident->success) {
-		$i["ident"] = array(
+		$i["identification"] = array(
 			"status" => "success",
 			"response" => $ident->response_type,
-			"user id" => $ident->userid,
-			"os type" => $ident->ostype,
+			"user-id" => $ident->userid,
+			"os-type" => $ident->ostype,
 			"charset" => $ident->charset,
 		);
 	}
 	else {
-		$i["ident"] = array(
+		$i["identification"] = array(
 			"status" => "failure",
 			"response" => $ident->response_type,
 			"additional" => $ident->add_info,
@@ -54,6 +54,7 @@ else {
 }
 
 print "Your Ident lookup results:\n";
+print "\n";
 
 if (function_exists("yaml_emit"))
 	print yaml_emit($i, YAML_UTF8_ENCODING);
@@ -63,4 +64,4 @@ else {
 }
 
 print "\n";
-print "(The above information is not logged.)\n";
+print "(This information is not stored in any logs.)\n";

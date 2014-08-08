@@ -16,6 +16,18 @@ log:() {
 	"$@"
 }
 
+upd:() {
+	local old=$1 new=$2 cmd=("${@:3}")
+	local bold= reset=
+	if [[ -t 1 ]]; then
+		bold=$'\e[1m' reset=$'\e[m'
+	fi
+	if [[ "$old" != "$new" ]]; then
+		log "Updated from ${bold}${old}${reset} to ${bold}${new}${reset}"
+		echo " # ${cmd[*]}"
+	fi
+}
+
 svnsync() {
 	local lib=$(which libfunsync.so 2>/dev/null)
 	if [[ -f $lib ]]; then
@@ -54,13 +66,25 @@ do_pull() {
 		fi
 	elif [[ -d .git ]]; then
 		is "Git"
+		rev() { git rev-parse --verify HEAD; }
+		old=$(rev)
 		log: git pull --ff-only
+		new=$(rev)
 		if [[ -e .gitmodules ]]; then
 			log: git submodule update
 		fi
+		if [[ "$old" != "$new" ]]; then
+			old=${old:0:12}
+			new=${new:0:12}
+			upd: "$old" "$new" tig $old..$new
+		fi
 	elif [[ -d .hg ]]; then
 		is "Mercurial"
+		rev() { hg tip -q; }
+		old=$(rev)
 		log: hg pull --update
+		new=$(rev)
+		upd: "$old" "$new" hg log -r ${old#*:}:${new#*:} --pager always
 	elif [[ -d .svn ]]; then
 		is "SVN"
 		rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
@@ -73,7 +97,11 @@ do_pull() {
 		log: bzr pull
 	elif [[ -f .fslckout ]]; then
 		is "Fossil"
+		rev() { fossil info | awk '$1 == "checkout:" {print $2}'; }
+		old=$(rev)
 		log: fossil update
+		new=$(rev)
+		upd: "$old" "$new" fossil timeline after "$old"
 	elif [[ -d CVS ]]; then
 		is "CVS"
 		log: cvs -q up -d -P -A
@@ -82,11 +110,15 @@ do_pull() {
 		log: svnsync sync "file://$PWD"
 	elif [[ -f HEAD ]] && d=$(git rev-parse --git-dir 2>/dev/null); then
 		is "Git – bare repository"
-		old_head=$(git rev-parse --verify HEAD)
+		rev() { git rev-parse --verify HEAD; }
+		old=$(rev)
 		log: git fetch
-		new_head=$(git rev-parse --verify HEAD)
-		if [[ "$new_head" != "$old_head" ]]; then
-			git --no-pager diff --stat "$old_head" "$new_head"
+		new=$(rev)
+		if [[ "$old" != "$new" ]]; then
+			git --no-pager diff --stat "$new" "$new"
+			old=${old:0:12}
+			new=${new:0:12}
+			upd: "$old" "$new" tig "$old..$new"
 		fi
 	else
 		is none

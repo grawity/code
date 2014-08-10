@@ -87,11 +87,15 @@ do_pull() {
 		upd: "$old" "$new" hg log -r ${old#*:}:${new#*:} --pager always
 	elif [[ -d .svn ]]; then
 		is "SVN"
+		rev() { svnversion; }
+		old=$(rev)
 		rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
 		if [[ $rroot == file://* ]]; then
 			log: svnsync sync "$rroot"
 		fi
 		log: svn update
+		new=$(rev)
+		upd: "$old" "$new" svn log -r "$old:$new"
 	elif [[ -d .bzr ]]; then
 		is "Bazaar"
 		log: bzr pull

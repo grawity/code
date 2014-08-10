@@ -4,7 +4,7 @@
 #
 # dropbox
 # Dropbox frontend script
-# This file is part of nautilus-dropbox 1.6.0.
+# This file is part of nautilus-dropbox 1.6.2.
 #
 # nautilus-dropbox is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with nautilus-dropbox.  If not, see <http://www.gnu.org/licenses/>.
 #
+from __future__ import with_statement
 
 import errno
 import locale
@@ -211,7 +212,7 @@ def verify_signature(key_file, sig_file, plain_file):
 
 def download_file_chunk(url, buf):
     opener = urllib2.build_opener()
-    opener.addheaders = [('User-Agent', "DropboxLinuxDownloader/1.6.0")]
+    opener.addheaders = [('User-Agent', "DropboxLinuxDownloader/1.6.2")]
     sock = opener.open(url)
 
     size = int(sock.info()['content-length'])
@@ -228,7 +229,7 @@ def download_file_chunk(url, buf):
                 yield (float(progress)/size, True)
                 if progress == size:
                     break
-            except OSError, e:
+            except OSError as e:
                 if hasattr(e, 'errno') and e.errno == errno.EAGAIN:
                     # nothing left to read
                     yield (float(progress)/size, False)
@@ -318,7 +319,7 @@ if GUI_AVAILABLE:
 
                         if self._stopped:
                             thread.exit()
-                except Exception, ex:
+                except Exception as ex:
                     print ex
                     if self.on_exception is not None:
                         gobject.idle_add(self.on_exception, ex)
@@ -429,6 +430,7 @@ if GUI_AVAILABLE:
                 self.hovering = False
                 self.clicked_link = False
                 self.user_cancelled = False
+                self.task = None
 
                 self.ok = ok = gtk.Button(stock=gtk.STOCK_OK)
                 ok.connect('clicked', self.handle_ok)
@@ -607,7 +609,7 @@ class DropboxCommand(object):
         self.s.settimeout(timeout)
         try:
             self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
-        except socket.error, e:
+        except socket.error as e:
             raise DropboxCommand.CouldntConnectError()
         self.f = self.s.makefile("r+", 4096)
 
@@ -618,7 +620,7 @@ class DropboxCommand(object):
     def __readline(self):
         try:
             toret = self.f.readline().decode('utf8').rstrip(u"\n")
-        except socket.error, e:
+        except socket.error as e:
             raise DropboxCommand.BadConnectionError()
         if toret == '':
             raise DropboxCommand.EOFError()
@@ -811,7 +813,7 @@ def columnize(list, display_list=None, display_width=None):
         original_texts = texts[:]
         for col in range(len(texts)):
             texts[col] = texts[col].ljust(colwidths[col])
-            texts[col].replace(original_texts[col], display_texts[col])
+            texts[col] = texts[col].replace(original_texts[col], display_texts[col])
         line = u"  ".join(texts)
         lines.append(line)
     for line in lines:
@@ -868,7 +870,7 @@ options:
                         return (path, path)
                     try:
                         status = dc.icon_overlay_file_status(path=file_path).get(u'status', [None])[0]
-                    except DropboxCommand.CommandError, e:
+                    except DropboxCommand.CommandError as e:
                         path =  u"%s (%s)" % (os.path.basename(file_path), e)
                         return (path, path)
 
@@ -915,7 +917,7 @@ options:
                             clean, formatted = path_to_string(unicode_abspath(os.path.join(name, subname)))
                             clean_paths.append(clean)
                             formatted_paths.append(formatted)
-                        except (UnicodeEncodeError, UnicodeDecodeError), e:
+                        except (UnicodeEncodeError, UnicodeDecodeError) as e:
                             continue
 
                     columnize(clean_paths, formatted_paths)
@@ -931,7 +933,7 @@ options:
                                 clean, formatted = path_to_string(unicode_abspath(name))
                                 nondir_clean_paths.append(clean)
                                 nondir_formatted_paths.append(formatted)
-                            except (UnicodeEncodeError, UnicodeDecodeError), e:
+                            except (UnicodeEncodeError, UnicodeDecodeError) as e:
                                 continue
 
                         if nondir_clean_paths:
@@ -949,7 +951,7 @@ options:
 
                 except DropboxCommand.EOFError:
                     console_print(u"Dropbox daemon stopped.")
-                except DropboxCommand.BadConnectionError, e:
+                except DropboxCommand.BadConnectionError as e:
                     console_print(u"Dropbox isn't responding!")
             else:
                 if len(args) == 0:
@@ -965,7 +967,7 @@ options:
                         if type(file) is not unicode:
                             file = file.decode(enc)
                         fp = unicode_abspath(file)
-                    except (UnicodeEncodeError, UnicodeDecodeError), e:
+                    except (UnicodeEncodeError, UnicodeDecodeError) as e:
                         continue
                     if not os.path.exists(fp):
                         console_print(u"%-*s %s" % \
@@ -975,9 +977,9 @@ options:
                     try:
                         status = dc.icon_overlay_file_status(path=fp).get(u'status', [u'unknown'])[0]
                         console_print(u"%-*s %s" % (indent, file+':', status))
-                    except DropboxCommand.CommandError, e:
+                    except DropboxCommand.CommandError as e:
                         console_print(u"%-*s %s" % (indent, file+':', e))
-    except DropboxCommand.CouldntConnectError, e:
+    except DropboxCommand.CouldntConnectError as e:
         console_print(u"Dropbox isn't running!")
 
 @command
@@ -1006,13 +1008,13 @@ Prints out a public url for FILE.
         with closing(DropboxCommand()) as dc:
             try:
                 console_print(dc.get_public_link(path=unicode_abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
-            except DropboxCommand.CommandError, e:
+            except DropboxCommand.CommandError as e:
                 console_print(u"Couldn't get public url: " + str(e))
-            except DropboxCommand.BadConnectionError, e:
+            except DropboxCommand.BadConnectionError as e:
                 console_print(u"Dropbox isn't responding!")
             except DropboxCommand.EOFError:
                 console_print(u"Dropbox daemon stopped.")
-    except DropboxCommand.CouldntConnectError, e:
+    except DropboxCommand.CouldntConnectError as e:
         console_print(u"Dropbox isn't running!")
 
 @command
@@ -1038,13 +1040,13 @@ Prints out the current status of the Dropbox daemon.
                         console_print(line)
             except KeyError:
                 console_print(u"Couldn't get status: daemon isn't responding")
-            except DropboxCommand.CommandError, e:
+            except DropboxCommand.CommandError as e:
                 console_print(u"Couldn't get status: " + str(e))
-            except DropboxCommand.BadConnectionError, e:
+            except DropboxCommand.BadConnectionError as e:
                 console_print(u"Dropbox isn't responding!")
             except DropboxCommand.EOFError:
                 console_print(u"Dropbox daemon stopped.")
-    except DropboxCommand.CouldntConnectError, e:
+    except DropboxCommand.CouldntConnectError as e:
         console_print(u"Dropbox isn't running!")
 
 @command
@@ -1068,11 +1070,11 @@ Stops the dropbox daemon.
         with closing(DropboxCommand()) as dc:
             try:
                 dc.tray_action_hard_exit()
-            except DropboxCommand.BadConnectionError, e:
+            except DropboxCommand.BadConnectionError as e:
                 console_print(u"Dropbox isn't responding!")
             except DropboxCommand.EOFError:
                 console_print(u"Dropbox daemon stopped.")
-    except DropboxCommand.CouldntConnectError, e:
+    except DropboxCommand.CouldntConnectError as e:
         console_print(u"Dropbox isn't running!")
 
 #returns true if link is necessary
@@ -1086,13 +1088,13 @@ def grab_link_url_if_necessary():
                     return True
                 else:
                     return False
-            except DropboxCommand.CommandError, e:
+            except DropboxCommand.CommandError as e:
                 pass
-            except DropboxCommand.BadConnectionError, e:
+            except DropboxCommand.BadConnectionError as e:
                 console_print(u"Dropbox isn't responding!")
             except DropboxCommand.EOFError:
                 console_print(u"Dropbox daemon stopped.")
-    except DropboxCommand.CouldntConnectError, e:
+    except DropboxCommand.CouldntConnectError as e:
         console_print(u"Dropbox isn't running!")
 
 @command
@@ -1152,16 +1154,16 @@ Any specified path must be within Dropbox.
                             console_print(unicode(line))
                 except KeyError:
                     console_print(u"Couldn't get ignore set: daemon isn't responding")
-                except DropboxCommand.CommandError, e:
+                except DropboxCommand.CommandError as e:
                     if e.args[0].startswith(u"No command exists by that name"):
                         console_print(u"This version of the client does not support this command.")
                     else:
                         console_print(u"Couldn't get ignore set: " + str(e))
-                except DropboxCommand.BadConnectionError, e:
+                except DropboxCommand.BadConnectionError as e:
                     console_print(u"Dropbox isn't responding!")
                 except DropboxCommand.EOFError:
                     console_print(u"Dropbox daemon stopped.")
-        except DropboxCommand.CouldntConnectError, e:
+        except DropboxCommand.CouldntConnectError as e:
             console_print(u"Dropbox isn't running!")
     elif len(args) == 1 and args[0] == u"list":
         exclude([])
@@ -1181,16 +1183,16 @@ Any specified path must be within Dropbox.
                                 console_print(unicode(line))
                     except KeyError:
                         console_print(u"Couldn't add ignore path: daemon isn't responding")
-                    except DropboxCommand.CommandError, e:
+                    except DropboxCommand.CommandError as e:
                         if e.args[0].startswith(u"No command exists by that name"):
                             console_print(u"This version of the client does not support this command.")
                         else:
                             console_print(u"Couldn't get ignore set: " + str(e))
-                    except DropboxCommand.BadConnectionError, e:
+                    except DropboxCommand.BadConnectionError as e:
                         console_print(u"Dropbox isn't responding! [%s]" % e)
                     except DropboxCommand.EOFError:
                         console_print(u"Dropbox daemon stopped.")
-            except DropboxCommand.CouldntConnectError, e:
+            except DropboxCommand.CouldntConnectError as e:
                 console_print(u"Dropbox isn't running!")
         elif sub_command == u"remove":
             try:
@@ -1204,16 +1206,16 @@ Any specified path must be within Dropbox.
                                 console_print(unicode(line))
                     except KeyError:
                         console_print(u"Couldn't remove ignore path: daemon isn't responding")
-                    except DropboxCommand.CommandError, e:
+                    except DropboxCommand.CommandError as e:
                         if e.args[0].startswith(u"No command exists by that name"):
                             console_print(u"This version of the client does not support this command.")
                         else:
                             console_print(u"Couldn't get ignore set: " + str(e))
-                    except DropboxCommand.BadConnectionError, e:
+                    except DropboxCommand.BadConnectionError as e:
                         console_print(u"Dropbox isn't responding! [%s]" % e)
                     except DropboxCommand.EOFError:
                         console_print(u"Dropbox daemon stopped.")
-            except DropboxCommand.CouldntConnectError, e:
+            except DropboxCommand.CouldntConnectError as e:
                 console_print(u"Dropbox isn't running!")
         else:
             console_print(exclude.__doc__, linebreak=False)

@@ -185,6 +185,31 @@ class State(dict):
         else:
             return None
 
+    def get256color(self):
+        r, g, b = 0, 0, 0
+
+        if self["mode"] in {"iso", "sys"}:
+            if self["color"] < 8:
+                r = 0xAA if self["color"] & 1 else 0x00
+                g = 0xAA if self["color"] & 2 else 0x00
+                b = 0xAA if self["color"] & 4 else 0x00
+            else:
+                r = 0xFF if self["color"] & 1 else 0x55
+                g = 0xFF if self["color"] & 2 else 0x55
+                b = 0xFF if self["color"] & 4 else 0x55
+        elif self["mode"] == "rgb":
+            r = self["red"]   * 85 / 2
+            g = self["green"] * 85 / 2
+            b = self["blue"]  * 85 / 2
+        elif self["mode"] == "gray":
+            r = g = b = self["gray"] * 10 - 2312
+        elif self["mode"] == "rgb888":
+            r = self["tcred"]
+            g = self["tcgreen"]
+            b = self["tcblue"]
+
+        return r * 0x10000 + g * 0x100 + b
+
     def setcolor(self, color):
         if color <= 15:
             self["mode"] = iso
@@ -366,6 +391,7 @@ def main(state):
                                         state["tcgreen"],
                                         state["tcblue"]))
     else:
+        style.append("#%06x" % state.get256color())
         style.append("color%d" % state.getcolor(iso=True))
     print("%11s" % "name:", " + ".join(style))
 

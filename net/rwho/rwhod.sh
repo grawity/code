@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 if [[ ! -t 0 ]]; then
-	echo "something on $HOSTNAME is still using the old rwhod.sh!" >&2
+	echo "something on $HOSTNAME is still using the old rwhod.sh!" \
+		| tee /dev/fd/2 \
+		| logger -p user.warn -n 'wolke.nullroute.eu.org' &
 fi
 
 OLD_DIR=$(dirname "$0")

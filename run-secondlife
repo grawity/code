@@ -15,6 +15,24 @@ use constant {
 # TODO: move this to Lib.pm
 sub _log { print "-- ".shift."\n"; }
 
+sub find_login {
+	my ($name, $domain) = @_;
+
+	_debug("looking up login '$name' for '$domain' in .netrc");
+	my $entry = Net::Netrc->lookup($domain, $name);
+	if (!$entry || !defined $entry->{machine}) {
+		_die("login '$name' not found in .netrc");
+	} elsif (!defined $entry->{password}) {
+		_die("password for '$name' missing from .netrc");
+	} else {
+		my @acct = defined($entry->{account})
+		         ? split(/\s+/, $entry->{account})
+		         : split(/\s+/, $name);
+		_debug("using account '@acct' from .netrc");
+		return (@acct, $entry->{password});
+	}
+}
+
 $::bus = Net::DBus->session;
 
 my @default_args = ("--novoice");
@@ -35,19 +53,9 @@ for my $arg (@ARGV) {
 	if ($arg =~ /^@(.+)$/) {
 		my $name = $1;
 		my $domain = SL_DOMAIN;
-		_debug("looking up login '$name' for '$domain' in .netrc");
-		my $entry = Net::Netrc->lookup($domain, $name);
-		if (!$entry || !defined $entry->{machine}) {
-			_die("login '$name' not found in .netrc");
-		} elsif (!defined $entry->{password}) {
-			_die("password for '$name' missing from .netrc");
-		} else {
-			my @acct = defined($entry->{account})
-					? split(/\s+/, $entry->{account})
-					: split(/\s+/, $name);
-			_debug("using account '@acct' from .netrc");
-			push @args,
-				("--login", @acct, $entry->{password});
+		my @creds = find_login($name, $domain);
+		if (@creds) {
+			push @args, ("--login", @creds);
 		}
 	}
 	elsif ($arg =~ m!^secondlife://!) {

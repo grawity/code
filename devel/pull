@@ -58,7 +58,15 @@ do_pull() {
 			if [[ $(git config branch.$br.remote) == . ]] &&
 			   [[ $(git config branch.$br.merge) == refs/remotes/* ]]
 			then
+				rev() { git rev-parse --verify HEAD; }
+				old=$(rev)
 				log: git merge --ff-only
+				new=$(rev)
+				if [[ "$old" != "$new" ]]; then
+					old=${old:0:12}
+					new=${new:0:12}
+					upd: "$old" "$new" tig $old..$new
+				fi
 			fi
 		fi
 	elif [[ -d .git ]]; then
@@ -95,7 +103,11 @@ do_pull() {
 		upd: "$old" "$new" svn log -r "$old:$new"
 	elif [[ -d .bzr ]]; then
 		is "Bazaar"
+		rev() { bzr revno; }
+		old=$(rev)
 		log: bzr pull
+		new=$(rev)
+		upd: "$old" "$new" bzr log -r$((old+1))..$new
 	elif [[ -f .fslckout ]]; then
 		is "Fossil"
 		rev() { fossil info | awk '$1 == "checkout:" {print $2}'; }

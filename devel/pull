@@ -53,15 +53,12 @@ do_pull() {
 		log: git svn fetch
 		d=$(git rev-parse --git-dir)
 		h=$(< "$d/HEAD")
-		if [[ $h == 'ref: '* ]]; then
-			h=${h#'ref: '}
-			if [[ $h == 'refs/heads/'* ]]; then
-				br=${h#'refs/heads/'}
-				if [[ $(git config branch.$br.remote) == . ]] &&
-				   [[ $(git config branch.$br.merge) == refs/remotes/* ]]
-				then
-					log: git merge --ff-only
-				fi
+		if [[ $h == 'ref: refs/heads/'* ]]; then
+			br=${h#'ref: refs/heads/'}
+			if [[ $(git config branch.$br.remote) == . ]] &&
+			   [[ $(git config branch.$br.merge) == refs/remotes/* ]]
+			then
+				log: git merge --ff-only
 			fi
 		fi
 	elif [[ -d .git ]]; then

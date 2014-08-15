@@ -7,7 +7,15 @@ date_fmt="'%y %b %_d"
 date_sep=" – "
 
 lstodo() {
-	nl -ba -s". " -w3 "$file"
+	nl -ba -s". " -w3 "$file" |
+	if [[ -t 1 ]]; then
+		sed -r $'
+		s/(–) (.+) \+\+$/\\1 \e[1m\e[38;5;11m\\2\e[m/
+		s/(–) (.+) \+$/\\1 \e[38;5;11m\\2\e[m/
+		'
+	else
+		cat
+	fi
 }
 
 edit() {

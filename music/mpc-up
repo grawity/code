@@ -8,15 +8,43 @@ mpc -q --wait update && {
 	mpc add /
 # sort playlist by title and artist
 	sorted=$(mktemp)
-	mpc playlist -f '%title%[ - %artist%]\b%file%' \
+#	mpc playlist -f '%title%[ - %artist%]\b%file%' \
+#		| sed 1d \
+#		| perl -e \
+#			'sub f {
+#				my $v = lc shift;
+#				$v =~ s/^(a|the) //;
+#				return $v;
+#			}
+#			print for sort {f($a) cmp f($b)} <>' \
+#		| cut -d $'\b' -f 2- > "$sorted"
+	mpc playlist -f '%artist%\b%album%\b%track%\b%title%\b%file%' \
 		| sed 1d \
-		| perl -e \
+		| perl -w -e \
 			'sub f {
 				my $v = lc shift;
 				$v =~ s/^(a|the) //;
 				return $v;
 			}
-			print for sort {f($a) cmp f($b)} <>' \
+			print "$_\n" for
+				map {$_->{file}}
+				sort {$a->{artist} cmp $b->{artist}}
+				sort {$a->{album} cmp $b->{album}}
+				sort {$a->{track} <=> $b->{track}}
+				sort {$a->{title} cmp $b->{title}}
+				map {
+					chomp;
+					my @F = split(/\010/, $_);
+					{
+						artist => $F[0],
+						album => $F[1],
+						track => int $F[2],
+						title => $F[3],
+						file => $F[4],
+					}
+				}
+				<>;
+			' \
 		| cut -d $'\b' -f 2- > "$sorted"
 	mpc -q crop || mpc -q clear
 	mpc add < "$sorted"

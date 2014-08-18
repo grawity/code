@@ -11,7 +11,17 @@ sizes=(
 case $1 in
     make|mk)
 	name=$2
-	size=${sizes[144]}
+	size=${3:-144}
+	if [[ $size == *k ]]; then
+		size=${size%k}
+		size=$(( size * 1024 ))
+	elif [[ ${sizes[size]} ]]; then
+		size=${sizes[size]}
+	elif (( size < 4096 )); then
+		size=$(( size * 1024 ))
+	fi
+	size_k=$(( size / 1024 ))
+	log "image size: $size_k kB ($size bytes)"
 	case $name in
 	*.vfd|*.dsk|*.ima|*.img)
 		name=${name%.*}.img;;

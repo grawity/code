@@ -13,6 +13,10 @@ sizes=(
 case $1 in
     make|mk)
 	name=$2
+	if ! [[ $name ]]; then
+		die "missing image file name"
+	fi
+
 	size=${3:-144}
 	if [[ $size == *k ]]; then
 		size=${size%k}
@@ -22,35 +26,59 @@ case $1 in
 	elif (( size < 4096 )); then
 		size=$(( size * 1024 ))
 	fi
+
 	size_k=$(( size / 1024 ))
 	log "image size: $size_k kB ($size bytes)"
+
 	case $name in
 	*.vfd|*.dsk|*.ima|*.img)
 		name=${name%.*}.img;;
 	*)
 		name+=.img;;
 	esac
+
 	if [[ -e $name ]]; then
-		die "file $name already exists"
+		die "file \"$name\" already exists"
 	fi
+
 	fallocate -l "$size" "$name"
-	echo "created: $name"
 	mkfs.vfat "$name"
+	log "created \"$name\""
 	;;
     mount|m)
 	name=$2
+	if ! [[ $name ]]; then
+		die "missing image file name"
+	fi
+
+	if [[ -e $name.img ]]; then
+		name+=.img
+	fi
+	if ! [[ -e $name ]]; then
+		die "file \"$name\" does not eixist"
+	fi
+
 	mtpt=$XDG_RUNTIME_DIR/fd
 	mkdir -p "$mtpt"
 	sudo mount "$name" "$mtpt" -o loop,uid=$UID
-	echo "mounted: $name -> $mtpt"
+	log "mounted \"$name\" on $mtpt"
 	;;
     umount|unmount|u)
 	mtpt=$XDG_RUNTIME_DIR/fd
+	if ! mountpoint -q "$mtpt"; then
+		die "nothing mounted at \"$mtpt\""
+	fi
+
 	ldev=$(findmnt -n -o SOURCE "$mtpt")
+	if [[ $ldev != /dev/loop* ]]; then
+		die "not a loop device – \"$mtpt\" has $ldev mounted"
+	fi
+
 	file=$(losetup -n -O BACK-FILE "$ldev")
+
 	sudo umount "$mtpt"
 	until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
-	echo "unmounted: $file -> $mtpt"
+	log "unmounted \"$mtpt\""
 	;;
     '')
 	{

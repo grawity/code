@@ -66,9 +66,9 @@ dist_install() {
 }
 
 dir_copy() {
-	(cd "$1" && find | bsdcpio --quiet -o) \
-		| pv -c -b -p \
-		| (cd "$2" && bsdcpio --quiet -i)
+	(cd "$1" && find | bsdcpio --quiet -o) |
+	pv -c -b -p |
+	(cd "$2" && bsdcpio --quiet -i)
 
 	rm -rf "$1"
 }
@@ -77,26 +77,27 @@ for tool in bsdcpio find make pv tac; do
 	have $tool || err "'$tool' not installed"
 done
 
-(( ! errors )) || exit
+(( !errors )) || exit
 
-: ${PREFIX:="$HOME/.local"}
+if ! [[ $PREFIX ]]; then
+	warn "\$PREFIX not set, assuming ~/.local"
+	PREFIX="$HOME/.local"
+fi
 
 DBDIR="$PREFIX/pkg"
 CACHEDIR="$XDG_CACHE_HOME/pkg"
 
-pkgname=$(basename "$PWD")
-
 mkdir -p "$DBDIR"
 mkdir -p "$CACHEDIR/install"
 
-cmd=$1; shift
+pkgname=$(basename "$PWD")
 
+cmd=$1; shift
 case $cmd in
-configure)
+    configure)
 	dist_configure "$@"
 	;;
-
-install)
+    install)
 	filelist="$DBDIR/$pkgname.files"
 	tempdest="$CACHEDIR/install/$pkgname"
 
@@ -112,8 +113,7 @@ install)
 	dir_copy "$tempdest/$PREFIX" "$PREFIX"
 	list_stats "$filelist"
 	;;
-
-uninstall|remove)
+    uninstall|remove)
 	filelist="$DBDIR/$pkgname.files"
 
 	if ! test -e "$filelist"; then
@@ -125,8 +125,7 @@ uninstall|remove)
 
 	mv "$filelist" "$filelist-old"
 	;;
-
-ls)
+    ls)
 	if (( $# )); then
 		for pkgname; do
 			filelist="$DBDIR/$pkgname.files"
@@ -144,8 +143,7 @@ ls)
 		done
 	fi
 	;;
-
-files)
+    files)
 	(( $# )) || set -- "$pkgname"
 
 	for pkgname; do
@@ -158,8 +156,7 @@ files)
 		cat "$filelist"
 	done
 	;;
-
-stats)
+    stats)
 	(( $# )) || set -- "$pkgname"
 
 	for pkgname; do
@@ -172,13 +169,15 @@ stats)
 		list_stats "$filelist"
 	done
 	;;
-
-eval)
+    eval)
 	eval "${@:2}"
 	;;
-
-'')	die "missing command";;
-*)	die "unknown command '$cmd'";;
+    '')
+	die "missing command"
+	;;
+    *)
+	die "unknown command '$cmd'"
+	;;
 esac
 
 (( !errors ))

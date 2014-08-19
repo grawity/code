@@ -7,7 +7,7 @@ import hashlib
 import nullroute as lib
 import nullroute.authorized_keys as authorized_keys
 
-keytypes = {
+KEY_TYPES = {
     "ssh-rsa":              1,
     "ssh-dss":              2,
     "ecdsa-sha2-nistp256":  3,
@@ -16,7 +16,7 @@ keytypes = {
     "ssh-ed25519":          4,
 }
 
-hashtypes = [
+HASH_TYPES = [
     (1, hashlib.sha1),
     (2, hashlib.sha256),
 ]
@@ -32,18 +32,18 @@ def parse(path):
         except ValueError:
             lib.die("parse error at: %r" % line)
 
-        if key.algo not in keytypes:
+        if key.algo not in KEY_TYPES:
             lib.err("no SSHFP type for '%s' keys" % key.algo)
             continue
 
-        for hash_id, hash_func in hashtypes:
+        for hash_id, hash_func in HASH_TYPES:
             keyhash = hash_func(key.blob)
             hexhash = keyhash.hexdigest()
             yield {
                 "key": key,
                 "hash_id": hash_id,
                 "hash": keyhash.digest(),
-                "rrdata": "%d %d %s" % (keytypes[key.algo],
+                "rrdata": "%d %d %s" % (KEY_TYPES[key.algo],
                                         hash_id,
                                         keyhash.hexdigest())
             }

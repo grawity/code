@@ -2,6 +2,7 @@
 # mksshfp - convert OpenSSH public keys to DNS SSHFP records
 
 from __future__ import print_function
+import os
 import sys
 import hashlib
 import nullroute as lib
@@ -21,6 +22,13 @@ HASH_TYPES = [
     (2, hashlib.sha256),
 ]
 
+def usage():
+    print("usage: %s <hostname> [pubkey-file]" % lib.arg0)
+    print()
+    print("If pubkey-file is given, SSHFP records for all keys in that file will")
+    print("be printed. Otherwise, your ~/.ssh/known_hosts will be searched for keys")
+    print("with a matching hostname.")
+
 def parse(path):
     for line in open(path):
         line = line.strip()
@@ -30,7 +38,8 @@ def parse(path):
         try:
             key = authorized_keys.PublicKey(line, host_prefix=True)
         except ValueError:
-            lib.die("parse error at: %r" % line)
+            lib.warn("parse error at: %r" % line)
+            continue
 
         if key.algo not in KEY_TYPES:
             lib.err("no SSHFP type for '%s' keys" % key.algo)
@@ -53,11 +62,25 @@ def fmt_sshfp(host, pubkey):
 
 try:
     host = sys.argv[1]
+except IndexError:
+    lib.die("missing host parameter")
+
+try:
     infile = sys.argv[2]
 except IndexError:
-    lib.die("missing host and pubkey-file parameters")
+    infile = None
 
-for entry in parse(infile):
-    print(fmt_sshfp(host, entry))
+if host in {"--help", "-h", "-?"}:
+    usage()
+    sys.exit()
+
+if infile:
+    for entry in parse(infile):
+        print(fmt_sshfp(host, entry))
+else:
+    infile = os.path.expanduser("~/.ssh/known_hosts")
+    for entry in parse(infile):
+        if host in set(entry["key"].hosts):
+            print(fmt_sshfp(host, entry))
 
 lib.exit()

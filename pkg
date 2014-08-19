@@ -127,9 +127,22 @@ uninstall|remove)
 	;;
 
 ls)
-	for f in "$DBDIR"/*.files; do
-		basename "$f" .files
-	done
+	if (( $# )); then
+		for pkgname; do
+			filelist="$DBDIR/$pkgname.files"
+
+			if ! test -e "$filelist"; then
+				err "filelist $filelist not found"
+				continue
+			fi
+
+			cat "$filelist"
+		done
+	else
+		for f in "$DBDIR"/*.files; do
+			basename "$f" .files
+		done
+	fi
 	;;
 
 files)
@@ -151,3 +164,5 @@ eval)
 '')	die "missing command";;
 *)	die "unknown command '$cmd'";;
 esac
+
+(( !errors ))

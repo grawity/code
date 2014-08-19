@@ -51,6 +51,7 @@ def parse(path):
             yield {
                 "key": key,
                 "hash_id": hash_id,
+                "hash_name": keyhash.name,
                 "hash": keyhash.digest(),
                 "rrdata": "%d %d %s" % (KEY_TYPES[key.algo],
                                         hash_id,
@@ -58,7 +59,8 @@ def parse(path):
             }
 
 def fmt_sshfp(host, pubkey):
-    return "%s\t%s\t%s" % (host, "SSHFP", entry["rrdata"])
+    return "; (%s, %s)\n%s\t%s\t%s" % (entry["key"].algo, entry["hash_name"],
+                                       host, "SSHFP", entry["rrdata"])
 
 try:
     host = sys.argv[1]

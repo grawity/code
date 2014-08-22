@@ -49,8 +49,11 @@ for arg; do
 		_put "$arg" "$dst" && break
 	done
 
+	perms=$(stat -c %a "$dst") &&
+	chmod u+w "$dst" &&
 	setfattr -h -n "user.stashed.from" -v "$src"               "$dst" &&
-	setfattr -h -n "user.stashed.when" -v "$(date "+%FT%T%z")" "$dst"
+	setfattr -h -n "user.stashed.when" -v "$(date "+%FT%T%z")" "$dst" &&
+	chmod "$perms" "$dst"
 done
 
 (( ! errors ))

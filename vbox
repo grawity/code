@@ -2,50 +2,50 @@
 
 . lib.bash || exit
 
-run() { (PS4='+ '; set -x; "$@"); }
+do:() { (PS4='+ '; set -x; "$@"); }
 
 cmd=$1; shift
 vm=$1; shift
 
 case $cmd in
 load)
-	run sudo modprobe -v vboxdrv
+	do: sudo modprobe -v vboxdrv
 	;;
 unload)
-	run sudo modprobe -v -r vboxdrv
+	do: sudo modprobe -v -r vboxdrv
 	;;
 ls)
-	vboxmanage list vms
+	do: vboxmanage list vms
 	;;
 lsr|lsrun|lsrunning)
-	vboxmanage list runningvms
+	do: vboxmanage list runningvms
 	;;
 start)
-	run vboxmanage startvm "$vm"
+	do: vboxmanage startvm "$vm"
 	;;
 pause|resume|reset|poweroff)
-	run vboxmanage controlvm "$vm" "$cmd"
+	do: vboxmanage controlvm "$vm" "$cmd"
 	;;
 save)
-	run vboxmanage controlvm "$vm" savestate
+	do: vboxmanage controlvm "$vm" savestate
 	;;
 ctl)
-	run vboxmanage controlvm "$@"
+	do: vboxmanage controlvm "$@"
 	;;
 get)
 	if [[ ! $1 ]]; then
 		set -- 'enumerate'
 	fi
-	run vboxmanage getextradata "$vm" "$@"
+	do: vboxmanage getextradata "$vm" "$@"
 	;;
 set)
-	run vboxmanage setextradata "$vm" "$@"
+	do: vboxmanage setextradata "$vm" "$@"
 	;;
 fixvesa)
-	run vboxmanage setextradata "$vm" "CustomVideoMode1" "1366x768x32"
+	do: vboxmanage setextradata "$vm" "CustomVideoMode1" "1366x768x32"
 	;;
 fixup)
-	run vboxmanage modifyvm "$vm" \
+	do: vboxmanage modifyvm "$vm" \
 		--boot1 disk			\
 		--boot2 floppy			\
 		--boot3 dvd			\

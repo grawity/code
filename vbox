@@ -4,15 +4,22 @@
 
 do:() { (PS4='+ '; set -x; "$@"); }
 
+sudo:() {
+	if (( UID ))
+		then do: sudo "$@"
+		else do: "$@"
+	fi
+}
+
 cmd=$1; shift
 vm=$1; shift
 
 case $cmd in
 load)
-	do: sudo modprobe -v vboxdrv
+	sudo: modprobe -v vboxdrv
 	;;
 unload)
-	do: sudo modprobe -v -r vboxdrv
+	sudo: modprobe -v -r vboxdrv
 	;;
 ls)
 	do: vboxmanage list vms

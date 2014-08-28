@@ -173,6 +173,16 @@ sub xml_escape {
 	return $str;
 }
 
+$SIG{USR2} = sub {
+	if ($::debug) {
+		_debug("got SIGUSR2, disabling debug mode");
+		$::debug = 0;
+	} else {
+		$::debug = 1;
+		_debug("got SIGUSR1, enabling debug mode");
+	}
+};
+
 _debug("[$ENV{LVL}] lib.pm loaded by $0") if $::debug >= 2;
 
 1;

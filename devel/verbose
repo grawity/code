@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+
+sub trace {
+	my %what = @_;
+	for my $section (keys %what) {
+		my $v = $what{$section};
+		if (ref $v eq 'HASH') {
+			for my $env (keys %$v) {
+				$ENV{$env} = $v->{$env};
+			}
+		}
+	}
+}
+
+trace _main_ => {
+	DEBUG => 1,
+};
+
+trace git => {
+	GIT_TRACE => 1,
+};
+
+trace curl => {
+	GIT_CURL_VERBOSE => 1,
+};
+
+trace kerberos => {
+	KRB5_TRACE => "/dev/stderr",
+};
+
+trace libmount => {
+	LIBMOUNT_DEBUG => 255,
+};
+
+trace systemd => {
+	SYSTEMD_LOG_LEVEL => "debug",
+};
+
+exec {$ARGV[0]} @ARGV;

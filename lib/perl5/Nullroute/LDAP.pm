@@ -20,12 +20,20 @@ sub ldap_format_error {
 }
 
 sub ldap_check {
-	my ($res, $dn) = @_;
+	my ($res, $dn, $ignore) = @_;
 
-	if ($res->is_error) {
-		my $text = ldap_format_error($res, $dn);
-		_die($text);
+	if (!$res->is_error) {
+		return;
 	}
+
+	if (ref $ignore eq 'ARRAY' &&
+	    grep {$res->error_name eq $_} @$ignore) {
+		_debug("ignoring ".$res->error_name.($dn ? " for $dn" : ""));
+		return;
+	}
+
+	my $text = ldap_format_error($res, $dn);
+	_die($text);
 }
 
 1;

@@ -175,4 +175,10 @@ sub xml_escape {
 
 _debug("[$ENV{LVL}] lib.pm loaded by $0") if $::debug >= 2;
 
+if ($::debug >= 2) {
+	$ENV{"KRB5_TRACE"} = "/dev/stderr";
+	$ENV{"LIBMOUNT_DEBUG"} = 255;
+	$ENV{"SYSTEMD_LOG_LEVEL"} = "debug";
+}
+
 1;

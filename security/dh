@@ -25,6 +25,14 @@ def buf_to_hex(buf)
     buf.unpack("H*")[0]
 end
 
+def color(str, fmt)
+    if STDOUT.tty?
+        "\e[#{fmt}m#{str}\e[m"
+    else
+        str
+    end
+end
+
 def ask(str)
     if STDIN.tty?
         STDOUT.print "#{str} "
@@ -144,10 +152,10 @@ end
 
 dh.generate_key!
 
-puts "my public key: \e[32m#{bn_output(dh.pub_key)}\e[m"
+puts "my public key: " + color(bn_output(dh.pub_key), "32")
 
 if show_private
-    puts "my private key: \e[31m#{bn_output(dh.priv_key)}\e[m"
+    puts "my private key: " + color(bn_output(dh.priv_key), "31")
 end
 
 if !other_public
@@ -164,11 +172,11 @@ if secret_file
     end
     puts "shared secret (#{length}) written to \"#{secret_file}\""
 else
-    puts "shared secret (#{length}): \e[36m#{buf_to_hex(secret)}\e[m"
+    puts "shared secret (#{length}): " + color(buf_to_hex(secret), "36")
 end
 
 hash = OpenSSL::Digest::SHA1.digest(secret)
 
-puts "hash of secret: \e[33m#{buf_to_hex(hash)}\e[m"
+puts "hash of secret: " + color(buf_to_hex(hash), "33")
 
 # vim: ts=4:sw=4:et

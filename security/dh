@@ -136,6 +136,9 @@ OptionParser.new do |opts|
     opts.on("-r", "--resume-with-privkey KEY", String, "Reuse old private key") do |s|
         my_private = bn_input(s)
     end
+
+    opts.separator("")
+    opts.separator("Remember: It is insecure to use the same private key multiple times.")
 end.parse!
 
 dh = OpenSSL::PKey::DH.new(params)
@@ -147,7 +150,6 @@ end
 if my_private
     check_key_size!(dh, my_private, "my private key")
     dh.priv_key = my_private
-    STDERR.puts "\e[33mreminder: do not use the same private key twice!\e[m"
 end
 
 dh.generate_key!

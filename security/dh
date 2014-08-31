@@ -16,7 +16,7 @@ end
 def bn_input(str)
     return nil if !str
     str.strip!
-    return nil if str == ""
+    return nil if str == "" || str == "nil"
     b64 = str
     raw = Base64.decode64(str)
     hex = raw.unpack("H*")[0]
@@ -97,6 +97,7 @@ EOF
 params = builtin_params[2048]
 my_private = nil
 other_public = nil
+ask_other_public = true
 secret_file = nil
 show_private = false
 
@@ -107,6 +108,7 @@ OptionParser.new do |opts|
 
     opts.on("-y", "--their-pubkey KEY", String, "Other party's public key") do |s|
         other_public = bn_input(s)
+        ask_other_public = false
     end
     opts.on("-o", "--write-secret FILE", String, "Write shared secret to file") do |s|
         secret_file = s
@@ -143,6 +145,10 @@ OptionParser.new do |opts|
     opts.separator("Remember: It is insecure to use the same private key multiple times.")
 end.parse!
 
+if !show_private and !other_public and !ask_other_public
+    abort "error: specifying '-y nil' without '-R' does nothing useful"
+end
+
 dh = OpenSSL::PKey::DH.new(params)
 
 if other_public
@@ -157,12 +163,14 @@ end
 dh.generate_key!
 
 puts "my public key: " + color(bn_output(dh.pub_key), "32")
-
 if show_private
     puts "my private key: " + color(bn_output(dh.priv_key), "31")
 end
 
 if !other_public
+    if !ask_other_public
+        exit
+    end
     other_public = bn_input(ask("their public key?")) or exit
     check_key_size!(dh, other_public, "their public key")
 end

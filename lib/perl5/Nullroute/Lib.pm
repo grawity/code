@@ -36,8 +36,6 @@ $::arg0 //= basename($0);
 $::nested = $ENV{LVL}++;
 $::debug = do { no warnings; int $ENV{DEBUG} };
 
-$::arg0prefix = $::nested || $::debug;
-
 $::warnings = 0;
 $::errors = 0;
 
@@ -51,8 +49,8 @@ sub _msg {
 
 	my $color = (-t 2) ? $pfx_color : "";
 	my $reset = (-t 2) ? "\e[m" : "";
-	my $name = $::arg0 . ($::debug ? "[$$]" : "");
-	my $nameprefix = $::arg0prefix ? "$name: " : "";
+	my $do_arg0 = $::arg0prefix // $::nested || $::debug;
+	my $name = $do_arg0 ? $::arg0 . ($::debug ? "[$$]" : "") . ": " : "";
 
 	if ($prefix eq "debug" || $::debug >= 2) {
 		my $skip = ($opt{skip} || 0) + 1;
@@ -72,7 +70,7 @@ sub _msg {
 
 	if ($pre_output) { $pre_output->($msg, $prefix, \*STDERR); }
 
-	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
+	warn "${name}${color}${prefix}:${reset} ${msg}\n";
 
 	if ($post_output) { $post_output->($msg, $prefix, \*STDERR); }
 }
@@ -84,15 +82,15 @@ sub _fmsg {
 
 	my $color = (-t 1) ? $fmt_color : "";
 	my $reset = (-t 1) ? "\e[m" : "";
-	my $name = $::arg0 . ($::debug ? "[$$]" : "");
-	my $nameprefix = $::arg0prefix ? "$name: " : "";
+	my $do_arg0 = $::arg0prefix // $::nested || $::debug;
+	my $name = $do_arg0 ? $::arg0 . ($::debug ? "[$$]" : "") . ": " : "";
 
 	if ($pre_output) { $pre_output->($msg, $prefix, \*STDOUT); }
 
 	if (length $fmt_prefix) {
-		print "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
+		print "${name}${color}${fmt_prefix}${reset} ${msg}\n";
 	} else {
-		print "${nameprefix}${msg}\n";
+		print "${name}${msg}\n";
 	}
 
 	if ($post_output) { $post_output->($msg, $prefix, \*STDOUT); }

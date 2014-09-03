@@ -54,15 +54,12 @@ sub _msg {
 
 	if ($prefix eq "debug" || $::debug >= 2) {
 		my $skip = ($opt{skip} || 0) + 1;
-		my @frame;
 		my $func;
 		do {
-			@frame = caller(++$skip);
+			my @frame = caller(++$skip);
 			$func = $frame[3] // "main";
 		} while ($func =~ /::__ANON__$/);
 		$func =~ s/^main:://;
-		$prefix .= " @ ".($frame[1] // "?").":".($frame[2] // "?")
-			if $::debug >= 3;
 		$prefix .= " ($func)";
 	}
 	elsif ($prefix eq "usage" && !$::debug && $seen_usage++) {

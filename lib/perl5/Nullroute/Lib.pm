@@ -70,11 +70,11 @@ sub _msg {
 		$prefix = "   or";
 	}
 
-	if ($pre_output) { $pre_output->($msg, $prefix); }
+	if ($pre_output) { $pre_output->($msg, $prefix, \*STDERR); }
 
 	warn "${nameprefix}${color}${prefix}:${reset} ${msg}\n";
 
-	if ($post_output) { $post_output->($msg, $prefix); }
+	if ($post_output) { $post_output->($msg, $prefix, \*STDERR); }
 }
 
 sub _fmsg {
@@ -87,7 +87,7 @@ sub _fmsg {
 	my $name = $::arg0 . ($::debug ? "[$$]" : "");
 	my $nameprefix = $::arg0prefix ? "$name: " : "";
 
-	if ($pre_output) { $pre_output->($msg, $prefix); }
+	if ($pre_output) { $pre_output->($msg, $prefix, \*STDOUT); }
 
 	if (length $fmt_prefix) {
 		print "${nameprefix}${color}${fmt_prefix}${reset} ${msg}\n";
@@ -95,17 +95,17 @@ sub _fmsg {
 		print "${nameprefix}${msg}\n";
 	}
 
-	if ($post_output) { $post_output->($msg, $prefix); }
+	if ($post_output) { $post_output->($msg, $prefix, \*STDOUT); }
 }
 
 sub _say {
 	my ($msg) = @_;
 
-	if ($pre_output) { $pre_output->($msg, ""); }
+	if ($pre_output) { $pre_output->($msg, "", \*STDOUT); }
 
 	print "${msg}\n";
 
-	if ($post_output) { $post_output->($msg, ""); }
+	if ($post_output) { $post_output->($msg, "", \*STDOUT); }
 }
 
 sub _debug  { _msg(shift, "debug", "\e[36m", @_) if $::debug; }

@@ -45,7 +45,8 @@ our $post_output = undef;
 my $seen_usage = 0;
 
 sub _msg {
-	my ($io, $log_prefix, $log_color, $fmt_prefix, $fmt_color,
+	my ($io, $log_prefix, $log_color,
+		$fmt_prefix, $fmt_color,
 		$min_debug, $msg, %opt) = @_;
 
 	return if $::debug < $min_debug;
@@ -54,9 +55,9 @@ sub _msg {
 	my $do_arg0 = $::arg0prefix // $::nested || $::debug;
 	my $do_func = $::debug >= 2 || $log_prefix eq "debug";
 
+	my $prefix;
 	my $color = (-t $io) ? $log_color : "";
 	my $reset = (-t $io) ? "\e[m"     : "";
-	my $prefix;
 
 	if ($do_arg0) {
 		push @output, $::arg0, $::debug ? "[$$]" : (), ": ";
@@ -68,32 +69,27 @@ sub _msg {
 		do {
 			my @frame = caller(++$skip);
 			$func = $frame[3] // "main";
-		} while ($func =~ /::__ANON__$/);
+		} while $func =~ /::__ANON__$/;
 		$func =~ s/^main:://;
 		push @output, "(", $func, ") ";
 	}
 
-	if (!$::debug && defined $fmt_prefix) {
+	if ($::debug) {
 		$prefix = $fmt_prefix;
-	} else {
+	}
+	if (!defined $prefix) {
 		$prefix = $log_prefix . ":";
 	}
-
-	if (!$::debug && $prefix eq "usage" && $seen_usage++) {
-		$prefix = "   or";
+	if (!$::debug && $prefix eq "usage") {
+		$prefix = "   or" if $seen_usage++;
 	}
 
-	if (length($prefix) > 0) {
-		push @output, $color, $prefix, $reset, " ";
-	}
-
+	push @output, $color, $prefix, $reset, " ";
 	push @output, $msg, "\n";
 
 	if ($pre_output) { $pre_output->($msg, $prefix, $io); }
 
 	print $io @output;
-
-	return if $prefix eq "fatal";
 
 	if ($post_output) { $post_output->($msg, $prefix, $io); }
 }

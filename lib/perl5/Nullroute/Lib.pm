@@ -116,7 +116,7 @@ sub _warn   { _msg(shift, "warning", "\e[1;33m"); ++$::warnings; }
 
 sub _err    { _msg(shift, "error", "\e[1;31m"); ! ++$::errors; }
 
-sub _die    { _err(shift); exit int(shift // 1); }
+sub _die    { _msg(shift, "error", "\e[1;31m"); exit int(shift // 1); }
 
 sub _usage  { _msg($::arg0." ".shift, "usage", ""); }
 

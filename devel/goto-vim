@@ -56,6 +56,11 @@ my $ctxspecre = qr{ ^ ([^:]+?) - (\d+) - .* $ }mx;
 
 my $pythonre = qr{ ^ \s* File \s "(.+?)", \s line \s (\d+) }mx;
 
+# this matches:
+#   /foo/bar line 123
+
+my $perlre = qr{ ^ (.+?) \s line \s (\d+) }mx;
+
 # this script is usually symlinked as ~/bin/vim, so
 # it needs to run the real vim by absolute path
 
@@ -116,6 +121,13 @@ sub parse {
 		}
 		when ($specre) {
 			_debug("specre: '$&' -> '$1' '$2'");
+			my ($file, $cmd) = ($1, $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			$cmd =~ s|^|+|;
+			return ($file, $cmd) if -e $file;
+		}
+		when ($perlre) {
+			_debug("perlre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;

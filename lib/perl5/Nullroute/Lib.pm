@@ -74,7 +74,7 @@ sub _msg {
 		push @output, "(", $func, ") ";
 	}
 
-	if ($::debug) {
+	if (!$::debug) {
 		$prefix = $fmt_prefix;
 	}
 	if (!defined $prefix) {

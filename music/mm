@@ -4,6 +4,7 @@ no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use strict;
 use IPC::Open2;
 use List::Util qw(max);
+use Nullroute::Lib;
 
 my $current;
 my @songs;
@@ -18,15 +19,19 @@ sub search {
 	my @songs = get_playlist();
 
 	for my $pattern (@patterns) {
+		_debug("pattern: \"$pattern\"");
 		if ($pattern eq "-") {
 			next;
 		} elsif ($pattern =~ /^\d+$/) {
+			_debug(" - match by playlist position");
 			@songs = grep {$_->{num} == $pattern} @songs;
 		} elsif ($pattern =~ /^album:(.+)$/) {
 			my $pat = qr/\Q$1/i;
+			_debug(" - match by album: $pat");
 			@songs = grep {$_->{album} ~~ $pat} @songs;
 		} else {
 			my $pat = qr/\Q$pattern/i;
+			_debug(" - match by artist or title: $pat");
 			@songs = grep {$_->{artist} ~~ $pat
 					or $_->{title} ~~ $pat
 					or $_->{artist}." - ".$_->{title} ~~ $pat}

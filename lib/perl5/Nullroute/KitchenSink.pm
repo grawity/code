@@ -19,6 +19,7 @@ our @EXPORT = qw(
 
 	lt_nin_checksum
 	lt_nin_parse
+	lt_nin_random
 
 	sd_notify
 );
@@ -72,6 +73,13 @@ sub lt_nin_parse {
 	#_debug("parsed [$nin] to <$year, $month, $day>");
 
 	return ($gender, $year, $month, $day);
+}
+
+sub lt_nin_random {
+	my $nin;
+	$nin = sprintf("%011d", (1_00_20_00_0000 + int rand 69_99_9999));
+	$nin = lt_nin_checksum($nin);
+	return $nin;
 }
 
 ### systemd

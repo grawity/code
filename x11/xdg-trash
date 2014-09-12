@@ -203,13 +203,13 @@ sub read_info {
 		_err("could not read \"$info_path\": $!");
 		return;
 	}
-	my $section = 0;
 	for (<$info_fh>) {
-		if (/^\[Trash Info\]$/) {
-			$section = 1;
-		} elsif ($section && /^Path=(.+)$/) {
+		if ($. == 1 && !/^\[Trash Info\]$/) {
+			_err("syntax error in \"$info_path\"");
+			last;
+		} elsif (!defined($orig_path) && /^Path=(.+)$/) {
 			$orig_path = $1;
-		} elsif ($section && /^DeletionDate=(.+)$/) {
+		} elsif (!defined($trash_time) && /^DeletionDate=(.+)$/) {
 			$trash_time = parse_date($1);
 		}
 	}

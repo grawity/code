@@ -14,7 +14,7 @@ use POSIX qw(strftime);
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die interval));
 	} else {
 		our ($warnings, $errors);
 		$::arg0 = (split m!/!, $0)[-1];
@@ -24,6 +24,7 @@ BEGIN {
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ! ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
+		sub interval { time - shift; }
 	}
 }
 
@@ -162,11 +163,93 @@ Write the [Trash Info] block for $orig_path to a filehandle.
 sub write_info {
 	my ($info_fh, $orig_path) = @_;
 
-	my $now = strftime("%Y-%m-%dT%H:%M:%S", localtime);
+	my $now = strftime("%Y-%m-%dT%H:%M:%S%z", localtime);
 
 	print $info_fh "[Trash Info]\n";
 	print $info_fh "Path=$orig_path\n";
 	print $info_fh "DeletionDate=$now\n";
+}
+
+=item pase_date($iso8601_str)
+
+=cut
+
+sub parse_date {
+	my ($str) = @_;
+
+	my $r = qr/^
+		(\d+) - 0*(\d+) - 0*(\d+)
+		T 0*(\d+) : 0*(\d+) (?: : 0*(\d+) )?
+		(?: \+ \d{4} )?
+		$/x;
+
+	if (my @m = $str =~ $r) {
+		my ($dy, $dm, $dd, $th, $tm, $ts, $tz) = map {int($_ // 0)} @m;
+		return POSIX::mktime($ts, $tm, $th, $dd, $dm-1, $dy-1900);
+	} else {
+		return 0;
+	}
+}
+
+=item read_info($file)
+
+=cut
+
+sub read_info {
+	my ($info_path) = @_;
+
+	my ($info_fh, $orig_path, $trash_time);
+	if (!open($info_fh, "<", $info_path)) {
+		_err("could not read \"$info_path\": $!");
+		return;
+	}
+	my $section = 0;
+	for (<$info_fh>) {
+		if (/^\[Trash Info\]$/) {
+			$section = 1;
+		} elsif ($section && /^Path=(.+)$/) {
+			$orig_path = $1;
+		} elsif ($section && /^DeletionDate=(.+)$/) {
+			$trash_time = parse_date($1);
+		}
+	}
+	close($info_fh);
+	return ($orig_path, $trash_time);
+}
+
+sub find_unique {
+	my ($base) = @_;
+	my $path = $base;
+	my $i = 1;
+	while (-e $path) {
+		$path = $base."-".$i++;
+		_die("could not find unique name for \"$base\"") if $i > 1_000;
+	}
+	return $path;
+}
+
+sub restore_from_info {
+	my ($info_path, $orig_path) = @_;
+	my $trash_dir = dirname(dirname($info_path));
+	my $info_base = basename($info_path, ".trashinfo");
+	my $trashed_path = "$trash_dir/files/$info_base";
+	my $orig_dir = dirname($orig_path);
+	$orig_path = find_unique($orig_path);
+	if (dev($orig_dir) == dev($trash_dir)) {
+		if (rename($trashed_path, $orig_path)) {
+			unlink($info_path);
+			trace("Restored '$orig_path'");
+		} else {
+			_die("failed to rename '$trashed_path': $!");
+		}
+	} else {
+		if (xdev_move($trashed_path, $orig_path)) {
+			unlink($info_path);
+			trace("Restored '$orig_path'");
+		} else {
+			_die("failed to copy '$trashed_path' to '$orig_dir'");
+		}
+	}
 }
 
 =item find_trash_dir($orig_path)
@@ -260,6 +343,46 @@ sub trash {
 	close($info_fh);
 }
 
+sub untrash {
+	my ($path) = @_;
+	my $orig_path = my_abs_path($path);
+	_debug("orig_path='$orig_path'");
+	my $orig_dir = dirname($orig_path);
+	_debug("orig_dir='$orig_dir'");
+	my $trash_dir = find_trash_dir($path);
+	_debug("trash_dir='$trash_dir'");
+	if (!-d "$trash_dir/info" || !-d "$trash_dir/files") {
+		_err("trash directory does not exist");
+	}
+	my @infos;
+	for my $info_path (glob("$trash_dir/info/*.trashinfo")) {
+		my ($info_orig_path, $info_trash_date) = read_info($info_path);
+		if (-d $orig_path) {
+			my $info_orig_dir = dirname($info_orig_path);
+			next if $orig_dir ne $info_orig_dir;
+		} else {
+			next if $orig_path ne $info_orig_path;
+		}
+		_debug("found \"$info_orig_path\" time $info_trash_date");
+		push @infos, [$info_path, $info_orig_path, $info_trash_date];
+	}
+	@infos = sort {$a->[2] <=> $b->[2]} @infos;
+	if (!@infos) {
+		_err("no matching files in trash");
+		return;
+	} elsif (@infos == 1) {
+		my $info = $infos[0];
+		my $age = interval($info->[2]);
+		_info("found one matching file ($age ago), restoring");
+		restore_from_info(@$info);
+	} else {
+		my $info = pop @infos;
+		my $age = interval($info->[2]);
+		_info("found ".@infos." matching files in trash, restoring most recent");
+		restore_from_info(@$info);
+	}
+}
+
 sub usage {
 	say for
 	"Usage: $::arg0 [options] <file>...",
@@ -269,18 +392,21 @@ sub usage {
 	"  -r, --recursive        Ignored (compatibility with `rm`)",
 	"  -v, --[no-]verbose     Show files being removed",
 	"",
-	"      --find-trash       Only print the trash directory";
+	"      --find-trash       Only print the trash directory",
+	"      --restore          Restore files from trash";
 }
 
 # Option parser
 
 my $print_path = 0;
+my $restore = 0;
 
 GetOptions(
 	'help'		=> sub { usage(); exit; },
 	'find-trash!'	=> \$print_path,
 	'f|force'	=> sub { },
 	'i|interactive!'=> \$interactive,
+	'restore!'	=> \$restore,
 	'r|R|recursive'	=> sub { },
 	'v|verbose!'	=> \$verbose,
 ) or exit 2;
@@ -293,6 +419,8 @@ if (!@ARGV) {
 
 if ($print_path) {
 	say find_trash_dir(my_abs_path($_)) // "(not found?)" for @ARGV;
+} elsif ($restore) {
+	untrash($_) for @ARGV;
 } else {
 	trash($_) for @ARGV;
 }

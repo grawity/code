@@ -141,7 +141,7 @@ sub interval {
 	my ($dif, $s, $m, $h, $d);
 
 	$start //= time;
-	$dif = $end - $start;
+	$dif = abs($end - $start);
 	$dif -= $s = $dif % 60; $dif /= 60;
 	$dif -= $m = $dif % 60; $dif /= 60;
 	$dif -= $h = $dif % 24; $dif /= 24;

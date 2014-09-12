@@ -106,7 +106,7 @@ sub _say {
 
 sub _debug  { _msg(*STDERR, "debug", "\e[36m", undef, undef, 1, @_); }
 
-sub _info   { _msg(*STDOUT, "info", "\e[1;34m", undef, undef, 1, @_); }
+sub _info   { _msg(*STDOUT, "info", "\e[1;34m", undef, undef, 0, @_); }
 
 sub _log    { _msg(*STDOUT, "log", "\e[1;32m", "--", "\e[32m", 0, @_); }
 

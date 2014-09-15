@@ -23,6 +23,7 @@ while (( $# )); do
 		case ${1#--} in
 		'via')		via=$2; shift;;
 		'using')	using=$2; shift;;
+		'pap')		using='pap';;
 		'eap')		_eap=$2; shift;;
 		'user')		_user=$2; shift;;
 		'login')	_user=$2; shift;;
@@ -65,7 +66,12 @@ done
 [[ $_outer ]]	|| _outer=${_user}
 
 _eap=${_eap^^}
-_mech=${using:-mschap}
+
+if [[ $_eap == PEAP ]]; then
+	_mech=${using:-eap-mschapv2}
+else
+	_mech=${using:-mschapv2}
+fi
 
 [[ $_user ]]	|| err "missing username for '$self'"
 if [[ $_pass == "-" ]]; then
@@ -85,6 +91,10 @@ case $_mech in
 *)		err "unknown mechanism '$_mech'"
 esac
 
+if [[ "$_eap" == PEAP && "$_phase2" != EAP-* ]]; then
+	err "EAP-$_eap can only transport other EAP mechanisms"
+fi
+
 (( ! errors )) || exit
 
 log "account: \"$_user\""
@@ -99,10 +109,11 @@ if [[ $_eap && $_eap != NO ]]; then
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""
 	fi
-	cmd=(rad_eap_test -H "$_host" -P "$_port" -S "$_secret" -u "$_user" -p "$_pass"
-	                  -A "$_outer" -m WPA-EAP -v -e "$_eap" -2 "$_phase2")
+	cmd=(rad_eap_test -H "$_host" -P "$_port" -S "$_secret"
+	                  -u "$_user" -p "$_pass" -A "$_outer"
+	                  -m WPA-EAP -e "$_eap" -2 "$_phase2" -v)
 else
-	log "using direct $_phase2"
+	log "mechanism: direct $_phase2"
 	if [[ "$_outer" != "$_user" ]]; then
 		die "anonymous identity \"$_outer\" not supported without EAP"
 	fi

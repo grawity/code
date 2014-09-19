@@ -34,10 +34,10 @@ The not really useful stuff:
   misc/
     envcp               – borrow the environment of another process
     motd                – show a diff for /etc/motd upon login
+    treeify             – translate a list of files to a fancy tree
   net/
     rdt                 – run a recursive rDNS trace
     sprunge             – post to the sprunge.us pastebin
-    treeify             – translate a list of files to a fancy tree
   kerberos/
     kc                  – manage Kerberos ticket caches
     kl                  – like 'klist' except better

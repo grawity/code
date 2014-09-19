@@ -13,8 +13,6 @@ trusts = {
     },
 }
 
-reach = {}
-
 paths = {}
 
 inf = float("inf")

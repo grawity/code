@@ -72,6 +72,26 @@ def dump_paths():
             print("\t\t%r" % (paths[pair],))
     print()
 
+"""
+
+a, b, c, d
+    a {
+        d = b
+        d = c
+    }
+
+a, b, c
+    a {
+        c = b
+    }
+
+a, b
+    a {
+        b = .
+    }
+
+"""
+
 def dump_capaths():
     print("= [capaths] =")
     print()
@@ -83,13 +103,22 @@ def dump_capaths():
             if src == dst:
                 continue
             dist, path = paths[src, dst]
-            if not path:
+            print("\t\t\033[38;5;239m# %s via {%s} [%r]\033[m" % (dst, ", ".join(path), dist))
+
+            if len(path) == 0:
                 print("\t\t# no path to %s" % dst)
                 continue
-            if len(path) > 2:
-                path = path[1:-1]
-            else:
+            elif len(path) == 1:
+                # the only hop is ourselves, which cannot happen
+                continue
+            elif len(path) == 2:
+                # the only hops are ourselves and the target
+                # we still need the target subtag, though, so add a "no hops"
                 path = ["."]
+            else:
+                # first hop is ourselves; last hop is the target
+                path = path[1:-1]
+
             for hop in path:
                 print("\t\t%s = %s" % (dst, hop))
         print("\t}")

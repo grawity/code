@@ -87,7 +87,7 @@ def dump_capaths():
                 print("\t\t# no path to %s" % dst)
                 continue
             if len(path) > 2:
-                path = path[1:]
+                path = path[1:-1]
             else:
                 path = ["."]
             for hop in path:

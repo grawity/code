@@ -32,7 +32,7 @@ def dump_trusts():
     print("= Trusts =")
     print()
     for src in sorted(trusts):
-        print("   %s -> %s" % (src, trusts[src]))
+        print("\t%s -> %s" % (src, trusts[src]))
     print()
 
 def find_path(src, dst, seen=None):
@@ -69,8 +69,9 @@ def dump_paths():
     for pair in sorted(paths):
         src, dst = pair
         if paths[pair]:
-            #print("   %r -> %r" % (pair, paths[pair]))
-            print("   %r" % (paths[pair],))
+            #print("\t%r -> %r" % (pair, paths[pair]))
+            print("\t%r" % (pair,))
+            print("\t\t%r" % (paths[pair],))
     print()
 
 def dump_capaths():
@@ -79,21 +80,21 @@ def dump_capaths():
     realms = list(trusts)
     realms.sort()
     for src in realms:
-        print("   %s = {" % src)
+        print("\t%s = {" % src)
         for dst in realms:
             if src == dst:
                 continue
             dist, path = paths[src, dst]
             if not path:
-                print("      # no path to %s" % dst)
+                print("\t\t# no path to %s" % dst)
                 continue
             if len(path) > 2:
-                path = path[1:-1]
+                path = path[1:]
             else:
                 path = ["."]
             for hop in path:
-                print("      %s = %s" % (dst, hop))
-        print("   }")
+                print("\t\t%s = %s" % (dst, hop))
+        print("\t}")
     print()
 
 if __name__ == "__main__":

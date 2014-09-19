@@ -103,22 +103,15 @@ def dump_capaths():
             if src == dst:
                 continue
             dist, path = paths[src, dst]
-            print("\t\t\033[38;5;239m# %s via {%s} [%r]\033[m" % (dst, ", ".join(path), dist))
-
-            if len(path) == 0:
+            #print("\t\t\033[38;5;239m# %s via {%s}\033[m" % (dst, ", ".join(path)))
+            if len(path) < 2:
+                # 0 hops means "no path"
+                # 1 hop means the only hop is ourselves, which is filtered out above
                 print("\t\t# no path to %s" % dst)
                 continue
-            elif len(path) == 1:
-                # the only hop is ourselves, which cannot happen
-                continue
-            elif len(path) == 2:
-                # the only hops are ourselves and the target
-                # we still need the target subtag, though, so add a "no hops"
-                path = ["."]
-            else:
-                # first hop is ourselves; last hop is the target
-                path = path[1:-1]
-
+            # 2 or more hops means src is the first hop, dst is last
+            # discard both, and ensure there's still at least one subtag
+            path = path[1:-1] or ["."]
             for hop in path:
                 print("\t\t%s = %s" % (dst, hop))
         print("\t}")

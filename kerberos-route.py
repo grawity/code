@@ -35,10 +35,10 @@ def dump_trusts():
 
 def find_path(src, dst, seen=None):
     if src == dst:
-        return 0, [src]
+        return [src]
 
     if dst in trusts[src]:
-        return 1, [src, dst]
+        return [src, dst]
     
     best_dist = inf
     best_path = []
@@ -46,12 +46,12 @@ def find_path(src, dst, seen=None):
     for via in trusts[src]:
         if via in seen:
             continue
-        dist, path = find_path(via, dst, seen | {via})
-        dist += 1
+        path = find_path(via, dst, seen | {via})
+        dist = len(path) or inf
         if dist < best_dist:
             best_dist = dist
             best_path = [src] + path
-    return best_dist, best_path
+    return best_path
 
 def create_paths():
     realms = list(trusts)
@@ -102,7 +102,7 @@ def dump_capaths():
         for dst in realms:
             if src == dst:
                 continue
-            dist, path = paths[src, dst]
+            path = paths[src, dst]
             #print("\t\t\033[38;5;239m# %s via {%s}\033[m" % (dst, ", ".join(path)))
             if len(path) < 2:
                 # 0 hops means "no path"

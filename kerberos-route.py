@@ -6,7 +6,7 @@ trusts = {
         'NATHAN7.EU',
         'KYRIASIS.COM',
     },
-    'XSEDE.ORG': {},
+    'XSEDE.ORG': set(),
     'NTAS.IN': {
         'NULLROUTE.EU.ORG',
         'KRA.NTAS.IN',

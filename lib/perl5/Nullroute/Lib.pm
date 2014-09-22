@@ -46,10 +46,9 @@ our $post_output = undef;
 my $seen_usage = 0;
 
 sub _msg {
-	my ($io, $log_prefix, $log_color,
-		$min_debug, $msg, %opt) = @_;
+	my ($io, $log_prefix, $log_color, $msg, %opt) = @_;
 
-	return if $::debug < $min_debug;
+	return if $::debug < ($opt{min_debug} // 0);
 
 	my @output = ();
 	my $do_arg0 = $::arg0prefix // $::nested || $::debug;
@@ -113,41 +112,43 @@ sub _say {
 	if ($post_output) { $post_output->($msg, "", \*STDOUT); }
 }
 
-sub _debug  { _msg(*STDERR, "debug", "\e[36m", 1, @_); }
+sub _debug  { _msg(*STDERR, "debug", "\e[36m", shift,
+		min_debug => 1,
+		@_); }
 
-sub _info   { _msg(*STDOUT, "info", "\e[1;34m", 0, @_); }
+sub _info   { _msg(*STDOUT, "info", "\e[1;34m", @_); }
 
-sub _log    { _msg(*STDOUT, "log", "\e[1;32m", 0, shift,
+sub _log    { _msg(*STDOUT, "log", "\e[1;32m", shift,
 		fmt_prefix => "--",
 		fmt_color => "\e[32m",
 		@_); }
 
-sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", 0, shift,
+sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", shift,
 		fmt_prefix => "==",
 		fmt_color => "\e[35m",
 		msg_color => "\e[1m",
 		@_); }
 
-sub _notice { _msg(*STDERR, "notice", "\e[1;35m", 0, @_); }
+sub _notice { _msg(*STDERR, "notice", "\e[1;35m", @_); }
 
 sub _warn {
-	_msg(*STDERR, "warning", "\e[1;33m", 0, @_);
+	_msg(*STDERR, "warning", "\e[1;33m", @_);
 	return ++$::warnings;
 }
 
 sub _err {
-	_msg(*STDERR, "error", "\e[1;31m", 0, @_);
+	_msg(*STDERR, "error", "\e[1;31m", @_);
 	return !++$::errors;
 }
 
 sub _die {
 	$post_output = undef;
-	_msg(*STDERR, "error", "\e[1;31m", 0, shift);
+	_msg(*STDERR, "error", "\e[1;31m", shift);
 	exit int(shift // 1);
 }
 
 sub _usage {
-	_msg(*STDOUT, "usage", "", 0, $::arg0." ".shift);
+	_msg(*STDOUT, "usage", "", $::arg0." ".shift);
 };
 
 sub _exit { exit ($::errors > 0); }

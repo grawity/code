@@ -78,9 +78,11 @@ sub _msg {
 
 	if (!$::debug) {
 		$prefix = $fmt_prefix;
+		$color = $fmt_color;
 	}
 	if (!defined $prefix) {
 		$prefix = $log_prefix . ":";
+		$color = $log_color;
 	}
 	if (!$::debug && $prefix eq "usage") {
 		$prefix = "   or" if $seen_usage++;

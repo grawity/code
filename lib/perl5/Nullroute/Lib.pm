@@ -48,6 +48,7 @@ my $seen_usage = 0;
 sub _msg {
 	my ($io, $log_prefix, $log_color,
 		$fmt_prefix, $fmt_color,
+		$msg_color,
 		$min_debug, $msg, %opt) = @_;
 
 	return if $::debug < $min_debug;
@@ -57,8 +58,8 @@ sub _msg {
 	my $do_func = $::debug >= 2 || $log_prefix eq "debug";
 
 	my $prefix;
-	my $color = (-t $io) ? $log_color : "";
-	my $reset = (-t $io) ? "\e[m"     : "";
+	my $color;
+	my $reset = "\e[m";
 
 	if ($do_arg0) {
 		push @output, $::arg0, $::debug ? "[$$]" : (), ": ";
@@ -85,8 +86,15 @@ sub _msg {
 		$prefix = "   or" if $seen_usage++;
 	}
 
-	push @output, $color, $prefix, $reset, " ";
-	push @output, $msg, "\n";
+	push @output,
+		(-t $io && defined $color) ? ($color) : (),
+		$prefix,
+		(-t $io && defined $color) ? ($reset) : (),
+		" ",
+		(-t $io && defined $msg_color) ? ($msg_color) : (),
+		$msg,
+		(-t $io && defined $msg_color) ? ($reset) : (),
+		"\n";
 
 	if ($pre_output) { $pre_output->($msg, $prefix, $io); }
 
@@ -105,34 +113,34 @@ sub _say {
 	if ($post_output) { $post_output->($msg, "", \*STDOUT); }
 }
 
-sub _debug  { _msg(*STDERR, "debug", "\e[36m", undef, undef, 1, @_); }
+sub _debug  { _msg(*STDERR, "debug", "\e[36m", undef, undef, undef, 1, @_); }
 
-sub _info   { _msg(*STDOUT, "info", "\e[1;34m", undef, undef, 0, @_); }
+sub _info   { _msg(*STDOUT, "info", "\e[1;34m", undef, undef, undef, 0, @_); }
 
-sub _log    { _msg(*STDOUT, "log", "\e[1;32m", "--", "\e[32m", 0, @_); }
+sub _log    { _msg(*STDOUT, "log", "\e[1;32m", "--", "\e[32m", undef, 0, @_); }
 
-sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", "==", "\e[35m", 0, @_); }
+sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", "==", "\e[35m", "\e[1m", 0, @_); }
 
-sub _notice { _msg(*STDERR, "notice", "\e[1;35m", undef, undef, 0, @_); }
+sub _notice { _msg(*STDERR, "notice", "\e[1;35m", undef, undef, undef, 0, @_); }
 
 sub _warn {
-	_msg(*STDERR, "warning", "\e[1;33m", undef, undef, 0, @_);
+	_msg(*STDERR, "warning", "\e[1;33m", undef, undef, undef, 0, @_);
 	return ++$::warnings;
 }
 
 sub _err {
-	_msg(*STDERR, "error", "\e[1;31m", undef, undef, 0, @_);
+	_msg(*STDERR, "error", "\e[1;31m", undef, undef, undef, 0, @_);
 	return !++$::errors;
 }
 
 sub _die {
 	$post_output = undef;
-	_msg(*STDERR, "error", "\e[1;31m", undef, undef, 0, shift);
+	_msg(*STDERR, "error", "\e[1;31m", undef, undef, undef, 0, shift);
 	exit int(shift // 1);
 }
 
 sub _usage {
-	_msg(*STDOUT, "usage", "", undef, undef, 0, $::arg0." ".shift);
+	_msg(*STDOUT, "usage", "", undef, undef, undef, 0, $::arg0." ".shift);
 };
 
 sub _exit { exit ($::errors > 0); }

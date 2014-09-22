@@ -16,6 +16,7 @@ our @EXPORT = qw(
 	_debug
 	_info
 	_log
+	_log2
 	_notice
 	_warn
 	_err
@@ -109,6 +110,8 @@ sub _debug  { _msg(*STDERR, "debug", "\e[36m", undef, undef, 1, @_); }
 sub _info   { _msg(*STDOUT, "info", "\e[1;34m", undef, undef, 0, @_); }
 
 sub _log    { _msg(*STDOUT, "log", "\e[1;32m", "--", "\e[32m", 0, @_); }
+
+sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", "==", "\e[35m", 0, @_); }
 
 sub _notice { _msg(*STDERR, "notice", "\e[1;35m", undef, undef, 0, @_); }
 

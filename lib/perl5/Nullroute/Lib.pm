@@ -45,8 +45,23 @@ our $post_output = undef;
 
 my $seen_usage = 0;
 
+sub __check_ext_debug {
+	if (-e $ENV{XDG_RUNTIME_DIR}."/lib.debug") {
+		if (!$::debug) {
+			$::debug = 1;
+			$::external_debug = 1;
+		}
+	} else {
+		if ($::external_debug) {
+			$::debug = 0;
+		}
+	}
+}
+
 sub _msg {
 	my ($io, $log_prefix, $log_color, $msg, %opt) = @_;
+
+	__check_ext_debug();
 
 	return if $::debug < ($opt{min_debug} // 0);
 

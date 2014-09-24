@@ -145,6 +145,20 @@ else {
 	_debug("link directory: \"$link_dir\"");
 }
 
+# Resolve all symlinks in the target path
+
+my $abs_dir = realpath($link_dir);
+
+if (!defined $abs_dir) {
+	_die("destination \"$link_dir\" could not be resolved");
+}
+
+$link_dir = $abs_dir;
+
+_debug("- absolute: \"$link_dir\"");
+
+# Create the links
+
 if (!@ARGV) {
 	_die("missing link target(s)");
 }

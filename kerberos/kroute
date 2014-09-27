@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+from pprint import (pformat, pprint)
 import sys
 
 realms = set()
@@ -71,11 +72,8 @@ def load_trusts(fh):
         add_trust(a, b)
 
 def dump_trusts():
-    print("= Trusts =")
-    print()
     for src in sorted(trusts):
         print("%s -> %s" % (src, trusts[src]))
-    print()
 
 def find_path(src, dst, seen=None):
     if src == dst:
@@ -105,19 +103,17 @@ def create_paths():
             paths[src, dst] = find_path(src, dst)
 
 def dump_paths():
-    print("= Paths =")
-    print()
     for pair in sorted(paths):
         src, dst = pair
         if paths[pair]:
-            #print("%r -> %r" % (pair, paths[pair]))
-            print("%r" % (pair,))
-            print("\t%r" % (paths[pair],))
-    print()
+            print(repr(pair))
+            output = pformat(paths[pair], width=72, compact=True)
+            for line in output.split("\n"):
+                print("\t%s" % line)
+            print()
 
 def dump_capaths():
     print("[capaths]")
-    print()
     realms = list(trusts)
     realms.sort()
     for src in sorted(realms):
@@ -151,8 +147,15 @@ if __name__ == "__main__":
     create_paths()
 
     if cmd == "all":
+        def printh(s):
+            print()
+            print("= %s =" % s)
+            print()
+        printh("Trusts")
         dump_trusts()
+        printh("Paths")
         dump_paths()
+        printh("Capaths")
         dump_capaths()
     elif cmd == "trusts":
         dump_trusts()

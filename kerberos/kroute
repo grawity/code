@@ -141,6 +141,21 @@ def find_path(src, dst, seen=None):
             best_path = [src] + path
     return best_path
 
+def find_paths(src, dst, seen=None):
+    if src == dst:
+        yield [src]
+    elif src not in trusts:
+        yield []
+    elif dst in trusts[src]:
+        yield [src, dst]
+    else:
+        seen = seen or {src}
+        for via in trusts[src]:
+            if via in seen:
+                continue
+            for i in find_paths(via, dst, seen | {via}):
+                yield [src] + i
+
 def create_paths():
     realms = list(trusts)
     realms.sort()
@@ -213,7 +228,11 @@ if __name__ == "__main__":
         src, dst = sys.argv[1:]
         path = find_path(src, dst)
         print(*path)
-    elif cmd == "find-peers":
+    elif cmd == "find-paths":
+        src, dst = sys.argv[1:]
+        for path in find_paths(src, dst):
+            print(*path)
+    elif cmd == "peers":
         src = sys.argv[1]
         peers = trusts.get(src, set())
         for dst in sorted(peers):

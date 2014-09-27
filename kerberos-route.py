@@ -66,10 +66,9 @@ def parse_trusts(fh):
             if "out" not in flags:
                 yield (b, a)
 
-def load_trusts():
-    with open("/home/grawity/lib/distconf/krb5.trusts.in") as fh:
-        for a, b in parse_trusts(fh):
-            add_trust(a, b)
+def load_trusts(fh):
+    for a, b in parse_trusts(fh):
+        add_trust(a, b)
 
 def dump_trusts():
     print("= Trusts =")
@@ -165,18 +164,19 @@ if __name__ == "__main__":
     try:
         cmd = sys.argv.pop(1)
     except IndexError:
-        cmd = "show-capaths"
+        cmd = "capaths"
 
-    load_trusts()
+    load_trusts(sys.stdin)
+
     create_paths()
 
-    if cmd == "show-all":
+    if cmd == "all":
         dump_trusts()
         dump_paths()
         dump_capaths()
-    elif cmd == "show-trusts":
+    elif cmd == "trusts":
         dump_trusts()
-    elif cmd == "show-paths":
+    elif cmd == "paths":
         dump_paths()
-    elif cmd == "show-capaths":
+    elif cmd == "capaths":
         dump_capaths()

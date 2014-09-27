@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 
 realms = set()
 trusts = {}
@@ -7,7 +8,8 @@ paths = {}
 inf = float("inf")
 
 def trace(*a):
-    print("#", *a)
+    if os.environ.get("DEBUG"):
+        print("#", *a)
 
 def add_trust(src, dst, bidirectional=False):
     if src in trusts:
@@ -72,7 +74,7 @@ def dump_trusts():
     print("= Trusts =")
     print()
     for src in sorted(trusts):
-        print("\t%s -> %s" % (src, trusts[src]))
+        print("%s -> %s" % (src, trusts[src]))
     print()
 
 def find_path(src, dst, seen=None):
@@ -108,9 +110,9 @@ def dump_paths():
     for pair in sorted(paths):
         src, dst = pair
         if paths[pair]:
-            #print("\t%r -> %r" % (pair, paths[pair]))
-            print("\t%r" % (pair,))
-            print("\t\t%r" % (paths[pair],))
+            #print("%r -> %r" % (pair, paths[pair]))
+            print("%r" % (pair,))
+            print("\t%r" % (paths[pair],))
     print()
 
 """
@@ -148,7 +150,7 @@ def dump_capaths():
             if len(path) < 2:
                 # 0 hops means "no path"
                 # 1 hop means the only hop is ourselves, which is filtered out above
-                print("\t\t# no path to %s" % dst)
+                #print("\t\t# no path to %s" % dst)
                 continue
             # 2 or more hops means src is the first hop, dst is last
             # discard both, and ensure there's still at least one subtag
@@ -161,6 +163,6 @@ def dump_capaths():
 if __name__ == "__main__":
     load_trusts()
     create_paths()
-    dump_trusts()
-    dump_paths()
+    #dump_trusts()
+    #dump_paths()
     dump_capaths()

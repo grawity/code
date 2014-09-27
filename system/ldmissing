@@ -92,28 +92,31 @@ def show_tree(root, tree, indent=0, highlight=None, ctx=None):
       │ └─d
       └─d
     """
-    depth, branches = ctx or (0, [])
+    depth, branches, seen = ctx or (0, [], set())
     if depth == 0:
         print(" "*indent + root)
     if root not in tree:
         return
     branches += [None]
+    seen |= {root}
     if not highlight:
         highlight = dict()
-    children = tree[root]
+    children = set(tree[root]) - seen
     more = len(children)
     for child in sorted(children):
         more -= 1
         branches[depth] = ("├" if more else "└") + "─"
-        prefix, suffix = "", ""
+        prefix = suffix = ""
         if is_terminal() and child in highlight:
             color = highlight[child]
             prefix = "\033[%sm" % color
             suffix = "\033[m"
+        if child in seen:
+            continue
         print(" "*indent + "".join(branches) + prefix + child + suffix)
         if child in tree:
             branches[depth] = ("│" if more else " ") + " "
-            ctx = depth + 1, branches.copy()
+            ctx = depth + 1, branches.copy(), seen.copy()
             show_tree(child, tree, indent, highlight, ctx)
 
 def walk_tree(prefix, tree):

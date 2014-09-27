@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import sys
 
 realms = set()
 trusts = {}
@@ -83,7 +84,7 @@ def find_path(src, dst, seen=None):
 
     if dst in trusts[src]:
         return [src, dst]
-    
+
     best_dist = inf
     best_path = []
     seen = seen or {src}
@@ -161,8 +162,21 @@ def dump_capaths():
     print()
 
 if __name__ == "__main__":
+    try:
+        cmd = sys.argv.pop(1)
+    except IndexError:
+        cmd = "show-capaths"
+
     load_trusts()
     create_paths()
-    #dump_trusts()
-    #dump_paths()
-    dump_capaths()
+
+    if cmd == "show-all":
+        dump_trusts()
+        dump_paths()
+        dump_capaths()
+    elif cmd == "show-trusts":
+        dump_trusts()
+    elif cmd == "show-paths":
+        dump_paths()
+    elif cmd == "show-capaths":
+        dump_capaths()

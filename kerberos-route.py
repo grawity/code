@@ -1,30 +1,72 @@
 #!/usr/bin/env python
 
-trusts = {
-    'NULLROUTE.EU.ORG': {
-        'CLUENET.ORG',
-        'NATHAN7.EU',
-        'KYRIASIS.COM',
-    },
-    'XSEDE.ORG': set(),
-    'NTAS.IN': {
-        'NULLROUTE.EU.ORG',
-        'KRA.NTAS.IN',
-    },
-}
-
+realms = set()
+trusts = {}
 paths = {}
 
 inf = float("inf")
 
-def add_reverse_trusts():
-    realms = list(trusts)
-    for src in realms:
-        for dst in trusts[src]:
-            if dst in trusts:
-                trusts[dst].add(src)
-            else:
-                trusts[dst] = {src}
+def trace(*a):
+    print("#", *a)
+
+def add_trust(src, dst, bidirectional=False):
+    if src in trusts:
+        if type(trusts[src]) != set:
+            trusts[src] = set(trusts[src])
+        trusts[src].add(dst)
+    else:
+        trusts[src] = {dst}
+
+def count_tabs(s):
+    n = 0
+    while n < len(s) and s[n] == "\t":
+        n += 1
+    return n
+
+def parse_trusts(fh):
+    depth = 0
+    path = [None]
+    for line in fh:
+        indent = count_tabs(line)
+        realm = line.strip()
+        flags = set()
+        if not realm or realm.startswith("#"):
+            continue
+
+        if realm.startswith(">"):
+            flags.add("out")
+            realm = realm[1:]
+
+        realms.add(realm)
+
+        if indent > depth:
+            if (indent - depth > 1) or (path[0] is None):
+                print("parse error: excessive indent")
+                return
+            depth += 1
+            path.append(realm)
+            trace(depth, "  "*depth, "--> %r @ %r" % (realm, path))
+        elif indent < depth:
+            while indent < depth:
+                path.pop()
+                depth -= 1
+            path[-1] = realm
+            trace(depth, "  "*depth, "<-- %r @ %r" % (realm, path))
+        else:
+            path[-1] = realm
+            trace(depth, "  "*depth, "... %r @ %r" % (realm, path))
+
+        if depth > 0:
+            a = path[-2]
+            b = path[-1]
+            yield (a, b)
+            if "out" not in flags:
+                yield (b, a)
+
+def load_trusts():
+    with open("/home/grawity/lib/distconf/krb5.trusts.in") as fh:
+        for a, b in parse_trusts(fh):
+            add_trust(a, b)
 
 def dump_trusts():
     print("= Trusts =")
@@ -56,7 +98,6 @@ def find_path(src, dst, seen=None):
 def create_paths():
     realms = list(trusts)
     realms.sort()
-
     for src in realms:
         for dst in realms:
             paths[src, dst] = find_path(src, dst)
@@ -93,11 +134,11 @@ a, b
 """
 
 def dump_capaths():
-    print("= [capaths] =")
+    print("[capaths]")
     print()
     realms = list(trusts)
     realms.sort()
-    for src in realms:
+    for src in sorted(realms):
         print("\t%s = {" % src)
         for dst in realms:
             if src == dst:
@@ -118,8 +159,8 @@ def dump_capaths():
     print()
 
 if __name__ == "__main__":
-    add_reverse_trusts()
-    dump_trusts()
+    load_trusts()
     create_paths()
+    dump_trusts()
     dump_paths()
     dump_capaths()

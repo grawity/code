@@ -15,23 +15,6 @@ rx_time = re.compile(r'(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)(?:\.(\d+))?([+-]\d+:\
 
 rx_msgid = re.compile(r'.*/comments/(\w+)/.*/(\w+)/?$')
 
-DELTA_ZERO = datetime.timedelta(0)
-
-class FixedOffset(datetime.tzinfo):
-    def __init__(self, stroffset):
-        self._name = stroffset
-        self._offset = datetime.timedelta(hours=int(stroffset[:3]),
-                                          minutes=int(stroffset[4:6]))
-
-    def utcoffset(self, dt):
-        return self._offset
-
-    def tzname(self, dt):
-        return self._name
-
-    def dst(self, dt):
-        return DELTA_ZERO
-
 def scrape(url):
     url += ".json"
     req = urllib2.Request(url + "?limit=1", headers={"User-Agent": "Mozilla/5.0"})

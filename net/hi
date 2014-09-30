@@ -58,6 +58,8 @@ fmt() {
 		} elsif ($buffer =~ /^server\.(.+)$/
 		      && $line =~ s/^<\Q$1\E> (\S+) \(\S+\): //) {
 			$from = "-$1-";
+		} elsif ($line =~ s/^<-i?-> Notice:(.)\((\S+)\): //) {
+			$from = "-$2/$1-";
 		} elsif ($line =~ s/^<-i?-> Notice\((\S+)\): //) {
 			$from = "-$1-";
 		} elsif ($line =~ s/^<-i?-> Mode (\S+) \[(.+?)\] by (\S+)$//) {
@@ -69,7 +71,8 @@ fmt() {
 			$from = "";
 		}
 
-		next if $from =~ /^-(auth|bot|chan|host|info|nick|oper|sasl)serv-$/i;
+		next if $from =~ /^-(auth|bot|chan|host|info|nick|oper|sasl)serv-$/i
+			&& $buffer !~ /#/;
 		next if ($buffer =~ /^(quake|under|what)net$/i && $from =~ /^-[HQX]-$/i);
 		next if ($buffer eq "freenode" && $from =~ /^-(alis|phrik)-$/i);
 		next if ($from =~ /^-Global-$/i && $line =~ /\[(Logon|Random) News -/);

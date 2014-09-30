@@ -33,31 +33,71 @@ class FixedOffset(datetime.tzinfo):
         return DELTA_ZERO
 
 def scrape(url):
-    url += ".json"
     req = urllib2.Request(url + "?limit=1", headers={"User-Agent": "Mozilla/5.0"})
     page = urllib2.urlopen(req).read()
-    data = json.loads(page)
-    post = data[0]["data"]["children"][0]["data"]
+    body = BeautifulSoup(page, convertEntities=BeautifulSoup.HTML_ENTITIES)
 
-    title = post["title"]
-    author = post["author"]
-    url = post["url"]
-    date = datetime.datetime.fromtimestamp(post["created_utc"])
+    title = body.find("title").renderContents()
 
-    import HTMLParser
+    commentarea = body.find("div", {"class": "commentarea"})
+    infobar = commentarea.find("div", {"class": "infobar"})
 
-    text = post["selftext_html"]
-    text = HTMLParser.HTMLParser().unescape(text)
-    text = BeautifulSoup(text, convertEntities=BeautifulSoup.HTML_ENTITIES)
-    txtbody = text.find("div", {"class": "md"})
+    if infobar is None:
+        thing = body.find("div", {"class": re.compile(r'\bthing\b.*\blink\b')})
+    else:
+        thing = commentarea
+
+    entry = thing.find("div", {"class": re.compile(r'\bentry\b')})
+
+    # .entry > .tagline > {.author, time}
+
+    tagline = entry.find("p", {"class": "tagline"})
+
+    author = tagline.find("a", {"class": re.compile(r'\bauthor\b')})
+    if author:
+        author = author.renderContents()
+    else:
+        author = '"(deleted user)"'
+
+    strtime = tagline.find("time")["datetime"]
+
+    mx = rx_time.match(strtime)
+    if mx:
+        ntime = datetime.datetime(
+                    year=int(mx.group(1)),
+                    month=int(mx.group(2)),
+                    day=int(mx.group(3)),
+                    hour=int(mx.group(4)),
+                    minute=int(mx.group(5)),
+                    second=int(mx.group(6)),
+                    microsecond=int(mx.group(7) or 0),
+                    tzinfo=FixedOffset(mx.group(8)),
+                )
+    else:
+        raise Exception("rx_time not matched in %r" % strtime)
+
+    # .entry > {.title | .bylink}
+
+    link = entry.find("a", {"class": re.compile(r'\btitle\b')}) \
+        or entry.find("a", {"class": "bylink"})
+    purl = link["href"]
+    if purl.startswith("/"):
+        purl = "http://www.reddit.com" + purl
+
+    # .entry > .usertext-body > .md
+
+    txtbody = entry.find("div", {"class": re.compile(r'\busertext-body\b')})
     if txtbody:
-        text = txtbody.renderContents().strip()
+        text = txtbody.find("div", {"class": "md"}).renderContents() .strip()
+    else:
+        text = "(No content)"
 
+    # output
 
     yield  {"url": url,
             "subject": title,
             "author": author,
-            "date": date,
+            "date": ntime,
             "text": text}
 
 TIMEFMT_MBOX = "%a %b %_d %H:%M:%S %Y"

@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+import os, sys, re
+
+def load_mappings(path):
+    mappings = []
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if (not line) or line.startswith("#"):
+                continue
+            line = line.split()
+            line[0] = re.compile("^%s$" % line[0])
+            mappings.append(line)
+    return mappings
+
+def find_mapping(mappings, uri):
+    #print("looking up %r" % uri)
+    for regex, replace, *rest in mappings:
+        #print("considering %r / %r" % (regex, replace))
+        m = regex.match(uri)
+        if m:
+            return subst(replace, m)
+    return uri
+
+def subst(template, match):
+    state = 0
+    out = ""
+    buf = ""
+    for char in template:
+        if state == 0:
+            if char == "$":
+                state = 1
+            elif char == "\\":
+                state = 3
+            else:
+                out += char
+        elif state == 1:
+            if char in "0123456789":
+                try:
+                    out += match.group(int(char))
+                except IndexError:
+                    pass
+                state = 0
+            elif char == "&":
+                out += match.group(0)
+                state = 0
+            elif char == "{":
+                buf = ""
+                state = 2
+            else:
+                out += "$" + char
+                state = 0
+        elif state == 2:
+            if char in "0123456789":
+                buf += char
+            elif char == "}":
+                try:
+                    out += match.group(int(buf))
+                except IndexError:
+                    pass
+                state = 0
+            else:
+                out += "${" + buf + char
+                state = 0
+        elif state == 3:
+            out += char
+            state = 0
+    return out
+
+conf_path = os.path.expanduser("~/lib/uri")
+mappings = load_mappings(conf_path)
+
+for uri in sys.argv[1:]:
+    tmp = ""
+    while tmp != uri:
+        tmp = uri
+        uri = find_mapping(mappings, tmp)
+    print(uri)

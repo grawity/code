@@ -2,25 +2,30 @@
 
 . lib.bash || exit
 
-if ! which signtool > /devnull 2>&1; then
-	die "You need the 'signtool' command from the NSS library."
-fi
-
-if ! which zip > /dev/null 2>&1; then
-	die "You need the 'zip' command."
-fi
-
-if ! [ -f install.rdf ]; then
-	die "This directory does not contain a valid XPI extension."
-fi
+have signtool  || err "missing 'signtool' tool from NSS"
+have zip       || err "missing 'zip' tool"
+(( ! errors )) || exit
 
 nssdb="sql:$HOME/.pki/nssdb"
-nsscert='grawity - code signing'
+cert='grawity - code signing'
+
+while getopt 'd:c:' OPT; do
+	case $OPT in
+	'd') nssdb=$OPTARG;;
+	'c') cert=$OPTARG;;
+	esac
+done
+
+if ! [[ -f install.rdf ]]; then
+	die "directory does not contain a valid Mozilla extension"
+fi
 
 outfile="${1:-${PWD##*/}}.xpi"
 
 (shopt -s nullglob; rm -f *.xpi)
 
+log "signing current directory with \"$cert\""
+
 signtool -d "$nssdb" -k "$cert" -Z "outfile" .
 
-log "Created $outfile"
+log "created \"$outfile\""

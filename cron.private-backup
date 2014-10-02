@@ -1,0 +1,13 @@
+#!/bin/sh
+if mountpoint -q ~/Private; then
+	(if cd ~/Private/keys; then
+		chronic git push -q ~/Private/.cache/keys.git \
+			+master:master +master:refs/old/$(date +%F)
+	fi)
+	(if mountpoint -q /mnt/keycard; then
+		chronic unison -auto -batch -terse Private-keycard
+	fi)
+	(if mountpoint -q /run/media/grawity/grawpqi; then
+		: chronic unison -auto -batch -terse Private-grawpqi
+	fi)
+fi

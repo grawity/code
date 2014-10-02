@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+boundary=MARK
+
+mime="Content-Type: text/plain"
+
+while IFS='' read -r line; do
+	if [[ "$line" == Content-Type:* ]]; then
+		mime=$line
+		echo "Content-Type: multipart/related; boundary=$boundary"
+	elif [[ "$line" == "" && "$mime" ]]; then
+		echo ""
+		echo "--$boundary"
+		echo "$mime"
+		echo ""
+		mime=""
+	else
+		echo "$line"
+	fi
+done
+
+for input; do
+	unset temp
+
+	case $input in
+		http://*|https://*)
+			temp=$(mktemp /tmp/attach.XXXXXX)
+			curl -sSf "$input" -o "$temp"
+			file=$temp
+			;;
+		*)
+			file=$input
+			;;
+	esac
+
+	mime=$(file --dereference --brief --mime-type "$file")
+
+	echo "--$boundary"
+	echo "Content-Type: $mime"
+	echo "Content-Disposition: attachment; filename=\"${input##*/}\""
+	echo "Content-Transfer-Encoding: base64"
+	echo ""
+	base64 < "$file"
+
+	if [[ "$temp" ]]; then
+		rm -f "$temp"
+	fi
+done
+
+echo "--$boundary--"

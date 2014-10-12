@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python2
 # Pretend to be /usr/bin/id3v2 from id3lib, sort of.
 # Copyright 2005 Joe Wreschnig
 #
@@ -8,17 +8,24 @@
 
 import sys
 import locale
+import codecs
 
 from optparse import OptionParser, SUPPRESS_HELP
 
 import mutagen
 import mutagen.id3
+from mutagen._util import split_escape
+from mutagen._compat import PY2, PY3, text_type
 
 
 VERSION = (1, 3)
 
 global verbose
 verbose = True
+
+
+def getpreferredencoding(*args):
+    return locale.getpreferredencoding(*args) or "utf-8"
 
 
 class ID3OptionParser(OptionParser):
@@ -44,47 +51,19 @@ Any editing operation will cause the ID3 tag to be upgraded to ID3v2.4.
 """
 
 
-def split_escape(string, sep, maxsplit=None, escape_char=u"\\"):
-    """Like unicode.split but allows for the separator to be escaped"""
+def unescape_bytes(string):
+    assert isinstance(string, bytes)
 
-    assert len(sep) == 1
-    assert len(escape_char) == 1
-
-    if maxsplit is None:
-        maxsplit = len(string)
-
-    result = []
-    current = u""
-    escaped = False
-    for char in string:
-        if escaped:
-            if char != escape_char and char != sep:
-                current += escape_char
-            current += char
-            escaped = False
-        else:
-            if char == escape_char:
-                escaped = True
-            elif char == sep and len(result) < maxsplit:
-                result.append(current)
-                current = u""
-            else:
-                current += char
-    result.append(current)
-    return result
-
-
-def unescape_string(string):
-    assert isinstance(string, str)
-
-    return string.decode("string_escape")
+    if PY2:
+        return string.decode("string_escape")
+    else:
+        return codecs.escape_decode(string)[0]
 
 
 def list_frames(option, opt, value, parser):
     items = mutagen.id3.Frames.items()
-    items.sort()
-    for name, frame in items:
-        print "    --%s    %s" % (name, frame.__doc__.split("\n")[0])
+    for name, frame in sorted(items):
+        print("    --%s    %s" % (name, frame.__doc__.split("\n")[0]))
     raise SystemExit
 
 
@@ -92,20 +71,20 @@ def list_frames_2_2(option, opt, value, parser):
     items = mutagen.id3.Frames_2_2.items()
     items.sort()
     for name, frame in items:
-        print "    --%s    %s" % (name, frame.__doc__.split("\n")[0])
+        print("    --%s    %s" % (name, frame.__doc__.split("\n")[0]))
     raise SystemExit
 
 
 def list_genres(option, opt, value, parser):
     for i, genre in enumerate(mutagen.id3.TCON.GENRES):
-        print "%3d: %s" % (i, genre)
+        print("%3d: %s" % (i, genre))
     raise SystemExit
 
 
 def delete_tags(filenames, v1, v2):
     for filename in filenames:
         if verbose:
-            print "deleting ID3 tag info in %s" % filename
+            print("deleting ID3 tag info in %s" % filename)
         mutagen.id3.delete(filename, v1, v2)
 
 
@@ -113,40 +92,47 @@ def delete_frames(deletes, filenames):
     frames = deletes.split(",")
     for filename in filenames:
         if verbose:
-            print "deleting %s from %s" % (deletes, filename)
+            print("deleting %s from %s" % (deletes, filename))
         try:
             id3 = mutagen.id3.ID3(filename)
         except mutagen.id3.ID3NoHeaderError:
             if verbose:
-                print "No ID3 header found; skipping."
-        except StandardError, err:
-            print str(err)
+                print("No ID3 header found; skipping.")
+        except StandardError as err:
+            print(str(err))
         else:
-            map(id3.delall, frames)
+            for frame in frames:
+                id3.delall(frame)
             id3.save()
 
 
 def write_files(edits, filenames, escape):
-    enc = locale.getpreferredencoding()
+    # edits are (bytes, bytes) on PY2 and (str, str+surrogateescape) on PY3
+    enc = getpreferredencoding()
 
     # unescape escape sequences and decode values
     encoded_edits = []
     for frame, value in edits:
         if not value:
             continue
+
+        # strip "--"
         frame = frame[2:]
+
+        if PY3:
+            value = value.encode(enc, "surrogateescape")
 
         if escape:
             try:
-                value = unescape_string(value)
+                value = unescape_bytes(value)
             except ValueError as err:
-                print "%s: %s" % (frame, str(err))
+                print("%s: %s" % (frame, str(err)))
                 raise SystemExit(1)
 
         try:
             value = value.decode(enc)
         except UnicodeDecodeError as err:
-            print "%s: %s" % (frame, str(err))
+            print("%s: %s" % (frame, str(err)))
             raise SystemExit(1)
 
         encoded_edits.append((frame, value))
@@ -172,15 +158,15 @@ def write_files(edits, filenames, escape):
 
     for filename in filenames:
         if verbose:
-            print "Writing", filename
+            print("Writing", filename)
         try:
             id3 = mutagen.id3.ID3(filename)
         except mutagen.id3.ID3NoHeaderError:
             if verbose:
-                print "No ID3 header found; creating a new tag"
+                print("No ID3 header found; creating a new tag")
             id3 = mutagen.id3.ID3()
-        except StandardError, err:
-            print str(err)
+        except StandardError as err:
+            print(str(err))
             continue
         for (frame, vlist) in edits.items():
             if frame == "POPM":
@@ -229,25 +215,25 @@ def write_files(edits, filenames, escape):
 
 
 def list_tags(filenames):
-    enc = locale.getpreferredencoding()
+    enc = getpreferredencoding()
     for filename in filenames:
-        print "IDv2 tag info for %s:" % filename
+        print("IDv2 tag info for %s:" % filename)
         try:
             id3 = mutagen.id3.ID3(filename, translate=False)
-        except StandardError, err:
-            print str(err)
+        except StandardError as err:
+            print(str(err))
         else:
-            print id3.pprint().encode(enc, "replace")
+            print(id3.pprint().encode(enc, "replace"))
 
 
 def list_tags_raw(filenames):
     encodings = ["latin1", "utf16", "utf16-be", "utf8"]
     for filename in filenames:
-        print "Raw IDv2 tag info for %s:" % filename
+        print("Raw IDv2 tag info for %s:" % filename)
         try:
             id3 = mutagen.id3.ID3(filename, translate=False)
-        except StandardError, err:
-            print str(err)
+        except StandardError as err:
+            print(str(err))
         else:
             for frame in id3.values():
                 r = repr(frame)
@@ -257,11 +243,11 @@ def list_tags_raw(filenames):
                     r = r.replace(s, t)
                 if len(r) > 90:
                     r = r[:90-3] + "..."
-                print r
-            flags = []
-            flags += ["unsync=%r" % id3.f_unsynch]
-            if flags:
-                print "# %s" % " ".join(sorted(flags))
+                print(r)
+            flags = [
+                "unsync=%r" % id3.f_unsynch,
+            ]
+            print("# %s" % " ".join(sorted(flags)))
 
 
 def main(argv):

@@ -7,6 +7,7 @@ while (( $# )); do
 	case ${1#--} in
 	on)		arg_on=$2; shift;;
 	-f|filter)	arg_filter=$2; shift;;
+	vlan)		arg_vlan=$2; shift;;
 	*)	
 		if [[ $1 == */* && ! $arg_on ]]; then
 			arg_on=$1
@@ -50,11 +51,17 @@ target_host=${hosts["$arg_host"]:-$arg_host}
 target_iface=${interfaces["$arg_host/$arg_iface"]:-$arg_iface}
 log "capturing on '$target_iface' at '$target_host'"
 
-filter="(not tcp port 22)"
-if [[ $arg_filter ]]; then
-	filter+=" and ($arg_filter)"
+filter=""
+if [[ $arg_vlan ]]; then
+	filter="(vlan $arg_vlan)"
 fi
-filter+=" and (not vlan)"
+filter+="${filter:+ and }(not tcp port 22)"
+if [[ $arg_filter ]]; then
+	filter+="${filter:+ and }($arg_filter)"
+fi
+if ! [[ $arg_vlan ]]; then
+	filter+="${filter:+ and }(not vlan)"
+fi
 # 'vlan' changes global filter state, so it must be last
 log "filter: $filter"
 

@@ -58,10 +58,9 @@ if [[ $arg_vlan ]]; then
 	# must be first
 	add_filter "vlan $arg_vlan"
 fi
+add_filter "not (host \$1 and host \$3 and tcp port \$2 and tcp port \$4)"
 if [[ $arg_filter ]]; then
 	add_filter "$arg_filter"
-else
-	add_filter "not tcp port 22"
 fi
 if ! [[ $arg_vlan ]]; then
 	# 'vlan' changes global filter state, must be last
@@ -69,7 +68,7 @@ if ! [[ $arg_vlan ]]; then
 fi
 log "filter: $filter"
 
-cmd="tcpdump -n -i '$target_iface' -s 1500 -U -w - '$filter'"
+cmd="set -- \$SSH_CONNECTION; tcpdump -n -i '$target_iface' -s 1500 -U -w - \"$filter\""
 log "command: $cmd"
 
 capf=~/tmp/"capture.${target_host}.pcap"

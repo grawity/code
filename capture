@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# capture - easy wrapper around ssh+tcpdump
+
+. lib.bash || exit
+
+while (( $# )); do
+	case ${1#--} in
+	on)		arg_on=$2; shift;;
+	-f|filter)	arg_filter=$2; shift;;
+	*)	
+		if [[ $1 == */* && ! $arg_on ]]; then
+			arg_on=$1
+		elif [[ ! $arg_filter ]]; then
+			arg_filter=$1
+		else
+			err "bad arg: \"$1\""
+		fi;;
+	esac
+	shift
+done
+
+declare -A hosts=() interfaces=()
+
+conf=~/lib/capture.aliases
+#|| die "could not load configuration"
+
+while IFS='=' read -r key value; do
+	if [[ $key == '#'* ]]; then
+		continue
+	elif [[ $key == '/'* ]]; then
+		names=${key#/}
+		for name in ${names//,/ }; do
+			debug "load iface: $current_host / $name = $value"
+			interfaces["$current_host/$name"]=$value
+		done
+	elif [[ $key ]]; then
+		current_host=$key
+		debug "load host: $current_host = $value"
+		hosts["$current_host"]=$value
+	fi
+done < "$conf" || die "could not load configuration"
+
+arg_host=${arg_on%%/*}
+arg_iface=${arg_on#*/}
+
+[[ $arg_host && $arg_iface && $arg_iface != */* ]] \
+	|| die "host or interface not specified"
+
+target_host=${hosts["$arg_host"]:-$arg_host}
+target_iface=${interfaces["$arg_host/$arg_iface"]:-$arg_iface}
+log "capturing on '$target_iface' at '$target_host'"
+
+filter="(not tcp port 22)"
+if [[ $arg_filter ]]; then
+	filter+=" and ($arg_filter)"
+fi
+log "filter: $filter"
+
+cmd="tcpdump -n -i '$target_iface' -s 1500 -U -w - '$filter'"
+log "command: $cmd"
+
+capf=~/tmp/"capture.${target_host}.pcap"
+log "output: $capf"
+
+trap '[[ -s "$capf" ]] || rm -f "$capf"; exit 0' INT QUIT EXIT
+
+ssh -oTCPKeepAlive=yes "root@$target_host" "$cmd" \
+	| stdbuf -i0 -o0 tee "$capf" \
+	| tcpdump -n -r - -U

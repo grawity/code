@@ -52,17 +52,20 @@ target_iface=${interfaces["$arg_host/$arg_iface"]:-$arg_iface}
 log "capturing on '$target_iface' at '$target_host'"
 
 filter=""
+add_filter() { filter+="${filter:+ and }($*)"; }
+
 if [[ $arg_vlan ]]; then
-	filter="(vlan $arg_vlan)"
+	# must be first
+	add_filter "vlan $arg_vlan"
 fi
-filter+="${filter:+ and }(not tcp port 22)"
+add_filter "not tcp port 22"
 if [[ $arg_filter ]]; then
-	filter+="${filter:+ and }($arg_filter)"
+	add_filter "$arg_filter"
 fi
 if ! [[ $arg_vlan ]]; then
-	filter+="${filter:+ and }(not vlan)"
+	# 'vlan' changes global filter state, must be last
+	add_filter "not vlan"
 fi
-# 'vlan' changes global filter state, so it must be last
 log "filter: $filter"
 
 cmd="tcpdump -n -i '$target_iface' -s 1500 -U -w - '$filter'"

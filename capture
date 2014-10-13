@@ -54,6 +54,8 @@ filter="(not tcp port 22)"
 if [[ $arg_filter ]]; then
 	filter+=" and ($arg_filter)"
 fi
+filter+=" and (not vlan)"
+# 'vlan' changes global filter state, so it must be last
 log "filter: $filter"
 
 cmd="tcpdump -n -i '$target_iface' -s 1500 -U -w - '$filter'"

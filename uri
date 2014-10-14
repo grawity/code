@@ -21,9 +21,15 @@ def find_mapping(mappings, uri):
     #print("looking up %r" % uri)
     for regex, replace, *rest in mappings:
         #print("considering %r / %r" % (regex, replace))
+        flags = ""
+        if rest:
+            flags = rest.pop(0)
         m = regex.match(uri)
         if m:
-            yield subst(replace, m)
+            if replace != "$0":
+                yield subst(replace, m)
+            if "!" in flags:
+                return
 
 def subst(template, match):
     state = 0

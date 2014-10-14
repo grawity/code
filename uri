@@ -19,8 +19,7 @@ def find_mapping(mappings, uri):
         #print("considering %r / %r" % (regex, replace))
         m = regex.match(uri)
         if m:
-            return subst(replace, m)
-    return uri
+            yield subst(replace, m)
 
 def subst(template, match):
     state = 0
@@ -70,9 +69,18 @@ def subst(template, match):
 conf_path = os.path.expanduser("~/lib/uri")
 mappings = load_mappings(conf_path)
 
-for uri in sys.argv[1:]:
-    tmp = ""
-    while tmp != uri:
-        tmp = uri
-        uri = find_mapping(mappings, tmp)
-    print(uri)
+for start_uri in sys.argv[1:]:
+    inputs = [start_uri]
+    found = 0
+    while inputs:
+        next = []
+        for uri in inputs:
+            mapped = list(find_mapping(mappings, uri))
+            if mapped:
+                next += mapped
+            else:
+                found += 1
+                print(uri)
+        inputs = next
+    if found == 0:
+        print(start_uri)

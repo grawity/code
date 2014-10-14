@@ -2,18 +2,26 @@
 
 boundary=MARK
 
-mime="Content-Type: text/plain"
+base_mime="Content-Type: text/plain"
+seen_mime=0
+mp_mime="Content-Type: multipart/related; boundary=\"$boundary\""
 
 while IFS='' read -r line; do
 	if [[ "$line" == Content-Type:* ]]; then
-		mime=$line
-		echo "Content-Type: multipart/related; boundary=$boundary"
-	elif [[ "$line" == "" && "$mime" ]]; then
+		# header line
+		base_mime=$line
+		seen_mime=1
+		echo "$mp_mime"
+	elif [[ ! "$line" && "$mime" ]]; then
+		# finished all headers
+		if (( ! seen_mime )); then
+			echo "$mp_mime"
+		fi
 		echo ""
 		echo "--$boundary"
-		echo "$mime"
+		echo "$base_mime"
 		echo ""
-		mime=""
+		base_mime=""
 	else
 		echo "$line"
 	fi

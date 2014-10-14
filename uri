@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 import os, sys, re
 
+def trace(*m):
+    if "DEBUG" in os.environ:
+        print(*m, file=sys.stderr)
+
 def load_mappings(path):
     mappings = []
     with open(path, "r") as f:
@@ -71,17 +75,22 @@ mappings = load_mappings(conf_path)
 seen = set()
 
 for start_uri in sys.argv[1:]:
+    trace("start %r" % start_uri)
     inputs = [start_uri]
     found = 0
     while inputs:
+        trace(". have %r" % inputs)
         next = []
         for uri in inputs:
+            trace(".. trying %r" % uri)
             if uri in seen:
                 continue
             mapped = list(find_mapping(mappings, uri))
             if mapped:
+                trace("... output %r" % uri)
                 next += mapped
             else:
+                trace("... final %r" % uri)
                 found += 1
                 print(uri)
             seen.add(uri)

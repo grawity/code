@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+base=$(git config --get web.url)
+type=$(git config --get web.type || echo cgit)
+head=$(git rev-parse --short=12 HEAD)
+
+prefix=$(git rev-parse --show-prefix)
+toplevel=$(git rev-parse --show-toplevel)
+
+base=${base%/}
+
+for name; do
+	if t=$prefix$name && [[ -e $t ]]; then
+		: ${mode:=file}
+		path=$t
+	elif t=$(git rev-parse --short=12 "$name") && [[ $t ]]; then
+		: ${mode:=commit}
+		head=$t
+	fi
+
+	case $type in
+	'cgit')
+		case $mode in
+		'log') url="$base/log/$path?h=$head";;
+		'file') url="$base/tree/$path?h=$head";;
+		'commit') url="$base/commit/?id=$head";;
+		esac;;
+	'github')
+		case $mode in
+		'file')	_mode='blob';;
+		esac
+		url="$base/$mode/$head/$path";;
+	'gitweb')
+		die "not yet implemented";;
+	esac
+
+	echo "$url"
+done

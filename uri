@@ -68,6 +68,7 @@ def subst(template, match):
 
 conf_path = os.path.expanduser("~/lib/uri")
 mappings = load_mappings(conf_path)
+seen = set()
 
 for start_uri in sys.argv[1:]:
     inputs = [start_uri]
@@ -75,12 +76,15 @@ for start_uri in sys.argv[1:]:
     while inputs:
         next = []
         for uri in inputs:
+            if uri in seen:
+                continue
             mapped = list(find_mapping(mappings, uri))
             if mapped:
                 next += mapped
             else:
                 found += 1
                 print(uri)
+            seen.add(uri)
         inputs = next
     if found == 0:
         print(start_uri)

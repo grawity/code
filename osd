@@ -1,0 +1,18 @@
+#!/usr/bin/env perl
+use Getopt::Long qw(:config bundling no_ignore_case);
+use Net::DBus;
+
+sub Shell {
+	Net::DBus->session
+	->get_service("org.gnome.Shell")
+	->get_object(shift // "/org/gnome/Shell")
+}
+
+my %opt;
+
+GetOptions(
+	"i|icon=s" => \$opt{icon},
+	"l|label=s" => \$opt{label},
+);
+
+Shell->ShowOSD(\%opt);

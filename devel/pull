@@ -4,10 +4,11 @@
 . lib.bash || exit
 
 is() {
+	local dir=$(realpath --relative-to="$_PULL_STARTDIR" "$PWD")
 	if [[ $1 == none ]]; then
-		log2 "Skipping \"$(basename "$PWD")\" (unknown)"
+		log2 "Skipping \"$dir\" (unknown)"
 	else
-		log2 "Updating \"$(basename "$PWD")\" ($1)"
+		log2 "Updating \"$dir\" ($1)"
 	fi
 }
 
@@ -139,6 +140,10 @@ do_pull() {
 }
 
 do_main() {
+	if [[ ! $_PULL_STARTDIR ]]; then
+		export _PULL_STARTDIR=$PWD
+	fi
+
 	if (( ! $# )) && [[ -s Pullfile ]]; then
 		set -- $(grep '^[^#]' Pullfile)
 	fi

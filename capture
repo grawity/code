@@ -7,6 +7,7 @@ while (( $# )); do
 	case ${1#--} in
 	on)		arg_on=$2; shift;;
 	-f|filter)	arg_filter=$2; shift;;
+	host)		arg_host=$2; shift;;
 	vlan)		arg_vlan=$2; shift;;
 	*)	
 		if [[ $1 == */* && ! $arg_on ]]; then
@@ -59,6 +60,11 @@ if [[ $arg_vlan ]]; then
 	add_filter "vlan $arg_vlan"
 fi
 add_filter "not (host \$1 and host \$3 and tcp port \$2 and tcp port \$4)"
+if [[ $arg_host == ??:??:??:??:??:?? ]]; then
+	add_filter "ether host $arg_host"
+elif [[ $arg_host ]]; then
+	add_filter "host $arg_host"
+fi
 if [[ $arg_filter ]]; then
 	add_filter "$arg_filter"
 fi

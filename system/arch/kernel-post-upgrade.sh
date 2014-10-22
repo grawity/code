@@ -41,6 +41,7 @@ install_kernel() {
 	echo "+ copying kernel to EFI system partition"
 	mkdir -p "$ESP/EFI/$ID"
 	cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+	cp -f "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
 	cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
 
 	echo "+ generating bootloader config"
@@ -49,6 +50,7 @@ install_kernel() {
 		"version"	"$version"
 		"machine-id"	"$MACHINE_ID"
 		"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
+		"initrd"	"\\EFI\\$ID\\intel-ucode.img"
 		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
 		"options"	"$BOOT_OPTIONS"
 	)

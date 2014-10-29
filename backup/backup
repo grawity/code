@@ -31,25 +31,6 @@ mounted:() {
 	mountpoint -q "$1" || die "backup disk not mounted"
 }
 
-obnam_default=()
-
-obnam_rain=(
-	--repository ~/Backup/obnam-repository
-	--encrypt-with D24F6CB2C1B52632
-)
-
-do_obnam() {
-	local profile=default
-	if [[ $1 == @* ]]; then
-		profile=${1#@}
-		shift
-	fi
-	profile="obnam_${profile}[@]"
-
-	log "backing up $*"
-	schedtool -B -e obnam backup "${!profile}" "$@"
-}
-
 do_rsnapshot() {
 	local profile=home
 	if [[ $1 == @* ]]; then

@@ -153,12 +153,13 @@ resetlog "started"
 status "running job '$job'"
 t_begin=$(now)
 
+fail=()
+
 case $job in
 	push-hd)
 		mounted: $b
 
 		consumed=0
-		fail=()
 
 		while [[ $1 && $1 != / ]]; do
 			sub=$(readlink -f "$1"); shift; (( ++consumed ))
@@ -174,11 +175,6 @@ case $job in
 			$0 home-push-hd || fail+=(home-push-hd)
 			$0 root-push-hd || fail+=(root-push-hd)
 			$o gale-push-hd || fail+=(gale-push-hd)
-
-			if (( ${#fail[@]} )); then
-				_fail=${fail[*]}
-				err "backup failed for ${_fail// /, }"
-			fi
 		fi
 		;;
 	home-push-hd)
@@ -200,7 +196,6 @@ case $job in
 	servers)
 		homes=()
 		roots=()
-		fail=()
 
 		for host in $(< ~/Backup/hosts.txt); do
 			if [[ $host == '#'* ]]; then
@@ -223,11 +218,6 @@ case $job in
 		done
 
 		$0 nanobot || fail+=(nanobot)
-
-		if (( ${#fail[@]} )); then
-			_fail=${fail[*]}
-			err "backup failed for ${_fail// /, }"
-		fi
 		;;
 	root@ukradius)
 		host=$job
@@ -312,6 +302,11 @@ case $job in
 		die "unknown job '$job'"
 		;;
 esac
+
+if (( ${#fail[@]} )); then
+	_fail=${fail[*]}
+	err "backup failed for ${_fail// /, }"
+fi
 
 t_end=$(now)
 log "job '$job' finished in $(interval $[t_end-t_begin])"

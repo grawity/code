@@ -172,6 +172,7 @@ case $job in
 		done
 
 		if (( consumed == 0 )); then
+			$0 local        || fail+=(local)
 			$0 home-push-hd || fail+=(home-push-hd)
 			$0 root-push-hd || fail+=(root-push-hd)
 			$0 gale-push-hd || fail+=(gale-push-hd)
@@ -297,6 +298,13 @@ case $job in
 		dir=/run/media/grawity/grawpqi/
 		mountpoint -q "$dir" || die "'grawpqi' not mounted"
 		do_obnam @rain "$dir"
+		;;
+	local)
+		do_rsync \
+			/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ \
+			~/Backup/Personal/Firestorm/		\
+			--exclude 'browser_profile'		\
+			;
 		;;
 	*)
 		die "unknown job '$job'"

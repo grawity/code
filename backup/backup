@@ -158,6 +158,7 @@ case $job in
 		mounted: $b
 
 		consumed=0
+		fail=()
 
 		while [[ $1 && $1 != / ]]; do
 			sub=$(readlink -f "$1"); shift; (( ++consumed ))
@@ -170,9 +171,14 @@ case $job in
 		done
 
 		if (( consumed == 0 )); then
-			$0 home-push-hd
-			$0 root-push-hd
-			$o gale-push-hd
+			$0 home-push-hd || fail+=(home-push-hd)
+			$0 root-push-hd || fail+=(root-push-hd)
+			$o gale-push-hd || fail+=(gale-push-hd)
+
+			if (( ${#fail[@]} )); then
+				_fail=${fail[*]}
+				err "backup failed for ${_fail// /, }"
+			fi
 		fi
 		;;
 	home-push-hd)
@@ -209,17 +215,14 @@ case $job in
 		done
 
 		for host in ${homes[@]}; do
-			$0 @$host ||
-			fail+=(@$host)
+			$0 @$host || fail+=(@$host)
 		done
 
 		for host in ${roots[@]}; do
-			$0 root@$host ||
-			fail+=(root@$host)
+			$0 root@$host || fail+=(root@$host)
 		done
 
-		$0 nanobot ||
-		fail+=(nanobot)
+		$0 nanobot || fail+=(nanobot)
 
 		if (( ${#fail[@]} )); then
 			_fail=${fail[*]}

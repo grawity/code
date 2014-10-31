@@ -5,6 +5,24 @@ import ipaddress
 import subprocess
 import nullroute as lib
 
+def ip_addr_list(inf):
+    with subprocess.Popen(["ip", "addr", "show", "dev", inf],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            line = line.decode("utf-8").strip().split()
+            if line[0] == "inet":
+                yield ipaddress.IPv4Interface(line[1])
+
+def ip_addr_add(inf, *addrs):
+    for addr in addrs:
+        subprocess.call(["ip", "addr", "add", str(addr), "dev", inf])
+
+def ip_interface_from_addr(addr, net):
+    if addr in net:
+        return ipaddress.IPv4Interface("%s/%s" % (addr, net.prefixlen))
+    else:
+        raise ValueError("address %r does not belong to %r" % (addr, net))
+
 interface = "eth0"
 lease_time = "1h"
 ip4_dns = "8.8.8.8"
@@ -32,6 +50,15 @@ if ip4_range.num_addresses < 8:
 ip4_start = ip4_range.network_address + 1
 ip4_end   = ip4_range.broadcast_address - 1
 ip4_mask  = ip4_range.netmask
+
+inf_has_ip4 = False
+for addr in ip_addr_list(interface):
+    if addr in ip4_range:
+        inf_has_ip4 = True
+if not inf_has_ip4:
+    addr = ip_interface_from_addr(ip4_start, ip4_range)
+    print("adding %s to '%s'" % (addr, interface))
+    ip_addr_add(interface, addr)
 
 args = [
     "/usr/bin/sudo",

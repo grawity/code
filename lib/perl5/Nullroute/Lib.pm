@@ -46,6 +46,7 @@ our $post_output = undef;
 my $seen_usage = 0;
 
 sub __check_ext_debug {
+	return unless defined $ENV{XDG_RUNTIME_DIR};
 	if (-e $ENV{XDG_RUNTIME_DIR}."/lib.debug") {
 		if (!$::debug) {
 			$::debug = 1;

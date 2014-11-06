@@ -10,25 +10,8 @@ use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
 use File::Spec::Functions;
 use Getopt::Long qw(:config bundling no_ignore_case);
+use Nullroute::Lib;
 use POSIX qw(strftime);
-
-BEGIN {
-	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _info _log _warn _err _die
-					  interval));
-	} else {
-		our ($warnings, $errors);
-		$::arg0 = (split m!/!, $0)[-1];
-		$::debug = !!$ENV{DEBUG};
-		sub _debug { warn "debug: @_\n" if $::debug; }
-		sub _info  { print "info: @_\n"; }
-		sub _log   { print "-- @_\n"; }
-		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
-		sub _err   { warn "error: @_\n"; ! ++$::errors; }
-		sub _die   { _err(@_); exit 1; }
-		sub interval { time - shift; }
-	}
-}
 
 my $verbose = 1;
 my $interactive = 0;

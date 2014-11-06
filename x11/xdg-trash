@@ -16,11 +16,6 @@ use POSIX qw(strftime);
 my $verbose = 1;
 my $interactive = 0;
 
-sub trace {
-	goto &_info if $::debug;
-	print "\r\033[K@_\n" if $verbose;
-}
-
 sub confirm {
 	print "$::arg0: @_ "; $|++; <STDIN> =~ /^y/i;
 }
@@ -93,12 +88,12 @@ sub xdev_move {
 	my @opt;
 	_debug("xdev_move: source='$source'");
 	_debug("xdev_move: dest='$dest'");
-	trace("copying '$source' to \$HOME...");
+	_info("copying '$source' to \$HOME...");
 	@opt = qw(-a -H -A -X);
 	$ENV{DEBUG} and push @opt, qw(-v -h);
 	system("rsync", @opt, "$source", "$dest") == 0
 		or return 0;
-	trace("removing '$source' after copying...");
+	_info("removing '$source' after copying...");
 	@opt = qw(-r -f);
 	$ENV{DEBUG} and push @opt, qw(-v);
 	system("rm", @opt, $source) == 0
@@ -223,14 +218,14 @@ sub restore_from_info {
 	if (dev($orig_dir) == dev($trash_dir)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
-			trace("restored '$orig_path'");
+			_info("restored '$orig_path'");
 		} else {
 			_die("failed to rename '$trashed_path': $!");
 		}
 	} else {
 		if (xdev_move($trashed_path, $orig_path)) {
 			unlink($info_path);
-			trace("restored '$orig_path'");
+			_info("restored '$orig_path'");
 		} else {
 			_die("failed to copy '$trashed_path' to '$orig_dir'");
 		}
@@ -312,14 +307,14 @@ sub trash {
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
 		if (rename($orig_path, $trashed_path)) {
-			trace("trashed '$path'");
+			_info("trashed '$path'");
 		} else {
 			unlink($info_name);
 			_die("failed to rename '$path': $!");
 		}
 	} else {
 		if (xdev_move($orig_path, $trashed_path)) {
-			trace("trashed '$path' to \$HOME");
+			_info("trashed '$path' to \$HOME");
 		} else {
 			unlink($info_name);
 			_die("failed to copy '$path' to '$trash_dir'");
@@ -358,12 +353,12 @@ sub untrash {
 	} elsif (@infos == 1) {
 		my $info = $infos[0];
 		my $age = interval($info->[2]);
-		_log("found one matching file ($age ago), restoring");
+		_info("found one matching file ($age ago), restoring");
 		restore_from_info(@$info);
 	} else {
 		my $info = pop @infos;
 		my $age = interval($info->[2]);
-		_log("found ".@infos." matching files in trash, restoring most recent");
+		_info("found ".@infos." matching files in trash, restoring most recent");
 		restore_from_info(@$info);
 	}
 }
@@ -410,4 +405,4 @@ if ($print_path) {
 	trash($_) for @ARGV;
 }
 
-exit !!$::errors;
+_exit();

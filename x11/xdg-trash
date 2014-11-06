@@ -14,13 +14,15 @@ use POSIX qw(strftime);
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _info _warn _err _die interval));
+		Nullroute::Lib->import(qw(_debug _info _log _warn _err _die
+					  interval));
 	} else {
 		our ($warnings, $errors);
 		$::arg0 = (split m!/!, $0)[-1];
 		$::debug = !!$ENV{DEBUG};
 		sub _debug { warn "debug: @_\n" if $::debug; }
-		sub _info  { print "@_\n"; }
+		sub _info  { print "info: @_\n"; }
+		sub _log   { print "-- @_\n"; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ! ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
@@ -108,12 +110,12 @@ sub xdev_move {
 	my @opt;
 	_debug("xdev_move: source='$source'");
 	_debug("xdev_move: dest='$dest'");
-	trace("Copying '$source' to \$HOME...");
+	trace("copying '$source' to \$HOME...");
 	@opt = qw(-a -H -A -X);
 	$ENV{DEBUG} and push @opt, qw(-v -h);
 	system("rsync", @opt, "$source", "$dest") == 0
 		or return 0;
-	trace("Removing '$source' after copying...");
+	trace("removing '$source' after copying...");
 	@opt = qw(-r -f);
 	$ENV{DEBUG} and push @opt, qw(-v);
 	system("rm", @opt, $source) == 0
@@ -238,14 +240,14 @@ sub restore_from_info {
 	if (dev($orig_dir) == dev($trash_dir)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
-			trace("Restored '$orig_path'");
+			trace("restored '$orig_path'");
 		} else {
 			_die("failed to rename '$trashed_path': $!");
 		}
 	} else {
 		if (xdev_move($trashed_path, $orig_path)) {
 			unlink($info_path);
-			trace("Restored '$orig_path'");
+			trace("restored '$orig_path'");
 		} else {
 			_die("failed to copy '$trashed_path' to '$orig_dir'");
 		}
@@ -327,14 +329,14 @@ sub trash {
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
 		if (rename($orig_path, $trashed_path)) {
-			trace("Trashed '$path'");
+			trace("trashed '$path'");
 		} else {
 			unlink($info_name);
 			_die("failed to rename '$path': $!");
 		}
 	} else {
 		if (xdev_move($orig_path, $trashed_path)) {
-			trace("Trashed '$path' to \$HOME");
+			trace("trashed '$path' to \$HOME");
 		} else {
 			unlink($info_name);
 			_die("failed to copy '$path' to '$trash_dir'");
@@ -373,12 +375,12 @@ sub untrash {
 	} elsif (@infos == 1) {
 		my $info = $infos[0];
 		my $age = interval($info->[2]);
-		_info("found one matching file ($age ago), restoring");
+		_log("found one matching file ($age ago), restoring");
 		restore_from_info(@$info);
 	} else {
 		my $info = pop @infos;
 		my $age = interval($info->[2]);
-		_info("found ".@infos." matching files in trash, restoring most recent");
+		_log("found ".@infos." matching files in trash, restoring most recent");
 		restore_from_info(@$info);
 	}
 }

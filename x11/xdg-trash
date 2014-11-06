@@ -88,16 +88,19 @@ sub xdev_move {
 	my @opt;
 	_debug("xdev_move: source='$source'");
 	_debug("xdev_move: dest='$dest'");
+
 	_info("copying '$source' to \$HOME...");
 	@opt = qw(-a -H -A -X);
-	$ENV{DEBUG} and push @opt, qw(-v -h);
+	if ($::debug) { push @opt, qw(-v -h); }
 	system("rsync", @opt, "$source", "$dest") == 0
 		or return 0;
+
 	_info("removing '$source' after copying...");
 	@opt = qw(-r -f);
-	$ENV{DEBUG} and push @opt, qw(-v);
+	if ($::debug) { push @opt, qw(-v); }
 	system("rm", @opt, $source) == 0
 		or return 0;
+
 	return 1;
 }
 

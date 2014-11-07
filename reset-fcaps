@@ -1,0 +1,13 @@
+#!/bin/sh
+#set -x
+for file in /usr/bin/{arping,nmap,paris-traceroute,ping,traceroute}{,6} \
+	~/.local/bin/mtr; do
+	if test -f "$file" && ! test -L "$file"; then
+		(
+		set -x
+		chown :wheel "$file"
+		chmod o-x "$file"
+		setcap 'cap_net_raw=ep' "$file"
+		)
+	fi
+done

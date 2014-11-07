@@ -1,0 +1,19 @@
+#!/usr/bin/env perl
+use Nullroute::Lib;
+
+for my $orig (@ARGV) {
+	my @xlat;
+	if (open(my $proc, "-|", "uri", $orig)) {
+		@xlat = grep {chomp || 1} <$proc>;
+		close($proc);
+	} else {
+		@xlat = ($orig);
+	}
+	for my $uri (@xlat) {
+		if (-d $uri) {
+			forked { exec("/usr/bin/nautilus", $uri) };
+		} else {
+			forked { exec("/usr/bin/xdg-open", $uri) };
+		}
+	}
+}

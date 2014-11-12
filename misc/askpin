@@ -30,7 +30,6 @@ encode() {
 #   pinentry=(pinentry-gtk-2 --no-global-grab)
 pinentry=(pinentry)
 
-i=0
 config=("SETPROMPT")
 
 if (( DEBUG > 1 )); then
@@ -86,20 +85,6 @@ pinentry+=(
 	--lc-messages "$LC_MESSAGES"
 )
 
-configure() {
-	if (( $i == ${#config[@]} )); then
-		return 1
-	else
-		out "${config[$i]}"
-		(( ++i ))
-	fi
-}
-
-out() {
-	debug "out: $*"
-	echo "$*" >&$out
-}
-
 trap "trap - INT HUP TERM QUIT; kill \$pinentry_pid 2>/dev/null" \
 	EXIT INT HUP TERM QUIT
 
@@ -110,6 +95,7 @@ coproc { "${pinentry[@]}" 2>/dev/null \
 pinentry_pid=$!
 in=${COPROC[0]}
 out=${COPROC[1]}
+i=0
 ok=0
 
 nextstate=configure
@@ -121,10 +107,15 @@ while read -r status rest <&$in; do
 		case "$status" in
 		OK)
 			ok=1
-			configure || {
-				out 'GETPIN'
+			if (( i == ${#config[@]} )); then
+				debug "out: GETPIN"
+				echo "GETPIN" >&$out
 				nextstate=waitinput
-			} ;;
+			else
+				debug "out: ${config[$i]}"
+				echo "${config[$i]}" >&$out
+				(( ++i ))
+			fi ;;
 		ERR)
 			echo "$rest" >&2
 			exit 4 ;;

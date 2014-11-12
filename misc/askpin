@@ -6,18 +6,17 @@
 usage() {
 	echo "Usage: ${0##*/} [OPTION]... [description]"
 	echo ""
-	echo "    -d description set description"
-	echo "    -t title       set entry window title"
-	echo "    -p text        set entry prompt (default is 'PIN:')"
+	echo "  -d description         Set description text"
+	echo "  -t title               Set entry window title"
+	echo "  -p text                Set entry prompt (default is 'PIN:')"
 	echo ""
-	echo "    -O oktext      set OK button label"
-	echo "    -C canceltext  set Cancel button label"
+	echo "  -O text                Change 'OK' button label"
+	echo "  -C text                Change 'Cancel' button label"
 	echo ""
-	echo "    -g             (pinentry) append --no-global-grab"
-	echo "    -W windowid    (pinentry) append --parent-wid \$windowid"
-	echo "    -o option      (pinentry) append given option"
-	echo "    -P path        use a different pinentry executable"
-	exit 2
+	echo "  -P path                Use a different pinentry executable"
+	echo "  -g                     Append '--no-global-grab'"
+	echo "  -W windowid            Append '--parent-wid <windowid>'"
+	echo "  -o option              Append given option"
 }
 
 encode() {
@@ -40,15 +39,14 @@ while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	D)	DEBUG=1 ;;
 	d)	config+=("SETDESC $(encode "$OPTARG")") ;;
 	g)	pinentry+=(--no-global-grab) ;;
-	h)	usage ;;
+	h)	usage; exit 0 ;;
 	O)	config+=("SETOK $(encode "$OPTARG")") ;;
 	o)	pinentry+=("$OPTARG") ;;
 	P)	pinentry[0]="$OPTARG" ;;
 	p)	config+=("SETPROMPT $(encode "$OPTARG")") ;;
 	t)	config+=("SETTITLE $(encode "$OPTARG")") ;;
 	W)	pinentry+=(--parent-wid "$(encode "$OPTARG")") ;;
-	\?)	echo "${0##*/}: unknown option '$OPTARG'" >&2; usage >&2 ;;
-	*)	echo "${0##*/}: option -$OPT not implemented" >&2; exit 2 ;;
+	\?)	err "unknown option '-$OPTARG'"; usage >&2; exit 2 ;;
 	esac
 done
 

@@ -20,7 +20,7 @@ def try_resolve_addr(addr):
         print(repr(e))
         return addr
 
-def pack_addr(addr, port, resolve=False):
+def fmt_addr(addr, port, resolve=False):
     #if port == 53:
     #    resolve = False
     if resolve:
@@ -30,9 +30,9 @@ def pack_addr(addr, port, resolve=False):
     else:
         return "%s:%s" % (addr, port)
 
-def pack_addr_foo(stuff, addr_key, port_key, resolve=False):
+def fmt_addr_foo(stuff, addr_key, port_key, resolve=False):
     if port_key in stuff:
-        return pack_addr(stuff[addr_key], stuff[port_key], resolve)
+        return fmt_addr(stuff[addr_key], stuff[port_key], resolve)
     else:
         return stuff[addr_key]
 
@@ -65,12 +65,12 @@ for line in sys.stdin:
             elif token.startswith("[") and token.endswith("]"):
                 data_h["flags"].add(token[1:-1])
         try:
-            incoming_src = pack_addr_foo(data_h["incoming"], "src", "sport")
-            incoming_dst = pack_addr_foo(data_h["incoming"], "dst", "dport", True)
-            outgoing_src = pack_addr_foo(data_h["outgoing"], "src", "sport")
-            outgoing_dst = pack_addr_foo(data_h["outgoing"], "dst", "dport")
-            print("[%s] %s" %
-                  (proto_s, incoming_dst))
+            incoming_src = fmt_addr_foo(data_h["incoming"], "src", "sport")
+            incoming_dst = fmt_addr_foo(data_h["incoming"], "dst", "dport", True)
+            outgoing_src = fmt_addr_foo(data_h["outgoing"], "src", "sport")
+            outgoing_dst = fmt_addr_foo(data_h["outgoing"], "dst", "dport")
+            print("[%s] %s -> %s" %
+                  (proto_s, incoming_src, incoming_dst))
         except KeyError:
             pprint(data_h)
             raise

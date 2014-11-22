@@ -56,11 +56,13 @@ for file in *.jpg *.jpeg *.png *.gif; do
 	/r/awwnime/*)
 		put "$file" ~/Pictures/Art/r-awwnime/;;
 	/r/bdsm/*|/r/bdsmgw/*)
-		put "$file" ~/Pictures/Porn;;
+		put "$file" ~/Pictures/Porn/;;
 	/r/pantsu/*)
 		put "$file" ~/Pictures/Ero/;;
 	/r/ecchi/*|/r/hentai/*|http://gelbooru.com/*)
 		put "$file" ~/Pictures/Ero/;;
+	http://derpiboo.ru/*)
+		put "$file" ~/Pictures/Art/fanart/'My Little Pony'/;;
 	*)
 		printf '\e[33m%s\e[m %s\n' "unknown:" "\"$file\" from $ref";;
 	esac

@@ -6,19 +6,25 @@ base=$(git config --get web.url)
 type=$(git config --get web.type || echo cgit)
 head=$(git rev-parse --short=12 HEAD)
 
-prefix=$(git rev-parse --show-prefix)
 toplevel=$(git rev-parse --show-toplevel)
+prefix=$(git rev-parse --show-prefix)
+debug "repo toplevel: '$toplevel'"
+debug "repo prefix: '$prefix'"
 
 base=${base%/}
+debug "base: '$base'"
 
 for name; do
-	if t=$prefix$name && [[ -e $t ]]; then
+	debug "arg: '$name'"
+	if t=$prefix$name && [[ -e $name ]]; then
+		debug "looking for file '$t'"
 		: ${mode:=file}
 		path=$t
 	elif t=$(git rev-parse --short=12 "$name") && [[ $t ]]; then
 		: ${mode:=commit}
 		head=$t
 	fi
+	debug "arg '$name' is a $mode"
 
 	case $type in
 	'cgit')

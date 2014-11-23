@@ -10,6 +10,7 @@ put() {
 	local src=$1 dst=${2%/}
 	local srcbase=${src##*/} ctr=0
 	local srcname=${srcbase%.*} srcext=${srcbase##*.}
+	debug "moving to '$dst'"
 	while [[ -e "$dst/$srcbase" ]]; do
 		if cmp "$src" "$dst/$srcbase"; then
 			printf '\e[34m%s\e[m ‘%s’\n' "duplicate:" "$src"

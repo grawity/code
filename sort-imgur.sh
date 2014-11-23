@@ -13,7 +13,7 @@ put() {
 	debug "moving to '$dst'"
 	while [[ -e "$dst/$srcbase" ]]; do
 		if cmp "$src" "$dst/$srcbase"; then
-			printf '\e[34m%s\e[m ‘%s’\n' "duplicate:" "$src"
+			printf '\e[34m%s\e[m ‘%s’ in ‘%s’\n' "duplicate:" "$src" "{dst/#$HOME/~}"
 			rm -f "$src"
 			return
 		fi

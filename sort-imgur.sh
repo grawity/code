@@ -10,17 +10,18 @@ put() {
 	local src=$1 dst=${2%/}
 	local srcbase=${src##*/} ctr=0
 	local srcname=${srcbase%.*} srcext=${srcbase##*.}
+	local dstx=${dst/#"$HOME/"/'~/'}
 	debug "moving to '$dst'"
 	while [[ -e "$dst/$srcbase" ]]; do
 		if cmp "$src" "$dst/$srcbase"; then
-			printf '\e[34m%s\e[m ‘%s’ in ‘%s’\n' "duplicate:" "$src" "{dst/#$HOME/~}"
+			printf '\e[34m%s\e[m ‘%s’ in ‘%s’\n' "duplicate:" "$src" "$dstx"
 			rm -f "$src"
 			return
 		fi
 		srcbase=$srcname.$((++ctr)).$srcext
 	done
 	if mv -i "$src" "$dst/$srcbase"; then
-		printf '\e[32m%s\e[m ‘%s’ → ‘%s’\n' "sorted:" "$src" "${dst/#$HOME/~}"
+		printf '\e[32m%s\e[m ‘%s’ → ‘%s’\n' "sorted:" "$src" "$dstx"
 	fi
 }
 

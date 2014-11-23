@@ -54,7 +54,9 @@ for file in *.jpg *.jpeg *.png *.gif; do
 
 	debug "-- canonical: $ref"
 
-	case $ref in
+	case $ref:$file in
+	*:*\[Vocaloid\]*)
+		put "$file" ~/Pictures/Art/Vocaloid/;;
 	/r/awwnime/*)
 		put "$file" ~/Pictures/Art/r-awwnime/;;
 	/r/bdsm/*|/r/bdsmgw/*)

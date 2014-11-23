@@ -41,7 +41,7 @@ unset CDPATH
 # Ensure GREP_OPTIONS doesn't screw with our grep calls
 unset GREP_OPTIONS
 
-declare -r makepkg_version='4.1.2-490-g0d249'
+declare -r makepkg_version='4.1.2'
 declare -r confdir='/etc'
 declare -r BUILDSCRIPT='PKGBUILD'
 declare -r startdir="$PWD"
@@ -390,6 +390,12 @@ extract_file() {
 	local filepath=$(get_filepath "$file")
 	rm -f "$srcdir/${file}"
 	ln -s "$filepath" "$srcdir/"
+
+	if in_array "$file" "${noextract[@]}"; then
+		# skip source files in the noextract=() array
+		# these are marked explicitly to NOT be extracted
+		return 0
+	fi
 
 	# do not rely on extension for file type
 	local file_type=$(file -bizL "$file")
@@ -769,12 +775,8 @@ extract_svn() {
 	repo=${repo%%#*}
 
 	msg2 "$(gettext "Creating working copy of %s %s repo...")" "${repo}" "svn"
-	pushd "$srcdir" &>/dev/null
-	rm -rf "${dir##*/}"
 
-	cp -a "$dir" .
-
-	popd &>/dev/null
+	cp -au "$dir" "$srcdir"
 }
 
 get_all_sources() {
@@ -1560,11 +1562,6 @@ extract_sources() {
 	get_all_sources_for_arch 'all_sources'
 	for netfile in "${all_sources[@]}"; do
 		local file=$(get_filename "$netfile")
-		if in_array "$file" "${noextract[@]}"; then
-			# skip source files in the noextract=() array
-			# these are marked explicitly to NOT be extracted
-			continue
-		fi
 		local proto=$(get_protocol "$netfile")
 		case "$proto" in
 			bzr*)

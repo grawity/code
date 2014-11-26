@@ -40,6 +40,7 @@ my @default_args = ("--novoice");
 my $exe;
 my $url;
 my @args;
+my $new;
 
 $exe = shift @ARGV;
 if (!defined $exe) {
@@ -61,13 +62,19 @@ for my $arg (@ARGV) {
 	elsif ($arg =~ m!^secondlife://!) {
 		push @args, $url = $arg;
 	}
+	elsif ($arg eq "--new") {
+		$new = 1;
+	}
 	else {
 		push @args, $arg;
 	}
 }
 
 if (defined $url) {
-	if (@args > 1) {
+	if ($new) {
+		_debug("--new given, starting new instance");
+	}
+	elsif (@args > 1) {
 		_debug("command line given, starting new instance");
 	}
 	elsif ($::bus->get_service_owner(SL_BUS_NAME)) {

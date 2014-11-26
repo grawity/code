@@ -136,7 +136,10 @@ fmt() {
 }
 
 url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
-url=$(readlink "$link") ||
+if [[ -h "$link" ]]
+	then url=$(readlink "$link")
+	else url=$(< "$link")
+fi ||
 die "could not find URL for $log"
 
 opts='-4'

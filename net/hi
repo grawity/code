@@ -4,7 +4,8 @@
 . lib.bash || exit
 
 set -o pipefail
-log=~/tmp/highlights.txt
+log=$XDG_CACHE_HOME/highlights.txt
+link=$XDG_CONFIG_HOME/highlights.txt.url
 
 touch "$log"     || die "cannot create highlight cache"
 exec {fd}<"$log" || die "cannot open highlight cache"
@@ -135,8 +136,9 @@ fmt() {
 }
 
 url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
-url=$(readlink "$log.url") ||
+url=$(readlink "$link") ||
 die "could not find URL for $log"
+
 opts='-4'
 size=$(stat -c %s "$log")
 now=$(date +%s)

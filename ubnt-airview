@@ -6,4 +6,10 @@ ip=$1
 
 [[ $ip ]] || die "missing IP address"
 
-exec java -jar ~/.local/lib/airview.jar "ubnt://$ip:18888"
+redir="$XDG_DATA_HOME/java-home"
+
+[[ -d "$redir" ]] || mkdir "$redir"
+
+[[ -e "$redir/.java" ]] || ln -s "$HOME/.java" "$redir/.java"
+
+exec java -Duser.home="$redir" -jar ~/.local/lib/airview.jar "ubnt://$ip:18888"

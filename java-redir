@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# java-redir - prevent Java programs from littering $HOME
+
+. lib.bash || exit
+
+redir="$XDG_DATA_HOME/java-home"
+
+debug "setting Java homedir to '$redir'"
+
+[[ -d "$redir" ]] || mkdir "$redir"
+
+[[ -e "$redir/.java" ]] || ln -s "$HOME/.java" "$redir/.java"
+
+exec java -Duser.home="$redir" "$@"

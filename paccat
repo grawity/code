@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # paccat - cat a file from a pacman package
 
+. lib.bash || exit
+
 package=$1
 file=$2
 
@@ -13,6 +15,10 @@ pkg=/var/cache/pacman/pkg/${url##*/}
 
 if [[ ! -s $pkg ]]; then
 	sudo pacman -Sddw --noconfirm --quiet "$package" >&2
+fi
+
+if [[ ! -s $pkg ]]; then
+	die "could not download '${pkg##*/}'"
 fi
 
 bsdtar xfO "$pkg" "${file#/}"

@@ -210,6 +210,15 @@ lib::is_nested() {
 	(( LVL "$@" ))
 }
 
+do:() { (PS4='+ '; set -x; "$@") }
+
+sudo:() {
+	if (( UID ))
+		then do: sudo "$@"
+		else do: "$@"
+	fi
+}
+
 if (( DEBUG > 1 )); then
 	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"
 fi

@@ -8,7 +8,7 @@ import binascii
 import hashlib
 import math
 from collections import defaultdict
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 # this doesn't need to be declared here
 # I'm just doing so as a reminder that `opts` is global
@@ -161,7 +161,7 @@ def find_duplicates(root_dirs):
             continue
         yield paths
 
-cli_usage = "%prog [options] {path}"
+cli_usage = "%(prog)s [options] <path>..."
 
 cli_desc = """\
 Finds files with duplicate data.
@@ -171,24 +171,19 @@ cli_epilog = """\
 This program ignores symlinks, special files, and the like. It also does not know about hardlinks; this might be added as an optimization later.
 """
 
-cli_version = "1.∞"
-
 if __name__ == "__main__":
-    op = OptionParser(
-        usage=cli_usage,
-        description=cli_desc,
-        epilog=cli_epilog,
-        version=cli_version)
-    op.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False,
-        help="show files as they are processed")
-    op.add_option("-l", "--list", dest="list", action="store_true", default=False,
-        help="output files as a sortable list")
+    ap = ArgumentParser(usage=cli_usage, description=cli_desc, epilog=cli_epilog)
+    ap.add_argument("-v", "--verbose",
+                    dest="verbose", action="store_true", default=False,
+                    help="show files as they are processed")
+    ap.add_argument("-l", "--list",
+                    dest="list", action="store_true", default=False,
+                    help="output files as a sortable list")
+    ap.add_argument("path", nargs="*")
 
-    opts, args = op.parse_args()
-    if args:
-        root_dir = args[:]
-    else:
-        root_dir = ["."]
+    opts = ap.parse_args()
+
+    root_dir = opts.path[:] or ["."]
 
     try:
         for paths in find_duplicates(root_dir):

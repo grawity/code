@@ -5,6 +5,7 @@ import os
 import sys
 import stat
 import binascii
+import fnmatch
 import hashlib
 import math
 from collections import defaultdict
@@ -52,6 +53,12 @@ def weed_ignores(dirs):
     for item in dirs[:]:
         if item in ignores:
             dirs.remove(item)
+
+def path_is_removable(path):
+    for filter in opts.remove:
+        if fnmatch.fnmatch(path, filter):
+            return True
+    return False
 
 def enum_files(root_dir):
     for subdir, dirs, files in os.walk(root_dir):
@@ -179,6 +186,9 @@ if __name__ == "__main__":
     ap.add_argument("-l", "--list",
                     dest="list", action="store_true", default=False,
                     help="output files as a sortable list")
+    ap.add_argument("--remove",
+                    dest="remove", action="append", default=[],
+                    help="automatically remove matching paths")
     ap.add_argument("path", nargs="*")
 
     opts = ap.parse_args()
@@ -190,20 +200,36 @@ if __name__ == "__main__":
             paths.sort()
             size = file_sizes[paths[0]]
             hash = hash_file(paths[0])
-            wasted = size * (len(paths) - 1)
-            if opts.list:
+            num = len(paths)
+            wasted = size * (num - 1)
+            if opts.list and opts.remove:
+                for path in paths:
+                    if num > 1 and path_is_removable(path):
+                        print("  rm '%s'" % path)
+                        num -= 1
+                    else:
+                        print("# rm '%s'" % path)
+                print()
+            elif opts.list:
                 for path in paths:
                     print(wasted, fmt_hash(hash), path)
             else:
-                print("Duplicates (%s wasted):" % fmt_size(wasted))
+                print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
                 for path in paths:
+                    if num > 1 and path_is_removable(path):
+                        print("   ×", path)
+                        #os.unlink(path)
+                        num -= 1
+                        continue
                     print("    ", path)
             total_wasted += wasted
     except KeyboardInterrupt:
         status()
         print("Interrupted.")
 
-    if opts.verbose or opts.list:
+    if opts.list and opts.remove:
+        pass
+    elif opts.verbose or opts.list:
         print("; %d files compared by header" % len(file_headers))
         print("; %d files compared by hash" % len(file_hashes))
         print("; %s wasted by duplicates" % fmt_size(total_wasted))

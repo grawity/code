@@ -49,6 +49,8 @@ fmt() {
 
 		$line = join("\t", @line);
 		chomp $line;
+		# FIXME: gnome-terminal somehow acts on 0xC2 0x9A
+		$line =~ s/[\x00-\x1F\x9A]/sprintf("%%%02X", ord($&))/seg;
 
 		if ($buffer !~ /#/ && $line =~ s/^<\Q$buffer\E> (\S+) \(\S+\): //) {
 			$from = "-$1-";

@@ -3,36 +3,36 @@ import os
 import sys
 
 def get_local_tags():
-	tags = set()
-	proc = os.popen("git tag", "r")
-	for line in proc:
-		tag = line.strip()
-		tags.add(tag)
-	proc.close()
-	return tags
+    tags = set()
+    proc = os.popen("git tag", "r")
+    for line in proc:
+        tag = line.strip()
+        tags.add(tag)
+    proc.close()
+    return tags
 
 def get_remote_tags(remote=None):
-	tags = set()
-	proc = os.popen("git ls-remote %s" % remote, "r")
-	prefix = "refs/tags/"
-	for line in proc:
-		sha, ref = line.strip().split()
-		if ref.endswith("^{}"):
-			continue
-		if ref.startswith(prefix):
-			tag = ref[len(prefix):]
-			tags.add(tag)
-	proc.close()
-	return tags
+    tags = set()
+    proc = os.popen("git ls-remote %s" % remote, "r")
+    prefix = "refs/tags/"
+    for line in proc:
+        sha, ref = line.strip().split()
+        if ref.endswith("^{}"):
+            continue
+        if ref.startswith(prefix):
+            tag = ref[len(prefix):]
+            tags.add(tag)
+    proc.close()
+    return tags
 
 do_clean = False
 
 try:
-	if sys.argv[1] == "-d":
-		do_clean = True
-		sys.argv.pop(1)
+    if sys.argv[1] == "-d":
+        do_clean = True
+        sys.argv.pop(1)
 except IndexError:
-	pass
+    pass
 
 remotes = sys.argv[1:] or [""]
 
@@ -40,22 +40,22 @@ local_tags = get_local_tags()
 
 remote_tags = set()
 for remote in remotes:
-	remote_tags |= get_remote_tags(remote)
+    remote_tags |= get_remote_tags(remote)
 
 if do_clean:
-	diff = local_tags - remote_tags
-	for tag in diff:
-		os.system("git tag -d '%s'" % tag)
+    diff = local_tags - remote_tags
+    for tag in diff:
+        os.system("git tag -d '%s'" % tag)
 else:
-	diff = local_tags - remote_tags
-	if diff:
-		print("# Local only:")
-		for tag in sorted(diff):
-			print("+ %s" % tag)
+    diff = local_tags - remote_tags
+    if diff:
+        print("# Local only:")
+        for tag in sorted(diff):
+            print("+ %s" % tag)
 
-	diff = remote_tags - local_tags
-	if diff:
-		print("# Remote only:")
-		for tag in sorted(diff):
-			print("- %s" % tag)
+    diff = remote_tags - local_tags
+    if diff:
+        print("# Remote only:")
+        for tag in sorted(diff):
+            print("- %s" % tag)
 

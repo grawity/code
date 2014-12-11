@@ -2,12 +2,12 @@
 use Nullroute::Lib;
 
 for my $orig (@ARGV) {
-	my @xlat;
-	if (open(my $proc, "-|", "uri", $orig)) {
-		@xlat = grep {chomp || 1} <$proc>;
-		close($proc);
-	} else {
-		@xlat = ($orig);
+	my @xlat = ($orig);
+	if ($orig !~ /^(git):/) {
+		if (open(my $proc, "-|", "uri", $orig)) {
+			@xlat = grep {chomp || 1} <$proc>;
+			close($proc);
+		}
 	}
 	for my $uri (@xlat) {
 		if (-d $uri) {

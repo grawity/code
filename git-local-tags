@@ -4,42 +4,38 @@ import sys
 
 def get_local_tags():
     tags = set()
-    proc = os.popen("git tag", "r")
-    for line in proc:
-        tag = line.strip()
-        tags.add(tag)
-    proc.close()
+    with os.popen("git tag", "r") as proc:
+        for line in proc:
+            tag = line.strip()
+            tags.add(tag)
     return tags
 
 def get_remotes():
     remotes = set()
-    proc = os.popen("git remote")
-    for line in proc:
-        remote = line.strip()
-        remotes.add(remote)
-    proc.close()
+    with os.popen("git remote") as proc:
+        for line in proc:
+            remote = line.strip()
+            remotes.add(remote)
     return remotes
 
 def get_remote_tagopt(remote=None):
-    proc = os.popen("git config remote.%s.tagopt" % remote, "r")
-    line = proc.read().strip()
-    proc.close()
+    with os.popen("git config remote.%s.tagopt" % remote, "r") as proc:
+        line = proc.read().strip()
     if line == "--no-tags":
         return False
     return True
 
 def get_remote_tags(remote=None):
     tags = set()
-    proc = os.popen("git ls-remote %s" % remote, "r")
     prefix = "refs/tags/"
-    for line in proc:
-        sha, ref = line.strip().split()
-        if ref.endswith("^{}"):
-            continue
-        if ref.startswith(prefix):
-            tag = ref[len(prefix):]
-            tags.add(tag)
-    proc.close()
+    with os.popen("git ls-remote %s" % remote, "r") as proc:
+        for line in proc:
+            sha, ref = line.strip().split()
+            if ref.endswith("^{}"):
+                continue
+            if ref.startswith(prefix):
+                tag = ref[len(prefix):]
+                tags.add(tag)
     return tags
 
 do_clean = False

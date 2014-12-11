@@ -20,6 +20,14 @@ def get_remotes():
     proc.close()
     return remotes
 
+def get_remote_tagopt(remote=None):
+    proc = os.popen("git config remote.%s.tagopt" % remote, "r")
+    line = proc.read().strip()
+    proc.close()
+    if line == "--no-tags":
+        return False
+    return True
+
 def get_remote_tags(remote=None):
     tags = set()
     proc = os.popen("git ls-remote %s" % remote, "r")
@@ -49,7 +57,8 @@ local_tags = get_local_tags()
 
 remote_tags = set()
 for remote in remotes:
-    remote_tags |= get_remote_tags(remote)
+    if get_remote_tagopt(remote):
+        remote_tags |= get_remote_tags(remote)
 
 if do_clean:
     diff = local_tags - remote_tags

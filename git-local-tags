@@ -11,6 +11,15 @@ def get_local_tags():
     proc.close()
     return tags
 
+def get_remotes():
+    remotes = set()
+    proc = os.popen("git remote")
+    for line in proc:
+        remote = line.strip()
+        remotes.add(remote)
+    proc.close()
+    return remotes
+
 def get_remote_tags(remote=None):
     tags = set()
     proc = os.popen("git ls-remote %s" % remote, "r")
@@ -34,7 +43,7 @@ try:
 except IndexError:
     pass
 
-remotes = sys.argv[1:] or [""]
+remotes = sys.argv[1:] or get_remotes()
 
 local_tags = get_local_tags()
 

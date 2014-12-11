@@ -4,7 +4,7 @@ import sys
 
 def get_local_tags():
     tags = set()
-    with os.popen("git tag", "r") as proc:
+    with os.popen("git tag") as proc:
         for line in proc:
             tags.add(line.strip())
     return tags
@@ -17,14 +17,14 @@ def get_remotes():
     return remotes
 
 def get_remote_tagopt(remote="origin"):
-    with os.popen("git config remote.%s.tagopt" % remote, "r") as proc:
+    with os.popen("git config remote.%s.tagopt" % remote) as proc:
         line = proc.read().strip()
     return (line != "--no-tags")
 
 def get_remote_tags(remote="origin"):
     tags = set()
     prefix = "refs/tags/"
-    with os.popen("git ls-remote %s" % remote, "r") as proc:
+    with os.popen("git ls-remote %s" % remote) as proc:
         for line in proc:
             sha, ref = line.strip().split()
             if ref.endswith("^{}"):

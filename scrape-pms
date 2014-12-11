@@ -2,24 +2,24 @@
 # encoding: utf-8
 # scrape-pms - scraper for http://pms.visada.lt
 
+import re
 import sys
 import urllib2
 from BeautifulSoup import BeautifulSoup
-import re
 
 def scrape(url):
-	page = urllib2.urlopen(url).read()
-	body = BeautifulSoup(page, convertEntities=BeautifulSoup.HTML_ENTITIES)
-	rex = re.compile(ur'\s*(.+),\s+prieš')
-	for li in body.find("ul", {"class": "quote-list"}).findAll("li"):
-		text = []
-		div = li.find("div", {"class": "nop"})
-		if not div: continue
-		for para in div.findAll("p"):
-			text.append(para.string.rstrip())
-		yield "\n".join(text)
+    page = urllib2.urlopen(url).read()
+    body = BeautifulSoup(page, convertEntities=BeautifulSoup.HTML_ENTITIES)
+    rex = re.compile(ur'\s*(.+),\s+prieš')
+    for li in body.find("ul", {"class": "quote-list"}).findAll("li"):
+        text = []
+        div = li.find("div", {"class": "nop"})
+        if not div: continue
+        for para in div.findAll("p"):
+            text.append(para.string.rstrip())
+        yield "\n".join(text)
 
 for url in sys.argv[1:]:
-	for quote in scrape(url):
-		print quote.encode("utf-8")
-		print "%"
+    for quote in scrape(url):
+        print quote.encode("utf-8")
+        print "%"

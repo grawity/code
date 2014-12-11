@@ -45,11 +45,14 @@ except IndexError:
 remotes = sys.argv[1:] or get_remotes()
 
 local_tags = get_local_tags()
-
 remote_tags = set()
+tag_remotes = dict()
 for remote in remotes:
     if get_remote_tagopt(remote):
-        remote_tags |= get_remote_tags(remote)
+        tags = get_remote_tags(remote)
+        remote_tags |= tags
+        for tag in tags:
+            tag_remotes.setdefault(tag, set()).add(remote)
 
 if do_clean:
     diff = local_tags - remote_tags
@@ -66,4 +69,5 @@ else:
     if diff:
         print("# Remote only:")
         for tag in sorted(diff):
-            print("- %s" % tag)
+            remotes = ", ".join(sorted(tag_remotes[tag]))
+            print("- %s (%s)" % (tag, remotes))

@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 
 usage() {
-	echo "usage: ${0##*/} [-e] [-w] <title>" >&2
+	echo "usage: ${0##*/} [-ersw] <title>" >&2
 	exit 2
 }
 
-ESC='\e' ST='\e\\' BEL='\007' EOL='' MODE='title'
+ESC='\e' ST='\e\\' BEL='\007' EOL='' MODE='title' SAVE=0 RESTORE=0
 
-if getopts "ew" OPT; then
+if getopts "ersw" OPT; then
 	case $OPT in
 	'e')	ESC='\\e' ST='\\e\\\\' BEL='\\007' EOL='\n';;
+	'r')	RESTORE=0;;
+	's')	SAVE=1;;
 	'w')	MODE='wname';;
 	'?')	usage;;
 	esac
@@ -37,5 +39,13 @@ case $MODE in
 esac
 
 title=${!OPTIND}
+
+if [[ $fmt ]]; then
+	if (( SAVE )); then
+		fmt="${ESC}[22;2t${fmt}"
+	elif (( RESTORE )); then
+		fmt="${ESC}[23;2t"
+	fi
+fi
 
 printf "${fmt}${EOL}" "$title" >&2

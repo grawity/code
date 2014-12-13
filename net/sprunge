@@ -61,11 +61,17 @@ if [ ! "$1" ] || [ "$1" = "-" ]; then
 
 	if [ ! "$1" ] && [ -t 0 ] && [ "$DISPLAY" ]; then
 		getsel > "$file"
-	elif [ -t 0 ]; then
-		printf "\e[1mInput text to pastebin:\e[m\n"
-		cat > "$file"
 	else
-		cat > "$file"
+		: > "$file"
+	fi
+
+	if [ ! -s "$file" ]; then
+		if [ -t 0 ]; then
+			printf "\e[1mInput text to pastebin:\e[m\n"
+			cat > "$file"
+		else
+			cat > "$file"
+		fi
 	fi
 
 	if [ -s "$file" ]; then

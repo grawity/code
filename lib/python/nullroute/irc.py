@@ -252,34 +252,3 @@ class Frame(object):
     def __repr__(self):
         return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" % \
                 (self.tags, self.prefix, self.cmd, self.args)
-
-class Connection(object):
-    def __init__(self):
-        self.host = None
-        self.port = None
-        self.ai = None
-        self._fd = None
-        self._file = None
-
-    def connect(self, host, port, ssl=False):
-        self.ai = socket.getaddrinfo(host, str(port), 0, socket.SOCK_STREAM)
-        print(repr(self.ai))
-        for af, proto, _, cname, addr in self.ai:
-            self._fd = socket.socket(af, proto)
-            self._fd.connect(addr)
-            break
-        import io
-        self._fi = self._fd.makefile("rwb")
-
-    def writeraw(self, buf):
-        self._fi.write(buf+b"\r\n")
-        self._fi.flush()
-
-    def readraw(self):
-        return self._fi.readline()
-
-    def write(self, *args):
-        self.writeraw(Frame.join(args))
-
-    def read(self):
-        return Frame.parse(self.readraw())

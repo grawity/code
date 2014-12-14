@@ -227,10 +227,7 @@ class Frame(object):
             else:
                 parv.append(argv[i])
 
-        line = " ".join(parv) + "\r\n"
-        line = line.encode("utf-8")
-
-        return line
+        return " ".join(parv).encode("utf-8") + b"\r\n"
 
     def unparse(self):
         parv = []

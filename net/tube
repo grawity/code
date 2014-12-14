@@ -95,6 +95,15 @@ if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
 fi
 descr="$file.description"
 
+# verify resume
+if [[ -s "$file" ]]; then
+	old_url=$(getfattr -n "user.xdg.origin.url" --only-values "$file")
+	if [[ "$url" != "$old_url" ]]; then
+		notice "previous URL was $old_url"
+		die "refusing to corrupt existing video"
+	fi
+fi
+
 # download the video
 youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
 test -s "$file" || exit

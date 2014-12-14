@@ -9,7 +9,7 @@ options=(
 	--console-title
 	--continue
 	--write-description
-	#--write-info-json
+	--write-info-json
 	)
 url=''
 tagopts=()
@@ -94,6 +94,7 @@ if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
 	file=$f_name.$f_ext
 fi
 descr="$file.description"
+jsonf="${file%.*}.info.json"
 
 # verify resume
 if [[ -s "$file" ]]; then
@@ -134,6 +135,15 @@ case $file in
 	fi
 	;;
 esac
+
+if [[ ! "$m_artist" ]]; then
+	m_artist=$(jshon -e uploader -u < "$jsonf")
+	tagopts+=(-artist "$m_artist")
+fi
+if [[ ! "$m_song" ]]; then
+	m_song=$f_name
+	tagopts+=(-song "$m_song")
+fi
 
 # update file tags
 log "updating file tags"

@@ -93,7 +93,6 @@ fi
 if read -e -p "name: " -i "$f_name" f_name && [[ $f_name ]]; then
 	file=$f_name.$f_ext
 fi
-descr="$file.description"
 jsonf="${file%.*}.info.json"
 
 # verify resume
@@ -148,11 +147,11 @@ fi
 # update file tags
 log "updating file tags"
 tagopts+=(-type "$kind")
-if [[ -s "$descr" && "$descr" != "No description available." ]]; then
-	tagopts+=(-longdesc "$(< "$descr")")
+t_descr=$(jshon -e description -u < "$jsonf")
+if [[ "$t_descr" && "$t_descr" != "No description available." ]]; then
+	tagopts+=(-longdesc "$t_descr")
 fi
 mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
-rm -f "$descr"
 
 # set some standard xattrs
 { setfattr -n "user.xdg.origin.url"   -v "$url"   "$file"

@@ -12,15 +12,6 @@ def TOTP(K, digits=6, window=30):
     C = int(time.time() / window)
     return HOTP(K, C, digits=digits)
 
-def DynadotHOTP(K, C, digits=6):
-    C_bytes = str(C).encode("us-ascii")
-    hmac_sha1 = hmac.new(key=K, msg=C_bytes, digestmod=sha1).hexdigest()
-    return Truncate(hmac_sha1)[-digits:]
-
-def DynadotTOTP(K, digits=6, window=30):
-    C = int(time.time() / window)
-    return DynadotHOTP(K, C, digits=digits)
-
 def Truncate(hmac_sha1):
     """
     converts an HMAC-SHA-1 value into ah HOTP value as in RFC 4226 section 5.2

@@ -84,14 +84,16 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 			if ($state == $STATE{discharging}) {
 				$time = $changed->{TimeToEmpty} //
 				        $dev->Get(UP_DEVICE_IFACE, "TimeToEmpty");
+				if ($time) {
+					$status .= " (".timedelta($time)." until empty)";
+				}
 			}
 			elsif ($state == $STATE{charging}) {
 				$time = $changed->{TimeToFull} //
 				        $dev->Get(UP_DEVICE_IFACE, "TimeToFull");
-			}
-
-			if ($time) {
-				$status .= " (".timedelta($time)." remaining)";
+				if ($time) {
+					$status .= " (".timedelta($time)." until full)";
+				}
 			}
 
 			print "Battery $status, $STATE[$state]\n";

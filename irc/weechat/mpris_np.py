@@ -2,6 +2,7 @@
 
 ###
 # Copyright (c) 2011, Johannes Nixdorf <mixi@shadowice.org>
+# Copyright (c) 2014, Mantas Mikulėnas <grawity@gmail.com>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

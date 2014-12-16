@@ -29,6 +29,8 @@
 
 ###
 # ChangeLog:
+#  0.4.3 - grawity:
+#   * allow the default player to be set
 #  0.4.2 - grawity:
 #   * show a better message in "Stopped" state
 #  0.4.1 - grawity:
@@ -54,7 +56,7 @@ try:
     import weechat
     weechat.register('mpris_np',
                      'Mantas Mikulėnas <grawity@gmail.com>, Johannes Nixdorf <mixi@shadowice.org>',
-                     '0.4.2',
+                     '0.4.3',
                      'BSD',
                      'Print information on the currently played song',
                      '',
@@ -95,6 +97,10 @@ def print_info(data, buffer, args):
     msg = None
 
     player_name = args.strip()
+
+    if not player_name:
+        player_name = weechat.config_get_plugin('default_player')
+
     if player_name:
         try:
             player_obj = get_player(player_name)
@@ -161,3 +167,8 @@ if __name__ == '__main__':
                          '',
                          'print_info',
                          '')
+
+    if not weechat.config_is_set_plugin('default_player'):
+        weechat.config_set_plugin('default_player', '')
+        weechat.config_set_desc_plugin('default_player',
+            'Player name to use for "/np" (default: "", shows a list)')

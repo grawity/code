@@ -70,23 +70,24 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 		->connect_to_signal("PropertiesChanged", sub {
 			my ($interface, $changed, $invalidated) = @_;
 			return unless $interface eq UP_DEVICE_IFACE;
-			return unless (exists $changed->{Percentage}
-			               || exists $changed->{State});
+			return unless (exists $changed->{Percentage} ||
+			               exists $changed->{State});
 
-			my $charge = $changed->{Percentage}
-			             // $dev->Get(UP_DEVICE_IFACE, "Percentage");
-			my $state = $changed->{State}
-			             // $dev->Get(UP_DEVICE_IFACE, "State");
+			my $charge = $changed->{Percentage} //
+			             $dev->Get(UP_DEVICE_IFACE, "Percentage");
+			my $state = $changed->{State} //
+			            $dev->Get(UP_DEVICE_IFACE, "State");
 
 			my $status = "at $charge%";
 			my $time;
 
 			if ($state == $STATE{discharging}) {
-				$time = $changed->{TimeToEmpty}
-				        // $dev->Get(UP_DEVICE_IFACE, "TimeToEmpty");
-			} elsif ($state == $STATE{charging}) {
-				$time = $changed->{TimeToFull}
-				        // $dev->Get(UP_DEVICE_IFACE, "TimeToFull");
+				$time = $changed->{TimeToEmpty} //
+				        $dev->Get(UP_DEVICE_IFACE, "TimeToEmpty");
+			}
+			elsif ($state == $STATE{charging}) {
+				$time = $changed->{TimeToFull} //
+				        $dev->Get(UP_DEVICE_IFACE, "TimeToFull");
 			}
 
 			if ($time) {

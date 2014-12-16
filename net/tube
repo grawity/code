@@ -14,6 +14,7 @@ url=''
 tagopts=()
 kind=music
 justaudio=0
+rename=0
 m_artist=''
 m_song=''
 
@@ -28,6 +29,8 @@ while (( $# )); do
 		fi;;
 	-justaudio)
 		justaudio=1;;
+	-rename)
+		rename=1;;
 	-kind|-type)
 		kind=$2; shift;;
 	-title|-song)
@@ -86,7 +89,7 @@ log2 "downloading $url"
 file=$(youtube-dl -o "%(title)s.%(ext)s" --get-filename "$url")
 f_name=${file%.*}
 f_ext=${file##*.}
-if [[ $m_artist && $m_song ]]; then
+if (( rename )) && [[ $m_artist && $m_song ]]; then
 	f_name="$m_artist - $m_song"
 fi
 file=$f_name.$f_ext

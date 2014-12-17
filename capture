@@ -3,9 +3,12 @@
 
 . lib.bash || exit
 
+unset ${!arg_*}
+
 while (( $# )); do
 	case ${1#--} in
 	on)		arg_on=$2; shift;;
+	-e)		arg_ethers=1;;
 	-f|filter)	arg_filter=$2; shift;;
 	host)		arg_f_host=$2; shift;;
 	vlan)		arg_vlan=$2; shift;;
@@ -74,7 +77,11 @@ if ! [[ $arg_vlan ]]; then
 fi
 log "filter: $filter"
 
-cmd="set -- \$SSH_CONNECTION; tcpdump -n -i '$target_iface' -s 1536 -U -w - -G 3600 \"$filter\""
+cmd="set -- \$SSH_CONNECTION; tcpdump -n -i '$target_iface' -s 1536 -U -w - -G 3600"
+if (( arg_ethers )); then
+	cmd+=" -e"
+fi
+cmd+=" \"$filter\""
 debug "command: $cmd"
 
 capf=~/tmp/"capture.${target_host}.${target_iface}.pcap"

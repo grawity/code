@@ -77,8 +77,8 @@ eval {
 
 if (scalar keys %supported_mechs == 0) {
 	die "No mechanisms available. Please install these Perl modules:\n"
-		."  Digest::HMAC\n"
-		."  Digest::SHA, Digest::SHA1, Digest::MD5 (at least one)\n";
+		." - Digest::HMAC\n"
+		." - Digest::SHA, Digest::SHA1, Digest::MD5 (at least one)\n";
 }
 
 sub hmac {
@@ -119,7 +119,7 @@ sub get_account {
 	return ($defuser, $defpass);
 }
 
-Irssi::signal_add_last "event 001" => sub {
+Irssi::signal_add_last("event 001" => sub {
 	my ($server, $evargs, $srcnick, $srcaddr) = @_;
 	return unless $srcnick =~ /\.quakenet\.org$/;
 
@@ -128,9 +128,9 @@ Irssi::signal_add_last "event 001" => sub {
 
 	$server->print("", "Authenticating to Q");
 	$server->send_message('Q@cserve.quakenet.org', "CHALLENGE", 1);
-};
+});
 
-Irssi::signal_add_first "message irc notice" => sub {
+Irssi::signal_add_first("message irc notice" => sub {
 	my ($server, $msg, $nick, $address, $target) = @_;
 	return unless $server->mask_match_address('Q!*@cserve.quakenet.org', $nick, $address);
 
@@ -188,12 +188,10 @@ Irssi::signal_add_first "message irc notice" => sub {
 		Irssi::signal_stop();
 		$server->print("", "Authentication failed (username or password incorrect)");
 	}
-};
+});
 
 Irssi::settings_add_str("misc", "quakenet_auth_allowed_mechs", "any");
-
 Irssi::settings_add_str("misc", "quakenet_account", "");
-
 if (Irssi::settings_get_str("quakenet_account") eq "") {
 	Irssi::print("Set your QuakeNet account using /set quakenet_account username:password");
 }

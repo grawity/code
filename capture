@@ -55,27 +55,35 @@ target_host=${hosts["$arg_host"]:-$arg_host}
 target_iface=${interfaces["$arg_host/$arg_iface"]:-$arg_iface}
 log "capturing on '$target_iface' at '$target_host'"
 
+## craft the capture filter
+
 filter=""
 add_filter() { filter+="${filter:+ and }($*)"; }
 
+# VLAN tag – changes global filter state, must be first
 if [[ $arg_vlan ]]; then
-	# must be first
 	add_filter "vlan $arg_vlan"
 fi
+# ignore current SSH connection
 add_filter "not (host \$1 and host \$3 and tcp port \$2 and tcp port \$4)"
+# command-line 'host' shortcut
 if [[ $arg_f_host == ??:??:??:??:??:?? ]]; then
 	add_filter "ether host $arg_f_host"
 elif [[ $arg_f_host ]]; then
 	add_filter "host $arg_f_host"
 fi
+# command-line filter
 if [[ $arg_filter ]]; then
 	add_filter "$arg_filter"
 fi
+# no VLAN tag – changes global filter state, must be last
 if ! [[ $arg_vlan ]]; then
-	# 'vlan' changes global filter state, must be last
 	add_filter "not vlan"
 fi
+
 log "filter: $filter"
+
+## craft the remote command
 
 rcmd="set -- \$SSH_CONNECTION; tcpdump -n -i '$target_iface' -s 1536 -U -w - -G 3600"
 rcmd+=" \"$filter\""

@@ -2,6 +2,10 @@
 
 . lib.bash || exit
 
+try_load() {
+	[ -d /sys/module/vboxdrv ] || sudo: modprobe -v vboxdrv
+}
+
 cmd=$1; shift
 vm=$1; shift
 
@@ -19,9 +23,11 @@ lsr|lsrun|lsrunning)
 	do: vboxmanage list runningvms
 	;;
 start)
+	try_load
 	do: vboxmanage startvm "$vm"
 	;;
 pause|resume|reset|poweroff)
+	try_load
 	do: vboxmanage controlvm "$vm" "$cmd"
 	;;
 save)

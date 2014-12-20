@@ -54,8 +54,8 @@ import dbus
 
 try:
     import weechat
-    weechat.register('mpris_np',
-                     'Mantas Mikulėnas <grawity@gmail.com>, Johannes Nixdorf <mixi@shadowice.org>',
+    weechat.register('mpris2_np',
+                     'Mantas Mikulėnas <grawity@gmail.com>',
                      '0.4.3',
                      'BSD',
                      'Print information on the currently played song',
@@ -75,7 +75,7 @@ IF_DBUS_PROP    = 'org.freedesktop.DBus.Properties'
 class FubarException(Exception):
     """
 
-    For some reason, reloading either mpris_np or the python plugin always
+    For some reason, reloading either mpris2_np or the python plugin always
     breaks the DBus connection irrecoverably.
 
     """

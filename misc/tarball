@@ -70,7 +70,11 @@ else
 	out=${2:-$dir}.$ext
 fi
 
-if [[ $(get_fstag "$dir") != $(get_fstag ~) ]]; then
+if ! case $(get_fstag "$dir") in
+	($(get_fstag ~)) true;;
+	($(get_fstag ~/Private)) true;;
+	(*) false;;
+esac; then
 	out=~/$out
 fi
 

@@ -24,6 +24,14 @@ get_timestamp() {
 	| sort -n -u | tail -1
 }
 
+get_fstag() {
+	local dir=$1
+	local fsid=$(stat -fc %i "$dir")
+	local mtpt=$(stat -c %m "$dir")
+	local devno=$(mountpoint -d "$mtpt")
+	echo "$fsid,$mtpt,$devno"
+}
+
 case ${0##*/} in
     tarball) ext=tgz;;
     zipball) ext=zip;;
@@ -55,7 +63,7 @@ else
 	out=${2:-$dir}.$ext
 fi
 
-if [[ $(stat -fc %i "$dir") != $(stat -fc %i ~) ]]; then
+if [[ $(get_fstag "$dir") != $(get_fstag ~) ]]; then
 	out=~/$out
 fi
 

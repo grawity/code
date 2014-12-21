@@ -20,8 +20,10 @@ do_archive() {
 }
 
 get_timestamp() {
-	find "$1" -type f -not -name '_attributes' -printf '%Ts\n' \
-	| sort -n -u | tail -1
+	local t=$(find "$1" -type f -not -name '_attributes' -printf '%Ts\n' \
+		| sort -n | tail -1)
+	[[ $t ]] || t=$(find "$1" -maxdepth 0 -type d -printf '%Ts\n')
+	echo $t
 }
 
 get_fstag() {
@@ -54,6 +56,11 @@ elif [[ ! -d $1 ]]; then
 fi
 
 ts=$(get_timestamp "$dir")
+debug "timestamp of '$dir' = '$ts'"
+
+if [[ ! $ts ]]; then
+	die "could not obtain timestamp of '$dir'"
+fi
 
 if [[ $2 == --now ]]; then
 	out=$dir-$(date +%F).$ext

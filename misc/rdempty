@@ -1,0 +1,40 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Nullroute::Lib;
+
+sub clean {
+	my ($root) = @_;
+	_debug("cleaning '$root'");
+	if (opendir(my $dh, $root)) {
+		while (readdir($dh)) {
+			my $path = "$root/$_";
+			if ($_ eq "." || $_ eq "..") {
+				;
+			}
+			elsif (rmdir($path)) {
+				_log("removed: $path");
+			}
+			elsif ($!{ENOTDIR}) {
+				;
+			}
+			elsif ($!{ENOTEMPTY}) {
+				clean($path);
+			}
+			else {
+				_err("cannot remove '$path': $!");
+			}
+		}
+		closedir($dh);
+	} else {
+		_err("cannot open '$root': $!");
+	}
+}
+
+if (@ARGV) {
+	clean($_) for @ARGV;
+} else {
+	clean(".");
+}
+
+exit !!$::errors;

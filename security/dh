@@ -52,6 +52,12 @@ end
 
 builtin_params = {}
 
+builtin_params[256] = <<EOF
+-----BEGIN DH PARAMETERS-----
+MCYCIQDMkOHJmT8qYX17pA2nPh+QbgJ0q4IHGAcv+SRvkbVA6wIBAg==
+-----END DH PARAMETERS-----
+EOF
+
 builtin_params[512] = <<EOF
 -----BEGIN DH PARAMETERS-----
 MEYCQQCKWqXw186zTL4nVOVj5CJRXvN0I3WDowMk8OYUsR6Dy43C7KnFS7MG59lr
@@ -122,7 +128,9 @@ OptionParser.new do |opts|
         if builtin_params[i]
             params = builtin_params[i]
         else
-            avail = builtin_params.keys.sort.map(&:to_s).join(", ")
+            avail = builtin_params.keys.sort.map(&:to_s)
+            avail << "and #{avail.pop}"
+            avail = avail.join(", ")
             abort "I only have built-in parameters of #{avail} bits."
         end
     end

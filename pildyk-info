@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+import os, sys
+import bs4
+import requests
+from nullroute.sec import get_netrc
+
+Base = "https://mano.pildyk.lt"
+Login = "60396811"
+
+def do_login():
+    creds = get_netrc("http@mano.pildyk.lt", Login)
+
+    uri = Base + "/Prisijungti.aspx?ReturnUrl=%2f"
+
+    form_data = {
+        "__EVENTTARGET": "ctl00$ctl00$main$main$login$btnLogin",
+        "ctl00$ctl00$main$main$login$tbUserName": creds["login"],
+        "ctl00$ctl00$main$main$login$tbPassword": creds["password"],
+    }
+
+    print("~ accessing login form...")
+
+    r = requests.get(uri)
+    h = bs4.BeautifulSoup(r.text)
+    h_form = h.find("form", {"name": "aspnetForm"})
+    for tag in h_form.find_all("input", {"type": "hidden"}):
+        try:
+            form_data[tag["name"]] = tag["value"]
+        except KeyError as e:
+            pass
+
+    print("~ sending credentials...")
+
+    r = requests.post(uri, data=form_data)
+    # this directly loads the main info page we want
+    h = bs4.BeautifulSoup(r.text)
+
+    h_table = h.find("table", {"class": "margin2"})
+
+    h_th = h_table.find("th")
+    _title, _expiry = list(h_th.stripped_strings)
+    _balance_lt = h_table.find("big", {"class": "sub_header"}).get_text(strip=True)
+    _balance_eu = h_table.find("p", {"class": "data price-euros"}).get_text(strip=True)
+
+    print("%s %s (%s)" % (_title, _balance_lt, _balance_eu))
+
+    h_tr = h.find("tr", {"id": "ctl00_ctl00_main_main_AccountInfo_DataBucketRepeater_ctl00_trBucket"})
+
+    _title = h_tr.find("strong").get_text(strip=True)
+    _expiry = h_tr.find("small").get_text(strip=True)
+    _quota = h_tr.find("center").get_text(strip=True)
+
+    print("%s: %s (%s)" % (_title, _quota, _expiry))
+
+do_login()

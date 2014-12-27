@@ -1,15 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # scrape-reddit-comment - scraper for Reddit comments
 
-from __future__ import print_function
-import os
-import sys
-import urllib2
-from BeautifulSoup import BeautifulSoup
-import time
+import bs4
 import datetime
 import json
+import os
 import re
+import requests
+import sys
+import time
 
 rx_time = re.compile(r'(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)(?:\.(\d+))?([+-]\d+:\d+)')
 
@@ -33,11 +32,10 @@ class FixedOffset(datetime.tzinfo):
         return DELTA_ZERO
 
 def scrape(url):
-    req = urllib2.Request(url + "?limit=1", headers={"User-Agent": "Mozilla/5.0"})
-    page = urllib2.urlopen(req).read()
-    body = BeautifulSoup(page, convertEntities=BeautifulSoup.HTML_ENTITIES)
+    req = requests.get(url + "?limit=1", headers={"User-Agent": "Mozilla/5.0"})
+    body = bs4.BeautifulSoup(req.text)
 
-    title = body.find("title").renderContents()
+    title = body.find("title").get_text()
 
     commentarea = body.find("div", {"class": "commentarea"})
     infobar = commentarea.find("div", {"class": "infobar"})
@@ -55,7 +53,7 @@ def scrape(url):
 
     author = tagline.find("a", {"class": re.compile(r'\bauthor\b')})
     if author:
-        author = author.renderContents()
+        author = author.get_text()
     else:
         author = '"(deleted user)"'
 
@@ -88,7 +86,7 @@ def scrape(url):
 
     txtbody = entry.find("div", {"class": re.compile(r'\busertext-body\b')})
     if txtbody:
-        text = txtbody.find("div", {"class": "md"}).renderContents() .strip()
+        text = txtbody.find("div", {"class": "md"}).get_text().strip()
     else:
         text = "(No content)"
 

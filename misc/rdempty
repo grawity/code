@@ -26,6 +26,16 @@ sub clean {
 			}
 		}
 		closedir($dh);
+
+		if (rmdir($root)) {
+			_log("removed: $root");
+		}
+		elsif ($!{ENOTEMPTY}) {
+			;
+		}
+		else {
+			_err("cannot remove '$root': $!");
+		}
 	} else {
 		_err("cannot open '$root': $!");
 	}

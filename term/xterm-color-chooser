@@ -28,8 +28,19 @@ properties = {
     "barfill": (list, "#█"),
 }
 
-state_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+xdg_config_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+old_state_path = os.path.join(xdg_config_dir, "xterm-color-chooser.json")
+
+state_dir = os.path.join(xdg_config_dir, "nullroute")
 state_path = os.path.join(state_dir, "xterm-color-chooser.json")
+
+old_state_found = False
+
+def mkdir_p(path):
+    print("mkdir_p(%r)" % path)
+    if not os.path.isdir(path):
+        mkdir_p(os.path.dirname(path))
+        os.mkdir(path)
 
 def screen_init(mode):
     if mode:
@@ -81,15 +92,27 @@ class State(dict):
         return data
 
     def load_persistent(self):
+        global old_state_found
         try:
             with open(state_path, "r") as fh:
                 self.load(json.load(fh))
-        except:
-            pass
+        except FileNotFoundError:
+            try:
+                with open(old_state_path, "r") as fh:
+                    self.load(json.load(fh))
+                    old_state_found = True
+            except FileNotFoundError:
+                pass
 
     def save_persistent(self):
         with open(state_path, "w") as fh:
             json.dump(self.save(), fh)
+
+        if old_state_found:
+            try:
+                os.unlink(old_state_path)
+            except FileNotFoundError:
+                pass
 
     def incr(self, *props):
         for prop in props:
@@ -494,6 +517,8 @@ def main(state):
         elif k in "*":  state.incr_carry("tcblue", "tcgreen", "tcred")
 
     return True
+
+mkdir_p(state_dir)
 
 if not sys.stdin.isatty():
     sys.stdin = open("/dev/tty", "r")

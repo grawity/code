@@ -70,7 +70,7 @@ sub write_sexp {
 	}
 }
 
-my ($file, $passphrase, $key, $f, %d, $sexp);
+my ($file, $passphrase, $key, $format, %data, $sexp);
 
 GetOptions(
 	"p|passphrase=s" => \$passphrase,
@@ -80,61 +80,61 @@ $file = shift(@ARGV);
 $key = Crypt::Keys->read(Filename => $file, Passphrase => $passphrase)
 	or _die("failed to load key: $file");
 
-$f = $key->{Format};
-%d = %{$key->{Data}};
+$format = $key->{"Format"};
+%data = %{$key->{"Data"}};
 
-if ($f =~ /^Private::RSA::/) {
+if ($format =~ /^Private::RSA::/) {
 	$sexp =
 		["private-key",
 			["rsa-pkcs1",
-				[n => $d{n}],
-				[e => PARI($d{e})],
+				[n => $data{"n"}],
+				[e => PARI($data{"e"})],
 
-				[d => $d{d}],
-				[p => $d{p}],
-				[q => $d{q}],
+				[d => $data{"d"}],
+				[p => $data{"p"}],
+				[q => $data{"q"}],
 
-				[a => $d{dp}],
-				[b => $d{dq}],
-				[c => $d{iqmp}],
+				[a => $data{"dp"}],
+				[b => $data{"dq"}],
+				[c => $data{"iqmp"}],
 			],
 		];
 }
-elsif ($f =~ /^Public::RSA::/) {
+elsif ($format =~ /^Public::RSA::/) {
 	$sexp =
 		["public-key",
 			["rsa-pkcs1-sha1",
-				[n => $d{n}],
-				[e => $d{e}],
+				[n => $data{"n"}],
+				[e => $data{"e"}],
 			],
 		];
 }
-elsif ($f =~ /^Private::DSA::/) {
+elsif ($format =~ /^Private::DSA::/) {
 	$sexp =
 		["private-key",
 			["dsa",
-				[p => $d{p}],
-				[q => $d{q}],
-				[g => $d{g}],
-				[y => $d{pub_key}],
-				[x => $d{priv_key}],
+				[p => $data{"p"}],
+				[q => $data{"q"}],
+				[g => $data{"g"}],
+				[y => $data{"pub_key"}],
+				[x => $data{"priv_key"}],
 			],
 		];
 }
-elsif ($f =~ /^Public::DSA::/) {
+elsif ($format =~ /^Public::DSA::/) {
 	$sexp =
 		["public-key",
 			["dsa",
-				[p => $d{p}],
-				[q => $d{q}],
-				[g => $d{g}],
-				[y => $d{pub_key}],
+				[p => $data{"p"}],
+				[q => $data{"q"}],
+				[g => $data{"g"}],
+				[y => $data{"pub_key"}],
 			],
 		];
 }
 else {
 	print Dumper($key)."\n";
-	_die("unsupported key type $f");
+	_die("unsupported key type $format");
 }
 write_sexp($sexp);
 print "\n";

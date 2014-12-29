@@ -299,10 +299,14 @@ sub trash {
 
 	my $orig_path = my_abs_path($path);
 	_debug("orig_path='$orig_path'");
+	if (-d $orig_path && !-w $orig_path) {
+		# moving a directory involves updating its ".." entry
+		_err("no write permission to '$orig_path'");
+	}
 
 	my $orig_dir = dirname($orig_path);
 	if (!-w $orig_dir) {
-		_err("no write permissions to parent directory '$orig_dir'");
+		_err("no write permission to parent directory '$orig_dir'");
 	}
 
 	my $trash_dir = find_trash_dir($orig_path);
@@ -318,7 +322,9 @@ sub trash {
 
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
-		_debug("same-device renaming to '$trashed_path'");
+		_debug("renaming file on same device");
+		_debug("... from '$orig_path'");
+		_debug("... to '$trashed_path'");
 		if (rename($orig_path, $trashed_path)) {
 			_info("trashed '$path'");
 		} else {

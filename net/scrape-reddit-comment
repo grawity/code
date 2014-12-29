@@ -41,17 +41,17 @@ def scrape(url):
     infobar = commentarea.find("div", {"class": "infobar"})
 
     if infobar is None:
-        thing = body.find("div", {"class": re.compile(r'\bthing\b.*\blink\b')})
+        thing = body.select("div.thing.link")[0]
     else:
         thing = commentarea
 
-    entry = thing.find("div", {"class": re.compile(r'\bentry\b')})
+    entry = thing.find("div", {"class": "entry"})
 
     # .entry > .tagline > {.author, time}
 
     tagline = entry.find("p", {"class": "tagline"})
 
-    author = tagline.find("a", {"class": re.compile(r'\bauthor\b')})
+    author = tagline.find("a", {"class": "author"})
     if author:
         author = author.get_text()
     else:
@@ -76,7 +76,7 @@ def scrape(url):
 
     # .entry > {.title | .bylink}
 
-    link = entry.find("a", {"class": re.compile(r'\btitle\b')}) \
+    link = entry.find("a", {"class": "title"}) \
         or entry.find("a", {"class": "bylink"})
     purl = link["href"]
     if purl.startswith("/"):
@@ -84,7 +84,7 @@ def scrape(url):
 
     # .entry > .usertext-body > .md
 
-    txtbody = entry.find("div", {"class": re.compile(r'\busertext-body\b')})
+    txtbody = entry.find("div", {"class": "usertext-body"})
     if txtbody:
         text = txtbody.find("div", {"class": "md"}).get_text().strip()
     else:

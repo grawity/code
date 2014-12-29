@@ -296,29 +296,42 @@ sub trash {
 	if ($interactive) {
 		confirm("Kill file <$path>?") || return;
 	}
+
 	my $orig_path = my_abs_path($path);
 	_debug("orig_path='$orig_path'");
+
+	my $orig_dir = dirname($orig_path);
+	if (!-w $orig_dir) {
+		_err("no write permissions to parent directory '$orig_dir'");
+	}
+
 	my $trash_dir = find_trash_dir($orig_path);
 	_debug("trash_dir='$trash_dir'");
 	ensure($trash_dir);
+
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
 	if (!$info_fh) {
 		_err("failed to move '$path' to trash");
 		return;
 	}
 	write_info($info_fh, $orig_path);
+
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
+		_debug("same-device renaming to '$trashed_path'");
 		if (rename($orig_path, $trashed_path)) {
 			_info("trashed '$path'");
 		} else {
+			_debug("rename failed, unlinking info '$info_name'");
 			unlink($info_name);
 			_die("failed to rename '$path': $!");
 		}
 	} else {
+		_debug("cross-device moving to '$trashed_path'");
 		if (xdev_move($orig_path, $trashed_path)) {
 			_info("trashed '$path' to \$HOME");
 		} else {
+			_debug("xdev_move failed, unlinking info '$info_name'");
 			unlink($info_name);
 			_die("failed to copy '$path' to '$trash_dir'");
 		}

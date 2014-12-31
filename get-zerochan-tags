@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+import bs4
+import os
+import re
+import requests
+import sys
+from collections import defaultdict
+from nullroute.sec import get_netrc
+
+filename_re = re.compile(r".*full\.(\d+)\.[a-z]+$")
+
+http_client = requests.Session()
+
+creds = get_netrc("www.zerochan.net")
+
+login_form = {
+    "ref": "/",
+    "name": creds["login"],
+    "password": creds["password"],
+    "login": "Login",
+}
+
+logged_in = False
+
+for file in sys.argv[1:]:
+    m = filename_re.match(file)
+    if not m:
+        continue
+    idx = m.group(1)
+    uri = "http://www.zerochan.net/%s" % idx
+
+    if not logged_in:
+        http_client.post("http://www.zerochan.net/login", data=login_form)
+        logged_in = True
+
+    page = http_client.get(uri)
+    doc = bs4.BeautifulSoup(page.content)
+    try:
+        ul = doc.find(id="tags")
+        tags = defaultdict(set)
+        ul_li = ul.find_all("li")
+    except AttributeError as e:
+        print(";;; From %s" % uri)
+        print("; error %r" % e)
+        print(page)
+        print(doc.prettify())
+        raise
+
+    for li in ul_li:
+        text = list(li.stripped_strings)
+        tag = text[0]
+        kind = text[1] if len(text) > 1 else "tag"
+        kind = kind.lower().split(",")[0]
+        tags[kind].add(tag)
+
+    if tags["mangaka"] and " " not in file:
+        #print(tags["mangaka"])
+        names = [tag.replace("Pixiv Id ", "pixiv")\
+                    .replace(" (artist)", "")\
+                    .replace(" ", "_") for tag in tags["mangaka"]]
+        #print(names)
+        _dir = os.path.dirname(file)
+        new_name = "%s %s" % (" ".join(names).lower(), os.path.basename(file))
+        new_file = os.path.join(os.path.dirname(file), new_name)
+        os.rename(file, new_file)
+        file = new_file
+
+    tags2 = []
+    tags2 += sorted(tags["mangaka"])
+    tags2 += sorted(tags["series"])
+    tags2 += sorted(tags["character"])
+    print("%s: %s" % (file, "; ".join(tags2)))

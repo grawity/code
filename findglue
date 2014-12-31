@@ -1,26 +1,30 @@
 #!/usr/bin/env bash
 
+_dig() {
+	dig +nomulti +noall "$@"
+}
+
 domain=${1%.}.
 
 parent=${domain#*.}
 
-parent_ns=$(dig +short $parent NS | natsort)
+parent_ns=$(_dig +short $parent NS | natsort)
 
 get_serial() {
-	dig +noall +answer "$1" SOA @"$2" | awk '$4 == "SOA" {print $7}'
+	_dig +answer "$1" SOA @"$2" | awk '$4 == "SOA" {print $7}'
 }
 
 for pns in $parent_ns; do
-	glue_ns=$(dig +noall +authority $domain NS @$pns | awk '{print $5}' | natsort)
+	glue_ns=$(_dig +authority $domain NS @$pns | awk '{print $5}' | natsort)
 	printf "\e[1;35m$pns\e[m (for $parent)\n"
 	for gns in $glue_ns; do
 		printf " └ \e[1;36m%s\e[m (for $domain)\n" $gns
 		if [[ $gns == $domain || $gns == *.$domain ]]; then
-			gip=$(dig +noall +additional $domain NS @$pns |
+			gip=$(_dig +additional $domain NS @$pns |
 				awk -v d=$gns '$1 == d {print $5}')
 			from='glue'
 		else
-			gip=$(dig +short $gns A; dig +short $gns AAAA)
+			gip=$(_dig +short $gns A; _dig +short $gns AAAA)
 			from='DNS'
 		fi
 		if [[ $gip ]]; then

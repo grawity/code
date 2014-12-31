@@ -1,27 +1,41 @@
 #!/usr/bin/env bash
 
-carch=`uname -m`
-dir=~/pkg/my-repo
+. lib.bash || exit
+
+shopt -s nullglob
+
+carch=$(uname -m)
+dir=~/pkg/my-repo/_repo
 db=$dir/grawity.db.tar.gz
 
 pkgfiles=()
 auxfiles=()
 
-. PKGBUILD
+. PKGBUILD || die "could not source PKGBUILD"
 
 makepkg -f -s --sign
 
-for file in ./$pkgname-$pkgver-$pkgrel-*; do
+files=(./$pkgname-$pkgver-$pkgrel-*)
+
+for file in "${files[@]}"; do
 	case $file in
-	*.sig)	auxfiles+=($file);;
-	*)	pkgfiles+=($file);;
+	*.sig)
+		log "found file: $file"
+		auxfiles+=("$file")
+		;;
+	*)
+		log "found file: $file"
+		pkgfiles+=("$file")
+		;;
 	esac
 done
+
+(( ${#pkgfiles[@]} )) || die "no package files found"
 
 repo-remove --sign "$db" "$pkgname"
 repo-add --sign "$db" "${pkgfiles[@]}"
 
-for file in "$dir"/$pkgname-*; do
+for file in "$dir"/"$pkgname"-*; do
 	case ${file##*/} in
 	$pkgname-$pkgver-$pkgrel-*)
 		;;

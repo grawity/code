@@ -15,11 +15,16 @@ while (( $# )); do
 	fi
 
 	prefix="${basename%.*} – "
-	suffix="${url##*.}"
+	if [[ $basename == *.* ]]; then
+		suffix="${basename##*.}"
+	else
+		suffix="foo"
+	fi
 	date=$(date +"%Y-%m-%d")
 	
 	for (( count=0; count < 999; count++ )); do
 		printf -v name "%s%s.%03d.%s" "$prefix" "$date" "$count" "$suffix"
+		debug "trying name: '$name'"
 		if ! [[ -e $name || -e .$name.tmp ]]; then
 			wget --no-check-certificate "$url" -O "$name"
 			fattr "$name" "origin=$url"

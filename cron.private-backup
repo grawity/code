@@ -1,4 +1,9 @@
 #!/bin/sh
+
+k_grawity='2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632'
+k_nathan='852E5BA4D9D15EFC37FEA5789DCC67E0901AB0CD'
+k_henrik='0E01120D002CA0F65B9E990E149794CB0A0ADFBF'
+
 if mountpoint -q ~/Private; then
 	# push to local cache
 	(if cd ~/Private/keys; then
@@ -12,5 +17,16 @@ if mountpoint -q ~/Private; then
 	# push to grawpqi
 	(if mountpoint -q /run/media/grawity/grawpqi; then
 		: chronic unison -auto -batch -terse Private-grawpqi
+	fi)
+	# push to panther
+	(if cd ~/Private/keys; then
+		git archive --prefix='keys/' HEAD \
+			| gpg --batch -e -r $k_nathan -r $k_henrik \
+			| ssh panther 'bin/acat private/.keys.tar.gpg'
+	fi)
+	(if cd ~/Private/accdb; then
+		git archive --prefix='accdb/' HEAD \
+			| gpg --batch -e -r $k_nathan -r $k_henrik \
+			| ssh panther 'bin/acat private/.accdb.tar.gpg'
 	fi)
 fi

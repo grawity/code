@@ -6,6 +6,8 @@ k_henrik='0E01120D002CA0F65B9E990E149794CB0A0ADFBF'
 
 is_up() { ping -c 1 "$1" >& /dev/null; }
 
+_gpg() { gpg --batch --trust-model always "$@"; }
+
 if mountpoint -q ~/Private; then
 	# push to local cache
 	(if cd ~/Private/keys; then
@@ -25,12 +27,12 @@ if mountpoint -q ~/Private; then
 		(if is_up $host; then
 			(if cd ~/Private/keys; then
 				git archive --prefix='keys/' HEAD \
-					| gpg --batch -e -r $k_nathan -r $k_henrik \
+					| _gpg -e -r $k_nathan -r $k_henrik \
 					| ssh $host 'bin/aupd private/.keys.tar.gpg'
 			fi)
 			(if cd ~/Private/accdb; then
 				git archive --prefix='accdb/' HEAD \
-					| gpg --batch -e -r $k_nathan -r $k_henrik \
+					| _gpg -e -r $k_nathan -r $k_henrik \
 					| ssh $host 'bin/aupd private/.accdb.tar.gpg'
 			fi)
 		fi) &

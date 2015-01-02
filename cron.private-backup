@@ -8,7 +8,7 @@ is_up() { ping -c 1 "$1" >& /dev/null; }
 
 _gpg() { gpg --batch --trust-model always "$@"; }
 
-if mountpoint -q ~/Private; then
+hourly() {
 	# push to local cache
 	(if cd ~/Private/keys; then
 		chronic git push -q ~/Private/.cache/keys.git \
@@ -22,6 +22,9 @@ if mountpoint -q ~/Private; then
 	(if mountpoint -q /run/media/grawity/grawpqi; then
 		: chronic unison -auto -batch -terse Private-grawpqi
 	fi)
+}
+
+daily() {
 	# push to panther
 	for host in panther.nathan7.eu virgule.cluenet.org; do
 		(if is_up $host; then
@@ -38,4 +41,13 @@ if mountpoint -q ~/Private; then
 		fi) &
 	done
 	wait
+}
+
+if mountpoint -q ~/Private; then
+	case $1 in
+	h) hourly;;
+	d) daily;;
+	w) weekly;;
+	*) echo "bad arg";;
+	esac
 fi

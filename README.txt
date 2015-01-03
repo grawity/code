@@ -57,7 +57,6 @@ The "that's nice... but what's it good for?" stuff:
     denettalk           – decrypt Nettalk "NCTCTC001"-encrypted messages
     dh                  – do a D-H key exchange over IRC or whatever
     ssh-duphosts        – clean up ~/.ssh/known_hosts
-    ssh-publickeyd      – backend for SecureCRT's "public key assistant"
   system/
     locale-check        – half-assed attempt to verify your locale settings
 
@@ -80,6 +79,11 @@ The rest:
     – compiled binaries for C tools, to allow sharing `~/code` over NFS
   misc/
     – stuff that will, some day, be cleaned up and put in the right place
+
+Things that used to be here:
+
+  ssh-publickeyd        – backend for SecureCRT's "public key assistant"
+                          <https://github.com/grawity/ssh-publickeyd>
 
 Log:
 

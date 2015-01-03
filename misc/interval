@@ -1,0 +1,28 @@
+#!/usr/bin/env perl
+
+sub int2time {
+	my $int = shift // return "∞";
+
+	$int = abs int($int);
+	$int -= my $s = $int % 60; $int /= 60;
+	$int -= my $m = $int % 60; $int /= 60;
+	$int -= my $h = $int % 24; $int /= 24;
+	$int -= my $d = $int %  7; $int /=  7;
+	$int -= my $w = $int;
+
+	my @fmt;
+	my @arg;
+
+	if ($w or @arg) { push @fmt, "%dw"; push @arg, $w; }
+	if ($d or @arg) { push @fmt, "%dd"; push @arg, $d; }
+	if ($h or @arg) { push @fmt, "%dh"; push @arg, $h; }
+
+	push @fmt, "%dm", "%ds";
+	push @arg, $m, $s;
+
+	return sprintf("@fmt", @arg);
+}
+
+my $str = int2time(shift @ARGV);
+
+print "$str\n";

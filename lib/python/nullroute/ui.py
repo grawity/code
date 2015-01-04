@@ -48,6 +48,8 @@ def print_status(*args, fmt=fmt_status):
         if lines > 1:
             out += "\033[%dA" % (lines-1) # cursor up 1
         sys.stderr.write(out)
+        if not args:
+            sys.stderr.flush()
 
 def print_status_truncated(*args, fmt=fmt_status):
     if isatty() and not opts.verbose:
@@ -57,3 +59,5 @@ def print_status_truncated(*args, fmt=fmt_status):
         out += "\r\033[K"
         out += fmt_status(msg)
         sys.stderr.write(out)
+        if not args:
+            sys.stderr.flush()

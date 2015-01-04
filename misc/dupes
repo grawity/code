@@ -12,9 +12,9 @@ from collections import defaultdict
 from argparse import ArgumentParser
 
 try:
-    from wcwidth import wcwidth
+    from wcwidth import wcswidth
 except ImportError:
-    wcwidth = lambda c: 1
+    wcswidth = lambda s: len(s)
 
 # this doesn't need to be declared here
 # I'm just doing so as a reminder that `opts` is global
@@ -45,21 +45,18 @@ def ttywidth():
         _ttywidth = int(cols)
     return _ttywidth
 
-def wctruncate(text, width=80):
-    for i, c in enumerate(text):
-        w = wcwidth(c)
-        if w > 0:
-            width -= w
-        if width < 0:
-            return text[:i]
-    return text
-
 def status(*args):
     if isatty() and not opts.verbose:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
-        msg = wctruncate(msg, ttywidth())
-        sys.stderr.write("\r\033[K\033[33m%s\033[m" % msg)
+        out = ""
+        out += "\033[1G" # cursor to column 1
+        out += "\033[0J" # erase below
+        out += "\033[33m" + msg + "\033[m"
+        lines = math.ceil(wcswidth(msg) / ttywidth())
+        if lines > 1:
+            out += "\033[%dA" % (lines-1) # cursor up 1
+        sys.stderr.write(out)
 
 def weed_ignores(dirs):
     ignores = {".git", ".hg"}

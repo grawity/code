@@ -11,6 +11,11 @@ import math
 from collections import defaultdict
 from argparse import ArgumentParser
 
+try:
+    from wcwidth import wcwidth
+except ImportError:
+    wcwidth = lambda c: 1
+
 # this doesn't need to be declared here
 # I'm just doing so as a reminder that `opts` is global
 opts = None
@@ -40,11 +45,20 @@ def ttywidth():
         _ttywidth = int(cols)
     return _ttywidth
 
+def wctruncate(text, width=80):
+    for i, c in enumerate(text):
+        w = wcwidth(c)
+        if w > 0:
+            width -= w
+        if width < 0:
+            return text[:i]
+    return text
+
 def status(*args):
     if isatty() and not opts.verbose:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
-        msg = msg[:ttywidth()]
+        msg = wctruncate(msg, ttywidth())
         sys.stderr.write("\r\033[K\033[33m%s\033[m" % msg)
         sys.stderr.flush()
 

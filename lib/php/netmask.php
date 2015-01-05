@@ -42,13 +42,13 @@ function ip_cidr($host, $mask) {
 
 	$host = unpack("C*", $host);
 	$net = unpack("C*", $net);
+	$bad = 0;
 
 	for ($i = 1; $i <= count($net) && $len > 0; $i++) {
 		$bits = $len >= 8 ? 8 : $len;
 		$bmask = (0xFF << 8 >> $bits) & 0xFF;
-		if (($host[$i] & $bmask) != ($net[$i] & $bmask))
-			return false;
+		$bad |= ($host[$i] & $bmask) ^ ($net[$i] & $bmask);
 		$len -= 8;
 	}
-	return true;
+	return !$bad;
 }

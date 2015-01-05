@@ -45,8 +45,8 @@ function ip_cidr($host, $mask) {
 	$bad = 0;
 
 	for ($i = 1; $i <= count($net) && $len > 0; $i++) {
-		$bits = $len >= 8 ? 8 : $len;
-		$bmask = (0xFF << (8 - $bits)) & 0xFF;
+		$bits = min($len, 8);
+		$bmask = (0xFF00 >> $bits) & 0xFF;
 		$bad |= ($host[$i] ^ $net[$i]) & $bmask;
 		$len -= 8;
 	}

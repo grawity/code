@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os
 import sys
 from pprint import pprint
 import socket
@@ -10,6 +11,8 @@ conn_tokens = {"src", "dst", "sport", "dport"}
 int_tokens = {"sport", "dport", "use"}
 
 def try_resolve_addr(addr):
+    if os.environ.get("noresolve"):
+        return addr
     try:
         r = socket.gethostbyaddr(addr)
         #print("got %r" % (r,))

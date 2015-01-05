@@ -1,0 +1,20 @@
+#!/bin/bash
+
+. lib.bash || exit
+
+while (( $# )); do
+	case ${1#--} in
+	end)	end=$2; shift;;
+	from)	from=$2; shift;;
+	start)	start=$2; shift;;
+	to)	to=$2; shift;;
+	*)	die "unrecognized argument '$1'";;
+	esac; shift
+done
+
+[[ $from ]]  || die "missing 'from' file"
+[[ $to ]]    || die "missing 'to' file"
+[[ $start ]] || die "missing 'start' time"
+[[ $end ]]   || die "missing 'end' time"
+
+ffmpeg -i "$from" -ss "$start" -to "$end" -acodec copy -vcodec copy "$to"

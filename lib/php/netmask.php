@@ -8,8 +8,8 @@ function ip_expand($addr) {
 	if ($addr === false || $addr === -1)
 		return null;
 	if (strlen($addr) == 16) {
-		if (substr($addr, 0, 12) === "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xFF\xFF"
-		||  substr($addr, 0, 12) === "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+		if (substr($addr, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xFF\xFF"
+		||  substr($addr, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\0\0")
 			return substr($addr, 12);
 	}
 	return $addr;

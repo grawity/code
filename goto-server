@@ -50,12 +50,12 @@ case $1 in
 	fi
 	;;
     ukdga|dga)
-	host="193.219.181.252"
-	do_rdp "$host:1969" "${@:2}"
-	;;
-    ukdga-old|dga-old)
-	host="10.128.0.3"
-	do_rdp "$host:1969" "${@:2}"
+	case $2 in
+	old) ip='10.130.0.2';;
+	new) ip='10.131.0.2';;
+	*)   ip='193.219.181.252';;
+	esac
+	do_rdp "$ip:1969"
 	;;
     ukweb)
 	host="193.219.181.209"
@@ -85,23 +85,24 @@ case $1 in
 	do_rdp "$host" -F
 	;;
     ukftp)
-	host="193.219.181.197"
 	if [[ $2 == -a ]]; then
 		user='Administrator'
 	else
 		user='User'
 	fi; export user
-	do_rdp "$host"
+	do_rdp "193.219.181.197"
 	;;
     ukfc)
-	host="193.219.181.220"
-	user=FC; export user
-	do_rdp "$host"
+	export user='FC'
+	case $2 in
+	old) do_rdp '10.130.0.3';;
+	new) do_rdp '10.131.0.3';;
+	*)   do_rdp '193.219.181.220';;
+	esac
 	;;
     ukstekas)
-	host="192.168.20.8"
-	user=Stekas; export user
-	do_rdp "$host"
+	export user='Stekas'
+	do_rdp '192.168.20.8'
 	;;
     gmail)
 	host="imaps://imap.gmail.com"

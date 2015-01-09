@@ -1,3 +1,21 @@
 #!/usr/bin/env bash
-expac -Q '%r/%n %v' "$@" || true
-expac -S '%r/%n %v' "$@" || true
+{
+	expac -Q '%r/%n %v' "$@" || true
+	expac -S '%r/%n %v' "$@" || true
+} | {
+	declare -a packages=()
+	declare -A versions=()
+	declare -i width=0
+
+	while read -r name version; do
+		packages+=("$name")
+		versions["$name"]=$version
+		if (( ${#name} > width )); then
+			width=${#name}
+		fi
+	done
+
+	for name in "${packages[@]}"; do
+		printf '%-*s %s\n' "$width" "$name" "${versions["$name"]}"
+	done
+}

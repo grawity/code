@@ -23,7 +23,12 @@ sub plural {
 	unless ($int % 10 == 1 && $int % 100 != 11) {
 		$str .= "s";
 	}
-	return "$int $str";
+	return $str;
+}
+
+sub xplural {
+	my ($int, $str) = @_;
+	return $int." ".plural($int, $str);
 }
 
 sub parse_hours {
@@ -84,9 +89,10 @@ for my $bus (@buses) {
 	my $time = fmt_hours($_time);
 	my @days = @$days;
 	my $upcoming = !$found && $status ne "-";
+	my $delta = $_time - $now;
 
-	if ($_time < $now + $walk_time) {
-		if ($_time < $now - 60) {
+	if ($delta < $walk_time) {
+		if ($delta < -60) {
 			_debug("skipping [$time] <$dest>, missed");
 			next;
 		}
@@ -94,7 +100,7 @@ for my $bus (@buses) {
 		$upcoming = 0;
 	}
 
-	if ($_time > $now + 60*5) {
+	if ($delta > 60*5) {
 		_debug("skipping [$time] <$dest>, too late");
 		next;
 	}
@@ -114,7 +120,7 @@ for my $bus (@buses) {
 		"  ",
 		$dest,
 		" "x(20-mbswidth($dest)),
-		$_time > $now ? "(".plural($_time-$now, "minute").")" : "",
+		$delta > 0 ? "(".interval($delta*60, 0)." ".xplural($delta, "minute").")" : "",
 		"\n";
 	
 	if ($status eq "+") {

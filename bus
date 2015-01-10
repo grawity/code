@@ -128,26 +128,32 @@ for my $bus (@buses) {
 		$delta > 0 ? interval($delta*60, 0) : "",
 		$COLOR{"reset"},
 		"\n";
-	
+
+	if ($status ne "-" && $delta > 0) {
+		$next ||= $_time;
+	}
+
 	if ($status eq "+" && $delta > 10) {
 		$found ||= $_time;
 	}
 }
 
-if ($found) {
-	my $delta = $found - $now;
-	print
-		"\n",
-		$delta < 10 ? "\e[1;33m" : "",
-		"  You have ",
-		xplural($delta, "minute"),
-		" until the ",
-		$COLOR{"upcoming_bg"},
-		" ",
-		fmt_hours($found),
-		" ",
-		$COLOR{"reset_bg"},
-		" bus.",
-		$COLOR{"reset"},
-		"\n";
+if ($next) {
+	for (uniq $next, $found) {
+		my $delta = $_ - $now;
+		print
+			"\n",
+			$delta < 10 ? "\e[1;33m" : "",
+			"  You have ",
+			xplural($delta, "minute"),
+			" until the ",
+			$COLOR{"upcoming_bg"},
+			" ",
+			fmt_hours($_),
+			" ",
+			$COLOR{"reset_bg"},
+			" bus.",
+			$COLOR{"reset"},
+			"\n";
+	}
 }

@@ -1,0 +1,123 @@
+#!/usr/bin/env perl
+use open qw(:std :utf8);
+use strict;
+use utf8;
+use warnings;
+use Data::Dumper;
+use Nullroute::Lib;
+use Text::CharWidth qw(mbswidth);
+
+my @WEEKDAYS = qw(Se Pr An Tr Ke Pe Še);
+
+my %COLOR = (
+	"missed" => "\e[38;5;8m",
+	"upcoming" => "\e[1m",
+	"+" => "\e[38;5;10m",
+	"?" => "\e[38;5;3m",
+	"-" => "\e[38;5;1m",
+	"reset" => "\e[m",
+);
+
+sub plural {
+	my ($int, $str) = @_;
+	unless ($int % 10 == 1) {
+		$str .= "s";
+	}
+	return "$int $str";
+}
+
+sub parse_hours {
+	my ($str) = @_;
+	my ($h, $m) = map {int} split(/:/, $str);
+	return $h * 60 + $m;
+}
+
+sub now_hours {
+	my @tm = localtime;
+	return $tm[2] * 60 + $tm[1];
+}
+
+sub fmt_hours {
+	my ($int) = @_;
+	my ($h, $m) = map {int} $int / 60, $int % 60;
+	return sprintf("%02d:%02d", $h, $m);
+}
+
+sub now_weekday {
+	my @tm = localtime;
+	return $WEEKDAYS[$tm[6]];
+}
+
+sub load_datafile {
+	my ($path) = @_;
+	my @data;
+	my $fh;
+
+	open($fh, "<", $path)
+	|| _die("cannot open '$path': $!");
+	while (<$fh>) {
+		chomp;
+		my ($time, $status, $dest) = split(/\s+/, $_, 3);
+		my @days;
+		$time = parse_hours($time);
+		if ($dest =~ / \[(\S+)\]$/) {
+			@days = split(/[, ]/, $1);
+			$dest =~ s///;
+		}
+		push @data, [\@days, $time, $dest, $status];
+	}
+	close($fh);
+	return @data;
+}
+
+my $file = $ENV{HOME}."/lib/buses.txt";
+my @buses = load_datafile($file);
+my $walk_time = 7;
+
+my $now = now_hours();
+my $day = now_weekday();
+my $found = 0;
+
+for my $bus (@buses) {
+	my ($days, $_time, $dest, $_status) = @$bus;
+	my $status = $_status;
+	my $time = fmt_hours($_time);
+	my @days = @$days;
+	my $upcoming = !$found && $status ne "-";
+
+	if ($_time < $now + $walk_time) {
+		if ($_time < $now - 60) {
+			_debug("skipping [$time] <$dest>, missed");
+			next;
+		}
+		$status = "missed";
+		$upcoming = 0;
+	}
+
+	if ($_time > $now + 60*5) {
+		_debug("skipping [$time] <$dest>, too late");
+		next;
+	}
+
+	if (@days && !grep {$_ eq $day} @days) {
+		_debug("skipping [$time] <$dest>, no weekdays ($day vs {@days})");
+		next;
+	}
+
+	print
+		$upcoming ? "→" : " ",
+		" ",
+		$upcoming ? $COLOR{"upcoming"} : "",
+		$COLOR{$status},
+		$time,
+		$COLOR{"reset"},
+		"  ",
+		$dest,
+		" "x(20-mbswidth($dest)),
+		$_time > $now ? "(".plural($_time-$now, "minute").")" : "",
+		"\n";
+	
+	if ($status eq "+") {
+		$found++;
+	}
+}

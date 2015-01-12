@@ -36,11 +36,6 @@ state_path = os.path.join(state_dir, "xterm-color-chooser.json")
 
 old_state_found = False
 
-def mkdir_p(path):
-    if not os.path.isdir(path):
-        mkdir_p(os.path.dirname(path))
-        os.mkdir(path)
-
 def screen_init(mode):
     if mode:
         sys.stdout.write("\033[?47h") # enable alternate buffer
@@ -517,7 +512,8 @@ def main(state):
 
     return True
 
-mkdir_p(state_dir)
+if not os.path.exists(state_dir):
+    os.makedirs(state_dir)
 
 if not sys.stdin.isatty():
     sys.stdin = open("/dev/tty", "r")

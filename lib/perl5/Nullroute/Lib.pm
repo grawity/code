@@ -187,8 +187,8 @@ sub interval {
 
 	if ($d > 1)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
-	elsif ($m > 0)	{ "${m} mins" }
-	else		{ "${s} secs" }
+	elsif ($m > 0)	{ "${m} min" }
+	else		{ "${s} sec" }
 }
 
 sub randstr {

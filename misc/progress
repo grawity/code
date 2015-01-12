@@ -4,6 +4,11 @@ use warnings;
 use strict;
 use POSIX qw(ceil);
 
+if (eval {require Text::CharWidth}) {
+	Text::CharWidth->import("mbswidth");
+} else {
+	sub mbswidth { length shift; }
+}
 
 my ($width, $count, $last);
 my $last_lines = 0;
@@ -15,7 +20,7 @@ sub status {
 	$out .= "\e[1G"; # cursor to column 1
 	$out .= "\e[0J"; # erase below
 	$out .= sprintf($fmt // "%s", $msg);
-	$last_lines = ceil(length($msg) / $width);
+	$last_lines = ceil(mbswidth($msg) / $width);
 	print $out;
 }
 

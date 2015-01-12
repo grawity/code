@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
 # progress - summarize line-based stdout to one dynamic progress line
+use feature qw(state);
 use warnings;
 use strict;
 use POSIX qw(ceil);
@@ -11,9 +12,9 @@ if (eval {require Text::CharWidth}) {
 }
 
 my ($width, $count, $last);
-my $last_lines = 0;
 
 sub status {
+	state $last_lines = 0;
 	my ($msg, $fmt) = @_;
 	my $out = "";
 	$out .= "\e[".($last_lines-1)."A" if $last_lines > 1; # cursor up

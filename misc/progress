@@ -2,17 +2,31 @@
 # progress - summarize line-based stdout to one dynamic progress line
 use warnings;
 use strict;
+use POSIX qw(ceil);
 
-$| = 1;
 
 my ($width, $count, $last);
+my $last_lines = 0;
+
+sub status {
+	my ($msg, $fmt) = @_;
+	my $out = "";
+	$out .= "\e[".($last_lines-1)."A" if $last_lines > 1; # cursor up
+	$out .= "\e[1G"; # cursor to column 1
+	$out .= "\e[0J"; # erase below
+	$out .= sprintf($fmt // "%s", $msg);
+	$last_lines = ceil(length($msg) / $width);
+	print $out;
+}
+
+$| = 1;
 
 $width = int(`stty size </dev/tty | awk '{print \$2}'`);
 $count = 0;
 $last = time;
 
 $SIG{INT} = sub {
-	printf("\r\033[K%s\n", "$count items (interrupted)");
+	status("$count items (interrupted)", "%s\n");
 	exit 1;
 };
 
@@ -24,9 +38,7 @@ while (++$count, my $str = <STDIN>) {
 	$last = $now;
 
 	chomp($str);
-	$pre = sprintf("%d ", $count);
-	$str = substr($str, 0, $width - length($pre));
-	printf("\r\033[K%s%s\r", $pre, $str);
+	status("$count $str", "\e[33m$count\e[m $str");
 }
 
-printf("\r\033[K%s\n", "$count items");
+status("$count items", "%s\n");

@@ -109,7 +109,6 @@ for url in sys.argv[1:]:
         msgid = "%s.%s@reddit" % (comment["author"],
                     comment["date"].isoformat())
         author = "%s@reddit" % comment["author"]
-        length = len(comment["text"]) + 1
 
         print("From %s %s" % (author, mboxdate))
         print("URL: %s" % comment["url"])
@@ -117,10 +116,11 @@ for url in sys.argv[1:]:
         print("From: <%s>" % author)
         print("Date: %s (%s)" % (mimedate, comment["date"].isoformat()))
         print("Subject: %s" % comment["subject"])
-        #print("Content-Type: text/plain; charset=utf-8")
-        print("Content-Type: text/html; charset=utf-8")
-        print("Content-Length: %d" % length)
-        print("")
-        print(comment["text"])
+        if comment["text"]:
+            length = len(comment["text"]) + 1
+            print("Content-Type: text/html; charset=utf-8")
+            print("Content-Length: %d" % length)
+            print("")
+            print(comment["text"])
         print("")
         sys.stdout.flush()

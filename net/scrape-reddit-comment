@@ -96,7 +96,8 @@ def scrape(url):
             "subject": title,
             "author": author,
             "date": ntime,
-            "text": text or "(No content)"}
+            "text": text or "(No content)",
+            "html": bool(text)}
 
 TIMEFMT_MBOX = "%a %b %_d %H:%M:%S %Y"
 TIMEFMT_MIME = "%a, %d %b %Y %H:%M:%S %z"
@@ -118,7 +119,10 @@ for url in sys.argv[1:]:
         print("Subject: %s" % comment["subject"])
         if comment["text"]:
             length = len(comment["text"]) + 1
-            print("Content-Type: text/html; charset=utf-8")
+            if comment.get("html"):
+                print("Content-Type: text/html; charset=utf-8")
+            else:
+                print("Content-Type: text/plain; charset=utf-8")
             print("Content-Length: %d" % length)
             print("")
             print(comment["text"])

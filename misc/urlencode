@@ -7,7 +7,7 @@ my %opts;
 
 sub usage {
 	print STDERR for
-	"Usage: urlencode [-Adprx] [string]\n",
+	"Usage: urlencode [-AdprxX] [string]\n",
 	"\n",
 	"    -A    encode for mq\n",
 	"    -d    decode\n",
@@ -15,7 +15,8 @@ sub usage {
 	"    -p    encode full path (allowing slashes)\n",
 	"    -q    encode quoted-printable\n",
 	"    -r    do not print newline\n",
-	"    -x    hex-encode (\\xAB)\n";
+	"    -x    hex-encode (\\xAB)\n",
+	"    -X    XML-escape\n";
 	exit;
 }
 
@@ -36,6 +37,11 @@ sub encode {
 		s/[^\/A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
 	} elsif ($opts{"q"}) {
 		s/[^\x21-\x3C\x3E-\x7E]/sprintf("=%02X", ord($&))/seg;
+	} elsif ($opts{"X"}) {
+		s/&/&amp;/g;
+		s/</&lt;/g;
+		s/>/&gt;/g;
+		s/"/&quot;/g;
 	} else {
 		s/[^A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
 	}
@@ -51,7 +57,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('Adopqrx', \%opts) || usage;
+getopts('AdopqrxX', \%opts) || usage;
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

@@ -51,9 +51,7 @@ int main(void) {
 		if (strncmp(sysname, "AC", 2) != 0)
 			continue;
 
-		if (is_online(dev)) {
-			printf("online\n");
-		} else {
+		if (!is_online(dev)) {
 			printf("offline\n");
 			return 0;
 		}

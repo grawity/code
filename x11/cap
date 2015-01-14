@@ -105,6 +105,25 @@ if (has_Shell) {
 			or _die("Shell->ScreenshotWindow failed");
 		}
 	}
+} elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
+	_debug("using fallback method (maim+slop)");
+
+	for ($mode) {
+		when ('area') {
+			system("maim", "-s", $file);
+		}
+		when ('fullscreen') {
+			system("maim", $file);
+		}
+		when ('window') {
+			if (-x "/usr/bin/xdotool") {
+				chomp(my $xid = `xdotool getactivewindow`);
+				system("maim", "-i", $xid, $file);
+			} else {
+				system("maim", "-s", $file);
+			}
+		}
+	}
 } else {
 	_debug("using fallback method (scrot)");
 

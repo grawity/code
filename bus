@@ -79,7 +79,7 @@ sub load_datafile {
 
 my $file = $ENV{HOME}."/lib/buses.txt";
 my @buses = load_datafile($file);
-my $walk_time = 7;
+my $walk_time = 10;
 
 my $now = now_hours();
 my $day = now_weekday();
@@ -95,7 +95,7 @@ for my $bus (@buses) {
 	my $delta = $_time - $now;
 
 	if ($delta < $walk_time) {
-		if ($delta < -60) {
+		if ($delta < -60) { # hide buses older than 1 hour
 			_debug("skipping [$time] <$dest>, missed");
 			next;
 		}
@@ -103,7 +103,7 @@ for my $bus (@buses) {
 		$upcoming = 0;
 	}
 
-	if ($delta > 60*5) {
+	if ($delta > 60*5) { # hide buses later than 5 hours
 		_debug("skipping [$time] <$dest>, too late");
 		next;
 	}
@@ -137,7 +137,7 @@ for my $bus (@buses) {
 		$next ||= $_time;
 	}
 
-	if ($status eq "+" && $delta > 10) {
+	if ($status eq "+" && $delta > $walk_time) {
 		$found ||= $_time;
 	}
 }

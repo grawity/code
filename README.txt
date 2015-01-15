@@ -92,7 +92,7 @@ Moved elsewhere:
     <https://github.com/grawity/ssh-publickeyd>
 
   ~/bin                 – random junk
-    <https://nullroute.eu.org/git/?p=hacks/nullca-scripts.git>
+    <https://nullroute.eu.org/git/?p=hacks/bin.git>
 
 Log:
 

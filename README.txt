@@ -85,6 +85,9 @@ Moved elsewhere:
   dzenify               – libnotify provider using dzen2
     <https://gist.github.com/grawity/d7d7e93d6c7215188592>
 
+  NullCA                – personal X.509 CA scripts in Ruby
+    <https://nullroute.eu.org/git/?p=hacks/nullca-scripts.git>
+
   ssh-publickeyd        – backend for SecureCRT's "public key assistant"
     <https://github.com/grawity/ssh-publickeyd>
 

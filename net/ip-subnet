@@ -7,9 +7,16 @@ from ipaddress import *
 
 try:
     network = ip_network(sys.argv[1])
-    submask = int(sys.argv[2][1:])
 
-    subnets = network.subnets(submask - network.prefixlen)
+    if sys.argv[2].startswith("/"):
+        submask = int(sys.argv[2][1:])
+        increment = submask - network.prefixlen
+    elif sys.argv[2].startswith("+"):
+        increment = int(sys.argv[2][1:])
+    else:
+        lib.die("submask should be /x or +x")
+
+    subnets = network.subnets(increment)
 
     for net in subnets:
         print(net)

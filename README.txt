@@ -80,10 +80,16 @@ The rest:
   misc/
     – stuff that will, some day, be cleaned up and put in the right place
 
-Things that used to be here:
+Moved elsewhere:
+
+  dzenify               – libnotify provider using dzen2
+    <https://gist.github.com/grawity/d7d7e93d6c7215188592>
 
   ssh-publickeyd        – backend for SecureCRT's "public key assistant"
-                          <https://github.com/grawity/ssh-publickeyd>
+    <https://github.com/grawity/ssh-publickeyd>
+
+  ~/bin                 – random junk
+    <https://nullroute.eu.org/git/?p=hacks/nullca-scripts.git>
 
 Log:
 

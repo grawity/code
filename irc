@@ -4,27 +4,7 @@
 
 host=virgule.cluenet.org
 
-lock=$XDG_RUNTIME_DIR/.irc.lock
-xlock=$lock@$XDG_SESSION_ID
-
 export MOSH_TITLE_NOPREFIX='y'
-
-r=0
-
-if [[ -e "$lock" && "$REALLY" != "yes" ]]; then
-	now=$(now)
-	then=$(stat -c %Y "$lock")
-	if (( now - then < 60 )); then
-		case $(<"$lock") in
-		in) die "You just did that.";;
-		out) die "You just left IRC. Take some time off.";;
-		esac
-	fi
-fi
-
-exec {fd}<>"$xlock"
-flock -xn $fd || die "You're already connected."
-echo 'in' > "$lock"
 
 opt=(
 	1049	# alternate screen
@@ -33,6 +13,8 @@ opt=(
 	1005	# UTF-8 mouse tracking
 	1002	# cell mouse tracking
 )
+
+r=0
 
 printf '\e[H\e[2J'
 printf '\e[?%sh' ${opt[@]}
@@ -48,12 +30,7 @@ printf '\e[H\e[2J'
 hi >&/dev/null &
 
 if (( r )); then
-	rm -f "$lock"
 	err "mosh exited with status $r"
-else
-	echo 'out' > "$lock"
 fi
-
-rm -f "$xlock"
 
 exit $r

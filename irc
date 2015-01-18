@@ -14,6 +14,10 @@ opt=(
 	1002	# cell mouse tracking
 )
 
+lock=$XDG_RUNTIME_DIR/.irc.lock@$XDG_SESSION_ID
+exec {fd}<> "$xlock"
+flock -xn $fd || die "already connected in session $XDG_SESSION_ID"
+
 r=0
 
 printf '\e[H\e[2J'
@@ -33,4 +37,5 @@ if (( r )); then
 	err "mosh exited with status $r"
 fi
 
+rm -f "$lock"
 exit $r

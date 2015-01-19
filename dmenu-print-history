@@ -18,7 +18,7 @@ $histfile = shift @ARGV // _die("missing histfile argument");
 _debug("loading history from $histfile");
 
 if (open(my $f, "<", $histfile)) {
-	@history = map {/^(\d+) (.+)$/ ? [$1, $2] : [0, $_]}
+	@history = map {/^(\d+) (.+)$/ ? [int $1, $2] : [0, $_]}
 	           grep {chomp; 1} <$f>;
 	close($f);
 } else {
@@ -34,8 +34,8 @@ exit if !@history;
 
 for (@history) {
 	my ($time, $item) = @$_;
-	if ($time{$item} < $time) {
-		$time{$item} = int $time;
+	if ($time{$item} // 0 < $time) {
+		$time{$item} = $time;
 	}
 }
 

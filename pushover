@@ -1,0 +1,21 @@
+#!/bin/bash
+title=$1
+summary=$2
+body=$3
+
+if ! [[ "$title" && "$summary" ]]; then
+	echo "error: missing title/summary" >&2
+	exit 1
+fi
+
+args=(-F "user=uSjWBy9oxBwZWgyJnXdPXM2eUbXnCN"
+      -F "token=aW4NXZn1hk7NntWFQXEkddbA76Zx9n"
+      -F "title=$HOSTNAME – $title"
+      -F "message=$summary")
+
+if [[ "$body" && "$body" != "$summary" ]]; then
+	url=($(curl -F "sprunge=$body" http://sprunge.us))
+	args+=(-F "url=$url")
+fi
+
+curl -s -o /dev/null "${args[@]}" https://api.pushover.net/1/messages.json

@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+use warnings;
 use feature qw(say);
 use Nullroute::Lib;
 
@@ -16,10 +17,10 @@ $histfile = shift @ARGV // _die("missing histfile argument");
 
 _debug("loading history from $histfile");
 
-if (open my $f, "<", $histfile) {
+if (open(my $f, "<", $histfile)) {
 	@history = map {/^(\d+) (.+)$/ ? [$1, $2] : [0, $_]}
 	           grep {chomp; 1} <$f>;
-	close $f;
+	close($f);
 } else {
 	if ($!{ENOENT}) {
 		_debug("could not open histfile: $!");
@@ -29,12 +30,7 @@ if (open my $f, "<", $histfile) {
 	}
 }
 
-if (!@history) {
-	_debug("histfile is empty");
-	exit;
-}
-
-my %time;
+exit if !@history;
 
 for (@history) {
 	my ($time, $item) = @$_;
@@ -45,7 +41,6 @@ for (@history) {
 
 @history = map {$_->[1]} @history;
 
-%count = ();
 $count{$_} += 1 for @history;
 $count{$_} *= rank($time{$_}) for keys %time;
 

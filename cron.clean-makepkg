@@ -9,14 +9,23 @@ else
 	vf='' vr=''
 fi
 
+# from cache, remove old files
+
 find ~/src/_makepkg/ -maxdepth 1 \
 	-type f \( -ctime +$days -not -perm +1111 \) \
 	$vf -delete
 
+# ...and name-invariant files
+
 rm $vr -f ~/src/_makepkg/*current*
+
+# from ~/pkg, remove broken links
 
 find ~/pkg/ -maxdepth 3 -xtype l $vf -delete
 
+# ...and pkg+src directories
+
 if [ -t 2 ]; then
-	find ~/pkg/ -name PKGBUILD -execdir rm $vr -rf pkg src \;
+	find ~/pkg/ -name PKGBUILD \( -not -perm /+t \) \
+		-execdir rm $vr -rf pkg src \;
 fi

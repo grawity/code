@@ -161,6 +161,8 @@ $(OBJ)/args:		misc/args.c
 $(OBJ)/bgrep:		thirdparty/bgrep.c
 $(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/codeset:		misc/codeset.c
+$(OBJ)/entropy:		LDLIBS += -lm
+$(OBJ)/entropy:		security/entropy.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)

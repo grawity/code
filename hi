@@ -12,7 +12,7 @@ exec {fd}<"$log" || die "cannot open highlight cache"
 flock -x -w3 $fd || die "another instance is running"
 
 fmt() {
-	perl -M'POSIX' -M'POSIX::strptime' -E'
+	perl -M'POSIX' -M'POSIX::strptime' -M'Nullroute::Lib' -E'
 
 	if (-t 1) {
 		$C{DARK} = "\e[38;5;8m";
@@ -39,11 +39,6 @@ fmt() {
 
 	for (<>) {
 		($date, $buffer, @line) = split(/\t/);
-
-		@tm = POSIX::strptime($date, "%Y-%m-%d %H:%M:%S %z");
-		$udate = mktime(@tm);
-		$fmt = (time - $udate < 70000) ? "%H:%M" : "%b %-d, %H:%M";
-		$sdate = strftime($fmt, @tm);
 
 		$buffer =~ s/^<(.+)>$/$1/;
 
@@ -83,7 +78,7 @@ fmt() {
 		next if ($from =~ /^-Global-$/i && $line =~ /\[(Logon|Random) News -/);
 		next if $line =~ /You are connected to .* with TLS.*/;
 
-		push @lines, [$buffer, $from, $line];
+		push @lines, [$date, $buffer, $from, $line];
 	}
 
 	if ($max >= 0) {
@@ -91,7 +86,14 @@ fmt() {
 	}
 
 	for (@lines) {
-		($buffer, $from, $line) = @$_;
+		($date, $buffer, $from, $line) = @$_;
+
+		@tm = POSIX::strptime($date, "%Y-%m-%d %H:%M:%S %z");
+		$udate = mktime(@tm);
+		$fmt = (time - $udate < 70000) ? "%H:%M" : "%b %-d, %H:%M";
+		$sdate = strftime($fmt, @tm);
+
+		_debug("date \"$date\", tm [@tm], udate $udate, sdate \"$sdate\"");
 
 		if ($from =~ /^-/) {
 			$C{tPFX} = $C{NOTICE};

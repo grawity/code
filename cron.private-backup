@@ -1,12 +1,18 @@
 #!/bin/sh
 
 k_grawity='2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632'
-k_nathan='852E5BA4D9D15EFC37FEA5789DCC67E0901AB0CD'
-k_henrik='0E01120D002CA0F65B9E990E149794CB0A0ADFBF'
+k_nathan='852E5BA4D9D15EFC37FEA5789DCC67E0901AB0CD' # share 1 of 3
+k_henrik='0E01120D002CA0F65B9E990E149794CB0A0ADFBF' # share 2 of 3
+k_fahadsadah='???' # share 3 of 3
+people="-r $k_nathan -r $k_henrik"
 
-is_up() { ping -c 1 "$1" >& /dev/null; }
+is_up() {
+	[ "$SSH_AUTH_SOCK" ] && ping -c 1 "$1" >& /dev/null
+}
 
-_gpg() { gpg --batch --trust-model always "$@"; }
+_gpg() {
+	gpg --batch --trust-model always --personal-cipher-preferences AES "$@"
+}
 
 hourly() {
 	# push to local cache
@@ -30,13 +36,16 @@ daily() {
 		(if is_up $host; then
 			(if cd ~/Private/keys; then
 				git archive --prefix='keys/' HEAD \
-					| _gpg -e -r $k_nathan -r $k_henrik \
-					| ssh $host 'bin/aupd private/.keys.tar.gpg'
+				| _gpg -e $people \
+				| ssh $host 'bin/aupd private/.keys.tar.gpg'
 			fi)
 			(if cd ~/Private/accdb; then
 				git archive --prefix='accdb/' HEAD \
-					| _gpg -e -r $k_nathan -r $k_henrik \
-					| ssh $host 'bin/aupd private/.accdb.tar.gpg'
+				| _gpg -e $people \
+				| ssh $host 'bin/aupd private/.accdb.tar.gpg'
+			fi)
+			(if cd ~/Private; then
+				scp -q ~/Private/.aupd/readme $host:'private/README.txt'
 			fi)
 		fi) &
 	done

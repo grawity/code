@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+have pesign    || err "missing 'pesign' tool"
+(( ! errors )) || exit
+
+nssdb="sql:$HOME/.pki/nssdb"
+cert='objsign/Mantas Mikulenas'
+
+while getopts 'd:c:' OPT; do
+	case $OPT in
+	'd') nssdb=$OPTARG;;
+	'c') cert=$OPTARG;;
+	esac
+done
+
+in_exe=$1
+out_exe=${in_exe%.*}-signed.${in_exe##*.}
+
+pesign --verbose \
+	--certdir="$nssdb" \
+	--certficate="$cert" \
+	--in="$in_exe" \
+	--out="$out_exe" \
+	--sign

@@ -49,6 +49,7 @@ sub notify {
 }
 
 my $sleep = 0;
+my $sleep_area = 0;
 my $frame = 1;
 my $flash = 1;
 my $cursor = 0;
@@ -68,6 +69,7 @@ GetOptions(
 	'cursor!'	=> \$cursor,
 	'flash!'	=> \$flash,
 	's|sleep=f'	=> \$sleep,
+	'S|sleeparea=f'	=> \$sleep_area,
 	't|temporary!'	=> \$temporary,
 ) or exit 2;
 
@@ -101,6 +103,10 @@ if (has_Shell) {
 					label => "Select area"});
 			my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
 			or _die("Shell->SelectArea failed");
+			if ($sleep_area) {
+				say STDERR "waiting $sleep_area seconds...";
+				usleep($sleep_area * 1_000_000);
+			}
 			$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file_rel)
 			or _die("Shell->ScreenshotArea failed");
 		}
@@ -118,7 +124,14 @@ if (has_Shell) {
 
 	for ($mode) {
 		when ('area') {
-			system("maim", "-s", $file);
+			if ($sleep_area) {
+				chomp(my $geom = `slop -f %g`);
+				say STDERR "waiting $sleep_area seconds...";
+				usleep($sleep_area * 1_000_000);
+				system("maim", "-g", $geom, $file);
+			} else {
+				system("maim", "-s", $file);
+			}
 		}
 		when ('fullscreen') {
 			system("maim", $file);

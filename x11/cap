@@ -14,6 +14,7 @@ use Net::DBus;
 use Nullroute::Lib qw(_debug _notice _die);
 use Nullroute::Dir qw(xdg_userdir);
 use POSIX qw(strftime :sys_wait_h);
+use Time::HiRes qw(usleep);
 
 sub has_Shell {
 	Net::DBus->session
@@ -47,6 +48,7 @@ sub notify {
 		$opts{timeout} // 1*1000);
 }
 
+my $sleep = 0;
 my $frame = 1;
 my $flash = 1;
 my $cursor = 0;
@@ -65,8 +67,14 @@ GetOptions(
 	'frame!'	=> \$frame,
 	'cursor!'	=> \$cursor,
 	'flash!'	=> \$flash,
+	's|sleep=f'	=> \$sleep,
 	't|temporary!'	=> \$temporary,
 ) or exit 2;
+
+if ($sleep) {
+	say STDERR "waiting $sleep seconds...";
+	usleep($sleep * 1_000_000);
+}
 
 if ($temporary) {
 	$template =~ s/[^.]+?$/temp.$&/;

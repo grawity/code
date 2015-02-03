@@ -20,6 +20,7 @@ our @EXPORT = qw(
 	lt_nin_checksum
 	lt_nin_parse
 	lt_nin_random
+	lt_nin_valid
 
 	sd_notify
 );
@@ -27,7 +28,7 @@ our @EXPORT = qw(
 ### National identification numbers
 
 sub lt_nin_checksum {
-	my $nin = shift;
+	my ($nin) = @_;
 
 	my @digits;
 
@@ -55,8 +56,14 @@ sub lt_nin_checksum {
 	return join("", @digits, $k);
 }
 
+sub lt_nin_valid {
+	my ($nin) = @_;
+
+	return $nin eq (lt_nin_checksum($nin) // "");
+}
+
 sub lt_nin_parse {
-	my $nin = shift;
+	my ($nin) = @_;
 
 	my @digits = map {int} split(//, $nin);
 	my ($csum, $gender, $year, $month, $day);

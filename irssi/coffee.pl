@@ -26,4 +26,8 @@ Irssi::signal_add("send text" => sub {
 		$witem->command("names");
 		Irssi::signal_stop;
 	}
+	elsif ($line =~ /^[:;]w?q$/) {
+		$witem->print("This is not Vi.");
+		Irssi::signal_stop;
+	}
 });

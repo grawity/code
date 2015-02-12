@@ -235,6 +235,10 @@ sub restore_from_info {
 	}
 }
 
+sub find_home_trash {
+	return ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
+}
+
 =item find_trash_dir($orig_path)
 
 Find the best trash directory to use, according to XDG Trash Dir spec.
@@ -249,7 +253,7 @@ Find the best trash directory to use, according to XDG Trash Dir spec.
 sub find_trash_dir {
 	my ($orig_path) = @_;
 
-	my $home_trash = ($ENV{XDG_DATA_HOME} // $ENV{HOME}."/.local/share") . "/Trash";
+	my $home_trash = find_home_trash();
 
 	ensure($home_trash);
 
@@ -401,11 +405,15 @@ sub usage {
 
 # Option parser
 
+my $opt_du = 0;
+my $opt_empty = 0;
 my $print_path = 0;
 my $restore = 0;
 
 GetOptions(
 	'help'		=> sub { usage(); exit; },
+	'du'		=> \$opt_du,
+	'empty'		=> \$opt_empty,
 	'find-trash!'	=> \$print_path,
 	'f|force'	=> sub { },
 	'i|interactive!'=> \$interactive,
@@ -413,6 +421,13 @@ GetOptions(
 	'r|R|recursive'	=> sub { },
 	'v|verbose!'	=> \$verbose,
 ) or exit 2;
+
+if ($opt_du) {
+	exit system("du", "-hs", find_home_trash());
+} elsif ($opt_empty) {
+	# yeah I'm lazy
+	exit system("gvfs-trash", "--empty");
+}
 
 if (!@ARGV) {
 	_die("no files given");

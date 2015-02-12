@@ -117,6 +117,7 @@ log() {
 
 log2() {
 	lib::msg "$*" 'log2' '\e[1;35m' '==' '\e[35m' '\e[1m'
+	settitle "$progname: $*"
 }
 
 status() {

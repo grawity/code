@@ -9,7 +9,7 @@ for f in "$@"; do
     if [[ -e "$f" ]]; then
         curl_args+=(-F "files[]=@$f")
     else
-        warn "file '$f' does not exist"
+        warn "file '$f' not found"
     fi
 done
 
@@ -21,7 +21,7 @@ if [[ -t 2 ]]; then
     curl_args+=(-#)
 fi
 
-upload=$(curl -S "${curl_args[@]}" http://pomf.se/upload.php)
+upload=$(curl -S "${curl_args[@]}" https://pomf.se/upload.php)
 geturls=$(jshon -e files -a -e name -upe url -u <<< "$upload")
 clip=()
 
@@ -29,7 +29,7 @@ while {
     read -r name
     read -r url
 } do
-    url="http://a.pomf.se/$url"
+    url=https://a.pomf.se/$url
     printf '%s: %s\n' "$name" "$url"
     clip+=("$url")
 done <<< "$geturls"

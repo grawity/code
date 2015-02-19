@@ -11,11 +11,10 @@ for f in "$@"; do
         err "file '$f' not found"
     fi
 done
+
 (( !errors )) || exit
 
-if (( ! ${#curl_args[@]} )); then
-    die "nothing to upload"
-fi
+(( ${#curl_args[@]} )) || die "nothing to upload"
 
 if [[ -t 2 ]] && larger_than "$f" "1 << 18"; then
     curl_args+=(-#)
@@ -26,10 +25,7 @@ fi
 upload=$(curl -S "${curl_args[@]}" https://pomf.se/upload.php)
 urls=$(jshon -e files -a -e name -upe url -u <<< "$upload")
 clip=()
-while {
-    read -r name
-    read -r url
-} do
+while { read -r name; read -r url; } do
     url=https://a.pomf.se/$url
     echo "$name → $url"
     clip+=("$url")

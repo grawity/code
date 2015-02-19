@@ -17,8 +17,10 @@ for f in "$@"; do
         continue
     fi
 
-    if [[ -t 2 ]]; then
+    if [[ -t 2 ]] && larger_than "$f" "1 << 18"; then
         curl_args+=(-#)
+    else
+        curl_args+=(-s)
     fi
 
     url=$(curl -S "${curl_args[@]}" "http://uguu.se/api.php?d=upload")
@@ -30,4 +32,4 @@ if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then
     echo -n "${clip[*]}" | xsel -i -b
 fi
 
-(( ! errors ))
+(( !errors ))

@@ -11,11 +11,16 @@ for f in "$@"; do
         err "file '$f' not found"
     fi
 done
+(( !errors )) || exit
+
 if (( ! ${#curl_args[@]} )); then
     die "nothing to upload"
 fi
-if [[ -t 2 ]]; then
+
+if [[ -t 2 ]] && larger_than "$f" "1 << 18"; then
     curl_args+=(-#)
+else
+    curl_args+=(-s)
 fi
 
 upload=$(curl -S "${curl_args[@]}" https://pomf.se/upload.php)
@@ -26,7 +31,7 @@ while {
     read -r url
 } do
     url=https://a.pomf.se/$url
-    printf '%s: %s\n' "$name" "$url"
+    echo "$name → $url"
     clip+=("$url")
 done <<< "$urls"
 
@@ -34,4 +39,4 @@ if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then
     echo -n "${clip[*]}" | xsel -i -b
 fi
 
-(( ! errors ))
+(( !errors ))

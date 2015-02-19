@@ -160,7 +160,7 @@ if (has_Shell) {
 	}
 }
 
-if (! -f $file) {
+if (!-f $file) {
 	notify("Screenshot failed.",
 		icon => "error",
 		hints => {
@@ -176,6 +176,7 @@ my $uri = "file://$file";
 if ($upload) {
 	my $upload_pid;
 	my $upload_output;
+	my $upload_start = time;
 
 	local $SIG{CHLD} = sub {
 		my $pid = waitpid(-1, WNOHANG);
@@ -190,8 +191,9 @@ if ($upload) {
 	};
 
 	while ($upload_pid) {
+		my $t = time - $upload_start;
 		notify("Screenshot captured",
-			body => "Uploading...",
+			body => "Uploading… (".$t."s)",
 			hints => {
 				category => "transfer",
 				transient => dbus_boolean(1),

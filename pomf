@@ -1,19 +1,20 @@
-#!/bin/bash
-# ~/.local/bin/pomf <file [file [...]]>
+#!/usr/bin/env bash
+# vim: ts=4:sw=4:et
 
-# Generate the form arguments for curl
+. lib.bash || exit
+
+curl_args=()
+
 for f in "$@"; do
     if [[ -e "$f" ]]; then
         curl_args+=(-F "files[]=@$f")
     else
-        printf >&2 '%s: File does not exist\n' "$f"
+        warn "file '$f' does not exist"
     fi
 done
 
-# Make sure we have something to upload
-if [[ -z "$curl_args" ]]; then
-    printf >&2 'Nothing found to upload\n'
-    exit 1
+if (( ! ${#curl_args[@]} )); then
+    die "nothing to upload"
 fi
 
 if [[ -t 2 ]]; then

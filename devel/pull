@@ -72,12 +72,16 @@ do_pull() {
 		fi
 	elif [[ -d .git ]]; then
 		is "Git"
-		rev() { git rev-parse --verify HEAD; }
+		rev() { git rev-parse --verify ${1:-HEAD}; }
 		old=$(rev)
-		log: git pull --ff-only
-		new=$(rev)
-		if [[ -e .gitmodules ]]; then
-			log: git submodule update
+		if log: git pull --ff-only; then
+			new=$(rev)
+			if [[ -e .gitmodules ]]; then
+				log: git submodule update
+			fi
+		else
+			new=$(rev @{u})
+			log: git --no-pager diff --stat "@{u}@{1}".."@{u}"
 		fi
 		if [[ "$old" != "$new" ]]; then
 			old=${old:0:12}

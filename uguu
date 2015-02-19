@@ -2,6 +2,7 @@
 # vim: ts=4:sw=4:et
 
 . lib.bash || exit
+. libkitchensink.bash || exit
 
 (( $# )) || die "nothing to upload"
 
@@ -21,9 +22,21 @@ for f in "$@"; do
         curl_args+=(-s)
     fi
 
-    url=$(curl -S "${curl_args[@]}" "http://uguu.se/api.php?d=upload")
+    if expire=$(ks:getattr "$f" "uguu.expire"); then
+        if (( expire > `now` )); then
+            url=$(ks:getattr "$f" "uguu.url")
+        fi
+    fi
+
+    if [[ ! $url ]]; then
+        url=$(curl -S "${curl_args[@]}" "http://uguu.se/api.php?d=upload")
+    fi
+
     echo "$f → $url"
     clip+=("$url")
+
+    ks:setattr "$f" "uguu.expire" "$(( `now` + 3600 ))"
+    ks:setattr "$f" "uguu.url" "$url"
 done
 
 if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then

@@ -4,27 +4,23 @@
 . lib.bash || exit
 
 curl_args=()
-
 for f in "$@"; do
     if [[ -e "$f" ]]; then
         curl_args+=(-F "files[]=@$f")
     else
-        warn "file '$f' not found"
+        err "file '$f' not found"
     fi
 done
-
 if (( ! ${#curl_args[@]} )); then
     die "nothing to upload"
 fi
-
 if [[ -t 2 ]]; then
     curl_args+=(-#)
 fi
 
 upload=$(curl -S "${curl_args[@]}" https://pomf.se/upload.php)
-geturls=$(jshon -e files -a -e name -upe url -u <<< "$upload")
+urls=$(jshon -e files -a -e name -upe url -u <<< "$upload")
 clip=()
-
 while {
     read -r name
     read -r url
@@ -32,7 +28,7 @@ while {
     url=https://a.pomf.se/$url
     printf '%s: %s\n' "$name" "$url"
     clip+=("$url")
-done <<< "$geturls"
+done <<< "$urls"
 
 if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then
     echo -n "${clip[*]}" | xsel -i -b

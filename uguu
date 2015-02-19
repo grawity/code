@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# vim: ts=4:sw=4:et
+
+. lib.bash || exit
+
+if (( ! $# )); then
+    die "nothing to upload"
+fi
+
+clip=()
+
+for f in "$@"; do
+    if [[ -e "$f" ]]; then
+        curl_args=(-F "file=@$f")
+    else
+        err "file '$f' not found"
+        continue
+    fi
+
+    if [[ -t 2 ]]; then
+        curl_args+=(-#)
+    fi
+
+    url=$(curl -S "${curl_args[@]}" "http://uguu.se/api.php?d=upload")
+    echo "$f → $url"
+    clip+=("$url")
+done
+
+if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then
+    echo -n "${clip[*]}" | xsel -i -b
+fi
+
+(( ! errors ))

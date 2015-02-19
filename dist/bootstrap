@@ -113,18 +113,23 @@ if [[ -e ~/.noforward ]]; then
 elif [[ -s ~/.forward ]]; then
 	log "mail forwarding already configured (to $(sed 1q ~/.forward))"
 else
+	if ! sendmail=$(pick /usr/{lib,bin,sbin}/sendmail); then
+		warn "'sendmail' not installed"
+		sendmail=/usr/sbin/sendmail
+	fi
+
 	log "forwarding mail to $EMAIL"
 	echo "$EMAIL" > ~/.forward
 
-	if ! sendmail=$(pick /usr/{lib,sbin}/sendmail); then
-		warn "'sendmail' not installed"
-	elif confirm "send test mail?"; then
-		{
-		echo "Subject: Test from $HOSTNAME"
-		echo "Date: $(date "+%a, %d %b %Y %H:%M:%S %z")"
-		echo "To: <$EMAIL>"
-		echo ""
-		echo "Test mail from $USER ($UID) at $(fqdn || hostname)"
-		} | $sendmail -i "$EMAIL"
+	if [[ -x $sendmail ]]; then
+		if confirm "send test mail?"; then
+			{
+			echo "Subject: Test from $HOSTNAME"
+			echo "Date: $(date "+%a, %d %b %Y %H:%M:%S %z")"
+			echo "To: <$EMAIL>"
+			echo ""
+			echo "Test mail from $USER ($UID) at $(fqdn || hostname)"
+			} | $sendmail -i "$EMAIL"
+		fi
 	fi
 fi

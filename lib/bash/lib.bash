@@ -207,6 +207,12 @@ older_than() {
 	(( filets < datets ))
 }
 
+larger_than() {
+	local file=$1 size=$2 filesz
+	filesz=$(stat -c %s "$file")
+	(( filesz > size ))
+}
+
 lib::is_nested() {
 	(( LVL "$@" ))
 }

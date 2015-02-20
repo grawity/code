@@ -61,7 +61,7 @@ for file in *.jpg *.jpeg *.png *.gif; do
 		put "$file" ~/Pictures/Art/r-awwnime/;;
 	/r/bdsm/*|/r/bdsmgw/*)
 		put "$file" ~/Pictures/Porn/;;
-	/r/pantsu/*)
+	/r/pantsu/*|/r/sukebei/*)
 		put "$file" ~/Pictures/Ero/;;
 	/r/ecchi/*|/r/hentai/*|http://gelbooru.com/*)
 		put "$file" ~/Pictures/Ero/;;

@@ -16,6 +16,14 @@ sub ldap_format_error {
 	$text .= "\n * error code: ".$res->error_name if $::debug;
 	$text .= "\n * failed entry: ".$dn            if $dn;
 	$text .= "\n * matched entry: ".$res->dn      if $res->dn;
+	my $i = 1;
+	while ($::debug) {
+		my ($pkg, $file, $line, $subr) = caller($i++);
+		if (!$pkg) {
+			last;
+		}
+		$text .= "\n * stack: $pkg | $file:$line | $subr";
+	}
 	return $text;
 }
 

@@ -163,25 +163,33 @@ end
 
 dh = OpenSSL::PKey::DH.new(params)
 
+# if given our old private key, verify it and resume
+
 if ask_my_private
     my_private = bn_input(ask("my private key?")) or exit
 end
-
-if other_public
-    check_key_size!(dh, other_public, "their public key")
-end
-
 if my_private
     check_key_size!(dh, my_private, "my private key")
     dh.priv_key = my_private
 end
 
+# if given other party's public key, verify it early
+
+if other_public
+    check_key_size!(dh, other_public, "their public key")
+end
+
+# generate our private key if not given; extract our public key
+
 dh.generate_key!
 
-puts "my public key: " + color(bn_output(dh.pub_key), "32")
 if show_private
     puts "my private key: " + color(bn_output(dh.priv_key), "31")
 end
+puts "my public key: " + color(bn_output(dh.pub_key), "32")
+
+# if not given other party's public key, ask for it
+#   (conditions reversed, yes)
 
 if !other_public
     if !ask_other_public
@@ -190,6 +198,8 @@ if !other_public
     other_public = bn_input(ask("their public key?")) or exit
     check_key_size!(dh, other_public, "their public key")
 end
+
+# compute shared secret
 
 secret = dh.compute_key(other_public)
 length = "#{secret.length * 8} bits"
@@ -203,8 +213,7 @@ else
     puts "shared secret (#{length}): " + color(buf_to_hex(secret), "36")
 end
 
-hash = OpenSSL::Digest::SHA1.digest(secret)
-
-puts "hash of secret: " + color(buf_to_hex(hash), "33")
+secret_hash = OpenSSL::Digest::SHA1.digest(secret)
+puts "hash of secret: " + color(buf_to_hex(secret_hash), "33")
 
 # vim: ts=4:sw=4:et

@@ -103,6 +103,7 @@ EOF
 params = builtin_params[2048]
 my_private = nil
 other_public = nil
+ask_my_private = false
 ask_other_public = true
 secret_file = nil
 show_private = false
@@ -147,6 +148,9 @@ OptionParser.new do |opts|
     end
     opts.on("-r", "--resume-with-privkey KEY", String, "Reuse old private key") do |s|
         my_private = bn_input(s)
+        if my_private.nil?
+            ask_my_private = true
+        end
     end
 
     opts.separator("")
@@ -158,6 +162,10 @@ if !show_private and !other_public and !ask_other_public
 end
 
 dh = OpenSSL::PKey::DH.new(params)
+
+if ask_my_private
+    my_private = bn_input(ask("my private key?")) or exit
+end
 
 if other_public
     check_key_size!(dh, other_public, "their public key")

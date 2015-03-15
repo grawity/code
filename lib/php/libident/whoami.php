@@ -30,7 +30,7 @@ if (@include "libident.php") {
 		);
 	}
 	elseif ($ident->success) {
-		$i["identification"] = array(
+		$i["ident"] = array(
 			"status" => "success",
 			"response" => $ident->response_type,
 			"user-id" => $ident->userid,
@@ -39,7 +39,7 @@ if (@include "libident.php") {
 		);
 	}
 	else {
-		$i["identification"] = array(
+		$i["ident"] = array(
 			"status" => "failure",
 			"response" => $ident->response_type,
 			"additional" => $ident->add_info,

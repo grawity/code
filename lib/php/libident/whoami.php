@@ -16,6 +16,13 @@ if (@include "libident.php") {
 	Ident\Ident::$timeout = 3;
 	$ident = Ident\query_cgiremote();
 
+	if ($ident) {
+		$i["raw"] = array(
+			"request" => $ident->raw_request,
+			"reply" => $ident->raw_reply,
+		);
+	}
+
 	if (!$ident) {
 		$i["ident"] = array(
 			"status" => "failure",
@@ -36,13 +43,6 @@ if (@include "libident.php") {
 			"status" => "failure",
 			"response" => $ident->response_type,
 			"additional" => $ident->add_info,
-		);
-	}
-
-	if ($ident) {
-		$i["raw"] = array(
-			"request" => $ident->raw_request,
-			"reply" => $ident->raw_reply,
 		);
 	}
 }

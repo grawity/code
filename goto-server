@@ -121,6 +121,21 @@ case $1 in
 	die "missing host name"
 	;;
     *)
-	die "unknown host '$1'";
+	name="$1"
+	if [[ $2 ]]; then
+		name+="-$2"
+	fi
+	ip= rest=
+	while read -r _name _ip _rest; do
+		if [[ $name == "$_name" ]]; then
+			ip=$_ip
+			rest=$_rest
+		fi
+	done < ~/lib/servers.txt
+	if [[ $ip ]]; then
+		do_rdp "$ip" $rest
+	else
+		die "unknown host '$1'";
+	fi
 esac
 # vim: sts=8

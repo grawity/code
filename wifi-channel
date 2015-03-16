@@ -1,0 +1,50 @@
+#!/usr/bin/env perl
+use v5.14;
+use open qw(:std :utf8);
+use utf8;
+use Getopt::Long qw(:config no_ignore_case);
+
+my $width = 40;
+my $ext_above = 1;
+
+GetOptions(
+	"w|width=i" => \$width,
+	"above" => sub { $ext_above = 1 },
+	"below" => sub { $ext_above = 0 },
+);
+
+sub print_channel {
+	my ($center, $width, $name) = @_;
+	my $left = $center - $width/2;
+	my $right = $center + $width/2;
+	say "$name: $center MHz";
+	say "  from $left MHz";
+	say "    to $right MHz";
+	say "";
+}
+
+for my $arg (@ARGV) {
+	my $center = $arg;
+	my ($left, $right);
+
+	if ($width == 40) {
+		$width = 20;
+		my $main = $center;
+		my $ext = ($ext_above) ? $main + $width : $main - $width;
+
+		print_channel($ext, $width, "extension") if $ext < $main;
+		print_channel($main, $width, "main");
+		print_channel($ext, $width, "extension") if $ext > $main;
+
+		$left = ($ext_above ? $main : $ext) - $width/2;
+		$right = ($ext_above ? $ext : $main) + $width/2;
+	}
+	else {
+		print_channel($center, $width, "main");
+
+		$left = $center - $width/2;
+		$right = $center + $width/2;
+	}
+
+	say "reserve: ".($left-20)." – ".($right+20)." MHz";
+}

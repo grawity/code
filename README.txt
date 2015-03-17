@@ -53,7 +53,6 @@ The "that's nice... but what's it good for?" stuff:
   misc/
     uniboxify           – convert ASCII box drawings to Unicode box drawings
   security/
-    accdb/              – plain-text account & password database
     denettalk           – decrypt Nettalk "NCTCTC001"-encrypted messages
     dh                  – do a D-H key exchange over IRC or whatever
     ssh-duphosts        – clean up ~/.ssh/known_hosts
@@ -82,6 +81,9 @@ The rest:
 
 Moved elsewhere:
 
+  accdb                 – plain-text account & password database
+    <https://github.com/grawity/accdb>
+
   dzenify               – libnotify provider using dzen2
     <https://gist.github.com/grawity/d7d7e93d6c7215188592>
 
@@ -99,5 +101,6 @@ Log:
   * 2009-11-28: initial commit of "simplehttpd"
   * 2010-01-01: initial commit of the "main" repository
   * 2014-07-29: cleaned up old branches; moved to refs/attic/* to avoid clutter
+  * 2015-03-16: exported security/accdb
 
 vim: ts=4:sw=4:et

@@ -15,7 +15,11 @@ _num_errors = 0
 ## regular log messages
 
 def _log(prefix, msg, color=""):
-    print("\033[%sm%s:\033[m %s" % (color, prefix, msg), file=sys.stderr)
+    fh = sys.stderr
+    if getattr(fh, "isatty", lambda: True)():
+        print("\033[%sm%s:\033[m %s" % (color, prefix, msg), file=fh)
+    else:
+        print("%s: %s" % (prefix, msg), file=fh)
 
 def debug(msg):
     return _log("debug", msg, "36")

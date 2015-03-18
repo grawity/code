@@ -87,7 +87,7 @@ case $1 in
     ukstekas)
 	do_rdp '192.168.20.8'
 	;;
-    '')
+    "")
 	echo "Usage: $progname <host>" >&2
 	die "missing host name"
 	;;
@@ -103,15 +103,18 @@ case $1 in
 			rest=$_rest
 		fi
 	done < ~/lib/servers.txt
-	if [[ $ip == rdp://* ]]; then
-		do_rdp "${ip#rdp://}" $rest
-	elif [[ $ip == *://* ]]; then
-		die "unknown protocol '${ip%%//*}//'"
-	elif [[ $ip ]]; then
-		do_rdp "$ip" $rest
-	else
-		die "unknown host '$1'"
-	fi
+	case $ip in
+	    imap://*|imaps://*)
+		exec mutt -f "$ip" $rest;;
+	    rdp://*)
+		do_rdp "${ip#rdp://}" $rest;;
+	    *://*)
+		die "unknown protocol '${ip%%//*}//'";;
+	    "")
+		die "unknown host '$1'";;
+	    *)
+		do_rdp "$ip" $rest;;
+	esac
 	;;
 esac
 # vim: sts=8

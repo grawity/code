@@ -49,7 +49,9 @@ do_pull() {
 		is "Git – SVN clone"
 		if remote=$(git config --get svn-remote.svn.url); then
 			rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
-			log: svnsync sync "$rroot"
+			if [[ $rroot == file://* ]]; then
+				log: svnsync sync "$rroot"
+			fi
 		fi
 		log: git svn fetch
 		d=$(git rev-parse --git-dir)

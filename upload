@@ -7,6 +7,18 @@ urlbase="https://nullroute.eu.org/tmp/$(date +%Y)"
 
 clip+=()
 
+while getopts "d:" OPT; do
+	case $OPT in
+	'd') subdir=$OPTARG;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ $subdir ]]; then
+	fsbase+="/$subdir"
+	urlbase+="/$subdir"
+	ssh "${fsbase%%:*}" "mkdir -p '${fsbase#*:}'"
+fi
+
 for arg; do
 	if [[ ! -f $arg ]]; then
 		err "'$arg' is not a file"

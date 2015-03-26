@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+fsbase="virgule:up"
+urlbase="https://nullroute.eu.org/tmp/$(date +%Y)"
+
+clip+=()
+
+for arg; do
+	if [[ ! -f $arg ]]; then
+		err "'$arg' is not a file"
+	elif [[ ! -s $arg ]]; then
+		warn "'$arg' is empty, skipping"
+	else
+		name=${arg##*/}
+		scp "$arg" "$fsbase/$name"
+		echo "$name → $urlbase/$name"
+		clip+=("$urlbase/$name")
+	fi
+done
+
+if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then
+    echo -n "${clip[*]}" | xsel -i -b
+fi
+
+(( !errors ))

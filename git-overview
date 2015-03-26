@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+. libnullroute.bash || exit
+
+find . -type d -name '*.git' -print -prune \
+| LC_COLLATE='C' sort | while read -r dir; do
+	if [[ "$dir" == */.git ]]; then
+		bare=0
+	else
+		bare=1
+	fi
+	name=${dir%/.git}
+	name=${name#./}
+	if [[ "$name" == "." ]]; then
+		name=${PWD/#"$HOME/"/"~/"}
+	fi
+
+	echo
+	log2 "$name"
+	echo
+
+	trunk="master"
+	tip_hash=$(git -C "$dir" rev-parse --verify "refs/heads/$trunk" 2>/dev/null)
+
+	if [[ ! "$tip_hash" ]]; then
+		echo " * no commits found"
+		continue
+	fi
+
+	tip_adate=$(git -C "$dir" log --format='%cr' "$tip_hash^!")
+	tip_cdate=$(git -C "$dir" log --format='%ar' "$tip_hash^!")
+
+	tip_date="$tip_cdate"
+	if [[ "$tip_cdate" != "$tip_adate" ]]; then
+		tip_date+=" (authored $tip_adate)"
+	fi
+
+	echo " * last commit: $tip_date"
+
+	up_name=$(git -C "$dir" config "branch.$trunk.remote" || echo "origin")
+	up_url=$(git -C "$dir" config "remote.$up_name.url")
+
+	if [[ "$up_url" ]]; then
+		echo " * remote: $up_name <$up_url>"
+	else
+		echo " * no remote configured"
+	fi
+done

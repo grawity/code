@@ -21,7 +21,8 @@ int main(int argc, char *argv[]) {
 	while (*++argv)
 		putenv(*argv);
 
-	setlocale(LC_ALL, "");
+	if (setlocale(LC_ALL, "") == NULL)
+		fprintf(stderr, "warning: setlocale() failed\n");
 
 	printf("%s\n", nl_langinfo(do_langinfo));
 

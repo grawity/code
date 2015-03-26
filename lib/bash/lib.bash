@@ -162,18 +162,24 @@ xdie() {
 	exit 1
 } >&2
 
+usage() { false; } # overridden
+
 die_getopts() {
+	debug "opt '$OPT', optarg '$OPTARG'"
 	case $OPT in
-	"?")
-		if [[ $OPTARG ]]
+	    "?")
+		(if [[ $OPTARG ]]
 			then die "unknown option '-$OPTARG'"
 			else die "incorrect options specified"
-		fi;;
-	":")
+		fi)
+		usage
+		exit 2;;
+	    ":")
 		die "missing argument to '-$OPTARG'";;
-	*)
-		die "unknown option '-$OPT'";;
+	    *)
+		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
+	exit 2
 }
 
 confirm() {

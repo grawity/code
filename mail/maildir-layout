@@ -9,8 +9,9 @@
 #                 ~/mail/lists/
 #                 ~/mail/lists/nanog/
 
+. lib.bash || exit
+
 usage() {
-	{
 	echo "usage: ${0##*/} [-d basedir] {-f | -t}"
 	echo ""
 	echo "  -d basedir   Use basedir instead of ~/mail/"
@@ -18,7 +19,6 @@ usage() {
 	echo "  -t           Convert to filesystem layout"
 	echo ""
 	echo "See source for details."
-	} >&2
 }
 
 from-fs() {
@@ -48,12 +48,12 @@ while getopts ":d:ft" OPT; do
 	d) maildir=$OPTARG;;
 	f) mode=from;;
 	t) mode=to;;
-	*) usage; die_getopts;;
+	*) die_getopts;;
 	esac
 done
 
 case $mode in
 	from)	from-fs;;
 	to)	to-fs;;
-	*)	usage; exit 2;;
+	*)	die "must specify conversion mode";;
 esac

@@ -162,6 +162,20 @@ xdie() {
 	exit 1
 } >&2
 
+die_getopts() {
+	case $OPT in
+	"?")
+		if [[ $OPTARG ]]
+			then die "unknown option '-$OPTARG'"
+			else die "incorrect options specified"
+		fi;;
+	":")
+		die "missing argument to '-$OPTARG'";;
+	*)
+		die "unknown option '-$OPT'";;
+	esac
+}
+
 confirm() {
 	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
 	case $text in

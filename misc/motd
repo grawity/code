@@ -15,7 +15,6 @@ usage() {
 	echo "    path     use a different motd path"
 	echo ""
 	echo "'motd -dq' is suitable for login scripts."
-	exit 2
 }
 
 mtime() { perl -e 'print ((stat $ARGV[0])[9])' "$1"; }
@@ -34,13 +33,12 @@ quiet=false
 # parse options
 while getopts ":Ddfho:q" OPT; do
 	case $OPT in
-	d)	diff=true ;;
-	o)	cached=$OPTARG ;;
-	q)	quiet=true ;;
-	\?)	err "unknown option '-$OPTARG'"
-		usage ;;
+	d) diff=true;;
+	o) cached=$OPTARG;;
+	q) quiet=true;;
+	*) die_getopts;;
 	esac
-done; shift $(( OPTIND-1 ))
+done; shift $((OPTIND-1))
 
 [ "$1" ] && motd=$1
 

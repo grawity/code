@@ -18,12 +18,13 @@ readcred() {
 	local prompt=''
 	local user=${user:-$LOGNAME}
 	local pass=
-	while getopts 'Uf:p:u:' OPT; do
+	while getopts 'f:p:Uu:' OPT; do
 		case $OPT in
-			U)	nouser=true	;;
-			f)	fmt=$OPTARG	;;
-			p)	prompt=$OPTARG	;;
-			u)	user=$OPTARG	;;
+		f) fmt=$OPTARG;;
+		p) prompt=$OPTARG;;
+		U) nouser=true;;
+		u) user=$OPTARG;;
+		*) die_getopts;;
 		esac
 	done
 
@@ -65,7 +66,8 @@ getcred_var() {
 	local nouser=''
 	while getopts 'U' OPT; do
 		case $OPT in
-			U)	nouser="-U"	;;
+		U) nouser="-U";;
+		*) die_getopts;;
 		esac
 	done
 

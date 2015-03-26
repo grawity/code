@@ -1,3 +1,5 @@
+import logging
+import os
 import sys
 
 try:
@@ -14,6 +16,11 @@ _num_errors = 0
 
 ## regular log messages
 
+_debug_env = os.environ.get("DEBUG", "")
+
+logging.basicConfig(format="%(levelname)s: (%(module)s) %(message)s",
+                    level=(logging.DEBUG if _debug_env else logging.INFO))
+
 def _log(prefix, msg, color=""):
     fh = sys.stderr
     if getattr(fh, "isatty", lambda: True)():
@@ -22,7 +29,8 @@ def _log(prefix, msg, color=""):
         print("%s: %s" % (prefix, msg), file=fh)
 
 def debug(msg):
-    return _log("debug", msg, "36")
+    if _debug_env:
+        return _log("debug", msg, "36")
 
 def warn(msg):
     global _num_warnings

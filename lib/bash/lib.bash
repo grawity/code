@@ -170,7 +170,7 @@ die_getopts() {
 	    "?")
 		(if [[ $OPTARG ]]
 			then die "unknown option '-$OPTARG'"
-			else die "incorrect options specified"
+			else die "BUG: incorrect options specified"
 		fi)
 		usage
 		exit 2;;

@@ -2,6 +2,8 @@
 # compatibility layer for 'notify-send' as used by TTYtter, using grawity/code/notify
 # (should be the first in $PATH as seen by TTYtter, before real notify-send)
 
+. lib.bash || exit
+
 xmlescape() {
 	printf '%s\n' "$@" | sed 's/&/\&amp;/g; s/"/\&quot;/g; s/</\&lt;/g; s/>/\&gt;/g'
 }
@@ -11,20 +13,20 @@ file=''
 timeout=''
 urgency='low'
 
-while getopts 'f:t:' OPT; do
+while getopts ":f:t:" OPT; do
 	case $OPT in
-	'f')	file=$OPTARG;;
-	't')	timeout=$OPTARG;;
+	f) file=$OPTARG;;
+	t) timeout=$OPTARG;;
+	*) die_getopts;;
 	esac
-done; shift $((--OPTIND))
+done; shift $((OPTIND-1))
 
 title="$1"
 
 args+=(	-a "TTYtter"
 	-i "twitter"
 	-s "+ttytter"
-	-h "urgency=$urgency"
-	)
+	-h "urgency=$urgency" )
 
 [[ $timeout ]] && args+=(-t "$timeout")
 

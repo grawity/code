@@ -9,12 +9,13 @@ have zip       || err "missing 'zip' tool"
 nssdb="sql:$HOME/.pki/nssdb"
 cert='grawity - code signing'
 
-while getopts 'd:c:' OPT; do
+while getopts ":c:d:" OPT; do
 	case $OPT in
-	'd') nssdb=$OPTARG;;
-	'c') cert=$OPTARG;;
+	c) cert=$OPTARG;;
+	d) nssdb=$OPTARG;;
+	*) die_getopts;;
 	esac
-done
+done; shift $((OPTIND-1))
 
 if ! [[ -f install.rdf ]]; then
 	die "directory does not contain a valid Mozilla extension"

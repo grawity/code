@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # bogomark - mark all files in a Maildir as ham or spam using bogofilter.
 
-: ${XDG_CACHE_HOME:="$HOME/.cache"}
+. lib.bash || exit
 : ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
 MAILDIR="$HOME/Mail"
@@ -10,8 +10,7 @@ FS_LAYOUT=false
 lock() {
 	exec {lockfd}>"$XDG_RUNTIME_DIR/bogomark.lock"
 	if ! flock -xn $lockfd; then
-		echo "bogomark: another instance running" >&2
-		exit 1
+		die "another instance is running"
 	fi
 }
 
@@ -47,7 +46,7 @@ maildir() {
 mark() {
 	local OPTION OPTIND OPTARG
 	local mode= remove=false onlyseen=false changed=0 killfile=false
-	while getopts "knprsS" OPT; do
+	while getopts ":knprsS" OPT; do
 		case $OPT in
 		k) killfile=true;;
 		n) mode="-n"; smode="mark-ham";;
@@ -55,6 +54,7 @@ mark() {
 		r) remove=true;;
 		s) mode="-s"; smode="mark-spam";;
 		S) onlyseen=true;;
+		*) die_getopts;;
 		esac
 	done
 

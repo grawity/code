@@ -6,8 +6,8 @@ PATH="$HOME/code/bin:$PATH"
 . lib.bash || exit
 : ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
-MAILDIR="$HOME/Mail"
-FS_LAYOUT=false
+mail_base="$HOME/Mail"
+fs_layout=0
 
 lock() {
 	exec {lockfd}>"$XDG_RUNTIME_DIR/bogomark.lock"
@@ -36,13 +36,15 @@ mark_all() {
 
 purge() {
 	local max_age=$1 dir=$2
-	find "$MAILDIR/$(maildir "$dir")/cur" -type f -mtime +$max_age -delete
+	find "$mail_base/$(maildir "$dir")/cur" -type f -mtime +$max_age -delete
 }
 
 maildir() {
-	local dir=$1
-	$FS_LAYOUT || dir=".${dir//\//.}"
-	echo "$dir"
+	if (( fs_layout )); then
+		echo ".${1//\//.}"
+	else
+		echo "$1"
+	fi
 }
 
 mark() {
@@ -74,7 +76,7 @@ mark() {
 	lock
 	for dir in "${dirs[@]}"; do
 		dir=$(maildir "$dir")
-		path="$MAILDIR/$dir"
+		path="$mail_base/$dir"
 		for file in "$path"/{cur,new}/*; do
 			basename="${file##*/}"
 			flags="${basename##*:}"

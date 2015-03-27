@@ -15,13 +15,13 @@ my ($width, $count, $last);
 
 sub status {
 	state $last_lines = 0;
-	my ($msg, $fmt) = @_;
+	my ($raw_msg, $fmt_msg, $fmt) = @_;
 	my $out = "";
 	$out .= "\e[".($last_lines-1)."A" if $last_lines > 1; # cursor up
 	$out .= "\e[1G"; # cursor to column 1
 	$out .= "\e[0J"; # erase below
-	$out .= sprintf($fmt // "%s", $msg);
-	$last_lines = ceil(mbswidth($msg) / $width);
+	$out .= sprintf($fmt // "%s", $fmt_msg // $raw_msg);
+	$last_lines = ceil(mbswidth($raw_msg) / $width);
 	print $out;
 }
 
@@ -32,7 +32,7 @@ $count = 0;
 $last = time;
 
 $SIG{INT} = sub {
-	status("$count items (interrupted)", "%s\n");
+	status("$count items (interrupted)", undef, "%s\n");
 	exit 1;
 };
 
@@ -47,4 +47,4 @@ while (++$count, my $str = <STDIN>) {
 	status("$count $str", "\e[33m$count\e[m $str");
 }
 
-status("$count items", "%s\n");
+status("$count items", undef, "%s\n");

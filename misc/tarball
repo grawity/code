@@ -38,10 +38,7 @@ get_fstag() {
 	fi
 }
 
-case ${0##*/} in
-    tarball) ext=tgz;;
-    zipball) ext=zip;;
-esac
+# environment
 
 if (( UID == 0 )); then
 	umask 077
@@ -50,6 +47,22 @@ fi
 if [[ ! $OLD_TAR ]]; then
 	export TAR_OPTIONS="--xattrs"
 fi
+
+# init
+
+auto_move=1
+
+case ${0##*/} in
+    tarball) ext=tgz;;
+    zipball) ext=zip;;
+esac
+
+while getopts ":A" OPT; do
+	case $OPT in
+	A) auto_move=0;;
+	*) die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 dir=${1%/}
 
@@ -74,12 +87,14 @@ else
 	out=${2:-$dir}.$ext
 fi
 
-if ! case $(get_fstag "$dir") in
-	($(get_fstag ~)) true;;
-	($(get_fstag ~/Private)) true;;
-	(*) false;;
-esac; then
-	out=~/$out
+if (( auto_move )); then
+	if ! case $(get_fstag "$dir") in
+		($(get_fstag ~)) true;;
+		($(get_fstag ~/Private)) true;;
+		(*) false;;
+	esac; then
+		out=~/$out
+	fi
 fi
 
 for file in "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do

@@ -1,26 +1,21 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/env python
 # Read and write lyrics tags.
 from __future__ import print_function
 import sys
 import getopt
+import mutagen.mp3, mutagen.id3
+import nullroute as lib
 
-try:
-    import mutagen.mp3, mutagen.id3
-except ImportError:
-    print("The mutagen library is not installed.", file=sys.stderr)
-    sys.exit(42)
-
-def usage():
-    print("usage:")
-    print("    import: lyrics -i [-f lyricfile] audiofile")
-    print("    export: lyrics -e [-f lyricfile] audiofile")
-    print("    remove: lyrics -x audiofile")
-    sys.exit(2)
-
-def trace(s):
+def trace(msg):
     global verbose
     if verbose:
-        print(s, file=sys.stderr)
+        print(msg, file=sys.stderr)
+
+def usage():
+    print("Usage:")
+    print("    import: lyrics -i [-f lyrics_file] audio_file")
+    print("    export: lyrics -e [-f lyrics_file] audio_file")
+    print("    remove: lyrics -x audio_file")
 
 def to_crlf(s):
     return s.replace("\r\n", "\n").replace("\n", "\r\n")
@@ -46,7 +41,7 @@ def write_id3(file, lyrics):
         tag[atom].encoding = 1
         tag[atom].lang = "eng"
         tag[atom].desc = u""
-    trace("Writing %s" % file)
+    trace("writing %s" % file)
     tag.save()
 
 def read_id3(file):
@@ -63,8 +58,9 @@ verbose = False
 try:
     options, audiofiles = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
-    print(e, file=sys.stderr)
+    lib.err(e)
     usage()
+    sys.exit(2)
 
 for opt, value in options:
     if None: pass
@@ -76,8 +72,7 @@ for opt, value in options:
     elif opt == "-x": mode = "kill"
 
 if len(audiofiles) == 0:
-    print("Error: no .mp3 files specified", file=sys.stderr)
-    usage()
+    lib.die("no .mp3 files specified")
 
 if mode == "input":
     if lyricsfile is None:
@@ -102,4 +97,4 @@ elif mode == "kill":
     for file in audiofiles:
         write_id3(file, None)
 else:
-    usage()
+    lib.die("BUG: bad mode %r" % mode)

@@ -165,15 +165,19 @@ xdie() {
 usage() { false; } # overridden
 
 die_getopts() {
-	debug "opt '$OPT', optarg '$OPTARG'"
+	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
 	case $OPT in
 	    "?")
-		(if [[ $OPTARG ]]
-			then die "unknown option '-$OPTARG'"
-			else die "BUG: incorrect options specified"
-		fi) || true
-		usage
-		exit 2;;
+		if [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
+			usage
+			exit 0
+		elif [[ $OPTARG ]]; then
+			(die "unknown option '-$OPTARG'") ||
+			usage ||
+			exit 2
+		else
+			die "BUG: incorrect options specified"
+		fi;;
 	    ":")
 		die "missing argument to '-$OPTARG'";;
 	    *)

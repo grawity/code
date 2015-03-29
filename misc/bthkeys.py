@@ -66,14 +66,15 @@ except ValueError:
           file=sys.stderr)
     sys.exit(2)
 
-formats = {}
-formats["bluez"] = {
-    "import": (bluez_import_system, bluez_import_fd),
-    "export": (bluez_export_system, bluez_export_fd),
-}
-formats["winreg"] = {
-    "import": (None, None),
-    "export": (None, winreg_export_fd),
+formats = {
+    "bluez": {
+        "import": (bluez_import_system, bluez_import_fd),
+        "export": (bluez_export_system, bluez_export_fd),
+    },
+    "winreg": {
+        "import": (None, None),
+        "export": (None, winreg_export_fd),
+    },
 }
 
 in_root = "/snow"

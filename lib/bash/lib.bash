@@ -102,13 +102,21 @@ debug() {
 	return 0
 } >&2
 
-say() {
+trace() {
 	if [[ $DEBUG ]]; then
-		lib::msg "$*" 'info' '\e[1;34m'
+		lib::msg "$*" 'trace' '\e[34m' '%' '\e[34m'
 	elif [[ $VERBOSE ]]; then
 		printf "%s\n" "$*"
 	fi
 	return 0
+}
+
+msg() {
+	if [[ $DEBUG ]]; then
+		lib::msg "$*" 'info' '\e[1;34m'
+	else
+		printf "%s\n" "$*"
+	fi
 }
 
 log() {
@@ -126,7 +134,7 @@ status() {
 }
 
 notice() {
-	lib::msg "$*" 'notice' '\e[1;35m' '**' '\e[1;35m'
+	lib::msg "$*" 'notice' '\e[1;35m' 'notice:' '\e[38;5;13m'
 } >&2
 
 warn() {

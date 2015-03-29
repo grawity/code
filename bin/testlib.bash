@@ -12,7 +12,8 @@ messages() {
 	TERM= status "status message"
 	log2 "log2 message"
 	log "log message"
-	say "info message"
+	msg "info message"
+	trace "trace message"
 	debug "debug message"
 	true
 }

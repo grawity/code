@@ -146,7 +146,7 @@ die() {
 	    -[0-9]) local r=${1#-}; shift;;
 	    *)      local r=1;;
 	esac
-	lib::msg "$*" 'fatal' '\e[1;31m'
+	lib::msg "$*" 'error' '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit $r
 } >&2
@@ -173,21 +173,20 @@ die_getopts() {
 	case $OPT in
 	    "?")
 		if [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
-			usage
+			{ usage || die "BUG: help text not available"; }
 			exit 0
 		elif [[ $OPTARG ]]; then
-			(die "unknown option '-$OPTARG'") ||
-			usage ||
+			{ err "unknown option '-$OPTARG'" || true; }
+			usage
 			exit 2
 		else
-			die "BUG: incorrect options specified"
+			die "BUG: incorrect options specified for getopts"
 		fi;;
 	    ":")
-		die "missing argument to '-$OPTARG'";;
+		die -2 "missing argument to '-$OPTARG'";;
 	    *)
 		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
-	exit 2
 }
 
 confirm() {

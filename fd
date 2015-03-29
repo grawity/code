@@ -2,7 +2,11 @@
 
 . lib.bash || exit
 
-set -e
+usage() {
+	echo "Usage: $progname make <name>"
+	echo "       $progname mount <name>"
+	echo "       $progname umount"
+}
 
 sizes=(
 	[720]=$((  720 * 1024 ))
@@ -58,10 +62,14 @@ case $1 in
 		die "file \"$name\" does not eixist"
 	fi
 
+	log "mounting image '$name'"
 	mtpt=$XDG_RUNTIME_DIR/fd
 	mkdir -p "$mtpt"
-	sudo mount "$name" "$mtpt" -o loop,uid=$UID
-	log "mounted \"$name\" on $mtpt"
+	if sudo mount "$name" "$mtpt" -o loop,uid=$UID; then
+		log "mounted \"$name\" on $mtpt"
+	else
+		die "mount failed"
+	fi
 	;;
     umount|unmount|u)
 	mtpt=$XDG_RUNTIME_DIR/fd
@@ -74,18 +82,19 @@ case $1 in
 		die "not a loop device – \"$mtpt\" has $ldev mounted"
 	fi
 
-	file=$(losetup -n -O BACK-FILE "$ldev")
+	#file=$(losetup -n -O BACK-FILE "$ldev")
 
-	sudo umount "$mtpt"
-	until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
-	log "unmounted \"$mtpt\""
+	if sudo umount "$mtpt"; then
+		until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
+		log "unmounted \"$mtpt\""
+	else
+		die "unmount failed"
+	fi
 	;;
     '')
-	{
-	echo "usage: fd make <name>"
-	echo "       fd mount <name>"
-	echo "       fd umount"
-	} >&2
+	(die "missing command")
+	usage
+	exit 1
 	;;
     *)
 	die "unknown command '$1'"

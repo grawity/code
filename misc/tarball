@@ -51,15 +51,17 @@ fi
 # init
 
 auto_move=1
+auto_remove=1
 
 case ${0##*/} in
     tarball) ext=tgz;;
     zipball) ext=zip;;
 esac
 
-while getopts ":A" OPT; do
+while getopts ":AR" OPT; do
 	case $OPT in
 	A) auto_move=0;;
+	R) auto_remove=0;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -110,9 +112,13 @@ if do_archive "$dir" "$out"; then
 	chmod a-w "$out"
 	log "archived to \"$out\""
 	ls -lh "$out"
-	log "removing original"
-	rm -rf "$dir/"
-	log "original directory removed"
+	if (( auto_remove )); then
+		log "removing original"
+		rm -rf "$dir/"
+		log "original directory removed"
+	else
+		log "original directory preserved"
+	fi
 else
 	die "archiving failed"
 fi

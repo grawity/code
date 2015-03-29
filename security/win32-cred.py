@@ -89,9 +89,9 @@ require = set()
 try:
     action = sys.argv[1]
 except IndexError:
-    print("usage:")
-    print("  cred {ls | ll} [targetprefix]", file=sys.stderr)
-    print("  cred {new | rm | read | readdom | targetinfo} <target> [-t type] [-r require]", file=sys.stderr)
+    print("Usage:")
+    print("  cred {ls | ll} [targetprefix]")
+    print("  cred {new | rm | read | readdom | targetinfo} <target> [-t type] [-r require]")
     sys.exit(2)
 
 options, rest = getopt.gnu_getopt(sys.argv[2:], "a:c:f:P:r:t:u:")

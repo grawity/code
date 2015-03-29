@@ -58,12 +58,12 @@ def winreg_export_fd(fd, keys):
         for addr, key in dev_keys.items():
             fd.write("\"%s\"=hex:%s\r\n" % (tohex(addr), tohex(key, ",")))
 
-Me = os.path.basename(sys.argv[0])
+arg0 = os.path.basename(sys.argv[0])
 try:
     in_format, out_format, local_addr = sys.argv[1:]
 except ValueError:
-    print("usage: %s <input-format> <output-format> <local-address>" % Me,
-        file=sys.stderr)
+    print("Usage: %s <input-format> <output-format> <local-address>" % arg0,
+          file=sys.stderr)
     sys.exit(2)
 
 formats = {}

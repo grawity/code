@@ -23,17 +23,16 @@
 
 char *arg0;
 
-static int usage(void) {
-	fprintf(stderr, "usage: %s [-cdeLPw] [-l[name]] <command> [args]\n", arg0);
-	fprintf(stderr, "\n");
-	fprintf(stderr, "  -c        close all file descriptors\n");
-	fprintf(stderr, "  -d        change working directory to $HOME\n");
-	fprintf(stderr, "  -e        unset desktop environment-specific envvars\n");
-	fprintf(stderr, "  -L        use a shared lock file instead of session\n");
-	fprintf(stderr, "  -l NAME   use given lock name instead of command name\n");
-	fprintf(stderr, "  -P        only print the lock file path\n");
-	fprintf(stderr, "  -w        fork the command and wait until it exits\n");
-	return 2;
+static void usage(void) {
+	printf("Usage: %s [-cdeLPw] [-l[name]] <command> [args]\n", arg0);
+	printf("\n");
+	printf("  -c        close all file descriptors\n");
+	printf("  -d        change working directory to $HOME\n");
+	printf("  -e        unset desktop environment-specific envvars\n");
+	printf("  -L        use a shared lock file instead of session\n");
+	printf("  -l NAME   use given lock name instead of command name\n");
+	printf("  -P        only print the lock file path\n");
+	printf("  -w        fork the command and wait until it exits\n");
 }
 
 char * get_ttyname(void) {
@@ -226,13 +225,14 @@ int main(int argc, char *argv[]) {
 			do_wait = 1;
 			break;
 		default:
-			return usage();
+			usage();
+			return 2;
 		}
 	}
 
 	if (optind >= argc) {
 		fprintf(stderr, "%s: must specify a command to run\n", arg0);
-		return usage();
+		return 2;
 	} else {
 		cmd = &argv[optind];
 	}

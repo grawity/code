@@ -142,9 +142,13 @@ err() {
 } >&2
 
 die() {
+	case $1 in
+	    -[0-9]) local r=${1#-}; shift;;
+	    *)      local r=1;;
+	esac
 	lib::msg "$*" 'fatal' '\e[1;31m'
 	if (( DEBUG > 1 )); then backtrace; fi
-	exit 1
+	exit $r
 } >&2
 
 xwarn() {

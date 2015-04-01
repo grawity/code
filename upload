@@ -28,7 +28,10 @@ for arg; do
 		warn "'$arg' is empty, skipping"
 	else
 		name=${arg##*/}
-		scp "$arg" "$fsbase/$name"
+		arg=$(realpath "$arg")
+		debug "* source: '$arg'"
+		debug "  target: '$fsbase/$name'"
+		rsync -Ps "$arg" "$fsbase/$name"
 		echo "$name → $urlbase/$name"
 		clip+=("$urlbase/$name")
 	fi

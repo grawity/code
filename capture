@@ -12,6 +12,7 @@ while (( $# )); do
 	-f|filter)	arg_filter=$2; shift;;
 	host)		arg_f_host=$2; shift;;
 	vlan)		arg_vlan=$2; shift;;
+	name)		arg_name=$2; shift;;
 	*)	
 		if [[ $1 == */* && ! $arg_on ]]; then
 			arg_on=$1
@@ -95,7 +96,12 @@ if (( arg_ethers )); then
 fi
 debug "local command: $lcmd"
 
-capf=~/tmp/"capture.${target_host}.${target_iface}.pcap"
+cap_name="$target_host.$target_iface"
+if [[ $arg_name ]]; then
+	cap_name+=".$arg_name"
+fi
+
+capf="$HOME/tmp/capture.$cap_name.pcap"
 log "output: $capf"
 
 trap '[[ -s "$capf" ]] || rm -f "$capf"; exit 0' INT QUIT EXIT

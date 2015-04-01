@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-b | -c]"
+	echo
+	echo "  -b    Reboot immediately"
+	echo "  -c    Cancel the stored BootNext"
+}
+
+if (( UID )); then
+	exec sudo "$0" "$@" || die "root privileges needed"
+fi
+
+do_cancel=0
+do_reboot=0
+
+while getopts ':bcr' OPT; do
+	case $OPT in
+	b) do_reboot=1;;
+	c) do_cancel=1;;
+	r) do_reboot=1;;
+	*) die_getopts;;
+	esac
+done
+
+if (( do_cancel )); then
+	do: efibootmgr --quiet --delete-bootnext
+	exit
+fi
+
+boot_id=$(efibootmgr | awk '/^Boot.* Windows Boot Manager/{print $1}')
+if [[ ! $boot_id ]]; then
+	die "could not find Windows Boot Manager"
+fi
+boot_id=${boot_id#'Boot'}
+boot_id=${boot_id%'*'}
+do: efibootmgr --quiet --bootnext "$boot_id"
+
+if (( do_reboot )); then
+	do: systemctl reboot
+fi

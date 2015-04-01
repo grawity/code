@@ -23,7 +23,10 @@ else
 fi
 
 upload=$(curl -S "${curl_args[@]}" https://pomf.se/upload.php)
-urls=$(jshon -e files -a -e name -upe url -u <<< "$upload")
+urls=$(jshon -e files -a -e name -upe url -u <<< "$upload") || {
+    trace "output: $upload"
+    die "could not parse response"
+}
 clip=()
 while { read -r name; read -r url; } do
     url=https://a.pomf.se/$url

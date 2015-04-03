@@ -3,6 +3,11 @@
 
 . lib.bash || exit
 
+have curl  || err "missing 'curl'"
+have jshon || err "missing 'jshon'"
+
+(( !errors )) || exit
+
 curl_args=()
 for f in "$@"; do
     if [[ -e "$f" ]]; then
@@ -35,7 +40,9 @@ while { read -r name; read -r url; } do
 done <<< "$urls"
 
 if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then
-    echo -n "${clip[*]}" | xsel -i -b
+    if have xsel; then
+        echo -n "${clip[*]}" | xsel -i -b
+    fi
 fi
 
 (( !errors ))

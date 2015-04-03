@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
 # moves files from a given directory to one level above
 
+. lib.bash || exit
+
 for dir; do
 	dir=${dir%/}
-	err=
 
 	shopt -s dotglob
 
 	for file in "$dir"/*; do
 		file=${file#"$dir/"}
-		if [ "$file" = . ] || [ "$file" = .. ]; then
+		if [[ "$file" == . || "$file" == .. ]]; then
 			continue
-		elif [ -e "$file" ]; then
-			echo "conflict: $file" >&2
-			err=1
+		elif [[ -e "$file" ]]; then
+			err "file would conflict: '$file'"
 		fi
 	done
 
-	if [ "$err" ]; then
-		exit 1
-	fi
+	(( ! errors )) || exit
 
 	find "$dir" -mindepth 1 -maxdepth 1 \
 		-not -name "$dir" \

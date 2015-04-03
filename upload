@@ -2,24 +2,54 @@
 
 . lib.bash || exit
 
+year=$(date +%Y)
+
 fsbase="virgule:up"
-urlbase="https://nullroute.eu.org/tmp/$(date +%Y)"
+urlbase="https://nullroute.eu.org/tmp/$year"
 
-subdir=
-clip=()
+fs1_fsbase="ukradius:fs1/tmp/$year"
+fs1_urlbase="http://fs1.nullroute.eu.org/tmp/$year"
 
-while getopts ":d:" OPT; do
+# parse command line
+
+arg_server=
+arg_subdir=
+
+while getopts ":1d:" OPT; do
 	case $OPT in
-	d) subdir=$OPTARG;;
+	d) arg_subdir=$OPTARG;;
+	1) arg_server=fs1;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
-if [[ $subdir ]]; then
-	fsbase+="/$subdir"
-	urlbase+="/$subdir"
+if [[ $arg_server ]]; then
+	_fsbase="${arg_server}_fsbase"
+	_urlbase="${arg_server}_urlbase"
+	if [[ ${!_fsbase} && ${!_urlbase} ]]; then
+		fsbase=${!_fsbase}
+		urlbase=${!_urlbase}
+		trace "uploading to '$fsbase'"
+	else
+		die "unknown server '$arg_server'"
+	fi
+fi
+
+if [[ $arg_subdir ]]; then
+	fsbase+="/$arg_subdir"
+	urlbase+="/$arg_subdir"
+fi
+
+# prepare upload target
+
+if [[ $arg_server || $arg_subdir ]]; then
+	# $arg_server is a hack, until I copy rotate-up.sh to all other servers
 	ssh "${fsbase%%:*}" "mkdir -p '${fsbase#*:}'"
 fi
+
+# upload files
+
+clip=()
 
 for arg; do
 	if [[ ! -f $arg ]]; then

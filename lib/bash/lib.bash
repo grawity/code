@@ -176,7 +176,7 @@ xdie() {
 
 usage() { false; } # overridden
 
-die_getopts() {
+lib::die_getopts() {
 	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
 	case $OPT in
 	    "?")
@@ -196,6 +196,8 @@ die_getopts() {
 		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
 }
+
+die_getopts() { lib::die_getopts "$@"; } # TEMPORARY
 
 confirm() {
 	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'

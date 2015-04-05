@@ -6,6 +6,7 @@
 
 args=()
 temp=()
+optend=0
 optargs=0
 
 for arg; do
@@ -21,13 +22,16 @@ for arg; do
 		arg=$(mktemp /tmp/asn1.XXXXXXXX)
 		temp+=("$arg")
 		cat > "$arg"
-	elif [[ $arg == -[cfwm] ]]; then
+	elif (( ! optend )) && [[ $arg == -[cfwm] ]]; then
 		debug "- consuming as option with optargs"
 		optargs=1
-	elif [[ $arg == -* ]]; then
+	elif (( ! optend )) && [[ $arg == -- ]]; then
+		debug "- consuming as option end"
+		optend=1
+	elif (( ! optend )) && [[ $arg == -* ]]; then
 		debug "- consuming as option"
 	else
-		debug "- consuming as arg"
+		debug "- consuming as file arg"
 		detect=1
 	fi
 

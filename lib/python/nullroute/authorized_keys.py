@@ -10,12 +10,8 @@
 # Test case:
 #   ssh-lulz="echo \"Here's ssh-rsa for you\"" future-algo AAAAC2Z1dHVyZS1hbGdv X y z.
 #
-# © 2010-2014 Mantas Mikulėnas <grawity@gmail.com>
-# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-#
-# (Protip: If you copy-paste this to your code – which I've seen people do –
-# keep a link to the original file, so that you'd know where to check for
-# updates, like the "future-algo" code I added recently.)
+# (c) 2010-2014 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT license (see dist/LICENSE.mit)
 #
 # Also, obligatory http://xkcd.com/1421/ link.
 

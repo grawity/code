@@ -1,8 +1,8 @@
 /*
  * k5userok.c - verify user access according to krb5_userok()
  *
- * © 2012 Mantas M. <grawity@gmail.com>
- * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+ * (c) 2012 Mantas Mikulėnas <grawity@gmail.com>
+ * Released under the MIT license (see dist/LICENSE.mit)
  */
 
 #define _XOPEN_SOURCE 500

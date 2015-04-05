@@ -1,8 +1,8 @@
 /*
  * pklist.c - parseable 'klist'
  *
- * © 2010 Mantas M. <grawity@gmail.com>
- * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
+ * (c) 2010-2014 Mantas Mikulėnas <grawity@gmail.com>
+ * Released under the MIT license (see dist/LICENSE.mit)
  * Portions of code lifted from MIT Kerberos (clients/klist/klist.c)
  */
 

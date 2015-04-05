@@ -1,9 +1,9 @@
 <?php
 namespace Ident;
 /* identd checking library
- * © 2010 <grawity@gmail.com>
- * Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
  *
+ * (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
+ * Released under the MIT license (see dist/LICENSE.mit)
  *
  * IdentReply Ident\query($rhost, $rport, $lhost, $lport)
  *     $rhost, $rport

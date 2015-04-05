@@ -13,9 +13,8 @@
  * This script automatically downloads the SSH public keys of all users into
  * a single authorized_keys file.
  *
- *    grawity <grawity@gmail.com>
- *    This script is released under WTFPL v2
- *
+ * (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
+ * Released under the MIT license (see dist/LICENSE.mit)
  */
 
 define("SYSLOG_PREFIX", "fetchkeys");

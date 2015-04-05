@@ -10,8 +10,9 @@ tl;dr I write a lot of useless scripts
 
 ---
 
-Everything licensed under WTFPL v2 <http://sam.zoy.org/wtfpl/> unless declared
-otherwise in specific files. (Thinking about changing to MIT, not sure yet.)
+This repository is released under the MIT license, unless declared otherwise in
+specific files. (Everything up to commit 93dbb8dd38eb92ddb4cc may also be used
+under WTFPL v2.)
 
 The generally useful stuff:
 
@@ -102,5 +103,6 @@ Log:
   * 2010-01-01: initial commit of the "main" repository
   * 2014-07-29: cleaned up old branches; moved to refs/attic/* to avoid clutter
   * 2015-03-16: exported security/accdb
+  * 2015-04-05: changed default license to MIT
 
 vim: ts=4:sw=4:et

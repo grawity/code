@@ -1,14 +1,23 @@
 #!/usr/bin/env perl
 # lists modification time of all given files
 
-if (!@ARGV) {
-	warn "Usage: mtime <files>\n";
-	exit 1;
+sub usage {
+	print "Usage: mtime [-q] <files>\n";
 }
 
-if ($ARGV[0] eq "-q") {
+if (!@ARGV) {
+	warn "error: missing filenames\n";
+	usage();
+	exit 2;
+}
+elsif ($ARGV[0] eq "--help") {
+	usage();
+	exit 0;
+}
+elsif ($ARGV[0] eq "-q") {
 	shift @ARGV;
 	print for map {((stat $_)[9] // "?\t"), "\n"} @ARGV;
-} else {
+}
+else {
 	print for map {((stat $_)[9] // "?\t"), "\t", $_, "\n"} @ARGV;
 }

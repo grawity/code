@@ -4,43 +4,34 @@
 
 . lib.bash || exit
 
-if (( ! $# )); then
-	if [[ -t 0 ]]; then
-		die "missing input file (will not read from a terminal)"
-	else
-		set -- "-"
-	fi
-fi
+args=()
+temp=()
 
 for arg; do
-	debug "processing arg '$arg'"
-	temp=()
+	debug "input arg '$arg'"
 
-	if [[ "$arg" == "-" ]]; then
-		input=$(mktemp /tmp/asn1.XXXXXXXX)
-		temp+=("$input")
-		cat > "$input"
-	else
-		input=$arg
+	if [[ $arg == "-" ]]; then
+		arg=$(mktemp /tmp/asn1.XXXXXXXX)
+		temp+=("$arg")
+		cat > "$arg"
+		debug "stored '$arg' from stdin"
 	fi
 
-	if [[ ! -s "$input" ]]; then
-		warn "input '$arg' was empty"
-		continue
-	fi
-
-	if grep -qs "^-----" "$input"; then
+	if grep -qs "^-----" "$arg"; then
 		raw=$(mktemp /tmp/asn1.XXXXXXXX)
 		temp+=("$raw")
 		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
 				/^[A-Za-z0-9+/=]*$/p
-			}' < "$input" | base64 -d > "$raw"
-		input=$raw
+			}' < "$arg" | base64 -d > "$raw"
+		debug "PEM-decoded '$raw' from '$arg'"
+		arg=$raw
 	fi
 
-	dumpasn1 "${opts[@]}" "$input"
-
-	if [[ $temp ]]; then
-		rm -f "${temp[@]}"
-	fi
+	args+=("$arg")
 done
+
+do: dumpasn1 "${args[@]}"
+
+if [[ $temp ]]; then
+	rm -f "${temp[@]}"
+fi

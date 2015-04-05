@@ -128,9 +128,7 @@ fail=()
 case $job in
 	push-hd)
 		mounted: $b
-
 		consumed=0
-
 		while [[ $1 && $1 != / ]]; do
 			sub=$(readlink -f "$1"); shift; (( ++consumed ))
 			if [[ "$sub" != "$HOME"/* ]]; then
@@ -140,7 +138,6 @@ case $job in
 			sub=${sub%/}
 			do_rsync ~/"$sub"/ $b/Home/"$sub"/ -FxP
 		done
-
 		if (( consumed == 0 )); then
 			$0 local        || fail+=(local)
 			$0 home-push-hd || fail+=(home-push-hd)
@@ -148,9 +145,11 @@ case $job in
 		fi
 		;;
 	home-push-hd)
+		mounted: $b
 		do_rsync ~/ $b/Home/ -FxP
 		;;
 	root-push-hd)
+		mounted: $b
 		do_rsync / $b/Root/ -FxP
 		;;
 	online)
@@ -219,9 +218,10 @@ case $job in
 		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
 		;;
 	gale)
+		mounted: $b
 		do_rsync \
 			ofb.net:'~jtr/glog/'			\
-			~/Attic/Galelogs/			\
+			$b/Attic/Galelogs/			\
 			--exclude '/:glog.out'			\
 			;
 		do_rsync \

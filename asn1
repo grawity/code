@@ -2,20 +2,45 @@
 # asn1 -- convenience wrapper for 'dumpasn1', which requires seek() support for
 # certain functions
 
-f=$(mktemp /tmp/asn1.XXXXXXXX)
+. lib.bash || exit
 
-cat > "$f"
-
-if [[ -s "$f" ]]; then
-	if grep -qs "^-----" "$f"; then
-		f2=$(mktemp /tmp/asn1.XXXXXXXX)
-		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
-				/^[A-Za-z0-9+/=]*$/p
-			}' < "$f" | base64 -d > "$f2"
-		mv -f "$f2" "$f"
+if (( ! $# )); then
+	if [[ -t 0 ]]; then
+		die "missing input file (will not read from a terminal)"
+	else
+		set -- "-"
 	fi
-
-	dumpasn1 "$@" "$f"
 fi
 
-rm -f "$f"
+for arg; do
+	debug "processing arg '$arg'"
+	temp=()
+
+	if [[ "$arg" == "-" ]]; then
+		input=$(mktemp /tmp/asn1.XXXXXXXX)
+		temp+=("$input")
+		cat > "$input"
+	else
+		input=$arg
+	fi
+
+	if [[ ! -s "$input" ]]; then
+		warn "input '$arg' was empty"
+		continue
+	fi
+
+	if grep -qs "^-----" "$input"; then
+		raw=$(mktemp /tmp/asn1.XXXXXXXX)
+		temp+=("$raw")
+		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
+				/^[A-Za-z0-9+/=]*$/p
+			}' < "$input" | base64 -d > "$raw"
+		input=$raw
+	fi
+
+	dumpasn1 "${opts[@]}" "$input"
+
+	if [[ $temp ]]; then
+		rm -f "${temp[@]}"
+	fi
+done

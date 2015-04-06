@@ -21,30 +21,46 @@ _debug_env = os.environ.get("DEBUG", "")
 #logging.basicConfig(format="%(levelname)s: (%(module)s) %(message)s",
 #                    level=(logging.DEBUG if _debug_env else logging.INFO))
 
-def _log(prefix, msg, color=""):
+def _log(prefix, msg, color="", fmt_prefix=None, fmt_color=None):
     fh = sys.stderr
+
     if getattr(fh, "isatty", lambda: True)():
-        print("\033[%sm%s:\033[m %s" % (color, prefix, msg), file=fh)
+        text = "\033[%sm%s:\033[m %s" % (color, prefix, msg)
     else:
-        print("%s: %s" % (prefix, msg), file=fh)
+        text = "%s: %s" % (prefix, msg)
+
+    print(text, file=fh)
 
 def debug(msg):
     if _debug_env:
-        return _log("debug", msg, "36")
+        _log("debug", msg, "36")
+
+def info(msg):
+    _log("info", msg,
+         color="1;32",
+         fmt_prefix="~",
+         fmt_color="1;32")
 
 def warn(msg):
     global _num_warnings
     _num_warnings += 1
-    return _log("warning", msg, "1;33")
+    _log("warning", msg, "1;33")
 
 def err(msg):
     global _num_errors
     _num_errors += 1
-    return _log("error", msg, "1;31")
+    _log("error", msg, "1;31")
+    return False
 
 def die(msg):
+    global _num_errors
+    _num_errors += 1
     _log("fatal", msg, "1;31")
     sys.exit(1)
+
+def exit():
+    global _num_errors
+    sys.exit(_num_errors > 0)
 
 ## status/progress messages
 
@@ -100,3 +116,7 @@ def print_status_truncated(*args, fmt=fmt_status):
         sys.stderr.write(out)
         if not args:
             sys.stderr.flush()
+
+def window_title(msg):
+    if isatty():
+        print("\033]2;%s\007" % msg, file=sys.stderr)

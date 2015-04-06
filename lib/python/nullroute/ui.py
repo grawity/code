@@ -18,8 +18,8 @@ _num_errors = 0
 
 _debug_env = os.environ.get("DEBUG", "")
 
-logging.basicConfig(format="%(levelname)s: (%(module)s) %(message)s",
-                    level=(logging.DEBUG if _debug_env else logging.INFO))
+#logging.basicConfig(format="%(levelname)s: (%(module)s) %(message)s",
+#                    level=(logging.DEBUG if _debug_env else logging.INFO))
 
 def _log(prefix, msg, color=""):
     fh = sys.stderr

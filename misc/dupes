@@ -137,19 +137,26 @@ def find_duplicates(root_dirs):
             if not stat.S_ISREG(st.st_mode):
                 continue
             file_sizes[path] = st.st_size
-            known_sizes[st.st_size].append(path)
+            known_sizes[st.st_size].append((root_dir, path))
 
     status()
 
     # find files identical in size and first `header_size` bytes
+    head_todo = {dir: [] for dir in root_dirs}
+
     for size, paths in known_sizes.items():
         if len(paths) < 2:
-            n_head += 1
             continue
 
+        for root_dir, path in paths:
+            head_todo[root_dir].append(path)
+
+    n_head_todo = sum([len(x) for x in head_todo.values()])
+
+    for root_dir, paths in head_todo.items():
         for path in paths:
             n_head += 1
-            status("head (%d/%d)" % (n_head, n_size), path)
+            status("head (%d/%d)" % (n_head, n_head_todo), path)
             header = get_header(path)
             known_headers[size, header].append(path)
 

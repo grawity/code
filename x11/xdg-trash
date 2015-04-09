@@ -50,6 +50,7 @@ Does not currently work with bind-mounted files; returns the mountpoint's parent
 
 sub find_root {
 	my ($path) = @_;
+	_debug("finding root for '$path'");
 	my $fdev = dev($path);
 	return undef if !defined $fdev;
 	my $prev = $path;
@@ -69,9 +70,11 @@ Recursively mkdir $trash_dir/{files,info} if necessary.
 
 sub ensure {
 	my ($trash_dir) = @_;
+	_debug("preparing trash directory '$trash_dir'");
 	for ($trash_dir, "$trash_dir/info", "$trash_dir/files") {
 		next     if -d $_;
 		return 0 if -e $_;
+		_debug("- creating '$_'");
 		make_path($_, {mode => 0700}) or return 0;
 	}
 	return 1;
@@ -253,8 +256,11 @@ Find the best trash directory to use, according to XDG Trash Dir spec.
 sub find_trash_dir {
 	my ($orig_path) = @_;
 
-	my $home_trash = find_home_trash();
+	if (!file_name_is_absolute($orig_path)) {
+		_die("BUG: find_trash_dir('$orig_path') called with relative path");
+	}
 
+	my $home_trash = find_home_trash();
 	ensure($home_trash);
 
 	_debug("trying to find trash for path='$orig_path'");
@@ -309,6 +315,7 @@ sub trash {
 	}
 
 	my $orig_dir = dirname($orig_path);
+	_debug("orig_dir='$orig_dir'");
 	if (!-w $orig_dir) {
 		_err("no write permission to parent directory '$orig_dir'");
 	}
@@ -356,7 +363,7 @@ sub untrash {
 	_debug("orig_path='$orig_path'");
 	my $orig_dir = dirname($orig_path);
 	_debug("orig_dir='$orig_dir'");
-	my $trash_dir = find_trash_dir($path);
+	my $trash_dir = find_trash_dir($orig_path);
 	_debug("trash_dir='$trash_dir'");
 	if (!-d "$trash_dir/info" || !-d "$trash_dir/files") {
 		_err("trash directory does not exist");

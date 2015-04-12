@@ -161,6 +161,13 @@ do_main() {
 	if (( $# )); then
 		declare -A did
 		for dir; do
+			if [[ $dir == !* ]]; then
+				dir=$(readlink -f "${dir#!}")
+				debug "excluding '$dir'"
+				did[$dir]=y
+				continue
+			fi
+
 			dir=$(readlink -f "$dir")
 			if [[ ! ${did[$dir]} ]]; then
 				did[$dir]=y

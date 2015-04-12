@@ -163,7 +163,13 @@ do_main() {
 		for arg; do
 			debug "arg '$arg'"
 
-			if [[ $arg == !* ]]; then
+			if [[ $arg == -* ]]; then
+				# TODO: support glob-like exclusions
+				# @(...) might be useful
+				if [[ ! -d $arg ]]; then
+					debug "exclusion is not a directory, ignoring"
+					continue
+				fi
 				dir=$(readlink -f "${arg#!}")
 				debug "excluding '$dir'"
 				did[$dir]=y

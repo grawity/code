@@ -100,6 +100,13 @@ void update_env(char *name) {
 			return;
 		}
 		value = getenv(name);
+	} else if (name[0] == '-') {
+		name++;
+		if (strchr(name, '=')) {
+			warnx("invalid variable name '%s'", name);
+			return;
+		}
+		value = NULL;
 	} else {
 		value = strchr(name, '=');
 		if (value)

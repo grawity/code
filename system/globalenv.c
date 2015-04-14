@@ -114,7 +114,10 @@ void update_env(char *name) {
 		return;
 	}
 
-	asprintf(&desc, "env:%s", name);
+	r = asprintf(&desc, "env:%s", name);
+	if (r < 0) {
+		err(1, "could not allocate memory for key description");
+	}
 
 	if (value && *value) {
 		id = add_key("user", desc, (void *)value,

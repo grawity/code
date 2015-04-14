@@ -114,7 +114,7 @@ $(OBJ)/%: $(dummy)
 BASIC_BINS := args gettime mkpasswd natsort pause proctool silentcat spawn
 BASIC_BINS += strtool unescape
 KRB_BINS   := k5userok pklist
-LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
+LINUX_BINS := globalenv libfunlink.so libfunsync.so libglobalenv.so showsigmask tapchown
 MISC_BINS  := bgrep logwipe writevt xor xors xorf zlib
 JUNK_BINS  := ac-wait subreaper libwcwidth.so
 
@@ -142,8 +142,14 @@ emergency-sulogin: $(OBJ)/emergency-sulogin
 $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
 $(OBJ)/libfunlink.so:	LDLIBS += $(DL_LDLIBS)
 $(OBJ)/libfunlink.so:	system/libfunlink.c
+
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	system/libfunsync.c
+
+$(OBJ)/libglobalenv.so:	CFLAGS += -shared -fPIC
+$(OBJ)/libglobalenv.so:	LDLIBS += -lkeyutils
+$(OBJ)/libglobalenv.so:	system/libglobalenv.c
+
 $(OBJ)/libwcwidth.so:	CFLAGS += -shared -fPIC \
 				-Dmk_wcwidth=wcwidth -Dmk_wcswidth=wcswidth
 $(OBJ)/libwcwidth.so:	thirdparty/wcwidth.c

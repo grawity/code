@@ -133,12 +133,12 @@ sub _debug  { _msg(*STDERR, "debug", "\e[36m", shift,
 		@_); }
 
 sub _info   { _msg(*STDOUT, "info", "\e[1;34m", shift,
-		fmt_prefix => "info:",
+		fmt_prefix => ";",
 		fmt_color => "\e[34m",
 		@_); }
 
 sub _log    { _msg(*STDOUT, "log", "\e[1;32m", shift,
-		fmt_prefix => "--",
+		fmt_prefix => "~",
 		fmt_color => "\e[32m",
 		@_); }
 
@@ -148,7 +148,10 @@ sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", shift,
 		msg_color => "\e[1m",
 		@_); }
 
-sub _notice { _msg(*STDERR, "notice", "\e[1;35m", @_); }
+sub _notice { _msg(*STDERR, "notice", "\e[1;35m", shift,
+		fmt_prefix => "notice:",
+		fmt_color => "\e[38;5;13m",
+		@_); }
 
 sub _warn {
 	_msg(*STDERR, "warning", "\e[1;33m", @_);

@@ -93,21 +93,17 @@ void update_env(char *name) {
 	key_serial_t id;
 	int r;
 
-	if (name[0] == '+') {
+	switch (name[0]) {
+	case '+':
+	case '-':
 		name++;
 		if (strchr(name, '=')) {
 			warnx("invalid variable name '%s'", name);
 			return;
 		}
-		value = getenv(name);
-	} else if (name[0] == '-') {
-		name++;
-		if (strchr(name, '=')) {
-			warnx("invalid variable name '%s'", name);
-			return;
-		}
-		value = NULL;
-	} else {
+		value = (name[0] == '+') ? getenv(name) : NULL;
+		break;
+	default:
 		value = strchr(name, '=');
 		if (value)
 			*value++ = '\0';

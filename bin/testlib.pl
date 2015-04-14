@@ -21,7 +21,7 @@ sub test_log {
 	_debug("debug message");
 	_info("info message");
 	_log("log message");
-	_log2("log message");
+	_log2("log2 message");
 	_notice("notice message");
 	_warn("warning message");
 	_err("error message");

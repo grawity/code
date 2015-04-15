@@ -4,11 +4,38 @@
 
 case $1 in
 	start)
-		sudo: airmon-ng start wlan0;;
+		phys=()
+		for _phy in /sys/class/ieee80211/phy*; do
+			phys+=($_phy)
+			phy=${_phy##*/}
+			dev=${phy/#phy/mon}
+			_dev=/sys/class/net/$dev
+			if [[ -e $_dev ]]; then
+				notice "'$dev' alreacy exists, skipping $phy"
+				continue
+			fi
+			sudo: iw $phy interface add $dev type monitor
+			sudo: ip link set $dev up
+		done
+		if [[ ! $phys ]]; then
+			err "no ieee80211 PHYs found"
+		fi
+		;;
 	stop)
-		sudo: airmon-ng stop mon0;;
+		for _dev in /sys/class/net/*mon*; do
+			dev=${_dev##*/}
+			type=$(< $_dev/type)
+			if [[ $type != 803 ]]; then
+				debug "'$dev' is not a monitor interface, skipping"
+				continue
+			fi
+			sudo: iw $dev interface del
+		done
+		;;
 	"")
 		sudo: airmon-ng;;
 	*)
 		die "unknown command '$1'";;
 esac
+
+(( !errors ))

@@ -198,11 +198,15 @@ do_main() {
 			fi
 
 			dir=$(readlink -f "$arg")
-			debug "updating '$dir'"
-			if [[ ! ${did[$dir]} ]]; then
-				did[$dir]=y
-				(cd "$dir" && ! is_ignored && do_pull)
+
+			if [[ ${did[$dir]} ]]; then
+				debug "skip: dir '$dir' is already seen"
+				continue
 			fi
+
+			debug "updating '$dir'"
+			did[$dir]=y
+			(cd "$dir" && ! is_ignored && do_pull)
 		done
 	else
 		do_pull

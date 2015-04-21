@@ -43,11 +43,11 @@ progname_prefix=-1
 lib::msg() {
 	local text=$1
 	local level_prefix=$2
-	local level_color=${3:-${_log_color[$level_prefix]}}
-	local fancy_prefix=${4:-${_log_fprefix[$level_prefix]}}
-	local fancy_color=${5:-${_log_fcolor[$level_prefix]}}
-	local text_color=${6:-${_log_mcolor[$level_prefix]}}
-	local -i skip_func=$7
+	local level_color=${_log_color[$level_prefix]}
+	local fancy_prefix=${_log_fprefix[$level_prefix]}
+	local fancy_color=${_log_fcolor[$level_prefix]}
+	local text_color=${_log_mcolor[$level_prefix]}
+	local -i skip_func=$3
 
 	local name_prefix prefix color reset msg_color msg_reset
 

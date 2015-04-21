@@ -159,21 +159,6 @@ die() {
 	exit $r
 } >&2
 
-xwarn() {
-	printf '%s\n' "$*"
-	(( ++warnings ))
-} >&2
-
-xerr() {
-	printf '%s\n' "$*"
-	! (( ++errors ))
-} >&2
-
-xdie() {
-	printf '%s\n' "$*"
-	exit 1
-} >&2
-
 usage() { false; } # overridden
 
 lib::die_getopts() {

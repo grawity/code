@@ -64,7 +64,7 @@ fi
 
 ucode="/EFI/arch/intel-ucode.img"
 
-log2 "prepare kernel: ..."
+log2 "preparing"
 t_begin=$(gettime -m)
 
 	make prepare
@@ -72,11 +72,11 @@ t_begin=$(gettime -m)
 	shortrel=$(echo "$release" | sed 's/-g[0-9a-f]*$//')
 	sighash=$(. ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
 
-log2 "build kernel: $release"
+log2 "building $release"
 
 	make
 
-log2 "install kernel: $release"
+log2 "installing $release"
 t_compile=$(gettime -m)
 
 	kernel="/EFI/custom/bisect.efi"
@@ -88,11 +88,11 @@ t_compile=$(gettime -m)
 	sudo install -D arch/x86/boot/bzImage "$esp/$kernel"
 	sudo make modules_install
 
-log2 "build initramfs"
+log2 "building initramfs"
 
 	sudo mkinitcpio -n -k "$esp/$kernel" -g "$esp/$initrd"
 
-log2 "configure bootloader"
+log2 "configuring bootloader"
 
 	osname=$(. ${_path_os_release} && echo "${PRETTY_NAME:-$NAME}")
 	machineid=$(cat /etc/machine-id)
@@ -109,18 +109,18 @@ log2 "configure bootloader"
 	options         $options
 	!
 
-log2 "install to legacy /boot"
+log "installing to legacy /boot"
 
 	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
 	sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
 
-log2 "build third-party modules"
+log2 "building third-party modules"
 
 	_build_dkms "$release"
 	#_build_kdbus "$release"
 	#sudo depmod "$release"
 
-log2 "clean old kernels"
+log2 "cleaning old kernels"
 
 	cur_rel=$(uname -r)
 	while read -r old_rel _; do
@@ -146,7 +146,7 @@ log2 "clean old kernels"
 	done < .custom-kernels 3> .custom-kernels.tmp
 	mv .custom-kernels.tmp .custom-kernels
 
-log2 "sign third-party modules"
+log2 "signing third-party modules"
 
 	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
 	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
@@ -160,7 +160,7 @@ log2 "sign third-party modules"
 		fi
 	done
 
-log2 "installed: $release"
+log2 "installed $release"
 t_install=$(gettime -m)
 
 	git update-ref -m "installed kernel" refs/tags/last-build HEAD
@@ -168,8 +168,8 @@ t_install=$(gettime -m)
 	echo "kernel: $kernel"
 	echo "initrd: $initrd"
 
-log2 "compiled in $(interval $[t_compile-t_begin])"
-log2 "finished in $(interval $[t_install-t_begin])"
+log "compiled in $(interval $[t_compile-t_begin])"
+log "finished in $(interval $[t_install-t_begin])"
 
 if [[ $_NOLID ]]; then
 	echo "(ensuring disk cache flush)"

@@ -86,7 +86,7 @@ print_xmsg() {
 	if [[ $DEBUG ]]; then
 		name_prefix="$progname[$$]: "
 	elif (( progname_prefix > 0 )) || (( progname_prefix < 0 && _lvl > 0 )); then
-		nprefix="$progname: "
+		name_prefix="$progname: "
 	fi
 
 	printf "%s$1\n" "$name_prefix" "${@:2}"
@@ -148,7 +148,7 @@ trace() {
 	if [[ $DEBUG ]]; then
 		lib::msg "$*" 'trace'
 	elif [[ $VERBOSE ]]; then
-		printf "%s\n" "$*"
+		print_xmsg "%s" "$*"
 	fi
 }
 
@@ -156,7 +156,7 @@ msg() {
 	if [[ $DEBUG ]]; then
 		lib::msg "$*" 'info'
 	else
-		printf "%s\n" "$*"
+		print_xmsg "%s" "$*"
 	fi
 }
 

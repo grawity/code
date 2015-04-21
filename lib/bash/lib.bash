@@ -75,12 +75,12 @@ lib::msg() {
 		"$name_prefix" "$prefix" "$text"
 }
 
-# print_xmsg(format, args...)
+# lib::printf(format, args...)
 #
 # Print a log message with an entirely custom format and parameters. Almost
 # like `printf` but adds the program name when necessary.
 
-print_xmsg() {
+lib::printf() {
 	local name_prefix
 
 	if [[ $DEBUG ]]; then
@@ -148,7 +148,7 @@ trace() {
 	if [[ $DEBUG ]]; then
 		lib::msg "$*" 'trace'
 	elif [[ $VERBOSE ]]; then
-		print_xmsg "%s" "$*"
+		lib::printf "%s" "$*"
 	fi
 }
 
@@ -156,7 +156,7 @@ msg() {
 	if [[ $DEBUG ]]; then
 		lib::msg "$*" 'info'
 	else
-		print_xmsg "%s" "$*"
+		lib::printf "%s" "$*"
 	fi
 }
 

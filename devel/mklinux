@@ -120,6 +120,20 @@ log2 "building third-party modules"
 	#_build_kdbus "$release"
 	#sudo depmod "$release"
 
+log2 "signing third-party modules"
+
+	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
+	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
+	} | while read -r file; do
+		echo -n "sign ${file##*/}: "
+		if grep -qs "~Module signature appended~" "$file"; then
+			echo "already signed"
+		else
+			sign "$file"
+			echo "OK"
+		fi
+	done
+
 log2 "cleaning old kernels"
 
 	cur_rel=$(uname -r)
@@ -145,20 +159,6 @@ log2 "cleaning old kernels"
 		fi
 	done < .custom-kernels 3> .custom-kernels.tmp
 	mv .custom-kernels.tmp .custom-kernels
-
-log2 "signing third-party modules"
-
-	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
-	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
-	} | while read -r file; do
-		echo -n "sign ${file##*/}: "
-		if grep -qs "~Module signature appended~" "$file"; then
-			echo "already signed"
-		else
-			sign "$file"
-			echo "OK"
-		fi
-	done
 
 log2 "installed $release"
 t_install=$(gettime -m)

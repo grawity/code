@@ -3,12 +3,16 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname <host>"
+}
+
 do_sshfs() {
 	local src=$1 mtpt=$2
 	mkdir -p "$mtpt"
 	mountpoint -q "$mtpt" ||
 		sshfs -o idmap=none "$src" "$mtpt"
-	echo "Mounted sshfs#$src on $mtpt"
+	trace "mounted sshfs#$src on $mtpt"
 }
 
 do_rdp() {
@@ -85,7 +89,7 @@ case $1 in
 	do_rdp "193.219.181.197" -R
 	;;
     "")
-	echo "Usage: $progname <host>" >&2
+	usage >&2
 	die "missing host name"
 	;;
     *)

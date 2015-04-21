@@ -99,7 +99,6 @@ debug() {
 		printf "%s[%s]: ${color}debug (%s):${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
 	fi
-	return 0
 } >&2
 
 trace() {
@@ -108,7 +107,6 @@ trace() {
 	elif [[ $VERBOSE ]]; then
 		printf "%s\n" "$*"
 	fi
-	return 0
 }
 
 msg() {

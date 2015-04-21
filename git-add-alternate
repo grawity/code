@@ -1,4 +1,7 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
 thisgit=$(git rev-parse --git-dir)
 thisalts=$thisgit/objects/info/alternates
 
@@ -25,13 +28,13 @@ for thatgit; do
 done
 
 if (( do_reset )); then
-	echo "~ repack (local)"
+	log "repacking (local)"
 	git repack -d -a
 fi
 
 for thatgit; do
 	if [[ $thatgit == - ]]; then
-		echo "- reset"
+		log "resetting"
 		rm -f "$thisalts"
 	else
 		thatgit=${thatgit%/}
@@ -44,12 +47,12 @@ for thatgit; do
 		else
 			echo "$thatgit: bad alternate" >&2
 		fi
-		echo "+ add $thatobj"
+		log "adding $thatobj"
 		echo "$thatobj" >> "$thisalts"
 	fi
 done
 
 if (( do_repack )); then
-	echo "~ repack"
+	log "repacking"
 	git repack -d -a -l
 fi

@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+def enum_files(root):
+    for subdir, dirs, files in os.walk(root):
+        for name in files:
+            if name.endswith(".sha"):
+                yield os.path.join(subdir, name)
+
+def strip_path_prefix(path, prefix):
+    if not prefix.endswith("/"):
+        prefix += "/"
+    n = len(prefix)
+    if path[:n] == prefix:
+        return path[n:]
+    return path
+
+def strip_extension(path):
+    sp = path.find("/")
+    dp = path.find(".")
+    if dp > 0 and dp > sp:
+        return path[:dp]
+    return path
+
+def canonicalize_path(path):
+    path = path.replace(b"\\", b"/")
+    while path[:2] == b"./":
+        path = path[2:]
+    return path
+
+hash_ignore = {
+    b"da39a3ee5e6b4b0d3255bfef95601890afd80709", # null
+}
+
+all = {}
+
+def detect_codec(fh):
+    fh.seek(0)
+    magic = fh.read(3)
+    has_utf8_magic = (magic == b"\xEF\xBB\xBF")
+    
+    fh.seek(0)
+    line = fh.readline()
+    has_crlf = line.endswith(b"\r\n")
+
+    fh.seek(0)
+    if has_crlf:
+        if has_utf8_magic:
+            return "utf-8"
+        else:
+            return "cp1257"
+    else:
+        return "utf-8"
+
+for arg in sys.argv[1:]:
+    for file in enum_files(arg):
+        base = os.path.dirname(strip_path_prefix(file, arg))
+        with open(file, "rb") as fh:
+            codec = detect_codec(fh)
+            for n, line in enumerate(fh):
+                hash, tail = line.rstrip(b"\r\n").split(b" *", 1)
+                if hash in hash_ignore:
+                    continue
+                tail = canonicalize_path(tail)
+                try:
+                    tail = tail.decode(codec)
+                except UnicodeDecodeError:
+                    print("line %d: could not decode %r as %r" \
+                          % (n, tail, codec), file=sys.stderr)
+                    raise
+                path = arg + "::" + os.path.join(base, tail)
+                all.setdefault(hash, set()).add(path)
+
+for hash, paths in all.items():
+    if len(paths) > 5:
+        print(hash)
+        for path in sorted(paths):
+            print(" ", path)

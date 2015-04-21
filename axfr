@@ -1,13 +1,17 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+_log_fprefix[log]=';'
 
 try_axfr() {
 	local domain=$1 server=$2
 	local tmp=$(mktemp /tmp/axfr.XXXXXXXX) ret=true
-	echo "; Trying $server"
+	log "trying $server"
 	HOME=/dev/null dig $domain axfr @$server > $tmp
 	if grep -qs '^;; XFR size:' $tmp
-	then cat $tmp
-	else ret=false
+		then cat $tmp
+		else ret=false
 	fi
 	rm -f $tmp
 	$ret
@@ -24,7 +28,7 @@ for ns in $rr_soa; do
 done
 
 for ns in $rr_ns; do
-	if [ $ns = $rr_soa ]; then
+	if [[ "$ns" == "$rr_soa" ]]; then
 		continue
 	fi
 	try_axfr $domain $ns && exit

@@ -100,8 +100,8 @@ print_xmsg() {
 # log		decorated, visible unless quiet
 # log2		decorated, visible unless quiet
 # notice	prefixed, always visible
-# warn		prefixed, always visible
-# err		prefixed, always visible
+# warning	prefixed, always visible
+# error		prefixed, always visible
 
 declare -A _log_color=(
 	[debug]='\e[36m'
@@ -109,7 +109,6 @@ declare -A _log_color=(
 	[info]='\e[1;34m'
 	[log]='\e[1;32m'
 	[log2]='\e[1;35m'
-	[status]='\e[1;36m'
 	[notice]='\e[1;35m'
 	[warning]='\e[1;33m'
 	[error]='\e[1;31m'
@@ -120,7 +119,6 @@ declare -A _log_fprefix=(
 	[trace]='%'
 	[log]='~'
 	[log2]='=='
-	[status]='#'
 	[notice]='notice:'
 )
 
@@ -128,13 +126,11 @@ declare -A _log_fcolor=(
 	[trace]='\e[34m'
 	[log]='\e[38;5;10m'
 	[log2]='\e[35m'
-	[status]='\e[36m'
 	[notice]='\e[38;5;13m'
 )
 
 declare -A _log_mcolor=(
 	[log2]='\e[1m'
-	[status]='\e[38;5;14m'
 )
 
 debug() {
@@ -170,11 +166,6 @@ log() {
 
 log2() {
 	lib::msg "$*" 'log2'
-	settitle "$progname: $*"
-}
-
-status() {
-	lib::msg "$*" 'status'
 	settitle "$progname: $*"
 }
 

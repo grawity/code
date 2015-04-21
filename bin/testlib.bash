@@ -9,7 +9,6 @@ messages() {
 	err "error message"
 	warn "warning message"
 	notice "notice message"
-	TERM= status "status message"
 	log2 "log2 message"
 	log "log message"
 	msg "info message"

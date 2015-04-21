@@ -6,6 +6,10 @@ set -e
 . lib.bash || exit
 
 progname='mklinux'
+_log_color[log2]='\e[1;36m'
+_log_fprefix[log2]='#'
+_log_fcolor[log2]='\e[36m'
+_log_mcolor[log2]='\e[38;5;14m'
 
 sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
 
@@ -60,7 +64,7 @@ fi
 
 ucode="/EFI/arch/intel-ucode.img"
 
-status "prepare kernel: ..."
+log2 "prepare kernel: ..."
 t_begin=$(gettime -m)
 
 	make prepare
@@ -68,12 +72,12 @@ t_begin=$(gettime -m)
 	shortrel=$(echo "$release" | sed 's/-g[0-9a-f]*$//')
 	sighash=$(. ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
 
-status "build kernel: $release"
+log2 "build kernel: $release"
 
 	make
 
-	status "install kernel: $release"
-	t_compile=$(gettime -m)
+log2 "install kernel: $release"
+t_compile=$(gettime -m)
 
 	kernel="/EFI/custom/bisect.efi"
 	initrd="/EFI/custom/bisect.rd"
@@ -84,11 +88,11 @@ status "build kernel: $release"
 	sudo install -D arch/x86/boot/bzImage "$esp/$kernel"
 	sudo make modules_install
 
-status "build initramfs"
+log2 "build initramfs"
 
 	sudo mkinitcpio -n -k "$esp/$kernel" -g "$esp/$initrd"
 
-status "configure bootloader"
+log2 "configure bootloader"
 
 	osname=$(. ${_path_os_release} && echo "${PRETTY_NAME:-$NAME}")
 	machineid=$(cat /etc/machine-id)
@@ -105,18 +109,18 @@ status "configure bootloader"
 	options         $options
 	!
 
-status "install to legacy /boot"
+log2 "install to legacy /boot"
 
 	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
 	sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
 
-status "build third-party modules"
+log2 "build third-party modules"
 
 	_build_dkms "$release"
 	#_build_kdbus "$release"
 	#sudo depmod "$release"
 
-status "clean old kernels"
+log2 "clean old kernels"
 
 	cur_rel=$(uname -r)
 	while read -r old_rel _; do
@@ -142,7 +146,7 @@ status "clean old kernels"
 	done < .custom-kernels 3> .custom-kernels.tmp
 	mv .custom-kernels.tmp .custom-kernels
 
-	status "sign third-party modules"
+log2 "sign third-party modules"
 
 	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
 	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
@@ -156,7 +160,7 @@ status "clean old kernels"
 		fi
 	done
 
-status "installed: $release"
+log2 "installed: $release"
 t_install=$(gettime -m)
 
 	git update-ref -m "installed kernel" refs/tags/last-build HEAD
@@ -164,8 +168,8 @@ t_install=$(gettime -m)
 	echo "kernel: $kernel"
 	echo "initrd: $initrd"
 
-status "compiled in $(interval $[t_compile-t_begin])"
-status "finished in $(interval $[t_install-t_begin])"
+log2 "compiled in $(interval $[t_compile-t_begin])"
+log2 "finished in $(interval $[t_install-t_begin])"
 
 if [[ $_NOLID ]]; then
 	echo "(ensuring disk cache flush)"

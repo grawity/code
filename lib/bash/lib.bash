@@ -157,30 +157,9 @@ die() {
 	exit $r
 } >&2
 
+## Other stuff
+
 usage() { false; } # overridden
-
-lib::die_getopts() {
-	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
-	case $OPT in
-	    "?")
-		if [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
-			usage || die "BUG: help text not available"
-			exit 0
-		elif [[ $OPTARG ]]; then
-			(die "unknown option '-$OPTARG'" || true)
-			usage
-			exit 2
-		else
-			die "BUG: incorrect options specified for getopts"
-		fi;;
-	    ":")
-		die -2 "missing argument to '-$OPTARG'";;
-	    *)
-		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
-	esac
-}
-
-die_getopts() { lib::die_getopts "$@"; } # TEMPORARY
 
 confirm() {
 	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
@@ -232,6 +211,29 @@ larger_than() {
 	filesz=$(stat -c %s "$file")
 	(( filesz > size ))
 }
+
+lib::die_getopts() {
+	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
+	case $OPT in
+	    "?")
+		if [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
+			usage || die "BUG: help text not available"
+			exit 0
+		elif [[ $OPTARG ]]; then
+			(die "unknown option '-$OPTARG'" || true)
+			usage
+			exit 2
+		else
+			die "BUG: incorrect options specified for getopts"
+		fi;;
+	    ":")
+		die -2 "missing argument to '-$OPTARG'";;
+	    *)
+		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
+	esac
+}
+
+die_getopts() { lib::die_getopts "$@"; } # TEMPORARY
 
 lib::is_nested() {
 	(( LVL "$@" ))

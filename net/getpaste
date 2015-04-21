@@ -11,6 +11,8 @@ use JSON;
 use LWP::UserAgent;
 use MIME::Base64;
 
+# generic utility functions {{{
+
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
 		Nullroute::Lib->import(qw(_debug _warn _err _die));
@@ -32,14 +34,126 @@ sub _prompt {
 	$resp;
 }
 
-my $UA = LWP::UserAgent->new;
+# }}}
+# URL parsing functions {{{
 
-sub uri_split {
-	my $str = shift;
+my $URL_RE = qr{
+		(?:    (?<scheme> [^:\/?\#]+) : )?
+		(?: // (?<host> [^/?#]*)        )?
+		       (?<path> [^?#]*)
+		(?: \? (?<query> [^#]*)         )?
+		(?: \# (?<fragment> .*)         )?
+	}x;
 
-	# stolen from URI::Split
-	$str =~ m,(?:([^:/?#]+):)?(?://([^/?#]*))?([^?#]*)(?:\?([^#]*))?(?:#(.*))?,;
+sub parse_url {
+	my ($url) = @_;
+
+	if ($url =~ $URL_RE) { return %+; }
 }
+
+sub unparse_url {
+	my (%url) = @_;
+
+	my $url = $url{scheme}."://".$url{host};
+	$url .= $url{path}         if defined($url{path});
+	$url .= "?".$url{query}    if defined($url{query});
+	$url .= "#".$url{fragment} if defined($url{fragment});
+	return $url;
+}
+
+# }}}
+# translation database functions {{{
+
+sub smart_match {
+	my ($str, $pattern) = @_;
+
+	if (ref($pattern) eq "ARRAY") {
+		for (@$pattern) {
+			my @res = smart_match($str, $_);
+			return @res if @res;
+		}
+	}
+	elsif (ref($pattern) eq "Regexp" && $str =~ $pattern) {
+		# If $pattern has no capture groups, =~ will return an
+		# (1,) in list context since it needs a trueish value.
+		# This piece linenoise works consistently in all cases.
+		return map {substr($str, $-[$_], $+[$_]-$-[$_])} 0..$#-;
+	}
+	elsif (ref($pattern) eq "" && $str eq $pattern) {
+		return $str;
+	}
+	return;
+}
+
+my $EXPN_RE = qr/#(#|\d|\{\w+.\d+\})/;
+
+sub expn {
+	my ($str, $data, $def) = @_;
+
+	for ($str) {
+		if ($_ eq "#") {
+			return $_;
+		} elsif ($def && /^(\d+)$/) {
+			return $data->{$def}->[$1] // "";
+		} elsif (/^\{(\w+).(\d+)\}$/) {
+			return $data->{$1}->[$2] // "";
+		} else {
+			_err("unknown expansion '#$_'");
+			return "\x{1F612}";
+		}
+	}
+};
+
+my @SITES;
+
+sub translate_url {
+	my ($url) = @_;
+
+	my @fields = qw(scheme host path query fragment);
+
+	my %url = parse_url($url);
+
+	unless (%url && defined($url{host}) && defined($url{path})) {
+		_die("bad URL: $url");
+	}
+
+	_debug("scheme='".($url{scheme}//"")."'".
+		", host='".($url{host}//"")."'".
+		", path='".($url{path}//"")."'".
+		", query='".($url{query}//"")."'".
+		", frag='".($url{fragment}//"")."'");
+
+SITE:	for my $site (@SITES) {
+		use Data::Dumper;
+
+		my %match;
+		for (@fields) {
+			my $pat = $site->{"$_"} or next;
+			my @res = smart_match($url{$_}, $pat) or next SITE;
+			$match{$_} = \@res;
+		}
+		next if !%match;
+
+		for (@fields) {
+			my $fmt = $site->{"to_$_"} or next;
+			$fmt =~ s/$EXPN_RE/expn($1, \%match, $_)/ge;
+			$url{$_} = $fmt;
+		}
+
+		my $raw_url = unparse_url(%url);
+		my $func = $site->{"parser"};
+		if ($func) {
+			return ($raw_url, $func, $url{fragment});
+		} else {
+			return ($raw_url);
+		}
+	}
+}
+
+# }}}
+# HTTP client functions {{{
+
+my $UA = LWP::UserAgent->new;
 
 sub get {
 	my $url = shift;
@@ -79,6 +193,9 @@ sub post {
 		return undef;
 	}
 }
+
+# }}}
+# DECRYPTORS {{{
 
 sub decode_sour_base64 {
 	my ($str) = @_;
@@ -376,104 +493,122 @@ sub dl_sour {
 	return $data;
 }
 
-sub parse_url {
-	my ($url) = @_;
-	my ($scheme, $host, $path, $query, $frag) = uri_split $url;
+# }}}
+# SITE DATABASE {{{
 
-	_debug("scheme='".($scheme//"")."'".
-		", host='".($host//"")."'".
-		", path='".($path//"")."'".
-		", query='".($query//"")."'".
-		", frag='".($frag//"")."'");
+@SITES = (
+	# generic (forced)
+	{
+		scheme => qr/^zerobin\+(https?)$/,
+		to_scheme => "#1",
+		parser => \&dl_zerobin,
+	},
+	# domain
+	{
+		host => "0bin.net",
+		parser => \&dl_0bin,
+	},
+	{
+		host => qr/^(dark-)?code\.bulix\.org$/,
+		to_query => "raw",
+	},
+	{
+		host => "codepad.org",
+		path => qr!^(/\w+)!,
+		to_path => "#1/raw.txt",
+	},
+	{
+		host => "dpaste.com",
+		path => qr!^(?:/hold)?(/\d+)!,
+		to_path => "#1/plain/",
+	},
+	{
+		host => ["dpaste.org", "dpaste.de"],
+		path => qr!^(/\w+)!,
+		to_path => "#1/raw/",
+	},
+	{
+		host => "www.dropbox.com",
+		to_host => "dl.dropboxusercontent.com",
+	},
+	{
+		host => "ezcrypt.it",
+		parser => \&dl_ezcrypt,
+	},
+	{
+		host => "paste.fedoraproject.org",
+		to_path => "#0/raw",
+	},
+	{
+		host => "fpaste.org",
+		path => qr!^(/\w+(?:/\d+)?)!,
+		to_path => "#1/raw/",
+	},
+	{
+		host => "ghostbin.com",
+		path => qr!^(/paste/\w+)!,
+		to_path => "#1/raw",
+	},
+	{
+		host => "gist.github.com",
+		to_path => "#0.txt",
+	},
+	{
+		host => "hastebin.com",
+		path => qr!^/(\w+)!,
+		to_path => "/raw/#1",
+	},
+	{
+		host => qr/^(www\.)?irccloud\.com$/,
+		path => qr!^(/pastebin/\w+)!,
+		to_path => "#1.raw",
+	},
+	{
+		host => "pastebin.ca",
+		path => qr!^(?:/raw)?/(\d+)!,
+		to_path => "/raw/#1",
+	},
+	{
+		host => "pastebin.com",
+		path => qr!^(?:/index)?/(\w+)!,
+		to_path => "/download.php?i=#1",
+	},
+	{
+		host => "pastebin.de",
+		path => qr!^(\d+)!,
+		to_path => "/download/?id=#1",
+	},
+	{
+		host => "pastie.org",
+		path => qr!^/(\d+)!,
+		to_path => "/pastes/#1/download",
+	},
+	{
+		host => "privatepaste.com",
+		path => qr!^/(\w+)!,
+		to_path => "/download/#1",
+	},
+	{
+		host => "sour.is",
+		path => "/p/",
+		fragment => qr{^/(.+)!(.+)},
+		to_path => "/p.store/#{fragment.1}",
+		to_fragment => "#{fragment.2}",
+		parser => \&dl_sour,
+	},
+	{
+		host => "sprunge.us",
+	},
+	# generic (wild guess)
+	{
+		query => qr/^[0-9a-f]{16}$/,
+		fragment => qr{^[0-9A-Za-z+/]{43}=$},
+		note => "probably a ZeroBin site based on query & fragment",
+		parser => \&dl_zerobin,
+	},
+);
 
-	if (!defined($host) || !defined($path)) {
-		_die("bad URL: $url");
-	}
-
-	$path =~ s|^/||;
-	$query //= "";
-
-	if ($host =~ /^sprunge\.us$/)
-		{ return $url }
-
-	elsif ($host =~ /^codepad\.org$/ and $path =~ m!^(\w+)!)
-		{ return "$scheme://$host/$1/raw.txt" }
-
-	elsif ($host =~ /^dpaste\.(org|de)$/ and $path =~ m!^(\w+)!)
-		{ return "$scheme://$host/$1/raw/" }
-
-	elsif ($host =~ /^ghostbin\.com$/ and $path =~ m!^(paste/\w+)!)
-		{ return "$scheme://$host/$1/raw" }
-
-	elsif ($host =~ /^dpaste\.com$/ and $path =~ m!^(?:hold/)?(\d+)!)
-		{ return "$scheme://$host/$1/plain/" }
-
-	elsif ($host =~ /^(?:[\w-]+\.)?pastebin\.ca$/ and $path =~ m!^(?:raw/)?(\d+)!)
-		{ return "$scheme://$host/raw/$1" }
-
-	elsif ($host =~ /^pastebin\.com$/ and $path =~ m!^(?:index/)?(\w+)!)
-		{ return "$scheme://$host/download.php?i=$1" }
-
-	elsif ($host =~ /^pastebin(\.centos|\.mozilla)?\.org$/
-		and $path =~ m!^(?:pastebin\.php\?dl=)?(\d+)!)
-		{ return "$scheme://$host/pastebin.php?dl=$1" }
-
-	elsif ($host =~ /^paste\.linuxassist\.net$/ and $path =~ m!(\d+)!)
-		{ return "$scheme://linux:linux\@$host/pastebin.php?raw=$1" }
-
-	elsif ($host =~ /^pastie\.org$/ and $path =~ m!^(\d+)!)
-		{ return "$scheme://$host/pastes/$1/download" }
-
-	elsif ($host =~ /(?:dark-)?code\.bulix\.org$/ and $path =~ m!^(\w+-\d+)!)
-		{ return "$scheme://$host/$1?raw" }
-
-	elsif ($host =~ /^fpaste\.org$/ and $path =~ m!^(\w+(?:/\d+)?)!)
-		{ return "$scheme://$host/$1/raw/" }
-
-	elsif ($host =~ /^paste\.fedoraproject\.org$/)
-		{ return "$scheme://$host/$path/raw" }
-
-	elsif ($host =~ /^pastebin\.de$/ and $path =~ m!^(\d+)!)
-		{ return "$scheme://$host/download/?id=$1" }
-
-	elsif ($host =~ /^privatepaste\.com$/ and $path =~ m!^(\w+)!)
-		{ return "$scheme://$host/download/$1" }
-
-	elsif ($host =~ /^gist\.github\.com$/)
-		{ return "$scheme://$host/$path.txt" }
-
-	elsif ($host =~ /^hastebin\.com$/ and $path =~ m!^(\w+)!)
-		{ "$scheme://hastebin.com/raw/$1" }
-
-	elsif ($host =~ /^www\.dropbox\.com$/)
-		{ "$scheme://dl.dropboxusercontent.com/$path" }
-
-	elsif ($host =~ /^(www\.)?irccloud\.com$/ and $path =~ m!^pastebin/(\w+)!)
-		{ "$scheme://$host/pastebin/$1.raw" }
-
-	# cryptobins
-
-	elsif ($host =~ /^0bin\.net$/)
-		{ $url, \&dl_0bin, $frag }
-
-	elsif ($host =~ /^ezcrypt\.it$/)
-		{ $url, \&dl_ezcrypt, $frag }
-
-	elsif ($host =~ /^sour\.is$/ and $path eq "p/" and $frag =~ m{^/(.+)!(.+)})
-		{ "$scheme://sour.is/p.store/$1", \&dl_sour, $2 }
-
-	elsif ($url =~ m{^zerobin\+(https?://.+)$})
-		{ $1, \&dl_zerobin, $frag }
-
-	elsif ($query =~ /^[0-9a-f]{16}$/ && $frag =~ m{^[0-9A-Za-z+/]{43}=$})
-		{ _debug("probably a ZeroBin site based on query & fragment");
-		  $url, \&dl_zerobin, $frag }
-
-	# final
-
-	else
-		{ return undef }
-}
+# }}}
 
 sub usage {
 	print "$_\n" for
@@ -508,7 +643,7 @@ unless ($ENV{PERL_LWP_SSL_CA_FILE} || $ENV{HTTPS_CA_FILE}) {
 # Main code
 
 for my $url (@ARGV) {
-	my ($raw, $handler, @hargs) = parse_url($url);
+	my ($raw, $handler, @hargs) = translate_url($url);
 	if (!defined $raw && !defined $handler) {
 		_err("unknown pastebin: $url");
 	} elsif ($showurl) {
@@ -532,3 +667,4 @@ for my $url (@ARGV) {
 }
 
 exit $::errors;
+# vim: ts=8:sw=8:noet:fdm=marker

@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
 # run-secondlife -- Second Life viewer wrapper with single-instance support
-
 use warnings;
 use strict;
 use Net::DBus;
@@ -42,8 +41,7 @@ my $new;
 $exe = shift @ARGV;
 if (!defined $exe) {
 	_die("missing executable path");
-}
-elsif (!-f $exe || !-x $exe) {
+} elsif (!-f $exe || !-x $exe) {
 	_die("not an executable: $exe");
 }
 
@@ -79,14 +77,12 @@ if (defined $url) {
 	}
 	elsif ($::bus->get_service_owner(SL_BUS_NAME)) {
 		_info("activating existing viewer instance");
-
 		eval {
 			$::bus
 			->get_service(SL_BUS_NAME)
 			->get_object(SL_BUS_PATH)
 			->GoSLURL($url);
 		};
-
 		if ($@) {
 			_warn("could not contact the viewer: $@");
 		} else {
@@ -102,6 +98,5 @@ if ($::debug) {
 	_debug("starting '$exe'");
 	_debug(" - with arg '$_'") for @default_args, @args;
 }
-
 exec {$exe} ($exe, @default_args, @args)
 or _die("could not run '$exe': $!");

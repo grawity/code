@@ -94,14 +94,21 @@ lib::printf() {
 
 ## Log levels
 
-# debug		prefixed, only visible in DEBUG=1
-# trace		plain, only visible if VERBOSE=1
-# msg		plain, visible unless quiet
-# log		decorated, visible unless quiet
-# log2		decorated, visible unless quiet
-# notice	prefixed, always visible
-# warning	prefixed, always visible
-# error		prefixed, always visible
+# As lib.bash is oriented towards interactive scripts, there are additional
+# levels which are mostly the same as VERBOSE or INFO but with different
+# graphical appearance.
+
+# LIB.BASH	SHOWN	FORMAT	LOG4J	PYTHON
+# -------------	-------	-------	-------	-------
+# debug		debug	prefix	DEBUG	debug
+# trace		verbose	plain	-	info
+# msg		!quiet	plain	-	-
+# log		!quiet	decorat	-	-
+# log2		!quiet	decorat	-	-
+# notice	always	prefix	INFO	-
+# warning	always	prefix	WARN	warning
+# error		always	prefix	ERROR	error
+# fatal		always	prefix	FATAL	critical
 
 declare -A _log_color=(
 	[debug]='\e[36m'

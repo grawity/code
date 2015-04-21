@@ -2,9 +2,9 @@
 import os, sys, re
 import urllib.parse
 
-def trace(*m):
+def trace(fmt, *args):
     if "DEBUG" in os.environ:
-        print(*m, file=sys.stderr)
+        print("\033[36m%s\033[m" % fmt, *args, file=sys.stderr)
 
 def load_mappings(path):
     mappings = []
@@ -89,27 +89,31 @@ mappings = load_mappings(conf_path)
 seen = set()
 
 for start_uri in sys.argv[1:]:
-    trace("start %r" % start_uri)
+    trace("start arg: %r" % start_uri)
     inputs = [start_uri]
     found = 0
     while inputs:
-        trace(". have %r" % inputs)
+        trace("- have inputs: %r" % inputs)
         next = []
         for uri in inputs:
-            trace(".. trying %r" % uri)
+            trace("- trying to map %r" % uri)
             if uri in seen:
+                trace("... already seen, skipping")
                 continue
             mapped = list(find_mapping(mappings, uri))
+            trace("... output %r" % mapped)
             if mapped:
-                trace("... output %r" % uri)
+                trace("... mapping found, adding to next-inputs")
                 next += mapped
             else:
-                trace("... final %r" % uri)
+                trace("... no mapping, uri is final")
                 found += 1
                 print(uri)
             seen.add(uri)
         if len(seen) > 100:
             raise Exception("possible infinite loop at %r" % start_uri)
         inputs = next
+    trace("- no more inputs")
     if found == 0:
+        trace("... no mappings ever found, returning original arg")
         print(start_uri)

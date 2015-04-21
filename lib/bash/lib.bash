@@ -42,9 +42,11 @@ progname_prefix=-1
 
 lib::msg() {
 	local text=$1
-	local level_prefix=$2 level_color=$3
-	local fancy_prefix=$4 fancy_color=$5
-	local text_color=$6
+	local level_prefix=$2
+	local level_color=${3:-${_log_color[$level_prefix]}}
+	local fancy_prefix=${4:-${_log_fprefix[$level_prefix]}}
+	local fancy_color=${5:-${_log_fcolor[$level_prefix]}}
+	local text_color=${6:-${_log_mcolor[$level_prefix]}}
 	local -i skip_func=$7
 
 	local name_prefix prefix color reset msg_color msg_reset
@@ -90,6 +92,51 @@ print_xmsg() {
 	printf "%s$1\n" "$name_prefix" "${@:2}"
 }
 
+## Log levels
+
+# debug		prefixed, only visible in DEBUG=1
+# trace		plain, only visible if VERBOSE=1
+# msg		plain, visible unless quiet
+# log		decorated, visible unless quiet
+# log2		decorated, visible unless quiet
+# notice	prefixed, always visible
+# warn		prefixed, always visible
+# err		prefixed, always visible
+
+declare -A _log_color=(
+	[debug]='\e[36m'
+	[trace]='\e[34m'
+	[info]='\e[1;34m'
+	[log]='\e[1;32m'
+	[log2]='\e[1;35m'
+	[status]='\e[1;36m'
+	[notice]='\e[1;35m'
+	[warning]='\e[1;33m'
+	[error]='\e[1;31m'
+	[fatal]='\e[1;31m'
+)
+
+declare -A _log_fprefix=(
+	[trace]='%'
+	[log]='~'
+	[log2]='=='
+	[status]='#'
+	[notice]='notice:'
+)
+
+declare -A _log_fcolor=(
+	[trace]='\e[34m'
+	[log]='\e[38;5;10m'
+	[log2]='\e[35m'
+	[status]='\e[36m'
+	[notice]='\e[38;5;13m'
+)
+
+declare -A _log_mcolor=(
+	[log2]='\e[1m'
+	[status]='\e[38;5;14m'
+)
+
 debug() {
 	local color reset
 	if [[ -t 1 ]]; then
@@ -103,7 +150,7 @@ debug() {
 
 trace() {
 	if [[ $DEBUG ]]; then
-		lib::msg "$*" 'trace' '\e[34m' '%' '\e[34m'
+		lib::msg "$*" 'trace'
 	elif [[ $VERBOSE ]]; then
 		printf "%s\n" "$*"
 	fi
@@ -111,38 +158,38 @@ trace() {
 
 msg() {
 	if [[ $DEBUG ]]; then
-		lib::msg "$*" 'info' '\e[1;34m'
+		lib::msg "$*" 'info'
 	else
 		printf "%s\n" "$*"
 	fi
 }
 
 log() {
-	lib::msg "$*" 'log' '\e[1;32m' '~' '\e[38;5;10m'
+	lib::msg "$*" 'log'
 }
 
 log2() {
-	lib::msg "$*" 'log2' '\e[1;35m' '==' '\e[35m' '\e[1m'
+	lib::msg "$*" 'log2'
 	settitle "$progname: $*"
 }
 
 status() {
-	lib::msg "$*" 'status' '\e[1;36m' '#' '\e[36m' '\e[38;5;14m'
+	lib::msg "$*" 'status'
 	settitle "$progname: $*"
 }
 
 notice() {
-	lib::msg "$*" 'notice' '\e[1;35m' 'notice:' '\e[38;5;13m'
+	lib::msg "$*" 'notice'
 } >&2
 
 warn() {
-	lib::msg "$*" 'warning' '\e[1;33m'
+	lib::msg "$*" 'warning'
 	if (( DEBUG > 1 )); then backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
-	lib::msg "$*" 'error' '\e[1;31m'
+	lib::msg "$*" 'error'
 	if (( DEBUG > 1 )); then backtrace; fi
 	! (( ++errors ))
 } >&2
@@ -152,7 +199,7 @@ die() {
 	    -[0-9]) local r=${1#-}; shift;;
 	    *)      local r=1;;
 	esac
-	lib::msg "$*" 'fatal' '\e[1;31m'
+	lib::msg "$*" 'fatal'
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit $r
 } >&2

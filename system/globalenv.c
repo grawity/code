@@ -88,20 +88,20 @@ void Env_free(struct Env *ptr) {
 }
 
 void update_env(char *name) {
-	char *value;
+	char opt, *value;
 	_cleanup_free_ char *desc = NULL;
 	key_serial_t id;
 	int r;
 
-	switch (name[0]) {
+	switch (opt = name[0]) {
 	case '+':
 	case '-':
-		name++;
 		if (strchr(name, '=')) {
 			warnx("invalid variable name '%s'", name);
 			return;
 		}
-		value = (name[0] == '+') ? getenv(name) : NULL;
+		++name;
+		value = (opt == '+') ? getenv(name) : NULL;
 		break;
 	default:
 		value = strchr(name, '=');

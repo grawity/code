@@ -1,11 +1,30 @@
 #!/usr/bin/env bash
-# asn1 -- convenience wrapper for 'dumpasn1', which requires seek() support for
-# certain functions
+# asn1 -- convenience wrapper for 'dumpasn1', which doesn't base64-decode input
+# on its own, and won't completely decode unseekable input
 
 . lib.bash || exit
 
+arg.from_stdin!() {
+	arg=$(mktemp /tmp/asn1.XXXXXXXX)
+	temp+=("$arg")
+	cat > "$arg"
+}
+
+arg.decode_base64!() {
+	if grep -qs "^-----" "$arg"; then
+		raw=$(mktemp /tmp/asn1.XXXXXXXX)
+		temp+=("$raw")
+		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
+				/^[A-Za-z0-9+/=]*$/p
+			}' < "$arg" | base64 -d > "$raw"
+		debug "PEM-decoded '$raw' from '$arg'"
+		arg=$raw
+	fi
+}
+
 args=()
 temp=()
+files=0
 optend=0
 optargs=0
 
@@ -19,9 +38,7 @@ for arg; do
 	elif [[ $arg == - ]]; then
 		debug "- consuming as stdin"
 		detect=1
-		arg=$(mktemp /tmp/asn1.XXXXXXXX)
-		temp+=("$arg")
-		cat > "$arg"
+		arg.from_stdin!
 	elif (( ! optend )) && [[ $arg == -[cfwm] ]]; then
 		debug "- consuming as option with optargs"
 		optargs=1
@@ -36,20 +53,19 @@ for arg; do
 	fi
 
 	if (( detect )) && [[ -f $arg ]] && [[ -s $arg ]]; then
-		debug "arg is a file, detecting contents"
-		if grep -qs "^-----" "$arg"; then
-			raw=$(mktemp /tmp/asn1.XXXXXXXX)
-			temp+=("$raw")
-			sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
-					/^[A-Za-z0-9+/=]*$/p
-				}' < "$arg" | base64 -d > "$raw"
-			debug "PEM-decoded '$raw' from '$arg'"
-			arg=$raw
-		fi
+		debug "arg '$arg' is a file, detecting contents"
+		arg.decode_base64!
+		(( ++files ))
 	fi
 
 	args+=("$arg")
 done
+
+if (( ! files )); then
+	arg.from_stdin!
+	arg.decode_base64!
+	args+=("$arg")
+fi
 
 dumpasn1 "${args[@]}"; r=$?
 

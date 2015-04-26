@@ -12,6 +12,8 @@ my $current;
 my @songs;
 my @patterns;
 
+my $use_tty = (-t 0);
+
 my $fmt_normal  =      "\e[38;5;40m"."%4d  "."\e[m".  "%s – %s\n";
 my $fmt_current = "\e[1m\e[38;5;82m"."%4d  "."\e[37m"."%s – %s"."\e[m\n";
 
@@ -104,6 +106,7 @@ sub _display_x11_list_zenity {
 	my $count = @songs;
 	return unless $count >= 2;
 	my $patterns = join(" ", @patterns);
+
 	my ($in, $out);
 	my $pid = open2($out, $in,
 			"zenity",
@@ -116,6 +119,8 @@ sub _display_x11_list_zenity {
 			"--column=#",
 			"--column=Title",
 			"--hide-column=1",);
+
+	binmode($in, ":utf8");
 	for my $item (@songs) {
 		printf $in "%d\n%s – %s\n",
 			$item->{num},
@@ -123,11 +128,19 @@ sub _display_x11_list_zenity {
 			$item->{title};
 	}
 	close($in);
+
+	binmode($out, ":utf8");
 	my $line = <$out>;
+	close($out);
+
 	if (defined $line) {
-		chomp $line;
+		chomp($line);
+		_debug("zenity stdout: '$line'");
+
 		$line =~ s/\|.*//; # For some reason, zenity started
 		                   # returning x|x instead of just x
+		_debug("zenity parsed: '$line'");
+
 		if (length $line) {
 			play($line);
 		}
@@ -140,12 +153,15 @@ sub _display_x11_list_dmenu {
 	return unless $count >= 2;
 	my $max = max map {$_->{num}} @songs;
 	my $width = int(log($max) / log(10) + 0.5),
+
 	my ($in, $out);
 	my $pid = open2($out, $in,
 			"dmenu",
 			"-i", # case-insensitive
 			"-l", "12",
 			"-p", "song »",);
+
+	binmode($in, ":utf8");
 	for my $item (@songs) {
 		printf $in "│%0*d│ %s – %s\n",
 			$width,
@@ -154,12 +170,20 @@ sub _display_x11_list_dmenu {
 			$item->{title};
 	}
 	close($in);
+
+	binmode($out, ":utf8");
 	my $line = <$out>;
+	close($out);
+
 	if (defined $line) {
-		chomp $line;
+		chomp($line);
+		_debug("dmenu stdout: '$line'");
+
 		$line =~ s/^\s*│?//;
 		$line =~ s/\s*│.*$//;
 		$line =~ s/^0*//;
+		_debug("dmenu parsed: '$line'");
+
 		if (length $line) {
 			play($line);
 		}
@@ -202,7 +226,7 @@ sub display_x11_nak {
 }
 
 sub display_list {
-	if (-t 0) {
+	if ($use_tty) {
 		goto &display_tty_list;
 	} elsif ($ENV{DISPLAY}) {
 		goto &display_x11_list;
@@ -210,7 +234,7 @@ sub display_list {
 }
 
 sub display_current {
-	if (-t 0) {
+	if ($use_tty) {
 		goto &display_tty_current;
 	} elsif ($ENV{DISPLAY}) {
 		goto &display_x11_current;
@@ -218,7 +242,7 @@ sub display_current {
 }
 
 sub display_nak {
-	if (-t 0) {
+	if ($use_tty) {
 		goto &display_tty_nak;
 	} elsif ($ENV{DISPLAY}) {
 		goto &display_x11_nak;

@@ -1,51 +1,57 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use IO::Socket;
 use Data::Dumper;
+use IO::Socket;
 
-my $listen = shift @ARGV;
-my $forward = shift @ARGV;
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($arg0, $warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
 my @forwards = ();
 
-my ($dbus, $libnotify);
-
 sub usage {
-	print STDERR <<EOF;
-Usage: notify-receive <listen> <forward>
-
-listen:
-	stdin
-	tcp!addr!port
-	udp!addr!port
-	(addr can be *)
-forward:
-	libnotify
-	growl!addr!port
-	growl!addr!port!password
-EOF
-	exit 2;
+	print "$_\n" for
+	"Usage: notify-receive <listen> <forward>",
+	"",
+	"listen:",
+	"    stdin",
+	"    tcp!addr!port",
+	"    udp!addr!port",
+	"    (addr can be *)",
+	"",
+	"forward:",
+	"    libnotify",
+	"    growl!addr!port",
+	"    growl!addr!port!password";
 }
 
-### Helpers
-
-# perlcritic can DIAF.
-sub forked(&) {
-	my $code = shift;
-	my $pid = fork();
-	if ($pid == 0) {exit &$code;}
-	else {return $pid;}
-}
+sub forked (&) { fork || exit shift->(); }
 
 sub xml_escape {
-	($_) = @_; s/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; return $_;
+	my ($str) = @_;
+	$str =~ s/&/\&amp;/g;
+	$str =~ s/</\&lt;/g;
+	$str =~ s/>/\&gt;/g;
+	$str =~ s/"/\&quot;/g;
+	return $str;
 }
 
 sub handle_message {
 	my ($message) = @_;
 	my ($ver, $appname, $tag, $icon, $title, $text) = split(/\x01/, $message, 6);
 	if ($ver != 2) {
-		warn "Received invalid message: $message\n";
+		_warn("received invalid message '$message'");
 		return;
 	}
 	if ($title eq "") {return;}
@@ -67,49 +73,54 @@ sub socket_inet {
 	);
 	if (eval {require IO::Socket::INET6}) {
 		$sock = IO::Socket::INET6->new(%sock_args)
-			or die "socket: $!";
+			or _die("socket error: $!");
 	} elsif ($laddr =~ /:/) {
 		die "IO::Socket::INET6 required for IPv6\n";
 	} else {
 		$sock = IO::Socket::INET->new(%sock_args)
-			or die "socket: $!";
+			or _die("socket error: $!");
 	}
 	return $sock;
 }
 
 sub accept_stream {
-	my $sock = shift;
+	my ($sock) = @_;
+
 	while (my $insock = $sock->accept) {
 		forked {
 			chomp(my $data = <$insock>);
 			close $insock;
-			$data and handle_message($data);
+			if ($data) { handle_message($data); }
 		};
 	}
 }
 
 sub accept_dgram {
-	my $sock = shift;
+	my ($sock) = @_;
+
 	while ($sock->recv(my $data, 1024)) {
-		chomp $data;
-		$data and handle_message($data);
+		chomp($data);
+		if ($data) { handle_message($data); }
 	}
 }
 
+my ($listen, $forward) = @ARGV;
+
 # set up forwarders
 if (!defined $forward) {
-	usage;
+	usage();
+	_die("missing forward address");
 } elsif ($forward =~ /^libnotify$/) {
 	my $dbus;
 	if (eval {require Net::DBus}) {
 		$dbus = Net::DBus->session;
 	#} else {
-	#	print STDERR "error: DBus requires Net::DBus\n";
-	#	exit 2;
+	#	_die("libnotify support requires 'Net::DBus'");
 	}
 	
 	if (defined $dbus) {
-		my $libnotify = $dbus->get_service("org.freedesktop.Notifications")
+		my $libnotify = $dbus
+			->get_service("org.freedesktop.Notifications")
 			->get_object("/org/freedesktop/Notifications");
 			
 		push @forwards, sub {
@@ -124,8 +135,14 @@ if (!defined $forward) {
 				$state->{text} = $text;
 			}
 
-			$state->{id} = $libnotify->Notify($appname, $state->{id} // 0,
-				$icon, $title, $state->{text}, [], {}, 3000);
+			$state->{id} = $libnotify->Notify($appname,
+							  $state->{id} // 0,
+							  $icon,
+							  $title,
+							  $state->{text},
+							  [],
+							  {},
+							  3_000);
 			$state->{sent} = time;
 		};
 	} else {
@@ -159,40 +176,36 @@ if (!defined $forward) {
 			);
 		};
 	} else {
-		print STDERR "error: Growl requires Growl::GNTP\n";
-		exit 2;
+		_die("Growl requires 'Growl::GNTP'");
 	}
 } else {
-	print STDERR "error: unsupported forward address: $forward\n";
-	usage;
+	_die("unsupported forward address '$forward'");
 }
 
 # set up listener
 if (!defined $listen) {
-	usage;
+	usage();
+	_die("missing listen address");
 } elsif ($listen =~ /^(tcp|udp)!(.+)!(.+)$/) {
 	my $proto = $1;
 	my $laddr = ($2 eq '*'? undef : $2);
 	my $lport = $3;
 
 	my $sock;
-
 	if ($proto eq 'tcp') {
 		$sock = socket_inet($proto, $laddr, $lport);
 		$sock->listen(1);
-		accept_stream $sock;
+		accept_stream($sock);
 	} elsif ($proto eq 'udp') {
 		$sock = socket_inet($proto, $laddr, $lport);
-		accept_dgram $sock;
+		accept_dgram($sock);
 	}
-
 	close $sock;
 } elsif ($listen eq 'stdin') {
 	while (my $data = <STDIN>) {
 		chomp $data;
-		$data and handle_message($data);
+		if ($data) { handle_message($data); }
 	}
 } else {
-	print STDERR "error: unsupported listen address: $listen\n";
-	usage;
+	_die("unsupported listen address '$listen'");
 }

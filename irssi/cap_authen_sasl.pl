@@ -1,7 +1,6 @@
 use strict;
 use Irssi;
 use vars qw($VERSION %IRSSI);
-# $Id$
 
 use MIME::Base64;
 use Authen::SASL "Perl";
@@ -25,7 +24,7 @@ my %sasl_auth = ();
 sub timeout;
 
 sub server_connected {
-	my $server = shift;
+	my ($server) = @_;
 	if ($server->{chat_type} eq "IRC") {
 			$server->send_raw_now("CAP LS");
 	}
@@ -152,7 +151,7 @@ sub event_sasl_authed {
 }
 
 sub timeout {
-	my $tag = shift;
+	my ($tag) = @_;
 	my $server = Irssi::server_find_tag($tag);
 	if($server and !$server->{connected}) {
 		$server->print('', "SASL: authentication timed out");
@@ -161,7 +160,7 @@ sub timeout {
 }
 
 sub sasl_abort {
-	my $server = shift;
+	my ($server) = @_;
 	$server->send_raw_now("AUTHENTICATE *");
 	$server->send_raw_now("CAP END");
 }

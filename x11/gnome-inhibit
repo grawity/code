@@ -70,9 +70,9 @@ sub flags_to_string {
 }
 
 sub string_to_flags {
-	my $flagstr = shift;
+	my ($flag_str) = @_;
 	my $flags = 0;
-	for (split /[:,|]/, $flagstr) {
+	for (split /[:,|]/, $flag_str) {
 		if ($_ eq 'all') {
 			$flags |= 0x7fffffff;
 		} elsif ($_ eq 'sleep') {
@@ -183,33 +183,33 @@ my $always	= 0;
 my $verbose	= 0;
 my $app_id	= $::arg0;
 my $reason	= "User-initiated inhibit";
-my $flagstr	= undef;
+my $flag_str	= undef;
 my $top_xid	= 0;
 
 GetOptions(
 	'help'		=> sub { usage(); exit; },
 	'A|always'	=> \$always,
 	'a|app-id=s'	=> \$app_id,
-	'f|flags=s'	=> \$flagstr,
+	'f|flags=s'	=> \$flag_str,
 	'l|list+'	=> \$do_list,
 	'r|reason=s'	=> \$reason,
 	't|test+'	=> \$do_test,
 	'v|verbose'	=> \$verbose,
 	'x|xid=o'	=> \$top_xid,
 	# for compatibility with `systemd-inhibit`
-	'what=s'	=> \$flagstr,
+	'what=s'	=> \$flag_str,
 	'who=s'		=> \$app_id,
 	'why=s'		=> \$reason,
 	# for compatibility with `gnome-session-inhibit`
-	'inhibit=s'	=> \$flagstr,
+	'inhibit=s'	=> \$flag_str,
 	'inhibit-only'	=> sub { },
 ) or exit 2;
 
 if (@ARGV && ($do_list || $do_test)) {
-	if (defined $flagstr) {
+	if (defined $flag_str) {
 		_warn("extra arguments ignored");
 	} else {
-		$flagstr //= join(",", @ARGV);
+		$flag_str //= join(",", @ARGV);
 	}
 }
 
@@ -240,7 +240,7 @@ if ($do_list && $do_test) {
 		exit 0;
 	}
 
-	my $filter = string_to_flags($flagstr //= "all");
+	my $filter = string_to_flags($flag_str //= "all");
 	my $flags = SessionManager->Get("org.gnome.Session",
 					"InhibitedActions") & $filter;
 	say for $flags ? flags_to_array($flags) : "none";
@@ -254,7 +254,7 @@ if ($do_list && $do_test) {
 		exit 0;
 	}
 
-	my $flags = string_to_flags($flagstr //= "0");
+	my $flags = string_to_flags($flag_str //= "0");
 	display_inhibitors($verbose, get_inhibitors($flags));
 
 	exit 0;
@@ -266,7 +266,7 @@ if ($do_list && $do_test) {
 		exit 0;
 	}
 
-	my $flags = string_to_flags($flagstr //= "idle");
+	my $flags = string_to_flags($flag_str //= "idle");
 	if (!$flags) {
 		_err("no inhibit flags given");
 		exit 2;
@@ -282,7 +282,7 @@ if ($do_list && $do_test) {
 } else {
 	my $cookie;
 
-	my $flags = string_to_flags($flagstr //= "idle");
+	my $flags = string_to_flags($flag_str //= "idle");
 	if (!$flags) {
 		_err("no inhibit flags given");
 		exit 2;

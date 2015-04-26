@@ -32,7 +32,7 @@ sub get_local_offset {
 }
 
 sub parse_time_tag {
-	my $str = shift;
+	my ($str) = @_;
 	if ($str =~ $unix_time_re) {
 		localtime($str);
 	} elsif (my @m = $str =~ $iso_time_re) {

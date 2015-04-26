@@ -88,9 +88,9 @@ sub hmac {
 }
 
 sub lcnick {
-	my $str = shift;
+	my ($str) = @_;
 	$str =~ tr/[\\]/{|}/;
-	lc $str;
+	return lc($str);
 }
 
 sub get_account {

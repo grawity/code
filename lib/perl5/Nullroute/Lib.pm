@@ -195,7 +195,8 @@ sub interval {
 }
 
 sub randstr {
-	my $len = shift // 12;
+	my ($len) = @_;
+	$len //= 12;
 
 	my @chars = ('A'..'Z', 'a'..'z', '0'..'9');
 	join "", map {$chars[int rand @chars]} 1..$len;
@@ -215,10 +216,10 @@ sub trim { map {s/^\s+//; s/\s+$//; $_} @_; }
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
 
 sub xml_escape {
-	my $str = shift;
+	my ($str) = @_;
 
-	my %chars = ('&' => "amp", '<' => "lt", '>' => "gt", '"' => "quot");
-	$str =~ s/[&<>"]/\&$chars{${^MATCH}};/gp;
+	my %entities = qw(& amp < lt > gt " quot);
+	$str =~ s/[&<>"]/\&$entities{${^MATCH}};/gp;
 	return $str;
 }
 

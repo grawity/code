@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
 use warnings;
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use strict;
 use open qw(:std :utf8);
 use utf8;
@@ -32,13 +31,13 @@ sub search {
 		} elsif ($pattern =~ /^album:(.+)$/) {
 			my $pat = qr/\Q$1/i;
 			_debug(" - match by album: $pat");
-			@songs = grep {$_->{album} ~~ $pat} @songs;
+			@songs = grep {$_->{album} =~ $pat} @songs;
 		} else {
 			my $pat = qr/\Q$pattern/i;
 			_debug(" - match by artist or title: $pat");
-			@songs = grep {$_->{artist} ~~ $pat
-					or $_->{title} ~~ $pat
-					or $_->{artist}." - ".$_->{title} ~~ $pat}
+			@songs = grep {$_->{artist} =~ $pat
+					or $_->{title} =~ $pat
+					or $_->{artist}." - ".$_->{title} =~ $pat}
 					@songs;
 		}
 	}
@@ -63,9 +62,9 @@ sub get_playlist {
 		chomp($item);
 		my ($num, $artist, $album, $title) = split(/\t/, $item);
 		push @playlist, {num => $num,
-				artist => $artist,
-				album => $album,
-				title => $title};
+				 artist => $artist,
+				 album => $album,
+				 title => $title};
 	}
 	close($f);
 
@@ -143,11 +142,11 @@ sub _display_x11_list_zenity {
 
 	if (defined $line) {
 		chomp($line);
-		_debug("zenity stdout: '$line'");
+		_debug("stdout: '$line'");
 
 		$line =~ s/\|.*//; # For some reason, zenity started
 		                   # returning x|x instead of just x
-		_debug("zenity parsed: '$line'");
+		_debug("parsed: '$line'");
 
 		if (length $line) {
 			play($line);
@@ -186,12 +185,12 @@ sub _display_x11_list_dmenu {
 
 	if (defined $line) {
 		chomp($line);
-		_debug("dmenu stdout: '$line'");
+		_debug("stdout: '$line'");
 
 		$line =~ s/^\s*│?//;
 		$line =~ s/\s*│.*$//;
 		$line =~ s/^0*//;
-		_debug("dmenu parsed: '$line'");
+		_debug("parsed: '$line'");
 
 		if (length $line) {
 			play($line);

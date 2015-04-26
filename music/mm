@@ -14,8 +14,8 @@ my @patterns;
 
 my $use_tty = (-t 0);
 
-my $fmt_normal  =      "\e[38;5;40m"."%4d  "."\e[m".  "%s – %s\n";
-my $fmt_current = "\e[1m\e[38;5;82m"."%4d  "."\e[37m"."%s – %s"."\e[m\n";
+my $fmt_normal  =      "\e[38;5;40m"."  %*d  "."\e[m".  "%s – %s\n";
+my $fmt_current = "\e[1m\e[38;5;82m"."  %*d  "."\e[37m"."%s – %s"."\e[m\n";
 
 sub search {
 	my (@patterns) = @_;
@@ -57,6 +57,7 @@ sub get_current {
 sub get_playlist {
 	my $cmd = shift // "playlist";
 	my @playlist;
+
 	open(my $f, "-|", "mpc", $cmd, "-f", $fmt_input);
 	while (my $item = <$f>) {
 		chomp($item);
@@ -67,6 +68,7 @@ sub get_playlist {
 				title => $title};
 	}
 	close($f);
+
 	return @playlist;
 }
 
@@ -76,10 +78,15 @@ sub play {
 
 sub display_tty_list {
 	my @songs = @_;
+
+	my $max = max map {$_->{num}} @songs;
+	my $width = length($max);
+
 	for my $item (@songs) {
 		my $fmt = ($item->{num} == $current->{num})
 				? $fmt_current : $fmt_normal;
 		printf $fmt,
+			$width,
 			$item->{num},
 			$item->{artist},
 			$item->{title};
@@ -91,6 +98,7 @@ sub display_tty_current {
 		print "No song is playing.\n";
 	} else {
 		printf $fmt_current,
+			length($current->{num}),
 			$current->{num},
 			$current->{artist},
 			$current->{title};

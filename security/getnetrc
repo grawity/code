@@ -50,19 +50,29 @@ sub usage {
 	"exception of the 'service\@machine' extension specific to grawity's netrc.";
 }
 
+sub _str {
+	my ($str) = @_;
+	defined($str) ? "'$str'" : "(nil)";
+}
+
 sub lookup {
 	my ($machines, $login) = @_;
 	my $fallback;
 	for my $machine (@$machines) {
+		_debug("lookup "._str($machine)." as "._str($login));
 		my $en = Net::Netrc->lookup($machine, $login);
 		if (defined $en) {
+			_debug("- found machine "._str($en->{machine}));
 			if (defined $en->{machine}) {
+				_debug("  - return result");
 				return $en;
 			} elsif (!$no_default) {
+				_debug("  - store as fallback");
 				$fallback //= $en;
 			}
 		}
 	}
+	_debug("return fallback");
 	return $fallback;
 }
 
@@ -86,7 +96,9 @@ sub fmt {
 
 sub uri_encode {
 	my ($str) = @_;
-	$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg if defined($str);
+	if (defined $str) {
+		$str =~ s/([^A-Za-z0-9.!~*'()-])/sprintf("%%%02X", ord($1))/seg;
+	}
 	return $str;
 }
 

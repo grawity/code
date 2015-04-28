@@ -155,7 +155,7 @@ debug() {
 
 trace() {
 	if [[ $DEBUG ]]; then
-		lib::msg "$*" 'trace'
+		lib::msg "$*" trace
 	elif [[ $VERBOSE ]]; then
 		lib::printf "%s" "$*"
 	fi
@@ -163,37 +163,37 @@ trace() {
 
 msg() {
 	if [[ $DEBUG ]]; then
-		lib::msg "$*" 'info'
+		lib::msg "$*" info
 	else
 		lib::printf "%s" "$*"
 	fi
 }
 
 info() {
-	lib::msg "$*" 'info'
+	lib::msg "$*" info
 }
 
 log() {
-	lib::msg "$*" 'log'
+	lib::msg "$*" log
 }
 
 log2() {
-	lib::msg "$*" 'log2'
+	lib::msg "$*" log2
 	settitle "$progname: $*"
 }
 
 notice() {
-	lib::msg "$*" 'notice'
+	lib::msg "$*" notice
 } >&2
 
 warn() {
-	lib::msg "$*" 'warning'
+	lib::msg "$*" warning
 	if (( DEBUG > 1 )); then backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
-	lib::msg "$*" 'error'
+	lib::msg "$*" error
 	if (( DEBUG > 1 )); then backtrace; fi
 	! (( ++errors ))
 } >&2
@@ -203,7 +203,7 @@ die() {
 	    -[0-9]) local r=${1#-}; shift;;
 	    *)      local r=1;;
 	esac
-	lib::msg "$*" 'fatal'
+	lib::msg "$*" fatal
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit $r
 } >&2

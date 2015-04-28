@@ -78,17 +78,6 @@ sub _msg {
 		push @output, $::arg0, $::debug ? "[$$]" : (), ": ";
 	}
 
-	if ($do_func) {
-		my $skip = ($opt{skip} || 0) + 1;
-		my $func = "main";
-		do {
-			my @frame = caller(++$skip);
-			$func = $frame[3] // "main";
-		} while $func =~ /::__ANON__$/;
-		$func =~ s/^main:://;
-		push @output, "(", $func, ") ";
-	}
-
 	if (!$::debug) {
 		$prefix = $opt{fmt_prefix};
 		$color = $opt{fmt_color};
@@ -105,7 +94,24 @@ sub _msg {
 		(-t $io && defined $color) ? ($color) : (),
 		$prefix,
 		(-t $io && defined $color) ? ($reset) : (),
-		" ",
+		" ";
+
+	if ($do_func) {
+		my $skip = ($opt{skip} || 0) + 1;
+		my $func = "main";
+		do {
+			my @frame = caller(++$skip);
+			$func = $frame[3] // "main";
+		} while $func =~ /::__ANON__$/;
+		$func =~ s/^main:://;
+		push @output,
+			(-t $io) ? ("\e[38;5;60m") : (),
+			"($func)",
+			(-t $io) ? ($reset) : (),
+			" ";
+	}
+
+	push @output,
 		(-t $io && defined $opt{msg_color}) ? ($opt{msg_color}) : (),
 		$msg,
 		(-t $io && defined $opt{msg_color}) ? ($reset) : (),

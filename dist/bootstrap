@@ -112,6 +112,8 @@ if [[ -e ~/.noforward ]]; then
 	log "skipping mail forwarding (found ~/.noforward)"
 elif [[ -s ~/.forward ]]; then
 	log "mail forwarding already configured (to $(sed 1q ~/.forward))"
+elif [[ -s ~/.mailfilter ]]; then
+	log "mail forwarding already configured (via ~/.mailfilter)"
 else
 	if ! sendmail=$(pick /usr/{lib,bin,sbin}/sendmail); then
 		warn "'sendmail' not installed"
@@ -119,7 +121,11 @@ else
 	fi
 
 	log "forwarding mail to $EMAIL"
+
 	echo "\"|$sendmail -i $EMAIL\"" > ~/.forward
+	if have maildrop; then
+		echo "to \"!$EMAIL\"" > ~/.mailfilter
+	fi
 
 	if [[ -x $sendmail ]]; then
 		if confirm "send test mail?"; then

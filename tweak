@@ -91,14 +91,16 @@ wallpaper)
 	if [[ $value == --fav ]]; then
 		cd ~/Pictures/Wallpapers
 		value=$(shuf < used.txt | head -1)
+		log "using $value"
 	elif [[ $value == --rand ]]; then
 		cd ~/Pictures/Wallpapers
 		value=$(find -type f |
 			egrep '\.(jpe?g|png)$' |
-			egrep -v '/Textures/|NSFW' |
+			egrep -v '/Textures/|NSFW|Witty|GNOME-|Old comput' |
 			shuf | head -1)
+		log "using $value"
 	elif [[ ! $value ]]; then
-		do_gsettings org.gnome.desktop.background picture-uri
+		do_gsettings org.gnome.desktop.background picture-uri | sed "s/'//g"
 		exit
 	fi
 	if [[ $value == \'*\' ]]; then

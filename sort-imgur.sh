@@ -55,12 +55,14 @@ for file in *.jpg *.jpeg *.png *.gif; do
 	debug "-- canonical: $ref"
 
 	case $ref:$file in
+	*:*\[[Oo]riginal\]*)
+		put "$file" ~/Pictures/Art/awwnime/;;
 	*:*\[Touhou\]*)
-		put "$file" ~/Pictures/Art/Touhou/;;
+		put "$file" ~/Pictures/Fanart/Touhou/;;
 	*:*\[Vocaloid\]*)
-		put "$file" ~/Pictures/Art/Vocaloid/;;
+		put "$file" ~/Pictures/Fanart/Vocaloid/;;
 	/r/awwnime/*)
-		put "$file" ~/Pictures/Art/r-awwnime/;;
+		put "$file" ~/Pictures/Fanart/awwnime/;;
 	/r/bdsm/*|/r/bdsmgw/*)
 		put "$file" ~/Pictures/Porn/;;
 	/r/pantsu/*|/r/sukebei/*)
@@ -68,7 +70,7 @@ for file in *.jpg *.jpeg *.png *.gif; do
 	/r/ecchi/*|/r/hentai/*|http://gelbooru.com/*)
 		put "$file" ~/Pictures/Ero/;;
 	http://derpiboo.ru/*)
-		put "$file" ~/Pictures/Art/fanart/'My Little Pony'/;;
+		put "$file" ~/Pictures/Fanart/'My Little Pony'/;;
 	*)
 		printf '\e[33m%s\e[m %s\n' "unknown:" "\"$file\" from $ref";;
 	esac

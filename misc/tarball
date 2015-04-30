@@ -93,6 +93,8 @@ if [[ $2 == --now ]]; then
 	out=$dir-$(date +%F).$ext
 elif [[ $2 == --date ]]; then
 	out=$dir-$(date +%F -d "@$ts").$ext
+elif [[ -d $2 ]]; then
+	die "target '$2' already exists"
 else
 	out=${2:-$dir}.$ext
 fi
@@ -107,7 +109,7 @@ if (( auto_move )); then
 	fi
 fi
 
-for file in "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do
+for file in "$out" "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do
 	if [[ -e "$file" ]]; then
 		die "archive already exists: $file"
 	fi

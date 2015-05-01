@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import struct
 
 UUID_GUMMIBOOT = "4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"

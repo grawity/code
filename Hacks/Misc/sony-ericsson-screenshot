@@ -1,0 +1,123 @@
+#!/usr/bin/env python2
+# encoding: utf-8
+# capture screenshots of Sony-Ericsson phones over USB-serial
+
+import sys
+import serial
+from PIL import Image
+
+"""
+>>> AT*ZIPI=?
+--- *ZIPI: (0 - 319), (0 - 239), (0 - 239), 16, 0
+--- OK
+>>> AT*ZISI=?
+--- *ZISI: 320, 240, 16, 0
+--- OK
+>>> AT*ZISI
+--- *ZISI: FF123456FF123456FF123456...
+
+convert -size 240x320 -depth 8 foo.rgba foo.png
+"""
+
+def trace(x):
+    sys.stderr.write(x)
+    sys.stderr.flush()
+
+def serial_command(ser, command):
+    ser.write(command+"\r\n")
+    echo = False
+    while True:
+        line = ser.readline()
+        if not line:
+            raise IOError("device lost")
+        line = line.strip()
+        if not line:
+            pass
+        #elif not echo and line == command:
+        #   echo = True
+        elif line in ("OK", "ERROR"):
+            yield line
+            break
+        else:
+            yield line
+
+def capture(ser):
+    dimensions = None
+    for line in serial_command(ser, "AT*ZISI=?"):
+        if line[:7] == "*ZISI: ":
+            line = line[7:].split(",")
+            line = [int(x.strip()) for x in line]
+            dimensions = line
+    height, width, bpp = dimensions[:3]
+
+    trace("Capturing %dx%d\n" % (width, height))
+
+    scanlines, buf = [], b""
+    for line in serial_command(ser, "AT*ZISI"):
+        if line == "OK":
+            trace("\rReading %d%%\n" % 100)
+        elif line == "ERROR":
+            trace("\nReceived ERROR from device.")
+        elif line.startswith("AT"):
+            trace("\rReading %d%%" % 0)
+        elif line.startswith("*"):
+            if line.startswith("*ZISI: "):
+                if buf:
+                    scanlines.append(buf)
+                buf = line
+                trace("\rReading %d%%" % \
+                    (100.0 / height * len(scanlines)))
+        else:
+            buf += line
+    scanlines.append(buf)
+
+    scanlines = [decode_scanline(line) for line in scanlines]
+
+    return height, width, scanlines
+
+def decode_scanline(line):
+    if line[:7] != "*ZISI: ":
+        raise ValueError("invalid input: %r" % line)
+    line = line[7:].decode("hex")
+    # split into pixels
+    line = [line[i:i+4] for i in xrange(0, len(line), 4)]
+    # convert ARGB to RGBA
+    line = [pixel[1:] + pixel[0] for pixel in line]
+    return line
+
+def flatten(scanlines):
+    return "".join("".join(line) for line in scanlines)
+
+def store_image(data, output_file):
+    size = data[1], data[0]
+    buf = flatten(data[2])
+    img = Image.fromstring("RGBA", size, buf, "raw", "RGBA", 0, 1)
+    img.save(output_file)
+
+def store_raw(data, output_file):
+    buf = flatten(data[2])
+    with open(output_file, "wb") as img:
+        img.write(buf)
+
+try:
+    port, output_file = sys.argv[1:]
+except IndexError:
+    trace("Usage: grabscreen.py <port> <imagefile>\n")
+    trace("(imagefile can be rgba:<file> to output raw rgba data)\n")
+    sys.exit(2)
+
+if output_file[:4] == "raw:":
+    writer = store_raw
+    output_file = output_file[4:]
+elif output_file[:5] == "rgba:":
+    writer = store_raw
+    output_file = output_file[5:]
+else:
+    writer = store_image
+
+trace("Connecting to %s\n" % port)
+ser = serial.Serial(port, 921600, timeout=5)
+data = capture(ser)
+ser.close()
+writer(data, output_file)
+trace("Saved to %s\n" % output_file)

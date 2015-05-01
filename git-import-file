@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+if [ "$_GIT_IMPORT_NESTED" ] && [ "$_GIT_IMPORT_FILES" ]; then
+	de() { echo "$*" >> /tmp/de; }
+	de "~ $GIT_COMMIT"
+	for name in $_GIT_IMPORT_FILES; do
+		cur=$(git ls-files -s "$name")
+		if [ "$cur" ]; then
+			de "found $cur"
+			break
+		fi
+	done
+	git rm --cached -r ":/" > /dev/null
+	if [ "$cur" ]; then
+		set -- $cur
+		git update-index --add --cacheinfo "$1,$2,${4##*/}"
+	fi
+	return
+fi
+
+. lib.bash || exit
+
+set -a
+
+repo=$1
+file=$2
+
+main_dir=$PWD
+work_dir=$(mktemp -d /tmp/import.XXXXXXXX)
+
+(
+	log "creating temp clone"
+	git clone --single-branch . "$work_dir"
+	cd "$work_dir"
+
+	log "fetching input repository"
+	git fetch "$repo"
+
+	log "rewriting commits"
+	export _GIT_IMPORT_NESTED=$$
+	export _GIT_IMPORT_FILES=$file
+	git filter-branch -f \
+		--msg-filter 'cat; echo; echo "(originally commit $GIT_COMMIT)"' \
+		--index-filter '. git-import-file' \
+		--prune-empty \
+		FETCH_HEAD
+
+	root=$(git rev-list FETCH_HEAD | tail -1)
+	child=$(git rev-list FETCH_HEAD | tail -2 | head -1)
+	if [ "$(git rev-parse "$child^@")" = "$root" ]; then
+		log "removing empty root"
+		new_root=$(git cat-file commit "$child" \
+			   | sed "/^parent $root\$/d" \
+			   | git hash-object -t commit -w --stdin)
+		git replace "$child" "$new_root"
+		git filter-branch -f FETCH_HEAD
+	fi
+
+	log "performing a test merge"
+	git merge -m "Import '$file'" --edit FETCH_HEAD
+)
+
+log "merging into main repository"
+git pull --ff-only "$work_dir"
+rm -rf "$work_dir"

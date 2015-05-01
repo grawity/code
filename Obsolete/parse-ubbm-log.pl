@@ -16,8 +16,10 @@ sub int2time {
 	   : sprintf("%d:%02d", $m, $s);
 }
 
+my $time_fmt = "%F %T %z";
+
 sub ts2time {
-	strftime("%F %T %z", localtime(shift));
+	strftime($time_fmt, localtime(shift));
 }
 
 my ($my_nick, $my_host);
@@ -27,6 +29,7 @@ my $chan_re = qr/^#/;
 my $ctcp_re = qr/^\x01(.+)\x01$/;
 
 my %isupport = {
+	CHANTYPES => '#',
 	CASEMAPPING => 'rfc1459',
 };
 
@@ -143,7 +146,9 @@ sub log_to {
 	my $target = shift;
 	my $msg = shift;
 
-	return unless $target eq '#clueirc';
+	return unless $target =~ /\(server\)|^#/;
+	#return unless $target eq '#clueirc';
+	return if length($target) > 13;
 
 	$xtarget = $target;
 	$xtarget =~ s/[^#a-z0-9]/_/g;
@@ -155,19 +160,49 @@ sub log_to {
 	print {$chan2fd{$target}} $msg;
 }
 
-while (<>) {
-	($time, $line) = /^\[([\d, ]+)\](.+)$/o or next;
-	@time = map {int} split(/, /, $time);
-	$line =~ s/\r$//;
-	@parv = Nullroute::IRC::split_line($line);
-	$isotime = strftime("%F %T",
+$my_nick //= $ENV{UBBM_NICK} // "UberBoogerBot";
+
+$ENV{TZ} = "America/New_York";
+
+my @buf;
+
+while (1) {
+	if (@buf) {
+		$_ = shift @buf;
+	} elsif (defined($_ = <>)) {
+		chomp; s/\r$//;
+	} else {
+		last;
+	}
+
+	my ($time, $line) = /^\[([\d, ]+)\](.+)$/ or next;
+
+	my @time = map {int} split(/, /, $time);
+	my $isotime = strftime($time_fmt,
 		$time[5],   $time[4],   $time[3],
-		$time[2]-1, $time[1]-1, $time[0]-1900);
+		$time[2]-1, $time[1]-1, $time[0]-1900,
+		-1, -1, 0);
+
+	if ($line =~ s/^(Bot killed!|Connection died)(\[.*)/$1/) {
+		# some messages were written without a trailing \n, so they accumulate in a single line
+		# for these, cut the rest off and queue it for next loop iteration
+		# (this might happen multiple lines for a single input line)
+		push @buf, $2;
+	}
+	elsif ($line =~ /^:/) {
+		# some messages have a timestamp embedded in the middle (reason unknown)
+		# for these, simply remove the timestamp
+		# however, timestamps at the beginning of a PRIVMSG trailing arg are legit
+		$line =~ s/(?<! :)\[$time[0], $time[1], \d+, \d+, \d+, \d+\](PING :\S+)?//;
+	}
+
+	my @parv = Nullroute::IRC::split_line($line);
+
 	my @todo;
 	my $src;
 	my $src_nick;
 	my $src_host;
-	if ($parv[0] =~ s/^://o) {
+	if ($parv[0] =~ s/^://) {
 		$src = shift(@parv);
 		($src_nick, $src_host) = split(/!/, $src, 2);
 	} else {
@@ -180,7 +215,7 @@ while (<>) {
 	for ($cmd) {
 		when ("PING") { next; }
 		when ("PONG") { next; }
-		# numerics
+		# global numerics
 		when ("001") {
 			$my_server = $src;
 			($my_nick, $str) = @parv;
@@ -188,7 +223,7 @@ while (<>) {
 			@str = split(/ /, $str);
 			(undef, $my_host) = split(/!/, pop(@str), 2);
 		}
-		when (["002", "003", "004", "470"]) {
+		when (/^(002|003|004|470)$/) {
 			(undef, @str) = @parv;
 			$out = "--- Misc $cmd: @str";
 		}
@@ -199,28 +234,19 @@ while (<>) {
 			for my $token (@str) {
 				if (/^(.+?)=(.*)$/) {
 					$isupport{$1} = $2;
+					if ($1 eq "CHANTYPES") {
+						$chan_re = qr/^[$2]/;
+					}
 				} else {
 					$isupport{$token} = 1;
 				}
 			}
 		}
-		when (["375", "372", "376", "422"]) {
+		when (/^(375|372|376|422)$/) {
 			(undef, $str) = @parv;
 			$out = "--- Motd: $str";
 		}
-		when ("412") {
-			(undef, $str) = @parv;
-			$out = "-!- Error: $str";
-		}
-		when (["401", "403", "421", "451", "461", "474"]) {
-			(undef, $arg, $str) = @parv;
-			$out = "-!- Error: $arg -- $str";
-		}
-		when ("404") {
-			(undef, $arg, $str) = @parv;
-			$out = "-!- Cannot send to $arg: $str";
-		}
-		when (["251", "252", "254", "255", "265", "266"]) {
+		when (/^(251|252|254|255|265|266)$/) {
 			(undef, @str) = @parv;
 			$str = join(" ", @str);
 			$out = "--- Lusers: $str";
@@ -243,15 +269,40 @@ while (<>) {
 			(undef, $nick, $channels) = @parv;
 			$out = "--- Whois $nick: is in $channels";
 		}
-		when (["318", "378"]) {
+		when (/^(?:318|378)$/) {
 			(undef, $nick, $str) = @parv;
 			$out = "--- Whois $nick: $str";
 		}
 		when ("366") { next; }
-		# events
+		# error numerics with no args
+		when (/^(?:412)$/) {
+			(undef, $str) = @parv;
+			$out = "-!- Error: $str";
+		}
+		# error numerics with a single arbitrary arg
+		when (/^(?:401|403|421|451|461|501)$/) {
+			(undef, $arg, $str) = @parv;
+			$out = "-!- Error: \"$arg\" -- $str";
+		}
+		# error numerics with a single channel arg
+		when (/^(?:473|474|475|477|482|500)$/) {
+			(undef, $arg, $str) = @parv;
+			if ($arg !~ /$chan_re/) {
+				die "bad arg '$arg' in $line\n";
+			}
+			$out = "-!- Error: $arg -- $str";
+			$log = $arg;
+		}
+		when ("404") {
+			(undef, $arg, $str) = @parv;
+			$out = "-!- Cannot send to $arg: $str";
+			$log = $arg;
+		}
+		# per-channel events
 		when ("INVITE") {
 			($victim, $chan) = @parv;
 			$out = "-!- $src_nick invites $victim to $chan";
+			$log = $chan;
 		}
 		when ("JOIN") {
 			($chan) = @parv;
@@ -261,12 +312,13 @@ while (<>) {
 				if (nickeq($src_nick, $my_nick)) {
 					chan_destroyed($chan);
 					if ($lastevent{lc($chan)}) {
-						$out .= " (left ".$lastevent{lc($chan)}.")";
+						$out .= " [last seen ".$lastevent{lc($chan)}."]";
 					}
 				}
 				user_joined($src_nick, $chan);
 			} else {
 				$out = "-=- Trying to join $chan";
+				$log = $chan;
 			}
 		}
 		when ("KICK") {
@@ -297,9 +349,9 @@ while (<>) {
 		when ("NOTICE") {
 			($dst, $msg) = @parv;
 			if ($msg =~ $ctcp_re) {
-				$out = "[$src reply: $1]";
+				$out = "[$src_nick reply: $1]";
 			} else {
-				$out = "-$src- $msg";
+				$out = "-$src_nick- $msg";
 			}
 			$log = $dst;
 		}
@@ -328,7 +380,11 @@ while (<>) {
 			} else {
 				$out = "<$src_nick> $msg";
 			}
-			$log = $dst;
+			if (nickeq($dst, $my_nick)) {
+				$log = $src_nick;
+			} else {
+				$log = $dst;
+			}
 		}
 		when ("QUIT") {
 			($reason) = @parv;
@@ -372,6 +428,10 @@ while (<>) {
 			$out = "=-= $cmd $victim";
 		}
 		# etc.
+		when ("WALLOPS") {
+			($str) = @parv;
+			$out = "Wallops: =$src_nick= $str";
+		}
 		when ("ERROR") {
 			($str) = @parv;
 			$out = "=!= Error: $str";
@@ -387,17 +447,17 @@ while (<>) {
 	if (ref $log eq 'ARRAY') {
 		@logdests = @$log;
 	} else {
-		@logdests = ($log);
+		@logdests = split(/,/, $log);
 	}
 
 	@logdests = map {targetlc($_)} @logdests;
 
 	if (defined($out)) {
 		for my $dest (@logdests) {
-			log_to($dest, "$isotime | $out\n");
+			log_to($dest, "$isotime $out\n");
 			$lastevent{$dest} = $isotime;
 		}
 
-		printf "%s | %-16s | %s\e[m\n", $isotime, join(",", @logdests), $out;
+		printf "%s \e[38;5;244m│\e[m \e[38;5;10m%-16s\e[m \e[38;5;244m│\e[m %s\e[m\n", $isotime, join(",", @logdests), $out;
 	}
 }

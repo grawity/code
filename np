@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:std :utf8);
+use utf8;
+use Net::Netrc;
+use LWP::Simple;
+use JSON;
+use Data::Dumper;
+
+my $api_key;
+my $user;
+my $client;
+
+sub get_api_key {
+	my $en = Net::Netrc->lookup("api.last.fm");
+	if ($en && $en->{machine}) {
+		return $en->{login};
+	}
+}
+
+sub getRecentTracks {
+	my ($user) = @_;
+
+	my $raw = get('http://ws.audioscrobbler.com/2.0/'.
+			'?method=user.getrecenttracks'.
+			'&limit=1'.
+			'&user='.$user.
+			'&format=json'.
+			'&api_key='.$api_key);
+
+	return from_json($raw);
+}
+
+$api_key = get_api_key();
+$user = shift @ARGV;
+
+my $data = getRecentTracks($user);
+my $track = $data->{recenttracks}->{track};
+print Dumper($track);
+my $artist = $track->{artist}->{"#text"};
+my $song = $track->{name};
+print "now playing: $artist – $song\n";

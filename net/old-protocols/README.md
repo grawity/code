@@ -1,1 +1,0 @@
-Now, the most likely question here is **Why?**. The answer, as always, would be "Because I like messing with this stuff" or "Because I felt like it." I know well that these protocols are not intended to be used this way and many of them are not intended to be used at all. But screw that.

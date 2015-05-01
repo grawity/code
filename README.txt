@@ -97,6 +97,9 @@ Moved elsewhere:
   ~/bin                 – random junk
     <https://github.com/grawity/bin#readme>
 
+  the code recycle bin  – script landfill
+    <https://nullroute.eu.org/git/?p=hacks/code-recycle-bin.git>
+
 Log:
 
   * 2009-11-28: initial commit of "simplehttpd"
@@ -104,5 +107,6 @@ Log:
   * 2014-07-29: cleaned up old branches; moved to refs/attic/* to avoid clutter
   * 2015-03-16: exported security/accdb
   * 2015-04-05: changed default license to MIT
+  * 2015-05-01: spring cleaning; removed many useless things
 
 vim: ts=4:sw=4:et

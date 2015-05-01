@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # copies given files to the Dropbox public area and shows upload status
 
-anims=("   " ".  " ".. " "..." " .." "  .")
-nanim=${#anims[@]}
+dots=("   " ".  " ".. " "..." " .." "  .")
+ndot=${#dots[@]}
 
-fill=$(printf '%*s' ${#anims} "" | sed 's/ /./g')
+fill=$(printf '%*s' ${#dots} "" | sed 's/ /./g')
 
 cursor_show() { printf '\e[?25h'; }
 cursor_hide() { printf '\e[?25l'; }
@@ -16,12 +16,12 @@ for file; do
 	cp "$file" "$pubfile"
 	puburl=$(dropbox puburl "$pubfile")
 	echo "URL: $puburl"
-	printf '[%s] status: ...' "${anims[anim=0]}"
+	printf '[%s] status: ...' "${dots[dot=0]}"
 	while sleep 1; do
 		status=$(dropbox filestatus "$pubfile" || echo 'failed')
 		status=${status#"$pubfile: "}
 		status=${status,,}
-		printf '\r[%s] status: %s' "${anims[++anim%nanim]}" "$status"
+		printf '\r[%s] status: %s' "${dots[++dot%ndot]}" "$status"
 		if [ "$status" != "syncing" ]; then
 			printf '\r[%s]\n' "$fill"
 			break

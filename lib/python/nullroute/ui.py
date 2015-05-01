@@ -16,6 +16,12 @@ _num_errors = 0
 
 ## regular log messages
 
+try:
+    _nested_env = int(os.environ.get("LVL"))
+except:
+    _nested_env = 0
+os.environ["LVL"] = str(_nested_env + 1)
+
 _debug_env = os.environ.get("DEBUG", "")
 
 #logging.basicConfig(format="%(levelname)s: (%(module)s) %(message)s",

@@ -1,0 +1,256 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import sys
+import os
+import re
+import socket
+import subprocess
+
+#s.environ["DEBUG"] = "y"
+
+# Syntax:
+#   <regex>     <nexthop>   [<flags>]
+#
+#   <regex> is a Python 're'-compatible regexp, matching the raw query received.
+#
+#   First match wins.
+#
+# Next hop:
+#   If <nexthop> starts with "$", it is parsed as "$<group>,<nexthop>"
+#     and the selected () group is forwarded instead of entire request.
+#   If "x" in flags, <nexthop> is an executable command.
+#       If <nexthop> begins with a "|", raw query is given as stdin,
+#                                       otherwise in argv[].
+#   If <nexthop> starts with "/", it is a file to be sent.
+#   If <nexthop> is "!", the query is refused.
+#   If <nexthop> is "*", the query is transparently forwarded to the host.
+#   Otherwise, <nexthop> is a host or host:port to forward the query to.
+#
+# Flags:
+#   "h": do not strip off "@host" part from query when forwarding
+#   "q": do not display messages about forwarding to another host
+#   "x": treat <nexthop> as a command to execute
+
+if os.environ.get("DEBUG", ""):
+    def DEBUG(fmt, *args):
+        print("(" + (fmt % args) + ")")
+else:
+    def DEBUG(fmt, *args):
+        pass
+
+def print(*args):
+    args = map(str, args)
+    line = " ".join(args)+"\r\n"
+    fh = sys.stdout
+    fh.write(line.encode("utf-8"))
+    fh.flush()
+
+def accept():
+    request = sys.stdin.readline().strip()
+    DEBUG("accept(%r)", request)
+    result = route(request)
+    if result is None:
+        DEBUG("routing failed")
+        refuse()
+    else:
+        forward(*result)
+
+def route(request):
+    DEBUG("route(%r)", request)
+
+    if request == b"/W" or request[:3] == b"/W ":
+        prefix = b"/W "
+        request = request[3:]
+    else:
+        prefix = b""
+
+    for rtent in get_routes():
+        rule = rtent[0]
+        nexthop = rtent[1]
+        try:
+            flags = rtent[2]
+        except IndexError:
+            flags = b""
+
+        DEBUG("trying route %r", rule)
+        result = re.search(rule, request)
+        if not result:
+            continue
+
+        if b"@" in request:
+            local, host = request.rsplit(b"@", 1)
+        else:
+            local, host = request, b""
+
+        if nexthop == b"!":
+            return None
+        elif nexthop == b"*":
+            nexthop = host
+            flags += b"R"
+
+        if nexthop[0] == b"$" and b"," in nexthop:
+            group, nexthop = nexthop.split(",", 1)
+            try:
+                group = int(group[1:])
+            except ValueError:
+                DEBUG("invalid group %r", group)
+                return None
+            DEBUG("nextreq = group(%d)", group)
+            nextreq = result.group(group)
+        elif b"@" in request and b"h" not in flags:
+            DEBUG("nextreq = local")
+            nextreq = local
+        else:
+            DEBUG("nextreq = req")
+            nextreq = request
+
+        return nexthop, prefix+nextreq, flags
+    return None
+
+def forward(addr, req, flags):
+    DEBUG("forward(%r, %r, %r)", req, addr, flags)
+
+    if b"x" in flags:
+        if addr.startswith(b"|"):
+            stdin = True
+            addr = addr[1:]
+        else:
+            stdin = False
+
+        cmdline = [addr]
+        if req and not stdin:
+            cmdline += [req]
+        DEBUG('exec: using %r', cmdline)
+
+        try:
+            if stdin:
+                proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
+                DEBUG('exec: writing %r', req)
+                proc.stdin.write(req + b'\n')
+                proc.stdin.close()
+                proc.wait()
+            else:
+                subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
+        except OSError as e:
+            print("finger: internal error")
+            raise
+
+    elif addr.startswith(b"/"):
+        DEBUG('file: using %r', addr)
+        try:
+            for line in open(addr, "rb"):
+                sys.stdout.write(line)
+            sys.stdout.flush()
+        except IOError as e:
+            print("finger: cannot open plan file")
+            raise
+
+    else:
+        if b"R" in flags:
+            # use raw address as received
+            addr = (addr, "finger")
+        else:
+            addr = parseaddr(addr)
+        DEBUG('tcp: using %r', addr)
+
+        try:
+            gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
+                socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+        except socket.gaierror as e:
+            print("finger: getaddrinfo: %s" % e.strerror)
+            return
+
+        canonname = addr
+        for family, socktype, proto, _canonname, addr in gai:
+            if _canonname: canonname = _canonname
+            DEBUG('tcp: trying %r <af=%r>', addr, family)
+
+            sock = socket.socket(family, socktype, proto)
+            sock.settimeout(3)
+            try:
+                sock.connect(addr)
+            except socket.error as e:
+                straddr = formataddr(family, addr, ignoreport=79)
+                strerr = e.strerror or e.args[0]
+                print("Trying %s... %s" % (straddr, strerr))
+                continue
+
+            if not b"q" in flags:
+                print("[%s]" % canonname)
+
+            sock.send(req + b"\r\n")
+            buf = True
+            while buf:
+                buf = sock.recv(4096)
+                sys.stdout.write(buf)
+            sock.close()
+            break
+
+def refuse():
+    print("finger: query refused")
+
+def formataddr(family, addr, ignoreport=None):
+    DEBUG("formataddr(%r, %r, %r)", family, addr, ignoreport)
+    # LAME
+    if family == socket.AF_INET:
+        host, port = addr
+        if port == ignoreport:
+            return "%s" % host
+        else:
+            return "%s:%s" % (host, port)
+    elif family == socket.AF_INET6:
+        host, port, flow, scope = addr
+        if scope:
+            host = "%s%%%s" % (host, scope)
+        if port == ignoreport:
+            return "%s" % host
+        else:
+            return "[%s]:%s" % (host, port)
+    else:
+        return repr(addr)
+
+def parseaddr(addr):
+    DEBUG("parseaddr(%r)", addr)
+    ## LAAAAME
+    host, port = None, "finger"
+    if addr.startswith(b"[") and b"]" in addr:
+        endpos = addr.find(b"]")
+        host = addr[1:endpos]
+        addr = addr[endpos+1:]
+    if addr.startswith(b":"):
+        port = addr[1:]
+    elif b":" in addr:
+        host, port = addr.split(b":", 1)
+        port = port
+    elif not host:
+        host = addr
+
+    return host, port
+
+def get_routes():
+    DEBUG("get_routes(%r)", rules_file)
+    try:
+        for line in open(rules_file, "rb"):
+            line = line.strip()
+            if line and not line.startswith(b"#"):
+                yield line.split()
+    except IOError as e:
+        print("finger: cannot open configuration file")
+        raise
+
+try:
+    rules_file = sys.argv.pop(1)
+except IndexError:
+    rules_file = os.devnull
+
+if hasattr(sys.stdin, "detach"):
+    sys.stdin = sys.stdin.detach()
+if hasattr(sys.stdout, "detach"):
+    sys.stdout = sys.stdout.detach()
+
+try:
+    accept()
+except Exception as e:
+    print("finger: internal error")
+    raise
+    sys.exit(1)

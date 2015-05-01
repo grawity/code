@@ -267,7 +267,8 @@ lib::die_getopts() {
 	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
 	case $OPT in
 	    "?")
-		if [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
+		if [[ $OPTARG == "?" ]] ||
+		   [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
 			usage || die "BUG: help text not available"
 			exit 0
 		elif [[ $OPTARG ]]; then

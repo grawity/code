@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 
-if [[ ! $_DYM && -t 1 && $# -eq 2 && $2 != [+/]* && -f $1 && ! -f $2 ]]; then
-	read -n 1 -p "Did you mean 'mv' again? " REPLY
-	if [[ $REPLY == y ]]; then
-		echo "eah, I suck"
-		echo "mv \"$1\" \"$2\""
-		mv -v "$@"
-		exit
-	else
-		echo ""
+if [[ ! $_DYM && -t 1 ]]; then
+	if [[ $# -eq 2 && $2 != [+/]* && -f $1 && ! -f $2 ]]; then
+		read -n 1 -p "Did you mean 'mv' again? " REPLY
+		if [[ $REPLY == y ]]; then
+			echo "eah, I suck"
+			echo "mv \"$1\" \"$2\""
+			mv -v "$@"
+			exit
+		else
+			echo ""
+		fi
+	elif [[ " $* " == *\ pkg\ * || " $* " == */pkg\ * && -d pkg ]]; then
+		args=()
+		for arg; do
+			fix=${arg/%pkg/PKGBUILD}
+			read -n 1 -p "Did you mean '$fix'? " REPLY
+			if [[ $REPLY == y ]]; then
+				arg=$fix
+			fi
+			echo ""
+			args+=("$arg")
+		done
+		set -- "${args[@]}"
 	fi
+	export _DYM=1
 fi
-
-export _DYM=1
 
 exec /usr/bin/vim "$@"

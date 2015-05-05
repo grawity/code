@@ -8,18 +8,17 @@ use Net::DBus;
 use Net::DBus::Reactor;
 
 BEGIN {
-	if (eval {require Nullroute::Libx}) {
+	if (eval {require Nullroute::Lib}) {
 		Nullroute::Lib->import(qw(_debug _warn _err _die));
 	} else {
-		our ($warnings, $errors);
+		our ($arg0, $warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
 		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ! ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
 	}
 }
-
-$::arg0 = (split m!/!, $0)[-1];
 
 my $bus;
 my $busaddr;
@@ -155,7 +154,7 @@ for ($busaddr) {
 $|++; # autoflush stdout, to make piping into files/apps work
 
 if ($list) {
-	warn "Note: Extra arguments ignored with --list.\n" if @ARGV;
+	_warn("extra arguments ignored with --list") if @ARGV;
 	my $obj = $bus->get_bus_object;
 	my $names = $activate
 			? $obj->ListActivatableNames
@@ -240,6 +239,5 @@ if ($list) {
 	}
 	exit !!$err;
 } else {
-	warn "At least one bus name must be provided.\n";
-	exit 2;
+	_die("at least one bus name must be provided");
 }

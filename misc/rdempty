@@ -9,11 +9,12 @@ sub clean {
 	if (opendir(my $dh, $root)) {
 		while (readdir($dh)) {
 			my $path = "$root/$_";
+			_debug("- child '$path'");
 			if ($_ eq "." || $_ eq "..") {
 				;
 			}
 			elsif (rmdir($path)) {
-				_log("removed: $path");
+				_info("removed: $path");
 			}
 			elsif ($!{ENOTDIR}) {
 				;
@@ -27,11 +28,12 @@ sub clean {
 		}
 		closedir($dh);
 
+		_debug("- root '$root'");
 		if ($root eq ".") {
 			;
 		}
 		elsif (rmdir($root)) {
-			_log("removed: $root");
+			_info("removed: $root");
 		}
 		elsif ($!{ENOTEMPTY}) {
 			;

@@ -7,6 +7,18 @@ use Getopt::Long qw(:config bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
 
+BEGIN {
+	if (eval {require Nullroute::Libx}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($warnings, $errors);
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
 $::arg0 = (split m!/!, $0)[-1];
 
 my $bus;
@@ -132,6 +144,7 @@ for ($busaddr) {
 			"kernel:path=/dev/kdbus/$<-user/bus",
 			"unix:path=$rundir/bus",
 		);
+		_debug("expecting user bus at '$busaddr'");
 		$bus = Net::DBus->new(address => $busaddr);
 	}
 	default {

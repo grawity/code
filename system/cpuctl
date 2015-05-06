@@ -119,12 +119,18 @@ for ($cmd) {
 	when ("offline-core") {
 		my @cores = @ARGV ? map {range_split($_)} @ARGV
 			          : grep {$_ > 0} all_cores();
-		for my $core (@cores) {
-			my @cpus = core_cpus($core);
-			if (@cpus) {
-				say "Offlining CPUs: @cpus (core $core)";
-				put_online($_, "0") for @cpus;
+		if (@cores) {
+			for my $core (@cores) {
+				my @cpus = core_cpus($core);
+				if (@cpus) {
+					say "Offlining CPUs: @cpus (core $core)";
+					put_online($_, "0") for @cpus;
+				} else {
+					err "no hotpluggable CPUs in core $core";
+				}
 			}
+		} else {
+			err "no cores given";
 		}
 	}
 }

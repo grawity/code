@@ -62,21 +62,7 @@ sub all_cores {
 
 sub core_cpus {
 	my ($core) = @_;
-	my ($cpu, @cpus);
-	if (open my $fh, "<", "/proc/cpuinfo") {
-		while (<$fh>) {
-			if (/^processor\s*:\s*(\d+)$/) {
-				$cpu = $1;
-			}
-			elsif (/^core id\s*:\s*(\d+)$/ && $1 == $core) {
-				push @cpus, $cpu;
-			}
-		}
-		close $fh;
-		return @cpus;
-	} else {
-		err "Cannot open /proc/cpuinfo: $!";
-	}
+	grep {core_id($_) == $core} all_cpus();
 }
 
 sub can_offline {

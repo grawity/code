@@ -17,17 +17,11 @@ sub clean {
 			if ($_ eq "." || $_ eq "..") {
 				;
 			}
-			elsif (rmdir($path)) {
-				_info("removed: $path");
-			}
-			elsif ($!{ENOTDIR}) {
+			elsif (-l $path) {
 				;
 			}
-			elsif ($!{ENOTEMPTY}) {
+			elsif (-d $path) {
 				clean($path);
-			}
-			else {
-				_err("cannot remove '$path': $!");
 			}
 		}
 		closedir($dh);

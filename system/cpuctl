@@ -8,6 +8,8 @@ sub err {
 	our $err; ++$err;
 }
 
+sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
+
 sub rangesplit {
 	my ($str) = @_;
 	my @items;
@@ -22,7 +24,7 @@ sub rangesplit {
 			err "Not a number: $_";
 		}
 	}
-	@items;
+	return @items;
 }
 
 sub put {
@@ -54,6 +56,29 @@ sub allcpus {
 	grep {-e cpu($_)} 0..127;
 }
 
+sub allcores {
+	uniq map {core_id($_)} allcpus();
+}
+
+sub corecpus {
+	my ($core) = @_;
+	my ($cpu, @cpus);
+	if (open my $fh, "<", "/proc/cpuinfo") {
+		while (<$fh>) {
+			if (/^processor\s*:\s*(\d+)$/) {
+				$cpu = $1;
+			}
+			elsif (/^core id\s*:\s*(\d+)$/ && $1 == $core) {
+				push @cpus, $cpu;
+			}
+		}
+		close $fh;
+		return @cpus;
+	} else {
+		err "Cannot open /proc/cpuinfo: $!";
+	}
+}
+
 sub can_offline {
 	my $path = cpu(shift)."/online";
 	-e $path ? $path : undef;
@@ -62,6 +87,11 @@ sub can_offline {
 sub is_online {
 	my $path = can_offline(shift);
 	$path ? int get($path) : 1;
+}
+
+sub core_id {
+	my $path = cpu(shift)."/topology/core_id";
+	-e $path ? int get($path) : 0;
 }
 
 sub put_online {
@@ -73,14 +103,14 @@ my $cmd = shift(@ARGV);
 
 for ($cmd) {
 	when (undef) {
-		for (allcpus) {
+		for (allcpus()) {
 			my $status = is_online($_) ? "online" : "offline";
 			$status .= " (fixed)" if !can_offline($_);
 			say "cpu $_: $status";
 		}
 	}
 	when ("online") {
-		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus;
+		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus();
 		@cpus = grep {can_offline($_)} @cpus;
 		if (@cpus) {
 			say "Onlining CPUs: @cpus";
@@ -90,13 +120,23 @@ for ($cmd) {
 		}
 	}
 	when ("offline") {
-		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus;
+		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus();
 		@cpus = grep {can_offline($_)} @cpus;
 		if (@cpus) {
 			say "Offlining CPUs: @cpus";
 			put("$_/online", "0") for map {cpu($_)} @cpus;
 		} else {
 			err "No hotpluggable CPUs given.";
+		}
+	}
+	when ("offline-core") {
+		my @cores = @ARGV ? map {rangesplit($_)} @ARGV : allcores();
+		for my $core (@cores) {
+			my @cpus = corecpus($core);
+			if (@cpus) {
+				say "Offlining CPUs: @cpus (core $core)";
+				put_online($_, "0") for map {cpu($_)} @cpus;
+			}
 		}
 	}
 }

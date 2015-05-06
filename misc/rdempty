@@ -5,7 +5,11 @@ use Nullroute::Lib;
 
 sub clean {
 	my ($root) = @_;
+
 	_debug("cleaning '$root'");
+
+	# recursively remove contents
+
 	if (opendir(my $dh, $root)) {
 		while (readdir($dh)) {
 			my $path = "$root/$_";
@@ -27,22 +31,23 @@ sub clean {
 			}
 		}
 		closedir($dh);
-
-		_debug("- root '$root'");
-		if ($root eq ".") {
-			;
-		}
-		elsif (rmdir($root)) {
-			_info("removed: $root");
-		}
-		elsif ($!{ENOTEMPTY}) {
-			;
-		}
-		else {
-			_err("cannot remove '$root': $!");
-		}
 	} else {
 		_err("cannot open '$root': $!");
+	}
+
+	# remove the directory itself
+
+	if ($root eq ".") {
+		;
+	}
+	elsif (rmdir($root)) {
+		_info("removed: $root");
+	}
+	elsif ($!{ENOTEMPTY}) {
+		;
+	}
+	else {
+		_err("cannot remove '$root': $!");
 	}
 }
 

@@ -10,7 +10,7 @@ sub err {
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
 
-sub rangesplit {
+sub range_split {
 	my ($str) = @_;
 	my @items;
 	for (split /,/, $str) {
@@ -52,15 +52,15 @@ sub cpu {
 	"/sys/devices/system/cpu/cpu".shift;
 }
 
-sub allcpus {
+sub all_cpus {
 	grep {-e cpu($_)} 0..127;
 }
 
-sub allcores {
-	uniq map {core_id($_)} allcpus();
+sub all_cores {
+	uniq map {core_id($_)} all_cpus();
 }
 
-sub corecpus {
+sub core_cpus {
 	my ($core) = @_;
 	my ($cpu, @cpus);
 	if (open my $fh, "<", "/proc/cpuinfo") {
@@ -103,7 +103,7 @@ my $cmd = shift(@ARGV);
 
 for ($cmd) {
 	when (undef) {
-		for (allcpus()) {
+		for (all_cpus()) {
 			my $core = core_id($_);
 			my $status = is_online($_) ? "online" : "offline";
 			$status .= " (fixed)" if !can_offline($_);
@@ -111,7 +111,7 @@ for ($cmd) {
 		}
 	}
 	when ("online") {
-		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus();
+		my @cpus = @ARGV ? map {range_split($_)} @ARGV : all_cpus();
 		@cpus = grep {can_offline($_)} @cpus;
 		if (@cpus) {
 			say "Onlining CPUs: @cpus";
@@ -121,7 +121,7 @@ for ($cmd) {
 		}
 	}
 	when ("offline") {
-		my @cpus = @ARGV ? map {rangesplit($_)} @ARGV : allcpus();
+		my @cpus = @ARGV ? map {range_split($_)} @ARGV : all_cpus();
 		@cpus = grep {can_offline($_)} @cpus;
 		if (@cpus) {
 			say "Offlining CPUs: @cpus";
@@ -131,10 +131,10 @@ for ($cmd) {
 		}
 	}
 	when ("offline-core") {
-		my @cores = @ARGV ? map {rangesplit($_)} @ARGV
-			          : grep {$_ > 0} allcores();
+		my @cores = @ARGV ? map {range_split($_)} @ARGV
+			          : grep {$_ > 0} all_cores();
 		for my $core (@cores) {
-			my @cpus = corecpus($core);
+			my @cpus = core_cpus($core);
 			if (@cpus) {
 				say "Offlining CPUs: @cpus (core $core)";
 				put_online($_, "0") for map {cpu($_)} @cpus;

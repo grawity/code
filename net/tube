@@ -128,7 +128,13 @@ mtime=$(stat -c %Y "$file")
 
 # update file tags
 log "updating file tags"
-tagopts+=(-type "$kind")
+if [[ "$kind" ]]; then
+	if (( justaudio )); then
+		debug "skipping -type for audio-only output"
+	else
+		tagopts+=(-type "$kind")
+	fi
+fi
 if [[ ! "$m_artist" ]]; then
 	m_artist=$(jshon -e uploader -u < "$jsonf")
 	tagopts+=(-artist "$m_artist")

@@ -103,8 +103,11 @@ f_ext=${file##*.}
 if (( rename )) && [[ $m_artist && $m_song ]]; then
 	f_name="$m_artist - $m_song"
 fi
-file=$f_name.$f_ext
-jsonf="${file%.*}.info.json"
+if [[ "$f_name.$f_ext" != "$file" ]]; then
+	file=$f_name.$f_ext
+	options+=(--output "${file//%/%%}")
+fi
+jsonf="$f_name.info.json"
 
 # verify resume
 if [[ -s "$file" ]]; then
@@ -116,7 +119,7 @@ if [[ -s "$file" ]]; then
 fi
 
 # download the video
-youtube-dl "${options[@]}" --console-title -o "${file//%/%%}" "$url"
+youtube-dl "${options[@]}" --console-title "$url"
 test -s "$file" || die "output file not found"
 
 # note file modification time

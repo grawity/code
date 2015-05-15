@@ -150,6 +150,17 @@ fi
 do: mp4tags -xid "youtube:$url" "${tagopts[@]}" "$file"
 rm -f "$jsonf"
 
+if [[ "$file" == *.m4a ]]; then
+	ftyp=$(ffprobe -show_format "$file" 2>/dev/null | sed -n 's/^TAG:major_brand=//p')
+	debug "MP4 container has ftyp '$ftyp'"
+	if [[ "$ftyp" == 'isom' ]]; then
+		log "fixing container metadata"
+		info "found bad ftyp '$ftyp'"
+		temp=$(mktemp "tube.XXXXXXXX.$f_ext")
+		do: ffmpeg -y -loglevel warning -i "$file" -c copy -brand "M4A " "$temp" && mv "$temp" "$file"
+	fi
+fi
+
 # set some standard xattrs
 { setfattr -n "user.xdg.origin.url"   -v "$url"   "$file"
   setfattr -n "user.xdg.referrer.url" -v "$url"   "$file"

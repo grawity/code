@@ -20,6 +20,10 @@ rename=0
 m_artist=''
 m_song=''
 
+if (( DEBUG )); then
+	options+=(--verbose)
+fi
+
 while (( $# )); do
 	arg=$1
 	case $arg in
@@ -77,6 +81,7 @@ re_youtube_short='^https?://youtu.be/([A-Za-z0-9_-]+)([?#]|$)'
 
 if (( justaudio )); then
 	info "audio-only mode requested"
+	options+=(--extract-audio)
 fi
 
 # make a canonical URL
@@ -112,30 +117,6 @@ test -s "$file" || exit
 
 # note file modification time
 mtime=$(stat -c %Y "$file")
-
-# convert the container
-case $file in
-*.flv)
-	temp=$file
-	if (( justaudio )); then
-		log "extracting audio to .m4a"
-		file=${file%.*}.m4a
-		ffmpeg -i "$temp" -acodec copy -vn "$file"
-	else
-		log "repacking as .mp4"
-		file=${file%.*}.mp4
-		ffmpeg -i "$temp" -acodec copy -vcodec copy "$file"
-	fi && rm -f "$temp"
-	;;
-*.mp4)
-	if (( justaudio )); then
-		log "extracting audio to .m4a"
-		temp=$file; file=${file%.*}.m4a
-		ffmpeg -i "$temp" -acodec copy -vn "$file" \
-		&& rm -f "$temp"
-	fi
-	;;
-esac
 
 if [[ ! "$m_artist" ]]; then
 	m_artist=$(jshon -e uploader -u < "$jsonf")

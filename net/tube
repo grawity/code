@@ -13,7 +13,6 @@ usage() {
 ffmpeg() { command ffmpeg -hide_banner "$@"; }
 
 options=(
-	--console-title
 	--no-playlist
 	--continue
 	--write-info-json
@@ -98,8 +97,6 @@ log2 "downloading $url"
 
 # obtain the output filename
 file=$(youtube-dl "${options[@]}" --get-filename "$url")
-# for fuck's sake
-file=$(echo "$file" | sed $'s/\033\[[0-9;]*t//g')
 debug "predicted filename: '$(echo "$file" | cat -v)'"
 f_name=${file%.*}
 f_ext=${file##*.}
@@ -119,7 +116,7 @@ if [[ -s "$file" ]]; then
 fi
 
 # download the video
-youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
+youtube-dl "${options[@]}" --console-title -o "${file//%/%%}" "$url"
 test -s "$file" || die "output file not found"
 
 # note file modification time

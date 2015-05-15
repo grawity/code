@@ -3,6 +3,13 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname [-tagopt...] [--dlopt...] URL"
+	echo ""
+	echo "  -tagopt       mp4tag option"
+	echo "  --dlopt       youtube-dl option"
+}
+
 ffmpeg() { command ffmpeg -hide_banner "$@"; }
 
 options=(
@@ -28,6 +35,8 @@ fi
 while (( $# )); do
 	arg=$1
 	case $arg in
+	--help)
+		usage; exit;;
 	http://*|https://*)
 		if [[ $url ]]; then
 			die "only one URL can be specified"
@@ -69,13 +78,7 @@ while (( $# )); do
 	shift
 done
 
-if [[ ! $url ]]; then
-	echo "Usage: tube [-tagopt...] [--dlopt...] URL"
-	echo
-	echo " -tagopt    mp4tag option"
-	echo " --dlopt    youtube-dl option"
-	exit
-fi
+[[ $url ]] || die "missing URL"
 
 re_youtube_full='^https?://www.youtube.com/watch.*[?&]v=([A-Za-z0-9_-]+)([&#]|$)'
 re_youtube_short='^https?://youtu.be/([A-Za-z0-9_-]+)([?#]|$)'
@@ -114,7 +117,7 @@ fi
 
 # download the video
 youtube-dl "${options[@]}" "$url" -o "${file//%/%%}"
-test -s "$file" || exit
+test -s "$file" || die "output file not found"
 
 # note file modification time
 mtime=$(stat -c %Y "$file")

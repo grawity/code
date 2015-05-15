@@ -119,6 +119,9 @@ test -s "$file" || exit
 # note file modification time
 mtime=$(stat -c %Y "$file")
 
+# update file tags
+log "updating file tags"
+tagopts+=(-type "$kind")
 if [[ ! "$m_artist" ]]; then
 	m_artist=$(jshon -e uploader -u < "$jsonf")
 	tagopts+=(-artist "$m_artist")
@@ -127,10 +130,6 @@ if [[ ! "$m_song" ]]; then
 	m_song=$f_name
 	tagopts+=(-song "$m_song")
 fi
-
-# update file tags
-log "updating file tags"
-tagopts+=(-type "$kind")
 t_descr=$(jshon -e description -u < "$jsonf")
 if [[ "$t_descr" && "$t_descr" != "No description available." ]]; then
 	tagopts+=(-longdesc "$t_descr")

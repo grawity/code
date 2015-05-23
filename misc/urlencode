@@ -11,6 +11,7 @@ sub usage {
 	"\n",
 	"    -A    encode for mq\n",
 	"    -d    decode\n",
+	"    -D    decode + as space\n",
 	"    -o    oct-encode (\\123)\n",
 	"    -p    encode full path (allowing slashes)\n",
 	"    -q    encode quoted-printable\n",
@@ -23,6 +24,7 @@ sub usage {
 sub decode {
 	if ($opts{A}) { s/^:// }
 	s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	if ($opts{D}) { s/\+/ /g; }
 }
 
 sub encode {
@@ -48,7 +50,7 @@ sub encode {
 }
 
 sub do_things {
-	if ($opts{d}) {
+	if ($opts{d} || $opts{D}) {
 		decode;
 	} else {
 		encode;
@@ -57,7 +59,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('AdopqrxX', \%opts) || usage;
+getopts('AdDopqrxX', \%opts) || usage;
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

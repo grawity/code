@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # wrapper for 'pacman' to add flock-based locking
 
-self=$(which pacman)
-PATH=${PATH//:${self%/*}:/:}
-(( UID || PACMAN_LOCK )) || {
+if (( UID == 0 )) && [[ ! $PACMAN_LOCK ]]; then
 	lock=/run/lock/pacman
 	exec {fd}>"$lock" &&
 	/usr/bin/flock -xn $fd || {
@@ -14,4 +12,7 @@ PATH=${PATH//:${self%/*}:/:}
 	[[ ! -e "$dblock" ]] || {
 		rm -fi "$dblock"
 	}
-} && PACMAN_LOCK=$fd exec /usr/bin/pacman "$@"
+	export PACMAN_LOCK=$fd
+fi
+
+exec /usr/bin/pacman "$@"

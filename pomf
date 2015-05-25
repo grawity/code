@@ -1,12 +1,58 @@
 #!/usr/bin/env bash
 # vim: ts=4:sw=4:et
 
+declare -A site_bases site_apis upload_bases
+
+site_bases=(
+    [pomf]=http://oxipry.se
+    [love]=http://img.loveisover.me
+    [max]=https://maxfile.ro
+)
+
+site_apis=(
+    [pomf]=/upload.php
+    [love]=/upload.php
+    [max]=/static/upload.php
+)
+
+upload_bases=(
+    [pomf]=http://a.pomf.se
+    [love]=http://a.loveisover.me
+    [max]=https://d.maxfile.ro
+)
+
 . lib.bash || exit
+
+usage() {
+    echo "Usage: $progname [-p site] <file>..."
+    echo ""
+    echo "  -p site       select hosting site"
+    echo ""
+    echo "Sites:"
+    local _s; for _s in ${!site_bases[@]}; do
+        printf "  %s (%s)\n" "$_s" "${site_bases[$_s]}"
+    done | sort
+}
 
 have curl  || err "missing 'curl'"
 have jshon || err "missing 'jshon'"
 
 (( !errors )) || exit
+
+arg_site=pomf
+
+while getopts ":p:" OPT; do
+    case $OPT in
+    p) arg_site=$OPTARG;;
+    *) lib::die_getopts;;
+    esac
+done; shift $((OPTIND-1))
+
+site_base=${site_bases[$arg_site]}
+api_url=${site_base}${site_apis[$arg_site]:-"/upload.php"}
+upload_base=${upload_bases[$arg_site]}
+
+[[ $site_base && $upload_base ]] || die "unknown provider '$arg_site'"
 
 curl_args=()
 for f in "$@"; do
@@ -31,14 +77,16 @@ if [[ $DEBUG ]]; then
     curl_args+=(-v)
 fi
 
-upload=$(curl -S "${curl_args[@]}" http://pomf.se/upload.php)
+debug "posting to '$api_url'"
+upload=$(curl -S "${curl_args[@]}" "$api_url")
 urls=$(jshon -e files -a -e name -upe url -u <<< "$upload") || {
     trace "output: $upload"
     die "could not parse response"
 }
+
 clip=()
 while { read -r name; read -r url; } do
-    url=http://a.pomf.se/$url
+    url=$upload_base/$url
     echo "$name → $url"
     echo "$(date --rfc-3339=seconds) $url $name" >> "$XDG_CACHE_HOME/pomf.log"
     clip+=("$url")

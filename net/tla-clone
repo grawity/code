@@ -2,8 +2,27 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname [-t] <source-url> [dest-dir]"
+	echo ""
+	echo "  -t    Use old 'tla' format archive (instead of 'baz')"
+}
+
+arg_format=""
+
+while getopts ":t" OPT; do
+	case $OPT in
+	t) arg_format="--tla";;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 src=$1
 dest=$2
+
+if ! [[ "$src" ]]; then
+	die "missing source URL"
+fi
 info "source URL: $src"
 
 name=$(curl -sSf "$src/=meta-info/name")
@@ -25,7 +44,8 @@ fi
 
 if ! [[ -d "$dest/=meta-info" ]]; then
 	log "creating local mirror archive"
-	tla make-archive --mirror-from "$name-SOURCE" "$dest"
+	tla register-archive --force --delete "$name"
+	tla make-archive $arg_format --mirror-from "$name-SOURCE" "$dest"
 fi
 
 log "updating local mirror"

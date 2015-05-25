@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+src=$1
+dest=$2
+info "source URL: $src"
+
+name=$(curl -sSf "$src/=meta-info/name")
+if ! [[ "$name" ]]; then
+	die "could not determine source archive name"
+fi
+info "archive name: $name"
+
+if ! [[ "$dest" ]]; then
+	dest="$PWD/$name"
+fi
+dest=$(readlink -f "$dest")
+info "destination: $dest"
+
+if ! [[ "$(tla whereis-archive "$name-SOURCE")" == "$src" ]]; then
+	log "registering origin archive"
+	tla register-archive --force "$name-SOURCE" "$src"
+fi
+
+if ! [[ -d "$dest/=meta-info" ]]; then
+	log "creating local mirror archive"
+	tla make-archive --mirror-from "$name-SOURCE" "$dest"
+fi
+
+log "updating local mirror"
+tla archive-mirror "$name"

@@ -12,13 +12,10 @@ if [[ $_NOLID ]]; then
 fi
 
 name="nolid"
-notify=0
 
 if [[ -t 0 ]]; then
 	tty=$(tty)
 	name="$name on ${tty#/dev/}"
-else
-	notify=1
 fi
 
 case $1 in
@@ -33,12 +30,6 @@ case $1 in
 		rm -f "$hold"
 		echo "Released."
 		exit;;
-	-n|--notify)
-		notify=1
-		shift;;
-	--no-n|--no-notify)
-		notify=0
-		shift;;
 esac
 
 if (( ! $# )); then
@@ -71,19 +62,5 @@ flock -s "$lock" \
 r=$?
 
 t_end=$(date +%s)
-
-if (( notify )); then
-	seconds=$((t_end - t_start))
-	duration=$(interval $seconds)
-	if (( r == 0 )); then
-		msg="exited successfully"
-	else
-		msg="failed (exit status $r)"
-	fi
-	notify-send \
-		-h byte:transient:1 \
-		"Lid inhibit removed" \
-		"'$1' $msg after $duration" &
-fi
 
 exit $r

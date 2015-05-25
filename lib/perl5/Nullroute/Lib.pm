@@ -138,17 +138,17 @@ sub _debug  { _msg(*STDERR, "debug", "\e[36m", shift,
 		min_debug => 1,
 		@_); }
 
-sub _info   { _msg(*STDOUT, "info", "\e[1;34m", shift,
+sub _info   { _msg(*STDERR, "info", "\e[1;34m", shift,
 		fmt_prefix => "+",
 		fmt_color => "\e[34m",
 		@_); }
 
-sub _log    { _msg(*STDOUT, "log", "\e[1;32m", shift,
+sub _log    { _msg(*STDERR, "log", "\e[1;32m", shift,
 		fmt_prefix => "~",
 		fmt_color => "\e[32m",
 		@_); }
 
-sub _log2   { _msg(*STDOUT, "log2", "\e[1;35m", shift,
+sub _log2   { _msg(*STDERR, "log2", "\e[1;35m", shift,
 		fmt_prefix => "==",
 		fmt_color => "\e[35m",
 		msg_color => "\e[1m",

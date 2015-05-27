@@ -184,6 +184,10 @@ case $job in
 		done
 
 		$0 nanobot || fail+=(nanobot)
+
+		if mountpoint -q $b; then
+			$0 fs1 || fail+=(fs1)
+		fi
 		;;
 	root@*)
 		host=$job
@@ -199,6 +203,10 @@ case $job in
 		do_rsync $host: ~/Backup/Homes/$host/			\
 			-f "merge $HOME/Backup/Homes/filter.global" -F	\
 			;
+		;;
+	fs1)
+		mounted: $b
+		do_rsync ukradius:fs1/ $b/fs1/
 		;;
 	mail)
 		host=wolke

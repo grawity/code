@@ -3,27 +3,30 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-1] [-d <subdir>] <file>…"
+	echo "Usage: $progname [-01] [-d <subdir>] <file>…"
 	echo #|---'---|---'---|
+	echo "  -0            do not use yearly subdirectories"
 	echo "  -1            upload to fs1 instead of main site"
 	echo "  -d path       create a subdirectory"
 }
 
 year=$(date +%Y)
 
-fsbase="virgule:nullroute/tmp/$year"
-urlbase="https://nullroute.eu.org/tmp/$year"
+fsbase="virgule:nullroute/tmp"
+urlbase="https://nullroute.eu.org/tmp"
 
-fs1_fsbase="ukradius:fs1/tmp/$year"
-fs1_urlbase="http://fs1.nullroute.eu.org/tmp/$year"
+fs1_fsbase="ukradius:fs1/tmp"
+fs1_urlbase="http://fs1.nullroute.eu.org/tmp"
 
 # parse command line
 
 arg_server=
 arg_subdir=
+arg_yearly=1
 
-while getopts ":1d:" OPT; do
+while getopts ":01d:" OPT; do
 	case $OPT in
+	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	d) arg_subdir=$OPTARG;;
 	*) die_getopts;;
@@ -42,10 +45,18 @@ if [[ $arg_server ]]; then
 	fi
 fi
 
+if (( arg_yearly )); then
+	fsbase+="/$year"
+	urlbase+="/$year"
+fi
+
 if [[ $arg_subdir ]]; then
 	fsbase+="/$arg_subdir"
 	urlbase+="/$arg_subdir"
 fi
+
+debug "base dir: '$fsbase'"
+debug "base url: '$urlbase'"
 
 # prepare upload target
 

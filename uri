@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 import os, sys, re
 import urllib.parse
-
-def trace(fmt, *args):
-    if "DEBUG" in os.environ:
-        print("\033[36m%s\033[m" % fmt, *args, file=sys.stderr)
+from nullroute import Core
 
 def load_mappings(path):
     mappings = []
@@ -19,9 +16,9 @@ def load_mappings(path):
     return mappings
 
 def find_mapping(mappings, uri):
-    #print("looking up %r" % uri)
+    Core.trace("looking up %r" % uri)
     for regex, replace, *rest in mappings:
-        #print("considering %r / %r" % (regex, replace))
+        #Core.trace("considering %r / %r" % (regex, replace))
         flags = ""
         if rest:
             flags = rest.pop(0)
@@ -89,31 +86,31 @@ mappings = load_mappings(conf_path)
 seen = set()
 
 for start_uri in sys.argv[1:]:
-    trace("start arg: %r" % start_uri)
+    Core.trace("start arg: %r" % start_uri)
     inputs = [start_uri]
     found = 0
     while inputs:
-        trace("- have inputs: %r" % inputs)
+        Core.trace("- have inputs: %r" % inputs)
         next = []
         for uri in inputs:
-            trace("- trying to map %r" % uri)
+            Core.trace("- trying to map %r" % uri)
             if uri in seen:
-                trace("... already seen, skipping")
+                Core.trace("... already seen, skipping")
                 continue
             mapped = list(find_mapping(mappings, uri))
-            trace("... output %r" % mapped)
+            Core.trace("... output %r" % mapped)
             if mapped:
-                trace("... mapping found, adding to next-inputs")
+                Core.trace("... mapping found, adding to next-inputs")
                 next += mapped
             else:
-                trace("... no mapping, uri is final")
+                Core.trace("... no mapping, uri is final")
                 found += 1
                 print(uri)
             seen.add(uri)
         if len(seen) > 100:
             raise Exception("possible infinite loop at %r" % start_uri)
         inputs = next
-    trace("- no more inputs")
+    Core.trace("- no more inputs")
     if found == 0:
-        trace("... no mappings ever found, returning original arg")
+        Core.trace("... no mappings ever found, returning original arg")
         print(start_uri)

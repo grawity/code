@@ -3,7 +3,7 @@ import os
 import sys
 import ipaddress
 import subprocess
-import nullroute as lib
+from nullroute import Core, ui
 
 def ip_addr_list(inf):
     with subprocess.Popen(["ip", "addr", "show", "dev", inf],
@@ -34,7 +34,7 @@ except IndexError:
 
 if "@" in ip4_range:
     ip4_range, interface = ip4_range.split("@", 1)
-    #lib.log("using interface '%s'" % interface)
+    Core.debug("using interface '%s'" % interface)
 
 if not ip4_range:
     ip4_range = "192.168.1.0/24"
@@ -42,10 +42,10 @@ if not ip4_range:
 try:
     ip4_range = ipaddress.IPv4Network(ip4_range)
 except ValueError as e:
-    lib.die("bad range: %s" % e)
+    Core.die("bad range: %s" % e)
 
 if ip4_range.num_addresses < 8:
-    lib.die("chosen range %s too small" % ip4_range)
+    Core.die("chosen range %s too small" % ip4_range)
 
 ip4_start = ip4_range.network_address + 1
 ip4_end   = ip4_range.broadcast_address - 1
@@ -57,7 +57,7 @@ for addr in ip_addr_list(interface):
         inf_has_ip4 = True
 if not inf_has_ip4:
     addr = ip_interface_from_addr(ip4_start, ip4_range)
-    print("adding %s to '%s'" % (addr, interface))
+    Core.info("adding %s to '%s'" % (addr, interface))
     ip_addr_add(interface, addr)
 
 args = [
@@ -78,6 +78,6 @@ args = [
     "--dhcp-option=option:dns-server,%s" % ip4_dns,
 ]
 
-lib.window_title("Serving DHCP on %s" % interface)
+ui.window_title("Serving DHCP on %s" % interface)
 
 os.execv(args[0], args)

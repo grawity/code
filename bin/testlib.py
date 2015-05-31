@@ -31,6 +31,6 @@ forked(foo)
 
 print("\n-- messages ($DEBUG) --\n")
 
-Core._log_level = Core._levels["trace"]
+Core.raise_log_level(Core.LOG_TRACE)
 
 forked(foo)

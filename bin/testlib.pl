@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-
 use Nullroute::Lib;
 
 sub test_sep {

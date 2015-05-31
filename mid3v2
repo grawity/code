@@ -14,18 +14,15 @@ from optparse import OptionParser, SUPPRESS_HELP
 
 import mutagen
 import mutagen.id3
-from mutagen._util import split_escape
-from mutagen._compat import PY2, PY3, text_type
+from mutagen._util import split_escape, SignalHandler, set_win32_unicode_argv
+from mutagen._compat import PY2, PY3, text_type, print_
 
 
 VERSION = (1, 3)
+_sig = SignalHandler()
 
 global verbose
 verbose = True
-
-
-def getpreferredencoding(*args):
-    return locale.getpreferredencoding(*args) or "utf-8"
 
 
 class ID3OptionParser(OptionParser):
@@ -63,7 +60,7 @@ def unescape_bytes(string):
 def list_frames(option, opt, value, parser):
     items = mutagen.id3.Frames.items()
     for name, frame in sorted(items):
-        print("    --%s    %s" % (name, frame.__doc__.split("\n")[0]))
+        print_(u"    --%s    %s" % (name, frame.__doc__.split("\n")[0]))
     raise SystemExit
 
 
@@ -71,44 +68,46 @@ def list_frames_2_2(option, opt, value, parser):
     items = mutagen.id3.Frames_2_2.items()
     items.sort()
     for name, frame in items:
-        print("    --%s    %s" % (name, frame.__doc__.split("\n")[0]))
+        print(u"    --%s    %s" % (name, frame.__doc__.split("\n")[0]))
     raise SystemExit
 
 
 def list_genres(option, opt, value, parser):
     for i, genre in enumerate(mutagen.id3.TCON.GENRES):
-        print("%3d: %s" % (i, genre))
+        print_(u"%3d: %s" % (i, genre))
     raise SystemExit
 
 
 def delete_tags(filenames, v1, v2):
     for filename in filenames:
-        if verbose:
-            print("deleting ID3 tag info in %s" % filename)
-        mutagen.id3.delete(filename, v1, v2)
+        with _sig.block():
+            if verbose:
+                print_(u"deleting ID3 tag info in", filename)
+            mutagen.id3.delete(filename, v1, v2)
 
 
 def delete_frames(deletes, filenames):
     frames = deletes.split(",")
     for filename in filenames:
-        if verbose:
-            print("deleting %s from %s" % (deletes, filename))
-        try:
-            id3 = mutagen.id3.ID3(filename)
-        except mutagen.id3.ID3NoHeaderError:
+        with _sig.block():
             if verbose:
-                print("No ID3 header found; skipping.")
-        except StandardError as err:
-            print(str(err))
-        else:
-            for frame in frames:
-                id3.delall(frame)
-            id3.save()
+                print_(u"deleting %s from" % deletes, filename)
+            try:
+                id3 = mutagen.id3.ID3(filename)
+            except mutagen.id3.ID3NoHeaderError:
+                if verbose:
+                    print_(u"No ID3 header found; skipping.")
+            except StandardError as err:
+                print_(text_type(err))
+            else:
+                for frame in frames:
+                    id3.delall(frame)
+                id3.save()
 
 
 def write_files(edits, filenames, escape):
     # edits are (bytes, bytes) on PY2 and (str, str+surrogateescape) on PY3
-    enc = getpreferredencoding()
+    enc = locale.getpreferredencoding() or "utf-8"
 
     # unescape escape sequences and decode values
     encoded_edits = []
@@ -126,13 +125,13 @@ def write_files(edits, filenames, escape):
             try:
                 value = unescape_bytes(value)
             except ValueError as err:
-                print("%s: %s" % (frame, str(err)))
+                print_(u"%s: %s" % (frame, text_type(err)))
                 raise SystemExit(1)
 
         try:
             value = value.decode(enc)
         except UnicodeDecodeError as err:
-            print("%s: %s" % (frame, str(err)))
+            print_(u"%s: %s" % (frame, text_type(err)))
             raise SystemExit(1)
 
         encoded_edits.append((frame, value))
@@ -157,83 +156,84 @@ def write_files(edits, filenames, escape):
         string_split = lambda s, *args, **kwargs: s.split(*args, **kwargs)
 
     for filename in filenames:
-        if verbose:
-            print("Writing", filename)
-        try:
-            id3 = mutagen.id3.ID3(filename)
-        except mutagen.id3.ID3NoHeaderError:
+        with _sig.block():
             if verbose:
-                print("No ID3 header found; creating a new tag")
-            id3 = mutagen.id3.ID3()
-        except StandardError as err:
-            print(str(err))
-            continue
-        for (frame, vlist) in edits.items():
-            if frame == "POPM":
-                for value in vlist:
-                    values = string_split(value, ":")
-                    if len(values) == 1:
-                        email, rating, count = values[0], 0, 0
-                    elif len(values) == 2:
-                        email, rating, count = values[0], values[1], 0
-                    else:
-                        email, rating, count = values
+                print_(u"Writing", filename)
+            try:
+                id3 = mutagen.id3.ID3(filename)
+            except mutagen.id3.ID3NoHeaderError:
+                if verbose:
+                    print_(u"No ID3 header found; creating a new tag")
+                id3 = mutagen.id3.ID3()
+            except StandardError as err:
+                print(str(err))
+                continue
+            for (frame, vlist) in edits.items():
+                if frame == "POPM":
+                    for value in vlist:
+                        values = string_split(value, ":")
+                        if len(values) == 1:
+                            email, rating, count = values[0], 0, 0
+                        elif len(values) == 2:
+                            email, rating, count = values[0], values[1], 0
+                        else:
+                            email, rating, count = values
 
-                    frame = mutagen.id3.POPM(
-                        email=email, rating=int(rating), count=int(count))
-                    id3.add(frame)
+                        frame = mutagen.id3.POPM(
+                            email=email, rating=int(rating), count=int(count))
+                        id3.add(frame)
 
-            elif frame == "COMM":
-                for value in vlist:
-                    values = string_split(value, ":")
-                    if len(values) == 1:
-                        value, desc, lang = values[0], "", "eng"
-                    elif len(values) == 2:
-                        desc, value, lang = values[0], values[1], "eng"
-                    else:
-                        value = ":".join(values[1:-1])
-                        desc, lang = values[0], values[-1]
-                    frame = mutagen.id3.COMM(
-                        encoding=3, text=value, lang=lang, desc=desc)
+                elif frame == "COMM":
+                    for value in vlist:
+                        values = string_split(value, ":")
+                        if len(values) == 1:
+                            value, desc, lang = values[0], "", "eng"
+                        elif len(values) == 2:
+                            desc, value, lang = values[0], values[1], "eng"
+                        else:
+                            value = ":".join(values[1:-1])
+                            desc, lang = values[0], values[-1]
+                        frame = mutagen.id3.COMM(
+                            encoding=3, text=value, lang=lang, desc=desc)
+                        id3.add(frame)
+                elif frame == "TXXX":
+                    for value in vlist:
+                        values = string_split(value, ":", 1)
+                        if len(values) == 1:
+                            desc, value = "", values[0]
+                        else:
+                            desc, value = values[0], values[1]
+                        frame = mutagen.id3.TXXX(
+                            encoding=3, text=value, desc=desc)
+                        id3.add(frame)
+                elif issubclass(mutagen.id3.Frames[frame], mutagen.id3.UrlFrame):
+                    frame = mutagen.id3.Frames[frame](encoding=3, url=vlist)
                     id3.add(frame)
-            elif frame == "TXXX":
-                for value in vlist:
-                    values = string_split(value, ":", 1)
-                    if len(values) == 1:
-                        desc, value = "", values[0]
-                    else:
-                        desc, value = values[0], values[1]
-                    frame = mutagen.id3.TXXX(encoding=3, text=value, desc=desc)
+                else:
+                    frame = mutagen.id3.Frames[frame](encoding=3, text=vlist)
                     id3.add(frame)
-            elif issubclass(mutagen.id3.Frames[frame], mutagen.id3.UrlFrame):
-                frame = mutagen.id3.Frames[frame](encoding=3, url=vlist)
-                id3.add(frame)
-            else:
-                frame = mutagen.id3.Frames[frame](encoding=3, text=vlist)
-                id3.add(frame)
-        id3.save(filename)
+            id3.save(filename)
 
 
 def list_tags(filenames):
-    enc = getpreferredencoding()
     for filename in filenames:
-        print("IDv2 tag info for %s:" % filename)
+        print_("IDv2 tag info for", filename)
         try:
             id3 = mutagen.id3.ID3(filename, translate=False)
         except StandardError as err:
-            print(str(err))
+            print_(text_type(err))
         else:
-            print(id3.pprint().encode(enc, "replace"))
+            print_(id3.pprint())
 
 
 def list_tags_raw(filenames):
     encodings = ["latin1", "utf16", "utf16-be", "utf8"]
     for filename in filenames:
-        print("Raw IDv2 tag info for %s:" % filename)
+        print_("Raw IDv2 tag info for", filename)
         try:
             id3 = mutagen.id3.ID3(filename, translate=False)
         except StandardError as err:
-            print(str(err))
+            print_(text_type(err))
         else:
             for frame in id3.values():
                 r = repr(frame)
@@ -243,11 +243,11 @@ def list_tags_raw(filenames):
                     r = r.replace(s, t)
                 if len(r) > 90:
                     r = r[:90-3] + "..."
-                print(r)
+                print_(r)
             flags = [
                 "unsync=%r" % id3.f_unsynch,
             ]
-            print("# %s" % " ".join(sorted(flags)))
+            print_("# %s" % " ".join(sorted(flags)))
 
 
 def main(argv):
@@ -356,4 +356,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
+    set_win32_unicode_argv()
+    _sig.init()
     main(sys.argv)

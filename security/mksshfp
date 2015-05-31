@@ -3,8 +3,7 @@
 import os
 import sys
 import hashlib
-import nullroute as lib
-import nullroute.authorized_keys as authorized_keys
+from nullroute import Core, authorized_keys
 
 KEY_ALGOS = {
     "ssh-rsa":              1,
@@ -21,7 +20,7 @@ HASH_ALGOS = [
 ]
 
 def usage():
-    print("Usage: %s <hostname> [pubkey-file]" % lib.arg0)
+    print("Usage: %s <hostname> [pubkey-file]" % Core.arg0)
     print()
     print("If pubkey-file is given, SSHFP records for all keys in that file will")
     print("be printed. Otherwise, your ~/.ssh/known_hosts will be searched for keys")
@@ -36,11 +35,11 @@ def parse(path):
         try:
             key = authorized_keys.PublicKey(line, host_prefix=True)
         except ValueError:
-            lib.warn("parse error at: %r" % line)
+            Core.warn("parse error at: %r" % line)
             continue
 
         if key.algo not in KEY_ALGOS:
-            lib.err("no SSHFP type for '%s' keys" % key.algo)
+            Core.err("no SSHFP type for '%s' keys" % key.algo)
             continue
 
         for hash_id, hash_func in HASH_ALGOS:
@@ -67,7 +66,7 @@ def fmt_sshfp(host, pubkey):
 try:
     host = sys.argv[1]
 except IndexError:
-    lib.die("missing host parameter")
+    Core.die("missing host parameter")
 
 try:
     infile = sys.argv[2]
@@ -87,4 +86,4 @@ else:
         if host in set(entry["key"].hosts):
             print(fmt_sshfp(host, entry))
 
-lib.exit()
+Core.exit()

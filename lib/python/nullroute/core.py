@@ -15,7 +15,6 @@ except:
 
 os.environ["LVL"] = str(_nested_env + 1)
 
-arg0 = sys.argv[0].split("/")[-1]
 debug = _debug_env
 
 class Core(object):
@@ -43,6 +42,8 @@ class Core(object):
 
     _num_warnings = 0
     _num_errors = 0
+
+    arg0 = sys.argv[0].split("/")[-1]
 
     @classmethod
     def _log(self, prefix, msg, severity=0, skip=0):

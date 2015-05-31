@@ -1,19 +1,21 @@
-#!/usr/bin/python
-# print summarized CIDR masks for a given IP address range
-
+#!/usr/bin/env python
+# ip-summarize - print summarized CIDR masks for a given IP address range
 import sys
-import nullroute as lib
 from ipaddress import *
+from nullroute import Core
+
+def usage():
+    print("Usage: %s <first_addr> <last_addr>" % Core.arg0)
 
 try:
     first_addr = ip_address(sys.argv[1])
     last_addr  = ip_address(sys.argv[2])
 
     masks = summarize_address_range(first_addr, last_addr)
-
     for net in masks:
         print(net)
 except IndexError:
-    lib.die("not enough arguments")
+    usage()
+    Core.die("not enough arguments")
 except ValueError as e:
-    lib.die(e)
+    Core.die(e)

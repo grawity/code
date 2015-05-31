@@ -136,14 +136,14 @@ fi
 # Fakeroot support
 #
 if (( EUID )); then
-	if [[ -f /usr/bin/fakeroot ]]; then
+	if [[ -x /usr/bin/fakeroot ]]; then
 		msg "Entering fakeroot environment"
 		export INFAKEROOT="1"
 		/usr/bin/fakeroot -u -- "$0" "${ARGS[@]}"
 		exit $?
 	else
 		warning "installing fakeroot or running $myname as root is required to"
-		plain   "         preserve the ownership permissions of files in some packages\n"
+		warning "preserve the ownership permissions of files in some packages"
 	fi
 fi
 
@@ -163,13 +163,18 @@ if [[ ! -r /etc/makepkg.conf ]]; then
 	exit 1
 fi
 
-source "/etc/makepkg.conf"
-if [[ -r ~/.makepkg.conf ]]; then
-	source ~/.makepkg.conf
+source /etc/makepkg.conf
+
+: ${XDG_CONFIG_HOME:=~/.config}
+
+if [[ -r "$XDG_CONFIG_HOME/pacman/makepkg.conf" ]]; then
+	source "$XDG_CONFIG_HOME/pacman/makepkg.conf"
+elif [[ -r "$HOME/.makepkg.conf" ]]; then
+	source "$HOME/.makepkg.conf"
 fi
 
 pkg_dest="${PKGDEST:-$PWD}"
-pkg_pkger=${PACKAGER:-'Unknown Packager'}
+pkg_pkger="${PACKAGER:-'Unknown Packager'}"
 
 pkg_name="$1"
 pkg_dir=("$pac_db/$pkg_name"-+([^-])-+([^-]))
@@ -192,7 +197,7 @@ fi
 
 if [[ ! -d $pkg_dir ]]; then
 	error "package %s is found in pacman database," "${pkg_name}"
-	plain "       but '%s' is not a directory" "${pkg_dir}"
+	error "but '%s' is not a directory" "${pkg_dir}"
 	exit 1
 fi
 

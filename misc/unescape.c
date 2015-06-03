@@ -1,4 +1,5 @@
 #include <err.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -26,8 +27,8 @@ const char escapes[256] = {
 	['\\'] = '\\',
 };
 
-int keep_backslash = 0;
-int warn_bad_escapes = 1;
+bool keep_backslash = false;
+bool warn_bad_escapes = true;
 
 static int htoi(char ch) {
 	switch (ch) {
@@ -199,10 +200,10 @@ int main(int argc, char *argv[]) {
 			data = optarg;
 			break;
 		case 'b':
-			keep_backslash = 1;
+			keep_backslash = true;
 			break;
 		case 'q':
-			warn_bad_escapes = 0;
+			warn_bad_escapes = false;
 			break;
 		default:
 			return usage();

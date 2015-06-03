@@ -107,6 +107,17 @@ static void process(FILE *fp, char *fn) {
 			}
 			break;
 		case HexEscape:
+			if (ch == '{' && len == 0) {
+				maxlen = -1;
+				break;
+			}
+
+			if (ch == '}' && maxlen == -1) {
+				putchar_utf8(acc);
+				state = None;
+				break;
+			}
+
 			val = htoi(ch);
 			if (val >= 0) {
 				acc = (acc << 4) | val;

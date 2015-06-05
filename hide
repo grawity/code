@@ -14,9 +14,22 @@ _put() {
 
 dir="$HOME/Attic/Misc"
 
+# parse command line
+
+arg_subdir=
+
+while getopts ":d:" OPT; do
+	case $OPT in
+	d) arg_subdir=$OPTARG;;
+	*) die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 if ! (( $# )); then
 	die "files to hide not specified"
 fi
+
+# move files
 
 for arg; do
 	if [[ ! -e $arg ]]; then
@@ -39,6 +52,9 @@ for arg; do
 	debug "... base='$base' ext='$ext'"
 
 	dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
+	if [[ $arg_subdir ]]; then
+		dstdir+=/$arg_subdir
+	fi
 	debug "... dstdir='$dstdir'"
 	mkdir -p "$dstdir"
 

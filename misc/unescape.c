@@ -29,6 +29,7 @@ const char escapes[256] = {
 
 bool keep_backslash = false;
 bool warn_bad_escapes = true;
+bool allow_long_x = false;
 
 static int htoi(char ch) {
 	switch (ch) {
@@ -108,7 +109,7 @@ static void process(FILE *fp, char *fn) {
 			}
 			break;
 		case HexEscape:
-			if (ch == '{' && len == 0) {
+			if (ch == '{' && len == 0 && allow_long_x) {
 				maxlen = -1;
 				break;
 			}
@@ -178,12 +179,13 @@ static void process(FILE *fp, char *fn) {
 }
 
 static int usage(void) {
-	printf("Usage: unescape [-a text] [-bq] [files...]\n");
+	printf("Usage: unescape [-a text] [-bqx] [files...]\n");
 	printf("\n");
 	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
 	printf("  -b        keep backslashes in unknown escapes (like `echo`)\n");
 	printf("            (the default is to discard them, like C/C++)\n");
 	printf("  -q        stay quiet about unknown or truncated escapes\n");
+	printf("  -x        allow Perl-style \\x{...} for Unicode codepoints\n");
 	printf("\n");
 	return 2;
 }
@@ -194,7 +196,7 @@ int main(int argc, char *argv[]) {
 	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "a:bq")) != -1) {
+	while ((opt = getopt(argc, argv, "a:bqx")) != -1) {
 		switch (opt) {
 		case 'a':
 			data = optarg;
@@ -204,6 +206,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'q':
 			warn_bad_escapes = false;
+			break;
+		case 'x':
+			allow_long_x = true;
 			break;
 		default:
 			return usage();

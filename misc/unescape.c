@@ -44,17 +44,17 @@ static void putchar_utf8(int ch) {
 	if (ch < 0x80) {
 		putchar(ch);
 	} else if (ch < 0x800) {
-		putchar(0xC0 | (ch >> 6));
-		putchar(0x80 | (ch & 0x3F));
+		putchar(0xC0 | ((ch >>  6) & 0xFF));
+		putchar(0x80 | ((ch >>  0) & 0x3F));
 	} else if (ch < 0x10000) {
-		putchar(0xE0 | (ch >> 12));
-		putchar(0x80 | ((ch >> 6) & 0x3F));
-		putchar(0x80 | (ch & 0x3F));
+		putchar(0xE0 | ((ch >> 12) & 0xFF));
+		putchar(0x80 | ((ch >>  6) & 0x3F));
+		putchar(0x80 | ((ch >>  0) & 0x3F));
 	} else if (ch < 0x110000) {
-		putchar(0xF0 | (ch >> 18));
+		putchar(0xF0 | ((ch >> 18) & 0xFF));
 		putchar(0x80 | ((ch >> 12) & 0x3F));
-		putchar(0x80 | ((ch >> 6) & 0x3F));
-		putchar(0x80 | (ch & 0x3F));
+		putchar(0x80 | ((ch >>  6) & 0x3F));
+		putchar(0x80 | ((ch >>  0) & 0x3F));
 	} else {
 		putchar_utf8(0xFFFD);
 	}

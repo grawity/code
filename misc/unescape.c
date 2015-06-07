@@ -94,6 +94,7 @@ static void process(FILE *fp, char *fn) {
 			case '0'...'7':
 				acc = htoi(ch);
 				len = 1;
+				maxlen = 3;
 				state = OctEscape;
 				break;
 			default:
@@ -143,9 +144,9 @@ static void process(FILE *fp, char *fn) {
 			break;
 		case OctEscape:
 			val = htoi(ch);
-			if (val >= 0 && val < 8) {
+			if (val >= 0 && val <= 7) {
 				acc = (acc << 3) | val;
-				if (++len == 3) {
+				if (++len == maxlen) {
 					putchar(acc);
 					state = None;
 				}

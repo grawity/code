@@ -56,7 +56,7 @@ static void putchar_utf8(int ch) {
 		putchar(0x80 | ((ch >> 6) & 0x3F));
 		putchar(0x80 | (ch & 0x3F));
 	} else {
-		printf("�");
+		putchar_utf8(0xFFFD);
 	}
 }
 

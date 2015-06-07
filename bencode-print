@@ -2,75 +2,77 @@
 use warnings;
 use strict;
 use Convert::Bencode qw(bencode bdecode);
+use List::Util qw(min);
 use JSON;
-use feature qw(say);
 
-sub mktree {
-	my ($items) = @_;
+my $indent = "  ";
 
-	my %folders = ();
+sub is_printable {
+	my ($str) = @_;
 
-	for my $item (@$items) {
-		my @path = @{$item->{path}};
-		my $name = pop @path;
-		my $path = join "/", @path;
-		#push @{$folders{$path}{items}}, $name;
-		pop @path;
-		my $parent = join "/", @path;
-		say "name=$name path=$path parent=$parent";
-		$folders{$parent}{dirs}{$path} = 1;
+	return ($str !~ /[\x00-\x1F]/);
+}
+
+sub dump_str {
+	my ($str, $depth) = @_;
+	$depth //= 0;
+
+	if (is_printable($str)) {
+		print "\"".$str."\"";
+	} else {
+		my @bytes = map {sprintf "%02x", ord $_} split(//, $str);
+		my $len = 24;
+		print "bytes [";
+		if (@bytes > $len) {
+			my $i = 0;
+			my $n = $#bytes;
+			print "\n";
+			while ($i < $n) {
+				print $indent x ($depth+1);
+				print join(" ", @bytes[$i..min($i+$len, $n)]);
+				print "\n";
+				$i += $len;
+			}
+			print $indent x $depth;
+		} else {
+			print join(" ", @bytes);
+		}
+		print "]";
 	}
+}
 
-	use Data::Dumper;
-	print Dumper(\%folders);
-	return;
+sub dump_rec {
+	my ($data, $name, $depth) = @_;
+	$name //= "?";
+	$depth //= 0;
 
-	my $func;
-	$func = sub {
-		my ($indent, $root) = @_;
-
-		my @dirs = grep {$_ ne $root}
-			sort keys %{$folders{$root}{dirs}};
-		my @items = sort @{$folders{$root}{items}};
-
-		my $i = @dirs + @items;
-		for (@dirs) {
-			print "  "x$indent,
-				--$i ? " ├ " : " └ ",
-				$_."/", "\n";
-			$func->($indent+1, $_) for @dirs;
+	if (ref $data eq "HASH") {
+		print "{\n";
+		for my $key (sort keys %$data) {
+			print $indent x ($depth+1);
+			dump_str($key);
+			print ": ";
+			dump_rec($data->{$key}, $key, $depth+1);
 		}
-		for (@items) {
-			print "  "x$indent,
-				--$i ? " ├ " : " └ ",
-				$_, "\n";
+		print $indent x $depth;
+		print "}\n";
+	}
+	elsif (ref $data eq "ARRAY") {
+		print "[\n";
+		for my $item (@$data) {
+			print $indent x ($depth+1);
+			dump_rec($item, "", $depth+1);
 		}
-	};
-
-	$func->(1, "");
+		print $indent x $depth;
+		print "]\n";
+	}
+	else {
+		dump_str($data, $depth);
+		print "\n";
+	}
 }
 
 my $benc = do { local $/; <STDIN>; };
 my $data = bdecode($benc);
-my $mode = "json";
 
-if ($mode eq "json") {
-	my $p = length $data->{info}{pieces};
-	$data->{info}{pieces} = undef;
-	print to_json($data, {
-			ascii => 1,
-			#utf8 => 1,
-			indent => 1,
-			space_after => 1,
-			canonical => 1,
-			});
-}
-else {
-	my $info = $data->{info};
-	my $files = $info->{files};
-	for my $file (@$files) {
-		my $name = join("/", @{$file->{path}});
-		#say $name;
-	}
-	mktree($files);
-}
+dump_rec($data);

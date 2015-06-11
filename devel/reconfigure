@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
 
-{
-	if [[ configure.ac -nt configure ]] ||
-	   [[ configure.in -nt configure ]] ||
-	   [[ autogen.sh   -nt configure ]]; then
-		if [[ -e autogen.sh ]]; then
-			echo 'NOCONFIGURE=1 ./autogen.sh'
-		else
-			echo 'autoreconf -fi'
-		fi
-	fi
-
-	if [[ -e config.log ]]; then
-		sed -n '/^  \$ /{s///;p;q}' config.log
+if [[ configure.ac -nt configure ]] ||
+   [[ configure.in -nt configure ]] ||
+   [[ autogen.sh   -nt configure ]]; then
+	if [[ -e autogen.sh ]]; then
+		(NOCONFIGURE=1 ./autogen.sh)
 	else
-		echo './configure --prefix="$PREFIX"'
+		(autoreconf -fi)
 	fi
-} | bash -x
+fi
+
+if [[ -e config.log ]]; then
+	sed -n '/^  \$ /{s///;p;q}' config.log | sh
+else
+	(./configure --prefix="$PREFIX")
+fi

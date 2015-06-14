@@ -29,6 +29,7 @@ sub usage {
 	"  -c, --category=TYPE…   Add the notification category hint",
 	"  -h, --hint=HINT[=VAL]  Add a custom hint (see below)",
 	"  -i, --icon=NAME        Specify notification icon",
+	"  -n, --action=KEY:NAME  Add an action (implies --wait)",
 	"  -t, --timeout=TIME     Specify timeout ('XXs' or 'XXms')",
 	"  -u, --urgency=LEVEL    Add an urgency hint (low, normal, high)",
 	"",
@@ -53,6 +54,7 @@ sub usage {
 	"  -A, --append           Append body text",
 	"  -r, --replace=ID       Replace old notification with given ID",
 	"  -s, --state=NAME       Keep persistent state under given name",
+	"  -w, --wait             Listen for 'closed' & 'action' signals for 30s",
 }
 
 my $statedir	= xdg_cache("notify");
@@ -83,10 +85,10 @@ GetOptions(
 	'c|category=s'	=> sub { push @hints, "category=".$_[1] },
 	'h|hint=s'	=> \@hints,
 	'i|icon=s'	=> \$icon,
+	'n|action=s'	=> sub { push @actions, split(/:/, $_[1], 2) },
 	'r|replace=i'	=> \$id,
 	's|state=s'	=> \$statefile,
 	't|timeout=s'	=> \$timeout,
-	'T|action=s'	=> sub { push @actions, split(/:/, $_[1], 2) },
 	'u|urgency=s'	=> sub { push @hints, "urgency=".$_[1] },
 	'W|wait'	=> \$wait,
 	# well-known hints

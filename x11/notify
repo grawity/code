@@ -85,7 +85,7 @@ GetOptions(
 	'c|category=s'	=> sub { push @hints, "category=".$_[1] },
 	'h|hint=s'	=> \@hints,
 	'i|icon=s'	=> \$icon,
-	'n|action=s'	=> sub { push @actions, split(/:/, $_[1], 2) },
+	'n|action=s'	=> \@actions,
 	'r|replace=i'	=> \$id,
 	's|state=s'	=> \$statefile,
 	't|timeout=s'	=> \$timeout,
@@ -128,6 +128,18 @@ if ($appendbody) {
 	}
 	$body = join("\n", grep {length} ($oldbody, $body));
 }
+
+@actions = map {
+	my ($k, $v) = split(/:/, $_, 2);
+	if (!length($k)) {
+		_die("missing action ID for '$_'");
+	}
+	if (!length($v)) {
+		_warn("no descriptive text for action '$k'");
+		$v = $k;
+	}
+	($k, $v);
+} @actions;
 
 for (@hints) {
 	_debug("parsing hint: $_");

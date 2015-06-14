@@ -203,10 +203,6 @@ if (@actions || $wait) {
 		say "action $to_id $action_key";
 		$reactor->shutdown();
 	});
-	$reactor->add_timeout(30*1_000, sub {
-		say "timeout";
-		$reactor->shutdown();
-	}, 1);
 }
 
 $id = Notifications->Notify($application,
@@ -231,5 +227,9 @@ if (defined $statefile) {
 }
 
 if (@actions || $wait) {
+	$reactor->add_timeout(30*1_000, sub {
+		say "timeout";
+		$reactor->shutdown();
+	}, 1);
 	$reactor->main->run();
 }

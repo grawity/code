@@ -2,7 +2,7 @@
  * k5userok.c - verify user access according to krb5_userok()
  *
  * (c) 2012 Mantas Mikulėnas <grawity@gmail.com>
- * Released under the MIT license (see dist/LICENSE.mit)
+ * Released under the MIT Expat License (dist/LICENSE.expat)
  */
 
 #define _XOPEN_SOURCE 500

@@ -1,9 +1,10 @@
 # S-exp parser and dumper
 #
 # (c) 2011 Mantas Mikulėnas <grawity@gmail.com>
+#
 # Based on C source code from <http://people.csail.mit.edu/rivest/sexp.html>
 # (c) 1997 Ronald Rivest <rivest@mit.edu>
-# Released under "MIT License" <http://www.gnu.org/licenses/license-list.html#Expat>
+# Released under MIT Expat License <http://www.gnu.org/licenses/license-list.html#Expat>
 #
 # The simple S-expression format is used by various crypto software, including:
 #

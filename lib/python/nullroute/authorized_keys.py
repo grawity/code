@@ -11,7 +11,7 @@
 #   ssh-lulz="echo \"Here's ssh-rsa for you\"" future-algo AAAAC2Z1dHVyZS1hbGdv X y z.
 #
 # (c) 2010-2014 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT license (see dist/LICENSE.mit)
+# Released under the MIT Expat License (dist/LICENSE.expat)
 #
 # Also, obligatory http://xkcd.com/1421/ link.
 

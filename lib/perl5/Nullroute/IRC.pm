@@ -1,7 +1,7 @@
 # Parser for IRC protocol messages (RFC 1459 + IRCv3 message-tag extension)
 #
 # (c) 2012-2014 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT license (see dist/LICENSE.mit)
+# Released under the MIT Expat License (dist/LICENSE.expat)
 
 package Nullroute::IRC;
 use warnings;

@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# Released under WTFPL v2 <http://sam.zoy.org/wtfpl/>
-
 import os
 import sys
 import stat

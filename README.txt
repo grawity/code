@@ -5,4 +5,4 @@ I clone wherever I have a ssh account).
 Visit <https://github.com/grawity/code#readme> for the interesting stuff before
 digging through this garbage.
 
-Contents of this repository are released under the MIT license.
+Contents of this repository are released under the MIT Expat license.

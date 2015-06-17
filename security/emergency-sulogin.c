@@ -42,6 +42,7 @@ struct sigaction saved_sigtstp;
 struct sigaction saved_sigquit;
 
 struct {
+	bool debug;
 	char *loader;
 	char *shell;
 } opts;
@@ -371,6 +372,9 @@ int main(int argc, char *argv[])
 
 	setlocale(LC_ALL, "");
 
+	if (getenv("DEBUG"))
+		opts.debug = true;
+
 	while ((opt = getopt(argc, argv, "L:S:")) != -1) {
 		switch (opt) {
 		case 'L':
@@ -386,8 +390,14 @@ int main(int argc, char *argv[])
 
 	/* make sure we're either setuid root, or have CAP_SET{UID,GID} */
 
-	if (setregid(0, 0) != 0 || setreuid(0, 0) != 0)
-		err(EXIT_FAILURE, "cannot obtain root privileges");
+	if (opts.debug)
+		fprintf(stderr, "; current uid=%d euid=%d\n", getuid(), geteuid());
+
+	if (setreuid(0, 0) != 0)
+		err(EXIT_FAILURE, "cannot obtain root privileges (setreuid)");
+
+	if (setregid(0, 0) != 0)
+		err(EXIT_FAILURE, "cannot change primary group to 'root'");
 
 	if (getpid() == 1) {
 		setsid();

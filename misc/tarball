@@ -82,6 +82,8 @@ elif [[ ! -d $1 ]]; then
 	die "path is not a directory"
 fi
 
+# prepare: find the timestamp
+
 ts=$(get_timestamp "$dir")
 debug "timestamp of '$dir' = '$ts'"
 
@@ -109,11 +111,15 @@ if (( auto_move )); then
 	fi
 fi
 
+# check for existing archives
+
 for file in "$out" "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do
 	if [[ -e "$file" ]]; then
 		die "archive already exists: $file"
 	fi
 done
+
+# create the tarball/zipball
 
 log2 "creating archive \"$out\""
 

@@ -1,0 +1,32 @@
+#!/usr/bin/env perl
+use v5.14;
+use IO::Socket::INET;
+
+my ($host, $port) = @ARGV;
+
+my $mainsock = IO::Socket::INET->new(PeerAddr => $host,
+					PeerPort => $port,
+					Proto => "tcp");
+
+die "could not connect to service: $@\n" if !$mainsock;
+
+say "connected to service";
+say "- local: ".$mainsock->sockhost." port ".$mainsock->sockport;
+say "- remote: ".$mainsock->peerhost." port ".$mainsock->peerport;
+
+my $identsock = IO::Socket::INET->new(PeerAddr => $mainsock->peerhost,
+					PeerPort => "113",
+					LocalAddr => $mainsock->sockhost,
+					Proto => "tcp");
+
+die "could not connect to identd: $@\n" if !$identsock;
+
+say "connected to identd";
+
+my $query = $mainsock->peerport.",".$mainsock->sockport;
+
+print {$identsock} "$query\r\n";
+
+$identsock->flush;
+
+print "received reply: $_" while <$identsock>;

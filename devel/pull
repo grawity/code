@@ -104,6 +104,13 @@ do_pull() {
 		log: hg pull --update
 		new=$(rev)
 		upd: "$old" "$new" hg log -r ${old#*:}:${new#*:} --pager always
+	elif [[ -d _darcs ]]; then
+		is darcs
+		rev() { darcs changes --count; }
+		old=$(rev)
+		log: darcs pull
+		new=$(rev)
+		upd: "$old" "$new" darcs changes -n "$old-$new"
 	elif [[ -d .svn ]]; then
 		is "SVN"
 		rev() { svnversion; }

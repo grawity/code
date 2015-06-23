@@ -25,6 +25,7 @@ my $verbose = 0;
 my $dry_run = 0;
 my $link_dir;
 my $realpath = 0;
+my $absolute = 0;
 
 sub collapse {
 	my ($path) = @_;
@@ -71,6 +72,7 @@ sub usage {
 
 GetOptions(
 	"help"			=> sub { usage(); exit; },
+	"a|absolute"		=> \$absolute,
 	"f|force!"		=> \$force,
 	"R|realpath+"		=> \$realpath,
 	"r|relative"		=> sub { },
@@ -180,7 +182,7 @@ for my $target (@ARGV) {
 	}
 	_debug("  link name: \"$link_name\"");
 
-	do_link($rel_target, $link_name);
+	do_link($absolute ? $abs_target : $rel_target, $link_name);
 }
 
 exit !!$::errors;

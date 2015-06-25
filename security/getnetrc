@@ -29,12 +29,12 @@ my $no_default		= 0;
 
 sub usage {
 	print "$_\n" for
-	"Usage: $::arg0 [-dnsu] [-f format] [service@]machine [login]",
+	"Usage: $::arg0 [-dnsu] [-f format] [service/]machine [login]",
 	"",                       #
 	"  -d    disable fallback to 'default' entry",
 	"  -n    do not print final newline",
 	"  -f    format the output as specified (default is %l:%p)",
-	"  -s    if 'service\@machine' was given, disable fallback to 'machine'",
+	"  -s    if 'service/machine' was given, disable fallback to 'machine'",
 	"  -u    URL-encode each item separately",
 	"",
 	"Format strings:",
@@ -47,7 +47,7 @@ sub usage {
 	"  %%, %n, %0   percent sign, newline, null byte",
 	"",
 	"The .netrc file format is described in the manual page of ftp(1), with",
-	"exception of the 'service\@machine' extension specific to grawity's netrc.";
+	"exception of the 'service/machine' extension specific to grawity's netrc.";
 }
 
 sub _str {
@@ -119,7 +119,7 @@ unless (defined($machine) && length($machine)) {
 	_die("missing machine name");
 }
 
-if ($machine =~ /^(.+)@(.+)$/) {
+if ($machine =~ m{^([^/]+)[@/](.+)$}) {
 	$service = $1;
 	$machine = $2;
 }
@@ -128,6 +128,7 @@ if ($machine =~ /^(.+)@(.+)$/) {
 
 my @machines;
 if ($service) {
+	push @machines, $service.'/'.$machine;
 	push @machines, $service.'@'.$machine;
 }
 if (!$service || !$service_required) {

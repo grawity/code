@@ -114,7 +114,9 @@ getnetrc_fqdn() {
 	getnetrc -df "$fmt" "$service@$host" "$user" ||
 	{ [[ $host != $fqdn ]] &&
 	getnetrc -df "$fmt" "$service@$fqdn" "$user"; } ||
+	getnetrc -df "$fmt" "$service@*.${fqdn#*.}" "$user" ||
 	getnetrc -df "$fmt" "$service@$host" ||
 	{ [[ $host != $fqdn ]] &&
-	getnetrc -df "$fmt" "$service@$fqdn"; }
+	getnetrc -df "$fmt" "$service@$fqdn"; } ||
+	getnetrc -df "$fmt" "$service@*.${fqdn#*.}"
 }

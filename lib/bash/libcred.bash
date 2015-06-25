@@ -74,7 +74,15 @@ getcred_var() {
 	local host=$1 service=$2 obj=$3 uvar=${4:-user} pvar=${5:-pass}
 	local fmt='%u%n%p' data= udata= pdata=
 	local prompt="$obj on $host"
-	if data=$(getnetrc_fqdn "$host" "$service" "$user" '%u%n%p'); then
+	debug "got host '$host' svc '$service' user $uvar='${!uvar}'"
+
+	if [[ ${!uvar} == @* ]] &&
+	   debug "trying netrc for domain '${!uvar#@}' svc '$service'" &&
+	   data=$(getnetrc_fqdn "${!uvar#@}" "$service" "" '%u%n%p'); then
+		{ read -r udata; read -r pdata; } <<< "$data"
+		declare -g "$uvar=$udata" "$pvar=$pdata"
+	elif debug "trying netrc for host '$host' svc '$service'" &&
+	     data=$(getnetrc_fqdn "$host" "$service" "${!uvar}" '%u%n%p'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
 	elif data=$(readcred $nouser -p "$prompt" -f '%s\n%s\n'); then

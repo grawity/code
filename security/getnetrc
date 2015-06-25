@@ -59,20 +59,20 @@ sub lookup {
 	my ($machines, $login) = @_;
 	my $fallback;
 	for my $machine (@$machines) {
-		_debug("lookup "._str($machine)." as "._str($login));
+		_debug("searching for "._str($machine).", login="._str($login));
 		my $en = Net::Netrc->lookup($machine, $login);
 		if (defined $en) {
-			_debug("- found machine "._str($en->{machine}));
+			_debug("- found entry for machine "._str($en->{machine}));
 			if (defined $en->{machine}) {
-				_debug("  - return result");
+				_debug("- returning entry");
 				return $en;
 			} elsif (!$no_default) {
-				_debug("  - store as fallback");
+				_debug("- storing as fallback");
 				$fallback //= $en;
 			}
 		}
 	}
-	_debug("return fallback");
+	_debug("- returning fallback");
 	return $fallback;
 }
 
@@ -119,10 +119,17 @@ unless (defined($machine) && length($machine)) {
 	_die("missing machine name");
 }
 
+_debug("input: @ARGV");
+
 if ($machine =~ m{^([^/]+)[@/](.+)$}) {
 	$service = $1;
 	$machine = $2;
 }
+
+_debug("parsed:".
+	" host="._str($machine).
+	" service="._str($service).
+	" login="._str($login));
 
 # look up entry
 

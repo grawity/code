@@ -102,7 +102,7 @@ getcred_samba() {
 getnetrc_fqdn() {
 	local host=$1 service=$2 fmt=$3
 	local fqdn=$(fqdn "$host")
-	debug "searching .netrc for $service@$host/$fqdn"
+	debug "searching .netrc for '$service@$host' & '$service@$fqdn'"
 	getnetrc -df "$fmt" "$service@$host" "$user" ||
 	{ [[ $host != $fqdn ]] &&
 	getnetrc -df "$fmt" "$service@$fqdn" "$user"; } ||

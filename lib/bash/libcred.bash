@@ -74,7 +74,7 @@ getcred_var() {
 	local host=$1 service=$2 obj=$3 uvar=${4:-user} pvar=${5:-pass}
 	local fmt='%u%n%p' data= udata= pdata=
 	local prompt="$obj on $host"
-	if data=$(getnetrc_fqdn "$host" "$service" '%u%n%p'); then
+	if data=$(getnetrc_fqdn "$host" "$service" "$user" '%u%n%p'); then
 		{ read -r udata; read -r pdata; } <<< "$data"
 		declare -g "$uvar=$udata" "$pvar=$pdata"
 	elif data=$(readcred $nouser -p "$prompt" -f '%s\n%s\n'); then
@@ -100,7 +100,7 @@ getcred_samba() {
 # call getnetrc for [service@]host and [service@]fqdn until success
 
 getnetrc_fqdn() {
-	local host=$1 service=$2 fmt=$3
+	local host=$1 service=$2 user=$3 fmt=$4
 	local fqdn=$(fqdn "$host")
 	debug "searching .netrc for '$service@$host' & '$service@$fqdn'"
 	getnetrc -df "$fmt" "$service@$host" "$user" ||

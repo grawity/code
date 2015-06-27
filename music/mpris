@@ -282,6 +282,17 @@ sub frombool {
 	}
 }
 
+# fmt(text, colors, [io]) - add ANSI format codes if writing to a tty
+
+sub fmt {
+	my ($text, $fmts, $io) = @_;
+	if (-t ($io // *STDOUT)) {
+		return "\e[".$fmts."m".$text."\e[m";
+	} else {
+		return $text;
+	}
+}
+
 # enumerate() - list MPRIS v2 bus names, return suffixes
 
 sub enumerate {
@@ -1004,6 +1015,11 @@ my %commands = (
 		my $player = shift;
 		my $props = $player->()->GetAll(MPRIS_PLAYER_IFACE);
 		my $status = $props->{PlaybackStatus};
+		my %colors = (
+			Playing => "1;32",
+			Paused  => "1;33",
+			Stopped => "1;31",
+		);
 		if ($status =~ /^(Playing|Paused)$/) {
 			my %meta = %{$props->{Metadata}};
 			my $pos = int2time($props->{Position} // 0);
@@ -1013,7 +1029,7 @@ my %commands = (
 				$artist = join(", ", @$artist);
 			}
 			my $track = $meta{"xesam:title"} // "Unknown track";
-			say "[$status] $artist – $track ($pos/$len)";
+			say fmt("[$status]", $colors{$status})." $artist – $track ($pos/$len)";
 			my $width = max map {length $_} keys %meta;
 			for my $key (sort keys %meta) {
 				my $value = $meta{$key};
@@ -1023,7 +1039,7 @@ my %commands = (
 				printf "  %-*s : %s\n", $width, $key, $value;
 			}
 		} else {
-			say "[$status]";
+			say fmt("[$status]", $colors{$status})." No track";
 		}
 		my $vol = int (($props->{Volume} // 0) * 100);
 		my $loop = lc ($props->{LoopStatus} // "none");

@@ -141,7 +141,8 @@ class GainValue(object):
             sc_raw = self.to_soundcheck()
             sc_norm = mutagen.id3.COMM(desc=u'iTunNORM', lang='eng',
                                        encoding=0, text=[sc_raw])
-            tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)] = sc_norm
+            #tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)] = sc_norm
+            del tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)]
 
     def export_mp4(self, tag):
         #print "Adding MP4 foobar2000 tag"

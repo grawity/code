@@ -33,12 +33,12 @@ import subprocess
 
 if os.environ.get("DEBUG", ""):
     def DEBUG(fmt, *args):
-        print("(" + (fmt % args) + ")")
+        uprint("(" + (fmt % args) + ")")
 else:
     def DEBUG(fmt, *args):
         pass
 
-def print(*args):
+def uprint(*args):
     args = map(str, args)
     line = " ".join(args)+"\r\n"
     fh = sys.stdout
@@ -132,7 +132,7 @@ def forward(addr, req, flags):
             else:
                 subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
         except OSError as e:
-            print("finger: internal error")
+            uprint("finger: internal error")
             raise
 
     elif addr.startswith(b"/"):
@@ -142,7 +142,7 @@ def forward(addr, req, flags):
                 sys.stdout.write(line)
             sys.stdout.flush()
         except IOError as e:
-            print("finger: cannot open plan file")
+            uprint("finger: cannot open plan file")
             raise
 
     else:
@@ -157,7 +157,7 @@ def forward(addr, req, flags):
             gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
                 socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
-            print("finger: getaddrinfo: %s" % e.strerror)
+            uprint("finger: getaddrinfo: %s" % e.strerror)
             return
 
         canonname = addr
@@ -172,11 +172,11 @@ def forward(addr, req, flags):
             except socket.error as e:
                 straddr = formataddr(family, addr, ignoreport=79)
                 strerr = e.strerror or e.args[0]
-                print("Trying %s... %s" % (straddr, strerr))
+                uprint("Trying %s... %s" % (straddr, strerr))
                 continue
 
             if not b"q" in flags:
-                print("[%s]" % canonname)
+                uprint("[%s]" % canonname)
 
             sock.send(req + b"\r\n")
             buf = True
@@ -187,7 +187,7 @@ def forward(addr, req, flags):
             break
 
 def refuse():
-    print("finger: query refused")
+    uprint("finger: query refused")
 
 def formataddr(family, addr, ignoreport=None):
     DEBUG("formataddr(%r, %r, %r)", family, addr, ignoreport)
@@ -235,7 +235,7 @@ def get_routes():
             if line and not line.startswith(b"#"):
                 yield line.split()
     except IOError as e:
-        print("finger: cannot open configuration file")
+        uprint("finger: cannot open configuration file")
         raise
 
 try:
@@ -251,6 +251,6 @@ if hasattr(sys.stdout, "detach"):
 try:
     accept()
 except Exception as e:
-    print("finger: internal error")
+    uprint("finger: internal error")
     raise
     sys.exit(1)

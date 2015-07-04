@@ -5,30 +5,22 @@ if [[ $1 == -f ]]; then
 	exit
 fi
 
-realm="$(pklist -R)"
-princ="$(whoami)@$realm"
+opt_identity=
+opt_principal=
 
-X509_IDENTITY="FILE:$HOME/.pki/private/pkinit-$princ.pem"
+while getopts "I:P:" OPT; do
+	case $OPT in
+	I) opt_identity=$OPTARG;;
+	P) opt_principal=$OPTARG;;
+	esac
+done
 
-err="Internal error"
-nm-online -qt 600
-{
-	if [[ $DISPLAY ]]; then
-		ecryptfs-mount-x11
-	else
-		mountpoint -q ~/Private
-	fi && {
-		err=$(kinit -X X509_user_identity="$X509_IDENTITY" "$princ" <<< "X" 2>&1)
-	} <<< "bogus"
-} || if [[ $DISPLAY ]]; then
-	notify \
-		-s '+pkinit' \
-		-A \
-		-i error \
-		"Kerberos login failed" \
-		"$err"
-	exit 1
-else
-	echo "Kerberos login failed: $err" >&2
-	exit 1
+if [[ ! $opt_principal ]]; then
+	opt_principal="$(whoami)@$(pklist -R)"
 fi
+
+if [[ -f $opt_identity ]]; then
+	opt_identity="FILE:$(readlink -f "$opt_identity")"
+fi
+
+kinit -X "X509_user_identity=$opt_identity" "$opt_principal"

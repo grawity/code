@@ -6,9 +6,10 @@
 set -e
 
 usage() {
-	echo "Usage: $progname [-AOR] <directory> [<archive>]"
+	echo "Usage: $progname [-AfOR] <directory> [<archive>]"
 	echo #|---'---|---'---|
 	echo "  -A    do not automatically move archive to /home"
+	echo "  -f    overwrite existing archive"
 	echo "  -O    set archive owner to that of original directory"
 	echo "  -R    keep original directory"
 }
@@ -61,15 +62,17 @@ fi
 auto_move=1
 auto_remove=1
 do_chown=0
+do_overwrite=0
 
 case ${0##*/} in
     tarball) ext=tgz;;
     zipball) ext=zip;;
 esac
 
-while getopts ":AkOR" OPT; do
+while getopts ":AfkOR" OPT; do
 	case $OPT in
 	A) auto_move=0;;
+	f) do_overwrite=1;;
 	k) auto_remove=0;;
 	O) do_chown=1;;
 	R) auto_remove=0;;
@@ -122,7 +125,11 @@ fi
 
 for file in "$out" "${1%/}".{{t,tar.}{gz,bz2,xz},zip}; do
 	if [[ -e "$file" ]]; then
-		die "archive already exists: $file"
+		if (( do_overwrite )); then
+			warn "archive already exists: $file"
+		else
+			die "archive already exists: $file"
+		fi
 	fi
 done
 

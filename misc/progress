@@ -14,6 +14,10 @@ if (eval {require Text::CharWidth}) {
 
 my ($width, $count, $last);
 
+sub ttywidth {
+	int(`stty size </dev/tty | awk '{print \$2}'`);
+}
+
 sub status {
 	state $last_lines = 0;
 	my ($raw_msg, $fmt_msg, $fmt) = @_;
@@ -28,13 +32,17 @@ sub status {
 
 $| = 1;
 
-$width = int(`stty size </dev/tty | awk '{print \$2}'`);
+$width = ttywidth();
 $count = 0;
 $last = time;
 
 $SIG{INT} = sub {
 	status("$count items (interrupted)", undef, "%s\n");
 	exit 1;
+};
+
+$SIG{WINCH} = sub {
+	$width = ttywidth();
 };
 
 while (++$count, my $str = <STDIN>) {

@@ -125,14 +125,16 @@ static void process(FILE *fp, char *fn) {
 			if (val >= 0) {
 				acc = (acc << 4) | val;
 				if (++len == maxlen) {
-					(letter == 'x') ? putchar(acc)
-					                : putchar_utf8(acc);
+					(letter == 'x')
+						? putchar(acc)
+					        : putchar_utf8(acc);
 					state = None;
 				}
 			} else {
 				if (len)
-					(letter == 'x') ? putchar(acc)
-					                : putchar_utf8(acc);
+					(letter == 'x')
+						? putchar(acc)
+					        : putchar_utf8(acc);
 				else {
 					fwarnx("missing hex digit for \\%c", letter);
 					putchar('\\');

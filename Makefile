@@ -21,7 +21,7 @@ endif
 
 # compile targets
 
-BASIC_BINS := mkpasswd proctool strtool
+BASIC_BINS := proctool strtool
 LINUX_BINS := globalenv libfunlink.so libfunsync.so libglobalenv.so showsigmask tapchown
 MISC_BINS  := xor xors xorf zlib
 JUNK_BINS  := ac-wait subreaper
@@ -63,8 +63,6 @@ $(OBJ)/entropy:		LDLIBS += -lm
 $(OBJ)/entropy:		security/entropy.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
-$(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
-$(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/strtool:		misc/strtool.c

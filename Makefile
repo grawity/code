@@ -1,6 +1,8 @@
 #!/usr/bin/make -f
 
-include dist/shared.mk
+DIST := dist
+
+include $(DIST)/shared.mk
 
 override CFLAGS += -I./misc
 

@@ -3,7 +3,7 @@ empty :=
 space := $(empty) $(empty)
 
 UNAME := $(shell uname)
-OBJ   := $(shell dist/prepare -o)
+OBJ   := $(shell $(DIST)/prepare -o)
 
 # cflags
 
@@ -14,7 +14,7 @@ endif
 CFLAGS := -pipe -Wall -O1 -g
 LDFLAGS := -Wl,--as-needed
 
-include dist/guess.mk
+include $(DIST)/guess.mk
 
 override CFLAGS += $(OSFLAGS) $(cflags)
 
@@ -45,7 +45,7 @@ default: $(OBJ)/.prepare
 prepare: $(OBJ)/.prepare
 
 $(OBJ)/.prepare:
-	$(verbose_hide) dist/prepare
+	$(verbose_hide) $(DIST)/prepare
 	$(verbose_hide) touch $@
 
 clean:

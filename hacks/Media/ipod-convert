@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -e
+
+run_parallel=0
+
+if [[ $1 == "-p" ]]; then
+	run_parallel=1
+	shift
+fi
+
+srcroot="${1%/}"
+dstroot="${2%/}"
+files=("${@:3}")
+
+if (( run_parallel )); then
+	exec parallel-moreutils -j "$(nproc)" \
+		"$0" "$srcroot" "$dstroot" -- "${files[@]}"
+	exit
+fi
+
+dstext="mp3"
+options=(-acodec libmp3lame -b:a 192k -vn)
+
+for srcfile in "${files[@]}"; do
+	srcpath=$(readlink -f "$srcfile")
+	filename=${srcpath#$srcroot/}
+	if [[ "$filename" == "$srcpath" ]]; then
+		filename=../todo/${srcpath##*/}
+	fi
+
+	dstpath=${dstroot%/}/${filename%.*}.$dstext
+	dstpath=$(readlink -m "$dstpath")
+
+	disppath=$dstpath
+	disppath=${disppath/#$HOME/'~'}
+	disppath=${disppath/#"/run/media/$LOGNAME"/'≈'}
+	printf "\e[35m[%d]\e[m \e[1m%s\e[m\n" "$$" "$disppath"
+
+	temp=$(mktemp "/tmp/ipod-convert.XXXXXXXX.$dstext")
+	chronic ffmpeg -y -i "$srcfile" "${options[@]}" "$temp"
+	id3-cover -x "$temp"
+
+	srcsize=$(stat -c '%s' "$srcfile")
+	dstsize=$(stat -c '%s' "$temp")
+	if (( dstsize < (srcsize - 512*1024) )); then
+		case $srcfile in
+		*.mp3|*.m4a)
+			id3-sync-rg "$srcpath" "$temp";;
+		esac
+		dstpath=$dstroot/${filename%.*}.$dstext
+	else
+		cp "$srcpath" "$temp"
+		dstpath=$dstroot/$filename
+	fi
+	dstpath=$(readlink -m "$dstpath")
+
+	mkdir -p "${dstpath%/*}"
+
+	if mv "$temp" "$dstpath"; then
+		du -bhs "$srcpath" "$dstpath"
+		printf "\e[32m[%d]\e[m \e[1m%s\e[m\n" "$$" "$disppath"
+	else
+		du -bhs "$srcpath" "$temp"
+		rm -f "$temp" "$dstpath"
+		printf "\e[31m[%d]\e[m \e[1m%s\e[m\n" "$$" "$disppath"
+		exit 1
+	fi
+done

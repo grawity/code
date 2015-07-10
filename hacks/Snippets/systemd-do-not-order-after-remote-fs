@@ -1,0 +1,9 @@
+#!/bin/sh
+set -ex
+for unit in systemd-{user-sessions,journal-flush}.service; do
+  rm -rf "/etc/systemd/system/$unit.d"
+  cat "/usr/lib/systemd/system/$unit" | {
+    echo "# EDITED: removed After=remote-fs.target"
+    sed -r "/^After=/ { s/\<remote-fs\.target\>//; s/ +/ /; s/ +$//; /^After=$/d }"
+  } > "/etc/systemd/system/$unit"
+done

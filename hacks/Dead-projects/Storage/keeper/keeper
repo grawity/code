@@ -1,0 +1,597 @@
+#!/usr/bin/env python3
+# vim: fdm=marker
+import os
+import sys
+from io import BytesIO
+from stat import *
+import zlib
+import math
+
+from util import *
+from backends import *
+
+from nullroute import sexp
+from nullroute import (warn, err, die)
+
+class BadTypeError(KeeperError):
+    _fmt = "bad kind %r of block %r (reason: %s)"
+
+    def __init__(self, kind, score, reason):
+        self.kind     = kind
+        self.score    = score
+        self.reason   = reason
+
+        self.msg = self._fmt % (kind, to_hex(score), reason)
+        self.args = [self.msg]
+
+class NotToplevelTypeError(BadTypeError):
+    def __init__(self, kind, score):
+        BadTypeError.__init__(self, kind, score, "must be a toplevel kind")
+
+class WrongTypeError(KeeperError):
+    _fmt = "wrong kind %r of block %r (expected: %r)"
+
+    def __init__(self, kind, score, expected):
+        self.kind     = kind
+        self.score    = score
+        self.expected = expected
+
+        self.msg = self._fmt % (kind, to_hex(score), expected)
+        self.args = [self.msg]
+
+class WrongSubTypeError(WrongTypeError):
+    _fmt = "wrong kind %r of block %r (expected: %r from ref %r)"
+
+    def __init__(self, kind, score, refkind, refscore):
+        self.kind     = kind
+        self.score    = score
+        self.expected = expected
+        self.refscore = refscore
+
+        self.msg = self._fmt % (kind, to_hex(score), expected, to_hex(refscore))
+        self.args = [self.msg]
+
+class WrongSubReftypeError(WrongSubTypeError):
+    _fmt = "wrong reftype %r (expected: %r from ref %r)"
+
+    def __init__(self, kind, refkind, refscore):
+        self.kind     = kind
+        self.expected = expected
+        self.refscore = refscore
+
+        self.msg = self._fmt % (kind, expected, to_hex(refscore))
+        self.args = [self.msg]
+
+class UnknownTreeItemTypeError(KeeperError):
+    _fmt = "unknown item kind %r in tree %r"
+
+    def __init__(self, itype, score):
+        self.itype = itype
+        self.score = score
+
+        self.msg = self._fmt % (itype, to_hex(score))
+        self.args = [self.msg]
+
+class DataError(KeeperError):
+    _fmt = "malformed object %r: %s"
+
+    def __init__(self, msg, score=None):
+        self.score = score
+
+        self.msg = self._fmt % (to_hex(score) if score else "<unknown>", msg)
+        self.args = [self.msg]
+
+def cast(_type, obj):
+    if obj is None:
+        return _type()
+    else:
+        return _type(obj)
+
+def _assert(a):
+    if not a:
+        raise DataError("assertion failed")
+
+class KeeperType(object):
+    def _load(self, raw: "bytes[]"):
+        raise NotImplementedError
+
+    def _dump(self) -> "raw: bytes[]":
+        raise NotImplementedError
+
+    def _load_str(self, head: "(key: str, value: str)[]", body: "str[]"):
+        raise NotImplementedError
+
+    def _dump_str(self) -> "head: (key: str, value: str)[], body: str[]":
+        raise NotImplementedError
+
+    def _repr(self) -> "str":
+        raise NotImplementedError
+
+    def _descend(self) -> "iter(score: bytes[])":
+        raise NotImplementedError
+
+    @classmethod
+    def load(_class, raw: "bytes[]") -> "self":
+        self = _class()
+        self._load(raw)
+        return self
+
+    def dump(self):
+        return self._dump()
+
+    @classmethod
+    def load_str(_class, head, body) -> "self":
+        self = _class()
+        self._load_str(head, body)
+        return self
+
+    def dump_str(self):
+        head, body = self._dump_str()
+        output = []
+        for key, val in head:
+            output.append("%s %s" % (key, val))
+        output.append("")
+        output.extend(body)
+        return "\n".join(output)
+
+    def fd(self):
+        return BytesIO(self._dump())
+
+    def __str__(self):
+        return self.dump_str()
+
+    def __repr__(self):
+        return "<%s: %s>" % (type(self).__name__, self._repr())
+
+class Ref(KeeperType):
+    def __init__(self, depth=None, kind=None, size=None, scores=None):
+        self.depth  = cast(int, depth)
+        self.kind   = kind
+        self.size   = cast(int, size)
+        self.scores = cast(list, scores)
+
+    def _load(self, raw):
+        head, *tail = sexp.load(raw)
+        _assert(head == b"ref"
+            and type(tail) == list
+            and all(type(s) == list for s in tail)
+            and all(len(s) == 2 for s in tail)
+            and all(type(s[0]) == bytes for s in tail))
+        data = dict(tail)
+        self.depth  = int(data[b"depth"])
+        self.kind   = to_str(data[b"kind"])
+        self.size   = int(data[b"size"])
+        self.scores = data[b"scores"]
+
+    def _dump(self):
+        data = [b"ref",
+                (b"depth", self.depth),
+                (b"kind", self.kind),
+                (b"size", self.size),
+                (b"scores", self.scores)]
+        return sexp.dump(data, canonical=True)
+
+    def _load_str(self, head, body):
+        for key, val in head:
+            if key == "a":          _assert(val == "ref")
+            elif key == "kind":     self.kind = val
+            elif key == "depth":    self.depth = int(val)
+            elif key == "size":     self.size = int(val)
+        self.scores = []
+        for line in body:
+            self.scores.append(from_hex(line))
+
+    def _dump_str(self):
+        head = [("a", "ref"),
+                ("kind", self.kind),
+                ("depth", self.depth),
+                ("size", self.size)]
+        body = [to_hex(s) for s in self.scores]
+        return head, body
+
+    def _repr(self):
+        return "ref {depth=%d kind=%r size=%d scores=[%d]}" % (self.depth, self.kind, self.size, len(self.scores))
+
+    def pretty(self):
+        for score in self.scores:
+            print("-", describe_score(score))
+
+    def _descend(self):
+        yield from self.scores
+
+class Tree(KeeperType):
+    def __init__(self, items=None):
+        self.items = cast(list, items)
+
+    def _load(self, raw):
+        head, *tail = sexp.load(raw)
+        _assert(head == b"tree"
+                and type(tail) == list
+                and all(type(s) == list for s in tail))
+        self.items = [(score, to_str(kind), to_str(item))
+                      for (score, kind, item) in tail]
+
+    def _load_str(self, head, body):
+        for key, val in head:
+            if key == "a": _assert(val == "tree")
+        self.items = []
+        for line in body:
+            score, kind, item = line.split(" ", 2)
+            self.items.append((from_hex(score), kind, item))
+
+    def _dump(self):
+        data = [b"tree"] + self.items
+        return sexp.dump(data, canonical=True)
+
+    def _dump_str(self):
+        head = [("a", "tree")]
+        body = ["%s %s %s" % (to_hex(score), kind, item)
+                for (score, kind, item) in self.items]
+        return head, body
+
+    def _repr(self):
+        return "tree {items=[%d]}" % len(self.items)
+
+    def pretty(self):
+        for score, item_type, item in self.items:
+            print(describe_score(score), item_type, item)
+
+    def _descend(self):
+        for item in self.items:
+            yield item[0]
+
+kinds = {
+    "tree": Tree,
+    "ref": Ref,
+}
+
+class Frontend(object):
+    def __init__(self, backend):
+        self.backend = backend
+
+        #self.blocksize = 64*KiB
+        self.blocksize = 8*KiB
+
+        if self.backend.blocksize:
+            self.blocksize = min(self.blocksize, self.backend.blocksize)
+
+    def put_scores_from_fd(self, fd, kind="data") -> "nbytes, score[]":
+        """
+        Store a bytestream as a list of scores with given kind.
+        """
+
+        nbytes = 0
+        scores = []
+
+        while True:
+            buf = fd.read(self.blocksize)
+            nbytes += len(buf)
+            if not buf and len(scores) > 0:
+                break
+            score = self.backend.put(buf, kind)
+            scores.append(score)
+
+        return nbytes, scores
+
+    def get_score_to_fd(self, fd, score, want_kind=None) -> "nbytes: int, kind: str":
+        """
+        Retrieve a single score to a bytestream, return size & kind.
+        Ensure the score has the given kind (if any).
+        """
+
+        buf, kind = self.backend.get(score)
+        if want_kind and kind != want_kind:
+            raise WrongTypeError(kind, score, want_kind)
+        fd.write(buf)
+
+        return len(buf), kind
+
+    def get_scores_to_fd(self, fd, scores, want_kind=None) -> "nbytes: int, kind: str":
+        """
+        Retrieve a list of scores to a bytestream, return size & kind.
+        Ensure all scores have the given kind, or at least the same kind.
+        """
+
+        nbytes = 0
+        first_kind = None
+
+        for score in scores:
+            buf, kind = self.backend.get(score)
+            if want_kind and kind != want_kind:
+                raise WrongTypeError(kind, score, want_kind)
+            if first_kind is None:
+                first_kind = kind
+            elif first_kind != kind:
+                raise WrongTypeError(kind, score, first_kind)
+            nbytes += len(buf)
+            fd.write(buf)
+
+        return nbytes, first_kind
+
+    #   ref (kind=file depth=2)
+    #     chunk.ref (kind=file depth=1)
+    #       chunk.file
+    #       chunk.file
+    #     chunk.ref (kind=file depth=1)
+    #       chunk.file
+    #     chunk.ref (kind=file depth=1)
+    #       chunk.file
+    #   all refs always have .kind as the original kind
+
+    def put_ref_from_buffer(self, data: "bytes[]", kind: "str") -> "score: bytes[]":
+        """
+        Store a buffer as a single score.
+        - If buffer size <= block size, return a single score of "<kind>"
+          Otherwise store buffer as list of "chunk.<kind>" scores,
+                    put a "ref" pointing to scores in the buffer,
+                    repeat.
+        """
+
+        if kind == "ref" or kind.startswith("chunk."):
+            raise IOError("cannot put refkind %r" % kind)
+
+        refdepth = 0
+        refkind = kind
+
+        while len(data) > self.blocksize:
+            nbytes, scores = self.put_scores_from_fd(BytesIO(data), "chunk.%s" % kind)
+            refdepth += 1
+            data = Ref(refdepth, refkind, nbytes, scores).dump()
+            kind = "ref"
+
+        score = self.backend.put(data, kind)
+        return score
+
+    def put_ref_from_fd(self, fd, kind: "str") -> "score: bytes[]":
+        """
+        Store a bytestream as a single score.
+        - If stream size <= block size, return a single score of "<kind>"
+          Otherwise store buffer as list of "chunk.<kind>" scores,
+                    put a "ref" pointing to scores in the stream,
+                    repeat.
+        """
+
+        if kind == "ref" or kind.startswith("chunk."):
+            raise IOError("cannot put refkind %r" % kind)
+
+        refdepth = 0
+        refkind = kind
+
+        length = os.fstat(fd.fileno()).st_size
+
+        while length > self.blocksize:
+            nbytes, scores = self.put_scores_from_fd(fd, "chunk.%s" % kind)
+            refdepth += 1
+            data = Ref(refdepth, refkind, nbytes, scores).dump()
+            kind = "ref"
+            length = len(data)
+            fd = BytesIO(data)
+
+        score = self.backend.put(fd.read(), kind)
+        return score
+
+    def get_ref_to_fd(self, fd, score, max_depth=0) -> "nbytes, kind":
+        """
+        Retrieve all data from given score.
+        - If score is kindd "ref", recurse until non-ref data is found,
+                                        or until max_depth is reached.
+        """
+        
+        kind = self.backend.kind(score)
+
+        if kind.startswith("chunk."):
+            raise NotToplevelTypeError(kind, score)
+        elif kind == "ref":
+            data, _ = self.backend.get(score)
+            ref = Ref.load(data)
+            topref = ref
+            if max_depth >= topref.depth:
+                max_depth = 0
+            depth = topref.depth - max_depth
+            while depth > 1:
+                depth -= 1
+                datafd = BytesIO()
+                self.get_scores_to_fd(datafd, ref.scores, want_kind="chunk.ref")
+                datafd.seek(0)
+                ref = Ref.load(datafd)
+                if ref.kind != topref.kind:
+                    raise WrongSubReftypeError(ref.kind, topref.kind, score)
+            want_kind = topref.kind if max_depth == 0 else "ref"
+            nbytes, _ = self.get_scores_to_fd(fd, ref.scores,
+                                              want_kind="chunk.%s" % want_kind)
+            return nbytes, want_kind
+        else:
+            nbytes, _ = self.get_score_to_fd(fd, score, want_kind=kind)
+            return nbytes, kind
+
+    def put_tree_from_path(self, path: "str") -> "score: bytes[]":
+        tree = Tree()
+        for item in os.listdir(path):
+            subpath = os.path.join(path, item)
+            st = os.lstat(subpath)
+            if S_ISDIR(st.st_mode):
+                item_type = "tree"
+                score = self.put_tree_from_path(subpath)
+            elif S_ISLNK(st.st_mode):
+                item_type = "link"
+                target = os.readlink(subpath)
+                score = self.backend.put(from_str(target), "blob")
+            elif S_ISREG(st.st_mode):
+                item_type = "file"
+                with open(subpath, "rb") as fd:
+                    score = self.put_ref_from_fd(fd, "file")
+            tree.items.append([score, item_type, item])
+        score = self.put_ref_from_buffer(tree.dump(), "tree")
+        return score
+
+    def get_tree_to_path(self, path: "str", tree_score: "bytes[]"):
+        treefd = BytesIO()
+        nbytes, kind = self.get_ref_to_fd(treefd, tree_score)
+        treefd.seek(0)
+        tree = Tree.load(treefd)
+        mkdir_parents(path)
+        for score, item_type, item in tree.items:
+            subpath = os.path.join(path, item)
+            if item_type == "tree":
+                self.get_tree_to_path(subpath, score)
+            elif item_type == "link":
+                data, kind = self.backend.get(score)
+                if kind != "blob":
+                    raise WrongTypeError(kind, score, "blob")
+                target = to_str(data)
+                try:
+                    os.unlink(subpath)
+                except:
+                    pass
+                os.symlink(target, subpath)
+            elif item_type == "file":
+                with open(subpath, "wb") as fd:
+                    self.get_ref_to_fd(fd, score)
+            else:
+                raise UnknownTreeItemTypeError(item_type, tree_score)
+
+bs = LimitedFileBackend(os.path.expanduser("~/tmp/data"))
+bs = MemcacheBackend()
+#bs = RedisBackend()
+fs = Frontend(bs)
+
+### Main code
+
+args = sys.argv[1:]
+cmd = args.pop(0) if args else "help"
+
+class ArgumentError(Exception):
+    pass
+
+def describe_score(score, nbytes=None, kind=None):
+    if not (nbytes and kind):
+        data, kind = fs.backend.get(score)
+        nbytes = len(data)
+    return "%s {%s %d}" % (to_hex(score), kind, nbytes)
+
+try:
+    if None:
+        pass
+        # none shall pass
+
+    elif cmd == "put-score":
+        if len(args) > 0:
+            kind = args[0]
+        else:
+            kind = "blob"
+        with open("/dev/stdin", "rb") as fd:
+            nbytes, scores = fs.put_scores_from_fd(fd, kind)
+        for score in scores:
+            print(to_hex(score))
+    elif cmd == "get-score":
+        scores = args[:] or [l.strip() for l in sys.stdin]
+        scores = [from_hex(s) for s in scores]
+        with open("/dev/stdout", "wb") as fd:
+            nbytes, kind = fs.get_scores_to_fd(fd, scores)
+    elif cmd == "stat-score":
+        scores = args[:] or [l.strip() for l in sys.stdin]
+        scores = [from_hex(s) for s in scores]
+        for score in scores:
+            data, kind = fs.backend.get(score)
+            print(to_hex(score), len(data), kind)
+    elif cmd == "discard-score":
+        scores = args[:]
+        scores = [from_hex(s) for s in scores]
+        for score in scores:
+            fs.backend.discard(score)
+    elif cmd == "put-file":
+        file = args[0]
+        with open(file, "rb") as fd:
+            score = fs.put_ref_from_fd(fd, "file")
+        print(to_hex(score))
+
+    elif cmd == "get-ref":
+        score = from_hex(args[0])
+        depth = int(args[1])
+        with open("/dev/stdout", "wb") as fd:
+            if depth == 0:
+                nbytes, kind = fs.get_score_to_fd(fd, score)
+            else:
+                nbytes, kind = fs.get_ref_to_fd(fd, score, depth)
+
+    elif cmd == "get-file":
+        score = from_hex(args[0])
+        with open("/dev/stdout", "wb") as fd:
+            nbytes, kind = fs.get_ref_to_fd(fd, score)
+
+    elif cmd == "show":
+        score = from_hex(args[0])
+        if len(args) > 1:
+            depth = int(args[1])
+        else:
+            depth = 0
+        fd = BytesIO()
+        if depth > 0:
+            nbytes, data_kind = fs.get_ref_to_fd(fd, score, depth)
+        else:
+            nbytes, data_kind = fs.get_score_to_fd(fd, score)
+        fd.seek(0)
+        print(describe_score(score, nbytes, data_kind))
+        if data_kind in kinds:
+            obj = kinds[data_kind].load(fd)
+            print(repr(obj))
+            obj.pretty()
+
+    elif cmd == "dump":
+        score = from_hex(args[0])
+        if len(args) > 1:
+            depth = int(args[1])
+        else:
+            depth = 0
+        fd = BytesIO()
+        if depth > 0:
+            nbytes, data_kind = fs.get_ref_to_fd(fd, score, depth)
+        else:
+            nbytes, data_kind = fs.get_score_to_fd(fd, score)
+        fd.seek(0)
+        if data_kind in kinds:
+            obj = kinds[data_kind].load(fd)
+            print(obj)
+
+    elif cmd == "undump":
+        kind = None
+        head = []
+        body = []
+        with open("/dev/stdin", "r") as fd:
+            for line in fd:
+                line = line.rstrip("\n")
+                if line:
+                    key, val = line.split(" ", 1)
+                    if key == "a":
+                        kind = val
+                    head.append((key, val))
+                else:
+                    break
+            for line in fd:
+                line = line.rstrip("\n")
+                body.append(line)
+        if kind in kinds:
+            obj = kinds[kind].load_str(head, body)
+            nbytes, scores = fs.put_scores_from_fd(obj.fd(), kind)
+            for score in scores:
+                print(to_hex(score))
+        else:
+            print("bad kind %r" % kind)
+
+    elif cmd == "put-tree":
+        path = args[0]
+        score = fs.put_tree_from_path(path)
+        print(to_hex(score))
+    elif cmd == "get-tree":
+        score = from_hex(args[0])
+        path = args[1]
+        fs.get_tree_to_path(path, score)
+
+    else:
+        print("Unknown command", file=sys.stderr)
+        sys.exit(1)
+except ArgumentError:
+    print("Too many arguments", file=sys.stderr)
+    sys.exit(1)
+except BrokenPipeError:
+    pass

@@ -1,0 +1,32 @@
+#!/usr/bin/env perl
+# summarizes the number of files in every immediate subdirectory of the given
+# directory (e.g. Git objects when given a path to .../.git/objects)
+
+use File::Basename;
+use List::Util qw(reduce);
+
+my $dir = shift(@ARGV) // ".";
+
+my @counts;
+my $sum = 0;
+my $num = 0;
+
+for my $subdir (glob("$dir/*/")) {
+	$name = basename($subdir);
+	@files = glob("$subdir/*");
+	$count = scalar @files;
+	push @counts, $count;
+	$sum += $count;
+	$num += 1;
+	
+	#printf "%6d %s\n", $count, $subdir;
+}
+
+$mean = $sum / $num;
+
+$tmp = reduce {$a + $b} map {$_ ** 2} map {$_ - $mean} @counts;
+
+$stddev = sqrt($tmp / $num);
+
+printf "mean %.0f, stddev %.0f, total %d files over %d dirs\n",
+	$mean, $stddev, $sum, $num;

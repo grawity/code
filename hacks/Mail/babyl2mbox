@@ -1,0 +1,165 @@
+#!/usr/bin/env perl
+# babyl2mbox - convert Rmail BABYL storage format to mboxrd.
+#
+# Quick hack intended for one conversion. For a better tool see `b2m` in Emacs.
+# Originally written to convert the following, which `formail -B` could not:
+# <http://www.ibiblio.org/pub/Linux/docs/old/misc/linux_is_obsolete.txt.z>
+#
+# BABYL format: <http://git.savannah.gnu.org/cgit/emacs.git/log/etc/BABYL>
+# mbox metadata: <http://wiki.dovecot.org/MailboxFormat/mbox>
+
+use feature qw(switch);
+use strict;
+use warnings;
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use POSIX qw(strftime);
+use constant TIMEFMT_MBOX => '%a %b %_d %H:%M:%S %Y';
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
+my $count;
+my $msgstatus;
+my $msgxstatus;
+my $reformed;
+my $state;
+my @mailheader;
+
+sub parse_date {
+	my ($str) = @_;
+
+	my %MONTHS = qw(Jan 0 Feb 1 Mar 2 Apr 3 May 4 Jun 5
+			Jul 6 Aug 7 Sep 8 Oct 9 Nov 10 Dec 11);
+
+	$str =~ s/\s*\(.+?\)//g;
+
+	if (my @m = $str =~ /^(?:(\w+), +)?(\d+) (\w+) (\d+) (\d+):(\d+):(\d+) (\S+)$/) {
+		my ($wday, $day, $mon, $yr, $hr, $mn, $sec, $tz) = @m;
+		if ($yr >= 100) { $yr -= 1900; }
+		return ($sec, $mn, $hr, $day, $MONTHS{$mon}, $yr);
+	} else {
+		_warn("unparseable date: $str");
+	}
+}
+
+sub output_header {
+	my ($from, $date);
+	for (@mailheader) {
+		if (/^From: (.+)/) {
+			$from = $1;
+		}
+		elsif (/^Date: (.+)/) {
+			$date = $1;
+		}
+	}
+
+	$from =~ s/\s*\(.+?\)\s*/ /g;
+	$from =~ s/^\s+//;
+	$from =~ s/\s+$//;
+
+	$date = strftime(TIMEFMT_MBOX, parse_date($date));
+
+	print "From foo\@bar $date\n";
+
+	print "$_\n" for @mailheader;
+	print "\n";
+}
+
+if (!@ARGV and -t 0) {
+	_die("expecting BABYL mail file as stdin");
+}
+elsif (@ARGV > 1) {
+	_die("I can process only one file at a time");
+}
+
+$state = "babyl-options-header";
+$count = 0;
+
+while (<>) {
+	chomp;
+	if ($state eq "babyl-options-header") {
+		if ($_ eq "BABYL OPTIONS:") {
+			$state = "babyl-options";
+		} else {
+			_die("expected BABYL options section at first line");
+		}
+	}
+	elsif ($_ eq "\037\014") {
+		if ($count++ > 0) {
+			print "\n";
+		}
+		$state = "msg-status";
+		@mailheader = ();
+		$msgstatus = "";
+		$msgxstatus = "";
+	}
+	elsif (/^\037\s*$/) {
+		last;
+	}
+	elsif ($state eq "babyl-options") {
+		if (/^Version: (\d+)/) {
+			if ($1 != 5) {
+				_warn("script not tested with BABYL version $1");
+			}
+		}
+	}
+	elsif ($state eq "msg-status") {
+		# TODO: full label/status parsing
+		my ($basic, $user) = split(/,,\s*/, $_, 2);
+		my @basic = split(/,\s*/, $basic);
+		my @user = split(/,\s*/, $user);
+		#$reformed = /^1,/;
+		$reformed = int shift(@basic);
+
+		my $seen = 1;
+		for (@basic) {
+			when ("answered") {
+				$msgxstatus .= "A";
+			}
+			when ("deleted") {
+				$msgxstatus .= "D";
+			}
+			when ("unseen") {
+				$seen = 0;
+			}
+		}
+		if ($seen) {
+			$msgstatus .= "RO";
+		}
+
+		push @mailheader, "Status: $msgstatus" if length($msgstatus);
+		push @mailheader, "X-Status: $msgxstatus" if length($msgxstatus);
+		push @mailheader, "X-Keywords: @user" if @user;
+
+		$state = "msg-original-header";
+	}
+	elsif ($state eq "msg-original-header") {
+		if ($_ eq '*** EOOH ***') {
+			$state = "mail-header";
+		} elsif ($reformed) {
+			push @mailheader, $_ unless $_ eq "";
+		}
+	}
+	elsif ($state eq "mail-header") {
+		if ($_ eq '') {
+			output_header;
+			$state = "mail-body";
+		} elsif (! $reformed) {
+			push @mailheader, $_;
+		}
+	}
+	elsif ($state eq "mail-body") {
+		if (/^>*From /) {
+			s/^/>/;
+		}
+		print "$_\n";
+	}
+}

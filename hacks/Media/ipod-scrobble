@@ -1,0 +1,23 @@
+#!/bin/sh
+. ~/lib/dotfiles/environ
+
+do_notify() { globalenv notify -a ipod-scrobble -s +ipod-scrobble "$@"; }
+
+root=/run/media/grawity/flurry
+log="$root/.scrobbler.log"
+
+if [ ! -s "$log" ]; then
+	do_notify "ipod-scrobble: log not found"
+	exit 0
+fi
+
+user=$(getnetrc -df '%u' 'last.fm')
+pass=$(getnetrc -df '%p' 'last.fm')
+
+if output=$(scrobble-cli -l "$log" -v 1 -u "$user" -p "$pass"); then
+	do_notify "ipod-scrobble: log submitted" "$output"
+else
+	do_notify "ipod-scrobble: submission failed" "$output"
+fi
+
+rm -f "$log"

@@ -1,0 +1,20 @@
+#!/usr/bin/env perl
+use strict;
+use User::pwent;
+
+my $name = shift(@ARGV) // "root";
+
+my $pwent = getpwnam($name);
+
+if (!$pwent or ($pwent->uid > 0 and $pwent->uid < 1000)) {
+	die "$name: Unknown user.\n";
+}
+
+my $path = $pwent->dir . "/.plan";
+
+if (open(my $fh, "<", $path)) {
+	print while <$fh>;
+	close($fh);
+} else {
+	warn "$!\n";
+}

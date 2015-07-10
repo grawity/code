@@ -6,9 +6,8 @@ override CFLAGS += -I./misc
 
 # misc targets
 
-.PHONY: pre
+.PHONY: default pre
 
-default: pre
 ifdef obj
 default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))
 else
@@ -20,17 +19,9 @@ default: basic
 endif
 endif
 
-pre   := $(OBJ)/.prepare
 dummy := dist/empty.c
 arg    = $(firstword $(patsubst $(dummy),,$(1)))
 args   = $(strip $(patsubst $(dummy),,$(1)))
-
-pre:
-	$(verbose_hide) dist/prepare
-
-$(pre):
-	$(verbose_hide) dist/prepare
-	$(verbose_hide) touch $@
 
 $(OBJ)/%.h: $(pre) dist/configure
 	$(verbose_echo) "  GEN   $(notdir $@)"

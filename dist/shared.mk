@@ -40,7 +40,13 @@ $(OBJ)/%: $(dummy)
 
 # generic targets
 
-default:
+default: $(OBJ)/.prepare
+
+prepare: $(OBJ)/.prepare
+
+$(OBJ)/.prepare:
+	$(verbose_hide) dist/prepare
+	$(verbose_hide) touch $@
 
 clean:
 	rm -rf obj/arch.* obj/dist.* obj/host.*
@@ -49,4 +55,4 @@ mrproper:
 	git clean -fdX
 	git checkout -f obj
 
-.PHONY: default clean mrproper
+.PHONY: default prepare clean mrproper

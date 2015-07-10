@@ -66,7 +66,7 @@ def test_parse(input):
         prefix = None
     return [tags, prefix, p.args]
 
-dir = "../../tests"
+dir = "../tests"
 
 f = 0
 f += run_test(dir+"/irc-split.txt", test_split)

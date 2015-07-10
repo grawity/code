@@ -78,6 +78,9 @@ def dump_trusts():
     print()
 
 def find_path(src, dst, seen=None):
+    if src not in trusts:
+        return []
+
     if src == dst:
         return [src]
 
@@ -180,3 +183,10 @@ if __name__ == "__main__":
         dump_paths()
     elif cmd == "capaths":
         dump_capaths()
+    elif cmd == "route":
+        src, dst = sys.argv[1:]
+        p = find_path(src, dst)
+        if p:
+            print(" → ".join(p))
+        else:
+            print("No path found.")

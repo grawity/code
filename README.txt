@@ -97,9 +97,6 @@ Moved elsewhere:
   ~/bin                 – random junk
     <https://github.com/grawity/bin#readme>
 
-  the code recycle bin  – script landfill
-    <https://nullroute.eu.org/git/?p=hacks/code-recycle-bin.git>
-
 Log:
 
   * 2009-11-28: initial commit of "simplehttpd"
@@ -109,5 +106,8 @@ Log:
   * 2015-04-05: changed default license to MIT
   * 2015-05-01: spring cleaning; removed many useless things
   * 2015-06-16: clarified the license as MIT Expat, not MIT X11
+  * 2015-07-10: forked to hacks.git
+        - the original, code.git, trimmed down to a bare minimum
+        - the fork, hacks.git, merged with Code Recycle Bin
 
 vim: ts=4:sw=4:et

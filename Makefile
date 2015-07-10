@@ -1,8 +1,6 @@
 #!/usr/bin/make -f
 
-DIST := dist
-
-include $(DIST)/shared.mk
+include dist/shared.mk
 
 override CFLAGS += -I./misc
 
@@ -18,10 +16,6 @@ else
 default: basic
 endif
 endif
-
-dummy := dist/empty.c
-arg    = $(firstword $(patsubst $(dummy),,$(1)))
-args   = $(strip $(patsubst $(dummy),,$(1)))
 
 $(OBJ)/%.h: dist/configure
 	$(verbose_echo) "  GEN   $(notdir $@)"

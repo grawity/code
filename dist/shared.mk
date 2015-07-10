@@ -3,6 +3,7 @@ empty :=
 space := $(empty) $(empty)
 
 UNAME := $(shell uname)
+DIST  ?= dist
 OBJ   := $(shell $(DIST)/prepare -o)
 
 # cflags
@@ -29,6 +30,10 @@ else
 endif
 
 # compile recipes
+
+dummy := $(DIST)/empty.c
+arg    = $(firstword $(patsubst $(dummy),,$(1)))
+args   = $(strip $(patsubst $(dummy),,$(1)))
 
 $(OBJ)/%.o: $(dummy)
 	$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"

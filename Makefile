@@ -111,27 +111,18 @@ $(OBJ)/%: $(dummy)
 
 # compile targets
 
-BASIC_BINS := args gettime mkpasswd natsort pause proctool silentcat spawn
-BASIC_BINS += strtool unescape
+BASIC_BINS := args gettime mkpasswd natsort pause silentcat spawn unescape libwcwidth.so
 KRB_BINS   := k5userok pklist
-LINUX_BINS := globalenv libfunlink.so libfunsync.so libglobalenv.so showsigmask tapchown
-MISC_BINS  := bgrep logwipe writevt xor xors xorf zlib
-JUNK_BINS  := ac-wait subreaper libwcwidth.so
+MISC_BINS  := logwipe writevt zlib
 
-.PHONY: all basic krb linux misc pklist
+.PHONY: all basic krb misc pklist
 
 basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 krb:   $(addprefix $(OBJ)/,$(KRB_BINS))
-linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
 misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
-junk:  $(addprefix $(OBJ)/,$(JUNK_BINS))
 
 all: basic krb misc
-ifeq ($(UNAME),Linux)
-all: linux junk
-endif
 
-# advertised in the pklist readme
 pklist: $(OBJ)/pklist
 
 emergency-sulogin: $(OBJ)/emergency-sulogin
@@ -146,10 +137,6 @@ $(OBJ)/libfunlink.so:	system/libfunlink.c
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	system/libfunsync.c
 
-$(OBJ)/libglobalenv.so:	CFLAGS += -shared -fPIC
-$(OBJ)/libglobalenv.so:	LDLIBS += -lkeyutils
-$(OBJ)/libglobalenv.so:	system/libglobalenv.c
-
 $(OBJ)/libwcwidth.so:	CFLAGS += -shared -fPIC \
 				-Dmk_wcwidth=wcwidth -Dmk_wcswidth=wcswidth
 $(OBJ)/libwcwidth.so:	thirdparty/wcwidth.c
@@ -161,16 +148,9 @@ $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
 
 # executables
 
-$(OBJ)/ac-wait:		LDLIBS += -ludev
-$(OBJ)/ac-wait:		system/ac-wait.c
 $(OBJ)/args:		misc/args.c
-$(OBJ)/bgrep:		thirdparty/bgrep.c
 $(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/codeset:		misc/codeset.c
-$(OBJ)/entropy:		LDLIBS += -lm
-$(OBJ)/entropy:		security/entropy.c
-$(OBJ)/globalenv:	LDLIBS += -lkeyutils
-$(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/k5userok:	kerberos/k5userok.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
@@ -180,18 +160,10 @@ $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c
-$(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
-$(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
-$(OBJ)/strtool:		misc/strtool.c $(OBJ)/misc_util.o
-$(OBJ)/subreaper:	system/subreaper.c
-$(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/unescape:	misc/unescape.c
 $(OBJ)/writevt:		thirdparty/writevt.c
-$(OBJ)/xor:		misc/xor.c
-$(OBJ)/xorf:		misc/xorf.c
-$(OBJ)/xors:		misc/xors.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c
 

@@ -21,26 +21,18 @@ endif
 
 # compile targets
 
-BASIC_BINS := proctool strtool
+BASIC_BINS := ac-wait proctool strtool subreaper xor xors xorf
 LINUX_BINS := globalenv libfunlink.so libfunsync.so libglobalenv.so showsigmask tapchown
-MISC_BINS  := xor xors xorf zlib
-JUNK_BINS  := ac-wait subreaper
 
-.PHONY: all basic linux misc
+.PHONY: all basic linux
 
 basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
-krb:   $(addprefix $(OBJ)/,$(KRB_BINS))
 linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
-misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
-junk:  $(addprefix $(OBJ)/,$(JUNK_BINS))
 
-all: basic krb misc
+all: basic
 ifeq ($(UNAME),Linux)
-all: linux junk
+all: linux
 endif
-
-emergency-sulogin: $(OBJ)/emergency-sulogin
-	sudo install -o 'root' -g 'wheel' -m 'u=rxs,g=rx,o=' $< /usr/bin/$@
 
 # libraries
 
@@ -54,6 +46,10 @@ $(OBJ)/libfunsync.so:	system/libfunsync.c
 $(OBJ)/libglobalenv.so:	CFLAGS += -shared -fPIC
 $(OBJ)/libglobalenv.so:	LDLIBS += -lkeyutils
 $(OBJ)/libglobalenv.so:	system/libglobalenv.c
+
+# objects
+
+$(OBJ)/misc_util.o:	$(DIST)/../misc/util.c $(DIST)/../misc/util.h
 
 # executables
 

@@ -40,13 +40,13 @@ $(OBJ)/%: $(dummy)
 
 # generic targets
 
-default: $(OBJ)/.prepare
-
-prepare: $(OBJ)/.prepare
+default:
 
 $(OBJ)/.prepare:
 	$(verbose_hide) $(DIST)/prepare
 	$(verbose_hide) touch $@
+
+-include $(OBJ)/.prepare
 
 clean:
 	rm -rf obj/arch.* obj/dist.* obj/host.*

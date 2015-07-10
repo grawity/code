@@ -8,8 +8,6 @@ override CFLAGS += -I./misc
 
 # misc targets
 
-.PHONY: default pre
-
 ifdef obj
 default: $(addprefix $(OBJ)/,$(subst $(comma),$(space),$(obj)))
 else
@@ -25,11 +23,10 @@ dummy := dist/empty.c
 arg    = $(firstword $(patsubst $(dummy),,$(1)))
 args   = $(strip $(patsubst $(dummy),,$(1)))
 
-$(OBJ)/%.h: $(pre) dist/configure
+$(OBJ)/%.h: dist/configure
 	$(verbose_echo) "  GEN   $(notdir $@)"
 	$(verbose_hide) dist/configure $@
 
-$(dummy): $(pre)
 $(dummy): $(OBJ)/config.h
 $(dummy): $(OBJ)/config-krb5.h
 	$(verbose_hide) touch $@

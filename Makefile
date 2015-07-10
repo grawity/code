@@ -22,6 +22,7 @@ endif
 # compile targets
 
 BASIC_BINS := ac-wait proctool strtool subreaper xor xors xorf
+BASIC_BINS += mpris-np
 LINUX_BINS := globalenv libfunlink.so libfunsync.so libglobalenv.so showsigmask tapchown
 
 .PHONY: all basic linux
@@ -67,3 +68,7 @@ $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/xor:		misc/xor.c
 $(OBJ)/xorf:		misc/xorf.c
 $(OBJ)/xors:		misc/xors.c
+
+$(OBJ)/mpris-np:	CFLAGS += $(shell pkg-config glib-2.0 gio-2.0 --cflags)
+$(OBJ)/mpris-np:	LDLIBS += $(shell pkg-config glib-2.0 gio-2.0 --libs)
+$(OBJ)/mpris-np:	media/mpris-now-playing.c

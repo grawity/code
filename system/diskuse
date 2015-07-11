@@ -16,6 +16,16 @@ thresholds = [
     ( 0, ("31",  9, 1)),
 ]
 
+def homely(path):
+    path = path.rstrip("/")
+    home = os.environ.get("HOME", "").rstrip("/")
+    if path == home:
+        return "~"
+    elif (path + "/").startswith(home + "/"):
+        return "~" + path[len(home):]
+    else:
+        return path or "/"
+
 def human(n, u=1024):
     cs = "BkMGTEP"
     e = 0
@@ -123,7 +133,7 @@ for mtpt in parts:
     disk_color      = threshold(100 - disk_part)
 
     print(fmt % (
-        mtpt,
+        homely(mtpt),
 
         human(total_bytes),
         human(free_bytes),

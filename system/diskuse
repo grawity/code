@@ -99,30 +99,12 @@ def threshold(level):
             return tval
     return tval
 
-if os.uname().nodename == "rain":
-    parts = [
-        "/",
-        "/home",
-        "/win",
-        "/tmp",
-        #"/mnt/keycard",
-        #"/boot",
-    ]
-else:
-    parts = []
-    unfstypes = {
-        "cgroup",
-        "devpts",
-        "ecryptfs",
-        "efivarfs",
-    }
+def enum_mtab():
+    unfstypes = { "cgroup", "devpts", "ecryptfs", "efivarfs" }
     unmtpt = {
-        "/boot",
-        "/boot/efi",
-        "/dev",
-        "/dev/shm",
-        "/run",
-        "/sys/fs/cgroup",
+        "/boot", "/boot/efi",
+        "/dev", "/dev/shm",
+        "/run", "/sys/fs/cgroup",
     }
     with open("/etc/mtab") as fh:
         for line in fh:
@@ -133,7 +115,19 @@ else:
             and not mtpt.startswith("/run/user/%d/" % os.getuid()):
                 continue
             else:
-                parts.append(mtpt)
+                yield mtpt
+
+if os.uname().nodename == "rain":
+    parts = [
+        "/",
+        "/home",
+        "/win",
+        "/tmp",
+        #"/mnt/keycard",
+        #"/boot",
+    ]
+else:
+    parts = list(enum_mtab())
     parts.sort()
 
 quota_gauge_width = 30

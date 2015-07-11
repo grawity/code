@@ -2,9 +2,9 @@
 import os
 
 thresholds = [
-    (15, ("32", 10, 2)),
-    ( 5, ("33", 11, 3)),
-    ( 0, ("31",  9, 1)),
+    (10, ( 46, 10)),
+    ( 5, (226, 11)),
+    ( 0, (196,  9)),
 ]
 
 def homely(path):
@@ -56,33 +56,41 @@ def gauge3(width, level,
          + ansify(partial_char * n_partial, partial_fmt) \
          + ansify(empty_char   * n_empty,   empty_fmt)
 
+def rgb_split(color):
+    r = (color - 16) // 6 // 6 % 6
+    g = (color - 16) // 6 % 6
+    b = (color - 16) % 6
+    return (r, g, b)
+
+def rgb_merge(r, g, b):
+    return (r * 6 * 6) + (g * 6) + b + 16
+
+def darken(color, n):
+    if 0 <= color <= 7:
+        return color
+    elif 8 <= color <= 15:
+        return color - 8 if n > 0 else color
+    elif 16 <= color <= 232:
+        r, g, b = rgb_split(color)
+        r = max(r - n, 0)
+        g = max(g - n, 0)
+        b = max(b - n, 0)
+        return rgb_merge(r, g, b)
+    elif 232 <= color <= 255:
+        return color - n
+
 def gauge3x(width, level, color, bars=None):
+    bright = color
+    dark = darken(color, 2)
+
     if not bars:
         bars = "\u275a", "\u275a", "\u2758"
     elif len(bars) != 3:
         bars = bars[0] * 3
 
-    if 0 <= color <= 7:
-        #bright = color + 8
-        bright = color
-        dark = color
-    elif 8 <= color <= 15:
-        bright = color
-        dark = color - 8
-    elif 16 <= color <= 231:
-        bright = color
-        dark = color
-    elif 232 <= color <= 255:
-        if color > (232 + 10):
-            bright = color
-            dark = color - 10
-        else:
-            bright = color + 10
-            dark = color
-
     return gauge3(width, level, *bars,
                     full_fmt="38;5;%d" % bright,
-                    partial_fmt="2;38;5;%d" % bright,
+                    partial_fmt="38;5;%d" % dark,
                     empty_fmt="38;5;%d" % dark)
 
 def threshold(level):
@@ -165,8 +173,8 @@ for mtpt in parts:
     quota_part      = used_bytes / quota_bytes * 100
     disk_part       = used_bytes / total_bytes * 100
 
-    quota_color     = threshold(100 - quota_part)
-    disk_color      = threshold(100 - disk_part)
+    quota_color     = threshold(100 - quota_part)[0]
+    disk_color      = threshold(100 - disk_part)[0]
 
     print(fmt % (
         homely(mtpt),
@@ -176,10 +184,10 @@ for mtpt in parts:
         human(avail_bytes),
 
         quota_gauge_width,
-        gauge3x(quota_gauge_width, quota_part, quota_color[1]),
+        gauge3x(quota_gauge_width, quota_part, quota_color),
         percent(quota_part),
 
         disk_gauge_width,
-        gauge3x(disk_gauge_width, disk_part, disk_color[2]),
+        gauge3x(disk_gauge_width, disk_part, disk_color),
         percent(disk_part),
     ))

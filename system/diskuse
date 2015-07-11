@@ -145,7 +145,15 @@ print(ansify(fmt, "1") % (
 ))
 
 for mtpt in parts:
-    st = os.statvfs(mtpt)
+    try:
+        st = os.statvfs(mtpt)
+    except PermissionError:
+        continue
+    except OSError:
+        continue
+
+    if st.f_blocks == 0:
+        continue
 
     total_bytes     = st.f_bsize * st.f_blocks
     free_bytes      = st.f_bsize * st.f_bfree

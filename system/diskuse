@@ -11,10 +11,13 @@ thresholds = [
 def homely(path):
     path = path.rstrip("/")
     home = os.environ.get("HOME", "").rstrip("/")
+    media = "/run/media/%s" % os.environ.get("LOGNAME", "root")
     if path == home:
         return "~"
     elif (path + "/").startswith(home + "/"):
         return "~" + path[len(home):]
+    elif (path + "/").startswith(media + "/"):
+        return "…" + path[len(media):]
     else:
         return path or "/"
 
@@ -121,7 +124,7 @@ def enum_mtab():
             else:
                 yield mtpt
 
-if os.uname().nodename == "rain":
+if os.uname().nodename == "rai":
     parts = [
         "/",
         "/home",

@@ -112,16 +112,14 @@ for mtpt in parts:
     total_bytes     = st.f_bsize * st.f_blocks
     free_bytes      = st.f_bsize * st.f_bfree
     avail_bytes     = st.f_bsize * st.f_bavail
+
     used_bytes      = total_bytes - free_bytes
-    unavail_t_bytes = total_bytes - avail_bytes
-    unavail_f_bytes = free_bytes - avail_bytes
+    quota_bytes     = used_bytes + avail_bytes
 
-    avail_part      = (avail_bytes / total_bytes) * 100
+    quota_part      = used_bytes / quota_bytes * 100
+    disk_part       = used_bytes / total_bytes * 100
 
-    quota_part      = 100 - avail_part
     quota_color     = threshold(100 - quota_part)
-
-    disk_part       = 100 - avail_part
     disk_color      = threshold(100 - disk_part)
 
     print(fmt % (

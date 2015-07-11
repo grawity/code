@@ -1,0 +1,142 @@
+#!/usr/bin/env python
+import os
+
+parts = [
+    "/",
+    "/home",
+    "/win",
+    "/tmp",
+    #"/mnt/keycard",
+    #"/boot",
+]
+
+thresholds = [
+    (15, ("32", 10, 2)),
+    ( 5, ("33", 11, 3)),
+    ( 0, ("31",  9, 1)),
+]
+
+def human(n, u=1024):
+    cs = "BkMGTEP"
+    e = 0
+    while n >= u:
+        n /= u
+        e += 1
+    c = cs[e]
+    return "%.1f%s" % (n, c)
+
+def percent(n):
+    return "%4.1f%%" % n if n < 100 else "%3d.%%" % n
+
+def ansify(text, fmt):
+    return "\033[%sm%s\033[m" % (fmt, text) if fmt else text
+
+def gauge(width, level, full="▓", empty="░", color="", full_color="", empty_color=""):
+    cells = int(width * level / 100)
+
+    return ansify(full * cells, full_color or color) \
+         + ansify(empty * (width - cells), empty_color or color)
+
+def gauge2(width, level, color="37"):
+    return gauge(width, level,
+                 full="|", full_color="1;%s" % color,
+                 empty="|", empty_color="2;%s" % color)
+
+def gauge3(width, level,
+           full_char="█", partial_char="▌", empty_char=" ",
+           full_fmt="", partial_fmt="", empty_fmt=""):
+
+    cells = width * level / 100
+    n_full = int(cells)
+    n_partial = round(cells % 1)
+    n_empty = int(width - n_full - n_partial)
+
+    return ansify(full_char    * n_full,    full_fmt) \
+         + ansify(partial_char * n_partial, partial_fmt) \
+         + ansify(empty_char   * n_empty,   empty_fmt)
+
+def gauge3x(width, level, color, bars=None):
+    if not bars:
+        bars = "\u275a", "\u275a", "\u2758"
+    elif len(bars) != 3:
+        bars = bars[0] * 3
+
+    if 0 <= color <= 7:
+        #bright = color + 8
+        bright = color
+        dark = color
+    elif 8 <= color <= 15:
+        bright = color
+        dark = color - 8
+    elif 16 <= color <= 231:
+        bright = color
+        dark = color
+    elif 232 <= color <= 255:
+        if color > (232 + 10):
+            bright = color
+            dark = color - 10
+        else:
+            bright = color + 10
+            dark = color
+
+    return gauge3(width, level, *bars,
+                    full_fmt="38;5;%d" % bright,
+                    partial_fmt="2;38;5;%d" % bright,
+                    empty_fmt="38;5;%d" % dark)
+
+def threshold(level):
+    for tmin, tval in thresholds:
+        if level >= tmin:
+            return tval
+    return tval
+
+quota_gauge_width = 30
+disk_gauge_width = 10
+
+fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %5s"
+
+print(ansify(fmt, "1") % (
+    "PATH",
+    "TOTAL",
+    "FREE",
+    "AVAIL",
+    quota_gauge_width, "QUOTA USAGE",
+    "",
+    disk_gauge_width, "DISK USAGE",
+    "",
+))
+
+for mtpt in parts:
+    st = os.statvfs(mtpt)
+
+    total_bytes     = st.f_bsize * st.f_blocks
+    free_bytes      = st.f_bsize * st.f_bfree
+    avail_bytes     = st.f_bsize * st.f_bavail
+    used_bytes      = total_bytes - free_bytes
+    unavail_t_bytes = total_bytes - avail_bytes
+    unavail_f_bytes = free_bytes - avail_bytes
+
+    avail_part      = (avail_bytes / total_bytes) * 100
+
+    quota_part      = 100 - avail_part
+    quota_color     = threshold(avail_part)
+
+    disk_part       = 100 - avail_part
+    disk_color      = threshold(avail_part)
+
+    print(fmt % (
+        mtpt,
+
+        human(total_bytes),
+        human(free_bytes),
+        human(avail_bytes),
+
+        quota_gauge_width,
+        #gauge2(quota_gauge_width, quota_part, quota_color[0]),
+        gauge3x(quota_gauge_width, quota_part, quota_color[1]),
+        percent(quota_part),
+
+        disk_gauge_width,
+        gauge3x(disk_gauge_width, disk_part, disk_color[2]),
+        percent(disk_part),
+    ))

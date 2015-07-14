@@ -4,6 +4,11 @@
 src=$1
 dst=$2
 
+if [ ! "$src" ]; then
+	echo "Usage: ${0##*/} <src-url> [dst-dir]"
+	exit 2
+fi
+
 if [ ! "$dst" ]; then
 	dst=$src
 	while case $dst in */) true;; *) false;; esac; do
@@ -16,6 +21,8 @@ lib=$(which libfunsync.so 2>/dev/null)
 
 if [ "$lib" ]; then
 	export LD_PRELOAD=${LD_PRELOAD}${LD_PRELOAD:+:}$lib
+else
+	echo "Warning: libfunsync not available, sync will be slow"
 fi
 
 echo "Cloning to ${dst}..."

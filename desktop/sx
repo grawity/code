@@ -5,18 +5,16 @@ if ! vt="vt$(fgconsole)"; then
 	exit 1
 fi
 
-: ${XDG_CONFIG_HOME:=~/.config}
-if [ -e "$XDG_CONFIG_HOME/xinitrc" ]; then
-	xinitrc=$XDG_CONFIG_HOME/xinitrc
-else
-	xinitrc=~/.xinitrc
-fi
-
 export DISPLAY=$(next-display)
 export XAUTHORITY=~/.Xauthority
 if [ ! "$DISPLAY" ]; then
 	echo "error: could not find a free display"
 	exit 1
+fi
+
+XINITRC=${XDG_CONFIG_HOME:-~/.config}/xinitrc
+if [ ! -e "$xintirc" ]; then
+	XINITRC=~/.xinitrc
 fi
 
 cd ~
@@ -25,7 +23,7 @@ xauth remove "$DISPLAY"
 xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(mcookie)
 
 echo "Starting Xorg on display $DISPLAY"
-xinit "$xinitrc" "$@" -- "$DISPLAY" "$vt" \
+xinit "$XINITRC" "$@" -- "$DISPLAY" "$vt" \
 	-noreset \
 	-auth "$XAUTHORITY" \
 	-quiet \

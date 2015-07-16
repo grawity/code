@@ -6,7 +6,7 @@ import re
 import socket
 import subprocess
 
-#s.environ["DEBUG"] = "y"
+#os.environ["DEBUG"] = "y"
 
 # Syntax:
 #   <regex>     <nexthop>   [<flags>]
@@ -31,32 +31,31 @@ import subprocess
 #   "q": do not display messages about forwarding to another host
 #   "x": treat <nexthop> as a command to execute
 
-if os.environ.get("DEBUG", ""):
-    def DEBUG(fmt, *args):
-        uprint("(" + (fmt % args) + ")")
-else:
-    def DEBUG(fmt, *args):
-        pass
+DEBUG = bool(os.environ.get("DEBUG"))
 
-def uprint(*args):
+def _print(*args):
     args = map(str, args)
     line = " ".join(args)+"\r\n"
     fh = sys.stdout
     fh.write(line.encode("utf-8"))
     fh.flush()
 
+def _trace(fmt, *args):
+    if DEBUG:
+        _print("(" + (fmt % args) + ")")
+
 def accept():
     request = sys.stdin.readline().strip()
-    DEBUG("accept(%r)", request)
+    _trace("accept(%r)", request)
     result = route(request)
     if result is None:
-        DEBUG("routing failed")
+        _trace("routing failed")
         refuse()
     else:
         forward(*result)
 
 def route(request):
-    DEBUG("route(%r)", request)
+    _trace("route(%r)", request)
 
     if request == b"/W" or request[:3] == b"/W ":
         prefix = b"/W "
@@ -72,7 +71,7 @@ def route(request):
         except IndexError:
             flags = b""
 
-        DEBUG("trying route %r", rule)
+        _trace("trying route %r", rule)
         result = re.search(rule, request)
         if not result:
             continue
@@ -93,22 +92,22 @@ def route(request):
             try:
                 group = int(group[1:])
             except ValueError:
-                DEBUG("invalid group %r", group)
+                _trace("invalid group %r", group)
                 return None
-            DEBUG("nextreq = group(%d)", group)
+            _trace("nextreq = group(%d)", group)
             nextreq = result.group(group)
         elif b"@" in request and b"h" not in flags:
-            DEBUG("nextreq = local")
+            _trace("nextreq = local")
             nextreq = local
         else:
-            DEBUG("nextreq = req")
+            _trace("nextreq = req")
             nextreq = request
 
         return nexthop, prefix+nextreq, flags
     return None
 
 def forward(addr, req, flags):
-    DEBUG("forward(%r, %r, %r)", req, addr, flags)
+    _trace("forward(%r, %r, %r)", req, addr, flags)
 
     if b"x" in flags:
         if addr.startswith(b"|"):
@@ -120,29 +119,29 @@ def forward(addr, req, flags):
         cmdline = [addr]
         if req and not stdin:
             cmdline += [req]
-        DEBUG('exec: using %r', cmdline)
+        _trace("exec: using %r", cmdline)
 
         try:
             if stdin:
                 proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
-                DEBUG('exec: writing %r', req)
-                proc.stdin.write(req + b'\n')
+                _trace("exec: writing %r", req)
+                proc.stdin.write(req + b"\n")
                 proc.stdin.close()
                 proc.wait()
             else:
                 subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
         except OSError as e:
-            uprint("finger: internal error")
+            _print("finger: internal error")
             raise
 
     elif addr.startswith(b"/"):
-        DEBUG('file: using %r', addr)
+        _trace("file: using %r", addr)
         try:
             for line in open(addr, "rb"):
                 sys.stdout.write(line)
             sys.stdout.flush()
         except IOError as e:
-            uprint("finger: cannot open plan file")
+            _print("finger: cannot open plan file")
             raise
 
     else:
@@ -151,19 +150,19 @@ def forward(addr, req, flags):
             addr = (addr, "finger")
         else:
             addr = parseaddr(addr)
-        DEBUG('tcp: using %r', addr)
+        _trace("tcp: using %r", addr)
 
         try:
             gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
                 socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
-            uprint("finger: getaddrinfo: %s" % e.strerror)
+            _print("finger: getaddrinfo: %s" % e.strerror)
             return
 
         canonname = addr
         for family, socktype, proto, _canonname, addr in gai:
             if _canonname: canonname = _canonname
-            DEBUG('tcp: trying %r <af=%r>', addr, family)
+            _trace("tcp: trying %r <af=%r>", addr, family)
 
             sock = socket.socket(family, socktype, proto)
             sock.settimeout(3)
@@ -172,11 +171,11 @@ def forward(addr, req, flags):
             except socket.error as e:
                 straddr = formataddr(family, addr, ignoreport=79)
                 strerr = e.strerror or e.args[0]
-                uprint("Trying %s... %s" % (straddr, strerr))
+                _print("Trying %s... %s" % (straddr, strerr))
                 continue
 
             if not b"q" in flags:
-                uprint("[%s]" % canonname)
+                _print("[%s]" % canonname)
 
             sock.send(req + b"\r\n")
             buf = True
@@ -187,10 +186,10 @@ def forward(addr, req, flags):
             break
 
 def refuse():
-    uprint("finger: query refused")
+    _print("finger: query refused")
 
 def formataddr(family, addr, ignoreport=None):
-    DEBUG("formataddr(%r, %r, %r)", family, addr, ignoreport)
+    _trace("formataddr(%r, %r, %r)", family, addr, ignoreport)
     # LAME
     if family == socket.AF_INET:
         host, port = addr
@@ -210,7 +209,7 @@ def formataddr(family, addr, ignoreport=None):
         return repr(addr)
 
 def parseaddr(addr):
-    DEBUG("parseaddr(%r)", addr)
+    _trace("parseaddr(%r)", addr)
     ## LAAAAME
     host, port = None, "finger"
     if addr.startswith(b"[") and b"]" in addr:
@@ -228,14 +227,14 @@ def parseaddr(addr):
     return host, port
 
 def get_routes():
-    DEBUG("get_routes(%r)", rules_file)
+    _trace("get_routes(%r)", rules_file)
     try:
         for line in open(rules_file, "rb"):
             line = line.strip()
             if line and not line.startswith(b"#"):
                 yield line.split()
     except IOError as e:
-        uprint("finger: cannot open configuration file")
+        _print("finger: cannot open configuration file")
         raise
 
 try:
@@ -251,6 +250,7 @@ if hasattr(sys.stdout, "detach"):
 try:
     accept()
 except Exception as e:
-    uprint("finger: internal error")
-    raise
+    _print("finger: internal error")
+    if DEBUG:
+        raise
     sys.exit(1)

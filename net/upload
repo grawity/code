@@ -11,14 +11,24 @@ usage() {
 	echo "  -s regex      mangle (sed) the destination filename"
 }
 
+sshrun() {
+	local host=$1 argv=("${@:2}")
+	local -i i
+	for (( i = 0; i < ${#argv[@]}; i++ )); do
+		printf -v argv[i] '%q' "${argv[i]}"
+	done
+	debug "running \"${argv[*]}\" on $host"
+	ssh "$host" "${argv[*]}"
+}
+
 rtest() {
 	local test=$1 host=${2%%:*} path=${2#*:}
-	ssh "$host" "test $test '$path'"
+	sshrun "$host" test $test "$path"
 }
 
 rmkdir() {
 	local host=${1%%:*} path=${1#*:}
-	ssh "$host" "mkdir -p '$path'"
+	sshrun "$host" mkdir -p "$path"
 }
 
 year=$(date +%Y)

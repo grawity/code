@@ -101,12 +101,13 @@ for arg; do
 			name=$(echo "$name" | sed -r "$arg_mangle")
 		fi
 		target="$fsbase/$name"
-		if (( ! arg_clobber )) && rtest -s "$target"; then
-			die "file '$target' already exists"
-		fi
 		debug "* source: '$source'"
 		debug "  target: '$target'"
-		rsync -Ps "$source" "$target"
+		if (( arg_clobber )) || ! rtest -s "$target"; then
+			rsync -Ps "$source" "$target"
+		else
+			notice "'$name' already exists on server"
+		fi
 		echo "$name → $urlbase/$name"
 		clip+=("$urlbase/$name")
 	fi

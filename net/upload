@@ -23,14 +23,16 @@ r:mkdir() {
 	ks:sshrun "$host" mkdir -p "$path"
 }
 
+declare -A fsbase urlbase
+
 fsbase="virgule:nullroute/tmp"
 urlbase="https://nullroute.eu.org/tmp"
 
-fs1_fsbase="ukradius:pub/fs1/tmp"
-fs1_urlbase="http://fs1.nullroute.eu.org/tmp"
+fsbase[fs1]="ukradius:pub/fs1/tmp"
+urlbase[fs1]="http://fs1.nullroute.eu.org/tmp"
 
-fs2_fsbase="ns228507:pub/fs2/tmp"
-fs2_urlbase="http://fs2.nullroute.eu.org/tmp"
+fsbase[fs2]="ns228507:pub/fs2/tmp"
+urlbase[fs2]="http://fs2.nullroute.eu.org/tmp"
 
 # parse command line
 
@@ -52,11 +54,9 @@ while getopts ":01cd:s:" OPT; do
 done; shift $((OPTIND-1))
 
 if [[ $arg_server ]]; then
-	_fsbase="${arg_server}_fsbase"
-	_urlbase="${arg_server}_urlbase"
-	if [[ ${!_fsbase} && ${!_urlbase} ]]; then
-		fsbase=${!_fsbase}
-		urlbase=${!_urlbase}
+	fsbase=${fsbase[$arg_server]}
+	urlbase=${urlbase[$arg_server]}
+	if [[ $fsbase && $urlbase ]]; then
 		trace "uploading to '$fsbase'"
 	else
 		die "unknown server '$arg_server'"

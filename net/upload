@@ -81,14 +81,15 @@ for arg; do
 	elif [[ ! -s $arg ]]; then
 		warn "'$arg' is empty, skipping"
 	else
+		source=$(readlink -f "$arg")
 		name=${arg##*/}
 		if [[ $arg_mangle ]]; then
 			name=$(echo "$name" | sed -r "$arg_mangle")
 		fi
-		arg=$(readlink -f "$arg")
-		debug "* source: '$arg'"
-		debug "  target: '$fsbase/$name'"
-		rsync -Ps "$arg" "$fsbase/$name"
+		target="$fsbase/$name"
+		debug "* source: '$source'"
+		debug "  target: '$target'"
+		rsync -Ps "$source" "$target"
 		echo "$name → $urlbase/$name"
 		clip+=("$urlbase/$name")
 	fi

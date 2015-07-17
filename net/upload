@@ -4,13 +4,14 @@
 . libkitchensink.bash || exit
 
 usage() {
-	echo "Usage: $progname [-01c] [-d <subdir>] <file>…"
+	echo "Usage: $progname [options] <file>…"
 	echo #|---'---|---'---|
 	echo "  -0            do not use yearly subdirectories"
 	echo "  -1            upload to fs1 instead of main site"
 	echo "  -c            continue upload / overwrite file"
 	echo "  -d path       create a subdirectory"
 	echo "  -s regex      mangle (sed) the destination filename"
+	echo "  -X            delete files instead of uploading"
 }
 
 r:test() {
@@ -21,6 +22,11 @@ r:test() {
 r:mkdir() {
 	local host=${1%%:*} path=${1#*:}
 	ks:sshrun "$host" mkdir -p "$path"
+}
+
+r:rm_rvf() {
+	local host=${1%%:*} path=${1#*:}
+	ks:sshrun "$host" rm -rvf "$path"
 }
 
 declare -A fsbase urlbase
@@ -41,14 +47,16 @@ arg_server=
 arg_subdir=
 arg_yearly=1
 arg_clobber=0
+arg_remove=0
 
-while getopts ":01cd:s:" OPT; do
+while getopts ":01cDd:s:X" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	c) arg_clobber=1;;
 	d) arg_subdir=$OPTARG;;
 	s) arg_mangle=$OPTARG;;
+	X) arg_remove=1;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -89,24 +97,34 @@ fi
 clip=()
 
 for arg; do
-	if [[ ! -f $arg ]]; then
-		err "'$arg' is not a file"
-	elif [[ ! -s $arg ]]; then
-		warn "'$arg' is empty, skipping"
-	else
-		source=$(readlink -f "$arg")
-		name=${arg##*/}
-		if [[ $arg_mangle ]]; then
-			name=$(echo "$name" | sed -r "$arg_mangle")
+	if (( ! arg_remove )); then
+		if [[ ! -f $arg ]]; then
+			err "'$arg' is not a file"
+			continue
+		elif [[ ! -s $arg ]]; then
+			warn "'$arg' is empty, skipping"
+			continue
 		fi
-		target="$fsbase/$name"
-		debug "* source: '$source'"
-		debug "  target: '$target'"
+	fi
+
+	name=${arg##*/}
+	if [[ $arg_mangle ]]; then
+		name=$(echo "$name" | sed -r "$arg_mangle")
+	fi
+	source=$(readlink -f "$arg")
+	target="$fsbase/$name"
+	debug "* source: '$source'"
+	debug "  target: '$target'"
+
+	if (( arg_remove )); then
+		r:rm_rvf "$target"
+	else
 		if (( arg_clobber )) || ! r:test -s "$target"; then
 			rsync -Ps "$source" "$target"
 		else
 			notice "'$name' already exists on server"
 		fi
+
 		echo "$name → $urlbase/$name"
 		clip+=("$urlbase/$name")
 	fi

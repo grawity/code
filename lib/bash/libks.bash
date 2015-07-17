@@ -15,5 +15,9 @@ ks:sshrun() {
 		printf -v argv[i] '%q' "${argv[i]}"
 	done
 	debug "running \"${argv[*]}\" on $host"
-	ssh "$host" "${argv[*]}"
+	ssh "$host" \
+		-o ControlMaster=auto \
+		-o ControlPersist=5m \
+		-o ControlPath="~/.ssh/S.%r@%h:%p" \
+		"${argv[*]}"
 }

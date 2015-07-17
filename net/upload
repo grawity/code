@@ -13,17 +13,15 @@ usage() {
 	echo "  -s regex      mangle (sed) the destination filename"
 }
 
-rtest() {
+r:test() {
 	local test=$1 host=${2%%:*} path=${2#*:}
 	ks:sshrun "$host" test $test "$path"
 }
 
-rmkdir() {
+r:mkdir() {
 	local host=${1%%:*} path=${1#*:}
 	ks:sshrun "$host" mkdir -p "$path"
 }
-
-year=$(date +%Y)
 
 fsbase="virgule:nullroute/tmp"
 urlbase="https://nullroute.eu.org/tmp"
@@ -66,6 +64,7 @@ if [[ $arg_server ]]; then
 fi
 
 if (( arg_yearly )); then
+	year=$(date +%Y)
 	fsbase+="/$year"
 	urlbase+="/$year"
 fi
@@ -82,7 +81,7 @@ debug "base url: '$urlbase'"
 
 if [[ $arg_server || $arg_subdir ]]; then
 	# $arg_server is a hack, until I copy rotate-up.sh to all other servers
-	rmkdir "$fsbase"
+	r:mkdir "$fsbase"
 fi
 
 # upload files
@@ -103,7 +102,7 @@ for arg; do
 		target="$fsbase/$name"
 		debug "* source: '$source'"
 		debug "  target: '$target'"
-		if (( arg_clobber )) || ! rtest -s "$target"; then
+		if (( arg_clobber )) || ! r:test -s "$target"; then
 			rsync -Ps "$source" "$target"
 		else
 			notice "'$name' already exists on server"

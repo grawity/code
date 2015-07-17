@@ -87,6 +87,9 @@ for arg; do
 			name=$(echo "$name" | sed -r "$arg_mangle")
 		fi
 		target="$fsbase/$name"
+		if ssh "${target%%:*}" "test -s '${target#*:}'"; then
+			die "file '$target' already exists"
+		fi
 		debug "* source: '$source'"
 		debug "  target: '$target'"
 		rsync -Ps "$source" "$target"

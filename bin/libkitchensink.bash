@@ -1,1 +1,1 @@
-../lib/bash/libkitchensink.bash
+libks.bash

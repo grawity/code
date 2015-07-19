@@ -3,6 +3,11 @@
 #include <time.h>
 #include <libgen.h> /* basename */
 #include <stdlib.h> /* exit */
+#include <err.h>
+
+#ifndef CLOCK_BOOTTIME
+#  define CLOCK_BOOTTIME -1
+#endif
 
 char *arg0;
 
@@ -31,11 +36,12 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (c == -1)
+		errx(1, "requested clock is not supported on this system");
+
 	r = clock_gettime(c, &t);
-	if (r < 0) {
-		perror("clock_gettime");
-		return 1;
-	}
+	if (r < 0)
+		err(1, "clock_gettime failed");
 
 	if (nsec)
 		printf("%ld.%9lu\n", t.tv_sec, t.tv_nsec);

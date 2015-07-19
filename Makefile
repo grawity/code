@@ -61,6 +61,7 @@ $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
 # executables
 
 $(OBJ)/args:		misc/args.c
+$(OBJ)/gettime:		LDLIBS += -lrt
 $(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/codeset:		misc/codeset.c
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)

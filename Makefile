@@ -17,10 +17,6 @@ default: basic
 endif
 endif
 
-$(OBJ)/%.h: dist/configure
-	$(verbose_echo) "  GEN   $(notdir $@)"
-	$(verbose_hide) dist/configure $@
-
 $(dummy): $(OBJ)/config.h
 $(dummy): $(OBJ)/config-krb5.h
 	$(verbose_hide) touch $@

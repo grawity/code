@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # encoding: utf-8
+from __future__ import division, print_function
 import os
 
 thresholds = [
@@ -57,7 +58,7 @@ def gauge3(width, level,
 
     cells = width * level / 100
     n_full = int(cells)
-    n_partial = round(cells % 1)
+    n_partial = int(round(cells % 1))
     n_empty = int(width - n_full - n_partial)
 
     return ansify(full_char    * n_full,    full_fmt) \
@@ -95,7 +96,7 @@ def gauge3x(width, level, color, bars=None):
         if os.getenv("TERM") == "linux":
             bars = "#=-"
         else:
-            bars = "\u275a", "\u275a", "\u2758"
+            bars = u"\u275a", u"\u275a", u"\u2758"
     elif len(bars) != 3:
         bars = bars[0] * 3
 
@@ -123,7 +124,7 @@ def enum_mtab():
     }
     with open("/etc/mtab") as fh:
         for line in fh:
-            dev, mtpt, fstype, *_ = line.strip().split()
+            dev, mtpt, fstype, rest = line.strip().split(None, 3)
             if mtpt in skip_mounts:
                 continue
             elif fstype in skip_fstypes and mtpt not in include_mounts:
@@ -131,18 +132,8 @@ def enum_mtab():
             else:
                 yield mtpt
 
-if os.uname().nodename == "rai":
-    parts = [
-        "/",
-        "/home",
-        "/win",
-        "/tmp",
-        #"/mnt/keycard",
-        #"/boot",
-    ]
-else:
-    parts = list(enum_mtab())
-    parts.sort()
+parts = list(enum_mtab())
+parts.sort()
 
 quota_gauge_width = 20
 disk_gauge_width = 10

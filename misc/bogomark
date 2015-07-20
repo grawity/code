@@ -41,9 +41,9 @@ purge() {
 
 maildir() {
 	if (( fs_layout )); then
-		echo ".${1//\//.}"
-	else
 		echo "$1"
+	else
+		echo ".${1//'/'/'.'}"
 	fi
 }
 
@@ -62,6 +62,8 @@ mark() {
 		esac
 	done
 
+	debug "mode is '$smode' [$mode]"
+
 	dirs=()
 	while [[ "${!OPTIND}" ]]; do
 		dirs+=("${!OPTIND}")
@@ -75,8 +77,10 @@ mark() {
 	local tag flags rest
 	lock
 	for dir in "${dirs[@]}"; do
+		debug "marking '$dir'"
 		dir=$(maildir "$dir")
 		path="$mail_base/$dir"
+		debug "... at '$path'"
 		for file in "$path"/{cur,new}/*; do
 			basename="${file##*/}"
 			flags="${basename##*:}"

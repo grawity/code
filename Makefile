@@ -17,10 +17,6 @@ default: basic
 endif
 endif
 
-$(OBJ)/%.h: dist/configure
-	$(verbose_echo) "  GEN   $(notdir $@)"
-	$(verbose_hide) dist/configure $@
-
 $(dummy): $(OBJ)/config.h
 $(dummy): $(OBJ)/config-krb5.h
 	$(verbose_hide) touch $@
@@ -65,6 +61,7 @@ $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
 # executables
 
 $(OBJ)/args:		misc/args.c
+$(OBJ)/gettime:		LDLIBS += -lrt
 $(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/codeset:		misc/codeset.c
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)

@@ -93,14 +93,14 @@ static bool valid(const char *pass)
 	strncpy(id, pass, off);
 
 	/*
-	 * up to 16 bytes for the salt
+	 * up to 32 bytes for the salt
 	 */
 	for (; *s && *s != '$'; s++);
 
 	if (*s++ != '$')
 		return false;
 
-	if ((off_t)(s-pass) > 16)
+	if ((off_t)(s-pass) > 32)
 		return false;
 
 	len = strlen(s);

@@ -35,6 +35,10 @@ dummy := $(DIST)/empty.c
 arg    = $(firstword $(patsubst $(dummy),,$(1)))
 args   = $(strip $(patsubst $(dummy),,$(1)))
 
+$(OBJ)/%.h: dist/configure
+	$(verbose_echo) "  GEN   $(notdir $@)"
+	$(verbose_hide) dist/configure $@
+
 $(OBJ)/%.o: $(dummy)
 	$(verbose_echo) "  CC    $(notdir $@) ($(call arg,$^))"
 	$(verbose_hide) $(COMPILE.c) $(OUTPUT_OPTION) $(call arg,$^)

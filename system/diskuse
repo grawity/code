@@ -111,22 +111,22 @@ def threshold(level):
     return tval
 
 def enum_mtab():
-    unfstypes = {
-        "cgroup", "devpts", "ecryptfs", "efivarfs", "rootfs",
+    skip_fstypes = {
+        "cgroup", "devpts", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
     }
-    unmtpt = {
-        "/boot", "/boot/efi",
-        "/dev", "/dev/shm",
-        "/run", "/run/lock", "/run/shm",
-        "/sys/fs/cgroup",
+    skip_mounts = {
+        "/boot", "/boot/efi", "/dev",
+    }
+    include_mounts = {
+        "/run/user/%d" % os.getuid(),
+        "/tmp",
     }
     with open("/etc/mtab") as fh:
         for line in fh:
             dev, mtpt, fstype, *_ = line.strip().split()
-            if (fstype in unfstypes) or (mtpt in unmtpt):
+            if mtpt in skip_mounts:
                 continue
-            elif mtpt.startswith("/run/user/") \
-            and not mtpt.startswith("/run/user/%d/" % os.getuid()):
+            elif fstype in skip_fstypes and mtpt not in include_mounts:
                 continue
             else:
                 yield mtpt

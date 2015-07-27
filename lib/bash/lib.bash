@@ -14,6 +14,8 @@ _lvl=$(( LVL++ )); export LVL
 
 ## Variable defaults
 
+: ${DEBUG:=}
+
 : ${XDG_CACHE_HOME:="$HOME/.cache"}
 : ${XDG_CONFIG_HOME:="$HOME/.config"}
 : ${XDG_DATA_HOME:="$HOME/.local/share"}
@@ -240,6 +242,18 @@ backtrace() {
 	done
 } >&2
 
+settitle() {
+	local str="$*"
+	case $TERM in
+	[xkE]term*|rxvt*|cygwin|dtterm|termite)
+		printf '\e]0;%s\a' "$str";;
+	screen*)
+		printf '\ek%s\e\\' "$str";;
+	vt300*)
+		printf '\e]21;%s\e\\' "$str";;
+	esac
+}
+
 ## Various
 
 have() {
@@ -299,6 +313,10 @@ sudo:() {
 		else do: "$@"
 	fi
 }
+
+#set -o errexit
+#set -o pipefail
+#set -o nounset
 
 if (( DEBUG > 1 )); then
 	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"

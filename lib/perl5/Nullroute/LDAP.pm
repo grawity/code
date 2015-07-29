@@ -43,6 +43,11 @@ sub ldap_cas_attr {
     my $control = [];
     my $res;
 
+    if ($old eq $new) {
+        _debug("ignoring no-op update '$old' -> '$old'");
+        return 1;
+    }
+
     # optimization: RFC 4528 Assertion
     # (not sure if useful; perhaps if used with 'replace'?)
 

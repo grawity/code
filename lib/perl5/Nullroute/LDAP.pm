@@ -40,12 +40,20 @@ sub ldap_cas_attr {
     my $control = [];
     my $res;
 
+    # optimization: RFC 4528 Assertion
+    # (not sure if useful; perhaps if used with 'replace'?)
+
     if ($conn->root_dse->supported_control(LDAP_CONTROL_ASSERTION)) {
         _debug("using Assertion control");
         $control = [
             Net::LDAP::Control::Assertion->new("($attr=$old)"),
         ];
     }
+
+    # atomically delete old value and add the new one
+    #
+    # (NOTE: actually not sure if LDAP *guarantees* atomicity within the same
+    # Modify op, but if all clients cooperate, this should be good enough)
 
     $res = $conn->modify($dn,
         delete => { $attr => $old },
@@ -69,6 +77,8 @@ sub ldap_increment_attr {
     $incr ||= 1;
     $done = false;
 
+    # optimization: RFC 4525 Modify-Increment + RFC 4527 Post-Read
+
     if ($conn->root_dse->supported_control(LDAP_CONTROL_POSTREAD)
         && $conn->root_dse->supported_feature(LDAP_FEATURE_MODIFY_INCREMENT))
     {
@@ -80,13 +90,14 @@ sub ldap_increment_attr {
             ],
         );
         ldap_check($res);
-
         if ($res->control(LDAP_CONTROL_POSTREAD)) {
             return $res->control(LDAP_CONTROL_POSTREAD)->entry->get_value($attr);
         } else {
             _debug("increment failed, using modify loop");
         }
     }
+
+    # manual compare-and-swap
 
     until ($done) {
         _debug("fetching $attr");

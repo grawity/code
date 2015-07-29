@@ -56,14 +56,13 @@ sub ldap_cas_attr {
     # Modify op, but if all clients cooperate, this should be good enough)
 
     $res = $conn->modify($dn,
-        delete => { $attr => $old },
-        add => { $attr => $new },
+        changes => [
+            delete => [ $attr => $old ],
+            add    => [ $attr => $new ],
+        ],
         control => $control,
     );
-    ldap_check($res, $dn,
-        ["LDAP_NO_SUCH_ATTRIBUTE",
-         "LDAP_TYPE_OR_VALUE_EXISTS",
-         "LDAP_ASSERTION_FAILED"]);
+    ldap_check($res, $dn, ["LDAP_NO_SUCH_ATTRIBUTE", "LDAP_ASSERTION_FAILED"]);
 
     return !$res->is_error;
 }

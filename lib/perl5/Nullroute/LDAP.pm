@@ -2,8 +2,13 @@
 # vim: ts=4:sw=4:et:
 package Nullroute::LDAP;
 use base "Exporter";
-use Net::LDAP::Constant "LDAP_CONTROL_ASSERTION";
+use Net::LDAP::Constant (
+    "LDAP_CONTROL_ASSERTION",
+    "LDAP_CONTROL_POSTREAD",
+    "LDAP_FEATURE_MODIFY_INCREMENT",
+);
 use Net::LDAP::Control::Assertion;
+use Net::LDAP::Control::PostRead;
 use Nullroute::Lib;
 
 @EXPORT = qw(
@@ -57,11 +62,32 @@ sub ldap_cas_attr {
 
 sub ldap_increment_attr {
     my ($conn, $dn, $attr, $incr) = @_;
-    my $done;
+    my $res;
     my $val;
+    my $done;
 
     $incr ||= 1;
     $done = false;
+
+    if ($conn->root_dse->supported_control(LDAP_CONTROL_POSTREAD)
+        && $conn->root_dse->supported_feature(LDAP_FEATURE_MODIFY_INCREMENT))
+    {
+        _debug("using Modify-Increment extension");
+        $res = $conn->modify($dn,
+            increment => { $attr => $incr },
+            control => [
+                Net::LDAP::Control::PostRead->new(attrs => [$attr]),
+            ],
+        );
+        ldap_check($res);
+
+        if ($res->control(LDAP_CONTROL_POSTREAD)) {
+            return $res->control(LDAP_CONTROL_POSTREAD)->entry->get_value($attr);
+        } else {
+            _debug("increment failed, using modify loop");
+        }
+    }
+
     until ($done) {
         _debug("fetching $attr");
         $val = ldap_read_attr($conn, $dn, $attr);

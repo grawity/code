@@ -15,8 +15,11 @@ use Nullroute::Lib;
     ldap_read_attr
     ldap_cas_attr
     ldap_increment_attr
+
     ldap_check
 );
+
+# Atomic operations
 
 sub ldap_read_attr {
     my ($conn, $dn, $attr) = @_;
@@ -107,6 +110,8 @@ sub ldap_increment_attr {
     }
     return $val+$incr;
 }
+
+# Result error checking
 
 sub ldap_format_error {
     my ($res, $dn) = @_;

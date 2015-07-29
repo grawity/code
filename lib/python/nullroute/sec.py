@@ -2,7 +2,7 @@ import subprocess
 
 def get_netrc(machine, login=None):
     cmd = ["getnetrc", "-d", "-n", "-f", "%m\n%l\n%p\n%a", machine]
-    if login is not None:
+    if login:
         cmd.append(login)
 
     try:
@@ -12,7 +12,11 @@ def get_netrc(machine, login=None):
 
     keys = ["machine", "login", "password", "account"]
     vals = r.decode("utf-8").split("\n")
+
     if len(keys) != len(vals):
         raise IOError("'getnetrc' returned incorrect data %r" % r)
 
     return dict(zip(keys, vals))
+
+def get_netrc_service(machine, service, login=None):
+    pass

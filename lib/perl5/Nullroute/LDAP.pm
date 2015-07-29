@@ -2,6 +2,8 @@
 # vim: ts=4:sw=4:et:
 package Nullroute::LDAP;
 use base "Exporter";
+use Net::LDAP::Constant "LDAP_CONTROL_ASSERTION";
+use Net::LDAP::Control::Assertion;
 use Nullroute::Lib;
 
 @EXPORT = qw(
@@ -30,15 +32,25 @@ sub ldap_read_attr {
 
 sub ldap_cas_attr {
     my ($conn, $dn, $attr, $old, $new) = @_;
+    my $control = [];
     my $res;
+
+    if ($conn->root_dse->supported_control(LDAP_CONTROL_ASSERTION)) {
+        _debug("using Assertion control");
+        $control = [
+            Net::LDAP::Control::Assertion->new("($attr=$old)"),
+        ];
+    }
 
     $res = $conn->modify($dn,
         delete => { $attr => $old },
         add => { $attr => $new },
+        control => $control,
     );
     ldap_check($res, $dn,
         ["LDAP_NO_SUCH_ATTRIBUTE",
-         "LDAP_TYPE_OR_VALUE_EXISTS"]);
+         "LDAP_TYPE_OR_VALUE_EXISTS",
+         "LDAP_ASSERTION_FAILED"]);
 
     return !$res->is_error;
 }

@@ -212,6 +212,14 @@ die() {
 
 ## Other stuff
 
+lib::fail() {
+	(( !errors )) || exit
+}
+
+lib::exit() {
+	(( !errors )); exit
+}
+
 usage() { false; } # overridden
 
 confirm() {

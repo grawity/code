@@ -13,7 +13,7 @@ test -x 'bin/eapol_test'	|| err "missing './bin/eapol_test'"
 
 declare -- self via
 declare -A name user pass host port secret eap _alias_
-declare -- _user _pass _host _port _secret _eap _mech _outer
+declare -- _host _port _secret _eap _phase2 _outer _user _pass
 
 # parse arguments
 
@@ -23,21 +23,29 @@ while (( $# )); do
 		via=$self
 	else
 		case ${1#--} in
+		# RADIUS server
 		'via')		via=$2; shift;;
-		'using')	_mech=$2; shift;;
-		'inner-mech')	_mech=$2; shift;;
-		'pap')		_mech='pap';;
-		'eap')		_eap=$2; shift;;
-		'user')		_user=$2; : ${_pass:="-"}; shift;;
-		'login')	_user=$2; : ${_pass:="-"}; shift;;
-		'inner-user')	_user=$2; shift;;
-		'outer-user')	_outer=$2; shift;;
-		'inner-login')	_user=$2; shift;;
-		'outer-login')	_outer=$2; shift;;
-		'pass')		_pass=$2; shift;;
 		'host')		_host=$2; shift;;
 		'port')		_port=$2; shift;;
 		'secret')	_secret=$2; shift;;
+		# basic or inner mechanism
+		'mech')		_mech=$2; shift;;
+		'using')	_mech=$2; shift;;
+		'pap')		_mech='pap';;
+		# outer EAP mechanism
+		'eap')		_eap=$2; shift;;
+		'inside')	_eap=$2; shift;;
+		# main (inner) identity
+		'user')		_user=$2; : ${_pass:="-"}; shift;;
+		'login')	_user=$2; : ${_pass:="-"}; shift;;
+		'inner-user')	_user=$2; : ${_pass:="-"}; shift;;
+		'inner-login')	_user=$2; : ${_pass:="-"}; shift;;
+		'pass')		_pass=$2; shift;;
+		# anonymous (outer) identity
+		'outer')	_outer=$2; shift;;
+		'outer-user')	_outer=$2; shift;;
+		'outer-login')	_outer=$2; shift;;
+		# etc.
 		*)		err "bad arg: \"$1\"";;
 		esac
 	fi
@@ -89,13 +97,13 @@ fi
 [[ $_secret ]]	|| err "missing RADIUS secret for '$via'"
 
 case $_mech in
-'pap')		_phase2='PAP';;
-'chap')		_phase2='CHAP';;
-'mschap')	_phase2='MSCHAPV2';;
-'mschapv2')	_phase2='MSCHAPV2'; _mech='mschap';;
-'eap-mschap')	_phase2='EAP-MSCHAPV2';;
-'eap-mschapv2')	_phase2='EAP-MSCHAPV2';;
-*)		err "unknown mechanism '$_mech'"
+	'pap')		_phase2='PAP';;
+	'chap')		_phase2='CHAP';;
+	'mschap')	_phase2='MSCHAPV2';;
+	'mschapv2')	_phase2='MSCHAPV2'; _mech='mschap';;
+	'eap-mschap')	_phase2='EAP-MSCHAPV2';;
+	'eap-mschapv2')	_phase2='EAP-MSCHAPV2';;
+	*)		err "unknown mechanism '$_mech'"
 esac
 
 if [[ "$_eap" == PEAP && "$_phase2" != EAP-* ]]; then
@@ -111,7 +119,7 @@ if [[ "$self" != "$via" ]]; then
 	log "proxy via: ${name[$via]} ($_host)"
 fi
 
-if [[ $_eap && $_eap != NO ]]; then
+if [[ $_eap && $_eap != NONE ]]; then
 	log "mechanism: $_phase2 inside EAP-$_eap"
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""

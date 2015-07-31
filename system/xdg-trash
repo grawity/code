@@ -195,6 +195,7 @@ sub read_info {
 	my ($info_path) = @_;
 
 	my ($info_fh, $orig_path, $trash_time);
+
 	if (!open($info_fh, "<", $info_path)) {
 		_err("could not read \"$info_path\": $!");
 		return;
@@ -210,7 +211,12 @@ sub read_info {
 		}
 	}
 	close($info_fh);
-	return ($orig_path, $trash_time);
+
+	return {
+		info => $info_path,
+		orig => $orig_path,
+		date => $trash_time,
+	};
 }
 
 sub find_unique {
@@ -225,7 +231,9 @@ sub find_unique {
 }
 
 sub restore_from_info {
-	my ($info_path, $orig_path) = @_;
+	my ($info) = @_;
+	my $info_path = $info->{info};
+	my $orig_path = $info->{orig};
 	my $trash_dir = dirname(dirname($info_path));
 	my $info_base = basename($info_path, ".trashinfo");
 	my $trashed_path = "$trash_dir/files/$info_base";
@@ -378,35 +386,39 @@ sub untrash {
 	if (!-d "$trash_dir/info" || !-d "$trash_dir/files") {
 		_err("trash directory does not exist");
 	}
+
 	my @infos;
 	for my $info_path (glob("$trash_dir/info/*.trashinfo")) {
 		_debug("examining '$info_path'");
-		my ($info_orig_path, $info_trash_date) = read_info($info_path);
-		if (!defined $info_orig_path) {
+		my $info = read_info($info_path);
+		if (!defined $info->{orig}) {
 			next;
 		} elsif (-d $orig_path) {
-			my $info_orig_dir = dirname($info_orig_path);
+			my $info_orig_dir = dirname($info->{orig});
 			next if $orig_dir ne $info_orig_dir;
 		} else {
-			next if $orig_path ne $info_orig_path;
+			next if $orig_path ne $info->{orig};
 		}
-		_debug("found \"$info_orig_path\" time $info_trash_date");
-		push @infos, [$info_path, $info_orig_path, $info_trash_date];
+		_debug("found \"$info->{orig}\" time $info->{date}");
+		push @infos, $info;
 	}
-	@infos = sort {$a->[2] <=> $b->[2]} @infos;
+	@infos = sort {$a->{date} <=> $b->{date}} @infos;
+
 	if (!@infos) {
 		_err("no matching files in trash");
 		return;
-	} elsif (@infos == 1) {
+	}
+	elsif (@infos == 1) {
 		my $info = $infos[0];
-		my $age = interval($info->[2]);
+		my $age = interval($info->{date});
 		_info("found one matching file ($age ago), restoring");
-		restore_from_info(@$info);
-	} else {
-		my $info = pop @infos;
-		my $age = interval($info->[2]);
+		restore_from_info($info);
+	}
+	else {
 		_info("found ".@infos." matching files in trash, restoring most recent");
-		restore_from_info(@$info);
+		my $info = $infos[0];
+		my $age = interval($info->{date});
+		restore_from_info($info);
 	}
 }
 

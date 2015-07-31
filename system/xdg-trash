@@ -40,6 +40,16 @@ sub my_abs_path {
 	return $rd."/".$b;
 }
 
+=item abs2rel_down($path)
+
+=cut
+
+sub abs2rel_down {
+	my ($path, $base) = @_;
+	my $rp = File::Spec->abs2rel($path, $base);
+	return ($rp =~ /^\.\.\//) ? $path : $rp;
+}
+
 =item find_root($abs_path)
 
 Find the root directory of the filesystem $path is in.
@@ -224,7 +234,7 @@ sub restore_from_info {
 	if (dev($orig_dir) == dev($trash_dir)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
-			_info("restored '$orig_path'");
+			_info("restored '".abs2rel_down($orig_path)."'");
 		} else {
 			_die("failed to rename '$trashed_path': $!");
 		}

@@ -380,8 +380,11 @@ sub untrash {
 	}
 	my @infos;
 	for my $info_path (glob("$trash_dir/info/*.trashinfo")) {
+		_debug("examining '$info_path'");
 		my ($info_orig_path, $info_trash_date) = read_info($info_path);
-		if (-d $orig_path) {
+		if (!defined $info_orig_path) {
+			next;
+		} elsif (-d $orig_path) {
 			my $info_orig_dir = dirname($info_orig_path);
 			next if $orig_dir ne $info_orig_dir;
 		} else {

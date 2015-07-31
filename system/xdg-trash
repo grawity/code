@@ -402,24 +402,21 @@ sub untrash {
 		_debug("found \"$info->{orig}\" time $info->{date}");
 		push @infos, $info;
 	}
-	@infos = sort {$a->{date} <=> $b->{date}} @infos;
 
 	if (!@infos) {
 		_err("no matching files in trash");
 		return;
 	}
-	elsif (@infos == 1) {
-		my $info = $infos[0];
-		my $age = interval($info->{date});
+
+	@infos = sort {$a->{date} <=> $b->{date}} @infos;
+	my $info = $infos[0];
+	my $age = interval($info->{date});
+	if (@infos == 1) {
 		_info("found one matching file ($age ago), restoring");
-		restore_from_info($info);
+	} else {
+		_info("found ".@infos." files, restoring most recent ($age ago)");
 	}
-	else {
-		_info("found ".@infos." matching files in trash, restoring most recent");
-		my $info = $infos[0];
-		my $age = interval($info->{date});
-		restore_from_info($info);
-	}
+	restore_from_info($info);
 }
 
 sub usage {

@@ -106,6 +106,8 @@ set -e
 
 umask 077
 
+debug "started with: '$*'"
+
 b="/mnt/backup"
 
 while [[ $1 ]]; do {
@@ -165,16 +167,19 @@ case $job in
 		roots=()
 
 		for host in $(< ~/Backup/hosts.txt); do
+			debug "parsing host: '$host'"
 			if [[ $host == '#'* ]]; then
 				continue
 			fi
-			until [[ $host == *[a-z] ]]; do
+			until [[ $host == *[a-z0-9] ]]; do
 				case $host in
 				*!) host=${host%!}; roots+=($host);;
 				esac
 			done
 			homes+=($host)
 		done
+
+		debug "running jobs"
 
 		for host in ${homes[@]}; do
 			$0 @$host || fail+=(@$host)

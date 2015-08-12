@@ -1,0 +1,130 @@
+#!/usr/bin/env python
+# vim: fdm=marker
+import sys
+import xmlrpc.client
+import nullroute.sec
+
+# junk {{{
+class ComObjProxy(object):
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+    def __getattr__(self, name):
+        def wrap(*args):
+            func = getattr(self.proxy, name)
+            ptr = func(*args)
+            return self.proxy.new_for_ptr(ptr)
+        return wrap
+
+class ComProxy(object):
+    def __init__(self, proxy, ptr, type=None):
+        self.proxy = proxy
+        self.ptr = ptr
+        self.type = type
+        self.p = ComObjProxy(self)
+
+    @classmethod
+    def new_root(self, api_url):
+        proxy = xmlrpc.client.ServerProxy(api_url)
+        return self(proxy, "0")
+
+    def new_for_ptr(self, ptr):
+        return ComProxy(self.proxy, ptr)
+
+    def __getattr__(self, name):
+        return getattr(self.proxy, "%s->%s" % (self.ptr, name))
+
+    def __repr__(self):
+        return "<ComProxy: ptr=%r>" % self.ptr
+# }}}
+
+class NullPointerException(Exception):
+    pass
+
+# IceWarpProxy {{{
+class IceWarpProxy(object):
+    _types_ = {
+        "None->Create": "APIObject",
+        "APIObject->NewDomain": "DomainObject",
+        "APIObject->OpenDomain": "DomainObject",
+        "DomainObject->NewAccount": "AccountObject",
+        "DomainObject->OpenAccount": "AccountObject",
+    }
+
+    def __init__(self, api, ptr, type):
+        self.api = api
+        self.ptr = ptr
+        self.type = type or "None"
+
+    @classmethod
+    def new(self, api, ptr, type):
+        if ptr and ptr != "0":
+            return self(api, ptr, type)
+        else:
+            return None
+
+    def __getattr__(self, name):
+        func = getattr(self.api.xmlrpc_proxy, "%s->%s" % (self.ptr, name))
+        if self.type is None and name == "Create":
+            def wrap(*args):
+                if len(args):
+                    type = args[0].split(".")[-1]
+                else:
+                    type = None
+                ptr = func(*args)
+                return IceWarpProxy.new(self.api, ptr, type)
+            return wrap
+        else:
+            type = self._types_.get("%s->%s" % (self.type, name))
+            if type:
+                def wrap(*args):
+                    ptr = func(*args)
+                    return IceWarpProxy.new(self.api, ptr, type)
+                return wrap
+            else:
+                return func
+
+    def __repr__(self):
+        return "<IceWarpProxy [%s %r]>" % (self.type, self.ptr)
+# }}}
+
+# IceWarpAPI {{{
+class IceWarpAPI(object):
+    def __init__(self, api_url):
+        self.xmlrpc_proxy = xmlrpc.client.ServerProxy(api_url)
+        self.null_object = IceWarpProxy(self, "0", None)
+        self.api_object = self.null_object.Create("IceWarpServer.APIObject")
+        
+        self._domains = {}
+        self._accounts = {}
+
+    def __getattr__(self, name):
+        return getattr(self.api_object, name)
+
+    def OpenDomain(self, domain):
+        if domain not in self._domains:
+            self._domains[domain] = self.api_object.OpenDomain(domain)
+        return self._domains[domain]
+
+    def OpenAccount(self, domain, alias):
+        acct = "%s@%s" % (domain, alias)
+        if acct not in self._accounts:
+            domain_object = self.OpenDomain(domain)
+            self._accounts[acct] = domain_object.OpenAccount(alias)
+        return self._accounts[acct]
+# }}}
+
+api_creds = nullroute.sec.get_netrc("api/mail.utenos-kolegija.lt")
+api_base = "https://%(login)s:%(password)s@mail.utenos-kolegija.lt/rpc/" % api_creds
+api = IceWarpAPI(api_base)
+for alias in sys.argv[1:]:
+    if "@" in alias:
+        alias, domain = alias.split("@")
+    else:
+        domain = "utenos-kolegija.lt"
+    api_acct = api.OpenAccount(domain, alias)
+    if api_acct:
+        passwd = api_acct.GetProperty("U_Password")
+    else:
+        passwd = "(no account)"
+    print(alias, passwd)

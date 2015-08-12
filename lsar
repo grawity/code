@@ -12,9 +12,9 @@ do_list() {
 	    tar tf "$f";;
 	*.zip)
 	    unzip -l "$f";;
-	*.7z|*.cab|*.deb|*.iso|*.rpm)
+	*.7z|*.deb|*.iso|*.rpm)
 	    bsdtar tf "$f";;
-	*.msi)
+	*.cab|*.msi)
 	    7za l "$f";;
 	*)
 	    echo Unknown file type >&2; exit 1;;
@@ -25,13 +25,13 @@ do_extract() {
     local f=$1 d=${1%.*}.out/
     mkdir -p "$d"
     case $f in
-	*.tar.*|*.cab|*.tbz2|*.tgz|*.txz)
+	*.iso|*.tar.*|*.tbz2|*.tgz|*.txz)
 	    bsdtar -xvf "$f" -C "$d";;
 	*.bz2)
 	    do_pv "$f" bzip2;;
 	*.gz)
 	    do_pv "$f" gzip;;
-	*.7z|*.msi)
+	*.7z|*.cab|*.msi)
 	    7za x -o"$d" "$f";;
 	*.rar)
 	    rar x "$f" "$d/";;

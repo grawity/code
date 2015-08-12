@@ -2,6 +2,18 @@
 
 . lib.bash || exit
 
+url=
+title=
+summary=
+body=
+
+while getopts ":u:" OPT; do
+	case $OPT in
+	u) url=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 title=$1
 summary=$2
 body=$3
@@ -15,8 +27,15 @@ args=(-F "user=uSjWBy9oxBwZWgyJnXdPXM2eUbXnCN"
       -F "title=$HOSTNAME – $title"
       -F "message=$summary")
 
-if [[ "$body" && "$body" != "$summary" ]]; then
-	url=($(curl -F "sprunge=$body" http://sprunge.us))
+if [[ "$body" ]]; then
+	if [[ "$url" ]]; then
+		die "URL and body cannot be specified together"
+	elif [[ "$body" != "$summary" ]]; then
+		url=($(curl -F "sprunge=$body" http://sprunge.us))
+	fi
+fi
+
+if [[ "$url" ]]; then
 	args+=(-F "url=$url")
 fi
 

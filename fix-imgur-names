@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+find "$@" -type f -name '*\[*\]*Imgur.*' |
+while read -r f; do
+	export h=$(sha1sum "$f" | awk '{print $1}')
+	prename -v '
+	# entities
+		s/&#(\d+)/chr($1)/ge;
+		s/&quot;//g;
+	# "caption [source]" → "source <hash>"
+		s{(.+)/.*?\[(?:Daily )?(.+?)(?: #\d+)?\].*?\.(.+?)$}{$1/$2 $ENV{h} - Imgur.$3};
+	' "$f"
+done

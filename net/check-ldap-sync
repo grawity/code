@@ -6,6 +6,7 @@ my $err = 0;
 my %F = (
 	bold	=> "\e[1m",
 	red	=> "\e[31m",
+	yellow	=> "\e[33m",
 	green	=> "\e[32m",
 	reset	=> "\e[m",
 );
@@ -25,15 +26,15 @@ sub _tree_status {
 	if ($status eq "ok") { print "$str\n"; } else { warn "$str\n"; ++$err; }
 }
 
-sub _err {
+sub _warn {
 	my ($msg) = @_;
-	warn "$F{bold}$F{red}error$F{reset}: $msg\n";
+	warn "$F{bold}$F{yellow}warning:$F{reset} $msg\n";
 	++$err;
 }
 
-sub _err_while {
-	my ($head, $tail) = @_;
-	warn "$F{bold}$F{red}error$F{reset}$F{red} $head$F{reset} $tail\n";
+sub _err {
+	my ($msg) = @_;
+	warn "$F{bold}$F{red}error:$F{reset} $msg\n";
 	++$err;
 }
 
@@ -62,7 +63,7 @@ for my $host (uniq @cluster) {
 	print "querying '$host'\n";
 	my $conn = Net::LDAP->new($host);
 	if (!$conn) {
-		_err_while("connecting", "to '$host': $!");
+		_err("could not connect to '$host': $!");
 		next;
 	}
 	$conn->bind;
@@ -73,7 +74,7 @@ for my $host (uniq @cluster) {
 				filter => q(objectClass=*),
 				attrs => ["contextCSN"]);
 		if ($res->is_error) {
-			_err_while("looking up CSN", "for $base: ".$res->error_name);
+			_err("could not look up CSN for '$base': ".$res->error_name);
 			next;
 		}
 		my @csn = 
@@ -93,7 +94,7 @@ if ($hosts == 0) {
 	_err("no reachable replicas!");
 	exit $err;
 } elsif ($hosts == 1) {
-	_err("only one reachable replica!");
+	_warn("only one reachable replica!");
 }
 
 for my $base (@trees) {
@@ -112,7 +113,6 @@ for my $base (@trees) {
 			warn "  csn='$_'\n" for split(" ", $csn);
 			warn "  ---\n" if --$num;
 		}
-		++$err;
 	}
 }
 

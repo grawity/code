@@ -1,7 +1,35 @@
 #!/usr/bin/env perl
 use Net::LDAP;
 
+my $err = 0;
+
+my %F = (
+	bold	=> "\e[1m",
+	red	=> "\e[31m",
+	green	=> "\e[32m",
+	reset	=> "\e[m",
+);
+
+%F = map {$_ => ""} keys %f if !-t 0;
+
 sub uniq (@) { my %seen = (); grep { not $seen{$_}++ } @_; }
+
+sub _tree_status {
+	my ($tree, $status, $note) = @_;
+	my %C = (
+		ok => "green",
+		desynced => "red",
+	);
+	my $C = $C{$status};
+	my $str = "tree '$tree' $F{bold}$F{$C}$status$F{reset}$F{$C}, $note$F{reset}";
+	if ($status eq "ok") { print "$str\n"; } else { warn "$str\n"; ++$err; }
+}
+
+sub _err_while {
+	my ($head, $tail) = @_;
+	warn "$F{bold}$F{red}error$F{reset}$F{red} $head$F{reset} $tail\n";
+	++$err;
+}
 
 my @domains = qw[ cluenet.org nullroute.eu.org ];
 
@@ -23,23 +51,11 @@ my %conns;
 my %csns;
 my %rcsns;
 
-my $err = 0;
-
-my %F = (
-	bold	=> "\e[1m",
-	red	=> "\e[31m",
-	green	=> "\e[32m",
-	reset	=> "\e[m",
-);
-
-%F = map {$_ => ""} keys %f if !-t 0;
-
 for my $host (uniq @cluster) {
 	print "querying '$host'\n";
 	my $conn = Net::LDAP->new($host);
 	if (!$conn) {
-		warn "$F{bold}$F{red}error$F{reset}$F{red} connecting$F{reset} to '$host'\n";
-		++$err;
+		_err_while("connecting", "to '$host'");
 		next;
 	}
 	$conn->bind;
@@ -50,7 +66,7 @@ for my $host (uniq @cluster) {
 				filter => q(objectClass=*),
 				attrs => ["contextCSN"]);
 		if ($res->is_error) {
-			print "error looking up CSN for $base: ".$res->error_name."\n";
+			_err_while("looking up CSN", "for $base: ".$res->error_name);
 			next;
 		}
 		my @csn = 
@@ -70,12 +86,12 @@ for my $base (@trees) {
 	my %rcsn = %{$rcsns{$base}};
 	my @groups = keys %rcsn;
 	if (@groups == 1) {
-		print "tree '$base' $F{bold}$F{green}ok$F{reset}$F{green}, all CSNs identical$F{reset}\n";
+		_tree_status($base, "ok", "all CSNs identical");
 		print "  host='$_'\n" for @{$rcsn{$groups[0]}};
 		print "  csn='$_'\n" for split(" ", $groups[0]);
 	} else {
 		my $num = @groups;
-		warn "tree '$base' $F{bold}$F{red}desynced$F{reset}$F{red}, $num different CSNs$F{reset}\n";
+		_tree_status($base, "desynced", "$num different CSNs");
 		for my $csn (@groups) {
 			warn "  host='$_'\n" for @{$rcsn{$csn}};
 			warn "  csn='$_'\n" for split(" ", $csn);

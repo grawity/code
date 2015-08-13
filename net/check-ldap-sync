@@ -25,6 +25,12 @@ sub _tree_status {
 	if ($status eq "ok") { print "$str\n"; } else { warn "$str\n"; ++$err; }
 }
 
+sub _err {
+	my ($msg) = @_;
+	warn "$F{bold}$F{red}error$F{reset}: $msg\n";
+	++$err;
+}
+
 sub _err_while {
 	my ($head, $tail) = @_;
 	warn "$F{bold}$F{red}error$F{reset}$F{red} $head$F{reset} $tail\n";
@@ -50,6 +56,7 @@ push @trees,
 my %conns;
 my %csns;
 my %rcsns;
+my $hosts = 0;
 
 for my $host (uniq @cluster) {
 	print "querying '$host'\n";
@@ -77,8 +84,16 @@ for my $host (uniq @cluster) {
 		my $csn = join(" ", @csn);
 		$csns{$base}{$host} = $csn;
 		push @{$rcsns{$base}{$csn}}, $host;
+		++$hosts;
 	}
 	$conn->unbind;
+}
+
+if ($hosts == 0) {
+	_err("no reachable replicas!");
+	exit $err;
+} elsif ($hosts == 1) {
+	_err("only one reachable replica!");
 }
 
 for my $base (@trees) {

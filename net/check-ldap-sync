@@ -18,6 +18,7 @@ sub uniq (@) { my %seen = (); grep { not $seen{$_}++ } @_; }
 
 sub _tree_status {
 	my ($tree, $status, $note) = @_;
+
 	my %C = (
 		ok => "green",
 		desynced => "red",
@@ -29,30 +30,41 @@ sub _tree_status {
 
 sub _warn {
 	my ($msg) = @_;
+
 	warn "$F{bold}$F{yellow}warning:$F{reset} $msg\n";
 	++$err;
 }
 
 sub _err {
 	my ($msg) = @_;
+
 	warn "$F{bold}$F{red}error:$F{reset} $msg\n";
 	++$err;
 }
 
 sub dns_srv_lookup {
+	my (@domains) = @_;
+
 	map {[split / /]->[3]}
 	grep {chomp || 1}
-	map {`dig +short _ldap._tcp.$_. SRV`} @_;
+	map {`dig +short _ldap._tcp.$_. SRV`}
+	@domains;
 }
 
 sub domain_to_dn {
-	map {join ",", map {"dc=$_"} split /\./, $_} @_;
+	my (@domains) = @_;
+
+	map {join ",", map {"dc=$_"} split /\./, $_}
+	@domains;
 }
 
 sub csn_sort_by_replica_id {
+	my (@csns) = @_;
+
 	map {$_->[0]}
 	sort {$a->[1] cmp $b->[1]}
-	map {[$_, (split(/#/, $_))[2]]} @_;
+	map {[$_, (split(/#/, $_))[2]]}
+	@csns;
 }
 
 my @domains;

@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+use Getopt::Long;
 use Net::LDAP;
 
 my $err = 0;
@@ -41,7 +42,7 @@ sub _err {
 sub dns_srv_lookup {
 	map {[split / /]->[3]}
 	grep {chomp || 1}
-	map {`dig +short _ldap._tcp.$_. srv`} @_;
+	map {`dig +short _ldap._tcp.$_. SRV`} @_;
 }
 
 sub domain_to_dn {
@@ -54,15 +55,29 @@ sub csn_sort_by_replica_id {
 	map {[$_, (split(/#/, $_))[2]]} @_;
 }
 
-my @domains = qw[ cluenet.org nullroute.eu.org ];
+my @domains;
+my @cluster;
+my @trees;
+my $add_from_srv = 0;
 
-my @cluster = qw[ ];
+GetOptions(
+	"d|domain=s" => \@domains,
+	"h|host=s" => \@cluster,
+	"b|base=s" => \@trees,
+	"srv!" => \$add_from_srv,
+);
 
-my @trees = qw[ cn=config ];
+if (!@domains) {
+	@domains = ("cluenet.org", "nullroute.eu.org");
+}
 
-push @cluster, dns_srv_lookup(@domains);
+if (!@cluster || $add_from_srv) {
+	push @cluster, dns_srv_lookup(@domains);
+}
 
-push @trees, domain_to_dn(@domains);
+if (!@trees) {
+	@trees = ("cn=config", domain_to_dn(@domains));
+}
 
 my %conns;
 my %csns;

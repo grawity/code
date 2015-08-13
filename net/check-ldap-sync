@@ -38,21 +38,31 @@ sub _err {
 	++$err;
 }
 
+sub dns_srv_lookup {
+	map {[split / /]->[3]}
+	grep {chomp || 1}
+	map {`dig +short _ldap._tcp.$_. srv`} @_;
+}
+
+sub domain_to_dn {
+	map {join ",", map {"dc=$_"} split /\./, $_} @_;
+}
+
+sub csn_sort_by_replica_id {
+	map {$_->[0]}
+	sort {$a->[1] cmp $b->[1]}
+	map {[$_, (split(/#/, $_))[2]]} @_;
+}
+
 my @domains = qw[ cluenet.org nullroute.eu.org ];
 
 my @cluster = qw[ ];
 
 my @trees = qw[ cn=config ];
 
-push @cluster,
-	map {[split / /]->[3]}
-	grep {chomp||1}
-	map {`dig +short _ldap._tcp.$_. srv`}
-	@domains;
+push @cluster, dns_srv_lookup(@domains);
 
-push @trees,
-	map {join ",", map {"dc=$_"} split /\./, $_}
-	@domains;
+push @trees, domain_to_dn(@domains);
 
 my %conns;
 my %csns;
@@ -77,12 +87,8 @@ for my $host (uniq @cluster) {
 			_err("could not look up CSN for '$base': ".$res->error_name);
 			next;
 		}
-		my @csn = 
-			map {$_->[0]}
-			sort {$a->[1] cmp $b->[1]}
-			map {[$_, (split(/#/, $_))[2]]}
-			($res->entries)[0]->get_value("contextCSN");
-		my $csn = join(" ", @csn);
+		my @csn = $res->entry(0)->get_value("contextCSN");
+		my $csn = join(" ", csn_sort_by_replica_id(@csn));
 		$csns{$base}{$host} = $csn;
 		push @{$rcsns{$base}{$csn}}, $host;
 		++$hosts;

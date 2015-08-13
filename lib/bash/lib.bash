@@ -222,6 +222,16 @@ lib::exit() {
 
 usage() { false; } # overridden
 
+echo_opt() {
+	local opt=$1 desc=$2 width=14
+	if (( ${#opt} < width )); then
+		printf "  %-*s%s\n" "$width" "$opt" "$desc"
+	else
+		printf "  %s\n" "$opt"
+		printf "  %-*s%s\n" "$width" "" "$desc"
+	fi
+}
+
 confirm() {
 	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
 	case $text in

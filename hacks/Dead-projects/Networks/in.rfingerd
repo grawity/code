@@ -240,7 +240,10 @@ def get_routes():
 try:
     rules_file = sys.argv.pop(1)
 except IndexError:
-    rules_file = os.devnull
+    if os.environ.get("USER") == "nobody":
+        rules_file = "/etc/rfingerd.conf"
+    else:
+        rules_file = os.devnull
 
 if hasattr(sys.stdin, "detach"):
     sys.stdin = sys.stdin.detach()

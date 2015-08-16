@@ -110,7 +110,11 @@ for my $host (uniq @cluster) {
 				filter => "(contextCSN=*)",
 				attrs => ["contextCSN"]);
 		if ($res->is_error) {
-			_err("could not look up CSN for '$base': ".$res->error_name);
+			_err("could not read '$base': ".$res->error_name);
+			next;
+		}
+		if (!$res->count) {
+			_err("contextCSN for '$base' is not accessible or missing");
 			next;
 		}
 		my @csn = $res->entry(0)->get_value("contextCSN");

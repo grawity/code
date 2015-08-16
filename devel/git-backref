@@ -2,7 +2,7 @@
 shopt -s extglob
 
 list-objects() {
-	git fsck --verbose |& perl -nE 'say $1 if /^Checking (\w+ \w+)$/'
+	git cat-file --batch-check='%(objectname) %(objecttype)' --batch-all-objects
 }
 
 deref-recursive() {
@@ -33,20 +33,13 @@ check-simple() {
 
 wanted=$1
 
-git fsck --verbose 2>&1 \
-| while read -r line; do
-	set -- $line
-	if [ $1 = "Checking" ]; then
-		case $2 in
-		commit|tag|tree)
-			type=$2 hash=$3
-			if [ "$hash" = "$wanted" ]; then
-				continue
-			elif check-simple "$type" "$hash" "$wanted"; then
-				echo "$type $hash"
-			elif check-recursive "$type" "$hash" "$wanted"; then
-				echo "$type $hash (indirect)"
-			fi
-		esac
+list-objects \
+| while read -r hash type; do
+	if [ "$hash" = "$wanted" ]; then
+		continue
+	elif check-simple "$type" "$hash" "$wanted"; then
+		echo "$type $hash"
+	elif check-recursive "$type" "$hash" "$wanted"; then
+		echo "$type $hash (indirect)"
 	fi
 done

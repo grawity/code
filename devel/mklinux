@@ -15,9 +15,13 @@ sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x5
 
 _build_dkms() {
 	#dkms status | sed -rn '/^(.+), (.+): added$/{s!!\1/\2!p}' |
-	vbox_rel=$(pacman -Q virtualbox-host-dkms | awk '{print $2}' | sed 's/-.*//')
+	openafs_rel=$(expac %v openafs-modules-dkms | sed 's/-.*//')
+	vbox_rel=$(expac %v virtualbox-host-dkms | sed 's/-.*//')
 
-	emods=(vboxhost/$vbox_rel)
+	emods=(
+		openafs/$openafs_rel
+		vboxhost/$vbox_rel
+	)
 
 	for mod in ${emods[@]}; do
 		mname=${mod%%/*}

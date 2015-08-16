@@ -85,16 +85,22 @@ def get_header(path):
             file_headers[path] = fh.read(header_size)
     return file_headers[path]
 
-def hash_file(path):
+def hash_file(path, status_func=None):
     if path not in file_hashes:
         if opts.verbose:
             print("hashing", path, file=sys.stderr)
         h = hashlib.sha1()
+        block = 4 * 1024 * 1024
+        n_bytes = os.stat(path).st_size
+        n_hashed = 0
         with open(path, "rb") as fh:
             buf = True
             while buf:
-                buf = fh.read(4*1024*1024)
+                buf = fh.read(block)
                 h.update(buf)
+                if status_func:
+                    n_bytes += block
+                    status_func(n_hashed / n_bytes * 100)
         file_hashes[path] = h.digest()
     return file_hashes[path]
 
@@ -173,7 +179,8 @@ def find_duplicates(root_dirs):
         for path in paths:
             n_hash += 1
             status("hash (%d/%d)" % (n_hash, n_head), path)
-            filehash = hash_file(path)
+            filehash = hash_file(path,
+                lambda p: status("hash (%d/%d, %d%%)" % (n_hash, n_head, p), path))
             known_hashes[size, filehash].append(path)
 
     status()

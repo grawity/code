@@ -60,15 +60,22 @@ ttl() {
 cmd=$1; shift; case $cmd in
 	add)
 		name=$1 type=$2 data=$3
+		[[ $name ]] || die "missing record name, type, data"
+		[[ $type ]] || die "missing record type, data"
+		[[ $data ]] || die "missing record data"
 		do_nsupdate "$Fzone" \
 			"add $name $(ttl) $type $data" ;;
 	set)
 		name=$1 type=$2 data=$3
+		[[ $name ]] || die "missing record name, type, data"
+		[[ $type ]] || die "missing record type, data"
+		[[ $data ]] || die "missing record data"
 		do_nsupdate "$Fzone" \
 			"del $name" \
 			"add $name $(ttl) $type $data" ;;
 	del|rm)
 		name=$1 type=$2 data=$3
+		[[ $name ]] || die "missing record name"
 		do_nsupdate "$Fzone" \
 			"del $name $(ttl) $type $data" ;;
 	dhcp-add)
@@ -78,12 +85,15 @@ cmd=$1; shift; case $cmd in
 			"add $host.$Fzone $(ttl) A $ip" ;;
 	setptr)
 		ip=$1 name=$2
+		[[ $ip ]] || die "missing IP address"
+		[[ $name ]] || die "missing pointer name"
 		iparpa=$(arpaname $ip)
 		do_nsupdate "$Rzone" \
 			"del $iparpa" \
 			"add $iparpa $(ttl) PTR $name" ;;
 	delptr)
 		ip=$1
+		[[ $ip ]] || die "missing IP address"
 		iparpa=$(arpaname $ip)
 		do_nsupdate "$Rzone" \
 			"del $iparpa" ;;

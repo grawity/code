@@ -157,21 +157,35 @@ def enum_mtab():
 
 parts = sys.argv[1:] or sorted(enum_mtab())
 
-quota_gauge_width = 20
-disk_gauge_width = 10
+quota = False
 
-fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
+if quota:
+    quota_gauge_width = 20
+    disk_gauge_width = 10
+    fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
+    header = (
+        "PATH",
+        "TOTAL",
+        "FREE",
+        "AVAIL",
+        quota_gauge_width, "QUOTA USAGE",
+        "",
+        disk_gauge_width, "DISK USAGE",
+        "",
+    )
+else:
+    disk_gauge_width = 30
+    fmt = " %-20s %7s %7s %7s %-*s %5s"
+    header = (
+        "PATH",
+        "TOTAL",
+        "USED",
+        "FREE",
+        disk_gauge_width, "",
+        "",
+    )
 
-print(ansify(fmt, "1") % (
-    "PATH",
-    "TOTAL",
-    "FREE",
-    "AVAIL",
-    quota_gauge_width, "QUOTA USAGE",
-    "",
-    disk_gauge_width, "DISK USAGE",
-    "",
-))
+print(ansify(fmt, "1") % header)
 
 for mtpt in parts:
     try:
@@ -197,18 +211,33 @@ for mtpt in parts:
     quota_color     = threshold(100 - quota_part)[0]
     disk_color      = threshold(-1)[0]
 
-    print(fmt % (
-        homely(mtpt),
+    if quota:
+        row = (
+            homely(mtpt),
 
-        human(total_bytes),
-        human(free_bytes),
-        human(avail_bytes),
+            human(total_bytes),
+            human(free_bytes),
+            human(avail_bytes),
 
-        quota_gauge_width,
-        gauge3x(quota_gauge_width, quota_part, quota_color),
-        percent(quota_part, 1),
+            quota_gauge_width,
+            gauge3x(quota_gauge_width, quota_part, quota_color),
+            percent(quota_part, 1),
 
-        disk_gauge_width,
-        gauge3x(disk_gauge_width, disk_part, darken(disk_color, 2)),
-        percent(disk_part, 0),
-    ))
+            disk_gauge_width,
+            gauge3x(disk_gauge_width, disk_part, darken(disk_color, 2)),
+            percent(disk_part, 0),
+        )
+    else:
+        row = (
+            homely(mtpt),
+
+            human(total_bytes),
+            human(used_bytes),
+            human(free_bytes),
+
+            disk_gauge_width,
+            gauge3x(disk_gauge_width, quota_part, quota_color),
+            percent(disk_part, 1),
+        )
+
+    print(fmt % row)

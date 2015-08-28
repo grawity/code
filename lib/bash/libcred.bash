@@ -117,12 +117,16 @@ getnetrc_fqdn() {
 		local fqdn=$(fqdn "$host")
 	fi
 	debug "searching .netrc for '$service@$host' & '$service@$fqdn'"
-	getnetrc -df "$fmt" "$service@$host" "$user" ||
-	{ [[ $host != $fqdn ]] &&
-	getnetrc -df "$fmt" "$service@$fqdn" "$user"; } ||
-	getnetrc -df "$fmt" "$service@*.${fqdn#*.}" "$user" ||
-	getnetrc -df "$fmt" "$service@$host" ||
-	{ [[ $host != $fqdn ]] &&
-	getnetrc -df "$fmt" "$service@$fqdn"; } ||
-	getnetrc -df "$fmt" "$service@*.${fqdn#*.}"
+	if [[ $user ]]; then
+		getnetrc -df "$fmt" "$service@$host" "$user" && return
+		if [[ "$host" != "$fqdn" ]]; then
+			getnetrc -df "$fmt" "$service@$fqdn" "$user" && return
+		fi
+		getnetrc -df "$fmt" "$service@*.${fqdn#*.}" "$user" && return
+	fi
+	getnetrc -df "$fmt" "$service@$host" && return
+	if [[ "$host" != "$fqdn" ]]; then
+		getnetrc -df "$fmt" "$service@$fqdn" && return
+	fi
+	getnetrc -df "$fmt" "$service@*.${fqdn#*.}" && return
 }

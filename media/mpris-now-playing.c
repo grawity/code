@@ -58,19 +58,20 @@ int main(void) {
 
 	g_variant_get(result, "(v)", &props);
 	g_variant_lookup(props, "xesam:artist", "^a&s", &artists);
-	g_variant_lookup(props, "xesam:title", "&s", &title);
+	g_variant_lookup(props, "xesam:title", "s", &title);
 
 	if (artists)
 		artist = g_strjoinv(", ", artists);
 	else
-		artist = "(Unknown Artist)";
+		artist = g_strdup("(Unknown Artist)");
 
 	if (!title)
-		title = "(Unknown Song)";
+		title = g_strdup("(Unknown Song)");
 
 	g_printf("%s – %s\n", artist, title);
 
 	g_free(artist);
+	g_free(title);
 
 	return 0;
 }

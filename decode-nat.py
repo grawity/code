@@ -7,7 +7,17 @@ import socket
 states = []
 parse = False
 
+family_tokens = {
+    "ipv4": 2,
+}
+proto_tokens = {
+    "icmp": 1,
+    "tcp": 6,
+    "udp": 17,
+}
+
 conn_tokens = {"src", "dst", "sport", "dport"}
+
 int_tokens = {"sport", "dport", "use"}
 
 def try_resolve_addr(addr):
@@ -41,16 +51,22 @@ def fmt_addr_foo(stuff, addr_key, port_key, resolve=False):
 
 for line in sys.stdin:
     line = line.strip()
-    if line == "~ # cat /proc/self/net/nf_conntrack":
+    if "conntrack" in line:
         parse = True
-    elif line.startswith("~ #"):
+    elif "#" in line:
         break
     elif parse:
-        family_s, family_i, proto_s, proto_i, timeout, *data_v = line.split()
-        family_i = int(family_i)
+        line = line.split()
+        if line[0] in family_tokens:
+            family_s, family_i, proto_s, proto_i, timeout, *data_v = line
+            family_i = int(family_i)
+        else:
+            proto_s, proto_i, timeout, *data_v = line
+            family_s = "inet"
+            family_i = 0
         proto_i = int(proto_i)
         timeout = int(timeout)
-        data_h = {"outgoing": {}, "incoming": {}, "flags": set()}
+        data_h = {"tokens": line, "outgoing": {}, "incoming": {}, "flags": set()}
         if proto_s == "tcp":
             data_h["tcp_state"] = data_v.pop(0)
         for token in data_v:

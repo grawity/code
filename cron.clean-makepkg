@@ -1,34 +1,34 @@
 #!/bin/sh
 
+SRCDEST=~/src/_makepkg
+PKGDEST=~/.cache/makepkg/packages
+
 days=30
 
 if [ -t 2 ]; then
-	vf='-print' vr='-v'
 	set -x
-else
-	vf='' vr=''
 fi
 
-# from cache, remove old files
+# from downloaded source cache, remove old files
 
-find ~/src/_makepkg/ -maxdepth 1 \
-	-type f \( -ctime +$days -not -perm +1111 \) \
-	$vf -delete
+find "$SRCDEST" -maxdepth 1 -type f \( -ctime +$days -not -perm /+t \) -print -delete
 
 # ...and name-invariant files
 
-rm $vr -f ~/src/_makepkg/*current*
+find "$SRCDEST" -maxdepth 1 -type f -name "*current*" -print -delete
+
+# from build package cache, remove old packages
+
+paccache -c "$PKGDEST" -r -v
 
 # from ~/pkg, remove broken links
 
-find ~/pkg/ -maxdepth 3 -xtype l $vf -delete
+find ~/pkg/ -maxdepth 4 -xtype l -print -delete
 
 # ...and pkg+src directories
 
-if [ -t 2 ]; then
-	find ~/pkg/ -name pkg -not -readable \
-		-execdir chmod a+rx pkg \;
+if [ "$really" ]; then
+	find ~/pkg/ -name pkg -not -readable -execdir chmod a+rx pkg \;
 
-	find ~/pkg/ -name PKGBUILD \( -not -perm /+t \) \
-		-execdir rm $vr -rf pkg src \;
+	find ~/pkg/ -name PKGBUILD \( -not -perm /+t \) -execdir rm -rvf pkg src \;
 fi

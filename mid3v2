@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # Pretend to be /usr/bin/id3v2 from id3lib, sort of.
 # Copyright 2005 Joe Wreschnig
@@ -280,7 +280,12 @@ def list_tags(filenames):
 
 
 def list_tags_raw(filenames):
-    encodings = ["latin1", "utf16", "utf16-be", "utf8"]
+    encodings = {
+        mutagen.id3.Encoding.LATIN1: "LATIN1",
+        mutagen.id3.Encoding.UTF16: "UTF16",
+        mutagen.id3.Encoding.UTF16BE: "UTF16BE",
+        mutagen.id3.Encoding.UTF8: "UTF8",
+    }
     for filename in filenames:
         print_("Raw IDv2 tag info for", filename)
         try:
@@ -291,11 +296,12 @@ def list_tags_raw(filenames):
             print_(text_type(err), file=sys.stderr)
             raise SystemExit(1)
         else:
-            for frame in id3.values():
+            for frame in sorted(id3.values(), key=lambda f: repr(f)):
                 r = repr(frame)
                 if hasattr(frame, "encoding"):
+                    frame.encoding = mutagen.id3.Encoding(frame.encoding)
                     s = "encoding=%d," % frame.encoding
-                    t = "encoding=%r," % encodings[frame.encoding]
+                    t = "encoding=%s," % encodings[frame.encoding]
                     r = r.replace(s, t)
                 if len(r) > 90:
                     r = r[:90-3] + "..."

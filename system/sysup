@@ -2,13 +2,25 @@
 
 . lib.bash || exit
 
-set -e
+unset method
 
 if have pacman; then
-	sudo: pacman -Syu "$@"
+	method="pacman"
 elif have apt-get; then
+	method="apt-get"
+fi
+
+set -e
+
+case $method in
+    "pacman")
+	sudo: pacman -Syu "$@"
+	;;
+    "apt-get")
 	sudo: apt-get update
 	sudo: apt-get dist-upgrade -V "$@"
-else
+	;;
+    *)
 	die "no known package manager found"
-fi
+	;;
+esac

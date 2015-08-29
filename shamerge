@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+import os
+import sys
+import binascii
+import base64
+import hashlib
+
+def sha_pack(v):
+    return binascii.a2b_hex(v)
+
+def sha_unpack(v):
+    return binascii.b2a_hex(v).decode("us-ascii")
+
+def sha1_file(path):
+    bs = 16 << 20
+    h = hashlib.sha1()
+    buf = True
+    with open(path, "rb") as fh:
+        while buf:
+            buf = fh.read(bs)
+            h.update(buf)
+    return h.hexdigest()
+
+def relative(root, sub, base):
+    p = os.path.join(sub, base)
+    p = os.path.relpath(p, root)
+    p = os.path.join(".", p)
+    return p
+
+def parse_shafile(path):
+    with open(path, "r") as fh:
+        for line in fh:
+            if not line or line[0] in {"#", ";", "\r", "\n"}:
+                continue
+            else:
+                hash, path = line.split(" ", 1)
+                path = path.lstrip(" *").rstrip("\r\n")
+                yield (hash, path)
+
+def is_excluded(path):
+    return path.endswith(".!ut") or path.endswith(".part")
+
+SHAFILE_NAME = "directory.sha"
+
+n_hashed = 0
+n_loaded = 0
+n_error = 0
+
+for root_dir in sys.argv[1:] or ["."]:
+    print("scanning", root_dir)
+    out_file = os.path.join(root_dir, SHAFILE_NAME)
+    seen_files = set()
+    seen_files_ext = dict()
+    with open(out_file, "a") as out_fh:
+        for subdir, dirs, files in os.walk(root_dir):
+            print(" \033[38;5;248m· scanning %s\033[m" % subdir)
+            # first import directory.sha from the subdir,
+            subshafile = os.path.join(subdir, SHAFILE_NAME)
+            if os.path.exists(subshafile):
+                is_output = os.path.samefile(subshafile, out_file)
+                subsha_mtime = os.stat(subshafile).st_mtime
+                print("   · parsing", subshafile)
+                for (hash, path) in parse_shafile(subshafile):
+                    path = relative(root_dir, subdir, path)
+                    if path not in seen_files:
+                        if not is_output:
+                            print("%s *%s" % (hash, path), file=out_fh)
+                        n_loaded += 1
+                        seen_files.add(path)
+                        seen_files_ext[path] = subsha_mtime
+            # then hash all files that were not in it
+            for file in files:
+                if file == SHAFILE_NAME:
+                    continue
+                full_path = os.path.join(subdir, file)
+                rel_path = relative(root_dir, subdir, file)
+                file_mtime = os.stat(full_path).st_mtime
+                if rel_path not in seen_files or file_mtime > seen_files_ext[rel_path]:
+                    if not is_excluded(rel_path):
+                        print("   · hashing", full_path)
+                        try:
+                            hash = sha1_file(full_path)
+                            print("%s *%s" % (hash, rel_path), file=out_fh)
+                            n_hashed += 1
+                        except FileNotFoundError as e:
+                            print(e)
+                            n_error += 1
+                    seen_files.add(rel_path)
+                    seen_files_ext[rel_path] = file_mtime
+
+print("%d files hashed, %d loaded from dir.sha" % (n_hashed, n_loaded))

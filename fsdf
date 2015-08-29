@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+for fs in fs{1..2}; do
+	ssh $fs.nullroute.eu.org "df -h pub/$fs" \
+	| sed 1d \
+	| awk -v fs=$fs '{ printf "%s: %5s out of %s free (%s of %s used)\n",
+			fs, $4, $2, $5, $1 }'
+done

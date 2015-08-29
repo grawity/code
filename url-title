@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+import sys
+import requests
+import bs4
+
+def get_title(url):
+    head = requests.head(url)
+    if not head.ok:
+        return
+    mime = head.headers["content-type"]
+    if not mime:
+        return
+    mime = mime.split(";")[0].strip()
+    if mime not in {"text/html"}:
+        return
+
+    get = requests.get(url)
+    if not get.ok:
+        return
+    mime = get.headers["content-type"]
+    if not mime:
+        return
+    mime = mime.split(";")[0].strip()
+    if mime not in {"text/html"}:
+        return
+
+    body = bs4.BeautifulSoup(get.text)
+
+    title = body.title
+    if not title:
+        return
+
+    return title.string
+
+for url in sys.argv[1:]:
+    title = get_title(url)
+    print(title or url)

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+if (( $# )); then
+	dirs=("$@")
+else
+	dirs=(.)
+fi
+
+for dir in "${dirs[@]}"; do
+	(
+		base=$(git -C "$dir" rev-parse --show-toplevel)
+		src=$(git -C "$dir" rev-parse --git-dir)
+		src=$(cd "$dir" && realpath "$src")
+		dst="$base.git"
+
+		log "repository '$base'"
+		log "gitdir '$src'"
+
+		if [[ "$(git -C "$dir" config core.bare)" == "true" ]]; then
+			notice "'$dir' is already a bare repo"
+			continue
+		fi
+
+		mv -v "$src" "$dst"
+
+		git -C "$dst" update-ref -d "refs/remotes/origin/HEAD"
+		git -C "$dst" pack-refs --all --prune
+		rm -rf "$dst/refs"
+		mkdir "$dst/refs"
+
+		git -C "$dst" config core.bare true
+		git -C "$dst" config remote.origin.fetch "+refs/heads/*:refs/heads/*"
+		git -C "$dst" fetch --all
+		git -C "$dst" for-each-ref |
+			while read -r _ _ ref; do
+				if [[ $ref == refs/remotes/* ]]; then
+					git -C "$dst" update-ref -d "$ref"
+				fi
+			done
+
+		find "$base" -print -delete | progress
+	) \
+	|| err "conversion of '$dir' failed"
+done
+
+lib::exit

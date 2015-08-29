@@ -1,4 +1,12 @@
 #!/bin/bash
+
+. lib.bash || exit
+
 name=sha1sums
 name=directory.sha
-find "${@:-.}" -type f \( -not -name "$name" \) -exec sha1sum -b {} + | tee "$name"
+
+if [[ -s "$name" ]]; then
+	die "'$name' already exists, not overwriting"
+fi
+
+find "${@:-.}" -type f \( -not -name "$name" \) -exec sha1sum -b {} + | tee -a "$name"

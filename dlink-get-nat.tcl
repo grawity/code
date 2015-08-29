@@ -1,7 +1,7 @@
 #!/usr/bin/expect -f
 # vim: ft=tcl
 
-spawn telnet 192.168.1.1
+spawn telnet gateway
 expect "Login:"
 send "admin\n"
 expect "Password:"

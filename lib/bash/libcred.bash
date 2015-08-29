@@ -123,10 +123,11 @@ getnetrc_fqdn() {
 			getnetrc -df "$fmt" "$service@$fqdn" "$user" && return
 		fi
 		getnetrc -df "$fmt" "$service@*.${fqdn#*.}" "$user" && return
+	else
+		getnetrc -df "$fmt" "$service@$host" && return
+		if [[ "$host" != "$fqdn" ]]; then
+		       getnetrc -df "$fmt" "$service@$fqdn" && return
+		fi
+		getnetrc -df "$fmt" "$service@*.${fqdn#*.}" && return
 	fi
-	getnetrc -df "$fmt" "$service@$host" && return
-	if [[ "$host" != "$fqdn" ]]; then
-		getnetrc -df "$fmt" "$service@$fqdn" && return
-	fi
-	getnetrc -df "$fmt" "$service@*.${fqdn#*.}" && return
 }

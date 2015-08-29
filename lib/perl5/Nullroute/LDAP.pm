@@ -117,7 +117,7 @@ sub ldap_increment_attr {
         $done = ldap_cas_attr($conn, $dn, $attr, $val, $val+$incr);
         _debug($done ? "finished" : "retrying");
         if (!$done) {
-            usleep(0.05 * int(rand(++$wait));
+            usleep(0.05 * 2**int(rand(++$wait)));
         }
     }
     return $val+$incr;

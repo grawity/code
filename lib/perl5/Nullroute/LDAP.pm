@@ -10,6 +10,7 @@ use Net::LDAP::Constant (
 use Net::LDAP::Control::Assertion;
 use Net::LDAP::Control::PostRead;
 use Nullroute::Lib;
+use Time::HiRes qw(usleep);
 
 @EXPORT = qw(
     ldap_read_attr
@@ -80,6 +81,7 @@ sub ldap_increment_attr {
     my $res;
     my $val;
     my $done;
+    my $wait;
 
     $incr ||= 1;
     $done = false;
@@ -106,12 +108,17 @@ sub ldap_increment_attr {
 
     # manual compare-and-swap
 
+    $wait = 0;
+
     until ($done) {
         _debug("fetching $attr");
         $val = ldap_read_attr($conn, $dn, $attr);
         _debug("fetched '$val', swapping");
         $done = ldap_cas_attr($conn, $dn, $attr, $val, $val+$incr);
         _debug($done ? "finished" : "retrying");
+        if (!$done) {
+            usleep(0.05 * int(rand(++$wait));
+        }
     }
     return $val+$incr;
 }

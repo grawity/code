@@ -1,11 +1,12 @@
 #if 0
 pkg = glib-2.0 gio-2.0
-app = nowplaying
+src = $(MAKEFILE_LIST)
+app = $(basename $(src))
 
 CFLAGS  = $(shell pkg-config --cflags $(pkg)) -x c
 LDFLAGS = $(shell pkg-config --libs $(pkg))
 
-$(app): $(MAKEFILE_LIST)
+$(app): $(src)
 
 define source
 #endif

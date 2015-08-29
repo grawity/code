@@ -11,6 +11,7 @@ define source
 #endif
 
 #include <glib.h>
+#include <glib/gprintf.h>
 #include <gio/gio.h>
 
 int main(void) {
@@ -56,8 +57,8 @@ int main(void) {
 	}
 
 	g_variant_get(result, "(v)", &props);
-	g_variant_lookup(props, "xesam:artist", "^as", &artists);
-	g_variant_lookup(props, "xesam:title", "s", &title);
+	g_variant_lookup(props, "xesam:artist", "^a&s", &artists);
+	g_variant_lookup(props, "xesam:title", "&s", &title);
 
 	if (artists)
 		artist = g_strjoinv(", ", artists);
@@ -68,6 +69,9 @@ int main(void) {
 		title = "(Unknown Song)";
 
 	g_printf("%s – %s\n", artist, title);
+
+	g_free(artist);
+
 	return 0;
 }
 

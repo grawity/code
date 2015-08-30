@@ -153,9 +153,18 @@ def enum_mtab():
             elif fstype in skip_fstypes and mtpt not in include_mounts:
                 continue
             else:
-                yield mtpt
+                yield mtpt, fstype
 
-parts = sys.argv[1:] or sorted(enum_mtab())
+dparts = []
+mparts = []
+
+dparts = sys.argv[1:]
+if not dparts:
+    for mtpt, fstype in enum_mtab():
+        if fstype == "tmpfs":
+            mparts.append(mtpt)
+        else:
+            dparts.append(mtpt)
 
 quota = False
 
@@ -185,18 +194,20 @@ else:
         "",
     )
 
+separator = ansify("-" * len(fmt % header), "2")
+
 print(ansify(fmt, "1") % header)
 
-for mtpt in parts:
+def dump_mtpt(mtpt):
     try:
         st = os.statvfs(mtpt)
     except PermissionError:
-        continue
+        return
     except OSError:
-        continue
+        return
 
     if st.f_blocks == 0:
-        continue
+        return
 
     total_bytes     = st.f_bsize * st.f_blocks
     free_bytes      = st.f_bsize * st.f_bfree
@@ -241,3 +252,17 @@ for mtpt in parts:
         )
 
     print(fmt % row)
+
+def dump_all():
+    print(separator)
+
+    for mtpt in dparts:
+        dump_mtpt(mtpt)
+
+    if dparts and mparts:
+        print(separator)
+
+    for mtpt in mparts:
+        dump_mtpt(mtpt)
+
+dump_all()

@@ -28,23 +28,18 @@ try:
     arg = sys.argv[1]
     if arg.startswith("/"):
         plen = int(arg[1:])
-
         if plen < 0:
             Core.die("prefix length must be positive")
         elif plen > 128:
             Core.die("prefix length too large for any family")
 
+        nprint("prefix", "/%d" % plen)
         if plen <= 32:
-            print("--- IPv4 ---")
             net = ip_network("0.0.0.0/%d" % plen)
-            nprint("prefix", "/%d" % net.prefixlen)
-            nprint("netmask", net.netmask)
-            nprint("size", net.num_addresses)
-        if plen <= 128:
-            print("--- IPv6 ---")
-            net = ip_network("::/%d" % plen)
-            nprint("prefix", "/%d" % net.prefixlen)
-            nprint("netmask", net.netmask.exploded)
+            nprint("v4 netmask", net.netmask)
+            nprint("v4 size", net.num_addresses)
+        net = ip_network("::/%d" % plen)
+        nprint("v6 netmask", net.netmask)
     elif "/" in arg:
         addr = ip_interface(arg)
         nprint("address", addr)

@@ -27,12 +27,12 @@ def addr2props(addr):
         elif addr.is_unspecified:
             kind = "unspecified"
         elif addr.teredo:
-            kind = "Teredo"
+            kind = "global (Teredo)"
             relay, v4addr = addr.teredo
             misc.append(("relay host", addr.teredo[0]))
             misc.append(("v4 address", addr.teredo[1]))
         elif addr.sixtofour:
-            kind = "6to4"
+            kind = "global (6to4)"
             misc.append(("v4 address", addr.sixtofour))
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
@@ -54,6 +54,15 @@ def addr2props(addr):
             misc.append(("v4 address", IPv4Address(addr.packed[12:])))
         elif addr.is_reserved:
             kind = "reserved"
+        else:
+            kind = "global"
+            if addr.packed[11:13] == b'\xff\xfe':
+                mac = addr.packed[8:11] + addr.packed[13:]
+                mac = list(mac)
+                mac[0] ^= 2
+                mac = ["%02x" % n for n in mac]
+                kind += " (SLAAC)"
+                misc.append(("MAC address", ":".join(mac)))
     elif addr.version == 4:
         pass
     return kind, misc

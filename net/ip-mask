@@ -4,11 +4,8 @@ from ipaddress import *
 from nullroute import Core
 
 def nprint(k, *v):
-    width = 10
+    width = 12
     print("\033[33m%*s\033[m" % (width, k), *v)
-    if isinstance(v[0], IPv6Address) or isinstance(v[0], IPv6Network):
-        if str(v[0]) != str(v[0].exploded):
-            print(" " * width, v[0].exploded)
 
 def addr2props(addr):
     mapping = [
@@ -40,26 +37,28 @@ try:
         nprint("prefix", "/%d" % plen)
         if plen <= 32:
             net = ip_network("0.0.0.0/%d" % plen)
-            nprint("v4 netmask", net.netmask)
-            nprint("v4 size", net.num_addresses)
+            nprint("v4 netmask", net.netmask, "(%d addresses)" % net.num_addresses)
         net = ip_network("::/%d" % plen)
-        nprint("v6 netmask", net.netmask)
+        nprint("v6 netmask", net.netmask.exploded)
     elif "/" in arg:
         addr = ip_interface(arg)
         nprint("address", addr)
+        if addr.version == 6:
+            nprint("->", addr.exploded)
         props = addr2props(addr)
         if props:
             nprint("properties", ", ".join(props))
         print()
         net = addr.network
         nprint("network", net)
-        nprint("netmask", net.netmask)
         if addr.version == 4:
-            nprint("size", net.num_addresses)
-        nprint("first", net.network_address)
-        nprint("last", net.broadcast_address)
-        print()
-        nprint("next net", "%s/%s" % (net.broadcast_address + 1, net.prefixlen))
+            nprint("netmask", net.netmask, "(%d addresses)" % net.num_addresses)
+        else:
+            nprint("netmask", net.netmask.exploded)
+        nprint("first addr", net.network_address.exploded)
+        nprint("last addr", net.broadcast_address.exploded)
+        next_net = ip_network("%s/%s" % (net.broadcast_address + 1, net.prefixlen))
+        nprint("next net", next_net)
     else:
         addr = ip_address(arg)
         if addr.version == 4 and addr._is_valid_netmask(arg):

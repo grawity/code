@@ -109,15 +109,19 @@ getcred_samba() {
 
 getnetrc_fqdn() {
 	local host=$1 service=$2 user=$3 fmt=$4
-	if [[ $host == *.* ]]; then
+	if [[ "$host" == *.* ]]; then
 		# TODO: this is a hack and probably makes it
 		# not do what I originally wanted
 		local fqdn=$host
 	else
 		local fqdn=$(fqdn "$host")
 	fi
-	debug "searching .netrc for '$service@$host' & '$service@$fqdn'"
-	if [[ $user ]]; then
+	if [[ "$host" == "$fqdn" ]]; then
+		debug "searching .netrc for '$service@$host'"
+	else
+		debug "searching .netrc for '$service@$host' & '$service@$fqdn'"
+	fi
+	if [[ "$user" ]]; then
 		getnetrc -df "$fmt" "$service@$host" "$user" && return
 		if [[ "$host" != "$fqdn" ]]; then
 			getnetrc -df "$fmt" "$service@$fqdn" "$user" && return

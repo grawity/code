@@ -165,7 +165,13 @@ do_main() {
 	fi
 
 	if (( ! $# )) && [[ -s Pullfile ]]; then
+		debug "reading args from Pullfile"
 		set -- $(grep '^[^#]' Pullfile)
+	fi
+
+	if (( ! $# )) && [[ -f Pullfile ]] && [[ ! -s Pullfile ]]; then
+		debug "empty Pullfile, assuming '*/'"
+		set -- */
 	fi
 
 	if (( ! $# )); then

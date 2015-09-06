@@ -17,6 +17,8 @@ def addr2props(addr):
         ("is_private", "private"),
         ("is_multicast", "multicast"),
         ("is_reserved", "reserved"),
+        ("teredo", "Teredo"),
+        ("sixtofour", "6to4"),
     ]
     props = []
     for prop, name in mapping:
@@ -68,6 +70,12 @@ try:
             props = addr2props(addr)
             if props:
                 nprint("properties", ", ".join(props))
+            if addr.version == 6 and addr.teredo:
+                relay, v4addr = addr.teredo
+                nprint("relay", relay)
+                nprint("v4 address", v4addr)
+            if addr.version == 6 and addr.sixtofour:
+                nprint("v4 address", addr.sixtofour)
 except IndexError:
     Core.die("not enough arguments")
 except ValueError as e:

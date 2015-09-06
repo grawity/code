@@ -3,41 +3,69 @@ import sys
 from ipaddress import *
 from nullroute import Core
 
+IPV6_MCAST_SCOPES = {
+    0x0: "reserved",
+    0x1: "interface-local",
+    0x2: "link-local",
+    0x4: "admin-local",
+    0x5: "site-local",
+    0x8: "organization-local",
+    0xe: "global",
+    0xf: "reserved",
+}
+
 def nprint(k, *v):
     width = 12
     print("\033[33m%*s\033[m" % (width, k), *v)
 
 def addr2props(addr):
-    mapping = [
-        ("is_loopback", "loopback"),
-        ("is_link_local", "link-local"),
-        ("is_site_local", "site-local"),
-        ("is_global", "global"),
-        ("is_private", "private"),
-        ("is_multicast", "multicast"),
-        ("is_reserved", "reserved"),
-        ("teredo", "Teredo"),
-        ("sixtofour", "6to4"),
-    ]
-    props = []
-    for prop, name in mapping:
-        if getattr(addr, prop, False):
-            props.append(name)
-    return props
+    kind = "unknown"
+    misc = []
+    if addr.version == 6:
+        if addr.is_loopback:
+            kind = "loopback"
+        elif addr.is_unspecified:
+            kind = "unspecified"
+        elif addr.teredo:
+            kind = "Teredo"
+            relay, v4addr = addr.teredo
+            misc.append(("relay host", addr.teredo[0]))
+            misc.append(("v4 address", addr.teredo[1]))
+        elif addr.sixtofour:
+            kind = "6to4"
+            misc.append(("v4 address", addr.sixtofour))
+        elif addr.ipv4_mapped:
+            kind = "IPv4-mapped"
+            misc.append(("v4 address", addr.ipv4_mapped))
+        elif addr.is_link_local:
+            kind = "link-local"
+        elif addr.is_site_local:
+            kind = "site-local"
+        elif addr.is_multicast:
+            kind = "multicast"
+            flags = (addr.packed[1] >> 4) & 0xF
+            scope = addr.packed[1] & 0xF
+            scope = IPV6_MCAST_SCOPES.get(scope, "invalid scope")
+            misc.append(("scope", scope))
+        elif addr in IPv6Network("fc00::/7"):
+            kind = "unique local address"
+        elif addr in IPv6Network("::/96"):
+            kind = "IPv4-compatible"
+            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
+        elif addr.is_reserved:
+            kind = "reserved"
+    elif addr.version == 4:
+        pass
+    return kind, misc
 
 def show_addr(addr):
     nprint("address", addr)
     if addr.version == 6:
         nprint("->", addr.exploded)
-    props = addr2props(addr)
-    if props:
-        nprint("properties", ", ".join(props))
-    if addr.version == 6 and addr.teredo:
-        relay, v4addr = addr.teredo
-        nprint("relay", relay)
-        nprint("v4 address", v4addr)
-    if addr.version == 6 and addr.sixtofour:
-        nprint("v4 address", addr.sixtofour)
+    kind, misc = addr2props(addr)
+    nprint("type", kind)
+    for k, v in misc:
+        nprint(k, v)
 
 def show_net(net):
     nprint("network", net)

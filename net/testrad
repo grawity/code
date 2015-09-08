@@ -14,6 +14,7 @@ test -x 'bin/eapol_test'	|| err "missing './bin/eapol_test'"
 declare -- self via
 declare -A name user pass host port secret eap _alias_
 declare -- _host _port _secret _eap _phase2 _outer _user _pass
+declare -- _tlscert _tlskey _tlsca
 
 # parse arguments
 
@@ -41,6 +42,9 @@ while (( $# )); do
 		'inner-user')	_user=$2; : ${_pass:="-"}; shift;;
 		'inner-login')	_user=$2; : ${_pass:="-"}; shift;;
 		'pass')		_pass=$2; shift;;
+		'cert')		_tlscert=$2; shift;;
+		'key')		_tlskey=$2; shift;;
+		'ca'|'ca-cert')	_tlsca=$2; shift;;
 		# anonymous (outer) identity
 		'outer')	_outer=$2; shift;;
 		'outer-user')	_outer=$2; shift;;
@@ -127,6 +131,9 @@ if [[ $_eap && $_eap != NONE ]]; then
 	cmd=(rad_eap_test -H "$_host" -P "$_port" -S "$_secret"
 	                  -u "$_user" -p "$_pass" -A "$_outer"
 	                  -m WPA-EAP -e "$_eap" -2 "$_phase2" -v)
+	[[ $_tlscert ]] && _cmd+=(-j "$_tlscert")
+	[[ $_tlskey ]]  && _cmd+=(-k "$_tlskey")
+	[[ $_tlsca ]]   && _cmd+=(-a "$_tlsca")
 else
 	log "mechanism: direct $_phase2"
 	if [[ "$_outer" != "$_user" ]]; then

@@ -111,8 +111,7 @@ function colour($addr) {
 }
 
 # This is where the fun happens.
-function go($from, $depth = 0, $skip = array()) {
-	global $visited;
+function go($from, $depth = 0, $skip = array(), &$visited = array()) {
 	$visited[] = $from;
 
 	# print current address
@@ -132,7 +131,7 @@ function go($from, $depth = 0, $skip = array()) {
 		if (in_array($addr, $visited) or in_array($addr, $skip))
 			continue;
 		$visited[] = $addr;
-		go($addr, $depth+1, $skip+$addresses);
+		go($addr, $depth+1, $skip+$addresses, $visited);
 	}
 }
 
@@ -169,7 +168,6 @@ if (count($addresses) == 0)
 	exit(msg_help());
 
 foreach ($addresses as $i => $start_addr) {
-	$visited = array();
 	if ($i > 0) print "\n";
 	go($start_addr);
 }

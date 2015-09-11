@@ -1,24 +1,9 @@
 #!/usr/bin/env bash
-# wrapper for 'ttytter' (update, environ, args)
-
-. lib.bash || exit
-
-#EXE="$PREFIX/lib/ttytter"
-EXE="/bin/ttytter"
-CONF="$XDG_CONFIG_HOME/ttytter"
-
-if [[ $1 == "update" ]]; then
-	if [[ ! -w $EXE ]]; then
-		die "ttytter is installed system-wide, cannot update"
-	fi
-
-	shift
-	curl "http://www.floodgap.com/software/ttytter/ttytter.txt" > "$EXE"
-	chmod +rx "$EXE"
-fi
-
+# wrapper for 'ttytter'
 export PATH="$HOME/bin/compat/ttytter:$PATH"
 export PERL_RL="TTYtter"
 export PERL_SIGNALS="unsafe"
-
-exec -a "$0" "$EXE" -rc="$CONF/rc" -keyf="$CONF/key" "$@"
+exec -a "$0" /usr/bin/ttytter \
+	-rc="$XDG_CONFIG_HOME/ttytter/rc" \
+	-keyf="$XDG_CONFIG_HOME/ttytter/key" \
+	"$@"

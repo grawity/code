@@ -3,19 +3,30 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-u <url>] <title> <summary> [<body>]"
+	echo "Usage: $progname [OPTIONS] <title> <summary> [<body>]"
 	echo
+	echo_opt "-p <prio>" "Set priority (hidden, quiet, high, emerg)"
+	echo_opt "-S <sound>" "Set predefined notification sound"
 	echo_opt "-u <url>" "Set a URL for the notification"
+	echo_opt "-U <title>" "Set the URL title"
 }
 
 url=
+url_title=
 title=
 summary=
 body=
+prio=0
+retry=0
+expire=0
+sound=
 
-while getopts ":u:" OPT; do
+while getopts ":p:S:u:U:" OPT; do
 	case $OPT in
+	p) prio=$OPTARG;;
+	S) sound=$OPTARG;;
 	u) url=$OPTARG;;
+	U) url_title=$OPTARG;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -28,16 +39,54 @@ if ! [[ "$title" && "$summary" ]]; then
 	die "missing title and/or summary"
 fi
 
+case $prio in
+	-[21]|[012]) ;;
+	hidden) prio=-2;;
+	quiet) prio=-1;;
+	high) prio=1;;
+	emerg) prio=2;;
+	*) die "unknown priority '$prio'" ;;
+esac
+
 args=(-F "user=uSjWBy9oxBwZWgyJnXdPXM2eUbXnCN"
       -F "token=aW4NXZn1hk7NntWFQXEkddbA76Zx9n"
       -F "title=$HOSTNAME – $title"
       -F "message=$summary")
 
+if (( prio != 0 )); then
+	args+=(-F "priority=$prio")
+	if (( ! retry )); then
+		retry=30
+	fi
+	if (( ! expire )); then
+		expire=3600
+	fi
+fi
+
+if (( retry > 0 )); then
+	if (( retry < 30 )); then
+		die "retry must be at least 30 seconds"
+	fi
+	args+=(-F "retry=$retry")
+fi
+
+if (( expire > 0 )); then
+	if (( expire > 86400 )); then
+		die "expire must be no longer than 1 day"
+	elif (( expire < retry )); then
+		die "expire must be longer than retry"
+	fi
+	args+=(-F "expire=$expire")
+fi
+
 if [[ "$body" ]]; then
 	if [[ "$url" ]]; then
 		die "URL and body cannot be specified together"
 	elif [[ "$body" != "$summary" ]]; then
-		url=($(curl -F "sprunge=$body" http://sprunge.us))
+		url=($(curl -s -F "sprunge=$body" http://sprunge.us))
+		if [[ ! "$url_title" ]]; then
+			url_title="Expand"
+		fi
 	fi
 fi
 
@@ -45,4 +94,12 @@ if [[ "$url" ]]; then
 	args+=(-F "url=$url")
 fi
 
-curl -s -o /dev/null "${args[@]}" https://api.pushover.net/1/messages.json
+if [[ "$url_title" ]]; then
+	args+=(-F "url_title=$url_title")
+fi
+
+if [[ "$sound" ]]; then
+	args+=(-F "sound=$sound")
+fi
+
+curl -s "${args[@]}" https://api.pushover.net/1/messages.json

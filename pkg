@@ -90,7 +90,17 @@ CACHEDIR="$XDG_CACHE_HOME/nullroute/pkg"
 mkdir -p "$DBDIR"
 mkdir -p "$CACHEDIR/install"
 
-pkgname=$(basename "$PWD")
+while getopts ":P:" OPT; do
+	case $OPT in
+	P) pkgname=$OPTARG;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ ! $pkgname ]]; then
+	pkgname=$(basename "$PWD")
+fi
+
+export pkgname
 
 cmd=$1; shift
 case $cmd in

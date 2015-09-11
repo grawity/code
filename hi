@@ -7,10 +7,6 @@ set -o pipefail
 log=$XDG_CACHE_HOME/nullroute.eu.org/highlights.txt
 link=$XDG_CONFIG_HOME/nullroute.eu.org/highlights.txt.url
 
-touch "$log"     || die "cannot create highlight cache"
-exec {fd}<"$log" || die "cannot open highlight cache"
-flock -x -w3 $fd || die "another instance is running"
-
 fmt() {
 	perl -M'POSIX' -M'POSIX::strptime' -M'Nullroute::Lib' -E'
 
@@ -144,8 +140,12 @@ url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
 if [[ -h "$link" ]]
 	then url=$(readlink "$link")
 	else url=$(< "$link")
-fi ||
-die "could not find URL for $log"
+fi || die "could not find URL for $log"
+
+flock -x -w3 $fd || die "another instance is running"
+mkdir -p "${log%/*}" || die "cannot create cache directory"
+touch "$log"     || die "cannot create highlight cache"
+exec {fd}<"$log" || die "cannot open highlight cache"
 
 opts='-4 --connect-timeout 3'
 size=$(stat -c %s "$log")

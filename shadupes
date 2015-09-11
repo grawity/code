@@ -27,13 +27,13 @@ def strip_extension(path):
     return path
 
 def canonicalize_path(path):
-    path = path.replace(b"\\", b"/")
-    while path[:2] == b"./":
+    path = path.replace("\\", "/")
+    while path[:2] == "./":
         path = path[2:]
     return path
 
 hash_ignore = {
-    b"da39a3ee5e6b4b0d3255bfef95601890afd80709", # null
+    "da39a3ee5e6b4b0d3255bfef95601890afd80709", # null
 }
 
 all = {}
@@ -60,23 +60,25 @@ for arg in sys.argv[1:]:
     for file in enum_files(arg):
         base = os.path.dirname(strip_path_prefix(file, arg))
         with open(file, "rb") as fh:
+            print("; parsing %s" % file)
             codec = detect_codec(fh)
             for n, line in enumerate(fh):
-                hash, tail = line.rstrip(b"\r\n").split(b" *", 1)
+                try:
+                    line = line.decode(codec)
+                except UnicodeDecodeError:
+                    print("line %d: could not decode %r as %r" \
+                          % (n, line, codec), file=sys.stderr)
+                    raise
+                hash, tail = line.rstrip("\r\n").split(" *", 1)
                 if hash in hash_ignore:
                     continue
                 tail = canonicalize_path(tail)
-                try:
-                    tail = tail.decode(codec)
-                except UnicodeDecodeError:
-                    print("line %d: could not decode %r as %r" \
-                          % (n, tail, codec), file=sys.stderr)
-                    raise
-                path = arg + "::" + os.path.join(base, tail)
-                all.setdefault(hash, set()).add(path)
+                path = os.path.join(base, tail)
+                if os.path.exists(path):
+                    all.setdefault(hash, set()).add(path)
 
 for hash, paths in all.items():
     if len(paths) > 5:
-        print(hash)
+        print("#", hash)
         for path in sorted(paths):
-            print(" ", path)
+            print(hash, path)

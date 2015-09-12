@@ -147,12 +147,13 @@ sub ldap_format_error {
 sub ldap_check {
     my ($res, $dn, $ignore) = @_;
 
-    return if !$res->is_error;
-
+    if (!$res->is_error) {
+        return 1;
+    }
     utf8::decode($dn);
     if (ref $ignore eq 'ARRAY' && grep {$res->error_name eq $_} @$ignore) {
         _debug("ignoring ".$res->error_name.($dn ? " for $dn" : ""));
-        return;
+        return 0;
     }
     my $text = ldap_format_error($res, $dn);
     _die($text);

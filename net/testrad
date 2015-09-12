@@ -23,6 +23,7 @@ while (( $# )); do
 		self=$1
 		via=$self
 	else
+		debug "args: '$1', '$2'"
 		case ${1#--} in
 		# RADIUS server
 		'via')		via=$2; shift;;
@@ -131,9 +132,9 @@ if [[ $_eap && $_eap != NONE ]]; then
 	cmd=(rad_eap_test -H "$_host" -P "$_port" -S "$_secret"
 	                  -u "$_user" -p "$_pass" -A "$_outer"
 	                  -m WPA-EAP -e "$_eap" -2 "$_phase2" -v)
-	[[ $_tlscert ]] && _cmd+=(-j "$_tlscert")
-	[[ $_tlskey ]]  && _cmd+=(-k "$_tlskey")
-	[[ $_tlsca ]]   && _cmd+=(-a "$_tlsca")
+	[[ $_tlscert ]] && cmd+=(-j "$_tlscert")
+	[[ $_tlskey ]]  && cmd+=(-k "$_tlskey")
+	[[ $_tlsca ]]   && cmd+=(-a "$_tlsca")
 else
 	log "mechanism: direct $_phase2"
 	if [[ "$_outer" != "$_user" ]]; then

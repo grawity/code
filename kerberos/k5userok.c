@@ -41,11 +41,10 @@ char *get_username(void) {
 	struct passwd *pw;
 
 	pw = getpwuid(geteuid());
-	if (pw && pw->pw_name) {
+	if (pw && pw->pw_name)
 		return strdup(pw->pw_name);
-	} else {
+	else
 		return strdup("?");
-	}
 }
 
 void usage(void) {

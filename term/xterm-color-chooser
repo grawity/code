@@ -28,11 +28,16 @@ properties = {
 }
 
 xdg_config_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-old_state_path = os.path.join(xdg_config_dir, "xterm-color-chooser.json")
 
-state_dir = os.path.join(xdg_config_dir, "nullroute")
+older_state_path = os.path.join(xdg_config_dir, "xterm-color-chooser.json")
+
+old_state_dir = os.path.join(xdg_config_dir, "nullroute")
+old_state_path = os.path.join(old_state_dir, "xterm-color-chooser.json")
+
+state_dir = os.path.join(xdg_config_dir, "nullroute.eu.org")
 state_path = os.path.join(state_dir, "xterm-color-chooser.json")
 
+older_state_found = False
 old_state_found = False
 
 def screen_init(mode):
@@ -95,7 +100,12 @@ class State(dict):
                     self.load(json.load(fh))
                     old_state_found = True
             except FileNotFoundError:
-                pass
+                try:
+                    with open(older_state_path, "r") as fh:
+                        self.load(json.load(fh))
+                        older_state_found = True
+                except FileNotFoundError:
+                    pass
 
     def save_persistent(self):
         with open(state_path, "w") as fh:
@@ -104,6 +114,12 @@ class State(dict):
         if old_state_found:
             try:
                 os.unlink(old_state_path)
+            except FileNotFoundError:
+                pass
+
+        if older_state_found:
+            try:
+                os.unlink(older_state_path)
             except FileNotFoundError:
                 pass
 

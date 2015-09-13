@@ -16,9 +16,7 @@ class SaslMechanism(object):
         self.inbuf += inbuf
         return None
 
-    def next(self, inbuf=None):
-        if inbuf:
-            self.inbuf += inbuf
+    def next(self):
         outbuf = self.do_step(self.inbuf)
         if outbuf is None:
             raise IndexError("no more SASL steps to take")
@@ -212,19 +210,16 @@ class IrcClient(object):
                 }
         elif frame.cmd == "AUTHENTICATE":
             data = frame.args[1]
-            if data == "+":
+            if data != "+":
+                self.sasl_mech.feed(b64decode(data))
+            if len(data) != 400:
                 outbuf = self.sasl_mech.next()
-            elif len(data) == 400:
-                inbuf = b64decode(data)
-                outbuf = self.sasl_mech.feed(inbuf)
-            else:
-                outbuf = self.sasl_mech.next(inbuf)
-            if outbuf is None:
-                trace("SASL mechanism did not return any data")
-                self.send("QUIT")
-                yield "disconnected", {"reason": "auth-failed"}
-            for chunk in b64chunked(outbuf):
-                self.send("AUTHENTICATE " + chunk)
+                if outbuf is None:
+                    trace("SASL mechanism did not return any data")
+                    self.send("QUIT")
+                    yield "disconnected", {"reason": "auth-failed"}
+                for chunk in b64chunked(outbuf):
+                    self.send("AUTHENTICATE " + chunk)
         elif frame.cmd == "001":
             yield from self.check_low_connected()
         elif frame.cmd == "005":

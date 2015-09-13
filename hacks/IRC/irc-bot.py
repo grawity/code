@@ -6,25 +6,26 @@ from nullroute.irc import Frame
 
 class SaslMechanism(object):
     def __init__(self):
-        self.stage = 0
+        self.step = 0
         self.inbuf = b""
 
     def do_step(self, inbuf):
         return None
 
-    def feed(self, inbuf):
+    def feed_input(self, inbuf):
         self.inbuf += inbuf
         return None
 
-    def next(self):
+    def get_output(self):
         outbuf = self.do_step(self.inbuf)
         if outbuf is None:
             raise IndexError("no more SASL steps to take")
-        self.stage += 1
+        self.step += 1
         self.inbuf = b""
         return outbuf
 
 class SaslEXTERNAL(SaslMechanism):
+    # https://tools.ietf.org/html/rfc4422
     name = "EXTERNAL"
 
     def __init__(self, authzid=None):
@@ -32,10 +33,11 @@ class SaslEXTERNAL(SaslMechanism):
         self.authz = authzid or ""
 
     def do_step(self, inbuf):
-        if self.stage == 0:
+        if self.step == 0:
             return self.authz.encode("utf-8")
 
 class SaslPLAIN(SaslMechanism):
+    # https://tools.ietf.org/html/rfc4616
     name = "PLAIN"
 
     def __init__(self, username, password, authzid=None):
@@ -45,7 +47,7 @@ class SaslPLAIN(SaslMechanism):
         self.passwd = password
 
     def do_step(self, inbuf):
-        if self.stage == 0:
+        if self.step == 0:
             buf = "%s\0%s\0%s" % (self.authz, self.authn, self.passwd)
             return buf.encode("utf-8")
 
@@ -211,9 +213,9 @@ class IrcClient(object):
         elif frame.cmd == "AUTHENTICATE":
             data = frame.args[1]
             if data != "+":
-                self.sasl_mech.feed(b64decode(data))
+                self.sasl_mech.feed_input(b64decode(data))
             if len(data) != 400:
-                outbuf = self.sasl_mech.next()
+                outbuf = self.sasl_mech.get_output()
                 if outbuf is None:
                     trace("SASL mechanism did not return any data")
                     self.send("QUIT")
@@ -280,7 +282,7 @@ class IrcClient(object):
             trace("Authentication successful!")
             self.send("CAP END")
         elif frame.cmd == "904":
-            if self.sasl_mech.stage == 0:
+            if self.sasl_mech.step == 0:
                 trace("Authentication failed; server does not support SASL %r" %
                       (self.sasl_mech.name))
             else:

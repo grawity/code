@@ -82,11 +82,18 @@ def subst(template, match):
     return out
 
 conf_path = os.path.expanduser("~/lib/uri")
-mappings = load_mappings(conf_path)
+try:
+    mappings = load_mappings(conf_path)
+except FileNotFoundError:
+    mappings = None
 seen = set()
 
 for start_uri in sys.argv[1:]:
     Core.trace("start arg: %r" % start_uri)
+    if mappings is None:
+        Core.trace("... no mappings defined, returning original arg")
+        print(start_uri)
+        continue
     inputs = [start_uri]
     found = 0
     while inputs:

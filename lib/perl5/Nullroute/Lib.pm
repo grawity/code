@@ -194,7 +194,9 @@ sub interval {
 	$dif -= $h = $dif % 24; $dif /= 24;
 	$d = $dif + 0;
 
-	if ($d > 1)	{ "${d}d ${h}h" }
+	_debug("dif = $dif, d = $d, h = $h, m = $m");
+
+	if ($d > 0)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
 	elsif ($m > 0)	{ "${m} min" }
 	else		{ "${s} sec" }

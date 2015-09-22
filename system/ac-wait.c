@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <libudev.h>
 #include <poll.h>
+#include <stdlib.h>
 #include <err.h>
 
 static inline bool is_online(struct udev_device *dev) {
@@ -11,18 +12,11 @@ static inline bool is_online(struct udev_device *dev) {
 	return (value && *value == '1');
 }
 
-int main(void) {
-	struct udev *udev;
-	struct udev_monitor *mon;
+static struct udev_device * find_device(struct udev *udev) {
 	struct udev_enumerate *enumerate;
 	struct udev_list_entry *entry;
 	struct udev_device *dev = NULL;
-	struct pollfd pf[1];
 	int ret;
-
-	udev = udev_new();
-
-	/* enumerate all devices */
 
 	enumerate = udev_enumerate_new(udev);
 	if (!enumerate)
@@ -40,23 +34,27 @@ int main(void) {
 	if (ret < 0)
 		errx(1, "could not scan devices");
 
+	dev = NULL;
+
 	for (entry = udev_enumerate_get_list_entry(enumerate);
 		entry != NULL;
 		entry = udev_list_entry_get_next(entry))
 	{
-		char *path = udev_list_entry_get_name(entry);
+		const char *path;
+
+		path = udev_list_entry_get_name(entry);
 		dev = udev_device_new_from_syspath(udev, path);
 		if (getenv("DEBUG"))
 			warnx("found device %s", path);
 	}
 
-	if (!dev)
-		errx(1, "no device found, exiting");
+	return dev;
+}
 
-	if (!is_online(dev))
-		errx(0, "offline, exiting");
-
-	warnx("online, waiting");
+static void monitor_device(struct udev *udev, struct udev_device *dev) {
+	struct udev_monitor *mon;
+	struct pollfd pf[1];
+	int ret;
 
 	mon = udev_monitor_new_from_netlink(udev, "udev");
 
@@ -68,7 +66,7 @@ int main(void) {
 	udev_monitor_filter_add_match_subsystem_devtype(mon,
 							udev_device_get_subsystem(dev),
 							udev_device_get_devtype(dev));
-	
+
 	udev_monitor_enable_receiving(mon);
 
 	while ((ret = poll(pf, 1, -1)) >= 0) {
@@ -84,6 +82,25 @@ int main(void) {
 		if (!is_online(dev))
 			errx(0, "went offline");
 	}
+}
+
+int main(void) {
+	struct udev *udev;
+	struct udev_device *dev = NULL;
+
+	udev = udev_new();
+
+	dev = find_device(udev);
+
+	if (!dev)
+		errx(1, "no device found, exiting");
+
+	if (!is_online(dev))
+		errx(0, "offline, exiting");
+
+	warnx("online, waiting");
+
+	monitor_device(udev, dev);
 
 	return 0;
 }

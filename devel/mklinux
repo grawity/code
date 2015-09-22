@@ -66,7 +66,13 @@ else
 	die "ESP not mounted"
 fi
 
-ucode="/EFI/arch/intel-ucode.img"
+if [ -e "$esp/EFI/arch/intel-ucode.img" ]; then
+	ucode="/EFI/arch/intel-ucode.img"
+elif [ -e "$esp/intel-ucode.img" ]; then
+	ucode="/intel-ucode.img"
+else
+	die "Intel ucode image not found"
+fi
 
 log2 "preparing"
 t_begin=$(gettime -m)
@@ -113,10 +119,12 @@ log2 "configuring bootloader"
 	options         $options
 	!
 
-log "installing to legacy /boot"
+if [ "$esp" != "/boot" ]; then
+	log "installing to legacy /boot"
 
 	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
 	sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
+fi
 
 log2 "building third-party modules"
 

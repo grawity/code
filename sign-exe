@@ -2,26 +2,47 @@
 
 . lib.bash || exit
 
+cert=""
+nssdb="sql:$HOME/.pki/nssdb"
+force=0
+
 have pesign    || err "missing 'pesign' tool"
 (( ! errors )) || exit
 
-nssdb="sql:$HOME/.pki/nssdb"
-cert="objsign/Mantas Mikulenas"
-
-while getopts ":c:d:" OPT; do
+while getopts ":c:d:f" OPT; do
 	case $OPT in
 	c) cert=$OPTARG;;
 	d) nssdb=$OPTARG;;
+	f) force=1;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
-in_exe=$1
-out_exe=${in_exe%.*}-signed.${in_exe##*.}
+if [[ ! $cert ]]; then
+	die "certificate name not specified"
+fi
+
+in_file=$1
+
+if [[ ! $in_file ]]; then
+	die "input file not specified"
+fi
+
+if [[ ! -f $in_file ]]; then
+	die "input file '$in_file' does not exist"
+fi
+
+out_file=${in_file%.*}-signed.${in_file##*.}
+
+if [[ -e $out_file ]] && (( ! force )); then
+	die "output file '$out_file' already exists"
+fi
 
 pesign --verbose \
 	--certdir="$nssdb" \
 	--certficate="$cert" \
-	--in="$in_exe" \
-	--out="$out_exe" \
+	--in="$in_file" \
+	--out="$out_file" \
 	--sign
+
+log "created \"$out_file\""

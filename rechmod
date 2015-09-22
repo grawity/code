@@ -3,5 +3,14 @@
 arg_fmode=0644
 arg_dmode=0755
 
+while getopts "D:F:" OPT; do
+	case $OPT in
+	D) arg_dmode=$OPTARG;;
+	F) arg_fmode=$OPTARG;;
+	esac
+done; shift $((OPTIND-1))
+
 find "$@" -type d -exec chmod "$arg_dmode" {} +
 find "$@" -type f -exec chmod "$arg_fmode" {} +
+
+find "$@" -type f \( -iname "*.exe" -o -iname "*.msi" \) -exec chmod "a+x" {} +

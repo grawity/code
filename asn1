@@ -15,9 +15,14 @@ arg.decode_base64!() {
 		raw=$(mktemp /tmp/asn1.XXXXXXXX)
 		temp+=("$raw")
 		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
-				/^[A-Za-z0-9+/=]*$/p
+				s/\r//g; /^[A-Za-z0-9+/=]*$/p
 			}' < "$arg" | base64 -d > "$raw"
 		debug "PEM-decoded '$raw' from '$arg'"
+		if (( DEBUG > 1 )); then
+			debug "<dump>"
+			xxd "$raw"
+			debug "</dump>"
+		fi
 		arg=$raw
 	fi
 }

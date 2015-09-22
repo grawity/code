@@ -2,31 +2,35 @@
 
 . lib.bash || exit
 
-have signtool  || err "missing 'signtool' tool from NSS"
+cert=""
+nssdb="sql:$HOME/.pki/nssdb"
+force=0
+
+have signtool  || err "missing 'signtool' from NSS"
 have zip       || err "missing 'zip' tool"
 (( ! errors )) || exit
 
-nssdb="sql:$HOME/.pki/nssdb"
-cert='grawity - code signing'
-
-while getopts ":c:d:" OPT; do
+while getopts ":c:d:f" OPT; do
 	case $OPT in
 	c) cert=$OPTARG;;
 	d) nssdb=$OPTARG;;
+	f) force=1;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
-if ! [[ -f install.rdf ]]; then
+if [[ ! $cert ]]; then
+	die "certificate name not specified"
+fi
+
+if [[ ! -f install.rdf ]]; then
 	die "directory does not contain a valid Mozilla extension"
 fi
 
-outfile="${1:-${PWD##*/}}.xpi"
+out_file="${1:-${PWD##*/}}.xpi"
 
 (shopt -s nullglob; rm -f *.xpi)
 
-log "signing current directory with \"$cert\""
+signtool -d "$nssdb" -k "$cert" -Z "$out_file" .
 
-signtool -d "$nssdb" -k "$cert" -Z "outfile" .
-
-log "created \"$outfile\""
+log "created \"$out_file\""

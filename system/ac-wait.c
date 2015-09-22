@@ -46,8 +46,17 @@ int main(void) {
 	{
 		char *path = udev_list_entry_get_name(entry);
 		dev = udev_device_new_from_syspath(udev, path);
-		printf("found device %s\n", path);
+		if (getenv("DEBUG"))
+			warnx("found device %s", path);
 	}
+
+	if (!dev)
+		errx(1, "no device found, exiting");
+
+	if (!is_online(dev))
+		errx(0, "offline, exiting");
+
+	warnx("online, waiting");
 
 	mon = udev_monitor_new_from_netlink(udev, "udev");
 
@@ -72,10 +81,8 @@ int main(void) {
 		if (strncmp(sysname, "AC", 2) != 0)
 			continue;
 
-		if (!is_online(dev)) {
-			printf("offline\n");
-			return 0;
-		}
+		if (!is_online(dev))
+			errx(0, "went offline");
 	}
 
 	return 0;

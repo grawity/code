@@ -4,6 +4,7 @@
 #include <libudev.h>
 #include <poll.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <err.h>
 
 static inline bool is_online(struct udev_device *dev) {
@@ -79,14 +80,28 @@ static void monitor_device(struct udev *udev, struct udev_device *dev) {
 		if (strncmp(sysname, "AC", 2) != 0)
 			continue;
 
-		if (!is_online(dev))
+		if (is_online(dev))
+			warnx("went online");
+		else
 			errx(0, "went offline");
 	}
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
 	struct udev *udev;
 	struct udev_device *dev = NULL;
+	bool wait_online = false;
+	int opt;
+
+	while ((opt = getopt(argc, argv, "w")) != -1) {
+		switch (opt) {
+		case 'w':
+			wait_online = true;
+			break;
+		default:
+			errx(1, "Usage: %s [-w]", argv[0]);
+		}
+	}
 
 	udev = udev_new();
 
@@ -95,10 +110,12 @@ int main(void) {
 	if (!dev)
 		errx(1, "no device found, exiting");
 
-	if (!is_online(dev))
+	if (is_online(dev))
+		warnx("online, waiting");
+	else if (wait_online)
+		warnx("offline, waiting");
+	else
 		errx(0, "offline, exiting");
-
-	warnx("online, waiting");
 
 	monitor_device(udev, dev);
 

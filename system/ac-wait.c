@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <libudev.h>
 #include <poll.h>
+#include <err.h>
 
 static inline bool is_online(struct udev_device *dev) {
 	const char *value = udev_device_get_sysattr_value(dev, "online");
@@ -13,19 +14,39 @@ static inline bool is_online(struct udev_device *dev) {
 int main(void) {
 	struct udev *udev;
 	struct udev_monitor *mon;
-	struct udev_device *dev;
+	struct udev_enumerate *enumerate;
+	struct udev_list_entry *entry;
+	struct udev_device *dev = NULL;
 	struct pollfd pf[1];
 	int ret;
 
 	udev = udev_new();
 
-	dev = udev_device_new_from_subsystem_sysname(udev, "power_supply", "AC0");
+	/* enumerate all devices */
 
-	if (is_online(dev)) {
-		printf("online, waiting\n");
-	} else {
-		printf("offline, exiting\n");
-		return 0;
+	enumerate = udev_enumerate_new(udev);
+	if (!enumerate)
+		errx(1, "could not create udev enumerator");
+
+	ret = udev_enumerate_add_match_subsystem(enumerate, "power_supply");
+	if (ret < 0)
+		errx(1, "could not add subsystem match");
+
+	ret = udev_enumerate_add_match_sysattr(enumerate, "type", "Mains");
+	if (ret < 0)
+		errx(1, "could not add sysattr match");
+
+	ret = udev_enumerate_scan_devices(enumerate);
+	if (ret < 0)
+		errx(1, "could not scan devices");
+
+	for (entry = udev_enumerate_get_list_entry(enumerate);
+		entry != NULL;
+		entry = udev_list_entry_get_next(entry))
+	{
+		char *path = udev_list_entry_get_name(entry);
+		dev = udev_device_new_from_syspath(udev, path);
+		printf("found device %s\n", path);
 	}
 
 	mon = udev_monitor_new_from_netlink(udev, "udev");

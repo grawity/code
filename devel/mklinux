@@ -11,17 +11,28 @@ _log_fprefix[log2]='#'
 _log_fcolor[log2]='\e[36m'
 _log_mcolor[log2]='\e[38;5;14m'
 
+config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
+
+dkms_modules=(
+	openafs:openafs-modules-dkms
+	vboxhost:virtualbox-host-dkms
+)
+
 sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
 
 _build_dkms() {
-	#dkms status | sed -rn '/^(.+), (.+): added$/{s!!\1/\2!p}' |
-	openafs_rel=$(expac %v openafs-modules-dkms | sed 's/-.*//')
-	vbox_rel=$(expac %v virtualbox-host-dkms | sed 's/-.*//')
+	emods=()
 
-	emods=(
-		openafs/$openafs_rel
-		vboxhost/$vbox_rel
-	)
+	for mod in "${dkms_modules[@]}"; do
+		package=${mod#*:}
+		mod=${mod%%:*}
+		version=$(expac %v "$package" | sed "s/-.*//")
+		if [[ "$version" ]]; then
+			emods+=("$mod/$version")
+		else
+			warn "package '$package' not found, skipping DKMS module '$mod'"
+		fi
+	done
 
 	for mod in ${emods[@]}; do
 		mname=${mod%%/*}
@@ -52,6 +63,10 @@ _build_kdbus() {
 		"/usr/lib/modules/$release/kernel/misc/kdbus.ko"
 	rm -rf "$build"
 }
+
+if [ -e "$config" ]; then
+	. "$config" || die "could not load configuration file"
+fi
 
 if [ ! "$noidle" ]; then
 	ionice -c 3 -p $$

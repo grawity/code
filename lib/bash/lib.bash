@@ -150,7 +150,9 @@ debug() {
 		color='\e[36m' reset='\e[m'
 	fi
 	if [[ $DEBUG ]]; then
-		printf "%s[%s]: ${color}debug (%s):${reset} %s\n" \
+		local indent
+		printf -v indent "%*s" $(( ${#BASH_SOURCE[@]} - 2 )) ""
+		printf "%s[%s]: ${color}debug ${indent}(%s):${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
 	fi
 } >&2

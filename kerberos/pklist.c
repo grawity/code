@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <libgen.h>
 #include "krb5.h"
 
 /* Solaris actually has MIT Kerberos that uses config principals, and defines

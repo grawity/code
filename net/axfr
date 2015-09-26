@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+_log_fprefix[log]=';'
+
+try_axfr() {
+	local domain=$1 server=$2
+	local tmp=$(mktemp /tmp/axfr.XXXXXXXX)
+
+	log "trying server '$server'"
+	HOME=/dev/null dig $domain axfr @$server > "$tmp"
+
+	if grep -qs '^;; XFR size:' "$tmp"; then
+		cat "$tmp"
+		rm -f "$tmp"; return 0
+	else
+		rm -f "$tmp"; return 1
+	fi
+}
+
+_get_zoneapex() {
+	local domain=$1
+	debug "looking up $domain/SOA"
+	dig +noall +answer +authority "$domain" SOA \
+		| awk '$4 == "SOA" {print $1}'
+}
+
+get_zoneapex() {
+	local domain=$1 apex=
+	while [[ ! $apex && $domain == *.* ]]; do
+		debug "trying $domain" >&2
+		apex=$(_get_zoneapex "$domain")
+		if [[ ! $apex ]]; then
+			domain=${domain#*.}
+		fi
+	done
+	echo "$apex"
+}
+
+get_rr() {
+	local domain=$1 rrtype=$2
+	debug "looking up $domain/$rrtype"
+	dig +noall +answer +authority "$domain" "$rrtype" \
+		| awk -v t="$rrtype" '$4 == t {print $5}'
+}
+
+try_zone() {
+	local domain=$1
+	local apex=$(get_zoneapex "$domain")
+	if [[ "$domain" != "$apex" ]]; then
+		warn "zone apex is '$apex' for '$domain'"
+		domain=$apex
+		if [[ "$domain" != *.*. ]]; then
+			err "won't bother with a top-level domain"
+			return
+		fi
+	fi
+	local rr_soa=$(get_rr "$domain" SOA)
+	local rr_ns=$(get_rr "$domain" NS)
+	local ns=
+	debug "trying ns from SOA: $rr_soa"
+	for ns in $rr_soa; do
+		try_axfr $domain $ns && return
+	done
+	debug "trying ns from NS: $rr_ns"
+	for ns in $rr_ns; do
+		if [[ "$ns" == "$rr_soa" ]]; then
+			continue
+		fi
+		try_axfr $domain $ns && return
+	done
+	err "could not transfer '$domain' from any server"
+}
+
+for arg; do
+	try_zone "${arg%.}."
+done
+
+lib::exit

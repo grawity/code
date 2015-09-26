@@ -13,6 +13,8 @@ while (( $# )); do
 	host)		arg_f_host=$2; shift;;
 	vlan)		arg_vlan=$2; shift;;
 	name)		arg_name=$2; shift;;
+	ip6ra)		arg_filter="icmp6 and ip6[40] == 134";;
+	vlans)		arg_vlans=1; shift;;
 	*)	
 		if [[ $1 == */* && ! $arg_on ]]; then
 			arg_on=$1
@@ -52,6 +54,9 @@ arg_iface=${arg_on#*/}
 [[ $arg_host && $arg_iface && $arg_iface != */* ]] \
 	|| die "host or interface not specified"
 
+[[ ! $arg_vlan ]] || (( ! arg_vlans )) \
+	|| die "'vlan …' and 'vlans' options are mutually exclusive"
+
 target_host=${hosts["$arg_host"]:-$arg_host}
 target_iface=${interfaces["$arg_host/$arg_iface"]:-$arg_iface}
 log "capturing on '$target_iface' at '$target_host'"
@@ -80,6 +85,9 @@ fi
 # no VLAN tag – changes global filter state, must be last
 if ! [[ $arg_vlan ]]; then
 	add_filter "not vlan"
+fi
+if (( arg_vlans )); then
+	filter="($filter) or (vlan and ($filter))"
 fi
 
 log "filter: $filter"

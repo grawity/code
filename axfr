@@ -18,14 +18,28 @@ try_axfr() {
 	fi
 }
 
-get_zoneapex() {
+_get_zoneapex() {
 	local domain=$1
+	debug "looking up $domain/SOA"
 	dig +noall +answer +authority "$domain" SOA \
 		| awk '$4 == "SOA" {print $1}'
 }
 
+get_zoneapex() {
+	local domain=$1 apex=
+	while [[ ! $apex && $domain == *.* ]]; do
+		debug "trying $domain" >&2
+		apex=$(_get_zoneapex "$domain")
+		if [[ ! $apex ]]; then
+			domain=${domain#*.}
+		fi
+	done
+	echo "$apex"
+}
+
 get_rr() {
 	local domain=$1 rrtype=$2
+	debug "looking up $domain/$rrtype"
 	dig +noall +answer +authority "$domain" "$rrtype" \
 		| awk -v t="$rrtype" '$4 == t {print $5}'
 }
@@ -57,7 +71,6 @@ try_zone() {
 	done
 	err "could not transfer '$domain' from any server"
 }
-
 
 for arg; do
 	try_zone "${arg%.}."

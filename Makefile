@@ -23,9 +23,9 @@ $(dummy): $(OBJ)/config-krb5.h
 
 # compile targets
 
-BASIC_BINS := args gettime mkpasswd natsort pause silentcat spawn unescape libwcwidth.so
+BASIC_BINS := args gettime mkpasswd natsort pause silentcat spawn unescape
 KRB_BINS   := k5userok pklist
-MISC_BINS  := logwipe writevt zlib
+MISC_BINS  := libwcwidth.so logwipe writevt zlib
 
 .PHONY: all basic krb misc pklist
 

@@ -212,7 +212,7 @@ die() {
 
 ## Other stuff
 
-lib::fail() {
+lib::errexit() {
 	(( !errors )) || exit
 }
 

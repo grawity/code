@@ -21,9 +21,13 @@ _lvl=$(( LVL++ )); export LVL
 : ${XDG_DATA_HOME:="$HOME/.local/share"}
 : ${XDG_DATA_DIRS:="/usr/local/share:/usr/share"}
 
+path_cache="$XDG_CACHE_HOME/nullroute.eu.org"
+path_config="$XDG_CONFIG_HOME/nullroute.eu.org"
+path_data="$XDG_DATA_HOME/nullroute.eu.org"
+
 if [[ -e /etc/os-release ]]
-	then _path_os_release="/etc/os-release"
-	else _path_os_release="/usr/lib/os-release"
+	then path_os_release="/etc/os-release"
+	else path_os_release="/usr/lib/os-release"
 fi
 
 ## Logging

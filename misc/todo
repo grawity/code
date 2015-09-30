@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-date_fmt="'%y %b %_d"
+. lib.bash || exit
 
+date_fmt="'%y %b %_d"
 date_sep=" – "
 
 lstodo() {
@@ -65,28 +66,15 @@ rmtodo() {
 	lstodo | sed -n "$pcmd" && edit "$dcmd"
 }
 
-conf_dir="${XDG_CONFIG_HOME:-~/.config}/nullroute.eu.org"
-data_dir="${XDG_DATA_HOME:-~/.local/share}/nullroute.eu.org"
-
-if [[ -e ~/lib/todo ]]; then
-	file=~/lib/todo
-elif [[ -e ~/lib/todo.txt ]]; then
-	file=~/lib/todo.txt
-elif [[ -e ~/Dropbox/Todo.txt ]]; then
-	file=~/Dropbox/Todo.txt
-else
-	file=$data_dir/todo.txt
-fi
-
-if [[ ! -d ${file%/*} ]]; then
-	mkdir -p "${file%/*}"
-fi
+lib::find_file file= ~/lib/todo ~/lib/todo.txt ~/Dropbox/Todo.txt data:todo.txt
 
 if [[ -f ~/todo ]] && [[ ! -e $file ]]; then
+	notice "found ~/todo, migrating to '$file'"
 	mv ~/todo "$file" && {
 		ln -rsv "$file" ~/todo ||
 		sym -v "$file" ~/todo ||
-		ln -sv "$file" ~/todo
+		ln -sv "$file" ~/todo ||
+		err "could not symlink ~/todo to its new location"
 	}
 fi
 

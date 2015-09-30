@@ -345,6 +345,14 @@ sudo:() {
 lib::find_file() {
 	local var=${1%=} file
 	for file in "${@:2}"; do
+		case $file in
+			cache:/*)    file=$XDG_CACHE_HOME/${file#*/};;
+			cache:*)     file=$path_cache/${file#*/};;
+			config:/*)   file=$XDG_CONFIG_HOME/${file#*/};;
+			config:*)    file=$path_config/${file#*/};;
+			data:/*)     file=$XDG_DATA_HOME/${file#*/};;
+			data:*)      file=$path_data/${file#*/};;
+		esac
 		if [[ -e "$file" ]]; then
 			eval "$var=\$file"
 			return 0

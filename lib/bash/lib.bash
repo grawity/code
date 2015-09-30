@@ -337,7 +337,7 @@ sudo:() {
 }
 
 lib::find_file() {
-	local var=$1 file
+	local var=${1%=} file
 	for file in "${@:2}"; do
 		if [[ -e "$file" ]]; then
 			eval "$var=\$file"

@@ -27,26 +27,27 @@ while (( $# )); do
 	shift
 done
 
+lib::errexit
+
 declare -A hosts=() interfaces=()
 
-conf=~/lib/capture.aliases
-#|| die "could not load configuration"
-
-while IFS='=' read -r key value; do
-	if [[ $key == '#'* ]]; then
-		continue
-	elif [[ $key == '/'* ]]; then
-		names=${key#/}
-		for name in ${names//,/ }; do
-			debug "load iface: $current_host / $name = $value"
-			interfaces["$current_host/$name"]=$value
-		done
-	elif [[ $key ]]; then
-		current_host=$key
-		debug "load host: $current_host = $value"
-		hosts["$current_host"]=$value
-	fi
-done < "$conf" || die "could not load configuration"
+lib::find_file config_file= ~/lib/capture.aliases config:capture.aliases && {
+	while IFS='=' read -r key value; do
+		if [[ $key == '#'* ]]; then
+			continue
+		elif [[ $key == '/'* ]]; then
+			names=${key#/}
+			for name in ${names//,/ }; do
+				debug "load iface: $current_host / $name = $value"
+				interfaces["$current_host/$name"]=$value
+			done
+		elif [[ $key ]]; then
+			current_host=$key
+			debug "load host: $current_host = $value"
+			hosts["$current_host"]=$value
+		fi
+	done < "$config_file" || die "could not read alias file '$config_file'"
+}
 
 arg_host=${arg_on%%/*}
 arg_iface=${arg_on#*/}

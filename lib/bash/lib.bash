@@ -214,6 +214,12 @@ die() {
 	exit $r
 } >&2
 
+croak() {
+	lib::msg "bug: $*" fatal
+	backtrace
+	exit 1
+}
+
 ## Other stuff
 
 lib::errexit() {

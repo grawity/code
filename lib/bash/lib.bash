@@ -336,6 +336,21 @@ sudo:() {
 	fi
 }
 
+lib::find_file() {
+	local var=$1 file
+	for file in "${@:2}"; do
+		if [[ -e "$file" ]]; then
+			eval "$var=\$file"
+			return 0
+		fi
+	done
+	if [[ ! -d "${file%/*}" ]]; then
+		mkdir -p "${file%/*}"
+	fi
+	eval "$var=\$file"
+	return 1
+}
+
 #set -o errexit
 #set -o pipefail
 #set -o nounset

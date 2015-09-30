@@ -343,25 +343,26 @@ sudo:() {
 }
 
 lib::find_file() {
-	local var=${1%=} file
-	for file in "${@:2}"; do
-		case $file in
-			cache:/*)    file=$XDG_CACHE_HOME/${file#*/};;
-			cache:*)     file=$path_cache/${file#*:};;
-			config:/*)   file=$XDG_CONFIG_HOME/${file#*/};;
-			config:*)    file=$path_config/${file#*:};;
-			data:/*)     file=$XDG_DATA_HOME/${file#*/};;
-			data:*)      file=$path_data/${file#*:};;
+	local var=${1%=} _file
+	for _file in "${@:2}"; do
+		case $_file in
+			cache:/*)    _file=$XDG_CACHE_HOME/${_file#*/};;
+			cache:*)     _file=$path_cache/${_file#*:};;
+			config:/*)   _file=$XDG_CONFIG_HOME/${_file#*/};;
+			config:*)    _file=$path_config/${_file#*:};;
+			data:/*)     _file=$XDG_DATA_HOME/${_file#*/};;
+			data:*)      _file=$path_data/${_file#*:};;
 		esac
-		if [[ -e "$file" ]]; then
-			eval "$var=\$file"
+		if [[ -e "$_file" ]]; then
+			debug "found $var = '$_file'"
+			eval "$var=\$_file"
 			return 0
 		fi
 	done
-	if [[ ! -d "${file%/*}" ]]; then
-		mkdir -p "${file%/*}"
+	if [[ ! -d "${_file%/*}" ]]; then
+		mkdir -p "${_file%/*}"
 	fi
-	eval "$var=\$file"
+	eval "$var=\$_file"
 	return 1
 }
 

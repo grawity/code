@@ -58,17 +58,22 @@ case $1 in
 	die "missing host name"
 	;;
     *)
+	lib::find_file server_list= ~/lib/servers.txt "$path_config/servers.txt" \
+		|| die "server list '$server_list' not found"
+
 	name="$1"
 	if [[ $2 ]]; then
 		name+="-$2"; shift
 	fi
+
 	ip= rest=
 	while read -r _name _ip _rest; do
 		if [[ $name == "$_name" ]]; then
 			ip=$_ip
 			rest=$_rest
 		fi
-	done < ~/lib/servers.txt
+	done < "$server_list"
+
 	case $ip in
 	    imap://*|imaps://*)
 		exec mutt -f "$ip" $rest;;

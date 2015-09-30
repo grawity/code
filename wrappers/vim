@@ -11,15 +11,17 @@ if [[ ! $_DYM && -t 1 ]]; then
 		else
 			echo ""
 		fi
-	elif [[ " $* " == *\ pkg\ * || " $* " == */pkg\ * && -d pkg ]]; then
+	elif [[ " $* " == *\ pkg\ * || " $* " == */pkg\ * ]]; then
 		args=()
 		for arg; do
-			fix=${arg/%pkg/PKGBUILD}
-			read -n 1 -p "Did you mean '$fix'? " REPLY
-			if [[ $REPLY == y ]]; then
-				arg=$fix
+			if [[ -d $arg ]]; then
+				fix=${arg/%pkg/PKGBUILD}
+				read -n 1 -p "Did you mean '$fix'? " REPLY
+				if [[ $REPLY == y ]]; then
+					arg=$fix
+				fi
+				echo ""
 			fi
-			echo ""
 			args+=("$arg")
 		done
 		set -- "${args[@]}"

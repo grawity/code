@@ -34,7 +34,10 @@ usage() {
 have curl  || err "missing 'curl'"
 have jshon || err "missing 'jshon'"
 
-(( !errors )) || exit
+lib::errexit
+
+mkdir -p "$path_cache"
+log_file="$path_cache/pomf.log"
 
 # parse command line
 
@@ -87,7 +90,7 @@ clip=()
 while { read -r name; read -r url; } do
     url=$upload_base/$url
     echo "$name → $url"
-    echo "$(date --rfc-3339=seconds) $url $name" >> "$XDG_CACHE_HOME/pomf.log"
+    echo "$(date --rfc-3339=seconds) $url $name" >> "$log_file"
     clip+=("$url")
 done <<< "$urls"
 

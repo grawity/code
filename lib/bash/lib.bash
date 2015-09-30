@@ -292,19 +292,6 @@ now() {
 	date +%s "$@"
 }
 
-older_than() {
-	local file=$1 date=$2 filets datets
-	filets=$(stat -c %y "$file")
-	datets=$(date +%s -d "$date ago")
-	(( filets < datets ))
-}
-
-larger_than() {
-	local file=$1 size=$2 filesz
-	filesz=$(stat -c %s "$file")
-	(( filesz > size ))
-}
-
 lib::die_getopts() {
 	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
 	case $OPT in

@@ -346,6 +346,7 @@ lib::find_file() {
 			return 0
 		fi
 	done
+	debug "fallback $var = '$_file'"
 	if [[ ! -d "${_file%/*}" ]]; then
 		mkdir -p "${_file%/*}"
 	fi

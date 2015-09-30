@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 import os, sys, re
 import urllib.parse
+import xdg.BaseDirectory as basedir
 from nullroute import Core
 
 def load_mappings(path):
     mappings = []
     with open(path, "r") as f:
+        Core.trace("loading from %r" % path)
         for line in f:
             line = line.strip()
             if (not line) or line.startswith("#"):
@@ -81,12 +83,18 @@ def subst(template, match):
             state = 0
     return out
 
-conf_path = os.path.expanduser("~/lib/uri")
-try:
-    mappings = load_mappings(conf_path)
-except FileNotFoundError:
-    mappings = None
+conf_paths = [os.path.join(dir, "uri.txt")
+              for dir in basedir.load_config_paths("nullroute.eu.org")]
+conf_paths.insert(0, os.path.expanduser("~/lib/uri"))
+
+mappings = None
 seen = set()
+
+for path in conf_paths:
+    try:
+        mappings = load_mappings(path)
+    except FileNotFoundError:
+        pass
 
 for start_uri in sys.argv[1:]:
     Core.trace("start arg: %r" % start_uri)

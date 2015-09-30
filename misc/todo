@@ -72,8 +72,11 @@ if [[ ! -d ${file%/*} ]]; then
 fi
 
 if [[ -f ~/todo ]] && [[ ! -e $file ]]; then
-	mv ~/todo "$file"
-	ln -s 'lib/todo' ~/todo
+	mv ~/todo "$file" && {
+		ln -rsv "$file" ~/todo ||
+		sym -v "$file" ~/todo ||
+		ln -sv "$file" ~/todo
+	}
 fi
 
 cmd=${0##*/}

@@ -34,3 +34,24 @@ ks:larger_than() {
 	filesz=$(stat -c %s "$file")
 	(( filesz > size ))
 }
+
+# ks:next_file_slot($base) -> $slot
+# $base: printf template with one %d or %s
+# Finds the first nonexistent file named after $base.
+# Not atomic/racefree.
+
+ks:next_file_slot() {
+	local base=$1 i=0 step=10 file=
+	while true; do
+		(( i += step ))
+		printf -v file "$base" "$i"
+		if [[ ! -e $file ]]; then
+			if (( step == 1 )); then
+				echo "$i"
+				return
+			fi
+			(( i -= step ))
+			(( step = 1 ))
+		fi
+	done
+}

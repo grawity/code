@@ -2,6 +2,7 @@
 # vim: fdm=marker
 import sys
 import xmlrpc.client
+from nullroute import Core
 import nullroute.sec
 
 # junk {{{
@@ -114,9 +115,17 @@ class IceWarpAPI(object):
         return self._accounts[acct]
 # }}}
 
-api_creds = nullroute.sec.get_netrc("api/mail.utenos-kolegija.lt")
-api_base = "https://%(login)s:%(password)s@mail.utenos-kolegija.lt/rpc/" % api_creds
+server = "mail.utenos-kolegija.lt"
+
+try:
+    api_creds = nullroute.sec.get_netrc("api/%s" % server)
+    api_creds["machine"] = server
+except KeyError as e:
+    Core.die(e.args[0])
+
+api_base = "https://%(login)s:%(password)s@%(machine)s/rpc/" % api_creds
 api = IceWarpAPI(api_base)
+
 for alias in sys.argv[1:]:
     if "@" in alias:
         alias, domain = alias.split("@")

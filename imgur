@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # imgur script by Bart Nagel <bart@tremby.net>
-# version 3
+# version 3+grawity1
 # I release this into the public domain. Do with it what you will.
 
 # Required: curl
@@ -27,14 +27,14 @@
 
 apikey="bba16b32760b0d259092636758c9c4c2"
 
-errors=false
+. lib.bash || exit
+
 images=0
 clip=""
 
 for file; do
 	if [[ ! -f $file ]]; then
-		echo "Error: '$file' is not a file, skipping" >&2
-		errors=true
+		err "'$file' is not a file, skipping"
 		continue
 	fi
 
@@ -59,19 +59,17 @@ for file; do
 	# the Squid proxy. Not sure if it's a Squid bug or what.
 
 	if (( $? )); then
-		echo "Upload failed" >&2
-		errors=true
+		err "upload failed (curl returned $?)"
 		continue
 	elif echo "$response" | grep -qs "<error_msg>"; then
+		err "upload failed (got error message)"
 		echo "Error message from imgur:" >&2
 		echo "$response" | sed -rn 's/.*<error_msg>(.*)<\/error_msg>.*/\1/p' >&2
-		errors=true
 		continue
 	fi
 
 	if ! echo "$response" | grep -qs original_image; then
-		echo "CAPTCHA'd again. Darnit."
-		exit 1
+		die "upload failed (probably a CAPTCHA again)"
 	fi
 
 	url=$(echo "$response" |
@@ -100,4 +98,4 @@ if [[ $DISPLAY && $clip ]]; then
 	echo -n "$clip" | xsel -i -b
 fi
 
-! $errors
+lib::exit

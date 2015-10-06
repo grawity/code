@@ -32,6 +32,11 @@ apikey="bba16b32760b0d259092636758c9c4c2"
 images=0
 clip=""
 
+lib::find_file log_file= \
+	~/Pictures/.uploads-$HOSTNAME \
+	~/Pictures/.uploads \
+	data:imgur-uploads.log ;
+
 for file; do
 	if [[ ! -f $file ]]; then
 		err "'$file' is not a file, skipping"
@@ -81,10 +86,9 @@ for file; do
 	setfattr -n "user.imgur.image-url" -v "$url" "$file"
 	setfattr -n "user.imgur.delete-url" -v "$deleteurl" "$file"
 
-	printf "%s\n" "$url $deleteurl" >> ~/Pictures/.uploads-$HOSTNAME
+	printf "%s\n" "$url $deleteurl" >> "$log_file"
 
 	printf "%s\n" "$url"
-
 	printf "Delete page:\n%s\n" "$deleteurl" >&2
 
 	if (( images++ )); then

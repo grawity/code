@@ -3,18 +3,24 @@
 
 . lib.bash || exit
 
-config=/proc/config.gz
-
-if [[ ! -e "$config" ]]; then
-	version=$(uname -r)
-	debug "no $config, looking in /boot for $version"
-	config=/boot/config-$version
-fi
-
-if [[ ! -e "$config" ]]; then
-	die "could not find kernel config"
-fi
-
-debug "kconfig file is \"$config\""
-
-zgrep -i "$@" "$config"
+case $(uname) in
+	Linux)
+		config=/proc/config.gz
+		if [[ ! -e "$config" ]]; then
+			version=$(uname -r)
+			debug "no $config, looking in /boot for $version"
+			config=/boot/config-$version
+		fi
+		if [[ ! -e "$config" ]]; then
+			die "could not find kernel config"
+		fi
+		debug "kconfig file is \"$config\""
+		zgrep -i "$@" "$config"
+		;;
+	FreeBSD)
+		sysctl kern.conftxt | grep -i "$@"
+		;;
+	*)
+		die "unknown OS '$(uname)'"
+		;;
+esac

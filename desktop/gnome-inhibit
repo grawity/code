@@ -46,7 +46,7 @@ sub maxlength {
 	(max map {length $_->{$attr}} @items) // 0;
 }
 
-sub printrow {
+sub print_table_row {
 	my (@items) = @_;
 	my $columns = @items;
 	if ($columns % 2) {
@@ -115,6 +115,21 @@ sub get_inhibitors {
 	@{SessionManager->GetInhibitors};
 }
 
+sub display_table {
+	my ($fields, $header, $items) = @_;
+
+	my %len = map {$_ => max(
+	                         length($header->{$_}),
+				 maxlength($_, @$items)
+	                     )} @$fields;
+
+	print_table_row(map {$len{$_}, $header->{$_}} @$fields);
+
+	for my $item (@$items) {
+		print_table_row(map {$len{$_}, $item->{$_}} @$fields);
+	}
+}
+
 sub display_inhibitors {
 	my ($verbose, @inhibitors) = @_;
 
@@ -131,14 +146,7 @@ sub display_inhibitors {
 		? qw(app_id reason flags szflags client_id top_xid)
 		: qw(app_id reason szflags);
 
-	my %len = map {$_ => max(length($header{$_}),
-				maxlength($_, @inhibitors))} @fields;
-
-	printrow map {$len{$_}, $header{$_}} @fields;
-
-	for my $v (@inhibitors) {
-		printrow map {$len{$_}, $v->{$_}} @fields;
-	}
+	display_table(\@fields, \%header, \@inhibitors);
 }
 
 sub usage {

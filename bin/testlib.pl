@@ -27,6 +27,17 @@ sub test_log {
 	_die("fatal message");
 }
 
+for (@ARGV) {
+	if ($_ eq "debug") {
+		Nullroute::Lib::__extdebug_toggle(1);
+	}
+	elsif ($_ eq "nodebug") {
+		Nullroute::Lib::__extdebug_toggle(0);
+	}
+}
+
+exit if @ARGV;
+
 test_sep("messages (normal)");
 
 $::debug = 0; child { foo() };

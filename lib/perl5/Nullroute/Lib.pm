@@ -44,17 +44,34 @@ our $pre_output = undef;
 our $post_output = undef;
 
 my $seen_usage = 0;
+my $ext_debug = 0;
 
-sub __check_ext_debug {
-	return unless defined $ENV{XDG_RUNTIME_DIR};
-	if (-e $ENV{XDG_RUNTIME_DIR}."/lib.debug") {
+sub __extdebug_get_path {
+	if (defined $ENV{XDG_RUNTIME_DIR}) {
+		return $ENV{XDG_RUNTIME_DIR}."/lib.debug";
+	} else {
+		return "/dev/shm/lib.debug-$<";
+	}
+}
+
+sub __extdebug_toggle {
+	my ($enable) = @_;
+
+	if ($enable) {
+		system("touch", __extdebug_get_path());
+	} else {
+		system("rm", "-f", __extdebug_get_path());
+	}
+}
+
+sub __extdebug_check {
+	if (-e __extdebug_get_path()) {
 		if (!$::debug) {
-			$::debug = 1;
-			$::external_debug = 1;
+			$::debug = $ext_debug = 1;
 		}
 	} else {
-		if ($::external_debug) {
-			$::debug = 0;
+		if ($ext_debug) {
+			$::debug = $ext_debug = 0;
 		}
 	}
 }
@@ -62,7 +79,7 @@ sub __check_ext_debug {
 sub _msg {
 	my ($io, $log_prefix, $log_color, $msg, %opt) = @_;
 
-	__check_ext_debug();
+	__extdebug_check();
 
 	return if $::debug < ($opt{min_debug} // 0);
 

@@ -6,16 +6,8 @@ use Sys::Hostname;
 sub getfqdn {
 	my ($host) = @_;
 
-	if (eval {require Socket::GetAddrInfo}) {
-		Socket::GetAddrInfo->import("getaddrinfo", ":constants");
-		my ($err, @res) = getaddrinfo($host, undef, {
-			flags => &AI_CANONNAME,
-		});
-		return $res[0]->{canonname};
-	} else {
-		my @res = gethostbyname($host);
-		return $res[0] // $host;
-	}
+	my @res = gethostbyname($host);
+	return $res[0] // $host;
 }
 
 if (@ARGV) {

@@ -10,6 +10,7 @@ our @EXPORT = qw(
 	xdg_runtime
 
 	xdg_configs
+	find_first_file
 
 	xdg_userdir
 );
@@ -83,6 +84,32 @@ sub xdg_userdir {
 	my $base = _xdg_userdir($env) // catdir($ENV{HOME}, $fallback);
 
 	length($suffix) ? catfile($base, $suffix) : $base;
+}
+
+sub find_first_file {
+	my (@paths) = @_;
+
+	my $vendor = "nullroute.eu.org";
+	my $fallback;
+
+	for (@paths) {
+		_debug("looking for '$_'");
+		s!^~/!$ENV{HOME}/!;
+		s!^cache:/!xdg_cache()."/"!e;
+		s!^cache:!xdg_cache($vendor)."/"!e;
+		s!^config:/!xdg_config()."/"!e;
+		s!^config:!xdg_config($vendor)."/"!e;
+		s!^data:/!xdg_data()."/"!e;
+		s!^data:!xdg_data($vendor)."/"!e;
+		_debug("expanded to '$_'");
+		if (-e $_) {
+			_debug("found '$_'");
+			return $_;
+		}
+		$fallback = $_;
+	}
+	_debug("returning fallback '$_'");
+	return $fallback;
 }
 
 1;

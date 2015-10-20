@@ -24,6 +24,13 @@ class SaslMechanism(object):
         self.inbuf = b""
         return outbuf
 
+class SaslPasswordMechanism(SaslMechanism):
+    def __init__(self, username, password, authzid=None):
+        super().__init__()
+        self.authz = authzid or username
+        self.authn = username
+        self.passwd = password
+
 class SaslEXTERNAL(SaslMechanism):
     # https://tools.ietf.org/html/rfc4422
     name = "EXTERNAL"
@@ -50,6 +57,16 @@ class SaslPLAIN(SaslMechanism):
         if self.step == 0:
             buf = "%s\0%s\0%s" % (self.authz, self.authn, self.passwd)
             return buf.encode("utf-8")
+
+class SaslDIGEST_MD5(SaslPasswordMechanism):
+    # http://tools.ietf.org/html/rfc2831
+    # obsoleted by http://tools.ietf.org/html/rfc6331
+    name = "DIGEST-MD5"
+
+class SaslCRAM_MD5(SaslPasswordMechanism):
+    # http://tools.ietf.org/html/rfc2195
+    # ?? https://tools.ietf.org/html/draft-ietf-sasl-crammd5-10
+    name = "CRAM-MD5"
 
 def b64chunked(buf):
     buf = base64.b64encode(buf).decode("utf-8")

@@ -132,7 +132,7 @@ trap 'die "[$BASHPID] interrupted"' INT
 case $job in
 	push-hd)
 		mounted: $b
-		$0 local        || fail+=(local)
+		$0 local:$HOSTNAME || fail+=(local:$HOSTNAME)
 		$0 home-push-hd || fail+=(home-push-hd)
 		$0 root-push-hd || fail+=(root-push-hd)
 		sync
@@ -274,12 +274,14 @@ case $job in
 		mountpoint -q "$dir" || die "'$job' not mounted"
 		do_rsync "$dir" ~/Backup/Devices/$job/
 		;;
-	local)
+	local:rain)
 		do_rsync \
 			/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ \
 			~/Backup/Games/SL/Firestorm_current/	\
 			--exclude 'browser_profile'		\
 			;
+		;;
+	local:*)
 		;;
 	*)
 		die "unknown job '$job'"

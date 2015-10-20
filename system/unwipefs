@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+import sys
+import re
+import binascii
+
+def hex(s):
+    return " ".join(["%02x" % c for c in s])
+    return binascii.hexlify(s).decode("us-ascii")
+
+def unhex(s):
+    return binascii.unhexlify(s.replace(" ", ""))
+
+def verify(cond, msg, *args):
+    try:
+        assert cond
+    except AssertionError:
+        print("error: %s" % msg % args, file=sys.stderr)
+        raise
+
+def same_or_zero(a, b):
+    return len(a) == len(b) and (a == b or all([c == 0 for c in a]))
+
+rx = re.compile(r"^(/dev/\S+): (\d+) .+ erased at offset (0x[0-9a-f]+) \(.+\): (.+)$")
+
+for line in sys.stdin:
+    m = rx.match(line)
+    if not m:
+        print("could not parse line: %r" % line)
+        continue
+
+    dev_path = m.group(1)
+    sig_len = int(m.group(2), 10)
+    sig_off = int(m.group(3), 16)
+    sig_data = unhex(m.group(4))
+
+    verify(len(sig_data) == sig_len,
+            "length mismatch (expected %d bytes, found %d)",
+            sig_len, len(sig_data))
+
+    print("; restoring %d bytes at 0x%08x to %s" % (sig_len, sig_off, dev_path))
+
+    with open(dev_path, "w+b") as dev_fd:
+        dev_fd.seek(sig_off)
+        verify(dev_fd.tell() == sig_off,
+                "seek failed (expected pos 0x%x, got 0x%x)",
+                sig_off, dev_fd.tell())
+
+        old_data = dev_fd.read(sig_len)
+        verify(len(old_data) == sig_len,
+                "read length mismatch (expected %d bytes, got %d)",
+                sig_len, len(old_data))
+
+        if old_data == sig_data:
+            print("; -- matching data found; nothing to do")
+            continue
+        elif all([b == 0 for b in old_data]):
+            pass
+        else:
+            print("; -- non-matching data found; bailing")
+            continue
+
+        print("%s: %d bytes were erased at offset 0x%08x (none): %s" % \
+                (dev_path, sig_len, sig_off, hex(old_data)))
+
+        dev_fd.seek(sig_off)
+        verify(dev_fd.tell() == sig_off,
+                "seek failed (expected pos 0x%x, got 0x%x)",
+                sig_off, dev_fd.tell())
+
+        n = dev_fd.write(sig_data)
+        verify(n == sig_len,
+                "write failed (expected %d bytes, wrote %d)",
+                sig_len, n)
+
+        print("%s: %d bytes were written at offset 0x%08x (none): %s" % \
+                (dev_path, sig_len, sig_off, hex(sig_data)))
+
+        dev_fd.flush()

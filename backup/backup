@@ -132,21 +132,9 @@ trap 'die "[$BASHPID] interrupted"' INT
 case $job in
 	push-hd)
 		mounted: $b
-		consumed=0
-		while [[ $1 && $1 != / ]]; do
-			sub=$(readlink -f "$1"); shift; (( ++consumed ))
-			if [[ "$sub" != "$HOME"/* ]]; then
-				die "path \"$sub\" is outside \$HOME"
-			fi
-			sub=${sub#$HOME/}
-			sub=${sub%/}
-			do_rsync ~/"$sub"/ $b/Home/"$sub"/ -FxP
-		done
-		if (( consumed == 0 )); then
-			$0 local        || fail+=(local)
-			$0 home-push-hd || fail+=(home-push-hd)
-			$0 root-push-hd || fail+=(root-push-hd)
-		fi
+		$0 local        || fail+=(local)
+		$0 home-push-hd || fail+=(home-push-hd)
+		$0 root-push-hd || fail+=(root-push-hd)
 		sync
 		;;
 	home-push-hd)

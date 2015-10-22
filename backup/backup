@@ -110,199 +110,197 @@ debug "started with: '$*'"
 
 b="/mnt/backup"
 
-while [[ $1 ]]; do {
+while [[ $1 ]]; do
+	job=${1%/}; shift
 
-job=${1%/}; shift
+	case $job in
+		--jobs)
+			sed -rn '/^case \$job in$/,/^esac$/ { s/^\t(\S+)\)$/\1/p }' "$0"
+			exit ;;
+	esac
 
-case $job in
-	--jobs)
-		sed -rn '/^case \$job in$/,/^esac$/ { s/^\t(\S+)\)$/\1/p }' "$0"
-		exit ;;
-esac
+	openlog "$job"
+	resetlog "started"
+	log2 "running job '$job'"
+	t_begin=$(now)
 
-openlog "$job"
-resetlog "started"
-log2 "running job '$job'"
-t_begin=$(now)
+	fail=()
 
-fail=()
+	trap 'die "[$BASHPID] interrupted"' INT
 
-trap 'die "[$BASHPID] interrupted"' INT
-
-case $job in
-	push-hd)
-		mounted: $b
-		$0 local:$HOSTNAME || fail+=(local:$HOSTNAME)
-		$0 home-push-hd || fail+=(home-push-hd)
-		[[ -d ~/Dropbox ]] &&
-		$0 dropbox-push-hd || fail+=(dropbox-push-hd)
-		$0 root-push-hd || fail+=(root-push-hd)
-		sync
-		;;
-	home-push-hd)
-		mounted: $b
-		if [[ $HOSTNAME == rain ]]; then
-			die "TODO: move Home to Homes/$HOSTNAME"
-		fi
-		do_rsync ~/ $b/Homes/$HOSTNAME/				\
-			-f "exclude /Dropbox/"				\
-			-FxP
-		;;
-	dropbox-push-hd)
-		[[ -d ~/Dropbox/Porn ]] ||
-			die "Dropbox in selective sync mode?"
-		do_rsync ~/Dropbox/ $b/Backup/Dropbox/ -FxP
-		;;
-	root-push-hd)
-		mounted: $b
-		do_rsync / $b/Roots/$HOSTNAME/				\
-			-f "exclude /home/"				\
-			-FxP
-		;;
-	push-ukradius)
-		do_rsync ~ ukradius:/backup/priv/$HOSTNAME-daily/home	\
-			-f "merge $HOME/.rsync-filter-for-ukradius"	\
-			-FxP
-		;;
-	online)
-		$0 twitter
-		$0 servers
-		$0 mail
-		$0 irc
-		$0 gale
-		;;
-	servers)
-		homes=()
-		roots=()
-
-		for host in $(< ~/Backup/hosts.txt); do
-			debug "parsing host: '$host'"
-			if [[ $host == '#'* ]]; then
-				continue
+	case $job in
+		push-hd)
+			mounted: $b
+			$0 local:$HOSTNAME || fail+=(local:$HOSTNAME)
+			$0 home-push-hd || fail+=(home-push-hd)
+			[[ -d ~/Dropbox ]] &&
+			$0 dropbox-push-hd || fail+=(dropbox-push-hd)
+			$0 root-push-hd || fail+=(root-push-hd)
+			sync
+			;;
+		home-push-hd)
+			mounted: $b
+			if [[ $HOSTNAME == rain ]]; then
+				die "TODO: move Home to Homes/$HOSTNAME"
 			fi
-			until [[ $host == *[a-z0-9] ]]; do
-				case $host in
-				*!) host=${host%!}; roots+=($host);;
-				esac
+			do_rsync ~/ $b/Homes/$HOSTNAME/				\
+				-f "exclude /Dropbox/"				\
+				-FxP
+			;;
+		dropbox-push-hd)
+			[[ -d ~/Dropbox/Porn ]] ||
+				die "Dropbox in selective sync mode?"
+			do_rsync ~/Dropbox/ $b/Backup/Dropbox/ -FxP
+			;;
+		root-push-hd)
+			mounted: $b
+			do_rsync / $b/Roots/$HOSTNAME/				\
+				-f "exclude /home/"				\
+				-FxP
+			;;
+		push-ukradius)
+			do_rsync ~ ukradius:/backup/priv/$HOSTNAME-daily/home	\
+				-f "merge $HOME/.rsync-filter-for-ukradius"	\
+				-FxP
+			;;
+		online)
+			$0 twitter
+			$0 servers
+			$0 mail
+			$0 irc
+			$0 gale
+			;;
+		servers)
+			homes=()
+			roots=()
+
+			for host in $(< ~/Backup/hosts.txt); do
+				debug "parsing host: '$host'"
+				if [[ $host == '#'* ]]; then
+					continue
+				fi
+				until [[ $host == *[a-z0-9] ]]; do
+					case $host in
+					*!) host=${host%!}; roots+=($host);;
+					esac
+				done
+				homes+=($host)
 			done
-			homes+=($host)
-		done
 
-		debug "running jobs"
+			debug "running jobs"
 
-		for host in ${homes[@]}; do
-			$0 @$host || fail+=(@$host)
-		done
+			for host in ${homes[@]}; do
+				$0 @$host || fail+=(@$host)
+			done
 
-		for host in ${roots[@]}; do
-			$0 root@$host || fail+=(root@$host)
-		done
+			for host in ${roots[@]}; do
+				$0 root@$host || fail+=(root@$host)
+			done
 
-		$0 nanobot || fail+=(nanobot)
+			$0 nanobot || fail+=(nanobot)
 
-		if mountpoint -q $b; then
-			$0 fs1 || fail+=(fs1)
-		fi
-		;;
-	root@*)
-		host=$job
-		do_rsync $host:/ ~/Backup/Roots/${host#root@}/		\
-			-f "merge $HOME/Backup/Roots/filter.global"	\
-			-f "merge $HOME/Backup/Roots/filter.minimize"	\
-			-F						\
-			--one-file-system --fake-super			\
-			;
-		;;
-	@*)
-		host=${job#@}
-		do_rsync $host: ~/Backup/Homes/$host/			\
-			-f "merge $HOME/Backup/Homes/filter.global" -F	\
-			;
-		;;
-	fs1)
-		mounted: $b
-		do_rsync ukradius:pub/fs1/ $b/Servers/fs1/		\
-			-f "exclude,p /mirrors/rain"			\
-			;
-		;;
-	mail)
-		host=wolke
-		log "downloading mail (rsync)"
-		do_rsync $host:Mail/      ~/Backup/Mail/$host/
-		do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
-		log "downloading mail (dsync backup)"
-		dsync -R backup $host
-		;;
-	nanobot)
-		do_rsync root@panther:/home/nanobot/ ~/Backup/Cluenet/nanobot/
-		;;
-	twitter)
-		twitter-backup
-		;;
-	irc)
-		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
-		;;
-	gale)
-		mounted: $b
-		do_rsync \
-			ofb.net:'~jtr/glog/'			\
-			$b/Attic/Galelogs/			\
-			--exclude '/:glog.out'			\
-			;
-		do_rsync \
-			ofb.net:'~egnor/etc/gale/auth/'		\
-			$b/Attic/Loot/ofb.net/gale-pubkeys/	\
-			--exclude 'tmp.*'			\
-			;
-		;;
-	cluenet)
-		#dir=$b/Backup/Cluenet
-		dir=~/Backup/Cluenet
+			if mountpoint -q $b; then
+				$0 fs1 || fail+=(fs1)
+			fi
+			;;
+		root@*)
+			host=$job
+			do_rsync $host:/ ~/Backup/Roots/${host#root@}/		\
+				-f "merge $HOME/Backup/Roots/filter.global"	\
+				-f "merge $HOME/Backup/Roots/filter.minimize"	\
+				-F						\
+				--one-file-system --fake-super			\
+				;
+			;;
+		@*)
+			host=${job#@}
+			do_rsync $host: ~/Backup/Homes/$host/			\
+				-f "merge $HOME/Backup/Homes/filter.global" -F	\
+				;
+			;;
+		fs1)
+			mounted: $b
+			do_rsync ukradius:pub/fs1/ $b/Servers/fs1/		\
+				-f "exclude,p /mirrors/rain"			\
+				;
+			;;
+		mail)
+			host=wolke
+			log "downloading mail (rsync)"
+			do_rsync $host:Mail/      ~/Backup/Mail/$host/
+			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
+			log "downloading mail (dsync backup)"
+			dsync -R backup $host
+			;;
+		nanobot)
+			do_rsync root@panther:/home/nanobot/ ~/Backup/Cluenet/nanobot/
+			;;
+		twitter)
+			twitter-backup
+			;;
+		irc)
+			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
+			;;
+		gale)
+			mounted: $b
+			do_rsync \
+				ofb.net:'~jtr/glog/'			\
+				$b/Attic/Galelogs/			\
+				--exclude '/:glog.out'			\
+				;
+			do_rsync \
+				ofb.net:'~egnor/etc/gale/auth/'		\
+				$b/Attic/Loot/ofb.net/gale-pubkeys/	\
+				--exclude 'tmp.*'			\
+				;
+			;;
+		cluenet)
+			#dir=$b/Backup/Cluenet
+			dir=~/Backup/Cluenet
 
-		do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
+			do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
 
-		do_pull $dir/virgule/accounts/
-		#do_pull $dir/radian/accounts/
-		do_pull $dir/_ircd-config/
-		#do_rsync \
-		#	root@radian.cluenet.org:/backup/	\
-		#	$dir/radian/backup/			\
-		#	--exclude '/accounts/'			\
-		#	;
-		#do_rsync \
-		#	root@radian.cluenet.org:/var/www/	\
-		#	$dir/radian/www/			\
-		#	--exclude '/main/cluewikicache/'	\
-		#	;
+			do_pull $dir/virgule/accounts/
+			#do_pull $dir/radian/accounts/
+			do_pull $dir/_ircd-config/
+			#do_rsync \
+			#	root@radian.cluenet.org:/backup/	\
+			#	$dir/radian/backup/			\
+			#	--exclude '/accounts/'			\
+			#	;
+			#do_rsync \
+			#	root@radian.cluenet.org:/var/www/	\
+			#	$dir/radian/www/			\
+			#	--exclude '/main/cluewikicache/'	\
+			#	;
 
-		do_kdestroy
-		;;
-	grawpqi|nullkey)
-		dir=/run/media/grawity/$job/
-		mountpoint -q "$dir" || die "'$job' not mounted"
-		do_rsync "$dir" ~/Backup/Devices/$job/
-		;;
-	local:rain)
-		do_rsync \
-			/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ \
-			~/Backup/Games/SL/Firestorm_current/	\
-			--exclude 'browser_profile'		\
-			;
-		;;
-	local:*)
-		;;
-	*)
-		die "unknown job '$job'"
-		;;
-esac
+			do_kdestroy
+			;;
+		grawpqi|nullkey)
+			dir=/run/media/grawity/$job/
+			mountpoint -q "$dir" || die "'$job' not mounted"
+			do_rsync "$dir" ~/Backup/Devices/$job/
+			;;
+		local:rain)
+			do_rsync \
+				/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ \
+				~/Backup/Games/SL/Firestorm_current/	\
+				--exclude 'browser_profile'		\
+				;
+			;;
+		local:*)
+			;;
+		*)
+			die "unknown job '$job'"
+			;;
+	esac
 
-if (( ${#fail[@]} )); then
-	_fail=${fail[*]}
-	err "backup failed for ${_fail// /, }"
-fi
+	if (( ${#fail[@]} )); then
+		_fail=${fail[*]}
+		err "backup failed for ${_fail// /, }"
+	fi
 
-t_end=$(now)
-log "job '$job' finished in $(interval $[t_end-t_begin])"
-resetlog "done"
-
-}; done
+	t_end=$(now)
+	log "job '$job' finished in $(interval $[t_end-t_begin])"
+	resetlog "done"
+done

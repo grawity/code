@@ -134,6 +134,8 @@ case $job in
 		mounted: $b
 		$0 local:$HOSTNAME || fail+=(local:$HOSTNAME)
 		$0 home-push-hd || fail+=(home-push-hd)
+		[[ -d ~/Dropbox ]] &&
+		$0 dropbox-push-hd || fail+=(dropbox-push-hd)
 		$0 root-push-hd || fail+=(root-push-hd)
 		sync
 		;;
@@ -142,14 +144,25 @@ case $job in
 		if [[ $HOSTNAME == rain ]]; then
 			die "TODO: move Home to Homes/$HOSTNAME"
 		fi
-		do_rsync ~/ $b/Homes/$HOSTNAME/ -FxP
+		do_rsync ~/ $b/Homes/$HOSTNAME/				\
+			-f "exclude /Dropbox/"				\
+			-FxP
+		;;
+	dropbox-push-hd)
+		[[ -d ~/Dropbox/Porn ]] ||
+			die "Dropbox in selective sync mode?"
+		do_rsync ~/Dropbox/ $b/Backup/Dropbox/ -FxP
 		;;
 	root-push-hd)
 		mounted: $b
-		do_rsync / $b/Roots/$HOSTNAME/ -FxP
+		do_rsync / $b/Roots/$HOSTNAME/				\
+			-f "exclude /home/"				\
+			-FxP
 		;;
 	push-ukradius)
-		do_rsync ~ ukradius:/backup/priv/$HOSTNAME-daily/home -FxP
+		do_rsync ~ ukradius:/backup/priv/$HOSTNAME-daily/home	\
+			-f "merge $HOME/.rsync-filter-for-ukradius"	\
+			-FxP
 		;;
 	online)
 		$0 twitter

@@ -4,27 +4,33 @@
 
 progname_prefix=0
 
-openlog() {
-	local lock=~/Backup/.log/$1.log
-	mkdir -p ${lock%/*}
-	exec {fd}<>$lock
-	flock -x -n $fd || {
-		if read -r ldate lstatus < "$lock" || true; then
-			lmsg="$lstatus on $ldate"
+_lock_path=
+_lock_fd=
+
+lock_job() {
+	local job=$1
+
+	_lock_path=$XDG_RUNTIME_DIR/nullroute.eu.org/backup/$1.lock
+	mkdir -p "${_lock_path%/*}"
+
+	exec {_lock_fd}<>$_lock_path
+	flock -x -n $_lock_fd || {
+		if read ldate < "$_lock_path" || true; then
+			lmsg="started on $(date -d "$ldate" +"%F %T")"
 		else
 			lmsg="status unknown"
 		fi
 		die "job $job is already running ($lmsg)"
 	}
+	echo "$(date -Isecond) $*" >&$_lock_fd
 }
 
-putlog() {
-	echo "$(date -Isecond) $*" >&$fd
-}
+unlock_job() {
+	local _lock_path=$_lock_path
+	local _lock_fd=$_lock_fd
 
-resetlog() {
-	truncate -s 0 /dev/fd/$fd
-	putlog "$*"
+	exec {_lock_fd}<&-
+	rm -f "$_lock_path"
 }
 
 mounted:() {
@@ -119,8 +125,7 @@ while [[ $1 ]]; do
 			exit ;;
 	esac
 
-	openlog "$job"
-	resetlog "started"
+	lock_job "$job"
 	log2 "running job '$job'"
 	t_begin=$(now)
 
@@ -302,5 +307,5 @@ while [[ $1 ]]; do
 
 	t_end=$(now)
 	log "job '$job' finished in $(interval $[t_end-t_begin])"
-	resetlog "done"
+	unlock_job
 done

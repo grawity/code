@@ -98,6 +98,10 @@ do_kdestroy() {
 	fi
 }
 
+do_job() {
+	$0 "$1" || { fail+=("$1"); false; }
+}
+
 if [[ ! $_inhibited ]]; then
 	export _inhibited=$$
 	debug "restarting under gnome-inhibit"
@@ -121,7 +125,7 @@ while [[ $1 ]]; do
 
 	case $job in
 		--jobs)
-			sed -rn '/^case \$job in$/,/^esac$/ { s/^\t(\S+)\)$/\1/p }' "$0"
+			sed -rn '/^\tcase \$job in$/,/^esac$/ { s/^\t\t(\S+)\)$/\1/p }' "$0"
 			exit ;;
 	esac
 
@@ -136,11 +140,11 @@ while [[ $1 ]]; do
 	case $job in
 		push-hd)
 			mounted: $b
-			$0 local:$HOSTNAME || fail+=(local:$HOSTNAME)
-			$0 home-push-hd || fail+=(home-push-hd)
+			do_job local:$HOSTNAME
 			[[ -d ~/Dropbox ]] &&
-			$0 dropbox-push-hd || fail+=(dropbox-push-hd)
-			$0 root-push-hd || fail+=(root-push-hd)
+				do_job dropbox-push-hd
+			do_job home-push-hd
+			do_job root-push-hd
 			sync
 			;;
 		home-push-hd)
@@ -169,11 +173,11 @@ while [[ $1 ]]; do
 				-FxP
 			;;
 		online)
-			$0 twitter
-			$0 servers
-			$0 mail
-			$0 irc
-			$0 gale
+			do_job twitter
+			do_job servers
+			do_job mail
+			do_job irc
+			do_job gale
 			;;
 		servers)
 			homes=()
@@ -195,17 +199,17 @@ while [[ $1 ]]; do
 			debug "running jobs"
 
 			for host in ${homes[@]}; do
-				$0 @$host || fail+=(@$host)
+				do_job @$host
 			done
 
 			for host in ${roots[@]}; do
-				$0 root@$host || fail+=(root@$host)
+				do_job root@$host
 			done
 
-			$0 nanobot || fail+=(nanobot)
+			do_job nanobot
 
 			if mountpoint -q $b; then
-				$0 fs1 || fail+=(fs1)
+				do_job fs1
 			fi
 			;;
 		root@*)

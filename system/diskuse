@@ -3,6 +3,7 @@
 from __future__ import division, print_function
 import os
 import sys
+import subprocess
 
 thresholds = [
     ( 10, ( 76, 10)),
@@ -197,6 +198,13 @@ separator = ansify("-" * len(fmt % header), "2")
 
 print(ansify(fmt, "1") % header)
 
+def get_fs_devno(mtpt):
+    res = subprocess.run(["mountpoint", "-d", mtpt],
+                         stdout=subprocess.PIPE)
+    return res.stdout.strip().decode("utf-8")
+
+seen_devnos = set()
+
 def dump_mtpt(mtpt):
     try:
         st = os.statvfs(mtpt)
@@ -207,6 +215,11 @@ def dump_mtpt(mtpt):
 
     if st.f_blocks == 0:
         return
+
+    devno = get_fs_devno(mtpt)
+    if devno in seen_devnos:
+        return
+    seen_devnos.add(devno)
 
     total_bytes     = st.f_bsize * st.f_blocks
     free_bytes      = st.f_bsize * st.f_bfree

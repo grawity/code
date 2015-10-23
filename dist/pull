@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 
-# (no lib.bash to avoid dependencies that may break)
-
 [ "$DEBUG" ] && set -x
 set -e
+
+msg=
 
 have() { command -v "$1" >/dev/null; }
 
 log() {
-	msg=$*; # nonlocal for debugging via silent()
-
+	msg=$*
 	if [ -t 1 ]; then
 		printf "\e[32m--\e[m %s\e[m\n" "$msg"
 	fi
@@ -49,7 +48,7 @@ if [ ! "$xyzzy" ]; then
 	silent git pull
 	xyzzy=42 exec dist/pull
 else
-	today=$(date +"%d")
+	today=$(date +%d)
 
 	if [ $today -eq 7 ]; then
 		log "compacting code.git"
@@ -58,14 +57,10 @@ else
 		silent nice git repack -d
 	fi &
 
-	# authorized_keys
-
 	if [ -d ~/.gnupg ]; then
 		log "updating authorized_keys"
 		security/update-authorized-keys
 	fi &
-
-	# dotfiles
 
 	if [ -d ~/lib/dotfiles ]; then
 		log "fetching dotfiles.git"
@@ -94,14 +89,10 @@ else
 		~/lib/dotfiles/install
 	fi
 
-	# dotfiles/.k5login
-
 	if [ -f ~/.k5login ] && [ ! -k ~/.k5login ]; then
 		log "updating .k5login"
 		security/update-k5login
 	fi
-
-	# rwho
 
 	if [ -d ~/lib/rwho ]; then
 		(
@@ -113,7 +104,7 @@ else
 				agent-linux/rwho-agent.sh update
 			fi
 		else
-			log "skipping rwho update (not on master)"
+			log "skipping rwho (not on master)"
 		fi
 		)
 	fi &

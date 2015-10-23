@@ -17,8 +17,14 @@ _gpg() {
 hourly() {
 	# push to local cache
 	(if cd ~/Private/keys; then
+		chronic rsync -shaxHAX ~/.gnupg/private-keys-v1.d/ \
+			./identity/gnupg-private-keys-v1.d/;
+
+		chronic git commit -q -m "update GnuPG private keys" \
+			./identity/gnupg-private-keys-v1.d/ > /dev/null;
+
 		chronic git push -q ~/Private/.cache/keys.git \
-			+master:master +master:refs/old/$(date +%F)
+			+master:master +master:refs/old/$(date +%F);
 	fi)
 	# push to keycard
 	(if mountpoint -q /mnt/keycard; then

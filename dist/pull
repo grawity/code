@@ -31,7 +31,7 @@ silent() {
 }
 
 on_master() {
-	[ "$(git symbolic-ref HEAD 2>/dev/null)" = "refs/heads/master" ]
+	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/master ]
 }
 
 if [ ! "$xyzzy" ]; then
@@ -43,9 +43,13 @@ if [ ! "$xyzzy" ]; then
 		rm -f ~/.gitconfig
 	fi
 
-	log "fetching code.git"
 	cd ~/code
-	silent git pull
+	if on_master; then
+		log "fetching code.git"
+		silent git pull --ff-only
+	else
+		log "skipping code.git (not on master)"
+	fi
 	xyzzy=42 exec dist/pull
 else
 	today=$(date +%d)
@@ -53,37 +57,33 @@ else
 	if [ $today -eq 7 ]; then
 		log "compacting code.git"
 		silent nice git gc
-	else
-		silent nice git repack -d
 	fi &
 
 	if [ -d ~/.gnupg ]; then
 		log "updating authorized_keys"
 		security/update-authorized-keys
-	fi &
+	fi
 
 	if [ -d ~/lib/dotfiles ]; then
-		log "fetching dotfiles.git"
-		(
-		cd ~/lib/dotfiles
-		git fetch --quiet origin
-		stash=true
-		if on_master && git merge --quiet --ff-only origin/master; then
-			stash=false
-		fi
-		if $stash; then
-			git stash save
-			git checkout -f master
-			git reset --hard origin/master
-		fi
+		(cd ~/lib/dotfiles
+		if on_master; then
+			log "updating dotfiles.git"
+			silent git fetch origin
+			silent git merge --ff-only origin/master || {
+				git stash save "dist/pull on $(date)"
+				git checkout -f master
+				git reset --hard origin/master
+			}
 
+		else
+			log "skipping dotfiles.git (not on master)"
+		fi)
+
+		(cd ~/lib/dotfiles
 		if [ $today -eq 14 ]; then
 			log "compacting dotfiles.git"
 			silent nice git gc
-		else
-			silent nice git repack -d
-		fi &
-		)
+		fi) &
 
 		log "running dotfiles/install"
 		~/lib/dotfiles/install

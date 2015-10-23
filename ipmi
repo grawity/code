@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+. lib.bash     || exit
+. libcred.bash || exit
+
+host=$1; shift
+
+[[ $host ]] || die "missing hostname"
+
+arg_interface=lanplus
+
+while getopts ":I:" OPT; do
+	case $OPT in
+	I) arg_interface=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done
+
+if [[ ! $user || ! $pass ]]; then
+	getcred_var "$host" "ipmi" "IPMI Remote Management" user pass
+fi || exit
+
+debug "got creds: '$user' '$pass'"
+
+ipmitool -H "$host" -U "$user" -P "$pass" -I "$arg_interface" "$@"

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+fs=$1
+fstype=sshfs
+
+host=$fs
+src="$host:"
+dst="$HOME/tmp/$host:"
+
+case $fstype in
+	sshfs)
+		if mountpoint -q "$dst"; then
+			die "something is mounted on '$dst'"
+		elif ! test -d "$dst"; then
+			mkdir -p "$dst"
+		fi
+
+		sshfs "$src" "$dst"
+
+		if mountpoint -q "$dst"; then
+			info "mounted '$src' on '$dst'"
+		fi
+		;;
+esac

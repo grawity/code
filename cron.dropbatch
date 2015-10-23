@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+log() {
+	if [ -t 1 ]; then echo "$*"; fi
+}
+
+shopt -s nullglob
+
+for file in ~/Dropbox/${HOSTNAME%%.*}-*.sh; do
+	log "running $file"
+	{
+		mv "$file" "$file.running"
+		{
+			echo "--> $(date) ($HOSTNAME)"
+			bash -x "$file.running" 2>&1
+			echo "==> $?"
+		} > "$file.log"
+		mv "$file.running" "$file.done"
+	} &
+done

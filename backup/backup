@@ -118,7 +118,7 @@ while [[ $1 ]]; do
 
 	case $job in
 		push-hd)
-			do_job local:$HOSTNAME
+			do_job local@$HOSTNAME
 			[[ -d ~/Dropbox ]] &&
 				do_job dropbox-push-hd
 			do_job home-push-hd
@@ -126,7 +126,7 @@ while [[ $1 ]]; do
 			sync
 			;;
 		home-push-hd)
-			do_rsync ~/ $bvol/Homes/$HOSTNAME/				\
+			do_rsync ~/ $bvol/Homes/$HOSTNAME/			\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
 				-x -P
@@ -137,7 +137,7 @@ while [[ $1 ]]; do
 			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ -x -P
 			;;
 		root-push-hd)
-			do_rsync / $bvol/Roots/$HOSTNAME/				\
+			do_rsync / $bvol/Roots/$HOSTNAME/			\
 				-f "merge $conf/rsync-filters/root_all"		\
 				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
 				-x -P
@@ -190,22 +190,20 @@ while [[ $1 ]]; do
 		root@*)
 			host=$job
 			do_rsync $host:/ ~/Backup/Roots/${host#root@}/		\
-				-f "merge $HOME/Backup/Roots/filter.global"	\
-				-f "merge $HOME/Backup/Roots/filter.minimize"	\
-				-F						\
-				--one-file-system --fake-super			\
-				;
+				-f "merge $conf/rsync-filters/server_root_all"	\
+				-f "merge $conf/rsync-filters/server_root_extra"\
+				-F -x -P --fake-super				;
 			;;
 		@*)
 			host=${job#@}
 			do_rsync $host: ~/Backup/Homes/$host/			\
-				-f "merge $HOME/Backup/Homes/filter.global" -F	\
-				;
+				-f "merge $conf/rsync-filters/home_all"		\
+				-f "merge $conf/rsync-filters/server_home_all"	\
+				-F -x -P					;
 			;;
 		fs1)
 			do_rsync ukradius:pub/fs1/ $bvol/Servers/fs1/		\
-				-f "exclude,p /mirrors/rain"			\
-				;
+				-f "exclude /mirrors/rain"			;
 			;;
 		mail)
 			host=wolke
@@ -226,51 +224,30 @@ while [[ $1 ]]; do
 			;;
 		gale)
 			do_rsync \
-				ofb.net:'~jtr/glog/'			\
+				ofb.net:~jtr/glog/			\
 				$bvol/Attic/Galelogs/			\
-				--exclude '/:glog.out'			\
-				;
+				-f "exclude :glog.out"			;
 			do_rsync \
-				ofb.net:'~egnor/etc/gale/auth/'		\
+				ofb.net:~egnor/etc/gale/auth/		\
 				$bvol/Attic/Loot/ofb.net/gale-pubkeys/	\
-				--exclude 'tmp.*'			\
-				;
+				-f "exclude tmp.*"			;
 			;;
 		cluenet)
 			#dir=$bvol/Backup/Cluenet
 			dir=~/Backup/Cluenet
 
 			do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
-
 			do_pull $dir/virgule/accounts/
-			#do_pull $dir/radian/accounts/
 			do_pull $dir/_ircd-config/
-			#do_rsync \
-			#	root@radian.cluenet.org:/backup/	\
-			#	$dir/radian/backup/			\
-			#	--exclude '/accounts/'			\
-			#	;
-			#do_rsync \
-			#	root@radian.cluenet.org:/var/www/	\
-			#	$dir/radian/www/			\
-			#	--exclude '/main/cluewikicache/'	\
-			#	;
-
 			do_kdestroy
 			;;
-		grawpqi|nullkey)
-			dir=/run/media/grawity/$job/
-			mountpoint -q "$dir" || die "'$job' not mounted"
-			do_rsync "$dir" ~/Backup/Devices/$job/
-			;;
-		local:rain)
+		local@rain)
 			do_rsync \
-				/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ \
-				~/Backup/Games/SL/Firestorm_current/	\
-				--exclude 'browser_profile'		\
-				;
+				/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ 	\
+				~/Backup/Games/SL/Firestorm_current/			\
+				-f "exclude browser_profile"				;
 			;;
-		local:*)
+		local@*)
 			;;
 		*)
 			die "unknown job '$job'"

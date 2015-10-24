@@ -166,7 +166,9 @@ while [[ $1 ]]; do
 			do_job servers
 			do_job mail
 			do_job irc
-			do_job gale
+			if mountpoint -q $bvol; then
+				do_job gale
+			fi
 			;;
 		servers)
 			homes=()
@@ -177,26 +179,21 @@ while [[ $1 ]]; do
 				if [[ $host == '#'* ]]; then
 					continue
 				fi
-				until [[ $host == *[a-z0-9] ]]; do
-					case $host in
-					*!) host=${host%!}; roots+=($host);;
-					esac
-				done
+				if [[ $host == *'!' ]]; then
+					host=${host%!}
+					roots+=($host)
+				fi
 				homes+=($host)
 			done
 
 			debug "running jobs"
-
 			for host in ${homes[@]}; do
 				do_job @$host
 			done
-
 			for host in ${roots[@]}; do
 				do_job root@$host
 			done
-
 			do_job nanobot
-
 			if mountpoint -q $bvol; then
 				do_job fs1
 			fi

@@ -37,7 +37,7 @@ drop_lock() {
 do_rsync() {
 	local src=$1 dest=$2 rest=("${@:3}")
 
-	local args=()
+	local arg last args=()
 
 	if [[ $src == / || $src == ~/ ]]; then
 		args+=(sudo)
@@ -48,8 +48,22 @@ do_rsync() {
 		-aHAXvzh
 		--info=progress2
 		--delete-after
-		--delete-excluded
-		"${rest[@]}")
+		--delete-excluded)
+
+	for arg in "${rest[@]}"; do
+		if [[ $last == -f && $arg == @(merge|.)\ * ]]; then
+			debug "processing '$arg'"
+			if [[ -f ${arg#* } ]]; then
+				args+=("$arg")
+			else
+				debug "merge file not found, replacing with /dev/null"
+				args+=("merge /dev/null")
+			fi
+		else
+			args+=("$arg")
+		fi
+		last=$arg
+	done
 
 	log "rsyncing $src -> $dest"
 
@@ -189,17 +203,20 @@ while [[ $1 ]]; do
 			;;
 		root@*)
 			host=$job
-			do_rsync $host:/ ~/Backup/Roots/${host#root@}/		\
-				-f "merge $conf/rsync-filters/server_root_all"	\
-				-f "merge $conf/rsync-filters/server_root_extra"\
-				-F -x -P --fake-super				;
+			do_rsync $host:/ ~/Backup/Roots/${host#root@}/			\
+				-f "merge $conf/rsync-filters/server_root_all"		\
+				-f "merge $conf/rsync-filters/server_root_extra"	\
+				-f "merge $conf/rsync-filters/server_root_$host"	\
+				-F -x -P --fake-super					;
 			;;
 		@*)
 			host=${job#@}
-			do_rsync $host: ~/Backup/Homes/$host/			\
-				-f "merge $conf/rsync-filters/home_all"		\
-				-f "merge $conf/rsync-filters/server_home_all"	\
-				-F -x -P					;
+			do_rsync $host: ~/Backup/Homes/$host/				\
+				-f "merge $conf/rsync-filters/home_all"			\
+				-f "merge $conf/rsync-filters/home_$host"		\
+				-f "merge $conf/rsync-filters/server_home_all"		\
+				-f "merge $conf/rsync-filters/server_home_$host"	\
+				-F -x -P						;
 			;;
 		fs1)
 			do_rsync ukradius:pub/fs1/ $bvol/Servers/fs1/		\

@@ -118,7 +118,8 @@ umask 077
 
 debug "started with: '$*'"
 
-b="/mnt/backup"
+b=/mnt/backup
+conf=~/Dropbox/Apps/.config/
 
 while [[ $1 ]]; do
 	job=${1%/}; shift
@@ -149,23 +150,22 @@ while [[ $1 ]]; do
 			;;
 		home-push-hd)
 			mounted: $b
-			if [[ $HOSTNAME == rain ]]; then
-				die "TODO: move Home to Homes/$HOSTNAME"
-			fi
 			do_rsync ~/ $b/Homes/$HOSTNAME/				\
-				-f "exclude /Dropbox/"				\
-				-FxP
+				-f "merge $conf/rsync-filters/home_all"		\
+				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
+				-x -P
 			;;
 		dropbox-push-hd)
 			[[ -d ~/Dropbox/Porn ]] ||
 				die "Dropbox in selective sync mode?"
-			do_rsync ~/Dropbox/ $b/Backup/Dropbox/ -FxP
+			do_rsync ~/Dropbox/ $b/Backup/Dropbox/ -x -P
 			;;
 		root-push-hd)
 			mounted: $b
 			do_rsync / $b/Roots/$HOSTNAME/				\
-				-f "exclude /home/"				\
-				-FxP
+				-f "merge $conf/rsync-filters/root_all"		\
+				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
+				-x -P
 			;;
 		push-ukradius)
 			do_rsync ~ ukradius:/backup/priv/$HOSTNAME-daily/home	\

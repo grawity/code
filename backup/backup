@@ -4,41 +4,38 @@
 
 progname_prefix=0
 
-_lock_path=
-_lock_fd=
+bvol=/mnt/backup
+conf=~/Dropbox/Apps/.config/
 
-lock_job() {
+lock_path=
+lock_fd=
+failed_jobs=()
+
+take_lock() {
 	local job=$1
 
-	_lock_path=$XDG_RUNTIME_DIR/nullroute.eu.org/backup/$1.lock
-	mkdir -p "${_lock_path%/*}"
+	lock_path=$XDG_RUNTIME_DIR/nullroute.eu.org/backup/$1.lock
+	mkdir -p "${lock_path%/*}"
 
-	exec {_lock_fd}<>$_lock_path
-	flock -x -n $_lock_fd || {
-		if read ldate < "$_lock_path" || true; then
+	exec {lock_fd}<>$lock_path
+	flock -x -n $lock_fd || {
+		if read ldate < "$lock_path" || true; then
 			lmsg="started on $(date -d "$ldate" +"%F %T")"
 		else
 			lmsg="status unknown"
 		fi
 		die "job $job is already running ($lmsg)"
 	}
-	echo "$(date -Isecond) $*" >&$_lock_fd
+	echo "$(date -Isecond) $*" >&$lock_fd
 }
 
-unlock_job() {
-	local _lock_path=$_lock_path
-	local _lock_fd=$_lock_fd
-
-	exec {_lock_fd}<&-
-	rm -f "$_lock_path"
-}
-
-mounted:() {
-	mountpoint -q "$1" || die "backup disk not mounted"
+drop_lock() {
+	exec {lock_fd}<&-
+	rm -f "$lock_path"
 }
 
 do_rsync() {
-	local src=$1 dest=$2; shift 2
+	local src=$1 dest=$2 rest=("${@:3}")
 
 	local args=()
 
@@ -46,34 +43,27 @@ do_rsync() {
 		args+=(sudo)
 	fi
 
+	# note: add -x to jobs instead of here
 	args+=(rsync "$src" "$dest"
 		-aHAXvzh
 		--info=progress2
 		--delete-after
 		--delete-excluded
-		"$@")
+		"${rest[@]}")
 
 	log "rsyncing $src -> $dest"
-	# note: add -x to jobs instead of here
+
 	"${args[@]}"; r=$?
 
 	(( !r )) ||	# success
 	(( r == 24 ))	# files vanished
 }
 
-local_rsync() {
-	local src=$1
-
-	case $src in
-	$HOME/*) do_rsync "$src" "$b/${src#$HOME/}";;
-	*)       do_rsync "$src" "$b/_root/${src#/}";;
-	esac
-}
-
 do_pull() {
-	local dir=$1 url=$(cd "$1" && git config remote.origin.url)
+	local dir=$1
+	local url=$(cd "$dir" && git config remote.origin.url)
 
-	log "pulling $url -> $dir"
+	log "updating repo $dir (from $url)"
 	(cd "$dir" && git pull --ff-only origin)
 }
 
@@ -99,48 +89,35 @@ do_kdestroy() {
 }
 
 do_job() {
-	$0 "$1" || { fail+=("$1"); false; }
+	$0 "$1" || { failed_jobs+=("$1"); false; }
 }
 
 if [[ ! $_inhibited ]]; then
 	export _inhibited=$$
 	debug "restarting under gnome-inhibit"
 	exec gnome-inhibit \
+		--always \
 		--who "backup" \
 		--what "suspend" \
 		--why "Performing a backup" \
-		--always -- "$0" "$@"
+		-- "$0" "$@"
 fi
 
 set -e
-
 umask 077
-
 debug "started with: '$*'"
 
-b=/mnt/backup
-conf=~/Dropbox/Apps/.config/
+trap 'die "[$BASHPID] interrupted"' INT
 
 while [[ $1 ]]; do
 	job=${1%/}; shift
 
-	case $job in
-		--jobs)
-			sed -rn '/^\tcase \$job in$/,/^esac$/ { s/^\t\t(\S+)\)$/\1/p }' "$0"
-			exit ;;
-	esac
-
-	lock_job "$job"
+	take_lock "$job"
 	log2 "running job '$job'"
 	t_begin=$(now)
 
-	fail=()
-
-	trap 'die "[$BASHPID] interrupted"' INT
-
 	case $job in
 		push-hd)
-			mounted: $b
 			do_job local:$HOSTNAME
 			[[ -d ~/Dropbox ]] &&
 				do_job dropbox-push-hd
@@ -149,8 +126,7 @@ while [[ $1 ]]; do
 			sync
 			;;
 		home-push-hd)
-			mounted: $b
-			do_rsync ~/ $b/Homes/$HOSTNAME/				\
+			do_rsync ~/ $bvol/Homes/$HOSTNAME/				\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
 				-x -P
@@ -158,11 +134,10 @@ while [[ $1 ]]; do
 		dropbox-push-hd)
 			[[ -d ~/Dropbox/Porn ]] ||
 				die "Dropbox in selective sync mode?"
-			do_rsync ~/Dropbox/ $b/Backup/Dropbox/ -x -P
+			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ -x -P
 			;;
 		root-push-hd)
-			mounted: $b
-			do_rsync / $b/Roots/$HOSTNAME/				\
+			do_rsync / $bvol/Roots/$HOSTNAME/				\
 				-f "merge $conf/rsync-filters/root_all"		\
 				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
 				-x -P
@@ -208,7 +183,7 @@ while [[ $1 ]]; do
 
 			do_job nanobot
 
-			if mountpoint -q $b; then
+			if mountpoint -q $bvol; then
 				do_job fs1
 			fi
 			;;
@@ -228,8 +203,7 @@ while [[ $1 ]]; do
 				;
 			;;
 		fs1)
-			mounted: $b
-			do_rsync ukradius:pub/fs1/ $b/Servers/fs1/		\
+			do_rsync ukradius:pub/fs1/ $bvol/Servers/fs1/		\
 				-f "exclude,p /mirrors/rain"			\
 				;
 			;;
@@ -251,20 +225,19 @@ while [[ $1 ]]; do
 			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
 			;;
 		gale)
-			mounted: $b
 			do_rsync \
 				ofb.net:'~jtr/glog/'			\
-				$b/Attic/Galelogs/			\
+				$bvol/Attic/Galelogs/			\
 				--exclude '/:glog.out'			\
 				;
 			do_rsync \
 				ofb.net:'~egnor/etc/gale/auth/'		\
-				$b/Attic/Loot/ofb.net/gale-pubkeys/	\
+				$bvol/Attic/Loot/ofb.net/gale-pubkeys/	\
 				--exclude 'tmp.*'			\
 				;
 			;;
 		cluenet)
-			#dir=$b/Backup/Cluenet
+			#dir=$bvol/Backup/Cluenet
 			dir=~/Backup/Cluenet
 
 			do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
@@ -304,12 +277,12 @@ while [[ $1 ]]; do
 			;;
 	esac
 
-	if (( ${#fail[@]} )); then
-		_fail=${fail[*]}
+	if (( ${#failed_jobs[@]} )); then
+		_fail=${failed_jobs[*]}
 		err "backup failed for ${_fail// /, }"
 	fi
 
 	t_end=$(now)
 	log "job '$job' finished in $(interval $[t_end-t_begin])"
-	unlock_job
+	drop_lock
 done

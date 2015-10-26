@@ -126,26 +126,30 @@ while [[ $1 ]]; do
 			sync
 			;;
 		home-push-hd)
-			do_rsync ~/ $bvol/Homes/$HOSTNAME/				\
+			do_rsync ~/ $bvol/Homes/$HOSTNAME/			\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
 				-x -P
 			;;
 		dropbox-push-hd)
-			[[ -d ~/Dropbox/Porn ]] ||
-				die "Dropbox in selective sync mode?"
-			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ -x -P
+			[[ -d ~/Dropbox/Porn ]] || die "Dropbox in selective sync mode?"
+			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ 		\
+				-x -P
 			;;
 		root-push-hd)
-			do_rsync / $bvol/Roots/$HOSTNAME/				\
+			do_rsync / $bvol/Roots/$HOSTNAME/			\
 				-f "merge $conf/rsync-filters/root_all"		\
 				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
 				-x -P
 			;;
 		push-ukradius)
+			do_job home-push-ukradius
+			;;
+		home-push-ukradius)
 			do_rsync ~/ ukradius:/backup/priv/$HOSTNAME-daily/home/	\
-				-f "merge $HOME/.rsync-filter-for-ukradius"	\
-				-FxP
+				-f "merge $conf/rsync-filters/home_all"		\
+				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
+				-x -P
 			;;
 		online)
 			do_job twitter

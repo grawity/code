@@ -39,7 +39,7 @@ do_rsync() {
 
 	local arg last args=()
 
-	if [[ $src == / || $src == ~/ ]]; then
+	if [[ ( $src == / || $src == ~/ ) && $dest != *:* ]]; then
 		args+=(sudo)
 	fi
 
@@ -146,9 +146,9 @@ while [[ $1 ]]; do
 				-x -P
 			;;
 		dropbox-push-hd)
-			[[ -d ~/Dropbox/Porn ]] ||
-				die "Dropbox in selective sync mode?"
-			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ -x -P
+			[[ -d ~/Dropbox/Porn ]] || die "Dropbox in selective sync mode?"
+			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ 		\
+				-x -P
 			;;
 		root-push-hd)
 			do_rsync / $bvol/Roots/$HOSTNAME/			\
@@ -157,9 +157,13 @@ while [[ $1 ]]; do
 				-x -P
 			;;
 		push-ukradius)
-			do_rsync ~ ukradius:/backup/priv/$HOSTNAME-daily/home	\
-				-f "merge $HOME/.rsync-filter-for-ukradius"	\
-				-FxP
+			do_job home-push-ukradius
+			;;
+		home-push-ukradius)
+			do_rsync ~/ ukradius:/backup/priv/$HOSTNAME-daily/home/	\
+				-f "merge $conf/rsync-filters/home_all"		\
+				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
+				-x -P
 			;;
 		online)
 			do_job twitter

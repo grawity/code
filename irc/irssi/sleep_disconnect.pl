@@ -18,36 +18,31 @@ my $bus = Net::DBus::GLib->system();
 
 my $logind_mgr = undef;
 my $inhibit_fd = undef;
-my @restart_servers = ();
+my %restart_servers = ();
 
 sub _trace {
     Irssi::print("$IRSSI{name}: @_") if $ENV{DEBUG};
 }
 
 sub disconnect_all {
-    @restart_servers = ();
+    %restart_servers = ();
     for my $server (Irssi::servers()) {
         if ($server->{connected}) {
             _trace(" - disconnecting from $server->{tag}");
-            #push @restart_servers, $server;
-            push @restart_servers, $server->{tag};
-            $server->disconnect();
+            $restart_servers{$server->{tag}} = 1;
+            $server->command("reconnect");
         }
     }
 }
 
 sub reconnect_all {
     use Data::Dumper;
-    #for my $server (@restart_servers) {
-    #    _trace(" - reconnecting to $server->{tag}");
-    #    # the above works fine, it's just the ->connect() that crashes
-    #    $server->connect();
-    #}
-    for my $tag (@restart_servers) {
+    for my $tag (sort keys %restart_servers) {
         _trace(" - reconnecting to $tag");
-        Irssi::command("connect $tag");
+        _trace("TODO what to put here?");
+        #Irssi::command("reconnect $tag");
     }
-    @restart_servers = ();
+    %restart_servers = ();
 }
 
 sub take_inhibit {
@@ -110,6 +105,16 @@ sub connect_signals {
             take_inhibit();
             _trace("* reconnecting");
             reconnect_all();
+        }
+    });
+
+    Irssi::signal_add("server looking", sub {
+        my ($server) = @_;
+
+        if ($restart_servers{$server->{tag}}) {
+            _trace("stopping 'server looking' signal for $server->{tag}");
+            Irssi::signal_stop();
+            $restart_servers{$server->{tag}} = 0;
         }
     });
 

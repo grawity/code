@@ -12,7 +12,7 @@ our %IRSSI = (
     contact     => "Mantas Mikulėnas <grawity\@gmail.com>",
     license     => "MIT (Expat) <http://grawity.mit-license.org/2015>",
 );
-our $VERSION = '0.1';
+our $VERSION = '0.2';
 
 my $bus = Net::DBus::GLib->system();
 
@@ -25,18 +25,20 @@ sub _trace {
 }
 
 sub disconnect_all {
+    my $quit_msg = Irssi::settings_get_str("sleep_quit_message");
+
     %restart_servers = ();
+
     for my $server (Irssi::servers()) {
         if ($server->{connected}) {
             _trace(" - disconnecting from $server->{tag}");
             $restart_servers{$server->{tag}} = 1;
-            $server->send_raw_now("QUIT :Computer is going to sleep");
+            $server->send_raw_now("QUIT :$quit_msg");
         }
     }
 }
 
 sub reconnect_all {
-    use Data::Dumper;
     for my $tag (sort keys %restart_servers) {
         _trace(" - reconnecting to $tag");
         my $server = Irssi::server_find_tag($tag);
@@ -46,6 +48,7 @@ sub reconnect_all {
         }
         $server->command("reconnect");
     }
+
     %restart_servers = ();
 }
 
@@ -118,6 +121,8 @@ sub connect_signals {
 sub UNLOAD {
     drop_inhibit();
 }
+
+Irssi::settings_add_str("misc", "sleep_quit_message", "Computer going to sleep");
 
 connect_signals();
 

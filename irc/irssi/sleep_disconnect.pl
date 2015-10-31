@@ -15,9 +15,8 @@ our %IRSSI = (
 our $VERSION = '0.1';
 
 my $bus = Net::DBus::GLib->system();
-my $logind_svc = $bus->get_service("org.freedesktop.login1");
-my $logind_mgr = $logind_svc->get_object("/org/freedesktop/login1");
 
+my $logind_mgr = undef;
 my $inhibit_fd = undef;
 my @restart_servers = ();
 
@@ -49,20 +48,31 @@ sub reconnect_all {
 }
 
 sub take_inhibit {
-    if (defined $inhibit_fd) { die "take_inhibit: already has \$inhibit_fd!"; }
+    if (!$logind_mgr) {
+        Irssi::print("take_inhibit: no manager object", MSGLEVEL_CLIENTERROR);
+        return;
+    }
+    elsif (defined $inhibit_fd) {
+        Irssi::print("take_inhibit: already has an inhibit fd", MSGLEVEL_CLIENTERROR);
+        return;
+    }
 
     my $fd = $logind_mgr->Inhibit("sleep",
                                   "Irssi",
                                   "Irssi needs to disconnect from IRC",
                                   "delay");
-
-    if (!$fd) { die "take_inhibit: could not take an inhibitor"; }
-
+    if (!$fd) {
+        Irssi::print("take_inhibit: could not take an inhibitor");
+        $inhibit_fd = undef;
+        return;
+    }
+    Irssi::print("trace: got inhibit fd $fd");
     $inhibit_fd = $fd;
 }
 
 sub drop_inhibit {
     if (defined $inhibit_fd) {
+        Irssi::print("trace: dropping fd $inhibit_fd");
         POSIX::close($inhibit_fd);
         $inhibit_fd = undef;
     }
@@ -70,6 +80,18 @@ sub drop_inhibit {
 
 sub connect_signals {
     drop_inhibit();
+
+    if (!$logind_mgr) {
+        my $logind_svc = eval {$bus->get_service("org.freedesktop.login1")};
+        if ($@ || !$logind_svc) {
+            Irssi::print("systemd-logind not available on D-Bus, bailing");
+            return;
+        }
+
+        # eval{} can't catch errors here, but that's fine.
+        # If get_object() fails here, it has to be a systemd-logind bug.
+        $logind_mgr = $logind_svc->get_object("/org/freedesktop/login1");
+    }
 
     $logind_mgr->connect_to_signal("PrepareForSleep", sub {
         my ($suspending) = @_;

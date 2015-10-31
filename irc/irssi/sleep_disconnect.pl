@@ -20,11 +20,15 @@ my $logind_mgr = undef;
 my $inhibit_fd = undef;
 my @restart_servers = ();
 
+sub _trace {
+    Irssi::print("$IRSSI{name}: @_") if $ENV{DEBUG};
+}
+
 sub disconnect_all {
     @restart_servers = ();
     for my $server (Irssi::servers()) {
         if ($server->{connected}) {
-            Irssi::print(" - disconnecting from $server->{tag}");
+            _trace(" - disconnecting from $server->{tag}");
             #push @restart_servers, $server;
             push @restart_servers, $server->{tag};
             $server->disconnect();
@@ -35,13 +39,12 @@ sub disconnect_all {
 sub reconnect_all {
     use Data::Dumper;
     #for my $server (@restart_servers) {
-    #    Irssi::print(Dumper($server));
-    #    Irssi::print(" - reconnecting to $server->{tag}");
-    #    # the above two actually work fine, it's just the ->connect() that crashes
+    #    _trace(" - reconnecting to $server->{tag}");
+    #    # the above works fine, it's just the ->connect() that crashes
     #    $server->connect();
     #}
     for my $tag (@restart_servers) {
-        Irssi::print(" - reconnecting to $tag");
+        _trace(" - reconnecting to $tag");
         Irssi::command("connect $tag");
     }
     @restart_servers = ();
@@ -66,13 +69,13 @@ sub take_inhibit {
         $inhibit_fd = undef;
         return;
     }
-    Irssi::print("trace: got inhibit fd $fd");
+    _trace("got inhibit fd $fd");
     $inhibit_fd = $fd;
 }
 
 sub drop_inhibit {
     if (defined $inhibit_fd) {
-        Irssi::print("trace: dropping fd $inhibit_fd");
+        _trace("closing fd $inhibit_fd");
         POSIX::close($inhibit_fd);
         $inhibit_fd = undef;
     }
@@ -95,20 +98,20 @@ sub connect_signals {
 
     $logind_mgr->connect_to_signal("PrepareForSleep", sub {
         my ($suspending) = @_;
+
         if ($suspending) {
-            Irssi::print("suspending...");
-            Irssi::print(" - disconnecting");
+            _trace("suspending...");
+            _trace("* disconnecting");
             disconnect_all();
-            Irssi::print(" - dropping inhibit lock");
+            _trace("* dropping inhibit lock");
             drop_inhibit();
-            Irssi::print("okay.");
+            # system goes to sleep at this point
         } else {
-            Irssi::print("waking up...");
-            Irssi::print(" - taking inhibit lock");
+            _trace("waking up...");
+            _trace("* taking inhibit lock");
             take_inhibit();
-            Irssi::print(" - reconnecting");
+            _trace("* reconnecting");
             reconnect_all();
-            Irssi::print("okay.");
         }
     });
 

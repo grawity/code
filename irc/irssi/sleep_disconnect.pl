@@ -24,6 +24,10 @@ sub _trace {
     Irssi::print("$IRSSI{name}: @_") if $ENV{DEBUG};
 }
 
+sub _err {
+    Irssi::print("$IRSSI{name}: @_", MSGLEVEL_CLIENTERROR);
+}
+
 sub disconnect_all {
     my $quit_msg = Irssi::settings_get_str("sleep_quit_message");
 
@@ -43,7 +47,7 @@ sub reconnect_all {
         _trace(" - reconnecting to $tag");
         my $server = Irssi::server_find_tag($tag);
         if (!$server) {
-            Irssi::print("$IRSSI{name}: could not find tag '$tag'!", MSGLEVEL_CLIENTERROR);
+            _err("$IRSSI{name}: could not find tag '$tag'!");
             next;
         }
         $server->command("reconnect");
@@ -54,11 +58,11 @@ sub reconnect_all {
 
 sub take_inhibit {
     if (!$logind_mgr) {
-        Irssi::print("take_inhibit: no manager object", MSGLEVEL_CLIENTERROR);
+        _err("BUG: (take_inhibit) no manager object");
         return;
     }
     elsif (defined $inhibit_fd) {
-        Irssi::print("take_inhibit: already has an inhibit fd", MSGLEVEL_CLIENTERROR);
+        _err("BUG: (take_inhibit) already has an inhibit fd ($inhibit_fd)");
         return;
     }
 
@@ -67,17 +71,17 @@ sub take_inhibit {
                                   "Irssi needs to disconnect from IRC",
                                   "delay");
     if (!$fd) {
-        Irssi::print("take_inhibit: could not take an inhibitor");
+        _err("BUG: (take_inhibit) could not take an inhibitor");
         $inhibit_fd = undef;
         return;
     }
-    _trace("got inhibit fd $fd");
+    _trace("(take_inhibit) got inhibit fd $fd");
     $inhibit_fd = $fd;
 }
 
 sub drop_inhibit {
     if (defined $inhibit_fd) {
-        _trace("closing fd $inhibit_fd");
+        _trace("(drop_inhibit) closing fd $inhibit_fd");
         POSIX::close($inhibit_fd);
         $inhibit_fd = undef;
     }

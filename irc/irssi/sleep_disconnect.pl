@@ -30,7 +30,7 @@ sub disconnect_all {
         if ($server->{connected}) {
             _trace(" - disconnecting from $server->{tag}");
             $restart_servers{$server->{tag}} = 1;
-            $server->command("reconnect");
+            $server->send_raw_now("QUIT :Computer is going to sleep");
         }
     }
 }
@@ -39,8 +39,12 @@ sub reconnect_all {
     use Data::Dumper;
     for my $tag (sort keys %restart_servers) {
         _trace(" - reconnecting to $tag");
-        _trace("TODO what to put here?");
-        #Irssi::command("reconnect $tag");
+        my $server = Irssi::server_find_tag($tag);
+        if (!$server) {
+            Irssi::print("$IRSSI{name}: could not find tag '$tag'!", MSGLEVEL_CLIENTERROR);
+            next;
+        }
+        $server->command("reconnect");
     }
     %restart_servers = ();
 }
@@ -105,16 +109,6 @@ sub connect_signals {
             take_inhibit();
             _trace("* reconnecting");
             reconnect_all();
-        }
-    });
-
-    Irssi::signal_add("server looking", sub {
-        my ($server) = @_;
-
-        if ($restart_servers{$server->{tag}}) {
-            _trace("stopping 'server looking' signal for $server->{tag}");
-            Irssi::signal_stop();
-            $restart_servers{$server->{tag}} = 0;
         }
     });
 

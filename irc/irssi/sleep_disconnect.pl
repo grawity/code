@@ -2,8 +2,8 @@ use warnings;
 use strict;
 use Glib;
 use Irssi;
-use Net::DBus::GLib;
 use Net::DBus;
+use Net::DBus::GLib;
 use POSIX;
 
 our %IRSSI = (

@@ -26,7 +26,8 @@ sub disconnect_all {
     for my $server (Irssi::servers()) {
         if ($server->{connected}) {
             Irssi::print(" - disconnecting from $server->{tag}");
-            push @restart_servers, $server;
+            #push @restart_servers, $server;
+            push @restart_servers, $server->{tag};
             $server->disconnect();
         }
     }
@@ -34,11 +35,15 @@ sub disconnect_all {
 
 sub reconnect_all {
     use Data::Dumper;
-    for my $server (@restart_servers) {
-        #Irssi::print(Dumper($server));
-        Irssi::print(" - reconnecting to $server->{tag}");
-        # the above two actually work fine, it's just the ->connect() that crashes
-        $server->connect();
+    #for my $server (@restart_servers) {
+    #    Irssi::print(Dumper($server));
+    #    Irssi::print(" - reconnecting to $server->{tag}");
+    #    # the above two actually work fine, it's just the ->connect() that crashes
+    #    $server->connect();
+    #}
+    for my $tag (@restart_servers) {
+        Irssi::print(" - reconnecting to $tag");
+        Irssi::command("connect $tag");
     }
     @restart_servers = ();
 }

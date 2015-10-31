@@ -93,6 +93,10 @@ sub connect_signals {
     take_inhibit();
 }
 
+sub UNLOAD {
+    drop_inhibit();
+}
+
 connect_signals();
 
 # vim: ts=4:sw=4:et:

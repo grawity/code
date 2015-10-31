@@ -86,14 +86,8 @@ sub drop_inhibit {
 sub connect_signals {
     drop_inhibit();
 
-    my $logind_svc = eval {$bus->get_service("org.freedesktop.login1")};
-    if ($@ || !$logind_svc) {
-        Irssi::print("systemd-logind not available on D-Bus, bailing");
-        return;
-    }
+    my $logind_svc = $bus->get_service("org.freedesktop.login1");
 
-    # eval{} can't catch errors here, but that's fine.
-    # If get_object() fails here, it has to be a systemd-logind bug.
     $logind_mgr = $logind_svc->get_object("/org/freedesktop/login1");
 
     $logind_mgr->connect_to_signal("PrepareForSleep", sub {

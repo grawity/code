@@ -47,7 +47,7 @@ sub reconnect_all {
         _trace(" - reconnecting to $tag");
         my $server = Irssi::server_find_tag($tag);
         if (!$server) {
-            _err("$IRSSI{name}: could not find tag '$tag'!");
+            _err("could not find tag '$tag'!");
             next;
         }
         $server->command("reconnect");

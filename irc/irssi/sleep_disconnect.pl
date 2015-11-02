@@ -70,13 +70,12 @@ sub take_inhibit {
                                   "Irssi",
                                   "Irssi needs to disconnect from IRC",
                                   "delay");
-    if (!$fd) {
+    if ($fd) {
+        _trace("(take_inhibit) got inhibit fd $fd");
+        $inhibit_fd = $fd;
+    } else {
         _err("BUG: (take_inhibit) could not take an inhibitor");
-        $inhibit_fd = undef;
-        return;
     }
-    _trace("(take_inhibit) got inhibit fd $fd");
-    $inhibit_fd = $fd;
 }
 
 sub drop_inhibit {

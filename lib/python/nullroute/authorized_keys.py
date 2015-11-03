@@ -4,6 +4,7 @@
 #  - supports OpenSSH prefixed options
 #  - supports comments with spaces
 #  - recognizes all SSHv2 key types
+#  - doesn't attempt to parse SSHv1 keys
 # Bugs:
 #  - doesn't attempt to parse SSHv1 keys
 #

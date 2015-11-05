@@ -170,7 +170,7 @@ static struct passwd *getrootpwent(void)
 	fclose(fp);
 
 	if (p == NULL) {
-		warnx("%s: no entry for root\n", _PATH_PASSWD);
+		warnx("%s: no entry for root", _PATH_PASSWD);
 		return &pwent;
 	}
 	if (valid(pwent.pw_passwd))

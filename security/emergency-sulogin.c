@@ -364,6 +364,14 @@ static void fixtty(void)
 		warn("tcsetattr failed");
 }
 
+static void usage()
+{
+	puts("Usage: sulogin [-L ld-path] [-S shell]");
+	puts("");
+	puts("  -L ld-path    specify a loader (ld-linux) to explicitly run");
+	puts("  -S shell      specify a shell to run instead of /bin/sh");
+}
+
 int main(int argc, char *argv[])
 {
 	int opt;
@@ -384,6 +392,7 @@ int main(int argc, char *argv[])
 			opts.shell = optarg;
 			break;
 		default:
+			usage();
 			exit(EXIT_FAILURE);
 		}
 	}

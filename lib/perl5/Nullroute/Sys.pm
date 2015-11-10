@@ -19,9 +19,9 @@ sub daemonize {
 	chdir("/")
 		or _die("could not chdir to /: $!");
 	open(STDIN, "<", "/dev/null")
-		or _die("could not open < /dev/null: $!");
+		or _die("could not open </dev/null: $!");
 	open(STDOUT, ">", "/dev/null")
-		or _die("could not open > /dev/null: $!");
+		or _die("could not open >/dev/null: $!");
 	my $pid = fork()
 		// _die("could not fork: $!");
 	exit if $pid;

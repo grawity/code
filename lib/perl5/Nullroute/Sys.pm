@@ -66,6 +66,10 @@ sub _sessionid {
 	if (defined $ENV{XDG_SESSION_ID}) {
 		return "xdg.".$ENV{XDG_SESSION_ID};
 	}
+	if (-f "/proc/self/sessionid") {
+		my $id = int readfile("/proc/self/sessionid");
+		return "kern.".$id if $id >= 0 && $id < 0xFFFFFFFF;
+	}
 	return undef;
 }
 

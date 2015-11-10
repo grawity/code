@@ -377,10 +377,16 @@ void print_data(krb5_data *ticket) {
 	unsigned char *data = (unsigned char *) ticket->data;
 
 	for (i = 0; i < ticket->length; i++) {
-		if (0x20 < data[i] && data[i] < 0x7f)
-			putchar(data[i]);
-		else
+		switch (data[i]) {
+		case 0x00 ... 0x20:
+		case 0x7f ... 0xff:
 			printf("\\x%02X", data[i]);
+			break;
+		case '\\':
+			putchar('\\');
+		default:
+			putchar(data[i]);
+		}
 	}
 }
 

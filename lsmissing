@@ -1,18 +1,9 @@
 #!/usr/bin/env perl
 
-my $pattern = $ARGV[0];
+my $pattern = $ARGV[0] =~ s/[\[\]]/\\$&/gr;
 my $count = int $ARGV[1];
-my @missing;
 
-$pattern =~ s/[\[\]]/\\$&/g;
-
-for my $i (1..$count) {
-	my $name = sprintf($pattern, $i);
-	my @files = glob($name);
-	if (!@files) {
-		push @missing, $i;
-	}
-}
+my @missing = grep {@a = glob(sprintf($pattern, $_)); !@a} 1..$count;
 
 if (@missing) {
 	print "Missing: ", join(", ", @missing), "\n";

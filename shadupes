@@ -1,14 +1,33 @@
 #!/usr/bin/env python3
 import os
+import math
 import sys
 
-def enum_files(root):
+def fmt_size(nbytes, si=False):
+    if nbytes == 0:
+        return "zero bytes"
+    prefixes = ".kMGTPE"
+    div = 1000 if si else 1024
+    exp = int(math.log(nbytes, div))
+    if exp == 0:
+        return "%.1f bytes" % nbytes
+    elif exp < len(prefixes):
+        quot = nbytes / div**exp
+        return "%.1f %sB" % (quot, prefixes[exp])
+    else:
+        exp = len(prefixes) - 1
+        quot = nbytes / div**exp
+        return "%f %sB" % (quot, prefixes[exp])
+    return str(nbytes)
+
+def enum_files(root, filter=None):
     if os.path.isdir(root):
         for subdir, dirs, files in os.walk(root):
             for name in files:
-                if name.endswith(".sha"):
+                if filter is None or filter(name):
                     yield os.path.join(subdir, name)
     else:
+    #elif filter is None or filter(name):
         yield root
 
 def strip_path_prefix(path, prefix):
@@ -56,13 +75,40 @@ def detect_codec(fh):
     else:
         return "utf-8"
 
-for arg in sys.argv[1:]:
-    for file in enum_files(arg):
-        base = os.path.dirname(strip_path_prefix(file, arg))
+# for each 'root', find all directory.sha files and assemble them
+
+last_status = None
+def log_status(msg):
+    global last_status
+    if last_status:
+        sys.stderr.write("\033[A")
+    sys.stderr.write("\033[1G\033[0J%s\n" % msg)
+    sys.stderr.flush()
+    last_status = msg
+
+arg_roots = sys.argv[1:] or ["."]
+
+discardable_roots = set()
+
+arg_discard = False
+
+for root in arg_roots:
+    if root == "--discard":
+        arg_discard = True
+        continue
+
+    if arg_discard:
+        arg_discard = False
+        discardable_roots.add(root)
+
+    log_status("searching %s" % root)
+    for file in enum_files(root, filter=lambda name: name.endswith(".sha")):
+        base = os.path.dirname(strip_path_prefix(file, root))
         with open(file, "rb") as fh:
-            print("; parsing %s" % file)
             codec = detect_codec(fh)
+            log_status("parsing %s" % file)
             for n, line in enumerate(fh):
+                log_status("parsing %s (line %d)" % (file, n))
                 try:
                     line = line.decode(codec)
                 except UnicodeDecodeError:
@@ -74,11 +120,39 @@ for arg in sys.argv[1:]:
                     continue
                 tail = canonicalize_path(tail)
                 path = os.path.join(base, tail)
-                if os.path.exists(path):
-                    all.setdefault(hash, set()).add(path)
+                all.setdefault(hash, set()).add((root, path))
+        log_status("searching %s" % root)
+
+log_status("looking for duplicates")
+
+wasted_total = 0
+reclaimed_total = 0
 
 for hash, paths in all.items():
-    if len(paths) > 5:
-        print("#", hash)
-        for path in sorted(paths):
-            print(hash, path)
+    if len(paths) > 1:
+        discard = []
+        preserve = []
+        missing = []
+        size = 0
+        for root, path in sorted(paths):
+            if root in discardable_roots:
+                try:
+                    size = os.stat(path).st_size
+                    discard.append(path)
+                except FileNotFoundError:
+                    missing.append(path)
+            else:
+                preserve.append(path)
+        if len(preserve) > 0 and len(discard) > 0:
+            size = os.stat(discard[0]).st_size
+            wasted = size * len(discard)
+            wasted_total += wasted
+            print(" = found %d redundant copies of %s (wasted %s)" \
+                    % (len(paths), hash, fmt_size(wasted)))
+            for path in preserve:
+                print("   · %s" % path)
+            for path in discard:
+                os.unlink(path)
+                reclaimed_total += size
+                print("   × %s" % path)
+            print("     reclaimed %s" % fmt_size(reclaimed_total))

@@ -24,6 +24,29 @@ sub dev {
 	(lstat(shift))[0];
 }
 
+=item path_encode($str)
+
+=cut
+
+sub path_encode {
+	my ($str) = @_;
+
+	# RFC 2396 section 2 (mostly)
+	$str =~ s/[^A-Za-z0-9_.!~*'();?:@&=+,-]/sprintf("%%%02X", ord($&))/seg;
+	return $str;
+}
+
+=item path_decode($str)
+
+=cut
+
+sub path_decode {
+	my ($str) = @_;
+
+	$str =~ s/%([0-9A-Fa-f]{2})/chr(hex($1))/seg;
+	return $str;
+}
+
 =item my_abs_path($path)
 
 Canonicalize symlinks and relative paths.
@@ -159,10 +182,11 @@ Write the [Trash Info] block for $orig_path to a filehandle.
 sub write_info {
 	my ($info_fh, $orig_path) = @_;
 
+	my $path = path_encode($orig_path);
 	my $now = strftime("%Y-%m-%dT%H:%M:%S%z", localtime);
 
 	print $info_fh "[Trash Info]\n";
-	print $info_fh "Path=$orig_path\n";
+	print $info_fh "Path=$path\n";
 	print $info_fh "DeletionDate=$now\n";
 }
 
@@ -205,7 +229,7 @@ sub read_info {
 			_err("syntax error in \"$info_path\"");
 			last;
 		} elsif (!defined($orig_path) && /^Path=(.+)$/) {
-			$orig_path = $1;
+			$orig_path = path_decode($1);
 		} elsif (!defined($trash_time) && /^DeletionDate=(.+)$/) {
 			$trash_time = parse_date($1);
 		}

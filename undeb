@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+for pkg; do
+	if [[ $pkg != *.deb ]]; then
+		err "skipping '$deb' (not a dpkg package)"
+		continue
+	fi
+
+	out=${pkg/%.deb/.out}
+	mkdir -p "$out"
+
+	for sub in $(bsdtar tf "$pkg"); do
+		if [[ $sub == @(control|data).tar.* ]]; then
+			bsdtar xfO "$pkg" "$sub" | (cd "$out" && bsdtar xvf -)
+		fi
+	done
+done
+
+lib::exit

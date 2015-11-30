@@ -25,6 +25,8 @@ for dir in "${dirs[@]}"; do
 
 		mv -v "$src" "$dst"
 
+		mv "$dst/logs/refs/remotes/origin/"* "$dst/logs/refs/heads/"
+
 		git -C "$dst" update-ref -d "refs/remotes/origin/HEAD"
 		git -C "$dst" pack-refs --all --prune
 		rm -rf "$dst/refs"
@@ -40,7 +42,10 @@ for dir in "${dirs[@]}"; do
 				fi
 			done
 
+		log "deleting old worktree"
 		find "$base" -print -delete | progress
+
+		log "moved to '$dst'"
 	) \
 	|| err "conversion of '$dir' failed"
 done

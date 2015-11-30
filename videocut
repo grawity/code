@@ -2,6 +2,7 @@
 
 . lib.bash || exit
 
+preview=0
 acodec=copy
 vcodec=copy
 
@@ -14,6 +15,7 @@ while (( $# )); do
 	recode)	vcodec="libx264";;
 	acodec)	acodec=$2; shift;;
 	vcodec)	vcodec=$2; shift;;
+	play)	preview=1;;
 	*)	die "unrecognized argument '$1'";;
 	esac; shift
 done
@@ -22,5 +24,10 @@ done
 [[ $to ]]    || die "missing 'to' file"
 [[ $start ]] || die "missing 'start' time"
 [[ $end ]]   || die "missing 'end' time"
+
+if (( preview )); then
+	ffplay -ss "$start" "$from"
+	exit
+fi
 
 ffmpeg -i "$from" -ss "$start" -to "$end" -codec:a "$acodec" -codec:v "$vcodec" "$to"

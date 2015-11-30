@@ -70,7 +70,9 @@ if [ -e "$config" ]; then
 fi
 
 if [ ! "$noidle" ]; then
+	debug "calling ionice on $$"
 	ionice -c 3 -p $$
+	debug "calling schedtool on $$"
 	schedtool -n 10 -D $$
 fi
 
@@ -81,6 +83,7 @@ elif mountpoint -q /boot && test -d /boot/loader; then
 else
 	die "ESP not mounted"
 fi
+debug "found ESP at '$esp'"
 
 if [ -e "$esp/EFI/arch/intel-ucode.img" ]; then
 	ucode="/EFI/arch/intel-ucode.img"
@@ -89,6 +92,7 @@ elif [ -e "$esp/intel-ucode.img" ]; then
 else
 	die "Intel ucode image not found"
 fi
+debug "found ucode at '$ucode'"
 
 log2 "preparing"
 t_begin=$(gettime -m)
@@ -100,7 +104,7 @@ t_begin=$(gettime -m)
 
 log2 "building $release"
 
-	make V=2
+	make
 
 log2 "installing $release"
 t_compile=$(gettime -m)

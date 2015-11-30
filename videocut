@@ -2,12 +2,18 @@
 
 . lib.bash || exit
 
+acodec=copy
+vcodec=copy
+
 while (( $# )); do
 	case ${1#--} in
 	end)	end=$2; shift;;
 	from)	from=$2; shift;;
 	start)	start=$2; shift;;
 	to)	to=$2; shift;;
+	recode)	vcodec="libx264";;
+	acodec)	acodec=$2; shift;;
+	vcodec)	vcodec=$2; shift;;
 	*)	die "unrecognized argument '$1'";;
 	esac; shift
 done
@@ -17,4 +23,4 @@ done
 [[ $start ]] || die "missing 'start' time"
 [[ $end ]]   || die "missing 'end' time"
 
-ffmpeg -i "$from" -ss "$start" -to "$end" -acodec copy -vcodec copy "$to"
+ffmpeg -i "$from" -ss "$start" -to "$end" -codec:a "$acodec" -codec:v "$vcodec" "$to"

@@ -21,9 +21,12 @@ sub confirm {
 }
 
 sub dev {
-	my ($path) = @_;
+	my ($path, $fatal) = @_;
 
 	my @stat = lstat($path);
+	if ($fatal && !@stat) {
+		_die("could not stat '$path': $!");
+	}
 	return $stat[0];
 }
 
@@ -266,7 +269,7 @@ sub restore_from_info {
 	my $trashed_path = "$trash_dir/files/$info_base";
 	my $orig_dir = dirname($orig_path);
 	$orig_path = find_unique($orig_path);
-	if (dev($orig_dir) == dev($trash_dir)) {
+	if (dev($orig_dir, 1) == dev($trash_dir, 1)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
 			_info("restored '".abs2rel_down($orig_path)."'");

@@ -262,13 +262,26 @@ sub find_unique {
 
 sub restore_from_info {
 	my ($info) = @_;
+
 	my $info_path = $info->{info};
 	my $orig_path = $info->{orig};
+
 	my $trash_dir = dirname(dirname($info_path));
 	my $info_base = basename($info_path, ".trashinfo");
 	my $trashed_path = "$trash_dir/files/$info_base";
+
+	_debug("- info: '$info_path'");
+	_debug("  original: '$orig_path'");
+	_debug("  trashed: '$trashed_path'");
+
 	my $orig_dir = dirname($orig_path);
+	if (!-d $orig_dir) {
+		_debug("creating parent directory '$orig_dir'");
+		make_path($orig_dir);
+	}
+
 	$orig_path = find_unique($orig_path);
+
 	if (dev($orig_dir, 1) == dev($trash_dir, 1)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
@@ -303,23 +316,22 @@ Find the best trash directory to use, according to XDG Trash Dir spec.
 
 sub find_trash_dir {
 	my ($orig_path) = @_;
-
+	_debug("finding trash directory for '$orig_path'");
 	if (!file_name_is_absolute($orig_path)) {
 		_die("BUG: find_trash_dir('$orig_path') called with relative path");
 	}
 
-	my $home_trash = find_home_trash();
-	ensure($home_trash);
-
-	_debug("trying to find trash for path='$orig_path'");
 	my $fdev = dev($orig_path);
 	while (!defined $fdev) {
 		$orig_path = dirname($orig_path);
-		_debug("...path not found, using parent='$orig_path'");
+		_debug("...path not found, using parent '$orig_path'");
 		$fdev = dev($orig_path);
 	}
 
+	my $home_trash = find_home_trash();
+	ensure($home_trash);
 	my $hdev = dev($home_trash);
+
 	if (!defined $fdev) {
 		return undef;
 	} elsif ($fdev == $hdev) {

@@ -389,8 +389,16 @@ sub trash {
 		_err("failed to move '$path' to trash");
 		return;
 	}
-	# TODO: orig_path needs to be relative to mtpt for removable drives
-	write_info($info_fh, $orig_path);
+
+	my $orig_path_rel = $orig_path;
+	if ($trash_dir ne find_home_trash()) {
+		_debug("writing relative Path for removable drive trash");
+		$orig_path_rel = File::Spec->abs2rel($orig_path, find_root($orig_path));
+	} else {
+		_debug("writing absolute Path for home trash");
+	}
+	_debug("writing Path '$orig_path_rel'");
+	write_info($info_fh, $orig_path_rel);
 
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {

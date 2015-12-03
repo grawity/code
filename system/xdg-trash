@@ -435,12 +435,16 @@ sub ls {
 
 sub untrash {
 	my ($path) = @_;
+	_debug("trying to recover path='$path'");
+
 	my $orig_path = my_abs_path($path);
 	_debug("orig_path='$orig_path'");
+
 	my $orig_dir = dirname($orig_path);
 	_debug("orig_dir='$orig_dir'");
+
 	my $trash_dir = find_trash_dir($orig_path);
-	_debug("trash_dir='$trash_dir'");
+	_debug("searching trash '$trash_dir'");
 	if (!-d "$trash_dir/info" || !-d "$trash_dir/files") {
 		_err("trash directory does not exist");
 		return;
@@ -450,9 +454,24 @@ sub untrash {
 	for my $info_path (sort + ls("$trash_dir/info", qr/\.trashinfo$/)) {
 		_debug("examining '$info_path'");
 		my $info = read_info($info_path);
+		_debug("  orig: $info->{orig}");
+
 		if (!defined $info->{orig}) {
+			_debug("  no Path, skipping");
 			next;
-		} elsif (-d $orig_path) {
+		}
+
+		if ($trash_dir eq find_home_trash()) {
+			_debug("  (under home trash, may have abspath)");
+		} else {
+			if (file_name_is_absolute($info->{orig})) {
+				_debug("  absolute Path not permitted outside home trash, skipping");
+				next;
+			}
+			_debug("  (not under home trash, must use relpath)");
+		}
+
+		if (-d $orig_path) {
 			my $info_orig_dir = dirname($info->{orig});
 			next if $orig_dir ne $info_orig_dir;
 		} else {

@@ -359,29 +359,44 @@ actual $path there. If move fails, delete trashinfo and explode.
 
 sub trash {
 	my ($path) = @_;
+	_debug("trying to trash '$path'");
+
 	if (!lstat($path)) {
 		_err("not found: '$path'");
 		return;
 	}
+
 	if ($interactive) {
 		confirm("Kill file \e[33m$path\e[m?") || return;
 	}
 
+	# canonicalize path
+
 	my $orig_path = my_abs_path($path);
-	_debug("orig_path='$orig_path'");
+	_debug("full path: '$orig_path'");
+
 	if (!-l $orig_path && -d $orig_path && !-w $orig_path) {
 		# moving a directory involves updating its ".." entry
 		_err("no write permission to '$orig_path'");
 	}
 
-	my $orig_dir = dirname($orig_path);
-	_debug("orig_dir='$orig_dir'");
-	if (!-w $orig_dir) {
-		_err("no write permission to parent directory '$orig_dir'");
+	# make sure we can write to parent
+
+	my $parent_dir = dirname($orig_path);
+	if (!-w $parent_dir) {
+		_err("no write permission to parent directory '$parent_dir'");
 	}
 
+	# find the volume root and trash location
+
+	my $vol_root = find_root($orig_path);
+	_debug("volume root: '$vol_root'");
+
 	my $trash_dir = find_trash_dir($orig_path);
-	_debug("trash_dir='$trash_dir'");
+	_debug("using trash '$trash_dir'");
+
+	# create the trash directory and a .trashinfo file
+
 	ensure($trash_dir);
 
 	my ($name, $info_fh, $info_name) = create_info($trash_dir, $orig_path);
@@ -390,6 +405,8 @@ sub trash {
 		return;
 	}
 
+	# write the .trashinfo file first
+
 	my $orig_path_rel = $orig_path;
 	if ($trash_dir ne find_home_trash()) {
 		_debug("writing relative Path for removable drive trash");
@@ -397,8 +414,11 @@ sub trash {
 	} else {
 		_debug("writing absolute Path for home trash");
 	}
+
 	_debug("writing Path '$orig_path_rel'");
 	write_info($info_fh, $orig_path_rel);
+
+	# move or copy the actual file
 
 	my $trashed_path = "$trash_dir/files/$name";
 	if (dev($orig_path) == dev($trash_dir)) {
@@ -414,7 +434,9 @@ sub trash {
 			_die("failed to rename '$path': $err");
 		}
 	} else {
-		_debug("cross-device moving to '$trashed_path'");
+		_debug("moving file across devices");
+		_debug("... from '$orig_path'");
+		_debug("... to '$trashed_path'");
 		if (xdev_move($orig_path, $trashed_path)) {
 			_info("trashed '$path' to \$HOME");
 		} else {
@@ -423,6 +445,9 @@ sub trash {
 			_die("failed to copy '$path' to '$trash_dir'");
 		}
 	}
+
+	# sync the .trashinfo
+
 	close($info_fh);
 }
 
@@ -465,22 +490,20 @@ sub untrash {
 	for my $info_path (sort + ls("$trash_dir/info", qr/\.trashinfo$/)) {
 		_debug("examining '$info_path'");
 		my $info = read_info($info_path);
+
 		if (!defined $info->{orig}) {
 			_debug("  no Path, skipping");
 			next;
 		}
 		_debug("  Path: $info->{orig}");
 
-		if ($trash_dir eq find_home_trash()) {
-			_debug("  (under home trash, may have abspath)");
-		} else {
+		if ($trash_dir ne find_home_trash()) {
 			if (file_name_is_absolute($info->{orig})) {
 				_debug("  absolute Path not permitted outside home trash, skipping");
 				next;
 			}
-			_debug("  (not under home trash, must use relpath)");
 			$info->{orig} = catdir($vol_root, $info->{orig});
-			_debug("  actual: $info->{orig}");
+			_debug("  full: $info->{orig}");
 		}
 
 		if (-d $orig_path) {

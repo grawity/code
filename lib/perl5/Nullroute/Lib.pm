@@ -189,6 +189,10 @@ sub _err {
 sub _die {
 	$post_output = undef;
 	_msg(*STDERR, "error", "\e[1;31m", shift);
+	if ($::debug > 1) {
+		use Carp;
+		Carp::confess("fatal error");
+	}
 	exit int(shift // 1);
 }
 

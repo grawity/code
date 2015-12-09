@@ -25,6 +25,7 @@ our @EXPORT = qw(
 	_exit
 	forked
 	interval
+	randpw
 	randstr
 	readfile
 	trim
@@ -221,6 +222,16 @@ sub interval {
 	elsif ($h > 0)	{ "${h}h ${m}m" }
 	elsif ($m > 0)	{ "${m} min" }
 	else		{ "${s} sec" }
+}
+
+sub randpw {
+	my ($len) = @_;
+	$len //= 12;
+
+	my @chars = qw(A B C D E F G H J K L M N P Q R S T U V X Z
+	               a b c d e f g h i j k m n o p q r s t u v x z
+		       2 3 4 6 7 8 9);
+	join "", map {$chars[int rand @chars]} 1..$len;
 }
 
 sub randstr {

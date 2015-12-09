@@ -1,6 +1,9 @@
 import nullroute.sec
 import xmlrpc.client
 
+class NullPointerException(Exception):
+    pass
+
 # IceWarpProxy {{{
 class IceWarpProxy(object):
     _types_ = {
@@ -73,3 +76,12 @@ class IceWarpAPI(object):
             self._accounts[acct] = domain_object.OpenAccount(alias)
         return self._accounts[acct]
 # }}}
+
+def connect(server, login=None, password=None):
+    if login:
+        api_creds = {"login": login, "password": password, "machine": server}
+    else:
+        api_creds = nullroute.sec.get_netrc("api/%s" % server)
+        api_creds["machine"] = server
+    api_base = "https://%(login)s:%(password)s@%(machine)s/rpc/" % api_creds
+    return IceWarpAPI(api_base)

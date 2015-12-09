@@ -3,7 +3,6 @@
 import sys
 from nullroute import Core
 import nullroute.icewarp
-import nullroute.sec
 
 # junk {{{
 class ComObjProxy(object):
@@ -39,19 +38,11 @@ class ComProxy(object):
         return "<ComProxy: ptr=%r>" % self.ptr
 # }}}
 
-class NullPointerException(Exception):
-    pass
-
 server = "mail.utenos-kolegija.lt"
-
 try:
-    api_creds = nullroute.sec.get_netrc("api/%s" % server)
-    api_creds["machine"] = server
+    api = nullroute.icewarp.connect(server)
 except KeyError as e:
     Core.die(e.args[0])
-
-api_base = "https://%(login)s:%(password)s@%(machine)s/rpc/" % api_creds
-api = nullroute.icewarp.IceWarpAPI(api_base)
 
 for alias in sys.argv[1:]:
     if "@" in alias:

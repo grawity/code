@@ -18,13 +18,15 @@ KIND_HOME   = 2
 KIND_MEDIA  = 3
 KIND_MEMORY = 4
 KIND_NET    = 5
-KIND_KERNEL = 6
+KIND_SYSTEM = 6
+KIND_KERNEL = 7
 
 fs_kind_priorities = {
     KIND_HOME:      100,
     KIND_MEDIA:     50,
     KIND_NONE:      1,
     KIND_ROOT:      0,
+    KIND_SYSTEM:    -1,
     KIND_NET:       -10,
     KIND_MEMORY:    -100,
     KIND_KERNEL:    -1000,
@@ -41,6 +43,7 @@ fs_kind_groups = {
 }
 
 fs_kind_prefixes = [
+    ("/boot/",      KIND_SYSTEM),
     ("/dev/",       KIND_KERNEL),
     ("/media/",     KIND_MEDIA),
     ("/n/",         KIND_NET),
@@ -50,6 +53,28 @@ fs_kind_prefixes = [
     ("/sys/",       KIND_KERNEL),
     ("/tmp/",       KIND_MEMORY),
 ]
+
+fs_kind_fstypes = {
+    "afs":          KIND_NET,
+    "cgroup":       KIND_KERNEL,
+    "devpts":       KIND_KERNEL,
+    "devtmpfs":     KIND_KERNEL,
+    "ecryptfs":     KIND_KERNEL,
+    "efivarfs":     KIND_KERNEL,
+    "rootfs":       KIND_KERNEL,
+    "tmpfs":        KIND_MEMORY,
+}
+
+fs_noskip_mounts = {
+    "/run/user/%d" % os.getuid(),
+    "/tmp",
+}
+
+fs_skip_kinds = { KIND_KERNEL }
+
+fs_skip_mounts = {
+    "/boot",
+}
 
 def fs_kind_from_path(path):
     if not path.endswith("/"):
@@ -174,24 +199,18 @@ def enum_mtab():
     skip_fstypes = {
         "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
     }
-    skip_mounts = {
-        "/boot", "/boot/efi",
-    }
-    include_mounts = {
-        "/run/user/%d" % os.getuid(),
-        "/tmp",
-    }
     with open("/etc/mtab") as fh:
         for line in fh:
             dev, mtpt, fstype, rest = line.strip().split(None, 3)
             mtpt = unescape_mtab(mtpt)
-            if mtpt in skip_mounts:
+            kind = fs_kind_from_path(mtpt)
+            if mtpt in fs_skip_mounts:
                 continue
-            elif fstype in skip_fstypes and mtpt not in include_mounts:
+            if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
                 continue
-            else:
-                kind = fs_kind_from_path(mtpt)
-                yield mtpt, fstype, kind
+            if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
+                continue
+            yield mtpt, fstype, kind
 
 partitions = sys.argv[1:]
 if not partitions:
@@ -302,8 +321,6 @@ def dump_all():
     thisgroup = 0
     for mtpt, fstype, kind in partitions:
         group = fs_kind_groups.get(kind)
-        if kind == KIND_KERNEL:
-            continue
         if thisgroup and group != thisgroup:
             print(separator)
         dump_mtpt(mtpt)

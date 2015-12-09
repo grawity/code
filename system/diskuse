@@ -12,6 +12,53 @@ thresholds = [
     ( -1, (255,  7)),
 ]
 
+KIND_NONE   = 0
+KIND_ROOT   = 1
+KIND_HOME   = 2
+KIND_MEDIA  = 3
+KIND_MEMORY = 4
+KIND_NET    = 5
+KIND_KERNEL = 6
+
+fs_kind_priorities = {
+    KIND_HOME:      100,
+    KIND_MEDIA:     50,
+    KIND_NONE:      1,
+    KIND_ROOT:      0,
+    KIND_NET:       -10,
+    KIND_MEMORY:    -100,
+    KIND_KERNEL:    -1000,
+}
+
+fs_kind_groups = {
+    KIND_HOME:      1,
+    KIND_MEDIA:     1,
+    KIND_NONE:      1,
+    KIND_ROOT:      1,
+    KIND_NET:       1,
+    KIND_MEMORY:    2,
+    KIND_KERNEL:    3,
+}
+
+fs_kind_prefixes = [
+    ("/dev/",       KIND_KERNEL),
+    ("/media/",     KIND_MEDIA),
+    ("/n/",         KIND_NET),
+    ("/proc/",      KIND_KERNEL),
+    ("/run/media/", KIND_MEDIA),
+    ("/run/user/",  KIND_MEMORY),
+    ("/sys/",       KIND_KERNEL),
+    ("/tmp/",       KIND_MEMORY),
+]
+
+def fs_kind_from_path(path):
+    if not path.endswith("/"):
+        path += "/"
+    for prefix, kind in fs_kind_prefixes:
+        if path.startswith(prefix):
+            return kind
+    return KIND_NONE
+
 def homely(path):
     path = path.rstrip("/")
     home = os.environ.get("HOME", "").rstrip("/")
@@ -154,20 +201,14 @@ def enum_mtab():
             elif fstype in skip_fstypes and mtpt not in include_mounts:
                 continue
             else:
-                yield mtpt, fstype
+                kind = fs_kind_from_path(mtpt)
+                yield mtpt, fstype, kind
 
-dparts = sys.argv[1:]
-mparts = []
-
-if not dparts:
-    for mtpt, fstype in enum_mtab():
-        if fstype == "tmpfs":
-            mparts.append(mtpt)
-        else:
-            dparts.append(mtpt)
-
-mparts.sort()
-dparts.sort()
+partitions = sys.argv[1:]
+if not partitions:
+    partitions = list(enum_mtab())
+partitions.sort(key=lambda x: x[0])
+partitions.sort(key=lambda x: x[2])
 
 quota = False
 
@@ -269,17 +310,14 @@ def dump_mtpt(mtpt):
     print(fmt % row)
 
 def dump_all():
-    if dparts and mparts:
-        pass
-        #print(separator)
-
-    for mtpt in dparts:
+    thisgroup = 0
+    for mtpt, fstype, kind in partitions:
+        group = fs_kind_groups.get(kind)
+        if kind == KIND_KERNEL:
+            continue
+        if thisgroup and group != thisgroup:
+            print(separator)
         dump_mtpt(mtpt)
-
-    if dparts and mparts:
-        print(separator)
-
-    for mtpt in mparts:
-        dump_mtpt(mtpt)
+        thisgroup = group
 
 dump_all()

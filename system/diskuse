@@ -84,7 +84,7 @@ def fs_kind_from_path(path):
             return kind
     return KIND_NONE
 
-def homely(path):
+def path_shorten(path):
     path = path.rstrip("/")
     home = os.environ.get("HOME", "").rstrip("/")
     media = "/run/media/%s" % os.environ.get("LOGNAME", "root")
@@ -97,7 +97,7 @@ def homely(path):
     else:
         return path or "/"
 
-def human(n, d=1, u=1024):
+def size_human(n, d=1, u=1024):
     cs = "BkMGTEP"
     e = 0
     while n >= u:
@@ -212,6 +212,11 @@ def enum_mtab():
                 continue
             yield mtpt, fstype, kind
 
+def get_fs_devno(mtpt):
+    proc = subprocess.Popen(["mountpoint", "-d", mtpt],
+                            stdout=subprocess.PIPE)
+    return proc.stdout.read().strip().decode("utf-8")
+
 partitions = sys.argv[1:]
 if not partitions:
     partitions = list(enum_mtab())
@@ -219,6 +224,8 @@ partitions.sort(key=lambda x: x[0])
 partitions.sort(key=lambda x: x[2])
 
 quota = False
+
+seen_devnos = set()
 
 if quota:
     quota_gauge_width = 20
@@ -245,17 +252,6 @@ else:
         disk_gauge_width, "",
         "",
     )
-
-separator = ansify("-" * len(fmt % header), "2")
-
-print(ansify(fmt, "1") % header)
-
-def get_fs_devno(mtpt):
-    proc = subprocess.Popen(["mountpoint", "-d", mtpt],
-                            stdout=subprocess.PIPE)
-    return proc.stdout.read().strip().decode("utf-8")
-
-seen_devnos = set()
 
 def dump_mtpt(mtpt):
     try:
@@ -288,11 +284,11 @@ def dump_mtpt(mtpt):
 
     if quota:
         row = (
-            homely(mtpt),
+            path_shorten(mtpt),
 
-            human(total_bytes),
-            human(free_bytes),
-            human(avail_bytes),
+            size_human(total_bytes),
+            size_human(free_bytes),
+            size_human(avail_bytes),
 
             quota_gauge_width,
             gauge3x(quota_gauge_width, quota_part, quota_color),
@@ -304,11 +300,11 @@ def dump_mtpt(mtpt):
         )
     else:
         row = (
-            homely(mtpt),
+            path_shorten(mtpt),
 
-            human(total_bytes),
-            human(used_bytes),
-            human(free_bytes),
+            size_human(total_bytes),
+            size_human(used_bytes),
+            size_human(free_bytes),
 
             disk_gauge_width,
             gauge3x(disk_gauge_width, quota_part, quota_color),
@@ -318,6 +314,8 @@ def dump_mtpt(mtpt):
     print(fmt % row)
 
 def dump_all():
+    separator = ansify("-" * len(fmt % header), "2")
+    print(ansify(fmt, "1") % header)
     thisgroup = 0
     for mtpt, fstype, kind in partitions:
         group = fs_kind_groups.get(kind)

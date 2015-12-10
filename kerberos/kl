@@ -7,6 +7,7 @@ no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use Getopt::Long qw(:config bundling);
 use Nullroute::Lib;
 
+my $verbose;
 my $counter;
 
 sub mangle_name {
@@ -178,6 +179,11 @@ do_print:
 	for my $realm ($defrealm, @realms) {
 		_debug("printing tickets for realm '$realm'");
 
+		if ($realm eq '' && !$verbose) {
+			_debug("skipping referral pseudo-realm");
+			next;
+		}
+
 		$tgtcreds{$realm} //= [];
 		$creds{$realm} //= [];
 
@@ -214,6 +220,11 @@ do_print:
 				my $nextrealm = $1;
 				$istgt = 1;
 
+				if ($num_tgt && !$verbose) {
+					_debug("skipping TGT '$svname'");
+					next;
+				}
+
 				$color = $svrealm eq $defrealm
 					? ($svrealm eq $nextrealm
 						? $COLOR_TGT_LOCAL
@@ -230,6 +241,7 @@ do_print:
 					$label .= " \e[${color}m(via ${svrealm})\e[m";
 					$width += length " (via $svrealm)";
 				}
+
 				$num_tgt++;
 			} else {
 				$label .= " "x2;
@@ -244,6 +256,7 @@ do_print:
 					$width += length " for $defname";
 					$label .= " \e[36mfor \e[1m$defname\e[m";
 				}
+
 				$num_srv++;
 			}
 			
@@ -286,10 +299,12 @@ do_print:
 
 sub usage {
 	say for
-	"Usage: $::arg0 [-c <ccname> | -l]",
+	"Usage: $::arg0 [-v] [-c <ccname> | -l]",
 	"",                       #
 	"  -c, --cache=PATH       Show contents of given ccache",
-	"  -l, --[no-]list        List a 'DIR:' ccache collection";
+	"  -l, --[no-]list        List a 'DIR:' ccache collection",
+	"  -v, --verbose          Show referrals, duplicate TGTs",
+	;
 }
 
 my $ccache;
@@ -299,6 +314,7 @@ GetOptions(
 	"help"		=> sub { usage(); exit; },
 	"c|cache=s"	=> \$ccache,
 	"l|list!"	=> \$list_all,
+	"v|verbose!"	=> \$verbose,
 ) or exit 2;
 
 my $defcc = $ccache // $ENV{KRB5CCNAME};

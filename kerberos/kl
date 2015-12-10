@@ -179,6 +179,11 @@ do_print:
 	for my $realm ($defrealm, @realms) {
 		_debug("printing tickets for realm '$realm'");
 
+		if ($realm eq '' && !$verbose) {
+			_debug("skipping referral pseudo-realm");
+			next;
+		}
+
 		$tgtcreds{$realm} //= [];
 		$creds{$realm} //= [];
 
@@ -192,12 +197,7 @@ do_print:
 			my ($color, $label);
 			if ($realm eq '') {
 				$color = $COLOR_REFERRAL;
-				if ($verbose) {
-					$label = "\e[1;${color}m(referral tickets)\e[m";
-				} else {
-					my $n = @creds;
-					$label = "\e[${color}m($n referral tickets)\e[m";
-				}
+				$label = "\e[1;${color}m(referral tickets)\e[m";
 			} else {
 				$color = $COLOR_NO_TGT;
 				$label = "\e[1;${color}m${realm}\e[m";
@@ -205,11 +205,6 @@ do_print:
 			}
 
 			say " "x$INDENT, $label;
-		}
-
-		if ($realm eq '' && !$verbose) {
-			_debug("skipping referral pseudo-realm");
-			next;
 		}
 
 		for my $tkt (@creds) {

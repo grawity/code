@@ -18,5 +18,5 @@ def get_netrc(machine, login=None):
 
     return dict(zip(keys, vals))
 
-def get_netrc_service(machine, service, login=None):
-    pass
+def get_netrc_service(machine, service, **kw):
+    return get_netrc("%s/%s" % (service, machine), **kw)

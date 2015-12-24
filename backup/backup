@@ -121,7 +121,7 @@ set -e
 umask 077
 debug "started with: '$*'"
 
-trap 'die "[$BASHPID] interrupted"' INT
+trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
 
 while [[ $1 ]]; do
 	job=${1%/}; shift
@@ -274,14 +274,19 @@ while [[ $1 ]]; do
 		*)
 			die "unknown job '$job'"
 			;;
-	esac
-
-	if (( ${#failed_jobs[@]} )); then
-		_fail=${failed_jobs[*]}
-		err "backup failed for ${_fail// /, }"
-	fi
+	esac || r=$?
 
 	t_end=$(now)
 	log "job '$job' finished in $(interval $[t_end-t_begin])"
 	drop_lock
+
+	if (( r )); then
+		failed_jobs+=("$job")
+		break
+	fi
 done
+
+if (( ${#failed_jobs[@]} )); then
+	_fail=${failed_jobs[*]}
+	err "backup failed for ${_fail// /, }"
+fi

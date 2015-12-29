@@ -8,6 +8,11 @@ ks:setattr() {
 	setfattr "$file" --name="user.$name" --value="$value"
 }
 
+ks:delattr() {
+	local file=$1 name=$2
+	setfattr "$file" --remove="user.$name" 2>/dev/null
+}
+
 ks:sshrun() {
 	local host=$1 argv=("${@:2}")
 	local -i i

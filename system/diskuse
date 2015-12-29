@@ -4,6 +4,7 @@ from __future__ import division, print_function
 import os
 import sys
 import subprocess
+from nullroute import Core
 
 thresholds = [
     ( 10, ( 76, 10)),
@@ -20,6 +21,17 @@ KIND_MEMORY = 4
 KIND_NET    = 5
 KIND_SYSTEM = 6
 KIND_KERNEL = 7
+
+fs_kind_names = {
+    KIND_HOME:      "home",
+    KIND_MEDIA:     "media",
+    KIND_NONE:      "-",
+    KIND_ROOT:      "root",
+    KIND_SYSTEM:    "system",
+    KIND_NET:       "net",
+    KIND_MEMORY:    "memory",
+    KIND_KERNEL:    "kernel",
+}
 
 fs_kind_priorities = {
     KIND_HOME:      100,
@@ -318,6 +330,8 @@ def dump_all():
     print(ansify(fmt, "1") % header)
     thisgroup = 0
     for mtpt, fstype, kind in partitions:
+        Core.debug("got mtpt %r of kind %r (%s) prio %r" \
+                % (mtpt, kind, fs_kind_names.get(kind), fs_kind_priorities.get(kind, 0)))
         group = fs_kind_groups.get(kind)
         if thisgroup and group != thisgroup:
             print(separator)

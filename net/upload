@@ -45,17 +45,19 @@ urlbase[fs2]="http://fs2.nullroute.eu.org/tmp"
 arg_mangle=
 arg_server=
 arg_subdir=
+arg_timestamp=0
 arg_yearly=1
 arg_clobber=0
 arg_remove=0
 
-while getopts ":01cDd:s:X" OPT; do
+while getopts ":01cDd:s:tX" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	c) arg_clobber=1;;
 	d) arg_subdir=$OPTARG;;
 	s) arg_mangle=$OPTARG;;
+	t) arg_timestamp=1;;
 	X) arg_remove=1;;
 	*) die_getopts;;
 	esac
@@ -118,6 +120,9 @@ for arg; do
 	fi
 	if [[ $arg_mangle ]]; then
 		name=$(echo "$name" | sed -r "$arg_mangle")
+	fi
+	if (( arg_timestamp )); then
+		name=$(date +"%Y%m%d.")$name
 	fi
 	source=$(readlink -f "$arg")
 	target="$fsbase/$name"

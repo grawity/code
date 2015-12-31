@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import subprocess
+import sys
+from nullroute import Core
+import nullroute.sec
+
+def run(*args):
+    args = list(args)
+    Core.debug("running %r" % args)
+    os.execvp(args[0], args)
+
+def get_password(server, user):
+    try:
+        creds = nullroute.sec.get_netrc(server, user)
+        return creds["password"]
+    except KeyError:
+        pass
+
+    with subprocess.Popen(["icewarp-get-pass", user],
+                          stdout=subprocess.PIPE) as proc:
+        out = proc.stdout.read().decode("utf-8")
+        out = out.split("\n")[0]
+        user, passwd = out.split(" ", 1)
+        if passwd == "*":
+            Core.die("could not retrieve password for administrator")
+        elif passwd == "(no account)":
+            Core.die("could not retrieve password for nonexistent account")
+        else:
+            return passwd
+
+parser = argparse.ArgumentParser()
+parser.add_argument("mailbox", metavar="MAILBOX", type=str,
+                    help="mailbox to open")
+parser.add_argument("--pop", action="store_true",
+                    help="use POP3 instead of IMAP4")
+parser.add_argument("--dedup", action="store_true")
+args = parser.parse_args()
+
+app = "mutt"
+if args.dedup:
+    app = "IMAPdedup"
+
+data = {
+    "scheme": "pop" if args.pop else "imap",
+    "server": "mail.utenos-kolegija.lt",
+}
+if "/" in args.mailbox:
+    data["user"], data["path"] = args.mailbox.split("/", 1)
+    if data["path"] == "INBOX":
+        data["path"] = ""
+else:
+    data["user"] = args.mailbox
+    data["path"] = ""
+data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
+
+if app == "mutt":
+    uri = "%(scheme)s://%(user)s:%(pass)s@%(server)s/%(path)s" % data
+    run("mutt", "-f", uri)
+elif app == "IMAPdedup":
+    args = ["python2", "/home/grawity/src/net/IMAPdedup/imapdedup.py",
+            "--server=%s" % data["server"],
+            "--ssl",
+            "--user=%s" % data["user"],
+            "--password=%s" % data["pass"],
+            "--checksum",
+            "--checksum-with-id",
+            "--verbose",
+            "--no-close",
+            data["path"] or "INBOX"]
+    run(*args)

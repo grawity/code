@@ -59,15 +59,6 @@ sub domain_to_dn {
 	@domains;
 }
 
-sub csn_sort_by_replica_id {
-	my (@csns) = @_;
-
-	map {$_->[0]}
-	sort {$a->[1] cmp $b->[1]}
-	map {[$_, (split(/#/, $_))[2]]}
-	@csns;
-}
-
 my @domains;
 my @hosts;
 my @trees;
@@ -142,7 +133,7 @@ for my $host (@hosts) {
 			next;
 		}
 		my @csn = $res->entry(0)->get_value("contextCSN");
-		my $csn = join(" ", csn_sort_by_replica_id(@csn));
+		my $csn = join(" ", sort(@csn));
 		$csns{$base}{$host} = $csn;
 		push @{$rcsns{$base}{$csn}}, $host;
 	}

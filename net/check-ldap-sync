@@ -21,6 +21,7 @@ sub _tree_status {
 
 	my %C = (
 		ok => "green",
+		degraded => "yellow",
 		desynced => "red",
 	);
 	my $C = $C{$status};
@@ -156,6 +157,8 @@ if ($hosts == 0) {
 	exit $err;
 } elsif ($hosts == 1) {
 	_warn("only one reachable replica! (out of ".@hosts.")");
+} elsif ($hosts < @hosts) {
+	_warn("some replicas are unreachable! (".(@hosts-$hosts)." out of ".@hosts.")");
 }
 
 for my $base (@trees) {
@@ -163,7 +166,11 @@ for my $base (@trees) {
 	my %rcsn = %{$rcsns{$base}};
 	my @partitions = keys %rcsn;
 	if (@partitions == 1) {
-		_tree_status($base, "ok", "all CSNs identical");
+		if ($hosts == @hosts) {
+			_tree_status($base, "ok", "all CSNs identical");
+		} else {
+			_tree_status($base, "degraded", "reachable CSNs identical");
+		}
 		print "  host='$_'\n" for @{$rcsn{$partitions[0]}};
 		print "  csn='$_'\n" for split(" ", $partitions[0]);
 	} else {

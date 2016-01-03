@@ -79,9 +79,18 @@ GetOptions(
 	"srv!" => \$add_from_srv,
 );
 
+# provide default domains and base DNs
+
 if (!@domains) {
 	@domains = ("cluenet.org", "nullroute.eu.org");
 }
+
+if (!@trees) {
+	@trees = ("cn=config", domain_to_dn(@domains));
+}
+
+# if no hosts were given, or if any --host parameters start with "+", merge
+# with SRV data (otherwise use *only* --host)
 
 if (!$add_from_srv) {
 	$add_from_srv = grep {s/^\+//} @cluster;
@@ -91,9 +100,7 @@ if (!@cluster || $add_from_srv) {
 	push @cluster, dns_srv_lookup(@domains);
 }
 
-if (!@trees) {
-	@trees = ("cn=config", domain_to_dn(@domains));
-}
+# scan each server
 
 my %csns;
 my %rcsns;
@@ -129,6 +136,8 @@ for my $host (uniq @cluster) {
 	$conn->unbind;
 	++$hosts;
 }
+
+# show results
 
 if ($hosts == 0) {
 	_err("no reachable replicas!");

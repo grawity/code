@@ -23,6 +23,7 @@ sub _tree_status {
 		ok => "green",
 		degraded => "yellow",
 		desynced => "red",
+		down => "red",
 	);
 	my $C = $C{$status};
 	my $str = "tree '$F{bold}$tree$F{reset}': $F{bold}$F{$C}$status$F{reset}$F{$C}, $note$F{reset}";
@@ -166,7 +167,7 @@ for my $base (@trees) {
 		print "    $_\n" for @{$rcsn{$partitions[0]}};
 		print "  context:\n";
 		print "    $_\n" for split(" ", $partitions[0]);
-	} else {
+	} elsif (@partitions > 0) {
 		my $num = @partitions;
 		_tree_status($base, "desynced", "$num partitions");
 		for my $csn (@partitions) {
@@ -177,6 +178,8 @@ for my $base (@trees) {
 			warn "      $_\n" for split(" ", $csn);
 			--$num;
 		}
+	} else {
+		_tree_status($base, "down", "all replicas unreachable");
 	}
 }
 

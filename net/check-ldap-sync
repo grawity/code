@@ -68,13 +68,13 @@ sub csn_sort_by_replica_id {
 }
 
 my @domains;
-my @cluster;
+my @hosts;
 my @trees;
 my $add_from_srv = 0;
 
 GetOptions(
 	"d|domain=s" => \@domains,
-	"h|host=s" => \@cluster,
+	"h|host=s" => \@hosts,
 	"b|base=s" => \@trees,
 	"srv!" => \$add_from_srv,
 );
@@ -93,11 +93,11 @@ if (!@trees) {
 # with SRV data (otherwise use *only* --host)
 
 if (!$add_from_srv) {
-	$add_from_srv = grep {s/^\+//} @cluster;
+	$add_from_srv = grep {s/^\+//} @hosts;
 }
 
-if (!@cluster || $add_from_srv) {
-	push @cluster, dns_srv_lookup(@domains);
+if (!@hosts || $add_from_srv) {
+	push @hosts, dns_srv_lookup(@domains);
 }
 
 # scan each server
@@ -106,7 +106,7 @@ my %csns;
 my %rcsns;
 my $hosts = 0;
 
-for my $host (uniq @cluster) {
+for my $host (uniq @hosts) {
 	print "querying '$host'\n";
 	my $conn = Net::LDAP->new($host);
 	if (!$conn) {

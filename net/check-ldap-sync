@@ -100,13 +100,25 @@ if (!@hosts || $add_from_srv) {
 	push @hosts, dns_srv_lookup(@domains);
 }
 
+if (!@hosts) {
+	_die("no servers to check");
+}
+
+for (@hosts) {
+	# remove trailing period for multi-component names
+	# (to properly uniq them later)
+	s/\.$// if /\..+\.$/;
+}
+
+@hosts = uniq @hosts;
+
 # scan each server
 
 my %csns;
 my %rcsns;
 my $hosts = 0;
 
-for my $host (uniq @hosts) {
+for my $host (@hosts) {
 	print "querying '$host'\n";
 	my $conn = Net::LDAP->new($host);
 	if (!$conn) {
@@ -140,10 +152,10 @@ for my $host (uniq @hosts) {
 # show results
 
 if ($hosts == 0) {
-	_err("no reachable replicas!");
+	_err("no reachable replicas! (out of ".@hosts.")");
 	exit $err;
 } elsif ($hosts == 1) {
-	_warn("only one reachable replica!");
+	_warn("only one reachable replica! (out of ".@hosts.")");
 }
 
 for my $base (@trees) {

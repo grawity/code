@@ -3,10 +3,13 @@
 . lib.bash || exit
 
 for nic in /sys/class/net/eth*; do
-	dev=$(readlink -f $nic/device)
-	bus=$(readlink -f $dev/..)
+	device=$(readlink -f $nic/device)
+	driver=$(readlink -f $device/driver)
+	parent=$(readlink -f $device/..)
 
-	sudo: ctl $dev/remove=1
+	[[ $driver == */r8169 ]] || continue
 
-	sudo: ctl $bus/rescan=1
+	sudo: ctl $device/remove=1
+
+	sudo: ctl $parent/rescan=1
 done

@@ -67,7 +67,7 @@ static void process(FILE *fp, char *fn) {
 
 #define fwarnx(fmt, ...) \
 	if (warn_bad_escapes) { \
-		warnx("%s:%lu: " fmt, fn, pos, __VA_ARGS__); \
+		warnx("%s:%zu: " fmt, fn, pos, __VA_ARGS__); \
 	}
 
 	while ((ch = getc(fp)) != EOF && ++pos) {

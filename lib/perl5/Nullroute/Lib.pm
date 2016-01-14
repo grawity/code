@@ -28,6 +28,7 @@ our @EXPORT = qw(
 	randpw
 	randstr
 	readfile
+	trim_inplace
 	trim
 	uniq
 	xml_escape
@@ -251,7 +252,17 @@ sub readfile {
 	wantarray ? @lines : shift @lines;
 }
 
-sub trim { map {s/^\s+//; s/\s+$//; $_} @_; }
+sub trim_inplace {
+	map {s/^\s+//; s/\s+$//} @_;
+
+	return wantarray ? @_ : $_[0];
+}
+
+sub trim {
+	my (@args) = @_;
+
+	return trim_inplace(@args);
+}
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
 

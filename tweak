@@ -74,20 +74,24 @@ do_xfconf() {
 
 tweak=$1 value=$2
 
+if [[ $tweak != */* ]]; then
+	tweak=$DESKTOP_SESSION/$tweak
+fi
+
 case $tweak in
-attach-dialogs)
+gnome/attach-dialogs)
 	do_gsettings org.gnome.shell.overrides attach-modal-dialogs "$value" --bool
 	;;
-focus-mode)
+gnome/focus-mode)
 	do_gsettings org.gnome.desktop.wm.preferences focus-mode "$value"
 	;;
-lock|do-lock|lock-enabled)
+gnome/lock|gnome/do-lock|gnome/lock-enabled)
 	do_gsettings org.gnome.desktop.screensaver lock-enabled "$value" --bool
 	;;
-lock-delay)
+gnome/lock-delay)
 	do_gsettings org.gnome.desktop.screensaver lock-delay "$value" --relativetime
 	;;
-wallpaper)
+gnome/wallpaper)
 	if [[ $value == --fav ]]; then
 		cd ~/Pictures/Wallpapers
 		value=$(shuf < used.txt | head -1)
@@ -127,13 +131,13 @@ wallpaper)
 	fi
 	do_gsettings org.gnome.desktop.background picture-uri "$value" --uri
 	;;
-lock-screen)
+gnome/lock-screen)
 	do_gsettings org.gnome.desktop.screensaver picture-uri "$value" --uri
 	;;
-gtk-theme)
+gnome/gtk-theme)
 	do_gsettings org.gnome.desktop.interface gtk-theme "$value"
 	;;
-wm-theme)
+gnome/wm-theme)
 	do_gsettings org.gnome.desktop.wm.preferences theme "$value"
 	;;
 gnome/antialias)

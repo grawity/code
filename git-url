@@ -24,13 +24,13 @@ is_file() {
 
 for name; do
 	debug "arg: '$name'"
-	if t=$prefix$name && is_file "$name"; then
+	if t=$(git rev-parse --short=12 "$name") && [[ $t ]]; then
+		: ${mode:=commit}
+		head=$t
+	elif t=$prefix$name && is_file "$name"; then
 		debug "looking for file '$t'"
 		: ${mode:=file}
 		path=$t
-	elif t=$(git rev-parse --short=12 "$name") && [[ $t ]]; then
-		: ${mode:=commit}
-		head=$t
 	fi
 	debug "arg '$name' is a $mode"
 

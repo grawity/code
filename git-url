@@ -14,9 +14,17 @@ debug "repo prefix: '$prefix'"
 base=${base%/}
 debug "base: '$base'"
 
+is_file() {
+	if [[ $(git config core.bare) == true ]]; then
+		git rev-parse --verify "HEAD:/$1" >& /dev/null
+	else
+		[[ -e "$1" ]]
+	fi
+}
+
 for name; do
 	debug "arg: '$name'"
-	if t=$prefix$name && [[ -e $name ]]; then
+	if t=$prefix$name && is_file "$name"; then
 		debug "looking for file '$t'"
 		: ${mode:=file}
 		path=$t

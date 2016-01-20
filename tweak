@@ -17,6 +17,7 @@ require() {
 do_gsettings() {
 	local schema=$1 key=$2 value=$3 type=${4:-raw}
 	if [[ $value == '-' || $value == 'reset' ]]; then
+		debug "resetting '$schema' '$key'"
 		gsettings reset "$schema" "$key"
 	elif [[ $value ]]; then
 		case ${type#--} in
@@ -44,8 +45,10 @@ do_gsettings() {
 			value="uint32 $value"
 			;;
 		esac
+		debug "writing '$schema' '$key' '$value'"
 		gsettings set "$schema" "$key" "$value"
 	else
+		debug "reading '$schema' '$key'"
 		gsettings get "$schema" "$key"
 	fi
 }
@@ -53,10 +56,13 @@ do_gsettings() {
 do_dconf() {
 	local path=$1 value=$2
 	if [[ $value == '-' || $value == 'reset' ]]; then
+		debug "resetting '$path'"
 		dconf reset "$path"
 	elif [[ $value ]]; then
+		debug "writing '$path' \"'$value'\""
 		dconf write "$path" "'$value'"
 	else
+		debug "reading '$path'"
 		dconf read "$path"
 	fi
 }
@@ -64,10 +70,13 @@ do_dconf() {
 do_xfconf() {
 	local channel=$1 path=$2 value=$3
 	if [[ $value == '-' || $value == 'reset' ]]; then
+		debug "resetting channel '$channel' path '$path'"
 		xfconf-query -c "$channel" -p "$path" --reset
 	elif [[ $value ]]; then
+		debug "writing channel '$channel' path '$path' to '$value'"
 		xfconf-query -c "$channel" -p "$path" --set "$value"
 	else
+		debug "reading channel '$channel' path '$path'"
 		xfconf-query -c "$channel" -p "$path"
 	fi
 }

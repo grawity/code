@@ -48,7 +48,29 @@ sub clean {
 	}
 }
 
+sub undo {
+	my @dirs;
+
+	while (<>) {
+		if (/.*?removed: (.+)$/) {
+			push @dirs, $1;
+		}
+	}
+
+	for (reverse @dirs) {
+		if (mkdir($_)) {
+			_info("created $_");
+		} else {
+			_err("cannot create '$_': $!");
+		}
+	}
+}
+
 if (@ARGV) {
+	if ($ARGV[0] eq "--undo") {
+		undo();
+		exit !!$::errors;
+	}
 	clean($_) for @ARGV;
 } else {
 	clean(".");

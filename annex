@@ -34,6 +34,28 @@ case $1 in
             git show "git-annex:$arg"
         done
         ;;
+    log-format)
+        perl -E '
+            use List::MoreUtils qw(uniq);
+            while (<>) {
+                chomp;
+                my ($key, $value, $time) = /^(\S+) (.*) timestamp=([0-9.]+)s$/;
+                if (!$items{$key}) {
+                    push @items, $key;
+                    $items{$key} //= [];
+                }
+                push @{$items{$key}}, [$time, $value, $_];
+            }
+            for my $key (@items) {
+                say "$key";
+                say " - $_" for uniq
+                                grep {/./}
+                                map {$_->[1]}
+                                sort {$a->[0] <=> $b->[0]}
+                                @{$items{$key}};
+            }
+        '
+        ;;
     *)
         exec git annex "$@"
         ;;

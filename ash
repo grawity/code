@@ -1,1 +1,1 @@
-../../../usr/bin/busybox
+/usr/bin/busybox

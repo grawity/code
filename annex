@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+case $1 in
+    wanted|lsget|gettable|missing)
+        exec git annex find --want-get --not --in .
+        ;;
+    unwanted|lsdrop|droppable)
+        exec git annex find --want-drop --in .
+        ;;
+    diff)
+        git annex find --want-get --not --in . | sed $'s/.*/\e[;32mwant\e[m &/'
+        git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
+        ;;
+    examine)
+        shift
+        (( $# )) || set -- uuid.log group.log trust.log preferred-content.log
+        for arg; do
+            if (( $# > 1 )); then
+                echo -e "\e[1m--- $arg ---\e[m"
+            fi
+            git show git-annex:"$arg"
+        done
+        ;;
+    *)
+        exec git annex "$@"
+        ;;
+esac
+
+# vim: ts=4:sw=4:et

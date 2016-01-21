@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
+is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
+is_annex!() { is_annex || die "not a git-annex repository"; }
+
 case $1 in
     wanted|lsget|gettable|missing)
         exec git annex find --want-get --not --in .
@@ -8,17 +13,25 @@ case $1 in
         exec git annex find --want-drop --in .
         ;;
     diff)
+        is_annex!
         git annex find --want-get --not --in . | sed $'s/.*/\e[;32mwant\e[m &/'
         git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
         ;;
     examine)
+        is_annex!
         shift
-        (( $# )) || set -- uuid.log group.log trust.log preferred-content.log
+        if (( ! $# )); then
+            exec 2>/dev/null
+            set -- uuid.log group.log trust.log preferred-content.log
+        fi
         for arg; do
+            if [[ $arg != */* && $arg != *.* ]]; then
+                arg+=".log"
+            fi
             if (( $# > 1 )); then
                 echo -e "\e[1m--- $arg ---\e[m"
             fi
-            git show git-annex:"$arg"
+            git show "git-annex:$arg"
         done
         ;;
     *)

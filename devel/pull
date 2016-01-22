@@ -129,6 +129,13 @@ do_pull() {
 		log: bzr pull
 		new=$(rev)
 		upd: "$old" "$new" bzr log -r$((old+1))..$new
+	elif [[ -f _MTN/format ]]; then
+		is "Monotone"
+		rev() { mtn automate get_base_revision_id; }
+		old=$(rev)
+		log: mtn pull
+		new=$(rev)
+		upd: "$old" "$new" mtn log --from "$old" --to "$new"
 	elif [[ -f .fslckout ]]; then
 		is "Fossil"
 		rev() { fossil info | awk '$1 == "checkout:" {print $2}'; }

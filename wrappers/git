@@ -1,0 +1,17 @@
+#!/bin/sh
+
+my_git=$PREFIX/bin/git
+sys_git=/usr/bin/git
+
+if [ ! "$_GIT_NEST" ] && [ "$sys_git" -nt "$my_git" ]; then
+	export my_ver=$("$my_git" version | sed 's/^git version //')
+	export sys_ver=$("$sys_git" version | sed 's/^git version //')
+
+	bash -c '
+		. lib.bash || exit;
+		warn "local Git $my_ver is older than system Git $sys_ver"
+	' >/dev/tty 2>&1
+fi
+
+export _GIT_NEST=$$
+exec "$my_git" "$@"

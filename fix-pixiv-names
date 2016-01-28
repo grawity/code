@@ -1,0 +1,142 @@
+#!/usr/bin/env python
+import bs4
+import nullroute.sec
+import os
+import pixivpy3
+import re
+import requests as _requests
+import sys
+
+from functools import lru_cache
+from pprint import pprint
+
+def _log(s):
+    print("~", s, file=sys.stderr)
+
+def filter_filename(name):
+    xlat = {
+        ' ': '_',
+        '"': '_',
+        '*': '_',
+        '/': '⁄',
+        ':': '_',
+        '<': '_',
+        '>': '_',
+        '?': '_',
+    }
+    name = name.strip()
+    name = name.replace(' ', '_')
+    name = name.replace('"', '_')
+    name = name.replace('*', '_')
+    name = name.replace('/', '⁄')
+    name = name.replace(':', '_')
+    name = name.replace('<', '_')
+    name = name.replace('>', '_')
+    name = name.replace('?', '_')
+    if name.startswith("."):
+        name = "·" + name[1:]
+    return name
+
+# TODO: https://danbooru.donmai.us/wiki_pages/58938
+# TODO: https://github.com/r888888888/danbooru/issues/2383
+
+requests = _requests.Session()
+
+class PixivError(Exception):
+    pass
+
+class PixivApi(object):
+    pass
+    #client_id = "bYGKuGVw91e0NMfPGp44euvGt59s"
+    #client_secret = "HP3RmkgAmEGro0gn1x9ioawQE8WMfvLXDz3ZqxpK"
+
+    def __init__(self):
+        self.api = pixivpy3.PixivAPI()
+
+    def _auth(self):
+        if not self.api.user_id:
+            creds = nullroute.sec.get_netrc_service("pixiv.net", "api")
+            self.api.login(creds["login"], creds["password"])
+
+    ## fallback HTML scrape functions
+
+    @lru_cache(maxsize=1024)
+    def scrape_member_name_by_member_id(self, member_id):
+        url = "http://www.pixiv.net/member.php?id=%s" % member_id
+        _log("fetching %s" % url)
+        resp = requests.get(url)
+        resp.raise_for_status()
+        body = bs4.BeautifulSoup(resp.content, "lxml")
+        name = body.find("h1", {"class": "name"})
+        if name:
+            return name.get_text()
+        raise ValueError("could not find member name tag")
+
+    def scrape_member_id_by_illust_id(self, illust_id):
+        url = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
+        _log("fetching %s" % url)
+        resp = requests.get(url)
+        resp.raise_for_status()
+        m = re.search(r'"/?member\.php\?id=(\d+)"',
+                      resp.content.decode("utf-8"))
+        if m:
+            return int(m.group(1))
+        raise ValueError("could not find member ID tag")
+
+    ## normal JSON API functions
+
+    def get_illust_info(self, illust_id):
+        self._auth()
+        resp = self.api.works(illust_id)
+        if resp["status"] == "success":
+            return resp["response"][0]
+        else:
+            pprint(resp)
+            # {'errors': {'system': {'code': 206,
+            #                        'message': '対象のイラストは見つかりませんでした。(illust_id:52800410)'}},
+            #  'has_error': True,
+            #  'status': 'failure'}
+            raise ValueError("api call failed")
+
+    ## public interface functions
+
+    def _get_prefix(member_name, member_id):
+        return filter_filename("%s_pixiv%s" % (member_name, member_id))
+
+    #def get_prefix_by_member_id(self, member_id):
+    #    prefix = self.get_member_name_by_member_id(member_id)
+    #    prefix = filter_filename(prefix)
+    #    return "%s_pixiv%s" % (name, member_id)
+
+    def get_prefix_by_illust_id(self, illust_id):
+        try:
+            resp = self.get_illust_info(illust_id)
+            prefix = "%(name)s_pixiv%(id)s" % resp["user"]
+            return filter_filename(prefix)
+        except ValueError as e:
+            _log(e)
+            member_id = self.scrape_member_id_by_illust_id(illust_id)
+            member_name = self.scrape_member_name_by_member_id(member_id)
+            prefix = "%s_pixiv%s" % (member_name, member_id)
+            return filter_filename(prefix)
+
+bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+\.\w+$')
+pixiv_api = PixivApi()
+
+args = sys.argv[1:] or ["."]
+for root in args:
+    for dirpath, dirnames, filenames in os.walk(root):
+        for filename in filenames:
+            m = bare_re.match(filename)
+            if m:
+                old_path = os.path.join(dirpath, filename)
+                print("---", old_path)
+
+                illust_id = int(m.group(1))
+                prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
+
+                new_path = os.path.join(dirpath, prefix + " " + filename)
+                print("+++", new_path)
+
+                os.rename(old_path, new_path)
+                print()

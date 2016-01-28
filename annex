@@ -1,11 +1,48 @@
 #!/usr/bin/env bash
 
 . lib.bash || exit
+. libks.bash || exit
 
+is_git() { git rev-parse --git-dir >&/dev/null; }
 is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
 is_annex!() { is_annex || die "not a git-annex repository"; }
 
+set -e
+
 case $1 in
+    setup)
+        name=$2
+        [[ $name ]] \
+            || die "missing name (e.g. annex/videos)"
+        [[ $name == annex/* || $name == */annex/* ]] \
+            || die "name must contain 'annex/'"
+        [[ $name == *.git ]] \
+            || name+=".git"
+        # set up local git-annex repository
+        if is_annex; then
+            notice "'$PWD' is already a git-annex repository"
+        elif is_git; then
+            die "'$PWD' is already a non-annex Git repository"
+        else
+            log "creating a git-annex repository"
+            git init
+            git annex init
+            git annex direct
+        fi
+        # set up the remote metadata repo
+        if u=$(git config remote.origin.url); then
+            notice "origin is already set up as '$u'"
+        else
+            log "creating metadata repository"
+            ssh virgule "[ -d pub/git/$name ] || git init --bare pub/git/$name"
+            log "adding origin remote"
+            git remote add origin "nullroute+ssh:$name"
+        fi
+        git config remote.origin.annex-ignore true
+        # sync
+        log "performing initial sync"
+        git annex sync
+        ;;
     wanted|lsget|gettable|missing)
         exec git annex find --want-get --not --in .
         ;;

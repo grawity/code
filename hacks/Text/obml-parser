@@ -15,6 +15,7 @@ import base64
 import os
 import struct
 import sys
+import urllib.parse
 
 from pprint import pprint
 
@@ -121,18 +122,24 @@ def strhex(buf):
 
 def rgba(argb_tuple):
     a, r, g, b = argb_tuple
-    a = (a / 255) if a > 0 else 1.0
-    return "rgba(%d, %d, %d, %.6f)" % (r, g, b, a)
+    if a == 0 or a == 255:
+        return "rgb(%d, %d, %d)" % (r, g, b)
+    else:
+        return "rgba(%d, %d, %d, %.3f)" % (r, g, b, a/255)
 
-def img_data(buf):
+def data_url(buf):
     if buf.startswith(b"\x89PNG\r\n"):
         img_type = "image/png"
     elif buf.startswith(b"\xff\xd8"):
         img_type = "image/jpeg"
     else:
         img_type = "application/octet-stream"
-    encoded = base64.b64encode(buf).decode("us-ascii")
-    return "data:%s,%s" % (img_type, encoded)
+    encoded = base64.b64encode(buf)
+    encoded = urllib.parse.quote(encoded)
+    return "data:%s;base64,%s" % (img_type, encoded)
+
+def css_imgdata(buf):
+    return "url('%s')" % data_url(buf)
 
 def parse_file(arg):
     print("file =", arg)
@@ -148,33 +155,35 @@ def parse_file(arg):
         expected_size = f.read_medium()
         version = f.read_byte()
         exp_total_bytes = expected_size + 7
+    elif version == 15:
+        raise ValueError("bad header for version %r" % version)
     else:
         exp_total_bytes = expected_size + 3
 
     exp_links_bytes = 0
 
-    if version == 16:
-        page_size = f.read_coords()
-        assert(f.read_short() == 0xFFFF)
-    elif version == 15:
-        f.read(10)
-    elif version in {12, 13}:
-        f.read(10)
-    else:
-        raise ValueError("bad version")
+    if version not in {12, 13, 15, 16}:
+        raise ValueError("unknown version %r" % version)
 
+    page_size = f.read_coords()
+    if version == 16:
+        assert(f.read(2) in {b'\x00\x00', b'\xff\xff'})
+    else:
+        assert(f.read(5) == b'S\x00\x00\xff\xff')
     page_title = f.read_string()
     f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
     f.url_base = f.read_string()
     page_url = f.read_url()
     yield {"_type": "head",
            "title": page_title,
-           "url": page_url}
+           "url": page_url,
+           "dimensions": page_size}
 
     if version >= 15:
         f.read(6)
     else:
-        f.read(5)
+        f.read_short()
+        f.read_medium()
 
     # metadata section
 
@@ -213,10 +222,14 @@ def parse_file(arg):
             # <option> selections
             f.read(1)
             n = f.read_byte()
+            options = []
             for j in range(n):
-                f.read_string()
-                f.read_string()
-        elif type == b"i":
+                opt_val = f.read_string()
+                opt_text = f.read_string()
+                options.append((opt_val, opt_text))
+            yield {"_type": "option_list",
+                   "data": options}
+        elif type in {b"i", b"L", b"P", b"w", b"W"}:
             # shared 'region' format
             n = f.read_byte()
             boxes = []
@@ -225,33 +238,6 @@ def parse_file(arg):
                 size = f.read_coords()
                 boxes.append((pos, size))
             if version >= 15:
-                img_url = f.read_url()
-                assert(f.read(2) == b"\x01t")
-                img_type = f.read_string()
-            elif version == 13:
-                img_url = f.read_url()
-                f.read(2)
-                img_type = f.read_string()
-            elif version == 12:
-                img_type = f.read_string()
-                img_url = f.read_url()
-            for pos, size in boxes:
-                yield {"_type": "image",
-                       "src": img_url,
-                       "type": img_type,
-                       "pos": pos,
-                       "size": size}
-        elif type in {b"L", b"P"}:
-            # shared 'region' format, except for "L"/v12
-            n = f.read_byte()
-            if version == 12:
-                f.read(2)
-            boxes = []
-            for j in range(n):
-                pos = f.read_coords()
-                size = f.read_coords()
-                boxes.append((pos, size))
-            if version >= 15:
                 link_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 link_type = f.read_string()
@@ -260,16 +246,26 @@ def parse_file(arg):
                 f.read(2)
                 link_type = f.read_string()
             elif version == 12:
+                link_type = f.read_string()
                 link_url = f.read_url()
-                link_type = ""
-            if not link_url.startswith("b:"):
+            if type == b"i":
                 for pos, size in boxes:
-                    yield {"_type": "link",
-                           "href": link_url,
-                           "type": link_type,
-                           "pos": pos,
-                           "size": size}
-        elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
+                    if size[0] > 16 and size[1] > 16:
+                        yield {"_type": "link",
+                               "kind": "image",
+                               "href": link_url,
+                               "type": link_type,
+                               "pos": pos,
+                               "size": size}
+            else:
+                if not link_url.startswith("b:"):
+                    for pos, size in boxes:
+                        yield {"_type": "link",
+                               "href": link_url,
+                               "type": link_type,
+                               "pos": pos,
+                               "size": size}
+        elif type in {b"C", b"I", b"N", b"S"} and version >= 15:
             # shared 'region' format
             n = f.read_byte()
             for j in range(n):
@@ -289,7 +285,7 @@ def parse_file(arg):
             f.read_blob()
         elif type == b"C" and version == 12:
             f.read(24)
-        elif type in {b"I", b"S", b"W"} and version == 12:
+        elif type in {b"I", b"S"} and version == 12:
             # shared 'region' format
             n = f.read_byte()
             for j in range(n):
@@ -334,19 +330,47 @@ def parse_file(arg):
                    "size": size,
                    "fill": color}
         elif type == b"F":
-            f.read(16)
-            f.read_blob()
-            f.read_blob()
+            if version >= 15:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+            else:
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+            field_type = f.read(1)
+            f.read(1)
+            field_id = f.read_string()
+            field_value = f.read_string()
             if version >= 15:
                 f.read(5)
             else:
                 f.read(3)
+            if field_type in {b"c", b"r"}:
+                # hack
+                pos = (pos[0] - 8, pos[1] - 8)
+                size = (size[0] + 8, size[1] + 8)
+            yield {"_type": "input",
+                   "kind": {
+                       b"a": "textarea",
+                       b"c": "checkbox",
+                       b"r": "radio",
+                       b"s": "select",
+                       b"x": "text",
+                   }.get(field_type),
+                   "value": field_value,
+                   "pos": pos,
+                   "size": size,
+                   "color": color}
         elif type == b"I":
+            addr = 0
             if version == 16:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
                 color = f.read_color()
-                f.read(11)
+                addr = f.read_medium()
+                f.read(2)
+                assert(len(f.read_blob()) == 4)
             elif version == 15:
                 pos = f.read_coords(rel_to_abs=True)
                 size = f.read_coords()
@@ -356,11 +380,14 @@ def parse_file(arg):
                 pos = f.read_coords()
                 size = f.read_coords()
                 color = f.read_color()
-                f.read(6)
+                f.read(3)
+                addr = f.read_medium()
             yield {"_type": "box",
+                   "kind": "image",
                    "pos": pos,
                    "size": size,
-                   "fill": color}
+                   "fill": color,
+                   "blob": addr}
         elif type == b"L":
             f.read(9)
         elif type == b"M":
@@ -371,9 +398,11 @@ def parse_file(arg):
             files_start = f.fh.tell()
             files_end = f.fh.tell() + exp_files_bytes
             while f.fh.tell() < files_end:
+                addr = f.fh.tell() - files_start
                 buf = f.read_blob()
                 yield {"_type": "file",
-                       "data": buf[:16]+b"..."}
+                       "addr": addr,
+                       "data": buf}
             print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
             if f.fh.tell() != files_end:
                 raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
@@ -406,6 +435,11 @@ def parse_file(arg):
                    "color": color,
                    "pos": pos,
                    "size": size}
+        elif type == b"z":
+            if version == 16:
+                f.read(6)
+            else:
+                raise ValueError("unhandled content chunk %r/v%r" % (type, version))
         else:
             raise ValueError("unknown content chunk %r/v%r" % (type, version))
 
@@ -422,89 +456,158 @@ font_sizes = {
 
 for arg in sys.argv[1:]:
     with open("%s.html" % arg, "w") as fout:
+        id_alloc = iter(infinity())
+        imgboxes = {}
+        option_lists = {}
+        n_option_lists = iter(infinity())
+        n_select_fields = iter(infinity())
+
         fout.write('<!DOCTYPE html>\n')
         fout.write('<meta charset="utf-8">\n')
-        fout.write('<style>\n')
-        fout.write('.box { z-index: -100; }\n')
-        fout.write('.img { z-index: -50; }\n')
-        fout.write('.link { z-index: 100; }\n')
-        fout.write('.link:hover { outline: 1px solid blue; }\n')
-        fout.write('</style>\n')
+        fout.write('<style>\n'
+                   'html {\n'
+                   '  background: #ddd;\n'
+                   '}\n'
+                   '.item {\n'
+                   '  position: absolute;\n'
+                   '}\n'
+                   '.body {\n'
+                   '  background: white;\n'
+                   '  z-index: -200;\n'
+                   '}\n'
+                   '.box {\n'
+                   '  z-index: -100;\n'
+                   '}\n'
+                   '.img {\n'
+                   '  z-index: -50;\n'
+                   '}\n'
+                   '.link {\n'
+                   '  display: block;\n'
+                   '  text-decoration: none;\n'
+                   '  z-index: 100;\n'
+                   '}\n'
+                   '.link:hover {\n'
+                   '  outline: 1px solid blue;\n'
+                   '}\n'
+                   '.imglink {\n'
+                   '  color: gray;\n'
+                   '  z-index: 150;\n'
+                   '}\n'
+                   '.text, .field {\n'
+                   '  font-family: sans-serif;\n'
+                   '  font-size: 11px;\n'
+                   '  line-height: 1.1;\n'
+                   '  white-space: pre;\n'
+                   '}\n'
+                   '.form {\n'
+                   '  border: none;\n'
+                   '  padding: none;\n'
+                   '}\n'
+                   '</style>\n')
         for item in parse_file(arg):
             type = item["_type"]
             pprint(item)
             if type == "head":
                 fout.write('<!-- origin: %s -->\n' % item["url"])
                 fout.write('<title>%s</title>\n' % item["title"])
+                page_w, page_h = item["dimensions"]
+                style = [
+                    "left: %dpx" % 0,
+                    "top: %dpx" % 0,
+                    "width: %dpx" % page_w,
+                    "height: %dpx" % page_h,
+                ]
+                style = "; ".join(style)
+                fout.write('<div class="item body" style="%s"></div>' % style)
             elif type == "text":
                 item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
                 font_size = item["font"] & ~1
                 font_weight = item["font"] & 1
                 style = [
-                    "white-space: pre",
-                    "font-family: sans-serif",
                     "font-size: %s" % font_sizes[font_size],
                     "font-weight: %s" % ("bold" if font_weight else "normal"),
-                    "line-height: 1.1",
                     "color: %s" % rgba(item["color"]),
-                    "position: absolute",
-                    "left: %dpx" % item_x,
-                    "top: %dpx" % item_y,
-                ]
-                if "size" in item:
-                    style += [
-                        "width: %dpx" % item["size"][0],
-                        "height: %dpx" % item["size"][1],
-                        #"outline: 1px dotted %s" % rgba(item["color"]),
-                    ]
-                style = "; ".join(style)
-                fout.write('<div class="item text" style="%s">' % style)
-                fout.write(item["text"])
-                fout.write('</div>\n')
-            elif type == "image":
-                item_x, item_y = item["pos"]
-                item_w, item_h = item["size"]
-                repeat = True
-                style = [
-                    "background-image: url('%s')" % item["src"],
-                    "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                     "width: %dpx" % item_w,
                     "height: %dpx" % item_h,
                 ]
                 style = "; ".join(style)
-                if repeat:
-                    fout.write('<div class="item img" style="%s"></div>\n' % style)
-                else:
-                    fout.write('<img class="item img" src="%s" style="%s">\n' % (item["src"], style))
+                fout.write('<div class="item text" style="%s">' % style)
+                fout.write(item["text"])
+                fout.write('</div>\n')
             elif type == "box":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
                 style = [
                     "background-color: %s" % rgba(item["fill"]),
-                    "position: absolute",
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                     "width: %dpx" % item_w,
                     "height: %dpx" % item_h,
                 ]
                 style = "; ".join(style)
-                fout.write('<div class="item box" style="%s"></div>\n' % style)
-            elif type == "link":
+                if item.get("kind") == "image":
+                    box_id = "imgbox_%d" % next(id_alloc)
+                    fout.write('<div class="item img" style="%s" id="%s"></div>\n' % (style, box_id))
+                    imgboxes.setdefault(item["blob"], []).append(box_id)
+                else:
+                    fout.write('<div class="item box" style="%s"></div>\n' % style)
+            elif type == "option_list":
+                list_id = next(n_option_lists)
+                option_lists[list_id] = item["data"]
+            elif type == "input":
                 item_x, item_y = item["pos"]
                 item_w, item_h = item["size"]
                 style = [
-                    "position: absolute",
+                    "color: %s" % rgba(item["color"]),
                     "left: %dpx" % item_x,
                     "top: %dpx" % item_y,
                     "width: %dpx" % item_w,
                     "height: %dpx" % item_h,
-                    "display: block",
                 ]
                 style = "; ".join(style)
-                fout.write('<a class="item link" href="%s" style="%s"></a>\n' % (item["href"], style))
+                if item["kind"] == "textarea":
+                    fout.write('<textarea class="item form field" style="%s">%s</textarea>\n' % (style, item["value"]))
+                elif item["kind"] == "text":
+                    fout.write('<input class="item form field" style="%s" type="text" value="%s">\n' % (style, item["value"]))
+                elif item["kind"] in {"checkbox", "radio"}:
+                    fout.write('<input class="item form" style="%s" type="%s" value="%s">\n' % (style, item["kind"], item["value"]))
+                elif item["kind"] == "select":
+                    list_id = next(n_select_fields)
+                    fout.write('<select class="item field" style="%s">\n' % style)
+                    for opt_id, opt_text in option_lists[list_id]:
+                        fout.write('<option>%s</option>\n' % opt_text)
+                    fout.write('</select>\n')
+            elif type == "link":
+                item_x, item_y = item["pos"]
+                item_w, item_h = item["size"]
+                if item.get("kind") == "image":
+                    klass = "link imglink"
+                    style = [
+                        "left: %dpx" % item_x,
+                        "top: %dpx" % item_y,
+                    ]
+                    text = "↖"
+                else:
+                    klass = "link"
+                    style = [
+                        "left: %dpx" % item_x,
+                        "top: %dpx" % item_y,
+                        "width: %dpx" % item_w,
+                        "height: %dpx" % item_h,
+                    ]
+                    text = ""
+                style = "; ".join(style)
+                fout.write('<a class="item %s" href="%s" style="%s">%s</a>\n' % (klass, item["href"], style, text))
             elif type == "file":
-                # look up mimetype from last 'i' item
-                # look up <img> tag from last "image"
-                pass
+                fout.write('<script>\n')
+                box_ids = imgboxes.get(item["addr"])
+                if box_ids:
+                    fout.write('var bg = "%s";\n' % css_imgdata(item["data"]))
+                    for box_id in box_ids:
+                        fout.write('var div = document.getElementById("%s");\n' % box_id)
+                        fout.write('div.style.backgroundImage = bg;\n')
+                        fout.write('div.style.backgroundColor = "";\n')
+                fout.write('</script>\n')

@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 # A barebones parser for OBML files used by Opera Mini
 #
+# (c) 2014–2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT Expat License
+#
 # Originally intended to extract original URLs from saved pages, after Opera dropped
 # binary compatibilty between minor releases and left me with a bunch of unreadable
 # saved pages in v15 — and it does that.
+#
+# An attempt to document the file format is at:
+#   https://gist.github.com/grawity/702b31cddcc5a6622724
 
 import base64
 import os
@@ -17,6 +23,8 @@ class Parser():
         self.path = path
         self.fh = open(path, 'rb')
         self.url_base = "\0"
+        self.last_x = 0
+        self.last_y = 0
 
     def debug(self, typ, data):
         if os.environ.get("DEBUG"):
@@ -24,6 +32,8 @@ class Parser():
             c_off = "\033[m" if sys.stdout.isatty() else ""
             print(c_on, "#", typ, repr(data), c_off)
         return data
+
+    # primitives
 
     def read(self, length):
         buf = self.fh.read(length)
@@ -58,7 +68,7 @@ class Parser():
         data_hi, data_lo = struct.unpack('>BH', buf)
         return self.debug("medium", (data_hi << 16) | data_lo)
 
-    def read_chunk(self):
+    def read_blob(self):
         length = self.read_short()
         buf = self.fh.read(length)
         if len(buf) < length:
@@ -66,8 +76,10 @@ class Parser():
 
         return self.debug("chunk[%d]" % length, buf)
 
+    # other data types
+
     def read_string(self):
-        buf = self.read_chunk()
+        buf = self.read_blob()
         buf = buf.decode('utf-8')
         return self.debug("-> str[%d]" % len(buf), buf)
 
@@ -78,6 +90,25 @@ class Parser():
                 base = self.url_base
             buf = base + buf[1:]
         return self.debug("-> url[%d]" % len(buf), buf)
+
+    def read_color(self):
+        a = self.read_byte()
+        r = self.read_byte()
+        g = self.read_byte()
+        b = self.read_byte()
+        return self.debug("-> color[argb]", (a, r, g, b))
+
+    def read_coords(self, rel_to_abs=False):
+        x = self.read_short()
+        y = self.read_medium()
+        if rel_to_abs:
+            self.last_x = x = (self.last_x + x) & 0xFFFF
+            self.last_y = y = (self.last_y + y) & 0xFFFFFF
+        else:
+            # in v15+, all positions are relative and never depend on
+            # earlier absolute coordinates (which are only used for sizes)
+            pass
+        return self.debug("-> coords[%s]" % ("rel" if rel_to_abs else "abs"), (x, y))
 
 def infinity(start=0):
     i = start
@@ -93,6 +124,16 @@ def rgba(argb_tuple):
     a = (a / 255) if a > 0 else 1.0
     return "rgba(%d, %d, %d, %.6f)" % (r, g, b, a)
 
+def img_data(buf):
+    if buf.startswith(b"\x89PNG\r\n"):
+        img_type = "image/png"
+    elif buf.startswith(b"\xff\xd8"):
+        img_type = "image/jpeg"
+    else:
+        img_type = "application/octet-stream"
+    encoded = base64.b64encode(buf).decode("us-ascii")
+    return "data:%s,%s" % (img_type, encoded)
+
 def parse_file(arg):
     print("file =", arg)
 
@@ -105,421 +146,272 @@ def parse_file(arg):
     if version == 16:
         assert(expected_size == 0x02d355)
         expected_size = f.read_medium()
-
-        exp_total_bytes = expected_size + 7
-        exp_links_bytes = 0
-
         version = f.read_byte()
-        if version == 15:
-            f.read(10)
-        elif version == 16:
-            f.read(7)
-        else:
-            raise ValueError("bad version")
+        exp_total_bytes = expected_size + 7
+    else:
+        exp_total_bytes = expected_size + 3
 
-        page_title = f.read_string()
-        f.read_chunk() # nil on v16, 'C\x10\x10...' on v15
-        page_urlbase = f.read_string()
-        f.url_base = page_urlbase
-        page_url = f.read_url()
-        print("title =", page_title)
-        print("url =", page_url)
-        yield {"_type": "head",
-               "title": page_title,
-               "url": page_url}
+    exp_links_bytes = 0
 
+    if version == 16:
+        page_size = f.read_coords()
+        assert(f.read_short() == 0xFFFF)
+    elif version == 15:
+        f.read(10)
+    elif version in {12, 13}:
+        f.read(10)
+    else:
+        raise ValueError("bad version")
+
+    page_title = f.read_string()
+    f.read_blob() # 'C\x10\x10...' on v15, nil elsewhere
+    f.url_base = f.read_string()
+    page_url = f.read_url()
+    yield {"_type": "head",
+           "title": page_title,
+           "url": page_url}
+
+    if version >= 15:
         f.read(6)
+    else:
+        f.read(5)
 
-        for i in infinity(start=1):
-            type = f.read(1)
-            if type == b"M":
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                f.read(1)
-                exp_links_bytes = f.read_short()
-                break
-            elif type == b"C":
+    # metadata section
+
+    while True:
+        print("--- metadata [%d] ---" % f.fh.tell())
+        type = f.read(1)
+        if None:
+            pass
+        elif type == b"C":
+            if version >= 15:
                 f.read(23)
             else:
-                raise ValueError("in unknown section, unknown type %r" % type)
+                raise ValueError("unhandled metadata chunk %r/v%r" % (type, version))
+        elif type == b"M":
+            f.read(2)
+            f.read_blob()
+        elif type == b"S":
+            exp_links_bytes = f.read_medium()
+            break
+        else:
+            raise ValueError("unknown metadata chunk %r" % type)
 
-        print("section 1 ends at %d" % f.fh.tell())
+    print("section 1 ends at %d" % f.fh.tell())
 
-        links_start = f.fh.tell()
-        links_end = f.fh.tell() + exp_links_bytes
+    # link sub-section
 
-        while f.fh.tell() < links_end:
-            print("--- links [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"\x00":
-                # <option> selections
-                f.read(1)
-                n = f.read_byte()
-                for j in range(n):
-                    f.read_string()
-                    f.read_string()
-            elif type == b"i":
-                # "i" image
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos_x = f.read_short()
-                    pos_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    boxes.append((pos_x, pos_y, size_w, size_h))
+    links_start = f.fh.tell()
+    links_end = f.fh.tell() + exp_links_bytes
+
+    while f.fh.tell() < links_end:
+        print("--- links [%d] ---" % f.fh.tell())
+        type = f.read(1)
+        if None:
+            pass
+        elif type == b"\x00":
+            # <option> selections
+            f.read(1)
+            n = f.read_byte()
+            for j in range(n):
+                f.read_string()
+                f.read_string()
+        elif type == b"i":
+            # shared 'region' format
+            n = f.read_byte()
+            boxes = []
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+                boxes.append((pos, size))
+            if version >= 15:
                 img_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 img_type = f.read_string()
-                for pos_x, pos_y, size_w, size_h in boxes:
-                    yield {"_type": "image",
-                           "src": img_url,
-                           "type": img_type,
-                           "pos": (pos_x, pos_y),
-                           "size": (size_w, size_h)}
-            elif type in {b"L", b"P"}:
-                # "L" link
-                # "P" ??? (usually mailto link)
-                n = f.read_byte()
-                boxes = []
-                for j in range(n):
-                    pos_x = f.read_short()
-                    pos_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    boxes.append((pos_x, pos_y, size_w, size_h))
+            elif version == 13:
+                img_url = f.read_url()
+                f.read(2)
+                img_type = f.read_string()
+            elif version == 12:
+                img_type = f.read_string()
+                img_url = f.read_url()
+            for pos, size in boxes:
+                yield {"_type": "image",
+                       "src": img_url,
+                       "type": img_type,
+                       "pos": pos,
+                       "size": size}
+        elif type in {b"L", b"P"}:
+            # shared 'region' format, except for "L"/v12
+            n = f.read_byte()
+            if version == 12:
+                f.read(2)
+            boxes = []
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+                boxes.append((pos, size))
+            if version >= 15:
                 link_url = f.read_url()
                 assert(f.read(2) == b"\x01t")
                 link_type = f.read_string()
-                if not link_url.startswith("b:"):
-                    print("link =", link_url)
-                    for pos_x, pos_y, size_w, size_h in boxes:
-                        yield {"_type": "link",
-                               "href": link_url,
-                               "type": link_type,
-                               "pos": (pos_x, pos_y),
-                               "size": (size_w, size_h)}
-            elif type in {b"C", b"I", b"N", b"S", b"w", b"W"}:
-                # other kinds of links?
+            elif version == 13:
+                link_url = f.read_url()
+                f.read(2)
+                link_type = f.read_string()
+            elif version == 12:
+                link_url = f.read_url()
+                link_type = ""
+            if not link_url.startswith("b:"):
+                for pos, size in boxes:
+                    yield {"_type": "link",
+                           "href": link_url,
+                           "type": link_type,
+                           "pos": pos,
+                           "size": size}
+        elif type in {b"C", b"I", b"N", b"S", b"w", b"W"} and version >= 15:
+            # shared 'region' format
+            n = f.read_byte()
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+            f.read_blob()
+            assert(f.read(2) == b"\x01t")
+            f.read_blob()
+        elif type in {b"S"} and version == 13:
+            # shared 'region' format
+            n = f.read_byte()
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+            f.read_blob()
+            f.read(2)
+            f.read_blob()
+        elif type == b"C" and version == 12:
+            f.read(24)
+        elif type in {b"I", b"S", b"W"} and version == 12:
+            # shared 'region' format
+            n = f.read_byte()
+            for j in range(n):
+                pos = f.read_coords()
+                size = f.read_coords()
+            f.read_blob()
+            f.read_blob()
+        else:
+            raise ValueError("unknown link chunk %r/v%r" % (type, version))
+
+    print("section 2 ends at %d" % f.fh.tell())
+    if f.fh.tell() != links_end:
+        raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
+
+    # content section
+
+    content_start = f.fh.tell()
+    content_end = exp_total_bytes
+
+    while f.fh.tell() < content_end:
+        print("--- content [%d] ---" % f.fh.tell())
+        type = f.read(1)
+        if None:
+            pass
+        elif type == b"o":
+            if version >= 15:
+                # TODO: not sure if actual type or just part of preceding "I"-block
+                f.read_blob()
+            else:
+                raise ValueError("unhandled content chunk %r/v%r" % (type, version))
+        elif type == b"B":
+            if version >= 15:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+            else:
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+            yield {"_type": "box",
+                   "pos": pos,
+                   "size": size,
+                   "fill": color}
+        elif type == b"F":
+            f.read(16)
+            f.read_blob()
+            f.read_blob()
+            if version >= 15:
+                f.read(5)
+            else:
+                f.read(3)
+        elif type == b"I":
+            if version == 16:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+                f.read(11)
+            elif version == 15:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+                f.read(14)
+            else:
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+                f.read(6)
+            yield {"_type": "box",
+                   "pos": pos,
+                   "size": size,
+                   "fill": color}
+        elif type == b"L":
+            f.read(9)
+        elif type == b"M":
+            f.read(2)
+            f.read_blob()
+        elif type == b"S":
+            exp_files_bytes = f.read_medium()
+            files_start = f.fh.tell()
+            files_end = f.fh.tell() + exp_files_bytes
+            while f.fh.tell() < files_end:
+                buf = f.read_blob()
+                yield {"_type": "file",
+                       "data": buf[:16]+b"..."}
+            print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
+            if f.fh.tell() != files_end:
+                raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
+        elif type == b"T":
+            if version == 16:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
+                f.read(1)
+                font = 4 | (f.read_byte() & 1)
                 n = f.read_byte()
                 for j in range(n):
-                    pos_x = f.read_short()
-                    pos_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                f.read_chunk()
-                assert(f.read(2) == b"\x01t")
-                f.read_chunk()
-            else:
-                raise ValueError("in link section, unknown type %r" % type)
-
-        print("section 2 ends at %d" % f.fh.tell())
-        if f.fh.tell() != links_end:
-            raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
-
-        content_start = f.fh.tell()
-        content_end = exp_total_bytes
-
-        last_pos_x = 0
-        last_pos_y = 0
-
-        while f.fh.tell() < content_end:
-            print("--- content [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"o":
-                # TODO: not sure if actual type or just part of preceding "I"-block
-                f.read_chunk()
-            elif type == b"B":
-                offset_x = f.read_short()
-                offset_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
-                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
-                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
-                yield {"_type": "box",
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h),
-                       "fill": (color_a, color_r, color_g, color_b)}
-            elif type == b"F":
-                f.read(16)
-                f.read_chunk()
-                f.read_chunk()
-                f.read(5)
-            elif type == b"I":
-                if version == 16:
-                    offset_x = f.read_short()
-                    offset_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    f.read(15)
-                elif version == 15:
-                    offset_x = f.read_short()
-                    offset_y = f.read_medium()
-                    size_w = f.read_short()
-                    size_h = f.read_medium()
-                    f.read(18)
-                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
-                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
-                yield {"_type": "box",
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h),
-                       "fill": (127, 255, 0, 0)}
-            elif type == b"L":
-                f.read(9)
-            elif type == b"M":
-                f.read(2)
-                f.read_chunk()
-            elif type == b"S":
-                exp_files_bytes = f.read_medium()
-                files_start = f.fh.tell()
-                files_end = f.fh.tell() + exp_files_bytes
-                while f.fh.tell() < files_end:
-                    buf = f.read_chunk()
-                    yield {"_type": "file",
-                           "data": buf[:16]+b"..."}
-                print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
-                if f.fh.tell() != files_end:
-                    raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
-            elif type == b"T":
-                offset_x = f.read_short()
-                offset_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
-                if version == 16:
-                    f.read(1)
-                    font = 4 | (f.read_byte() & 1)
-                    n = f.read_byte()
-                    for j in range(n):
-                        print("text link", f.read(1), f.read_chunk())
-                    text = f.read_string()
-                elif version == 15:
-                    font = f.read_byte()
-                    text = f.read_string()
-                last_pos_x = pos_x = (last_pos_x + offset_x) & 0xFFFF
-                last_pos_y = pos_y = (last_pos_y + offset_y) & 0xFFFFFF
-                yield {"_type": "text",
-                       "text": text,
-                       "font": font,
-                       "color": (color_a, color_r, color_g, color_b),
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h)}
-            else:
-                raise ValueError("in content section, unknown type %r" % type)
-
-        print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
-        if f.fh.tell() != content_end:
-            raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
-
-    elif version == 12 or version == 13:
-        exp_total_bytes = expected_size + 3
-        exp_links_bytes = 0
-
-        f.read(10)
-
-        page_title = f.read_string()
-        f.read_chunk() # nil
-        f.url_base = f.read_string()
-        page_url = f.read_url()
-        yield {"_type": "head",
-               "title": page_title,
-               "url": page_url}
-
-        f.read(5)
-
-        for i in infinity(start=1):
-            print("--- section 1 item %d ---" % i)
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"M":
-                if version in {12, 13}:
-                    f.read(2)
-                    f.read_chunk()
-            elif type == b"S":
-                if version in {12, 13}:
-                    f.read(1)
-                    exp_links_bytes = f.read_short()
-                    break
-            else:
-                raise ValueError("in header section, unknown type %r" % type)
-
-        print("section 1 ends at %d" % f.fh.tell())
-
-        links_start = f.fh.tell()
-        links_end = f.fh.tell() + exp_links_bytes
-
-        while f.fh.tell() < links_end:
-            print("--- links [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if version == 12:
-                if None:
-                    pass
-                elif type == b"\x00":
-                    f.read(1)
-                    nk = f.read_byte()
-                    for k in range(nk):
-                        f.read_string()
-                        f.read_string()
-                elif type == b"i":
-                    n = f.read_byte()
-                    for j in range(n):
-                        f.read(10)
-                    img_type = f.read_string()
-                    img_url = f.read_url()
-                    print("image =", img_url)
-                elif type == b"C":
-                    f.read(24)
-                elif type == b"L":
-                    n = f.read_byte()
-                    f.read(2)
-                    for j in range(n):
-                        f.read(10)
-                    link_url = f.read_url()
-                    print("link =", link_url)
-                elif type in {b"I", b"S", b"W"}:
-                    n = f.read_byte()
-                    for j in range(n):
-                        f.read(10)
-                    f.read_chunk()
-                    f.read_chunk()
-                else:
-                    raise ValueError("in link section, unknown type %r" % type)
-            elif version == 13:
-                if None:
-                    pass
-                elif type == b"i":
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos_x = f.read_short()
-                        pos_y = f.read_medium()
-                        size_w = f.read_short()
-                        size_h = f.read_medium()
-                        boxes.append((pos_x, pos_y, size_w, size_h))
-                    img_url = f.read_url()
-                    f.read(2)
-                    img_type = f.read_string()
-                    for pos_x, pos_y, size_w, size_h in boxes:
-                        yield {"_type": "image",
-                               "src": img_url,
-                               "type": img_type,
-                               "pos": (pos_x, pos_y),
-                               "size": (size_w, size_h)}
-                elif type == b"L":
-                    n = f.read_byte()
-                    boxes = []
-                    for j in range(n):
-                        pos_x = f.read_short()
-                        pos_y = f.read_medium()
-                        size_w = f.read_short()
-                        size_h = f.read_medium()
-                        boxes.append((pos_x, pos_y, size_w, size_h))
-                    link_url = f.read_url()
-                    f.read(2)
-                    link_type = f.read_string()
-                    for pos_x, pos_y, size_w, size_h in boxes:
-                        yield {"_type": "link",
-                               "href": link_url,
-                               "type": link_type,
-                               "pos": (pos_x, pos_y),
-                               "size": (size_w, size_h)}
-                elif type == b"S":
-                    n = f.read_byte()
-                    for j in range(n):
-                        f.read(10)
-                    f.read_chunk()
-                    f.read(2)
-                    f.read_chunk()
-                else:
-                    raise ValueError("in link section, unknown type %r" % type)
-
-        print("section 2 ends at %d" % f.fh.tell())
-        if f.fh.tell() != links_end:
-            raise ValueError("link section ended at %d, expected %d" % (f.fh.tell(), links_end))
-
-        content_start = f.fh.tell()
-        content_end = exp_total_bytes
-
-        while f.fh.tell() < content_end:
-            print("--- content [%d] ---" % f.fh.tell())
-            type = f.read(1)
-            if None:
-                pass
-            elif type == b"B":
-                pos_x = f.read_short()
-                pos_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
-                yield {"_type": "box",
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h),
-                       "fill": (color_a, color_r, color_g, color_b)}
-            elif type == b"F":
-                f.read(16)
-                f.read_chunk()
-                f.read_chunk()
-                f.read(3)
-            elif type == b"I":
-                f.read(20)
-            elif type == b"L":
-                f.read(9)
-            elif type == b"M":
-                f.read_short()
-                f.read_chunk()
-            elif type == b"S":
-                exp_files_bytes = f.read_medium()
-                files_start = f.fh.tell()
-                files_end = f.fh.tell() + exp_files_bytes
-                while f.fh.tell() < files_end:
-                    buf = f.read_chunk()
-                    yield {"_type": "file",
-                           "data": buf[:16]+b"..."}
-                print("files started at %d, ends at %d" % (files_start, f.fh.tell()))
-                if f.fh.tell() != files_end:
-                    raise ValueError("content.files section ended at %d, expected %d" % (f.fh.tell(), files_end))
-            elif type == b"T":
-                pos_x = f.read_short()
-                pos_y = f.read_medium()
-                size_w = f.read_short()
-                size_h = f.read_medium()
-                color_a = f.read_byte()
-                color_r = f.read_byte()
-                color_g = f.read_byte()
-                color_b = f.read_byte()
+                    print("text link", f.read(1), f.read_blob())
+                text = f.read_string()
+            elif version == 15:
+                pos = f.read_coords(rel_to_abs=True)
+                size = f.read_coords()
+                color = f.read_color()
                 font = f.read_byte()
                 text = f.read_string()
-                yield {"_type": "text",
-                       "text": text,
-                       "font": font,
-                       "color": (color_a, color_r, color_g, color_b),
-                       "pos": (pos_x, pos_y),
-                       "size": (size_w, size_h)}
             else:
-                raise ValueError("in content section, unknown type %r" % type)
+                pos = f.read_coords()
+                size = f.read_coords()
+                color = f.read_color()
+                font = f.read_byte()
+                text = f.read_string()
+            yield {"_type": "text",
+                   "text": text,
+                   "font": font,
+                   "color": color,
+                   "pos": pos,
+                   "size": size}
+        else:
+            raise ValueError("unknown content chunk %r/v%r" % (type, version))
 
-        print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
-        if f.fh.tell() != content_end:
-            raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
-
-    else:
-        raise ValueError('unknown version %d' % version)
+    print("section 3 started at %d, ends at %d" % (content_start, f.fh.tell()))
+    if f.fh.tell() != content_end:
+        raise ValueError("content section ended at %d, expected %d" % (f.fh.tell(), content_end))
 
 font_sizes = {
     0: "11px", # medium

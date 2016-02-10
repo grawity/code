@@ -14,8 +14,16 @@ ks:delattr() {
 }
 
 ks:sshrun() {
-	local host=$1 argv=("${@:2}")
+	local OPT OPTARG OPTIND
+	local host= argv=() optv=()
 	local -i i
+	while getopts "t" OPT "$@"; do
+		case $OPT in
+		t) optv+=("-t");;
+		esac
+	done
+	shift $((OPTIND-1))
+	host=$1 argv=("${@:2}")
 	for (( i = 0; i < ${#argv[@]}; i++ )); do
 		printf -v argv[i] '%q' "${argv[i]}"
 	done
@@ -24,6 +32,7 @@ ks:sshrun() {
 		-o ControlMaster=auto \
 		-o ControlPersist=5m \
 		-o ControlPath="~/.ssh/S.%r@%h:%p" \
+		"${optv[@]}" \
 		"${argv[*]}"
 }
 

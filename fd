@@ -29,24 +29,28 @@ case $1 in
 		size=${sizes[size]}
 	elif (( size < 4096 )); then
 		size=$(( size * 1024 ))
+	else
+		die "unknown size '$size'"
 	fi
 
 	size_k=$(( size / 1024 ))
 	log "image size: $size_k kB ($size bytes)"
 
-	case $name in
-	*.vfd|*.dsk|*.ima|*.img)
-		name=${name%.*}.img;;
-	*)
-		name+=.img;;
-	esac
-
 	if [[ -e $name ]]; then
 		die "file \"$name\" already exists"
 	fi
 
+	echo "allocating image"
 	head -c "$size" /dev/zero > "$name"
+
+	echo "creating filesystem"
 	mkfs.vfat "$name"
+
+	if (( $# > 3 )); then
+		echo "adding files"
+		mcopy -i "$name" "${@:4}" ::
+	fi
+
 	log "created \"$name\""
 	;;
     mount|m)
@@ -90,6 +94,12 @@ case $1 in
 	else
 		die "unmount failed"
 	fi
+	;;
+    cp)
+	mcopy -i "${@:2}" ::/
+	;;
+    ls)
+	mdir -i "${@:2}"
 	;;
     '')
 	(die "missing command")

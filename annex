@@ -12,9 +12,12 @@ set -e
 case $1 in
     setup)
         name=$2
-        [[ $name ]] || die "missing name (e.g. Videos)"
-        [[ $name != */* ]] || die "name must not contain '/'"
-        [[ $name == *.git ]] || name+=".git"
+        [[ $name ]] \
+            || die "missing name (e.g. annex/videos)"
+        [[ $name == annex/* || $name == */annex/* ]] \
+            || die "name must contain 'annex/'"
+        [[ $name == *.git ]] \
+            || name+=".git"
         # set up local git-annex repository
         if is_annex; then
             notice "'$PWD' is already a git-annex repository"
@@ -31,11 +34,9 @@ case $1 in
             notice "origin is already set up as '$u'"
         else
             log "creating metadata repository"
-            repo="pub/git/~grawity/annex/$name"
-            ssh virgule "test -d $repo || git init --bare $repo"
+            ssh virgule "[ -d pub/git/$name ] || git init --bare pub/git/$name"
             log "adding origin remote"
-            #git remote add origin "nullroute+ssh:$name"
-            git remote add origin "nullroute+annex:$name"
+            git remote add origin "nullroute+ssh:$name"
         fi
         git config remote.origin.annex-ignore true
         # sync
@@ -94,9 +95,6 @@ case $1 in
                 say " \e[38;5;242m- $_\e[m" for reverse @items;
             }
         '
-        ;;
-    untracked)
-        comm -13 <(git annex find | sort) <(find \( -name .git -prune \) -o \( -type f -print \) | sed 's:^\./::' | sort)
         ;;
     *)
         exec git annex "$@"

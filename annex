@@ -83,12 +83,15 @@ case $1 in
                 push @{$items{$key}}, [$time, $value, $_];
             }
             for my $key (@items) {
+                my @items = uniq
+                            grep {/./}
+                            map {$_->[1]}
+                            sort {$a->[0] <=> $b->[0]}
+                            @{$items{$key}};
+                my $last = pop @items;
                 say "$key";
-                say " - $_" for uniq
-                                grep {/./}
-                                map {$_->[1]}
-                                sort {$a->[0] <=> $b->[0]}
-                                @{$items{$key}};
+                say " - $_" for $last;
+                say " \e[38;5;242m- $_\e[m" for reverse @items;
             }
         '
         ;;

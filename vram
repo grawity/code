@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+use Nullroute::Lib;
 
 $prev_total = 0;
 $prev_used = 0;
@@ -8,14 +9,17 @@ sub getsize {
 }
 
 sub getvalues {
-	my @m;
-	open my $f, "<", "/sys/kernel/debug/dri/0/radeon_vram_mm";
-	return if !$f;
-	while (<$f>) {
-		last if @m = /^total: (\d+), used (\d+) free (\d+)$/;
+	if (open(my $f, "<", "/sys/kernel/debug/dri/0/radeon_vram_mm")) {
+		my @m;
+		while (<$f>) {
+			last if @m = /^total: (\d+), used (\d+) free (\d+)$/;
+		}
+		close $f;
+		if (!@m) { _die("could not find VRAM usage in debugfs"); }
+		return map {$_ >> 8} @m;
+	} else {
+		_die("could not access debugfs: $!");
 	}
-	close $f;
-	return map {$_ >> 8} @m;
 }
 
 sub draw {
@@ -63,8 +67,6 @@ sub draw {
 }
 
 getsize();
-
-#open STDERR, ">", "/dev/null";
 
 $prev = "";
 

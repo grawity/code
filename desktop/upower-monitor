@@ -79,7 +79,8 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 			            $dev->Get(UP_DEVICE_IFACE, "State");
 
 			my $status = "at $charge%";
-			my $time;
+			my $time = 0;
+			my $suspend = 0;
 
 			if ($state == $STATE{discharging}) {
 				$time = $changed->{TimeToEmpty} //
@@ -96,6 +97,11 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 				}
 			}
 
+			if ($state == $STATE{discharging} && $charge <= 5) {
+				$status = "$status. Suspending";
+				$suspend = 1;
+			}
+
 			print "Battery $STATE[$state], $status\n";
 
 			if ($state == $STATE{discharging} && $charge <= 15) {
@@ -110,8 +116,7 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 					timeout => 10_000);
 			}
 
-			if ($state == $STATE{discharging} && $charge <= 5) {
-				print "Suspending\n";
+			if ($suspend) {
 				system("systemctl", "suspend");
 			}
 		});

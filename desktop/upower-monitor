@@ -61,6 +61,8 @@ sub timedelta {
 
 my $devices = 0;
 
+my $critical = 5;
+
 for my $dev_p (@{UPower->EnumerateDevices()}) {
 	my $dev = UPower($dev_p);
 	if ($dev->Get(UP_DEVICE_IFACE, "IsRechargeable")) {
@@ -97,9 +99,12 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 				}
 			}
 
-			if ($state == $STATE{discharging} && $charge <= 5) {
+			if ($state == $STATE{discharging} && $charge <= $critical) {
 				$status = "$status. Suspending";
 				$suspend = 1;
+			}
+			elsif ($state == $STATE{discharging} && $charge <= $critical+2) {
+				$status = "$status. Will suspend at $critical%";
 			}
 
 			print "Battery $STATE[$state], $status\n";

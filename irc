@@ -4,9 +4,16 @@
 
 host=virgule.cluenet.org
 
+do_fifo() {
+	echo "$*" | ssh $host 'cat > .weechat/weechat_fifo_*'
+}
+
 if [[ $1 == -- ]]; then
 	shift
-	echo "*$*" | ssh $host 'cat > .weechat/weechat_fifo_*'
+	do_fifo "*$*"
+	exit
+elif [[ $1 == /* ]]; then
+	do_fifo "*$*"
 	exit
 fi
 

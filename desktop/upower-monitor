@@ -127,7 +127,13 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 				$notified = 1;
 			}
 			elsif ($state == $STATE{charging} && $notified) {
-				notify();
+				my $icon = $dev->Get(UP_DEVICE_IFACE, "IconName");
+				notify("Battery charging",
+					body => "The battery is $status.",
+					icon => $icon,
+					hints => {
+						transient => dbus_boolean(1),
+					});
 				$notified = 0;
 			}
 

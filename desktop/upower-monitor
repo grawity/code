@@ -33,15 +33,19 @@ sub notify {
 	state $id = 0;
 	my ($summary, %opts) = @_;
 
-	$id = Notifications->Notify(
-		$opts{app} // "upowermon",
-		$id,
-		$opts{icon} // undef,
-		$summary,
-		$opts{body},
-		$opts{actions} // [],
-		$opts{hints} // {},
-		$opts{timeout} // 1_000);
+	if ($summary) {
+		$id = Notifications->Notify(
+			$opts{app} // "upowermon",
+			$id,
+			$opts{icon} // undef,
+			$summary,
+			$opts{body},
+			$opts{actions} // [],
+			$opts{hints} // {},
+			$opts{timeout} // 1_000);
+	} else {
+		Notifications->CloseNotification($id);
+	}
 }
 
 sub timedelta {
@@ -60,6 +64,7 @@ sub timedelta {
 }
 
 my $devices = 0;
+my $notified = 0;
 
 my $critical = 5;
 
@@ -119,6 +124,11 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 						urgency => dbus_byte(NOTIFY_URGENCY_HIGH),
 					},
 					timeout => 10_000);
+				$notified = 1;
+			}
+			elsif ($state == $STATE{charging} && $notified) {
+				notify();
+				$notified = 0;
 			}
 
 			if ($suspend) {

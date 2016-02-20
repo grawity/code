@@ -9,9 +9,11 @@ is_annex!() { is_annex || die "not a git-annex repository"; }
 
 set -e
 
-case $1 in
+cmd=$1; shift
+
+case $cmd in
     setup)
-        name=$2
+        name=$1
         [[ $name ]] \
             || die "missing name (e.g. annex/videos)"
         [[ $name == annex/* || $name == */annex/* ]] \
@@ -65,7 +67,7 @@ case $1 in
             if [[ $arg != */* && $arg != *.* ]]; then
                 arg+=".log"
             fi
-            if (( $# > 1 )); then
+            if (( $# )); then
                 echo -e "\e[1m--- $arg ---\e[m"
             fi
             git show "git-annex:$arg"
@@ -96,8 +98,11 @@ case $1 in
             }
         '
         ;;
+    '')
+        exec git annex
+        ;;
     *)
-        exec git annex "$@"
+        exec git annex "$cmd" "$@"
         ;;
 esac
 

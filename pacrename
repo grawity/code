@@ -23,25 +23,35 @@ _die() {
 }
 
 fix_desc_version() {
-	local newver=$1
-	local line now=0
+	local new_name=$1 new_version=$2
+	local line last_line
 	while read -r line; do
-		if (( now )); then
-			line=$newver
-			now=0
-		elif [[ $line == "%VERSION%" ]]; then
-			now=1
+		if [[ $last_line == "%NAME%" ]]; then
+			line=$new_name
+		elif [[ $last_line == "%VERSION%" ]]; then
+			line=$new_version
 		fi
 		printf '%s\n' "$line"
+		last_line=$line
 	done
 }
 
-pkgname=$1
-oldver=$2; oldpkg="$pkgname-$oldver"; olddir="$dbpath/$oldpkg"
-newver=$3; newpkg="$pkgname-$newver"; newdir="$dbpath/$newpkg"
+oldname=$1
+oldver=$2
 
-[[ $pkgname && $oldver && $newver ]] || {
-	echo "usage: $progname <pkg-name> <old-version> <new-version>" >&2
+if (( $# == 3 )); then
+	newname=$1
+	newver=$3
+elif (( $# == 4 )); then
+	newname=$3
+	newver=$4
+fi
+
+oldpkg="$oldname-$oldver"; olddir="$dbpath/$oldpkg"
+newpkg="$newname-$newver"; newdir="$dbpath/$newpkg"
+
+[[ $oldname && $oldver && $newname && $newver ]] || {
+	echo "usage: $progname <pkg-name> <old-version> [<new-name>] <new-version>" >&2
 	die "missing parameters"
 }
 
@@ -73,9 +83,9 @@ rsync -a "$olddir/" "$newdir/" || {
 
 debug "updating version in desc"
 
-fix_desc_version "$newver" < "$olddir/desc" > "$newdir/desc" || {
+fix_desc_version "$newname" "$newver" < "$olddir/desc" > "$newdir/desc" || {
 	rm -rf "$newdir"
-	_die "could not update version of '$newpkg'"
+	_die "could not update name/version of '$newpkg'"
 }
 
 debug "removing old DB entry '$oldpkg'"

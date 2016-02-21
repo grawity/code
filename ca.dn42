@@ -1,0 +1,229 @@
+#!/bin/bash
+
+DN42CA_PKCS12=${DN42CA_PKCS12-"0"}
+VERSION="0.3.2"
+BASE_URL="https://ca.dn42"
+
+CURL=$(which curl)
+
+# Some versions of openssl don't like the name constraints we use. We need to ignore cert errors for them.
+CURL="$CURL -k"
+
+CUR_VERSION=$($CURL -s "$BASE_URL/ca.dn42.version")
+
+ver() { printf "%03d%03d%03d%03d" $(echo "$1" | tr '.' ' '); }
+
+if [ $(ver "$VERSION") -lt $(ver "$CUR_VERSION") ]; then
+  echo "Current script version is $CUR_VERSION. You are running $VERSION"
+  echo "Get it here: https://ca.dn42/ca.dn42"
+  exit 1
+fi
+
+usage() {
+  cat 2>&1 <<EOL
+Usage:  # OWNER is your MNT handle.
+   $0 user-gen OWNER EMAIL          # Output to OWNER.csr and OWNER.key
+   $0 user-sign OWNER               # Output to OWNER.crt and OWNER.p12
+   $0 tls-gen DNS OWNER EMAIL [SAN] # Output to OWNER_DNS.csr and OWNER.key
+   $0 tls-sign DNS OWNER            # Output to OWNER_DNS.crt and OWNER_DNS.p12
+   $0 revoke OWNER CERTFILE [REASON] # Reasons: unspecified, keyCompromise, affiliationChanged,
+                                     # superseded, cessationOfOperation, certificateHold, removeFromCRL
+
+Environtment Options:
+   DN42CA_PKCS12 = 1                # Generate pkcs12 file for certificate.
+   DN42CA_NEWKEY = 1                # Do not create a new key if one exists.
+EOL
+  exit 1
+}
+
+CMD=${1-"NONE"}; shift
+
+KEYOUT="-key"
+
+case $CMD in
+  "user-gen")
+    OWNER=${1-"DUMMY-MNT"}
+    EMAIL=${2-"dn42@dummy.tld"}
+
+    if [ "$DN42CA_NEWKEY" = "1" || ! -f "${OWNER}.key" ]; then KEYOUT="-keyout"; else echo "Reusing key: ${OWNER}.key"; fi
+
+    openssl req -new \
+       -subj "/C=XD/O=dn42/OU=dn42 Certificate Authority/CN=${OWNER}/emailAddress=${EMAIL}/owner=${OWNER}" \
+       -out "${OWNER}.csr" \
+       "$KEYOUT" "${OWNER}.key" \
+       -config <(cat <<EOL
+[req]
+  default_bits = 2048
+  encrypt_key = no
+  default_md = sha256
+  utf8 = yes
+  string_mask = utf8only
+  prompt = yes
+  distinguished_name = client_dn
+  req_extensions = client_reqext
+[client_dn]
+[client_reqext]
+  keyUsage = critical,digitalSignature
+  extendedKeyUsage = clientAuth
+  subjectKeyIdentifier = hash
+EOL
+)
+
+    echo -e "=\n= You need to have this pin added to your mnt object before proceeding to the next step.\n="
+    echo -n "|MNT Key Pin| remarks: pin-sha256:"
+      (openssl req -in "${OWNER}.csr" -pubkey -noout | \
+       openssl rsa -pubin -outform der | \
+       openssl dgst -sha256 -binary | \
+       openssl enc -base64) 2> /dev/null
+
+    exit 0
+  ;;
+
+  user-sign)
+    OWNER=${1-"DUMMY-MNT"}
+    STATUS=$(mktemp)
+
+    $CURL -s -X POST \
+         -H "Content-Type: text/plain" \
+         --data-binary @"${OWNER}.csr" \
+         "$BASE_URL/user.php" > $STATUS
+
+    cat "$STATUS"; echo
+    CERT_OK=$(grep OK $STATUS | cut -c1-2)
+
+    if [ "$CERT_OK" = "OK" ]; then
+      $CURL -s $(grep OK $STATUS | cut -d' ' -f2) > ${OWNER}.crt
+      $CURL -s "$BASE_URL/crt/ca-chain.crt" > ca-chain.crt
+
+      if [ "$DN42CA_PKCS12" -eq "1" ]; then
+        echo -e "=\n= Create a pkcs12 bundle\n=\n"
+        openssl pkcs12 -export \
+          -name "${OWNER} (ca.dn42 mnter)" \
+          -caname "dn42 Internal CA (VERIFIED) (BETA)" \
+          -caname "dn42 Root Authority CA (BETA)" \
+          -inkey ${OWNER}.key \
+          -in ${OWNER}.crt \
+          -certfile ca-chain.crt \
+          -out ${OWNER}.p12
+       fi
+
+       rm $STATUS
+       exit 0
+    fi
+
+    rm $STATUS
+    exit 1
+  ;;
+  tls-gen)
+    DNS=${1-"dummy.dn42"}
+    OWNER=${2-"DUMMY-MNT"}
+    EMAIL=${3-"dn42@dummy.tld"}
+    SAN=$4
+
+    FILE="${OWNER}_${DNS}"
+    if [ "$DN42CA_NEWKEY" = "1" ] || [ ! -f "${FILE}.key" ]; then KEYOUT="-keyout"; else echo "Reusing key: ${FILE}.key"; fi
+
+    SAN=$SAN \
+    openssl req -new \
+        -subj "/C=XD/O=dn42/OU=dn42 Certificate Authority/CN=${DNS}/emailAddress=${EMAIL}/owner=${OWNER}" \
+        -out "${FILE}.csr" \
+        "$KEYOUT" "${FILE}.key" \
+        -config <(cat <<EOL
+[default]
+SAN = DNS:yourdomain.dn42
+[req]
+default_bits = 2048
+encrypt_key = no
+default_md = sha256
+utf8 = yes
+string_mask = utf8only
+prompt = yes
+distinguished_name = server_dn
+req_extensions = server_reqext
+[server_dn]
+[server_reqext]
+keyUsage = critical,digitalSignature,keyEncipherment
+extendedKeyUsage = serverAuth,clientAuth
+subjectKeyIdentifier = hash
+subjectAltName = \$ENV::SAN
+EOL
+)
+
+    KEYPIN=$(openssl req -in "${FILE}.csr" -pubkey -noout | \
+             openssl rsa -pubin -outform der | \
+             openssl dgst -sha256 -binary | \
+             openssl enc -base64 2> /dev/null)
+
+    echo -e "=\n= |DNS Key Pin| You need to have this pin added to your dns records  before proceeding to the next step.\n="
+
+    (echo "_dn42_tlsverify.${DNS}. IN TXT ${OWNER}:pin-sha256:${KEYPIN}";
+      for i in ${SAN//,/ }; do echo "_dn42_tlsverify.${i//DNS:/}. IN TXT ${OWNER}:pin-sha256:${KEYPIN}"; done) | sort | uniq
+
+  ;;
+  tls-sign)
+    DNS=${1-"dummy.dn42"}
+    OWNER=${2-"DUMMY-MNT"}
+    STATUS=$(mktemp)
+
+    FILE="${OWNER}_${DNS}"
+
+    $CURL -s -X POST \
+         --cert "./${OWNER}.crt" \
+         --key "./$OWNER.key" \
+         -H "Content-Type: text/plain" \
+         --data-binary @"${FILE}.csr" \
+         "$BASE_URL/server.php" > $STATUS
+
+    cat "$STATUS"
+    CERT_OK=$(grep OK "$STATUS" | cut -c1-2)
+
+    if [ "$CERT_OK" = "OK" ]; then
+      $CURL -s $(grep OK "$STATUS" | cut -d' ' -f2) > ${FILE}.crt
+      $CURL -s "$BASE_URL/crt/ca-chain.crt" > ca-chain.crt
+
+      cat ca-chain.crt | sed -n "/BEGIN/,/END/p;/END/q" >> ${FILE}.crt
+
+      if [ "$DN42CA_PKCS12" -eq "1" ]; then
+        echo -e "=\n= Create a pkcs12 bundle\n=\n"
+        openssl pkcs12 -export \
+          -name "${DNS} (${OWNER} from ca.dn42 tls)" \
+          -caname "dn42 Internal CA (VERIFIED) (BETA)" \
+          -caname "dn42 Root Authority CA (BETA)" \
+          -inkey "${FILE}.key" \
+          -in "${FILE}.crt" \
+          -certfile ca-chain.crt \
+          -out "${FILE}.p12"
+        fi
+
+        rm $STATUS
+        exit 0
+    fi
+
+    rm $STATUS
+    exit 1
+  ;;
+  revoke)
+    OWNER=${1-"DUMMY-MNT"}
+    FILE=${2-"filename.crt"}
+    REASON=${3-"unspecified"}
+    STATUS=$(mktemp)
+    SERIAL=$(openssl x509 -serial -noout -in ${FILE} | cut -d'=' -f2)
+    $CURL -s -X POST \
+         --cert "./${OWNER}.crt" \
+         --key "./$OWNER.key" \
+         -H "Content-Type: text/plain" \
+         "$BASE_URL/revoke.php?serial=${SERIAL}&reason=${REASON}" > $STATUS
+
+    cat "$STATUS"
+    CERT_OK=$(grep OK "$STATUS" | cut -c1-2)
+    if [ "$CERT_OK" = "OK" ]; then
+      exit 0
+    fi
+
+    rm $STATUS
+    exit 1
+  ;;
+  *)
+    usage
+  ;;
+esac

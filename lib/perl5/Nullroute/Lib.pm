@@ -31,6 +31,7 @@ our @EXPORT = qw(
 	trim_inplace
 	trim
 	uniq
+	url_decode
 	xml_escape
 );
 
@@ -265,6 +266,14 @@ sub trim {
 }
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
+
+sub url_decode {
+	my ($str) = @_;
+
+	$str =~ s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	utf8::decode($str);
+	return $str;
+}
 
 sub xml_escape {
 	my ($str) = @_;

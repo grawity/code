@@ -68,6 +68,24 @@ my $vim = "/usr/bin/vim";
 
 my @args = "vim";
 
+sub in_path {
+	my ($exe) = @_;
+	return grep {-f && -x} map {"$_/$exe"} split(/:/, $ENV{PATH});
+}
+
+sub getselection {
+	if (in_path("xsel")) {
+		_debug("using xsel");
+		return `xsel -o -p -l /dev/null`;
+	} elsif (in_path("xclip")) {
+		_debug("using xclip");
+		return `xclip -o -s primary`;
+	} else {
+		_debug("nothing available");
+		return;
+	}
+}
+
 sub urldecode {
 	my ($str) = @_;
 	$str =~ s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
@@ -173,7 +191,7 @@ if (@ARGV) {
 		}
 	}
 } elsif (length $ENV{DISPLAY}) {
-	if (my @r = parse(`xclip -o -s primary`)) {
+	if (my @r = parse(getselection())) {
 		push @args, @r;
 	}
 }

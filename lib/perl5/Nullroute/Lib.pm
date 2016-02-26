@@ -209,18 +209,20 @@ sub forked (&) { fork || exit shift->(); }
 
 sub interval {
 	my ($end, $start) = @_;
-	my ($dif, $s, $m, $h, $d);
+	my ($s, $m, $h, $d, $y);
 
 	$start //= time;
-	$d = abs($end - $start);
-	$d -= $s = $d % 60; $d /= 60;
-	$d -= $m = $d % 60; $d /= 60;
-	$d -= $h = $d % 24; $d /= 24;
-	$d += 0;
+	$y = abs($end - $start);
+	$y -= $s = $y % 60;  $y /= 60;
+	$y -= $m = $y % 60;  $y /= 60;
+	$y -= $h = $y % 24;  $y /= 24;
+	$y -= $d = $y % 365; $y /= 365;
+	$y += 0;
 
-	_debug("d = $d, h = $h, m = $m");
+	_debug("$end-$start = {y=$y, d=$d, h=$h, m=$m, s=$s}");
 
-	if ($d > 14)	{ "${d}d" }
+	if ($y)		{ "${y}y ${d}d" }
+	elsif ($d > 14)	{ "${d}d" }
 	elsif ($d > 0)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
 	elsif ($m > 0)	{ "${m} min" }

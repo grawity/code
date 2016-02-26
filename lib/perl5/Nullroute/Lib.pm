@@ -212,13 +212,13 @@ sub interval {
 	my ($dif, $s, $m, $h, $d);
 
 	$start //= time;
-	$dif = abs($end - $start);
-	$dif -= $s = $dif % 60; $dif /= 60;
-	$dif -= $m = $dif % 60; $dif /= 60;
-	$dif -= $h = $dif % 24; $dif /= 24;
-	$d = $dif + 0;
+	$d = abs($end - $start);
+	$d -= $s = $d % 60; $d /= 60;
+	$d -= $m = $d % 60; $d /= 60;
+	$d -= $h = $d % 24; $d /= 24;
+	$d += 0;
 
-	_debug("dif = $dif, d = $d, h = $h, m = $m");
+	_debug("d = $d, h = $h, m = $m");
 
 	if ($d > 0)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }

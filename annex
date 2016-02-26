@@ -35,15 +35,24 @@ case $cmd in
         if u=$(git config remote.origin.url); then
             notice "origin is already set up as '$u'"
         else
-            log "creating metadata repository"
+            log "creating origin repository"
             ssh virgule "[ -d pub/git/$name ] || git init --bare pub/git/$name"
-            log "adding origin remote"
             git remote add origin "nullroute+ssh:$name"
         fi
-        git config remote.origin.annex-ignore true
+        # set up other repos
+        name=Attic/${name#annex/}
+        name=${name%.git}
+        if u=$(git config remote.fs1.url); then
+            notice "fs1 is already set up as '$u'"
+        else
+            log "creating fs1 repository"
+            ssh ukradius "[ -d fs1/$name.git ] || git init --bare fs1/$name.git"
+            git remote add fs1 "fs1:/$name"
+        fi
         # sync
         log "performing initial sync"
         git annex sync
+        git config remote.fs1.annex-sync false
         ;;
     want-get|missing)
         exec git annex find --want-get --not --in .

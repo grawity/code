@@ -220,7 +220,8 @@ sub interval {
 
 	_debug("d = $d, h = $h, m = $m");
 
-	if ($d > 0)	{ "${d}d ${h}h" }
+	if ($d > 14)	{ "${d}d" }
+	elsif ($d > 0)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
 	elsif ($m > 0)	{ "${m} min" }
 	else		{ "${s} sec" }

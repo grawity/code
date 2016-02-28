@@ -40,6 +40,21 @@ case $cmd in
         git remote add origin "annex:${rdir%.git}"
         git annex sync
         ;;
+    link)
+        base=$(git config --get nullroute.annex-name || basename "$PWD")
+        for name; do
+            case $name in
+                fs1)    dir="fs1:/Attic";;
+                origin) dir="annex:Attic";;
+                vol3)   dir="/run/media/grawity/vol3_tombstone/Attic";;
+                vol4)   dir="/run/media/grawity/vol4_grimoire/Attic";;
+                *)      err "unknown remote '$name'"; continue;;
+            esac
+            git remote add "$name" "$dir/$base"
+            annex sync "$name"
+            annex info "$name"
+        done
+        ;;
     want-get|missing)
         exec git annex find --want-get --not --in .
         ;;

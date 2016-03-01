@@ -15,6 +15,7 @@ sub usage {
 	"    -o    oct-encode (\\123)\n",
 	"    -p    encode full path (allowing slashes)\n",
 	"    -q    encode quoted-printable\n",
+	"    -P    do not encode parentheses\n",
 	"    -r    do not print newline\n",
 	"    -x    hex-encode (\\xAB)\n",
 	"    -X    XML-escape\n";
@@ -45,7 +46,10 @@ sub encode {
 		s/>/&gt;/g;
 		s/"/&quot;/g;
 	} else {
-		s/[^A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
+		s/[^A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/seg;
+		if (!$opts{"P"}) {
+			s/[()]/sprintf("%%%02X", ord($&))/seg;
+		}
 	}
 }
 
@@ -59,7 +63,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('AdDopqrxX', \%opts) || usage;
+getopts('AdDopPqrxX', \%opts) || usage;
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

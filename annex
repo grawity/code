@@ -136,6 +136,19 @@ case $cmd in
             annex setkey "$h" "$f"
         done
         ;;
+    registerurls)
+        for f; do
+            u=$(attr -L -q -g xdg.origin.url "$f")
+            k=$(annex lookupkey "$f")
+            if [[ ! $u ]]; then
+                err "no origin URL for file '$f'"
+            elif [[ ! $k ]]; then
+                err "no key for file '$f'"
+            else
+                annex registerurl "$k" "$u"
+            fi
+        done
+        ;;
     # overrides
     info)
         if (( ! $# )); then

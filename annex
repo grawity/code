@@ -115,6 +115,27 @@ case $cmd in
             }
         '
         ;;
+    hash)
+        for f; do
+            n=${f##*/}
+            e=$(echo "$n" | perl -ne '
+                no locale;
+                s/[^a-z0-9.]//g;
+                @ext = reverse grep {length($_) <= 4} split(/\./);
+                print @ext ? join(".", "", reverse @ext[0..1]) : "";
+            ')
+            s=$(stat -c %s "$f")
+            h=$(sha256sum "$f")
+            h=${h%% *}
+            echo "SHA256E-s$s--$h$e"
+        done
+        ;;
+    inject)
+        for f; do
+            h=$(annex hash "$f")
+            annex setkey "$h" "$f"
+        done
+        ;;
     # overrides
     info)
         if (( ! $# )); then

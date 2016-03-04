@@ -31,6 +31,7 @@ our @EXPORT = qw(
 	trim_inplace
 	trim
 	uniq
+	url_decode
 	xml_escape
 );
 
@@ -208,18 +209,21 @@ sub forked (&) { fork || exit shift->(); }
 
 sub interval {
 	my ($end, $start) = @_;
-	my ($dif, $s, $m, $h, $d);
+	my ($s, $m, $h, $d, $y);
 
 	$start //= time;
-	$dif = abs($end - $start);
-	$dif -= $s = $dif % 60; $dif /= 60;
-	$dif -= $m = $dif % 60; $dif /= 60;
-	$dif -= $h = $dif % 24; $dif /= 24;
-	$d = $dif + 0;
+	$y = abs($end - $start);
+	$y -= $s = $y % 60;  $y /= 60;
+	$y -= $m = $y % 60;  $y /= 60;
+	$y -= $h = $y % 24;  $y /= 24;
+	$y -= $d = $y % 365; $y /= 365;
+	$y += 0;
 
-	_debug("dif = $dif, d = $d, h = $h, m = $m");
+	_debug("$end-$start = {y=$y, d=$d, h=$h, m=$m, s=$s}");
 
-	if ($d > 0)	{ "${d}d ${h}h" }
+	if ($y)		{ "${y}y ${d}d" }
+	elsif ($d > 14)	{ "${d}d" }
+	elsif ($d > 0)	{ "${d}d ${h}h" }
 	elsif ($h > 0)	{ "${h}h ${m}m" }
 	elsif ($m > 0)	{ "${m} min" }
 	else		{ "${s} sec" }
@@ -265,6 +269,14 @@ sub trim {
 }
 
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
+
+sub url_decode {
+	my ($str) = @_;
+
+	$str =~ s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	utf8::decode($str);
+	return $str;
+}
 
 sub xml_escape {
 	my ($str) = @_;

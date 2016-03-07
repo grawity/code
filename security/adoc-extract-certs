@@ -51,6 +51,19 @@ sub make_cert_filename {
     return $issuer."/".$subj."_".$serial.".crt";
 }
 
+sub increment_filename {
+    my ($str) = @_;
+
+    if ($str =~ /^(.+?) \((\d+)\)(\.[^.]+)?$/) {
+        _debug("head '$1' mid '$2' tail '".($3//"")."'");
+        return $1." (".($2+1).")".$3;
+    }
+    elsif ($str =~ /^(.+?)(\.[^.]+)?$/) {
+        _debug("head '$1' tail '".($2//"")."'");
+        return $1." (1)".$2;
+    }
+}
+
 utf8::decode($_) for @ARGV;
 
 my %seen;
@@ -80,6 +93,7 @@ for my $adoc (@ARGV) {
             _debug("certificate already seen, skipping");
             next;
         }
+        overwrite_check:
         if (-e $out_file) {
             if (open(my $f, "<:raw", $out_file)) {
                 my $old_data;
@@ -89,7 +103,9 @@ for my $adoc (@ARGV) {
                     _debug("identical certificate already stored, skipping");
                     next;
                 } else {
-                    _warn("overwriting a different certificate");
+                    _debug("different certificate stored, trying next filename");
+                    $out_file = increment_filename($out_file);
+                    goto overwrite_check;
                 }
             }
         }

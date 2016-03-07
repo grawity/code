@@ -10,6 +10,16 @@ use MIME::Base64;
 use Nullroute::Lib;
 use XML::Simple;
 
+sub bigint_hex {
+    my ($i) = @_;
+
+    if (ref $i eq "Math::BigInt") {
+        return $i->as_hex =~ s/^0x//r;
+    } else {
+        return sprintf("%x", $i);
+    }
+}
+
 sub parse_sig_xml {
     my ($data) = @_;
 
@@ -36,8 +46,7 @@ sub make_cert_filename {
 
     my $issuer = safe_filename($cert->issuer_cn);
     my $subj = safe_filename($cert->subject_cn);
-    my $serial = $cert->serial->as_hex;
-    $serial =~ s/^0x//;
+    my $serial = bigint_hex($cert->serial);
 
     return $issuer."/".$subj."_".$serial.".crt";
 }
@@ -49,6 +58,10 @@ my %seen;
 for my $adoc (@ARGV) {
     if ($adoc !~ /\.adoc$/) {
         _err("skipping '$adoc': not an .adoc file");
+        next;
+    }
+    elsif (! -e $adoc) {
+        _err("skipping '$adoc': does not exist");
         next;
     }
 

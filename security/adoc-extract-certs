@@ -65,7 +65,7 @@ for my $adoc (@ARGV) {
         next;
     }
 
-    _log("parsing '$adoc'");
+    _log2("parsing '$adoc'");
     my $zip = Archive::Zip->new;
     if ($zip->read($adoc) != AZ_OK) {
         _die("could not read file '$adoc'");
@@ -75,8 +75,24 @@ for my $adoc (@ARGV) {
     for my $sig_file (@sigs) {
         my $data = $zip->contents($sig_file);
         my $cert_der = parse_sig_xml($data);
-        next if $seen{$cert_der}++;
         my $out_file = make_cert_filename($cert_der);
+        if ($seen{$cert_der}++) {
+            _debug("certificate already seen, skipping");
+            next;
+        }
+        if (-e $out_file) {
+            if (open(my $f, "<:raw", $out_file)) {
+                my $old_data;
+                $f->read($old_data, 8192);
+                $f->close;
+                if ($old_data eq $cert_der) {
+                    _debug("identical certificate already stored, skipping");
+                    next;
+                } else {
+                    _warn("overwriting a different certificate");
+                }
+            }
+        }
         make_path(dirname($out_file));
         _debug("writing '$out_file'");
         if (open(my $f, ">:raw", $out_file)) {

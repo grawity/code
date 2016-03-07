@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:std :utf8);
+use Archive::Zip qw(:ERROR_CODES);
+use Crypt::X509;
+use File::Basename qw(basename dirname);
+use File::Path qw(make_path);
+use MIME::Base64;
+use Nullroute::Lib;
+use XML::Simple;
+
+sub parse_sig_xml {
+    my ($data) = @_;
+
+    my $xs = XML::Simple->new;
+
+    $data = $xs->XMLin($data);
+    $data = $data->{Signature}->{KeyInfo}->{X509Data}->{X509Certificate};
+    $data = decode_base64($data);
+    return $data;
+}
+
+sub safe_filename {
+    my ($str) = @_;
+
+    $str =~ s/[ \/\\"?*<>:]/_/g;
+    return $str;
+}
+
+sub make_cert_filename {
+    my ($cert_der) = @_;
+
+    my $cert = Crypt::X509->new(cert => $cert_der);
+    _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
+
+    my $issuer = safe_filename($cert->issuer_cn);
+    my $subj = safe_filename($cert->subject_cn);
+    my $serial = $cert->serial->as_hex;
+    $serial =~ s/^0x//;
+
+    return $issuer."/".$subj."_".$serial.".crt";
+}
+
+utf8::decode($_) for @ARGV;
+
+my %seen;
+
+for my $adoc (@ARGV) {
+    if ($adoc !~ /\.adoc$/) {
+        _err("skipping '$adoc': not an .adoc file");
+        next;
+    }
+
+    _log("parsing '$adoc'");
+    my $zip = Archive::Zip->new;
+    if ($zip->read($adoc) != AZ_OK) {
+        _die("could not read file '$adoc'");
+    }
+
+    my @sigs = $zip->membersMatching("^META-INF/signatures/signatures.*\\.xml\$");
+    for my $sig_file (@sigs) {
+        my $data = $zip->contents($sig_file);
+        my $cert_der = parse_sig_xml($data);
+        next if $seen{$cert_der}++;
+        my $out_file = make_cert_filename($cert_der);
+        make_path(dirname($out_file));
+        _debug("writing '$out_file'");
+        if (open(my $f, ">:raw", $out_file)) {
+            $f->print($cert_der);
+            $f->close;
+        } else {
+            _err("could not open '$out_file': $!");
+        }
+    }
+}
+
+# vim: ts=4:sw=4:et

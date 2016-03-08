@@ -139,13 +139,10 @@ case $cmd in
     registerurls)
         for f; do
             u=$(attr -L -q -g xdg.origin.url "$f" 2>/dev/null || true)
-            k=$(annex lookupkey "$f")
             if [[ ! $u ]]; then
                 err "no origin URL for file '$f'"
-            elif [[ ! $k ]]; then
-                err "no key for file '$f'"
             else
-                annex registerurl "$k" "$u"
+                annex addurl --file="$f" "$u"
             fi || continue
         done
         ;;

@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
-use warnings;
-use strict;
+use feature qw(state);
 use open qw(:std :utf8);
+use strict;
+use warnings;
 use Archive::Zip qw(:ERROR_CODES);
 use Crypt::X509;
 use File::Basename qw(basename dirname);
@@ -64,9 +65,42 @@ sub increment_filename {
     }
 }
 
-utf8::decode($_) for @ARGV;
+sub write_certificate {
+    my ($cert_der) = @_;
+    state %seen;
 
-my %seen;
+    my $out_file = make_cert_filename($cert_der);
+    if ($seen{$cert_der}++) {
+        _debug("certificate already seen, skipping");
+        return;
+    }
+    overwrite_check:
+    if (-e $out_file) {
+        if (open(my $f, "<:raw", $out_file)) {
+            my $old_data;
+            $f->read($old_data, 8192);
+            $f->close;
+            if ($old_data eq $cert_der) {
+                _debug("identical certificate already stored, skipping");
+                return;
+            } else {
+                _debug("different certificate stored, trying next filename");
+                $out_file = increment_filename($out_file);
+                goto overwrite_check;
+            }
+        }
+    }
+    make_path(dirname($out_file));
+    _debug("writing '$out_file'");
+    if (open(my $f, ">:raw", $out_file)) {
+        $f->print($cert_der);
+        $f->close;
+    } else {
+        _err("could not open '$out_file': $!");
+    }
+}
+
+utf8::decode($_) for @ARGV;
 
 for my $adoc (@ARGV) {
     if ($adoc !~ /\.adoc$/) {
@@ -88,35 +122,7 @@ for my $adoc (@ARGV) {
     for my $sig_file (@sigs) {
         my $data = $zip->contents($sig_file);
         my $cert_der = parse_sig_xml($data);
-        my $out_file = make_cert_filename($cert_der);
-        if ($seen{$cert_der}++) {
-            _debug("certificate already seen, skipping");
-            next;
-        }
-        overwrite_check:
-        if (-e $out_file) {
-            if (open(my $f, "<:raw", $out_file)) {
-                my $old_data;
-                $f->read($old_data, 8192);
-                $f->close;
-                if ($old_data eq $cert_der) {
-                    _debug("identical certificate already stored, skipping");
-                    next;
-                } else {
-                    _debug("different certificate stored, trying next filename");
-                    $out_file = increment_filename($out_file);
-                    goto overwrite_check;
-                }
-            }
-        }
-        make_path(dirname($out_file));
-        _debug("writing '$out_file'");
-        if (open(my $f, ">:raw", $out_file)) {
-            $f->print($cert_der);
-            $f->close;
-        } else {
-            _err("could not open '$out_file': $!");
-        }
+        write_certificate($cert_der);
     }
 }
 

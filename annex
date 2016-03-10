@@ -138,12 +138,20 @@ case $cmd in
         ;;
     addurls|registerurls)
         for f; do
-            u=$(attr -L -q -g xdg.origin.url "$f" 2>/dev/null || true)
-            if [[ ! $u ]]; then
-                err "no origin URL for file '$f'"
+            if [[ -d $f ]]; then
+                :
+            elif [[ -L $f && ! -e $f ]]; then
+                notice "item '$f' is a broken symlink"
+            elif [[ ! -f $f ]]; then
+                warn "item '$f' is not a file" || true
             else
-                annex addurl --file="$f" "$u"
-            fi || continue
+                u=$(attr -L -q -g xdg.origin.url "$f" 2>/dev/null || true)
+                if [[ ! $u ]]; then
+                    warn "no origin URL for file '$f'"
+                else
+                    annex addurl --file="$f" "$u"
+                fi || continue
+            fi
         done
         ;;
     commit)

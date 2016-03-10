@@ -103,26 +103,41 @@ sub write_certificate {
 utf8::decode($_) for @ARGV;
 
 for my $adoc (@ARGV) {
-    if ($adoc !~ /\.adoc$/) {
-        _err("skipping '$adoc': not an .adoc file");
-        next;
-    }
-    elsif (! -e $adoc) {
+    if (! -e $adoc) {
         _err("skipping '$adoc': does not exist");
-        next;
     }
+    elsif ($adoc =~ /\.adoc$/i) {
+        _log2("parsing '$adoc'");
+        my $zip = Archive::Zip->new;
+        if ($zip->read($adoc) != AZ_OK) {
+            _die("could not read file '$adoc'");
+        }
 
-    _log2("parsing '$adoc'");
-    my $zip = Archive::Zip->new;
-    if ($zip->read($adoc) != AZ_OK) {
-        _die("could not read file '$adoc'");
+        my @sigs = $zip->membersMatching("^META-INF/signatures/signatures.*\\.xml\$");
+        for my $sig_file (@sigs) {
+            my $data = $zip->contents($sig_file);
+            my $cert_der = parse_sig_xml($data);
+            write_certificate($cert_der);
+        }
     }
+    elsif ($adoc =~ /\.(crt|cert|cer)$/i) {
+        _log2("parsing bare certificate '$adoc'");
 
-    my @sigs = $zip->membersMatching("^META-INF/signatures/signatures.*\\.xml\$");
-    for my $sig_file (@sigs) {
-        my $data = $zip->contents($sig_file);
-        my $cert_der = parse_sig_xml($data);
-        write_certificate($cert_der);
+        if (open(my $f, "<:raw", $adoc)) {
+            my $data;
+            $f->read($data, 8192);
+            $f->close;
+            if ($data =~ /^-----BEGIN/) {
+                _err("importing of PEM certificates is currently not supported");
+                next;
+            }
+            write_certificate($data);
+        } else {
+            _err("could not open '$adoc': $!");
+        }
+    }
+    else {
+        _err("skipping '$adoc': not an .adoc file");
     }
 }
 

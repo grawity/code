@@ -9,7 +9,7 @@ is_annex!() { is_annex || die "not a git-annex repository"; }
 
 set -e
 
-cmd=$1; shift
+cmd=$1; shift || true
 
 case $cmd in
     setup)
@@ -136,18 +136,29 @@ case $cmd in
             annex setkey "$h" "$f"
         done
         ;;
-    registerurls)
+    addurls|registerurls)
+        if (( ! $# )); then
+            set -- **/*
+        fi
         for f; do
-            u=$(attr -L -q -g xdg.origin.url "$f")
-            k=$(annex lookupkey "$f")
-            if [[ ! $u ]]; then
-                err "no origin URL for file '$f'"
-            elif [[ ! $k ]]; then
-                err "no key for file '$f'"
+            if [[ -d $f ]]; then
+                :
+            elif [[ -L $f && ! -e $f ]]; then
+                notice "item '$f' is a broken symlink"
+            elif [[ ! -f $f ]]; then
+                warn "item '$f' is not a file" || true
             else
-                annex registerurl "$k" "$u"
+                u=$(attr -L -q -g xdg.origin.url "$f" 2>/dev/null || true)
+                if [[ ! $u ]]; then
+                    warn "no origin URL for file '$f'"
+                else
+                    annex addurl --file="$f" "$u"
+                fi || continue
             fi
         done
+        ;;
+    commit|ci)
+        annex sync --no-pull --no-push
         ;;
     dupes)
         find "$(git rev-parse --git-dir)/annex/objects" \
@@ -157,6 +168,13 @@ case $cmd in
             | xargs -n 1 cat
         ;;
     # overrides
+    addurl)
+        if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then
+            set -- --file="$1" "$2"
+        elif (( $# == 1 )); then
+            set -- --file="${1##*/}" "$1"
+        fi
+        ;;&
     info)
         if (( ! $# )); then
             set -- --fast
@@ -164,12 +182,11 @@ case $cmd in
             set --
         fi
         ;;&
-    # rest
-    '')
-        exec git annex
-        ;;
     *)
-        exec git annex "$cmd" "$@"
+        if [[ $cmd ]]; then
+            set -- "$cmd" "$@"
+        fi
+        exec git annex "$@"
         ;;
 esac
 

@@ -9,7 +9,7 @@ is_annex!() { is_annex || die "not a git-annex repository"; }
 
 set -e
 
-cmd=$1; shift
+cmd=$1; shift || true
 
 case $cmd in
     setup)
@@ -157,12 +157,11 @@ case $cmd in
             set --
         fi
         ;;&
-    # rest
-    '')
-        exec git annex
-        ;;
     *)
-        exec git annex "$cmd" "$@"
+        if [[ $cmd ]]; then
+            set -- "$cmd" "$@"
+        fi
+        exec git annex "$@"
         ;;
 esac
 

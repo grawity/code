@@ -2,10 +2,10 @@
 # vim: ts=4:sw=4:et:
 package Nullroute::LDAP;
 use base "Exporter";
-use Net::LDAP::Constant (
-    "LDAP_CONTROL_ASSERTION",
-    "LDAP_CONTROL_POSTREAD",
-    "LDAP_FEATURE_MODIFY_INCREMENT",
+use Net::LDAP::Constant qw(
+    LDAP_CONTROL_ASSERTION
+    LDAP_CONTROL_POSTREAD
+    LDAP_FEATURE_MODIFY_INCREMENT
 );
 use Net::LDAP::Control::Assertion;
 use Net::LDAP::Control::PostRead;

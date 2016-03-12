@@ -8,7 +8,7 @@ declare -A name user pass host port secret eap _alias_
 declare -- _host _port _secret _eap _phase2 _outer _user _pass
 declare -- _tlscert _tlskey _tlsca
 declare -a _tlsopt
-declare -a phase1opt
+declare -a phase1_opts
 declare -a eapol_cfg
 
 eapol_bin="eapol_test"
@@ -156,13 +156,13 @@ if [[ $_eap == @(PEAP|TLS|TTLS) ]]; then
 	for opt in "${_tlsopt[@]}"; do
 		case $opt in
 		'no-v1.0')
-			phase1opt+=("tls_disable_tlsv1_0=1");;
+			phase1_opts+=("tls_disable_tlsv1_0=1");;
 		'no-v1.1')
-			phase1opt+=("tls_disable_tlsv1_1=1");;
+			phase1_opts+=("tls_disable_tlsv1_1=1");;
 		'no-v1.2')
-			phase1opt+=("tls_disable_tlsv1_2=1");;
+			phase1_opts+=("tls_disable_tlsv1_2=1");;
 		'tls_'*)
-			phase1opt+=("$opt");;
+			phase1_opts+=("$opt");;
 		*)
 			err "unknown TLS option '$opt'";;
 		esac
@@ -196,8 +196,8 @@ if [[ $_eap && $_eap != NONE ]]; then
 			echo "  group=CCMP TKIP WEP104 WEP40"
 		fi
 		echo "  eap=$_eap"
-		if [[ ${phase1opt[*]} ]]; then
-			echo "  phase1=\"${phase1opt[*]}\""
+		if [[ ${phase1_opts[*]} ]]; then
+			echo "  phase1=\"${phase1_opts[*]}\""
 		fi
 		if [[ $_eap == @(PEAP|TTLS) ]]; then
 			echo "  phase2=\"auth=$_phase2\""
@@ -217,6 +217,10 @@ if [[ $_eap && $_eap != NONE ]]; then
 		fi
 		echo "  password=\"$_pass\""
 		for opt in "${eapol_cfg[@]}"; do
+			if [[ $opt == @(eap|identity|password|phase1|phase2)=* ]]; then
+				err "'$opt' cannot be set via -o"
+				continue
+			fi
 			echo "  $opt"
 		done
 		echo "}"

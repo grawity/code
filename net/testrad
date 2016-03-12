@@ -61,10 +61,7 @@ done
 # check for necessary tools
 
 have 'radtest'			|| err "missing 'radtest'"
-have 'rad_eap_test'		|| err "missing 'rad_eap_test'"
 have "$eapol_bin"		|| die "missing '$eapol_bin'"
-
-export EAPOL_PROG=$(which "$eapol_bin" 2>/dev/null)
 
 # parse config
 
@@ -140,12 +137,36 @@ if [[ $_eap && $_eap != NONE ]]; then
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""
 	fi
-	cmd=(rad_eap_test -H "$_host" -P "$_port" -S "$_secret"
-	                  -u "$_user" -p "$_pass" -A "$_outer"
-	                  -m WPA-EAP -e "$_eap" -2 "$_phase2" -v)
-	[[ $_tlscert ]] && cmd+=(-j "$_tlscert")
-	[[ $_tlskey ]]  && cmd+=(-k "$_tlskey")
-	[[ $_tlsca ]]   && cmd+=(-a "$_tlsca")
+	wd=$(mktemp -d /tmp/testrad.XXXXXXXX)
+	conf="$wd/eapol_test.conf"
+	{
+		echo "network={"
+		echo "  ssid=\"eduroam\""
+		echo "  key_mgmt=WPA-EAP"
+		echo "  eap=${_eap}"
+		if [[ $_eap == @(PEAP|TTLS) ]]; then
+			echo "  pairwise=CCMP TKIP"
+			echo "  group=CCMP TKIP WEP104 WEP40"
+			echo "  phase2=\"auth=${_phase2}\""
+		fi
+		echo "  identity=\"${_user}\""
+		if [[ $_outer ]]; then
+			echo "  anonymous_identity=\"${_outer}\""
+		fi
+		if [[ $_tlsca ]]; then
+			echo "  ca_cert=\"${_tlsca}\""
+		fi
+		if [[ $_tlscert ]]; then
+			echo "  client_cert=\"${_tlscert}\""
+		fi
+		if [[ $_tlskey ]]; then
+			echo "  private_key_password=\"${_tlskey}\""
+		fi
+		echo "  password=\"${_pass}\""
+		echo "}"
+	} > "$conf"
+	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
+			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
 else
 	log "mechanism: direct $_phase2"
 	if [[ "$_outer" != "$_user" ]]; then
@@ -157,9 +178,15 @@ fi
 echo "+ ${cmd[*]}"
 
 if "${cmd[@]}"; then
+	r=0
 	log "test successful"
 else
 	r=$?
 	err "test failed ($cmd returned $r)"
-	exit $r
 fi
+
+if [[ $wd == /tmp/testrad.* ]]; then
+	rm -rf "$wd"
+fi
+
+exit $r

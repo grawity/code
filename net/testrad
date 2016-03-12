@@ -169,7 +169,7 @@ if [[ $_eap && $_eap != NONE ]]; then
 	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
 			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
 	if [[ $save_chain ]]; then
-		cmd+=(-o "$wd/chain.pem")
+		cmd+=(-o "$save_chain")
 	fi
 else
 	log "mechanism: direct $_phase2"
@@ -189,13 +189,10 @@ else
 	err "test failed ($cmd returned $r)"
 fi
 
-if [[ $save_chain ]]; then
-	if [[ $wd && -e "$wd/chain.pem" ]]; then
-		log "saving server certificate chain to '$save_chain'"
-		cp -a "$wd/chain.pem" "$save_chain"
-	else
-		err "did not obtain server certificate chain"
-	fi
+if [[ -s $save_chain ]]; then
+	log "server certificate chain saved to '$save_chain'"
+elif [[ $save_chain ]]; then
+	err "did not obtain server certificate chain"
 fi
 
 if [[ $wd == /tmp/testrad.* ]]; then

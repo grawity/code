@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # git-lspacks – list packfiles in the current Git repository
 
+if [[ $1 == --total ]]; then
+	git cat-file --batch-all-objects --batch-check='%(objectname) %(objectsize)' | awk 'BEGIN { print "[...]" } { total += $2; print "\033[A\033[J[" substr($1, 0, 12) "...] " NR " objects, " total/1024/1024 " MB total" }'
+	exit
+fi
+
 git=$(git rev-parse --git-dir)
 obj=$git/objects
 dir=$obj/pack

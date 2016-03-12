@@ -11,6 +11,8 @@ declare -- self via save_chain
 declare -A name user pass host port secret eap _alias_
 declare -- _host _port _secret _eap _phase2 _outer _user _pass
 declare -- _tlscert _tlskey _tlsca
+declare -a _tlsopt
+declare -a phase1opt
 
 eapol_bin="eapol_test"
 
@@ -30,6 +32,7 @@ while (( $# )); do
 		'secret')	_secret=$2; shift;;
 		'-o')		save_chain=$2; shift;;
 		'-v')		eapol_bin=$2; shift;;
+		'show-config')	dump_config=1; shift;;
 		# basic or inner mechanism
 		'phase2')	_mech=$2; shift;;
 		'mech')		_mech=$2; shift;;
@@ -47,6 +50,7 @@ while (( $# )); do
 		'cert')		_tlscert=$2; shift;;
 		'key')		_tlskey=$2; shift;;
 		'ca'|'ca-cert')	_tlsca=$2; shift;;
+		'tls')		_tlsopt+=("$2"); shift;;
 		# anonymous (outer) identity
 		'outer')	_outer=$2; shift;;
 		'outer-user')	_outer=$2; shift;;
@@ -139,6 +143,23 @@ if [[ $_eap == TLS ]]; then
 	fi
 fi
 
+if [[ $_eap == @(PEAP|TLS|TTLS) ]]; then
+	for opt in "${_tlsopt[@]}"; do
+		case $opt in
+		'no-v1.0')
+			phase1opt+=("tls_disable_tlsv1_0=1");;
+		'no-v1.1')
+			phase1opt+=("tls_disable_tlsv1_1=1");;
+		'no-v1.2')
+			phase1opt+=("tls_disable_tlsv1_2=1");;
+		'tls_'*)
+			phase1opt+=("$opt");;
+		*)
+			err "unknown TLS option '$opt'";;
+		esac
+	done
+fi
+
 (( ! errors )) || exit
 
 log "account: \"$_user\""
@@ -161,6 +182,9 @@ if [[ $_eap && $_eap != NONE ]]; then
 		echo "  ssid=\"eduroam\""
 		echo "  key_mgmt=WPA-EAP"
 		echo "  eap=$_eap"
+		if [[ ${phase1opt[*]} ]]; then
+			echo "  phase1=\"${phase1opt[*]}\""
+		fi
 		if [[ $_eap == @(PEAP|TTLS) ]]; then
 			echo "  pairwise=CCMP TKIP"
 			echo "  group=CCMP TKIP WEP104 WEP40"
@@ -182,10 +206,16 @@ if [[ $_eap && $_eap != NONE ]]; then
 		echo "  password=\"$_pass\""
 		echo "}"
 	} > "$conf"
+
 	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
 			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
 	if [[ $save_chain ]]; then
 		cmd+=(-o "$save_chain")
+	fi
+
+	if (( dump_config )); then
+		notice "dumping generated config and exiting"
+		cmd=(cat "$conf")
 	fi
 else
 	log "mechanism: direct $_phase2"

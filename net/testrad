@@ -5,14 +5,14 @@
 
 cd ~
 
-eapol_bin="eapol_test"
-
 (( !errors )) || exit
 
-declare -- self via
+declare -- self via save_chain
 declare -A name user pass host port secret eap _alias_
 declare -- _host _port _secret _eap _phase2 _outer _user _pass
 declare -- _tlscert _tlskey _tlsca
+
+eapol_bin="eapol_test"
 
 # parse arguments
 
@@ -28,6 +28,7 @@ while (( $# )); do
 		'host')		_host=$2; shift;;
 		'port')		_port=$2; shift;;
 		'secret')	_secret=$2; shift;;
+		'save-chain')	save_chain=$2; shift;;
 		'-v')		eapol_bin=$2; shift;;
 		# basic or inner mechanism
 		'mech')		_mech=$2; shift;;
@@ -167,6 +168,9 @@ if [[ $_eap && $_eap != NONE ]]; then
 	} > "$conf"
 	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
 			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
+	if [[ $save_chain ]]; then
+		cmd+=(-o "$wd/chain.pem")
+	fi
 else
 	log "mechanism: direct $_phase2"
 	if [[ "$_outer" != "$_user" ]]; then
@@ -183,6 +187,15 @@ if "${cmd[@]}"; then
 else
 	r=$?
 	err "test failed ($cmd returned $r)"
+fi
+
+if [[ $save_chain ]]; then
+	if [[ $wd && -e "$wd/chain.pem" ]]; then
+		log "saving server certificate chain to '$save_chain'"
+		cp -a "$wd/chain.pem" "$save_chain"
+	else
+		err "did not obtain server certificate chain"
+	fi
 fi
 
 if [[ $wd == /tmp/testrad.* ]]; then

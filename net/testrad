@@ -124,6 +124,20 @@ if [[ "$_eap" == PEAP && "$_phase2" != EAP-* ]]; then
 	err "EAP-$_eap can only transport other EAP mechanisms"
 fi
 
+if [[ "$_eap" == TLS ]]; then
+	if [[ ! $_tlscert ]]; then
+		err "missing certificate for EAP-$_eap ('cert' option)"
+	elif [[ ! -f $_tlscert ]]; then
+		err "certificate '$_tlscert' does not exist"
+	fi
+
+	if [[ ! $_tlskey ]]; then
+		err "missing private key for EAP-$_eap ('key' option)"
+	elif [[ ! -f $_tlskey ]]; then
+		err "key file '$_tlskey' does not exist"
+	fi
+else
+
 (( ! errors )) || exit
 
 log "account: \"$_user\""

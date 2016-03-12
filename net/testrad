@@ -9,7 +9,8 @@ declare -- _host _port _secret _eap _phase2 _outer _user _pass
 declare -- _tlscert _tlskey _tlsca
 declare -a _tlsopt
 declare -a phase1_opts
-declare -a eapol_cfg
+declare -a _ecfg_full _ecfg_extra
+declare -A _ecfg_values _ecfg_seen
 
 eapol_bin="eapol_test"
 
@@ -29,7 +30,7 @@ while (( $# )); do
 		'port')		_port=$2; shift;;
 		'secret')	_secret=$2; shift;;
 		'-x')		eapol_bin=$2; shift;;
-		'-o')		eapol_cfg+=("$2"); shift;;
+		'-o')		_ecfg_extra+=("$2"); shift;;
 		'-O')		save_chain=$2; shift;;
 		'show-config')	dump_config=1; shift;;
 		# basic or inner mechanism
@@ -55,10 +56,14 @@ while (( $# )); do
 		'outer-user')	_outer=$2; shift;;
 		'outer-login')	_outer=$2; shift;;
 		# misc eapol options
-		'subject-match')	eapol_cfg+=("subject_match=\"$2\""); shift;;
-		'altsubject-match')	eapol_cfg+=("altsubject_match=\"$2\""); shift;;
-		'domain-match')		eapol_cfg+=("domain_match=\"$2\""); shift;;
-		'domain-suffix-match')	eapol_cfg+=("domain_suffix_match=\"$2\""); shift;;
+		'subject-match')
+			_ecfg_extra+=("subject_match=\"$2\""); shift;;
+		'altsubject-match')
+			_ecfg_extra+=("altsubject_match=\"$2\""); shift;;
+		'domain-match')
+			_ecfg_extra+=("domain_match=\"$2\""); shift;;
+		'domain-suffix-match')
+			_ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
 		# etc.
 		*)		err "bad arg: \"$1\"";;
 		esac
@@ -179,49 +184,78 @@ if [[ "$self" != "$via" ]]; then
 fi
 
 if [[ $_eap && $_eap != NONE ]]; then
+	# base options
+	_ecfg_full=(
+		"ssid=\"eduroam\""
+		"key_mgmt=WPA-EAP"
+		"eap=$_eap"
+	)
+	if [[ ${phase1_opts[*]} ]]; then
+		_ecfg_full+=("phase1=\"${phase1_opts[*]}\"")
+	fi
+	if [[ $_eap == @(PEAP|TTLS) ]]; then
+		_ecfg_full+=("phase2=\"auth=$_phase2\"")
+	fi
+
+	# credentials
+	_ecfg_full+=("identity=\"$_user\"")
+	_ecfg_full+=("password=\"$_pass\"")
+	if [[ $_outer ]]; then
+		_ecfg_full+=("anonymous_identity=\"$_outer\"")
+	fi
+	if [[ $_tlsca ]]; then
+		_ecfg_full+=("ca_cert=\"$_tlsca\"")
+	fi
+	if [[ $_tlscert ]]; then
+		_ecfg_full+=("client_cert=\"$_tlscert\"")
+	fi
+	if [[ $_tlskey ]]; then
+		_ecfg_full+=("private_key=\"$_tlskey\"")
+	fi
+
+	# user-supplied settings
+	for opt in "${_ecfg_extra[@]}"; do
+		case $opt in
+		'anonymous_identity='*)
+			err "'$opt': use 'outer-user ...' to set the anonymous identity";;
+		'eap='*)
+			err "'$opt': use 'eap ...' to set the outer EAP method";;
+		'identity='*)
+			err "'$opt': use 'user ...' to set the auth identity";;
+		'phase2='*)
+			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
+		?*'='*)
+			_ecfg_full+=("$opt");;
+		*)
+			err "supplicant option '$opt' given without value";;
+		esac
+	done
+	(( ! errors )) || exit
+
+	# if option given multiple times, the last value takes priority
+	for opt in "${_ecfg_full[@]}"; do
+		k=${opt%%=*}
+		v=${opt#*=}
+		_ecfg_values["$k"]=$v
+	done
+
 	log "mechanism: EAP-$_eap (outer), $_phase2 (inner)"
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""
 	fi
 
+	# generate the eapol_test config
 	wd=$(mktemp -d /tmp/testrad.XXXXXXXX)
 	conf="$wd/eapol_test.conf"
 	{
 		echo "network={"
-		echo "  ssid=\"eduroam\""
-		echo "  key_mgmt=WPA-EAP"
-		if [[ $_eap == @(PEAP|TTLS) ]]; then
-			# rad_eap_test used to include these; not sure why needed
-			echo "  pairwise=CCMP TKIP"
-			echo "  group=CCMP TKIP WEP104 WEP40"
-		fi
-		echo "  eap=$_eap"
-		if [[ ${phase1_opts[*]} ]]; then
-			echo "  phase1=\"${phase1_opts[*]}\""
-		fi
-		if [[ $_eap == @(PEAP|TTLS) ]]; then
-			echo "  phase2=\"auth=$_phase2\""
-		fi
-		echo "  identity=\"$_user\""
-		if [[ $_outer ]]; then
-			echo "  anonymous_identity=\"$_outer\""
-		fi
-		if [[ $_tlsca ]]; then
-			echo "  ca_cert=\"$_tlsca\""
-		fi
-		if [[ $_tlscert ]]; then
-			echo "  client_cert=\"$_tlscert\""
-		fi
-		if [[ $_tlskey ]]; then
-			echo "  private_key=\"$_tlskey\""
-		fi
-		echo "  password=\"$_pass\""
-		for opt in "${eapol_cfg[@]}"; do
-			if [[ $opt == @(eap|identity|password|phase1|phase2)=* ]]; then
-				err "'$opt' cannot be set via -o"
+		for opt in "${_ecfg_full[@]}"; do
+			k=${opt%%=*}
+			v=${_ecfg_values["$k"]}
+			if (( _ecfg_seen["$k"]++ )); then
 				continue
 			fi
-			echo "  $opt"
+			echo "  $k=$v"
 		done
 		echo "}"
 	} > "$conf"
@@ -229,6 +263,7 @@ if [[ $_eap && $_eap != NONE ]]; then
 
 	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
 			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
+
 	if [[ $save_chain ]]; then
 		cmd+=(-o "$save_chain")
 	fi

@@ -9,6 +9,7 @@ declare -- _host _port _secret _eap _phase2 _outer _user _pass
 declare -- _tlscert _tlskey _tlsca
 declare -a _tlsopt
 declare -a phase1opt
+declare -a eapol_cfg
 
 eapol_bin="eapol_test"
 
@@ -27,8 +28,9 @@ while (( $# )); do
 		'host')		_host=$2; shift;;
 		'port')		_port=$2; shift;;
 		'secret')	_secret=$2; shift;;
-		'-o')		save_chain=$2; shift;;
 		'-x')		eapol_bin=$2; shift;;
+		'-o')		eapol_cfg+=("$2"); shift;;
+		'-O')		save_chain=$2; shift;;
 		'show-config')	dump_config=1; shift;;
 		# basic or inner mechanism
 		'phase2')	_mech=$2; shift;;
@@ -52,6 +54,11 @@ while (( $# )); do
 		'outer')	_outer=$2; shift;;
 		'outer-user')	_outer=$2; shift;;
 		'outer-login')	_outer=$2; shift;;
+		# misc eapol options
+		'subject-match')	eapol_cfg+=("subject_match=\"$2\""); shift;;
+		'altsubject-match')	eapol_cfg+=("altsubject_match=\"$2\""); shift;;
+		'domain-match')		eapol_cfg+=("domain_match=\"$2\""); shift;;
+		'domain-suffix-match')	eapol_cfg+=("domain_suffix_match=\"$2\""); shift;;
 		# etc.
 		*)		err "bad arg: \"$1\"";;
 		esac
@@ -209,8 +216,12 @@ if [[ $_eap && $_eap != NONE ]]; then
 			echo "  private_key_password=\"$_tlskey\""
 		fi
 		echo "  password=\"$_pass\""
+		for opt in "${eapol_cfg[@]}"; do
+			echo "  $opt"
+		done
 		echo "}"
 	} > "$conf"
+	(( ! errors )) || exit
 
 	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
 			-M "22:44:66:42:42:42" -C "testrad+eapol_test")

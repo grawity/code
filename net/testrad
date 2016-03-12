@@ -16,10 +16,11 @@ eapol_bin="eapol_test"
 
 while (( $# )); do
 	if [[ ! $self ]]; then
+		debug "accepting arg '$1' as self & via"
 		self=$1
 		via=$self
 	else
-		debug "args: '$1', '$2'"
+		debug "parsing arg '$1', next '$2'"
 		case ${1#--} in
 		# RADIUS server
 		'via')		via=$2; shift;;
@@ -58,12 +59,14 @@ while (( $# )); do
 	shift
 done
 
-[[ $self ]]	|| die "missing argument (our realm)"
-
 # check for necessary tools
 
-have 'radtest'			|| err "missing 'radtest'"
-have "$eapol_bin"		|| die "missing '$eapol_bin'"
+have 'radtest' || err "missing 'radtest' binary"
+have "$eapol_bin" || err "missing '$eapol_bin' binary"
+
+[[ $self ]] || err "missing realm argument"
+
+(( !errors )) || exit
 
 # parse config
 
@@ -121,7 +124,7 @@ case $_mech in
 	# in case I ever try to make this nonsense work
 	'eap-pap')	die "PAP is not an EAP mechanism";;
 	'eap-chap')	die "CHAP is not an EAP mechanism";;
-	*)		err "unknown mechanism '$_mech'"
+	*)		err "unknown mechanism '$_mech'";;
 esac
 
 if [[ $_eap == PEAP && $_phase2 != EAP-* ]]; then
@@ -169,7 +172,7 @@ if [[ "$self" != "$via" ]]; then
 fi
 
 if [[ $_eap && $_eap != NONE ]]; then
-	log "mechanism: phase2=$_phase2 inside EAP-$_eap"
+	log "mechanism: EAP-$_eap (outer), $_phase2 (inner)"
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""
 	fi
@@ -220,7 +223,7 @@ if [[ $_eap && $_eap != NONE ]]; then
 		cmd=(cat "$conf")
 	fi
 else
-	log "mechanism: direct $_phase2"
+	log "mechanism: $_phase2 (direct)"
 	if [[ "$_outer" != "$_user" ]]; then
 		die "anonymous identity \"$_outer\" not supported without EAP"
 	fi

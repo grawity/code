@@ -26,6 +26,13 @@ sub decode {
 	if ($opts{A}) { s/^:// }
 	s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
 	if ($opts{D}) { s/\+/ /g; }
+	if ($opts{S}) {
+		s!/!⁄!g;
+		s!<!‹!g;
+		s!>!›!g;
+		s!"!'!g;
+		s![:?*\\]!_!g;
+	}
 }
 
 sub encode {
@@ -63,7 +70,7 @@ sub do_things {
 	print "\n" unless $opts{r};
 }
 
-getopts('AdDopPqrxX', \%opts) || usage;
+getopts('AdDopPqrSxX', \%opts) || usage;
 
 if (scalar @ARGV) {
 	do_things for @ARGV;

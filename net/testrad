@@ -5,9 +5,7 @@
 
 cd ~
 
-have 'radtest'			|| err "missing 'radtest'"
-have 'rad_eap_test'		|| err "missing 'rad_eap_test'"
-test -x 'bin/eapol_test'	|| err "missing './bin/eapol_test'"
+eapol_bin="eapol_test"
 
 (( !errors )) || exit
 
@@ -30,6 +28,7 @@ while (( $# )); do
 		'host')		_host=$2; shift;;
 		'port')		_port=$2; shift;;
 		'secret')	_secret=$2; shift;;
+		'-v')		eapol_bin=$2; shift;;
 		# basic or inner mechanism
 		'mech')		_mech=$2; shift;;
 		'using')	_mech=$2; shift;;
@@ -58,6 +57,14 @@ while (( $# )); do
 done
 
 [[ $self ]]	|| die "missing argument (our realm)"
+
+# check for necessary tools
+
+have 'radtest'			|| err "missing 'radtest'"
+have 'rad_eap_test'		|| err "missing 'rad_eap_test'"
+have "$eapol_bin"		|| die "missing '$eapol_bin'"
+
+export EAPOL_PROG=$(which "$eapol_bin" 2>/dev/null)
 
 # parse config
 

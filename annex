@@ -151,6 +151,8 @@ case $cmd in
                 u=$(attr -L -q -g xdg.origin.url "$f" 2>/dev/null || true)
                 if [[ ! $u ]]; then
                     warn "no origin URL for file '$f'"
+                elif [[ $u != @(http|https|ftp)://* ]]; then
+                    err "file '$f' has weird origin URL '$u'"
                 else
                     annex addurl --file="$f" "$u"
                 fi || continue
@@ -175,7 +177,7 @@ case $cmd in
         if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then
             set -- --file="$1" "$2"
         elif (( $# == 1 )); then
-            set -- --file="${1##*/}" "$1"
+            set -- --file="$(urlencode -dS "${1##*/}")" "$1"
         fi
         ;;&
     info)

@@ -120,11 +120,11 @@ case $_mech in
 	*)		err "unknown mechanism '$_mech'"
 esac
 
-if [[ "$_eap" == PEAP && "$_phase2" != EAP-* ]]; then
+if [[ $_eap == PEAP && $_phase2 != EAP-* ]]; then
 	err "EAP-$_eap can only transport other EAP mechanisms"
 fi
 
-if [[ "$_eap" == TLS ]]; then
+if [[ $_eap == TLS ]]; then
 	if [[ ! $_tlscert ]]; then
 		err "missing certificate for EAP-$_eap ('cert' option)"
 	elif [[ ! -f $_tlscert ]]; then
@@ -148,7 +148,7 @@ if [[ "$self" != "$via" ]]; then
 fi
 
 if [[ $_eap && $_eap != NONE ]]; then
-	log "mechanism: $_phase2 inside EAP-$_eap"
+	log "mechanism: phase2=$_phase2 inside EAP-$_eap"
 	if [[ "$_outer" != "$_user" ]]; then
 		log "anonymous identity: \"$_outer\""
 	fi
@@ -158,26 +158,26 @@ if [[ $_eap && $_eap != NONE ]]; then
 		echo "network={"
 		echo "  ssid=\"eduroam\""
 		echo "  key_mgmt=WPA-EAP"
-		echo "  eap=${_eap}"
+		echo "  eap=$_eap"
 		if [[ $_eap == @(PEAP|TTLS) ]]; then
 			echo "  pairwise=CCMP TKIP"
 			echo "  group=CCMP TKIP WEP104 WEP40"
-			echo "  phase2=\"auth=${_phase2}\""
+			echo "  phase2=\"auth=$_phase2\""
 		fi
-		echo "  identity=\"${_user}\""
+		echo "  identity=\"$_user\""
 		if [[ $_outer ]]; then
-			echo "  anonymous_identity=\"${_outer}\""
+			echo "  anonymous_identity=\"$_outer\""
 		fi
 		if [[ $_tlsca ]]; then
-			echo "  ca_cert=\"${_tlsca}\""
+			echo "  ca_cert=\"$_tlsca\""
 		fi
 		if [[ $_tlscert ]]; then
-			echo "  client_cert=\"${_tlscert}\""
+			echo "  client_cert=\"$_tlscert\""
 		fi
 		if [[ $_tlskey ]]; then
-			echo "  private_key_password=\"${_tlskey}\""
+			echo "  private_key_password=\"$_tlskey\""
 		fi
-		echo "  password=\"${_pass}\""
+		echo "  password=\"$_pass\""
 		echo "}"
 	} > "$conf"
 	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
@@ -194,7 +194,6 @@ else
 fi
 
 echo "+ ${cmd[*]}"
-
 if "${cmd[@]}"; then
 	r=0
 	log "test successful"

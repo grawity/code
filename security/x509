@@ -3,6 +3,22 @@
 
 . lib.bash || exit
 
+if have certtool; then
+	use='certtool'
+elif have openssl; then
+	use='openssl'
+else
+	die "no GnuTLS or OpenSSL tools present"
+fi
+
+while getopts ':go' OPT; do
+	case $OPT in
+	g) use='certtool';;
+	o) use='openssl';;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 if (( ! $# )); then
 	set -- /dev/stdin
 fi
@@ -27,7 +43,8 @@ for file; do
 	fi
 
 	unset arg
-	if have certtool; then
+	case $use in
+	'certtool')
 		if (( der )); then
 			arg="--inder"
 		fi
@@ -36,13 +53,15 @@ for file; do
 			sed -r '/^-----BEGIN/,/^-----END/d;
 			/^\t*([0-9a-f][0-9a-f]:)+[0-9a-f][0-9a-f]$/d;
 			/^\t.*random art:$/,/^\t\t\+-+\+$/d'
-	else
+		;;
+	'openssl')
 		if (( der )); then
 			arg="-inform DER"
 		fi
 		debug "- calling 'openssl x509${arg:+ }$arg'"
-		openssl x509 -noout -text -certopt no_pubkey,no_sigdump $arg < "$file"
-	fi
+		openssl x509 -noout -text -certopt no_sigdump $arg < "$file"
+		;;
+	esac
 done
 
 if [[ "$temp" ]]; then

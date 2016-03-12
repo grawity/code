@@ -136,6 +136,8 @@ case $_mech in
 	'chap')		_phase2='CHAP';;
 	'mschap')	_phase2='MSCHAPV2';;
 	'mschapv2')	_phase2='MSCHAPV2'; _mech='mschap';;
+	'eap-gtc')	_phase2='EAP-GTC';;
+	'eap-md5')	_phase2='EAP-MD5';;
 	'eap-mschap')	_phase2='EAP-MSCHAPV2';;
 	'eap-mschapv2')	_phase2='EAP-MSCHAPV2';;
 	# in case I ever try to make this nonsense work
@@ -194,7 +196,11 @@ if [[ $_eap && $_eap != NONE ]]; then
 		_ecfg_full+=("phase1=\"${phase1_opts[*]}\"")
 	fi
 	if [[ $_eap == @(PEAP|TTLS) ]]; then
-		_ecfg_full+=("phase2=\"auth=$_phase2\"")
+		if [[ $_phase2 == EAP-* ]]; then
+			_ecfg_full+=("phase2=\"autheap=${_phase2#EAP-}\"")
+		else
+			_ecfg_full+=("phase2=\"auth=${_phase2}\"")
+		fi
 	fi
 
 	# credentials

@@ -184,13 +184,16 @@ if [[ $_eap && $_eap != NONE ]]; then
 		echo "network={"
 		echo "  ssid=\"eduroam\""
 		echo "  key_mgmt=WPA-EAP"
+		if [[ $_eap == @(PEAP|TTLS) ]]; then
+			# rad_eap_test used to include these; not sure why needed
+			echo "  pairwise=CCMP TKIP"
+			echo "  group=CCMP TKIP WEP104 WEP40"
+		fi
 		echo "  eap=$_eap"
 		if [[ ${phase1opt[*]} ]]; then
 			echo "  phase1=\"${phase1opt[*]}\""
 		fi
 		if [[ $_eap == @(PEAP|TTLS) ]]; then
-			echo "  pairwise=CCMP TKIP"
-			echo "  group=CCMP TKIP WEP104 WEP40"
 			echo "  phase2=\"auth=$_phase2\""
 		fi
 		echo "  identity=\"$_user\""

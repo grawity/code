@@ -355,9 +355,20 @@ lib::find_file() {
 	return 1
 }
 
-#set -o errexit
-#set -o pipefail
-#set -o nounset
+lib::init_env() {
+	local dir
+
+	for dir in "$path_cache" "$path_data" "$path_runtime"; do
+		if [[ ! -e $dir ]]; then
+			debug "pre-creating directory '$dir'"
+			mkdir -p "$dir"
+		fi
+	done
+}
+
+if (( _lvl == 0 )); then
+	lib::init_env
+fi
 
 if (( DEBUG > 1 )); then
 	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"

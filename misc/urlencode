@@ -65,7 +65,7 @@ sub encode {
 	}
 }
 
-sub do_things {
+sub process {
 	if ($opts{d} || $opts{D}) {
 		decode;
 	} else {
@@ -78,7 +78,7 @@ sub do_things {
 getopts('AdDopPqrSxX', \%opts) || usage;
 
 if (scalar @ARGV) {
-	do_things for @ARGV;
+	process($_) for @ARGV;
 } else {
 	if ($opts{"d"} && $opts{"q"}) {
 		$_ = do { $/ = undef; <STDIN> };
@@ -87,7 +87,7 @@ if (scalar @ARGV) {
 	} else {
 		while (<STDIN>) {
 			chomp unless $opts{r};
-			do_things;
+			process($_);
 		}
 	}
 }

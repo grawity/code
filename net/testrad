@@ -199,12 +199,10 @@ if [[ $_eap && $_eap != NONE ]]; then
 	if [[ ${phase1_opts[*]} ]]; then
 		_ecfg_full+=("phase1=\"${phase1_opts[*]}\"")
 	fi
-	if [[ $_eap == @(PEAP|TTLS) ]]; then
-		if [[ $_phase2 == EAP-* ]]; then
-			_ecfg_full+=("phase2=\"autheap=${_phase2#EAP-}\"")
-		else
-			_ecfg_full+=("phase2=\"auth=${_phase2}\"")
-		fi
+	if [[ $_eap == TTLS && $_phase2 == EAP-* ]]; then
+		_ecfg_full+=("phase2=\"autheap=${_phase2#EAP-}\"")
+	elif [[ $_eap == @(PEAP|TTLS) ]]; then
+		_ecfg_full+=("phase2=\"auth=${_phase2}\"")
 	fi
 
 	# credentials

@@ -24,47 +24,48 @@ sub usage {
 
 sub decode {
 	if ($opts{format_QP}) {
-		s/=\n//sg;
-		s/=([A-F0-9]{2})/pack('C', hex($1))/seg;
+		s/=\n//gs;
+		s/=([A-F0-9]{2})/pack('C', hex($1))/gse;
 	} else {
 		if ($opts{format_mq}) {
 			s/^://;
 		}
-		s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+		s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/gse;
 		if ($opts{decode_plus}) {
 			s/\+/ /g;
 		}
-		if ($opts{safe_filename}) {
-			s!/!⁄!g;
-			s!<!‹!g;
-			s!>!›!g;
-			s!"!'!g;
-			s![:?*\\]!_!g;
-		}
+	}
+	if ($opts{safe_filename}) {
+		s!/!⁄!g;
+		s!<!‹!g;
+		s!>!›!g;
+		s!"!'!g;
+		s![:?*\\]!_!g;
 	}
 }
 
 sub encode {
 	if ($opts{format_mq}) {
-		s/[\x00-\x1F %]/sprintf("%%%02X", ord($&))/seg;
+		s/[\x00-\x1F %]/sprintf("%%%02X", ord($&))/gse;
 		s/^$|^:/:$&/;
-	} elsif ($opts{format_c_hex}) {
-		s/[^A-Za-z0-9_. \/-]/sprintf("\\x%02X", ord($&))/seg;
-	} elsif ($opts{format_c_octal}) {
-		s/[^A-Za-z0-9_. \/-]/sprintf("\\%03o", ord($&))/seg;
-	} elsif ($opts{format_url_with_slashes}) {
-		s/[^\/A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
 	} elsif ($opts{format_QP}) {
-		s/[^\x21-\x3C\x3E-\x7E]/sprintf("=%02X", ord($&))/seg;
+		s/[^\x21-\x3C\x3E-\x7E]/sprintf("=%02X", ord($&))/gse;
+	} elsif ($opts{format_c_hex}) {
+		s/[^A-Za-z0-9_. \/-]/sprintf("\\x%02X", ord($&))/gse;
+	} elsif ($opts{format_c_octal}) {
+		s/[^A-Za-z0-9_. \/-]/sprintf("\\%03o", ord($&))/gse;
 	} elsif ($opts{format_xml}) {
 		s/&/&amp;/g;
 		s/</&lt;/g;
 		s/>/&gt;/g;
 		s/"/&quot;/g;
 	} else {
-		s/[^A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/seg;
+		s/[^\/A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/gse;
+		if (!$opts{format_url_with_slashes}) {
+			s/\//sprintf("%%%02X", ord($&))/gse;
+		}
 		if (!$opts{format_url_with_parens}) {
-			s/[()]/sprintf("%%%02X", ord($&))/seg;
+			s/[()]/sprintf("%%%02X", ord($&))/gse;
 		}
 	}
 }

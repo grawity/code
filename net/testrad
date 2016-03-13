@@ -196,16 +196,20 @@ if [[ $_eap && $_eap != NONE ]]; then
 		_ecfg_full+=("phase1=\"${phase1_opts[*]}\"")
 	fi
 
-	case $_eap,$_phase2 in
-	PEAP,EAP-*)
-		_ecfg_full+=("phase2=\"auth=${_phase2#EAP-}\"");;
-	PEAP,*)
-		err "EAP-$_eap can only transport EAP methods";;
-	TTLS,EAP-*)
-		_ecfg_full+=("phase2=\"autheap=${_phase2#EAP-}\"");;
-	TTLS,*)
-		_ecfg_full+=("phase2=\"auth=${_phase2}\"");;
-	esac
+	# phase 2
+	if [[ $_eap == PEAP ]]; then
+		if [[ $_phase2 == EAP-* ]]; then
+			_ecfg_full+=("phase2=\"auth=${_phase2#EAP-}\"")
+		else
+			err "EAP-$_eap can only transport EAP methods"
+		fi
+	elif [[ $_eap == TTLS ]]; then
+		if [[ $_phase2 == EAP-* ]]; then
+			_ecfg_full+=("phase2=\"autheap=${_phase2#EAP-}\"")
+		else
+			_ecfg_full+=("phase2=\"auth=${_phase2}\"")
+		fi
+	fi
 
 	# credentials
 	_ecfg_full+=("identity=\"$_user\"")

@@ -6,6 +6,12 @@ progname_prefix=0
 
 bvol=/mnt/backup
 conf=~/Dropbox/Apps/.config/
+annexes=(
+	~/Attic/Annex
+	~/Attic/Software
+	~/Attic/Videos
+	~/Attic/Anime
+)
 
 lock_path=
 lock_fd=
@@ -94,6 +100,44 @@ do_unison() {
 	unison "$@" -auto -terse
 }
 
+do_annex_archive() {
+	local remote
+	local -i skipped=0 done=0 failed=0
+
+	log "copying annex '$PWD' to archive"
+
+	for remote in $(git remote); do
+		if [[ $remote != vol* ]]; then
+			debug "skipping mismatching remote '$remote'"
+		elif ! git annex group $remote | grep -wqs archive; then
+			warn "remote '$remote' ought to be in the 'archive' group"
+			debug "skipping non-archive remote '$remote'"
+			(( ++skipped ))
+		elif ! git ls-remote $remote >&/dev/null; then
+			debug "skipping unavailable remote '$remote'"
+			(( ++skipped ))
+		else
+			do: git annex copy --in . --not --copies archive:1 --to $remote
+			if (( $? == 0 )); then
+				(( ++done ))
+			else
+				warn "archiving to remote '$remote' failed"
+				(( ++failed ))
+			fi
+		fi
+	done
+
+	if (( done > 0 )); then
+		return 0
+	elif (( failed > 0 )); then
+		err "failed archive data to any archive volume"
+		return 1
+	else
+		err "no archive volumes available (skipped $skipped)"
+		return 1
+	fi
+}
+
 do_kinit() {
 	log "obtaining Kerberos tickets"
 	k5start_base=$(mktemp -d /tmp/backup_XXXXXXXX)
@@ -145,6 +189,7 @@ while [[ $1 ]]; do
 				do_job dropbox-push-hd
 			do_job home-push-hd
 			do_job root-push-hd
+			do_job annex-push-hd
 			sync
 			;;
 		home-push-hd)
@@ -164,6 +209,13 @@ while [[ $1 ]]; do
 				-f "merge $conf/rsync-filters/root_all"		\
 				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
 				-x -P
+			;;
+		annex-push-hd)
+			failed=0
+			for annex in "${annexes[@]}"; do
+				(cd "$annex" && do_annex_archive) || (( ++failed ))
+			done
+			(( !failed ))
 			;;
 		push-ukradius)
 			do_job home-push-ukradius

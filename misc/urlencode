@@ -23,14 +23,18 @@ sub usage {
 }
 
 sub decode {
-	if ($opts{"q"}) {
+	if ($opts{format_QP}) {
 		s/=\n//sg;
 		s/=([A-F0-9]{2})/pack('C', hex($1))/seg;
 	} else {
-		if ($opts{A}) { s/^:// }
+		if ($opts{format_mq}) {
+			s/^://;
+		}
 		s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
-		if ($opts{D}) { s/\+/ /g; }
-		if ($opts{S}) {
+		if ($opts{decode_plus}) {
+			s/\+/ /g;
+		}
+		if ($opts{safe_filename}) {
 			s!/!⁄!g;
 			s!<!‹!g;
 			s!>!›!g;
@@ -41,63 +45,67 @@ sub decode {
 }
 
 sub encode {
-	if ($opts{A}) {
+	if ($opts{format_mq}) {
 		s/[\x00-\x1F %]/sprintf("%%%02X", ord($&))/seg;
 		s/^$|^:/:$&/;
-	} elsif ($opts{x}) {
+	} elsif ($opts{format_c_hex}) {
 		s/[^A-Za-z0-9_. \/-]/sprintf("\\x%02X", ord($&))/seg;
-	} elsif ($opts{o}) {
+	} elsif ($opts{format_c_octal}) {
 		s/[^A-Za-z0-9_. \/-]/sprintf("\\%03o", ord($&))/seg;
-	} elsif ($opts{p}) {
+	} elsif ($opts{format_url_with_slashes}) {
 		s/[^\/A-Za-z0-9_.!~*'-]/sprintf("%%%02X", ord($&))/seg;
-	} elsif ($opts{"q"}) {
+	} elsif ($opts{format_QP}) {
 		s/[^\x21-\x3C\x3E-\x7E]/sprintf("=%02X", ord($&))/seg;
-	} elsif ($opts{"X"}) {
+	} elsif ($opts{format_xml}) {
 		s/&/&amp;/g;
 		s/</&lt;/g;
 		s/>/&gt;/g;
 		s/"/&quot;/g;
 	} else {
 		s/[^A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/seg;
-		if (!$opts{"P"}) {
+		if (!$opts{format_url_with_parens}) {
 			s/[()]/sprintf("%%%02X", ord($&))/seg;
 		}
 	}
 }
 
 sub process {
-	if ($opts{d} || $opts{D}) {
-		decode;
+	local $_ = shift;
+	if ($opts{decode}) {
+		decode($_);
 	} else {
-		encode;
+		encode($_);
 	}
-	print;
-	print "\n" unless $opts{r};
+	print $_;
+	print "\n" unless $opts{raw_newline};
 }
 
 GetOptions(
-	"A|mq" => \$opts{A},
-	"d|decode" => \$opts{d},
-	"D|decode-plus" => \$opts{D},
-	"o|octal" => \$opts{o},
-	"p|path" => \$opts{p},
-	"P|parens" => \$opts{P},
-	"q|quoted-printable" => \$opts{"q"},
-	"r|raw!" => \$opts{r},
-	"x|hex" => \$opts{x},
-	"X|xml" => \$opts{X},
+	"A|mq" => \$opts{format_mq},
+	"d|decode" => \$opts{decode},
+	"D|decode-plus" => \$opts{decode_plus},
+	"o|octal" => \$opts{format_c_octal},
+	"p|path" => \$opts{format_url_with_slashes},
+	"P|parens" => \$opts{format_url_with_parens},
+	"q|quoted-printable" => \$opts{format_QP},
+	"r|raw!" => \$opts{raw_newline},
+	"S|safe-filename" => \$opts{safe_filename},
+	"x|hex" => \$opts{format_c_hex},
+	"X|xml" => \$opts{format_xml},
 ) || usage();
+
+$opts{decode} ||= $opts{decode_plus};
 
 if (scalar @ARGV) {
 	process($_) for @ARGV;
 } else {
-	if ($opts{"d"} && $opts{"q"}) {
+	if ($opts{decode} && $opts{format_QP}) {
 		$_ = do { $/ = undef; <STDIN> };
 		decode($_);
 		print $_;
 	} else {
 		while (<STDIN>) {
-			chomp unless $opts{r};
+			chomp unless $opts{raw_newline};
 			process($_);
 		}
 	}

@@ -138,11 +138,11 @@ case $_mech in
 	'mschapv2')	_phase2='MSCHAPV2';;
 	'eap-gtc')	_phase2='EAP-GTC';;
 	'eap-md5')	_phase2='EAP-MD5';;
-	'eap-mschap')	_phase2='EAP-MSCHAP';;
 	'eap-mschapv2')	_phase2='EAP-MSCHAPV2';;
 	# in case I ever try to make this nonsense work
 	'eap-pap')	die "PAP is not an EAP mechanism";;
 	'eap-chap')	die "CHAP is not an EAP mechanism";;
+	'eap-mschap')	die "EAP-MSCHAP is actually EAP-MSCHAPV2";;
 	*)		err "unknown mechanism '$_mech'";;
 esac
 
@@ -197,8 +197,6 @@ if [[ $_eap && $_eap != NONE ]]; then
 	fi
 
 	case $_eap,$_phase2 in
-	PEAP,EAP-MSCHAP)
-		err "EAP-$_eap does not support the '$_phase2' method";;
 	PEAP,EAP-*)
 		_ecfg_full+=("phase2=\"auth=${_phase2#EAP-}\"");;
 	PEAP,*)

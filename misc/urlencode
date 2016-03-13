@@ -23,15 +23,20 @@ sub usage {
 }
 
 sub decode {
-	if ($opts{A}) { s/^:// }
-	s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
-	if ($opts{D}) { s/\+/ /g; }
-	if ($opts{S}) {
-		s!/!⁄!g;
-		s!<!‹!g;
-		s!>!›!g;
-		s!"!'!g;
-		s![:?*\\]!_!g;
+	if ($opts{"q"}) {
+		s/=\n//sg;
+		s/=([A-F0-9]{2})/pack('C', hex($1))/seg;
+	} else {
+		if ($opts{A}) { s/^:// }
+		s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+		if ($opts{D}) { s/\+/ /g; }
+		if ($opts{S}) {
+			s!/!⁄!g;
+			s!<!‹!g;
+			s!>!›!g;
+			s!"!'!g;
+			s![:?*\\]!_!g;
+		}
 	}
 }
 
@@ -75,8 +80,14 @@ getopts('AdDopPqrSxX', \%opts) || usage;
 if (scalar @ARGV) {
 	do_things for @ARGV;
 } else {
-	while (<STDIN>) {
-		chomp unless $opts{r};
-		do_things;
+	if ($opts{"d"} && $opts{"q"}) {
+		$_ = do { $/ = undef; <STDIN> };
+		decode($_);
+		print $_;
+	} else {
+		while (<STDIN>) {
+			chomp unless $opts{r};
+			do_things;
+		}
 	}
 }

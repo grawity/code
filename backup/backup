@@ -20,9 +20,7 @@ failed_jobs=()
 take_lock() {
 	local job=$1
 
-	lock_path=$XDG_RUNTIME_DIR/nullroute.eu.org/backup/$1.lock
-	mkdir -p "${lock_path%/*}"
-
+	lock_path=$path_runtime/backup-$1.lock
 	exec {lock_fd}<>$lock_path
 	flock -x -n $lock_fd || {
 		if read ldate < "$lock_path" || true; then

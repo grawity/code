@@ -358,7 +358,7 @@ lib::find_file() {
 lib::init_env() {
 	local dir
 
-	for dir in "$path_cache" "$path_data" "$path_runtime"; do
+	for dir in "$path_runtime"; do
 		if [[ ! -e $dir ]]; then
 			debug "pre-creating directory '$dir'"
 			mkdir -p "$dir"

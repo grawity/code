@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use Getopt::Std;
+use Getopt::Long qw(:config bundling no_ignore_case);
 
 my %opts;
 
@@ -75,7 +75,18 @@ sub process {
 	print "\n" unless $opts{r};
 }
 
-getopts('AdDopPqrSxX', \%opts) || usage;
+GetOptions(
+	"A|mq" => \$opts{A},
+	"d|decode" => \$opts{d},
+	"D|decode-plus" => \$opts{D},
+	"o|octal" => \$opts{o},
+	"p|path" => \$opts{p},
+	"P|parens" => \$opts{P},
+	"q|quoted-printable" => \$opts{"q"},
+	"r|raw!" => \$opts{r},
+	"x|hex" => \$opts{x},
+	"X|xml" => \$opts{X},
+) || usage();
 
 if (scalar @ARGV) {
 	process($_) for @ARGV;

@@ -55,11 +55,15 @@ for f in "$@"; do
         url=$(curl -S "${curl_args[@]}" "https://uguu.se/api.php?d=upload-tool")
     fi
 
-    echo "$f → $url"
-    clip+=("$url")
+    if [[ $url == https://* ]]; then
+        echo "$f → $url"
+        clip+=("$url")
 
-    ks:setattr "$f" "uguu.expire" "$(( `now` + 3600 ))"
-    ks:setattr "$f" "uguu.url" "$url"
+        ks:setattr "$f" "uguu.expire" "$(( `now` + 3600 ))"
+        ks:setattr "$f" "uguu.url" "$url"
+    else
+        err "could not upload '$f', received: $url"
+    fi
 done
 
 if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then

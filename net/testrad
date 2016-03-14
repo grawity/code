@@ -137,10 +137,13 @@ elif [[ $server == *:*:* ]]; then
 elif [[ $server == *:* ]]; then
 	die "invalid server name (use the 'port' option)"
 elif ! [[ $server =~ $IPV4_RE ]]; then
-	if ! have name2addr; then
+	if have name2addr; then
+		server_ip=$(name2addr -4 "$server")
+	elif have getent; then
+		server_ip=$(getent ahostsv4 "$server" | awk '{print $1}' | head -1)
+	else
 		die "missing 'name2addr' binary required for DNS resolution"
 	fi
-	server_ip=$(name2addr -4 "$server")
 	if [[ $server_ip ]]; then
 		debug "resolved '$server' to '$server_ip'"
 		server=$server_ip

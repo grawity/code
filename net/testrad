@@ -137,7 +137,16 @@ elif [[ $server == *:*:* ]]; then
 elif [[ $server == *:* ]]; then
 	die "invalid server name (use the 'port' option)"
 elif ! [[ $server =~ $IPV4_RE ]]; then
-	die "hostnames for server addresses are not yet supported"
+	if ! have name2addr; then
+		die "missing 'name2addr' binary required for DNS resolution"
+	fi
+	server_ip=$(name2addr -4 "$server")
+	if [[ $server_ip ]]; then
+		debug "resolved '$server' to '$server_ip'"
+		server=$server_ip
+	else
+		die "could not resolve RADIUS server '$server'"
+	fi
 fi
 
 [[ $port ]] || port=1812

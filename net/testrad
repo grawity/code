@@ -16,61 +16,65 @@ eapol_bin="eapol_test"
 
 # parse arguments
 
-while (( $# )); do
-	if [[ ! $self ]]; then
-		debug "accepting arg '$1' as self & via"
-		self=$1
-		via=$self
-	else
-		debug "parsing arg '$1', next '$2'"
-		case ${1#--} in
-		# RADIUS server
-		'via')		via=$2; shift;;
-		'host')		_host=$2; shift;;
-		'port')		_port=$2; shift;;
-		'secret')	_secret=$2; shift;;
-		'-x')		eapol_bin=$2; shift;;
-		'-o')		_ecfg_extra+=("$2"); shift;;
-		'-O')		save_chain=$2; shift;;
-		'show-config')	dump_config=1; shift;;
-		# basic or inner mechanism
-		'phase2')	_mech=$2; shift;;
-		'mech')		_mech=$2; shift;;
-		'using')	_mech=$2; shift;;
-		# outer EAP mechanism
-		'phase1')	_eap=$2; shift;;
-		'eap')		_eap=$2; shift;;
-		'inside')	_eap=$2; shift;;
-		# main (inner) identity
-		'user')		_user=$2; : ${_pass:="-"}; shift;;
-		'login')	_user=$2; : ${_pass:="-"}; shift;;
-		'inner-user')	_user=$2; : ${_pass:="-"}; shift;;
-		'inner-login')	_user=$2; : ${_pass:="-"}; shift;;
-		'pass')		_pass=$2; shift;;
-		'cert')		_tlscert=$2; shift;;
-		'key')		_tlskey=$2; shift;;
-		'ca'|'ca-cert')	_tlsca=$2; shift;;
-		'tls')		_tlsopt+=("$2"); shift;;
-		# anonymous (outer) identity
-		'anon')		_outer=$2; shift;;
-		'outer')	_outer=$2; shift;;
-		'outer-user')	_outer=$2; shift;;
-		'outer-login')	_outer=$2; shift;;
-		# misc eapol options
-		'subject-match')
-			_ecfg_extra+=("subject_match=\"$2\""); shift;;
-		'altsubject-match')
-			_ecfg_extra+=("altsubject_match=\"$2\""); shift;;
-		'domain-match')
-			_ecfg_extra+=("domain_match=\"$2\""); shift;;
-		'domain-suffix-match')
-			_ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
-		# etc.
-		*)		err "bad arg: \"$1\"";;
-		esac
-	fi
-	shift
-done
+parse_args() {
+	while (( $# )); do
+		if [[ ! $self ]]; then
+			debug "accepting arg '$1' as self & via"
+			self=$1
+			via=$self
+		else
+			debug "parsing arg '$1', next '$2'"
+			case ${1#--} in
+			# RADIUS server
+			'via')		via=$2; shift;;
+			'host')		_host=$2; shift;;
+			'port')		_port=$2; shift;;
+			'secret')	_secret=$2; shift;;
+			'-x')		eapol_bin=$2; shift;;
+			'-o')		_ecfg_extra+=("$2"); shift;;
+			'-O')		save_chain=$2; shift;;
+			'show-config')	dump_config=1; shift;;
+			# basic or inner mechanism
+			'phase2')	_mech=$2; shift;;
+			'mech')		_mech=$2; shift;;
+			'using')	_mech=$2; shift;;
+			# outer EAP mechanism
+			'phase1')	_eap=$2; shift;;
+			'eap')		_eap=$2; shift;;
+			'inside')	_eap=$2; shift;;
+			# main (inner) identity
+			'user')		_user=$2; : ${_pass:="-"}; shift;;
+			'login')	_user=$2; : ${_pass:="-"}; shift;;
+			'inner-user')	_user=$2; : ${_pass:="-"}; shift;;
+			'inner-login')	_user=$2; : ${_pass:="-"}; shift;;
+			'pass')		_pass=$2; shift;;
+			'cert')		_tlscert=$2; shift;;
+			'key')		_tlskey=$2; shift;;
+			'ca'|'ca-cert')	_tlsca=$2; shift;;
+			'tls')		_tlsopt+=("$2"); shift;;
+			# anonymous (outer) identity
+			'anon')		_outer=$2; shift;;
+			'outer')	_outer=$2; shift;;
+			'outer-user')	_outer=$2; shift;;
+			'outer-login')	_outer=$2; shift;;
+			# misc eapol options
+			'subject-match')
+				_ecfg_extra+=("subject_match=\"$2\""); shift;;
+			'altsubject-match')
+				_ecfg_extra+=("altsubject_match=\"$2\""); shift;;
+			'domain-match')
+				_ecfg_extra+=("domain_match=\"$2\""); shift;;
+			'domain-suffix-match')
+				_ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
+			# etc.
+			*)		err "bad arg: \"$1\"";;
+			esac
+		fi
+		shift
+	done
+}
+
+parse_args "$@"
 
 # check for necessary tools
 

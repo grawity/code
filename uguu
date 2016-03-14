@@ -28,12 +28,19 @@ for f in "$@"; do
 
     if expire=$(ks:getattr "$f" "uguu.expire"); then
         if (( expire > `now` )); then
+            debug "previous upload is still valid ($expire)"
             url=$(ks:getattr "$f" "uguu.url")
+        else
+            debug "previous upload has expired ($expire)"
+            unset url
         fi
     fi
 
-    if [[ ! $url ]]; then
-        url=$(curl -S "${curl_args[@]}" "http://uguu.se/api.php?d=upload")
+    if [[ $url ]]; then
+        debug "using stored URL '$url' (expires on $expire)"
+    else
+        debug "uploading to uguu"
+        url=$(curl -S "${curl_args[@]}" "https://uguu.se/api.php?d=upload")
     fi
 
     echo "$f → $url"

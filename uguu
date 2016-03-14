@@ -19,13 +19,13 @@ clip=()
 
 for f in "$@"; do
     if [[ -e "$f" ]]; then
-        curl_args=(-F "file=@$f")
+        curl_args=(-F "file=@$f" -F "randomname=1")
     else
         err "file '$f' not found"
         continue
     fi
 
-    if [[ $DEBUG ]]; then
+    if [[ $DEBUG ]] && (( DEBUG >= 2 )); then
         curl_args+=(-v)
     fi
 
@@ -59,7 +59,7 @@ for f in "$@"; do
         echo "$f → $url"
         clip+=("$url")
 
-        ks:setattr "$f" "uguu.expire" "$(( `now` + 3600 ))"
+        ks:setattr "$f" "uguu.expire" "$(( `now` + 86400 ))"
         ks:setattr "$f" "uguu.url" "$url"
     else
         err "could not upload '$f', received: $url"

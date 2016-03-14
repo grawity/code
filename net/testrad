@@ -3,173 +3,206 @@
 
 . lib.bash || exit
 
-declare -- self via save_chain
-declare -A name user pass host port secret eap _alias_
-declare -- _host _port _secret _eap _phase2 _outer _user _pass
-declare -- _tlscert _tlskey _tlsca
-declare -a _tlsopt
-declare -a phase1_opts
-declare -a _ecfg_full _ecfg_extra
-declare -A _ecfg_values _ecfg_seen
+declare -- server port secret eap mech phase2
+declare -- identity outer_id password
+declare -- tls_cert tls_key tls_ca save_chain
+declare -a tls_opts phase1_opts
+declare -a ecfg_full ecfg_extra
+declare -A ecfg_values ecfg_seen
 
 eapol_bin="eapol_test"
 
+# parse config
+
+lib::find_file config_file= ~/lib/testrad.conf.sh config:testrad.conf.sh
+
+debug "loading profiles from '$config_file'"
+
+. "$config_file" || die "could not load configuration"
+
 # parse arguments
 
-while (( $# )); do
-	if [[ ! $self ]]; then
-		debug "accepting arg '$1' as self & via"
-		self=$1
-		via=$self
+declare -- profile=
+declare -i depth=0
+
+load_conf() {
+	local type=$1 name=$2
+	local var="${type}_${name}[@]"
+
+	set -- "${!var}"
+
+	if (( ! $# )); then
+		err "no $type '$name' found"
+		return
+	elif (( depth > 5 )); then
+		die "profile recursion limit exceeded"
 	else
-		debug "parsing arg '$1', next '$2'"
-		case ${1#--} in
-		# RADIUS server
-		'via')		via=$2; shift;;
-		'host')		_host=$2; shift;;
-		'port')		_port=$2; shift;;
-		'secret')	_secret=$2; shift;;
-		'-x')		eapol_bin=$2; shift;;
-		'-o')		_ecfg_extra+=("$2"); shift;;
-		'-O')		save_chain=$2; shift;;
-		'show-config')	dump_config=1; shift;;
-		# basic or inner mechanism
-		'phase2')	_mech=$2; shift;;
-		'mech')		_mech=$2; shift;;
-		'using')	_mech=$2; shift;;
-		# outer EAP mechanism
-		'phase1')	_eap=$2; shift;;
-		'eap')		_eap=$2; shift;;
-		'inside')	_eap=$2; shift;;
-		# main (inner) identity
-		'user')		_user=$2; : ${_pass:="-"}; shift;;
-		'login')	_user=$2; : ${_pass:="-"}; shift;;
-		'inner-user')	_user=$2; : ${_pass:="-"}; shift;;
-		'inner-login')	_user=$2; : ${_pass:="-"}; shift;;
-		'pass')		_pass=$2; shift;;
-		'cert')		_tlscert=$2; shift;;
-		'key')		_tlskey=$2; shift;;
-		'ca'|'ca-cert')	_tlsca=$2; shift;;
-		'tls')		_tlsopt+=("$2"); shift;;
-		# anonymous (outer) identity
-		'anon')		_outer=$2; shift;;
-		'outer')	_outer=$2; shift;;
-		'outer-user')	_outer=$2; shift;;
-		'outer-login')	_outer=$2; shift;;
-		# misc eapol options
-		'subject-match')
-			_ecfg_extra+=("subject_match=\"$2\""); shift;;
-		'altsubject-match')
-			_ecfg_extra+=("altsubject_match=\"$2\""); shift;;
-		'domain-match')
-			_ecfg_extra+=("domain_match=\"$2\""); shift;;
-		'domain-suffix-match')
-			_ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
-		# etc.
-		*)		err "bad arg: \"$1\"";;
-		esac
+		(( ++depth ))
+		debug "($depth) parsing $var"
+		parse_args "$@"
+		debug "($depth) finished $var"
+		(( depth-- ))
 	fi
-	shift
-done
+}
+
+parse_args() {
+	debug "current load type '$type', name '$name'"
+	while (( $# )); do
+		if [[ ! $profile ]]; then
+			debug "accepting first arg '$1' as profile name"
+			profile=$1
+			load_conf profile "$profile"
+		else
+			debug "parsing arg '$1', next '$2'"
+			case ${1#--} in
+			# runtime & misc eapol_test options
+			-o)
+				ecfg_extra+=("$2"); shift;;
+			-O)
+				save_chain=$2; shift;;
+			-x)
+				eapol_bin=$2; shift;;
+			show-config)
+				dump_config=1; shift;;
+			# RADIUS server
+			inherit)
+				if [[ $type == server ]]; then
+					die "cannot nest profile in server configuration"
+				fi
+				load_conf profile "$2"; shift;;
+			via)
+				load_conf server "$2"; shift;;
+			host)
+				server=$2; shift;;
+			port)
+				port=$2; shift;;
+			secret)
+				secret=$2; shift;;
+			# mechanism choice
+			eap|inside|phase1)
+				eap=$2; shift;;
+			mech|using|phase2)
+				mech=$2; shift;;
+			# main (inner) identity
+			user|login|inner-user|inner-login)
+				identity=$2; : ${password:="-"}; shift;;
+			pass)
+				password=$2; shift;;
+			cert|tls-cert)
+				tls_cert=$2; shift;;
+			key|tls-key)
+				tls_key=$2; shift;;
+			ca|tls-ca|ca-cert)
+				tls_ca=$2; shift;;
+			tls)
+				tls_opts+=("$2"); shift;;
+			# anonymous (outer) identity
+			anon|outer|outer-user|outer-login)
+				outer_id=$2; shift;;
+			# misc eapol options
+			subject-match)
+				ecfg_extra+=("subject_match=\"$2\""); shift;;
+			altsubject-match)
+				ecfg_extra+=("altsubject_match=\"$2\""); shift;;
+			domain-match)
+				ecfg_extra+=("domain_match=\"$2\""); shift;;
+			domain-suffix-match)
+				ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
+			# etc.
+			*)
+				err "bad arg: \"$1\"";;
+			esac
+		fi
+		shift
+	done
+}
+
+parse_args "$@"
 
 # check for necessary tools
 
 have 'radtest' || err "missing 'radtest' binary"
 have "$eapol_bin" || err "missing '$eapol_bin' binary"
 
-[[ $self ]] || err "missing realm argument"
+(( !errors )) || exit
+
+# check server parameters
+
+[[ $server ]]	|| err "missing RADIUS server"
+[[ $port ]]	|| port=1812
+[[ $secret ]]	|| err "missing RADIUS secret"
 
 (( !errors )) || exit
 
-# parse config
+# check client parameters
 
-lib::find_file config_file= ~/lib/testrad.conf.sh config:testrad.conf.sh
+if [[ $password == "-" ]]; then
+	read -s -p "password for '$identity': " password; echo
+fi
 
-debug "loading hosts from '$config_file'"
+[[ $identity ]]	|| err "missing username"
+[[ $outer_id ]]	|| outer_id=${identity}
+[[ $password ]]	|| err "missing password"
 
-. "$config_file" || die "could not load configuration"
+if [[ $outer_id == "@" ]]; then
+	outer_id+=${identity#*@}
+fi
 
-while val=${_alias_[$self]}; [[ $val ]]; do
-	debug "conf alias (\$self) \"$self\" -> \"$val\""
-	self=$val
-done
+eap=${eap^^}
 
-while val=${_alias_[$via]}; [[ $val ]]; do
-	debug "conf alias (\$via) \"$via\" -> \"$val\""
-	via=$val
-done
-
-debug "self \"$self\", via \"$via\""
-
-# load parameters
-
-[[ $_user ]]	|| _user=${user[$self]}
-[[ $_pass ]]	|| _pass=${pass[$self]}
-[[ $_eap ]]	|| _eap=${eap[$self]}
-[[ $_host ]]	|| _host=${host[$via]}
-[[ $_port ]]	|| _port=${port[$via]:-1812}
-[[ $_secret ]]	|| _secret=${secret[$via]}
-[[ $_outer ]]	|| _outer=${_user}
-
-_eap=${_eap^^}
-
-if [[ $_eap == PEAP ]]; then
-	_mech=${_mech:-eap-mschapv2}
+if [[ $eap == PEAP ]]; then
+	mech=${mech:-eap-mschapv2}
 else
-	_mech=${_mech:-mschap}
+	mech=${mech:-mschap}
 fi
 
-[[ $_user ]]	|| err "missing username for '$self'"
-if [[ $_pass == "-" ]]; then
-	read -s -p "password for '$_user': " _pass; echo
-fi
-[[ $_pass ]]	|| err "missing password for '$self'"
-[[ $_host ]]	|| err "missing RADIUS server for '$via'"
-[[ $_secret ]]	|| err "missing RADIUS secret for '$via'"
-
-if [[ $_outer == "@" ]]; then
-	_outer+=${_user#*@}
-fi
-
-case $_mech in
-	'pap')		_phase2='PAP';;
-	'chap')		_phase2='CHAP';;
-	'mschap')	_phase2='MSCHAP';;
-	'mschapv2')	_phase2='MSCHAPV2';;
-	'eap-gtc')	_phase2='EAP-GTC';;
-	'eap-md5')	_phase2='EAP-MD5';;
-	'eap-mschapv2')	_phase2='EAP-MSCHAPV2';;
+case $mech in
+	'pap')		phase2='PAP';;
+	'chap')		phase2='CHAP';;
+	'mschap')	phase2='MSCHAP';;
+	'mschapv2')	phase2='MSCHAPV2';;
+	'eap-gtc')	phase2='EAP-GTC';;
+	'eap-md5')	phase2='EAP-MD5';;
+	'eap-mschapv2')	phase2='EAP-MSCHAPV2';;
 	# in case I ever try to make this nonsense work
 	'eap-pap')	die "PAP is not an EAP mechanism";;
 	'eap-chap')	die "CHAP is not an EAP mechanism";;
 	'eap-mschap')	die "EAP-MSCHAP is actually EAP-MSCHAPV2";;
-	*)		err "unknown mechanism '$_mech'";;
+	*)		err "unknown mechanism '$mech'";;
 esac
 
-if [[ ! $_eap && $_mech != @(pap|chap|mschap|eap-md5) ]]; then
-	die "radtest does not support the '$_mech' mechanism"
+if [[ ! $eap && $mech != @(pap|chap|mschap|eap-md5) ]]; then
+	die "radtest does not support the '$mech' mechanism"
 fi
 
-if [[ $_eap == TLS ]]; then
-	if [[ $_tlskey == same ]]; then
-		_tlskey=$_tlscert
+if [[ $tls_ca == default ]]; then
+	tls_ca=/etc/ssl/certs/ca-certificates.crt
+fi
+
+if [[ $tls_ca && ! -f $tls_ca ]]; then
+	err "CA file '$tls_ca' does not exist"
+fi
+
+if [[ $eap == TLS ]]; then
+	if [[ $tls_key == same ]]; then
+		tls_key=$tls_cert
 	fi
 
-	if [[ ! $_tlscert ]]; then
-		err "missing certificate for EAP-$_eap ('cert' option)"
-	elif [[ ! -f $_tlscert ]]; then
-		err "certificate '$_tlscert' does not exist"
+	if [[ ! $tls_cert ]]; then
+		err "missing certificate for EAP-$eap ('cert' option)"
+	elif [[ ! -f $tls_cert ]]; then
+		err "certificate '$tls_cert' does not exist"
 	fi
 
-	if [[ ! $_tlskey ]]; then
-		err "missing private key for EAP-$_eap ('key' option)"
-	elif [[ ! -f $_tlskey ]]; then
-		err "key file '$_tlskey' does not exist"
+	if [[ ! $tls_key ]]; then
+		err "missing private key for EAP-$eap ('key' option)"
+	elif [[ ! -f $tls_key ]]; then
+		err "key file '$tls_key' does not exist"
 	fi
 fi
 
-if [[ $_eap == @(PEAP|TLS|TTLS) ]]; then
-	for opt in "${_tlsopt[@]}"; do
+if [[ $eap == @(PEAP|TLS|TTLS) ]]; then
+	for opt in "${tls_opts[@]}"; do
 		case $opt in
 		'no-v1.0')	phase1_opts+=("tls_disable_tlsv1_0=1");;
 		'no-v1.1')	phase1_opts+=("tls_disable_tlsv1_1=1");;
@@ -182,57 +215,57 @@ fi
 
 (( ! errors )) || exit
 
-log "account: \"$_user\""
-debug "password: \"$_pass\""
-log "home server: ${name[$self]} (${host[$self]:-none})"
-if [[ "$self" != "$via" ]]; then
-	log "proxy via: ${name[$via]} ($_host)"
-fi
+# do the test
 
-if [[ $_eap && $_eap != NONE ]]; then
+log "account: \"$identity\""
+debug "password: \"$password\""
+log "server: $server"
+debug "secret: \"$secret\""
+
+if [[ $eap && $eap != NONE ]]; then
 	# base options
-	_ecfg_full=(
+	ecfg_full=(
 		"ssid=\"eduroam\""
 		"key_mgmt=WPA-EAP"
-		"eap=$_eap"
+		"eap=$eap"
 	)
 	if [[ ${phase1_opts[*]} ]]; then
-		_ecfg_full+=("phase1=\"${phase1_opts[*]}\"")
+		ecfg_full+=("phase1=\"${phase1_opts[*]}\"")
 	fi
 
 	# phase 2
-	if [[ $_eap == PEAP ]]; then
-		if [[ $_phase2 == EAP-* ]]; then
-			_ecfg_full+=("phase2=\"auth=${_phase2#EAP-}\"")
+	if [[ $eap == PEAP ]]; then
+		if [[ $phase2 == EAP-* ]]; then
+			ecfg_full+=("phase2=\"auth=${phase2#EAP-}\"")
 		else
-			err "EAP-$_eap can only transport EAP methods"
+			err "EAP-$eap can only transport EAP methods"
 		fi
-	elif [[ $_eap == TTLS ]]; then
-		if [[ $_phase2 == EAP-* ]]; then
-			_ecfg_full+=("phase2=\"autheap=${_phase2#EAP-}\"")
+	elif [[ $eap == TTLS ]]; then
+		if [[ $phase2 == EAP-* ]]; then
+			ecfg_full+=("phase2=\"autheap=${phase2#EAP-}\"")
 		else
-			_ecfg_full+=("phase2=\"auth=${_phase2}\"")
+			ecfg_full+=("phase2=\"auth=${phase2}\"")
 		fi
 	fi
 
 	# credentials
-	_ecfg_full+=("identity=\"$_user\"")
-	_ecfg_full+=("password=\"$_pass\"")
-	if [[ $_outer ]]; then
-		_ecfg_full+=("anonymous_identity=\"$_outer\"")
+	ecfg_full+=("identity=\"$identity\"")
+	ecfg_full+=("password=\"$password\"")
+	if [[ $outer_id ]]; then
+		ecfg_full+=("anonymous_identity=\"$outer_id\"")
 	fi
-	if [[ $_tlsca ]]; then
-		_ecfg_full+=("ca_cert=\"$_tlsca\"")
+	if [[ $tls_ca ]]; then
+		ecfg_full+=("ca_cert=\"$tls_ca\"")
 	fi
-	if [[ $_tlscert ]]; then
-		_ecfg_full+=("client_cert=\"$_tlscert\"")
+	if [[ $tls_cert ]]; then
+		ecfg_full+=("client_cert=\"$tls_cert\"")
 	fi
-	if [[ $_tlskey ]]; then
-		_ecfg_full+=("private_key=\"$_tlskey\"")
+	if [[ $tls_key ]]; then
+		ecfg_full+=("private_key=\"$tls_key\"")
 	fi
 
 	# user-supplied settings
-	for opt in "${_ecfg_extra[@]}"; do
+	for opt in "${ecfg_extra[@]}"; do
 		case $opt in
 		'anonymous_identity='*)
 			err "'$opt': use 'outer-user ...' to set the anonymous identity";;
@@ -243,7 +276,7 @@ if [[ $_eap && $_eap != NONE ]]; then
 		'phase2='*)
 			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
 		?*'='*)
-			_ecfg_full+=("$opt");;
+			ecfg_full+=("$opt");;
 		*)
 			err "supplicant option '$opt' given without value";;
 		esac
@@ -251,15 +284,15 @@ if [[ $_eap && $_eap != NONE ]]; then
 	(( ! errors )) || exit
 
 	# if option given multiple times, the last value takes priority
-	for opt in "${_ecfg_full[@]}"; do
+	for opt in "${ecfg_full[@]}"; do
 		k=${opt%%=*}
 		v=${opt#*=}
-		_ecfg_values["$k"]=$v
+		ecfg_values["$k"]=$v
 	done
 
-	log "mechanism: EAP-$_eap (outer), $_phase2 (inner)"
-	if [[ "$_outer" != "$_user" ]]; then
-		log "anonymous identity: \"$_outer\""
+	log "mechanism: EAP-$eap (outer), $phase2 (inner)"
+	if [[ "$outer_id" != "$identity" ]]; then
+		log "anonymous identity: \"$outer_id\""
 	fi
 
 	# generate the eapol_test config
@@ -267,10 +300,10 @@ if [[ $_eap && $_eap != NONE ]]; then
 	conf="$wd/eapol_test.conf"
 	{
 		echo "network={"
-		for opt in "${_ecfg_full[@]}"; do
+		for opt in "${ecfg_full[@]}"; do
 			k=${opt%%=*}
-			v=${_ecfg_values["$k"]}
-			if (( _ecfg_seen["$k"]++ )); then
+			v=${ecfg_values["$k"]}
+			if (( ecfg_seen["$k"]++ )); then
 				continue
 			fi
 			printf "\t%s=%s\n" "$k" "$v"
@@ -279,7 +312,7 @@ if [[ $_eap && $_eap != NONE ]]; then
 	} > "$conf"
 	(( ! errors )) || exit
 
-	cmd=($eapol_bin -c "$conf" -a "$_host" -p "$_port" -s "$_secret" -t 5
+	cmd=($eapol_bin -c "$conf" -a "$server" -p "$port" -s "$secret" -t 5
 			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
 
 	if [[ $save_chain ]]; then
@@ -291,11 +324,11 @@ if [[ $_eap && $_eap != NONE ]]; then
 		cmd=(cat "$conf")
 	fi
 else
-	log "mechanism: $_phase2 (direct)"
-	if [[ "$_outer" != "$_user" ]]; then
-		die "anonymous identity \"$_outer\" not supported without EAP"
+	log "mechanism: $phase2 (direct)"
+	if [[ "$outer_id" != "$identity" ]]; then
+		die "anonymous identity \"$outer_id\" not supported without EAP"
 	fi
-	cmd=(radtest -t "$_mech" "$_user" "$_pass" "$_host:$_port" 0 "$_secret")
+	cmd=(radtest -t "$mech" "$identity" "$password" "$server:$port" 0 "$secret")
 fi
 
 echo "+ ${cmd[*]}"

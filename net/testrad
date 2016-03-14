@@ -126,13 +126,29 @@ parse_args "$@"
 have 'radtest' || err "missing 'radtest' binary"
 have "$eapol_bin" || err "missing '$eapol_bin' binary"
 
-[[ $profile ]] || err "missing profile name"
+(( !errors )) || exit
+
+# check server parameters
+
+[[ $server ]]	|| err "missing RADIUS server"
+[[ $port ]]	|| port=1812
+[[ $secret ]]	|| err "missing RADIUS secret"
 
 (( !errors )) || exit
 
-# load parameters
+# check client parameters
 
+if [[ $password == "-" ]]; then
+	read -s -p "password for '$identity': " password; echo
+fi
+
+[[ $identity ]]	|| err "missing username"
 [[ $outer_id ]]	|| outer_id=${identity}
+[[ $password ]]	|| err "missing password"
+
+if [[ $outer_id == "@" ]]; then
+	outer_id+=${identity#*@}
+fi
 
 eap=${eap^^}
 
@@ -140,19 +156,6 @@ if [[ $eap == PEAP ]]; then
 	mech=${mech:-eap-mschapv2}
 else
 	mech=${mech:-mschap}
-fi
-
-[[ $identity ]]	|| err "missing username for '$self'"
-if [[ $password == "-" ]]; then
-	read -s -p "password for '$identity': " password; echo
-fi
-[[ $password ]]	|| err "missing password for '$self'"
-[[ $server ]]	|| err "missing RADIUS server for '$via'"
-[[ $port ]]	|| port=1812
-[[ $secret ]]	|| err "missing RADIUS secret for '$via'"
-
-if [[ $outer_id == "@" ]]; then
-	outer_id+=${identity#*@}
 fi
 
 case $mech in
@@ -209,6 +212,8 @@ if [[ $eap == @(PEAP|TLS|TTLS) ]]; then
 fi
 
 (( ! errors )) || exit
+
+# do the test
 
 log "account: \"$identity\""
 debug "password: \"$password\""

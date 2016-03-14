@@ -14,6 +14,14 @@ declare -A _ecfg_values _ecfg_seen
 
 eapol_bin="eapol_test"
 
+# parse config
+
+lib::find_file config_file= ~/lib/testrad.conf.sh config:testrad.conf.sh
+
+debug "loading profiles from '$config_file'"
+
+. "$config_file" || die "could not load configuration"
+
 # parse arguments
 
 parse_args() {
@@ -84,16 +92,6 @@ have "$eapol_bin" || err "missing '$eapol_bin' binary"
 [[ $self ]] || err "missing realm argument"
 
 (( !errors )) || exit
-
-# parse config
-
-lib::find_file config_file= ~/lib/testrad.conf.sh config:testrad.conf.sh
-
-debug "loading hosts from '$config_file'"
-
-. "$config_file" || die "could not load configuration"
-
-debug "self \"$self\", via \"$via\""
 
 # load parameters
 

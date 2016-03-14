@@ -24,17 +24,39 @@ debug "loading profiles from '$config_file'"
 
 # parse arguments
 
+declare -- profile=
+declare -i depth=0
+
+load_conf() {
+	local type=$1 name=$2
+	local var="${type}_${name}[@]"
+
+	set -- "${!var}"
+
+	if (( ! $# )); then
+		err "no $type '$name' found"
+		return
+	else
+		(( ++depth ))
+		debug "($depth) parsing $var"
+		parse_args "$@"
+		debug "($depth) finished $var"
+		(( depth-- ))
+	fi
+}
+
 parse_args() {
 	while (( $# )); do
-		if [[ ! $self ]]; then
-			debug "accepting arg '$1' as self & via"
-			self=$1
-			via=$self
+		if [[ ! $profile ]]; then
+			debug "accepting first arg '$1' as profile name"
+			profile=$1
+			load_conf profile "$profile"
 		else
 			debug "parsing arg '$1', next '$2'"
 			case ${1#--} in
 			# RADIUS server
-			'via')		via=$2; shift;;
+			'via')
+				load_conf server "$2"; shift;;
 			'host')		_host=$2; shift;;
 			'port')		_port=$2; shift;;
 			'secret')	_secret=$2; shift;;
@@ -89,18 +111,12 @@ parse_args "$@"
 have 'radtest' || err "missing 'radtest' binary"
 have "$eapol_bin" || err "missing '$eapol_bin' binary"
 
-[[ $self ]] || err "missing realm argument"
+[[ $profile ]] || err "missing profile name"
 
 (( !errors )) || exit
 
 # load parameters
 
-[[ $_user ]]	|| _user=${user[$self]}
-[[ $_pass ]]	|| _pass=${pass[$self]}
-[[ $_eap ]]	|| _eap=${eap[$self]}
-[[ $_host ]]	|| _host=${host[$via]}
-[[ $_port ]]	|| _port=${port[$via]:-1812}
-[[ $_secret ]]	|| _secret=${secret[$via]}
 [[ $_outer ]]	|| _outer=${_user}
 
 _eap=${_eap^^}
@@ -117,6 +133,7 @@ if [[ $_pass == "-" ]]; then
 fi
 [[ $_pass ]]	|| err "missing password for '$self'"
 [[ $_host ]]	|| err "missing RADIUS server for '$via'"
+[[ $_port ]]	|| _port=1812
 [[ $_secret ]]	|| err "missing RADIUS secret for '$via'"
 
 if [[ $_outer == "@" ]]; then
@@ -176,10 +193,8 @@ fi
 
 log "account: \"$_user\""
 debug "password: \"$_pass\""
-log "home server: ${name[$self]} (${host[$self]:-none})"
-if [[ "$self" != "$via" ]]; then
-	log "proxy via: ${name[$via]} ($_host)"
-fi
+log "server: $_host"
+debug "secret: \"$_secret\""
 
 if [[ $_eap && $_eap != NONE ]]; then
 	# base options

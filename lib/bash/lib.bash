@@ -20,6 +20,7 @@ _lvl=$(( LVL++ )); export LVL
 : ${XDG_CONFIG_HOME:="$HOME/.config"}
 : ${XDG_DATA_HOME:="$HOME/.local/share"}
 : ${XDG_DATA_DIRS:="/usr/local/share:/usr/share"}
+: ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
 path_cache="$XDG_CACHE_HOME/nullroute.eu.org"
 path_config="$XDG_CONFIG_HOME/nullroute.eu.org"

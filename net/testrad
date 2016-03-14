@@ -128,9 +128,21 @@ have "$eapol_bin" || err "missing '$eapol_bin' binary"
 
 # check server parameters
 
-[[ $server ]]	|| err "missing RADIUS server"
-[[ $port ]]	|| port=1812
-[[ $secret ]]	|| err "missing RADIUS secret"
+IPV4_RE='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+
+if [[ ! $server ]]; then
+	die "missing RADIUS server address"
+elif [[ $server == *:*:* ]]; then
+	die "RADIUS over IPv6 is not yet supported by eapol_test"
+elif [[ $server == *:* ]]; then
+	die "invalid server name (use the 'port' option)"
+elif ! [[ $server =~ $IPV4_RE ]]; then
+	die "hostnames for server addresses are not yet supported"
+fi
+
+[[ $port ]] || port=1812
+
+[[ $secret ]] || err "missing RADIUS secret"
 
 (( !errors )) || exit
 

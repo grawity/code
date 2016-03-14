@@ -11,3 +11,8 @@ _testrad_ looks for preconfigured profiles in `~/.config/nullroute.eu.org/testra
         pass rainbowdash
         eap ttls
     )
+
+    profile_example_peap=(
+        inherit example
+        eap peap
+    )

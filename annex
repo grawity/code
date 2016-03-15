@@ -180,6 +180,17 @@ case $cmd in
             set -- --file="$(urlencode -dS "${1##*/}")" "$1"
         fi
         ;;&
+    get)
+        # for convenience when copypasting symlinks
+        args=()
+        for arg in "$@"; do
+            if [[ -L ${arg%@} ]]; then
+                arg=${arg%@}
+            fi
+            args+=("$arg")
+        done
+        set -- "${args[@]}"
+        ;;&
     info)
         if (( ! $# )); then
             set -- --fast

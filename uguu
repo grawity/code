@@ -4,19 +4,28 @@
 . lib.bash || exit
 . libkitchensink.bash || exit
 
+do_reupload=0
+
+while getopts ':f' OPT; do
+    case $OPT in
+    f) do_reupload=1;;
+    *) lib::die_getopts;;
+    esac
+done; shift $((OPTIND-1))
+
 (( $# )) || die "nothing to upload"
 
 clip=()
 
 for f in "$@"; do
     if [[ -e "$f" ]]; then
-        curl_args=(-F "file=@$f")
+        curl_args=(-F "file=@$f" -F "randomname=1")
     else
         err "file '$f' not found"
         continue
     fi
 
-    if [[ $DEBUG ]]; then
+    if [[ $DEBUG ]] && (( DEBUG >= 2 )); then
         curl_args+=(-v)
     fi
 
@@ -26,21 +35,35 @@ for f in "$@"; do
         curl_args+=(-s)
     fi
 
-    if expire=$(ks:getattr "$f" "uguu.expire"); then
+    if (( do_reupload )); then
+        debug "re-upload was forced"
+        unset url
+    elif expire=$(ks:getattr "$f" "uguu.expire"); then
         if (( expire > `now` )); then
+            debug "previous upload is still valid ($expire)"
             url=$(ks:getattr "$f" "uguu.url")
+        else
+            debug "previous upload has expired ($expire)"
+            unset url
         fi
     fi
 
-    if [[ ! $url ]]; then
-        url=$(curl -S "${curl_args[@]}" "http://uguu.se/api.php?d=upload")
+    if [[ $url ]]; then
+        debug "using stored URL '$url' (expires on $expire)"
+    else
+        debug "uploading to uguu"
+        url=$(curl -S "${curl_args[@]}" "https://uguu.se/api.php?d=upload-tool")
     fi
 
-    echo "$f → $url"
-    clip+=("$url")
+    if [[ $url == https://* ]]; then
+        echo "$f → $url"
+        clip+=("$url")
 
-    ks:setattr "$f" "uguu.expire" "$(( `now` + 3600 ))"
-    ks:setattr "$f" "uguu.url" "$url"
+        ks:setattr "$f" "uguu.expire" "$(( `now` + 86400 ))"
+        ks:setattr "$f" "uguu.url" "$url"
+    else
+        err "could not upload '$f', received: $url"
+    fi
 done
 
 if [[ "$DISPLAY" ]] && (( ${#clip[@]} )); then

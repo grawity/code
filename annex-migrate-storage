@@ -41,9 +41,17 @@ git annex examinekey --batch --format="$format" | {
 		elif [[ ! -d $olddir$key ]]; then
 			die "old path '$olddir$key' does not exist"
 		elif [[ -d $newdir$key ]]; then
-			warn "new path '$newdir$key' already exists, removing old"
-			chmod u=rwx "$olddir$key"
-			rm -rf "$olddir$key"
+			warn "new path '$newdir$key' already exists"
+			if [[ -e $olddir$key/$key ]]; then
+				log "reinjecting $key"
+				git annex setkey "$key" "$olddir$key/$key" ||
+					die "failed to reinject $key"
+				log "removing $olddir$key"
+				chmod u=rwx "$olddir$key"
+				rm -rf "$olddir$key"
+			else
+				err "foo: '$olddir$key/$key' not found"
+			fi
 			(( ++collided ))
 		fi
 	done

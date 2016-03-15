@@ -26,7 +26,7 @@ else
 fi
 find . -mindepth 3 -maxdepth 3 -type d -printf '%f\n' |
 git annex examinekey --batch --format="$format" | {
-	declare -i migrated=0 skipped=0
+	declare -i migrated=0 skipped=0 collided=0
 	while read -r olddir newdir key; do
 		if [[ -d $olddir$key && ! -d $newdir$key ]]; then
 			[[ -d $newdir ]] || mkdir -p "$newdir"
@@ -41,10 +41,13 @@ git annex examinekey --batch --format="$format" | {
 		elif [[ ! -d $olddir$key ]]; then
 			die "old path '$olddir$key' does not exist"
 		elif [[ -d $newdir$key ]]; then
-			die "new path '$newdir$key' already exists"
+			warn "new path '$newdir$key' already exists, removing old"
+			chmod u=rwx "$olddir$key"
+			rm -rf "$olddir$key"
+			(( ++collided ))
 		fi
 	done
-	log2 "converted $migrated keys (skipped $skipped)"
+	log2 "converted $migrated keys (skipped $skipped, collided $collided)"
 }
 log "cleaning up leftover empty directories"
 rmdir --parents --ignore-fail-on-non-empty */*/

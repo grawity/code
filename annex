@@ -190,6 +190,16 @@ case $cmd in
             args+=("$arg")
         done
         set -- "${args[@]}"
+        # use -J2 by default
+        jobs=0
+        for arg in "$@"; do
+            if [[ $arg == -J?* ]]; then
+                jobs=${arg#-J}
+            fi
+        done
+        if (( ! jobs )); then
+            set -- -J2 "$@"
+        fi
         ;;&
     info)
         if (( ! $# )); then

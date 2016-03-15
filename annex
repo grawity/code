@@ -4,8 +4,18 @@
 . libks.bash || exit
 
 is_git() { git rev-parse --git-dir >&/dev/null; }
+
 is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
 is_annex!() { is_annex || die "not a git-annex repository"; }
+
+is_remote() { git config --get "remote.$1.annex-uuid" >&/dev/null; }
+is_remote!() {
+    if ! [[ $1 ]]; then
+        die "missing remote name"
+    elif ! is_remote "$1"; then
+        die "'$1' is not a git-annex remote"
+    fi
+}
 
 set -e
 
@@ -159,6 +169,15 @@ case $cmd in
         ;;
     commit|ci)
         annex sync --no-pull --no-push
+        ;;
+    push)
+        is_remote! "$1"
+        log "syncing with '$1' before copy"
+        annex sync "$1" --no-push
+        log "copying files to '$1'"
+        annex copy --fast -J5 --to "$@"
+        log "syncing with '$1' after copy"
+        annex sync "$1" --no-pull --no-commit
         ;;
     # overrides
     addurl)

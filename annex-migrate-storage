@@ -24,11 +24,7 @@ elif [[ $bare == false ]] || [[ $bare == true && $direct == true ]]; then
 else
 	die "could not determine whether repository is bare"
 fi
-for sub in */*/*/; do
-	key=${sub%/}
-	key=${key##*/}
-	echo "$key"
-done |
+find . -mindepth 3 -maxdepth 3 -type d -printf '%f\n' |
 git annex examinekey --batch --format="$format" | {
 	declare -i migrated=0 skipped=0
 	while read -r olddir newdir key; do

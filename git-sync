@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+sha1() {
+	printf %s "$1" | sha1sum | awk '{print $1}'
+}
+
+hash_path() {
+	local path=$1
+
+	path=$(readlink -f "$path") \
+		|| die "path '$path' does not exist"
+	
+	sha1 "$path"
+}
+
+name_repo() {
+	local path=$1
+
+	basename "$(readlink -f "$path")"
+}
+
+add_repo() {
+	local path=$1 lkey
+
+	path=$(git -C "$path" -c core.bare=false rev-parse --show-toplevel) \
+		|| die "could not determine toplevel for '$path'"
+	
+	lkey=$(hash_path "$path")
+	
+	ln -vsf "$path" "$ldir/$lkey"
+}
+
+del_repo() {
+	local path=$1 lkey
+
+	path=$(git -C "$path" -c core.bare=false rev-parse --show-toplevel) \
+		|| die "could not determine toplevel for '$path'"
+	
+	lkey=$(hash_path "$path")
+
+	rm -vf "$ldir/$lkey"
+}
+
+ldir=$path_config/git-sync
+repos=()
+
+if [[ -d $ldir ]]; then
+	repos=("$ldir"/*)
+else
+	mkdir -p "$ldir"
+fi
+
+cmd=${1:-push}; shift
+
+case $cmd in
+	pull)
+		for repo in "${repos[@]}"; do
+			log "updating '$(name_repo "$repo")' from remote"
+			git -C "$repo" pull --ff-only
+		done
+		;;
+	push)
+		for repo in "${repos[@]}"; do
+			log "pushing '$(name_repo "$repo")' to remote"
+			git -C "$repo" push
+		done
+		;;
+	ls)
+		for repo in "${repos[@]}"; do
+			echo "$(name_repo "$repo") -> $(readlink -f "$repo")"
+		done | sort
+		;;
+	add)
+		(( $# )) || set -- "$PWD"
+
+		for arg in "$@"; do
+			add_repo "$arg"
+		done
+		;;
+	del|rm)
+		(( $# )) || set -- "$PWD"
+
+		for arg in "$@"; do
+			del_repo "$arg"
+		done
+		;;
+	*)
+		die "unknown command '$cmd'"
+		;;
+esac

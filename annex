@@ -69,15 +69,15 @@ case $cmd in
                     err "unknown remote '$name'"; continue;;
             esac
             git remote add "$name" "$dir/$base"
-            annex sync "$name"
+            git annex sync "$name"
         done
-        annex sync
+        git annex sync
         ;;
     want-get|missing)
-        exec git annex find --want-get --not --in .
+        git annex find --want-get --not --in .
         ;;
     want-drop)
-        exec git annex find --want-drop --in .
+        git annex find --want-drop --in .
         ;;
     diff)
         is_annex!
@@ -144,7 +144,7 @@ case $cmd in
     inject)
         for f; do
             h=$(annex hash "$f")
-            annex setkey "$h" "$f"
+            git annex setkey "$h" "$f"
         done
         ;;
     addurls|registerurls)
@@ -198,6 +198,20 @@ case $cmd in
         elif (( $# == 1 )); then
             set -- --file="$(urlencode -dS "${1##*/}")" "$1"
         fi
+        ;;&
+    drop)
+        set -- -J5 "$@"
+        ;;&
+    get)
+        set -- -J2 "$@"
+        args=()
+        for arg in "$@"; do
+            if [[ -L ${arg%@} ]]; then
+                arg=${arg%@}
+            fi
+            args+=("$arg")
+        done
+        set -- "${args[@]}"
         ;;&
     info)
         if (( ! $# )); then

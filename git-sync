@@ -61,14 +61,16 @@ case $cmd in
 		;;
 	pull)
 		for repo in "${repos[@]}"; do
-			log "updating '$(name_repo "$repo")' from remote"
-			git -C "$repo" pull --ff-only
+			name=$(name_repo "$repo")
+			log "updating '$name' from remote"
+			git -C "$repo" pull --ff-only || err "pull '$name' failed"
 		done
 		;;
 	push)
 		for repo in "${repos[@]}"; do
-			log "pushing '$(name_repo "$repo")' to remote"
-			git -C "$repo" push
+			name=$(name_repo "$repo")
+			log "pushing '$name' to remote"
+			git -C "$repo" push || err "push '$name' failed"
 		done
 		;;
 	ls)
@@ -94,3 +96,5 @@ case $cmd in
 		die "unknown command '$cmd'"
 		;;
 esac
+
+lib::exit

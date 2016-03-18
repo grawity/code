@@ -161,7 +161,10 @@ def create_paths():
     realms.sort()
     for src in realms:
         for dst in realms:
-            paths[src, dst] = find_path(src, dst)
+            if (dst, src) in paths:
+                paths[src, dst] = [path[::-1] for path in paths[dst, src]]
+            else:
+                paths[src, dst] = find_path(src, dst)
 
 def dump_paths():
     for pair in sorted(paths):

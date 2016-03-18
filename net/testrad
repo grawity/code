@@ -174,13 +174,10 @@ fi
 
 eap=${eap^^}
 
-if [[ $eap == PEAP ]]; then
-	mech=${mech:-eap-mschapv2}
-else
-	mech=${mech:-mschap}
-fi
-
 case $mech in
+	# only set a default for radtest, let eapol_test autoguess
+	'')		mech='pap';;
+	# direct translation to eapol_test phase2
 	'pap')		phase2='PAP';;
 	'chap')		phase2='CHAP';;
 	'mschap')	phase2='MSCHAP';;
@@ -261,13 +258,13 @@ if [[ $eap && $eap != NONE ]]; then
 	if [[ $eap == PEAP ]]; then
 		if [[ $phase2 == EAP-* ]]; then
 			ecfg_full+=("phase2=\"auth=${phase2#EAP-}\"")
-		else
+		elif [[ $phase2 ]]; then
 			err "EAP-$eap can only transport EAP methods"
 		fi
 	elif [[ $eap == TTLS ]]; then
 		if [[ $phase2 == EAP-* ]]; then
 			ecfg_full+=("phase2=\"autheap=${phase2#EAP-}\"")
-		else
+		elif [[ $phase2 ]]; then
 			ecfg_full+=("phase2=\"auth=${phase2}\"")
 		fi
 	fi
@@ -314,7 +311,7 @@ if [[ $eap && $eap != NONE ]]; then
 		ecfg_values["$k"]=$v
 	done
 
-	log "mechanism: EAP-$eap (outer), $phase2 (inner)"
+	log "mechanism: EAP-$eap (outer), ${phase2:-default} (inner)"
 	if [[ "$outer_id" != "$identity" ]]; then
 		log "anonymous identity: \"$outer_id\""
 	fi

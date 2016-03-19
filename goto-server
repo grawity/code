@@ -65,6 +65,7 @@ case $1 in
 	if [[ $2 ]]; then
 		name+="-$2"; shift
 	fi
+	debug "looking for name '$name'"
 
 	ip= rest=
 	while read -r _name _ip _rest; do
@@ -73,6 +74,7 @@ case $1 in
 			rest=$_rest
 		fi
 	done < "$server_list"
+	debug "resulting ip='$ip' rest='$rest'"
 
 	case $ip in
 	    imap://*|imaps://*)
@@ -87,7 +89,7 @@ case $1 in
 	    *://*)
 		die "unknown protocol '${ip%%//*}//'";;
 	    "")
-		die "unknown host '$1'";;
+		die "unknown host '$name'";;
 	    *)
 		do_rdp "$ip" $rest;;
 	esac

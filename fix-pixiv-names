@@ -114,23 +114,30 @@ class PixivApi(object):
             prefix = "%s_pixiv%s" % (member_name, member_id)
             return filter_filename(prefix)
 
+def rename_file_in_dir(dirpath, filename):
+    m = bare_re.match(filename)
+    if m:
+        old_path = os.path.join(dirpath, filename)
+        print("---", old_path)
+
+        illust_id = int(m.group(1))
+        prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
+
+        new_path = os.path.join(dirpath, prefix + " " + filename)
+        print("+++", new_path)
+
+        os.rename(old_path, new_path)
+        print()
+
 bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+\.\w+$')
 pixiv_api = PixivApi()
 
 args = sys.argv[1:] or ["."]
-for root in args:
-    for dirpath, dirnames, filenames in os.walk(root):
-        for filename in filenames:
-            m = bare_re.match(filename)
-            if m:
-                old_path = os.path.join(dirpath, filename)
-                print("---", old_path)
-
-                illust_id = int(m.group(1))
-                prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
-
-                new_path = os.path.join(dirpath, prefix + " " + filename)
-                print("+++", new_path)
-
-                os.rename(old_path, new_path)
-                print()
+for arg in args:
+    if os.path.isdir(arg):
+        for dirpath, dirnames, filenames in os.walk(arg):
+            for filename in filenames:
+                rename_file_in_dir(dirpath, filename)
+    else:
+        dirpath, filename = os.path.split(arg)
+        rename_file_in_dir(dirpath, filename)

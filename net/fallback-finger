@@ -10,6 +10,7 @@ urlencode() { ~grawity/code/bin/urlencode "$@"; }
 set -o pipefail
 
 detail=0
+ipv6=1
 
 while getopts ":l" OPT; do
 	case $OPT in
@@ -31,45 +32,98 @@ else
 	host=${FINGER_HOST:-localhost}
 fi
 
-if [[ $host == *:* ]]; then
-	uhost=[$host]
-else
-	uhost=$host
-fi
-
 uquery=$(urlencode -- "$query")
-
-gateurl="http://nullroute.eu.org/finger/?q=$uquery@$host&raw=1"
-
 debug "query: '$query' @ '$host'"
 debug "query (encoded): '$uquery'"
-debug "gateway: '$gateurl'"
 
 if have curl && curl -V | grep -wqs gopher; then
 	debug "found curl with Gopher support"
-	curl -gsS "gopher://$uhost:79/0$uquery"
-elif have curl && curl -V | grep -wqs telnet; then
+	client=curl-gopher
+elif have curl && curl -V | grep -qws telnet; then
 	debug "found curl with Telnet support"
-	printf '%s\r\n' "$query" | curl -gsS "telnet://$uhost:79"
-elif have ncat; then
-	debug "found Ncat"
-	# oneaddr
-	printf '%s\r\n' "$query" | ncat "$host" 79
+	client=curl-telnet
 elif have socat; then
 	debug "found Socat"
-	# oneaddr
-	printf '%s\r\n' "$query" | socat -t10 -T10 stdio "tcp:$uhost:79"
+	client=socat
+elif have http-get; then
+	debug "found http-get, using web gateway"
+	client=gateway
 elif have lynx; then
 	debug "found Lynx"
-	# adds own header
-	lynx -dump -nolist "finger://$host/$uquery"
+	client=lynx
 elif have nc; then
 	debug "found some-or-other netcat"
-	# may be IPv4-only, may be oneaddr
-	printf '%s\r\n' "$query" | nc "$host" 79
-elif have http-get; then
-	notice "using web gateway"
-	http-get "$gateurl"
+	client=nc
 else
-	die "no useful TCP client found"
-fi | filter
+	die "could not find any usable TCP client"
+fi
+
+debug "using client mode '$client'"
+
+if [[ $client == gateway ]]; then
+	http-get "http://nullroute.eu.org/finger/?q=$uquery@$host&raw=1"
+else
+	if have name2addr; then
+		debug "found name2addr resolver"
+		addrs=($(name2addr -m "$host"))
+	elif have getent; then
+		debug "found getent resolver"
+		addrs=($(getent ahosts "$host" | awk '{print $1}' | sort | uniq))
+	else
+		debug "no resolver found, using hostname"
+	fi
+
+	debug "resolved to [${addrs[@]}]"
+
+	for addr in ${addrs[@]}; do
+		debug "trying address '$addr'"
+
+		if have name2addr; then
+			rhost=$(name2addr -r "$addr")
+		elif have getent; then
+			rhost=$(getent hosts "$addr" | awk '{print $3; exit}')
+		fi
+
+		debug "reverse-resolved to '${rhost:-$addr}'"
+		if [[ "$host" == "$addr" && "$rhost" == "$addr" ]]; then
+			echo "[$addr]"
+		else
+			echo "[${rhost:-$host}/$addr]"
+		fi
+
+		case $client in
+		curl-gopher)
+			if [[ $addr == *:* ]]; then
+				addr="[$addr]"
+			fi
+			curl -gsS "gopher://$addr:79/0$uquery"
+			;;
+		curl-telnet)
+			if [[ $addr == *:* ]]; then
+				addr="[$addr]"
+			fi
+			printf '%s\r\n' "$query" | curl -gsS "telnet://$addr:79"
+			;;
+		ncat)
+			printf '%s\r\n' "$query" | ncat "$addr" 79
+			;;
+		socat)
+			if [[ $addr == *:* ]]; then
+				addr="[$addr]"
+			fi
+			printf '%s\r\n' "$query" | socat -t10 -T10 stdio "tcp:$addr:79"
+			;;
+		lynx)
+			# adds own header
+			lynx -dump -nolist "finger://$addr/$uquery"
+			;;
+		nc)
+			# may be IPv4-only
+			printf '%s\r\n' "$query" | nc "$addr" 79
+			;;
+		*)
+			die "bug: unhandled client '$client'"
+			;;
+		esac && break
+	done | filter
+fi

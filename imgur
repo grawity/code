@@ -1,41 +1,21 @@
 #!/bin/bash
 
-# imgur script by Bart Nagel <bart@tremby.net>
-# version 3+grawity2
-# I release this into the public domain. Do with it what you will.
-
-# Required: curl
-#
-# Optional: xsel or xclip for automatically putting the URLs on the X selection
-# for easy pasting
-#
-# Instructions:
-# Put it somewhere in your path and maybe rename it:
-# 	mv ~/Downloads/imgurbash.sh ~/bin/imgur
-# Make it executable:
-# 	chmod +x ~/bin/imgur
-# Optional, since Alan kindly provided an API key for this script: stick your
-# API key in the top:
-# 	vim ~/bin/imgur
-# Upload an image:
-# 	imgur images/hilarious/manfallingover.jpg
-# Upload multiple images:
-# 	imgur images/delicious/cake.png images/exciting/bungeejump.jpg
-# The URLs will be displayed (and the delete page's URLs will be displayed on
-# stderr). If you have xsel or xclip the URLs will also be put on the X
-# selection, which you can usually paste with a middle click.
+# originally by Bart Nagel <bart@tremby.net>
 
 API_CLIENT_ID="1d4fa0f8eeeec73" # grawity@gmail.com
 
 . lib.bash || exit
 
-images=0
-clip=""
+have curl || die "missing 'curl' program"
+have jq   || die "missing 'jq' program"
 
 lib::find_file log_file= \
 	~/Pictures/.uploads-$HOSTNAME \
 	~/Pictures/.uploads \
-	data:imgur-uploads.log ;
+	data:imgur-uploads.log
+
+images=0
+clip=""
 
 for file; do
 	if [[ ! -f $file ]]; then
@@ -43,23 +23,29 @@ for file; do
 		continue
 	fi
 
+	size=$(stat -c %s "$file")
+
 	curlopt=(
-		-s
 		-H "Authorization: Client-ID $API_CLIENT_ID"
+		# original comment:
+		# > the "Expect: " header is to get around a problem when
+		# > using this through the Squid proxy. Not sure if it's a
+		# > Squid bug or what.
+		-H "Expect: "
 		-F "image=@$file"
 	)
 
 	if [[ $DEBUG ]]; then
-		curlopt+=( "-v" )
+		curlopt+=("-v")
 	fi
 
-	if (( `stat -c %s "$file"` > 1024*100 )); then
-		curlopt+=( "-#" )
+	if (( size > 1024*100 )) && [[ -t 2 ]]; then
+		curlopt+=("-#")
+	else
+		curlopt+=("-s")
 	fi
 
 	response=$(curl "${curlopt[@]}" https://api.imgur.com/3/upload)
-	# the "Expect: " header is to get around a problem when using this through
-	# the Squid proxy. Not sure if it's a Squid bug or what.
 
 	if (( $? )); then
 		err "upload failed (curl returned $?)"
@@ -94,7 +80,6 @@ for file; do
 	clip+=$url
 done
 
-# put the URLs on the clipboard if we have xsel or xclip
 if [[ $DISPLAY && $clip ]]; then
 	echo -n "$clip" | xsel -i -b
 fi

@@ -56,7 +56,8 @@ bar() {
 	#ar_chars=▮▯
 	#ar_chars=▰▱
 	#ar_chars=■□
-	bar_chars=◾◽
+	#ar_chars=◾◽
+	bar_chars='# '
 
 	local value=$1 max=$2
 	local bar='' len=0
@@ -754,8 +755,14 @@ status_volume() {
 	local BG=${WMII_NORMCOLORS#* }
 
 	local volume=$(ponymix get-volume)
+	local text='volume'
 	local max=11
 	local cur=$((volume * max / 100))
+	local bar=$(bar $cur $max)
+
+	if ponymix is-muted; then
+		bar=${bar//[! ]/·}
+	fi
 
 	{
 		if (( cur >= 9 )); then
@@ -771,7 +778,7 @@ status_volume() {
 		else
 			echo colors "$FG $BG"
 		fi
-		echo label $(bar $cur $max)
+		echo label "$text [$bar]"
 	} | wmiir create "/rbar/mpc-volume"
 }
 

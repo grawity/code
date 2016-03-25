@@ -14,6 +14,7 @@ $do{mail} = 1;
 $do{verbose} = 1;
 $do{ldap} = 1;
 $do{xmpp} = 1;
+$do{sip} = 1;
 
 sub status {
 	print STDERR "\r\033[K", shift; $|++;
@@ -218,6 +219,16 @@ for my $host (@ARGV) {
 			say "XMPP ($domain):";
 			if ($cans) { say "\tserver: $_" for format_srv($cans->answer); }
 			if ($sans) { say "\tserver: $_" for format_srv($sans->answer); }
+		}
+	}
+
+	if ($do{sip}) {
+		status "Looking up SIP servers...";
+		($cans, $domain) = find_dom("_sip._udp", $host, "SRV");
+		done;
+		if ($cans) {
+			say "SIP ($domain):";
+			say "\tproxy: $_" for format_srv($cans->answer);
 		}
 	}
 

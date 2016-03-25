@@ -59,6 +59,20 @@ sub get_spf {
 	return uniq @spf;
 }
 
+sub sort_srv {
+	sort {$a->priority <=> $b->priority}
+	sort {$a->weight <=> $b->weight}
+	sort {$a->target cmp $b->target}
+	grep {$_->type eq 'SRV'}
+	@_;
+}
+
+sub format_srv {
+	uniq
+	map {"[".$_->priority."] ".$_->target." :".$_->port}
+	sort_srv(@_);
+}
+
 for my $host (@ARGV) {
 	my $domain;
 	my @dom;
@@ -156,12 +170,7 @@ for my $host (@ARGV) {
 					$ans = $res->query("_kerberos-master._udp.$krealm", "SRV");
 					push @kdc, $ans->answer if defined $ans;
 					done;
-					say "\tkdc server: $_"
-						for uniq map {"[".$_->priority."] ".$_->target}
-						sort {$a->priority <=> $b->priority}
-						sort {$a->weight <=> $b->weight}
-						sort {$a->target cmp $b->target}
-						grep {$_->type eq 'SRV'} @kdc;
+					say "\tkdc server: $_" for format_srv(@kdc);
 				} else {
 					say "Kerberos: $krealm";
 				}
@@ -174,10 +183,7 @@ for my $host (@ARGV) {
 		($ans, $domain) = find_dom("_ldap._tcp", $host, "SRV");
 		if ($ans) {
 			my @bases;
-			my @servers =	sort {$a->priority <=> $b->priority}
-					sort {$a->weight <=> $b->weight}
-					sort {$a->target cmp $b->target}
-					grep {$_->type eq 'SRV'} $ans->answer;
+			my @servers = sort_srv($ans->answer);
 			for my $item (@servers) {
 				my $host = $item->target;
 				status "Looking up LDAP contexts on $host...";
@@ -209,32 +215,9 @@ for my $host (@ARGV) {
 		($sans, $domain) = find_dom("_xmpp-server._tcp", $host, "SRV");
 		done;
 		if ($cans || $sans) {
-			if ($do{verbose}) {
-				say "XMPP:";
-				say "\tdomain: $domain";
-				if ($cans) {
-					say "\tserver: $_" for
-						uniq
-						map {"[".$_->priority."] ".$_->target." :".$_->port}
-						sort {$a->priority <=> $b->priority}
-						sort {$a->weight <=> $b->weight}
-						sort {$a->target cmp $b->target}
-						grep {$_->type eq 'SRV'} $cans->answer;
-				}
-				if ($sans) {
-					say "\ts2s server: $_" for
-						uniq
-						map {"[".$_->priority."] ".$_->target." :".$_->port}
-						sort {$a->priority <=> $b->priority}
-						sort {$a->weight <=> $b->weight}
-						sort {$a->target cmp $b->target}
-						grep {$_->type eq 'SRV'} $sans->answer;
-				}
-			} else {
-				say "XMPP: $domain";
-				say "\t(no client access)" if !$cans;
-				say "\t(not federated)" if !$sans;
-			}
+			say "XMPP ($domain):";
+			if ($cans) { say "\tserver: $_" for format_srv($cans->answer); }
+			if ($sans) { say "\tserver: $_" for format_srv($sans->answer); }
 		}
 	}
 

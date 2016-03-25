@@ -152,30 +152,26 @@ for my $host (@ARGV) {
 	}
 
 	if ($do{kerberos}) {
-		my $krealm;
-		my @kdc;
 		status "Looking up Kerberos realm...";
-		($ans, $domain) = find_dom("_kerberos", $host, "TXT");
-		if ($ans) {
-			($krealm) =
+		$txt_ans = $res->query("_kerberos.$host", "TXT");
+		if ($txt_ans) {
+			($realm) =
 				grep {!/v=/}
 				map {$_->txtdata}
 				grep {$_->type eq "TXT"}
-				$ans->answer;
-		}
-		if ($krealm) {
-			status "Looking up Kerberos servers in $krealm...";
-			$ans = $res->query("_kerberos._udp.$krealm", "SRV");
+				$txt_ans->answer;
 		} else {
-			status "Looking up Kerberos servers...";
-			($ans, $domain) = find_dom("_kerberos._udp", $host, "SRV");
-			$krealm = uc($domain);
+			$realm = uc($host);
 		}
+		status "Looking up Kerberos servers in $realm...";
+		$udp_ans = $res->query("_kerberos._udp.$realm", "SRV");
 		done;
-		if ($ans || $krealm) {
+		if ($udp_ans || $txt_ans) {
 			say "Kerberos:";
-			say "\trealm: $krealm";
-			if ($ans) { say "\tkdc: $_" for format_srv($ans->answer); }
+			say "\trealm: $realm";
+			if ($udp_ans) {
+				say "\tkdc: $_" for format_srv($udp_ans->answer);
+			}
 		}
 	}
 

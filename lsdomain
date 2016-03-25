@@ -181,14 +181,24 @@ for my $host (@ARGV) {
 
 	if ($do{ldap}) {
 		status "Looking up LDAP servers...";
-		($ans, $domain) = find_dom("_ldap._tcp", $host, "SRV");
-		if ($ans) {
-			my @bases;
-			my @servers = sort_srv($ans->answer);
+		$tcp_ans = $res->query("_ldap._tcp.$host", "SRV");
+		$tls_ans = $res->query("_ldaps._tcp.$host", "SRV");
+		done;
+		if ($tcp_ans || $tls_ans) {
+			my (@servers, @bases);
+			say "LDAP:";
+			if ($tcp_ans) {
+				say "\tserver: $_ (TCP)" for format_srv($tcp_ans->answer);
+				push @servers, sort_srv($tcp_ans->answer);
+			}
+			if ($tls_ans) {
+				say "\tserver: $_ (TLS)" for format_srv($tls_ans->answer);
+				push @servers, sort_srv($tls_ans->answer);
+			}
 			for my $item (@servers) {
-				my $host = $item->target;
-				status "Looking up LDAP contexts on $host...";
-				my $ldap = Net::LDAP->new($host);
+				my $uri = $item->target;
+				status "Looking up LDAP contexts on $uri...";
+				my $ldap = Net::LDAP->new($uri);
 				if ($ldap) {
 					$ldap->bind;
 					my $res = $ldap->search(
@@ -206,24 +216,19 @@ for my $host (@ARGV) {
 				}
 			}
 			done;
-			say "LDAP:";
 			say "\tbase: $_" for @bases;
-			say "\tserver: $_"
-				for uniq map {"[".$_->priority."] ".$_->target}
-					@servers;
 		}
 	}
 
 	if ($do{xmpp}) {
 		status "Looking up XMPP servers...";
-		($cans, $domain) = find_dom("_xmpp-client._tcp", $host, "SRV");
-		($sans, $domain) = find_dom("_xmpp-server._tcp", $host, "SRV");
+		$client_ans = $res->query("_xmpp-client._tcp.$host", "SRV");
+		$server_ans = $res->query("_xmpp-server._tcp.$host", "SRV");
 		done;
-		if ($cans) {
+		if ($client_ans) {
 			say "XMPP:";
-			say "\tdomain: $domain";
-			say "\tserver: $_" for format_srv($cans->answer);
-			say "\t(not federated)" if !$sans;
+			say "\tserver: $_" for format_srv($client_ans->answer);
+			say "\t(not federated)" if !$server_ans;
 		}
 	}
 

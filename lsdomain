@@ -215,10 +215,11 @@ for my $host (@ARGV) {
 		($cans, $domain) = find_dom("_xmpp-client._tcp", $host, "SRV");
 		($sans, $domain) = find_dom("_xmpp-server._tcp", $host, "SRV");
 		done;
-		if ($cans || $sans) {
-			say "XMPP ($domain):";
-			if ($cans) { say "\tserver: $_" for format_srv($cans->answer); }
-			if ($sans) { say "\tserver: $_" for format_srv($sans->answer); }
+		if ($cans) {
+			say "XMPP:";
+			say "\tdomain: $domain";
+			say "\tserver: $_" for format_srv($cans->answer);
+			say "\t(not federated)" if !$sans;
 		}
 	}
 
@@ -227,7 +228,8 @@ for my $host (@ARGV) {
 		($cans, $domain) = find_dom("_sip._udp", $host, "SRV");
 		done;
 		if ($cans) {
-			say "SIP ($domain):";
+			say "SIP:";
+			say "\trealm: $domain";
 			say "\tproxy: $_" for format_srv($cans->answer);
 		}
 	}

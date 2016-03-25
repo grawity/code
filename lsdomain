@@ -156,26 +156,26 @@ for my $host (@ARGV) {
 		my @kdc;
 		status "Looking up Kerberos realm...";
 		($ans, $domain) = find_dom("_kerberos", $host, "TXT");
+		if ($ans) {
+			($krealm) =
+				grep {!/v=/}
+				map {$_->txtdata}
+				grep {$_->type eq "TXT"}
+				$ans->answer;
+		}
+		if ($krealm) {
+			status "Looking up Kerberos servers in $krealm...";
+			$ans = $res->query("_kerberos._udp.$krealm", "SRV");
+		} else {
+			status "Looking up Kerberos servers...";
+			($ans, $domain) = find_dom("_kerberos._udp", $host, "SRV");
+			$krealm = uc($domain);
+		}
 		done;
-		if ($ans && grep {$_->type eq 'TXT'} $ans->answer) {
-			$krealm = ($ans->answer)[0]->txtdata;
-			if ($krealm =~ /^v=/) {
-				$krealm = undef;
-			} else {
-				if ($do{verbose}) {
-					say "Kerberos:";
-					say "\trealm: $krealm";
-					status "Looking up Kerberos KDCs...";
-					$ans = $res->query("_kerberos._udp.$krealm", "SRV");
-					push @kdc, $ans->answer if defined $ans;
-					$ans = $res->query("_kerberos-master._udp.$krealm", "SRV");
-					push @kdc, $ans->answer if defined $ans;
-					done;
-					say "\tkdc server: $_" for format_srv(@kdc);
-				} else {
-					say "Kerberos: $krealm";
-				}
-			}
+		if ($ans || $krealm) {
+			say "Kerberos:";
+			say "\trealm: $krealm";
+			if ($ans) { say "\tkdc: $_" for format_srv($ans->answer); }
 		}
 	}
 
@@ -207,7 +207,7 @@ for my $host (@ARGV) {
 			}
 			done;
 			say "LDAP:";
-			say "\tbasedn: $_" for @bases;
+			say "\tbase: $_" for @bases;
 			say "\tserver: $_"
 				for uniq map {"[".$_->priority."] ".$_->target}
 					@servers;

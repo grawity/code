@@ -70,7 +70,7 @@ sub sort_srv {
 
 sub format_srv {
 	uniq
-	map {"[".$_->priority."] ".$_->target." :".$_->port}
+	map {"[".$_->priority."] ".$_->target.":".$_->port}
 	sort_srv(@_);
 }
 
@@ -229,12 +229,22 @@ for my $host (@ARGV) {
 
 	if ($do{sip}) {
 		status "Looking up SIP servers...";
-		($cans, $domain) = find_dom("_sip._udp", $host, "SRV");
+		# TODO: NAPTR
+		$udp_ans = $res->query("_sip._udp.$host", "SRV");
+		$tcp_ans = $res->query("_sip._tcp.$host", "SRV");
+		$tls_ans = $res->query("_sips._tcp.$host", "SRV");
 		done;
-		if ($cans) {
+		if ($udp_ans || $tcp_ans || $tls_ans) {
 			say "SIP:";
-			say "\trealm: $domain";
-			say "\tproxy: $_" for format_srv($cans->answer);
+			if ($udp_ans) {
+				say "\tproxy: $_ (UDP)" for format_srv($udp_ans->answer);
+			}
+			if ($tcp_ans) {
+				say "\tproxy: $_ (TCP)" for format_srv($tcp_ans->answer);
+			}
+			if ($tls_ans) {
+				say "\tproxy: $_ (TLS)" for format_srv($tls_ans->answer);
+			}
 		}
 	}
 

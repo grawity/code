@@ -191,13 +191,17 @@ for my $host (@ARGV) {
 				my $ldap = Net::LDAP->new($host);
 				if ($ldap) {
 					$ldap->bind;
-					my $res = $ldap->search(base => '',
-							scope => 'base',
-							filter => q(objectClass=*),
-							attrs => ['+']);
+					my $res = $ldap->search(
+						base => "",
+						scope => "base",
+						filter => q(objectClass=*),
+						attrs => ["+"],
+					);
 					$ldap->unbind;
-					push @bases, $_->get_value("namingContexts")
-						for $res->entries;
+					push @bases,
+						grep {$_ ne ""}
+						map {$_->get_value("namingContexts")}
+						$res->entries;
 					last;
 				}
 			}

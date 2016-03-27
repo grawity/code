@@ -10,8 +10,11 @@ import sys
 from functools import lru_cache
 from pprint import pprint
 
-def _log(s):
-    print("~", s, file=sys.stderr)
+def _err(fmt, *a):
+    print("error:", fmt % a, file=sys.stderr)
+
+def _log(fmt, *a):
+    print("~", fmt % a, file=sys.stderr)
 
 def filter_filename(name):
     xlat = [
@@ -117,7 +120,7 @@ def rename_file_in_dir(dirpath, filename):
     m = bare_re.match(filename)
     if m:
         old_path = os.path.join(dirpath, filename)
-        print(old_path, end=" ")
+        print(old_path, end=" ", flush=True)
         illust_id = int(m.group(1))
         prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
         filename = prefix + " " + filename
@@ -130,6 +133,8 @@ pixiv_api = PixivApi()
 
 args = sys.argv[1:] or ["."]
 for arg in args:
+    if not os.path.exists(arg):
+        _err("path %r does not exist" % arg)
     if os.path.isdir(arg):
         for dirpath, dirnames, filenames in os.walk(arg):
             for filename in filenames:

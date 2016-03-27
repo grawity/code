@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import bs4
+from nullroute import Core
 import nullroute.sec
 import os
 import pixivpy3
@@ -9,12 +10,6 @@ import sys
 
 from functools import lru_cache
 from pprint import pprint
-
-def _err(fmt, *a):
-    print("error:", fmt % a, file=sys.stderr)
-
-def _log(fmt, *a):
-    print("~", fmt % a, file=sys.stderr)
 
 def filter_filename(name):
     xlat = [
@@ -60,7 +55,7 @@ class PixivApi(object):
     @lru_cache(maxsize=1024)
     def scrape_member_name_by_member_id(self, member_id):
         url = "http://www.pixiv.net/member.php?id=%s" % member_id
-        _log("fetching %s" % url)
+        Core.log("fetching %s" % url)
         resp = requests.get(url)
         resp.raise_for_status()
         body = bs4.BeautifulSoup(resp.content, "lxml")
@@ -71,7 +66,7 @@ class PixivApi(object):
 
     def scrape_member_id_by_illust_id(self, illust_id):
         url = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
-        _log("fetching %s" % url)
+        Core.log("fetching %s" % url)
         resp = requests.get(url)
         resp.raise_for_status()
         m = re.search(r'"/?member\.php\?id=(\d+)"',
@@ -110,7 +105,7 @@ class PixivApi(object):
             prefix = "%(name)s_pixiv%(id)s" % resp["user"]
             return filter_filename(prefix)
         except ValueError as e:
-            _log(e)
+            Core.err(e)
             member_id = self.scrape_member_id_by_illust_id(illust_id)
             member_name = self.scrape_member_name_by_member_id(member_id)
             prefix = "%s_pixiv%s" % (member_name, member_id)
@@ -134,7 +129,7 @@ pixiv_api = PixivApi()
 args = sys.argv[1:] or ["."]
 for arg in args:
     if not os.path.exists(arg):
-        _err("path %r does not exist" % arg)
+        Core.err("path %r does not exist" % arg)
     if os.path.isdir(arg):
         for dirpath, dirnames, filenames in os.walk(arg):
             for filename in filenames:

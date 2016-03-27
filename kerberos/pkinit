@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
+
 if [[ $1 == -f ]]; then
 	# Running from PAM
 	(su -l -c "'$0'" "$PAM_USER" |& logger -p user.debug -t pkinit) &
 	exit
 fi
+
+err() { echo "error: $*" >&2; false; }
+die() { err "$@"; exit; }
 
 opt_identity=
 opt_principal=
@@ -17,10 +21,13 @@ done
 
 if [[ ! $opt_principal ]]; then
 	opt_principal="$(whoami)@$(pklist -R)"
+	if [[ $opt_principal == *@ ]]; then
+		die "could not determine default realm"
+	fi
 fi
 
 if [[ -f $opt_identity ]]; then
-	opt_identity="FILE:$(readlink -f "$opt_identity")"
+	opt_identity="FILE:$(realpath -s "$opt_identity")"
 fi
 
 kinit -X "X509_user_identity=$opt_identity" "$opt_principal"

@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 
+if [[ $1 == -v ]]; then
+	arg=-v
+	shift
+else
+	arg=-n
+fi
+
 find "$@" -type f -name '*\[*\]*Imgur.*' |
 while read -r f; do
 	export h=$(sha1sum "$f" | awk '{print $1}')
-	prename -v -b -i '
+	prename $arg -b -i '
 	# entities
 		s/&#(\d+)/chr($1)/ge;
 		s/&quot;//g;

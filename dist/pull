@@ -109,5 +109,27 @@ else
 		)
 	fi &
 
+	if [ -f ~/.forward ] && [ ! -k ~/.forward ] && [ ! -L ~/.forward ]; then
+		fwd=$(cat ~/.forward)
+		case $fwd in grawity@*)
+			echo "found '$fwd' in ~/.forward, adjusting via sendmail"
+			if [ -x /usr/sbin/sendmail ]; then
+				sendmail=/usr/sbin/sendmail
+			elif [ -x /usr/lib/sendmail ]; then
+				sendmail=/usr/lib/sendmail
+			else
+				sendmail=
+			fi
+			if [ "$sendmail" ]; then
+				echo "- found sendmail at $sendmail"
+				echo "\"|$sendmail -i $fwd\"" > ~/forward
+				echo "- new contents: $(cat ~/.forward)"
+			else
+				echo "- sendmail not found"
+				echo "- fix $(hostname):$HOME/.forward manually!"
+			fi
+		esac
+	fi &
+
 	wait
 fi

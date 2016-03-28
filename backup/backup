@@ -6,16 +6,23 @@ progname_prefix=0
 
 # configuration
 
-config_file=$path_config/backup.conf.sh
+local_config_file=$path_config/backup.conf.sh
+sync_config_file=~/Dropbox/Apps/.config/backup.conf.sh
 
 declare -a annexes=(~/Attic/{Annex,Software,Videos,Anime})
 declare -a hosts=()
 declare -- push_volume=
 
-if [[ -f $config_file ]]; then
-	. "$config_file" || die "failed to load configuration from '$config_file'"
+if [[ -f $local_config_file ]]; then
+	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
 else
-	warn "config file '$config_file' missing"
+	warn "config file '$local_config_file' missing"
+fi
+
+if [[ -f $sync_config_file ]]; then
+	. "$sync_config_file" || die "failed to load configuration from '$sync_config_file'"
+else
+	warn "config file '$sync_config_file' missing"
 fi
 
 declare -r annexes

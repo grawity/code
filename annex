@@ -173,6 +173,12 @@ case $cmd in
                 else
                     debug "skipping '$file' (already present in web)"
                 fi
+
+                url=$(attr -L -q -g xdg.referrer.url "$file" 2>/dev/null)
+                if [[ $url == @(http|https|ftp)://* ]]; then
+                    debug "maybe adding referer URL '$url' to file '$file'"
+                    git annex metadata --set "referer?=$url" "$file" >/dev/null
+                fi
             fi
         done
         ;;

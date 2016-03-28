@@ -17,8 +17,6 @@ is_remote!() {
     fi
 }
 
-set -e
-
 cmd=$1; shift || true
 
 case $cmd in
@@ -150,30 +148,46 @@ case $cmd in
     addurls|registerurls)
         shopt -s nullglob
         if (( ! $# )); then
-            set -- * **/*
+            set -- **
         fi
-        for f; do
-            if [[ -d $f ]]; then
+        for file; do
+            if [[ -d $file ]]; then
                 :
-            elif [[ -L $f && ! -e $f ]]; then
-                notice "item '$f' is a broken symlink"
-            elif [[ ! -f $f ]]; then
-                warn "item '$f' is not a file" || true
+            elif [[ -L $file && ! -e $file ]]; then
+                :
+            elif [[ ! -f $file ]]; then
+                warn "item '$file' is not a file" || true
             else
-                u=$(attr -L -q -g xdg.origin.url "$f" 2>/dev/null || true)
-                if [[ ! $u ]]; then
-                    warn "no origin URL for file '$f'"
-                elif [[ $u != @(http|https|ftp)://* ]]; then
-                    err "file '$f' has weird origin URL '$u'"
+                git annex add "$file"
+
+                if ! annex hasurls "$file"; then
+                    url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
+                    if [[ $url == @(http|https|ftp)://* ]]; then
+                        debug "adding origin URL '$url' to file '$file'"
+                        git annex addurl --file="$file" "$url"
+                    elif [[ $url ]]; then
+                        warn "ignoring non-web origin '$url' for file '$file'"
+                    else
+                        warn "no origin URL for file '$file'"
+                    fi
                 else
-                    annex add "$f"
-                    annex addurl --file="$f" "$u"
-                fi || continue
+                    debug "skipping '$file' (already present in web)"
+                fi
             fi
         done
         ;;
+    hasurls)
+        r=0
+        for file; do
+            if key=$(git annex lookupkey "$file"); then
+                git annex readpresentkey "$key" "00000000-0000-0000-0000-000000000001"
+                (( r += $? ))
+            fi
+        done
+        (( !r ))
+        ;;
     commit|ci)
-        annex sync --no-pull --no-push
+        git annex sync --no-pull --no-push
         ;;
     dupes)
         find "$(git rev-parse --git-dir)/annex/objects" \

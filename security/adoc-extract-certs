@@ -21,22 +21,29 @@ sub bigint_hex {
     }
 }
 
-sub parse_sig_xml {
+sub parse_xmldsig {
     my ($data) = @_;
 
     my $xs = XML::Simple->new;
+    my $xml = $xs->XMLin($data,
+                         NSExpand => 1,
+                         ForceArray => [
+                            "{http://www.w3.org/2000/09/xmldsig#}Signature",
+                         ]);
 
-    $data = $xs->XMLin($data, NSExpand => 1);
-    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}Signature"};
-    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"};
-    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"};
-    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"};
-    if (!$data) {
-        _err("could not find //Signature/KeyInfo/X509Data/X509Certificate");
-        return;
+    if ($::debug >= 2) {
+        require Data::Dumper;
+        print Data::Dumper->new([$xml])->Indent(1)->Dump;
     }
-    $data = decode_base64($data);
-    return $data;
+
+    if (my $data = $xml->{"{http://www.w3.org/2000/09/xmldsig#}Signature"}) {
+        return map {decode_base64($_)}
+               map {
+                    $_->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"}
+                      ->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"}
+                      ->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"}
+               } @$data;
+    }
 }
 
 sub safe_filename {
@@ -124,11 +131,11 @@ for my $adoc (@ARGV) {
         for my $sig_file (@sigs) {
             _debug("- found sig file '".$sig_file->{fileName}."'");
             my $data = $zip->contents($sig_file);
-            if ($data) {
-                my $cert_der = parse_sig_xml($data);
-                write_certificate($cert_der);
+            my @cert_der = parse_xmldsig($data);
+            if (@cert_der) {
+                write_certificate($_) for @cert_der;
             } else {
-                _err("did not find any certificates in '".$sig_file->{fileName}."'");
+                _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
             }
         }
     }

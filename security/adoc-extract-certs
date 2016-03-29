@@ -7,9 +7,13 @@ use Archive::Zip qw(:ERROR_CODES);
 use Crypt::X509;
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
+use File::Spec::Functions qw(catfile);
+use Getopt::Long qw(:config bundling no_ignore_case);
 use MIME::Base64;
 use Nullroute::Lib;
 use XML::Simple;
+
+my %Opt;
 
 sub bigint_hex {
     my ($i) = @_;
@@ -83,11 +87,13 @@ sub write_certificate {
     my ($cert_der) = @_;
     state %seen;
 
-    my $out_file = make_cert_filename($cert_der);
     if ($seen{$cert_der}++) {
         _debug("certificate already seen, skipping");
         return;
     }
+
+    my $out_dir = $Opt{output_dir} // ".";
+    my $out_file = catfile($out_dir, make_cert_filename($cert_der));
     overwrite_check:
     if (-e $out_file) {
         if (open(my $f, "<:raw", $out_file)) {
@@ -99,7 +105,7 @@ sub write_certificate {
                 return;
             } else {
                 _debug("different certificate stored, trying next filename");
-                $out_file = increment_filename($out_file);
+                $out_file = catfile($out_dir, increment_filename($out_file));
                 goto overwrite_check;
             }
         }
@@ -115,6 +121,10 @@ sub write_certificate {
 }
 
 utf8::decode($_) for @ARGV;
+
+GetOptions(
+    "o|output-dir=s" => \$Opt{output_dir},
+);
 
 for my $adoc (@ARGV) {
     if (! -e $adoc) {

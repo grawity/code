@@ -106,15 +106,16 @@ for my $adoc (@ARGV) {
     if (! -e $adoc) {
         _err("skipping '$adoc': does not exist");
     }
-    elsif ($adoc =~ /\.adoc$/i) {
+    elsif ($adoc =~ /\.(adoc|bdoc|asice|sce)$/i) {
         _log2("parsing '$adoc'");
         my $zip = Archive::Zip->new;
         if ($zip->read($adoc) != AZ_OK) {
             _die("could not read file '$adoc'");
         }
 
-        my @sigs = $zip->membersMatching("^META-INF/signatures/signatures.*\\.xml\$");
+        my @sigs = $zip->membersMatching("^META-INF/(signatures/)?signatures.*\\.xml\$");
         for my $sig_file (@sigs) {
+            _debug("- found sig file '".$sig_file->{fileName}."'");
             my $data = $zip->contents($sig_file);
             my $cert_der = parse_sig_xml($data);
             write_certificate($cert_der);

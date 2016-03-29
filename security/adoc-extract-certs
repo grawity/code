@@ -139,6 +139,19 @@ for my $adoc (@ARGV) {
             }
         }
     }
+    elsif ($adoc =~ /\.ddoc$/i) {
+        _log2("parsing '$adoc' (DigiDoc)");
+
+        if (open(my $f, "<:raw", $adoc)) {
+            my @cert_der = parse_xmldsig($f);
+            if (@cert_der) {
+                write_certificate($_) for @cert_der;
+            } else {
+                _err("no certificates found in '$adoc'");
+            }
+            $f->close;
+        }
+    }
     elsif ($adoc =~ /\.(crt|cert|cer)$/i) {
         _log2("parsing bare certificate '$adoc'");
 

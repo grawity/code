@@ -26,8 +26,11 @@ sub parse_sig_xml {
 
     my $xs = XML::Simple->new;
 
-    $data = $xs->XMLin($data);
-    $data = $data->{Signature}->{KeyInfo}->{X509Data}->{X509Certificate};
+    $data = $xs->XMLin($data, NSExpand => 1);
+    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}Signature"};
+    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"};
+    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"};
+    $data = $data->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"};
     if (!$data) {
         _err("could not find //Signature/KeyInfo/X509Data/X509Certificate");
         return;

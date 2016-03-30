@@ -42,10 +42,11 @@ sub parse_xmldsig {
 
     if (my $data = $xml->{"{http://www.w3.org/2000/09/xmldsig#}Signature"}) {
         map {decode_base64($_)}
-            map {$_->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"}
-                   ->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"}
-                   ->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"}}
-                @$data;
+            map {ref($_) eq "HASH" ? $_->{"content"} : $_}
+                map {$_->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"}
+                       ->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"}
+                       ->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"}}
+                    @$data;
     }
 }
 

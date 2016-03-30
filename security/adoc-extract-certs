@@ -59,9 +59,8 @@ sub safe_filename {
 }
 
 sub make_cert_filename {
-    my ($cert_der) = @_;
+    my ($cert) = @_;
 
-    my $cert = Crypt::X509->new(cert => $cert_der);
     _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
 
     my $issuer = safe_filename($cert->issuer_cn);
@@ -93,8 +92,14 @@ sub write_certificate {
         return;
     }
 
+    my $cert = Crypt::X509->new(cert => $cert_der);
+    if (!$cert || $cert->{_error}) {
+        _err("could not parse certificate");
+        return;
+    }
+
     my $out_dir = $Opt{output_dir} // ".";
-    my $out_file = catfile($out_dir, make_cert_filename($cert_der));
+    my $out_file = catfile($out_dir, make_cert_filename($cert));
     overwrite_check:
     if (-e $out_file) {
         if (open(my $f, "<:raw", $out_file)) {

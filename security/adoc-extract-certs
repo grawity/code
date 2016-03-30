@@ -123,15 +123,38 @@ sub write_certificate {
 utf8::decode($_) for @ARGV;
 
 GetOptions(
+    "format=s" => \$Opt{force_format},
     "o|output-dir=s" => \$Opt{output_dir},
 );
 
 for my $adoc (@ARGV) {
+    my $format;
+
     if (! -e $adoc) {
         _err("skipping '$adoc': does not exist");
     }
+    elsif ($Opt{force_format}) {
+        $format = $Opt{force_format};
+    }
     elsif ($adoc =~ /\.(adoc|bdoc|asice|sce)$/i) {
-        _log2("parsing '$adoc'");
+        $format = "asic-e";
+    }
+    elsif ($adoc =~ /\.(ddoc|xml)$/i) {
+        $format = "xml-dsig";
+    }
+    elsif ($adoc =~ /\.(crt|cert|cer|pem)$/i) {
+        $format = "x509";
+    }
+    else {
+        _err("skipping '$adoc': unknown file format");
+    }
+
+    if (!$format) {
+        next;
+    }
+    elsif ($format =~ /^(adoc|bdoc|asic-e)$/) {
+        _log2("parsing '$adoc' (ADOC or ASiC-E)");
+
         my $zip = Archive::Zip->new;
         if ($zip->read($adoc) != AZ_OK) {
             _die("could not read file '$adoc'");
@@ -149,8 +172,8 @@ for my $adoc (@ARGV) {
             }
         }
     }
-    elsif ($adoc =~ /\.ddoc$/i) {
-        _log2("parsing '$adoc' (DigiDoc)");
+    elsif ($format eq "digidoc" || $format eq "xml-dsig") {
+        _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
 
         if (open(my $f, "<:raw", $adoc)) {
             my @cert_der = parse_xmldsig($f);
@@ -162,7 +185,7 @@ for my $adoc (@ARGV) {
             $f->close;
         }
     }
-    elsif ($adoc =~ /\.(crt|cert|cer)$/i) {
+    elsif ($format eq "x509") {
         _log2("parsing bare certificate '$adoc'");
 
         if (open(my $f, "<:raw", $adoc)) {
@@ -179,7 +202,7 @@ for my $adoc (@ARGV) {
         }
     }
     else {
-        _err("skipping '$adoc': not an .adoc file");
+        _err("unknown file format '$format'");
     }
 }
 

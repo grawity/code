@@ -3,21 +3,25 @@
 
 . lib.bash || exit
 
-for dir; do
-	dir=${dir%/}
+shopt -s dotglob
 
-	shopt -s dotglob
+for dir; do
+	if [[ ! -d "$dir" ]]; then
+		err "item '$dir' is not a directory"
+		continue
+	fi
+	dir=${dir%/}
 
 	for file in "$dir"/*; do
 		file=${file#"$dir/"}
 		if [[ "$file" == . || "$file" == .. ]]; then
-			continue
+			:
 		elif [[ -e "$file" ]]; then
 			err "file would conflict: '$file'"
 		fi
 	done
 
-	(( ! errors )) || exit
+	(( !errors )) || continue
 
 	find "$dir" -mindepth 1 -maxdepth 1 \
 		-not -name "$dir" \
@@ -25,3 +29,5 @@ for dir; do
 
 	rmdir -v "$dir"
 done
+
+lib::exit

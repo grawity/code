@@ -3,6 +3,8 @@
 . lib.bash || exit
 . libks.bash || exit
 
+annexes=(~/Attic/{Anime,Annex,Software,Videos})
+
 is_git() { git rev-parse --git-dir >&/dev/null; }
 
 is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
@@ -20,6 +22,15 @@ is_remote!() {
 cmd=$1; shift || true
 
 case $cmd in
+    each)
+        for dir in "${annexes[@]}"; do
+            log2 "running '$1' in $dir"
+            (cd "$dir" && annex "$@")
+            if (( r=$? )); then
+                err "command returned $r (in $dir)"
+            fi
+        done
+        ;;
     setup)
         name=$1
         dir=$PWD/$name
@@ -244,5 +255,7 @@ case $cmd in
         exec git annex "$@"
         ;;
 esac
+
+lib::exit
 
 # vim: ts=4:sw=4:et

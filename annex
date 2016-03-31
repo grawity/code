@@ -19,9 +19,22 @@ is_remote!() {
     fi
 }
 
-cmd=$1; shift || true
+cmd=$1; shift
 
 case $cmd in
+    @*)
+        name=${cmd#@}
+        if ! path=$(git config remote.$name.url); then
+            err "remote '$name' not found"
+        elif [[ $path != /* ]]; then
+            err "remote '$name' has a non-local URL '$path'"
+        elif [[ ! -d $path ]]; then
+            err "remote path '$path' does not exist"
+        else
+            log "running '$1' in $path"
+            (cd "$path" && annex "$@")
+        fi
+        ;;
     each)
         for dir in "${annexes[@]}"; do
             log2 "running '$1' in $dir"

@@ -26,11 +26,12 @@ sub bigint_hex {
 }
 
 sub parse_xmldsig {
-    my ($data) = @_;
+    my ($data, $atroot) = @_;
 
     my $xs = XML::Simple->new;
     my $xml = $xs->XMLin($data,
                          NSExpand => 1,
+                         KeepRoot => $atroot,
                          ForceContent => 1,
                          ForceArray => [
                             "{http://www.w3.org/2000/09/xmldsig#}Signature",
@@ -171,6 +172,9 @@ for my $adoc (@ARGV) {
     elsif ($adoc =~ /\.od[pst]$/i) {
         $format = "opendocument";
     }
+    elsif ($adoc =~ /\.(doc|xls|ppt)[xm]$/i) {
+        $format = "ooxml";
+    }
     elsif ($adoc =~ /\.(ddoc|xml)$/i) {
         $format = "xml-dsig";
     }
@@ -195,6 +199,12 @@ for my $adoc (@ARGV) {
         process_zip($adoc,
                     "^META-INF/documentsignatures\\.xml\$",
                     \&parse_xmldsig);
+    }
+    elsif ($format eq "ooxml") {
+        _log2("parsing '$adoc' (Office Open XML)");
+        process_zip($adoc,
+                    "^_xmlsignatures/sig\\d+\\.xml\$",
+                    sub { parse_xmldsig(@_, 1) });
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");

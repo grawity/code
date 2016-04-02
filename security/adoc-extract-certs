@@ -147,6 +147,9 @@ for my $adoc (@ARGV) {
     elsif ($adoc =~ /\.(adoc|bdoc|asice|sce)$/i) {
         $format = "asic-e";
     }
+    elsif ($adoc =~ /\.od[pst]$/i) {
+        $format = "opendocument";
+    }
     elsif ($adoc =~ /\.(ddoc|xml)$/i) {
         $format = "xml-dsig";
     }
@@ -169,6 +172,26 @@ for my $adoc (@ARGV) {
         }
 
         my @sigs = $zip->membersMatching("^META-INF/(signatures/)?signatures.*\\.xml\$");
+        for my $sig_file (@sigs) {
+            _debug("- found sig file '".$sig_file->{fileName}."'");
+            my $data = $zip->contents($sig_file);
+            my @cert_der = parse_xmldsig($data);
+            if (@cert_der) {
+                write_certificate($_) for @cert_der;
+            } else {
+                _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
+            }
+        }
+    }
+    elsif ($format eq "opendocument") {
+        _log2("parsing '$adoc' (OpenDocument)");
+
+        my $zip = Archive::Zip->new;
+        if ($zip->read($adoc) != AZ_OK) {
+            _die("could not read file '$adoc'");
+        }
+
+        my @sigs = $zip->membersMatching("^META-INF/documentsignatures\\.xml\$");
         for my $sig_file (@sigs) {
             _debug("- found sig file '".$sig_file->{fileName}."'");
             my $data = $zip->contents($sig_file);

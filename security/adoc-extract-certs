@@ -63,8 +63,6 @@ sub safe_filename {
 sub make_cert_filename {
     my ($cert) = @_;
 
-    _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
-
     my $issuer = safe_filename($cert->issuer_cn);
     my $subj = safe_filename($cert->subject_cn);
     my $serial = bigint_hex($cert->serial);
@@ -99,6 +97,8 @@ sub write_certificate {
         _err("could not parse certificate");
         return;
     }
+
+    _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
 
     my $out_dir = $Opt{output_dir} // ".";
     my $out_file = catfile($out_dir, make_cert_filename($cert));

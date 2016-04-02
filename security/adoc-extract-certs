@@ -53,27 +53,6 @@ sub parse_xmldsig {
     }
 }
 
-sub process_zip {
-    my ($adoc, $sig_regex, $parse_func) = @_;
-
-    my $zip = Archive::Zip->new;
-    if ($zip->read($adoc) != AZ_OK) {
-        _die("could not read file '$adoc'");
-    }
-
-    my @sigs = $zip->membersMatching($sig_regex);
-    for my $sig_file (@sigs) {
-        _debug("- found sig file '".$sig_file->{fileName}."'");
-        my $data = $zip->contents($sig_file);
-        my @cert_der = $parse_func->($data);
-        if (@cert_der) {
-            write_certificate($_) for @cert_der;
-        } else {
-            _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
-        }
-    }
-}
-
 sub safe_filename {
     my ($str) = @_;
 
@@ -146,6 +125,27 @@ sub write_certificate {
         $f->close;
     } else {
         _err("could not open '$out_file': $!");
+    }
+}
+
+sub process_zip {
+    my ($adoc, $sig_regex, $parse_func) = @_;
+
+    my $zip = Archive::Zip->new;
+    if ($zip->read($adoc) != AZ_OK) {
+        _die("could not read file '$adoc'");
+    }
+
+    my @sigs = $zip->membersMatching($sig_regex);
+    for my $sig_file (@sigs) {
+        _debug("- found sig file '".$sig_file->{fileName}."'");
+        my $data = $zip->contents($sig_file);
+        my @cert_der = $parse_func->($data);
+        if (@cert_der) {
+            write_certificate($_) for @cert_der;
+        } else {
+            _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
+        }
     }
 }
 

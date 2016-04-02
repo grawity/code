@@ -147,28 +147,6 @@ case $cmd in
             }
         '
         ;;
-    hash)
-        for f; do
-            n=${f##*/}
-            e=$(echo "$n" | perl -ne '
-                no locale;
-                chomp;
-                s/[^a-z0-9.]//g;
-                @ext = reverse grep {length($_) <= 4} split(/\./);
-                print @ext ? join(".", "", reverse grep {defined} @ext[0..1]) : "";
-            ')
-            s=$(stat -c %s "$f")
-            h=$(sha256sum "$f")
-            h=${h%% *}
-            echo "SHA256E-s$s--$h$e"
-        done
-        ;;
-    inject)
-        for f; do
-            h=$(annex hash "$f")
-            git annex setkey "$h" "$f"
-        done
-        ;;
     addurls|registerurls)
         shopt -s nullglob
         if (( ! $# )); then

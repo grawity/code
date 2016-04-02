@@ -53,8 +53,8 @@ sub parse_xmldsig {
     }
 }
 
-sub process_zip_xmldsig {
-    my ($adoc, $sig_regex) = @_;
+sub process_zip {
+    my ($adoc, $sig_regex, $parse_func) = @_;
 
     my $zip = Archive::Zip->new;
     if ($zip->read($adoc) != AZ_OK) {
@@ -65,7 +65,7 @@ sub process_zip_xmldsig {
     for my $sig_file (@sigs) {
         _debug("- found sig file '".$sig_file->{fileName}."'");
         my $data = $zip->contents($sig_file);
-        my @cert_der = parse_xmldsig($data);
+        my @cert_der = $parse_func->($data);
         if (@cert_der) {
             write_certificate($_) for @cert_der;
         } else {
@@ -186,11 +186,15 @@ for my $adoc (@ARGV) {
     }
     elsif ($format =~ /^(adoc|bdoc|asic-e)$/) {
         _log2("parsing '$adoc' (ADOC or ASiC-E)");
-        process_zip_xmldsig($adoc, "^META-INF/(signatures/)?signatures.*\\.xml\$");
+        process_zip($adoc,
+                    "^META-INF/(signatures/)?signatures.*\\.xml\$",
+                    \&parse_xmldsig);
     }
     elsif ($format eq "opendocument") {
         _log2("parsing '$adoc' (OpenDocument)");
-        process_zip_xmldsig($adoc, "^META-INF/documentsignatures\\.xml\$");
+        process_zip($adoc,
+                    "^META-INF/documentsignatures\\.xml\$",
+                    \&parse_xmldsig);
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");

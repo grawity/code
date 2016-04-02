@@ -26,12 +26,12 @@ sub bigint_hex {
 }
 
 sub parse_xmldsig {
-    my ($data, $atroot) = @_;
+    my ($data, %opt) = @_;
 
     my $xs = XML::Simple->new;
     my $xml = $xs->XMLin($data,
                          NSExpand => 1,
-                         KeepRoot => $atroot,
+                         KeepRoot => $opt{KeepRoot},
                          ForceContent => 1,
                          ForceArray => [
                             "{http://www.w3.org/2000/09/xmldsig#}Signature",
@@ -204,7 +204,7 @@ for my $adoc (@ARGV) {
         _log2("parsing '$adoc' (Office Open XML)");
         process_zip($adoc,
                     "^_xmlsignatures/sig\\d+\\.xml\$",
-                    sub { parse_xmldsig(@_, 1) });
+                    sub { parse_xmldsig(@_, KeepRoot => 1) });
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");

@@ -53,6 +53,27 @@ sub parse_xmldsig {
     }
 }
 
+sub process_zip_xmldsig {
+    my ($adoc, $sig_regex) = @_;
+
+    my $zip = Archive::Zip->new;
+    if ($zip->read($adoc) != AZ_OK) {
+        _die("could not read file '$adoc'");
+    }
+
+    my @sigs = $zip->membersMatching($sig_regex);
+    for my $sig_file (@sigs) {
+        _debug("- found sig file '".$sig_file->{fileName}."'");
+        my $data = $zip->contents($sig_file);
+        my @cert_der = parse_xmldsig($data);
+        if (@cert_der) {
+            write_certificate($_) for @cert_der;
+        } else {
+            _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
+        }
+    }
+}
+
 sub safe_filename {
     my ($str) = @_;
 
@@ -165,43 +186,11 @@ for my $adoc (@ARGV) {
     }
     elsif ($format =~ /^(adoc|bdoc|asic-e)$/) {
         _log2("parsing '$adoc' (ADOC or ASiC-E)");
-
-        my $zip = Archive::Zip->new;
-        if ($zip->read($adoc) != AZ_OK) {
-            _die("could not read file '$adoc'");
-        }
-
-        my @sigs = $zip->membersMatching("^META-INF/(signatures/)?signatures.*\\.xml\$");
-        for my $sig_file (@sigs) {
-            _debug("- found sig file '".$sig_file->{fileName}."'");
-            my $data = $zip->contents($sig_file);
-            my @cert_der = parse_xmldsig($data);
-            if (@cert_der) {
-                write_certificate($_) for @cert_der;
-            } else {
-                _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
-            }
-        }
+        process_zip_xmldsig($adoc, "^META-INF/(signatures/)?signatures.*\\.xml\$");
     }
     elsif ($format eq "opendocument") {
         _log2("parsing '$adoc' (OpenDocument)");
-
-        my $zip = Archive::Zip->new;
-        if ($zip->read($adoc) != AZ_OK) {
-            _die("could not read file '$adoc'");
-        }
-
-        my @sigs = $zip->membersMatching("^META-INF/documentsignatures\\.xml\$");
-        for my $sig_file (@sigs) {
-            _debug("- found sig file '".$sig_file->{fileName}."'");
-            my $data = $zip->contents($sig_file);
-            my @cert_der = parse_xmldsig($data);
-            if (@cert_der) {
-                write_certificate($_) for @cert_der;
-            } else {
-                _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
-            }
-        }
+        process_zip_xmldsig($adoc, "^META-INF/documentsignatures\\.xml\$");
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");

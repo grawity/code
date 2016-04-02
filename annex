@@ -212,9 +212,11 @@ case $cmd in
             if key=$(git annex lookupkey "$file"); then
                 git annex readpresentkey "$key" "00000000-0000-0000-0000-000000000001"
                 (( r += $? ))
+            else
+                (( r += 1 ))
             fi
         done
-        (( !r ))
+        (( r == 0 ))
         ;;
     commit|ci)
         git annex sync --no-pull --no-push
@@ -269,6 +271,6 @@ case $cmd in
         ;;
 esac
 
-lib::exit
+exit $(( $? ? $? : errors ))
 
 # vim: ts=4:sw=4:et

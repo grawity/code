@@ -14,6 +14,7 @@ sub usage {
 	"    -D    decode + as space\n",
 	"    -o    oct-encode (\\123)\n",
 	"    -p    encode full path (allowing slashes)\n",
+	"    -L    encode LDAP DN (allowing =)\n",
 	"    -q    encode quoted-printable\n",
 	"    -P    do not encode parentheses\n",
 	"    -r    do not print newline\n",
@@ -60,7 +61,10 @@ sub encode {
 		s/>/&gt;/g;
 		s/"/&quot;/g;
 	} else {
-		s/[^\/A-Za-z0-9_.!~*'()-]/sprintf("%%%02X", ord($&))/gse;
+		s/[^\/A-Za-z0-9_.!~*',=()-]/sprintf("%%%02X", ord($&))/gse;
+		if (!$opts{format_ldap_dn}) {
+			s/[,=]/sprintf("%%%02X", ord($&))/gse;
+		}
 		if (!$opts{format_url_with_slashes}) {
 			s/\//sprintf("%%%02X", ord($&))/gse;
 		}
@@ -82,13 +86,14 @@ sub process {
 }
 
 GetOptions(
-	"A|mq" => \$opts{format_mq},
 	"d|decode" => \$opts{decode},
 	"D|decode-plus" => \$opts{decode_plus},
 	"o|octal" => \$opts{format_c_octal},
 	"p|path" => \$opts{format_url_with_slashes},
 	"P|parens" => \$opts{format_url_with_parens},
 	"q|quoted-printable" => \$opts{format_QP},
+	"ldap-dn" => \$opts{format_ldap_dn},
+	"mq" => \$opts{format_mq},
 	"r|raw!" => \$opts{raw_newline},
 	"S|safe-filename" => \$opts{safe_filename},
 	"x|hex" => \$opts{format_c_hex},

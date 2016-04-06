@@ -148,6 +148,8 @@ case $cmd in
         '
         ;;
     addurls|registerurls)
+        git annex add "$@"
+
         if (( $# )); then
             printf '%s\n' "$@"
         else
@@ -160,20 +162,14 @@ case $cmd in
             elif [[ ! -f $file ]]; then
                 warn "item '$file' is not a file" || true
             else
-                git annex add "$file"
-
-                if ! annex hasurls "$file"; then
-                    url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
-                    if [[ $url == @(http|https|ftp)://* ]]; then
-                        debug "adding origin URL '$url' to file '$file'"
-                        git annex addurl --file="$file" "$url"
-                    elif [[ $url ]]; then
-                        warn "ignoring non-web origin '$url' for file '$file'"
-                    else
-                        warn "no origin URL for file '$file'"
-                    fi
+                url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
+                if [[ $url == @(http|https|ftp)://* ]]; then
+                    debug "adding origin URL '$url' to file '$file'"
+                    git annex addurl --file="$file" "$url"
+                elif [[ $url ]]; then
+                    warn "ignoring non-web origin '$url' for file '$file'"
                 else
-                    echo "skipping '$file' (already present in web)"
+                    warn "no origin URL for file '$file'"
                 fi
 
                 url=$(attr -L -q -g xdg.referrer.url "$file" 2>/dev/null)

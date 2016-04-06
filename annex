@@ -160,18 +160,18 @@ case $cmd in
             elif [[ -L $file && ! -e $file ]]; then
                 :
             elif [[ ! -f $file ]]; then
-                warn "item '$file' is not a file" || true
+                warn "item '$file' is not a file"
             else
                 url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
                 if [[ $url == @(http|https|ftp)://* ]]; then
                     debug "adding origin URL '$url' to file '$file'"
-                    git annex addurl --file="$file" "$url"
+                    echo "$url $file"
                 elif [[ $url ]]; then
                     warn "ignoring non-web origin '$url' for file '$file'"
                 else
                     warn "no origin URL for file '$file'"
                 fi
-            fi
+            fi | git annex addurl --batch --with-files
         done
         ;;
     hasurls)

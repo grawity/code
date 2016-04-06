@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+cert=""
+key=""
+desc=""
+url=""
+tsa_url="http://timestamp.verisign.com/scripts/timstamp.dll"
+force=0
+
+have signcode  || err "missing 'signcode' tool"
+(( ! errors )) || exit
+
+while getopts ":c:fk:n:t:U:" OPT; do
+	case $OPT in
+	c) cert=$OPTARG;;
+	f) force=1;;
+	k) key=$OPTARG;;
+	n) desc=$OPTARG;;
+	t) tsa_url=$OPTARG;;
+	U) desc=$OPTARG;;
+	*) die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+in_file=$1
+
+if [[ ! $in_file ]]; then
+	die "input file not specified"
+elif [[ ! -f $in_file ]]; then
+	die "input file '$in_file' does not exist"
+elif [[ ! $cert ]]; then
+	die "certificate not specified"
+elif [[ ! -f $cert ]]; then
+	die "certificate file '$cert' not found"
+elif [[ ! $key ]]; then
+	die "private key not specified"
+elif [[ ! -f $key ]]; then
+	die "private key file '$key' not found"
+fi
+
+out_file=${in_file%.*}-signed.${in_file##*.}
+
+if [[ -e $out_file ]] && (( ! force )); then
+	die "output file '$out_file' already exists"
+fi
+
+if [[ $cert != *.spc ]]; then
+	spc="$cert.spc"
+	if [[ -f $spc ]]; then
+		notice "using '$spc' as certificate file"
+	else
+		warn "certificate not in SPC format; converting to '$spc'"
+		openssl crl2pkcs7 -nocrl -certfile "$cert" -outform DER -out "$spc"
+	fi
+	cert=$spc
+fi
+
+if [[ $key != *.pvk ]]; then
+	pvk="$key.pvk"
+	if [[ -f $pvk ]]; then
+		notice "using '$pvk' as private key file"
+	else
+		warn "private key not in PVK format; converting to '$pvk'"
+		openssl rsa -in "$key" -outform PVK -pvk-strong -out "$pvk"
+	fi
+	key=$pvk
+fi
+
+read -s -p "private key password: " pvk_password
+
+cp -a "$in_file" "$out_file"
+
+args=(-spc "$cert" -v "$key")
+if [[ $desc ]]; then
+	args+=(-n "$desc")
+fi
+if [[ $url ]]; then
+	args+=(-i "$url")
+fi
+if [[ $tsa_url ]]; then
+	args+=(-t "$tsa_url" -tr 10)
+fi
+
+echo "$pvk_password" | signcode "${args[@]}" "$out_file"
+
+if ! cmp -s "$in_file" "$out_file"; then
+	log "created \"$out_file\""
+else
+	rm -f "$out_file"
+	err "signing failed"
+fi

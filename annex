@@ -148,11 +148,11 @@ case $cmd in
         '
         ;;
     addurls|registerurls)
-        shopt -s nullglob
-        if (( ! $# )); then
-            set -- **
-        fi
-        for file; do
+        if (( $# )); then
+            printf '%s\n' "$@"
+        else
+            git annex find --in here --not --in web
+        fi | while read -r file; do
             if [[ -d $file ]]; then
                 :
             elif [[ -L $file && ! -e $file ]]; then
@@ -173,7 +173,7 @@ case $cmd in
                         warn "no origin URL for file '$file'"
                     fi
                 else
-                    debug "skipping '$file' (already present in web)"
+                    echo "skipping '$file' (already present in web)"
                 fi
 
                 url=$(attr -L -q -g xdg.referrer.url "$file" 2>/dev/null)

@@ -3,10 +3,20 @@
 
 . lib.bash || exit
 
+suffix="png"
+sep=" – "
+
+while getopts ":s:S:" OPT; do
+	case $OPT in
+	s) suffix=$OPTARG;;
+	S) sep=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 prefix="$1"
-suffix="${2:-png}"
 date=$(date +"%Y-%m-%d")
-mprefix="${prefix:+$prefix – }"
+mprefix="${prefix:+$prefix$sep}"
 dir="."
 
 for (( count=0; count < 999; count++ )); do

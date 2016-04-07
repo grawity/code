@@ -1,9 +1,19 @@
 #!/bin/bash
+
+. lib.bash || exit
+
 in=$1
 comment=$2
 
+pub=$in.pub
+
 if grep -qs "BEGIN OPENSSH PRIVATE KEY" "$in"; then
+	log "changing comment in '$in'"
 	puttygen "$in" -C "$comment" -O private-openssh-new
+	if [[ -e "$pub" ]]; then
+		log "updating public key '$pub'"
+		puttygen "$in" -O public-openssh > "$pub"
+	fi
 else
 	cp -a "$in" "$in.tmp"
 	puttygen "$in.tmp" -C "$comment" -o "$in" -O private-openssh-new

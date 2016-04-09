@@ -2,6 +2,26 @@
 
 . lib.bash || exit
 
+_cert2spc() {
+	local cert=$1 spc=$2
+	if have cert2spc; then
+		cert2spc "$cert" "$spc"
+	elif have openssl; then
+		openssl crl2pkcs7 -nocrl -certfile "$cert" -outform DER -out "$spc"
+	else
+		err "missing 'cert2spc' or 'openssl' tools"
+	fi
+}
+
+_key2pvk() {
+	local key=$1 pvk=$2
+	if have openssl; then
+		openssl rsa -in "$key" -outform PVK -pvk-strong -out "$pvk"
+	else
+		err "missing 'openssl' tool"
+	fi
+}
+
 cert=""
 key=""
 desc=""
@@ -52,7 +72,7 @@ if [[ $cert != *.spc ]]; then
 		notice "using '$spc' as certificate file"
 	else
 		warn "certificate not in SPC format; converting to '$spc'"
-		openssl crl2pkcs7 -nocrl -certfile "$cert" -outform DER -out "$spc"
+		_cert2spc "$cert" "$spc" || die "could not convert certificate"
 	fi
 	cert=$spc
 fi
@@ -63,7 +83,7 @@ if [[ $key != *.pvk ]]; then
 		notice "using '$pvk' as private key file"
 	else
 		warn "private key not in PVK format; converting to '$pvk'"
-		openssl rsa -in "$key" -outform PVK -pvk-strong -out "$pvk"
+		_key2pvk "$key" "$pvk" || die "could not convert private key"
 	fi
 	key=$pvk
 fi
@@ -81,6 +101,8 @@ if [[ $url ]]; then
 fi
 if [[ $tsa_url ]]; then
 	args+=(-t "$tsa_url" -tr 10)
+else
+	warn "timestamp authority URL not specified"
 fi
 
 echo "$pvk_password" | signcode "${args[@]}" "$out_file"

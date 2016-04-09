@@ -77,6 +77,12 @@ def path_is_removable(path):
             return True
     return False
 
+def path_is_perishable(path):
+    for filter in opts.only:
+        if fnmatch.fnmatch(path, filter):
+            return True
+    return False
+
 def enum_files(root_dir):
     for subdir, dirs, files in os.walk(root_dir):
         weed_ignores(dirs)
@@ -223,6 +229,9 @@ if __name__ == "__main__":
     ap.add_argument("--remove",
                     dest="remove", action="append", default=[],
                     help="automatically remove matching paths")
+    ap.add_argument("--only",
+                    dest="only", action="append", default=[],
+                    help="only list files with duplicates matching given paths")
     ap.add_argument("path", nargs="*")
 
     opts = ap.parse_args()
@@ -231,6 +240,8 @@ if __name__ == "__main__":
 
     try:
         for paths in find_duplicates(root_dir):
+            if opts.only and not any(path_is_perishable(p) for p in paths):
+                continue
             paths.sort()
             size = file_sizes[paths[0]]
             hash = hash_file(paths[0])

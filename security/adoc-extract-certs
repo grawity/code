@@ -7,9 +7,13 @@ use Archive::Zip qw(:ERROR_CODES);
 use Crypt::X509;
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
+use File::Spec::Functions qw(catfile);
+use Getopt::Long qw(:config bundling no_ignore_case);
 use MIME::Base64;
 use Nullroute::Lib;
 use XML::Simple;
+
+my %Opt;
 
 sub bigint_hex {
     my ($i) = @_;
@@ -21,15 +25,33 @@ sub bigint_hex {
     }
 }
 
-sub parse_sig_xml {
-    my ($data) = @_;
+sub parse_xmldsig {
+    my ($data, %opt) = @_;
 
     my $xs = XML::Simple->new;
+    my $xml = $xs->XMLin($data,
+                         NSExpand => 1,
+                         KeepRoot => $opt{KeepRoot},
+                         ForceContent => 1,
+                         ForceArray => [
+                            "{http://www.w3.org/2000/09/xmldsig#}Signature",
+                         ]);
 
-    $data = $xs->XMLin($data);
-    $data = $data->{Signature}->{KeyInfo}->{X509Data}->{X509Certificate};
-    $data = decode_base64($data);
-    return $data;
+    if ($::debug >= 2) {
+        require Data::Dumper;
+        print Data::Dumper->new([$xml])->Indent(1)->Dump;
+    }
+
+    if (my $data = $xml->{"{http://www.w3.org/2000/09/xmldsig#}Signature"}) {
+        map {decode_base64($_)}
+            map {$_->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"}
+                   ->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"}
+                   ->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"}
+                   ->{"content"}}
+                @$data;
+    } else {
+        return;
+    }
 }
 
 sub safe_filename {
@@ -40,10 +62,7 @@ sub safe_filename {
 }
 
 sub make_cert_filename {
-    my ($cert_der) = @_;
-
-    my $cert = Crypt::X509->new(cert => $cert_der);
-    _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
+    my ($cert) = @_;
 
     my $issuer = safe_filename($cert->issuer_cn);
     my $subj = safe_filename($cert->subject_cn);
@@ -69,11 +88,21 @@ sub write_certificate {
     my ($cert_der) = @_;
     state %seen;
 
-    my $out_file = make_cert_filename($cert_der);
     if ($seen{$cert_der}++) {
         _debug("certificate already seen, skipping");
         return;
     }
+
+    my $cert = Crypt::X509->new(cert => $cert_der);
+    if (!$cert || $cert->{_error}) {
+        _err("could not parse certificate");
+        return;
+    }
+
+    _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
+
+    my $out_dir = $Opt{output_dir} // ".";
+    my $out_file = catfile($out_dir, make_cert_filename($cert));
     overwrite_check:
     if (-e $out_file) {
         if (open(my $f, "<:raw", $out_file)) {
@@ -85,13 +114,13 @@ sub write_certificate {
                 return;
             } else {
                 _debug("different certificate stored, trying next filename");
-                $out_file = increment_filename($out_file);
+                $out_file = catfile($out_dir, increment_filename($out_file));
                 goto overwrite_check;
             }
         }
     }
     make_path(dirname($out_file));
-    _debug("writing '$out_file'");
+    _info("writing '$out_file'");
     if (open(my $f, ">:raw", $out_file)) {
         $f->print($cert_der);
         $f->close;
@@ -100,45 +129,124 @@ sub write_certificate {
     }
 }
 
+sub process_zip {
+    my ($adoc, $sig_regex, $parse_func) = @_;
+
+    my $zip = Archive::Zip->new;
+    if ($zip->read($adoc) != AZ_OK) {
+        _die("could not read file '$adoc'");
+    }
+
+    my @sigs = $zip->membersMatching($sig_regex);
+    for my $sig_file (@sigs) {
+        _debug("- found sig file '".$sig_file->{fileName}."'");
+        my $data = $zip->contents($sig_file);
+        my @cert_der = $parse_func->($data);
+        if (@cert_der) {
+            write_certificate($_) for @cert_der;
+        } else {
+            _err("no certificates found in '$adoc' [".$sig_file->{fileName}."]");
+        }
+    }
+}
+
 utf8::decode($_) for @ARGV;
 
+GetOptions(
+    "format=s" => \$Opt{force_format},
+    "o|output-dir=s" => \$Opt{output_dir},
+);
+
 for my $adoc (@ARGV) {
+    my $format;
+
     if (! -e $adoc) {
         _err("skipping '$adoc': does not exist");
     }
-    elsif ($adoc =~ /\.adoc$/i) {
-        _log2("parsing '$adoc'");
-        my $zip = Archive::Zip->new;
-        if ($zip->read($adoc) != AZ_OK) {
-            _die("could not read file '$adoc'");
-        }
+    elsif ($Opt{force_format}) {
+        $format = $Opt{force_format};
+    }
+    elsif ($adoc =~ /\.(adoc|bdoc|asice|sce)$/i) {
+        $format = "asic-e";
+    }
+    elsif ($adoc =~ /\.od[pst]$/i) {
+        $format = "opendocument";
+    }
+    elsif ($adoc =~ /\.(doc|xls|ppt)[xm]$/i) {
+        $format = "ooxml";
+    }
+    elsif ($adoc =~ /\.(ddoc|xml)$/i) {
+        $format = "xml-dsig";
+    }
+    elsif ($adoc =~ /\.(crt|cert|cer|pem)$/i) {
+        $format = "x509";
+    }
+    else {
+        _err("skipping '$adoc': unknown file format");
+    }
 
-        my @sigs = $zip->membersMatching("^META-INF/signatures/signatures.*\\.xml\$");
-        for my $sig_file (@sigs) {
-            my $data = $zip->contents($sig_file);
-            my $cert_der = parse_sig_xml($data);
-            write_certificate($cert_der);
+    if (!$format) {
+        next;
+    }
+    elsif ($format =~ /^(adoc|bdoc|asic-e)$/) {
+        _log2("parsing '$adoc' (ADOC or ASiC-E)");
+        process_zip($adoc,
+                    "^META-INF/(signatures/)?signatures.*\\.xml\$",
+                    \&parse_xmldsig);
+    }
+    elsif ($format eq "opendocument") {
+        _log2("parsing '$adoc' (OpenDocument)");
+        process_zip($adoc,
+                    "^META-INF/documentsignatures\\.xml\$",
+                    \&parse_xmldsig);
+    }
+    elsif ($format eq "ooxml") {
+        _log2("parsing '$adoc' (Office Open XML)");
+        process_zip($adoc,
+                    "^_xmlsignatures/sig\\d+\\.xml\$",
+                    sub { parse_xmldsig(@_, KeepRoot => 1) });
+    }
+    elsif ($format eq "digidoc" || $format eq "xml-dsig") {
+        _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
+
+        if (open(my $f, "<:raw", $adoc)) {
+            my @cert_der = parse_xmldsig($f);
+            if (@cert_der) {
+                write_certificate($_) for @cert_der;
+            } else {
+                _err("no certificates found in '$adoc'");
+            }
+            $f->close;
         }
     }
-    elsif ($adoc =~ /\.(crt|cert|cer)$/i) {
+    elsif ($format eq "x509") {
         _log2("parsing bare certificate '$adoc'");
+
+        my $pem_re = qr/^-----BEGIN[ ]CERTIFICATE-----\r?\n
+                        ([A-Za-z0-9\/+\r\n]+ =*)\r?\n
+                        -----END[ ]CERTIFICATE-----\r?$/msx;
 
         if (open(my $f, "<:raw", $adoc)) {
             my $data;
             $f->read($data, 8192);
             $f->close;
-            if ($data =~ /^-----BEGIN/) {
-                _err("importing of PEM certificates is currently not supported");
-                next;
+            if ($data =~ /^-----/m) {
+                while ($data =~ /$pem_re/g) {
+                    my $cert_der = decode_base64($1);
+                    write_certificate($cert_der);
+                }
+            } else {
+                write_certificate($data);
             }
-            write_certificate($data);
         } else {
             _err("could not open '$adoc': $!");
         }
     }
     else {
-        _err("skipping '$adoc': not an .adoc file");
+        _err("unknown file format '$format'");
     }
 }
+
+_exit();
 
 # vim: ts=4:sw=4:et

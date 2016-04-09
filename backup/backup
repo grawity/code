@@ -4,14 +4,28 @@
 
 progname_prefix=0
 
-bvol=/mnt/backup
-conf=~/Dropbox/Apps/.config/
-annexes=(
-	~/Attic/Annex
-	~/Attic/Software
-	~/Attic/Videos
-	~/Attic/Anime
-)
+# configuration
+
+local_config_file=$path_config/backup.conf.sh
+
+declare -a annexes=(~/Attic/{Annex,Software,Videos,Anime})
+declare -a hosts=()
+declare -- push_volume=
+
+if [[ -f $local_config_file ]]; then
+	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
+else
+	warn "config file '$local_config_file' missing"
+fi
+
+declare -r annexes
+declare -r hosts
+declare -r push_volume
+
+# misc
+
+bvol=${push_volume:-/mnt/backup}
+conf=${path_sync_config:-~/Dropbox/Apps/.config/}
 
 lock_path=
 lock_fd=
@@ -224,7 +238,7 @@ while [[ $1 ]]; do
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
 				-x -P
 			;;
-		online)
+		pull)
 			do_job twitter
 			do_job servers
 			do_job mail
@@ -237,7 +251,7 @@ while [[ $1 ]]; do
 			homes=()
 			roots=()
 
-			for host in $(< ~/Backup/hosts.txt); do
+			for host in "${hosts[@]}"; do
 				debug "parsing host: '$host'"
 				if [[ $host == '#'* ]]; then
 					continue
@@ -262,8 +276,8 @@ while [[ $1 ]]; do
 			fi
 			;;
 		root@*)
-			host=$job
-			do_rsync $host:/ ~/Backup/Roots/${host#root@}/			\
+			host=${job#*@}
+			do_rsync root@$host:/ ~/Backup/Roots/$host/			\
 				-f "merge $conf/rsync-filters/server_root_all"		\
 				-f "merge $conf/rsync-filters/server_root_extra"	\
 				-f "merge $conf/rsync-filters/server_root_$host"	\
@@ -322,6 +336,8 @@ while [[ $1 ]]; do
 				/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ 	\
 				~/Backup/Games/SL/Firestorm_current/			\
 				-f "exclude browser_profile"				;
+
+			(cd ~/Backup/Games && ./backup.sh)
 			;;
 		local@*)
 			;;

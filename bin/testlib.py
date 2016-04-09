@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os
-from nullroute import Core
+from nullroute.core import *
 import sys
 
 def forked(func):

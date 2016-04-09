@@ -3,13 +3,24 @@
 
 . lib.bash || exit
 
+suffix="png"
+sep=" – "
+
+while getopts ":s:S:" OPT; do
+	case $OPT in
+	s) suffix=$OPTARG;;
+	S) sep=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 prefix="$1"
 date=$(date +"%Y-%m-%d")
-mprefix="${prefix:+$prefix – }"
+mprefix="${prefix:+$prefix$sep}"
 dir="."
 
 for (( count=0; count < 999; count++ )); do
-	printf -v name "%s%s.%03d.png" "$mprefix" "$date" "$count"
+	printf -v name "%s%s.%03d.%s" "$mprefix" "$date" "$count" "$suffix"
 	if [[ ! -e $dir/$name && ! -e $dir/.$name.tmp ]]; then
 		echo "$dir/$name"
 		exit 0

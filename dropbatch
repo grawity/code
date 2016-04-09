@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+host=${1%%.*}
+script=$2
+
+[[ $host ]] || die "missing hostname parameter"
+
+if [[ ! $script ]]; then
+	script=$(mktemp /tmp/job.XXXXXXXX.sh)
+	${EDITOR:-vi} "$script"
+	if [[ ! -s $script ]]; then
+		notice "script is empty, exiting"
+		rm -f "$script"
+		exit
+	fi
+elif [[ ! -f $script ]]; then
+	die "script file '$script' not found"
+elif [[ ! -s $script ]]; then
+	notice "script is empty, ignoring"
+	exit
+fi
+
+dest=~/Dropbox/$host-$(date +%s).sh
+cp "$script" "$dest"
+chmod u+x "$dest"
+
+log "task $dest submitted"

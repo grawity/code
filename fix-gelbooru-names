@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+import bs4
+from collections import defaultdict
+from nullroute.core import *
+from nullroute.misc import filter_filename
+import lxml.etree
+from pprint import pprint
+import re
+import requests as _requests
+import sys
+
+requests = _requests.Session()
+
+class GelbooruError(Exception):
+    pass
+
+class GelbooruApi(object):
+    URL = "http://gelbooru.com/index.php"
+
+    def find_posts(self, tags, limit=100):
+        args = {"page": "dapi",
+                "s": "post",
+                "q": "index",
+                "tags": tags,
+                "limit": limit}
+        r = requests.get(self.URL, params=args)
+        posts_t = lxml.etree.XML(r.content)
+        for post_t in posts_t:
+            if post_t.tag == "post":
+                yield post_t.attrib
+
+    def scrape_post_info(self, post_id):
+        args = {"page": "post",
+                "s": "view",
+                "id": post_id}
+        r = requests.get(self.URL, params=args)
+        page_t = bs4.BeautifulSoup(r.content, "lxml")
+        sidebar_t = page_t.find("ul", {"id": "tag-sidebar"})
+        post = {"id": post_id,
+                "tags": defaultdict(set)}
+        for tag_li_t in sidebar_t.find_all("li"):
+            tag_type = tag_li_t["class"][0]
+            assert(tag_type.startswith("tag-type-"))
+            tag_type = tag_type[len("tag-type-"):]
+            tag_link_t = tag_li_t.find_all("a")[1]
+            tag_value = tag_link_t.get_text()
+            post["tags"][tag_type].add(tag_value)
+        return post
+
+def rename_file_in_dir(dirpath, filename):
+    m = bare_re.match(filename)
+    if m:
+        old_path = os.path.join(dirpath, filename)
+        print(old_path, end=" ", flush=True)
+
+        md5 = m.group(1)
+        posts = list(api.find_posts("md5:%s" % md5))
+        if posts:
+            id = posts[0]["id"]
+            info = api.scrape_post_info(id)
+            tags = []
+            for kind in ("artist", "copyright", "character"):
+                tags += sorted(info["tags"][kind])
+            tags = [filter_filename(tag) for tag in tags]
+            tags.append("glbr%s" % id)
+            tags.append(filename)
+            new_filename = " ".join(tags)
+
+            print("=>", new_filename)
+            new_path = os.path.join(dirpath, new_filename)
+            os.rename(old_path, new_path)
+
+bare_re = re.compile(r'^([0-9a-f]{32}).\w+$')
+api = GelbooruApi()
+
+args = sys.argv[1:] or ["."]
+for arg in args:
+    if not os.path.exists(arg):
+        Core.err("path %r does not exist" % arg)
+    if os.path.isdir(arg):
+        for dirpath, dirnames, filenames in os.walk(arg):
+            for filename in filenames:
+                rename_file_in_dir(dirpath, filename)
+    else:
+        dirpath, filename = os.path.split(arg)
+        rename_file_in_dir(dirpath, filename)

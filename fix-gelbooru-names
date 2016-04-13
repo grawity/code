@@ -11,6 +11,35 @@ import requests as _requests
 
 requests = _requests.Session()
 
+class TagFilter(object):
+    def __init__(self):
+        self.blacklist = []
+        self.translate = []
+
+    @classmethod
+    def load_config(self, file_name):
+        new = self()
+        try:
+            with open(Env.find_config_file(file_name)) as fh:
+                for line in fh:
+                    if " -> " in line:
+                        a, b = line.strip().split(" -> ")
+                        new.translate.append([re.compile(a, re.I), b])
+                    else:
+                        a = line.strip()
+                        new.blacklist.append(re.compile(a, re.I))
+        except FileNotFoundError:
+            pass
+        return new
+
+    def filter(self, tags):
+        tags = [filter_filename(tag) for tag in tags]
+        for item in self.blacklist:
+            tags = [tag for tag in tags if not item.fullmatch(tag)]
+        for xmatch, xto in self.translate:
+            tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+        return tags
+
 class GelbooruError(Exception):
     pass
 
@@ -48,18 +77,13 @@ class GelbooruApi(object):
         return post
 
     def get_tags_by_id(self, post_id):
-        global tag_blacklist
-        global tag_translate
+        global tag_filter
 
         info = self.scrape_post_info(post_id)
         tags = []
         for kind in ("artist", "copyright"):
             tags += sorted(info["tags"][kind])
-        tags = [filter_filename(tag) for tag in tags]
-        for item in tag_blacklist:
-            tags = [tag for tag in tags if not item.fullmatch(tag)]
-        for xmatch, xto in tag_translate:
-            tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+        tags = tag_filter.filter(tags)
         return tags
 
 def rename_file_in_dir(dirpath, filename):
@@ -98,20 +122,7 @@ args = parser.parse_args()
 
 bare_re = re.compile(r'^([0-9a-f]{32})(\.\w+)$')
 api = GelbooruApi()
-
-tag_blacklist = []
-tag_translate = []
-try:
-    with open(Env.find_config_file("gelbooru-tags.conf")) as fh:
-        for line in fh:
-            if " -> " in line:
-                a, b = line.strip().split(" -> ")
-                tag_translate.append([re.compile(a, re.I), b])
-            else:
-                a = line.strip()
-                tag_blacklist.append(re.compile(a, re.I))
-except FileNotFoundError:
-    pass
+tag_filter = TagFilter.load_config("gelbooru-tags.conf")
 
 for arg in args.path or ["."]:
     if not os.path.exists(arg):

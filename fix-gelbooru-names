@@ -52,6 +52,8 @@ def rename_file_in_dir(dirpath, filename):
     global args
     global bare_re
     global api
+    global tag_blacklist
+    global tag_translate
 
     m = bare_re.match(filename)
     if m:
@@ -66,6 +68,8 @@ def rename_file_in_dir(dirpath, filename):
             tags = []
             for kind in ("artist", "copyright", "character"):
                 tags += sorted(info["tags"][kind])
+            for item in tag_blacklist:
+                tags = [tag for tag in tags if not item.fullmatch(tag)]
             tags = [filter_filename(tag) for tag in tags]
             tags.append("glbr%s" % id)
             tags.append(filename)
@@ -85,6 +89,20 @@ args = parser.parse_args()
 
 bare_re = re.compile(r'^([0-9a-f]{32})\.\w+$')
 api = GelbooruApi()
+
+tag_blacklist = []
+tag_translate = []
+try:
+    with open(Env.find_config_file("gelbooru-tags.conf")) as fh:
+        for line in fh:
+            if " -> " in line:
+                a, b = line.strip().split(" -> ")
+                tag_translate.append([re.compile(a, re.I), b])
+            else:
+                a = line.strip()
+                tag_blacklist.append(re.compile(a, re.I))
+except FileNotFoundError:
+    pass
 
 for arg in args.path or ["."]:
     if not os.path.exists(arg):

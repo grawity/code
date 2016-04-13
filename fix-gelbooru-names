@@ -48,12 +48,25 @@ class GelbooruApi(object):
             post["tags"][tag_type].add(tag_value)
         return post
 
+    def get_tags_by_id(self, post_id):
+        global tag_blacklist
+        global tag_translate
+
+        info = self.scrape_post_info(post_id)
+        tags = []
+        for kind in ("artist", "copyright"):
+            tags += sorted(info["tags"][kind])
+        tags = [filter_filename(tag) for tag in tags]
+        for item in tag_blacklist:
+            tags = [tag for tag in tags if not item.fullmatch(tag)]
+        for xmatch, xto in tag_translate:
+            tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+        return tags
+
 def rename_file_in_dir(dirpath, filename):
     global args
     global bare_re
     global api
-    global tag_blacklist
-    global tag_translate
 
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
@@ -62,27 +75,18 @@ def rename_file_in_dir(dirpath, filename):
     if m:
         old_path = os.path.join(dirpath, filename)
         print(old_path, end=" ", flush=True)
-
-        md5 = m.group(1)
-        posts = list(api.find_posts("md5:%s" % md5))
+        file_md5 = m.group(1)
+        file_ext = m.group(2)
+        posts = list(api.find_posts("md5:%s" % file_md5))
         if posts:
-            id = posts[0]["id"]
-            info = api.scrape_post_info(id)
-            tags = []
-            for kind in ("artist", "copyright"):
-                tags += sorted(info["tags"][kind])
-            tags = [filter_filename(tag) for tag in tags]
-            for item in tag_blacklist:
-                tags = [tag for tag in tags if not item.fullmatch(tag)]
-            for xmatch, xto in tag_translate:
-                tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+            post_id = posts[0]["id"]
+            tags = api.get_tags_by_id(post_id)
+            tags.append("g%s" % post_id)
             tags = list(uniq(tags))
-            tags.append("g%s" % id)
-            tags.append(filename)
+            tags.append(file_md5 + file_ext)
             new_filename = " ".join(tags)
-
-            print("=>", fmt_found % new_filename)
             new_path = os.path.join(dirpath, new_filename)
+            print("=>", fmt_found % new_filename)
             if not args.dry_run:
                 os.rename(old_path, new_path)
         else:
@@ -93,7 +97,7 @@ parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
 args = parser.parse_args()
 
-bare_re = re.compile(r'^([0-9a-f]{32})\.\w+$')
+bare_re = re.compile(r'^([0-9a-f]{32})(\.\w+)$')
 api = GelbooruApi()
 
 tag_blacklist = []
@@ -120,3 +124,5 @@ for arg in args.path or ["."]:
     else:
         dirpath, filename = os.path.split(arg)
         rename_file_in_dir(dirpath, filename)
+
+Core.exit()

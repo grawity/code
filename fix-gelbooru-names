@@ -7,9 +7,7 @@ from nullroute.misc import filter_filename, uniq
 import lxml.etree
 from pprint import pprint
 import re
-import requests as _requests
-
-requests = _requests.Session()
+import requests
 
 class TagFilter(object):
     def __init__(self):
@@ -46,13 +44,16 @@ class GelbooruError(Exception):
 class GelbooruApi(object):
     URL = "http://gelbooru.com/index.php"
 
+    def __init__(self):
+        self.ua = requests.Session()
+
     def find_posts(self, tags, limit=100):
         args = {"page": "dapi",
                 "s": "post",
                 "q": "index",
                 "tags": tags,
                 "limit": limit}
-        r = requests.get(self.URL, params=args)
+        r = self.ua.get(self.URL, params=args)
         posts_t = lxml.etree.XML(r.content)
         for post_t in posts_t:
             if post_t.tag == "post":
@@ -62,7 +63,7 @@ class GelbooruApi(object):
         args = {"page": "post",
                 "s": "view",
                 "id": post_id}
-        r = requests.get(self.URL, params=args)
+        r = self.ua.get(self.URL, params=args)
         page_t = bs4.BeautifulSoup(r.content, "lxml")
         sidebar_t = page_t.find("ul", {"id": "tag-sidebar"})
         post = {"id": post_id,

@@ -139,3 +139,18 @@ class Core(object):
     @classmethod
     def exit(self):
         sys.exit(self._num_errors > 0)
+
+class Env(object):
+    vendor = "nullroute.eu.org"
+
+    @classmethod
+    def xdg_config_home(self):
+        return os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+
+    @classmethod
+    def xdg_data_home(self):
+        return os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+
+    @classmethod
+    def find_config_file(self, name):
+        return os.path.join(self.xdg_config_home(), self.vendor, name)

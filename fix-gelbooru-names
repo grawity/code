@@ -3,7 +3,7 @@ import argparse
 import bs4
 from collections import defaultdict
 from nullroute.core import *
-from nullroute.misc import filter_filename
+from nullroute.misc import filter_filename, uniq
 import lxml.etree
 from pprint import pprint
 import re
@@ -74,6 +74,9 @@ def rename_file_in_dir(dirpath, filename):
             tags = [filter_filename(tag) for tag in tags]
             for item in tag_blacklist:
                 tags = [tag for tag in tags if not item.fullmatch(tag)]
+            for xmatch, xto in tag_translate:
+                tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+            tags = list(uniq(tags))
             tags.append("glbr%s" % id)
             tags.append(filename)
             new_filename = " ".join(tags)

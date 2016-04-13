@@ -53,8 +53,9 @@ class GelbooruApi(object):
                 "q": "index",
                 "tags": tags,
                 "limit": limit}
-        r = self.ua.get(self.URL, params=args)
-        posts_t = lxml.etree.XML(r.content)
+        resp = self.ua.get(self.URL, params=args)
+        resp.raise_for_status()
+        posts_t = lxml.etree.XML(resp.content)
         for post_t in posts_t:
             if post_t.tag == "post":
                 yield post_t.attrib
@@ -63,8 +64,9 @@ class GelbooruApi(object):
         args = {"page": "post",
                 "s": "view",
                 "id": post_id}
-        r = self.ua.get(self.URL, params=args)
-        page_t = bs4.BeautifulSoup(r.content, "lxml")
+        resp = self.ua.get(self.URL, params=args)
+        resp.raise_for_status()
+        page_t = bs4.BeautifulSoup(resp.content, "lxml")
         sidebar_t = page_t.find("ul", {"id": "tag-sidebar"})
         post = {"id": post_id,
                 "tags": defaultdict(set)}

@@ -73,6 +73,9 @@ def weed_ignores(dirs):
             dirs.remove(item)
 
 def path_is_removable(path):
+    for filter in opts.keep:
+        if fnmatch.fnmatch(path, filter):
+            return False
     for filter in opts.remove:
         if fnmatch.fnmatch(path, filter):
             return True
@@ -227,6 +230,9 @@ if __name__ == "__main__":
     ap.add_argument("-l", "--list",
                     dest="list", action="store_true", default=False,
                     help="output files as a sortable list")
+    ap.add_argument("--keep",
+                    dest="keep", action="append", default=[],
+                    help="always keep matching paths")
     ap.add_argument("--remove",
                     dest="remove", action="append", default=[],
                     help="automatically remove matching paths")

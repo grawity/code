@@ -15,3 +15,10 @@ def filter_filename(name):
     if name.startswith("."):
         name = "·" + name[1:]
     return name
+
+def uniq(items):
+    seen = set()
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            yield item

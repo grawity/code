@@ -3,6 +3,7 @@
 use feature qw(state);
 use warnings;
 use strict;
+use Getopt::Long qw(:config bundling no_ignore_case);
 use POSIX qw(ceil);
 use Time::HiRes qw(time);
 
@@ -12,7 +13,7 @@ if (eval {require Text::CharWidth}) {
 	sub mbswidth { length shift; }
 }
 
-my ($width, $count, $last);
+my ($terse, $things, $width, $count, $last);
 
 sub ttywidth {
 	int(`stty size </dev/tty | awk '{print \$2}'`);
@@ -32,12 +33,19 @@ sub status {
 
 $| = 1;
 
+$terse = 0;
+$things = "items";
 $width = ttywidth();
 $count = 0;
 $last = time;
 
+GetOptions(
+	"label=s" => \$things,
+	"terse!" => \$terse,
+);
+
 $SIG{INT} = sub {
-	status("$count items (interrupted)", undef, "%s\n");
+	status("$count $things (interrupted)", undef, "%s\n");
 	exit 1;
 };
 
@@ -52,8 +60,12 @@ while (++$count, my $str = <STDIN>) {
 	next if $now - $last < 0.1;
 	$last = $now;
 
-	chomp($str);
-	status("$count $str", "\e[33m$count\e[m $str");
+	if ($terse) {
+		status("$count $things", "\e[33m$count\e[m");
+	} else {
+		chomp($str);
+		status("$count $str", "\e[33m$count\e[m $str");
+	}
 }
 
-status("$count items", undef, "%s\n");
+status("$count $things", undef, "%s\n");

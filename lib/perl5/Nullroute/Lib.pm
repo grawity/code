@@ -24,6 +24,7 @@ our @EXPORT = qw(
 	_usage
 	_exit
 	forked
+	getopt
 	interval
 	randpw
 	randstr
@@ -201,11 +202,23 @@ sub _die {
 
 sub _usage {
 	_msg(*STDOUT, "usage", "", $::arg0." ".shift);
-};
+}
 
 sub _exit { exit ($::errors > 0); }
 
 sub forked (&) { fork || exit shift->(); }
+
+sub getopt {
+	require Getopt::Long;
+	local $SIG{__WARN__} = sub {
+		chomp(my $msg = shift);
+		$msg =~ s/^Unknown option: (.+)/unknown option '$1'/;
+		_err($msg);
+	};
+	my $p = Getopt::Long::Parser->new;
+	$p->configure("bundling", "no_ignore_case");
+	$p->getoptions(@_) or exit(2);
+}
 
 sub interval {
 	my ($end, $start) = @_;

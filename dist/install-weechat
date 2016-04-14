@@ -1,23 +1,17 @@
 #!/usr/bin/env bash
+
 . lib.bash || exit
 
-if [[ ! "$PREFIX" ]]; then
-	die "\$PREFIX not set"
-fi
+[[ $PREFIX ]] || die "\$PREFIX not set"
 
+ruby=$(which ruby) || die "missing 'ruby' binary'"
 repo=git://github.com/weechat/weechat.git
 src=~/src/weechat
-ruby=$(which ruby)
+commit=$1
 
-commit="$1"
-
-if [[ ! "$ruby" ]]; then
-	die "missing 'ruby' executable"
-fi
-
-if [[ -d "$src" ]]; then
+if [[ -d $src ]]; then
 	cd "$src"
-	if [[ "$(git config remote.origin.url)" != "$repo" ]]; then
+	if [[ $(git config remote.origin.url) != "$repo" ]]; then
 		git config remote.origin.url "$repo"
 	fi
 	log "updating $src"
@@ -28,7 +22,7 @@ else
 	cd "$src"
 fi
 
-if [[ "$commit" ]]; then
+if [[ $commit ]]; then
 	git checkout -f "$commit"
 else
 	git checkout -f master

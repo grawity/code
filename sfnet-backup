@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+project=$1
+type=${2:-cvs}
+
+[[ $project ]] || die "missing project name"
+
+case $type in
+	files)
+		url="frs.sourceforge.net:/home/frs/project/${project::1}/${project::2}/$project/"
+		;;
+	cvs)
+		url="rsync://$project.cvs.sourceforge.net/cvsroot/$project/"
+		;;
+	svn)
+		url="rsync://$project.svn.sourceforge.net/svn/$project/"
+		;;
+	git|hg)
+		url="rsync://git.code.sf.net/p/$project/"
+		;;
+	*)
+		die "unknown type '$type'"
+		;;
+esac
+
+echo "$url"

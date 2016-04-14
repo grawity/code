@@ -2,27 +2,34 @@
 
 . lib.bash || exit
 
+only_uri=0
+
+while getopts ":n" OPT; do
+	case $OPT in
+	n) only_uri=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 project=$1
 type=${2:-cvs}
 
 [[ $project ]] || die "missing project name"
 
+mode=rsync
 case $type in
-	files)
-		url="frs.sourceforge.net:/home/frs/project/${project::1}/${project::2}/$project/"
-		;;
-	cvs)
-		url="rsync://$project.cvs.sourceforge.net/cvsroot/$project/"
-		;;
-	svn)
-		url="rsync://$project.svn.sourceforge.net/svn/$project/"
-		;;
-	git|hg)
-		url="rsync://git.code.sf.net/p/$project/"
-		;;
-	*)
-		die "unknown type '$type'"
-		;;
+	files|frs) url="frs.sourceforge.net:/home/frs/project/${project:0:1}/${project:0:2}/$project/" ;;
+	cvs) url="rsync://$project.cvs.sourceforge.net/cvsroot/$project/" ;;
+	svn) url="rsync://$project.svn.sourceforge.net/svn/$project/" ;;
+	git|hg) url="rsync://git.code.sf.net/p/$project/" ;;
+	*) die "unknown type '$type'" ;;
 esac
 
-echo "$url"
+if (( only_uri )); then
+	echo "$url"
+else
+	dir="$project.$type/"
+	info "syncing '$url' to '$dir'"
+	rsync -vshzaHAX "$url" "$dir"
+	echo "$url" > "$dir/_source"
+fi

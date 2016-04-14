@@ -1,38 +1,18 @@
 #!/usr/bin/env python3
+import argparse
 import bs4
+from functools import lru_cache
 from nullroute.core import *
+from nullroute.misc import filter_filename
 import nullroute.sec
 import os
 import pixivpy3
-import re
-import requests as _requests
-import sys
-
-from functools import lru_cache
 from pprint import pprint
-
-def filter_filename(name):
-    xlat = [
-        (' ', '_'),
-        ('"', '_'),
-        ('*', '_'),
-        ('/', '⁄'),
-        (':', '_'),
-        ('<', '_'),
-        ('>', '_'),
-        ('?', '_'),
-    ]
-    name = name.strip()
-    for k, v in xlat:
-        name = name.replace(k, v)
-    if name.startswith("."):
-        name = "·" + name[1:]
-    return name
+import re
+import requests
 
 # TODO: https://danbooru.donmai.us/wiki_pages/58938
 # TODO: https://github.com/r888888888/danbooru/issues/2383
-
-requests = _requests.Session()
 
 class PixivError(Exception):
     pass
@@ -43,6 +23,7 @@ class PixivApi(object):
     #client_secret = "HP3RmkgAmEGro0gn1x9ioawQE8WMfvLXDz3ZqxpK"
 
     def __init__(self):
+        self.ua = requests.Session()
         self.api = pixivpy3.PixivAPI()
 
     def _auth(self):
@@ -56,7 +37,7 @@ class PixivApi(object):
     def scrape_member_name_by_member_id(self, member_id):
         url = "http://www.pixiv.net/member.php?id=%s" % member_id
         Core.log("fetching %s" % url)
-        resp = requests.get(url)
+        resp = self.ua.get(url)
         resp.raise_for_status()
         body = bs4.BeautifulSoup(resp.content, "lxml")
         name = body.find("h1", {"class": "name"})
@@ -67,7 +48,7 @@ class PixivApi(object):
     def scrape_member_id_by_illust_id(self, illust_id):
         url = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
         Core.log("fetching %s" % url)
-        resp = requests.get(url)
+        resp = self.ua.get(url)
         resp.raise_for_status()
         m = re.search(r'"/?member\.php\?id=(\d+)"',
                       resp.content.decode("utf-8"))
@@ -112,6 +93,13 @@ class PixivApi(object):
             return filter_filename(prefix)
 
 def rename_file_in_dir(dirpath, filename):
+    global args
+    global bare_re
+    global pixiv_api
+
+    fmt_found = "\033[38;5;10m%s\033[m"
+    fmt_notfound = "\033[38;5;9m%s\033[m"
+
     m = bare_re.match(filename)
     if m:
         old_path = os.path.join(dirpath, filename)
@@ -119,15 +107,20 @@ def rename_file_in_dir(dirpath, filename):
         illust_id = int(m.group(1))
         prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
         filename = prefix + " " + filename
-        print("=>", filename)
         new_path = os.path.join(dirpath, filename)
-        os.rename(old_path, new_path)
+        print("=>", fmt_found % filename)
+        if not args.dry_run:
+            os.rename(old_path, new_path)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
+parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
+args = parser.parse_args()
 
 bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+\.\w+$')
 pixiv_api = PixivApi()
 
-args = sys.argv[1:] or ["."]
-for arg in args:
+for arg in args.path or ["."]:
     if not os.path.exists(arg):
         Core.err("path %r does not exist" % arg)
     if os.path.isdir(arg):
@@ -137,3 +130,5 @@ for arg in args:
     else:
         dirpath, filename = os.path.split(arg)
         rename_file_in_dir(dirpath, filename)
+
+Core.exit()

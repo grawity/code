@@ -10,11 +10,13 @@ urlencode() { ~grawity/code/bin/urlencode "$@"; }
 set -o pipefail
 
 detail=0
+webgw=0
 ipv6=1
 
-while getopts ":l" OPT; do
+while getopts ":lW" OPT; do
 	case $OPT in
 	l) detail=1;;
+	W) webgw=1;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -36,7 +38,10 @@ uquery=$(urlencode -- "$query")
 debug "query: '$query' @ '$host'"
 debug "query (encoded): '$uquery'"
 
-if have curl && curl -V | grep -wqs gopher; then
+if (( webgw )); then
+	debug "requested web gateway"
+	client=gateway
+elif have curl && curl -V | grep -wqs gopher; then
 	debug "found curl with Gopher support"
 	client=curl-gopher
 elif have curl && curl -V | grep -qws telnet; then

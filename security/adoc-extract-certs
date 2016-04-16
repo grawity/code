@@ -154,6 +154,8 @@ my $pem_re = qr/^-----BEGIN[ ]CERTIFICATE-----\r?\n
                 ([A-Za-z0-9\/+\r\n]+ =*)\r?\n
                 -----END[ ]CERTIFICATE-----\r?$/msx;
 
+my $pdf_extractor = $ENV{HOME}."/lib/projects/pdf-extract-certs/dist/pdf-extract-certs.jar";
+
 utf8::decode($_) for @ARGV;
 
 GetOptions(
@@ -181,6 +183,9 @@ for my $adoc (@ARGV) {
     }
     elsif ($adoc =~ /\.(ddoc|xml)$/i) {
         $format = "xml-dsig";
+    }
+    elsif ($adoc =~ /\.pdf$/i) {
+        $format = "pdf";
     }
     elsif ($adoc =~ /\.(crt|cert|cer|pem)$/i) {
         $format = "x509";
@@ -220,6 +225,20 @@ for my $adoc (@ARGV) {
                 _err("no certificates found in '$adoc'");
             }
             $f->close;
+        }
+    }
+    elsif ($format eq "pdf") {
+        _log2("parsing '$adoc' (PDF)");
+        if (open(my $f, "-|", "java", "-jar", $pdf_extractor, $adoc)) {
+            my $data;
+            $f->read($data, 128*1024);
+            $f->close;
+            while ($data =~ /$pem_re/g) {
+                my $cert_der = decode_base64($1);
+                write_certificate($cert_der);
+            }
+        } else {
+            _err("could not run '$pdf_extractor': $!");
         }
     }
     elsif ($format eq "x509") {

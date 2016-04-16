@@ -103,11 +103,6 @@ sub write_certificate {
     my ($cert_der) = @_;
     state %seen;
 
-    if ($seen{$cert_der}++) {
-        _debug("certificate already seen, skipping");
-        return;
-    }
-
     my $cert = Crypt::X509->new(cert => $cert_der);
     if (!$cert || $cert->{_error}) {
         _err("could not parse certificate");
@@ -117,6 +112,11 @@ sub write_certificate {
     my $subject = try_decode($cert->subject_cn);
     my $issuer = try_decode($cert->issuer_cn);
     _info("found cert '".$subject."' (".$issuer.")");
+
+    if ($seen{$cert_der}++) {
+        _debug("certificate already seen, skipping");
+        return;
+    }
 
     my $out_dir = $Opt{output_dir} // ".";
     my $out_file = catfile($out_dir, make_cert_filename($cert));

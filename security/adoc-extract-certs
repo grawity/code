@@ -150,6 +150,10 @@ sub process_zip {
     }
 }
 
+my $pem_re = qr/^-----BEGIN[ ]CERTIFICATE-----\r?\n
+                ([A-Za-z0-9\/+\r\n]+ =*)\r?\n
+                -----END[ ]CERTIFICATE-----\r?$/msx;
+
 utf8::decode($_) for @ARGV;
 
 GetOptions(
@@ -208,7 +212,6 @@ for my $adoc (@ARGV) {
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
-
         if (open(my $f, "<:raw", $adoc)) {
             my @cert_der = parse_xmldsig($f);
             if (@cert_der) {
@@ -221,14 +224,9 @@ for my $adoc (@ARGV) {
     }
     elsif ($format eq "x509") {
         _log2("parsing bare certificate '$adoc'");
-
-        my $pem_re = qr/^-----BEGIN[ ]CERTIFICATE-----\r?\n
-                        ([A-Za-z0-9\/+\r\n]+ =*)\r?\n
-                        -----END[ ]CERTIFICATE-----\r?$/msx;
-
         if (open(my $f, "<:raw", $adoc)) {
             my $data;
-            $f->read($data, 8192);
+            $f->read($data, 8*1024);
             $f->close;
             if ($data =~ /^-----/m) {
                 while ($data =~ /$pem_re/g) {

@@ -1,36 +1,50 @@
 #!/bin/sh
 # Environment wrapper
 
+client=java
+java_prm=
+
 export PULSE_PROP="application.icon_name='runescape'"
 export PULSE_PROP_OVERRIDE="application.name='RuneScape'"
 
-dir=$HOME/.local/rsu-client/runescape
+java_dir=$HOME/.local/rsu-client/runescape
 
 case $1 in
+    "--java")
+	client=java;;
     "--launcher")
-	exec "$dir/runescape"; exit;;
+	client=java-launcher;;
     "--updater"|"--update")
-	wget "https://www.runescape.com/downloads/jagexappletviewer.jar" \
-		-O "$dir/bin/jagexappletviewer.jar"; exit;;
-#/home/grawity/.local/rsu-client/runescape/rsu/rsu-query rsu.download.client bin jar
-	#exec "$dir/updater"; exit;;
+	client=java-updater;;
     "--settings"|"--configure"|"--config")
-	exec "$dir/rsu-settings"; exit;;
+	client=java-settings;;
     "--beta")
-	shift; set -- "--prmfile=runescape-beta.prm" "$@";;
+	java_prm="runescape-beta.prm";;
     "--classic")
-	shift; set -- "--prmfile=runescape_classic2.prm" "$@";;
+	client=java; java_prm="runescape_classic2.prm";;
     "--darkscape")
-	shift; set -- "--prmfile=rsdarkscape.prm" "$@";;
+	java_prm="rsdarkscape.prm";;
     "--custom")
-	shift; set -- "--prmfile=custom.prm" "$@";;
+	client-java; java_prm="custom.prm";;
     "--oldschool")
-	shift; set -- "--prmfile=oldschool.prm" "$@";;
-    "@"*)
-	f=${1#'@'}; f=${f%'.prm'}
-	shift; set -- "--prmfile=$f.prm" "$@";;
+	client=java; java_prm="oldschool.prm";;
 esac
 
-(sleep 10; rs-fix-dark) &
-
-exec "$dir/runescape" --unixquery "$@"
+case $client in
+    java)
+	if [[ $java_prm ]]; then
+		set -- --prmfile="$java_prm" "$@"
+	fi
+	exec "$java_dir/runescape" --unixquery "$@"
+	;;
+    java-launcher)
+	exec "$java_dir/runescape" "$@"
+	;;
+    java-settings)
+	exec "$java_dir/rsu-settings"
+	;;
+    java-updater)
+	wget "https://www.runescape.com/downloads/jagexappletviewer.jar" \
+		-O "$java_dir/bin/jagexappletviewer.jar"
+	;;
+esca

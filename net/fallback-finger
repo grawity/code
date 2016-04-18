@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 . lib.bash || exit
-progname='fbin/finger'
+
+usage() {
+	echo "Usage: $progname [-g] [-l] [user]@host"
+	echo #|---'---|---'---|
+	echo "  -g            always use HTTP gateway"
+	echo "  -l            long output (/W request)"
+}
 
 filter() { perl -pe 's/\033/"^".chr(ord($&)+0100)/ge'; }
 
@@ -10,10 +16,12 @@ urlencode() { ~grawity/code/bin/urlencode "$@"; }
 set -o pipefail
 
 detail=0
+webgw=0
 ipv6=1
 
-while getopts ":l" OPT; do
+while getopts ":gl" OPT; do
 	case $OPT in
+	g) webgw=1;;
 	l) detail=1;;
 	*) die_getopts;;
 	esac
@@ -36,7 +44,10 @@ uquery=$(urlencode -- "$query")
 debug "query: '$query' @ '$host'"
 debug "query (encoded): '$uquery'"
 
-if have curl && curl -V | grep -wqs gopher; then
+if (( webgw )); then
+	debug "requested web gateway"
+	client=gateway
+elif have curl && curl -V | grep -wqs gopher; then
 	debug "found curl with Gopher support"
 	client=curl-gopher
 elif have curl && curl -V | grep -qws telnet; then

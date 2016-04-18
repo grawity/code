@@ -72,8 +72,26 @@ try_zone() {
 	err "could not transfer '$domain' from any server"
 }
 
+reverse=0
+
+while getopts ":x" OPT; do
+	case $OPT in
+	x) reverse=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 for arg; do
-	try_zone "${arg%.}."
+	if (( reverse )); then
+		zone=$(arpaname "$arg")
+		if [[ ! $zone ]]; then
+			err "'$arg' does not have a reverse zone"
+			continue
+		fi
+	else
+		zone=${arg%.}
+	fi
+	try_zone "$zone."
 done
 
 lib::exit

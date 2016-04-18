@@ -1,37 +1,37 @@
 #!/bin/sh
 # Environment wrapper
 
-client=java
+client=nxt
+java_dir=$HOME/.local/rsu-client/runescape
 java_prm=
 
-export PULSE_PROP="application.icon_name='runescape'"
-export PULSE_PROP_OVERRIDE="application.name='RuneScape'"
-
-java_dir=$HOME/.local/rsu-client/runescape
-
 case $1 in
-    "--java")
-	client=java;;
-    "--launcher")
-	client=java-launcher;;
-    "--updater"|"--update")
-	client=java-updater;;
-    "--settings"|"--configure"|"--config")
-	client=java-settings;;
-    "--beta")
-	java_prm="runescape-beta.prm";;
-    "--classic")
-	client=java; java_prm="runescape_classic2.prm";;
-    "--darkscape")
-	java_prm="rsdarkscape.prm";;
-    "--custom")
-	client-java; java_prm="custom.prm";;
-    "--oldschool")
-	client=java; java_prm="oldschool.prm";;
+    --java)
+	shift; client=java;;
+    --launcher)
+	shift; client=java-launcher;;
+    --updater|--update)
+	shift; client=java-updater;;
+    --settings|--configure|--config)
+	shift; client=java-settings;;
+    --darkscape)
+	shift; java_prm="rsdarkscape.prm";;
+    --beta)
+	shift; java_prm="runescape-beta.prm";;
+    --oldschool)
+	shift; client=java; java_prm="oldschool.prm";;
+    --classic)
+	shift; client=java; java_prm="runescape_classic2.prm";;
 esac
 
 case $client in
+    nxt)
+	unset XMODIFIERS
+	exec /usr/bin/runescape-launcher "$@"
+	;;
     java)
+	export PULSE_PROP="application.icon_name='runescape'"
+	export PULSE_PROP_OVERRIDE="application.name='RuneScape'"
 	if [[ $java_prm ]]; then
 		set -- --prmfile="$java_prm" "$@"
 	fi
@@ -47,4 +47,4 @@ case $client in
 	wget "https://www.runescape.com/downloads/jagexappletviewer.jar" \
 		-O "$java_dir/bin/jagexappletviewer.jar"
 	;;
-esca
+esac

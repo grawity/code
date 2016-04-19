@@ -5,6 +5,9 @@ if (( UID == 0 )) && [[ ! $PACMAN_LOCK ]] && [[ ! $FAKEROOTKEY ]]; then
 	lock=/run/lock/pacman
 	exec {fd}>"$lock" &&
 	/usr/bin/flock -xn $fd || {
+		if [[ $DEBUG ]]; then
+			echo "[$$:$(ps -o cmd= $PPID):$*]"
+		fi
 		echo -n "waiting for other instances to exit..."
 		/usr/bin/flock -x $fd && echo "done"
 	} >&2

@@ -11,4 +11,12 @@ fi
 
 ref=${1:-HEAD}
 
+if [[ $ref != HEAD ]]; then
+	# explicit check is faster than letting tig do it
+	if ! git rev-parse --verify "$ref" >/dev/null 2>&1; then
+		echo "error: bad ref '$ref'" >&2
+		exit 1
+	fi
+fi
+
 exec $cmd $opts "^$ref@{1}" "$ref" "${@:2}" --

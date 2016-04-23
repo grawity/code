@@ -60,11 +60,11 @@ sub _xdg_userdir {
 		_debug("trying to find \$$env in \"$conf\"");
 		while (<$file>) {
 			next unless /^\Q$env\E=(.+)$/;
-			_debug("found value: <$1>");
 			my $path = $1;
+			_debug("found value '$path'");
 			$path =~ s/^"(.+)"$/$1/;
 			$path =~ s!^\$HOME/!$ENV{HOME}/!;
-			_debug("expanded to: <$path>");
+			_debug("expanded to '$path'");
 			last if $path !~ m!^/!;
 			return $path;
 		}

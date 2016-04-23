@@ -19,39 +19,13 @@ fi
 
 export MOSH_TITLE_NOPREFIX='y'
 
-opt=(
-	1049	# alternate screen
-	2004	# bracketed paste
-	# previously used 1005 1002,
-	# but new mosh sets everything up itself
-	#1006	# mouse event encoding - SGR
-	#1005	# mouse event encoding - UTF-8
-	#1015	# mouse event encoding - urxvt
-	#1002	# mouse event reporting - button events
-)
-
 lock=$path_runtime/irc-$XDG_SESSION_ID.lock
 exec {fd}<>"$lock"
 flock -xn $fd || die "already connected from $HOSTNAME/$XDG_SESSION_ID"
 
-r=0
-
-printf '\e[H\e[2J'
-printf '\e[?%sh' ${opt[@]}
-printf '\e[H\e[2J'
-mosh $host -- tmux attach -t irc || {
-	r=$?
-	err "mosh exited with status $r"
-	read -rsN1
-}
-printf '\e[?%sl' $(printf '%s\n' ${opt[@]} | tac)
-printf '\e[H\e[2J'
+mosh $host -- tmux attach -t irc; r=$?
 
 hi >&/dev/null {fd}>&- &
-
-if (( r )); then
-	err "mosh exited with status $r"
-fi
 
 rm -f "$lock"
 exit $r

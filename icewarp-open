@@ -36,6 +36,7 @@ parser.add_argument("mailbox", metavar="MAILBOX", type=str,
 parser.add_argument("--pop", action="store_true",
                     help="use POP3 instead of IMAP4")
 parser.add_argument("--dedup", action="store_true")
+parser.add_argument("--rw", action="store_true")
 args = parser.parse_args()
 
 app = "mutt"
@@ -57,16 +58,20 @@ data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
 
 if app == "mutt":
     uri = "%(scheme)s://%(user)s:%(pass)s@%(server)s/%(path)s" % data
-    run("mutt", "-f", uri)
+    cmd = ["mutt",
+           "-f", uri]
+    if not args.rw:
+        cmd += ["-R"]
+    run(*cmd)
 elif app == "IMAPdedup":
-    args = ["python2", "/home/grawity/src/net/IMAPdedup/imapdedup.py",
-            "--server=%s" % data["server"],
-            "--ssl",
-            "--user=%s" % data["user"],
-            "--password=%s" % data["pass"],
-            "--checksum",
-            "--checksum-with-id",
-            "--verbose",
-            "--no-close",
-            data["path"] or "INBOX"]
-    run(*args)
+    cmd = ["python2", "/home/grawity/src/net/IMAPdedup/imapdedup.py",
+           "--server=%s" % data["server"],
+           "--ssl",
+           "--user=%s" % data["user"],
+           "--password=%s" % data["pass"],
+           "--checksum",
+           "--checksum-with-id",
+           "--verbose",
+           "--no-close",
+           data["path"] or "INBOX"]
+    run(*cmd)

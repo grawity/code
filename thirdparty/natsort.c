@@ -1,5 +1,3 @@
-/* Origin: https://sourcefrog.net/projects/natsort/ (with local changes) */
-
 /* -*- mode: c; c-file-style: "k&r" -*-
 
    natsort.c -- Example strnatcmp application.

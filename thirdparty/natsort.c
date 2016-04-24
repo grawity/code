@@ -1,6 +1,4 @@
-/* origin: http://sourcefrog.net/projects/natsort/
- * Minor changes by grawity. See Git history.
- */
+/* Origin: https://sourcefrog.net/projects/natsort/ (with local changes) */
 
 /* -*- mode: c; c-file-style: "k&r" -*-
 

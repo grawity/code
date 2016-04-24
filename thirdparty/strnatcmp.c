@@ -1,5 +1,4 @@
-/* origin: http://sourcefrog.net/projects/natsort/
- */
+/* Origin: https://sourcefrog.net/projects/natsort/ */
 
 /* -*- mode: c; c-file-style: "k&r" -*-
 

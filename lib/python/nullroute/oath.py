@@ -6,7 +6,7 @@ import time
 def Truncate(hmac_sha1):
     """
     converts an HMAC-SHA-1 value into a HOTP value as in RFC 4226 section 5.2
-    <http://tools.ietf.org/html/rfc4226#section-5.3>
+    <https://tools.ietf.org/html/rfc4226#section-5.3>
     """
     offset = int(hmac_sha1[-1], 16)
     binary = int(hmac_sha1[(offset * 2):((offset * 2) + 8)], 16) & 0x7fffffff

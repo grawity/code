@@ -25,18 +25,22 @@ for pns in $parent_ns; do
 	for gns in $glue_ns; do
 		printf " └ \e[1;36m%s\e[m (for $domain)\n" $gns
 		if [[ $gns == $domain || $gns == *.$domain ]]; then
+			debug "looking up glue record $domain/NS at '$pns'"
 			gip=$(_dig +additional $domain NS @$pns |
 				awk -v d=$gns '$1 == d {print $5}' | natsort)
 			from='glue'
 		else
+			debug "looking up normal record $gns/A,AAAA"
 			gip=$(_dig +short $gns A; _dig +short $gns AAAA | natsort)
 			from='DNS'
 		fi
+		debug "got result: [${gip//$'\n'/'; '}]"
 		if [[ $gip ]]; then
 			for ip in $gip; do
+				debug "checking SOA serial of $domain at $ip"
 				printf "   └ \e[1;33m%s\e[m " "$ip"
 				if [[ $noipv6 && $ip == *:* ]]; then
-					printf "\n"
+					printf "skipped (no IPv6)\n"
 					continue
 				fi
 				serial=$(get_serial "$domain" "$ip")

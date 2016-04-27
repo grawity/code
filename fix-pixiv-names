@@ -36,7 +36,7 @@ class PixivApi(object):
     @lru_cache(maxsize=1024)
     def scrape_member_name_by_member_id(self, member_id):
         url = "http://www.pixiv.net/member.php?id=%s" % member_id
-        Core.log("fetching %s" % url)
+        Core.info("fetching %s" % url)
         resp = self.ua.get(url)
         resp.raise_for_status()
         body = bs4.BeautifulSoup(resp.content, "lxml")
@@ -47,7 +47,7 @@ class PixivApi(object):
 
     def scrape_member_id_by_illust_id(self, illust_id):
         url = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
-        Core.log("fetching %s" % url)
+        Core.info("fetching %s" % url)
         resp = self.ua.get(url)
         resp.raise_for_status()
         m = re.search(r'"/?member\.php\?id=(\d+)"',
@@ -64,10 +64,6 @@ class PixivApi(object):
         if resp["status"] == "success":
             return resp["response"][0]
         else:
-            # {'errors': {'system': {'code': 206,
-            #                        'message': '対象のイラストは見つかりませんでした。(illust_id:52800410)'}},
-            #  'has_error': True,
-            #  'status': 'failure'}
             raise ValueError("API call failed: %r" % resp)
 
     ## public interface functions
@@ -86,7 +82,7 @@ class PixivApi(object):
             prefix = "%(name)s_pixiv%(id)s" % resp["user"]
             return filter_filename(prefix)
         except ValueError as e:
-            Core.err(e)
+            Core.err(str(e))
             member_id = self.scrape_member_id_by_illust_id(illust_id)
             member_name = self.scrape_member_name_by_member_id(member_id)
             prefix = "%s_pixiv%s" % (member_name, member_id)

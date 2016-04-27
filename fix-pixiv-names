@@ -58,6 +58,7 @@ class PixivApi(object):
 
     ## normal JSON API functions
 
+    @lru_cache(maxsize=1024)
     def get_illust_info(self, illust_id):
         self._auth()
         resp = self.api.works(illust_id)
@@ -66,15 +67,21 @@ class PixivApi(object):
         else:
             raise ValueError("API call failed: %r" % resp)
 
+    @lru_cache(maxsize=1024)
+    def get_member_info(self, member_id):
+        self._auth()
+        resp = self.api.users(member_id)
+        if resp["status"] == "success":
+            return resp["response"][0]
+        else:
+            raise ValueError("API call failed: %r" % resp)
+
     ## public interface functions
 
-    def _get_prefix(member_name, member_id):
-        return filter_filename("%s_pixiv%s" % (member_name, member_id))
-
-    #def get_prefix_by_member_id(self, member_id):
-    #    prefix = self.get_member_name_by_member_id(member_id)
-    #    prefix = filter_filename(prefix)
-    #    return "%s_pixiv%s" % (name, member_id)
+    def get_prefix_by_member_id(self, member_id):
+        resp = self.get_member_info(member_id)
+        prefix = "%(name)s_pixiv%(id)s" % resp
+        return filter_filename(prefix)
 
     def get_prefix_by_illust_id(self, illust_id):
         try:
@@ -91,6 +98,7 @@ class PixivApi(object):
 def rename_file_in_dir(dirpath, filename):
     global args
     global bare_re
+    global prefix_re
     global pixiv_api
 
     fmt_found = "\033[38;5;10m%s\033[m"
@@ -100,13 +108,31 @@ def rename_file_in_dir(dirpath, filename):
     if m:
         old_path = os.path.join(dirpath, filename)
         print(old_path, end=" ", flush=True)
+
         illust_id = int(m.group(1))
         prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
         filename = prefix + " " + filename
+
         new_path = os.path.join(dirpath, filename)
         print("=>", fmt_found % filename)
         if not args.dry_run:
             os.rename(old_path, new_path)
+        return
+
+    m = prefix_re.match(filename)
+    if m:
+        old_path = os.path.join(dirpath, filename)
+        print(old_path, end=" ", flush=True)
+
+        member_id = int(m.group(1))
+        prefix = pixiv_api.get_prefix_by_member_id(member_id)
+        filename = prefix + " " + m.group(2)
+
+        new_path = os.path.join(dirpath, filename)
+        print("=>", fmt_found % filename)
+        if not args.dry_run:
+            os.rename(old_path, new_path)
+        return
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
@@ -114,6 +140,7 @@ parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
 args = parser.parse_args()
 
 bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+\.\w+$')
+prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
 pixiv_api = PixivApi()
 
 for arg in args.path or ["."]:

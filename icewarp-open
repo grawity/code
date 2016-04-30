@@ -35,6 +35,8 @@ parser.add_argument("mailbox", metavar="MAILBOX", type=str,
                     help="mailbox to open")
 parser.add_argument("--pop", action="store_true",
                     help="use POP3 instead of IMAP4")
+parser.add_argument("--list", action="store_true",
+                    help="list mailboxes within an account")
 parser.add_argument("--dedup", action="store_true")
 parser.add_argument("--rw", action="store_true")
 args = parser.parse_args()
@@ -42,6 +44,8 @@ args = parser.parse_args()
 app = "mutt"
 if args.dedup:
     app = "IMAPdedup"
+if args.list:
+    app = "list"
 
 data = {
     "scheme": "pop" if args.pop else "imap",
@@ -72,6 +76,16 @@ elif app == "IMAPdedup":
            "--checksum",
            "--checksum-with-id",
            "--verbose",
-           "--no-close",
-           data["path"] or "INBOX"]
+           "--no-close"]
+    if not args.rw:
+        cmd += ["--dry-run"]
+    cmd += [data["path"] or "INBOX"]
+    run(*cmd)
+elif app == "list":
+    cmd = ["python2", "/home/grawity/src/net/IMAPdedup/imapdedup.py",
+           "--server=%s" % data["server"],
+           "--ssl",
+           "--user=%s" % data["user"],
+           "--password=%s" % data["pass"],
+           "--list"]
     run(*cmd)

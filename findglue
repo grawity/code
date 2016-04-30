@@ -1,37 +1,46 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 _dig() {
 	dig +nomulti +noall "$@"
 }
 
 domain=${1%.}.
-
 parent=${domain#*.}
+debug "parent domain is '$parent'"
 
 parent_ns=$(_dig +short $parent NS | natsort)
+debug "parent domain's nameservers are [${parent_ns//$'\n'/'; '}]"
 
 get_serial() {
 	_dig +answer "$1" SOA @"$2" | awk '$4 == "SOA" {print $7}'
 }
 
 for pns in $parent_ns; do
-	glue_ns=$(_dig +authority $domain NS @$pns | awk '{print $5}' | natsort)
+	debug "looking up $domain/NS at '$pns'"
+	glue_ns=$(_dig +answer +authority $domain NS @$pns | awk '{print $5}' | natsort)
+	debug "got result: [${glue_ns//$'\n'/'; '}]"
 	printf "\e[1;35m$pns\e[m (for $parent)\n"
 	for gns in $glue_ns; do
 		printf " └ \e[1;36m%s\e[m (for $domain)\n" $gns
 		if [[ $gns == $domain || $gns == *.$domain ]]; then
+			debug "looking up glue record $domain/NS at '$pns'"
 			gip=$(_dig +additional $domain NS @$pns |
 				awk -v d=$gns '$1 == d {print $5}' | natsort)
 			from='glue'
 		else
+			debug "looking up normal record $gns/A,AAAA"
 			gip=$(_dig +short $gns A; _dig +short $gns AAAA | natsort)
 			from='DNS'
 		fi
+		debug "got result: [${gip//$'\n'/'; '}]"
 		if [[ $gip ]]; then
 			for ip in $gip; do
+				debug "checking SOA serial of $domain at $ip"
 				printf "   └ \e[1;33m%s\e[m " "$ip"
 				if [[ $noipv6 && $ip == *:* ]]; then
-					printf "\n"
+					printf "skipped (no IPv6)\n"
 					continue
 				fi
 				serial=$(get_serial "$domain" "$ip")

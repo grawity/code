@@ -88,8 +88,8 @@ class GvfsClient(object):
                                 stdout=sys.stderr)
             return (r == 0)
 
-    def unlink_file(self, uri):
-        _log("GvfsClient.unlink_file(%r)" % uri)
+    def delete_file(self, uri):
+        _log("GvfsClient.delete_file(%r)" % uri)
         r = subprocess.call(["gvfs-rm", "-f", uri],
                             stdout=sys.stderr)
         return (r == 0)
@@ -122,11 +122,11 @@ class AnnexBackend(object):
         path = calc_key_path(key)
         return self.export_file(path, dst)
 
-    def forget_key(self, key):
-        _log("AnnexBackend.forget_key(%r)" % key)
+    def remove_key(self, key):
+        _log("AnnexBackend.remove_key(%r)" % key)
         path = calc_key_path(key)
         if self.has_file(path):
-            return self.unlink_file(path)
+            return self.delete_file(path)
         else:
             return True
 
@@ -168,9 +168,9 @@ class AnnexGvfsBackend(AnnexBackend):
         uri = self._get_uri(path)
         return self.gvfs.has_file(uri)
 
-    def unlink_file(self, path):
+    def delete_file(self, path):
         uri = self._get_uri(path)
-        return self.gvfs.unlink_file(uri)
+        return self.gvfs.delete_file(uri)
 
     def import_file(self, ext_src, dst_path):
         _log("import_file(%r -> %r)" % (ext_src, dst_path))
@@ -185,7 +185,7 @@ class AnnexGvfsBackend(AnnexBackend):
             if not self.gvfs.move_file(tmp_uri, dst_uri):
                 raise IOError()
         except IOError:
-            self.gvfs.unlink_file(tmp_uri)
+            self.gvfs.delete_file(tmp_uri)
             return False
         else:
             return True
@@ -200,7 +200,7 @@ class AnnexGvfsBackend(AnnexBackend):
             if not self.gvfs.move_file(ext_tmp, ext_dst):
                 raise IOError()
         except IOError:
-            self.gvfs.unlink_file(ext_tmp)
+            self.gvfs.delete_file(ext_tmp)
             return False
         else:
             return True
@@ -255,7 +255,7 @@ for cmd, *rest in annex_loop():
     elif cmd == "REMOVE":
         key, *rest = rest
         if backend.has_key(key):
-            if backend.forget_key(key):
+            if backend.remove_key(key):
                 annex_send("REMOVE-SUCCESS", key)
             else:
                 annex_send("REMOVE-FAILURE", key)

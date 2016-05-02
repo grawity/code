@@ -153,6 +153,12 @@ class AnnexGvfsBackend(AnnexBackend):
             self.error = "path= must be specified"
             return False
         if self._volume:
+            if "://" not in self._volume:
+                self.error = "mount= can only be an URL"
+                return False
+            if self._base.startswith("/"):
+                self._base = os.path.join(self._volume, self._base[1:])
+                # do the prefix check anyway, for sanity
             if not is_prefix_of(self._volume, self._base):
                 self.error = "mount= must be a prefix of path="
                 return False

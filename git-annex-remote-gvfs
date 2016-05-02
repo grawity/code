@@ -81,6 +81,9 @@ class GvfsClient(object):
         if self.has_file(uri):
             return True
         else:
+            parent = os.path.dirname(uri)
+            if not self.create_dir_p(parent):
+                return False
             r = subprocess.call(["gvfs-mkdir", "-p", uri],
                                 stdout=sys.stderr)
             return (r == 0)

@@ -149,7 +149,13 @@ class AnnexGvfsBackend(AnnexBackend):
         return True
 
     def prepare(self):
+        if not self._base:
+            self.error = "path= must be specified"
+            return False
         if self._volume:
+            if not is_prefix_of(self._volume, self._base):
+                self.error = "mount= must be a prefix of path="
+                return False
             if not self.gvfs.mount(self._volume):
                 self.error = "could not mount %r" % self._volume
                 return False
@@ -209,30 +215,20 @@ for cmd, *rest in annex_loop():
     _log("got command: %r %r" % (cmd, rest))
     if cmd == "INITREMOTE":
         mount_path = annex_getconfig("mount")
-        repo_path = annex_getconfig("target")
-        if not repo_path:
-            annex_send("INITREMOTE-FAILURE", "target= must be specified")
-        elif mount_path and not is_prefix_of(mount_path, repo_path):
-            annex_send("INITREMOTE-FAILURE", "mount= must be a prefix of target=")
+        repo_path = annex_getconfig("path")
+        backend = AnnexGvfsBackend(mount_path, repo_path)
+        if backend.ensure_repo():
+            annex_send("INITREMOTE-SUCCESS")
         else:
-            backend = AnnexGvfsBackend(mount_path, repo_path)
-            if backend.ensure_repo():
-                annex_send("INITREMOTE-SUCCESS")
-            else:
-                annex_send("INITREMOTE-FAILURE", backend.error)
+            annex_send("INITREMOTE-FAILURE", backend.error)
     elif cmd == "PREPARE":
         mount_path = annex_getconfig("mount")
-        repo_path = annex_getconfig("target")
-        if not repo_path:
-            annex_send("PREPARE-FAILURE", "target= must be specified")
-        elif mount_path and not is_prefix_of(mount_path, repo_path):
-            annex_send("PREPARE-FAILURE", "mount= must be a prefix of target=")
+        repo_path = annex_getconfig("path")
+        backend = AnnexGvfsBackend(mount_path, repo_path)
+        if backend.prepare():
+            annex_send("PREPARE-SUCCESS")
         else:
-            backend = AnnexGvfsBackend(mount_path, repo_path)
-            if backend.prepare():
-                annex_send("PREPARE-SUCCESS")
-            else:
-                annex_send("PREPARE-FAILURE", backend.error)
+            annex_send("PREPARE-FAILURE", backend.error)
     elif cmd == "TRANSFER":
         action, key, file, *rest = rest
         if action == "STORE":

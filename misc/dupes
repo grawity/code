@@ -94,16 +94,20 @@ def path_is_perishable(path):
     return False
 
 def enum_files(root_dir):
-    for subdir, dirs, files in os.walk(root_dir):
-        weed_ignores(dirs)
-        if ".nodupes" in files:
-            dirs.clear()
-            continue
-        for name in files:
-            path = os.path.join(subdir, name)
-            if path_is_ignored(path):
+    if os.path.isdir(root_dir):
+        for subdir, dirs, files in os.walk(root_dir):
+            weed_ignores(dirs)
+            if ".nodupes" in files:
+                dirs.clear()
                 continue
-            yield path
+            for name in files:
+                path = os.path.join(subdir, name)
+                if path_is_ignored(path):
+                    continue
+                yield path
+    else:
+        if not path_is_ignored(root_dir):
+            yield root_dir
 
 def get_header(path):
     if path not in file_headers:

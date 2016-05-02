@@ -5,15 +5,16 @@ import subprocess
 
 def _log(*args):
     if os.environ.get("DEBUG"):
-        print("[gvfs]", *args, file=sys.stderr, flush=True)
+        print("\033[1;35m[gvfs]\033[;35m", *args, end="\033[m\n",
+              file=sys.stderr, flush=True)
 
 def annex_send(*args):
-    _log("--> %r" % (args,))
+    _log("stdio: --> %r" % (args,))
     print(*args, flush=True)
 
 def annex_recv(nparams=0):
     line = sys.stdin.readline().rstrip("\r\n")
-    _log("<-- %r" % line)
+    _log("stdio: <-- %r" % line)
     if nparams:
         return line.split(" ", nparams)
     else:
@@ -55,7 +56,7 @@ class GvfsClient(object):
         with subprocess.Popen(["gvfs-mount", "-l"],
                               stdout=subprocess.PIPE) as proc:
             for line in proc.stdout:
-                _log(line)
+                _log("gvfs-mount:", line)
                 if line.startswith(b"Mount(") and line.endswith(suffix):
                     return True
         return False
@@ -218,7 +219,6 @@ def is_prefix_of(a, b):
 
 annex_send("VERSION", 1)
 for cmd, *rest in annex_loop():
-    _log("got command: %r %r" % (cmd, rest))
     if cmd == "INITREMOTE":
         mount_path = annex_getconfig("mount")
         repo_path = annex_getconfig("path")

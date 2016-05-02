@@ -8,41 +8,41 @@ def _log(*args):
         print("\033[1;35m[gvfs]\033[;35m", *args, end="\033[m\n",
               file=sys.stderr, flush=True)
 
-def annex_send(*args):
-    _log("stdio: --> %r" % (args,))
-    print(*args, flush=True)
+class AnnexStdio(object):
+    def send(self, *args):
+        _log("stdio: --> %r" % (args,))
+        print(*args, flush=True)
 
-def annex_recv(nparams=0):
-    line = sys.stdin.readline().rstrip("\r\n")
-    _log("stdio: <-- %r" % line)
-    if nparams:
-        return line.split(" ", nparams)
-    else:
-        return line
+    def recv(self, nparams=0):
+        line = sys.stdin.readline().rstrip("\r\n")
+        _log("stdio: <-- %r" % line)
+        if nparams:
+            return line.split(" ", nparams)
+        else:
+            return line
 
-def annex_loop():
-    for line in sys.stdin:
-        line = line.rstrip("\r\n")
-        line = line.split(" ")
-        yield line
+    def loop(self):
+        for line in sys.stdin:
+            line = line.rstrip("\r\n")
+            _log("stdio: <-- %r" % line)
+            yield line.split(" ")
 
-def annex_transact(*args):
-    annex_send(*args)
-    cmd, rest = annex_recv(1)
-    if cmd == "VALUE":
-        return rest
-    else:
-        raise IOError("transact: expected VALUE, got %r" % cmd)
+    def transact(self, *args):
+        self.send(*args)
+        cmd, rest = self.recv(nparams=1)
+        if cmd == "VALUE":
+            return rest
+        else:
+            raise IOError("transact: expected VALUE, got %r" % cmd)
 
-def annex_setconfig(var, value):
-    return annex_send("SETCONFIG", var, value)
+    def set_config(self, var, value):
+        return self.send("SETCONFIG", var, value)
 
-def annex_getconfig(var):
-    return annex_transact("GETCONFIG", var)
+    def get_config(self, var):
+        return self.transact("GETCONFIG", var)
 
-def calc_key_path(key):
-    dir = annex_transact("DIRHASH", key)
-    return os.path.join(dir, key)
+    def dir_hash(self, key):
+        return self.transact("DIRHASH", key)
 
 class GvfsClient(object):
     def __init__(self):
@@ -108,24 +108,29 @@ class GvfsClient(object):
         return (r == 0)
 
 class AnnexBackend(object):
+    def key_to_path(self, key):
+        global annex
+        dir = annex.dir_hash(key)
+        return os.path.join(dir, key)
+
     def has_key(self, key):
         _log("AnnexBackend.has_key(%r)" % key)
-        path = calc_key_path(key)
+        path = self.key_to_path(key)
         return self.has_file(path)
 
     def store_key(self, key, src):
         _log("AnnexBackend.store_key(%r -> %r)" % (src, key))
-        path = calc_key_path(key)
+        path = self.key_to_path(key)
         return self.import_file(src, path)
 
     def retrieve_key(self, key, dst):
         _log("AnnexBackend.retrieve_key(%r -> %r)" % (key, dst))
-        path = calc_key_path(key)
+        path = self.key_to_path(key)
         return self.export_file(path, dst)
 
     def remove_key(self, key):
         _log("AnnexBackend.remove_key(%r)" % key)
-        path = calc_key_path(key)
+        path = self.key_to_path(key)
         if self.has_file(path):
             return self.delete_file(path)
         else:
@@ -217,55 +222,56 @@ def is_prefix_of(a, b):
         a += "/"
     return b.startswith(a)
 
-annex_send("VERSION", 1)
-for cmd, *rest in annex_loop():
+annex = AnnexStdio()
+annex.send("VERSION", 1)
+for cmd, *rest in annex.loop():
     if cmd == "INITREMOTE":
-        mount_path = annex_getconfig("mount")
-        repo_path = annex_getconfig("path")
+        mount_path = annex.get_config("mount")
+        repo_path = annex.get_config("path")
         backend = AnnexGvfsBackend(mount_path, repo_path)
         if backend.ensure_repo():
-            annex_send("INITREMOTE-SUCCESS")
+            annex.send("INITREMOTE-SUCCESS")
         else:
-            annex_send("INITREMOTE-FAILURE", backend.error)
+            annex.send("INITREMOTE-FAILURE", backend.error)
     elif cmd == "PREPARE":
-        mount_path = annex_getconfig("mount")
-        repo_path = annex_getconfig("path")
+        mount_path = annex.get_config("mount")
+        repo_path = annex.get_config("path")
         backend = AnnexGvfsBackend(mount_path, repo_path)
         if backend.prepare():
-            annex_send("PREPARE-SUCCESS")
+            annex.send("PREPARE-SUCCESS")
         else:
-            annex_send("PREPARE-FAILURE", backend.error)
+            annex.send("PREPARE-FAILURE", backend.error)
     elif cmd == "TRANSFER":
         action, key, file, *rest = rest
         if action == "STORE":
             if backend.store_key(key, file):
-                annex_send("TRANSFER-SUCCESS", action, key)
+                annex.send("TRANSFER-SUCCESS", action, key)
             else:
-                annex_send("TRANSFER-FAILURE", action, key)
+                annex.send("TRANSFER-FAILURE", action, key)
         elif action == "RETRIEVE":
             if backend.retrieve_key(key, file):
-                annex_send("TRANSFER-SUCCESS", action, key)
+                annex.send("TRANSFER-SUCCESS", action, key)
             else:
-                annex_send("TRANSFER-FAILURE", action, key)
+                annex.send("TRANSFER-FAILURE", action, key)
         else:
-            annex_send("UNSUPPORTED-REQUEST", cmd, action)
+            annex.send("UNSUPPORTED-REQUEST", cmd, action)
     elif cmd == "CHECKPRESENT":
         key, *rest = rest
         if backend.has_repo():
             if backend.has_key(key):
-                annex_send("CHECKPRESENT-SUCCESS", key)
+                annex.send("CHECKPRESENT-SUCCESS", key)
             else:
-                annex_send("CHECKPRESENT-FAILURE", key)
+                annex.send("CHECKPRESENT-FAILURE", key)
         else:
-            annex_send("CHECKPRESENT-UNKNOWN", key, "remote not available")
+            annex.send("CHECKPRESENT-UNKNOWN", key, "remote not available")
     elif cmd == "REMOVE":
         key, *rest = rest
         if backend.has_key(key):
             if backend.remove_key(key):
-                annex_send("REMOVE-SUCCESS", key)
+                annex.send("REMOVE-SUCCESS", key)
             else:
-                annex_send("REMOVE-FAILURE", key)
+                annex.send("REMOVE-FAILURE", key)
         else:
-            annex_send("REMOVE-SUCCESS", key)
+            annex.send("REMOVE-SUCCESS", key)
     else:
-        annex_send("UNSUPPORTED-REQUEST")
+        annex.send("UNSUPPORTED-REQUEST")

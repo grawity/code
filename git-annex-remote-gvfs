@@ -143,7 +143,7 @@ class AnnexGvfsBackend(AnnexBackend):
         self.error = None
         self.gvfs = GvfsClient()
 
-    def _get_uri(self, path):
+    def path_to_uri(self, path):
         return os.path.join(self._base, path)
 
     def ensure_repo(self):
@@ -177,18 +177,18 @@ class AnnexGvfsBackend(AnnexBackend):
         return self.gvfs.has_file(self._base)
 
     def has_file(self, path):
-        uri = self._get_uri(path)
+        uri = self.path_to_uri(path)
         return self.gvfs.has_file(uri)
 
     def delete_file(self, path):
-        uri = self._get_uri(path)
+        uri = self.path_to_uri(path)
         return self.gvfs.delete_file(uri)
 
     def import_file(self, ext_src, dst_path):
         _log("import_file(%r -> %r)" % (ext_src, dst_path))
-        dst_dir = self._get_uri(os.path.dirname(dst_path))
-        dst_uri = self._get_uri(dst_path)
-        tmp_uri = self._get_uri(dst_path + ".part")
+        dst_dir = self.path_to_uri(os.path.dirname(dst_path))
+        dst_uri = self.path_to_uri(dst_path)
+        tmp_uri = self.path_to_uri(dst_path + ".part")
         try:
             if not self.gvfs.create_dir_p(dst_dir):
                 raise IOError()
@@ -204,7 +204,7 @@ class AnnexGvfsBackend(AnnexBackend):
 
     def export_file(self, src_path, ext_dst):
         _log("export_file(%r -> %r)" % (src_path, ext_dst))
-        src_uri = self._get_uri(src_path)
+        src_uri = self.path_to_uri(src_path)
         ext_tmp = ext_dst + ".part"
         try:
             if not self.gvfs.copy_file(src_uri, ext_tmp):

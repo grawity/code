@@ -47,6 +47,7 @@ class AnnexStdio(object):
 class GvfsClient(object):
     def __init__(self):
         self._null = open("/dev/null", "wb")
+        self._stderr = open("/dev/stderr", "wb")
 
     def is_mounted(self, uri):
         _log("GvfsClient.is_mounted(%r)" % uri)
@@ -67,7 +68,7 @@ class GvfsClient(object):
             return True
         else:
             r = subprocess.call(["gvfs-mount", uri],
-                                stdout=sys.stderr)
+                                stdout=self._stderr)
             return (r == 0)
 
     def has_file(self, uri):
@@ -86,25 +87,29 @@ class GvfsClient(object):
             if not self.create_dir_p(parent):
                 return False
             r = subprocess.call(["gvfs-mkdir", "-p", uri],
-                                stdout=sys.stderr)
+                                stdout=self._stderr,
+                                stderr=self._stderr)
             return (r == 0)
 
     def delete_file(self, uri):
         _log("GvfsClient.delete_file(%r)" % uri)
         r = subprocess.call(["gvfs-rm", "-f", uri],
-                            stdout=sys.stderr)
+                            stdout=self._stderr,
+                            stderr=self._stderr)
         return (r == 0)
 
     def copy_file(self, src, dst):
         _log("GvfsClient.copy_file(%r -> %r)" % (src, dst))
         r = subprocess.call(["gvfs-copy", src, dst],
-                            stdout=sys.stderr)
+                            stdout=self._stderr,
+                            stderr=self._stderr)
         return (r == 0)
 
     def move_file(self, src, dst):
         _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-move", src, dst],
-                            stdout=sys.stderr)
+        r = subprocess.call(["gvfs-move", "-C", src, dst],
+                            stdout=self._stderr,
+                            stderr=self._stderr)
         return (r == 0)
 
 class AnnexBackend(object):

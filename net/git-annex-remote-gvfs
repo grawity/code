@@ -191,11 +191,15 @@ class AnnexGvfsBackend(AnnexBackend):
 
     def import_file(self, ext_src, dst_path):
         _log("import_file(%r -> %r)" % (ext_src, dst_path))
-        dst_dir = self.path_to_uri(os.path.dirname(dst_path))
+        tmp_path = "transfer/%s.part" % os.path.basename(dst_path)
+        tmp_dir_uri = self.path_to_uri(os.path.dirname(tmp_path))
+        dst_dir_uri = self.path_to_uri(os.path.dirname(dst_path))
+        tmp_uri = self.path_to_uri(tmp_path)
         dst_uri = self.path_to_uri(dst_path)
-        tmp_uri = self.path_to_uri(dst_path + ".part")
         try:
-            if not self.gvfs.create_dir_p(dst_dir):
+            if not self.gvfs.create_dir_p(tmp_dir_uri):
+                raise IOError()
+            if not self.gvfs.create_dir_p(dst_dir_uri):
                 raise IOError()
             if not self.gvfs.copy_file(ext_src, tmp_uri):
                 raise IOError()

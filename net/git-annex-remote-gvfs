@@ -47,7 +47,7 @@ class AnnexStdio(object):
 class GvfsClient(object):
     def __init__(self):
         self._null = open("/dev/null", "wb")
-        self._stderr = open("/dev/stderr", "wb")
+        self._stderr = open("/dev/tty", "wb")
 
     def is_mounted(self, uri):
         _log("GvfsClient.is_mounted(%r)" % uri)
@@ -100,14 +100,14 @@ class GvfsClient(object):
 
     def copy_file(self, src, dst):
         _log("GvfsClient.copy_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-copy", src, dst],
+        r = subprocess.call(["gvfs-copy", "-p", src, dst],
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
 
     def move_file(self, src, dst):
         _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-move", "-C", src, dst],
+        r = subprocess.call(["gvfs-move", "-p", "-C", src, dst],
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)

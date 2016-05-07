@@ -239,7 +239,8 @@ sub read_info {
 	for (<$info_fh>) {
 		if ($. == 1 && !/^\[Trash Info\]$/) {
 			_err("syntax error in \"$info_path\"");
-			last;
+			close($info_fh);
+			return;
 		} elsif (!defined($orig_path) && /^Path=(.+)$/) {
 			$orig_path = path_decode($1);
 		} elsif (!defined($trash_time) && /^DeletionDate=(.+)$/) {
@@ -247,6 +248,11 @@ sub read_info {
 		}
 	}
 	close($info_fh);
+
+	if (!$orig_path) {
+		_err("missing Path= in \"$info_path\"");
+		return;
+	}
 
 	return {
 		info => $info_path,
@@ -495,8 +501,7 @@ sub untrash {
 
 		_debug("examining '$info_path'");
 		my $info = read_info($info_path);
-		if (!defined $info->{orig}) {
-			_err("no Path= in '$info_path', cannot restore");
+		if (!$info) {
 			return;
 		}
 
@@ -519,9 +524,8 @@ sub untrash {
 			for my $info_path (sort + ls("$trash_dir/info", qr/\.trashinfo$/)) {
 				_debug("examining '$info_path'");
 				my $info = read_info($info_path);
-				if (!defined $info->{orig}) {
-					_warn("no Path= in '$info_path', skipping");
-					next;
+				if (!$info) {
+					return;
 				}
 				_debug("  Path: $info->{orig}");
 

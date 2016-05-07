@@ -29,6 +29,10 @@ file_headers = {}   # path → header
 file_hashes = {}    # path → hash
 total_wasted = 0
 
+def _debug(msg):
+    if "DEBUG" in os.environ:
+        print(msg)
+
 def isatty():
     global _isatty
     if _isatty is None:
@@ -94,6 +98,7 @@ def path_is_perishable(path):
     return False
 
 def enum_files(root_dir):
+    _debug("enumerating %r" % root_dir)
     for subdir, dirs, files in os.walk(root_dir):
         weed_ignores(dirs)
         if ".nodupes" in files:
@@ -152,6 +157,16 @@ def fmt_size(nbytes, si=False):
         return "%f %sB" % (quot, prefixes[exp])
     return str(nbytes)
 
+def unfmt_size(sz, si=False):
+    if not sz:
+        return -1
+    prefixes = "kMGTPE"
+    mult = 1000 if si else 1024
+    pos = prefixes.index(sz[-1])
+    val = float(sz[:-1])
+    exp = pos + 1
+    return val * (mult ** exp)
+
 def find_duplicates(root_dirs):
     # dicts keeping duplicate items
     known_sizes = defaultdict(list)     # size → path[]
@@ -170,6 +185,8 @@ def find_duplicates(root_dirs):
             st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
                 continue
+            #if st.st_size < opts.larger_than:
+            #    continue
             file_sizes[path] = st.st_size
             known_sizes[st.st_size].append(path)
 
@@ -251,9 +268,12 @@ if __name__ == "__main__":
     ap.add_argument("--only",
                     dest="only", action="append", default=[],
                     help="only list files with duplicates matching given paths")
+    ap.add_argument("--larger-than", dest="larger_than")
     ap.add_argument("path", nargs="*")
 
     opts = ap.parse_args()
+
+    opts.larger_than = unfmt_size(opts.larger_than)
 
     root_dir = opts.path[:] or ["."]
 

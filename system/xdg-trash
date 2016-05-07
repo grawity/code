@@ -496,7 +496,7 @@ sub untrash {
 		_debug("examining '$info_path'");
 		my $info = read_info($info_path);
 		if (!defined $info->{orig}) {
-			_err("no Path= in '$info_path'; cannot restore");
+			_err("no Path= in '$info_path', cannot restore");
 			return;
 		}
 
@@ -520,14 +520,14 @@ sub untrash {
 				_debug("examining '$info_path'");
 				my $info = read_info($info_path);
 				if (!defined $info->{orig}) {
-					_debug("  no Path, skipping");
+					_warn("no Path= in '$info_path', skipping");
 					next;
 				}
 				_debug("  Path: $info->{orig}");
 
 				if ($trash_dir ne $home_trash) {
 					if (file_name_is_absolute($info->{orig})) {
-						_debug("  absolute Path not permitted outside home trash, skipping");
+						_warn("absolute Path= in '$info_path' is not permitted outside home, skipping");
 						next;
 					}
 					$info->{orig} = catdir($vol_root, $info->{orig});

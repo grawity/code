@@ -1,0 +1,287 @@
+#!/usr/bin/env python
+import os
+import sys
+import subprocess
+
+def _log(*args):
+    if os.environ.get("DEBUG"):
+        print("\033[1;35m[gvfs]\033[;35m", *args, end="\033[m\n",
+              file=sys.stderr, flush=True)
+
+class AnnexStdio(object):
+    def send(self, *args):
+        _log("stdio: --> %r" % (args,))
+        print(*args, flush=True)
+
+    def recv(self, nparams=0):
+        line = sys.stdin.readline().rstrip("\r\n")
+        _log("stdio: <-- %r" % line)
+        if nparams:
+            return line.split(" ", nparams)
+        else:
+            return line
+
+    def loop(self):
+        for line in sys.stdin:
+            line = line.rstrip("\r\n")
+            _log("stdio: <-- %r" % line)
+            yield line.split(" ")
+
+    def transact(self, *args):
+        self.send(*args)
+        cmd, rest = self.recv(nparams=1)
+        if cmd == "VALUE":
+            return rest
+        else:
+            raise IOError("transact: expected VALUE, got %r" % cmd)
+
+    def set_config(self, var, value):
+        return self.send("SETCONFIG", var, value)
+
+    def get_config(self, var):
+        return self.transact("GETCONFIG", var)
+
+    def dir_hash(self, key):
+        return self.transact("DIRHASH", key)
+
+class GvfsClient(object):
+    def __init__(self):
+        self._null = open("/dev/null", "wb")
+        self._stderr = open("/dev/tty", "wb")
+
+    def is_mounted(self, uri):
+        _log("GvfsClient.is_mounted(%r)" % uri)
+        if not uri.endswith("/"):
+            uri += "/"
+        suffix = (" -> %s\n" % uri).encode("utf-8")
+        with subprocess.Popen(["gvfs-mount", "-l"],
+                              stdout=subprocess.PIPE) as proc:
+            for line in proc.stdout:
+                _log("gvfs-mount:", line)
+                if line.startswith(b"Mount(") and line.endswith(suffix):
+                    return True
+        return False
+
+    def mount(self, uri):
+        _log("GvfsClient.mount(%r)" % uri)
+        if self.is_mounted(uri):
+            return True
+        else:
+            r = subprocess.call(["gvfs-mount", uri],
+                                stdout=self._stderr)
+            return (r == 0)
+
+    def has_file(self, uri):
+        _log("GvfsClient.has_file(%r)" % uri)
+        r = subprocess.call(["gvfs-info", "-a", "access::can-read", uri],
+                            stdout=self._null,
+                            stderr=self._null)
+        return (r == 0)
+
+    def create_dir_p(self, uri):
+        _log("GvfsClient.create_dir_p(%r)" % uri)
+        if self.has_file(uri):
+            return True
+        else:
+            parent = os.path.dirname(uri)
+            if not self.create_dir_p(parent):
+                return False
+            r = subprocess.call(["gvfs-mkdir", "-p", uri],
+                                stdout=self._stderr,
+                                stderr=self._stderr)
+            return (r == 0)
+
+    def delete_file(self, uri):
+        _log("GvfsClient.delete_file(%r)" % uri)
+        r = subprocess.call(["gvfs-rm", "-f", uri],
+                            stdout=self._stderr,
+                            stderr=self._stderr)
+        return (r == 0)
+
+    def copy_file(self, src, dst):
+        _log("GvfsClient.copy_file(%r -> %r)" % (src, dst))
+        r = subprocess.call(["gvfs-copy", "-p", src, dst],
+                            stdout=self._stderr,
+                            stderr=self._stderr)
+        return (r == 0)
+
+    def move_file(self, src, dst):
+        _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
+        r = subprocess.call(["gvfs-move", "-p", "-C", src, dst],
+                            stdout=self._stderr,
+                            stderr=self._stderr)
+        return (r == 0)
+
+class AnnexBackend(object):
+    def key_to_path(self, key):
+        global annex
+        dir = annex.dir_hash(key)
+        return os.path.join(dir, key)
+
+    def has_key(self, key):
+        _log("AnnexBackend.has_key(%r)" % key)
+        path = self.key_to_path(key)
+        return self.has_file(path)
+
+    def store_key(self, key, src):
+        _log("AnnexBackend.store_key(%r -> %r)" % (src, key))
+        path = self.key_to_path(key)
+        return self.import_file(src, path)
+
+    def retrieve_key(self, key, dst):
+        _log("AnnexBackend.retrieve_key(%r -> %r)" % (key, dst))
+        path = self.key_to_path(key)
+        return self.export_file(path, dst)
+
+    def remove_key(self, key):
+        _log("AnnexBackend.remove_key(%r)" % key)
+        path = self.key_to_path(key)
+        if self.has_file(path):
+            return self.delete_file(path)
+        else:
+            return True
+
+class AnnexGvfsBackend(AnnexBackend):
+    def __init__(self, volume, base):
+        self._volume = volume
+        self._base = base
+        self.error = None
+        self.gvfs = GvfsClient()
+
+    def path_to_uri(self, path):
+        return os.path.join(self._base, path)
+
+    def ensure_repo(self):
+        if not self.prepare():
+            return False
+        if not self.gvfs.create_dir_p(self._base):
+            self._error = "could not mkdir %r" % self._base
+            return False
+        return True
+
+    def prepare(self):
+        if not self._base:
+            self.error = "path= must be specified"
+            return False
+        if self._volume:
+            if "://" not in self._volume:
+                self.error = "mount= can only be an URL"
+                return False
+            if self._base.startswith("/"):
+                self._base = os.path.join(self._volume, self._base[1:])
+                # do the prefix check anyway, for sanity
+            if not is_prefix_of(self._volume, self._base):
+                self.error = "mount= must be a prefix of path="
+                return False
+            if not self.gvfs.mount(self._volume):
+                self.error = "could not mount %r" % self._volume
+                return False
+        return True
+
+    def has_repo(self):
+        return self.gvfs.has_file(self._base)
+
+    def has_file(self, path):
+        uri = self.path_to_uri(path)
+        return self.gvfs.has_file(uri)
+
+    def delete_file(self, path):
+        uri = self.path_to_uri(path)
+        return self.gvfs.delete_file(uri)
+
+    def import_file(self, ext_src, dst_path):
+        _log("import_file(%r -> %r)" % (ext_src, dst_path))
+        tmp_path = "transfer/%s.part" % os.path.basename(dst_path)
+        tmp_dir_uri = self.path_to_uri(os.path.dirname(tmp_path))
+        dst_dir_uri = self.path_to_uri(os.path.dirname(dst_path))
+        tmp_uri = self.path_to_uri(tmp_path)
+        dst_uri = self.path_to_uri(dst_path)
+        try:
+            if not self.gvfs.create_dir_p(tmp_dir_uri):
+                raise IOError()
+            if not self.gvfs.create_dir_p(dst_dir_uri):
+                raise IOError()
+            if not self.gvfs.copy_file(ext_src, tmp_uri):
+                raise IOError()
+            if not self.gvfs.move_file(tmp_uri, dst_uri):
+                raise IOError()
+        except IOError:
+            self.gvfs.delete_file(tmp_uri)
+            return False
+        else:
+            return True
+
+    def export_file(self, src_path, ext_dst):
+        _log("export_file(%r -> %r)" % (src_path, ext_dst))
+        src_uri = self.path_to_uri(src_path)
+        ext_tmp = ext_dst + ".part"
+        try:
+            if not self.gvfs.copy_file(src_uri, ext_tmp):
+                raise IOError()
+            if not self.gvfs.move_file(ext_tmp, ext_dst):
+                raise IOError()
+        except IOError:
+            self.gvfs.delete_file(ext_tmp)
+            return False
+        else:
+            return True
+
+def is_prefix_of(a, b):
+    if not a.endswith("/"):
+        a += "/"
+    return b.startswith(a)
+
+annex = AnnexStdio()
+annex.send("VERSION", 1)
+for cmd, *rest in annex.loop():
+    if cmd == "INITREMOTE":
+        mount_path = annex.get_config("mount")
+        repo_path = annex.get_config("path")
+        backend = AnnexGvfsBackend(mount_path, repo_path)
+        if backend.ensure_repo():
+            annex.send("INITREMOTE-SUCCESS")
+        else:
+            annex.send("INITREMOTE-FAILURE", backend.error)
+    elif cmd == "PREPARE":
+        mount_path = annex.get_config("mount")
+        repo_path = annex.get_config("path")
+        backend = AnnexGvfsBackend(mount_path, repo_path)
+        if backend.prepare():
+            annex.send("PREPARE-SUCCESS")
+        else:
+            annex.send("PREPARE-FAILURE", backend.error)
+    elif cmd == "TRANSFER":
+        action, key, *file = rest
+        file = " ".join(file)
+        if action == "STORE":
+            if backend.store_key(key, file):
+                annex.send("TRANSFER-SUCCESS", action, key)
+            else:
+                annex.send("TRANSFER-FAILURE", action, key)
+        elif action == "RETRIEVE":
+            if backend.retrieve_key(key, file):
+                annex.send("TRANSFER-SUCCESS", action, key)
+            else:
+                annex.send("TRANSFER-FAILURE", action, key)
+        else:
+            annex.send("UNSUPPORTED-REQUEST", cmd, action)
+    elif cmd == "CHECKPRESENT":
+        key, *rest = rest
+        if backend.has_repo():
+            if backend.has_key(key):
+                annex.send("CHECKPRESENT-SUCCESS", key)
+            else:
+                annex.send("CHECKPRESENT-FAILURE", key)
+        else:
+            annex.send("CHECKPRESENT-UNKNOWN", key, "remote not available")
+    elif cmd == "REMOVE":
+        key, *rest = rest
+        if backend.has_key(key):
+            if backend.remove_key(key):
+                annex.send("REMOVE-SUCCESS", key)
+            else:
+                annex.send("REMOVE-FAILURE", key)
+        else:
+            annex.send("REMOVE-SUCCESS", key)
+    else:
+        annex.send("UNSUPPORTED-REQUEST")

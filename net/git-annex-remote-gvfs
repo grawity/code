@@ -41,8 +41,13 @@ class AnnexStdio(object):
     def get_config(self, var):
         return self.transact("GETCONFIG", var)
 
-    def dir_hash(self, key):
-        return self.transact("DIRHASH", key)
+    def dir_hash(self, key, layout="mixed"):
+        if layout == "mixed":
+            return self.transact("DIRHASH", key)
+        elif layout == "lower":
+            return self.transact("DIRHASH-LOWER", key)
+        else:
+            raise ValueError("unknown dirhash layout %r" % layout)
 
 class GvfsClient(object):
     def __init__(self):
@@ -115,6 +120,9 @@ class GvfsClient(object):
 class AnnexBackend(object):
     def __init__(self, annex):
         self._annex = annex
+        self._layout = self._annex.get_config("layout") or "mixed"
+        if self._layout not in {"mixed", "lower"}:
+            raise ValueError("unknown layout %r" % self._layout)
 
     def key_to_path(self, key):
         dir = self._annex.dir_hash(key)

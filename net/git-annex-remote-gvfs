@@ -151,15 +151,8 @@ class AnnexGvfsBackend(AnnexBackend):
     def path_to_uri(self, path):
         return os.path.join(self._base, path)
 
-    def ensure_repo(self):
-        if not self.prepare():
-            return False
-        if not self.gvfs.create_dir_p(self._base):
-            self._error = "could not mkdir %r" % self._base
-            return False
-        return True
-
     def prepare(self):
+        """Remote is being activated for use; mount the volume."""
         if not self._base:
             self.error = "path= must be specified"
             return False
@@ -176,6 +169,15 @@ class AnnexGvfsBackend(AnnexBackend):
             if not self.gvfs.mount(self._volume):
                 self.error = "could not mount %r" % self._volume
                 return False
+        return True
+
+    def initialize(self):
+        """Remote is being added; check settings and create base directory if needed."""
+        if not self.prepare():
+            return False
+        if not self.gvfs.create_dir_p(self._base):
+            self._error = "could not mkdir %r" % self._base
+            return False
         return True
 
     def has_repo(self):
@@ -238,7 +240,7 @@ for cmd, *rest in annex.loop():
         mount_path = annex.get_config("mount")
         repo_path = annex.get_config("path")
         backend = AnnexGvfsBackend(mount_path, repo_path)
-        if backend.ensure_repo():
+        if backend.initialize():
             annex.send("INITREMOTE-SUCCESS")
         else:
             annex.send("INITREMOTE-FAILURE", backend.error)

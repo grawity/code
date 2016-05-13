@@ -121,6 +121,11 @@ class AnnexBackend(object):
     def __init__(self, annex):
         self._annex = annex
         self._layout = self._annex.get_config("layout") or "lower"
+        self._migrate = False
+
+        if self._layout == "mixed/lower":
+            self._layout = "lower"
+            self._migrate = True
 
         if self._layout not in {"mixed", "lower"}:
             raise ValueError("unknown layout %r" % self._layout)
@@ -131,15 +136,15 @@ class AnnexBackend(object):
 
     def has_key(self, key):
         _log("AnnexBackend.has_key(%r)" % key)
+        if self.maybe_migrate_layout_key(key):
+            return True
         path = self.key_to_path(key)
         return self.has_file(path)
 
     def store_key(self, key, src):
         _log("AnnexBackend.store_key(%r -> %r)" % (src, key))
-        if self._layout == "lower":
-            if self.migrate_layout_key(key):
-                print("migrated key %r from mixed to lower" % key, file=sys.stderr)
-                return True
+        if self.maybe_migrate_layout_key(key):
+            return True
         path = self.key_to_path(key)
         return self.import_file(src, path)
 
@@ -156,6 +161,13 @@ class AnnexBackend(object):
         else:
             return True
 
+    def maybe_migrate_layout_key(self, key):
+        if self._migrate:
+            if self.migrate_layout_key(key):
+                print("migrated key %r from mixed to lower" % key, file=sys.stderr)
+                return True
+        return False
+
     def migrate_layout_key(self, key):
         _log("AnnexBackend.migrate_layout_key(%r)" % key)
         if self._layout == "lower":
@@ -165,9 +177,14 @@ class AnnexBackend(object):
         old_path = self.key_to_path(key, layout=old_layout)
         new_path = self.key_to_path(key)
         if self.has_file(old_path):
-            return self.rename_file(old_path, new_path)
+            if self.has_file(new_path):
+                _log("[migrate_layout_key] - key present in both old & new; deleting old")
+                return self.delete_file(old_path)
+            else:
+                _log("[migrate_layout_key] - renaming key from old layout to new layout")
+                return self.rename_file(old_path, new_path)
         else:
-            return True
+            return False
 
 class AnnexGvfsBackend(AnnexBackend):
     def __init__(self, *args):
@@ -326,5 +343,9 @@ for cmd, *rest in annex.loop():
                 annex.send("REMOVE-FAILURE", key)
         else:
             annex.send("REMOVE-SUCCESS", key)
+    elif cmd == "WHEREIS":
+        key, *rest = rest
+        backend.maybe_migrate_layout_key(key)
+        annex.send("UNSUPPORTED-REQUEST")
     else:
         annex.send("UNSUPPORTED-REQUEST")

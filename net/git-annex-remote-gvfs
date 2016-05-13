@@ -124,8 +124,8 @@ class AnnexBackend(object):
         if self._layout not in {"mixed", "lower"}:
             raise ValueError("unknown layout %r" % self._layout)
 
-    def key_to_path(self, key):
-        dir = self._annex.dir_hash(key)
+    def key_to_path(self, key, layout=None):
+        dir = self._annex.dir_hash(key, layout or self._layout)
         return os.path.join(dir, key)
 
     def has_key(self, key):
@@ -135,6 +135,10 @@ class AnnexBackend(object):
 
     def store_key(self, key, src):
         _log("AnnexBackend.store_key(%r -> %r)" % (src, key))
+        if self._layout == "lower":
+            if self.migrate_layout_key(key):
+                print("migrated key %r from mixed to lower" % key, file=sys.stderr)
+                return True
         path = self.key_to_path(key)
         return self.import_file(src, path)
 
@@ -148,6 +152,19 @@ class AnnexBackend(object):
         path = self.key_to_path(key)
         if self.has_file(path):
             return self.delete_file(path)
+        else:
+            return True
+
+    def migrate_layout_key(self, key):
+        _log("AnnexBackend.migrate_layout_key(%r)" % key)
+        if self._layout == "lower":
+            old_layout = "mixed"
+        else:
+            raise ValueError("only migration from mixed to lower is supported")
+        old_path = self.key_to_path(key, layout=old_layout)
+        new_path = self.key_to_path(key)
+        if self.has_file(old_path):
+            return self.rename_file(old_path, new_path)
         else:
             return True
 
@@ -235,6 +252,22 @@ class AnnexGvfsBackend(AnnexBackend):
                 raise IOError()
         except IOError:
             self.gvfs.delete_file(ext_tmp)
+            return False
+        else:
+            return True
+
+    def rename_file(self, old_path, new_path):
+        _log("rename_file(%r -> %r)" % (old_path, new_path))
+        old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
+        new_dir_uri = self.path_to_uri(os.path.dirname(new_path))
+        old_uri = self.path_to_uri(old_path)
+        new_uri = self.path_to_uri(new_path)
+        try:
+            if not self.gvfs.create_dir_p(new_dir_uri):
+                raise IOError()
+            if not self.gvfs.move_file(old_uri, new_uri):
+                raise IOError()
+        except IOError:
             return False
         else:
             return True

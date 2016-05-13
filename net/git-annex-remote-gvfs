@@ -113,9 +113,11 @@ class GvfsClient(object):
         return (r == 0)
 
 class AnnexBackend(object):
+    def __init__(self, annex):
+        self._annex = annex
+
     def key_to_path(self, key):
-        global annex
-        dir = annex.dir_hash(key)
+        dir = self._annex.dir_hash(key)
         return os.path.join(dir, key)
 
     def has_key(self, key):
@@ -142,9 +144,10 @@ class AnnexBackend(object):
             return True
 
 class AnnexGvfsBackend(AnnexBackend):
-    def __init__(self, volume, base):
-        self._volume = volume
-        self._base = base
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._volume = self._annex.get_config("mount")
+        self._base = self._annex.get_config("path")
         self.error = None
         self.gvfs = GvfsClient()
 
@@ -237,17 +240,13 @@ annex = AnnexStdio()
 annex.send("VERSION", 1)
 for cmd, *rest in annex.loop():
     if cmd == "INITREMOTE":
-        mount_path = annex.get_config("mount")
-        repo_path = annex.get_config("path")
-        backend = AnnexGvfsBackend(mount_path, repo_path)
+        backend = AnnexGvfsBackend(annex)
         if backend.initialize():
             annex.send("INITREMOTE-SUCCESS")
         else:
             annex.send("INITREMOTE-FAILURE", backend.error)
     elif cmd == "PREPARE":
-        mount_path = annex.get_config("mount")
-        repo_path = annex.get_config("path")
-        backend = AnnexGvfsBackend(mount_path, repo_path)
+        backend = AnnexGvfsBackend(annex)
         if backend.prepare():
             annex.send("PREPARE-SUCCESS")
         else:

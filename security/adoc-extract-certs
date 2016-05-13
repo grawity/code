@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use Archive::Zip qw(:ERROR_CODES);
 use Crypt::X509;
+use Encode qw(decode);
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
 use File::Spec::Functions qw(catfile);
@@ -54,10 +55,24 @@ sub parse_xmldsig {
     }
 }
 
+sub try_decode {
+    my ($str) = @_;
+
+    # best-effort BMPString detection
+    if (length($str) % 2 == 0) {
+        if ($str =~ /^\0/) {
+            $str = decode("UTF-16BE", $str);
+        }
+    }
+    return $str;
+}
+
 sub safe_filename {
     my ($str) = @_;
 
+    $str = try_decode($str);
     $str =~ s/[ \/\\"?*<>:]/_/g;
+    $str =~ s/[\x00-\x1F]/sprintf("%%%02X", ord($&))/ge;
     return $str;
 }
 
@@ -88,18 +103,20 @@ sub write_certificate {
     my ($cert_der) = @_;
     state %seen;
 
-    if ($seen{$cert_der}++) {
-        _debug("certificate already seen, skipping");
-        return;
-    }
-
     my $cert = Crypt::X509->new(cert => $cert_der);
     if (!$cert || $cert->{_error}) {
         _err("could not parse certificate");
         return;
     }
 
-    _info("found cert '".$cert->subject_cn."' (".$cert->issuer_cn.")");
+    my $subject = try_decode($cert->subject_cn);
+    my $issuer = try_decode($cert->issuer_cn);
+    _info("found cert '".$subject."' (".$issuer.")");
+
+    if ($seen{$cert_der}++) {
+        _debug("certificate already seen, skipping");
+        return;
+    }
 
     my $out_dir = $Opt{output_dir} // ".";
     my $out_file = catfile($out_dir, make_cert_filename($cert));
@@ -150,6 +167,12 @@ sub process_zip {
     }
 }
 
+my $pem_re = qr/^-----BEGIN[ ]CERTIFICATE-----\r?\n
+                ([A-Za-z0-9\/+\r\n]+ =*)\r?\n
+                -----END[ ]CERTIFICATE-----\r?$/msx;
+
+my $pdf_extractor = $ENV{HOME}."/lib/projects/pdf-extract-certs/dist/pdf-extract-certs.jar";
+
 utf8::decode($_) for @ARGV;
 
 GetOptions(
@@ -177,6 +200,9 @@ for my $adoc (@ARGV) {
     }
     elsif ($adoc =~ /\.(ddoc|xml)$/i) {
         $format = "xml-dsig";
+    }
+    elsif ($adoc =~ /\.pdf$/i) {
+        $format = "pdf";
     }
     elsif ($adoc =~ /\.(crt|cert|cer|pem)$/i) {
         $format = "x509";
@@ -208,7 +234,6 @@ for my $adoc (@ARGV) {
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
-
         if (open(my $f, "<:raw", $adoc)) {
             my @cert_der = parse_xmldsig($f);
             if (@cert_der) {
@@ -219,16 +244,26 @@ for my $adoc (@ARGV) {
             $f->close;
         }
     }
+    elsif ($format eq "pdf") {
+        _log2("parsing '$adoc' (PDF)");
+        _debug("running tool '$pdf_extractor'");
+        if (open(my $f, "-|", "java", "-jar", $pdf_extractor, $adoc)) {
+            my $data;
+            $f->read($data, 128*1024);
+            $f->close;
+            while ($data =~ /$pem_re/g) {
+                my $cert_der = decode_base64($1);
+                write_certificate($cert_der);
+            }
+        } else {
+            _err("could not run '$pdf_extractor': $!");
+        }
+    }
     elsif ($format eq "x509") {
         _log2("parsing bare certificate '$adoc'");
-
-        my $pem_re = qr/^-----BEGIN[ ]CERTIFICATE-----\r?\n
-                        ([A-Za-z0-9\/+\r\n]+ =*)\r?\n
-                        -----END[ ]CERTIFICATE-----\r?$/msx;
-
         if (open(my $f, "<:raw", $adoc)) {
             my $data;
-            $f->read($data, 8192);
+            $f->read($data, 8*1024);
             $f->close;
             if ($data =~ /^-----/m) {
                 while ($data =~ /$pem_re/g) {

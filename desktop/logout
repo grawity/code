@@ -26,6 +26,10 @@ if [[ $session == default ]]; then
 		debug "found DBus session bus, guessing by bus names"
 		for name in $(dbus-name -l); do
 			case $name in
+			    com.canonical.Unity)
+				debug "found Unity ($name)"
+				session=unity
+				;;
 			    org.enlightenment.wm.service)
 				debug "found Enlightenment WM ($name)"
 				session=enlightenment; EVERSION=
@@ -36,6 +40,10 @@ if [[ $session == default ]]; then
 				;;
 			    org.kde.ksmserver)
 				debug "found KDE session manager ($name)"
+				session=kde-plasma
+				;;
+			    org.kde.plasmashell)
+				debug "found KDE Plasma shell ($name)"
 				session=kde-plasma
 				;;
 			    org.mate.SessionManager)
@@ -95,7 +103,7 @@ case $session in
 	name=Razor-Qt
 	cmd='qdbus org.razorqt.session /RazorSession logout'
 	;;
-    ubuntu)
+    ubuntu|unity)
 	name=Unity
 	cmd='gnome-session-quit --logout --force --no-prompt'
 	;;

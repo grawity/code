@@ -41,8 +41,13 @@ class AnnexStdio(object):
     def get_config(self, var):
         return self.transact("GETCONFIG", var)
 
-    def dir_hash(self, key):
-        return self.transact("DIRHASH", key)
+    def dir_hash(self, key, layout="mixed"):
+        if layout == "mixed":
+            return self.transact("DIRHASH", key)
+        elif layout == "lower":
+            return self.transact("DIRHASH-LOWER", key)
+        else:
+            raise ValueError("unknown dirhash layout %r" % layout)
 
 class GvfsClient(object):
     def __init__(self):
@@ -113,18 +118,33 @@ class GvfsClient(object):
         return (r == 0)
 
 class AnnexBackend(object):
-    def key_to_path(self, key):
-        global annex
-        dir = annex.dir_hash(key)
+    def __init__(self, annex):
+        self._annex = annex
+        self._layout = self._annex.get_config("layout") or "lower"
+        self._migrate = False
+
+        if self._layout == "mixed/lower":
+            self._layout = "lower"
+            self._migrate = True
+
+        if self._layout not in {"mixed", "lower"}:
+            raise ValueError("unknown layout %r" % self._layout)
+
+    def key_to_path(self, key, layout=None):
+        dir = self._annex.dir_hash(key, layout or self._layout)
         return os.path.join(dir, key)
 
     def has_key(self, key):
         _log("AnnexBackend.has_key(%r)" % key)
+        if self.maybe_migrate_layout_key(key):
+            return True
         path = self.key_to_path(key)
         return self.has_file(path)
 
     def store_key(self, key, src):
         _log("AnnexBackend.store_key(%r -> %r)" % (src, key))
+        if self.maybe_migrate_layout_key(key):
+            return True
         path = self.key_to_path(key)
         return self.import_file(src, path)
 
@@ -141,25 +161,44 @@ class AnnexBackend(object):
         else:
             return True
 
+    def maybe_migrate_layout_key(self, key):
+        if self._migrate:
+            if self.migrate_layout_key(key):
+                print("migrated key %r from mixed to lower" % key, file=sys.stderr)
+                return True
+        return False
+
+    def migrate_layout_key(self, key):
+        _log("AnnexBackend.migrate_layout_key(%r)" % key)
+        if self._layout == "lower":
+            old_layout = "mixed"
+        else:
+            raise ValueError("only migration from mixed to lower is supported")
+        old_path = self.key_to_path(key, layout=old_layout)
+        new_path = self.key_to_path(key)
+        if self.has_file(old_path):
+            if self.has_file(new_path):
+                _log("[migrate_layout_key] - key present in both old & new; deleting old")
+                return self.delete_file(old_path)
+            else:
+                _log("[migrate_layout_key] - renaming key from old layout to new layout")
+                return self.rename_file(old_path, new_path)
+        else:
+            return False
+
 class AnnexGvfsBackend(AnnexBackend):
-    def __init__(self, volume, base):
-        self._volume = volume
-        self._base = base
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._volume = self._annex.get_config("mount")
+        self._base = self._annex.get_config("path")
         self.error = None
         self.gvfs = GvfsClient()
 
     def path_to_uri(self, path):
         return os.path.join(self._base, path)
 
-    def ensure_repo(self):
-        if not self.prepare():
-            return False
-        if not self.gvfs.create_dir_p(self._base):
-            self._error = "could not mkdir %r" % self._base
-            return False
-        return True
-
     def prepare(self):
+        """Remote is being activated for use; mount the volume."""
         if not self._base:
             self.error = "path= must be specified"
             return False
@@ -176,6 +215,15 @@ class AnnexGvfsBackend(AnnexBackend):
             if not self.gvfs.mount(self._volume):
                 self.error = "could not mount %r" % self._volume
                 return False
+        return True
+
+    def initialize(self):
+        """Remote is being added; check settings and create base directory if needed."""
+        if not self.prepare():
+            return False
+        if not self.gvfs.create_dir_p(self._base):
+            self._error = "could not mkdir %r" % self._base
+            return False
         return True
 
     def has_repo(self):
@@ -226,6 +274,22 @@ class AnnexGvfsBackend(AnnexBackend):
         else:
             return True
 
+    def rename_file(self, old_path, new_path):
+        _log("rename_file(%r -> %r)" % (old_path, new_path))
+        old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
+        new_dir_uri = self.path_to_uri(os.path.dirname(new_path))
+        old_uri = self.path_to_uri(old_path)
+        new_uri = self.path_to_uri(new_path)
+        try:
+            if not self.gvfs.create_dir_p(new_dir_uri):
+                raise IOError()
+            if not self.gvfs.move_file(old_uri, new_uri):
+                raise IOError()
+        except IOError:
+            return False
+        else:
+            return True
+
 def is_prefix_of(a, b):
     if not a.endswith("/"):
         a += "/"
@@ -235,17 +299,13 @@ annex = AnnexStdio()
 annex.send("VERSION", 1)
 for cmd, *rest in annex.loop():
     if cmd == "INITREMOTE":
-        mount_path = annex.get_config("mount")
-        repo_path = annex.get_config("path")
-        backend = AnnexGvfsBackend(mount_path, repo_path)
-        if backend.ensure_repo():
+        backend = AnnexGvfsBackend(annex)
+        if backend.initialize():
             annex.send("INITREMOTE-SUCCESS")
         else:
             annex.send("INITREMOTE-FAILURE", backend.error)
     elif cmd == "PREPARE":
-        mount_path = annex.get_config("mount")
-        repo_path = annex.get_config("path")
-        backend = AnnexGvfsBackend(mount_path, repo_path)
+        backend = AnnexGvfsBackend(annex)
         if backend.prepare():
             annex.send("PREPARE-SUCCESS")
         else:
@@ -283,5 +343,9 @@ for cmd, *rest in annex.loop():
                 annex.send("REMOVE-FAILURE", key)
         else:
             annex.send("REMOVE-SUCCESS", key)
+    elif cmd == "WHEREIS":
+        key, *rest = rest
+        backend.maybe_migrate_layout_key(key)
+        annex.send("UNSUPPORTED-REQUEST")
     else:
         annex.send("UNSUPPORTED-REQUEST")

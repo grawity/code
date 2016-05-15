@@ -49,12 +49,12 @@ my $pathre = qr{ (?<!\w) ([~.]? / [^:]+) }mx;
 #   filename-lineno-garbage
 # low priority because of possible ambiguity
 
-my $ctxspecre = qr{ ^ ([^:]+?) - (\d+) - .* $ }mx;
+my $ctxspecre = qr{ ^ ([^:]+?) - (\d+) - }mx;
 
 # this matches:
 #   File "/foo/bar", line 123,
 
-my $pythonre = qr{ ^ \s* File \s "(.+?)", \s line \s (\d+) }mx;
+my $pythonre = qr{ ^ File \s "(.+?)", \s line \s (\d+) }mx;
 
 # this matches:
 #   /foo/bar line 123
@@ -113,8 +113,10 @@ sub parse {
 	for (shift) {
 		if (!defined) { _die("missing arguments"); }
 		chomp;
+		s/^\s+//;
+		s/\s+$//;
 		when ($pythonre) {
-			_debug("pythonre: $& -> '$1' '$2'");
+			_debug("pythonre: '$&' -> '$1' '$2'");
 			my ($file, $line) = ($1, $2);
 			return ($file, "+".$line);
 		}
@@ -129,7 +131,7 @@ sub parse {
 			return ($url);
 		}
 		when (-e $_) {
-			_debug("-e: $_");
+			_debug("exact path (-e): '$_'");
 			return ($_);
 		}
 		when ($vimre) {

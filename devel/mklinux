@@ -50,18 +50,6 @@ _build_dkms() {
 	done
 }
 
-_build_kdbus() {
-	local release=$1
-	local build="/tmp/kdbus-build-$$"
-
-	log "building kdbus"
-	git clone -s ~/src/os-tools/kdbus "$build"
-	make -C "$build" KERNELDIR="/usr/lib/modules/$release/build"
-	sudo install -Dm0644 "$build/kdbus.ko" \
-		"/usr/lib/modules/$release/kernel/misc/kdbus.ko"
-	rm -rf "$build"
-}
-
 if [ -e "$config" ]; then
 	. "$config" || die "could not load configuration file"
 fi
@@ -148,7 +136,6 @@ fi
 log2 "building third-party modules"
 
 	_build_dkms "$release"
-	#_build_kdbus "$release"
 	#sudo depmod "$release"
 
 log2 "signing third-party modules"

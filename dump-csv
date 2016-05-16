@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Getopt::Long qw(:config no_ignore_case bundling);
+use List::Util qw(max);
+use Nullroute::Lib;
+use Text::CSV;
+
+my $sep = ",";
+my $layer = ":utf8";
+
+GetOptions(
+	"T|tab" => sub { $sep = "\t" },
+	"U|utf16" => sub { $layer = ":encoding(utf-16)" },
+);
+
+sub dump_io {
+	my ($io) = @_;
+
+	my @keys;
+	my $width;
+
+	my $csvp = Text::CSV->new({
+			sep_char => $sep,
+			auto_diag => 1,
+		   });
+
+	while (my $line = <$io>) {
+		#$line =~ s/^\xFF\xFE//;
+		$line =~ s/\r?\n$//;
+		next if $line =~ /^$/;
+		#utf8::upgrade($line);
+		if ($csvp->parse($line)) {
+			my @row = $csvp->fields;
+			trim_inplace(@row);
+			if (!@keys) {
+				@keys = @row;
+				$width = max map {length($_)} @keys;
+			} else {
+				for my $i (0..$#row) {
+					print	" " x ($width - length($keys[$i])),
+						"\e[38;5;13m".$keys[$i]."\e[m",
+						"\e[38;5;8m = \e[m",
+						$row[$i],
+						"\n";
+				}
+				print "\n";
+			}
+		} else {
+			_warn("malformed input: '$line'");
+		}
+	}
+}
+
+my @keys;
+
+if (@ARGV) {
+	for my $file (@ARGV) {
+		if (open(my $fh, "<$layer", $file)) {
+			dump_io($fh);
+			close($fh);
+		} else {
+			_err("could not open '$file': $!");
+		}
+	}
+} else {
+	dump_io(\*STDIN);
+}

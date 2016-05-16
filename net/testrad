@@ -3,7 +3,7 @@
 
 . lib.bash || exit
 
-declare -- server port secret mgmt eap mech phase2
+declare -- server port secret eap mech phase2
 declare -- identity outer_id password
 declare -- tls_cert tls_key tls_ca save_chain
 declare -a tls_opts phase1_opts
@@ -79,8 +79,6 @@ parse_args() {
 			secret)
 				secret=$2; shift;;
 			# mechanism choice
-			mode)
-				mgmt=$2; shift;;
 			eap|inside|phase1)
 				eap=$2; shift;;
 			mech|using|phase2)
@@ -160,6 +158,7 @@ elif ! [[ $server =~ $IPV4_RE ]]; then
 fi
 
 [[ $port ]] || port=1812
+
 [[ $secret ]] || err "missing RADIUS secret"
 
 (( !errors )) || exit
@@ -173,24 +172,12 @@ fi
 [[ $identity ]]	|| err "missing username"
 [[ $outer_id ]]	|| outer_id=$identity
 [[ $password ]]	|| err "missing password"
-[[ $mgmt ]]	|| mgmt='WPA-EAP'
 
 if [[ $outer_id == "@" ]]; then
 	outer_id+=${identity#*@}
 fi
 
-mgmt=${mgmt^^}
 eap=${eap^^}
-
-case $mgmt in
-	'802.1X')	mgmt='IEEE8021X';;
-	'WIRED')	mgmt='IEEE8021X';;
-	'WPA')		mgmt='WPA-EAP';;
-esac
-
-if [[ $mgmt != @(IEEE8021X|WPA-EAP) ]]; then
-	die "unknown key_mgmt mode '$mgmt' (try WPA or 802.1X)"
-fi
 
 case $mech in
 	# only set a default for radtest, let eapol_test autoguess
@@ -252,7 +239,6 @@ if [[ $eap == @(PEAP|TLS|TTLS) ]]; then
 	done
 fi
 
-
 (( ! errors )) || exit
 
 # do the test
@@ -266,7 +252,7 @@ if [[ $eap && $eap != NONE ]]; then
 	# base options
 	ecfg_full=(
 		"ssid=\"eduroam\""
-		"key_mgmt=$mgmt"
+		"key_mgmt=WPA-EAP"
 		"eap=$eap"
 	)
 	if [[ ${phase1_opts[*]} ]]; then

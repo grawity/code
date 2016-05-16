@@ -18,38 +18,6 @@ add_ucode="intel-ucode.img"
 sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
 sign() { die "TODO: update sign() for the new PKCS#7 sign-file"; }
 
-_build_dkms() {
-	emods=()
-
-	for mod in "${dkms_modules[@]}"; do
-		package=${mod#*:}
-		mod=${mod%%:*}
-		version=$(expac %v "$package" | sed "s/-.*//")
-		if [[ "$version" ]]; then
-			emods+=("$mod/$version")
-		else
-			warn "package '$package' not found, skipping DKMS module '$mod'"
-		fi
-	done
-
-	for mod in ${emods[@]}; do
-		mname=${mod%%/*}
-		echo -n "$mod: "
-		echo -n "uninstall..."
-		sudo dkms uninstall "$mod" -k "$release" -q || true
-		echo -n "clean..."
-		sudo rm -rf "/var/lib/dkms/$mod/$release"
-		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
-		echo -n "install..."
-		if sudo dkms install "$mod" -k "$release" -q; then
-			echo "done."
-		else
-			echo "failed."
-			warn "build failed for $mod"
-		fi
-	done
-}
-
 if [ -e "$config" ]; then
 	. "$config" || die "could not load configuration file"
 fi
@@ -135,7 +103,36 @@ fi
 
 log2 "building third-party modules"
 
-	_build_dkms "$release"
+	emods=()
+
+	for mod in "${dkms_modules[@]}"; do
+		package=${mod#*:}
+		mod=${mod%%:*}
+		version=$(expac %v "$package" | sed "s/-.*//")
+		if [[ "$version" ]]; then
+			emods+=("$mod/$version")
+		else
+			warn "package '$package' not found, skipping DKMS module '$mod'"
+		fi
+	done
+
+	for mod in ${emods[@]}; do
+		mname=${mod%%/*}
+		echo -n "$mod: "
+		echo -n "uninstall..."
+		sudo dkms uninstall "$mod" -k "$release" -q || true
+		echo -n "clean..."
+		sudo rm -rf "/var/lib/dkms/$mod/$release"
+		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
+		echo -n "install..."
+		if sudo dkms install "$mod" -k "$release" -q; then
+			echo "done."
+		else
+			echo "failed."
+			warn "build failed for $mod"
+		fi
+	done
+
 	#sudo depmod "$release"
 
 log2 "signing third-party modules"

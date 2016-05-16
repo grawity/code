@@ -13,6 +13,7 @@ _log_mcolor[log2]='\e[38;5;14m'
 
 config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
 dkms_modules=()
+add_ucode="intel-ucode.img"
 
 sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
 sign() { die "TODO: update sign() for the new PKCS#7 sign-file"; }
@@ -81,14 +82,16 @@ else
 fi
 debug "found ESP at '$esp'"
 
-if [ -e "$esp/EFI/arch/intel-ucode.img" ]; then
-	ucode="/EFI/arch/intel-ucode.img"
-elif [ -e "$esp/intel-ucode.img" ]; then
-	ucode="/intel-ucode.img"
-else
-	die "Intel ucode image not found"
+if [ "$add_ucode" ]; then
+	if [ -e "$esp/EFI/arch/$add_ucode" ]; then
+		ucode="/EFI/arch/$add_ucode"
+	elif [ -e "$esp/$add_ucode" ]; then
+		ucode="/$add_ucode"
+	else
+		die "µcode image '$add_ucode' not found"
+	fi
+	debug "found µcode image at '$ucode'"
 fi
-debug "found ucode at '$ucode'"
 
 log2 "preparing"
 t_begin=$(gettime -m)

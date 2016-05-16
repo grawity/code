@@ -15,9 +15,6 @@ config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
 dkms_modules=()
 add_ucode="intel-ucode.img"
 
-sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
-sign() { die "TODO: update sign() for the new PKCS#7 sign-file"; }
-
 if [ -e "$config" ]; then
 	. "$config" || die "could not load configuration file"
 fi
@@ -134,20 +131,6 @@ log2 "building third-party modules"
 	done
 
 	#sudo depmod "$release"
-
-log2 "signing third-party modules"
-
-	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
-	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
-	} | while read -r file; do
-		echo -n "sign ${file##*/}: "
-		if grep -qs "~Module signature appended~" "$file"; then
-			echo "already signed"
-		else
-			sign "$file"
-			echo "OK"
-		fi
-	done
 
 log2 "cleaning old kernels"
 

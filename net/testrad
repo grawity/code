@@ -293,6 +293,7 @@ if [[ $eap && $eap != NONE ]]; then
 	# user-supplied settings
 	for opt in "${ecfg_extra[@]}"; do
 		case $opt in
+		# disallowed settings
 		'anonymous_identity='*)
 			err "'$opt': use 'outer-user ...' to set the anonymous identity";;
 		'eap='*)
@@ -301,6 +302,17 @@ if [[ $eap && $eap != NONE ]]; then
 			err "'$opt': use 'user ...' to set the auth identity";;
 		'phase2='*)
 			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
+		# magic values
+		'domain_suffix_match="@"')
+			debug "expanding '$opt'"
+			if [[ $identity == *@* ]]; then
+				opt="${opt%=*}=\"${identity#*@}\""
+				debug "... expanded to '$opt'"
+			else
+				err "cannot expand '$opt' from identity '$identity'"
+			fi
+			;;&
+		# rest
 		?*'='*)
 			ecfg_full+=("$opt");;
 		*)

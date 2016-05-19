@@ -196,20 +196,11 @@ case $cmd in
         git annex sync --no-pull --no-push
         ;;
     dupes)
-        find "$(git rev-parse --git-dir)/annex/objects" \
-            -type f -name "*.map" \
-            -exec wc -l {} \; \
-            | awk '$1 > 1 {print $2}' \
-            | xargs -n 1 cat
+        die "TODO: reimplement based on 'annex find --format'"
         ;;
     push)
         is_remote! "$1"
-        log "syncing with '$1' before copy"
-        annex sync "$1" --no-push
-        log "copying files to '$1'"
-        annex copy --fast -J5 --to "$@"
-        log "syncing with '$1' after copy"
-        annex sync "$1" --no-pull --no-commit
+        annex copy --to "$1" --not --in "$1" "${@:2}"
         ;;
     # overrides
     addurl)

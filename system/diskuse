@@ -4,6 +4,7 @@ from __future__ import division, print_function
 import os
 import sys
 import subprocess
+from argparse import ArgumentParser
 from nullroute.core import *
 
 thresholds = [
@@ -237,19 +238,18 @@ def get_fs_devno(mtpt):
                             stdout=subprocess.PIPE)
     return proc.stdout.read().strip().decode("utf-8")
 
-args = sys.argv[1:]
-verbose = False
+ap = ArgumentParser()
+ap.add_argument("-v", "--verbose",
+                dest="verbose", action="store_true", default=False)
+ap.add_argument("path",
+                nargs="*")
+opts = ap.parse_args()
 
-if args:
-    if args[0] == "-v":
-        args.pop(0)
-        verbose = True
-
-if not verbose:
+if not opts.verbose:
     fs_noskip_mounts.clear()
     fs_skip_kinds |= fs_verbose_kinds
 
-partitions = [(x, None, KIND_NONE) for x in args]
+partitions = [(x, None, KIND_NONE) for x in opts.path]
 if not partitions:
     partitions = list(enum_mtab())
 partitions.sort(key=lambda x: x[0])

@@ -86,6 +86,8 @@ fs_noskip_mounts = {
 
 fs_skip_kinds = { KIND_KERNEL }
 
+fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
+
 fs_skip_mounts = {
     "/boot",
 }
@@ -235,7 +237,19 @@ def get_fs_devno(mtpt):
                             stdout=subprocess.PIPE)
     return proc.stdout.read().strip().decode("utf-8")
 
-partitions = [(x, None, KIND_NONE) for x in sys.argv[1:]]
+args = sys.argv[1:]
+verbose = False
+
+if args:
+    if args[0] == "-v":
+        args.pop(0)
+        verbose = True
+
+if not verbose:
+    fs_noskip_mounts.clear()
+    fs_skip_kinds |= fs_verbose_kinds
+
+partitions = [(x, None, KIND_NONE) for x in args]
 if not partitions:
     partitions = list(enum_mtab())
 partitions.sort(key=lambda x: x[0])

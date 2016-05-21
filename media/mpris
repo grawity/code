@@ -357,9 +357,7 @@ sub check_version {
 	if ($bus->get_service_owner($bus_name)) {
 		return 1;
 	} elsif ($bus->get_service_owner("org.mpris.$player")) {
-		warn "The player '$player' is accessible only with a MPRIS v1 name, but this script\n";
-		warn "only supports MPRIS v2. Upgrade your player, or use `mpris-remote` instead.\n";
-		exit 3;
+		_die("player '$player' does not support MPRIS v2, only v1");
 	} else {
 		return 0;
 	}
@@ -1109,7 +1107,7 @@ for ($player) {
 	}
 	when (/\./) {
 		# possible bus name (at least two components)
-		# unlikely but possible: activate a MPRIS player via proprietary name
+		# unlikely but possible: activate a MPRIS player via vendor name
 		# (e.g. Banshee via org.bansheeproject.Banshee)
 		$bus_name = $player;
 	}

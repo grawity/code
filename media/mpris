@@ -533,11 +533,14 @@ sub _notify_handle_propchange {
 sub _event_setup_propchange {
 	my ($bus_name, $handler) = @_;
 	my $player_obj = MediaPlayer($bus_name)->();
-	if (!$player_obj->_introspector->has_signal("PropertiesChanged")) {
+	my $_method = $player_obj->can("_net_dbus_introspector")
+			? "_net_dbus_introspector"
+			: "_introspector";
+	if (!$player_obj->$_method->has_signal("PropertiesChanged")) {
 		# Qt4 did not include the "PropertiesChanged" signal
 		# in its introspection data. Probably no longer needed
 		# for Qt5, but whatevs, old versions never truly go away.
-		$player_obj->_introspector->add_signal(
+		$player_obj->$_method->add_signal(
 				"PropertiesChanged",
 				["string",
 				 ["dict", "string", ["variant"]],

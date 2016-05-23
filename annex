@@ -10,7 +10,10 @@ is_git() { git rev-parse --git-dir >&/dev/null; }
 is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
 is_annex!() { is_annex || die "not a git-annex repository"; }
 
-is_remote() { git config --get "remote.$1.annex-uuid" >&/dev/null; }
+is_remote() {
+    [[ $1 == web ]] || git config --get "remote.$1.annex-uuid" >&/dev/null
+}
+
 is_remote!() {
     if ! [[ $1 ]]; then
         die "missing remote name"

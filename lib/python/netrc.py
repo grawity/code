@@ -7,6 +7,23 @@ import os, shlex, stat
 __all__ = ["netrc", "NetrcParseError"]
 
 
+def unquote(string):
+    if len(string) >= 2 and string[0] == string[-1] == "\"":
+        buf, state = "", 0
+        for char in string[1:-1]:
+            if state == 0:
+                if char == "\\":
+                    state = 1
+                else:
+                    buf += char
+            elif state == 1:
+                buf += char
+                state = 0
+        return buf
+    else:
+        return string
+
+
 class NetrcParseError(Exception):
     """Exception raised on syntax errors in the .netrc file."""
     def __init__(self, msg, filename=None, lineno=None):
@@ -83,9 +100,9 @@ class netrc:
                             % (toplevel, entryname, repr(tt)),
                             file, lexer.lineno)
                 elif tt == 'login' or tt == 'user':
-                    login = lexer.get_token()
+                    login = unquote(lexer.get_token())
                 elif tt == 'account':
-                    account = lexer.get_token()
+                    account = unquote(lexer.get_token())
                 elif tt == 'password':
                     if os.name == 'posix' and default_netrc:
                         prop = os.fstat(fp.fileno())
@@ -108,7 +125,7 @@ class netrc:
                                "~/.netrc access too permissive: access"
                                " permissions must restrict access to only"
                                " the owner", file, lexer.lineno)
-                    password = lexer.get_token()
+                    password = unquote(lexer.get_token())
                 else:
                     raise NetrcParseError("bad follower token %r" % tt,
                                           file, lexer.lineno)

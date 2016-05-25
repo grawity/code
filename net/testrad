@@ -121,7 +121,11 @@ parse_args "$@"
 
 if [[ $profile && ! $server ]]; then
 	debug "server not set, trying to load '$profile' based on profile"
-	load_conf server "$profile"
+	if [[ -v "server_$profile" ]]; then
+		load_conf server "$profile"
+	else
+		err "server for profile '$profile' not configured (use 'via …')"
+	fi
 fi
 
 # check for necessary tools
@@ -374,6 +378,7 @@ else
 fi
 
 echo "+ ${cmd[*]}"
+
 if "${cmd[@]}"; then
 	r=0
 	log "test successful"

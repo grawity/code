@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+# load configuration
+
+declare -i mount
+declare -A alias outer_uuid
+
+. "$path_config/gmount.conf.sh" || die "could not load configuration"
+
+# parse command line
+
+mount=1
+media="/run/media/$USER"
+
+if [[ ${0##*/} == gumount ]]; then
+	mount=0
+fi
+
+while getopts ":du" OPT; do
+	case $OPT in
+	d) mount=0;;
+	u) mount=0;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( ! $# )); then
+	die "volume not given"
+fi
+
+# mount volumes
+
+for arg; do
+	arg=${alias[$arg]:-$arg}
+	if (( mount )); then
+		uuid=${outer_uuid[$arg]}
+		if [[ $uuid ]]; then
+			debug "searching for outer_UUID '$uuid'"
+			if [[ -e "/dev/disk/by-partuuid/$uuid" ]]; then
+				dev=$(readlink -f "/dev/disk/by-partuuid/$uuid")
+			elif [[ -e "/dev/disk/by-uuid/$uuid" ]]; then
+				dev=$(readlink -f "/dev/disk/by-uuid/$uuid")
+			else
+				die "disk with UUID '$uuid' not found"
+			fi
+		else
+			if [[ -e "/dev/disk/by-partlabel/$arg" ]]; then
+				dev=$(readlink -f "/dev/disk/by-partlabel/$arg")
+			elif [[ -e "/dev/disk/by-partlabel/$arg" ]]; then
+				dev=$(readlink -f "/dev/disk/by-label/$arg")
+			else
+				die "disk with label '$arg' not found"
+			fi
+		fi
+		sudo systemctl reset-failed
+		info "mounting $dev"
+		gvfs-mount -d "$dev"
+	else
+		mtpt=$(findmnt -no TARGET -S LABEL="$arg")
+		#[[ $mtpt ]] || mtpt="$media/$arg"
+		info "unmounting $mtpt"
+		gvfs-mount -u "$mtpt"
+	fi
+done

@@ -8,6 +8,10 @@ __all__ = ["netrc", "NetrcParseError"]
 
 
 def unquote(string):
+    escape = {
+        "n": "\n",
+        "t": "\t",
+    }
     if len(string) >= 2 and string[0] == string[-1] == "\"":
         buf, state = "", 0
         for char in string[1:-1]:
@@ -17,7 +21,7 @@ def unquote(string):
                 else:
                     buf += char
             elif state == 1:
-                buf += char
+                buf += escape.get(char, char)
                 state = 0
         return buf
     else:

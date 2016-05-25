@@ -1,1 +1,1 @@
-../etc/hacks/devel/goto-vim
+hacks/devel/goto-vim

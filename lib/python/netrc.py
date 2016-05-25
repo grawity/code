@@ -34,7 +34,7 @@ class netrc:
 
     def _parse(self, file, fp, default_netrc):
         lexer = shlex.shlex(fp)
-        lexer.wordchars += r"""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
+        lexer.wordchars += r"""!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
         lexer.commenters = lexer.commenters.replace('#', '')
         while 1:
             # Look for a machine, default, or macdef top-level keyword

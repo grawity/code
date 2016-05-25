@@ -4,6 +4,7 @@ from __future__ import division, print_function
 import os
 import sys
 import subprocess
+from argparse import ArgumentParser
 from nullroute.core import *
 
 thresholds = [
@@ -85,6 +86,8 @@ fs_noskip_mounts = {
 }
 
 fs_skip_kinds = { KIND_KERNEL }
+
+fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
 
 fs_skip_mounts = {
     "/boot",
@@ -219,11 +222,15 @@ def enum_mtab():
             mtpt = unescape_mtab(mtpt)
             kind = fs_kind_from_path(mtpt)
             if mtpt in fs_skip_mounts:
+                Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
                 continue
             if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
+                Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
                 continue
             if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
+                Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
                 continue
+            Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
             yield mtpt, fstype, kind
 
 def get_fs_devno(mtpt):
@@ -231,7 +238,18 @@ def get_fs_devno(mtpt):
                             stdout=subprocess.PIPE)
     return proc.stdout.read().strip().decode("utf-8")
 
-partitions = [(x, None, KIND_NONE) for x in sys.argv[1:]]
+ap = ArgumentParser()
+ap.add_argument("-v", "--verbose",
+                dest="verbose", action="store_true", default=False)
+ap.add_argument("path",
+                nargs="*")
+opts = ap.parse_args()
+
+if not opts.verbose:
+    fs_noskip_mounts.clear()
+    fs_skip_kinds |= fs_verbose_kinds
+
+partitions = [(x, None, KIND_NONE) for x in opts.path]
 if not partitions:
     partitions = list(enum_mtab())
 partitions.sort(key=lambda x: x[0])

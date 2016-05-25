@@ -26,7 +26,7 @@ declare -- profile=
 declare -i depth=0
 
 load_conf() {
-	local type=$1 name=$2
+	local type=$1 name=${2//-/_}
 	local var="${type}_${name}[@]"
 
 	set -- "${!var}"
@@ -63,7 +63,7 @@ parse_args() {
 			-x)
 				eapol_bin=$2; shift;;
 			show-config)
-				dump_config=1; shift;;
+				dump_config=1;;
 			# RADIUS server
 			inherit)
 				if [[ $type == server ]]; then
@@ -119,6 +119,11 @@ parse_args() {
 
 parse_args "$@"
 
+if [[ $profile && ! $server ]]; then
+	debug "server not set, trying to load '$profile' based on profile"
+	load_conf server "$profile"
+fi
+
 # check for necessary tools
 
 have 'radtest' || err "missing 'radtest' binary"
@@ -165,7 +170,7 @@ if [[ $password == "-" ]]; then
 fi
 
 [[ $identity ]]	|| err "missing username"
-[[ $outer_id ]]	|| outer_id=${identity}
+[[ $outer_id ]]	|| outer_id=$identity
 [[ $password ]]	|| err "missing password"
 
 if [[ $outer_id == "@" ]]; then
@@ -288,6 +293,7 @@ if [[ $eap && $eap != NONE ]]; then
 	# user-supplied settings
 	for opt in "${ecfg_extra[@]}"; do
 		case $opt in
+		# disallowed settings
 		'anonymous_identity='*)
 			err "'$opt': use 'outer-user ...' to set the anonymous identity";;
 		'eap='*)
@@ -296,6 +302,17 @@ if [[ $eap && $eap != NONE ]]; then
 			err "'$opt': use 'user ...' to set the auth identity";;
 		'phase2='*)
 			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
+		# magic values
+		'domain_suffix_match="@"')
+			debug "expanding '$opt'"
+			if [[ $identity == *@* ]]; then
+				opt="${opt%=*}=\"${identity#*@}\""
+				debug "... expanded to '$opt'"
+			else
+				err "cannot expand '$opt' from identity '$identity'"
+			fi
+			;;&
+		# rest
 		?*'='*)
 			ecfg_full+=("$opt");;
 		*)
@@ -327,6 +344,9 @@ if [[ $eap && $eap != NONE ]]; then
 			if (( ecfg_seen["$k"]++ )); then
 				continue
 			fi
+			if [[ ! $v || $v == \"\" ]]; then
+				continue
+			fi
 			printf "\t%s=%s\n" "$k" "$v"
 		done
 		echo "}"
@@ -334,7 +354,8 @@ if [[ $eap && $eap != NONE ]]; then
 	(( ! errors )) || exit
 
 	cmd=($eapol_bin -c "$conf" -a "$server" -p "$port" -s "$secret" -t 5
-			-M "22:44:66:42:42:42" -C "testrad+eapol_test")
+			-M "22:44:66:42:42:42"
+			-C "testrad+eapol_test (${EMAIL:-$USERNAME@$HOSTNAME})")
 
 	if [[ $save_chain ]]; then
 		cmd+=(-o "$save_chain")

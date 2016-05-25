@@ -1,6 +1,7 @@
 """An object-oriented interface to .netrc files."""
 
 # Module and documentation by Eric S. Raymond, 21 Dec 1998
+# Improved to support quoted password tokens by <grawity@gmail.com>
 
 import os, shlex, stat
 

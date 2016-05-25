@@ -10,7 +10,10 @@ is_git() { git rev-parse --git-dir >&/dev/null; }
 is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
 is_annex!() { is_annex || die "not a git-annex repository"; }
 
-is_remote() { git config --get "remote.$1.annex-uuid" >&/dev/null; }
+is_remote() {
+    [[ $1 == web ]] || git config --get "remote.$1.annex-uuid" >&/dev/null
+}
+
 is_remote!() {
     if ! [[ $1 ]]; then
         die "missing remote name"
@@ -109,6 +112,10 @@ case $cmd in
         is_annex!
         git annex find --want-get --not --in . | sed $'s/.*/\e[;32mwant\e[m &/'
         git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
+        ;;
+    want-push)
+        is_remote! "$1"
+        git annex find --in . --not --in "$@"
         ;;
     examine)
         is_annex!

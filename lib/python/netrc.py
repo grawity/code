@@ -97,13 +97,9 @@ class netrc(object):
         while True:
             tok = lexer.get_token()
             if not tok:
-                if entry:
-                    self.hosts[entry.get("machine", "default")] = entry
                 break
             elif state == State.default:
-                if entry:
-                    self.hosts[entry.get("machine", "default")] = entry
-                    entry = {}
+                entry = {}
                 if tok == "machine":
                     state = State.entry_value
                 elif tok == "default":
@@ -132,7 +128,10 @@ class netrc(object):
             else:
                 raise NetrcParseError("bad state %r" % state,
                                       file, lexer.lineno)
+
             prev = tok
+            if entry:
+                self.hosts[entry.get("machine", "default")] = entry
 
     def authenticators(self, host, allow_default=True):
         """Return a (user, account, password) tuple for given host."""

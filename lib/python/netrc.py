@@ -97,6 +97,7 @@ class netrc(object):
         while True:
             tok = lexer.get_token()
             if not tok:
+                self.hosts[entry["machine"]] = entry
                 break
             elif state == State.default:
                 self.hosts[entry["machine"]] = entry

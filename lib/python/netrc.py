@@ -135,7 +135,13 @@ class netrc(object):
 
     def authenticators(self, host):
         """Return a (user, account, password) tuple for given host."""
-        return self.hosts.get(host) or self.hosts.get("default")
+        entry = self.hosts.get(host) or self.hosts.get("default")
+        if entry:
+            return (entry.get("login"),
+                    entry.get("account"),
+                    entry.get("password"))
+        else:
+            return None
 
     def __repr__(self):
         """Dump the class data in the format of a .netrc file."""

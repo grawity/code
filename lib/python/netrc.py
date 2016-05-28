@@ -146,22 +146,6 @@ class netrc(object):
                 entry.get("account"),
                 entry.get("password"))
 
-    def __repr__(self):
-        """Dump the class data in the format of a .netrc file."""
-        rep = ""
-        for host in sorted(self.hosts.keys()):
-            entry = self.hosts[host]
-            rep += "machine %s\n" % host
-            for key in ["login", "account", "password"]:
-                if key in entry:
-                    rep += "\t%s %r\n" % (key, entry[key])
-            rep += "\n"
-        for macro in self.macros.keys():
-            rep += "macdef %s\n" % macro
-            for line in self.macros[macro]:
-                rep += line
-            rep += "\n"
-        return rep
-
 if __name__ == '__main__':
-    print(netrc())
+    from pprint import pprint
+    pprint(netrc().hosts)

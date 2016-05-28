@@ -41,7 +41,7 @@ class NetrcParseError(Exception):
         return "%s (%s, line %s)" % (self.msg, self.filename, self.lineno)
 
 
-class netrc:
+class netrc(object):
     def __init__(self, file=None):
         default_netrc = file is None
         if file is None:
@@ -131,27 +131,26 @@ class netrc:
 
     def authenticators(self, host):
         """Return a (user, account, password) tuple for given host."""
-        if host in self.hosts:
-            return self.hosts[host]
-        elif 'default' in self.hosts:
-            return self.hosts['default']
-        else:
-            return None
+        return self.hosts.get(host) or self.hosts.get("default")
 
     def __repr__(self):
         """Dump the class data in the format of a .netrc file."""
         rep = ""
-        for host in self.hosts.keys():
+        for host in sorted(self.hosts.keys()):
             attrs = self.hosts[host]
-            rep = rep + "machine "+ host + "\n\tlogin " + repr(attrs[0]) + "\n"
+            rep += "machine %s\n" % host
+            if attrs[0]:
+                rep += "\tlogin %r\n" % attrs[0]
             if attrs[1]:
-                rep = rep + "\taccount " + repr(attrs[1]) + "\n"
-            rep = rep + "\tpassword " + repr(attrs[2]) + "\n"
+                rep += "\taccount %r\n" % attrs[1]
+            if attrs[2]:
+                rep += "\tpassword %r\n" % attrs[2]
+            rep += "\n"
         for macro in self.macros.keys():
-            rep = rep + "macdef " + macro + "\n"
+            rep += "macdef %s\n" % macro
             for line in self.macros[macro]:
-                rep = rep + line
-            rep = rep + "\n"
+                rep += line
+            rep += "\n"
         return rep
 
 if __name__ == '__main__':

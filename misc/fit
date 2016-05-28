@@ -22,7 +22,7 @@ if (!$current || !$target) {
 }
 
 my ($curX, $curY) = $current =~ /^(\d+)[x:](\d+)$/;
-my ($tarX, $tarY) = $target =~ /^(\d+)?[x:](\d+)?$/;
+my ($min, $tarX, $tarY) = $target =~ /^(-?)(\d+)?[x:](\d+)?$/;
 
 if (!$curX || !$curY) {
 	_die("missing source dimensions");
@@ -48,7 +48,7 @@ elsif (!$tarX && $tarY) {
 else { # ($tarX && $tarY)
 	my $tRatio = $tarX / $tarY;
 	printf "(target ratio %.4f)\n", $tRatio;
-	if ($tRatio > $ratio) {
+	if ($tRatio > $ratio xor $min) {
 		$outX = min($curX, $tarX);
 		$outY = $outX / $ratio;
 	}

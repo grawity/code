@@ -4,6 +4,7 @@
 # Improved to support quoted password tokens by <grawity@gmail.com>
 
 import os, shlex, stat
+from enum import Enum
 
 __all__ = ["netrc", "NetrcParseError"]
 
@@ -65,6 +66,13 @@ class NetrcParseError(Exception):
     def __str__(self):
         return "%s (%s, line %s)" % (self.msg, self.filename, self.lineno)
 
+class State(Enum):
+    default = 0
+    entry_name = 1
+    entry_key = 2
+    entry_value = 3
+    macdef_name = 4
+    macdef_value = 5
 
 class netrc(object):
     def __init__(self, file=None):
@@ -84,56 +92,49 @@ class netrc(object):
     def _parse(self, file, fp):
         lexer = shlex.shlex(fp)
         lexer.wordchars += r"""!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
+        state = State.default
+        prev = None
+        entry = {"machine": "default"}
         while True:
-            # Look for a machine, default, or macdef top-level keyword
-            toplevel = tt = lexer.get_token()
-            if not tt:
+            tok = lexer.get_token()
+            if not tok:
                 break
-            elif tt == 'machine':
-                entryname = lexer.get_token()
-            elif tt == 'default':
-                entryname = 'default'
-            elif tt == 'macdef':                # Just skip to end of macdefs
-                entryname = lexer.get_token()
-                self.macros[entryname] = []
-                lexer.whitespace = ' \t'
-                while 1:
-                    line = lexer.instream.readline()
-                    if not line or line == '\012':
-                        lexer.whitespace = ' \t\r\n'
-                        break
-                    self.macros[entryname].append(line)
-                continue
-            else:
-                raise NetrcParseError(
-                    "bad toplevel token %r" % tt, file, lexer.lineno)
-
-            # We're looking at start of an entry for a named machine or default.
-            login = ''
-            account = password = None
-            self.hosts[entryname] = {}
-            while True:
-                tt = lexer.get_token()
-                if (tt.startswith('#') or
-                    tt in {'', 'machine', 'default', 'macdef'}):
-                    if password:
-                        self.hosts[entryname] = (login, account, password)
-                        lexer.push_token(tt)
-                        break
-                    else:
-                        raise NetrcParseError(
-                            "malformed %s entry %s terminated by %s"
-                            % (toplevel, entryname, repr(tt)),
-                            file, lexer.lineno)
-                elif tt == 'login' or tt == 'user':
-                    login = unquote(lexer.get_token())
-                elif tt == 'account':
-                    account = unquote(lexer.get_token())
-                elif tt == 'password':
-                    password = unquote(lexer.get_token())
+            elif state == State.default:
+                self.hosts[entry["machine"]] = entry
+                entry = {"machine": "default"}
+                if tok == "machine":
+                    state = State.entry_name
+                elif tok == "default":
+                    state = State.entry_key
+                elif tok == "macdef":
+                    state = State.macdef_name
                 else:
-                    raise NetrcParseError("bad follower token %r" % tt,
+                    raise NetrcParseError("bad toplevel token %r" % tok,
                                           file, lexer.lineno)
+            elif state == State.entry_name:
+                entry[prev] = tok
+                state = State.entry_key
+            elif state == State.entry_key:
+                if tok in {"login", "account", "password"}:
+                    state = State.entry_value
+                else:
+                    lexer.push_token(tok)
+                    state = State.default
+                    continue
+            elif state == State.entry_value:
+                entry[prev] = unquote(tok)
+                state = State.entry_key
+            elif state == State.macdef_name:
+                lexer.whitespace = " \t"
+                state = State.macdef_value
+            elif state == State.macdef_value:
+                if tok == prev == "\n":
+                    lexer.whitespace = " \t\r\n"
+                    state = State.default
+            else:
+                raise NetrcParseError("bad state %r" % state,
+                                      file, lexer.lineno)
+            prev = tok
 
     def authenticators(self, host):
         """Return a (user, account, password) tuple for given host."""
@@ -143,14 +144,11 @@ class netrc(object):
         """Dump the class data in the format of a .netrc file."""
         rep = ""
         for host in sorted(self.hosts.keys()):
-            attrs = self.hosts[host]
+            entry = self.hosts[host]
             rep += "machine %s\n" % host
-            if attrs[0]:
-                rep += "\tlogin %r\n" % attrs[0]
-            if attrs[1]:
-                rep += "\taccount %r\n" % attrs[1]
-            if attrs[2]:
-                rep += "\tpassword %r\n" % attrs[2]
+            for key in ["login", "account", "password"]:
+                if key in entry:
+                    rep += "\t%s %r\n" % (key, entry[key])
             rep += "\n"
         for macro in self.macros.keys():
             rep += "macdef %s\n" % macro

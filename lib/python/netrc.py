@@ -119,7 +119,6 @@ class netrc(object):
                 else:
                     lexer.push_token(tok)
                     state = State.default
-                    continue
             elif state == State.entry_value:
                 entry[prev] = unquote(tok)
                 state = State.entry_key

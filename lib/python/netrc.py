@@ -93,15 +93,17 @@ class netrc(object):
         lexer.wordchars += r"""!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
         state = State.default
         prev = None
-        entry = {"machine": "default"}
+        entry = {}
         while True:
             tok = lexer.get_token()
             if not tok:
-                self.hosts[entry["machine"]] = entry
+                if entry:
+                    self.hosts[entry.get("machine", "default")] = entry
                 break
             elif state == State.default:
-                self.hosts[entry["machine"]] = entry
-                entry = {"machine": "default"}
+                if entry:
+                    self.hosts[entry.get("machine", "default")] = entry
+                    entry = {}
                 if tok == "machine":
                     state = State.entry_value
                 elif tok == "default":

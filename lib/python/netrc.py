@@ -68,11 +68,10 @@ class NetrcParseError(Exception):
 
 class State(Enum):
     default = 0
-    entry_name = 1
-    entry_key = 2
-    entry_value = 3
-    macdef_name = 4
-    macdef_value = 5
+    entry_key = 1
+    entry_value = 2
+    macdef_name = 3
+    macdef_value = 4
 
 class netrc(object):
     def __init__(self, file=None):
@@ -103,7 +102,7 @@ class netrc(object):
                 self.hosts[entry["machine"]] = entry
                 entry = {"machine": "default"}
                 if tok == "machine":
-                    state = State.entry_name
+                    state = State.entry_value
                 elif tok == "default":
                     state = State.entry_key
                 elif tok == "macdef":
@@ -111,9 +110,6 @@ class netrc(object):
                 else:
                     raise NetrcParseError("bad toplevel token %r" % tok,
                                           file, lexer.lineno)
-            elif state == State.entry_name:
-                entry[prev] = tok
-                state = State.entry_key
             elif state == State.entry_key:
                 if tok in {"login", "account", "password"}:
                     state = State.entry_value

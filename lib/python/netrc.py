@@ -133,15 +133,16 @@ class netrc(object):
                                       file, lexer.lineno)
             prev = tok
 
-    def authenticators(self, host):
+    def authenticators(self, host, allow_default=True):
         """Return a (user, account, password) tuple for given host."""
-        entry = self.hosts.get(host) or self.hosts.get("default")
-        if entry:
-            return (entry.get("login"),
-                    entry.get("account"),
-                    entry.get("password"))
-        else:
+        entry = self.hosts.get(host)
+        if not entry and allow_default:
+            entry = self.hosts.get("default")
+        if not entry:
             return None
+        return (entry.get("login"),
+                entry.get("account"),
+                entry.get("password"))
 
     def __repr__(self):
         """Dump the class data in the format of a .netrc file."""

@@ -57,16 +57,11 @@ class netrc:
     def _parse(self, file, fp, default_netrc):
         lexer = shlex.shlex(fp)
         lexer.wordchars += r"""!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
-        lexer.commenters = lexer.commenters.replace('#', '')
         while 1:
             # Look for a machine, default, or macdef top-level keyword
-            saved_lineno = lexer.lineno
             toplevel = tt = lexer.get_token()
             if not tt:
                 break
-            elif tt[0] == '#':
-                lexer.instream.readline()
-                continue
             elif tt == 'machine':
                 entryname = lexer.get_token()
             elif tt == 'default':

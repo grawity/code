@@ -65,8 +65,7 @@ class netrc:
             if not tt:
                 break
             elif tt[0] == '#':
-                if lexer.lineno == saved_lineno and len(tt) == 1:
-                    lexer.instream.readline()
+                lexer.instream.readline()
                 continue
             elif tt == 'machine':
                 entryname = lexer.get_token()

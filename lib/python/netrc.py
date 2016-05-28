@@ -29,6 +29,31 @@ def unquote(string):
         return string
 
 
+def check_owner(fp):
+    if os.name != 'posix':
+        return
+    prop = os.fstat(fp.fileno())
+    if prop.st_uid != os.getuid():
+        import pwd
+        try:
+            fowner = pwd.getpwuid(prop.st_uid)[0]
+        except KeyError:
+            fowner = 'uid %s' % prop.st_uid
+        try:
+            user = pwd.getpwuid(os.getuid())[0]
+        except KeyError:
+            user = 'uid %s' % os.getuid()
+        raise NetrcParseError(
+            ("~/.netrc file owner (%s) does not match"
+             " current user (%s)") % (fowner, user),
+            file, lexer.lineno)
+    if prop.st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+        raise NetrcParseError(
+           "~/.netrc access too permissive: access"
+           " permissions must restrict access to only"
+           " the owner", file, lexer.lineno)
+
+
 class NetrcParseError(Exception):
     """Exception raised on syntax errors in the .netrc file."""
     def __init__(self, msg, filename=None, lineno=None):
@@ -57,7 +82,7 @@ class netrc(object):
     def _parse(self, file, fp, default_netrc):
         lexer = shlex.shlex(fp)
         lexer.wordchars += r"""!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
-        while 1:
+        while True:
             # Look for a machine, default, or macdef top-level keyword
             toplevel = tt = lexer.get_token()
             if not tt:
@@ -85,7 +110,7 @@ class netrc(object):
             login = ''
             account = password = None
             self.hosts[entryname] = {}
-            while 1:
+            while True:
                 tt = lexer.get_token()
                 if (tt.startswith('#') or
                     tt in {'', 'machine', 'default', 'macdef'}):
@@ -103,27 +128,8 @@ class netrc(object):
                 elif tt == 'account':
                     account = unquote(lexer.get_token())
                 elif tt == 'password':
-                    if os.name == 'posix' and default_netrc:
-                        prop = os.fstat(fp.fileno())
-                        if prop.st_uid != os.getuid():
-                            import pwd
-                            try:
-                                fowner = pwd.getpwuid(prop.st_uid)[0]
-                            except KeyError:
-                                fowner = 'uid %s' % prop.st_uid
-                            try:
-                                user = pwd.getpwuid(os.getuid())[0]
-                            except KeyError:
-                                user = 'uid %s' % os.getuid()
-                            raise NetrcParseError(
-                                ("~/.netrc file owner (%s) does not match"
-                                 " current user (%s)") % (fowner, user),
-                                file, lexer.lineno)
-                        if (prop.st_mode & (stat.S_IRWXG | stat.S_IRWXO)):
-                            raise NetrcParseError(
-                               "~/.netrc access too permissive: access"
-                               " permissions must restrict access to only"
-                               " the owner", file, lexer.lineno)
+                    if default_netrc:
+                        check_owner(fp)
                     password = unquote(lexer.get_token())
                 else:
                     raise NetrcParseError("bad follower token %r" % tt,

@@ -77,9 +77,11 @@ class netrc(object):
         self.hosts = {}
         self.macros = {}
         with open(file) as fp:
-            self._parse(file, fp, default_netrc)
+            if default_netrc:
+                check_owner(fp)
+            self._parse(file, fp)
 
-    def _parse(self, file, fp, default_netrc):
+    def _parse(self, file, fp):
         lexer = shlex.shlex(fp)
         lexer.wordchars += r"""!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
         while True:
@@ -128,8 +130,6 @@ class netrc(object):
                 elif tt == 'account':
                     account = unquote(lexer.get_token())
                 elif tt == 'password':
-                    if default_netrc:
-                        check_owner(fp)
                     password = unquote(lexer.get_token())
                 else:
                     raise NetrcParseError("bad follower token %r" % tt,

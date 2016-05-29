@@ -203,7 +203,23 @@ case $cmd in
         git annex sync --no-pull --no-push
         ;;
     dupes)
-        die "TODO: reimplement based on 'annex find --format'"
+        annex find --format='${key} ${file}\n' --include '*' "$@" |
+        perl -E '
+            my %keys;
+            while (<>) {
+                chomp;
+                my ($key, $file) = split(/ /, $_, 2);
+                push @{$keys{$key}}, $file;
+            }
+            for my $key (sort keys %keys) {
+                my @files = @{$keys{$key}};
+                if (@files > 1) {
+                    print "\e[1m", $key, "\e[m", "\n";
+                    print "  ", $_, "\n" for sort @files;
+                    print "\n";
+                }
+            }
+        '
         ;;
     push)
         is_remote! "$1"

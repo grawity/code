@@ -133,7 +133,7 @@ class netrc(object):
             if entry:
                 self.hosts[entry.get("machine", "default")] = entry
 
-    def authenticators(self, host, allow_default=True):
+    def authenticators(self, host, allow_default=False):
         """Return a (user, account, password) tuple for given host."""
         entry = self.hosts.get(host)
         if not entry and allow_default:

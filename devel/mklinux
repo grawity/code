@@ -12,58 +12,8 @@ _log_fcolor[log2]='\e[36m'
 _log_mcolor[log2]='\e[38;5;14m'
 
 config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
-
-dkms_modules=(
-	openafs:openafs-modules-dkms
-	vboxhost:virtualbox-host-dkms
-)
-
-sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
-sign() { die "TODO: update sign() for the new PKCS#7 sign-file"; }
-
-_build_dkms() {
-	emods=()
-
-	for mod in "${dkms_modules[@]}"; do
-		package=${mod#*:}
-		mod=${mod%%:*}
-		version=$(expac %v "$package" | sed "s/-.*//")
-		if [[ "$version" ]]; then
-			emods+=("$mod/$version")
-		else
-			warn "package '$package' not found, skipping DKMS module '$mod'"
-		fi
-	done
-
-	for mod in ${emods[@]}; do
-		mname=${mod%%/*}
-		echo -n "$mod: "
-		echo -n "uninstall..."
-		sudo dkms uninstall "$mod" -k "$release" -q || true
-		echo -n "clean..."
-		sudo rm -rf "/var/lib/dkms/$mod/$release"
-		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
-		echo -n "install..."
-		if sudo dkms install "$mod" -k "$release" -q; then
-			echo "done."
-		else
-			echo "failed."
-			warn "build failed for $mod"
-		fi
-	done
-}
-
-_build_kdbus() {
-	local release=$1
-	local build="/tmp/kdbus-build-$$"
-
-	log "building kdbus"
-	git clone -s ~/src/os-tools/kdbus "$build"
-	make -C "$build" KERNELDIR="/usr/lib/modules/$release/build"
-	sudo install -Dm0644 "$build/kdbus.ko" \
-		"/usr/lib/modules/$release/kernel/misc/kdbus.ko"
-	rm -rf "$build"
-}
+dkms_modules=()
+add_ucode="intel-ucode.img"
 
 if [ -e "$config" ]; then
 	. "$config" || die "could not load configuration file"
@@ -85,14 +35,16 @@ else
 fi
 debug "found ESP at '$esp'"
 
-if [ -e "$esp/EFI/arch/intel-ucode.img" ]; then
-	ucode="/EFI/arch/intel-ucode.img"
-elif [ -e "$esp/intel-ucode.img" ]; then
-	ucode="/intel-ucode.img"
-else
-	die "Intel ucode image not found"
+if [ "$add_ucode" ]; then
+	if [ -e "$esp/EFI/arch/$add_ucode" ]; then
+		ucode="/EFI/arch/$add_ucode"
+	elif [ -e "$esp/$add_ucode" ]; then
+		ucode="/$add_ucode"
+	else
+		die "µcode image '$add_ucode' not found"
+	fi
+	debug "found µcode image at '$ucode'"
 fi
-debug "found ucode at '$ucode'"
 
 log2 "preparing"
 t_begin=$(gettime -m)
@@ -148,23 +100,37 @@ fi
 
 log2 "building third-party modules"
 
-	_build_dkms "$release"
-	#_build_kdbus "$release"
-	#sudo depmod "$release"
+	emods=()
 
-log2 "signing third-party modules"
-
-	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
-	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
-	} | while read -r file; do
-		echo -n "sign ${file##*/}: "
-		if grep -qs "~Module signature appended~" "$file"; then
-			echo "already signed"
+	for mod in "${dkms_modules[@]}"; do
+		package=${mod#*:}
+		mod=${mod%%:*}
+		version=$(expac %v "$package" | sed "s/-.*//")
+		if [[ "$version" ]]; then
+			emods+=("$mod/$version")
 		else
-			sign "$file"
-			echo "OK"
+			warn "package '$package' not found, skipping DKMS module '$mod'"
 		fi
 	done
+
+	for mod in ${emods[@]}; do
+		mname=${mod%%/*}
+		echo -n "$mod: "
+		echo -n "uninstall..."
+		sudo dkms uninstall "$mod" -k "$release" -q || true
+		echo -n "clean..."
+		sudo rm -rf "/var/lib/dkms/$mod/$release"
+		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
+		echo -n "install..."
+		if sudo dkms install "$mod" -k "$release" -q; then
+			echo "done."
+		else
+			echo "failed."
+			warn "build failed for $mod"
+		fi
+	done
+
+	#sudo depmod "$release"
 
 log2 "cleaning old kernels"
 

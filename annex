@@ -102,6 +102,15 @@ case $cmd in
         done
         git annex sync
         ;;
+    upgrade-index)
+        dir=$(git rev-parse --git-dir)
+        files=("$dir/index" "$dir/annex/index")
+        du -hsc "${files[@]}"
+        for f in "${files[@]}"; do
+            GIT_INDEX_FILE=$f git update-index --index-version 4
+        done
+        du -hsc "${files[@]}"
+        ;;
     want-get)
         git annex find --want-get --not --in .
         ;;

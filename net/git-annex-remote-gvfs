@@ -193,12 +193,14 @@ class AnnexGvfsBackend(AnnexBackend):
         self._base = self._annex.get_config("path")
         self.error = None
         self.gvfs = GvfsClient()
+        self._mounted = False
 
     def path_to_uri(self, path):
         return os.path.join(self._base, path)
 
     def prepare(self):
-        """Remote is being activated for use; mount the volume."""
+        """Remote is being activated for use; don't mount the volume yet because we might
+           not need it (e.g. for WHEREIS requests)"""
         if not self._base:
             self.error = "path= must be specified"
             return False
@@ -212,14 +214,24 @@ class AnnexGvfsBackend(AnnexBackend):
             if not is_prefix_of(self._volume, self._base):
                 self.error = "mount= must be a prefix of path="
                 return False
+        return True
+
+    def mount(self):
+        """Delayed on-demand mount"""
+        if not self._mounted:
+            if not self.prepare():
+                return False
             if not self.gvfs.mount(self._volume):
                 self.error = "could not mount %r" % self._volume
                 return False
+            self._mounted = True
         return True
 
     def initialize(self):
         """Remote is being added; check settings and create base directory if needed."""
         if not self.prepare():
+            return False
+        if not self.mount():
             return False
         if not self.gvfs.create_dir_p(self._base):
             self._error = "could not mkdir %r" % self._base
@@ -227,17 +239,25 @@ class AnnexGvfsBackend(AnnexBackend):
         return True
 
     def has_repo(self):
+        if not self.mount():
+            return False
         return self.gvfs.has_file(self._base)
 
     def has_file(self, path):
+        if not self.mount():
+            return False
         uri = self.path_to_uri(path)
         return self.gvfs.has_file(uri)
 
     def delete_file(self, path):
+        if not self.mount():
+            return False
         uri = self.path_to_uri(path)
         return self.gvfs.delete_file(uri)
 
     def import_file(self, ext_src, dst_path):
+        if not self.mount():
+            return False
         _log("import_file(%r -> %r)" % (ext_src, dst_path))
         tmp_path = "transfer/%s.part" % os.path.basename(dst_path)
         tmp_dir_uri = self.path_to_uri(os.path.dirname(tmp_path))
@@ -260,6 +280,8 @@ class AnnexGvfsBackend(AnnexBackend):
             return True
 
     def export_file(self, src_path, ext_dst):
+        if not self.mount():
+            return False
         _log("export_file(%r -> %r)" % (src_path, ext_dst))
         src_uri = self.path_to_uri(src_path)
         ext_tmp = ext_dst + ".part"
@@ -275,6 +297,8 @@ class AnnexGvfsBackend(AnnexBackend):
             return True
 
     def rename_file(self, old_path, new_path):
+        if not self.mount():
+            return False
         _log("rename_file(%r -> %r)" % (old_path, new_path))
         old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
         new_dir_uri = self.path_to_uri(os.path.dirname(new_path))

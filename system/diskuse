@@ -285,21 +285,21 @@ else:
         "",
     )
 
-def dump_mtpt(mtpt):
+def dump_mtpt(mtpt, want_separator=False):
     try:
         st = os.statvfs(mtpt)
     except (PermissionError, OSError) as e:
         Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
-        return
+        return False
 
     if st.f_blocks == 0:
         Core.debug("skipping %r: f_blocks == 0", mtpt)
-        return
+        return False
 
     devno = get_fs_devno(mtpt)
     if devno in seen_devnos:
         Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
-        return
+        return False
 
     seen_devnos.add(devno)
     Core.debug("processing %r" % mtpt)
@@ -346,7 +346,10 @@ def dump_mtpt(mtpt):
             percent(disk_part, 1),
         )
 
+    if want_separator:
+        print(separator)
     print(fmt % row)
+    return True
 
 def dump_all():
     separator = ansify("-" * len(fmt % header), "2")
@@ -356,12 +359,8 @@ def dump_all():
         Core.debug("got mtpt %r of kind %r (%s) prio %r" \
                    % (mtpt, kind, fs_kind_names.get(kind), fs_kind_priorities.get(kind, 0)))
         group = fs_kind_groups.get(kind)
-        if thisgroup and group != thisgroup:
-            Core.debug("group different from last (%r != %r), adding separator" \
-                       % (group, thisgroup))
-            print(separator)
-        dump_mtpt(mtpt)
-        thisgroup = group
+        if dump_mtpt(mtpt, want_separator=(thisgroup and group != thisgroup)):
+            thisgroup = group
     Core.debug("finished")
 
 dump_all()

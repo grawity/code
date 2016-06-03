@@ -11,7 +11,8 @@ messages() {
 	notice "notice message"
 	log2 "log2 message"
 	log "log message"
-	msg "info message"
+	info "info message"
+	msg "msg message"
 	trace "trace message"
 	debug "debug message"
 	true

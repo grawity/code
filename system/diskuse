@@ -288,18 +288,21 @@ else:
 def dump_mtpt(mtpt):
     try:
         st = os.statvfs(mtpt)
-    except PermissionError:
-        return
-    except OSError:
+    except (PermissionError, OSError) as e:
+        Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
         return
 
     if st.f_blocks == 0:
+        Core.debug("skipping %r: f_blocks == 0", mtpt)
         return
 
     devno = get_fs_devno(mtpt)
     if devno in seen_devnos:
+        Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
         return
+
     seen_devnos.add(devno)
+    Core.debug("processing %r" % mtpt)
 
     total_bytes     = st.f_bsize * st.f_blocks
     free_bytes      = st.f_bsize * st.f_bfree
@@ -351,11 +354,14 @@ def dump_all():
     thisgroup = 0
     for mtpt, fstype, kind in partitions:
         Core.debug("got mtpt %r of kind %r (%s) prio %r" \
-                % (mtpt, kind, fs_kind_names.get(kind), fs_kind_priorities.get(kind, 0)))
+                   % (mtpt, kind, fs_kind_names.get(kind), fs_kind_priorities.get(kind, 0)))
         group = fs_kind_groups.get(kind)
         if thisgroup and group != thisgroup:
+            Core.debug("group different from last (%r != %r), adding separator" \
+                       % (group, thisgroup))
             print(separator)
         dump_mtpt(mtpt)
         thisgroup = group
+    Core.debug("finished")
 
 dump_all()

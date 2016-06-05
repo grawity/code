@@ -58,7 +58,7 @@ verify() {
 	local input=$1 output=$2 status= errors=0
 	debug "verifying '$input' to '$output'"
 	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
-	                 --decrypt "$input" 2> /dev/null); then
+	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
 		if ! egrep -qs "^\\[GNUPG:\\] VALIDSIG $KEYFP " <<< "$status"; then
 			err "file has invalid signature"
 		fi

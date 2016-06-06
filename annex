@@ -212,12 +212,15 @@ case $cmd in
         git annex sync --no-pull --no-push
         ;;
     dupes)
+        export MIN_BYTES=$(( 2 * 1024 ))
         annex find --format='${key} ${file}\n' --include '*' "$@" |
         perl -E '
+            my $min = int($ENV{MIN_BYTES} // "0");
             my %keys;
             while (<>) {
                 chomp;
                 my ($key, $file) = split(/ /, $_, 2);
+                next if $min && ($key =~ /-s(\d+)--/) && ($1 < $min);
                 push @{$keys{$key}}, $file;
             }
             for my $key (sort keys %keys) {

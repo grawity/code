@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+. libks.bash || exit
+
+annexes=(~/Attic/{Anime,Annex,Software,Videos})
+
+is_git() { git rev-parse --git-dir >&/dev/null; }
+
+is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
+is_annex!() { is_annex || die "not a git-annex repository"; }
+
+is_remote() {
+    [[ $1 == web ]] || git config --get "remote.$1.annex-uuid" >&/dev/null
+}
+
+is_remote!() {
+    if ! [[ $1 ]]; then
+        die "missing remote name"
+    elif ! is_remote "$1"; then
+        die "'$1' is not a git-annex remote"
+    fi
+}
+
+cmd=$1; shift
+
+case $cmd in
+    @*)
+        name=${cmd#@}
+        if ! path=$(git remote get-url "$name"); then
+            err "remote '$name' not found"
+        elif [[ $path != /* ]]; then
+            err "remote '$name' has a non-local URL '$path'"
+        elif [[ ! -d $path ]]; then
+            err "remote path '$path' does not exist"
+        else
+            log "running '$*' in $path"
+            if [[ $1 == git ]]; then
+                (cd "$path" && "$@")
+            else
+                (cd "$path" && annex "$@")
+            fi
+        fi
+        ;;
+    each)
+        for dir in "${annexes[@]}"; do
+            log2 "running '$1' in $dir"
+            (cd "$dir" && annex "$@")
+            if (( r=$? )); then
+                err "command returned $r (in $dir)"
+            fi
+        done
+        ;;
+    setup)
+        name=$1
+        dir=$PWD/$name
+        if [[ ! $name ]]; then
+            die "missing name (e.g. Videos)"
+        elif [[ -d $dir ]]; then
+            die "'$dir' already exists"
+        fi
+        mkdir "$dir"
+        cd "$dir"
+        if is_annex; then
+            die "'$PWD' is already a git-annex repository"
+        elif is_git; then
+            die "'$PWD' is already a non-annex Git repository"
+        fi
+        log "setting up git-annex repository"
+        git init
+        git annex init
+        git annex direct
+        log "setting up origin repository"
+        rdir="Attic/$name.git"
+        if ! ssh virgule "[ -d $rdir ]"; then
+            ssh virgule "git init --bare $rdir && cd $rdir && git annex init"
+        fi
+        log "initial sync"
+        git remote add origin "annex:${rdir%.git}"
+        git annex sync
+        ;;
+    link)
+        base=$(git config --get nullroute.annex-name \
+                || basename "$(git -c core.bare=false rev-parse --show-toplevel)")
+        for name; do
+            case $name in
+                fs1)
+                    dir="fs1:/Attic";;
+                origin)
+                    dir="annex:Attic";;
+                vol3)
+                    dir="/run/media/grawity/vol3_tombstone/Attic";;
+                vol4)
+                    dir="/run/media/grawity/vol4_grimoire/Attic";;
+                frost|rain)
+                    dir="/home/grawity/.$name/Attic";;
+                *)
+                    err "unknown remote '$name'"; continue;;
+            esac
+            git remote add "$name" "$dir/$base"
+            git annex sync "$name"
+        done
+        git annex sync
+        ;;
+    upgrade-index)
+        dir=$(git rev-parse --git-dir)
+        files=("$dir/index" "$dir/annex/index")
+        du -hsc "${files[@]}"
+        for f in "${files[@]}"; do
+            GIT_INDEX_FILE=$f git update-index --index-version 4
+        done
+        du -hsc "${files[@]}"
+        ;;
+    want-get)
+        git annex find --want-get --not --in .
+        ;;
+    want-drop)
+        git annex find --want-drop --in .
+        ;;
+    want-auto)
+        is_annex!
+        git annex find --want-get --not --in . | sed $'s/.*/\e[;32mwant\e[m &/'
+        git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
+        ;;
+    want-push)
+        is_remote! "$1"
+        git annex find --in . --not --in "$@"
+        ;;
+    examine)
+        is_annex!
+        if (( ! $# )); then
+            exec 2>/dev/null
+            set -- uuid.log group.log trust.log preferred-content.log
+        fi
+        for arg; do
+            if [[ $arg != */* && $arg != *.* ]]; then
+                arg+=".log"
+            fi
+            if (( $# > 1 )); then
+                echo -e "\e[1m--- $arg ---\e[m"
+            fi
+            git show "git-annex:$arg"
+        done
+        ;;
+    log-format)
+        perl -E '
+            use List::MoreUtils qw(uniq);
+            %items = ();
+            @items = ();
+            while (<>) {
+                chomp;
+                my ($key, $value, $time) = /^(\S+) (.*) timestamp=([0-9.]+)s$/;
+                if (!$items{$key}) {
+                    push @items, $key;
+                    $items{$key} //= [];
+                }
+                push @{$items{$key}}, [$time, $value, $_];
+            }
+            for my $key (@items) {
+                my @items = uniq
+                            grep {/./}
+                            map {$_->[1]}
+                            sort {$a->[0] <=> $b->[0]}
+                            @{$items{$key}};
+                my $last = pop @items;
+                say "$key";
+                say " - $_" for $last;
+                say " \e[38;5;242m- $_\e[m" for reverse @items;
+            }
+        '
+        ;;
+    addurls|registerurls)
+        git annex add "$@"
+
+        if (( $# )); then
+            find "$@" -type f
+        else
+            git annex find --in here --not --in web
+        fi | while read -r file; do
+            if [[ -d $file ]]; then
+                :
+            elif [[ -L $file && ! -e $file ]]; then
+                :
+            elif [[ ! -f $file ]]; then
+                warn "item '$file' is not a file"
+            else
+                url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
+                if [[ $url == @(http|https|ftp)://* ]]; then
+                    debug "adding origin URL '$url' to file '$file'"
+                    echo "$url $file"
+                elif [[ $url ]]; then
+                    warn "ignoring non-web origin '$url' for file '$file'"
+                else
+                    warn "no origin URL for file '$file'"
+                fi
+            fi | git annex addurl --batch --with-files
+        done
+        ;;
+    hasurls)
+        r=0
+        for file; do
+            if key=$(git annex lookupkey "$file"); then
+                git annex readpresentkey "$key" "00000000-0000-0000-0000-000000000001"
+                (( r += $? ))
+            else
+                (( r += 1 ))
+            fi
+        done
+        (( r == 0 ))
+        ;;
+    commit|ci)
+        git annex sync --no-pull --no-push
+        ;;
+    dupes)
+        annex find --format='${key} ${file}\n' --include '*' "$@" |
+        perl -E '
+            my %keys;
+            while (<>) {
+                chomp;
+                my ($key, $file) = split(/ /, $_, 2);
+                push @{$keys{$key}}, $file;
+            }
+            for my $key (sort keys %keys) {
+                my @files = @{$keys{$key}};
+                if (@files > 1) {
+                    print "\e[1m", $key, "\e[m", "\n";
+                    print "  ", $_, "\n" for sort @files;
+                    print "\n";
+                }
+            }
+        '
+        ;;
+    push)
+        is_remote! "$1"
+        annex copy --to "$1" --not --in "$1" "${@:2}"
+        ;;
+    # overrides
+    addurl)
+        if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then
+            set -- --file="$1" "$2"
+        elif (( $# == 1 )); then
+            set -- --file="$(urlencode -dS "${1##*/}")" "$1"
+        fi
+        ;;&
+    get)
+        set -- "${@%@}"
+        ;;&
+    info)
+        if (( ! $# )); then
+            set -- --fast
+        elif [[ $* == @(-v|--slow) ]]; then
+            set --
+        fi
+        ;;&
+    *)
+        if [[ $cmd ]]; then
+            set -- "$cmd" "$@"
+        fi
+        exec git annex "$@"
+        ;;
+esac
+
+exit $(( $? ? $? : errors ))
+
+# vim: ts=4:sw=4:et

@@ -46,20 +46,25 @@ for arg; do
 				die "disk with UUID '$uuid' not found"
 			fi
 		else
+			debug "searching for outer_label '$arg'"
 			if [[ -e "/dev/disk/by-partlabel/$arg" ]]; then
 				dev=$(readlink -f "/dev/disk/by-partlabel/$arg")
-			elif [[ -e "/dev/disk/by-partlabel/$arg" ]]; then
+			elif [[ -e "/dev/disk/by-label/$arg" ]]; then
 				dev=$(readlink -f "/dev/disk/by-label/$arg")
 			else
 				die "disk with label '$arg' not found"
 			fi
 		fi
-		sudo systemctl reset-failed
+
+		#debug "resetting failed systemd mounts, just in case"
+		#sudo systemctl reset-failed
+
 		info "mounting $dev"
 		gvfs-mount -d "$dev"
 	else
 		mtpt=$(findmnt -no TARGET -S LABEL="$arg")
 		#[[ $mtpt ]] || mtpt="$media/$arg"
+
 		info "unmounting $mtpt"
 		gvfs-mount -u "$mtpt"
 	fi

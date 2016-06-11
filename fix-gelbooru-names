@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# vim: ts=4:sw=4:et
 import argparse
 import bs4
 from collections import defaultdict
@@ -8,6 +9,21 @@ import lxml.etree
 from pprint import pprint
 import re
 import requests
+import time
+
+FAKE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.84 Safari/537.36"
+
+def get_file_attr(path, attr):
+    try:
+        return os.getxattr(path, "user.%s" % attr).decode("utf-8")
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return None
+
+def get_file_origin(path):
+    return (get_file_attr(path, "xdg.origin.url"),
+            get_file_attr(path, "xdg.referrer.url"))
 
 class TagFilter(object):
     def __init__(self):
@@ -41,11 +57,39 @@ class TagFilter(object):
 class GelbooruError(Exception):
     pass
 
-class GelbooruApi(object):
-    URL = "http://gelbooru.com/index.php"
+class DanbooruApi(object):
+    ID_PREFIX = "db%s"
+    URL_RE = []
 
     def __init__(self):
         self.ua = requests.Session()
+
+    def parse_url(self, url):
+        for url_re in self.URL_RE:
+            m = url_re.match(url)
+            if m:
+                return m.group(1)
+        return None
+
+    def find_posts(self, tags, limit=100):
+        ...
+
+    def find_posts_by_md5(self, md5):
+        yield from self.find_posts("md5:%s" % md5)
+
+    def get_tags_by_id(self, post_id):
+        global tag_filter
+
+        info = self.scrape_post_info(post_id)
+        tags = []
+        for kind in ("artist", "copyright"):
+            tags += sorted(info["tags"][kind])
+        tags = tag_filter.filter(tags)
+        return tags
+
+class GelbooruApi(DanbooruApi):
+    API_URL = "http://gelbooru.com/index.php"
+    ID_PREFIX = "g%s"
 
     def find_posts(self, tags, limit=100):
         args = {"page": "dapi",
@@ -53,7 +97,7 @@ class GelbooruApi(object):
                 "q": "index",
                 "tags": tags,
                 "limit": limit}
-        resp = self.ua.get(self.URL, params=args)
+        resp = self.ua.get(self.API_URL, params=args)
         resp.raise_for_status()
         posts_t = lxml.etree.XML(resp.content)
         for post_t in posts_t:
@@ -64,7 +108,7 @@ class GelbooruApi(object):
         args = {"page": "post",
                 "s": "view",
                 "id": post_id}
-        resp = self.ua.get(self.URL, params=args)
+        resp = self.ua.get(self.API_URL, params=args)
         resp.raise_for_status()
         page_t = bs4.BeautifulSoup(resp.content, "lxml")
         sidebar_t = page_t.find("ul", {"id": "tag-sidebar"})
@@ -79,15 +123,66 @@ class GelbooruApi(object):
             post["tags"][tag_type].add(tag_value)
         return post
 
-    def get_tags_by_id(self, post_id):
-        global tag_filter
+class SankakuApi(DanbooruApi):
+    SITE_URL = "https://chan.sankakucomplex.com"
+    POST_URL = "https://chan.sankakucomplex.com/post/show/%s"
+    URL_RE = [
+        re.compile(r"^https://chan\.sankakucomplex\.com/post/show/(\d+)"),
+        re.compile(r"^https://cs\.sankakucomplex\.com/data/\w+/\w+/\w+.\w+?(\d+)"),
+    ]
+    ID_PREFIX = "san%s"
 
-        info = self.scrape_post_info(post_id)
-        tags = []
-        for kind in ("artist", "copyright"):
-            tags += sorted(info["tags"][kind])
-        tags = tag_filter.filter(tags)
-        return tags
+    # API has been blocked a long time ago; resort to scraping
+    def _fetch_url(self, *args, **kwargs):
+        headers = kwargs.setdefault("headers", {})
+        headers["User-Agent"] = FAKE_UA
+        while True:
+            resp = self.ua.get(*args, **kwargs)
+            Core.debug("fetched %r" % resp.url)
+            if resp.status_code == 503:
+                Core.debug("error %r, retrying in 1s" % resp.status_code)
+                time.sleep(1)
+            else:
+                resp.raise_for_status()
+                return resp
+
+    def find_posts(self, query, limit=20):
+        post_ids = []
+        next_url = True
+        page = 1
+        while next_url:
+            Core.debug("scraping %r (page %d)" % (query, page))
+            args = {"tags": query,
+                    "page": page}
+            resp = self._fetch_url(self.SITE_URL, params=args)
+            body = bs4.BeautifulSoup(resp.content, "lxml")
+            body = body.find("div", {"class": "content"})
+            body = body.find("div")
+            post_ids = []
+            for post_span_t in body.find_all("span", {"id": True}):
+                post_id = post_span_t["id"].lstrip("p")
+                post_ids.append(post_id)
+                if len(post_ids) >= limit:
+                    break
+            next_url = body.get("next-page-url")
+            page += 1
+        for post_id in post_ids:
+            yield {"id": post_id}
+
+    def scrape_post_info(self, post_id):
+        resp = self._fetch_url(self.POST_URL % post_id)
+        page_t = bs4.BeautifulSoup(resp.content, "lxml")
+        sidebar_t = page_t.find("ul", {"id": "tag-sidebar"})
+        post = {"id": post_id,
+                "tags": defaultdict(set)}
+        for tag_li_t in sidebar_t.find_all("li"):
+            tag_type = tag_li_t["class"][0]
+            assert(tag_type.startswith("tag-type-"))
+            tag_type = tag_type[len("tag-type-"):]
+            tag_link_t = tag_li_t.find_all("a", {"itemprop": "keywords"})[0]
+            tag_value = tag_link_t.get_text()
+            post["tags"][tag_type].add(tag_value)
+        return post
 
 def rename_file_in_dir(dirpath, filename):
     global args
@@ -103,11 +198,30 @@ def rename_file_in_dir(dirpath, filename):
         print(old_path, end=" ", flush=True)
         file_md5 = m.group(1)
         file_ext = m.group(2)
-        posts = list(api.find_posts("md5:%s" % file_md5))
-        if posts:
-            post_id = posts[0]["id"]
+        post_id = None
+
+        if not post_id:
+            url = get_file_attr(old_path, "xdg.referrer.url")
+            if url:
+                post_id = api.parse_url(url)
+                if post_id:
+                    Core.debug("found post %r from url %r" % (post_id, url))
+        if not post_id:
+            url = get_file_attr(old_path, "xdg.origin.url")
+            if url:
+                post_id = api.parse_url(url)
+                if post_id:
+                    Core.debug("found post %r from url %r" % (post_id, url))
+        if not post_id:
+            posts = list(api.find_posts_by_md5(file_md5))
+            if posts:
+                post_id = posts[0]["id"]
+                if post_id:
+                    Core.debug("found post %r from md5 %r" % (post_id, file_md5))
+
+        if post_id:
             tags = api.get_tags_by_id(post_id)
-            tags.append("g%s" % post_id)
+            tags.append(api.ID_PREFIX % post_id)
             tags = list(uniq(tags))
             tags.append(file_md5 + file_ext)
             new_filename = " ".join(tags)
@@ -118,13 +232,25 @@ def rename_file_in_dir(dirpath, filename):
         else:
             print("=>", fmt_notfound % "[not found]")
 
+apis = {
+    "gelbooru": GelbooruApi,
+    "sankaku": SankakuApi,
+}
+
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
-parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
+parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing")
+parser.add_argument("--site", help="Select site")
 args = parser.parse_args()
 
+try:
+    api = apis[args.site or "gelbooru"]
+except KeyError:
+    Core.die("unknown site %r" % args.site)
+else:
+    api = api()
+
 bare_re = re.compile(r'^([0-9a-f]{32})(\.\w+)$')
-api = GelbooruApi()
 tag_filter = TagFilter.load_config("gelbooru-tags.conf")
 
 for arg in args.path or ["."]:

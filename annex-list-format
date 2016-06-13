@@ -79,15 +79,10 @@ sub loc2diffstr {
 	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
 }
 
+my $header = 1;
+
 while (<STDIN>) {
-	if (/^(\|*)(\w+?)$/) {
-		my $pos = length($1);
-		my $name = $2;
-		$remote_pos{$name} = $pos;
-		$remote_name[$pos] = $name;
-		#print;
-	}
-	elsif (/^([_X]+) (.+)$/) {
+	if (/^([_X]+) (.+)$/) {
 		my $loc = $1;
 		my $dir = dirname($2);
 		my $base = basename($2);
@@ -98,6 +93,18 @@ while (<STDIN>) {
 				$remote_use{$remote_name[$i]}++;
 			}
 		}
+	}
+	elsif (/^\|+$/) {
+		$header = 0;
+	}
+	elsif ($header && /^(\|*)([^|].*?)$/) {
+		my $pos = length($1);
+		my $name = $2;
+		$remote_pos{$name} = $pos;
+		$remote_name[$pos] = $name;
+	}
+	else {
+		print "!! unrecognized line:$.: $_";
 	}
 }
 

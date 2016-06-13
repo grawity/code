@@ -4,6 +4,17 @@ use strict;
 use MIME::Base64;
 use Nullroute::Lib;
 
+# https://freedesktop.org/wiki/CommonExtendedAttributes/
+
+my %ALIAS_ATTRS = (
+	comment  => "user.xdg.comment",
+	lang     => "user.xdg.language",
+	origin   => "user.xdg.origin.url",
+	mime     => "user.mime_type",
+	mimetype => "user.mime_type",
+	referer  => "user.xdg.referrer.url",
+);
+
 my %HIDE_ATTRS = (
 	"user.com.dropbox.attributes" => 1,
 );
@@ -49,17 +60,6 @@ sub dump_attrs {
 	return ($err > 0);
 }
 
-# https://freedesktop.org/wiki/CommonExtendedAttributes/
-
-my %trans = (
-	comment  => "user.xdg.comment",
-	lang     => "user.xdg.language",
-	origin   => "user.xdg.origin.url",
-	mime     => "user.mime_type",
-	mimetype => "user.mime_type",
-	referer  => "user.xdg.referrer.url",
-);
-
 my %attrs;
 my @files;
 
@@ -71,8 +71,8 @@ for (@ARGV) {
 	}
 	elsif (/^($attr_re)=(.*)$/) {
 		my ($key, $value) = ($1, $2);
-		if (defined $trans{$key}) {
-			$key = $trans{$key};
+		if ($ALIAS_ATTRS{$key}) {
+			$key = $ALIAS_ATTRS{$key};
 		} elsif ($key =~ /^\./) {
 			$key =~ s///;
 		} elsif ($key !~ /^(user|system|security|trusted)\./) {

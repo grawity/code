@@ -30,6 +30,10 @@ sub dump_attrs {
 	if (eval {require Linux::UserXAttr}) {
 		for my $file (@files) {
 			my @names = Linux::UserXAttr::listxattr($file);
+			if ($!) {
+				_err("cannot read attrs of '$file': $!");
+				next;
+			}
 			@names = grep {!$HIDE_ATTRS{$_}} @names;
 			next if !@names;
 			print "\e[1m", $file, "\e[m\n";

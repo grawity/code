@@ -1,60 +1,59 @@
 #!/usr/bin/env perl
-# vim: ts=4:sw=4:et
 use warnings;
 use strict;
 use MIME::Base64;
 use Nullroute::Lib;
 
 my %HIDE_ATTRS = (
-    "user.com.dropbox.attributes" => 1,
+	"user.com.dropbox.attributes" => 1,
 );
 
 sub _system {
-    my (@args) = @_;
-    _debug("running: @args");
-    system {$args[0]} @args;
+	my (@args) = @_;
+	_debug("running: @args");
+	system {$args[0]} @args;
 }
 
 sub safe {
-    my ($str) = @_;
-    if (utf8::is_utf8($str) || utf8::decode($str)) {
-        return "\"$str\"";
-    } else {
-        return "{".encode_base64($str, "")."}";
-    }
+	my ($str) = @_;
+	if (utf8::is_utf8($str) || utf8::decode($str)) {
+		return "\"$str\"";
+	} else {
+		return "{".encode_base64($str, "")."}";
+	}
 }
 
 sub dump_attrs {
-    my (@files) = @_;
-    my $err = 0;
+	my (@files) = @_;
+	my $err = 0;
 
-    if (eval {require Linux::UserXAttr}) {
-        for my $file (@files) {
-            my @names = Linux::UserXAttr::listxattr($file);
-            @names = grep {!$HIDE_ATTRS{$_}} @names;
-            next if !@names;
-            print "\e[1m", $file, "\e[m\n";
-            for my $name (sort @names) {
-                my $value = Linux::UserXAttr::getxattr($file, $name);
-                $name =~ s/^user\.//;
-                print "  ", $name, " = ", safe($value), "\n";
-            }
-        }
-    } else {
-        $err = _system("getfattr", "--absolute-names", "-m", "-", "-d", @files);
-    }
-    return ($err > 0);
+	if (eval {require Linux::UserXAttr}) {
+		for my $file (@files) {
+			my @names = Linux::UserXAttr::listxattr($file);
+			@names = grep {!$HIDE_ATTRS{$_}} @names;
+			next if !@names;
+			print "\e[1m", $file, "\e[m\n";
+			for my $name (sort @names) {
+				my $value = Linux::UserXAttr::getxattr($file, $name);
+				$name =~ s/^user\.//;
+				print "  ", $name, " = ", safe($value), "\n";
+			}
+		}
+	} else {
+		$err = _system("getfattr", "--absolute-names", "-m", "-", "-d", @files);
+	}
+	return ($err > 0);
 }
 
 # https://freedesktop.org/wiki/CommonExtendedAttributes/
 
 my %trans = (
-    comment  => "user.xdg.comment",
-    lang     => "user.xdg.language",
-    origin   => "user.xdg.origin.url",
-    mime     => "user.mime_type",
-    mimetype => "user.mime_type",
-    referer  => "user.xdg.referrer.url",
+	comment  => "user.xdg.comment",
+	lang     => "user.xdg.language",
+	origin   => "user.xdg.origin.url",
+	mime     => "user.mime_type",
+	mimetype => "user.mime_type",
+	referer  => "user.xdg.referrer.url",
 );
 
 my %attrs;
@@ -63,46 +62,47 @@ my @files;
 my $attr_re = qr|[^/?=]+|;
 
 for (@ARGV) {
-    if (-e $_ || -l $_) {
-        push @files, $_;
-    }
-    elsif (/^($attr_re)=(.*)$/) {
-        my ($key, $value) = ($1, $2);
-        if (defined $trans{$key}) {
-            $key = $trans{$key};
-        } elsif ($key =~ /^\./) {
-            $key =~ s///;
-        } elsif ($key !~ /^(user|system|security|trusted)\./) {
-            $key = "user.".$key;
-        }
-        $attrs{$key} = $value;
-    }
-    else {
-        push @files, $_;
-    }
+	if (-e $_ || -l $_) {
+		push @files, $_;
+	}
+	elsif (/^($attr_re)=(.*)$/) {
+		my ($key, $value) = ($1, $2);
+		if (defined $trans{$key}) {
+			$key = $trans{$key};
+		} elsif ($key =~ /^\./) {
+			$key =~ s///;
+		} elsif ($key !~ /^(user|system|security|trusted)\./) {
+			$key = "user.".$key;
+		}
+		$attrs{$key} = $value;
+	}
+	else {
+		push @files, $_;
+	}
 }
 
 if (!@files) {
-    _die("no files specified");
+	_die("no files specified");
 }
 
 my $exit = 0;
 
 if (%attrs) {
-    for my $key (keys %attrs) {
-        my $val = $attrs{$key};
-        my $ret;
-        if (length $val) {
-            _debug("setting '$key' to '$val'");
-            $ret = _system("setfattr", "-n", $key, "-v", $val, "--", @files);
-        } else {
-            _debug("removing '$key'");
-            $ret = _system("setfattr", "-x", $key, "--", @files);
-        }
-        $exit |= $ret > 0;
-    }
+	for my $key (keys %attrs) {
+		my $val = $attrs{$key};
+		my $ret;
+		if (length $val) {
+			_debug("setting '$key' to '$val'");
+			$ret = _system("setfattr", "-n", $key,
+					"-v", $val, "--", @files);
+		} else {
+			_debug("removing '$key'");
+			$ret = _system("setfattr", "-x", $key, "--", @files);
+		}
+		$exit |= $ret > 0;
+	}
 } else {
-    $exit |= dump_attrs(@files);
+	$exit |= dump_attrs(@files);
 }
 
 exit $exit;

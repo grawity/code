@@ -66,6 +66,8 @@ sub timedelta {
 my $devices = 0;
 my $notified = 0;
 
+# battery percentage to warn about
+my $warning = 15;
 my $critical = 5;
 
 for my $dev_p (@{UPower->EnumerateDevices()}) {
@@ -114,7 +116,7 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 
 			print "Battery $STATE[$state], $status\n";
 
-			if ($state == $STATE{discharging} && $charge <= 15) {
+			if ($state == $STATE{discharging} && $charge <= $warning) {
 				my $icon = $dev->Get(UP_DEVICE_IFACE, "IconName");
 				notify("Battery low",
 					body => "The battery is $status.",

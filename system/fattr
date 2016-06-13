@@ -4,6 +4,10 @@ use strict;
 use MIME::Base64;
 use Nullroute::Lib;
 
+my %HIDE_ATTRS = (
+	"user.com.dropbox.attributes" => 1,
+);
+
 sub _system {
 	my (@args) = @_;
 	_debug("running: @args");
@@ -26,6 +30,7 @@ sub dump_attrs {
 	if (eval {require Linux::UserXAttr}) {
 		for my $file (@files) {
 			my @names = Linux::UserXAttr::listxattr($file);
+			@names = grep {!$HIDE_ATTRS{$_}} @names;
 			next if !@names;
 			print "\e[1m", $file, "\e[m\n";
 			for my $name (sort @names) {

@@ -1,0 +1,119 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Data::Dumper;
+use File::Basename;
+
+my %dir_locs;
+my %file_locs;
+my %remote_pos;
+my @remote_name;
+my %remote_use;
+
+sub remote2color {
+	my ($remote) = @_;
+	for ($remote) {
+		return 14 if /^here$/;
+		return 5 if /^vol3$/;
+		return 13 if /^vol\d+/;
+		return 12 if /^fs\d+/;
+		return 4 if /^ukvirt\d+/;
+		return -3 if /^wolke$/;
+		return -3 if /^rain$/;
+		return 15;
+	}
+}
+
+sub fmt {
+	my ($str, $color) = @_;
+	if ($color < 0) {
+		$str = "\e[1m".$str;
+		$color *= -1;
+	}
+	return "\e[38;5;".$color."m".$str."\e[m";
+}
+
+sub locdiff {
+	my ($a, $b) = @_;
+	my @a_only = grep {
+		substr($a, $_, 1) eq "X"
+		&& substr($b, $_, 1) ne "X"
+	} 0..length($a);
+	my @b_only = grep {
+		substr($b, $_, 1) eq "X"
+		&& substr($a, $_, 1) ne "X"
+	} 0..length($b);
+	return ((map {$_ => "-"} @a_only),
+		(map {$_ => "+"} @b_only));
+}
+
+#sub loc2remotestr {
+#	my ($loc) = @_;
+#	my @remotes = map {
+#		fmt($_, remote2color($_))
+#	} loc2remotes($loc);
+#	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
+#}
+
+sub loc2remotestr {
+	my ($loc) = @_;
+	my @remotes = map {
+		my $used = substr($loc, $remote_pos{$_}, 1) eq "X";
+		fmt($_, $used ? remote2color($_) : 8)
+	} grep {
+		$remote_use{$_}
+	} sort @remote_name;
+	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
+}
+
+sub loc2diffstr {
+	my ($loc1, $loc2) = @_;
+	my %diff = locdiff($loc1, $loc2);
+	#print Dumper([$loc1, $loc2, \%diff]);
+	my @remotes = map {
+		#fmt($_, $diff{$remote_pos{$_}} eq "+" ? 10 : 9);
+		$diff{$remote_pos{$_}} . fmt($_, remote2color($_))
+	} grep {
+		$diff{$remote_pos{$_}}
+	} sort @remote_name;
+	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
+}
+
+while (<STDIN>) {
+	if (/^(\|*)(\w+?)$/) {
+		my $pos = length($1);
+		my $name = $2;
+		$remote_pos{$name} = $pos;
+		$remote_name[$pos] = $name;
+		#print;
+	}
+	elsif (/^([_X]+) (.+)$/) {
+		my $loc = $1;
+		my $dir = dirname($2);
+		my $base = basename($2);
+		$dir_locs{$dir}{$loc} += 1;
+		$file_locs{$dir}{$base} = $loc;
+		for (my $i = 0; $i < length($loc); $i++) {
+			if (substr($loc, $i, 1) eq "X") {
+				$remote_use{$remote_name[$i]}++;
+			}
+		}
+	}
+}
+
+my @dirs = sort keys %dir_locs;
+
+for my $dir (@dirs) {
+	my %locs = %{$dir_locs{$dir}};
+	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
+	my $main = pop @locs;
+	print loc2remotestr($main)." $dir/\n";
+	if (@locs) {
+		my %files = %{$file_locs{$dir}};
+		my @files = sort grep {$files{$_} ne $main} keys %files;
+		for (@files) {
+			my $locs = loc2diffstr($main, $files{$_});
+			print "  ".$locs." \e[1m$dir/$_\e[m\n";
+		}
+	}
+}

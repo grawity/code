@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+our_prefix="https://nullroute.eu.org/r/"
+do_delete=0
+do_query=0
+want_id=""
+
+while getopts ":Dn:Q" OPT; do
+	case $OPT in
+	D) do_delete=1;;
+	n) want_id=$OPTARG;;
+	Q) do_query=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+(( $# )) || die "missing URLs"
+
+for url in "$@"; do
+	if (( do_query || do_delete )); then
+		if [[ $url != *://* ]]; then
+			url=${our_prefix}${url}
+		elif [[ $url != "$our_prefix"* ]]; then
+			err "skipping '$url': not our URL"
+			continue
+		fi
+		if (( do_query )); then
+			r=$(curl -s -f -S -I "$url") || {
+				err "could not lookup '$url'"
+				continue
+			}
+			r=$(echo "$r" | awk '/^[Ll]ocation:/ {print $2}')
+			echo "$url -> $r"
+		else
+			curl -n -f -S -X DELETE "$url" || err "could not delete '$url'"
+		fi
+	else
+		if [[ $url == "$our_prefix"* ]]; then
+			err "skipping '$url': already a redirect URL"
+			continue
+		fi
+		curl -n -f -S -d "id=$want_id" -d "to=$url" "$our_prefix" \
+		|| err "could not create a redirect for '$url'"
+	fi
+done
+
+lib::exit

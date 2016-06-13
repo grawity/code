@@ -23,10 +23,13 @@ my %trans = (
 my %attrs;
 my @files;
 
-my $attr_re = qr|[^/=]+|;
+my $attr_re = qr|[^/?=]+|;
 
 for (@ARGV) {
-	if (/^($attr_re)=(.*)$/) {
+	if (-e $_ || -l $_) {
+		push @files, $_;
+	}
+	elsif (/^($attr_re)=(.*)$/) {
 		my ($key, $value) = ($1, $2);
 		if (defined $trans{$key}) {
 			$key = $trans{$key};

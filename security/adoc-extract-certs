@@ -16,6 +16,15 @@ use XML::Simple;
 
 my %Opt;
 
+sub usage {
+    print "$_\n" for
+    "Usage: $::arg0 [--format FMT] [--output-dir DIR] FILE...",
+    "",                           #
+    "  --format FMT               force input format",
+    "  -d, --output-dir DIR       store certificates in DIR instead",
+    "  FILE                       documents to parse",
+}
+
 sub bigint_hex {
     my ($i) = @_;
 
@@ -176,8 +185,9 @@ my $pdf_extractor = $ENV{HOME}."/lib/projects/pdf-extract-certs/dist/pdf-extract
 utf8::decode($_) for @ARGV;
 
 GetOptions(
+    "help" => sub { usage(); exit; },
     "format=s" => \$Opt{force_format},
-    "o|output-dir=s" => \$Opt{output_dir},
+    "d|output-dir=s" => \$Opt{output_dir},
 );
 
 for my $adoc (@ARGV) {

@@ -23,7 +23,7 @@ sub remote2color {
 	}
 }
 
-sub fmt {
+sub fg {
 	my ($str, $color) = @_;
 	if ($color < 0) {
 		$str = "\e[1m".$str;
@@ -49,20 +49,20 @@ sub locdiff {
 #sub loc2remotestr {
 #	my ($loc) = @_;
 #	my @remotes = map {
-#		fmt($_, remote2color($_))
+#		fg($_, remote2color($_))
 #	} loc2remotes($loc);
-#	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
+#	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 #}
 
 sub loc2remotestr {
 	my ($loc) = @_;
 	my @remotes = map {
 		my $used = substr($loc, $remote_pos{$_}, 1) eq "X";
-		fmt($_, $used ? remote2color($_) : 8)
+		fg($_, $used ? remote2color($_) : 8)
 	} grep {
 		$remote_use{$_}
 	} sort @remote_name;
-	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
+	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
 
 sub loc2diffstr {
@@ -71,12 +71,12 @@ sub loc2diffstr {
 	#print Dumper([$loc1, $loc2, \%diff]);
 	my @remotes = map {
 		my $used = $diff{$remote_pos{$_}};
-		#fmt($_, $used eq "+" ? 10 : 9);
-		$used . fmt($_, $used eq "+" ? remote2color($_) : 8)
+		#fg($_, $used eq "+" ? 10 : 9);
+		$used . fg($_, $used eq "+" ? remote2color($_) : 8)
 	} grep {
 		$diff{$remote_pos{$_}}
 	} sort @remote_name;
-	return fmt("{", 8).join(" ", @remotes).fmt("}", 8);
+	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
 
 while (<STDIN>) {

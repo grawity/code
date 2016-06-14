@@ -40,15 +40,18 @@ sub fg {
 	return fmt($str, "38;5;".$color);
 }
 
+sub present {
+	my ($loc, $idx) = @_;
+	return (substr($loc, $idx, 1) eq "X");
+}
+
 sub locdiff {
 	my ($a, $b) = @_;
 	my @a_only = grep {
-		substr($a, $_, 1) eq "X"
-		&& substr($b, $_, 1) ne "X"
+		present($a, $_) && !present($b, $_)
 	} 0..length($a);
 	my @b_only = grep {
-		substr($b, $_, 1) eq "X"
-		&& substr($a, $_, 1) ne "X"
+		present($b, $_) && !present($a, $_)
 	} 0..length($b);
 	return ((map {$_ => "-"} @a_only),
 		(map {$_ => "+"} @b_only));
@@ -65,7 +68,7 @@ sub locdiff {
 sub loc2remotestr {
 	my ($loc) = @_;
 	my @remotes = map {
-		my $used = substr($loc, $remote_pos{$_}, 1) eq "X";
+		my $used = present($loc, $remote_pos{$_});
 		fg($_, $used ? remote2color($_) : 8)
 	} grep {
 		$remote_use{$_}
@@ -95,7 +98,7 @@ while (<STDIN>) {
 		$dir_locs{$dir}{$loc} += 1;
 		$file_locs{$dir}{$base} = $loc;
 		for (my $i = 0; $i < length($loc); $i++) {
-			if (substr($loc, $i, 1) eq "X") {
+			if (present($loc, $i)) {
 				$remote_use{$remote_name[$i]}++;
 			}
 		}

@@ -23,13 +23,20 @@ sub remote2color {
 	}
 }
 
+sub fmt {
+	my ($str, $fmt) = @_;
+	return (length($str) && length($fmt))
+		? "\e[".$fmt."m".$str."\e[m"
+		: $str;
+}
+
 sub fg {
 	my ($str, $color) = @_;
 	if ($color < 0) {
 		$str = "\e[1m".$str;
 		$color *= -1;
 	}
-	return "\e[38;5;".$color."m".$str."\e[m";
+	return fmt($str, "38;5;".$color);
 }
 
 sub locdiff {
@@ -115,7 +122,7 @@ for my $dir (@dirs) {
 		my @files = sort grep {$files{$_} ne $main} keys %files;
 		for (@files) {
 			my $locs = loc2diffstr($main, $files{$_});
-			print "  ".$locs." \e[1m$dir/$_\e[m\n";
+			print "  ".$locs." ".fmt("$dir/$_", 1)."\n";
 		}
 	}
 }

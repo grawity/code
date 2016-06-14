@@ -118,11 +118,16 @@ for my $dir (@dirs) {
 	my $main = pop @locs;
 	print loc2remotestr($main)." $dir/\n";
 	if (@locs) {
+		my $full = ($locs{$main} - $locs{$locs[-1]} <= 2);
 		my %files = %{$file_locs{$dir}};
-		my @files = sort grep {$files{$_} ne $main} keys %files;
+		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {
-			my $locs = loc2diffstr($main, $files{$_});
-			print "  ".$locs." ".fmt("$dir/$_", 1)."\n";
+			my $loc = $files{$_};
+			my $loc_str = $full
+				? loc2remotestr($loc)
+				: loc2diffstr($main, $loc);
+			my $name_fmt = $full ? "" : "1";
+			print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";
 		}
 	}
 }

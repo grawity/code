@@ -20,7 +20,9 @@ my %HIDE_ATTRS = (
 	"user.com.dropbox.attributes" => 1,
 );
 
-my %Opt;
+my %Opt = (
+	all => 0,
+);
 
 sub _system {
 	my (@args) = @_;
@@ -54,7 +56,9 @@ sub dump_attrs {
 	my $ret = 0;
 	if (eval {require Linux::UserXAttr}) {
 		for my $file (@files) {
-			my @keys = Linux::UserXAttr::listxattr($file);
+			my (@keys, $key, $val);
+
+			@keys = Linux::UserXAttr::listxattr($file);
 			if ($!) {
 				_err("cannot read attrs of '$file': $!");
 				++$ret; next;
@@ -62,9 +66,14 @@ sub dump_attrs {
 			@keys = grep {/^user\./} @keys unless $Opt{all};
 			@keys = grep {!$HIDE_ATTRS{$_}} @keys;
 			next if !@keys;
+
 			print "\e[1m".$file."\e[m\n";
-			for my $key (sort @keys) {
-				my $val = Linux::UserXAttr::getxattr($file, $key);
+			for $key (sort @keys) {
+				$val = Linux::UserXAttr::getxattr($file, $key);
+				if ($!) {
+					_err("cannot read attr '$key' of '$file': $!");
+					++$ret; next;
+				}
 				$key =~ s/^user\.// unless $Opt{all};
 				print "  ".$key." = ".safe_val($val)."\n";
 			}

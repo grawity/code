@@ -34,16 +34,27 @@ sub safe {
 	}
 }
 
+sub set_attrs {
+	my ($key, $val, @files) = @_;
+	my $ret = _system("setfattr", "-n", $key, "-v", $val, "--", @files);
+	return ($ret > 0);
+}
+
+sub unset_attrs {
+	my ($key, @files) = @_;
+	my $ret = _system("setfattr", "-x", $key, "--", @files);
+	return ($ret > 0);
+}
+
 sub dump_attrs {
 	my (@files) = @_;
-	my $err = 0;
-
+	my $ret = 0;
 	if (eval {require Linux::UserXAttr}) {
 		for my $file (@files) {
 			my @names = Linux::UserXAttr::listxattr($file);
 			if ($!) {
 				_err("cannot read attrs of '$file': $!");
-				next;
+				++$ret; next;
 			}
 			@names = grep {!$HIDE_ATTRS{$_}} @names;
 			next if !@names;
@@ -56,9 +67,9 @@ sub dump_attrs {
 			print "\n";
 		}
 	} else {
-		$err = _system("getfattr", "--absolute-names", "-m", "-", "-d", @files);
+		$ret = _system("getfattr", "--absolute-names", "-m", "-", "-d", @files);
 	}
-	return ($err > 0);
+	return ($ret > 0);
 }
 
 my %attrs;
@@ -95,16 +106,13 @@ my $exit = 0;
 if (%attrs) {
 	for my $key (keys %attrs) {
 		my $val = $attrs{$key};
-		my $ret;
 		if (length $val) {
 			_debug("setting '$key' to '$val'");
-			$ret = _system("setfattr", "-n", $key,
-					"-v", $val, "--", @files);
+			$exit |= set_attrs($key, $val, @files);
 		} else {
 			_debug("removing '$key'");
-			$ret = _system("setfattr", "-x", $key, "--", @files);
+			$exit |= unset_attrs($key, @files);
 		}
-		$exit |= $ret > 0;
 	}
 } else {
 	$exit |= dump_attrs(@files);

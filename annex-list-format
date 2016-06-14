@@ -42,7 +42,8 @@ sub fg {
 
 sub present {
 	my ($loc, $idx) = @_;
-	return (substr($loc, $idx, 1) eq "X");
+	# can be 'X' for semitrusted or 'x' for untrusted
+	return (substr($loc, $idx, 1) ne "_");
 }
 
 sub locdiff {
@@ -91,7 +92,7 @@ sub loc2diffstr {
 }
 
 while (<STDIN>) {
-	if (/^([_X]+) (.+)$/) {
+	if (/^([_Xx]+) (.+)$/) {
 		my $loc = $1;
 		my $dir = dirname($2);
 		my $base = basename($2);
@@ -103,9 +104,10 @@ while (<STDIN>) {
 			}
 		}
 	}
-	elsif (/^(\|*)([^|_X].*?)$/) {
+	elsif (/^(\|*)([^|_Xx].*?)$/) {
 		my $pos = length($1);
 		my $name = $2;
+		$name =~ s/ \(untrusted\)$//;
 		$remote_pos{$name} = $pos;
 		$remote_name[$pos] = $name;
 	}

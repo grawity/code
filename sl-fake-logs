@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # sl-fake-vram -- fix Xorg.log to make SecondLife find the right amount of VRAM
 
+. lib.bash || exit
+
 if [[ $DISPLAY == :* ]]; then
 	disp=${DISPLAY#:}
 	disp=${disp%%.*}
@@ -8,12 +10,18 @@ else
 	disp=0
 fi
 
-MB=$1
-if [[ ! $MB ]]; then
-	MB=$(glxinfo | awk '/Video memory:/ {print $3}' | sed 's/MB//')
-	echo "detected ${MB} MB of VRAM"
+vram_MB=$1
+
+if [[ ! $vram_MB ]]; then
+	vram_MB=$(glxinfo -B | awk '/Video memory:/ {print $3}' | sed 's/MB//')
+	if [[ ! $vram_MB ]]; then
+		die "could not detect VRAM size via glxinfo"
+	fi
+	echo "detected ${vram_MB} MB of VRAM"
 fi
-KB=$(( MB * 1024 ))
-echo "pretending we have ${KB} kB of VRAM"
-echo "fake: Memory: ${KB} kB" \
+
+vram_kB=$(( vram_MB * 1024 ))
+echo "pretending we have ${vram_kB} kB of VRAM"
+
+echo "fake: Memory: ${vram_kB} kB" \
   | sudo sh -c "dd of='/var/log/Xorg.$disp.log' conv=notrunc &> /dev/null"

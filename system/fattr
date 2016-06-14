@@ -25,7 +25,7 @@ sub _system {
 	system {$args[0]} @args;
 }
 
-sub safe {
+sub safe_val {
 	my ($str) = @_;
 	if (utf8::is_utf8($str) || utf8::decode($str)) {
 		return "\"$str\"";
@@ -51,18 +51,18 @@ sub dump_attrs {
 	my $ret = 0;
 	if (eval {require Linux::UserXAttr}) {
 		for my $file (@files) {
-			my @names = Linux::UserXAttr::listxattr($file);
+			my @keys = Linux::UserXAttr::listxattr($file);
 			if ($!) {
 				_err("cannot read attrs of '$file': $!");
 				++$ret; next;
 			}
-			@names = grep {!$HIDE_ATTRS{$_}} @names;
-			next if !@names;
-			print "\e[1m", $file, "\e[m\n";
-			for my $name (sort @names) {
-				my $value = Linux::UserXAttr::getxattr($file, $name);
-				$name =~ s/^user\.//;
-				print "  ", $name, " = ", safe($value), "\n";
+			@keys = grep {!$HIDE_ATTRS{$_}} @keys;
+			next if !@keys;
+			print "\e[1m".$file."\e[m\n";
+			for my $key (sort @keys) {
+				my $val = Linux::UserXAttr::getxattr($file, $key);
+				$key =~ s/^user\.//;
+				print "  ".$key." = ".safe_val($val)."\n";
 			}
 			print "\n";
 		}
@@ -82,7 +82,7 @@ for (@ARGV) {
 		push @files, $_;
 	}
 	elsif (/^($attr_re)=(.*)$/) {
-		my ($key, $value) = ($1, $2);
+		my ($key, $val) = ($1, $2);
 		if ($ALIAS_ATTRS{$key}) {
 			$key = $ALIAS_ATTRS{$key};
 		} elsif ($key =~ /^\./) {
@@ -90,7 +90,7 @@ for (@ARGV) {
 		} elsif ($key !~ /^(user|system|security|trusted)\./) {
 			$key = "user.".$key;
 		}
-		$attrs{$key} = $value;
+		$attrs{$key} = $val;
 	}
 	else {
 		push @files, $_;

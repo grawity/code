@@ -24,6 +24,11 @@ sub remote2color {
 	}
 }
 
+sub remote_hidden {
+	my ($remote) = @_;
+	return ($remote =~ /^(bittorrent|web)$/);
+}
+
 sub fmt {
 	my ($str, $fmt) = @_;
 	return (length($str) && length($fmt))
@@ -42,7 +47,8 @@ sub fg {
 
 sub present {
 	my ($loc, $idx) = @_;
-	# can be 'X' for semitrusted or 'x' for untrusted
+	return 0 if $idx >= length($loc);
+	return 0 if remote_hidden($remote_name[$idx]);
 	return (substr($loc, $idx, 1) ne "_");
 }
 
@@ -88,6 +94,7 @@ sub loc2diffstr {
 	} grep {
 		$diff{$remote_pos{$_}}
 	} sort @remote_name;
+	return if !@remotes;
 	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
 
@@ -132,6 +139,7 @@ for my $dir (@dirs) {
 			my $loc_str = $full
 				? loc2remotestr($loc)
 				: loc2diffstr($main, $loc);
+			next if !$loc_str;
 			my $name_fmt = $full ? "" : "1";
 			print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";
 		}

@@ -6,7 +6,6 @@ use File::Basename;
 
 my %dir_locs;
 my %file_locs;
-my %remote_pos;
 my @remote_name;
 my %remote_use;
 
@@ -75,11 +74,14 @@ sub locset_str {
 	my ($loc) = @_;
 
 	my @remotes = map {
-		my $present = present($loc, $remote_pos{$_});
-		fg($_, $present ? remote_color($_) : 8)
+		my $name = $remote_name[$_];
+		my $present = present($loc, $_);
+		fg($name, $present ? remote_color($name) : 8)
 	} grep {
 		$remote_use{$_}
-	} sort @remote_name;
+	} sort {
+		$remote_name[$a] cmp $remote_name[$b]
+	} 0..$#remote_name;
 
 	return fmt_remotes(@remotes);
 }
@@ -89,11 +91,14 @@ sub locset_diffstr {
 
 	my %diff = diff_locsets($loc1, $loc2);
 	my @remotes = map {
-		my $present = $diff{$remote_pos{$_}};
-		$present . fg($_, $present eq "+" ? remote_color($_) : 8)
+		my $name = $remote_name[$_];
+		my $present = $diff{$_};
+		$present . fg($name, $present eq "+" ? remote_color($name) : 8)
 	} grep {
-		$diff{$remote_pos{$_}}
-	} sort @remote_name;
+		$diff{$_}
+	} sort {
+		$remote_name[$a] cmp $remote_name[$b]
+	} 0..$#remote_name;
 
 	return if !@remotes;
 	return fmt_remotes(@remotes);
@@ -108,7 +113,7 @@ while (<STDIN>) {
 		$file_locs{$dir}{$base} = $loc;
 		for (my $i = 0; $i < length($loc); $i++) {
 			if (present($loc, $i)) {
-				$remote_use{$remote_name[$i]}++;
+				$remote_use{$i}++;
 			}
 		}
 	}
@@ -116,7 +121,6 @@ while (<STDIN>) {
 		my $pos = length($1);
 		my $name = $2;
 		$name =~ s/ \(untrusted\)$//;
-		$remote_pos{$name} = $pos;
 		$remote_name[$pos] = $name;
 	}
 	else {

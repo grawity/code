@@ -10,17 +10,17 @@ my %remote_pos;
 my @remote_name;
 my %remote_use;
 
-sub remote2color {
+sub remote_color {
 	my ($remote) = @_;
 	for ($remote) {
-		return -3 if /^here$/;
-		return 82 if /^rain$/;
+		return  -3 if /^here$/;
+		return  82 if /^rain$/;
 		return 109 if /^frost$/;
 		return -13 if /^vol4$/;
-		return 13 if /^vol\d+/;
-		return 12 if /^fs\d+/;
-		return 4 if /^ukvirt\d+/;
-		return 15;
+		return  13 if /^vol\d+/;
+		return  12 if /^fs\d+/;
+		return   4 if /^ukvirt\d+/;
+		return  15;
 	}
 }
 
@@ -39,10 +39,14 @@ sub fmt {
 sub fg {
 	my ($str, $color) = @_;
 	if ($color < 0) {
-		$str = "\e[1m".$str;
-		$color *= -1;
+		$str = fmt($str, "1");
 	}
-	return fmt($str, "38;5;".$color);
+	return fmt($str, "38;5;".abs($color));
+}
+
+sub fmt_remotes {
+	my (@remotes) = @_;
+	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
 
 sub present {
@@ -52,50 +56,47 @@ sub present {
 	return (substr($loc, $idx, 1) ne "_");
 }
 
-sub locdiff {
+sub diff_locsets {
 	my ($a, $b) = @_;
+
 	my @a_only = grep {
 		present($a, $_) && !present($b, $_)
 	} 0..length($a);
+
 	my @b_only = grep {
 		present($b, $_) && !present($a, $_)
 	} 0..length($b);
+
 	return ((map {$_ => "-"} @a_only),
 		(map {$_ => "+"} @b_only));
 }
 
-#sub loc2remotestr {
-#	my ($loc) = @_;
-#	my @remotes = map {
-#		fg($_, remote2color($_))
-#	} loc2remotes($loc);
-#	return fg("{", 8).join(" ", @remotes).fg("}", 8);
-#}
-
-sub loc2remotestr {
+sub locset_str {
 	my ($loc) = @_;
+
 	my @remotes = map {
-		my $used = present($loc, $remote_pos{$_});
-		fg($_, $used ? remote2color($_) : 8)
+		my $present = present($loc, $remote_pos{$_});
+		fg($_, $present ? remote_color($_) : 8)
 	} grep {
 		$remote_use{$_}
 	} sort @remote_name;
-	return fg("{", 8).join(" ", @remotes).fg("}", 8);
+
+	return fmt_remotes(@remotes);
 }
 
-sub loc2diffstr {
+sub locset_diffstr {
 	my ($loc1, $loc2) = @_;
-	my %diff = locdiff($loc1, $loc2);
-	#print Dumper([$loc1, $loc2, \%diff]);
+
+	my %diff = diff_locsets($loc1, $loc2);
 	my @remotes = map {
-		my $used = $diff{$remote_pos{$_}};
-		#fg($_, $used eq "+" ? 10 : 9);
-		$used . fg($_, $used eq "+" ? remote2color($_) : 8)
+		my $present = $diff{$remote_pos{$_}};
+		$present . fg($_, $present eq "+" ? remote_color($_) : 8)
 	} grep {
 		$diff{$remote_pos{$_}}
 	} sort @remote_name;
+
 	return if !@remotes;
-	return fg("{", 8).join(" ", @remotes).fg("}", 8);
+	return fmt_remotes(@remotes);
 }
 
 while (<STDIN>) {
@@ -119,7 +120,7 @@ while (<STDIN>) {
 		$remote_name[$pos] = $name;
 	}
 	else {
-		print "!! unrecognized line:$.: $_";
+		warn "!! unrecognized line:$.: $_\n";
 	}
 }
 
@@ -129,16 +130,15 @@ for my $dir (@dirs) {
 	my %locs = %{$dir_locs{$dir}};
 	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
 	my $main = pop @locs;
-	print loc2remotestr($main)." $dir/\n";
+	print locset_str($main)." $dir/\n";
 	if (@locs) {
 		my $full = ($locs{$main} - $locs{$locs[-1]} <= 2);
 		my %files = %{$file_locs{$dir}};
 		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {
-			my $loc = $files{$_};
 			my $loc_str = $full
-				? loc2remotestr($loc)
-				: loc2diffstr($main, $loc);
+				? locset_str($files{$_})
+				: locset_diffstr($main, $files{$_});
 			next if !$loc_str;
 			my $name_fmt = $full ? "" : "1";
 			print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";

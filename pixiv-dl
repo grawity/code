@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+from nullroute.core import *
+import nullroute.sec
+import pixivpy3
+import requests
+import sys
+
+class Client(object):
+    def __init__(self):
+        self.ua = requests.Session()
+        self.api = pixivpy3.PixivAPI()
+        self._auth()
+
+    def _auth(self):
+        if not self.api.user_id:
+            creds = nullroute.sec.get_netrc_service("pixiv.net", "api")
+            Core.info("logging in to Pixiv")
+            self.api.login(creds["login"], creds["password"])
+
+    def _check(self, r):
+        if r.status != "success":
+            Core.die("error %r" % r)
+        return r
+
+    def save_file(self, url, illust_id):
+        headers = {}
+        if illust_id:
+            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=manga_big&illust_id=%s&page=0" % illust_id
+
+        Core.debug("saving %s" % url)
+        name = os.path.basename(url)
+        if not os.path.exists(name):
+            with open(name, "wb") as fh:
+                resp = self.ua.get(url, headers=headers)
+                resp.raise_for_status()
+                fh.write(resp.content)
+
+    def get_work_info(self, illust_id):
+        r = self.api.works(illust_id)
+        self._check(r)
+        return r.response[0]
+
+    def get_all_member_works(self, member_id):
+        log = open("pixiv%s.txt" % member_id, "w")
+        Core.info("getting works of user %s" % member_id)
+        works_r = self._check(self.api.users_works(member_id))
+        Core.info("got %d works (%r)" % (works_r.count, works_r.pagination))
+        for i, work in enumerate(works_r.response):
+            Core.info("downloading work %s of %s: %s ｢%s｣" % (i+1, works_r.count, work.id, work.title))
+            log.write("-- %s --\n" % work.id)
+            log.write("%s\n" % work.title)
+            log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
+            log.write("\n")
+            log.write("%s\n" % work.caption)
+            log.write("\n")
+            if work.is_manga:
+                work_info = self.get_work_info(work.id)
+                for j, page in enumerate(work_info.metadata.pages):
+                    Core.info(" - page %s of %s" % (j+1, work_info.page_count))
+                    self.save_file(page.image_urls["large"], work.id)
+            else:
+                self.save_file(work.image_urls["large"], work.id)
+
+c = Client()
+
+for arg in sys.argv[1:]:
+    arg = int(arg)
+    c.get_all_member_works(arg)

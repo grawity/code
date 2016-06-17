@@ -16,6 +16,21 @@ sub is_printable {
 sub dump_str {
 	my ($str, @path) = @_;
 	my $depth = @path;
+	my $i = 0;
+	my $n = length($str);
+
+	if ("@path" eq "peers" && ($n % 4) == 0) {
+		require Socket;
+		print "inet [";
+		while ($i + 4 < $n) {
+			print ", " if $i;
+			print Socket::inet_ntop(&Socket::AF_INET,
+						substr($str, $i, 4));
+			$i += 4;
+		}
+		print "]";
+		return;
+	}
 
 	if (is_printable($str)) {
 		print "\"".$str."\"";
@@ -24,8 +39,6 @@ sub dump_str {
 		my $len = 24;
 		print "bytes [";
 		if (@bytes > $len) {
-			my $i = 0;
-			my $n = @bytes;
 			print "\n";
 			while ($i < $n) {
 				print $indent x ($depth+1);

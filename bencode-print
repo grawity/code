@@ -13,12 +13,6 @@ sub is_printable {
 	return ($str !~ /[\x00-\x1F]/);
 }
 
-sub safe_chr {
-	my ($chr) = @_;
-
-	return ($chr > 0x20 && $chr < 0x7f) ? chr($chr) : ".";
-}
-
 sub dump_str {
 	my ($str, @path) = @_;
 	my $depth = @path;
@@ -41,24 +35,20 @@ sub dump_str {
 	if (is_printable($str)) {
 		print "\"".$str."\"";
 	} else {
-		my $z = 16;
+		my @bytes = map {sprintf("%02x", $_)} unpack("C*", $str);
+		my $z = 24;
 		print "bytes [";
 		if ($n > $z) {
 			print "\n";
 			while ($i < $n) {
-				my @chunk = unpack("C*", substr($str, $i, min($n-$i, $z)));
 				print $indent x ($depth+1);
-				printf "%08x: ", $i;
-				print join(" ", map {sprintf("%02x", $_)} @chunk);
-				print " ";
-				print join("", map {safe_chr($_)} @chunk);
+				print join(" ", @bytes[$i..min($i + $z, $n)-1]);
 				print "\n";
 				$i += $z;
 			}
 			print $indent x $depth;
 		} else {
-			my @bytes = unpack("C*", $str);
-			print join(" ", map {sprintf("%02x", $_)} @bytes);
+			print join(" ", @bytes);
 		}
 		print "]";
 	}

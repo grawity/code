@@ -6,14 +6,14 @@ date_fmt="'%y %b %_d"
 date_sep=" – "
 
 lstodo() {
-	nl -ba -s". " -w3 "$file" |
 	if [[ -t 1 ]]; then
+		nl -ba -s". " -w3 "$file" |
 		sed -r $'
 		s/(–) (.+) \+\+$/\\1 \e[1m\e[38;5;11m\\2\e[m/
 		s/(–) (.+) \+$/\\1 \e[38;5;11m\\2\e[m/
 		'
 	else
-		cat
+		cat "$file"
 	fi
 }
 
@@ -63,11 +63,7 @@ rmtodo() {
 		pcmd+="${addr}p;"
 		dcmd+="${addr}d;"
 	done
-	if [[ -t 1 ]]; then
-		lstodo
-	else
-		cat "$file"
-	fi | sed -n "$pcmd" && edit "$dcmd"
+	lstodo | sed -n "$pcmd" && edit "$dcmd"
 }
 
 lib::find_file file= \

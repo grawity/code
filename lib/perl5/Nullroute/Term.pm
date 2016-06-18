@@ -15,6 +15,8 @@ if (eval {require Text::CharWidth}) {
 	sub mbswidth { length shift; }
 }
 
+my $width;
+
 sub status {
 	state $lines = 0;
 	my ($msg, $fmt) = @_;
@@ -26,3 +28,5 @@ sub status {
 	$lines = ceil(mbswidth($msg) / $width);
 	print $out;
 }
+
+1;

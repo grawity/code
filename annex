@@ -34,6 +34,11 @@ case $cmd in
         elif [[ ! -d $path ]]; then
             err "remote path '$path' does not exist"
         else
+            # `git rev-parse --show-prefix` does not work in bare (direct) repos,
+            # even with `-c core.bare=false`, so use indirect methods
+            gitdir=$(git rev-parse --git-dir)
+            subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
+            path=$(realpath "$path/$subdir")
             log "running '$*' in $path" >&2
             if [[ $1 == git ]]; then
                 (cd "$path" && "$@")

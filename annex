@@ -245,6 +245,23 @@ case $cmd in
         is_remote! "$1"
         annex copy --to "$1" --not --in "$1" "${@:2}"
         ;;
+    geturls)
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '(.whereis, .untrusted) | .[].urls[]'
+        ;;
+    geturls-json)
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq '{file: .file,
+                    key: .key,
+                    urls: [(.whereis, .untrusted) | .[].urls[]]}'
+        ;;
+    geturls-sh)
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '@sh "git annex addurl --relaxed --file=\(.file) \((.whereis, .untrusted) | .[].urls[])"'
+        ;;
     # overrides
     addurl)
         if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then

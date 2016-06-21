@@ -37,18 +37,27 @@ for name; do
 	case $type in
 	'cgit')
 		case $mode in
-		'log')    url="$base/log/$path?h=$head";;
+		'log')    url="$base/log/$path?h=$head";; # TODO: make this global log
+		'flog')   url="$base/log/$path?h=$head";;
 		'file')   url="$base/tree/$path?h=$head";;
 		'commit') url="$base/commit/?id=$head";;
 		esac;;
 	'github')
 		case $mode in
-		'log')    url="$base/commits/$head/$path";;
+		'log')    url="$base/commits/$head";;
+		'flog')   url="$base/commits/$head/$path";;
 		'file')   url="$base/blob/$head/$path";;
 		'commit') url="$base/commit/$head";;
 		esac;;
 	'gitweb')
-		die "$type not yet implemented";;
+		base=${base//";a=summary"/}
+		case $mode in
+		'log')    url="$base;a=shortlog;h=$head";;
+		'flog')   url="$base;a=history;f=$path;h=$head";;
+		'file')   url="$base;a=blob;f=$path;h=$head";;
+		'commit') url="$base;a=commit;h=$head";;
+		*)        die "$type not yet implemented";;
+		esac;;
 	esac
 
 	[[ $url ]] || die "$type/$mode not yet implemented"

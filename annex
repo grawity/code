@@ -34,6 +34,11 @@ case $cmd in
         elif [[ ! -d $path ]]; then
             err "remote path '$path' does not exist"
         else
+            # `git rev-parse --show-prefix` does not work in bare (direct) repos,
+            # even with `-c core.bare=false`, so use indirect methods
+            gitdir=$(git rev-parse --git-dir)
+            subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
+            path=$(realpath "$path/$subdir")
             log "running '$*' in $path" >&2
             if [[ $1 == git ]]; then
                 (cd "$path" && "$@")
@@ -239,6 +244,23 @@ case $cmd in
     push)
         is_remote! "$1"
         annex copy --to "$1" --not --in "$1" "${@:2}"
+        ;;
+    geturls)
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '(.whereis, .untrusted) | .[].urls[]'
+        ;;
+    geturls-json)
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq '{file: .file,
+                    key: .key,
+                    urls: [(.whereis, .untrusted) | .[].urls[]]}'
+        ;;
+    geturls-sh)
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '@sh "git annex addurl --relaxed --file=\(.file) \((.whereis, .untrusted) | .[].urls[])"'
         ;;
     # overrides
     addurl)

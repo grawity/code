@@ -27,9 +27,11 @@ class Client(object):
         if illust_id:
             headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=manga_big&illust_id=%s&page=0" % illust_id
 
-        Core.debug("saving %s" % url)
         name = os.path.basename(url)
-        if not os.path.exists(name):
+        if os.path.exists(name) and os.stat(name).st_size > 0:
+            Core.debug("file %r already exists, skipping" % name)
+        else:
+            Core.debug("saving %s to %r" % (url, name))
             with open(name, "wb") as fh:
                 resp = self.ua.get(url, headers=headers)
                 resp.raise_for_status()

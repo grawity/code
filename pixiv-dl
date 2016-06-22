@@ -43,7 +43,7 @@ class Client(object):
         return r.response[0]
 
     def get_all_member_works(self, member_id):
-        log = open("pixiv%s.txt" % member_id, "w")
+        log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)
         works_r = self._check(self.api.users_works(member_id))
         Core.info("got %d works (%r)" % (works_r.count, works_r.pagination))
@@ -55,6 +55,7 @@ class Client(object):
             log.write("\n")
             log.write("%s\n" % work.caption)
             log.write("\n")
+            log.flush()
             if work.is_manga:
                 work_info = self.get_work_info(work.id)
                 for j, page in enumerate(work_info.metadata.pages):

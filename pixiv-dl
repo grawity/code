@@ -46,9 +46,21 @@ class Client(object):
         log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)
         works_r = self._check(self.api.users_works(member_id))
-        Core.info("got %d works (%r)" % (works_r.count, works_r.pagination))
+        Core.info("got %d works (out of %d; page %d/%d)" % (
+                    works_r.count,
+                    works_r.pagination.total,
+                    works_r.pagination.current,
+                    works_r.pagination.pages,
+                  ))
         for i, work in enumerate(works_r.response):
-            Core.info("downloading work %s of %s: %s ｢%s｣" % (i+1, works_r.count, work.id, work.title))
+            i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
+            i_global = (i + 1) + i_offset
+            Core.info("downloading work %s of %s: %s ｢%s｣" % (
+                        i_global,
+                        works_r.pagination.total,
+                        work.id,
+                        work.title,
+                      ))
             log.write("-- %s --\n" % work.id)
             log.write("%s\n" % work.title)
             log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)

@@ -7,12 +7,16 @@ use File::Basename;
 my %dir_locs;
 my %file_locs;
 my @remote_name;
-my %remote_use;
+my @remote_use;
 
 sub remote_color {
 	my ($remote) = @_;
 	for ($remote) {
+		# special case for absent remotes
+		return   8 if /^$/;
+		# this remote
 		return  -3 if /^here$/;
+		# everything else
 		return  82 if /^rain$/;
 		return 109 if /^frost$/;
 		return -13 if /^vol4$/;
@@ -75,10 +79,10 @@ sub locset_str {
 
 	my @remotes = map {
 		my $name = $remote_name[$_];
-		my $present = present($loc, $_);
-		fg($name, $present ? remote_color($name) : 8)
+		my $color = remote_color(present($loc, $_) ? $name : "");
+		fg($name, $color);
 	} grep {
-		$remote_use{$_}
+		$remote_use[$_];
 	} sort {
 		$remote_name[$a] cmp $remote_name[$b]
 	} 0..$#remote_name;
@@ -92,8 +96,8 @@ sub locset_diffstr {
 	my %diff = diff_locsets($loc1, $loc2);
 	my @remotes = map {
 		my $name = $remote_name[$_];
-		my $present = $diff{$_};
-		$present . fg($name, $present eq "+" ? remote_color($name) : 8)
+		my $color = remote_color($diff{$_} eq "+" ? $name : "");
+		$diff{$_}.fg($name, $color);
 	} grep {
 		$diff{$_}
 	} sort {
@@ -111,10 +115,8 @@ while (<STDIN>) {
 		my $base = basename($2);
 		$dir_locs{$dir}{$loc} += 1;
 		$file_locs{$dir}{$base} = $loc;
-		for (my $i = 0; $i < length($loc); $i++) {
-			if (present($loc, $i)) {
-				$remote_use{$i}++;
-			}
+		for (0..length($loc)) {
+			$remote_use[$_]++ if present($loc, $_);
 		}
 	}
 	elsif (/^(\|*)([^|_Xx].*?)$/) {

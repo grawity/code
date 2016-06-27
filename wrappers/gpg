@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
 # wrapper to avoid very slow tofu.db flushing to disk
 
+if [[ $DEBUG ]]; then
+{
+echo "=== gpg $*"
+gpg-connect-agent "getinfo socket_name" /bye
+id
+env | sort | egrep "^(GPG|XDG_RUNTIME|FAKE|LD_)"
+echo "---"
+} |& tee /dev/tty > /tmp/gpg.$$
+fi
+
 exec funsync /usr/bin/gpg "$@"

@@ -164,6 +164,7 @@ if (has_Shell) {
 }
 
 if (!-f $file) {
+	_debug("screenshot failed, \$file is nil");
 	notify("Screenshot failed.",
 		icon => "error",
 		hints => {
@@ -172,6 +173,7 @@ if (!-f $file) {
 	exit 1;
 }
 
+_debug("screenshot successful, \$file is '$file'");
 say $file;
 
 my $uri = "file://$file";
@@ -188,6 +190,7 @@ if ($upload) {
 		}
 	};
 
+	_debug("uploading via cap-upload.sh");
 	$upload_pid = open(my $upload_proc, "-|") || do {
 		open(STDERR, ">&", \*STDOUT);
 		exec("cap-upload.sh", $file) || die "$!\n";
@@ -231,8 +234,8 @@ if ($upload) {
 			});
 	}
 } else {
-	#notify("Screenshot captured",
-	#	icon => $uri);
+	notify("Screenshot captured",
+		icon => $uri);
 	if ($temporary) {
 		_notice("uploading disabled; keeping temporary screenshot");
 	}

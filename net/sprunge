@@ -42,13 +42,17 @@ putclip() {
 }
 
 post() {
-	local url=$(curl -sF "sprunge=<$1" http://sprunge.us/)
+	local file=$1
+	echo -n "$file → "
+	local url=$(curl -sF "sprunge=<$file" http://sprunge.us/)
 	if [ "$url" ]; then
-		seturl "$1" $url
+		seturl "$file" $url
 		echo $url
 		putclip $url
 	else
 		echo "...failed"
+		err=1
+		false
 	fi
 }
 
@@ -98,7 +102,6 @@ else
 			echo "$file: not a file" >&2
 			err=1
 		elif [ -s "$file" ]; then
-			echo -n "$file → "
 			post "$file"
 		elif [ -e "$file" ]; then
 			echo "$file: empty" >&2

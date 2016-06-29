@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # Simple sprunge.us pastebin client
 
-have() {
-	command -v "$1" >/dev/null 2>&1
-}
+. lib.bash || exit
 
 now() {
 	printf "%(%Y%m%d.%H%M%S)T"
@@ -25,8 +23,7 @@ getsel() {
 	elif have xsel; then
 		xsel -o -p
 	else
-		echo "no xclip nor xsel" >&2
-		false
+		err "no xclip nor xsel"
 	fi
 }
 
@@ -50,9 +47,7 @@ post() {
 		echo $url
 		putclip $url
 	else
-		echo "...failed"
-		err=1
-		false
+		err "upload failed"
 	fi
 }
 
@@ -92,25 +87,21 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 			rm -f "$file"
 		fi
 	else
-		echo "stdin: empty" >&2
-		err=1
+		err "stdin: empty"
 		rm -f "$file"
 	fi
 else
 	for file; do
 		if [ ! -f "$file" ]; then
-			echo "$file: not a file" >&2
-			err=1
+			err "$file: not a file"
 		elif [ -s "$file" ]; then
 			post "$file"
 		elif [ -e "$file" ]; then
-			echo "$file: empty" >&2
-			err=1
+			err "$file: empty"
 		else
-			echo "$file: not found" >&2
-			err=1
+			err "$file: not found"
 		fi
 	done
 fi
 
-exit $err
+lib::exit

@@ -11,7 +11,11 @@ now() {
 
 seturl() {
 	local file=$1 url=$2
-	setfattr -n "user.sprunge-url" -v "$url" "$file" 2>/dev/null || :
+	if have attr; then
+		attr -q -s "sprunge-url" -V "$url" "$file"
+	elif have setfattr; then
+		setfattr -n "user.sprunge-url" -v "$url" "$file"
+	fi
 	ln -s -f "${file##*/}" "${file%/*}/${url##*/}.txt"
 }
 

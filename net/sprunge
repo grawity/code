@@ -2,6 +2,7 @@
 # Simple sprunge.us pastebin client
 
 . lib.bash || exit
+. libks.bash || exit
 
 now() {
 	printf "%(%Y%m%d.%H%M%S)T"
@@ -9,11 +10,7 @@ now() {
 
 seturl() {
 	local file=$1 url=$2
-	if have attr; then
-		attr -q -s "xdg.origin.url" -V "$url" "$file"
-	elif have setfattr; then
-		setfattr -n "user.xdg.origin.url" -v "$url" "$file"
-	fi
+	ks:setattr "$file" xdg.origin.url "$url"
 	ln -s -f "${file##*/}" "${file%/*}/${url##*/}.txt"
 }
 

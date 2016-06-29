@@ -1,29 +1,34 @@
-ks:getattr() {
-	local file=$1 name=$2
-	if have getfattr; then
+if have setfattr; then
+	ks:getattr() {
+		local file=$1 name=$2
 		getfattr "$file" --name="user.$name" --only-values 2>/dev/null
-	else
-		attr -q -g "$name" "$file" 2>/dev/null
-	fi
-}
+	}
 
-ks:setattr() {
-	local file=$1 name=$2 value=$3
-	if have setfattr; then
+	ks:setattr() {
+		local file=$1 name=$2 value=$3
 		setfattr "$file" --name="user.$name" --value="$value"
-	else
-		attr -q -s "$name" -V "$value" "$file"
-	fi
-}
+	}
 
-ks:delattr() {
-	local file=$1 name=$2
-	if have setfattr; then
+	ks:delattr() {
+		local file=$1 name=$2
 		setfattr "$file" --remove="user.$name" 2>/dev/null
-	else
+	}
+elif have attr; then
+	ks:getattr() {
+		local file=$1 name=$2
+		attr -q -g "$name" "$file" 2>/dev/null
+	}
+
+	ks:setattr() {
+		local file=$1 name=$2 value=$3
+		attr -q -s "$name" -V "$value" "$file"
+	}
+
+	ks:delattr() {
+		local file=$1 name=$2
 		attr -q -r "$name" "$file" 2>/dev/null
-	fi
-}
+	}
+fi
 
 ks:sshrun() {
 	local OPT OPTARG OPTIND

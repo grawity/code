@@ -50,12 +50,15 @@ case $cmd in
         ;;
     each)
         for dir in "${annexes[@]}"; do
-            log2 "running '$1' in $dir"
+            log2 "running '$*' in $dir"
             (cd "$dir" && annex "$@")
             if (( r=$? )); then
-                err "command returned $r (in $dir)"
+                err "command '$*' returned $r (while in $dir)"
             fi
         done
+        if (( errors )); then
+            err "command '$*' failed in at least one repository"
+        fi
         ;;
     setup)
         name=$1

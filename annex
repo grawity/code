@@ -36,17 +36,16 @@ case $cmd in
         else
             # `git rev-parse --show-prefix` does not work in bare (direct) repos,
             # even with `-c core.bare=false`, so use indirect methods
+            if [[ $1 == !* ]]; then
+                set -- "${1#!}" "${@:2}"
+            elif [[ $1 != git ]]; then
+                set -- annex "$@"
+            fi
             gitdir=$(git rev-parse --git-dir)
             subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
             path=$(realpath "$path/$subdir")
             log "running '$*' in $path" >&2
-            if [[ $1 == git ]]; then
-                (cd "$path" && "$@")
-            elif [[ $1 == !* ]]; then
-                (cd "$path" && "${1#!}" "${@:2}")
-            else
-                (cd "$path" && annex "$@")
-            fi
+            (cd "$path" && "$@")
         fi
         ;;
     each)

@@ -27,9 +27,17 @@ encode() {
 pinentry=(pinentry)
 config=("SETPROMPT")
 
+# parse config
+
 if (( DEBUG > 1 )); then
 	set -x
 fi
+
+if [[ -f $path_config/askpin.conf.sh ]]; then
+	. "$path_config/askpin.conf.sh" || die "could not load configuration"
+fi
+
+# parse arguments
 
 while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	debug "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
@@ -93,8 +101,7 @@ ok=0
 
 state=configure
 while read -r status rest <&$in; do
-	debug "State: $state"
-	debug "$state <-- $status {$rest}"
+	debug "($state) status='$status' rest='$rest'"
 	case $state in
 	configure)
 		case $status in

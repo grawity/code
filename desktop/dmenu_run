@@ -4,8 +4,8 @@
 # This is not the same script as in ~/bin, but a minimized, standalone version.
 # The Perl code below is a minified version of `dmenu-print-history`.
 #
-# (c) 2015 Mantas Mikulėnas <grawity@gmail.com> Released under the MIT Expat
-# License (dist/LICENSE.expat)
+# (c) 2015-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT Expat License (dist/LICENSE.expat)
 #
 # Frecency algorithm borrowed from rupa/z:
 #   <https://github.com/rupa/z/wiki/frecency>
@@ -31,8 +31,15 @@ sub rank {
 
 $histfile = shift @ARGV // die("missing histfile argument\n");
 if (open(my $f, "<", $histfile)) {
-	@history = map {/^(\d+) (.+)$/ ? [int $1, $2] : [0, $_]}
-	           grep {chomp; 1} <$f>;
+	@history = ();
+	$ts = 0;
+	while (<$f>) {
+		chomp;
+		if (/^#(\d+)$/)		{ $ts = int $1; }
+		elsif ($ts)		{ push @history, [$ts, $_]; $ts = 0; }
+		elsif (/^(\d+) (.+)$/)	{ push @history, [int($1), $2]; }
+		else			{ push @history, [0, $_]; }
+	}
 	close($f);
 } else {
 	exit if $!{ENOENT};

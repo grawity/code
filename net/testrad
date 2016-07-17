@@ -8,7 +8,7 @@ lib_config[opt_width]=24
 usage() {
 	echo "Usage: $progname PROFILE [via SERVER] [options]"
 	echo ""
-	echo_opt "PROFILE" "Use given profile config block"
+	echo_opt "PROFILE" "Use given profile config block (or 'none')"
 	echo ""
 	echo "Server:"
 	echo_opt "via SERVER" "Use given server config block"
@@ -76,6 +76,7 @@ help_config() {
 	echo "  )"
 	echo ""
 	echo "In command line, the first parameter is *always* a profile name."
+	echo "Use 'testrad none ...' if no profile needs to be loaded."
 }
 
 declare -- server port secret eap mech phase2
@@ -106,8 +107,11 @@ load_conf() {
 
 	set -- "${!var}"
 
-	if (( ! $# )); then
-		err "no $type '$name' found"
+	if [[ $name == none ]]; then
+		debug "accepting '$name' as dummy $type"
+		return
+	elif (( ! $# )); then
+		err "$type '$name' not found"
 		return
 	elif (( depth > 5 )); then
 		die "profile recursion limit exceeded"

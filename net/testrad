@@ -3,6 +3,53 @@
 
 . lib.bash || exit
 
+lib_config[opt_width]=24
+
+usage() {
+	echo "Usage: $progname PROFILE [via SERVER] [options]"
+	echo ""
+	echo "Server:"
+	echo_opt "via SERVER" "Use given server config block"
+	echo_opt "host HOSTNAME" "Set RADIUS server address"
+	echo_opt "port PORT" "Set RADIUS auth port"
+	echo_opt "secret SECRET" "Set RADIUS secret"
+	echo ""
+	echo "Mechanism:"
+	echo_opt "eap|phase1 MECH" "Tunnel inside an EAP mechanism (peap, tls, ttls)"
+	echo_opt "mech|phase2 MECH" "Set the main mechanism (pap, mschap, gtc)"
+	echo ""
+	echo "Outer identity:"
+	echo_opt "anon" "Use '@realm' as outer (anonymous) identity"
+	echo_opt "outer[-user] ..." "Set outer (anonymous) identity"
+	echo ""
+	echo "Inner identity:"
+	echo_opt "user ..." "Set main (inner) username"
+	echo_opt "pass ..." "Set main (inner) password"
+	echo_opt "[tls-]cert PATH" "Set client-auth certificate for EAP-TLS"
+	echo_opt "[tls-]key PATH" "Set client-auth private key for EAP-TLS"
+	echo ""
+	echo "Server verification:"
+	echo_opt "[tls-]ca PATH" "Verify server against given CA"
+	echo_opt "[tls-]ca default" "Verify server against system CAs"
+	echo_opt "subject-match ..." "Check server certificate subject"
+	echo_opt "domain-match ..." "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-suffix-match ..." "Check server certificate domain (CN or SAN)"
+	echo ""
+	echo "Phase 1 TLS options:"
+	echo_opt "tls no-v1.2" "Disable TLS v1.2 (for broken servers)"
+	echo_opt "tls no-v1.1" "Disable TLS v1.1 (for really broken servers)"
+	echo_opt "tls no-v1.0" "Disable TLS v1.0 (for epicly broken servers)"
+	echo_opt "tls ..." "Manually add a phase1=\"...\" option"
+	echo ""
+	echo "Miscellaneous:"
+	echo_opt "show-config" "Dump generated eapol_test config and exit"
+	echo_opt "-o ..." "Manually add a config setting for eapol_test"
+	echo_opt "-O PATH" "Save phase 1 TLS certificate chain to file"
+	echo_opt "-x PATH" "Use a different eapol_test executable"
+	echo ""
+	echo "Both GNU \"--opt ARG\" and iproute \"opt ARG\" formats are accepted."
+}
+
 declare -- server port secret eap mech phase2
 declare -- identity outer_id password
 declare -- tls_cert tls_key tls_ca save_chain
@@ -48,7 +95,9 @@ load_conf() {
 parse_args() {
 	debug "current load type '$type', name '$name'"
 	while (( $# )); do
-		if [[ ! $profile ]]; then
+		if [[ $1 == --help ]]; then
+			usage; exit
+		elif [[ ! $profile ]]; then
 			debug "accepting first arg '$1' as profile name"
 			profile=$1
 			load_conf profile "$profile"
@@ -62,6 +111,8 @@ parse_args() {
 				save_chain=$2; shift;;
 			-x)
 				eapol_bin=$2; shift;;
+			help)
+				usage; exit;;
 			show-config)
 				dump_config=1;;
 			# RADIUS server

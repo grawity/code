@@ -262,6 +262,11 @@ fi
 
 if [[ $tls_ca == @(default|system) ]]; then
 	tls_ca=/etc/ssl/certs/ca-certificates.crt
+	[[ -f $tls_ca ]] ||
+		tls_ca=/etc/ssl/cert.pem
+	[[ -f $tls_ca ]] ||
+		die "could not find system TLS CA certificate bundle"
+	debug "found '$tls_ca'"
 fi
 
 if [[ $tls_ca && ! -f $tls_ca ]]; then

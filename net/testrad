@@ -8,10 +8,12 @@ lib_config[opt_width]=24
 usage() {
 	echo "Usage: $progname PROFILE [via SERVER] [options]"
 	echo ""
+	echo_opt "PROFILE" "Use given profile config block"
+	echo ""
 	echo "Server:"
 	echo_opt "via SERVER" "Use given server config block"
-	echo_opt "host HOSTNAME" "Set RADIUS server address"
-	echo_opt "port PORT" "Set RADIUS auth port"
+	echo_opt "host HOSTNAME" "Set RADIUS server name or address"
+	echo_opt "port PORT" "Set RADIUS authentication port"
 	echo_opt "secret SECRET" "Set RADIUS secret"
 	echo ""
 	echo "Mechanism:"
@@ -44,12 +46,36 @@ usage() {
 	echo ""
 	echo "Miscellaneous:"
 	echo_opt "show-config" "Dump generated eapol_test config and exit"
+	echo_opt "inherit PROFILE" "In testrad.conf.sh, import given profile as base"
 	echo_opt "-o ..." "Manually add a config setting for eapol_test"
 	echo_opt "-O PATH" "Save phase 1 TLS certificate chain to file"
 	echo_opt "-x PATH" "Use a different eapol_test executable"
 	echo ""
 	echo "Many options translate directly to wpa_supplicant settings."
 	echo "Both GNU \"--opt ARG\" and iproute \"opt ARG\" formats are accepted."
+	echo ""
+	help_config
+}
+
+help_config() {
+	local c=$path_config/testrad.conf.sh
+	echo "Configurations are loaded from ${c/#"$HOME"/"~"}:"
+	echo ""
+	echo "  server_foo=("
+	echo "      host radius.example.com"
+	echo "      secret quux"
+	echo "  )"
+	echo "  profile_foo=("
+	echo "      # 'via foo' is implied"
+	echo "      user test@example.com"
+	echo "      pass testing123"
+	echo "  )"
+	echo "  profile_foo_eap=("
+	echo "      inherit foo"
+	echo "      eap peap"
+	echo "  )"
+	echo ""
+	echo "In command line, the first parameter is *always* a profile name."
 }
 
 declare -- server port secret eap mech phase2

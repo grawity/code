@@ -37,6 +37,10 @@ fi
 progname=${0##*/}
 progname_prefix=-1
 
+lib_config=(
+	[opt_width]=14
+)
+
 # lib::msg(text, level_prefix, level_color, [fancy_prefix, fancy_color, [text_color]])
 #
 # Print a log message.
@@ -233,7 +237,8 @@ lib::exit() {
 usage() { false; } # overridden
 
 echo_opt() {
-	local opt=$1 desc=$2 width=14
+	local opt=$1 desc=$2
+	local width=${lib_config[opt_width]}
 	if (( ${#opt} < width )); then
 		printf "  %-*s%s\n" "$width" "$opt" "$desc"
 	else

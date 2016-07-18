@@ -1,7 +1,88 @@
 #!/usr/bin/env bash
 # testrad -- automates RADIUS testing between domains
+#
+# (c) 2014-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT Expat License (dist/LICENSE.expat)
+#
+# Requires 'eapol_test' (from wpa_supplicant) and 'radtest' to be in path.
 
 . lib.bash || exit
+
+lib_config[opt_width]=24
+
+usage() {
+	echo "Usage: $progname PROFILE [via SERVER] [options]"
+	echo ""
+	echo_opt "PROFILE" "Use given profile config block (or 'none')"
+	echo ""
+	echo "Server:"
+	echo_opt "via SERVER" "Use given server config block"
+	echo_opt "host HOSTNAME" "Set RADIUS server name or address"
+	echo_opt "port PORT" "Set RADIUS authentication port"
+	echo_opt "secret SECRET" "Set RADIUS secret"
+	echo ""
+	echo "Mechanism:"
+	echo_opt "eap|phase1 MECH" "Tunnel inside an EAP mechanism (peap, tls, ttls)"
+	echo_opt "mech|phase2 MECH" "Set the main mechanism (pap, mschap, gtc)"
+	echo ""
+	echo "Outer identity:"
+	echo_opt "anon" "Use '@realm' as outer (anonymous) identity"
+	echo_opt "outer[-user] ..." "Set outer (anonymous) identity"
+	echo ""
+	echo "Inner identity:"
+	echo_opt "user ..." "Set main (inner) username"
+	echo_opt "pass ..." "Set main (inner) password"
+	echo_opt "[tls-]cert PATH" "Set client-auth certificate for EAP-TLS"
+	echo_opt "[tls-]key PATH" "Set client-auth private key for EAP-TLS"
+	echo ""
+	echo "Server verification:"
+	echo_opt "[tls-]ca PATH" "Verify server against given CA"
+	echo_opt "[tls-]ca system" "Verify server against default system CAs"
+	echo_opt "subject-match ..." "Check server certificate subject [deprecated!]"
+	echo_opt "altsubject-match ..." "Check server certificate SAN [deprecated!]"
+	echo_opt "domain-match ..." "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-suffix-match ..." "Check server certificate domain (CN or SAN)"
+	echo ""
+	echo "Phase 1 TLS options:"
+	echo_opt "tls no-v1.2" "Disable TLS v1.2 (for broken servers)"
+	echo_opt "tls no-v1.1" "Disable TLS v1.1 (for really broken servers)"
+	echo_opt "tls no-v1.0" "Disable TLS v1.0 (for epicly broken servers)"
+	echo_opt "tls ..." "Manually add a phase1=\"...\" option"
+	echo ""
+	echo "Miscellaneous:"
+	echo_opt "show-config" "Dump generated eapol_test config and exit"
+	echo_opt "inherit PROFILE" "In testrad.conf.sh, import given profile as base"
+	echo_opt "-o ..." "Manually add a config setting for eapol_test"
+	echo_opt "-O PATH" "Save phase 1 TLS certificate chain to file"
+	echo_opt "-x PATH" "Use a different eapol_test executable"
+	echo ""
+	echo "Many options translate directly to wpa_supplicant settings."
+	echo "Both GNU \"--opt ARG\" and iproute \"opt ARG\" formats are accepted."
+	echo ""
+	help_config
+}
+
+help_config() {
+	local c=$path_config/testrad.conf.sh
+	echo "Configurations are loaded from ${c/#"$HOME"/"~"}:"
+	echo ""
+	echo "  server_foo=("
+	echo "      host radius.example.com"
+	echo "      secret quux"
+	echo "  )"
+	echo "  profile_foo=("
+	echo "      # 'via foo' is implied"
+	echo "      user test@example.com"
+	echo "      pass testing123"
+	echo "  )"
+	echo "  profile_foo_eap=("
+	echo "      inherit foo"
+	echo "      eap peap"
+	echo "  )"
+	echo ""
+	echo "In command line, the first parameter is *always* a profile name."
+	echo "Use 'testrad none ...' if no profile needs to be loaded."
+}
 
 declare -- server port secret eap mech phase2
 declare -- identity outer_id password
@@ -29,8 +110,11 @@ load_conf() {
 
 	set -- "${!var}"
 
-	if (( ! $# )); then
-		err "no $type '$name' found"
+	if [[ $name == none ]]; then
+		debug "accepting '$name' as dummy $type"
+		return
+	elif (( ! $# )); then
+		err "$type '$name' not found"
 		return
 	elif (( depth > 5 )); then
 		die "profile recursion limit exceeded"
@@ -46,7 +130,9 @@ load_conf() {
 parse_args() {
 	debug "current load type '$type', name '$name'"
 	while (( $# )); do
-		if [[ ! $profile ]]; then
+		if [[ $1 == --help ]]; then
+			usage; exit
+		elif [[ ! $profile ]]; then
 			debug "accepting first arg '$1' as profile name"
 			profile=$1
 			load_conf profile "$profile"
@@ -60,6 +146,8 @@ parse_args() {
 				save_chain=$2; shift;;
 			-x)
 				eapol_bin=$2; shift;;
+			help)
+				usage; exit;;
 			show-config)
 				dump_config=1;;
 			# RADIUS server
@@ -95,7 +183,9 @@ parse_args() {
 			tls)
 				tls_opts+=("$2"); shift;;
 			# anonymous (outer) identity
-			anon|outer|outer-user|outer-login)
+			anon)
+				outer_id=@;;
+			outer|outer-user|outer-login)
 				outer_id=$2; shift;;
 			# misc eapol options
 			subject-match)
@@ -203,8 +293,13 @@ if [[ ! $eap && $mech != @(pap|chap|mschap|eap-md5) ]]; then
 	die "radtest does not support the '$mech' mechanism"
 fi
 
-if [[ $tls_ca == default ]]; then
+if [[ $tls_ca == @(default|system) ]]; then
 	tls_ca=/etc/ssl/certs/ca-certificates.crt
+	[[ -f $tls_ca ]] ||
+		tls_ca=/etc/ssl/cert.pem
+	[[ -f $tls_ca ]] ||
+		die "could not find system TLS CA certificate bundle"
+	debug "found '$tls_ca'"
 fi
 
 if [[ $tls_ca && ! -f $tls_ca ]]; then

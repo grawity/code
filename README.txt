@@ -22,6 +22,7 @@ The generally useful stuff:
   net/
     getpaste            – download pastebin posts as plain text (even ZeroBin)
     tapchown            – change owner of Linux tun/tap network interfaces
+    testrad             – test RADIUS auth servers (wrapper for eapol_test)
   term/
     xterm-color-chooser – a color picker for ANSI & Xterm sequences
   x11/

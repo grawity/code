@@ -12,18 +12,20 @@ declare -A alias outer_uuid
 # parse command line
 
 mount=1
-poweroff=1
+standby=0
+poweroff=0
 media="/run/media/$USER"
 
 if [[ ${0##*/} == gumount ]]; then
 	mount=0
 fi
 
-while getopts ":duy" OPT; do
+while getopts ":duyY" OPT; do
 	case $OPT in
 	d) mount=0;;
 	u) mount=0;;
-	y) mount=0; poweroff=1;;
+	y) mount=0; standby=1;;
+	Y) mount=0; poweroff=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -37,7 +39,7 @@ fi
 for arg; do
 	arg=${alias[$arg]:-$arg}
 
-	if (( mount || poweroff )); then
+	if (( mount || standby || poweroff )); then
 		uuid=${outer_uuid[$arg]}
 		if [[ $uuid ]]; then
 			debug "searching for outer_UUID '$uuid'"
@@ -71,7 +73,11 @@ for arg; do
 			info "unmounting $mtpt"
 			gvfs-mount -u "$mtpt"
 		fi
-		if (( poweroff )); then
+		if (( standby )); then
+			dev=${dev%[0-9]}
+			info "putting $dev to standby"
+			sudo hdparm -y "$dev"
+		elif (( poweroff )); then
 			dev=${dev%[0-9]}
 			info "powering off $dev"
 			sudo hdparm -Y "$dev"

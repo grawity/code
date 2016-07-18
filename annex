@@ -44,7 +44,7 @@ case $cmd in
             gitdir=$(git rev-parse --git-dir)
             subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
             path=$(realpath "$path/$subdir")
-            log "running '$*' in $path" >&2
+            log "$cmd: running '$*' in $path" >&2
             (cd "$path" && "$@")
         fi
         ;;
@@ -53,9 +53,10 @@ case $cmd in
             set -- "${1#!}" "${@:2}"
         else
             set -- annex "$@"
+            lib::is_nested -= 1
         fi
         for dir in "${annexes[@]}"; do
-            log2 "running '$*' in $dir"
+            log2 "$cmd: running '$*' in $dir"
             (cd "$dir" && "${@//"{}"/"${dir##*/}"}")
             if (( r=$? )); then
                 err "command '$*' returned $r (while in $dir)"

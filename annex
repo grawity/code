@@ -158,7 +158,16 @@ case $cmd in
         done
         ;;
     where|lsf)
-        git annex list --allrepos "$@" | annex-list-format
+        annex_args=("--allrepos")
+        fmt_args=()
+        for arg; do
+            if [[ $arg == -f || $arg == --full ]]; then
+                fmt_args+=("$arg")
+            else
+                annex_args+=("$arg")
+            fi
+        done
+        git annex list "${annex_args[@]}" | annex-list-format "${fmt_args[@]}"
         ;;
     log-format)
         perl -E '

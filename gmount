@@ -12,16 +12,20 @@ declare -A alias outer_uuid
 # parse command line
 
 mount=1
+standby=0
+poweroff=0
 media="/run/media/$USER"
 
 if [[ ${0##*/} == gumount ]]; then
 	mount=0
 fi
 
-while getopts ":du" OPT; do
+while getopts ":duyY" OPT; do
 	case $OPT in
 	d) mount=0;;
 	u) mount=0;;
+	y) mount=0; standby=1;;
+	Y) mount=0; poweroff=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -40,7 +44,8 @@ fi
 
 for arg; do
 	arg=${alias[$arg]:-$arg}
-	if (( mount )); then
+
+	if (( mount || standby || poweroff )); then
 		uuid=${outer_uuid[$arg]}
 		if [[ $uuid ]]; then
 			debug "searching for outer_UUID '$uuid'"
@@ -61,17 +66,27 @@ for arg; do
 				die "disk with label '$arg' not found"
 			fi
 		fi
+	fi
 
+	if (( mount )); then
 		#debug "resetting failed systemd mounts, just in case"
 		#sudo systemctl reset-failed
-
 		info "mounting $dev"
 		gvfs-mount -d "$dev"
 	else
 		mtpt=$(findmnt -no TARGET -S LABEL="$arg")
-		#[[ $mtpt ]] || mtpt="$media/$arg"
-
-		info "unmounting $mtpt"
-		gvfs-mount -u "$mtpt"
+		if [[ $mtpt ]]; then
+			info "unmounting $mtpt"
+			gvfs-mount -u "$mtpt"
+		fi
+		if (( standby )); then
+			dev=${dev%[0-9]}
+			info "putting $dev to standby"
+			sudo hdparm -y "$dev"
+		elif (( poweroff )); then
+			dev=${dev%[0-9]}
+			info "powering off $dev"
+			sudo hdparm -Y "$dev"
+		fi
 	fi
 done

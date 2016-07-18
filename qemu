@@ -11,12 +11,17 @@ case $arch in
 	kvm='';;
 esac
 
+#vnet='-net vde'
+vnet='-net bridge,br=vmbr'
+
 xargs=()
 
 for arg; do
 	case $arg in
 	    -no-kvm)
 		kvm='';;
+	    -no-vnet)
+	        vnet='';;
 	    *)
 		xargs+=("$arg");;
 	esac
@@ -28,7 +33,7 @@ args=(
 	-monitor "stdio"
 	-ctrl-grab
 	-net "nic,model=$nic"
-	-net "vde"
+	$vnet
 	"${xargs[@]}"
 )
 

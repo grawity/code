@@ -2,6 +2,7 @@
 use warnings;
 use strict;
 use Data::Dumper;
+use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
 
 my %dir_locs;
@@ -130,6 +131,12 @@ while (<STDIN>) {
 	}
 }
 
+my %Opt;
+
+GetOptions(
+	"f|full!" => \$Opt{full},
+) or exit(2);
+
 my @dirs = sort keys %dir_locs;
 
 for my $dir (@dirs) {
@@ -138,7 +145,7 @@ for my $dir (@dirs) {
 	my $main = pop @locs;
 	print locset_str($main)." $dir/\n";
 	if (@locs) {
-		my $full = ($locs{$main} - $locs{$locs[-1]} <= 2);
+		my $full = $Opt{full} || ($locs{$main} - $locs{$locs[-1]} <= 2);
 		my %files = %{$file_locs{$dir}};
 		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {

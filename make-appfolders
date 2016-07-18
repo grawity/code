@@ -64,21 +64,21 @@ while (<>) {
 	}
 }
 
-my $root = "/org/gnome/desktop/app-folders/";
+my $root = "org/gnome/desktop/app-folders";
 my $proc;
 
 if ($dry) {
 	$proc = \*STDOUT;
 } else {
-	system "dconf", "reset", "-f", $root."folders/";
-	open $proc, "|-", "dconf", "load", $root;
+	system "dconf", "reset", "-f", "/$root/folders/";
+	open $proc, "|-", "dconf", "load", "/";
 }
 
-print $proc section "/" => {
+print $proc section "$root" => {
 	"folder-children" => listfmt(sort keys %names),
 };
 
-print $proc section "folders/$_" => {
+print $proc section "$root/folders/$_" => {
 	"name" => strfmt($names{$_} // $_),
 	"apps" => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
 	"categories" => listfmt(sort @{$cats{$_}}),

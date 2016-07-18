@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 # make-appfolders -- generate GNOME Shell app-folder configuration
+use Getopt::Long qw(:config bundling no_ignore_case);
+
 my %apps;
 my %cats;
 my %excl;
@@ -29,6 +31,12 @@ sub section {
 	return $str;
 }
 
+my $dry = 0;
+
+GetOptions(
+	"n|dry-run!" => \$dry,
+) or exit(2);
+
 while (<>) {
 	if (/^\t(.+)$/) {
 		my $name = $1;
@@ -49,10 +57,14 @@ while (<>) {
 }
 
 my $root = "/org/gnome/desktop/app-folders/";
+my $proc;
 
-system "dconf", "reset", "-f", $root."folders/";
-
-open my $proc, "|-", "dconf", "load", $root;
+if ($dry) {
+	$proc = \*STDOUT;
+} else {
+	system "dconf", "reset", "-f", $root."folders/";
+	open my $proc, "|-", "dconf", "load", $root;
+}
 
 print $proc section "/" => {
 	"folder-children" => listfmt(sort keys %names),

@@ -41,7 +41,7 @@ while (<>) {
 			push @$this_apps, $name;
 		}
 	}
-	elsif (/^(.+): (.+)$/) {
+	elsif (/^(.+):(?: (.+))?$/) {
 		$names{$1} = $2;
 		$apps{$1} = $this_apps = [];
 		$cats{$1} = $this_cats = [];
@@ -60,7 +60,7 @@ print $proc section "/" => {
 };
 
 print $proc section "folders/$_" => {
-	"name" => strfmt($names{$_}),
+	"name" => strfmt($names{$_} // $_),
 	"apps" => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
 	"categories" => listfmt(sort @{$cats{$_}}),
 	"excluded-apps" => listfmt(sort map {app2desktop($_)} @{$excl{$_}}),

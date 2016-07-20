@@ -5,6 +5,8 @@
 
 set -e
 
+opt_attributes=0
+
 usage() {
 	echo "Usage: $progname [-AfOR] <directory> [<archive>]"
 	echo #|---'---|---'---|
@@ -15,11 +17,18 @@ usage() {
 }
 
 do_archive() {
-	local dir=$1 out=$2 attr=$1/_attributes
+	local dir=$1 out=$2
 
-	log "dumping extended attributes"
-	getfattr -Rhd "$dir" > "$attr"
-	test -s "$attr" || rm -f "$attr"
+	if (( opt_attributes )); then
+		log "dumping extended attributes"
+		local attr_tmp=$(mktemp /tmp/attrib.XXXXXXXX)
+		getfattr -Rhd "$dir" > "$attr_tmp"
+		if [[ -s "$attr_tmp" ]]; then
+			mv "$attr_tmp" "$dir/_attributes"
+		else
+			rm -f "$attr_tmp"
+		fi
+	fi
 
 	log "archiving files"
 	case $out in

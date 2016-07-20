@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 # make-appfolders -- generate GNOME Shell app-folder configuration
+use Getopt::Long qw(:config bundling no_ignore_case);
+
 my %apps;
 my %cats;
 my %excl;
@@ -26,9 +28,22 @@ sub section {
 		$str .= $key."=".$items->{$key}."\n";
 	}
 	$str .= "\n";
-	print $str;
-	$str;
+	return $str;
 }
+
+$names{Utilities} = 'X-GNOME-Utilities.directory';
+$cats{Utilities} = ['X-GNOME-Utilities'];
+$apps{Utilities} = ['org.gnome.baobab.desktop', 'deja-dup-preferences.desktop', 'eog.desktop', 'evince.desktop', 'org.gnome.FileRoller.desktop', 'gnome-calculator.desktop', 'gnome-dictionary.desktop', 'gnome-disks.desktop', 'org.gnome.font-viewer.desktop', 'org.gnome.Screenshot.desktop', 'gnome-system-log.desktop', 'gnome-system-monitor.desktop', 'gnome-terminal.desktop', 'gnome-tweak-tool.desktop', 'gucharmap.desktop', 'seahorse.desktop', 'vinagre.desktop', 'yelp.desktop'];
+
+$names{Sundry} = 'X-GNOME-Sundry.directory';
+$cats{Sundry} = ['X-GNOME-Sundry'];
+$apps{Sundry} = ['alacarte.desktop', 'authconfig.desktop', 'ca.desrt.dconf-editor.desktop', 'fedora-release-notes.desktop', 'firewall-config.desktop', 'flash-player-properties.desktop', 'gconf-editor.desktop', 'gnome-abrt.desktop', 'gnome-power-statistics.desktop', 'ibus-setup-anthy.desktop', 'ibus-setup.desktop', 'ibus-setup-hangul.desktop', 'ibus-setup-libbopomofo.desktop', 'ibus-setup-libpinyin.desktop', 'ibus-setup-m17n.desktop', 'ibus-setup-typing-booster.desktop', 'im-chooser.desktop', 'itweb-settings.desktop', 'jhbuild.desktop', 'javaws.desktop', 'java-1.7.0-openjdk-jconsole.desktop', 'java-1.7.0-openjdk-policytool.desktop', 'log4j-chainsaw.desktop', 'log4j-logfactor5.desktop', 'nm-connection-editor.desktop', 'orca.desktop', 'setroubleshoot.desktop', 'system-config-date.desktop', 'system-config-firewall.desktop', 'system-config-keyboard.desktop', 'system-config-language.desktop', 'system-config-printer.desktop', 'system-config-users.desktop', 'vino-preferences.desktop'];
+
+my $dry = 0;
+
+GetOptions(
+	"n|dry-run!" => \$dry,
+) or exit(2);
 
 while (<>) {
 	if (/^\t(.+)$/) {
@@ -41,7 +56,7 @@ while (<>) {
 			push @$this_apps, $name;
 		}
 	}
-	elsif (/^(.+): (.+)$/) {
+	elsif (/^(.+):(?: (.+))?$/) {
 		$names{$1} = $2;
 		$apps{$1} = $this_apps = [];
 		$cats{$1} = $this_cats = [];
@@ -49,21 +64,28 @@ while (<>) {
 	}
 }
 
-my $root = "/org/gnome/desktop/app-folders/";
+my $root = "org/gnome/desktop/app-folders";
+my $proc;
 
-system "dconf", "reset", "-f", $root."folders/";
+if ($dry) {
+	$proc = \*STDOUT;
+} else {
+	system "dconf", "reset", "-f", "/$root/folders/";
+	open $proc, "|-", "dconf", "load", "/";
+}
 
-open my $proc, "|-", "dconf", "load", $root;
-
-print $proc section "/" => {
+print $proc section "$root" => {
 	"folder-children" => listfmt(sort keys %names),
 };
 
-print $proc section "folders/$_" => {
-	"name" => strfmt($names{$_}),
+print $proc section "$root/folders/$_" => {
+	"name" => strfmt($names{$_} // $_),
 	"apps" => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
 	"categories" => listfmt(sort @{$cats{$_}}),
 	"excluded-apps" => listfmt(sort map {app2desktop($_)} @{$excl{$_}}),
+	($names{$_} && $names{$_} =~ /\.directory$/)
+		? ("translate" => "true")
+		: (),
 } for sort keys %names;
 
 close $proc;

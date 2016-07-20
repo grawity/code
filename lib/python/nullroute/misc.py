@@ -51,3 +51,43 @@ def fmt_size(nbytes, si=False):
         quot = nbytes / div**exp
         return "%f %sB" % (quot, prefixes[exp])
     return str(nbytes)
+
+def unescape(line):
+    state = 0
+    acc = ""
+    outv = [""]
+    esc = {"n": "\n", "t": "\t"}
+    for ch in line:
+        if state == 1:
+            if ch in "01234567" and len(acc) < 4:
+                acc += ch
+            elif len(acc) > 0:
+                outv.append(int(acc, 8))
+                outv.append("")
+                state = 0
+                # fall
+            # TODO: hex
+            else:
+                outv[-1] += esc.get(ch, ch)
+                state = 0
+                continue
+        if state == 0:
+            if ch == "\\":
+                state = 1
+                acc = ""
+            elif ch == "\"":
+                pass
+            else:
+                outv[-1] += ch
+    outb = bytearray()
+    for cur in outv:
+        if hasattr(cur, "encode"):
+            outb += cur.encode("utf-8")
+        else:
+            outb.append(cur)
+    return outb.decode("utf-8")
+
+def unquote(line):
+    if line[0] == line[-1] == "\"":
+        line = line[1:-1]
+    return unescape(line)

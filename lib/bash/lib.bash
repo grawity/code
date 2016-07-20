@@ -136,7 +136,6 @@ declare -A _log_color=(
 
 declare -A _log_fprefix=(
 	[trace]='%'
-	[info]='+'
 	[log]='~'
 	[log2]='=='
 	[notice]='notice:'
@@ -144,7 +143,6 @@ declare -A _log_fprefix=(
 
 declare -A _log_fcolor=(
 	[trace]='\e[34m'
-	[info]='\e[34m'
 	[log]='\e[38;5;10m'
 	[log2]='\e[35m'
 	[notice]='\e[38;5;13m'

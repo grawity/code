@@ -66,10 +66,13 @@ sub dump_attrs {
 			unless ($Opt{all}) {
 				@keys = grep {/^user\./} @keys;
 				@keys = grep {!$HIDE_ATTRS{$_}} @keys;
+				next if !@keys;
 			}
-			next if !@keys;
 
 			print "\e[1m".$file."\e[m\n";
+			if (!@keys) {
+				print "  \e[2m-- no attributes --\e[m\n";
+			}
 			for $key (sort @keys) {
 				$val = Linux::UserXAttr::getxattr($file, $key);
 				if ($!) {

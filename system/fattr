@@ -22,7 +22,6 @@ my %HIDE_ATTRS = (
 
 my %Opt = (
 	all => 0,
-	recurse => 0,
 );
 
 sub _system {
@@ -57,11 +56,6 @@ sub dump_attrs {
 	my $ret = 0;
 	if (eval {require Linux::UserXAttr}) {
 		for my $file (@files) {
-			if (-d $file && $Opt{recurse}) {
-				$ret |= dump_attrs($_) for glob("$file/*");
-				return $ret;
-			}
-
 			my (@keys, $key, $val);
 
 			@keys = Linux::UserXAttr::listxattr($file);
@@ -113,7 +107,6 @@ sub usage {
 GetOptions(
 	"help" => sub { usage(); exit; },
 	"a|all" => \$Opt{all},
-	"R|recursive" => \$Opt{recurse},
 ) or exit(2);
 
 my %attrs;

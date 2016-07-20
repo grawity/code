@@ -24,6 +24,23 @@ is_remote!() {
 
 cmd=$1; shift
 
+if [[ $ANNEX_SKIP_NOCACHE ]]; then
+    debug "nocache disabled by environment"
+elif [[ $cmd == @(add|copy|fsck|get|move|push) ]]; then
+    lib=/usr/lib/nocache.so
+    if [[ -f $lib ]]; then
+        if [[ ":$LD_PRELOAD:" != *:"$lib":* ]]; then
+            debug "appending '$lib' to \$LD_PRELOAD"
+            export LD_PRELOAD="$LD_PRELOAD${LD_PRELOAD:+:}$lib"
+            export ANNEX_SKIP_NOCACHE=1
+        fi
+    else
+        notice "$lib not found; may hurt performance"
+    fi
+else
+    debug "nocache disabled for command '$cmd'"
+fi
+
 case $cmd in
     @*)
         name=${cmd#@}

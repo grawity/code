@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+import os
+import sys
+from nullroute.core import *
+from nullroute.misc import fmt_size, unquote
+from subprocess import Popen, PIPE
+import subprocess
+
+def confirm(msg):
+    print(msg, end=" ", flush=True)
+    try:
+        return sys.stdin.readline().lower().startswith("y")
+    except KeyboardInterrupt:
+        sys.exit(1)
+
+def annex(*cmd):
+    #return Popen(["cat", "/tmp/unused"], stdout=PIPE)
+    return Popen(["git", "annex", *cmd], stdout=PIPE)
+
+def annex_run(*cmd):
+    return subprocess.call(["git", "annex", *cmd])
+
+def getkeysize(key):
+    kk = key.split("--")
+    kk = kk[0].split("-")
+    for item in kk:
+        if item.startswith("s"):
+            return int(item[1:])
+    raise ValueError("no 'size' field in key %r" % key)
+
+def annex_unused(remote=None):
+    if remote and remote != "here":
+        args = ["--from=%s" % remote]
+    else:
+        args = []
+
+    with annex("unused", *args) as proc:
+        for line in proc.stdout:
+            line = line.decode("utf-8")
+            if line.startswith("    "):
+                num, key = line.strip().split()
+                if num == "NUMBER":
+                    continue
+                yield int(num), key
+
+def getlastname(key):
+    with Popen(["git", "log", "--format=", "--name-only", "-S%s" % key, "-n1"], stdout=PIPE) as proc:
+        for line in proc.stdout:
+            line = line.decode("utf-8")
+            line = unquote(line.strip())
+            return line
+
+remote = None
+if len(sys.argv) > 1:
+    remote = sys.argv[1]
+
+key_names = {}
+
+Core.info("searching for unused data in %s" % (remote or "local"))
+unused = list(annex_unused(remote))
+Core.info("listing %d unused files" % len(unused))
+total = 0
+for num, key in unused:
+    size = getkeysize(key)
+    total += size
+    name = getlastname(key)
+    name = os.path.basename(name)
+    key_names[key] = name
+    print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
+print("total:", fmt_size(total))
+
+if unused:
+    if confirm("Drop all?"):
+        annex_run("dropunused", "--from=%s" % remote, "--force", "all")
+        #annex_run("drop", "--from=%s" % remote, "--unused", "--force")

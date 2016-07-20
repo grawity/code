@@ -90,5 +90,6 @@ elif app == "list":
            "--list"]
     Core.debug("running %r" % cmd)
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
-        for line in proc.stdout:
-            print(line.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7"), end="")
+        with subprocess.Popen(["treeify", "-f"], stdin=subprocess.PIPE) as proc2:
+            for line in proc.stdout:
+                proc2.stdin.write(line.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7").encode("utf-8"))

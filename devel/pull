@@ -47,11 +47,14 @@ is_ignored() {
 }
 
 do_pull() {
-	if [[ $_PULL_NOOP ]]; then
-		is "dry-run"
+	if (( opt_dryrun > 1 )); then
+		is "noop"
 		return
 	elif [[ -f Pullfile ]]; then
 		do_main
+	elif (( opt_dryrun > 0 )); then
+		is "noop"
+		return
 	elif [[ -d .git/svn ]]; then
 		is "Git – SVN clone"
 		if remote=$(git config --get svn-remote.svn.url); then
@@ -240,6 +243,15 @@ do_main() {
 		do_pull
 	fi
 }
+
+opt_dryrun=0
+
+while getopts ":n" OPT; do
+	case $OPT in
+	n) (( ++opt_dryrun ));;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 do_main "$@"
 

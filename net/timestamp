@@ -1,0 +1,164 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Getopt::Long qw(:config bundling no_ignore_case);
+use HTTP::Request;
+use LWP::UserAgent;
+use Nullroute::Lib;
+
+my %TSAs = (
+    ## RFC 3161 compatible:
+    "comodo" => "http://timestamp.comodoca.com/",
+    "digicert" => "http://timestamp.digicert.com/",
+    "geotrust" => "https://timestamp.geotrust.com/",
+    "globalsign" => "http://timestamp.globalsign.com/scripts/timestamp.dll",
+    "gtf" => "http://services.globaltrustfinder.com/adss/tsa",
+    "quovadis" => "http://tsa01.quovadisglobal.com/TSS/HttpTspServer",
+    "startcom" => "http://tsa.startssl.com/rfc3161",
+    # national
+    "dfn.de" => "http://zeitstempel.dfn.de",
+    "e-guven.com" => "http://zd.e-guven.com/TSS/HttpTspServer",
+    "ssc.lt" => "http://gdlqtsa.ssc.lt/TSS/HttpTspServer",
+    "sk.ee" => "http://tsa.sk.ee",
+    ## MS protocol only:
+    #verisign => "http://timestamp.verisign.com/scripts/timestamp.dll",
+);
+
+sub _dump_asn1 {
+    my ($buf) = @_;
+
+    if (open(my $fh, "|-", "dumpasn1", "-")) {
+        $fh->write($buf);
+        $fh->close;
+    } else {
+        _err("failed to spawn 'dumpasn1'");
+    }
+}
+
+sub dump_ts {
+    my ($kind, $buf) = @_;
+
+    if (open(my $fh, "|-", "openssl", "ts", "-$kind",
+                                            "-in" => "/dev/stdin",
+                                            "-text"))
+    {
+        $fh->binmode;
+        $fh->write($buf);
+        $fh->close;
+    } else {
+        _warn("failed to spawn 'openssl ts'");
+    }
+}
+
+sub make_request_for_file {
+    my ($file, $hash_algo, $policy) = @_;
+    $hash_algo //= "sha256";
+
+    my @cmd = ("openssl", "ts", "-query",
+                                "-data" => $file,
+                                "-$hash_algo",
+                                "-cert");
+    if ($policy) {
+        push @cmd, ("-policy" => $policy);
+    }
+
+    _debug("creating TSA request for '$file'");
+    if (open(my $fh, "-|", @cmd)) {
+        my $req_buf;
+        $fh->binmode;
+        $fh->read($req_buf, 4*1024);
+        $fh->close;
+        return $req_buf;
+    } else {
+        _die("failed to spawn 'openssl ts'");
+    }
+}
+
+sub post_request_to_tsa {
+    my ($req_buf, $tsa_url) = @_;
+
+    my $ua = LWP::UserAgent->new;
+
+    my $req = HTTP::Request->new("POST", $tsa_url);
+    $req->protocol("HTTP/1.0");
+    $req->header("Content-Type" => "application/timestamp-query");
+    $req->header("Accept" => "application/timestamp-reply,application/timestamp-response");
+    $req->content($req_buf);
+
+    _debug("sending request to '$tsa_url'");
+    my $res = $ua->request($req);
+    if ($res->code == 200) {
+        my $ct = $res->header("Content-Type");
+        if ($ct eq "application/timestamp-reply"
+            || $ct eq "application/timestamp-response")
+        {
+            return $res->content;
+        } else {
+            _die("server returned wrong content-type '$ct'");
+        }
+    } else {
+        _die("server returned error '".$res->status_line."'");
+    }
+}
+
+sub write_response_to_file {
+    my ($res_buf, $file) = @_;
+
+    if (open(my $fh, ">", $file)) {
+        $fh->binmode;
+        $fh->write($res_buf);
+        $fh->close;
+    } else {
+        _die("could not open '$file': $!");
+    }
+}
+
+my $tsa = "startcom";
+my $hash_algo;
+my $policy;
+my $out_file;
+my $verbose;
+
+GetOptions(
+    "h|hash=s" => \$hash_algo,
+    "o|output=s" => \$out_file,
+    "p|policy=s" => \$policy,
+    "t|tsa=s" => \$tsa,
+    "v|verbose!" => \$verbose,
+);
+
+if ($out_file && @ARGV > 1) {
+    _die("--output only makes sense with one input file");
+}
+
+if ($tsa !~ m!^https?://!) {
+    if ($TSAs{$tsa}) {
+        $tsa = $TSAs{$tsa};
+    } else {
+        _die("unknown TSA '$tsa'");
+    }
+}
+
+for my $in_file (@ARGV) {
+    $out_file //= "$in_file.tsr";
+    _log("requesting timestamp for '$in_file'");
+
+    my $req_buf = make_request_for_file($in_file, $hash_algo, $policy);
+    if ($verbose) {
+        _info("generated timestamp query follows:");
+        dump_ts("query", $req_buf);
+    }
+
+    my $res_buf = post_request_to_tsa($req_buf, $tsa);
+    if ($verbose) {
+        _info("received timestamp reply follows:");
+        dump_ts("reply", $res_buf);
+    }
+
+    write_response_to_file($res_buf, $out_file);
+
+    _info("wrote signed timestamp to '$out_file'");
+    $out_file = undef;
+}
+
+# vim: ts=4:sw=4:et

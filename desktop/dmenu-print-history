@@ -1,4 +1,19 @@
 #!/usr/bin/env perl
+# frecency-sort (aka dmenu-print-history) -- weighted sort by command usage
+#
+# Expects one line per command, prefixed by Unix timestamp:
+#
+#   echo "$(date +%s) $command" >> "$histfile"
+#
+# Also understands ~/.bash_history '#%s' headers.
+#
+# (c) 2015-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT Expat License (dist/LICENSE.expat)
+#
+# Frecency algorithm borrowed from rupa/z:
+#   <https://github.com/rupa/z/wiki/frecency>
+#   (c) 2009 rupa deadwyler, released under the WTFPL license
+
 use warnings;
 use feature qw(say);
 use Nullroute::Lib;
@@ -18,8 +33,17 @@ $histfile = shift @ARGV // _die("missing histfile argument");
 _debug("loading history from $histfile");
 
 if (open(my $f, "<", $histfile)) {
-	@history = map {/^(\d+) (.+)$/ ? [int $1, $2] : [0, $_]}
-	           grep {chomp; 1} <$f>;
+	@history = ();
+	$ts = 0;
+	while (<$f>) {
+		chomp;
+		if (/^#(\d+)$/)		{ $ts = int $1; }
+		elsif ($ts)		{ push @history, [$ts, $_]; $ts = 0; }
+		elsif (/^: (\d+):\d+;(.+)$/)
+					{ push @history, [int($1), $2]; }
+		elsif (/^(\d+) (.+)$/)	{ push @history, [int($1), $2]; }
+		else			{ push @history, [0, $_]; }
+	}
 	close($f);
 } else {
 	if ($!{ENOENT}) {

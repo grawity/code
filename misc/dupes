@@ -104,6 +104,7 @@ def enum_files(root_dir):
         for subdir, dirs, files in os.walk(root_dir):
             weed_ignores(dirs)
             if ".nodupes" in files:
+                _debug("skipping %r (found .nodupes marker)" % subdir)
                 dirs.clear()
                 continue
             for name in files:
@@ -114,6 +115,8 @@ def enum_files(root_dir):
     else:
         if not path_is_ignored(root_dir):
             yield root_dir
+        else:
+            _debug("skipping %r (root directory matches ignore)")
 
 def get_header(path):
     if path not in file_headers:

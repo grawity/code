@@ -8,12 +8,12 @@ set -e
 opt_attributes=0
 
 usage() {
-	echo "Usage: $progname [-AfOR] <directory> [<archive>]"
+	echo "Usage: $progname [-AfkO] <directory> [<archive>]"
 	echo ""
 	echo_opt "-A" "do not automatically move archive to /home"
 	echo_opt "-f" "overwrite existing archive"
+	echo_opt "-k" "keep original directory"
 	echo_opt "-O" "set archive owner to that of original directory"
-	echo_opt "-R" "keep original directory"
 }
 
 do_archive() {
@@ -80,13 +80,12 @@ case ${0##*/} in
     zipball) ext=zip;;
 esac
 
-while getopts ":AfkOR" OPT; do
+while getopts ":AfkO" OPT; do
 	case $OPT in
 	A) auto_move=0;;
 	f) do_overwrite=1;;
 	k) auto_remove=0;;
 	O) do_chown=1;;
-	R) auto_remove=0;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))

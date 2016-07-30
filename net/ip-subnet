@@ -1,37 +1,50 @@
 #!/usr/bin/env python3
 # ip-subnet - print subnets of a network for given prefix length
 import sys
+import getopt
 from ipaddress import *
 from nullroute.core import *
 
 def usage():
-    print("Usage: %s <ip_network> /<prefix>" % Core.arg0)
-    print("       %s <ip_network> +<increment>" % Core.arg0)
+    print("Usage: %s [-s] <ip_network> /<prefix>" % Core.arg0)
+    print("       %s [-s] <ip_network> +<increment>" % Core.arg0)
 
 try:
-    network = ip_network(sys.argv[1])
-    if sys.argv[2].startswith("/"):
-        submask = int(sys.argv[2][1:])
+    short = False
+    opts, args = getopt.getopt(sys.argv[1:], "s", ["short"])
+    for opt, optarg in opts:
+        if opt in {"-s", "--short"}:
+            short = True
+
+    network = ip_network(args[0])
+    if args[1].startswith("/"):
+        submask = int(args[1][1:])
         increment = submask - network.prefixlen
-    elif sys.argv[2].startswith("+"):
-        increment = int(sys.argv[2][1:])
+    elif args[1].startswith("+"):
+        increment = int(args[1][1:])
     else:
         Core.die("submask should be /x or +x")
 
     subnets = network.subnets(increment)
     count = 0
     total = 2**increment
-    for net in subnets:
-        print(net)
-        count += 1
-        if count >= 2**20:
-            Core.err("stopping after %d subnets out of %d" % (count, total))
-            break
-    if sys.stdout.isatty():
-        print("\033[38;5;244m=> %d subnets × %d addresses\033[m" % (total, net.num_addresses))
+
+    if short:
+        net = next(subnets)
+        print("%d subnets × %d addresses" % (total, net.num_addresses))
+    else:
+        for net in subnets:
+            print(net)
+            count += 1
+            if count >= 2**20:
+                Core.err("stopping after %d subnets out of %d" % (count, total))
+                break
+        if sys.stdout.isatty():
+            print("\033[38;5;244m=> %d subnets × %d addresses\033[m" % (total, net.num_addresses))
+
     Core.exit()
 except IndexError:
     usage()
     Core.die("not enough arguments")
-except ValueError as e:
-    Core.die(e)
+except (ValueError, getopt.GetoptError) as e:
+    Core.die(str(e))

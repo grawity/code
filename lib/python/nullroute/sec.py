@@ -1,6 +1,8 @@
 import subprocess
 
-def get_netrc(machine, login=None):
+def get_netrc(machine, login=None, service=None):
+    if service:
+        machine = "%s/%s" % (service, machine)
     cmd = ["getnetrc", "-d", "-n", "-f", "%m\n%l\n%p\n%a", machine]
     if login:
         cmd.append(login)

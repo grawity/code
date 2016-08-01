@@ -2,6 +2,7 @@
 from collections import namedtuple
 import fdb
 from hashlib import md5
+from nullroute.core import *
 import nullroute.sec
 import sys
 
@@ -11,10 +12,12 @@ class MyQDatabase(object):
     def __init__(self, host):
         self.host = host
         creds = nullroute.sec.get_netrc_service(self.host, "fdb")
+        Core.debug("connecting to %r as %r", self.host, creds["login"])
         self.conn = fdb.connect(host=self.host, database="myq",
                                 user=creds["login"], password=creds["password"])
 
     def find_user(self, arg):
+        Core.debug("searching for %r", arg)
         qry = """
         SELECT e.id, e.name, u.fullname, u.email, c.card_id
             FROM tblEntities e
@@ -49,6 +52,7 @@ def crack_md5(arg, digits=4):
     return None
 
 def crack_pin(arg):
+    Core.debug("cracking hash %r", arg)
     for digits in [4, 5, 6]:
         result = crack_md5(arg, digits)
         if result:
@@ -67,5 +71,6 @@ for arg in args:
         if not db:
             db = MyQDatabase(host)
         for row in db.find_user(arg):
+            Core.debug("found row %r", row)
             pin = crack_pin(row.card)
             print("%s (%s) = %s" % (row.fullname, row.email, pin or "not found"))

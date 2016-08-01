@@ -97,7 +97,13 @@ class Core(object):
                 output.append("\033[m")
 
         if level >= self.LOG_DEBUG:
-            func = traceback.extract_stack()[-(skip+3)][2]
+            frame = traceback.extract_stack()[-(skip+3)]
+            module = os.path.basename(frame[0])
+            if module == "__init__.py":
+                module = os.path.basename(os.path.dirname(frame[0]))
+            func = frame[2]
+            if module != Core.arg0:
+                func = "%s:%s" % (module, func)
             if colors:
                 output.append("\033[38;5;60m")
             output.append("(%s) " % func)

@@ -1,11 +1,13 @@
-#!/usr/bin/env python
-from __future__ import print_function
+#!/usr/bin/env python3
 import sys
 import os
 import re
 import socket
 import subprocess
 import syslog
+
+sys.path.append("/home/grawity/code/lib/python")
+import nullroute.net
 
 #s.environ["DEBUG"] = "y"
 
@@ -52,10 +54,16 @@ def uprint(*args):
     fh.write(line.encode("utf-8"))
     fh.flush()
 
+def peername():
+    try:
+        return nullroute.net.getpeername(sys.stdin.fileno())
+    except:
+        return "unknown"
+
 def accept():
     request = sys.stdin.readline().strip()
     DEBUG("accept(%r)", request)
-    log_info("got request %r", request)
+    log_info("host '%s' requested %r", peername(), request.decode())
     result = route(request)
     if result is None:
         DEBUG("routing failed")

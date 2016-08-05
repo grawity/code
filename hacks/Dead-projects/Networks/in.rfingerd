@@ -140,6 +140,7 @@ def forward(addr, req, flags):
             else:
                 subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
         except OSError as e:
+            log_err("failed to spawn handler %r: %s", cmdline, e)
             uprint("finger: internal error")
             raise
 
@@ -150,6 +151,7 @@ def forward(addr, req, flags):
                 sys.stdout.write(line)
             sys.stdout.flush()
         except IOError as e:
+            log_err("failed to open plan %r: %s", addr, e)
             uprint("finger: cannot open plan file")
             raise
 

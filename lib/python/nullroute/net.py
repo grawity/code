@@ -4,6 +4,7 @@
 import ctypes
 import ctypes.util
 import ipaddress
+import os
 import socket
 
 libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
@@ -12,6 +13,16 @@ libc.getsockopt.argtypes = [ctypes.c_int, ctypes.c_int,
 libc.getsockname.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
 libc.getpeername.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
 
+class sockaddr(ctypes.Structure):
+    _fields_ = (
+        ('sa_family',   ctypes.c_ushort),
+        ('sa_data',     ctypes.c_uint8 * 14),
+    )
+
+    @property
+    def family(self):
+        return self.sa_family
+
 class sockaddr_in(ctypes.Structure):
     _fields_ = (
         ('sin_family',  ctypes.c_ushort),
@@ -19,6 +30,10 @@ class sockaddr_in(ctypes.Structure):
         ('sin_addr',    ctypes.c_uint8 * 4),
         ('sin_zero',    ctypes.c_uint8 * (16 - 4 - 2 - 2)), # padding
     )
+
+    @property
+    def family(self):
+        return self.sin_family
 
     @property
     def address(self):
@@ -42,6 +57,10 @@ class sockaddr_in6(ctypes.Structure):
         ('sin6_addr',       ctypes.c_uint8 * 16),
         ('sin6_scope_id',   ctypes.c_uint32),
     )
+
+    @property
+    def family(self):
+        return self.sin6_family
 
     @property
     def address(self):
@@ -69,25 +88,31 @@ class sockaddr_in6(ctypes.Structure):
         return "<sockaddr_in6[address=%r, port=%r, flowinfo=%r, scope_id=%r]>" \
                 % (self.address, self.port, self.flowinfo, self.scope_id)
 
-class sockaddr_storage(ctypes.Union):
+class sockaddr_union(ctypes.Union):
     _fields_ = (
+        ('raw', sockaddr),
         ('v4', sockaddr_in),
         ('v6', sockaddr_in6),
     )
 
+    @property
+    def family(self):
+        return self.raw.sa_family
+
 def _get_socket_name(fileno, func):
-    sa = sockaddr_storage()
-    sizeof = ctypes.c_size_t(ctypes.sizeof(sockaddr_storage))
-    r = func(fileno, ctypes.byref(sa), ctypes.byref(sizeof))
+    sa = sockaddr_union()
+    size = ctypes.c_size_t(ctypes.sizeof(sockaddr_union))
+    r = func(fileno, ctypes.byref(sa), ctypes.byref(size))
     if r == 0:
-        if sa.v4.sin_family == socket.AF_INET:
-            return sa.v4, 0
-        elif sa.v4.sin_family == socket.AF_INET6:
-            return sa.v6, 0
+        if sa.family == socket.AF_INET:
+            return sa.v4
+        elif sa.family == socket.AF_INET6:
+            return sa.v6
         else:
-            return None, 0
+            return sa.raw
     else:
-        return None, ctypes.get_errno()
+        errno = ctypes.get_errno()
+        raise OSError(errno, os.strerror(errno))
 
 def getsockname(fileno):
     return _get_socket_name(fileno, libc.getsockname)

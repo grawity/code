@@ -3,6 +3,7 @@
 
 import ctypes
 import ctypes.util
+import ipaddress
 import socket
 
 libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
@@ -11,50 +12,85 @@ libc.getsockopt.argtypes = [ctypes.c_int, ctypes.c_int,
 libc.getsockname.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
 libc.getpeername.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
 
-def ctypes_repr(self):
-    return self.__class__.__name__ + '(' + ', '.join('%s=%s' % (f[0], getattr(self, f[0])) for f in self._fields_) + ')'
-
 class sockaddr_in(ctypes.Structure):
-    __repr__ = ctypes_repr
     _fields_ = (
-        ('sin_family', ctypes.c_ushort),
-        ('sin_port', ctypes.c_uint16),
-        ('sin_addr', ctypes.c_uint8 * 4),
-        ('sin_zero', ctypes.c_uint8 * (16 - 4 - 2 - 2)), # padding
+        ('sin_family',  ctypes.c_ushort),
+        ('sin_port',    ctypes.c_uint16),
+        ('sin_addr',    ctypes.c_uint8 * 4),
+        ('sin_zero',    ctypes.c_uint8 * (16 - 4 - 2 - 2)), # padding
     )
-    def __str__(self):
-        return '%s:%d' % (socket.inet_ntop(self.sin_family, ''.join(map(chr, self.sin_addr))), socket.ntohs(self.sin_port))
 
+    @property
+    def address(self):
+        return ipaddress.IPv4Address(bytes(self.sin_addr))
+
+    @property
+    def port(self):
+        return socket.ntohs(self.sin_port)
+
+    def __str__(self):
+        return "%s:%d" % (self.address, self.port)
+
+    def __repr__(self):
+        return "<sockaddr_in[address=%r, port=%r]>" % (self.address, self.port)
 
 class sockaddr_in6(ctypes.Structure):
-    __repr__ = ctypes_repr
     _fields_ = (
-        ('sin6_family', ctypes.c_ushort),
-        ('sin6_port', ctypes.c_uint16),
-        ('sin6_flowinfo', ctypes.c_uint32),
-        ('sin6_addr', ctypes.c_uint8 * 16),
-        ('sin6_scope_id', ctypes.c_uint32)
+        ('sin6_family',     ctypes.c_ushort),
+        ('sin6_port',       ctypes.c_uint16),
+        ('sin6_flowinfo',   ctypes.c_uint32),
+        ('sin6_addr',       ctypes.c_uint8 * 16),
+        ('sin6_scope_id',   ctypes.c_uint32),
     )
+
+    @property
+    def address(self):
+        return ipaddress.IPv6Address(bytes(self.sin6_addr))
+
+    @property
+    def port(self):
+        return socket.ntohs(self.sin6_port)
+
+    @property
+    def flowinfo(self):
+        return self.sin6_flowinfo
+
+    @property
+    def scope_id(self):
+        return self.sin6_scope_id
+
     def __str__(self):
-        return '[%s]:%d' % (socket.inet_ntop(self.sin6_family, ''.join(map(chr, self.sin6_addr))), socket.ntohs(self.sin6_port))
+        if self.scope_id:
+            return "[%s%%%d]:%d" % (self.address, self.scope_id, self.port)
+        else:
+            return "[%s]:%d" % (self.address, self.port)
+
+    def __repr__(self):
+        return "<sockaddr_in6[address=%r, port=%r, flowinfo=%r, scope_id=%r]>" \
+                % (self.address, self.port, self.flowinfo, self.scope_id)
 
 class sockaddr_storage(ctypes.Union):
-    __repr__ = ctypes_repr
     _fields_ = (
         ('v4', sockaddr_in),
         ('v6', sockaddr_in6),
     )
 
-def get_x_name(fileno, libcfunc):
+def _get_socket_name(fileno, func):
     sa = sockaddr_storage()
     sizeof = ctypes.c_size_t(ctypes.sizeof(sockaddr_storage))
-    if libcfunc(fileno, ctypes.byref(sa), ctypes.byref(sizeof)) == 0:
-        return (sa.v4 if sa.v4.sin_family == socket.AF_INET else sa.v6), None
+    r = func(fileno, ctypes.byref(sa), ctypes.byref(sizeof))
+    if r == 0:
+        if sa.v4.sin_family == socket.AF_INET:
+            return sa.v4, 0
+        elif sa.v4.sin_family == socket.AF_INET6:
+            return sa.v6, 0
+        else:
+            return None, 0
     else:
         return None, ctypes.get_errno()
 
 def getsockname(fileno):
-    return get_x_name(fileno, libc.getsockname)
+    return _get_socket_name(fileno, libc.getsockname)
 
 def getpeername(fileno):
-    return get_x_name(fileno, libc.getpeername)
+    return _get_socket_name(fileno, libc.getpeername)

@@ -35,7 +35,7 @@ import syslog
 DEBUG = bool(os.environ.get("DEBUG"))
 
 def log_err(msg, *args):
-    syslog.syslog(syslog.LOG_ERROR, msg % args)
+    syslog.syslog(syslog.LOG_ERR, msg % args)
 
 def log_info(msg, *args):
     syslog.syslog(syslog.LOG_INFO, msg % args)
@@ -146,7 +146,6 @@ def forward(addr, req, flags):
                 subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
         except OSError as e:
             log_err("failed to spawn handler %r: %s", cmdline, e)
-            _print("finger: internal error")
             raise
 
     elif addr.startswith(b"/"):
@@ -157,7 +156,6 @@ def forward(addr, req, flags):
             sys.stdout.flush()
         except IOError as e:
             log_err("failed to open plan %r: %s", addr, e)
-            _print("finger: cannot open plan file")
             raise
 
     else:
@@ -250,7 +248,7 @@ def get_routes():
             if line and not line.startswith(b"#"):
                 yield line.split()
     except IOError as e:
-        _print("finger: cannot open configuration file")
+        log_err("failed to open configuration file %r: %s", rules_file, e)
         raise
 
 syslog.openlog("in.rfingerd")
@@ -271,6 +269,7 @@ if hasattr(sys.stdout, "detach"):
 try:
     accept()
 except Exception as e:
+    log_err("caught exception: %r", e)
     _print("finger: internal error")
     if DEBUG:
         raise

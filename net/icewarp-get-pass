@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+# vim: fdm=marker
+import sys
+from nullroute.core import *
+import nullroute.icewarp
+
+# junk {{{
+class ComObjProxy(object):
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+    def __getattr__(self, name):
+        def wrap(*args):
+            func = getattr(self.proxy, name)
+            ptr = func(*args)
+            return self.proxy.new_for_ptr(ptr)
+        return wrap
+
+class ComProxy(object):
+    def __init__(self, proxy, ptr, type=None):
+        self.proxy = proxy
+        self.ptr = ptr
+        self.type = type
+        self.p = ComObjProxy(self)
+
+    @classmethod
+    def new_root(self, api_url):
+        proxy = xmlrpc.client.ServerProxy(api_url)
+        return self(proxy, "0")
+
+    def new_for_ptr(self, ptr):
+        return ComProxy(self.proxy, ptr)
+
+    def __getattr__(self, name):
+        return getattr(self.proxy, "%s->%s" % (self.ptr, name))
+
+    def __repr__(self):
+        return "<ComProxy: ptr=%r>" % self.ptr
+# }}}
+
+server = "mail.utenos-kolegija.lt"
+default_domain = "utenos-kolegija.lt"
+
+try:
+    api = nullroute.icewarp.connect(server)
+except KeyError as e:
+    Core.die(e.args[0])
+
+for arg in sys.argv[1:]:
+    if "@" in arg:
+        alias, domain = arg.split("@")
+    else:
+        alias, domain = arg, default_domain
+    api_acct = api.OpenAccount(domain, alias)
+    if api_acct:
+        passwd = api_acct.GetProperty("U_Password")
+    else:
+        passwd = "(no account)"
+    print(arg, passwd)

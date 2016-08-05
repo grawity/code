@@ -357,9 +357,7 @@ sub check_version {
 	if ($bus->get_service_owner($bus_name)) {
 		return 1;
 	} elsif ($bus->get_service_owner("org.mpris.$player")) {
-		warn "The player '$player' is accessible only with a MPRIS v1 name, but this script\n";
-		warn "only supports MPRIS v2. Upgrade your player, or use `mpris-remote` instead.\n";
-		exit 3;
+		_die("player '$player' does not support MPRIS v2, only v1");
 	} else {
 		return 0;
 	}
@@ -533,11 +531,15 @@ sub _notify_handle_propchange {
 sub _event_setup_propchange {
 	my ($bus_name, $handler) = @_;
 	my $player_obj = MediaPlayer($bus_name)->();
-	if (!$player_obj->_introspector->has_signal("PropertiesChanged")) {
+	my $introspector = $player_obj->can("_net_dbus_introspector")
+			 ? $player_obj->_net_dbus_introspector
+			 : $player_obj->_introspector;
+	if (!$introspector->has_signal("PropertiesChanged")) {
 		# Qt4 did not include the "PropertiesChanged" signal
 		# in its introspection data. Probably no longer needed
 		# for Qt5, but whatevs, old versions never truly go away.
-		$player_obj->_introspector->add_signal(
+		_debug("adding 'PropertiesChanged' signal to introspection");
+		$introspector->add_signal(
 				"PropertiesChanged",
 				["string",
 				 ["dict", "string", ["variant"]],
@@ -1105,7 +1107,7 @@ for ($player) {
 	}
 	when (/\./) {
 		# possible bus name (at least two components)
-		# unlikely but possible: activate a MPRIS player via proprietary name
+		# unlikely but possible: activate a MPRIS player via vendor name
 		# (e.g. Banshee via org.bansheeproject.Banshee)
 		$bus_name = $player;
 	}

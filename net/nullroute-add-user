@@ -1,0 +1,126 @@
+#!/usr/bin/env perl
+# vim: ts=4:sw=4:et
+use utf8;
+use open qw(:std :utf8);
+use feature qw(state);
+use Authen::SASL;
+use Data::Dumper;
+use Net::LDAP;
+use Nullroute::Lib;
+use Nullroute::LDAP;
+
+$NUS_LDAP_BASE = "dc=nullroute,dc=eu,dc=org";
+$NUS_SAMBA_DOMAIN_SID = "S-1-5-21-2685214085-9918850-3558250779";
+
+sub _nus_ldap_connect {
+    my $sasl = Authen::SASL->new("GSSAPI");
+    my $ldap = Net::LDAP->new("ldap://ldap.nullroute.eu.org") or _die("$@");
+    ldap_check($ldap->bind(sasl => $sasl, sasl_host => undef));
+    return $ldap;
+}
+
+sub nus_ldap_connect {
+    state $ldap = _nus_ldap_connect();
+    return $ldap;
+}
+
+sub nus_id_alloc {
+    my ($pool, $attr) = @_;
+    my $ldap = nus_ldap_connect();
+    my $uid = ldap_increment_attr($ldap, "$pool,ou=config,$NUS_LDAP_BASE", $attr);
+    return $uid;
+}
+
+sub nus_ldap_findfirst {
+    my ($filter, %opt) = @_;
+    my $ldap = nus_ldap_connect();
+    _debug("searching for $filter");
+    my $res = $ldap->search(base => $opt{base} // $NUS_LDAP_BASE, 
+                            filter => $filter,
+                            sizelimit => 1);
+    ldap_check($res);
+    _debug("found ".$res->count." results");
+    if ($res->count > 0) {
+        return $res->entry(0);
+    } else {
+        return;
+    }
+}
+
+sub nus_find_group {
+    my ($group) = @_;
+    return nus_ldap_findfirst("(&(objectClass=posixGroup)(cn=$group))");
+}
+
+sub nus_find_smbdomain {
+    my ($domain) = @_;
+    return nus_ldap_findfirst("(&(objectClass=sambaDomain)(sambaDomainName=$domain))");
+}
+
+sub nus_group_getuid {
+    my ($group) = @_;
+    my $grent = nus_find_group($group);
+    if ($grent) {
+        return int $grent->get_value("gidNumber");
+    }
+}
+
+sub nus_smbdomain_getsid {
+    my ($domain, $rid) = @_;
+    my $doment = nus_find_smbdomain($domain);
+    if ($doment) {
+        my $sid = $doment->get_value("sambaSID");
+        return $rid ? $sid."-".$rid : $sid;
+    }
+}
+
+sub nus_create_account {
+    my ($login, $email, $fname, $lname) = @_;
+
+    my $ldap = nus_ldap_connect();
+
+    my $uid = nus_id_alloc("cn=unixUidPool", "uidNumber");
+    my $gid = nus_group_getuid("domain-users");
+    my $rid = nus_id_alloc("sambaDomainName=NULLROUTE", "sambaNextRid");
+    my $sid = nus_smbdomain_getsid("NULLROUTE", $rid);
+    my $home = "/home/".$login;
+    my $princ = $login.'@NULLROUTE.EU.ORG';
+
+    my $dn = "uid=$login,ou=people,$NUS_LDAP_BASE";
+
+    my %entry = (
+        objectClass => [
+            "top",
+            "person",
+            "organizationalPerson",
+            "inetOrgPerson",
+            # aux
+            "authorizedServiceObject",
+            "hostObject",
+            "krbPrincipalAux",
+            "posixAccount",
+            "sambaSamAccount",
+        ],
+
+        uid => $login,
+        uidNumber => $uid,
+        gidNumber => $gid,
+        homeDirectory => $home,
+        loginShell => "/bin/bash",
+
+        krbPrincipalName => $princ,
+        sambaSID => $sid,
+        sambaAcctFlags => "[DU]",
+
+        mail => $email,
+        cn => $login,
+        sn => $login,
+    );
+
+    print Dumper(\%entry);
+
+    my $res = $ldap->add($dn, attrs => [%entry]);
+    ldap_check($res);
+}
+
+nus_create_account(@ARGV);

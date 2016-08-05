@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+from binascii import unhexlify
+from ipaddress import ip_address
+from pprint import pprint
+from struct import pack, unpack
+
+def swab4(buf):
+    if len(buf) % 4 > 0:
+        raise ValueError("length is not a multiple of 4")
+    fmt = "L" * int(len(buf) / 4)
+    ifmt = "<%s" % fmt
+    ofmt = ">%s" % fmt
+    return pack(ofmt, *unpack(ifmt, buf))
+
+def parse_hex_socket(string):
+    addr, port = string.split(":")
+    addr = unhexlify(addr)
+    addr = swab4(addr)
+    addr = ip_address(addr)
+    addr = str(addr)
+    port = int(port, 16)
+    return addr, port
+
+def parse_netstat(fh, ports):
+    for line in fh:
+        line = line.strip().split()
+        if line[3] == "0A":
+            addr, port = parse_hex_socket(line[1])
+            if port not in ports:
+                ports[port] = set()
+            ports[port].add(addr)
+
+equivs = [
+    ("0.0.0.0", "::"),
+    ("127.0.0.1", "::1"),
+    ("193.219.181.253", "2001:778:e27f::253"),
+]
+
+for proto in {"tcp", "udp"}:
+    paths = [
+        "/proc/self/net/%s" % proto,
+        "/proc/self/net/%s6" % proto,
+    ]
+    ports = {}
+    for path in paths:
+        with open(path) as fh:
+            parse_netstat(fh, ports)
+
+    for port in sorted(ports.keys()):
+        addrs = ports[port]
+        found = False
+        for v4, v6 in equivs:
+            if (v4 in addrs) != (v6 in addrs):
+                found = True
+                break
+        if found:
+            print(proto, port, addrs)

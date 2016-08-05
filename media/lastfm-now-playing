@@ -12,10 +12,21 @@ my $api_key;
 my $user;
 my $client;
 
-sub get_api_key {
-	my $en = Net::Netrc->lookup("api.last.fm");
+sub _get_netrc {
+	my ($host) = @_;
+	my $en = Net::Netrc->lookup($host);
 	if ($en && $en->{machine}) {
-		return $en->{login};
+		return $en;
+	}
+}
+
+sub get_api_key {
+	my $host = "api.last.fm";
+	my $en = _get_netrc($host);
+	if ($en && $en->{password}) {
+		return $en->{password};
+	} else {
+		die "could not find API key for '$host'\n";
 	}
 }
 
@@ -33,11 +44,12 @@ sub getRecentTracks {
 }
 
 $api_key = get_api_key();
-$user = shift @ARGV;
 
-my $data = getRecentTracks($user);
-my $track = $data->{recenttracks}->{track};
-print Dumper($track);
-my $artist = $track->{artist}->{"#text"};
-my $song = $track->{name};
-print "now playing: $artist – $song\n";
+for my $user (@ARGV) {
+	my $data = getRecentTracks($user);
+	my $track = $data->{recenttracks}->{track};
+	print Dumper($track);
+	my $artist = $track->{artist}->{"#text"};
+	my $song = $track->{name};
+	print "$user now playing: $artist – $song\n";
+}

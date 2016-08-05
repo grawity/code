@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # usb-status -- display USB power management status on Linux
 
-fmt="%-54s %4s %-10s %-10s\n"
+fmt="%-10s %-54s %-4s %-10s %-10s\n"
 
-printf "$fmt" "DEVICE" "AUTO" "RUNTIME" "STATUS"
+printf "$fmt" "ID" "DEVICE" "AUTO" "RUNTIME" "STATUS"
 
 for dev in /sys/bus/usb/devices/*; do
 	if ! test -e $dev/power/autosuspend; then
@@ -20,5 +20,5 @@ for dev in /sys/bus/usb/devices/*; do
 
 	manu=${manu//"$(uname -sr)"/"$(uname -s)"}
 
-	printf "$fmt" "$manu $prod" "$autosusp" "${renab:0:10}" "${rstat:0:10}"
+	printf "$fmt" "${dev##*/}" "$manu $prod" "$autosusp" "${renab:0:10}" "${rstat:0:10}"
 done

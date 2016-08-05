@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+trace() { :; }
+
+shopt -s nullglob
+
+n=${1:-1}
+t_on=${2:-0.1}
+t_off=${3:-0.1}
+r=1
+if [[ $n == *+ ]]; then
+	n=${n%+}
+	r=0
+fi
+
+declare -a paths=(/sys/class/leds/*::capslock/brightness)
+declare -A saved=()
+
+do_restore() {
+	for led in "${paths[@]}"; do
+		trace "restoring $led = ${saved[$led]}"
+		echo ${saved[$led]-0} > $led
+	done
+}
+
+do_save() {
+	for led in "${paths[@]}"; do
+		saved[$led]=$(< $led)
+		trace "saving $led = ${saved[$led]}"
+	done
+}
+
+if (( ! ${#paths[@]} )); then
+	exit
+fi
+
+do_save
+trap 'do_restore; exit' INT QUIT
+for (( i=1; i < n*2+r; i++ )); do
+	for led in "${paths[@]}"; do
+		echo $(( (i + saved[$led]) % 2 )) > $led
+	done
+	if (( i == n*2 )); then
+		true
+	elif (( i % 2 )); then
+		sleep $t_on
+	else
+		sleep $t_off
+	fi
+done
+if (( r )); then
+	do_restore
+fi

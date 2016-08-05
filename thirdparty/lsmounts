@@ -1,0 +1,272 @@
+#!/usr/bin/perl -w
+$ID = q$Id: lsmounts,v 1.8 2005/01/26 07:16:29 eagle Exp $;
+#
+# lsmounts -- List mountpoints found in a directory.
+#
+# Written by Neil Crellin <neilc@stanford.edu>
+# Modifications by Russ Allbery <rra@stanford.edu>
+# Copyright 1998, 1999, 2003, 2004
+#     Board of Trustees, Leland Stanford Jr. University
+#
+# This program is free software; you may redistribute it and/or modify it
+# under the same terms as Perl itself.
+#
+# Takes a directory and finds all AFS mountpoints in that directory.  Note
+# that this will stat each file in the directory, so you probably don't want
+# to run it on root.afs.
+
+##############################################################################
+# Site configuration
+##############################################################################
+
+# The full path to the loadmtpt utility.
+$LOADMTPT = '/afs/ir/service/afs/scripts/loadmtpt';
+
+# The full path to fs.  Allow for Linux where the preferred location may be on
+# local disk.
+($FS)  = grep { -x $_ } qw(/usr/bin/fs /usr/afsws/bin/fs /usr/pubsw/bin/fs);
+$FS ||= '/usr/afsws/bin/fs';
+
+##############################################################################
+# Modules and declarations
+##############################################################################
+
+use strict;
+use vars qw($FS $ID $LOADMTPT);
+
+use Cwd qw(cwd);
+use File::Find qw(find);
+use Getopt::Long qw(GetOptions);
+
+##############################################################################
+# AFS information
+##############################################################################
+
+# Given a mount point, get the volume name of the volume mounted there or
+# undef if it is not a mount point.
+sub lsmount {
+    my ($path) = @_;
+    my $pid = open (LSMOUNT, '-|');
+    if (!defined $pid) {
+        die "$0: cannot fork: $!\n";
+    } elsif ($pid == 0) {
+        open (STDERR, '>&STDOUT') or die "$0: cannot dup stdout: $!\n";
+        exec ($FS, 'lsmount', $path)
+            or die "$0: cannot exec $FS lsmount for $path: $!\n";
+    }
+    local $/;
+    my $output = <LSMOUNT>;
+    close LSMOUNT;
+    return if ($? != 0);
+    my ($name) =
+        ($output =~ /^\S+ is a mount point for volume \'[%\#](\S+)\'$/);
+    return $name;
+}
+
+##############################################################################
+# Main routine
+##############################################################################
+
+# Parse our options.
+my $fullpath = $0;
+$0 =~ s%.*/%%;
+my ($help, $list, $load, $quiet, $deep, $recurse, $version);
+Getopt::Long::config ('bundling', 'no_ignore_case');
+GetOptions ('h|help'         => \$help,
+            'L|load'         => \$load,
+            'l|list'         => \$list,
+            'q|quiet'        => \$quiet,
+            'R|recurse'      => \$recurse,
+            'r|safe-recurse' => \$deep,
+            'v|version'      => \$version) or exit 1;
+if ($help) {
+    print "Feeding myself to perldoc, please wait....\n";
+    exec ('perldoc', '-t', $fullpath);
+} elsif ($version) {
+    my $version = join (' ', (split (' ', $ID))[1..3]);
+    $version =~ s/,v\b//;
+    $version =~ s/(\S+)$/($1)/;
+    $version =~ tr%/%-%;
+    print $version, "\n";
+    exit 0;
+}
+die "$0: only at most one of -R or -r should be given\n"
+    if ($deep && $recurse);
+
+# The sub that does all the work.  Takes in the name of a file, checks to
+# see if it's a directory, and if so checks to see if it's a mount point.
+# It maintains a cache of mount points seen and sets $File::Find::prune if
+# it's seen a given mount point before; this will have no effect if we're
+# not recursive.  An optional second argument is the correct path to the
+# file, if the first argument is relative to a changing working directory.
+my ($count, %seen);
+sub check {
+    my ($file, $path) = @_;
+    $path ||= $file;
+    return unless (lstat $file && -d _);
+    $count++;
+    print "$count directories examined\n" if (!$quiet && $count % 1000 == 0);
+    my $volume = lsmount $file;
+    if (defined $volume) {
+        $File::Find::prune = 1 unless $recurse;
+        if ($list) {
+            print "$volume\n";
+        } else {
+            printf ("%-22s (%s)\n", $volume, $path);
+        }
+        system ($LOADMTPT, $file)
+            if ($load && $volume !~ /\.(backup|readonly)$/);
+        $File::Find::prune = 1 if $volume =~ /\.backup$/;
+        if ($seen{$volume}) {
+            $File::Find::prune = 1;
+        } else {
+            $seen{$volume}++;
+        }
+    }
+}
+
+# If we're recursive, take @ARGV as a list of directories to recurse into.
+# Otherwise, take it as a list of directories and files to test.
+@ARGV = ('.') unless @ARGV;
+if ($recurse || $deep) {
+    $File::Find::dont_use_nlink = 1;
+    find (sub { check ($_, $File::Find::name) }, @ARGV);
+} else {
+    @ARGV = map {
+        my $dir = $_;
+        opendir (D, $dir) or die "$0: can't open directory $dir: $!\n";
+        my @files = map { "$dir/$_" } grep { $_ !~ /^\.\.?$/ } readdir D;
+        closedir D;
+        @files;
+    } @ARGV;
+    for (@ARGV) { check $_ }
+}
+
+__END__
+
+##############################################################################
+# Documentation
+##############################################################################
+
+=head1 NAME
+
+lsmounts - List mountpoints found in a directory
+
+=head1 SYNOPSIS
+
+lsmounts [B<-hLlqrv>] [I<directory> ...]
+
+=head1 DESCRIPTION
+
+B<lsmounts> finds all AFS mount points present in the list of directories
+given on the command line (or in the current directory if no directory is
+given) and prints out a report of all mount points and what volumes they're
+mount points for.  It uses C<fs lsmount> to check each directory present in
+the given directories to see if it's a mount point.
+
+The default output is a human-readable report.  If what is wanted instead is
+a simple list of volumes mounted under the given directories, use the B<-l>
+option.
+
+If B<lsmounts> should recurse into all given directories, pass it the B<-r>
+option.  Be very careful with this, as with all recursive finds in AFS, as
+you could potentially traverse a very large directory structure.
+B<lsmounts> I<will> cross mount points.  Every 1000 directories it inspects,
+it will print out a status message unless B<-q> is given, and it will keep
+track of volumes it has already seen and will not recurse into them again
+and will not recurse into backup volumes.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-h>, B<--help>
+
+Print out this documentation (which is done simply by feeding the script to
+C<perldoc -t>).
+
+=item B<-L>, B<--load>
+
+For each mount point that is found, B<loadmtpt> will be invoked on that path
+to load it into the mount point database if it isn't already recorded.
+Mount points for volumes ending in C<.backup> or C<.readonly> will not be
+recorded.
+
+=item B<-l>, B<--list>
+
+Print out a simple list of volumes for which mount points were found, rather
+than a human-readable report of both volumes and mount points.
+
+=item B<-q>, B<--quiet>
+
+Don't print out a status message every 1000 directories.  Only print out the
+list of mount points found.
+
+=item B<-R>, B<--recurse>
+
+Recurse into the given directories rather than just checking their top-level
+contents.  This option I<will> cross mount points; be careful.  See above
+for full details.
+
+=item B<-r>, B<--safe-recurse>
+
+Recurse into the given directories rather than just checking their top-level
+contents, but do not recurse into any volumes that are found under the given
+directories.
+
+=item B<-v>, B<--version>
+
+Print out the version of B<lsmounts> and exit.
+
+=back
+
+=head1 EXAMPLES
+
+The following command displays a report of all volume mount points in the
+directory /afs/ir:
+
+    lsmounts /afs/ir
+
+The following command displays a simple list of all volumes found mounted
+under ~rra, decending through its directory structure recursively.  If there
+are other volumes mounted under that directory, they will be searched
+through as well:
+
+    lsmounts -lr ~rra
+
+Recurse through /afs/ir/data, looking for mount points and loading any mount
+point that is found but without crossing mount points.  B<lsmounts> itself
+won't produce any output; all the output will be that of B<loadmtpt>:
+
+    lsmounts -qrL /afs/ir/data
+
+Do the same thing, but do cross mount points (but do not recurse into backup
+volumes or volumes that have already been visited).
+
+    lsmounts -qRL /afs/ir/data
+
+=head1 SEE ALSO
+
+fs(1), fs_lsmount(1), loadmtpt(1)
+
+The current version of this program is available from its web page at
+L<http://www.eyrie.org/~eagle/software/lsmounts/>.
+
+=head1 AUTHORS
+
+Original Perl script written by Neil Crellin <neilc@stanford.edu>, as was
+the original recursive modification of that script.  Extensively modified by
+Russ Allbery <rra@stanford.edu> to merge the two scripts, add the
+human-readable output, allow multiple command-line arguments for the
+non-recursive case, and add the ability to run loadmtpt on discovered
+volumes.
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 1998, 1999, 2003, 2004 Board of Trustees, Leland Stanford
+Jr. University.
+
+This program is free software; you may redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=cut

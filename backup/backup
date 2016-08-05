@@ -4,76 +4,150 @@
 
 progname_prefix=0
 
-openlog() {
-	local lock=~/Backup/.log/$1.log
-	mkdir -p ${lock%/*}
-	exec {fd}<>$lock
-	flock -x -n $fd || {
-		if read -r ldate lstatus < "$lock" || true; then
-			lmsg="$lstatus on $ldate"
+# configuration
+
+local_config_file=$path_config/backup.conf.sh
+
+declare -a annexes=(~/Attic/{Annex,Software,Videos,Anime})
+declare -a hosts=()
+declare -- push_volume=
+
+if [[ -f $local_config_file ]]; then
+	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
+else
+	warn "config file '$local_config_file' missing"
+fi
+
+declare -r annexes
+declare -r hosts
+declare -r push_volume
+
+# misc
+
+bvol=${push_volume:-/mnt/backup}
+conf=${path_sync_config:-$path_config/synced}
+
+lock_path=
+lock_fd=
+failed_jobs=()
+
+take_lock() {
+	local job=$1
+
+	lock_path=$path_runtime/backup-$1.lock
+	exec {lock_fd}<>$lock_path
+	flock -x -n $lock_fd || {
+		if read ldate < "$lock_path" || true; then
+			lmsg="started on $(date -d "$ldate" +"%F %T")"
 		else
 			lmsg="status unknown"
 		fi
 		die "job $job is already running ($lmsg)"
 	}
+	echo "$(date -Isecond) $*" >&$lock_fd
 }
 
-putlog() {
-	echo "$(date -Isecond) $*" >&$fd
-}
-
-resetlog() {
-	truncate -s 0 /dev/fd/$fd
-	putlog "$*"
-}
-
-mounted:() {
-	mountpoint -q "$1" || die "backup disk not mounted"
+drop_lock() {
+	exec {lock_fd}<&-
+	rm -f "$lock_path"
 }
 
 do_rsync() {
-	local src=$1 dest=$2; shift 2
+	local src=$1 dest=$2 rest=("${@:3}")
 
-	local args=()
+	local arg last args=()
 
-	if [[ $src == "/" ]]; then
+	if [[ ( $src == / || $src == ~/ ) && $dest != *:* ]]; then
+		debug "using 'sudo'"
 		args+=(sudo)
 	fi
 
+	if have nocache; then
+		debug "using 'nocache'"
+		args+=(nocache)
+	else
+		notice "you should install 'nocache'"
+	fi
+
+	# note: add -x to jobs instead of here
 	args+=(rsync "$src" "$dest"
 		-aHAXvzh
 		--info=progress2
 		--delete-after
-		--delete-excluded
-		"$@")
+		--delete-excluded)
+
+	for arg in "${rest[@]}"; do
+		if [[ $last == -f && $arg == @(merge|.)\ * ]]; then
+			debug "processing '$arg'"
+			if [[ -f ${arg#* } ]]; then
+				args+=("$arg")
+			else
+				debug "merge file not found, replacing with /dev/null"
+				args+=("merge /dev/null")
+			fi
+		else
+			args+=("$arg")
+		fi
+		last=$arg
+	done
 
 	log "rsyncing $src -> $dest"
-	# note: add -x to jobs instead of here
+
 	"${args[@]}"; r=$?
 
 	(( !r )) ||	# success
 	(( r == 24 ))	# files vanished
 }
 
-local_rsync() {
-	local src=$1
-
-	case $src in
-	$HOME/*) do_rsync "$src" "$b/${src#$HOME/}";;
-	*)       do_rsync "$src" "$b/_root/${src#/}";;
-	esac
-}
-
 do_pull() {
-	local dir=$1 url=$(cd "$1" && git config remote.origin.url)
+	local dir=$1
+	local url=$(cd "$dir" && git config remote.origin.url)
 
-	log "pulling $url -> $dir"
+	log "updating repo $dir (from $url)"
 	(cd "$dir" && git pull --ff-only origin)
 }
 
 do_unison() {
 	log "running Unison profile '$1'"
 	unison "$@" -auto -terse
+}
+
+do_annex_archive() {
+	local remote
+	local -i skipped=0 done=0 failed=0
+
+	log "copying annex '$PWD' to archive"
+
+	for remote in $(git remote); do
+		if [[ $remote != vol* ]]; then
+			debug "skipping mismatching remote '$remote'"
+		elif ! git annex group $remote | grep -wqs archive; then
+			warn "remote '$remote' ought to be in the 'archive' group"
+			debug "skipping non-archive remote '$remote'"
+			(( ++skipped ))
+		elif ! git ls-remote $remote >&/dev/null; then
+			debug "skipping unavailable remote '$remote'"
+			(( ++skipped ))
+		else
+			do: git annex copy --in . --not --copies archive:1 --to $remote
+			if (( $? == 0 )); then
+				(( ++done ))
+			else
+				warn "archiving to remote '$remote' failed"
+				(( ++failed ))
+			fi
+		fi
+	done
+
+	if (( done > 0 )); then
+		return 0
+	elif (( failed > 0 )); then
+		err "failed archive data to any archive volume"
+		return 1
+	else
+		err "no archive volumes available (skipped $skipped)"
+		return 1
+	fi
 }
 
 do_kinit() {
@@ -92,206 +166,198 @@ do_kdestroy() {
 	fi
 }
 
+do_job() {
+	$0 "$1" || { failed_jobs+=("$1"); false; }
+}
+
 if [[ ! $_inhibited ]]; then
 	export _inhibited=$$
 	debug "restarting under gnome-inhibit"
 	exec gnome-inhibit \
+		--always \
 		--who "backup" \
 		--what "suspend" \
 		--why "Performing a backup" \
-		--always -- "$0" "$@"
+		-- "$0" "$@"
 fi
 
 set -e
-
 umask 077
+debug "started with: '$*'"
 
-b="/mnt/backup"
+trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
 
-while [[ $1 ]]; do {
+while [[ $1 ]]; do
+	job=${1%/}; shift
 
-job=${1%/}; shift
+	take_lock "$job"
+	log2 "running job '$job'"
+	t_begin=$(now)
 
-case $job in
-	--jobs)
-		sed -rn '/^case \$job in$/,/^esac$/ { s/^\t(\S+)\)$/\1/p }' "$0"
-		exit ;;
-esac
-
-openlog "$job"
-resetlog "started"
-log2 "running job '$job'"
-t_begin=$(now)
-
-fail=()
-
-case $job in
-	push-hd)
-		mounted: $b
-		consumed=0
-		while [[ $1 && $1 != / ]]; do
-			sub=$(readlink -f "$1"); shift; (( ++consumed ))
-			if [[ "$sub" != "$HOME"/* ]]; then
-				die "path \"$sub\" is outside \$HOME"
-			fi
-			sub=${sub#$HOME/}
-			sub=${sub%/}
-			do_rsync ~/"$sub"/ $b/Home/"$sub"/ -FxP
-		done
-		if (( consumed == 0 )); then
-			$0 local        || fail+=(local)
-			$0 home-push-hd || fail+=(home-push-hd)
-			$0 root-push-hd || fail+=(root-push-hd)
-		fi
-		sync
-		;;
-	home-push-hd)
-		mounted: $b
-		do_rsync ~/ $b/Home/ -FxP
-		;;
-	root-push-hd)
-		mounted: $b
-		do_rsync / $b/Root/ -FxP
-		;;
-	online)
-		$0 twitter
-		$0 servers
-		$0 mail
-		$0 irc
-		$0 gale
-		;;
-	servers)
-		homes=()
-		roots=()
-
-		for host in $(< ~/Backup/hosts.txt); do
-			if [[ $host == '#'* ]]; then
-				continue
-			fi
-			until [[ $host == *[a-z] ]]; do
-				case $host in
-				*!) host=${host%!}; roots+=($host);;
-				esac
+	case $job in
+		push-hd)
+			do_job local
+			[[ -d ~/Dropbox ]] &&
+				do_job dropbox-push-hd
+			do_job home-push-hd
+			do_job root-push-hd
+			do_job annex-push-hd
+			sync
+			;;
+		home-push-hd)
+			do_rsync ~/ $bvol/Backup/Homes/$HOSTNAME/		\
+				-f "merge $conf/rsync-filters/home_all"		\
+				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
+				-x -P
+			;;
+		dropbox-push-hd)
+			[[ -d ~/Dropbox/Pictures/Porn ]] \
+				|| die "Dropbox in selective sync mode?"
+			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ 		\
+				-f "exclude .dropbox.cache"			\
+				-x -P
+			;;
+		root-push-hd)
+			do_rsync / $bvol/Backup/Roots/$HOSTNAME/		\
+				-f "merge $conf/rsync-filters/root_all"		\
+				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
+				-x -P
+			;;
+		annex-push-hd)
+			failed=0
+			for annex in "${annexes[@]}"; do
+				(cd "$annex" && do_annex_archive) || (( ++failed ))
 			done
-			homes+=($host)
-		done
+			(( !failed ))
+			;;
+		push-ukradius)
+			do_job home-push-ukradius
+			;;
+		home-push-ukradius)
+			do_rsync ~/ ukradius:/backup/priv/$HOSTNAME-daily/home/	\
+				-f "merge $conf/rsync-filters/home_all"		\
+				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
+				-x -P
+			;;
+		pull)
+			do_job twitter
+			do_job servers
+			do_job mail
+			do_job irc
+			if mountpoint -q $bvol; then
+				do_job gale
+			fi
+			;;
+		servers)
+			homes=()
+			roots=()
 
-		for host in ${homes[@]}; do
-			$0 @$host || fail+=(@$host)
-		done
+			for host in "${hosts[@]}"; do
+				debug "parsing host: '$host'"
+				if [[ $host == '#'* ]]; then
+					continue
+				fi
+				if [[ $host == *'!' ]]; then
+					host=${host%!}
+					roots+=($host)
+				fi
+				homes+=($host)
+			done
 
-		for host in ${roots[@]}; do
-			$0 root@$host || fail+=(root@$host)
-		done
+			debug "running jobs"
+			for host in ${homes[@]}; do
+				do_job @$host
+			done
+			for host in ${roots[@]}; do
+				do_job root@$host
+			done
+			do_job nanobot
+			if mountpoint -q $bvol; then
+				do_job fs1
+			fi
+			;;
+		root@*)
+			host=${job#*@}
+			do_rsync root@$host:/ ~/Backup/Roots/$host/			\
+				-f "merge $conf/rsync-filters/server_root_all"		\
+				-f "merge $conf/rsync-filters/server_root_extra"	\
+				-f "merge $conf/rsync-filters/server_root_$host"	\
+				-F -x -P --fake-super					;
+			;;
+		@*)
+			host=${job#@}
+			do_rsync $host: ~/Backup/Homes/$host/				\
+				-f "merge $conf/rsync-filters/home_all"			\
+				-f "merge $conf/rsync-filters/home_$host"		\
+				-f "merge $conf/rsync-filters/server_home_all"		\
+				-f "merge $conf/rsync-filters/server_home_$host"	\
+				-F -x -P						;
+			;;
+		fs1)
+			do_rsync ukradius:pub/fs1/ $bvol/Backup/fs1/		\
+				-f "exclude /mirrors/rain"			;
+			;;
+		mail)
+			host=wolke
+			log "downloading mail (rsync)"
+			do_rsync $host:Mail/      ~/Backup/Mail/$host/
+			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
+			log "downloading mail (dsync backup)"
+			dsync -R backup $host
+			;;
+		nanobot)
+			do_rsync root@panther:/home/nanobot/ ~/Backup/Cluenet/nanobot/
+			;;
+		twitter)
+			twitter-backup
+			;;
+		irc)
+			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
+			;;
+		gale)
+			do_rsync \
+				ofb.net:~jtr/glog/			\
+				$bvol/Backup/Galelogs/			\
+				-f "exclude :glog.out"			;
+			;;
+		cluenet)
+			#dir=$bvol/Backup/Cluenet
+			dir=~/Backup/Cluenet
 
-		$0 nanobot || fail+=(nanobot)
+			do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
+			do_pull $dir/virgule/accounts/
+			do_pull $dir/_ircd-config/
+			do_kdestroy
+			;;
+		local)
+			do_job local@$HOSTNAME
+			;;
+		local@rain)
+			do_rsync \
+				/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ 	\
+				~/Backup/Games/SL/Firestorm_current/			\
+				-f "exclude browser_profile"				;
 
-		if mountpoint -q $b; then
-			$0 fs1 || fail+=(fs1)
-			$0 fs2 || fail+=(fs2)
-		fi
-		;;
-	root@*)
-		host=$job
-		do_rsync $host:/ ~/Backup/Roots/${host#root@}/		\
-			-f "merge $HOME/Backup/Roots/filter.global"	\
-			-f "merge $HOME/Backup/Roots/filter.minimize"	\
-			-F						\
-			--one-file-system --fake-super			\
-			;
-		;;
-	@*)
-		host=${job#@}
-		do_rsync $host: ~/Backup/Homes/$host/			\
-			-f "merge $HOME/Backup/Homes/filter.global" -F	\
-			;
-		;;
-	fs1)
-		mounted: $b
-		do_rsync ukradius:pub/fs1/ $b/fs1/			\
-			-f "exclude,p /mirrors/rain"			\
-			;
-		;;
-	fs2)
-		mounted: $b
-		do_rsync ns228507:pub/fs2/ $b/fs2/
-		;;
-	mail)
-		host=wolke
-		log "downloading mail (rsync)"
-		do_rsync $host:Mail/      ~/Backup/Mail/$host/
-		do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
-		log "downloading mail (dsync backup)"
-		dsync -R backup $host
-		;;
-	nanobot)
-		do_rsync root@panther:/home/nanobot/ ~/Backup/Cluenet/nanobot/
-		;;
-	twitter)
-		twitter-backup
-		;;
-	irc)
-		do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
-		;;
-	gale)
-		mounted: $b
-		do_rsync \
-			ofb.net:'~jtr/glog/'			\
-			$b/Attic/Galelogs/			\
-			--exclude '/:glog.out'			\
-			;
-		do_rsync \
-			ofb.net:'~egnor/etc/gale/auth/'		\
-			$b/Attic/Loot/ofb.net/gale-pubkeys/	\
-			--exclude 'tmp.*'			\
-			;
-		;;
-	cluenet)
-		#dir=$b/Backup/Cluenet
-		dir=~/Backup/Cluenet
+			(cd ~/Backup/Games && ./backup.sh)
+			;;
+		local@*)
+			;;
+		*)
+			die "unknown job '$job'"
+			;;
+	esac || r=$?
 
-		do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
+	t_end=$(now)
+	log "job '$job' finished in $(interval $[t_end-t_begin])"
+	drop_lock
 
-		do_pull $dir/virgule/accounts/
-		#do_pull $dir/radian/accounts/
-		do_pull $dir/_ircd-config/
-		#do_rsync \
-		#	root@radian.cluenet.org:/backup/	\
-		#	$dir/radian/backup/			\
-		#	--exclude '/accounts/'			\
-		#	;
-		#do_rsync \
-		#	root@radian.cluenet.org:/var/www/	\
-		#	$dir/radian/www/			\
-		#	--exclude '/main/cluewikicache/'	\
-		#	;
+	if (( r )); then
+		failed_jobs+=("$job")
+		break
+	fi
+done
 
-		do_kdestroy
-		;;
-	grawpqi|nullkey)
-		dir=/run/media/grawity/$job/
-		mountpoint -q "$dir" || die "'$job' not mounted"
-		do_rsync "$dir" ~/Backup/Devices/$job/
-		;;
-	local)
-		do_rsync \
-			/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ \
-			~/Backup/Games/SL/Firestorm_current/	\
-			--exclude 'browser_profile'		\
-			;
-		;;
-	*)
-		die "unknown job '$job'"
-		;;
-esac
-
-if (( ${#fail[@]} )); then
-	_fail=${fail[*]}
+if (( ${#failed_jobs[@]} )); then
+	_fail=${failed_jobs[*]}
 	err "backup failed for ${_fail// /, }"
 fi
-
-t_end=$(now)
-log "job '$job' finished in $(interval $[t_end-t_begin])"
-resetlog "done"
-
-}; done

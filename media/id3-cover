@@ -3,7 +3,7 @@ from __future__ import print_function
 import sys, os
 import getopt
 from mutagen import mp3, id3
-from nullroute import Core
+from nullroute.core import *
 
 def trace(msg):
     global verbose
@@ -18,18 +18,16 @@ def usage():
 
 def fileext_to_type(ext):
     return {
-        None:   None,
         "jpeg": "image/jpeg",
         "jpg":  "image/jpeg",
         "png":  "image/png",
-    }.get(ext[1:], None)
+    }[ext[1:]]
 
 def type_to_fileext(type):
     return {
-        None:           None,
         "image/jpeg":   ".jpeg",
         "image/png":    ".png",
-    }.get(type, "jpeg")
+    }[type]
 
 def export_cover(file, cover_file):
     try:
@@ -48,21 +46,20 @@ def export_cover(file, cover_file):
     return True
 
 def import_cover(file, image_data, image_type="image/jpeg"):
-    TYPE_FRONT_COVER = 3
-    ENC_UTF8 = 3
-
     try:
         filetag = mp3.MP3(file)
     except BaseException as e:
         Core.err(e)
         return False
 
+    trace("using content type %r" % image_type)
+
     filetag.tags.add(id3.APIC(
         data=image_data,
         mime=image_type,
-        type=TYPE_FRONT_COVER,
+        type=id3.PictureType.COVER_FRONT,
         desc=u"",
-        encoding=ENC_UTF8))
+        encoding=id3.Encoding.UTF8))
 
     trace("updating tags: %s" % file)
     try:
@@ -95,7 +92,7 @@ def remove_cover(file):
 try:
     options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
 except getopt.GetoptError as e:
-    Core.err(e)
+    Core.err(str(e))
     usage()
     sys.exit(2)
 
@@ -120,7 +117,7 @@ if len(files) < 1:
 if mode == "import":
     if cover_file:
         cover_fh = open(cover_file, 'rb')
-        ext = os.path.splitext(cover_file)
+        _, ext = os.path.splitext(cover_file)
         image_type = fileext_to_type(ext)
     else:
         cover_fh = sys.stdin

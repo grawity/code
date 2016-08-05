@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# replacement for dmenu_run, with usage-sorted history
+#
+# This is not the same script as in ~/bin, but a minimized, standalone version.
+# The Perl code below is a minified version of `dmenu-print-history`.
+#
+# (c) 2015-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT Expat License (dist/LICENSE.expat)
+#
+# Frecency algorithm borrowed from rupa/z:
+#   <https://github.com/rupa/z/wiki/frecency>
+#   (c) 2009 rupa deadwyler, released under the WTFPL license
 
 prompt='run »'
 
@@ -8,7 +19,6 @@ hist=${XDG_CACHE_HOME:-$HOME/.cache}/dmenu.history
 
 perl='
 sub uniq (@) { my %seen; grep {!$seen{$_}++} @_; }
-
 sub rank {
 	my ($time) = @_;
 	my $age = time - $time;
@@ -17,11 +27,19 @@ sub rank {
 	return 1/2 if $age < 604800;
 	return 1/4;
 }
-
 $histfile = shift @ARGV // die("missing histfile argument\n");
 if (open(my $f, "<", $histfile)) {
-	@history = map {/^(\d+) (.+)$/ ? [int $1, $2] : [0, $_]}
-	           grep {chomp; 1} <$f>;
+	@history = ();
+	$ts = 0;
+	while (<$f>) {
+		chomp;
+		if (/^#(\d+)$/)		{ $ts = int $1; }
+		elsif ($ts)		{ push @history, [$ts, $_]; $ts = 0; }
+		elsif (/^: (\d+):\d+;(.+)$/)
+					{ push @history, [int($1), $2]; }
+		elsif (/^(\d+) (.+)$/)	{ push @history, [int($1), $2]; }
+		else			{ push @history, [0, $_]; }
+	}
 	close($f);
 } else {
 	exit if $!{ENOENT};

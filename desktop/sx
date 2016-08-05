@@ -1,34 +1,41 @@
 #!/bin/sh
 
-if ! vt="vt$(fgconsole)"; then
-	echo "error: could not determine current VT"
-	exit 1
-fi
+die() { echo "error: $*" >&2; exit 1; }
 
-export DISPLAY=$(next-display)
-export XAUTHORITY=~/.Xauthority
-if [ ! "$DISPLAY" ]; then
-	echo "error: could not find a free display"
-	exit 1
-fi
+# find the xinitrc script
 
-XINITRC=${XDG_CONFIG_HOME:-~/.config}/xinitrc
-if [ ! -e "$xintirc" ]; then
-	XINITRC=~/.xinitrc
-fi
+xclient=${XDG_CONFIG_HOME:-~/.config}/xinitrc
+[ -f "$xclient" ] || xclient=~/.xinitrc
+[ -f "$xclient" ] || die "could not find an xinitrc script"
+set -- "$xclient" "$@"
 
+# prepare general environment
+
+vt="vt$(fgconsole)" || die "could not determine current VT"
+
+exec </dev/null
 cd ~
+
+unset DBUS_SESSION_BUS_ADDRESS
+export DISPLAY=$(next-display)
+[ "$DISPLAY" ] || die "could not find a free display"
+unset SHLVL
+export XAUTHORITY=~/.Xauthority
+
+# prepare Xauth
+
 xauth remove "$HOSTNAME$DISPLAY"
 xauth remove "$DISPLAY"
-xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(mcookie)
+xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(mcookie) \
+	|| die "could not update $XAUTHORITY"
 
-echo "Starting Xorg on display $DISPLAY"
-xinit "$XINITRC" "$@" -- "$DISPLAY" "$vt" \
-	-noreset \
-	-auth "$XAUTHORITY" \
-	-quiet \
-	-background none \
-	< /dev/null; r=$?
+# start Xorg
+
+echo "Starting Xorg on display $DISPLAY ($vt)"
+xinit "$@" -- "$DISPLAY" "$vt" -noreset -auth "$XAUTHORITY" -quiet -background none
+r=$?
+
+# clean up Xauth
 
 xauth remove "$DISPLAY"
 exit $r

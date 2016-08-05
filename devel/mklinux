@@ -11,46 +11,18 @@ _log_fprefix[log2]='#'
 _log_fcolor[log2]='\e[36m'
 _log_mcolor[log2]='\e[38;5;14m'
 
-sign() { sudo scripts/sign-file ${sighash:-sha1} signing_key.priv signing_key.x509 "$1"; }
+config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
+dkms_modules=()
+add_ucode="intel-ucode.img"
 
-_build_dkms() {
-	#dkms status | sed -rn '/^(.+), (.+): added$/{s!!\1/\2!p}' |
-	vbox_rel=$(pacman -Q virtualbox-host-dkms | awk '{print $2}' | sed 's/-.*//')
-
-	emods=(vboxhost/$vbox_rel)
-
-	for mod in ${emods[@]}; do
-		mname=${mod%%/*}
-		echo -n "$mod: "
-		echo -n "uninstall..."
-		sudo dkms uninstall "$mod" -k "$release" -q || true
-		echo -n "clean..."
-		sudo rm -rf "/var/lib/dkms/$mod/$release"
-		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
-		echo -n "install..."
-		if sudo dkms install "$mod" -k "$release" -q; then
-			echo "done."
-		else
-			echo "failed."
-			warn "build failed for $mod"
-		fi
-	done
-}
-
-_build_kdbus() {
-	local release=$1
-	local build="/tmp/kdbus-build-$$"
-
-	log "building kdbus"
-	git clone -s ~/src/os-tools/kdbus "$build"
-	make -C "$build" KERNELDIR="/usr/lib/modules/$release/build"
-	sudo install -Dm0644 "$build/kdbus.ko" \
-		"/usr/lib/modules/$release/kernel/misc/kdbus.ko"
-	rm -rf "$build"
-}
+if [ -e "$config" ]; then
+	. "$config" || die "could not load configuration file"
+fi
 
 if [ ! "$noidle" ]; then
+	debug "calling ionice on $$"
 	ionice -c 3 -p $$
+	debug "calling schedtool on $$"
 	schedtool -n 10 -D $$
 fi
 
@@ -61,8 +33,18 @@ elif mountpoint -q /boot && test -d /boot/loader; then
 else
 	die "ESP not mounted"
 fi
+debug "found ESP at '$esp'"
 
-ucode="/EFI/arch/intel-ucode.img"
+if [ "$add_ucode" ]; then
+	if [ -e "$esp/EFI/arch/$add_ucode" ]; then
+		ucode="/EFI/arch/$add_ucode"
+	elif [ -e "$esp/$add_ucode" ]; then
+		ucode="/$add_ucode"
+	else
+		die "µcode image '$add_ucode' not found"
+	fi
+	debug "found µcode image at '$ucode'"
+fi
 
 log2 "preparing"
 t_begin=$(gettime -m)
@@ -94,7 +76,7 @@ log2 "building initramfs"
 
 log2 "configuring bootloader"
 
-	osname=$(. ${_path_os_release} && echo "${PRETTY_NAME:-$NAME}")
+	osname=$(. ${path_os_release} && echo "${PRETTY_NAME:-$NAME}")
 	machineid=$(cat /etc/machine-id)
 	options=$(cat /etc/kernel/cmdline{,.bisect} 2>/dev/null | grep "^[^#]" | tr -s "\n" " ")
 
@@ -109,30 +91,46 @@ log2 "configuring bootloader"
 	options         $options
 	!
 
-log "installing to legacy /boot"
+if [ "$esp" != "/boot" ]; then
+	log "installing to legacy /boot"
 
 	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
 	sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
+fi
 
 log2 "building third-party modules"
 
-	_build_dkms "$release"
-	#_build_kdbus "$release"
-	#sudo depmod "$release"
+	emods=()
 
-log2 "signing third-party modules"
-
-	{ find "/var/lib/dkms/vboxhost/$vbox_rel/$release" -name "*.ko"
-	  find "/usr/lib/modules/$release/kernel/misc" -name "*.ko"
-	} | while read -r file; do
-		echo -n "sign ${file##*/}: "
-		if grep -qs "~Module signature appended~" "$file"; then
-			echo "already signed"
+	for mod in "${dkms_modules[@]}"; do
+		package=${mod#*:}
+		mod=${mod%%:*}
+		version=$(expac %v "$package" | sed "s/-.*//")
+		if [[ "$version" ]]; then
+			emods+=("$mod/$version")
 		else
-			sign "$file"
-			echo "OK"
+			warn "package '$package' not found, skipping DKMS module '$mod'"
 		fi
 	done
+
+	for mod in ${emods[@]}; do
+		mname=${mod%%/*}
+		echo -n "$mod: "
+		echo -n "uninstall..."
+		sudo dkms uninstall "$mod" -k "$release" -q || true
+		echo -n "clean..."
+		sudo rm -rf "/var/lib/dkms/$mod/$release"
+		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
+		echo -n "install..."
+		if sudo dkms install "$mod" -k "$release" -q; then
+			echo "done."
+		else
+			echo "failed."
+			warn "build failed for $mod"
+		fi
+	done
+
+	#sudo depmod "$release"
 
 log2 "cleaning old kernels"
 

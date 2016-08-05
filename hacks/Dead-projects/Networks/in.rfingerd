@@ -52,10 +52,16 @@ def uprint(*args):
     fh.write(line.encode("utf-8"))
     fh.flush()
 
+def peername():
+    addr = os.environ["REMOTE_HOST"]
+    if addr.startswith("::ffff:"):
+        addr = addr[len("::ffff:"):]
+    return addr
+
 def accept():
     request = sys.stdin.readline().strip()
     DEBUG("accept(%r)", request)
-    log_info("got request %r", request)
+    log_info("host %r requested %r", peername(), request)
     result = route(request)
     if result is None:
         DEBUG("routing failed")

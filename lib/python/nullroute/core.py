@@ -54,11 +54,16 @@ class Core(object):
     def raise_log_level(self, level):
         self._log_level = max(self._log_level, level)
 
+    @property
+    def _debug_mode(self):
+        return self._log_level >= self.LOG_DEBUG
+
     @classmethod
-    def _log(self, level, msg,
+    def _log(self, level, msg, *args,
              log_prefix=None, log_color=None,
              fmt_prefix=None, fmt_color=None,
              skip=0):
+
         level = min(max(level, 0), self.LOG_TRACE)
         if level > self._log_level:
             return
@@ -92,48 +97,57 @@ class Core(object):
                 output.append("\033[m")
 
         if level >= self.LOG_DEBUG:
-            func = traceback.extract_stack()[-(skip+3)][2]
+            frame = traceback.extract_stack()[-(skip+3)]
+            module = os.path.basename(frame[0])
+            if module == "__init__.py":
+                module = os.path.basename(os.path.dirname(frame[0]))
+            func = frame[2]
+            if module != Core.arg0:
+                func = "%s:%s" % (module, func)
             if colors:
                 output.append("\033[38;5;60m")
             output.append("(%s) " % func)
             if colors:
                 output.append("\033[m")
 
+        if args:
+            msg = msg % args
+
         output.append(msg)
 
         print("".join(output), file=fh)
 
     @classmethod
-    def trace(self, msg, **kwargs):
-        self._log(self.LOG_TRACE, msg, **kwargs)
+    def trace(self, msg, *args, **kwargs):
+        self._log(self.LOG_TRACE, msg, *args, **kwargs)
 
     @classmethod
-    def debug(self, msg, **kwargs):
-        self._log(self.LOG_DEBUG, msg, **kwargs)
+    def debug(self, msg, *args, **kwargs):
+        self._log(self.LOG_DEBUG, msg, *args, **kwargs)
 
     @classmethod
-    def info(self, msg, **kwargs):
-        self._log(self.LOG_INFO, msg, **kwargs)
+    def info(self, msg, *args, **kwargs):
+        self._log(self.LOG_INFO, msg, *args, **kwargs)
 
     @classmethod
-    def notice(self, msg, **kwargs):
-        self._log(self.LOG_NOTICE, msg, **kwargs)
+    def notice(self, msg, *args, **kwargs):
+        self._log(self.LOG_NOTICE, msg, *args, **kwargs)
 
     @classmethod
-    def warn(self, msg, **kwargs):
+    def warn(self, msg, *args, **kwargs):
         self._num_warnings += 1
-        self._log(self.LOG_WARNING, msg, **kwargs)
+        self._log(self.LOG_WARNING, msg, *args, **kwargs)
 
     @classmethod
-    def err(self, msg, **kwargs):
+    def err(self, msg, *args, **kwargs):
         self._num_errors += 1
-        self._log(self.LOG_ERROR, msg, **kwargs)
+        self._log(self.LOG_ERROR, msg, *args, **kwargs)
         return False
 
     @classmethod
-    def die(self, msg, status=1, **kwargs):
+    def die(self, msg, *args, status=1, **kwargs):
         self._num_errors += 1
-        self._log(self.LOG_FATAL, msg, **kwargs)
+        self._log(self.LOG_FATAL, msg, *args, **kwargs)
         sys.exit(status)
 
     @classmethod

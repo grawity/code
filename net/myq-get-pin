@@ -1,7 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from collections import namedtuple
 import fdb
 from hashlib import md5
+import os
 from nullroute.core import *
 import nullroute.sec
 import sys
@@ -69,6 +70,8 @@ host = "aqrate.utenos-kolegija.lt"
 db = None
 args = sys.argv[1:]
 
+raw_output = os.environ.get("RAW_OUTPUT")
+
 for arg in args:
     if len(arg) == 32:
         pin = crack_pin(arg)
@@ -79,4 +82,7 @@ for arg in args:
         for row in db.find_user(arg):
             Core.debug("found row %r", row)
             pin = crack_pin(row.card)
-            print("%s (%s) = %s" % (row.fullname, row.email, pin or "not found"))
+            if raw_output:
+                print("\t".join(map(str, [*row, pin])))
+            else:
+                print("%s (%s) = %s" % (row.fullname, row.email, pin or "not found"))

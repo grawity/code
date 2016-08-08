@@ -6,6 +6,7 @@ def pkgfile_verbose(arg, bin=False):
     args = ["pkgfile", "-v"]
     if bin:
         args.append("-b")
+    args.append("--")
     args.append(arg)
     ret = subprocess.run(args, stdout=subprocess.PIPE)
     out = ret.stdout.decode("utf-8")
@@ -22,7 +23,11 @@ def do_pkg(arg):
     else:
         print("no results for %r" % arg)
         return
-    first_pkg, first_ver, first_path = first_item.split(None, 2)
+    try:
+        first_pkg, first_ver, first_path = first_item.split(None, 2)
+    except ValueError:
+        print("pony")
+        return
     out_str = "%s %s (%s)" % (first_pkg, first_ver, first_path)
     rest_pkgs = [item.split()[0] for item in pkgs_all]
     if first_pkg in rest_pkgs:

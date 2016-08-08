@@ -1,7 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from collections import namedtuple
 import fdb
 from hashlib import md5
+import os
+from nullroute.core import *
 import nullroute.sec
 import sys
 
@@ -11,10 +13,12 @@ class MyQDatabase(object):
     def __init__(self, host):
         self.host = host
         creds = nullroute.sec.get_netrc_service(self.host, "fdb")
+        Core.debug("connecting to %r as %r", self.host, creds["login"])
         self.conn = fdb.connect(host=self.host, database="myq",
                                 user=creds["login"], password=creds["password"])
 
     def find_user(self, arg):
+        Core.debug("searching for %r", arg)
         qry = """
         SELECT e.id, e.name, u.fullname, u.email, c.card_id
             FROM tblEntities e
@@ -33,9 +37,15 @@ class MyQDatabase(object):
             JOIN tblUsers u ON u.id=e.id
             JOIN tblCard c ON c.user_id=e.id
             WHERE u.id = (SELECT FIRST 1 user_id FROM tblAliases a WHERE LOWER(alias) = ?)
+        UNION DISTINCT
+        SELECT e.id, e.name, u.fullname, u.email, c.card_id
+            FROM tblEntities e
+            JOIN tblUsers u ON u.id=e.id
+            JOIN tblCard c ON c.user_id=e.id
+            WHERE LOWER(fullname) LIKE ?
         """
         cur = self.conn.cursor()
-        cur.execute(qry, (arg.lower(),)*3)
+        cur.execute(qry, (arg.lower(),)*4)
         for row in cur:
             yield self.User(*row)
 
@@ -49,6 +59,7 @@ def crack_md5(arg, digits=4):
     return None
 
 def crack_pin(arg):
+    Core.debug("cracking hash %r", arg)
     for digits in [4, 5, 6]:
         result = crack_md5(arg, digits)
         if result:
@@ -59,6 +70,8 @@ host = "aqrate.utenos-kolegija.lt"
 db = None
 args = sys.argv[1:]
 
+raw_output = os.environ.get("RAW_OUTPUT")
+
 for arg in args:
     if len(arg) == 32:
         pin = crack_pin(arg)
@@ -67,5 +80,9 @@ for arg in args:
         if not db:
             db = MyQDatabase(host)
         for row in db.find_user(arg):
+            Core.debug("found row %r", row)
             pin = crack_pin(row.card)
-            print("%s (%s) = %s" % (row.fullname, row.email, pin or "not found"))
+            if raw_output:
+                print("\t".join(map(str, [*row, pin])))
+            else:
+                print("%s (%s) = %s" % (row.fullname, row.email, pin or "not found"))

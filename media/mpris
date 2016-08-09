@@ -37,6 +37,13 @@ my $prefix_re = qr/^org\.mpris\.MediaPlayer2\./;
 my $instance_re = qr/\.instance-?\d+$/;
 my $suffix_re = qr/[^.]+(?:$instance_re)?$/;
 
+my %meta_format = (
+	"mpris:length" => ["t", "Length"],
+	"mpris:trackid" => ["o", "Track ID"],
+	"xesam:title" => ["s", "Title"],
+	"xesam:url" => ["s", "URL"],
+);
+
 # usage() - print usage text
 #
 # help(topic) - print help text
@@ -1035,6 +1042,12 @@ my %commands = (
 			my $width = max map {length $_} keys %meta;
 			for my $key (sort keys %meta) {
 				my $value = $meta{$key};
+				if (my $format = $meta_format{$key}) {
+					($format, $key) = @$format;
+					if ($format eq "t") {
+						$value = int2time($value);
+					}
+				}
 				if (ref $value eq 'ARRAY') {
 					$value = join(", ", @$value);
 				}

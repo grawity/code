@@ -7,7 +7,7 @@ def filter_filename(name):
         ('"', '_'),
         ('*', '_'),
         ('/', '⁄'),
-        (':', '_'),
+        (':', '∶'),
         ('<', '_'),
         ('>', '_'),
         ('?', '？'),
@@ -16,7 +16,9 @@ def filter_filename(name):
     for k, v in xlat:
         name = name.replace(k, v)
     if name.startswith("."):
-        name = "·" + name[1:]
+        name = "_" + name
+    if name.endswith("~"):
+        name = name.replace("~", "∼")
     return name
 
 def uniq(items):

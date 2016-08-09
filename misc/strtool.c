@@ -1,8 +1,11 @@
+#define _XOPEN_SOURCE
+#include <locale.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 #include "util.h"
 
-#define LINESZ 512
+#define LINESZ 4096
 
 /* null-terminate a string at first \n */
 
@@ -103,6 +106,18 @@ int strip_tail(char *tail) {
 	}
 }
 
+int show_width(char *str) {
+	wchar_t dest[LINESZ];
+
+	setlocale(LC_ALL, "");
+
+	if (mbstowcs(dest, str, LINESZ) < 0)
+		return 1;
+
+	printf("%d\n", wcswidth(dest, LINESZ));
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 	int i = 0;
 	char *cmd = argv[++i];
@@ -141,6 +156,12 @@ int main(int argc, char *argv[]) {
 			return 2;
 		str = argv[++i];
 		return strip_tail(str);
+	}
+	else if (streq(cmd, "width")) {
+		if (argc != 3)
+			return 2;
+		str = argv[++i];
+		return show_width(str);
 	}
 	else {
 		fprintf(stderr, "Unknown function '%s'\n", cmd);

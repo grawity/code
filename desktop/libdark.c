@@ -4,6 +4,8 @@
 #include <X11/Xutil.h>
 #include <stdio.h>
 
+/* make_dark(): set _GTK_THEME_VARIANT on the given window */
+
 void make_dark(Display *display, Window w)
 {
 	Atom property = XInternAtom(display, "_GTK_THEME_VARIANT", False);
@@ -13,8 +15,11 @@ void make_dark(Display *display, Window w)
 	char *data = "dark";
 	int nelements = sizeof("dark")-1;
 
-	XChangeProperty(display, w, property, type, format, mode, data, nelements);
+	XChangeProperty(display, w, property, type, format, mode,
+			(const unsigned char *) data, nelements);
 }
+
+/* overlay XSetWMName() */
 
 void XSetWMName(Display *display, Window w, XTextProperty *text_prop)
 {
@@ -25,23 +30,22 @@ void XSetWMName(Display *display, Window w, XTextProperty *text_prop)
 		real_XSetWMName = dlsym(RTLD_NEXT, "XSetWMName");
 	real_XSetWMName(display, w, text_prop);
 
-	fprintf(stderr, "XSetWMName(0x%x, '%s') = void\n", w, text_prop->value);
+	fprintf(stderr, "XSetWMName(0x%lx, '%s') = void\n", w, text_prop->value);
 }
 
-XSetClassHint(Display *display, Window w, XClassHint *class_hints)
+/* overlay XSetClassHint() */
+
+Status XSetClassHint(Display *display, Window w, XClassHint *class_hints)
 {
-	static (*real_XSetClassHint)(Display *display, Window w, XClassHint *class_hints);
-	char *name, *class;
-	int r;
+	static Status (*real_XSetClassHint)(Display *display, Window w,
+					    XClassHint *class_hints);
+	Status r;
 
 	if (!real_XSetClassHint)
 		real_XSetClassHint = dlsym(RTLD_NEXT, "XSetClassHint");
 	r = real_XSetClassHint(display, w, class_hints);
 
-	name = class_hints->res_name;
-	class = class_hints->res_class;
-
-	fprintf(stderr, "XSetClassHint(0x%x, {name '%s', class '%s'}\n",
+	fprintf(stderr, "XSetClassHint(0x%lx, {name '%s', class '%s'}\n",
 		w, class_hints->res_name, class_hints->res_class);
 
 	make_dark(display, w);

@@ -215,13 +215,14 @@ do_print:
 		}
 
 		for my $tkt (@creds) {
-			my $color = "0";
-			my $label = "";
-			my $width = 0;
+			my %str;
+			my %fmt;
+			my %max;
 
 			my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.*)$/;
 
 			if ($svname =~ m|^krbtgt/(.+)$| && $svrealm ne '') {
+				my $color = "0";
 				my $nextrealm = $1;
 
 				if ($num_tgt && !$verbose) {
@@ -239,66 +240,65 @@ do_print:
 					$color = $COLOR_TGT_DISTANT;
 				}
 
-				$label .= "\e[1;${color}m${nextrealm}\e[m";
-				$width += length $nextrealm;
+				$str{label} .= $nextrealm;
+				$fmt{label} .= "\e[1;${color}m${nextrealm}\e[m";
 
 				if ($svrealm eq $nextrealm && $svrealm eq $defrealm) {
-					$label .= " \e[${color}m(local)\e[m";
-					$width += length " (local)";
+					$str{label} .= " (local)";
+					$fmt{label} .= " \e[${color}m(local)\e[m";
 				} else {
-					$label .= " \e[${color}m(via ${svrealm})\e[m";
-					$width += length " (via $svrealm)";
+					$str{label} .= " (via ${svrealm})";
+					$fmt{label} .= " \e[${color}m(via ${svrealm})\e[m";
 				}
 
 				$num_tgt++;
 			} else {
-				$label .= " "x2;
-				$width += 2;
+				$str{label} .= " "x2;
+				$fmt{label} .= " "x2;
 
-				$width += length $svname;
+				$str{label} .= $svname;
 				$svname =~ s|/([^.]+)\.|/\e[1m$1\e[m.|;
-				$label .= $svname;
+				$fmt{label} .= $svname;
 
 				if ($tkt->{client_name} ne $defprinc) {
 					my ($defname) = ($tkt->{client_name} =~ /^(.+)@/);
-					$width += length " for $defname";
-					$label .= " \e[36mfor \e[1m$defname\e[m";
+					$str{label} .= " for $defname";
+					$fmt{label} .= " \e[36mfor \e[1m$defname\e[m";
 				}
 
 				$num_srv++;
 			}
-			
-			my $flags = $tkt->{flags};
+			$max{label} = max(50, length($str{label}));
 
-			my $expiry;
-			my $expiry_c;
+			$str{flags} = $tkt->{flags};
+			$max{flags} = 8;
+
 			if ($tkt->{expiry_time} > time) {
-				$expiry = interval($tkt->{expiry_time});
+				$str{expiry} = interval($tkt->{expiry_time});
 			} else {
-				$expiry = "expired";
+				$str{expiry} = "expired";
 			}
 
 			if ($tkt->{start_time} > time) {
-				$expiry_c = "\e[1;35m".$expiry."\e[m";
+				$fmt{expiry} = "\e[1;35m".$str{expiry}."\e[m";
 			} elsif ($tkt->{expiry_time} <= time) {
-				$expiry_c = "\e[1;31m".$expiry."\e[m";
+				$fmt{expiry} = "\e[1;31m".$str{expiry}."\e[m";
 			} elsif ($tkt->{expiry_time} <= time+300) {
-				$expiry_c = "\e[33m".$expiry."\e[m";
+				$fmt{expiry} = "\e[33m".$str{expiry}."\e[m";
 			} else {
-				$expiry_c = $expiry;
+				$fmt{expiry} = $str{expiry};
 			}
-		
-			my $label_width = max(50, $width);
+			$max{expiry} = 8;
 
 			say " "x$INDENT,
-				$label,
-				" "x($label_width-$width),
+				$fmt{label},
+				" "x($max{label}-length($str{label})),
 				" ",
-				$flags,
-				" "x(8-length $flags),
+				$str{flags},
+				" "x($max{flags}-length($str{flags})),
 				" ",
-				" "x(8-length $expiry),
-				$expiry_c,
+				" "x($max{expiry}-length($str{expiry})),
+				$fmt{expiry},
 				;
 		}
 

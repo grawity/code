@@ -229,11 +229,15 @@ do_print:
 					next;
 				}
 
-				$color = $svrealm eq $defrealm
-					? ($svrealm eq $nextrealm
-						? $COLOR_TGT_LOCAL
-						: $COLOR_TGT_CROSS)
-					: $COLOR_TGT_DISTANT;
+				if ($svrealm eq $defrealm) {
+					if ($svrealm eq $nextrealm) {
+						$color = $COLOR_TGT_LOCAL;
+					} else {
+						$color = $COLOR_TGT_CROSS;
+					}
+				} else {
+					$color = $COLOR_TGT_DISTANT;
+				}
 
 				$label .= "\e[1;${color}m${nextrealm}\e[m";
 				$width += length $nextrealm;
@@ -266,20 +270,24 @@ do_print:
 			
 			my $flags = $tkt->{flags};
 
-			my $expiry = $tkt->{expiry_time} <= time
-					? "expired"
-					: interval($tkt->{expiry_time});
+			my $expiry;
+			my $expiry_c;
+			if ($tkt->{expiry_time} > time) {
+				$expiry = interval($tkt->{expiry_time});
+			} else {
+				$expiry = "expired";
+			}
 
-			my $expiry_c = (
-					$tkt->{start_time} > time
-					? "\e[1;35m"
-					: $tkt->{expiry_time} <= time
-					? "\e[1;31m"
-					: $tkt->{expiry_time} <= time+300
-					? "\e[33m"
-					: ""
-					). $expiry."\e[m";
-
+			if ($tkt->{start_time} > time) {
+				$expiry_c = "\e[1;35m".$expiry."\e[m";
+			} elsif ($tkt->{expiry_time} <= time) {
+				$expiry_c = "\e[1;31m".$expiry."\e[m";
+			} elsif ($tkt->{expiry_time} <= time+300) {
+				$expiry_c = "\e[33m".$expiry."\e[m";
+			} else {
+				$expiry_c = $expiry;
+			}
+		
 			my $label_width = max(50, $width);
 
 			say " "x$INDENT,

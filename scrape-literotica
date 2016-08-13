@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+import bs4
+from nullroute.core import *
+from nullroute.misc import escape_html
+from pprint import pprint
+import requests
+import sys
+
+class Scraper(object):
+    def __init__(self):
+        self.ua = requests.Session()
+
+class LiteroticaScraper(Scraper):
+    def scrape_story_page(self, page_url):
+        Core.info("fetching %r" % page_url)
+        r = self.ua.get(page_url)
+        r.raise_for_status()
+
+        page = bs4.BeautifulSoup(r.content, "lxml")
+        main = page.find("div", {"id": "main"})
+
+        data = {}
+
+        tag = main.find("h1")
+        data["title"] = tag.text
+
+        tag = main.select_one("a.twitter-share-button")
+        data["url"] = tag["data-url"]
+
+        tag = main.select_one("span.b-story-user-y")
+        data["author"] = tag.a.text
+        data["author_url"] = tag.a["href"]
+
+        tag = main.select_one("div.b-story-body-x")
+        data["body"] = str(tag.div)
+
+        tag = main.select_one("span.b-pager-active")
+        data["page_cur"] = int(tag.text)
+
+        tag = main.select_one("span.b-pager-caption-t")
+        data["page_max"] = int(tag.text.split()[0])
+
+        tag = main.select_one("a.b-pager-prev")
+        data["page_prev"] = tag["href"] if tag else None
+
+        tag = main.select_one("a.b-pager-next")
+        data["page_next"] = tag["href"] if tag else None
+
+        data["pages"] = []
+        for i in range(data["page_max"]):
+            if i == 0:
+                data["pages"].append(data["url"])
+            else:
+                data["pages"].append(data["url"] + "?page=%d" % (i+1))
+
+        tags = main.select("div#b-series a.ser_link")
+        data["also_series"] = [(tag["href"], tag.text) for tag in tags]
+
+        return data
+
+    def _url_to_filename(self, url):
+        url = url.split("?")[0]
+        url = url.split("/")[-1]
+        return "%s.html" % url
+
+    def save_page_data(self, data):
+        Core.info("saving \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
+        #pprint(data)
+
+        filename = self._url_to_filename(data["url"])
+        Core.info("saving to %r" % filename)
+
+        if data["page_cur"] == 1:
+            title = "%(title)s, by %(author)s" % data
+            with open(filename, "w") as fh:
+                fh.write('<!DOCTYPE html>\n')
+                fh.write('<head>\n')
+                fh.write('\t<meta charset="utf-8">\n')
+                fh.write('\t<title>%s</title>\n' % escape_html(title))
+                fh.write('\t<link rel="stylesheet" href="../literotica.css">\n')
+                fh.write('</head>\n')
+                fh.write('<div class="header">\n')
+                fh.write('\t<h1>%s</h1>\n' % escape_html(data["title"]))
+                fh.write('\t<p class="meta">\n')
+                fh.write('\t\tby <a href="%s">%s</a>\n' % (
+                            escape_html(data["author_url"]),
+                            escape_html(data["author"]),
+                        ))
+                fh.write('\t\ton <a href="%s">%s</a>\n' % (
+                            escape_html(data["url"]),
+                            "Literotica",
+                        ))
+                fh.write('\t</p>\n')
+                fh.write('</div>\n')
+                fh.write('<div class="content">\n')
+
+        with open(filename, "a") as fh:
+            fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
+            fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
+            fh.write('\t\t%(body)s\n' % data)
+            fh.write('\t</div>\n')
+
+        if data["page_cur"] == data["page_max"]:
+            with open(filename, "a") as fh:
+                fh.write('</div>\n')
+                if data["also_series"]:
+                    fh.write('<div class="also">\n')
+                    fh.write('\t<hr>\n')
+                    fh.write('\t<h3>Also in this series</h3>\n')
+                    fh.write('\t<ul>\n')
+                    for also_url, also_title in data["also_series"]:
+                        also_file = self._url_to_filename(also_url)
+                        fh.write('\t\t<li><a href="%s">%s</a>\n' % (
+                                    escape_html(also_file),
+                                    escape_html(also_title),
+                                ))
+                        fh.write('\t\t\t<small>(<a href="%s">%s</a>)</small>\n' % (
+                                    escape_html(also_url),
+                                    "online",
+                                ))
+                    fh.write('\t</ul>\n')
+                    fh.write('</div>\n')
+                fh.write('<!-- end of story -->\n')
+
+    def save_story(self, url, series=False):
+        data = {
+            "page_next": url.split("?")[0],
+        }
+        while data["page_next"]:
+            data = self.scrape_story_page(data["page_next"])
+            self.save_page_data(data)
+
+        if series and data["also_series"]:
+            Core.info("found %d more stories in series" % len(data["also_series"]))
+            for also_url, also_title in data["also_series"]:
+                self.save_story(also_url)
+
+foo = LiteroticaScraper()
+
+for url in sys.argv[1:]:
+    foo.save_story(url, series=True)

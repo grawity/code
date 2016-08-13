@@ -19,6 +19,8 @@ sub app2desktop {
 
 sub strfmt { "'".shift()."'" }
 
+sub boolfmt { shift() ? "true" : "false" }
+
 sub listfmt { @_ ? "[".join(", ", map {strfmt($_)} @_)."]" : "\@as []" }
 
 sub section {
@@ -30,6 +32,8 @@ sub section {
 	$str .= "\n";
 	return $str;
 }
+
+# defaults
 
 $names{Utilities} = 'X-GNOME-Utilities.directory';
 $cats{Utilities} = ['X-GNOME-Utilities'];
@@ -80,6 +84,7 @@ print $proc section "$root" => {
 
 print $proc section "$root/folders/$_" => {
 	"name" => strfmt($names{$_} // $_),
+	"translate" => boolfmt(($names{$_} // $_) =~ /\.directory$/),
 	"apps" => listfmt(sort map {app2desktop($_)} @{$apps{$_}}),
 	"categories" => listfmt(sort @{$cats{$_}}),
 	"excluded-apps" => listfmt(sort map {app2desktop($_)} @{$excl{$_}}),

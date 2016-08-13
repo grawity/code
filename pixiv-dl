@@ -42,39 +42,41 @@ class Client(object):
         self._check(r)
         return r.response[0]
 
-    def get_all_member_works(self, member_id):
+    def get_all_member_works(self, member_id, start_page=1):
         log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)
-        works_r = self._check(self.api.users_works(member_id))
-        Core.info("got %d works (out of %d; page %d/%d)" % (
-                    works_r.count,
-                    works_r.pagination.total,
-                    works_r.pagination.current,
-                    works_r.pagination.pages,
-                  ))
-        for i, work in enumerate(works_r.response):
-            i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
-            i_global = (i + 1) + i_offset
-            Core.info("downloading work %s of %s: %s ｢%s｣" % (
-                        i_global,
+        while start_page:
+            works_r = self._check(self.api.users_works(member_id, page=start_page))
+            Core.info("got page %d/%d (%d works out of %d)" % (
+                        works_r.pagination.current,
+                        works_r.pagination.pages,
+                        works_r.count,
                         works_r.pagination.total,
-                        work.id,
-                        work.title,
                       ))
-            log.write("-- %s --\n" % work.id)
-            log.write("%s\n" % work.title)
-            log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
-            log.write("\n")
-            log.write("%s\n" % work.caption)
-            log.write("\n")
-            log.flush()
-            if work.is_manga:
-                work_info = self.get_work_info(work.id)
-                for j, page in enumerate(work_info.metadata.pages):
-                    Core.info(" - page %s of %s" % (j+1, work_info.page_count))
-                    self.save_file(page.image_urls["large"], work.id)
-            else:
-                self.save_file(work.image_urls["large"], work.id)
+            for i, work in enumerate(works_r.response):
+                i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
+                i_global = (i + 1) + i_offset
+                Core.info("downloading work %s of %s: %s ｢%s｣" % (
+                            i_global,
+                            works_r.pagination.total,
+                            work.id,
+                            work.title,
+                          ))
+                log.write("-- %s --\n" % work.id)
+                log.write("%s\n" % work.title)
+                log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
+                log.write("\n")
+                log.write("%s\n" % work.caption)
+                log.write("\n")
+                log.flush()
+                if work.is_manga:
+                    work_info = self.get_work_info(work.id)
+                    for j, page in enumerate(work_info.metadata.pages):
+                        Core.info(" - page %s of %s" % (j+1, work_info.page_count))
+                        self.save_file(page.image_urls["large"], work.id)
+                else:
+                    self.save_file(work.image_urls["large"], work.id)
+            start_page = works_r.pagination.next
 
 c = Client()
 

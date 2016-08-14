@@ -5,6 +5,12 @@ import pixivpy3
 import requests
 import sys
 
+def is_nonempty(file):
+    if os.path.exists(file):
+        if os.stat(file).st_size > 0:
+            return True
+    return False
+
 class Client(object):
     def __init__(self):
         self.ua = requests.Session()
@@ -56,6 +62,8 @@ class Client(object):
             for i, work in enumerate(works_r.response):
                 i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
                 i_global = (i + 1) + i_offset
+                if is_nonempty("%s_p0.png" % work.id):
+                    continue
                 Core.info("downloading work %s of %s: %s ｢%s｣" % (
                             i_global,
                             works_r.pagination.total,

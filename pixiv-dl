@@ -5,6 +5,12 @@ import pixivpy3
 import requests
 import sys
 
+def set_file_attr(file, attr, value):
+    try:
+        os.setxattr(file, "user.%s" % attr, value.encode("utf-8"))
+    except OSError as e:
+        Core.debug("could not set attribute: %s" % e)
+
 def is_nonempty(file):
     if os.path.exists(file):
         if os.stat(file).st_size > 0:
@@ -31,10 +37,10 @@ class Client(object):
     def save_file(self, url, illust_id):
         headers = {}
         if illust_id:
-            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=manga_big&illust_id=%s&page=0" % illust_id
+            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
 
         name = os.path.basename(url)
-        if os.path.exists(name) and os.stat(name).st_size > 0:
+        if is_nonempty(name):
             Core.debug("file %r already exists, skipping" % name)
         else:
             Core.debug("saving %s to %r" % (url, name))
@@ -42,6 +48,9 @@ class Client(object):
                 resp = self.ua.get(url, headers=headers)
                 resp.raise_for_status()
                 fh.write(resp.content)
+                set_file_attr(name, "xdg.origin.url", url)
+                if illust_id:
+                    set_file_attr(name, "xdg.referrer.url", "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id)
 
     def get_work_info(self, illust_id):
         r = self.api.works(illust_id)

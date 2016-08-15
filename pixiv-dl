@@ -2,6 +2,7 @@
 from nullroute.core import *
 import nullroute.sec
 import pixivpy3
+import re
 import requests
 import sys
 
@@ -79,24 +80,26 @@ class Client(object):
                             work.id,
                             work.title,
                           ))
-                log.write("-- %s --\n" % work.id)
-                log.write("%s\n" % work.title)
-                log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
-                log.write("\n")
-                log.write("%s\n" % work.caption)
-                log.write("\n")
-                log.flush()
-                if work.is_manga:
-                    work_info = self.get_work_info(work.id)
-                    for j, page in enumerate(work_info.metadata.pages):
-                        Core.info(" - page %s of %s" % (j+1, work_info.page_count))
-                        self.save_file(page.image_urls["large"], work.id)
-                else:
-                    self.save_file(work.image_urls["large"], work.id)
+                self._save_work(work, _need_refresh=True)
             start_page = works_r.pagination.next
 
 c = Client()
 
+illust_re = re.compile(r"http://www\.pixiv\.net/member_illust\.php\?mode=(manga|medium)&illust_id=(\d+)")
+
 for arg in sys.argv[1:]:
-    arg = int(arg)
-    c.get_all_member_works(arg)
+    m = illust_re.match(arg)
+    if m:
+        mode = m.group(1)
+        illust_id = int(m.group(2))
+        if mode in {"medium", "manga"}:
+            c.save_one_work(illust_id)
+        else:
+            Core.err("unrecognized URL %r" % arg)
+    else:
+        try:
+            arg = int(arg)
+        except ValueError:
+            Core.err("unrecognized argument %r" % arg)
+        else:
+            c.get_all_member_works(arg)

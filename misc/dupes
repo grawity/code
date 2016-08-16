@@ -28,7 +28,9 @@ header_size = 512
 file_sizes = {}     # path → size
 file_headers = {}   # path → header
 file_hashes = {}    # path → hash
+total_files = 0
 total_wasted = 0
+dirs_skipped = 0
 
 def _debug(msg):
     if "DEBUG" in os.environ:
@@ -99,6 +101,7 @@ def path_is_perishable(path):
     return False
 
 def enum_files(root_dir):
+    global dirs_skipped
     _debug("enumerating %r" % root_dir)
     if os.path.isdir(root_dir):
         for subdir, dirs, files in os.walk(root_dir):
@@ -106,6 +109,7 @@ def enum_files(root_dir):
             if ".nodupes" in files:
                 _debug("skipping %r (found .nodupes marker)" % subdir)
                 dirs.clear()
+                dirs_skipped += 1
                 continue
             for name in files:
                 path = os.path.join(subdir, name)
@@ -150,7 +154,7 @@ def fmt_hash(hash):
 
 def fmt_size(nbytes, si=False):
     if nbytes == 0:
-        return "zero bytes"
+        return "0 bytes"
     prefixes = ".kMGTPEZYH"
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))
@@ -315,6 +319,7 @@ if __name__ == "__main__":
                         num -= 1
                         continue
                     print("    ", path)
+            total_files += num
             total_wasted += wasted
     except KeyboardInterrupt:
         status()
@@ -325,6 +330,8 @@ if __name__ == "__main__":
     elif opts.verbose or opts.list:
         print("; %d files compared by header" % len(file_headers))
         print("; %d files compared by hash" % len(file_hashes))
-        print("; %s wasted by duplicates" % fmt_size(total_wasted))
+        print("; %s wasted by %d duplicates" % (fmt_size(total_wasted), total_files))
+        if dirs_skipped:
+            print("; %d directories skipped" % dirs_skipped)
     else:
         print("Total %s wasted." % fmt_size(total_wasted))

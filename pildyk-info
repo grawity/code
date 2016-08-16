@@ -24,7 +24,7 @@ def do_login():
     Core.info("accessing login form...")
 
     r = client.get(uri)
-    h = bs4.BeautifulSoup(r.text)
+    h = bs4.BeautifulSoup(r.text, "lxml")
     h_form = h.find("form", {"name": "aspnetForm"})
     for tag in h_form.find_all("input", {"type": "hidden"}):
         try:
@@ -34,21 +34,19 @@ def do_login():
 
     Core.info("sending credentials...")
 
-    r = client.post(uri, data=form_data)
     # this directly loads the main info page we want
+    r = client.post(uri, data=form_data)
     h = bs4.BeautifulSoup(r.text, "lxml")
 
     h_table = h.find("table", {"class": "margin2"})
 
     h_th = h_table.find("th")
     _title, _expiry = list(h_th.stripped_strings)
-    _balance_lt = h_table.find("big", {"class": "sub_header"}).get_text(strip=True)
-    _balance_eu = h_table.find("p", {"class": "data price-euros"}).get_text(strip=True)
+    _balance_eu = h_table.find("big", {"class": "sub_header"}).get_text(strip=True)
 
-    print("%s %s (%s)" % (_title, _balance_lt, _balance_eu))
+    print("%s %s" % (_title, _balance_eu))
 
-    h_tr = h.find("tr",
-            {"id": "ctl00_ctl00_main_main_AccountInfo_DataBucketRepeater_ctl00_trBucket"})
+    h_tr = h.find("tr", {"id": "ctl00_ctl00_main_main_AccountInfo_DataBucketRepeater_ctl00_trBucket"})
     if h_tr:
         _title = h_tr.find("strong").get_text(strip=True)
         _expiry = h_tr.find("small").get_text(strip=True)

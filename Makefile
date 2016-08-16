@@ -21,7 +21,7 @@ endif
 
 # compile targets
 
-BASIC_BINS := ac-wait proctool strtool subreaper xor xors xorf
+BASIC_BINS := ac-wait entropy proctool strtool subreaper xor xors xorf
 LINUX_BINS := globalenv libfunlink.so libfunsync.so libglobalenv.so showsigmask tapchown
 
 .PHONY: all basic linux

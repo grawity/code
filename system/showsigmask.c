@@ -1,7 +1,10 @@
+#define _GNU_SOURCE
+#include <err.h>
 #include <signal.h> /* NSIG */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h> /* getopt */
 
 extern const char *const sys_sigabbrev[NSIG];
 
@@ -47,7 +50,24 @@ void prsigs(char *k, char *v) {
 
 int main(int argc, char *argv[]) {
 	FILE *fp;
+	char *path = "/proc/self/status";
 	char *k, *v;
+	int opt, pid = -1;
+
+	while ((opt = getopt(argc, argv, "p:")) != -1) {
+		switch (opt) {
+		case 'p':
+			if (pid != -1)
+				errx(2, "PID already specified");
+			pid = atoi(optarg);
+			break;
+		default:
+			errx(2, "bad usage");
+		}
+	}
+
+	argc -= optind;
+	argv += optind;
 
 	if (argc > 1) {
 		int i = 0;
@@ -56,7 +76,11 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	fp = fopen("/proc/self/status", "r");
+	if (pid > 0)
+		asprintf(&path, "/proc/%d/status", pid);
+	fp = fopen(path, "r");
+	if (!fp)
+		err(1, "could not open '%s'", path);
 
 	while (fscanf(fp, "%m[^:]: %m[^\n]\n", &k, &v) > 0) {
 		if (!strcmp(k, "SigBlk"))

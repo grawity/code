@@ -2,6 +2,7 @@
 #  define _XOPEN_SOURCE 700
 #endif
 
+#include <err.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,40 +15,35 @@ int main(int argc, char *argv[]) {
 	char *cmd = argv[++i];
 
 	if (argc < 2) {
-		fprintf(stderr, "Missing function\n");
-		return 2;
+		errx(1, "missing subcommand");
 	}
 	else if (streq(cmd, "getpgid")) {
 		pid_t pid, pgid;
-		if (argc < 3)
+		if (argc < 3) {
 			pid = 0;
-		else {
+		} else {
 			pid = atoi(argv[++i]);
 			if (!pid)
-				return 2;
+				errx(2, "malformed PID: '%s'", argv[i]);
 		}
 		pgid = getpgid(pid);
-		if (pgid < 0) {
-			perror("getpgid");
-			return 1;
-		} else
-			printf("%lu\n", (unsigned long) pgid);
+		if (pgid < 0)
+			err(1, "getpgid");
+		printf("%lu\n", (unsigned long) pgid);
 	}
 	else if (streq(cmd, "getsid")) {
 		pid_t pid, pgid;
-		if (argc < 3)
+		if (argc < 3) {
 			pid = 0;
-		else {
+		} else {
 			pid = atoi(argv[++i]);
 			if (!pid)
 				return 2;
 		}
 		pgid = getsid(pid);
-		if (pgid < 0) {
-			perror("getsid");
-			return 1;
-		} else
-			printf("%lu\n", (unsigned long) pgid);
+		if (pgid < 0)
+			err(1, "getsid");
+		printf("%lu\n", (unsigned long) pgid);
 	}
 	else if (streq(cmd, "wait")) {
 		pid_t pid;
@@ -55,34 +51,27 @@ int main(int argc, char *argv[]) {
 		int interval = 1;
 		if (argc > 2) {
 			pid = atoi(argv[++i]);
-			if (!pid) {
-				fprintf(stderr, "Bad PID\n");
-				return 2;
-			}
+			if (!pid)
+				errx(2, "malformed PID: '%s'", argv[i]);
 		} else {
-			fprintf(stderr, "Missing argument\n");
-			return 2;
+			errx(2, "missing PID argument");
 		}
 		if (argc > 3) {
 			interval = atoi(argv[++i]);
-			if (!interval) {
-				fprintf(stderr, "Bad interval\n");
-				return 2;
-			}
+			if (!interval)
+				errx(2, "malformed interval: '%s'", argv[i]);
 		}
 		snprintf(path, sizeof(path), "/proc/%lu", (unsigned long) pid);
 		while (access(path, F_OK) == 0)
 			sleep(interval);
 		if (errno == ENOENT)
 			return 0;
-		else {
-			perror("access");
-			return 1;
-		}
+		else
+			err(1, "could not access '%s'", path);
 	}
 	else {
-		fprintf(stderr, "Unknown function '%s'\n", cmd);
+		errx(2, "unknown subcommand '%s'", cmd);
 	}
 
-	return 2;
+	return 0;
 }

@@ -209,11 +209,14 @@ class SankakuApi(BooruApi):
 
         return post
 
-
 ## Yande.re
 
 class YandereApi(BooruApi):
     SITE_URL = "https://yande.re"
+    POST_URL = "https://yande.re/post/show/%s"
+    URL_RE = [
+        re.compile(r"^https://yande\.re/post/show/(\d+)"),
+    ]
     ID_PREFIX = "y%s"
     TAG_SCRAPE = True
 
@@ -229,3 +232,24 @@ class YandereApi(BooruApi):
         tree = lxml.etree.XML(resp.content)
         for item in tree.xpath("/posts/post"):
             yield dict(item.attrib)
+
+    def scrape_post_info(self, post_id):
+        resp = self._fetch_url(self.POST_URL % post_id)
+        resp.raise_for_status()
+
+        page = bs4.BeautifulSoup(resp.content, "lxml")
+        sidebar = page.select_one("ul#tag-sidebar")
+
+        post = {"id": post_id,
+                "tags": defaultdict(set)}
+
+        for tag_li in sidebar.find_all("li"):
+            tag_type = tag_li["class"][0]
+            tag_type = strip_prefix(tag_type, "tag-type-")
+
+            tag_link = tag_li.find_all("a")[-1]
+            tag_value = tag_link.get_text()
+
+            post["tags"][tag_type].add(tag_value)
+
+        return post

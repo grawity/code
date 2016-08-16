@@ -13,7 +13,13 @@ def is_nonempty(file):
             return True
     return False
 
-class Client(object):
+class PixivGrabber(object):
+    member_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?id=(?P<id>\d+)")
+    illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
+
+    member_fmt = "http://www.pixiv.net/member_illust.php?id=%s"
+    illust_fmt = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s"
+
     def __init__(self):
         self.ua = requests.Session()
         self.api = pixivpy3.PixivAPI()
@@ -33,7 +39,7 @@ class Client(object):
     def save_file(self, url, illust_id):
         headers = {}
         if illust_id:
-            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
+            headers["Referer"] = self.illust_fmt % illust_id
 
         name = os.path.basename(url)
         if is_nonempty(name):
@@ -46,7 +52,7 @@ class Client(object):
                 fh.write(resp.content)
                 set_file_attr(name, "xdg.origin.url", url)
                 if illust_id:
-                    set_file_attr(name, "xdg.referrer.url", "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id)
+                    set_file_attr(name, "xdg.referrer.url", headers["Referer"])
 
     def get_work_info(self, illust_id):
         r = self.api.works(illust_id)
@@ -56,10 +62,10 @@ class Client(object):
     def _save_work(self, work):
         with open("pixiv%s.txt" % work.user.id, "a") as log:
             log.write("-- %s --\n" % work.id)
-            log.write("%s\n" % work.title)
-            log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
+            log.write("Title: ｢%s｣\n" % work.title)
+            log.write("Origin: <%s>\n" % (self.illust_fmt % work.id))
             log.write("\n")
-            log.write("%s\n" % work.caption)
+            log.write("%s\n" % work.caption.replace("\r\n", "\n"))
             log.write("\n")
 
         if (work.is_manga or work.type == "ugoira") and not work.metadata:
@@ -84,7 +90,7 @@ class Client(object):
         Core.info("downloading work: %s ｢%s｣" % (work.id, work.title))
         self._save_work(work)
 
-    def get_all_member_works(self, member_id, start_page=1):
+    def save_all_member_works(self, member_id, start_page=1):
         log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)
         while start_page:
@@ -106,26 +112,30 @@ class Client(object):
                             work.id,
                             work.title,
                           ))
-                self._save_work(work, _need_refresh=True)
+                self._save_work(work)
             start_page = works_r.pagination.next
 
-c = Client()
-
-illust_re = re.compile(r"http://www\.pixiv\.net/member_illust\.php\?mode=(manga|medium)&illust_id=(\d+)")
+c = PixivGrabber()
 
 for arg in sys.argv[1:]:
-    m = illust_re.match(arg)
+    m = c.illust_re.match(arg)
     if m:
-        mode = m.group(1)
-        illust_id = int(m.group(2))
-        if mode in {"medium", "manga"}:
-            c.save_one_work(illust_id)
-        else:
-            Core.err("unrecognized URL %r" % arg)
+        mode = m.group("mode")
+        if mode not in {"medium", "manga"}:
+            Core.err("BUG: unrecognized mode %r in URL %r" % (mode, arg))
+        illust_id = int(m.group("id"))
+        c.save_one_work(illust_id)
+        continue
+
+    m = c.member_re.match(arg)
+    if m:
+        member_id = int(m.group("id"))
+        c.save_all_member_works(member_id)
+        continue
+
+    try:
+        member_id = int(arg)
+    except ValueError:
+        Core.err("unrecognized argument %r" % arg)
     else:
-        try:
-            arg = int(arg)
-        except ValueError:
-            Core.err("unrecognized argument %r" % arg)
-        else:
-            c.get_all_member_works(arg)
+        c.save_all_member_works(member_id)

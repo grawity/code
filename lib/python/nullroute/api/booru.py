@@ -20,14 +20,14 @@ class BooruApi(object):
         self.ua = requests.Session()
 
     def match_file_name(self, name):
-        for re in self.NAME_RE:
-            m = re.match(name)
+        for pat in self.NAME_RE:
+            m = pat.match(name)
             if m:
                 return m.group(1)
 
     def match_post_url(self, url):
-        for re in self.URL_RE:
-            m = re.match(url)
+        for pat in self.URL_RE:
+            m = pat.match(url)
             if m:
                 return m.group(1)
 

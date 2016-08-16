@@ -32,8 +32,8 @@ def _strip_suffixes(arg, sfs):
     return arg
 
 class BooruApi(object):
-    NAME_RES = []
-    URL_RES = []
+    NAME_RE = []
+    URL_RE = []
 
     def __init__(self, tag_filter=None):
         self.tag_filter = tag_filter
@@ -43,22 +43,22 @@ class BooruApi(object):
         for pat in self.NAME_RE:
             m = pat.match(name)
             if m:
-                return m.group("id") or m.group(1)
+                return m.group("id")
 
     def match_post_url(self, url):
         for pat in self.URL_RE:
             m = pat.match(url)
             if m:
-                return m.group("id") or m.group(1)
+                return m.group("id")
 
     def find_posts(self, tags, page=1, limit=100):
-        ...
+        raise NotImplementedError
 
     def find_posts_by_md5(self, md5):
         yield from self.find_posts("md5:%s" % md5)
 
     def get_post_tags(self, post_id):
-        ...
+        raise NotImplementedError
 
     def sort_tags(self, raw_tags):
         all_tags = []
@@ -76,8 +76,11 @@ class BooruApi(object):
 
 class DanbooruApi(BooruApi):
     SITE_URL = "https://danbooru.donmai.us"
+    URL_RE = [
+        re.compile(r"https?://danbooru.donmai.us/posts/(?P<id>\d+)"),
+        #re.compile(r"https?://danbooru\.donmai\.us/data/.+__(?<md5>[^_]+)\.\w+$"),
+    ]
     ID_PREFIX = "db%s"
-    TAG_SCRAPE = False
 
     _cache = {}
 
@@ -101,7 +104,8 @@ class DanbooruApi(BooruApi):
                 attrib[key] = val
                 if key.startswith("tag_string_"):
                     kind = _strip_prefix(key, "tag_string_")
-                    attrib["tags"][kind] = val.split()
+                    attrib["tags"][kind] = val.split() if val else []
+            pprint(attrib)
             self._cache["id:%(id)s" % attrib] = attrib
             yield attrib
 
@@ -152,15 +156,15 @@ class GelbooruApi(BooruApi):
                 "tags": defaultdict(set)}
 
         for tag_li in sidebar.find_all("li"):
-            tag_type = tag_li["class"][0]
-            tag_type = strip_prefix(tag_type, "tag-type-")
-
-            tag_link = tag_li.find_all("a")[-1]
-            tag_value = tag_link.get_text()
-
+            tag_type = _grep(r"^tag-type-(.+)", tag_li["class"])
+            tag_value = tag_li.find_all("a")[-1].get_text()
             post["tags"][tag_type].add(tag_value)
 
         return post
+
+    def get_post_tags(self, post_id):
+        info = self._scrape_post_info(post_id)
+        return info["tags"]
 
 ## Sankaku Complex
 

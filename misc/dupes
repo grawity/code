@@ -31,6 +31,8 @@ file_headers = {}   # path → header
 file_hashes = {}    # path → hash
 total_files = 0
 total_wasted = 0
+files_removed = 0
+size_removed = 0
 dirs_skipped = 0
 
 def isatty():
@@ -311,6 +313,8 @@ if __name__ == "__main__":
                     if num > 1 and path_is_removable(path):
                         print("   \033[1m\033[38;5;9m×\033[m", path)
                         os.unlink(path)
+                        files_removed += 1
+                        size_removed += size
                         num -= 1
                         continue
                     print("    ", path)
@@ -331,4 +335,6 @@ if __name__ == "__main__":
     else:
         if dirs_skipped:
             Core.notice("%d directories skipped" % dirs_skipped)
-        Core.info("%s duplicates, %s wasted" % (total_files, fmt_size(total_wasted)))
+        if files_removed:
+            Core.info("%s files removed, %s saved" % (files_removed, fmt_size(size_removed)))
+        Core.info("%s files remain, %s wasted" % (total_files, fmt_size(total_wasted)))

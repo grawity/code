@@ -60,8 +60,7 @@ class TagFilter(object):
 class GelbooruError(Exception):
     pass
 
-class DanbooruApi(object):
-    ID_PREFIX = "db%s"
+class BooruApi(object):
     URL_RE = []
 
     def __init__(self):
@@ -74,8 +73,20 @@ class DanbooruApi(object):
                 return m.group(1)
         return None
 
+class DanbooruApi(BooruApi):
+    API_ROOT = "https://danbooru.donmai.us"
+    ID_PREFIX = "db%s"
+
     def find_posts(self, tags, limit=100):
-        ...
+        ep = "/posts.xml"
+        args = {"tags": tags,
+                "limit": limit}
+        resp = self.ua.get(self.API_ROOT + ep, params=args)
+        resp.raise_for_status()
+        posts_t = lxml.etree.XML(resp.content)
+        for post_t in posts_t:
+            if post_t.tag == "post":
+                yield post_t.attrib
 
     def find_posts_by_md5(self, md5):
         yield from self.find_posts("md5:%s" % md5)
@@ -96,8 +107,8 @@ class DanbooruApi(object):
         tags = tag_filter.filter(tags)
         return tags
 
-class GelbooruApi(DanbooruApi):
-    API_URL = "http://gelbooru.com/index.php"
+class GelbooruApi(BooruApi):
+    API_ROOT = "http://gelbooru.com/index.php"
     ID_PREFIX = "g%s"
 
     def find_posts(self, tags, limit=100):
@@ -106,7 +117,7 @@ class GelbooruApi(DanbooruApi):
                 "q": "index",
                 "tags": tags,
                 "limit": limit}
-        resp = self.ua.get(self.API_URL, params=args)
+        resp = self.ua.get(self.API_ROOT, params=args)
         resp.raise_for_status()
         posts_t = lxml.etree.XML(resp.content)
         for post_t in posts_t:
@@ -118,7 +129,7 @@ class GelbooruApi(DanbooruApi):
         args = {"page": "post",
                 "s": "view",
                 "id": post_id}
-        resp = self.ua.get(self.API_URL, params=args)
+        resp = self.ua.get(self.API_ROOT, params=args)
         resp.raise_for_status()
         page_t = bs4.BeautifulSoup(resp.content, "lxml")
         sidebar_t = page_t.find("ul", {"id": "tag-sidebar"})
@@ -133,7 +144,7 @@ class GelbooruApi(DanbooruApi):
             post["tags"][tag_type].add(tag_value)
         return post
 
-class SankakuApi(DanbooruApi):
+class SankakuApi(BooruApi):
     SITE_URL = "https://chan.sankakucomplex.com"
     POST_URL = "https://chan.sankakucomplex.com/post/show/%s"
     URL_RE = [
@@ -194,6 +205,24 @@ class SankakuApi(DanbooruApi):
             tag_value = tag_link_t.get_text()
             post["tags"][tag_type].add(tag_value)
         return post
+
+class YandereApi(BooruApi):
+    API_ROOT = "https://yande.re"
+    ID_PREFIX = "y%s"
+
+    def find_posts(self, tags, limit=100):
+        ep = "/post.xml"
+        args = {"tags": tags,
+                "limit": limit}
+        resp = self.ua.get(self.API_ROOT + ep, params=args)
+        resp.raise_for_status()
+        posts_t = lxml.etree.XML(resp.content)
+        for post_t in posts_t:
+            if post_t.tag == "post":
+                yield post_t.attrib
+
+    def scrape_post_info(self, post_id):
+        pass
 
 def rename_file_in_dir(dirpath, filename):
     global args

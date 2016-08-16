@@ -6,6 +6,7 @@ import pixivpy3
 import re
 import requests
 import sys
+import time
 
 def is_nonempty(file):
     if os.path.exists(file):
@@ -47,7 +48,21 @@ class PixivGrabber(object):
         else:
             Core.debug("saving %s to %r" % (url, name))
             with open(name, "wb") as fh:
-                resp = self.ua.get(url, headers=headers)
+                retry = 0
+                while True:
+                    try:
+                        resp = self.ua.get(url, headers=headers)
+                    except requests.exceptions.ConnectionError as e:
+                        retry += 1
+                        delay = retry * 2
+                        if retry > 5:
+                            Core.err("fetch error (%r), giving up after %s tries" % (e, delay))
+                            raise
+                        else:
+                            Core.warn("fetch error (%r), retrying after %s" % (e, delay))
+                            time.sleep(delay)
+                    else:
+                        break
                 resp.raise_for_status()
                 fh.write(resp.content)
                 set_file_attr(name, "xdg.origin.url", url)
@@ -69,7 +84,7 @@ class PixivGrabber(object):
             log.write("\n")
 
         if (work.is_manga or work.type == "ugoira") and not work.metadata:
-            Core.info("- work %s lacks metadata, refreshing" % work.id)
+            Core.info("- refreshing metadata for work %s" % work.id)
             work = self.get_work_info(work.id)
 
         if work.is_manga:

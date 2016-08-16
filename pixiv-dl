@@ -87,14 +87,17 @@ class PixivGrabber(object):
             Core.info("- refreshing metadata for work %s" % work.id)
             work = self.get_work_info(work.id)
 
-        if work.is_manga:
+        if work.type == "ugoira":
+            for size, url in work.metadata.zip_urls.items():
+                Core.info("- saving zip %r" % size)
+                self.save_file(url, work.id)
+            with open("%s_delays.txt", "w") as fh:
+                delays = [frame.delay_msec for frame in work.metadata.frames]
+                fh.write(str(delays))
+        elif work.is_manga:
             for j, page in enumerate(work.metadata.pages):
                 Core.info("- saving page %s of %s" % (j+1, work.page_count))
                 self.save_file(page.image_urls["large"], work.id)
-        elif work.type == "ugoira":
-            Core.err("ugoira download not yet implemented")
-            #delays = [frame.delay_msec for frame in work.metadata.frames]
-            #zip_urls = work.metadata.zip_urls
         else:
             self.save_file(work.image_urls["large"], work.id)
 

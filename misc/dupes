@@ -8,8 +8,9 @@ import fnmatch
 import hashlib
 import io
 import math
-from collections import defaultdict
 from argparse import ArgumentParser
+from collections import defaultdict
+from nullroute.core import *
 
 try:
     from wcwidth import wcswidth
@@ -31,10 +32,6 @@ file_hashes = {}    # path → hash
 total_files = 0
 total_wasted = 0
 dirs_skipped = 0
-
-def _debug(msg):
-    if "DEBUG" in os.environ:
-        print(msg)
 
 def isatty():
     global _isatty
@@ -73,12 +70,6 @@ def status(*args):
             sys.stderr.flush()
             _last_status = now
 
-def weed_ignores(dirs):
-    ignores = {".git", ".hg", ".sync"}
-    for item in dirs[:]:
-        if item in ignores:
-            dirs.remove(item)
-
 def path_is_ignored(path):
     for filter in opts.ignore:
         if fnmatch.fnmatch(path, filter):
@@ -102,15 +93,19 @@ def path_is_perishable(path):
 
 def enum_files(root_dir):
     global dirs_skipped
-    _debug("enumerating %r" % root_dir)
+    ignores = {".git", ".hg", ".sync"}
+    Core.debug("enumerating %r" % root_dir)
     if os.path.isdir(root_dir):
         for subdir, dirs, files in os.walk(root_dir):
-            weed_ignores(dirs)
             if ".nodupes" in files:
-                _debug("skipping %r (found .nodupes marker)" % subdir)
+                Core.debug("skipping %r (found .nodupes marker)", subdir)
                 dirs.clear()
                 dirs_skipped += 1
                 continue
+            for item in dirs[:]:
+                if item in ignores:
+                    Core.debug("skipping %r/%r (ignored directory)", subdir, item)
+                    dirs.remove(item)
             for name in files:
                 path = os.path.join(subdir, name)
                 if path_is_ignored(path):
@@ -120,7 +115,7 @@ def enum_files(root_dir):
         if not path_is_ignored(root_dir):
             yield root_dir
         else:
-            _debug("skipping %r (root directory matches ignore)")
+            Core.debug("skipping %r (root directory matches ignore)")
 
 def get_header(path):
     if path not in file_headers:
@@ -323,7 +318,7 @@ if __name__ == "__main__":
             total_wasted += wasted
     except KeyboardInterrupt:
         status()
-        print("Interrupted.")
+        Core.notice("scan interrupted")
 
     if opts.list and opts.remove:
         pass
@@ -334,4 +329,6 @@ if __name__ == "__main__":
         if dirs_skipped:
             print("; %d directories skipped" % dirs_skipped)
     else:
-        print("Total %s wasted." % fmt_size(total_wasted))
+        if dirs_skipped:
+            Core.notice("%d directories skipped" % dirs_skipped)
+        Core.info("%s duplicates, %s wasted" % (total_files, fmt_size(total_wasted)))

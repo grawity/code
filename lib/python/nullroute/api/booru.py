@@ -17,6 +17,14 @@ def _grep(pat, strings):
             return m.group(1)
     raise IndexError("inputs %r do not match %r" % (strings, pat))
 
+def _strip_prefix(arg, prefix, strict=True):
+    if arg.startswith(prefix):
+        return arg[len(prefix):]
+    elif strict:
+        raise ValueError("input %r does not match prefix %r" % (arg, prefix))
+    else:
+        return arg
+
 def _strip_suffixes(arg, sfs):
     for sf in sfs:
         if arg.endswith(sf):
@@ -52,20 +60,16 @@ class BooruApi(object):
     def get_post_tags(self, post_id):
         ...
 
-    def get_post_tags_sorted(self, post_id):
-        raw_tags = self.get_post_tags(post_id)
+    def sort_tags(self, raw_tags):
         all_tags = []
-
-        for k in ("artist", "copyright", "character"):
-            k_tags = raw_tags[k]
-            if k == "character" and len(k_tags) <= 2:
-                bad_suffixes = [" (%s)" % s for s in raw_tags["copyright"]]
-                k_tags = [_strip_suffixes(t, bad_suffixes) for t in k_tags]
-            all_tags += sorted(k_tags)
-
+        for key in ("artist", "copyright", "character"):
+            val = [t.replace(" ", "_") for t in raw_tags[key]]
+            if key == "character" and len(val) <= 2:
+                bad_suffixes = ["_(%s)" % s for s in raw_tags["copyright"]]
+                val = [_strip_suffixes(t, bad_suffixes) for t in val]
+            all_tags += sorted(val)
         if self.tag_filter:
             all_tags = self.tag_filter.filter(all_tags)
-
         return all_tags
 
 ## Danbooru
@@ -74,6 +78,8 @@ class DanbooruApi(BooruApi):
     SITE_URL = "https://danbooru.donmai.us"
     ID_PREFIX = "db%s"
     TAG_SCRAPE = False
+
+    _cache = {}
 
     def find_posts(self, tags, page=1, limit=100):
         ep = "/posts.xml"
@@ -86,20 +92,29 @@ class DanbooruApi(BooruApi):
 
         tree = lxml.etree.XML(resp.content)
         for item in tree.xpath("/posts/post"):
-            attrib = {}
+            attrib = {child.tag.replace("-", "_"): child.text
+                      for child in item.iterchildren()}
+            attrib = {"tags": {}}
             for child in item.iterchildren():
                 key = child.tag.replace("-", "_")
-                nil = child.attrib.get("nil")
-                type = child.attrib.get("type")
-                value = child.text
-                if not nil:
-                    if key.startswith("tag_string"):
-                        key = key.replace("tag_string", "tags")
-                        value = set(value.split() if value else [])
-                    elif type == "boolean":
-                        value = bool(value == "true")
-                attrib[key] = value
+                val = child.text
+                attrib[key] = val
+                if key.startswith("tag_string_"):
+                    kind = _strip_prefix(key, "tag_string_")
+                    attrib["tags"][kind] = val.split()
+            self._cache["id:%(id)s" % attrib] = attrib
             yield attrib
+
+    def get_post_tags(self, post_id):
+        key = "id:%s" % post_id
+        post = self._cache.get(key)
+        if not post:
+            posts = self.find_posts(key)
+            try:
+                post = next(posts)
+            except StopIteration:
+                raise KeyError("post %r not found" % key)
+        return post["tags"]
 
 ## Gelbooru
 

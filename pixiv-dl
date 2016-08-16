@@ -53,6 +53,37 @@ class Client(object):
         self._check(r)
         return r.response[0]
 
+    def _save_work(self, work):
+        with open("pixiv%s.txt" % work.user.id, "a") as log:
+            log.write("-- %s --\n" % work.id)
+            log.write("%s\n" % work.title)
+            log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
+            log.write("\n")
+            log.write("%s\n" % work.caption)
+            log.write("\n")
+
+        if (work.is_manga or work.type == "ugoira") and not work.metadata:
+            Core.info("- work %s lacks metadata, refreshing" % work.id)
+            work = self.get_work_info(work.id)
+
+        if work.is_manga:
+            for j, page in enumerate(work.metadata.pages):
+                Core.info("- saving page %s of %s" % (j+1, work.page_count))
+                self.save_file(page.image_urls["large"], work.id)
+        elif work.type == "ugoira":
+            Core.err("ugoira download not yet implemented")
+            #delays = [frame.delay_msec for frame in work.metadata.frames]
+            #zip_urls = work.metadata.zip_urls
+        else:
+            self.save_file(work.image_urls["large"], work.id)
+
+    def save_one_work(self, illust_id):
+        work = self.get_work_info(illust_id)
+        if is_nonempty("%s_p0.png" % work.id):
+            return
+        Core.info("downloading work: %s ｢%s｣" % (work.id, work.title))
+        self._save_work(work)
+
     def get_all_member_works(self, member_id, start_page=1):
         log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)

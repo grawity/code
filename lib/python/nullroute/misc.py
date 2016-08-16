@@ -38,7 +38,7 @@ def filter_filename(name):
         (':', '∶'),
         ('<', '_'),
         ('>', '_'),
-        ('?', '_'),
+        ('?', '？'),
     ]
     name = name.strip()
     for k, v in xlat:

@@ -1,4 +1,41 @@
 import math
+import os
+
+def get_file_attr(path, attr):
+    try:
+        return os.getxattr(path, "user.%s" % attr).decode("utf-8")
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return None
+
+def set_file_attr(path, attr, value):
+    try:
+        os.setxattr(path, "user.%s" % attr, value.encode("utf-8"))
+    except FileNotFoundError:
+        raise
+    except OSError:
+        pass
+
+def escape_html(text):
+    xlat = [
+        ('&', '&amp;'),
+        ('<', '&lt;'),
+        ('>', '&gt;'),
+        ('"', '&quot;'),
+    ]
+    for k, v in xlat:
+        text = text.replace(k, v)
+    return text
+
+def escape_shell(text):
+    escaped = "\\$`\""
+    quoted = " \n'?*[]()<>{};&|~" + escaped
+    if any(c in text for c in quoted):
+        for k in escaped:
+            text = text.replace(k, "\\" + k)
+        text = '"%s"' % text
+    return text
 
 def filter_filename(name):
     xlat = [
@@ -39,7 +76,7 @@ def fmt_size_foo(n, d=1, u=1024):
 
 def fmt_size(nbytes, si=False):
     if nbytes == 0:
-        return "zero bytes"
+        return "0 bytes"
     prefixes = ".kMGTPEZYH"
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))

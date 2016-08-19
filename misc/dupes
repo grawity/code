@@ -8,46 +8,23 @@ import fnmatch
 import hashlib
 import io
 import math
-from collections import defaultdict
 from argparse import ArgumentParser
+from collections import defaultdict
+from nullroute.core import *
+from nullroute.misc import escape_shell, fmt_size
+from nullroute.ui import isatty, ttywidth, wcswidth
 
-try:
-    from wcwidth import wcswidth
-except ImportError:
-    wcswidth = lambda s: len(s)
-
-# this doesn't need to be declared here
-# I'm just doing so as a reminder that `opts` is global
 opts = None
-_isatty = None
-_ttywidth = None
 
-# header and hash caches, to avoid reading
-# or hashing the same file twice
 header_size = 512
 file_sizes = {}     # path → size
 file_headers = {}   # path → header
 file_hashes = {}    # path → hash
+total_files = 0
 total_wasted = 0
-
-def _debug(msg):
-    if "DEBUG" in os.environ:
-        print(msg)
-
-def isatty():
-    global _isatty
-    if _isatty is None:
-        _isatty = sys.stderr.isatty()
-    return _isatty
-
-def ttywidth():
-    global _ttywidth
-    if _ttywidth is None:
-        with os.popen("stty size", "r") as fh:
-            line = fh.read().strip()
-        rows, cols = line.split()
-        _ttywidth = int(cols)
-    return _ttywidth
+files_removed = 0
+size_removed = 0
+dirs_skipped = 0
 
 _last_status = 0
 
@@ -71,12 +48,6 @@ def status(*args):
             sys.stderr.flush()
             _last_status = now
 
-def weed_ignores(dirs):
-    ignores = {".git", ".hg", ".sync"}
-    for item in dirs[:]:
-        if item in ignores:
-            dirs.remove(item)
-
 def path_is_ignored(path):
     for filter in opts.ignore:
         if fnmatch.fnmatch(path, filter):
@@ -99,14 +70,20 @@ def path_is_perishable(path):
     return False
 
 def enum_files(root_dir):
-    _debug("enumerating %r" % root_dir)
+    global dirs_skipped
+    ignores = {".git", ".hg", ".sync"}
+    Core.debug("enumerating %r" % root_dir)
     if os.path.isdir(root_dir):
         for subdir, dirs, files in os.walk(root_dir):
-            weed_ignores(dirs)
             if ".nodupes" in files:
-                _debug("skipping %r (found .nodupes marker)" % subdir)
+                Core.debug("skipping %r (found .nodupes marker)", subdir)
                 dirs.clear()
+                dirs_skipped += 1
                 continue
+            for item in dirs[:]:
+                if item in ignores:
+                    Core.debug("skipping %r/%r (ignored directory)", subdir, item)
+                    dirs.remove(item)
             for name in files:
                 path = os.path.join(subdir, name)
                 if path_is_ignored(path):
@@ -116,7 +93,7 @@ def enum_files(root_dir):
         if not path_is_ignored(root_dir):
             yield root_dir
         else:
-            _debug("skipping %r (root directory matches ignore)")
+            Core.debug("skipping %r (root directory matches ignore)")
 
 def get_header(path):
     if path not in file_headers:
@@ -131,39 +108,24 @@ def hash_file(path, status_func=None):
         if opts.verbose:
             print("hashing", path, file=sys.stderr)
         h = hashlib.sha1()
-        block = 4 * 1024 * 1024
+        buf_size = 4 * 1024 * 1024
         n_bytes = os.stat(path).st_size
-        n_hashed = 0
         with open(path, "rb") as fh:
+            if status_func and n_bytes > 0:
+                n_hashed = 0
+                status_func(0.0)
             buf = True
             while buf:
-                buf = fh.read(block)
+                buf = fh.read(buf_size)
                 h.update(buf)
-                if status_func:
-                    n_bytes += block
+                if status_func and n_bytes > 0:
+                    n_hashed += len(buf)
                     status_func(n_hashed / n_bytes * 100)
         file_hashes[path] = h.digest()
     return file_hashes[path]
 
 def fmt_hash(hash):
     return binascii.b2a_hex(hash).decode("utf-8")
-
-def fmt_size(nbytes, si=False):
-    if nbytes == 0:
-        return "zero bytes"
-    prefixes = ".kMGTPEZYH"
-    div = 1000 if si else 1024
-    exp = int(math.log(nbytes, div))
-    if exp == 0:
-        return "%.1f bytes" % nbytes
-    elif exp < len(prefixes):
-        quot = nbytes / div**exp
-        return "%.1f %sB" % (quot, prefixes[exp])
-    else:
-        exp = len(prefixes) - 1
-        quot = nbytes / div**exp
-        return "%f %sB" % (quot, prefixes[exp])
-    return str(nbytes)
 
 def unfmt_size(sz, si=False):
     if not sz:
@@ -176,10 +138,9 @@ def unfmt_size(sz, si=False):
     return val * (mult ** exp)
 
 def find_duplicates(root_dirs):
-    # dicts keeping duplicate items
-    known_sizes = defaultdict(list)     # size → path[]
-    known_headers = defaultdict(list)   # (size, header) → path[]
-    known_hashes = defaultdict(list)    # (size, hash) → path[]
+    known_sizes = defaultdict(list)
+    known_headers = defaultdict(list)
+    known_hashes = defaultdict(list)
 
     n_size = 0
     n_head = 0
@@ -268,6 +229,9 @@ if __name__ == "__main__":
     ap.add_argument("-l", "--list",
                     dest="list", action="store_true", default=False,
                     help="output files as a sortable list")
+    ap.add_argument("-Q", "--quote",
+                    dest="quote", action="store_true", default=False,
+                    help="quote paths for shell")
     ap.add_argument("--ignore",
                     dest="ignore", action="append", default=[],
                     help="ignore matching paths entirely")
@@ -301,7 +265,7 @@ if __name__ == "__main__":
             if opts.list and opts.remove:
                 for path in paths:
                     if num > 1 and path_is_removable(path):
-                        print("rm -vf '%s'" % path)
+                        print("rm -vf %s" % escape_shell(path))
                         num -= 1
             elif opts.list:
                 for path in paths:
@@ -309,22 +273,43 @@ if __name__ == "__main__":
             else:
                 print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
                 for path in paths:
+                    qpath = escape_shell(path) if opts.quote else path
                     if num > 1 and path_is_removable(path):
-                        print("   \033[1m\033[38;5;9m×\033[m", path)
+                        print("   \033[1m\033[38;5;9m×\033[m", qpath)
                         os.unlink(path)
+                        files_removed += 1
+                        size_removed += size
                         num -= 1
+                        wasted -= size
                         continue
-                    print("    ", path)
+                    print("    ", qpath)
+            total_files += (num - 1)
             total_wasted += wasted
     except KeyboardInterrupt:
         status()
-        print("Interrupted.")
+        Core.notice("scan interrupted")
+
+    sys.stdout.flush()
 
     if opts.list and opts.remove:
         pass
     elif opts.verbose or opts.list:
         print("; %d files compared by header" % len(file_headers))
         print("; %d files compared by hash" % len(file_hashes))
-        print("; %s wasted by duplicates" % fmt_size(total_wasted))
+        print("; %s wasted by %d duplicates" % (fmt_size(total_wasted), total_files))
+        if dirs_skipped:
+            print("; %d directories skipped" % dirs_skipped)
     else:
-        print("Total %s wasted." % fmt_size(total_wasted))
+        if dirs_skipped:
+            Core.notice("%d directories skipped" % dirs_skipped)
+        if files_removed:
+            Core.info("%s files removed, %s saved" % (
+                files_removed,
+                fmt_size(size_removed),
+            ))
+        if total_files:
+            Core.info("%s files %s, %s wasted" % (
+                total_files,
+                "remain" if files_removed else "found",
+                fmt_size(total_wasted),
+            ))

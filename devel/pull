@@ -18,7 +18,7 @@ is() {
 
 log:() {
 	lib::msg "$*" 'logcmd'
-	"$@"
+	"$@" || err "command '$1' failed (status $?)"
 }
 
 upd:() {
@@ -43,7 +43,9 @@ svnsync() {
 }
 
 is_ignored() {
-	[[ -u . ]]
+	local dir=$1
+	# ignore setuid directories
+	[[ -u $dir ]]
 }
 
 do_pull() {
@@ -167,6 +169,7 @@ do_pull() {
 	else
 		is none
 	fi
+	(( !errors ))
 }
 
 do_main() {
@@ -234,10 +237,15 @@ do_main() {
 				debug "- dir '$dir' already seen, skipping"
 				continue
 			fi
+			did[$dir]=y
+
+			if is_ignored "$dir"; then
+				debug "- dir '$dir' is ignored (+u), skipping"
+				continue
+			fi
 
 			debug "- updating '$dir'"
-			did[$dir]=y
-			(cd "$dir" && ! is_ignored && do_pull)
+			(cd "$dir" && do_pull)
 		done
 	else
 		do_pull
@@ -253,6 +261,4 @@ while getopts ":n" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-do_main "$@"
-
-(( !errors ))
+do_main "$@" && (( !errors ))

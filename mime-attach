@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
+force_mime_type=
+
+while getopts ":T:" OPT; do
+	case $OPT in
+	T) force_mime_type=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+
 boundary=MARK-$(head -c 12 /dev/urandom | base64)
 
 base_mime="Content-Type: text/plain"
@@ -41,7 +53,7 @@ for input; do
 			;;
 	esac
 
-	mime=$(file --dereference --brief --mime-type "$file")
+	mime=${force_mime_type:-$(file --dereference --brief --mime-type "$file")}
 
 	echo "--$boundary"
 	echo "Content-Type: $mime"

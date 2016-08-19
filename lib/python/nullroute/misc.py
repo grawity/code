@@ -67,7 +67,7 @@ def fmt_size_foo(n, d=1, u=1024):
 
 def fmt_size(nbytes, si=False):
     if nbytes == 0:
-        return "zero bytes"
+        return "0 bytes"
     prefixes = ".kMGTPEZYH"
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))

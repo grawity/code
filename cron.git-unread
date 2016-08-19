@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+PATH=$HOME/etc/code/bin:$PATH
+
+. lib.bash || exit
+
+markroot=~/Dropbox/Apps/.config
+
+cmd=$1
+repodir=$2
+
+[[ $cmd ]] || die "missing command"
+[[ $repodir ]] || die "missing repository path"
+
+markdir=$markroot/$(basename "$repodir" .git).marks
+gitdir=$(git -C "$repodir" rev-parse --git-dir)
+
+case $cmd in
+    'save')
+	mkdir -p "$markdir"
+	cp -u "$gitdir/refs/heads/master" "$markdir/$HOSTNAME.master"
+	;;
+    'merge')
+	git -C "$repodir" fetch
+	shopt -s nullglob
+	marks=("$markdir"/*.master)
+	if (( ${#marks[@]} )); then
+		for markfile in "${marks[@]}"; do
+			commit=$(< "$markfile")
+			info "forwarding to '$commit' (${markfile##*/})"
+			git -C "$repodir" merge --ff-only "$commit" || break
+		done
+	else
+		info "no marks found"
+	fi
+	;;
+    *)
+	die "unknown command '$cmd'"
+	;;
+esac

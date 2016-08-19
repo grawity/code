@@ -5,7 +5,11 @@ import bs4
 from collections import defaultdict
 from functools import lru_cache
 from nullroute.core import *
-from nullroute.misc import filter_filename, uniq
+from nullroute.misc import (
+    filter_filename,
+    get_file_attr,
+    uniq,
+)
 import lxml.etree
 from pprint import pprint
 import re
@@ -13,14 +17,6 @@ import requests
 import time
 
 FAKE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.84 Safari/537.36"
-
-def get_file_attr(path, attr):
-    try:
-        return os.getxattr(path, "user.%s" % attr).decode("utf-8")
-    except FileNotFoundError:
-        raise
-    except OSError:
-        return None
 
 def get_file_origin(path):
     return (get_file_attr(path, "xdg.origin.url"),

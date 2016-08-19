@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 from nullroute.core import *
+from nullroute.misc import set_file_attr
 import nullroute.sec
 import pixivpy3
+import re
 import requests
 import sys
+
+def is_nonempty(file):
+    if os.path.exists(file):
+        if os.stat(file).st_size > 0:
+            return True
+    return False
 
 class Client(object):
     def __init__(self):
@@ -25,10 +33,10 @@ class Client(object):
     def save_file(self, url, illust_id):
         headers = {}
         if illust_id:
-            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=manga_big&illust_id=%s&page=0" % illust_id
+            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
 
         name = os.path.basename(url)
-        if os.path.exists(name) and os.stat(name).st_size > 0:
+        if is_nonempty(name):
             Core.debug("file %r already exists, skipping" % name)
         else:
             Core.debug("saving %s to %r" % (url, name))
@@ -36,48 +44,88 @@ class Client(object):
                 resp = self.ua.get(url, headers=headers)
                 resp.raise_for_status()
                 fh.write(resp.content)
+                set_file_attr(name, "xdg.origin.url", url)
+                if illust_id:
+                    set_file_attr(name, "xdg.referrer.url", "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id)
 
     def get_work_info(self, illust_id):
         r = self.api.works(illust_id)
         self._check(r)
         return r.response[0]
 
-    def get_all_member_works(self, member_id):
-        log = open("pixiv%s.txt" % member_id, "a")
-        Core.info("getting works of user %s" % member_id)
-        works_r = self._check(self.api.users_works(member_id))
-        Core.info("got %d works (out of %d; page %d/%d)" % (
-                    works_r.count,
-                    works_r.pagination.total,
-                    works_r.pagination.current,
-                    works_r.pagination.pages,
-                  ))
-        for i, work in enumerate(works_r.response):
-            i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
-            i_global = (i + 1) + i_offset
-            Core.info("downloading work %s of %s: %s ｢%s｣" % (
-                        i_global,
-                        works_r.pagination.total,
-                        work.id,
-                        work.title,
-                      ))
+    def _save_work(self, work):
+        with open("pixiv%s.txt" % work.user.id, "a") as log:
             log.write("-- %s --\n" % work.id)
             log.write("%s\n" % work.title)
             log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
             log.write("\n")
             log.write("%s\n" % work.caption)
             log.write("\n")
-            log.flush()
-            if work.is_manga:
-                work_info = self.get_work_info(work.id)
-                for j, page in enumerate(work_info.metadata.pages):
-                    Core.info(" - page %s of %s" % (j+1, work_info.page_count))
-                    self.save_file(page.image_urls["large"], work.id)
-            else:
-                self.save_file(work.image_urls["large"], work.id)
+
+        if (work.is_manga or work.type == "ugoira") and not work.metadata:
+            Core.info("- work %s lacks metadata, refreshing" % work.id)
+            work = self.get_work_info(work.id)
+
+        if work.is_manga:
+            for j, page in enumerate(work.metadata.pages):
+                Core.info("- saving page %s of %s" % (j+1, work.page_count))
+                self.save_file(page.image_urls["large"], work.id)
+        elif work.type == "ugoira":
+            Core.err("ugoira download not yet implemented")
+            #delays = [frame.delay_msec for frame in work.metadata.frames]
+            #zip_urls = work.metadata.zip_urls
+        else:
+            self.save_file(work.image_urls["large"], work.id)
+
+    def save_one_work(self, illust_id):
+        work = self.get_work_info(illust_id)
+        if is_nonempty("%s_p0.png" % work.id):
+            return
+        Core.info("downloading work: %s ｢%s｣" % (work.id, work.title))
+        self._save_work(work)
+
+    def get_all_member_works(self, member_id, start_page=1):
+        log = open("pixiv%s.txt" % member_id, "a")
+        Core.info("getting works of user %s" % member_id)
+        while start_page:
+            works_r = self._check(self.api.users_works(member_id, page=start_page))
+            Core.info("got page %d/%d (%d works out of %d)" % (
+                        works_r.pagination.current,
+                        works_r.pagination.pages,
+                        works_r.count,
+                        works_r.pagination.total,
+                      ))
+            for i, work in enumerate(works_r.response):
+                i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
+                i_global = (i + 1) + i_offset
+                if is_nonempty("%s_p0.png" % work.id):
+                    continue
+                Core.info("downloading work %s of %s: %s ｢%s｣" % (
+                            i_global,
+                            works_r.pagination.total,
+                            work.id,
+                            work.title,
+                          ))
+                self._save_work(work, _need_refresh=True)
+            start_page = works_r.pagination.next
 
 c = Client()
 
+illust_re = re.compile(r"http://www\.pixiv\.net/member_illust\.php\?mode=(manga|medium)&illust_id=(\d+)")
+
 for arg in sys.argv[1:]:
-    arg = int(arg)
-    c.get_all_member_works(arg)
+    m = illust_re.match(arg)
+    if m:
+        mode = m.group(1)
+        illust_id = int(m.group(2))
+        if mode in {"medium", "manga"}:
+            c.save_one_work(illust_id)
+        else:
+            Core.err("unrecognized URL %r" % arg)
+    else:
+        try:
+            arg = int(arg)
+        except ValueError:
+            Core.err("unrecognized argument %r" % arg)
+        else:
+            c.get_all_member_works(arg)

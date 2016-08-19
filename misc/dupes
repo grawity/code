@@ -229,6 +229,9 @@ if __name__ == "__main__":
     ap.add_argument("-l", "--list",
                     dest="list", action="store_true", default=False,
                     help="output files as a sortable list")
+    ap.add_argument("-Q", "--quote",
+                    dest="quote", action="store_true", default=False,
+                    help="quote paths for shell")
     ap.add_argument("--ignore",
                     dest="ignore", action="append", default=[],
                     help="ignore matching paths entirely")
@@ -271,7 +274,8 @@ if __name__ == "__main__":
                 print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
                 for path in paths:
                     if num > 1 and path_is_removable(path):
-                        print("   \033[1m\033[38;5;9m×\033[m", path)
+                        print("   \033[1m\033[38;5;9m×\033[m",
+                              escape_shell(path) if opts.quote else path)
                         os.unlink(path)
                         files_removed += 1
                         size_removed += size

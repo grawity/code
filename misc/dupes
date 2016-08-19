@@ -273,16 +273,16 @@ if __name__ == "__main__":
             else:
                 print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
                 for path in paths:
+                    qpath = escape_shell(path) if opts.quote else path
                     if num > 1 and path_is_removable(path):
-                        print("   \033[1m\033[38;5;9m×\033[m",
-                              escape_shell(path) if opts.quote else path)
+                        print("   \033[1m\033[38;5;9m×\033[m", qpath)
                         os.unlink(path)
                         files_removed += 1
                         size_removed += size
                         num -= 1
                         wasted -= size
                         continue
-                    print("    ", path)
+                    print("    ", qpath)
             total_files += (num - 1)
             total_wasted += wasted
     except KeyboardInterrupt:

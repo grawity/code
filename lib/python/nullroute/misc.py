@@ -28,6 +28,15 @@ def escape_html(text):
         text = text.replace(k, v)
     return text
 
+def escape_shell(text):
+    escaped = "\\$`\""
+    quoted = " \n'?*[]()<>{};&|~" + escaped
+    if any(c in text for c in quoted):
+        for k in escaped:
+            text = text.replace(k, "\\" + k)
+        text = '"%s"' % text
+    return text
+
 def filter_filename(name):
     xlat = [
         (' ', '_'),

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from argparse import ArgumentParser
 import bs4
 from nullroute.core import *
 from nullroute.misc import escape_html, filter_filename, set_file_attr
@@ -146,7 +147,14 @@ class LiteroticaScraper(Scraper):
             for also_url, also_title in data["also_series"]:
                 self.save_story(also_url)
 
-foo = LiteroticaScraper()
+ap = ArgumentParser()
+ap.add_argument("-s", "--series",
+                dest="series", action="store_true", default=False,
+                help="download all related stories in the series")
+ap.add_argument("url", nargs="*")
 
-for url in sys.argv[1:]:
-    foo.save_story(url, series=True)
+opts = ap.parse_args()
+
+foo = LiteroticaScraper()
+for url in opts.url:
+    foo.save_story(url, series=opts.series)

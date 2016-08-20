@@ -64,15 +64,15 @@ class LiteroticaScraper(Scraper):
         return "%s.html" % url
 
     def save_page_data(self, data):
-        Core.info("saving \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
-        #pprint(data)
+        Core.info("got \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
 
         filename = self._url_to_filename(data["url"])
-        Core.info("saving to %r" % filename)
+        Core.debug("saving to %r" % filename)
 
         if data["page_cur"] == 1:
             title = "%(title)s, by %(author)s" % data
             with open(filename, "w") as fh:
+                Core.trace("writing HTML header")
                 fh.write('<!DOCTYPE html>\n')
                 fh.write('<head>\n')
                 fh.write('\t<meta charset="utf-8">\n')
@@ -95,6 +95,7 @@ class LiteroticaScraper(Scraper):
                 fh.write('<div class="content">\n')
 
         with open(filename, "a") as fh:
+            Core.trace("appending story body")
             fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
             fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
             fh.write('\t\t%(body)s\n' % data)
@@ -102,6 +103,7 @@ class LiteroticaScraper(Scraper):
 
         if data["page_cur"] == data["page_max"]:
             with open(filename, "a") as fh:
+                Core.trace("appending HTML footer")
                 fh.write('</div>\n')
                 if data["also_series"]:
                     fh.write('<div class="also">\n')
@@ -121,11 +123,13 @@ class LiteroticaScraper(Scraper):
                     fh.write('\t</ul>\n')
                     fh.write('</div>\n')
                 fh.write('<!-- end of story -->\n')
+            data["filename"] = filename
+            Core.info("saved \"%(title)s\" (%(page_max)s pages) to \"%(filename)s\"" % data)
 
     def save_story(self, url, series=False):
-        data = {
-            "page_next": url.split("?")[0],
-        }
+        Core.info("downloading story %r" % url)
+
+        data = {"page_next": url.split("?")[0]}
         while data["page_next"]:
             data = self.scrape_story_page(data["page_next"])
             self.save_page_data(data)

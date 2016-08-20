@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import bs4
 from nullroute.core import *
-from nullroute.misc import escape_html, set_file_attr
+from nullroute.misc import escape_html, filter_filename, set_file_attr
 from pprint import pprint
 import requests
 import sys
@@ -58,15 +58,18 @@ class LiteroticaScraper(Scraper):
 
         return data
 
-    def _url_to_filename(self, url):
+    def _url_to_filename(self, url, author=None):
         url = url.split("?")[0]
         url = url.split("/")[-1]
+        url = filter_filename(url)
+        if author:
+            url = filter_filename(author) + "_" + url
         return "%s.html" % url
 
     def save_page_data(self, data):
         Core.info("got \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
 
-        filename = self._url_to_filename(data["url"])
+        filename = self._url_to_filename(data["url"], data["author"])
         Core.debug("saving to %r" % filename)
 
         if data["page_cur"] == 1:
@@ -115,7 +118,7 @@ class LiteroticaScraper(Scraper):
                     fh.write('\t<h3>Also in this series</h3>\n')
                     fh.write('\t<ul>\n')
                     for also_url, also_title in data["also_series"]:
-                        also_file = self._url_to_filename(also_url)
+                        also_file = self._url_to_filename(also_url, data["author"])
                         fh.write('\t\t<li><a href="%s">%s</a>\n' % (
                                     escape_html(also_file),
                                     escape_html(also_title),

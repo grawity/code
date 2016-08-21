@@ -23,7 +23,7 @@ sub split_line {
 			++$i;
 		}
 	}
-	if ($i < $n && $vec[$i] =~ /^:/) {
+	if ($i + 1 < $n && $vec[$i] =~ /^:/) {
 		push @argv, $vec[$i];
 		++$i;
 		while ($i < $n && !length($vec[$i])) {

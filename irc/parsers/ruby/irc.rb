@@ -20,7 +20,7 @@ class IRC
 				i += 1
 			end
 		end
-		if vec[i] =~ /^:/
+		if vec[i] =~ /^:/ and vec[i + 1]
 			prefix = vec[i][1..-1]
 			i += 1
 			while vec[i] and vec[i].empty?

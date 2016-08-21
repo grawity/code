@@ -15,6 +15,8 @@ def run_test(file, func):
     passed, failed = 0, 0
     for input, wanted_output in parse_test(file):
         actual_output = func(input)
+        if hasattr(actual_output, "decode"):
+            actual_output = actual_output.decode().rstrip("\r\n")
         if wanted_output == actual_output:
             msg = " OK "
             passed += 1
@@ -31,13 +33,13 @@ def run_test(file, func):
 def test_split(input):
     input = input.encode("utf-8")
     try:
-        return irc.Line.split(input)
+        return irc.Frame.split(input)
     except ValueError:
         return None
 
 def test_join(input):
     try:
-        return irc.Line.join(input)
+        return irc.Frame.join(input)
     except ValueError:
         return None
 
@@ -53,7 +55,7 @@ def test_prefix_split(input):
 
 def test_parse(input):
     input = input.encode("utf-8")
-    p = irc.Line.parse(input)
+    p = irc.Frame.parse(input)
     tags = [k if v is True or v == "" else "%s=%s" % (k, v)
         for k, v in p.tags.items()]
     if tags:

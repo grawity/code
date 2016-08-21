@@ -40,6 +40,10 @@ class Core(object):
     _num_warnings = 0
     _num_errors = 0
 
+    _pre_output_func = None
+    _post_output_func = None
+    _func_data = {}
+
     # public constants
 
     arg0 = sys.argv[0].split("/")[-1]
@@ -57,6 +61,16 @@ class Core(object):
     @property
     def _debug_mode(self):
         return self._log_level >= self.LOG_DEBUG
+
+    @classmethod
+    def set_output_pre_hook(self, func):
+        #self._pre_output_func = func
+        return func
+
+    @classmethod
+    def set_output_post_hook(self, func):
+        #self._post_output_func = func
+        return func
 
     @classmethod
     def _log(self, level, msg, *args,
@@ -115,7 +129,13 @@ class Core(object):
 
         output.append(msg)
 
+        if self._pre_output_func:
+            self._pre_output_func(self, msg, level, fh)
+
         print("".join(output), file=fh)
+
+        if self._post_output_func:
+            self._post_output_func(self, msg, level, fh)
 
     @classmethod
     def trace(self, msg, *args, **kwargs):

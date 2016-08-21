@@ -26,7 +26,24 @@ files_removed = 0
 size_removed = 0
 dirs_skipped = 0
 
+_last_status_msg = None
 _last_status = 0
+
+@Core.set_output_pre_hook
+def foo(self, msg, level, fh):
+    smsg = Core._func_data.get("last_status")
+    if smsg is not None:
+        Core._func_data["restore_status"] = smsg
+        #status()
+        sys.stderr.flush()
+
+@Core.set_output_post_hook
+def foo(self, msg, level, fh):
+    smsg = Core._func_data.get("restore_status")
+    if smsg is not None:
+        Core._func_data["restore_status"] = None
+        #status(smsg)
+        sys.stderr.flush()
 
 def status(*args):
     if isatty() and not opts.verbose:
@@ -40,6 +57,7 @@ def status(*args):
         if lines > 1:
             out += "\033[%dA" % (lines-1) # cursor up 1
         sys.stderr.write(out)
+        Core._func_data["last_status"] = msg
 
         import time
         global _last_status

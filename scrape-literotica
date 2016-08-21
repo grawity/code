@@ -17,10 +17,9 @@ class LiteroticaScraper(Scraper):
         r = self.ua.get(page_url)
         r.raise_for_status()
 
+        data = {}
         page = bs4.BeautifulSoup(r.content, "lxml")
         main = page.find("div", {"id": "main"})
-
-        data = {}
 
         tag = main.find("h1")
         data["title"] = tag.text
@@ -68,7 +67,7 @@ class LiteroticaScraper(Scraper):
         return "%s.html" % url
 
     def save_page_data(self, data):
-        Core.info("got \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
+        Core.debug("got \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
 
         filename = self._url_to_filename(data["url"], data["author"])
         Core.debug("saving to %r" % filename)
@@ -135,8 +134,6 @@ class LiteroticaScraper(Scraper):
             Core.info("saved \"%(title)s\" (%(page_max)s pages) to \"%(filename)s\"" % data)
 
     def save_story(self, url, series=False):
-        Core.info("downloading story %r" % url)
-
         data = {"page_next": url.split("?")[0]}
         while data["page_next"]:
             data = self.scrape_story_page(data["page_next"])

@@ -3,7 +3,11 @@ import os
 
 def get_file_attr(path, attr):
     try:
-        return os.getxattr(path, "user.%s" % attr).decode("utf-8")
+        value = os.getxattr(path, "user.%s" % attr)
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            return value
     except FileNotFoundError:
         raise
     except OSError:
@@ -11,11 +15,13 @@ def get_file_attr(path, attr):
 
 def set_file_attr(path, attr, value):
     try:
-        os.setxattr(path, "user.%s" % attr, value.encode("utf-8"))
+        if hasattr(value, "encode"):
+            value = value.encode("utf-8")
+        os.setxattr(path, "user.%s" % attr, value)
     except FileNotFoundError:
         raise
     except OSError:
-        pass
+        return
 
 def escape_html(text):
     xlat = [

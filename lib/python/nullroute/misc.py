@@ -65,26 +65,26 @@ def uniq(items):
             seen.add(item)
             yield item
 
-def fmt_size_short(n, d=1, u=1024):
-    cs = "BkMGTPEZYH"
-    e = 0
-    while n >= u:
-        n /= u
-        e += 1
-    c = cs[e]
-    return "%.*f%s" % (d, n, c)
+def fmt_size_short(nbytes, decimals=1, si=False):
+    prefixes = "BkMGTPEZYH"
+    div = 1000 if si else 1024
+    exp = 0
+    while nbytes >= div:
+        nbytes /= div
+        exp += 1
+    return "%.*f%s" % (decimals, nbytes, prefixes[exp])
 
-def fmt_size(nbytes, si=False):
+def fmt_size(nbytes, decimals=1, si=False):
     if nbytes == 0:
         return "0 bytes"
     prefixes = ".kMGTPEZYH"
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))
     if exp == 0:
-        return "%.1f bytes" % nbytes
+        return "%.*f bytes" % (nbytes, decimals)
     elif exp < len(prefixes):
         quot = nbytes / div**exp
-        return "%.1f %sB" % (quot, prefixes[exp])
+        return "%.*f %sB" % (quot, decimals, prefixes[exp])
     else:
         exp = len(prefixes) - 1
         quot = nbytes / div**exp

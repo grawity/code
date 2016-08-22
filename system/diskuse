@@ -5,6 +5,7 @@ import sys
 import subprocess
 from argparse import ArgumentParser
 from nullroute.core import *
+from nullroute.misc import fmt_size_short
 
 thresholds = [
     ( 10, ( 76, 10)),
@@ -92,11 +93,30 @@ fs_skip_mounts = {
     "/boot",
 }
 
+def get_user_name():
+    return os.environ.get("LOGNAME", "root")
+
+def get_home_dir():
+    return os.path.expanduser("~")
+
+def get_media_dir():
+    return "/run/media/%s" % get_user_name()
+
+def _get_cmd_output(*argv):
+    proc = subprocess.Popen(argv, stdout=subprocess.PIPE)
+    return proc.stdout.read().strip().decode("utf-8")
+
+def get_dir_fsid(path):
+    return _get_cmd_output("stat", "-f", "-c", "%i", path)
+
+def get_fs_devno(mtpt):
+    return _get_cmd_output("mountpoint", "-d", mtpt)
+
 def fs_kind_from_path(path):
     if not path.endswith("/"):
         path += "/"
     if path == "/":
-        home = os.path.expanduser("~")
+        home = get_home_dir()
         path_fsid = get_dir_fsid(path)
         home_fsid = get_dir_fsid(home)
         Core.debug("comparing fsid of %r vs %r", path, home)
@@ -111,8 +131,8 @@ def fs_kind_from_path(path):
 
 def path_shorten(path):
     path = path.rstrip("/") + "/"
-    home = os.environ.get("HOME", "").rstrip("/") + "/"
-    media = "/run/media/%s/" % os.environ.get("LOGNAME", "root").rstrip("/")
+    home = get_home_dir().rstrip("/") + "/"
+    media = get_media_dir().rstrip("/") + "/"
     if path == home:
         return "~"
     elif path == "/":
@@ -124,22 +144,13 @@ def path_shorten(path):
     else:
         return path or "/"
 
-def size_human(n, d=1, u=1024):
-    cs = "BkMGTPEZYH"
-    e = 0
-    while n >= u:
-        n /= u
-        e += 1
-    c = cs[e]
-    return "%.*f%s" % (d, n, c)
-
-def percent(n, digits):
+def fmt_percent(n, digits):
     if round(n, digits) < 100:
         return "%*.*f%%" % (digits+2, digits, n)
     else:
         return "%*.*f%%" % (digits+1, digits-1, n)
 
-def ansify(text, fmt):
+def fmt_ansi(text, fmt):
     return "\033[%sm%s\033[m" % (fmt, text) if fmt else text
 
 def gauge3(width, level,
@@ -151,9 +162,9 @@ def gauge3(width, level,
     n_partial = int(round(cells % 1))
     n_empty = int(width - n_full - n_partial)
 
-    return ansify(full_char    * n_full,    full_fmt) \
-         + ansify(partial_char * n_partial, partial_fmt) \
-         + ansify(empty_char   * n_empty,   empty_fmt)
+    return fmt_ansi(full_char    * n_full,    full_fmt) \
+         + fmt_ansi(partial_char * n_partial, partial_fmt) \
+         + fmt_ansi(empty_char   * n_empty,   empty_fmt)
 
 def rgb_split(color):
     r = (color - 16) // 6 // 6 % 6
@@ -243,16 +254,6 @@ def enum_mtab():
             Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
             yield mtpt, fstype, kind
 
-def get_dir_fsid(path):
-    proc = subprocess.Popen(["stat", "-f", "-c", "%i", path],
-                            stdout=subprocess.PIPE)
-    return proc.stdout.read().strip().decode("utf-8")
-
-def get_fs_devno(mtpt):
-    proc = subprocess.Popen(["mountpoint", "-d", mtpt],
-                            stdout=subprocess.PIPE)
-    return proc.stdout.read().strip().decode("utf-8")
-
 ap = ArgumentParser()
 ap.add_argument("-v", "--verbose",
                 dest="verbose", action="store_true", default=False)
@@ -300,7 +301,7 @@ else:
         "",
     )
 
-separator = ansify("-" * len(fmt % header), "2")
+separator = fmt_ansi("-" * len(fmt % header), "2")
 
 def dump_mtpt(mtpt, want_separator=False):
     try:
@@ -338,29 +339,29 @@ def dump_mtpt(mtpt, want_separator=False):
         row = (
             path_shorten(mtpt),
 
-            size_human(total_bytes),
-            size_human(free_bytes),
-            size_human(avail_bytes),
+            fmt_size_short(total_bytes),
+            fmt_size_short(free_bytes),
+            fmt_size_short(avail_bytes),
 
             quota_gauge_width,
             gauge3x(quota_gauge_width, quota_part, quota_color),
-            percent(quota_part, 1),
+            fmt_percent(quota_part, 1),
 
             disk_gauge_width,
             gauge3x(disk_gauge_width, disk_part, darken(disk_color, 2)),
-            percent(disk_part, 0),
+            fmt_percent(disk_part, 0),
         )
     else:
         row = (
             path_shorten(mtpt),
 
-            size_human(total_bytes),
-            size_human(used_bytes),
-            size_human(free_bytes),
+            fmt_size_short(total_bytes),
+            fmt_size_short(used_bytes),
+            fmt_size_short(free_bytes),
 
             disk_gauge_width,
             gauge3x(disk_gauge_width, quota_part, quota_color),
-            percent(disk_part, 1),
+            fmt_percent(disk_part, 1),
         )
 
     if want_separator:
@@ -369,11 +370,12 @@ def dump_mtpt(mtpt, want_separator=False):
     return True
 
 def dump_all():
-    print(ansify(fmt, "1") % header)
+    print(fmt_ansi(fmt, "1") % header)
     thisgroup = 0
     for mtpt, fstype, kind in partitions:
-        Core.debug("got mtpt %r of kind %r (%s) prio %r" \
-                   % (mtpt, kind, fs_kind_names.get(kind), fs_kind_priorities.get(kind, 0)))
+        Core.debug("got mtpt %r of kind %r (%s) prio %r",
+                   mtpt, kind, fs_kind_names.get(kind),
+                   fs_kind_priorities.get(kind, 0))
         group = fs_kind_groups.get(kind)
         if dump_mtpt(mtpt, want_separator=(thisgroup and group != thisgroup)):
             thisgroup = group

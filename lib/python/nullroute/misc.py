@@ -65,7 +65,7 @@ def uniq(items):
             seen.add(item)
             yield item
 
-def fmt_size_foo(n, d=1, u=1024):
+def fmt_size_short(n, d=1, u=1024):
     cs = "BkMGTPEZYH"
     e = 0
     while n >= u:

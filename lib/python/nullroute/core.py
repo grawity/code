@@ -54,8 +54,8 @@ class Core(object):
     def raise_log_level(self, level):
         self._log_level = max(self._log_level, level)
 
-    @property
-    def _debug_mode(self):
+    @classmethod
+    def _in_debug_mode(self):
         return self._log_level >= self.LOG_DEBUG
 
     @classmethod

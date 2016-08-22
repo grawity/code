@@ -110,15 +110,15 @@ def fs_kind_from_path(path):
     return KIND_NONE
 
 def path_shorten(path):
-    path = path.rstrip("/")
-    home = os.environ.get("HOME", "").rstrip("/")
-    media = "/run/media/%s" % os.environ.get("LOGNAME", "root")
+    path = path.rstrip("/") + "/"
+    home = os.environ.get("HOME", "").rstrip("/") + "/"
+    media = "/run/media/%s/" % os.environ.get("LOGNAME", "root").rstrip("/")
     if path == home:
         return "~"
-    elif (path + "/").startswith(home + "/"):
-        return "~" + path[len(home):]
-    elif (path + "/").startswith(media + "/"):
-        return path[len(media + "/"):]
+    elif path.startswith(home):
+        return "~" + path[len(home):-1]
+    elif path.startswith(media):
+        return path[len(media):-1]
     else:
         return path or "/"
 

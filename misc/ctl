@@ -22,16 +22,16 @@ sub print_file_data {
 sub write_ctl {
 	my ($file, $data) = @_;
 
-	if (open(my $fh, ">", $file)) {
-		print $fh $data."\n";
-		if ($fh->flush) {
+	if (my $fh = IO::File->new($file, "w")) {
+		$fh->print($data."\n");
+		if ($fh->flush()) {
 			print_file_data($file, $data);
 		} else {
-			err "ctl: key '$file': $!\n";
+			err "ctl: file '$file': $!\n";
 		}
-		close $fh;
+		$fh->close();
 	} else {
-		err "ctl: key '$file': $!\n";
+		err "ctl: file '$file': $!\n";
 	}
 }
 
@@ -48,9 +48,9 @@ sub read_ctl {
 		}
 		read_ctl($_, $depth+1) for glob("$file/*");
 	} elsif (-f $file) {
-		if (open(my $fh, "<", $file)) {
+		if (my $fh = IO::File->new($file, "r")) {
 			my $data;
-			if (read $fh, $data, 512) {
+			if ($fh->read($data, 512)) {
 				chomp $data;
 				print_file_data($file, $data);
 			} elsif ($!) {
@@ -58,9 +58,9 @@ sub read_ctl {
 			} else {
 				print "$file: empty\n";
 			}
-			close $fh;
+			$fh->close();
 		} else {
-			err "ctl: key '$file': $!\n";
+			err "ctl: file '$file': $!\n";
 		}
 	} elsif (-e $file || -l $file) {
 		warn "ctl: skipping non-regular file '$file'\n";

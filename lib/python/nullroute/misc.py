@@ -23,6 +23,33 @@ def set_file_attr(path, attr, value):
     except OSError:
         return
 
+def list_file_attrs(path):
+    try:
+        return [attr[5:] for attr in os.listxattr(path) if attr.startswith("user.")]
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return []
+
+def get_file_attrs(path, attrs=None):
+    try:
+        if not attrs:
+            attrs = list_file_attrs(path)
+        return {attr: get_file_attr(path, attr) for attr in attrs}
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return {}
+
+def set_file_attrs(path, attrs):
+    try:
+        for attr, value in attrs.items():
+            set_file_attr(path, attr, value)
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return
+
 def escape_html(text):
     xlat = [
         ('&', '&amp;'),

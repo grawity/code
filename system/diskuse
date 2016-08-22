@@ -95,6 +95,15 @@ fs_skip_mounts = {
 def fs_kind_from_path(path):
     if not path.endswith("/"):
         path += "/"
+    if path == "/":
+        home = os.path.expanduser("~")
+        path_fsid = get_dir_fsid(path)
+        home_fsid = get_dir_fsid(home)
+        Core.debug("comparing fsid of %r vs %r", path, home)
+        if (path_fsid == home_fsid) and (path_fsid != "0"):
+            return KIND_HOME
+        else:
+            return KIND_ROOT
     for prefix, kind in fs_kind_prefixes:
         if path.startswith(prefix):
             return kind
@@ -231,6 +240,11 @@ def enum_mtab():
                 continue
             Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
             yield mtpt, fstype, kind
+
+def get_dir_fsid(path):
+    proc = subprocess.Popen(["stat", "-f", "-c", "%i", path],
+                            stdout=subprocess.PIPE)
+    return proc.stdout.read().strip().decode("utf-8")
 
 def get_fs_devno(mtpt):
     proc = subprocess.Popen(["mountpoint", "-d", mtpt],

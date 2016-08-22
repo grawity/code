@@ -28,7 +28,7 @@ class Line {
 				$i++;
 		}
 
-		if ($i < $n && $line[$i][0] == ":") {
+		if ($i + 1 < $n && $line[$i][0] == ":") {
 			$parv[] = $line[$i];
 			$i++;
 			while ($i < $n && $line[$i] === "")

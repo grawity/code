@@ -11,6 +11,18 @@ use Nullroute::Lib;
 my $verbose;
 my $counter;
 
+sub lpad {
+	my ($str, $fmt, $max) = @_;
+
+	return " "x($max - length($str)) . ($fmt // $str);
+}
+
+sub rpad {
+	my ($str, $fmt, $max) = @_;
+
+	return ($fmt // $str) . " "x($max - length($str));
+}
+
 sub mangle_name {
 	mangle_principal((shift)->{server_name});
 }
@@ -291,15 +303,9 @@ do_print:
 			$max{expiry} = 8;
 
 			say " "x$INDENT,
-				$fmt{label},
-				" "x($max{label}-length($str{label})),
-				" ",
-				$str{flags},
-				" "x($max{flags}-length($str{flags})),
-				" ",
-				" "x($max{expiry}-length($str{expiry})),
-				$fmt{expiry},
-				;
+				rpad($str{label}, $fmt{label}, $max{label}), " ",
+				rpad($str{flags}, $fmt{flags}, $max{flags}), " ",
+				lpad($str{expiry}, $fmt{expiry}, $max{expiry});
 		}
 
 		if (!$num_srv) {

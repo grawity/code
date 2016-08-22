@@ -6,6 +6,7 @@ import pixivpy3
 import re
 import requests
 import sys
+import time
 
 def is_nonempty(file):
     if os.path.exists(file):
@@ -13,7 +14,13 @@ def is_nonempty(file):
             return True
     return False
 
-class Client(object):
+class PixivGrabber(object):
+    member_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?id=(?P<id>\d+)")
+    illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
+
+    member_fmt = "http://www.pixiv.net/member_illust.php?id=%s"
+    illust_fmt = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s"
+
     def __init__(self):
         self.ua = requests.Session()
         self.api = pixivpy3.PixivAPI()
@@ -33,7 +40,7 @@ class Client(object):
     def save_file(self, url, illust_id):
         headers = {}
         if illust_id:
-            headers["referer"] = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
+            headers["Referer"] = self.illust_fmt % illust_id
 
         name = os.path.basename(url)
         if is_nonempty(name):
@@ -41,12 +48,26 @@ class Client(object):
         else:
             Core.debug("saving %s to %r" % (url, name))
             with open(name, "wb") as fh:
-                resp = self.ua.get(url, headers=headers)
+                retry = 0
+                while True:
+                    try:
+                        resp = self.ua.get(url, headers=headers)
+                    except requests.exceptions.ConnectionError as e:
+                        retry += 1
+                        delay = retry * 2
+                        if retry > 5:
+                            Core.err("fetch error (%r), giving up after %s tries" % (e, delay))
+                            raise
+                        else:
+                            Core.warn("fetch error (%r), retrying after %s" % (e, delay))
+                            time.sleep(delay)
+                    else:
+                        break
                 resp.raise_for_status()
                 fh.write(resp.content)
                 set_file_attr(name, "xdg.origin.url", url)
                 if illust_id:
-                    set_file_attr(name, "xdg.referrer.url", "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id)
+                    set_file_attr(name, "xdg.referrer.url", headers["Referer"])
 
     def get_work_info(self, illust_id):
         r = self.api.works(illust_id)
@@ -56,24 +77,27 @@ class Client(object):
     def _save_work(self, work):
         with open("pixiv%s.txt" % work.user.id, "a") as log:
             log.write("-- %s --\n" % work.id)
-            log.write("%s\n" % work.title)
-            log.write("http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s\n" % work.id)
+            log.write("Title: ｢%s｣\n" % work.title)
+            log.write("Origin: <%s>\n" % (self.illust_fmt % work.id))
             log.write("\n")
-            log.write("%s\n" % work.caption)
+            log.write("%s\n" % work.caption.replace("\r\n", "\n"))
             log.write("\n")
 
         if (work.is_manga or work.type == "ugoira") and not work.metadata:
-            Core.info("- work %s lacks metadata, refreshing" % work.id)
+            Core.info("- refreshing metadata for work %s" % work.id)
             work = self.get_work_info(work.id)
 
-        if work.is_manga:
+        if work.type == "ugoira":
+            for size, url in work.metadata.zip_urls.items():
+                Core.info("- saving zip %r" % size)
+                self.save_file(url, work.id)
+            with open("%s_delays.txt", "w") as fh:
+                delays = [frame.delay_msec for frame in work.metadata.frames]
+                fh.write(str(delays))
+        elif work.is_manga:
             for j, page in enumerate(work.metadata.pages):
                 Core.info("- saving page %s of %s" % (j+1, work.page_count))
                 self.save_file(page.image_urls["large"], work.id)
-        elif work.type == "ugoira":
-            Core.err("ugoira download not yet implemented")
-            #delays = [frame.delay_msec for frame in work.metadata.frames]
-            #zip_urls = work.metadata.zip_urls
         else:
             self.save_file(work.image_urls["large"], work.id)
 
@@ -84,7 +108,7 @@ class Client(object):
         Core.info("downloading work: %s ｢%s｣" % (work.id, work.title))
         self._save_work(work)
 
-    def get_all_member_works(self, member_id, start_page=1):
+    def save_all_member_works(self, member_id, start_page=1):
         log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)
         while start_page:
@@ -106,26 +130,30 @@ class Client(object):
                             work.id,
                             work.title,
                           ))
-                self._save_work(work, _need_refresh=True)
+                self._save_work(work)
             start_page = works_r.pagination.next
 
-c = Client()
-
-illust_re = re.compile(r"http://www\.pixiv\.net/member_illust\.php\?mode=(manga|medium)&illust_id=(\d+)")
+c = PixivGrabber()
 
 for arg in sys.argv[1:]:
-    m = illust_re.match(arg)
+    m = c.illust_re.match(arg)
     if m:
-        mode = m.group(1)
-        illust_id = int(m.group(2))
-        if mode in {"medium", "manga"}:
-            c.save_one_work(illust_id)
-        else:
-            Core.err("unrecognized URL %r" % arg)
+        mode = m.group("mode")
+        if mode not in {"medium", "manga"}:
+            Core.err("BUG: unrecognized mode %r in URL %r" % (mode, arg))
+        illust_id = int(m.group("id"))
+        c.save_one_work(illust_id)
+        continue
+
+    m = c.member_re.match(arg)
+    if m:
+        member_id = int(m.group("id"))
+        c.save_all_member_works(member_id)
+        continue
+
+    try:
+        member_id = int(arg)
+    except ValueError:
+        Core.err("unrecognized argument %r" % arg)
     else:
-        try:
-            arg = int(arg)
-        except ValueError:
-            Core.err("unrecognized argument %r" % arg)
-        else:
-            c.get_all_member_works(arg)
+        c.save_all_member_works(member_id)

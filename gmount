@@ -72,11 +72,15 @@ for arg; do
 		info "mounting $dev"
 		gvfs-mount -d "$dev"
 	else
-		mtpt=$(findmnt -no TARGET -S LABEL="$arg")
+		debug "searching for inner_label '$arg'"
+		mtpt=$(findmnt -n -o TARGET -S "LABEL=$arg")
 		if [[ $mtpt ]]; then
 			info "unmounting $mtpt"
-			gvfs-mount -u "$mtpt"
+			gvfs-mount -u "$mtpt" || err "unmount failed"
+		elif ! (( standby || poweroff )); then
+			err "mountpoint not found"
 		fi
+
 		if (( standby )); then
 			dev=${dev%[0-9]}
 			info "putting $dev to standby"
@@ -88,3 +92,4 @@ for arg; do
 		fi
 	fi
 done
+lib::exit

@@ -54,7 +54,18 @@ for arg; do
 			elif [[ -e "/dev/disk/by-uuid/$uuid" ]]; then
 				dev=$(readlink -f "/dev/disk/by-uuid/$uuid")
 			else
-				die "disk with UUID '$uuid' not found"
+				info "waiting for device '$uuid' to appear"
+				while [[ ! $dev ]] && read -r ipath ievent iname; do
+					debug "got event: <$ipath> <$ievent> <$iname>"
+					if [[ $iname == "$uuid" ]]; then
+						dev=$(readlink -f "$ipath$iname")
+						debug "matched event for device '$dev'"
+						sleep 0.5
+					fi
+				done < <(inotifywait -rmqe create -t 30 /dev/disk)
+				if [[ ! $dev ]]; then
+					die "disk with UUID '$uuid' not found"
+				fi
 			fi
 		else
 			debug "searching for outer_label '$arg'"

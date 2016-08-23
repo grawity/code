@@ -3,6 +3,14 @@ from argparse import ArgumentParser
 from nullroute.core import *
 import sys
 
+def find_ext(path):
+    base = os.path.basename(old_path)
+    ext_pos = base.rfind(".")
+    if ext_pos > 0:
+        return base[ext_pos + 1]
+    else:
+        return None
+
 def replace_basename(old_path, new_base):
     old_dir = os.path.dirname(old_path)
     old_base = os.path.basename(old_path)
@@ -11,7 +19,23 @@ def replace_basename(old_path, new_base):
         new_base += old_base[ext_pos:]
     return os.path.join(old_dir, new_base)
 
-def enum_zip_root(file):
+def enum_root_rar(file):
+    import subprocess
+
+    with subprocess.Popen(["unrar", "vb", file],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            yield line.rstrip(b"\n").split(b"/")[0].decode()
+
+def enum_root_bsdtar(file):
+    import subprocess
+
+    with subprocess.Popen(["bsdtar", "tf", file],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            yield line.rstrip(b"\n").split(b"/")[0].decode()
+
+def enum_root_zip(file):
     import zipfile
 
     with zipfile.ZipFile(file, "r") as z:
@@ -44,7 +68,11 @@ opts.verbose = True
 
 for file in opts.file:
     if file.lower().endswith(".zip"):
-        handler = enum_zip_root
+        handler = enum_root_zip
+    elif file.lower().endswith(".rar"):
+        handler = enum_root_rar
+    elif file.lower().endswith(".7z"):
+        handler = enum_root_bsdtar
     else:
         Core.err("unrecognized archive type: %r" % file)
         continue
@@ -61,7 +89,7 @@ for file in opts.file:
             print("‘%s’ unchanged" % file)
     else:
         if opts.verbose:
-            print("‘%s’ -> ‘%s’" % (file, new_name))
+            print("‘%s’ -> ‘%s’" % (file, root))
         if not opts.dry_run:
             try:
                 os.rename(file, new_name)

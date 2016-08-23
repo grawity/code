@@ -16,15 +16,13 @@ def enum_zip_root(file):
 
     with zipfile.ZipFile(file, "r") as z:
         for item in z.namelist():
-            item = item.rstrip("/")
-            if "/" not in item:
-                yield item
+            yield item.split("/")[0]
 
 def find_root(file, handler):
-    found = list(handler(file))
+    found = set(handler(file))
 
     if len(found) == 1:
-        return found[0]
+        return found.pop()
     elif len(found) == 0:
         raise ValueError("file %r has no items in root directory" % file)
     else:

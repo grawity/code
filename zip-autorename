@@ -38,6 +38,10 @@ ap.add_argument("-v", "--verbose",
 ap.add_argument("file", nargs="*")
 
 opts = ap.parse_args()
+if opts.dry_run:
+    opts.verbose = True
+elif not opts.verbose:
+    opts.dry_run = True
 
 for file in opts.file:
     if file.lower().endswith(".zip"):
@@ -53,7 +57,6 @@ for file in opts.file:
         continue
 
     new_name = replace_basename(file, root)
-
     if file == new_name:
         if opts.verbose:
             print("‘%s’ unchanged" % file)
@@ -65,5 +68,8 @@ for file in opts.file:
                 os.rename(file, new_name)
             except OSError as e:
                 Core.err("could not rename %r: %r" % (file, e))
+
+if opts.dry_run:
+    Core.notice("dry run complete")
 
 Core.exit()

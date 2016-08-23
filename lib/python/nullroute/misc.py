@@ -3,7 +3,11 @@ import os
 
 def get_file_attr(path, attr):
     try:
-        return os.getxattr(path, "user.%s" % attr).decode("utf-8")
+        value = os.getxattr(path, "user.%s" % attr)
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            return value
     except FileNotFoundError:
         raise
     except OSError:
@@ -11,11 +15,40 @@ def get_file_attr(path, attr):
 
 def set_file_attr(path, attr, value):
     try:
-        os.setxattr(path, "user.%s" % attr, value.encode("utf-8"))
+        if hasattr(value, "encode"):
+            value = value.encode("utf-8")
+        os.setxattr(path, "user.%s" % attr, value)
     except FileNotFoundError:
         raise
     except OSError:
-        pass
+        return
+
+def list_file_attrs(path):
+    try:
+        return [attr[5:] for attr in os.listxattr(path) if attr.startswith("user.")]
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return []
+
+def get_file_attrs(path, attrs=None):
+    try:
+        if not attrs:
+            attrs = list_file_attrs(path)
+        return {attr: get_file_attr(path, attr) for attr in attrs}
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return {}
+
+def set_file_attrs(path, attrs):
+    try:
+        for attr, value in attrs.items():
+            set_file_attr(path, attr, value)
+    except FileNotFoundError:
+        raise
+    except OSError:
+        return
 
 def escape_html(text):
     xlat = [
@@ -65,26 +98,26 @@ def uniq(items):
             seen.add(item)
             yield item
 
-def fmt_size_foo(n, d=1, u=1024):
-    cs = "BkMGTPEZYH"
-    e = 0
-    while n >= u:
-        n /= u
-        e += 1
-    c = cs[e]
-    return "%.*f%s" % (d, n, c)
+def fmt_size_short(nbytes, decimals=1, si=False):
+    prefixes = "BkMGTPEZYH"
+    div = 1000 if si else 1024
+    exp = 0
+    while nbytes >= div:
+        nbytes /= div
+        exp += 1
+    return "%.*f%s" % (decimals, nbytes, prefixes[exp])
 
-def fmt_size(nbytes, si=False):
+def fmt_size(nbytes, decimals=1, si=False):
     if nbytes == 0:
         return "0 bytes"
     prefixes = ".kMGTPEZYH"
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))
     if exp == 0:
-        return "%.1f bytes" % nbytes
+        return "%.*f bytes" % (nbytes, decimals)
     elif exp < len(prefixes):
         quot = nbytes / div**exp
-        return "%.1f %sB" % (quot, prefixes[exp])
+        return "%.*f %sB" % (quot, decimals, prefixes[exp])
     else:
         exp = len(prefixes) - 1
         quot = nbytes / div**exp

@@ -64,7 +64,18 @@ for arg; do
 			elif [[ -e "/dev/disk/by-uuid/$uuid" ]]; then
 				dev=$(readlink -f "/dev/disk/by-uuid/$uuid")
 			else
-				die "disk with UUID '$uuid' not found"
+				info "waiting for device '$uuid' to appear"
+				while [[ ! $dev ]] && read -r ipath ievent iname; do
+					debug "got event: <$ipath> <$ievent> <$iname>"
+					if [[ $iname == "$uuid" ]]; then
+						dev=$(readlink -f "$ipath$iname")
+						debug "matched event for device '$dev'"
+						sleep 0.5
+					fi
+				done < <(inotifywait -rmqe create -t 30 /dev/disk)
+				if [[ ! $dev ]]; then
+					die "disk with UUID '$uuid' not found"
+				fi
 			fi
 		else
 			debug "searching for outer_label '$arg'"
@@ -79,16 +90,18 @@ for arg; do
 	fi
 
 	if (( mount )); then
-		#debug "resetting failed systemd mounts, just in case"
-		#sudo systemctl reset-failed
 		info "mounting $dev"
 		gvfs-mount -d "$dev"
 	else
-		mtpt=$(findmnt -no TARGET -S LABEL="$arg")
+		debug "searching for inner_label '$arg'"
+		mtpt=$(findmnt -n -o TARGET -S "LABEL=$arg")
 		if [[ $mtpt ]]; then
 			info "unmounting $mtpt"
-			gvfs-mount -u "$mtpt"
+			gvfs-mount -u "$mtpt" || err "unmount failed"
+		elif ! (( standby || poweroff )); then
+			err "mountpoint not found"
 		fi
+
 		if (( standby )); then
 			dev=${dev%[0-9]}
 			info "putting $dev to standby"
@@ -100,3 +113,4 @@ for arg; do
 		fi
 	fi
 done
+lib::exit

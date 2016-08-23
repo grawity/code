@@ -49,6 +49,8 @@ is_ignored() {
 }
 
 do_pull() {
+	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
+
 	if (( opt_dryrun > 1 )); then
 		is "noop"
 		return
@@ -168,11 +170,15 @@ do_pull() {
 		fi
 	else
 		is none
-	fi
+	fi || (( ++errors ))
+
+	debug "pull[$depth,$BASHPID] returning with ${errors:-0} errors"
 	(( !errors ))
 }
 
 do_main() {
+	debug "main[$[++depth],$BASHPID] called, checking for Pullfile"
+
 	if [[ ! $_PULL_STARTDIR ]]; then
 		export _PULL_STARTDIR=$PWD
 	fi
@@ -245,13 +251,17 @@ do_main() {
 			fi
 
 			debug "- updating '$dir'"
-			(cd "$dir" && do_pull)
+			(cd "$dir" && do_pull) || err "update of '$dir' failed"
 		done
 	else
-		do_pull
-	fi
+		do_pull || err "update of . failed"
+	fi || (( ++errors ))
+
+	debug "main[$depth,$BASHPID] returning with ${errors:-0} errors"
+	(( !errors ))
 }
 
+depth=0
 opt_dryrun=0
 
 while getopts ":n" OPT; do
@@ -261,4 +271,6 @@ while getopts ":n" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-do_main "$@" && (( !errors ))
+do_main "$@" || err "update failed (toplevel returned $?)"
+
+(( !errors ))

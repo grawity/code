@@ -50,16 +50,15 @@ is_ignored() {
 
 do_pull() {
 	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
+
 	local errors=0
 
 	if (( opt_dryrun > 1 )); then
 		is "noop"
-		return
 	elif [[ -f Pullfile ]]; then
 		do_main
 	elif (( opt_dryrun > 0 )); then
 		is "noop"
-		return
 	elif [[ -d .git/svn ]]; then
 		is "Git – SVN clone"
 		if remote=$(git config --get svn-remote.svn.url); then
@@ -173,12 +172,13 @@ do_pull() {
 		is none
 	fi || (( ++errors ))
 
-	debug "pull[$depth,$BASHPID] returning with ${errors:-0} errors"
+	debug "pull[$[depth--],$BASHPID] returning with $errors errors"
 	(( !errors ))
 }
 
 do_main() {
 	debug "main[$[++depth],$BASHPID] called, checking for Pullfile"
+
 	local errors=0
 	local -A did
 
@@ -256,7 +256,11 @@ do_main() {
 		(cd "$dir" && do_pull) || err "update of '$dir' failed"
 	done
 
-	debug "main[$depth,$BASHPID] returning with ${errors:-0} errors"
+	if (( errors && depth == 1 )); then
+		(err "$errors/$# failed")
+	fi
+
+	debug "main[$[depth--],$BASHPID] returning with $errors errors"
 	(( !errors ))
 }
 

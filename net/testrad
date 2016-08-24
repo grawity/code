@@ -16,8 +16,8 @@ usage() {
 	echo_opt "PROFILE" "Use given profile config block (or 'none')"
 	echo ""
 	echo "Server:"
-	echo_opt "via SERVER" "Use given server config block"
-	echo_opt "host HOSTNAME" "Set RADIUS server name or address"
+	echo_opt "via SERVERPROFILE" "Use given server config block"
+	echo_opt "host ADDRESS" "Set RADIUS server name or address"
 	echo_opt "port PORT" "Set RADIUS authentication port"
 	echo_opt "secret SECRET" "Set RADIUS secret"
 	echo ""
@@ -40,8 +40,9 @@ usage() {
 	echo_opt "[tls-]ca system" "Verify server against default system CAs"
 	echo_opt "subject-match ..." "Check server certificate subject [deprecated!]"
 	echo_opt "altsubject-match ..." "Check server certificate SAN [deprecated!]"
-	echo_opt "domain-match ..." "Check server certificate domain (CN or SAN)"
-	echo_opt "domain-suffix-match ..." "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-match DOMAIN" "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-suffix-match DOMAIN" "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-suffix-match \"auto\"" "Check against the realm of inner identity"
 	echo ""
 	echo "Phase 1 TLS options:"
 	echo_opt "tls no-v1.2" "Disable TLS v1.2 (for broken servers)"
@@ -400,6 +401,7 @@ if [[ $eap && $eap != NONE ]]; then
 		'phase2='*)
 			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
 		# magic values
+		'domain_suffix_match="auto"') ;&
 		'domain_suffix_match="@"')
 			debug "expanding '$opt'"
 			if [[ $identity == *@* ]]; then

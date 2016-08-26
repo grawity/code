@@ -3,10 +3,14 @@ import os
 import time
 
 def set_file_mtime(path, timestamp):
+    if hasattr(path, "fileno"):
+        path = path.fileno()
     os.utime(path, (time.time(), timestamp))
 
 def get_file_attr(path, attr):
     try:
+        if hasattr(path, "fileno"):
+            path = path.fileno()
         value = os.getxattr(path, "user.%s" % attr)
         try:
             return value.decode("utf-8")
@@ -19,6 +23,8 @@ def get_file_attr(path, attr):
 
 def set_file_attr(path, attr, value):
     try:
+        if hasattr(path, "fileno"):
+            path = path.fileno()
         if hasattr(value, "encode"):
             value = value.encode("utf-8")
         os.setxattr(path, "user.%s" % attr, value)
@@ -29,6 +35,8 @@ def set_file_attr(path, attr, value):
 
 def list_file_attrs(path):
     try:
+        if hasattr(path, "fileno"):
+            path = path.fileno()
         return [attr[5:] for attr in os.listxattr(path) if attr.startswith("user.")]
     except FileNotFoundError:
         raise

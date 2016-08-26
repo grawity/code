@@ -37,10 +37,19 @@ sub _system {
 	system {$args[0]} @args;
 }
 
+sub escape_c {
+	my ($str) = @_;
+	$str =~ s/[\\"]/\\$&/g;
+	$str =~ s/\n/\\n/g;
+	$str =~ s/\t/\\t/g;
+	$str =~ s/[\x00-\x1F]/sprintf("\\x%02X", ord($&))/ge;
+	return $str;
+}
+
 sub safe_val {
 	my ($str) = @_;
 	if (utf8::is_utf8($str) || utf8::decode($str)) {
-		return "\"$str\"";
+		return "\"".escape_c($str)."\"";
 	} else {
 		return "{".encode_base64($str, "")."}";
 	}

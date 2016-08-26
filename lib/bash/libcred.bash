@@ -59,7 +59,7 @@ readcred() {
 }
 
 # getcred_var(host, [service], object, $uservar, $passvar)
-# obtain credentials for service@host and put into given variables
+# obtain credentials for service/host and put into given variables
 
 getcred_var() {
 	local OPT OPTARG
@@ -94,7 +94,7 @@ getcred_var() {
 }
 
 # getcred_samba(host, [service], objectname)
-# obtain credentials for service@host, output in smbclient format
+# obtain credentials for service/host, output in smbclient format
 
 getcred_samba() {
 	local host=$1 service=$2 obj=$3
@@ -105,7 +105,7 @@ getcred_samba() {
 }
 
 # getnetrc_fqdn(host, [service], format)
-# call getnetrc for [service@]host and [service@]fqdn until success
+# call getnetrc for [service/]host and [service/]fqdn until success
 
 getnetrc_fqdn() {
 	local host=$1 service=$2 user=$3 fmt=$4
@@ -117,21 +117,21 @@ getnetrc_fqdn() {
 		local fqdn=$(fqdn "$host")
 	fi
 	if [[ "$host" == "$fqdn" ]]; then
-		debug "searching .netrc for '$service@$host'"
+		debug "searching .netrc for '$service/$host'"
 	else
-		debug "searching .netrc for '$service@$host' & '$service@$fqdn'"
+		debug "searching .netrc for '$service/$host' & '$service/$fqdn'"
 	fi
 	if [[ "$user" ]]; then
-		getnetrc -df "$fmt" "$service@$host" "$user" && return
+		getnetrc -df "$fmt" "$service/$host" "$user" && return
 		if [[ "$host" != "$fqdn" ]]; then
-			getnetrc -df "$fmt" "$service@$fqdn" "$user" && return
+			getnetrc -df "$fmt" "$service/$fqdn" "$user" && return
 		fi
-		getnetrc -df "$fmt" "$service@*.${fqdn#*.}" "$user" && return
+		getnetrc -df "$fmt" "$service/*.${fqdn#*.}" "$user" && return
 	else
-		getnetrc -df "$fmt" "$service@$host" && return
+		getnetrc -df "$fmt" "$service/$host" && return
 		if [[ "$host" != "$fqdn" ]]; then
-		       getnetrc -df "$fmt" "$service@$fqdn" && return
+		       getnetrc -df "$fmt" "$service/$fqdn" && return
 		fi
-		getnetrc -df "$fmt" "$service@*.${fqdn#*.}" && return
+		getnetrc -df "$fmt" "$service/*.${fqdn#*.}" && return
 	fi
 }

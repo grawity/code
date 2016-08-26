@@ -1,5 +1,9 @@
 import math
 import os
+import time
+
+def set_file_mtime(path, timestamp):
+    os.utime(path, (time.time(), timestamp))
 
 def get_file_attr(path, attr):
     try:

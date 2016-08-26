@@ -49,14 +49,16 @@ is_ignored() {
 }
 
 do_pull() {
+	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
+
+	local errors=0
+
 	if (( opt_dryrun > 1 )); then
 		is "noop"
-		return
 	elif [[ -f Pullfile ]]; then
 		do_main
 	elif (( opt_dryrun > 0 )); then
 		is "noop"
-		return
 	elif [[ -d .git/svn ]]; then
 		is "Git – SVN clone"
 		if remote=$(git config --get svn-remote.svn.url); then
@@ -168,11 +170,18 @@ do_pull() {
 		fi
 	else
 		is none
-	fi
+	fi || (( ++errors ))
+
+	debug "pull[$[depth--],$BASHPID] returning with $errors errors"
 	(( !errors ))
 }
 
 do_main() {
+	debug "main[$[++depth],$BASHPID] called, checking for Pullfile"
+
+	local errors=0
+	local -A did
+
 	if [[ ! $_PULL_STARTDIR ]]; then
 		export _PULL_STARTDIR=$PWD
 	fi
@@ -188,70 +197,77 @@ do_main() {
 	fi
 
 	if (( ! $# )); then
+		debug "no args, assuming '.'"
 		set -- .
 	fi
 
-	if (( $# )); then
-		declare -A did
-		for arg; do
-			debug "processing arg '$arg'"
+	for arg; do
+		debug "processing arg '$arg'"
 
-			if [[ $arg == -* ]]; then
-				arg=${arg#-}
-				if [[ ! -d $arg ]]; then
-					debug "- exclusion is not a directory, ignoring"
-					continue
-				fi
-				dir=$(readlink -f "$arg")
-				debug "- excluding dir '$dir'"
-				did[$dir]=y
-				continue
-			fi
-
-			if [[ $arg == !* ]]; then
-				arg=${arg#!}
-				debug "- excluding glob '$arg'"
-				_skip_glob+="|$arg"
-				skip_glob="@(${_skip_glob#|})"
-				debug "- skip_glob is now '$skip_glob'"
-				continue
-			fi
-
-			if [[ $skip_glob && $arg == $skip_glob ]]; then
-				debug "- arg '$arg' is excluded, skipping"
-				continue
-			fi
-
-			if [[ ! -d $arg && -d $arg.git ]]; then
-				arg+=.git
-			fi
-
+		if [[ $arg == -* ]]; then
+			arg=${arg#-}
 			if [[ ! -d $arg ]]; then
-				err "not a directory: '$arg'"
+				debug "- exclusion is not a directory, ignoring"
+				if [[ $arg == *[*?]* ]]; then
+					warn "use '!$arg', not '-$arg', to exclude globs"
+				fi
 				continue
 			fi
-
 			dir=$(readlink -f "$arg")
-
-			if [[ ${did[$dir]} ]]; then
-				debug "- dir '$dir' already seen, skipping"
-				continue
-			fi
+			debug "- excluding dir '$dir'"
 			did[$dir]=y
+			continue
+		fi
 
-			if is_ignored "$dir"; then
-				debug "- dir '$dir' is ignored (+u), skipping"
-				continue
-			fi
+		if [[ $arg == !* ]]; then
+			arg=${arg#!}
+			debug "- excluding glob '$arg'"
+			_skip_glob+="|$arg"
+			skip_glob="@(${_skip_glob#|})"
+			debug "- skip_glob is now '$skip_glob'"
+			continue
+		fi
 
-			debug "- updating '$dir'"
-			(cd "$dir" && do_pull)
-		done
-	else
-		do_pull
+		if [[ $skip_glob && $arg == $skip_glob ]]; then
+			debug "- arg '$arg' is excluded, skipping"
+			continue
+		fi
+
+		if [[ ! -d $arg && -d $arg.git ]]; then
+			arg+=.git
+		fi
+
+		if [[ ! -d $arg ]]; then
+			err "not a directory: '$arg'"
+			continue
+		fi
+
+		dir=$(readlink -f "$arg")
+
+		if [[ ${did[$dir]} ]]; then
+			debug "- dir '$dir' already seen, skipping"
+			continue
+		fi
+		did[$dir]=y
+
+		if is_ignored "$dir"; then
+			debug "- dir '$dir' is ignored (+u), skipping"
+			continue
+		fi
+
+		debug "- updating '$dir'"
+		(cd "$dir" && do_pull) || err "update of '$dir' failed"
+	done
+
+	if (( errors && depth == 1 )); then
+		(err "$errors/$# failed")
 	fi
+
+	debug "main[$[depth--],$BASHPID] returning with $errors errors"
+	(( !errors ))
 }
 
+depth=0
 opt_dryrun=0
 
 while getopts ":n" OPT; do

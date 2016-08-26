@@ -128,10 +128,10 @@ def fmt_size(nbytes, decimals=1, si=False):
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))
     if exp == 0:
-        return "%.*f bytes" % (nbytes, decimals)
+        return "%.*f bytes" % (decimals, nbytes)
     elif exp < len(prefixes):
         quot = nbytes / div**exp
-        return "%.*f %sB" % (quot, decimals, prefixes[exp])
+        return "%.*f %sB" % (decimals, quot, prefixes[exp])
     else:
         exp = len(prefixes) - 1
         quot = nbytes / div**exp

@@ -16,8 +16,8 @@ usage() {
 	echo_opt "PROFILE" "Use given profile config block (or 'none')"
 	echo ""
 	echo "Server:"
-	echo_opt "via SERVER" "Use given server config block"
-	echo_opt "host HOSTNAME" "Set RADIUS server name or address"
+	echo_opt "via SERVERPROFILE" "Use given server config block"
+	echo_opt "host ADDRESS" "Set RADIUS host name or address"
 	echo_opt "port PORT" "Set RADIUS authentication port"
 	echo_opt "secret SECRET" "Set RADIUS secret"
 	echo ""
@@ -40,8 +40,9 @@ usage() {
 	echo_opt "[tls-]ca system" "Verify server against default system CAs"
 	echo_opt "subject-match ..." "Check server certificate subject [deprecated!]"
 	echo_opt "altsubject-match ..." "Check server certificate SAN [deprecated!]"
-	echo_opt "domain-match ..." "Check server certificate domain (CN or SAN)"
-	echo_opt "domain-suffix-match ..." "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-match DOMAIN" "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-suffix-match DOMAIN" "Check server certificate domain (CN or SAN)"
+	echo_opt "domain-suffix-match \"auto\"" "Check against the realm of inner identity"
 	echo ""
 	echo "Phase 1 TLS options:"
 	echo_opt "tls no-v1.2" "Disable TLS v1.2 (for broken servers)"
@@ -84,7 +85,7 @@ help_config() {
 	echo "Use 'testrad none ...' if no profile needs to be loaded."
 }
 
-declare -- server port secret eap mech phase2
+declare -- host port secret eap mech phase2
 declare -- identity outer_id password
 declare -- tls_cert tls_key tls_ca save_chain
 declare -a tls_opts phase1_opts
@@ -159,7 +160,7 @@ parse_args() {
 			via)
 				load_conf server "$2"; shift;;
 			host)
-				server=$2; shift;;
+				host=$2; shift;;
 			port)
 				port=$2; shift;;
 			secret)
@@ -207,7 +208,7 @@ parse_args() {
 
 parse_args "$@"
 
-if [[ $profile && ! $server ]]; then
+if [[ $profile && ! $host ]]; then
 	debug "server not set, trying to load '$profile' based on profile"
 	if [[ -v "server_$profile" ]]; then
 		load_conf server "$profile"
@@ -227,25 +228,27 @@ have "$eapol_bin" || err "missing '$eapol_bin' binary"
 
 IPV4_RE='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
 
-if [[ ! $server ]]; then
-	die "missing RADIUS server address"
-elif [[ $server == *:*:* ]]; then
+if [[ ! $host && ! $profile ]]; then
+	die "missing profile name or RADIUS host address"
+elif [[ ! $host ]]; then
+	die "missing RADIUS host address in profile"
+elif [[ $host == *:*:* ]]; then
 	die "RADIUS over IPv6 is not yet supported by eapol_test"
-elif [[ $server == *:* ]]; then
+elif [[ $host == *:* ]]; then
 	die "invalid server name (use the 'port' option)"
-elif ! [[ $server =~ $IPV4_RE ]]; then
+elif ! [[ $host =~ $IPV4_RE ]]; then
 	if have name2addr; then
-		server_ip=$(name2addr -4 "$server")
+		server_ip=$(name2addr -4 "$host")
 	elif have getent; then
-		server_ip=$(getent ahostsv4 "$server" | awk '{print $1}' | head -1)
+		server_ip=$(getent ahostsv4 "$host" | awk '{print $1}' | head -1)
 	else
 		die "missing 'name2addr' binary required for DNS resolution"
 	fi
 	if [[ $server_ip ]]; then
-		debug "resolved '$server' to '$server_ip'"
-		server=$server_ip
+		debug "resolved '$host' to '$server_ip'"
+		host=$server_ip
 	else
-		die "could not resolve RADIUS server '$server'"
+		die "could not resolve RADIUS server '$host'"
 	fi
 fi
 
@@ -342,7 +345,7 @@ fi
 
 log "account: \"$identity\""
 debug "password: \"$password\""
-log "server: $server"
+log "host: $host"
 debug "secret: \"$secret\""
 
 if [[ $eap && $eap != NONE ]]; then
@@ -400,6 +403,7 @@ if [[ $eap && $eap != NONE ]]; then
 		'phase2='*)
 			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
 		# magic values
+		'domain_suffix_match="auto"') ;&
 		'domain_suffix_match="@"')
 			debug "expanding '$opt'"
 			if [[ $identity == *@* ]]; then
@@ -450,7 +454,7 @@ if [[ $eap && $eap != NONE ]]; then
 	} > "$conf"
 	(( ! errors )) || exit
 
-	cmd=($eapol_bin -c "$conf" -a "$server" -p "$port" -s "$secret" -t 5
+	cmd=($eapol_bin -c "$conf" -a "$host" -p "$port" -s "$secret" -t 5
 			-M "22:44:66:42:42:42"
 			-C "testrad+eapol_test (${EMAIL:-$USERNAME@$HOSTNAME})")
 
@@ -467,7 +471,7 @@ else
 	if [[ "$outer_id" != "$identity" ]]; then
 		die "anonymous identity \"$outer_id\" not supported without EAP"
 	fi
-	cmd=(radtest -t "$mech" "$identity" "$password" "$server:$port" 0 "$secret")
+	cmd=(radtest -t "$mech" "$identity" "$password" "$host:$port" 0 "$secret")
 fi
 
 echo "+ ${cmd[*]}"

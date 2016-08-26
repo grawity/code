@@ -82,24 +82,26 @@ def escape_shell(text):
         text = '"%s"' % text
     return text
 
-def filter_filename(name):
+def filter_filename(name, safe=False):
     xlat = [
+        # space and unsafe
         (' ', '_'),
-        ('　', '_'),
         ('"', '_'),
         ('*', '_'),
-        ('/', '⁄'),
-        (':', '∶'),
+        ('/', '_' if safe else '⁄'),
+        (':', '_' if safe else '∶'),
         ('<', '_'),
         ('>', '_'),
-        ('?', '？'),
+        ('?', '_' if safe else '？'),
+        # wide characters
+        ('　', '_'),
     ]
     name = name.strip()
     for k, v in xlat:
         name = name.replace(k, v)
     if name.startswith("."):
         name = "_" + name
-    if name.endswith("~"):
+    if name.endswith("~") and not safe:
         name = name.replace("~", "∼")
     return name
 

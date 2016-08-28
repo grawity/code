@@ -59,15 +59,29 @@ $(OBJ)/misc_util.o:	$(DIST)/../misc/util.c $(DIST)/../misc/util.h
 
 $(OBJ)/ac-wait:		LDLIBS += -ludev
 $(OBJ)/ac-wait:		system/ac-wait.c
+
 $(OBJ)/entropy:		LDLIBS += -lm
 $(OBJ)/entropy:		security/entropy.c
+
+$(OBJ)/gl-mem:		CFLAGS += $(shell pkg-config x11 epoxy --cflags)
+$(OBJ)/gl-mem:		LDLIBS += $(shell pkg-config x11 epoxy --libs)
+$(OBJ)/gl-mem:		desktop/gl-mem.c
+
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
+
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
+
 $(OBJ)/showsigmask:	system/showsigmask.c
+
 $(OBJ)/strtool:		misc/strtool.c
+
 $(OBJ)/subreaper:	system/subreaper.c
+
 $(OBJ)/tapchown:	net/tapchown.c
+
 $(OBJ)/xor:		misc/xor.c
+
 $(OBJ)/xorf:		misc/xorf.c
+
 $(OBJ)/xors:		misc/xors.c

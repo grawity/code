@@ -76,6 +76,10 @@ class PixivGrabber(object):
         return r.response[0]
 
     def _save_work(self, work):
+        if (work.is_manga or work.type == "ugoira") and not work.metadata:
+            Core.info("- refreshing metadata for work %s" % work.id)
+            work = self.get_work_info(work.id)
+
         attrs = {
             "dublincore.title": work.title,
             "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
@@ -90,10 +94,6 @@ class PixivGrabber(object):
             if work.caption:
                 log.write("%s\n" % work.caption.replace("\r\n", "\n"))
                 log.write("\n")
-
-        if (work.is_manga or work.type == "ugoira") and not work.metadata:
-            Core.info("- refreshing metadata for work %s" % work.id)
-            work = self.get_work_info(work.id)
 
         if work.type == "ugoira":
             for size, url in work.metadata.zip_urls.items():

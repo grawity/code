@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from nullroute.core import *
-from nullroute.misc import set_file_attr
+from nullroute.misc import set_file_attr, set_file_attrs
 import nullroute.sec
 import pixivpy3
 import re
@@ -37,10 +37,11 @@ class PixivGrabber(object):
             Core.die("error %r" % r)
         return r
 
-    def save_file(self, url, illust_id):
-        headers = {}
-        if illust_id:
-            headers["Referer"] = self.illust_fmt % illust_id
+    def save_file(self, url, attrs=None):
+        if attrs:
+            headers = {"Referer": attrs.get("xdg.referrer.url", url)}
+        else:
+            headers = {"Referer": url}
 
         name = os.path.basename(url)
         if is_nonempty(name):
@@ -66,8 +67,8 @@ class PixivGrabber(object):
                 resp.raise_for_status()
                 fh.write(resp.content)
                 set_file_attr(name, "xdg.origin.url", url)
-                if illust_id:
-                    set_file_attr(name, "xdg.referrer.url", headers["Referer"])
+                if attrs:
+                    set_file_attrs(name, attrs)
 
     def get_work_info(self, illust_id):
         r = self.api.works(illust_id)
@@ -75,6 +76,12 @@ class PixivGrabber(object):
         return r.response[0]
 
     def _save_work(self, work):
+        attrs = {
+            "dublincore.title": work.title,
+            "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
+            "xdg.referrer.url": self.illust_fmt % work.id,
+        }
+
         with open("pixiv%s.txt" % work.user.id, "a") as log:
             log.write("-- %s --\n" % work.id)
             log.write("Title: ｢%s｣\n" % work.title)
@@ -91,16 +98,16 @@ class PixivGrabber(object):
         if work.type == "ugoira":
             for size, url in work.metadata.zip_urls.items():
                 Core.info("- saving zip %r" % size)
-                self.save_file(url, work.id)
+                self.save_file(url, attrs)
             with open("%s_delays.txt", "w") as fh:
                 delays = [frame.delay_msec for frame in work.metadata.frames]
                 fh.write(str(delays))
         elif work.is_manga:
             for j, page in enumerate(work.metadata.pages):
                 Core.info("- saving page %s of %s" % (j+1, work.page_count))
-                self.save_file(page.image_urls["large"], work.id)
+                self.save_file(page.image_urls["large"], attrs)
         else:
-            self.save_file(work.image_urls["large"], work.id)
+            self.save_file(work.image_urls["large"], attrs)
 
     def save_one_work(self, illust_id):
         work = self.get_work_info(illust_id)

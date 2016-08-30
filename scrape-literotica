@@ -13,14 +13,15 @@ class Scraper(object):
 
 class LiteroticaScraper(Scraper):
     def scrape_story_page(self, page_url):
+        page_url = page_url.replace("http://", "https://")
+        page_url = page_url.replace("/stories/showstory.php?url=", "/s/")
         Core.info("fetching %r" % page_url)
         r = self.ua.get(page_url)
         r.raise_for_status()
 
+        data = {}
         page = bs4.BeautifulSoup(r.content, "lxml")
         main = page.find("div", {"id": "main"})
-
-        data = {}
 
         tag = main.find("h1")
         data["title"] = tag.text
@@ -63,12 +64,12 @@ class LiteroticaScraper(Scraper):
         url = url.split("?")[0]
         url = url.split("/")[-1]
         url = filter_filename(url)
-        if author:
-            url = filter_filename(author) + "_" + url
+        #if author:
+        #    url += "_(%s)" % filter_filename(author)
         return "%s.html" % url
 
     def save_page_data(self, data):
-        Core.info("got \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
+        Core.debug("got \"%(title)s\" (page %(page_cur)d out of %(page_max)d)" % data)
 
         filename = self._url_to_filename(data["url"], data["author"])
         Core.debug("saving to %r" % filename)
@@ -135,8 +136,6 @@ class LiteroticaScraper(Scraper):
             Core.info("saved \"%(title)s\" (%(page_max)s pages) to \"%(filename)s\"" % data)
 
     def save_story(self, url, series=False):
-        Core.info("downloading story %r" % url)
-
         data = {"page_next": url.split("?")[0]}
         while data["page_next"]:
             data = self.scrape_story_page(data["page_next"])
@@ -148,9 +147,12 @@ class LiteroticaScraper(Scraper):
                 self.save_story(also_url)
 
 ap = ArgumentParser()
-ap.add_argument("-s", "--series",
-                dest="series", action="store_true", default=False,
-                help="download all related stories in the series")
+#ap.add_argument("-s", "--series",
+#                dest="series", action="store_true", default=False,
+#                help="download all related stories in the series")
+ap.add_argument("-S", "--no-series",
+                dest="series", action="store_false", default=True,
+                help="only download given story, not the entire series")
 ap.add_argument("url", nargs="*")
 
 opts = ap.parse_args()

@@ -3,51 +3,7 @@ use v5.14;
 use Data::Dumper;
 use Net::DNS;
 
-my %AS = (
-	49009 => "Freifunk-Hamburg",
-	64511 => "DN42",
-	64654 => "Haegar-ChaosVPN",
-	64768 => "YANG",
-	64770 => "Docsteel",
-	64773 => "jomat",
-	65024 => "Freifunk-Franken",
-	65042 => "Freifunk-Weimar",
-	65196 => "Freifunk-Bremen",
-	65529 => "Freifunk-Bielefeld",
-	76114 => "hax404",
-	200753 => "NeoXiD",
-	201173 => "Chaotikum",
-	4242420013 => "w0h-netrik",
-	4242420245 => "sdyroff",
-	4242420020 => "UNBEDENKLICH",
-	4242420022 => "toBee-Blazing",
-	4242420023 => "AFICS",
-	4242420031 => "Sloth",
-	4242420092 => "Mic92-evenet",
-	4242420101 => "CCC-Darmstadt",
-	4242420184 => "Polynome",
-	4242420235 => "fpletz",
-	4242420241 => "CCC-Aachen",
-	4242420321 => "Tombii (CORE)",
-	4242420432 => "Reetus",
-	4242420800 => "NeoXiD-SnapServ",
-	4242421024 => "jnt",
-	4242421092 => "ERG",
-	4242421102 => "Teufelchen",
-	4242421209 => "Blokje",
-	4242421339 => "twink0rNET",
-	4242421588 => "Tech9",
-	4242421989 => "KCR-RauschNet",
-	4242422015 => "Wunix",
-	4242422017 => "Kyriasis",
-	4242422222 => "DHope",
-	4242422700 => "error404-GotRoot",
-	4242423200 => "MrPlop-DDPO",
-	4242423522 => "alarig-Swordarmor",
-	4242423827 => "Nullroute",
-	4242423955 => "twist0r",
-	4242423991 => "andi-",
-);
+my %AS = ();
 
 my %COMMUNITY = (
 	64511 => {
@@ -109,7 +65,7 @@ sub asname {
 	my ($as, $fmt) = @_;
 	$fmt //= "%s";
 	if ($AS{$as}) {
-		return "<".$AS{$as}.">";
+		return $AS{$as}." ($as)";
 	}
 	return $as;
 }
@@ -134,7 +90,7 @@ sub filter {
 	while (<STDIN>) {
 		if (/^  ([0-9 ]+)$/) {
 			my @aspath = split(/ /, $1);
-			@aspath = map {_asname($_)} @aspath;
+			@aspath = map {asname($_)} @aspath;
 			@aspath = map {"\e[1m$_\e[m"} @aspath;
 			print " ".join(" \e[1;33m›\e[m ", "", @aspath, "")."\n";
 		}
@@ -163,6 +119,18 @@ sub filter {
 			print;
 		}
 	}
+}
+
+my $dir = $ENV{XDG_CONFIG_HOME} // $ENV{HOME}."/.config";
+my $path_asnames = "$dir/nullroute.eu.org/dn42-asnames.txt";
+
+if (open(my $f, "<", $path_asnames)) {
+	while (<$f>) {
+		if (/^(\d+)\s+(.+)$/) {
+			$AS{int $1} = $2;
+		}
+	}
+	close($f);
 }
 
 filter

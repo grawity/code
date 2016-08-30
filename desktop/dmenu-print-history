@@ -15,8 +15,8 @@
 #   (c) 2009 rupa deadwyler, released under the WTFPL license
 
 use warnings;
-use feature qw(say);
-use Nullroute::Lib;
+use strict;
+use Nullroute::Lib qw(uniq _debug _die);
 
 sub rank {
 	my ($time) = @_;
@@ -28,13 +28,15 @@ sub rank {
 	return 1/4;
 }
 
-$histfile = shift @ARGV // _die("missing histfile argument");
+my $histfile;
+my @history;
+my %time;
+my %count;
 
-_debug("loading history from $histfile");
+$histfile = shift @ARGV // "/dev/stdin";
 
 if (open(my $f, "<", $histfile)) {
-	@history = ();
-	$ts = 0;
+	my $ts = 0;
 	while (<$f>) {
 		chomp;
 		if (/^#(\d+)$/)		{ $ts = int $1; }
@@ -56,24 +58,23 @@ if (open(my $f, "<", $histfile)) {
 
 exit if !@history;
 
+# remember the most recent timestamp for each unique command
+
 for (@history) {
-	my ($time, $item) = @$_;
-	if ($time{$item} // 0 < $time) {
-		$time{$item} = $time;
+	my ($time, $cmd) = @$_;
+	if ($time{$cmd} // 0 < $time) {
+		$time{$cmd} = $time;
 	}
 }
 
 @history = map {$_->[1]} @history;
 
+# calculate frecency rank
+
 $count{$_} += 1 for @history;
 $count{$_} *= rank($time{$_}) for keys %time;
 
-@sorted =
+print "$_\n" for
+	reverse
 	sort {$count{$a} <=> $count{$b}}
 	uniq @history;
-
-if ($::debug) {
-	_debug("popular item: '$_' ($count{$_})") for @sorted;
-}
-
-say for reverse @sorted;

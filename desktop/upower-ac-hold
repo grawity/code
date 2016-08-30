@@ -1,10 +1,12 @@
 #!/usr/bin/env perl
+use warnings;
+use strict;
 use Net::DBus::Reactor;
 use POSIX;
 use constant {
 	UP_MANAGER_IFACE	=> "org.freedesktop.UPower",
 	DBUS_PROPERTY_IFACE	=> "org.freedesktop.DBus.Properties",
-},
+};
 
 my $up_mgr;
 my $lg_mgr;
@@ -27,22 +29,16 @@ sub update_hold {
 	my ($on_battery) = @_;
 
 	if ($on_battery) {
-		if (!defined $inhibit_fd) {
-			warn "unexpected update_hold(on_battery) with no inhibit_fd\n";
-			return;
-		}
-
+		return if !defined($inhibit_fd);
 		POSIX::close($inhibit_fd);
 		print "closed inhibitor $inhibit_fd\n";
 		$inhibit_fd = undef;
 	} else {
-		if (defined $inhibit_fd) {
-			warn "unexpected update_hold(on_ac) with existing inhibit_fd\n";
-			return;
-		}
-
-		$inhibit_fd = $lg_mgr->Inhibit("handle-lid-switch", $0,
-						"Preventing sleep while charging", "block");
+		return if defined($inhibit_fd);
+		$inhibit_fd = $lg_mgr->Inhibit("handle-lid-switch",
+						$0,
+						"Preventing sleep while charging",
+						"block");
 		print "took inhibitor $inhibit_fd\n";
 	}
 }

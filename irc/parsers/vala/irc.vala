@@ -14,7 +14,7 @@ string[] split_irc_line(string line) {
 		while (i < n && args[i] == "")
 			i++;
 	}
-	if (i < n && args[i].has_prefix(":")) {
+	if (i + 1 < n && args[i].has_prefix(":")) {
 		parsed += args[i++];
 		while (i < n && args[i] == "")
 			i++;

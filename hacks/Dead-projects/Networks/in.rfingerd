@@ -5,6 +5,7 @@ import os
 import re
 import socket
 import subprocess
+import syslog
 
 #os.environ["DEBUG"] = "y"
 
@@ -33,6 +34,12 @@ import subprocess
 
 DEBUG = bool(os.environ.get("DEBUG"))
 
+def log_err(msg, *args):
+    syslog.syslog(syslog.LOG_ERR, msg % args)
+
+def log_info(msg, *args):
+    syslog.syslog(syslog.LOG_INFO, msg % args)
+
 def _print(*args):
     args = map(str, args)
     line = " ".join(args)+"\r\n"
@@ -44,9 +51,16 @@ def _trace(fmt, *args):
     if DEBUG:
         _print("(" + (fmt % args) + ")")
 
+def peername():
+    addr = os.environ["REMOTE_HOST"]
+    if addr.startswith("::ffff:"):
+        addr = addr[len("::ffff:"):]
+    return addr
+
 def accept():
     request = sys.stdin.readline().strip()
     _trace("accept(%r)", request)
+    log_info("host %r requested %r", peername(), request)
     result = route(request)
     if result is None:
         _trace("routing failed")
@@ -108,6 +122,7 @@ def route(request):
 
 def forward(addr, req, flags):
     _trace("forward(%r, %r, %r)", req, addr, flags)
+    log_info("forwarding to %r [flags:%s]", addr, flags or "-")
 
     if b"x" in flags:
         if addr.startswith(b"|"):
@@ -131,7 +146,7 @@ def forward(addr, req, flags):
             else:
                 subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
         except OSError as e:
-            _print("finger: internal error")
+            log_err("failed to spawn handler %r: %s", cmdline, e)
             raise
 
     elif addr.startswith(b"/"):
@@ -141,7 +156,7 @@ def forward(addr, req, flags):
                 sys.stdout.write(line)
             sys.stdout.flush()
         except IOError as e:
-            _print("finger: cannot open plan file")
+            log_err("failed to open plan %r: %s", addr, e)
             raise
 
     else:
@@ -187,6 +202,7 @@ def forward(addr, req, flags):
 
 def refuse():
     _print("finger: query refused")
+    log_info("query not recognized, rejecting")
 
 def formataddr(family, addr, ignoreport=None):
     _trace("formataddr(%r, %r, %r)", family, addr, ignoreport)
@@ -234,8 +250,10 @@ def get_routes():
             if line and not line.startswith(b"#"):
                 yield line.split()
     except IOError as e:
-        _print("finger: cannot open configuration file")
+        log_err("failed to open configuration file %r: %s", rules_file, e)
         raise
+
+syslog.openlog("in.rfingerd")
 
 try:
     rules_file = sys.argv.pop(1)
@@ -253,6 +271,7 @@ if hasattr(sys.stdout, "detach"):
 try:
     accept()
 except Exception as e:
+    log_err("caught exception: %r", e)
     _print("finger: internal error")
     if DEBUG:
         raise

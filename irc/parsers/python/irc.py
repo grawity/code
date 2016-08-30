@@ -115,7 +115,7 @@ class Frame(object):
             while i < n and line[i] == "":
                 i += 1
 
-        if i < n and line[i].startswith(":"):
+        if i + 1 < n and line[i].startswith(":"):
             parv.append(line[i])
             i += 1
             while i < n and line[i] == "":

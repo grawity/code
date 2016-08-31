@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+from collections import defaultdict
+from pprint import pprint
+import subprocess
+
+def parse_userid(line):
+    if line.endswith(">"):
+        pos = line.rfind("<")
+        name = line[:pos].strip()
+        email = line[pos+1:-1]
+        return name, email
+    elif "@" in line:
+        return None, line
+    else:
+        return line, None
+
+all_userids = dict()
+by_name = defaultdict(set)
+by_email = defaultdict(set)
+
+with subprocess.Popen(["git", "shortlog", "-es"],
+                      stdout=subprocess.PIPE) as proc:
+    for line in proc.stdout:
+        count, userid = line.strip().split(b"\t", 1)
+        count = int(count)
+        userid = userid.decode("utf-8")
+        entry = (count, userid)
+        name, email = parse_userid(userid)
+        all_userids[userid] = (name, email)
+        by_name[name.casefold()].add(entry)
+        by_email[email.lower()].add(entry)
+
+seen = set()
+
+for userid in sorted(all_userids):
+    if userid in seen:
+        continue
+
+    name, email = all_userids[userid]
+    uid_by_name = by_name[name.casefold()]
+    uid_by_email = by_email[email.lower()]
+
+    uids = list(uid_by_name | uid_by_email)
+    if len(uids) > 1:
+        uids.sort(reverse=True)
+        for v in uids:
+            print("%6d\t%s" % v)
+        print()
+        seen |= {v[1] for v in uids}

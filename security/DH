@@ -45,9 +45,13 @@ def ask(str)
 end
 
 def check_key_size!(dh, key, descr)
-    if (dh.p.num_bits - key.num_bits).abs > 16
-        abort "key size mismatch: #{descr} is #{key.num_bits} bits," \
-            + " should be #{dh.p.num_bits} bits"
+    if dh.is_a? OpenSSL::PKey::EC
+        puts "#{dh.inspect} / #{key.inspect} / #{descr}"
+    elsif dh.is_a? OpenSSL::PKey::DH
+        if (dh.p.num_bits - key.num_bits).abs > 16
+            abort "key size mismatch: #{descr} is #{key.num_bits} bits," \
+                + " should be #{dh.p.num_bits} bits"
+        end
     end
 end
 
@@ -172,17 +176,40 @@ if !show_private and !other_public and !ask_other_public
     abort "error: specifying '-y nil' without '-R' does nothing useful"
 end
 
-dh = OpenSSL::PKey::DH.new(params)
+use_ecdh = true
+params = "secp256k1"
+
+if use_ecdh
+    dh = OpenSSL::PKey::EC.new(params)
+else
+    dh = OpenSSL::PKey::DH.new(params)
+end
 
 # if given our old private key, verify it and resume
 
 if ask_my_private
-    my_private = bn_input(ask("my private key?")) or exit
+    input = ask("my private key?") or exit
+    if use_ecdh
+        input = input.split(":")
+        my_private = bn_input(input[0])
+        my_public = bn_input(input[1])
+    else
+        my_private = bn_input(input)
+    end
 end
+
 if my_private
     check_key_size!(dh, my_private, "my private key")
-    dh.priv_key = my_private
+    if use_ecdh
+        dh.private_key = my_private
+        puts "#{dh.group.inspect} #{my_public.inspect}"
+        dh.public_key = OpenSSL::PKey::EC::Point.new(dh.group, my_public)
+    else
+        dh.priv_key = my_private
+    end
 end
+
+puts "#{dh.inspect}"
 
 # if given other party's public key, verify it early
 
@@ -190,19 +217,33 @@ if other_public
     check_key_size!(dh, other_public, "their public key")
 end
 
-if dh.p.num_bits < 1536
-    puts "\e[1;33mwarning:\e[m \e[1mDH parameters of #{dh.p.num_bits} bits" \
-        + " are very weak\e[m"
+if !use_ecdh
+    if dh.p.num_bits < 1536
+        puts "\e[1;33mwarning:\e[m \e[1mDH parameters of #{dh.p.num_bits} bits" \
+            + " are very weak\e[m"
+    end
 end
 
 # generate our private key if not given; extract our public key
 
-dh.generate_key!
+if use_ecdh
+    unless my_private
+        dh.generate_key
+    end
+    priv_str = bn_output(dh.private_key) + ":" + bn_output(dh.public_key.to_bn)
+    _our_pub = dh.public_key.to_bn
+else
+    unless my_private
+        dh.generate_key!
+    end
+    priv_str = bn_output(dh.priv_key)
+    _our_pub = dh.pub_key
+end
 
 if show_private
-    puts "my private key: " + color(bn_output(dh.priv_key), "31")
+    puts "my private key: " + color(priv_str, "31")
 end
-puts "my public key: " + color(bn_output(dh.pub_key), "32")
+puts "my public key: " + color(bn_output(_our_pub), "32")
 
 # if not given other party's public key, ask for it
 #   (conditions reversed, yes)
@@ -217,7 +258,12 @@ end
 
 # compute shared secret
 
-secret = dh.compute_key(other_public)
+if use_ecdh
+    other_public = OpenSSL::PKey::EC::Point.new(dh.group, other_public)
+    secret = dh.dh_compute_key(other_public)
+else
+    secret = dh.compute_key(other_public)
+end
 length = "#{secret.length * 8} bits"
 
 if secret_file

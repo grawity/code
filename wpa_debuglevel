@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+level=${1:-debug}
+
+case $level in
+	on) level='debug';;
+	off) level='info';;
+esac
+
+if have busctl; then
+	sudo busctl set-property \
+			fi.w1.wpa_supplicant1 /fi/w1/wpa_supplicant1 \
+			fi.w1.wpa_supplicant1 DebugLevel s "$level"
+
+	sudo busctl get-property \
+			fi.w1.wpa_supplicant1 /fi/w1/wpa_supplicant1 \
+			fi.w1.wpa_supplicant1 DebugLevel
+elif have gdbus; then
+	sudo gdbus call -y \
+			-d fi.w1.wpa_supplicant1		\
+			-o /fi/w1/wpa_supplicant1		\
+			-m org.freedesktop.DBus.Properties.Set	\
+				fi.w1.wpa_supplicant1		\
+				DebugLevel			\
+				"<'$level'>"			;
+
+	sudo gdbus call -y \
+			-d fi.w1.wpa_supplicant1		\
+			-o /fi/w1/wpa_supplicant1		\
+			-m org.freedesktop.DBus.Properties.Get	\
+				fi.w1.wpa_supplicant1		\
+				DebugLevel			;
+else
+	die "no 'busctl' nor 'gdbus' available"
+fi

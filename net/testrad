@@ -38,11 +38,13 @@ usage() {
 	echo "Server verification:"
 	echo_opt "[tls-]ca PATH" "Verify server against given CA"
 	echo_opt "[tls-]ca system" "Verify server against default system CAs"
-	echo_opt "subject-match ..." "Check server certificate subject [deprecated!]"
-	echo_opt "altsubject-match ..." "Check server certificate SAN [deprecated!]"
-	echo_opt "domain-match DOMAIN" "Check server certificate domain (CN or SAN)"
-	echo_opt "domain-suffix-match DOMAIN" "Check server certificate domain (CN or SAN)"
-	echo_opt "domain-suffix-match \"auto\"" "Check against the realm of inner identity"
+	echo_opt "tls-hostname DOMAIN" "Require exact hostname (alias for domain-match)"
+	echo_opt "tls-hostname *.DOMAIN" "Require domain suffix (alias for domain-suffix-match)"
+	echo ""
+	echo_opt "domain-match ..." "Check certificate domain (either CN or SAN)"
+	echo_opt "domain-suffix-match ..." "Check certificate domain (either CN or SAN)"
+	echo_opt "subject-match ..." "Check certificate Subject [deprecated!]"
+	echo_opt "altsubject-match ..." "Check certificate subjectAltName [deprecated!]"
 	echo ""
 	echo "Phase 1 TLS options:"
 	echo_opt "tls no-v1.2" "Disable TLS v1.2 (for broken servers)"
@@ -193,9 +195,9 @@ parse_args() {
 				ecfg_extra+=("subject_match=\"$2\""); shift;;
 			altsubject-match)
 				ecfg_extra+=("altsubject_match=\"$2\""); shift;;
-			domain-match)
+			domain-match|tls-hostname)
 				ecfg_extra+=("domain_match=\"$2\""); shift;;
-			domain-suffix-match)
+			domain-suffix-match|tls-domain)
 				ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
 			# etc.
 			*)
@@ -403,6 +405,12 @@ if [[ $eap && $eap != NONE ]]; then
 		'phase2='*)
 			err "'$opt': use 'phase2 ...' to set the inner EAP method";;
 		# magic values
+		'domain_match="*.'*'"')
+			debug "expanding '$opt' to domain_suffix_match"
+			opt="${opt#*=}"
+			opt="domain_suffix_match=${opt/'*.'/}"
+			debug "... converted to '$opt'"
+			;;&
 		'domain_suffix_match="auto"') ;&
 		'domain_suffix_match="@"')
 			debug "expanding '$opt'"

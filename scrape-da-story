@@ -1,0 +1,50 @@
+#!/usr/bin/env python
+import bs4
+from nullroute.core import *
+from nullroute.misc import escape_html, filter_filename, set_file_attr
+from pprint import pprint
+import requests
+import sys
+
+class Scraper(object):
+    def __init__(self):
+        self.ua = requests.Session()
+
+class DeviantArtStoryScraper(Scraper):
+    def scrape_story_page(self, page_url):
+        Core.info("fetching %r" % page_url)
+        r = self.ua.get(page_url)
+        r.raise_for_status()
+
+        data = {}
+        page = bs4.BeautifulSoup(r.content, "lxml")
+        main = page.select_one("div.free-literature")
+
+        meta = main.select_one("div.metadata")
+    
+        tag = meta.select_one("h2")
+        data["title"] = tag.get_text(strip=True)
+
+        tag = meta.select_one(".author .name a.username")
+        data["author"] = tag.get_text(strip=True)
+        data["author_url"] = tag["href"]
+
+        tag = main.select_one("div.text")
+        data["body"] = str(tag)
+
+        return data
+
+foo = DeviantArtStoryScraper()
+for arg in sys.argv[1:]:
+    data = foo.scrape_story_page(arg)
+    print("<!-- %s -->" % arg)
+    print("<section class=\"chapter\">")
+    print("<h2>%s</h2>" % escape_html(data["title"]))
+    print("<p class=\"meta\">")
+    print("\tby <a href=\"%s\">%s</a>" % (escape_html(data["author_url"]), escape_html(data["author"])))
+    print("\ton <a href=\"%s\">%s</a>" % (escape_html(arg), "DeviantArt"))
+    print("</p>")
+    print("<div class=\"content\">")
+    print(data["body"])
+    print("</div>")
+    print("</section>")

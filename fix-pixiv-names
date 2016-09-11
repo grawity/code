@@ -16,6 +16,9 @@ from requests.exceptions import HTTPError
 # TODO: https://github.com/r888888888/danbooru/issues/2383
 
 class PixivApi(object):
+    MEMBER_URL = "http://www.pixiv.net/member.php?id=%s"
+    ILLUST_URL = "http://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
+
     def __init__(self):
         self.ua = requests.Session()
         self.api = pixivpy3.PixivAPI()
@@ -30,11 +33,17 @@ class PixivApi(object):
         member_name = re.sub("(@|＠).*", "", member_name)
         return "%s_pixiv%s" % (member_name, member_id)
 
+    def fmt_member_url(self, member_id):
+        return self.MEMBER_URL % (member_id,)
+
+    def fmt_illust_url(self, illust_id, mode="medium"):
+        return self.ILLUST_URL % (mode, illust_id)
+
     ## fallback HTML scrape functions
 
     @lru_cache(maxsize=1024)
     def scrape_member_name_by_member_id(self, member_id):
-        url = "http://www.pixiv.net/member.php?id=%s" % member_id
+        url = self.fmt_member_url(member_id)
         Core.info("fetching %s" % url)
         resp = self.ua.get(url)
         resp.raise_for_status()
@@ -45,7 +54,7 @@ class PixivApi(object):
         raise ValueError("could not find member name tag")
 
     def scrape_member_id_by_illust_id(self, illust_id):
-        url = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s" % illust_id
+        url = self.fmt_illust_url(illust_id)
         Core.info("fetching %s" % url)
         resp = self.ua.get(url)
         resp.raise_for_status()

@@ -2,6 +2,13 @@
 import sys
 import subprocess
 
+def uniq(it):
+    seen = set()
+    for i in it:
+        if i not in seen:
+            yield i
+            seen.add(i)
+
 def pkgfile_verbose(arg, bin=False):
     args = ["pkgfile", "-v"]
     if bin:
@@ -30,6 +37,7 @@ def do_pkg(arg):
         return
     out_str = "%s %s (%s)" % (first_pkg, first_ver, first_path)
     rest_pkgs = [item.split()[0] for item in pkgs_all]
+    rest_pkgs = [*uniq(rest_pkgs)]
     if first_pkg in rest_pkgs:
         rest_pkgs.remove(first_pkg)
     if rest_pkgs:

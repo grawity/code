@@ -2,8 +2,8 @@
 import sys
 import subprocess
 
-def uniq(it):
-    seen = set()
+def uniq(it, seen=()):
+    seen = set(seen)
     for i in it:
         if i not in seen:
             yield i
@@ -37,9 +37,7 @@ def do_pkg(arg):
         return
     out_str = "%s %s (%s)" % (first_pkg, first_ver, first_path)
     rest_pkgs = [item.split()[0] for item in pkgs_all]
-    rest_pkgs = [*uniq(rest_pkgs)]
-    if first_pkg in rest_pkgs:
-        rest_pkgs.remove(first_pkg)
+    rest_pkgs = [*uniq(rest_pkgs, {first_pkg})]
     if rest_pkgs:
         out_str += ", " + ", ".join(rest_pkgs)
     print(out_str)

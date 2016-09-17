@@ -64,10 +64,10 @@ class Allocator(object):
             if item["children"]:
                 yield from self._find_prefix(prefix, item["children"])
 
-    def find_open_ranges(self):
-        yield from self._find_open_ranges([self.prefixes])
+    def find_open_blocks(self):
+        yield from self._find_open_blocks([self.prefixes])
 
-    def _find_open_ranges(self, prefixes):
+    def _find_open_blocks(self, prefixes):
         for item in prefixes:
             p = item["prefix"]
             if p in self.metadata:
@@ -79,9 +79,9 @@ class Allocator(object):
                         yield item, p, m
                         continue
             if item["children"]:
-                yield from self._find_open_ranges(item["children"])
+                yield from self._find_open_blocks(item["children"])
 
-    def find_free_ranges(self, prefix, want_bits=25):
+    def find_free_blocks(self, prefix, want_bits=25):
         net = ipaddress.ip_network(prefix)
 
         if net.prefixlen > want_bits:
@@ -127,15 +127,15 @@ except:
 
 max_results = 50
 
-print("; Trying to find free /%d ranges" % want_bits)
+print("; Trying to find free /%d blocks" % want_bits)
 
 a = Allocator()
 n_total = 0
-for pp, p, m in a.find_open_ranges():
+for pp, p, m in a.find_open_blocks():
     n = ipaddress.ip_network(p)
     if n.prefixlen >= want_bits:
         continue
-    r = a.find_free_ranges(p, want_bits)
+    r = a.find_free_blocks(p, want_bits)
     if r:
         print("* %s (%s)" % (p, m["netname"][0]))
         for key in ["descr", "remarks"]:
@@ -156,6 +156,6 @@ for pp, p, m in a.find_open_ranges():
         print()
 
 if n_total:
-    print("; Found %d free ranges." % n_total)
+    print("; Found %d free blocks." % n_total)
 else:
-    print("; No free ranges found.")
+    print("; No free blocks found.")

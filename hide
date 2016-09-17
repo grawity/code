@@ -2,6 +2,7 @@
 # hide -- get rid of no-longer-useful files
 
 . lib.bash || exit
+. libks.bash || exit
 
 usage() {
 	echo "Usage: $progname [-d <dir>] [-T] <files>..."
@@ -83,8 +84,8 @@ for arg; do
 
 	perms=$(stat -c %a "$dst") &&
 	chmod u+w "$dst" &&
-	setfattr -h -n "user.stashed.from" -v "$src"               "$dst" &&
-	setfattr -h -n "user.stashed.when" -v "$(date "+%FT%T%z")" "$dst" &&
+	ks:setattr "$dst" stashed.from "$src" &&
+	ks:setattr "$dst" stashed.when "$(date "+%FT%T%z")" &&
 	chmod "$perms" "$dst"
 done
 

@@ -27,6 +27,8 @@ declare -r push_volume
 bvol=${push_volume:-/mnt/backup}
 conf=${path_sync_config:-$path_config/synced}
 
+debug "config dir: '$conf'"
+
 lock_path=
 lock_fd=
 failed_jobs=()
@@ -197,11 +199,11 @@ while [[ $1 ]]; do
 	case $job in
 		push-hd)
 			do_job local
-			[[ -d ~/Dropbox ]] &&
-				do_job dropbox-push-hd
 			do_job home-push-hd
 			do_job root-push-hd
 			do_job annex-push-hd
+			[[ -d ~/Dropbox ]] &&
+				do_job dropbox-push-hd
 			sync
 			;;
 		home-push-hd)
@@ -275,6 +277,12 @@ while [[ $1 ]]; do
 			if mountpoint -q $bvol; then
 				do_job fs1
 			fi
+			;;
+		sec@*)
+			host=${job#*@}
+			do_rsync root@$host:/ ~/Backup/Servers/$host/			\
+				-f "merge $conf/rsync-filters/server_creds_all"		\
+				-x -P --fake-super --prune-empty-dirs
 			;;
 		root@*)
 			host=${job#*@}

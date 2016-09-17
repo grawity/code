@@ -1,8 +1,12 @@
+#define _XOPEN_SOURCE
+#include <err.h>
+#include <locale.h>
 #include <stdio.h>
 #include <string.h>
+#include <wchar.h>
 #include "util.h"
 
-#define LINESZ 512
+#define LINESZ 4096
 
 /* null-terminate a string at first \n */
 
@@ -103,47 +107,64 @@ int strip_tail(char *tail) {
 	}
 }
 
+int show_width(char *str) {
+	wchar_t dest[LINESZ];
+
+	if (setlocale(LC_ALL, "") == NULL)
+		err(1, "could not initialize locale");
+
+	if (mbstowcs(dest, str, LINESZ) < 0)
+		err(1, "invalid byte sequence");
+
+	printf("%d\n", wcswidth(dest, LINESZ));
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 	int i = 0;
 	char *cmd = argv[++i];
 	char *str;
 
 	if (argc < 2) {
-		fprintf(stderr, "Missing function\n");
-		return 2;
+		errx(2, "missing subcommand");
 	}
 	else if (streq(cmd, "next")) {
 		if (argc < 3)
-			return 2;
+			errx(2, "missing text parameter");
 		str = argv[++i];
 		return next_item(str, 0);
 	}
 	else if (streq(cmd, "nextw")) {
 		if (argc < 3)
-			return 2;
+			errx(2, "missing text parameter");
 		str = argv[++i];
 		return next_item(str, 1);
 	}
 	else if (streq(cmd, "prev")) {
 		if (argc != 3)
-			return 2;
+			errx(2, "missing text parameter");
 		str = argv[++i];
 		return prev_item(str, 0);
 	}
 	else if (streq(cmd, "prevw")) {
 		if (argc != 3)
-			return 2;
+			errx(2, "missing text parameter");
 		str = argv[++i];
 		return prev_item(str, 1);
 	}
 	else if (streq(cmd, "rstrip")) {
 		if (argc != 3)
-			return 2;
+			errx(2, "missing text parameter");
 		str = argv[++i];
 		return strip_tail(str);
 	}
+	else if (streq(cmd, "width")) {
+		if (argc != 3)
+			errx(2, "missing text parameter");
+		str = argv[++i];
+		return show_width(str);
+	}
 	else {
-		fprintf(stderr, "Unknown function '%s'\n", cmd);
-		return 2;
+		errx(2, "unknown subcommand '%s'", cmd);
 	}
 }

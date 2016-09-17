@@ -130,12 +130,13 @@ max_results = 50
 print("; Trying to find free /%d ranges" % want_bits)
 
 a = Allocator()
+n_total = 0
 for pp, p, m in a.find_open_ranges():
     n = ipaddress.ip_network(p)
     if n.prefixlen >= want_bits:
         continue
     r = a.find_free_ranges(p, want_bits)
-    if r or True:
+    if r:
         print("* %s (%s)" % (p, m["netname"][0]))
         for key in ["descr", "remarks"]:
             if key in m:
@@ -145,6 +146,7 @@ for pp, p, m in a.find_open_ranges():
                     label = " " * len(label)
         if r:
             n = "1 block" if len(r) == 1 else "%d blocks" % len(r)
+            n_total += len(r)
             if len(r) > max_results+1:
                 r = r[:max_results//2] + ["..."] + r[max_results//-2:]
             r = ", ".join([str(n) for n in r])
@@ -152,3 +154,8 @@ for pp, p, m in a.find_open_ranges():
         else:
             print("  free: (no space found)")
         print()
+
+if n_total:
+    print("; Found %d free ranges." % n_total)
+else:
+    print("; No free ranges found.")

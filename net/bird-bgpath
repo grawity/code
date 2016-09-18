@@ -111,6 +111,11 @@ sub filter {
 			my $prefix = $1;
 			my @tags = split(/ /, $2);
 			@tags = map {tagname($_)} @tags;
+			if (eval {require Sort::Naturally}) {
+				@tags = Sort::Naturally::nsort(@tags);
+			} else {
+				@tags = sort @tags;
+			}
 			print $prefix." ".join(" ", @tags)."\n";
 		}
 		## TODO: port from Quagga

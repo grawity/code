@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from argparse import ArgumentParser
 from collections import namedtuple
 import fdb
 from hashlib import md5
@@ -68,11 +69,14 @@ def crack_pin(arg):
 
 host = "aqrate.utenos-kolegija.lt"
 db = None
-args = sys.argv[1:]
 
-raw_output = os.environ.get("RAW_OUTPUT")
+ap = ArgumentParser()
+ap.add_argument("--on-behalf-of")
+ap.add_argument("--raw", action="store_true")
+ap.add_argument("query", nargs="*")
+opts = ap.parse_args()
 
-for arg in args:
+for arg in opts.query[:]:
     if len(arg) == 32:
         pin = crack_pin(arg)
         print("%s = %s" % (arg, pin or "not found"))
@@ -82,7 +86,7 @@ for arg in args:
         for row in db.find_user(arg):
             Core.debug("found row %r", row)
             pin = crack_pin(row.card)
-            if raw_output:
+            if opts.raw:
                 print("\t".join(map(str, [*row, pin])))
             else:
                 print("%s (%s) = %s" % (row.fullname, row.email, pin or "not found"))

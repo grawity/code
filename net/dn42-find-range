@@ -12,33 +12,45 @@ import xdg.BaseDirectory
 prefixes_url = "http://dataviz.polyno.me/dn42-netblock-visu/registry-prefixes.json"
 metadata_url = "http://dataviz.polyno.me/dn42-netblock-visu/registry-inetnums.json"
 
+def _load_cache(name):
+    cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org", "url")
+    path = os.path.join(cache_dir, "%s.json" % name)
+    try:
+        with open(path, "r") as fh:
+            package = json.load(fh)
+        if package.get("expire", 0) >= time.time():
+            return package["data"]
+        else:
+            os.unlink(path)
+    except FileNotFoundError:
+        pass
+    return None
+
+def _save_cache(name, data, source=None):
+    cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org", "url")
+    path = os.path.join(cache_dir, "%s.json" % name)
+    expiry = 2 * 3600 # 2 hours
+    with open(path, "w") as fh:
+        package = {
+            "source": source,
+            "obtain": time.time(),
+            "expire": time.time() + expiry,
+            "data": data,
+        }
+        json.dump(package, fh)
+
 def _get_url(url):
     r = requests.get(url)
     return r.text
 
 def get_url(url, as_json=False):
-    cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org/url")
-    h = hashlib.sha1(url.encode("utf-8")).hexdigest()
-    p = os.path.join(cache_dir, "%s.json" % h)
-
-    if os.path.exists(p):
-        with open(p, "r") as f:
-            r = json.load(f)
-        if r["time"] >= time.time() - 2*3600:
-            return r["data"]
-
-    data = _get_url(url)
-    if as_json:
-        data = json.loads(data)
-
-    with open(p, "w") as f:
-        r = {
-            "source": url,
-            "time": time.time(),
-            "data": data,
-        }
-        json.dump(r, f)
-
+    url_hash = hashlib.sha1(url.encode("utf-8")).hexdigest()
+    data = _load_cache(url_hash)
+    if not data:
+        data = _get_url(url)
+        if as_json:
+            data = json.loads(data)
+        _save_cache(url_hash, data)
     return data
 
 class Allocator(object):

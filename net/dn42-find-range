@@ -13,10 +13,12 @@ prefixes_url = "http://dataviz.polyno.me/dn42-netblock-visu/registry-prefixes.js
 metadata_url = "http://dataviz.polyno.me/dn42-netblock-visu/registry-inetnums.json"
 
 class Cache(object):
+    cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org/url")
+    expiry = 2 * 3600 # 2 hours
+
     @classmethod
     def load(self, name):
-        cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org", "url")
-        path = os.path.join(cache_dir, "%s.json" % name)
+        path = os.path.join(self.cache_dir, "%s.json" % name)
         try:
             with open(path, "r") as fh:
                 package = json.load(fh)
@@ -30,16 +32,14 @@ class Cache(object):
 
     @classmethod
     def save(self, name, data, source=None):
-        cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org", "url")
-        path = os.path.join(cache_dir, "%s.json" % name)
-        expiry = 2 * 3600 # 2 hours
+        path = os.path.join(self.cache_dir, "%s.json" % name)
+        package = {
+            "source": source,
+            "obtain": time.time(),
+            "expire": time.time() + self.expiry,
+            "data": data,
+        }
         with open(path, "w") as fh:
-            package = {
-                "source": source,
-                "obtain": time.time(),
-                "expire": time.time() + expiry,
-                "data": data,
-            }
             json.dump(package, fh)
 
 def _get_url(url):

@@ -64,8 +64,9 @@ sub _asname {
 sub asname {
 	my ($as, $fmt) = @_;
 	$fmt //= "%s";
+	my $tail = ($as =~ s/^424242/./r);
 	if ($AS{$as}) {
-		return $AS{$as}." ($as)";
+		return $AS{$as}." (".$tail.")";
 	}
 	return $as;
 }
@@ -88,11 +89,12 @@ sub tagname {
 sub filter {
 	my $rt;
 	while (<STDIN>) {
-		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+)$/) {
+		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w+?)\]$/) {
 			$rt //= $1; print "\n · \e[38;5;210m$rt\e[m\n";
 			print "\t",
 				"via \e[38;5;43m".$2."\e[m ",
 				"on \e[38;5;45m".$3."\e[m ",
+				"at \e[38;5;46m".$5."\e[m ",
 				$4."\n";
 		}
 		elsif (/(\s+BGP\.as_path:) (.+)$/) {
@@ -109,7 +111,18 @@ sub filter {
 			my $prefix = $1;
 			my @tags = split(/ /, $2);
 			@tags = map {tagname($_)} @tags;
+			if (eval {require Sort::Naturally}) {
+				@tags = Sort::Naturally::nsort(@tags);
+			} else {
+				@tags = sort @tags;
+			}
 			print $prefix." ".join(" ", @tags)."\n";
+		}
+		elsif (/^(\s+BGP\.local_pref:) (.+)$/) {
+			print if $2 ne "100";
+		}
+		elsif (/^(\s+BGP\.origin:) (.+)$/) {
+			print if $2 ne "IGP";
 		}
 		## TODO: port from Quagga
 		elsif (/^      Origin/) {

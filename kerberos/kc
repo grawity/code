@@ -227,23 +227,17 @@ sub expand_ccname {
 		elsif (m|^KCM$|i) {
 			return "KCM:$UID";
 		}
-		elsif (m|^\d\d?$|) {
+		elsif (m|^\d{1,2}$|) {
 			my $i = int $_;
 			if ($i > 0 && $i <= @caches) {
 				return $caches[$i - 1];
 			}
 		}
-		# ^^ and ^
-		elsif (m|^\^\^?$|) {
-			return "KEYRING:krb5cc";
+		elsif (m/^\^$/) {
+			return "KEYRING:persistent:$UID";
 		}
-		# ^^foo
-		elsif (m|^\^\^(.+)$|) {
-			return "KEYRING:$1";
-		}
-		# ^foo
-		elsif (m|^\^(.+)$|) {
-			return "KEYRING:krb5cc.$1";
+		elsif (m/^\^(.+)$/) {
+			return "KEYRING:persistent:$UID:$1";
 		}
 		# +foo
 		elsif (m|^\+$|) {
@@ -429,19 +423,6 @@ sub switch_ccache {
 			my $ccdirname = "DIR:".dirname($1);
 			put_env("KRB5CCNAME", $ccdirname);
 			run_proc("kswitch", "-c", $ccname);
-		}
-		elsif (m|^KEYRING:(.*)$|) {
-			my $keyname = $1;
-			if (system(qq(keyctl request keyring "$keyname" > /dev/null 2>&1)) > 0) {
-				# Hack around something that loses keys added to @s if it equals @us
-				# TODO: deshell
-				chomp(my $sdesc = qx(keyctl rdescribe \@s 2> /dev/null));
-				chomp(my $udesc = qx(keyctl rdescribe \@us 2> /dev/null));
-				my $keyring = ($sdesc eq $udesc) ? '@us' : '@s';
-				# TODO: deshell
-				system(qq(keyctl newring "$keyname" "$keyring" > /dev/null));
-			}
-			put_env("KRB5CCNAME", $ccname);
 		}
 		else {
 			put_env("KRB5CCNAME", $ccname);

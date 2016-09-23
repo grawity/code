@@ -167,4 +167,13 @@ class Env(object):
 
     @classmethod
     def find_config_file(self, name):
-        return os.path.join(self.xdg_config_home(), self.vendor, name)
+        paths = [
+            os.path.join(self.xdg_config_home(), self.vendor, name),
+            os.path.join(self.xdg_config_home(), self.vendor, "synced", name),
+        ]
+
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        else:
+            return paths[0]

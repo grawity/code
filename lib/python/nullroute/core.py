@@ -179,21 +179,8 @@ class Env(object):
         return os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
 
     @classmethod
-    def _find_file(self, root, name):
-        paths = [
-            os.path.join(root, self.vendor, name),
-            os.path.join(root, self.vendor, "synced", name),
-        ]
-
-        for path in paths:
-            if os.path.exists(path):
-                return path
-        else:
-            return paths[0]
-
-    @classmethod
     def find_cache_file(self, name):
-        return self._find_file(self.xdg_cache_home(), name)
+        return os.path.join(self.xdg_cache_home(), self.vendor, name)
 
     @classmethod
     def find_config_file(self, name):

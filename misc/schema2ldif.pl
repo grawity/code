@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # (c) 2012-2016 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT Expat License (dist/LICENSE.expat)
+# Released under the MIT License (dist/LICENSE.mit)
 
 if (-t STDIN) {
 	warn "error: expecting a schema as stdin\n";

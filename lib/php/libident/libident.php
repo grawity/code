@@ -3,7 +3,7 @@ namespace Ident;
 /* identd checking library
  *
  * (c) 2010 Mantas Mikulėnas <grawity@gmail.com>
- * Released under the MIT Expat License (dist/LICENSE.expat)
+ * Released under the MIT License (dist/LICENSE.mit)
  *
  * IdentReply Ident\query($rhost, $rport, $lhost, $lport)
  *     $rhost, $rport

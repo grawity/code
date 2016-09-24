@@ -1,7 +1,7 @@
 # Parser for IRC protocol messages (RFC 1459 + IRCv3 message-tag extension)
 #
 # (c) 2012-2014 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT Expat License (dist/LICENSE.expat)
+# Released under the MIT License (dist/LICENSE.mit)
 
 from __future__ import (print_function, unicode_literals)
 import base64

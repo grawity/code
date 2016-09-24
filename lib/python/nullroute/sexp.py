@@ -4,7 +4,7 @@
 #
 # Based on C source code from <http://people.csail.mit.edu/rivest/sexp.html>
 # (c) 1997 Ronald Rivest <rivest@mit.edu>
-# Released under MIT Expat License <http://www.gnu.org/licenses/license-list.html#Expat>
+# Released under MIT License <https://spdx.org/licenses/MIT>
 #
 # The simple S-expression format is used by various crypto software, including:
 #

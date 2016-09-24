@@ -1,6 +1,6 @@
 # Parser for OpenSSH authorized_keys files
 # (c) 2010-2015 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT Expat License (dist/LICENSE.expat)
+# Released under the MIT License (dist/LICENSE.mit)
 #
 # Features:
 #  - supports OpenSSH options (with and without value)

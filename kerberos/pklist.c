@@ -2,7 +2,7 @@
  * pklist.c - parseable 'klist'
  *
  * (c) 2010-2014 Mantas Mikulėnas <grawity@gmail.com>
- * Released under the MIT Expat License (dist/LICENSE.expat)
+ * Released under the MIT License (dist/LICENSE.mit)
  * Portions of code lifted from MIT Kerberos (clients/klist/klist.c)
  */
 

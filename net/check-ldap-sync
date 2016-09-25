@@ -114,6 +114,7 @@ my %csns;
 my %rcsns;
 my $hosts_ok = 0;
 my %trees_ok;
+my %hosts_ok;
 
 for my $host (@hosts) {
 	print "querying '$host'\n";
@@ -143,6 +144,7 @@ for my $host (@hosts) {
 		$csns{$base}{$host} = $csn;
 		push @{$rcsns{$base}{$csn}}, $host;
 		++$trees_ok{$host};
+		++$hosts_ok{$base};
 	}
 	$conn->unbind;
 	++$hosts_ok if ($trees_ok{$host} == @trees);
@@ -164,7 +166,7 @@ for my $base (@trees) {
 	my %rcsn = %{$rcsns{$base}};
 	my @partitions = keys %rcsn;
 	if (@partitions == 1) {
-		if ($hosts_ok == @hosts) {
+		if ($hosts_ok{$base} == @hosts) {
 			_tree_status($base, "ok", "all CSNs identical");
 		} else {
 			_tree_status($base, "degraded", "reachable CSNs identical");

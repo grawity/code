@@ -65,12 +65,14 @@ my @domains;
 my @hosts;
 my @trees;
 my $add_from_srv = 0;
+my $start_tls = 1;
 
 GetOptions(
 	"d|domain=s" => \@domains,
 	"h|host=s" => \@hosts,
 	"b|base=s" => \@trees,
 	"srv!" => \$add_from_srv,
+	"starttls!" => \$start_tls,
 );
 
 # provide default domains and base DNs
@@ -119,7 +121,8 @@ for my $host (@hosts) {
 		_err("could not connect to '$host': $!");
 		next;
 	}
-	$conn->bind;
+	$conn->start_tls() if $start_tls;
+	$conn->bind();
 	for my $base (@trees) {
 		my $res = $conn->search(
 				base => $base,

@@ -112,7 +112,7 @@ for (@hosts) {
 
 my %csns;
 my %rcsns;
-my $hosts = 0;
+my $hosts_ok = 0;
 
 for my $host (@hosts) {
 	print "querying '$host'\n";
@@ -143,18 +143,18 @@ for my $host (@hosts) {
 		push @{$rcsns{$base}{$csn}}, $host;
 	}
 	$conn->unbind;
-	++$hosts;
+	++$hosts_ok;
 }
 
 # show results
 
-if ($hosts == 0) {
+if ($hosts_ok == 0) {
 	_err("no reachable replica servers! (out of ".@hosts.")");
 	exit $err;
-} elsif ($hosts == 1) {
+} elsif ($hosts_ok == 1) {
 	_warn("only one reachable replica server! (out of ".@hosts.")");
-} elsif ($hosts < @hosts) {
-	_warn("only ".$hosts." reachable replica servers! (out of ".@hosts.")");
+} elsif ($hosts_ok < @hosts) {
+	_warn("only ".$hosts_ok." reachable replica servers! (out of ".@hosts.")");
 }
 
 for my $base (@trees) {
@@ -162,7 +162,7 @@ for my $base (@trees) {
 	my %rcsn = %{$rcsns{$base}};
 	my @partitions = keys %rcsn;
 	if (@partitions == 1) {
-		if ($hosts == @hosts) {
+		if ($hosts_ok == @hosts) {
 			_tree_status($base, "ok", "all CSNs identical");
 		} else {
 			_tree_status($base, "degraded", "reachable CSNs identical");

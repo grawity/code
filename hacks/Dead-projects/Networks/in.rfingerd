@@ -40,16 +40,19 @@ def log_err(msg, *args):
 def log_info(msg, *args):
     syslog.syslog(syslog.LOG_INFO, msg % args)
 
+def log_debug(msg, *args):
+    syslog.syslog(syslog.LOG_DEBUG, msg % args)
+
+def _trace(msg, *args):
+    if DEBUG:
+        _print("(" + (msg % args) + ")")
+
 def _print(*args):
     args = map(str, args)
     line = " ".join(args)+"\r\n"
     fh = sys.stdout
     fh.write(line.encode("utf-8"))
     fh.flush()
-
-def _trace(fmt, *args):
-    if DEBUG:
-        _print("(" + (fmt % args) + ")")
 
 def peername():
     addr = os.environ["REMOTE_HOST"]
@@ -63,8 +66,9 @@ def accept():
     log_info("host %r requested %r", peername(), request)
     result = route(request)
     if result is None:
-        _trace("routing failed")
-        refuse()
+        refuse("not recognized")
+    elif result is False:
+        refuse("denied by configuration")
     else:
         forward(*result)
 
@@ -96,7 +100,7 @@ def route(request):
             local, host = request, b""
 
         if nexthop == b"!":
-            return None
+            return False
         elif nexthop == b"*":
             nexthop = host
             flags += b"R"
@@ -122,9 +126,13 @@ def route(request):
 
 def forward(addr, req, flags):
     _trace("forward(%r, %r, %r)", req, addr, flags)
-    log_info("forwarding to %r [flags:%s]", addr, flags or "-")
+    log_info("- forwarding to %r [flags:%s]", addr, flags or "-")
 
     if b"x" in flags:
+        if b"R" in flags:
+            log_err("attempted to execute %r via misconfigured glob forward", addr)
+            return refuse("malformed")
+
         if addr.startswith(b"|"):
             stdin = True
             addr = addr[1:]
@@ -149,8 +157,9 @@ def forward(addr, req, flags):
             log_err("failed to spawn handler %r: %s", cmdline, e)
             raise
 
-    elif addr.startswith(b"/"):
+    elif addr.startswith(b"/") and b"R" not in flags:
         _trace("file: using %r", addr)
+
         try:
             for line in open(addr, "rb"):
                 sys.stdout.write(line)
@@ -161,36 +170,39 @@ def forward(addr, req, flags):
 
     else:
         if b"R" in flags:
-            # use raw address as received
-            addr = (addr, "finger")
+            host, port = (addr, "finger")
         else:
-            addr = parseaddr(addr)
-        _trace("tcp: using %r", addr)
+            host, port = parse_addr(addr)
+
+        _trace("tcp: using %r port %r", host, port)
 
         try:
-            gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
-                socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+            gai = socket.getaddrinfo(host, port, socket.AF_UNSPEC,
+                                     socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
-            _print("finger: getaddrinfo: %s" % e.strerror)
+            log_debug("- failed to resolve %r: %s", host, e.strerror)
+            _print("finger: could not resolve %s, forward failed" % host)
             return
 
-        canonname = addr
-        for family, socktype, proto, _canonname, addr in gai:
-            if _canonname: canonname = _canonname
+        for family, socktype, proto, cname, addr in gai:
             _trace("tcp: trying %r <af=%r>", addr, family)
+            straddr = format_addr(family, addr, ignore_port=79)
 
             sock = socket.socket(family, socktype, proto)
             sock.settimeout(3)
             try:
                 sock.connect(addr)
             except socket.error as e:
-                straddr = formataddr(family, addr, ignoreport=79)
                 strerr = e.strerror or e.args[0]
-                _print("Trying %s... %s" % (straddr, strerr))
+                log_debug("- failed to connect to %r: %s", addr, strerr)
+                _print("finger: connect to %s failed (%s)" % (straddr, strerr))
                 continue
 
             if not b"q" in flags:
-                _print("[%s]" % canonname)
+                if cname:
+                    _print("[%s/%s]" % (cname, straddr))
+                else:
+                    _print("[%s]" % straddr)
 
             sock.send(req + b"\r\n")
             buf = True
@@ -199,17 +211,19 @@ def forward(addr, req, flags):
                 sys.stdout.write(buf)
             sock.close()
             break
+        else:
+            _print("finger: no reply from %s, forward failed" % host)
 
-def refuse():
+def refuse(msg="refused"):
+    log_info("- query %s, rejecting", msg)
     _print("finger: query refused")
-    log_info("query not recognized, rejecting")
 
-def formataddr(family, addr, ignoreport=None):
-    _trace("formataddr(%r, %r, %r)", family, addr, ignoreport)
+def format_addr(family, addr, ignore_port=None):
+    _trace("format_addr(%r, %r, %r)", family, addr, ignore_port)
     # LAME
     if family == socket.AF_INET:
         host, port = addr
-        if port == ignoreport:
+        if port == ignore_port:
             return "%s" % host
         else:
             return "%s:%s" % (host, port)
@@ -217,15 +231,15 @@ def formataddr(family, addr, ignoreport=None):
         host, port, flow, scope = addr
         if scope:
             host = "%s%%%s" % (host, scope)
-        if port == ignoreport:
+        if port == ignore_port:
             return "%s" % host
         else:
             return "[%s]:%s" % (host, port)
     else:
         return repr(addr)
 
-def parseaddr(addr):
-    _trace("parseaddr(%r)", addr)
+def parse_addr(addr):
+    _trace("parse_addr(%r)", addr)
     ## LAAAAME
     host, port = None, "finger"
     if addr.startswith(b"[") and b"]" in addr:

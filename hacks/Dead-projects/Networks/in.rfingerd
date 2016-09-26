@@ -64,7 +64,9 @@ def accept():
     result = route(request)
     if result is None:
         _trace("routing failed")
-        refuse()
+        refuse("not recognized")
+    elif result is False:
+        refuse("denied by configuration")
     else:
         forward(*result)
 
@@ -96,7 +98,7 @@ def route(request):
             local, host = request, b""
 
         if nexthop == b"!":
-            return None
+            return False
         elif nexthop == b"*":
             nexthop = host
             flags += b"R"
@@ -200,9 +202,9 @@ def forward(addr, req, flags):
             sock.close()
             break
 
-def refuse():
+def refuse(msg="refused"):
+    log_info("- query %s, rejecting", msg)
     _print("finger: query refused")
-    log_info("- query not recognized, rejecting")
 
 def formataddr(family, addr, ignoreport=None):
     _trace("formataddr(%r, %r, %r)", family, addr, ignoreport)

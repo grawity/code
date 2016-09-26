@@ -40,6 +40,9 @@ def log_err(msg, *args):
 def log_info(msg, *args):
     syslog.syslog(syslog.LOG_INFO, msg % args)
 
+def log_debug(msg, *args):
+    syslog.syslog(syslog.LOG_DEBUG, msg % args)
+
 def _trace(msg, *args):
     if DEBUG:
         _print("(" + (msg % args) + ")")
@@ -177,6 +180,7 @@ def forward(addr, req, flags):
             gai = socket.getaddrinfo(host, port, socket.AF_UNSPEC,
                                      socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
+            log_debug("- failed to resolve %r: %s", host, e.strerror)
             _print("finger: could not resolve %s, forward failed" % host)
             return
 
@@ -190,6 +194,7 @@ def forward(addr, req, flags):
                 sock.connect(addr)
             except socket.error as e:
                 strerr = e.strerror or e.args[0]
+                log_debug("- failed to connect to %r: %s", addr, strerr)
                 _print("finger: connect to %s failed (%s)" % (straddr, strerr))
                 continue
 

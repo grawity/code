@@ -163,16 +163,16 @@ def forward(addr, req, flags):
     else:
         if b"R" in flags:
             # use raw address as received
-            addr = (addr, "finger")
+            host, port = (addr, "finger")
         else:
-            addr = parseaddr(addr)
-        _trace("tcp: using %r", addr)
+            host, port = parseaddr(addr)
+        _trace("tcp: using %r port %r", host, port)
 
         try:
-            gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
+            gai = socket.getaddrinfo(host, port, socket.AF_UNSPEC,
                                      socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
-            _print("finger: getaddrinfo: %s" % e.strerror)
+            _print("finger: could not resolve %s, forward failed" % host)
             return
 
         for family, socktype, proto, cname, addr in gai:
@@ -185,7 +185,7 @@ def forward(addr, req, flags):
                 sock.connect(addr)
             except socket.error as e:
                 strerr = e.strerror or e.args[0]
-                _print("finger: forward to %s failed (%s)" % (straddr, strerr))
+                _print("finger: connect to %s failed (%s)" % (straddr, strerr))
                 continue
 
             if not b"q" in flags:
@@ -202,7 +202,7 @@ def forward(addr, req, flags):
             sock.close()
             break
         else:
-            _print("finger: remote host did not respond")
+            _print("finger: no reply from %s, forward failed" % host)
 
 def refuse(msg="refused"):
     log_info("- query %s, rejecting", msg)

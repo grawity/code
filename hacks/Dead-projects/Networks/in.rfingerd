@@ -170,14 +170,15 @@ def forward(addr, req, flags):
 
         try:
             gai = socket.getaddrinfo(addr[0], addr[1], socket.AF_UNSPEC,
-                socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+                                     socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
             _print("finger: getaddrinfo: %s" % e.strerror)
             return
 
         canonname = addr
-        for family, socktype, proto, _canonname, addr in gai:
-            if _canonname: canonname = _canonname
+        for family, socktype, proto, cname, addr in gai:
+            if cname:
+                canonname = cname
             _trace("tcp: trying %r <af=%r>", addr, family)
 
             sock = socket.socket(family, socktype, proto)
@@ -185,7 +186,7 @@ def forward(addr, req, flags):
             try:
                 sock.connect(addr)
             except socket.error as e:
-                straddr = formataddr(family, addr, ignoreport=79)
+                straddr = format_addr(family, addr, ignore_port=79)
                 strerr = e.strerror or e.args[0]
                 _print("Trying %s... %s" % (straddr, strerr))
                 continue
@@ -205,12 +206,12 @@ def refuse(msg="refused"):
     log_info("- query %s, rejecting", msg)
     _print("finger: query refused")
 
-def formataddr(family, addr, ignoreport=None):
-    _trace("formataddr(%r, %r, %r)", family, addr, ignoreport)
+def format_addr(family, addr, ignore_port=None):
+    _trace("format_addr(%r, %r, %r)", family, addr, ignore_port)
     # LAME
     if family == socket.AF_INET:
         host, port = addr
-        if port == ignoreport:
+        if port == ignore_port:
             return "%s" % host
         else:
             return "%s:%s" % (host, port)
@@ -218,7 +219,7 @@ def formataddr(family, addr, ignoreport=None):
         host, port, flow, scope = addr
         if scope:
             host = "%s%%%s" % (host, scope)
-        if port == ignoreport:
+        if port == ignore_port:
             return "%s" % host
         else:
             return "[%s]:%s" % (host, port)

@@ -2,7 +2,7 @@
 # pcip - 'ip' wrapper translating PCI & MAC addresses to interface names
 # Originally written for http://superuser.com/questions/978088/
 # (c) 2015 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT Expat License
+# Released under the MIT License
 #
 # Match by PCI device:
 #

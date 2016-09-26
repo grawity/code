@@ -64,51 +64,67 @@ sub _asname {
 sub asname {
 	my ($as, $fmt) = @_;
 	$fmt //= "%s";
+	my $tail = ($as =~ s/^424242/./r);
 	if ($AS{$as}) {
-		return $AS{$as}." ($as)";
+		return $AS{$as}." (".$tail.")";
 	}
 	return $as;
 }
 
 sub tagname {
 	my ($tag) = @_;
-	$tag =~ s/^RT://;
-	if ($tag =~ /^(\d+):(\d+)$/) {
+	if ($tag =~ /^\((\d+),(\d+)\)$/) {
 		my $as = int $1;
 		my $cm = int $2;
 		my $name;
 		if ($COMMUNITY{$as}{$cm}){ $name = $COMMUNITY{$as}{$cm}; }
 		elsif ($COMMUNITY{$as}{_}) { $name = $COMMUNITY{$as}{_}->($cm); }
 		if ($AS{$as} || $name) {
-			return "<".($AS{$as} // $as).":".($name || $cm).">";
+			return "(".($AS{$as} // $as).",".($name || $cm).")";
 		}
 	}
 	return $tag;
 }
 
 sub filter {
+	my $rt;
 	while (<STDIN>) {
-		if (/^  ([0-9 ]+)$/) {
-			my @aspath = split(/ /, $1);
+		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w+?)\]$/) {
+			$rt //= $1; print "\n · \e[38;5;210m$rt\e[m\n";
+			print "\t",
+				"via \e[38;5;43m".$2."\e[m ",
+				"on \e[38;5;45m".$3."\e[m ",
+				"at \e[38;5;46m".$5."\e[m ",
+				$4."\n";
+		}
+		elsif (/(\s+BGP\.as_path:) (.+)$/) {
+			my $prefix = $1;
+			my @aspath = split(/ /, $2);
 			@aspath = map {asname($_)} @aspath;
 			@aspath = map {"\e[1m$_\e[m"} @aspath;
-			print " ".join(" \e[1;33m›\e[m ", "", @aspath, "")."\n";
+			print $prefix.join(" \e[1;33m›\e[m ", "", @aspath)."\n";
 		}
-		elsif (/^(      Community:) (.+)$/) {
-			my ($prefix, $tags) = ($1, $2);
-			my @tags = split(/ /, $tags);
+		elsif (/(\s+BGP\.next_hop:) (.+)$/) {
+			print $1." \e[38;5;43m".$2."\e[m\n";
+		}
+		elsif (/(\s+BGP\.community:) (.+)$/) {
+			my $prefix = $1;
+			my @tags = split(/ /, $2);
 			@tags = map {tagname($_)} @tags;
-			print $prefix." ".join(", ", @tags)."\n";
+			if (eval {require Sort::Naturally}) {
+				@tags = Sort::Naturally::nsort(@tags);
+			} else {
+				@tags = sort @tags;
+			}
+			print $prefix." ".join(" ", @tags)."\n";
 		}
-		elsif (/^(      Extended Community:) (.+)$/) {
-			my ($prefix, $tags) = ($1, $2);
-			my @tags = split(/ /, $tags);
-			@tags = map {tagname($_)} @tags;
-			print $prefix." ".join(", ", @tags)."\n";
+		elsif (/^(\s+BGP\.local_pref:) (.+)$/) {
+			print if $2 ne "100";
 		}
-		elsif (/^      Last update:/) {
-			next;
+		elsif (/^(\s+BGP\.origin:) (.+)$/) {
+			print if $2 ne "IGP";
 		}
+		## TODO: port from Quagga
 		elsif (/^      Origin/) {
 			s/\bbest\b/\e[1;32m$&\e[m/;
 			s/\binternal\b/\e[1;35m$&\e[m/;

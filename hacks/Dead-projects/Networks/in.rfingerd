@@ -126,6 +126,10 @@ def forward(addr, req, flags):
     log_info("- forwarding to %r [flags:%s]", addr, flags or "-")
 
     if b"x" in flags:
+        if b"R" in flags:
+            log_err("attempted to execute %r via misconfigured glob forward", addr)
+            return refuse("malformed")
+
         if addr.startswith(b"|"):
             stdin = True
             addr = addr[1:]
@@ -150,8 +154,9 @@ def forward(addr, req, flags):
             log_err("failed to spawn handler %r: %s", cmdline, e)
             raise
 
-    elif addr.startswith(b"/"):
+    elif addr.startswith(b"/") and b"R" not in flags:
         _trace("file: using %r", addr)
+
         try:
             for line in open(addr, "rb"):
                 sys.stdout.write(line)
@@ -162,10 +167,10 @@ def forward(addr, req, flags):
 
     else:
         if b"R" in flags:
-            # use raw address as received
             host, port = (addr, "finger")
         else:
             host, port = parseaddr(addr)
+
         _trace("tcp: using %r port %r", host, port)
 
         try:

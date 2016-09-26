@@ -175,24 +175,24 @@ def forward(addr, req, flags):
             _print("finger: getaddrinfo: %s" % e.strerror)
             return
 
-        canonname = addr
         for family, socktype, proto, cname, addr in gai:
-            if cname:
-                canonname = cname
             _trace("tcp: trying %r <af=%r>", addr, family)
+            straddr = format_addr(family, addr, ignore_port=79)
 
             sock = socket.socket(family, socktype, proto)
             sock.settimeout(3)
             try:
                 sock.connect(addr)
             except socket.error as e:
-                straddr = format_addr(family, addr, ignore_port=79)
                 strerr = e.strerror or e.args[0]
                 _print("Trying %s... %s" % (straddr, strerr))
                 continue
 
             if not b"q" in flags:
-                _print("[%s]" % canonname)
+                if cname:
+                    _print("[%s/%s]" % (cname, straddr))
+                else:
+                    _print("[%s]" % straddr)
 
             sock.send(req + b"\r\n")
             buf = True

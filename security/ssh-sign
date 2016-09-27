@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+import base64
+import paramiko
+import struct
+import sys
+
+def format_fp(fp):
+    return ":".join(["%02x" % b for b in fp])
+
+def format_buf(buf):
+    return base64.b64encode(buf).encode()
+
+def find_key(agent, ident):
+    keys = agent.keys()
+    if ident is None:
+        return keys[0]
+    elif ident.isdecimal():
+        i = int(ident)
+        if 0 < i <= len(keys):
+            return keys[i-1]
+    elif ":" in ident:
+        for key in keys:
+            if format_fp(key.get_fingerprint()) == ident:
+                return key
+
+opt_msg = "foo"
+opt_sig = "AAAAC3NzaC1lZDI1NTE5AAAAQCEV0EFq2biY1qjaLN386Ty3Y7g4MBfa88GYuT9RrcvSy92A1bMgTJp6iV/DuqMYH5akfd3dWpOv7dlZA44cNQQ="
+opt_mode = "verify"
+opt_key = None
+
+agent = paramiko.Agent()
+
+if opt_mode == "list":
+    keys = agent.get_keys()
+    print("Available keys:")
+    for i, key in enumerate(keys):
+        print("%3d %s %s" % (i+1, format_fp(key.get_fingerprint()), key.name))
+
+elif opt_mode == "sign":
+    key = find_key(agent, opt_key)
+    data = opt_msg.encode("utf-8")
+    sig = key.sign_ssh_data(data)
+    print(base64.b64encode(sig).decode())
+
+elif opt_mode == "verify":
+    key = find_key(agent, opt_key)
+    data = opt_msg.encode("utf-8")
+    sig = base64.b64decode(opt_sig)
+    if key.verify_ssh_sig(data, sig):
+        print("ok")
+    else:
+        sys.exit("fail")

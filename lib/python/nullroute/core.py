@@ -154,8 +154,21 @@ class Core(object):
     def exit(self):
         sys.exit(self._num_errors > 0)
 
+    @classmethod
+    def exit_if_errors(self):
+        if self._num_errors > 0:
+            sys.exit(1)
+
 class Env(object):
     vendor = "nullroute.eu.org"
+
+    @classmethod
+    def home(self):
+        return os.environ.get("HOME", os.path.expanduser("~"))
+
+    @classmethod
+    def xdg_cache_home(self):
+        return os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache"))
 
     @classmethod
     def xdg_config_home(self):
@@ -166,5 +179,18 @@ class Env(object):
         return os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
 
     @classmethod
+    def find_cache_file(self, name):
+        return os.path.join(self.xdg_cache_home(), self.vendor, name)
+
+    @classmethod
     def find_config_file(self, name):
-        return os.path.join(self.xdg_config_home(), self.vendor, name)
+        paths = [
+            os.path.join(self.xdg_config_home(), self.vendor, name),
+            os.path.join(self.xdg_config_home(), self.vendor, "synced", name),
+        ]
+
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        else:
+            return paths[0]

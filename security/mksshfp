@@ -44,6 +44,11 @@ def parse(path):
             continue
 
         for hash_id, hash_func in HASH_ALGOS:
+            if hash_id == 1 and KEY_ALGOS[key.algo] >= 3:
+                # RFC 7479 only defines SHA-256 for ssh-ed25519
+                # SHA-1 for ecdsa-* skipped intentionally
+                continue
+
             keyhash = hash_func(key.blob)
             hexhash = keyhash.hexdigest()
             yield {

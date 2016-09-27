@@ -261,6 +261,16 @@ case $cmd in
         export MIN_BYTES=$(( 2 * 1024 ))
         annex find --format='${key} ${file}\n' --include '*' "$@" |
         perl -E '
+            sub fmt_key {
+                my ($key) = @_;
+                #return "\e[m$key\e[m";
+                return "\e[38;5;208m$key\e[m";
+            }
+            sub fmt_path {
+                my ($path) = @_;
+                my ($head, $tail) = ($path =~ m!^(.+)/(.+?)$!);
+                return "$head/\e[2m$tail\e[m";
+            }
             my $min = int($ENV{MIN_BYTES} // "0");
             my %keys;
             while (<>) {
@@ -272,8 +282,8 @@ case $cmd in
             for my $key (sort {$keys{$a}[0] cmp $keys{$b}[0]} keys %keys) {
                 my @files = @{$keys{$key}};
                 if (@files > 1) {
-                    print "\e[1m", $key, "\e[m", "\n";
-                    print "  ", $_, "\n" for sort @files;
+                    print fmt_key($key), "\n";
+                    print "  ", fmt_path($_), "\n" for sort @files;
                     print "\n";
                 }
             }

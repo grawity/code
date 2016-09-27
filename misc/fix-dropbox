@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+err() { echo "error: $*" >&2; return 1; }
+die() { err "$@"; exit 1; }
+
+shopt -s nullglob
+
+if [[ ! -d ~/.dropbox-dist ]]; then
+	dists=(~/.dropbox-dist-tmp-*/ ~/.dropbox-dist-old-*/)
+	if (( ${#dists[@]} )); then
+		mv -v "${dists[0]}" ~/.dropbox-dist || exit
+	else
+		die "no dropbox-dist found, manual reinstall required"
+	fi
+fi
+
+rm -rf ~/.dropbox-dist-old-*/
+
+if [[ $1 == --start ]]; then
+	exec ~/.dropbox-dist/dropboxd
+fi

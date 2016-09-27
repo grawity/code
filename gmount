@@ -56,8 +56,27 @@ for arg; do
 	arg=${alias[$arg]:-$arg}
 
 	if (( mount || standby || poweroff )); then
-		uuid=${outer_uuid[$arg]}
-		if [[ $uuid ]]; then
+		if [[ $arg == /* ]]; then
+			dev=$arg
+			if [[ ! -e $dev ]]; then
+				err "nonexistent device '$dev'"
+				continue
+			elif [[ ! -b $dev || $dev != /dev/sd* ]]; then
+				err "bad device path '$dev'"
+				continue
+			else
+				debug "accepting device path '$arg'"
+			fi
+		elif [[ $arg == sd* ]]; then
+			dev=/dev/$arg
+			if [[ ! -e $dev ]]; then
+				err "nonexistent device '$dev'"
+				continue
+			else
+				debug "accepting device name '$arg'"
+			fi
+		elif [[ ${outer_uuid[$arg]} ]]; then
+			uuid=${outer_uuid[$arg]}
 			debug "searching for outer_UUID '$uuid'"
 			if [[ -e "/dev/disk/by-partuuid/$uuid" ]]; then
 				dev=$(readlink -f "/dev/disk/by-partuuid/$uuid")

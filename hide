@@ -2,14 +2,16 @@
 # hide -- get rid of no-longer-useful files
 
 . lib.bash || exit
+. libks.bash || exit
 
 usage() {
-	echo "Usage: $progname [-d <dir>] <files>..."
+	echo "Usage: $progname [-d <dir>] [-T] <files>..."
 	echo ""
 	echo "Puts useless files in ~/Attic/Misc/<year>/ because I don't want to actually"
 	echo "delete them."
 	echo ""
 	echo_opt "-d <dir>" "Put all files in a subdirectory"
+	echo_opt "-T" "Use current year, not file modification time"
 }
 
 _put() {
@@ -25,11 +27,13 @@ dir="$HOME/Attic/Misc"
 
 # parse command line
 
+arg_mtime=1
 arg_subdir=
 
-while getopts ":d:" OPT; do
+while getopts ":d:T" OPT; do
 	case $OPT in
 	d) arg_subdir=$OPTARG;;
+	T) arg_mtime=0;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -60,7 +64,11 @@ for arg; do
 	fi
 	debug "... base='$base' ext='$ext'"
 
-	dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
+	if (( arg_mtime )); then
+		dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
+	else
+		dstdir=$dir/$(date +%Y)
+	fi
 	if [[ $arg_subdir ]]; then
 		dstdir+=/$arg_subdir
 	fi
@@ -76,8 +84,8 @@ for arg; do
 
 	perms=$(stat -c %a "$dst") &&
 	chmod u+w "$dst" &&
-	setfattr -h -n "user.stashed.from" -v "$src"               "$dst" &&
-	setfattr -h -n "user.stashed.when" -v "$(date "+%FT%T%z")" "$dst" &&
+	ks:setattr "$dst" stashed.from "$HOSTNAME:$src" &&
+	ks:setattr "$dst" stashed.when "$(date -Iseconds)" &&
 	chmod "$perms" "$dst"
 done
 

@@ -5,6 +5,7 @@ declare -A site_bases site_apis upload_bases
 
 site_bases=(
     [1339]=http://1339.cf
+    [cat]=https://pomf.cat
     [max]=https://maxfile.ro
     [mixtape]=https://mixtape.moe
 )
@@ -16,9 +17,12 @@ site_apis=(
 
 upload_bases=(
     [1339]=http://a.1339.cf
+    [cat]=https://a.pomf.cat
     [max]=https://d2.maxfile.ro
     [mixtape]=https://my.mixtape.moe
 )
+
+default_site=cat
 
 . lib.bash || exit
 . libkitchensink.bash || exit
@@ -26,7 +30,7 @@ upload_bases=(
 usage() {
     echo "Usage: $progname [-p site] <file>..."
     echo ""
-    echo_getopt "-p site" "select hosting site"
+    echo_opt "-p site" "select hosting site"
     echo ""
     echo "Sites:"
     local _s; for _s in ${!site_bases[@]}; do
@@ -44,7 +48,7 @@ log_file="$path_cache/pomf.log"
 
 # parse command line
 
-arg_site=max
+arg_site=$default_site
 
 while getopts ":p:" OPT; do
     case $OPT in

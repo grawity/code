@@ -4,9 +4,11 @@ gpg --with-colons --list-sigs "$@" | {
 	declare -A todo=()
 	while IFS=: read -r type _ _ _ id _ _ _ _ uid _; do
 		if [[ $type == sig ]]; then
-			echo "- [$id] $uid"
 			if [[ $uid == *User\ ID\ not\ found* ]]; then
+				echo "- [$id] $uid"
 				todo[$id]=1
+			else
+				echo "+ [$id] $uid"
 			fi
 		fi
 	done

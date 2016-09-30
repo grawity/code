@@ -6,7 +6,7 @@ use Image::Size;
 use POSIX;
 use Nullroute::Lib;
 
-my $qr_date = qr/\d{4}-\d{2}-\d{2}/;
+my $qr_y_m_d = qr/\d{4}-\d{2}-\d{2}/;
 
 sub detect_host {
 	my ($file) = @_;
@@ -25,7 +25,7 @@ sub do_rename {
 	my $new_name = $old_name;
 
 	for ($new_name) {
-		# mpv - match Android
+		# mpv
 		if (/^mpv-shot.*(\.[^.]+)$/) {
 			my @time = gmtime((stat $file)[9]);
 			s//strftime("Screenshot_%Y%m%d_%H%M%S", @time).$1/e;
@@ -33,21 +33,19 @@ sub do_rename {
 		}
 
 		# Dropbox on Windows
-		#s/^Screenshot ($qr_date) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4.raindows/;
-		if (/^Screenshot ($qr_date) (\d+)\.(\d+)\.(\d+)/) {
-			my $host = detect_host($file);
-			s//$1.$2$3$4.$host/;
-		}
+		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4/;
 
 		# GNOME Shell
-		s/^Screenshot from ($qr_date) (\d+):(\d+):(\d+)/$1.$2$3$4/;
+		s/^Screenshot from ($qr_y_m_d) (\d+):(\d+):(\d+)/$1.$2$3$4/;
 
 		# Dropbox on Android
-		#s/^($qr_date) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4.nexus/;
-		s/^(\d{4})-(\d{2})-(\d{2}) (\d+)\.(\d+)\.(\d+)/Screenshot_$1$2$3.$4$5$6/;
+		s/^($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/Screenshot_$1.$2$3$4/;
+
+		# VLC
+		s/^Snapshot_($qr_y_m_d)-(\d+)h(\d+)m(\d+)s\d+/Screenshot_$1.$2$3$4/;
 
 		# Android (??)
-		#s/^Screenshot_($qr_date)-(\d+)-(\d+)-(\d+)/$1.$2$3$4.nexus/;
+		#s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/$1.$2$3$4.nexus/;
 	}
 
 	if ($new_name eq $old_name) {

@@ -1,11 +1,25 @@
 #!/usr/bin/env bash
 # kadm - run kadmin with current identity
 
-princ=$(pklist -P)
-realm=${princ##*@}
+. lib.bash || exit
 
-if kvno -q "kadmin/admin@$realm"; then
-	kadmin -r "$realm" -p "$princ" -c "${KRB5CCNAME:-$(pklist -N)}" "$@"
+client=$(pklist -P)
+realm=${client##*@}
+ccname=${KRB5CCNAME:-$(pklist -N)}
+
+while getopts ":r:" OPT; do
+	case $OPT in
+	r) realm=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+service="kadmin/admin@$realm"
+
+if kvno -q "$service"; then
+	debug "using existing ccache '$ccname'"
+	kadmin -r "$realm" -p "$client" -c "$ccname" "$@"
 else
-	kadmin -r "$realm" -p "$princ" "$@"
+	notice "could not obtain ticket for '$service'"
+	kadmin -r "$realm" -p "$client" "$@"
 fi

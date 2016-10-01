@@ -106,7 +106,7 @@ sub find_first_file {
 			_debug("found '$_'");
 			return $_;
 		}
-		$fallback = $_;
+		$fallback ||= $_;
 	}
 	_debug("returning fallback '$_'");
 	return $fallback;

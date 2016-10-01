@@ -44,7 +44,10 @@ uquery=$(urlencode -- "$query")
 debug "query: '$query' @ '$host'"
 debug "query (encoded): '$uquery'"
 
-if (( webgw )); then
+if [[ $force_client ]]; then
+	debug "manually requested mode"
+	client=$force_client
+elif (( webgw )); then
 	debug "requested web gateway"
 	client=gateway
 elif have curl && curl -V | grep -wqs gopher; then
@@ -126,6 +129,9 @@ else
 			;;
 		lynx)
 			# adds own header
+			if [[ $addr == *:* ]]; then
+				addr="[$addr]"
+			fi
 			lynx -dump -nolist "finger://$addr/$uquery"
 			;;
 		nc)

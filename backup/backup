@@ -155,14 +155,14 @@ do_annex_archive() {
 do_kinit() {
 	log "obtaining Kerberos tickets"
 	k5start_base=$(mktemp -d /tmp/backup_XXXXXXXX)
-	export KRB5CCNAME="FILE:${k5start_base}/krb5cc"
-	k5start -K 15 -b -p "${k5start_base}/pid" -L -q "$@"
+	export KRB5CCNAME="FILE:$k5start_base/krb5cc"
+	k5start -K 15 -b -p "$k5start_base/pid" -L -q "$@"
 	trap 'do_kdestroy' EXIT
 }
 
 do_kdestroy() {
 	if [ -e "$k5start_base/pid" ]; then
-		kill $(< "${k5start_base}/pid")
+		kill $(< "$k5start_base/pid")
 		unset KRB5CCNAME
 		rm -rf "$k5start_base"
 	fi

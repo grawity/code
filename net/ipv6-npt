@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+import sys
+from ipaddress import *
+import struct
+
+inner_ip = IPv6Interface("fd80:56c2:e21c:288b:8199:931f:3a4e:cfb3/64")
+_outer_ip = IPv6Interface("2001:0470:dd9f:288b:b5e8:931f:3a4e:cfb3/64")
+
+def ip_to_words(a):
+    return list(struct.unpack("!8H", a.packed))
+
+def ip_from_words(v):
+    return ip_address(struct.pack("!8H", *v))
+
+def add1(a, b, suppress=False):
+    if not (0 <= a <= 0xFFFF and 0 <= b <= 0xFFFF):
+        raise ValueError("parameters must fit within 0..0xFFFF")
+    r = a + b
+    if suppress:
+        while r >= 0xFFFF:
+            r -= 0xFFFF
+    else:
+        while r > 0xFFFF:
+            r -= 0xFFFF
+    return r
+
+def sub1(a, b):
+    return add1(a, ~b & 0xFFFF)
+
+def sum1(v, suppress=False):
+    if not all([0 <= x <= 0xFFFF for x in v]):
+        raise ValueError("parameters must fit within 0..0xFFFF")
+    r = sum(v)
+    if suppress:
+        while r >= 0xFFFF:
+            r -= 0xFFFF
+    else:
+        while r > 0xFFFF:
+            r -= 0xFFFF
+    return r
+
+def csum1(v):
+    return sub1(0xFFFF, sum1(v))
+
+
+def translate(inner_ip, src_prefix, dst_prefix):
+    if src_prefix.prefixlen != dst_prefix.prefixlen:
+        raise ValueError("src & dst prefixes mismatch")
+
+    # replace the prefix
+
+    ip_words = ip_to_words(inner_ip)
+    src_words = ip_to_words(src_prefix.network_address)
+    dst_words = ip_to_words(dst_prefix.network_address)
+    plen = src_prefix.prefixlen
+
+    nbits = plen
+    pos = 0
+
+    while nbits >= 16:
+        if ip_words[pos] != src_words[pos]:
+            raise ValueError("src prefix mismatch at byte %d" % pos)
+        ip_words[pos] = dst_words[pos]
+        nbits -= 16
+        pos += 1
+
+    if nbits:
+        mask = 0xFFFF << (16 - nbits)
+        if (ip_words[pos] & mask) != src_words[pos]:
+            raise ValueError("src prefix mismatch at byte %d" % pos)
+        ip_words[pos] = dst_words[pos] | (ip_words[pos] & ~mask)
+
+    # adjust for checksum
+
+    src_chk = sum1(src_words[:plen // 16])
+    dst_chk = sum1(dst_words[:plen // 16])
+    adjust = sub1(src_chk, dst_chk)
+
+    if plen <= 48:
+        try_pos = [48]
+    else:
+        try_pos = [64, 80, 96, 112]
+    done = False
+
+    for pos in try_pos:
+        pos = pos // 16
+        if ip_words[pos] != 0xFFFF:
+            ip_words[pos] = add1(ip_words[pos], adjust, suppress=True)
+            return ip_from_words(ip_words)
+
+    raise ValueError("subnet is 0xFFFF, invalid")
+
+def bruteforce():
+    inner_ip = ip_address("fd80:56c2:e21c:288b::")
+    outer_ip = ip_address("2001:0470:dd9f:0000::")
+
+    src_words = ip_to_words(inner_ip)
+    dst_words = ip_to_words(outer_ip)
+
+    inner_chk = sum1(src_words[:4])
+    for try_subnet in range(0xFFFF):
+        dst_words[48 // 16] = try_subnet
+        outer_chk = sum1(dst_words[:4])
+        adjust = sub1(inner_chk, outer_chk)
+        if adjust == 0 or adjust == 0xffff:
+            new_outer_ip = ip_from_words(dst_words)
+            print(new_outer_ip, inner_chk, outer_chk)
+
+inner_ip = ip_address("fd80:56c2:e21c:288b:8199:931f:3a4e:cfb3")
+inner_prefix = ip_network("fd80:56c2:e21c:288b::/64")
+outer_prefix = ip_network("2001:0470:dd9f:5cda::/64")
+
+bruteforce()
+
+print(" npt %s" % inner_ip.exploded)
+print("from %s" % inner_prefix.exploded)
+print("  to %s" % outer_prefix.exploded)
+outer_ip = translate(inner_ip, inner_prefix, outer_prefix)
+print(" got %s" % outer_ip.exploded)
+print("want %s" % _outer_ip.exploded)

@@ -138,43 +138,56 @@ class Allocator(object):
 
         return [c for c in candidates if c not in partial]
 
+output_json = False
+max_results = 50
+
 try:
     if sys.argv[1][0] == "/":
         want_bits = int(sys.argv[1][1:])
 except:
     want_bits = 25
 
-max_results = 50
-
-print("; Trying to find free /%d blocks" % want_bits)
+if not output_json:
+    print("; Trying to find free /%d blocks" % want_bits)
 
 a = Allocator()
 seen = set()
+results = []
 for pp, p, m in a.find_open_blocks():
     n = ipaddress.ip_network(p)
     if n.prefixlen >= want_bits:
         continue
-    r = a.find_free_blocks(p, want_bits)
-    if r:
-        print("* %s (%s)" % (p, m["netname"][0]))
-        for key in ["descr", "remarks"]:
-            if key in m:
-                label = "%s:" % key
-                for val in m[key]:
-                    print("  %s %s" % (label, val))
-                    label = " " * len(label)
-        if r:
-            seen |= set(r)
-            n = "1 block" if len(r) == 1 else "%d blocks" % len(r)
-            if len(r) > max_results+1:
-                r = r[:max_results//2] + ["..."] + r[max_results//-2:]
-            r = ", ".join([str(n) for n in r])
-            print("  free: %s (%s)" % (r, n))
+    rs = a.find_free_blocks(p, want_bits)
+    if rs:
+        if output_json:
+            results.append({
+                "block": str(p),
+                "name": m["netname"][0],
+                "ranges": [str(r) for r in rs],
+            })
         else:
-            print("  free: (no space found)")
-        print()
+            print("* %s (%s)" % (p, m["netname"][0]))
+            for key in ["descr", "remarks"]:
+                if key in m:
+                    label = "%s:" % key
+                    for val in m[key]:
+                        print("  %s %s" % (label, val))
+                        label = " " * len(label)
+            if rs:
+                seen |= set(rs)
+                n = "1 block" if len(rs) == 1 else "%d blocks" % len(rs)
+                if len(rs) > max_results+1:
+                    rs = rs[:max_results//2] + ["..."] + rs[max_results//-2:]
+                rs = ", ".join([str(n) for n in rs])
+                print("  free: %s (%s)" % (rs, n))
+            else:
+                print("  free: (no space found)")
+            print()
 
-if seen:
-    print("; Found %d free blocks." % len(seen))
+if output_json:
+    print(json.dumps(results))
 else:
-    print("; No free blocks found.")
+    if seen:
+        print("; Found %d free blocks." % len(seen))
+    else:
+        print("; No free blocks found.")

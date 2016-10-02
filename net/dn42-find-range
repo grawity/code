@@ -87,14 +87,12 @@ class Allocator(object):
             p = item["prefix"]
             if p in self.metadata:
                 m = self.metadata[p]
-                if "open" not in m.get("policy", []):
-                    continue
-                if "active" not in m.get("bgp-status", []):
-                    continue
-                if "DN42-TRANSFER-IP4NET" in m.get("netname", []):
-                    continue
-                yield item, p, m
-                continue
+                if "open" in m.get("policy", []):
+                    if "active" in m.get("bgp-status", []):
+                        if "DN42-TRANSFER-IP4NET" in m.get("netname", []):
+                            continue
+                        yield item, p, m
+                        continue
             if item["children"]:
                 yield from self._find_open_blocks(item["children"])
 

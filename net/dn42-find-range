@@ -146,7 +146,7 @@ max_results = 50
 print("; Trying to find free /%d blocks" % want_bits)
 
 a = Allocator()
-n_total = 0
+seen = set()
 for pp, p, m in a.find_open_blocks():
     n = ipaddress.ip_network(p)
     if n.prefixlen >= want_bits:
@@ -161,8 +161,8 @@ for pp, p, m in a.find_open_blocks():
                     print("  %s %s" % (label, val))
                     label = " " * len(label)
         if r:
+            seen |= set(r)
             n = "1 block" if len(r) == 1 else "%d blocks" % len(r)
-            n_total += len(r)
             if len(r) > max_results+1:
                 r = r[:max_results//2] + ["..."] + r[max_results//-2:]
             r = ", ".join([str(n) for n in r])
@@ -171,7 +171,7 @@ for pp, p, m in a.find_open_blocks():
             print("  free: (no space found)")
         print()
 
-if n_total:
-    print("; Found %d free blocks." % n_total)
+if seen:
+    print("; Found %d free blocks." % len(seen))
 else:
     print("; No free blocks found.")

@@ -25,6 +25,7 @@ our @EXPORT = qw(
 	lt_nin_valid
 
 	coord_distance
+	shannon_entropy
 
 	sd_notify
 );
@@ -93,7 +94,7 @@ sub lt_nin_random {
 	return $nin;
 }
 
-### coordinates
+### math
 
 sub coord_distance {
 	my ($lon1, $lat1, $lon2, $lat2) = @_;
@@ -112,6 +113,23 @@ sub coord_distance {
 	return $R * $c;
 }
 
+sub shannon_entropy {
+	my ($str) = @_;
+	my $length = length($str);
+	my @histogram;
+	my $entropy;
+
+	# algorithm used by strongSwan to check PSK quality
+
+	$histogram[ord $_]++ for split(//, $str);
+
+	$entropy -= $_ for
+			map {$_ * log($_) / log(2)}
+			map {$_ / $length}
+			grep {$_} @histogram;
+
+	return $entropy;
+}
 
 ### systemd
 

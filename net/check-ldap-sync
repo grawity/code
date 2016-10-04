@@ -65,12 +65,14 @@ my @domains;
 my @hosts;
 my @trees;
 my $add_from_srv = 0;
+my $start_tls = 1;
 
 GetOptions(
 	"d|domain=s" => \@domains,
 	"h|host=s" => \@hosts,
 	"b|base=s" => \@trees,
 	"srv!" => \$add_from_srv,
+	"starttls!" => \$start_tls,
 );
 
 # provide default domains and base DNs
@@ -110,7 +112,9 @@ for (@hosts) {
 
 my %csns;
 my %rcsns;
-my $hosts = 0;
+my $hosts_ok = 0;
+my %trees_ok;
+my %hosts_ok;
 
 for my $host (@hosts) {
 	print "querying '$host'\n";
@@ -119,7 +123,8 @@ for my $host (@hosts) {
 		_err("could not connect to '$host': $!");
 		next;
 	}
-	$conn->bind;
+	$conn->start_tls() if $start_tls;
+	$conn->bind();
 	for my $base (@trees) {
 		my $res = $conn->search(
 				base => $base,
@@ -138,20 +143,22 @@ for my $host (@hosts) {
 		my $csn = join(" ", sort(@csn));
 		$csns{$base}{$host} = $csn;
 		push @{$rcsns{$base}{$csn}}, $host;
+		++$trees_ok{$host};
+		++$hosts_ok{$base};
 	}
 	$conn->unbind;
-	++$hosts;
+	++$hosts_ok if ($trees_ok{$host} == @trees);
 }
 
 # show results
 
-if ($hosts == 0) {
+if ($hosts_ok == 0) {
 	_err("no reachable replica servers! (out of ".@hosts.")");
 	exit $err;
-} elsif ($hosts == 1) {
+} elsif ($hosts_ok == 1) {
 	_warn("only one reachable replica server! (out of ".@hosts.")");
-} elsif ($hosts < @hosts) {
-	_warn("only ".$hosts." reachable replica servers! (out of ".@hosts.")");
+} elsif ($hosts_ok < @hosts) {
+	_warn("only ".$hosts_ok." reachable replica servers! (out of ".@hosts.")");
 }
 
 for my $base (@trees) {
@@ -159,7 +166,7 @@ for my $base (@trees) {
 	my %rcsn = %{$rcsns{$base}};
 	my @partitions = keys %rcsn;
 	if (@partitions == 1) {
-		if ($hosts == @hosts) {
+		if ($hosts_ok{$base} == @hosts) {
 			_tree_status($base, "ok", "all CSNs identical");
 		} else {
 			_tree_status($base, "degraded", "reachable CSNs identical");

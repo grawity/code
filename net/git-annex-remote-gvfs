@@ -59,10 +59,10 @@ class GvfsClient(object):
         if not uri.endswith("/"):
             uri += "/"
         suffix = (" -> %s\n" % uri).encode("utf-8")
-        with subprocess.Popen(["gvfs-mount", "-l"],
+        with subprocess.Popen(["gio", "mount", "-l"],
                               stdout=subprocess.PIPE) as proc:
             for line in proc.stdout:
-                _log("gvfs-mount:", line)
+                _log("gio mount:", line)
                 if line.startswith(b"Mount(") and line.endswith(suffix):
                     return True
         return False
@@ -72,13 +72,13 @@ class GvfsClient(object):
         if self.is_mounted(uri):
             return True
         else:
-            r = subprocess.call(["gvfs-mount", uri],
+            r = subprocess.call(["gio", "mount", uri],
                                 stdout=self._stderr)
             return (r == 0)
 
     def has_file(self, uri):
         _log("GvfsClient.has_file(%r)" % uri)
-        r = subprocess.call(["gvfs-info", "-a", "access::can-read", uri],
+        r = subprocess.call(["gio", "info", "-a", "access::can-read", uri],
                             stdout=self._null,
                             stderr=self._null)
         return (r == 0)
@@ -91,28 +91,28 @@ class GvfsClient(object):
             parent = os.path.dirname(uri)
             if not self.create_dir_p(parent):
                 return False
-            r = subprocess.call(["gvfs-mkdir", "-p", uri],
+            r = subprocess.call(["gio", "mkdir", "-p", uri],
                                 stdout=self._stderr,
                                 stderr=self._stderr)
             return (r == 0)
 
     def delete_file(self, uri):
         _log("GvfsClient.delete_file(%r)" % uri)
-        r = subprocess.call(["gvfs-rm", "-f", uri],
+        r = subprocess.call(["gio", "rm", "-f", uri],
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
 
     def copy_file(self, src, dst):
         _log("GvfsClient.copy_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-copy", "-p", src, dst],
+        r = subprocess.call(["gio", "copy", "-p", src, dst],
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
 
     def move_file(self, src, dst):
         _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-move", "-p", "-C", src, dst],
+        r = subprocess.call(["gio", "move", "-p", "-C", src, dst],
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)

@@ -82,8 +82,6 @@ sub lt_nin_parse {
 	$month = $digits[3] * 10 + $digits[4];
 	$day   = $digits[5] * 10 + $digits[6];
 
-	#_debug("parsed [$nin] to <$year, $month, $day>");
-
 	return ($gender, $year, $month, $day);
 }
 

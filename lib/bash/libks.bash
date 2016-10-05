@@ -10,9 +10,13 @@ ks:getattr() {
 ks:setattr() {
 	local file=$1 name=$2 value=$3
 	if have setfattr; then
+		debug "setting 'user.$name' to '$value' via setfattr"
 		setfattr "$file" --name="user.$name" --value="$value"
-	else
+	elif have attr; then
+		debug "setting 'user.$name' to '$value' via attr"
 		attr -q -s "$name" -V "$value" "$file"
+	else
+		debug "cannot set 'user.$name', no interface"
 	fi
 }
 

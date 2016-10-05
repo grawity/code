@@ -10,6 +10,7 @@ usage() {
 	echo_opt "-1"		"upload to fs1 instead of main site"
 	echo_opt "-c"		"continue upload / overwrite file"
 	echo_opt "-d path"	"create a subdirectory"
+	echo_opt "-i"		"interactive mode – spawn lftp"
 	echo_opt "-S regex"	"mangle (sed) the destination filename"
 	echo_opt "-t"		"add timestamps to destination filenames"
 	echo_opt "-X"		"delete files instead of uploading"
@@ -46,6 +47,7 @@ fi
 # parse command line
 
 declare -i arg_clobber=0
+declare -i arg_interactive=0
 declare -- arg_mangle=
 declare -i arg_remove=0
 declare -- arg_server=
@@ -53,12 +55,13 @@ declare -- arg_subdir=
 declare -i arg_timestamp=0
 declare -i arg_yearly=1
 
-while getopts ":01cd:S:tX" OPT; do
+while getopts ":01cd:iS:tX" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	c) arg_clobber=1;;
 	d) arg_subdir=$OPTARG;;
+	i) arg_interactive=1;;
 	S) arg_mangle=$OPTARG;;
 	t) arg_timestamp+=1;;
 	X) arg_remove=1;;
@@ -96,6 +99,27 @@ elif (( arg_timestamp > 1 )); then
 	timefmt='%s.'
 elif (( arg_timestamp > 0 )); then
 	timefmt='%Y%m%d.'
+fi
+
+# handle special modes
+
+if (( arg_interactive )); then
+	if (( $# )); then
+		warn "ignoring file arguments in interactive mode"
+	fi
+
+	if have lftp; then
+		url="sftp://${fsbase%%:*}/~/${fsbase#*:}"
+		notice "connecting to '$url'"
+		lftp "$url"
+	elif have sftp; then
+		addr="$fsbase/"
+		notice "connecting to '$addr'"
+		sftp "$addr"
+	else
+		die "couldn't find a known SFTP client"
+	fi
+	exit
 fi
 
 # prepare upload target

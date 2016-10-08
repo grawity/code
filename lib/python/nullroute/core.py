@@ -36,7 +36,7 @@ class Core(object):
 
     # internal state
 
-    _log_level = LOG_TRACE if _debug_env else LOG_INFO
+    _log_level = LOG_INFO + _debug_env
     _num_warnings = 0
     _num_errors = 0
 

@@ -26,9 +26,11 @@ sub do_rename {
 
 	for ($new_name) {
 		# mpv
-		if (/^mpv-shot.*(\.[^.]+)$/) {
+		if (/^mpv-shot.*(\.[^.]+)$/
+		|| /^Screenshot from [^:]+(\.[^.]+)$/)
+		{
 			my @time = gmtime((stat $file)[9]);
-			s//strftime("Screenshot_%Y%m%d_%H%M%S", @time).$1/e;
+			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @time).$1/e;
 			last;
 		}
 
@@ -43,9 +45,10 @@ sub do_rename {
 
 		# VLC
 		s/^Snapshot_($qr_y_m_d)-(\d+)h(\d+)m(\d+)s\d+/Screenshot_$1.$2$3$4/;
+		s/^vlcsnap-($qr_y_m_d)-(\d+)h(\d+)m(\d+)s\d+/Screenshot_$1.$2$3$4/;
 
 		# Android (??)
-		#s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/$1.$2$3$4.nexus/;
+		s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/Screenshot_$1.$2$3$4/;
 	}
 
 	if ($new_name eq $old_name) {

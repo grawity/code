@@ -8,11 +8,17 @@ my $conf = XMLin("-", KeyAttr => [], ForceArray => []);
 
 #print Dumper($conf);
 
-for my $iface (values %{$conf->{dhcpd}}) {
-	for my $entry (@{$iface->{staticmap}}) {
-		printf "%s │ %-15s │ %s\n",
-			$entry->{mac},
-			$entry->{ipaddr},
-			$entry->{descr};
+for my $iface (keys %{$conf->{dhcpd}}) {
+	my $ifdata = $conf->{dhcpd}->{$iface};
+	print "=== $iface ===\n";
+	if (ref($ifdata->{staticmap}) eq "ARRAY") {
+		for my $entry (@{$ifdata->{staticmap}}) {
+			printf "%s │ %-15s │ %s\n",
+				$entry->{mac},
+				ref($entry->{ipaddr})
+					? "--"
+					: $entry->{ipaddr},
+				$entry->{descr};
+		}
 	}
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use Convert::Bencode qw(bencode bdecode);
+use Convert::Bencode qw(bdecode);
 use List::Util qw(min);
 use JSON;
 
@@ -22,14 +22,14 @@ sub dump_str {
 	if ("@path" eq "peers" && ($n % 4) == 0) {
 		require Socket;
 		my $z = 4;
-		print "inet [";
+		print "ipv4 <";
 		while ($i + $z < $n) {
 			print ", " if $i;
 			print Socket::inet_ntop(&Socket::AF_INET,
 						substr($str, $i, $z));
 			$i += $z;
 		}
-		print "]";
+		print ">";
 		return;
 	}
 
@@ -38,7 +38,7 @@ sub dump_str {
 	} else {
 		my @bytes = map {sprintf("%02x", $_)} unpack("C*", $str);
 		my $z = 24;
-		print "bytes [";
+		print "bytes <<";
 		if ($n > $z) {
 			print "\n";
 			while ($i < $n) {
@@ -55,7 +55,7 @@ sub dump_str {
 		} else {
 			print join(" ", @bytes);
 		}
-		print "]";
+		print ">>";
 	}
 }
 

@@ -12,9 +12,14 @@ if (( UID == 0 )) && [[ ! $PACMAN_LOCK ]] && [[ ! $FAKEROOTKEY ]] && [[ $1 != "-
 		/usr/bin/flock -x $fd && echo "done"
 	} >&2
 	dblock=/var/lib/pacman/db.lck
-	[[ ! -e "$dblock" ]] || {
+	if [[ -e "$dblock" ]]; then
+		if pid=$(pgrep -x pacman); then
+			echo "another instance is already running"
+			ps -f $pid
+			exit 1
+		fi
 		rm -fi "$dblock"
-	}
+	fi
 	export PACMAN_LOCK=$fd
 fi
 

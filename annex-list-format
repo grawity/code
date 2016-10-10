@@ -12,6 +12,15 @@ my %file_locs;
 my @remote_name;
 my @remote_use;
 
+# remote_color($remote) -> color_idx
+#
+# Accepts a local remote name, which might be empty if the remote is not
+# configured locally (i.e. only exists in git-annex database but not
+# .git/config).
+#
+# Returns index to 256-color palette, which can be negative to indicate 'bold';
+# see fg() below.
+
 sub remote_color {
 	my ($remote) = @_;
 
@@ -20,14 +29,16 @@ sub remote_color {
 	}
 
 	for ($remote) {
-		# special case for absent remotes
 		return   8 if /^$/;
-		# this remote
 		return  -3 if /^here$/;
-		# everything else
 		return  15;
 	}
 }
+
+# remote_hidden($remote) -> bool
+#
+# Checks whether the remote is uninteresting and should be hidden. By default,
+# returns true for bittorrent & web.
 
 sub remote_hidden {
 	my ($remote) = @_;
@@ -39,12 +50,21 @@ sub remote_hidden {
 	return ($remote =~ /^(bittorrent|web)$/);
 }
 
+# fmt(str, fmt) -> str
+#
+# Wraps string in given ANSI format string, adding escape codes as needed.
+
 sub fmt {
 	my ($str, $fmt) = @_;
 	return (length($str) && length($fmt))
 		? "\e[".$fmt."m".$str."\e[m"
 		: $str;
 }
+
+# fg(str, color_idx) -> str
+#
+# Wraps string in the ANSI format string for the given 256-color idx (which may
+# be negative to additionally enable bold text).
 
 sub fg {
 	my ($str, $color) = @_;
@@ -54,10 +74,20 @@ sub fg {
 	return fmt($str, "38;5;".abs($color));
 }
 
+# fmt_remotes(@remotes) -> str
+#
+# Accepts a list of (already formatted) remote names, applies final display
+# formatting (prefix, suffix, optional columns).
+
 sub fmt_remotes {
 	my (@remotes) = @_;
 	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
+
+# present(bitmap, idx) -> bool
+#
+# Accepts a location bitmap (_Xx_X) and checks if bit at given index is set.
+# Hidden remotes are always unset.
 
 sub present {
 	my ($loc, $idx) = @_;
@@ -65,6 +95,11 @@ sub present {
 	return 0 if remote_hidden($remote_name[$idx]);
 	return (substr($loc, $idx, 1) ne "_");
 }
+
+# diff_locsets(bitmap, bitmap) -> hash
+#
+# Accepts two location bitmaps, and returns a hash keyed by index, with
+# diff-like "-"/"+" values (corresponding to "removed" and "added").
 
 sub diff_locsets {
 	my ($a, $b) = @_;
@@ -81,6 +116,14 @@ sub diff_locsets {
 		(map {$_ => "+"} @b_only));
 }
 
+# locset_str(bitmap) -> str
+#
+# Accepts a location bitmap, returns a formatted list of remote names. Absent
+# remotes will be included if they were present for at least one other file in
+# the current session.
+#
+# TODO: Split into a function that returns a list without calling fmt_remotes.
+
 sub locset_str {
 	my ($loc) = @_;
 
@@ -96,6 +139,11 @@ sub locset_str {
 
 	return fmt_remotes(@remotes);
 }
+
+# locset_diffstr(base_bitmap, new_bitmap) -> str
+#
+# Similar to locset_str, but returns a short diff-like list (with "+name" and
+# "-name" indicating added/removed remotes, compared to base_bitmap).
 
 sub locset_diffstr {
 	my ($loc1, $loc2) = @_;
@@ -114,6 +162,8 @@ sub locset_diffstr {
 	return if !@remotes;
 	return fmt_remotes(@remotes);
 }
+
+# Parse `git annex list` input.
 
 while (<STDIN>) {
 	if (/^([_Xx]+) (.+)$/) {

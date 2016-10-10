@@ -163,6 +163,19 @@ sub locset_diffstr {
 	return fmt_remotes(@remotes);
 }
 
+# Process command line.
+
+my %Opt;
+
+GetOptions(
+	"f|full!" => \$Opt{full},
+) or exit(2);
+
+my $conf = find_first_file("config:annex-where.conf.pl",
+                           "config:synced/annex-where.conf.pl");
+
+if ($conf) { do $conf; }
+
 # Parse `git annex list` input.
 
 while (<STDIN>) {
@@ -186,17 +199,6 @@ while (<STDIN>) {
 		warn "!! unrecognized line:$.: $_\n";
 	}
 }
-
-my %Opt;
-
-GetOptions(
-	"f|full!" => \$Opt{full},
-) or exit(2);
-
-my $conf = find_first_file("config:annex-where.conf.pl",
-                           "config:synced/annex-where.conf.pl");
-
-if ($conf) { do $conf; }
 
 my @dirs = sort keys %dir_locs;
 

@@ -6,13 +6,20 @@ use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
 use Nullroute::Dir qw(find_first_file);
 
+our %config;
 my %dir_locs;
 my %file_locs;
 my @remote_name;
 my @remote_use;
 
 sub remote_color {
-	for (shift) {
+	my ($remote) = @_;
+
+	if ($config{remote_color}) {
+		return $config{remote_color}->($remote);
+	}
+
+	for ($remote) {
 		# special case for absent remotes
 		return   8 if /^$/;
 		# this remote

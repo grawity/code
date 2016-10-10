@@ -4,6 +4,7 @@ use strict;
 use Data::Dumper;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
+use Nullroute::Dir qw(find_first_file);
 
 my %dir_locs;
 my %file_locs;
@@ -11,19 +12,12 @@ my @remote_name;
 my @remote_use;
 
 sub remote_color {
-	my ($remote) = @_;
-	for ($remote) {
+	for (shift) {
 		# special case for absent remotes
 		return   8 if /^$/;
 		# this remote
 		return  -3 if /^here$/;
 		# everything else
-		return  82 if /^rain$/;
-		return 109 if /^frost$/;
-		return -13 if /^vol4$/;
-		return  13 if /^vol\d+/;
-		return  12 if /^fs\d+/;
-		return   4 if /^ukvirt\d+/;
 		return  15;
 	}
 }
@@ -136,6 +130,11 @@ my %Opt;
 GetOptions(
 	"f|full!" => \$Opt{full},
 ) or exit(2);
+
+my $conf = find_first_file("config:annex-where.conf.pl",
+                           "config:synced/annex-where.conf.pl");
+
+if ($conf) { do $conf; }
 
 my @dirs = sort keys %dir_locs;
 

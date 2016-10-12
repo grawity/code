@@ -21,6 +21,7 @@ file_sizes = {}     # path → size
 file_headers = {}   # path → header
 file_hashes = {}    # path → hash
 total_files = 0
+unique_files = 0
 total_wasted = 0
 files_removed = 0
 size_removed = 0
@@ -281,9 +282,10 @@ if __name__ == "__main__":
                         size_removed += size
                         num -= 1
                         wasted -= size
-                        continue
-                    print("    ", qpath)
-            total_files += (num - 1)
+                    else:
+                        print("    ", qpath)
+            total_files += num
+            unique_files += 1
             total_wasted += wasted
     except KeyboardInterrupt:
         status()
@@ -294,9 +296,10 @@ if __name__ == "__main__":
     if opts.list and opts.remove:
         pass
     elif opts.verbose or opts.list:
+        wasted_files = total_files - unique_files
         print("; %d files compared by header" % len(file_headers))
         print("; %d files compared by hash" % len(file_hashes))
-        print("; %s wasted by %d duplicates" % (fmt_size(total_wasted), total_files))
+        print("; %s wasted by %d duplicates" % (fmt_size(total_wasted), wasted_files))
         if dirs_skipped:
             print("; %d directories skipped" % dirs_skipped)
     else:
@@ -308,8 +311,9 @@ if __name__ == "__main__":
                 fmt_size(size_removed),
             ))
         if total_files:
-            Core.info("%s files %s, %s wasted" % (
+            Core.info("%s files %s (%s unique), %s wasted" % (
                 total_files,
                 "remain" if files_removed else "found",
+                unique_files,
                 fmt_size(total_wasted),
             ))

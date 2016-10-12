@@ -3,10 +3,25 @@ import os
 import sys
 import subprocess
 
+use_gio_cmd = None
+
 def _log(*args):
     if os.environ.get("DEBUG"):
         print("\033[1;35m[gvfs]\033[;35m", *args, end="\033[m\n",
               file=sys.stderr, flush=True)
+
+def find_path(cmd):
+    path = os.environ.get("PATH", "/usr/bin").split(":")
+    for p in path:
+        file = os.path.join(p or ".", cmd)
+        if os.path.isfile(file) and os.access(file, os.X_OK):
+            return file
+
+def GVFS_CMD(cmd, *args):
+    if use_gio_cmd:
+        return ["gio", cmd, *args]
+    else:
+        return ["gvfs-%s" % cmd, *args]
 
 class AnnexStdio(object):
     def send(self, *args):
@@ -59,10 +74,10 @@ class GvfsClient(object):
         if not uri.endswith("/"):
             uri += "/"
         suffix = (" -> %s\n" % uri).encode("utf-8")
-        with subprocess.Popen(["gvfs-mount", "-l"],
+        with subprocess.Popen(GVFS_CMD("mount", "-l"),
                               stdout=subprocess.PIPE) as proc:
             for line in proc.stdout:
-                _log("gvfs-mount:", line)
+                _log("gio mount:", line)
                 if line.startswith(b"Mount(") and line.endswith(suffix):
                     return True
         return False
@@ -72,13 +87,13 @@ class GvfsClient(object):
         if self.is_mounted(uri):
             return True
         else:
-            r = subprocess.call(["gvfs-mount", uri],
+            r = subprocess.call(GVFS_CMD("mount", uri),
                                 stdout=self._stderr)
             return (r == 0)
 
     def has_file(self, uri):
         _log("GvfsClient.has_file(%r)" % uri)
-        r = subprocess.call(["gvfs-info", "-a", "access::can-read", uri],
+        r = subprocess.call(GVFS_CMD("info", "-a", "access::can-read", uri),
                             stdout=self._null,
                             stderr=self._null)
         return (r == 0)
@@ -91,28 +106,28 @@ class GvfsClient(object):
             parent = os.path.dirname(uri)
             if not self.create_dir_p(parent):
                 return False
-            r = subprocess.call(["gvfs-mkdir", "-p", uri],
+            r = subprocess.call(GVFS_CMD("mkdir", "-p", uri),
                                 stdout=self._stderr,
                                 stderr=self._stderr)
             return (r == 0)
 
     def delete_file(self, uri):
         _log("GvfsClient.delete_file(%r)" % uri)
-        r = subprocess.call(["gvfs-rm", "-f", uri],
+        r = subprocess.call(GVFS_CMD("rm", "-f", uri),
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
 
     def copy_file(self, src, dst):
         _log("GvfsClient.copy_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-copy", "-p", src, dst],
+        r = subprocess.call(GVFS_CMD("copy", "-p", src, dst),
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
 
     def move_file(self, src, dst):
         _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(["gvfs-move", "-p", "-C", src, dst],
+        r = subprocess.call(GVFS_CMD("move", "-p", "-C", src, dst),
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
@@ -319,6 +334,15 @@ def is_prefix_of(a, b):
 
 annex = AnnexStdio()
 annex.send("VERSION", 1)
+
+if find_path("gio"):
+    use_gio_cmd = True
+elif find_path("gvfs-mount"):
+    use_gio_cmd = False
+else:
+    annex.send("ERROR", "neither gio nor gvfs tools found")
+    sys.exit(1)
+
 for cmd, *rest in annex.loop():
     if cmd == "INITREMOTE":
         backend = AnnexGvfsBackend(annex)

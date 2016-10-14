@@ -28,6 +28,7 @@ declare -r myname='bacman'
 declare -r myver='5.0.1'
 USE_COLOR='y'
 INCLUDE_PACNEW='n'
+QUIET=0
 # Required for fakeroot because options are shifted off the array.
 ARGS=("$@")
 
@@ -64,38 +65,224 @@ error() {
 	printf "${RED}==> $(gettext "ERROR:")${ALL_OFF}${BOLD} ${mesg}${ALL_OFF}\n" "$@" >&2
 }
 
+# getopt-like parser
+parseopts() {
+	local opt= optarg= i= shortopts=$1
+	local -a longopts=() unused_argv=()
 
-#
-# User Friendliness
-#
-usage() {
-	echo "${myname} (pacman) v${myver}"
-	echo
-	echo "Recreate a package using pacman's database and system files"
-	echo
-	echo "Usage: ${myname} [--nocolor] [--pacnew] <installed package name>"
-	echo
-	echo "Example: ${myname} linux-headers"
+	shift
+	while [[ $1 && $1 != '--' ]]; do
+		longopts+=("$1")
+		shift
+	done
+	shift
+
+	longoptmatch() {
+		local o longmatch=()
+		for o in "${longopts[@]}"; do
+			if [[ ${o%:} = "$1" ]]; then
+				longmatch=("$o")
+				break
+			fi
+			[[ ${o%:} = "$1"* ]] && longmatch+=("$o")
+		done
+
+		case ${#longmatch[*]} in
+			1)
+				# success, override with opt and return arg req (0 == none, 1 == required)
+				opt=${longmatch%:}
+				if [[ $longmatch = *: ]]; then
+					return 1
+				else
+					return 0
+				fi ;;
+			0)
+				# fail, no match found
+				return 255 ;;
+			*)
+				# fail, ambiguous match
+				printf "bacman: $(gettext "option '%s' is ambiguous; possibilities:")" "--$1"
+				printf " '%s'" "${longmatch[@]%:}"
+				printf '\n'
+				return 254 ;;
+		esac >&2
+	}
+
+	while (( $# )); do
+		case $1 in
+			--) # explicit end of options
+				shift
+				break
+				;;
+			-[!-]*) # short option
+				for (( i = 1; i < ${#1}; i++ )); do
+					opt=${1:i:1}
+
+					# option doesn't exist
+					if [[ $shortopts != *$opt* ]]; then
+						printf "bacman: $(gettext "invalid option") -- '%s'\n" "$opt" >&2
+						OPTRET=(--)
+						return 1
+					fi
+
+					OPTRET+=("-$opt")
+					# option requires optarg
+					if [[ $shortopts = *$opt:* ]]; then
+						# if we're not at the end of the option chunk, the rest is the optarg
+						if (( i < ${#1} - 1 )); then
+							OPTRET+=("${1:i+1}")
+							break
+						# if we're at the end, grab the the next positional, if it exists
+						elif (( i == ${#1} - 1 )) && [[ $2 ]]; then
+							OPTRET+=("$2")
+							shift
+							break
+						# parse failure
+						else
+							printf "bacman: $(gettext "option requires an argument") -- '%s'\n" "$opt" >&2
+							OPTRET=(--)
+							return 1
+						fi
+					fi
+				done
+				;;
+			--?*=*|--?*) # long option
+				IFS='=' read -r opt optarg <<< "${1#--}"
+				longoptmatch "$opt"
+				case $? in
+					0)
+						# parse failure
+						if [[ $optarg ]]; then
+							printf "bacman: $(gettext "option '%s' does not allow an argument")\n" "--$opt" >&2
+							OPTRET=(--)
+							return 1
+						# --longopt
+						else
+							OPTRET+=("--$opt")
+						fi
+						;;
+					1)
+						# --longopt=optarg
+						if [[ $optarg ]]; then
+							OPTRET+=("--$opt" "$optarg")
+						# --longopt optarg
+						elif [[ $2 ]]; then
+							OPTRET+=("--$opt" "$2" )
+							shift
+						# parse failure
+						else
+							printf "bacman: $(gettext "option '%s' requires an argument")\n" "--$opt" >&2
+							OPTRET=(--)
+							return 1
+						fi
+						;;
+					254)
+						# ambiguous option -- error was reported for us by longoptmatch()
+						OPTRET=(--)
+						return 1
+						;;
+					255)
+						# parse failure
+						printf "bacman: $(gettext "invalid option") '--%s'\n" "$opt" >&2
+						OPTRET=(--)
+						return 1
+						;;
+				esac
+				;;
+			*) # non-option arg encountered, add it as a parameter
+				unused_argv+=("$1")
+				;;
+		esac
+		shift
+	done
+
+	# add end-of-opt terminator and any leftover positional parameters
+	OPTRET+=('--' "${unused_argv[@]}" "$@")
+	unset longoptmatch
+
+	return 0
 }
 
+
+# Lazy recursive clean up of temporary dirs
+work_dir_root="${TMPDIR:-/tmp}/bacman"
+clean_up() {
+	rm -rf "$work_dir_root".*
+	echo
+	exit
+}
+# Trap termination signals
+trap clean_up SIGHUP SIGINT SIGTERM
+
+# Print usage information
+usage() {
+	printf "%s (pacman) %s\n" "$myname" "$myver"
+	echo
+	printf -- "$(gettext "Recreate packages using pacman's database and system files")\n"
+	echo
+	printf -- "$(gettext "Usage: %s [options] <package(s)>")\n" "$0"
+	echo
+	printf -- "$(gettext "Options:")\n"
+	printf -- "$(gettext "  -h, --help       Show this help message and exit")\n"
+	printf -- "$(gettext "  -q, --quiet      Silence most of the status reporting")\n"
+	printf -- "$(gettext "  -m, --nocolor    Disable colorized output messages")\n"
+	printf -- "$(gettext "  -o, --out <dir>  Write output to specified directory (instead of \$PKGDEST)")\n"
+	printf -- "$(gettext "  --pacnew         Package .pacnew files")\n"
+	echo
+	printf -- "$(gettext "Examples:")" 
+	printf -- "    %s linux-headers\n" "$myname"
+	printf -- "    %s -o ~/packages libarchive\n" "$myname"
+	printf -- "    %s --nocolor --pacnew gzip make binutils\n" "$myname"
+	printf -- "    %s \$(pacman -Qq)\n" "$myname"
+	echo
+}
+
+# Print version information
 version() {
 	printf "%s %s\n" "$myname" "$myver"
 	echo 'Copyright (C) 2008 locci <carlocci_at_gmail_dot_com>'
 	echo 'Copyright (C) 2008-2016 Pacman Development Team <pacman-dev@archlinux.org>'
 }
 
-while [[ ! -z $1 ]]; do
-	if [[ $1 == "--nocolor" ]]; then
-		USE_COLOR='n'
-		shift
-	elif [[ $1 == "--pacnew" ]]; then
-		INCLUDE_PACNEW='y'
-		shift
-	else
-		break
-	fi
+
+# Printing the usage information takes precedence over every other parameter
+for option in "$@"; do
+	[[ $option == "-h" || $option == "--help" ]] && usage && exit 0
 done
 
+# Parse arguments
+OPT_SHORT='o:qmv'
+OPT_LONG=('out:' 'quiet' 'nocolor' 'pacnew' 'version')
+if ! parseopts "$OPT_SHORT" "${OPT_LONG[@]}" -- "$@"; then
+	usage
+	exit 1
+fi
+set -- "${OPTRET[@]}"
+unset OPT_SHORT OPT_LONG OPTRET
+
+while :; do
+	case "$1" in
+		-o|--out)
+			pkg_dest=$2
+			[[ ! -d "$2" ]] && echo -e "The directory \e[39;1m$2\e[0m does not exist!" && exit 3
+			shift ;;
+		-q|--quiet)
+			QUIET=1 ;;
+		-m|--nocolor)
+			USE_COLOR='n' ;;
+		--pacnew)
+			INCLUDE_PACNEW='y' ;;
+		-v|--version)
+			version
+			exit 0 ;;
+		--)
+			shift
+			break 2 ;;
+	esac
+	shift
+done
+
+# Configure colored output
 # check if messages are to be printed using color
 unset ALL_OFF BOLD BLUE GREEN RED YELLOW
 if [[ -t 2 && ! $USE_COLOR = "n" ]]; then
@@ -119,22 +306,14 @@ fi
 readonly ALL_OFF BOLD BLUE GREEN RED YELLOW
 
 
-if (( $# != 1 )); then
+# Retrieve the list of packages to be assembled and break if none was specified
+pkg_list=($*)
+if [[ ${#pkg_list[@]} == 0 ]]; then
 	usage
 	exit 1
 fi
 
-if [[ $1 = -@(h|-help) ]]; then
-	usage
-	exit 0
-elif [[ $1 = -@(V|-version) ]]; then
-	version
-	exit 0
-fi
-
-#
-# Fakeroot support
-#
+# Run with fake root privileges if EUID is not root
 if (( EUID )); then
 	if [[ -f /usr/bin/fakeroot ]]; then
 		msg "Entering fakeroot environment"
@@ -147,263 +326,254 @@ if (( EUID )); then
 	fi
 fi
 
-#
-# Setting environmental variables
-#
+# Source environmental variables and specify fallbacks
 if [[ ! -r /etc/pacman.conf ]]; then
 	error "unable to read /etc/pacman.conf"
 	exit 1
 fi
-
 eval $(awk '/DBPath/ {print $1$2$3}' /etc/pacman.conf)
 pac_db="${DBPath:-/var/lib/pacman/}/local"
-
 if [[ ! -r /etc/makepkg.conf ]]; then
 	error "unable to read /etc/makepkg.conf"
 	exit 1
 fi
-
 source "/etc/makepkg.conf"
 if [[ -r ~/.makepkg.conf ]]; then
 	source ~/.makepkg.conf
 fi
+PKGDEST="${PKGDEST:-$PWD}"
+pkg_dest="${pkg_dest:-$PKGDEST}"
+pkg_pkger="${PACKAGER:-'Unknown Packager'}"
 
-pkg_dest="${PKGDEST:-$PWD}"
-pkg_pkger=${PACKAGER:-'Unknown Packager'}
-
-pkg_name="$1"
-pkg_dir=("$pac_db/$pkg_name"-+([^-])-+([^-]))
-pkg_namver=("${pkg_dir[@]##*/}")
-
-#
-# Checks everything is in place
-#
+# Check for an existing database
 if [[ ! -d $pac_db ]]; then
 	error "pacman database directory ${pac_db} not found"
 	exit 1
 fi
 
-if (( ${#pkg_dir[@]} != 1 )); then
-	error "%d entries for package %s found in pacman database" \
-		${#pkg_dir[@]} "${pkg_name}"
-	msg2 "%s" "${pkg_dir[@]}"
-	exit 1
-fi
+# Assemble a single package: $1 = pkgname
+fakebuild() {
+	pkg_name="$1"
+	pkg_dir=("$pac_db/$pkg_name"-+([^-])-+([^-]))
+	pkg_namver=("${pkg_dir[@]##*/}")
 
-if [[ ! -d $pkg_dir ]]; then
-	error "package %s is found in pacman database," "${pkg_name}"
-	plain "       but '%s' is not a directory" "${pkg_dir}"
-	exit 1
-fi
-
-#
-# Begin
-#
-msg "Package: ${pkg_namver}"
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/bacman.XXXXXXXXXX")
-cd "$work_dir" || exit 1
-
-#
-# File copying
-#
-msg2 "Copying package files..."
-
-while read i; do
-	if [[ -z $i ]]; then
-		continue
+	# Checks database for specified package
+	if (( ${#pkg_dir[@]} != 1 )); then
+		error "%d entries for package %s found in pacman database" \
+			${#pkg_dir[@]} "${pkg_name}"
+		msg2 "%s" "${pkg_dir[@]}"
+		exit 1
+	fi
+	if [[ ! -d $pkg_dir ]]; then
+		error "package %s is found in pacman database," "${pkg_name}"
+		plain "       but '%s' is not a directory" "${pkg_dir}"
+		exit 1
 	fi
 
-	if [[ $i == %+([A-Z])% ]]; then
-		current=$i
-		continue
-	fi
+	# Create working directory
+	msg "Package: ${pkg_namver}"
+	work_dir=$(mktemp -d "${work_dir_root}.XXXXXXXXXX")
+	cd "$work_dir" || exit 1
 
-	case "$current" in
-		%FILES%)
-			local_file="/$i"
-			package_file="$work_dir/$i"
+	# Assemble list of files which belong to the package and tar them
+	msg2 "Copying package files..."
 
-			if [[ ! -e $local_file ]]; then
-				warning "package file $local_file is missing"
-				continue
-			fi
-			;;
-
-		%BACKUP%)
-			# Get the MD5 checksum.
-			original_md5="${i##*$'\t'}"
-			# Strip the md5sum after the tab.
-			i="${i%$'\t'*}"
-			local_file="/$i.pacnew"
-			package_file="$work_dir/$i"
-
-			# Include unmodified .pacnew files.
-			local_md5="$(md5sum "$local_file" | cut -d' ' -f1)"
-			if [[ $INCLUDE_PACNEW == 'n' ]] \
-			|| [[ ! -e $local_file ]] \
-			|| [[ $local_md5 != $original_md5 ]]; then
-				# Warn about modified files.
-				local_md5="$(md5sum "/$i" | cut -d' ' -f1)"
-				if [[ $local_md5 != $original_md5 ]]; then
-					warning "package file /$i has been modified"
-				fi
-				# Let the normal file be included in the %FILES% list.
-				continue
-			fi
-			;;
-
-		*)
+	while read i; do
+		if [[ -z $i ]]; then
 			continue
-			;;
-	esac
+		fi
 
-	ret=0
-	bsdtar -cnf - -s'/.pacnew$//' "$local_file" 2> /dev/null | bsdtar -xpf - 2> /dev/null
+		if [[ $i == %+([A-Z])% ]]; then
+			current=$i
+			continue
+		fi
 
-	# Workaround to bsdtar not reporting a missing file as an error
-	if ! [[ -e $package_file || -L $package_file ]]; then
-		error "unable to add $local_file to the package"
-		plain "       If your user does not have permission to read this file, then"
-		plain "       you will need to run $myname as root."
+		case "$current" in
+			%FILES%)
+				local_file="/$i"
+				package_file="$work_dir/$i"
+
+				if [[ ! -e $local_file ]]; then
+					warning "package file $local_file is missing"
+					continue
+				fi
+				;;
+
+			%BACKUP%)
+				# Get the MD5 checksum.
+				original_md5="${i##*$'\t'}"
+				# Strip the md5sum after the tab.
+				i="${i%$'\t'*}"
+				local_file="/$i.pacnew"
+				package_file="$work_dir/$i"
+
+				# Include unmodified .pacnew files.
+				local_md5="$(md5sum "$local_file" | cut -d' ' -f1)"
+				if [[ $INCLUDE_PACNEW == 'n' ]] \
+				|| [[ ! -e $local_file ]] \
+				|| [[ $local_md5 != $original_md5 ]]; then
+					# Warn about modified files.
+					local_md5="$(md5sum "/$i" | cut -d' ' -f1)"
+					if [[ $local_md5 != $original_md5 ]]; then
+						warning "package file /$i has been modified"
+					fi
+					# Let the normal file be included in the %FILES% list.
+					continue
+				fi
+				;;
+
+			*)
+				continue
+				;;
+		esac
+
+		# Tar files
+		ret=0
+		bsdtar -cnf - -s'/.pacnew$//' "$local_file" 2> /dev/null | bsdtar -xpf - 2> /dev/null
+		# Workaround to bsdtar not reporting a missing file as an error
+		if ! [[ -e $package_file || -L $package_file ]]; then
+			error "unable to add $local_file to the package"
+			plain "       If your user does not have permission to read this file, then"
+			plain "       you will need to run $myname as root."
+			rm -rf "$work_dir"
+			exit 1
+		fi
+	done < "$pkg_dir"/files
+
+	ret=$?
+	if (( ret )); then
 		rm -rf "$work_dir"
 		exit 1
 	fi
-done < "$pkg_dir"/files
 
-ret=$?
-if (( ret )); then
-	rm -rf "$work_dir"
-	exit 1
-fi
+	# Calculate package size
+	pkg_size=$(du -sk | awk '{print $1 * 1024}')
 
-pkg_size=$(du -sk | awk '{print $1 * 1024}')
+	# Reconstruct .PKGINFO from database
+	# TODO adopt makepkg's write_pkginfo() into this or scripts/library
+	msg2 "Generating .PKGINFO metadata..."
+	echo "# Generated by $myname $myver"    > .PKGINFO
+	if [[ $INFAKEROOT == "1" ]]; then
+		echo "# Using $(fakeroot -v)"    >> .PKGINFO
+	fi
+	echo "# $(LC_ALL=C date)"    >> .PKGINFO
+	echo "#"    >> .PKGINFO
+	while read i; do
+		if [[ -z $i ]]; then
+			continue;
+		fi
+		if [[ $i == %+([A-Z])% ]]; then
+			current=$i
+			continue
+		fi
 
-#
-# .PKGINFO stuff
-# TODO adopt makepkg's write_pkginfo() into this or scripts/library
-#
-msg2 "Generating .PKGINFO metadata..."
-echo "# Generated by $myname $myver"    > .PKGINFO
-if [[ $INFAKEROOT == "1" ]]; then
-	echo "# Using $(fakeroot -v)"    >> .PKGINFO
-fi
-echo "# $(LC_ALL=C date)"            >> .PKGINFO
-echo "#"                    >> .PKGINFO
+		case "$current" in
+			# desc
+			%NAME%)
+				echo "pkgname = $i"    >> .PKGINFO
+				;;
+			%VERSION%)
+				echo "pkgver = $i"    >> .PKGINFO
+				;;
+			%DESC%)
+				echo "pkgdesc = $i"    >> .PKGINFO
+				;;
+			%URL%)
+				echo "url = $i"    >> .PKGINFO
+				;;
+			%LICENSE%)
+				echo "license = $i"    >> .PKGINFO
+				;;
+			%ARCH%)
+				echo "arch = $i"    >> .PKGINFO
+				pkg_arch="$i"
+				;;
+			%BUILDDATE%)
+				echo "builddate = $(date -u "+%s")"    >> .PKGINFO
+				;;
+			%PACKAGER%)
+				echo "packager = $pkg_pkger"        >> .PKGINFO
+				;;
+			%SIZE%)
+				echo "size = $pkg_size"        >> .PKGINFO
+				;;
+			%GROUPS%)
+				echo "group = $i"    >> .PKGINFO
+				;;
+			%REPLACES%)
+				echo "replaces = $i"    >> .PKGINFO
+				;;
+			%DEPENDS%)
+				echo "depend = $i"   >> .PKGINFO
+				;;
+			%OPTDEPENDS%)
+				echo "optdepend = $i" >> .PKGINFO
+				;;
+			%CONFLICTS%)
+				echo "conflict = $i" >> .PKGINFO
+				;;
+			%PROVIDES%)
+				echo "provides = $i"  >> .PKGINFO
+				;;
+			%BACKUP%)
+				# Strip the md5sum after the tab
+				echo "backup = ${i%%$'\t'*}"   >> .PKGINFO
+				;;
+		esac
+	done < <(cat "$pkg_dir"/{desc,files})
 
-while read i; do
-	if [[ -z $i ]]; then
-		continue;
+	comp_files=".PKGINFO"
+
+	# Add instal file if present
+	if [[ -f $pkg_dir/install ]]; then
+		cp "$pkg_dir/install" "$work_dir/.INSTALL"
+		comp_files+=" .INSTALL"
+	fi
+	if [[ -f $pkg_dir/changelog ]]; then
+		cp "$pkg_dir/changelog" "$work_dir/.CHANGELOG"
+		comp_files+=" .CHANGELOG"
 	fi
 
-	if [[ $i == %+([A-Z])% ]]; then
-		current=$i
-		continue
+	# Fixes owner:group and permissions for .PKGINFO, .CHANGELOG, .INSTALL
+	chown root:root "$work_dir"/{.PKGINFO,.CHANGELOG,.INSTALL} 2> /dev/null
+	chmod 644 "$work_dir"/{.PKGINFO,.CHANGELOG,.INSTALL} 2> /dev/null
+
+	# Generate the package
+	msg2 "Generating the package..."
+
+	pkg_file="$pkg_dest/$pkg_namver-$pkg_arch${PKGEXT}"
+	ret=0
+
+	# Move compressed package to destination
+	# TODO: Maybe this can be set globally for robustness
+	shopt -s -o pipefail
+	bsdtar -cf - $comp_files * |
+	case "$PKGEXT" in
+		*tar.gz)  gzip -c -f -n ;;
+		*tar.bz2) bzip2 -c -f ;;
+		*tar.xz)  xz -c -z - ;;
+		*tar.Z)   compress -c -f ;;
+		*tar)     cat ;;
+		*) warning "'%s' is not a valid archive extension." \
+		"$PKGEXT"; cat ;;
+	esac > "${pkg_file}"; ret=$?
+
+	# Evaluate return code
+	if (( ret )); then
+		error "Unable to write package to $pkg_dest"
+		plain "       Maybe the disk is full or you do not have write access"
+		rm -rf "$work_dir"
+		exit 1
 	fi
 
-	case "$current" in
-		# desc
-		%NAME%)
-			echo "pkgname = $i"    >> .PKGINFO
-			;;
-		%VERSION%)
-			echo "pkgver = $i"    >> .PKGINFO
-			;;
-		%DESC%)
-			echo "pkgdesc = $i"    >> .PKGINFO
-			;;
-		%URL%)
-			echo "url = $i"    >> .PKGINFO
-			;;
-		%LICENSE%)
-			echo "license = $i"    >> .PKGINFO
-			;;
-		%ARCH%)
-			echo "arch = $i"    >> .PKGINFO
-			pkg_arch="$i"
-			;;
-		%BUILDDATE%)
-			echo "builddate = $(date -u "+%s")"    >> .PKGINFO
-			;;
-		%PACKAGER%)
-			echo "packager = $pkg_pkger"        >> .PKGINFO
-			;;
-		%SIZE%)
-			echo "size = $pkg_size"        >> .PKGINFO
-			;;
-		%GROUPS%)
-			echo "group = $i"    >> .PKGINFO
-			;;
-		%REPLACES%)
-			echo "replaces = $i"    >> .PKGINFO
-			;;
-		%DEPENDS%)
-			echo "depend = $i"   >> .PKGINFO
-			;;
-		%OPTDEPENDS%)
-			echo "optdepend = $i" >> .PKGINFO
-			;;
-		%CONFLICTS%)
-			echo "conflict = $i" >> .PKGINFO
-			;;
-		%PROVIDES%)
-			echo "provides = $i"  >> .PKGINFO
-			;;
-
-		# files
-		%BACKUP%)
-			# Strip the md5sum after the tab
-			echo "backup = ${i%%$'\t'*}"   >> .PKGINFO
-			;;
-	esac
-done < <(cat "$pkg_dir"/{desc,files})
-
-comp_files=".PKGINFO"
-
-if [[ -f $pkg_dir/install ]]; then
-	cp "$pkg_dir/install" "$work_dir/.INSTALL"
-	comp_files+=" .INSTALL"
-fi
-if [[ -f $pkg_dir/changelog ]]; then
-	cp "$pkg_dir/changelog" "$work_dir/.CHANGELOG"
-	comp_files+=" .CHANGELOG"
-fi
-
-#
-# Fixes owner:group and permissions for .PKGINFO, .CHANGELOG, .INSTALL
-#
-chown root:root "$work_dir"/{.PKGINFO,.CHANGELOG,.INSTALL} 2> /dev/null
-chmod 644 "$work_dir"/{.PKGINFO,.CHANGELOG,.INSTALL} 2> /dev/null
-
-#
-# Generate the package
-#
-msg2 "Generating the package..."
-
-pkg_file="$pkg_dest/$pkg_namver-$pkg_arch${PKGEXT}"
-ret=0
-
-# TODO: Maybe this can be set globally for robustness
-shopt -s -o pipefail
-bsdtar -cf - $comp_files * |
-case "$PKGEXT" in
-	*tar.gz)  gzip -c -f -n ;;
-	*tar.bz2) bzip2 -c -f ;;
-	*tar.xz)  xz -c -z - ;;
-	*tar.Z)   compress -c -f ;;
-	*tar)     cat ;;
-	*) warning "'%s' is not a valid archive extension." \
-	"$PKGEXT"; cat ;;
-esac > "${pkg_file}"; ret=$?
-
-if (( ret )); then
-	error "Unable to write package to $pkg_dest"
-	plain "       Maybe the disk is full or you do not have write access"
+	# Clean up working directory
 	rm -rf "$work_dir"
-	exit 1
-fi
+}
 
-rm -rf "$work_dir"
 
+for PKG in ${pkg_list[@]}; do
+	fakebuild $PKG
+done
 msg "Done."
 
 exit 0

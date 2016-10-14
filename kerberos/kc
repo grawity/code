@@ -38,6 +38,20 @@ sub _debugvar {
 	goto &_debug;
 }
 
+sub fmt {
+	my ($color, $str, $fmt) = @_;
+	if (!$str) {
+		$str = "";
+	}
+	if ($str || $fmt) {
+		$str = sprintf($fmt, $str);
+	}
+	if ($str && $color) {
+		return "\e[".$color."m".$str."\e[m";
+	}
+	return $str;
+}
+
 sub which {
 	my ($name) = @_;
 	state %paths;
@@ -563,19 +577,21 @@ do_print:
 		$principal = "\@$1 (anonymous)";
 	}
 
-	printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, $num+1;
-	printf "\e[%sm%-15s\e[m", $name_color, $shortname;
+	print fmt($flag_color, $item_flag, "%1s");
+	printf " %2d ", $num+1;
+	print fmt($name_color, $shortname, "%-15s");
 	if (length $shortname > 15) {
-		printf "\n%20s", "";
+		print "\n", " "x20;
 	}
-	printf " \e[%sm%-40s\e[m", $princ_color, $principal;
-	printf " \e[%sm%8s\e[m", $expiry_color, $expiry_str;
+	print " ", fmt($princ_color, $principal, "%-40s");
+	print " ", fmt($expiry_color, $expiry_str, "%8s");
 	print "\n";
 
 	if (defined $ccrealm && defined $init_service
 	    && $init_service ne "krbtgt/".$ccrealm."@".$ccrealm) {
-		printf "%20s", "";
-		printf " for \e[%sm%s\e[m\n", $service_color, $init_service;
+		print " "x20, " for ";
+		print fmt($service_color, $init_service);
+		print "\n";
 	}
 
 	return 1;

@@ -138,9 +138,8 @@ sub load_color_scheme {
 			$mode = "never";
 		}
 	}
-	_debug("mode='$mode' scheme='$scheme'");
 	my %colors;
-	if ($mode ne "never" && -f $scheme) {
+	if ($mode ne "never" && $scheme) {
 		%colors = read_scheme_file($scheme);
 	}
 	return ($mode, %colors);

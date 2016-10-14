@@ -39,6 +39,15 @@ case $mode in
 		arg=${arg//[:-]}
 		arg=${arg^^}
 		echo "query: $arg (MAC address)"
+		local=$(( 0x${arg:0:2} & 0x2 ))
+		multicast=$(( 0x${arg:0:2} & 0x1 ))
+		if (( multicast )); then
+			echo "kind: multicast"
+		elif (( local )); then
+			echo "kind: locally administered"
+		else
+			echo "kind: globally unique"
+		fi
 		if have systemd-hwdb; then
 			v=$(grep_hwdb "OUI:$arg" ID_OUI_FROM_DATABASE)
 			echo "vendor: ${B}${v:--}${R} (from hwdb)"

@@ -57,6 +57,7 @@ sub find_config_files {
 	my ($prog, $term) = @_;
 	my @dirs = map {"$_/terminal-colors.d"} xdg_config(), "/etc";
 	for my $dir (@dirs) {
+		next unless (-d $dir);
 		_debug("searching in '$dir'");
 		my @files;
 		if (opendir(my $dh, $dir)) {
@@ -139,7 +140,7 @@ sub load_color_scheme {
 	}
 	_debug("mode='$mode' scheme='$scheme'");
 	my $colors;
-	if ($mode ne "never") {
+	if ($mode ne "never" && -f $scheme) {
 		$colors = read_scheme_file($scheme);
 	}
 	return ($mode, $colors);

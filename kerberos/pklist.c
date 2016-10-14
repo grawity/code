@@ -52,8 +52,8 @@ int do_realm(char*);
 int do_ccache(krb5_ccache);
 int do_ccache_by_name(char*);
 int do_collection();
-void show_cred(register krb5_creds*);
-char* strflags(register krb5_creds*);
+void show_cred(krb5_creds*);
+char* strflags(krb5_creds*);
 krb5_error_code krb5_cc_get_principal_name(krb5_context, krb5_ccache, char**);
 krb5_ccache resolve_ccache(char*);
 
@@ -393,7 +393,7 @@ void print_data(krb5_data *ticket) {
 /*
  * output a single credential (ticket)
  */
-void show_cred(register krb5_creds *cred) {
+void show_cred(krb5_creds *cred) {
 	krb5_error_code	retval;
 	char		*clientname = NULL;
 	char		*servername = NULL;
@@ -476,7 +476,7 @@ cleanup:
 /*
  * return Kerberos credential flags in ASCII
  */
-char * strflags(register krb5_creds *cred) {
+char * strflags(krb5_creds *cred) {
 	static char buf[16];
 	int i = 0;
 

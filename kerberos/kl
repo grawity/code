@@ -7,21 +7,22 @@ no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use Getopt::Long qw(:config bundling);
 use List::Util qw(max);
 use Nullroute::Lib;
+use Nullroute::Term::ColorScheme;
 
 my %COLORS = (
-	tgt_local	=> "\e[32m", # same realm as client
-	tgt_cross	=> "\e[35m", # immediate cross-realm
-	tgt_distant	=> "\e[35m", # distant cross-realm
-	no_tgt		=> "\e[34m", # tickets with no corresponding TGT
-	referral	=> "\e[34m", # empty realm
+	tgt_local	=> "32", # same realm as client
+	tgt_cross	=> "35", # immediate cross-realm
+	tgt_distant	=> "35", # distant cross-realm
+	no_tgt		=> "34", # tickets with no corresponding TGT
+	referral	=> "34", # empty realm
 
-	expiring	=> "\e[1;33m",
-	expired		=> "\e[1;31m",
-	invalid		=> "\e[1;35m",
+	expiring	=> "1;33",
+	expired		=> "1;31",
+	invalid		=> "1;35",
 
-	bold		=> "\e[1m",
-	dark		=> "\e[2m",
-	reset		=> "\e[m",
+	bold		=> "bold",
+	dark		=> "halfbright",
+	reset		=> "reset",
 );
 
 my $verbose;
@@ -366,6 +367,8 @@ GetOptions(
 	"l|list!"	=> \$list_all,
 	"v|verbose!"	=> \$verbose,
 ) or exit 2;
+
+%COLORS = setup_color_scheme("org.eu.nullroute.kl", %COLORS);
 
 my $defcc = $ccache // $ENV{KRB5CCNAME};
 

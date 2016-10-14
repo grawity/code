@@ -445,6 +445,7 @@ sub find_ccache_for_principal {
 sub switch_ccache {
 	my ($ccname) = @_;
 
+	return 0 if !$ccname;
 	return 0 if !$can_switch;
 
 	for ($ccname) {
@@ -707,9 +708,8 @@ for ($cmd) {
 	elsif (/^=(.*)$/) {
 		my %aliases = read_aliases();
 		my $alias = $aliases{$1};
-		if (!defined $alias) {
+		if (!$alias) {
 			_die("alias '$1' not defined");
-			exit 1;
 		}
 		my $ccname = expand_ccname($1);
 		switch_ccache($ccname);
@@ -728,11 +728,11 @@ for ($cmd) {
 	}
 	else {
 		my $ccname = expand_ccname($cmd);
-		if (defined $ccname) {
+		if ($ccname) {
 			switch_ccache($ccname) || exit 1;
 			run_proc("kinit", @ARGV) if @ARGV;
 		} else {
-			exit 1;
+			_die("'$cmd' is neither a command nor ccache name");
 		}
 	}
 }

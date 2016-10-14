@@ -3,7 +3,6 @@
 use warnings;
 use strict;
 use feature qw(say switch);
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use Getopt::Long qw(:config bundling);
 use List::Util qw(max);
 use Nullroute::Lib;
@@ -72,7 +71,7 @@ sub enum_ccaches {
 		chomp;
 		my @l = split(/\t/, $_);
 		for (shift @l) {
-			when ("cache") {
+			if ($_ eq "cache") {
 				my ($ccache, $princ) = @l;
 				push @ccaches, [$ccache, $princ];
 			}
@@ -113,21 +112,21 @@ sub display_ccache {
 		chomp;
 		my @l = split(/\t/, $_);
 		for (shift @l) {
-			when ("cache") {
+			if ($_ eq "cache") {
 				($cache, $defprinc) = @l;
 				# If I ever decide to merge the 'cache' line formats in pklist.
 				if (defined $defprinc) {
 					($defrealm) = $defprinc =~ /@([^@]+)$/;
 				}
 			}
-			when ("principal") {
+			elsif ($_ eq "principal") {
 				($defprinc) = @l;
 				($defrealm) = $defprinc =~ /@([^@]+)$/;
 			}
-			when ("CREDENTIALS") {
+			elsif ($_ eq "CREDENTIALS") {
 				@fields = @l;
 			}
-			when ("ticket") {
+			elsif ($_ eq "ticket") {
 				my %tkt = ();
 				@tkt{@fields} = @l;
 				my ($name, $realm) = $tkt{server_name} =~ /^(.+)@([^@]*)$/;

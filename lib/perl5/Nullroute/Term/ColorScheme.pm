@@ -120,7 +120,7 @@ sub read_scheme_file {
 	} else {
 		_debug("cannot open file '$path': $!");
 	}
-	return \%colors;
+	return %colors;
 }
 
 sub load_color_scheme {
@@ -139,25 +139,25 @@ sub load_color_scheme {
 		}
 	}
 	_debug("mode='$mode' scheme='$scheme'");
-	my $colors;
+	my %colors;
 	if ($mode ne "never" && -f $scheme) {
-		$colors = read_scheme_file($scheme);
+		%colors = read_scheme_file($scheme);
 	}
-	return ($mode, $colors);
+	return ($mode, %colors);
 }
 
 sub setup_color_scheme {
 	my ($name, %default) = @_;
-	my ($mode, $colors) = load_color_scheme($name);
+	my ($mode, %colors) = load_color_scheme($name);
 	for (keys %default) {
-		$colors->{$_} ||= parse_seq($default{$_});
+		$colors{$_} ||= parse_seq($default{$_});
 	}
 	if ($mode eq "never") {
-		for (keys %$colors) {
-			$colors->{$_} = "";
+		for (keys %colors) {
+			$colors{$_} = "";
 		}
 	}
-	return %$colors;
+	return %colors;
 }
 
 1;

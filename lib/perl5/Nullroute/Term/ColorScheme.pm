@@ -6,7 +6,7 @@ use Nullroute::Dir qw(xdg_config);
 use Nullroute::Lib qw(_debug);
 
 our @EXPORT = qw(
-	load_color_scheme
+	setup_color_scheme
 );
 
 my %COLOR_NAMES = (
@@ -143,6 +143,20 @@ sub load_color_scheme {
 		$colors = read_scheme_file($scheme);
 	}
 	return ($mode, $colors);
+}
+
+sub setup_color_scheme {
+	my ($name, %default) = @_;
+	my ($mode, $colors) = load_color_scheme($name);
+	for (keys %default) {
+		$colors->{$_} ||= parse_seq($default{$_});
+	}
+	if ($mode eq "never") {
+		for (keys %$colors) {
+			$colors->{$_} = "";
+		}
+	}
+	return %$colors;
 }
 
 1;

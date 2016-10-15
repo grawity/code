@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+expand() {
+	local name=$1
+	if [[ $name == */* ]]; then
+		local addr plen tail over
+		local nbits lbits tfmt
+		addr=${name%/*}
+		plen=${name#*/}
+		name=$(arpaname "$addr") || {
+			echo "error: '$addr/$plen' is not an IP network" >&2
+			return
+		}
+		name=${name,,}
+		if [[ $addr == *:* ]]; then
+			nbits=128 lbits=4 tfmt=%x
+		else
+			nbits=32 lbits=8 tfmt=%d
+		fi
+		over=$(( plen % lbits ))
+		if (( exact && over )); then
+			echo "error: '$addr/$plen' cannot be delegated directly" >&2
+			return
+		fi
+		for (( n = nbits; n > plen; n -= lbits )); do
+			tail=${name%%.*}
+			name=${name#*.}
+		done
+		if (( over )); then
+			local nmask smask first last
+			if [[ $tfmt == %x ]]; then
+				tail=$(( 16#$tail ))
+			fi
+			nmask=$(( (1 << lbits) - 1 ))
+			smask=$(( (nmask << lbits >> over) & nmask ))
+			first=$(( tail & (smask & nmask) ))
+			last=$(( tail | (~smask & nmask) ))
+			for (( t = first; t <= last; t++ )); do
+				printf "$tfmt.%s\n" "$t" "$name"
+			done
+		else
+			echo "$name"
+		fi
+	else
+		echo "$name"
+	fi
+}
+
+if (( $# )); then
+	for name; do
+		expand "$name"
+	done
+else
+	while read -r name rest; do
+		expand "$name"
+	done
+fi

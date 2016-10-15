@@ -38,7 +38,8 @@ def get_netrc(machine, login=None, service=None):
     if service:
         machine = "%s/%s" % (service, machine)
 
-    cmd = ["getnetrc", "-d", "-n", "-f", "%m\n%l\n%p\n%a", machine]
+    keys = ["%m", "%l", "%p", "%a"]
+    cmd = ["getnetrc", "-d", "-n", "-f", "\n".join(keys), machine]
     if login:
         cmd.append(login)
 

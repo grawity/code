@@ -1,6 +1,6 @@
 import subprocess
 
-def save_libsecret(label, secret, attributes):
+def store_libsecret(label, secret, attributes):
     cmd = ["secret-tool", "store", "--label=%s" % label]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]

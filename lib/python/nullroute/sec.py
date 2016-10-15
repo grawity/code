@@ -1,6 +1,6 @@
 import subprocess
 
-def save_libsecret(label, secret, **attributes):
+def save_libsecret(label, secret, attributes):
     cmd = ["secret-tool", "store", "--label=%s" % label]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]
@@ -14,7 +14,7 @@ def save_libsecret(label, secret, **attributes):
         if ret != 0:
             raise IOError("libsecret store failed: (%r, %r)" % (ret, err))
 
-def get_libsecret(**attributes):
+def get_libsecret(attributes):
     cmd = ["secret-tool", "lookup"]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]
@@ -26,7 +26,7 @@ def get_libsecret(**attributes):
     else:
         return r
 
-def clear_libsecret(**attributes):
+def clear_libsecret(attributes):
     cmd = ["secret-tool", "clear"]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]

@@ -20,3 +20,12 @@ def HOTP(K, C, digits=6):
 def TOTP(K, digits=6, window=30):
     C = int(time.time() / window)
     return HOTP(K, C, digits=digits)
+
+def SteamTOTP(K, digits=5):
+    chars = "23456789BCDFGHJKMNPQRTVWXY"
+    otp = int(TOTP(K, digits=0))
+    out = ""
+    for c in range(digits):
+        otp, i = divmod(otp, len(chars))
+        out += chars[i]
+    return out

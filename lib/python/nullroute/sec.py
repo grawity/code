@@ -5,10 +5,7 @@ def save_libsecret(label, secret, attributes):
     for k, v in attributes.items():
         cmd += [str(k), str(v)]
 
-    if hasattr(secret, "encode"):
-        secret = secret.encode("utf-8")
-
-    r = subprocess.run(cmd, input=secret,
+    r = subprocess.run(cmd, input=secret.encode(),
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
     if r.returncode != 0:
@@ -25,7 +22,7 @@ def get_libsecret(attributes):
     if r.returncode != 0:
         raise KeyError("libsecret lookup failed: %r" % r.stderr.decode())
 
-    return r.stdout
+    return r.stdout.decode()
 
 def clear_libsecret(attributes):
     cmd = ["secret-tool", "clear"]
@@ -50,7 +47,7 @@ def get_netrc(machine, login=None, service=None):
         raise KeyError("~/.netrc lookup for %r failed" % machine)
 
     keys = ["machine", "login", "password", "account"]
-    vals = r.stdout.decode("utf-8").split("\n")
+    vals = r.stdout.decode().split("\n")
     if len(keys) != len(vals):
         raise IOError("'getnetrc' returned weird data %r" % r)
 

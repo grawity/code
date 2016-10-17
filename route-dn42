@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+networks=(172.20.0.0/14 fd00::/8)
+gateways=(sky wolke)
+
+args4=()
+args6=()
+
+for host in "${gateways[@]}"; do
+	fqdn=$host.zt1.nullroute.eu.org
+	info "resolving $fqdn"
+	gw4=$(name2addr -4 $fqdn)
+	gw6=$(name2addr -6 $fqdn)
+	args4+=(nexthop via $gw4 dev zt1)
+	args6+=(nexthop via $gw6 dev zt1)
+done
+
+for net in "${networks[@]}"; do
+	info "adding route for $net"
+	if [[ $net == *:* ]]; then
+		sudo: ip -6 route replace $net "${args6[@]}"
+	else
+		sudo: ip -4 route replace $net "${args4[@]}"
+	fi
+done

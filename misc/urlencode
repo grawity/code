@@ -7,20 +7,32 @@ use Getopt::Long qw(:config bundling no_ignore_case);
 my %opts;
 
 sub usage {
-	print STDERR for
-	"Usage: urlencode [-AdprxX] [string]\n",
-	"\n",
-	"    -A    encode for mq\n",
-	"    -d    decode\n",
-	"    -D    decode + as space\n",
-	"    -o    oct-encode (\\123)\n",
-	"    -p    encode full path (allowing slashes)\n",
-	"    -L    encode LDAP DN (allowing =)\n",
-	"    -q    encode quoted-printable\n",
-	"    -P    do not encode parentheses\n",
-	"    -r    do not print newline\n",
-	"    -x    hex-encode (\\xAB)\n",
-	"    -X    XML-escape\n";
+	print STDERR for (
+		"Usage: urlencode [options] [string]\n",
+		"\n",
+		"The default format is hexadecimal percent-encoding as in URLs.\n",
+		"\n",
+		#----||||----||||----||||----||||
+		"Modes:\n",
+		"    -d, --decode            decode\n",
+		"    -q, --qp, --quoted-printable\n",
+		"                            encode/decode Quoted-Printable\n",
+		"    -X, --xml               encode/decode XML entities\n",
+		"\n",
+		"Encode tweaks (for default mode):\n",
+		"        --ldap-dn           encode LDAP DN (allowing '=')\n",
+		"        --mq                encode for mq (':'-prefix)\n",
+		"    -o, --octal             use C octal escapes (\\123)\n",
+		"    -p, --path              encode full path (allowing '/')\n",
+		"    -x, --hex               use C hex escapes (\\xAB)\n",
+		"    -P, --parens            do not encode parentheses\n",
+		"\n",
+		"Misc options (default mode only):\n",
+		"    -D, --decode-plus       decode + as space (URL mode only)\n",
+		"    -r, --raw               do not print trailing newline\n",
+		"    -S, --safe-filename     substitute unsafe filename characters\n",
+		#----||||----||||----||||----||||
+	);
 	exit;
 }
 
@@ -105,7 +117,7 @@ GetOptions(
 	"o|octal" => \$opts{format_c_octal},
 	"p|path" => \$opts{format_url_with_slashes},
 	"P|parens" => \$opts{format_url_with_parens},
-	"q|quoted-printable" => \$opts{format_QP},
+	"q|qp|quoted-printable" => \$opts{format_QP},
 	"ldap-dn" => \$opts{format_ldap_dn},
 	"mq" => \$opts{format_mq},
 	"r|raw!" => \$opts{raw_newline},

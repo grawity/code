@@ -9,6 +9,7 @@ use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
 use Nullroute::Lib;
+use Nullroute::Term::ColorScheme;
 
 my $rundir;
 my $ccprefix;
@@ -21,6 +22,20 @@ my $cccprimary;
 my @caches;
 
 my $can_switch = 1;
+
+my %COLORS = (
+	reset		=> "reset",
+
+	empty		=> "magenta",
+	normal		=> "",
+	expiring	=> "brown",
+	expired		=> "red",
+
+	empty_active	=> "lightmagenta",
+	normal_active	=> "lightgreen",
+	expiring_active	=> "yellow",
+	expired_active	=> "lightred",
+);
 
 sub usage {
 	say for
@@ -36,6 +51,20 @@ sub _debugvar {
 	my ($var, $val) = @_;
 	@_ = ($var."='".($val//"")."'");
 	goto &_debug;
+}
+
+sub fmt {
+	my ($color, $str, $fmt) = @_;
+	if (!$str) {
+		$str = "";
+	}
+	if ($fmt) {
+		$str = sprintf($fmt, $str);
+	}
+	if ($str && $color) {
+		return $color.$str.$COLORS{reset};
+	}
+	return $str;
 }
 
 sub which {
@@ -416,6 +445,7 @@ sub find_ccache_for_principal {
 sub switch_ccache {
 	my ($ccname) = @_;
 
+	return 0 if !$ccname;
 	return 0 if !$can_switch;
 
 	for ($ccname) {
@@ -451,13 +481,9 @@ sub do_print_ccache {
 	my $init_service;
 	my $init_expiry;
 
-	my $expiry_str = "";
-	my $expiry_color = "";
-	my $item_flag = "";
-	my $flag_color = "";
-	my $name_color = "";
-	my $princ_color = "";
-	my $service_color = "35";
+	my $row_fmt;
+	my $item_flag;
+	my $expiry_str;
 
 	my $num_tickets;
 
@@ -471,13 +497,9 @@ sub do_print_ccache {
 
 	$valid = run_proc("pklist", "-q", "-c", $ccname) == 0;
 	if (!$valid) {
-		my $bold = ccache_is_current($ccname) ? "1;" : "";
+		$row_fmt = "empty";
 		$principal = "(none)";
 		$expiry_str = "(empty)";
-		$flag_color = $bold."35";
-		$name_color = $bold."35";
-		$princ_color = $bold."35";
-		$expiry_color = "35";
 		goto do_print;
 	}
 
@@ -490,7 +512,6 @@ sub do_print_ccache {
 		for (shift @l) {
 			if ($_ eq "principal") {
 				($principal) = @l;
-
 				if ($principal =~ /.*@(.+)$/) {
 					$ccrealm = $1;
 				}
@@ -506,7 +527,6 @@ sub do_print_ccache {
 					$init_service = $t_service;
 					$init_expiry = $t_expiry;
 				}
-
 				++$num_tickets;
 			}
 		}
@@ -519,12 +539,8 @@ sub do_print_ccache {
 	}
 
 	if (!$num_tickets) {
-		my $bold = ccache_is_current($ccname) ? "1;" : "";
+		$row_fmt = "empty";
 		$expiry_str = "(empty)";
-		$flag_color = $bold."35";
-		$name_color = $bold."35";
-		$princ_color = $bold."35";
-		$expiry_color = "35";
 		goto do_print;
 	}
 
@@ -532,28 +548,37 @@ sub do_print_ccache {
 
 	if ($expiry) {
 		if ($expiry <= time) {
-			$expiry_str = "expired";
-			$expiry_color = "31";
 			$item_flag //= "×";
-			$flag_color = "1;31";
+			$expiry_str = "expired";
 		} else {
 			_debug("- expires in ".($expiry - time)." seconds");
 			$expiry_str = interval($expiry);
-			$expiry_color = ($expiry <= time +  300) ? "1;33"
-			              : ($expiry <= time + 1200) ? "33"
-			              : "";
+		}
+
+		if ($expiry <= time) {
+			$row_fmt = "expired";
+		} elsif ($expiry <= time + 15*60) {
+			$row_fmt = "expiring"
+		} else {
+			$row_fmt = "normal";
 		}
 	}
 
-	if ($ccname eq $cccurrent) {
-		$flag_color = ($expiry <= time) ? "1;31" : "1;32";
-		$name_color = $flag_color;
-		$princ_color = $name_color;
-	} else {
-		$princ_color ||= "38;5;66";
+do_print:
+	if (ccache_is_current($ccname)) {
+		$row_fmt .= "_active";
 	}
 
-do_print:
+	_debugvar("row_fmt" => $row_fmt);
+
+	my $row_color = $COLORS{$row_fmt};
+	my $name_color = $COLORS{"name_".$row_fmt}
+			|| $COLORS{$row_fmt eq "normal" ? "name" : $row_fmt};
+	my $princ_color = $COLORS{"princ_".$row_fmt}
+			|| $COLORS{$row_fmt eq "normal" ? "princ" : $row_fmt};
+	my $time_color = $COLORS{"time_".$row_fmt}
+			|| $COLORS{$row_fmt eq "normal" ? "time" : $row_fmt};
+
 	_debugvar("init_service", $init_service);
 	_debugvar("ccrealm", $ccrealm);
 
@@ -563,19 +588,19 @@ do_print:
 		$principal = "\@$1 (anonymous)";
 	}
 
-	printf "\e[%sm%1s\e[m %2d ", $flag_color, $item_flag, $num+1;
-	printf "\e[%sm%-15s\e[m", $name_color, $shortname;
-	if (length $shortname > 15) {
-		printf "\n%20s", "";
+	print fmt($row_color, $item_flag, "%1s");
+	printf " %2d ", $num+1;
+	print fmt($name_color, $shortname, "%-15s");
+	if (length($shortname) > 15) {
+		print "\n", " "x20;
 	}
-	printf " \e[%sm%-40s\e[m", $princ_color, $principal;
-	printf " \e[%sm%8s\e[m", $expiry_color, $expiry_str;
+	print " ", fmt($princ_color, $principal, "%-40s");
+	print " ", fmt($time_color, $expiry_str, "%8s");
 	print "\n";
 
 	if (defined $ccrealm && defined $init_service
 	    && $init_service ne "krbtgt/".$ccrealm."@".$ccrealm) {
-		printf "%20s", "";
-		printf " for \e[%sm%s\e[m\n", $service_color, $init_service;
+		print " "x20, " for ", $init_service, "\n";
 	}
 
 	return 1;
@@ -590,6 +615,8 @@ open(EVAL, ">&=", 3) or do {
 	$can_switch = 0;
 	open(EVAL, ">/dev/null");
 };
+
+%COLORS = setup_color_scheme("org.eu.nullroute.kc", %COLORS);
 
 $rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";
 $ccprefix = "/tmp/krb5cc_${UID}_";
@@ -681,9 +708,8 @@ for ($cmd) {
 	elsif (/^=(.*)$/) {
 		my %aliases = read_aliases();
 		my $alias = $aliases{$1};
-		if (!defined $alias) {
+		if (!$alias) {
 			_die("alias '$1' not defined");
-			exit 1;
 		}
 		my $ccname = expand_ccname($1);
 		switch_ccache($ccname);
@@ -702,11 +728,11 @@ for ($cmd) {
 	}
 	else {
 		my $ccname = expand_ccname($cmd);
-		if (defined $ccname) {
+		if ($ccname) {
 			switch_ccache($ccname) || exit 1;
 			run_proc("kinit", @ARGV) if @ARGV;
 		} else {
-			exit 1;
+			_die("'$cmd' is neither a command nor ccache name");
 		}
 	}
 }

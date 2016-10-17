@@ -3,13 +3,44 @@
 use warnings;
 use strict;
 use feature qw(say switch);
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use Getopt::Long qw(:config bundling);
 use List::Util qw(max);
 use Nullroute::Lib;
+use Nullroute::Term::ColorScheme;
+
+my %COLORS = (
+	tgt_local	=> "32", # same realm as client
+	tgt_cross	=> "35", # immediate cross-realm
+	tgt_distant	=> "35", # distant cross-realm
+	no_tgt		=> "34", # tickets with no corresponding TGT
+	referral	=> "34", # empty realm
+
+	expiring	=> "1;33",
+	expired		=> "1;31",
+	invalid		=> "1;35",
+
+	bold		=> "bold",
+	dark		=> "halfbright",
+	reset		=> "reset",
+);
 
 my $verbose;
 my $counter;
+
+sub fmt {
+	my ($color, $str, $fmt) = @_;
+
+	if (!$str) {
+		$str = "";
+	}
+	if ($fmt) {
+		$str = sprintf($fmt, $str);
+	}
+	if ($str && $color) {
+		return $color.$str.$COLORS{reset};
+	}
+	return $str;
+}
 
 sub lpad {
 	my ($str, $fmt, $max) = @_;
@@ -40,7 +71,7 @@ sub enum_ccaches {
 		chomp;
 		my @l = split(/\t/, $_);
 		for (shift @l) {
-			when ("cache") {
+			if ($_ eq "cache") {
 				my ($ccache, $princ) = @l;
 				push @ccaches, [$ccache, $princ];
 			}
@@ -81,21 +112,21 @@ sub display_ccache {
 		chomp;
 		my @l = split(/\t/, $_);
 		for (shift @l) {
-			when ("cache") {
+			if ($_ eq "cache") {
 				($cache, $defprinc) = @l;
 				# If I ever decide to merge the 'cache' line formats in pklist.
 				if (defined $defprinc) {
 					($defrealm) = $defprinc =~ /@([^@]+)$/;
 				}
 			}
-			when ("principal") {
+			elsif ($_ eq "principal") {
 				($defprinc) = @l;
 				($defrealm) = $defprinc =~ /@([^@]+)$/;
 			}
-			when ("CREDENTIALS") {
+			elsif ($_ eq "CREDENTIALS") {
 				@fields = @l;
 			}
-			when ("ticket") {
+			elsif ($_ eq "ticket") {
 				my %tkt = ();
 				@tkt{@fields} = @l;
 				my ($name, $realm) = $tkt{server_name} =~ /^(.+)@([^@]*)$/;
@@ -150,15 +181,15 @@ sub display_ccache {
 	    && $flags =~ /d/
 	    && $flags =~ /i/
 	    && $starting <= time) {
-		push @expirystr, "\e[1;35m"."invalid"."\e[m";
+		push @expirystr, fmt($COLORS{invalid}, "invalid");
 	}
 
 	if ($starting > time) {
 		push @expirystr, "postdated, will become valid in ".interval($starting);
 	} elsif ($expiry <= time) {
-		push @expirystr, "\e[1;31m"."expired"."\e[m";
+		push @expirystr, fmt($COLORS{expired}, "expired");
 	} elsif ($expiry <= time + 3600) {
-		push @expirystr, "\e[1;33m"."expire in ".interval($expiry)."\e[m";
+		push @expirystr, fmt($COLORS{expiring}, "expire in ".interval($expiry));
 	} else {
 		push @expirystr, "expire in ".interval($expiry);
 	}
@@ -178,17 +209,10 @@ sub display_ccache {
 do_print:
 
 	my $INDENT = 2;
-	my %COLOR = (
-		tgt_local	=> "32", # same realm as client
-		tgt_cross	=> "35", # immediate cross-realm
-		tgt_distant	=> "35", # distant cross-realm
-		no_tgt		=> "34", # tickets with no corresponding TGT
-		referral	=> "34", # empty realm
-	);
 
 	say "" if $counter++;
 
-	say "‣ Credentials for \e[1m${defprinc}\e[m";
+	say "‣ Credentials for ".fmt($COLORS{bold}, $defprinc);
 	say " "x$INDENT, join(", ", @expirystr) if @expirystr;
 	say "";
 
@@ -217,12 +241,12 @@ do_print:
 		if (!@{$tgtcreds{$realm}}) {
 			my ($color, $label);
 			if ($realm eq '') {
-				$color = $COLOR{referral};
-				$label = "\e[1;${color}m(referral tickets)\e[m";
+				$color = $COLORS{referral};
+				$label = fmt($color.$COLORS{bold}, "(referral tickets)");
 			} else {
-				$color = $COLOR{no_tgt};
-				$label = "\e[1;${color}m${realm}\e[m";
-				$label .= " \e[${color}m(no TGT found)\e[m";
+				$color = $COLORS{no_tgt};
+				$label = fmt($color.$COLORS{bold}, $realm);
+				$label .= " ".fmt($color, "(no TGT found)");
 			}
 
 			say " "x$INDENT, $label;
@@ -246,23 +270,24 @@ do_print:
 
 				if ($svrealm eq $defrealm) {
 					if ($svrealm eq $nextrealm) {
-						$color = $COLOR{tgt_local};
+						$color = $COLORS{tgt_local};
 					} else {
-						$color = $COLOR{tgt_cross};
+						$color = $COLORS{tgt_cross};
 					}
 				} else {
-					$color = $COLOR{tgt_distant};
+					$color = $COLORS{tgt_distant};
 				}
 
 				$str{label} .= $nextrealm;
-				$fmt{label} .= "\e[1;${color}m${nextrealm}\e[m";
+				$fmt{label} .= fmt($color,
+						fmt($COLORS{bold}, $nextrealm));
 
 				if ($svrealm eq $nextrealm && $svrealm eq $defrealm) {
 					$str{label} .= " (local)";
-					$fmt{label} .= " \e[${color}m(local)\e[m";
+					$fmt{label} .= " ".fmt($color, "(local)");
 				} else {
-					$str{label} .= " (via ${svrealm})";
-					$fmt{label} .= " \e[${color}m(via ${svrealm})\e[m";
+					$str{label} .= " (via $svrealm)";
+					$fmt{label} .= " ".fmt($color, "(via $svrealm)");
 				}
 
 				$num_tgt++;
@@ -271,13 +296,16 @@ do_print:
 				$fmt{label} .= " "x2;
 
 				$str{label} .= $svname;
-				$svname =~ s|/([^.]+)\.|/\e[1m$1\e[m.|;
+				$svname =~ s|/([^.]+)\.|/$COLORS{bold}$1$COLORS{reset}.|;
 				$fmt{label} .= $svname;
 
 				if ($tkt->{client_name} ne $defprinc) {
 					my ($defname) = ($tkt->{client_name} =~ /^(.+)@/);
 					$str{label} .= " for $defname";
-					$fmt{label} .= " \e[36mfor \e[1m$defname\e[m";
+					$fmt{label} .= " ";
+					$fmt{label} .= fmt($COLORS{for_client}, "for ");
+					$fmt{label} .= fmt($COLORS{for_client},
+							fmt($COLORS{bold}, $defname));
 				}
 
 				$num_srv++;
@@ -294,11 +322,11 @@ do_print:
 			}
 
 			if ($tkt->{start_time} > time) {
-				$fmt{expiry} = "\e[1;35m".$str{expiry}."\e[m";
+				$fmt{expiry} = fmt($COLORS{invalid}, $str{expiry});
 			} elsif ($tkt->{expiry_time} <= time) {
-				$fmt{expiry} = "\e[1;31m".$str{expiry}."\e[m";
+				$fmt{expiry} = fmt($COLORS{expired}, $str{expiry});
 			} elsif ($tkt->{expiry_time} <= time+300) {
-				$fmt{expiry} = "\e[33m".$str{expiry}."\e[m";
+				$fmt{expiry} = fmt($COLORS{expiring}, $str{expiry});
 			} else {
 				$fmt{expiry} = $str{expiry};
 			}
@@ -312,7 +340,7 @@ do_print:
 
 		if (!$num_srv) {
 			say " "x$INDENT,
-				"  \e[2m(no service tickets)\e[m",
+				"  ".fmt($COLORS{dark}, "(no service tickets)"),
 				;
 		}
 	}
@@ -338,6 +366,8 @@ GetOptions(
 	"l|list!"	=> \$list_all,
 	"v|verbose!"	=> \$verbose,
 ) or exit 2;
+
+%COLORS = setup_color_scheme("org.eu.nullroute.kl", %COLORS);
 
 my $defcc = $ccache // $ENV{KRB5CCNAME};
 

@@ -1,24 +1,19 @@
-#!/usr/bin/env perl
-use warnings;
-use strict;
-use Data::Dumper;
-use XML::Simple qw(:strict);
+#!/usr/bin/env python
+import sys
+import lxml.etree
 
-my $conf = XMLin("-", KeyAttr => [], ForceArray => []);
+buf = sys.stdin.read()
+tree = lxml.etree.XML(buf)
 
-#print Dumper($conf);
+ifnames = {}
+for iface in tree.xpath("/pfsense/interfaces/*"):
+    desc = iface.xpath("string(descr)")
+    ifnames[iface.tag] = desc
 
-for my $iface (keys %{$conf->{dhcpd}}) {
-	my $ifdata = $conf->{dhcpd}->{$iface};
-	print "=== $iface ===\n";
-	if (ref($ifdata->{staticmap}) eq "ARRAY") {
-		for my $entry (@{$ifdata->{staticmap}}) {
-			printf "%s │ %-15s │ %s\n",
-				$entry->{mac},
-				ref($entry->{ipaddr})
-					? "--"
-					: $entry->{ipaddr},
-				$entry->{descr};
-		}
-	}
-}
+for iface in tree.xpath("/pfsense/dhcpd/*"):
+    print("=== %s ===" % ifnames.get(iface.tag, iface.tag))
+    for entry in iface.xpath("staticmap"):
+        mac = entry.xpath("string(mac)")
+        ip = entry.xpath("string(ipaddr)")
+        desc = entry.xpath("string(descr)")
+        print("%s │ %-15s │ %s" % (mac, ip or "--", desc))

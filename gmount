@@ -103,7 +103,14 @@ for arg; do
 			elif [[ -e "/dev/disk/by-label/$arg" ]]; then
 				dev=$(readlink -f "/dev/disk/by-label/$arg")
 			else
-				die "disk with label '$arg' not found"
+				debug "fallback: searching for outer_UUID '$arg'"
+				if [[ -e "/dev/disk/by-partuuid/$arg" ]]; then
+					dev=$(readlink -f "/dev/disk/by-partuuid/$arg")
+				elif [[ -e "/dev/disk/by-uuid/$arg" ]]; then
+					dev=$(readlink -f "/dev/disk/by-uuid/$arg")
+				else
+					die "disk with label '$arg' not found"
+				fi
 			fi
 		fi
 	fi
@@ -112,8 +119,9 @@ for arg; do
 		info "mounting $dev"
 		gvfs-mount -d "$dev"
 	else
-		debug "searching for inner_label '$arg'"
-		mtpt=$(findmnt -n -o TARGET -S "LABEL=$arg")
+		debug "searching for inner label/uuid '$arg'"
+		mtpt=$(findmnt -n -o TARGET -S "LABEL=$arg" \
+			|| findmnt -n -o TARGET -S "UUID=$arg")
 		if [[ $mtpt ]]; then
 			info "unmounting $mtpt"
 			gvfs-mount -u "$mtpt" || err "unmount failed"

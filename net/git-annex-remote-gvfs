@@ -18,10 +18,14 @@ def find_path(cmd):
             return file
 
 def GVFS_CMD(cmd, *args):
+    cmds = { "rm": "remove" }
     if use_gio_cmd:
-        return ["gio", cmd, *args]
+        cmd = cmds.get(cmd, cmd)
+        argv = ["gio", cmd, *args]
     else:
-        return ["gvfs-%s" % cmd, *args]
+        argv = ["gvfs-%s" % cmd, *args]
+    #_log("command: %r" % argv)
+    return argv
 
 class AnnexStdio(object):
     def send(self, *args):

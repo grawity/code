@@ -17,6 +17,15 @@ def HOTP(K, C, digits=6):
     hmac_sha1 = hmac.new(key=K, msg=C_bytes, digestmod=sha1).hexdigest()
     return Truncate(hmac_sha1)[-digits:]
 
-def TOTP(K, digits=6, window=30):
-    C = int(time.time() / window)
+def TOTP(K, digits=6, when=None, window=30):
+    C = int((when or time.time()) / window)
     return HOTP(K, C, digits=digits)
+
+def SteamTOTP(K, digits=5, when=None):
+    chars = "23456789BCDFGHJKMNPQRTVWXY"
+    otp = int(TOTP(K, digits=0, when=when))
+    out = ""
+    for c in range(digits):
+        otp, i = divmod(otp, len(chars))
+        out += chars[i]
+    return out

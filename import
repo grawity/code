@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-if [ ! "$MAGICK" ]; then
+if [[ $1 == -[!-]* ]]; then
+	MAGIC=1
+fi
+if [[ $MAGIC ]]; then
+	exec /usr/bin/import "$@"
+else
 	cmd=$(< /proc/$PPID/cmdline)
-	if [ "$cmd" = "bash" ]; then
-		echo "error: insufficient magic (did you forgot '#!/usr/bin/env python' again?)"
+	if [[ $cmd = bash ]]; then
+		echo "error: insufficient magic (did you forgot '#!/usr/bin/env' again?)"
 		kill $PPID
 		exit 42
 	fi
 fi
-
-exec /usr/bin/import "$@"

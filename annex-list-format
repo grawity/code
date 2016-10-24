@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Carp;
 use Data::Dumper;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
@@ -99,36 +100,47 @@ sub fmt_remotes {
 	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
 
-# present(bitmap, idx) -> bool
+# LocationBitmap->new(bitmap_str)
 #
-# Accepts a location bitmap (_Xx_X) and checks if bit at given index is set.
-# Hidden remotes are always unset.
+# Accepts a location bitmap (_Xx_X) and allows checking if bit at given index
+# is set. Hidden remotes are always unset.
 
-sub present {
-	my ($loc, $idx) = @_;
-	return 0 if $idx >= length($loc);
-	return 0 if remote_hidden($remote_name[$idx]);
-	return (substr($loc, $idx, 1) ne "_");
+sub LocationBitmap::new {
+	no warnings "once";
+	my ($self, $loc) = @_;
+	return $LocationBitmap::cache{$loc} //= bless(\$loc, $self);
 }
 
-# diff_locsets(bitmap, bitmap) -> hash
+sub LocationBitmap::size {
+	my ($self) = @_;
+	return length($$self);
+}
+
+sub LocationBitmap::bit_set {
+	my ($self, $idx) = @_;
+	return ($idx < $self->size && substr($$self, $idx, 1) ne "_");
+}
+
+sub LocationBitmap::present {
+	my ($self, $idx) = @_;
+	return (!remote_hidden($remote_name[$idx]) && $self->bit_set($idx));
+}
+
+# LocationBitmap::diff(bitmap) -> hash
 #
 # Accepts two location bitmaps, and returns a hash keyed by index, with
 # diff-like "-"/"+" values (corresponding to "removed" and "added").
 
-sub diff_locsets {
-	my ($a, $b) = @_;
-
-	my @a_only = grep {
-		present($a, $_) && !present($b, $_)
-	} 0..length($a);
-
-	my @b_only = grep {
-		present($b, $_) && !present($a, $_)
-	} 0..length($b);
-
-	return ((map {$_ => "-"} @a_only),
-		(map {$_ => "+"} @b_only));
+sub LocationBitmap::diff {
+	my ($self, $other) = @_;
+	my @self_only = grep {
+		$self->present($_) && !$other->present($_)
+	} 0..$self->size;
+	my @other_only = grep {
+		!$self->present($_) && $other->present($_)
+	} 0..$self->size;
+	return ((map {$_ => "-"} @self_only),
+		(map {$_ => "+"} @other_only));
 }
 
 # locset_str(bitmap) -> str
@@ -139,16 +151,16 @@ sub diff_locsets {
 #
 # TODO: Split into a function that returns a list without calling fmt_remotes.
 
-sub locset_str {
-	my ($loc) = @_;
+sub LocationBitmap::fullstr {
+	my ($self) = @_;
 
 	my @remotes = map {
 		my $name = $remote_name[$_];
-		my $color = remote_color(present($loc, $_) ? $name : "");
+		my $color = remote_color($self->present($_) ? $name : "");
 		$name = remote_alias($name) // $name;
 		fg($name, $color);
 	} grep {
-		!$Opt{only_present} || present($loc, $_);
+		!$Opt{only_present} || $self->present($_);
 	} grep {
 		$remote_use[$_];
 	} sort {
@@ -163,10 +175,13 @@ sub locset_str {
 # Similar to locset_str, but returns a short diff-like list (with "+name" and
 # "-name" indicating added/removed remotes, compared to base_bitmap).
 
-sub locset_diffstr {
-	my ($loc1, $loc2) = @_;
+sub LocationBitmap::diffstr {
+	my ($self, $other) = @_;
 
-	my %diff = diff_locsets($loc1, $loc2);
+	if (ref $other ne ref $self) {
+		croak("BUG: \$other must be of the same type");
+	}
+	my %diff = $self->diff($other);
 	my @remotes = map {
 		my $name = $remote_name[$_];
 		my $color = remote_color($diff{$_} eq "+" ? $name : "");
@@ -198,13 +213,13 @@ if ($conf) { do $conf; }
 
 while (<STDIN>) {
 	if (/^([_Xx]+) (.+)$/) {
-		my $loc = $1;
+		my $loc = LocationBitmap->new($1);
 		my $dir = dirname($2);
 		my $base = basename($2);
-		$dir_locs{$dir}{$loc} += 1;
+		$dir_locs{$dir}{$$loc} += 1;
 		$file_locs{$dir}{$base} = $loc;
-		for (0..length($loc)) {
-			$remote_use[$_]++ if present($loc, $_);
+		for (0..$loc->size) {
+			$remote_use[$_]++ if $loc->present($_);
 		}
 	}
 	elsif (/^(\|*)([^|_Xx].*?)$/) {
@@ -223,19 +238,18 @@ my @dirs = sort keys %dir_locs;
 for my $dir (@dirs) {
 	my %locs = %{$dir_locs{$dir}};
 	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
-	my $main = pop @locs;
-	print locset_str($main)." $dir/\n";
+	my $main = LocationBitmap->new(pop @locs);
+	print $main->fullstr()." $dir/\n";
 	if (@locs) {
-		my $full = $Opt{full} || ($locs{$main} - $locs{$locs[-1]} <= 2);
+		my $full = $Opt{full} || ($locs{$$main} - $locs{$locs[-1]} <= 2);
 		my %files = %{$file_locs{$dir}};
 		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {
-			my $loc_str = $full
-				? locset_str($files{$_})
-				: locset_diffstr($main, $files{$_});
-			next if !$loc_str;
+			my $loc_str = $full ? $files{$_}->fullstr() : $main->diffstr($files{$_});
 			my $name_fmt = $full ? "" : "1";
-			print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";
+			if ($loc_str) {
+				print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";
+			}
 		}
 	}
 }

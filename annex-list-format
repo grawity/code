@@ -125,17 +125,14 @@ sub LocationBitmap::data {
 
 sub LocationBitmap::size {
 	my ($self) = @_;
-	return length($self->data);
-}
-
-sub LocationBitmap::bit_set {
-	my ($self, $idx) = @_;
-	return ($idx < $self->size && substr($self->data, $idx, 1) ne "_");
+	return length($$self);
 }
 
 sub LocationBitmap::present {
 	my ($self, $idx) = @_;
-	return (!remote_hidden($Remote_names[$idx]) && $self->bit_set($idx));
+	return (!remote_hidden($Remote_names[$idx])
+		&& $idx < length($$self)
+		&& substr($$self, $idx, 1) ne "_");
 }
 
 # LocationBitmap::diff(bitmap) -> hash

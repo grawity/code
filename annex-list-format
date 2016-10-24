@@ -13,6 +13,20 @@ my %file_locs;
 my @remote_name;
 my @remote_use;
 
+# remote_alias($remote) -> string
+#
+# Accepts a local remote name or description and mangles it into something
+# shorter. Particularly useful for shortening descriptions of
+# not-locally-configured remotes.
+
+sub remote_alias {
+	my ($remote) = @_;
+
+	if ($config{remote_alias}) {
+		return $config{remote_alias}->($remote);
+	}
+}
+
 # remote_color($remote) -> color_idx
 #
 # Accepts a local remote name, which might be empty if the remote is not
@@ -131,6 +145,7 @@ sub locset_str {
 	my @remotes = map {
 		my $name = $remote_name[$_];
 		my $color = remote_color(present($loc, $_) ? $name : "");
+		$name = remote_alias($name) // $name;
 		fg($name, $color);
 	} grep {
 		!$Opt{only_present} || present($loc, $_);
@@ -155,6 +170,7 @@ sub locset_diffstr {
 	my @remotes = map {
 		my $name = $remote_name[$_];
 		my $color = remote_color($diff{$_} eq "+" ? $name : "");
+		$name = remote_alias($name) // $name;
 		$diff{$_}.fg($name, $color);
 	} grep {
 		$diff{$_}

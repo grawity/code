@@ -7,6 +7,7 @@ use File::Basename;
 use Nullroute::Dir qw(find_first_file);
 
 our %config;
+my %Opt;
 my %dir_locs;
 my %file_locs;
 my @remote_name;
@@ -132,6 +133,8 @@ sub locset_str {
 		my $color = remote_color(present($loc, $_) ? $name : "");
 		fg($name, $color);
 	} grep {
+		!$Opt{only_present} || present($loc, $_);
+	} grep {
 		$remote_use[$_];
 	} sort {
 		$remote_name[$a] cmp $remote_name[$b]
@@ -165,10 +168,9 @@ sub locset_diffstr {
 
 # Process command line.
 
-my %Opt;
-
 GetOptions(
-	"a|f|full!" => \$Opt{full},
+	"a|f|all|full!" => \$Opt{full},
+	"p|present" => \$Opt{only_present},
 ) or exit(2);
 
 my $conf = find_first_file("config:annex-where.conf.pl",

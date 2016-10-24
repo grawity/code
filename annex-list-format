@@ -9,10 +9,10 @@ use Nullroute::Dir qw(find_first_file);
 
 our %config;
 my %Opt;
-my %dir_locs;
-my %file_locs;
-my @remote_name;
-my @remote_use;
+my %Locs_by_dir;
+my %Locs_by_file;
+my @Remote_names;
+my @Remote_usage;
 
 # remote_alias($remote) -> string
 #
@@ -118,19 +118,24 @@ sub LocationBitmap::new {
 	return $LocationBitmap::cache{$loc} //= bless(\$loc, $self);
 }
 
+sub LocationBitmap::data {
+	my ($self) = @_;
+	return $$self;
+}
+
 sub LocationBitmap::size {
 	my ($self) = @_;
-	return length($$self);
+	return length($self->data);
 }
 
 sub LocationBitmap::bit_set {
 	my ($self, $idx) = @_;
-	return ($idx < $self->size && substr($$self, $idx, 1) ne "_");
+	return ($idx < $self->size && substr($self->data, $idx, 1) ne "_");
 }
 
 sub LocationBitmap::present {
 	my ($self, $idx) = @_;
-	return (!remote_hidden($remote_name[$idx]) && $self->bit_set($idx));
+	return (!remote_hidden($Remote_names[$idx]) && $self->bit_set($idx));
 }
 
 # LocationBitmap::diff(bitmap) -> hash
@@ -162,17 +167,17 @@ sub LocationBitmap::fullstr {
 	my ($self) = @_;
 
 	my @remotes = map {
-		my $name = $remote_name[$_];
+		my $name = $Remote_names[$_];
 		my $color = remote_color($self->present($_) ? $name : "");
 		$name = remote_alias($name) // $name;
 		fg($name, $color);
 	} grep {
 		!$Opt{only_present} || $self->present($_);
 	} grep {
-		$remote_use[$_];
+		$Remote_usage[$_];
 	} sort {
-		$remote_name[$a] cmp $remote_name[$b]
-	} 0..$#remote_name;
+		$Remote_names[$a] cmp $Remote_names[$b]
+	} 0..$#Remote_names;
 
 	return fmt_remotes(@remotes);
 }
@@ -190,15 +195,15 @@ sub LocationBitmap::diffstr {
 	}
 	my %diff = $self->diff($other);
 	my @remotes = map {
-		my $name = $remote_name[$_];
+		my $name = $Remote_names[$_];
 		my $color = remote_color($diff{$_} eq "+" ? $name : "");
 		$name = remote_alias($name) // $name;
 		$diff{$_}.fg($name, $color);
 	} grep {
 		$diff{$_}
 	} sort {
-		$remote_name[$a] cmp $remote_name[$b]
-	} 0..$#remote_name;
+		$Remote_names[$a] cmp $Remote_names[$b]
+	} 0..$#Remote_names;
 
 	return if !@remotes;
 	return fmt_remotes(@remotes);
@@ -223,39 +228,39 @@ while (<STDIN>) {
 		my $loc = LocationBitmap->new($1);
 		my $dir = dirname($2);
 		my $base = basename($2);
-		$dir_locs{$dir}{$$loc} += 1;
-		$file_locs{$dir}{$base} = $loc;
+		$Locs_by_dir{$dir}{$loc->data} += 1;
+		$Locs_by_file{$dir}{$base} = $loc;
 		for (0..$loc->size) {
-			$remote_use[$_]++ if $loc->present($_);
+			$Remote_usage[$_]++ if $loc->present($_);
 		}
 	}
 	elsif (/^(\|*)([^|_Xx].*?)$/) {
-		my $pos = length($1);
+		my $idx = length($1);
 		my $name = $2;
 		$name =~ s/ \(untrusted\)$//;
-		$remote_name[$pos] = $name;
+		$Remote_names[$idx] = $name;
 	}
 	else {
 		warn "!! unrecognized line:$.: $_\n";
 	}
 }
 
-my @dirs = sort keys %dir_locs;
+my @dirs = sort keys %Locs_by_dir;
 
 for my $dir (@dirs) {
-	my %locs = %{$dir_locs{$dir}};
+	my %locs = %{$Locs_by_dir{$dir}};
 	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
 	my $main = LocationBitmap->new(pop @locs);
 	print $main->fullstr()." $dir/\n";
 	if (@locs) {
-		my $full = $Opt{full} || ($locs{$$main} - $locs{$locs[-1]} <= 2);
-		my %files = %{$file_locs{$dir}};
+		my $full = $Opt{full} || ($locs{$main->data} - $locs{$locs[-1]} <= 2);
+		my %files = %{$Locs_by_file{$dir}};
 		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {
 			my $loc_str = $full ? $files{$_}->fullstr() : $main->diffstr($files{$_});
 			my $name_fmt = $full ? "" : "1";
 			if ($loc_str) {
-				print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";
+				print "  ".$loc_str." ".fmt($_, $name_fmt)."\n";
 			}
 		}
 	}

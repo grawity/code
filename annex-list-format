@@ -12,6 +12,19 @@ my %file_locs;
 my @remote_name;
 my @remote_use;
 
+# remote_alias($remote) -> str
+#
+# Accepts a local remote name and mangles it for display (e.g. trimming
+# prefixes).
+
+sub remote_alias {
+	my ($remote) = @_;
+
+	if ($config{remote_alias}) {
+		return $config{remote_alias}->($remote);
+	}
+}
+
 # remote_color($remote) -> color_idx
 #
 # Accepts a local remote name, which might be empty if the remote is not
@@ -130,6 +143,7 @@ sub locset_str {
 	my @remotes = map {
 		my $name = $remote_name[$_];
 		my $color = remote_color(present($loc, $_) ? $name : "");
+		$name = remote_alias($name) // $name;
 		fg($name, $color);
 	} grep {
 		$remote_use[$_];
@@ -152,6 +166,7 @@ sub locset_diffstr {
 	my @remotes = map {
 		my $name = $remote_name[$_];
 		my $color = remote_color($diff{$_} eq "+" ? $name : "");
+		$name = remote_alias($name) // $name;
 		$diff{$_}.fg($name, $color);
 	} grep {
 		$diff{$_}

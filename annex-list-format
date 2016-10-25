@@ -1,25 +1,31 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Carp;
 use Data::Dumper;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
 use Nullroute::Dir qw(find_first_file);
 
 our %config;
-my %dir_locs;
-my %file_locs;
-my @remote_name;
-my @remote_use;
+my %Opt;
+my %Locs_by_dir;
+my %Locs_by_file;
+my @Remote_names;
+my @Remote_usage;
 
-# remote_alias($remote) -> str
+# remote_alias($remote) -> string
 #
-# Accepts a local remote name and mangles it for display (e.g. trimming
-# prefixes).
+# Accepts a local remote name or description and mangles it into something
+# shorter. Particularly useful for shortening descriptions of
+# not-locally-configured remotes.
 
 sub remote_alias {
 	my ($remote) = @_;
 
+	if (!defined $remote) {
+		croak("BUG: \$remote undefined");
+	}
 	if ($config{remote_alias}) {
 		return $config{remote_alias}->($remote);
 	}
@@ -37,10 +43,12 @@ sub remote_alias {
 sub remote_color {
 	my ($remote) = @_;
 
+	if (!defined $remote) {
+		croak("BUG: \$remote undefined");
+	}
 	if ($config{remote_color}) {
 		return $config{remote_color}->($remote);
 	}
-
 	for ($remote) {
 		return   8 if /^$/;
 		return  -3 if /^here$/;
@@ -56,10 +64,12 @@ sub remote_color {
 sub remote_hidden {
 	my ($remote) = @_;
 
+	if (!defined $remote) {
+		croak("BUG: \$remote undefined");
+	}
 	if ($config{remote_hidden}) {
 		return $config{remote_hidden}->($remote);
 	}
-
 	return ($remote =~ /^(bittorrent|web)$/);
 }
 
@@ -97,36 +107,49 @@ sub fmt_remotes {
 	return fg("{", 8).join(" ", @remotes).fg("}", 8);
 }
 
-# present(bitmap, idx) -> bool
+# LocationBitmap->new(bitmap_str)
 #
-# Accepts a location bitmap (_Xx_X) and checks if bit at given index is set.
-# Hidden remotes are always unset.
+# Accepts a location bitmap (_Xx_X) and allows checking if bit at given index
+# is set. Hidden remotes are always unset.
 
-sub present {
-	my ($loc, $idx) = @_;
-	return 0 if $idx >= length($loc);
-	return 0 if remote_hidden($remote_name[$idx]);
-	return (substr($loc, $idx, 1) ne "_");
+sub LocationBitmap::new {
+	no warnings "once";
+	my ($self, $loc) = @_;
+	return $LocationBitmap::cache{$loc} //= bless(\$loc, $self);
 }
 
-# diff_locsets(bitmap, bitmap) -> hash
+sub LocationBitmap::data {
+	my ($self) = @_;
+	return $$self;
+}
+
+sub LocationBitmap::size {
+	my ($self) = @_;
+	return length($$self);
+}
+
+sub LocationBitmap::present {
+	my ($self, $idx) = @_;
+	return (!remote_hidden($Remote_names[$idx])
+		&& $idx < length($$self)
+		&& substr($$self, $idx, 1) ne "_");
+}
+
+# LocationBitmap::diff(bitmap) -> hash
 #
 # Accepts two location bitmaps, and returns a hash keyed by index, with
 # diff-like "-"/"+" values (corresponding to "removed" and "added").
 
-sub diff_locsets {
-	my ($a, $b) = @_;
-
-	my @a_only = grep {
-		present($a, $_) && !present($b, $_)
-	} 0..length($a);
-
-	my @b_only = grep {
-		present($b, $_) && !present($a, $_)
-	} 0..length($b);
-
-	return ((map {$_ => "-"} @a_only),
-		(map {$_ => "+"} @b_only));
+sub LocationBitmap::diff {
+	my ($self, $other) = @_;
+	my @self_only = grep {
+		$self->present($_) && !$other->present($_)
+	} 0..$self->size;
+	my @other_only = grep {
+		!$self->present($_) && $other->present($_)
+	} 0..$self->size;
+	return ((map {$_ => "-"} @self_only),
+		(map {$_ => "+"} @other_only));
 }
 
 # locset_str(bitmap) -> str
@@ -137,19 +160,21 @@ sub diff_locsets {
 #
 # TODO: Split into a function that returns a list without calling fmt_remotes.
 
-sub locset_str {
-	my ($loc) = @_;
+sub LocationBitmap::fullstr {
+	my ($self) = @_;
 
 	my @remotes = map {
-		my $name = $remote_name[$_];
-		my $color = remote_color(present($loc, $_) ? $name : "");
+		my $name = $Remote_names[$_];
+		my $color = remote_color($self->present($_) ? $name : "");
 		$name = remote_alias($name) // $name;
 		fg($name, $color);
 	} grep {
-		$remote_use[$_];
+		!$Opt{only_present} || $self->present($_);
+	} grep {
+		$Remote_usage[$_];
 	} sort {
-		$remote_name[$a] cmp $remote_name[$b]
-	} 0..$#remote_name;
+		$Remote_names[$a] cmp $Remote_names[$b]
+	} 0..$#Remote_names;
 
 	return fmt_remotes(@remotes);
 }
@@ -159,20 +184,23 @@ sub locset_str {
 # Similar to locset_str, but returns a short diff-like list (with "+name" and
 # "-name" indicating added/removed remotes, compared to base_bitmap).
 
-sub locset_diffstr {
-	my ($loc1, $loc2) = @_;
+sub LocationBitmap::diffstr {
+	my ($self, $other) = @_;
 
-	my %diff = diff_locsets($loc1, $loc2);
+	if (ref $other ne ref $self) {
+		croak("BUG: \$other must be of the same type");
+	}
+	my %diff = $self->diff($other);
 	my @remotes = map {
-		my $name = $remote_name[$_];
+		my $name = $Remote_names[$_];
 		my $color = remote_color($diff{$_} eq "+" ? $name : "");
 		$name = remote_alias($name) // $name;
 		$diff{$_}.fg($name, $color);
 	} grep {
 		$diff{$_}
 	} sort {
-		$remote_name[$a] cmp $remote_name[$b]
-	} 0..$#remote_name;
+		$Remote_names[$a] cmp $Remote_names[$b]
+	} 0..$#Remote_names;
 
 	return if !@remotes;
 	return fmt_remotes(@remotes);
@@ -180,10 +208,9 @@ sub locset_diffstr {
 
 # Process command line.
 
-my %Opt;
-
 GetOptions(
-	"a|f|full!" => \$Opt{full},
+	"a|f|all|full!" => \$Opt{full},
+	"p|present" => \$Opt{only_present},
 ) or exit(2);
 
 my $conf = find_first_file("config:annex-where.conf.pl",
@@ -195,44 +222,43 @@ if ($conf) { do $conf; }
 
 while (<STDIN>) {
 	if (/^([_Xx]+) (.+)$/) {
-		my $loc = $1;
+		my $loc = LocationBitmap->new($1);
 		my $dir = dirname($2);
 		my $base = basename($2);
-		$dir_locs{$dir}{$loc} += 1;
-		$file_locs{$dir}{$base} = $loc;
-		for (0..length($loc)) {
-			$remote_use[$_]++ if present($loc, $_);
+		$Locs_by_dir{$dir}{$loc->data} += 1;
+		$Locs_by_file{$dir}{$base} = $loc;
+		for (0..$loc->size) {
+			$Remote_usage[$_]++ if $loc->present($_);
 		}
 	}
 	elsif (/^(\|*)([^|_Xx].*?)$/) {
-		my $pos = length($1);
+		my $idx = length($1);
 		my $name = $2;
 		$name =~ s/ \(untrusted\)$//;
-		$remote_name[$pos] = $name;
+		$Remote_names[$idx] = $name;
 	}
 	else {
 		warn "!! unrecognized line:$.: $_\n";
 	}
 }
 
-my @dirs = sort keys %dir_locs;
+my @dirs = sort keys %Locs_by_dir;
 
 for my $dir (@dirs) {
-	my %locs = %{$dir_locs{$dir}};
+	my %locs = %{$Locs_by_dir{$dir}};
 	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
-	my $main = pop @locs;
-	print locset_str($main)." $dir/\n";
+	my $main = LocationBitmap->new(pop @locs);
+	print $main->fullstr()." $dir/\n";
 	if (@locs) {
-		my $full = $Opt{full} || ($locs{$main} - $locs{$locs[-1]} <= 2);
-		my %files = %{$file_locs{$dir}};
+		my $full = $Opt{full} || ($locs{$main->data} - $locs{$locs[-1]} <= 2);
+		my %files = %{$Locs_by_file{$dir}};
 		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {
-			my $loc_str = $full
-				? locset_str($files{$_})
-				: locset_diffstr($main, $files{$_});
-			next if !$loc_str;
+			my $loc_str = $full ? $files{$_}->fullstr() : $main->diffstr($files{$_});
 			my $name_fmt = $full ? "" : "1";
-			print "  ".$loc_str." ".fmt("$_", $name_fmt)."\n";
+			if ($loc_str) {
+				print "  ".$loc_str." ".fmt($_, $name_fmt)."\n";
+			}
 		}
 	}
 }

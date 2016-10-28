@@ -26,12 +26,10 @@ if (open(my $fh, "-|", @cmd)) {
 
 for my $host (sort keys %hosts) {
 	say "host $host:";
-	my @sv;
-	for my $service (uniq sort {lc $a cmp lc $b} @{$hosts{$host}}) {
-		my @kvnos = uniq sort @{$kvnos{"$service/$host"}};
+	my @sv = map {
+		my @kvnos = uniq sort @{$kvnos{"$_/$host"}};
 		my $kvnos = join(",", @kvnos);
-		$service = "$service($kvnos)";
-		push @sv, $service;
-	}
+		"$_($kvnos)";
+	} uniq sort {lc $a cmp lc $b} @{$hosts{$host}};
 	say "    ", join(" ", @sv);
 }

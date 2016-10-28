@@ -1,0 +1,72 @@
+#!/usr/bin/env python
+import bs4
+import json
+import re
+from nullroute.core import *
+from nullroute.misc import filter_filename, set_file_attrs
+from nullroute.scrape import Scraper
+from pprint import pprint
+
+def get_file_ext(url):
+    if "#" in url:
+        url = url.split("#")[0]
+    if "?" in url:
+        url = url.split("?")[0]
+    if url.endswith("/"):
+        return ".html"
+    url = url.split("/")[-1]
+    if "." not in url:
+        return ""
+    url = url.split(".")
+    if url[-2] == "tar":
+        return "." + url[-2] + "." + url[-1]
+    else:
+        return "." + url[-1]
+
+class VineScraper(Scraper):
+    def get_video_json(self, url):
+        r = self.get(url)
+        page = bs4.BeautifulSoup(r.content, "lxml")
+        for i in page.find_all("script"):
+            m = re.search(r"POST_DATA = (.*);$", i.text, re.M)
+            if m:
+                return json.loads(m.group(1))
+        raise ValueError("POST_DATA json not found in %r" % url)
+
+    def scrape_video(self, url):
+        data = self.get_video_json(url)
+
+        for id in data:
+            post_url = data[id]["permalinkUrl"]
+            author = data[id]["username"]
+            author_url = "https://vine.co/%s" % data[id]["vanityUrls"][0]
+
+            for vfmt in data[id]["videoUrls"]:
+                if vfmt["id"] == "original":
+                    file_url = vfmt["videoUrl"]
+                    filename = filter_filename(author) + "-" + id + "-" + vfmt["id"] + get_file_ext(file_url)
+                    Core.info("downloading %r to %r" % (file_url, filename))
+                    self.save_file(file_url, filename,
+                                   referer=post_url)
+                    set_file_attrs(filename, {
+                        "dublincore.creator": author_url,
+                    })
+
+    def scrape(self, url):
+        if url.startswith("https://vine.co/v/"):
+            self.scrape_video(url)
+        elif url.startswith("https://vine.co/"):
+            self.scrape_user_videos(url)
+        else:
+            raise ValueError("%r is not a supported Vine URL" % url)
+
+s = VineScraper()
+args = sys.argv[1:]
+
+for url in args:
+    try:
+        s.scrape(url)
+    except ValueError as e:
+        Core.err(str(e))
+
+Core.exit()

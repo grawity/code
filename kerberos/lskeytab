@@ -6,16 +6,22 @@ my %hosts;
 my %services;
 my %kvnos;
 
-my $skip = 3;
-for my $line (`klist -k`) {
-	next if $skip and $skip--;
-	if ($line =~ /^\s*(\d+)\s+(\S+)@(\S+)$/) {
-		my ($kvno, $princ, $realm) = ($1, $2, $3);
-		my ($svc, $host) = split(m|/|, $princ, 2);
-		push @{$hosts{$host}}, $svc;
-		push @{$services{$svc}}, $host;
-		push @{$kvnos{$princ}}, $kvno;
+my @cmd = @ARGV ? ("klist", "-k", shift(@ARGV))
+		: ("klist", "-k");
+
+if (open(my $fh, "-|", @cmd)) {
+	my $skip = 3;
+	while (<$fh>) {
+		next if $skip and $skip--;
+		if (/^\s*(\d+)\s+(\S+)@(\S+)$/) {
+			my ($kvno, $princ, $realm) = ($1, $2, $3);
+			my ($svc, $host) = split(m|/|, $princ, 2);
+			push @{$hosts{$host}}, $svc;
+			push @{$services{$svc}}, $host;
+			push @{$kvnos{$princ}}, $kvno;
+		}
 	}
+	close($fh);
 }
 
 while (my ($host, $services) = each %hosts) {

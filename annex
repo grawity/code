@@ -298,6 +298,43 @@ case $cmd in
             }
         '
         ;;
+    copy-remote-uuid)
+        remote=$1
+        desc=${2:-"$remote"}
+        if ! [[ $remote && $desc ]]; then
+            echo "Usage: $cmd <remote> <match_desc>"
+            die "missing remote name or description"
+        elif ! url=$(git config --get remote.$remote.url) || ! [[ $url ]]; then
+            die "no such remote '$remote'"
+        elif uuid=$(git config --get remote.$remote.annex-uuid) && [[ $uuid ]]; then
+            notice "remote already has UUID {$uuid}"
+        else
+            git annex info --fast --json \
+                | jq -r 'map(.[]?) | .[]? | (.uuid?, .description?)' \
+                | {
+                    r_uuid= r_desc= uuid=
+                    while read -r line; do
+                        if [[ $r_uuid ]]; then
+                            r_desc=$line
+                            if [[ "$r_desc" == "$desc" ]]; then
+                                uuid=$r_uuid
+                            elif [[ "${r_desc% \[*\]}" == "$desc" ]]; then
+                                debug "remote is already configured"
+                            fi
+                            r_uuid=
+                        else
+                            r_uuid=$line
+                        fi
+                    done
+                    if [[ $uuid ]]; then
+                        info "found UUID {$uuid}"
+                        git config remote.$remote.annex-uuid "$uuid"
+                    else
+                        err "description not found"
+                    fi
+                }
+        fi
+        ;;
     mv)
         git annex proxy -- git mv "$@"
         find "$1" -depth -type d -exec rmdir --ignore-fail-on-non-empty {} \;

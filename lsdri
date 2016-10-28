@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 # /usr/lib/dri/*_dri.so were symlinks to Xorg modules for some reason
 # /usr/lib32/dri was a symlink to lib32 Xorg mod directory
 
 _head() { echo; echo "$@"; }
-echo2() { if (( $# )); then printf "  - %s\n" "$@"; fi; }
-echo3() { local f; for f; do if [ -e "$f" ]; then echo2 "${f##*/}"; fi; done; }
+
+listfiles() {
+	local head=$1 dir=$2 pref=$3 suff=$4
+	echo "$head ($dir/$pref*$suff):"
+	for f in "$dir"/"$pref"*"$suff"; do
+		base=${f#"$dir/"}
+		name=${base#"$pref"}
+		name=${name%"$suff"}
+		echo "  - $name"
+	done
+	echo
+}
 
 shopt -s nullglob
 
-declare -A dri_so libva_so vdpau_so
-
 for lib in lib lib32; do
-	_head "Xorg DRI modules:"
-	echo2 /usr/$lib/xorg/modules/dri/*_dri.so
-
-	_head "libva modules:"
-	echo2 /usr/$lib/dri/*_drv_video.so
-
-	_head "libvdpau modules:"
-	echo2 /usr/$lib/vdpau/libvdpau_*.so
+	log2 "listing drivers in /usr/$lib"
+	echo
+	listfiles "X.org DRI modules"	/usr/$lib/xorg/modules/dri  ""		    "_dri.so"
+	listfiles "Vulkan drivers"	/usr/$lib		    "libvulkan_"    ".so"
+	listfiles "VAAPI modules"	/usr/$lib/dri		    ""		    "_drv_video.so"
+	listfiles "VDPAU modules"	/usr/$lib/vdpau		    "libvdpau_"	    ".so"
 done

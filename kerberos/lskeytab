@@ -24,10 +24,10 @@ if (open(my $fh, "-|", @cmd)) {
 	close($fh);
 }
 
-while (my ($host, $services) = each %hosts) {
+for my $host (sort keys %hosts) {
 	say "host $host:";
 	my @sv;
-	for my $service (uniq sort {lc $a cmp lc $b} @$services) {
+	for my $service (uniq sort {lc $a cmp lc $b} @{$hosts{$host}}) {
 		my @kvnos = uniq sort @{$kvnos{"$service/$host"}};
 		my $kvnos = join(",", @kvnos);
 		$service = "$service($kvnos)";

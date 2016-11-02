@@ -3,6 +3,14 @@ use warnings;
 use strict;
 use Nullroute::Lib;
 
+sub is_gitdir {
+	my ($dir) = @_;
+
+	return (-f "$dir/config"
+		&& -d "$dir/objects"
+		&& -d "$dir/refs");
+}
+
 sub clean {
 	my ($root) = @_;
 
@@ -37,8 +45,8 @@ sub clean {
 	if ($root eq ".") {
 		;
 	}
-	elsif ($root =~ m|/\.git/refs$|) {
-		_notice("skipping '$root' (required by Git)");
+	elsif ($root =~ m|/refs$| && is_gitdir("$root/..")) {
+		_debug("skipping '$root' (Git repo)");
 	}
 	elsif (rmdir($root)) {
 		_info("removed: $root");

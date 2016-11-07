@@ -114,9 +114,24 @@ fallback:
 }
 
 int closefds(void) {
+	int tmp_stderr_fd;
+	FILE *tmp_stderr;
 	DIR *dirp;
 	struct dirent *ent;
 	int fd;
+
+	tmp_stderr_fd = dup(2);
+	if (tmp_stderr_fd < 0) {
+		fprintf(stderr, "%s: failed to dup stderr fd: %m\n", arg0);
+		return 0;
+	}
+
+	tmp_stderr = fdopen(tmp_stderr_fd, "a");
+	if (!tmp_stderr) {
+		fprintf(stderr, "%s: failed to fopen fd %u: %m\n", arg0, tmp_stderr_fd);
+		close(tmp_stderr_fd);
+		return 0;
+	}
 
 	dirp = opendir("/dev/fd");
 	if (!dirp) {
@@ -128,7 +143,7 @@ int closefds(void) {
 		if (ent->d_name[0] == '.')
 			continue;
 		fd = atoi(ent->d_name);
-		if (fd != dirfd(dirp))
+		if (fd != dirfd(dirp) && fd != tmp_stderr_fd)
 			close(fd);
 	}
 
@@ -136,16 +151,25 @@ int closefds(void) {
 
 	fd = open("/dev/null", O_RDWR);
 	if (fd < 0) {
-		fprintf(stderr, "%s: failed to open /dev/null: %m\n", arg0);
+		fprintf(tmp_stderr, "%s: failed to open /dev/null: %m\n", arg0);
 		return 0;
 	}
-
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
-
+	if (dup2(fd, 0) < 0) {
+		fprintf(tmp_stderr, "%s: failed to dup fd %u: %m\n", arg0, fd);
+		return 0;
+	}
+	if (dup2(fd, 1) < 0) {
+		fprintf(tmp_stderr, "%s: failed to dup fd %u: %m\n", arg0, fd);
+		return 0;
+	}
+	if (dup2(fd, 1) < 0) {
+		fprintf(tmp_stderr, "%s: failed to dup fd %u: %m\n", arg0, fd);
+		return 0;
+	}
 	if (fd != 0)
 		close(fd);
+
+	fclose(tmp_stderr);
 
 	return 1;
 }
@@ -289,8 +313,11 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		if (do_closefd) {
-			if (!closefds())
+			if (!closefds()) {
+				fprintf(stderr, "%s: failed to close file descriptors\n",
+					arg0);
 				return 1;
+			}
 		}
 		if (execvp(cmd[0], cmd) < 0) {
 			fprintf(stderr, "%s: failed to execute '%s': %m\n",

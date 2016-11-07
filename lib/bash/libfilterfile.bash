@@ -65,14 +65,13 @@ filter_file() {
 			err "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
 		elif $current; then
-			if (( DEBUG )); then
-				echo $'\e[1;36m'"+++ $line"$'\e[m'
-			else
-				echo "$line"
+			if (( DEBUG >= 2 )); then
+				echo $'\e[1;36m'"+++ $line"$'\e[m' >&2
 			fi
+			echo "$line"
 		else
-			if (( DEBUG )); then
-				echo $'\e[1;35m'"--- $line"$'\e[m'
+			if (( DEBUG >= 2 )); then
+				echo $'\e[1;35m'"--- $line"$'\e[m' >&2
 			fi
 		fi
 

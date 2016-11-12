@@ -40,7 +40,13 @@ try:
                 Core.err("stopping after %d subnets out of %d" % (count, total))
                 break
         if sys.stdout.isatty():
-            print("\033[38;5;244m=> %d subnets × %d addresses\033[m" % (total, net.num_addresses))
+            if network.version == 6 and net.prefixlen < 64:
+                msg = "%d ranges × %d subnets" % (total, 2**(64-net.prefixlen))
+            elif network.version == 6 and net.prefixlen == 64:
+                msg = "%d subnets" % total
+            else:
+                msg = "%d subnets × %d addresses" % (total, net.num_addresses)
+            print("\033[38;5;244m=> %s\033[m" % msg)
 
     Core.exit()
 except IndexError:

@@ -68,6 +68,16 @@ usage() {
 	echo_opt "phase2" "Supported phase-2 mechanisms"
 }
 
+help() {
+	if [[ $(type -t "help_$1") == function ]]; then
+		"help_$1"
+	elif [[ $1 ]]; then
+		die "unknown help topic '$1'"
+	else
+		usage
+	fi
+}
+
 help_phase2() {
 	echo "Supported mechanisms:"
 	echo ""
@@ -159,13 +169,7 @@ parse_args() {
 	debug "current load type '$type', name '$name'"
 	while (( $# )); do
 		if [[ $1 == --help ]]; then
-			if [[ $(type -t "help_$2") == function ]]; then
-				"help_$2"; exit
-			elif [[ $2 ]]; then
-				die "unknown help topic '$2'"
-			else
-				usage; exit
-			fi
+			help "$2"; lib::exit
 		elif [[ ! $profile ]]; then
 			debug "accepting first arg '$1' as profile name"
 			profile=$1
@@ -181,7 +185,7 @@ parse_args() {
 			-x)
 				eapol_bin=$2; shift;;
 			help)
-				usage; exit;;
+				help "$2"; lib::exit;;
 			show-config)
 				dump_config=1;;
 			# RADIUS server

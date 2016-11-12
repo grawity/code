@@ -2,6 +2,7 @@
 
 #include "feature.h"
 #include "util.h"
+#include <err.h>
 #include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -65,8 +66,7 @@ char * get_lockfile(const char *name, int shared) {
 
 	rundir = getenv("XDG_RUNTIME_DIR");
 	if (!rundir) {
-		fprintf(stderr, "%s: XDG_RUNTIME_DIR not set, cannot use lockfile\n",
-			arg0);
+		warnx("XDG_RUNTIME_DIR not set, cannot use lockfile");
 		return NULL;
 	}
 
@@ -75,8 +75,7 @@ char * get_lockfile(const char *name, int shared) {
 
 	r = mkdir_p(lockdir, 0700);
 	if (r < 0) {
-		fprintf(stderr, "%s: lockdir unavailable: %s\n",
-			arg0, strerror(-r));
+		warnx("lockdir unavailable: %s", strerror(-r));
 		return NULL;
 	}
 
@@ -101,51 +100,65 @@ int chdir_home(void) {
 	if (r == 0)
 		return 1;
 	else
-		fprintf(stderr, "%s: failed to chdir to '%s': %m\n", arg0, dir);
+		warn("failed to chdir to '%s'", dir);
 
 fallback:
 	r = chdir("/");
 	if (r == 0)
 		return 1;
 	else
-		fprintf(stderr, "%s: failed to chdir to '/': %m\n", arg0);
+		warn("failed to chdir to '/'");
 
 	return 0;
 }
 
 int closefds(void) {
+	int errfd;
+	FILE *errfh;
 	DIR *dirp;
 	struct dirent *ent;
 	int fd;
 
+	errfd = dup(2);
+	if (errfd < 0)
+		err(1, "failed to dup stderr fd");
+
+	errfh = fdopen(errfd, "a");
+	if (!errfh)
+		err(1, "failed to fdopen errfd %u", errfd);
+	stderr = errfh;
+
 	dirp = opendir("/dev/fd");
-	if (!dirp) {
-		fprintf(stderr, "%s: failed to open /dev/fd: %m\n", arg0);
-		return 0;
-	}
+	if (!dirp)
+		err(1, "failed to open /dev/fd");
 
 	while ((ent = readdir(dirp))) {
 		if (ent->d_name[0] == '.')
 			continue;
 		fd = atoi(ent->d_name);
-		if (fd != dirfd(dirp))
+		if (fd != dirfd(dirp) && fd != errfd)
 			close(fd);
 	}
 
 	closedir(dirp);
 
 	fd = open("/dev/null", O_RDWR);
-	if (fd < 0) {
-		fprintf(stderr, "%s: failed to open /dev/null: %m\n", arg0);
-		return 0;
-	}
+	if (fd < 0)
+		err(1, "failed to open /dev/null");
 
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
+	if (dup2(fd, 0) < 0)
+		err(1, "failed to dup fd %u", fd);
+
+	if (dup2(fd, 1) < 0)
+		err(1, "failed to dup fd %u", fd);
+
+	if (dup2(fd, 2) < 0)
+		err(1, "failed to dup fd %u", fd);
 
 	if (fd != 0)
 		close(fd);
+
+	fclose(errfh);
 
 	return 1;
 }
@@ -230,12 +243,10 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (optind >= argc) {
-		fprintf(stderr, "%s: must specify a command to run\n", arg0);
-		return 2;
-	} else {
+	if (optind >= argc)
+		errx(2, "must specify a command to run");
+	else
 		cmd = &argv[optind];
-	}
 
 #ifdef HAVE_FLOCK
 	if (do_lock) {
@@ -254,17 +265,15 @@ int main(int argc, char *argv[]) {
 
 		lockfd = open(lockfile, O_RDWR|O_CREAT, 0600);
 		if (lockfd < 0) {
-			fprintf(stderr, "%s: cannot open lockfile '%s': %m\n",
-				arg0, lockfile);
+			err(1, "cannot open lockfile '%s'", lockfile);
 			return 1;
 		}
 
 		if (flock(lockfd, LOCK_EX|LOCK_NB) < 0) {
 			if (errno == EWOULDBLOCK)
-				fprintf(stderr, "%s: already running\n", cmd[0]);
+				warnx("already running");
 			else
-				fprintf(stderr, "%s: could not lock '%s': %m\n",
-					arg0, lockname);
+				warn("could not lock '%s'", lockname);
 			return 1;
 		}
 
@@ -283,24 +292,15 @@ int main(int argc, char *argv[]) {
 	switch (pid) {
 	case 0:
 		fixenv(do_unsetenv - 1);
-		if (setsid() < 0) {
-			fprintf(stderr, "%s: detaching from session failed: %m\n",
-				arg0);
-			return 1;
-		}
-		if (do_closefd) {
-			if (!closefds())
-				return 1;
-		}
-		if (execvp(cmd[0], cmd) < 0) {
-			fprintf(stderr, "%s: failed to execute '%s': %m\n",
-				arg0, cmd[0]);
-			return 1;
-		}
+		if (setsid() < 0)
+			err(1, "detaching from session failed");
+		if (do_closefd && !closefds())
+			errx(1, "closing file descriptors failed");
+		if (execvp(cmd[0], cmd) < 0)
+			err(1, "failed to execute '%s'", cmd[0]);
 		return 0;
 	case -1:
-		fprintf(stderr, "%s: fork failed: %m\n", arg0);
-		return 1;
+		err(1, "fork failed");
 	default:
 		if (do_lock && lockfd) {
 			char *str = NULL;

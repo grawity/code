@@ -58,11 +58,36 @@ usage() {
 	echo_opt "-o ..." "Manually add a config setting for eapol_test"
 	echo_opt "-O PATH" "Save phase 1 TLS certificate chain to file"
 	echo_opt "-x PATH" "Use a different eapol_test executable"
+	echo_opt "--help TOPIC" "Show additional help text"
 	echo ""
 	echo "Many options translate directly to wpa_supplicant settings."
 	echo "Both GNU \"--opt ARG\" and iproute \"opt ARG\" formats are accepted."
 	echo ""
-	help_config
+	echo "Use \"--help TOPIC\" for additional information. Available topics:"
+	echo_opt "config" "Configuration files"
+	echo_opt "phase2" "Supported phase-2 mechanisms"
+}
+
+help_phase2() {
+	echo "Supported mechanisms:"
+	echo ""
+	echo "  OPTION        NAME            PEAP            TTLS"
+	echo "  ------------  --------------  --------------  ----------------"
+	echo "  pap           PAP             -               auth=PAP"
+	echo "  chap          CHAP            -               auth=CHAP"
+	echo "  mschap        MSCHAPv1        -               auth=MSCHAP"
+	echo "  mschapv2      MSCHAPv2        -               auth=MSCHAPV2"
+	echo "  eap-gtc       GTC             auth=GTC        autheap=GTC"
+	echo "  eap-md5       MD5             auth=MD5        autheap=MD5"
+	echo "  eap-mschapv2  MSCHAPv2        auth=MSCHAPV2   autheap=MSCHAPV2"
+	echo ""
+	echo "Notes:"
+	echo ""
+	echo "  * TTLS supports all mechanisms, while PEAP can only carry EAP-based ones."
+	echo ""
+	echo "  * PAP is not an EAP mechanism – its equivalent for PEAP is EAP-GTC."
+	echo ""
+	echo "  * MSCHAPv2 exists in both raw & EAP versions, resulting in 3 combinations."
 }
 
 help_config() {
@@ -134,7 +159,11 @@ parse_args() {
 	debug "current load type '$type', name '$name'"
 	while (( $# )); do
 		if [[ $1 == --help ]]; then
-			usage; exit
+			if [[ $2 && $(type -t "help_$2") == function ]]; then
+				"help_$2"; exit
+			else
+				usage; exit
+			fi
 		elif [[ ! $profile ]]; then
 			debug "accepting first arg '$1' as profile name"
 			profile=$1
@@ -280,6 +309,7 @@ case $mech in
 	# only set a default for radtest, let eapol_test autoguess
 	'')		mech='pap';;
 	# direct translation to eapol_test phase2
+	'='*)		phase2=${mech#=};;
 	'pap')		phase2='PAP';;
 	'chap')		phase2='CHAP';;
 	'mschap')	phase2='MSCHAP';;

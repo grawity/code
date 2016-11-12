@@ -19,6 +19,7 @@ usage() {
 	echo_opt "via SERVERPROFILE" "Use given server config block"
 	echo_opt "host ADDRESS" "Set RADIUS host name or address"
 	echo_opt "port PORT" "Set RADIUS authentication port"
+	echo_opt "proto ip4|ip6" "Force IP protocol version"
 	echo_opt "secret SECRET" "Set RADIUS secret"
 	echo ""
 	echo "Mechanism:"
@@ -122,7 +123,7 @@ help_config() {
 	echo "Use 'testrad none ...' if no profile needs to be loaded."
 }
 
-declare -- host port secret eap mech phase2
+declare -- ip_version host port secret eap mech phase2
 declare -- identity outer_id password
 declare -- tls_cert tls_key tls_ca save_chain
 declare -a tls_opts phase1_opts
@@ -178,6 +179,8 @@ parse_args() {
 			debug "parsing arg '$1', next '$2'"
 			case ${1#--} in
 			# runtime & misc eapol_test options
+			-4|-6)
+				ip_version=${1#-};;
 			-o)
 				ecfg_extra+=("$2"); shift;;
 			-O)
@@ -200,6 +203,14 @@ parse_args() {
 				host=$2; shift;;
 			port)
 				port=$2; shift;;
+			proto)
+				case $2 in
+				    any) ip_version=;;
+				   [46]) ip_version=$2;;
+				 ip[46]) ip_version=${2#ip};;
+				ipv[46]) ip_version=${2#ipv};;
+				*) die "invalid IP protocol version '$2'";;
+				esac; shift;;
 			secret)
 				secret=$2; shift;;
 			# mechanism choice
@@ -264,20 +275,39 @@ have "$eapol_bin" || err "missing '$eapol_bin' binary"
 # check server parameters
 
 IPV4_RE='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
+IPV6_RE='^[0-9a-f]*:[0-9a-f]*:[0-9a-f:]*$'
 
 if [[ ! $host && ! $profile ]]; then
 	die "missing profile name or RADIUS host address"
 elif [[ ! $host ]]; then
 	die "missing RADIUS host address in profile"
-elif [[ $host == *:*:* ]]; then
-	die "RADIUS over IPv6 is not yet supported by eapol_test"
-elif [[ $host == *:* ]]; then
+elif [[ $host == *.*:* ]]; then
 	die "invalid server name (use the 'port' option)"
-elif ! [[ $host =~ $IPV4_RE ]]; then
+elif [[ $host == *%* ]]; then
+	die "invalid server name (eapol_test does not support %scope yet)"
+elif [[ $host =~ $IPV4_RE ]]; then
+	if [[ $ip_version && $ip_version != 4 ]]; then
+		die "invalid server name (IPv4 address given but IPv$ip_version requested)"
+	fi
+elif [[ $host =~ $IPV6_RE ]]; then
+	if [[ $ip_version && $ip_version != 6 ]]; then
+		die "invalid server name (IPv6 address given but IPv$ip_version requested)"
+	fi
+else
 	if have name2addr; then
-		server_ip=$(name2addr -4 "$host")
+		if [[ $ip_version ]]; then
+			arg="-$ip_version"
+		else
+			arg=""
+		fi
+		server_ip=$(name2addr $arg "$host")
 	elif have getent; then
-		server_ip=$(getent ahostsv4 "$host" | awk '{print $1}' | head -1)
+		if [[ $ip_version ]]; then
+			arg="ahostsv$ip_version"
+		else
+			arg="ahosts"
+		fi
+		server_ip=$(getent $arg "$host" | awk '{print $1}' | head -1)
 	else
 		die "missing 'name2addr' binary required for DNS resolution"
 	fi

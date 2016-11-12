@@ -267,15 +267,19 @@ fi
 
 # check for necessary tools
 
-have 'radtest' || err "missing 'radtest' binary"
-have "$eapol_bin" || err "missing '$eapol_bin' binary"
+have 'radtest' ||
+	err "missing 'radtest' binary"
+
+have "$eapol_bin" ||
+	err "missing '$eapol_bin' binary"
+
+have 'name2addr' ||
+have 'getent' ||
+	err "missing 'getent' or 'name2addr' binary"
 
 (( !errors )) || exit
 
 # check server parameters
-
-IPV4_RE='^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'
-IPV6_RE='^[0-9a-f]*:[0-9a-f]*:[0-9a-f:]*$'
 
 if [[ ! $host && ! $profile ]]; then
 	die "missing profile name or RADIUS host address"
@@ -285,23 +289,15 @@ elif [[ $host == *.*:* ]]; then
 	die "invalid server name (use the 'port' option)"
 elif [[ $host == *%* ]]; then
 	die "invalid server name (eapol_test does not support %scope yet)"
-elif [[ $host =~ $IPV4_RE ]]; then
-	if [[ $ip_version && $ip_version != 4 ]]; then
-		die "invalid server name (IPv4 address given but IPv$ip_version requested)"
-	fi
-elif [[ $host =~ $IPV6_RE ]]; then
-	if [[ $ip_version && $ip_version != 6 ]]; then
-		die "invalid server name (IPv6 address given but IPv$ip_version requested)"
-	fi
 else
-	if have name2addr; then
+	if have 'name2addr'; then
 		if [[ $ip_version ]]; then
 			arg="-$ip_version"
 		else
 			arg=""
 		fi
 		server_ip=$(name2addr $arg "$host")
-	elif have getent; then
+	elif have 'getent'; then
 		if [[ $ip_version ]]; then
 			arg="ahostsv$ip_version"
 		else
@@ -309,7 +305,7 @@ else
 		fi
 		server_ip=$(getent $arg "$host" | awk '{print $1}' | head -1)
 	else
-		die "missing 'name2addr' binary required for DNS resolution"
+		die "either 'name2addr' or 'getent' are required"
 	fi
 	if [[ $server_ip ]]; then
 		debug "resolved '$host' to '$server_ip'"

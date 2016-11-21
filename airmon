@@ -2,6 +2,12 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname start|stop"
+}
+
+shopt -s nullglob
+
 case $1 in
 	start)
 		phys=()
@@ -32,6 +38,24 @@ case $1 in
 			sudo: iw $dev interface del
 		done
 		;;
+	list)
+		echo "phys:"
+		for _phy in /sys/class/ieee80211/phy*; do
+			phy=${_phy##*/}
+			echo "  $phy"
+		done
+		echo "interfaces:"
+		for _dev in /sys/class/net/*; do
+			dev=${_dev##*/}
+			type=$(< $_dev/type)
+			if [[ $type != @(1|803) ]]; then
+				continue
+			fi
+			echo "  $dev ($type)"
+		done
+		;;
+	"")
+		usage; die -2 "missing command";;
 	*)
 		die "unknown command '$1'";;
 esac

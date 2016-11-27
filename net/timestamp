@@ -25,6 +25,22 @@ my %TSAs = (
     #verisign => "http://timestamp.verisign.com/scripts/timestamp.dll",
 );
 
+my $DEF_TSA = "startcom";
+
+sub usage {
+    print "$_\n" for (
+    "Usage: $::arg0 [-h ALGO] [-o OUTPUT] INPUT...",
+    "",
+    "  -h, --hash ALGO",
+    "  -o, --output FILE",
+    "  -p, --policy OID",
+    "  -t, --tsa TSA",
+    "  -v, --verbose",
+    "",
+    "Available TSAs: ".join(", ", sort grep {!/\./} keys %TSAs),
+    );
+}
+
 sub _dump_asn1 {
     my ($buf) = @_;
 
@@ -121,6 +137,7 @@ my $out_file;
 my $verbose;
 
 GetOptions(
+    "help" => sub { usage(); exit; },
     "h|hash=s" => \$hash_algo,
     "o|output=s" => \$out_file,
     "p|policy=s" => \$policy,
@@ -138,6 +155,10 @@ if ($tsa !~ m!^https?://!) {
     } else {
         _die("unknown TSA '$tsa'");
     }
+}
+
+if (!@ARGV) {
+    _die("no files provided");
 }
 
 for my $in_file (@ARGV) {

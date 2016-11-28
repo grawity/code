@@ -6,17 +6,20 @@
 unset ${!arg_*}
 
 : ${tcpdump:="tcpdump"}
+arg_ui=tcpdump
 
 while (( $# )); do
 	case ${1#--} in
 	on)		arg_on=$2; shift;;
 	-e)		arg_ethers=1;;
 	-f|filter)	arg_filter=$2; shift;;
+	gui)		arg_ui=wireshark;;
 	host)		arg_f_host=$2; shift;;
 	vlan)		arg_vlan=$2; shift;;
 	name)		arg_name=$2; shift;;
 	ip6ra)		arg_filter="icmp6 and ip6[40] == 134";;
 	vlans)		arg_vlans=1; shift;;
+	local)		arg_ui=$2; shift;;
 	*)	
 		if [[ $1 == */* && ! $arg_on ]]; then
 			arg_on=$1
@@ -101,9 +104,15 @@ rcmd="set -- \$SSH_CONNECTION; $tcpdump -n -i '$target_iface' -s 65535 -U -w - -
 rcmd+=" \"$filter\""
 debug "remote command: $rcmd"
 
-lcmd="tcpdump -n -r - -U"
-if (( arg_ethers )); then
-	lcmd+=" -e"
+if [[ $arg_ui == tcpdump ]]; then
+	lcmd="tcpdump -n -r - -U"
+	if (( arg_ethers )); then
+		lcmd+=" -e"
+	fi
+elif [[ $arg_ui == wireshark ]]; then
+	lcmd="wireshark -k -i -"
+else
+	lcmd=$arg_ui
 fi
 debug "local command: $lcmd"
 

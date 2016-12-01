@@ -340,6 +340,9 @@ case $cmd in
         find "$1" -depth -type d -exec rmdir --ignore-fail-on-non-empty {} \;
         ;;
     push)
+        if eth0-available; (( $? >= 2 )); then
+            warn "Ethernet connection not fully established"
+        fi
         is_remote! "$1"
         annex copy --to "$1" --not --in "$1" "${@:2}"
         ;;

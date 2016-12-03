@@ -171,6 +171,17 @@ case $cmd in
 		debug "setting network membership key '$nmk'"
 		call plctool -J "$rmac" -D "$dak" -K "$nmk" "$lmac"
 		;;
+	reboot)
+		mac=$2; _check_mac! mac
+		info "rebooting device '$mac'"
+		call plctool -R "$mac"
+		;;
+	reset-to-factory)
+		mac=$2; _check_mac! mac
+		confirm "reset device '$mac'?" || exit
+		info "resetting device '$mac' to factory defaults"
+		call plctool -T "$mac"
+		;;
 	generate-password|pwgen)
 		mac2pw -q -l 16 -b 4 -n ${2:-1} 00B052000001;;
 	"")

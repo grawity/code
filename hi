@@ -137,9 +137,12 @@ fmt() {
 }
 
 url=$(attr -qg "xdg.origin.url" "$log" 2>/dev/null) ||
-if [[ -h "$link" ]]
-	then url=$(readlink "$link")
-	else url=$(< "$link")
+if [[ -h "$link" ]]; then
+	url=$(readlink "$link")
+elif [[ -s "$link" ]]; then
+	url=$(< "$link")
+else
+	false
 fi || die "could not find URL for $log"
 
 mkdir -p "${log%/*}" || die "cannot create cache directory"

@@ -18,9 +18,11 @@ class LiteroticaScraper(Scraper):
         Core.info("fetching %r" % page_url)
         r = self.ua.get(page_url)
         r.raise_for_status()
+        return self.parse_story_page(r.content)
 
+    def parse_story_page(self, buf):
         data = {}
-        page = bs4.BeautifulSoup(r.content, "lxml")
+        page = bs4.BeautifulSoup(buf, "lxml")
         main = page.find("div", {"id": "main"})
 
         tag = main.find("h1")
@@ -159,4 +161,10 @@ opts = ap.parse_args()
 
 foo = LiteroticaScraper()
 for url in opts.url:
-    foo.save_story(url, series=opts.series)
+    if os.path.exists(url):
+        with open(url, "r") as fh:
+            buf = fh.read()
+        data = foo.parse_story_page(buf)
+        pprint(data)
+    else:
+        foo.save_story(url, series=opts.series)

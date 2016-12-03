@@ -153,16 +153,23 @@ case $cmd in
 		call plctool -I
 		;;
 	set-local-nmk)
-		nmk=${2:-key1}; _check_nmk! nmk
-		info "setting local NMK to '$nmk'"
-		call plctool -M -K "$nmk"
+		[[ $2 ]] || die "Usage: $cmd <nmk> [mac]"
+		nmk=$2; _check_nmk! nmk
+		mac=${3:-local}; _check_mac! mac
+		info "setting NMK at '$mac' (via Ethernet)"
+		debug "setting network membership key '$nmk'"
+		call plctool -M -K "$nmk" "$mac"
 		;;
 	set-remote-nmk)
-		_check_dak! dak
-		nmk=${2:-key1}; _check_nmk! nmk
-		mac=${3}; _check_mac! mac
-		info "setting NMK at '$mac' to '$nmk'"
-		call plctool -J "$mac" -K "$nmk"
+		[[ $5 ]] || die "Usage: $cmd <nmk> <via_mac> <to_mac> <dak>"
+		nmk=$2; _check_nmk! nmk
+		lmac=$3; _check_mac! lmac
+		rmac=$4; _check_mac! rmac
+		dak=$5; _check_dak! dak
+		info "setting NMK at '$rmac' (via Powerline through '$lmac')"
+		debug "using device access key '$dak'"
+		debug "setting network membership key '$nmk'"
+		call plctool -J "$rmac" -D "$dak" -K "$nmk" "$lmac"
 		;;
 	generate-password|pwgen)
 		mac2pw -q -l 16 -b 4 -n ${2:-1} 00B052000001;;

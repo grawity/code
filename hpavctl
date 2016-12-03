@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+valid_dak() {
+	[[ $1 == key[12] ]] ||
+	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){15}[0-9A-Fa-f]{2}$ ]]
+}
+valid_mac() {
+	[[ $1 == @(local|all|broadcast) ]] ||
+	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){5}[0-9A-Fa-f]{2}$ ]]
+}
+valid_nid() {
+	err "TODO: don't know NID rules yet"
+}
+valid_nmk() {
+	[[ $1 == @(key[12]|none) ]] ||
+	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){15}[0-9A-Fa-f]{2}$ ]]
+}
+
+__check() {
+	if [[ ! $1 ]]; then
+		die "missing ${3}${4:+' ('}${4}${4:+')'}"
+	elif ! valid_$2 "$1"; then
+		die "bad $3 '$1'"
+	fi
+}
+check_dak!() {
+	__check "$1" dak "device access key"
+}
+check_mac!() {
+	__check "$1" mac "device address" "MAC or 'local' or 'broadcast'"
+}
+check_nid!() {
+	__check "$1" nid "network identifier"
+}
+check_nmk!() {
+	__check "$1" nmk "network membership key"
+}
+
+_check_dak!() {
+	local -n v=$1
+	if [[ $v == @* ]]; then
+		local _v=$(getnetrc -sdf %p "dak/$v")
+		if [[ $_v ]]; then
+			v=$_v
+		fi
+	fi
+	case $v in
+		????-????-????-????) v=$(hpavkey -D "$v");;
+	esac
+	check_dak! "$v"
+}
+_check_mac!() {
+	local -n v=$1
+	case $v in
+		a|all) v=broadcast;;
+		b|bcast) v=broadcast;;
+		l|local) v=local;;
+	esac
+	check_mac! "$v"
+}
+_check_nid!() {
+	local -n v=$1
+	check_nid! "$v"
+}
+_check_nmk!() {
+	local -n v=$1
+	case $v in
+		????-????-????-????) v=$(hpavkey -M "$v");;
+		default|HomePlugAV) v=key1;;
+	esac
+	check_nmk! "$v"
+}
+
+call() {
+	"$1" "${opts[@]}" "${@:2}"
+}
+
+declare -- dev=
+declare -- dak=
+declare -a opts=()
+declare -i verbose=0
+
+while getopts ":D:i:v" OPT; do
+	case $OPT in
+	D) dak=$OPTARG;;
+	i) dev=$OPTARG;;
+	v) verbose+=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ $dak ]]; then
+	_check_dak! dak
+	info "using device access key $dak"
+	opts+=(-D "$dak")
+fi
+
+if [[ ! $dev ]]; then
+	for path in /sys/class/net/*; do
+		if [[ $(< $path/type) == 1 ]] &&
+		   [[ $(< $path/operstate) == up ]]; then
+			dev=${path##*/}
+			debug "selecting interface '$dev'"
+			break
+		fi
+	done
+fi
+if [[ ! $dev ]]; then
+	die "interface not specified (use -i)"
+elif [[ ! -e /sys/class/net/$dev ]]; then
+	die "interface '$dev' does not exist"
+elif [[ $(< /sys/class/net/$dev/operstate) == down ]]; then
+	die "interface '$dev' is down"
+elif [[ $(< /sys/class/net/$dev/operstate) != up ]]; then
+	warn "interface '$dev' seems to be down"
+fi
+opts+=(-i "$dev")
+
+cmd=$1
+case $cmd in
+	devices|dev)
+		mac=${2:-broadcast}; _check_mac! mac
+		info "querying device information at '$mac'"
+		call plctool -q -r $mac
+		;;
+	network|net|peers)
+		mac=${2:-local}; _check_mac! mac
+		info "querying network information at '$mac'"
+		if (( verbose >= 1 )); then
+			call plctool -m $mac
+		elif [[ $mac == broadcast ]]; then
+			call plctool -q -r $mac |
+			while read -r _dev _mac _; do
+				echo "--- $_mac ---"
+				call int6kstat -m $_mac
+			done
+		else
+			call int6kstat -m $mac
+		fi
+		;;
+	topology|topo)
+		mac=${2:-local}
+		[[ $mac == local ]] || die "topology only supported for local device"
+		info "querying local device's network topology"
+		call int6kstat -t
+		;;
+	show-local-pib|pib)
+		mac=${2:-local}
+		[[ $mac == local ]] || die "PIB query only supported for local device"
+		info "querying local device's PIB"
+		call plctool -I
+		;;
+	set-local-nmk)
+		nmk=${2:-key1}; _check_nmk! nmk
+		info "setting local NMK to '$nmk'"
+		call plctool -M -K "$nmk"
+		;;
+	set-remote-nmk)
+		_check_dak! dak
+		nmk=${2:-key1}; _check_nmk! nmk
+		mac=${3}; _check_mac! mac
+		info "setting NMK at '$mac' to '$nmk'"
+		call plctool -J "$mac" -K "$nmk"
+		;;
+	generate-password|pwgen)
+		mac2pw -q -l 16 -b 4 -n ${2:-1} 00B052000001;;
+	"")
+		die "missing command";;
+	*)
+		die "unknown command '$1'";;
+esac

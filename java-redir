@@ -2,20 +2,40 @@
 # java-redir - prevent Java programs from littering $HOME
 
 . lib.bash || exit
-progname="java-redir"
 
-java="/usr/bin/java"
-redir="$XDG_DATA_HOME/java-home"
+origname=${progname%-redir}
+progname="java-redir"
+homedir="$XDG_DATA_HOME/java-home"
+
+for dir in ~/.local/bin /usr/bin; do
+	java="$dir/$origname"
+	if [[ -x "$java" ]]; then
+		break
+	fi
+done
+
+if [[ ! -x "$java" ]]; then
+	die "could not find '$origname'"
+fi
 
 debug "Java runtime: '$java'"
-debug "Java homedir: '$redir'"
+debug "Java homedir: '$homedir'"
 
-if [[ ! -d "$redir" ]]; then
-	mkdir "$redir"
+case $origname in
+	java)
+		set -- -Duser.home="$homedir" "$@";;
+	javaws)
+		set -- -J-Duser.home="$homedir" "$@";;
+	*)
+		die "unknown program '$origname'";;
+esac
+
+if [[ ! -d "$homedir" ]]; then
+	mkdir "$homedir"
 fi
 
-if [[ ! -e "$redir/.java" ]]; then
-	ln -r -s -f "$HOME/.java" "$redir/.java"
+if [[ ! -e "$homedir/.java" ]]; then
+	ln -n -r -s -f "$HOME/.java" "$homedir/.java"
 fi
 
-exec "$java" -Duser.home="$redir" "$@"
+exec "$java" "$@"

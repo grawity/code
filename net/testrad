@@ -173,11 +173,12 @@ parse_args() {
 		if [[ $1 == --help && ! $type ]]; then
 			help "$2"; lib::exit
 		elif [[ ! $profile && ! $type ]]; then
-			debug "accepting first arg '$1' as profile name"
+			debug "<$type/$name:$#> accepting first arg '$1' as profile name"
 			profile=$1
+			debug "<$type/$name:$#> loading profile config for '$profile'"
 			load_conf profile "$profile"
 		else
-			debug "parsing arg '$1', next '$2'"
+			debug "<$type/$name:$#> parsing arg '$1', next '$2'"
 			case ${1#--} in
 			# runtime & misc eapol_test options
 			-4|-6)
@@ -209,7 +210,7 @@ parse_args() {
 			proto)
 				[[ $type && $ip_version ]] ||
 				case $2 in
-				    any) ip_version=;;
+				    any) ip_version="";;
 				   [46]) ip_version=$2;;
 				 ip[46]) ip_version=${2#ip};;
 				ipv[46]) ip_version=${2#ipv};;
@@ -238,7 +239,7 @@ parse_args() {
 				tls_opts+=("$2"); shift;;
 			# anonymous (outer) identity
 			anon)
-				outer_id=@;;
+				outer_id="@";;
 			outer|outer-user|outer-identity|outer-login)
 				outer_id=$2; shift;;
 			# misc eapol options

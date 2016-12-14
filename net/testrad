@@ -329,13 +329,9 @@ fi
 
 # check client parameters
 
-if [[ $password == "-" ]]; then
-	read -s -p "password for '$identity': " password; echo
-fi
-
 [[ $identity ]]	|| err "missing username"
 [[ $outer_id ]]	|| outer_id=$identity
-[[ $password ]]	|| err "missing password"
+
 
 if [[ $outer_id == "@" ]]; then
 	outer_id+=${identity#*@}
@@ -380,6 +376,8 @@ if [[ $tls_ca && ! -f $tls_ca ]]; then
 fi
 
 if [[ $eap == TLS ]]; then
+	unset password
+
 	if [[ $tls_key == same ]]; then
 		tls_key=$tls_cert
 	fi
@@ -394,6 +392,14 @@ if [[ $eap == TLS ]]; then
 		err "missing private key for EAP-$eap ('key' option)"
 	elif [[ ! -f $tls_key ]]; then
 		err "key file '$tls_key' does not exist"
+	fi
+else
+	if [[ $password == "-" ]]; then
+		read -s -p "password for '$identity': " password; echo
+	fi
+
+	if [[ ! $password ]]; then
+		err "missing password"
 	fi
 fi
 
@@ -444,7 +450,9 @@ if [[ $eap && $eap != NONE ]]; then
 
 	# credentials
 	ecfg_full+=("identity=\"$identity\"")
-	ecfg_full+=("password=\"$password\"")
+	if [[ $password ]]; then
+		ecfg_full+=("password=\"$password\"")
+	fi
 	if [[ $outer_id ]]; then
 		ecfg_full+=("anonymous_identity=\"$outer_id\"")
 	fi

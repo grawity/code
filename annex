@@ -44,22 +44,42 @@ fi
 case $cmd in
     @*)
         name=${cmd#@}
+        # assume annex subcommand by default
+        if [[ $1 == !* || $1 == git ]]; then
+            set -- "${1#!}" "${@:2}"
+        else
+            set -- annex "$@"
+        fi
+        # determine remote path
         if ! path=$(git remote get-url "$name"); then
             err "remote '$name' not found"
+        elif [[ $path == [!/]*:* ]]; then
+            host=${path%%:*}
+            path=${path#*:}
         elif [[ $path != /* ]]; then
             err "remote '$name' has a non-local URL '$path'"
         elif [[ ! -d $path ]]; then
             err "remote path '$path' does not exist"
+        fi
+        # determine local relative subdirectory
+        # * `git rev-parse --show-prefix` does not work in bare (direct)
+        #   repos even with `-c core.bare=false`, so use indirect methods
+        gitdir=$(git rev-parse --git-dir)
+        subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
+        # run command
+        if [[ $host ]]; then
+            path=${path%/}
+            path=${path%.git}
+            altpath=${path}.git
+            path=$path/$subdir
+            altpath=$altpath/$subdir
+            log "$cmd: running '$*' at $host:$path" >&2
+            ssh "$host" "if [ -e ${altpath@Q} ]; then
+                            cd ${altpath@Q}
+                        else
+                            cd ${path@Q}
+                        fi && ${*@Q}"
         else
-            # `git rev-parse --show-prefix` does not work in bare (direct) repos,
-            # even with `-c core.bare=false`, so use indirect methods
-            if [[ $1 == !* || $1 == git ]]; then
-                set -- "${1#!}" "${@:2}"
-            else
-                set -- annex "$@"
-            fi
-            gitdir=$(git rev-parse --git-dir)
-            subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
             path=$(realpath "$path/$subdir")
             log "$cmd: running '$*' in $path" >&2
             (cd "$path" && "$@")

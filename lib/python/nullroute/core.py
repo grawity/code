@@ -126,6 +126,15 @@ class Core(object):
         self._log(self.LOG_DEBUG, msg, *args, **kwargs)
 
     @classmethod
+    def say(self, msg, *args, **kwargs):
+        if self._log_level >= self.LOG_DEBUG:
+            self._log(self.LOG_INFO, msg, *args, **kwargs)
+        elif self._log_level >= self.LOG_INFO:
+            if args:
+                msg = msg %args
+            print(msg)
+
+    @classmethod
     def info(self, msg, *args, **kwargs):
         self._log(self.LOG_INFO, msg, *args, **kwargs)
 

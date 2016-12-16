@@ -47,9 +47,9 @@ class Scraper(object):
         set_file_attr(name, "xdg.origin.url", url)
         if referer:
             set_file_attr(name, "xdg.referrer.url", referer)
-        if r.headers["ETag"]:
+        if r.headers.get("ETag"):
             set_file_attr(name, "org.eu.nullroute.ETag", r.headers["ETag"])
-        if r.headers["Last-Modified"]:
+        if r.headers.get("Last-Modified"):
             set_file_attr(name, "org.eu.nullroute.Last-Modified",
                                 r.headers["Last-Modified"])
             set_file_mtime(name, _http_date_to_unix(r.headers["Last-Modified"]))

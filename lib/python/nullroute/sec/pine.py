@@ -66,7 +66,7 @@ class Passfile(object):
 
     def add(self, hostname, login, passwd, secure_only=True):
         row = [passwd, login, hostname, str(int(secure_only))]
-        old_row = self.get(hostname, login, secure_only)
+        old_row = self._by_host.get((hostname, login))
         if old_row:
             old_row.clear()
             old_row.extend(row)
@@ -76,7 +76,8 @@ class Passfile(object):
         self.modified = True
 
     def get(self, hostname, login, secure_only=True):
-        return self._by_host.get((hostname, login))
+        row = self._by_host.get((hostname, login))
+        return tuple(row) if row else None
 
     def save(self, force=False):
         if self.modified or force:

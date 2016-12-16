@@ -85,3 +85,16 @@ class Passfile(object):
                     line = encrypt_line(n, "\t".join(row))
                     print(line, file=fh)
             self.modified = False
+
+if __name__ == "__main__":
+    from pprint import pprint
+
+    pf = Passfile()
+
+    print("--- Items ---")
+    pprint(pf._items)
+    print()
+
+    print("--- Lookup table ---")
+    pprint(pf._by_host)
+    print()

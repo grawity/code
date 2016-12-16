@@ -27,7 +27,9 @@ class Scraper(object):
         r.raise_for_status()
         return r
 
-    def save_file(self, url, name=None, referer=None, output_dir=None, clobber=False):
+    def save_file(self, url, name=None, referer=None,
+                             output_dir=None, clobber=False,
+                             save_msg=None):
         if not name:
             name = os.path.basename(url)
         if output_dir:
@@ -53,4 +55,7 @@ class Scraper(object):
             set_file_attr(name, "org.eu.nullroute.Last-Modified",
                                 r.headers["Last-Modified"])
             set_file_mtime(name, _http_date_to_unix(r.headers["Last-Modified"]))
+
+        if save_msg:
+            Core.info(save_msg)
         return name

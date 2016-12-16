@@ -1,3 +1,5 @@
+import os
+
 FIRSTCH = 0x20
 LASTCH = 0x7e
 TABSZ = (LASTCH - FIRSTCH + 1)
@@ -44,3 +46,42 @@ def encrypt_line(key, line):
 def decrypt_file(fh):
     for n, line in enumerate(fh):
         yield decrypt_line(n, line)
+
+class Passfile(object):
+    def __init__(self, path=None):
+        self.path = path or os.path.expanduser("~/.pine-passfile")
+        self._items = []
+        self._by_host = {}
+        self.modified = False
+        self.reload()
+
+    def reload(self):
+        with open(self.path, "r") as fh:
+            for n, line in enumerate(fh):
+                line = decrypt_line(n, line)
+                row = line.rstrip("\n").split("\t")
+                self._items.append(row)
+                self._by_host[row[2], row[1]] = row
+        self.modified = False
+
+    def add(self, hostname, login, passwd, secure_only=True):
+        row = [passwd, login, hostname, str(int(secure_only))]
+        old_row = self.get(hostname, login, secure_only)
+        if old_row:
+            old_row.clear()
+            old_row.extend(row)
+        else:
+            self._items.append(row)
+            self._by_host[row[2], row[1]] = row
+        self.modified = True
+
+    def get(self, hostname, login, secure_only=True):
+        return self._by_host.get((hostname, login))
+
+    def save(self, force=False):
+        if self.modified or force:
+            with open(self.path, "w") as fh:
+                for n, row in enumerate(self._items):
+                    line = encrypt_line(n, "\t".join(row))
+                    print(line, file=fh)
+            self.modified = False

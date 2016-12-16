@@ -76,8 +76,7 @@ class Passfile(object):
         self.modified = True
 
     def get(self, hostname, login, secure_only=True):
-        row = self._by_host.get((hostname, login))
-        return tuple(row) if row else None
+        return tuple(self._by_host.get((hostname, login), ()))
 
     def save(self, force=False):
         if self.modified or force:

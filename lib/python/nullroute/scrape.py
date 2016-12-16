@@ -3,6 +3,7 @@ from nullroute.core import *
 from nullroute.misc import set_file_attr, set_file_mtime
 import os
 import requests
+from urllib.parse import urljoin
 
 def _file_nonempty(path):
     try:
@@ -16,8 +17,9 @@ def _http_date_to_unix(text):
     return t
 
 class Scraper(object):
-    def __init__(self):
+    def __init__(self, output_dir="."):
         self.ua = requests.Session()
+        self.dir = output_dir
 
     def get(self, url, *args, **kwargs):
         Core.debug("fetching %r" % url, skip=1)
@@ -25,9 +27,11 @@ class Scraper(object):
         r.raise_for_status()
         return r
 
-    def save_file(self, url, name=None, referer=None, clobber=False):
+    def save_file(self, url, name=None, referer=None, output_dir=None, clobber=False):
         if not name:
             name = os.path.basename(url)
+        if output_dir:
+            name = os.path.join(output_dir, name)
 
         if clobber:
             pass

@@ -5,9 +5,7 @@ TABSZ = (LASTCH - FIRSTCH + 1)
 def _xlate_in(key, char):
     if char >= FIRSTCH and char <= LASTCH:
         key += (char - FIRSTCH)
-        if key >= 2*TABSZ:
-            key -= 2*TABSZ
-        elif key >= TABSZ:
+        while key >= TABSZ:
             key -= TABSZ
         return key, key + FIRSTCH
     else:
@@ -21,9 +19,7 @@ def _xlate_out(key, char):
         elif char < FIRSTCH:
             char += TABSZ
         key += (char - FIRSTCH)
-        if key >= 2*TABSZ:
-            key -= 2*TABSZ
-        elif key >= TABSZ:
+        while key >= TABSZ:
             key -= TABSZ
         return key, char
     else:

@@ -12,11 +12,14 @@ def _xlate_in(key, char):
 
 def _xlate_out(key, char):
     if char >= FIRSTCH and char <= LASTCH:
-        char -= key
-        if char < FIRSTCH - TABSZ:
-            char += 2 * TABSZ
-        elif char < FIRSTCH:
-            char += TABSZ
+        #char -= key
+        #if char < FIRSTCH - TABSZ:
+        #    char += 2 * TABSZ
+        #elif char < FIRSTCH:
+        #    char += TABSZ
+        char = (char - key + 2*TABSZ)
+        while char > LASTCH:
+            char -= TABSZ
         key = (key + char - FIRSTCH) % TABSZ
         return key, char
     else:

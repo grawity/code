@@ -29,6 +29,10 @@ class Scraper(object):
     def __init__(self, output_dir="."):
         self.ua = requests.Session()
         self.dir = output_dir
+        self.subclass_init()
+
+    def subclass_init(self):
+        pass
 
     def get(self, url, *args, **kwargs):
         Core.debug("fetching %r" % url, skip=1)

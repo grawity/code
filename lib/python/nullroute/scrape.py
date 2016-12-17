@@ -1,4 +1,5 @@
 import email.utils
+import http.cookiejar
 from nullroute.core import *
 from nullroute.misc import set_file_attr, set_file_mtime
 import os
@@ -43,6 +44,19 @@ class Scraper(object):
 
     def subclass_init(self):
         pass
+
+    def load_cookies(self, name):
+        path = Env.find_cache_file("cookies/%s.txt" % name)
+        Core.debug("loading cookies from %r" % path)
+        cjar = http.cookiejar.LWPCookieJar(path)
+        try:
+            cjar.load()
+        except FileNotFoundError:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        self.ua.cookies = cjar
+
+    def store_cookies(self):
+        self.ua.cookies.save()
 
     def get(self, url, *args, **kwargs):
         Core.debug("fetching %r" % url, skip=1)

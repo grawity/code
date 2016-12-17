@@ -16,6 +16,15 @@ def _http_date_to_unix(text):
     t = email.utils.mktime_tz(t)
     return t
 
+def file_ext(path):
+    base = os.path.basename(path).split(".")
+    if len(base) > 2 and base[-2] == "tar":
+        return base[-2] + "." + base[-1]
+    elif len(base) > 1:
+        return base[-1]
+    else:
+        return "bin"
+
 class Scraper(object):
     def __init__(self, output_dir="."):
         self.ua = requests.Session()

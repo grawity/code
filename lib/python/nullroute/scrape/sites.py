@@ -31,14 +31,14 @@ class ComicControlScraper(Scraper):
 
         return a["href"], page_idx+1
 
-    def save_all(self):
+    def save_all(self, first_page):
         state_file = "%s/state.json" % self.dir
 
         try:
             with open(state_file, "r") as fh:
                 url, page_idx = json.load(fh)
         except FileNotFoundError:
-            url, page_idx = self.FIRST_PAGE, 1
+            url, page_idx = first_page, 1
 
         Core.info("continuing at post %d %r" % (page_idx,
                                                 os.path.basename(url)))

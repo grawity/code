@@ -38,9 +38,13 @@ def file_ext(url):
 
 class Scraper(object):
     def __init__(self, output_dir="."):
-        self.ua = requests.Session()
         self.dir = output_dir
         os.makedirs(self.dir, exist_ok=True)
+
+        self.ua = requests.Session()
+        self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
+        self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+
         self.subclass_init()
 
     def subclass_init(self):
@@ -59,22 +63,9 @@ class Scraper(object):
     def store_cookies(self):
         self.ua.cookies.save()
 
-    def _get_reliably(self, url, *args, retry=2, **kwargs):
-        while True:
-            try:
-                resp = self.ua.get(url, *args, **kwargs)
-            except requests.exceptions.ConnectionError as e:
-                retry -= 1
-                if retry > 0:
-                    Core.warn("connection error (%s), retrying" % e)
-                else:
-                    raise
-            else:
-                return resp
-
     def get(self, url, *args, **kwargs):
         Core.debug("fetching %r" % url, skip=1)
-        resp = self._get_reliably(url, *args, **kwargs)
+        resp = self.ua.get(url, *args, **kwargs)
         resp.raise_for_status()
         return resp
 

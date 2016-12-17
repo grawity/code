@@ -40,6 +40,7 @@ class Scraper(object):
     def __init__(self, output_dir="."):
         self.ua = requests.Session()
         self.dir = output_dir
+        os.makedirs(self.dir, exist_ok=True)
         self.subclass_init()
 
     def subclass_init(self):

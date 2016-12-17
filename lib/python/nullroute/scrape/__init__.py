@@ -59,9 +59,22 @@ class Scraper(object):
     def store_cookies(self):
         self.ua.cookies.save()
 
+    def _get_reliably(self, url, *args, retry=2, **kwargs):
+        while True:
+            try:
+                resp = self.ua.get(url, *args, **kwargs)
+            except requests.exceptions.ConnectionError as e:
+                retry -= 1
+                if retry > 0:
+                    Core.warn("connection error (%s), retrying" % e)
+                else:
+                    raise
+            else:
+                return resp
+
     def get(self, url, *args, **kwargs):
         Core.debug("fetching %r" % url, skip=1)
-        resp = self.ua.get(url, *args, **kwargs)
+        resp = self._get_reliably(url, *args, **kwargs)
         resp.raise_for_status()
         return resp
 

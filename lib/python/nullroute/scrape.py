@@ -36,9 +36,9 @@ class Scraper(object):
 
     def get(self, url, *args, **kwargs):
         Core.debug("fetching %r" % url, skip=1)
-        r = self.ua.get(url, *args, **kwargs)
-        r.raise_for_status()
-        return r
+        resp = self.ua.get(url, *args, **kwargs)
+        resp.raise_for_status()
+        return resp
 
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,

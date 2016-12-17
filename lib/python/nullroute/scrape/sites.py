@@ -5,6 +5,14 @@ from nullroute.scrape import Scraper, file_ext
 import os
 
 class ComicControlScraper(Scraper):
+    def find_first_page(self, root_url):
+        Core.debug("searching for first post URL")
+        resp = self.get(url)
+        page = bs4.BeautifulSoup(resp.content, "lxml")
+
+        tag = page.select_one(".nav a.first")
+        return tag["href"]
+
     def save_post_incremental(self, url, page_idx):
         resp = self.get(url)
         page = bs4.BeautifulSoup(resp.content, "lxml")
@@ -31,22 +39,22 @@ class ComicControlScraper(Scraper):
 
         return a["href"], page_idx+1
 
-    def save_all(self, first_page):
+    def scrape_site(self, site_url):
         state_file = "%s/state.json" % self.dir
 
         try:
             with open(state_file, "r") as fh:
-                url, page_idx = json.load(fh)
+                next_url, page_idx = json.load(fh)
         except FileNotFoundError:
-            url, page_idx = first_page, 1
+            next_url = self.find_first_page(site_url)
+            page_idx = 1
 
         Core.info("continuing at post %d %r" % (page_idx,
-                                                os.path.basename(url)))
+                                                os.path.basename(next_url)))
 
-        r = True
-        while r:
-            r = self.save_post_incremental(url, page_idx)
-            if r:
-                url, page_idx = r
+        state = [next_url, page_idx]
+        while state:
+            state = self.save_post_incremental(*state)
+            if state:
                 with open(state_file, "w") as fh:
-                    json.dump([url, page_idx], fh)
+                    json.dump([*state], fh)

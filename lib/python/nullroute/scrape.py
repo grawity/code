@@ -16,12 +16,22 @@ def _http_date_to_unix(text):
     t = email.utils.mktime_tz(t)
     return t
 
-def file_ext(path):
-    base = os.path.basename(path).split(".")
-    if len(base) > 2 and base[-2] == "tar":
-        return base[-2] + "." + base[-1]
-    elif len(base) > 1:
-        return base[-1]
+def file_ext(url):
+    # throw away HTTP query, anchor
+    if "#" in url:
+        url = url.split("#")[0]
+    if "?" in url:
+        url = url.split("?")[0]
+    # default for directories
+    if url.endswith("/"):
+        return "html"
+    # get the basename
+    url = url.split("/")[-1]
+    url = url.split(".")
+    if len(url) >= 3 and url[-2] == "tar":
+        return url[-2] + "." + url[-1]
+    elif len(url) >= 2:
+        return url[-1]
     else:
         return "bin"
 

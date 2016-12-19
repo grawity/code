@@ -23,6 +23,9 @@ class PixivGrabber(object):
 
     def __init__(self):
         self.ua = requests.Session()
+        self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
+        self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+
         self.api = pixivpy3.PixivAPI()
         self._auth()
 
@@ -48,23 +51,9 @@ class PixivGrabber(object):
             headers = {"Referer": attrs.get("xdg.referrer.url", url)}
         else:
             headers = {"Referer": url}
-        retry = 0
-        while True:
-            try:
-                resp = self.ua.get(url, headers=headers)
-            except requests.exceptions.ConnectionError as e:
-                retry += 1
-                delay = retry * 2
-                if retry > 5:
-                    Core.err("fetch error (%r), giving up after %s tries" % (e, delay))
-                    raise
-                else:
-                    Core.warn("fetch error (%r), retrying after %s" % (e, delay))
-                    time.sleep(delay)
-            else:
-                resp.raise_for_status()
-                break
 
+        resp = self.ua.get(url, headers=headers)
+        resp.raise_for_status()
         with open(name, "wb") as fh:
             fh.write(resp.content)
 

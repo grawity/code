@@ -102,10 +102,12 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
         if post_id:
             tags = api.get_post_tags(post_id)
             tags = api.sort_tags(tags)
-            tags.append(api.ID_PREFIX % post_id)
+            if api.ID_PREFIX:
+                tags.append(api.ID_PREFIX % post_id)
             tags = list(uniq(tags))
-            tags.append(file_md5 + "." + file_ext)
-            new_filename = " ".join(tags)
+            if api.HASH_SUFFIX:
+                tags.append(file_md5)
+            new_filename = " ".join(tags) + "." + file_ext
             new_path = os.path.join(dirpath, new_filename)
             print("=>", fmt_found % new_filename)
             if not args.dry_run:

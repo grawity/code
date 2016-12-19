@@ -2,24 +2,17 @@
 import bs4
 from nullroute.core import *
 from nullroute.misc import escape_html, filter_filename, set_file_attr
+from nullroute.scrape import Scraper
 from pprint import pprint
-import requests
 import sys
-
-class Scraper(object):
-    def __init__(self):
-        self.ua = requests.Session()
 
 class DeviantArtStoryScraper(Scraper):
     def scrape_story_page(self, page_url):
-        Core.info("fetching %r" % page_url)
-        r = self.ua.get(page_url)
-        r.raise_for_status()
+        resp = self.get(page_url)
+        page = bs4.BeautifulSoup(resp.content, "lxml")
 
         data = {}
-        page = bs4.BeautifulSoup(r.content, "lxml")
         main = page.select_one("div.free-literature")
-
         meta = main.select_one("div.metadata")
     
         tag = meta.select_one("h2")

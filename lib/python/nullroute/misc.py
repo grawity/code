@@ -27,7 +27,10 @@ def set_file_attr(path, attr, value):
             path = path.fileno()
         if hasattr(value, "encode"):
             value = value.encode("utf-8")
-        os.setxattr(path, "user.%s" % attr, value)
+        if value:
+            os.setxattr(path, "user.%s" % attr, value)
+        else:
+            os.removexattr(path, "user.%s" % attr)
     except FileNotFoundError:
         raise
     except OSError:

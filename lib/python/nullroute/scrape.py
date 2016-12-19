@@ -1,7 +1,7 @@
 import email.utils
 import http.cookiejar
 from nullroute.core import *
-from nullroute.misc import set_file_attr, set_file_mtime
+from nullroute.misc import set_file_attrs, set_file_mtime
 import os
 import requests
 from urllib.parse import urljoin
@@ -88,15 +88,16 @@ class Scraper(object):
         with open(name, "wb") as fh:
             fh.write(r.content)
 
-        set_file_attr(name, "xdg.origin.url", url)
-        if referer:
-            set_file_attr(name, "xdg.referrer.url", referer)
-        if r.headers.get("ETag"):
-            set_file_attr(name, "org.eu.nullroute.ETag", r.headers["ETag"])
-        if r.headers.get("Last-Modified"):
-            set_file_attr(name, "org.eu.nullroute.Last-Modified",
-                                r.headers["Last-Modified"])
-            set_file_mtime(name, _http_date_to_unix(r.headers["Last-Modified"]))
+        set_file_attrs(name, {
+            "xdg.origin.url": url,
+            "xdg.referrer.url": referer,
+            "org.eu.nullroute.ETag": r.headers.get("ETag"),
+            "org.eu.nullroute.Last-Modified": r.headers.get("Last-Modified"),
+        })
+
+        mtime = r.headers.get("Last-Modified")
+        if mtime:
+            set_file_mtime(file, _http_date_to_unix(mtime))
 
         if save_msg:
             Core.info(save_msg)

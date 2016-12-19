@@ -84,18 +84,18 @@ class Scraper(object):
             return name
 
         hdr = {"Referer": referer or url}
-        r = self.get(url, headers=hdr)
+        resp = self.get(url, headers=hdr)
         with open(name, "wb") as fh:
-            fh.write(r.content)
+            fh.write(resp.content)
 
         set_file_attrs(name, {
-            "xdg.origin.url": url,
-            "xdg.referrer.url": referer,
-            "org.eu.nullroute.ETag": r.headers.get("ETag"),
-            "org.eu.nullroute.Last-Modified": r.headers.get("Last-Modified"),
+            "xdg.origin.url": resp.url,
+            "xdg.referrer.url": resp.request.headers.get("Referer"),
+            "org.eu.nullroute.ETag": resp.headers.get("ETag"),
+            "org.eu.nullroute.Last-Modified": resp.headers.get("Last-Modified"),
         })
 
-        mtime = r.headers.get("Last-Modified")
+        mtime = resp.headers.get("Last-Modified")
         if mtime:
             set_file_mtime(file, _http_date_to_unix(mtime))
 

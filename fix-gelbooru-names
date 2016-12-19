@@ -49,11 +49,23 @@ class TagFilter(object):
 
     def filter(self, tags):
         tags = [filter_filename(tag) for tag in tags]
+
         for item in self.blacklist:
             tags = [tag for tag in tags if not item.fullmatch(tag)]
+
         for xmatch, xto in self.translate:
             tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
-        return tags
+
+        # trim 'name_(show)' tags
+        ntags = []
+        rx = re.compile(r"^(.+)_\((.+)\)$")
+        for tag in tags:
+            m = rx.match(tag)
+            if m and m.group(2) in tags:
+                tag = m.group(1)
+            ntags.append(tag)
+
+        return ntags
 
 def rename_file_in_dir(dirpath, filename, force_md5=False):
     global args

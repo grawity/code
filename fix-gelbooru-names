@@ -125,6 +125,7 @@ apis = {
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing")
+parser.add_argument("--force", action="store_true", help="Force rename even if filename lacks MD5")
 parser.add_argument("--site", help="Select site")
 args = parser.parse_args()
 
@@ -144,9 +145,9 @@ for arg in args.path or ["."]:
     if os.path.isdir(arg):
         for dirpath, dirnames, filenames in os.walk(arg):
             for filename in filenames:
-                rename_file_in_dir(dirpath, filename)
+                rename_file_in_dir(dirpath, filename, force_md5=args.force)
     else:
         dirpath, filename = os.path.split(arg)
-        rename_file_in_dir(dirpath, filename)
+        rename_file_in_dir(dirpath, filename, force_md5=args.force)
 
 Core.exit()

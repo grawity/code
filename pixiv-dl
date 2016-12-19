@@ -48,11 +48,10 @@ class PixivGrabber(object):
 
         Core.debug("saving %s to %r" % (url, name))
         if attrs:
-            headers = {"Referer": attrs.get("xdg.referrer.url", url)}
+            referer = attrs.get("xdg.referrer.url", url)
         else:
-            headers = {"Referer": url}
-
-        resp = self.ua.get(url, headers=headers)
+            referer = url
+        resp = self.ua.get(url, headers={"Referer": referer})
         resp.raise_for_status()
         with open(name, "wb") as fh:
             fh.write(resp.content)

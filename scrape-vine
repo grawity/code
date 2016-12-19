@@ -4,10 +4,10 @@ import json
 import re
 from nullroute.core import *
 from nullroute.misc import filter_filename, set_file_attrs
-from nullroute.scrape import Scraper
+from nullroute.scrape import Scraper, file_ext
 from pprint import pprint
 
-def get_file_ext(url):
+def file_ext(url):
     if "#" in url:
         url = url.split("#")[0]
     if "?" in url:
@@ -44,7 +44,10 @@ class VineScraper(Scraper):
             for vfmt in data[id]["videoUrls"]:
                 if vfmt["id"] == "original":
                     file_url = vfmt["videoUrl"]
-                    filename = filter_filename(author) + "-" + id + "-" + vfmt["id"] + get_file_ext(file_url)
+                    filename = "%s-%s-%s.%s" % (filter_filename(author),
+                                                id,
+                                                vfmt["id"],
+                                                file_ext(file_url))
                     Core.info("downloading %r to %r" % (file_url, filename))
                     self.save_file(file_url, filename,
                                    referer=post_url)

@@ -76,7 +76,7 @@ def enum_files(root_dir):
     Core.debug("enumerating %r" % root_dir)
     if os.path.isdir(root_dir):
         for subdir, dirs, files in os.walk(root_dir):
-            if ".nodupes" in files:
+            if ".nodupes" in files and not opts.all:
                 Core.debug("skipping %r (found .nodupes marker)", subdir)
                 dirs.clear()
                 dirs_skipped += 1
@@ -214,6 +214,9 @@ if __name__ == "__main__":
                                   errors="surrogateescape")
 
     ap = ArgumentParser()
+    ap.add_argument("--all",
+                    dest="all", action="store_true", default=False,
+                    help="disregard .nodupes tags in directories")
     ap.add_argument("-v", "--verbose",
                     dest="verbose", action="store_true", default=False,
                     help="show files as they are processed")

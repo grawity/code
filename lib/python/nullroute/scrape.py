@@ -97,7 +97,7 @@ class Scraper(object):
 
         mtime = resp.headers.get("Last-Modified")
         if mtime:
-            set_file_mtime(file, _http_date_to_unix(mtime))
+            set_file_mtime(name, _http_date_to_unix(mtime))
 
         if save_msg:
             Core.info(save_msg)

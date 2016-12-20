@@ -26,6 +26,7 @@ my $force = 0;
 my $verbose = 0;
 my $dry_run = 0;
 my $link_dir;
+my $no_deref = 0;
 my $realpath = 0;
 my $absolute = 0;
 
@@ -76,6 +77,7 @@ GetOptions(
 	"help"			=> sub { usage(); exit; },
 	"a|absolute"		=> \$absolute,
 	"f|force!"		=> \$force,
+	"n|no-dereference"	=> \$no_deref,
 	"R|realpath+"		=> \$realpath,
 	"r|relative"		=> sub { },
 	"s|symbolic"		=> sub { },
@@ -123,6 +125,7 @@ elsif ($realpath > 0) {
 # Main code (normal mode)
 
 my $link_dest;
+my $dest_is_dir;
 
 if (defined $link_dir) {
 	_debug("link directory: \"$link_dir\"");
@@ -130,13 +133,23 @@ if (defined $link_dir) {
 	if (!-d $link_dir) {
 		_die("destination \"$link_dir\" is not a directory");
 	}
+
+	$dest_is_dir = 1;
 }
 else {
 	$link_dest = (@ARGV > 1) ? pop @ARGV : ".";
 
-	_debug("destination: \"$link_dest\"");
+	_debug("link destination: \"$link_dest\"");
 
-	if (-d $link_dest || $link_dest =~ m|/$|) {
+	if (-l $link_dest && $no_deref) {
+		$dest_is_dir = 0;
+	} elsif (-d $link_dest || $link_dest =~ m|/$|) {
+		$dest_is_dir = 1;
+	} else {
+		$dest_is_dir = 0;
+	}
+
+	if ($dest_is_dir) {
 		$link_dir = $link_dest;
 	} else {
 		if (@ARGV > 1) {
@@ -177,7 +190,7 @@ for my $target (@ARGV) {
 	$rel_target = File::Spec->abs2rel($target, $link_dir);
 	_debug("  - relative: \"$rel_target\"");
 
-	if (defined $link_dest && !-d $link_dest) {
+	if (defined $link_dest && !$dest_is_dir) {
 		$link_name = $link_dest;
 	} else {
 		$link_name = File::Spec->catfile($link_dir, basename($target));

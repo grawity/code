@@ -128,13 +128,13 @@ my $link_dest;
 my $dest_is_dir;
 
 if (defined $link_dir) {
-	_debug("link directory: \"$link_dir\"");
-
 	if (!-d $link_dir) {
 		_die("destination \"$link_dir\" is not a directory");
 	}
 
 	$dest_is_dir = 1;
+
+	_debug("link parent directory: \"$link_dir\"");
 }
 else {
 	$link_dest = (@ARGV > 1) ? pop @ARGV : ".";
@@ -151,14 +151,13 @@ else {
 
 	if ($dest_is_dir) {
 		$link_dir = $link_dest;
+	} elsif (@ARGV > 1) {
+		_die("destination \"$link_dest\" is not a directory");
 	} else {
-		if (@ARGV > 1) {
-			_die("destination \"$link_dest\" is not a directory");
-		}
 		$link_dir = dirname($link_dest);
 	}
 
-	_debug("link directory: \"$link_dir\"");
+	_debug("link parent directory: \"$link_dir\"");
 }
 
 # Resolve all symlinks in the target path
@@ -171,7 +170,7 @@ if (!defined $abs_dir) {
 
 $link_dir = $abs_dir;
 
-_debug("- absolute: \"$link_dir\"");
+_debug("link parent, absolute: \"$link_dir\"");
 
 # Create the links
 
@@ -184,11 +183,11 @@ for my $target (@ARGV) {
 	my $rel_target;
 	my $link_name;
 
-	_debug("* argument: \"$target\"");
+	_debug("* arg (target): \"$target\"");
 	$abs_target = File::Spec->rel2abs($target);
-	_debug("  - absolute: \"$abs_target\"");
+	_debug("    - absolute: \"$abs_target\"");
 	$rel_target = File::Spec->abs2rel($target, $link_dir);
-	_debug("  - relative: \"$rel_target\"");
+	_debug("    - relative: \"$rel_target\"");
 
 	if (defined $link_dest && !$dest_is_dir) {
 		$link_name = $link_dest;

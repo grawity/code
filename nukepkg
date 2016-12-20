@@ -41,5 +41,8 @@ pacman -Qqdt | sort > "$orphans_after"
 new_orphans=$(comm -13 "$orphans_before" "$orphans_after")
 if [[ $new_orphans ]]; then
 	notice "new orphans: ${new_orphans//$'\n'/ }"
+	if confirm "clean again?"; then
+		nukepkg ${new_orphans}
+	fi
 fi
 rm -f "$orphans_before" "$orphans_after"

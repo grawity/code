@@ -85,7 +85,7 @@ sub asname {
 
 sub tagname {
 	my ($tag) = @_;
-	if ($tag =~ /^\((\d+),(\d+)\)$/) {
+	if ($tag =~ /^\((\d+),(\d+)\)$/ || $tag =~ /^\(ro, (\d+), (\d+)\)$/) {
 		my $as = int $1;
 		my $cm = int $2;
 		my $name;
@@ -130,18 +130,23 @@ sub filter {
 			}
 			print $prefix." ".join(" ", @tags)."\n";
 		}
+		elsif (/^(\s+BGP\.ext_community:) (.+)$/) {
+			#print;
+			my $prefix = $1;
+			my @tags = ($2 =~ /\(.+?\)/g);
+			@tags = map {tagname($_)} @tags;
+			if (eval {require Sort::Naturally}) {
+				@tags = Sort::Naturally::nsort(@tags);
+			} else {
+				@tags = sort @tags;
+			}
+			print $prefix." ".join(" ", @tags)."\n";
+		}
 		elsif (/^(\s+BGP\.local_pref:) (.+)$/) {
 			print if $2 ne "100";
 		}
 		elsif (/^(\s+BGP\.origin:) (.+)$/) {
 			print if $2 ne "IGP";
-		}
-		## TODO: port from Quagga
-		elsif (/^      Origin/) {
-			s/\bbest\b/\e[1;32m$&\e[m/;
-			s/\binternal\b/\e[1;35m$&\e[m/;
-			s/\bexternal\b/\e[1;36m$&\e[m/;
-			print;
 		}
 		else {
 			print;

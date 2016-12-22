@@ -26,7 +26,9 @@ if [ ! "$noidle" ]; then
 	schedtool -n 10 -D $$
 fi
 
-if mountpoint -q /boot/efi && test -d /boot/efi/loader; then
+if mountpoint -q /efi && test -d /efi/loader; then
+	esp="/efi"
+elif mountpoint -q /boot/efi && test -d /boot/efi/loader; then
 	esp="/boot/efi"
 elif mountpoint -q /boot && test -d /boot/loader; then
 	esp="/boot"
@@ -95,7 +97,10 @@ if [ "$esp" != "/boot" ]; then
 	log "installing to legacy /boot"
 
 	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
-	sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
+	#sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
+	sudo mkinitcpio -n -S autodetect \
+			-k "/boot/vmlinuz-bisect" \
+			-g "/boot/initramfs-bisect.img"
 fi
 
 log2 "building third-party modules"

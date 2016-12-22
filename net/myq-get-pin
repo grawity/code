@@ -25,19 +25,21 @@ class MyQDatabase(object):
             FROM tblEntities e
             JOIN tblUsers u ON u.id=e.id
             JOIN tblCard c ON c.user_id=e.id
-            WHERE LOWER(name) = ?
+            WHERE LOWER(name) LIKE ?
         UNION DISTINCT
         SELECT e.id, e.name, u.fullname, u.email, c.card_id
             FROM tblEntities e
             JOIN tblUsers u ON u.id=e.id
             JOIN tblCard c ON c.user_id=e.id
-            WHERE LOWER(email) = ?
+            WHERE LOWER(email) LIKE ?
         UNION DISTINCT
         SELECT e.id, e.name, u.fullname, u.email, c.card_id
             FROM tblEntities e
             JOIN tblUsers u ON u.id=e.id
             JOIN tblCard c ON c.user_id=e.id
-            WHERE u.id = (SELECT FIRST 1 user_id FROM tblAliases a WHERE LOWER(alias) = ?)
+            WHERE u.id IN (SELECT user_id
+                            FROM tblAliases a
+                            WHERE LOWER(alias) LIKE ?)
         UNION DISTINCT
         SELECT e.id, e.name, u.fullname, u.email, c.card_id
             FROM tblEntities e

@@ -81,6 +81,7 @@ class DanbooruApi(BooruApi):
         #re.compile(r"https?://danbooru\.donmai\.us/data/.+__(?<md5>[^_]+)\.\w+$"),
     ]
     ID_PREFIX = "db%s"
+    HASH_SUFFIX = True
 
     _cache = {}
 
@@ -245,7 +246,8 @@ class YandereApi(BooruApi):
         re.compile(r"^https://yande\.re/post/show/(?P<id>\d+)"),
         re.compile(r"^https://files\.yande\.re/image/(?P<md5>\w+)/yande.re (?P<id>\d+) "),
     ]
-    ID_PREFIX = "y%s"
+    ID_PREFIX = "yande.re %s"
+    HASH_SUFFIX = False
 
     def find_posts(self, tags, page=1, limit=100):
         ep = "/post.xml"

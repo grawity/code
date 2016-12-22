@@ -71,7 +71,9 @@ remove_kernel() {
 
 unset ID NAME PRETTY_NAME MACHINE_ID BOOT_OPTIONS
 
-if try_esp /boot/efi; then
+if try_esp /efi; then
+	ESP=/efi
+elif try_esp /boot/efi; then
 	ESP=/boot/efi
 elif try_esp /boot; then
 	ESP=/boot

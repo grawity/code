@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from argparse import ArgumentParser
 import hashlib
 import ipaddress
 import json
@@ -12,33 +13,48 @@ import xdg.BaseDirectory
 prefixes_url = "http://dataviz.polyno.me/dn42-netblock-visu/registry-prefixes.json"
 metadata_url = "http://dataviz.polyno.me/dn42-netblock-visu/registry-inetnums.json"
 
+class Cache(object):
+    cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org/url")
+    expiry = 2 * 3600 # 2 hours
+
+    @classmethod
+    def load(self, name):
+        path = os.path.join(self.cache_dir, "%s.json" % name)
+        try:
+            with open(path, "r") as fh:
+                package = json.load(fh)
+            if package.get("expire", 0) >= time.time():
+                return package["data"]
+            else:
+                os.unlink(path)
+        except FileNotFoundError:
+            pass
+        return None
+
+    @classmethod
+    def save(self, name, data, source=None):
+        path = os.path.join(self.cache_dir, "%s.json" % name)
+        package = {
+            "source": source,
+            "obtain": time.time(),
+            "expire": time.time() + self.expiry,
+            "data": data,
+        }
+        with open(path, "w") as fh:
+            json.dump(package, fh)
+
 def _get_url(url):
     r = requests.get(url)
     return r.text
 
 def get_url(url, as_json=False):
-    cache_dir = xdg.BaseDirectory.save_cache_path("nullroute.eu.org/url")
-    h = hashlib.sha1(url.encode("utf-8")).hexdigest()
-    p = os.path.join(cache_dir, "%s.json" % h)
-
-    if os.path.exists(p):
-        with open(p, "r") as f:
-            r = json.load(f)
-        if r["time"] >= time.time() - 2*3600:
-            return r["data"]
-
-    data = _get_url(url)
-    if as_json:
-        data = json.loads(data)
-
-    with open(p, "w") as f:
-        r = {
-            "source": url,
-            "time": time.time(),
-            "data": data,
-        }
-        json.dump(r, f)
-
+    url_hash = hashlib.sha1(url.encode("utf-8")).hexdigest()
+    data = Cache.load(url_hash)
+    if not data:
+        data = _get_url(url)
+        if as_json:
+            data = json.loads(data)
+        Cache.save(url_hash, data, source=url)
     return data
 
 class Allocator(object):
@@ -72,12 +88,16 @@ class Allocator(object):
             p = item["prefix"]
             if p in self.metadata:
                 m = self.metadata[p]
-                if "open" in m.get("policy", []):
-                    if "active" in m.get("bgp-status", []):
-                        if "DN42-TRANSFER-IP4NET" in m.get("netname", []):
-                            continue
-                        yield item, p, m
-                        continue
+                if "open" not in m.get("policy", []):
+                    pass
+                elif "netname" not in m:
+                    pass
+                elif any(n.startswith("DN42-TRANSFER")
+                         for n in m["netname"]):
+                    continue # skip item and children
+                elif any(n.startswith("NET-BLK") and n.endswith("-DN42")
+                         for n in m["netname"]):
+                    yield item, p, m
             if item["children"]:
                 yield from self._find_open_blocks(item["children"])
 
@@ -119,43 +139,60 @@ class Allocator(object):
 
         return [c for c in candidates if c not in partial]
 
-try:
-    if sys.argv[1][0] == "/":
-        want_bits = int(sys.argv[1][1:])
-except:
-    want_bits = 25
+ap = ArgumentParser()
+ap.add_argument("--max-per-block", type=int, default=50)
+ap.add_argument("--json", action="store_true")
+ap.add_argument("size")
+opts = ap.parse_args()
 
-max_results = 50
+max_results = opts.max_per_block
 
-print("; Trying to find free /%d blocks" % want_bits)
+if opts.size[0] == "/":
+    want_bits = int(opts.size[1:])
+else:
+    want_bits = int(opts.size)
+
+if not opts.json:
+    print("; Trying to find free /%d blocks" % want_bits)
 
 a = Allocator()
-n_total = 0
+seen = set()
+results = []
 for pp, p, m in a.find_open_blocks():
     n = ipaddress.ip_network(p)
     if n.prefixlen >= want_bits:
         continue
-    r = a.find_free_blocks(p, want_bits)
-    if r:
-        print("* %s (%s)" % (p, m["netname"][0]))
-        for key in ["descr", "remarks"]:
-            if key in m:
-                label = "%s:" % key
-                for val in m[key]:
-                    print("  %s %s" % (label, val))
-                    label = " " * len(label)
-        if r:
-            n = "1 block" if len(r) == 1 else "%d blocks" % len(r)
-            n_total += len(r)
-            if len(r) > max_results+1:
-                r = r[:max_results//2] + ["..."] + r[max_results//-2:]
-            r = ", ".join([str(n) for n in r])
-            print("  free: %s (%s)" % (r, n))
+    rs = a.find_free_blocks(p, want_bits)
+    if rs:
+        if opts.json:
+            results.append({
+                "block": str(p),
+                "name": m["netname"][0],
+                "ranges": [str(r) for r in rs],
+            })
         else:
-            print("  free: (no space found)")
-        print()
+            print("* %s (%s)" % (p, m["netname"][0]))
+            for key in ["descr", "remarks"]:
+                if key in m:
+                    label = "%s:" % key
+                    for val in m[key]:
+                        print("  %s %s" % (label, val))
+                        label = " " * len(label)
+            if rs:
+                seen |= set(rs)
+                n = "1 block" if len(rs) == 1 else "%d blocks" % len(rs)
+                if len(rs) > max_results+1:
+                    rs = rs[:max_results//2] + ["..."] + rs[max_results//-2:]
+                rs = ", ".join([str(n) for n in rs])
+                print("  free: %s (%s)" % (rs, n))
+            else:
+                print("  free: (no space found)")
+            print()
 
-if n_total:
-    print("; Found %d free blocks." % n_total)
+if opts.json:
+    print(json.dumps(results))
 else:
-    print("; No free blocks found.")
+    if seen:
+        print("; Found %d free blocks." % len(seen))
+    else:
+        print("; No free blocks found.")

@@ -10,7 +10,7 @@ our %IRSSI = (
     name        => "sleep_disconnect",
     description => "Disconnects when system goes to sleep",
     contact     => "Mantas Mikulėnas <grawity\@gmail.com>",
-    license     => "MIT (Expat) <http://grawity.mit-license.org/2015>",
+    license     => "MIT License <https://spdx.org/licenses/MIT>",
 );
 our $VERSION = '0.2';
 

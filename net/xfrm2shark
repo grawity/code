@@ -1,0 +1,61 @@
+#!/usr/bin/env perl
+# xfrm2shark - feed IPSec keys from Linux xfrm to Wireshark 
+# (c) 2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License (dist/LICENSE.mit)
+#
+# 1. Provide the keys:
+# 
+#    sudo ip xfrm state | ./xfrm2shark.pl > ~/.wireshark/esp_sa
+#
+# 2. Capture:
+#
+#    tshark -o "esp.enable_encryption_decode: TRUE" -n -i eth0 -f "host 1.2.3.4"
+#
+
+my %ENC_ALGOS = (
+	"enc cbc(aes)" => "AES-CBC [RFC3602]",
+);
+
+my %AUTH_ALGOS = (
+	"auth-trunc hmac(sha256) 128" => "HMAC-SHA-256-128 [RFC4868]",
+);
+
+my %cur;
+
+sub out {
+	my $family = ($cur{src} =~ /:/) ? "IPv6" : "IPv4";
+	my $enc_algo = $ENC_ALGOS{$cur{enc_algo}}
+		// die "error: unmapped enc algorithm '$cur{enc_algo}\n";
+	my $auth_algo = $AUTH_ALGOS{$cur{auth_algo}}
+		// die "error: unmapped auth algorithm '$cur{auth_algo}\n";
+	my @row = (
+		$family, $cur{src}, $cur{dst}, $cur{spi},
+		$enc_algo, $cur{enc_key},
+		$auth_algo, $cur{auth_key},
+	);
+	print join(",", map {"\"$_\""} @row)."\n";
+	return ();
+}
+
+while (<>) {
+	if (/^src (\S+) dst (\S+)$/) {
+		%cur = out() if %cur;
+		$cur{src} = $1;
+		$cur{dst} = $2;
+	}
+	elsif (/^\s+proto esp spi (0x\w+) /) {
+		$cur{spi} = $1;
+	}
+	elsif (/^\s+(auth-trunc \S+) (0x\w+) (.+)$/) {
+		$cur{auth_algo} = $1." ".$3;
+		$cur{auth_key} = $2;
+	}
+	elsif (/^\s+(enc \S+) (0x\w+)$/) {
+		$cur{enc_algo} = $1;
+		$cur{enc_key} = $2;
+	}
+	elsif (/^\s+(dir|socket)/) {
+		die "error: expected 'ip xfrm state', not 'ip xfrm policy'\n";
+	}
+}
+out() if %cur;

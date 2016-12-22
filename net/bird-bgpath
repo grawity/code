@@ -67,6 +67,7 @@ sub _asname {
 			my $str = $ans->{answer}->[0]->{txtdata}->[0]->[0];
 			my @str = split(/ \| /, $str, 5);
 			@str = grep {!/^AS\d+$/} split(/\s+/, $str[4]);
+			$as =~ s/^424242/…/;
 			$as = $str[0]." (".$as.")";
 		}
 	}
@@ -100,14 +101,21 @@ sub tagname {
 
 sub filter {
 	my $rt;
+	my $via;
 	while (<STDIN>) {
-		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w+?)\]$/) {
-			$rt //= $1; print "\n · \e[38;5;210m$rt\e[m\n";
+		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
+			$rt = $1 if $1;
+			$via = $2;
+			print "\n";
+			print " · \e[38;5;210m$rt\e[m\n" if $1;
 			print "\t",
 				"via \e[38;5;43m".$2."\e[m ",
 				"on \e[38;5;45m".$3."\e[m ",
 				"at \e[38;5;46m".$5."\e[m ",
 				$4."\n";
+		}
+		elsif (/(\s+Type:) (.+)$/) {
+			print if $2 ne "BGP unicast univ";
 		}
 		elsif (/(\s+BGP\.as_path:) (.+)$/) {
 			my $prefix = $1;
@@ -117,7 +125,7 @@ sub filter {
 			print $prefix.join(" \e[1;33m›\e[m ", "", @aspath)."\n";
 		}
 		elsif (/(\s+BGP\.next_hop:) (.+)$/) {
-			print $1." \e[38;5;43m".$2."\e[m\n";
+			print $1." \e[38;5;43m".$2."\e[m\n" if $2 ne $via;
 		}
 		elsif (/(\s+BGP\.community:) (.+)$/) {
 			my $prefix = $1;

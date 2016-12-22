@@ -41,6 +41,8 @@ my $vimre = qr{ ^ (?:vim\s+)? (.+) \s+ (\+\d+) $ }mx;
 #   filename:/regex
 #   filename:/regex garbage
 
+my $hgspecre = qr{ ^ ([^:]+) : \d+ : (\d+) : .* $ }mx;
+
 my $specre = qr{ ^ ([^:]+) : (\d+ | /[^/]\S*) (?:[:,\)\s].*)? $ }mx;
 
 # this matches:
@@ -155,6 +157,11 @@ sub parse {
 			_debug("vimre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = (shunescape($1), $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
+			return ($file, $cmd) if -e $file;
+		}
+		when ($hgspecre) {
+			my ($file, $cmd) = ($1, $2);
+			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
 		when ($specre) {

@@ -43,15 +43,13 @@ class Cache(object):
         with open(path, "w") as fh:
             json.dump(package, fh)
 
-def _get_url(url):
-    r = requests.get(url)
-    return r.text
-
 def get_url(url, as_json=False):
     url_hash = hashlib.sha1(url.encode("utf-8")).hexdigest()
     data = Cache.load(url_hash)
     if not data:
-        data = _get_url(url)
+        resp = requests.get(url)
+        resp.raise_for_status()
+        data = resp.text
         if as_json:
             data = json.loads(data)
         Cache.save(url_hash, data, source=url)

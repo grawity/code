@@ -68,6 +68,23 @@ class CertCentralClient(object):
 
     ### Convenience
 
+    def request_tls_certificate(self, domains, csr, years=3):
+        orgs = self.get_organizations()
+        order = {
+            "certificate": {
+                "common_name": domains[0],
+                "dns_names": domains,
+                "csr": csr,
+                "signature_hash": "sha256",
+            },
+            "organization": {
+                "id": orgs[0]["id"],
+            },
+            "validity_years": years,
+        }
+        data = self.post_order("ssl_multi_domain", order)
+        return data
+
     def get_order_certificate(self, order_id, format="p7b"):
         order = self.get_order(order_id)
         cert_id = order["certificate"]["id"]

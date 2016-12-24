@@ -3,6 +3,17 @@ from functools import lru_cache
 from nullroute.core import *
 import requests
 
+CERT_FORMATS = {
+    "p7b":          ("p7b", "application/x-pkcs7-certificates"),
+    "cer":          ("p7b", "application/x-pkcs7-certificates"),
+    "pem_all":      ("pem", "TODO"),
+    "pem_noroot":   ("pem", "TODO"),
+    "default_cer":  ("zip", "application/zip"),
+    "default_pem":  ("zip", "application/zip"),
+    "default":      ("zip", "application/zip"),
+    "apache":       ("zip", "application/zip"),
+}
+
 class DevError(BaseException):
     pass
 

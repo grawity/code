@@ -1,9 +1,15 @@
+import enum
 from functools import lru_cache
 from nullroute.core import *
 import requests
 
 class DevError(BaseException):
     pass
+
+class Platform(enum.IntEnum):
+    SSL_Other = -1
+    SSL_Apache = 2
+    SSL_Nginx = 45
 
 class CertCentralClient(object):
     # https://www.digicert.com/services/v2/documentation

@@ -54,7 +54,10 @@ class CertCentralClient(object):
         return data["organizations"]
 
     def get_certificate(self, cert_id, format="p7b"):
-        resp = self.get("/certificate/%s/download/format/%s" % (cert_id, format))
+        if format is None:
+            resp = self.get("/certificate/%s/download/platform" % cert_id)
+        else:
+            resp = self.get("/certificate/%s/download/format/%s" % (cert_id, format))
         return resp.content
 
     def get_order(self, order_id):
@@ -92,6 +95,6 @@ class CertCentralClient(object):
         if cert_type == "ssl_certificate":
             cert_name = order["certificate"]["common_name"]
         else:
-            raise DevError("don't know how to handle %r orders" % cert_type)
+            raise DevError("don't know how to handle %r orders: %r" % (cert_type, order))
         data = self.get_certificate(cert_id, format)
         return {"cert": data, "name": cert_name, "type": cert_type}

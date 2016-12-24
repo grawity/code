@@ -31,7 +31,7 @@ class CertCentralClient(object):
         resp.raise_for_status()
         return resp
 
-    @lru_cache
+    @lru_cache()
     def get_myself(self):
         resp = self.get("/user/me")
         return resp.json()
@@ -43,7 +43,7 @@ class CertCentralClient(object):
         return self.get("/authorization",
                         params={"container_id": container_id})
 
-    @lru_cache
+    @lru_cache()
     def get_organizations(self):
         resp = self.get("/organization")
         data = resp.json()

@@ -1,3 +1,4 @@
+from functools import lru_cache
 from nullroute.core import *
 from pprint import pprint
 import requests
@@ -18,8 +19,6 @@ class CertCentralClient(object):
         if api_key:
             self.ua.headers["X-DC-DEVKEY"] = api_key
 
-        self._user = None
-
     def get(self, ep, *args, **kwargs):
         uri = self.base + ep
         Core.debug("fetching %r" % uri)
@@ -34,11 +33,10 @@ class CertCentralClient(object):
         resp.raise_for_status()
         return resp
 
+    @lru_cache
     def get_myself(self):
-        if not self._user:
-            resp = self.get("/user/me")
-            self._user = resp.json()
-        return self._user
+        resp = self.get("/user/me")
+        return resp.json()
 
     def get_default_container(self):
         return self.get_myself()["container"]["id"]
@@ -47,6 +45,7 @@ class CertCentralClient(object):
         return self.get("/authorization",
                         params={"container_id": container_id})
 
+    @lru_cache
     def get_organizations(self):
         resp = self.get("/organization")
         data = resp.json()

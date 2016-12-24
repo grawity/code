@@ -1,14 +1,12 @@
 from functools import lru_cache
 from nullroute.core import *
-from pprint import pprint
 import requests
-from requests.exceptions import HTTPError
 
 class DevError(BaseException):
     pass
 
 class CertCentralClient(object):
-    # https://www.digicert.com/services/v2/documentation/authorization/authorization-list
+    # https://www.digicert.com/services/v2/documentation
     base = "https://www.digicert.com/services/v2"
 
     def __init__(self, api_key=None):

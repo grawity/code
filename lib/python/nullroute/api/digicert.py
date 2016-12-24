@@ -11,13 +11,13 @@ class CertCentralClient(object):
     # https://www.digicert.com/services/v2/documentation/authorization/authorization-list
     base = "https://www.digicert.com/services/v2"
 
-    def __init__(self, account_id=None, api_key=None):
-        self.account_id = account_id
-        self.api_key = api_key
-
+    def __init__(self, api_key=None):
         self.ua = requests.Session()
         if api_key:
-            self.ua.headers["X-DC-DEVKEY"] = api_key
+            self.set_api_key(api_key)
+
+    def set_api_key(self, api_key):
+        self.ua.headers["X-DC-DEVKEY"] = api_key
 
     def get(self, ep, *args, **kwargs):
         uri = self.base + ep

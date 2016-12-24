@@ -53,21 +53,28 @@ class CertCentralClient(object):
             raise DevError("paging not yet implemented for %r" % data)
         return data["organizations"]
 
+    def get_certificate(self, cert_id, format="p7b"):
+        resp = self.get("/certificate/%s/download/format/%s" % (cert_id, format))
+        return resp.content
+
     def get_order(self, order_id):
         resp = self.get("/order/certificate/%s" % order_id)
         return resp.json()
 
+    def post_order(self, order_type, order_data):
+        resp = self.post("/order/certificate/%s" % order_type,
+                         json=order_data)
+        return resp.json()
+
+    ### Convenience
+
     def get_order_certificate(self, order_id, format="p7b"):
         order = self.get_order(order_id)
         cert_id = order["certificate"]["id"]
-        if order["product"]["type"] == "ssl_certificate":
+        cert_type = order["product"]["type"]
+        if cert_type == "ssl_certificate":
             cert_name = order["certificate"]["common_name"]
-            cert_names = order["certificate"]["dns_names"]
-        elif order["product"]["type"] == "client_certificate":
-            pass
-        resp = self.get("/certificate/%s/download/format/%s" % (cert_id, format))
-        return cert_name, resp.content
-
-    def post_order(self, order_type, order_data):
-        resp = self.post("/order/certificate/%s" % order_type, json=order_data)
-        return resp.json()
+        else:
+            raise DevError("don't know how to handle %r orders" % cert_type)
+        data = self.get_certificate(cert_id, format)
+        return {"cert": data, "name": cert_name, "type": cert_type}

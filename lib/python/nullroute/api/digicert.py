@@ -57,12 +57,12 @@ class CertCentralClient(object):
             raise DevError("paging not yet implemented for %r" % data)
         return data["organizations"]
 
-    def get_certificate(self, cert_id, format="p7b"):
-        if format is None:
-            resp = self.get("/certificate/%s/download/platform" % cert_id)
-        else:
+    def get_certificate(self, cert_id, format="p7b", headers=False):
+        if format:
             resp = self.get("/certificate/%s/download/format/%s" % (cert_id, format))
-        return resp.content
+        else:
+            resp = self.get("/certificate/%s/download/platform" % cert_id)
+        return resp if headers else resp.content
 
     def get_order(self, order_id):
         resp = self.get("/order/certificate/%s" % order_id)
@@ -92,13 +92,23 @@ class CertCentralClient(object):
         data = self.post_order("ssl_multi_domain", order)
         return data
 
-    def get_order_certificate(self, order_id, format="p7b"):
+    def get_order_certificate(self, order_id, format=None):
         order = self.get_order(order_id)
         cert_id = order["certificate"]["id"]
         cert_type = order["product"]["type"]
+        serial = order["certificate"]["serial_number"]
         if cert_type == "ssl_certificate":
+            format = format or "pem_noroot"
             cert_name = order["certificate"]["common_name"]
+        elif cert_type == "client_certificate":
+            format = format or "p7b"
+            cert_name = order["certificate"]["emails"][0]
         else:
             raise DevError("don't know how to handle %r orders: %r" % (cert_type, order))
-        data = self.get_certificate(cert_id, format)
-        return {"cert": data, "name": cert_name, "type": cert_type}
+        resp = self.get_certificate(cert_id, format, headers=True)
+        return {"cert": resp.content,
+                "type": resp.headers["Content-Type"],
+                "name": cert_name,
+                "format": format,
+                "serial": serial,
+                "format": format}

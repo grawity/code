@@ -17,15 +17,13 @@ class CertCentralClient(object):
 
         self._user = None
 
-    def get(self, ep, params=None, *args, **kwargs):
-        kwargs.setdefault("params", params)
-
+    def get(self, ep, *args, **kwargs):
         uri = self.base + ep
         Core.debug("fetching %r" % uri)
+        resp = self.ua.get(uri, *args, **kwargs)
+        resp.raise_for_status()
+        return resp
 
-        r = self.ua.get(uri, *args, **kwargs)
-        r.raise_for_status()
-        return r
 
     def _api_get_myself(self):
         return self.get("/user/me")

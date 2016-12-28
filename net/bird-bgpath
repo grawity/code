@@ -55,6 +55,7 @@ my %COMMUNITY = (
 		6002 => "export[no-peers]",
 	},
 	65535 => {
+		666 => "blackhole",
 		65281 => "no-export",
 		65282 => "no-advertise",
 		65283 => "no-export-subconfed",
@@ -105,20 +106,43 @@ sub tagname {
 sub filter {
 	my $rt;
 	my $via;
+	my $dev;
+	my $asn;
+	my $rest;
+	my $proto;
 	while (<STDIN>) {
-		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
+		if (s/^(\S+\/\d+)?\s+(via|dev) /$2 /) {
 			$rt = $1 if $1;
-			$via = $2;
 			print "\n";
 			print " · \e[38;5;210m$rt\e[m\n" if $1;
-			print "\t",
-				"via \e[38;5;43m".$2."\e[m ",
-				"on \e[38;5;45m".$3."\e[m ",
-				"at \e[38;5;46m".$5."\e[m ",
-				$4."\n";
+			if (/^via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
+				$via = $1; $dev = $2; $rest = $3; $asn = $4;
+				print "\t",
+					"via \e[38;5;43m".$via."\e[m ",
+					"on \e[38;5;45m".$dev."\e[m ",
+					"at \e[38;5;46m".$asn."\e[m ",
+					$rest."\n";
+			}
+			elsif (/^via (\S+) on (\S+) (\[.+\] .+)$/) {
+				$via = $1; $dev = $2; $rest = $3;
+				print "\t",
+					"via \e[38;5;43m".$via."\e[m ",
+					"on \e[38;5;45m".$dev."\e[m ",
+					$rest."\n";
+			}
+			elsif (/^dev (\S+) (\[(\S+) \S+\] .+)$/) {
+				$dev = $1; $rest = $2; $proto = $3;
+				print "\t",
+					"local ",
+					"on \e[38;5;45m".$dev."\e[m ",
+					$rest."\n";
+			}
+			else {
+				print "\t>> ", $_;
+			}
 		}
 		elsif (/(\s+Type:) (.+)$/) {
-			print if $2 ne "BGP unicast univ";
+			print if $2 !~ /^(BGP|OSPF) unicast univ$/;
 		}
 		elsif (/(\s+BGP\.as_path:) (.+)$/) {
 			my $prefix = $1;

@@ -25,7 +25,7 @@ def enum_root_rar(file):
     with subprocess.Popen(["unrar", "vb", file],
                           stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
-            yield line.rstrip(b"\n").split(b"/")[0].decode()
+            yield line.rstrip(b"\n").split(b"/")[0]
 
 def enum_root_bsdtar(file):
     import subprocess
@@ -33,7 +33,7 @@ def enum_root_bsdtar(file):
     with subprocess.Popen(["bsdtar", "tf", file],
                           stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
-            yield line.rstrip(b"\n").split(b"/")[0].decode()
+            yield line.rstrip(b"\n").split(b"/")[0]
 
 def enum_root_zip(file):
     import subprocess
@@ -41,7 +41,7 @@ def enum_root_zip(file):
     with subprocess.Popen(["zipinfo", "-1", file],
                           stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
-            yield line.rstrip(b"\n").split(b"/")[0].decode()
+            yield line.rstrip(b"\n").split(b"/")[0]
 
 def find_root(file, handler):
     found = set(handler(file))
@@ -83,6 +83,9 @@ for file in opts.file:
     except ValueError as e:
         Core.err("%s, skipping" % e)
         continue
+
+    if hasattr(root, "decode"):
+        root = root.decode(errors="replace")
 
     new_name = replace_basename(file, root)
     if file == new_name:

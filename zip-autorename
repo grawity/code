@@ -36,11 +36,12 @@ def enum_root_bsdtar(file):
             yield line.rstrip(b"\n").split(b"/")[0].decode()
 
 def enum_root_zip(file):
-    import zipfile
+    import subprocess
 
-    with zipfile.ZipFile(file, "r") as z:
-        for item in z.namelist():
-            yield item.split("/")[0]
+    with subprocess.Popen(["zipinfo", "-1", file],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            yield line.rstrip(b"\n").split(b"/")[0].decode()
 
 def find_root(file, handler):
     found = set(handler(file))

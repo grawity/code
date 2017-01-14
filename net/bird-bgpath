@@ -43,9 +43,21 @@ my %COMMUNITY = (
 			}
 		},
 	},
-	4242423827 => {
-		1090 => "via-iBGP",
-		1100 => "via-eBGP",
+	64666 => {
+		2000 => "from[DE]",
+		3000 => "from[AT]",
+		4001 => "via[transit]",
+		4002 => "via[downstream]",
+		4003 => "via[local-peering]",
+		4004 => "via[dn42-IX]",
+		6000 => "export[none]",
+		6001 => "export[no-PoP]",
+		6002 => "export[no-peers]",
+	},
+	65535 => {
+		65281 => "no-export",
+		65282 => "no-advertise",
+		65283 => "no-export-subconfed",
 	},
 );
 
@@ -58,6 +70,7 @@ sub _asname {
 			my $str = $ans->{answer}->[0]->{txtdata}->[0]->[0];
 			my @str = split(/ \| /, $str, 5);
 			@str = grep {!/^AS\d+$/} split(/\s+/, $str[4]);
+			$as =~ s/^424242/…/;
 			$as = $str[0]." (".$as.")";
 		}
 	}
@@ -76,7 +89,7 @@ sub asname {
 
 sub tagname {
 	my ($tag) = @_;
-	if ($tag =~ /^\((\d+),(\d+)\)$/) {
+	if ($tag =~ /^\((\d+),(\d+)\)$/ || $tag =~ /^\(ro, (\d+), (\d+)\)$/) {
 		my $as = int $1;
 		my $cm = int $2;
 		my $name;
@@ -91,14 +104,21 @@ sub tagname {
 
 sub filter {
 	my $rt;
+	my $via;
 	while (<STDIN>) {
-		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w+?)\]$/) {
-			$rt //= $1; print "\n · \e[38;5;210m$rt\e[m\n";
+		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
+			$rt = $1 if $1;
+			$via = $2;
+			print "\n";
+			print " · \e[38;5;210m$rt\e[m\n" if $1;
 			print "\t",
 				"via \e[38;5;43m".$2."\e[m ",
 				"on \e[38;5;45m".$3."\e[m ",
 				"at \e[38;5;46m".$5."\e[m ",
 				$4."\n";
+		}
+		elsif (/(\s+Type:) (.+)$/) {
+			print if $2 ne "BGP unicast univ";
 		}
 		elsif (/(\s+BGP\.as_path:) (.+)$/) {
 			my $prefix = $1;
@@ -108,11 +128,23 @@ sub filter {
 			print $prefix.join(" \e[1;33m›\e[m ", "", @aspath)."\n";
 		}
 		elsif (/(\s+BGP\.next_hop:) (.+)$/) {
-			print $1." \e[38;5;43m".$2."\e[m\n";
+			print $1." \e[38;5;43m".$2."\e[m\n" if $2 ne $via;
 		}
 		elsif (/(\s+BGP\.community:) (.+)$/) {
 			my $prefix = $1;
 			my @tags = split(/ /, $2);
+			@tags = map {tagname($_)} @tags;
+			if (eval {require Sort::Naturally}) {
+				@tags = Sort::Naturally::nsort(@tags);
+			} else {
+				@tags = sort @tags;
+			}
+			print $prefix." ".join(" ", @tags)."\n";
+		}
+		elsif (/^(\s+BGP\.ext_community:) (.+)$/) {
+			#print;
+			my $prefix = $1;
+			my @tags = ($2 =~ /\(.+?\)/g);
 			@tags = map {tagname($_)} @tags;
 			if (eval {require Sort::Naturally}) {
 				@tags = Sort::Naturally::nsort(@tags);
@@ -126,13 +158,6 @@ sub filter {
 		}
 		elsif (/^(\s+BGP\.origin:) (.+)$/) {
 			print if $2 ne "IGP";
-		}
-		## TODO: port from Quagga
-		elsif (/^      Origin/) {
-			s/\bbest\b/\e[1;32m$&\e[m/;
-			s/\binternal\b/\e[1;35m$&\e[m/;
-			s/\bexternal\b/\e[1;36m$&\e[m/;
-			print;
 		}
 		else {
 			print;

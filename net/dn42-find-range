@@ -43,15 +43,13 @@ class Cache(object):
         with open(path, "w") as fh:
             json.dump(package, fh)
 
-def _get_url(url):
-    r = requests.get(url)
-    return r.text
-
 def get_url(url, as_json=False):
     url_hash = hashlib.sha1(url.encode("utf-8")).hexdigest()
     data = Cache.load(url_hash)
     if not data:
-        data = _get_url(url)
+        resp = requests.get(url)
+        resp.raise_for_status()
+        data = resp.text
         if as_json:
             data = json.loads(data)
         Cache.save(url_hash, data, source=url)
@@ -106,16 +104,6 @@ class Allocator(object):
 
         if net.prefixlen > want_bits:
             raise ValueError("given network smaller than want_bits")
-
-        #candidates = {net.prefixlen: [net]}
-        #for bits in range(net.prefixlen, want_bits):
-        #    subnet_bits = want_bits - bits
-        #    candidates[bits+1] = []
-        #    for try_net in candidates[bits]:
-        #        for try_subnet in try_net.subnets(1):
-        #            if str(try_subnet) not in self.metadata:
-        #                candidates[bits+1].append(try_subnet)
-        #pprint(candidates[want_bits])
 
         candidates = []
         for subnet in net.subnets(want_bits - net.prefixlen):

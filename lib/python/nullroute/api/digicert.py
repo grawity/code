@@ -1,67 +1,125 @@
+import enum
+from functools import lru_cache
 from nullroute.core import *
-from pprint import pprint
 import requests
-from requests.exceptions import HTTPError
+
+CERT_FORMATS = {
+    "p7b":          ("p7b", "application/x-pkcs7-certificates"),
+    "cer":          ("p7b", "application/x-pkcs7-certificates"),
+    "pem_all":      ("pem", "TODO"),
+    "pem_noroot":   ("pem", "TODO"),
+    "default_cer":  ("zip", "application/zip"),
+    "default_pem":  ("zip", "application/zip"),
+    "default":      ("zip", "application/zip"),
+    "apache":       ("zip", "application/zip"),
+}
+
+class DevError(BaseException):
+    pass
+
+class Platform(enum.IntEnum):
+    SSL_Other = -1
+    SSL_Apache = 2
+    SSL_Nginx = 45
 
 class CertCentralClient(object):
-    # https://www.digicert.com/services/v2/documentation/authorization/authorization-list
+    # https://www.digicert.com/services/v2/documentation
     base = "https://www.digicert.com/services/v2"
 
-    def __init__(self, account_id=None, api_key=None):
-        self.account_id = account_id
-        self.api_key = api_key
-
+    def __init__(self, api_key=None):
         self.ua = requests.Session()
         if api_key:
-            self.ua.headers["X-DC-DEVKEY"] = api_key
+            self.set_api_key(api_key)
 
-        self._user = None
+    def set_api_key(self, api_key):
+        self.ua.headers["X-DC-DEVKEY"] = api_key
 
-    def get(self, ep, params=None, *args, **kwargs):
-        kwargs.setdefault("params", params)
-
+    def get(self, ep, *args, **kwargs):
         uri = self.base + ep
         Core.debug("fetching %r" % uri)
+        resp = self.ua.get(uri, *args, **kwargs)
+        resp.raise_for_status()
+        return resp
 
-        r = self.ua.get(uri, *args, **kwargs)
-        r.raise_for_status()
-        return r
+    def post(self, ep, *args, **kwargs):
+        uri = self.base + ep
+        Core.debug("posting to %r" % uri)
+        resp = self.ua.post(uri, *args, **kwargs)
+        resp.raise_for_status()
+        return resp
 
-    def _api_get_myself(self):
-        return self.get("/user/me")
-
-    def _api_get_ctr_authorizations(self, container_id):
-        return self.get("/authorization",
-                        params={"container_id": container_id})
-
-    def _api_get_order(self, order_id):
-        return self.get("/order/certificate/%s" % order_id)
-
-    def _api_get_certificate(self, cert_id, format="p7b"):
-        return self.get("/certificate/%s/download/format/%s" % (cert_id, format))
-
+    @lru_cache()
     def get_myself(self):
-        if not self._user:
-            self._user = self._api_get_myself().json()
-        return self._user
+        resp = self.get("/user/me")
+        return resp.json()
 
     def get_default_container(self):
         return self.get_myself()["container"]["id"]
 
-    def get_order(self, order_id):
-        return self._api_get_order(order_id).json()
+    def get_container_authorizations(self, container_id):
+        return self.get("/authorization",
+                        params={"container_id": container_id})
 
-    def get_order_certificate(self, order_id):
+    @lru_cache()
+    def get_organizations(self):
+        resp = self.get("/organization")
+        data = resp.json()
+        if data["page"]["total"] > 1:
+            raise DevError("paging not yet implemented for %r" % data)
+        return data["organizations"]
+
+    def get_certificate(self, cert_id, format="p7b", headers=False):
+        if format:
+            resp = self.get("/certificate/%s/download/format/%s" % (cert_id, format))
+        else:
+            resp = self.get("/certificate/%s/download/platform" % cert_id)
+        return resp if headers else resp.content
+
+    def get_order(self, order_id):
+        resp = self.get("/order/certificate/%s" % order_id)
+        return resp.json()
+
+    def post_order(self, order_type, order_data):
+        resp = self.post("/order/certificate/%s" % order_type,
+                         json=order_data)
+        return resp.json()
+
+    ### Convenience
+
+    def request_tls_certificate(self, domains, csr, years=3):
+        orgs = self.get_organizations()
+        order = {
+            "certificate": {
+                "common_name": domains[0],
+                "dns_names": domains,
+                "csr": csr,
+                "signature_hash": "sha256",
+            },
+            "organization": {
+                "id": orgs[0]["id"],
+            },
+            "validity_years": years,
+        }
+        data = self.post_order("ssl_multi_domain", order)
+        return data
+
+    def get_order_certificate(self, order_id, format=None):
         order = self.get_order(order_id)
         cert_id = order["certificate"]["id"]
-
-        if order["product"]["type"] == "ssl_certificate":
+        cert_type = order["product"]["type"]
+        serial = order["certificate"]["serial_number"]
+        if cert_type == "ssl_certificate":
+            format = format or "pem_noroot"
             cert_name = order["certificate"]["common_name"]
-            cert_names = order["certificate"]["dns_names"]
-        elif order["product"]["type"] == "client_certificate":
-            pass
-
-        cert_data = self._api_get_certificate(cert_id, format="p7b")
-        raw_pkcs7 = cert_data.content
-
-        return cert_name, raw_pkcs7
+        elif cert_type == "client_certificate":
+            format = format or "p7b"
+            cert_name = order["certificate"]["emails"][0]
+        else:
+            raise DevError("don't know how to handle %r orders: %r" % (cert_type, order))
+        resp = self.get_certificate(cert_id, format, headers=True)
+        return {"cert": resp.content,
+                "type": resp.headers["Content-Type"],
+                "name": cert_name,
+                "format": format,
+                "serial": serial,
+                "format": format}

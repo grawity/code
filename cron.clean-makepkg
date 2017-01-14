@@ -9,6 +9,10 @@ if [ -t 2 ]; then
 	set -x
 fi
 
+if [ -e /tmp/pacaurtmp-$(whoami)/build.lck ]; then
+	exit
+fi
+
 # from downloaded source cache, remove old files
 
 find "$SRCDEST" -maxdepth 1 -type f \( -ctime +$days -not -perm /+t \) -print -delete
@@ -23,7 +27,7 @@ paccache -c "$PKGDEST" -r -v
 
 # from ~/pkg, remove broken links
 
-find ~/pkg/ -maxdepth 4 -xtype l -print -delete
+#find ~/pkg/ -maxdepth 4 -xtype l -print -delete
 
 # ...and pkg+src directories
 
@@ -32,3 +36,9 @@ if [ "$really" ]; then
 
 	find ~/pkg/ -name PKGBUILD \( -not -perm /+t \) -execdir rm -rvf pkg src \;
 fi
+
+# from pacaur cache, remove pkg+src directories
+
+for dir in ~/.cache/pacaur/*/src; do
+	[ -k "$dir" ] || rm -rf "$dir"
+done

@@ -14,8 +14,8 @@ def confirm(msg):
         sys.exit(1)
 
 def annex(*cmd):
-    #return Popen(["cat", "/tmp/unused"], stdout=PIPE)
-    return Popen(["git", "annex", *cmd], stdout=PIPE)
+    return subprocess.Popen(["git", "annex", *cmd],
+                            stdout=subprocess.PIPE)
 
 def annex_run(*cmd):
     return subprocess.call(["git", "annex", *cmd])
@@ -43,8 +43,10 @@ def annex_unused(remote=None):
                     continue
                 yield int(num), key
 
-def getlastname(key):
-    with Popen(["git", "log", "--format=", "--name-only", "-S%s" % key, "-n1"], stdout=PIPE) as proc:
+def get_last_path(key):
+    with subprocess.Popen(["git", "log", "--format=", "--name-only",
+                                         "-S%s" % key, "-n1"],
+                          stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
             line = line.decode("utf-8")
             line = unquote(line.strip())

@@ -16,16 +16,16 @@ try:
         if opt in {"-s", "--short"}:
             short = True
 
-    network = ip_network(args[0])
+    net = ip_network(args[0])
     if args[1].startswith("/"):
         submask = int(args[1][1:])
-        increment = submask - network.prefixlen
+        increment = submask - net.prefixlen
     elif args[1].startswith("+"):
         increment = int(args[1][1:])
     else:
         Core.die("submask should be /x or +x")
 
-    subnets = network.subnets(increment)
+    subnets = net.subnets(increment)
     count = 0
     total = 2**increment
 
@@ -45,6 +45,8 @@ try:
         msg = "%d subnets" % total
     elif net.prefixlen == net.max_prefixlen:
         msg = "%d addresses" % total
+    elif increment == 0:
+        msg = "1 network × %d addresses" % (net.num_addresses,)
     else:
         msg = "%d subnets × %d addresses" % (total, net.num_addresses)
 

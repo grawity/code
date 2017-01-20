@@ -21,9 +21,16 @@ try:
         submask = int(args[1][1:])
         increment = submask - net.prefixlen
     elif args[1].startswith("+"):
-        increment = int(args[1][1:])
+        increment = int(args[1])
+    elif args[1].startswith("-"):
+        increment = int(args[1])
     else:
         Core.die("submask should be /x or +x")
+
+    if increment < 0:
+        increment *= -1
+        net = net.supernet(increment)
+        total = 2**(increment)
 
     print(net)
 

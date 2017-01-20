@@ -43,10 +43,18 @@ def annex_unused(remote=None):
                     continue
                 yield int(num), key
 
+<<<<<<< HEAD
 def get_last_path(key):
     with subprocess.Popen(["git", "log", "--format=", "--name-only",
                                          "-S%s" % key, "-n1"],
                           stdout=subprocess.PIPE) as proc:
+||||||| merged common ancestors
+def getlastname(key):
+    with Popen(["git", "log", "--format=", "--name-only", "-S%s" % key, "-n1"], stdout=PIPE) as proc:
+=======
+def getlastname(key):
+    with Popen(["git", "-c", "diff.renameLimit=1000", "log", "--format=", "--name-only", "-S%s" % key, "-n1"], stdout=PIPE) as proc:
+>>>>>>> 7ca184af6ee933f1248e493ea2226587255d93df
         for line in proc.stdout:
             line = line.decode("utf-8")
             line = unquote(line.strip())
@@ -62,13 +70,24 @@ Core.info("searching for unused data in %s" % (remote or "local"))
 unused = list(annex_unused(remote))
 Core.info("listing %d unused files" % len(unused))
 total = 0
+items = []
 for num, key in unused:
     size = getkeysize(key)
     total += size
     name = getlastname(key)
-    name = os.path.basename(name)
-    key_names[key] = name
-    print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
+    if name:
+        name = os.path.basename(name)
+        key_names[key] = name
+    else:
+        name = key
+    items.append((num, size, key, name))
+items.sort(key=lambda x: x[3].casefold())
+for num, size, key, name in items:
+    if name != key:
+        print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
+        #print("  %-4s  %8s  %s" % ("", "", "\033[38;5;245m%s\033[m" % key))
+    else:
+        print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
 print("total:", fmt_size(total))
 
 if unused:

@@ -362,6 +362,9 @@ case $cmd in
         git annex proxy -- git mv "$@"
         find "$1" -depth -type d -exec rmdir --ignore-fail-on-non-empty {} \;
         ;;
+    purge)
+        annex-purge "$@"
+        ;;
     push)
         if eth0-available; (( $? >= 2 )); then
             warn "Ethernet connection not fully established"
@@ -370,11 +373,19 @@ case $cmd in
         annex copy --to "$1" --not --in "$1" "${@:2}"
         ;;
     geturls)
+        (( $# )) || set -- "--include=*"
         git annex find "$@" \
             | git annex whereis --batch --fast --json \
             | jq -r '(.whereis, .untrusted) | .[].urls[]'
         ;;
+    geturls-attr)
+        (( $# )) || set -- "--include=*"
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '@sh "attr -q -s xdg.origin.url -V \((.whereis, .untrusted) | .[].urls[]) \(.file)"'
+        ;;
     geturls-json)
+        (( $# )) || set -- "--include=*"
         git annex find "$@" \
             | git annex whereis --batch --fast --json \
             | jq '{file: .file,
@@ -382,6 +393,7 @@ case $cmd in
                     urls: [(.whereis, .untrusted) | .[].urls[]]}'
         ;;
     geturls-sh)
+        (( $# )) || set -- "--include=*"
         git annex find "$@" \
             | git annex whereis --batch --fast --json \
             | jq -r '@sh "git annex addurl --relaxed --file=\(.file) \((.whereis, .untrusted) | .[].urls[])"'

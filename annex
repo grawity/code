@@ -374,6 +374,12 @@ case $cmd in
             | git annex whereis --batch --fast --json \
             | jq -r '(.whereis, .untrusted) | .[].urls[]'
         ;;
+    geturls-attr)
+        (( $# )) || set -- "--include=*"
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '@sh "attr -q -s xdg.origin.url -V \((.whereis, .untrusted) | .[].urls[]) \(.file)"'
+        ;;
     geturls-json)
         (( $# )) || set -- "--include=*"
         git annex find "$@" \

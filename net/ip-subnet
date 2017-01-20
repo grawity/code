@@ -22,8 +22,21 @@ try:
         increment = submask - network.prefixlen
     elif args[1].startswith("+"):
         increment = int(args[1][1:])
+        submask = network.prefixlen + increment
     else:
         Core.die("submask should be /x or +x")
+
+    if len(args) > 2:
+        if args[2].startswith("/"):
+            subsubmask = int(args[2][1:])
+            subincrement = subsubmask - submask
+        elif args[2].startswith("+"):
+            subincrement = int(args[2][1:])
+            subsubmask = submask + subincrement
+        else:
+            Core.die("submask should be /x or +x")
+    else:
+        subsubmask = subincrement = 0
 
     subnets = network.subnets(increment)
     count = 0
@@ -45,6 +58,10 @@ try:
         msg = "%d subnets" % total
     elif net.prefixlen == net.max_prefixlen:
         msg = "%d addresses" % total
+    elif subincrement:
+        msg = "%d subnets × %d (/%d) subsubnets" % (total,
+                    2**subsubmask / 2**net.prefixlen,
+                    subsubmask)
     else:
         msg = "%d subnets × %d addresses" % (total, net.num_addresses)
 

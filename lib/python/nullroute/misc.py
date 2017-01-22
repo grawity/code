@@ -148,7 +148,7 @@ def unescape(line):
     esc = {"n": "\n", "t": "\t"}
     for ch in line:
         if state == 1:
-            if ch in "01234567" and len(acc) < 4:
+            if ch in "01234567" and len(acc) < 3:
                 acc += ch
             elif len(acc) > 0:
                 outv.append(int(acc, 8))

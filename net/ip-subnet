@@ -10,65 +10,66 @@ def usage():
     print("       %s [-s] <ip_network> +<increment>" % Core.arg0)
 
 try:
-    short = False
-    opts, args = getopt.getopt(sys.argv[1:], "s", ["short"])
+    opt_list = False
+    opt_short = False
+    opts, args = getopt.getopt(sys.argv[1:], "ls", ["list", "short"])
     for opt, optarg in opts:
         if opt in {"-s", "--short"}:
-            short = True
+            opt_short = True
+        elif opt in {"-l", "--list"}:
+            opt_list = True
 
-    network = ip_network(args[0])
+    net = ip_network(args[0])
     if args[1].startswith("/"):
         submask = int(args[1][1:])
-        increment = submask - network.prefixlen
+        increment = submask - net.prefixlen
     elif args[1].startswith("+"):
-        increment = int(args[1][1:])
-        submask = network.prefixlen + increment
+        increment = int(args[1])
+    elif args[1].startswith("-"):
+        increment = int(args[1])
     else:
         Core.die("submask should be /x or +x")
 
-    if len(args) > 2:
-        if args[2].startswith("/"):
-            subsubmask = int(args[2][1:])
-            subincrement = subsubmask - submask
-        elif args[2].startswith("+"):
-            subincrement = int(args[2][1:])
-            subsubmask = submask + subincrement
-        else:
-            Core.die("submask should be /x or +x")
-    else:
-        subsubmask = subincrement = 0
+    if increment < 0:
+        increment *= -1
+        net = net.supernet(increment)
 
-    subnets = network.subnets(increment)
+    if not (opt_list or opt_short):
+        print(net)
+
+    subnets = net.subnets(increment)
     count = 0
     total = 2**increment
 
-    if short:
+    if opt_short:
         net = next(subnets)
     else:
         for net in subnets:
-            print(net)
+            if opt_list:
+                print(net)
+            else:
+                print(" ", net)
             count += 1
             if count >= 2**20:
                 Core.err("stopping after %d subnets out of %d" % (count, total))
                 break
 
-    if net.version == 6 and net.prefixlen < 64:
-        msg = "%d ranges × %d subnets" % (total, 2**(64-net.prefixlen))
-    elif net.version == 6 and net.prefixlen == 64:
-        msg = "%d subnets" % total
-    elif net.prefixlen == net.max_prefixlen:
-        msg = "%d addresses" % total
-    elif subincrement:
-        msg = "%d subnets × %d (/%d) subsubnets" % (total,
-                    2**subsubmask / 2**net.prefixlen,
-                    subsubmask)
-    else:
-        msg = "%d subnets × %d addresses" % (total, net.num_addresses)
+    if not opt_list:
+        if net.version == 6 and net.prefixlen < 64:
+            msg = "%d ranges × %d subnets" % (total, 2**(64-net.prefixlen))
+        elif net.version == 6 and net.prefixlen == 64:
+            msg = "%d subnets" % total
+        elif net.prefixlen == net.max_prefixlen:
+            msg = "%d addresses" % total
+        elif increment == 0:
+            msg = "1 network × %d addresses" % (net.num_addresses,)
+        else:
+            msg = "%d subnets × %d addresses" % (total, net.num_addresses)
 
-    if short:
-        print(msg)
-    elif sys.stdout.isatty():
-        print("\033[38;5;244m=> %s\033[m" % msg)
+        if opt_short:
+            print(msg)
+        elif sys.stdout.isatty():
+            print("\033[38;5;244m=> %s\033[m" % msg)
 
     Core.exit()
 except IndexError:

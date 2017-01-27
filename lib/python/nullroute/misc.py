@@ -66,6 +66,10 @@ def set_file_attrs(path, attrs):
     except OSError:
         return
 
+def chunk(vec, size):
+    for i in range(0, len(vec), size):
+        yield vec[i:i+size]
+
 def uniq(items):
     seen = set()
     for item in items:

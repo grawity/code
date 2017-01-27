@@ -76,7 +76,7 @@ def unescape(line):
     esc = {"n": "\n", "t": "\t"}
     for ch in line:
         if state == 1:
-            if ch in "01234567" and len(acc) < 4:
+            if ch in "01234567" and len(acc) < 3:
                 acc += ch
             elif len(acc) > 0:
                 outv.append(int(acc, 8))
@@ -108,3 +108,18 @@ def unquote(line):
     if line[0] == line[-1] == "\"":
         line = line[1:-1]
     return unescape(line)
+
+def fmt_duration(secs):
+    y = abs(secs)
+
+    y, s = divmod(y, 60)
+    y, m = divmod(y, 60)
+    y, h = divmod(y, 24)
+    y, d = divmod(y, 365)
+
+    if y > 0:       return "%sy %sd" % (y, d)
+    elif d > 14:    return "%sd" % (d,)
+    elif d > 0:     return "%sd %sh" % (d, h)
+    elif h > 0:     return "%sh %sm" % (h, m)
+    elif m > 0:     return "%sm" % (m,)
+    else:           return "%ss" % (s,)

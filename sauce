@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+from bs4 import BeautifulSoup
+from nullroute.core import Core
+from nullroute.scrape import Scraper
+import os
+from pprint import pprint
+import sys
+import subprocess
+
+class SauceNao(Scraper):
+    upload_uri = "https://saucenao.com/search.php"
+
+    def swap(self, old_file, new_url, kind):
+        if kind == "pixiv":
+            r = subprocess.call(["pixiv-dl", new_url])
+            if r == 0:
+                r = subprocess.call(["mkdir", "-p", "_trash"])
+            if r == 0:
+                r = subprocess.call(["mv", old_file, "_trash/"])
+        pass
+
+    def find(self, file):
+        Core.info("uploading %r" % file)
+        resp = self.ua.post(self.upload_uri,
+                            files={
+                                "file": (os.path.basename(file), open(file, "rb")),
+                                "frame": "1",
+                                "database": "999",
+                            })
+        resp.raise_for_status()
+        page = BeautifulSoup(resp.content, "lxml")
+        seen_urls = set()
+        for tr in page.select("table.resulttable tr"):
+            t = tr.select_one(".resultmatchinfo .resultsimilarityinfo")
+            if t:
+                score_str = t.get_text(strip=True)
+                score = float(score_str.rstrip("%"))
+                if score < 60:
+                    continue
+                print("Score: %s" % score_str)
+            t = tr.select_one(".resultcontent .resulttitle")
+            if t:
+                title = t.get_text(strip=True)
+                print("Title: %s" % title)
+            t = tr.select_one(".resultcontent .resultcontentcolumn")
+            if t:
+                for t2s in t.select("strong"):
+                    t2a = t2s.find_next_sibling("a")
+                    if t2a:
+                        head = t2s.get_text(strip=True)
+                        link = t2a.get_text(strip=True)
+                        href = t2a["href"]
+                        print(head, link, href)
+                        if head == "Pixiv ID:":
+                            self.swap(file, href, "pixiv")
+                        seen_urls.add(href)
+                    else:
+                        # "Material: original" &c.
+                        pass
+            print()
+
+s = SauceNao()
+
+files = sys.argv[1:]
+for f in files:
+    s.find(f)

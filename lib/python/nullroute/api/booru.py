@@ -300,3 +300,11 @@ class YandereApi(MoebooruApi):
     ]
     ID_PREFIX = "yande.re %s"
     HASH_SUFFIX = False
+
+apis = {
+    "gelbooru": GelbooruApi,
+    "sankaku": SankakuApi,
+    "danbooru": DanbooruApi,
+    "yandere": YandereApi,
+    "konachan": KonachanApi,
+}

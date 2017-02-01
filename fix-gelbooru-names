@@ -3,12 +3,13 @@
 import argparse
 import hashlib
 from nullroute.core import *
-from nullroute.api.booru import *
+from nullroute.api.booru import apis
 from nullroute.misc import (
     filter_filename,
     get_file_attr,
     uniq,
 )
+from nullroute.scrape import Scraper
 import re
 import time
 
@@ -67,6 +68,20 @@ class TagFilter(object):
 
         return ntags
 
+def make_filename(api, post_id, original_url=None, file_md5=None):
+    tags = api.get_post_tags(post_id)
+    tags = api.sort_tags(tags)
+    if api.ID_PREFIX:
+        tags.append(api.ID_PREFIX % post_id)
+    tags = list(uniq(tags))
+    if api.HASH_SUFFIX and file_md5:
+        tags.append(file_md5)
+    name = " ".join(tags)
+    if original_url:
+        head, ext = os.path.splitext(original_url)
+        name += ext
+    return name
+
 def rename_file_in_dir(dirpath, filename, force_md5=False):
     global args
     global bare_re
@@ -113,14 +128,8 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
                     Core.debug("found post %r from md5 %r" % (post_id, file_md5))
 
         if post_id:
-            tags = api.get_post_tags(post_id)
-            tags = api.sort_tags(tags)
-            if api.ID_PREFIX:
-                tags.append(api.ID_PREFIX % post_id)
-            tags = list(uniq(tags))
-            if api.HASH_SUFFIX:
-                tags.append(file_md5)
-            new_filename = " ".join(tags) + "." + file_ext
+            new_filename = make_filename(api, post_id, None, file_md5)
+            new_filename += "." + file_ext
             new_path = os.path.join(dirpath, new_filename)
             print("=>", fmt_found % new_filename)
             if not args.dry_run:
@@ -128,12 +137,32 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
         else:
             print("=>", fmt_notfound % "[not found]")
 
-apis = {
-    "gelbooru": GelbooruApi,
-    "sankaku": SankakuApi,
-    "danbooru": DanbooruApi,
-    "yandere": YandereApi,
-}
+def download_image(url):
+    global args
+    global api
+    global scraper
+
+    post_id = api.match_post_url(url)
+    Core.debug("post %r => post_id %r" % (url, post_id))
+    if not post_id:
+        Core.err("unrecognized URL %r" % url)
+        return False
+
+    post_info = api.get_post_info(post_id)
+    Core.debug("post_id %r => info %r" % (post_id, post_info))
+    if not post_info:
+        Core.err("could not obtain post info for %r" % url)
+        return false
+    file_md5 = post_info.get("md5")
+
+    original_url = api.get_post_original(post_id)
+    Core.debug("post_id %r => original %r" % (post_id, original_url))
+    if not original_url:
+        Core.err("could not determine original URL for %r" % url)
+        return False
+
+    new_filename = make_filename(api, post_id, original_url, file_md5)
+    scraper.save_file(original_url, name=new_filename, referer=url)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
@@ -145,6 +174,8 @@ args = parser.parse_args()
 bare_re = re.compile(r'^([0-9a-f]{32})(\.\w+)$')
 tag_filter = TagFilter.load_config("gelbooru-tags.conf")
 
+scraper = Scraper()
+
 try:
     api = apis[args.site or "gelbooru"]
 except KeyError:
@@ -153,6 +184,10 @@ else:
     api = api(tag_filter=tag_filter)
 
 for arg in args.path or ["."]:
+    if "://" in arg:
+        download_image(arg)
+        continue
+
     if not os.path.exists(arg):
         Core.err("path %r does not exist" % arg)
     if os.path.isdir(arg):

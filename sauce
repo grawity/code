@@ -54,7 +54,13 @@ class SauceNao(Scraper):
             if r:
                 r = self.trash(old_file)
             return r
-        return False
+        elif kind in {"danbooru", "gelbooru", "konachan", "sankaku", "yandere"}:
+            r = subprocess.call(["fix-gelbooru-names", "--site=%s" % kind, new_url]) == 0
+            if r:
+                r = self.trash(old_file)
+            return r
+        else:
+            return False
 
     def _format_data(self, data):
         if "pixiv_id" in data:
@@ -119,7 +125,7 @@ class SauceNao(Scraper):
                 print(fmt % "Member",
                       "｢%s｣" % data["member_name"],
                       "<%s>" % self.fmt["seiga_member"] % data["member_id"])
-                consumed |= {"pixiv_id", "member_name", "member_id"}
+                consumed |= {"seiga_id", "member_name", "member_id"}
 
             if index == 18:
                 if data.get("creator"):
@@ -142,6 +148,8 @@ class SauceNao(Scraper):
                     print(fmt % booru.capitalize(),
                           "<%s>" % self.fmt[key] % data[key])
                     consumed |= {key}
+                    if score >= 92 and not swapped:
+                        swapped = self.swap(file, self.fmt[key] % data[key], booru)
 
             if "creator" not in consumed:
                 if data.get("creator"):
@@ -160,6 +168,11 @@ class SauceNao(Scraper):
                 pprint(data)
 
             print()
+
+        if swapped:
+            print("\033[38;5;10m" "✔ original successfully downloaded" "\033[m")
+        else:
+            print("\033[38;5;9m" "original not downloaded" "\033[m")
 
 creds = get_netrc_service("saucenao.com", "api")
 if creds:

@@ -239,16 +239,7 @@ class SankakuApi(BooruApi):
 
 ## Yande.re
 
-class YandereApi(BooruApi):
-    SITE_URL = "https://yande.re"
-    POST_URL = "https://yande.re/post/show/%s"
-    URL_RE = [
-        re.compile(r"^https://yande\.re/post/show/(?P<id>\d+)"),
-        re.compile(r"^https://files\.yande\.re/image/(?P<md5>\w+)/yande.re (?P<id>\d+) "),
-    ]
-    ID_PREFIX = "yande.re %s"
-    HASH_SUFFIX = False
-
+class MoebooruApi(BooruApi):
     def find_posts(self, tags, page=1, limit=100):
         ep = "/post.xml"
         args = {"tags": tags,
@@ -287,3 +278,25 @@ class YandereApi(BooruApi):
     def get_post_tags(self, post_id):
         info = self._scrape_post_info(post_id)
         return info["tags"]
+
+    def get_post_original(self, post_id):
+        info = self._scrape_post_info(post_id)
+
+
+class KonachanApi(MoebooruApi):
+    SITE_URL = "http://konachan.com/"
+    POST_URL = "http://konachan.com/post/show/%s"
+    URL_RE = [
+        re.compile(r"^https?://konachan\.com/post/show/(?P<id>\d+)"),
+    ]
+    ID_PREFIX = "kona%s"
+
+class YandereApi(MoebooruApi):
+    SITE_URL = "https://yande.re"
+    POST_URL = "https://yande.re/post/show/%s"
+    URL_RE = [
+        re.compile(r"^https://yande\.re/post/show/(?P<id>\d+)"),
+        re.compile(r"^https://files\.yande\.re/image/(?P<md5>\w+)/yande.re (?P<id>\d+) "),
+    ]
+    ID_PREFIX = "yande.re %s"
+    HASH_SUFFIX = False

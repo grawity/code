@@ -36,6 +36,8 @@ class BooruApi(object):
     NAME_RE = []
     URL_RE = []
 
+    HASH_SUFFIX = True
+
     def __init__(self, tag_filter=None):
         self.tag_filter = tag_filter
         self.ua = requests.Session()

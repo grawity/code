@@ -1,9 +1,22 @@
+#include <err.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define BUFSIZE 1024
+
+void swrite(int fd, const void *buf, size_t nb) {
+	ssize_t nw, off = 0;
+
+	while (nb > 0) {
+		nw = write(fd, buf + off, nb - off);
+		if (nw < 0)
+			err(1, "write failed");
+		nb -= nw;
+		off += nw;
+	}
+}
 
 int main(int argc, char *argv[]) {
 	char *key;
@@ -12,19 +25,15 @@ int main(int argc, char *argv[]) {
 	unsigned keylen;
 	unsigned i, k = 0;
 
-	if (argc != 2) {
-		fprintf(stderr, "Usage: xor <key>|0x<hex>\n");
-		return 2;
-	}
+	if (argc != 2)
+		errx(2, "usage: xor <key>|0x<hexkey>");
 
 	if (!strncmp(argv[1], "0x", 2)) {
 		char *src, *dst, *end;
 		unsigned int u;
 
-		if (strlen(argv[1]) % 2) {
-			fprintf(stderr, "error: truncated key\n");
-			return 1;
-		}
+		if (strlen(argv[1]) % 2)
+			errx(1, "key truncated");
 		src = argv[1] + 2;
 		keylen = strlen(src) / 2;
 		key = malloc(keylen);
@@ -45,7 +54,7 @@ int main(int argc, char *argv[]) {
 			k %= keylen;
 			buf[i] ^= key[k++];
 		}
-		write(1, buf, buflen);
+		swrite(1, buf, buflen);
 	}
 
 	return 0;

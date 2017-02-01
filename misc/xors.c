@@ -1,13 +1,20 @@
+#include <err.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define BUFSIZE 1024
 
-void usage(void) {
-	fprintf(stderr,
-		"Usage: xors <key> <increment>\n");
-	exit(2);
+void swrite(int fd, const void *buf, size_t nb) {
+	ssize_t nw, off = 0;
+
+	while (nb > 0) {
+		nw = write(fd, buf + off, nb - off);
+		if (nw < 0)
+			err(1, "write failed");
+		nb -= nw;
+		off += nw;
+	}
 }
 
 int main(int argc, char *argv[]) {
@@ -15,12 +22,11 @@ int main(int argc, char *argv[]) {
 	size_t buflen;
 	unsigned i, key = 0, incr = 1;
 
-	if (argc == 3) {
-		key = atoi(argv[1]);
-		incr = atoi(argv[2]);
-	} else {
-		usage();
-	}
+	if (argc != 3)
+		errx(2, "usage: xorf <file1> <file2>");
+
+	key = atoi(argv[1]);
+	incr = atoi(argv[2]);
 
 	while ((buflen = read(0, buf, BUFSIZE))) {
 		for (i = 0; i < buflen; i++) {
@@ -28,7 +34,7 @@ int main(int argc, char *argv[]) {
 			buf[i] ^= key;
 			key += incr;
 		}
-		write(1, buf, buflen);
+		swrite(1, buf, buflen);
 	}
 
 	return 0;

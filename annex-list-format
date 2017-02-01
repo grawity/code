@@ -115,6 +115,12 @@ sub fmt_remotes {
 sub LocationBitmap::new {
 	no warnings "once";
 	my ($self, $loc) = @_;
+
+	# prune hidden remotes from bitmap, to avoid mysterious 'identical'
+	# rows (when two files differ only by hidden remote)
+	substr($loc, $_, 1) = "_"
+		for grep {remote_hidden($Remote_names[$_])} 0..length($loc);
+
 	return $LocationBitmap::cache{$loc} //= bless(\$loc, $self);
 }
 

@@ -50,29 +50,40 @@ try:
     total = 2**increment
 
     if opt_short:
-        net = next(subnets)
+        subnet = next(subnets)
     else:
-        for net in subnets:
+        for subnet in subnets:
             if opt_list:
-                print(net)
+                print(subnet)
             else:
-                print(" ", net)
+                print(" ", subnet)
             count += 1
-            if count >= 2**20:
-                Core.err("stopping after %d subnets out of %d" % (count, total))
+            if count > 2**16:
+                last_net = ip_interface("%s/%s" % (net.broadcast_address,
+                                                   subnet.prefixlen)).network
+                print(" ", "... (%d more subnets)" % (total - count - 1))
+                print(" ", last_net)
                 break
 
     if not opt_list:
-        if net.version == 6 and net.prefixlen < 64:
-            msg = "%d ranges × %d subnets" % (total, 2**(64-net.prefixlen))
-        elif net.version == 6 and net.prefixlen == 64:
-            msg = "%d subnets" % total
-        elif net.prefixlen == net.max_prefixlen:
-            msg = "%d addresses" % total
-        elif increment == 0:
-            msg = "1 network × %d addresses" % (net.num_addresses,)
+        if net.version == 6 and subnet.prefixlen < 64:
+            totalnets = 2 ** (64 - subnet.prefixlen)
+            msg = "%d ranges × %d subnets" % (total, totalnets)
+        elif subnet.prefixlen == 64:
+            if total == 1:
+                msg = "1 subnet"
+            else:
+                msg = "%d subnets" % (total,)
+        elif subnet.prefixlen == subnet.max_prefixlen:
+            if total == 1:
+                msg = "1 address"
+            else:
+                msg = "%d addresses" % (total,)
         else:
-            msg = "%d subnets × %d addresses" % (total, net.num_addresses)
+            if total == 1:
+                msg = "1 subnet × %d addresses" % (subnet.num_addresses,)
+            else:
+                msg = "%d subnets × %d addresses" % (total, subnet.num_addresses)
 
         if opt_short:
             print(msg)

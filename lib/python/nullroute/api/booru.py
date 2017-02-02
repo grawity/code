@@ -3,6 +3,7 @@ from collections import defaultdict
 from functools import lru_cache
 import lxml.etree
 from nullroute.core import *
+from nullroute.scrape import urljoin
 from pprint import pprint
 import re
 import requests
@@ -35,6 +36,8 @@ class BooruApi(object):
     NAME_RE = []
     URL_RE = []
 
+    HASH_SUFFIX = True
+
     def __init__(self, tag_filter=None):
         self.tag_filter = tag_filter
         self.ua = requests.Session()
@@ -54,10 +57,20 @@ class BooruApi(object):
     def find_posts(self, tags, page=1, limit=100):
         raise NotImplementedError
 
+    def find_post_by_id(self, post_id):
+        return next(self.find_posts("id:%s" % post_id, limit=1))
+
     def find_posts_by_md5(self, md5):
         yield from self.find_posts("md5:%s" % md5)
 
+    def get_post_info(self, post_id):
+        info = self.find_post_by_id(post_id)
+        return info
+
     def get_post_tags(self, post_id):
+        raise NotImplementedError
+
+    def get_post_original(self, post_id):
         raise NotImplementedError
 
     def sort_tags(self, raw_tags):
@@ -239,15 +252,8 @@ class SankakuApi(BooruApi):
 
 ## Yande.re
 
-class YandereApi(BooruApi):
-    SITE_URL = "https://yande.re"
-    POST_URL = "https://yande.re/post/show/%s"
-    URL_RE = [
-        re.compile(r"^https://yande\.re/post/show/(?P<id>\d+)"),
-        re.compile(r"^https://files\.yande\.re/image/(?P<md5>\w+)/yande.re (?P<id>\d+) "),
-    ]
-    ID_PREFIX = "yande.re %s"
-    HASH_SUFFIX = False
+class MoebooruApi(BooruApi):
+    # official API
 
     def find_posts(self, tags, page=1, limit=100):
         ep = "/post.xml"
@@ -261,6 +267,8 @@ class YandereApi(BooruApi):
         tree = lxml.etree.XML(resp.content)
         for item in tree.xpath("/posts/post"):
             yield dict(item.attrib)
+
+    # information unavailable via API (tag types)
 
     @lru_cache(maxsize=1024)
     def _fetch_post_page(self, post_id):
@@ -287,3 +295,34 @@ class YandereApi(BooruApi):
     def get_post_tags(self, post_id):
         info = self._scrape_post_info(post_id)
         return info["tags"]
+
+    def get_post_original(self, post_id):
+        info = self.find_post_by_id(post_id)
+        return urljoin(self.SITE_URL, info["file_url"])
+
+class KonachanApi(MoebooruApi):
+    SITE_URL = "http://konachan.com/"
+    POST_URL = "http://konachan.com/post/show/%s"
+    URL_RE = [
+        re.compile(r"^https?://konachan\.com/post/show/(?P<id>\d+)"),
+        re.compile(r"^https?://konachan\.com/image/(?P<md5>\w+)/Konachan.com - (?P<id>\d+) "),
+    ]
+    ID_PREFIX = "kona%s"
+
+class YandereApi(MoebooruApi):
+    SITE_URL = "https://yande.re"
+    POST_URL = "https://yande.re/post/show/%s"
+    URL_RE = [
+        re.compile(r"^https://yande\.re/post/show/(?P<id>\d+)"),
+        re.compile(r"^https://files\.yande\.re/image/(?P<md5>\w+)/yande.re (?P<id>\d+) "),
+    ]
+    ID_PREFIX = "yande.re %s"
+    HASH_SUFFIX = False
+
+apis = {
+    "gelbooru": GelbooruApi,
+    "sankaku": SankakuApi,
+    "danbooru": DanbooruApi,
+    "yandere": YandereApi,
+    "konachan": KonachanApi,
+}

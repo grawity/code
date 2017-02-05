@@ -87,5 +87,6 @@ Log:
   * 2015-07-10: forked to hacks.git
         - the original, code.git, trimmed down to a bare minimum
         - the fork, hacks.git, merged with Code Recycle Bin
+  * 2017-02-01: cleaned up a lot of garbage
 
 vim: ts=4:sw=4:et

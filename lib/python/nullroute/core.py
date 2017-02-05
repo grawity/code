@@ -96,7 +96,7 @@ class Core(object):
             if colors:
                 output.append("\033[m")
 
-        if level >= self.LOG_DEBUG:
+        if self._log_level >= self.LOG_DEBUG:
             frame = traceback.extract_stack()[-(skip+3)]
             module = os.path.basename(frame[0])
             if module == "__init__.py":

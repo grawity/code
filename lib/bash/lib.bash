@@ -198,13 +198,13 @@ notice() {
 
 warn() {
 	lib::msg "$*" warning
-	if (( DEBUG > 1 )); then backtrace; fi
+	if (( DEBUG > 1 )); then lib::backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
 	lib::msg "$*" error
-	if (( DEBUG > 1 )); then backtrace; fi
+	if (( DEBUG > 1 )); then lib::backtrace; fi
 	! (( ++errors ))
 } >&2
 
@@ -212,13 +212,13 @@ die() {
 	local r=1
 	if [[ $1 =~ ^-?[0-9]+$ ]]; then r=${1#-}; shift; fi
 	lib::msg "$*" fatal
-	if (( DEBUG > 1 )); then backtrace; fi
+	if (( DEBUG > 1 )); then lib::backtrace; fi
 	exit $r
 } >&2
 
 croak() {
 	lib::msg "BUG: $*" fatal
-	backtrace
+	lib::backtrace
 	exit 3
 }
 
@@ -263,7 +263,7 @@ confirm() {
 	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }
 
-backtrace() {
+lib::backtrace() {
 	local -i i=${1:-1}
 	printf "%s[%s]: call stack:\n" "$progname" "$$"
 	for (( 1; i < ${#BASH_SOURCE[@]}; i++ )); do

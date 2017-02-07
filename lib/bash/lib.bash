@@ -305,7 +305,7 @@ lib::die_getopts() {
 			exit 0
 		elif [[ $OPTARG ]]; then
 			lib::msg "unknown option '-$OPTARG'" fatal
-			usage
+			usage || croak "help text not available"
 			exit 2
 		else
 			croak "incorrect options specified for getopts"

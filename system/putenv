@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+pids=()
+envs=()
+args=()
+
+while getopts ":e:p:s:" OPT; do
+	case $OPT in
+	e) envs+=("$OPTARG");;
+	p) pids+=("$OPTARG");;
+	*) lib::die_getopts;;
+	esac
+done
+
+if (( ! ${#envs[@]} )); then
+	die "no environment variables specified (use -e)"
+fi
+
+if (( ! ${#pids[@]} )); then
+	die "no processes specified (use -p)"
+fi
+
+for var in "${envs[@]}"; do
+	if [[ $var != *=* ]]; then
+		var="$var=${!var}"
+	fi
+	var=$(urlencode -x "$var")
+	args+=(-ex "p putenv(\"$var\")")
+done
+
+for pid in "${pids[@]}"; do
+	info "hacking process $pid"
+	do: gdb --batch "${args[@]}" -ex detach -p "$pid" \
+		|| err "updating process $pid failed"
+done
+
+lib::exit

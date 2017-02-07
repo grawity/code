@@ -209,10 +209,8 @@ err() {
 } >&2
 
 die() {
-	case $1 in
-	    -[0-9]) local r=${1#-}; shift;;
-	    *)      local r=1;;
-	esac
+	local r=1
+	if [[ $1 =~ ^-?[0-9]+$ ]]; then r=${1#-}; shift; fi
 	lib::msg "$*" fatal
 	if (( DEBUG > 1 )); then backtrace; fi
 	exit $r

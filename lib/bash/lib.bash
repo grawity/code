@@ -217,9 +217,9 @@ die() {
 } >&2
 
 croak() {
-	lib::msg "bug: $*" fatal
+	lib::msg "BUG: $*" fatal
 	backtrace
-	exit 1
+	exit 3
 }
 
 ## Other stuff
@@ -301,19 +301,19 @@ lib::die_getopts() {
 	    "?")
 		if [[ $OPTARG == "?" ]] ||
 		   [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
-			usage || die "BUG: help text not available"
+			usage || croak "help text not available"
 			exit 0
 		elif [[ $OPTARG ]]; then
-			(die "unknown option '-$OPTARG'" || true)
+			(die 2 "unknown option '-$OPTARG'" || true)
 			usage
 			exit 2
 		else
-			die "BUG: incorrect options specified for getopts"
+			croak "incorrect options specified for getopts"
 		fi;;
 	    ":")
-		die -2 "missing argument to '-$OPTARG'";;
+		die 2 "missing argument to '-$OPTARG'";;
 	    *)
-		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
+		croak "unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
 }
 

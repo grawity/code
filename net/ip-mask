@@ -160,24 +160,24 @@ def addr2props(addr):
         if addr in ip_network("224.0.0.0/4"):
             kind = "multicast"
 
-        group_name = IPV4_MCAST_GROUPS.get(str(addr))
-        if group_name:
-            misc.append(("usage", group_name))
+            group_name = IPV4_MCAST_GROUPS.get(str(addr))
+            if group_name:
+                misc.append(("usage", group_name))
 
-        _ = ipv4_mcast_describe(addr)
-        if _:
-            range, scope, desc = _
-            misc.append(("scope", scope))
-            misc.append(("range", "%s - %s" % (range, desc)))
+            _ = ipv4_mcast_describe(addr)
+            if _:
+                range, scope, desc = _
+                misc.append(("scope", scope))
+                misc.append(("range", "%s - %s" % (range, desc)))
 
-        if addr in ip_network("233.0.0.0/8"):
-            as_num = (addr.packed[1] << 8) | addr.packed[2]
-            misc.append(("seed", "AS %d" % as_num))
-        elif addr in ip_network("234.0.0.0/8"):
-            unicast = ip_address( (addr.packed[1] << 24) \
-                                | (addr.packed[2] << 16) \
-                                | (addr.packed[3] <<  8) )
-            misc.append(("seed", unicast))
+            if addr in ip_network("233.0.0.0/8"):
+                as_num = (addr.packed[1] << 8) | addr.packed[2]
+                misc.append(("seed", "AS %d" % as_num))
+            elif addr in ip_network("234.0.0.0/8"):
+                unicast = ip_address( (addr.packed[1] << 24) \
+                                    | (addr.packed[2] << 16) \
+                                    | (addr.packed[3] <<  8) )
+                misc.append(("seed", unicast))
 
     return kind, misc
 

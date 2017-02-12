@@ -157,7 +157,9 @@ def addr2props(addr):
             if ipv6_is_isatap(addr):
                 misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
     elif addr.version == 4:
-        if addr in ip_network("224.0.0.0/4"):
+        if addr in ip_network("255.255.255.255/32"):
+            kind = "broadcast"
+        elif addr.is_multicast:
             kind = "multicast"
 
             group_name = IPV4_MCAST_GROUPS.get(str(addr))
@@ -178,6 +180,32 @@ def addr2props(addr):
                                     | (addr.packed[2] << 16) \
                                     | (addr.packed[3] <<  8) )
                 misc.append(("seed", unicast))
+        elif addr.is_link_local:
+            kind = "link-local"
+        elif addr.is_reserved:
+            if addr in ip_network("240.0.0.0/4"):
+                kind = "reserved (class-E)"
+            else:
+                kind = "reserved (unknown type)"
+        elif addr in ip_network("100.64.0.0/10"):
+            kind = "shared (RFC 6598)"
+        elif addr.is_private:
+            if addr in ip_network("127.0.0.0/8"):
+                kind = "loopback"
+            elif addr in ip_network("10.0.0.0/8") or \
+                 addr in ip_network("172.16.0.0/12") or \
+                 addr in ip_network("192.168.0.0/16"):
+                kind = "private (RFC 1918)"
+            elif addr in ip_network("192.0.2.0/24") or \
+                 addr in ip_network("198.51.100.0/24") or \
+                 addr in ip_network("203.0.113.0/24"):
+                kind = "reserved (documentation)"
+            else:
+                kind = "private (unknown type)"
+        elif addr.is_global:
+            kind = "global"
+        else:
+            kind = "unknown"
 
     return kind, misc
 

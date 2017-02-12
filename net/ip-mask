@@ -91,6 +91,11 @@ def ipv6_is_eui48(addr):
         return False
     return (addr.packed[11:13] == b'\xff\xfe')
 
+def ipv6_get_eui48(addr):
+    mac = list(addr.packed[8:11] + addr.packed[13:])
+    mac[0] ^= 2
+    return ":".join(["%02x" % n for n in mac])
+
 def addr2props(addr):
     kind = "unknown"
     misc = []
@@ -139,12 +144,9 @@ def addr2props(addr):
         else:
             kind = "global"
             if ipv6_is_eui48(addr):
-                mac = addr.packed[8:11] + addr.packed[13:]
-                mac = list(mac)
-                mac[0] ^= 2
-                mac = ["%02x" % n for n in mac]
+                mac = ipv6_get_eui48(addr)
                 kind += " (SLAAC)"
-                misc.append(("MAC address", ":".join(mac)))
+                misc.append(("MAC address", mac))
             if ipv6_is_isatap(addr):
                 misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
     elif addr.version == 4:

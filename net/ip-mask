@@ -100,6 +100,12 @@ def addr2props(addr):
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
             misc.append(("v4 address", addr.ipv4_mapped))
+        elif addr in IPv6Network("::/96"):
+            kind = "IPv4-compatible"
+            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
+        elif addr in IPv6Network("64:ff9b::/96"):
+            kind = "NAT64"
+            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
         elif addr.is_link_local:
             kind = "link-local"
         elif addr.is_site_local:
@@ -115,12 +121,6 @@ def addr2props(addr):
                 misc.append(("usage", group_name))
         elif addr in IPv6Network("fc00::/7"):
             kind = "unique local address"
-        elif addr in IPv6Network("::/96"):
-            kind = "IPv4-compatible"
-            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
-        elif addr in IPv6Network("64:ff9b::/96"):
-            kind = "NAT64"
-            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
         elif addr.is_reserved:
             kind = "reserved"
         else:

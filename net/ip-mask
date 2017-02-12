@@ -144,8 +144,17 @@ def addr2props(addr):
                 misc.append(("usage", group_name))
         elif addr in IPv6Network("fc00::/7"):
             kind = "unique local address"
+        elif addr in IPv6Network("2001:10::/28"):
+            kind = "global (or deprecated ORCHIDv1)"
+        elif addr in IPv6Network("2001:20::/28"):
+            kind = "ORCHIDv2"
+        elif addr in IPv6Network("2001:db8::/32"):
+            kind = "reserved (documentation)"
         elif addr.is_reserved:
-            kind = "reserved"
+            if addr in IPv6Network("100::/64"):
+                kind = "reserved (discard)"
+            else:
+                kind = "reserved"
         else:
             kind = "global"
             autoconf = True

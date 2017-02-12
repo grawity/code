@@ -86,6 +86,11 @@ def ipv6_is_isatap(addr):
         return False
     return (addr.packed[8:12] in {b'\x00\x00\x5e\xfe', b'\x02\x00\x5e\xfe'})
 
+def ipv6_is_eui48(addr):
+    if addr.version != 6:
+        return False
+    return (addr.packed[11:13] == b'\xff\xfe')
+
 def addr2props(addr):
     kind = "unknown"
     misc = []
@@ -133,7 +138,7 @@ def addr2props(addr):
             kind = "reserved"
         else:
             kind = "global"
-            if addr.packed[11:13] == b'\xff\xfe':
+            if ipv6_is_eui48(addr):
                 mac = addr.packed[8:11] + addr.packed[13:]
                 mac = list(mac)
                 mac[0] ^= 2

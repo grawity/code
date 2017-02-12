@@ -96,6 +96,11 @@ def ipv6_get_eui48(addr):
     mac[0] ^= 2
     return ":".join(["%02x" % n for n in mac])
 
+def ipv6_get_v4mapped(addr, at=12):
+    if addr.version == 4:
+        return addr
+    return IPv4Address(addr.packed[at:at+4])
+
 def addr2props(addr):
     kind = "unknown"
     misc = []
@@ -112,20 +117,20 @@ def addr2props(addr):
             kind = "global (6to4)"
             misc.append(("v4 address", addr.sixtofour))
             if ipv6_is_isatap(addr):
-                misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
+                misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
             misc.append(("v4 address", addr.ipv4_mapped))
         elif addr in IPv6Network("::/96"):
             kind = "IPv4-compatible"
-            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
+            misc.append(("v4 address", ipv6_get_v4mapped(addr)))
         elif addr in IPv6Network("64:ff9b::/96"):
             kind = "NAT64"
-            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
+            misc.append(("v4 address", ipv6_get_v4mapped(addr)))
         elif addr.is_link_local:
             kind = "link-local"
             if ipv6_is_isatap(addr):
-                misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
+                misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
         elif addr.is_site_local:
             kind = "site-local"
         elif addr.is_multicast:
@@ -145,10 +150,9 @@ def addr2props(addr):
             kind = "global"
             if ipv6_is_eui48(addr):
                 mac = ipv6_get_eui48(addr)
-                kind += " (SLAAC)"
                 misc.append(("MAC address", mac))
             if ipv6_is_isatap(addr):
-                misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
+                misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
     elif addr.version == 4:
         if addr in ip_network("224.0.0.0/4"):
             kind = "multicast"

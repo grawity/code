@@ -97,6 +97,8 @@ def addr2props(addr):
         elif addr.sixtofour:
             kind = "global (6to4)"
             misc.append(("v4 address", addr.sixtofour))
+            if addr.packed[8:12] in {b'\x00\x00\x5e\xfe', b'\x02\x00\x5e\xfe'}:
+                misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
             misc.append(("v4 address", addr.ipv4_mapped))
@@ -108,6 +110,8 @@ def addr2props(addr):
             misc.append(("v4 address", IPv4Address(addr.packed[12:])))
         elif addr.is_link_local:
             kind = "link-local"
+            if addr.packed[8:12] in {b'\x00\x00\x5e\xfe', b'\x02\x00\x5e\xfe'}:
+                misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
         elif addr.is_site_local:
             kind = "site-local"
         elif addr.is_multicast:
@@ -132,6 +136,8 @@ def addr2props(addr):
                 mac = ["%02x" % n for n in mac]
                 kind += " (SLAAC)"
                 misc.append(("MAC address", ":".join(mac)))
+            if addr.packed[8:12] in {b'\x00\x00\x5e\xfe', b'\x02\x00\x5e\xfe'}:
+                misc.append(("ISATAP v4", IPv4Address(addr.packed[12:])))
     elif addr.version == 4:
         if addr in ip_network("224.0.0.0/4"):
             kind = "multicast"

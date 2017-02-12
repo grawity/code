@@ -105,6 +105,7 @@ def addr2props(addr):
     kind = "unknown"
     misc = []
     if addr.version == 6:
+        autoconf = False
         if addr.is_loopback:
             kind = "loopback"
         elif addr.is_unspecified:
@@ -115,9 +116,8 @@ def addr2props(addr):
             misc.append(("client v4", addr.teredo[1]))
         elif addr.sixtofour:
             kind = "global (6to4)"
+            autoconf = True
             misc.append(("client v4", addr.sixtofour))
-            if ipv6_is_isatap(addr):
-                misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
             misc.append(("v4 address", addr.ipv4_mapped))
@@ -129,10 +129,10 @@ def addr2props(addr):
             misc.append(("v4 address", ipv6_get_v4mapped(addr)))
         elif addr.is_link_local:
             kind = "link-local"
-            if ipv6_is_isatap(addr):
-                misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
+            autoconf = True
         elif addr.is_site_local:
             kind = "site-local"
+            autoconf = True
         elif addr.is_multicast:
             kind = "multicast"
             flags = (addr.packed[1] >> 4) & 0xF
@@ -148,6 +148,9 @@ def addr2props(addr):
             kind = "reserved"
         else:
             kind = "global"
+            autoconf = True
+
+        if autoconf:
             if ipv6_is_eui48(addr):
                 mac = ipv6_get_eui48(addr)
                 misc.append(("MAC address", mac))

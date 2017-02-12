@@ -183,36 +183,39 @@ def show_net(net):
     next_net = ip_network("%s/%s" % (net.broadcast_address + 1, net.prefixlen))
     nprint("next net", next_net)
 
-try:
-    arg = sys.argv[1]
-    if arg.startswith("/"):
-        plen = int(arg[1:])
-        if plen < 0:
-            Core.die("prefix length must be positive")
-        elif plen > 128:
-            Core.die("prefix length too large for any family")
-
-        nprint("prefix", "/%d" % plen)
-        if plen <= 32:
-            net = ip_network("0.0.0.0/%d" % plen)
-            nprint("v4 netmask", net.netmask, "(%d addresses)" % net.num_addresses)
-        net = ip_network("::/%d" % plen)
-        nprint("v6 netmask", net.netmask.exploded)
-    elif "/" in arg:
-        addr = ip_interface(arg)
-        show_addr(addr)
+i = -1
+for i, arg in enumerate(sys.argv[1:]):
+    if i > 0:
         print()
-        show_net(addr.network)
-    else:
-        addr = ip_address(arg)
-        if addr.version == 4 and addr._is_valid_netmask(arg):
-            net = ip_network("0.0.0.0/%s" % arg)
-            nprint("netmask", net.netmask)
-            nprint("prefix", "/%d" % net.prefixlen)
-            nprint("size", net.num_addresses)
-        else:
+    try:
+        if arg.startswith("/"):
+            plen = int(arg[1:])
+            if plen < 0:
+                Core.die("prefix length must be positive")
+            elif plen > 128:
+                Core.die("prefix length too large for any family")
+
+            nprint("prefix", "/%d" % plen)
+            if plen <= 32:
+                net = ip_network("0.0.0.0/%d" % plen)
+                nprint("v4 netmask", net.netmask, "(%d addresses)" % net.num_addresses)
+            net = ip_network("::/%d" % plen)
+            nprint("v6 netmask", net.netmask.exploded)
+        elif "/" in arg:
+            addr = ip_interface(arg)
             show_addr(addr)
-except IndexError:
+            print()
+            show_net(addr.network)
+        else:
+            addr = ip_address(arg)
+            if addr.version == 4 and addr._is_valid_netmask(arg):
+                net = ip_network("0.0.0.0/%s" % arg)
+                nprint("netmask", net.netmask)
+                nprint("prefix", "/%d" % net.prefixlen)
+                nprint("size", net.num_addresses)
+            else:
+                show_addr(addr)
+    except ValueError as e:
+        Core.die(str(e))
+if i < 0:
     Core.die("not enough arguments")
-except ValueError as e:
-    Core.die(str(e))

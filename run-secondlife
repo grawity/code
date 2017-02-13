@@ -42,6 +42,13 @@ sub find_login {
 	}
 }
 
+sub prepare_env {
+	_debug("fixing LIBGL_DRIVERS_PATH");
+	$ENV{LIBGL_DRIVERS_PATH} //= join(":",
+					  "/usr/lib64/xorg/modules/dri",
+					  "/usr/lib32/xorg/modules/dri");
+}
+
 $::bus = Net::DBus->session;
 
 my @default_args = ("--novoice");
@@ -107,6 +114,7 @@ if (defined $url) {
 	}
 }
 
+prepare_env();
 if ($::debug) {
 	_debug("starting '$exe'");
 	_debug(" - with arg '$_'") for @default_args, @args;

@@ -81,29 +81,58 @@ def ipv4_mcast_describe(addr):
         if addr in ip_network(mask):
             return mask, scope, desc
 
+def ipv6_is_isatap(addr):
+    if addr.version != 6:
+        return False
+    return (addr.packed[8:12] in {b'\x00\x00\x5e\xfe', b'\x02\x00\x5e\xfe'})
+
+def ipv6_is_eui48(addr):
+    if addr.version != 6:
+        return False
+    return (addr.packed[11:13] == b'\xff\xfe')
+
+def ipv6_get_eui48(addr):
+    mac = list(addr.packed[8:11] + addr.packed[13:])
+    mac[0] ^= 2
+    return ":".join(["%02x" % n for n in mac])
+
+def ipv6_get_v4mapped(addr, at=12):
+    if addr.version == 4:
+        return addr
+    return IPv4Address(addr.packed[at:at+4])
+
 def addr2props(addr):
     kind = "unknown"
     misc = []
     if addr.version == 6:
+        autoconf = False
         if addr.is_loopback:
             kind = "loopback"
         elif addr.is_unspecified:
             kind = "unspecified"
         elif addr.teredo:
             kind = "global (Teredo)"
-            relay, v4addr = addr.teredo
             misc.append(("relay host", addr.teredo[0]))
-            misc.append(("v4 address", addr.teredo[1]))
+            misc.append(("client v4", addr.teredo[1]))
         elif addr.sixtofour:
             kind = "global (6to4)"
-            misc.append(("v4 address", addr.sixtofour))
+            autoconf = True
+            misc.append(("client v4", addr.sixtofour))
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
             misc.append(("v4 address", addr.ipv4_mapped))
+        elif addr in IPv6Network("::/96"):
+            kind = "IPv4-compatible"
+            misc.append(("v4 address", ipv6_get_v4mapped(addr)))
+        elif addr in IPv6Network("64:ff9b::/96"):
+            kind = "NAT64"
+            misc.append(("v4 address", ipv6_get_v4mapped(addr)))
         elif addr.is_link_local:
             kind = "link-local"
+            autoconf = True
         elif addr.is_site_local:
             kind = "site-local"
+            autoconf = True
         elif addr.is_multicast:
             kind = "multicast"
             flags = (addr.packed[1] >> 4) & 0xF
@@ -115,42 +144,79 @@ def addr2props(addr):
                 misc.append(("usage", group_name))
         elif addr in IPv6Network("fc00::/7"):
             kind = "unique local address"
-        elif addr in IPv6Network("::/96"):
-            kind = "IPv4-compatible"
-            misc.append(("v4 address", IPv4Address(addr.packed[12:])))
+        elif addr in IPv6Network("2001:10::/28"):
+            kind = "global (or deprecated ORCHIDv1)"
+        elif addr in IPv6Network("2001:20::/28"):
+            kind = "ORCHIDv2"
+        elif addr in IPv6Network("2001:db8::/32"):
+            kind = "reserved (documentation)"
         elif addr.is_reserved:
-            kind = "reserved"
+            if addr in IPv6Network("100::/64"):
+                kind = "reserved (discard)"
+            else:
+                kind = "reserved"
         else:
             kind = "global"
-            if addr.packed[11:13] == b'\xff\xfe':
-                mac = addr.packed[8:11] + addr.packed[13:]
-                mac = list(mac)
-                mac[0] ^= 2
-                mac = ["%02x" % n for n in mac]
-                kind += " (SLAAC)"
-                misc.append(("MAC address", ":".join(mac)))
+            autoconf = True
+
+        if autoconf:
+            if ipv6_is_eui48(addr):
+                mac = ipv6_get_eui48(addr)
+                misc.append(("MAC address", mac))
+            if ipv6_is_isatap(addr):
+                misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
     elif addr.version == 4:
-        if addr in ip_network("224.0.0.0/4"):
+        if addr.is_loopback:
+            kind = "loopback"
+        elif addr.is_unspecified:
+            kind = "unspecified"
+        elif addr in ip_network("255.255.255.255/32"):
+            kind = "broadcast"
+        elif addr.is_multicast:
             kind = "multicast"
 
-        group_name = IPV4_MCAST_GROUPS.get(str(addr))
-        if group_name:
-            misc.append(("usage", group_name))
+            group_name = IPV4_MCAST_GROUPS.get(str(addr))
+            if group_name:
+                misc.append(("usage", group_name))
 
-        _ = ipv4_mcast_describe(addr)
-        if _:
-            range, scope, desc = _
-            misc.append(("scope", scope))
-            misc.append(("range", "%s - %s" % (range, desc)))
+            _ = ipv4_mcast_describe(addr)
+            if _:
+                range, scope, desc = _
+                misc.append(("scope", scope))
+                misc.append(("range", "%s - %s" % (range, desc)))
 
-        if addr in ip_network("233.0.0.0/8"):
-            as_num = (addr.packed[1] << 8) | addr.packed[2]
-            misc.append(("seed", "AS %d" % as_num))
-        elif addr in ip_network("234.0.0.0/8"):
-            unicast = ip_address( (addr.packed[1] << 24) \
-                                | (addr.packed[2] << 16) \
-                                | (addr.packed[3] <<  8) )
-            misc.append(("seed", unicast))
+            if addr in ip_network("233.0.0.0/8"):
+                as_num = (addr.packed[1] << 8) | addr.packed[2]
+                misc.append(("seed", "AS %d" % as_num))
+            elif addr in ip_network("234.0.0.0/8"):
+                unicast = ip_address( (addr.packed[1] << 24) \
+                                    | (addr.packed[2] << 16) \
+                                    | (addr.packed[3] <<  8) )
+                misc.append(("seed", unicast))
+        elif addr.is_link_local:
+            kind = "link-local"
+        elif addr.is_reserved:
+            if addr in ip_network("240.0.0.0/4"):
+                kind = "reserved (class-E)"
+            else:
+                kind = "reserved (unknown type)"
+        elif addr in ip_network("100.64.0.0/10"):
+            kind = "shared (RFC 6598)"
+        elif addr.is_private:
+            if   addr in ip_network("10.0.0.0/8") or \
+                 addr in ip_network("172.16.0.0/12") or \
+                 addr in ip_network("192.168.0.0/16"):
+                kind = "private (RFC 1918)"
+            elif addr in ip_network("192.0.2.0/24") or \
+                 addr in ip_network("198.51.100.0/24") or \
+                 addr in ip_network("203.0.113.0/24"):
+                kind = "reserved (documentation)"
+            else:
+                kind = "private (unknown type)"
+        elif addr.is_global:
+            kind = "global"
+        else:
+            kind = "unknown"
 
     return kind, misc
 
@@ -165,45 +231,47 @@ def show_addr(addr):
 
 def show_net(net):
     nprint("network", net)
-    if addr.version == 4:
+    if net.version == 4:
         nprint("netmask", net.netmask, "(%d addresses)" % net.num_addresses)
-    else:
-        nprint("netmask", net.netmask.exploded)
-    nprint("first addr", net.network_address.exploded)
-    nprint("last addr", net.broadcast_address.exploded)
+    if net.prefixlen < net.max_prefixlen:
+        nprint("first addr", net.network_address.exploded)
+        nprint("last addr", net.broadcast_address.exploded)
     next_net = ip_network("%s/%s" % (net.broadcast_address + 1, net.prefixlen))
     nprint("next net", next_net)
 
-try:
-    arg = sys.argv[1]
-    if arg.startswith("/"):
-        plen = int(arg[1:])
-        if plen < 0:
-            Core.die("prefix length must be positive")
-        elif plen > 128:
-            Core.die("prefix length too large for any family")
-
-        nprint("prefix", "/%d" % plen)
-        if plen <= 32:
-            net = ip_network("0.0.0.0/%d" % plen)
-            nprint("v4 netmask", net.netmask, "(%d addresses)" % net.num_addresses)
-        net = ip_network("::/%d" % plen)
-        nprint("v6 netmask", net.netmask.exploded)
-    elif "/" in arg:
-        addr = ip_interface(arg)
-        show_addr(addr)
+i = -1
+for i, arg in enumerate(sys.argv[1:]):
+    if i > 0:
         print()
-        show_net(addr.network)
-    else:
-        addr = ip_address(arg)
-        if addr.version == 4 and addr._is_valid_netmask(arg):
-            net = ip_network("0.0.0.0/%s" % arg)
-            nprint("netmask", net.netmask)
-            nprint("prefix", "/%d" % net.prefixlen)
-            nprint("size", net.num_addresses)
-        else:
+    try:
+        if arg.startswith("/"):
+            plen = int(arg[1:])
+            if plen < 0:
+                Core.die("prefix length must be positive")
+            elif plen > 128:
+                Core.die("prefix length too large for any family")
+
+            nprint("prefix", "/%d" % plen)
+            if plen <= 32:
+                net = ip_network("0.0.0.0/%d" % plen)
+                nprint("v4 netmask", net.netmask, "(%d addresses)" % net.num_addresses)
+            net = ip_network("::/%d" % plen)
+            nprint("v6 netmask", net.netmask.exploded)
+        elif "/" in arg:
+            addr = ip_interface(arg)
             show_addr(addr)
-except IndexError:
+            print()
+            show_net(addr.network)
+        else:
+            addr = ip_address(arg)
+            if addr.version == 4 and addr._is_valid_netmask(arg):
+                net = ip_network("0.0.0.0/%s" % arg)
+                nprint("netmask", net.netmask)
+                nprint("prefix", "/%d" % net.prefixlen)
+                nprint("size", net.num_addresses)
+            else:
+                show_addr(addr)
+    except ValueError as e:
+        Core.die(str(e))
+if i < 0:
     Core.die("not enough arguments")
-except ValueError as e:
-    Core.die(str(e))

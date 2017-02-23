@@ -4,6 +4,9 @@ import xmlrpc.client
 class NullPointerException(Exception):
     pass
 
+class NoSuchDomainException(Exception):
+    pass
+
 # IceWarpProxy {{{
 class IceWarpProxy(object):
     _types_ = {
@@ -73,6 +76,8 @@ class IceWarpAPI(object):
         acct = "%s@%s" % (domain, alias)
         if acct not in self._accounts:
             domain_object = self.OpenDomain(domain)
+            if not domain_object:
+                raise NoSuchDomainException(domain)
             self._accounts[acct] = domain_object.OpenAccount(alias)
         return self._accounts[acct]
 # }}}

@@ -253,6 +253,7 @@ while [[ $1 ]]; do
 		servers)
 			homes=()
 			roots=()
+			etcs=()
 
 			for host in "${hosts[@]}"; do
 				debug "parsing host: '$host'"
@@ -262,6 +263,9 @@ while [[ $1 ]]; do
 				if [[ $host == *'!' ]]; then
 					host=${host%!}
 					roots+=($host)
+				elif [[ $host == *'&' ]]; then
+					host=${host%'&'}
+					etcs+=($host)
 				fi
 				homes+=($host)
 			done
@@ -269,6 +273,9 @@ while [[ $1 ]]; do
 			debug "running jobs"
 			for host in ${homes[@]}; do
 				do_job @$host
+			done
+			for host in ${etcs[@]}; do
+				do_job etc@$host
 			done
 			for host in ${roots[@]}; do
 				do_job root@$host
@@ -283,6 +290,11 @@ while [[ $1 ]]; do
 			do_rsync root@$host:/ ~/Backup/Servers/$host/			\
 				-f "merge $conf/rsync-filters/server_creds_all"		\
 				-x -P --fake-super --prune-empty-dirs
+			;;
+		etc@*)
+			host=${job#*@}
+			do_rsync root@$host:/etc/ ~/Backup/Roots/$host.etc/		\
+				-F -x -P --fake-super					;
 			;;
 		root@*)
 			host=${job#*@}

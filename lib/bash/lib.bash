@@ -198,30 +198,28 @@ notice() {
 
 warn() {
 	lib::msg "$*" warning
-	if (( DEBUG > 1 )); then backtrace; fi
+	if (( DEBUG > 1 )); then lib::backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
 	lib::msg "$*" error
-	if (( DEBUG > 1 )); then backtrace; fi
+	if (( DEBUG > 1 )); then lib::backtrace; fi
 	! (( ++errors ))
 } >&2
 
 die() {
-	case $1 in
-	    -[0-9]) local r=${1#-}; shift;;
-	    *)      local r=1;;
-	esac
+	local r=1
+	if [[ $1 =~ ^-?[0-9]+$ ]]; then r=${1#-}; shift; fi
 	lib::msg "$*" fatal
-	if (( DEBUG > 1 )); then backtrace; fi
+	if (( DEBUG > 1 )); then lib::backtrace; fi
 	exit $r
 } >&2
 
 croak() {
-	lib::msg "bug: $*" fatal
-	backtrace
-	exit 1
+	lib::msg "BUG: $*" fatal
+	lib::backtrace
+	exit 3
 }
 
 ## Other stuff
@@ -265,7 +263,7 @@ confirm() {
 	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }
 
-backtrace() {
+lib::backtrace() {
 	local -i i=${1:-1}
 	printf "%s[%s]: call stack:\n" "$progname" "$$"
 	for (( 1; i < ${#BASH_SOURCE[@]}; i++ )); do
@@ -303,19 +301,19 @@ lib::die_getopts() {
 	    "?")
 		if [[ $OPTARG == "?" ]] ||
 		   [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
-			usage || die "BUG: help text not available"
+			usage || croak "help text not available"
 			exit 0
 		elif [[ $OPTARG ]]; then
-			(die "unknown option '-$OPTARG'" || true)
-			usage
+			lib::msg "unknown option '-$OPTARG'" fatal
+			usage || true
 			exit 2
 		else
-			die "BUG: incorrect options specified for getopts"
+			croak "incorrect options specified for getopts"
 		fi;;
 	    ":")
-		die -2 "missing argument to '-$OPTARG'";;
+		die 2 "missing argument to '-$OPTARG'";;
 	    *)
-		die "BUG: unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
+		croak "unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
 }
 

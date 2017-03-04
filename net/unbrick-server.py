@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-from __future__ import print_function
 import sys
 
 """
 usage: python3 unbrick-server.py libc.so libwhatever.so | nc -vvlp 1111
 """
 
+bad = [ord(c) for c in "'% \\\t\n"]
 for fn in sys.argv[1:]:
 	fh = open(fn, "rb")
-	bad = [ord(c) for c in "'% \\\t\n"]
 	print(fn)
 	while True:
 		buf = fh.read(1024)

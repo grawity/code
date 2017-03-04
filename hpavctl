@@ -120,6 +120,16 @@ elif [[ $(< /sys/class/net/$dev/operstate) != up ]]; then
 fi
 opts+=(-i "$dev")
 
+_grep_hwdb() {
+	systemd-hwdb query "$1" | sed -n "s/^$2=//p"
+}
+
+_get_vendor() {
+	local mac=$1 vendor
+	vendor=$(_grep_hwdb "OUI:${mac//:/}" ID_OUI_FROM_DATABASE)
+	echo "($vendor)"
+}
+
 cmd=$1
 case $cmd in
 	devices|dev)
@@ -130,8 +140,32 @@ case $cmd in
 	network|net|peers)
 		mac=${2:-local}; _check_mac! mac
 		info "querying network information at '$mac'"
-		if (( verbose >= 1 )); then
+		if (( verbose >= 2 )); then
 			call plctool -m $mac
+		elif (( verbose >= 1 )); then
+			call int6kstat -m $mac |
+			while read -r head tail; do
+				set -- $tail
+				declare -A kv=()
+				case $head in
+				NID)
+					set -- NID "$@"
+					while (( $# )); do kv[$1]=$2; shift; shift; done
+					echo "Network ID: ${kv[NID]} (short: ${kv[SNID]})"
+					;;
+				CCO)
+					echo "Central Coordinator Station:" ;;&
+				STA)
+					echo "Station:" ;;&
+				CCO|STA)
+					while (( $# )); do kv[$1]=$2; shift; shift; done
+					[[ ${kv[MAC]} ]] && echo "   MAC address: ${kv[MAC]} $(_get_vendor ${kv[MAC]})"
+					[[ ${kv[BDA]} ]] && echo "   Bridged to:  ${kv[BDA]} $(_get_vendor ${kv[BDA]})"
+					[[ ${kv[TX]} ]]  && echo "   TX speed:    ${kv[TX]} Mbps"
+					[[ ${kv[RX]} ]]  && echo "   RX speed:    ${kv[RX]} Mbps"
+					;;
+				esac
+			done
 		elif [[ $mac == broadcast ]]; then
 			call plctool -q -r $mac |
 			while read -r _dev _mac _; do

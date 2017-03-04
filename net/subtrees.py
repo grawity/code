@@ -45,7 +45,7 @@ def list_gateways():
                 if k in {"from", "via", "dev"}:
                     kvs[k] = v
             if "from" not in kvs:
-                yield (kvs["dev"], kvs["via"])
+                yield (kvs["dev"], kvs.get("via"))
 
 ula_root = ipaddress.IPv6Network("fc00::/7")
 
@@ -59,10 +59,15 @@ for iface, net in list_subnets():
     if not net.is_global:
         print("- prefix is not global; skipping")
         continue
-    gw = gateways.get(iface)
-    if not gw:
+    if iface not in gateways:
         print("- no gateway for this interface; skipping")
         continue
-    print("+", iface, "from", net, "via", gw)
+    gw = gateways[iface]
+    if gw:
+        print("+", iface, "from", net, "via", gw)
+        args = ["via", gw, "dev", iface]
+    else:
+        print("+", iface, "from", net, "onlink")
+        args = ["dev", iface]
     subprocess.run(["sudo", "ip", "-6", "route", "replace",
-                    "::/0", "from", str(net), "via", gw, "dev", iface])
+                    "::/0", "from", str(net), *args])

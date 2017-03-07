@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+url_size() {
+	local url=$1
+	size=$(curl -fsS --head "$url" |
+		tr A-Z a-z |
+		awk -F: '/^content-length:/ {print $2}' |
+		tr -dc 0-9)
+	echo $size
+}
+
+
+url=$1
+hash=$2
+
+if [[ $url == */ || $url == *[?#]* ]]; then
+	die "URL does not point to a file"
+fi
+
+name=$(basename "$url")
+size=$(url_size "$url")
+ext=
+if [[ $name == *.* ]]; then
+	ext=.${name##*.}
+fi
+link="SHA256E-s${size}--${hash}${ext}"
+
+ln -nsf ".git/annex/objects/$link" "$name"
+git annex add "$name"
+git annex info "$name"

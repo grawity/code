@@ -77,7 +77,7 @@ class PixivGrabber(object):
                 log.write("%s\n" % work.caption.replace("\r\n", "\n"))
                 log.write("\n")
 
-    def _save_work(self, work):
+    def _save_work(self, work, only_pages=None):
         if (work.is_manga or work.type == "ugoira") and not work.metadata:
             Core.info("- refreshing metadata for work %s" % work.id)
             work = self.get_work_info(work.id)
@@ -97,6 +97,9 @@ class PixivGrabber(object):
                 fh.write(str(delays))
         elif work.is_manga:
             for j, page in enumerate(work.metadata.pages):
+                if only_pages and j+1 not in only_pages:
+                    Core.debug("- skipping page %s, not in whitelist" % (j+1))
+                    continue
                 Core.info("- saving page %s of %s" % (j+1, work.page_count))
                 self.save_file(page.image_urls["large"], attrs)
         else:
@@ -105,15 +108,12 @@ class PixivGrabber(object):
         if self.write_log:
             self._append_to_log(work)
 
-    def save_one_work(self, illust_id):
+    def save_one_work(self, illust_id, **kwargs):
         work = self.get_work_info(illust_id)
-        if is_nonempty("%s_p0.png" % work.id):
-            return
         Core.info("downloading work: %s ｢%s｣" % (work.id, work.title))
-        self._save_work(work)
+        self._save_work(work, **kwargs)
 
     def save_all_member_works(self, member_id, start_page=1):
-        log = open("pixiv%s.txt" % member_id, "a")
         Core.info("getting works of user %s" % member_id)
         while start_page:
             works_r = self._check(self.api.users_works(member_id, page=start_page))
@@ -126,8 +126,6 @@ class PixivGrabber(object):
             for i, work in enumerate(works_r.response):
                 i_offset = (works_r.pagination.current - 1) * works_r.pagination.per_page
                 i_global = (i + 1) + i_offset
-                if is_nonempty("%s_p0.png" % work.id):
-                    continue
                 Core.info("downloading work %s of %s: %s ｢%s｣" % (
                             i_global,
                             works_r.pagination.total,

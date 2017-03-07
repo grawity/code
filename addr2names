@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+verbose=0
+
+while getopts ":v" OPT; do
+	case $OPT in
+	v) verbose=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+for addr; do
+	{
+	name=$(addr2name "$addr")
+	if [[ ! "$name" || "$name" == "$addr" ]]; then
+		if (( verbose )); then
+			name="-"
+		else
+			continue
+		fi
+	fi
+	echo "$addr $name"
+	} &
+done | natsort

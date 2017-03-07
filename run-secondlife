@@ -4,12 +4,25 @@ use warnings;
 use strict;
 use Net::DBus;
 use Net::Netrc;
+use Nullroute::Dir qw(find_first_file);
 use Nullroute::Lib qw(_debug _info _warn _die);
 use constant {
 	SL_DOMAIN => "secondlife.com",
 	SL_BUS_NAME => "com.secondlife.ViewerAppAPIService",
 	SL_BUS_PATH => "/com/secondlife/ViewerAppAPI",
 };
+
+sub find_alias {
+	my ($name) = @_;
+
+	my %aliases;
+	my $path = find_first_file("config:secondlife.aliases");
+	if (open(my $fh, "<", $path)) {
+		%aliases = map {/^(\w+)\s*=\s*(.+)\s*$/} <$fh>;
+		close($fh);
+	}
+	return $aliases{$name} // $name;
+}
 
 sub find_login {
 	my ($name, $domain) = @_;
@@ -27,6 +40,13 @@ sub find_login {
 		_debug("using account '@acct' from .netrc");
 		return (@acct, $entry->{password});
 	}
+}
+
+sub prepare_env {
+	_debug("fixing LIBGL_DRIVERS_PATH");
+	$ENV{LIBGL_DRIVERS_PATH} //= join(":",
+					  "/usr/lib64/xorg/modules/dri",
+					  "/usr/lib32/xorg/modules/dri");
 }
 
 $::bus = Net::DBus->session;
@@ -94,6 +114,7 @@ if (defined $url) {
 	}
 }
 
+prepare_env();
 if ($::debug) {
 	_debug("starting '$exe'");
 	_debug(" - with arg '$_'") for @default_args, @args;

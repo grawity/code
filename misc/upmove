@@ -12,12 +12,16 @@ for dir; do
 	fi
 	dir=${dir%/}
 
-	for file in "$dir"/*; do
-		file=${file#"$dir/"}
-		if [[ "$file" == . || "$file" == .. ]]; then
+	for fileA in "$dir"/*; do
+		fileB=${fileB#"$dir/"}
+		if [[ "$fileB" == . || "$fileB" == .. ]]; then
 			:
-		elif [[ -e "$file" ]]; then
-			err "file would conflict: '$file'"
+		elif [[ -e "$fileB" ]]; then
+			if cmp -s "$fileA" "$fileB"; then
+				notice "identical files would conflict: '$fileB'"
+			else
+				err "file would conflict: '$fileB'"
+			fi
 		fi
 	done
 

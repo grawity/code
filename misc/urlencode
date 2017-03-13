@@ -43,6 +43,8 @@ sub decode {
 		if ($opts{format_QP}) {
 			s/=\n//gs;
 			s/=([A-F0-9]{2})/pack('C', hex($1))/gse;
+		} elsif ($opts{format_locale}) {
+			s/<U([0-9A-F]{4,8})>/pack('C', hex($1))/gse;
 		} else {
 			if ($opts{format_mq}) {
 				s/^://;
@@ -119,6 +121,7 @@ GetOptions(
 	"p|path" => \$opts{format_url_with_slashes},
 	"P|parens" => \$opts{format_url_with_parens},
 	"q|qp|quoted-printable" => \$opts{format_QP},
+	"libc" => \$opts{format_locale},
 	"ldap-dn" => \$opts{format_ldap_dn},
 	"mq" => \$opts{format_mq},
 	"r|raw!" => \$opts{raw_newline},

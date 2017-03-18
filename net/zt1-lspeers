@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+from nullroute.core import *
+import json
+import subprocess
+import sys
+
+def enum_proc(cmd, via=None):
+    via = via or []
+    with subprocess.Popen([*via, "zerotier-cli", "-j", cmd],
+                          stdout=subprocess.PIPE) as proc:
+        return json.load(proc.stdout)
+
+def get_peer_names():
+    pass
+
+def get_peer_name(peer_id):
+    names = {
+        "116d3af68c": "virgule",
+        "1f3a4ecfb3": "wolke",
+        "4719b37753": "sky",
+        "b63fe35308": "frost",
+        "c58e7cd727": "rain",
+        "f19f115aaf": "ghost",
+        #
+        "8056c2e21c": "my-eu-rbx-01.zerotier.com",
+    }
+    return names.get(peer_id)
+
+def get_ip_hostname(addr):
+    with subprocess.Popen(["addr2name", addr],
+                          stdout=subprocess.PIPE) as proc:
+        return proc.stdout.read().decode().strip() or "none"
+
+for peer in enum_proc("listpeers", via=sys.argv[1:]):
+    peer_id = peer["address"]
+    peer_name = get_peer_name(peer_id)
+    latency = peer["latency"]
+    role = peer["role"]
+
+    if role in {"ROOT", "PLANET"}:
+        continue
+
+    if peer_name:
+        fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
+    elif role in {"ROOT", "PLANET"}:
+        fmt_name = "\033[38;5;66m%s\033[m" % "Relay"
+    else:
+        fmt_name = "\033[38;5;209m%s\033[m" % "Unknown"
+
+    fmt_addr = "\033[1;38;5;102m%s\033[m" % peer_id
+
+    print("%s - %s (%s, %s ms)" % (fmt_addr, fmt_name, role.lower(), latency))
+
+    for path in peer["paths"]:
+        addr = path["address"]
+        active = path["active"]
+        pref = path["preferred"]
+        if path["preferred"]:
+            fmt_pref = "\033[38;5;76m%s\033[m" % "pref"
+        elif path["active"]:
+            fmt_pref = "\033[38;5;66m%s\033[m" % "act."
+        char = "%" if pref else "+" if active else "-"
+        host, port = addr.rsplit("/", 1)
+        fqdn = get_ip_hostname(host)
+        print("  %s - %s (%s)" % (fmt_pref, addr, fqdn))

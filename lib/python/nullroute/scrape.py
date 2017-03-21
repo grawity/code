@@ -69,6 +69,14 @@ class Scraper(object):
         resp.raise_for_status()
         return resp
 
+    def get_page(self, url, *args, **kwargs):
+        import bs4
+        Core.debug("fetching %r" % url, skip=1)
+        resp = self.ua.get(url, *args, **kwargs)
+        resp.raise_for_status()
+        page = bs4.BeautifulSoup(resp.content, "lxml")
+        return page
+
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
                              save_msg=None):

@@ -224,10 +224,12 @@ croak() {
 
 ## Other stuff
 
+lib::assert_ok() {
+	(( !errors )) || exit
+}
 lib::errexit() {
 	(( !errors )) || exit
 }
-
 lib::exit() {
 	(( !errors )); exit
 }

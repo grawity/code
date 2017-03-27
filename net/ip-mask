@@ -102,6 +102,11 @@ def ipv6_get_eui48(addr):
     mac[0] ^= 2
     return ":".join(["%02x" % n for n in mac])
 
+def ipv6_eui48_is_local(addr):
+    if addr.version != 6:
+        return False
+    return not (addr.packed[8] & 0x2)
+
 def ipv6_get_v4mapped(addr, at=12):
     if addr.version == 4:
         return addr
@@ -173,6 +178,8 @@ def addr2props(addr):
                 misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
             elif ipv6_maybe_v4mapped(addr):
                 misc.append(("mapped v4", ipv6_get_v4mapped(addr)))
+            if ipv6_eui48_is_local(addr):
+                misc.append(("admin bit", "locally administered"))
     elif addr.version == 4:
         if addr.is_loopback:
             kind = "loopback"

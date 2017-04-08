@@ -232,8 +232,10 @@ do_print:
 		$tgtcreds{$realm} //= [];
 		$creds{$realm} //= [];
 
-		my @creds = (@{$tgtcreds{$realm}},
-			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
+		my @creds = (
+			(sort {$b->{expiry_time} <=> $a->{expiry_time}} @{$tgtcreds{$realm}}),
+			(sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}}),
+		);
 
 		my $num_tgt = 0;
 		my $num_srv = 0;

@@ -240,6 +240,7 @@ do_print:
 
 		my $num_tgt = 0;
 		my $num_srv = 0;
+		my %seen_srv = ();
 
 		if (!@{$tgtcreds{$realm}}) {
 			my ($color, $label);
@@ -259,6 +260,10 @@ do_print:
 			my %str;
 			my %fmt;
 			my %max;
+
+			next if $seen_srv{$tkt->{server_name}
+					  .",".$tkt->{client_name}
+					  .",".$tkt->{flags}}++;
 
 			my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.*)$/;
 

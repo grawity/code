@@ -47,12 +47,14 @@ parser.add_argument("--pop", action="store_true",
                     help="use POP3 instead of IMAP4")
 parser.add_argument("--list", action="store_true",
                     help="list mailboxes within an account")
+parser.add_argument("--tree", action="store_true",
+                    help="show mailbox list as a tree")
 parser.add_argument("--dedup", action="store_true")
 parser.add_argument("--pine", action="store_true")
 parser.add_argument("--rw", action="store_true")
 args = parser.parse_args()
 
-if args.list:
+if args.list or args.tree:
     app = "list"
 elif args.dedup:
     app = "IMAPdedup"
@@ -111,8 +113,12 @@ elif app == "list":
            "--user=%s" % data["user"],
            "--password=%s" % data["pass"],
            "--list"]
+    if args.tree:
+        pipecmd = ["treeify", "-f"]
+    else:
+        pipecmd = ["natsort"]
     Core.debug("running %r" % cmd)
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
-        with subprocess.Popen(["treeify", "-f"], stdin=subprocess.PIPE) as proc2:
+        with subprocess.Popen(pipecmd, stdin=subprocess.PIPE) as proc2:
             for line in proc.stdout:
                 proc2.stdin.write(line.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7").encode("utf-8"))

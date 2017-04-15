@@ -77,6 +77,12 @@ call() {
 	"$1" "${opts[@]}" "${@:2}"
 }
 
+declare -A locations=()
+
+if [[ -e "$path_config/hpavctl.conf.sh" ]]; then
+	. "$path_config/hpavctl.conf.sh" || exit
+fi
+
 declare -- dev=
 declare -- dak=
 declare -a opts=()
@@ -159,6 +165,8 @@ case $cmd in
 					echo "Station:" ;;&
 				CCO|STA)
 					while (( $# )); do kv[$1]=$2; shift; shift; done
+					location=${locations[${kv[MAC]}]}
+					[[ $location ]]  && echo "   Description: $location"
 					[[ ${kv[MAC]} ]] && echo "   MAC address: ${kv[MAC]} $(_get_vendor ${kv[MAC]})"
 					[[ ${kv[BDA]} ]] && echo "   Bridged to:  ${kv[BDA]} $(_get_vendor ${kv[BDA]})"
 					[[ ${kv[TX]} ]]  && echo "   TX speed:    ${kv[TX]} Mbps"

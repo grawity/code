@@ -15,10 +15,14 @@ case $cmd in
 		eyeD3 -Q --remove-all-{comments,lyrics} "$@"
 		log "Converting to UTF-8"
 		eyeD3 -Q --encoding utf8 --force-update "$@"
-		log "Forcing reindex"
-		for file in "$@"; do
-			tracker-control -f "$file"
-		done
+		if tracker daemon --list-miners-running | grep -qs '\.Files$'; then
+			log "Forcing tracker reindex"
+			for file in "$@"; do
+				tracker reset -f "$file"
+			done
+		else
+			debug "skipping reindex, tracker Files miner not running"
+		fi
 		;;
 	to-2.3|to-2.4)
 		e=${cmd#to-}

@@ -104,6 +104,14 @@ case $cmd in
             warn "command '$*' failed in at least one repository"
         fi
         ;;
+    want)
+        repo_root=$(realpath "$(git rev-parse --git-dir)/..")
+        repo_name=${repo_root##*/}
+        now=$(date +'%Y-%m-%d')
+        for arg; do
+            echo "$now - $HOSTNAME wants '$(realpath --strip --relative-to="$repo_root" "$arg")'"
+        done | tee -a ~/Dropbox/Todo-annex.txt
+        ;;
     setup)
         name=$1
         dir=$PWD/$name

@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
-sudo conntrack -E | sed $'
+if (( ! $# )); then
+	if (( UID != 0 )); then
+		set -- sudo
+	fi
+elif [[ $1 == @* ]]; then
+	set -- ssh -l root ${1#@}
+fi
+
+"$@" conntrack -E | sed $'
 	s/\\[DESTROY\\].*/\e[38;5;9m&\e[m/;
 	s/\\[NEW\\].*/\e[38;5;10m&\e[m/;
 	s/\\[UPDATE\\].*/\e[38;5;11m&\e[m/;

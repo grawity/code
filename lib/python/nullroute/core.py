@@ -168,6 +168,13 @@ class Core(object):
         if self._num_errors > 0:
             sys.exit(1)
 
+    def __enter__(self):
+        self._num_errors = 0
+
+    def __exit__(self, *args):
+        if self._num_errors > 0:
+            sys.exit(1)
+
 class Env(object):
     vendor = "nullroute.eu.org"
 

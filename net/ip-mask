@@ -86,6 +86,12 @@ def ipv6_is_isatap(addr):
         return False
     return (addr.packed[8:12] in {b'\x00\x00\x5e\xfe', b'\x02\x00\x5e\xfe'})
 
+def ipv6_maybe_v4mapped(addr):
+    if addr.version != 6:
+        return False
+    return (addr.packed[8:12] == b'\x00\x00\x00\x00') \
+            and (0 < addr.packed[12] < 224)
+
 def ipv6_is_eui48(addr):
     if addr.version != 6:
         return False
@@ -110,7 +116,7 @@ def addr2props(addr):
     kind = "unknown"
     misc = []
     if addr.version == 6:
-        autoconf = False
+        is_autoconf = False
         if addr.is_loopback:
             kind = "loopback"
         elif addr.is_unspecified:
@@ -121,8 +127,8 @@ def addr2props(addr):
             misc.append(("client v4", addr.teredo[1]))
         elif addr.sixtofour:
             kind = "global (6to4)"
-            autoconf = True
             misc.append(("client v4", addr.sixtofour))
+            is_autoconf = True
         elif addr.ipv4_mapped:
             kind = "IPv4-mapped"
             misc.append(("v4 address", addr.ipv4_mapped))
@@ -134,10 +140,10 @@ def addr2props(addr):
             misc.append(("v4 address", ipv6_get_v4mapped(addr)))
         elif addr.is_link_local:
             kind = "link-local"
-            autoconf = True
+            is_autoconf = True
         elif addr.is_site_local:
             kind = "site-local"
-            autoconf = True
+            is_autoconf = True
         elif addr.is_multicast:
             kind = "multicast"
             flags = (addr.packed[1] >> 4) & 0xF
@@ -162,14 +168,16 @@ def addr2props(addr):
                 kind = "reserved"
         else:
             kind = "global"
-            autoconf = True
+            is_autoconf = True
 
-        if autoconf:
+        if is_autoconf:
             if ipv6_is_eui48(addr):
                 mac = ipv6_get_eui48(addr)
                 misc.append(("MAC address", mac))
-            if ipv6_is_isatap(addr):
+            elif ipv6_is_isatap(addr):
                 misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
+            elif ipv6_maybe_v4mapped(addr):
+                misc.append(("mapped v4", ipv6_get_v4mapped(addr)))
             if ipv6_eui48_is_local(addr):
                 misc.append(("admin bit", "locally administered"))
     elif addr.version == 4:

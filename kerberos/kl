@@ -232,11 +232,15 @@ do_print:
 		$tgtcreds{$realm} //= [];
 		$creds{$realm} //= [];
 
-		my @creds = (@{$tgtcreds{$realm}},
-			sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}});
+		my @creds = (
+			(sort {$b->{expiry_time} <=> $a->{expiry_time}} @{$tgtcreds{$realm}}),
+			(sort {$b->{expiry_time} <=> $a->{expiry_time}}
+			 sort {mangle_name($a) cmp mangle_name($b)} @{$creds{$realm}}),
+		);
 
 		my $num_tgt = 0;
 		my $num_srv = 0;
+		my %seen_srv = ();
 
 		if (!@{$tgtcreds{$realm}}) {
 			my ($color, $label);
@@ -256,6 +260,10 @@ do_print:
 			my %str;
 			my %fmt;
 			my %max;
+
+			next if $seen_srv{$tkt->{server_name}
+					  .",".$tkt->{client_name}
+					  .",".$tkt->{flags}}++;
 
 			my ($svname, $svrealm) = $tkt->{server_name} =~ /^(.+)@(.*)$/;
 

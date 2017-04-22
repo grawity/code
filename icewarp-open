@@ -51,7 +51,9 @@ parser.add_argument("--list", action="store_true",
                     help="list mailboxes within an account")
 parser.add_argument("--dedup", action="store_true")
 parser.add_argument("--pine", action="store_true")
-parser.add_argument("--rw", action="store_true")
+parser.add_argument("--rw", action="store_true",
+                    help="allow write operations (incl. dedup)")
+parser.add_argument("--verbose", action="store_true")
 args = parser.parse_args()
 
 if args.list:
@@ -110,8 +112,9 @@ elif app == "IMAPdedup":
            "--password=%s" % data["pass"],
            "--checksum",
            "--checksum-with-id",
-           "--verbose",
            "--no-close"]
+    if args.verbose:
+        cmd += ["--verbose"]
     if not args.rw:
         cmd += ["--dry-run"]
     cmd += [data["path"] or "INBOX"]

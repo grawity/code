@@ -127,6 +127,11 @@ log "output: $capf"
 
 trap '[[ -s "$capf" ]] || rm -f "$capf"; exit 0' INT QUIT EXIT
 
-ssh -oTCPKeepAlive=yes "root@$target_host" "$rcmd" \
-	| stdbuf -i0 -o0 tee "$capf" \
-	| sh -c "$lcmd"
+if [[ $arg_ui == wireshark ]]; then
+	ssh -oTCPKeepAlive=yes "root@$target_host" "$rcmd" \
+		| sh -c "$lcmd"
+else
+	ssh -oTCPKeepAlive=yes "root@$target_host" "$rcmd" \
+		| stdbuf -i0 -o0 tee "$capf" \
+		| sh -c "$lcmd"
+fi

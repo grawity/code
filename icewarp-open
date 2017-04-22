@@ -43,6 +43,8 @@ def update_pine_passfile(data):
 parser = argparse.ArgumentParser()
 parser.add_argument("mailbox", metavar="MAILBOX", type=str,
                     help="mailbox to open")
+parser.add_argument("--archive", action="store_true",
+                    help="open the archive mailbox for this account")
 parser.add_argument("--pop", action="store_true",
                     help="use POP3 instead of IMAP4")
 parser.add_argument("--list", action="store_true",
@@ -65,13 +67,23 @@ data = {
     "scheme": "pop" if args.pop else "imap",
     "server": "mail.utenos-kolegija.lt",
 }
-if "/" in args.mailbox:
+
+if args.archive:
+    alias, path = args.mailbox.split("/", 1)
+    if "@" in alias:
+        alias, domain = alias.split("@")
+    else:
+        domain = "utenos-kolegija.lt"
+    data["user"] = "archivist"
+    data["path"] = "%s/%s/%s" % (domain, alias, path)
+elif "/" in args.mailbox:
     data["user"], data["path"] = args.mailbox.split("/", 1)
     if data["path"] == "INBOX":
         data["path"] = ""
 else:
     data["user"] = args.mailbox
     data["path"] = ""
+
 data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
 
 if app == "mutt":

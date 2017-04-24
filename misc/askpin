@@ -31,10 +31,6 @@ config=("SETPROMPT")
 
 # parse config
 
-if (( DEBUG > 1 )); then
-	set -x
-fi
-
 if [[ -f $path_config/askpin.conf.sh ]]; then
 	. "$path_config/askpin.conf.sh" || die "could not load configuration"
 fi
@@ -42,7 +38,7 @@ fi
 # parse arguments
 
 while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
-	debug "getopts: [$OPTIND] -$OPT '$OPTARG'" >&2
+	debug "getopts: [$OPTIND] -$OPT '$OPTARG'"
 	case $OPT in
 	c) config+=("$OPTARG");;
 	C) config+=("SETCANCEL $(encode "$OPTARG")");;
@@ -90,18 +86,20 @@ pinentry+=(
 #)
 
 # spawn the pinentry program
+
 debug "command: ${pinentry[*]}"
-coproc { "${pinentry[@]}" 2>/dev/null \
-	|| die "could not launch pinentry (${pinentry[0]})"; }
-trap "trap - INT HUP TERM QUIT; kill \$pinentry_pid 2>/dev/null" \
-	EXIT INT HUP TERM QUIT
+coproc { "${pinentry[@]}" 2>/dev/null || die "could not run '${pinentry[0]}'"; }
+
 pinentry_pid=$!
 in=${COPROC[0]}
 out=${COPROC[1]}
+
 i=0
 ok=0
-
 state=configure
+
+trap "trap - INT HUP TERM QUIT; kill \$pinentry_pid 2>/dev/null" EXIT INT HUP TERM QUIT
+
 while read -r status rest <&$in; do
 	debug "($state) status='$status' rest='$rest'"
 	case $state in
@@ -114,14 +112,13 @@ while read -r status rest <&$in; do
 				echo "GETPIN" >&$out
 				state=waitinput
 			else
-				debug "--> ${config[$i]}"
-				printf '%s\n' "${config[$i]}" >&$out
+				debug "--> ${config[i]}"
+				printf '%s\n' "${config[i]}" >&$out
 				(( ++i ))
 			fi
 			;;
 		'ERR')
-			err "$rest"
-			exit 4
+			die 4 "protocol error: $rest"
 			;;
 		esac
 		;;
@@ -136,8 +133,10 @@ while read -r status rest <&$in; do
 			exit 0
 			;;
 		'ERR')
-			err "pinentry prompt cancelled by user"
-			exit 1
+			if [[ $rest == "83886179 "* ]]; then
+				die "pinentry prompt cancelled by user"
+			fi
+			die 4 "protocol error: $rest"
 			;;
 		esac
 		;;

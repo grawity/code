@@ -60,8 +60,8 @@ static int usage(void) {
 	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
 	printf("  -P        treat ( ) as safe\n");
 	printf("  -p        encode as path, treating / : as safe\n");
-	printf("  -s CHARS  treat provided characters as safe\n");
-	printf("  -u CHARS  treat provided charactres as unsafe\n");
+	printf("  -s BYTES  treat provided bytes as safe\n");
+	printf("  -u BYTES  treat provided bytes as unsafe\n");
 	printf("\n");
 	return 2;
 }

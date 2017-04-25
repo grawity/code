@@ -6,8 +6,10 @@
 
 bool keep_parens = true;
 bool keep_slashes = false;
+char *safe_chars = "";
+char *unsafe_chars = "";
 
-static void process(FILE *fp, char *fn) {
+static void process_url(FILE *fp, char *fn) {
 	int ch;
 	bool safe;
 	size_t pos = 0;
@@ -40,6 +42,11 @@ static void process(FILE *fp, char *fn) {
 			safe = false;
 		}
 
+		if (*unsafe_chars && strchr(unsafe_chars, ch))
+			safe = false;
+		else if (*safe_chars && strchr(safe_chars, ch))
+			safe = true;
+
 		if (safe)
 			putchar(ch);
 		else
@@ -53,6 +60,8 @@ static int usage(void) {
 	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
 	printf("  -P        treat ( ) as safe\n");
 	printf("  -p        encode as path, treating / : as safe\n");
+	printf("  -s CHARS  treat provided characters as safe\n");
+	printf("  -u CHARS  treat provided charactres as unsafe\n");
 	printf("\n");
 	return 2;
 }
@@ -63,7 +72,7 @@ int main(int argc, char *argv[]) {
 	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "a:Pp")) != -1) {
+	while ((opt = getopt(argc, argv, "a:Pps:u:")) != -1) {
 		switch (opt) {
 		case 'a':
 			data = optarg;
@@ -73,6 +82,12 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'p':
 			keep_slashes = true;
+			break;
+		case 's':
+			safe_chars = optarg;
+			break;
+		case 'u':
+			unsafe_chars = optarg;
 			break;
 		default:
 			return usage();

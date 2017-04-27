@@ -3,6 +3,7 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from nullroute.core import *
 import nullroute.sec
 
@@ -43,6 +44,8 @@ def update_pine_passfile(data):
 parser = argparse.ArgumentParser()
 parser.add_argument("mailbox", metavar="MAILBOX", type=str,
                     help="mailbox to open")
+parser.add_argument("--archive", action="store_true",
+                    help="open the archive mailbox for this account")
 parser.add_argument("--pop", action="store_true",
                     help="use POP3 instead of IMAP4")
 parser.add_argument("--list", action="store_true",
@@ -51,7 +54,9 @@ parser.add_argument("--tree", action="store_true",
                     help="show mailbox list as a tree")
 parser.add_argument("--dedup", action="store_true")
 parser.add_argument("--pine", action="store_true")
-parser.add_argument("--rw", action="store_true")
+parser.add_argument("--rw", action="store_true",
+                    help="allow write operations (incl. dedup)")
+parser.add_argument("--verbose", action="store_true")
 args = parser.parse_args()
 
 if args.list or args.tree:
@@ -67,13 +72,25 @@ data = {
     "scheme": "pop" if args.pop else "imap",
     "server": "mail.utenos-kolegija.lt",
 }
-if "/" in args.mailbox:
+
+if args.archive:
+    domain = "utenos-kolegija.lt"
+    alias = args.mailbox
+    path = time.strftime("%Y")
+    if "/" in alias:
+        alias, path = alias.split("/", 1)
+    if "@" in alias:
+        alias, domain = alias.split("@")
+    data["user"] = "archivist"
+    data["path"] = "%s/%s/%s" % (domain, alias, path)
+elif "/" in args.mailbox:
     data["user"], data["path"] = args.mailbox.split("/", 1)
     if data["path"] == "INBOX":
         data["path"] = ""
 else:
     data["user"] = args.mailbox
     data["path"] = ""
+
 data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
 
 if app == "mutt":
@@ -100,8 +117,9 @@ elif app == "IMAPdedup":
            "--password=%s" % data["pass"],
            "--checksum",
            "--checksum-with-id",
-           "--verbose",
            "--no-close"]
+    if args.verbose:
+        cmd += ["--verbose"]
     if not args.rw:
         cmd += ["--dry-run"]
     cmd += [data["path"] or "INBOX"]

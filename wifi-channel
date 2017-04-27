@@ -4,7 +4,15 @@ use open qw(:std :utf8);
 use utf8;
 use Getopt::Long qw(:config no_ignore_case);
 
-my $width = 40;
+my @CHANNELS = (
+	0,
+	2412, 2417, 2422, 2427,
+	2432, 2437, 2442, 2447,
+	2452, 2457, 2462, 2467,
+	2472, 2484
+);
+
+my $width = 20;
 my $ext_above = 1;
 
 GetOptions(
@@ -17,15 +25,16 @@ sub print_channel {
 	my ($center, $width, $name) = @_;
 	my $left = $center - $width/2;
 	my $right = $center + $width/2;
-	say "$name: $center MHz";
-	say "  from $left MHz";
-	say "    to $right MHz";
-	say "";
+	say "$name: $center MHz  ($left–$right)";
 }
 
 for my $arg (@ARGV) {
-	my $center = $arg;
+	my $center = int $arg;
 	my ($left, $right);
+
+	if ($center < 1000) {
+		$center = $CHANNELS[$center];
+	}
 
 	if ($width == 40) {
 		$width = 20;
@@ -46,5 +55,5 @@ for my $arg (@ARGV) {
 		$right = $center + $width/2;
 	}
 
-	say "reserve: ".($left-20)." – ".($right+20)." MHz";
+	#say "reserve: ".($left-20)." – ".($right+20)." MHz";
 }

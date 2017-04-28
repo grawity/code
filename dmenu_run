@@ -1,23 +1,33 @@
 #!/usr/bin/env bash
 
+wm=$(wmctrl -m | sed -n 's/^Name: //p')
 hist=${XDG_CACHE_HOME:-$HOME/.cache}/dmenu.history
 
 prompt='run:'
-
-font='Monospace 12'
+#tool=rofi
 font='Sans 12'
 
-# dmenu/wmii
+# wmii theme
 normal_fg='#bbbbbb'
 normal_bg='#222222'
 selected_fg='#eeeeee'
 selected_bg='#005577'
 
-# bemenu
-#normal_fg='#cacaca'
+normal_fg='#cacaca'
 normal_bg='#121212'
+
+# for bemenu & rofi
 title_fg='#d81860'
 title_bg='#121212'
+
+
+if [[ $wm == Openbox ]]; then
+	font='Monaco 10'
+	normal_fg='#bbbbbb'
+	normal_bg='#222222'
+	selected_bg='#303436'
+	selected_fg='#94d01c'
+fi
 
 menu=(dmenu -l 7 -fn "$font"
 	-nb "$normal_bg"
@@ -25,18 +35,19 @@ menu=(dmenu -l 7 -fn "$font"
 	-sb "$selected_bg"
 	-sf "$selected_fg")
 
-#menu=(rofi -dmenu -location 0
-#	#-color-window "$normal_bg,$title_fg"
-#	#-color-normal "$normal_bg,$normal_fg,$normal_bg,$selected_bg,$selected_fg"
-#	)
-
-#menu=(bemenu -l 7 --fn "$font"
-#	--nb "$normal_bg"
-#	--nf "$normal_fg"
-#	--hb "$selected_bg"
-#	--hf "$selected_fg"
-#	--tb "$title_bg"
-#	--tf "$title_fg")
+if [[ $tool == bemenu ]]; then
+	menu=(bemenu -l 7 --fn "$font"
+		--nb "$normal_bg"
+		--nf "$normal_fg"
+		--hb "$selected_bg"
+		--hf "$selected_fg"
+		--tb "$title_bg"
+		--tf "$title_fg")
+elif [[ $tool == rofi ]]; then
+	menu=(rofi -dmenu -location 0
+		#-color-window "$normal_bg,$title_fg"
+		-color-normal "$normal_bg,$normal_fg,$normal_bg,$selected_bg,$selected_fg")
+fi
 
 ign='mm'
 

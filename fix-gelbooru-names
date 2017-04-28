@@ -38,12 +38,14 @@ class TagFilter(object):
         try:
             with open(Env.find_config_file(file_name)) as fh:
                 for line in fh:
-                    if " -> " in line:
-                        a, b = line.strip().split(" -> ")
+                    line = line.strip()
+                    if line == "" or line.startswith("#"):
+                        continue
+                    elif " -> " in line:
+                        a, b = line.split(" -> ")
                         new.translate.append([re.compile(a, re.I), b])
                     else:
-                        a = line.strip()
-                        new.blacklist.append(re.compile(a, re.I))
+                        new.blacklist.append(re.compile(line, re.I))
         except FileNotFoundError:
             pass
         return new

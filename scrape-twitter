@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+import bs4
+import json
+import re
+from nullroute.core import *
+from nullroute.misc import filter_filename, set_file_attrs
+from nullroute.scrape import Scraper, file_ext
+from pprint import pprint
+
+class TwitterImageScraper(Scraper):
+    def scrape(self, post_url):
+        Core.info("scraping %r" % post_url)
+        page = self.get_page(post_url)
+        #print(page)
+
+        profile_tag = page.select_one(".ProfileHeaderCard")
+        user_name = profile_tag.select_one(".ProfileHeaderCard-screennameLink").get_text(strip=True).lstrip("@")
+        full_name = profile_tag.select_one(".ProfileHeaderCard-nameLink").get_text(strip=True)
+
+        tweet_tag = page.select_one(".permalink").select_one(".tweet")
+        tweet_text = tweet_tag.select_one(".tweet-text").get_text(strip=True)
+        photo_tags = tweet_tag.select(".AdaptiveMedia-photoContainer")
+        photo_urls = [t["data-image-url"] for t in photo_tags]
+
+        for img_url in photo_urls:
+            filename = "%s %s" % (filter_filename(user_name), os.path.basename(img_url))
+            if img_url.endswith(":large"):
+                filename = filename[:-len(":large")]
+            else:
+                img_url = "%s:large" % img_url
+            Core.info("  saving %r" % filename)
+            self.save_file(img_url, filename,
+                           referer=post_url)
+
+s = TwitterImageScraper()
+args = sys.argv[1:]
+
+for url in args:
+    try:
+        s.scrape(url)
+    except ValueError as e:
+        Core.err(str(e))
+
+Core.exit()

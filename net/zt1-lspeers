@@ -21,8 +21,6 @@ def get_peer_name(peer_id):
         "b63fe35308": "frost",
         "c58e7cd727": "rain",
         "f19f115aaf": "ghost",
-        #
-        "8056c2e21c": "my-eu-rbx-01.zerotier.com",
     }
     return names.get(peer_id)
 
@@ -31,17 +29,27 @@ def get_ip_hostname(addr):
                           stdout=subprocess.PIPE) as proc:
         return proc.stdout.read().decode().strip() or "none"
 
+controllers = {
+    "17d709436c",
+    "565799d8f6",
+    "8056c2e21c",
+    "93afae5963",
+    "e5cd7a9e1c",
+}
+
 for peer in enum_proc("listpeers", via=sys.argv[1:]):
     peer_id = peer["address"]
     peer_name = get_peer_name(peer_id)
     latency = peer["latency"]
     role = peer["role"]
 
-    if role in {"ROOT", "PLANET"}:
-        continue
+    #if role in {"ROOT", "PLANET"}:
+    #    continue
 
     if peer_name:
         fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
+    elif peer_id in controllers:
+        fmt_name = "\033[38;5;76m%s\033[m" % "Controller"
     elif role in {"ROOT", "PLANET"}:
         fmt_name = "\033[38;5;66m%s\033[m" % "Relay"
     else:

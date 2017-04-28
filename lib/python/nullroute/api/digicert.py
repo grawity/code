@@ -107,7 +107,13 @@ class CertCentralClient(object):
         order = self.get_order(order_id)
         cert_id = order["certificate"]["id"]
         cert_type = order["product"]["type"]
-        serial = order["certificate"]["serial_number"]
+        try:
+            serial = order["certificate"]["serial_number"]
+        except KeyError as e:
+            # XXX
+            import pprint
+            pprint.pprint(order)
+            raise
         if cert_type == "ssl_certificate":
             format = format or "pem_noroot"
             cert_name = order["certificate"]["common_name"]

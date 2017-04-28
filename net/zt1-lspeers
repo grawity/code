@@ -37,14 +37,17 @@ controllers = {
     "e5cd7a9e1c",
 }
 
+hide_roots = False
+
 for peer in enum_proc("listpeers", via=sys.argv[1:]):
     peer_id = peer["address"]
     peer_name = get_peer_name(peer_id)
     latency = peer["latency"]
     role = peer["role"]
 
-    #if role in {"ROOT", "PLANET"}:
-    #    continue
+    if hide_roots:
+        if role in {"ROOT", "PLANET"}:
+            continue
 
     if peer_name:
         fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
@@ -64,11 +67,11 @@ for peer in enum_proc("listpeers", via=sys.argv[1:]):
         active = path["active"]
         pref = path["preferred"]
         if path["preferred"]:
-            fmt_pref = "\033[38;5;76m%s\033[m" % "pref"
+            fmt_pref = "\033[38;5;154m%s\033[m" % "prefer"
         elif path["active"]:
-            fmt_pref = "\033[38;5;66m%s\033[m" % "act."
+            fmt_pref = "\033[38;5;76m%s\033[m" % "active"
         else:
-            fmt_pref = "bckp"
+            fmt_pref = "\033[38;5;244m%s\033[m" % "backup"
         char = "%" if pref else "+" if active else "-"
         host, port = addr.rsplit("/", 1)
         fqdn = get_ip_hostname(host)

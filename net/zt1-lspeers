@@ -33,10 +33,15 @@ controllers = {
     "e5cd7a9e1c",
 }
 
-hide_roots = False
+hide_roots = True
 ptr_domain = "zt1.nullroute.eu.org"
 
-for peer in enum_proc("listpeers", via=sys.argv[1:]):
+args = sys.argv[1:]
+if args and args[0] == "-v":
+    args.pop(0)
+    hide_roots = False
+
+for peer in enum_proc("listpeers", via=args):
     peer_id = peer["address"]
     peer_name = get_peer_name(peer_id, ptr_domain)
     latency = peer["latency"]

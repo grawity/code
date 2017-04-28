@@ -49,6 +49,14 @@ sub notify {
 		$opts{timeout} // 1*1000);
 }
 
+sub trash {
+	my ($path) = @_;
+
+	system {"trash"} ("trash", $path);
+
+	if (-e $path) { unlink($path); }
+}
+
 my ($hostname) = split(/\./, hostname());
 
 my $sleep = 0;
@@ -259,7 +267,7 @@ if ($upload) {
 			});
 		if ($temporary) {
 			_debug("screenshot is temporary, deleting");
-			unlink($file);
+			trash($file);
 		}
 	} else {
 		notify("Screenshot upload failed",

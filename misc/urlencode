@@ -114,7 +114,10 @@ sub process {
 	print "\n" unless $opts{raw_newline};
 }
 
+my @args;
+
 GetOptions(
+	"a|arg=s" => \@args,
 	"d|decode" => \$opts{decode},
 	"D|decode-plus" => \$opts{decode_plus},
 	"o|octal" => \$opts{format_c_octal},
@@ -132,8 +135,8 @@ GetOptions(
 
 $opts{decode} ||= $opts{decode_plus};
 
-if (scalar @ARGV) {
-	process($_) for @ARGV;
+if (@args || @ARGV) {
+	process($_) for (@args, @ARGV);
 } else {
 	if ($opts{decode} && $opts{format_QP}) {
 		my $buf = do { $/ = undef; <STDIN> };

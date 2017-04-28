@@ -79,6 +79,7 @@ $(OBJ)/pause:		system/pause.c
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
 $(OBJ)/unescape:	misc/unescape.c
+$(OBJ)/urlencode:	misc/urlencode.c
 $(OBJ)/writevt:		thirdparty/writevt.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c

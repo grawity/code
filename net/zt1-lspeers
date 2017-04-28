@@ -10,19 +10,15 @@ def enum_proc(cmd, via=None):
                           stdout=subprocess.PIPE) as proc:
         return json.load(proc.stdout)
 
-def get_peer_names():
-    pass
+def get_ptr(domain):
+    with subprocess.Popen(["dig", "+short", "-t", "PTR", domain],
+                          stdout=subprocess.PIPE) as proc:
+        return proc.stdout.read().decode().strip() or None
 
-def get_peer_name(peer_id):
-    names = {
-        "116d3af68c": "virgule",
-        "1f3a4ecfb3": "wolke",
-        "4719b37753": "sky",
-        "b63fe35308": "frost",
-        "c58e7cd727": "rain",
-        "f19f115aaf": "ghost",
-    }
-    return names.get(peer_id)
+def get_peer_name(peer_id, ptr_domain=""):
+    ptr = get_ptr("%s.%s" % (peer_id, ptr_domain))
+    if ptr:
+        return ptr.split(".")[0]
 
 def get_ip_hostname(addr):
     with subprocess.Popen(["addr2name", addr],
@@ -38,10 +34,11 @@ controllers = {
 }
 
 hide_roots = False
+ptr_domain = "zt1.nullroute.eu.org"
 
 for peer in enum_proc("listpeers", via=sys.argv[1:]):
     peer_id = peer["address"]
-    peer_name = get_peer_name(peer_id)
+    peer_name = get_peer_name(peer_id, ptr_domain)
     latency = peer["latency"]
     role = peer["role"]
 

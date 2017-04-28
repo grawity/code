@@ -10,38 +10,51 @@ def enum_proc(cmd, via=None):
                           stdout=subprocess.PIPE) as proc:
         return json.load(proc.stdout)
 
-def get_peer_names():
-    pass
+def get_ptr(domain):
+    with subprocess.Popen(["dig", "+short", "-t", "PTR", domain],
+                          stdout=subprocess.PIPE) as proc:
+        return proc.stdout.read().decode().strip() or None
 
-def get_peer_name(peer_id):
-    names = {
-        "116d3af68c": "virgule",
-        "1f3a4ecfb3": "wolke",
-        "4719b37753": "sky",
-        "b63fe35308": "frost",
-        "c58e7cd727": "rain",
-        "f19f115aaf": "ghost",
-        #
-        "8056c2e21c": "my-eu-rbx-01.zerotier.com",
-    }
-    return names.get(peer_id)
+def get_peer_name(peer_id, ptr_domain=""):
+    ptr = get_ptr("%s.%s" % (peer_id, ptr_domain))
+    if ptr:
+        return ptr.split(".")[0]
 
 def get_ip_hostname(addr):
     with subprocess.Popen(["addr2name", addr],
                           stdout=subprocess.PIPE) as proc:
         return proc.stdout.read().decode().strip() or "none"
 
-for peer in enum_proc("listpeers", via=sys.argv[1:]):
+controllers = {
+    "17d709436c",
+    "565799d8f6",
+    "8056c2e21c",
+    "93afae5963",
+    "e5cd7a9e1c",
+}
+
+hide_roots = True
+ptr_domain = "zt1.nullroute.eu.org"
+
+args = sys.argv[1:]
+if args and args[0] == "-v":
+    args.pop(0)
+    hide_roots = False
+
+for peer in enum_proc("listpeers", via=args):
     peer_id = peer["address"]
-    peer_name = get_peer_name(peer_id)
+    peer_name = get_peer_name(peer_id, ptr_domain)
     latency = peer["latency"]
     role = peer["role"]
 
-    if role in {"ROOT", "PLANET"}:
-        continue
+    if hide_roots:
+        if role in {"ROOT", "PLANET"}:
+            continue
 
     if peer_name:
         fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
+    elif peer_id in controllers:
+        fmt_name = "\033[38;5;76m%s\033[m" % "Controller"
     elif role in {"ROOT", "PLANET"}:
         fmt_name = "\033[38;5;66m%s\033[m" % "Relay"
     else:
@@ -56,11 +69,11 @@ for peer in enum_proc("listpeers", via=sys.argv[1:]):
         active = path["active"]
         pref = path["preferred"]
         if path["preferred"]:
-            fmt_pref = "\033[38;5;76m%s\033[m" % "pref"
+            fmt_pref = "\033[38;5;154m%s\033[m" % "prefer"
         elif path["active"]:
-            fmt_pref = "\033[38;5;66m%s\033[m" % "act."
+            fmt_pref = "\033[38;5;76m%s\033[m" % "active"
         else:
-            fmt_pref = "bckp"
+            fmt_pref = "\033[38;5;244m%s\033[m" % "backup"
         char = "%" if pref else "+" if active else "-"
         host, port = addr.rsplit("/", 1)
         fqdn = get_ip_hostname(host)

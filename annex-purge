@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import os
 import sys
 from nullroute.core import *
@@ -44,9 +44,11 @@ def annex_unused(remote=None):
                 yield int(num), key
 
 def get_last_path(key):
-    with subprocess.Popen(["git", "-c", "diff.renameLimit=1000",
-                                  "log", "--format=", "--name-only",
-                                         "-S%s" % key, "-n1"],
+    with subprocess.Popen(["git", "log", "--format=",
+                                         "--name-only",
+                                         "--no-renames",
+                                         "-S%s" % key,
+                                         "-n1"],
                           stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
             line = line.decode("utf-8")

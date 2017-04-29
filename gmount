@@ -117,14 +117,14 @@ for arg; do
 
 	if (( mount )); then
 		info "mounting $dev"
-		gvfs-mount -d "$dev"
+		gio mount -d "$dev"
 	else
 		debug "searching for inner label/uuid '$arg'"
 		mtpt=$(findmnt -n -o TARGET -S "LABEL=$arg" \
 			|| findmnt -n -o TARGET -S "UUID=$arg")
 		if [[ $mtpt ]]; then
 			info "unmounting $mtpt"
-			gvfs-mount -u "$mtpt" || err "unmount failed"
+			gio mount -u "$mtpt" || err "unmount failed"
 		elif ! (( standby || poweroff )); then
 			err "mountpoint not found"
 		fi

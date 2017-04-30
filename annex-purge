@@ -103,22 +103,40 @@ if unused:
         Core.info("dropping all unused files from %s" % (remote or "local repository"))
         if remote:
             annex_run("dropunused", "--from=%s" % remote, "--force", "all")
-            #annex_run("drop", "--from=%s" % remote, "--unused", "--force")
         else:
             annex_run("dropunused", "--force", "all")
-            #annex_run("drop", "--unused", "--force")
         Core.info("dropped %d files (%s)" % (len(items), fmt_size(total)))
+    elif r[0] in {"d", "drop"}:
+        Core.info("dropping files matching %r" % r[1])
+        nums = []
+        sizes = 0
+        for num, size, key, name in items:
+            if fnmatch.fnmatch(name, r[1]):
+                Core.debug("queued %r for drop" % name)
+                nums.append(num)
+                sizes += size
+        if nums:
+            if remote:
+                annex_run("dropunused", "--from=%s" % remote, "--force", *nums)
+            else:
+                annex_run("dropunused", "--force", *nums)
+            Core.info("dropped %d files (%s)" % (len(nums), fmt_size(sizes)))
+        else:
+            Core.err("no files matched %r" % r[1])
     elif r[0] in {"r", "recover"}:
         Core.info("recovering files matching %r" % r[1])
         names = []
         sizes = 0
         for num, size, key, name in items:
             if fnmatch.fnmatch(name, r[1]):
+                Core.debug("creating placeholder for %r" % name)
                 subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % key, name])
                 names.append(name)
                 sizes += size
         if names:
             annex_run("add", *names)
-        Core.info("recovered %d files (%s)" % (len(names), fmt_size(sizes)))
+            Core.info("recovered %d files (%s)" % (len(names), fmt_size(sizes)))
+        else:
+            Core.err("no files matched %r" % r[1])
     else:
         Core.info("exiting")

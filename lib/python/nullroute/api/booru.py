@@ -80,6 +80,8 @@ class BooruApi(object):
             if key == "character" and len(val) <= 2:
                 bad_suffixes = ["_(%s)" % s for s in raw_tags["copyright"]]
                 val = [_strip_suffixes(t, bad_suffixes) for t in val]
+            if key == "character" and len(val) > 8:
+                val = []
             all_tags += sorted(val)
         if self.tag_filter:
             all_tags = self.tag_filter.filter(all_tags)

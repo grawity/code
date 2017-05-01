@@ -101,7 +101,11 @@ state=configure
 trap "trap - INT HUP TERM QUIT; kill \$pinentry_pid 2>/dev/null" EXIT INT HUP TERM QUIT
 
 while read -r status rest <&$in; do
-	debug "($state) status='$status' rest='$rest'"
+	if [[ $state == waitinput && $status == D && $rest ]]; then
+		debug "($state) status='$status' rest=<hidden>"
+	else
+		debug "($state) status='$status' rest='$rest'"
+	fi
 	case $state in
 	configure)
 		case $status in

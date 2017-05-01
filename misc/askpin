@@ -12,6 +12,7 @@ usage() {
 	echo_opt "-d <description>"	"set description text"
 	echo_opt "-p <prompt>"		"set entry prompt text (default is 'PIN:')"
 	echo ""
+	echo_opt "-n"			"display a confirmation prompt"
 	echo_opt "-O <label>"		"set 'OK' button label"
 	echo_opt "-C <label>"		"set 'Cancel' button label"
 	echo ""
@@ -28,6 +29,7 @@ encode() {
 
 pinentry=(pinentry)
 config=("SETPROMPT")
+action="GETPIN"
 
 # parse config
 
@@ -37,7 +39,7 @@ fi
 
 # parse arguments
 
-while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
+while getopts ':c:C:Dd:ghN:nO:o:P:p:t:xW:' OPT; do
 	debug "getopts: [$OPTIND] -$OPT '$OPTARG'"
 	case $OPT in
 	c) config+=("$OPTARG");;
@@ -46,6 +48,8 @@ while getopts ':c:C:Dd:ghO:o:P:p:t:xW:' OPT; do
 	d) config+=("SETDESC $(encode "$OPTARG")");;
 	g) pinentry+=(--no-global-grab);;
 	h) usage; exit 0;;
+	N) action="${OPTARG^^}";;
+	n) action="CONFIRM";;
 	O) config+=("SETOK $(encode "$OPTARG")");;
 	o) pinentry+=("$OPTARG");;
 	P) pinentry[0]="$OPTARG";;
@@ -85,6 +89,8 @@ pinentry+=(
 #	"OPTION lc-messages $LC_CTYPE"
 #)
 
+config+=("$action")
+
 # spawn the pinentry program
 
 debug "command: ${pinentry[*]}"
@@ -111,14 +117,10 @@ while read -r status rest <&$in; do
 		case $status in
 		'OK')
 			ok=1
-			if (( i == ${#config[@]} )); then
-				debug "--> GETPIN"
-				echo "GETPIN" >&$out
+			debug "--> [$i] ${config[i]}"
+			printf '%s\n' "${config[i]}" >&$out
+			if (( ++i == ${#config[@]} )); then
 				state=waitinput
-			else
-				debug "--> ${config[i]}"
-				printf '%s\n' "${config[i]}" >&$out
-				(( ++i ))
 			fi
 			;;
 		'ERR')
@@ -137,7 +139,9 @@ while read -r status rest <&$in; do
 			exit 0
 			;;
 		'ERR')
-			if [[ $rest == "83886179 "* ]]; then
+			if [[ $action == 'CONFIRM' ]]; then
+				exit 1
+			elif [[ $rest == '83886179 '* ]]; then
 				die "pinentry prompt cancelled by user"
 			fi
 			die 4 "protocol error: $rest"

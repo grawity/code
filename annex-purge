@@ -8,6 +8,8 @@ from nullroute.misc import fmt_size, unquote
 from subprocess import Popen, PIPE
 import subprocess
 
+Item = namedtuple("Item", ["num", "size", "key", "name"])
+
 def confirm(msg):
     print(msg, end=" ", flush=True)
     try:
@@ -76,13 +78,12 @@ def print_items(items):
     print("  ----  --------  -----")
     print("  %-4d  %8s  %s" % (len(items), fmt_size(total), "TOTAL"))
 
-remote = None
-if len(sys.argv) > 1:
-    remote = sys.argv[1]
+remote = sys.argv[1] if len(sys.argv) > 1 else None
 
-Item = namedtuple("Item", ["num", "size", "key", "name"])
+remote_str = (remote or "local repository")
+remote_arg = ["--from=%s" % remote] if remote else []
 
-Core.info("searching for unused data in %s" % (remote or "local"))
+Core.info("searching for unused data in %s" % remote_str)
 unused = list(annex_unused(remote))
 Core.info("listing %d unused files" % len(unused))
 n_found = len(unused)
@@ -101,16 +102,13 @@ print_items(items)
 while n_found:
     items = [i for i in items if i.key not in k_dropped]
     cmd = prompt("Drop %d files (%s) from %s?" % (n_found, fmt_size(sz_found),
-                                                  remote or "local")).split(None, 1)
+                                                  remote_str)).split(None, 1)
     if not cmd or cmd[0] in {"n", "no", "q", "quit"}:
         Core.info("exiting")
         break
     elif cmd[0] in {"y", "yes"}:
-        Core.info("dropping all unused files from %s" % (remote or "local repository"))
-        if remote:
-            annex_run("dropunused", "--from=%s" % remote, "--force", "all")
-        else:
-            annex_run("dropunused", "--force", "all")
+        Core.info("dropping all unused files from %s" % remote_str)
+        annex_run("dropunused", *remote_arg, "--force", "all")
         Core.info("dropped %d files (%s)" % (n_found, fmt_size(sz_found)))
         break
     elif cmd[0] in {"d", "drop"}:
@@ -119,10 +117,7 @@ while n_found:
         n_dropped = sz_dropped = 0
         n_err = sz_err = 0
         for i in todo:
-            if remote:
-                r = annex_run("dropunused", "--from=%s" % remote, "--force", str(i.num))
-            else:
-                r = annex_run("dropunused", "--force", str(i.num))
+            r = annex_run("dropunused", *remote_arg, "--force", str(i.num))
             if r == 0:
                 n_dropped += 1
                 sz_dropped += i.size

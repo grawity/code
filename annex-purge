@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import fnmatch
+from collections import namedtuple
+from fnmatch import fnmatch
 import os
 import sys
 from nullroute.core import *
@@ -68,102 +69,108 @@ def get_last_path(key):
             return line
 
 def print_items(items):
-    _total = 0
+    total = 0
     for num, size, key, name in items:
         print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
-        _total += size
-    print("= %-4d  %8s  %s" % (len(items), fmt_size(_total), "total"))
+        total += size
+    print("  ----  --------  -----")
+    print("  %-4d  %8s  %s" % (len(items), fmt_size(total), "TOTAL"))
 
 remote = None
 if len(sys.argv) > 1:
     remote = sys.argv[1]
 
-key_names = {}
+Item = namedtuple("Item", ["num", "size", "key", "name"])
 
 Core.info("searching for unused data in %s" % (remote or "local"))
 unused = list(annex_unused(remote))
 Core.info("listing %d unused files" % len(unused))
-n_files = len(unused)
-total = 0
+n_found = len(unused)
+sz_found = 0
 items = []
 for num, key in unused:
     size = getkeysize(key)
-    total += size
+    sz_found += size
     name = get_last_path(key)
-    if name:
-        name = os.path.basename(name)
-        key_names[key] = name
-    else:
-        name = key
-    items.append((num, size, key, name))
+    name = os.path.basename(name) if name else key
+    items.append(Item(num, size, key, name))
 items.sort(key=lambda x: x[3].casefold())
-dropped = set()
+k_dropped = set()
 print_items(items)
 
-while n_files:
-    r = prompt("Drop %d files (%s) from %s?" % (n_files,
-                                                fmt_size(total),
-                                                remote or "local")).split(None, 1)
-    if not r:
+while n_found:
+    items = [i for i in items if i.key not in k_dropped]
+    cmd = prompt("Drop %d files (%s) from %s?" % (n_found, fmt_size(sz_found),
+                                                  remote or "local")).split(None, 1)
+    if not cmd or cmd[0] in {"n", "no", "q", "quit"}:
         Core.info("exiting")
         break
-    if r[0] in {"y", "yes"}:
+    elif cmd[0] in {"y", "yes"}:
         Core.info("dropping all unused files from %s" % (remote or "local repository"))
         if remote:
             annex_run("dropunused", "--from=%s" % remote, "--force", "all")
         else:
             annex_run("dropunused", "--force", "all")
-        Core.info("dropped %d files (%s)" % (len(items), fmt_size(total)))
+        Core.info("dropped %d files (%s)" % (n_found, fmt_size(sz_found)))
         break
-    elif r[0] in {"d", "drop"}:
-        Core.info("dropping files matching %r" % r[1])
-        nums = []
-        sizes = 0
-        for num, size, key, name in items:
-            if fnmatch.fnmatch(name, r[1]):
-                Core.debug("queued %r for drop" % name)
-                nums.append(num)
-                dropped.add(key)
-                sizes += size
-        if nums:
-            nums = [str(n) for n in nums]
+    elif cmd[0] in {"d", "drop"}:
+        todo = [i for i in items if fnmatch(i.name, cmd[1])]
+        Core.info("dropping %d files matching %r" % (len(todo), cmd[1]))
+        n_dropped = sz_dropped = 0
+        n_err = sz_err = 0
+        for i in todo:
             if remote:
-                r = annex_run("dropunused", "--from=%s" % remote, "--force", *nums)
+                r = annex_run("dropunused", "--from=%s" % remote, "--force", str(i.num))
             else:
-                r = annex_run("dropunused", "--force", *nums)
+                r = annex_run("dropunused", "--force", str(i.num))
             if r == 0:
-                Core.info("dropped %d files (%s)" % (len(nums), fmt_size(sizes)))
-                n_files -= len(nums)
-                total -= sizes
+                n_dropped += 1
+                sz_dropped += i.size
+                k_dropped.add(i.key)
             else:
-                Core.err("drop failed")
+                n_err += 1
+                sz_err += i.size
+        if n_err:
+            Core.err("failed to drop %d files" % (n_err, fmt_size(sz_err)))
+        if n_dropped:
+            Core.info("dropped %d files (%s)" % (n_dropped, fmt_size(sz_dropped)))
+            n_found -= n_dropped
+            sz_found -= sz_dropped
         else:
-            Core.err("no files matched %r" % r[1])
-    elif r[0] in {"r", "recover"}:
-        Core.info("recovering files matching %r" % r[1])
+            Core.err("no files matched %r" % cmd[1])
+    elif cmd[0] in {"r", "recover"}:
+        todo = [i for i in items if fnmatch(i.name, cmd[1])]
+        Core.info("recovering %d files matching %r" % (len(todo), cmd[1]))
+        n_recover = sz_recover = 0
+        n_err = sz_err = 0
         names = []
-        sizes = 0
-        for num, size, key, name in items:
-            if fnmatch.fnmatch(name, r[1]):
-                Core.debug("creating placeholder for %r" % name)
-                subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % key, name])
-                names.append(name)
-                dropped.add(key)
-                sizes += size
-        if names:
-            annex_run("add", *names)
-            n_files -= len(names)
-            total -= sizes
-            Core.info("recovered %d files (%s)" % (len(names), fmt_size(sizes)))
+        for i in todo:
+            Core.debug("creating placeholder for %r" % i.name)
+            r = subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % i.key, i.name])
+            if r == 0:
+                names.append(i.name)
+                n_recover += 1
+                sz_recover += i.size
+                k_dropped.add(i.key)
+            else:
+                n_err += 1
+                sz_err += i.size
+        if n_err:
+            Core.err("failed to recover %d files" % (n_err, fmt_size(sz_err)))
+        if n_recover:
+            r = annex_run("add", *names)
+            if r == 0:
+                Core.info("recovered %d files (%s)" % (n_recover, fmt_size(sz_recover)))
+                n_found -= n_recover
+                sz_found -= sz_recover
+            else:
+                Core.err("annex add of symlinks failed")
         else:
-            Core.err("no files matched %r" % r[1])
-    elif r[0] in {"/", "print"}:
-        _items = [i for i in items if i[2] not in dropped]
-        if len(r) > 1:
-            _items = [i for i in items if fnmatch.fnmatch(i[3], r[1])]
-        print_items(_items)
-    elif r:
-        Core.err("unknown command %r" % r[0])
+            Core.err("no files matched %r" % cmd[1])
+    elif cmd[0] in {"/", "print"}:
+        todo = items
+        if len(cmd) > 1:
+            todo = [i for i in todo if fnmatch(i.name, cmd[1])]
+        print_items(todo)
     else:
-        Core.info("exiting")
-        break
+        Core.err("unknown command %r" % cmd[0])

@@ -67,6 +67,13 @@ def get_last_path(key):
                 raise
             return line
 
+def print_items(items):
+    _total = 0
+    for num, size, key, name in items:
+        print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
+        _total += size
+    print("= %-4d  %8s  %s" % (len(items), fmt_size(_total), "total"))
+
 remote = None
 if len(sys.argv) > 1:
     remote = sys.argv[1]
@@ -76,6 +83,7 @@ key_names = {}
 Core.info("searching for unused data in %s" % (remote or "local"))
 unused = list(annex_unused(remote))
 Core.info("listing %d unused files" % len(unused))
+n_files = len(unused)
 total = 0
 items = []
 for num, key in unused:
@@ -89,16 +97,16 @@ for num, key in unused:
         name = key
     items.append((num, size, key, name))
 items.sort(key=lambda x: x[3].casefold())
-for num, size, key, name in items:
-    if name != key:
-        print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
-        #print("  %-4s  %8s  %s" % ("", "", "\033[38;5;245m%s\033[m" % key))
-    else:
-        print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
-print("total:", fmt_size(total))
+dropped = set()
+print_items(items)
 
-if unused:
-    r = prompt("Drop all from %s?" % (remote or "local")).split(None, 1)
+while n_files:
+    r = prompt("Drop %d files (%s) from %s?" % (n_files,
+                                                fmt_size(total),
+                                                remote or "local")).split(None, 1)
+    if not r:
+        Core.info("exiting")
+        break
     if r[0] in {"y", "yes"}:
         Core.info("dropping all unused files from %s" % (remote or "local repository"))
         if remote:
@@ -106,6 +114,7 @@ if unused:
         else:
             annex_run("dropunused", "--force", "all")
         Core.info("dropped %d files (%s)" % (len(items), fmt_size(total)))
+        break
     elif r[0] in {"d", "drop"}:
         Core.info("dropping files matching %r" % r[1])
         nums = []
@@ -114,13 +123,20 @@ if unused:
             if fnmatch.fnmatch(name, r[1]):
                 Core.debug("queued %r for drop" % name)
                 nums.append(num)
+                dropped.add(key)
                 sizes += size
         if nums:
+            nums = [str(n) for n in nums]
             if remote:
-                annex_run("dropunused", "--from=%s" % remote, "--force", *nums)
+                r = annex_run("dropunused", "--from=%s" % remote, "--force", *nums)
             else:
-                annex_run("dropunused", "--force", *nums)
-            Core.info("dropped %d files (%s)" % (len(nums), fmt_size(sizes)))
+                r = annex_run("dropunused", "--force", *nums)
+            if r == 0:
+                Core.info("dropped %d files (%s)" % (len(nums), fmt_size(sizes)))
+                n_files -= len(nums)
+                total -= sizes
+            else:
+                Core.err("drop failed")
         else:
             Core.err("no files matched %r" % r[1])
     elif r[0] in {"r", "recover"}:
@@ -132,11 +148,22 @@ if unused:
                 Core.debug("creating placeholder for %r" % name)
                 subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % key, name])
                 names.append(name)
+                dropped.add(key)
                 sizes += size
         if names:
             annex_run("add", *names)
+            n_files -= len(names)
+            total -= sizes
             Core.info("recovered %d files (%s)" % (len(names), fmt_size(sizes)))
         else:
             Core.err("no files matched %r" % r[1])
+    elif r[0] in {"/", "print"}:
+        _items = [i for i in items if i[2] not in dropped]
+        if len(r) > 1:
+            _items = [i for i in items if fnmatch.fnmatch(i[3], r[1])]
+        print_items(_items)
+    elif r:
+        Core.err("unknown command %r" % r[0])
     else:
         Core.info("exiting")
+        break

@@ -114,55 +114,58 @@ while n_found:
     elif cmd[0] in {"d", "drop"}:
         todo = [i for i in items if fnmatch(i.name, cmd[1])]
         Core.info("dropping %d files matching %r" % (len(todo), cmd[1]))
-        n_dropped = sz_dropped = 0
-        n_err = sz_err = 0
+        dropped = []
+        failed = []
         for i in todo:
             r = annex_run("dropunused", *remote_arg, "--force", str(i.num))
             if r == 0:
-                n_dropped += 1
-                sz_dropped += i.size
-                k_dropped.add(i.key)
+                dropped.append(i)
             else:
-                n_err += 1
-                sz_err += i.size
-        if n_err:
-            Core.err("failed to drop %d files (%s)" % (n_err, fmt_size(sz_err)))
-        if n_dropped:
-            Core.info("dropped %d files (%s)" % (n_dropped, fmt_size(sz_dropped)))
+                failed.append(i)
+        if failed:
+            n_fail = len(failed)
+            sz_fail = sum([i.size for i in failed])
+            Core.err("failed to drop %d files (%s)" % (n_fail, fmt_size(sz_fail)))
+        if dropped:
+            n_dropped = len(dropped)
             n_found -= n_dropped
+            sz_dropped = sum([i.size for i in dropped])
             sz_found -= sz_dropped
+            k_dropped |= {i.key for i in dropped}
+            Core.info("dropped %d files (%s)" % (n_dropped, fmt_size(sz_dropped)))
         else:
             Core.err("no files matched %r" % cmd[1])
     elif cmd[0] in {"r", "recover"}:
         todo = [i for i in items if fnmatch(i.name, cmd[1])]
         Core.info("recovering %d files matching %r" % (len(todo), cmd[1]))
-        n_recover = sz_recover = 0
-        n_err = sz_err = 0
-        names = []
+        recovered = []
+        failed = []
         for i in todo:
             Core.debug("creating placeholder for %r" % i.name)
             r = subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % i.key, i.name])
             if r == 0:
-                names.append(i.name)
-                n_recover += 1
-                sz_recover += i.size
-                k_dropped.add(i.key)
+                recovered.append(i)
             else:
-                n_err += 1
-                sz_err += i.size
-        if n_err:
-            Core.err("failed to recover %d files (%s)" % (n_err, fmt_size(sz_err)))
-        if n_recover:
+                failed.append(i)
+        if failed:
+            n_fail = len(failed)
+            sz_fail = sum([i.size for i in failed])
+            Core.err("failed to recover %d files (%s)" % (n_fail, fmt_size(sz_fail)))
+        if recovered:
+            names = [i.name for i in recovered]
             r = annex_run("add", *names)
             if r == 0:
-                Core.info("recovered %d files (%s)" % (n_recover, fmt_size(sz_recover)))
+                n_recover = len(recovered)
                 n_found -= n_recover
+                sz_recover = sum([i.size for i in recovered])
                 sz_found -= sz_recover
+                k_dropped |= {i.key for i in recovered}
+                Core.info("recovered %d files (%s)" % (n_recover, fmt_size(sz_recover)))
             else:
                 Core.err("annex add of symlinks failed")
         else:
             Core.err("no files matched %r" % cmd[1])
-    elif cmd[0] in {"/", "print"}:
+    elif cmd[0] in {"/", "p", "print"}:
         todo = items
         if len(cmd) > 1:
             todo = [i for i in todo if fnmatch(i.name, cmd[1])]

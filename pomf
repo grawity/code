@@ -39,7 +39,7 @@ usage() {
 }
 
 have curl  || err "missing 'curl'"
-have jshon || err "missing 'jshon'"
+have jq    || err "missing 'jq'"
 
 lib::errexit
 
@@ -88,8 +88,8 @@ fi
 
 debug "posting to '$api_url'"
 upload=$(curl -S "${curl_args[@]}" "$api_url")
-urls=$(jshon -e files -a -e name -upe url -u <<< "$upload") || {
-    trace "output: $upload"
+urls=$(jq -e -r ".files[] | (.name, .url)" <<< "$upload") || {
+    echo "output: $upload"
     die "could not parse response"
 }
 

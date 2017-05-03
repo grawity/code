@@ -14,6 +14,7 @@ _log_mcolor[log2]='\e[38;5;14m'
 config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
 dkms_modules=()
 add_ucode="intel-ucode.img"
+copy_to_legacy=n
 
 if [ -e "$config" ]; then
 	. "$config" || die "could not load configuration file"
@@ -93,7 +94,7 @@ log2 "configuring bootloader"
 	options         $options
 	!
 
-if [ "$esp" != "/boot" ]; then
+if [ "$copy_to_legacy" = y ] && [ "$esp" != "/boot" ]; then
 	log "installing to legacy /boot"
 
 	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"

@@ -1,6 +1,7 @@
 import enum
 from functools import lru_cache
 from nullroute.core import *
+from pprint import pprint
 import requests
 
 CERT_FORMATS = {
@@ -105,14 +106,17 @@ class CertCentralClient(object):
 
     def get_order_certificate(self, order_id, format=None):
         order = self.get_order(order_id)
+        if order["status"] == "processing":
+            raise StillProcessingError(order)
+        elif order["status"] != "issued":
+            pprint(order)
+            raise DevError("unknown order status %r" % order["status"])
         cert_id = order["certificate"]["id"]
         cert_type = order["product"]["type"]
         try:
             serial = order["certificate"]["serial_number"]
         except KeyError as e:
-            # XXX
-            import pprint
-            pprint.pprint(order)
+            pprint(order)
             raise
         if cert_type == "ssl_certificate":
             format = format or "pem_noroot"

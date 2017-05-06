@@ -17,7 +17,7 @@ while getopts "I:P:" OPT; do
 	I) opt_identity=$OPTARG;;
 	P) opt_principal=$OPTARG;;
 	esac
-done
+done; shift $((OPTIND-1))
 
 if [[ ! $opt_principal ]]; then
 	opt_principal="$(whoami)@$(pklist -R)"
@@ -30,4 +30,4 @@ if [[ -f $opt_identity ]]; then
 	opt_identity="FILE:$(realpath -s "$opt_identity")"
 fi
 
-kinit -X "X509_user_identity=$opt_identity" "$opt_principal"
+kinit -X "X509_user_identity=$opt_identity" "$@" "$opt_principal"

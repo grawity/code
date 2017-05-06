@@ -9,6 +9,10 @@ fi
 err() { echo "error: $*" >&2; false; }
 die() { err "$@"; exit; }
 
+usage() {
+	echo "Usage: ${0##*/} -I <identity> [-P <principal>]"
+}
+
 opt_identity=
 opt_principal=
 
@@ -16,8 +20,13 @@ while getopts "I:P:" OPT; do
 	case $OPT in
 	I) opt_identity=$OPTARG;;
 	P) opt_principal=$OPTARG;;
+	*) usage; exit 2;;
 	esac
-done
+done; shift $((OPTIND-1))
+
+if [[ ! $opt_principal ]]; then
+	opt_principal="$(pklist -P)"
+fi
 
 if [[ ! $opt_principal ]]; then
 	opt_principal="$(whoami)@$(pklist -R)"
@@ -26,8 +35,12 @@ if [[ ! $opt_principal ]]; then
 	fi
 fi
 
+if [[ ! $opt_identity ]]; then
+	die "identity not specified"
+fi
+
 if [[ -f $opt_identity ]]; then
 	opt_identity="FILE:$(realpath -s "$opt_identity")"
 fi
 
-kinit -X "X509_user_identity=$opt_identity" "$opt_principal"
+kinit -X "X509_user_identity=$opt_identity" "$@" "$opt_principal"

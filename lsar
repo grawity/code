@@ -25,7 +25,10 @@ do_extract() {
     local f=$1 d=${1%.*}.out/
     mkdir -p "$d"
     case ${f,,} in
-	*.iso|*.tar|*.tar.*|*.tbz2|*.tgz|*.txz|*.cpio)
+	*.deb)
+	    sub=$(bsdtar -tf "$f" | grep '^data\.')
+	    bsdtar -xOf "$f" "$f" | xz -d | bsdtar -xvf - -C "$d";;
+	*.iso|*.tar|*.tar.*|*.tbz2|*.tgz|*.txz|*.cpio|*.rpm)
 	    bsdtar -xvf "$f" -C "$d";;
 	*.bz2)
 	    do_pv "$f" bzip2;;

@@ -4,21 +4,18 @@
 declare -A site_bases site_apis upload_bases
 
 site_bases=(
-    [1339]=http://1339.cf
     [cat]=https://pomf.cat
-    [max]=https://maxfile.ro
+    [nya]=https://nya.is
     [mixtape]=https://mixtape.moe
 )
 
 site_apis=(
-    [1339]=/upload.php
-    [max]=/static/upload.php
+    [nya]=/upload
 )
 
 upload_bases=(
-    [1339]=http://a.1339.cf
     [cat]=https://a.pomf.cat
-    [max]=https://d2.maxfile.ro
+    [nya]=https://u.nya.is
     [mixtape]=https://my.mixtape.moe
 )
 
@@ -39,7 +36,7 @@ usage() {
 }
 
 have curl  || err "missing 'curl'"
-have jshon || err "missing 'jshon'"
+have jq    || err "missing 'jq'"
 
 lib::errexit
 
@@ -61,7 +58,7 @@ site_base=${site_bases[$arg_site]}
 api_url=${site_base}${site_apis[$arg_site]:-"/upload.php"}
 upload_base=${upload_bases[$arg_site]}
 
-[[ $site_base && $upload_base ]] || die "unknown provider '$arg_site'"
+[[ $site_base ]] || die "unknown provider '$arg_site'"
 
 curl_args=()
 for f in "$@"; do
@@ -88,14 +85,14 @@ fi
 
 debug "posting to '$api_url'"
 upload=$(curl -S "${curl_args[@]}" "$api_url")
-urls=$(jshon -e files -a -e name -upe url -u <<< "$upload") || {
-    trace "output: $upload"
+urls=$(jq -e -r ".files[] | (.name, .url)" <<< "$upload") || {
+    echo "output: $upload"
     die "could not parse response"
 }
 
 clip=()
 while { read -r name; read -r url; } do
-    url=$upload_base/$url
+    [[ $url == *://* ]] || url=$upload_base/$url
     echo "$name → $url"
     echo "$(date --rfc-3339=seconds) $url $name" >> "$log_file"
     clip+=("$url")

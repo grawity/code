@@ -52,14 +52,22 @@ for file; do
 		certtool $arg -i < "$file" |
 			sed -r '/^-----BEGIN/,/^-----END/d;
 			/^\t*([0-9a-f][0-9a-f]:)+[0-9a-f][0-9a-f]$/d;
-			/^\t.*random art:$/,/^\t\t\+-+\+$/d'
+			/^\t.*random art:$/,/^\t\t\+-+\+$/d' |
+			if [ -t 1 ];
+			then sed $'/^X\.509 Certificate/ s/.*/\e[1m&\e[m/'
+			else cat
+			fi
 		;;
 	'openssl')
 		if (( der )); then
 			arg="-inform DER"
 		fi
 		debug "- calling 'openssl x509${arg:+ }$arg'"
-		openssl x509 -noout -text -certopt no_sigdump $arg < "$file"
+		openssl x509 -noout -text -certopt no_sigdump $arg < "$file" |
+			if [ -t 1 ];
+			then sed $'/^Certificate/ s/.*/\e[1m&\e[m/'
+			else cat
+			fi
 		;;
 	esac
 done

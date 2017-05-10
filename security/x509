@@ -7,13 +7,16 @@ if have certtool; then
 	use='certtool'
 elif have openssl; then
 	use='openssl'
+elif have certutil; then
+	use='nss-certutil'
 else
 	die "no GnuTLS or OpenSSL tools present"
 fi
 
-while getopts ':go' OPT; do
+while getopts ':gno' OPT; do
 	case $OPT in
 	g) use='certtool';;
+	n) use='nss-certutil';;
 	o) use='openssl';;
 	*) lib::die_getopts;;
 	esac
@@ -69,6 +72,20 @@ for file; do
 			then sed $'/^Certificate/ s/.*/\e[1m&\e[m/'
 			else cat
 			fi
+		;;
+	'nss-certutil')
+		db=$(mktemp -d /tmp/nss.XXXXXXXX)
+		name="Temporary X.509 certificate"
+		certutil -A -d "$db" -i "$file" -n "$name" -t ",,"
+		certutil -L -d "$db" -n "$name" |
+			awk '/Exponent:/ {m=0} !m {print} /Modulus:/ {m=1}' |
+			awk '!m {print} /Signature:/ {m=1} !/:$/ {m=0}' |
+			awk '/Certificate Trust Flags:/ {m=1} !m {print} /^$/ {m=0}' |
+			if [ -t 1 ];
+			then sed $'/^Certificate/ s/.*/\e[1m&\e[m/'
+			else cat
+			fi
+		rm -rf "$db"
 		;;
 	esac
 done

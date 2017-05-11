@@ -155,6 +155,20 @@ sub write_certificate {
     }
 }
 
+sub process_xml {
+    my ($adoc, $parse_func) = @_;
+
+    if (open(my $f, "<:raw", $adoc)) {
+        my @cert_der = $parse_func->($f);
+        if (@cert_der) {
+            write_certificate($_) for @cert_der;
+        } else {
+            _err("no certificates found in '$adoc'");
+        }
+        $f->close;
+    }
+}
+
 sub process_zip {
     my ($adoc, $sig_regex, $parse_func) = @_;
 
@@ -247,15 +261,7 @@ for my $adoc (@ARGV) {
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
-        if (open(my $f, "<:raw", $adoc)) {
-            my @cert_der = parse_xmldsig($f);
-            if (@cert_der) {
-                write_certificate($_) for @cert_der;
-            } else {
-                _err("no certificates found in '$adoc'");
-            }
-            $f->close;
-        }
+        process_xml($adoc, \&parse_xmldsig);
     }
     elsif ($format eq "pdf") {
         _log2("parsing '$adoc' (PDF)");

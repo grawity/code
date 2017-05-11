@@ -142,7 +142,7 @@ GetOptions(
     "p|policy=s" => \$policy,
     "t|tsa=s" => \$tsa,
     "v|verbose!" => \$verbose,
-);
+) or exit(2);
 
 if ($out_file && @ARGV > 1) {
     _die("--output only makes sense with one input file");
@@ -161,6 +161,11 @@ if (!@ARGV) {
 }
 
 for my $in_file (@ARGV) {
+    if (!-f $in_file) {
+        _err("file '$in_file' not found");
+        next;
+    }
+
     $out_file //= "$in_file.tsr";
     _log("requesting timestamp for '$in_file'");
 
@@ -177,9 +182,9 @@ for my $in_file (@ARGV) {
     }
 
     write_response_to_file($res_buf, $out_file);
-
     _info("wrote signed timestamp to '$out_file'");
     $out_file = undef;
 }
 
+_exit();
 # vim: ts=4:sw=4:et

@@ -64,6 +64,50 @@ sub parse_xmldsig {
     }
 }
 
+sub parse_etsi_tsl {
+    my ($data, %opt) = @_;
+
+    my $xs = XML::Simple->new;
+    my $xml = $xs->XMLin($data,
+                         NSExpand => 1,
+                         KeepRoot => 1,
+                         ForceContent => 1,
+                         ForceArray => [
+                            "{http://uri.etsi.org/02231/v2#}TrustServiceProvider",
+                            "{http://uri.etsi.org/02231/v2#}TSPService",
+                            "{http://uri.etsi.org/02231/v2#}DigitalId",
+                            #"{http://uri.etsi.org/02231/v2#}X509Certificate",
+                         ]);
+
+    if ($::debug >= 2) {
+        require Data::Dumper;
+        print Data::Dumper->new([$xml])->Indent(1)->Dump;
+    }
+
+    if (my $data = $xml->{"{http://uri.etsi.org/02231/v2#}TrustServiceStatusList"}
+                       ->{"{http://uri.etsi.org/02231/v2#}TrustServiceProviderList"}
+                       ->{"{http://uri.etsi.org/02231/v2#}TrustServiceProvider"}) {
+        #map { require Data::Dumper; print Data::Dumper->new([$_])->Indent(1)->Dump; }
+        return
+        map { decode_base64($_) }
+        map { $_->{"{http://uri.etsi.org/02231/v2#}X509Certificate"}
+                ->{"content"} }
+        grep { $_->{"{http://uri.etsi.org/02231/v2#}X509Certificate"} }
+        map { $_->{"{http://uri.etsi.org/02231/v2#}ServiceInformation"}
+                ->{"{http://uri.etsi.org/02231/v2#}ServiceDigitalIdentity"}
+                ->{"{http://uri.etsi.org/02231/v2#}DigitalId"}
+                ->@* }
+        map { $_->{"{http://uri.etsi.org/02231/v2#}TSPServices"}
+                ->{"{http://uri.etsi.org/02231/v2#}TSPService"}
+                ->@* }
+            @$data;
+        print "yay\n";
+        return;
+    } else {
+        return;
+    }
+}
+
 sub try_decode {
     my ($str) = @_;
 
@@ -155,6 +199,20 @@ sub write_certificate {
     }
 }
 
+sub process_xml {
+    my ($adoc, $parse_func) = @_;
+
+    if (open(my $f, "<:raw", $adoc)) {
+        my @cert_der = $parse_func->($f);
+        if (@cert_der) {
+            write_certificate($_) for @cert_der;
+        } else {
+            _err("no certificates found in '$adoc'");
+        }
+        $f->close;
+    }
+}
+
 sub process_zip {
     my ($adoc, $sig_regex, $parse_func) = @_;
 
@@ -188,7 +246,7 @@ GetOptions(
     "help" => sub { usage(); exit; },
     "format=s" => \$Opt{force_format},
     "d|output-dir=s" => \$Opt{output_dir},
-);
+) or exit(2);
 
 for my $adoc (@ARGV) {
     my $format;
@@ -247,15 +305,11 @@ for my $adoc (@ARGV) {
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
-        if (open(my $f, "<:raw", $adoc)) {
-            my @cert_der = parse_xmldsig($f);
-            if (@cert_der) {
-                write_certificate($_) for @cert_der;
-            } else {
-                _err("no certificates found in '$adoc'");
-            }
-            $f->close;
-        }
+        process_xml($adoc, \&parse_xmldsig);
+    }
+    elsif ($format eq "etsi-tsl") {
+        _log2("parsing '$adoc' (ETSI Trust Service List)");
+        process_xml($adoc, \&parse_etsi_tsl);
     }
     elsif ($format eq "pdf") {
         _log2("parsing '$adoc' (PDF)");

@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+import ipaddress
+import sys
+
+def parse_mac(mac):
+    if ":" in mac:
+        mac = mac.split(":")
+        mac = [int(c, 16) for c in mac]
+    elif "-" in mac:
+        mac = mac.split("-")
+        mac = [int(c, 16) for c in mac]
+    else:
+        raise ValueError("%r is not a recognized MAC address" % mac)
+
+    return mac
+
+try:
+    net = sys.argv[1]
+    mac = sys.argv[2]
+except IndexError:
+    exit("Usage: ip-autoconf <net> <mac>")
+
+if "/" not in net:
+    net += "/64"
+elif not net.endswith("/64"):
+    exit("only /64 networks support autoconfiguration")
+
+try:
+    net = ipaddress.IPv6Network(net)
+except ValueError as e:
+    exit("invalid IPv6 prefix: %s" % e)
+
+try:
+    mac = parse_mac(mac)
+except ValueError:
+    exit("invalid MAC address given")
+
+prefix = net.network_address.packed[:8]
+suffix = [*mac[:3], 0xFF, 0xFE, *mac[3:]]
+suffix[0] ^= 2
+
+addr = bytes(prefix) + bytes(suffix)
+addr = ipaddress.IPv6Address(addr)
+print(addr)

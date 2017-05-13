@@ -3,17 +3,28 @@
 
 . lib.bash || exit
 
+highlight() {
+	if [ -t 1 ]; then
+		sed "$1 s/.*/"$'\e[1m&\e[m'"/"
+	else
+		cat
+	fi
+}
+
 if have certtool; then
 	use='certtool'
 elif have openssl; then
 	use='openssl'
+elif have certutil; then
+	use='nss-certutil'
 else
 	die "no GnuTLS or OpenSSL tools present"
 fi
 
-while getopts ':go' OPT; do
+while getopts ':gno' OPT; do
 	case $OPT in
 	g) use='certtool';;
+	n) use='nss-certutil';;
 	o) use='openssl';;
 	*) lib::die_getopts;;
 	esac
@@ -53,7 +64,8 @@ for file; do
 		certtool $arg -i < "$file" |
 			sed -r '/^-----BEGIN/,/^-----END/d;
 			/^\t*([0-9a-f][0-9a-f]:)+[0-9a-f][0-9a-f]$/d;
-			/^\t.*random art:$/,/^\t\t\+-+\+$/d'
+			/^\t.*random art:$/,/^\t\t\+-+\+$/d' |
+			highlight '/^X\.509 Certificate /'
 		;;
 	'openssl')
 		if (( der )); then
@@ -62,7 +74,20 @@ for file; do
 		arg+=" -nameopt RFC2253"
 		arg+=" -nameopt sep_comma_plus_space"
 		debug "- calling 'openssl x509${arg:+ }$arg'"
-		openssl x509 -noout -text -certopt no_sigdump $arg < "$file"
+		openssl x509 -noout -text -certopt no_sigdump $arg < "$file" |
+			awk '/Exponent:/ {m=0} !m {print} /Modulus:/ {m=1}' |
+			highlight '/^Certificate/'
+		;;
+	'nss-certutil')
+		db=$(mktemp -d /tmp/nss.XXXXXXXX)
+		name="Temporary X.509 certificate"
+		certutil -A -d "$db" -i "$file" -n "$name" -t ",,"
+		certutil -L -d "$db" -n "$name" |
+			awk '/Exponent:/ {m=0} !m {print} /Modulus:/ {m=1}' |
+			awk '!m {print} /Signature:/ {m=1} !/:$/ {m=0}' |
+			awk '/Certificate Trust Flags:/ {m=1} !m {print} /^$/ {m=0}' |
+			highlight '/^Certificate/'
+		rm -rf "$db"
 		;;
 	esac
 done

@@ -77,10 +77,14 @@ class LinuxNeighbourTable(SshNeighbourTable):
     def get_arp4(self):
         with self.conn.popen(["ip", "-4", "neigh"]) as proc:
             yield from self._parse_neigh(proc.stdout)
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
     def get_ndp6(self):
         with self.conn.popen(["ip", "-6", "neigh"]) as proc:
             yield from self._parse_neigh(proc.stdout)
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
 class FreeBsdNeighbourTable(SshNeighbourTable):
     def get_arp4(self):
@@ -97,6 +101,8 @@ class FreeBsdNeighbourTable(SshNeighbourTable):
                     "mac": line[3],
                     "dev": line[5],
                 }
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
     def get_ndp6(self):
         with self.conn.popen(["ndp", "-na"]) as proc:
@@ -109,6 +115,8 @@ class FreeBsdNeighbourTable(SshNeighbourTable):
                         "mac": line[1],
                         "dev": line[2],
                     }
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
 class SolarisNeighbourTable(SshNeighbourTable):
     def get_arp4(self):
@@ -127,6 +135,8 @@ class SolarisNeighbourTable(SshNeighbourTable):
                         "mac": line[3] if ":" in line[3] else line[4],
                         "dev": line[0],
                     }
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
     def get_ndp6(self):
         with self.conn.popen(["netstat", "-npf", "inet6"]) as proc:
@@ -144,6 +154,8 @@ class SolarisNeighbourTable(SshNeighbourTable):
                         "mac": line[1],
                         "dev": line[0],
                     }
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
 class RouterOsNeighbourTable(NeighbourTable):
     def __init__(self, conn, username="admin", password=""):
@@ -205,6 +217,8 @@ class SnmpNeighbourTable(NeighbourTable):
                 oid = line[0].split(".")
                 value = line[1]
                 yield oid, value
+            if proc.wait() != 0:
+                raise IOError("command %r returned %r" % (proc.args, proc.returncode))
 
     def get_all(self, only_af=None):
         if only_af and self._cache[only_af]:

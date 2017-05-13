@@ -42,6 +42,7 @@ for file; do
 		der=1
 	fi
 
+	args=()
 	unset arg
 	case $use in
 	'certtool')
@@ -56,8 +57,10 @@ for file; do
 		;;
 	'openssl')
 		if (( der )); then
-			arg="-inform DER"
+			arg+=" -inform DER"
 		fi
+		arg+=" -nameopt RFC2253"
+		arg+=" -nameopt sep_comma_plus_space"
 		debug "- calling 'openssl x509${arg:+ }$arg'"
 		openssl x509 -noout -text -certopt no_sigdump $arg < "$file"
 		;;

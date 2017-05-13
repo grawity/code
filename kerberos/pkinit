@@ -15,9 +15,13 @@ usage() {
 
 opt_identity=
 opt_principal=
+opt_cert=
+opt_key=
 
-while getopts "I:P:" OPT; do
+while getopts "c:k:I:P:" OPT; do
 	case $OPT in
+	c) opt_cert=$OPTARG;;
+	k) opt_key=$OPTARG;;
 	I) opt_identity=$OPTARG;;
 	P) opt_principal=$OPTARG;;
 	*) usage; exit 2;;
@@ -35,12 +39,23 @@ if [[ ! $opt_principal ]]; then
 	fi
 fi
 
+if [[ $opt_cert ]]; then
+	opt_identity="FILE:$(realpath -s "$opt_cert")"
+	if [[ $opt_key ]]; then
+		opt_identity+=",$(realpath -s "$opt_key")"
+	fi
+fi
+
 if [[ ! $opt_identity ]]; then
 	die "identity not specified"
 fi
 
 if [[ -f $opt_identity ]]; then
-	opt_identity="FILE:$(realpath -s "$opt_identity")"
+	if [[ $opt_identity == *.@(p12|pkcs12|pfx) ]]; then
+		opt_identity="PKCS12:$(realpath -s "$opt_identity")"
+	else
+		opt_identity="FILE:$(realpath -s "$opt_identity")"
+	fi
 fi
 
 kinit -X "X509_user_identity=$opt_identity" "$@" "$opt_principal"

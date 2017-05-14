@@ -3,16 +3,10 @@
 
 . lib.bash || exit
 
+progname='goto-server'
+
 usage() {
 	echo "Usage: $progname <host>"
-}
-
-do_sshfs() {
-	local src=$1 mtpt=$2
-	mkdir -p "$mtpt"
-	mountpoint -q "$mtpt" ||
-		sshfs -o idmap=none "$src" "$mtpt"
-	trace "mounted sshfs#$src on $mtpt"
 }
 
 do_rdp() {
@@ -20,11 +14,6 @@ do_rdp() {
 	debug "using RDP to $host"
 	mstsc "$host" "${@:2}"
 	debug "spawned 'mstsc...'"
-}
-
-do_ssh() {
-	debug "using SSH to $1"
-	exec ssh "$@"
 }
 
 cd ~
@@ -38,21 +27,6 @@ case ${0##*/} in
 esac
 
 case $1 in
-    snow)
-	host="snow"
-	if [[ $2 == "fs" ]]; then
-		do_sshfs "$host:/" "$XDG_RUNTIME_DIR/fs/snow"
-	elif [[ $2 == "suspend" || $2 == "hibernate" ]]; then
-		do_ssh "$host" -oControlPersist=no \
-			-oServerAliveInterval=1 \
-			-oServerAliveCountMax=5 \
-			"$2" &
-	elif [[ $2 == "rdp" || (! $2 && ! -t 0) ]]; then
-		do_rdp "$host" -R
-	else
-		do_ssh "$host" "${@:2}"
-	fi
-	;;
     "")
 	usage >&2
 	die "missing host name"

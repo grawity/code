@@ -5,6 +5,8 @@
 
 progname='goto-server'
 
+alias_file="$path_config/servers.txt"
+
 usage() {
 	echo "Usage: $progname <host>"
 }
@@ -20,33 +22,34 @@ if [[ ! $1 ]]; then
 	die "missing host name"
 fi
 
-lib::find_file server_list= ~/lib/servers.txt config:servers.txt \
-	|| die "server list '$server_list' not found"
-
 name="$1"
+rest=
+
 if [[ $2 && $2 != /* ]]; then
 	name+="-$2"; shift
 fi
-debug "looking for name '$name'"
 
-ip= rest=
-while read -r _name _ip _rest; do
-	if [[ $name == "$_name" ]]; then
-		ip=$_ip
-		rest=$_rest
-	fi
-done < "$server_list"
-debug "resulting ip='$ip' rest='$rest'"
+if [[ -f "$alias_file" ]]; then
+	debug "looking for name '$name'"
+	while read -r _name _ip _rest; do
+		if [[ $name == "$_name" ]]; then
+			name=$_ip
+			rest=$_rest
+			break
+		fi
+	done < "$alias_file"
+	debug "resulting name='$name' rest='$rest'"
+fi
 
-case $ip in
+case $name in
     imap://*|imaps://*)
-	mutt -f "$ip$2" $rest;;
+	mutt -f "$name$2" $rest;;
     rdp://*)
-	mstsc "${ip#rdp://}" $rest;;
+	mstsc "${name#rdp://}" $rest;;
     *://*)
-	die "unknown protocol '${ip%%//*}//'";;
+	die "unknown protocol '${name%%//*}//'";;
     "")
 	mstsc "$name" $rest;;
     *)
-	mstsc "$ip" $rest;;
+	mstsc "$name" $rest;;
 esac

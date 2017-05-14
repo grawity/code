@@ -11,50 +11,42 @@ usage() {
 
 cd ~
 
-case ${0##*/} in
-    go|goto-server|@)
-	;;
-    *)
+if [[ $0 != */@(go|goto-server|@) ]]; then
 	set -- "${0##*/}" "$@"
-	;;
-esac
+fi
 
-case $1 in
-    "")
+if [[ ! $1 ]]; then
 	usage >&2
 	die "missing host name"
-	;;
-    *)
-	lib::find_file server_list= ~/lib/servers.txt config:servers.txt \
-		|| die "server list '$server_list' not found"
+fi
 
-	name="$1"
-	if [[ $2 && $2 != /* ]]; then
-		name+="-$2"; shift
+lib::find_file server_list= ~/lib/servers.txt config:servers.txt \
+	|| die "server list '$server_list' not found"
+
+name="$1"
+if [[ $2 && $2 != /* ]]; then
+	name+="-$2"; shift
+fi
+debug "looking for name '$name'"
+
+ip= rest=
+while read -r _name _ip _rest; do
+	if [[ $name == "$_name" ]]; then
+		ip=$_ip
+		rest=$_rest
 	fi
-	debug "looking for name '$name'"
+done < "$server_list"
+debug "resulting ip='$ip' rest='$rest'"
 
-	ip= rest=
-	while read -r _name _ip _rest; do
-		if [[ $name == "$_name" ]]; then
-			ip=$_ip
-			rest=$_rest
-		fi
-	done < "$server_list"
-	debug "resulting ip='$ip' rest='$rest'"
-
-	case $ip in
-	    imap://*|imaps://*)
-		mutt -f "$ip$2" $rest;;
-	    rdp://*)
-		mstsc "${ip#rdp://}" $rest;;
-	    *://*)
-		die "unknown protocol '${ip%%//*}//'";;
-	    "")
-		mstsc "$name" $rest;;
-	    *)
-		mstsc "$ip" $rest;;
-	esac
-	;;
+case $ip in
+    imap://*|imaps://*)
+	mutt -f "$ip$2" $rest;;
+    rdp://*)
+	mstsc "${ip#rdp://}" $rest;;
+    *://*)
+	die "unknown protocol '${ip%%//*}//'";;
+    "")
+	mstsc "$name" $rest;;
+    *)
+	mstsc "$ip" $rest;;
 esac
-# vim: sts=8

@@ -9,13 +9,6 @@ usage() {
 	echo "Usage: $progname <host>"
 }
 
-do_rdp() {
-	local host=$1
-	debug "using RDP to $host"
-	mstsc "$host" "${@:2}"
-	debug "spawned 'mstsc...'"
-}
-
 cd ~
 
 case ${0##*/} in
@@ -52,15 +45,15 @@ case $1 in
 
 	case $ip in
 	    imap://*|imaps://*)
-		exec mutt -f "$ip$2" $rest;;
+		mutt -f "$ip$2" $rest;;
 	    rdp://*)
-		do_rdp "${ip#rdp://}" $rest;;
+		mstsc "${ip#rdp://}" $rest;;
 	    *://*)
 		die "unknown protocol '${ip%%//*}//'";;
 	    "")
 		die "unknown host '$name'";;
 	    *)
-		do_rdp "$ip" $rest;;
+		mstsc "$ip" $rest;;
 	esac
 	;;
 esac

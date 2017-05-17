@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # tls-cert-check - report expired TLS certificates
-# (c) 2016 Mantas Mikulėnas <grawity@gmail.com>
+# (c) 2016-2017 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)
 #
 # Usage: tls-cert-check [HOST:PORT...]
@@ -27,8 +27,11 @@
 #   - SMTP on ports 25, 587
 #   - regular implicit TLS on all other ports
 #
+# TLS SNI is supported.
+#
 require 'json'
 require 'openssl'
+require 'optparse'
 require 'pp'
 require 'socket'
 require 'time'
@@ -67,61 +70,33 @@ module XDG
     end
 end
 
+class OpenSSL::X509::Name
+    def to_rfc2253
+        to_s(OpenSSL::X509::Name::RFC2253)
+    end
+end
+
 def warn(s)
     STDERR.puts("warning: #{s}")
 end
 
-def load_config
-    path = "#{XDG.config_dir}/cert-check.conf"
-    config = {
-        :grace => 30,
-        :hosts => [],
-        :ports => {},
-        :cache => 3600,
-    }
-
-    begin
-        File.open(path, "r") do |f|
-            f.each do |line|
-                cmd, *rest = line.strip.split
-                case cmd
-                    when "check"
-                        host, *ports = *rest
-                        config[:hosts] << host
-                        config[:ports][host] = ports.map(&:to_i)
-                    when "grace"
-                        config[:grace] = rest[0].to_i
-                    when "every"
-                        config[:cache] = rest[0].to_i
-                end
-            end
-        end
-    rescue Errno::ENOENT => e
-        warn("config file not found: #{e}")
-    end
-
-    return config
-end
-
-def load_state
-    path = "#{XDG.cache_dir}/cert-check.state"
-
-    begin
-        data = nil
-        File.open(path, "r") do |f|
-            data = JSON.load(f)
-        end
-        return data
-    rescue Errno::ENOENT
-        return nil
+def parse_host_port(addr, default_port)
+    if addr =~ /^\[(.+)\]:(\d+)$/
+        return [$1, $2.to_i]
+    elsif addr =~ /^\[(.+)\]$/
+        return [$1, default_port]
+    elsif addr =~ /^(.+):(\d+)$/
+        return [$1, $2.to_i]
+    else
+        return [addr, default_port]
     end
 end
 
-def store_state(data)
-    path = "#{XDG.cache_dir}/cert-check.state"
-
-    File.open(path, "w") do |f|
-        JSON.dump(data, f)
+def format_host_port(host, port)
+    if host =~ /:/
+        return "[#{host}]:#{port}"
+    else
+        return "#{host}:#{port}"
     end
 end
 
@@ -168,11 +143,11 @@ def imap_transact!(sock, command)
 end
 
 def ldap_starttls!(sock)
-    id = 1
     request = OpenSSL::ASN1::Sequence.new([
-        OpenSSL::ASN1::Integer.new(id),
+        OpenSSL::ASN1::Integer.new(1),
         OpenSSL::ASN1::Sequence.new([
-            OpenSSL::ASN1::OctetString.new("1.3.6.1.4.1.1466.20037", 0, :IMPLICIT),
+            OpenSSL::ASN1::OctetString.new("1.3.6.1.4.1.1466.20037",
+                                           0, :IMPLICIT),
         ], 23, :IMPLICIT, :APPLICATION),
     ])
     sock.write(request.to_der)
@@ -265,77 +240,174 @@ def check_service(host, port)
     return cert
 end
 
-def check_one(host, port, errs, exps)
-    hp = "#{host}:#{port}"
+class CertChecker
+    def initialize
+        @config_path = "#{XDG.config_dir}/tls-cert-check.conf"
+        @cache_path = "#{XDG.cache_dir}/tls-cert-check.state"
 
-    last_check = $data["last_check"][hp] || 0
-    if last_check > Time.now.to_i - $config[:cache]
-        puts "skipping #{hp} (cached)..."
-        return
+        @hosts = []
+        @ports = {}
+        @grace = 30
+        @cache = 3600
+        @verbose = false
+
+        @state = {}
+        @failures = []
+        @expiries = []
     end
 
-    begin
-        puts "checking #{hp}..."
-        cert = check_service(host, port)
-    rescue Interrupt
-        raise
-    rescue Exception => ex
-        puts " - error: #{ex.class} #{ex.message}"
-        errs << "#{hp} – #{ex.class} #{ex.message}"
-    else
-        days = ((cert.not_after - Time.now) / 86400).to_i
-        if days < $config[:grace]
-            puts " - subject: #{cert.subject}"
-            puts " - issuer: #{cert.issuer}"
-            puts " - validity: #{cert.not_before} – #{cert.not_after}"
-            if days < 0
-                exps << "#{hp} – expired #{-days} days ago"
-            else
-                exps << "#{hp} – expires in #{days} days"
+    attr_accessor :config_path
+
+    attr_accessor :grace
+    attr_accessor :verbose
+
+    attr_reader :failures
+    attr_reader :expiries
+
+    def load_config!
+        begin
+            File.open(@config_path, "r") do |f|
+                f.each do |line|
+                    cmd, *rest = line.strip.split
+                    case cmd
+                        when "check"
+                            host, *ports = *rest
+                            @hosts << host
+                            @ports[host] = ports.map(&:to_i)
+                        when "grace"
+                            @grace = rest[0].to_i
+                        when "every"
+                            @cache = rest[0].to_i
+                    end
+                end
+            end
+        rescue Errno::ENOENT => e
+            warn("config file not found: #{e}")
+        end
+    end
+
+    def load_state!
+        begin
+            @state = _load_json(@cache_path)
+        rescue Errno::ENOENT
+            @state = {}
+        end
+    end
+
+    def store_state!
+        _dump_json(@state, @cache_path)
+    end
+
+    def add_host(host, port)
+        if @ports[host].nil?
+            @hosts << host
+            @ports[host] = []
+        end
+        @ports[host] << port
+    end
+
+    def check_one!(host, port)
+        hp = format_host_port(host, port)
+
+        last_check = @state.dig("last_check", hp) || 0
+        if last_check > Time.now.to_i - @cache
+            puts "skipping #{hp} (cached)..."
+            return
+        end
+
+        begin
+            puts "checking #{hp}..."
+            cert = check_service(host, port)
+        rescue Interrupt
+            raise
+        rescue Exception => ex
+            puts " - error: #{ex.class} #{ex.message}"
+            @failures << "#{hp} – #{ex.class} #{ex.message}"
+        else
+            days = ((cert.not_after - Time.now) / 86400).to_i
+            if days < @grace or @verbose
+                puts " - subject: #{cert.subject.to_rfc2253}"
+                puts " - issuer: #{cert.issuer.to_rfc2253}"
+                puts " - validity: #{cert.not_before} – #{cert.not_after}"
+                if days < 0
+                    puts " - expired: #{-days} days ago" if @verbose
+                    @expiries << "#{hp} – expired #{-days} days ago"
+                else
+                    puts " - expires: in #{days} days" if @verbose
+                    @expiries << "#{hp} – expires in #{days} days" if days < @grace
+                end
+            end
+            @state["last_check"] ||= {}
+            @state["last_check"][hp] = Time.now.to_i
+        end
+    end
+
+    def check_all!
+        @hosts.each do |host|
+            @ports[host].each do |port|
+                check_one!(host, port)
             end
         end
-        $data["last_check"][hp] = Time.now.to_i
+    end
+
+    private
+
+    def _load_json(path)
+        File.open(path, "r") do |f|
+            return JSON.load(f)
+        end
+    end
+
+    def _dump_json(data, path)
+        File.open(path, "w") do |f|
+            JSON.dump(data, f)
+        end
     end
 end
 
-$config = load_config()
-$data = load_state()
-$data ||= {}
-$data["last_check"] ||= {}
+cc = CertChecker.new
 
-errs = []
-exps = []
+parser = OptionParser.new do |opts|
+    opts.on("-c", "--config PATH", String, "Set path to configuration file") do |s|
+        cc.config_path = s
+    end
+    opts.on("-g", "--grace DAYS", Integer, "Change minimum time until expiry") do |i|
+        cc.grace = i
+    end
+    opts.on("-v", "--verbose", "Show information for valid certificates") do
+        cc.verbose = true
+    end
+end
+parser.parse!
 
 if ARGV.empty?
+    cc.load_config!
+    cc.load_state!
     begin
-        $config[:hosts].each do |host|
-            $config[:ports][host].each do |port|
-                check_one(host, port, errs, exps)
-            end
-        end
+        cc.check_all!
     rescue Interrupt
     end
-
-    store_state($data)
+    cc.store_state!
 else
     ARGV.each do |arg|
-        host, port = arg.split(":")
-        check_one(host, port.to_i, errs, exps)
+        host, port = parse_host_port(arg, 443)
+        cc.add_host(host, port)
     end
+    cc.check_all!
 end
 
-if !errs.empty? || !exps.empty?
+if !cc.failures.empty? || !cc.expiries.empty?
     puts ""
-    if !exps.empty?
+    if !cc.expiries.empty?
         puts "The following certificates are about to expire:"
         puts ""
-        exps.each{|s| puts " - #{s}"}
+        cc.expiries.each{|s| puts " - #{s}"}
         puts ""
     end
-    if !errs.empty?
+    if !cc.failures.empty?
         puts "The following hosts could not be checked:"
         puts ""
-        errs.each{|s| puts " - #{s}"}
+        cc.failures.each{|s| puts " - #{s}"}
         puts ""
     end
     exit 1

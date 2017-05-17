@@ -1,6 +1,6 @@
 import enum
 from functools import lru_cache
-from nullroute.core import *
+from nullroute.core import Core
 from pprint import pprint
 import requests
 
@@ -88,17 +88,16 @@ class CertCentralClient(object):
     ### Convenience
 
     def request_tls_certificate(self, domains, csr, years=3):
-        orgs = self.get_organizations()
+        Core.debug("posting a ssl_multi_domain order for %r", domains)
+        org = self.get_organizations()[0]
         order = {
             "certificate": {
                 "common_name": domains[0],
-                "dns_names": domains,
                 "csr": csr,
+                "dns_names": domains,
                 "signature_hash": "sha256",
             },
-            "organization": {
-                "id": orgs[0]["id"],
-            },
+            "organization": { "id": org["id"] },
             "validity_years": years,
         }
         data = self.post_order("ssl_multi_domain", order)

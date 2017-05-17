@@ -12,6 +12,7 @@ use File::Spec::Functions qw(catfile);
 use Getopt::Long qw(:config bundling no_ignore_case);
 use MIME::Base64;
 use Nullroute::Lib;
+use XML::XPath;
 use XML::Simple;
 
 my %Opt;
@@ -67,45 +68,11 @@ sub parse_xmldsig {
 sub parse_etsi_tsl {
     my ($data, %opt) = @_;
 
-    my $xs = XML::Simple->new;
-    my $xml = $xs->XMLin($data,
-                         NSExpand => 1,
-                         KeepRoot => 1,
-                         ForceContent => 1,
-                         ForceArray => [
-                            "{http://uri.etsi.org/02231/v2#}TrustServiceProvider",
-                            "{http://uri.etsi.org/02231/v2#}TSPService",
-                            "{http://uri.etsi.org/02231/v2#}DigitalId",
-                            #"{http://uri.etsi.org/02231/v2#}X509Certificate",
-                         ]);
+    my $doc = XML::XPath->new(xml => $data);
 
-    if ($::debug >= 2) {
-        require Data::Dumper;
-        print Data::Dumper->new([$xml])->Indent(1)->Dump;
-    }
+    my @all = $doc->findnodes("//X509Certificate");
 
-    if (my $data = $xml->{"{http://uri.etsi.org/02231/v2#}TrustServiceStatusList"}
-                       ->{"{http://uri.etsi.org/02231/v2#}TrustServiceProviderList"}
-                       ->{"{http://uri.etsi.org/02231/v2#}TrustServiceProvider"}) {
-        #map { require Data::Dumper; print Data::Dumper->new([$_])->Indent(1)->Dump; }
-        return
-        map { decode_base64($_) }
-        map { $_->{"{http://uri.etsi.org/02231/v2#}X509Certificate"}
-                ->{"content"} }
-        grep { $_->{"{http://uri.etsi.org/02231/v2#}X509Certificate"} }
-        map { $_->{"{http://uri.etsi.org/02231/v2#}ServiceInformation"}
-                ->{"{http://uri.etsi.org/02231/v2#}ServiceDigitalIdentity"}
-                ->{"{http://uri.etsi.org/02231/v2#}DigitalId"}
-                ->@* }
-        map { $_->{"{http://uri.etsi.org/02231/v2#}TSPServices"}
-                ->{"{http://uri.etsi.org/02231/v2#}TSPService"}
-                ->@* }
-            @$data;
-        print "yay\n";
-        return;
-    } else {
-        return;
-    }
+    return map {decode_base64($_->string_value)} @all;
 }
 
 sub try_decode {

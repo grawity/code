@@ -108,12 +108,11 @@ $summary = shift(@ARGV);
 $body = join(" ", @ARGV);
 
 if (defined $statefile) {
-	if ($statefile =~ s/^\+/$statedir\//) {
-		# If +name given as state file, the user wants as little
-		# hassle as possible. Create the directories.
+	if ($statefile =~ s!^\+!! || $statefile !~ m!/!) {
+		$statefile = $statedir."/".$statefile;
 		make_path($statedir) if !-d $statedir;
-		_debug("state: using dir='$statedir'");
 	}
+	_debug("state: using '$statefile'");
 	if (!$id) {
 		if (open(my $fh, "<", $statefile)) {
 			$id = int <$fh>;
@@ -143,7 +142,7 @@ if ($appendbody) {
 } @actions;
 
 for (@hints) {
-	_debug("parsing hint: $_");
+	_debug("parsing hint '$_'");
 	when (/^(urgency)=(.*)$/) {
 		my ($key, $val) = ($1, $2);
 		for ($val) {

@@ -20,10 +20,11 @@ my %ENC_ALGOS = (
 	# "CAST5-CBC [RFC2144]",
 	# "BLOWFISH-CBC [RFC2451]",
 	# "TWOFISH-CBC", # sic
-	# "AES-GCM [RFC4106]",
+	"aead rfc4543(gcm(aes)) 128" => "AES-GCM [RFC4106]",
 );
 
 my %AUTH_ALGOS = (
+	"" => "NULL",
 	"auth-trunc hmac(sha1) 96" => "HMAC-SHA-1-96 [RFC2404]",
 	# "HMAC-SHA-256-96 [draft-ietf-ipsec-ciph-sha-256-00]",
 	"auth-trunc hmac(sha256) 128" => "HMAC-SHA-256-128 [RFC4868]",
@@ -58,6 +59,12 @@ while (<>) {
 	}
 	elsif (/^\s+proto esp spi (0x\w+) /) {
 		$cur{spi} = $1;
+	}
+	elsif (/^\s+(aead \S+) (0x\w+) (.+)$/) {
+		$cur{enc_algo} = $1." ".$3;
+		$cur{enc_key} = $2;
+		$cur{auth_algo} = "";
+		$cur{auth_key} = "";
 	}
 	elsif (/^\s+(auth-trunc \S+) (0x\w+) (.+)$/) {
 		$cur{auth_algo} = $1." ".$3;

@@ -12,6 +12,7 @@ use Net::DBus::Exporter "org.freedesktop.FileManager1";
 
 dbus_method("ShowFolders", [["array", "string"], "string"], []);
 dbus_method("ShowItems", [["array", "string"], "string"], []);
+dbus_method("ShowItemProperties", [["array", "string"], "string"], []);
 
 sub ShowFolders {
 	my ($self, $uris, $startup_id) = @_;
@@ -40,6 +41,20 @@ sub ShowItems {
 		my $basename = basename($uri);
 		$Thunar->DisplayFolderAndSelect($dir_uri, $basename,
 						$display, $startup_id);
+	}
+	return;
+}
+
+sub ShowItemProperties {
+	my ($self, $uris, $startup_id) = @_;
+
+	my $bus = $self->get_service->get_bus;
+	my $Thunar = $bus->get_service("org.xfce.FileManager")
+			 ->get_object("/org/xfce/FileManager");
+	my $display = "";
+
+	for my $uri (@$uris) {
+		$Thunar->DisplayFileProperties($uri, $display, $startup_id);
 	}
 	return;
 }

@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+# thunar-fm-proxy - add o.f.FileManager1 support on top of Thunar's own API
+# (c) 2017 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
+use warnings;
+use strict;
+
+package FakeFileManager;
+use base "Net::DBus::Object";
+use File::Basename;
+use Net::DBus::Exporter "org.freedesktop.FileManager1";
+
+dbus_method("ShowItems", [["array", "string"], "string"], []);
+
+sub ShowItems {
+	my ($self, $uris, $startup_id) = @_;
+
+	my $bus = $self->get_service->get_bus;
+
+	my $Thunar = $bus->get_service("org.xfce.FileManager")
+			 ->get_object("/org/xfce/FileManager");
+
+	for my $uri (@$uris) {
+		print "called ShowItems <$uri>\n";
+		my $dir_uri = dirname($uri);
+		my $basename = basename($uri);
+		my $display = "";
+		$Thunar->DisplayFolderAndSelect($dir_uri, $basename,
+						$display, $startup_id);
+	}
+	return;
+}
+
+package main;
+use Net::DBus;
+use Net::DBus::Reactor;
+
+my $bus = Net::DBus->session;
+my $svc = $bus->export_service("org.freedesktop.FileManager1");
+my $obj = FakeFileManager->new($svc, "/org/freedesktop/FileManager1");
+Net::DBus::Reactor->main->run;

@@ -28,9 +28,10 @@ def filter_filename(name, safe=False):
         ('*', '_'),
         ('/', '_' if safe else '⁄'),
         (':', '_' if safe else '∶'),
-        ('<', '_'),
-        ('>', '_'),
+        ('<', '_' if safe else '‹'),
+        ('>', '_' if safe else '›'),
         ('?', '_' if safe else '？'),
+        ('\\', '_' if safe else '∖'),
         # wide characters
         ('　', '_'),
     ]

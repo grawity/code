@@ -10,6 +10,10 @@ grep_nmap() {
 	sed -n "/^${1:0:6} /{s///;p;q}" "$NMAP_MAC_DB"
 }
 
+grep_ethers() {
+	getent ethers $(echo "$1" | sed 's/../:&/g; s/^://') | awk '{print $2}'
+}
+
 NMAP_MAC_DB="/usr/share/nmap/nmap-mac-prefixes"
 
 B=$'\e[1m'
@@ -57,6 +61,10 @@ case $mode in
 		if [ -s "$NMAP_MAC_DB" ]; then
 			v=$(grep_nmap "$arg")
 			echo "vendor: ${B}${v:--}${R} (from nmap)"
+		fi
+		if true; then
+			v=$(grep_ethers "$arg")
+			echo "device: ${B}${v:--}${R} (from ethers)"
 		fi
 		;;
 	*)

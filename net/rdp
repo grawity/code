@@ -12,6 +12,7 @@ _die() {
 	die "$@"
 }
 
+arg_af=
 arg_fork=0
 use_rdesktop=0
 arg_console=0
@@ -21,6 +22,12 @@ arg_share_clip=1
 arg_share_home=1
 arg_share_media=0
 arg_vm_id=
+
+canonical_domains=(
+	utenos-kolegija.lt
+	ad.utenos-kolegija.lt
+	ukolegija.lt
+)
 
 if [[ $1 != -* ]]; then
 	host=$1; shift
@@ -39,20 +46,23 @@ while getopts ":aFfRu:V:" OPT; do
 done; shift $((OPTIND-1))
 
 if [[ ! $host ]]; then
-	host=$1; shift
+	host=${1#"/v:"}; shift
 fi
-
 if [[ ! $host ]]; then
 	_die "missing host name"
-else
-	addr=$(name2addr "$host" 2>/dev/null)
-	if [[ ! $addr ]]; then
-		_die "could not resolve host '$host'"
-	fi
-	if ! err=$(nc -v -z "$host" 3389 2>&1); then
-		_die "host '$host' does not accept Remote Desktop connections"
-	fi
 fi
+if [[ $host != *.* ]]; then
+	debug "trying to canonicalize bare name '$host'"
+	host=$(LOCALDOMAIN="${canonical_domains[*]}" fqdn "$host")
+fi
+addr=$(name2addr "$host" 2>/dev/null)
+if [[ ! $addr ]]; then
+	_die "could not resolve host '$host'"
+fi
+if ! err=$(nc -v -z "$host" 3389 2>&1); then
+	_die "host '$host' does not accept Remote Desktop connections"
+fi
+info "connecting to ${host@Q}"
 
 if (( use_rdesktop )); then
 	export KRB5CCNAME=MEMORY:
@@ -97,9 +107,7 @@ if (( use_rdesktop )); then
 else
 	dir=~/.local/pkg/freerdp/bin
 	[[ -d $dir ]] || dir=/usr/bin
-	if [[ $WAYLAND_DISPLAY ]] && [[ -x $dir/wlfreerdp ]]; then
-		args=($dir/wlfreerdp)
-	elif [[ $DISPLAY ]]; then
+	if [[ $DISPLAY ]]; then
 		args=($dir/xfreerdp)
 	else
 		die "no graphical display available"
@@ -153,16 +161,15 @@ debug "got creds: '$user' '$pass'"
 
 if (( use_rdesktop )); then
 	[[ $user ]] && args+=(-u "$user")
-	[[ $pass ]] && args+=(-p -)
+	[[ $pass ]] && args+=(-p "$pass")
 else
 	[[ $user ]] && args+=(/u:"$user")
-	[[ $pass ]] && args+=(/from-stdin)
+	[[ $pass ]] && args+=(/p:"$pass")
 fi
 
 debug "running command: ${args[*]@Q}"
 
-#if s=$("${args[@]}" 2>&1); then
-if echo "$pass" | "${args[@]}"; then
+if "${args[@]}"; then
 	exit
 else
 	r=$?

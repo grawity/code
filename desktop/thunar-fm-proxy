@@ -14,12 +14,16 @@ dbus_method("ShowFolders", [["array", "string"], "string"], []);
 dbus_method("ShowItems", [["array", "string"], "string"], []);
 dbus_method("ShowItemProperties", [["array", "string"], "string"], []);
 
+sub get_Thunar {
+	(shift)
+	->get_service("org.xfce.FileManager")
+	->get_object("/org/xfce/FileManager")
+}
+
 sub ShowFolders {
 	my ($self, $uris, $startup_id) = @_;
 
-	my $bus = $self->get_service->get_bus;
-	my $Thunar = $bus->get_service("org.xfce.FileManager")
-			 ->get_object("/org/xfce/FileManager");
+	my $Thunar = get_Thunar($self->get_service->get_bus);
 	my $display = "";
 
 	for my $uri (@$uris) {
@@ -31,9 +35,7 @@ sub ShowFolders {
 sub ShowItems {
 	my ($self, $uris, $startup_id) = @_;
 
-	my $bus = $self->get_service->get_bus;
-	my $Thunar = $bus->get_service("org.xfce.FileManager")
-			 ->get_object("/org/xfce/FileManager");
+	my $Thunar = get_Thunar($self->get_service->get_bus);
 	my $display = "";
 
 	for my $uri (@$uris) {
@@ -48,9 +50,7 @@ sub ShowItems {
 sub ShowItemProperties {
 	my ($self, $uris, $startup_id) = @_;
 
-	my $bus = $self->get_service->get_bus;
-	my $Thunar = $bus->get_service("org.xfce.FileManager")
-			 ->get_object("/org/xfce/FileManager");
+	my $Thunar = get_Thunar($self->get_service->get_bus);
 	my $display = "";
 
 	for my $uri (@$uris) {

@@ -10,13 +10,27 @@ use base "Net::DBus::Object";
 use File::Basename;
 use Net::DBus::Exporter "org.freedesktop.FileManager1";
 
+dbus_method("ShowFolders", [["array", "string"], "string"], []);
 dbus_method("ShowItems", [["array", "string"], "string"], []);
+
+sub ShowFolders {
+	my ($self, $uris, $startup_id) = @_;
+
+	my $bus = $self->get_service->get_bus;
+	my $Thunar = $bus->get_service("org.xfce.FileManager")
+			 ->get_object("/org/xfce/FileManager");
+	my $display = "";
+
+	for my $uri (@$uris) {
+		$Thunar->DisplayFolder($uri, $display, $startup_id);
+	}
+	return;
+}
 
 sub ShowItems {
 	my ($self, $uris, $startup_id) = @_;
 
 	my $bus = $self->get_service->get_bus;
-
 	my $Thunar = $bus->get_service("org.xfce.FileManager")
 			 ->get_object("/org/xfce/FileManager");
 	my $display = "";

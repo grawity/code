@@ -3,96 +3,53 @@
 
 . lib.bash || exit
 
+progname='goto-server'
+
+alias_file="$path_config/servers.txt"
+
 usage() {
 	echo "Usage: $progname <host>"
 }
 
-do_sshfs() {
-	local src=$1 mtpt=$2
-	mkdir -p "$mtpt"
-	mountpoint -q "$mtpt" ||
-		sshfs -o idmap=none "$src" "$mtpt"
-	trace "mounted sshfs#$src on $mtpt"
-}
-
-do_rdp() {
-	local host=$1
-	debug "using RDP to $host"
-	mstsc "$host" "${@:2}"
-	debug "spawned 'mstsc...'"
-}
-
-do_ssh() {
-	debug "using SSH to $1"
-	exec ssh "$@"
-}
-
 cd ~
 
-case ${0##*/} in
-    go|goto-server|@)
-	;;
-    *)
+if [[ $0 != */@(go|goto-server|@) ]]; then
 	set -- "${0##*/}" "$@"
-	;;
-esac
+fi
 
-case $1 in
-    snow)
-	host="snow"
-	if [[ $2 == "fs" ]]; then
-		do_sshfs "$host:/" "$XDG_RUNTIME_DIR/fs/snow"
-	elif [[ $2 == "suspend" || $2 == "hibernate" ]]; then
-		do_ssh "$host" -oControlPersist=no \
-			-oServerAliveInterval=1 \
-			-oServerAliveCountMax=5 \
-			"$2" &
-	elif [[ $2 == "rdp" || (! $2 && ! -t 0) ]]; then
-		do_rdp "$host" -R
-	else
-		do_ssh "$host" "${@:2}"
-	fi
-	;;
-    "")
+if [[ ! $1 ]]; then
 	usage >&2
 	die "missing host name"
-	;;
-    *)
-	lib::find_file server_list= ~/lib/servers.txt config:servers.txt \
-		|| die "server list '$server_list' not found"
+fi
 
-	name="$1"
-	if [[ $2 && $2 != /* ]]; then
-		name+="-$2"; shift
-	fi
+name="$1"
+rest=
+
+if [[ $2 && $2 != /* ]]; then
+	name+="-$2"; shift
+fi
+
+if [[ -f "$alias_file" ]]; then
 	debug "looking for name '$name'"
-
-	ip= rest=
 	while read -r _name _ip _rest; do
 		if [[ $name == "$_name" ]]; then
-			ip=$_ip
+			name=$_ip
 			rest=$_rest
+			break
 		fi
-	done < "$server_list"
-	debug "resulting ip='$ip' rest='$rest'"
+	done < "$alias_file"
+	debug "resulting name='$name' rest='$rest'"
+fi
 
-	case $ip in
-	    imap://*|imaps://*)
-		exec mutt -f "$ip$2" $rest;;
-	    rdp://*)
-		do_rdp "${ip#rdp://}" $rest;;
-	    ipmi://*)
-		ip=${ip#ipmi://}
-		user=$(getnetrc -df%u "ipmi@$ip")
-		pass=$(getnetrc -df%p "ipmi@$ip")
-		ipmitool -H "$ip" -U "$user" -P "$pass" $rest "${@:2}";;
-	    *://*)
-		die "unknown protocol '${ip%%//*}//'";;
-	    "")
-		die "unknown host '$name'";;
-	    *)
-		do_rdp "$ip" $rest;;
-	esac
-	;;
+case $name in
+    imap://*|imaps://*)
+	mutt -f "$name$2" $rest;;
+    rdp://*)
+	mstsc "${name#rdp://}" $rest;;
+    *://*)
+	die "unknown protocol '${name%%//*}//'";;
+    "")
+	mstsc "$name" $rest;;
+    *)
+	mstsc "$name" $rest;;
 esac
-# vim: sts=8

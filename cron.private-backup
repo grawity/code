@@ -36,11 +36,11 @@ hourly() {
 	fi)
 }
 
-daily() {
+_push_to_servers() {
 	# push to panther
 	for host in panther.nathan7.eu virgule.cluenet.org theos.kyriasis.com; do
 		(if is_up $host; then
-			(if cd ~/Private/keys; then
+			(if (( do_keys )) && cd ~/Private/keys; then
 				git archive --prefix='keys/' HEAD \
 				| _gpg -e $people \
 				| ssh $host 'bin/aupd private/.keys.tar.gpg'
@@ -56,6 +56,16 @@ daily() {
 		fi) &
 	done
 	wait
+}
+
+daily() {
+	do_keys=0
+	_push_to_servers
+}
+
+weekly() {
+	do_keys=1
+	_push_to_servers
 }
 
 if mountpoint -q ~/Private; then

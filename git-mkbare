@@ -33,7 +33,15 @@ for dir in "${dirs[@]}"; do
 		mkdir "$dst/refs"
 
 		git -C "$dst" config core.bare true
+		git -C "$dst" config --unset-all remote.origin.fetch
 		git -C "$dst" config remote.origin.fetch "+refs/heads/*:refs/heads/*"
+		git -C "$dst" config remote.origin.mirror true
+		git -C "$dst" config --list --local |
+			grep -o '^branch\.[^.]*' |
+			sort -u |
+			while read -r line; do
+				git -C "$dst" config --remove-section "$line"
+			done
 		git -C "$dst" fetch --all
 		git -C "$dst" for-each-ref |
 			while read -r _ _ ref; do
@@ -41,6 +49,8 @@ for dir in "${dirs[@]}"; do
 					git -C "$dst" update-ref -d "$ref"
 				fi
 			done
+		git -C "$dst" gc
+		git -C "$dst" prune
 
 		log "deleting old worktree"
 		find "$base" -print -delete | progress

@@ -82,27 +82,24 @@ remove_kernel() {
 	rm -f "$ESP/loader/entries/$config.conf"
 }
 
+declare ESP= os_release=
 unset ID NAME PRETTY_NAME MACHINE_ID BOOT_OPTIONS
 
-if try_esp /efi; then
-	ESP=/efi
-elif try_esp /boot/efi; then
-	ESP=/boot/efi
-elif try_esp /boot; then
-	ESP=/boot
-else
+for f in /efi /boot/efi /boot; do
+	[[ $ESP ]] || { try_esp "$f" && ESP=$f; }
+done
+
+[[ $ESP ]] ||
 	die "EFI system partition not found; please \`mkdir <efisys>/loader\`"
-fi
 
 echo "Found EFI system partition at $ESP"
 
-if [[ -e /etc/os-release ]]; then
-	os_release=/etc/os-release
-elif [[ -e /usr/lib/os-release ]]; then
-	os_release=/usr/lib/os-release
-else
+for f in /etc/os-release /usr/lib/os-release; do
+	[[ $os_release ]] || { [[ -e $f ]] && os_release=$f; }
+done
+
+[[ $os_release ]] ||
 	die "/usr/lib/os-release not found or invalid; see os-release(5)"
-fi
 
 . "$os_release" ||
 	die "$os_release not found or invalid; see os-release(5)"

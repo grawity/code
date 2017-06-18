@@ -43,6 +43,7 @@ install_kernel() {
 		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
 		cp -uf "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+		sync -f "$ESP"
 	fi
 
 	echo "+ generating bootloader config"
@@ -69,6 +70,7 @@ install_kernel() {
 		)
 	fi
 	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
+	sync -f "$ESP"
 }
 
 remove_kernel() {

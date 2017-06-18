@@ -119,4 +119,7 @@ read -r MACHINE_ID < /etc/machine-id ||
 BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}
 
+exec {lock_fd}> "/run/lock/kernel-post-upgrade"
+flock -x $lock_fd
+
 check_kernel "${1:-linux}"

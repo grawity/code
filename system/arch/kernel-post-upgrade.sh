@@ -1,9 +1,8 @@
 #!/usr/bin/bash -eu
 
-die() {
-	echo "error: $*" >&2
-	exit 1
-}
+err() { echo "error: $*" >&2; return 1; }
+
+die() { err "$*"; exit 1; }
 
 try_esp() {
 	mountpoint -q "$1" && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
@@ -32,7 +31,7 @@ install_kernel() {
 	if version=$(pacman -Q "$kernel" 2>/dev/null); then
 		version=${version#"$kernel "}${suffix}
 	else
-		(die "package '$kernel' does not exist")
+		err "package '$kernel' does not exist"
 		return
 	fi
 

@@ -37,15 +37,16 @@ install_kernel() {
 
 	echo "Installing package: $kernel $version as \"$PRETTY_NAME\""
 
+	echo "+ copying kernel to EFI system partition"
+	mkdir -p "$ESP/EFI/$ID"
 	if [[ $ESP != /boot ]]; then
-		echo "+ copying kernel to EFI system partition"
-		mkdir -p "$ESP/EFI/$ID"
-		cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
-		cp -f "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
-		cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
+		cp -uf "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
 	fi
 
 	echo "+ generating bootloader config"
+	mkdir -p "$ESP/loader/entries"
 	if [[ $ESP == /boot ]]; then
 		parameters=(
 			"title"		"$PRETTY_NAME"
@@ -67,7 +68,6 @@ install_kernel() {
 			"options"	"$BOOT_OPTIONS"
 		)
 	fi
-	mkdir -p "$ESP/loader/entries"
 	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
 }
 
@@ -120,6 +120,7 @@ BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}
 
 exec {lock_fd}> "/run/lock/kernel-post-upgrade"
-flock -x $lock_fd
+flock -x -w 60 $lock_fd ||
+	die "failed to take lock; is another kernel-post-upgrade instance running?"
 
 check_kernel "${1:-linux}"

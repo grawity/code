@@ -69,7 +69,7 @@ install_kernel() {
 			"options"	"$BOOT_OPTIONS"
 		)
 	fi
-	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
+	printf '%-15s %s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
 	sync -f "$ESP"
 }
 

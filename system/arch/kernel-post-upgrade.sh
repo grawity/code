@@ -37,22 +37,36 @@ install_kernel() {
 
 	echo "Installing package: $kernel $version as \"$PRETTY_NAME\""
 
-	echo "+ copying kernel to EFI system partition"
-	mkdir -p "$ESP/EFI/$ID"
-	cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
-	cp -f "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
-	cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+	if [[ $ESP != /boot ]]; then
+		echo "+ copying kernel to EFI system partition"
+		mkdir -p "$ESP/EFI/$ID"
+		cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+		cp -f "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
+		cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+	fi
 
 	echo "+ generating bootloader config"
-	parameters=(
-		"title"		"$PRETTY_NAME"
-		"version"	"$version"
-		"machine-id"	"$MACHINE_ID"
-		"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
-		"initrd"	"\\EFI\\$ID\\intel-ucode.img"
-		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
-		"options"	"$BOOT_OPTIONS"
-	)
+	if [[ $ESP == /boot ]]; then
+		parameters=(
+			"title"		"$PRETTY_NAME"
+			"version"	"$version"
+			"machine-id"	"$MACHINE_ID"
+			"linux"		"\\vmlinuz-$kernel"
+			"initrd"	"\\intel-ucode.img"
+			"initrd"	"\\initramfs-$kernel.img"
+			"options"	"$BOOT_OPTIONS"
+		)
+	else
+		parameters=(
+			"title"		"$PRETTY_NAME"
+			"version"	"$version"
+			"machine-id"	"$MACHINE_ID"
+			"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
+			"initrd"	"\\EFI\\$ID\\intel-ucode.img"
+			"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
+			"options"	"$BOOT_OPTIONS"
+		)
+	fi
 	mkdir -p "$ESP/loader/entries"
 	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
 }

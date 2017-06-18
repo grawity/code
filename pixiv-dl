@@ -17,6 +17,7 @@ def is_nonempty(file):
 class PixivGrabber(object):
     member_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?id=(?P<id>\d+)")
     illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
+    bigpage_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga_big)&illust_id=(?P<id>\d+)&page=(?P<page>\d+)")
 
     member_fmt = "http://www.pixiv.net/member_illust.php?id=%s"
     illust_fmt = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s"
@@ -96,8 +97,11 @@ class PixivGrabber(object):
                 delays = [frame.delay_msec for frame in work.metadata.frames]
                 fh.write(str(delays))
         elif work.is_manga:
+            Core.debug("- page whitelist %r" % only_pages)
             for j, page in enumerate(work.metadata.pages):
-                if only_pages and j+1 not in only_pages:
+                # only_pages is 0-indexed, as are pages themselves,
+                # but UI will show 1-indexed numbers
+                if only_pages and j not in only_pages:
                     Core.debug("- skipping page %s, not in whitelist" % (j+1))
                     continue
                 Core.info("- saving page %s of %s" % (j+1, work.page_count))
@@ -141,6 +145,13 @@ c.write_log = False
 for arg in sys.argv[1:]:
     if arg == "--log":
         c.write_log = True
+        continue
+
+    m = c.bigpage_re.match(arg)
+    if m:
+        illust_id = int(m.group("id"))
+        page_no = int(m.group("page"))
+        c.save_one_work(illust_id, only_pages=[page_no])
         continue
 
     m = c.illust_re.match(arg)

@@ -85,12 +85,18 @@ if host in {"--help", "-h", "-?"}:
     sys.exit()
 
 if infile:
+    Core.debug("loading all keys from %r" % infile)
     for entry in parse(infile):
         print(fmt_sshfp(host, entry))
 else:
+    Core.debug("using existing keys from known_hosts")
     infile = os.path.expanduser("~/.ssh/known_hosts")
+    found = 0
     for entry in parse(infile):
         if host in set(entry["key"].hosts):
             print(fmt_sshfp(host, entry))
+            found += 1
+    if not found:
+        Core.err("%r not found in known_hosts" % host)
 
 Core.exit()

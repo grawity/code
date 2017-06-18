@@ -160,8 +160,8 @@ sub _debug  { _msg(*STDERR, "debug", "\e[36m", shift,
 		@_); }
 
 sub _info   { _msg(*STDERR, "info", "\e[1;34m", shift,
-		fmt_prefix => "+",
-		fmt_color => "\e[34m",
+		#fmt_prefix => "info:",
+		#fmt_color => "\e[1;34m",
 		@_); }
 
 sub _log    { _msg(*STDERR, "log", "\e[1;32m", shift,

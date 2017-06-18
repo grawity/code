@@ -45,6 +45,10 @@ sub decode {
 			s/=([A-F0-9]{2})/pack('C', hex($1))/gse;
 		} elsif ($opts{format_locale}) {
 			s/<U([0-9A-F]{4,8})>/pack('C', hex($1))/gse;
+		} elsif ($opts{format_xml}) {
+			utf8::decode($_);
+			s/&#(\d+);/chr(int $1)/gse;
+			utf8::encode($_);
 		} else {
 			if ($opts{format_mq}) {
 				s/^://;

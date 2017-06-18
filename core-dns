@@ -40,7 +40,15 @@ do_axfr() {
 
 do_edit() {
 	local zone=$1 file=$2
-	rndc freeze "$zone" && sudoedit "$file" && rndc thaw "$zone"
+
+	rndc thaw "$zone"
+	do_nsupdate "$zone" "del $zone 0 PTR ."
+
+	rndc freeze "$zone"
+	sudoedit "$file"
+
+	rndc thaw "$zone"
+	do_nsupdate "$zone" "add $zone 0 PTR ."
 }
 
 do_journal() {
@@ -83,7 +91,7 @@ cmd=$1; shift; case $cmd in
 		do_nsupdate "$Fzone" \
 			"del $host.$Fzone" \
 			"add $host.$Fzone $(ttl) A $ip" ;;
-	setptr)
+	set-ptr)
 		ip=$1 name=$2
 		[[ $ip ]] || die "missing IP address"
 		[[ $name ]] || die "missing pointer name"
@@ -91,7 +99,7 @@ cmd=$1; shift; case $cmd in
 		do_nsupdate "$Rzone" \
 			"del $iparpa" \
 			"add $iparpa $(ttl) PTR $name" ;;
-	delptr)
+	del-ptr)
 		ip=$1
 		[[ $ip ]] || die "missing IP address"
 		iparpa=$(arpaname $ip)

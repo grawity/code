@@ -1,7 +1,7 @@
 # vim: ft=sh
 # lib.bash - a few very basic functions for bash cripts
 
-if [[ $__LIBROOT ]]; then
+if [[ ${__LIBROOT-} ]]; then
 	return
 else
 	__LIBROOT=${BASH_SOURCE[0]%/*}
@@ -10,7 +10,7 @@ fi
 # $LVL is like $SHLVL, but zero for programs ran interactively;
 # it is used to decide when to prefix errors with program name.
 
-_lvl=$(( LVL++ )); export LVL
+: ${LVL:=0}; _lvl=$(( LVL++ )); export LVL
 
 ## Variable defaults
 

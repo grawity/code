@@ -37,7 +37,7 @@ fi
 progname=${0##*/}
 progname_prefix=-1
 
-lib_config=(
+declare -A lib_config=(
 	[opt_width]=14
 )
 

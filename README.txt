@@ -111,3 +111,4 @@ Log:
         - the fork, hacks.git, merged with Code Recycle Bin
 
 vim: ts=4:sw=4:et
+foo

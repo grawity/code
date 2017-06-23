@@ -159,10 +159,10 @@ class SolarisNeighbourTable(SshNeighbourTable):
 
 class RouterOsNeighbourTable(NeighbourTable):
     def __init__(self, conn, username="admin", password=""):
-        import tikapy
-
         self.username = username
         self.password = password
+
+        super().__init__(conn)
 
         if "@" in self.conn.host:
             cred, self.conn.host = self.conn.host.rsplit("@", 1)
@@ -171,16 +171,19 @@ class RouterOsNeighbourTable(NeighbourTable):
             else:
                 self.username = user
 
-        super().__init__(conn)
         self.api = self._connect()
 
     def _connect(self):
+        import tikapy
+
         api = tikapy.TikapySslClient(self.conn.host)
         api.login(self.username, self.password)
         return api
 
     def get_arp4(self):
         for i in self.api.talk(["/ip/arp/getall"]).values():
+            if "mac-address" not in i:
+                continue
             yield {
                 "ip": i["address"],
                 "mac": i["mac-address"],
@@ -189,6 +192,8 @@ class RouterOsNeighbourTable(NeighbourTable):
 
     def get_ndp6(self):
         for i in self.api.talk(["/ipv6/neighbor/getall"]).values():
+            if "mac-address" not in i:
+                continue
             yield {
                 "ip": i["address"],
                 "mac": i["mac-address"],

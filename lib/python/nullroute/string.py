@@ -53,14 +53,14 @@ def fmt_size_short(nbytes, decimals=1, si=False):
         exp += 1
     return "%.*f%s" % (decimals, nbytes, prefixes[exp])
 
-def fmt_size(nbytes, decimals=1, si=False):
+def fmt_size(nbytes, decimals=1, si=False, full_bytes=True):
     if nbytes == 0:
-        return "0 bytes"
-    prefixes = ".kMGTPEZYH"
+        return "0 %s" % ("bytes" if full_bytes else "B")
+    prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
     exp = int(math.log(nbytes, div))
     if exp == 0:
-        return "%.*f bytes" % (decimals, nbytes)
+        return "%.*f %s" % (decimals, nbytes, "bytes" if full_bytes else "B")
     elif exp < len(prefixes):
         quot = nbytes / div**exp
         return "%.*f %sB" % (decimals, quot, prefixes[exp])

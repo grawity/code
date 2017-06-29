@@ -8,7 +8,9 @@ use File::Basename;
 use Nullroute::Dir qw(find_first_file);
 
 our %config;
-my %Opt;
+my %Opt = (
+	hide_remotes => {},
+);
 my %Locs_by_dir;
 my %Locs_by_file;
 my @Remote_names;
@@ -66,6 +68,9 @@ sub remote_hidden {
 
 	if (!defined $remote) {
 		croak("BUG: \$remote undefined");
+	}
+	if ($Opt{hide_remotes}{$remote}) {
+		return 1;
 	}
 	if ($config{remote_hidden}) {
 		return $config{remote_hidden}->($remote);
@@ -215,7 +220,11 @@ sub LocationBitmap::diffstr {
 # Process command line.
 
 GetOptions(
+	# don't collapse identical items in directories
 	"a|f|all|full!" => \$Opt{full},
+	# don't show this remote
+	"ignore=s" => sub { $Opt{hide_remotes}{$_} = 1 for split(/,/, $_[1]) },
+	# don't show remotes that would be grayed out
 	"p|present" => \$Opt{only_present},
 ) or exit(2);
 

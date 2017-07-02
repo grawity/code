@@ -19,8 +19,12 @@ class TwitterImageScraper(Scraper):
 
         tweet_tag = page.select_one(".permalink").select_one(".tweet")
         tweet_text = tweet_tag.select_one(".tweet-text").get_text(strip=True)
-        photo_tags = tweet_tag.select(".AdaptiveMedia-photoContainer")
+
+        photo_tags = page.select(".AdaptiveMedia-photoContainer")
         photo_urls = [t["data-image-url"] for t in photo_tags]
+
+        if not photo_urls:
+            Core.err("no images found!")
 
         for img_url in photo_urls:
             filename = "%s %s" % (filter_filename(user_name), os.path.basename(img_url))

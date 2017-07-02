@@ -5,26 +5,33 @@
 cert=""
 nssdb="sql:$HOME/.pki/nssdb"
 force=0
+do_list=0
 
 have signtool  || err "missing 'signtool' from NSS"
 have zip       || err "missing 'zip' tool"
 (( ! errors )) || exit
 
-while getopts ":c:d:f" OPT; do
+while getopts ":c:d:fl" OPT; do
 	case $OPT in
 	c) cert=$OPTARG;;
 	d) nssdb=$OPTARG;;
 	f) force=1;;
+	l) do_list=1;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
+if (( do_list )); then
+	signtool -d "$nssdb" -l
+	exit
+fi
+
 if [[ ! $cert ]]; then
-	die "certificate name not specified"
+	die "certificate name (-c) not specified"
 fi
 
 if [[ ! -f install.rdf ]]; then
-	die "directory does not contain a valid Mozilla extension"
+	die "current directory does not contain a valid Mozilla extension"
 fi
 
 out_file="${1:-${PWD##*/}}.xpi"

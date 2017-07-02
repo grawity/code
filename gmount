@@ -3,10 +3,10 @@
 . lib.bash || exit
 
 hdd_spindown() {
-	if have scsi_stop; then
+	if have sg_start; then
+		sudo sg_start --readonly --stop "$1"
+	elif have scsi_stop; then
 		sudo scsi_stop --wait "$1"
-	elif have sg_start; then
-		sudo sg_start --stop --readonly "$1"
 	elif have hdparm; then
 		sudo hdparm -y "$1"
 	else

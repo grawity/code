@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+from argparse import ArgumentParser
+import bs4
+from nullroute.core import *
+from nullroute.misc import escape_html, filter_filename, set_file_attr
+from nullroute.scrape import Scraper, urljoin
+from pprint import pprint
+import re
+import sys
+
+class UnknownSiteError(Exception):
+    pass
+
+class FictionPressScraper(Scraper):
+    def _fix_url(self, url):
+        if url.startswith("//"):
+            return f"https:{url}"
+        else:
+            return url
+
+    def parse_story_page(self, page):
+        data = {}
+
+        tag = page.find("title")
+        data["site_name"] = tag.get_text().split("|")[1].strip()
+
+        tag = page.find("link", {"rel": "canonical"})
+        data["url"] = self._fix_url(tag["href"])
+
+        tag = page.find("input", {"name": "uid"})
+        data["author_id"] = tag["value"]
+
+        tag = page.find("input", {"name": "sid"})
+        data["story_id"] = tag["value"]
+
+        tag = page.find("input", {"name": "ch"})
+        data["page_cur"] = int(tag["value"])
+
+        tag = page.select_one("form[name=j] script")
+        m = re.search(r"var chs = (\d+);", str(tag))
+        data["page_max"] = int(m.group(1))
+
+        tag = page.select_one("div#content div[align=center] b")
+        data["title"] = tag.get_text(strip=True)
+
+        tag = page.select_one("div#content div[align=center] a")
+        data["author"] = tag.get_text(strip=True)
+        data["author_url"] = urljoin(data["url"], tag["href"])
+
+        tag = page.select_one("div#storycontent")
+        data["body"] = str(tag)
+
+        return data
+
+    def scrape_story_page(self, page_url):
+        # XXX: should do the opposite here instead
+        page_url = page_url.replace("//www.", "//m.")
+        page = self.get_page(page_url)
+        data = self.parse_story_page(page)
+        return data
+
+    def _url_to_filename(self, url, author=None):
+        url = url.split("?")[0]
+        url = url.split("/")[-1]
+        url = filter_filename(url)
+        if author:
+            url += "_(%s)" % filter_filename(author)
+        return "%s.html" % url
+
+    def save_chapter_data(self, data):
+        Core.debug("got \"%(title)s\" (chapter %(page_cur)d out of %(page_max)d)" % data)
+
+        filename = self._url_to_filename(data["url"])
+        Core.debug("saving to %r" % filename)
+
+        if data["page_cur"] == 1:
+            title = "%(title)s, by %(author)s" % data
+            with open(filename, "w") as fh:
+                Core.trace("writing HTML header")
+                fh.write('<!DOCTYPE html>\n')
+                fh.write('<head>\n')
+                fh.write('\t<meta charset="utf-8">\n')
+                fh.write('\t<title>%s</title>\n' % escape_html(title))
+                #fh.write('\t<link rel="stylesheet" href="../literotica.css">\n')
+                fh.write('</head>\n')
+                fh.write('<div class="header">\n')
+                fh.write('\t<h1>%s</h1>\n' % escape_html(data["title"]))
+                fh.write('\t<p class="meta">\n')
+                fh.write('\t\tby <a href="%s">%s</a>\n' % (
+                            escape_html(data["author_url"]),
+                            escape_html(data["author"]),
+                        ))
+                fh.write('\t\ton <a href="%s">%s</a>\n' % (
+                            escape_html(data["url"]),
+                            escape_html(data["site_name"]),
+                        ))
+                fh.write('\t</p>\n')
+                fh.write('</div>\n')
+                fh.write('<div class="content">\n')
+            set_file_attr(filename, "xdg.origin.url", data["url"])
+            set_file_attr(filename, "xdg.referrer.url", data["author_url"])
+            set_file_attr(filename, "dublincore.title", data["title"])
+            set_file_attr(filename, "dublincore.creator", data["author"])
+
+        with open(filename, "a") as fh:
+            Core.trace("appending story body")
+            fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
+            fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
+            fh.write('\t\t%(body)s\n' % data)
+            fh.write('\t</div>\n')
+
+        if data["page_cur"] == data["page_max"]:
+            with open(filename, "a") as fh:
+                Core.trace("appending HTML footer")
+                fh.write('</div>\n')
+                fh.write('<!-- end of story -->\n')
+            data["filename"] = filename
+            Core.info("saved \"%(title)s\" (%(page_max)s pages) to \"%(filename)s\"" % data)
+
+    def save_raw_page(self, data, buf):
+        slug = os.path.basename(data["url"])
+        os.makedirs(slug, exist_ok=True)
+
+        filename = "%s/%s.html" % (slug, data["page_cur"])
+        with open(filename, "wb") as fh:
+            fh.write(buf)
+            data["filename"] = filename
+            Core.info("saved page %(page_cur)s of %(page_max)s to \"%(filename)s\"" % data)
+
+    def save_story(self, url, save_raw=True):
+        m = re.match(r"^https://(m|www)\.[^:/]+/s/\d+/", url)
+        base_url = m.group(0)
+        page_url = "%s%d/" % (base_url, 1)
+        while True:
+            Core.info("downloading %r" % page_url)
+            resp = self.get(page_url)
+            page = bs4.BeautifulSoup(resp.content, "lxml")
+            data = self.parse_story_page(page)
+
+            if save_raw:
+                self.save_raw_page(data, resp.content)
+            else:
+                self.save_chapter_data(data)
+
+            if data["page_cur"] < data["page_max"]:
+                page_url = "%s%d/" % (base_url, data["page_cur"] + 1)
+            else:
+                break
+
+ap = ArgumentParser()
+ap.add_argument("url", nargs="*")
+opts = ap.parse_args()
+foo = FictionPressScraper()
+for url in opts.url:
+    foo.save_story(url)

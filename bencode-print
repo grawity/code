@@ -7,10 +7,16 @@ use JSON;
 
 my $indent = " " x 4;
 
+sub is_valid_utf8 {
+	my ($str) = @_;
+
+	return utf8::decode($str);
+}
+
 sub is_printable {
 	my ($str) = @_;
 
-	return ($str !~ /[\x00-\x1F]/);
+	return ($str !~ /[\x00-\x1F]/) && is_valid_utf8($str);
 }
 
 sub dump_str {
@@ -53,7 +59,9 @@ sub dump_str {
 			}
 			print $indent x $depth;
 		} else {
+			print " ";
 			print join(" ", @bytes);
+			print " ";
 		}
 		print ">>";
 	}

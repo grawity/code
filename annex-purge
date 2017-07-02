@@ -4,11 +4,15 @@ from fnmatch import fnmatch
 import os
 import sys
 from nullroute.core import *
-from nullroute.misc import fmt_size, unquote
+from nullroute.misc import unquote
+import nullroute.string
 from subprocess import Popen, PIPE
 import subprocess
 
 Item = namedtuple("Item", ["num", "size", "key", "name"])
+
+def fmt_size(x):
+    return nullroute.string.fmt_size(x, full_bytes=False)
 
 def confirm(msg):
     print(msg, end=" ", flush=True)
@@ -170,5 +174,14 @@ while n_found:
         if len(cmd) > 1:
             todo = [i for i in todo if fnmatch(i.name, cmd[1])]
         print_items(todo)
+    elif cmd[0] in {"?", "h"}:
+        cmds = [
+            ("y", "yes", "drop everything"),
+            ("d", "drop <glob>", "drop items matching a wildcard"),
+            ("r", "recover <glob>", "re-add items matching a wildcard"),
+            ("/", "print", "display item list"),
+        ]
+        for s, l, d in cmds:
+            print("  %-1s  %-16s  %s" % (s, l, d))
     else:
         Core.err("unknown command %r" % cmd[0])

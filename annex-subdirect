@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname <path>..."
+	echo
+	echo "Turn symlinks into their target files (like 'git annex direct')."
+	echo "Targets are copied over the symlink and remain unaltered."
+}
+
+make_direct() {
+	local file=$1
+	local target=$(readlink -f "$file")
+	local temp=$(mktemp "$file.direct-XXXXXXXX.tmp")
+
+	info "copying '$target' to '$file'"
+	if cp -a "$target" "$temp"; then
+		mv -f "$temp" "$file"
+	else
+		err "copy of '$file' failed"
+		rm -f "$temp"
+	fi
+}
+
+while getopts ":" OPT; do
+	case $OPT in
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+(( $# )) || die "no path args given"
+
+find "$@" -type l -xtype f -print0 |
+	while read -r -d "" file; do
+		make_direct "$file"
+	done

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+dir=/usr/share/pacman/keyrings
+
+do_import() {
+	local ring=$1
+	local k
+
+	log2 "importing keyring"
+	gpg --import "$dir/$ring.gpg" || exit
+
+	log2 "refreshing revoked keys"
+	gpg --recv-keys $(< "$dir/$ring-revoked")
+
+	log2 "locally signing master keys"
+	for k in $(awk -F: '{print $1}' "$dir/$ring-trusted"); do
+		log "signing key '$k'"
+		gpg --quick-lsign-key "$k"
+	done
+
+	log2 "importing master key trust"
+	#gpg --import-ownertrust < "$dir/$ring-trusted"
+	# only accept marginal-trust entries
+	awk -F: '$2 == "4"' "$dir/$ring-trusted" | gpg --import-ownertrust
+	gpg --check-trustdb
+}
+
+do_import archlinux

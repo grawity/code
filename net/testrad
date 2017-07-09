@@ -67,6 +67,7 @@ usage() {
 	echo ""
 	echo "Use \"--help TOPIC\" for additional information. Available topics:"
 	echo_opt "config" "Configuration files"
+	echo_opt "phase1" "Supported phase-1 EAP mechanisms"
 	echo_opt "phase2" "Supported phase-2 mechanisms"
 }
 
@@ -80,10 +81,35 @@ help() {
 	fi
 }
 
-help_phase2() {
-	echo "Supported mechanisms:"
+help_eap() { help_phase1; }
+help_mech() { help_phase2; }
+
+help_phase1() {
+	echo "Supported phase-1 (outer) EAP mechanisms:"
 	echo ""
-	echo "  OPTION        NAME            PEAP            TTLS"
+	echo "  EAP SETTING  SUPPORTED PHASE2 SETTINGS"
+	echo "  -----------  ------------------------------------------"
+	echo "  NONE         plain pap, chap, mschap"
+	echo "  GTC          -"
+	echo "  MD5          -"
+	echo "  MSCHAPV2     -"
+	echo "  OTP          -"
+	echo "  PEAP         EAP-based (eap-gtc, eap-md5, eap-mschapv2...)"
+	echo "  TLS          -"
+	echo "  TTLS         everything"
+	echo ""
+	echo "Notes:"
+	echo ""
+	echo "  * 'eap none' uses radtest, so the mechanism support is somewhat limited."
+	echo ""
+	echo "  * All other 'eap foo' settings map directly to 'eap=FOO' in wpa_supplicant."
+	echo "    For PEAP and TTLS, if phase2 is not set all mechanisms will be accepted."
+}
+
+help_phase2() {
+	echo "Supported phase-2 (inner) mechanisms for PEAP & TTLS:"
+	echo ""
+	echo "  MECH SETTING  NAME            EAP=PEAP        EAP=TTLS"
 	echo "  ------------  --------------  --------------  ----------------"
 	echo "  pap           PAP             -               auth=PAP"
 	echo "  chap          CHAP            -               auth=CHAP"
@@ -360,6 +386,10 @@ esac
 
 if [[ ${eap:-NONE} == NONE && $mech != @(pap|chap|mschap|eap-md5) ]]; then
 	die "radtest does not support the '$mech' mechanism"
+fi
+
+if [[ ${eap:-NONE} != @(NONE|MD5|MSCHAPV2|OTP|GTC|TLS|PEAP|TTLS) ]]; then
+	die "eapol_test does not support the '$eap' EAP mechanism"
 fi
 
 if [[ $tls_ca == @(default|system) ]]; then

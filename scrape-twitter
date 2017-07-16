@@ -7,6 +7,38 @@ from nullroute.misc import filter_filename, set_file_attrs
 from nullroute.scrape import Scraper, file_ext
 from pprint import pprint
 
+'''
+youtube-dl:
+    def _extract_mobile_formats(self, username, video_id):
+        webpage = self._download_webpage(
+            'https://mobile.twitter.com/%s/status/%s' % (username, video_id),
+            video_id, 'Downloading mobile webpage',
+            headers={
+                # A recent mobile UA is necessary for `gt` cookie
+                'User-Agent': 'Mozilla/5.0 (Android 6.0.1; Mobile; rv:54.0) Gecko/54.0 Firefox/54.0',
+            })
+        main_script_url = self._html_search_regex(
+            r'<script[^>]+src="([^"]+main\.[^"]+)"', webpage, 'main script URL')
+        main_script = self._download_webpage(
+            main_script_url, video_id, 'Downloading main script')
+        bearer_token = self._search_regex(
+            r'BEARER_TOKEN\s*:\s*"([^"]+)"',
+            main_script, 'bearer token')
+        guest_token = self._search_regex(
+            r'document\.cookie\s*=\s*decodeURIComponent\("gt=(\d+)',
+            webpage, 'guest token')
+        api_data = self._download_json(
+            'https://api.twitter.com/2/timeline/conversation/%s.json' % video_id,
+            video_id, 'Downloading mobile API data',
+            headers={
+                'Authorization': 'Bearer ' + bearer_token,
+                'x-guest-token': guest_token,
+            })
+        media_info = try_get(api_data, lambda o: o['globalObjects']['tweets'][video_id]
+                                                  ['extended_entities']['media'][0]['video_info']) or {}
+        return self._parse_media_info(media_info, video_id)
+'''
+
 class TwitterImageScraper(Scraper):
     def scrape(self, post_url):
         Core.info("scraping %r" % post_url)

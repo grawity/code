@@ -8,8 +8,10 @@ sub getsize {
 	@size = map {int $_} split /\s/, `stty size`;
 }
 
-sub getvalues {
-	if (open(my $f, "<", "/sys/kernel/debug/dri/0/radeon_vram_mm")) {
+sub _get_radeon {
+	my ($path) = @_;
+
+	if (open(my $f, "<", $path)) {
 		my @m;
 		while (<$f>) {
 			last if @m = /^total: (\d+), used (\d+) free (\d+)$/;
@@ -17,8 +19,40 @@ sub getvalues {
 		close $f;
 		if (!@m) { _die("could not find VRAM usage in debugfs"); }
 		return map {$_ >> 8} @m;
-	} else {
-		_die("could not access debugfs: $!");
+	}
+}
+
+sub _get_gem {
+	my ($path) = @_;
+
+	if (open(my $f, "<", $path)) {
+		my (@m, $total, $used, $free);
+		while (<$f>) {
+			if (@m = /^\d+ objects, (\d+) bytes$/) {
+				$used = $1;
+			}
+			elsif (@m = /^(\d+) \[\d+\] gtt total$/) {
+				$total = $1;
+			}
+		}
+		close $f;
+		@m = ($total, $used, $total-$used);
+		if (!$total) { _die("could not find VRAM usage in debugfs"); }
+		return map {$_ >> 20} @m;
+	}
+}
+
+sub getvalues {
+	for my $dir (glob("/sys/kernel/debug/dri/*/")) {
+		if (-e "$dir/radeon_vram_mm") {
+			return _get_radeon("$dir/radeon_vram_mm");
+		}
+		elsif (-e "$dir/amdgpu_vram_mm") {
+			return _get_radeon("$dir/amdgpu_vram_mm");
+		}
+		elsif (-e "$dir/i915_gem_objects") {
+			return _get_gem("$dir/i915_gem_objects");
+		}
 	}
 }
 

@@ -304,6 +304,9 @@ case $cmd in
     commit|ci)
         git annex sync --no-pull --no-push
         ;;
+    du)
+        git annex find "$@" | xargs -d '\n' du -Dhsc
+        ;;
     dupes)
         export MIN_BYTES=$(( 0 * 1024 ))
         annex find --format='${key} ${file}\n' --include '*' "$@" |
@@ -374,6 +377,13 @@ case $cmd in
                     fi
                 }
         fi
+        ;;
+    grab)
+        from=$1
+        via=vol5
+        annex sync
+        annex get --in "$from" --from "$via"
+        annex drop --in "$from" --in here --from "$from"
         ;;
     mv)
         git annex proxy -- git mv "$@"

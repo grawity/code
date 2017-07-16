@@ -9,6 +9,7 @@ use Nullroute::Dir qw(find_first_file);
 
 our %config;
 my %Opt = (
+	full => 0,
 	hide_remotes => {},
 );
 my %Locs_by_dir;
@@ -221,7 +222,7 @@ sub LocationBitmap::diffstr {
 
 GetOptions(
 	# don't collapse identical items in directories
-	"a|f|all|full!" => \$Opt{full},
+	"a|f|all|full+" => \$Opt{full},
 	# don't show this remote
 	"ignore=s" => sub { $Opt{hide_remotes}{$_} = 1 for split(/,/, $_[1]) },
 	# don't show remotes that would be grayed out
@@ -259,13 +260,19 @@ while (<STDIN>) {
 
 my @dirs = sort keys %Locs_by_dir;
 
+my $show_unabridged = ($Opt{full} >= 1);
+my $show_non_diverging = ($Opt{full} >= 2);
+
 for my $dir (@dirs) {
 	my %locs = %{$Locs_by_dir{$dir}};
 	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
+	# print the most common bitmap, representing the whole directoy
 	my $main = LocationBitmap->new(pop @locs);
 	print $main->fullstr()." $dir/\n";
-	if (@locs) {
-		my $full = $Opt{full} || ($locs{$main->data} - $locs{$locs[-1]} <= 2);
+	# if any files diverge, or if -a -a was given, print those bitmaps
+	if (@locs || $show_non_diverging) {
+		# if -a was given, print unabridged bitmaps, otherwise deltas
+		my $full = $show_unabridged || ($locs{$main->data} - $locs{$locs[-1]} <= 2);
 		my %files = %{$Locs_by_file{$dir}};
 		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
 		for (@files) {

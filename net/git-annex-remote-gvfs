@@ -222,8 +222,12 @@ class AnnexBackend(object):
             return False
         if self._has_file(old_path):
             if self._has_file(new_path):
-                _log("_migrate_key: key present in both old & new; deleting old")
-                return self._delete_file(old_path)
+                if is_prefix_of(old_path, new_path):
+                    _log("_migrate_key: key present in new, and old is prefix of new; doing nothing")
+                    return False
+                else:
+                    _log("_migrate_key: key present in both old & new; deleting old")
+                    return self._delete_file(old_path)
             else:
                 _log("_migrate_key: renaming key from old to new")
                 _say("migrating to new layout" % key)

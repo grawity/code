@@ -144,6 +144,7 @@ class AnnexBackend(object):
         self._annex = annex
         self._layout = self._annex.get_config("layout") or "lower"
         self._migrate_layout = False
+        self._migrate_keydir = True
 
         if self._layout == "mixed/lower":
             self._layout = "lower"
@@ -152,9 +153,11 @@ class AnnexBackend(object):
         if self._layout not in {"mixed", "lower"}:
             raise ValueError("unknown layout %r" % self._layout)
 
-    def key_to_path(self, key, layout=None):
+    def key_to_path(self, key, layout=None, compat=False):
         dir = self._annex.dir_hash(key, layout or self._layout)
-        return os.path.join(dir, key)
+        if compat:
+            return os.path.join(dir, key)
+        return os.path.join(dir, key, key)
 
     def has_key(self, key):
         _log("AnnexBackend.has_key(%r)" % key)
@@ -188,6 +191,10 @@ class AnnexBackend(object):
             if self.migrate_layout_key(key):
                 print("migrated key %r from mixed to lower" % key, file=sys.stderr)
                 return True
+        if self._migrate_keydir:
+            if self.migrate_keydir_key(key):
+                print("migrated key %r from old_nodir to std_keydir" % key, file=sys.stderr)
+                return True
         return False
 
     def migrate_layout_key(self, key):
@@ -197,6 +204,12 @@ class AnnexBackend(object):
         else:
             raise ValueError("only migration from mixed to lower is supported")
         old_path = self.key_to_path(key, layout=old_layout)
+        new_path = self.key_to_path(key)
+        return self._migrate_key(key, old_path, new_path)
+
+    def migrate_keydir_key(self, key):
+        _log("AnnexBackend.migrate_keydir_key(%r)" % key)
+        old_path = self.key_to_path(key, compat=True)
         new_path = self.key_to_path(key)
         return self._migrate_key(key, old_path, new_path)
 

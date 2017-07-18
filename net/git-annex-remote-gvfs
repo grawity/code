@@ -181,9 +181,9 @@ class AnnexBackend(object):
             return os.path.join(dir, key)
         return os.path.join(dir, key, key)
 
-    def has_key(self, key, migrate=True):
+    def has_key(self, key):
         _log("AnnexBackend.has_key(%r)" % key)
-        if migrate and self.maybe_migrate_key(key):
+        if self.maybe_migrate_key(key):
             return True
         path = self.key_to_path(key)
         return self._has_file(path)
@@ -459,7 +459,7 @@ for cmd, *rest in annex.loop():
             annex.send("CHECKPRESENT-UNKNOWN", key, "remote not available")
     elif cmd == "REMOVE":
         key, *rest = rest
-        if backend.has_key(key, migrate=False):
+        if backend.has_key(key):
             if backend.remove_key(key):
                 annex.send("REMOVE-SUCCESS", key)
             else:

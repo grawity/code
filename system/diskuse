@@ -80,7 +80,7 @@ fs_kind_prefixes = [
     ("/run/user/",  KIND_MEMORY),
     ("/sys/",       KIND_KERNEL),
     ("/tmp/",       KIND_MEMORY),
-    ("/home/",      KIND_HOME),
+    ("/home",       KIND_HOME),
     ("/",           KIND_ROOT),
 ]
 
@@ -141,8 +141,15 @@ def fs_kind_from_path(path):
         else:
             return KIND_ROOT
     for prefix, kind in fs_kind_prefixes:
-        if path.startswith(prefix):
-            return kind
+        if prefix == "/":
+            fallback = kind
+        elif prefix.endswith("/"):
+            if path.startswith(prefix):
+                return kind
+        else:
+            if path == prefix + "/":
+                return kind
+        # XXX: use a separate flag
     return KIND_NONE
 
 def path_shorten(path):

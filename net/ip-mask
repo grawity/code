@@ -251,8 +251,14 @@ def show_net(net):
     if net.prefixlen < net.max_prefixlen:
         nprint("first addr", net.network_address.exploded)
         nprint("last addr", net.broadcast_address.exploded)
-    next_net = ip_network("%s/%s" % (net.broadcast_address + 1, net.prefixlen))
-    nprint("next net", next_net)
+
+    try:
+        next_net = net.broadcast_address + 1
+    except:
+        pass
+    else:
+        next_net = ip_network("%s/%s" % (next_net, net.prefixlen))
+        nprint("next net", next_net)
 
 i = -1
 for i, arg in enumerate(sys.argv[1:]):

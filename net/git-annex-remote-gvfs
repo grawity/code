@@ -77,16 +77,10 @@ class GvfsClient(object):
 
     def is_mounted(self, uri):
         _log("GvfsClient.is_mounted(%r)" % uri)
-        if not uri.endswith("/"):
-            uri += "/"
-        suffix = (" -> %s\n" % uri).encode("utf-8")
-        with subprocess.Popen(GVFS_CMD("mount", "-l"),
-                              stdout=subprocess.PIPE) as proc:
-            for line in proc.stdout:
-                _log("gio mount:", line)
-                if line.startswith(b"Mount(") and line.endswith(suffix):
-                    return True
-        return False
+        r = subprocess.call(GVFS_CMD("info", "-nfa", "gvfs::backend", uri),
+                            stdout=self._null,
+                            stderr=self._null)
+        return (r == 0)
 
     def mount(self, uri):
         _log("GvfsClient.mount(%r)" % uri)

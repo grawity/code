@@ -221,7 +221,7 @@ class AnnexBackend(object):
         if old_path == new_path:
             return False
         if self._has_file(new_path):
-            if is_prefix_of(old_path, new_path):
+            if is_parent_of(old_path, new_path):
                 _log("_migrate_key: key present in new, and old is prefix of new; doing nothing")
                 return False
             elif self._has_file(old_path):
@@ -262,7 +262,7 @@ class AnnexGvfsBackend(AnnexBackend):
             if self._base.startswith("/"):
                 self._base = os.path.join(self._volume, self._base[1:])
                 # do the prefix check anyway, for sanity
-            if not is_prefix_of(self._volume, self._base):
+            if not is_parent_of(self._volume, self._base):
                 self.error = "mount= must be a prefix of path="
                 return False
         return True
@@ -383,7 +383,10 @@ class AnnexGvfsBackend(AnnexBackend):
         else:
             return True
 
-def is_prefix_of(a, b):
+def is_parent_of(a, b):
+    """
+    Check whether 'a' is a parent directory of 'b'.
+    """
     if not a.endswith("/"):
         a += "/"
     return b.startswith(a)

@@ -10,6 +10,10 @@ def _log(*args):
         print("\033[1;35m[gvfs]\033[;35m", *args, end="\033[m\n",
               file=sys.stderr, flush=True)
 
+def _say(msg, *args):
+    with open("/dev/tty", "w") as fh:
+        print("[gvfs: %s]" % msg, *args, file=fh, flush=True)
+
 def find_path(cmd):
     path = os.environ.get("PATH", "/usr/bin").split(":")
     for p in path:
@@ -222,7 +226,7 @@ class AnnexBackend(object):
                 return self._delete_file(old_path)
             else:
                 _log("_migrate_key: renaming key from old to new")
-                print("[migrating %r to new layout]" % key, file=sys.stderr)
+                _say("migrating to new layout" % key)
                 return self._rename_file(old_path, new_path)
         else:
             return False

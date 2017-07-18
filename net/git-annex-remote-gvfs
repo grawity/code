@@ -129,9 +129,16 @@ class GvfsClient(object):
                             stderr=self._stderr)
         return (r == 0)
 
+    def rename_file(self, src, dst):
+        _log("GvfsClient.rename_file(%r -> %r)" % (src, dst))
+        r = subprocess.call(GVFS_CMD("move", "-C", src, dst),
+                            stdout=self._stderr,
+                            stderr=self._stderr)
+        return (r == 0)
+
     def move_file(self, src, dst):
         _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(GVFS_CMD("move", "-p", "-C", src, dst),
+        r = subprocess.call(GVFS_CMD("move", "-p", src, dst),
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
@@ -288,7 +295,7 @@ class AnnexGvfsBackend(AnnexBackend):
                 raise IOError()
             if not self.gvfs.copy_file(ext_src, tmp_uri):
                 raise IOError()
-            if not self.gvfs.move_file(tmp_uri, dst_uri):
+            if not self.gvfs.rename_file(tmp_uri, dst_uri):
                 raise IOError()
         except IOError:
             self.gvfs.delete_file(tmp_uri)

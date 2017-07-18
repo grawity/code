@@ -357,11 +357,19 @@ class AnnexGvfsBackend(AnnexBackend):
         old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
         new_dir_uri = self.path_to_uri(os.path.dirname(new_path))
         old_uri = self.path_to_uri(old_path)
+        tmp_uri = self.path_to_uri(old_path + "_rename")
         new_uri = self.path_to_uri(new_path)
         try:
+            if old_uri == new_dir_uri:
+                # NOTE: this only works for 'foo/bar' -> 'foo/bar/baz',
+                #       not the other way around!
+                _log("old and new paths conflict; using two-step rename")
+                if not self.gvfs.rename_file(old_uri, tmp_uri):
+                    raise IOError()
+                old_uri = tmp_uri
             if not self.gvfs.create_dir_p(new_dir_uri):
                 raise IOError()
-            if not self.gvfs.move_file(old_uri, new_uri):
+            if not self.gvfs.rename_file(old_uri, new_uri):
                 raise IOError()
         except IOError:
             return False

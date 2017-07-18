@@ -284,7 +284,7 @@ class AnnexGvfsBackend(AnnexBackend):
     def import_file(self, ext_src, dst_path):
         if not self.mount():
             return False
-        _log("import_file(%r -> %r)" % (ext_src, dst_path))
+        _log("AnnexGvfsBackend.import_file(%r -> %r)" % (ext_src, dst_path))
         tmp_path = "transfer/%s.part" % os.path.basename(dst_path)
         tmp_dir_uri = self.path_to_uri(os.path.dirname(tmp_path))
         dst_dir_uri = self.path_to_uri(os.path.dirname(dst_path))
@@ -308,13 +308,13 @@ class AnnexGvfsBackend(AnnexBackend):
     def export_file(self, src_path, ext_dst):
         if not self.mount():
             return False
-        _log("export_file(%r -> %r)" % (src_path, ext_dst))
+        _log("AnnexGvfsBackend.export_file(%r -> %r)" % (src_path, ext_dst))
         src_uri = self.path_to_uri(src_path)
         ext_tmp = ext_dst + ".part"
         try:
             if not self.gvfs.copy_file(src_uri, ext_tmp):
                 raise IOError()
-            if not self.gvfs.move_file(ext_tmp, ext_dst):
+            if not self.gvfs.rename_file(ext_tmp, ext_dst):
                 raise IOError()
         except IOError:
             self.gvfs.delete_file(ext_tmp)
@@ -325,7 +325,7 @@ class AnnexGvfsBackend(AnnexBackend):
     def rename_file(self, old_path, new_path):
         if not self.mount():
             return False
-        _log("rename_file(%r -> %r)" % (old_path, new_path))
+        _log("AnnexGvfsBackend.rename_file(%r -> %r)" % (old_path, new_path))
         old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
         new_dir_uri = self.path_to_uri(os.path.dirname(new_path))
         old_uri = self.path_to_uri(old_path)
@@ -333,7 +333,7 @@ class AnnexGvfsBackend(AnnexBackend):
         try:
             if not self.gvfs.create_dir_p(new_dir_uri):
                 raise IOError()
-            if not self.gvfs.move_file(old_uri, new_uri):
+            if not self.gvfs.rename_file(old_uri, new_uri):
                 raise IOError()
         except IOError:
             return False

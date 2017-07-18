@@ -30,7 +30,7 @@ def _log(*args):
 
 def _say(msg, *args):
     with open("/dev/tty", "w") as fh:
-        print("[gvfs: %s]" % msg, *args, file=fh, flush=True)
+        print("[gvfs: %s]" % msg, *args, file=fh, end=" ", flush=True)
 
 def find_path(cmd):
     path = os.environ.get("PATH", "/usr/bin").split(":")
@@ -166,7 +166,6 @@ class AnnexBackend(object):
         self._annex = annex
         self._layout = self._annex.get_config("layout") or "lower"
         self._migrate_layout = False
-        self._migrate_keydir = True
 
         if self._layout == "mixed/lower":
             self._layout = "lower"
@@ -175,10 +174,8 @@ class AnnexBackend(object):
         if self._layout not in {"mixed", "lower"}:
             raise ValueError("unknown layout %r" % self._layout)
 
-    def key_to_path(self, key, layout=None, compat=False):
+    def key_to_path(self, key, layout=None):
         dir = self._annex.dir_hash(key, layout or self._layout)
-        if compat:
-            return os.path.join(dir, key)
         return os.path.join(dir, key, key)
 
     def has_key(self, key):
@@ -213,10 +210,6 @@ class AnnexBackend(object):
             if self.migrate_layout_key(key):
                 _log("maybe_migrate_key: migrated key %r from mixed to lower" % key)
                 return True
-        if self._migrate_keydir:
-            if self.migrate_keydir_key(key):
-                _log("maybe_migrate_key: migrated key %r from old_nodir to std_keydir" % key)
-                return True
         return False
 
     def migrate_layout_key(self, key):
@@ -226,12 +219,6 @@ class AnnexBackend(object):
         else:
             raise ValueError("only migration from mixed to lower is supported")
         old_path = self.key_to_path(key, layout=old_layout)
-        new_path = self.key_to_path(key)
-        return self._migrate_key(key, old_path, new_path)
-
-    def migrate_keydir_key(self, key):
-        _log("AnnexBackend.migrate_keydir_key(%r)" % key)
-        old_path = self.key_to_path(key, compat=True)
         new_path = self.key_to_path(key)
         return self._migrate_key(key, old_path, new_path)
 
@@ -382,16 +369,8 @@ class AnnexGvfsBackend(AnnexBackend):
         old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
         new_dir_uri = self.path_to_uri(os.path.dirname(new_path))
         old_uri = self.path_to_uri(old_path)
-        tmp_uri = self.path_to_uri(old_path + "_rename")
         new_uri = self.path_to_uri(new_path)
         try:
-            if old_uri == new_dir_uri:
-                # NOTE: this only works for 'foo/bar' -> 'foo/bar/baz',
-                #       not the other way around!
-                _log("old and new paths conflict; using two-step rename")
-                if not self.gvfs.rename_file(old_uri, tmp_uri):
-                    raise IOError()
-                old_uri = tmp_uri
             if not self.gvfs.create_dir_p(new_dir_uri):
                 raise IOError()
             if not self.gvfs.rename_file(old_uri, new_uri):

@@ -8,7 +8,7 @@ sub notify {
 	$path =~ s/^@/\0/;
 
 	my $sock = IO::Socket::UNIX->new(Type => SOCK_DGRAM,
-					Peer => $path);
-
+	                                 Peer => $path);
 	$sock->print(join("\n", @args));
+	$sock->close();
 }

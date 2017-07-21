@@ -1,4 +1,22 @@
 #!/usr/bin/env python
+# git-annex-remote-gvfs - a Gvfs/Gio backend for git-annex
+#
+# (c) 2016-2017 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License (dist/LICENSE.mit)
+#
+# Parameters to initremote:
+#
+#   type=external
+#   externaltype=gvfs
+#   mount=smb://<host>/<share>
+#   path=/<dir>
+#
+# The 'mount' parameter must be something that `gio mount` or `gvfs-mount` will accept.
+#
+# Only tested with smb:// but in theory any gvfs-provided filesystem should work.
+#
+# Chunking is not supported.
+
 import os
 import sys
 import subprocess
@@ -10,6 +28,10 @@ def _log(*args):
         print("\033[1;35m[gvfs]\033[;35m", *args, end="\033[m\n",
               file=sys.stderr, flush=True)
 
+def _say(msg, *args):
+    with open("/dev/tty", "w") as fh:
+        print("[gvfs: %s]" % msg, *args, file=fh, end=" ", flush=True)
+
 def find_path(cmd):
     path = os.environ.get("PATH", "/usr/bin").split(":")
     for p in path:
@@ -18,10 +40,12 @@ def find_path(cmd):
             return file
 
 def GVFS_CMD(cmd, *args):
-    cmds = { "ls": "list", "rm": "remove" }
+    cmds = {
+        "ls": "list",
+        "rm": "remove",
+    }
     if use_gio_cmd:
-        cmd = cmds.get(cmd, cmd)
-        argv = ["gio", cmd, *args]
+        argv = ["gio", cmds.get(cmd, cmd), *args]
     else:
         argv = ["gvfs-%s" % cmd, *args]
     #_log("command: %r" % argv)
@@ -75,16 +99,10 @@ class GvfsClient(object):
 
     def is_mounted(self, uri):
         _log("GvfsClient.is_mounted(%r)" % uri)
-        if not uri.endswith("/"):
-            uri += "/"
-        suffix = (" -> %s\n" % uri).encode("utf-8")
-        with subprocess.Popen(GVFS_CMD("mount", "-l"),
-                              stdout=subprocess.PIPE) as proc:
-            for line in proc.stdout:
-                _log("gio mount:", line)
-                if line.startswith(b"Mount(") and line.endswith(suffix):
-                    return True
-        return False
+        r = subprocess.call(GVFS_CMD("info", "-nfa", "gvfs::backend", uri),
+                            stdout=self._null,
+                            stderr=self._null)
+        return (r == 0)
 
     def mount(self, uri):
         _log("GvfsClient.mount(%r)" % uri)
@@ -129,9 +147,16 @@ class GvfsClient(object):
                             stderr=self._stderr)
         return (r == 0)
 
+    def rename_file(self, src, dst):
+        _log("GvfsClient.rename_file(%r -> %r)" % (src, dst))
+        r = subprocess.call(GVFS_CMD("move", "-C", src, dst),
+                            stdout=self._stderr,
+                            stderr=self._stderr)
+        return (r == 0)
+
     def move_file(self, src, dst):
         _log("GvfsClient.move_file(%r -> %r)" % (src, dst))
-        r = subprocess.call(GVFS_CMD("move", "-p", "-C", src, dst),
+        r = subprocess.call(GVFS_CMD("move", "-p", src, dst),
                             stdout=self._stderr,
                             stderr=self._stderr)
         return (r == 0)
@@ -140,50 +165,50 @@ class AnnexBackend(object):
     def __init__(self, annex):
         self._annex = annex
         self._layout = self._annex.get_config("layout") or "lower"
-        self._migrate = False
+        self._migrate_layout = False
 
         if self._layout == "mixed/lower":
             self._layout = "lower"
-            self._migrate = True
+            self._migrate_layout = True
 
         if self._layout not in {"mixed", "lower"}:
             raise ValueError("unknown layout %r" % self._layout)
 
     def key_to_path(self, key, layout=None):
         dir = self._annex.dir_hash(key, layout or self._layout)
-        return os.path.join(dir, key)
+        return os.path.join(dir, key, key)
 
     def has_key(self, key):
         _log("AnnexBackend.has_key(%r)" % key)
-        if self.maybe_migrate_layout_key(key):
+        if self.maybe_migrate_key(key):
             return True
         path = self.key_to_path(key)
-        return self.has_file(path)
+        return self._has_file(path)
 
     def store_key(self, key, src):
         _log("AnnexBackend.store_key(%r -> %r)" % (src, key))
-        if self.maybe_migrate_layout_key(key):
+        if self.maybe_migrate_key(key):
             return True
         path = self.key_to_path(key)
-        return self.import_file(src, path)
+        return self._import_file(src, path)
 
     def retrieve_key(self, key, dst):
         _log("AnnexBackend.retrieve_key(%r -> %r)" % (key, dst))
         path = self.key_to_path(key)
-        return self.export_file(path, dst)
+        return self._export_file(path, dst)
 
     def remove_key(self, key):
         _log("AnnexBackend.remove_key(%r)" % key)
         path = self.key_to_path(key)
-        if self.has_file(path):
-            return self.delete_file(path)
-        else:
-            return True
+        if self._has_file(path):
+            return self._delete_file(path)
+        return True
 
-    def maybe_migrate_layout_key(self, key):
-        if self._migrate:
+    def maybe_migrate_key(self, key):
+        # return True if key exists and migration has been done
+        if self._migrate_layout:
             if self.migrate_layout_key(key):
-                print("migrated key %r from mixed to lower" % key, file=sys.stderr)
+                _log("maybe_migrate_key: migrated key %r from mixed to lower" % key)
                 return True
         return False
 
@@ -195,17 +220,29 @@ class AnnexBackend(object):
             raise ValueError("only migration from mixed to lower is supported")
         old_path = self.key_to_path(key, layout=old_layout)
         new_path = self.key_to_path(key)
-        if self.has_file(old_path):
-            if self.has_file(new_path):
-                _log("[migrate_layout_key] - key present in both old & new; deleting old")
-                return self.delete_file(old_path)
-            else:
-                _log("[migrate_layout_key] - renaming key from old layout to new layout")
-                return self.rename_file(old_path, new_path)
+        return self._migrate_key(key, old_path, new_path)
+
+    def _migrate_key(self, key, old_path, new_path):
+        if old_path == new_path:
+            return False
+        if self._has_file(new_path):
+            if is_parent_of(old_path, new_path):
+                _log("_migrate_key: key present in new, and old is prefix of new; doing nothing")
+                return False
+            elif self._has_file(old_path):
+                _log("_migrate_key: key present in both old & new; deleting old")
+                return self._delete_file(old_path)
+        elif self._has_file(old_path):
+            _log("_migrate_key: renaming key from old to new")
+            _say("migrating to new layout")
+            return self._rename_file(old_path, new_path)
         else:
             return False
 
 class AnnexGvfsBackend(AnnexBackend):
+    """
+    AnnexBackend which uses GvfsClient.
+    """
     def __init__(self, *args):
         super().__init__(*args)
         self._volume = self._annex.get_config("mount")
@@ -230,7 +267,7 @@ class AnnexGvfsBackend(AnnexBackend):
             if self._base.startswith("/"):
                 self._base = os.path.join(self._volume, self._base[1:])
                 # do the prefix check anyway, for sanity
-            if not is_prefix_of(self._volume, self._base):
+            if not is_parent_of(self._volume, self._base):
                 self.error = "mount= must be a prefix of path="
                 return False
         return True
@@ -258,24 +295,30 @@ class AnnexGvfsBackend(AnnexBackend):
     def has_repo(self):
         if not self.mount():
             return False
-        return self.gvfs.has_file(self._base)
+        return self.gvfs._has_file(self._base)
 
-    def has_file(self, path):
+    def _has_file(self, path):
         if not self.mount():
             return False
         uri = self.path_to_uri(path)
         return self.gvfs.has_file(uri)
 
-    def delete_file(self, path):
+    def _delete_file(self, path):
+        """
+        Delete file from backend.
+        """
         if not self.mount():
             return False
         uri = self.path_to_uri(path)
         return self.gvfs.delete_file(uri)
 
-    def import_file(self, ext_src, dst_path):
+    def _import_file(self, ext_src, dst_path):
+        """
+        Import & upload a file from local path into the backend.
+        """
         if not self.mount():
             return False
-        _log("import_file(%r -> %r)" % (ext_src, dst_path))
+        _log("AnnexGvfsBackend._import_file(%r -> %r)" % (ext_src, dst_path))
         tmp_path = "transfer/%s.part" % os.path.basename(dst_path)
         tmp_dir_uri = self.path_to_uri(os.path.dirname(tmp_path))
         dst_dir_uri = self.path_to_uri(os.path.dirname(dst_path))
@@ -288,7 +331,7 @@ class AnnexGvfsBackend(AnnexBackend):
                 raise IOError()
             if not self.gvfs.copy_file(ext_src, tmp_uri):
                 raise IOError()
-            if not self.gvfs.move_file(tmp_uri, dst_uri):
+            if not self.gvfs.rename_file(tmp_uri, dst_uri):
                 raise IOError()
         except IOError:
             self.gvfs.delete_file(tmp_uri)
@@ -296,16 +339,19 @@ class AnnexGvfsBackend(AnnexBackend):
         else:
             return True
 
-    def export_file(self, src_path, ext_dst):
+    def _export_file(self, src_path, ext_dst):
+        """
+        Retrieve & export a file from the backend to a local path.
+        """
         if not self.mount():
             return False
-        _log("export_file(%r -> %r)" % (src_path, ext_dst))
+        _log("AnnexGvfsBackend._export_file(%r -> %r)" % (src_path, ext_dst))
         src_uri = self.path_to_uri(src_path)
         ext_tmp = ext_dst + ".part"
         try:
             if not self.gvfs.copy_file(src_uri, ext_tmp):
                 raise IOError()
-            if not self.gvfs.move_file(ext_tmp, ext_dst):
+            if not self.gvfs.rename_file(ext_tmp, ext_dst):
                 raise IOError()
         except IOError:
             self.gvfs.delete_file(ext_tmp)
@@ -313,10 +359,13 @@ class AnnexGvfsBackend(AnnexBackend):
         else:
             return True
 
-    def rename_file(self, old_path, new_path):
+    def _rename_file(self, old_path, new_path):
+        """
+        Rename a file within the backend (when migrating layouts).
+        """
         if not self.mount():
             return False
-        _log("rename_file(%r -> %r)" % (old_path, new_path))
+        _log("AnnexGvfsBackend._rename_file(%r -> %r)" % (old_path, new_path))
         old_dir_uri = self.path_to_uri(os.path.dirname(old_path))
         new_dir_uri = self.path_to_uri(os.path.dirname(new_path))
         old_uri = self.path_to_uri(old_path)
@@ -324,14 +373,17 @@ class AnnexGvfsBackend(AnnexBackend):
         try:
             if not self.gvfs.create_dir_p(new_dir_uri):
                 raise IOError()
-            if not self.gvfs.move_file(old_uri, new_uri):
+            if not self.gvfs.rename_file(old_uri, new_uri):
                 raise IOError()
         except IOError:
             return False
         else:
             return True
 
-def is_prefix_of(a, b):
+def is_parent_of(a, b):
+    """
+    Check whether 'a' is a parent directory of 'b'.
+    """
     if not a.endswith("/"):
         a += "/"
     return b.startswith(a)
@@ -395,7 +447,7 @@ for cmd, *rest in annex.loop():
             annex.send("REMOVE-SUCCESS", key)
     elif cmd == "WHEREIS":
         key, *rest = rest
-        backend.maybe_migrate_layout_key(key)
+        backend.maybe_migrate_key(key)
         annex.send("UNSUPPORTED-REQUEST")
     else:
         annex.send("UNSUPPORTED-REQUEST")

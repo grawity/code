@@ -36,6 +36,13 @@ try:
     else:
         Core.die("submask should be /x or +x")
 
+    # special-case args
+    if net.network_address.packed[0:4] == b"\0\0\0\0":
+        opt_short = True
+
+    if opt_list:
+        opt_short = False
+
     # show the corresponding supernet and same-level subnets
     if increment < 0:
         increment *= -1
@@ -68,7 +75,8 @@ try:
     if not opt_list:
         if net.version == 6 and subnet.prefixlen < 64:
             totalnets = 2 ** (64 - subnet.prefixlen)
-            msg = "%d ranges × %d subnets" % (total, totalnets)
+            msg = "%d (/%d) ranges × %d (/64) subnets" % (total, subnet.prefixlen,
+                                                          totalnets)
         elif subnet.prefixlen == 64:
             if total == 1:
                 msg = "1 subnet"

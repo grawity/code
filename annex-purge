@@ -121,6 +121,7 @@ while n_found:
         dropped = []
         failed = []
         for i in todo:
+            Core.say("dropping %r" % i.name)
             r = annex_run("drop", *remote_arg, "--force", "--key=%s" % i.key)
             if r == 0:
                 dropped.append(i)
@@ -137,7 +138,7 @@ while n_found:
             sz_found -= sz_dropped
             k_dropped |= {i.key for i in dropped}
             Core.info("dropped %d files (%s)" % (n_dropped, fmt_size(sz_dropped)))
-        else:
+        elif not todo:
             Core.err("no files matched %r" % cmd[1])
     elif cmd[0] in {"r", "recover"}:
         todo = [i for i in items if fnmatch(i.name, cmd[1])]
@@ -167,7 +168,7 @@ while n_found:
                 Core.info("recovered %d files (%s)" % (n_recover, fmt_size(sz_recover)))
             else:
                 Core.err("annex add of symlinks failed")
-        else:
+        elif not todo:
             Core.err("no files matched %r" % cmd[1])
     elif cmd[0] in {"/", "p", "print"}:
         todo = items

@@ -147,16 +147,27 @@ my %trees_ok;
 my %hosts_ok;
 
 for my $host (@hosts) {
+	my ($conn, $res);
 	print "querying '$host'\n";
-	my $conn = Net::LDAP->new($host);
+	$conn = Net::LDAP->new($host);
 	if (!$conn) {
 		_err("could not connect to '$host': $!");
 		next;
 	}
-	$conn->start_tls() if $start_tls;
-	$conn->bind();
+	if ($start_tls) {
+		$res = $conn->start_tls();
+		if ($res->is_error) {
+			_err("could not start TLS with '$host': ".$res->error_name);
+			goto fail;
+		}
+	}
+	$res = $conn->bind();
+	if ($res->is_error) {
+		_err("could not anonymously bind to '$host': ".$res->error_name);
+		goto fail;
+	}
 	for my $base (@trees) {
-		my $res = $conn->search(
+		$res = $conn->search(
 				base => $base,
 				scope => "base",
 				filter => "(contextCSN=*)",
@@ -176,6 +187,7 @@ for my $host (@hosts) {
 		++$trees_ok{$host};
 		++$hosts_ok{$base};
 	}
+fail:
 	$conn->unbind;
 	++$hosts_ok if ($trees_ok{$host} == @trees);
 }

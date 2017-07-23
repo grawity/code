@@ -114,11 +114,15 @@ if (!@trees) {
 # if no hosts were given, or if any --host parameters start with "+", merge
 # with SRV data (otherwise use *only* --host)
 
-if (!$add_from_srv) {
-	$add_from_srv = grep {s/^\+//} @hosts;
+if (!@hosts) {
+	$add_from_srv = 1;
+}
+else {
+	$add_from_srv ||= grep {s/^\+//} @hosts;
 }
 
-if (!@hosts || $add_from_srv) {
+if ($add_from_srv) {
+	print "looking up '@domains'\n";
 	push @hosts, dns_srv_lookup(@domains);
 }
 

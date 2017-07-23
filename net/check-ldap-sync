@@ -1,4 +1,8 @@
 #!/usr/bin/env perl
+# check-ldap-sync -- check LDAP replica status by comparing contextCSN
+# (c) 2012-2017 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
+
 use Getopt::Long;
 use Net::LDAP;
 
@@ -61,6 +65,27 @@ sub domain_to_dn {
 	@domains;
 }
 
+sub usage {
+	print for (
+	"Usage: $0 [options]\n",
+	"\n",
+	"Check LDAP replica status by comparing contextCSN values.\n",
+	"\n",
+	#---'---|---'---|---'---|---'---
+	"  -d, --domain DOMAIN   use this domain for SRV and baseDN\n",
+	"  -h, --host HOST       check this server directly\n",
+	"  -b, --base DN         check contextCSN on this LDAP entry\n",
+	"\n",
+	"  --[no-]srv            find servers via DNS SRV records\n",
+	"                        (always on unless --host specified)\n",
+	"\n",
+	"  --[no-]starttls       use StartTLS (on by default)\n",
+	"\n",
+	"If --base is not specified, by default 'cn=config' and 'dc=...' for every",
+	" provided domain will be checked (e.g. 'dc=example,dc=com' for example.com).\n",
+	);
+}
+
 my @domains;
 my @hosts;
 my @trees;
@@ -68,12 +93,13 @@ my $add_from_srv = 0;
 my $start_tls = 1;
 
 GetOptions(
+	"help" => sub { usage(); exit; },
 	"d|domain=s" => \@domains,
 	"h|host=s" => \@hosts,
 	"b|base=s" => \@trees,
 	"srv!" => \$add_from_srv,
 	"starttls!" => \$start_tls,
-);
+) or exit(2);
 
 # provide default domains and base DNs
 

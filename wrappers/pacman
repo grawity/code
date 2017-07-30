@@ -3,21 +3,14 @@
 
 if (( UID == 0 )) && [[ ! $PACMAN_LOCK ]] && [[ ! $FAKEROOTKEY ]] && [[ $1 != "-V" ]]; then
 	lock=/run/lock/pacman
-	exec {fd}>>"$lock" &&
+	exec {fd}>"$lock" &&
 	/usr/bin/flock -xn $fd || {
 		if [[ $DEBUG ]]; then
 			echo "[$$:$(ps -o cmd= $PPID):$*]"
 		fi
-		if wid=$(< "$lock"); [[ $wid ]]; then
-			if [[ "$wid" != "$WINDOWID" ]]; then
-				echo "raising window $wid with existing instance"
-				wmctrl -i -a "$wid"
-			fi
-		fi
 		echo -n "waiting for other instances to exit..."
 		/usr/bin/flock -x $fd && echo "done"
 	} >&2
-	echo "$WINDOWID" >"$lock"
 	dblock=/var/lib/pacman/db.lck
 	if [[ -e "$dblock" ]]; then
 		if pid=$(pgrep -x pacman); then

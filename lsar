@@ -10,11 +10,11 @@ do_list() {
 	    unrpa -l "$f";;
 	*.tar.*|*.tbz2|*.tgz|*.txz)
 	    tar tf "$f";;
-	*.zip)
+	*.zip|*.jar)
 	    unzip -l "$f";;
 	*.7z|*.deb|*.iso|*.rpm)
 	    bsdtar tf "$f";;
-	*.cab|*.msi)
+	*.cab|*.msi|*.jar)
 	    7za l "$f";;
 	*)
 	    echo Unknown file type >&2; exit 1;;
@@ -34,12 +34,13 @@ do_extract() {
 	    do_pv "$f" bzip2;;
 	*.gz)
 	    do_pv "$f" gzip;;
-	*.7z|*.cab|*.msi)
-	    7za x -o"$d" "$f";;
 	*.rar)
 	    rar x "$f" "$d/";;
-	*.zip)
-	    unzip -d "$d" "$f";;
+	*.zip|*.jar)
+	    #unzip -d "$d" "$f";;
+	    ;;&
+	*.7z|*.cab|*.msi|*.rar|*.jar|*.zip)
+	    7za x -o"$d" "$f";;
 	*)
 	    echo Unknown file type >&2; exit 1;;
     esac

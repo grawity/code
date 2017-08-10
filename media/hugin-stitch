@@ -8,15 +8,18 @@ usage() {
 	echo "Usage: $progname [-o output] <input_file>..."
 	echo
 	echo_opt "-o PREFIX" "output file prefix"
+	echo_opt "-S" "stop and interactively inspect before execution"
 	echo
 	echo "By default, output is named after last input with '*_stitch.tif' suffixed."
 }
 
 prefix=""
+do_stop=0
 
-while getopts ':o:' OPT; do
+while getopts ':o:S' OPT; do
 	case $OPT in
 	o) prefix=$OPTARG;;
+	S) do_stop=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -59,6 +62,10 @@ autooptimiser -n                    -o "$dir/6.pto" "$dir/5.pto"
 log2 "stitching images"
 
 pano_modify --projection=0 --fov=AUTO --center --canvas=AUTO --crop=AUTO -o "$dir/7.pto" "$dir/6.pto"
+
+if (( do_stop )); then
+	hugin "$dir/7.pto"
+fi
 hugin_executor --stitching --prefix="$prefix" "$dir/7.pto"
 #hugin_stitch_project --output="$prefix" "$dir/7.pto"
 

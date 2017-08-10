@@ -5,7 +5,7 @@ err() { echo "error: $*" >&2; return 1; }
 die() { err "$*"; exit 1; }
 
 try_esp() {
-	mountpoint -q "$1" && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
+	mountpoint -q "$1" && [[ ! -L "$1" ]] && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
 }
 
 check_kernel() {

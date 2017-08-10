@@ -9,7 +9,7 @@ usage() {
 	echo
 	echo_opt "-o PREFIX" "output file prefix"
 	echo
-	echo "By default, output is named after 1st input with '*_stitch.tif' suffixed."
+	echo "By default, output is named after last input with '*_stitch.tif' suffixed."
 }
 
 prefix=""
@@ -26,9 +26,13 @@ src_files=("$@")
 if [[ ! $src_files ]]; then
 	die "input files not specified"
 fi
+if (( $# < 2 )); then
+	die "only one input was specified; doing nothing"
+fi
 
 if [[ ! $prefix ]]; then
-	prefix="${1%.*}_stitch"
+	prefix="${@:$#}"
+	prefix="${prefix%.*}_stitch"
 fi
 
 dir=$(mktemp -d /tmp/stitch_pto.XXXXXX)

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# stitch multiple screenshots into a panorama
+# based on run-scan-pto_var.sh (Terry Duell 2013, 2014)
+
+. lib.bash || exit
+
+prefix=$1; shift
+src_files=("$@")
+
+[[ $prefix ]] || die "output filename prefix not specified"
+[[ $src_files ]] || die "input files not specified"
+
+dir=$(mktemp -d stitch_pto.XXXXXX)
+fov=10
+
+log2 "creating project"
+
+pto_gen --projection=0 --fov="${fov:-10}" -o "$dir/0.pto" "${src_files[@]}"
+
+spec=$(printf ",i%d" "${!src_files[@]}")
+pto_lensstack --new-lens "${spec#,i0,}" -o "$dir/1.pto" "$dir/0.pto"
+
+log2 "detecting image features"
+
+cpfind --multirow                   -o "$dir/2.pto" "$dir/1.pto"
+cpclean                             -o "$dir/3.pto" "$dir/2.pto"
+linefind                            -o "$dir/4.pto" "$dir/3.pto"
+
+log2 "repositioning images"
+
+pto_var --opt r,d,e,!r0,!d0,!e0     -o "$dir/5.pto" "$dir/4.pto"
+autooptimiser -n                    -o "$dir/6.pto" "$dir/5.pto"
+
+log2 "stitching images"
+
+pano_modify --projection=0 --fov=AUTO --center --canvas=AUTO --crop=AUTO -o "$dir/7.pto" "$dir/6.pto"
+hugin_executor --stitching --prefix="$prefix" "$dir/7.pto"
+
+log2 "cleaning up"
+
+rm -rf "$dir"

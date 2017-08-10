@@ -4,11 +4,24 @@
 
 . lib.bash || exit
 
-prefix=$1; shift
+prefix=""
+
+while getopts ':o:' OPT; do
+	case $OPT in
+	o) prefix=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 src_files=("$@")
 
-[[ $prefix ]] || die "output filename prefix not specified"
-[[ $src_files ]] || die "input files not specified"
+if [[ ! $src_files ]]; then
+	die "input files not specified"
+fi
+
+if [[ ! $prefix ]]; then
+	prefix="${1%.*}_stitch"
+fi
 
 dir=$(mktemp -d /tmp/stitch_pto.XXXXXX)
 fov=10

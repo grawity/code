@@ -10,7 +10,7 @@ src_files=("$@")
 [[ $prefix ]] || die "output filename prefix not specified"
 [[ $src_files ]] || die "input files not specified"
 
-dir=$(mktemp -d stitch_pto.XXXXXX)
+dir=$(mktemp -d /tmp/stitch_pto.XXXXXX)
 fov=10
 
 log2 "creating project"
@@ -35,7 +35,10 @@ log2 "stitching images"
 
 pano_modify --projection=0 --fov=AUTO --center --canvas=AUTO --crop=AUTO -o "$dir/7.pto" "$dir/6.pto"
 hugin_executor --stitching --prefix="$prefix" "$dir/7.pto"
+#hugin_stitch_project --output="$prefix" "$dir/7.pto"
 
 log2 "cleaning up"
 
 rm -rf "$dir"
+
+info "output: $prefix.tif"

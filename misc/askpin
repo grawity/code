@@ -17,7 +17,7 @@ usage() {
 	echo_opt "-C <label>"		"set 'Cancel' button label"
 	echo ""
 	echo_opt "-P <path>"		"use a different pinentry executable"
-	echo_opt "-g"			"disable global input grab"
+	echo_opt "-G"			"enable global input grab"
 	echo_opt "-W <windowid>"	"set parent window ID"
 	echo_opt "-o <option>"		"pass raw option to pinentry argv"
 }
@@ -30,6 +30,7 @@ encode() {
 pinentry=(pinentry)
 config=("SETPROMPT")
 action="GETPIN"
+opt_grab=0
 
 # parse config
 
@@ -39,14 +40,15 @@ fi
 
 # parse arguments
 
-while getopts ':c:C:Dd:ghN:nO:o:P:p:t:xW:' OPT; do
+while getopts ':c:C:Dd:gGhN:nO:o:P:p:t:xW:' OPT; do
 	debug "getopts: [$OPTIND] -$OPT '$OPTARG'"
 	case $OPT in
 	c) config+=("$OPTARG");;
 	C) config+=("SETCANCEL $(encode "$OPTARG")");;
 	D) DEBUG=1;;
 	d) config+=("SETDESC $(encode "$OPTARG")");;
-	g) pinentry+=(--no-global-grab);;
+	g) opt_grab=0;;
+	G) opt_grab=1;;
 	h) usage; exit 0;;
 	N) action="${OPTARG^^}";;
 	n) action="CONFIRM";;
@@ -59,6 +61,10 @@ while getopts ':c:C:Dd:ghN:nO:o:P:p:t:xW:' OPT; do
 	*) die_getopts;;
 	esac
 done
+
+if (( !opt_grab )); then
+	pinentry+=(--no-global-grab)
+fi
 
 if [[ "${!OPTIND}" ]]; then
 	config+=("SETDESC $(encode "${!OPTIND}")")

@@ -1,3 +1,4 @@
+import math
 import os
 import sys
 
@@ -39,30 +40,35 @@ def fmt_status(msg):
     return "\033[33m" + msg + "\033[m"
 
 def print_status(*args, fmt=fmt_status):
-    if stderr_tty() and not opts.verbose:
+    if not stderr_tty():
+        return
+    out = ""
+    out += "\033[1G" # cursor to column 1
+    out += "\033[0J" # erase below
+    if args:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
-        out = ""
-        out += "\033[1G" # cursor to column 1
-        out += "\033[0J" # erase below
         out += fmt_status(msg)
         lines = math.ceil(wcswidth(msg) / stderr_width())
         if lines > 1:
             out += "\033[%dA" % (lines-1) # cursor up 1
-        sys.stderr.write(out)
-        if not args:
-            sys.stderr.flush()
+    sys.stderr.write(out)
+    if not args:
+        sys.stderr.flush()
 
 def print_status_truncated(*args, fmt=fmt_status):
-    if stderr_tty() and not opts.verbose:
+    if not stderr_tty():
+        return
+    out = ""
+    out += "\r" # cursor to column 1
+    out += "\033[K" # erase to right
+    if args:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
-        out = ""
-        out += "\r\033[K"
         out += fmt_status(msg)
-        sys.stderr.write(out)
-        if not args:
-            sys.stderr.flush()
+    sys.stderr.write(out)
+    if not args:
+        sys.stderr.flush()
 
 def window_title(msg):
     if stderr_tty():

@@ -13,7 +13,7 @@ _stderr_width = None
 def stderr_tty():
     global _stderr_tty
     if _stderr_tty is None:
-        _stderr_tty = getattr(sys.stderr, "isatty", lambda: False)()
+        _stderr_tty = os.isatty(sys.stderr.fileno())
     return _stderr_tty
 
 def stderr_width():

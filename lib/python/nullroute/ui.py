@@ -16,7 +16,7 @@ def stderr_tty():
         _stderr_tty = getattr(sys.stderr, "isatty", lambda: False)()
     return _stderr_tty
 
-def ttywidth():
+def stderr_width():
     global _stderr_width
     if _stderr_width is None:
         if stderr_tty() and hasattr(os, "get_terminal_size"):
@@ -46,7 +46,7 @@ def print_status(*args, fmt=fmt_status):
         out += "\033[1G" # cursor to column 1
         out += "\033[0J" # erase below
         out += fmt_status(msg)
-        lines = math.ceil(wcswidth(msg) / ttywidth())
+        lines = math.ceil(wcswidth(msg) / stderr_width())
         if lines > 1:
             out += "\033[%dA" % (lines-1) # cursor up 1
         sys.stderr.write(out)

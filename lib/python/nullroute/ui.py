@@ -96,6 +96,7 @@ def print_status_truncated(*args, fmt=fmt_status):
     if args:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
+        msg = wctruncate(msg, stderr_width())
         out += fmt_status(msg)
     sys.stderr.write(out)
     if not args:

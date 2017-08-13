@@ -21,7 +21,6 @@ def stderr_width():
     global _stderr_width
     if _stderr_width is None:
         if stderr_tty() and hasattr(os, "get_terminal_size"):
-            # new in 3.3
             _stderr_width = os.get_terminal_size(sys.stderr.fileno()).columns
         else:
             _stderr_width = 80

@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from nullroute.core import *
 from nullroute.misc import escape_shell, fmt_size
-from nullroute.ui import stderr_tty, stderr_width, wcswidth
+from nullroute.ui import print_status, stderr_tty
 
 opts = None
 
@@ -31,19 +31,9 @@ _last_status = 0
 
 def status(*args):
     if stderr_tty() and not opts.verbose:
-        msg = " ".join(args)
-        msg = msg.replace("\n", " ")
-        out = ""
-        out += "\033[1G" # cursor to column 1
-        out += "\033[0J" # erase below
-        out += "\033[33m" + msg + "\033[m"
-        lines = math.ceil(wcswidth(msg) / stderr_width())
-        if lines > 1:
-            out += "\033[%dA" % (lines-1) # cursor up 1
-        sys.stderr.write(out)
-
         import time
         global _last_status
+        print_status(*args)
         now = time.time()
         if (not args) or (now - _last_status > 1):
             sys.stderr.flush()

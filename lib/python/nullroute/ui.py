@@ -1,15 +1,43 @@
+import ctypes
 import math
 import os
 import sys
 
-try:
-    from wcwidth import wcwidth, wcswidth
-except ImportError:
-    wcwidth = lambda s: 1
-    wcswidth = lambda s: len(s)
+_libc_wcwidth = None
+_libc_wcslen = None
+_libc_wcswidth = None
 
 _stderr_tty = None
 _stderr_width = None
+
+def _get_libc_fn(fname, argtypes, restype):
+    import ctypes.util
+    soname = ctypes.util.find_library("c")
+    func = ctypes.cdll[soname][fname]
+    func.argtypes = argtypes
+    func.restype = restype
+    return func
+
+def wcwidth(char):
+    global _libc_wcwidth
+    if _libc_wcwidth is None:
+        _libc_wcwidth = _get_libc_fn("wcwidth",
+                                     (ctypes.c_wchar,),
+                                     ctypes.c_int)
+    return _libc_wcwidth(char)
+
+def wcswidth(string):
+    global _libc_wcslen
+    global _libc_wcswidth
+    if _libc_wcslen is None:
+        _libc_wcslen = _get_libc_fn("wcslen",
+                                    (ctypes.c_wchar_p,),
+                                    ctypes.c_size_t)
+    if _libc_wcswidth is None:
+        _libc_wcswidth = _get_libc_fn("wcswidth",
+                                      (ctypes.c_wchar_p, ctypes.c_size_t),
+                                      ctypes.c_int)
+    return _libc_wcswidth(string, _libc_wcslen(string))
 
 def stderr_tty():
     global _stderr_tty

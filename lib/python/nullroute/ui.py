@@ -10,10 +10,10 @@ except ImportError:
 _stderr_tty = None
 _stderr_width = None
 
-def isatty():
+def stderr_tty():
     global _stderr_tty
     if _stderr_tty is None:
-        _stderr_tty = sys.stderr.isatty()
+        _stderr_tty = getattr(sys.stderr, "isatty", lambda: False)()
     return _stderr_tty
 
 def ttywidth():
@@ -38,7 +38,7 @@ def fmt_status(msg):
     return "\033[33m" + msg + "\033[m"
 
 def print_status(*args, fmt=fmt_status):
-    if isatty() and not opts.verbose:
+    if stderr_tty() and not opts.verbose:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
         out = ""
@@ -53,7 +53,7 @@ def print_status(*args, fmt=fmt_status):
             sys.stderr.flush()
 
 def print_status_truncated(*args, fmt=fmt_status):
-    if isatty() and not opts.verbose:
+    if stderr_tty() and not opts.verbose:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
         out = ""
@@ -64,5 +64,5 @@ def print_status_truncated(*args, fmt=fmt_status):
             sys.stderr.flush()
 
 def window_title(msg):
-    if isatty():
+    if stderr_tty():
         print("\033]2;%s\007" % msg, file=sys.stderr)

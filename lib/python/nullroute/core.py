@@ -37,6 +37,8 @@ class Core(object):
     # internal state
 
     _log_level = LOG_INFO + _debug_env
+    _log_pre_hook = None
+    _log_post_hook = None
     _num_warnings = 0
     _num_errors = 0
 
@@ -115,7 +117,13 @@ class Core(object):
 
         output.append(msg)
 
+        if self._log_pre_hook:
+            self._log_pre_hook()
+
         print("".join(output), file=fh)
+
+        if self._log_post_hook:
+            self._log_post_hook()
 
     @classmethod
     def trace(self, msg, *args, **kwargs):

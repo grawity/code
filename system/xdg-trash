@@ -30,6 +30,15 @@ sub dev {
 	return $stat[0];
 }
 
+sub in_path {
+	my ($exe) = @_;
+
+	grep {-f && -x}
+	map {"$_/$exe"}
+	map {$_ || "."}
+	split(/:/, $ENV{PATH});
+}
+
 =item path_encode($str)
 
 URL-encode the given path.
@@ -604,7 +613,11 @@ if ($opt_du) {
 	exit system("du", "-hs", find_home_trash());
 } elsif ($opt_empty) {
 	# yeah I'm lazy
-	exit system("gvfs-trash", "--empty");
+	if (in_path("gio")) {
+		exit system("gio", "trash", "--empty");
+	} else {
+		exit system("gvfs-trash", "--empty");
+	}
 }
 
 if (!@ARGV) {

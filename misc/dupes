@@ -27,17 +27,24 @@ files_removed = 0
 size_removed = 0
 dirs_skipped = 0
 
-_last_status = 0
+_last_status_time = 0
+_last_status_args = ()
 
-def status(*args):
+def status(*args, flush=False, save=True):
     if stderr_tty() and not opts.verbose:
         import time
-        global _last_status
+        global _last_status_time
+        global _last_status_args
         print_status(*args)
         now = time.time()
-        if (not args) or (now - _last_status > 1):
+        if flush or (not args) or (now - _last_status_time > 1):
             sys.stderr.flush()
-            _last_status = now
+            _last_status_time = now
+        if save:
+            _last_status_args = args
+
+Core._log_pre_hook = lambda: status(save=False)
+Core._log_post_hook = lambda: status(*_last_status_args, flush=True)
 
 def path_is_ignored(path):
     for filter in opts.ignore:

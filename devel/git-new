@@ -2,6 +2,13 @@
 # git-new - show new commits in a branch, based on the reflog
 
 opts=$(git config nullroute.git.up || true)
+if [[ "$opts" ]]; then
+	git config nullroute.git-new.options "$opts" &&
+	git config --unset nullroute.git.up
+fi
+
+opts=$(git config nullroute.git-new.options || true)
+paths=$(git config nullroute.git-new.paths || true)
 
 if [[ -t 1 ]] && which tig >/dev/null 2>&1; then
 	cmd='tig'
@@ -19,4 +26,4 @@ if [[ $ref != HEAD ]]; then
 	fi
 fi
 
-exec $cmd $opts "^$ref@{1}" "$ref" "${@:2}" --
+exec $cmd $opts "^$ref@{1}" "$ref" "${@:2}" -- $paths

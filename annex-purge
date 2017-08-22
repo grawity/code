@@ -11,6 +11,9 @@ import subprocess
 
 Item = namedtuple("Item", ["num", "size", "key", "name"])
 
+_unused_path = None
+_unused_ts = None
+
 def fmt_size(x):
     return nullroute.string.fmt_size(x, full_bytes=False)
 
@@ -27,6 +30,11 @@ def prompt(msg):
         return sys.stdin.readline().strip()
     except KeyboardInterrupt:
         sys.exit(1)
+
+def git_dir():
+    with subprocess.Popen(["git", "rev-parse", "--git-dir"],
+                          stdout=subprocess.PIPE) as res:
+        return res.stdout.read().decode().rstrip("\n")
 
 def annex(*cmd):
     return subprocess.Popen(["git", "annex", *cmd],
@@ -57,6 +65,19 @@ def annex_unused(remote=None):
                 if num == "NUMBER":
                     continue
                 yield int(num), key
+
+def verify_timestamp():
+    global _unused_path
+    global _unused_ts
+
+    if _unused_ts is None:
+        _unused_path = os.path.join(git_dir(), "annex/unused")
+        _unused_ts = os.stat(_unused_path).st_mtime
+    else:
+        check_ts = os.stat(_unused_path).st_mtime
+        if check_ts != _unused_ts:
+            Core.die("timestamp of %r has changed; exiting to avoid data corruption"
+                     % _unused_path)
 
 def get_last_path(key):
     with subprocess.Popen(["git", "log", "--format=",
@@ -89,6 +110,8 @@ remote_arg = ["--from=%s" % remote] if remote else []
 
 Core.info("searching for unused data in %s" % remote_str)
 unused = list(annex_unused(remote))
+verify_timestamp()
+
 Core.info("listing %d unused files" % len(unused))
 n_found = len(unused)
 sz_found = 0
@@ -111,11 +134,13 @@ while n_found:
         Core.info("exiting")
         break
     elif cmd[0] in {"y", "yes"}:
+        verify_timestamp()
         Core.info("dropping all unused files from %s" % remote_str)
         annex_run("dropunused", *remote_arg, "--force", "all")
         Core.info("dropped %d files (%s)" % (n_found, fmt_size(sz_found)))
         break
     elif cmd[0] in {"d", "drop"}:
+        verify_timestamp()
         todo = [i for i in items if fnmatch(i.name, cmd[1])]
         Core.info("dropping %d files matching %r" % (len(todo), cmd[1]))
         dropped = []

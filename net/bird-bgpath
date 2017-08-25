@@ -62,20 +62,11 @@ my %COMMUNITY = (
 	},
 );
 
-sub _asname {
-	state $res = Net::DNS::Resolver->new;
+sub is_private_as {
 	my ($as) = @_;
-	if (!$AS{$as}) {
-		my $ans = $res->query("AS$as.asn.dn42", "TXT");
-		if ($ans && $ans->{answer}) {
-			my $str = $ans->{answer}->[0]->{txtdata}->[0]->[0];
-			my @str = split(/ \| /, $str, 5);
-			@str = grep {!/^AS\d+$/} split(/\s+/, $str[4]);
-			$as =~ s/^424242/…/;
-			$as = $str[0]." (".$as.")";
-		}
-	}
-	return $AS{$as} //= $as;
+	return 1 if ($as >= 64512) && ($as <= 65535);
+	return 1 if ($as >= 4200000000) && ($as <= 4294967294);
+	return 0;
 }
 
 sub asname {
@@ -85,12 +76,20 @@ sub asname {
 	if ($AS{$as}) {
 		return $AS{$as}." (".$tail.")";
 	}
+	if (!is_private_as($as)) {
+		my $r = `dig +short AS$as.asn.cymru.com txt`;
+		$r =~ s/^"$as \| \S+ \| \S+ \| \S+ \| (.+)"/$1/ || return $as;
+		$r =~ s/\n.*//s;
+		#$r =~ s/,.*?$//;
+		$r =~ s/^(\S{4,}).*, (\S+)$/$1, $2/;
+		return "$r ($as)";
+	}
 	return $as;
 }
 
 sub tagname {
 	my ($tag) = @_;
-	if ($tag =~ /^\((\d+),(\d+)\)$/ || $tag =~ /^\(ro, (\d+), (\d+)\)$/) {
+	if ($tag =~ /^\((\d+),(\d+)\)$/ || $tag =~ /^\(r[ot], (\d+), (\d+)\)$/) {
 		my $as = int $1;
 		my $cm = int $2;
 		my $name;
@@ -98,6 +97,16 @@ sub tagname {
 		elsif ($COMMUNITY{$as}{_}) { $name = $COMMUNITY{$as}{_}->($cm); }
 		if ($AS{$as} || $name) {
 			return "(".($AS{$as} // $as).",".($name || $cm).")";
+		}
+	}
+	elsif ($tag =~ /^\((\d+), (\d+), (\d+)\)$/) {
+		my $as = int $1;
+		my $cm1 = int $2;
+		my $cm2 = int $3;
+		my $name1 = $COMMUNITY{$as}{$cm1}{_name};
+		my $name2 = $COMMUNITY{$as}{$cm1}{$cm2};
+		if ($AS{$as} || $name1 || $name2) {
+			return "(".($AS{$as} // $as).",".($name1 || $cm1).",".($name2 || $cm2).")";
 		}
 	}
 	return $tag;
@@ -154,19 +163,7 @@ sub filter {
 		elsif (/(\s+BGP\.next_hop:) (.+)$/) {
 			print $1." \e[38;5;43m".$2."\e[m\n" if $2 ne $via;
 		}
-		elsif (/(\s+BGP\.community:) (.+)$/) {
-			my $prefix = $1;
-			my @tags = split(/ /, $2);
-			@tags = map {tagname($_)} @tags;
-			if (eval {require Sort::Naturally}) {
-				@tags = Sort::Naturally::nsort(@tags);
-			} else {
-				@tags = sort @tags;
-			}
-			print $prefix." ".join(" ", @tags)."\n";
-		}
-		elsif (/^(\s+BGP\.ext_community:) (.+)$/) {
-			#print;
+		elsif (/^(\s+BGP\.(?:|ext_|large_)community:) (.+)$/) {
 			my $prefix = $1;
 			my @tags = ($2 =~ /\(.+?\)/g);
 			@tags = map {tagname($_)} @tags;

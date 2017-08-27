@@ -9,6 +9,7 @@ import time
 
 _connectors = {
     "local": LocalConnector,
+    "none": NullConnector,
     "ssh": SshConnector,
 }
 
@@ -16,6 +17,7 @@ _systems = {
     "linux": LinuxNeighbourTable,
     "bsd": FreeBsdNeighbourTable,
     "solaris": SolarisNeighbourTable,
+    "routeros": RouterOsNeighbourTable,
 }
 
 config = Env.find_config_file("ndpwatch.conf")
@@ -23,6 +25,7 @@ db_url = None
 hosts = []
 max_age_days = 6*30
 mode = "all"
+verbose = False
 
 with open(config, "r") as f:
     for line in f:
@@ -32,8 +35,13 @@ with open(config, "r") as f:
         if k == "db":
             db_url = v
         elif k == "host":
-            host_v, conn_v, sys_v, *rest = v.split(", ")
-            hosts.append((host_v, _connectors[conn_v], _systems[sys_v]))
+            v = v.split(",")
+            v = [_.strip() for _ in v]
+            host_v, conn_v, user_v, pass_v, sys_v, *rest = v
+            hosts.append((host_v,
+                          _connectors[conn_v],
+                          [user_v, pass_v],
+                          _systems[sys_v]))
         elif k == "age":
             max_age_days = int(v)
         elif k == "mode":
@@ -61,22 +69,39 @@ elif mode == "ipv6":
 else:
     func = lambda nt: nt.get_all()
 
-for host, conn_type, nt_type in hosts:
-    print("connecting to", host)
-    nt = nt_type(conn_type(host))
-    now = time.time()
-    for item in func(nt):
-        ip = item["ip"].split("%")[0]
-        mac = item["mac"]
-        if ip.startswith("fe80:"):
-            continue
-        print("- found", ip, "->", mac)
-        bound_st = st.bindparams(ip_addr=ip, mac_addr=mac, now=now)
-        r = δConn.execute(bound_st)
+for host, conn_type, user_pass, nt_type in hosts:
+    Core.say("connecting to %s" % host)
+    n_arp = n_ndp = 0
+    try:
+        if user_pass[0] != "-":
+            if user_pass[1] != "-":
+                host = "%s:%s@%s" % (user_pass[0], user_pass[1], host)
+            else:
+                host = "%s@%s" % (user_pass[0], host)
+        nt = nt_type(conn_type(host))
+        now = time.time()
+        for item in func(nt):
+            ip = item["ip"].split("%")[0]
+            mac = item["mac"]
+            if ip.startswith("fe80:"):
+                continue
+            if verbose:
+                print("- found", ip, "->", mac)
+            if ":" in ip:
+                n_ndp += 1
+            else:
+                n_arp += 1
+            bound_st = st.bindparams(ip_addr=ip, mac_addr=mac, now=now)
+            r = δConn.execute(bound_st)
+    except IOError as e:
+        Core.err("connection to %r failed: %r" % (host, e))
+    Core.say(" - logged %d ARP entries, %d NDP entries" % (n_arp, n_ndp))
+
+Core.exit_if_errors()
 
 max_age_secs = max_age_days*86400
 
-print("cleaning up old records")
+Core.say("cleaning up old records")
 st = δ.sql.text("""
         DELETE FROM arplog WHERE last_seen < :then
      """)

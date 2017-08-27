@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# decrypt TP-Link config.bin files
+#
+# based on <http://teknoraver.net/software/hacks/tplink/>
+# also <https://github.com/Hell0wor1d/tp-link-decryptor>
+# also <https://gist.github.com/NikitaKarnauhov/5d9129f13e7b0e257cfbe93215751c7a>
+# also `openssl enc -d -des-ecb -nopad -K 478DA50BF9E3D2CF -in config.bin`
+
+from Crypto.Cipher import DES
+from Crypto.Hash import MD5
+import sys
+
+key = b"\x47\x8D\xA5\x0B\xF9\xE3\xD2\xCF"
+
+def tplink_decrypt(buf):
+    buf = DES.new(key, DES.MODE_ECB).decrypt(buf).rstrip(b"\0")
+    if MD5.new(buf[16:]).digest() != buf[:16]:
+        raise ValueError("decryption failed (data/checksum mismatch)")
+    return buf[16:]
+
+def tplink_encrypt(buf):
+    buf = MD5.new(buf).digest() + buf
+    buf += b"\0" * (8 - (len(buf) % 8))
+    buf = DES.new(key, DES.MODE_ECB).encrypt(buf)
+    return buf
+
+do_encrypt = False
+
+args = sys.argv[1:] or ["config.bin"]
+
+for arg in args:
+    if arg == "-e":
+        do_encrypt = True
+    elif do_encrypt:
+        buf = open(arg, "rb").read()
+        buf = tplink_encrypt(buf)
+        open("%s.bin" % arg).write(buf)
+    else:
+        buf = open(arg, "rb").read()
+        buf = tplink_decrypt(buf)
+        print(buf.decode())

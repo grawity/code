@@ -12,6 +12,7 @@ use File::Spec::Functions qw(catfile);
 use Getopt::Long qw(:config bundling no_ignore_case);
 use MIME::Base64;
 use Nullroute::Lib;
+use XML::XPath;
 use XML::Simple;
 
 my %Opt;
@@ -64,14 +65,22 @@ sub parse_xmldsig {
     }
 }
 
+sub parse_xml {
+    my ($data, %opt) = @_;
+
+    my $doc = XML::XPath->new(xml => $data);
+
+    my @all = $doc->findnodes("//X509Certificate");
+
+    return map {decode_base64($_->string_value)} @all;
+}
+
 sub try_decode {
     my ($str) = @_;
 
     # best-effort BMPString detection
-    if (length($str) % 2 == 0) {
-        if ($str =~ /^\0/) {
-            $str = decode("UTF-16BE", $str);
-        }
+    if (defined($str) && length($str) % 2 == 0 && $str =~ /^\0/) {
+        $str = decode("UTF-16BE", $str);
     }
     return $str;
 }
@@ -80,19 +89,21 @@ sub safe_filename {
     my ($str) = @_;
 
     $str = try_decode($str);
-    $str =~ s/[ \/\\"?*<>:]/_/g;
-    $str =~ s/[\x00-\x1F]/sprintf("%%%02X", ord($&))/ge;
+    if (defined $str) {
+        $str =~ s/[ \/\\"?*<>:]/_/g;
+        $str =~ s/[\x00-\x1F]/sprintf("%%%02X", ord($&))/ge;
+    }
     return $str;
 }
 
 sub make_cert_filename {
     my ($cert) = @_;
 
-    my $issuer = safe_filename($cert->issuer_cn);
-    my $subj = safe_filename($cert->subject_cn);
+    my $issuer = safe_filename($cert->issuer_cn // $cert->issuer_org);
+    my $subject = safe_filename($cert->subject_cn // $cert->subject_org);
     my $serial = bigint_hex($cert->serial);
 
-    return $issuer."/".$subj."_".$serial.".crt";
+    return $issuer."/".$subject."_".$serial.".crt";
 }
 
 sub increment_filename {
@@ -118,8 +129,8 @@ sub write_certificate {
         return;
     }
 
-    my $subject = try_decode($cert->subject_cn);
-    my $issuer = try_decode($cert->issuer_cn);
+    my $subject = try_decode($cert->subject_cn // $cert->subject_org);
+    my $issuer = try_decode($cert->issuer_cn // $cert->issuer_org);
     _info("found cert '".$subject."' (".$issuer.")");
 
     if ($seen{$cert_der}++) {
@@ -152,6 +163,20 @@ sub write_certificate {
         $f->close;
     } else {
         _err("could not open '$out_file': $!");
+    }
+}
+
+sub process_xml {
+    my ($adoc, $parse_func) = @_;
+
+    if (open(my $f, "<:raw", $adoc)) {
+        my @cert_der = $parse_func->($f);
+        if (@cert_der) {
+            write_certificate($_) for @cert_der;
+        } else {
+            _err("no certificates found in '$adoc'");
+        }
+        $f->close;
     }
 }
 
@@ -188,7 +213,7 @@ GetOptions(
     "help" => sub { usage(); exit; },
     "format=s" => \$Opt{force_format},
     "d|output-dir=s" => \$Opt{output_dir},
-);
+) or exit(2);
 
 for my $adoc (@ARGV) {
     my $format;
@@ -247,15 +272,11 @@ for my $adoc (@ARGV) {
     }
     elsif ($format eq "digidoc" || $format eq "xml-dsig") {
         _log2("parsing '$adoc' (DigiDoc or raw XML-DSig)");
-        if (open(my $f, "<:raw", $adoc)) {
-            my @cert_der = parse_xmldsig($f);
-            if (@cert_der) {
-                write_certificate($_) for @cert_der;
-            } else {
-                _err("no certificates found in '$adoc'");
-            }
-            $f->close;
-        }
+        process_xml($adoc, \&parse_xmldsig);
+    }
+    elsif ($format eq "xml") {
+        _log2("parsing '$adoc' (XML)");
+        process_xml($adoc, \&parse_xml);
     }
     elsif ($format eq "pdf") {
         _log2("parsing '$adoc' (PDF)");

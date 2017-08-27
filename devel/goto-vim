@@ -41,6 +41,8 @@ my $vimre = qr{ ^ (?:vim\s+)? (.+) \s+ (\+\d+) $ }mx;
 #   filename:/regex
 #   filename:/regex garbage
 
+my $hgspecre = qr{ ^ ([^:]+) : \d+ : (\d+) : .* $ }mx;
+
 my $specre = qr{ ^ ([^:]+) : (\d+ | /[^/]\S*) (?:[:,\)\s].*)? $ }mx;
 
 # this matches:
@@ -78,9 +80,11 @@ my $perlre = qr{ ^ (.+?) \s line \s (\d+) }mx;
 my $vim = "/usr/bin/vim";
 my @args = ("vim");
 
-if ($ENV{EDITOR} && $ENV{EDITOR} eq "nvim") {
-	$vim = "/usr/bin/nvim";
-	@args = ("nvim");
+if (my $env = $ENV{VISUAL} // $ENV{EDITOR}) {
+	if ($env eq "nvim" || $env eq "kak") {
+		$vim = "/usr/bin/$env";
+		@args = ("$env");
+	}
 }
 
 _debug("found vim executable at '$vim'");
@@ -155,6 +159,11 @@ sub parse {
 			_debug("vimre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = (shunescape($1), $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
+			return ($file, $cmd) if -e $file;
+		}
+		when ($hgspecre) {
+			my ($file, $cmd) = ($1, $2);
+			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
 		when ($specre) {

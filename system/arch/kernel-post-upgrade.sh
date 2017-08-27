@@ -1,12 +1,11 @@
 #!/usr/bin/bash -eu
 
-die() {
-	echo "error: $*" >&2
-	exit 1
-}
+err() { echo "error: $*" >&2; return 1; }
+
+die() { err "$*"; exit 1; }
 
 try_esp() {
-	mountpoint -q "$1" && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
+	mountpoint -q "$1" && [[ ! -L "$1" ]] && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
 }
 
 check_kernel() {
@@ -32,7 +31,7 @@ install_kernel() {
 	if version=$(pacman -Q "$kernel" 2>/dev/null); then
 		version=${version#"$kernel "}${suffix}
 	else
-		(die "package '$kernel' does not exist")
+		err "package '$kernel' does not exist"
 		return
 	fi
 
@@ -40,22 +39,38 @@ install_kernel() {
 
 	echo "+ copying kernel to EFI system partition"
 	mkdir -p "$ESP/EFI/$ID"
-	cp -f "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
-	cp -f "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
-	cp -f "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+	if [[ $ESP != /boot ]]; then
+		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
+		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
+		cp -uf "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+		sync -f "$ESP"
+	fi
 
 	echo "+ generating bootloader config"
-	parameters=(
-		"title"		"$PRETTY_NAME"
-		"version"	"$version"
-		"machine-id"	"$MACHINE_ID"
-		"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
-		"initrd"	"\\EFI\\$ID\\intel-ucode.img"
-		"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
-		"options"	"$BOOT_OPTIONS"
-	)
 	mkdir -p "$ESP/loader/entries"
-	printf '%s\t%s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
+	if [[ $ESP == /boot ]]; then
+		parameters=(
+			"title"		"$PRETTY_NAME"
+			"version"	"$version"
+			"machine-id"	"$MACHINE_ID"
+			"linux"		"\\vmlinuz-$kernel"
+			"initrd"	"\\intel-ucode.img"
+			"initrd"	"\\initramfs-$kernel.img"
+			"options"	"$BOOT_OPTIONS"
+		)
+	else
+		parameters=(
+			"title"		"$PRETTY_NAME"
+			"version"	"$version"
+			"machine-id"	"$MACHINE_ID"
+			"linux"		"\\EFI\\$ID\\vmlinuz-$kernel.efi"
+			"initrd"	"\\EFI\\$ID\\intel-ucode.img"
+			"initrd"	"\\EFI\\$ID\\initramfs-$kernel.img"
+			"options"	"$BOOT_OPTIONS"
+		)
+	fi
+	printf '%-15s %s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
+	sync -f "$ESP"
 }
 
 remove_kernel() {
@@ -69,27 +84,24 @@ remove_kernel() {
 	rm -f "$ESP/loader/entries/$config.conf"
 }
 
+declare ESP= os_release=
 unset ID NAME PRETTY_NAME MACHINE_ID BOOT_OPTIONS
 
-if try_esp /efi; then
-	ESP=/efi
-elif try_esp /boot/efi; then
-	ESP=/boot/efi
-elif try_esp /boot; then
-	ESP=/boot
-else
+for f in /efi /boot/efi /boot; do
+	[[ $ESP ]] || { try_esp "$f" && ESP=$f; }
+done
+
+[[ $ESP ]] ||
 	die "EFI system partition not found; please \`mkdir <efisys>/loader\`"
-fi
 
 echo "Found EFI system partition at $ESP"
 
-if [[ -e /etc/os-release ]]; then
-	os_release=/etc/os-release
-elif [[ -e /usr/lib/os-release ]]; then
-	os_release=/usr/lib/os-release
-else
+for f in /etc/os-release /usr/lib/os-release; do
+	[[ $os_release ]] || { [[ -e $f ]] && os_release=$f; }
+done
+
+[[ $os_release ]] ||
 	die "/usr/lib/os-release not found or invalid; see os-release(5)"
-fi
 
 . "$os_release" ||
 	die "$os_release not found or invalid; see os-release(5)"
@@ -108,5 +120,9 @@ read -r MACHINE_ID < /etc/machine-id ||
 
 BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}
+
+exec {lock_fd}> "/run/lock/kernel-post-upgrade"
+flock -x -w 60 $lock_fd ||
+	die "failed to take lock; is another kernel-post-upgrade instance running?"
 
 check_kernel "${1:-linux}"

@@ -122,15 +122,12 @@ for arg; do
 				dev=$(readlink -f "/dev/disk/by-partlabel/$arg")
 			elif [[ -e "/dev/disk/by-label/$arg" ]]; then
 				dev=$(readlink -f "/dev/disk/by-label/$arg")
+			elif [[ -e "/dev/disk/by-partuuid/$arg" ]]; then
+				dev=$(readlink -f "/dev/disk/by-partuuid/$arg")
+			elif [[ -e "/dev/disk/by-uuid/$arg" ]]; then
+				dev=$(readlink -f "/dev/disk/by-uuid/$arg")
 			else
-				debug "fallback: searching for outer_UUID '$arg'"
-				if [[ -e "/dev/disk/by-partuuid/$arg" ]]; then
-					dev=$(readlink -f "/dev/disk/by-partuuid/$arg")
-				elif [[ -e "/dev/disk/by-uuid/$arg" ]]; then
-					dev=$(readlink -f "/dev/disk/by-uuid/$arg")
-				else
-					die "disk with label '$arg' not found"
-				fi
+				die "disk with label '$arg' not found"
 			fi
 		fi
 	fi

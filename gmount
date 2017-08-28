@@ -140,7 +140,9 @@ for arg; do
 		gio mount -d "$dev"
 	else
 		debug "searching for inner label/uuid '$arg'"
-		mtpt=$(findmnt -n -o TARGET -S "LABEL=$arg" \
+		mtpt=$(findmnt -n -o TARGET -S "PARTLABEL=$arg" \
+			|| findmnt -n -o TARGET -S "LABEL=$arg" \
+			|| findmnt -n -o TARGET -S "PARTUUID=$arg" \
 			|| findmnt -n -o TARGET -S "UUID=$arg")
 		if [[ $mtpt ]]; then
 			info "unmounting $mtpt"

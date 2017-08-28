@@ -97,8 +97,10 @@ for arg; do
 			fi
 		elif [[ ${outer_uuid[$arg]} ]]; then
 			uuid=${outer_uuid[$arg]}
-			debug "searching for outer_UUID '$uuid'"
-			if [[ -e "/dev/disk/by-partuuid/$uuid" ]]; then
+			debug "searching for outer ID/UUID '$uuid'"
+			if [[ -e "/dev/disk/by-id/$uuid" ]]; then
+				dev=$(readlink -f "/dev/disk/by-id/$uuid")
+			elif [[ -e "/dev/disk/by-partuuid/$uuid" ]]; then
 				dev=$(readlink -f "/dev/disk/by-partuuid/$uuid")
 			elif [[ -e "/dev/disk/by-uuid/$uuid" ]]; then
 				dev=$(readlink -f "/dev/disk/by-uuid/$uuid")
@@ -117,8 +119,10 @@ for arg; do
 				fi
 			fi
 		else
-			debug "searching for outer_label '$arg'"
-			if [[ -e "/dev/disk/by-partlabel/$arg" ]]; then
+			debug "searching for outer device '$arg'"
+			if [[ -e "/dev/disk/by-id/$arg" ]]; then
+				dev=$(readlink -f "/dev/disk/by-id/$arg")
+			elif [[ -e "/dev/disk/by-partlabel/$arg" ]]; then
 				dev=$(readlink -f "/dev/disk/by-partlabel/$arg")
 			elif [[ -e "/dev/disk/by-label/$arg" ]]; then
 				dev=$(readlink -f "/dev/disk/by-label/$arg")
@@ -137,7 +141,8 @@ for arg; do
 		gio mount -d "$dev"
 	else
 		debug "searching for inner label/uuid '$arg'"
-		mtpt=$(findmnt -n -o TARGET -S "PARTLABEL=$arg" \
+		mtpt=$(findmnt -n -o TARGET -S "/dev/disk/by-id/$arg" \
+			|| findmnt -n -o TARGET -S "PARTLABEL=$arg" \
 			|| findmnt -n -o TARGET -S "LABEL=$arg" \
 			|| findmnt -n -o TARGET -S "PARTUUID=$arg" \
 			|| findmnt -n -o TARGET -S "UUID=$arg")

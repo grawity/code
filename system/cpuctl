@@ -141,6 +141,22 @@ for ($cmd) {
 			err "no cores given";
 		}
 	}
+	when ("governor") {
+		if (@ARGV) {
+			system("cpupower", "frequency-set", "-g", @ARGV);
+		} else {
+			system("cpupower", "frequency-info");
+		}
+	}
+	when ("gpu-governor") {
+		my $path = "/sys/class/drm/card0/device/power_dpm_state";
+		if (@ARGV) {
+			put($path, $ARGV[1]);
+		} else {
+			say "current: ".get($path);
+			say "available: balanced, battery";
+		}
+	}
 }
 
 exit !!$err;

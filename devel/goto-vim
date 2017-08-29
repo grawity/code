@@ -80,9 +80,11 @@ my $perlre = qr{ ^ (.+?) \s line \s (\d+) }mx;
 my $vim = "/usr/bin/vim";
 my @args = ("vim");
 
-if ($ENV{EDITOR} && $ENV{EDITOR} eq "nvim") {
-	$vim = "/usr/bin/nvim";
-	@args = ("nvim");
+if (my $env = $ENV{VISUAL} // $ENV{EDITOR}) {
+	if ($env eq "nvim" || $env eq "kak") {
+		$vim = "/usr/bin/$env";
+		@args = ("$env");
+	}
 }
 
 _debug("found vim executable at '$vim'");

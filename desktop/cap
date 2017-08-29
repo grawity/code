@@ -71,6 +71,8 @@ my $file = undef;
 my $upload = 1;
 my $temporary = 0;
 my $qrcode = 0;
+my $use_shell = 1;
+my $do_notify = 1;
 
 GetOptions(
 	'a|area'	=> sub { $mode = 'area' },
@@ -84,6 +86,8 @@ GetOptions(
 	'S|sleeparea=f'	=> \$sleep_area,
 	't|temporary!'	=> \$temporary,
 	'Q|qr-decode!'	=> \$qrcode,
+	'shell!'	=> \$use_shell,
+	'notify!'	=> \$do_notify,
 ) or exit 2;
 
 if ($qrcode) {
@@ -110,7 +114,7 @@ for (dirname $file) {
 	make_path($_) unless -d $_;
 }
 
-if (has_Shell) {
+if ($use_shell && has_Shell) {
 	_debug("using GNOME Shell interface");
 
 	my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
@@ -280,7 +284,7 @@ if ($upload) {
 	}
 } else {
 	notify("Screenshot captured",
-		icon => $uri);
+		icon => $uri) if $do_notify;
 	if ($temporary) {
 		_notice("uploading disabled; keeping temporary screenshot");
 	}

@@ -14,10 +14,21 @@ def parse_mac(mac):
 
     return mac
 
-try:
-    net = sys.argv[1]
-    mac = sys.argv[2]
-except IndexError:
+def maybe_net(arg):
+    return ("/" in arg) or arg.endswith(":")
+
+args = sys.argv[1:]
+mac = net = None
+if len(args) == 1:
+    mac, = args
+    net = "fe80::/64"
+elif len(args) == 2:
+    if maybe_net(args[0]):
+        net, mac = args
+    elif maybe_net(args[1]):
+        mac, net = args
+
+if (mac is None) or (net is None):
     exit("Usage: ip-autoconf <net> <mac>")
 
 if "/" not in net:

@@ -70,34 +70,24 @@ def wctruncate(text, width=80):
 def fmt_status(msg):
     return "\033[33m" + msg + "\033[m"
 
-def print_status(*args, fmt=fmt_status):
+def print_status(*args, fmt=fmt_status, wrap=True):
     if not stderr_tty():
         return
     out = ""
     out += "\033[1G" # cursor to column 1
+    #out += "\033[K" # erase to right (XXX: this was used in _truncated)
     out += "\033[0J" # erase below
     if args:
         msg = " ".join(args)
         msg = msg.replace("\n", " ")
-        out += fmt_status(msg)
-        lines = math.ceil(wcswidth(msg) / stderr_width())
-        if lines > 1:
-            out += "\033[%dA" % (lines-1) # cursor up 1
-    sys.stderr.write(out)
-    if not args:
-        sys.stderr.flush()
-
-def print_status_truncated(*args, fmt=fmt_status):
-    if not stderr_tty():
-        return
-    out = ""
-    out += "\r" # cursor to column 1
-    out += "\033[K" # erase to right
-    if args:
-        msg = " ".join(args)
-        msg = msg.replace("\n", " ")
-        msg = wctruncate(msg, stderr_width())
-        out += fmt_status(msg)
+        if wrap:
+            out += fmt_status(msg)
+            lines = math.ceil(wcswidth(msg) / stderr_width())
+            if lines > 1:
+                out += "\033[%dA" % (lines-1) # cursor up 1
+        else:
+            msg = wctruncate(msg, stderr_width())
+            out += fmt_status(msg)
     sys.stderr.write(out)
     if not args:
         sys.stderr.flush()

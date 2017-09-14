@@ -13,10 +13,8 @@ filter_file() {
 		fi
 
 		if [[ $line == '#if '* ]]; then
-			# if: accept if condition matches
-			# eval
+			# eval & push
 			$current && $func "${line#* }" || current=false
-			# push(eval)
 			stack[++depth]=$current
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then
@@ -25,16 +23,14 @@ filter_file() {
 			elif (( else[depth] )); then
 				warn "line $nr: '#elif' block after '#else' will be skipped"
 			fi
-			# elif: accept if no previous match
 			if ${stack[depth]}; then
 				current=false
 			else
 				# pop
 				unset stack[depth--]
 				current=${stack[depth]}
-				# eval
+				# eval & push
 				$current && $func "${line#* }" || current=false
-				# push(eval)
 				stack[++depth]=$current
 			fi
 		elif [[ $line == '#else' ]]; then
@@ -44,9 +40,8 @@ filter_file() {
 			elif (( else[depth]++ )); then
 				warn "line $nr: duplicate '#else' block will be skipped"
 			fi
-			# else: accept if no previous match
 			if ${stack[depth-1]} && ! ${stack[depth]}; then
-				# pop && push(true)
+				# swap
 				current=true
 				stack[depth]=$current
 			else
@@ -58,7 +53,7 @@ filter_file() {
 				continue
 			fi
 			else[depth]=0
-			# endif: pop
+			# pop
 			unset stack[depth--]
 			current=${stack[depth]}
 		elif [[ $line == '#'[a-z]* ]]; then

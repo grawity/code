@@ -30,7 +30,7 @@ filter_file() {
 				current=false
 			else
 				# pop
-				stack=(${stack[@]:0:depth--})
+				unset stack[depth--]
 				current=${stack[depth]}
 				# eval
 				$current && $func "${line#* }" || current=false
@@ -59,7 +59,7 @@ filter_file() {
 			fi
 			else[depth]=0
 			# endif: pop
-			stack=(${stack[@]:0:depth--})
+			unset stack[depth--]
 			current=${stack[depth]}
 		elif [[ $line == '#'[a-z]* ]]; then
 			err "line $nr: unknown directive '${line%% *}' was ignored"

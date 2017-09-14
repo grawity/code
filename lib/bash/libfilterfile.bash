@@ -5,17 +5,20 @@
 
 filter_file() {
 	local func=${1:-false}
-	local line='' nr=0 cond='' current=true stack=(true) else=() depth=0 d
+	local line='' nr=0 cond='' stack=(true) else=() depth=0 d
 	while IFS='' read -r line; do
 		printf -v d '%-3d:%*s' $((++nr)) $((depth*2)) ''
 		if [[ $line == '#'* ]]; then
-			debug "$d${line%% *}... ($depth:[${stack[*]}], $current)"
+			debug "$d${line%% *}... ($depth:[${stack[*]}])"
 		fi
 
 		if [[ $line == '#if '* ]]; then
-			# eval & push
-			$current && $func "${line#* }" || current=false
-			stack[++depth]=$current
+			if ${stack[depth]}; then
+				stack[++depth]=true
+				$func "${line#* }" || stack[depth]=false
+			else
+				stack[++depth]=false
+			fi
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then
 				err "line $nr: '#elif' directive outside '#if' was ignored"
@@ -24,11 +27,10 @@ filter_file() {
 				warn "line $nr: '#elif' block after '#else' will be skipped"
 			fi
 			if ${stack[depth-1]} && ! ${stack[depth]}; then
-				current=true
-				$func "${line#* }" || current=false
-				stack[depth]=$current
+				stack[depth]=true
+				$func "${line#* }" || stack[depth]=false
 			else
-				current=false
+				stack[depth]=false
 			fi
 		elif [[ $line == '#else' ]]; then
 			if (( !depth )); then
@@ -38,10 +40,9 @@ filter_file() {
 				warn "line $nr: duplicate '#else' block will be skipped"
 			fi
 			if ${stack[depth-1]} && ! ${stack[depth]}; then
-				current=true
-				stack[depth]=$current
+				stack[depth]=true
 			else
-				current=false
+				stack[depth]=false
 			fi
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then
@@ -49,13 +50,11 @@ filter_file() {
 				continue
 			fi
 			else[depth]=0
-			# pop
 			unset stack[depth--]
-			current=${stack[depth]}
 		elif [[ $line == '#'[a-z]* ]]; then
 			err "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
-		elif $current; then
+		elif ${stack[depth]}; then
 			if (( DEBUG >= 2 )); then
 				echo $'\e[1;36m'"+++ $line"$'\e[m' >&2
 			fi
@@ -67,7 +66,7 @@ filter_file() {
 		fi
 
 		if [[ $line == '#'* ]]; then
-			debug "$d${line%% *} => $depth:[${stack[*]}], $current"
+			debug "$d${line%% *} => $depth:[${stack[*]}]"
 		fi
 	done
 	if (( depth )); then

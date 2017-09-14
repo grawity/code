@@ -22,11 +22,10 @@ filter_file() {
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then
 				err "line $nr: '#elif' directive outside '#if' was ignored"
-				continue
 			elif (( else[depth] )); then
 				warn "line $nr: '#elif' block after '#else' will be skipped"
-			fi
-			if ${stack[depth-1]} && ! ${stack[depth]}; then
+				stack[depth]=false
+			elif ${stack[depth-1]} && ! ${stack[depth]}; then
 				stack[depth]=true
 				$func "${line#* }" || stack[depth]=false
 			else
@@ -35,11 +34,10 @@ filter_file() {
 		elif [[ $line == '#else' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#else' directive outside '#if' was ignored"
-				continue
 			elif (( else[depth]++ )); then
 				warn "line $nr: duplicate '#else' block will be skipped"
-			fi
-			if ${stack[depth-1]} && ! ${stack[depth]}; then
+				stack[depth]=false
+			elif ${stack[depth-1]} && ! ${stack[depth]}; then
 				stack[depth]=true
 			else
 				stack[depth]=false

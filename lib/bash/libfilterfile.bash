@@ -40,12 +40,14 @@ filter_file() {
 			elif (( else[depth]++ )); then
 				warn "line $nr: duplicate '#else' block will be skipped"
 			fi
-			if ${stack[depth-1]} && ! ${stack[depth]}; then
-				# swap
-				current=true
-				stack[depth]=$current
-			else
+			if ${stack[depth]}; then
 				current=false
+			else
+				# pop
+				unset stack[depth--]
+				current=${stack[depth]}
+				# push
+				stack[++depth]=$current
 			fi
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then

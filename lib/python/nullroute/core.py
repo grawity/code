@@ -172,6 +172,10 @@ class Core(object):
         sys.exit(self._num_errors > 0)
 
     @classmethod
+    def fini(self):
+        sys.exit(self._num_errors > 0)
+
+    @classmethod
     def exit_if_errors(self):
         if self._num_errors > 0:
             sys.exit(1)

@@ -5,13 +5,13 @@
 
 filter_file() {
 	local -- func=${1:-false}
-	local -- line='' cond='' d=''
+	local -- line='' cond='' dp=''
 	local -i nr=0 depth=0
 	local -ai stack=(1) elif=() else=()
 	while IFS='' read -r line; do
-		printf -v d '%-3d:%*s' $((++nr)) $((depth*2)) ''
+		printf -v dp '%-3d:%*s' $((++nr)) $((depth*2)) ''
 		if [[ $line == '#'* ]]; then
-			debug "$d${line%% *}... ($depth:[${stack[*]}])"
+			debug "${dp}${line%% *}... ($depth:[${stack[*]}])"
 		fi
 
 		if [[ $line == '#if '* ]]; then
@@ -47,11 +47,11 @@ filter_file() {
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#endif' directive outside '#if' was ignored"
-				continue
+			else
+				unset elif[depth]
+				unset else[depth]
+				unset stack[depth--]
 			fi
-			unset elif[depth]
-			unset else[depth]
-			unset stack[depth--]
 		elif [[ $line == '#'[a-z]* ]]; then
 			err "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
@@ -67,7 +67,7 @@ filter_file() {
 		fi
 
 		if [[ $line == '#'* ]]; then
-			debug "$d${line%% *} => $depth:[${stack[*]}]"
+			debug "${dp}${line%% *} => $depth:[${stack[*]}]"
 		fi
 	done
 	if (( depth )); then

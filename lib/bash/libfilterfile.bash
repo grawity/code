@@ -15,9 +15,8 @@ filter_file() {
 		fi
 
 		if [[ $line == '#if '* ]]; then
-			if (( stack[depth++] )); then
+			if (( stack[depth++] )) && $func "${line#* }"; then
 				stack[depth]=1
-				$func "${line#* }" || stack[depth]=0
 			else
 				stack[depth]=0
 			fi
@@ -27,11 +26,9 @@ filter_file() {
 			elif (( else[depth] )); then
 				warn "line $nr: '#elif' block after '#else' will be skipped"
 				stack[depth]=0
-			elif (( stack[depth-1] && !stack[depth] && !elif[depth] )); then
-				if $func "${line#* }"; then
-					stack[depth]=1
-					elif[depth]+=1
-				fi
+			elif (( stack[depth-1] && !stack[depth] && !elif[depth] )) && $func "${line#* }"; then
+				stack[depth]=1
+				elif[depth]+=1
 			else
 				stack[depth]=0
 			fi

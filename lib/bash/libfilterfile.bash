@@ -13,11 +13,11 @@ filter_file() {
 		fi
 
 		if [[ $line == '#if '* ]]; then
-			if ${stack[depth]}; then
-				stack[++depth]=true
+			if ${stack[depth++]}; then
+				stack[depth]=true
 				$func "${line#* }" || stack[depth]=false
 			else
-				stack[++depth]=false
+				stack[depth]=false
 			fi
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then

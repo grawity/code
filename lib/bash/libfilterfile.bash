@@ -45,7 +45,7 @@ filter_file() {
 				warn "line $nr: duplicate '#else' block will be skipped"
 			fi
 			# else: accept if no previous match
-			if ${stack[depth]}; then
+			if ${stack[depth]} || ! ${stack[depth-1]}; then
 				current=false
 			else
 				# pop && push(true)

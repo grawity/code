@@ -4,8 +4,10 @@
 . lib.bash || exit
 
 filter_file() {
-	local func=${1:-false}
-	local line='' nr=0 cond='' stack=(true) elif=() else=() depth=0 d
+	local -- func=${1:-false}
+	local -- line='' cond='' d=''
+	local -i nr=0 depth=0
+	local -ai stack=(1) elif=() else=()
 	while IFS='' read -r line; do
 		printf -v d '%-3d:%*s' $((++nr)) $((depth*2)) ''
 		if [[ $line == '#'* ]]; then
@@ -13,53 +15,50 @@ filter_file() {
 		fi
 
 		if [[ $line == '#if '* ]]; then
-			if ${stack[depth++]}; then
-				stack[depth]=true
-				$func "${line#* }" || stack[depth]=false
+			if (( stack[depth++] )); then
+				stack[depth]=1
+				$func "${line#* }" || stack[depth]=0
 			else
-				stack[depth]=false
+				stack[depth]=0
 			fi
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then
 				err "line $nr: '#elif' directive outside '#if' was ignored"
 			elif (( else[depth] )); then
 				warn "line $nr: '#elif' block after '#else' will be skipped"
-				stack[depth]=false
-			elif ${stack[depth-1]} && ! ${stack[depth]}; then
-				stack[depth]=true
-				$func "${line#* }" || stack[depth]=false
+				stack[depth]=0
+			elif (( stack[depth-1] && !stack[depth] && !elif[depth] )); then
+				if $func "${line#* }"; then
+					stack[depth]=1
+					elif[depth]+=1
+				fi
 			else
-				stack[depth]=false
-			fi
-			if ${stack[depth]} && (( elif[depth]++ )); then
-				stack[depth]=false
+				stack[depth]=0
 			fi
 		elif [[ $line == '#else' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#else' directive outside '#if' was ignored"
 			elif (( else[depth]++ )); then
 				warn "line $nr: duplicate '#else' block will be skipped"
-				stack[depth]=false
-			elif ${stack[depth-1]} && ! ${stack[depth]}; then
-				stack[depth]=true
+				stack[depth]=0
+			elif (( stack[depth-1] && !stack[depth] && !elif[depth] )); then
+				stack[depth]=1
+				elif[depth]+=1
 			else
-				stack[depth]=false
-			fi
-			if ${stack[depth]} && (( elif[depth]++ )); then
-				stack[depth]=false
+				stack[depth]=0
 			fi
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#endif' directive outside '#if' was ignored"
 				continue
 			fi
-			elif[depth]=0
-			else[depth]=0
+			unset elif[depth]
+			unset else[depth]
 			unset stack[depth--]
 		elif [[ $line == '#'[a-z]* ]]; then
 			err "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
-		elif ${stack[depth]}; then
+		elif (( stack[depth] )); then
 			if (( DEBUG >= 2 )); then
 				echo $'\e[1;36m'"+++ $line"$'\e[m' >&2
 			fi

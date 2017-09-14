@@ -23,15 +23,12 @@ filter_file() {
 			elif (( else[depth] )); then
 				warn "line $nr: '#elif' block after '#else' will be skipped"
 			fi
-			if ${stack[depth]}; then
-				current=false
+			if ${stack[depth-1]} && ! ${stack[depth]}; then
+				current=true
+				$func "${line#* }" || current=false
+				stack[depth]=$current
 			else
-				# pop
-				unset stack[depth--]
-				current=${stack[depth]}
-				# eval & push
-				$current && $func "${line#* }" || current=false
-				stack[++depth]=$current
+				current=false
 			fi
 		elif [[ $line == '#else' ]]; then
 			if (( !depth )); then
@@ -40,14 +37,11 @@ filter_file() {
 			elif (( else[depth]++ )); then
 				warn "line $nr: duplicate '#else' block will be skipped"
 			fi
-			if ${stack[depth]}; then
-				current=false
+			if ${stack[depth-1]} && ! ${stack[depth]}; then
+				current=true
+				stack[depth]=$current
 			else
-				# pop
-				unset stack[depth--]
-				current=${stack[depth]}
-				# push
-				stack[++depth]=$current
+				current=false
 			fi
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then

@@ -8,6 +8,7 @@ bool keep_parens = true;
 bool keep_slashes = false;
 char *safe_chars = "";
 char *unsafe_chars = "";
+bool do_quoted_printable = false;
 
 static void process_url(FILE *fp, char *fn) {
 	int ch;
@@ -54,6 +55,44 @@ static void process_url(FILE *fp, char *fn) {
 	}
 }
 
+static void process_qp(FILE *fp, char *fh) {
+	int ch;
+	size_t line = 0;
+	size_t pos = 0;
+
+	while ((ch = getc(fp)) != EOF && ++pos) {
+		switch (ch) {
+		case '\n':
+			putchar(ch);
+			line = 0;
+			break;
+		case '\x20'...'\x3c':
+		case '\x3e'...'\x7e':
+			if (line > 80-1) {
+				printf("=\n");
+				line = 0;
+			}
+			putchar(ch);
+			line += 1;
+			break;
+		default:
+			if (line > 80-3) {
+				printf("=\n");
+				line = 0;
+			}
+			printf("=%02X", ch);
+			line += 3;
+		}
+	}
+}
+
+static void process(FILE *fp, char *fh) {
+	if (do_quoted_printable)
+		process_qp(fp, fh);
+	else
+		process_url(fp, fh);
+}
+
 static int usage(void) {
 	printf("Usage: urlencode [-a text] [-Pp] [files...]\n");
 	printf("\n");
@@ -72,7 +111,7 @@ int main(int argc, char *argv[]) {
 	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "a:Pps:u:")) != -1) {
+	while ((opt = getopt(argc, argv, "a:PpQs:u:")) != -1) {
 		switch (opt) {
 		case 'a':
 			data = optarg;
@@ -82,6 +121,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'p':
 			keep_slashes = true;
+			break;
+		case 'Q':
+			do_quoted_printable = true;
 			break;
 		case 's':
 			safe_chars = optarg;

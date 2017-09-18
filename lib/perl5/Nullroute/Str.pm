@@ -5,19 +5,19 @@ use parent "Exporter";
 	expand_ranges
 );
 
+# expands numeric ranges like "1,5,9-12"
+
 sub expand_ranges {
 	my ($s) = @_;
-	my @r;
-	for (split(/,/, $s)) {
+
+	map {
 		if (/^(\d+)-(\d+)$/) {
-			push @r, int($1)..int($2);
+			int($1) .. int($2)
+		} elsif (/^(\d+)$/) {
+			int($1)
+		} else {
+			warn "invalid range item '$_'";
+			()
 		}
-		elsif (/^(\d+)$/) {
-			push @r, int($1);
-		}
-		else {
-			warn "invalid range item '$_'\n";
-		}
-	}
-	return @r;
+	} split(/,/, $s);
 }

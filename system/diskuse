@@ -447,11 +447,9 @@ def dump_mtpt(part, data, with_quota=False):
             fmt_size_short(free_bytes, si=opts.si),
             fmt_size_short(avail_bytes, si=opts.si),
 
-            quota_gauge_width,
             gauge3x(quota_gauge_width, quota_part, quota_color),
             fmt_percent(quota_part, 1),
 
-            disk_gauge_width,
             gauge3x(disk_gauge_width, disk_part, darken(disk_color, 1)),
             fmt_percent(disk_part, 0),
         )
@@ -463,7 +461,6 @@ def dump_mtpt(part, data, with_quota=False):
             fmt_size_short(used_bytes, si=opts.si),
             fmt_size_short(free_bytes, si=opts.si),
 
-            disk_gauge_width,
             gauge3x(disk_gauge_width, quota_part, quota_color),
             fmt_percent(disk_part, 1),
         )
@@ -495,34 +492,57 @@ partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 
+class Table(object):
+    def __init__(self):
+        self.columns = []
+
+    def _fmt(self):
+        fmt = ""
+        for (head, type, width) in self.columns:
+            fmt += " %%%ds" % width
+        return fmt
+
+    def _width(self):
+        cols = 0
+        for (head, type, width) in self.columns:
+            cols += 1 + abs(width)
+        return cols
+
+    def make_header(self):
+        pass
+
+t = Table()
+
 if opts.quota:
     quota_gauge_width = 20
     disk_gauge_width = 10
-    fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
-    header = (
-        "PATH",
-        "TOTAL",
-        "FREE",
-        "AVAIL",
-        quota_gauge_width, "QUOTA USAGE",
-        "",
-        disk_gauge_width, "DISK USAGE",
-        "",
-    )
+    t.columns = [
+        ("PATH",        "string", -16),
+        ("TOTAL",       "string", 7),
+        ("FREE",        "string", 7),
+        ("AVAIL",       "string", 7),
+        ("QUOTA USAGE", "string", -quota_gauge_width),
+        ("",            "string", 5),
+        ("DISK USAGE",  "string", -disk_gauge_width),
+        ("",            "string", 3),
+    ]
 else:
     disk_gauge_width = 30
-    fmt = " %-20s %7s %7s %7s %-*s %5s"
-    header = (
-        "PATH",
-        "TOTAL",
-        "USED",
-        "FREE",
-        disk_gauge_width, "",
-        "",
-    )
+    t.columns = [
+        ("PATH",    "string", -20),
+        ("TOTAL",   "string", 7),
+        ("USED",    "string", 7),
+        ("FREE",    "string", 7),
+        ("",        "string", -disk_gauge_width),
+        ("",        "string", 5),
+    ]
+fmt = t._fmt()
+header = [c[0] for c in t.columns]
 
-separator = fmt_ansi("-" * len(fmt % header), "2")
-print(fmt_ansi(fmt % header, "1"))
+separator = fmt_ansi("-" * t._width(), "2")
+
+print(fmt_ansi(fmt % tuple(header), "1"))
+
 this_group = 0
 seen_mtpts = set()
 for part in partitions:

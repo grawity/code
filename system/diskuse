@@ -99,22 +99,31 @@ fs_kind_fstypes = {
     "tmpfs":        KIND_MEMORY,
 }
 
+# not skipped even if kind or type would say otherwise
 fs_noskip_mounts = {
     "/run/user/%d" % os.getuid(),
     "/tmp",
 }
 
-fs_skip_kinds = { KIND_KERNEL }
-
-fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
-
-fs_cache_kinds = { KIND_ROOT, KIND_MEDIA }
-
+# always skipped
 fs_skip_mounts = {
     "//%s" % gethostname(),
     #"/boot",
     #"/efi",
 }
+fs_skip_kinds = {
+    KIND_KERNEL,
+}
+fs_skip_fstypes = {
+    "afs", "cgroup", "devpts", "devtmpfs",
+    "ecryptfs", "efivarfs", "rootfs", "tmpfs",
+}
+
+# skipped unless in verbose mode
+fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
+
+# cached and shown even if not present
+fs_cache_kinds = { KIND_ROOT, KIND_MEDIA }
 
 class PersistentDict(dict):
     def __init__(self, path):
@@ -136,13 +145,134 @@ class PersistentDict(dict):
         except Exception as e:
             Core.debug("cache save failed (%r)" % e)
 
-def cache_add(mtpt, data):
-    global cache
+class Partition(object):
+    def __init__(self, mtpt, fstype, cached=None):
+        self.mtpt   = mtpt
+        self.fstype = fstype
+        self.cached = cached
+        self.kind   = self.get_kind()
 
-    if mtpt == "/":
-        mtpt = "//%s" % gethostname()
+    def __repr__(self):
+        return "Partition(mtpt=%r, fstype=%r, cached=%r, kind=%r)" \
+               % (self.mtpt, self.fstype, self.cached, self.get_kind_str())
 
-    cache[mtpt] = data
+    def get_kind(self):
+        return fs_kind_from_path(self.mtpt, self.fstype)
+
+    def get_kind_str(self):
+        return fs_kind_names.get(self.kind, self.kind)
+
+    def can_skip_mount(self):
+        return (self.mtpt in fs_skip_mounts)
+
+    def can_skip_kind(self):
+        return (self.kind in fs_skip_kinds \
+                and self.mtpt not in fs_noskip_mounts)
+
+    def can_skip_fstype(self):
+        return (self.fstype in fs_skip_fstypes \
+                and self.mtpt not in fs_noskip_mounts)
+
+    def can_cache(self):
+        return (self.kind in fs_cache_kinds)
+
+    def get_fstat(self, seen_devnos):
+        try:
+            st = os.statvfs(self.mtpt)
+        except (PermissionError, OSError) as e:
+            Core.debug("skipping %r: could not statvfs: %r", self.mtpt, e)
+            return
+
+        if st.f_blocks == 0:
+            Core.debug("skipping %r: f_blocks == 0", self.mtpt)
+            return
+
+        devno = get_fs_devno(self.mtpt)
+        if devno in seen_devnos:
+            Core.debug("skipping %r: devno %r already seen", self.mtpt, devno)
+            return
+
+        seen_devnos.add(devno)
+
+        return {"total": st.f_bsize * st.f_blocks,
+                "free":  st.f_bsize * st.f_bfree,
+                "avail": st.f_bsize * st.f_bavail}
+
+class MtabReader(object):
+    def _unescape(self, val):
+        out = ""
+        state = num = acc = 0
+        for char in val:
+            if state == 0:
+                if char == "\\":
+                    num = acc = 0
+                    state = 1
+                else:
+                    out += char
+            elif state == 1:
+                num += 1
+                acc = (acc << 3) | int(char)
+                if num == 3:
+                    out += chr(acc)
+                    state = 0
+        return out
+
+    def __iter__(self):
+        with open("/etc/mtab") as fh:
+            for line in fh:
+                dev, mtpt, fstype, rest = line.strip().split(None, 3)
+                mtpt = self._unescape(mtpt)
+                yield dev, mtpt, fstype
+
+class Enumerator(object):
+    def __init__(self):
+        self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
+        self.seen_devnos = set()
+
+    def _enum_partitions(self, show_cached=False):
+        for dev, mtpt, fstype in MtabReader():
+            yield Partition(mtpt, fstype)
+        if show_cached:
+            for mtpt, rest in self.cache.items():
+                yield Partition(mtpt, rest["type"], cached=rest)
+
+    def enum_partitions_system(self, show_cached=False):
+        for part in self._enum_partitions(show_cached):
+            if part.can_skip_mount():
+                Core.debug("skipping %r due to mountpoint", part)
+                continue
+            if part.can_skip_kind():
+                Core.debug("skipping %r due to kind", part)
+                continue
+            if part.can_skip_fstype():
+                Core.debug("skipping %r due to fstype", part)
+                continue
+            Core.debug("adding %r", part)
+            yield part
+
+    def enum_partitions_exact(self, paths):
+        for mtpt in paths:
+            yield Partition(mtpt, fstype=None)
+
+    def _add_to_cache(self, mtpt, data):
+        if mtpt == "/":
+            mtpt = "//%s" % gethostname()
+        self.cache[mtpt] = data
+
+    def get_partition_data(self, part):
+        # NOTE: always return live data if part.cached = False
+        if part.cached:
+            return part.cached
+        else:
+            data = part.get_fstat(self.seen_devnos)
+            if data:
+                data["type"] = part.fstype
+                if part.can_cache():
+                    self._add_to_cache(part.mtpt, data)
+            return data
+
+    def close(self):
+        self.cache.flush()
 
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
@@ -277,60 +407,14 @@ def threshold(total, val):
     else:
         levels = levels_small
 
-    Core.debug("looking for value %r" % val)
     for tmin, tval in levels:
         if val >= tmin:
-            Core.debug(" - match: input %r >= row %r; returning %r" % (val, tmin, tval))
             return tval
-        else:
-            Core.debug(" - no match: input %r < row %r; value %r" % (val, tmin, tval))
-    Core.debug("returning last value %r" % tval)
     return tval
 
-def get_stat(mtpt):
-    global seen_devnos
-
-    try:
-        st = os.statvfs(mtpt)
-    except (PermissionError, OSError) as e:
-        Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
-        return
-
-    if st.f_blocks == 0:
-        Core.debug("skipping %r: f_blocks == 0" % mtpt)
-        return
-
-    devno = get_fs_devno(mtpt)
-    if devno in seen_devnos:
-        Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
-        return
-
-    seen_devnos.add(devno)
-
-    return {"total": st.f_bsize * st.f_blocks,
-            "free":  st.f_bsize * st.f_bfree,
-            "avail": st.f_bsize * st.f_bavail}
-
-def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
-    global cache
-
-    Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
-               mtpt, fstype, kind, from_cache)
-
-    if from_cache:
-        data = cache.get(mtpt)
-        if not data:
-            Core.debug("not found in cache, bailing")
-            return False
-        Core.debug("processing %r from cache" % mtpt)
-        fstype = data["type"]
-    else:
-        data = get_stat(mtpt)
-        if not data:
-            return False
-        Core.debug("processing %r from OS" % mtpt)
-        if kind in fs_cache_kinds:
-            cache_add(mtpt, {**data, "type": fstype})
+def dump_mtpt(part, data, with_quota=False):
+    Core.debug("got %r", part)
+    Core.debug("  - %r", data)
 
     total_bytes     = data["total"]
     free_bytes      = data["free"]
@@ -342,7 +426,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     quota_part      = used_bytes / quota_bytes * 100
     disk_part       = used_bytes / total_bytes * 100
 
-    if from_cache:
+    if part.cached:
         disk_color      = "gray"
         quota_color     = "gray"
     else:
@@ -355,9 +439,9 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     disk_color      = level_colors[disk_color][0]
     quota_color     = level_colors[quota_color][0]
 
-    if opts.quota:
+    if with_quota:
         row = (
-            path_shorten(mtpt),
+            path_shorten(part.mtpt),
 
             fmt_size_short(total_bytes, si=opts.si),
             fmt_size_short(free_bytes, si=opts.si),
@@ -373,7 +457,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
         )
     else:
         row = (
-            path_shorten(mtpt),
+            path_shorten(part.mtpt),
 
             fmt_size_short(total_bytes, si=opts.si),
             fmt_size_short(used_bytes, si=opts.si),
@@ -384,71 +468,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
             fmt_percent(disk_part, 1),
         )
 
-    if want_separator:
-        print(separator)
-    print(fmt % row)
-    return True
-
-def unescape_mtab(val):
-    out = ""
-    state = 0
-    num = 0
-    acc = 0
-    for char in val:
-        if state == 0:
-            if char == "\\":
-                num = 0
-                acc = 0
-                state = 1
-            else:
-                out += char
-        elif state == 1:
-            num += 1
-            acc = (acc << 3) | int(char)
-            if num == 3:
-                out += chr(acc)
-                state = 0
-    return out
-
-def read_mtab():
-    with open("/etc/mtab") as fh:
-        for line in fh:
-            dev, mtpt, fstype, rest = line.strip().split(None, 3)
-            mtpt = unescape_mtab(mtpt)
-            yield dev, mtpt, fstype
-
-def enum_partitions(show_cached=False):
-    global cache
-    for dev, mtpt, fstype in read_mtab():
-        yield (mtpt, fstype, False)
-    if show_cached:
-        for mtpt, rest in cache.items():
-            yield (mtpt, rest["type"], True)
-
-def enum_partitions_filtered(show_cached=False):
-    skip_fstypes = {
-        "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
-    }
-    for mtpt, fstype, cached in enum_partitions(show_cached):
-        kind = fs_kind_from_path(mtpt, fstype)
-        if mtpt in fs_skip_mounts:
-            Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
-            continue
-        if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
-            Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
-            continue
-        if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
-            Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
-            continue
-        Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
-        yield (mtpt, fstype, kind, cached)
-
-def enum_partitions_exact(paths):
-    fstype = None
-    cached = False
-    for mtpt in paths:
-        kind = fs_kind_from_path(mtpt, fstype)
-        yield (mtpt, fstype, kind, cached)
+    return row
 
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
@@ -466,17 +486,14 @@ if not opts.all:
     fs_noskip_mounts.clear()
     fs_skip_kinds |= fs_verbose_kinds
 
-cache = PersistentDict(Env.find_cache_file("diskuse.json"))
-
+en = Enumerator()
 if opts.path:
-    partitions = enum_partitions_exact(opts.path)
+    partitions = en.enum_partitions_exact(opts.path)
 else:
-    partitions = enum_partitions_filtered(show_cached=opts.cached)
+    partitions = en.enum_partitions_system(show_cached=opts.cached)
 partitions = [*partitions]
-partitions.sort(key=lambda x: x[0])
-partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
-
-seen_devnos = set()
+partitions.sort(key=lambda x: x.mtpt)
+partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 
 if opts.quota:
     quota_gauge_width = 20
@@ -505,23 +522,22 @@ else:
     )
 
 separator = fmt_ansi("-" * len(fmt % header), "2")
+print(fmt_ansi(fmt % header, "1"))
+this_group = 0
+seen_mtpts = set()
+for part in partitions:
+    if part.mtpt in seen_mtpts:
+        continue
+    data = en.get_partition_data(part)
+    group = fs_kind_groups.get(part.kind)
+    Core.debug("got %r (priority %r, group %r)", part.mtpt,
+               fs_kind_priorities.get(part.kind, 0), group)
+    row = dump_mtpt(part, data, opts.quota)
+    if row:
+        if this_group and group != this_group:
+            print(separator)
+        print(fmt % row)
+        this_group = group
+        seen_mtpts.add(part.mtpt)
 
-def dump_all():
-    print(fmt_ansi(fmt, "1") % header)
-    thisgroup = 0
-    seen_mtpts = set()
-    for mtpt, fstype, kind, cached in partitions:
-        if mtpt in seen_mtpts:
-            continue
-        Core.debug("got mtpt %r of kind %r (%s) prio %r",
-                   mtpt, kind, fs_kind_names.get(kind),
-                   fs_kind_priorities.get(kind, 0))
-        group = fs_kind_groups.get(kind)
-        if dump_mtpt(mtpt, fstype, kind, cached,
-                     want_separator=(thisgroup and group != thisgroup)):
-            thisgroup = group
-            seen_mtpts.add(mtpt)
-
-dump_all()
-
-cache.flush()
+en.close()

@@ -333,6 +333,8 @@ ap.add_argument("-c", "--cached", action="store_true",
                 help="include nonpresent cached filesystems")
 ap.add_argument("--si", action="store_true",
                 help="use SI decimal units, not IEC binary units")
+ap.add_argument("--update", action="store_true",
+                help="only update the cache for given paths")
 ap.add_argument("path", nargs="*")
 opts = ap.parse_args()
 
@@ -342,11 +344,14 @@ if not opts.all:
 
 cache = PersistentDict(Env.find_cache_file("diskuse.json"))
 
-partitions = [(x, None, KIND_NONE) for x in opts.path]
-if not partitions:
-    partitions = list(enum_mtab())
+if opts.path:
+    partitions = [(x, None, fs_kind_from_path(x, None), False) for x in opts.path]
+else:
+    if opts.update:
+        Core.die("no partitions given in update mode")
+    partitions = [(*x, False) for x in enum_mtab()]
     if opts.cached:
-        partitions += [(k, None, v["kind"]) for k, v in cache.items()]
+        partitions += [(k, v["fs"], v["kind"], True) for k, v in cache.items()]
 partitions.sort(key=lambda x: x[0])
 partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
 
@@ -382,52 +387,61 @@ else:
 
 separator = fmt_ansi("-" * len(fmt % header), "2")
 
+def get_stat(mtpt):
+    global seen_devnos
+
+    try:
+        st = os.statvfs(mtpt)
+    except (PermissionError, OSError) as e:
+        Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
+        return
+
+    if st.f_blocks == 0:
+        Core.debug("skipping %r: f_blocks == 0" % mtpt)
+        return
+
+    devno = get_fs_devno(mtpt)
+    if devno in seen_devnos:
+        Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
+        return
+
+    seen_devnos.add(devno)
+
+    return {"total": st.f_bsize * st.f_blocks,
+            "free":  st.f_bsize * st.f_bfree,
+            "avail": st.f_bsize * st.f_bavail}
+
 def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     global cache
 
-    if fstype is None:
-        from_cache = True
+    Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
+               mtpt, fstype, kind, from_cache)
 
     if from_cache:
-        data = cache[mtpt]
+        data = cache.get(mtpt)
+        if not data:
+            Core.debug("not found in cache, bailing")
+            return False
         Core.debug("processing %r from cache" % mtpt)
-
-        fstype          = data["fs"]
-        total_bytes     = data["total"]
-        free_bytes      = data["free"]
-        avail_bytes     = data["avail"]
-
+        fstype = data["fs"]
     else:
-        try:
-            st = os.statvfs(mtpt)
-        except (PermissionError, OSError) as e:
-            Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
+        data = get_stat(mtpt)
+        if not data:
             return False
+        Core.debug("processing %r from OS" % mtpt)
 
-        if st.f_blocks == 0:
-            Core.debug("skipping %r: f_blocks == 0" % mtpt)
-            return False
+    total_bytes     = data["total"]
+    free_bytes      = data["free"]
+    avail_bytes     = data["avail"]
 
-        devno = get_fs_devno(mtpt)
-        if devno in seen_devnos:
-            Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
-            return False
-
-        seen_devnos.add(devno)
-        Core.debug("processing %r" % mtpt)
-
-        total_bytes     = st.f_bsize * st.f_blocks
-        free_bytes      = st.f_bsize * st.f_bfree
-        avail_bytes     = st.f_bsize * st.f_bavail
-
-        if kind in fs_cache_kinds:
-            cache_add(mtpt, {
-                            "fs": fstype,
-                            "kind": kind,
-                            "total": total_bytes,
-                            "free": free_bytes,
-                            "avail": avail_bytes,
-                        })
+    if (not from_cache) and (kind in fs_cache_kinds):
+        cache_add(mtpt, {
+                        "fs": fstype,
+                        "kind": kind,
+                        "total": total_bytes,
+                        "free": free_bytes,
+                        "avail": avail_bytes,
+                    })
 
     used_bytes      = total_bytes - free_bytes
     quota_bytes     = used_bytes + avail_bytes
@@ -482,19 +496,23 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     print(fmt % row)
     return True
 
-def dump_all():
+if opts.update:
+    for mtpt, fstype, kind, cached in partitions:
+        Core.debug("got mtpt %r of kind %r (%s) prio %r",
+                   mtpt, kind, fs_kind_names.get(kind),
+                   fs_kind_priorities.get(kind, 0))
+        data = get_stat(mtpt)
+        cache[mtpt] = {**data}
+else:
     print(fmt_ansi(fmt, "1") % header)
     thisgroup = 0
-    for mtpt, fstype, kind in partitions:
+    for mtpt, fstype, kind, cached in partitions:
         Core.debug("got mtpt %r of kind %r (%s) prio %r",
                    mtpt, kind, fs_kind_names.get(kind),
                    fs_kind_priorities.get(kind, 0))
         group = fs_kind_groups.get(kind)
-        if dump_mtpt(mtpt, fstype, kind,
+        if dump_mtpt(mtpt, fstype, kind, cached,
                      want_separator=(thisgroup and group != thisgroup)):
             thisgroup = group
-    Core.debug("finished")
-
-dump_all()
 
 cache.flush()

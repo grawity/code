@@ -146,7 +146,7 @@ class PersistentDict(dict):
             Core.debug("cache save failed (%r)" % e)
 
 class Partition(object):
-    def __init__(self, mtpt, fstype, cached):
+    def __init__(self, mtpt, fstype, cached=None):
         self.mtpt   = mtpt
         self.fstype = fstype
         self.cached = cached
@@ -231,10 +231,10 @@ class Enumerator(object):
 
     def _enum_partitions(self, show_cached=False):
         for dev, mtpt, fstype in MtabReader():
-            yield Partition(mtpt, fstype, cached=False)
+            yield Partition(mtpt, fstype)
         if show_cached:
             for mtpt, rest in self.cache.items():
-                yield Partition(mtpt, rest["type"], cached=True)
+                yield Partition(mtpt, rest["type"], cached=rest)
 
     def enum_partitions_system(self, show_cached=False):
         for part in self._enum_partitions(show_cached):
@@ -252,7 +252,7 @@ class Enumerator(object):
 
     def enum_partitions_exact(self, paths):
         for mtpt in paths:
-            yield Partition(mtpt, fstype=None, cached=False)
+            yield Partition(mtpt, fstype=None)
 
     def _add_to_cache(self, mtpt, data):
         if mtpt == "/":
@@ -262,7 +262,7 @@ class Enumerator(object):
     def get_partition_data(self, part):
         # NOTE: always return live data if part.cached = False
         if part.cached:
-            return self.cache[part.mtpt]
+            return part.cached
         else:
             data = part.get_fstat(self.seen_devnos)
             if data:

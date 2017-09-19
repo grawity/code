@@ -495,21 +495,31 @@ partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 class Table(object):
     def __init__(self):
         self.columns = []
+        self._fmt = ""
 
-    def _fmt(self):
+    def _get_fmt(self):
         fmt = ""
         for (head, type, width) in self.columns:
             fmt += " %%%ds" % width
         return fmt
 
-    def _width(self):
+    def _get_width(self):
         cols = 0
         for (head, type, width) in self.columns:
             cols += 1 + abs(width)
         return cols
 
+    def _get_header(self):
+        return tuple([c[0] for c in t.columns])
+
     def make_header(self):
-        pass
+        return fmt_ansi(self._fmt % self._get_header(), "1")
+
+    def make_separator_line(self):
+        return fmt_ansi("-" * self._get_width(), "2")
+
+    def make_row(self, values):
+        return self._fmt % values
 
 t = Table()
 
@@ -536,12 +546,9 @@ else:
         ("",        "string", -disk_gauge_width),
         ("",        "string", 5),
     ]
-fmt = t._fmt()
-header = [c[0] for c in t.columns]
-
-separator = fmt_ansi("-" * t._width(), "2")
-
-print(fmt_ansi(fmt % tuple(header), "1"))
+t._fmt = t._get_fmt()
+separator = t.make_separator_line()
+print(t.make_header())
 
 this_group = 0
 seen_mtpts = set()
@@ -556,7 +563,7 @@ for part in partitions:
     if row:
         if this_group and group != this_group:
             print(separator)
-        print(fmt % row)
+        print(t.make_row(row))
         this_group = group
         seen_mtpts.add(part.mtpt)
 

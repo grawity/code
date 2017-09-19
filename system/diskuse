@@ -348,7 +348,7 @@ if opts.path:
 else:
     partitions = [(*x, False) for x in enum_mtab()]
     if opts.cached:
-        partitions += [(k, v["fs"], v["kind"], True)
+        partitions += [(k, v["fs"], fs_kind_from_path(k, v["fs"]), True)
                        for k, v in cache.items()
                        if k not in fs_skip_mounts]
 partitions.sort(key=lambda x: x[0])
@@ -436,7 +436,6 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     if (not from_cache) and (kind in fs_cache_kinds):
         cache_add(mtpt, {
                         "fs": fstype,
-                        "kind": kind,
                         "total": total_bytes,
                         "free": free_bytes,
                         "avail": avail_bytes,

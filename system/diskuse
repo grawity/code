@@ -457,7 +457,6 @@ def enum_partitions(show_cached=False):
 
 def enum_partitions_filtered(show_cached=False):
     for part in enum_partitions(show_cached):
-        kind = part.get_kind()
         if part.can_skip_mount():
             Core.debug("skipping %r due to mountpoint", part)
             continue
@@ -529,26 +528,21 @@ else:
     )
 
 separator = fmt_ansi("-" * len(fmt % header), "2")
-
-def dump_all():
-    print(fmt_ansi(fmt % header, "1"))
-    thisgroup = 0
-    seen_mtpts = set()
-    for part in partitions:
-        if part.mtpt in seen_mtpts:
-            continue
-        Core.debug("got mtpt %r of kind %r (%s) prio %r",
-                   part.mtpt, part.kind, part.get_kind_str(),
-                   fs_kind_priorities.get(part.kind, 0))
-        group = fs_kind_groups.get(part.kind)
-        row = dump_mtpt(part, opts.quota)
-        if row:
-            if thisgroup and group != thisgroup:
-                print(separator)
-            print(fmt % row)
-            thisgroup = group
-            seen_mtpts.add(part.mtpt)
-
-dump_all()
+print(fmt_ansi(fmt % header, "1"))
+this_group = 0
+seen_mtpts = set()
+for part in partitions:
+    if part.mtpt in seen_mtpts:
+        continue
+    group = fs_kind_groups.get(part.kind)
+    Core.debug("got %r (priority %r, group %r)", part.mtpt,
+               fs_kind_priorities.get(part.kind, 0), group)
+    row = dump_mtpt(part, opts.quota)
+    if row:
+        if this_group and group != this_group:
+            print(separator)
+        print(fmt % row)
+        this_group = group
+        seen_mtpts.add(part.mtpt)
 
 cache.flush()

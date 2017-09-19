@@ -329,6 +329,7 @@ sub find_home_trash {
 Find the best trash directory to use, according to XDG Trash Dir spec.
 
  * $home_trash if same device
+ * $root/.local/share/Trash if checks pass (for remote homedirs via sshfs)
  * $root/.Trash/$UID if checks pass
  * $root/.Trash-$UID if exists or can create
  * $home_trash otherwise
@@ -359,7 +360,12 @@ sub find_trash_dir {
 		return $home_trash;
 	} else {
 		my $root = find_root($orig_path);
-		my $dir = catdir($root, ".Trash");
+		# we first try .local/share/Trash for sshfs mounts
+		my $dir = catdir($root, ".local/share/Trash");
+		if (-d $dir && ! -l $dir && -o $dir) {
+			return $dir;
+		}
+		$dir = catdir($root, ".Trash");
 		if (-d $dir && ! -l $dir && -k $dir && ensure("$dir/$<")) {
 			return "$dir/$<";
 		}

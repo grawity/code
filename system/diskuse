@@ -333,8 +333,6 @@ ap.add_argument("-c", "--cached", action="store_true",
                 help="include nonpresent cached filesystems")
 ap.add_argument("--si", action="store_true",
                 help="use SI decimal units, not IEC binary units")
-ap.add_argument("--update", action="store_true",
-                help="only update the cache for given paths")
 ap.add_argument("path", nargs="*")
 opts = ap.parse_args()
 
@@ -347,8 +345,6 @@ cache = PersistentDict(Env.find_cache_file("diskuse.json"))
 if opts.path:
     partitions = [(x, None, fs_kind_from_path(x, None), False) for x in opts.path]
 else:
-    if opts.update:
-        Core.die("no partitions given in update mode")
     partitions = [(*x, False) for x in enum_mtab()]
     if opts.cached:
         partitions += [(k, v["fs"], v["kind"], True) for k, v in cache.items()]
@@ -496,16 +492,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     print(fmt % row)
     return True
 
-if opts.update:
-    for mtpt, fstype, kind, cached in partitions:
-        Core.debug("got mtpt %r of kind %r (%s) prio %r",
-                   mtpt, kind, fs_kind_names.get(kind),
-                   fs_kind_priorities.get(kind, 0))
-        data = get_stat(mtpt)
-        cache[mtpt] = {**data,
-                       "fs": fstype,
-                       "kind": kind}
-else:
+def dump_all():
     print(fmt_ansi(fmt, "1") % header)
     thisgroup = 0
     for mtpt, fstype, kind, cached in partitions:
@@ -516,5 +503,7 @@ else:
         if dump_mtpt(mtpt, fstype, kind, cached,
                      want_separator=(thisgroup and group != thisgroup)):
             thisgroup = group
+
+dump_all()
 
 cache.flush()

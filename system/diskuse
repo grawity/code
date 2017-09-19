@@ -176,9 +176,7 @@ class Partition(object):
     def can_cache(self):
         return (self.kind in fs_cache_kinds)
 
-    def get_fstat(self):
-        global seen_devnos
-
+    def get_fstat(self, seen_devnos):
         try:
             st = os.statvfs(self.mtpt)
         except (PermissionError, OSError) as e:
@@ -203,6 +201,7 @@ class Partition(object):
 class Enumerator(object):
     def __init__(self):
         self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
+        self.seen_devnos = set()
 
     def _enum_partitions(self, show_cached=False):
         for dev, mtpt, fstype in read_mtab():
@@ -239,10 +238,11 @@ class Enumerator(object):
         if part.cached:
             return self.cache[part.mtpt]
         else:
-            data = part.get_fstat()
-            data["type"] = part.fstype
-            if part.can_cache():
-                self._add_to_cache(part.mtpt, data)
+            data = part.get_fstat(self.seen_devnos)
+            if data:
+                data["type"] = part.fstype
+                if part.can_cache():
+                    self._add_to_cache(part.mtpt, data)
             return data
 
     def close(self):
@@ -496,8 +496,6 @@ else:
 partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
-
-seen_devnos = set()
 
 if opts.quota:
     quota_gauge_width = 20

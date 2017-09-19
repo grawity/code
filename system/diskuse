@@ -415,11 +415,19 @@ def read_mtab():
             mtpt = unescape_mtab(mtpt)
             yield dev, mtpt, fstype
 
-def enum_partitions():
+def enum_partitions(show_cached=False):
+    global cache
+    for dev, mtpt, fstype in read_mtab():
+        yield (mtpt, fstype, False)
+    if show_cached:
+        for mtpt, rest in cache.items():
+            yield (mtpt, rest["type"], True)
+
+def enum_partitions_filtered(show_cached=False):
     skip_fstypes = {
         "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
     }
-    for dev, mtpt, fstype in read_mtab():
+    for mtpt, fstype, cached in enum_partitions(show_cached):
         kind = fs_kind_from_path(mtpt, fstype)
         if mtpt in fs_skip_mounts:
             Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
@@ -431,7 +439,14 @@ def enum_partitions():
             Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
             continue
         Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
-        yield mtpt, fstype, kind
+        yield (mtpt, fstype, kind, cached)
+
+def enum_partitions_exact(paths):
+    fstype = None
+    cached = False
+    for mtpt in paths:
+        kind = fs_kind_from_path(mtpt, fstype)
+        yield (mtpt, fstype, kind, cached)
 
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
@@ -450,13 +465,10 @@ if not opts.all:
 cache = PersistentDict(Env.find_cache_file("diskuse.json"))
 
 if opts.path:
-    partitions = [(x, None, fs_kind_from_path(x, None), False) for x in opts.path]
+    partitions = enum_partitions_exact(opts.path)
 else:
-    partitions = [(*x, False) for x in enum_partitions()]
-    if opts.cached:
-        partitions += [(k, v["type"], fs_kind_from_path(k, v["type"]), True)
-                       for k, v in cache.items()
-                       if k not in fs_skip_mounts]
+    partitions = enum_partitions_filtered(show_cached=opts.cached)
+partitions = [*partitions]
 partitions.sort(key=lambda x: x[0])
 partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
 

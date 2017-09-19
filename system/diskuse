@@ -99,22 +99,31 @@ fs_kind_fstypes = {
     "tmpfs":        KIND_MEMORY,
 }
 
+# not skipped even if kind or type would say otherwise
 fs_noskip_mounts = {
     "/run/user/%d" % os.getuid(),
     "/tmp",
 }
 
-fs_skip_kinds = { KIND_KERNEL }
-
-fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
-
-fs_cache_kinds = { KIND_ROOT, KIND_MEDIA }
-
+# always skipped
 fs_skip_mounts = {
     "//%s" % gethostname(),
     #"/boot",
     #"/efi",
 }
+fs_skip_kinds = {
+    KIND_KERNEL,
+}
+fs_skip_fstypes = {
+    "afs", "cgroup", "devpts", "devtmpfs",
+    "ecryptfs", "efivarfs", "rootfs", "tmpfs",
+}
+
+# skipped unless in verbose mode
+fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
+
+# cached and shown even if not present
+fs_cache_kinds = { KIND_ROOT, KIND_MEDIA }
 
 class PersistentDict(dict):
     def __init__(self, path):
@@ -277,14 +286,9 @@ def threshold(total, val):
     else:
         levels = levels_small
 
-    Core.debug("looking for value %r" % val)
     for tmin, tval in levels:
         if val >= tmin:
-            Core.debug(" - match: input %r >= row %r; returning %r" % (val, tmin, tval))
             return tval
-        else:
-            Core.debug(" - no match: input %r < row %r; value %r" % (val, tmin, tval))
-    Core.debug("returning last value %r" % tval)
     return tval
 
 def get_stat(mtpt):
@@ -426,21 +430,18 @@ def enum_partitions(show_cached=False):
             yield (mtpt, rest["type"], True)
 
 def enum_partitions_filtered(show_cached=False):
-    skip_fstypes = {
-        "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
-    }
     for mtpt, fstype, cached in enum_partitions(show_cached):
         kind = fs_kind_from_path(mtpt, fstype)
         if mtpt in fs_skip_mounts:
-            Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
+            Core.debug("skipping mount %r (path)", mtpt)
             continue
         if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
-            Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
+            Core.debug("skipping mount %r (kind=%s)", mtpt, fs_kind_names.get(kind, kind))
             continue
-        if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
-            Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
+        if fstype in fs_skip_fstypes and mtpt not in fs_noskip_mounts:
+            Core.debug("skipping mount %r (type=%r)", mtpt, fstype)
             continue
-        Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
+        Core.debug("adding mount %r (kind=%s, type=%r)", mtpt, fs_kind_names.get(kind, kind), fstype)
         yield (mtpt, fstype, kind, cached)
 
 def enum_partitions_exact(paths):

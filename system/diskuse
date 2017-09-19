@@ -107,7 +107,7 @@ fs_skip_kinds = { KIND_KERNEL }
 
 fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
 
-fs_cache_kinds = { KIND_MEDIA }
+fs_cache_kinds = { KIND_ROOT, KIND_MEDIA }
 
 fs_skip_mounts = {
     "//%s" % gethostname(),
@@ -134,6 +134,14 @@ class PersistentDict(dict):
                 json.dump(self, fh)
         except Exception as e:
             Core.debug("cache save failed (%r)" % e)
+
+def cache_add(mtpt, data):
+    global cache
+
+    if mtpt == "/":
+        mtpt = "//%s" % gethostname()
+
+    cache[mtpt] = data
 
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
@@ -490,7 +498,10 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
 def dump_all():
     print(fmt_ansi(fmt, "1") % header)
     thisgroup = 0
+    seen_mtpts = set()
     for mtpt, fstype, kind, cached in partitions:
+        if mtpt in seen_mtpts:
+            continue
         Core.debug("got mtpt %r of kind %r (%s) prio %r",
                    mtpt, kind, fs_kind_names.get(kind),
                    fs_kind_priorities.get(kind, 0))
@@ -498,6 +509,7 @@ def dump_all():
         if dump_mtpt(mtpt, fstype, kind, cached,
                      want_separator=(thisgroup and group != thisgroup)):
             thisgroup = group
+            seen_mtpts.add(mtpt)
 
 dump_all()
 

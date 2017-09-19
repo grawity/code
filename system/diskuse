@@ -150,6 +150,21 @@ class Partition(object):
         self.mtpt   = mtpt
         self.fstype = fstype
         self.cached = cached
+        self.kind   = self.get_kind()
+
+    def get_kind(self):
+        return fs_kind_from_path(self.mtpt, self.fstype)
+
+    def can_skip_mount(self):
+        return (self.mtpt in fs_skip_mounts)
+
+    def can_skip_kind(self):
+        return (self.kind in fs_skip_kinds \
+                and self.mtpt not in fs_noskip_mounts)
+
+    def can_skip_fstype(self):
+        return (self.fstype in fs_skip_fstypes \
+                and self.mtpt not in fs_noskip_mounts)
 
 def cache_add(mtpt, data):
     global cache
@@ -321,13 +336,17 @@ def get_stat(mtpt):
             "free":  st.f_bsize * st.f_bfree,
             "avail": st.f_bsize * st.f_bavail}
 
-def dump_mtpt(mtpt, fstype, kind, from_cache=False, with_quota=False):
+def dump_mtpt(part, with_quota=False):
     global cache
 
-    Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
-               mtpt, fstype, kind, from_cache)
+    mtpt = part.mtpt
+    fstype = part.fstype
+    kind = part.kind
 
-    if from_cache:
+    Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
+               mtpt, fstype, kind, part.cached)
+
+    if part.cached:
         data = cache.get(mtpt)
         if not data:
             Core.debug("not found in cache, bailing")
@@ -352,7 +371,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, with_quota=False):
     quota_part      = used_bytes / quota_bytes * 100
     disk_part       = used_bytes / total_bytes * 100
 
-    if from_cache:
+    if part.cached:
         disk_color      = "gray"
         quota_color     = "gray"
     else:
@@ -434,28 +453,24 @@ def enum_partitions(show_cached=False):
 
 def enum_partitions_filtered(show_cached=False):
     for part in enum_partitions(show_cached):
-        mtpt = part.mtpt
-        fstype = part.fstype
-        cached = part.cached
-        kind = fs_kind_from_path(mtpt, fstype)
-        if mtpt in fs_skip_mounts:
-            Core.debug("skipping mount %r (path)", mtpt)
+        kind = part.get_kind()
+        if part.can_skip_mount():
+            Core.debug("skipping mount %r (path)", part.mtpt)
             continue
-        if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
-            Core.debug("skipping mount %r (kind=%s)", mtpt, fs_kind_names.get(kind, kind))
+        if part.can_skip_kind():
+            Core.debug("skipping mount %r (kind=%s)", part.mtpt,
+                       fs_kind_names.get(kind, kind))
             continue
-        if fstype in fs_skip_fstypes and mtpt not in fs_noskip_mounts:
-            Core.debug("skipping mount %r (type=%r)", mtpt, fstype)
+        if part.can_skip_fstype():
+            Core.debug("skipping mount %r (type=%r)", part.mtpt, part.fstype)
             continue
-        Core.debug("adding mount %r (kind=%s, type=%r)", mtpt, fs_kind_names.get(kind, kind), fstype)
-        yield part, kind
+        Core.debug("adding mount %r (kind=%s, type=%r)", part.mtpt,
+                   fs_kind_names.get(kind, kind), part.fstype)
+        yield part
 
 def enum_partitions_exact(paths):
-    fstype = None
-    cached = False
     for mtpt in paths:
-        kind = fs_kind_from_path(mtpt, fstype)
-        yield Partition(mtpt, fstype=None, cached=False), kind
+        yield Partition(mtpt, fstype=None, cached=False)
 
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
@@ -480,8 +495,8 @@ if opts.path:
 else:
     partitions = enum_partitions_filtered(show_cached=opts.cached)
 partitions = [*partitions]
-partitions.sort(key=lambda x: x[0].mtpt)
-partitions.sort(key=lambda x: fs_kind_priorities[x[1]], reverse=True)
+partitions.sort(key=lambda x: x.mtpt)
+partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 
 seen_devnos = set()
 
@@ -517,23 +532,20 @@ def dump_all():
     print(fmt_ansi(fmt % header, "1"))
     thisgroup = 0
     seen_mtpts = set()
-    for part, kind in partitions:
-        mtpt = part.mtpt
-        fstype = part.fstype
-        cached = part.cached
-        if mtpt in seen_mtpts:
+    for part in partitions:
+        if part.mtpt in seen_mtpts:
             continue
         Core.debug("got mtpt %r of kind %r (%s) prio %r",
-                   mtpt, kind, fs_kind_names.get(kind),
-                   fs_kind_priorities.get(kind, 0))
-        group = fs_kind_groups.get(kind)
-        row = dump_mtpt(mtpt, fstype, kind, cached, opts.quota)
+                   part.mtpt, part.kind, fs_kind_names.get(part.kind),
+                   fs_kind_priorities.get(part.kind, 0))
+        group = fs_kind_groups.get(part.kind)
+        row = dump_mtpt(part, opts.quota)
         if row:
             if thisgroup and group != thisgroup:
                 print(separator)
             print(fmt % row)
             thisgroup = group
-            seen_mtpts.add(mtpt)
+            seen_mtpts.add(part.mtpt)
 
 dump_all()
 

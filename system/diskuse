@@ -353,7 +353,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
     disk_color      = level_colors[disk_color][0]
     quota_color     = level_colors[quota_color][0]
 
-    if quota:
+    if opts.quota:
         row = (
             path_shorten(mtpt),
 
@@ -366,7 +366,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
             fmt_percent(quota_part, 1),
 
             disk_gauge_width,
-            gauge3x(disk_gauge_width, disk_part, darken(disk_color, 2)),
+            gauge3x(disk_gauge_width, disk_part, darken(disk_color, 1)),
             fmt_percent(disk_part, 0),
         )
     else:
@@ -455,6 +455,8 @@ ap.add_argument("-c", "--cached", action="store_true",
                 help="include nonpresent cached filesystems")
 ap.add_argument("--si", action="store_true",
                 help="use SI decimal units, not IEC binary units")
+ap.add_argument("--quota", action="store_true",
+                help="display quota information")
 ap.add_argument("path", nargs="*")
 opts = ap.parse_args()
 
@@ -472,11 +474,9 @@ partitions = [*partitions]
 partitions.sort(key=lambda x: x[0])
 partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
 
-quota = False
-
 seen_devnos = set()
 
-if quota:
+if opts.quota:
     quota_gauge_width = 20
     disk_gauge_width = 10
     fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"

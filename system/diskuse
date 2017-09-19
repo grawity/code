@@ -151,28 +151,19 @@ class Partition(object):
         self.mtpt   = mtpt
         self.fstype = fstype
         self.cached = cached
-        self.kind   = self.get_kind()
+        self.kind   = fs_kind_from_path(mtpt, fstype)
 
     def __repr__(self):
+        kind = fs_kind_names.get(self.kind, self.kind)
         return "Partition(mtpt=%r, fstype=%r, cached=%r, kind=%r)" \
-               % (self.mtpt, self.fstype, self.cached, self.get_kind_str())
+               % (self.mtpt, self.fstype, self.cached, kind)
 
-    def get_kind(self):
-        return fs_kind_from_path(self.mtpt, self.fstype)
-
-    def get_kind_str(self):
-        return fs_kind_names.get(self.kind, self.kind)
-
-    def can_skip_mount(self):
-        return (self.mtpt in fs_skip_mounts)
-
-    def can_skip_kind(self):
-        return (self.kind in fs_skip_kinds \
-                and self.mtpt not in fs_noskip_mounts)
-
-    def can_skip_fstype(self):
-        return (self.fstype in fs_skip_fstypes \
-                and self.mtpt not in fs_noskip_mounts)
+    def can_skip(self):
+        if self.mtpt in fs_skip_mounts:     return True
+        if self.mtpt in fs_noskip_mounts:   return False
+        if self.kind in fs_skip_kinds:      return True
+        if self.fstype in fs_skip_fstypes:  return True
+        return False
 
     def can_cache(self):
         return (self.kind in fs_cache_kinds)
@@ -239,14 +230,8 @@ class Enumerator(object):
 
     def enum_partitions_system(self, show_cached=False):
         for part in self._enum_partitions(show_cached):
-            if part.can_skip_mount():
-                Core.debug("skipping %r due to mountpoint", part)
-                continue
-            if part.can_skip_kind():
-                Core.debug("skipping %r due to kind", part)
-                continue
-            if part.can_skip_fstype():
-                Core.debug("skipping %r due to fstype", part)
+            if part.can_skip():
+                Core.debug("skipping %r", part)
                 continue
             Core.debug("adding %r", part)
             yield part
@@ -472,8 +457,10 @@ def dump_mtpt(part, data, with_quota=False):
         disk_color      = threshold(total_bytes, -1)
         quota_color     = threshold(quota_bytes, 100 - quota_part)
 
-    Core.debug(" - total bytes=%r, used=%.2f%%, free=%.2f%%, color=%r" % (total_bytes, disk_part, 100-disk_part, disk_color))
-    Core.debug(" - quota bytes=%r, used=%.2f%%, free=%.2f%%, color=%r" % (quota_bytes, quota_part, 100-quota_part, quota_color))
+    Core.debug(" - total bytes=%r, used=%.2f%%, free=%.2f%%, color=%r",
+               total_bytes, disk_part, 100-disk_part, disk_color)
+    Core.debug(" - quota bytes=%r, used=%.2f%%, free=%.2f%%, color=%r",
+               quota_bytes, quota_part, 100-quota_part, quota_color)
 
     disk_color      = level_colors[disk_color][0]
     quota_color     = level_colors[quota_color][0]

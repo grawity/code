@@ -245,21 +245,19 @@ class Enumerator(object):
             yield Partition(mtpt, fstype=None)
 
     def _add_to_cache(self, part, data):
+        data = {**data, "type": part.fstype}
         mtpt = part.mtpt
         if part.kind != KIND_MEDIA:
             mtpt = "//" + gethostname() + mtpt
         self.cache[mtpt] = data
 
     def get_partition_data(self, part):
-        # NOTE: always return live data if part.cached = False
         if part.cached:
             return part.cached
         else:
             data = part.get_fstat(self.seen_devnos)
-            if data:
-                data["type"] = part.fstype
-                if part.can_cache():
-                    self._add_to_cache(part, data)
+            if data and part.can_cache():
+                self._add_to_cache(part, data)
             return data
 
     def close(self):
@@ -269,9 +267,6 @@ class Table(object):
     def __init__(self):
         self.columns = []
         self.rows = []
-
-    def add_row(self, data):
-        self.rows.append(data)
 
     def _make_header(self):
         out = ""
@@ -311,7 +306,7 @@ class Table(object):
                 out += sep
             else:
                 out += self._make_row(row) + "\n"
-        print(out)
+        print(out, end="")
 
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
@@ -509,13 +504,17 @@ def dump_mtpt(part, data, with_quota=False):
     return row
 
 ap = ArgumentParser()
-ap.add_argument("-a", "--all", action="store_true",
+ap.add_argument("-a", "--all",
+                action="store_true",
                 help="show unimportant filesystems")
-ap.add_argument("-c", "--cached", action="store_true",
+ap.add_argument("-c", "--cached",
+                action="store_true",
                 help="include nonpresent cached filesystems")
-ap.add_argument("--si", action="store_true",
+ap.add_argument("--si",
+                action="store_true",
                 help="use SI decimal units, not IEC binary units")
-ap.add_argument("--quota", action="store_true",
+ap.add_argument("--quota",
+                action="store_true",
                 help="display quota information")
 ap.add_argument("path", nargs="*")
 opts = ap.parse_args()
@@ -568,8 +567,8 @@ for part in partitions:
     row = dump_mtpt(part, data, opts.quota)
     if row:
         if this_group and group != this_group:
-            t.add_row(None)
-        t.add_row(row)
+            t.rows.append(None)
+        t.rows.append(row)
         this_group = group
         seen_mtpts.add(part.mtpt)
 

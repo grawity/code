@@ -264,23 +264,24 @@ class Enumerator(object):
 class Table(object):
     def __init__(self):
         self.columns = []
+        self.rows = []
 
-    def _get_width(self):
-        cols = 0
-        for (head, type, width) in self.columns:
-            cols += 1 + abs(width)
-        return cols
+    def add_row(self, data):
+        self.rows.append(data)
 
-    def make_header(self):
+    def _make_header(self):
         out = ""
         for i, (head, type, width) in enumerate(self.columns):
             out += " %*s" % (width, head)
         return fmt_ansi(out, "1")
 
-    def make_separator(self):
-        return fmt_ansi("-" * self._get_width(), "2")
+    def _make_separator(self):
+        cols = 0
+        for (head, type, width) in self.columns:
+            cols += 1 + abs(width)
+        return fmt_ansi("-" * cols, "2")
 
-    def make_row(self, values):
+    def _make_row(self, values):
         out = ""
         cols = 0
         for i, (head, type, width) in enumerate(self.columns):
@@ -297,6 +298,16 @@ class Table(object):
                 out += "\n" + " " * (cols + 1 + abs(width))
             cols += 1 + cell_w
         return out
+
+    def print(self):
+        sep = self._make_separator() + "\n"
+        out = self._make_header() + "\n"
+        for row in self.rows:
+            if row is None:
+                out += sep
+            else:
+                out += self._make_row(row) + "\n"
+        print(out)
 
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
@@ -541,9 +552,6 @@ else:
         ("",        "string", 5),
     ]
 
-print(t.make_header())
-
-separator = t.make_separator()
 this_group = 0
 seen_mtpts = set()
 for part in partitions:
@@ -556,9 +564,11 @@ for part in partitions:
     row = dump_mtpt(part, data, opts.quota)
     if row:
         if this_group and group != this_group:
-            print(separator)
-        print(t.make_row(row))
+            t.add_row(None)
+        t.add_row(row)
         this_group = group
         seen_mtpts.add(part.mtpt)
+
+t.print()
 
 en.close()

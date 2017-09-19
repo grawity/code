@@ -7,6 +7,7 @@ import subprocess
 from argparse import ArgumentParser
 from nullroute.core import Core, Env
 from nullroute.misc import fmt_size_short
+from socket import gethostname
 
 level_colors = {
     "red":      (196,  9),
@@ -109,6 +110,7 @@ fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
 fs_cache_kinds = { KIND_MEDIA }
 
 fs_skip_mounts = {
+    "//%s" % gethostname(),
     #"/boot",
     #"/efi",
 }
@@ -317,15 +319,6 @@ def enum_mtab():
             Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
             yield mtpt, fstype, kind
 
-def enum_cached():
-    global cache
-    for key in sorted(cache.keys()):
-        yield (key, cache[key])
-
-def cache_add(key, data):
-    global cache
-    cache[key] = data
-
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
                 help="show unimportant filesystems")
@@ -347,7 +340,9 @@ if opts.path:
 else:
     partitions = [(*x, False) for x in enum_mtab()]
     if opts.cached:
-        partitions += [(k, v["fs"], v["kind"], True) for k, v in cache.items()]
+        partitions += [(k, v["fs"], v["kind"], True)
+                       for k, v in cache.items()
+                       if k not in fs_skip_mounts]
 partitions.sort(key=lambda x: x[0])
 partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
 

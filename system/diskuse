@@ -274,6 +274,37 @@ class Enumerator(object):
     def close(self):
         self.cache.flush()
 
+class Table(object):
+    def __init__(self):
+        self.columns = []
+
+    def _get_width(self):
+        cols = 0
+        for (head, type, width) in self.columns:
+            cols += 1 + abs(width)
+        return cols
+
+    def make_header(self):
+        out = ""
+        for i, (head, type, width) in enumerate(self.columns):
+            out += " %*s" % (width, head)
+        return fmt_ansi(out, "1")
+
+    def make_separator(self):
+        return fmt_ansi("-" * self._get_width(), "2")
+
+    def make_row(self, values):
+        out = ""
+        for i, (head, type, width) in enumerate(self.columns):
+            if type == "string":
+                out += " %*s" % (width, values[i])
+            elif type == "gauge":
+                percent, color = values[i]
+                out += " %s" % gauge3x(abs(width), percent, color)
+            else:
+                pass
+        return out
+
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
 
@@ -491,46 +522,6 @@ else:
 partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
-
-class Table(object):
-    def __init__(self):
-        self.columns = []
-
-    def _get_fmt(self):
-        fmt = ""
-        for (head, type, width) in self.columns:
-            fmt += " %%%ds" % width
-        return fmt
-
-    def _get_width(self):
-        cols = 0
-        for (head, type, width) in self.columns:
-            cols += 1 + abs(width)
-        return cols
-
-    def _get_header(self):
-        return tuple([c[0] for c in t.columns])
-
-    def make_header(self):
-        out = ""
-        for i, (head, type, width) in enumerate(self.columns):
-            out += " %*s" % (width, head)
-        return fmt_ansi(out, "1")
-
-    def make_separator(self):
-        return fmt_ansi("-" * self._get_width(), "2")
-
-    def make_row(self, values):
-        out = ""
-        for i, (head, type, width) in enumerate(self.columns):
-            if type == "string":
-                out += " %*s" % (width, values[i])
-            elif type == "gauge":
-                percent, color = values[i]
-                out += " %s" % gauge3x(abs(width), percent, color)
-            else:
-                pass
-        return out
 
 t = Table()
 

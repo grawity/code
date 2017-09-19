@@ -295,14 +295,20 @@ class Table(object):
 
     def make_row(self, values):
         out = ""
+        cols = 0
         for i, (head, type, width) in enumerate(self.columns):
             if type == "string":
-                out += " %*s" % (width, values[i])
+                cell_s = "%*s" % (width, values[i])
+                cell_w = len(values[i])
             elif type == "gauge":
                 percent, color = values[i]
-                out += " %s" % gauge3x(abs(width), percent, color)
-            else:
-                pass
+                cell_s = gauge3x(abs(width), percent, color)
+                cell_w = abs(width)
+
+            out += " " + cell_s
+            if cell_w > abs(width):
+                out += "\n" + " " * (cols + 1 + abs(width))
+            cols += 1 + cell_w
         return out
 
 def get_user_name():

@@ -274,6 +274,43 @@ class Enumerator(object):
     def close(self):
         self.cache.flush()
 
+class Table(object):
+    def __init__(self):
+        self.columns = []
+
+    def _get_width(self):
+        cols = 0
+        for (head, type, width) in self.columns:
+            cols += 1 + abs(width)
+        return cols
+
+    def make_header(self):
+        out = ""
+        for i, (head, type, width) in enumerate(self.columns):
+            out += " %*s" % (width, head)
+        return fmt_ansi(out, "1")
+
+    def make_separator(self):
+        return fmt_ansi("-" * self._get_width(), "2")
+
+    def make_row(self, values):
+        out = ""
+        cols = 0
+        for i, (head, type, width) in enumerate(self.columns):
+            if type == "string":
+                cell_s = "%*s" % (width, values[i])
+                cell_w = len(values[i])
+            elif type == "gauge":
+                percent, color = values[i]
+                cell_s = gauge3x(abs(width), percent, color)
+                cell_w = abs(width)
+
+            out += " " + cell_s
+            if cell_w > abs(width):
+                out += "\n" + " " * (cols + 1 + abs(width))
+            cols += 1 + cell_w
+        return out
+
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
 
@@ -447,12 +484,10 @@ def dump_mtpt(part, data, with_quota=False):
             fmt_size_short(free_bytes, si=opts.si),
             fmt_size_short(avail_bytes, si=opts.si),
 
-            quota_gauge_width,
-            gauge3x(quota_gauge_width, quota_part, quota_color),
+            (quota_part, quota_color),
             fmt_percent(quota_part, 1),
 
-            disk_gauge_width,
-            gauge3x(disk_gauge_width, disk_part, darken(disk_color, 1)),
+            (disk_part, darken(disk_color, 1)),
             fmt_percent(disk_part, 0),
         )
     else:
@@ -463,8 +498,7 @@ def dump_mtpt(part, data, with_quota=False):
             fmt_size_short(used_bytes, si=opts.si),
             fmt_size_short(free_bytes, si=opts.si),
 
-            disk_gauge_width,
-            gauge3x(disk_gauge_width, quota_part, quota_color),
+            (quota_part, quota_color),
             fmt_percent(disk_part, 1),
         )
 
@@ -495,34 +529,32 @@ partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 
-if opts.quota:
-    quota_gauge_width = 20
-    disk_gauge_width = 10
-    fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
-    header = (
-        "PATH",
-        "TOTAL",
-        "FREE",
-        "AVAIL",
-        quota_gauge_width, "QUOTA USAGE",
-        "",
-        disk_gauge_width, "DISK USAGE",
-        "",
-    )
-else:
-    disk_gauge_width = 30
-    fmt = " %-20s %7s %7s %7s %-*s %5s"
-    header = (
-        "PATH",
-        "TOTAL",
-        "USED",
-        "FREE",
-        disk_gauge_width, "",
-        "",
-    )
+t = Table()
 
-separator = fmt_ansi("-" * len(fmt % header), "2")
-print(fmt_ansi(fmt % header, "1"))
+if opts.quota:
+    t.columns = [
+        ("PATH",        "string", -16),
+        ("TOTAL",       "string", 7),
+        ("FREE",        "string", 7),
+        ("AVAIL",       "string", 7),
+        ("QUOTA USAGE", "gauge", -20),
+        ("",            "string", 5),
+        ("DISK USAGE",  "gauge", -10),
+        ("",            "string", 3),
+    ]
+else:
+    t.columns = [
+        ("PATH",    "string", -20),
+        ("TOTAL",   "string", 7),
+        ("USED",    "string", 7),
+        ("FREE",    "string", 7),
+        ("",        "gauge", -30),
+        ("",        "string", 5),
+    ]
+
+print(t.make_header())
+
+separator = t.make_separator()
 this_group = 0
 seen_mtpts = set()
 for part in partitions:
@@ -536,7 +568,7 @@ for part in partitions:
     if row:
         if this_group and group != this_group:
             print(separator)
-        print(fmt % row)
+        print(t.make_row(row))
         this_group = group
         seen_mtpts.add(part.mtpt)
 

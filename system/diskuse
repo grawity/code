@@ -321,14 +321,14 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
             Core.debug("not found in cache, bailing")
             return False
         Core.debug("processing %r from cache" % mtpt)
-        fstype = data["fs"]
+        fstype = data["type"]
     else:
         data = get_stat(mtpt)
         if not data:
             return False
         Core.debug("processing %r from OS" % mtpt)
         if kind in fs_cache_kinds:
-            cache_add(mtpt, {**data, "fs": fstype})
+            cache_add(mtpt, {**data, "type": fstype})
 
     total_bytes     = data["total"]
     free_bytes      = data["free"]
@@ -454,7 +454,7 @@ if opts.path:
 else:
     partitions = [(*x, False) for x in enum_partitions()]
     if opts.cached:
-        partitions += [(k, v["fs"], fs_kind_from_path(k, v["fs"]), True)
+        partitions += [(k, v["type"], fs_kind_from_path(k, v["type"]), True)
                        for k, v in cache.items()
                        if k not in fs_skip_mounts]
 partitions.sort(key=lambda x: x[0])

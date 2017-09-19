@@ -145,6 +145,12 @@ class PersistentDict(dict):
         except Exception as e:
             Core.debug("cache save failed (%r)" % e)
 
+class Partition(object):
+    def __init__(self, mtpt, fstype, cached):
+        self.mtpt   = mtpt
+        self.fstype = fstype
+        self.cached = cached
+
 def cache_add(mtpt, data):
     global cache
 
@@ -421,13 +427,16 @@ def read_mtab():
 def enum_partitions(show_cached=False):
     global cache
     for dev, mtpt, fstype in read_mtab():
-        yield (mtpt, fstype, False)
+        yield Partition(mtpt, fstype, cached=False)
     if show_cached:
         for mtpt, rest in cache.items():
-            yield (mtpt, rest["type"], True)
+            yield Partition(mtpt, rest["type"], cached=True)
 
 def enum_partitions_filtered(show_cached=False):
-    for mtpt, fstype, cached in enum_partitions(show_cached):
+    for part in enum_partitions(show_cached):
+        mtpt = part.mtpt
+        fstype = part.fstype
+        cached = part.cached
         kind = fs_kind_from_path(mtpt, fstype)
         if mtpt in fs_skip_mounts:
             Core.debug("skipping mount %r (path)", mtpt)
@@ -439,14 +448,14 @@ def enum_partitions_filtered(show_cached=False):
             Core.debug("skipping mount %r (type=%r)", mtpt, fstype)
             continue
         Core.debug("adding mount %r (kind=%s, type=%r)", mtpt, fs_kind_names.get(kind, kind), fstype)
-        yield (mtpt, fstype, kind, cached)
+        yield part, kind
 
 def enum_partitions_exact(paths):
     fstype = None
     cached = False
     for mtpt in paths:
         kind = fs_kind_from_path(mtpt, fstype)
-        yield (mtpt, fstype, kind, cached)
+        yield Partition(mtpt, fstype=None, cached=False), kind
 
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
@@ -471,8 +480,8 @@ if opts.path:
 else:
     partitions = enum_partitions_filtered(show_cached=opts.cached)
 partitions = [*partitions]
-partitions.sort(key=lambda x: x[0])
-partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
+partitions.sort(key=lambda x: x[0].mtpt)
+partitions.sort(key=lambda x: fs_kind_priorities[x[1]], reverse=True)
 
 seen_devnos = set()
 
@@ -508,7 +517,10 @@ def dump_all():
     print(fmt_ansi(fmt % header, "1"))
     thisgroup = 0
     seen_mtpts = set()
-    for mtpt, fstype, kind, cached in partitions:
+    for part, kind in partitions:
+        mtpt = part.mtpt
+        fstype = part.fstype
+        cached = part.cached
         if mtpt in seen_mtpts:
             continue
         Core.debug("got mtpt %r of kind %r (%s) prio %r",

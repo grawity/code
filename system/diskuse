@@ -428,18 +428,12 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
         if not data:
             return False
         Core.debug("processing %r from OS" % mtpt)
+        if kind in fs_cache_kinds:
+            cache_add(mtpt, {**data, "fs": fstype})
 
     total_bytes     = data["total"]
     free_bytes      = data["free"]
     avail_bytes     = data["avail"]
-
-    if (not from_cache) and (kind in fs_cache_kinds):
-        cache_add(mtpt, {
-                        "fs": fstype,
-                        "total": total_bytes,
-                        "free": free_bytes,
-                        "avail": avail_bytes,
-                    })
 
     used_bytes      = total_bytes - free_bytes
     quota_bytes     = used_bytes + avail_bytes

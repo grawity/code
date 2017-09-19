@@ -315,7 +315,7 @@ def get_stat(mtpt):
             "free":  st.f_bsize * st.f_bfree,
             "avail": st.f_bsize * st.f_bavail}
 
-def dump_mtpt(mtpt, fstype, kind, from_cache=False):
+def dump_mtpt(mtpt, fstype, kind, from_cache=False, with_quota=False):
     global cache
 
     Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
@@ -359,7 +359,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False):
     disk_color      = level_colors[disk_color][0]
     quota_color     = level_colors[quota_color][0]
 
-    if opts.quota:
+    if with_quota:
         row = (
             path_shorten(mtpt),
 
@@ -515,7 +515,7 @@ def dump_all():
                    mtpt, kind, fs_kind_names.get(kind),
                    fs_kind_priorities.get(kind, 0))
         group = fs_kind_groups.get(kind)
-        row = dump_mtpt(mtpt, fstype, kind, cached)
+        row = dump_mtpt(mtpt, fstype, kind, cached, opts.quota)
         if row:
             if thisgroup and group != thisgroup:
                 print(separator)

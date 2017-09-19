@@ -285,107 +285,6 @@ def threshold(total, val):
     Core.debug("returning last value %r" % tval)
     return tval
 
-def unescape_mtab(val):
-    out = ""
-    state = 0
-    num = 0
-    acc = 0
-    for char in val:
-        if state == 0:
-            if char == "\\":
-                num = 0
-                acc = 0
-                state = 1
-            else:
-                out += char
-        elif state == 1:
-            num += 1
-            acc = (acc << 3) | int(char)
-            if num == 3:
-                out += chr(acc)
-                state = 0
-    return out
-
-def enum_mtab():
-    skip_fstypes = {
-        "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
-    }
-    with open("/etc/mtab") as fh:
-        for line in fh:
-            dev, mtpt, fstype, rest = line.strip().split(None, 3)
-            mtpt = unescape_mtab(mtpt)
-            kind = fs_kind_from_path(mtpt, fstype)
-            if mtpt in fs_skip_mounts:
-                Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
-                continue
-            if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
-                Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
-                continue
-            if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
-                Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
-                continue
-            Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
-            yield mtpt, fstype, kind
-
-ap = ArgumentParser()
-ap.add_argument("-a", "--all", action="store_true",
-                help="show unimportant filesystems")
-ap.add_argument("-c", "--cached", action="store_true",
-                help="include nonpresent cached filesystems")
-ap.add_argument("--si", action="store_true",
-                help="use SI decimal units, not IEC binary units")
-ap.add_argument("path", nargs="*")
-opts = ap.parse_args()
-
-if not opts.all:
-    fs_noskip_mounts.clear()
-    fs_skip_kinds |= fs_verbose_kinds
-
-cache = PersistentDict(Env.find_cache_file("diskuse.json"))
-
-if opts.path:
-    partitions = [(x, None, fs_kind_from_path(x, None), False) for x in opts.path]
-else:
-    partitions = [(*x, False) for x in enum_mtab()]
-    if opts.cached:
-        partitions += [(k, v["fs"], fs_kind_from_path(k, v["fs"]), True)
-                       for k, v in cache.items()
-                       if k not in fs_skip_mounts]
-partitions.sort(key=lambda x: x[0])
-partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
-
-quota = False
-
-seen_devnos = set()
-
-if quota:
-    quota_gauge_width = 20
-    disk_gauge_width = 10
-    fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
-    header = (
-        "PATH",
-        "TOTAL",
-        "FREE",
-        "AVAIL",
-        quota_gauge_width, "QUOTA USAGE",
-        "",
-        disk_gauge_width, "DISK USAGE",
-        "",
-    )
-else:
-    disk_gauge_width = 30
-    fmt = " %-20s %7s %7s %7s %-*s %5s"
-    header = (
-        "PATH",
-        "TOTAL",
-        "USED",
-        "FREE",
-        disk_gauge_width, "",
-        "",
-    )
-
-separator = fmt_ansi("-" * len(fmt % header), "2")
-
 def get_stat(mtpt):
     global seen_devnos
 
@@ -487,6 +386,111 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
         print(separator)
     print(fmt % row)
     return True
+
+def unescape_mtab(val):
+    out = ""
+    state = 0
+    num = 0
+    acc = 0
+    for char in val:
+        if state == 0:
+            if char == "\\":
+                num = 0
+                acc = 0
+                state = 1
+            else:
+                out += char
+        elif state == 1:
+            num += 1
+            acc = (acc << 3) | int(char)
+            if num == 3:
+                out += chr(acc)
+                state = 0
+    return out
+
+def read_mtab():
+    with open("/etc/mtab") as fh:
+        for line in fh:
+            dev, mtpt, fstype, rest = line.strip().split(None, 3)
+            mtpt = unescape_mtab(mtpt)
+            yield dev, mtpt, fstype
+
+def enum_partitions():
+    skip_fstypes = {
+        "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
+    }
+    for dev, mtpt, fstype in read_mtab():
+        kind = fs_kind_from_path(mtpt, fstype)
+        if mtpt in fs_skip_mounts:
+            Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
+            continue
+        if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
+            Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
+            continue
+        if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
+            Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
+            continue
+        Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
+        yield mtpt, fstype, kind
+
+ap = ArgumentParser()
+ap.add_argument("-a", "--all", action="store_true",
+                help="show unimportant filesystems")
+ap.add_argument("-c", "--cached", action="store_true",
+                help="include nonpresent cached filesystems")
+ap.add_argument("--si", action="store_true",
+                help="use SI decimal units, not IEC binary units")
+ap.add_argument("path", nargs="*")
+opts = ap.parse_args()
+
+if not opts.all:
+    fs_noskip_mounts.clear()
+    fs_skip_kinds |= fs_verbose_kinds
+
+cache = PersistentDict(Env.find_cache_file("diskuse.json"))
+
+if opts.path:
+    partitions = [(x, None, fs_kind_from_path(x, None), False) for x in opts.path]
+else:
+    partitions = [(*x, False) for x in enum_partitions()]
+    if opts.cached:
+        partitions += [(k, v["fs"], fs_kind_from_path(k, v["fs"]), True)
+                       for k, v in cache.items()
+                       if k not in fs_skip_mounts]
+partitions.sort(key=lambda x: x[0])
+partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
+
+quota = False
+
+seen_devnos = set()
+
+if quota:
+    quota_gauge_width = 20
+    disk_gauge_width = 10
+    fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
+    header = (
+        "PATH",
+        "TOTAL",
+        "FREE",
+        "AVAIL",
+        quota_gauge_width, "QUOTA USAGE",
+        "",
+        disk_gauge_width, "DISK USAGE",
+        "",
+    )
+else:
+    disk_gauge_width = 30
+    fmt = " %-20s %7s %7s %7s %-*s %5s"
+    header = (
+        "PATH",
+        "TOTAL",
+        "USED",
+        "FREE",
+        disk_gauge_width, "",
+        "",
+    )
+
+separator = fmt_ansi("-" * len(fmt % header), "2")
 
 def dump_all():
     print(fmt_ansi(fmt, "1") % header)

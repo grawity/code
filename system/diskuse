@@ -200,13 +200,53 @@ class Partition(object):
                 "free":  st.f_bsize * st.f_bfree,
                 "avail": st.f_bsize * st.f_bavail}
 
-def cache_add(mtpt, data):
-    global cache
+class Enumerator(object):
+    def __init__(self):
+        self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
 
-    if mtpt == "/":
-        mtpt = "//%s" % gethostname()
+    def _enum_partitions(self, show_cached=False):
+        for dev, mtpt, fstype in read_mtab():
+            yield Partition(mtpt, fstype, cached=False)
+        if show_cached:
+            for mtpt, rest in self.cache.items():
+                yield Partition(mtpt, rest["type"], cached=True)
 
-    cache[mtpt] = data
+    def enum_partitions_system(self, show_cached=False):
+        for part in self._enum_partitions(show_cached):
+            if part.can_skip_mount():
+                Core.debug("skipping %r due to mountpoint", part)
+                continue
+            if part.can_skip_kind():
+                Core.debug("skipping %r due to kind", part)
+                continue
+            if part.can_skip_fstype():
+                Core.debug("skipping %r due to fstype", part)
+                continue
+            Core.debug("adding %r", part)
+            yield part
+
+    def enum_partitions_exact(self, paths):
+        for mtpt in paths:
+            yield Partition(mtpt, fstype=None, cached=False)
+
+    def _add_to_cache(self, mtpt, data):
+        if mtpt == "/":
+            mtpt = "//%s" % gethostname()
+        self.cache[mtpt] = data
+
+    def get_partition_data(self, part):
+        # NOTE: always return live data if part.cached = False
+        if part.cached:
+            return self.cache[part.mtpt]
+        else:
+            data = part.get_fstat()
+            data["type"] = part.fstype
+            if part.can_cache():
+                self._add_to_cache(part.mtpt, data)
+            return data
+
+    def close(self):
+        self.cache.flush()
 
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
@@ -346,24 +386,9 @@ def threshold(total, val):
             return tval
     return tval
 
-def dump_mtpt(part, with_quota=False):
-    global cache
-
+def dump_mtpt(part, data, with_quota=False):
     Core.debug("got %r", part)
-
-    if part.cached:
-        data = cache.get(part.mtpt)
-        if not data:
-            Core.debug("not found in cache, bailing")
-            return
-        Core.debug("processing %r from cache" % part.mtpt)
-    else:
-        data = part.get_fstat()
-        if not data:
-            return
-        Core.debug("processing %r from OS" % part.mtpt)
-        if part.can_cache():
-            cache_add(part.mtpt, {**data, "type": part.fstype})
+    Core.debug("  - %r", data)
 
     total_bytes     = data["total"]
     free_bytes      = data["free"]
@@ -447,32 +472,6 @@ def read_mtab():
             mtpt = unescape_mtab(mtpt)
             yield dev, mtpt, fstype
 
-def enum_partitions(show_cached=False):
-    global cache
-    for dev, mtpt, fstype in read_mtab():
-        yield Partition(mtpt, fstype, cached=False)
-    if show_cached:
-        for mtpt, rest in cache.items():
-            yield Partition(mtpt, rest["type"], cached=True)
-
-def enum_partitions_filtered(show_cached=False):
-    for part in enum_partitions(show_cached):
-        if part.can_skip_mount():
-            Core.debug("skipping %r due to mountpoint", part)
-            continue
-        if part.can_skip_kind():
-            Core.debug("skipping %r due to kind", part)
-            continue
-        if part.can_skip_fstype():
-            Core.debug("skipping %r due to fstype", part)
-            continue
-        Core.debug("adding %r", part)
-        yield part
-
-def enum_partitions_exact(paths):
-    for mtpt in paths:
-        yield Partition(mtpt, fstype=None, cached=False)
-
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
                 help="show unimportant filesystems")
@@ -489,12 +488,11 @@ if not opts.all:
     fs_noskip_mounts.clear()
     fs_skip_kinds |= fs_verbose_kinds
 
-cache = PersistentDict(Env.find_cache_file("diskuse.json"))
-
+en = Enumerator()
 if opts.path:
-    partitions = enum_partitions_exact(opts.path)
+    partitions = en.enum_partitions_exact(opts.path)
 else:
-    partitions = enum_partitions_filtered(show_cached=opts.cached)
+    partitions = en.enum_partitions_system(show_cached=opts.cached)
 partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
@@ -534,10 +532,11 @@ seen_mtpts = set()
 for part in partitions:
     if part.mtpt in seen_mtpts:
         continue
+    data = en.get_partition_data(part)
     group = fs_kind_groups.get(part.kind)
     Core.debug("got %r (priority %r, group %r)", part.mtpt,
                fs_kind_priorities.get(part.kind, 0), group)
-    row = dump_mtpt(part, opts.quota)
+    row = dump_mtpt(part, data, opts.quota)
     if row:
         if this_group and group != this_group:
             print(separator)
@@ -545,4 +544,4 @@ for part in partitions:
         this_group = group
         seen_mtpts.add(part.mtpt)
 
-cache.flush()
+en.close()

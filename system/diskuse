@@ -315,7 +315,7 @@ def get_stat(mtpt):
             "free":  st.f_bsize * st.f_bfree,
             "avail": st.f_bsize * st.f_bavail}
 
-def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
+def dump_mtpt(mtpt, fstype, kind, from_cache=False):
     global cache
 
     Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
@@ -325,13 +325,13 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
         data = cache.get(mtpt)
         if not data:
             Core.debug("not found in cache, bailing")
-            return False
+            return
         Core.debug("processing %r from cache" % mtpt)
         fstype = data["type"]
     else:
         data = get_stat(mtpt)
         if not data:
-            return False
+            return
         Core.debug("processing %r from OS" % mtpt)
         if kind in fs_cache_kinds:
             cache_add(mtpt, {**data, "type": fstype})
@@ -388,10 +388,7 @@ def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
             fmt_percent(disk_part, 1),
         )
 
-    if want_separator:
-        print(separator)
-    print(fmt % row)
-    return True
+    return row
 
 def unescape_mtab(val):
     out = ""
@@ -518,8 +515,11 @@ def dump_all():
                    mtpt, kind, fs_kind_names.get(kind),
                    fs_kind_priorities.get(kind, 0))
         group = fs_kind_groups.get(kind)
-        if dump_mtpt(mtpt, fstype, kind, cached,
-                     want_separator=(thisgroup and group != thisgroup)):
+        row = dump_mtpt(mtpt, fstype, kind, cached)
+        if row:
+            if thisgroup and group != thisgroup:
+                print(separator)
+            print(fmt % row)
             thisgroup = group
             seen_mtpts.add(mtpt)
 

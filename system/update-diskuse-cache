@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+import json
+import os
+import subprocess
+from nullroute.core import Core, Env
+from socket import gethostname
+
+def remote_fstat(host, paths):
+    cmd = "findmnt -J -b -o TARGET,FSTYPE,SIZE,AVAIL,USED %s" % " ".join(paths)
+    cmd = ["ssh", host, cmd] if host else ["sh", "-c", cmd]
+    Core.debug("calling %r", cmd)
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+        out = json.load(proc.stdout)
+        out = out["filesystems"]
+    return out
+
+cache_path = Env.find_cache_file("diskuse.json")
+
+media_dir = "/run/media/%(USER)s" % os.environ
+
+all_disks = {
+    None: {
+        "/": "//%s" % gethostname(),
+    },
+    "radius": {
+        "/mnt/vol5": "%s/vol5_anthology" % media_dir,
+    },
+}
+
+with open(cache_path, "r") as fh:
+    local = json.load(fh)
+
+for host, paths in all_disks.items():
+    for fs in remote_fstat(host, paths.keys()):
+        mtpt = paths[fs["target"]] or fs["target"]
+        local[mtpt] = {
+            "type":  fs["fstype"],
+            "total": int(fs["size"]),
+            "free":  int(fs["size"]) - int(fs["used"]),
+            "avail": int(fs["avail"]),
+        }
+
+with open(cache_path, "w") as fh:
+    json.dump(local, fh)

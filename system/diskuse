@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 # encoding: utf-8
+import json
 import os
 import sys
 import subprocess
 from argparse import ArgumentParser
-from nullroute.core import *
+from nullroute.core import Core, Env
 from nullroute.misc import fmt_size_short
+from socket import gethostname
 
 level_colors = {
     "red":      (196,  9),
     "yellow":   (226, 11),
     "green":    ( 76, 10),
-    "gray":     (255,  7),
+    "gray":     (240,  7),
 }
 
 levels_small = [
@@ -70,6 +72,7 @@ fs_kind_groups = {
 }
 
 fs_kind_prefixes = [
+    ("//",          KIND_NET),
     ("/boot/",      KIND_SYSTEM),
     ("/dev/",       KIND_KERNEL),
     ("/efi/",       KIND_SYSTEM),
@@ -105,10 +108,41 @@ fs_skip_kinds = { KIND_KERNEL }
 
 fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
 
+fs_cache_kinds = { KIND_ROOT, KIND_MEDIA }
+
 fs_skip_mounts = {
+    "//%s" % gethostname(),
     #"/boot",
     #"/efi",
 }
+
+class PersistentDict(dict):
+    def __init__(self, path):
+        self.path = path
+        self.load()
+
+    def load(self):
+        try:
+            with open(self.path, "r") as fh:
+                data = json.load(fh)
+            self.update(data)
+        except FileNotFoundError as e:
+            Core.debug("cache load failed (%r)" % e)
+
+    def flush(self):
+        try:
+            with open(self.path, "w") as fh:
+                json.dump(self, fh)
+        except Exception as e:
+            Core.debug("cache save failed (%r)" % e)
+
+def cache_add(mtpt, data):
+    global cache
+
+    if mtpt == "/":
+        mtpt = "//%s" % gethostname()
+
+    cache[mtpt] = data
 
 def get_user_name():
     return os.environ.get("LOGNAME", "root")
@@ -121,7 +155,8 @@ def get_media_dir():
 
 def _get_cmd_output(*argv):
     proc = subprocess.Popen(argv, stdout=subprocess.PIPE)
-    return proc.stdout.read().strip().decode("utf-8")
+    (out, err) = proc.communicate()
+    return out.decode("utf-8").strip()
 
 def get_dir_fsid(path):
     return _get_cmd_output("stat", "-f", "-c", "%i", path)
@@ -252,6 +287,108 @@ def threshold(total, val):
     Core.debug("returning last value %r" % tval)
     return tval
 
+def get_stat(mtpt):
+    global seen_devnos
+
+    try:
+        st = os.statvfs(mtpt)
+    except (PermissionError, OSError) as e:
+        Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
+        return
+
+    if st.f_blocks == 0:
+        Core.debug("skipping %r: f_blocks == 0" % mtpt)
+        return
+
+    devno = get_fs_devno(mtpt)
+    if devno in seen_devnos:
+        Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
+        return
+
+    seen_devnos.add(devno)
+
+    return {"total": st.f_bsize * st.f_blocks,
+            "free":  st.f_bsize * st.f_bfree,
+            "avail": st.f_bsize * st.f_bavail}
+
+def dump_mtpt(mtpt, fstype, kind, from_cache=False, want_separator=False):
+    global cache
+
+    Core.debug("got mtpt=%r, fstype=%r, kind=%r, from_cache=%r",
+               mtpt, fstype, kind, from_cache)
+
+    if from_cache:
+        data = cache.get(mtpt)
+        if not data:
+            Core.debug("not found in cache, bailing")
+            return False
+        Core.debug("processing %r from cache" % mtpt)
+        fstype = data["type"]
+    else:
+        data = get_stat(mtpt)
+        if not data:
+            return False
+        Core.debug("processing %r from OS" % mtpt)
+        if kind in fs_cache_kinds:
+            cache_add(mtpt, {**data, "type": fstype})
+
+    total_bytes     = data["total"]
+    free_bytes      = data["free"]
+    avail_bytes     = data["avail"]
+
+    used_bytes      = total_bytes - free_bytes
+    quota_bytes     = used_bytes + avail_bytes
+
+    quota_part      = used_bytes / quota_bytes * 100
+    disk_part       = used_bytes / total_bytes * 100
+
+    if from_cache:
+        disk_color      = "gray"
+        quota_color     = "gray"
+    else:
+        disk_color      = threshold(total_bytes, -1)
+        quota_color     = threshold(quota_bytes, 100 - quota_part)
+
+    Core.debug(" - total bytes=%r, used=%.2f%%, free=%.2f%%, color=%r" % (total_bytes, disk_part, 100-disk_part, disk_color))
+    Core.debug(" - quota bytes=%r, used=%.2f%%, free=%.2f%%, color=%r" % (quota_bytes, quota_part, 100-quota_part, quota_color))
+
+    disk_color      = level_colors[disk_color][0]
+    quota_color     = level_colors[quota_color][0]
+
+    if opts.quota:
+        row = (
+            path_shorten(mtpt),
+
+            fmt_size_short(total_bytes, si=opts.si),
+            fmt_size_short(free_bytes, si=opts.si),
+            fmt_size_short(avail_bytes, si=opts.si),
+
+            quota_gauge_width,
+            gauge3x(quota_gauge_width, quota_part, quota_color),
+            fmt_percent(quota_part, 1),
+
+            disk_gauge_width,
+            gauge3x(disk_gauge_width, disk_part, darken(disk_color, 1)),
+            fmt_percent(disk_part, 0),
+        )
+    else:
+        row = (
+            path_shorten(mtpt),
+
+            fmt_size_short(total_bytes, si=opts.si),
+            fmt_size_short(used_bytes, si=opts.si),
+            fmt_size_short(free_bytes, si=opts.si),
+
+            disk_gauge_width,
+            gauge3x(disk_gauge_width, quota_part, quota_color),
+            fmt_percent(disk_part, 1),
+        )
+
+    if want_separator:
+        print(separator)
+    print(fmt % row)
+    return True
+
 def unescape_mtab(val):
     out = ""
     state = 0
@@ -273,32 +410,55 @@ def unescape_mtab(val):
                 state = 0
     return out
 
-def enum_mtab():
-    skip_fstypes = {
-        "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
-    }
+def read_mtab():
     with open("/etc/mtab") as fh:
         for line in fh:
             dev, mtpt, fstype, rest = line.strip().split(None, 3)
             mtpt = unescape_mtab(mtpt)
-            kind = fs_kind_from_path(mtpt, fstype)
-            if mtpt in fs_skip_mounts:
-                Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
-                continue
-            if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
-                Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
-                continue
-            if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
-                Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
-                continue
-            Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
-            yield mtpt, fstype, kind
+            yield dev, mtpt, fstype
+
+def enum_partitions(show_cached=False):
+    global cache
+    for dev, mtpt, fstype in read_mtab():
+        yield (mtpt, fstype, False)
+    if show_cached:
+        for mtpt, rest in cache.items():
+            yield (mtpt, rest["type"], True)
+
+def enum_partitions_filtered(show_cached=False):
+    skip_fstypes = {
+        "afs", "cgroup", "devpts", "devtmpfs", "ecryptfs", "efivarfs", "rootfs", "tmpfs",
+    }
+    for mtpt, fstype, cached in enum_partitions(show_cached):
+        kind = fs_kind_from_path(mtpt, fstype)
+        if mtpt in fs_skip_mounts:
+            Core.debug("skipping mount %r (fs_skip_mounts)" % mtpt)
+            continue
+        if kind in fs_skip_kinds and mtpt not in fs_noskip_mounts:
+            Core.debug("skipping mount %r (fs_skip_kinds[%r])" % (mtpt, kind))
+            continue
+        if fstype in skip_fstypes and mtpt not in fs_noskip_mounts:
+            Core.debug("skipping mount %r (fs_skip_fstypes[%r])" % (mtpt, fstype))
+            continue
+        Core.debug("adding mount %r (kind %r, fstype %r)" % (mtpt, kind, fstype))
+        yield (mtpt, fstype, kind, cached)
+
+def enum_partitions_exact(paths):
+    fstype = None
+    cached = False
+    for mtpt in paths:
+        kind = fs_kind_from_path(mtpt, fstype)
+        yield (mtpt, fstype, kind, cached)
 
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",
                 help="show unimportant filesystems")
+ap.add_argument("-c", "--cached", action="store_true",
+                help="include nonpresent cached filesystems")
 ap.add_argument("--si", action="store_true",
                 help="use SI decimal units, not IEC binary units")
+ap.add_argument("--quota", action="store_true",
+                help="display quota information")
 ap.add_argument("path", nargs="*")
 opts = ap.parse_args()
 
@@ -306,17 +466,19 @@ if not opts.all:
     fs_noskip_mounts.clear()
     fs_skip_kinds |= fs_verbose_kinds
 
-partitions = [(x, None, KIND_NONE) for x in opts.path]
-if not partitions:
-    partitions = list(enum_mtab())
+cache = PersistentDict(Env.find_cache_file("diskuse.json"))
+
+if opts.path:
+    partitions = enum_partitions_exact(opts.path)
+else:
+    partitions = enum_partitions_filtered(show_cached=opts.cached)
+partitions = [*partitions]
 partitions.sort(key=lambda x: x[0])
 partitions.sort(key=lambda x: fs_kind_priorities[x[2]], reverse=True)
 
-quota = False
-
 seen_devnos = set()
 
-if quota:
+if opts.quota:
     quota_gauge_width = 20
     disk_gauge_width = 10
     fmt = " %-16s %7s %7s %7s %-*s %5s %-*s %3s"
@@ -344,88 +506,22 @@ else:
 
 separator = fmt_ansi("-" * len(fmt % header), "2")
 
-def dump_mtpt(mtpt, want_separator=False):
-    try:
-        st = os.statvfs(mtpt)
-    except (PermissionError, OSError) as e:
-        Core.debug("skipping %r: could not statvfs: %r" % (mtpt, e))
-        return False
-
-    if st.f_blocks == 0:
-        Core.debug("skipping %r: f_blocks == 0" % mtpt)
-        return False
-
-    devno = get_fs_devno(mtpt)
-    if devno in seen_devnos:
-        Core.debug("skipping %r: devno %r already seen" % (mtpt, devno))
-        return False
-
-    seen_devnos.add(devno)
-    Core.debug("processing %r" % mtpt)
-
-    total_bytes     = st.f_bsize * st.f_blocks
-    free_bytes      = st.f_bsize * st.f_bfree
-    avail_bytes     = st.f_bsize * st.f_bavail
-
-    used_bytes      = total_bytes - free_bytes
-    quota_bytes     = used_bytes + avail_bytes
-
-    quota_part      = used_bytes / quota_bytes * 100
-    disk_part       = used_bytes / total_bytes * 100
-
-    quota_color     = threshold(quota_bytes, 100 - quota_part)
-    disk_color      = threshold(total_bytes, -1)
-
-    Core.debug(" - total bytes=%r, used=%.2f%%, free=%.2f%%, color=%r" % (total_bytes, disk_part, 100-disk_part, disk_color))
-    Core.debug(" - quota bytes=%r, used=%.2f%%, free=%.2f%%, color=%r" % (quota_bytes, quota_part, 100-quota_part, quota_color))
-
-    disk_color      = level_colors[disk_color][0]
-    quota_color     = level_colors[quota_color][0]
-
-    if quota:
-        row = (
-            path_shorten(mtpt),
-
-            fmt_size_short(total_bytes, si=opts.si),
-            fmt_size_short(free_bytes, si=opts.si),
-            fmt_size_short(avail_bytes, si=opts.si),
-
-            quota_gauge_width,
-            gauge3x(quota_gauge_width, quota_part, quota_color),
-            fmt_percent(quota_part, 1),
-
-            disk_gauge_width,
-            gauge3x(disk_gauge_width, disk_part, darken(disk_color, 2)),
-            fmt_percent(disk_part, 0),
-        )
-    else:
-        row = (
-            path_shorten(mtpt),
-
-            fmt_size_short(total_bytes, si=opts.si),
-            fmt_size_short(used_bytes, si=opts.si),
-            fmt_size_short(free_bytes, si=opts.si),
-
-            disk_gauge_width,
-            gauge3x(disk_gauge_width, quota_part, quota_color),
-            fmt_percent(disk_part, 1),
-        )
-
-    if want_separator:
-        print(separator)
-    print(fmt % row)
-    return True
-
 def dump_all():
     print(fmt_ansi(fmt, "1") % header)
     thisgroup = 0
-    for mtpt, fstype, kind in partitions:
+    seen_mtpts = set()
+    for mtpt, fstype, kind, cached in partitions:
+        if mtpt in seen_mtpts:
+            continue
         Core.debug("got mtpt %r of kind %r (%s) prio %r",
                    mtpt, kind, fs_kind_names.get(kind),
                    fs_kind_priorities.get(kind, 0))
         group = fs_kind_groups.get(kind)
-        if dump_mtpt(mtpt, want_separator=(thisgroup and group != thisgroup)):
+        if dump_mtpt(mtpt, fstype, kind, cached,
+                     want_separator=(thisgroup and group != thisgroup)):
             thisgroup = group
-    Core.debug("finished")
+            seen_mtpts.add(mtpt)
 
 dump_all()
+
+cache.flush()

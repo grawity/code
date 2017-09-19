@@ -72,6 +72,8 @@ fs_kind_groups = {
 }
 
 fs_kind_prefixes = [
+    ("//%s/" % gethostname(),
+                    KIND_KERNEL),
     ("//",          KIND_NET),
     ("/boot/",      KIND_SYSTEM),
     ("/dev/",       KIND_KERNEL),
@@ -107,7 +109,6 @@ fs_noskip_mounts = {
 
 # always skipped
 fs_skip_mounts = {
-    "//%s" % gethostname(),
     #"/boot",
     #"/efi",
 }
@@ -254,9 +255,10 @@ class Enumerator(object):
         for mtpt in paths:
             yield Partition(mtpt, fstype=None)
 
-    def _add_to_cache(self, mtpt, data):
-        if mtpt == "/":
-            mtpt = "//%s" % gethostname()
+    def _add_to_cache(self, part, data):
+        mtpt = part.mtpt
+        if part.kind != KIND_MEDIA:
+            mtpt = "//" + gethostname() + mtpt
         self.cache[mtpt] = data
 
     def get_partition_data(self, part):
@@ -268,7 +270,7 @@ class Enumerator(object):
             if data:
                 data["type"] = part.fstype
                 if part.can_cache():
-                    self._add_to_cache(part.mtpt, data)
+                    self._add_to_cache(part, data)
             return data
 
     def close(self):

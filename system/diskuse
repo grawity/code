@@ -198,13 +198,39 @@ class Partition(object):
                 "free":  st.f_bsize * st.f_bfree,
                 "avail": st.f_bsize * st.f_bavail}
 
+class MtabReader(object):
+    def _unescape(self, val):
+        out = ""
+        state = num = acc = 0
+        for char in val:
+            if state == 0:
+                if char == "\\":
+                    num = acc = 0
+                    state = 1
+                else:
+                    out += char
+            elif state == 1:
+                num += 1
+                acc = (acc << 3) | int(char)
+                if num == 3:
+                    out += chr(acc)
+                    state = 0
+        return out
+
+    def __iter__(self):
+        with open("/etc/mtab") as fh:
+            for line in fh:
+                dev, mtpt, fstype, rest = line.strip().split(None, 3)
+                mtpt = self._unescape(mtpt)
+                yield dev, mtpt, fstype
+
 class Enumerator(object):
     def __init__(self):
         self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
         self.seen_devnos = set()
 
     def _enum_partitions(self, show_cached=False):
-        for dev, mtpt, fstype in read_mtab():
+        for dev, mtpt, fstype in MtabReader():
             yield Partition(mtpt, fstype, cached=False)
         if show_cached:
             for mtpt, rest in self.cache.items():
@@ -443,34 +469,6 @@ def dump_mtpt(part, data, with_quota=False):
         )
 
     return row
-
-def unescape_mtab(val):
-    out = ""
-    state = 0
-    num = 0
-    acc = 0
-    for char in val:
-        if state == 0:
-            if char == "\\":
-                num = 0
-                acc = 0
-                state = 1
-            else:
-                out += char
-        elif state == 1:
-            num += 1
-            acc = (acc << 3) | int(char)
-            if num == 3:
-                out += chr(acc)
-                state = 0
-    return out
-
-def read_mtab():
-    with open("/etc/mtab") as fh:
-        for line in fh:
-            dev, mtpt, fstype, rest = line.strip().split(None, 3)
-            mtpt = unescape_mtab(mtpt)
-            yield dev, mtpt, fstype
 
 ap = ArgumentParser()
 ap.add_argument("-a", "--all", action="store_true",

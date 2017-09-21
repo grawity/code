@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+files=()
+args=()
+mode=0
+
+for arg in "$@"; do
+	if (( mode == 1 )); then
+		args+=("$arg")
+	elif [[ "$arg" == "--" ]]; then
+		mode=1
+	else
+		files+=("$arg")
+	fi
+done
+
+if (( ! ${#args[@]} )); then
+	die "command not specified"
+fi
+
+if (( ! ${#files[@]} )); then
+	warn "files not specified"
+fi
+
+for file in "${files[@]}"; do
+	cargs=()
+	inserted=0
+	for arg in "${args[@]}"; do
+		if [[ "$arg" == "{}" ]]; then
+			arg="$file"
+			inserted=1
+		fi
+		cargs+=("$arg")
+	done
+	if (( ! inserted )); then
+		cargs+=("$file")
+	fi
+	do: "${cargs[@]}"
+done

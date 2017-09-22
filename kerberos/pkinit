@@ -6,11 +6,18 @@ if [[ $1 == -f ]]; then
 	exit
 fi
 
+. lib.bash || exit
+
 err() { echo "error: $*" >&2; false; }
 die() { err "$@"; exit; }
 
 usage() {
-	echo "Usage: ${0##*/} -I <identity> [-P <principal>]"
+	echo "Usage: ${0##*/} <options>"
+	echo
+	echo_opt "-c PATH" "certificate file (PEM)"
+	echo_opt "-k PATH" "private-key file (PEM)"
+	echo_opt "-I IDENTITY" "raw identity specifier (PKCS11:, PKCS12:)"
+	echo_opt "-P NAME" "client principal"
 }
 
 opt_identity=
@@ -18,13 +25,13 @@ opt_principal=
 opt_cert=
 opt_key=
 
-while getopts "c:k:I:P:" OPT; do
+while getopts ":c:k:I:P:" OPT; do
 	case $OPT in
 	c) opt_cert=$OPTARG;;
 	k) opt_key=$OPTARG;;
 	I) opt_identity=$OPTARG;;
 	P) opt_principal=$OPTARG;;
-	*) usage; exit 2;;
+	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 

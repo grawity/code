@@ -403,7 +403,7 @@ case $cmd in
         (( $# )) || set -- "--include=*"
         git annex find "$@" \
             | git annex whereis --batch --fast --json \
-            | jq -r '(.whereis, .untrusted) | .[].urls[]'
+            | jq -r '. as {file: $file} | (.whereis, .untrusted) | .[].urls[] | "\($file) \(.)"'
         ;;
     geturls-attr)
         (( $# )) || set -- "--include=*"
@@ -424,6 +424,13 @@ case $cmd in
         git annex find "$@" \
             | git annex whereis --batch --fast --json \
             | jq -r '@sh "git annex addurl --relaxed --file=\(.file) \((.whereis, .untrusted) | .[].urls[])"'
+        ;;
+    pruneurls)
+        regex=$1; shift
+        git annex find --in web "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
+            | git annex rmurl --batch
         ;;
     # overrides
     addurl)

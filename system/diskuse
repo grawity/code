@@ -127,6 +127,8 @@ fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
 fs_cache_kinds = {
     KIND_ROOT,
     KIND_HOME,
+}
+fs_cond_cache_kinds = {
     KIND_MEDIA,
 }
 
@@ -172,7 +174,12 @@ class Partition(object):
     def can_cache(self):
         if os.path.exists("%s/.diskuse.nocache" % self.mtpt):
             return False
-        return (self.kind in fs_cache_kinds)
+        if self.kind in fs_cond_cache_kinds:
+            if os.path.exists("%s/.diskuse.cache" % self.mtpt):
+                return True
+        if self.kind in fs_cache_kinds:
+            return True
+        return False
 
     def get_fstat(self, seen_devnos):
         try:

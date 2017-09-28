@@ -254,6 +254,7 @@ class Enumerator(object):
             yield Partition(mtpt, fstype=None)
 
     def _add_to_cache(self, part, data):
+        Core.debug("caching %r", part)
         data = {**data, "type": part.fstype}
         mtpt = part.mtpt
         if part.kind != KIND_MEDIA:
@@ -265,7 +266,7 @@ class Enumerator(object):
             return part.cached
         else:
             data = part.get_fstat(self.seen_devnos)
-            if data and part.can_cache():
+            if data and (part.cached or part.can_cache()):
                 self._add_to_cache(part, data)
             return data
 

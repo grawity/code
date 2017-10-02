@@ -6,12 +6,16 @@ host=$1; shift
 
 [[ $host ]] || die "BMC address not specified"
 
+# load alias database
+
 declare -A hosts_args=()
 while read r_host r_args; do
 	if [[ $r_host && $r_host != '#'* && $r_args ]]; then
 		hosts_args["$r_host"]=$r_args
 	fi
 done < ~/.config/nullroute.eu.org/ipmi-servers.txt
+
+# resolve host aliases
 
 args="@$host"
 while [[ $args == @* ]]; do
@@ -21,10 +25,32 @@ while [[ $args == @* ]]; do
 done
 debug "configured options: '$args'"
 
+# find credentials
+
 username=$(getnetrc -df %u "ipmi/$host")
 password=$(getnetrc -df %p "ipmi/$host")
+privlvl=$(getnetrc -df %a "ipmi/$host")
+kgkey=$(getnetrc -df %p "rakp/$host")
+
 [[ $username && $password ]] || die "credentials for 'ipmi/$host' not found"
 
+case ${privlvl,,} in
+	a|admin*|"")	privlvl=ADMINISTRATOR;;
+	o|oper*)	privlvl=OPERATOR;;
+	u|user)		privlvl=USER;;
+esac
+
+# launch the client
+
 info "connecting to $host"
-export IPMI_PASSWORD=$password
-eval 'exec ipmitool -H "$host" -U "$username" -E' "$args" '"$@"'
+
+if [[ $1 == console ]]; then
+	# no env :(
+	exec ipmi-console -h "$host" -k "$kgkey" -u "$username" -p "$password" -l "$privlvl" "${@:2}"
+elif [[ $1 == config ]]; then
+	exec ipmi-config -D lanplus -h "$host" -k "$kgkey" -u "$username" -p "$password" -l "$privlvl" "${@:2}"
+else
+	export IPMI_PASSWORD=$password
+	export IPMI_KGKEY=$kgkey
+	exec ipmitool -I lanplus -H "$host" -K -U "$username" -E -L "$privlvl" "$@"
+fi

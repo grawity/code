@@ -127,6 +127,8 @@ fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY }
 fs_cache_kinds = {
     KIND_ROOT,
     KIND_HOME,
+}
+fs_cond_cache_kinds = {
     KIND_MEDIA,
 }
 
@@ -170,7 +172,14 @@ class Partition(object):
         return False
 
     def can_cache(self):
-        return (self.kind in fs_cache_kinds)
+        if os.path.exists("%s/.diskuse.nocache" % self.mtpt):
+            return False
+        if self.kind in fs_cond_cache_kinds:
+            if os.path.exists("%s/.diskuse.cache" % self.mtpt):
+                return True
+        if self.kind in fs_cache_kinds:
+            return True
+        return False
 
     def get_fstat(self, seen_devnos):
         try:
@@ -245,6 +254,7 @@ class Enumerator(object):
             yield Partition(mtpt, fstype=None)
 
     def _add_to_cache(self, part, data):
+        Core.debug("caching %r", part)
         data = {**data, "type": part.fstype}
         mtpt = part.mtpt
         if part.kind != KIND_MEDIA:
@@ -256,7 +266,7 @@ class Enumerator(object):
             return part.cached
         else:
             data = part.get_fstat(self.seen_devnos)
-            if data and part.can_cache():
+            if data and (part.cached or part.can_cache()):
                 self._add_to_cache(part, data)
             return data
 

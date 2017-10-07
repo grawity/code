@@ -27,12 +27,13 @@ class JsonCache(object):
             pass
         return None
 
-    def save(self, name, data):
+    def save(self, name, data, expiry=0):
+        expiry = expiry or self.expiry
         path = self.get_path(name)
         package = {
             "source": name,
             "obtain": time.time(),
-            "expire": time.time() + self.expiry,
+            "expire": time.time() + expiry,
             "data": data,
         }
         with open(path, "w") as fh:

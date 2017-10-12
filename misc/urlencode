@@ -56,8 +56,12 @@ sub decode {
 			s/<U([0-9A-F]{4,8})>/pack('C', hex($1))/gse;
 		} elsif ($opts{format_xml}) {
 			utf8::decode($_);
-			s/&#(\d+);/chr(int $1)/gse;
-			s/&(\w+);/$entities{$1}/gse;
+			s{&(\w+|#\d+);}{
+				my $name = $1;
+				($name =~ s/^#//)
+					? chr(int($name))
+					: $entities{$name}
+			}gse;
 			utf8::encode($_);
 		} else {
 			if ($opts{format_mq}) {

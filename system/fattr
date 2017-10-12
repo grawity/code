@@ -56,6 +56,26 @@ sub safe_val {
 	}
 }
 
+sub format_val {
+	my ($key, $str) = @_;
+
+	if ($key eq "DOSATTRIB") {
+		my @out;
+		my ($attrib_hex, $version, $rest) = unpack("Z* S> a*", $str);
+		if ($attrib_hex =~ /^0x([0-9A-F]+)$/) {
+			my $bits = hex $1;
+			my $attrib = "";
+			if ($bits & 0x01) { $attrib .= "R"; }
+			if ($bits & 0x02) { $attrib .= "H"; }
+			if ($bits & 0x04) { $attrib .= "S"; }
+			if ($bits & 0x20) { $attrib .= "A"; }
+			push @out, "attrib='$attrib'";
+		}
+		return "{@out}";
+	}
+	return safe_val($str);
+}
+
 sub set_attrs {
 	my ($key, $val, @files) = @_;
 	my $ret = _system("setfattr", "-n", $key, "-v", $val, "--", @files);
@@ -81,8 +101,8 @@ sub _show_file_attrs {
 			_err("cannot read attr '$key' of '$file': $!");
 			++$ret; next;
 		}
-		$key =~ s/^user\.// unless $Opt{all};
-		print "  ".$key." = ".safe_val($val)."\n";
+		$key =~ s/^user\.// unless ($Opt{all} >= 2);
+		print "  ".$key." = ".format_val($key, $val)."\n";
 	}
 	print "\n";
 	return $ret;

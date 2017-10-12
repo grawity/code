@@ -20,6 +20,9 @@ http_fetch() {
 	elif have fetch; then
 		debug "found libfetch"
 		fetch -o "$out" "$url"
+	elif have gio; then
+		debug "found gio"
+		gio cat "$url" > "$out"
 	elif have gvfs-copy && [[ -f $out || ! -e $out ]]; then
 		debug "found gvfs-copy"
 		gvfs-copy "$url" "$out"

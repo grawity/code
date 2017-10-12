@@ -35,7 +35,7 @@ http_fetch() {
 	elif have elinks; then
 		debug "found ELinks"
 		elinks -source "$url" > "$out"
-	elif have php && php -i | grep -qs '^curl$' 2>/dev/null; then
+	elif have php && php -r 'exit((int) !function_exists("curl_init"));'; then
 		debug "found PHP with cURL"
 		php -d 'safe_mode=Off' -- "$url" > "$out" <<-'EOF'
 			<?php

@@ -3,28 +3,9 @@
 . lib.bash || exit
 _log_fprefix[log]=';'
 
-re_priv='^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)'
-
-host_is_private() {
-	local server=$1
-	local addr
-
-	for addr in $(name2addr -m "$server"); do
-		if [[ "$addr" =~ $re_priv ]]; then
-			return 0
-		fi
-	done
-	return 1
-}
-
 try_axfr() {
 	local domain=$1 server=$2
 	local tmp=$(mktemp /tmp/axfr.XXXXXXXX)
-
-	if host_is_private "$server"; then
-		info "skipping unroutable server '$server'"
-		return 1
-	fi
 
 	log "trying server '$server'"
 	HOME=/dev/null dig $domain axfr @$server > "$tmp"

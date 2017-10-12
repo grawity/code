@@ -39,7 +39,8 @@ def file_ext(url):
 class Scraper(object):
     def __init__(self, output_dir="."):
         self.dir = output_dir
-        os.makedirs(self.dir, exist_ok=True)
+        if self.dir:
+            os.makedirs(self.dir, exist_ok=True)
 
         self.ua = requests.Session()
         self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))

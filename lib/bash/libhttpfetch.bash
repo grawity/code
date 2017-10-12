@@ -20,6 +20,9 @@ http_fetch() {
 	elif have fetch; then
 		debug "found libfetch"
 		fetch -o "$out" "$url"
+	elif have gio; then
+		debug "found gio"
+		gio cat "$url" > "$out"
 	elif have gvfs-copy && [[ -f $out || ! -e $out ]]; then
 		debug "found gvfs-copy"
 		gvfs-copy "$url" "$out"
@@ -32,14 +35,7 @@ http_fetch() {
 	elif have elinks; then
 		debug "found ELinks"
 		elinks -source "$url" > "$out"
-	elif have python2; then
-		debug "found Python 2 (using urllib)"
-		python2 - "$url" > "$out" <<-'EOF'
-			import sys, urllib2
-			try: sys.stdout.write(urllib2.urlopen(sys.argv[1]).read())
-			except: sys.exit(1)
-		EOF
-	elif have php && php -i | grep -qs '^curl$' 2>/dev/null; then
+	elif have php && php -r 'exit((int) !function_exists("curl_init"));'; then
 		debug "found PHP with cURL"
 		php -d 'safe_mode=Off' -- "$url" > "$out" <<-'EOF'
 			<?php
@@ -50,6 +46,13 @@ http_fetch() {
 	elif have php; then
 		debug "found PHP (using url_fopen)"
 		php -d 'allow_url_fopen=On' -r '@readfile($argv[1]);' "$url" > "$out"
+	elif have python2; then
+		debug "found Python 2 (using urllib)"
+		python2 - "$url" > "$out" <<-'EOF'
+			import sys, urllib2
+			try: sys.stdout.write(urllib2.urlopen(sys.argv[1]).read())
+			except: sys.exit(1)
+		EOF
 	elif have perl && perl -m'LWP::Simple' -e'1' 2> /dev/null; then
 		debug "found Perl with LWP::Simple"
 		perl -M'LWP::Simple' -e'getstore $ARGV[0], $ARGV[1]' "$url" "$out"

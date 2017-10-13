@@ -44,10 +44,10 @@ def annex_run(*cmd):
     return subprocess.call(["git", "annex", *cmd])
 
 def getkeysize(key):
-    kk = key.split("--")
-    kk = kk[0].split("-")
-    for item in kk:
-        if item.startswith("s"):
+    for item in key.split("-"):
+        if item == "":
+            break
+        elif item[0] == "s":
             return int(item[1:])
     raise ValueError("no 'size' field in key %r" % key)
 
@@ -117,7 +117,10 @@ n_found = len(unused)
 sz_found = 0
 items = []
 for num, key in unused:
-    size = getkeysize(key)
+    try:
+        size = getkeysize(key)
+    except ValueError:
+        size = 0
     sz_found += size
     name = get_last_path(key)
     name = os.path.basename(name) if name else key

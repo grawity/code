@@ -38,7 +38,7 @@ sub do_rename {
 		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4/;
 
 		# GNOME Shell
-		s/^Screenshot from ($qr_y_m_d) (\d+):(\d+):(\d+)/$1.$2$3$4/;
+		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)/$1.$2$3$4/;
 
 		# Dropbox on Android
 		s/^($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/Screenshot_$1.$2$3$4/;
@@ -49,6 +49,8 @@ sub do_rename {
 
 		# Android (??)
 		s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/Screenshot_$1.$2$3$4/;
+
+		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4/;
 	}
 
 	if ($new_name eq $old_name) {
@@ -97,6 +99,12 @@ sub do_dirs {
 	}
 }
 
-do_dirs(".");
+for (@ARGV || (".")) {
+	if (-d) {
+		do_dirs($_);
+	} else {
+		do_rename($_);
+	}
+}
 
 Nullroute::Lib::_exit();

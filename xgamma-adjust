@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use POSIX qw(ceil floor);
+
+sub log10 { log(shift) / log(10); }
+
+sub clamp {
+	my ($val, $min, $max) = @_;
+	return ($val < $min) ? $min : ($val > $max) ? $max : $val;
+}
+
+my $set = undef;
+my $adj = undef;
+
+if (!@ARGV) {
+	$set = 1.0;
+} elsif ($ARGV[0] =~ /^[-+]/) {
+	$adj = $ARGV[0] + 0.0;
+} else {
+	$set = $ARGV[0] + 0.0;
+}
+
+my $min = 0.1;
+my $max = 10.0;
+
+sub show_osd {
+	my ($label, $icon, $level) = @_;
+
+	$level = clamp($level, 0.1, 100); # it doesn't like zero
+
+	system("busctl", "call", "--user",
+		"org.gnome.Shell",
+		"/org/gnome/Shell",
+		"org.gnome.Shell", "ShowOSD",
+		"a{sv}", 3,
+			"label" => "s" => $label,
+			"icon" => "s" => $icon,
+			"level" => "u" => $level);
+
+	#system("gdbus", "call", "-e",
+	#	"-d", "org.gnome.Shell",
+	#	"-o", "/org/gnome/Shell",
+	#	"-m", "org.gnome.Shell.ShowOSD",
+	#	"{'label': <'$label'>, 'icon': <'$icon'>, 'level': <$level>}");
+}
+
+my ($red, $green, $blue);
+
+open(STDOUT, ">", "/dev/null");
+open(STDERR, ">", "/dev/null");
+
+if (defined($adj)) {
+	if (`xgamma 2>&1` =~ /Red\s+([\d.]+), Green\s+([\d.]+), Blue\s+([\d.]+)/) {
+		$red = $1 + 0.0;
+		$green = $2 + 0.0;
+		$blue = $3 + 0.0;
+	}
+	$red = clamp($red + $adj, $min, $max);
+	$green = clamp($green + $adj, $min, $max);
+	$blue = clamp($blue + $adj, $min, $max);
+} else {
+	$red = $green = $blue = clamp($set, $min, $max);
+}
+
+system("xgamma",
+	"-rgamma", $red,
+	"-ggamma", $green,
+	"-bgamma", $blue);
+
+my $avg = ($red + $green + $blue) / 3.0;
+my $level = ceil(log($avg) / log($max) / 2 * 100) + 50;
+
+show_osd(sprintf("Gamma: %.01f", $avg), "camera-photo-symbolic", $level);

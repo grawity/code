@@ -11,22 +11,76 @@ url_size() {
 	echo $size
 }
 
+algo=""
+name=""
+size=-1
+url=""
+use_ext=1
 
-url=$1
+while getopts ":125u:s:" OPT; do
+	case $OPT in
+	1) algo=SHA1;;
+	2) algo=SHA256;;
+	5) algo=MD5;;
+	s) size=$OPTARG;;
+	u) url=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+name=$1
 hash=$2
 
-if [[ $url == */ || $url == *[?#]* ]]; then
-	die "URL does not point to a file"
+algo=${algo^^}
+hash=${hash,,}
+
+if [[ ! $algo ]]; then
+	case ${#hash} in
+		32)	algo=MD5;;
+		40)	algo=SHA1;;
+		64)	algo=SHA256;;
+		*)	die "could not guess algorithm for given hash";;
+	esac
+	notice "guessing '$algo' as hash algorithm"
 fi
 
-name=$(basename "$url")
-size=$(url_size "$url")
-ext=
-if [[ $name == *.* ]]; then
-	ext=.${name##*.}
-fi
-link="SHA256E-s${size}--${hash}${ext}"
+case $algo in
+	MD5)	hash_re='^[0-9a-f]{32}$';;
+	SHA1)	hash_re='^[0-9a-f]{40}$';;
+	SHA256)	hash_re='^[0-9a-f]{64}$';;
+esac
 
-ln -nsf ".git/annex/objects/$link" "$name"
+if [[ ! $hash_re ]]; then
+	die "unknown hash algorithm '$algo'"
+elif [[ ! $hash =~ $hash_re ]]; then
+	die "hash does not match the format for $algo"
+fi
+
+if [[ $url ]]; then
+	if [[ $url == */ || $url == *[?#]* ]]; then
+		die "URL does not point to a file"
+	fi
+	name=$(basename "$url")
+	size=$(url_size "$url")
+fi
+
+if (( size == -1 )); then
+	warn "size (-s) was not specified"
+fi
+
+link=".git/annex/objects/"
+link+="$algo"
+if (( use_ext )); then
+	link+="E"
+fi
+if (( size != -1 )); then
+	link+="-s$size"
+fi
+link+="--$hash"
+if (( use_ext )) && [[ $name == *.* ]]; then
+	link+=".${name##*.}"
+fi
+
+ln -nsf "$link" "$name"
 git annex add "$name"
 git annex info "$name"

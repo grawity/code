@@ -25,12 +25,12 @@ for dir in "${dirs[@]}"; do
 
 		mv -v "$src" "$dst"
 
-		mv "$dst/logs/refs/remotes/origin/"* "$dst/logs/refs/heads/"
-
-		git -C "$dst" update-ref -d "refs/remotes/origin/HEAD"
+		git -C "$dst" update-ref -d --no-deref "refs/remotes/origin/HEAD"
+		git -C "$dst" push . "+refs/remotes/origin/*:refs/heads/*"
 		git -C "$dst" pack-refs --all --prune
-		rm -rf "$dst/refs"
-		mkdir "$dst/refs"
+
+		mkdir -p "$dst/logs/refs/heads"
+		mv "$dst/logs/refs/remotes/origin/"* "$dst/logs/refs/heads/"
 
 		git -C "$dst" config core.bare true
 		git -C "$dst" config --unset-all remote.origin.fetch
@@ -42,7 +42,10 @@ for dir in "${dirs[@]}"; do
 			while read -r line; do
 				git -C "$dst" config --remove-section "$line"
 			done
-		git -C "$dst" fetch --all
+
+		log "fetching from remote"
+		git -C "$dst" fetch origin
+
 		git -C "$dst" for-each-ref |
 			while read -r _ _ ref; do
 				if [[ $ref == refs/remotes/* ]]; then
@@ -51,6 +54,10 @@ for dir in "${dirs[@]}"; do
 			done
 		git -C "$dst" gc
 		git -C "$dst" prune
+
+		rm -f "$dst"/index
+		rm -f "$dst"/{COMMIT_EDITMSG,FETCH_HEAD,ORIG_HEAD}
+		rdempty --quiet "$dst"
 
 		log "deleting old worktree"
 		find "$base" -print -delete | progress

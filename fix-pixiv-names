@@ -2,32 +2,24 @@
 import argparse
 import bs4
 from functools import lru_cache
-from nullroute.core import *
+from nullroute.core import Core
 from nullroute.misc import filter_filename
-import nullroute.sec
+from nullroute.api.pixiv import PixivClient
 import os
-import pixivpy3
 from pprint import pprint
 import re
-import requests
 from requests.exceptions import HTTPError
 
 # TODO: https://danbooru.donmai.us/wiki_pages/58938
 # TODO: https://github.com/r888888888/danbooru/issues/2383
 
-class PixivApi(object):
+class PixivApi(PixivClient):
     MEMBER_URL = "http://www.pixiv.net/member.php?id=%s"
     ILLUST_URL = "http://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
 
     def __init__(self):
-        self.ua = requests.Session()
-        self.api = pixivpy3.PixivAPI()
-
-    def _auth(self):
-        if not self.api.user_id:
-            creds = nullroute.sec.get_netrc_service("pixiv.net", "api")
-            Core.debug("logging in as %r" % creds)
-            self.api.login(creds["login"], creds["password"])
+        super().__init__()
+        self._authenticate()
 
     def fmt_member_tag(self, member_id, member_name):
         member_name = re.sub("(@|＠).*", "", member_name)
@@ -68,7 +60,6 @@ class PixivApi(object):
 
     @lru_cache(maxsize=1024)
     def get_illust_info(self, illust_id):
-        self._auth()
         resp = self.api.works(illust_id)
         if resp["status"] == "success":
             return resp["response"][0]
@@ -77,7 +68,6 @@ class PixivApi(object):
 
     @lru_cache(maxsize=1024)
     def get_member_info(self, member_id):
-        self._auth()
         resp = self.api.users(member_id)
         if resp["status"] == "success":
             return resp["response"][0]

@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-from nullroute.core import *
+from nullroute.core import Core
 from nullroute.misc import set_file_attr, set_file_attrs
-import nullroute.sec
-import pixivpy3
+from nullroute.api.pixiv import PixivClient
+import os
 import re
-import requests
 import sys
-import time
 
 def is_nonempty(file):
     if os.path.exists(file):
@@ -14,7 +12,7 @@ def is_nonempty(file):
             return True
     return False
 
-class PixivGrabber(object):
+class PixivGrabber(PixivClient):
     member_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?id=(?P<id>\d+)")
     illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
     bigpage_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga_big)&illust_id=(?P<id>\d+)&page=(?P<page>\d+)")
@@ -23,20 +21,9 @@ class PixivGrabber(object):
     illust_fmt = "http://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s"
 
     def __init__(self):
+        super().__init__()
         self.write_log = True
-
-        self.ua = requests.Session()
-        self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
-        self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
-
-        self.api = pixivpy3.PixivAPI()
-        self._auth()
-
-    def _auth(self):
-        if not self.api.user_id:
-            creds = nullroute.sec.get_netrc_service("pixiv.net", "api")
-            Core.info("logging in to Pixiv")
-            self.api.login(creds["login"], creds["password"])
+        self._authenticate()
 
     def _check(self, r):
         if r.status != "success":

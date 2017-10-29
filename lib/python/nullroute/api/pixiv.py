@@ -7,6 +7,8 @@ import requests
 import time
 
 class PixivClient():
+    TOKEN_PATH = Env.find_cache_file("pixiv.auth.json")
+
     def __init__(self):
         self.api = pixivpy3.PixivAPI()
         self.ua = requests.Session()
@@ -17,20 +19,18 @@ class PixivClient():
     # OAuth token persistence
 
     def _load_token(self):
-        path = Env.find_cache_file("pixiv.auth.json")
         try:
-            with open(path, "r") as fh:
+            with open(self.TOKEN_PATH, "r") as fh:
                 data = json.load(fh)
             return data
         except FileNotFoundError:
             return None
         except Exception as e:
-            Core.debug("could not load %r: %r", path, e)
+            Core.debug("could not load %r: %r", self.TOKEN_PATH, e)
             self._forget_token()
             return None
 
     def _store_token(self, token):
-        path = Env.find_cache_file("pixiv.auth.json")
         data = {
             "access_token": token.response.access_token,
             "refresh_token": token.response.refresh_token,
@@ -38,16 +38,15 @@ class PixivClient():
             "user_id": token.response.user.id,
         }
         try:
-            with open(path, "w") as fh:
+            with open(self.TOKEN_PATH, "w") as fh:
                 json.dump(data, fh)
             return True
         except Exception as e:
-            Core.warn("could not write %r: %r", path, e)
+            Core.warn("could not write %r: %r", self.TOKEN_PATH, e)
             return False
 
     def _forget_token(self):
-        path = Env.find_cache_file("pixiv.auth.json")
-        os.unlink(path)
+        os.unlink(self.TOKEN_PATH)
 
     # API authentication
 

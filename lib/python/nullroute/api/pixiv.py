@@ -29,13 +29,13 @@ class PixivClient():
             self._forget_token()
             return None
 
-    def _store_token(self):
+    def _store_token(self, token):
         path = Env.find_cache_file("pixiv.auth.json")
         data = {
-            "user_id": self.api.user_id,
-            "access_token": self.api.access_token,
-            "refresh_token": self.api.refresh_token,
-            "token_expires": int(time.time() + 3600),
+            "access_token": token.response.access_token,
+            "refresh_token": token.response.refresh_token,
+            "expires_at": int(time.time() + token.response.expires_in),
+            "user_id": token.response.user.id,
         }
         try:
             with open(path, "w") as fh:
@@ -62,7 +62,7 @@ class PixivClient():
 
         data = self._load_token()
         if data:
-            if data["token_expires"] > time.time():
+            if data.get("expires_at", -1) > time.time():
                 Core.debug("access token within expiry time, using as-is")
                 self.api.user_id = data["user_id"]
                 self.api.access_token = data["access_token"]
@@ -71,24 +71,24 @@ class PixivClient():
             else:
                 Core.debug("access token has expired, renewing")
                 try:
-                    self.api.auth(refresh_token=data["refresh_token"])
+                    token = self.api.auth(refresh_token=data["refresh_token"])
                 except Exception as e:
                     Core.warn("could not refresh access token: %r", e)
                     self._forget_token()
                 else:
-                    self._store_token()
+                    self._store_token(token)
                     return True
 
         data = self._load_creds()
         if data:
             Core.info("logging in to Pixiv as %r", data["login"])
             try:
-                self.api.auth(username=data["login"],
-                              password=data["password"])
+                token = self.api.auth(username=data["login"],
+                                      password=data["password"])
             except Exception as e:
                 Core.warn("could not log in using username & password: %r", e)
             else:
-                self._store_token()
+                self._store_token(token)
                 return True
 
         Core.die("could not log in to Pixiv (no credentials)")

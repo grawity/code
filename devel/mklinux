@@ -20,6 +20,20 @@ if [ -e "$config" ]; then
 	. "$config" || die "could not load configuration file"
 fi
 
+opt_jobs=0
+
+while getopts ":j:" OPT; do
+	case $OPT in
+	j) opt_jobs=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( opt_jobs )); then
+	export MAKEFLAGS="-j $opt_jobs"
+	debug "setting MAKEFLAGS to '$MAKEFLAGS'"
+fi
+
 if [ ! "$noidle" ]; then
 	debug "calling ionice on $$"
 	ionice -c 3 -p $$

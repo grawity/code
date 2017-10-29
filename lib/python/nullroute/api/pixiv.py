@@ -62,7 +62,12 @@ class PixivClient():
 
         data = self._load_token()
         if data:
-            if data.get("expires_at", -1) > time.time():
+            if os.environ.get("FORCE_TOKEN_REFRESH"):
+                token_valid = False
+            else:
+                token_valid = data["expires_at"] > time.time()
+
+            if token_valid:
                 Core.debug("access token within expiry time, using as-is")
                 self.api.user_id = data["user_id"]
                 self.api.access_token = data["access_token"]

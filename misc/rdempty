@@ -1,7 +1,13 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Getopt::Long;
 use Nullroute::Lib;
+
+my %Opt = (
+	undo => 0,
+	quiet => 0,
+);
 
 sub is_gitdir {
 	my ($dir) = @_;
@@ -49,7 +55,7 @@ sub clean {
 		_debug("skipping '$root' (Git repo)");
 	}
 	elsif (rmdir($root)) {
-		_info("removed: $root");
+		_info("removed: $root") unless $Opt{quiet};
 	}
 	elsif ($!{ENOTEMPTY}) {
 		;
@@ -70,21 +76,26 @@ sub undo {
 
 	for (reverse @dirs) {
 		if (mkdir($_)) {
-			_info("created $_");
+			_info("created $_") unless $Opt{quiet};
 		} else {
 			_err("cannot create '$_': $!");
 		}
 	}
 }
 
-if (@ARGV) {
-	if ($ARGV[0] eq "--undo") {
-		undo();
-		exit !!$::errors;
-	}
+GetOptions(
+	"undo" => \$Opt{undo},
+	"quiet!" => \$Opt{quiet},
+) || exit(2);
+
+if ($Opt{undo}) {
+	undo();
+}
+elsif (@ARGV) {
 	clean($_) for @ARGV;
-} else {
+}
+else {
 	clean(".");
 }
 
-exit !!$::errors;
+exit(!!$::errors);

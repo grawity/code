@@ -1,13 +1,17 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Socket qw(AI_CANONNAME getaddrinfo);
 use Sys::Hostname;
 
 sub getfqdn {
 	my ($host) = @_;
 
-	my @res = gethostbyname($host);
-	return $res[0] // $host;
+	my $hints = {flags => AI_CANONNAME};
+
+	my ($err, @res) = getaddrinfo($host, undef, $hints);
+
+	return @res ? $res[0]->{canonname} : $host;
 }
 
 if (@ARGV) {

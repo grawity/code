@@ -2,15 +2,17 @@
 
 paths=(
 	# Arch
-	/usr/share/git/diff-highlight/diff-highlight
+	/usr/share/git/diff-highlight
 
 	# Debian
-	/usr/share/doc/git/contrib/diff-highlight/diff-highlight
+	/usr/share/doc/git/contrib/diff-highlight
 )
 
 for p in "${paths[@]}"; do
-	if [[ -f "$p" ]]; then
-		exec perl "$p" "$@"
+	if [[ -f "$p/diff-highlight" ]]; then
+		exec perl "$p/diff-highlight" "$@"
+	elif [[ -f "$p/DiffHighlight.pm" && -f "$p/diff-highlight.perl" ]]; then
+		exec perl -I"$p" -M"DiffHighlight" "$p/diff-highlight.perl" "$@"
 	fi
 done
 

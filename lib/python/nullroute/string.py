@@ -122,5 +122,29 @@ def fmt_duration(secs):
     elif d > 14:    return "%sd" % (d,)
     elif d > 0:     return "%sd %sh" % (d, h)
     elif h > 0:     return "%sh %sm" % (h, m)
-    elif m > 0:     return "%sm" % (m,)
+    elif m > 9:     return "%sm" % (m,)
+    elif m > 0:     return "%sm %ss" % (m, s)
     else:           return "%ss" % (s,)
+
+def parse_duration(arg):
+    import re
+    pat = r"""
+        ^
+        \s* (?: (?P<d> \d+ ) y )?
+        \s* (?: (?P<d> \d+ ) d )?
+        \s* (?: (?P<h> \d+ ) h )?
+        \s* (?: (?P<m> \d+ ) m )?
+        \s* (?: (?P<s> \d+ ) s? )?
+        $
+    """
+    t = 0
+    m = re.match(pat, arg, re.X)
+    if m:
+        if m["y"]: t += int(m["y"]) * 60*60*24*365
+        if m["d"]: t += int(m["d"]) * 60*60*24
+        if m["h"]: t += int(m["h"]) * 60*60
+        if m["m"]: t += int(m["m"]) * 60
+        if m["s"]: t += int(m["s"])
+    else:
+        raise ValueError("malformed duration %r" % arg)
+    return t

@@ -130,7 +130,7 @@ def parse_duration(arg):
     import re
     pat = r"""
         ^
-        \s* (?: (?P<d> \d+ ) y )?
+        \s* (?: (?P<y> \d+ ) y )?
         \s* (?: (?P<d> \d+ ) d )?
         \s* (?: (?P<h> \d+ ) h )?
         \s* (?: (?P<m> \d+ ) m )?

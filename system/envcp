@@ -2,7 +2,7 @@
 from __future__ import print_function
 import os
 import sys
-from nullroute.core import *
+from nullroute.core import Core
 
 def usage():
     print("Usage: envcp <pid> <command> [args ...]",
@@ -13,7 +13,7 @@ def read_env(pid):
     try:
         fd = open("/proc/%d/environ" % pid, "rb")
     except IOError as e:
-        err("[%d] %s: %s" % (e.errno, e.strerror, e.filename))
+        Core.err("could not access environment: %s" % e)
         return None
     env = fd.read().split(b'\0')
     return dict(k.split(b'=', 1) for k in env if k != b'')
@@ -22,18 +22,16 @@ try:
     pid = int(sys.argv[1])
     cmd = sys.argv[2:]
 except IndexError:
-    # not enough arguments
     usage()
 except ValueError:
-    # pid is not integer
-    err("pid must be an integer")
-    usage()
+    Core.die("pid must be an integer")
 
 if not len(cmd):
     cmd = ["/usr/bin/env"]
 
 env = read_env(pid)
-if env:
-    os.execvpe(cmd[0], cmd, env)
-else:
-    sys.exit(1)
+
+if not env:
+    Core.warn("environment appears to be empty")
+
+os.execvpe(cmd[0], cmd, env)

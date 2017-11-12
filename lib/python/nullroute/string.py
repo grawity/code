@@ -44,16 +44,15 @@ def filter_filename(name, safe=False):
         name = name.replace("~", "∼")
     return name
 
-def fmt_size_short(nbytes, decimals=1, si=False, unit=""):
+def fmt_size_short(nbytes, decimals=1, si=False):
     prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
     exp = 0
     while nbytes >= div:
         nbytes /= div
         exp += 1
-    return "%.*f%s%s" % (decimals, nbytes,
-                         prefixes[exp] if exp else "",
-                         unit)
+    return "%.*f%s" % (decimals, nbytes,
+                       prefixes[exp] if exp else "")
 
 def fmt_size(nbytes, decimals=1, si=False, full_bytes=True):
     if nbytes == 0:

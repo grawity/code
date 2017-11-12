@@ -47,11 +47,11 @@ def filter_filename(name, safe=False):
 def fmt_size_short(nbytes, decimals=1, si=False):
     prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
-    exp = 0
-    while nbytes >= div:
-        nbytes /= div
-        exp += 1
-    return "%.*f%s" % (decimals, nbytes,
+    if nbytes == 0:
+        return "0"
+    exp = int(math.log(nbytes, div)) if nbytes else 0
+    exp = min(exp, len(prefixes) - 1)
+    return "%.*f%s" % (decimals, nbytes / div**exp,
                        prefixes[exp] if exp else "")
 
 def fmt_size(nbytes, decimals=1, si=False, full_bytes=True):

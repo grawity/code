@@ -20,21 +20,20 @@ void swrite(int fd, const void *buf, size_t nb) {
 int main(int argc, char *argv[]) {
 	unsigned char buf[BUFSIZE];
 	size_t buflen;
-	unsigned i, key = 0, incr = 1, step = 1;
+	unsigned i, key = 0, incr = 1, shift = 0;
 
 	if (argc < 3)
-		errx(2, "usage: xors <key> [<incr> [<step>]]");
+		errx(2, "usage: xors <key> [<incr> [<shift>]]");
 
 	if (argc > 1) key = atoi(argv[1]);
 	if (argc > 2) incr = atoi(argv[2]);
-	if (argc > 3) step = atoi(argv[3]);
+	if (argc > 3) shift = atoi(argv[3]);
 
 	while ((buflen = read(0, buf, BUFSIZE))) {
 		for (i = 0; i < buflen; i++) {
-			if (i > 0 && i % step == 0)
-				key += incr;
 			key %= 256;
-			buf[i] ^= key;
+			buf[i] ^= (key >> shift);
+			key += incr;
 		}
 		swrite(1, buf, buflen);
 	}

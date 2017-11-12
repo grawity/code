@@ -45,13 +45,14 @@ def filter_filename(name, safe=False):
     return name
 
 def fmt_size_short(nbytes, decimals=1, si=False):
-    prefixes = "BkMGTPEZYH"
+    prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
     exp = 0
     while nbytes >= div:
         nbytes /= div
         exp += 1
-    return "%.*f%s" % (decimals, nbytes, prefixes[exp])
+    return "%.*f%s" % (decimals, nbytes,
+                       prefixes[exp] if exp else "")
 
 def fmt_size(nbytes, decimals=1, si=False, full_bytes=True):
     if nbytes == 0:

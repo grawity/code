@@ -54,10 +54,7 @@ def fmt_size_short(nbytes, decimals=1, si=False):
     return "%.*f%s" % (decimals, nbytes / div**exp,
                        prefixes[exp] if exp else "")
 
-def fmt_size(nbytes, decimals=1, si=False,
-             unit="B", long_unit=None, full_bytes=True):
-    if (full_bytes) and (unit == "B") and (not long_unit):
-        long_unit = "bytes"
+def fmt_size(nbytes, decimals=1, si=False, unit="B", long_unit="bytes"):
     prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
     if nbytes == 0:

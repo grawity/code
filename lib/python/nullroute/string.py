@@ -54,19 +54,22 @@ def fmt_size_short(nbytes, decimals=1, si=False):
     return "%.*f%s" % (decimals, nbytes / div**exp,
                        prefixes[exp] if exp else "")
 
-def fmt_size(nbytes, decimals=1, si=False, full_bytes=True):
+def fmt_size(nbytes, decimals=1, si=False,
+             unit="B", long_unit=None, full_bytes=True):
+    if (full_bytes) and (unit == "B") and (not long_unit):
+        long_unit = "bytes"
     prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
     if nbytes == 0:
-        return "0 %s" % ("bytes" if full_bytes else "B")
+        return "0 %s" % (long_unit or unit)
     exp = int(math.log(nbytes, div))
     exp = min(exp, len(prefixes) - 1)
     if exp == 0:
         return "%.*f %s" % (decimals, nbytes,
-                            "bytes" if full_bytes else "B")
+                            long_unit or unit)
     else:
-        return "%.*f %sB" % (decimals, nbytes / div**exp,
-                             prefixes[exp] if exp else "")
+        return "%.*f %s%s" % (decimals, nbytes / div**exp,
+                             prefixes[exp] if exp else "", unit)
 
 def unescape(line):
     state = 0

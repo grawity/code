@@ -3,8 +3,19 @@
 . lib.bash || exit
 
 base=$(git config --get web.url)
-type=$(git config --get web.type || echo cgit)
+type=$(git config --get web.type)
 head=$(git rev-parse --short=12 HEAD)
+
+if [[ ! $type ]]; then
+	case $base in
+	https://github.com/*)
+		type='github';;
+	*/cgit/*)
+		type='cgit';;
+	*)
+		die "unknown type for url '$base'";;
+	esac
+fi
 
 if [[ ! $base ]]; then
 	remote=$(git remote get-url origin)
@@ -32,7 +43,7 @@ is_file() {
 
 for name; do
 	debug "arg: '$name'"
-	if t=$(git rev-parse --short=16 "$name") && [[ $t ]]; then
+	if t=$(git rev-parse --short=20 "$name") && [[ $t ]]; then
 		: ${mode:=commit}
 		head=$t
 	elif t=$prefix$name && is_file "$name"; then

@@ -1,15 +1,53 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-schema=org.gnome.desktop.wm.keybindings
-setting=switch-group
-onvalue="['<Alt>Above_Tab']"
-offvalue="[]"
+. lib.bash || exit
 
-current=$(gsettings get "$schema" "$setting")
+state=$path_data/backtick.state.sh
 
-if [ "$current" == "$onvalue" ]
-    then new=$offvalue; echo disabling
-    else new=$onvalue;  echo enabling
+declare -i is_disabled=0
+declare -- schema=
+declare -- key=
+declare -- value=
+
+if [[ -f "$state" ]]; then
+	. "$state" || rm -f "$state"
 fi
 
-gsettings set "$schema" "$setting" "$new"
+if (( is_disabled )); then
+	debug "already disabled according to state; re-setting original values"
+	debug " - schema = $schema"
+	debug " - key = $key"
+	debug " - value = \"${value}\""
+	info "re-enabling Alt+Backtick"
+	gsettings set "$schema" "$key" "$value"
+	is_disabled=0
+else
+	debug "currently enabled; searching for matching settings"
+	schema="org.gnome.desktop.wm.keybindings"
+	unset key
+	unset value
+	re="'<Alt>Above_Tab'"
+	while read -r r_schema r_key r_value; do
+		if [[ $r_value == *$re* ]]; then
+			debug "probably found a match"
+			debug " - schema = $r_schema"
+			debug " - key = $r_key"
+			debug " - value = $r_value"
+			schema=$r_schema
+			key=$r_key
+			value=$r_value
+		fi
+	done < <(gsettings list-recursively "$schema")
+	if [[ $schema && $key && $value ]]; then
+		new_value=${value//"$re"/}
+		new_value=${new_value//"[, "/"["}
+		new_value=${new_value//", ]"/"]"}
+		info "disabling Alt+Backtick"
+		gsettings set "$schema" "$key" "$new_value"
+		is_disabled=1
+	else
+		die "could not find apropriate setting"
+	fi
+fi
+
+declare -p is_disabled schema key value > "$state"

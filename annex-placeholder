@@ -31,8 +31,11 @@ done; shift $((OPTIND-1))
 name=$1
 hash=$2
 
-algo=${algo^^}
-hash=${hash,,}
+if [[ $name == */* && ! $url ]]; then
+	notice "name is an URL; automatically using basename"
+	url=$name
+	name=${url##*/}
+fi
 
 if [[ ! $algo ]]; then
 	case ${#hash} in
@@ -43,6 +46,9 @@ if [[ ! $algo ]]; then
 	esac
 	notice "guessing '$algo' as hash algorithm"
 fi
+
+algo=${algo^^}
+hash=${hash,,}
 
 case $algo in
 	MD5)	hash_re='^[0-9a-f]{32}$';;

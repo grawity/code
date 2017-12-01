@@ -7,6 +7,7 @@ import requests
 import time
 
 class PixivClient():
+    TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
     TOKEN_PATH = Env.find_cache_file("pixiv.auth.json")
 
     def __init__(self):
@@ -20,15 +21,22 @@ class PixivClient():
 
     def _load_token(self):
         try:
-            with open(self.TOKEN_PATH, "r") as fh:
-                data = json.load(fh)
-            return data
-        except FileNotFoundError:
-            return None
-        except Exception as e:
-            Core.debug("could not load %r: %r", self.TOKEN_PATH, e)
-            self._forget_token()
-            return None
+            data = nullroute.sec.get_libsecret({"xdg:schema": self.TOKEN_SCHEMA,
+                                                "domain": "pixiv.net"})
+            Core.debug("found OAuth token in keyring")
+            return json.loads(data)
+        except KeyError:
+            try:
+                with open(self.TOKEN_PATH, "r") as fh:
+                    data = json.load(fh)
+                Core.debug("found OAuth token in filesystem")
+                return data
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                Core.debug("could not load %r: %r", self.TOKEN_PATH, e)
+                self._forget_token()
+        return None
 
     def _store_token(self, token):
         data = {
@@ -37,6 +45,13 @@ class PixivClient():
             "expires_at": int(time.time() + token.response.expires_in),
             "user_id": token.response.user.id,
         }
+        Core.debug("storing OAuth tokens")
+        nullroute.sec.store_libsecret("Pixiv OAuth token",
+                                      json.dumps(data),
+                                      {"xdg:schema": self.TOKEN_SCHEMA,
+                                       "domain": "pixiv.net",
+                                       "userid": token.response.user.id,
+                                       "username": token.response.user.account})
         try:
             with open(self.TOKEN_PATH, "w") as fh:
                 json.dump(data, fh)
@@ -46,6 +61,9 @@ class PixivClient():
             return False
 
     def _forget_token(self):
+        Core.debug("flushing OAuth tokens")
+        nullroute.sec.clear_libsecret({"xdg:schema": self.TOKEN_SCHEMA,
+                                       "domain": "pixiv.net"})
         os.unlink(self.TOKEN_PATH)
 
     # API authentication

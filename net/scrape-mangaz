@@ -10,6 +10,7 @@ from Crypto.PublicKey import RSA
 import json
 from nullroute.core import Core
 from nullroute.scrape import Scraper
+from nullroute.scrape import _file_nonempty as file_nonempty
 from nullroute.string import filter_filename
 import os
 import sys
@@ -63,7 +64,7 @@ except ImportError:
 # main work happens here
 
 class MangazScraper(Scraper):
-    def __init__(self):
+    def subclass_init(self):
         # some tokens of unknown origin, used for fetching book data
         # (they don't seem to be time-limited or anything like that)
         self.docx_serial = "1"*40
@@ -110,9 +111,9 @@ class MangazScraper(Scraper):
         data = b64decode(data["data"])
 
         c = PKCS1_v1_5.new(self.rsa_privkey)
-        ek = c.decrypt(ek, None)
+        key = c.decrypt(key, None)
 
-        c = AES.new(ek, AES.MODE_CBC, bi)
+        c = AES.new(key, AES.MODE_CBC, iv)
         data = c.decrypt(data)
         data = unpad(data, c.block_size, "pkcs7")
         data = json.loads(data)

@@ -11,11 +11,14 @@ class PixivClient():
     TOKEN_PATH = Env.find_cache_file("pixiv.auth.json")
 
     def __init__(self):
-        self.api = pixivpy3.PixivAPI()
         self.ua = requests.Session()
-
         self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+
+        self.api = pixivpy3.PixivAPI()
+        self.api.client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
+        self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
+        self.api.requests = self.ua
 
     # OAuth token persistence
 

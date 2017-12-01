@@ -139,39 +139,54 @@ class DanbooruApi(BooruApi):
 ## Gelbooru
 
 class GelbooruApi(BooruApi):
-    API_ROOT = "http://gelbooru.com/index.php"
+    SITE_URL = "https://gelbooru.com/"
+    POST_URL = "https://gelbooru.com/index.php?page=post&s=view&id=%s"
     ID_PREFIX = "g%s"
     TAG_SCRAPE = True
 
-    def find_posts(self, tags, limit=100):
-        args = {"page": "dapi",
-                "s": "post",
-                "q": "index",
-                "tags": tags,
-                "limit": limit}
-
-        resp = self.ua.get(self.API_ROOT, params=args)
+    def _fetch_url(self, url, *args, **kwargs):
+        Core.debug("fetching %r" % url)
+        resp = self.ua.get(url, *args, **kwargs)
         resp.raise_for_status()
+        return resp
 
-        tree = lxml.etree.XML(resp.content)
-        for item in tree.xpath("/posts/post"):
-            yield dict(item.attrib)
+    def find_posts(self, query, limit=100):
+        # API has been blocked
+        post_ids = []
+        next_url = None
+
+        while True:
+            if next_url:
+                resp = self._fetch_url(next_url)
+            else:
+                args = {"page": "post", "s": "list", "tags": query}
+                resp = self._fetch_url(self.SITE_URL, params=args)
+            body = bs4.BeautifulSoup(resp.content, "lxml")
+            post_ids = []
+            for span in body.select("span.thumb"):
+                post_id = span["id"].lstrip("s")
+                post_ids.append(post_id)
+                if len(post_ids) >= limit:
+                    break
+            tmp = body.select_one("#paginater a[alt='next']")
+            if not tmp:
+                break
+            next_url = urljoin(self.SITE_URL, tmp["href"])
+
+        for post_id in post_ids:
+            yield {"id": post_id}
 
     def _scrape_post_info(self, post_id):
-        args = {"page": "post",
-                "s": "view",
-                "id": post_id}
-
-        resp = self.ua.get(self.API_ROOT, params=args)
+        args = {"page": "post", "s": "view", "id": post_id}
+        resp = self.ua.get(self.SITE_URL, params=args)
         resp.raise_for_status()
 
         page = bs4.BeautifulSoup(resp.content, "lxml")
-        sidebar = page.select_one("ul#tag-sidebar")
 
         post = {"id": post_id,
                 "tags": defaultdict(set)}
 
-        for tag_li in sidebar.find_all("li"):
+        for tag_li in page.select("li[class^='tag-type-']"):
             tag_type = _grep(r"^tag-type-(.+)", tag_li["class"])
             tag_value = tag_li.find_all("a")[-1].get_text()
             post["tags"][tag_type].add(tag_value)

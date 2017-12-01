@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+# Mangaz scraper (1.2-nullroute)
+# © 2017 grawity <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
+# Available at <https://gist.github.com/255c0ad36a86094ec973bbd3f6c9aece>
+
+from base64 import b64decode
+from Crypto.Cipher import AES, PKCS1_v1_5
+from Crypto.PublicKey import RSA
+import json
+from nullroute.core import Core
+from nullroute.scrape import Scraper
+from nullroute.string import filter_filename
+import os
+import sys
+
+try:
+    from Crypto.Util import unpad
+except ImportError:
+    # https://github.com/dlitz/pycrypto/blob/master/lib/Crypto/Util/Padding.py
+    from Crypto.Util.py3compat import bord, bchr
+
+    def unpad(padded_data, block_size, style='pkcs7'):
+        """Remove standard padding.
+
+        :Parameters:
+          padded_data : byte string
+            A piece of data with padding that needs to be stripped.
+          block_size : integer
+            The block boundary to use for padding. The input length
+            must be a multiple of ``block_size``.
+          style : string
+            Padding algorithm. It can be *'pkcs7'* (default), *'iso7816'* or *'x923'*.
+        :Return:
+            Data without padding.
+        :Raises ValueError:
+            if the padding is incorrect.
+        """
+
+        pdata_len = len(padded_data)
+        if pdata_len % block_size:
+            raise ValueError("Input data is not padded")
+        if style in ('pkcs7', 'x923'):
+            padding_len = bord(padded_data[-1])
+            if padding_len<1 or padding_len>min(block_size, pdata_len):
+                raise ValueError("Padding is incorrect.")
+            if style == 'pkcs7':
+                if padded_data[-padding_len:]!=bchr(padding_len)*padding_len:
+                    raise ValueError("PKCS#7 padding is incorrect.")
+            else:
+                if padded_data[-padding_len:-1]!=bchr(0)*(padding_len-1):
+                    raise ValueError("ANSI X.923 padding is incorrect.")
+        elif style == 'iso7816':
+            padding_len = pdata_len - padded_data.rfind(bchr(128))
+            if padding_len<1 or padding_len>min(block_size, pdata_len):
+                raise ValueError("Padding is incorrect.")
+            if padding_len>1 and padded_data[1-padding_len:]!=bchr(0)*(padding_len-1):
+                raise ValueError("ISO 7816-4 padding is incorrect.")
+        else:
+            raise ValueError("Unknown padding style")
+        return padded_data[:-padding_len]
+
+# main work happens here
+
+class MangazScraper(Scraper):
+    def __init__(self):
+        # some tokens of unknown origin, used for fetching book data
+        # (they don't seem to be time-limited or anything like that)
+        self.docx_serial = "1"*40
+        self.docx_ticket = "aac72f20f5698326d21d357404171285faf50080"
+
+        # keypair used to encrypt book data in transit
+        # Mangaz uses 512-bit keys, but RSA.generate() insists on ≥1024
+        self.rsa_privkey = RSA.generate(1024)
+        self.rsa_pubkey = self.rsa_privkey.publickey().exportKey()
+
+    def parse_arg(self, arg):
+        if arg.startswith("https://www.mangaz.com/book/detail/"):
+            arg = arg.split("/")[5]
+        elif arg.startswith("https://vw.mangaz.com/virgo/view/"):
+            arg = arg.split("/")[5]
+
+        book_id = int(arg)
+        return book_id
+
+    def fetch_book_data(self, book_id):
+        url = "https://vw.mangaz.com/virgo/docx/%s.json" % book_id
+        Core.info("getting information for book %s" % book_id)
+
+        self.ua.cookies.update({
+            "virgo!__ticket": self.docx_ticket,
+        })
+        self.ua.headers.update({
+            "X-Requested-With": "XMLHttpRequest",
+        })
+        form = {
+            "__serial": self.docx_serial,
+            "__ticket": self.docx_ticket,
+            "pub": self.rsa_pubkey,
+        }
+
+        resp = self.ua.post(url, data=form)
+        resp.raise_for_status()
+        data = resp.json()
+
+        assert(data["status"] == "OK")
+
+        key = b64decode(data["ek"])
+        iv = b64decode(data["bi"])
+        data = b64decode(data["data"])
+
+        c = PKCS1_v1_5.new(self.rsa_privkey)
+        ek = c.decrypt(ek, None)
+
+        c = AES.new(ek, AES.MODE_CBC, bi)
+        data = c.decrypt(data)
+        data = unpad(data, c.block_size, "pkcs7")
+        data = json.loads(data)
+        return data
+
+    def scrape_book_from_data(self, data):
+        key = b64decode(data["Enc"]["key"])
+        iv = b64decode(data["Enc"]["iv"])
+
+        Core.info("downloading book ｢%s｣ (%s pages)" % (data["Book"]["title"],
+                                                        data["Book"]["pages"]))
+
+        assert(data["Book"]["pages"] == data["Book"]["image_count"])
+        assert(data["Book"]["pages"] == len(data["Images"]))
+
+        out_dir = "Mangaz.%s.%s.%s" % (data["Book"]["series_id"],
+                                       data["Book"]["baid"],
+                                       filter_filename(data["Book"]["title"]))
+        os.makedirs(out_dir, exist_ok=True)
+
+        out_json = "%s/book.%s.json" % (out_dir, data["Book"]["baid"])
+        with open(out_json, "w") as fh:
+            fh.write(json.dumps(data))
+
+        for img in data["Images"]:
+            enc_url = data["Location"]["base"] + data["Location"]["enc"] + img["file"]
+            out_name = "%s/%s.jpg" % (out_dir, img["file"])
+
+            Core.info(" - page %s/%s (%s)" % (img["image_no"]+1,
+                                              len(data["Images"]),
+                                              out_name))
+
+            if file_nonempty(out_name):
+                continue
+
+            resp = self.ua.get(enc_url)
+            resp.raise_for_status()
+
+            buf = resp.content
+            buf = AES.new(key, AES.MODE_CBC, iv).decrypt(buf)
+            buf = unpad(buf, AES.block_size)
+            buf = b64decode(buf)
+            with open(out_name, "wb") as fh:
+                fh.write(buf)
+
+    def scrape_book_by_id(self, book_id):
+        data = self.fetch_book_data(book_id)
+        return self.scrape_book_from_data(data)
+
+m = MangazScraper()
+
+args = sys.argv[1:]
+
+for arg in args:
+    if "://" in arg:
+        book_id = m.parse_arg(arg)
+        m.scrape_book_by_id(book_id)
+    elif arg.endswith(".json"):
+        with open(arg, "r") as fh:
+            data = json.load(fh)
+        m.scrape_book_from_data(data)
+    else:
+        book_id = int(arg)
+        m.scrape_book_by_id(book_id)

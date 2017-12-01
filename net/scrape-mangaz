@@ -123,33 +123,37 @@ class MangazScraper(Scraper):
         key = b64decode(data["Enc"]["key"])
         iv = b64decode(data["Enc"]["iv"])
 
-        Core.info("downloading book ｢%s｣ (%s pages)" % (data["Book"]["title"],
+        title = data["Book"]["title"] + " " + data["Book"]["volume"]
+        title = title.strip()
+
+        Core.info("downloading book ｢%s｣ (%s pages)" % (title,
                                                         data["Book"]["pages"]))
 
         assert(data["Book"]["pages"] == data["Book"]["image_count"])
         assert(data["Book"]["pages"] == len(data["Images"]))
 
+        # create output directory
         out_dir = "Mangaz.%s.%s.%s" % (data["Book"]["series_id"],
                                        data["Book"]["baid"],
-                                       filter_filename(data["Book"]["title"]))
+                                       filter_filename(title))
         os.makedirs(out_dir, exist_ok=True)
 
+        # save book info JSON
         out_json = "%s/book.%s.json" % (out_dir, data["Book"]["baid"])
         with open(out_json, "w") as fh:
             fh.write(json.dumps(data))
 
+        # save all images
         for img in data["Images"]:
-            enc_url = data["Location"]["base"] + data["Location"]["enc"] + img["file"]
+            url = data["Location"]["base"] + data["Location"]["enc"] + img["file"]
             out_name = "%s/%s.jpg" % (out_dir, img["file"])
+            if file_nonempty(out_name):
+                continue
 
             Core.info(" - page %s/%s (%s)" % (img["image_no"]+1,
                                               len(data["Images"]),
                                               out_name))
-
-            if file_nonempty(out_name):
-                continue
-
-            resp = self.ua.get(enc_url)
+            resp = self.ua.get(url)
             resp.raise_for_status()
 
             buf = resp.content

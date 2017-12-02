@@ -31,8 +31,11 @@ done; shift $((OPTIND-1))
 name=$1
 hash=$2
 
-algo=${algo^^}
-hash=${hash,,}
+if [[ $name == */* && ! $url ]]; then
+	notice "name is an URL; automatically using basename"
+	url=$name
+	name=${url##*/}
+fi
 
 if [[ ! $algo ]]; then
 	case ${#hash} in
@@ -43,6 +46,9 @@ if [[ ! $algo ]]; then
 	esac
 	notice "guessing '$algo' as hash algorithm"
 fi
+
+algo=${algo^^}
+hash=${hash,,}
 
 case $algo in
 	MD5)	hash_re='^[0-9a-f]{32}$';;
@@ -57,6 +63,7 @@ elif [[ ! $hash =~ $hash_re ]]; then
 fi
 
 if [[ $url ]]; then
+	# TODO: merge this mess into similar code above
 	if [[ $url == */ || $url == *[?#]* ]]; then
 		die "URL does not point to a file"
 	fi
@@ -84,3 +91,8 @@ fi
 ln -nsf "$link" "$name"
 git annex add "$name"
 git annex info "$name"
+
+if [[ $url ]]; then
+	info "registering annexed file URL"
+	git annex addurl --file="$name" "$url"
+fi

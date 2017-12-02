@@ -5,6 +5,10 @@
 lockpath='/var/lib/pacman/db.lck'
 dbpath='/var/lib/pacman/local'
 
+usage() {
+	echo "Usage: $progname <oldpkg-oldver> <newpkg-newver>"
+}
+
 db_lock() {
 	debug "locking DB"
 	touch "$lockpath.$$"
@@ -36,24 +40,41 @@ fix_desc_version() {
 	done
 }
 
-oldname=$1
-oldver=$2
+unset {old,new}{pkg,name,ver}
 
-if (( $# == 3 )); then
-	newname=$1
-	newver=$3
-elif (( $# == 4 )); then
-	newname=$3
-	newver=$4
+if (( $# == 2 )); then
+	oldpkg=$1
+	newpkg=$2
+	pkgre='^(.+)-([^-]+-[^-]+)$'
+	if [[ $oldpkg =~ $pkgre ]]; then
+		oldname=${BASH_REMATCH[1]}
+		oldver=${BASH_REMATCH[2]}
+	fi
+	if [[ $newpkg =~ $pkgre ]]; then
+		newname=${BASH_REMATCH[1]}
+		newver=${BASH_REMATCH[2]}
+	fi
+elif (( $# > 2 )); then
+	oldname=$1
+	oldver=$2
+	if (( $# == 3 )); then
+		newname=$1
+		newver=$3
+	elif (( $# == 4 )); then
+		newname=$3
+		newver=$4
+	fi
+	oldpkg="$oldname-$oldver"
+	newpkg="$newname-$newver"
 fi
 
-oldpkg="$oldname-$oldver"; olddir="$dbpath/$oldpkg"
-newpkg="$newname-$newver"; newdir="$dbpath/$newpkg"
-
-[[ $oldname && $oldver && $newname && $newver ]] || {
-	echo "usage: $progname <pkg-name> <old-version> [<new-name>] <new-version>" >&2
+if ! [[ $oldname && $oldver && $newname && $newver ]]; then
+	usage >&2
 	die "missing parameters"
-}
+fi
+
+olddir="$dbpath/$oldpkg"
+newdir="$dbpath/$newpkg"
 
 debug "old dir: $olddir"
 debug "new dir: $newdir"

@@ -127,11 +127,13 @@ class FictionPressScraper(Scraper):
             data["filename"] = filename
             Core.info("saved page %(page_cur)s of %(page_max)s to \"%(filename)s\"" % data)
 
-    def save_story(self, url, save_raw=True):
+    def save_story(self, url, save_raw=False):
         m = re.match(r"^https://(m|www)\.[^:/]+/s/\d+/", url)
         base_url = m.group(0)
         page_url = "%s%d/" % (base_url, 1)
         while True:
+            # XXX: should do the opposite here instead
+            page_url = page_url.replace("//www.", "//m.")
             Core.info("downloading %r" % page_url)
             resp = self.get(page_url)
             page = bs4.BeautifulSoup(resp.content, "lxml")

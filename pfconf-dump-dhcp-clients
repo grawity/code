@@ -2,18 +2,31 @@
 import sys
 import lxml.etree
 
-buf = sys.stdin.read()
+if len(sys.argv) > 1:
+    with open(sys.argv[1], "r") as fh:
+        buf = fh.read()
+else:
+    buf = sys.stdin.read()
+
 tree = lxml.etree.XML(buf)
 
 ifnames = {}
+ifdescs = {}
+
 for iface in tree.xpath("/pfsense/interfaces/*"):
-    desc = iface.xpath("string(descr)")
-    ifnames[iface.tag] = desc
+    ifnames[iface.tag] = iface.xpath("string(if)")
+    ifdescs[iface.tag] = iface.xpath("string(descr)")
 
 for iface in tree.xpath("/pfsense/dhcpd/*"):
-    print("=== %s ===" % ifnames.get(iface.tag, iface.tag))
+    ifname = ifnames[iface.tag]
+    ifdesc = ifdescs[iface.tag]
+    if ifdesc:
+        ifname += " (%s)" % ifdesc
+    print("=== %s ===" % ifname)
+    print()
     for entry in iface.xpath("staticmap"):
         mac = entry.xpath("string(mac)")
         ip = entry.xpath("string(ipaddr)")
         desc = entry.xpath("string(descr)")
-        print("%s │ %-15s │ %s" % (mac, ip or "--", desc))
+        print("    %s │ %-15s │ %s" % (mac, ip or "--", desc))
+    print()

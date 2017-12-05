@@ -10,16 +10,13 @@ if (@ARGV < 2) {
 
 my $pattern = $ARGV[0] =~ s/[\[\]]/\\$&/gr;
 
-if ($pattern !~ /[\?\*]/) {
-	_die("file pattern '$pattern' doesn't have wildcards");
-}
 if ($pattern !~ /%\d*[ds]/) {
 	_die("file pattern doesn't have %d specifier");
 }
 
 my $count = int $ARGV[1];
 
-my @missing = grep {@a = glob(sprintf($pattern, $_)); !@a} 1..$count;
+my @missing = grep {@a = glob(sprintf($pattern, $_)); grep {!-e $_} @a} 1..$count;
 
 if (@missing) {
 	print "Missing: ", join(", ", @missing), "\n";

@@ -67,6 +67,9 @@ class IceWarpAPI(object):
     def __getattr__(self, name):
         return getattr(self.api_object, name)
 
+    def GetDomainList(self):
+        return self.api_object.GetDomainList().strip(";").split(";")
+
     def OpenDomain(self, domain):
         if domain not in self._domains:
             self._domains[domain] = self.api_object.OpenDomain(domain)

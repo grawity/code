@@ -11,8 +11,10 @@ class NoSuchDomainException(Exception):
 class IceWarpProxy(object):
     _types_ = {
         "None->Create": "APIObject",
+        "APIObject->GetDomainList": list,
         "APIObject->NewDomain": "DomainObject",
         "APIObject->OpenDomain": "DomainObject",
+        "DomainObject->GetAccountList": list,
         "DomainObject->NewAccount": "AccountObject",
         "DomainObject->OpenAccount": "AccountObject",
     }
@@ -42,7 +44,12 @@ class IceWarpProxy(object):
             return wrap
         else:
             type = self._types_.get("%s->%s" % (self.type, name))
-            if type:
+            if type == list:
+                def wrap(*args):
+                    val = func(*args)
+                    return val.rstrip(";").split(";")
+                return wrap
+            elif type:
                 def wrap(*args):
                     ptr = func(*args)
                     return IceWarpProxy.new(self.api, ptr, type)
@@ -66,9 +73,6 @@ class IceWarpAPI(object):
 
     def __getattr__(self, name):
         return getattr(self.api_object, name)
-
-    def GetDomainList(self):
-        return self.api_object.GetDomainList().strip(";").split(";")
 
     def OpenDomain(self, domain):
         if domain not in self._domains:

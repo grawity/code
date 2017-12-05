@@ -47,7 +47,7 @@ class IceWarpProxy(object):
             if type == list:
                 def wrap(*args):
                     val = func(*args)
-                    return val.rstrip(";").split(";")
+                    return val.strip(";").split(";")
                 return wrap
             elif type:
                 def wrap(*args):

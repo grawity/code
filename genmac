@@ -1,52 +1,18 @@
-#!/usr/bin/env bash
-# genmac – generate a MAC address and display in several formats
-# 
-# takes a hostname (or another identifier) as argument, and always returns the
-# same address from ~/lib/vm/ethers for the given name
+#!/usr/bin/env python3
+import os
+import sys
 
-ETHERS=~/lib/vm/ethers
+oui = []
 
-randether() {
-	printf '%01x2:%02x:%02x:%02x:%02x:%02x' \
-		$(( RANDOM % 16 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 ))
-}
+if oui:
+    assert(0 < len(oui) < 6)
+    buf = os.urandom(6 - len(oui))
+    buf = [*oui, *buf]
+else:
+    buf = os.urandom(6)
+    buf = [*buf]
+    buf[0] &= ~1 # clear multicast bit
+    buf[0] |= 2 # set local bit
 
-getether() {
-	local name=$1
-	local addr=$(awk "\$2 == \"$name\" {print \$1}" "$ETHERS")
-	if [ ! "$addr" ]; then
-		while true; do
-			addr=$(randether)
-			if ! grep -qs "^$addr[[:space:]]" "$ETHERS"; then
-				printf '%s %s\n' "$addr" "$name" >> "$ETHERS"
-				break
-			fi
-		done
-	fi
-	echo "$addr"
-}
-
-fmt() { echo $1; }
-
-if [ "$1" == "-w" ]; then
-	fmt() { x=$1; x=${x^^}; x=${x//:/-}; echo $x; }
-	shift
-elif [ "$1" == "-x" ]; then
-	fmt() { x=$1; x=${x^^}; x=${x//:/}; echo $x; }
-	shift
-elif [ "$1" == "-v" ]; then
-	fmt() { x=$1; x=${x^^}; x=${x//:/};
-		echo "<ethernet_card_address type=\"bytes\">$x</ethernet_card_address>"; }
-	shift
-fi
-
-if [ "$1" ]; then
-	fmt $(getether "$1")
-else
-	fmt $(randether)
-fi
+buf = ["%02x" % x for x in buf]
+print(*buf, sep=":")

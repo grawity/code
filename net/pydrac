@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+import lxml.etree
+from nullroute.core import Core
+from nullroute.scrape import Scraper
+from nullroute.sec import get_netrc
+from pprint import pprint
+import requests
+import subprocess
+import sys
+
+class UnknownVersionError(Exception):
+    pass
+
+class LoginFailedError(Exception):
+    pass
+
+class DracProber(Scraper):
+    def __init__(self, base_url, creds):
+        super().__init__(output_dir=None)
+        self.base_url = base_url
+        self.username = creds["login"]
+        self.password = creds["password"]
+        self.version = None
+
+        # turn off SubjectAltNameWarning
+        import requests.packages.urllib3
+        requests.packages.urllib3.disable_warnings()
+
+    def _post(self, path, *args, **kwargs):
+        url = self.base_url + path
+        Core.debug("posting to %r" % url, skip=1)
+        return self.ua.post(url, *args, **kwargs)
+
+    def _probe_path(self, path):
+        url = self.base_url + path
+        Core.debug("testing existence of %r" % url, skip=1)
+        resp = self.ua.head(url)
+        if resp.status_code == 200:
+            return True
+        elif resp.status_code in {404, 405}:
+            return False
+        else:
+            resp.raise_for_status()
+
+    def probe_version(self):
+        if self._probe_path("/html/intgapp4_231.jar"):
+            return "iLO4"
+        if self._probe_path("/html/intgapp3_231.jar"):
+            return "iLO3"
+        if self._probe_path("/software/avctVMAPI_DLLLinux32.jar"):
+            return "iDRAC7"
+        if self._probe_path("/software/avctVMLinux32.jar"):
+            return "iDRAC6-new"
+        if self._probe_path("/software/jpcsc.jar"):
+            return "iDRAC6-old"
+        if self._probe_path("/plugins/vkvm/avctDRAC5Viewer.jar"):
+            return "DRAC5"
+        raise UnknownVersionError()
+
+    def run_javaws(self, jnlp_path, runtime):
+        cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime,
+               "-wait",
+               jnlp_path]
+
+        Core.debug("launching %r", cmd)
+        subprocess.run(cmd)
+
+    def fetch_webstart(self):
+        if self.version == "DRAC5":
+            # post {user:, password:} to /cgi-bin/webcgi/login
+            # Cookie: sid=...
+            # vkvm?state=1 - connect
+            # vkvm?state=3 - disconnect
+            # fetch /cgi-bin/webcgi/vkvmjnlp - automatically connects
+            Core.debug("posting credentials")
+            resp = self.ua.post(self.base_url + "/cgi-bin/webcgi/login",
+                                data={"user": self.username, "password": self.password})
+            resp.raise_for_status()
+            tree = lxml.etree.fromstring(resp.content)
+            if tree.xpath("string(/drac/privilege/@console)") != "1":
+                raise LoginFailedError()
+
+            Core.debug("fetching JNLP")
+            resp = self.ua.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
+            resp.raise_for_status()
+            return resp.content
+        else:
+            raise Exception("unhandled version %r" % self.version)
+
+    def run(self):
+        self.version = self.probe_version()
+        Core.info("detected version %s", self.version)
+
+        jnlp = self.fetch_webstart()
+        if self.version == "DRAC5":
+            runtime = "java-6-jre/jre"
+            # applet signed using MD5, only speaks SSLv3...
+            # version="1.6 1.5 1.4+" results in a too new runtime
+            tree = lxml.etree.fromstring(jnlp)
+            for tag in tree.xpath("/jnlp/resources/j2se"):
+                tag.set("version", "1.6")
+            jnlp = lxml.etree.tostring(tree)
+        else:
+            runtime = "java-9-jdk"
+
+        jnlp_path = "/tmp/vkvm.jnlp"
+        with open(jnlp_path, "wb") as fh:
+            Core.debug("saving JNLP to %r", jnlp_path)
+            fh.write(jnlp)
+
+        self.run_javaws(jnlp_path, runtime)
+
+host = sys.argv[1]
+
+try:
+    creds = get_netrc(host, service="ipmi") or \
+            get_netrc(host, service="idrac") or \
+            get_netrc(host, service="ilo")
+except KeyError:
+    Core.die("credentials for %r not found", host)
+
+drac = DracProber("https://%s" % host, creds)
+
+try:
+    drac.run()
+except UnknownVersionError:
+    Core.die("could not determine controller version")
+except requests.exceptions.ConnectionError as e:
+    Core.die("%s" % e)

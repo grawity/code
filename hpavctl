@@ -2,6 +2,24 @@
 
 . lib.bash || exit
 
+usage() {
+	cmds=(
+		"devices [mac]"
+		"peers [mac]"
+		"topology"
+		"show-local-pib"
+		"set-local-nmk <nmk> [mac]"
+		"set-remote-nmk <nmk> <mac> <dak> <via_mac>"
+		"reboot <mac>"
+		"reset-to-factory <mac>"
+	)
+	echo "usage: $progname <cmd> ..."
+	echo ""
+	for c in "${cmds[@]}"; do
+		echo "  $progname $c"
+	done
+}
+
 valid_dak() {
 	[[ $1 == key[12] ]] ||
 	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){15}[0-9A-Fa-f]{2}$ ]]
@@ -229,23 +247,6 @@ case $cmd in
 		;;
 	generate-password|pwgen)
 		mac2pw -q -l 16 -b 4 -n ${2:-1} 00B052000001;;
-	help)
-		cmds=(
-			"devices [mac]"
-			"peers [mac]"
-			"topology"
-			"show-local-pib"
-			"set-local-nmk <nmk> [mac]"
-			"set-remote-nmk <nmk> <mac> <dak> <via_mac>"
-			"reboot <mac>"
-			"reset-to-factory <mac>"
-		)
-		echo "usage: $progname <cmd> ..."
-		echo ""
-		for c in "${cmds[@]}"; do
-			echo "  $progname $c"
-		done
-		;;
 	"")
 		die "missing command";;
 	*)

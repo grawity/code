@@ -9,13 +9,9 @@
 overall=0
 for dir in /proc/[0-9]*/
 do
-	sum=0
 	pid=`echo $dir | cut -d / -f 3`
 	name=`ps -p $pid -o comm --no-headers`
-	for swap in `grep VmSwap $dir/status 2>/dev/null | awk '{ print $2 }'`
-	do
-		let sum=$sum+$swap
-	done
+	sum=`awk '/^VmSwap/ {s+=$2} END {print s+0}' $dir/status`
 	if (( $sum > 0 )); then
 		echo "pid=$pid swapped $sum KB ($name)"
 	fi

@@ -6,15 +6,15 @@
 # Modified by Marc Methot 2014-09-18
 # removed the need for sudo
 
-overall=0
+total=0
 for dir in /proc/[0-9]*/
 do
-	pid=`echo $dir | cut -d / -f 3`
-	name=`ps -p $pid -o comm --no-headers`
-	sum=`awk '/^VmSwap/ {s+=$2} END {print s+0}' $dir/status`
-	if (( $sum > 0 )); then
-		echo "pid=$pid swapped $sum KB ($name)"
+	pid=$(basename "$dir")
+	name=$(ps -p $pid -o comm --no-headers)
+	swap=$(awk '/^VmSwap/ {s+=$2} END {print s+0}' $dir/status)
+	if (( swap > 0 )); then
+		echo "pid=$pid swapped $swap KB ($name)"
 	fi
-	let overall=$overall+$sum
+	let total+=swap
 done
-echo "Overall swap used: $overall KB"
+echo "Total swap used: $total KB"

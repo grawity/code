@@ -6,15 +6,17 @@
 # Modified by Marc Methot 2014-09-18
 # removed the need for sudo
 
+fmt='%12s  %s\n'
 total=0
 for dir in /proc/[0-9]*/
 do
 	pid=$(basename "$dir")
-	name=$(ps -p $pid -o comm --no-headers)
+	name=$(< "$dir/comm")
+	#name=$(ps -p $pid -o comm --no-headers)
 	swap=$(awk '/^VmSwap/ {s+=$2} END {print s+0}' $dir/status)
 	if (( swap > 0 )); then
-		echo "pid=$pid swapped $swap KB ($name)"
+		printf "$fmt" "$swap kB" "$name ($pid)"
 	fi
 	let total+=swap
 done
-echo "Total swap used: $total KB"
+printf "$fmt" "$total kB" "TOTAL"

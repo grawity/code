@@ -6,20 +6,19 @@
 # Modified by Marc Methot 2014-09-18
 # removed the need for sudo
 
-SUM=0
-OVERALL=0
-for DIR in `find /proc/ -maxdepth 1 -type d -regex "^/proc/[0-9]+"`
+overall=0
+for dir in `find /proc/ -maxdepth 1 -type d -regex "^/proc/[0-9]+"`
 do
-	PID=`echo $DIR | cut -d / -f 3`
-	PROGNAME=`ps -p $PID -o comm --no-headers`
-	for SWAP in `grep VmSwap $DIR/status 2>/dev/null | awk '{ print $2 }'`
+	sum=0
+	pid=`echo $dir | cut -d / -f 3`
+	name=`ps -p $pid -o comm --no-headers`
+	for swap in `grep VmSwap $dir/status 2>/dev/null | awk '{ print $2 }'`
 	do
-		let SUM=$SUM+$SWAP
+		let sum=$sum+$swap
 	done
-	if (( $SUM > 0 )); then
-		echo "PID=$PID swapped $SUM KB ($PROGNAME)"
+	if (( $sum > 0 )); then
+		echo "pid=$pid swapped $sum KB ($name)"
 	fi
-	let OVERALL=$OVERALL+$SUM
-	SUM=0
+	let overall=$overall+$sum
 done
-echo "Overall swap used: $OVERALL KB"
+echo "Overall swap used: $overall KB"

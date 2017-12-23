@@ -3,10 +3,81 @@ import lxml.etree
 from nullroute.core import Core
 from nullroute.scrape import Scraper
 from nullroute.sec import get_netrc
+import os
 from pprint import pprint
 import requests
 import subprocess
 import sys
+import tempfile
+
+idrac6_template = """<?xml version="1.0" encoding="UTF-8"?>
+<jnlp codebase="{URLBASE}" spec="1.0+">
+  <information>
+    <title>iDRAC6 Virtual Console Client</title>
+    <vendor>Dell Inc.</vendor>
+    <icon href="{URLBASE}/images/logo.gif" kind="splash"/>
+    <shortcut online="true"/>
+  </information>
+  <application-desc main-class="com.avocent.idrac.kvm.Main">
+    <argument>ip={IPADDRESS}</argument>
+    <argument>vmprivilege=true</argument>
+    <argument>helpurl={URLBASE}/help/contents.html</argument>
+    <argument>title=iDRAC%20on%20{IPADDRESS}</argument>
+    <argument>user={USERNAME}</argument>
+    <argument>passwd={PASSWORD}</argument>
+    <argument>kmport=5900</argument>
+    <argument>vport=5900</argument>
+    <argument>apcp=1</argument>
+    <argument>version=2</argument>
+  </application-desc>
+  <security>
+    <all-permissions/>
+  </security>
+  <resources>
+    <j2se version="1.6+"/>
+    <jar download="eager" href="{URLBASE}/software/avctKVM.jar" main="true"/>
+  </resources>
+  <resources arch="x86" os="Windows">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOWin32.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMWin32.jar"/>
+  </resources>
+  <resources arch="amd64" os="Windows">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOWin64.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMWin64.jar"/>
+  </resources>
+  <resources arch="x86_64" os="Windows">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOWin64.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMWin64.jar"/>
+  </resources>
+  <resources arch="x86" os="Linux">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOLinux32.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMLinux32.jar"/>
+  </resources>
+  <resources arch="i386" os="Linux">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOLinux32.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMLinux32.jar"/>
+  </resources>
+  <resources arch="i586" os="Linux">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOLinux32.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMLinux32.jar"/>
+  </resources>
+  <resources arch="i686" os="Linux">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOLinux32.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMLinux32.jar"/>
+  </resources>
+  <resources arch="amd64" os="Linux">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOLinux64.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMLinux64.jar"/>
+  </resources>
+  <resources arch="x86_64" os="Linux">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOLinux64.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMLinux64.jar"/>
+  </resources>
+  <resources arch="x86_64" os="Mac OS X">
+    <nativelib download="eager" href="{URLBASE}/software/avctKVMIOMac64.jar"/>
+    <nativelib download="eager" href="{URLBASE}/software/avctVMMac64.jar"/>
+  </resources>
+</jnlp>"""
 
 class UnknownVersionError(Exception):
     pass
@@ -15,9 +86,10 @@ class LoginFailedError(Exception):
     pass
 
 class DracProber(Scraper):
-    def __init__(self, base_url, creds):
+    def __init__(self, host, creds):
         super().__init__(output_dir=None)
-        self.base_url = base_url
+        self.address = host
+        self.base_url = "https://%s" % host
         self.username = creds["login"]
         self.password = creds["password"]
         self.version = None
@@ -36,13 +108,18 @@ class DracProber(Scraper):
         Core.debug("testing existence of %r" % url, skip=1)
         resp = self.ua.head(url)
         if resp.status_code == 200:
+            Core.debug(" - file exists (got %r)", resp)
             return True
         elif resp.status_code in {404, 405}:
+            Core.debug(" - file does not exist (got %r)", resp)
             return False
         else:
             resp.raise_for_status()
 
     def probe_version(self):
+        if os.environ.get("PYDRAC_VERSION"):
+            return os.environ["PYDRAC_VERSION"]
+        # XXX: iDRAC6 bug: HEAD responses are not blank-terminated, so .head() hangs
         if self._probe_path("/html/intgapp4_231.jar"):
             return "iLO4"
         if self._probe_path("/html/intgapp3_231.jar"):
@@ -57,13 +134,22 @@ class DracProber(Scraper):
             return "DRAC5"
         raise UnknownVersionError()
 
-    def run_javaws(self, jnlp_path, runtime):
-        cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime,
-               "-wait",
-               jnlp_path]
+    def load_template_webstart(self, template):
+        buf = template.format(
+                URLBASE=self.base_url,
+                IPADDRESS=self.address,
+                USERNAME=self.username,
+                PASSWORD=self.password,
+              )
+        buf = buf.encode()
+        return buf
 
-        Core.debug("launching %r", cmd)
-        subprocess.run(cmd)
+    def _force_j2se_version(self, jnlp, version):
+        tree = lxml.etree.fromstring(jnlp)
+        for tag in tree.xpath("/jnlp/resources/j2se"):
+            tag.set("version", version)
+        jnlp = lxml.etree.tostring(tree)
+        return jnlp
 
     def fetch_webstart(self):
         if self.version == "DRAC5":
@@ -84,31 +170,48 @@ class DracProber(Scraper):
             resp = self.ua.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
             resp.raise_for_status()
             return resp.content
+
+        elif self.version == "iDRAC6-new":
+            # the JNLP retrieval is unnecessarily complex in v6,
+            # but we can pass credentials directly to the applet
+            Core.debug("using JNLP template")
+            return self.load_template_webstart(idrac6_template)
+
         else:
             raise Exception("unhandled version %r" % self.version)
 
     def run(self):
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="pydrac")
+
         self.version = self.probe_version()
         Core.info("detected version %s", self.version)
 
+        runtime = "default-runtime"
         jnlp = self.fetch_webstart()
+
         if self.version == "DRAC5":
             runtime = "java-6-jre/jre"
-            # applet signed using MD5, only speaks SSLv3...
-            # version="1.6 1.5 1.4+" results in a too new runtime
-            tree = lxml.etree.fromstring(jnlp)
-            for tag in tree.xpath("/jnlp/resources/j2se"):
-                tag.set("version", "1.6")
-            jnlp = lxml.etree.tostring(tree)
+            jnlp = self._force_j2se_version(jnlp, "1.6")
+            # JNLP accepts any version (version="1.6 1.5 1.4+"),
+            # but Java 7+ won't accept MD5-signed applets nor speak SSLv3
+        elif self.version == "iDRAC6-new":
+            runtime = "java-8-jre/jre"
+            jnlp = self._force_j2se_version(jnlp, "1.8 1.7 1.6")
+            # Java 9 or newer will not accept keyboard input
         else:
             runtime = "java-9-jdk"
 
-        jnlp_path = "/tmp/vkvm.jnlp"
+        jnlp_path = os.path.join(self.temp_dir.name, "vkvm.jnlp")
+
         with open(jnlp_path, "wb") as fh:
             Core.debug("saving JNLP to %r", jnlp_path)
             fh.write(jnlp)
 
-        self.run_javaws(jnlp_path, runtime)
+        cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime,
+               "-wait",
+               jnlp_path]
+        Core.debug("launching %r", cmd)
+        subprocess.run(cmd, cwd=self.temp_dir.name)
 
 host = sys.argv[1]
 
@@ -119,7 +222,7 @@ try:
 except KeyError:
     Core.die("credentials for %r not found", host)
 
-drac = DracProber("https://%s" % host, creds)
+drac = DracProber(host, creds)
 
 try:
     drac.run()

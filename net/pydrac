@@ -85,6 +85,9 @@ class UnknownVersionError(Exception):
 class LoginFailedError(Exception):
     pass
 
+class NoConsolePrivilegeError(Exception):
+    pass
+
 class DracProber(Scraper):
     def __init__(self, host, creds):
         super().__init__(output_dir=None)
@@ -120,6 +123,7 @@ class DracProber(Scraper):
         if os.environ.get("PYDRAC_VERSION"):
             return os.environ["PYDRAC_VERSION"]
         # XXX: iDRAC6 bug: HEAD responses are not blank-terminated, so .head() hangs
+        # XXX: iLO4 always responds with 405
         if self._probe_path("/html/intgapp4_231.jar"):
             return "iLO4"
         if self._probe_path("/html/intgapp3_231.jar"):
@@ -177,6 +181,36 @@ class DracProber(Scraper):
             Core.debug("using JNLP template")
             return self.load_template_webstart(idrac6_template)
 
+        elif self.version == "iLO4":
+            # post {.method="login", .user_login=$username, .password=$password}
+            #      to /json/login_session
+            # decode json
+            # set Cookie: session_key = json["session_key"]
+            # fetch /html/jnlp_template.html
+            Core.debug("posting credentials")
+            resp = self.ua.post(self.base_url + "/json/login_session",
+                                json={"method": "login",
+                                      "user_login": self.username,
+                                      "password": self.password})
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("message"):
+                raise LoginFailedError(data["details"])
+            elif data.get("remote_cons_priv") != 1:
+                raise NoConsolePrivilegeError()
+            sid = data["session_key"]
+
+            Core.debug("fetching JNLP template")
+            resp = self.ua.get(self.base_url + "/html/jnlp_template.html")
+            resp.raise_for_status()
+            jnlp = resp.content
+            jnlp = jnlp.replace(b"<script type=text/x-jqote-template id=jnlpTemplate><![CDATA[\n", b"")
+            jnlp = jnlp.replace(b"\n]]></script>", b"")
+            jnlp = jnlp.replace(b"<%= this.baseUrl %>", (self.base_url + "/").encode())
+            jnlp = jnlp.replace(b"<%= this.langId %>", b"en")
+            jnlp = jnlp.replace(b"<%= this.sessionKey %>", sid.encode())
+            return jnlp
+
         else:
             raise Exception("unhandled version %r" % self.version)
 
@@ -214,6 +248,7 @@ class DracProber(Scraper):
         subprocess.run(cmd, cwd=self.temp_dir.name)
 
 host = sys.argv[1]
+version = sys.argv[2]
 
 try:
     creds = get_netrc(host, service="ipmi") or \
@@ -223,6 +258,7 @@ except KeyError:
     Core.die("credentials for %r not found", host)
 
 drac = DracProber(host, creds)
+drac.version = version
 
 try:
     drac.run()

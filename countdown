@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+from nullroute.string import fmt_duration, parse_duration
+import re
+import sys
+import time
+
+def out(msg):
+    print("\r\033[K%s" % msg, end=" ", flush=True)
+
+secs = sum([parse_duration(arg)
+            for arg in sys.argv[1:]])
+
+start = time.time()
+finish = start + secs
+try:
+    while time.time() < finish:
+        out("waiting (%s left)" % fmt_duration(round(finish - time.time())))
+        next = min(secs, 1)
+        secs -= next
+        time.sleep(next)
+    out("done after %s\n" % fmt_duration(round(time.time() - start)))
+except KeyboardInterrupt:
+    out("break after %s (%s left)\n" % (fmt_duration(round(time.time() - start)),
+                                        fmt_duration(round(finish - time.time()))))
+    exit(1)

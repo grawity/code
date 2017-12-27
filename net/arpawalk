@@ -89,6 +89,19 @@ def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
         queue = next
         depth += 1
 
+def canon_zone(zone):
+    zone = zone.lower()
+    # TODO: handle ipv6 and e164 prefixes
+    if not zone.endswith("."):
+        zone = "%s." % zone
+    return zone
+
+def zone_params(zone):
+    if zone.endswith(".e164.arpa."):
+        return dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
+    elif zone.endswith(".ip6.arpa."):
+        return dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
+
 ap = argparse.ArgumentParser()
 ap.add_argument("-r", dest="recursive", action="store_true")
 ap.add_argument("zone", nargs="+")
@@ -100,15 +113,9 @@ else:
     crawl_zone = crawl_zone_iteratively
 
 for zone in args.zone:
-    zone = zone.lower()
-    if not zone.endswith("."):
-        zone = "%s." % zone
-
-    if zone.endswith(".e164.arpa."):
-        params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
-    elif zone.endswith(".ip6.arpa."):
-        params = dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
-    else:
+    zone = canon_zone(zone)
+    params = zone_params(zone)
+    if not params:
         Core.err("unrecognized zone %r", zone)
         continue
 

@@ -347,9 +347,49 @@ sub try_decode_json {
 sub decompress_zlib {
 	eval {
 		require Compress::Raw::Zlib;
+		require IO::Uncompress::Inflate;
+		require IO::Uncompress::RawInflate;
+		require IO::Uncompress::Gunzip;
 	} or _die("missing Perl package 'Compress::Raw::Zlib'");
 
 	my ($buf, %opt) = @_;
+
+=foo
+	my $err;
+	my $stream;
+	my $status;
+	my $outbuf;
+	my @args = (\$buf, Append => 1);
+
+	if ($opt{is_gzip_or_zlib}) {
+		$err = \$IO::Uncompress::AnyInflate::AnyInflateError;
+		$stream = IO::Uncompress::AnyInflate->new(@args);
+	}
+	elsif ($opt{is_gzip}) {
+		$err = \$IO::Uncompress::Gunzip::GunzipError;
+		$stream = IO::Uncompress::Gunzip->new(@args);
+	}
+	elsif ($opt{is_deflate}) {
+		$err = \$IO::Uncompress::RawInflate::RawInflateError;
+		$stream = IO::Uncompress::RawInflate->new(@args);
+	}
+	else {
+		$err = \$IO::Uncompress::Inflate::InflateError;
+		$stream = IO::Uncompress::Inflate->new(@args);
+	}
+
+	if (!$stream) {
+		_err("uncompress init failed: ".$$err);
+	}
+
+	while (!$stream->eof()) {
+		if ($stream->read($outbuf) < 0) {
+			_err("uncompress failed: ".$$err);
+		}
+	}
+
+	return $outbuf;
+=cut
 
 	my $wbits;
 	my $stream;

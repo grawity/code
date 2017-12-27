@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+# arpawalk -- nibble crawler for {e164,ip6,in-addr}.arpa
+from nullroute.core import Core
+import dns.name
+import dns.resolver
+import dns.reversename
+import ipaddress
+import sys
+
+stat = {
+    "requests": 0,
+    "answers": 0,
+    "nonterminals": 0,
+    "nxdomains": 0,
+}
+
+def fmt_domain(dom):
+    dom = dom.lower()
+    if len(dom) == 73 and dom.endswith(".ip6.arpa."):
+        dom = dns.name.from_text(dom)
+        dom = dns.reversename.to_address(dom)
+    return dom
+
+def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
+                                 maxdepth=-1, depth=0):
+    if not depth:
+        depth = len(zone.strip(".").split("."))
+
+    Core.debug("(%d) >> crawling %r", depth, zone)
+    for i in range(card):
+        domain = "%s.%s" % (fmt % i, zone)
+        stat["requests"] += 1
+        try:
+            answers = dns.resolver.query(domain, rtype)
+        except dns.resolver.NoAnswer:
+            Core.trace("got NoAnswer for %r; descending", domain)
+            stat["nonterminals"] += 1
+            yield from crawl_zone_recursively(domain, card, fmt, rtype,
+                                                      maxdepth, depth+1)
+        except dns.resolver.NXDOMAIN:
+            Core.trace("got NXDOMAIN for %r; continuing", domain)
+            stat["nxdomains"] += 1
+            continue
+        else:
+            if depth < maxdepth:
+                Core.trace("got answer for %r; returning and descending", domain)
+            else:
+                Core.trace("got answer for %r; assuming terminal and returning", domain)
+            stat["answers"] += 1
+            yield from [(domain, j) for j in answers]
+            if depth < maxdepth:
+                yield from crawl_zone_recursively(domain, card, fmt, rtype,
+                                                          maxdepth, depth+1)
+    Core.debug("(%d) << leaving %r", depth, zone)
+
+def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
+                                 maxdepth=-1, depth=0):
+    if not depth:
+        depth = len(zone.strip(".").split("."))
+
+    queue = [zone]
+    while queue:
+        Core.debug("(%d) processing queue[%d]", depth, len(queue))
+        next = []
+        for suffix in queue:
+            Core.debug("processing suffix %r", suffix)
+            for i in range(card):
+                domain = "%s.%s" % (fmt % i, suffix)
+                stat["requests"] += 1
+                try:
+                    answers = dns.resolver.query(domain, rtype)
+                except dns.resolver.NoAnswer:
+                    Core.trace("got NoAnswer for %r; descending", domain)
+                    stat["nonterminals"] += 1
+                    next.append(domain)
+                except dns.resolver.NXDOMAIN:
+                    Core.trace("got NXDOMAIN for %r; continuing", domain)
+                    stat["nxdomains"] += 1
+                    continue
+                else:
+                    if depth < maxdepth:
+                        next.append(domain)
+                        Core.trace("got answer for %r; returning and descending", domain)
+                    else:
+                        Core.trace("got answer for %r; assuming terminal and returning", domain)
+                    stat["answers"] += 1
+                    yield from [(domain, j) for j in answers]
+        queue = next
+        depth += 1
+
+crawl_zone = crawl_zone_iteratively
+#crawl_zone = crawl_zone_recursively
+
+for zone in sys.argv[1:]:
+    zone = zone.lower()
+    if not zone.endswith("."):
+        zone = "%s." % zone
+
+    if zone.endswith(".e164.arpa."):
+        params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
+    elif zone.endswith(".ip6.arpa."):
+        params = dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
+    else:
+        Core.err("unrecognized zone %r", zone)
+        continue
+
+    for node in crawl_zone(zone, **params):
+        name, rdata = node
+        name = fmt_domain(name)
+        print(name, "=>", rdata)
+
+    Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
+              zone, stat["requests"], stat["answers"],
+              stat["nonterminals"], stat["nxdomains"])
+
+Core.fini()

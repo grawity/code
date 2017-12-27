@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # arpawalk -- nibble crawler for {e164,ip6,in-addr}.arpa
-from nullroute.core import Core
+import argparse
 import dns.name
 import dns.resolver
 import dns.reversename
 import ipaddress
+from nullroute.core import Core
 import sys
 
 stat = {
@@ -88,10 +89,17 @@ def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
         queue = next
         depth += 1
 
-crawl_zone = crawl_zone_iteratively
-#crawl_zone = crawl_zone_recursively
+ap = argparse.ArgumentParser()
+ap.add_argument("-r", dest="recursive", action="store_true")
+ap.add_argument("zone", nargs="+")
+args = ap.parse_args()
 
-for zone in sys.argv[1:]:
+if args.recursive:
+    crawl_zone = crawl_zone_recursively
+else:
+    crawl_zone = crawl_zone_iteratively
+
+for zone in args.zone:
     zone = zone.lower()
     if not zone.endswith("."):
         zone = "%s." % zone

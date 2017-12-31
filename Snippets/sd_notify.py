@@ -3,6 +3,7 @@ import socket
 
 def notify(*args):
     path = os.environ.get("NOTIFY_SOCKET")
+
     if not path:
         return
     elif path[0] == "@":

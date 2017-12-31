@@ -232,14 +232,14 @@ while [[ $1 ]]; do
 			done
 			(( !failed ))
 			;;
-		push-ukradius)
-			do_job home-push-ukradius
+		push-radius)
+			do_job home-push-radius
 			;;
-		home-push-ukradius)
-			do_rsync ~/ ukradius:/backup/priv/$HOSTNAME-daily/home/	\
+		home-push-radius)
+			do_rsync ~/ radius:/backup/priv/$HOSTNAME-daily/home/	\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
-				-x -P
+				-F -x -P
 			;;
 		pull)
 			do_job twitter
@@ -314,7 +314,7 @@ while [[ $1 ]]; do
 				-F -x -P						;
 			;;
 		fs1)
-			do_rsync ukradius:pub/fs1/ $bvol/Backup/fs1/		\
+			do_rsync radius:pub/fs1/ $bvol/Backup/fs1/		\
 				-f "exclude /mirrors/rain"			;
 			;;
 		mail)
@@ -325,6 +325,11 @@ while [[ $1 ]]; do
 			log "downloading mail (dsync backup)"
 			dsync -R backup $host
 			;;
+		gphotos)
+			do: rclone sync -v \
+				"gdrive:Google Photos" \
+				"$bvol/Backup/Google Drive Photos"
+			;;
 		nanobot)
 			do_rsync root@panther:/home/nanobot/ ~/Backup/Cluenet/nanobot/
 			;;
@@ -333,12 +338,6 @@ while [[ $1 ]]; do
 			;;
 		irc)
 			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
-			;;
-		gale)
-			do_rsync \
-				ofb.net:~jtr/glog/			\
-				$bvol/Backup/Galelogs/			\
-				-f "exclude :glog.out"			;
 			;;
 		cluenet)
 			#dir=$bvol/Backup/Cluenet
@@ -357,7 +356,9 @@ while [[ $1 ]]; do
 				/win/Users/Mantas/AppData/Roaming/Firestorm_x64/ 	\
 				~/Backup/Games/SL/Firestorm_current/			\
 				-f "exclude browser_profile"				;
-
+			do_job games@$HOSTNAME
+			;;
+		games@rain)
 			(cd ~/Backup/Games && ./backup.sh)
 			;;
 		local@*)

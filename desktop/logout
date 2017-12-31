@@ -4,7 +4,10 @@
 
 session=${DESKTOP_SESSION:-default}
 
-if [[ $session == default ]]; then
+# sddm nonsense
+session=${session##*/}
+
+if [[ $session == @(default|lightdm-xsession) ]]; then
 	session=${XDG_SESSION_DESKTOP:-default}
 fi
 
@@ -23,8 +26,18 @@ if [[ $session == default ]]; then
 		debug "found MATE session ID"
 		session=mate
 	elif [[ $DBUS_SESSION_BUS_ADDRESS ]]; then
-		debug "found DBus session bus, guessing by bus names"
-		for name in $(dbus-name -l); do
+		debug "found a D-Bus session bus, guessing by bus names"
+		if have busctl; then
+		    names=$(busctl list --user --acquired --no-legend | awk '{print $1}')
+		elif have qdbus; then
+		    names=$(qdbus --session)
+		elif have dbus-name; then
+		    names=$(dbus-name -elq)
+		else
+		    debug "no D-Bus CLI tool available"
+		    die "not sure what session you're using; giving up"
+		fi
+		for name in $names; do
 			case $name in
 			    com.canonical.Unity)
 				debug "found Unity ($name)"

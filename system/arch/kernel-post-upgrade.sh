@@ -39,7 +39,9 @@ install_kernel() {
 
 	echo "+ copying kernel to EFI system partition"
 	mkdir -p "$ESP/EFI/$ID"
-	if [[ $ESP != /boot ]]; then
+	if [[ $ESP == /boot ]]; then
+		echo "ESP is mounted at $ESP, copy not needed"
+	else
 		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
 		cp -uf "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"

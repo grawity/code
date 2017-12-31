@@ -14,11 +14,13 @@ usage() {
 }
 
 prefix=""
+do_trash=0
 do_stop=0
 
-while getopts ':o:S' OPT; do
+while getopts ':o:TS' OPT; do
 	case $OPT in
 	o) prefix=$OPTARG;;
+	T) do_trash=1;;
 	S) do_stop=1;;
 	*) lib::die_getopts;;
 	esac
@@ -72,5 +74,9 @@ hugin_executor --stitching --prefix="$prefix" "$dir/7.pto"
 log2 "cleaning up"
 
 rm -rf "$dir"
+if (( do_trash )); then
+	notice "trashing input files"
+	trash "${src_files[@]}"
+fi
 
 info "output: $prefix.tif"

@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+import argparse
 import lxml.etree
 from nullroute.core import Core
 from nullroute.scrape import Scraper
@@ -157,6 +158,10 @@ class DracProber(Scraper):
         jnlp = lxml.etree.tostring(tree)
         return jnlp
 
+    @classmethod
+    def known_versions(self):
+        return ["DRAC5", "iDRAC6-new", "iLO4"]
+
     def fetch_webstart(self):
         if self.version == "DRAC5":
             # post {user:, password:} to /cgi-bin/webcgi/login
@@ -249,9 +254,16 @@ class DracProber(Scraper):
         Core.debug("launching %r", cmd)
         subprocess.run(cmd, cwd=self.temp_dir.name)
 
-host = sys.argv[1]
-version = sys.argv[2]
+known_versions = ", ".join(DracProber.known_versions())
 
+ap = argparse.ArgumentParser()
+ap.add_argument("-v", "--version",
+                help="controller version (%s)" % known_versions)
+ap.add_argument("host",
+                help="host or address to connect to")
+args = ap.parse_args()
+
+host = args.host
 try:
     creds = get_netrc(host, service="ipmi") or \
             get_netrc(host, service="idrac") or \
@@ -260,7 +272,7 @@ except KeyError:
     Core.die("credentials for %r not found", host)
 
 drac = DracProber(host, creds)
-drac.version = version
+drac.version = args.version
 
 try:
     drac.run()

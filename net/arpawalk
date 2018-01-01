@@ -15,6 +15,31 @@ stat = {
     "nxdomains": 0,
 }
 
+def get_rdns_domains(addr):
+    net = ipaddress.ip_network(addr)
+    rev = net.reverse_pointer.split(".")
+    if net.version == 6:
+        full, bits = divmod(net.prefixlen, 4)
+        full += 2
+        if bits:
+            full += 1
+            start = int(rev[-full], 16)
+            count = 2 ** (4 - bits)
+            for i in range(count):
+                rev[-full] = "%x" % (start + i)
+                yield ".".join(rev[-full:])
+        else:
+            yield ".".join(rev[-full:])
+    else:
+        full, bits = divmod(net.prefixlen, 8)
+        full += 2
+        if bits:
+            raise ValueError("IPv4 CIDR rDNS not implemented")
+        else:
+            if net.prefixlen == 32:
+                rev[0] = "0"
+            yield ".".join(rev[-full:])
+
 def fmt_domain(dom):
     dom = dom.lower()
     if len(dom) == 73 and dom.endswith(".ip6.arpa."):
@@ -99,26 +124,32 @@ if args.recursive:
 else:
     crawl_zone = crawl_zone_iteratively
 
-for zone in args.zone:
-    zone = zone.lower()
-    if not zone.endswith("."):
-        zone = "%s." % zone
-
-    if zone.endswith(".e164.arpa."):
-        params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
-    elif zone.endswith(".ip6.arpa."):
-        params = dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
+for arg in args.zone:
+    if "/" in arg:
+        tmp = [*get_rdns_domains(arg)]
     else:
-        Core.err("unrecognized zone %r", zone)
-        continue
+        tmp = [arg]
 
-    for node in crawl_zone(zone, **params):
-        name, rdata = node
-        name = fmt_domain(name)
-        print(name, "=>", rdata)
+    for zone in tmp:
+        zone = zone.lower()
+        if not zone.endswith("."):
+            zone = "%s." % zone
 
-    Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
-              zone, stat["requests"], stat["answers"],
-              stat["nonterminals"], stat["nxdomains"])
+        if zone.endswith(".e164.arpa."):
+            params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
+        elif zone.endswith(".ip6.arpa."):
+            params = dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
+        else:
+            Core.err("unrecognized zone %r", zone)
+            continue
+
+        for node in crawl_zone(zone, **params):
+            name, rdata = node
+            name = fmt_domain(name)
+            print(name, "=>", rdata)
+
+        Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
+                  zone, stat["requests"], stat["answers"],
+                  stat["nonterminals"], stat["nxdomains"])
 
 Core.fini()

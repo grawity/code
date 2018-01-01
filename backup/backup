@@ -210,17 +210,18 @@ while [[ $1 ]]; do
 			do_rsync ~/ $bvol/Backup/Homes/$HOSTNAME/		\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
-				-x -P
+				-P
 			;;
 		dropbox-push-hd)
 			[[ -d ~/Dropbox/Pictures/Porn ]] \
-				|| die "Dropbox in selective sync mode?"
+				|| die "Dropbox in selective sync mode"
 			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ 		\
 				-f "exclude .dropbox.cache"			\
-				-x -P
+				-P
 			;;
 		root-push-hd)
 			do_rsync / $bvol/Backup/Roots/$HOSTNAME/		\
+				-f "exclude $HOME/"				\
 				-f "merge $conf/rsync-filters/root_all"		\
 				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
 				-x -P

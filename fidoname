@@ -15,7 +15,9 @@ sub to_dns {
 	my ($z, $n, $f, $p, $d) = @_;
 	return
 		(defined $p ? "p$p." : "").
-		"f$f.n$n.z$z.$domain";
+		"f$f.n$n.".
+		(defined $z ? "z$z." : "z1.").
+		$domain;
 }
 
 sub to_fido {
@@ -31,10 +33,10 @@ GetOptions(
 	"d|domain=s" => \$domain,
 ) || exit(2);
 
-my $in = shift @ARGV;
-
-if (my @m = $in =~ $re) {
-	print to_dns(@m)."\n";
-} else {
-	exit 1;
+for (@ARGV) {
+	if (my @m = $_ =~ $re) {
+		print to_dns(@m)."\n";
+	} else {
+		warn "unrecognized input: '$_'\n";
+	}
 }

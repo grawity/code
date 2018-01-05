@@ -1,0 +1,102 @@
+#!/usr/bin/env perl
+use v5.20;
+use warnings;
+use strict;
+use Getopt::Long;
+use Net::DBus;
+
+sub GsdColor {
+	Net::DBus->session
+	->get_service("org.gnome.SettingsDaemon.Color")
+	->get_object("/org/gnome/SettingsDaemon/Color");
+}
+
+sub get_gsetting {
+	my @cmd = ("gsettings", "get", @_);
+	if (open(my $fh, "-|", @cmd)) {
+		chomp(my $value = <$fh>);
+		close($fh);
+		return $value;
+	}
+}
+
+sub set_gsetting {
+	my @cmd = ("gsettings", "set", @_);
+	system @cmd;
+}
+
+sub get_gsd_enabled {
+	get_gsetting("org.gnome.settings-daemon.plugins.color",
+	             "night-light-enabled") eq "true";
+}
+
+sub get_active {
+	GsdColor->Get("org.gnome.SettingsDaemon.Color",
+		      "NightLightActive");
+}
+
+sub get_suspended {
+	GsdColor->Get("org.gnome.SettingsDaemon.Color",
+		      "DisabledUntilTomorrow");
+}
+
+sub set_gsd_enabled {
+	my ($status) = @_;
+	set_gsetting("org.gnome.settings-daemon.plugins.color",
+	             "night-light-enabled",
+	             $status ? "true" : "false");
+}
+
+sub set_suspended {
+	my ($status) = @_;
+	GsdColor->Set("org.gnome.SettingsDaemon.Color",
+	              "DisabledUntilTomorrow",
+	              Net::DBus::dbus_boolean($status));
+}
+
+my $store;
+my $action = "query";
+
+GetOptions(
+	"p|store!" => \$store,
+	"E|enable" => sub { $action = "enable" },
+	"D|disable" => sub { $action = "disable" },
+	"T|toggle" => sub { $action = "toggle" },
+	"s|suspend" => sub { $action = "suspend" },
+	"r|resume" => sub { $action = "resume" },
+) || exit(2);
+
+if ($action eq "query") {
+	if (get_gsd_enabled()) {
+		if (get_suspended()) {
+			say "enabled (suspended for today)";
+		} elsif (get_active()) {
+			say "enabled (active)";
+		} else {
+			say "enabled (inactive)";
+		}
+	} else {
+		say "disabled globally";
+	}
+}
+elsif ($action eq "enable") {
+	set_gsd_enabled(1);
+}
+elsif ($action eq "disable") {
+	set_gsd_enabled(0);
+}
+elsif ($action eq "toggle") {
+	set_gsd_enabled(!get_gsd_enabled());
+}
+elsif ($action eq "suspend") {
+	set_suspended(1);
+}
+elsif ($action eq "resume") {
+	set_suspended(0);
+	if (!get_active) {
+		warn "note: night light is inactive at this time\n";
+	}
+}
+elsif ($action eq "poke") {
+	set_suspended(!get_suspended());
+}

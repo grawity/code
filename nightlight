@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use v5.20;
-use warnings;
-use strict;
+no warnings "experimental::smartmatch";
 use Getopt::Long;
 use Net::DBus;
 
@@ -9,6 +8,12 @@ sub GsdColor {
 	Net::DBus->session
 	->get_service("org.gnome.SettingsDaemon.Color")
 	->get_object("/org/gnome/SettingsDaemon/Color");
+}
+
+sub Shell {
+	Net::DBus->session
+	->get_service("org.gnome.Shell")
+	->get_object("/org/gnome/Shell");
 }
 
 sub get_gsetting {
@@ -56,6 +61,7 @@ sub set_suspended {
 
 my $store;
 my $action = "query";
+my $osd = !(-t 0 && -t 1);
 
 GetOptions(
 	"p|store!" => \$store,
@@ -64,6 +70,7 @@ GetOptions(
 	"T|toggle" => sub { $action = "toggle" },
 	"s|suspend" => sub { $action = "suspend" },
 	"r|resume" => sub { $action = "resume" },
+	"hotkey" => sub { $action = "poke" },
 ) || exit(2);
 
 if ($action eq "query") {
@@ -88,15 +95,15 @@ elsif ($action eq "disable") {
 elsif ($action eq "toggle") {
 	set_gsd_enabled(!get_gsd_enabled());
 }
-elsif ($action eq "suspend") {
-	set_suspended(1);
-}
-elsif ($action eq "resume") {
-	set_suspended(0);
-	if (!get_active) {
-		warn "note: night light is inactive at this time\n";
+elsif ($action ~~ ["suspend", "resume", "poke"]) {
+	my $value = ($action eq "suspend") ? 1
+                  : ($action eq "resume") ? 0
+                  : !get_suspended();
+	my $text = ($value ? "paused" : "resumed");
+	my $icon = ($value ? "weather-clear" : "night-light");
+	set_suspended($value);
+	if ($osd) {
+		Shell->ShowOSD({label => "Night Light $text",
+				icon => "$icon-symbolic"});
 	}
-}
-elsif ($action eq "poke") {
-	set_suspended(!get_suspended());
 }

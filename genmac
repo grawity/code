@@ -1,52 +1,9 @@
-#!/usr/bin/env bash
+#!/usr/bin/env perl
 # genmac – generate a MAC address and display in several formats
-# 
-# takes a hostname (or another identifier) as argument, and always returns the
-# same address from ~/lib/vm/ethers for the given name
 
-ETHERS=~/lib/vm/ethers
+my @bytes = map {int rand 256} 1..6;
 
-randether() {
-	printf '%01x2:%02x:%02x:%02x:%02x:%02x' \
-		$(( RANDOM % 16 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 )) \
-		$(( RANDOM % 256 ))
-}
+$bytes[0] &= ~1; # clear "unicast/group" bit
+$bytes[0] |= 2;  # set "global/local" bit
 
-getether() {
-	local name=$1
-	local addr=$(awk "\$2 == \"$name\" {print \$1}" "$ETHERS")
-	if [ ! "$addr" ]; then
-		while true; do
-			addr=$(randether)
-			if ! grep -qs "^$addr[[:space:]]" "$ETHERS"; then
-				printf '%s %s\n' "$addr" "$name" >> "$ETHERS"
-				break
-			fi
-		done
-	fi
-	echo "$addr"
-}
-
-fmt() { echo $1; }
-
-if [ "$1" == "-w" ]; then
-	fmt() { x=$1; x=${x^^}; x=${x//:/-}; echo $x; }
-	shift
-elif [ "$1" == "-x" ]; then
-	fmt() { x=$1; x=${x^^}; x=${x//:/}; echo $x; }
-	shift
-elif [ "$1" == "-v" ]; then
-	fmt() { x=$1; x=${x^^}; x=${x//:/};
-		echo "<ethernet_card_address type=\"bytes\">$x</ethernet_card_address>"; }
-	shift
-fi
-
-if [ "$1" ]; then
-	fmt $(getether "$1")
-else
-	fmt $(randether)
-fi
+print join(":", map {sprintf "%02X", $_} @bytes), "\n";

@@ -45,30 +45,28 @@ def filter_filename(name, safe=False):
     return name
 
 def fmt_size_short(nbytes, decimals=1, si=False):
-    prefixes = "BkMGTPEZYH"
-    div = 1000 if si else 1024
-    exp = 0
-    while nbytes >= div:
-        nbytes /= div
-        exp += 1
-    return "%.*f%s" % (decimals, nbytes, prefixes[exp])
-
-def fmt_size(nbytes, decimals=1, si=False, full_bytes=True):
-    if nbytes == 0:
-        return "0 %s" % ("bytes" if full_bytes else "B")
     prefixes = " kMGTPEZYH"
     div = 1000 if si else 1024
+    if nbytes == 0:
+        return "0"
     exp = int(math.log(nbytes, div))
+    exp = min(exp, len(prefixes) - 1)
+    return "%.*f%s" % (decimals, nbytes / div**exp,
+                       prefixes[exp] if exp else "")
+
+def fmt_size(nbytes, decimals=1, si=False, unit="B", long_unit="bytes"):
+    prefixes = " kMGTPEZYH"
+    div = 1000 if si else 1024
+    if nbytes == 0:
+        return "0 %s" % (long_unit or unit)
+    exp = int(math.log(nbytes, div))
+    exp = min(exp, len(prefixes) - 1)
     if exp == 0:
-        return "%.*f %s" % (decimals, nbytes, "bytes" if full_bytes else "B")
-    elif exp < len(prefixes):
-        quot = nbytes / div**exp
-        return "%.*f %sB" % (decimals, quot, prefixes[exp])
+        return "%.*f %s" % (decimals, nbytes,
+                            long_unit or unit)
     else:
-        exp = len(prefixes) - 1
-        quot = nbytes / div**exp
-        return "%f %sB" % (quot, prefixes[exp])
-    return str(nbytes)
+        return "%.*f %s%s" % (decimals, nbytes / div**exp,
+                             prefixes[exp] if exp else "", unit)
 
 def unescape(line):
     state = 0

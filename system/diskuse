@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import subprocess
+import time
 from argparse import ArgumentParser
 from nullroute.core import Core, Env
 from nullroute.misc import fmt_size_short
@@ -232,6 +233,7 @@ class MtabReader(object):
 class Enumerator(object):
     def __init__(self):
         self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
+        self.cache_maxage = 14*86400
         self.seen_devnos = set()
 
     def _enum_partitions(self, show_cached=False):
@@ -239,7 +241,8 @@ class Enumerator(object):
             yield Partition(mtpt, fstype)
         if show_cached:
             for mtpt, rest in self.cache.items():
-                yield Partition(mtpt, rest["type"], cached=rest)
+                if time.time() - rest.get("time", 0) <= self.cache_maxage:
+                    yield Partition(mtpt, rest["type"], cached=rest)
 
     def enum_partitions_system(self, show_cached=False):
         for part in self._enum_partitions(show_cached):
@@ -255,7 +258,9 @@ class Enumerator(object):
 
     def _add_to_cache(self, part, data):
         Core.debug("caching %r", part)
-        data = {**data, "type": part.fstype}
+        data = {**data,
+                "type": part.fstype,
+                "time": int(time.time())}
         mtpt = part.mtpt
         if part.kind != KIND_MEDIA:
             mtpt = "//" + gethostname() + mtpt

@@ -94,4 +94,4 @@ def print_status(*args, fmt=fmt_status, wrap=True):
 
 def window_title(msg):
     if stderr_tty():
-        print("\033]2;%s\007" % msg, file=sys.stderr)
+        print("\033]2;%s\007" % msg, end="", file=sys.stderr, flush=True)

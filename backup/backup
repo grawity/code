@@ -210,17 +210,18 @@ while [[ $1 ]]; do
 			do_rsync ~/ $bvol/Backup/Homes/$HOSTNAME/		\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
-				-x -P
+				-P
 			;;
 		dropbox-push-hd)
 			[[ -d ~/Dropbox/Pictures/Porn ]] \
-				|| die "Dropbox in selective sync mode?"
+				|| die "Dropbox in selective sync mode"
 			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ 		\
 				-f "exclude .dropbox.cache"			\
-				-x -P
+				-P
 			;;
 		root-push-hd)
 			do_rsync / $bvol/Backup/Roots/$HOSTNAME/		\
+				-f "exclude $HOME/"				\
 				-f "merge $conf/rsync-filters/root_all"		\
 				-f "merge $conf/rsync-filters/root_$HOSTNAME"	\
 				-x -P
@@ -323,7 +324,7 @@ while [[ $1 ]]; do
 			do_rsync $host:Mail/      ~/Backup/Mail/$host/
 			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
 			log "downloading mail (dsync backup)"
-			dsync -R backup $host
+			#dsync -R backup $host
 			;;
 		gphotos)
 			do: rclone sync -v \
@@ -340,12 +341,11 @@ while [[ $1 ]]; do
 			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
 			;;
 		cluenet)
-			#dir=$bvol/Backup/Cluenet
 			dir=~/Backup/Cluenet
 
 			do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
 			do_pull $dir/virgule/accounts/
-			do_pull $dir/_ircd-config/
+			#do_pull $dir/_ircd-config/
 			do_kdestroy
 			;;
 		local)

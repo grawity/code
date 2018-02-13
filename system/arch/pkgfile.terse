@@ -10,10 +10,12 @@ def uniq(it, seen=()):
             yield i
             seen.add(i)
 
-def pkgfile_verbose(arg, bin=False):
+def pkgfile_verbose(arg, bin_only=False, glob=False):
     args = ["pkgfile", "-v"]
-    if bin:
+    if bin_only:
         args.append("-b")
+    if glob:
+        args.append("-g")
     args.append("--")
     args.append(arg)
     ret = subprocess.run(args, stdout=subprocess.PIPE)
@@ -32,10 +34,10 @@ def parse_results(it):
         pkgf[pkg].append(path)
     return pkgv, pkgf
 
-def do_pkg(arg):
+def do_pkg(arg, **kwargs):
     max_files = 2
-    pkgs_bin = pkgfile_verbose(arg, True)
-    pkgs_all = pkgfile_verbose(arg, False)
+    pkgs_bin = pkgfile_verbose(arg, bin_only=True, **kwargs)
+    pkgs_all = pkgfile_verbose(arg, bin_only=False, **kwargs)
     pkgs_bin, files_bin = parse_results(pkgs_bin)
     pkgs_all, files_all = parse_results(pkgs_all)
     if pkgs_bin:

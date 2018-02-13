@@ -55,26 +55,18 @@ my %COMMUNITY = (
 		6002 => "export[no-peers]",
 	},
 	65535 => {
+		666 => "blackhole",
 		65281 => "no-export",
 		65282 => "no-advertise",
 		65283 => "no-export-subconfed",
 	},
 );
 
-sub _asname {
-	state $res = Net::DNS::Resolver->new;
+sub is_private_as {
 	my ($as) = @_;
-	if (!$AS{$as}) {
-		my $ans = $res->query("AS$as.asn.dn42", "TXT");
-		if ($ans && $ans->{answer}) {
-			my $str = $ans->{answer}->[0]->{txtdata}->[0]->[0];
-			my @str = split(/ \| /, $str, 5);
-			@str = grep {!/^AS\d+$/} split(/\s+/, $str[4]);
-			$as =~ s/^424242/…/;
-			$as = $str[0]." (".$as.")";
-		}
-	}
-	return $AS{$as} //= $as;
+	return 1 if ($as >= 64512) && ($as <= 65535);
+	return 1 if ($as >= 4200000000) && ($as <= 4294967294);
+	return 0;
 }
 
 sub asname {
@@ -84,12 +76,20 @@ sub asname {
 	if ($AS{$as}) {
 		return $AS{$as}." (".$tail.")";
 	}
+	if (!is_private_as($as)) {
+		my $r = `dig +short AS$as.asn.cymru.com txt`;
+		$r =~ s/^"$as \| \S+ \| \S+ \| \S+ \| (.+)"/$1/ || return $as;
+		$r =~ s/\n.*//s;
+		#$r =~ s/,.*?$//;
+		$r =~ s/^(\S{4,}).*, (\S+)$/$1, $2/;
+		return "$r ($as)";
+	}
 	return $as;
 }
 
 sub tagname {
 	my ($tag) = @_;
-	if ($tag =~ /^\((\d+),(\d+)\)$/ || $tag =~ /^\(ro, (\d+), (\d+)\)$/) {
+	if ($tag =~ /^\((\d+),(\d+)\)$/ || $tag =~ /^\(r[ot], (\d+), (\d+)\)$/) {
 		my $as = int $1;
 		my $cm = int $2;
 		my $name;
@@ -99,26 +99,59 @@ sub tagname {
 			return "(".($AS{$as} // $as).",".($name || $cm).")";
 		}
 	}
+	elsif ($tag =~ /^\((\d+), (\d+), (\d+)\)$/) {
+		my $as = int $1;
+		my $cm1 = int $2;
+		my $cm2 = int $3;
+		my $name1 = $COMMUNITY{$as}{$cm1}{_name};
+		my $name2 = $COMMUNITY{$as}{$cm1}{$cm2};
+		if ($AS{$as} || $name1 || $name2) {
+			return "(".($AS{$as} // $as).",".($name1 || $cm1).",".($name2 || $cm2).")";
+		}
+	}
 	return $tag;
 }
 
 sub filter {
 	my $rt;
 	my $via;
+	my $dev;
+	my $asn;
+	my $rest;
+	my $proto;
 	while (<STDIN>) {
-		if (/(\S+\/\d+)?\s+via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
+		if (s/^(\S+\/\d+)?\s+(via|dev) /$2 /) {
 			$rt = $1 if $1;
-			$via = $2;
 			print "\n";
 			print " · \e[38;5;210m$rt\e[m\n" if $1;
-			print "\t",
-				"via \e[38;5;43m".$2."\e[m ",
-				"on \e[38;5;45m".$3."\e[m ",
-				"at \e[38;5;46m".$5."\e[m ",
-				$4."\n";
+			if (/^via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
+				$via = $1; $dev = $2; $rest = $3; $asn = $4;
+				print "\t",
+					"via \e[38;5;43m".$via."\e[m ",
+					"on \e[38;5;45m".$dev."\e[m ",
+					"at \e[38;5;46m".$asn."\e[m ",
+					$rest."\n";
+			}
+			elsif (/^via (\S+) on (\S+) (\[.+\] .+)$/) {
+				$via = $1; $dev = $2; $rest = $3;
+				print "\t",
+					"via \e[38;5;43m".$via."\e[m ",
+					"on \e[38;5;45m".$dev."\e[m ",
+					$rest."\n";
+			}
+			elsif (/^dev (\S+) (\[(\S+) \S+\] .+)$/) {
+				$dev = $1; $rest = $2; $proto = $3;
+				print "\t",
+					"local ",
+					"on \e[38;5;45m".$dev."\e[m ",
+					$rest."\n";
+			}
+			else {
+				print "\t>> ", $_;
+			}
 		}
 		elsif (/(\s+Type:) (.+)$/) {
-			print if $2 ne "BGP unicast univ";
+			print if $2 !~ /^(BGP|OSPF) unicast univ$/;
 		}
 		elsif (/(\s+BGP\.as_path:) (.+)$/) {
 			my $prefix = $1;
@@ -130,19 +163,7 @@ sub filter {
 		elsif (/(\s+BGP\.next_hop:) (.+)$/) {
 			print $1." \e[38;5;43m".$2."\e[m\n" if $2 ne $via;
 		}
-		elsif (/(\s+BGP\.community:) (.+)$/) {
-			my $prefix = $1;
-			my @tags = split(/ /, $2);
-			@tags = map {tagname($_)} @tags;
-			if (eval {require Sort::Naturally}) {
-				@tags = Sort::Naturally::nsort(@tags);
-			} else {
-				@tags = sort @tags;
-			}
-			print $prefix." ".join(" ", @tags)."\n";
-		}
-		elsif (/^(\s+BGP\.ext_community:) (.+)$/) {
-			#print;
+		elsif (/^(\s+BGP\.(?:|ext_|large_)community:) (.+)$/) {
 			my $prefix = $1;
 			my @tags = ($2 =~ /\(.+?\)/g);
 			@tags = map {tagname($_)} @tags;

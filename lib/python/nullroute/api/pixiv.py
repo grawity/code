@@ -16,6 +16,8 @@ class PixivClient():
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
 
         self.api = pixivpy3.PixivAPI()
+        if not hasattr(self.api, "client_secret"):
+            Core.warn("this pixivpy3.PixivAPI version does not allow overridding client_secret; OAuth won't work properly")
         self.api.client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
         self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
         self.api.requests = self.ua

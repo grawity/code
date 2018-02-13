@@ -276,15 +276,15 @@ case $cmd in
                 warn "item '$file' is not a file"
             else
                 url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
-                if [[ $url == http://dynasty-scans.com/* ]]; then
-                    warn "ignoring blacklisted origin '$url' for file '$file'"
+                if [[ $url == https://dynasty-scans.com/* ]]; then
+                    notice "ignoring blacklisted origin '$url' for file '$file'" >&2
                 elif [[ $url == @(http|https|ftp)://* ]]; then
-                    notice "adding origin '$url' to file '$file'"
+                    info "adding origin '$url' to file '$file'" >&2
                     echo "$url $file"
                 elif [[ $url ]]; then
-                    warn "ignoring non-web origin '$url' for file '$file'"
+                    notice "ignoring non-web origin '$url' for file '$file'" >&2
                 else
-                    warn "no origin URL for file '$file'"
+                    warn "no origin URL for file '$file'" >&2
                 fi
             fi | git annex addurl --batch --with-files
         done

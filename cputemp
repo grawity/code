@@ -1,0 +1,60 @@
+#!/bin/bash
+
+put_bar() {
+	local color=$1 width=$2 char=$3 bar=""
+	if ((width <= 0)); then
+		return
+	fi
+	if ((color)); then
+		printf "\e[38;5;%dm" "$color"
+	fi
+	printf -v bar "%*s" "$width" ""
+	printf "%s" "${bar// /$char}"
+	if ((color)); then
+		printf "\e[m"
+	fi
+}
+
+draw_bar() {
+	local -i time=$1 color=$2 width=$3 temp=$4
+
+	#put_bar 2 $((temp < 40 ? temp : 40)) '#'; ((temp -= 40))
+	#put_bar 3 $((temp < 25 ? temp : 25)) '#'; ((temp -= 25))
+	#printf '\n'
+	#return
+
+	if ((temp>70)); then
+		color+=1
+	elif ((temp>65)); then
+		color+=3
+	elif ((temp>40)); then
+		color+=2
+	else
+		color+=4
+	fi
+	local width=$((temp-20))
+	printf '%(%T)T ' $time
+	char=█
+	if ((color<8)); then
+		: color+=8
+		: char=▓
+	fi
+	put_bar "$color" "$width" "$char"
+	printf ' %3d°C' "$temp"
+	printf '\n'
+}
+
+interval=1
+last=0
+while (( !last )) || sleep $interval; do
+	printf -v ts '%(%s)T' -1
+	if (( last )); then
+		temp=$last
+		printf '\e[A'
+		draw_bar $((ts-1)) 0 $((temp-20)) $temp
+	fi
+	temp=$(</sys/class/hwmon/hwmon1/temp1_input)
+	temp=$((temp / 1000))
+	draw_bar $ts 8 $((temp-20)) $temp
+	last=$temp
+done

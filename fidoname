@@ -1,5 +1,8 @@
 #!/usr/bin/env perl
+use Getopt::Long;
 # convert FidoNet addresses to DNS domains
+
+my $domain = "binkp.net";
 
 my $re = qr{ ^
 		(?: (\d+) : )?
@@ -10,10 +13,11 @@ my $re = qr{ ^
 
 sub to_dns {
 	my ($z, $n, $f, $p, $d) = @_;
-	my $domain = "binkp.net";
 	return
 		(defined $p ? "p$p." : "").
-		"f$f.n$n.z$z.$domain";
+		"f$f.n$n.".
+		(defined $z ? "z$z." : "z1.").
+		$domain;
 }
 
 sub to_fido {
@@ -25,10 +29,14 @@ sub to_fido {
 		(defined $d ? "@$d" : "");
 }
 
-my $in = shift @ARGV;
+GetOptions(
+	"d|domain=s" => \$domain,
+) || exit(2);
 
-if (my @m = $in =~ $re) {
-	print to_dns(@m)."\n";
-} else {
-	exit 1;
+for (@ARGV) {
+	if (my @m = $_ =~ $re) {
+		print to_dns(@m)."\n";
+	} else {
+		warn "unrecognized input: '$_'\n";
+	}
 }

@@ -4,7 +4,7 @@ import sys
 import ipaddress
 import subprocess
 from nullroute import ui
-from nullroute.core import *
+from nullroute.core import Core
 
 def ip_addr_list(inf):
     with subprocess.Popen(["ip", "addr", "show", "dev", inf],
@@ -61,6 +61,8 @@ if not inf_has_ip4:
     Core.info("adding %s to '%s'" % (addr, interface))
     ip_addr_add(interface, addr)
 
+ui.window_title("Serving DHCP on %s" % interface)
+
 args = [
     "/usr/bin/sudo",
     "/usr/bin/dnsmasq",
@@ -79,6 +81,5 @@ args = [
     "--dhcp-option=option:dns-server,%s" % ip4_dns,
 ]
 
-ui.window_title("Serving DHCP on %s" % interface)
-
+Core.debug("starting %r", args)
 os.execv(args[0], args)

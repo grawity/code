@@ -369,6 +369,10 @@ fi
 
 eap=${eap^^}
 
+if [[ $eap == MSCHAP ]]; then
+	die "EAP-$eap does not exist; did you mean EAP-MSCHAPv2?"
+fi
+
 case $mech in
 	# only set a default for radtest, let eapol_test autoguess
 	'')		mech='pap';;
@@ -382,11 +386,23 @@ case $mech in
 	'eap-md5')	phase2='EAP-MD5';;
 	'eap-mschapv2')	phase2='EAP-MSCHAPV2';;
 	# in case I ever try to make this nonsense work
-	'eap-pap')	die "PAP is not an EAP mechanism";;
+	'eap-pap')	die "PAP is not an EAP mechanism; did you mean EAP-GTC?";;
 	'eap-chap')	die "CHAP is not an EAP mechanism";;
-	'eap-mschap')	die "EAP-MSCHAP is actually EAP-MSCHAPV2";;
+	'eap-mschap')	die "EAP-MSCHAP does not exist; did you mean EAP-MSCHAPV2?";;
 	*)		err "unknown mechanism '$mech'";;
 esac
+
+if [[ ${eap:-NONE} != @(NONE|TLS|PEAP|TTLS) && $phase2 ]]; then
+	die "EAP-$eap does not support inner mechanisms"
+fi
+
+if [[ $eap == PEAP && $phase2 && $phase2 != EAP-* ]]; then
+	case $phase2 in
+		PAP|GTC)	notice "you probably want 'phase2 EAP-GTC'";;
+		MSCHAP*)	notice "you probably want 'phase2 EAP-MSCHAPV2'";;
+	esac
+	die "EAP-$eap can only transport EAP mechanisms"
+fi
 
 if [[ ${eap:-NONE} == NONE && $mech != @(pap|chap|mschap|eap-md5) ]]; then
 	die "radtest does not support the '$mech' mechanism"
@@ -472,7 +488,7 @@ if [[ $eap && $eap != NONE ]]; then
 		if [[ $phase2 == EAP-* ]]; then
 			ecfg_full+=("phase2=\"auth=${phase2#EAP-}\"")
 		elif [[ $phase2 ]]; then
-			err "EAP-$eap can only transport EAP methods"
+			err "EAP-$eap can only transport other EAP mechanisms"
 		fi
 	elif [[ $eap == TTLS ]]; then
 		if [[ $phase2 == EAP-* ]]; then

@@ -26,7 +26,7 @@ bgstart)
 	try_load
 	do: vboxmanage startvm "$vm"
 	;;
-fgstart)
+start|fgstart)
 	try_load
 	do: vboxmanage startvm "$vm" --type gui
 	;;
@@ -38,7 +38,10 @@ save)
 	do: vboxmanage controlvm "$vm" savestate
 	;;
 ctl)
-	do: vboxmanage controlvm "$@"
+	do: vboxmanage controlvm "$vm" "$@"
+	;;
+modify)
+	do: vboxmanage modifyvm "$vm" "$@"
 	;;
 insertfd)
 	do: vboxmanage storageattach "$vm" --storagectl Floppy --device 0 --medium "$@"
@@ -67,6 +70,9 @@ fixup)
 		--ioapic on			\
 		--nic1 bridged			\
 		--bridgeadapter1 "vmbr"		;
+	;;
+"")
+	lsmod | grep --color ^vbox
 	;;
 *)
 	die "unknown command '$cmd'"

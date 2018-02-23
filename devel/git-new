@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 # git-new - show new commits in a branch, based on the reflog
 
-opts=$(git config nullroute.git.up || true)
-if [[ "$opts" ]]; then
-	git config nullroute.git-new.options "$opts" &&
-	git config --unset nullroute.git.up
-fi
+migrate_opt() {
+	local old=$1 new=$2
+	local val=$(git config "$old" || true)
+	if [[ "$val" ]]; then
+		git config "$new" "$val" &&
+		git config --unset "$old"
+	fi
+}
+
+migrate_opt nullroute.{git.up,git-new.options}
+migrate_opt nullroute.git-new.{opts,options}
+migrate_opt nullroute.git-new.{args,paths}
 
 opts=$(git config nullroute.git-new.options || true)
 paths=$(git config nullroute.git-new.paths || true)

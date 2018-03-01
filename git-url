@@ -6,23 +6,33 @@ base=$(git config --get web.url)
 type=$(git config --get web.type)
 head=$(git rev-parse --short=12 HEAD)
 
+if [[ ! $base ]]; then
+	remote=$(git remote get-url origin)
+	case $remote in
+		https://github.com/*)
+			base=${remote%.git}
+			type=github
+			;;
+		https://gitlab.gnome.org/*)
+			base=${remote%.git}
+			type=gitlab
+			;;
+	esac
+fi
+
 if [[ ! $type ]]; then
 	case $base in
 	https://github.com/*)
 		type='github';;
+	https://gitlab.gnome.org/*)
+		type='gitlab';;
 	*/cgit/*)
 		type='cgit';;
-	*)
-		die "unknown type for url '$base'";;
 	esac
 fi
 
-if [[ ! $base ]]; then
-	remote=$(git remote get-url origin)
-	if [[ $remote == https://github.com/* ]]; then
-		base=${remote%.git}
-		type=github
-	fi
+if [[ ! $type ]]; then
+	die "unknown type for url '$base'"
 fi
 
 toplevel=$(git rev-parse --show-toplevel)
@@ -41,17 +51,30 @@ is_file() {
 	fi
 }
 
-for name; do
-	debug "arg: '$name'"
-	if t=$(git rev-parse --short=20 "$name") && [[ $t ]]; then
+for arg; do
+	debug "arg: '$arg'"
+
+	if [[ $arg == @(pr|pull)/* ]]; then
+		mode=pull
+		arg=${arg#*/}
+	elif [[ $arg == @(bug|issue)/* ]]; then
+		mode=issue
+		arg=${arg#*/}
+	elif t=$(git rev-parse --short=20 "$arg") && [[ $t ]]; then
 		: ${mode:=commit}
 		head=$t
-	elif t=$prefix$name && is_file "$name"; then
+	elif t=$prefix$arg && is_file "$arg"; then
 		debug "looking for file '$t'"
 		: ${mode:=file}
 		path=$t
 	fi
-	debug "arg '$name' is a $mode"
+
+	if [[ ! $mode ]]; then
+		err "cannot understand arg '$arg'"
+		continue
+	fi
+
+	debug "arg '$arg' is a $mode"
 
 	case $type in
 	'cgit')
@@ -67,6 +90,11 @@ for name; do
 		'flog')   url="$base/commits/$head/$path";;
 		'file')   url="$base/blob/$head/$path";;
 		'commit') url="$base/commit/$head";;
+		esac;;
+	'gitlab')
+		case $mode in
+			issue)	url="$base/issues/$arg";;
+			pull)	url="$base/merge_requests/$arg";;
 		esac;;
 	'gitweb')
 		base=${base//";a=summary"/}

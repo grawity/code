@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 if [[ -t 0 && -t 1 && -t 2 ]]; then
 	set -- status=progress "$@"
+fi
+
+has_bs=0
+for arg in "$@"; do
+	if [[ $arg == @(bs|ibs|obs)=* ]]; then
+		has_bs=1
+	fi
+done
+if (( ! has_bs )); then
+	notice "adding default 'bs=1M'"
+	set -- bs=1M "$@"
 fi
 
 exec /usr/bin/dd "$@"

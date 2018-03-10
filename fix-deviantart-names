@@ -48,6 +48,10 @@ class DeviantArtScraper(Scraper):
             raise ScrapeError("unexpected status %r from %r" % (r, favurl))
         return r.headers["location"]
 
+def filter_title(title):
+    title = title.replace("[+Video]", "")
+    return title.strip()
+
 def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
@@ -63,15 +67,17 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
 
     try:
         info = da.get_oembed_info_by_favid(favid)
-        info["_favid"] = favid
-        if Core._in_debug_mode():
-            pprint(info)
     except HTTPError as e:
         print(fmt_notfound % "failed")
         Core.err(str(e))
         return
 
-    new_name = "%(title)s by %(author_name)s (%(_favid)s).%(imagetype)s" % info
+    info["_favid"] = favid
+    info["_title"] = filter_title(info["title"])
+    if Core._in_debug_mode():
+        pprint(info)
+
+    new_name = "%(_title)s by %(author_name)s (%(_favid)s).%(imagetype)s" % info
     new_name = filter_filename(new_name, allow_space=True)
     new_path = os.path.join(old_dir, new_name)
     print("=>", fmt_found % new_name)

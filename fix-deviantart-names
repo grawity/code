@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 from nullroute.core import Core
-from nullroute.misc import filter_filename, set_file_attrs
+from nullroute.file import digest_files, set_file_attrs
+from nullroute.misc import filter_filename
 from nullroute.scrape import Scraper
 import os
 from pprint import pprint
@@ -52,6 +53,17 @@ def filter_title(title):
     title = title.replace("[+Video]", "")
     return title.strip()
 
+def files_eq(a, b):
+    import subprocess
+    astat = os.stat(a)
+    bstat = os.stat(b)
+    if astat.st_size != bstat.st_size:
+        return False
+    digests = digest_files([a, b])
+    if digests[a] != digests[b]:
+        return False
+    return True
+
 def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
@@ -82,6 +94,12 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     new_path = os.path.join(old_dir, new_name)
     print("=>", fmt_found % new_name)
     if not args.dry_run:
+        if os.path.exists(new_path):
+            if files_eq(old_path, new_path):
+                Core.notice("new file %r already exists and is a duplicate; TODO", new_path)
+            else:
+                Core.err("new file %r already exists and is different; TODO", new_path)
+            return
         os.rename(old_path, new_path)
 
     referer = da.get_pageurl_by_favid(favid)

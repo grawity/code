@@ -3,7 +3,7 @@ import argparse
 import bs4
 from functools import lru_cache
 from nullroute.core import Core
-from nullroute.misc import filter_filename
+from nullroute.misc import filter_filename, set_file_attrs
 from nullroute.api.pixiv import PixivClient
 import os
 from pprint import pprint
@@ -144,6 +144,30 @@ def rename_file_in_dir(dirpath, filename):
             os.rename(old_path, new_path)
         return
 
+def fixup_metadata(path):
+    global bare_re
+    global prefix_re
+    global pixiv_api
+
+    filename = os.path.basename(path)
+    m = bare_re.match(filename)
+    if m:
+        illust_id = int(m.group(1))
+    else:
+        m = prefix_re.match(filename)
+        print(m)
+        if m:
+            illust_id = int(m.group(2))
+        else:
+            return
+
+    work = pixiv_api.get_illust_info(illust_id)
+    attrs = {
+        "dublincore.title": work.title,
+        "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
+    }
+    set_file_attrs(filename, attrs)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
@@ -162,6 +186,7 @@ for arg in args.path or ["."]:
                 rename_file_in_dir(dirpath, filename)
     else:
         dirpath, filename = os.path.split(arg)
+        fixup_metadata(arg)
         rename_file_in_dir(dirpath, filename)
 
 Core.exit()

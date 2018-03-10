@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+import argparse
+from nullroute.core import Core
+from nullroute.misc import filter_filename, set_file_attrs
+from nullroute.scrape import Scraper
+import os
+from pprint import pprint
+import re
+from requests.exceptions import HTTPError
+import sys
+
+class ScrapeError(Exception):
+    pass
+
+class ForeignFilenameError(ValueError):
+    pass
+
+class DeviantArtScraper(Scraper):
+    _fn_re = re.compile(r"(?:[a-f0-9]{32}|.*_by_.*)-(\w+)\.\w+$")
+
+    def get_favid_from_filename(self, filename):
+        m = self._fn_re.match(filename)
+        if not m:
+            raise ForeignFilenameError("filename %r did not match regex" % filename)
+        return m.group(1)
+
+    def get_favurl_by_favid(self, favid):
+        if not re.match(r"^\w+$", favid):
+            raise ValueError("favid %r did not match regex" % favid)
+        return "http://fav.me/%s" % favid
+
+    def get_oembed_info_by_favid(self, favid):
+        favurl = self.get_favurl_by_favid(favid)
+        r = self.get("https://backend.deviantart.com/oembed",
+                     params={"url": favurl, "format": "json"})
+        return r.json()
+
+    def get_pageurl_by_favid(self, favid):
+        favurl = self.get_favurl_by_favid(favid)
+        Core.debug("fetching %r" % favurl)
+        r = self.ua.head(favurl,
+                         allow_redirects=False,
+                         # server returns 403 if A-E is missing
+                         # requests adds its own, but let's be 100% sure
+                         headers={"Accept-Encoding": "identity"})
+        r.raise_for_status()
+        if r.status_code != 301:
+            raise ScrapeError("unexpected status %r from %r" % (r, favurl))
+        return r.headers["location"]
+
+def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
+    fmt_found = "\033[38;5;10m%s\033[m"
+    fmt_notfound = "\033[38;5;9m%s\033[m"
+
+    try:
+        favid = da.get_favid_from_filename(old_name)
+    except ForeignFilenameError:
+        (Core.warn if foreign_warn else Core.debug)("could not find favid in filename %r", filename)
+        return
+
+    old_path = os.path.join(old_dir, old_name)
+    print(old_path, end=" ", flush=True)
+
+    try:
+        info = da.get_oembed_info_by_favid(favid)
+        info["_favid"] = favid
+        if Core._in_debug_mode():
+            pprint(info)
+    except HTTPError as e:
+        print(fmt_notfound % "failed")
+        Core.err(str(e))
+        return
+
+    new_name = "%(title)s by %(author_name)s (%(_favid)s).%(imagetype)s" % info
+    new_name = filter_filename(new_name, allow_space=True)
+    new_path = os.path.join(old_dir, new_name)
+    print("=>", fmt_found % new_name)
+    if not args.dry_run:
+        os.rename(old_path, new_path)
+
+    referer = da.get_pageurl_by_favid(favid)
+    attrs = {
+        "dublincore.title": info["title"],
+        "dublincore.creator": info["author_name"],
+        "xdg.referrer.url": referer,
+    }
+    if not args.dry_run:
+        set_file_attrs(new_path, attrs)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
+parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
+args = parser.parse_args()
+
+da = DeviantArtScraper()
+
+for arg in args.path or ["."]:
+    if os.path.isdir(arg):
+        for dirpath, dirnames, filenames in os.walk(arg):
+            for filename in filenames:
+                rename_file_in_dir(dirpath, filename, args, foreign_warn=False)
+    else:
+        dirpath, filename = os.path.split(arg)
+        rename_file_in_dir(dirpath, filename, args, foreign_warn=True)

@@ -88,7 +88,11 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     if Core._in_debug_mode():
         pprint(info)
 
-    new_name = "%(_title)s by %(author_name)s (%(_favid)s).%(imagetype)s" % info
+    if args.inverse:
+        new_name = "%(_title)s by %(author_name)s (%(_favid)s).%(imagetype)s" % info
+    else:
+        new_name = "%(author_name)s - %(_title)s (%(_favid)s).%(imagetype)s" % info
+
     new_name = filter_filename(new_name, allow_space=True)
     new_path = os.path.join(old_dir, new_name)
     print("=>", fmt_found % new_name)
@@ -113,6 +117,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
+parser.add_argument("-I", "--inverse", action="store_true", help="Use '<title> by <artist>' filenames.")
 args = parser.parse_args()
 
 da = DeviantArtScraper()

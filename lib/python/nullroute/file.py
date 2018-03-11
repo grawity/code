@@ -85,3 +85,11 @@ def set_file_attrs(path, attrs):
         raise
     except OSError:
         return
+
+def digest_files(paths, digest="sha1"):
+    import subprocess
+    with subprocess.Popen(["%ssum" % digest, *paths],
+                          stdout=subprocess.PIPE) as proc:
+        return {k: v for (v, k)
+                in [line.decode().rstrip("\n").split("  ", 1) for line
+                    in proc.stdout]}

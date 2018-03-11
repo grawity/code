@@ -1,6 +1,7 @@
 import ctypes
 import math
 import os
+import signal
 import sys
 
 _stderr_tty = None
@@ -58,6 +59,11 @@ def stderr_width():
             _stderr_width = 80
     return _stderr_width
 
+def _handle_sigwinch(signum, stack):
+    global _stderr_width
+    if stderr_tty() and hasattr(os, "get_terminal_size"):
+        _stderr_width = os.get_terminal_size(sys.stderr.fileno()).columns
+
 def wctruncate(text, width=80):
     for i, c in enumerate(text):
         w = wcwidth(c)
@@ -95,3 +101,5 @@ def print_status(*args, fmt=fmt_status, wrap=True):
 def window_title(msg):
     if stderr_tty():
         print("\033]2;%s\007" % msg, end="", file=sys.stderr, flush=True)
+
+signal.signal(signal.SIGWINCH, _handle_sigwinch)

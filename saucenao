@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from bs4 import BeautifulSoup
+from enum import IntEnum
 from nullroute.sec import get_netrc_service
 from nullroute.core import Core
 from nullroute.scrape import Scraper
@@ -7,6 +8,11 @@ import os
 from pprint import pprint
 import sys
 import subprocess
+
+class DbIndex(IntEnum):
+    Pixiv = 5
+    Seiga = 8
+    DeviantArt = 34
 
 class SauceNao(Scraper):
     upload_uri = "https://saucenao.com/search.php"
@@ -28,11 +34,13 @@ class SauceNao(Scraper):
         "seiga_illust": "http://seiga.nicovideo.jp/seiga/im%s",
         "seiga_member": "http://seiga.nicovideo.jp/user/illust/%s",
 
+        "da_illust":    "https://deviantart.com/view/%s",
+
         "anime-pictures_id": "https://anime-pictures.net/pictures/view_post/%s",
         "danbooru_id":  "https://danbooru.donmai.us/posts/%s",
         "danbooru_tag": "https://danbooru.donmai.us/posts?tags=%s",
         "e621_id":      "https://e621.net/post/show/%s",
-        "gelbooru_id":  "http://gelbooru.com/index.php?page=post&s=view&id=%s",
+        "gelbooru_id":  "https://gelbooru.com/index.php?page=post&s=view&id=%s",
         "konachan_id":  "http://konachan.com/post/show/%s",
         "sankaku_id":   "https://chan.sankakucomplex.com/post/show/%s",
         "yandere_id":   "https://yande.re/post/show/%s",
@@ -49,6 +57,8 @@ class SauceNao(Scraper):
         return r
 
     def swap(self, old_file, new_url, kind):
+        return False
+
         if kind == "pixiv":
             r = subprocess.call(["pixiv-dl", new_url]) == 0
             if r:
@@ -109,7 +119,7 @@ class SauceNao(Scraper):
                     name = "｢%s｣" % name
                 print(fmt % head, name, "<%s>" % url)
 
-            if index == 5:
+            if index == DbIndex.Pixiv:
                 print(fmt % "Pixiv",
                       self.fmt["pixiv_illust"] % data["pixiv_id"])
                 print(fmt % "Member",
@@ -119,13 +129,21 @@ class SauceNao(Scraper):
                     swapped = self.swap(file, self.fmt["pixiv_illust"] % data["pixiv_id"], "pixiv")
                 consumed |= {"pixiv_id", "member_name", "member_id"}
 
-            if index == 8:
+            if index == DbIndex.Seiga:
                 print(fmt % "Seiga",
                       self.fmt["seiga_illust"] % data["seiga_id"])
                 print(fmt % "Member",
                       "｢%s｣" % data["member_name"],
                       "<%s>" % self.fmt["seiga_member"] % data["member_id"])
                 consumed |= {"seiga_id", "member_name", "member_id"}
+
+            if index == DbIndex.DeviantArt:
+                print(fmt % "DeviantArt",
+                      self.fmt["da_illust"] % data["da_id"])
+                print(fmt % "Author",
+                      "%s" % data["author_name"],
+                      "<%s>" % data["author_url"])
+                consumed |= {"da_id", "author_name", "author_url"}
 
             if index == 18:
                 if data.get("creator"):

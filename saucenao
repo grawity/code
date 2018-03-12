@@ -109,6 +109,7 @@ class SauceNao(Scraper):
 
             fmt = "   %s:"
             consumed = set()
+            seenurls = set()
 
             if data.get("title"):
                 print(fmt % "Title", data["title"])
@@ -128,6 +129,7 @@ class SauceNao(Scraper):
                 if score >= 92 and not swapped:
                     swapped = self.swap(file, self.fmt["pixiv_illust"] % data["pixiv_id"], "pixiv")
                 consumed |= {"pixiv_id", "member_name", "member_id"}
+                seenurls |= {self.fmt["pixiv_illust"] % data["pixiv_id"]}
 
             if index == DbIndex.Seiga:
                 print(fmt % "Seiga",
@@ -136,6 +138,7 @@ class SauceNao(Scraper):
                       "｢%s｣" % data["member_name"],
                       "<%s>" % self.fmt["seiga_member"] % data["member_id"])
                 consumed |= {"seiga_id", "member_name", "member_id"}
+                seenurls |= {self.fmt["seiga_illust"] % data["seiga_id"]}
 
             if index == DbIndex.DeviantArt:
                 print(fmt % "DeviantArt",
@@ -144,6 +147,7 @@ class SauceNao(Scraper):
                       "%s" % data["author_name"],
                       "<%s>" % data["author_url"])
                 consumed |= {"da_id", "author_name", "author_url"}
+                seenurls |= {self.fmt["da_illust"] % data["da_id"]}
 
             if index == 18:
                 if data.get("creator"):
@@ -166,6 +170,7 @@ class SauceNao(Scraper):
                     print(fmt % booru.capitalize(),
                           "<%s>" % self.fmt[key] % data[key])
                     consumed |= {key}
+                    seenurls |= {self.fmt[key] % data[key]}
                     if score >= 92 and not swapped:
                         swapped = self.swap(file, self.fmt[key] % data[key], booru)
 
@@ -183,8 +188,12 @@ class SauceNao(Scraper):
 
             if "ext_urls" not in consumed:
                 for url in data.get("ext_urls", []):
-                    print(fmt % "URL",
-                          "<%s>" % url)
+                    if url.startswith("https://danbooru.donmai.us/"):
+                        url = url.replace("/post/show/", "/posts/")
+                    if url not in seenurls:
+                        print(fmt % "URL",
+                              "<%s>" % url)
+                    seenurls.add(url)
                 consumed |= {"ext_urls"}
 
             if set(data) - consumed:

@@ -20,10 +20,12 @@ def escape_shell(text):
         text = '"%s"' % text
     return text
 
-def filter_filename(name, safe=False):
+def filter_filename(name, safe=False, allow_space=True):
+    if safe:
+        allow_space = False
     xlat = [
         # space and unsafe
-        (' ', '_'),
+        (' ', '_' if not allow_space else ' '),
         ('"', '_'),
         ('*', '_'),
         ('/', '_' if safe else '⁄'),
@@ -33,7 +35,7 @@ def filter_filename(name, safe=False):
         ('?', '_' if safe else '？'),
         ('\\', '_' if safe else '∖'),
         # wide characters
-        ('　', '_'),
+        ('　', '_' if not allow_space else ' '),
     ]
     name = name.strip()
     for k, v in xlat:

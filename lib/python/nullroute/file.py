@@ -3,7 +3,7 @@ import time
 
 XA_XDG_USER_COMMENT     = "xdg.comment"
 XA_XDG_ORIGIN_URL       = "xdg.origin.url"
-XA_XDG_REFERER_URL      = "xdg.referrer.url"
+XA_XDG_REFERRER_URL     = "xdg.referrer.url"
 XA_XDG_ROBOTS_INDEX     = "xdg.robots.index"
 XA_XDG_ROBOTS_BACKUP    = "xdg.robots.backup"
 

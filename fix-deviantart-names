@@ -115,17 +115,21 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
 
     new_name = filter_filename(new_name, allow_space=True)
     new_path = os.path.join(old_dir, new_name)
+
+    if old_path == new_path:
+        Core.debug("new file %r is the same as old; doing nothing", new_path)
+        print("=>", fmt_noop % "(no change)")
+        return
+    elif os.path.exists(new_path):
+        if files_eq(old_path, new_path):
+            Core.notice("new file %r already exists and is a duplicate; overwriting", new_path)
+        else:
+            Core.err("new file %r already exists and is different; skipping", new_path)
+            print("=>", fmt_notfound % "(conflict)")
+            return
+
     print("=>", fmt_found % new_name)
     if not args.dry_run:
-        if old_path == new_path:
-            Core.debug("new file %r is the same as old; doing nothing", new_path)
-            return
-        elif os.path.exists(new_path):
-            if files_eq(old_path, new_path):
-                Core.notice("new file %r already exists and is a duplicate; overwriting", new_path)
-            else:
-                Core.err("new file %r already exists and is different; skipping", new_path)
-                return
         os.rename(old_path, new_path)
 
     # apply xattrs

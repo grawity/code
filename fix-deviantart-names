@@ -17,10 +17,11 @@ class ForeignFilenameError(ValueError):
     pass
 
 class DeviantArtScraper(Scraper):
-    _fn_re = re.compile(r"(?:[a-f0-9]{32}|.*_by_.*)-(\w+)\.\w+$")
+    _fn_re = re.compile(r"^(?:[a-f0-9]{32}|.*[-_]by[-_].*)-(\w+)\.\w+$")
+    _upd_fn_re = re.compile(r"^.+ \((d\w+)\)\.\w+$")
 
-    def get_favid_from_filename(self, filename):
-        m = self._fn_re.match(filename)
+    def get_favid_from_filename(self, filename, for_update=False):
+        m = (self._upd_fn_re if for_update else self._fn_re).match(filename)
         if not m:
             raise ForeignFilenameError("filename %r did not match regex" % filename)
         return m.group(1)
@@ -68,7 +69,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     fmt_notfound = "\033[38;5;9m%s\033[m"
 
     try:
-        favid = da.get_favid_from_filename(old_name)
+        favid = da.get_favid_from_filename(old_name, for_update=args.update)
     except ForeignFilenameError:
         (Core.warn if foreign_warn else Core.debug)("could not find favid in filename %r", filename)
         return
@@ -86,7 +87,8 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     info["_favid"] = favid
     info["_title"] = filter_title(info["title"])
     if Core._in_debug_mode():
-        pprint(info)
+        pass
+        #pprint(info)
 
     if args.inverse:
         new_name = "%(_title)s by %(author_name)s (%(_favid)s).%(imagetype)s" % info
@@ -121,6 +123,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
 parser.add_argument("-I", "--inverse", action="store_true", help="Use '<title> by <artist>' filenames.")
+parser.add_argument("-u", "--update", action="store_true", help="Match and update existing filenames only.")
 args = parser.parse_args()
 
 da = DeviantArtScraper()

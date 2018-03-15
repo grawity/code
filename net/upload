@@ -112,13 +112,22 @@ elif (( arg_timestamp > 0 )); then
 	timefmt='%Y%m%d.'
 fi
 
+if (( !$# && !arg_interactive )); then
+	die "missing file names"
+elif (( $# && arg_interactive )); then
+	warn "ignoring file arguments in interactive mode"
+fi
+
+# prepare upload target
+
+if [[ $arg_server || $arg_subdir ]]; then
+	# $arg_server is a hack, until I copy rotate-up.sh to all other servers
+	r:mkdir "$fsbase"
+fi
+
 # handle special modes
 
 if (( arg_interactive )); then
-	if (( $# )); then
-		warn "ignoring file arguments in interactive mode"
-	fi
-
 	if have lftp; then
 		url="sftp://${fsbase%%:*}/~/${fsbase#*:}"
 		notice "connecting to '$url'"
@@ -131,17 +140,6 @@ if (( arg_interactive )); then
 		die "couldn't find a known SFTP client"
 	fi
 	exit
-fi
-
-# prepare upload target
-
-if (( !$# )); then
-	die "missing file names"
-fi
-
-if [[ $arg_server || $arg_subdir ]]; then
-	# $arg_server is a hack, until I copy rotate-up.sh to all other servers
-	r:mkdir "$fsbase"
 fi
 
 # upload files

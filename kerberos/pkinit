@@ -15,13 +15,15 @@ opt_identity=
 opt_principal=
 opt_cert=
 opt_key=
+opt_refresh=0
 
-while getopts ":c:k:I:P:" OPT; do
+while getopts ":c:k:I:P:R" OPT; do
 	case $OPT in
 	c) opt_cert=$OPTARG;;
 	k) opt_key=$OPTARG;;
 	I) opt_identity=$OPTARG;;
 	P) opt_principal=$OPTARG;;
+	R) opt_refresh=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -42,6 +44,13 @@ if [[ $opt_cert ]]; then
 	if [[ $opt_key ]]; then
 		opt_identity+=",$(realpath -s "$opt_key")"
 	fi
+fi
+
+if [[ ! $opt_identity ]] && (( opt_refresh )); then
+	opt_identity=$(pklist -C |
+			awk '$1 == "config" && $3 == "pa_config_data" {print $5}' |
+			unescape |
+			jq -r '.X509_user_identity')
 fi
 
 if [[ ! $opt_identity ]]; then

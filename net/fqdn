@@ -1,23 +1,56 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Getopt::Long;
 use Socket qw(AI_CANONNAME getaddrinfo);
 use Sys::Hostname;
 
+sub joinhost {
+	my ($domain, $suffix) = @_;
+
+	return $domain if $domain =~ /\.$/;
+	return $domain.".".$suffix;
+}
+
 sub getfqdn {
-	my ($host) = @_;
+	my ($host, $suffixes) = @_;
 
 	my $hints = {flags => AI_CANONNAME};
 
-	my ($err, @res) = getaddrinfo($host, undef, $hints);
-
-	warn "fqdn: could not resolve '$host': $err\n" if $err;
-
-	return @res ? $res[0]->{canonname} : $host;
+	if ($suffixes) {
+		my @suffixes = split(/[:,]/, $suffixes);
+		for my $suffix (@suffixes) {
+			my $fqdn = joinhost($host, $suffix);
+			my ($err, @res) = getaddrinfo($fqdn, undef, $hints);
+			if (@res && !$err) {
+				# we don't want rDNS here, so no canonname
+				return $fqdn;
+			}
+		}
+	} else {
+		my ($err, @res) = getaddrinfo($host, undef, $hints);
+		warn "fqdn: could not resolve '$host': $err\n" if $err;
+		return $res[0]->{canonname} if @res;
+		return $host;
+	}
 }
 
-if (@ARGV) {
-	print getfqdn($_)."\n" for @ARGV;
-} else {
-	print getfqdn(hostname)."\n";
+my $suffixes;
+
+GetOptions(
+	"d|s|search=s" => \$suffixes,
+) || exit(2);
+
+my @args = @ARGV ? @ARGV : hostname();
+my $errs = 0;
+
+for my $arg (@ARGV) {
+	my $res = getfqdn($arg, $suffixes);
+	if ($res) {
+		print "$res\n";
+	} else {
+		print "$arg\n"; ++$errs;
+	}
 }
+
+exit(!!$errs);

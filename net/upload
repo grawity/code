@@ -11,6 +11,7 @@ usage() {
 	echo_opt "-c"		"continue upload / overwrite file"
 	echo_opt "-d path"	"create a subdirectory"
 	echo_opt "-i"		"interactive mode – spawn lftp"
+	echo_opt "-q"		"quiet – no transfer progress, no clipboard"
 	echo_opt "-S regex"	"mangle (sed) the destination filename"
 	echo_opt "-t"		"add 'Ymd' timestamps to destination filenames"
 	echo_opt "-tt"		"add Unix timestamps"
@@ -34,6 +35,7 @@ r:rm_rvf() {
 }
 
 declare -- conf="$path_config/upload.conf"
+declare -a rsync
 declare -A fsbase urlbase
 
 fsbase="virgule:nullroute/tmp"
@@ -51,19 +53,21 @@ fi
 declare -i arg_clobber=0
 declare -i arg_interactive=0
 declare -- arg_mangle=
+declare -i arg_quiet=0
 declare -i arg_remove=0
 declare -- arg_server=
 declare -- arg_subdir=
 declare -i arg_timestamp=0
 declare -i arg_yearly=1
 
-while getopts ":01cd:iS:tX" OPT; do
+while getopts ":01cd:iqS:tX" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	c) arg_clobber=1;;
 	d) arg_subdir=$OPTARG;;
 	i) arg_interactive=1;;
+	q) arg_quiet=1;;
 	S) arg_mangle=$OPTARG;;
 	t) arg_timestamp+=1;;
 	X) arg_remove=1;;
@@ -138,10 +142,14 @@ fi
 
 # upload files
 
-clip=()
-
 if (( !$# )); then
 	die "missing file names"
+fi
+
+clip=()
+
+if (( ! arg_quiet )); then
+	rsync+=("-P")
 fi
 
 for arg; do
@@ -202,15 +210,19 @@ for arg; do
 			err "'$name' already exists on server"
 			continue
 		fi
-		if ! rsync -Pst "$source" "$target" >&2; then
+		if ! rsync -st "${rsync[@]}" "$source" "$target" >&2; then
 			err "upload of '$source' to '$target' failed"
 			continue
 		fi
 		ks:setattr "$source" upload.path "$target"
 		ks:setattr "$source" upload.url "$url"
 
-		echo "$name → $url"
-		clip+=("$url")
+		if (( arg_quiet )); then
+			echo "$url"
+		else
+			echo "$name ⇒ $url"
+			clip+=("$url")
+		fi
 	fi
 done
 

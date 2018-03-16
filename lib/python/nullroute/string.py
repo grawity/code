@@ -118,13 +118,13 @@ def fmt_duration(secs):
     y, h = divmod(y, 24)
     y, d = divmod(y, 365)
 
-    if y > 0:       return "%sy %sd" % (y, d)
-    elif d > 14:    return "%sd" % (d,)
-    elif d > 0:     return "%sd %sh" % (d, h)
-    elif h > 0:     return "%sh %sm" % (h, m)
-    elif m > 9:     return "%sm" % (m,)
-    elif m > 0:     return "%sm %ss" % (m, s)
-    else:           return "%ss" % (s,)
+    if y > 0:       return "%dy %dd" % (y, d)
+    elif d > 14:    return "%dd" % (d,)
+    elif d > 0:     return "%dd %dh" % (d, h)
+    elif h > 0:     return "%dh %dm" % (h, m)
+    elif m > 9:     return "%dm" % (m,)
+    elif m > 0:     return "%dm %ds" % (m, s)
+    else:           return "%ds" % (s,)
 
 def parse_duration(arg):
     import re

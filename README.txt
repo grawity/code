@@ -11,8 +11,7 @@ tl;dr I write a lot of useless scripts
 ---
 
 This repository is released under the MIT License, unless declared otherwise in
-specific files. (Everything up to commit 93dbb8dd38eb92ddb4cc may also be used
-under WTFPL v2.)
+specific files.
 
 The generally useful stuff:
 

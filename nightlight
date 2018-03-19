@@ -60,7 +60,7 @@ sub set_suspended {
 }
 
 my $store;
-my $action = "query";
+my $action;
 my $osd = !(-t 0 && -t 1);
 
 GetOptions(
@@ -68,10 +68,19 @@ GetOptions(
 	"E|enable" => sub { $action = "enable" },
 	"D|disable" => sub { $action = "disable" },
 	"T|toggle" => sub { $action = "toggle" },
+	"q|query" => sub { $action = "is-active" },
 	"s|suspend" => sub { $action = "suspend" },
 	"r|resume" => sub { $action = "resume" },
 	"hotkey" => sub { $action = "poke" },
 ) || exit(2);
+
+if (!$action && @ARGV) {
+	$action = shift(@ARGV);
+}
+
+if (!$action) {
+	$action = "query";
+}
 
 if ($action eq "query") {
 	if (get_gsd_enabled()) {
@@ -84,6 +93,19 @@ if ($action eq "query") {
 		}
 	} else {
 		say "disabled globally";
+	}
+}
+elsif ($action eq "is-active") {
+	if (get_gsd_enabled()) {
+		if (get_suspended()) {
+			exit 1;
+		} elsif (get_active()) {
+			exit 0;
+		} else {
+			exit 1;
+		}
+	} else {
+		exit 1;
 	}
 }
 elsif ($action eq "enable") {

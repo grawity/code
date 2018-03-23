@@ -18,10 +18,10 @@ sub detect_host {
 	return "raindows";
 }
 
-sub do_rename {
+sub do_file {
 	my ($file) = @_;
 
-	my ($old_name, $dir, $suffix) = fileparse($file);
+	my ($old_name, $dir, $suffix) = fileparse($file, qr/\.[^.]+$/);
 	my $new_name = $old_name;
 
 	for ($new_name) {
@@ -49,9 +49,14 @@ sub do_rename {
 
 		# Android (??)
 		s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/Screenshot_$1.$2$3$4/;
+	}
 
+	for ($new_name) {
 		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4/;
 	}
+
+	$old_name .= $suffix;
+	$new_name .= $suffix;
 
 	if ($new_name eq $old_name) {
 		return;
@@ -66,15 +71,14 @@ sub do_rename {
 	}
 }
 
-sub do_dirs {
-	my @dirs = reverse @_;
+sub do_dir {
+	my (@dirs) = reverse @_;
 
 	while (@dirs) {
 		my $dir = pop @dirs;
 		my @next = ();
-		_debug("processing '$dir'");
+		_debug("reading '$dir'");
 		if (opendir(my $dh, $dir)) {
-			#_info("reading '$dir'");
 			for my $name (sort readdir($dh)) {
 				my $path = "$dir/$name";
 
@@ -82,11 +86,13 @@ sub do_dirs {
 					next;
 				}
 				elsif (-d $path) {
+					# queue?
 					push @next, $path;
-					#do_dirs($path);
+					# recursion?
+					#do_dir($path);
 				}
 				elsif (-f $path) {
-					do_rename($path);
+					do_file($path);
 				}
 			}
 			closedir($dh);
@@ -101,9 +107,9 @@ sub do_dirs {
 
 for (@ARGV || (".")) {
 	if (-d) {
-		do_dirs($_);
+		do_dir($_);
 	} else {
-		do_rename($_);
+		do_file($_);
 	}
 }
 

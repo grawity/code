@@ -8,6 +8,8 @@ use Nullroute::Lib;
 
 my $qr_y_m_d = qr/\d{4}-\d{2}-\d{2}/;
 
+my $host = $ENV{host};
+
 sub detect_host {
 	my ($file) = @_;
 
@@ -20,17 +22,25 @@ sub detect_host {
 
 sub do_file {
 	my ($file) = @_;
+	_debug("processing file '$file'");
 
 	my ($old_name, $dir, $suffix) = fileparse($file, qr/\.[^.]+$/);
 	my $new_name = $old_name;
 
 	for ($new_name) {
+		my @mtime = gmtime((stat $file)[9]);
+
+		# OneDrive screenshots (host given in command line)
+		if ($host) {
+			s/.*/strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).".".$host/e;
+			last;
+		}
+
 		# mpv
 		if (/^(?:gnome-)?mpv-shot.*(\.[^.]+)$/
 		|| /^Screenshot from [^:]+(\.[^.]+)$/)
 		{
-			my @time = gmtime((stat $file)[9]);
-			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @time).$1/e;
+			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).$1/e;
 			last;
 		}
 

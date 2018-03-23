@@ -62,9 +62,10 @@ sub do_file {
 		return;
 	} elsif (-e $new_name) {
 		_err("not renaming '$old_name' to '$new_name': target already exists");
+	} elsif ($::debug) {
+		_info("would rename '$dir$old_name' to '$new_name'");
 	} else {
 		_info("renaming '$dir$old_name' to '$new_name'");
-		return if $::debug;
 		if (!rename($dir.$old_name, $dir.$new_name)) {
 			_err("rename '$old_name' to '$new_name': !! $!");
 		}
@@ -73,6 +74,7 @@ sub do_file {
 
 sub do_dir {
 	my (@dirs) = reverse @_;
+	_debug("processing dirs [@dirs]");
 
 	while (@dirs) {
 		my $dir = pop @dirs;
@@ -105,7 +107,14 @@ sub do_dir {
 	}
 }
 
-for (@ARGV || (".")) {
+my @args = @ARGV;
+
+if (!@args) {
+	@args = (".");
+}
+
+for (@args) {
+	_debug("processing arg '$_'");
 	if (-d) {
 		do_dir($_);
 	} else {

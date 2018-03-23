@@ -8,6 +8,8 @@ use Nullroute::Lib;
 
 my $qr_y_m_d = qr/\d{4}-\d{2}-\d{2}/;
 
+my $host = $ENV{host};
+
 sub detect_host {
 	my ($file) = @_;
 
@@ -18,19 +20,27 @@ sub detect_host {
 	return "raindows";
 }
 
-sub do_rename {
+sub do_file {
 	my ($file) = @_;
+	_debug("processing file '$file'");
 
-	my ($old_name, $dir, $suffix) = fileparse($file);
+	my ($old_name, $dir, $suffix) = fileparse($file, qr/\.[^.]+$/);
 	my $new_name = $old_name;
 
 	for ($new_name) {
+		my @mtime = gmtime((stat $file)[9]);
+
+		# OneDrive screenshots (host given in command line)
+		if ($host) {
+			s/.*/strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).".".$host/e;
+			last;
+		}
+
 		# mpv
 		if (/^(?:gnome-)?mpv-shot.*(\.[^.]+)$/
 		|| /^Screenshot from [^:]+(\.[^.]+)$/)
 		{
-			my @time = gmtime((stat $file)[9]);
-			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @time).$1/e;
+			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).$1/e;
 			last;
 		}
 
@@ -49,32 +59,38 @@ sub do_rename {
 
 		# Android (??)
 		s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/Screenshot_$1.$2$3$4/;
+	}
 
+	for ($new_name) {
 		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4/;
 	}
+
+	$old_name .= $suffix;
+	$new_name .= $suffix;
 
 	if ($new_name eq $old_name) {
 		return;
 	} elsif (-e $new_name) {
 		_err("not renaming '$old_name' to '$new_name': target already exists");
+	} elsif ($::debug) {
+		_info("would rename '$dir$old_name' to '$new_name'");
 	} else {
 		_info("renaming '$dir$old_name' to '$new_name'");
-		return if $::debug;
 		if (!rename($dir.$old_name, $dir.$new_name)) {
 			_err("rename '$old_name' to '$new_name': !! $!");
 		}
 	}
 }
 
-sub do_dirs {
-	my @dirs = reverse @_;
+sub do_dir {
+	my (@dirs) = reverse @_;
+	_debug("processing dirs [@dirs]");
 
 	while (@dirs) {
 		my $dir = pop @dirs;
 		my @next = ();
-		_debug("processing '$dir'");
+		_debug("reading '$dir'");
 		if (opendir(my $dh, $dir)) {
-			#_info("reading '$dir'");
 			for my $name (sort readdir($dh)) {
 				my $path = "$dir/$name";
 
@@ -82,11 +98,13 @@ sub do_dirs {
 					next;
 				}
 				elsif (-d $path) {
+					# queue?
 					push @next, $path;
-					#do_dirs($path);
+					# recursion?
+					#do_dir($path);
 				}
 				elsif (-f $path) {
-					do_rename($path);
+					do_file($path);
 				}
 			}
 			closedir($dh);
@@ -99,11 +117,18 @@ sub do_dirs {
 	}
 }
 
-for (@ARGV || (".")) {
+my @args = @ARGV;
+
+if (!@args) {
+	@args = (".");
+}
+
+for (@args) {
+	_debug("processing arg '$_'");
 	if (-d) {
-		do_dirs($_);
+		do_dir($_);
 	} else {
-		do_rename($_);
+		do_file($_);
 	}
 }
 

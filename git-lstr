@@ -1,7 +1,23 @@
 #!/usr/bin/env bash
 
-(( $# )) || set -- HEAD
+git_args=()
+tree_args=()
+has_ddash=0
 
 for arg; do
-	git ls-tree -r -t "$arg" | cut -d $'\t' -f '2-' | treeify @"$arg"
+	if (( has_ddash )); then
+		tree_args+=("$arg")
+	elif [[ $arg == "--" ]]; then
+		has_ddash=1
+	else
+		git_args+=("$arg")
+	fi
+done
+
+if (( ! ${#git_args[@]} )); then
+	git_args+=("HEAD")
+fi
+
+for arg in "${git_args[@]}"; do
+	git ls-tree -r -t "$arg" | cut -d $'\t' -f '2-' | treeify -r "$arg" "${tree_args[@]}"
 done

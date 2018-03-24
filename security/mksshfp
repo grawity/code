@@ -65,12 +65,13 @@ def parse(path):
             }
 
 def fmt_sshfp(host, pubkey):
-    if "." in host and host[-1] != ".":
-        host = "%s." % host
     comment = "; (%s, %s)" % (entry["key"].algo, entry["hash_name"])
-    record = "%s\t%s\t%s" % (host, "SSHFP", entry["rrdata"])
-    record = "%s\t%s" % ("SSHFP", entry["rrdata"])
-    #return "%s\n%s" % (comment, record)
+    if host:
+        if "." in host and host[-1] != ".":
+            host = "%s." % host
+        record = "%s\t%s\t%s" % (host, "SSHFP", entry["rrdata"])
+    else:
+        record = "%s\t%s" % ("SSHFP", entry["rrdata"])
     return "%s %s" % (record, comment)
 
 try:
@@ -86,6 +87,10 @@ except IndexError:
 if host in {"--help", "-h", "-?"}:
     usage()
     sys.exit()
+
+if (host, infile) == ("-", None):
+    # 'mksshfp -' should just read from stdin
+    (host, infile) = ("", "-")
 
 if infile:
     Core.debug("loading all keys from %r" % infile)

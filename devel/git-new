@@ -3,6 +3,47 @@
 
 . lib.bash || exit
 
+if [[ $PWD == $HOME/src/* ]]; then
+	dir=$(git rev-parse --git-dir) || exit
+	ssum() { [[ -e "$dir/$2" ]] && echo "$1  $dir/$2" | sha1sum --check --quiet; }
+	if ssum 9635f1b7e12c045212819dd934d809ef07efa2f4  description; then
+		rm -vf "$dir/description"
+	fi
+	if ssum b614c2f63da7dca9f1db2e7ade61ef30448fc96c  hooks/post-update; then
+		rm -vf "$dir/hooks/post-update"
+	fi
+	rm -vf "$dir/info/refs"
+	fetch=$(git config --get-all remote.origin.fetch)
+	if [[ "$fetch" == "+refs/*:refs/*" ]]; then
+		warn "refspec '$fetch' may allow tag deletion"
+		fetch="+refs/heads/*:refs/heads/*"
+		if confirm "change to '$fetch'?"; then
+			git config --unset-all remote.origin.fetch
+			git config --unset-all remote.origin.mirror
+			git config remote.origin.fetch "$fetch"
+
+			git for-each-ref --format="%(refname)" |
+			egrep -v '^refs/(heads|notes|tags)/' | {
+				declare refs=()
+				while read -r ref; do
+					echo "found junk ref '$ref'"
+					refs+=("$ref")
+				done
+				if (( ${#refs[@]} )) && confirm "purge refs?"; then
+					for ref in "${refs[@]}"; do
+						git update-ref -d "$ref"
+					done
+				fi
+			}
+		fi
+	elif [[ ! "$fetch" ]]; then
+		fetch="+refs/heads/*:refs/heads/*"
+		warn "refspec not set; changing to '$fetch'"
+		git config remote.origin.fetch "$fetch"
+	fi
+	rdempty --quiet "$dir"
+fi
+
 migrate_opt() {
 	local old=$1 new=$2
 	local val=$(git config "$old" || true)

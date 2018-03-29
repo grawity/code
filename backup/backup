@@ -59,9 +59,14 @@ do_rsync() {
 
 	local arg last args=()
 
-	if [[ ( $src == / || $src == ~/ ) && $dest != *:* ]]; then
-		debug "using 'sudo'"
-		args+=(sudo)
+	if [[ $src == / || $src == ~/ ]]; then
+		if [[ $dest != *:* ]]; then
+			debug "using 'sudo'"
+			args+=(sudo)
+		else
+			err "cannot use 'sudo' for remote destination"
+			return
+		fi
 	fi
 
 	if have nocache; then

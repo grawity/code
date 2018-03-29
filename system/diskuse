@@ -7,7 +7,7 @@ import subprocess
 import time
 from argparse import ArgumentParser
 from nullroute.core import Core, Env
-from nullroute.misc import fmt_size_short
+from nullroute.misc import fmt_duration, fmt_size_short
 from socket import gethostname
 
 level_colors = {
@@ -233,7 +233,8 @@ class MtabReader(object):
 class Enumerator(object):
     def __init__(self):
         self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
-        self.cache_maxage = 14*86400
+        self.cache_fixed_maxage = 14*86400
+        self.cache_media_maxage = 90*86400
         self.seen_devnos = set()
 
     def _enum_partitions(self, show_cached=False):
@@ -241,8 +242,16 @@ class Enumerator(object):
             yield Partition(mtpt, fstype)
         if show_cached:
             for mtpt, rest in self.cache.items():
-                if time.time() - rest.get("time", 0) <= self.cache_maxage:
+                if fs_kind_from_path(mtpt, rest["type"]) == KIND_MEDIA:
+                    Core.debug("mtpt %r is media, using media maxage" % mtpt)
+                    maxage = self.cache_media_maxage
+                else:
+                    maxage = self.cache_fixed_maxage
+                age = time.time() - rest.get("time", 0)
+                if age <= maxage:
                     yield Partition(mtpt, rest["type"], cached=rest)
+                else:
+                    Core.debug("mtpt %r is %s old and has expired" % (mtpt, fmt_duration(age)))
 
     def enum_partitions_system(self, show_cached=False):
         for part in self._enum_partitions(show_cached):

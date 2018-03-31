@@ -19,7 +19,12 @@ sub do_file {
 	my $new_name = $old_name;
 
 	for ($new_name) {
-		my @mtime = localtime((stat $file)[9]);
+		my @stat = stat($file);
+		if (!@stat) {
+			_err("could not stat '$file': $!");
+			next;
+		}
+		my @mtime = localtime($stat[9]);
 
 		# OneDrive screenshots (host given in command line)
 		if ($host) {

@@ -52,6 +52,7 @@ class DeviantArtScraper(Scraper):
 
 def filter_title(title):
     title = title.replace("[+Video]", "")
+    title = re.sub(r"\s+", " ", title)
     return title.strip()
 
 def files_eq(a, b):
@@ -156,6 +157,9 @@ parser.add_argument("-u", "--update", action="store_true", help="Match and updat
 parser.add_argument("-U", "--force-update", action="store_true", help="Update from the net (ignore existing attrs).")
 parser.add_argument("--no-title", action="store_true", help="Do not add artwork title to filename.")
 args = parser.parse_args()
+
+if sum(map(int, [args.inverse, args.no_title])) > 1:
+    Core.die("mutually exclusive options specified")
 
 da = DeviantArtScraper()
 

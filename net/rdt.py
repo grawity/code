@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 import argparse
+import ipaddress
 import dns.resolver
-import socket
-import struct
 import sys
 
 def is_inet4addr(addr):
     try:
-        return socket.inet_pton(socket.AF_INET, addr)
-    except:
+        return ipaddress.IPv4Address(addr)
+    except ValueError:
         return None
 
 def is_inet6addr(addr):
     try:
-        return socket.inet_pton(socket.AF_INET6, addr)
-    except:
+        return ipaddress.IPv6Address(addr)
+    except ValueError:
         return None
 
 def is_inetaddr(addr):
-    return is_inet4addr(addr) or is_inet6addr(addr)
+    try:
+        return ipaddress.ip_address(addr)
+    except ValueError:
+        return None
 
 def color(addr):
     if addr == "(none)":
@@ -32,14 +34,7 @@ def color(addr):
     return "\033[%sm%s\033[m" % (fmt, addr)
 
 def to_ptr(addr):
-    packed = is_inetaddr(addr)
-    if len(packed) == 4:
-        ip = [str(i) for i in struct.unpack("4B", packed)]
-        fmt = "%s.in-addr.arpa."
-    elif len(packed) == 16:
-        ip = packed.hex()
-        fmt = "%s.ip6.arpa."
-    return fmt % ".".join(reversed(ip))
+    return ipaddress.ip_address(addr).reverse_pointer
 
 def query(addr, rrtype):
     try:

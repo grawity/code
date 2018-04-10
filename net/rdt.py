@@ -3,8 +3,6 @@ import argparse
 import ipaddress
 import dns.resolver
 import sys
-from nullroute.core import Core
-from pprint import pprint
 
 def is_inet4addr(addr):
     try:
@@ -39,15 +37,10 @@ def to_ptr(addr):
     return ipaddress.ip_address(addr).reverse_pointer
 
 def query(addr, rrtype):
-    Core.debug("looking up %r / %s", addr, rrtype)
     try:
         answer = dns.resolver.query(addr, rrtype)
         return [rr.to_text() for rr in answer]
-    except dns.resolver.NoAnswer as e:
-        Core.debug("got NoAnswer: %s", e)
-        return []
-    except dns.resolver.NXDOMAIN as e:
-        Core.debug("got NXDOMAIN: %s", e)
+    except:
         return []
 
 def resolve(addr):

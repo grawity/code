@@ -243,14 +243,15 @@ while [[ $1 ]]; do
 			(( !failed ))
 			;;
 		borg@frost)
-			repo="/vol4/Backup/Homes/frost.borg"
-			tag="frost.$(date +%Y%m%d.%H%M%S)"
+			repo="/vol4/Backup/Homes/$HOSTNAME.borg"
+			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
+			cd ~
 			borg create "$repo::$tag" \
 				Attic/ \
 				Dropbox/ \
 				Pictures/ \
 				.config/ \
-				--exclude-from=$conf/borg/home_{all,frost}.exclude \
+				--exclude-from=$conf/borg/home_{all,$HOSTNAME}.exclude \
 				"${borg_args[@]}"
 			log "pruning old backups"
 			borg prune "$repo" \

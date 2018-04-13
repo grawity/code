@@ -276,13 +276,10 @@ while [[ $1 ]]; do
 			homes=()
 			roots=()
 			etcs=()
-
 			for host in "${hosts[@]}"; do
-				debug "parsing host: '$host'"
 				if [[ $host == '#'* ]]; then
 					continue
-				fi
-				if [[ $host == *'!' ]]; then
+				elif [[ $host == *'!' ]]; then
 					host=${host%!}
 					roots+=($host)
 				elif [[ $host == *'+' ]]; then
@@ -291,7 +288,9 @@ while [[ $1 ]]; do
 				fi
 				homes+=($host)
 			done
-
+			debug "backup home from: ${homes[*]}"
+			debug "backup /etc from: ${etcs[*]}"
+			debug "backup rootfs from: ${roots[*]}"
 			debug "running jobs"
 			for host in ${homes[@]}; do
 				do_job @$host

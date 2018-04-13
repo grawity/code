@@ -8,9 +8,16 @@ progname_prefix=0
 
 local_config_file=$path_config/backup.conf.sh
 
-declare -a annexes=(~/Attic/{Annex,Software,Videos,Anime})
-declare -a hosts=()
-declare -- push_volume=
+annexes=(~/Attic/{Annex,Software,Videos,Anime})
+hosts=()
+push_volume=
+borg_args=(
+	--progress
+	--one-file-system
+	--exclude-caches
+	--exclude-if-present=".nobackup"
+	--keep-exclude-tags
+)
 
 if [[ -f $local_config_file ]]; then
 	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"

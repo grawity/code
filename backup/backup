@@ -11,12 +11,19 @@ local_config_file=$path_config/backup.conf.sh
 annexes=(~/Attic/{Annex,Software,Videos,Anime})
 hosts=()
 push_volume=
+
 borg_args=(
 	--progress
 	--one-file-system
 	--exclude-caches
 	--exclude-if-present=".nobackup"
 	--keep-exclude-tags
+)
+
+borg_keep=(
+	--keep-daily 7
+	--keep-weekly 8
+	--keep-monthly 24
 )
 
 if [[ -f $local_config_file ]]; then
@@ -252,9 +259,7 @@ while [[ $1 ]]; do
 				"${borg_args[@]}"
 			log "pruning old backups"
 			borg prune "$repo" \
-				--keep-daily 7 \
-				--keep-weekly 8 \
-				--keep-monthly 24 \
+				"${borg_keep[@]}" \
 				--verbose
 			borg list "$repo"
 			;;

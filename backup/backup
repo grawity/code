@@ -286,16 +286,13 @@ while [[ $1 ]]; do
 				do_job fs1
 			fi
 			;;
-		sec@*)
-			host=${job#*@}
-			do_rsync root@$host:/ ~/Backup/Servers/$host/			\
-				-f "merge $conf/rsync-filters/server_creds_all"		\
-				-x -P --fake-super --prune-empty-dirs
-			;;
 		etc@*)
 			host=${job#*@}
-			do_rsync root@$host:/etc/ ~/Backup/Roots/$host.etc/		\
+			do_rsync root@$host:/etc/ ~/Backup/Servers/$host.etc/		\
 				-F -x -P --fake-super					;
+			do_rsync root@$host:/ ~/Backup/Servers/$host.private/		\
+				-f "merge $conf/rsync-filters/server_creds_all"		\
+				-x -P --fake-super --prune-empty-dirs			;
 			;;
 		root@*)
 			host=${job#*@}

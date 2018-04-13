@@ -248,10 +248,24 @@ while [[ $1 ]]; do
 			cd ~
 			borg create "$repo::$tag" \
 				Attic/ \
-				Dropbox/ \
 				Pictures/ \
 				.config/ \
 				--exclude-from=$conf/borg/home_{all,$HOSTNAME}.exclude \
+				"${borg_args[@]}"
+			log "pruning old backups"
+			borg prune "$repo" \
+				"${borg_keep[@]}" \
+				--verbose
+			borg list "$repo"
+			;;
+		borg@dropbox)
+			repo="/vol4/Backup/Homes/Dropbox.borg"
+			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
+			cd ~
+			borg create "$repo::$tag" \
+				Dropbox/ \
+				--exclude-from=$conf/borg/Dropbox.exclude \
+				--files-cache=mtime,size \
 				"${borg_args[@]}"
 			log "pruning old backups"
 			borg prune "$repo" \

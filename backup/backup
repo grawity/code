@@ -245,28 +245,36 @@ while [[ $1 ]]; do
 		borg@frost)
 			repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
-			cd ~
 			# TODO: 2018-04-13: borg_home_dirs will eventually become '.'
 			#       after I grow the exclude list to cover all the junk.
-			borg create "$repo::$tag" \
-				"${borg_home_dirs[@]}" \
-				--exclude-from=$conf/borg/home_{all,$HOSTNAME}.exclude \
+			borg_home_args=(
 				"${borg_args[@]}"
-			log "pruning old backups"
-			borg prune "$repo" \
-				"${borg_keep[@]}" \
-				--verbose
-			borg list "$repo"
+				--exclude-from="$conf/borg/home_all.exclude"
+				--exclude-from="$conf/borg/home_$HOSTNAME.exclude"
+			)
+			cd ~
+			borg create "$repo::$tag"
+				"${borg_home_dirs[@]}" \
+				"${borg_home_args[@]}" ;
+			#log "pruning old backups"
+			#borg prune "$repo" \
+			#	"${borg_keep[@]}" \
+			#	--verbose
+			#borg list "$repo"
 			;;
 		borg@dropbox)
 			repo="/vol4/Backup/Homes/Dropbox.borg"
 			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
+			borg_dbox_dirs=(Dropbox/)
+			borg_dbox_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/Dropbox.exclude"
+				--files-cache="mtime,size"
+			)
 			cd ~
 			borg create "$repo::$tag" \
-				Dropbox/ \
-				--exclude-from=$conf/borg/Dropbox.exclude \
-				--files-cache=mtime,size \
-				"${borg_args[@]}"
+				"${borg_dbox_dirs[@]}" \
+				"${borg_dbox_args[@]}" ;
 			log "pruning old backups"
 			borg prune "$repo" \
 				"${borg_keep[@]}" \

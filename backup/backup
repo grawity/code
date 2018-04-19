@@ -11,6 +11,8 @@ local_config_file=$path_config/backup.conf.sh
 annexes=(~/Attic/{Annex,Software,Videos,Anime})
 hosts=()
 push_volume=
+borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
+borg_dbox_repo="/vol4/Backup/Homes/Dropbox.borg"
 
 borg_args=(
 	--progress
@@ -269,7 +271,6 @@ while [[ $1 ]]; do
 			(( !failed ))
 			;;
 		borg@frost)
-			repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
 			borg_home_base=~
 			borg_home_dirs=(.)
@@ -280,16 +281,15 @@ while [[ $1 ]]; do
 			)
 			cd "$borg_home_base"
 			/bin/time \
-			borg create "$repo::$tag" \
+			borg create "$borg_home_repo::$tag" \
 				"${borg_home_dirs[@]}" \
 				"${borg_home_args[@]}" ;
-			borg_maybe_prune "$repo"
+			borg_maybe_prune "$borg_home_repo"
 			;;
 		borg@dropbox)
 			if [[ "$(dropbox exclude list)" != "No directories are being ignored." ]]; then
 				die "cannot back up a partial Dropbox"
 			fi
-			repo="/vol4/Backup/Homes/Dropbox.borg"
 			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
 			borg_dbox_base=~/Dropbox
 			borg_dbox_dirs=(.)
@@ -300,10 +300,10 @@ while [[ $1 ]]; do
 			)
 			cd "$borg_dbox_base"
 			/bin/time \
-			borg create "$repo::$tag" \
+			borg create "$borg_dbox_repo::$tag" \
 				"${borg_dbox_dirs[@]}" \
 				"${borg_dbox_args[@]}" ;
-			borg_maybe_prune "$repo"
+			borg_maybe_prune "$borg_dbox_repo"
 			;;
 		pull)
 			do_job twitter

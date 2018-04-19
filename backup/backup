@@ -68,6 +68,41 @@ drop_lock() {
 	rm -f "$lock_path"
 }
 
+is_older_than() {
+	local path=$1 seconds=$2
+	local a=$(date +%s)
+	local b=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+	(( a - b > seconds ))
+}
+
+check_stamp() {
+	local name=$1 days=$2 hours=$3
+	local stamp_path=$path_cache/backup/$name.stamp
+	is_older "$stamp_path" $(( days*86400 + hours*3600 ))
+}
+
+update_stamp() {
+	local name=$1
+	local stamp_path=$path_cache/backup/$name.stamp
+	install -Dm644 /dev/null "$stamp_path"
+}
+
+borg_maybe_prune() {
+	local repo=$1
+	#local id=$(borg config "$repo" id)
+	local id=$(awk '/^id = / {print $3}' "$repo/config")
+	local stamp="borg_$id.prune"
+
+	if check_stamp "$stamp" 30 0; then
+		log "pruning old backups"
+		borg prune "$repo" \
+			"${borg_keep[@]}" \
+			--verbose
+		update_stamp "$stamp"
+		borg list "$repo"
+	fi
+}
+
 do_rsync() {
 	local src=$1 dest=$2 rest=("${@:3}")
 
@@ -247,11 +282,7 @@ while [[ $1 ]]; do
 			borg create "$repo::$tag" \
 				"${borg_home_dirs[@]}" \
 				"${borg_home_args[@]}" ;
-			#log "pruning old backups"
-			#borg prune "$repo" \
-			#	"${borg_keep[@]}" \
-			#	--verbose
-			#borg list "$repo"
+			borg_maybe_prune "$repo"
 			;;
 		borg@dropbox)
 			if [[ "$(dropbox exclude list)" != "No directories are being ignored." ]]; then
@@ -269,11 +300,7 @@ while [[ $1 ]]; do
 			borg create "$repo::$tag" \
 				"${borg_dbox_dirs[@]}" \
 				"${borg_dbox_args[@]}" ;
-			log "pruning old backups"
-			borg prune "$repo" \
-				"${borg_keep[@]}" \
-				--verbose
-			borg list "$repo"
+			borg_maybe_prune "$repo"
 			;;
 		pull)
 			do_job twitter

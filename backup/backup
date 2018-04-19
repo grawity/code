@@ -11,6 +11,7 @@ local_config_file=$path_config/backup.conf.sh
 annexes=(~/Attic/{Annex,Software,Videos,Anime})
 hosts=()
 push_volume=
+borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
 borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 borg_dbox_repo="/vol4/Backup/Homes/Dropbox.borg"
 
@@ -37,6 +38,7 @@ fi
 readonly annexes
 readonly hosts
 readonly push_volume
+readonly borg_root_repo
 readonly borg_home_repo
 readonly borg_dbox_repo
 
@@ -311,6 +313,17 @@ while [[ $1 ]]; do
 				"${borg_home_dirs[@]}" \
 				"${borg_home_args[@]}" ;
 			borg_maybe_prune "$borg_home_repo"
+			;;
+		borg@root@frost)
+			borg_root_base=/
+			borg_root_dirs=(/)
+			borg_root_wrap=(sudo -H)
+			borg_root_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/root_all.exclude"
+				--exclude-from="$conf/borg/root_$HOSTNAME.exclude"
+			)
+			do_borg root
 			;;
 		borg@dropbox)
 			if [[ "$(dropbox exclude list)" != "No directories are being ignored." ]]; then

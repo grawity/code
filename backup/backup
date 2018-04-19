@@ -106,20 +106,28 @@ borg_maybe_prune() {
 do_borg() {
 	# WIP
 	local kind=$1
+	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
 	local var
 
 	var="borg_${kind}_repo"; local repo="${!var}"
 	var="borg_${kind}_base"; local base="${!var}"
 	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")
 	var="borg_${kind}_args[@]"; local args=("${!var}")
+	var="borg_${kind}_wrap[@]"; local wrap=("${!var}")
 
 	[[ $repo ]] || die "borg_${kind}_repo not defined"
 	[[ $base ]] || die "borg_${kind}_base not defined"
 	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
 
-	cd "$base"
-	/bin/time \
-	borg create "$repo::$tag" "${dirs[@]}" "${args[@]}"
+	local cmd=(
+		/bin/time
+		"${wrap[@]}"
+		borg create "$repo::$tag"
+		"${dirs[@]}"
+		"${args[@]}"
+	)
+	cd "$base" && "${cmd[@]}"
+
 	borg_maybe_prune "$repo"
 }
 

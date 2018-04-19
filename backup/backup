@@ -245,15 +245,14 @@ while [[ $1 ]]; do
 		borg@frost)
 			repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 			tag="$HOSTNAME.$(date +%Y%m%d.%H%M%S)"
-			# TODO: 2018-04-13: borg_home_dirs will eventually become '.'
-			#       after I grow the exclude list to cover all the junk.
+			borg_home_dirs=(.)
 			borg_home_args=(
 				"${borg_args[@]}"
 				--exclude-from="$conf/borg/home_all.exclude"
 				--exclude-from="$conf/borg/home_$HOSTNAME.exclude"
 			)
 			cd ~
-			borg create "$repo::$tag"
+			borg create "$repo::$tag" \
 				"${borg_home_dirs[@]}" \
 				"${borg_home_args[@]}" ;
 			#log "pruning old backups"

@@ -93,18 +93,34 @@ update_stamp() {
 
 borg_maybe_prune() {
 	local repo=$1
-	#local id=$(borg config "$repo" id)
 	local id=$(awk '/^id = / {print $3}' "$repo/config")
 	local stamp="borg_$id.prune"
-
 	if check_stamp "$stamp" 30 0; then
 		log "pruning old backups"
-		borg prune "$repo" \
-			"${borg_keep[@]}" \
-			--verbose
+		borg prune "$repo" "${borg_keep[@]}" --verbose
 		update_stamp "$stamp"
 		borg list "$repo"
 	fi
+}
+
+do_borg() {
+	# WIP
+	local kind=$1
+	local var
+
+	var="borg_${kind}_repo"; local repo="${!var}"
+	var="borg_${kind}_base"; local base="${!var}"
+	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")
+	var="borg_${kind}_args[@]"; local args=("${!var}")
+
+	[[ $repo ]] || die "borg_${kind}_repo not defined"
+	[[ $base ]] || die "borg_${kind}_base not defined"
+	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
+
+	cd "$base"
+	/bin/time \
+	borg create "$repo::$tag" "${dirs[@]}" "${args[@]}"
+	borg_maybe_prune "$repo"
 }
 
 do_rsync() {

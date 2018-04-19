@@ -99,7 +99,7 @@ borg_maybe_prune() {
 	local stamp="borg_$id.prune"
 	if check_stamp "$stamp" 30 0; then
 		log "pruning old backups"
-		borg prune "$repo" "${borg_keep[@]}" --verbose
+		borg prune "$repo" "${borg_keep[@]}" --verbose || return
 		update_stamp "$stamp"
 		borg list "$repo"
 	fi
@@ -120,6 +120,7 @@ do_borg() {
 	[[ $repo ]] || die "borg_${kind}_repo not defined"
 	[[ $base ]] || die "borg_${kind}_base not defined"
 	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
+	[[ -d $repo ]] || die "repository '$repo' does not exist"
 
 	local cmd=(
 		/bin/time
@@ -128,7 +129,7 @@ do_borg() {
 		"${dirs[@]}"
 		"${args[@]}"
 	)
-	cd "$base" && "${cmd[@]}"
+	cd "$base" && do: "${cmd[@]}" || return
 
 	borg_maybe_prune "$repo"
 }

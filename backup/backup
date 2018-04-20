@@ -29,18 +29,14 @@ borg_keep=(
 	--keep-monthly 24
 )
 
+# Used by backup.conf to override borg_* config variables at job run time
+borg_pre() { true; }
+
 if [[ -f $local_config_file ]]; then
 	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
 else
 	warn "config file '$local_config_file' missing"
 fi
-
-readonly annexes
-readonly hosts
-readonly push_volume
-readonly borg_root_repo
-readonly borg_home_repo
-readonly borg_dbox_repo
 
 # misc
 
@@ -111,6 +107,7 @@ do_borg() {
 	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
 	local var
 
+	borg_pre "$kind"
 	var="borg_${kind}_repo"; local repo="${!var}"
 	var="borg_${kind}_base"; local base="${!var}"
 	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")

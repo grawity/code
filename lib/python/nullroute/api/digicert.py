@@ -18,6 +18,9 @@ CERT_FORMATS = {
 class DevError(BaseException):
     pass
 
+class StillProcessingError(BaseException):
+    pass
+
 class Platform(enum.IntEnum):
     SSL_Other = -1
     SSL_Apache = 2
@@ -105,7 +108,7 @@ class CertCentralClient(object):
 
     def get_order_certificate(self, order_id, format=None):
         order = self.get_order(order_id)
-        if order["status"] == "processing":
+        if order["status"] in {"pending", "processing"}:
             raise StillProcessingError(order)
         elif order["status"] != "issued":
             pprint(order)

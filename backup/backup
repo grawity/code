@@ -8,9 +8,26 @@ progname_prefix=0
 
 local_config_file=$path_config/backup.conf.sh
 
-declare -a annexes=(~/Attic/{Annex,Software,Videos,Anime})
-declare -a hosts=()
-declare -- push_volume=
+annexes=(~/Attic/{Annex,Software,Videos,Anime})
+hosts=()
+push_volume=
+borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
+borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
+borg_dbox_repo="/vol4/Backup/Homes/Dropbox.borg"
+
+borg_args=(
+	--progress
+	--one-file-system
+	--exclude-caches
+	--exclude-if-present=".nobackup"
+	--keep-exclude-tags
+)
+
+borg_keep=(
+	--keep-daily 7
+	--keep-weekly 8
+	--keep-monthly 24
+)
 
 if [[ -f $local_config_file ]]; then
 	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
@@ -18,9 +35,12 @@ else
 	warn "config file '$local_config_file' missing"
 fi
 
-declare -r annexes
-declare -r hosts
-declare -r push_volume
+readonly annexes
+readonly hosts
+readonly push_volume
+readonly borg_root_repo
+readonly borg_home_repo
+readonly borg_dbox_repo
 
 # misc
 
@@ -54,12 +74,72 @@ drop_lock() {
 	rm -f "$lock_path"
 }
 
+is_older_than() {
+	local path=$1 seconds=$2
+	local a=$(date +%s)
+	local b=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+	(( a - b > seconds ))
+}
+
+check_stamp() {
+	local name=$1 days=$2 hours=$3
+	local stamp_path=$path_cache/backup/$name.stamp
+	is_older_than "$stamp_path" $(( days*86400 + hours*3600 ))
+}
+
+update_stamp() {
+	local name=$1
+	local stamp_path=$path_cache/backup/$name.stamp
+	install -Dm644 /dev/null "$stamp_path"
+}
+
+borg_maybe_prune() {
+	local repo=$1
+	local id=$(awk '/^id = / {print $3}' "$repo/config")
+	local stamp="borg_$id.prune"
+	if check_stamp "$stamp" 30 0; then
+		log "pruning old backups"
+		borg prune "$repo" "${borg_keep[@]}" --verbose || return
+		update_stamp "$stamp"
+		borg list "$repo"
+	fi
+}
+
+do_borg() {
+	# WIP
+	local kind=$1
+	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
+	local var
+
+	var="borg_${kind}_repo"; local repo="${!var}"
+	var="borg_${kind}_base"; local base="${!var}"
+	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")
+	var="borg_${kind}_args[@]"; local args=("${!var}")
+	var="borg_${kind}_wrap[@]"; local wrap=("${!var}")
+
+	[[ $repo ]] || die "borg_${kind}_repo not defined"
+	[[ $base ]] || die "borg_${kind}_base not defined"
+	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
+	[[ -d $repo ]] || die "repository '$repo' does not exist"
+
+	local cmd=(
+		/bin/time
+		"${wrap[@]}"
+		borg create "$repo::$tag"
+		"${dirs[@]}"
+		"${args[@]}"
+	)
+	cd "$base" && do: "${cmd[@]}" || return
+
+	borg_maybe_prune "$repo"
+}
+
 do_rsync() {
 	local src=$1 dest=$2 rest=("${@:3}")
 
 	local arg last args=()
 
-	if [[ ( $src == / || $src == ~/ ) && $dest != *:* ]]; then
+	if [[ $src == / || $src == ~/ ]]; then
 		debug "using 'sudo'"
 		args+=(sudo)
 	fi
@@ -107,11 +187,6 @@ do_pull() {
 
 	log "updating repo $dir (from $url)"
 	(cd "$dir" && git pull --ff-only origin)
-}
-
-do_unison() {
-	log "running Unison profile '$1'"
-	unison "$@" -auto -terse
 }
 
 do_annex_archive() {
@@ -202,21 +277,12 @@ while [[ $1 ]]; do
 			do_job home-push-hd
 			do_job root-push-hd
 			do_job annex-push-hd
-			[[ -d ~/Dropbox ]] &&
-				do_job dropbox-push-hd
 			sync
 			;;
 		home-push-hd)
 			do_rsync ~/ $bvol/Backup/Homes/$HOSTNAME/		\
 				-f "merge $conf/rsync-filters/home_all"		\
 				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
-				-P
-			;;
-		dropbox-push-hd)
-			[[ -d ~/Dropbox/Pictures/Porn ]] \
-				|| die "Dropbox in selective sync mode"
-			do_rsync ~/Dropbox/ $bvol/Backup/Dropbox/ 		\
-				-f "exclude .dropbox.cache"			\
 				-P
 			;;
 		root-push-hd)
@@ -233,14 +299,51 @@ while [[ $1 ]]; do
 			done
 			(( !failed ))
 			;;
-		push-radius)
-			do_job home-push-radius
+		borg@frost)
+			tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
+			borg_home_base=~
+			borg_home_dirs=(.)
+			borg_home_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/home_all.exclude"
+				--exclude-from="$conf/borg/home_$HOSTNAME.exclude"
+			)
+			cd "$borg_home_base"
+			/bin/time \
+			borg create "$borg_home_repo::$tag" \
+				"${borg_home_dirs[@]}" \
+				"${borg_home_args[@]}" ;
+			borg_maybe_prune "$borg_home_repo"
 			;;
-		home-push-radius)
-			do_rsync ~/ radius:/backup/priv/$HOSTNAME-daily/home/	\
-				-f "merge $conf/rsync-filters/home_all"		\
-				-f "merge $conf/rsync-filters/home_$HOSTNAME"	\
-				-F -x -P
+		borg@root@frost)
+			borg_root_base=/
+			borg_root_dirs=(/)
+			borg_root_wrap=(sudo -H)
+			borg_root_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/root_all.exclude"
+				--exclude-from="$conf/borg/root_$HOSTNAME.exclude"
+			)
+			do_borg root
+			;;
+		borg@dropbox)
+			if [[ "$(dropbox exclude list)" != "No directories are being ignored." ]]; then
+				die "cannot back up a partial Dropbox"
+			fi
+			tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
+			borg_dbox_base=~/Dropbox
+			borg_dbox_dirs=(.)
+			borg_dbox_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/Dropbox.exclude"
+				--files-cache="mtime,size"
+			)
+			cd "$borg_dbox_base"
+			/bin/time \
+			borg create "$borg_dbox_repo::$tag" \
+				"${borg_dbox_dirs[@]}" \
+				"${borg_dbox_args[@]}" ;
+			borg_maybe_prune "$borg_dbox_repo"
 			;;
 		pull)
 			do_job twitter
@@ -255,13 +358,10 @@ while [[ $1 ]]; do
 			homes=()
 			roots=()
 			etcs=()
-
 			for host in "${hosts[@]}"; do
-				debug "parsing host: '$host'"
 				if [[ $host == '#'* ]]; then
 					continue
-				fi
-				if [[ $host == *'!' ]]; then
+				elif [[ $host == *'!' ]]; then
 					host=${host%!}
 					roots+=($host)
 				elif [[ $host == *'+' ]]; then
@@ -270,7 +370,9 @@ while [[ $1 ]]; do
 				fi
 				homes+=($host)
 			done
-
+			debug "backup home from: ${homes[*]}"
+			debug "backup /etc from: ${etcs[*]}"
+			debug "backup rootfs from: ${roots[*]}"
 			debug "running jobs"
 			for host in ${homes[@]}; do
 				do_job @$host
@@ -281,21 +383,22 @@ while [[ $1 ]]; do
 			for host in ${roots[@]}; do
 				do_job root@$host
 			done
-			do_job nanobot
-			if mountpoint -q $bvol; then
-				do_job fs1
+			if [[ $HOSTNAME == rain ]]; then
+				do_job nanobot
+				if mountpoint -q $bvol; then
+					do_job fs1
+				fi
+			else
+				notice "skipping nanobot and fs1 on $HOSTNAME"
 			fi
-			;;
-		sec@*)
-			host=${job#*@}
-			do_rsync root@$host:/ ~/Backup/Servers/$host/			\
-				-f "merge $conf/rsync-filters/server_creds_all"		\
-				-x -P --fake-super --prune-empty-dirs
 			;;
 		etc@*)
 			host=${job#*@}
-			do_rsync root@$host:/etc/ ~/Backup/Roots/$host.etc/		\
+			do_rsync root@$host:/etc/ ~/Backup/Servers/$host.etc/		\
 				-F -x -P --fake-super					;
+			do_rsync root@$host:/ ~/Backup/Servers/$host.private/		\
+				-f "merge $conf/rsync-filters/server_creds_all"		\
+				-x -P --fake-super --prune-empty-dirs			;
 			;;
 		root@*)
 			host=${job#*@}
@@ -320,11 +423,8 @@ while [[ $1 ]]; do
 			;;
 		mail)
 			host=wolke
-			log "downloading mail (rsync)"
 			do_rsync $host:Mail/      ~/Backup/Mail/$host/
 			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
-			log "downloading mail (dsync backup)"
-			#dsync -R backup $host
 			;;
 		gphotos)
 			do: rclone sync -v \

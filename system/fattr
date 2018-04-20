@@ -71,9 +71,11 @@ sub format_val {
 			if ($bits & 0x02) { $attrib .= "H"; }
 			if ($bits & 0x04) { $attrib .= "S"; }
 			if ($bits & 0x20) { $attrib .= "A"; }
-			push @out, "attrib='$attrib'";
+			push @out, "attrib=".safe_val($attrib);
 		}
-		return "{@out}";
+		push @out, "version=".safe_val($version);
+		push @out, "rest=".safe_val($rest);
+		#return safe_val($str)." "."{@out}";
 	}
 	return safe_val($str);
 }
@@ -123,6 +125,8 @@ sub dump_attrs {
 			unless ($Opt{all}) {
 				@keys = grep {/^user\./} @keys;
 				@keys = grep {!$HIDE_ATTRS{$_}} @keys;
+			}
+			unless ($Opt{all} || $Opt{empty}) {
 				next if !@keys;
 			}
 			$ret += _show_file_attrs($file, \@keys);
@@ -153,6 +157,7 @@ utf8::decode($_) for @ARGV;
 GetOptions(
 	"help" => sub { usage(); exit; },
 	"a|all" => \$Opt{all},
+	"e|empty!" => \$Opt{empty},
 ) or exit(2);
 
 my %attrs;

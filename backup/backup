@@ -300,7 +300,6 @@ while [[ $1 ]]; do
 			(( !failed ))
 			;;
 		borg@frost)
-			tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
 			borg_home_base=~
 			borg_home_dirs=(.)
 			borg_home_args=(
@@ -308,12 +307,7 @@ while [[ $1 ]]; do
 				--exclude-from="$conf/borg/home_all.exclude"
 				--exclude-from="$conf/borg/home_$HOSTNAME.exclude"
 			)
-			cd "$borg_home_base"
-			/bin/time \
-			borg create "$borg_home_repo::$tag" \
-				"${borg_home_dirs[@]}" \
-				"${borg_home_args[@]}" ;
-			borg_maybe_prune "$borg_home_repo"
+			do_borg home
 			;;
 		borg@root@frost)
 			borg_root_base=/
@@ -330,7 +324,6 @@ while [[ $1 ]]; do
 			if [[ "$(dropbox exclude list)" != "No directories are being ignored." ]]; then
 				die "cannot back up a partial Dropbox"
 			fi
-			tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
 			borg_dbox_base=~/Dropbox
 			borg_dbox_dirs=(.)
 			borg_dbox_args=(
@@ -338,12 +331,7 @@ while [[ $1 ]]; do
 				--exclude-from="$conf/borg/Dropbox.exclude"
 				--files-cache="mtime,size"
 			)
-			cd "$borg_dbox_base"
-			/bin/time \
-			borg create "$borg_dbox_repo::$tag" \
-				"${borg_dbox_dirs[@]}" \
-				"${borg_dbox_args[@]}" ;
-			borg_maybe_prune "$borg_dbox_repo"
+			do_borg dbox
 			;;
 		pull)
 			do_job twitter

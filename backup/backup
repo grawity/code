@@ -181,14 +181,6 @@ do_rsync() {
 	(( r == 24 ))	# files vanished
 }
 
-do_pull() {
-	local dir=$1
-	local url=$(cd "$dir" && git config remote.origin.url)
-
-	log "updating repo $dir (from $url)"
-	(cd "$dir" && git pull --ff-only origin)
-}
-
 do_annex_archive() {
 	local remote
 	local -i skipped=0 done=0 failed=0
@@ -224,22 +216,6 @@ do_annex_archive() {
 	else
 		err "no archive volumes available (skipped $skipped)"
 		return 1
-	fi
-}
-
-do_kinit() {
-	log "obtaining Kerberos tickets"
-	k5start_base=$(mktemp -d /tmp/backup_XXXXXXXX)
-	export KRB5CCNAME="FILE:$k5start_base/krb5cc"
-	k5start -K 15 -b -p "$k5start_base/pid" -L -q "$@"
-	trap 'do_kdestroy' EXIT
-}
-
-do_kdestroy() {
-	if [ -e "$k5start_base/pid" ]; then
-		kill $(< "$k5start_base/pid")
-		unset KRB5CCNAME
-		rm -rf "$k5start_base"
 	fi
 }
 
@@ -429,12 +405,7 @@ while [[ $1 ]]; do
 			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
 			;;
 		cluenet)
-			dir=~/Backup/Cluenet
-
-			do_kinit -f "$dir/backup.keytab" -u "grawity/backup@CLUENET.ORG"
-			do_pull $dir/virgule/accounts/
-			#do_pull $dir/_ircd-config/
-			do_kdestroy
+			(cd ~/Backup/Cluenet && ./backup.sh)
 			;;
 		local)
 			do_job local@$HOSTNAME

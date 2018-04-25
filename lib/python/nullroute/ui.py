@@ -98,9 +98,23 @@ def print_status(*args, fmt=fmt_status, wrap=True):
     if not args:
         sys.stderr.flush()
 
+def prompt(msg):
+    print(msg, end="", flush=True)
+    buf = sys.stdin.readline()
+    return buf.strip() if buf else None
+
+def confirm(msg):
+    reply = prompt(msg)
+    return reply.lower().startswith("y") if reply else False
+
 def window_title(msg):
     if stderr_tty():
         print("\033]2;%s\007" % msg, end="", file=sys.stderr, flush=True)
+
+class TableCell(object):
+    def __init__(self, value, format=None):
+        self.value = str(value)
+        self.format = str(format or "")
 
 class Table(object):
     def __init__(self):

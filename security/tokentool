@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+from binascii import hexlify
+import nullroute.ui
+import os
+from pprint import pprint
+import subprocess
+import urllib.parse
+
+def decode_uri_attr(key, value):
+    if key in {"id"}:
+        return urllib.parse.unquote_to_bytes(value)
+    else:
+        return urllib.parse.unquote(value)
+
+def encode_uri_attr(key, value):
+    return urllib.parse.quote(value)
+
+def parse_uri(uri):
+    (scheme, data) = uri.split(":", 1)
+    if scheme != "pkcs11":
+        raise ValueError("uri scheme not acceptable: %r" % uri)
+    data = data.split(";")
+    data = {k: decode_uri_attr(k, v)
+            for k, v in [i.split("=", 1) for i in data]}
+    return data
+
+def make_uri(data):
+    data = ["%s=%s" % (k, encode_uri_attr(k, v))
+            for k, v in data.items()]
+    return "pkcs11:%s" % ";".join(data)
+
+def parse_flags(value):
+    return {*value.strip("; ").split("; ")}
+
+def enum_tokens():
+    r = subprocess.run(["p11tool", "--list-token-urls"],
+                       stdout=subprocess.PIPE)
+    for uri in r.stdout.decode().splitlines():
+        yield Token(uri)
+
+class Token(object):
+    @classmethod
+
+    def __init__(self, uri):
+        self.uri = uri
+        self.info = parse_uri(uri)
+        self.pin = None
+        self._objects = None
+
+    def get_pin(self):
+        self.pin = os.environ["p"]
+
+    def enum_objects(self):
+        self.get_pin()
+        r = subprocess.run(["p11tool",
+                            "--set-pin=%s" % self.pin,
+                            "--login",
+                            "--list-all",
+                            self.uri],
+                           stdout=subprocess.PIPE)
+        obj = None
+        for line in r.stdout.decode().splitlines():
+            line = line.rstrip()
+            if line.startswith("Object "):
+                obj = {}
+            elif not line:
+                yield TokenObject(obj["URL"], obj)
+            else:
+                k, v = line.strip().split(": ", 1)
+                obj[k] = v
+
+    def enum_objects_cached(self, refresh=False):
+        if refresh or not self._objects:
+            self._objects = [*self.enum_objects()]
+        return self._objects
+
+    def print_objects(self):
+        tab = nullroute.ui.Table()
+        tab.add_column("#")
+        tab.add_column("TYPE")
+        tab.add_column("ID")
+        tab.add_column("OBJECT")
+        for i, obj in enumerate(self.enum_objects_cached()):
+            tab.add_row([
+                str(i),
+                obj.type_str,
+                obj.id_str,
+                obj.name,
+            ])
+        tab.print()
+
+class TokenObject(object):
+    def __init__(self, uri, data):
+        self.uri = uri
+        self.info = parse_uri(uri)
+        self.flags = parse_flags(data["Flags"])
+
+    def __repr__(self):
+        return "<TokenObject(%r, %r)>" % (self.uri, self.flags)
+
+    @property
+    def type_str(self):
+        return self.info["type"]
+
+    @property
+    def name(self):
+        return self.info["object"]
+
+    @property
+    def id_str(self):
+        return hexlify(self.info["id"]).decode()
+
+for token in enum_tokens():
+    if token.info["serial"] == "ed1fcede36ba4d69":
+        token.print_objects()

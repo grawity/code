@@ -102,4 +102,30 @@ def window_title(msg):
     if stderr_tty():
         print("\033]2;%s\007" % msg, end="", file=sys.stderr, flush=True)
 
+class Table(object):
+    def __init__(self):
+        self.head = []
+        self.rows = []
+
+    def add_column(self, title):
+        self.head.append(title)
+
+    def add_row(self, cells):
+        self.rows.append(cells)
+
+    def print(self):
+        rows = [self.head, *self.rows]
+        widths = [0 for _ in rows[0]]
+        for r, row in enumerate(rows):
+            for c, cell in enumerate(row):
+                widths[c] = max(widths[c], len(cell))
+        for r, row in enumerate(rows):
+            buf = ""
+            for c, cell in enumerate(row):
+                if c > 0:
+                    buf += "  "
+                buf += "%*s" % (-widths[c], cell)
+            print(buf)
+        pass
+
 signal.signal(signal.SIGWINCH, _handle_sigwinch)

@@ -9,18 +9,23 @@ from requests_oauthlib import OAuth2Session
 import time
 
 class SwedbankClient(object):
-    AUTHORIZE_URI = "https://psd2.api.swedbank.com/psd2/authorize?bic=SANDLT22"
-    TOKEN_URI = "https://psd2.api.swedbank.com/psd2/token"
+    BASE = "https://psd2.api.swedbank.com"
+    AUTHZ_URI = BASE + "/psd2/authorize"
+    TOKEN_URI = BASE + "/psd2/token"
 
     REDIRECT_URI = "https://nullroute.eu.org/dev/consume"
 
     def __init__(self, client_id, client_secret):
+        sandbox = True
+
+        self.bic = "SANDLT22" if sandbox else "HABALT22"
+
         self.client_secret = client_secret
         self.token_cache = OAuthTokenCache("swedbank.com",
                                            display_name="Swedbank")
         self.rua = requests.Session()
         self.cua = OAuth2Session(client_id,
-                                 scope="PSD2sandbox",
+                                 scope="PSD2sandbox" if sandbox else "PSD2",
                                  redirect_uri=self.REDIRECT_URI)
 
         token = self.token_cache.load_token()
@@ -36,7 +41,8 @@ class SwedbankClient(object):
             Core.warn("failed to refresh token: %s", e)
             self.token_cache.forget_token()
 
-            (uri, state_id) = self.cua.authorization_url(self.AUTHORIZE_URI)
+            (uri, state_id) = self.cua.authorization_url(self.AUTHZ_URI,
+                                                         bic=self.bic)
             print("Login page:", uri)
 
             Code.debug("polling for grant code")
@@ -56,8 +62,9 @@ class SwedbankClient(object):
         self.token_cache.store_token(self.cua.token)
 
     def get_accounts(self):
-        resp = self.cua.get("https://psd2.api.swedbank.com/sandbox/v1/accounts",
-                            params={"bic": "SANDLT22"},
+        resp = self.cua.get(self.BASE + "/sandbox/v1/accounts",
+                            params={"bic": self.bic,
+                                    "with-balance": "true"},
                             headers={"process-id": "foo",
                                      "request-id": "bar"})
         pprint(resp.json())

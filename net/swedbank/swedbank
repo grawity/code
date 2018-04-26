@@ -84,11 +84,23 @@ class SwedbankClient(object):
                                     "with-balance": "true"},
                             headers={"process-id": "foo",
                                      "request-id": "bar"})
-        pprint(resp.json())
+        return resp.json()
 
 creds = nullroute.sec.get_netrc("OAuth/api.swedbank.com")
 
 api = SwedbankClient(client_id=creds["login"],
                      client_secret=creds["password"])
 api.login()
-api.get_accounts()
+
+accts = api.get_accounts()
+for acct in accts["account_list"]:
+    print(" * Account: %s" % acct["iban"])
+
+    str_balances = []
+    for bal in acct.get("balances", []):
+        str_balances.append("%s %s" % (bal["booked"]["amount"]["content"],
+                                       bal["booked"]["amount"]["currency"]))
+    if str_balances:
+        print("   Balances: %s" % ", ".join(str_balances))
+
+    print()

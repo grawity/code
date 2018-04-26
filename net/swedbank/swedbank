@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import json
 from nullroute.core import Core
-from nullroute.sec import get_netrc
+import nullroute.sec
 from pprint import pprint
 import requests
 from requests_oauthlib import OAuth2Session
@@ -9,7 +9,7 @@ import time
 
 class SwedbankClient(object):
     AUTHORIZE_URI = "https://psd2.api.swedbank.com/psd2/authorize?bic=SANDLT22"
-    TOKEN_URI = "https://psd2.api.swedbank.com/sandbox/v1/authentication/oauth2/token"
+    TOKEN_URI = "https://psd2.api.swedbank.com/psd2/token"
 
     REDIRECT_URI = "https://nullroute.eu.org/dev/consume"
 
@@ -21,7 +21,6 @@ class SwedbankClient(object):
         self.client_secret = client_secret
 
     def login(self):
-        '''
         (uri, state_id) = self.cua.authorization_url(self.AUTHORIZE_URI)
         print(uri)
 
@@ -34,17 +33,26 @@ class SwedbankClient(object):
             resp.raise_for_status()
             code = resp.json()
         print("got code %r" % code)
-        '''
-
-        code = "da4ef29f-3321-40b2-9d33-f4885b365387"
 
         token = self.cua.fetch_token(self.TOKEN_URI,
-                                     authorization_response=code,
+                                     code=code,
                                      client_secret=self.client_secret)
         print("got token %r" % token)
 
-creds = get_netrc("OAuth/api.swedbank.com")
+        #self.cua.token = {'access_token': 'dummyToken'}
+
+        pprint(self.cua.token)
+
+    def get_accounts(self):
+        resp = self.cua.get("https://psd2.api.swedbank.com/sandbox/v1/accounts",
+                            params={"bic": "SANDLT22"},
+                            headers={"process-id": "foo",
+                                     "request-id": "bar"})
+        pprint(resp.json())
+
+creds = nullroute.sec.get_netrc("OAuth/api.swedbank.com")
 
 api = SwedbankClient(client_id=creds["login"],
                      client_secret=creds["password"])
 api.login()
+api.get_accounts()

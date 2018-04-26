@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import json
 from nullroute.core import Core
 import nullroute.sec
+from nullroute.sec.util import OAuthTokenCache
+from oauthlib.oauth2.rfc6749.errors import (InvalidClientError, InvalidGrantError)
 from pprint import pprint
 import requests
 from requests_oauthlib import OAuth2Session
@@ -14,34 +15,45 @@ class SwedbankClient(object):
     REDIRECT_URI = "https://nullroute.eu.org/dev/consume"
 
     def __init__(self, client_id, client_secret):
+        self.client_secret = client_secret
+        self.token_cache = OAuthTokenCache("swedbank.com",
+                                           display_name="Swedbank")
         self.rua = requests.Session()
         self.cua = OAuth2Session(client_id,
                                  scope="PSD2sandbox",
                                  redirect_uri=self.REDIRECT_URI)
-        self.client_secret = client_secret
+
+        token = self.token_cache.load_token()
+        if token:
+            self.cua.token = token
 
     def login(self):
-        (uri, state_id) = self.cua.authorization_url(self.AUTHORIZE_URI)
-        print(uri)
+        try:
+            token = self.cua.refresh_token(self.TOKEN_URI,
+                                           client_id=self.cua.client_id,
+                                           client_secret=self.client_secret)
+        except (InvalidClientError, InvalidGrantError) as e:
+            Core.warn("failed to refresh token: %s", e)
+            self.token_cache.forget_token()
 
-        code = None
-        while not code:
-            time.sleep(1)
-            resp = self.rua.get("https://nullroute.eu.org/dev/retrieve",
-                                params={"state": state_id,
-                                        "forget": 1})
-            resp.raise_for_status()
-            code = resp.json()
-        print("got code %r" % code)
+            (uri, state_id) = self.cua.authorization_url(self.AUTHORIZE_URI)
+            print("Login page:", uri)
 
-        token = self.cua.fetch_token(self.TOKEN_URI,
-                                     code=code,
-                                     client_secret=self.client_secret)
-        print("got token %r" % token)
+            Code.debug("polling for grant code")
+            code = None
+            while not code:
+                time.sleep(1)
+                resp = self.rua.get("https://nullroute.eu.org/dev/retrieve",
+                                    params={"state": state_id,
+                                            "forget": 1})
+                resp.raise_for_status()
+                code = resp.json()
+            Core.debug("got grant code %r", code)
 
-        #self.cua.token = {'access_token': 'dummyToken'}
-
-        pprint(self.cua.token)
+            self.cua.fetch_token(self.TOKEN_URI,
+                                 code=code,
+                                 client_secret=self.client_secret)
+        self.token_cache.store_token(self.cua.token)
 
     def get_accounts(self):
         resp = self.cua.get("https://psd2.api.swedbank.com/sandbox/v1/accounts",

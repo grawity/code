@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+import json
+from nullroute.core import *
+from pprint import pprint
+import requests
+
+class aQrateClient():
+    def __init__(self, base_url):
+        self.base = base_url
+        self.ua = requests.Session()
+
+    def call(self, method, params):
+        Core.debug("calling %s %r", method, params)
+        r = self.ua.get(self.base + "/webservice/index.php",
+                        params={"m": method, "p": json.dumps(params)})
+        r.raise_for_status()
+        return r.content.decode().splitlines()
+
+    def getJobsByUser(self, user, host, ip):
+        #r = self.call("WebService_LocalPrinting::getJobsByUser",
+        #              {"user": user, "host": host, "ip": ip})
+        r = ['1',
+             '1',
+             '297999\tMicrosoft Word - netaisytas_klausimynasddd\t0\t0\t5\t0\t\t'
+             'Destytojas\t619193\t2-10\t32\t857']
+        pprint(r)
+        if r[0] == "1":
+            ok, num, *jobs = r
+            return [int(num), jobs]
+
+    def performJobTasks(self, job_id, **kwargs):
+        r = self.call("WebService_LocalPrinting::performJobTasks",
+                      {"id": job_id, **kwargs})
+        pprint(r)
+
+    def assign_paused_job(self, job_id, pin_card):
+        return self.performJobTasks(job_id, task="1",
+                                            project="",
+                                            user={"pinCard": pin-card})
+
+c = aQrateClient("https://aqrate.utenos-kolegija.lt:8090")
+
+r = c.getJobsByUser("vidbar23", "2-10", "10.80.255.253")
+
+pprint(r)

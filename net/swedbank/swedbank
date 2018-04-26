@@ -26,7 +26,9 @@ class SwedbankClient(object):
         self.rua = requests.Session()
         self.cua = OAuth2Session(client_id,
                                  scope="PSD2sandbox" if sandbox else "PSD2",
-                                 redirect_uri=self.REDIRECT_URI)
+                                 redirect_uri=self.REDIRECT_URI,
+                                 token_updater=lambda token: \
+                                    self.token_cache.store_token(token))
 
         token = self.token_cache.load_token()
         if token:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os, sys
-import bs4
 import requests
 from nullroute.core import Core
 from nullroute.sec import get_netrc
@@ -12,25 +11,35 @@ class PildykApi(object):
     def __init__(self, creds):
         self.creds = creds
         self.ua = requests.Session()
-        self.ua.headers["user-agent"] += " (~/bin/pildyk-balance; nullroute.eu.org)"
+        self.ua.headers["user-agent"] += " (~/bin/pildyk-balance at github/grawity/bin)"
+
+    def get(self, path, **kwargs):
+        Core.debug("GET %r %r", path, kwargs, skip=1)
+        resp = self.ua.get(self.BASE + path, **kwargs)
+        resp.raise_for_status()
+        Core.trace("response: %r", resp.json(), skip=1)
+        return resp.json().get("result")
+
+    def post(self, path, **kwargs):
+        Core.debug("POST %r %r", path, kwargs, skip=1)
+        resp = self.ua.post(self.BASE + path, **kwargs)
+        resp.raise_for_status()
+        Core.trace("response: %r", resp.json(), skip=1)
+        return resp.json().get("result")
 
     def login(self):
-        r = self.ua.post(self.BASE + "/authentication/login",
-                         data={"Msisdn": self.creds["login"],
-                               "Password": self.creds["password"]})
-        r.raise_for_status()
-        return True
+        self.post("/authentication/login",
+                  data={"Msisdn": self.creds["login"],
+                        "Password": self.creds["password"]})
 
     def get_balance(self):
+        # JS appends /<msisdn>, seems optional
         # seems to be case-insensitive, JS mixes both variants
-        r = self.ua.get(self.BASE + "/AccountInformation/get-user-balance")
-        r.raise_for_status()
-        return r.json()["result"]
+        return self.get("/AccountInformation/get-user-balance")
 
     def get_plan_and_balance(self):
-        r = self.ua.get(self.BASE + "/accountinformation/get-price-plan-and-account-balance")
-        r.raise_for_status()
-        return r.json()["result"]
+        # JS appends /<msisdn>, seems optional
+        return self.get("/accountinformation/get-price-plan-and-account-balance")
 
 Login = "60396811"
 

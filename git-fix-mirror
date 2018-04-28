@@ -1,0 +1,11 @@
+#!/bin/bash
+
+git config --unset remote.origin.fetch &&
+git config --unset remote.origin.mirror &&
+git config remote.origin.fetch '+refs/heads/*:refs/heads/*' &&
+git fetch --all --prune &&
+git for-each-ref |
+	awk '{print $3}' |
+	egrep -v "^refs/(heads|notes|tags)/" |
+	xargs -n 1 -r echo git update-ref -d |
+	bash -x

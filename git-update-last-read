@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+. ~/lib/dotfiles/environ || exit
+. lib.bash || exit
+
+rootmarkdir=$path_config/synced
+
+ourhost=${HOSTNAME%%.*}
+
+update_marks() {
+	local repo=${1%/}
+	local git_dir="$repo/.git"
+	local mark_dir="$rootmarkdir/${repo##*/}.marks"
+	local file host ref
+
+	# export local mark
+	[[ -d $mark_dir ]] && mkdir -p "$mark_dir"
+	cp -u -v "$repo/.git/refs/heads/master" "$mark_dir/$ourhost.master"
+	cp -u -v "$repo/.git/refs/heads/master" "$mark_dir/all.master"
+
+	# import remote marks
+	for file in "$mark_dir"/*.master; do
+		host=${file##*/}
+		host=${host%%.*}
+		if [[ $host != "$ourhost" && $host != "all" ]]; then
+			cp -u -v "$file" "$git_dir/refs/heads/$host"
+			cp -u -v "$file" "$git_dir/refs/heads/all"
+		fi
+	done
+}
+
+update_marks ~/src/linux

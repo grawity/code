@@ -25,41 +25,54 @@ for dir in "${dirs[@]}"; do
 
 		mv -v "$src" "$dst"
 
-		git -C "$dst" update-ref -d --no-deref "refs/remotes/origin/HEAD"
-		git -C "$dst" push . "+refs/remotes/origin/*:refs/heads/*"
-		git -C "$dst" pack-refs --all --prune
-
-		mkdir -p "$dst/logs/refs/heads"
-		mv "$dst/logs/refs/remotes/origin/"* "$dst/logs/refs/heads/"
-
+		info "bare: enable bare mode"
 		git -C "$dst" config core.bare true
-		git -C "$dst" config --unset-all remote.origin.fetch
-		git -C "$dst" config remote.origin.fetch "+refs/heads/*:refs/heads/*"
-		git -C "$dst" config remote.origin.mirror true
+		git -C "$dst" for-each-ref > "$dst/refs.backup"
+
+		info "bare: delete tracking branch configurations"
 		git -C "$dst" config --list --local |
-			grep -o '^branch\.[^.]*' |
-			sort -u |
+			grep '^branch\.' | sed 's/.[^.]*$//' | sort -u |
 			while read -r line; do
+				echo "$line"
 				git -C "$dst" config --remove-section "$line"
 			done
 
-		log "fetching from remote"
-		git -C "$dst" fetch origin
-
-		git -C "$dst" for-each-ref |
-			while read -r _ _ ref; do
-				if [[ $ref == refs/remotes/* ]]; then
-					git -C "$dst" update-ref -d "$ref"
-				fi
-			done
-		git -C "$dst" gc
-		git -C "$dst" prune
-
+		info "bare: delete working-tree crud"
 		rm -f "$dst"/index
 		rm -f "$dst"/{COMMIT_EDITMSG,FETCH_HEAD,ORIG_HEAD}
+
+		info "mirror: copy branches to local"
+		git -C "$dst" update-ref -d --no-deref "refs/remotes/origin/HEAD"
+		git -C "$dst" push . "+refs/remotes/origin/*:refs/heads/*"
+
+		info "mirror: copy reflogs to local"
+		rm -f "$dst/logs/refs/remotes/origin/HEAD"
+		mkdir -p "$dst/logs/refs/heads"
+		rsync -av --del "$dst/logs/refs/remotes/origin/" "$dst/logs/refs/heads/"
+
+		info "mirror: convert remote configuration"
+		git -C "$dst" config --unset-all remote.origin.fetch
+		git -C "$dst" config --unset-all remote.origin.mirror
+		git -C "$dst" config remote.origin.fetch "+refs/heads/*:refs/heads/*"
+
+		info "mirror: fetch updates"
+		git -C "$dst" fetch --prune origin
+
+		info "mirror: delete unwanted refs"
+		git -C "$dst" for-each-ref |
+			awk '{print $3}' |
+			egrep -v '^refs/(heads|notes|tags)/' |
+			while read -r ref; do
+				git -C "$dst" update-ref -d "$ref"
+			done
+
+		info "clean up"
+		git -C "$dst" pack-refs --all --prune
+		git -C "$dst" gc
+		git -C "$dst" prune
 		rdempty --quiet "$dst"
 
-		log "deleting old worktree"
+		info "deleting old worktree"
 		find "$base" -print -delete | progress
 
 		log "moved to '$dst'"

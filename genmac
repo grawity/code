@@ -1,18 +1,9 @@
-#!/usr/bin/env python3
-import os
-import sys
+#!/usr/bin/env perl
+# genmac – generate a MAC address and display in several formats
 
-oui = []
+my @bytes = map {int rand 256} 1..6;
 
-if oui:
-    assert(0 < len(oui) < 6)
-    buf = os.urandom(6 - len(oui))
-    buf = [*oui, *buf]
-else:
-    buf = os.urandom(6)
-    buf = [*buf]
-    buf[0] &= ~1 # clear multicast bit
-    buf[0] |= 2 # set local bit
+$bytes[0] &= ~1; # clear "unicast/group" bit
+$bytes[0] |= 2;  # set "global/local" bit
 
-buf = ["%02x" % x for x in buf]
-print(*buf, sep=":")
+print join(":", map {sprintf "%02X", $_} @bytes), "\n";

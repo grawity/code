@@ -1,58 +1,53 @@
 #!/usr/bin/env python3
 import os, sys
-import bs4
 import requests
-from nullroute.core import *
+from nullroute.core import Core
 from nullroute.sec import get_netrc
+from pprint import pprint
 
-Base = "https://mano.pildyk.lt"
+class PildykApi(object):
+    BASE = "https://mano.pildyk.lt/api"
+
+    def __init__(self, creds):
+        self.creds = creds
+        self.ua = requests.Session()
+        self.ua.headers["user-agent"] += " (~/bin/pildyk-balance at github/grawity/bin)"
+
+    def get(self, path, **kwargs):
+        Core.debug("GET %r %r", path, kwargs, skip=1)
+        resp = self.ua.get(self.BASE + path, **kwargs)
+        resp.raise_for_status()
+        Core.trace("response: %r", resp.json(), skip=1)
+        return resp.json().get("result")
+
+    def post(self, path, **kwargs):
+        Core.debug("POST %r %r", path, kwargs, skip=1)
+        resp = self.ua.post(self.BASE + path, **kwargs)
+        resp.raise_for_status()
+        Core.trace("response: %r", resp.json(), skip=1)
+        return resp.json().get("result")
+
+    def login(self):
+        self.post("/authentication/login",
+                  data={"Msisdn": self.creds["login"],
+                        "Password": self.creds["password"]})
+
+    def get_balance(self):
+        # JS appends /<msisdn>, seems optional
+        # seems to be case-insensitive, JS mixes both variants
+        return self.get("/AccountInformation/get-user-balance")
+
+    def get_plan_and_balance(self):
+        # JS appends /<msisdn>, seems optional
+        return self.get("/accountinformation/get-price-plan-and-account-balance")
+
 Login = "60396811"
 
-def do_login():
-    creds = get_netrc("http@mano.pildyk.lt", Login)
+creds = get_netrc("http@mano.pildyk.lt", Login)
+api = PildykApi(creds)
+api.login()
 
-    uri = Base + "/Prisijungti.aspx?ReturnUrl=%2f"
-
-    form_data = {
-        "__EVENTTARGET": "ctl00$ctl00$main$main$login$btnLogin",
-        "ctl00$ctl00$main$main$login$tbUserName": creds["login"],
-        "ctl00$ctl00$main$main$login$tbPassword": creds["password"],
-    }
-
-    client = requests.Session()
-
-    Core.info("accessing login form...")
-
-    r = client.get(uri)
-    h = bs4.BeautifulSoup(r.text, "lxml")
-    h_form = h.find("form", {"name": "aspnetForm"})
-    for tag in h_form.find_all("input", {"type": "hidden"}):
-        try:
-            form_data[tag["name"]] = tag["value"]
-        except KeyError as e:
-            pass
-
-    Core.info("sending credentials...")
-
-    # this directly loads the main info page we want
-    r = client.post(uri, data=form_data)
-    h = bs4.BeautifulSoup(r.text, "lxml")
-    print(h)
-
-    h_table = h.find("table", {"class": "margin2"})
-
-    h_th = h_table.find("th")
-    _title, _expiry = list(h_th.stripped_strings)
-    _balance_eu = h_table.find("big", {"class": "sub_header"}).get_text(strip=True)
-
-    print("%s %s" % (_title, _balance_eu))
-
-    h_tr = h.find("tr", {"id": "ctl00_ctl00_main_main_AccountInfo_DataBucketRepeater_ctl00_trBucket"})
-    if h_tr:
-        _title = h_tr.find("strong").get_text(strip=True)
-        _expiry = h_tr.find("small").get_text(strip=True)
-        _quota = h_tr.find("center").get_text(strip=True)
-
-        print("%s: %s (%s)" % (_title, _quota, _expiry))
-
-do_login()
+data = api.get_plan_and_balance()
+print("Account: +370.%(msisdn)s" % data)
+print("Balance: %(balance)s €" % data)
+print("Data:    %(addonData)s %(addonDataUnit)s" % data)

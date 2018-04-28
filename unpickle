@@ -1,0 +1,23 @@
+#!/usr/bin/env python2
+import sys
+import pickle
+import pickletools
+import pprint
+
+class Foo():
+    def __init__(self, *args):
+        pass
+
+    pass
+
+class RestrictedUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if module == "builtins":
+            return getattr(builtins, name)
+        return Foo
+
+args = sys.argv[1:]
+
+for arg in args:
+    with open(arg, "rb") as fh:
+        pickletools.dis(fh)

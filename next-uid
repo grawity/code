@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # look up the next free UID in LDAP
 
-[ $# -gt 0 ] || set -- nullroute.eu.org
+(( $# )) || set -- "nullroute.eu.org"
 
 base="ou=people,dc=${1//./,dc=}"
 
-ldapsearch -Q -b "$base" 'objectClass=posixAccount' uidNumber \
- | awk 'BEGIN { uid=0 }
- 	/^uidNumber:/ { if ($2 > uid) {uid = $2} }
-	END { print uid+1 }'
+ldapsearch -Q -b "$base" 'objectClass=posixAccount' uidNumber | awk \
+	'BEGIN         { uid=0 }
+	 /^uidNumber:/ { if ($2 > uid) {uid = $2} }
+	 END           { print uid+1 }'

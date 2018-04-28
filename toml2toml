@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+import os
+import sys
+import toml
+import yaml
+import json
+
+fh_loaders = {
+    "toml": lambda fh: toml.load(fh),
+    "yaml": lambda fh: yaml.load(fh),
+    "json": lambda fh: json.load(fh),
+}
+str_loaders = {
+    "toml": lambda buf: toml.loads(buf),
+    "yaml": lambda buf: yaml.load(buf),
+    "json": lambda buf: json.loads(buf),
+}
+
+fh_dumpers = {
+    "toml": lambda arg, fh: toml.dump(arg, fh),
+    "yaml": lambda arg, fh: yaml.dump(arg, stream=fh),
+    "json": lambda arg, fh: json.dump(arg, fh),
+}
+str_dumpers = {
+    "toml": lambda arg: toml.dumps(arg),
+    "yaml": lambda arg: yaml.dump(arg),
+    "json": lambda arg: json.dumps(arg),
+}
+
+arg0 = os.path.basename(sys.argv[0])
+
+if len(sys.argv) == 2:
+    arg0 = sys.argv[1]
+
+itype, otype = arg0.split("2", 1)
+
+fh = sys.stdin
+
+data = fh_loaders[itype](fh)
+
+print(str_dumpers[otype](data))

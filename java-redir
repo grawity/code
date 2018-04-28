@@ -7,9 +7,40 @@ origname=${progname%-redir}
 progname="java-redir"
 homedir="$XDG_DATA_HOME/java-home"
 
-for dir in ~/.local/bin /usr/bin; do
+# this is a convenient place to enforce some workarounds
+
+# 2017-12: deal with Java 9 not rendering airControl2 correctly
+export MESA_GL_VERSION_OVERRIDE="3.0"
+
+debug "executed with ${@@Q}"
+
+jar=""
+for arg; do
+	if [[ $jar == -jar ]]; then
+		jar=$arg
+		break
+	elif [[ $arg == -jar ]]; then
+		jar=$arg
+	fi
+done
+
+# 2018-03-17: deal with ApacheDirectoryStudio 2.0.0 not supporting Java 9
+if [[ $jar == /opt/ApacheDirectoryStudio/* ]]; then
+	notice "applying workaround for '$jar': Java 8 required"
+	for dir in /usr/lib/jvm/java-8-*/jre; do
+		if [[ -d $dir ]]; then
+			export JAVA_HOME=$dir
+			break
+		fi
+	done
+fi
+
+# find the actual Java runtime
+
+for dir in ~/.local/bin "${JAVA_HOME:-/usr}"/bin; do
 	java="$dir/$origname"
-	if [[ -x "$java" ]]; then
+	debug "checking for '$origname' in '$dir'"
+	if [[ -f "$java" && -x "$java" ]]; then
 		break
 	fi
 done

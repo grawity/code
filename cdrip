@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+image=$1; shift
+device=/dev/sr0
+
+if [[ ! $image ]]; then
+	die "image name not specified"
+elif [[ $image == -* ]]; then
+	die "any options must be specified after image name"
+elif [[ $image != *.iso ]]; then
+	image+=".iso"
+fi
+
+logfile=${image/%.iso/.log}
+
+if [[ -s $logfile ]]; then
+	info "resuming copy to '$image'"
+	if ddrescuelog -D "$logfile"; then
+		notice "log is marked as 'finished', but retrying anyway"
+	fi
+else
+	info "copying to '$image'"
+fi
+
+debug "checking if SCSI device is ready"
+if [[ ! -b $device ]]; then
+	die "device '$device' does not exist (not connected?)"
+fi
+if ! sg_turs -p "$device"; then
+	notice "waiting for device to become ready"
+	until sg_turs -p "$device"; do
+		sleep 0.3
+	done
+fi
+
+debug "creating image using ddrescue"
+ddrescue "$device" "$image" "$logfile" "$@" || exit
+
+debug "ejecting '$device'"
+eject "$device"
+
+if ddrescuelog -D "$logfile"; then
+	info "copy was successful"
+	ddrescuelog -dv "$logfile"
+else
+	warn "copy failed, wipe the CD clean and use --rescrape"
+fi

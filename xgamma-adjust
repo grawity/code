@@ -24,10 +24,12 @@ if (!@ARGV) {
 my $min = 0.1;
 my $max = 10.0;
 
+sub nightlight_is_active {
+	system("nightlight", "is-active") == 0;
+}
+
 sub show_osd {
 	my ($label, $icon, $level) = @_;
-
-	$level = clamp($level, 0.1, 100); # it doesn't like zero
 
 	system("busctl", "call", "--user",
 		"org.gnome.Shell",
@@ -50,6 +52,11 @@ my ($red, $green, $blue);
 open(STDOUT, ">", "/dev/null");
 open(STDERR, ">", "/dev/null");
 
+if (nightlight_is_active()) {
+	show_osd("Gamma: Night Light", "night-light-symbolic", 0);
+	exit(0);
+}
+
 if (defined($adj)) {
 	if (`xgamma 2>&1` =~ /Red\s+([\d.]+), Green\s+([\d.]+), Blue\s+([\d.]+)/) {
 		$red = $1 + 0.0;
@@ -70,5 +77,6 @@ system("xgamma",
 
 my $avg = ($red + $green + $blue) / 3.0;
 my $level = ceil(log($avg) / log($max) / 2 * 100) + 50;
+$level = clamp($level, 0.1, 100); # OSD doesn't like zero
 
 show_osd(sprintf("Gamma: %.01f", $avg), "camera-photo-symbolic", $level);

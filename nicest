@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+if (( ! $# )); then
+	echo "usage: ${0##*/} <command> [<args>...]" >&2
+	exit 2
+fi
+
+if [[ ":${LD_PRELOAD// /:}:" != */nocache.so:* ]]; then
+	exec nocache nice ionice -c idle -- "$@"
+else
+	exec nice ionice -c idle -- "$@"
+fi

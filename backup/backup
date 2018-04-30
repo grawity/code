@@ -111,11 +111,12 @@ do_borg() {
 	local cmd=(
 		/bin/time
 		"${wrap[@]}"
+		env --chdir "$base"
 		borg create "$repo::$tag"
 		"${dirs[@]}"
 		"${args[@]}"
 	)
-	cd "$base" && do: "${cmd[@]}" || return
+	do: "${cmd[@]}" || return
 
 	local id=$("${wrap[@]}" awk '/^id = /{print $3}' "$repo/config")
 	check_stamp "borg_$id.prune" 30 0 || return
@@ -287,7 +288,7 @@ while [[ $1 ]]; do
 			check_new_mounts
 			borg_root_base=/
 			borg_root_dirs=(/)
-			borg_root_wrap=(sudo -i env -C "$borg_root_base")
+			borg_root_wrap=(sudo -i)
 			borg_root_args=(
 				"${borg_args[@]}"
 				--exclude-from="$conf/borg/root_all.exclude"

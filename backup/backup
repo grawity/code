@@ -90,18 +90,6 @@ update_stamp() {
 	install -Dm644 /dev/null "$stamp_path"
 }
 
-borg_maybe_prune() {
-	local repo=$1
-	local id=$("${wrap[@]}" awk '/^id = / {print $3}' "$repo/config")
-	local stamp="borg_$id.prune"
-	if check_stamp "$stamp" 30 0; then
-		log "pruning old backups"
-		"${wrap[@]}" borg prune "$repo" "${borg_keep[@]}" --verbose || return
-		update_stamp "$stamp"
-		"${wrap[@]}" borg list "$repo"
-	fi
-}
-
 do_borg() {
 	# WIP
 	local kind=$1
@@ -129,7 +117,16 @@ do_borg() {
 	)
 	cd "$base" && do: "${cmd[@]}" || return
 
-	borg_maybe_prune "$repo"
+	local id=$("${wrap[@]}" awk '/^id = /{print $3}' "$repo/config")
+	check_stamp "borg_$id.prune" 30 0 || return
+	cmd=(
+		"${wrap[@]}"
+		borg prune "$repo"
+		--verbose
+		"${borg_keep[@]}"
+	)
+	do: "${cmd[@]}" || return
+	update_stamp "borg_$id.prune"
 }
 
 do_rsync() {

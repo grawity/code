@@ -13,7 +13,6 @@ hosts=()
 push_volume=
 borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
 borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
-borg_dbox_repo="/vol4/Backup/Homes/Dropbox.borg"
 
 borg_args=(
 	--progress
@@ -263,7 +262,6 @@ while [[ $1 ]]; do
 			do_job local
 			do_job borg-home
 			do_job borg-root
-			do_job borg-dropbox
 			do_job annex-push-hd
 			sync
 			;;
@@ -295,19 +293,6 @@ while [[ $1 ]]; do
 				--exclude-from="$conf/borg/root_$HOSTNAME.exclude"
 			)
 			do_borg root
-			;;
-		borg-dropbox)
-			if [[ "$(dropbox exclude list)" != "No directories are being ignored." ]]; then
-				die "cannot back up a partial Dropbox"
-			fi
-			borg_dbox_base=~/Dropbox
-			borg_dbox_dirs=(.)
-			borg_dbox_args=(
-				"${borg_args[@]}"
-				--exclude-from="$conf/borg/Dropbox.exclude"
-				--files-cache="mtime,size"
-			)
-			do_borg dbox
 			;;
 		pull)
 			do_job twitter

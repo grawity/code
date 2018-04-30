@@ -92,13 +92,13 @@ update_stamp() {
 
 borg_maybe_prune() {
 	local repo=$1
-	local id=$(awk '/^id = / {print $3}' "$repo/config")
+	local id=$("${wrap[@]}" awk '/^id = / {print $3}' "$repo/config")
 	local stamp="borg_$id.prune"
 	if check_stamp "$stamp" 30 0; then
 		log "pruning old backups"
-		borg prune "$repo" "${borg_keep[@]}" --verbose || return
+		"${wrap[@]}" borg prune "$repo" "${borg_keep[@]}" --verbose || return
 		update_stamp "$stamp"
-		borg list "$repo"
+		"${wrap[@]}" borg list "$repo"
 	fi
 }
 

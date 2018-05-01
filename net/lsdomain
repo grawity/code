@@ -64,14 +64,19 @@ sub sort_srv {
 	sort {$a->priority <=> $b->priority}
 	sort {$a->weight <=> $b->weight}
 	sort {$a->target cmp $b->target}
-	grep {$_->type eq 'SRV'}
 	@_;
 }
 
 sub format_srv {
 	uniq
 	map {"[".$_->priority."] ".$_->target.":".$_->port}
-	sort_srv(@_);
+	sort_srv(grep {$_->type eq "SRV"} @_);
+}
+
+sub format_uri {
+	uniq
+	map {"[".$_->priority."] ".$_->target}
+	sort_srv(grep {$_->type eq "URI"} @_);
 }
 
 for my $host (@ARGV) {
@@ -152,6 +157,7 @@ for my $host (@ARGV) {
 	}
 
 	if ($do{kerberos}) {
+		my ($txt_ans, $udp_ans, $uri_ans);
 		status "Looking up Kerberos realm...";
 		$txt_ans = $res->query("_kerberos.$host", "TXT");
 		if ($txt_ans) {
@@ -165,12 +171,16 @@ for my $host (@ARGV) {
 		}
 		status "Looking up Kerberos servers in $realm...";
 		$udp_ans = $res->query("_kerberos._udp.$realm", "SRV");
+		$uri_ans = $res->query("_kerberos.$realm", "URI");
 		done;
-		if ($udp_ans || $txt_ans) {
+		if ($udp_ans || $txt_ans || $uri_ans) {
 			say "Kerberos:";
 			say "\trealm: $realm";
+			if ($uri_ans) {
+				say "\tkdc: (URI) $_" for format_uri($uri_ans->answer);
+			}
 			if ($udp_ans) {
-				say "\tkdc: $_" for format_srv($udp_ans->answer);
+				say "\tkdc: (SRV) $_" for format_srv($udp_ans->answer);
 			}
 		}
 	}
@@ -185,11 +195,11 @@ for my $host (@ARGV) {
 			say "LDAP:";
 			if ($tcp_ans) {
 				say "\tserver: $_ (TCP)" for format_srv($tcp_ans->answer);
-				push @servers, sort_srv($tcp_ans->answer);
+				push @servers, sort_srv(grep {$_->type eq "SRV"} $tcp_ans->answer);
 			}
 			if ($tls_ans) {
 				say "\tserver: $_ (TLS)" for format_srv($tls_ans->answer);
-				push @servers, sort_srv($tls_ans->answer);
+				push @servers, sort_srv(grep {$_->type eq "SRV"} $tls_ans->answer);
 			}
 			for my $item (@servers) {
 				my $uri = $item->target;

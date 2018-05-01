@@ -236,12 +236,15 @@ check_new_mounts() {
 	findmnt --df --bytes --json |
 	jq -r '.filesystems | .[] | (.fstype + " " + .avail + " " + .target)' |
 	while read -r fstype avail target; do
-		case $fstype,$avail,$target in
+		case $fstype,$avail,${target%/}/ in
 		tmpfs,*,*) ;;
 		devtmpfs,*,*) ;;
 		*,0,*) ;;
 		*,*,/) ;;
+		*,*,/efi/*) ;;
+		*,*,/home/*) ;;
 		*,*,/run/media/*) ;;
+		*,*,/[CD]) ;;
 		*) warn "should '$target' be backed up?" ;;
 		esac
 	done

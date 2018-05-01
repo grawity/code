@@ -88,7 +88,6 @@ update_stamp() {
 }
 
 do_borg() {
-	# WIP
 	local kind=$1
 	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
 	local var
@@ -105,6 +104,27 @@ do_borg() {
 	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
 	[[ -d $repo ]] || die "repository '$repo' does not exist"
 
+	# idiot-proofing: if nonexistent exclude files were specified, create them
+
+	local arg next=-1
+	for arg in "${args[@]}"; do
+		if [[ $arg == --exclude-from ]]; then
+			next=1
+		elif [[ $arg == --exclude-from=* ]]; then
+			arg=${arg#*=}
+			next=0
+		fi
+		if (( next == 0 )) && [[ ! -f $arg ]]; then
+			info "creating missing exclude file '$arg'"
+			touch "$arg" || return
+		fi
+		if (( next >= 0 )); then
+			(( --next ))
+		fi
+	done
+
+	# run borg create
+
 	local cmd=(
 		"${wrap[@]}"
 		env --chdir "$base"
@@ -113,6 +133,8 @@ do_borg() {
 		"${args[@]}"
 	)
 	do: "${cmd[@]}" || return
+
+	# run borg prune (if it has been a month since the last run)
 
 	local id=$("${wrap[@]}" awk '/^id = /{print $3}' "$repo/config")
 	check_stamp "borg_$id.prune" $(( 30*86400 )) || return 0

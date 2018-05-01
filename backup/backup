@@ -70,6 +70,11 @@ drop_lock() {
 	rm -f "$lock_path"
 }
 
+is_mounted() {
+	local path=$1
+	test -d "$path" && mountpoint -q "$path"
+}
+
 is_older_than() {
 	local path=$1 seconds=$2
 	local a=$(date +%s)
@@ -329,11 +334,9 @@ while [[ $1 ]]; do
 			done
 			if [[ $HOSTNAME == rain ]]; then
 				do_job nanobot
-				if mountpoint -q $bvol; then
+				if is_mounted $bvol; then
 					do_job fs1
 				fi
-			else
-				notice "skipping nanobot and fs1 on $HOSTNAME"
 			fi
 			;;
 		etc@*)

@@ -48,6 +48,7 @@ usage() {
 	echo_opt "altsubject-match ..." "Check certificate subjectAltName [deprecated!]"
 	echo ""
 	echo "Phase 1 TLS options:"
+	echo_opt "tls v1.3" "Enable TLS v1.3 (disabled by default in wpa_supplicant)"
 	echo_opt "tls no-v1.2" "Disable TLS v1.2 (for broken servers)"
 	echo_opt "tls no-v1.1" "Disable TLS v1.1 (for really broken servers)"
 	echo_opt "tls no-v1.0" "Disable TLS v1.0 (for epicly broken servers)"
@@ -456,9 +457,12 @@ fi
 if [[ $eap == @(PEAP|TLS|TTLS) ]]; then
 	for opt in "${tls_opts[@]}"; do
 		case $opt in
+		# as of hostap_2_6-1911-ge8a7af9a3, v1.3 is enabled manually
+		'v1.3')		phase1_opts+=("tls_disable_tlsv1_3=0");;
 		'no-v1.0')	phase1_opts+=("tls_disable_tlsv1_0=1");;
 		'no-v1.1')	phase1_opts+=("tls_disable_tlsv1_1=1");;
 		'no-v1.2')	phase1_opts+=("tls_disable_tlsv1_2=1");;
+		'no-v1.3')	phase1_opts+=("tls_disable_tlsv1_3=1");;
 		'tls_'*)	phase1_opts+=("$opt");;
 		*)		err "unknown TLS option '$opt'";;
 		esac

@@ -22,11 +22,14 @@ arg_af=
 arg_fork=0
 use_rdesktop=0
 arg_console=0
+arg_cert_ignore=0
+arg_cred_delegate=1
 arg_ui_workarea=1
 arg_share_audio=1
 arg_share_clip=1
 arg_share_home=1
 arg_share_media=0
+arg_share_smartcard=1
 arg_vm_id=
 
 if [[ $1 != -* ]]; then
@@ -60,7 +63,9 @@ addr=$(name2addr "$host" 2>/dev/null)
 if [[ ! $addr ]]; then
 	_die "could not resolve host '$host'"
 fi
-if ! err=$(nc -v -z "$host" 3389 2>&1); then
+port=3389
+debug "probing TCP server [$host]:$port"
+if ! err=$(nc -v -z "$host" "$port" 2>&1); then
 	_die "host '$host' does not accept Remote Desktop connections"
 fi
 info "connecting to ${host@Q}"
@@ -98,6 +103,9 @@ if (( use_rdesktop )); then
 	if (( arg_share_media )); then
 		args+=(-r disk:media="/run/media/$USER")
 	fi
+	if (( arg_share_smartcard )); then
+		args+=(-r scard)
+	fi
 	if (( arg_console )); then
 		args+=(-0)
 	fi
@@ -119,8 +127,6 @@ else
 	args+=(
 		/t:"Remote Desktop: $host"
 		/bpp:32
-		+credentials-delegation
-		/cert-ignore
 		+fonts
 		+aero
 		+window-drag
@@ -133,16 +139,22 @@ else
 		#/jpeg
 		#/rfx
 
+		# Authn and security
+		-sec-rdp
+
 		+auto-reconnect
 		+heartbeat
-		#+multitransport
 
 		-grab-keyboard # maybe it'll fix the caps thing
-		#+async-input # breaks clipboard
 		+async-update
-		#+async-transport
 		+async-channels
 	     )
+	if (( arg_cert_ignore )); then
+		args+=(/cert-ignore)
+	fi
+	if (( arg_cred_delegate )); then
+		args+=(+credentials-delegation)
+	fi
 	if (( arg_ui_workarea )); then
 		args+=(-decorations /workarea)
 	fi
@@ -157,6 +169,9 @@ else
 	fi
 	if (( arg_share_media )); then
 		args+=(/drive:"media,/run/media/$USER")
+	fi
+	if (( arg_share_smartcard )); then
+		args+=(/smartcard)
 	fi
 	if (( arg_console )); then
 		args+=(/admin)

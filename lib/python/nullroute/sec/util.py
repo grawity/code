@@ -36,7 +36,10 @@ class OAuthTokenCache(object):
         return json.loads(data)
 
     def _clear_token_file(self):
-        os.unlink(self.token_path)
+        try:
+            os.unlink(self.token_path)
+        except FileNotFoundError:
+            pass
 
     def load_token(self):
         Core.debug("loading OAuth token for %r", self.domain)

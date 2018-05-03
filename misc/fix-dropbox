@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 2017-xx-xx grawity: this handles launching Dropbox via systemd, as its
+# upgrade mechanism doesn't quite work as a service
 
 err() { echo "error: $*" >&2; return 1; }
 die() { err "$@"; exit 1; }
@@ -6,8 +8,10 @@ die() { err "$@"; exit 1; }
 shopt -s nullglob
 
 if [[ ! -d ~/.dropbox-dist ]]; then
+	echo "$0: ~/.dropbox-dist missing, looking for staged upgrades"
 	dists=(~/.dropbox-dist-tmp-*/ ~/.dropbox-dist-old-*/)
 	if (( ${#dists[@]} )); then
+		echo "$0: found staged upgrades ${dists[*]}, using first"
 		mv -v "${dists[0]}" ~/.dropbox-dist || exit
 	else
 		die "no dropbox-dist found, manual reinstall required"
@@ -16,6 +20,20 @@ fi
 
 rm -rf ~/.dropbox-dist-old-*/
 
+arch=x86_64
+vers=$(< ~/.dropbox-dist/VERSION)
+dist=~/.dropbox-dist/dropbox-lnx.$arch-$vers
+
 if [[ $1 == --start ]]; then
-	exec ~/.dropbox-dist/dropboxd
+	echo "$0: trying dropbox_py3 in distdir '$dist' based on VERSION"
+	exec "$dist"/dropbox_py3 /py3 /newerversion
+
+	echo "$0: trying dropbox_py3 in any distdir"
+	exec ~/.dropbox-dist/dropbox-lnx.$arch-*/dropbox_py3 /py3 /newerversion
+
+	echo "$0: trying dropboxd in distdir '$dist' based on VERSION"
+	exec "$dist"/dropboxd
+
+	echo "$0: trying dropboxd in any distdir"
+	exec ~/.dropbox-dist/dropbox-lnx.$arch-*/dropboxd
 fi

@@ -10,6 +10,8 @@ use Nullroute::Lib;
 my $qr_y_m_d = qr/\d{4}-\d{2}-\d{2}/;
 
 my $host;
+my $force;
+my $force_host;
 
 sub do_file {
 	my ($file) = @_;
@@ -26,39 +28,31 @@ sub do_file {
 		}
 		my @mtime = localtime($stat[9]);
 
-		# OneDrive screenshots (host given in command line)
-		if ($host) {
-			s/.*/strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).".".$host/e;
+		# arbitrary (host given in command line) – OneDrive, imgur, etc.
+		if ($force || $force_host) {
+			my $tail = $force_host ? ".$force_host" : "";
+			s/.*/strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).$tail/e;
 			last;
 		}
 
 		# mpv
-		if (/^(?:gnome-)?mpv-shot.*(\.[^.]+)$/
-		|| /^Screenshot from [^:]+(\.[^.]+)$/)
-		{
+		if (/^(?:gnome-)?mpv-shot.*(\.[^.]+)$/) {
 			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).$1/e;
 			last;
 		}
-
-		# Dropbox on Windows
-		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4/;
-
-		# GNOME Shell
-		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)/$1.$2$3$4/;
-
-		# Dropbox on Android
-		s/^($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/Screenshot_$1.$2$3$4/;
-
-		# VLC
-		s/^Snapshot_($qr_y_m_d)-(\d+)h(\d+)m(\d+)s\d+/Screenshot_$1.$2$3$4/;
-		s/^vlcsnap-($qr_y_m_d)-(\d+)h(\d+)m(\d+)s\d+/Screenshot_$1.$2$3$4/;
-
-		# Android (??)
-		s/^Screenshot_($qr_y_m_d)-(\d+)-(\d+)-(\d+)/Screenshot_$1.$2$3$4/;
 	}
 
+	# normalize to Y-M-D.hms
+
 	for ($new_name) {
-		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4/;
+		my $tail = $host ? ".$host" : "";
+
+		# stage 1
+		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4$tail/;
+		# Dropbox on Windows
+		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4$tail/;
+		# GNOME Shell
+		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)/$1.$2$3$4$tail/;
 	}
 
 	$old_name .= $suffix;
@@ -115,6 +109,8 @@ sub do_dir {
 
 GetOptions(
 	"host=s" => \$host,
+	"force!" => \$force,
+	"force-host=s" => \$force_host,
 ) or exit(2);
 
 my @args = @ARGV;

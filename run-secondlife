@@ -5,12 +5,25 @@ use strict;
 use Net::DBus;
 use Net::Netrc;
 use Nullroute::Dir qw(find_first_file);
-use Nullroute::Lib qw(_debug _info _warn _die);
+use Nullroute::Lib qw(_debug _info _warn);
 use constant {
 	SL_DOMAIN => "secondlife.com",
 	SL_BUS_NAME => "com.secondlife.ViewerAppAPIService",
 	SL_BUS_PATH => "/com/secondlife/ViewerAppAPI",
 };
+
+sub _die {
+	if ($ENV{DISPLAY} && !-t 2) {
+		my ($msg) = @_;
+		$msg = "<b>Fatal error:</b>\n$msg";
+		system("zenity",
+			"--error",
+			"--width=250",
+			"--title=Second Life",
+			"--text=$msg");
+	}
+	goto &Nullroute::Lib::_die;
+}
 
 sub find_alias {
 	my ($name) = @_;

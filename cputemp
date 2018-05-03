@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. lib.bash || exit
+
 put_bar() {
 	local color=$1 width=$2 char=$3 bar=""
 	if ((width <= 0)); then
@@ -44,6 +46,30 @@ draw_bar() {
 	printf '\n'
 }
 
+dev=""
+
+for _dev in /sys/class/hwmon/hwmon*/; do
+	if [[ "$(< $_dev/name)" == coretemp ]]; then
+		dev=$_dev
+	fi
+done
+
+if [[ ! $dev ]]; then
+	die "no coretemp hwmon found"
+fi
+
+subdev=""
+
+for _subdev in $dev/temp*_label; do
+	if [[ "$(< $_subdev)" == "Core 0" ]]; then
+		subdev=${_subdev/%_label/_input}
+	fi
+done
+
+if [[ ! $subdev ]]; then
+	die "no coretemp/Core 0 hwmon found"
+fi
+
 interval=1
 last=0
 while (( !last )) || sleep $interval; do
@@ -53,7 +79,7 @@ while (( !last )) || sleep $interval; do
 		printf '\e[A'
 		draw_bar $((ts-1)) 0 $((temp-20)) $temp
 	fi
-	temp=$(</sys/class/hwmon/hwmon1/temp1_input)
+	temp=$(< $subdev)
 	temp=$((temp / 1000))
 	draw_bar $ts 8 $((temp-20)) $temp
 	last=$temp

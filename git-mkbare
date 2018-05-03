@@ -9,14 +9,29 @@ else
 fi
 
 for dir in "${dirs[@]}"; do
-	(
-		base=$(git -C "$dir" rev-parse --show-toplevel)
-		src=$(git -C "$dir" rev-parse --git-dir)
-		src=$(cd "$dir" && realpath "$src")
-		dst="$base.git"
+	if ! [[ -d $dir ]]; then
+		err "path '$dir' does not exist"
+		continue
+	fi
 
-		log "repository '$base'"
-		log "gitdir '$src'"
+	(
+		set -e
+
+		# returns absolute path
+		base=$(git -C "$dir" rev-parse --show-toplevel)
+		if ! [[ $base && -d $base ]]; then
+			err "could not determine toplevel directory of '$dir'"
+			continue
+		fi
+		debug "repository toplevel: '$base'"
+
+		# returns absolute path
+		src=$(git -C "$dir" rev-parse --absolute-git-dir)
+		if ! [[ $src && -d $src ]]; then
+			err "could not determine .git location of '$dir'"
+			continue
+		fi
+		debug "repository gitdir: '$src'"
 
 		if [[ "$(git -C "$dir" config core.bare)" == "true" ]]; then
 			notice "'$dir' is already a bare repo"
@@ -28,9 +43,11 @@ for dir in "${dirs[@]}"; do
 			continue
 		fi
 
+		info "moving the .git directory"
+		dst="$base.git"
 		mv -v "$src" "$dst"
 
-		info "bare: enable bare mode"
+		info "bare: enabling 'core.bare'"
 		git -C "$dst" config core.bare true
 		git -C "$dst" for-each-ref > "$dst/refs.backup"
 
@@ -53,7 +70,7 @@ for dir in "${dirs[@]}"; do
 		info "mirror: copy reflogs to local"
 		rm -f "$dst/logs/refs/remotes/origin/HEAD"
 		mkdir -p "$dst/logs/refs/heads"
-		rsync -av --del "$dst/logs/refs/remotes/origin/" "$dst/logs/refs/heads/"
+		rsync -a --delete "$dst/logs/refs/remotes/origin/" "$dst/logs/refs/heads/"
 
 		info "mirror: convert remote configuration"
 		git -C "$dst" config --unset-all remote.origin.fetch

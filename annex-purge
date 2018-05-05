@@ -198,6 +198,35 @@ while n_found:
                 Core.err("annex add of symlinks failed")
         elif not todo:
             Core.err("no files matched %r" % cmd[1])
+    elif cmd[0] in {"get", "put"}:
+        if cmd[0] in {"put"}:
+            if remote:
+                Core.err("only 'get' is supported when working with remote repositories")
+                continue
+            xfer_arg = "--to=%s" % cmd.pop(1)
+        elif cmd[0] in {"get"}:
+            if not remote:
+                Core.err("only 'put' is supported when working with local repository")
+                continue
+            xfer_arg = "--from=%s" % remote
+        todo = [i for i in items if fnmatch(i.name, cmd[1])]
+        Core.info("copying %d files matching %r" % (len(todo), cmd[1]))
+        copied = []
+        failed = []
+        for i in todo:
+            Core.info("transferring %r from %s", i.name, remote)
+            r = annex_run("transferkey", i.key, "--file=%s" % i.name, xfer_arg)
+            (copied if r == 0 else failed).append(i)
+        if copied:
+            n_copy = len(copied)
+            sz_copy = sum([i.size for i in copied])
+            Core.info("copied %d files (%s)" % (n_copy, fmt_size(sz_copy)))
+        if failed:
+            n_fail = len(failed)
+            sz_fail = sum([i.size for i in failed])
+            Core.err("failed to copy %d files (%s)" % (n_fail, fmt_size(sz_fail)))
+        if not todo:
+            Core.err("no files matched %r" % cmd[1])
     elif cmd[0] in {"/", "p", "print"}:
         todo = items
         if len(cmd) > 1:

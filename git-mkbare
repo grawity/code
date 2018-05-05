@@ -61,6 +61,14 @@ for dir in "${dirs[@]}"; do
 				git -C "$dst" config --remove-section "$line"
 			done
 
+		log "mirror: deleting all local branches"
+		git -C "$dst" for-each-ref > "$dst/refs.backup"
+		git -C "$dst" for-each-ref |
+			awk '{print $3}' | egrep '^refs/heads/' |
+			while read -r ref; do
+				git -C "$dst" update-ref -d "$ref"
+			done
+
 		log "mirror: moving remote branches to local"
 		debug "copying origin branches to local branches"
 		git -C "$dst" update-ref -d --no-deref "refs/remotes/origin/HEAD"

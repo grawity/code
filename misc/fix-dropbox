@@ -9,7 +9,8 @@ shopt -s nullglob
 
 if [[ ! -d ~/.dropbox-dist ]]; then
 	echo "$0: ~/.dropbox-dist missing, looking for staged upgrades"
-	dists=(~/.dropbox-dist-tmp-*/ ~/.dropbox-dist-old-*/)
+	dists=(~/.dropbox-dist-tmp-*/
+	       ~/.dropbox-dist-old-*/)
 	if (( ${#dists[@]} )); then
 		echo "$0: found staged upgrades ${dists[*]}, using first"
 		mv -v "${dists[0]}" ~/.dropbox-dist || exit
@@ -20,14 +21,13 @@ fi
 
 rm -rf ~/.dropbox-dist-old-*/
 
-arch=x86_64
-vers=$(< ~/.dropbox-dist/VERSION)
-dist=~/.dropbox-dist/dropbox-lnx.$arch-$vers
-
 if [[ $1 == --start ]]; then
-	echo "$0: trying dropboxd in distdir '$dist' based on VERSION"
-	exec "$dist"/dropboxd /py3
-
-	echo "$0: trying dropboxd in any distdir"
-	exec ~/.dropbox-dist/dropbox-lnx.$arch-*/dropboxd /py3
+	arch=x86_64
+	vers=$(< ~/.dropbox-dist/VERSION)
+	dists=(~/.dropbox-dist/dropbox-lnx.$arch-$vers/
+	       ~/.dropbox-dist/dropbox-lnx.$arch-*/)
+	for dist in "${dists[@]}"; do
+		echo "$0: trying dropboxd in distdir '$dist'"
+		exec "$dist"/dropboxd /py3
+	fi
 fi

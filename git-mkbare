@@ -43,61 +43,58 @@ for dir in "${dirs[@]}"; do
 			continue
 		fi
 
-		info "moving the .git directory"
+		log "bare: moving the .git directory"
 		dst="$base.git"
-		mv -v "$src" "$dst"
+		mv -T -v "$src" "$dst"
 
-		info "bare: enabling 'core.bare'"
+		log "bare: setting core.bare=true"
 		git -C "$dst" config core.bare true
-		git -C "$dst" for-each-ref > "$dst/refs.backup"
 
-		info "bare: delete tracking branch configurations"
-		git -C "$dst" config --list --local |
-			grep '^branch\.' | sed 's/.[^.]*$//' | sort -u |
-			while read -r line; do
-				echo "$line"
-				git -C "$dst" config --remove-section "$line"
-			done
-
-		info "bare: delete working-tree crud"
+		log "bare: deleting checkout-related files"
 		rm -f "$dst"/index
 		rm -f "$dst"/{COMMIT_EDITMSG,FETCH_HEAD,ORIG_HEAD}
 
-		info "mirror: copy branches to local"
-		git -C "$dst" update-ref -d --no-deref "refs/remotes/origin/HEAD"
-		git -C "$dst" push . "+refs/remotes/origin/*:refs/heads/*"
+		log "bare: deleting tracking-branch configurations"
+		git -C "$dst" config --list --local |
+			grep '^branch\.' | sed 's/.[^.]*$//' | sort -u |
+			while read -r line; do
+				git -C "$dst" config --remove-section "$line"
+			done
 
-		info "mirror: copy reflogs to local"
-		rm -f "$dst/logs/refs/remotes/origin/HEAD"
+		log "mirror: moving remote branches to local"
+		debug "copying origin branches to local branches"
+		git -C "$dst" update-ref -d --no-deref "refs/remotes/origin/HEAD"
+		git -C "$dst" push -q . "+refs/remotes/origin/*:refs/heads/*"
+
+		log "mirror: moving remote branch reflogs to local"
 		mkdir -p "$dst/logs/refs/heads"
 		rsync -a --delete "$dst/logs/refs/remotes/origin/" "$dst/logs/refs/heads/"
 
-		info "mirror: convert remote configuration"
+		log "mirror: converting remote configuration"
 		git -C "$dst" config --unset-all remote.origin.fetch
 		git -C "$dst" config --unset-all remote.origin.mirror
 		git -C "$dst" config remote.origin.fetch "+refs/heads/*:refs/heads/*"
 
-		info "mirror: fetch updates"
+		log "mirror: fetching updates and pruning"
 		git -C "$dst" fetch --prune origin
 
-		info "mirror: delete unwanted refs"
+		log "deleting unwanted refs"
 		git -C "$dst" for-each-ref |
-			awk '{print $3}' |
-			egrep -v '^refs/(heads|notes|tags)/' |
+			awk '{print $3}' | egrep -v '^refs/(heads|notes|tags)/' |
 			while read -r ref; do
 				git -C "$dst" update-ref -d "$ref"
 			done
 
-		info "clean up"
+		log "repacking and cleaning up"
 		git -C "$dst" pack-refs --all --prune
 		git -C "$dst" gc
 		git -C "$dst" prune
 		rdempty --quiet "$dst"
 
-		info "deleting old worktree"
-		find "$base" -print -delete | progress
+		log "deleting old worktree"
+		rm -rvf "$base" | progress
 
-		log "moved to '$dst'"
+		info "moved to '$dst'"
 	) \
 	|| err "conversion of '$dir' failed"
 done

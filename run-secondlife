@@ -2,6 +2,8 @@
 # run-secondlife -- Second Life viewer wrapper with single-instance support
 use warnings;
 use strict;
+use Fcntl qw(S_ISUID);
+use File::Basename qw(dirname);
 use Net::DBus;
 use Net::Netrc;
 use Nullroute::Dir qw(find_first_file);
@@ -52,6 +54,23 @@ sub find_login {
 		         : split(/\s+/, $name);
 		_debug("using account '@acct' from .netrc");
 		return (@acct, $entry->{password});
+	}
+}
+
+sub fix_cef_sandbox {
+	my ($sl_exe) = @_;
+
+	my $cef_exe = dirname($sl_exe)."/bin/chrome-sandbox";
+	if (!-f $cef_exe) {
+		_debug("CEF sandbox not found");
+		return;
+	}
+
+	my @stat = stat($cef_exe);
+	if ($stat[4] != 0 || $stat[5] != 0 || !($stat[2] & S_ISUID)) {
+		_info("CEF sandbox not owned by root; fixing");
+		system ("sudo", "chown", "-v", "0:0", $cef_exe);
+		system ("sudo", "chmod", "-v", "u+s", $cef_exe);
 	}
 }
 
@@ -120,6 +139,7 @@ if (defined $url) {
 	}
 }
 
+fix_cef_sandbox($exe);
 if ($::debug) {
 	_debug("starting '$exe'");
 	_debug(" - with arg '$_'") for @default_args, @args;

@@ -17,9 +17,9 @@ from nullroute.ui import print_status, stderr_tty
 opts = None
 
 header_size = 512
-file_sizes = {}     # path → size
-file_headers = {}   # path → header
-file_hashes = {}    # path → hash
+file_sizes = {}     # path → size (stage 1)
+file_headers = {}   # path → header (stage 2)
+file_hashes = {}    # path → hash (stage 3)
 total_files = 0
 unique_files = 0
 total_wasted = 0
@@ -168,24 +168,34 @@ def find_duplicates(root_dirs):
     status("head/hash")
 
     # find files identical in size and hash
+
+    total_size = 0
+    hashed_size = 0
+
+    for (size, header), paths in known_headers.items():
+        total_size += size * len(paths)
+
     for (size, header), paths in known_headers.items():
         if len(paths) < 2:
             n_hash += 1
+            hashed_size += size
             continue
 
         if size <= header_size:
             # optimization: don't compare by hash if
             # the entire contents are already known
             n_hash += len(paths)
+            hashed_size += size * len(paths)
             status()
             yield paths
             continue
 
         for path in paths:
             n_hash += 1
-            status("hash (%d/%d)" % (n_hash, n_head), path)
+            status("hash %d%% (%d/%d)" % (hashed_size / total_size * 100, n_hash, n_head), path)
             filehash = hash_file(path,
-                lambda p: status("hash (%d/%d, %d%%)" % (n_hash, n_head, p), path))
+                lambda p: status("hash %d%% (%d/%d, %d%%)" % ((hashed_size + size * (p / 100)) / total_size * 100, n_hash, n_head, p), path))
+            hashed_size += size
             known_hashes[size, filehash].append(path)
 
     status()

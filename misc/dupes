@@ -132,7 +132,7 @@ def unfmt_size(sz, si=False):
     exp = pos + 1
     return val * (mult ** exp)
 
-def find_duplicates(root_dirs):
+def find_duplicates(root_dirs, only_globs=None):
     known_sizes = defaultdict(list)
     known_headers = defaultdict(list)
     known_hashes = defaultdict(list)
@@ -153,6 +153,17 @@ def find_duplicates(root_dirs):
             #    continue
             file_sizes[path] = st.st_size
             known_sizes[st.st_size].append(path)
+
+    status("stat/prune")
+
+    # skip duplicates if none of the paths match --only=
+    if only_globs:
+        for size, paths in known_sizes.items():
+            if len(paths) > 1:
+                if not any([fnmatch.fnmatch(p, g)
+                            for p in paths
+                            for g in only_globs]):
+                    known_sizes[size] = []
 
     status("stat/head")
 
@@ -254,7 +265,7 @@ if __name__ == "__main__":
     root_dir = opts.path[:] or ["."]
 
     try:
-        for paths in find_duplicates(root_dir):
+        for paths in find_duplicates(root_dir, opts.only):
             if opts.only and not any(path_is_perishable(p) for p in paths):
                 continue
             paths.sort()

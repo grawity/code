@@ -46,6 +46,18 @@ if [[ $PWD == $HOME/src/* ]]; then
 		warn "refspec not set; changing to '$fetch'"
 		git config remote.origin.fetch "$fetch"
 	fi
+	for remote in $(git remote); do
+		url_raw=$(git config --get remote.$remote.url)
+		url_new=$(git remote get-url $remote)
+		if [[ "$url_new" == @(git|http)://* ]]; then
+			warn "remote '$remote' uses insecure protocol: $url_new"
+		elif [[ "$url_raw" == @(git|http)://* ]]; then
+			notice "remote '$remote' relies on URL rewriting: $url_raw"
+			if confirm "change permanently to '$url_new'?"; then
+				git remote set-url $remote "$url_new"
+			fi
+		fi
+	done
 	rdempty --quiet "$dir"
 fi
 

@@ -149,13 +149,13 @@ my %hosts_ok;
 for my $host (@hosts) {
 	my ($conn, $res);
 	print "querying '$host'\n";
-	$conn = Net::LDAP->new($host);
+	$conn = Net::LDAP->new($host, verify => "require");
 	if (!$conn) {
 		_err("could not connect to '$host': $!");
 		next;
 	}
-	if ($start_tls) {
-		$res = $conn->start_tls();
+	if ($start_tls && $host !~ /^ldaps:/) {
+		$res = $conn->start_tls(verify => "require");
 		if ($res->is_error) {
 			_err("could not start TLS with '$host': ".$res->error_name);
 			goto fail;

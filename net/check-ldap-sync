@@ -75,6 +75,7 @@ sub usage {
 	"  -d, --domain DOMAIN   use this domain for SRV and baseDN\n",
 	"  -h, --host HOST       check this server directly\n",
 	"  -b, --base DN         check contextCSN on this LDAP entry\n",
+	"  --config              add cn=config to automatic base DNs\n",
 	"\n",
 	"  --[no-]srv            find servers via DNS SRV records\n",
 	"                        (always on unless --host specified)\n",
@@ -90,6 +91,7 @@ my @domains;
 my @hosts;
 my @trees;
 my $add_from_srv = 0;
+my $add_config = 0;
 my $start_tls = 1;
 
 GetOptions(
@@ -97,6 +99,7 @@ GetOptions(
 	"d|domain=s" => \@domains,
 	"h|host=s" => \@hosts,
 	"b|base=s" => \@trees,
+	"config!" => \$add_config,
 	"srv!" => \$add_from_srv,
 	"starttls!" => \$start_tls,
 ) or exit(2);
@@ -109,7 +112,8 @@ if (!@domains) {
 }
 
 if (!@trees) {
-	@trees = ("cn=config", domain_to_dn(@domains));
+	@trees = domain_to_dn(@domains);
+	@trees = ("cn=config", @trees) if $add_config;
 }
 
 # if no hosts were given, or if any --host parameters start with "+", merge

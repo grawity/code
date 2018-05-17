@@ -66,9 +66,10 @@ for dir in "${dirs[@]}"; do
 		git -C "$dst" for-each-ref |
 			awk '{print $3}' | egrep '^refs/heads/' |
 			while read -r ref; do
-				git -C "$dst" update-ref "${ref/heads/backup}" "$ref"
-				git -C "$dst" update-ref -d "$ref"
-			done
+				echo "update ${ref/heads/backup} $ref"
+				echo "delete $ref"
+			done |
+			git -C "$dst" update-ref --stdin
 
 		log "mirror: moving remote branches to local"
 		debug "copying origin branches to local branches"
@@ -88,8 +89,9 @@ for dir in "${dirs[@]}"; do
 		git -C "$dst" for-each-ref |
 			awk '{print $3}' | egrep -v '^refs/(backup|heads|notes|tags)/' |
 			while read -r ref; do
-				git -C "$dst" update-ref -d "$ref"
-			done
+				echo "delete $ref"
+			done |
+			git -C "$dst" update-ref --stdin
 
 		log "repacking and cleaning up"
 		git -C "$dst" pack-refs --all --prune

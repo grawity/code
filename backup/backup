@@ -10,7 +10,7 @@ local_config_file=$path_config/backup.conf.sh
 
 annexes=(~/Attic/{Annex,Software,Videos,Anime})
 hosts=()
-push_volume=
+push_volume="/vol4"
 borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
 borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 
@@ -40,10 +40,8 @@ fi
 
 # misc
 
-bvol=${push_volume:-/mnt/backup}
-conf=${path_sync_config:-$path_config/synced}
-
-debug "config dir: '$conf'"
+bvol=$push_volume
+conf=$path_config/synced
 
 lock_path=
 lock_fd=
@@ -254,9 +252,9 @@ debug "started with: '$*'"
 
 trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
 
-while [[ $1 ]]; do
-	job=${1%/}; shift
+(( $# )) || set -- push-hd
 
+for job; do
 	take_lock "$job"
 	log2 "running job '$job'"
 	t_begin=$(now)
@@ -298,9 +296,11 @@ while [[ $1 ]]; do
 			do_borg root
 			;;
 		pull)
-			do_job twitter
+			if [[ $HOSTNAME == rain ]]; then
+				do_job twitter
+				do_job mail
+			fi
 			do_job servers
-			do_job mail
 			do_job irc
 			;;
 		servers)
@@ -382,9 +382,6 @@ while [[ $1 ]]; do
 			;;
 		irc)
 			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
-			;;
-		cluenet)
-			(cd ~/Backup/Cluenet && ./backup.sh)
 			;;
 		local)
 			if [[ -e ~/.dropbox/ ]]; then

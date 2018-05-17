@@ -66,6 +66,7 @@ for dir in "${dirs[@]}"; do
 		git -C "$dst" for-each-ref |
 			awk '{print $3}' | egrep '^refs/heads/' |
 			while read -r ref; do
+				git -C "$dst" update-ref "${ref/heads/backup}" "$ref"
 				git -C "$dst" update-ref -d "$ref"
 			done
 
@@ -85,7 +86,7 @@ for dir in "${dirs[@]}"; do
 
 		log "deleting unwanted refs"
 		git -C "$dst" for-each-ref |
-			awk '{print $3}' | egrep -v '^refs/(heads|notes|tags)/' |
+			awk '{print $3}' | egrep -v '^refs/(backup|heads|notes|tags)/' |
 			while read -r ref; do
 				git -C "$dst" update-ref -d "$ref"
 			done

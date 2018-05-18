@@ -69,8 +69,10 @@ sub fix_cef_sandbox {
 	my @stat = stat($cef_exe);
 	if ($stat[4] != 0 || $stat[5] != 0 || !($stat[2] & S_ISUID)) {
 		_info("CEF sandbox not owned by root; fixing");
-		system ("sudo", "chown", "-v", "0:0", $cef_exe);
-		system ("sudo", "chmod", "-v", "u+s", $cef_exe);
+		#system ("sudo", "chown", "-v", "0:0", $cef_exe);
+		#system ("sudo", "chmod", "-v", "u+s", $cef_exe);
+		system ("mv", "-v", $cef_exe, $cef_exe."~");
+		system ("ln", "-vnsf", "/usr/lib/chromium/chrome-sandbox", $cef_exe);
 	}
 }
 

@@ -8,6 +8,107 @@ from pprint import pprint
 import re
 import sys
 
+def filter_body(story):
+    # from ffnet-convert.pl
+
+    # clean up whitespace
+    story = re.sub(r"\s\s+", r" ", story)
+
+    # change tags to lowercase
+    story = re.sub(r"</?[A-Z]+>", lambda x: x.lower(), story)
+
+    # split paragraphs to their own lines
+    story = re.sub(r"(</p>)", r"\1\n", story)
+
+    # fixup <br> tags, break line after tag
+    """
+#	$story =~ s|\s*<br\s*/?>\s*|<br>\n|g;
+    """
+
+    # split giant <br> mess into paragraphs
+    """
+#	if ($story !~ m|<p>|) {
+#		$story =~ s|<br>\n<br>\n|</p>\n<p>|g;
+#		$story =~ s|^|<p>|;
+#		$story =~ s|$|</p>|;
+#	}
+#   """
+
+    # split <hr>s into their own lines, destyle them
+    """
+    $story =~ s|<hr[^>]+>|<hr>|g;
+    $story =~ s|(<hr>)(<p>.+)|$1\n$2|g;
+    $story =~ s|(<hr>)(?!<p>)(.+)|$1\n<p>$2|g;
+    """
+    story = re.sub(r"<hr[^>]+>", "<hr>", story)
+    story = re.sub(r"(<hr>)(<p>.+)", r"\1\n\2", story)
+    story = re.sub(r"(<hr>)(?!<p>)(.+)", r"\1\n<p>\2", story)
+
+    # unwrap multi-line paragraphs
+    """
+    sub unwrap { my $str = shift; $str =~ s/\s*\n\s*/ /g; return $str; }
+#	$story =~ s|^(<p[^>]*>.+?</p>)$|unwrap($1)|gmse;
+    """
+    def unwrap(m):
+        t = m.group(1)
+        t = re.sub(r"\s*\n\s*", "", t)
+        return t
+    story = re.sub(r"^(<p[^>]*>.+?</p>)$", unwrap, story, re.M | re.S)
+
+    # split paragraphs to their own lines, 2nd pass
+    """
+    $story =~ s|(\S)\s*(<p>)|$1\n$2|g;
+    """
+
+    # close paragraph tags
+    """
+    $story =~ s|^(<p>[^>]+)(?!</p>)$|$1</p>|mg;
+    """
+
+    # fix <p><em> blocks
+    """
+    $story =~ s|^((?:<p><em>[^<]+</em></p>\n){6,})|unstrong($1)|msge;
+    """
+
+    # fix separators
+    """
+    $story =~ s|^<p style=['"]text-align:\s*center;?['"]>([^A-Z]+)</p>$|<p class="ast">$1</p>|mg;
+    """
+
+    # typography – ellipses
+    """
+    $story =~ s/\.\.\./…/g;
+    """
+
+    # typography – apostrophes
+    """
+    $story =~ s/´/’/g;
+    $story =~ s/(\w+)'(d|ll|m|re|s|ve)\b/$1’$2/g;
+    $story =~ s/(\w+n)'(t)\b/$1’$2/g;
+    $story =~ s/(o)'(clock)/$1’$2/g;
+    """
+
+    # typography – double quotes
+    """
+    $story =~ s/([ >])"([^ <.,!?])/$1“$2/g;
+    $story =~ s/([^ >])"([ <.,!?])/$1”$2/g;
+    """
+
+    # (surrounding tags)
+    """
+    $story =~ s/([ >])"(<[^\/][^>]+>)/$1“$2/g;
+    $story =~ s/(<\/[^>]+>)"([ <])/$1”$2/g;
+    """
+
+    # typography – dashes
+    """
+    $story =~ s/(\s)--(\s)/$1–$1/g; # en dash
+    $story =~ s/(\S)--(\S)/$1—$2/g; # em dash
+    $story =~ s/(\w)-+(["”'’])/$1–$2/g; # em dash (to match above)
+    """
+
+    return story
+
 class UnknownSiteError(Exception):
     pass
 
@@ -73,6 +174,8 @@ class FictionPressScraper(Scraper):
         filename = self._url_to_filename(data["url"])
         Core.debug("saving to %r" % filename)
 
+        data["body"] = filter_body(data["body"])
+
         if data["page_cur"] == 1:
             title = "%(title)s, by %(author)s" % data
             with open(filename, "w") as fh:
@@ -103,6 +206,7 @@ class FictionPressScraper(Scraper):
             set_file_attr(filename, "dublincore.creator", data["author"])
 
         with open(filename, "a") as fh:
+            Core.err("XXX: WHERE ARE THE CHAPTER TITLES")
             Core.trace("appending story body")
             fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
             fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)

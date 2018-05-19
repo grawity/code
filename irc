@@ -4,15 +4,14 @@
 
 . $path_config/synced/irc.conf || exit
 
-export MOSH_TITLE_NOPREFIX='y'
-
 lock=$path_runtime/irc-$XDG_SESSION_ID.lock
-exec {fd}<>"$lock"
-flock -xn $fd || die "already connected from $HOSTNAME/$XDG_SESSION_ID"
+exec {fd}<>"$lock" && flock -xn $fd ||
+	die "already connected from $HOSTNAME/$XDG_SESSION_ID"
 
-mosh $irc_host -- tmux attach -t irc; r=$?
+export MOSH_TITLE_NOPREFIX='y'
+mosh $irc_host -- tmux attach -t irc
+r=$?
 
 hi >&/dev/null {fd}>&- &
 
-rm -f "$lock"
 exit $r

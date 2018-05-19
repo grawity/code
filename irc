@@ -2,10 +2,10 @@
 
 . lib.bash || exit
 
-host=virgule
+. $path_config/synced/irc.conf || exit
 
 do_fifo() {
-	echo "$*" | ssh $host 'cat > .weechat/weechat_fifo_*'
+	echo "$*" | ssh $irc_host 'cat > .weechat/weechat_fifo*'
 }
 
 if [[ $1 == -- ]]; then
@@ -23,7 +23,7 @@ lock=$path_runtime/irc-$XDG_SESSION_ID.lock
 exec {fd}<>"$lock"
 flock -xn $fd || die "already connected from $HOSTNAME/$XDG_SESSION_ID"
 
-mosh $host -- tmux attach -t irc; r=$?
+mosh $irc_host -- tmux attach -t irc; r=$?
 
 hi >&/dev/null {fd}>&- &
 

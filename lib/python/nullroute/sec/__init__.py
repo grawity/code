@@ -56,3 +56,22 @@ def get_netrc(machine, login=None, service=None):
 
 def get_netrc_service(machine, service, **kw):
     return get_netrc("%s/%s" % (service, machine), **kw)
+
+def seal_windpapi(secret: bytes, entropy=None) -> bytes:
+    import win32crypt
+    sealed = win32crypt.CryptProtectData(secret,
+                                         None, # description
+                                         entropy,
+                                         None, # reserved
+                                         None, # prompt
+                                         0x01) # flags
+    return sealed
+
+def unseal_windpapi(sealed: bytes, entropy=None) -> bytes:
+    import win32crypt
+    (desc, secret) = win32crypt.CryptUnprotectData(sealed,
+                                                   entropy,
+                                                   None, # reserved
+                                                   None, # prompt
+                                                   0x01) # flags
+    return secret

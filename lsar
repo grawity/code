@@ -21,13 +21,22 @@ do_list() {
     esac
 }
 
+uncompress_as() {
+    local t=$1
+    case $t in
+	gz) gzip -d;;
+	xz) xz -d;;
+    esac
+}
+
 do_extract() {
     local f=$1 d=${1%.*}.out/
     mkdir -p "$d"
     case ${f,,} in
 	*.deb)
 	    sub=$(bsdtar -tf "$f" | grep '^data\.')
-	    bsdtar -xOf "$f" "$f" | xz -d | bsdtar -xvf - -C "$d";;
+	    echo "looking for '$sub'"
+	    bsdtar -xOf "$f" "$sub" | bsdtar -xvf - -C "$d";;
 	*.iso|*.tar|*.tar.*|*.tbz2|*.tgz|*.txz|*.cpio|*.rpm)
 	    bsdtar -xvf "$f" -C "$d";;
 	*.bz2)

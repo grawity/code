@@ -1,23 +1,130 @@
-#!/usr/bin/env python2
-import sys
+#!/usr/bin/env python
+from pprint import pprint
+import json
 import pickle
 import pickletools
-import pprint
+import sys
 
-class Foo():
-    def __init__(self, *args):
-        pass
+def write_arg(f, hint, arg):
+    if hint == "stringnl":
+        f.write(repr(arg).encode())
+        f.write(b"\n")
+    elif hint == "stringnl_noescape":
+        arg = str(arg).encode()
+        assert(all([0x20 <= c <= 0x7f for c in arg]))
+        f.write(arg)
+        f.write(b"\n")
+    elif hint == "stringnl_noescape_pair":
+        arg = str(arg).encode()
+        assert(all([0x20 <= c <= 0x7f for c in arg]))
+        f.write(arg)
+        f.write(b"\n")
+    else:
+        print("unhandled type", hint, repr(arg))
 
-    pass
+def write_u1(f, arg):
+    return f.write(int.to_bytes(arg, 1, "little"))
 
-class RestrictedUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        if module == "builtins":
-            return getattr(builtins, name)
-        return Foo
+def write_u2(f, arg):
+    return f.write(int.to_bytes(arg, 2, "little"))
 
-args = sys.argv[1:]
+ops = {
+    [b"I", "INT", "decimalnl_short"],
+    [b"J", "BININT", "s4"],
+    [b"K", "BININT1", "u1"],
+    [b"M", "BININT2", "u2"],
+    [b"L", "LONG", "decimalnl_long"],
+    [b"\x8a", "LONG1", "long1"],
+    [b"\x8b", "LONG4", "long4"],
+    [b"S", "STRING", "stringnl"],
+    [b"T", "BINSTRING", "string4"],
+    [b"U", "SHORT_BINSTRING", "string1"],
+    [b"B", "BINBYTES", "bytes4"],
+    [b"C", "SHORT_BINBYTES", "bytes1"],
+    [b"\x8e", "BINBYTES8", "bytes8"],
+    [b"N", "NONE", None],
+    [b"\x88", "NEWTRUE", None],
+    [b"\x89", "NEWFALSE", None],
+    [b"V", "UNICODE", "ustringnl"],
+    [b"\x8c", "SHORT_BINUNICODE", "ustring1"],
+    [b"X", "BINUNICODE", "ustring4"],
+    [b"\x8d", "BINUNICODE8", "ustring8"],
+    [b"F", "FLOAT", "floatnl"],
+    [b"G", "BINFLOAT", "float8"],
+    [b"]", "EMPTY_LIST", None],
+    [b"a", "APPEND", None],
+    [b"e", "APPENDS", None],
+    [b")", "EMPTY_TUPLE", None],
+    [b"t", "TUPLE", None], # all items since mark
+    [b"\x85", "TUPLE1", None],
+    [b"\x86", "TUPLE2", None],
+    [b"\x87", "TUPLE3", None],
+    [b"}", "EMPTY_DICT", None],
+    [b"d", "DICT", None],
+    [b"s", "SETITEM", None],
+    [b"u", "SETITEMS", None],
+    [b"\x8f", "EMPTY_SET", None],
+    [b"\x90", "ADDITEMS", None],
+    [b"\x91", "FROZENSET", None],
+    [b"0", "POP", None],
+    [b"2", "DUP", None],
+    [b"(", "MARK", None],
+    [b"1", "POP_MARK", None],
+    [b"g", "GET", "decimalnl_short"],
+    [b"h", "BINGET", "u1"],
+    [b"j", "LONG_BINGET", "u4"],
+    [b"p", "PUT", "decimalnl_short"],
+    [b"q", "BINPUT", "u1"],
+    [b"r", "LONG_BINPUT", "u4"],
+    [b"\x94", "MEMOIZE", None],
+    [b"\x82", "EXT1", "u1"],
+    [b"\x83", "EXT2", "u2"],
+    [b"\x84", "EXT4", "s4"],
+    [b"c", "GLOBAL", "stringnl_noescape_pair"],
+    [b"\x93", "STACK_GLOBAL", None],
+    [b"R", "REDUCE", None],
+    [b"b", "BUILD", None],
+    [b"i", "INST", "stringnl_noescape_pair"],
+    [b"o", "OBJ", None],
+    [b"\x81", "NEWOBJ", None],
+    [b"\x92", "NEWOBJ_EX", None],
+    [b"\x80", "PROTO", "u1"],
+    [b".", "STOP", None],
+    [b"\x95", "FRAME", "u8"],
+    [b"P", "PERSID", "stringnl_noescape"],
+    [b"Q", "BINPERSID", None],
+}
 
-for arg in args:
+def disassemble(pickle, out=None):
+    if not out:
+        out = sys.stdout
+
+    for (op, arg, pos) in pickletools.genops(pickle):
+        line = [op.name]
+        if arg is not None:
+            line += [arg.name, arg.code, json.dumps(arg)]
+        print(*line)
+
+def reassemble(dis, out=None):
+    for line in dis.splitlines():
+        line = line.strip().split(None, 1)
+        print(line)
+        if len(line) == 1:
+            (op,) = line
+            code = getattr(pickle, op)
+            print(code)
+        elif len(line) == 2:
+            (op, arg) = line
+            code = getattr(pickle, op)
+            print(code, arg)
+
+if False:
+    arg = sys.argv[1]
     with open(arg, "rb") as fh:
-        pickletools.dis(fh)
+        buf = fh.read()
+    disassemble(buf)
+else:
+    arg = sys.argv[1]
+    with open(arg, "r") as fh:
+        buf = fh.read()
+    reassemble(buf)

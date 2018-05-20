@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+from nullroute.core import Core
+import os
+import sys
+
+renames = {}
+order = []
+
+for line in sys.stdin:
+    old, new = line.strip().split(" => ", 1)
+    if old in renames:
+        Core.err("source name %r specified multiple times", name)
+        continue
+    renames[old] = new
+    order.append(old)
+
+for new in renames.values():
+    if (new in renames) or os.path.exists(new):
+        Core.err("target name %r conflicts", new)
+
+Core.exit_if_errors()
+
+for old in order:
+    new = renames[old]
+    if os.path.exists(new):
+        Core.err("target name %r already exists", new)
+        continue
+    os.rename(old, new)
+    Core.info("renamed %r => %r", old, new)
+
+Core.exit_if_errors()

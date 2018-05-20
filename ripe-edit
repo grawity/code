@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+if (( $# == 0 )); then
+	die "not enough parameters"
+elif (( $# == 1 )); then
+	obj=${1^^}
+	if [[ $obj =~ ^AS[0-9]+$ ]]; then
+		type=aut-num
+	elif [[ $obj == ORG-*-* ]]; then
+		type=organisation
+	elif [[ $obj == *-MNT ]]; then
+		type=mntner
+	elif [[ $obj =~ ^.{2,4}[1-9][0-9]{,6}-RIPE ]]; then
+		type=person
+	else
+		die "could not guess object type for '$obj'"
+	fi
+elif (( $# == 2 )); then
+	type=${1,,}
+	obj=${2^^}
+fi
+
+url="https://apps.db.ripe.net/db-web-ui/#/webupdates/modify/ripe/$type/$obj"
+
+xdg-open "$url"

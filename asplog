@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+pkg=$1
+
+#asp update
+
+asp update "$pkg"
+
+for repo in packages community; do
+	ref="refs/remotes/$repo/packages/$pkg"
+	if git rev-parse --verify "$ref" &>/dev/null; then
+		tig "$ref" -- trunk/
+		break
+	fi
+done
+
+asp untrack "$pkg"

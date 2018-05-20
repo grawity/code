@@ -4,6 +4,7 @@ use warnings;
 use strict;
 use Fcntl qw(S_ISUID);
 use File::Basename qw(dirname);
+use Getopt::Long qw(:config gnu_getopt no_permute);
 use Net::DBus;
 use Net::Netrc;
 use Nullroute::Dir qw(find_first_file);
@@ -57,6 +58,23 @@ sub find_login {
 	}
 }
 
+sub set_environment {
+	my ($env) = @_;
+	my $wmclass = $env->{wm_class};
+	my $name = $env->{app_name} // $wmclass;
+	my $icon = $env->{icon_name} // $wmclass;
+
+	my @paenv;
+	push @paenv, "media.role='game'";
+	push @paenv, "application.name='$name'" if $name;
+	push @paenv, "application.icon_name='$icon'" if $icon;
+	$ENV{"PULSE_PROP_OVERRIDE"} = join(" ", @paenv) if @paenv;
+	$ENV{"SDL_VIDEO_X11_WMCLASS"} = $wmclass if $wmclass;
+
+	_debug("set $_ to \"$ENV{$_}\"")
+		for ("SDL_VIDEO_X11_WMCLASS", "PULSE_PROP_OVERRIDE");
+}
+
 sub fix_cef_sandbox {
 	my ($sl_exe) = @_;
 
@@ -80,10 +98,17 @@ $::bus = Net::DBus->session;
 
 my @default_args = ("--novoice");
 
+my %env;
 my $exe;
 my $url;
 my @args;
 my $new;
+
+GetOptions(
+	"app-name=s" => \$env{app_name},
+	"icon-name=s" => \$env{icon_name},
+	"wm-class=s" => \$env{wm_class},
+) or exit(2);
 
 $exe = shift @ARGV;
 if (!defined $exe) {
@@ -141,6 +166,7 @@ if (defined $url) {
 	}
 }
 
+set_environment(\%env);
 fix_cef_sandbox($exe);
 if ($::debug) {
 	_debug("starting '$exe'");

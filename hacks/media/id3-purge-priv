@@ -1,0 +1,32 @@
+#!/usr/bin/env python2
+from __future__ import print_function
+import sys
+import mutagen.mp3
+
+if sys.argv[1] == "-r":
+	remove = True
+	sys.argv.pop(1)
+else:
+	remove = False
+
+args = sys.argv[1:]
+for fname in args:
+	ftag = mutagen.mp3.MP3(fname)
+
+	frames = [key for key in ftag if key.startswith(u"PRIV:")]
+
+	if len(frames):
+		print("-- %s" % fname)
+	else:
+		continue
+
+	frames.sort()
+
+	for name in frames:
+		frame = ftag[name]
+		print(repr(frame))
+		if remove:
+			del ftag[name]
+
+	if remove:
+		ftag.save()

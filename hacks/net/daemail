@@ -1,0 +1,78 @@
+#!/bin/bash
+# [mtime 2009-12-17 21:45:07 +0200]
+#
+# Wrapper script to send cronmail if cron can't send mail.
+#
+# Status: working, last time I checked.
+
+if [ "|$1" == "|-v" ]
+	then VERBOSE=1; shift
+	else VERBOSE=0
+fi
+
+if [ -f ~/.forward ]
+	then MAIL_TO="$( < ~/.forward )"
+	else MAIL_TO="grawity@nullroute.eu.org"
+fi
+
+[ "$VERBOSE" = 1 ] && echo "daemail: sending to <$MAIL_TO>" >&2
+
+JOB_OUT="$( mktemp /tmp/daemailXXXXXXXXXX )"
+chmod 0600 "$JOB_OUT"
+
+die() {
+	echo "$@" >&2
+	rm -f "$JOB_OUT"
+	exit 42
+}
+
+# execute whatever was given as args
+"$@" &> "$JOB_OUT"
+JOB_EXIT="$?"
+if [ ! -s "$JOB_OUT" ]; then
+	rm -f "$JOB_OUT"
+	exit $JOB_EXIT
+fi
+
+
+perl -w -e '
+use Sys::Hostname;
+use Net::SMTP;
+use Net::Domain;
+
+$my_user = $ENV{LOGNAME};
+$my_host = hostname();
+$my_fqdn = Net::Domain->hostfqdn();
+
+$mail_from = "$my_user\@$my_fqdn";
+
+($mail_to, $out, $job_name, $mail_date) = @ARGV;
+$mail_to =~ /.+@(.+?)$/;
+$mail_host = $1;
+@serv = getservbyname("smtp", "tcp") || ("smtp", undef, 25, "tcp");
+$mail_port = $serv[2];
+
+open(OUT, $out);
+binmode OUT;
+
+$smtp = Net::SMTP->new(
+	$mail_host,
+	Port => $mail_port,
+	Hello => $my_fqdn,
+);
+$smtp->mail($mail_from);
+$smtp->to($mail_to);
+$smtp->data();
+$smtp->datasend(
+	"From: Cron Daemail <$mail_from>\n".
+	"To: $mail_to\n".
+	"Subject: Cron <$my_user\@$my_host> $job_name\n".
+	"Date: $mail_date\n".
+	"Content-Type: text/plain; charset=utf-8\n"
+);
+foreach $name (qw/SHELL HOME PATH LOGNAME/) {
+	$smtp->datasend("X-Cron-Env: <".$name."=".$ENV{$name}.">\n");
+}
+$smtp->datasend($line) while ($line = <OUT>);
+$smtp->quit;
+' "$MAIL_TO" "$JOB_OUT" "$*" "$(date +"%a, %d %b %Y %H:%M:%S %z")"

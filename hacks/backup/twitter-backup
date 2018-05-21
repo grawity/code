@@ -1,0 +1,213 @@
+#!/usr/bin/env perl
+use bignum;
+use open qw(:std :utf8);
+use strict;
+use warnings;
+use Data::Dumper;
+use JSON;
+use List::Util;
+use Net::Twitter::Lite::WithAPIv1_1;
+use Nullroute::Lib;
+use YAML::Syck;
+
+sub get_filename {
+	my ($name) = @_;
+
+	$ENV{HOME}."/Backup/Personal/Twitter".($name ? "-".$name : "").".json";
+}
+
+our $twitter;
+
+sub load_secrets {
+	open(my $fh, "<", $ENV{HOME}."/.trc");
+	my $conf = Load(eval {local $/; <$fh>});
+	close($fh);
+
+	my ($user, $key) = @{$conf->{configuration}{default_profile}};
+	my $profile = $conf->{profiles}{$user}{$key};
+
+	return (username	=> $user,
+		consumer_key	=> $key,
+		consumer_secret	=> $profile->{consumer_secret},
+		access_token	=> $profile->{token},
+		access_secret	=> $profile->{secret});
+}
+
+sub init_api {
+	my %secrets = load_secrets();
+
+	$twitter = Net::Twitter::Lite::WithAPIv1_1->new(
+			ssl		=> 1,
+			username	=> $secrets{username},
+			consumer_key	=> $secrets{consumer_key},
+			consumer_secret	=> $secrets{consumer_secret});
+
+	$twitter->access_token($secrets{access_token});
+	$twitter->access_token_secret($secrets{access_secret});
+
+	return $twitter;
+}
+
+sub fetch_entire_timeline {
+	# start with latest
+	# repeat with max_id = lowest id from previous fetch
+
+	my ($seen) = @_;
+
+	my @tweets;
+	my $next_max_id;
+	my $tries = 0;
+
+	_log("downloading entire timeline (latest to oldest)");
+
+	while (1) {
+		my %params = (
+			count		=> "50",
+			exclude_replies	=> "false",
+			include_rts	=> "true",
+		);
+
+		my $msg = "Downloading $params{count} tweets";
+		if (defined $next_max_id) {
+			$params{max_id} = $next_max_id;
+			$msg .= " up to $params{max_id}";
+		}
+		_info($msg);
+
+		my $timeline = eval {$twitter->user_timeline(\%params)};
+		if (!$timeline) {
+			if (++$tries > 5) {
+				_die("$@; giving up");
+			} else {
+				_err("$@; retrying ($tries)"); sleep 2*$tries; redo;
+			}
+		}
+
+		_info("Received ".scalar(@$timeline)." tweets.");
+		last if !@$timeline;
+
+		my $min_id = $timeline->[-1]->{id_str};
+		my $max_id = $timeline->[0]->{id_str};
+		_info("  newest: $max_id");
+		_info("  oldest: $min_id");
+
+		# timeline is sorted newest → oldest
+		my @new = grep {!$seen->{$_->{id_str}}++} @$timeline;
+		_info("  unseen: ".scalar(@new));
+		last if !@new;
+		push @tweets, @new;
+
+		$next_max_id = $min_id;
+		$tries = 0;
+	}
+
+	@tweets = reverse @tweets;
+	return \@tweets;
+}
+
+sub fetch_all_favourites {
+	# start with latest
+	# repeat with max_id = lowest id from previous fetch
+
+	my @tweets;
+	my %seen;
+	my $next_max_id;
+	my $tries = 0;
+
+	_log("downloading all favorites (latest to oldest)");
+
+	while (1) {
+		my %params = (
+			count		=> "200",
+			exclude_replies	=> "false",
+			include_rts	=> "true",
+		);
+
+		my $msg = "Downloading $params{count} tweets";
+		if (defined $next_max_id) {
+			$params{max_id} = $next_max_id;
+			$msg .= " up to $params{max_id}";
+		}
+		_info($msg);
+
+		my $timeline = eval {$twitter->favorites(\%params)};
+		if (!$timeline) {
+			if (++$tries > 5) {
+				_die("$@; giving up");
+			} else {
+				_err("$@; retrying ($tries)"); sleep 2*$tries; redo;
+			}
+		}
+
+		_info("Received ".scalar(@$timeline)." tweets.");
+		last if !@$timeline;
+
+		my $min_id = $timeline->[-1]->{id_str};
+		my $max_id = $timeline->[0]->{id_str};
+		_info("  newest: $max_id");
+		_info("  oldest: $min_id");
+
+		# timeline is sorted newest → oldest
+		my @new = grep {!$seen{$_->{id_str}}++} @$timeline;
+		last if !@new;
+		push @tweets, @new;
+
+		$next_max_id = $min_id;
+		$tries = 0;
+	}
+
+	@tweets = reverse @tweets;
+	return \@tweets;
+}
+
+sub store_tweets {
+	my ($tweets, $name) = @_;
+
+	my $file = get_filename($name);
+	if (open(my $f, ">", $file)) {
+		print $f JSON->new->pretty->encode($tweets);
+		close($f);
+	} else {
+		_die("couldn't open tweet file for writing: $!");
+	}
+	_log("stored ".scalar(@$tweets)." tweets to $file");
+}
+
+sub load_tweets {
+	my ($name) = @_;
+
+	my $file = get_filename($name);
+	my $data;
+	if (open(my $f, "<", $file)) {
+		$data = eval {local $/; <$f>};
+		close($f);
+	} elsif ($!{ENOENT}) {
+		_debug("couldn't open tweet file for reading: $!");
+		return undef;
+	} else {
+		_err("couldn't open tweet file for reading: $!");
+	}
+	my $tweets = JSON->new->decode($data);
+	_log("loaded ".scalar(@$tweets)." tweets from $file");
+
+	return $tweets;
+}
+
+$twitter = init_api();
+my $mode = shift(@ARGV) // '-t';
+my $tweets;
+
+if ($mode eq '-t') {
+	$tweets = load_tweets();
+	if (defined $tweets) {
+		my %seen = map {$_->{id_str} => 1} @$tweets;
+		my $new = fetch_entire_timeline(\%seen);
+		push @$tweets, @$new;
+	} else {
+		$tweets = fetch_entire_timeline();
+	}
+	store_tweets($tweets);
+} elsif ($mode eq '-f') {
+	$tweets = fetch_all_favourites();
+	store_tweets($tweets, "favs");
+}

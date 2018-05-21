@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# wget-raw-archive.org - download raw archive.org pages bypassing robots
+args=()
+for arg; do
+	if [[ $arg == 'http://'* || $arg == 'https://'* ]]; then
+		arg=${arg/'/http:/'/'id_/http:/'}
+	fi
+	args+=("$arg")
+done
+#exec wget -e robots=off "${args[@]}"
+for arg in "${args[@]}"; do
+	#curl -L -O "$arg"
+	file=${arg##*/}
+	file=${file:-index.html}
+	wget "$arg" -O "$file"
+done

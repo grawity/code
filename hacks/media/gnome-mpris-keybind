@@ -1,0 +1,111 @@
+#!/usr/bin/env perl
+# gnome-mpris-keybind - forward media keys in GNOME to a MPRISv2-capable player
+# (c) 2012-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
+use v5.10;
+use warnings;
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use strict;
+use Net::DBus;
+use Net::DBus::Reactor;
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+	} else {
+		our ($warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
+my $bus;
+my $app_id;
+my $player_name;
+my $player;
+
+sub SettingsDaemon {
+	$bus
+	->get_service("org.gnome.SettingsDaemon.MediaKeys")
+	->get_object(shift // "/org/gnome/SettingsDaemon");
+}
+
+sub MediaPlayer2 {
+	$bus
+	->get_service("org.mpris.MediaPlayer2.".shift)
+	->get_object(shift // "/org/mpris/MediaPlayer2");
+}
+
+sub usage {
+	say for
+	"Usage: $::arg0 <playername>",
+	"",
+	"Controls MPRIS v2 players based on GNOME Settings Daemon media-key events.",
+	"(No longer necessary with GNOME v3.10, which has native MPRIS support.)",
+	"",
+	"<playername> is the last component of the player's MPRIS v2 D-Bus name; for",
+	"example, \"mpd\" for \"org.mpris.MediaPlayer2.mpd\".";
+}
+
+# Main code
+
+$player_name = shift @ARGV;
+
+for ($player_name) {
+	if (!defined $_) {
+		_die("missing player name", 2);
+	}
+	elsif ($_ eq "--help") {
+		usage();
+		exit;
+	}
+	elsif (/^-/) {
+		_die("unknown option '$_'", 2);
+	}
+	elsif (/^org\.mpris\.MediaPlayer2\.(.+)$/) {
+		$player_name = $1;
+	}
+	elsif (/^org\.mpris\./) {
+		_die("MPRIS v1 interface is not supported");
+	}
+}
+
+$app_id = "gnome-mpris-keybind ($player_name)";
+
+$bus = Net::DBus->session;
+
+my $gsd = eval {SettingsDaemon("/org/gnome/SettingsDaemon/MediaKeys")};
+if (!$gsd) {
+	_die("GNOME Settings Daemon is not running");
+}
+
+$gsd->connect_to_signal("MediaPlayerKeyPressed", sub {
+	my ($key_app_id, $key) = @_;
+
+	_debug("key pressed: \"$key\"");
+	if ($key_app_id ne $app_id) {
+		_warn("got signal for wrong app_id \"$key_app_id\", ignoring");
+		return;
+	}
+
+	$player //= eval {MediaPlayer2($player_name)};
+	if (!$player) {
+		chomp($@);
+		_warn("player \"$player_name\" not running ($@)");
+		return;
+	}
+
+	if ($key eq "Play")        { $player->PlayPause(); }
+	elsif ($key eq "Stop")     { $player->Stop(); }
+	elsif ($key eq "Next")     { $player->Next(); }
+	elsif ($key eq "Previous") { $player->Previous(); }
+});
+
+$gsd->GrabMediaPlayerKeys($app_id, 0);
+
+_debug("entering main loop");
+Net::DBus::Reactor->main->run;

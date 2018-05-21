@@ -1,0 +1,24 @@
+#!/usr/bin/env python
+# id3-sync-rg - copy ReplayGain tags from RVA2 to foobar2000
+from __future__ import print_function
+import sys
+import mutagen.mp3
+from nullroute.mp3tags import *
+
+args = sys.argv[1:]
+for fname in args:
+	print("updating %s" % fname)
+	ftag = mutagen.mp3.MP3(fname)
+
+	trackgain = GainValue.import_tag(ftag, 'track')
+	if trackgain:
+		#print trackgain
+		trackgain.export_id3(ftag)
+
+	albumgain = GainValue.import_tag(ftag, 'album')
+	if albumgain:
+		#print albumgain
+		albumgain.export_id3(ftag)
+
+	if trackgain or albumgain:
+		ftag.save()

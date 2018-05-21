@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+# mklinux – script to compile and install a Linux kernel for my laptop
+
+set -e
+
+. lib.bash || exit
+
+progname='mklinux'
+_log_color[log2]='\e[1;36m'
+_log_fprefix[log2]='#'
+_log_fcolor[log2]='\e[36m'
+_log_mcolor[log2]='\e[38;5;14m'
+
+config="$XDG_CONFIG_HOME/nullroute.eu.org/mklinux.conf"
+dkms_modules=()
+add_ucode="intel-ucode.img"
+copy_to_legacy=n
+
+if [ -e "$config" ]; then
+	. "$config" || die "could not load configuration file"
+fi
+
+opt_jobs=0
+
+while getopts ":j:" OPT; do
+	case $OPT in
+	j) opt_jobs=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( opt_jobs )); then
+	export MAKEFLAGS="-j $opt_jobs"
+	debug "setting MAKEFLAGS to '$MAKEFLAGS'"
+fi
+
+if [ ! "$noidle" ]; then
+	debug "calling ionice on $$"
+	ionice -c 3 -p $$
+	debug "calling schedtool on $$"
+	schedtool -n 10 -D $$
+fi
+
+if mountpoint -q /efi && test -d /efi/loader; then
+	esp="/efi"
+elif mountpoint -q /boot/efi && test -d /boot/efi/loader; then
+	esp="/boot/efi"
+elif mountpoint -q /boot && test -d /boot/loader; then
+	esp="/boot"
+else
+	die "ESP not mounted"
+fi
+debug "found ESP at '$esp'"
+
+if [ "$add_ucode" ]; then
+	if [ -e "$esp/EFI/arch/$add_ucode" ]; then
+		ucode="/EFI/arch/$add_ucode"
+	elif [ -e "$esp/$add_ucode" ]; then
+		ucode="/$add_ucode"
+	else
+		die "µcode image '$add_ucode' not found"
+	fi
+	debug "found µcode image at '$ucode'"
+fi
+
+log2 "preparing"
+t_begin=$(gettime -m)
+
+	make prepare
+	release=$(make kernelrelease)
+	shortrel=$(echo "$release" | sed 's/-g[0-9a-f]*$//')
+	sighash=$(. ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
+
+log2 "building $release"
+
+	make
+
+log2 "installing $release"
+t_compile=$(gettime -m)
+
+	kernel="/EFI/custom/bisect.efi"
+	initrd="/EFI/custom/bisect.rd"
+
+	if ! grep -qsxF "$release" .custom-kernels; then
+		echo "$release" >> .custom-kernels
+	fi
+	sudo install -D arch/x86/boot/bzImage "$esp/$kernel"
+	sudo make modules_install
+
+log2 "building initramfs"
+
+	sudo mkinitcpio -n -k "$esp/$kernel" -g "$esp/$initrd"
+
+log2 "configuring bootloader"
+
+	osname=$(. ${path_os_release} && echo "${PRETTY_NAME:-$NAME}")
+	machineid=$(cat /etc/machine-id)
+	options=$(cat /etc/kernel/cmdline{,.bisect} 2>/dev/null | grep "^[^#]" | tr -s "\n" " ")
+
+	log "adding entry: bisect.conf"
+	sudo tee "$esp/loader/entries/bisect.conf" <<-!
+	title           $osname
+	version         $shortrel
+	machine-id      $machineid
+	linux           $kernel
+	initrd          $ucode
+	initrd          $initrd
+	options         $options
+	!
+
+if [ "$copy_to_legacy" = y ] && [ "$esp" != "/boot" ]; then
+	log "installing to legacy /boot"
+
+	sudo cp -a "$esp/$kernel" "/boot/vmlinuz-bisect"
+	#sudo cp -a "$esp/$initrd" "/boot/initramfs-bisect.img"
+	sudo mkinitcpio -n -S autodetect \
+			-k "/boot/vmlinuz-bisect" \
+			-g "/boot/initramfs-bisect.img"
+fi
+
+log2 "building third-party modules"
+
+	emods=()
+
+	for mod in "${dkms_modules[@]}"; do
+		package=${mod#*:}
+		mod=${mod%%:*}
+		version=$(expac %v "$package" | sed "s/-.*//")
+		if [[ "$version" ]]; then
+			emods+=("$mod/$version")
+		else
+			warn "package '$package' not found, skipping DKMS module '$mod'"
+		fi
+	done
+
+	for mod in ${emods[@]}; do
+		mname=${mod%%/*}
+		echo -n "$mod: "
+		echo -n "uninstall..."
+		sudo dkms uninstall "$mod" -k "$release" -q || true
+		echo -n "clean..."
+		sudo rm -rf "/var/lib/dkms/$mod/$release"
+		sudo rm -rf "/var/lib/dkms/$mname/kernel-$release-$(uname -m)"
+		echo -n "install..."
+		if sudo dkms install "$mod" -k "$release" -q; then
+			echo "done."
+		else
+			echo "failed."
+			warn "build failed for $mod"
+		fi
+	done
+
+	#sudo depmod "$release"
+
+log2 "cleaning old kernels"
+
+	cur_rel=$(uname -r)
+	while read -r old_rel _; do
+		echo -n "clean $old_rel: "
+		if [ "$old_rel" = "$release" ]; then
+			echo "latest."
+			echo "$old_rel" >&3
+		elif [ "$old_rel" = "$cur_rel" ]; then
+			echo "current."
+			echo "$old_rel" >&3
+		else
+			echo -n "dkms..."
+			for mod in ${emods[@]}; do
+				mname=${mod%%/*}
+				sudo dkms uninstall "$mod" -k "$old_rel" -q || true
+				sudo rm -rf "/var/lib/dkms/$mod/$old_rel"
+				sudo rm -rf "/var/lib/dkms/$mname/kernel-$old_rel-$(uname -m)"
+			done
+			echo -n "modules..."
+			sudo rm -rf "/usr/lib/modules/$old_rel"
+			echo "done."
+		fi
+	done < .custom-kernels 3> .custom-kernels.tmp
+	mv .custom-kernels.tmp .custom-kernels
+
+log2 "installed $release"
+t_install=$(gettime -m)
+
+	git update-ref -m "installed kernel" refs/tags/last-build HEAD
+
+	echo "kernel: $kernel"
+	echo "initrd: $initrd"
+
+log "compiled in $(interval $[t_compile-t_begin])"
+log "finished in $(interval $[t_install-t_begin])"
+
+if [[ $_NOLID ]]; then
+	echo "(ensuring disk cache flush)"
+	sync
+	sleep 4s
+fi

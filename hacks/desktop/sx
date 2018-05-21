@@ -1,0 +1,42 @@
+#!/bin/sh
+
+die() { echo "error: $*" >&2; exit 1; }
+
+# bail early if not on a VC
+
+vt="vt$(fgconsole)" || exit
+
+# set environment
+
+exec </dev/null
+cd ~
+
+unset DBUS_SESSION_BUS_ADDRESS
+
+unset SHLVL
+
+export DISPLAY=$(i=0;
+		while test -e /tmp/.X$i-lock || test -e /tmp/.X11-unix/X$i; do
+			i=$(( i+1 ))
+		done;
+		echo ":$i")
+
+export XAUTHORITY=$XDG_RUNTIME_DIR/Xauthority-$DISPLAY
+
+# add Xauth
+
+touch "$XAUTHORITY"
+xauth remove "$HOSTNAME$DISPLAY"
+xauth remove "$DISPLAY"
+xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(mcookie) || exit
+
+# start Xorg
+
+echo "Starting Xorg display $DISPLAY on $vt"
+xinit "$@" -- "$DISPLAY" "$vt" -noreset -auth "$XAUTHORITY" -quiet -background none
+r=$?
+
+# clean up
+
+xauth remove "$DISPLAY"
+exit $r

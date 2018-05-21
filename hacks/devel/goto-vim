@@ -1,0 +1,230 @@
+#!/usr/bin/env perl
+# goto-vim - open vim with a specific file and position taken from primary
+# selection.  Usually symlinked to 'vim' or even 'v'.
+use feature qw(switch);
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _warn _err _die));
+	} else {
+		our ($arg0, $warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
+# this matches (url-decoded):
+#   file:///foo/bar → /foo/bar
+
+my $fileurlre = qr{ ^ file:// (/\S+) }mx;
+
+# this matches URLs:
+
+my $urlre = qr{ ^ ((?:https?|ftps?|sftp) :// \S+) }mx;
+
+# this matches:
+#   filename +lineno
+#   vim filename +lineno
+
+my $vimre = qr{ ^ (?:vim\s+)? (.+) \s+ (\+\d+) $ }mx;
+
+# this matches:
+#   filename:lineno
+#   filename:lineno:garbage
+#   filename:lineno,garbage
+#   filename:lineno)garbage
+#   filename:lineno garbage
+#   filename:/regex
+#   filename:/regex garbage
+
+my $hgspecre = qr{ ^ ([^:]+) : \d+ : (\d+) : .* $ }mx;
+
+my $specre = qr{ ^ ([^:]+) : (\d+ | /[^/]\S*) (?:[:,\)\s].*)? $ }mx;
+
+# this matches:
+#   a/foo/bar → foo/bar
+
+my $diffpathre = qr{ ^ [a-z] / (.+) $ }mx;
+
+# this matches:
+#   ./path
+#   ./path:garbage
+#   /path
+#   /path:garbage
+
+my $pathre = qr{ (?<!\w) ([~.]? / [^:]+) }mx;
+
+# this matches grep context lines:
+#   filename-lineno-garbage
+# low priority because of possible ambiguity
+
+my $ctxspecre = qr{ ^ ([^:]+?) - (\d+) - }mx;
+
+# this matches:
+#   File "/foo/bar", line 123,
+
+my $pythonre = qr{ ^ File \s "(.+?)", \s line \s (\d+) }mx;
+
+# this matches:
+#   /foo/bar line 123
+
+my $perlre = qr{ ^ (.+?) \s line \s (\d+) }mx;
+
+# this script is usually symlinked as ~/bin/vim, so
+# it needs to run the real vim by absolute path
+
+my $vim = "/usr/bin/vim";
+my @args = ("vim");
+
+if (my $env = $ENV{VISUAL} // $ENV{EDITOR}) {
+	if ($env eq "nvim" || $env eq "kak") {
+		$vim = "/usr/bin/$env";
+		@args = ("$env");
+	}
+}
+
+_debug("found vim executable at '$vim'");
+
+sub in_path {
+	my ($exe) = @_;
+	return grep {-f && -x} map {"$_/$exe"} split(/:/, $ENV{PATH});
+}
+
+sub getselection {
+	if (in_path("xsel")) {
+		_debug("using xsel");
+		return `xsel -o -p -l /dev/null`;
+	} elsif (in_path("xclip")) {
+		_debug("using xclip");
+		return `xclip -o -s primary`;
+	} else {
+		_debug("nothing available");
+		return;
+	}
+}
+
+sub urldecode {
+	my ($str) = @_;
+	$str =~ s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	return $str;
+}
+
+sub shescape {
+	my ($str) = @_;
+	if ($str =~ /!/) {
+		$str =~ s/'/'\\''/g;
+		$str = qq['$str'];
+	}
+	elsif ($str =~ s/[`"\$\\]/\\$&/g or $str =~ /\s/) {
+		$str = qq["$str"];
+	}
+	return $str;
+}
+
+sub shunescape {
+	# do not bother with this just yet...
+	shift;
+}
+
+sub parse {
+	for (shift) {
+		if (!defined) { _die("missing arguments"); }
+		chomp;
+		s/^\s+//;
+		s/\s+$//;
+		when ($pythonre) {
+			_debug("pythonre: '$&' -> '$1' '$2'");
+			my ($file, $line) = ($1, $2);
+			return ($file, "+".$line);
+		}
+		when ($fileurlre) {
+			_debug("fileurlre: '$&' -> '$1'");
+			my ($file) = (urldecode($1));
+			return ($file) if -e $file;
+		}
+		when ($urlre) {
+			_debug("urlre: '$&'");
+			my ($url) = ($1);
+			return ($url);
+		}
+		when (-e $_) {
+			_debug("exact path (-e): '$_'");
+			return ($_);
+		}
+		when ($vimre) {
+			_debug("vimre: '$&' -> '$1' '$2'");
+			my ($file, $cmd) = (shunescape($1), $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			return ($file, $cmd) if -e $file;
+		}
+		#when ($hgspecre) {
+		#	_debug("hgspecre: '$&' -> '$1' '$2'");
+		#	my ($file, $cmd) = ($1, $2);
+		#	$cmd =~ s|^|+|;
+		#	return ($file, $cmd) if -e $file;
+		#}
+		when ($specre) {
+			_debug("specre: '$&' -> '$1' '$2'");
+			my ($file, $cmd) = ($1, $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			$cmd =~ s|^|+|;
+			return ($file, $cmd) if -e $file;
+		}
+		when ($perlre) {
+			_debug("perlre: '$&' -> '$1' '$2'");
+			my ($file, $cmd) = ($1, $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			$cmd =~ s|^|+|;
+			return ($file, $cmd) if -e $file;
+		}
+		when ($diffpathre) {
+			_debug("diffpathre: '$&'");
+			my ($file) = ($1);
+			return ($file);
+		}
+		when ($pathre) {
+			_debug("pathre: '$&' -> '$1'");
+			my ($file) = ($1);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			return ($file) if -e $file;
+		}
+		when ($ctxspecre) {
+			_debug("ctxspecre: '$&' -> '$1' '$2'");
+			my ($file, $cmd) = ($1, $2);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			$cmd =~ s|^|+|;
+			return ($file, $cmd) if -e $file;
+		}
+		when (/^(.+)$/m && -e $1) {
+			_debug("-e: $1");
+			return ($1);
+		}
+		default {
+			_debug("nothing matched, giving up");
+			return;
+		}
+	}
+	return;
+}
+
+if (@ARGV) {
+	for my $arg (@ARGV) {
+		if (my @r = parse($arg)) {
+			push @args, @r;
+		} else {
+			push @args, $arg;
+		}
+	}
+} elsif (length $ENV{DISPLAY}) {
+	if (my @r = parse(getselection())) {
+		push @args, @r;
+	}
+}
+
+print join(" ", map {shescape($_)} @args), "\n";
+
+exec {$vim} @args;

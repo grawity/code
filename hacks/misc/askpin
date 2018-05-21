@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# Wrapper around GPG pinentry to be used as a simple 'askpass' tool.
+
+. lib.bash || exit
+
+lib_config[opt_width]=24
+
+usage() {
+	echo "Usage: $progname [OPTION]... [description]"
+	echo ""
+	echo_opt "-t <title>"		"set entry window title"
+	echo_opt "-d <description>"	"set description text"
+	echo_opt "-p <prompt>"		"set entry prompt text (default is 'PIN:')"
+	echo ""
+	echo_opt "-n"			"display a confirmation prompt"
+	echo_opt "-O <label>"		"set 'OK' button label"
+	echo_opt "-C <label>"		"set 'Cancel' button label"
+	echo ""
+	echo_opt "-P <path>"		"use a different pinentry executable"
+	echo_opt "-G"			"enable global input grab"
+	echo_opt "-W <windowid>"	"set parent window ID"
+	echo_opt "-o <option>"		"pass raw option to pinentry argv"
+}
+
+encode() {
+	printf '%s' "$*" |
+	perl -pe "s/([^A-Za-z0-9_.!~*'()-])/sprintf(\"%%%02X\", ord(\$1))/seg"
+}
+
+pinentry=(pinentry)
+config=("SETPROMPT")
+action="GETPIN"
+opt_grab=0
+
+# parse config
+
+if [[ -f $path_config/askpin.conf.sh ]]; then
+	. "$path_config/askpin.conf.sh" || die "could not load configuration"
+fi
+
+# parse arguments
+
+while getopts ':c:C:Dd:gGhN:nO:o:P:p:t:xW:' OPT; do
+	debug "getopts: [$OPTIND] -$OPT '$OPTARG'"
+	case $OPT in
+	c) config+=("$OPTARG");;
+	C) config+=("SETCANCEL $(encode "$OPTARG")");;
+	D) DEBUG=1;;
+	d) config+=("SETDESC $(encode "$OPTARG")");;
+	g) opt_grab=0;;
+	G) opt_grab=1;;
+	h) usage; exit 0;;
+	N) action="${OPTARG^^}";;
+	n) action="CONFIRM";;
+	O) config+=("SETOK $(encode "$OPTARG")");;
+	o) pinentry+=("$OPTARG");;
+	P) pinentry[0]="$OPTARG";;
+	p) config+=("SETPROMPT $(encode "$OPTARG")");;
+	t) config+=("SETTITLE $(encode "$OPTARG")");;
+	W) pinentry+=(--parent-wid "$(encode "$OPTARG")");;
+	*) die_getopts;;
+	esac
+done
+
+if (( !opt_grab )); then
+	pinentry+=(--no-global-grab)
+fi
+
+if [[ "${!OPTIND}" ]]; then
+	config+=("SETDESC $(encode "${!OPTIND}")")
+fi
+
+if [[ $GPG_TTY ]]; then
+	pinentry+=(--ttyname "$GPG_TTY")
+elif [[ -t 0 ]]; then
+	pinentry+=(--ttyname /dev/tty)
+fi
+
+if [[ $LC_ALL ]]; then
+	LC_MESSAGES=$LC_ALL
+	LC_CTYPE=$LC_ALL
+fi
+
+: ${LANG:='en_US.UTF-8'}
+: ${LC_CTYPE:=$LANG}
+: ${LC_MESSAGES:=$LANG}
+
+pinentry+=(
+	--lc-ctype "$LC_CTYPE"
+	--lc-messages "$LC_MESSAGES"
+)
+
+#config+=(
+#	"OPTION lc-ctype $LC_CTYPE"
+#	"OPTION lc-messages $LC_CTYPE"
+#)
+
+config+=("$action")
+
+# spawn the pinentry program
+
+debug "command: ${pinentry[*]}"
+coproc { "${pinentry[@]}" 2>/dev/null || die "could not run '${pinentry[0]}'"; }
+
+pinentry_pid=$!
+in=${COPROC[0]}
+out=${COPROC[1]}
+
+i=0
+ok=0
+state=configure
+
+trap "trap - INT HUP TERM QUIT; kill \$pinentry_pid 2>/dev/null" EXIT INT HUP TERM QUIT
+
+while read -r status rest <&$in; do
+	if [[ $state == waitinput && $status == D && $rest ]]; then
+		debug "($state) status='$status' rest=<hidden>"
+	else
+		debug "($state) status='$status' rest='$rest'"
+	fi
+	case $state in
+	configure)
+		case $status in
+		'OK')
+			ok=1
+			debug "--> [$i] ${config[i]}"
+			printf '%s\n' "${config[i]}" >&$out
+			if (( ++i == ${#config[@]} )); then
+				state=waitinput
+			fi
+			;;
+		'ERR')
+			die 4 "protocol error: $rest"
+			;;
+		esac
+		;;
+	waitinput)
+		case "$status" in
+		'OK')
+			debug "null input submitted by user"
+			exit 0
+			;;
+		'D')
+			printf '%s\n' "$rest"
+			exit 0
+			;;
+		'ERR')
+			if [[ $action == 'CONFIRM' ]]; then
+				exit 1
+			elif [[ $rest == '83886179 '* ]]; then
+				die "pinentry prompt cancelled by user"
+			fi
+			die 4 "protocol error: $rest"
+			;;
+		esac
+		;;
+	esac
+done
+
+(( ok ))

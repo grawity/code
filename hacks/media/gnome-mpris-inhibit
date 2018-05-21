@@ -1,0 +1,220 @@
+#!/usr/bin/env perl
+# gnome-mpris-inhibit - suspend GNOME "session idle" check while music is playing
+# (c) 2012-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
+use v5.10;
+use warnings;
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use strict;
+use Getopt::Long qw(:config no_ignore_case bundling);
+use Net::DBus;
+use Net::DBus::Reactor;
+use constant {
+	DBUS_PROPERTY_IFACE	=> 'org.freedesktop.DBus.Properties',
+	MPRIS_MAIN_IFACE	=> 'org.mpris.MediaPlayer2',
+	MPRIS_PLAYER_IFACE	=> 'org.mpris.MediaPlayer2.Player',
+};
+
+my %FLAGS = (
+# Flags tracked by GNOME session manager (gnome-session/gsm-inhibitor-flag.h)
+	"logout"	=> 1<<0,
+	"switch-user"	=> 1<<1,
+	"suspend"	=> 1<<2,
+	"idle"		=> 1<<3,
+	"automount"	=> 1<<4,
+);
+
+BEGIN {
+	if (eval {require Nullroute::Lib}) {
+		Nullroute::Lib->import(qw(_debug _info _warn _err _die));
+	} else {
+		our ($warnings, $errors);
+		$::arg0 = (split m!/!, $0)[-1];
+		$::debug = !!$ENV{DEBUG};
+		sub _debug { warn "debug: @_\n" if $::debug; }
+		sub _info  { say "@_"; }
+		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
+		sub _err   { warn "error: @_\n"; ! ++$::errors; }
+		sub _die   { _err(@_); exit 1; }
+	}
+}
+
+my $verbose = 0;
+
+sub trace {
+	goto &_info if $::debug || $verbose;
+}
+
+# copied from gnome-inhibit:
+sub string_to_flags {
+	my $flagstr = shift;
+	my $flags = 0;
+	for (split /[:,|]/, $flagstr) {
+		if ($_ eq 'all') {
+			$flags |= 0x7fffffff;
+		} elsif ($_ eq 'sleep') {
+			$flags |= $FLAGS{suspend};
+		} elsif (defined $FLAGS{$_}) {
+			$flags |= $FLAGS{$_};
+		} elsif (/^([0-9]+)$/) {
+			$flags |= int $_;
+		} elsif (/^(0x[0-9a-fA-F]+)$/) {
+			$flags |= hex $_;
+		} else {
+			_warn("unknown inhibit flag: '$_'");
+		}
+	}
+	if ($flags >> 31) {
+		_die("inhibit bitmask too large (must be an uint32)");
+	}
+	return $flags;
+}
+
+sub usage {
+	say for
+	"Usage: $::arg0 [options] <playername>",
+	"",                       #
+	"  -f, --flags=FLAGS      Specify inhibit flags (default: \"idle\")",
+	"  -v, --verbose          Inform about status changes",
+	"",
+	"Prevents system from automatically going into suspend while music is playing.",
+	"",
+	"<playername> is the last component of the player's MPRIS v2 D-Bus name; for",
+	"example, \"banshee\" for \"org.mpris.MediaPlayer2.banshee\".",
+	"",
+	"Flags can be specified as a comma- or colon-separated list, or the word \'all\'.",
+	"Supported flags are: {".join(" ", sort keys %FLAGS)."}",
+}
+
+# Option parser
+
+my $flagstr = "idle";
+
+GetOptions(
+	'help'		=> sub { usage(), exit; },
+	'f|flags=s'	=> \$flagstr,
+	'v|verbose!'	=> \$verbose,
+) or exit 2;
+
+my $player_name = shift @ARGV;
+
+for ($player_name) {
+	if (!defined $_) {
+		_die("missing player name", 2);
+	}
+	elsif (/^org\.mpris\.MediaPlayer2\.(.+)$/) {
+		$player_name = $1;
+	}
+	elsif (/^org\.mpris\./) {
+		_die("MPRIS v1 interface is not supported");
+	}
+}
+
+# Inhibit API settings
+
+my $app_id	= "gnome-mpris-inhibit ($player_name)";
+my $top_xid	= 0;
+my $reason	= "Media is playing.";
+my $flags	= string_to_flags($flagstr);
+
+# MPRIS variables
+
+my $player_bus_name = "org.mpris.MediaPlayer2.$player_name";
+my $ih_cookie;
+my $old_status;
+my $watching;
+
+my $bus;
+my $sessmgr;
+
+sub inhibit {
+	if ($ih_cookie) {
+		_warn("double inhibit attempted (have cookie $ih_cookie)");
+		return;
+	}
+	$ih_cookie = $sessmgr->Inhibit($app_id, $top_xid, $reason, $flags);
+	trace("inhibit ok ($ih_cookie)");
+}
+
+sub uninhibit {
+	if (!$ih_cookie) {
+		_warn("double uninhibit attempted");
+		return;
+	}
+	$sessmgr->Uninhibit($ih_cookie);
+	$ih_cookie = 0;
+	trace("uninhibit ok");
+}
+
+sub init_watch {
+	trace("started watching $player_bus_name");
+
+	$sessmgr = $bus->get_service("org.gnome.SessionManager")
+			->get_object("/org/gnome/SessionManager");
+
+	my $player_prop = $bus->get_service($player_bus_name)
+			->get_object("/org/mpris/MediaPlayer2")
+			->as_interface(DBUS_PROPERTY_IFACE);
+
+	$player_prop->connect_to_signal("PropertiesChanged", sub {
+		my ($iface, $changed, $invalidated) = @_;
+		if ($iface eq MPRIS_PLAYER_IFACE) {
+			my $new_status;
+			if ("PlaybackStatus" ~~ $changed) {
+				$new_status = $changed->{PlaybackStatus};
+			} elsif ("PlaybackStatus" ~~ $invalidated) {
+				$new_status = $player_prop->Get(MPRIS_PLAYER_IFACE,
+								"PlaybackStatus");
+			} else {
+				return;
+			}
+			trace("status change: $old_status -> $new_status");
+
+			if ($new_status eq $old_status) {
+				return;
+			} elsif ($new_status eq 'Playing') {
+				inhibit();
+			} elsif ($old_status eq 'Playing') {
+				uninhibit();
+			}
+			$old_status = $new_status;
+		}
+	});
+
+	$app_id = $player_prop->Get(MPRIS_MAIN_IFACE, "Identity") // $app_id;
+
+	$old_status = $player_prop->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+	trace("status currently: $old_status");
+	if ($old_status eq 'Playing') {
+		inhibit();
+	}
+
+	$watching = 1;
+}
+
+$bus = Net::DBus->session;
+
+$bus
+->get_bus_object
+->connect_to_signal("NameOwnerChanged", sub {
+	my ($name, $old_owner, $new_owner) = @_;
+
+	if ($name eq $player_bus_name) {
+		if ($old_owner eq "" and $new_owner ne "") {
+			trace("$name claimed");
+			init_watch() if !$watching;
+		} elsif ($old_owner ne "" and $new_owner eq "") {
+			trace("$name disappeared");
+			uninhibit() if $ih_cookie;
+			$old_status = 'Stopped';
+		}
+	}
+});
+
+if ($bus->get_service_owner($player_bus_name)) {
+	init_watch();
+} else {
+	trace("waiting for $player_bus_name to appear");
+}
+
+Net::DBus::Reactor->main->run;

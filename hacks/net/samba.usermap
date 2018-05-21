@@ -1,0 +1,83 @@
+#!/usr/bin/env perl
+# samba.usermap - "username map script" for Samba
+use warnings;
+no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use strict;
+use feature 'say';
+use POSIX qw(strftime);
+
+my %map;
+
+sub readmap {
+	open(my $fd, "<", "/etc/samba/principals")
+		or do { warn "$!"; exit 0; };
+	while (<$fd>) {
+		chomp;
+		next if /^[;#]/;
+		next if /^$/;
+		my ($k, $v) = split;
+		$map{$k} = ($v eq '*' ? undef : $v);
+	}
+	close($fd);
+}
+
+sub k5userok {
+	use User::pwent;
+	use File::Spec::Functions;
+	my ($user, $princ) = @_;
+	my $pw = getpwnam($user)
+		or return 0;
+	open(my $fh, "<", catfile($pw->dir, ".k5login"))
+		or return 0;
+	my @k5login = grep {chomp} <$fh>;
+	close($fh);
+	return $princ ~~ @k5login;
+}
+
+if (!@ARGV) {
+	die "Usage: samba.usermap [DOMAIN\\]username\n";
+}
+
+readmap;
+
+chomp(my $defrealm = qx[pklist -R]);
+
+my $smbuser = shift(@ARGV);
+
+my $user;
+my $realm;
+
+if ($smbuser =~ /^(.*)\\(.+)$/) {
+	$realm = $1;
+	$user = $2;
+} else {
+	$realm = $defrealm;
+	$user = $smbuser;
+}
+
+my $princ = "$user\@$realm";
+
+my $unixuser = eval {
+	if (exists $map{$princ}) {
+		return $map{$princ} // $user;
+	}
+	elsif (exists $map{$user} and $realm eq $defrealm) {
+		return $map{$user} // $user;
+	}
+	elsif (exists $map{'@'.$realm}) {
+		return $map{'@'.$realm} // $user;
+	}
+	elsif ($realm eq $defrealm) {
+		return $user;
+	}
+	else {
+		return "nobody";
+	}
+};
+
+if (open(my $log, ">>", "/var/log/samba/idmap.log")) {
+	say $log strftime('%F %T', gmtime), "\t", $smbuser, "\t", $princ, "\t", $unixuser;
+	close($log);
+}
+
+say $unixuser;

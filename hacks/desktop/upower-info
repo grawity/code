@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+# upower-info - like the `acpi` tool but for UPower
+#
+# (c) 2014 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License (dist/LICENSE.mit)
+use Net::DBus;
+use feature qw(state);
+use constant {
+	UP_DEVICE_IFACE		=> "org.freedesktop.UPower.Device",
+	DBUS_PROPERTY_IFACE	=> "org.freedesktop.DBus.Properties",
+};
+
+my @STATE = qw(unknown charging discharging fully_charged
+               pending_charge pending_discharge);
+
+my %STATE = map {$STATE[$_] => $_} 0..$#STATE;
+
+sub UPower {
+	Net::DBus->system
+	->get_service("org.freedesktop.UPower")
+	->get_object(shift // "/org/freedesktop/UPower")
+}
+
+sub timedelta {
+	my ($dif) = @_;
+	my ($s, $m, $h, $d);
+
+	$dif -= $s = $dif % 60; $dif /= 60;
+	$dif -= $m = $dif % 60; $dif /= 60;
+	$dif -= $h = $dif % 24; $dif /= 24;
+	$d = $dif + 0;
+
+	if ($d > 0)	{ "${d}d ${h}h" }
+	elsif ($h > 0)	{ "${h}h ${m}m" }
+	elsif ($m > 0)	{ "${m} mins" }
+	else		{ "${s} secs" }
+}
+
+my $devices = 0;
+
+for my $dev_p (@{UPower->EnumerateDevices()}) {
+	my $dev = UPower($dev_p);
+	if ($dev->Get(UP_DEVICE_IFACE, "IsRechargeable")) {
+		my ($n) = ($dev_p =~ /BAT(\d+)$/);
+
+		my $data = $dev->GetAll(UP_DEVICE_IFACE);
+
+		my $state = $data->{State};
+		my $charge = $data->{Percentage};
+
+		my $status = ucfirst($STATE[$state]).", $charge%";
+
+		my $time = $data->{TimeToEmpty} || $data->{TimeToFull};
+		if ($time) {
+			if ($state == $STATE{charging}) {
+				$status .= ", ".timedelta($time)." until charged";
+			}
+			elsif ($state == $STATE{discharging}) {
+				$status .= ", ".timedelta($time)." remaining";
+			}
+		}
+
+		print "Battery $n: $status\n";
+		++$devices;
+	}
+}
+
+if (!$devices) {
+	warn "No battery devices found\n";
+	exit 1;
+}

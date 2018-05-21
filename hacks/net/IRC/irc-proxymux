@@ -1,0 +1,639 @@
+#!/usr/bin/env php
+<?php
+// [mtime 2011-12-23 23:26:33]
+//
+// IRC proxy/multiplexer.
+// Listens on a single port, forwards connections (raw) to different sockets
+// depending on the IRC username (or nickname, or password) given; e.g.
+// "grawity/freenode" to irssiproxy freenode port.
+//
+// Status: working; stopped using.
+
+const VERSION = "1.∞";
+
+const MAX_LINE = 2048;
+
+
+const	RPL_WELCOME		= "001";
+const	RPL_YOURHOST		= "002";
+const	RPL_ISUPPORT		= "005";
+
+const	RPL_USERHOST		= "302";
+const	RPL_UNAWAY		= "305";
+const	RPL_NOWAWAY		= "306";
+const	RPL_NAMREPLY		= "353";
+
+const	ERR_INVALIDCAPCMD	= "410";
+const	ERR_NOTREGISTERED	= "451";
+
+const	ERR_HOSTUNAVAIL		= "551";
+
+const	RPL_STARTTLS		= "670";
+const	ERR_TLSFAILED		= "691";
+
+const	RPL_LOGGEDIN		= "900";
+const	RPL_LOGGEDOUT		= "901";
+const	ERR_NICKLOCKED		= "902";
+
+const	FEAT_MULTI_PREFIX	= 0x00000001;
+const	FEAT_UHNAMES		= 0x00000002;
+const	FEAT_IDENTIFY_MSG	= 0x00000004;
+
+class config {
+	static $hostname;
+	static $listen;
+	static $proxy = array();
+	static $loglevel = LOG_INFO;
+}
+
+config::$hostname = gethostbyaddr(gethostbyname(gethostname()));
+
+$ctx = array(
+	"ssl" => array(	
+		"local_cert"	=> getenv("HOME")."/lib/keys/host#equal.cluenet.org.pem",
+	),
+);
+config::$listen = array(
+	"tcp://[::]:4200" => array($ctx, null),
+	"ssl://[::]:4300" => array($ctx, null),
+	"ssl://[::]:4301" => array($ctx, "freenode"),
+	"ssl://[::]:4302" => array($ctx, "cluenet"),
+	//"tcp://[::]:6700" => array($ctx, null),
+);
+
+$host = "127.0.0.42";
+$host = "localhost";
+config::$proxy = array(
+	"freenode"	=> "tcp://$host:4201",
+	"cluenet"	=> "tcp://$host:4202",
+);
+
+function putlog(/*$severity, $format, @args*/) {
+	$argv = func_get_args();
+	$severity = array_shift($argv);
+	if ($severity > config::$loglevel)
+		return;
+	$format = array_shift($argv);
+	$text = vsprintf($format, $argv);
+	fwrite(STDERR, $text."\n");
+}
+
+function array_get($a, $k, $d=null) {
+	return array_key_exists($k, $a) ? $a[$k] : $d;
+}
+
+class Irc {
+	static function join($args) {
+		$last = array_pop($args);
+		if (strpos($last, " ") !== false)
+			$last = ":$last";
+		$args[] = $last;
+		return implode(" ", $args);
+	}
+
+	static function vjoin(/*@args*/) {
+		return self::join(func_get_args());
+	}
+
+	static function split($str) {
+		$p = strpos($str, " :");
+		if ($p) {
+			$l = substr($str, $p+2);
+			$str = substr($str, 0, $p);
+		}
+		$str = explode(" ", $str);
+		$str = array_filter($str, "strlen");
+		if ($p) {
+			$str[] = $l;
+		}
+		return $str;
+	}
+
+	static function nick_tolower($nick, $casemapping="rfc1459") {
+		switch ($casemapping) {
+			case "rfc2812":
+				$nick = strtr($nick, '^', '~');
+			case "rfc1459":
+				$nick = strtr($nick, '[\]', '{|}');
+			case "ascii":
+			default:
+				$nick = strtolower($nick);
+		}
+		return $nick;
+	}
+
+	static function parse_label($data) {
+		if ($data[0] == ":")
+			$data = substr($data, 1);
+		$nick = strtok($data, "!");
+		$user = strtok("@");
+		$host = strtok(null);
+		return array($nick, $user, $host);
+	}
+}
+
+class Stream {
+	public $fd;
+
+	function __construct($fd) {
+		$this->fd = $fd;
+	}
+
+	function gets() {
+		return fgets($this->fd);
+	}
+
+	function write($data) {
+		return fwrite($this->fd, $data);
+	}
+
+	function printf(/*$fmt, @args*/) {
+		$_ = func_get_args();
+		$fmt = array_shift($_);
+		return vfprintf($this->fd, $fmt, $_);
+	}
+
+	function vprintf($fmt, $args) {
+		return vfprintf($this->fd, $fmt, $args);
+	}
+}
+
+class StreamState extends Stream {
+	const type = "";
+	public $peer;
+	public $features = 0;
+
+	function has_feature($feat) {
+		return $this->features & $feat;
+	}
+
+	function set_feature($feat) {
+		$this->features |= $feat;
+	}
+
+	function unset_feature($feat) {
+		$this->features &= ~$feat;
+	}
+}
+
+class Listener extends StreamState {
+	const type = "listener";
+	public $nexthop;
+}
+
+class Server extends StreamState {
+	const type = "server";
+	public $client;
+	public $registered = false;
+
+	public $isupport = array();
+	public $mode_prefixes = "@+";
+	public $case_mapping = "rfc1459";
+
+	public function nick_tolower($nick) {
+		return Irc::nick_tolower($nick, $this->case_mapping);
+	}
+
+	public function nick_cmp($a, $b) {
+		return strcmp($this->nick_tolower($a), $this->nick_tolower($b));
+	}
+}
+
+$numeric_formats = array(
+	RPL_NOWAWAY		=> "%s :You have been marked as being away",
+	RPL_UNAWAY		=> "%s :You are no longer marked as being away",
+	RPL_STARTTLS		=> "%s :Waiting for TLS handshake",
+	ERR_TLSFAILED		=> "%s :TLS handshake failed (%s)",
+	RPL_LOGGEDIN		=> "%s %s!%s@%s %s :You are now logged in as %s.",
+	ERR_NOTREGISTERED	=> "%s :You have not registered",
+);
+
+class Client extends StreamState {
+	const type = "client";
+	public $server;
+	public $registered = false;
+	public $reg_pass;
+	public $reg_nick;		# nick sent by client in reg state
+	public $nick = "*";		# currently active nick
+	public $user;
+	public $gecos;
+	public $away = false;
+	public $queue = array();
+	public $nexthop;
+
+	public function send_numeric(/*$numeric, @args*/) {
+		global $numeric_formats;
+
+		$_ = func_get_args();
+		$numeric = array_shift($_);
+
+		if (isset($numeric_formats[$numeric])) {
+			$msg = vsprintf($numeric_formats[$numeric], $_);
+		}
+		else {
+			putlog(LOG_WARNING, "numeric %03s missing format", $numeric);
+			$msg = Irc::join($_);
+		}
+
+		return $this->printf(":%s %03s %s\r\n", config::$hostname, $numeric, $msg);
+	}
+}
+
+class Proxy {
+	public $listeners = array();
+	public $clients = array();
+	public $servers = array();
+	public $state = array();
+
+	function __construct() {
+	}
+
+	function run() {
+		# establish listening sockets
+		foreach (config::$listen as $url => $opts) {
+			list ($ctx, $default) = $opts;
+			$ctx = stream_context_create($ctx);
+			$st = stream_socket_server($url, &$errno, &$errstr,
+				STREAM_SERVER_BIND | STREAM_SERVER_LISTEN, $ctx);
+			if ($st) {
+				putlog(LOG_INFO, "listening on %s", $url);
+				$this->listeners[] = $st;
+				$this->state[$st] = new Listener($st);
+				$this->state[$st]->nexthop = $default;
+			}
+			else {
+				die_socket_err($st, $errno, $errstr);
+			}
+		}
+
+		# wait for socket events
+		while (true) {
+			$readers = array_merge($this->listeners, $this->clients, $this->servers);
+			$writers = array();
+			$excepts = array();
+			if (stream_select($readers, $writers, $excepts, null)) {
+				foreach ($readers as $stream)
+					$this->handle_read($stream);
+			}
+		}
+	
+	}
+
+	private function handle_read($stream) {
+		if (in_array($stream, $this->listeners)) {
+			putlog(LOG_DEBUG, "event on listener[%d]", $stream);
+			$timeout = 30;
+			$in = stream_socket_accept($stream, $timeout, &$peer);
+			if ($in) {
+				$this->handle_client_connect($in, $peer, $stream);
+			}
+			else {
+				putlog(LOG_NOTICE, "accept on listener[%d] failed", $stream);
+			}
+		}
+		elseif (in_array($stream, $this->clients)) {
+			putlog(LOG_DEBUG, "event on client[%d]", $stream);
+			$in = fgets($stream);
+			if ($in === false) {
+				$this->handle_client_loss($stream);
+			}
+			else {
+				$this->handle_client_in($stream, $in);
+			}
+		}
+		elseif (in_array($stream, $this->servers)) {
+			putlog(LOG_DEBUG, "event on server[%d]", $stream);
+			$in = fgets($stream);
+			if ($in === false) {
+				$this->handle_server_loss($stream);
+			}
+			else {
+				$this->handle_server_in($stream, $in);
+			}
+		}
+	}
+
+	private function handle_client_connect($client, $peer, $listener) {
+		putlog(LOG_INFO, "connection from %s", $peer);
+
+		$this->clients[] = $client;
+		$this->state[$client] = new Client($client);
+		$this->state[$client]->peer = $peer;
+		
+		fprintf($client, ":%s NOTICE * :proxymux version %s\r\n", config::$hostname, VERSION);
+		if (strlen($this->state[$listener]->nexthop)) {
+			$this->proxy_connect($client, $this->state[$listener]->nexthop);
+		}
+	}
+
+	private function handle_client_in($fd, $line) {
+		$client = &$this->state[$fd];
+		$handled = false;
+
+		$line = rtrim($line, "\r\n");
+		$line = Irc::split($line);
+		switch (strtoupper($line[0])) {
+			case "AWAY":
+				if ($client->registered) {
+					$msg = @$line[1];
+					if (strlen($msg)) {
+						$client->away = $msg;
+						$client->send_numeric(RPL_NOWAWAY, $client->nick);
+					}
+					else {
+						$client->away = null;
+						$client->send_numeric(RPL_UNAWAY, $client->nick);
+					}
+					$handled = true;
+				}
+				break;
+
+			case "CAP":
+				switch (strtoupper($line[1])) {
+					case "REQ":
+						foreach (explode(" ", strtolower($line[2])) as $cap) {
+							switch ($cap) {
+								case "multi-prefix":
+									$client->set_feature(FEAT_MULTI_PREFIX);
+									break;
+								case "-multi-prefix":
+									$client->unset_feature(FEAT_MULTI_PREFIX);
+									break;
+								case "identify-msg":
+									$client->set_feature(FEAT_IDENTIFY_MSG);
+									break;
+								case "-identify-msg":
+									$client->unset_feature(FEAT_IDENTIFY_MSG);
+									break;
+							}
+						}
+						break;
+				}
+				break;
+
+			case "CAPAB":
+				for ($i = 1; $i < count($line); $i++) {
+					switch (strtoupper($line[$i])) {
+						case "IDENTIFY-MSG":
+							$client->set_feature(FEAT_IDENTIFY_MSG);
+							break;
+					}
+				}
+				break;
+
+			case "NICK":
+				if (!$client->registered) {
+					$handled = true;
+					$n = $client->reg_nick = $line[1];
+					if (strpos($n, "/") !== false) {
+						list ($n, $client->nexthop) = explode("/", $n, 2);
+					}
+					$client->nick = $n;
+					putlog(LOG_INFO, "nick='%s'", $n);
+				}
+				break;
+
+			case "PASS":
+				if (!$client->registered) {
+					$handled = true;
+					$p = $client->reg_pass = $line[1];
+					if (strlen($client->nexthop) && strpos($p, "/") !== false) {
+						list ($client->nexthop, $p) = explode("/", $n, 2);
+					}
+					$client->reg_pass = $p;
+				}
+				break;
+
+			case "PROTOCTL":
+				for ($i = 1; $i < count($line); $i++) {
+					switch ($line[$i]) {
+						case "NAMESX":
+							$client->set_feature(FEAT_MULTI_PREFIX);
+							break;
+						case "UHNAMES":
+							$client->set_feature(FEAT_UHNAMES);
+							break;
+					}
+				}
+				break;
+
+			case "STARTTLS":
+				$client->send_numeric(RPL_STARTTLS, $client->nick, "Waiting for TLS handshake");
+				if (!stream_socket_enable_crypto($fd, true, STREAM_CRYPTO_METHOD_TLS_SERVER)) {
+					$client->send_numeric(ERR_TLSFAILED, $client->nick, "TLS failure");
+				}
+				else {
+					putlog(LOG_INFO, "enabling TLS on client[%d]", $fd);
+				}
+				$handled = true;
+				break;
+
+			case "USER":
+				if (!$client->registered) {
+					$handled = true;
+					list (, $u, $h, $s, $g) = $line;
+					if (strpos($u, "/") !== false) {
+						list ($u, $client->nexthop) = explode("/", $u, 2);
+					}
+					$client->user = $u;
+					$client->uhost = $h;
+					$client->userver = $s;
+					$client->gecos = $g;
+					putlog(LOG_INFO, "user='%s' host='%s' server='%s' gecos='%s'", $u, $h, $s, $g);
+				}
+				break;
+
+			default:
+				if (!$client->registered) {
+					$handled = true;
+					$client->send_numeric(ERR_NOTREGISTERED, $line[0]);
+				}
+		}
+
+		$line = Irc::join($line)."\r\n";
+
+		if (!$client->registered && strlen($client->user) && strlen($client->reg_nick)) {
+			if (strlen($client->nexthop)) {
+				putlog(LOG_INFO, "nexthop='%s'", $client->nexthop);
+				$this->proxy_connect($fd, $client->nexthop);
+			}
+			else {
+				$this->reject_client($fd, "You must specify final destination.");
+			}
+			return;
+		}
+		elseif ($handled) {
+			return;
+		}
+		elseif ($client->registered) {
+			fwrite($client->server, $line);
+		}
+		else {
+			$client->queue[] = $line;
+		}
+	}
+
+	private function handle_server_in($sfd, $rline) {
+		$server = &$this->state[$sfd];
+		$cfd = $server->client;
+		$client = &$this->state[$cfd];
+
+		$modified = false;
+
+		$rline = rtrim($rline, "\r\n");
+		$line = Irc::split($rline);
+		$label = $line[0][0] == ":" ? array_shift($line) : null;
+
+		switch (strtoupper($line[0])) {
+			case RPL_WELCOME:
+				$server->registered = true;
+				break;
+
+			case RPL_ISUPPORT:
+				$tokens = array_slice($line, 2, -1);
+				foreach ($tokens as $t) {
+					$name = strtok($t, "=");
+					$value = strtok(null);
+					$server->isupport[$name] = $value;
+					switch ($name) {
+						case "CASEMAPPING":
+							$server->case_mapping = $value;
+							break;
+						case "PREFIX":
+							strtok($value, ')');
+							$server->mode_prefixes = strtok(null);
+							break;
+					}
+				}
+				break;
+
+			case RPL_NAMREPLY:
+				if (!($client->features & FEAT_UHNAMES)) {
+					$n = explode(" ", $line[4]);
+					foreach ($n as &$v) {
+						if (!strlen($v))
+							continue;
+						$v = strtok($v, "!");
+					}
+					$line[4] = implode(" ", $n);
+					$modified = true;
+				}
+				if (!($client->features & FEAT_MULTI_PREFIX)) {
+					$n = explode(" ", $line[4]);
+					foreach ($n as &$v) {
+						if (!strlen($v))
+							continue;
+						$p = strpos($server->mode_prefixes, $v[0]) !== false ? $v[0] : "";
+						$v = $p . ltrim($v, $server->mode_prefixes);
+					}
+					$line[4] = implode(" ", $n);
+					$modified = true;
+				}
+				break;
+
+			case "NICK":
+				list ($n, $u, $h) = Irc::parse_label($label);
+				if (!$server->nick_cmp($n, $client->nick)) {
+					$client->nick = $line[1];
+				}
+				break;
+		}
+
+		if ($modified) {
+			if ($label !== null)
+				array_unshift($line, $label);
+			$rline = Irc::join($line);
+		}
+
+		$client->write($rline."\r\n");
+	}
+
+	private function proxy_connect($client, $nexthop) {
+		$cstate = &$this->state[$client];
+		$cstate->registered = true;
+		
+		$url = config::$proxy[$nexthop];
+		putlog(LOG_INFO, "<client/%d> connecting to [%s] %s", $client, $nexthop, $url);
+		$server = stream_socket_client($url, &$errno, &$errstr);
+		if (!$server) {
+			$this->reject_client($client, "Connection to %s failed: [%d] %s", $url, $errno, $errstr);
+			return false;
+		}
+
+		$cstate->server = $server;
+		$this->servers[] = $server;
+		$this->state[$server] = new Server($server, $url);
+		$this->state[$server]->peer = $url;
+		$this->state[$server]->client = $client;
+
+		if (strlen($cstate->reg_pass)) {
+			fprintf($server, "PASS %s\r\n", $cstate->reg_pass);
+		}
+		if (strlen($cstate->user)) {
+			fprintf($server, "USER %s %s %s :%s\r\n", $cstate->user,
+				$cstate->uhost, $cstate->userver, $cstate->gecos);
+		}
+		if (strlen($cstate->reg_nick)) {
+			fprintf($server, "NICK %s\r\n", $cstate->reg_nick);
+			if ($cstate->reg_nick != $cstate->nick) {
+				fprintf($client, ":%s!%s@proxy NICK %s\r\n", $cstate->reg_nick, $cstate->user, $cstate->nick);
+			}
+		}
+		foreach ($cstate->queue as $line) {
+			fwrite($server, $line);
+		}
+		putlog(LOG_INFO, "<client/%d> connected to %s", $client, $nexthop);
+		return true;
+	}
+
+	private function reject_client(/*$stream, $format, @args*/) {
+		$argv = func_get_args();
+		$stream = array_shift($argv);
+		$format = array_shift($argv);
+		$msg = vsprintf($format, $argv);
+		fprintf($stream, "ERROR :%s\r\n", $msg);
+		fclose($stream);
+		$this->dispose_client($stream);
+	}
+
+	private function handle_client_loss($client) {
+		putlog(LOG_INFO, "lost connection from %s", $this->state[$client]->peer);
+		$server = $this->state[$client]->server;
+		if ($server) {
+			fclose($server);
+			$this->dispose_server($server);
+		}
+		$this->dispose_client($client);
+	}
+
+	private function handle_server_loss($server) {
+		putlog(LOG_INFO, "lost connection to %s", $this->state[$server]->peer);
+		$client = $this->state[$server]->client;
+		$this->reject_client($client, "Connection to server lost.");
+		$this->dispose_server($server);
+	}
+
+	private function dispose_client($stream) {
+		putlog(LOG_DEBUG, "disposing of client[%d]", $stream);
+		unset($this->state[$stream]);
+		$k = array_search($stream, $this->clients);
+		if ($k !== false)
+			unset($this->clients[$k]);
+	}
+
+	private function dispose_server($stream) {
+		putlog(LOG_DEBUG, "disposing of server[%d]", $stream);
+		unset($this->state[$stream]);
+		$k = array_search($stream, $this->servers);
+		if ($k !== false)
+			unset($this->servers[$k]);
+	}
+}
+
+function die_socket_err($socket, $errno, $errstr) {
+	putlog(LOG_ERR, "unable to create socket: [%d] %s", $errno, $errstr);
+	exit(1);
+}
+
+$p = new Proxy();
+$p->run();

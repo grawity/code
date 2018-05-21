@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+# id3-lyrics - read and write lyrics tags
+from __future__ import print_function
+import sys
+import getopt
+import mutagen.mp3, mutagen.id3
+from nullroute.core import *
+
+def _info(*a, **kw):
+    global verbose
+    if verbose:
+        Core.info(*a, **kw)
+
+def usage():
+    print("Usage:")
+    print("    import: lyrics -i [-f lyrics_file] audio_file")
+    print("    export: lyrics -e [-f lyrics_file] audio_file")
+    print("    remove: lyrics -x audio_file")
+
+def to_crlf(s):
+    return s.replace("\r\n", "\n").replace("\n", "\r\n")
+
+def from_crlf(s):
+    return s.replace("\r\n", "\n")
+
+# Turn off text mode stdio on Windows (otherwise it writes CR CR LF)
+if sys.platform == "win32":
+    import os, msvcrt
+    for fd in (sys.stdin, sys.stdout, sys.stderr):
+        msvcrt.setmode(fd.fileno(), os.O_BINARY)
+
+def write_id3(file, lyrics):
+    tag = mutagen.mp3.MP3(file)
+    atom = u"USLT::'eng'"
+    if lyrics is None:
+        if atom in tag:
+            del tag[atom]
+    else:
+        tag[atom] = mutagen.id3.USLT()
+        tag[atom].text = lyrics
+        tag[atom].encoding = 1
+        tag[atom].lang = "eng"
+        tag[atom].desc = u""
+    _info("writing %s" % file)
+    tag.save()
+
+def read_id3(file):
+    tag = mutagen.mp3.MP3(file)
+    try:
+        return tag[u"USLT::'eng'"].text
+    except KeyError:
+        return None
+
+mode = None
+lyricsfile = None
+verbose = False
+
+try:
+    options, audiofiles = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
+except getopt.GetoptError as e:
+    Core.err(e)
+    usage()
+    sys.exit(2)
+
+for opt, value in options:
+    if None: pass
+    elif opt == "-e": mode = "output"
+    elif opt == "-f": lyricsfile = value
+    elif opt == "-i": mode = "input"
+    elif opt == "-o": mode = "output"
+    elif opt == "-v": verbose = True
+    elif opt == "-x": mode = "kill"
+
+if len(audiofiles) == 0:
+    Core.die("no .mp3 files specified")
+
+if mode == "input":
+    if lyricsfile is None:
+        f = sys.stdin
+    else:
+        f = open(lyricsfile, "r")
+    lyrics = f.read().decode("utf-8")
+    lyrics = to_crlf(lyrics)
+    for file in audiofiles:
+        write_id3(file, lyrics)
+elif mode == "output":
+    if lyricsfile is None:
+        f = sys.stdout
+    else:
+        f = open(lyricsfile, "w")
+    for file in audiofiles:
+        lyrics = read_id3(file)
+        if lyrics:
+            lyrics = from_crlf(lyrics)
+            sys.stdout.write(lyrics.encode("utf-8"))
+elif mode == "kill":
+    for file in audiofiles:
+        write_id3(file, None)
+else:
+    Core.die("BUG: bad mode %r" % mode)

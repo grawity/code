@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Converts between "normal" and "filesystem" Maildir layouts.
+#
+# Normal:         ~/mail/
+#                 ~/mail/.lists/
+#                 ~/mail/.lists.nanog/
+#
+# Filesystem:     ~/mail/
+#                 ~/mail/lists/
+#                 ~/mail/lists/nanog/
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-d basedir] {-f | -t}"
+	echo ""
+	echo "  -d basedir   Use basedir instead of ~/mail/"
+	echo "  -f           Convert from filesystem layout"
+	echo "  -t           Convert to filesystem layout"
+}
+
+from-fs() {
+	find "$maildir" -mindepth 1 -depth -type d -not \( \
+		-name ".*" -o -name "cur" -o -name "new" -o -name "tmp" \) \
+		-printf "%P\0" | while IFS="" read -rd "" dir; do
+			new=".${dir//\//.}"
+			mv -v "$maildir/$dir" "$maildir/$new"
+		done
+}
+
+to-fs() {
+	find "$maildir" -mindepth 1 -type d -name ".*" \
+		-printf "%P\0" | LC_COLLATE="C" sort -z |\
+		while IFS="" read -rd "" dir; do
+			new="${dir#.}"
+			new="${new//.//}"
+			mv -v "$maildir/$dir" "$maildir/$new"
+		done
+}
+
+maildir=~/mail
+mode=
+
+while getopts ":d:ft" OPT; do
+	case $OPT in
+	d) maildir=$OPTARG;;
+	f) mode=from;;
+	t) mode=to;;
+	*) die_getopts;;
+	esac
+done
+
+case $mode in
+	from)	from-fs;;
+	to)	to-fs;;
+	*)	die "must specify conversion mode";;
+esac

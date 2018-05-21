@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+# Takes a file and finds all commits that reference the corresponding blob
+
+"""Usage:
+    git find-blob <file to find> [start-commit]
+    git find-blob <blob SHA> [start-commit]
+
+If <start-commit> is not specified, HEAD is used."""
+
+import re
+import subprocess
+import sys
+
+batch_proc = None
+seen_trees = {}
+
+def get_tree_items(sha):
+    proc = subprocess.Popen(["git", "ls-tree", "-r", sha],
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        _, item_type, item_sha, item_name = line.rstrip(b"\n").split(None, 3)
+        yield (item_type, item_sha, item_name)
+
+def get_commit_tree(sha):
+    global batch_proc
+    if not batch_proc:
+        batch_proc = subprocess.Popen(["git", "cat-file", "--batch-check"],
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    batch_proc.stdin.write(sha + b"^{tree}\n")
+    batch_proc.stdin.flush()
+    line = batch_proc.stdout.readline()
+    obj_sha, obj_type_size = line.rstrip().split(None, 1)
+    if obj_type_size == b"missing":
+        raise IOError("failed to dereference %s^{tree}" % sha_fmt(sha))
+    else:
+        return obj_sha
+
+def iter_commits(start="HEAD"):
+    proc = subprocess.Popen(["git", "rev-list", start],
+                            stdout=subprocess.PIPE)
+    for line in proc.stdout:
+        yield line.rstrip()
+
+def recurse_tree_for_blob(tree_sha, blob_sha):
+    global seen_trees
+    if tree_sha not in seen_trees:
+        result = set()
+        for item_type, item_sha, item_name in get_tree_items(tree_sha):
+            if item_type == b"blob" and item_sha == blob_sha:
+                result.add(item_name)
+            elif item_type == b"tree":
+                found = recurse_tree_for_blob(item_sha, blob_sha)
+                if found:
+                    result |= {item_name + b"/" + path for path in found}
+        seen_trees[tree_sha] = result
+    return seen_trees[tree_sha]
+
+def hash_file(path):
+    proc = subprocess.Popen(["git", "hash-object", path],
+                            stdout=subprocess.PIPE)
+    line = proc.stdout.readline()
+    if line:
+        return line.rstrip()
+    else:
+        raise IOError("could not hash blob")
+
+def sha_fmt(sha):
+    return sha.decode("us-ascii")
+
+def status(msg=""):
+    sys.stderr.write("\r\033[K\033[32m%s\033[m\r" % msg)
+    sys.stderr.flush()
+
+def print_initial_result(commit, blob_path):
+    print("found at %r in:" % blob_path)
+    print("   commit %s" % sha_fmt(commit))
+
+def print_final_result(commits, blob_path):
+    n_found = len(commits)
+    if n_found > 1:
+        print("   …until %s (%d commits)" % (sha_fmt(commits[-1]), n_found))
+
+def print_results(commits, blob_path):
+    n_found = len(commits)
+    if n_found == 0:
+        return
+    elif n_found == 1:
+        print("found at %r in 1 commit" % blob_path)
+        print("   commit %s" % sha_fmt(commits[0]))
+    else:
+        print("found at %r in %d commits" % (blob_path, n_found))
+        print("   commit %s" % sha_fmt(commits[0]))
+        print("   …until %s" % sha_fmt(commits[-1]))
+
+def main():
+    if len(sys.argv) < 2:
+        print(__doc__)
+        exit(1)
+
+    sha_re = re.compile(r'^[0-9a-f]{40}$')
+
+    path = sys.argv[1]
+
+    if sha_re.match(path):
+        print("assuming %r is a blob hash" % path)
+        file_sha = path.encode("us-ascii")
+    else:
+        print("assuming %r is a file to hash" % path)
+        file_sha = hash_file(path)
+
+    if len(sys.argv) > 2:
+        start_commit = sys.argv[2]
+        print("starting at commit %r" % start_commit)
+    else:
+        start_commit = "HEAD"
+
+    try:
+        n_commits = 0
+        found_commits = []
+        last_path = None
+
+        for commit_sha in iter_commits(start_commit):
+            n_commits += 1
+            if n_commits % 5 == 0:
+                status("checking commit %s (#%d)" % (sha_fmt(commit_sha), n_commits))
+            tree_sha = get_commit_tree(commit_sha)
+            blob_path = recurse_tree_for_blob(tree_sha, file_sha)
+            if blob_path == last_path:
+                if blob_path:
+                    found_commits.append(commit_sha)
+            else:
+                status()
+                if len(found_commits) > 0:
+                    print_final_result(found_commits, last_path)
+                    found_commits = []
+                if blob_path:
+                    if len(found_commits) == 0:
+                        print_initial_result(commit_sha, blob_path)
+                    found_commits.append(commit_sha)
+                last_path = blob_path
+    except KeyboardInterrupt:
+        status("interrupted at commit %s" % (sha_fmt(commit_sha)))
+        print()
+        print_results(found_commits, last_path)
+    else:
+        status("finished after %d commits" % n_commits)
+        print()
+        print_results(found_commits, last_path)
+
+if __name__ == '__main__':
+    main()

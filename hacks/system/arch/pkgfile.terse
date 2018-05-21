@@ -1,0 +1,62 @@
+#!/usr/bin/env python
+import sys
+import subprocess
+from collections import OrderedDict
+
+def uniq(it, seen=()):
+    seen = set(seen)
+    for i in it:
+        if i not in seen:
+            yield i
+            seen.add(i)
+
+def pkgfile_verbose(arg, bin_only=False, glob=False):
+    args = ["pkgfile", "-v"]
+    if bin_only:
+        args.append("-b")
+    if glob:
+        args.append("-g")
+    args.append("--")
+    args.append(arg)
+    ret = subprocess.run(args, stdout=subprocess.PIPE)
+    out = ret.stdout.decode("utf-8")
+    out = [" ".join(line.split()) for line in out.splitlines()]
+    return out
+
+def parse_results(it):
+    pkgv = []
+    pkgf = {}
+    for i in it:
+        pkg, ver, path = i.split(None, 2)
+        if pkg not in pkgf:
+            pkgv.append((pkg, ver))
+            pkgf[pkg] = list()
+        pkgf[pkg].append(path)
+    return pkgv, pkgf
+
+def do_pkg(arg, **kwargs):
+    max_files = 2
+    pkgs_bin = pkgfile_verbose(arg, bin_only=True, **kwargs)
+    pkgs_all = pkgfile_verbose(arg, bin_only=False, **kwargs)
+    pkgs_bin, files_bin = parse_results(pkgs_bin)
+    pkgs_all, files_all = parse_results(pkgs_all)
+    if pkgs_bin:
+        first_pkg, first_ver = pkgs_bin[0]
+    elif pkgs_all:
+        first_pkg, first_ver = pkgs_all[0]
+    else:
+        print("no results for %r" % arg)
+        return
+    first_pkg_files = files_all[first_pkg]
+    first_path = ", ".join(first_pkg_files[:max_files])
+    if len(first_pkg_files) > max_files:
+        first_path += ", %d more" % (len(first_pkg_files) - max_files)
+    out_str = "%s %s (%s)" % (first_pkg, first_ver, first_path)
+    rest_pkgs = [i[0] for i in pkgs_all[:]]
+    rest_pkgs = [*uniq(rest_pkgs, {first_pkg})]
+    if rest_pkgs:
+        out_str += ", " + ", ".join(rest_pkgs)
+    print(out_str)
+
+for arg in sys.argv[1:]:
+    do_pkg(arg)

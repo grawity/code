@@ -1,0 +1,173 @@
+#!/usr/bin/env python
+import enum
+import ipaddress
+import math
+from nullroute.core import Core
+from nullroute.misc import chunk
+import re
+import sys
+
+def lchunk(vec, size):
+    return [*chunk(vec, size)]
+
+def fromhex(vec):
+    return [bytes.fromhex(a.replace(".", ""))
+            for a in vec]
+
+class AFI(enum.IntEnum):
+    IANA_ICP_d = 0x34
+    IANA_ICP_b = 0x35
+    ITU_X121_d = 0x36
+    ITU_X121_b = 0x37
+    ISO_DCC_d = 0x38
+    ISO_DDC_b = 0x39
+    ITU_F69_d = 0x40
+    ITU_F69_b = 0x41
+    ITU_E163_d = 0x42
+    ITU_E163_b = 0x43
+    ITU_E164_d = 0x44
+    ITU_E164_b = 0x45
+    ISO_ICD_d = 0x46
+    ISO_ICD_b = 0x47
+
+AFI_NAMES = {
+    AFI.IANA_ICP_b: "IANA ICP",
+}
+
+class NSAP():
+    afi_name    = None
+    afi_decimal = None
+    afi_binary  = None
+    idi_length  = -1
+
+    def __init__(self):
+        self.afi = None
+        self.idi = None
+        self.dsp = None
+        self.dsp_fmt = None
+        self.plen = -1
+
+    def __str__(self):
+        idi_length = self.idi_length
+        str_afi = f"{self.afi:02X}"
+        str_idi = f"{self.idi}".rjust(idi_length, "0")
+        if idi_length % 2 != 0:
+            str_idi += "F"
+            idi_length += 1
+
+        strs_dsp = []
+        if self.dsp_fmt == "binary":
+            strs_dsp = [c.hex().upper() for c in self.dsp]
+        else:
+            raise ValueError(f"DSP format {self.dsp_fmt!r} not supported")
+
+        args = [str_afi, str_idi, *strs_dsp]
+        if sum([len(a) for a in args]) > 20*2:
+            raise ValueError("NSAP is too long (must be 20 bytes)")
+
+        str_nsap = ".".join(args)
+        if self.plen >= 0:
+            str_nsap += f"/{self.plen}"
+        return str_nsap
+
+class IANA_ICP_NSAP(NSAP):
+    afi_name    = "IANA ICP"
+    afi_decimal = [AFI.IANA_ICP_d]
+    afi_binary  = [AFI.IANA_ICP_b]
+    idi_length  = 4
+
+if sys.argv[1] == "ipv6":
+    afi, idi, rest = AFI.IANA_ICP_b, "0", sys.argv[2:]
+elif sys.argv[1] == "ipv4":
+    afi, idi, rest = AFI.IANA_ICP_b, "1", sys.argv[2:]
+else:
+    afi, idi, *rest = int(sys.argv[1], 16), *sys.argv[2:]
+
+dsp_rules = None
+
+if afi == AFI.IANA_ICP_b:
+    nsap = IANA_ICP_NSAP()
+    nsap.afi = afi
+    nsap.idi = int(idi, 10)
+    nsap.dsp_fmt = "binary"
+    addr = rest[0]
+    if nsap.idi == 0:
+        nsap.afi_name += " (IPv6)"
+        if "/" in addr:
+            net = ipaddress.IPv6Network(addr)
+            nsap.plen = net.prefixlen
+            nbytes = math.ceil(net.prefixlen / 8)
+            nsap.dsp = lchunk(net.network_address.packed[:nbytes], 4)
+            if len(rest) > 1:
+                Core.err("specifying trailing data doesn't make sense in IP-prefix mode")
+        else:
+            addr = ipaddress.IPv6Address(addr)
+            nsap.dsp = lchunk(addr.packed, 4)
+            dsp_rules = [
+                (len(nsap.dsp), "SEL", 1),
+            ]
+            nsap.dsp += fromhex(rest[1:])
+    elif nsap.idi == 1:
+        nsap.afi_name += " (IPv4)"
+        if "/" in addr:
+            net = ipaddress.IPv4Network(addr)
+            nsap.plen = net.prefixlen
+            nbytes = math.ceil(net.prefixlen / 8)
+            nsap.dsp = lchunk(net.network_address.packed[:nbytes], 4)
+            if len(rest) > 1:
+                Core.err("specifying trailing data doesn't make sense in IP-prefix mode")
+        else:
+            addr = ipaddress.IPv4Address(addr)
+            nsap.dsp = lchunk(addr.packed, 4)
+            nsap.dsp.append(b'\x00'*12)
+            dsp_rules = [
+                (1, "Reserved", 12),
+                (2, "SEL", 1),
+            ]
+    else:
+        Core.err(f"IANA ICP {nsap.idi!r} not supported")
+elif afi == AFI.ITU_E164_b:
+    nsap = NSAP()
+    nsap.afi = afi
+    nsap.afi_name = "E.164"
+    nsap.idi = re.sub(r"[^0-9]", "", idi)
+    nsap.idi_length = 15
+    nsap.dsp_fmt = "binary"
+    nsap.dsp = fromhex(rest)
+    if nsap.dsp:
+        dsp_rules = [
+            (0, "HO-DSP", 4),
+            (1, "ESI", 6),
+            (2, "SEL", 1),
+        ]
+elif afi == AFI.ISO_ICD_b:
+    nsap = NSAP()
+    nsap.afi = afi
+    nsap.afi_name = "ISO ICD"
+    nsap.idi = "%X" % int(idi, 16)
+    nsap.idi_length = 4
+    nsap.dsp_fmt = "binary"
+    nsap.dsp = fromhex(rest)
+    if nsap.dsp:
+        dsp_rules = [
+            (0, "HO-DSP", 10),
+            (1, "ESI", 6),
+            (2, "SEL", 1),
+        ]
+
+if nsap:
+    if dsp_rules:
+        dsp_items = ", ".join([r[1] for r in dsp_rules])
+        for ipos, iname, ilen in dsp_rules:
+            if len(nsap.dsp) <= ipos:
+                if iname != "SEL":
+                    Core.err(f"{nsap.afi_name}: DSP: {iname} is missing")
+            else:
+                dlen = len(nsap.dsp[ipos])
+                if dlen != ilen:
+                    Core.err(f"{nsap.afi_name}: DSP: {iname} must be {ilen} bytes, got {dlen}")
+
+    try:
+        print(nsap)
+    except ValueError as e:
+        Core.err(e)

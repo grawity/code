@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+use bignum;
+use feature qw(switch say);
+use open qw(:std :utf8);
+use utf8;
+use Getopt::Long qw(:config no_ignore_case);
+use Nullroute::Lib qw(_die);
+use JSON;
+use POSIX qw(strftime);
+use POSIX::strptime qw(strptime);
+use Text::Wrap;
+
+my $max = 0;
+my $min = 0;
+
+my $file = shift(@ARGV) // "$ENV{HOME}/Backup/Personal/Twitter.json";
+
+GetOptions(
+	'since=s' => \$min,
+	'until=s' => \$max,
+);
+
+open(my $f, "<", $file) or _die("could not load tweets: $!");
+my $tweets = from_json(eval {local $/; <$f>});
+close($f);
+
+my $p = " " x 4;
+my $q = " " x 8;
+
+my $cols;
+($cols) = (`stty size` =~ /^\d+ (\d+)$/) if -t 0;
+$cols ||= 80;
+
+$Text::Wrap::columns = $cols-2;
+
+say "—"x($cols);
+for my $tweet (@$tweets) {
+	next if !defined $tweet;
+	next if $min && $tweet->{id} < $min;
+	last if $max && $tweet->{id} > $max;
+
+	my $retweet = $tweet->{retweeted_status};
+	my $status = $retweet // $tweet;
+	my $url = "https://twitter.com/".$status->{user}{screen_name}
+		."/status/".$status->{id};
+
+	my @tm = strptime($tweet->{created_at}, "%a %b %d %H:%M:%S %z %Y");
+	my $tm = strftime("%Y-%m-%d", @tm);
+
+	say "$tm ($url)";
+	if ($retweet) {
+		say $p."RT \@".$retweet->{user}{screen_name}.":";
+		say wrap($q, $q, $retweet->{text});
+	} else {
+		say wrap($p, $p, $tweet->{text});
+	}
+	say "—"x($cols);
+}

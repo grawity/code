@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+# git-extract-tag -- extract 'merged tags' from Git merge commits, to verify
+#                    their signatures
+import sys
+import subprocess
+from io import BytesIO
+
+def parse_object(stream):
+    in_head = True
+    field = None
+    value = b""
+
+    for line in stream:
+        if in_head:
+            if line == b"\n":
+                if field is not None:
+                    yield (field, value)
+                in_head = False
+                field = None
+                value = b""
+            elif line.startswith(b" "):
+                if field is None:
+                    raise IOError("object starts with continuation")
+                value += line[1:]
+            else:
+                if field is not None:
+                    yield (field, value)
+                field, value = line.split(b" ", 1)
+        else:
+            value += line
+    yield (field, value)
+
+def extract_tag(stream, verify=True, create_ref=False):
+    for field, value in parse_object(stream):
+        if field == b"mergetag":
+            proc = subprocess.Popen(["git", "hash-object", "-w", "-t", "tag", "--stdin"],
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            proc.stdin.write(value)
+            proc.stdin.close()
+            tag_hash = proc.stdout.readline().rstrip(b"\n").decode("utf-8")
+            print(tag_hash)
+
+            subprocess.call(["git", "cat-file", "tag", tag_hash])
+            subprocess.call(["git", "verify-tag", tag_hash])
+
+objs = sys.argv[1:]
+
+if objs:
+    for commit_hash in objs:
+        with subprocess.Popen(["git", "cat-file", "commit", commit_hash],
+                              stdout=subprocess.PIPE) as proc:
+            extract_tag(proc.stdout)
+else:
+    with open("/dev/stdin", "rb") as stdin:
+        extract_tag(stdin)

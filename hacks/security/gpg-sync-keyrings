@@ -1,0 +1,131 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import sys
+import subprocess
+from operator import attrgetter
+from socket import gethostname
+
+class GpgKeyring(dict):
+    def __init__(self):
+        self.gpgoptions = None
+        self.last_key = None
+
+    def add_key(self, key_id):
+        key = GpgKey(key_id)
+        self[key.id] = key
+        self.last_key = key
+
+    @classmethod
+    def load(self, *gpg_args):
+        gpg_args = list(gpg_args)
+        gpg_args += ["--with-colons", "--fast-list-mode", "--list-sigs"]
+        proc = subprocess.Popen(gpg_args,
+                    stdout=subprocess.PIPE)
+
+        keyring = self()
+
+        for line in proc.stdout:
+            line = line.strip().decode("utf-8").split(":")
+            if line[0] == "pub":
+                id = line[4]
+                keyring.add_key(id)
+            elif line[0] == "sig":
+                signer_id = line[4]
+                timestamp = int(line[5])
+                keyring.last_key.add_sig(signer_id, timestamp)
+
+        return keyring
+
+class GpgKey(object):
+    def __init__(self, key_id):
+        self.id = key_id
+        self.sigs = set()
+
+    def __repr__(self):
+        return "Key(id=%r, sigs=%r)" % (self.id, self.sigs)
+
+    def add_sig(self, signer_id, timestamp):
+        sig = signer_id, timestamp
+        self.sigs.add(sig)
+
+def keyring_diff(local, remote):
+    local_keys = set(local)
+    remote_keys = set(remote)
+
+    # TODO: sync key removal
+
+    to_remote = local_keys - remote_keys
+    to_local = remote_keys - local_keys
+
+    for id in local_keys & remote_keys:
+        if local[id].sigs - remote[id].sigs:
+            to_remote.add(id)
+        if remote[id].sigs - local[id].sigs:
+            to_local.add(id)
+
+    return to_remote, to_local
+
+def gpg_transport(src_args, dst_args, key_ids):
+    export_args =  ["--export-options", "export-local-sigs,export-sensitive-revkeys"]
+    import_args =  ["--verbose",
+                    "--allow-non-selfsigned-uid",
+                    "--import-options", "import-local-sigs"]
+
+    charset_args = ["--charset", "utf-8",
+                    "--display-charset", "utf-8",
+                    "--utf8-strings"]
+
+    export_args += charset_args
+    import_args += charset_args
+
+    export_cmd = src_args + export_args + ["--export"] + ["0x%s" % id for id in key_ids]
+    import_cmd = dst_args + import_args + ["--import"]
+
+    gpg_pipe(export_cmd, import_cmd)
+
+def gpg_merge_ownertrust(src_args, dst_args):
+    export_cmd = src_args + ["--export-ownertrust"]
+    import_cmd = dst_args + ["--import-ownertrust"]
+
+    gpg_pipe(export_cmd, import_cmd)
+
+def gpg_pipe(export_cmd, import_cmd):
+    print(export_cmd)
+    print(import_cmd)
+
+    exporter = subprocess.Popen(export_cmd, stdout=subprocess.PIPE)
+    importer = subprocess.Popen(import_cmd, stdin=exporter.stdout)
+
+    r = importer.wait()
+    if r > 0:
+        exporter.terminate()
+    else:
+        exporter.wait()
+
+h = gethostname().lower()
+
+if h == "rain":
+    local_args = ["gpg"]
+    remote_args = ["ssh", "snow.home", "gpg"]
+elif h == "snow":
+    local_args = ["gpg"]
+    remote_args = ["plink", "rain.home", "gpg"]
+
+local = GpgKeyring.load(*local_args)
+print("Local: %d keys" % len(local))
+
+remote = GpgKeyring.load(*remote_args)
+print("Remote: %d keys" % len(remote))
+
+to_remote, to_local = keyring_diff(local, remote)
+
+if to_remote:
+    print("Exporting %d keys" % len(to_remote))
+    gpg_transport(local_args, remote_args, to_remote)
+
+if to_local:
+    print("Importing %d keys" % len(to_local))
+    gpg_transport(remote_args, local_args, to_local)
+
+print("Exporting all ownertrusts")
+gpg_merge_ownertrust(local_args, remote_args)

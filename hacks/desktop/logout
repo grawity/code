@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+session=${DESKTOP_SESSION:-default}
+
+# sddm nonsense
+session=${session##*/}
+
+if [[ $session == @(default|lightdm-xsession) ]]; then
+	session=${XDG_SESSION_DESKTOP:-default}
+fi
+
+if [[ $session == default ]]; then
+	debug "desktop session is 'default', trying to guess"
+	if [[ $GNOME_DESKTOP_SESSION_ID ]]; then
+		debug "found GNOME session ID"
+		session=gnome
+	elif [[ $KDE_SESSION_VERSION == 4 ]]; then
+		debug "found KDE session version 4"
+		session=kde-plasma
+	elif [[ $KDE_SESSION_VERSION == 5 ]]; then
+		debug "found KDE session version 4"
+		session=plasma
+	elif [[ $MATE_DESKTOP_SESSION_ID ]]; then
+		debug "found MATE session ID"
+		session=mate
+	elif [[ $DBUS_SESSION_BUS_ADDRESS ]]; then
+		debug "found a D-Bus session bus, guessing by bus names"
+		if have busctl; then
+		    names=$(busctl list --user --acquired --no-legend | awk '{print $1}')
+		elif have qdbus; then
+		    names=$(qdbus --session)
+		elif have dbus-name; then
+		    names=$(dbus-name -elq)
+		else
+		    debug "no D-Bus CLI tool available"
+		    die "not sure what session you're using; giving up"
+		fi
+		for name in $names; do
+			case $name in
+			    com.canonical.Unity)
+				debug "found Unity ($name)"
+				session=unity
+				;;
+			    org.enlightenment.wm.service)
+				debug "found Enlightenment WM ($name)"
+				session=enlightenment; EVERSION=
+				;;
+			    org.gnome.SessionManager)
+				debug "found GNOME session manager ($name)"
+				session=gnome
+				;;
+			    org.kde.ksmserver)
+				debug "found KDE session manager ($name)"
+				session=kde-plasma
+				;;
+			    org.kde.plasmashell)
+				debug "found KDE Plasma shell ($name)"
+				session=kde-plasma
+				;;
+			    org.mate.SessionManager)
+				debug "found MATE session manager ($name)"
+				session=mate
+				;;
+			    org.razorqt.session)
+				debug "found Razor-Qt session manager ($name)"
+				session=razor
+				;;
+			    org.xfce.SessionManager)
+				debug "found Xfce4 session manager ($name)"
+				session=xfce
+				;;
+			esac
+		done
+	fi
+else
+	debug "desktop session is '$session'"
+fi
+
+case $session in
+    enlightenment*)
+	if [[ $EVERSION == 1.0.* ]]; then
+	    name='Enlightenment 16'
+	    cmd='eesh exit'
+	else
+	    name=Enlightenment
+	    cmd='enlightenment_remote -exit'
+	fi
+	;;
+    gnome|gnome-*)
+	name=GNOME
+	if have gnome-session-quit; then
+		cmd='gnome-session-quit --logout --force --no-prompt'
+	else
+		cmd='gnome-session-save --force-logout --silent'
+	fi
+	;;
+    herbstluftwm)
+	name=Herbstluftwm
+	cmd='herbstclient quit'
+	;;
+    kde-plasma|kde-plasma-safe|plasma)
+	name=KDE
+	cmd='qdbus org.kde.ksmserver /KSMServer logout 0 -1 -1'
+	;;
+    mate)
+	name=MATE
+	cmd='mate-session-save --logout'
+	;;
+    [Oo]penbox)
+	name=Openbox
+	cmd='openbox --exit'
+	;;
+    razor)
+	name=Razor-Qt
+	cmd='qdbus org.razorqt.session /RazorSession logout'
+	;;
+    ubuntu|unity)
+	name=Unity
+	cmd='gnome-session-quit --logout --force --no-prompt'
+	;;
+    Windows_NT)
+	name=Windows
+	cmd='logoff.exe'
+	;;
+    wmii)
+	name=Wmii
+	cmd='wmiir xwrite /ctl quit'
+	;;
+    xfce)
+	name=Xfce4
+	cmd='xfce4-session-logout --logout'
+	;;
+    *)
+	die "unknown desktop environment"
+esac
+
+debug "detected environment '$name'"
+debug "will run: $cmd"
+
+if [[ $DEBUG ]]; then
+	echo "Doing nothing in debug mode."
+else
+	echo "Logging out of ${name}..."
+	eval "$cmd"
+fi
+
+# vim: sw=4:sts=8

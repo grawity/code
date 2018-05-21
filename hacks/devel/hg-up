@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# hg-up - update a hg repository and show changelog
+
+oldrev=$(hg tip -q)
+
+hg pull -u
+
+newrev=$(hg tip -q)
+
+if [[ "$oldrev" != "$newrev" ]]; then
+	oldrev=${oldrev#*:}
+	newrev=${newrev#*:}
+	echo "Updated ${oldrev}:${newrev}"
+	#hgk "${oldrev}:${newrev}"
+	hg log -r "${oldrev}:${newrev}" --pager always
+fi

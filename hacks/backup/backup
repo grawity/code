@@ -1,0 +1,433 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+progname_prefix=0
+
+# configuration
+
+local_config_file=$path_config/backup.conf.sh
+
+annexes=(~/Attic/{Annex,Software,Videos,Anime})
+hosts=()
+push_volume="/vol4"
+borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
+borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
+
+borg_args=(
+	--progress
+	--stats
+	--one-file-system
+	--exclude-caches
+	--exclude-if-present=".nobackup"
+	--keep-exclude-tags
+)
+
+borg_keep=(
+	--keep-daily 7
+	--keep-weekly 8
+	--keep-monthly 24
+)
+
+# Used by backup.conf to override borg_* config variables at job run time
+borg_pre() { true; }
+
+if [[ -f $local_config_file ]]; then
+	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
+else
+	warn "config file '$local_config_file' missing"
+fi
+
+# misc
+
+bvol=$push_volume
+conf=$path_config/synced
+
+lock_path=
+lock_fd=
+failed_jobs=()
+
+take_lock() {
+	local job=$1
+
+	lock_path=$path_runtime/backup-$1.lock
+	exec {lock_fd}<>$lock_path
+	flock -x -n $lock_fd || {
+		if read ldate < "$lock_path" || true; then
+			lmsg="started on $(date -d "$ldate" +"%F %T")"
+		else
+			lmsg="status unknown"
+		fi
+		die "job $job is already running ($lmsg)"
+	}
+	echo "$(date -Isecond) $*" >&$lock_fd
+}
+
+drop_lock() {
+	exec {lock_fd}<&-
+	rm -f "$lock_path"
+}
+
+is_mounted() {
+	local path=$1
+	test -d "$path" && mountpoint -q "$path"
+}
+
+is_older_than() {
+	local path=$1 seconds=$2
+	local a=$(date +%s)
+	local b=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+	(( a - b > seconds ))
+}
+
+check_stamp() {
+	local name=$1 seconds=$2
+	is_older_than "$path_cache/backup/$name.stamp" "$seconds"
+}
+
+update_stamp() {
+	local name=$1
+	install -Dm644 /dev/null "$path_cache/backup/$name.stamp"
+}
+
+do_borg() {
+	local kind=$1
+	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
+	local var
+
+	borg_pre "$kind"
+	var="borg_${kind}_repo"; local repo="${!var}"
+	var="borg_${kind}_base"; local base="${!var}"
+	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")
+	var="borg_${kind}_args[@]"; local args=("${!var}")
+	var="borg_${kind}_wrap[@]"; local wrap=("${!var}")
+
+	[[ $repo ]] || die "borg_${kind}_repo not defined"
+	[[ $base ]] || die "borg_${kind}_base not defined"
+	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
+	[[ -d $repo ]] || die "repository '$repo' does not exist"
+
+	# idiot-proofing: if nonexistent exclude files were specified, create them
+
+	local arg next=-1
+	for arg in "${args[@]}"; do
+		if [[ $arg == --exclude-from ]]; then
+			next=1
+		elif [[ $arg == --exclude-from=* ]]; then
+			arg=${arg#*=}
+			next=0
+		fi
+		if (( next == 0 )) && [[ ! -f $arg ]]; then
+			info "creating missing exclude file '$arg'"
+			touch "$arg" || return
+		fi
+		if (( next >= 0 )); then
+			(( --next ))
+		fi
+	done
+
+	# run borg create
+
+	local cmd=(
+		"${wrap[@]}"
+		env --chdir "$base"
+		borg create "$repo::$tag"
+		"${dirs[@]}"
+		"${args[@]}"
+	)
+	do: "${cmd[@]}" || return
+
+	# run borg prune (if it has been a month since the last run)
+
+	local id=$("${wrap[@]}" awk '/^id = /{print $3}' "$repo/config")
+	check_stamp "borg_$id.prune" $(( 30*86400 )) || return 0
+	cmd=(
+		"${wrap[@]}"
+		borg prune "$repo"
+		--verbose
+		"${borg_keep[@]}"
+	)
+	do: "${cmd[@]}" || return
+	update_stamp "borg_$id.prune"
+}
+
+do_rsync() {
+	local src=$1 dest=$2 rest=("${@:3}")
+
+	local arg last args=()
+
+	if have nocache; then
+		debug "using 'nocache'"
+		args+=(nocache)
+	else
+		notice "you should install 'nocache'"
+	fi
+
+	# note: add -x to jobs instead of here
+	args+=(rsync "$src" "$dest"
+		-aHAXvzh
+		--info=progress2
+		--delete-after
+		--delete-excluded)
+
+	for arg in "${rest[@]}"; do
+		if [[ $last == -f && $arg == @(merge|.)\ * ]]; then
+			debug "processing '$arg'"
+			if [[ -f ${arg#* } ]]; then
+				args+=("$arg")
+			else
+				debug "merge file not found, replacing with /dev/null"
+				args+=("merge /dev/null")
+			fi
+		else
+			args+=("$arg")
+		fi
+		last=$arg
+	done
+
+	log "rsyncing $src -> $dest"
+
+	"${args[@]}"; r=$?
+
+	(( !r )) ||	# success
+	(( r == 24 ))	# files vanished
+}
+
+do_annex_archive() {
+	local remote
+	local -i skipped=0 done=0 failed=0
+
+	log "copying annex '$PWD' to archive"
+
+	for remote in $(git remote); do
+		if [[ $remote != vol* ]]; then
+			debug "skipping mismatching remote '$remote'"
+		elif ! git annex group $remote | grep -wqs archive; then
+			warn "remote '$remote' ought to be in the 'archive' group"
+			debug "skipping non-archive remote '$remote'"
+			(( ++skipped ))
+		elif ! git ls-remote $remote >&/dev/null; then
+			debug "skipping unavailable remote '$remote'"
+			(( ++skipped ))
+		else
+			do: git annex copy --in . --not --copies archive:1 --to $remote
+			if (( $? == 0 )); then
+				(( ++done ))
+			else
+				warn "archiving to remote '$remote' failed"
+				(( ++failed ))
+			fi
+		fi
+	done
+
+	if (( done > 0 )); then
+		return 0
+	elif (( failed > 0 )); then
+		err "failed archive data to any archive volume"
+		return 1
+	else
+		err "no archive volumes available (skipped $skipped)"
+		return 1
+	fi
+}
+
+do_job() {
+	$0 "$1" || { failed_jobs+=("$1"); false; }
+}
+
+if [[ ! $_inhibited ]]; then
+	export _inhibited=$$
+	debug "restarting under gnome-inhibit"
+	exec gnome-inhibit \
+		--always \
+		--who "backup" \
+		--what "suspend" \
+		--why "Performing a backup" \
+		-- "$0" "$@"
+fi
+
+set -e
+umask 077
+debug "started with: '$*'"
+
+trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
+
+(( $# )) || set -- push-hd
+
+for job; do
+	take_lock "$job"
+	log2 "running job '$job'"
+	t_begin=$(now)
+
+	case $job in
+		push-hd)
+			do_job local
+			do_job home
+			do_job root
+			do_job annex-push-hd
+			sync
+			;;
+		annex-push-hd)
+			failed=0
+			for annex in "${annexes[@]}"; do
+				(cd "$annex" && do_annex_archive) || (( ++failed ))
+			done
+			(( !failed ))
+			;;
+		home | borg-home)
+			borg_home_base=~
+			borg_home_dirs=(.)
+			borg_home_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/home_all.exclude"
+				--exclude-from="$conf/borg/home_$HOSTNAME.exclude"
+			)
+			do_borg home
+			;;
+		root | borg-root)
+			borg_root_base=/
+			borg_root_dirs=(/)
+			borg_root_wrap=(sudo -i)
+			borg_root_args=(
+				"${borg_args[@]}"
+				--exclude-from="$conf/borg/root_all.exclude"
+				--exclude-from="$conf/borg/root_$HOSTNAME.exclude"
+			)
+			do_borg root
+			;;
+		pull)
+			if [[ $HOSTNAME == rain ]]; then
+				do_job twitter
+				do_job mail
+			fi
+			do_job servers
+			do_job irc
+			;;
+		servers)
+			homes=()
+			roots=()
+			etcs=()
+			for host in "${hosts[@]}"; do
+				if [[ $host == '#'* ]]; then
+					continue
+				elif [[ $host == *'!' ]]; then
+					host=${host%!}
+					roots+=($host)
+				elif [[ $host == *'+' ]]; then
+					host=${host%'+'}
+					etcs+=($host)
+				fi
+				homes+=($host)
+			done
+			debug "backup home from: ${homes[*]}"
+			debug "backup /etc from: ${etcs[*]}"
+			debug "backup rootfs from: ${roots[*]}"
+			debug "running jobs"
+			for host in ${homes[@]}; do
+				do_job @$host
+			done
+			for host in ${etcs[@]}; do
+				do_job etc@$host
+			done
+			for host in ${roots[@]}; do
+				do_job root@$host
+			done
+			if [[ $HOSTNAME == rain ]]; then
+				if is_mounted $bvol; then
+					do_job fs1
+				fi
+			fi
+			;;
+		etc@*)
+			host=${job#*@}
+			do_rsync root@$host:/etc/ ~/Backup/Servers/$host.etc/		\
+				-F -x -P --fake-super					;
+			do_rsync root@$host:/ ~/Backup/Servers/$host.private/		\
+				-f "merge $conf/rsync-filters/server_creds_all"		\
+				-x -P --fake-super --prune-empty-dirs			;
+			;;
+		root@*)
+			host=${job#*@}
+			do_rsync root@$host:/ ~/Backup/Roots/$host/			\
+				-f "merge $conf/rsync-filters/server_root_all"		\
+				-f "merge $conf/rsync-filters/server_root_extra"	\
+				-f "merge $conf/rsync-filters/server_root_$host"	\
+				-F -x -P --fake-super					;
+			;;
+		@*)
+			host=${job#@}
+			do_rsync $host: ~/Backup/Homes/$host/				\
+				-f "merge $conf/rsync-filters/home_all"			\
+				-f "merge $conf/rsync-filters/home_$host"		\
+				-f "merge $conf/rsync-filters/server_home_all"		\
+				-f "merge $conf/rsync-filters/server_home_$host"	\
+				-F -x -P						;
+			;;
+		fs1)
+			do_rsync radius:pub/fs1/ $bvol/Backup/fs1/		\
+				-f "exclude /mirrors/rain"			;
+			;;
+		mail)
+			host=wolke
+			do_rsync $host:Mail/      ~/Backup/Mail/$host/
+			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
+			;;
+		gphotos)
+			do: rclone sync -v \
+				"gdrive:Google Photos" \
+				"$bvol/Backup/Google Drive Photos"
+			;;
+		twitter)
+			twitter-backup
+			;;
+		irc)
+			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
+			;;
+		local)
+			if [[ -e ~/.dropbox/ ]]; then
+				dbx-keystore dump > ~/.dropbox/hostkeys.json
+				# This is optional... only done because reindexing
+				# from scratch takes a long time.
+			fi
+			do_job local@$HOSTNAME
+			;;
+		local@rain)
+			do_job ssd@$HOSTNAME
+			do_rsync \
+				/C/Users/Mantas/AppData/Roaming/Firestorm_x64/	\
+				~/Backup/Games/SL/Firestorm_current/		\
+				-f "exclude browser_profile"			;
+			do_job games@$HOSTNAME
+			;;
+		ssd@rain)
+			do_rsync \
+				/ssd.home/grawity/.config/			\
+				~/Backup/Homes/rain.ssd.config/			\
+				-f "exclude /VirtualBox/*.dat*"			\
+				-f "exclude /VirtualBox/*.log*"			\
+				;
+			;;
+		games@rain)
+			(cd ~/Backup/Games && ./backup.sh)
+			;;
+		local@*)
+			;;
+		*)
+			die "unknown job '$job'"
+			;;
+	esac || r=$?
+
+	t_end=$(now)
+	log "job '$job' finished in $(interval $[t_end-t_begin])"
+	drop_lock
+
+	if (( r )); then
+		failed_jobs+=("$job")
+		break
+	fi
+done
+
+if (( ${#failed_jobs[@]} )); then
+	_fail=${failed_jobs[*]}
+	err "backup failed for ${_fail// /, }"
+fi

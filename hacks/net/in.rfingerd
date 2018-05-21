@@ -1,0 +1,292 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import sys
+import os
+import re
+import socket
+import subprocess
+import syslog
+
+#os.environ["DEBUG"] = "y"
+
+# Syntax:
+#   <regex>     <nexthop>   [<flags>]
+#
+#   <regex> is a Python 're'-compatible regexp, matching the raw query received.
+#
+#   First match wins.
+#
+# Next hop:
+#   If <nexthop> starts with "$", it is parsed as "$<group>,<nexthop>"
+#     and the selected () group is forwarded instead of entire request.
+#   If "x" in flags, <nexthop> is an executable command.
+#       If <nexthop> begins with a "|", raw query is given as stdin,
+#                                       otherwise in argv[].
+#   If <nexthop> starts with "/", it is a file to be sent.
+#   If <nexthop> is "!", the query is refused.
+#   If <nexthop> is "*", the query is transparently forwarded to the host.
+#   Otherwise, <nexthop> is a host or host:port to forward the query to.
+#
+# Flags:
+#   "h": do not strip off "@host" part from query when forwarding
+#   "q": do not display messages about forwarding to another host
+#   "x": treat <nexthop> as a command to execute
+
+DEBUG = bool(os.environ.get("DEBUG"))
+
+def log_err(msg, *args):
+    syslog.syslog(syslog.LOG_ERR, msg % args)
+
+def log_info(msg, *args):
+    syslog.syslog(syslog.LOG_INFO, msg % args)
+
+def log_debug(msg, *args):
+    syslog.syslog(syslog.LOG_DEBUG, msg % args)
+
+def _trace(msg, *args):
+    if DEBUG:
+        _print("(" + (msg % args) + ")")
+
+def _print(*args):
+    args = map(str, args)
+    line = " ".join(args)+"\r\n"
+    fh = sys.stdout
+    fh.write(line.encode("utf-8"))
+    fh.flush()
+
+def peername():
+    addr = os.environ["REMOTE_HOST"]
+    if addr.startswith("::ffff:"):
+        addr = addr[len("::ffff:"):]
+    return addr
+
+def accept():
+    request = sys.stdin.readline().strip()
+    _trace("accept(%r)", request)
+    log_info("host %r requested %r", peername(), request)
+    result = route(request)
+    if result is None:
+        refuse("not recognized")
+    elif result is False:
+        refuse("denied by configuration")
+    else:
+        forward(*result)
+
+def route(request):
+    _trace("route(%r)", request)
+
+    if request == b"/W" or request[:3] == b"/W ":
+        prefix = b"/W "
+        request = request[3:]
+    else:
+        prefix = b""
+
+    for rtent in get_routes():
+        rule = rtent[0]
+        nexthop = rtent[1]
+        try:
+            flags = rtent[2]
+        except IndexError:
+            flags = b""
+
+        _trace("trying route %r", rule)
+        result = re.search(rule, request)
+        if not result:
+            continue
+
+        if b"@" in request:
+            local, host = request.rsplit(b"@", 1)
+        else:
+            local, host = request, b""
+
+        if nexthop == b"!":
+            return False
+        elif nexthop == b"*":
+            nexthop = host
+            flags += b"R"
+
+        if nexthop[0] == b"$" and b"," in nexthop:
+            group, nexthop = nexthop.split(",", 1)
+            try:
+                group = int(group[1:])
+            except ValueError:
+                _trace("invalid group %r", group)
+                return None
+            _trace("nextreq = group(%d)", group)
+            nextreq = result.group(group)
+        elif b"@" in request and b"h" not in flags:
+            _trace("nextreq = local")
+            nextreq = local
+        else:
+            _trace("nextreq = req")
+            nextreq = request
+
+        return nexthop, prefix+nextreq, flags
+    return None
+
+def forward(addr, req, flags):
+    _trace("forward(%r, %r, %r)", req, addr, flags)
+    log_info("- forwarding to %r [flags:%s]", addr, flags or "-")
+
+    if b"x" in flags:
+        if b"R" in flags:
+            log_err("attempted to execute %r via misconfigured glob forward", addr)
+            return refuse("malformed")
+
+        if addr.startswith(b"|"):
+            stdin = True
+            addr = addr[1:]
+        else:
+            stdin = False
+
+        cmdline = [addr]
+        if req and not stdin:
+            cmdline += [req]
+        _trace("exec: using %r", cmdline)
+
+        try:
+            if stdin:
+                proc = subprocess.Popen(cmdline, stdin=subprocess.PIPE)
+                _trace("exec: writing %r", req)
+                proc.stdin.write(req + b"\n")
+                proc.stdin.close()
+                proc.wait()
+            else:
+                subprocess.Popen(cmdline, stdin=open(os.devnull, "w")).wait()
+        except OSError as e:
+            log_err("failed to spawn handler %r: %s", cmdline, e)
+            raise
+
+    elif addr.startswith(b"/") and b"R" not in flags:
+        _trace("file: using %r", addr)
+
+        try:
+            for line in open(addr, "rb"):
+                sys.stdout.write(line)
+            sys.stdout.flush()
+        except IOError as e:
+            log_err("failed to open plan %r: %s", addr, e)
+            raise
+
+    else:
+        if b"R" in flags:
+            host, port = (addr, "finger")
+        else:
+            host, port = parse_addr(addr)
+
+        _trace("tcp: using %r port %r", host, port)
+
+        try:
+            gai = socket.getaddrinfo(host, port, socket.AF_UNSPEC,
+                                     socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
+        except socket.gaierror as e:
+            log_debug("- failed to resolve %r: %s", host, e.strerror)
+            _print("finger: could not resolve %s, forward failed" % host)
+            return
+
+        for family, socktype, proto, cname, addr in gai:
+            _trace("tcp: trying %r <af=%r>", addr, family)
+            straddr = format_addr(family, addr, ignore_port=79)
+
+            sock = socket.socket(family, socktype, proto)
+            sock.settimeout(3)
+            try:
+                sock.connect(addr)
+            except socket.error as e:
+                strerr = e.strerror or e.args[0]
+                log_debug("- failed to connect to %r: %s", addr, strerr)
+                _print("finger: connect to %s failed (%s)" % (straddr, strerr))
+                continue
+
+            if not b"q" in flags:
+                if cname:
+                    _print("[%s/%s]" % (cname, straddr))
+                else:
+                    _print("[%s]" % straddr)
+
+            sock.send(req + b"\r\n")
+            buf = True
+            while buf:
+                buf = sock.recv(4096)
+                sys.stdout.write(buf)
+            sock.close()
+            break
+        else:
+            _print("finger: no reply from %s, forward failed" % host)
+
+def refuse(msg="refused"):
+    log_info("- query %s, rejecting", msg)
+    _print("finger: query refused")
+
+def format_addr(family, addr, ignore_port=None):
+    _trace("format_addr(%r, %r, %r)", family, addr, ignore_port)
+    # LAME
+    if family == socket.AF_INET:
+        host, port = addr
+        if port == ignore_port:
+            return "%s" % host
+        else:
+            return "%s:%s" % (host, port)
+    elif family == socket.AF_INET6:
+        host, port, flow, scope = addr
+        if scope:
+            host = "%s%%%s" % (host, scope)
+        if port == ignore_port:
+            return "%s" % host
+        else:
+            return "[%s]:%s" % (host, port)
+    else:
+        return repr(addr)
+
+def parse_addr(addr):
+    _trace("parse_addr(%r)", addr)
+    ## LAAAAME
+    host, port = None, "finger"
+    if addr.startswith(b"[") and b"]" in addr:
+        endpos = addr.find(b"]")
+        host = addr[1:endpos]
+        addr = addr[endpos+1:]
+    if addr.startswith(b":"):
+        port = addr[1:]
+    elif b":" in addr:
+        host, port = addr.split(b":", 1)
+        port = port
+    elif not host:
+        host = addr
+
+    return host, port
+
+def get_routes():
+    _trace("get_routes(%r)", rules_file)
+    try:
+        for line in open(rules_file, "rb"):
+            line = line.strip()
+            if line and not line.startswith(b"#"):
+                yield line.split()
+    except IOError as e:
+        log_err("failed to open configuration file %r: %s", rules_file, e)
+        raise
+
+syslog.openlog("in.rfingerd")
+
+try:
+    rules_file = sys.argv.pop(1)
+except IndexError:
+    if os.environ.get("USER") == "nobody":
+        rules_file = "/etc/rfingerd.conf"
+    else:
+        rules_file = os.devnull
+
+if hasattr(sys.stdin, "detach"):
+    sys.stdin = sys.stdin.detach()
+if hasattr(sys.stdout, "detach"):
+    sys.stdout = sys.stdout.detach()
+
+try:
+    accept()
+except Exception as e:
+    log_err("caught exception: %r", e)
+    _print("finger: internal error")
+    if DEBUG:
+        raise
+    sys.exit(1)

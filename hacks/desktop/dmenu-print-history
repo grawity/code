@@ -1,0 +1,80 @@
+#!/usr/bin/env perl
+# frecency-sort (aka dmenu-print-history) -- weighted sort by command usage
+#
+# Expects one line per command, prefixed by Unix timestamp:
+#
+#   echo "$(date +%s) $command" >> "$histfile"
+#
+# Also understands ~/.bash_history '#%s' headers.
+#
+# (c) 2015-2016 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License (dist/LICENSE.mit)
+#
+# Frecency algorithm borrowed from rupa/z:
+#   <https://github.com/rupa/z/wiki/frecency>
+#   (c) 2009 rupa deadwyler, released under the WTFPL license
+
+use warnings;
+use strict;
+use Nullroute::Lib qw(uniq _debug _die);
+
+sub rank {
+	my ($time) = @_;
+	my $age = time - $time;
+
+	return 4   if $age < 3600;
+	return 2   if $age < 86400;
+	return 1/2 if $age < 604800;
+	return 1/4;
+}
+
+my $histfile;
+my @history;
+my %time;
+my %count;
+
+$histfile = shift @ARGV // "/dev/stdin";
+
+if (open(my $f, "<", $histfile)) {
+	my $ts = 0;
+	while (<$f>) {
+		chomp;
+		if (/^#(\d+)$/)		{ $ts = int $1; }
+		elsif ($ts)		{ push @history, [$ts, $_]; $ts = 0; }
+		elsif (/^: (\d+):\d+;(.+)$/)
+					{ push @history, [int($1), $2]; }
+		elsif (/^(\d+) (.+)$/)	{ push @history, [int($1), $2]; }
+		else			{ push @history, [0, $_]; }
+	}
+	close($f);
+} else {
+	if ($!{ENOENT}) {
+		_debug("could not open histfile: $!");
+		exit;
+	} else {
+		_die("could not open histfile: $!");
+	}
+}
+
+exit if !@history;
+
+# remember the most recent timestamp for each unique command
+
+for (@history) {
+	my ($time, $cmd) = @$_;
+	if ($time{$cmd} // 0 < $time) {
+		$time{$cmd} = $time;
+	}
+}
+
+@history = map {$_->[1]} @history;
+
+# calculate frecency rank
+
+$count{$_} += 1 for @history;
+$count{$_} *= rank($time{$_}) for keys %time;
+
+print "$_\n" for
+	reverse
+	sort {$count{$a} <=> $count{$b}}
+	uniq @history;

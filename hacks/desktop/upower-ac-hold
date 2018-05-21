@@ -1,0 +1,66 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Net::DBus::Reactor;
+use POSIX;
+use constant {
+	UP_MANAGER_IFACE	=> "org.freedesktop.UPower",
+	DBUS_PROPERTY_IFACE	=> "org.freedesktop.DBus.Properties",
+};
+
+my $up_mgr;
+my $lg_mgr;
+my $on_battery;
+my $inhibit_fd;
+
+sub UPower {
+	Net::DBus->system
+	  ->get_service("org.freedesktop.UPower")
+	  ->get_object(shift || "/org/freedesktop/UPower");
+}
+
+sub Logind {
+	Net::DBus->system
+	  ->get_service("org.freedesktop.login1")
+	  ->get_object(shift || "/org/freedesktop/login1");
+}
+
+sub update_hold {
+	my ($on_battery) = @_;
+
+	if ($on_battery) {
+		return if !defined($inhibit_fd);
+		POSIX::close($inhibit_fd);
+		print "closed inhibitor $inhibit_fd\n";
+		$inhibit_fd = undef;
+	} else {
+		return if defined($inhibit_fd);
+		$inhibit_fd = $lg_mgr->Inhibit("handle-lid-switch",
+						$0,
+						"Preventing sleep while charging",
+						"block");
+		print "took inhibitor $inhibit_fd\n";
+	}
+}
+
+$up_mgr = UPower();
+$lg_mgr = Logind();
+
+$on_battery = $up_mgr->Get(UP_MANAGER_IFACE, "OnBattery");
+print "initial status: OnBattery=".int($on_battery)."\n";
+update_hold($on_battery);
+
+$up_mgr
+  ->as_interface(DBUS_PROPERTY_IFACE)
+  ->connect_to_signal("PropertiesChanged", sub {
+	my ($interface, $changed, $invalidated) = @_;
+	return unless $interface eq UP_MANAGER_IFACE;
+	return unless exists($changed->{OnBattery});
+	if ($changed->{OnBattery} != $on_battery) {
+		$on_battery = $changed->{OnBattery};
+		print "status changed: OnBattery=".int($on_battery)."\n";
+		update_hold($on_battery);
+	}
+});
+
+Net::DBus::Reactor->main->run;

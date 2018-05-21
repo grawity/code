@@ -1,0 +1,499 @@
+#!/usr/bin/env ruby
+# tls-cert-check - report expired TLS certificates
+# (c) 2016-2017 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License (dist/LICENSE.mit)
+#
+# Usage: tls-cert-check [HOST:PORT...]
+#
+# Configuration (~/.config/nullroute.eu.org/cert-check.conf):
+#
+#   # cache success results for 3600 seconds
+#   # (only configured hosts are cached, not ones provided via CLI)
+#   every 3600
+#
+#   # warn if certificate expires in 28 days or less
+#   grace 28
+#
+#   # check these hosts on given ports (STARTTLS is used automatically)
+#   check example.com 389 443 636
+#   check mail.example.com 25 143 587
+#
+#   # check individual HA instances using Server Name Indication
+#   check host1.example.com/www.example.com 443
+#   check host2.example.com/www.example.com 443
+#   check host3.example.com/www.example.com 443
+#
+# Supported STARTTLS protocols:
+#
+#   - FTP (AUTH TLS) on port 21
+#   - IMAP on port 143
+#   - IRC on port 194, 6667
+#   - LDAP on port 389
+#   - POP3 on port 110
+#   - SMTP on port 25, 587
+#   - regular implicit TLS on all other ports
+#
+# TLS SNI is always used (even if not specified explicitly).
+#
+require 'json'
+require 'openssl'
+require 'optparse'
+require 'pp'
+require 'socket'
+require 'time'
+
+module XDG
+    def self.home
+        ENV["HOME"]
+    end
+
+    def self.cache_home
+        ENV["XDG_CACHE_HOME"] || "#{home}/.cache"
+    end
+
+    def self.config_home
+        ENV["XDG_CONFIG_HOME"] || "#{home}/.config"
+    end
+
+    def self.data_home
+        ENV["XDG_DATA_HOME"] || "#{home}/.local/share"
+    end
+
+    def self.vendor
+        "nullroute.eu.org"
+    end
+
+    def self.cache_dir
+        "#{cache_home}/#{vendor}"
+    end
+
+    def self.config_dir
+        "#{config_home}/#{vendor}"
+    end
+
+    def self.data_dir
+        "#{data_home}/#{vendor}"
+    end
+end
+
+class OpenSSL::X509::Name
+    def to_rfc2253
+        to_s(OpenSSL::X509::Name::RFC2253)
+    end
+end
+
+def warn(s)
+    STDERR.puts("warning: #{s}")
+end
+
+def parse_host_port(addr, default_port)
+    if addr =~ /^\[(.+)\]:(\d+)$/
+        return [$1, $2.to_i]
+    elsif addr =~ /^\[(.+)\]$/
+        return [$1, default_port]
+    elsif addr =~ /^(.+):(\d+)$/
+        return [$1, $2.to_i]
+    else
+        return [addr, default_port]
+    end
+end
+
+def parse_host_port_sni(addr, default_port)
+    if addr =~ /^(.+)\/(.+?)$/
+        _, addr, sni = $~.to_a
+    end
+    host, port = parse_host_port(addr, default_port)
+    return [host, port, sni]
+end
+
+def format_host_port(host, port)
+    if host =~ /:/
+        return "[#{host}]:#{port}"
+    else
+        return "#{host}:#{port}"
+    end
+end
+
+def format_host_port_sni(host, port, sni)
+    hp = format_host_port(host, port)
+    if sni.nil? || sni == host
+        return hp
+    else
+        return "#{hp}/#{sni}"
+    end
+end
+
+def ftp_transact(sock, command)
+    if command
+        sock.puts "#{command}\r"
+    end
+    responses = []
+    while true
+        line = sock.gets
+        responses << line
+        if line[0] != " "
+            if line[3] == " "
+                break
+            elsif line[3] != "-"
+                raise "invalid FTP data: #{line.inspect}"
+            end
+        end
+    end
+    return responses
+end
+
+def ftp_transact!(sock, command)
+    responses = ftp_transact(sock, command)
+    if responses[0][0] != "2"
+        raise "FTP failure: #{command.inspect} -> #{responses.inspect}"
+    end
+    return responses
+end
+
+def irc_starttls!(sock)
+    caps = nil
+    sock.puts "CAP LS\r\n"
+    sock.puts "MODE FOO\r\n"
+    sock.puts "STARTTLS\r\n"
+    while line = sock.gets
+        parv = line.split(" ")
+        pos = 0
+        pos += 1 if parv[pos] =~ /^@/
+        pos += 1 if parv[pos] =~ /^:/
+        case parv[pos]
+            when "CAP"
+                caps = parv[pos+3..-1]
+                if caps.grep(/^:?tls$/).empty?
+                    raise "IRC server did not offer 'tls' capability"
+                end
+            when "NOTICE"
+                nil
+            when "451"
+                if !caps
+                    raise "IRC server did not respond to capability query"
+                end
+            when "670"
+                return
+            else
+                raise "unexpected IRC data: #{line.inspect}"
+        end
+    end
+end
+
+def imap_transact!(sock, command)
+    if command
+        id = (Time.now.to_f*10000000).to_i.to_s(36)
+        sock.puts "#{id} #{command}\r"
+    else
+        id = "*"
+    end
+    line = sock.gets.split(" ", 3)
+    if line[0] != id
+        raise "unexpected IMAP data: #{command.inspect} -> #{line.inspect}"
+    elsif line[1] != "OK"
+        raise "IMAP failure: #{command.inspect} -> #{line.inspect}"
+    end
+end
+
+def ldap_starttls!(sock)
+    request = OpenSSL::ASN1::Sequence.new([
+        OpenSSL::ASN1::Integer.new(1),
+        OpenSSL::ASN1::Sequence.new([
+            OpenSSL::ASN1::OctetString.new("1.3.6.1.4.1.1466.20037",
+                                           0, :IMPLICIT),
+        ], 23, :IMPLICIT, :APPLICATION),
+    ])
+    sock.write(request.to_der)
+    data = sock.recv(128)
+    begin
+        response = OpenSSL::ASN1.decode(data)
+        result_code = response.value[1].value[0].value.to_i
+        if result_code != 0
+            error_msg = response.value[1].value[2].value
+            raise "LDAP error: #{error_msg.inspect} (#{result_code})"
+        end
+    rescue OpenSSL::ASN1::ASN1Error, NoMethodError
+        raise "unexpected LDAP response: #{data.inspect}"
+    end
+end
+
+def lpr_transact!(sock, cmd, params)
+    sock.write(cmd.chr + params.join("\t") + "\n")
+    data = sock.recv(1)
+    if data != "\0"
+        raise "LPR error: ACK not received"
+    end
+end
+
+def pop_transact!(sock, command, with_data)
+    if command
+        sock.puts "#{command}\r"
+    end
+    line = sock.gets
+    if line.start_with?("+OK")
+        responses = [line]
+        while with_data
+            line = sock.gets
+            responses << line
+            if line.rstrip == "."
+                break
+            end
+        end
+        return responses
+    else
+        raise "POP failure: #{command.inspect} -> #{line.inspect}"
+    end
+end
+
+def smtp_transact(sock, command)
+    if command
+        sock.puts "#{command}\r"
+    end
+    responses = []
+    while true
+        line = sock.gets
+        responses << line
+        if line[3] == " "
+            break
+        elsif line[3] != "-"
+            raise "invalid SMTP data: #{line.inspect}"
+        end
+    end
+    return responses
+end
+
+def smtp_transact!(sock, command)
+    responses = smtp_transact(sock, command)
+    if responses[0][0] != "2"
+        raise "SMTP failure: #{command.inspect} -> #{responses.inspect}"
+    end
+    return responses
+end
+
+def check_service(host, port, sni = nil)
+    cert = nil
+    Socket.tcp(host, port, :connect_timeout => 3) do |raw_sock|
+        case port
+        when 21
+            ftp_transact!(raw_sock, nil)
+            ftp_transact!(raw_sock, "FEAT")
+            ftp_transact!(raw_sock, "AUTH TLS")
+        when 110
+            pop_transact!(raw_sock, nil, false)
+            pop_transact!(raw_sock, "CAPA", true)
+            pop_transact!(raw_sock, "STLS", false)
+        when 25, 587
+            smtp_transact!(raw_sock, nil)
+            smtp_transact!(raw_sock, "EHLO #{Socket.gethostname}")
+            smtp_transact!(raw_sock, "STARTTLS")
+        when 143
+            imap_transact!(raw_sock, nil)
+            imap_transact!(raw_sock, "STARTTLS")
+        when 194, 6667
+            irc_starttls!(raw_sock)
+        when 389
+            ldap_starttls!(raw_sock)
+        when 515
+            # MyQ-specific; based on \PhpApps\MyQ\LPRClient.php
+            lpr_commands = { MYQ_STARTTLS: 200 }
+            lpr_transact!(raw_sock, lpr_commands[:MYQ_STARTTLS], [])
+            # TODO: incompatible with the 1999 draft which uses ?T
+            # http://asg.web.cmu.edu/sasl/draft-troll-lpr-extensions-00b.txt
+        end
+        ssl_sock = OpenSSL::SSL::SSLSocket.new(raw_sock)
+        ssl_sock.hostname = sni || host
+        ssl_sock.connect
+        cert = ssl_sock.peer_cert
+        ssl_sock.close
+    end
+    return cert
+end
+
+class CertChecker
+    def initialize
+        @config_path = "#{XDG.config_dir}/tls-cert-check.conf"
+        @cache_path = "#{XDG.cache_dir}/tls-cert-check.state"
+
+        @hosts = []
+        @services = {}
+        @grace = 30
+        @grace_le = 14
+        @cache = 3600
+        @verbose = false
+
+        @state = {}
+        @failures = []
+        @expiries = []
+    end
+
+    attr_accessor :config_path
+
+    attr_accessor :grace
+    attr_accessor :verbose
+
+    attr_reader :failures
+    attr_reader :expiries
+
+    def load_config!
+        begin
+            File.open(@config_path, "r") do |f|
+                f.each do |line|
+                    cmd, *rest = line.strip.split
+                    case cmd
+                        when "check"
+                            host, *ports = *rest
+                            if host =~ /^(.+)\/(.+?)$/
+                                _, host, sni = $~.to_a
+                            else
+                                sni = nil
+                            end
+                            if ports.empty?
+                                ports << "443"
+                            end
+                            @hosts << host
+                            @services[host] ||= []
+                            @services[host] += ports.map{|p| {port: p.to_i, sni: sni}}
+                        when "grace"
+                            @grace = rest[0].to_i
+                        when "every"
+                            @cache = rest[0].to_i
+                    end
+                end
+            end
+        rescue Errno::ENOENT => e
+            warn("config file not found: #{e}")
+        end
+    end
+
+    def load_state!
+        begin
+            @state = _load_json(@cache_path)
+        rescue Errno::ENOENT
+            @state = {}
+        end
+    end
+
+    def store_state!
+        _dump_json(@state, @cache_path)
+    end
+
+    def add_host(host, port, sni)
+        if @services[host].nil?
+            @hosts << host
+            @services[host] = []
+        end
+        @services[host] << {port: port, sni: sni}
+    end
+
+    def check_one!(host, port, sni = nil)
+        hp = format_host_port_sni(host, port, sni)
+
+        last_check = @state.dig("last_check", hp) || 0
+        if last_check > Time.now.to_i - @cache
+            puts "skipping #{hp} (cached)..."
+            return
+        end
+
+        begin
+            puts "checking #{hp}..."
+            cert = check_service(host, port, sni)
+        rescue Interrupt
+            raise
+        rescue Exception => ex
+            puts " - error: #{ex.class} #{ex.message}"
+            @failures << "#{hp} – #{ex.class} #{ex.message}"
+        else
+            days = ((cert.not_after - Time.now) / 86400).to_i
+            grace = @grace
+            if cert.issuer.to_rfc2253 =~ /,O=Let's Encrypt,C=US$/
+                grace = @grace_le
+            end
+            if days < grace or @verbose
+                puts " - subject: #{cert.subject.to_rfc2253}"
+                puts " - issuer: #{cert.issuer.to_rfc2253}"
+                puts " - validity: #{cert.not_before} – #{cert.not_after}"
+                if days < 0
+                    puts " - expired: #{-days} days ago" if @verbose
+                    @expiries << "#{hp} – expired #{-days} days ago"
+                else
+                    puts " - expires: in #{days} days" if @verbose
+                    @expiries << "#{hp} – expires in #{days} days" if days < grace
+                end
+            end
+            @state["last_check"] ||= {}
+            @state["last_check"][hp] = Time.now.to_i
+        end
+    end
+
+    def check_all!
+        @hosts.each do |host|
+            @services[host].each do |i|
+                check_one!(host, i[:port], i[:sni])
+            end
+        end
+    end
+
+    private
+
+    def _load_json(path)
+        File.open(path, "r") do |f|
+            return JSON.load(f)
+        end
+    end
+
+    def _dump_json(data, path)
+        File.open(path, "w") do |f|
+            JSON.dump(data, f)
+        end
+    end
+end
+
+cc = CertChecker.new
+
+parser = OptionParser.new do |opts|
+    opts.on("-c", "--config PATH", String, "Set path to configuration file") do |s|
+        cc.config_path = s
+    end
+    opts.on("-g", "--grace DAYS", Integer, "Change minimum time until expiry") do |i|
+        cc.grace = i
+    end
+    opts.on("-v", "--verbose", "Show information for valid certificates") do
+        cc.verbose = true
+    end
+end
+parser.parse!
+
+if ARGV.empty?
+    cc.load_config!
+    cc.load_state!
+    begin
+        cc.check_all!
+    rescue Interrupt
+    end
+    cc.store_state!
+else
+    ARGV.each do |arg|
+        host, port, sni = parse_host_port_sni(arg, 443)
+        cc.add_host(host, port, sni)
+    end
+    cc.check_all!
+end
+
+if !cc.failures.empty? || !cc.expiries.empty?
+    puts ""
+    if !cc.expiries.empty?
+        puts "The following certificates are about to expire:"
+        puts ""
+        cc.expiries.each{|s| puts " - #{s}"}
+        puts ""
+    end
+    if !cc.failures.empty?
+        puts "The following hosts could not be checked:"
+        puts ""
+        cc.failures.each{|s| puts " - #{s}"}
+        puts ""
+    end
+    exit 1
+end
+
+# vim: ts=4:sw=4:et

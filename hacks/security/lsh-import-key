@@ -1,0 +1,141 @@
+#!/usr/bin/env perl
+# Hackage to convert OpenSSH/OpenSSL keys to lsh S-expressions.
+# (Written since 'lsh' only comes with a public key conversion tool.)
+#
+# Usage (private key):
+#
+#     ./pkey-sexp.pl ~/.ssh/id_rsa -p "passphrase" \ 
+#         | sexp-conv -s transport | lsh-keygen --read-raw [-o ~/.lsh/identity]
+#
+#     * lsh-keygen will also output identity.pub to the same directory.
+#
+#     * Use '--label=...' as the equivalent to key comment.
+#
+# Usage (public key):
+#
+#     ./pkey-sexp.pl ~/.ssh/id_rsa.pub \
+#         | sexp-conv -s transport > identity.pub
+#
+# Notes:
+#
+#     * lsh-writekey requires input to be in 'transport' encoding.
+#
+#     * Converting s-exps to OpenSSL keys is not possible yet.
+#
+#     * The statement that 'lsh' does not come with a private key conversion
+#       tool is only partially true: lsh's 'nettle' library does come with
+#       pkcs1-conv, able to import RSA-PKCS#1 keys. Usage:
+#         openssl rsa -in id_rsa | pkcs1-conv > identity
+#           (outputs decrypted private key)
+#         openssl rsa -in id_rsa | pkcs1-conv | lsh-keygen --read-raw
+#           (public and encrypted private)
+#         ssh-keygen -f id_rsa -em PEM | pkcs1-conv > identity.pub
+#           (public key)
+
+use strict;
+use Getopt::Long qw(:config bundling no_ignore_case);
+use Convert::PEM;
+use Crypt::Keys;
+use Crypt::OpenSSL::Bignum;
+use Math::Pari;
+use Nullroute::Lib qw(_die);
+use Data::Dumper;
+
+sub write_bignum {
+	my $bn = shift;
+	my $hex = lc Crypt::OpenSSL::Bignum->new_from_decimal($bn)->to_hex;
+	# Numbers are signed, so the most significiant bit must be 0.
+	if ($hex =~ /^[89a-f]/i) {
+		print "#00$hex#";
+	} else {
+		print "#$hex#";
+	}
+}
+
+sub write_sexp {
+	my ($sexp) = @_;
+	if (ref $sexp eq 'ARRAY') {
+		my $i = 0;
+		print "(";
+		for my $item (@$sexp) {
+			print " " if $i++;
+			write_sexp($item);
+		}
+		print ")";
+	}
+	elsif (ref $sexp eq 'Math::Pari') {
+		write_bignum($sexp);
+	}
+	else {
+		print $sexp;
+	}
+}
+
+my ($file, $passphrase, $key, $format, %data, $sexp);
+
+GetOptions(
+	"p|passphrase=s" => \$passphrase,
+) or _die("usage");
+
+$file = shift(@ARGV);
+$key = Crypt::Keys->read(Filename => $file, Passphrase => $passphrase)
+	or _die("failed to load key: $file");
+
+$format = $key->{"Format"};
+%data = %{$key->{"Data"}};
+
+if ($format =~ /^Private::RSA::/) {
+	$sexp =
+		["private-key",
+			["rsa-pkcs1",
+				[n => $data{"n"}],
+				[e => PARI($data{"e"})],
+
+				[d => $data{"d"}],
+				[p => $data{"p"}],
+				[q => $data{"q"}],
+
+				[a => $data{"dp"}],
+				[b => $data{"dq"}],
+				[c => $data{"iqmp"}],
+			],
+		];
+}
+elsif ($format =~ /^Public::RSA::/) {
+	$sexp =
+		["public-key",
+			["rsa-pkcs1-sha1",
+				[n => $data{"n"}],
+				[e => $data{"e"}],
+			],
+		];
+}
+elsif ($format =~ /^Private::DSA::/) {
+	$sexp =
+		["private-key",
+			["dsa",
+				[p => $data{"p"}],
+				[q => $data{"q"}],
+				[g => $data{"g"}],
+				[y => $data{"pub_key"}],
+				[x => $data{"priv_key"}],
+			],
+		];
+}
+elsif ($format =~ /^Public::DSA::/) {
+	$sexp =
+		["public-key",
+			["dsa",
+				[p => $data{"p"}],
+				[q => $data{"q"}],
+				[g => $data{"g"}],
+				[y => $data{"pub_key"}],
+			],
+		];
+}
+else {
+	print Dumper($key)."\n";
+	_die("unsupported key type $format");
+}
+write_sexp($sexp);
+print "\n";

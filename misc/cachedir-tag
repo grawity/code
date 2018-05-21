@@ -1,15 +1,20 @@
 #!/bin/sh
 
-u=${USER:-${LOGNAME:-$(whoami)}}
-h=${HOSTNAME:-$(hostname)}
+user=${USER:-${LOGNAME:-$(whoami)}}
+host=${HOSTNAME:-$(hostname)}
+app="$user@$host"
+
+if [ "$1" = "-a" ]; then
+	app="$2 ($app)"; shift 2
+fi
 
 str="Signature: 8a477f597d28d172789f06886806bc55
-# This file is a cache directory tag created by $u@$h.
+# This file is a cache directory tag created by $app.
 # For information about cache directory tags, see:
 #	http://www.brynosaurus.com/cachedir/"
 
 if [ $# -eq 0 ]; then
-	echo "Usage: cachedir-tag <dir>..."
+	echo "Usage: cachedir-tag [-a <app_name>] <dir>..."
 	exit 2
 fi
 

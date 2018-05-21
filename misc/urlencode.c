@@ -66,6 +66,37 @@ static void encode_url(FILE *fp, char *fn) {
 	}
 }
 
+static void encode_qp(FILE *fp, char *fh) {
+	int ch;
+	size_t line = 0;
+	size_t pos = 0;
+
+	while ((ch = getc(fp)) != EOF && ++pos) {
+		switch (ch) {
+		case '\n':
+			putchar(ch);
+			line = 0;
+			break;
+		case '\x20'...'\x3c':
+		case '\x3e'...'\x7e':
+			if (line > 80-1) {
+				printf("=\n");
+				line = 0;
+			}
+			putchar(ch);
+			line += 1;
+			break;
+		default:
+			if (line > 80-3) {
+				printf("=\n");
+				line = 0;
+			}
+			printf("=%02X", ch);
+			line += 3;
+		}
+	}
+}
+
 static void decode(FILE *fp, char *fn, char leader) {
 	int ch;
 	size_t pos = 0;
@@ -111,37 +142,6 @@ static void decode(FILE *fp, char *fn, char leader) {
 			}
 			state = 0;
 			break;
-		}
-	}
-}
-
-static void encode_qp(FILE *fp, char *fh) {
-	int ch;
-	size_t line = 0;
-	size_t pos = 0;
-
-	while ((ch = getc(fp)) != EOF && ++pos) {
-		switch (ch) {
-		case '\n':
-			putchar(ch);
-			line = 0;
-			break;
-		case '\x20'...'\x3c':
-		case '\x3e'...'\x7e':
-			if (line > 80-1) {
-				printf("=\n");
-				line = 0;
-			}
-			putchar(ch);
-			line += 1;
-			break;
-		default:
-			if (line > 80-3) {
-				printf("=\n");
-				line = 0;
-			}
-			printf("=%02X", ch);
-			line += 3;
 		}
 	}
 }

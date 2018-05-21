@@ -4,16 +4,27 @@
 #include <string.h>
 #include <unistd.h>
 
+bool do_decode = false;
 bool keep_parens = false;
 bool keep_slashes = false;
 char *safe_chars = "";
 char *unsafe_chars = "";
+bool decode_plus = true;
 bool do_quoted_printable = false;
 
-static void process_url(FILE *fp, char *fn) {
+static int htoi(char ch) {
+	switch (ch) {
+	case '0'...'9': return ch - '0';
+	case 'a'...'f': return ch - 'a' + 10;
+	case 'A'...'F': return ch - 'A' + 10;
+	default:        return -1;
+	}
+}
+
+static void encode_url(FILE *fp, char *fn) {
 	int ch;
-	bool safe;
 	size_t pos = 0;
+	bool safe;
 
 	while ((ch = getc(fp)) != EOF && ++pos) {
 		switch (ch) {
@@ -55,7 +66,56 @@ static void process_url(FILE *fp, char *fn) {
 	}
 }
 
-static void process_qp(FILE *fp, char *fh) {
+static void decode_url(FILE *fp, char *fn) {
+	int ch;
+	size_t pos = 0;
+	int state = 0;
+	int value;
+	int tmp;
+
+	while ((ch = getc(fp)) != EOF && ++pos) {
+		switch (state) {
+		case 0:
+			switch (ch) {
+			case '%':
+				value = 0;
+				state = 1;
+				break;
+			case '+':
+				if (decode_plus)
+					putchar(' ');
+				else
+			default:
+					putchar(ch);
+			}
+			break;
+		case 1:
+			tmp = htoi(ch);
+			if (tmp >= 0) {
+				value = tmp;
+				state = 2;
+			} else {
+				putchar('%');
+				putchar(ch);
+				state = 0;
+			}
+			break;
+		case 2:
+			tmp = htoi(ch);
+			if (tmp >= 0) {
+				putchar((value << 4) | tmp);
+			} else {
+				putchar('%');
+				putchar(value);
+				putchar(ch);
+			}
+			state = 0;
+			break;
+		}
+	}
+}
+
+static void encode_qp(FILE *fp, char *fh) {
 	int ch;
 	size_t line = 0;
 	size_t pos = 0;
@@ -87,16 +147,24 @@ static void process_qp(FILE *fp, char *fh) {
 }
 
 static void process(FILE *fp, char *fh) {
-	if (do_quoted_printable)
-		process_qp(fp, fh);
-	else
-		process_url(fp, fh);
+	if (do_quoted_printable) {
+		if (do_decode)
+			decode(fp, fh, '=');
+		else
+			encode_qp(fp, fh);
+	} else {
+		if (do_decode)
+			decode(fp, fh, '%');
+		else
+			encode_url(fp, fh);
+	}
 }
 
 static int usage(void) {
 	printf("Usage: urlencode [-a text] [-Pp] [files...]\n");
 	printf("\n");
 	printf("  -a TEXT   use TEXT as input rather than file/stdin\n");
+	printf("  -d        decode text instead of encoding\n");
 	printf("  -P        treat ( ) as safe\n");
 	printf("  -p        encode as path, treating / : as safe\n");
 	printf("  -s BYTES  treat provided bytes as safe\n");
@@ -111,10 +179,13 @@ int main(int argc, char *argv[]) {
 	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "a:nPpQs:u:")) != -1) {
+	while ((opt = getopt(argc, argv, "a:dnPpQs:u:")) != -1) {
 		switch (opt) {
 		case 'a':
 			data = optarg;
+			break;
+		case 'd':
+			do_decode = true;
 			break;
 		case 'n':
 			/* noop: we never printed a newline */

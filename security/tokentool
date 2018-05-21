@@ -87,11 +87,32 @@ class Token(object):
         return self._objects
 
     def delete_object_uri(self, uri):
-        r = subprocess.run(["args", "p11tool",
+        r = subprocess.run(["p11tool",
                             "--set-pin=%s" % self.pin,
                             "--login",
                             "--delete",
-                            uri + "derp"])
+                            uri])
+
+    def _import_object(self, kind, file, id_str, label):
+        if kind not in {"privkey", "pubkey", "certificate"}:
+            raise ValueError("unknown object kind %r" % kind)
+        r = subprocess.run(["p11tool",
+                            "--set-pin=%s" % self.pin,
+                            "--login",
+                            "--load-%s=%s" % (kind, file),
+                            "--id=%s" % id_str,
+                            "--label=%s" % label,
+                            "--write"])
+        return r
+
+    def import_privkey(self, file, id_str, label):
+        r = self._import_object("privkey", file, id_str, label)
+
+    def import_pubkey(self, file, id_str, label):
+        r = self._import_object("pubkey", file, id_str, label)
+
+    def import_cert(self, file, id_str, label):
+        r = self._import_object("certificate", file, id_str, label)
 
 class TokenObject(object):
     def __init__(self, uri, data, token):
@@ -108,7 +129,7 @@ class TokenObject(object):
         return self.info["type"]
 
     @property
-    def name(self):
+    def label(self):
         return self.info["object"]
 
     @property
@@ -132,7 +153,7 @@ def print_objects(token, only=None):
             str(i),
             obj.type_str,
             obj.id_str,
-            obj.name,
+            obj.label,
             ",".join(sorted(obj.flags)),
         ])
     tab.print()

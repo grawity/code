@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+from nullroute.core import Core
 from nullroute.string import fmt_size
 import os
 import math
 import sys
+from pprint import pprint
 
 def enum_files(root, filter=None):
     if os.path.isdir(root):
@@ -69,6 +71,10 @@ def log_status(msg):
     sys.stderr.write("\033[1G\033[0J%s\n" % msg)
     sys.stderr.flush()
     last_status = msg
+def _log_pre_hook():
+    global last_status
+    last_status = None
+Core._log_pre_hook = _log_pre_hook
 
 arg_roots = sys.argv[1:] or ["."]
 
@@ -85,10 +91,12 @@ for root in arg_roots:
         arg_discard = False
         discardable_roots.add(root)
 
+    Core.debug("searching %r for *.sha", root)
     log_status("searching %s" % root)
     for file in enum_files(root, filter=lambda name: name.endswith(".sha")):
         base = os.path.dirname(strip_path_prefix(file, root))
         with open(file, "rb") as fh:
+            Core.debug("parsing %r", file)
             codec = detect_codec(fh)
             log_status("parsing %s" % file)
             for n, line in enumerate(fh):
@@ -114,6 +122,7 @@ reclaimed_total = 0
 
 for hash, paths in all.items():
     if len(paths) > 1:
+        Core.debug("%s => %s", hash, paths)
         discard = []
         preserve = []
         missing = []
@@ -127,6 +136,8 @@ for hash, paths in all.items():
                     missing.append(path)
             else:
                 preserve.append(path)
+        Core.debug("  preserve %r", preserve)
+        Core.debug("  discard %r", discard)
         if len(preserve) > 0 and len(discard) > 0:
             size = os.stat(discard[0]).st_size
             wasted = size * len(discard)

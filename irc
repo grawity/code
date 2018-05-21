@@ -2,30 +2,16 @@
 
 . lib.bash || exit
 
-host=virgule
-
-do_fifo() {
-	echo "$*" | ssh $host 'cat > .weechat/weechat_fifo_*'
-}
-
-if [[ $1 == -- ]]; then
-	shift
-	do_fifo "*$*"
-	exit
-elif [[ $1 == /* ]]; then
-	do_fifo "*$*"
-	exit
-fi
-
-export MOSH_TITLE_NOPREFIX='y'
+. $path_config/synced/irc.conf || exit
 
 lock=$path_runtime/irc-$XDG_SESSION_ID.lock
-exec {fd}<>"$lock"
-flock -xn $fd || die "already connected from $HOSTNAME/$XDG_SESSION_ID"
+exec {fd}<>"$lock" && flock -xn $fd ||
+	die "already connected from $HOSTNAME/$XDG_SESSION_ID"
 
-mosh $host -- tmux attach -t irc; r=$?
+export MOSH_TITLE_NOPREFIX='y'
+mosh $irc_host -- tmux attach -t irc
+r=$?
 
 hi >&/dev/null {fd}>&- &
 
-rm -f "$lock"
 exit $r

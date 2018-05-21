@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+if [[ $1 == '@'* ]]; then
+	host=${1#'@'}
+	shift
+else
+	host=$TRPC_HOST
+fi
+
+[[ $host ]] || host="$(fqdn)"
+[[ $host == *.* ]] || host+=".nullroute.eu.org"
+[[ $host == *.*.* ]] || host=$(fqdn "$host")
+
+url="https://$host/transmission"
+
+transmission-remote "$url" -N ~/.netrc "$@"

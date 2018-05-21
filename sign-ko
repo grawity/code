@@ -5,15 +5,20 @@
 
 src=~/src/linux
 
+cert=$(cd "$src" && readlink -f "signing_key.x509")
 key=$(cd "$src" && . ./.config && echo ${CONFIG_MODULE_SIG_KEY})
 hash=$(cd "$src" && . ./.config && echo ${CONFIG_MODULE_SIG_HASH:-sha1})
 
-[[ -e "$key" ]]  || err "private key not found: $key"
-(( ! errors ))   || exit
+if ! [[ -s "$cert" ]]; then
+	die "certificate '$cert' not found"
+fi
+if ! [[ -s "$key" || "$key" == pkcs11:* ]]; then
+	die "private key '$key' not found"
+fi
 
 for file; do
 	echo -n "${file##*/}: "
-	if grep -qs "~Module signature appended~" "$file"; then
+	if grep -Fqs "~Module signature appended~" "$file"; then
 		echo "already signed"
 	else
 		if (( UID == 0 )); then

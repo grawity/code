@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+thin=0
+unsigned=0
+failed=0
+verified=0
+
+for tag in $(git tag); do
+	if [[ $(git cat-file -t "refs/tags/$tag") != tag ]]; then
+		debug "tag '$tag' is thin"
+		(( ++thin ))
+		continue
+	fi
+	if ! git cat-file tag "refs/tags/$tag" | grep -qs "BEGIN PGP SIGNATURE"; then
+		debug "tag '$tag' is not signed"
+		(( ++unsigned ))
+		continue
+	fi
+	log2 "$tag"
+	if git --no-pager tag -v "$tag"; then
+		:
+	else
+		err "verification failed ($?)"
+		(( ++failed ))
+		continue
+	fi
+	(( ++verified ))
+done
+
+info "$verified ok, $failed failed, $unsigned unsigned, $thin thin"
+
+if (( failed )); then
+	notice "$failed signatures failed to verify"
+	exit 1
+fi

@@ -30,7 +30,7 @@ sub usage {
 		"\n",
 		"Misc options (default mode only):\n",
 		"    -D, --decode-plus       decode + as space (URL mode only)\n",
-		"    -r, --raw               do not print trailing newline\n",
+		"    -n, --no-newline        do not print trailing newline\n",
 		"    -S, --safe-filename     substitute unsafe filename characters\n",
 		#----||||----||||----||||----||||
 	);
@@ -129,7 +129,7 @@ sub process {
 		print encode($buf);
 	}
 
-	print "\n" unless $opts{raw_newline};
+	print "\n" unless $opts{no_newline};
 }
 
 my @args;
@@ -145,7 +145,8 @@ GetOptions(
 	"libc" => \$opts{format_locale},
 	"ldap-dn" => \$opts{format_ldap_dn},
 	"mq" => \$opts{format_mq},
-	"r|raw!" => \$opts{raw_newline},
+	"n|no-newline" => \$opts{no_newline},
+	"r|raw!" => \$opts{no_newline},
 	"S|safe-filename" => \$opts{safe_filename},
 	"x|hex" => \$opts{format_c_hex},
 	"X|xml" => \$opts{format_xml},
@@ -161,7 +162,7 @@ if (@args || @ARGV) {
 		print decode($buf);
 	} else {
 		while (<STDIN>) {
-			chomp($_) unless $opts{raw_newline};
+			chomp($_) unless $opts{no_newline};
 			process($_);
 		}
 	}

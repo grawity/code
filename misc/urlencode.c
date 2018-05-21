@@ -111,10 +111,14 @@ int main(int argc, char *argv[]) {
 	char *fn;
 	FILE *fp;
 
-	while ((opt = getopt(argc, argv, "a:PpQs:u:")) != -1) {
+	while ((opt = getopt(argc, argv, "a:nPpQs:u:")) != -1) {
 		switch (opt) {
 		case 'a':
 			data = optarg;
+			break;
+		case 'n':
+			/* noop: we never printed a newline */
+			/* no_newline = true; */
 			break;
 		case 'P':
 			keep_parens = true;

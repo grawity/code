@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
-bool keep_parens = true;
+bool keep_parens = false;
 bool keep_slashes = false;
 char *safe_chars = "";
 char *unsafe_chars = "";

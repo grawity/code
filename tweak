@@ -19,6 +19,7 @@ do_gsettings() {
 	if [[ $value == '-' || $value == 'reset' ]]; then
 		debug "resetting '$schema' '$key'"
 		gsettings reset "$schema" "$key"
+		info "$schema $key reset to $(gsettings get "$schema" "$key")"
 	elif [[ $value ]]; then
 		case ${type#--} in
 		    uri)
@@ -98,6 +99,9 @@ gnome/battery-percentage)
 	;;
 gnome/animate|gnome/animations)
 	do_gsettings org.gnome.desktop.interface enable-animations "$value" --bool
+	;;
+gnome/touchpad-speed|gnome/touchpad-accel)
+	do_gsettings org.gnome.desktop.peripherals.touchpad speed "$value" --float
 	;;
 gnome/touchpad-dwt|gnome/disable-while-typing)
 	do_gsettings org.gnome.desktop.peripherals.touchpad disable-while-typing "$value" --bool

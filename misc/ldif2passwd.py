@@ -33,6 +33,7 @@ def ldif_parser(input):
         if key.endswith(":"):
             key = key[:-1]
             val = base64.b64decode(val)
+            val = val.decode(errors="surrogateescape")
         entry[key.lower()].add(val)
     if entry.get("dn"):
         yield entry

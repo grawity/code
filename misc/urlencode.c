@@ -66,7 +66,7 @@ static void encode_url(FILE *fp, char *fn) {
 	}
 }
 
-static void decode_url(FILE *fp, char *fn) {
+static void decode(FILE *fp, char *fn, char leader) {
 	int ch;
 	size_t pos = 0;
 	int state = 0;
@@ -76,26 +76,26 @@ static void decode_url(FILE *fp, char *fn) {
 	while ((ch = getc(fp)) != EOF && ++pos) {
 		switch (state) {
 		case 0:
-			switch (ch) {
-			case '%':
+			if (ch == leader) {
 				value = 0;
 				state = 1;
-				break;
-			case '+':
-				if (decode_plus)
-					putchar(' ');
-				else
-			default:
-					putchar(ch);
+			} else if (leader == '%' && ch == '+') {
+				putchar(decode_plus ? ' ' : ch);
+			} else {
+				putchar(ch);
 			}
 			break;
 		case 1:
+			if (leader == '=' && (ch == '\r' || ch == '\n')) {
+				state = 0;
+				continue;
+			}
 			tmp = htoi(ch);
 			if (tmp >= 0) {
 				value = tmp;
 				state = 2;
 			} else {
-				putchar('%');
+				putchar(leader);
 				putchar(ch);
 				state = 0;
 			}
@@ -105,7 +105,7 @@ static void decode_url(FILE *fp, char *fn) {
 			if (tmp >= 0) {
 				putchar((value << 4) | tmp);
 			} else {
-				putchar('%');
+				putchar(leader);
 				putchar(value);
 				putchar(ch);
 			}

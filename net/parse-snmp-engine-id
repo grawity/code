@@ -1,0 +1,183 @@
+#!/usr/bin/env python
+import ipaddress
+from pprint import pprint
+from nullroute.urlcache import JsonCache
+import sys
+
+class IanaEnterpriseRegistry(object):
+    url = "https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers"
+    id = "iana-enterprise-numbers.json"
+
+    def __init__(self):
+        self._cache = JsonCache(7*86400)
+        self._raw_data = None
+        self._parsed = {}
+
+    def _download(self):
+        import requests
+        r = requests.get(self.url)
+        r.raise_for_status()
+        return r.text
+
+    def _parse(self, rawdata):
+        data = {}
+        next = None
+        key = None
+        pen = None
+        entry = None
+        for line in rawdata.splitlines():
+            if line.startswith("|"):
+                next = "pen"
+            elif next == "pen":
+                if pen is not None:
+                    data[pen] = entry
+                if line == "":
+                    continue
+                elif line == "End of Document":
+                    break
+                else:
+                    try:
+                        pen = int(line.strip())
+                    except ValueError:
+                        entry[key] += " " + line.strip()
+                    else:
+                        pen = str(pen)
+                        entry = {}
+                        next = "name"
+            elif next == "name":
+                if line.startswith("  "):
+                    key = next
+                    entry[key] = line.strip()
+                    next = "contact"
+                else:
+                    entry[key] += " " + line.strip()
+            elif next == "contact":
+                if line.startswith("    "):
+                    key = next
+                    entry[key] = line.strip()
+                    next = "email"
+                else:
+                    entry[key] += " " + line.strip()
+            elif next == "email":
+                if line.startswith("      "):
+                    key = next
+                    entry[key] = line.strip().replace("&", "@")
+                    next = "pen"
+                else:
+                    entry[key] += " " + line.strip()
+        return data
+
+    def _get_raw_data(self):
+        if not self._raw_data:
+            self._raw_data = self._cache.load(self.url)
+        if not self._raw_data:
+            self._raw_data = self._download()
+            self._cache.save(self.url, self._raw_data)
+        return self._raw_data
+
+    def _get_parsed_data(self):
+        if not self._parsed:
+            self._parsed = self._cache.load(self.id)
+        if not self._parsed:
+            self._parsed = self._parse(self._get_raw_data())
+            self._cache.save(self.id, self._parsed)
+        return self._parsed
+
+    def lookup_pen(self, pen):
+        data = self._get_parsed_data()
+        return data.get(str(pen))
+
+reg = IanaEnterpriseRegistry()
+
+def lookup_iana_enterprise(pen):
+    return reg.lookup_pen(pen)
+
+_formats = {
+    1: {
+        "name": "ipv4",
+        "min_len": 4,
+        "max_len": 4,
+        "format": lambda raw: ipaddress.IPv4Address(raw),
+    },
+    2: {
+        "name": "ipv6",
+        "min_len": 16,
+        "max_len": 16,
+        "format": lambda raw: ipaddress.IPv6Address(raw),
+    },
+    3: {
+        "name": "mac",
+        "min_len": 6,
+        "max_len": 8,
+        "format": lambda raw: ":".join(["%02X" % c for c in raw]),
+    },
+    4: {
+        "name": "text",
+        "format": lambda raw: raw.decode("utf-8"),
+    },
+    5: {
+        "name": "octets",
+        "format": lambda raw: raw.hex(),
+    },
+    6: {
+        "name": "null",
+        "min_len": 0,
+        "max_len": 0,
+        "format": lambda raw: "(Engine-ID discovery)",
+    },
+}
+
+def format_identifier(type_id, raw_data):
+    name = None
+    data = None
+    if type_id in _formats:
+        fmt = _formats[type_id]
+        name = fmt["name"]
+        if len(raw_data) >= fmt.get("min_len", 0):
+            if len(raw_data) <= fmt.get("max_len", 32-5):
+                try:
+                    data = fmt["format"](raw_data)
+                except:
+                    pass
+    elif type_id <= 127:
+        name = "IANA-reserved"
+    else:
+        name = "enterprise-specific"
+    return (name, data)
+
+def parse_engine_id(arg, lookup_pen=True):
+    arg = arg.replace(":", "")
+    arg = bytes.fromhex(arg)
+    data = {}
+
+    if arg[0] & 0x80:
+        data["format"] = 1
+    else:
+        data["format"] = 0
+
+    data["enterprise_id"] = int.from_bytes(arg[0:4], "big")
+    data["enterprise_id"] &= ~0x80000000
+
+    if lookup_pen:
+        data["enterprise_name"] = lookup_iana_enterprise(data["enterprise_id"])
+
+    if data["format"] == 1:
+        data["type_id"] = arg[4]
+        data["identifier_raw"] = arg[5:]
+    else:
+        data["type_id"] = None
+        data["identifier_raw"] = arg[4:]
+
+        if data["enterprise_id"] == 11 and data["identifier_raw"][:2] == b"\x00\x00":
+            data["type_id"] = 3
+            data["identifier_raw"] = arg[6:]
+
+    (data["type_name"],
+     data["identifier_parsed"]) = format_identifier(data["type_id"],
+                                                    data["identifier_raw"])
+
+    return data
+
+args = sys.argv[1:]
+for arg in args:
+	pprint(parse_engine_id(arg))

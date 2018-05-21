@@ -1,0 +1,208 @@
+#!/usr/bin/env python
+from nullroute.core import *
+import nullroute.urlcache
+from nullroute.scrape import urljoin
+from pprint import pprint
+import requests
+import sys
+
+class RdapClient():
+    ROOTS = {
+        "asn":      "http://data.iana.org/rdap/asn.json",
+        "dns":      "http://data.iana.org/rdap/dns.json",
+        "ipv4":     "http://data.iana.org/rdap/ipv4.json",
+        "ipv6":     "http://data.iana.org/rdap/ipv6.json",
+    }
+
+    SERVERS = {
+        "afrinic":  "https://rdap.afrinic.net/rdap/",
+        "apnic":    "https://rdap.apnic.net/",
+        "arin":     "https://rdap.arin.net/registry",
+        "lacnic":   "https://rdap.lacnic.net/rdap/",
+        "ripe":     "https://rdap.db.ripe.net/",
+    }
+
+    RES_TYPES = {"autnum", "domain", "entity", "nameserver", "ip"}
+
+    def __init__(self):
+        self.ua = requests.Session()
+        self.cache = nullroute.urlcache.JsonCache()
+
+    def _fetch_json(self, url):
+        Core.debug(f"fetching {url!r}")
+        resp = self.ua.get(url)
+        resp.raise_for_status()
+        return resp.json()
+
+    def fetch_root(self, kind):
+        url = self.ROOTS[kind]
+        data = self.cache.load(url)
+        if not data:
+            data = self._fetch_json(url)
+            self.cache.save(url, data)
+        return data
+
+    def find_server(self, kind, lookup):
+        root = self.fetch_root(kind)
+        ...
+
+    def query_server(self, base_url, res_type, lookup):
+        # autnum/<asn>
+        # domain/<name>
+        #  domains?name=<pattern>
+        #  domains?nsLdhName=<pattern>
+        #  domains?nsIp=<pattern>
+        # entity/<handle>
+        #  entities?fn=<pattern>
+        #  entities?handle=<pattern>
+        # help
+        # ip/<address>
+        # ip/<prefix>/<length>
+        # nameserver/<name>
+        #  nameservers?name=<pattern>
+        #  nameservers?ip=<pattern>
+
+        if base_url in self.SERVERS:
+            base_url = self.SERVERS[base_url]
+
+        url = urljoin(base_url, f"{res_type}/{lookup}")
+        data = self.cache.load(url)
+        if not data:
+            data = self._fetch_json(url)
+            self.cache.save(url, data)
+        return data
+
+def format_vcard(vc):
+    if vc[0] == "vcard":
+        yield {"row": "nested",
+               "key": "vcard"}
+        for i in vc[1]:
+            key, attr, form, val = i
+            if key in {"version"}:
+                continue
+            elif form == "text":
+                if attr and "label" in attr:
+                    val = attr["label"]
+                    val = val.replace("\r", "")
+                    val = val.replace("\n", ", ")
+                elif not val:
+                    val = repr(i)
+                yield {"row": "kvpair",
+                       "key": key,
+                       "value": val,
+                       "nest": 1}
+            else:
+                yield {"row": "kvpair",
+                       "key": "vcard",
+                       "value": repr(i),
+                       "nest": 1}
+
+def fix_ipv4_lzero(v):
+    return ".".join([str(int(o, 10)) for o in v.split(".")])
+
+def format_object(obj):
+    seen_keys = set()
+
+    self_url = None
+    if "links" in obj:
+        for l in obj["links"]:
+            if l["rel"] == "self":
+                self_url = l["href"]
+
+    res_type = obj["objectClassName"]
+    seen_keys |= {"objectClassName"}
+
+    for k in ["handle", "ldhName"]:
+        if k in obj:
+            yield {"row": "kvpair",
+                   "key": res_type,
+                   "value": obj[k],
+                   "header": True}
+            seen_keys.add(k)
+
+    for k in ["name", "type", "roles", "status",
+              "ipVersion", "startAddress", "endAddress",
+              "parentHandle"]:
+        if k in obj:
+            v = obj[k]
+            if k in {"startAddress", "endAddress"} and ":" not in v:
+                v = fix_ipv4_lzero(v)
+            yield {"row": "kvpair",
+                   "key": k,
+                   "value": v}
+            seen_keys.add(k)
+
+    if "vcardArray" in obj:
+        yield from format_vcard(obj["vcardArray"])
+        seen_keys.add("vcardArray")
+
+    if "events" in obj:
+        yield {"row": "nested", "key": "events"}
+        for ev in obj["events"]:
+            yield {"row": "kvpair",
+                   "key": ev["eventAction"],
+                   "value": ev["eventDate"],
+                   "nest": 1}
+        seen_keys.add("events")
+
+    if "remarks" in obj:
+        yield {"row": "nested", "key": "remarks"}
+        for re in obj["remarks"]:
+            yield {"row": "remark",
+                   "title": re["title"],
+                   "text": "\n".join(re["description"]),
+                   "nest": 1}
+        seen_keys.add("remarks")
+
+    for k in obj:
+        if k in seen_keys:
+            continue
+        elif k in {"entities",
+                    "lang",
+                    "links", "port43", "notices", "rdapConformance"}:
+            continue
+        else:
+            yield {"row": "kvpair",
+                   "key": f".{k}",
+                   "value": repr(obj[k])}
+
+    if "entities" in obj:
+        for ent in obj["entities"]:
+            yield from format_object(ent)
+
+args = sys.argv[1:]
+
+cli = RdapClient()
+data = cli.query_server(*args)
+#pprint(data)
+for i in format_object(data):
+    n = i.get("nest", 0)
+    if i["row"] == "kvpair":
+        k = i["key"]
+        v = i["value"]
+        if i.get("header"):
+            print()
+            k = k.upper()
+        kl = f"{k}:"
+        if isinstance(v, list):
+            v = ", ".join(v)
+        if n:
+            nl = "  " * n
+            nl = f"{nl}- "
+            print(f"{nl}{kl:15} {v}")
+        else:
+            for vl in v.split("\n"):
+                print(f"{kl:15} {vl}")
+                kl = ""
+    elif i["row"] == "remark":
+        k = i["title"]
+        v = i["text"]
+        nl = "   " * n
+        print(f"{nl}--- {k} ---")
+        for vl in v.split("\n"):
+            print(f"{nl}; {vl}")
+    elif i["row"] == "nested":
+        k = i["key"]
+        print(f"{k}:")
+    else:
+        print(i)

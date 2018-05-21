@@ -1,0 +1,63 @@
+#!/usr/bin/env ruby
+# vim: ts=4:sw=4:et
+require "base64"
+require "openssl"
+require "pp"
+
+class OpenSSL::BN
+    def pack
+        [self.to_s(16)].pack("H*")
+    end
+end
+
+class OpenSSL::PKey::DSA
+    def to_ipseckey
+        n = key.pub_key.num_bytes
+        t = (n - 64) / 8
+        fields = [
+            ["T",  1, t.to_bn.pack],
+            ["Q", 20, key.q.pack],
+            ["P",  n, key.p.pack],
+            ["G",  n, key.g.pack],
+            ["Y",  n, key.pub_key.pack],
+        ]
+        return 
+    end
+end
+
+filename = ARGV[0]
+precedence = 0
+gateway_type = 0
+gateway_addr = "."
+
+key = File.open(filename) { |fh| OpenSSL::PKey.read(fh) }
+
+if key.is_a?(OpenSSL::PKey::DSA)
+    alg_type = 1
+elsif key.is_a?(OpenSSL::PKey::RSA)
+    alg_type = 2
+    fields = []
+    if key.e.num_bytes > 255
+        fields << ["E_length", 3, [key.e.num_bytes].pack("xn")]
+    else
+        fields << ["E_length", 1, [key.e.num_bytes].pack("C")]
+    end
+    fields << ["E", nil, key.e.pack]
+    fields << ["N", nil, key.n.pack]
+elsif key.is_a?(OpenSSL::PKey::EC)
+    alg_type = 3
+else
+    raise "unknown pkey type #{key}"
+end
+
+buf = ""
+fields.each do |name, n, f|
+    if !n.nil? && f.bytesize != n
+        raise "field #{name} length mismatch (#{n} vs #{f.num_bytes})"
+    end
+    buf << f
+end
+
+pubkey = Base64.strict_encode64(buf)
+
+puts "IPSECKEY ( #{precedence} #{gateway_type} #{gateway_addr} #{pubkey} )"

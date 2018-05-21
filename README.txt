@@ -11,11 +11,15 @@ tl;dr I write a lot of useless scripts
 ---
 
 This repository is released under the MIT License, unless declared otherwise in
-specific files.
+specific files. (Everything up to commit 93dbb8dd38eb92ddb4cc may also be used
+under WTFPL v2.)
 
 The generally useful stuff:
 
-  music/
+  desktop/
+    dbus-name           – list, activate, wait for D-Bus names
+    gnome-inhibit       – set & list power management inhibitors in GNOME
+  media/
     gnome-mpris-inhibit – disable power management in GNOME while music is playing
     mpris               – control MPRISv2-capable players
   net/
@@ -52,6 +56,7 @@ The "that's nice... but what's it good for?" stuff:
     authorized_keys.py  – parse ~/.ssh/authorized_keys
     sexp.py             – parse Ron Rivest's S-expressions
   misc/
+    treeify             – translate a list of files to a fancy tree
     uniboxify           – convert ASCII box drawings to Unicode box drawings
   security/
     denettalk           – decrypt Nettalk "NCTCTC001"-encrypted messages
@@ -59,15 +64,7 @@ The "that's nice... but what's it good for?" stuff:
     ssh-duphosts        – clean up ~/.ssh/known_hosts
   system/
     locale-check        – half-assed attempt to verify your locale settings
-
-The IRC protocol parser collection:
-
-  lib/irc.vala
-  lib/perl5/Nullroute/IRC.pm
-  lib/php/irc.php
-  lib/python/nullroute/irc.py
-  lib/ruby/irc.rb
-  lib/tests/*.txt
+    upower-monitor      – suspend when UPower claims it's low on battery
 
 The rest:
 
@@ -104,10 +101,11 @@ Log:
   * 2014-07-29: cleaned up old branches; moved to refs/attic/* to avoid clutter
   * 2015-03-16: exported security/accdb
   * 2015-04-05: changed default license to MIT
-  * 2015-05-01: spring cleaning; removed many useless things
   * 2015-07-10: forked to hacks.git
         - the original, code.git, trimmed down to a bare minimum
         - the fork, hacks.git, merged with Code Recycle Bin
+  * 2017-02-01: cleaned up a lot of garbage
+  * 2018-05-21: merged hacks.git and code.git again
+        - it's still basically the code recycle bin
 
 vim: ts=4:sw=4:et
-foo

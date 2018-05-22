@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 	}
 	else if (streq(cmd, "wait")) {
 		pid_t pid;
-		char path[20]; // enough for /proc/ + 32-bit PID
+		char path[32]; // enough for /proc/ + 32-bit PID
 		int interval = 1;
 		if (argc > 2) {
 			pid = atoi(argv[++i]);

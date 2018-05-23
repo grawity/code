@@ -45,13 +45,11 @@ def log_debug(msg, *args):
 
 def _trace(msg, *args):
     if DEBUG:
-        _print("(" + (msg % args) + ")")
+        _print("(%s)" % msg, *args)
 
-def _print(*args):
-    args = map(str, args)
-    line = " ".join(args)+"\r\n"
+def _print(msg, *args):
     fh = sys.stdout
-    fh.write(line.encode("utf-8"))
+    fh.write((msg % args).encode("utf-8") + b"\r\n")
     fh.flush()
 
 def peername():
@@ -191,7 +189,8 @@ def forward(addr, req, flags):
                                      socket.SOCK_STREAM, 0, socket.AI_CANONNAME)
         except socket.gaierror as e:
             log_debug("- failed to resolve %r: %s", host, e.strerror)
-            _print("finger: could not resolve %s, forward failed" % host)
+            _print("finger: could not resolve '%s', forward failed",
+                   host.decode(errors="backslashreplace"))
             return
 
         for family, socktype, proto, cname, addr in gai:
@@ -205,14 +204,15 @@ def forward(addr, req, flags):
             except socket.error as e:
                 strerr = e.strerror or e.args[0]
                 log_debug("- failed to connect to %r: %s", addr, strerr)
-                _print("finger: connect to %s failed (%s)" % (straddr, strerr))
+                _print("finger: connect to %s failed (%s)",
+                       straddr, strerr)
                 continue
 
             if not b"q" in flags:
                 if cname:
-                    _print("[%s/%s]" % (cname, straddr))
+                    _print("[%s/%s]", cname, straddr)
                 else:
-                    _print("[%s]" % straddr)
+                    _print("[%s]", straddr)
 
             sock.send(req + b"\r\n")
             buf = True
@@ -222,7 +222,8 @@ def forward(addr, req, flags):
             sock.close()
             break
         else:
-            _print("finger: no reply from %s, forward failed" % host)
+            _print("finger: no reply from '%s', forward failed",
+                   host.decode(errors="backslashreplace"))
 
 def refuse(msg="refused"):
     log_info("- query %s, rejecting", msg)

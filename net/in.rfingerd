@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 import sys
 import os
@@ -55,7 +55,17 @@ def _print(*args):
     fh.flush()
 
 def peername():
-    addr = os.environ["REMOTE_HOST"]
+    try:
+        addr = os.environ["REMOTE_HOST"]
+    except KeyError:
+        try:
+            sock = socket.socket(fileno=sys.stdin.fileno())
+            addr = sock.getpeername()[0]
+        except OSError:
+            addr = "local"
+    # clean up scope, etc
+    if not addr.startswith("fe80:"):
+        addr = addr.rsplit("%", 1)[0]
     if addr.startswith("::ffff:"):
         addr = addr[len("::ffff:"):]
     return addr

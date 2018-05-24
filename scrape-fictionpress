@@ -112,6 +112,55 @@ def filter_body(story):
 class UnknownSiteError(Exception):
     pass
 
+class HtmlWriter():
+    def __init__(self, path):
+        self.path = path
+        Core.debug("saving to %r" % self.path)
+
+    def write_header(self, data):
+        title = "%(title)s, by %(author)s" % data
+        with open(self.path, "w") as fh:
+            Core.trace("writing HTML header")
+            fh.write('<!DOCTYPE html>\n')
+            fh.write('<head>\n')
+            fh.write('\t<meta charset="utf-8">\n')
+            fh.write('\t<title>%s</title>\n' % escape_html(title))
+            #fh.write('\t<link rel="stylesheet" href="../literotica.css">\n')
+            fh.write('</head>\n')
+            fh.write('<div class="header">\n')
+            fh.write('\t<h1>%s</h1>\n' % escape_html(data["title"]))
+            fh.write('\t<p class="meta">\n')
+            fh.write('\t\tby <a href="%s">%s</a>\n' % (
+                        escape_html(data["author_url"]),
+                        escape_html(data["author"]),
+                    ))
+            fh.write('\t\ton <a href="%s">%s</a>\n' % (
+                        escape_html(data["url"]),
+                        escape_html(data["site_name"]),
+                    ))
+            fh.write('\t</p>\n')
+            fh.write('</div>\n')
+            fh.write('<div class="content">\n')
+        set_file_attr(filename, "xdg.origin.url", data["url"])
+        set_file_attr(filename, "xdg.referrer.url", data["author_url"])
+        set_file_attr(filename, "dublincore.title", data["title"])
+        set_file_attr(filename, "dublincore.creator", data["author"])
+
+    def write_chapter(self, data):
+        with open(self.path, "a") as fh:
+            Core.err("XXX: WHERE ARE THE CHAPTER TITLES")
+            Core.trace("appending story body")
+            fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
+            fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
+            fh.write('\t\t%(body)s\n' % data)
+            fh.write('\t</div>\n')
+
+    def write_footer(self, data):
+        with open(self.path, "a") as fh:
+            Core.trace("appending HTML footer")
+            fh.write('</div>\n')
+            fh.write('<!-- end of story -->\n')
+
 class FictionPressScraper(Scraper):
     def _fix_url(self, url):
         if url.startswith("//"):
@@ -168,57 +217,20 @@ class FictionPressScraper(Scraper):
             url += "_(%s)" % filter_filename(author)
         return "%s.html" % url
 
-    def save_chapter_data(self, data):
+    def save_chapter_data(self, data, writer):
         Core.debug("got \"%(title)s\" (chapter %(page_cur)d out of %(page_max)d)" % data)
-
-        filename = self._url_to_filename(data["url"])
-        Core.debug("saving to %r" % filename)
+        Core.debug("saving to %r" % writer.path)
 
         data["body"] = filter_body(data["body"])
 
         if data["page_cur"] == 1:
-            title = "%(title)s, by %(author)s" % data
-            with open(filename, "w") as fh:
-                Core.trace("writing HTML header")
-                fh.write('<!DOCTYPE html>\n')
-                fh.write('<head>\n')
-                fh.write('\t<meta charset="utf-8">\n')
-                fh.write('\t<title>%s</title>\n' % escape_html(title))
-                #fh.write('\t<link rel="stylesheet" href="../literotica.css">\n')
-                fh.write('</head>\n')
-                fh.write('<div class="header">\n')
-                fh.write('\t<h1>%s</h1>\n' % escape_html(data["title"]))
-                fh.write('\t<p class="meta">\n')
-                fh.write('\t\tby <a href="%s">%s</a>\n' % (
-                            escape_html(data["author_url"]),
-                            escape_html(data["author"]),
-                        ))
-                fh.write('\t\ton <a href="%s">%s</a>\n' % (
-                            escape_html(data["url"]),
-                            escape_html(data["site_name"]),
-                        ))
-                fh.write('\t</p>\n')
-                fh.write('</div>\n')
-                fh.write('<div class="content">\n')
-            set_file_attr(filename, "xdg.origin.url", data["url"])
-            set_file_attr(filename, "xdg.referrer.url", data["author_url"])
-            set_file_attr(filename, "dublincore.title", data["title"])
-            set_file_attr(filename, "dublincore.creator", data["author"])
+            writer.write_header(data)
 
-        with open(filename, "a") as fh:
-            Core.err("XXX: WHERE ARE THE CHAPTER TITLES")
-            Core.trace("appending story body")
-            fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
-            fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
-            fh.write('\t\t%(body)s\n' % data)
-            fh.write('\t</div>\n')
+        writer.write_chapter(data)
 
         if data["page_cur"] == data["page_max"]:
-            with open(filename, "a") as fh:
-                Core.trace("appending HTML footer")
-                fh.write('</div>\n')
-                fh.write('<!-- end of story -->\n')
-            data["filename"] = filename
+            writer.write_footer(data)
+            data["filename"] = writer.path
             Core.info("saved \"%(title)s\" (%(page_max)s pages) to \"%(filename)s\"" % data)
 
     def save_raw_page(self, data, buf):
@@ -235,6 +247,7 @@ class FictionPressScraper(Scraper):
         m = re.match(r"^https://(m|www)\.[^:/]+/s/\d+/", url)
         base_url = m.group(0)
         page_url = "%s%d/" % (base_url, 1)
+        html_writer = HtmlWriter(self._url_to_filename(base_url))
         while True:
             # XXX: should do the opposite here instead
             page_url = page_url.replace("//www.", "//m.")
@@ -246,7 +259,7 @@ class FictionPressScraper(Scraper):
             if save_raw:
                 self.save_raw_page(data, resp.content)
             else:
-                self.save_chapter_data(data)
+                self.save_chapter_data(data, html_writer)
 
             if data["page_cur"] < data["page_max"]:
                 page_url = "%s%d/" % (base_url, data["page_cur"] + 1)

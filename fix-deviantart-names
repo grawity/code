@@ -8,6 +8,7 @@ import os
 from pprint import pprint
 import re
 from requests.exceptions import HTTPError
+import urllib.parse
 import sys
 
 class ScrapeError(Exception):
@@ -31,15 +32,25 @@ class DeviantArtScraper(Scraper):
             raise ValueError("favid %r did not match regex" % favid)
         return "http://fav.me/%s" % favid
 
+    def _get_favid_from_favurl(self, favurl):
+        if not favurl.startswith("http://fav.me/"):
+            raise ValueError("favurl %r does not have the expected prefix" % favurl)
+        return favurl[len("http://fav.me/"):]
+
     def get_oembed_info_by_favid(self, favid):
         favurl = self.get_favurl_by_favid(favid)
         r = self.get("https://backend.deviantart.com/oembed",
                      params={"url": favurl, "format": "json"})
         return r.json()
 
+    def get_oembed_info_by_pageurl(self, pageurl):
+        r = self.get("https://backend.deviantart.com/oembed",
+                     params={"url": pageurl, "format": "json"})
+        return r.json()
+
     def get_pageurl_by_favid(self, favid):
         favurl = self.get_favurl_by_favid(favid)
-        Core.debug("fetching %r" % favurl)
+        Core.debug("fetching %r", favurl)
         r = self.ua.head(favurl,
                          allow_redirects=False,
                          # server returns 403 if A-E is missing
@@ -48,7 +59,18 @@ class DeviantArtScraper(Scraper):
         r.raise_for_status()
         if r.status_code != 301:
             raise ScrapeError("unexpected status %r from %r" % (r, favurl))
+        Core.trace("found redirect: %r", r.headers["location"])
         return r.headers["location"]
+
+    def get_favid_by_pageurl(self, pageurl):
+        Core.debug("fetching %r", pageurl)
+        page = self.get_page(pageurl)
+        for tag in page.find_all("link", {"rel": "alternate",
+                                          "type": "application/json+oembed"}):
+            Core.trace("found tag: %r", tag)
+            val = urllib.parse.urlparse(tag["href"])
+            val = urllib.parse.parse_qs(val.query)
+            return self._get_favid_from_favurl(val["url"][0])
 
 def filter_title(title):
     title = title.replace("[+Video]", "")

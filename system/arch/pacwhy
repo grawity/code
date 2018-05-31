@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+# Shows the chain of dependencies which causes package A to pull in package B.
+from functools import lru_cache
+from nullroute.misc import print_dependency_tree
+from pprint import pprint
+import subprocess
+import sys
+
+@lru_cache(maxsize=1024)
+def get_package_deps(pkg):
+    with subprocess.Popen(["expac", "%E", pkg],
+                          stdout=subprocess.PIPE) as proc:
+        return {*proc.stdout.read().decode().split()}
+
+@lru_cache(maxsize=1024)
+def get_recursive_deps(pkg, seen=None):
+    deps = {pkg}
+    seen = seen or {pkg}
+    for dep in get_package_deps(pkg) - seen:
+        deps |= get_recursive_deps(dep)
+    return deps
+
+@lru_cache(maxsize=1024)
+def get_deps_with_rdep(pkg, rdep):
+    return {x for x in get_package_deps(pkg)
+            if rdep in get_recursive_deps(x)}
+
+start = sys.argv[1]
+end = sys.argv[2]
+
+queue = {start}
+deps = dict()
+while queue:
+    pkg = queue.pop()
+    deps[pkg] = get_deps_with_rdep(pkg, end)
+    queue |= deps[pkg] - {*deps}
+
+print_dependency_tree(deps, start)

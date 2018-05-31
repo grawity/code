@@ -70,7 +70,11 @@ def fmt_size(nbytes, decimals=1, si=False, unit="B", long_unit="bytes"):
         return "%.*f %s%s" % (decimals, nbytes / div**exp,
                              prefixes[exp] if exp else "", unit)
 
-def unescape(line):
+def unescape(line, errors="surrogateescape"):
+    """
+    Undo \000 octal and \xAB hexadecimal escapes
+    Undo \" and \\ to literals
+    """
     state = 0
     acc = ""
     outv = [""]
@@ -98,17 +102,18 @@ def unescape(line):
             else:
                 outv[-1] += ch
     outb = bytearray()
+    # outv may contain pieces of str
     for cur in outv:
         if hasattr(cur, "encode"):
             outb += cur.encode("utf-8")
         else:
             outb.append(cur)
-    return outb.decode("utf-8")
+    return outb.decode("utf-8", errors=errors)
 
-def unquote(line):
+def unquote(line, **kwargs):
     if line[0] == line[-1] == "\"":
         line = line[1:-1]
-    return unescape(line)
+    return unescape(line, **kwargs)
 
 def fmt_duration(secs):
     y = abs(secs)

@@ -17,8 +17,17 @@ lstodo() {
 	fi
 }
 
+showdiff() {
+	diff \
+		--old-line-format=$'- \e[38;5;9m%l\e[m\n' \
+		--new-line-format=$'+ \e[38;5;10m%l\e[m\n' \
+		--unchanged-line-format="" \
+		"$@" || true
+}
+
 edit() {
 	sed "$1" "$file" > "$file.tmp~" &&
+	showdiff "$file" "$file.tmp~" &&
 	cp "$file.tmp~" "$file" &&
 	rm -f "$file.tmp~"
 }
@@ -41,7 +50,7 @@ todo() {
 vitodo() {
 	local arg=$*
 	if [[ $arg == */* ]]; then
-		edit "$arg" && lstodo
+		edit "$arg"
 	else
 		eval "${EDITOR:-vi} \"\$file\""
 	fi
@@ -63,7 +72,7 @@ rmtodo() {
 		pcmd+="${addr}p;"
 		dcmd+="${addr}d;"
 	done
-	lstodo | sed -n "$pcmd" && edit "$dcmd"
+	lstodo | sed -n "$pcmd" && edit "$dcmd" >/dev/null
 }
 
 lib::find_file file= \

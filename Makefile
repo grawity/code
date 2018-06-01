@@ -27,7 +27,7 @@ BASIC_BINS := args gettime mkpasswd natsort natxsort pause silentcat spawn unesc
 BASIC_BINS += ac-wait entropy proctool strtool subreaper xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
-LINUX_BINS := globalenv libfunlink.so libfunsync.so showsigmask tapchown
+LINUX_BINS := globalenv libfunlink.so libfunsync.so peekvc showsigmask tapchown
 
 .PHONY: all basic krb misc linux pklist
 
@@ -89,6 +89,7 @@ $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 $(OBJ)/natxsort:	thirdparty/natsort.c $(OBJ)/strnatxcmp.o
+$(OBJ)/peekvc:		thirdparty/peekvc.c
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c

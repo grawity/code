@@ -110,8 +110,10 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
         Core.trace("no favid found in filename=%r", old_name)
 
     referer = get_file_attr(old_path, "xdg.referrer.url")
+    foreign_referer = False
     if referer and "deviantart.com" not in referer:
         referer = None
+        foreign_referer = True
     use_referer = bool(referer and (args.force_update or "_by_" in old_name))
     Core.trace("use_referer=%r (because referer=%r, force_update=%r, old_name=%r)",
                use_referer, referer, args.force_update, old_name)
@@ -122,7 +124,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
             "author_name": get_file_attr(old_path, "dublincore.creator"),
             "title": get_file_attr(old_path, "dublincore.title"),
         }
-        meta_present = info["author_name"] and info["title"]
+        meta_present = info["author_name"] and info["title"] and not foreign_referer
         Core.trace("update mode - xattrs retrieved; meta_present=%r", meta_present)
     else:
         info = {}

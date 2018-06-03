@@ -93,23 +93,17 @@ sub unset_attrs {
 }
 
 sub _show_file_attrs {
-	my ($file, $keys) = @_;
-	my $ret = 0;
+	my ($file, $attrs, $keys) = @_;
 	print "\e[1m".$file."\e[m\n";
 	if (!@$keys) {
 		print "  \e[2m-- no attributes --\e[m\n";
 	}
 	for my $key (sort @$keys) {
-		my $val = Linux::UserXAttr::getxattr($file, $key);
-		if ($!) {
-			_err("cannot read attr '$key' of '$file': $!");
-			++$ret; next;
-		}
+		my $val = $attrs->{$key} // next;
 		$key =~ s/^user\.// unless ($Opt{all} >= 2);
 		print "  ".$key." = ".format_val($key, $val)."\n";
 	}
 	print "\n";
-	return $ret;
 }
 
 sub dump_attrs {
@@ -129,7 +123,15 @@ sub dump_attrs {
 			unless ($Opt{all} || $Opt{empty}) {
 				next if !@keys;
 			}
-			$ret += _show_file_attrs($file, \@keys);
+			my %attrs;
+			for my $key (@keys) {
+				$attrs{$key} = Linux::UserXAttr::getxattr($file, $key);
+				if ($!) {
+					_err("cannot read attr '$key' of '$file': $!");
+					++$ret; next;
+				}
+			}
+			_show_file_attrs($file, \%attrs, \@keys);
 		}
 	} else {
 		_notice("Linux::UserXAttr missing; falling back to getfattr");

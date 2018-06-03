@@ -22,7 +22,9 @@ class DeviantArtScraper(Scraper):
     _upd_fn_re = re.compile(r"^.+ \((d\w+)\)\.\w+$")
 
     def get_favid_from_filename(self, filename, for_update=False):
-        m = (self._upd_fn_re if for_update else self._fn_re).match(filename)
+        m = self._fn_re.match(filename)
+        if not m and for_update:
+            m = self._upd_fn_re.match(filename)
         if not m:
             raise ForeignFilenameError("filename %r did not match regex" % filename)
         return m.group(1)

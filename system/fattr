@@ -80,6 +80,39 @@ sub format_val {
 	return safe_val($str);
 }
 
+sub linux_get_attrs_batch {
+	my (@files) = @_;
+	my %results;
+	if (open(my $fh, "-|",
+			"getfattr", "--dump",
+			$Opt{all} ? "--match=.*" : "--match=^user\\.",
+			"--encoding=base64",
+			"--absolute-names",
+			"--", @files))
+	{
+		my ($file, $key, $val);
+		while (<$fh>) {
+			if (/^# file: (.+)$/) {
+				$file = $1;
+				$results{$file} = {};
+			}
+			elsif (/^$/) {
+				$file = undef;
+			}
+			elsif (/^(.+?)=0s(.*)$/) {
+				$key = $1;
+				$val = decode_base64($2);
+				$results{$file}{$key} = $val;
+			}
+			else {
+				_die("BUG: getfattr returned unparsable line: $_");
+			}
+		}
+		close($fh);
+	}
+	return \%results;
+}
+
 sub set_attrs {
 	my ($key, $val, @files) = @_;
 	my $ret = _system("setfattr", "-n", $key, "-v", $val, "--", @files);
@@ -135,11 +168,19 @@ sub dump_attrs {
 		}
 	} else {
 		_notice("Linux::UserXAttr missing; falling back to getfattr");
-		$ret = _system("getfattr",
-				"--absolute-names",
-				"-m", $Opt{all} ? "-" : "^user\\.",
-				"-d",
-				@files);
+		my $all_attrs = linux_get_attrs_batch(@files);
+		for my $file (@files) {
+			my $attrs = $all_attrs->{$file};
+			my @keys = keys %$attrs;
+			unless ($Opt{all}) {
+				@keys = grep {/^user\./} @keys;
+				@keys = grep {!$HIDE_ATTRS{$_}} @keys;
+			}
+			unless ($Opt{all} || $Opt{empty}) {
+				next if !@keys;
+			}
+			_show_file_attrs($file, $attrs, \@keys);
+		}
 	}
 	return ($ret > 0);
 }

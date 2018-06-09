@@ -91,7 +91,7 @@ sub _fmt_expn {
 
 sub fmt {
 	my ($str, $data) = @_;
-	$str =~ s/%(.)/_fmt_expn($data, $&, $1)/ge;
+	$str =~ s!%(?:([^{])|\{(.+?)\})!_fmt_expn($data, $&, $1 // $2)!ge;
 	return $str;
 }
 
@@ -152,6 +152,7 @@ if (!$format_nonewline) {
 }
 
 my %output = (
+	%$entry,
 	a => $entry->{account},
 	h => $entry->{machine},
 	l => $entry->{login},

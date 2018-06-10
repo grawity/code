@@ -4,8 +4,9 @@ import os
 import subprocess
 import sys
 import time
-from nullroute.core import *
+from nullroute.core import Core
 import nullroute.sec
+import urllib.parse
 
 def run(*args):
     args = list(args)
@@ -93,8 +94,11 @@ else:
 
 data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
 
+for key in ["user", "pass"]:
+    data["%s_enc" % key] = urllib.parse.quote(data[key], safe="")
+
 if app == "mutt":
-    uri = "%(scheme)s://%(user)s:%(pass)s@%(server)s/%(path)s" % data
+    uri = "%(scheme)s://%(user_enc)s:%(pass_enc)s@%(server)s/%(path)s" % data
     cmd = ["mutt",
            "-f", uri]
     if not args.rw:

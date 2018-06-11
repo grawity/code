@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+quality=98
+infiles=(*.png)
+outfiles=()
+
+if [[ $1 =~ ^[0-9]+% ]]; then
+	quality=${1%'%'}
+	shift
+fi
+
+if (( $# )); then
+	infiles=("$@")
+fi
+
+echo "Recompressing ${#infiles[@]} files at $quality%"
+
+for iname in "${infiles[@]}"; do
+	printf '[%s/%s done]\r' "${#outfiles[@]}" "${#infiles[@]}"
+	oname=${iname/%.png/.jpg}
+	magick convert "$iname" -quality "$quality" "$oname"
+	outfiles+=("$oname")
+	printf '[%s/%s done]\r' "${#outfiles[@]}" "${#infiles[@]}"
+done
+printf '\n'
+
+echo PNG: $(du -hsc "${infiles[@]}" | tail -1)
+echo JPEG: $(du -hsc "${outfiles[@]}" | tail -1)

@@ -18,7 +18,7 @@ class ForeignFilenameError(ValueError):
     pass
 
 class DeviantArtScraper(Scraper):
-    _fn_re = re.compile(r"^(?:[a-f0-9]{32}|.*[-_]by[-_].*)-(\w+)\.\w+$")
+    _fn_re = re.compile(r"^(?:[a-f0-9]{32}|.*[-_]by[-_].*)-(d\w+)\.\w+$")
     _upd_fn_re = re.compile(r"^.+ \((d\w+)\)\.\w+$")
 
     def get_favid_from_filename(self, filename, for_update=False):
@@ -74,10 +74,16 @@ class DeviantArtScraper(Scraper):
             val = urllib.parse.parse_qs(val.query)
             return self._get_favid_from_favurl(val["url"][0])
 
-def filter_title(title):
+def filter_title(title, strict):
     title = title.replace("[+Video]", "")
+    title = title.strip()
     title = re.sub(r"\s+", " ", title)
-    return title.strip()
+    if strict:
+        title = re.sub(r"\W+", "_", title)
+        title = re.sub(r"_+", "_", title)
+        title = title.strip("_")
+        title = "'%s'" % title
+    return title
 
 def files_eq(a, b):
     astat = os.stat(a)
@@ -166,7 +172,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     # apply the new name
 
     info["_favid"] = favid
-    info["_title"] = filter_title(info["title"])
+    info["_title"] = filter_title(info["title"], strict=(not args.inverse))
     info["_suffix"] = old_name.split(".")[-1]
 
     if Core._log_level >= Core.LOG_TRACE:
@@ -177,7 +183,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     elif args.no_title:
         new_name = "%(author_name)s (%(_favid)s).%(_suffix)s" % info
     else:
-        new_name = "%(author_name)s “%(_title)s” (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(author_name)s %(_title)s (%(_favid)s).%(_suffix)s" % info
 
     new_name = filter_filename(new_name, allow_space=True)
     new_path = os.path.join(old_dir, new_name)

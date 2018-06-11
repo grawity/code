@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
 
+. lib.bash || exit
+
 quality=98
 infiles=(*.png)
 outfiles=()
+
+nproc=$(nproc)
+njobs=0
+ndone=0
+
+while getopts ":j:q:" OPT; do
+	case $OPT in
+	q) quality=${OPTARG%'%'};;
+	j) nproc=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 if [[ $1 =~ ^[0-9]+% ]]; then
 	quality=${1%'%'}
@@ -13,11 +27,15 @@ if (( $# )); then
 	infiles=("$@")
 fi
 
-echo "Recompressing ${#infiles[@]} files at $quality%"
+if (( quality < 50 || quality > 100 )); then
+	die "invalid quality value '$quality'"
+fi
 
-njobs=0
-nproc=$(nproc)
-ndone=0
+if (( nproc < 1 || nproc > $(nproc) )); then
+	die "invalid job count '$nproc'"
+fi
+
+echo "Recompressing ${#infiles[@]} files at $quality%"
 
 for iname in "${infiles[@]}"; do
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"

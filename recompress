@@ -15,12 +15,24 @@ fi
 
 echo "Recompressing ${#infiles[@]} files at $quality%"
 
+njobs=0
+nproc=$(nproc)
+ndone=0
+
 for iname in "${infiles[@]}"; do
-	printf '[%s/%s done]\r' "${#outfiles[@]}" "${#infiles[@]}"
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	while (( njobs >= nproc )); do
+		wait -n; (( --njobs )); (( ++ndone ))
+		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	done
 	oname=${iname/%.png/.jpg}
-	magick convert "$iname" -quality "$quality" "$oname"
+	magick convert "$iname" -quality "$quality" "$oname" & (( ++njobs ))
 	outfiles+=("$oname")
-	printf '[%s/%s done]\r' "${#outfiles[@]}" "${#infiles[@]}"
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+done
+while (( njobs )); do
+	wait -n; (( --njobs )); (( ++ndone ))
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 done
 printf '\n'
 

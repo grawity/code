@@ -306,14 +306,14 @@ sub restore_from_info {
 	if (dev($orig_dir, 1) == dev($trash_dir, 1)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
-			_info("restored '".abs2rel_down($orig_path)."'");
+			_info("restored '".abs2rel_down($orig_path)."'") if $verbose;
 		} else {
 			_die("failed to rename '$trashed_path': $!");
 		}
 	} else {
 		if (xdev_move($trashed_path, $orig_path)) {
 			unlink($info_path);
-			_info("restored '$orig_path'");
+			_info("restored '$orig_path'") if $verbose;
 		} else {
 			_die("failed to copy '$trashed_path' to '$orig_dir'");
 		}
@@ -447,7 +447,7 @@ sub trash {
 		_debug("... from '$orig_path'");
 		_debug("... to '$trashed_path'");
 		if (rename($orig_path, $trashed_path)) {
-			_info("trashed '$path'");
+			_info("trashed '$path'") if $verbose;
 		} else {
 			my $err = "$!";
 			_debug("rename failed, unlinking info '$info_name'");
@@ -459,7 +459,7 @@ sub trash {
 		_debug("... from '$orig_path'");
 		_debug("... to '$trashed_path'");
 		if (xdev_move($orig_path, $trashed_path)) {
-			_info("trashed '$path' to \$HOME");
+			_info("trashed '$path' to \$HOME") if $verbose;
 		} else {
 			_debug("xdev_move failed, unlinking info '$info_name'");
 			unlink($info_name);

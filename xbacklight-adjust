@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use POSIX qw(ceil floor);
+
+sub show_notify {
+	my ($icon, $summary, $value) = @_;
+
+	my $application_id = "foo";
+	my $notification_id = 0;
+	my $timeout = -1;
+	my $body = "";
+
+	$icon = "/usr/share/icons/Adwaita/scalable/status/display-brightness-symbolic.svg";
+
+	system("busctl", "call", "--user", "--",
+		"org.freedesktop.Notifications",
+		"/org/freedesktop/Notifications",
+		"org.freedesktop.Notifications",
+		"Notify",
+		"susssasa{sv}i",
+			$application_id,
+			$notification_id,
+			$icon,
+			$summary,
+			$body,
+			0,
+				# no actions
+			2,
+				"synchronous" => "s" => "",
+				"value" => "i" => $value,
+			$timeout);
+}
+
+my $level;
+
+system("xbacklight",
+	"-time" => 0,
+	"-steps" => 1,
+	@ARGV);
+
+if (`xbacklight -get` =~ /^([0-9.]+)$/) {
+	$level = $1;
+	show_notify("display-brightness-symbolic", "Brightness", ceil($level));
+}

@@ -39,6 +39,8 @@ sub usage {
 	"  transient              Automatically dismiss notification [GNOME Shell]",
 	"  synchronous=NAME       ??? [notify-osd]",
 	"  urgency=LEVEL          Set notification urgency (low, normal, high)",
+	"  value=[0-100]          Show level gauge with given value [notify-osd]",
+	"                         (normally used with 'synchronous=...')",
 	"",
 	"  icon-only              Show large icon with no text [notify-osd]",
 	"  image-path=PATH        ???",
@@ -47,6 +49,7 @@ sub usage {
 	"",
 	"  bool:HINT={0|1}        Custom hint (D-Bus boolean)",
 	"  byte:HINT=[0-255]      Custom hint (D-Bus byte)",
+	"  int32:HINT=[int]       Custom hint (D-Bus int32)",
 	"  str:HINT=VALUE         Custom hint (D-Bus string)",
 	"",
 	"Other behavior:",
@@ -175,11 +178,17 @@ for (@hints) {
 	when (/^(icon-only)$/) {
 		$hints{$1} = Net::DBus::dbus_string("");
 	}
+	when (/^(value)=(.*)$/) {
+		$hints{$1} = Net::DBus::dbus_int32($2);
+	}
 	when (/^bool:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_boolean($2);
 	}
 	when (/^byte:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_byte($2);
+	}
+	when (/^int32:([^=]+)=(.*)$/) {
+		$hints{$1} = Net::DBus::dbus_int32($2);
 	}
 	when (/^str:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_string($2);

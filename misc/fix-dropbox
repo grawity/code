@@ -25,20 +25,25 @@ rm -rf ~/.dropbox-dist-old-*/
 rm -rf /tmp/dropbox-antifreeze-* >& /dev/null
 
 if [[ $1 == --start ]]; then
-	if [[ ~/.dropbox/instance1/hostkeys -nt ~/.dropbox/hostkeys.json ]]; then
+	if [[ ! -f ~/.dropbox/instance1/hostkeys ]]; then
+		echo "$0: no hostkeys for instance1 yet; continuing"
+	elif [[ ! -f ~/.dropbox/hostkeys.json ]]; then
+		echo "$0: no hostkeys JSON backup yet; making one"
+		dbx-keystore dump > ~/.dropbox/hostkeys.json
+	elif [[ ~/.dropbox/instance1/hostkeys -nt ~/.dropbox/hostkeys.json ]]; then
 		echo "$0: hostkeys JSON backup seems to be invalidated"
 		die "full ~/.dropbox restore from backup required"
-	fi
-
-	old_fsid=$(< ~/.dropbox/fsid_instance1.txt)
-	new_fsid=$(stat -c %d.%i ~/.dropbox/instance1)
-	if [[ "$old_fsid" != "$new_fsid" ]]; then
-		echo "$0: device ID of ~/.dropbox has changed ($old_fsid -> $new_fsid)"
-		echo "$0: restoring hostkeys from JSON backup"
-		dbx-keystore load < ~/.dropbox/hostkeys.json &&
-			dbx-keystore show > /dev/null 2>&1 ||
-				die "hostkey restore failed"
-		echo "$new_fsid" > ~/.dropbox/fsid_instance1.txt
+	else
+		old_fsid=$(< ~/.dropbox/fsid_instance1.txt)
+		new_fsid=$(stat -c %d.%i ~/.dropbox/instance1)
+		if [[ "$old_fsid" != "$new_fsid" ]]; then
+			echo "$0: FSID of ~/.dropbox has changed ($old_fsid -> $new_fsid)"
+			echo "$0: restoring hostkeys from JSON backup"
+			dbx-keystore load < ~/.dropbox/hostkeys.json &&
+				dbx-keystore show > /dev/null 2>&1 ||
+					die "hostkey restore failed"
+			echo "$new_fsid" > ~/.dropbox/fsid_instance1.txt
+		fi
 	fi
 
 	arch=x86_64

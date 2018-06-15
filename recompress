@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+quality=98
+infiles=(*.png)
+outfiles=()
+
+nproc=$(nproc)
+njobs=0
+ndone=0
+
+while getopts ":j:q:" OPT; do
+	case $OPT in
+	q) quality=${OPTARG%'%'};;
+	j) nproc=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ $1 =~ ^[0-9]+% ]]; then
+	quality=${1%'%'}
+	shift
+fi
+
+if (( $# )); then
+	infiles=("$@")
+fi
+
+if (( quality < 50 || quality > 100 )); then
+	die "invalid quality value '$quality'"
+fi
+
+if (( nproc < 1 || nproc > $(nproc) )); then
+	die "invalid job count '$nproc'"
+fi
+
+echo "Recompressing ${#infiles[@]} files at $quality%"
+
+for iname in "${infiles[@]}"; do
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	while (( njobs >= nproc )); do
+		wait -n; (( --njobs )); (( ++ndone ))
+		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	done
+	oname=${iname/%.png/.jpg}
+	magick convert "$iname" -quality "$quality" "$oname" & (( ++njobs ))
+	outfiles+=("$oname")
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+done
+while (( njobs )); do
+	wait -n; (( --njobs )); (( ++ndone ))
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+done
+printf '\n'
+
+echo PNG: $(du -hsc "${infiles[@]}" | tail -1)
+echo JPEG: $(du -hsc "${outfiles[@]}" | tail -1)

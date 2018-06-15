@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+confirm() { local reply; read -p "$1 " reply && [[ $reply =~ ^[Yy] ]]; }
+
+if (( $# <= 1 )); then
+	clip=$(xsel -o -b)
+	if [[ ! $clip ]]; then
+		clip=$(xsel -o)
+	fi
+	if [[ -f $clip && $clip != */* ]]; then
+		if [[ ! $1 ]]; then
+			read -p "mv: DWIM: new name: " -r -e -i "$clip" new
+			set -- "$new"
+		fi
+		if [[ ! $1 || $1 == "$clip" ]]; then
+			exit 1
+		elif confirm "mv: DWIM: rename '$clip' to '$1'?"; then
+			set -- -v -i "$clip" "$1"
+		fi
+	fi
+fi
+
+if [[ -x /usr/bin/mv ]]; then
+	exec /usr/bin/mv "$@"
+else
+	exec /bin/mv "$@"
+fi

@@ -147,16 +147,16 @@ do_borg() {
 			"${wrap[@]}"
 			env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
 			ssh "${repo%%:*}"
-			"awk '/^id = /{print \$3}' '${repo#*:}/config'"
+			"grep '^id =' '${repo#*:}/config'"
 		)
 	else
 		cmd=(
 			"${wrap[@]}"
 			sh -c
-			"awk '/^id = /{print \$3}' '$repo/config'"
+			"grep '^id =' '$repo/config'"
 		)
 	fi
-	local id=$("${cmd[@]}")
+	local id=$("${cmd[@]}" | awk '{print $3}')
 	[[ "$id" ]] || return
 	check_stamp "borg_$id.prune" $(( 30*86400 )) || return 0
 	cmd=(

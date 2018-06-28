@@ -8,6 +8,12 @@ from nullroute.core import Core
 import nullroute.sec
 import urllib.parse
 
+def encode_utf7imap(raw):
+    return raw.encode("utf-7").replace(b"+", b"&")
+
+def decode_utf7imap(raw):
+    return raw.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7")
+
 def run(*args):
     args = list(args)
     Core.debug("running %r" % args)
@@ -126,7 +132,7 @@ elif app == "IMAPdedup":
         cmd += ["--verbose"]
     if not args.rw:
         cmd += ["--dry-run"]
-    cmd += [data["path"] or "INBOX"]
+    cmd += [encode_utf7imap(data["path"] or "INBOX")]
     run(*cmd)
 elif app == "list":
     cmd = ["python2", "/home/grawity/src/net/IMAPdedup/imapdedup.py",
@@ -143,4 +149,4 @@ elif app == "list":
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         with subprocess.Popen(pipecmd, stdin=subprocess.PIPE) as proc2:
             for line in proc.stdout:
-                proc2.stdin.write(line.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7").encode("utf-8"))
+                proc2.stdin.write(decode_utf7imap(line).encode("utf-8"))

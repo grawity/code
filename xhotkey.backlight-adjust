@@ -6,30 +6,24 @@ use POSIX qw(ceil floor);
 sub show_notify {
 	my ($icon, $summary, $value) = @_;
 
-	my $application_id = "foo";
+	my $application_id = "xbacklight-adjust";
 	my $notification_id = 0;
 	my $timeout = -1;
 	my $body = "";
 
 	$icon = "/usr/share/icons/Adwaita/scalable/status/display-brightness-symbolic.svg";
 
-	system("busctl", "call", "--user", "--",
-		"org.freedesktop.Notifications",
-		"/org/freedesktop/Notifications",
-		"org.freedesktop.Notifications",
-		"Notify",
-		"susssasa{sv}i",
-			$application_id,
-			$notification_id,
-			$icon,
-			$summary,
-			$body,
-			0,
-				# no actions
-			2,
-				"synchronous" => "s" => "",
-				"value" => "i" => $value,
-			$timeout);
+	# xfce4-notifyd supports 'value', but ignores 'synchronous',
+	# so we still need to be stateful and replace with ID.
+
+	system("notify",
+		"--app-name", $application_id,
+		"--hint", "synchronous",
+		"--hint", "value=$value",
+		"--icon", $icon,
+		"--state", $application_id,
+		$summary,
+		$body);
 }
 
 my $level;

@@ -103,16 +103,16 @@ data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
 for key in ["user", "pass"]:
     data["%s_enc" % key] = urllib.parse.quote(data[key], safe="")
 
-if app == "mutt":
+if app in {"mutt", "neomutt"}:
     uri = "%(scheme)s://%(user_enc)s:%(pass_enc)s@%(server)s/%(path)s" % data
-    cmd = ["mutt",
+    cmd = [app,
            "-f", uri]
     if not args.rw:
         cmd += ["-R"]
     run(*cmd)
-elif app == "pine":
+elif app in {"pine", "alpine"}:
     uri = "{%(server)s/%(scheme)s/tls/user=%(user)s}%(path)s" % data
-    cmd = ["alpine",
+    cmd = [app,
            "-f", uri,
            "-i"]
     if not args.rw:

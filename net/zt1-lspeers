@@ -2,6 +2,7 @@
 import ipaddress
 import json
 from nullroute.core import Core
+import socket
 import subprocess
 import sys
 
@@ -22,9 +23,8 @@ def get_peer_name(peer_id, ptr_domain=""):
         return ptr.split(".")[0]
 
 def get_ip_hostname(addr):
-    with subprocess.Popen(["addr2name", addr],
-                          stdout=subprocess.PIPE) as proc:
-        return proc.stdout.read().decode().strip() or "none"
+    (cname, service) = socket.getnameinfo((addr, 0), 0)
+    return cname
 
 controllers = {
     "12ac4a1e71",

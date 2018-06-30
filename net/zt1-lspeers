@@ -52,11 +52,29 @@ if args and args[0] == "-v":
     args.pop(0)
     hide_roots = False
 
+num_known = 0
+num_controllers = 0
+num_relays = 0
+num_unknown = 0
+
 for peer in enum_proc("listpeers", via=args):
     peer_id = peer["address"]
     peer_name = get_peer_name(peer_id, ptr_domain)
     latency = peer["latency"]
     role = peer["role"]
+
+    if peer_name:
+        fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
+        num_known += 1
+    elif peer_id in controllers:
+        fmt_name = "\033[38;5;75m%s\033[m" % "<Controller>"
+        num_controllers += 1
+    elif role in {"ROOT", "PLANET"}:
+        fmt_name = "\033[38;5;66m%s\033[m" % "<Relay>"
+        num_relays += 1
+    else:
+        fmt_name = "\033[38;5;209m%s\033[m" % "<Unknown>"
+        num_unknown += 1
 
     if hide_roots:
         if peer_name:
@@ -67,15 +85,6 @@ for peer in enum_proc("listpeers", via=args):
             continue
         else:
             continue
-
-    if peer_name:
-        fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
-    elif peer_id in controllers:
-        fmt_name = "\033[38;5;75m%s\033[m" % "<Controller>"
-    elif role in {"ROOT", "PLANET"}:
-        fmt_name = "\033[38;5;66m%s\033[m" % "<Relay>"
-    else:
-        fmt_name = "\033[38;5;209m%s\033[m" % "<Unknown>"
 
     fmt_addr = "\033[1;38;5;102m%s\033[m" % peer_id
 
@@ -96,3 +105,7 @@ for peer in enum_proc("listpeers", via=args):
         host = str(ipaddress.ip_address(host))
         fqdn = get_ip_hostname(host)
         print("  %s - %s port %s (%s)" % (fmt_pref, host, port, fqdn))
+
+print("%d connected nodes (%d peers, %d relays, %d controllers, %d unknown)" % (
+        num_known + num_relays + num_controllers + num_unknown,
+        num_known,  num_relays,  num_controllers,  num_unknown))

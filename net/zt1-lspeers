@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-from nullroute.core import *
+import ipaddress
 import json
+from nullroute.core import Core
 import subprocess
 import sys
 
@@ -86,5 +87,6 @@ for peer in enum_proc("listpeers", via=args):
             fmt_pref = "\033[38;5;244m%s\033[m" % "backup"
         char = "%" if pref else "+" if active else "-"
         host, port = addr.rsplit("/", 1)
+        host = str(ipaddress.ip_address(host))
         fqdn = get_ip_hostname(host)
-        print("  %s - %s (%s)" % (fmt_pref, addr, fqdn))
+        print("  %s - %s port %s (%s)" % (fmt_pref, host, port, fqdn))

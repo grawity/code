@@ -12,12 +12,11 @@ def get_package_deps(pkg):
                           stdout=subprocess.PIPE) as proc:
         return {*proc.stdout.read().decode().split()}
 
-@lru_cache(maxsize=1024)
 def get_recursive_deps(pkg, seen=None):
     deps = {pkg}
     seen = seen or {pkg}
     for dep in get_package_deps(pkg) - seen:
-        deps |= get_recursive_deps(dep)
+        deps |= get_recursive_deps(dep, {*seen, dep})
     return deps
 
 @lru_cache(maxsize=1024)

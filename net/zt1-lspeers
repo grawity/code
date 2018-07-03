@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-from nullroute.core import *
+import ipaddress
 import json
+from nullroute.core import Core
+import socket
 import subprocess
 import sys
 
@@ -21,9 +23,8 @@ def get_peer_name(peer_id, ptr_domain=""):
         return ptr.split(".")[0]
 
 def get_ip_hostname(addr):
-    with subprocess.Popen(["addr2name", addr],
-                          stdout=subprocess.PIPE) as proc:
-        return proc.stdout.read().decode().strip() or "none"
+    (cname, service) = socket.getnameinfo((addr, 0), 0)
+    return cname
 
 controllers = {
     "12ac4a1e71",
@@ -31,9 +32,14 @@ controllers = {
     "565799d8f6",
     "6ab565387a",
     "8056c2e21c",
+    "8850338390",
     "8bd5124fd6",
     "93afae5963",
+    "9f77fc393e",
     "a09acf0233",
+    "a84ac5c10a",
+    "c7c8172af1",
+    "e4da7455b2",
     "e5cd7a9e1c",
     "ea9349aa9c",
 }
@@ -46,24 +52,39 @@ if args and args[0] == "-v":
     args.pop(0)
     hide_roots = False
 
+num_known = 0
+num_controllers = 0
+num_relays = 0
+num_unknown = 0
+
 for peer in enum_proc("listpeers", via=args):
     peer_id = peer["address"]
     peer_name = get_peer_name(peer_id, ptr_domain)
     latency = peer["latency"]
     role = peer["role"]
 
-    if hide_roots:
-        if role in {"ROOT", "PLANET"}:
-            continue
-
     if peer_name:
         fmt_name = "\033[1;38;5;76m%s\033[m" % peer_name
+        num_known += 1
     elif peer_id in controllers:
-        fmt_name = "\033[38;5;76m%s\033[m" % "Controller"
+        fmt_name = "\033[38;5;75m%s\033[m" % "<Controller>"
+        num_controllers += 1
     elif role in {"ROOT", "PLANET"}:
-        fmt_name = "\033[38;5;66m%s\033[m" % "Relay"
+        fmt_name = "\033[38;5;66m%s\033[m" % "<Relay>"
+        num_relays += 1
     else:
-        fmt_name = "\033[38;5;209m%s\033[m" % "Unknown"
+        fmt_name = "\033[38;5;209m%s\033[m" % "<Unknown>"
+        num_unknown += 1
+
+    if hide_roots:
+        if peer_name:
+            pass
+        elif peer_id in controllers:
+            continue
+        elif role in {"ROOT", "PLANET"}:
+            continue
+        else:
+            continue
 
     fmt_addr = "\033[1;38;5;102m%s\033[m" % peer_id
 
@@ -81,5 +102,10 @@ for peer in enum_proc("listpeers", via=args):
             fmt_pref = "\033[38;5;244m%s\033[m" % "backup"
         char = "%" if pref else "+" if active else "-"
         host, port = addr.rsplit("/", 1)
+        host = str(ipaddress.ip_address(host))
         fqdn = get_ip_hostname(host)
-        print("  %s - %s (%s)" % (fmt_pref, addr, fqdn))
+        print("  %s - %s port %s (%s)" % (fmt_pref, host, port, fqdn))
+
+print("%d connected nodes (%d peers, %d relays, %d controllers, %d unknown)" % (
+        num_known + num_relays + num_controllers + num_unknown,
+        num_known,  num_relays,  num_controllers,  num_unknown))

@@ -105,10 +105,12 @@ def peername():
         try:
             # 2018-07-19: Py3.5 on virgule returns garbage IPv6-ey addresses
             #             in the general shape of "::b0df:405f:3a7f:0%178917336"
-            addr = _ctypes_peername(sys.stdin.fileno())[0]
-            #sock = socket.socket(fileno=os.dup(sys.stdin.fileno()))
-            #_trace("peername(): sock => %r", sock)
-            #addr = sock.getpeername()[0]
+            #             This only happens with dual-bind sockets, so I've
+            #             activated BindIPv6Only=yes as a workaround.
+            #addr = _ctypes_peername(sys.stdin.fileno())[0]
+            sock = socket.socket(fileno=os.dup(sys.stdin.fileno()))
+            _trace("peername(): sock => %r", sock)
+            addr = sock.getpeername()[0]
         except OSError:
             addr = "local"
     # clean up scope, etc

@@ -134,7 +134,7 @@ class DracProber(Scraper):
         if self._probe_path("/software/avctVMAPI_DLLLinux32.jar"):
             return "iDRAC7"
         if self._probe_path("/software/avctVMLinux32.jar"):
-            return "iDRAC6-new"
+            return "iDRAC6"
         if self._probe_path("/software/jpcsc.jar"):
             return "iDRAC6-old"
         if self._probe_path("/plugins/vkvm/avctDRAC5Viewer.jar"):
@@ -160,7 +160,7 @@ class DracProber(Scraper):
 
     @classmethod
     def known_versions(self):
-        return ["DRAC5", "iDRAC6-new", "iLO4"]
+        return ["DRAC5", "iDRAC6", "iLO4"]
 
     def fetch_webstart(self):
         if self.version == "DRAC5":
@@ -182,7 +182,7 @@ class DracProber(Scraper):
             resp.raise_for_status()
             return resp.content
 
-        elif self.version == "iDRAC6-new":
+        elif self.version == "iDRAC6":
             # the JNLP retrieval is unnecessarily complex in v6,
             # but we can pass credentials directly to the applet
             Core.debug("using JNLP template")
@@ -231,26 +231,26 @@ class DracProber(Scraper):
         jnlp = self.fetch_webstart()
 
         if self.version == "DRAC5":
+            # Tested with DRAC5 firmware v1.60 and v1.65
+            # Require Java 6, because applet is MD5-signed (and apparently uses SSLv3?)
             runtime = "java-6-jre/jre"
+            # Ignore lies in the JNLP (which says "1.4+")
             jnlp = self._force_j2se_version(jnlp, "1.6")
-            # JNLP accepts any version (version="1.6 1.5 1.4+"),
-            # but Java 7+ won't accept MD5-signed applets nor speak SSLv3
-        elif self.version == "iDRAC6-new":
+
+        elif self.version == "iDRAC6":
+            # Java 9 or newer will not accept keyboard input
             runtime = "java-8-jre/jre"
             jnlp = self._force_j2se_version(jnlp, "1.8 1.7 1.6")
-            # Java 9 or newer will not accept keyboard input
+
         else:
             runtime = "java-10-jdk"
 
         jnlp_path = os.path.join(self.temp_dir.name, "vkvm.jnlp")
-
         with open(jnlp_path, "wb") as fh:
             Core.debug("saving JNLP to %r", jnlp_path)
             fh.write(jnlp)
 
-        cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime,
-               "-wait",
-               jnlp_path]
+        cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime, "-wait", jnlp_path]
         Core.debug("launching %r", cmd)
         subprocess.run(cmd, cwd=self.temp_dir.name)
 

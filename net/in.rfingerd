@@ -23,7 +23,7 @@ import syslog
 #       If <nexthop> begins with a "|", raw query is given as stdin,
 #                                       otherwise in argv[].
 #   If <nexthop> starts with "/", it is a file to be sent.
-#   If <nexthop> is "!", the query is refused.
+#   If <nexthop> is "-", the query is refused.
 #   If <nexthop> is "*", the query is transparently forwarded to the host.
 #   Otherwise, <nexthop> is a host or host:port to forward the query to.
 #
@@ -52,12 +52,64 @@ def _print(msg, *args):
     fh.write((msg % args).encode("utf-8") + b"\r\n")
     fh.flush()
 
+def _ctypes_peername(fd):
+    import ctypes
+    import ipaddress
+
+    class sockaddr_in(ctypes.Structure):
+        _fields_ = (
+            ('sin_family', ctypes.c_ushort),
+            ('sin_port', ctypes.c_uint16),
+            ('sin_addr', ctypes.c_uint8 * 4),
+        )
+    class sockaddr_in6(ctypes.Structure):
+        _fields_ = (
+            ('sin6_family', ctypes.c_ushort),
+            ('sin6_port', ctypes.c_uint16),
+            ('sin6_flowinfo', ctypes.c_uint32),
+            ('sin6_addr', ctypes.c_uint8 * 16),
+            ('sin6_scope_id', ctypes.c_uint32)
+        )
+    class sockaddr_union(ctypes.Union):
+        _fields_ = (
+            ('v4', sockaddr_in),
+            ('v6', sockaddr_in6),
+        )
+
+    libc = ctypes.cdll["libc.so.6"]
+    libc.getsockname.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
+    libc.getpeername.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
+
+    sa = sockaddr_union()
+    sizeof = ctypes.c_size_t(ctypes.sizeof(sockaddr_union))
+    addr = None
+
+    if libc.getpeername(fd, ctypes.byref(sa), ctypes.byref(sizeof)) == 0:
+        if sa.v4.sin_family == socket.AF_INET:
+            addr = (str(ipaddress.IPv4Address(bytes(sa.v4.sin_addr))),
+                    sa.v4.sin_port)
+            _trace("got IPv4 address %r", addr)
+            return addr
+        elif sa.v4.sin_family == socket.AF_INET6:
+            addr = (str(ipaddress.IPv6Address(bytes(sa.v6.sin6_addr))),
+                    sa.v6.sin6_port,
+                    sa.v6.sin6_flowinfo,
+                    sa.v6.sin6_scope_id)
+            _trace("got IPv6 address %r", addr)
+    return addr
+
 def peername():
     try:
         addr = os.environ["REMOTE_HOST"]
     except KeyError:
         try:
+            # 2018-07-19: Py3.5 on virgule returns garbage IPv6-ey addresses
+            #             in the general shape of "::b0df:405f:3a7f:0%178917336"
+            #             This only happens with dual-bind sockets, so I've
+            #             activated BindIPv6Only=yes as a workaround.
+            #addr = _ctypes_peername(sys.stdin.fileno())[0]
             sock = socket.socket(fileno=os.dup(sys.stdin.fileno()))
+            _trace("peername(): sock => %r", sock)
             addr = sock.getpeername()[0]
         except OSError:
             addr = "local"
@@ -107,7 +159,7 @@ def route(request):
         else:
             local, host = request, b""
 
-        if nexthop == b"!":
+        if nexthop == b"-":
             return False
         elif nexthop == b"*":
             nexthop = host

@@ -56,12 +56,17 @@ class Passfile(object):
         self.reload()
 
     def reload(self):
-        with open(self.path, "r") as fh:
-            for n, line in enumerate(fh):
-                line = decrypt_line(n, line)
-                row = line.rstrip("\n").split("\t")
-                self._items.append(row)
-                self._by_host[row[2], row[1]] = row
+        self._items = []
+        self._by_host = {}
+        try:
+            with open(self.path, "r") as fh:
+                for n, line in enumerate(fh):
+                    line = decrypt_line(n, line)
+                    row = line.rstrip("\n").split("\t")
+                    self._items.append(row)
+                    self._by_host[row[2], row[1]] = row
+        except FileNotFoundError:
+            pass
         self.modified = False
 
     def add(self, hostname, login, passwd, secure_only=True):

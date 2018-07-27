@@ -1,7 +1,5 @@
-# vim: ft=perl
 use strict;
 use Irssi;
-use vars qw($VERSION %IRSSI);
 
 ## Settings:
 #
@@ -33,8 +31,8 @@ use vars qw($VERSION %IRSSI);
 ## To trigger the script manually, use:
 ## /msg Q@cserve.quakenet.org challenge
 
-$VERSION = "1.0";
-%IRSSI = (
+our $VERSION = "1.0";
+our %IRSSI = (
 	authors     => 'Mantas Mikulėnas',
 	contact     => 'grawity@gmail.com',
 	name        => 'auth_quakenet_challenge.pl',
@@ -45,8 +43,7 @@ $VERSION = "1.0";
 
 require Digest::HMAC;
 
-my @preferred_mechs = qw(HMAC-SHA-256 HMAC-SHA-1 HMAC-MD5);
-
+my @preferred_mechs = ("HMAC-SHA-256", "HMAC-SHA-1", "HMAC-MD5");
 my %supported_mechs = ();
 
 eval {

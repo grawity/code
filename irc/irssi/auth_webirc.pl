@@ -1,10 +1,9 @@
 # vim: ft=perl
 use strict;
 use Irssi;
-use vars qw($VERSION %IRSSI);
 
-$VERSION = "0.8";
-%IRSSI = (
+our $VERSION = "0.8";
+our %IRSSI = (
 	name        => 'auth_webirc.pl',
 	description => 'Implements WEBIRC authentication for UnrealIRCd',
 	license     => 'MIT (Expat) <https://spdx.org/licenses/MIT>',

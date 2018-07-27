@@ -1,13 +1,10 @@
 use strict;
 use Irssi;
-use vars qw($VERSION %IRSSI);
-
 use MIME::Base64;
 use Authen::SASL "Perl";
 
-$VERSION = "1.1";
-
-%IRSSI = (
+our $VERSION = "1.1";
+our %IRSSI = (
     authors     => ['Mantas Mikulėnas',
 					'Michael Tharp',
 					'Jilles Tjoelker'],

@@ -1,8 +1,6 @@
-#!/usr/bin/env perl
 use warnings;
 use strict;
 use utf8;
-use vars qw($VERSION %IRSSI);
 
 use feature qw(state switch);
 use Irssi;
@@ -10,8 +8,8 @@ use Socket;
 use IO::Socket::INET;
 use IO::Socket::UNIX;
 
-$VERSION = "0.8";
-%IRSSI = (
+our $VERSION = "0.8";
+our %IRSSI = (
 	name        => 'notify-send',
 	description => 'Sends hilight messages over DBus, TCP or UDP',
 	authors     => 'Mantas Mikulėnas',

@@ -1,11 +1,10 @@
 use strict;
 use utf8;
-use vars qw($VERSION %IRSSI);
 use Irssi;
 use Irssi::TextUI;
 
-$VERSION = '0.4';
-%IRSSI = (
+our $VERSION = '0.4';
+our %IRSSI = (
 	name		=> 'scrollwarn',
 	description	=> 'Warns you if you were scrolled up when sending a message.',
 	contact		=> 'Mantas Mikulėnas <grawity@gmail.com>',
@@ -20,8 +19,7 @@ Irssi::signal_add("send text" => sub {
 	if (!$view->{bottom}) {
 		my $lines = $view->{ypos} - $view->{height};
 		$win->command("scrollback end");
-		$win->print("You were scrolled up by $lines lines. Message not sent.",
-			MSGLEVEL_CLIENTERROR);
+		$win->print("You were scrolled up by $lines lines. Message not sent.", MSGLEVEL_CLIENTERROR);
 		Irssi::signal_stop;
 	}
 });

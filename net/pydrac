@@ -107,14 +107,14 @@ class DracProber(Scraper):
         Core.debug("posting to %r" % url, skip=1)
         return self.ua.post(url, *args, **kwargs)
 
-    def _probe_path(self, path):
+    def _probe_path(self, path, head=False):
         url = self.base_url + path
         Core.debug("testing existence of %r" % url, skip=1)
-        resp = self.ua.head(url)
+        resp = self.ua.head(url) if head else self.ua.get(url)
         if resp.status_code == 200:
             Core.debug(" - file exists (got %r)", resp)
-            return True
-        elif resp.status_code in {404, 405}:
+            return resp
+        elif resp.status_code == 404:
             Core.debug(" - file does not exist (got %r)", resp)
             return False
         else:
@@ -123,20 +123,25 @@ class DracProber(Scraper):
     def probe_version(self):
         if self.version:
             return self.version
-        if os.environ.get("PYDRAC_VERSION"):
-            return os.environ["PYDRAC_VERSION"]
-        # XXX: iDRAC6 bug: HEAD responses are not blank-terminated, so .head() hangs
-        # XXX: iLO4 always responds with 405
-        if self._probe_path("/html/intgapp4_231.jar"):
-            return "iLO4"
-        if self._probe_path("/html/intgapp3_231.jar"):
-            return "iLO3"
-        if self._probe_path("/software/avctVMAPI_DLLLinux32.jar"):
-            return "iDRAC7"
-        if self._probe_path("/software/avctVMLinux32.jar"):
+
+        # check for Dell DRAC/iDRAC
+        # only do GET probes, because (at least in iDRAC6) the HEAD responses are
+        # not blank-terminated, so .head() hangs forever
+        if self._probe_path("/images/Ttl_2_iDRAC6_Ent_ML.png"):
             return "iDRAC6"
-        if self._probe_path("/plugins/vkvm/avctDRAC5Viewer.jar"):
+        if self._probe_path("/cgi/drac/js/rac5vkvm.js"):
             return "DRAC5"
+
+        # check for HP iLO 4
+        # don't do direct .jar probes, because iLO4 returns 405 (Method not
+        # allowed) for HEAD, and they're too large to fully GET
+        resp = self._probe_path("/json/login_session")
+        if resp:
+            vers = resp.json().get("moniker", {}).get("PRODGEN")
+            if vers == "iLO 4":
+                return "iLO4"
+            raise UnknownVersionError()
+
         raise UnknownVersionError()
 
     def load_template_webstart(self, template):

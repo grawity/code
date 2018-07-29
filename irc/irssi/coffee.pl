@@ -8,7 +8,7 @@ $VERSION = '0.3';
 	name		=> 'spacefail',
 	description	=> 'Warns you if you have extra spaces before /command',
 	contact		=> 'Mantas Mikulėnas <grawity@gmail.com>',
-	license		=> 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
+	license		=> 'MIT (Expat) <https://spdx.org/licenses/MIT>',
 );
 
 Irssi::signal_add("send text" => sub {

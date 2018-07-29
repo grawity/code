@@ -16,7 +16,7 @@ $VERSION = "0.8";
 	description => 'Sends hilight messages over DBus, TCP or UDP',
 	authors     => 'Mantas Mikulėnas',
 	contact     => 'grawity@gmail.com',
-	license     => 'WTFPL v2 <http://sam.zoy.org/wtfpl/>',
+	license     => 'MIT (Expat) <https://spdx.org/licenses/MIT>',
 );
 
 my $appname = "irssi";

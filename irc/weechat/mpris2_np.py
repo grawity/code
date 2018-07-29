@@ -29,6 +29,8 @@
 
 ###
 # ChangeLog:
+#  0.4.4 - grawity:
+#   * trim date to actually show just the year
 #  0.4.3 - grawity:
 #   * allow the default player to be set
 #  0.4.2 - grawity:
@@ -127,7 +129,7 @@ def print_info(data, buffer, args):
                 if album:
                     msg += u' from "%s"' % album
                 if year:
-                    msg += u' (%s)' % year
+                    msg += u' (%s)' % year.split(u'-')[0]
 
             msg = msg.encode('utf-8')
 

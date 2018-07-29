@@ -1,62 +1,73 @@
-#!/usr/bin/env perl
-use warnings;
-use strict;
-use Getopt::Long;
-use POSIX qw(ceil floor);
+#!/usr/bin/env python3
+import dbus
+from math import ceil
+import json
+import os
+import re
+import sys
 
-sub show_notify {
-	my ($icon, $summary, $value) = @_;
+def show_notify(icon, summary, value):
+    notification_id = 0
+    body = ""
 
-	my $application_id = "xvolume-adjust";
-	my $notification_id = 0;
-	my $timeout = -1;
-	my $body = "";
+    icon = "/usr/share/icons/Adwaita/scalable/status/%s.svg" % icon
 
-	$icon = "/usr/share/icons/Adwaita/scalable/status/$icon.svg";
+    application_id = "lt.nullroute.XHotkey.VolumeAdjust"
+    actions = []
+    hints = {
+        "value": dbus.Int32(value),
+        "synchronous": dbus.String(),
+        "x-canonical-private-synchronous": dbus.String(),
+    }
+    timeout = -1
 
-	# xfce4-notifyd supports 'value', but ignores 'synchronous',
-	# so we still need to be stateful and replace with ID.
+    bus = dbus.SessionBus()
+    svc = bus.get_object("org.freedesktop.Notifications",
+                         "/org/freedesktop/Notifications")
+    notify_if = dbus.Interface(svc, "org.freedesktop.Notifications")
 
-	system("notify",
-		"--app-name", $application_id,
-		"--hint", "synchronous",
-		"--hint", "value=$value",
-		"--icon", $icon,
-		"--state", $application_id,
-		$summary,
-		$body);
-}
+    state_path = os.path.expandvars("$XDG_RUNTIME_DIR/%s.json" % application_id)
+    try:
+        state = json.load(open(state_path, "r"))
+    except FileNotFoundError:
+        state = {}
 
-my $level;
-my $adj;
-my $mute;
-my $sink = "\@DEFAULT_SINK\@";
+    state["id"] = notify_if.Notify(application_id,
+                                   state.get("id", 0),
+                                   icon,
+                                   summary,
+                                   body,
+                                   actions,
+                                   hints,
+                                   timeout)
 
-GetOptions(
-	"--raise" => sub { $adj = +1 },
-	"--lower" => sub { $adj = -1 },
-	"--mute" => \$mute,
-	"--toggle-mute" => \$mute,
-) or exit;
+    json.dump(state, open(state_path, "w"))
 
-if (@ARGV && $ARGV[0] =~ /^[+-]\d+/) {
-	$adj = int($&);
-}
+adj = None
+mute = False
+sink = "@DEFAULT_SINK@"
 
-if ($mute) {
-	system("pactl", "set-sink-mute", "$sink", "toggle");
-}
+def get_volume():
+    with os.popen("pactl list sinks", "r") as fh:
+        for line in fh:
+            m = re.match(r"\s*Volume: .+? (\d+)% ", line)
+            if m:
+                return int(m.group(1))
 
-if ($adj) {
-	system("pactl", "set-sink-volume", "$sink", "+$adj%");
-}
+if sys.argv[1] == "--raise":
+    adj = +1
+elif sys.argv[1] == "--lower":
+    adj = -1
+elif sys.argv[1] in {"--mute", "--toggle-mute"}:
+    mute = True
 
-if (`pactl list sinks` =~ /Volume: .+? (\d+)% /) {
-	$level = $1;
-	my $icon = $level > 65 ? "high"
-		: $level > 32 ? "medium"
-		: $level > 0 ? "low"
-		: "muted";
-	$icon = "audio-volume-$icon";
-	show_notify("$icon-symbolic", "Volume", ceil($level));
-}
+if mute:
+    os.system("pactl set-sink-mute %s toggle" % (sink,))
+
+if adj:
+    os.system("pactl set-sink-volume %s +%s%%" % (sink, adj))
+
+vol = get_volume()
+icon = "high" if vol > 65 else "medium" if vol > 32 else "low" if vol > 0 else "muted"
+
+show_notify("audio-volume-%s-symbolic" % icon, "Volume", ceil(vol))

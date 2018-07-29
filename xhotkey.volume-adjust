@@ -6,6 +6,25 @@ import os
 import re
 import sys
 
+class FileState():
+    def __init__(self, path):
+        self.path = path
+        self.data = None
+
+    def __enter__(self):
+        try:
+            self.data = json.load(open(self.path, "r"))
+        except FileNotFoundError:
+            self.data = {}
+        return self.data
+
+    def __exit__(self, *junk):
+        json.dump(self.data, open(self.path, "w"))
+
+class RuntimeState(FileState):
+    def __init__(self, app_id):
+        self.path = os.path.expandvars("$XDG_RUNTIME_DIR/%s.json" % app_id)
+
 def show_notify(icon, summary, value):
     notification_id = 0
     body = ""
@@ -26,22 +45,15 @@ def show_notify(icon, summary, value):
                          "/org/freedesktop/Notifications")
     notify_if = dbus.Interface(svc, "org.freedesktop.Notifications")
 
-    state_path = os.path.expandvars("$XDG_RUNTIME_DIR/%s.json" % application_id)
-    try:
-        state = json.load(open(state_path, "r"))
-    except FileNotFoundError:
-        state = {}
-
-    state["id"] = notify_if.Notify(application_id,
-                                   state.get("id", 0),
-                                   icon,
-                                   summary,
-                                   body,
-                                   actions,
-                                   hints,
-                                   timeout)
-
-    json.dump(state, open(state_path, "w"))
+    with RuntimeState(application_id) as state:
+        state["id"] = notify_if.Notify(application_id,
+                                       state.get("id", 0),
+                                       icon,
+                                       summary,
+                                       body,
+                                       actions,
+                                       hints,
+                                       timeout)
 
 adj = None
 mute = False

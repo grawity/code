@@ -29,21 +29,26 @@ sub show_notify {
 
 my $level;
 my $adj;
+my $mute;
+my $sink = "\@DEFAULT_SINK\@";
 
 GetOptions(
 	"--raise" => sub { $adj = +1 },
 	"--lower" => sub { $adj = -1 },
+	"--mute" => \$mute,
+	"--toggle-mute" => \$mute,
 ) or exit;
 
 if (@ARGV && $ARGV[0] =~ /^[+-]\d+/) {
 	$adj = int($&);
 }
 
+if ($mute) {
+	system("pactl", "set-sink-mute", "$sink", "toggle");
+}
+
 if ($adj) {
-	system("pactl",
-		"set-sink-volume",
-		"\@DEFAULT_SINK\@",
-		"+$adj%");
+	system("pactl", "set-sink-volume", "$sink", "+$adj%");
 }
 
 if (`pactl list sinks` =~ /Volume: .+? (\d+)% /) {

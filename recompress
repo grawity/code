@@ -3,7 +3,7 @@
 . lib.bash || exit
 
 quality=98
-infiles=(*.png)
+infiles=()
 outfiles=()
 
 nproc=$(nproc)
@@ -25,6 +25,8 @@ fi
 
 if (( $# )); then
 	infiles=("$@")
+else
+	die 0 "no input files specified"
 fi
 
 if (( quality < 50 || quality > 100 )); then
@@ -43,7 +45,7 @@ for iname in "${infiles[@]}"; do
 		wait -n; (( --njobs )); (( ++ndone ))
 		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 	done
-	oname=${iname/%.png/.jpg}
+	oname=${iname%.png}.jpg
 	magick convert "$iname" -quality "$quality" "$oname" & (( ++njobs ))
 	outfiles+=("$oname")
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
@@ -54,5 +56,5 @@ while (( njobs )); do
 done
 printf '\n'
 
-echo PNG: $(du -hsc "${infiles[@]}" | tail -1)
+echo Orig: $(du -hsc "${infiles[@]}" | tail -1)
 echo JPEG: $(du -hsc "${outfiles[@]}" | tail -1)

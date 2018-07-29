@@ -1,12 +1,13 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Getopt::Long;
 use POSIX qw(ceil floor);
 
 sub show_notify {
 	my ($icon, $summary, $value) = @_;
 
-	my $application_id = "xbacklight-adjust";
+	my $application_id = "xvolume-adjust";
 	my $notification_id = 0;
 	my $timeout = -1;
 	my $body = "";
@@ -27,13 +28,30 @@ sub show_notify {
 }
 
 my $level;
+my $adj;
 
-system("xbacklight",
-	"-time" => 0,
-	"-steps" => 1,
-	@ARGV);
+GetOptions(
+	"--raise" => sub { $adj = +1 },
+	"--lower" => sub { $adj = -1 },
+) or exit;
 
-if (`xbacklight -get` =~ /^([0-9.]+)$/) {
+if (@ARGV && $ARGV[0] =~ /^[+-]\d+/) {
+	$adj = int($&);
+}
+
+if ($adj) {
+	system("pactl",
+		"set-sink-volume",
+		"\@DEFAULT_SINK\@",
+		"+$adj%");
+}
+
+if (`pactl list sinks` =~ /Volume: .+? (\d+)% /) {
 	$level = $1;
-	show_notify("display-brightness-symbolic", "Brightness", ceil($level));
+	my $icon = $level > 65 ? "high"
+		: $level > 32 ? "medium"
+		: $level > 0 ? "low"
+		: "muted";
+	$icon = "audio-volume-$icon";
+	show_notify("$icon-symbolic", "Volume", ceil($level));
 }

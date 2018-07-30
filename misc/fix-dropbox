@@ -28,18 +28,22 @@ rm -rf ~/.dropbox-dist-old-*/
 # clean up logs
 rm -rf /tmp/dropbox-antifreeze-* >& /dev/null
 
-if [[ $1 == --start ]]; then
+if [[ $1 == @(--start|--prepare) ]]; then
 	if [[ ! -f ~/.dropbox/instance1/hostkeys ]]; then
 		echo "$0: no hostkeys for instance1 yet; continuing"
 	elif [[ ! -f ~/.dropbox/hostkeys.json ]]; then
 		echo "$0: no hostkeys JSON backup yet; making one"
 		dbx-keystore dump || exit
 		dbx-keystore dump > ~/.dropbox/hostkeys.json
+		new_fsid=$(stat -fc %i ~/.dropbox/instance1).$(stat -c %i ~/.dropbox/instance1)
+		echo "$new_fsid" > ~/.dropbox/fsid_instance1.txt
 	elif [[ ~/.dropbox/instance1/hostkeys -nt ~/.dropbox/hostkeys.json ]]; then
 		old_keys=$(< ~/.dropbox/hostkeys.json)
 		new_keys=$(dbx-keystore dump)
 		if [[ "$old_keys" != "$new_keys" ]]; then
 			echo "$0: hostkeys JSON backup seems to be invalidated"
+			declare -p old_keys
+			declare -p new_keys
 			die "full ~/.dropbox restore from backup required"
 		else
 			touch ~/.dropbox/hostkeys.json
@@ -56,7 +60,9 @@ if [[ $1 == --start ]]; then
 			echo "$new_fsid" > ~/.dropbox/fsid_instance1.txt
 		fi
 	fi
+fi
 
+if [[ $1 == --start ]]; then
 	arch=x86_64
 	vers=$(< ~/.dropbox-dist/VERSION)
 	dists=(~/.dropbox-dist/dropbox-lnx.$arch-$vers/

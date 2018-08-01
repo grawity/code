@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+SAM_URL="/var/lib/samba/private/sam.ldb"
+
+find_deleted() {
+	sudo ldbsearch -H "$SAM_URL" --cross-ncs --show-recycled --show-deleted \
+		'(&(|(isDeleted=TRUE)(isRecycled=TRUE))(!(CN=Deleted Objects)))' \
+	| ldifunwrap | sed -n '/^dn: .*0ADEL:/{s/^dn: //; p}'
+}
+
+delete() {
+	xargs -d '\n' sudo ldbdel -H "$SAM_URL" --relax
+}
+
+dry_run=1
+
+while getopts ':v' OPT; do
+	case $OPT in
+	n) dry_run=1;;
+	v) dry_run=0;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( dry_run )); then
+	find_deleted
+	info "dry run complete, use '$progname -v' to delete"
+else
+	find_deleted | delete
+fi

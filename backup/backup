@@ -129,6 +129,22 @@ do_borg() {
 
 	# run borg create
 
+	if [[ ! $wrap ]] && confirm "experiment: call borg via systemd-run?"; then
+		wrap=(
+			sudo
+			systemd-run
+				#--quiet
+				--pty
+				--description="borg backup task for $USER"
+				--uid="$USER"
+				--setenv="SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
+				--property="AmbientCapabilities=cap_dac_read_search"
+				--property="WorkingDirectory=$base"
+				--collect
+				--
+		)
+	fi
+
 	local cmd=(
 		"${wrap[@]}"
 		#env --chdir="$base"

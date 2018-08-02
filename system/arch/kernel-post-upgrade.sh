@@ -126,7 +126,7 @@ read -r MACHINE_ID < /etc/machine-id ||
 BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}
 
-exec {lock_fd}> "/run/lock/kernel-post-upgrade"
+exec {lock_fd}> "/run/kernel-post-upgrade.lock"
 flock -x -w 60 $lock_fd ||
 	die "failed to take lock; is another kernel-post-upgrade instance running?"
 

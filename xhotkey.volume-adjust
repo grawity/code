@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+import dbus
+from math import ceil
+import json
+import os
+import re
+import sys
+
+class FileState():
+    def __init__(self, path):
+        self.path = path
+        self.data = None
+
+    def __enter__(self):
+        try:
+            self.data = json.load(open(self.path, "r"))
+        except FileNotFoundError:
+            self.data = {}
+        return self.data
+
+    def __exit__(self, *junk):
+        json.dump(self.data, open(self.path, "w"))
+
+class RuntimeState(FileState):
+    def __init__(self, app_id):
+        self.path = os.path.expandvars("$XDG_RUNTIME_DIR/%s.json" % app_id)
+
+def show_notify(icon, summary, value):
+    notification_id = 0
+    body = ""
+
+    icon = "/usr/share/icons/Adwaita/scalable/status/%s.svg" % icon
+
+    application_id = "lt.nullroute.XHotkey.VolumeAdjust"
+    actions = []
+    hints = {
+        "value": dbus.Int32(value),
+        "synchronous": dbus.String(),
+        "x-canonical-private-synchronous": dbus.String(),
+    }
+    timeout = -1
+
+    bus = dbus.SessionBus()
+    svc = bus.get_object("org.freedesktop.Notifications",
+                         "/org/freedesktop/Notifications")
+    notify_if = dbus.Interface(svc, "org.freedesktop.Notifications")
+
+    with RuntimeState(application_id) as state:
+        state["id"] = notify_if.Notify(application_id,
+                                       state.get("id", 0),
+                                       icon,
+                                       summary,
+                                       body,
+                                       actions,
+                                       hints,
+                                       timeout)
+
+adj = None
+mute = False
+sink = "@DEFAULT_SINK@"
+
+def get_volume():
+    with os.popen("pactl list sinks", "r") as fh:
+        for line in fh:
+            m = re.match(r"\s*Volume: .+? (\d+)% ", line)
+            if m:
+                return int(m.group(1))
+
+if sys.argv[1] == "--raise":
+    adj = +1
+elif sys.argv[1] == "--lower":
+    adj = -1
+elif sys.argv[1] in {"--mute", "--toggle-mute"}:
+    mute = True
+
+if mute:
+    os.system("pactl set-sink-mute %s toggle" % (sink,))
+
+if adj:
+    os.system("pactl set-sink-volume %s +%s%%" % (sink, adj))
+
+vol = get_volume()
+icon = "high" if vol > 65 else "medium" if vol > 32 else "low" if vol > 0 else "muted"
+
+show_notify("audio-volume-%s-symbolic" % icon, "Volume", ceil(vol))

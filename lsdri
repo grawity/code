@@ -18,11 +18,13 @@ listfiles() {
 
 shopt -s nullglob
 
-for lib in lib lib32; do
-	log2 "listing drivers in /usr/$lib"
-	echo
-	listfiles "Mesa DRI modules"	/usr/$lib/dri		    ""		    "_dri.so"
-	listfiles "Vulkan drivers"	/usr/$lib		    "libvulkan_"    ".so"
-	listfiles "VAAPI modules"	/usr/$lib/dri		    ""		    "_drv_video.so"
-	listfiles "VDPAU modules"	/usr/$lib/vdpau		    "libvdpau_"	    ".so"
+for lib in lib lib32 lib/i386-linux-gnu; do
+	dir=/usr/$lib
+	test -d "$dir" || continue
+	log2 "listing drivers in $dir"
+	echo #				PATH		PREFIX		SUFFIX
+	listfiles "Mesa DRI modules"	$dir/dri	""		"_dri.so"
+	listfiles "Vulkan drivers"	$dir		"libvulkan_"	".so"
+	listfiles "VAAPI modules"	$dir/dri	""		"_drv_video.so"
+	listfiles "VDPAU modules"	$dir/vdpau	"libvdpau_"	".so"
 done

@@ -3,7 +3,7 @@
 
 . lib.bash || exit
 
-suffix="png"
+suffix=""
 sep=" – "
 opt_date=0
 
@@ -17,15 +17,20 @@ while getopts ":ds:S:" OPT; do
 done; shift $((OPTIND-1))
 
 prefix="$1"
+if [[ ! $suffix ]]; then
+	suffix=${prefix##*.}
+	prefix=${prefix%.*}
+fi
+prefix="${prefix:+$prefix$sep}"
+
 date=$(date +"%Y-%m-%d")
-mprefix="${prefix:+$prefix$sep}"
 dir="."
 
 for (( count=0; count < 999; count++ )); do
 	if (( opt_date )); then
-		printf -v name "%s%s.%03d.%s" "$mprefix" "$date" "$count" "$suffix"
+		printf -v name "%s%s.%03d.%s" "$prefix" "$date" "$count" "$suffix"
 	else
-		printf -v name "%s%03d.%s" "$mprefix" "$count" "$suffix"
+		printf -v name "%s%03d.%s" "$prefix" "$count" "$suffix"
 	fi
 	if [[ ! -e $dir/$name && ! -e $dir/.$name.tmp ]]; then
 		echo "$dir/$name"

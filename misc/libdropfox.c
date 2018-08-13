@@ -4,9 +4,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <linux/magic.h>
 
-const int DEFAULT_FSID = 0;
-const int DEFAULT_INODE = 0;
+const int DEFAULT_FSID = 1;
+const int DEFAULT_INODE = 1;
 
 static int is_wanted_path(const char *path)
 {
@@ -28,6 +29,7 @@ int statvfs64(const char *path, struct statvfs64 *buf)
 	if (!real_statvfs64)
 		real_statvfs64 = dlsym(RTLD_NEXT, "statvfs64");
 	result = real_statvfs64(path, buf);
+	buf->f_type = EXT2_SUPER_MAGIC;
 	if (is_wanted_path(path)) {
 		printf("libdropfox: statvfs64(): faking fsid of '%s'\n", path);
 		printf("libdropfox: original fsid = 0x%llx\n", buf->f_fsid);

@@ -27,12 +27,18 @@ debug "configured options: '$args'"
 
 # find credentials
 
-username=$(getnetrc -df %u "ipmi/$host")
-password=$(getnetrc -df %p "ipmi/$host")
-privlvl=$(getnetrc -df %a "ipmi/$host")
-kgkey=$(getnetrc -df %p "rmcp/$host")
+fqdn=$(fqdn "$host")
+
+for host in "$host" "$fqdn" "ipmi.$host" "ipmi.$fqdn"; do
+	username=$(getnetrc -df %u "ipmi/$host") &&
+	password=$(getnetrc -df %p "ipmi/$host") &&
+	[[ $username && $password ]] && break
+done
 
 [[ $username && $password ]] || die "credentials for 'ipmi/$host' not found"
+
+privlvl=$(getnetrc -df %a "ipmi/$host")
+kgkey=$(getnetrc -df %p "rmcp/$host")
 
 case ${privlvl,,} in
 	a|admin*|"")	privlvl=ADMINISTRATOR;;

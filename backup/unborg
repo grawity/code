@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+repo="/vol3/Backup/Homes/${HOSTNAME}.borg"
+root=$HOME
+
+rel=${PWD#"${root%/}/"}
+#rel=$(realpath --relative-base="$root" "$PWD")
+debug "pwd relative to root: '$rel'"
+
+depth=${rel//[^\/]/}/
+depth=${#depth}
+debug "strip depth relative to root: $depth"
+
+paths=()
+for arg in "$@"; do
+	paths+=("$rel/$arg")
+done
+debug "paths to restore: ${paths[@]}"
+
+[[ -d $repo ]] || die "repository '$repo' not found"
+
+archive=$(borg list --last 1 --short "$repo")
+debug "latest archive is '$archive'"
+
+info "restoring from $repo ($archive)"
+do: borg extract \
+	--list \
+	--verbose \
+	--strip-components "$depth" \
+	"$repo::$archive" "${paths[@]}"

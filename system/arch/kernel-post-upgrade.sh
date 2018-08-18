@@ -19,13 +19,16 @@ check_kernel() {
 	fi
 
 	if [[ -e "/boot/vmlinuz-$kernel" ]]; then
-		install_kernel
+		install_kernel "$kernel" "$suffix" "$config"
 	else
-		remove_kernel
+		remove_kernel "$kernel" "$suffix" "$config"
 	fi
 }
 
 install_kernel() {
+	local kernel=$1
+	local suffix=$2
+	local config=$3
 	local version=
 
 	if version=$(pacman -Q "$kernel" 2>/dev/null); then
@@ -123,7 +126,7 @@ read -r MACHINE_ID < /etc/machine-id ||
 BOOT_OPTIONS=(`grep -v "^#" /etc/kernel/cmdline`)
 BOOT_OPTIONS=${BOOT_OPTIONS[*]}
 
-exec {lock_fd}> "/run/lock/kernel-post-upgrade"
+exec {lock_fd}> "/run/kernel-post-upgrade.lock"
 flock -x -w 60 $lock_fd ||
 	die "failed to take lock; is another kernel-post-upgrade instance running?"
 

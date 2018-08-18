@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+case ${0##*/} in
+	whois4) af='-4' afname='IPv4';;
+	whois6) af='-6' afname='IPv6';;
+	*) af='' afname='IP';;
+esac
+
+name=$1
+
+addr=$(name2addr $af "$name")
+
+[[ $addr ]] || die "name '$name' has no $afname address"
+
+info "looking up $addr"
+
+whois "$addr"

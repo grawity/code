@@ -209,14 +209,6 @@ class FictionPressScraper(Scraper):
         data = self.parse_story_page(page)
         return data
 
-    def _url_to_filename(self, url, author=None):
-        url = url.split("?")[0]
-        url = url.split("/")[-1]
-        url = filter_filename(url)
-        if author:
-            url += "_(%s)" % filter_filename(author)
-        return "%s.html" % url
-
     def save_chapter_data(self, data, writer):
         Core.debug("got \"%(title)s\" (chapter %(page_cur)d out of %(page_max)d)" % data)
         Core.debug("saving to %r" % writer.path)
@@ -247,7 +239,7 @@ class FictionPressScraper(Scraper):
         m = re.match(r"^https://(m|www)\.[^:/]+/s/\d+/", url)
         base_url = m.group(0)
         page_url = "%s%d/" % (base_url, 1)
-        html_writer = HtmlWriter(self._url_to_filename(base_url))
+        html_writer = None
         while True:
             # XXX: should do the opposite here instead
             page_url = page_url.replace("//www.", "//m.")
@@ -255,6 +247,11 @@ class FictionPressScraper(Scraper):
             resp = self.get(page_url)
             page = bs4.BeautifulSoup(resp.content, "lxml")
             data = self.parse_story_page(page)
+
+            if not html_writer:
+                file_name = filter_filename(data["title"])
+                file_name += " by %s" % filter_filename(data["author"])
+                html_writer = HtmlWriter(file_name + ".html")
 
             if save_raw:
                 self.save_raw_page(data, resp.content)

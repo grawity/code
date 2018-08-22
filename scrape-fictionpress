@@ -148,10 +148,10 @@ class HtmlWriter():
 
     def write_chapter(self, data):
         with open(self.path, "a") as fh:
-            Core.err("XXX: WHERE ARE THE CHAPTER TITLES")
             Core.trace("appending story body")
             fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
             fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
+            fh.write('\t\t<h2>%(chapter_title)s</h2>\n' % data)
             fh.write('\t\t%(body)s\n' % data)
             fh.write('\t</div>\n')
 
@@ -196,6 +196,9 @@ class FictionPressScraper(Scraper):
         tag = page.select_one("div#content div[align=center] a")
         data["author"] = tag.get_text(strip=True)
         data["author_url"] = urljoin(data["url"], tag["href"])
+
+        tag = page.select_one("div#content")
+        data["chapter_title"] = [*tag.stripped_strings][-1]
 
         tag = page.select_one("div#storycontent")
         data["body"] = str(tag)

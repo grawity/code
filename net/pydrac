@@ -181,8 +181,7 @@ class DracProber(Scraper):
                 raise LoginFailedError()
 
             Core.debug("fetching JNLP")
-            resp = self.ua.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
-            resp.raise_for_status()
+            resp = self.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
             return resp.content
 
         elif self.version == "iDRAC6":
@@ -211,8 +210,10 @@ class DracProber(Scraper):
             sid = data["session_key"]
 
             Core.debug("fetching JNLP template")
-            resp = self.ua.get(self.base_url + "/html/jnlp_template.html")
-            resp.raise_for_status()
+            # note: this may 404 if Requests decides to send "Authorization: Basic"
+            #       after finding the .netrc entry all on its own...
+            #       hence the "ipmi/" service prefix *and* the "bmc." subdomain
+            resp = self.get(self.base_url + "/html/jnlp_template.html")
             jnlp = resp.content
             jnlp = jnlp.replace(b"<script type=text/x-jqote-template id=jnlpTemplate><![CDATA[\n", b"")
             jnlp = jnlp.replace(b"\n]]></script>", b"")

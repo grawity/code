@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+do_mount=0
+while getopts ":m" OPT; do
+	case $OPT in
+	m) do_mount=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+while [[ $1 == --* ]]; do
+	case $1 in
+	--mount) do_mount=1; shift;;
+	*) break;;
+done
+
+repo="/vol3/Backup/Homes/${HOSTNAME}.borg"
+root=$HOME
+
+if (( do_mount )); then
+	path=$1
+else
+	rel=${PWD#"${root%/}/"}
+	#rel=$(realpath --relative-base="$root" "$PWD")
+	debug "pwd relative to root: '$rel'"
+
+	depth=${rel//[^\/]/}/
+	depth=${#depth}
+	debug "strip depth relative to root: $depth"
+
+	paths=()
+	for arg in "$@"; do
+		paths+=("$rel/$arg")
+	done
+	debug "paths to restore: ${paths[@]}"
+fi
+
+[[ -d $repo ]] || die "repository '$repo' not found"
+
+archive=$(borg list --last 1 --short "$repo")
+debug "latest archive is '$archive'"
+
+if (( do_mount )); then
+	info "mounting $repo ($archive)"
+	do: borg mount \
+		"$repo::$archive" "$path"
+else
+	info "restoring from $repo ($archive)"
+	do: borg extract \
+		--list \
+		--verbose \
+		--strip-components "$depth" \
+		"$repo::$archive" "${paths[@]}"
+fi

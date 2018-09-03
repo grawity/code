@@ -413,9 +413,15 @@ for job; do
 			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
 			;;
 		gphotos)
-			do: rclone sync -v \
-				"gdrive:Google Photos" \
-				"$bvol/Backup/Google Drive Photos"
+			src="gdrive:Google Photos"
+			dst="$bvol/Backup/Google Drive Photos"
+			if [[ $bvol != /vol4 ]]; then
+				confirm "expected /vol4, continue with $bvol?" || exit
+			fi
+			if [[ ! -d "$dst" ]]; then
+				confirm "missing '$dst', create?" || exit
+			fi
+			do: rclone sync -v "$src" "$dst"
 			;;
 		twitter)
 			twitter-backup

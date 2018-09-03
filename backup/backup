@@ -148,6 +148,20 @@ do_borg() {
 				--
 		)
 		need_wd_env=0
+	elif [[ ! $wrap ]] && confirm "experiment: call borg via setpriv?"; then
+		wrap=(
+			sudo
+			# setpriv --ambient-caps: util-linux v2.31
+			setpriv
+				--reuid="$(id -u)"
+				--regid="$(id -g)"
+				--groups="$(id -G | sed 's/ /,/g')"
+				--inh-caps="+dac_read_search"
+				--ambient-caps="+dac_read_search"
+				--
+		)
+	elif [[ ! $wrap ]]; then
+		warn "running borg without DAC_READ_SEARCH"
 	fi
 
 	if (( need_wd_env )); then

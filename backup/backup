@@ -132,6 +132,7 @@ do_borg() {
 
 	# run borg create
 
+	local need_wd_env=1
 	if [[ ! $wrap ]] && confirm "experiment: call borg via systemd-run?"; then
 		wrap=(
 			sudo
@@ -146,13 +147,18 @@ do_borg() {
 				--collect
 				--
 		)
+		need_wd_env=0
 	fi
 
-	wrap+=(
-		#env --chdir="$base"
-		nsenter --wd="$base"
-		env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
-	)
+	if (( need_wd_env )); then
+		wrap+=(
+			# env --chdir: coreutils v8.28
+			#env --chdir="$base"
+			# nsenter --wd: util-linux v2.23
+			nsenter --wd="$base"
+			env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
+		)
+	fi
 
 	local cmd=(
 		"${wrap[@]}"

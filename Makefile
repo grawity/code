@@ -43,7 +43,7 @@ endif
 
 pklist: $(OBJ)/pklist
 
-emergency-sulogin: $(OBJ)/emergency-sulogin
+emergency-su: $(OBJ)/emergency-su
 	sudo install -o 'root' -g 'wheel' -m 'u=rxs,g=rx,o=' $< /usr/bin/$@
 
 # libraries
@@ -113,5 +113,5 @@ $(OBJ)/gl-mem:		CFLAGS += $(shell pkg-config x11 epoxy --cflags)
 $(OBJ)/gl-mem:		LDLIBS += $(shell pkg-config x11 epoxy --libs)
 $(OBJ)/gl-mem:		desktop/gl-mem.c
 
-$(OBJ)/emergency-sulogin:	LDLIBS += $(CRYPT_LDLIBS) -static
-$(OBJ)/emergency-sulogin:	security/emergency-sulogin.c
+$(OBJ)/emergency-su:	LDLIBS += $(CRYPT_LDLIBS) -static
+$(OBJ)/emergency-su:	security/emergency-su.c

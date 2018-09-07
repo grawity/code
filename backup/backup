@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# 2018-04-05 grawity: nocache is broken with glibc 2.28
+SKIP_NOCACHE=1
+
 . lib.bash || exit
 
 progname_prefix=0
@@ -55,7 +58,7 @@ take_lock() {
 	exec {lock_fd}<>$lock_path
 	flock -x -n $lock_fd || {
 		if read ldate < "$lock_path" || true; then
-			lmsg="started on $(date -d "$ldate" +"%F %T")"
+			lmsg="started on $(date -d "${ldate%% *}" +"%F %T")"
 		else
 			lmsg="status unknown"
 		fi
@@ -129,6 +132,7 @@ do_borg() {
 
 	# run borg create
 
+	local need_wd_env=1
 	if [[ ! $wrap ]] && confirm "experiment: call borg via systemd-run?"; then
 		wrap=(
 			sudo
@@ -143,13 +147,35 @@ do_borg() {
 				--collect
 				--
 		)
+		need_wd_env=0
+	elif [[ ! $wrap ]] && confirm "experiment: call borg via setpriv?"; then
+		wrap=(
+			sudo
+			# setpriv --ambient-caps: util-linux v2.31
+			setpriv
+				--reuid="$(id -u)"
+				--regid="$(id -g)"
+				--groups="$(id -G | sed 's/ /,/g')"
+				--inh-caps="+dac_read_search"
+				--ambient-caps="+dac_read_search"
+				--
+		)
+	elif [[ ! $wrap ]]; then
+		warn "running borg without DAC_READ_SEARCH"
+	fi
+
+	if (( need_wd_env )); then
+		wrap+=(
+			# env --chdir: coreutils v8.28
+			#env --chdir="$base"
+			# nsenter --wd: util-linux v2.23
+			nsenter --wd="$base"
+			env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
+		)
 	fi
 
 	local cmd=(
 		"${wrap[@]}"
-		#env --chdir="$base"
-		nsenter --wd="$base"
-		env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
 		borg create "$repo::$tag"
 		"${dirs[@]}"
 		"${args[@]}"
@@ -161,7 +187,6 @@ do_borg() {
 	if [[ $repo == *:* ]]; then
 		cmd=(
 			"${wrap[@]}"
-			env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
 			ssh "${repo%%:*}"
 			"grep '^id =' '${repo#*:}/config'"
 		)
@@ -177,7 +202,6 @@ do_borg() {
 	check_stamp "borg_$id.prune" $(( 30*86400 )) || return 0
 	cmd=(
 		"${wrap[@]}"
-		env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
 		borg prune "$repo"
 		--verbose
 		"${borg_keep[@]}"
@@ -191,7 +215,9 @@ do_rsync() {
 
 	local arg last args=()
 
-	if have nocache; then
+	if [[ $SKIP_NOCACHE ]]; then
+		debug "skipping 'nocache' (\$SKIP_NOCACHE)"
+	elif have nocache; then
 		debug "using 'nocache'"
 		args+=(nocache)
 	else
@@ -408,9 +434,15 @@ for job; do
 			do_rsync $host:/srv/mail/ ~/Backup/Mail/$host-public/
 			;;
 		gphotos)
-			do: rclone sync -v \
-				"gdrive:Google Photos" \
-				"$bvol/Backup/Google Drive Photos"
+			src="gdrive:Google Photos"
+			dst="$bvol/Backup/Google Drive Photos"
+			if [[ $bvol != /vol4 ]]; then
+				confirm "expected /vol4, continue with $bvol?" || exit
+			fi
+			if [[ ! -d "$dst" ]]; then
+				confirm "missing '$dst', create?" || exit
+			fi
+			do: rclone sync -v "$src" "$dst"
 			;;
 		twitter)
 			twitter-backup
@@ -419,11 +451,6 @@ for job; do
 			do_rsync virgule:irclogs/ ~/Attic/Chatlogs/current/
 			;;
 		local)
-			if [[ -e ~/.dropbox/ ]]; then
-				dbx-keystore dump > ~/.dropbox/hostkeys.json
-				# This is optional... only done because reindexing
-				# from scratch takes a long time.
-			fi
 			do_job local@$HOSTNAME
 			;;
 		local@rain)

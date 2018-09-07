@@ -6,12 +6,13 @@ import time
 from nullroute.core import Core, Env
 
 def remote_fstat(host, paths):
-    cmd = "findmnt -J -b -o TARGET,FSTYPE,SIZE,AVAIL,USED %s" % " ".join(paths)
+    cmd = "findmnt -J -l -b -o TARGET,FSTYPE,SIZE,AVAIL,USED"
     cmd = ["ssh", host, cmd] if host else ["sh", "-c", cmd]
     Core.debug("calling %r", cmd)
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         out = json.load(proc.stdout)
         out = out["filesystems"]
+        out = [x for x in out if x["target"] in paths]
     return out
 
 cache_path = Env.find_cache_file("diskuse.json")

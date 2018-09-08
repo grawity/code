@@ -59,34 +59,30 @@ def find_duplicates(fh):
         try:
             if line[0] == "@":
                 tag, host, ktype, key = line.split(" ", 3)
-                host = tag + " " + host
             else:
                 host, ktype, key = line.split(" ", 2)
+                tag = ""
         except ValueError:
             xprint("bad line %r" % line, file=sys.stderr)
             continue
 
-        if ktype.isdigit():
-            key = ktype + " " + key
-            ktype = "(sshv1-rsa)"
-
-        if (ktype, key) in keys:
-            keys[ktype, key].append(host)
+        if (tag, ktype, key) in keys:
+            keys[tag, ktype, key].append(host)
         else:
-            keys[ktype, key] = [host]
+            keys[tag, ktype, key] = [host]
 
     return keys
 
 def print_duplicates(keys):
     _keys = list(keys.keys())
+    _keys.sort(key=itemgetter(2))
     _keys.sort(key=itemgetter(1))
-    _keys.sort(key=itemgetter(0))
     for entry in _keys:
         hosts = keys[entry]
-        ktype, key = entry
+        tag, ktype, key = entry
         if len(hosts) > 1:
             xprint("Key [%(shortkey)s] has %(count)d entries:" % {
-                "shortkey": ktype + " ..." + key[-15:],
+                "shortkey": tag + (" " if tag else "") + ktype + " ..." + key[-15:],
                 "count": len(hosts)
             })
             for host in hosts:
@@ -97,7 +93,7 @@ def print_merged(bykey, unmerge=False):
     byhost = {}
 
     for entry in bykey:
-        ktype, key = entry
+        tag, ktype, key = entry
         hosts = set()
         for item in bykey[entry]:
             hosts |= set(item.split(","))
@@ -105,21 +101,21 @@ def print_merged(bykey, unmerge=False):
         if unmerge:
             for host in hosts:
                 host = Hostname(host)
-                byhost[host, ktype] = key
+                byhost[tag, host, ktype] = key
         else:
             hosts = sorted(hosts, key=Hostname)
             host = Hostname(",".join(hosts))
-            byhost[host, ktype] = key
+            byhost[tag, host, ktype] = key
 
     hosts = list(byhost.keys())
+    hosts.sort(key=itemgetter(2))
     hosts.sort(key=itemgetter(1))
-    hosts.sort(key=itemgetter(0))
 
     for entry in hosts:
-        host, ktype = entry
+        tag, host, ktype = entry
         key = byhost[entry]
-        if ktype == "(sshv1-rsa)":
-            xprint(host, key)
+        if tag:
+            xprint(tag, host, ktype, key)
         else:
             xprint(host, ktype, key)
 

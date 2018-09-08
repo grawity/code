@@ -5,13 +5,24 @@ import subprocess
 import time
 from nullroute.core import Core, Env
 
-def remote_fstat(host, paths):
-    cmd = "findmnt -J -b -o TARGET,FSTYPE,SIZE,AVAIL,USED %s" % " ".join(paths)
+def remote_popen(host, cmd):
     cmd = ["ssh", host, cmd] if host else ["sh", "-c", cmd]
     Core.debug("calling %r", cmd)
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+    return subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+def remote_fstat(host, paths):
+    cmd = "findmnt -J -l -b -o TARGET,FSTYPE,SIZE,AVAIL,USED"
+    with remote_popen(host, cmd) as proc:
         out = json.load(proc.stdout)
         out = out["filesystems"]
+        out = [x for x in out if x["target"] in paths]
+    # ZFS df only reports dataset usage, not total usage
+    for fs in out:
+        if fs["fstype"] == "zfs":
+            cmd = "zfs list -H -p -o used '%s'"
+            with remote_popen(host, cmd % fs["target"]) as proc:
+                tmp = proc.stdout.read().decode()
+            fs["used"] = tmp.strip()
     return out
 
 cache_path = Env.find_cache_file("diskuse.json")
@@ -21,6 +32,11 @@ media_dir = "/run/media/%(USER)s" % os.environ
 all_disks = {
     "radius": {
         "/mnt/vol5": "%s/vol5_anthology" % media_dir,
+        "/mnt/data1": "%s/radius.data1" % media_dir,
+        "/mnt/data2": "%s/radius.data2" % media_dir,
+    },
+    "ember": {
+        "/vol6": "%s/vol6_dungeons" % media_dir,
     },
 }
 

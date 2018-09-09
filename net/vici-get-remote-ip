@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# https://raw.githubusercontent.com/strongswan/strongswan/master/src/libcharon/plugins/vici/ruby/lib/vici.rb
+require 'socket'
+require "#{ENV["HOME"]}/code/thirdparty/vici"
+
+wanted = ARGV[0]
+abort "missing remote-id parameter" if !wanted
+
+vici = Vici::Connection.new
+vici.list_sas do |data|
+	data.each do |name, sa|
+		next if sa["state"] != "ESTABLISHED"
+		next if sa["remote-id"] != wanted
+		puts sa["remote-host"]
+	end
+end

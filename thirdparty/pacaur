@@ -1872,26 +1872,22 @@ GetJson() {
             var)
                 printf "output: \e[35m%s\e[m\n" "$(json_reformat <<< "$2" | tr -d "\", " | grep -Po "$3:.*" | sed -r "s/$3:/$3#/g" | awk -F "#" '{print $2}')" >&2
                 printf "output: \e[36m%s\e[m\n" "$(printf '%s\n' "$2" | jq -r --arg key "$3" '.results | .[] | .[$key]')" >&2
-                #json_reformat <<< "$2" | tr -d "\", " | grep -Po "$3:.*" | sed -r "s/$3:/$3#/g" | awk -F "#" '{print $2}';;
                 printf '%s\n' "$2" | jq -r --arg key "$3" '.results | .[] | .[$key]';;
             varvar)
                 printf "output: \e[35m%s\e[m\n" "$(json_reformat <<< "$2" | tr -d ", " | sed -e "/\"Name\":\"$4\"/,/}/!d" | \
                 tr -d "\"" | grep -Po "$3:.*" | sed -r "s/$3:/$3#/g" | awk -F "#" '{print $2}')" >&2
                 printf "output: \e[36m%s\e[m\n" "$(printf '%s\n' "$2" | jq -r --arg key "$3" --arg pkg "$4" '.results | .[] | select(.Name == $pkg) | .[$key]')" >&2
-                json_reformat <<< "$2" | tr -d ", " | sed -e "/\"Name\":\"$4\"/,/}/!d" | \
-                tr -d "\"" | grep -Po "$3:.*" | sed -r "s/$3:/$3#/g" | awk -F "#" '{print $2}';;
+                printf '%s\n' "$2" | jq -r --arg key "$3" --arg pkg "$4" '.results | .[] | select(.Name == $pkg) | .[$key]';;
             array)
                 printf "output: \e[35m%s\e[m\n" "$(json_reformat <<< "$2" | tr -d ", " | sed -e "/^\"$3\"/,/]/!d" | tr -d '\"' \
                 | tr '\n' ' ' | sed "s/] /]\n/g" | cut -d' ' -f 2- | tr -d '[]"' | tr -d '\n')" >&2
                 printf "output: \e[36m%s\e[m\n" "$(printf '%s\n' "$2" | jq -r --arg key "$3" '.results | .[] | .[$key] | .[]?')" >&2
-                json_reformat <<< "$2" | tr -d ", " | sed -e "/^\"$3\"/,/]/!d" | tr -d '\"' \
-                | tr '\n' ' ' | sed "s/] /]\n/g" | cut -d' ' -f 2- | tr -d '[]"' | tr -d '\n';;
+                printf '%s\n' "$2" | jq -r --arg key "$3" '.results | .[] | .[$key] | .[]?';;
             arrayvar)
                 printf "output: \e[35m%s\e[m\n" "$(json_reformat <<< "$2" | tr -d ", " | sed -e "/\"Name\":\"$4\"/,/}/!d" | \
                 sed -e "/^\"$3\"/,/]/!d" | tr -d '\"' | tr '\n' ' ' | cut -d' ' -f 2- | tr -d '[]')" >&2
                 printf "output: \e[36m%s\e[m\n" "$(printf '%s\n' "$2" | jq -r --arg key "$3" --arg pkg "$4" '.results | .[] | select(.Name == $pkg) | .[$key] | .[]?')" >&2
-                json_reformat <<< "$2" | tr -d ", " | sed -e "/\"Name\":\"$4\"/,/}/!d" | \
-                sed -e "/^\"$3\"/,/]/!d" | tr -d '\"' | tr '\n' ' ' | cut -d' ' -f 2- | tr -d '[]';;
+                printf '%s\n' "$2" | jq -r --arg key "$3" --arg pkg "$4" '.results | .[] | select(.Name == $pkg) | .[$key] | .[]?';;
         esac
     else
         Note "e" $"Failed to parse JSON"

@@ -132,9 +132,13 @@ do_borg() {
 
 	# run borg create
 
+	# This has to be 1 by default, because we might have inherited
+	# 'sudo' from borg_$job_wrap.
 	local need_wd_env=1
+
 	if [[ ! $wrap ]] && confirm "experiment: call borg via systemd-run?"; then
 		wrap=(
+			# Systemd automatically sets $HOME based on --uid.
 			sudo
 			systemd-run
 				#--quiet
@@ -150,7 +154,11 @@ do_borg() {
 		need_wd_env=0
 	elif [[ ! $wrap ]] && confirm "experiment: call borg via setpriv?"; then
 		wrap=(
+			# Fix $HOME here, *not* in global need_wd_env,
+			# because the latter also applies to inherited
+			# 'sudo -i' with its deliberate reset-to-root.
 			sudo
+				HOME="$HOME"
 			# setpriv --ambient-caps: util-linux v2.31
 			setpriv
 				--reuid="$(id -u)"
@@ -160,8 +168,18 @@ do_borg() {
 				--ambient-caps="+dac_read_search"
 				--
 		)
+		need_wd_env=1
 	elif [[ ! $wrap ]]; then
+		# No special environment. We always need to chdir, although
+		# the envvars are already okay.
 		warn "running borg without DAC_READ_SEARCH"
+		need_wd_env=1
+	else
+		# We inherited sudo from borg_root_wrap. It deliberately
+		# overrides $HOME to /root's, but we still need to chdir
+		# and set the SSH socket.
+		need_wd_env=1
+		# TODO: Maybe move SSH_AUTH_SOCK to here & to setpriv case.
 	fi
 
 	if (( need_wd_env )); then

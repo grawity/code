@@ -2,6 +2,7 @@
 from __future__ import print_function
 import os
 import sys
+import subprocess
 from nullroute.core import Core
 
 def usage():
@@ -10,11 +11,18 @@ def usage():
     sys.exit(2)
 
 def read_env(pid):
+    env = None
     try:
-        fd = open("/proc/%d/environ" % pid, "rb")
+        with open("/proc/%d/environ" % pid, "rb") as fd:
+            env = parse_env(fd)
     except IOError as e:
-        Core.err("could not access environment: %s" % e)
-        return None
+        Core.debug("could not access environment: %s" % e)
+        with subprocess.Popen(["sudo", "cat", "/proc/%d/environ" % pid],
+                              stdout=subprocess.PIPE) as proc:
+            env = parse_env(proc.stdout)
+    return env
+
+def parse_env(fd):
     env = fd.read().split(b'\0')
     return dict(k.split(b'=', 1) for k in env if k != b'')
 

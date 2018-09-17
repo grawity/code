@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from argparse import ArgumentParser
 import bs4
 from nullroute.core import *
@@ -141,17 +141,17 @@ class HtmlWriter():
             fh.write('\t</p>\n')
             fh.write('</div>\n')
             fh.write('<div class="content">\n')
-        set_file_attr(filename, "xdg.origin.url", data["url"])
-        set_file_attr(filename, "xdg.referrer.url", data["author_url"])
-        set_file_attr(filename, "dublincore.title", data["title"])
-        set_file_attr(filename, "dublincore.creator", data["author"])
+        set_file_attr(self.path, "xdg.origin.url", data["url"])
+        set_file_attr(self.path, "xdg.referrer.url", data["author_url"])
+        set_file_attr(self.path, "dublincore.title", data["title"])
+        set_file_attr(self.path, "dublincore.creator", data["author"])
 
     def write_chapter(self, data):
         with open(self.path, "a") as fh:
-            Core.err("XXX: WHERE ARE THE CHAPTER TITLES")
             Core.trace("appending story body")
             fh.write('\t<!-- page %(page_cur)s out of %(page_max)s -->\n' % data)
             fh.write('\t<div class="page" id="page%(page_cur)s">\n' % data)
+            fh.write('\t\t<h2>%(chapter_title)s</h2>\n' % data)
             fh.write('\t\t%(body)s\n' % data)
             fh.write('\t</div>\n')
 
@@ -197,6 +197,9 @@ class FictionPressScraper(Scraper):
         data["author"] = tag.get_text(strip=True)
         data["author_url"] = urljoin(data["url"], tag["href"])
 
+        tag = page.select_one("div#content")
+        data["chapter_title"] = [*tag.stripped_strings][-1]
+
         tag = page.select_one("div#storycontent")
         data["body"] = str(tag)
 
@@ -208,14 +211,6 @@ class FictionPressScraper(Scraper):
         page = self.get_page(page_url)
         data = self.parse_story_page(page)
         return data
-
-    def _url_to_filename(self, url, author=None):
-        url = url.split("?")[0]
-        url = url.split("/")[-1]
-        url = filter_filename(url)
-        if author:
-            url += "_(%s)" % filter_filename(author)
-        return "%s.html" % url
 
     def save_chapter_data(self, data, writer):
         Core.debug("got \"%(title)s\" (chapter %(page_cur)d out of %(page_max)d)" % data)
@@ -247,7 +242,7 @@ class FictionPressScraper(Scraper):
         m = re.match(r"^https://(m|www)\.[^:/]+/s/\d+/", url)
         base_url = m.group(0)
         page_url = "%s%d/" % (base_url, 1)
-        html_writer = HtmlWriter(self._url_to_filename(base_url))
+        html_writer = None
         while True:
             # XXX: should do the opposite here instead
             page_url = page_url.replace("//www.", "//m.")
@@ -255,6 +250,11 @@ class FictionPressScraper(Scraper):
             resp = self.get(page_url)
             page = bs4.BeautifulSoup(resp.content, "lxml")
             data = self.parse_story_page(page)
+
+            if not html_writer:
+                file_name = filter_filename(data["title"])
+                file_name += " by %s" % filter_filename(data["author"])
+                html_writer = HtmlWriter(file_name + ".html")
 
             if save_raw:
                 self.save_raw_page(data, resp.content)

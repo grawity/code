@@ -4,8 +4,14 @@
 . lib.bash || exit
 
 set -o pipefail
+
 log=$path_cache/highlights.txt
-link=$path_config/highlights.txt.url
+
+if [[ -s $path_config/synced/irc.conf ]]; then
+	. "$path_config/synced/irc.conf" || exit
+else
+	. "$path_config/irc.conf" || exit
+fi
 
 fmt() {
 	perl -M'POSIX' -M'POSIX::strptime' -M'Nullroute::Lib' -E'
@@ -150,8 +156,6 @@ fmt() {
 	}'
 }
 
-url=$(< "$link") && [[ $url ]] || die "could not find URL for $log"
-
 mkdir -p "${log%/*}" || die "cannot create cache directory"
 touch "$log"     || die "cannot create highlight cache"
 exec {fd}<"$log" || die "cannot open highlight cache"
@@ -175,8 +179,6 @@ maxlines=${1:-"-3"}
 
 cat "$log" | fmt
 
-debug "remote URL is <$url>"
-
 date=$'38;5;9m\e[1'
 color='38;5;72'
 private='38;5;178'
@@ -186,16 +188,37 @@ text=''
 maxlines=''
 
 tmp="$log.tmp"
-out=$({ curl -s -S -C "$size" $opts "$url" > "$log.tmp"; } 2>&1)
-ret=$?
 
-bad='^<head><title>416 Requested Range Not Satisfiable</title></head>'
-if [ $ret -eq 0 ] && grep -qs "$bad" "$log.tmp"; then
-	# I hate nginx.
-	# I also hate curl, because for some reason even with --fail it
-	# considers 416 with data a successful reply.
-	ret=33
-	: > "$log.tmp"
+if [[ ! $highlights_url ]] && [[ -s $path_config/highlights.txt.url ]]; then
+	highlights_url=$(< "$path_config/highlights.txt.url")
+fi
+
+if [[ $highlights_file ]]; then
+	if [[ ! $irc_host ]]; then
+		die "incomplete highlights path configuration (no \$irc_host)"
+	fi
+	debug "remote path is <$irc_host:$highlights_file>"
+	(( size += 1 ))
+	debug "resuming at byte $size"
+	ssh "$irc_host" "tail -c +$size '$highlights_file'" > "$log.tmp"
+	ret=$?
+
+elif [[ $highlights_url ]]; then
+	debug "remote URL is <$highlights_url>"
+	out=$({ curl -s -S -C "$size" $opts "$highlights_url" > "$log.tmp"; } 2>&1)
+	ret=$?
+
+	bad='^<head><title>416 Requested Range Not Satisfiable</title></head>'
+	if [ $ret -eq 0 ] && grep -qs "$bad" "$log.tmp"; then
+		# I hate nginx.
+		# I also hate curl, because for some reason even with --fail it
+		# considers 416 with data a successful reply.
+		ret=33
+		: > "$log.tmp"
+	fi
+
+else
+	die "no highlights source defined"
 fi
 
 if [ $ret -eq 0 ] && [ -e "$log.tmp" ] && [ ! -s "$log.tmp" ]; then

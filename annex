@@ -334,6 +334,7 @@ case $cmd in
                 my ($dir) = @_;
                 return ($dir eq "" ? "." : $dir);
             }
+            my $maxdepth = int($ENV{depth} // 2);
             my %dirs;
             my $total = 0;
             while (<>) {
@@ -344,6 +345,9 @@ case $cmd in
                 $total += $size;
             }
             my @dirs = sort keys %dirs;
+            if ($maxdepth) {
+                @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
+            }
             my $fmt = "%s\e[38;5;12m%7s\e[m  %s\n";
             printf $fmt, indent_for(""), fmt_size($total), "TOTAL";
             printf $fmt, indent_for($_), fmt_size($dirs{$_}), fmt_dir($_) for @dirs;

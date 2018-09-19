@@ -2,7 +2,7 @@
 import argparse
 import bs4
 from functools import lru_cache
-from nullroute.core import Core
+from nullroute.core import Core, Env
 from nullroute.misc import filter_filename, set_file_attrs
 from nullroute.api.pixiv import PixivClient
 import os
@@ -21,7 +21,21 @@ class PixivApi(PixivClient):
         super().__init__()
         self._authenticate()
 
+        self.member_name_map = {}
+        try:
+            _map_path = Env.find_config_file("pixiv_member_names.txt")
+            Core.debug("loading member aliases from %r", _map_path)
+            with open(_map_path, "r") as fh:
+                for line in fh:
+                    k, v = line.split("=")
+                    k = int(k.strip())
+                    v = v.strip()
+                    self.member_name_map[k] = v
+        except FileNotFoundError:
+            pass
+
     def fmt_member_tag(self, member_id, member_name):
+        member_name = self.member_name_map.get(member_id, member_name)
         member_name = re.sub("(@|＠).*", "", member_name)
         return "%s_pixiv%s" % (member_name, member_id)
 

@@ -311,8 +311,47 @@ case $cmd in
     commit|ci)
         git annex sync --no-pull --no-push
         ;;
-    du)
+    ldu)
         git annex find "$@" | xargs -d '\n' du -Dhsc
+        ;;
+    du)
+        annex find --format='${key} ${file}\n' --include '*' "$@" |
+        perl -E '
+            use List::Util qw(min);
+            sub fmt_size {
+                my ($bytes) = @_;
+                return "0" if !$bytes;
+                my @prefixes = qw(k M G T P E Z Y H);
+                my $div = 1024;
+                my $exp = min(int(log($bytes) / log($div)), scalar @prefixes);
+                sprintf "%.1f%s", $bytes / $div ** $exp, ($exp ? $prefixes[$exp-1] : "");
+            }
+            sub indent_for {
+                my ($dir) = @_;
+                return "  " x split(m!/!, $dir);
+            }
+            sub fmt_dir {
+                my ($dir) = @_;
+                return ($dir eq "" ? "." : $dir);
+            }
+            my $maxdepth = int($ENV{depth} // 2);
+            my %dirs;
+            my $total = 0;
+            while (<>) {
+                chomp;
+                my ($key, $file) = split(/ /, $_, 2);
+                my $size; if ($key =~ /-s(\d+)--/) { $size = int $1; }
+                while ($file =~ s!/[^/]+$!!) { $dirs{$file} += $size; }
+                $total += $size;
+            }
+            my @dirs = sort keys %dirs;
+            if ($maxdepth) {
+                @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
+            }
+            my $fmt = "%s\e[38;5;12m%7s\e[m  %s\n";
+            printf $fmt, indent_for(""), fmt_size($total), "TOTAL";
+            printf $fmt, indent_for($_), fmt_size($dirs{$_}), fmt_dir($_) for @dirs;
+        '
         ;;
     dupes)
         export MIN_BYTES=$(( 0 * 1024 ))

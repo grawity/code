@@ -7,6 +7,7 @@ type=$(git config --get web.type)
 head=$(git rev-parse --short=12 HEAD)
 
 if [[ ! $base ]]; then
+	debug "base URL not found in 'web.url', guessing from origin"
 	remote=$(git remote get-url origin)
 	case $remote in
 		https://github.com/*)
@@ -18,9 +19,11 @@ if [[ ! $base ]]; then
 			type=gitlab
 			;;
 	esac
+	debug "base guessed: '$base' (type=$type)"
 fi
 
 if [[ ! $type ]]; then
+	debug "type not found in 'web.type', guessing from base URL"
 	case $base in
 	https://github.com/*)
 		type='github';;
@@ -29,6 +32,7 @@ if [[ ! $type ]]; then
 	*/cgit/*)
 		type='cgit';;
 	esac
+	debug "type guessed: '$type'"
 fi
 
 if [[ ! $type ]]; then
@@ -89,6 +93,7 @@ for arg; do
 		'log')    url="$base/commits/$head";;
 		'flog')   url="$base/commits/$head/$path";;
 		'file')   url="$base/blob/$head/$path";;
+			issue)	url="$base/issues/$arg";;
 		'commit') url="$base/commit/$head";;
 		esac;;
 	'gitlab')

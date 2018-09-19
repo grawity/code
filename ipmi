@@ -27,12 +27,18 @@ debug "configured options: '$args'"
 
 # find credentials
 
-username=$(getnetrc -df %u "ipmi/$host")
-password=$(getnetrc -df %p "ipmi/$host")
-privlvl=$(getnetrc -df %a "ipmi/$host")
-kgkey=$(getnetrc -df %p "rmcp/$host")
+fqdn=$(fqdn "$host")
+
+for host in "$host" "$fqdn" "bmc.$host" "bmc.$fqdn"; do
+	username=$(getnetrc -dsf %u "ipmi/$host") &&
+	password=$(getnetrc -dsf %p "ipmi/$host") &&
+	[[ $username && $password ]] && break
+done
 
 [[ $username && $password ]] || die "credentials for 'ipmi/$host' not found"
+
+privlvl=$(getnetrc -dsf %a "ipmi/$host")
+kgkey=$(getnetrc -dsf %p "rmcp/$host")
 
 case ${privlvl,,} in
 	a|admin*|"")	privlvl=ADMINISTRATOR;;
@@ -45,8 +51,8 @@ esac
 info "connecting to $host"
 
 if [[ $1 == console ]]; then
-	# no env :(
-	exec ipmi-console -h "$host" -k "$kgkey" -u "$username" -p "$password" -l "$privlvl" "${@:2}"
+	info "escape character is '&'"
+	exec ipmiconsole -h "$host" -k "$kgkey" -u "$username" -p "$password" -l "$privlvl" "${@:2}"
 elif [[ $1 == config ]]; then
 	exec ipmi-config -D lanplus -h "$host" -k "$kgkey" -u "$username" -p "$password" -l "$privlvl" "${@:2}"
 else

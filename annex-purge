@@ -59,7 +59,7 @@ def annex_unused(remote=None):
 
     with annex("unused", *args) as proc:
         for line in proc.stdout:
-            line = line.decode("utf-8")
+            line = line.decode(errors="surrogateescape")
             if line.startswith("    "):
                 num, key = line.strip().split()
                 if num == "NUMBER":
@@ -87,9 +87,9 @@ def get_last_path(key):
                                          "-n1"],
                           stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
-            line = line.decode("utf-8")
+            line = line.decode().strip()
             try:
-                line = unquote(line.strip())
+                line = unquote(line, errors="backslashreplace")
             except ValueError:
                 print(repr(line))
                 raise

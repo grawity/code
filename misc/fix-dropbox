@@ -5,6 +5,10 @@
 err() { echo "error: $*" >&2; return 1; }
 die() { err "$@"; exit 1; }
 
+dbx-keystore() {
+	(. ~/lib/dotfiles/environ && command dbx-keystore "$@");
+}
+
 shopt -s nullglob
 
 if [[ ! -d ~/.dropbox-dist ]]; then
@@ -24,8 +28,45 @@ rm -rf ~/.dropbox-dist-old-*/
 # clean up logs
 rm -rf /tmp/dropbox-antifreeze-* >& /dev/null
 
+if [[ $1 == @(--start|--prepare) ]]; then
+	old_fsid=$(cat ~/.dropbox/fsid_instance1.txt 2>/dev/null)
+	new_fsid=$(stat -fc %i ~/.dropbox/instance1).$(stat -c %i ~/.dropbox/instance1)
+
+	if [[ ! -f ~/.dropbox/instance1/hostkeys ]]; then
+		echo "$0: no hostkeys for instance1 yet; continuing"
+	elif [[ ! -f ~/.dropbox/hostkeys.json ]]; then
+		echo "$0: no hostkeys JSON backup yet; making one"
+		echo "$0: FSID is '$new_fsid'"
+		dbx-keystore dump || exit
+		dbx-keystore dump > ~/.dropbox/hostkeys.json
+	elif [[ ~/.dropbox/instance1/hostkeys -nt ~/.dropbox/hostkeys.json ]]; then
+		echo "$0: hostkeys file is newer than JSON backup"
+		old_keys=$(cat ~/.dropbox/hostkeys.json | jq -c -S .)
+		new_keys=$(dbx-keystore dump | jq -c -S .)
+		if [[ "$old_keys" != "$new_keys" ]]; then
+			echo "$0: hostkeys different from backup"
+			declare -p old_keys
+			declare -p new_keys
+			die "full ~/.dropbox restore from backup required"
+		else
+			echo "$0: hostkeys identical to backup; updating timestamp"
+			touch ~/.dropbox/hostkeys.json
+		fi
+	elif [[ "$old_fsid" && "$old_fsid" != "$new_fsid" ]]; then
+		echo "$0: FSID of ~/.dropbox has changed ('$old_fsid' -> '$new_fsid')"
+		echo "$0: restoring hostkeys from JSON backup"
+		dbx-keystore load < ~/.dropbox/hostkeys.json || exit
+		touch ~/.dropbox/hostkeys.json
+	fi
+
+	echo "$new_fsid" > ~/.dropbox/fsid_instance1.txt
+fi
+
 if [[ $1 == --start ]]; then
-	arch=x86_64
+	case $HOSTTYPE in
+		i686)	arch=x86;;
+		x86_64)	arch=x86_64;;
+	esac
 	vers=$(< ~/.dropbox-dist/VERSION)
 	dists=(~/.dropbox-dist/dropbox-lnx.$arch-$vers/
 	       ~/.dropbox-dist/dropbox-lnx.$arch-*/)

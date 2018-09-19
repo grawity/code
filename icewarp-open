@@ -4,8 +4,15 @@ import os
 import subprocess
 import sys
 import time
-from nullroute.core import *
+from nullroute.core import Core
 import nullroute.sec
+import urllib.parse
+
+def encode_utf7imap(raw):
+    return raw.encode("utf-7").replace(b"+", b"&")
+
+def decode_utf7imap(raw):
+    return raw.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7")
 
 def run(*args):
     args = list(args)
@@ -93,16 +100,19 @@ else:
 
 data["pass"] = get_password("%(scheme)s/%(server)s" % data, data["user"])
 
-if app == "mutt":
-    uri = "%(scheme)s://%(user)s:%(pass)s@%(server)s/%(path)s" % data
-    cmd = ["mutt",
+for key in ["user", "pass"]:
+    data["%s_enc" % key] = urllib.parse.quote(data[key], safe="")
+
+if app in {"mutt", "neomutt"}:
+    uri = "%(scheme)s://%(user_enc)s:%(pass_enc)s@%(server)s/%(path)s" % data
+    cmd = [app,
            "-f", uri]
     if not args.rw:
         cmd += ["-R"]
     run(*cmd)
-elif app == "pine":
+elif app in {"pine", "alpine"}:
     uri = "{%(server)s/%(scheme)s/tls/user=%(user)s}%(path)s" % data
-    cmd = ["alpine",
+    cmd = [app,
            "-f", uri,
            "-i"]
     if not args.rw:
@@ -122,7 +132,7 @@ elif app == "IMAPdedup":
         cmd += ["--verbose"]
     if not args.rw:
         cmd += ["--dry-run"]
-    cmd += [data["path"] or "INBOX"]
+    cmd += [encode_utf7imap(data["path"] or "INBOX")]
     run(*cmd)
 elif app == "list":
     cmd = ["python2", "/home/grawity/src/net/IMAPdedup/imapdedup.py",
@@ -132,11 +142,13 @@ elif app == "list":
            "--password=%s" % data["pass"],
            "--list"]
     if args.tree:
-        pipecmd = ["treeify", "-f"]
+        pipecmd = ["treeify",
+                   "--fake-root=%s" % data["user"],
+                   "--full-names"]
     else:
         pipecmd = ["natsort"]
     Core.debug("running %r" % cmd)
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         with subprocess.Popen(pipecmd, stdin=subprocess.PIPE) as proc2:
             for line in proc.stdout:
-                proc2.stdin.write(line.replace(b"+", b"+-").replace(b"&", b"+").decode("utf-7").encode("utf-8"))
+                proc2.stdin.write(decode_utf7imap(line).encode("utf-8"))

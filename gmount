@@ -113,7 +113,7 @@ for arg; do
 						debug "matched event for device '$dev'"
 						sleep 0.5
 					fi
-				done < <(inotifywait -rmqe create -t 30 /dev/disk)
+				done < <(timeout 30 inotifywait -rmqe create /dev/disk)
 				if [[ ! $dev ]]; then
 					die "disk with UUID '$uuid' not found"
 				fi
@@ -152,7 +152,7 @@ for arg; do
 			gio mount -u "$mtpt" || err "unmount failed"
 		elif ! (( standby || poweroff )); then
 			err "mountpoint not found"
-		fi
+		fi &&
 
 		if (( standby )); then
 			dev=${dev%[0-9]}

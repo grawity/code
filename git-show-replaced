@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+objects=$*
+
+if [[ ! $objects ]]; then
+	objects=$(git replace --list)
+fi
+
+for object in $objects; do
+	diff -u \
+		--color \
+		--label "o/$object" \
+		--label "r/$object" \
+		<(git --no-replace-objects cat-file -p "$object") \
+		<(git cat-file -p "$object") \
+		|| true
+done

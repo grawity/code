@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use POSIX qw(ceil floor);
+
+sub show_notify {
+	my ($icon, $summary, $value) = @_;
+
+	my $application_id = "xbacklight-adjust";
+	my $notification_id = 0;
+	my $timeout = -1;
+	my $body = "";
+
+	$icon = "/usr/share/icons/Adwaita/scalable/status/$icon.svg";
+
+	# xfce4-notifyd supports 'value', but ignores 'synchronous',
+	# so we still need to be stateful and replace with ID.
+
+	system("notify",
+		"--app-name", $application_id,
+		"--hint", "synchronous",
+		"--hint", "value=$value",
+		"--icon", $icon,
+		"--state", $application_id,
+		$summary,
+		$body);
+}
+
+my $level;
+
+system("xbacklight",
+	"-time" => 0,
+	"-steps" => 1,
+	@ARGV);
+
+if (`xbacklight -get` =~ /^([0-9.]+)$/) {
+	$level = $1;
+	show_notify("display-brightness-symbolic", "Brightness", ceil($level));
+}

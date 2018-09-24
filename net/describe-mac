@@ -29,6 +29,15 @@ while getopts "m:" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
+if [[ $1 =~ ^MAC=([0-9a-f:]{17}):([0-9a-f:]{17}):([0-9a-f:]{5})$ ]]; then
+	echo "destination:"
+	$0 -m oui "${BASH_REMATCH[1]}" | sed 's/^/  /'
+	echo "source:"
+	$0 -m oui "${BASH_REMATCH[2]}" | sed 's/^/  /'
+	echo "ethertype: ${BASH_REMATCH[3]}"
+	exit
+fi
+
 mac_re='^[0-9A-Fa-f]{12}$'
 mac_re+='|^([0-9A-Fa-f]{6}[-])[0-9A-Fa-f]{6}$'
 mac_re+='|^([0-9A-Fa-f]{4}[.]){2}[0-9A-Fa-f]{4}$'

@@ -47,28 +47,28 @@ def filter_filename(name, safe=False, allow_space=True):
     return name
 
 def fmt_size_short(nbytes, decimals=1, si=False):
-    prefixes = " kMGTPEZYH"
+    prefixes = "kMGTPEZYH"
     div = 1000 if si else 1024
     if nbytes == 0:
         return "0"
     exp = int(math.log(nbytes, div))
-    exp = min(exp, len(prefixes) - 1)
+    exp = min(exp, len(prefixes))
     return "%.*f%s" % (decimals, nbytes / div**exp,
-                       prefixes[exp] if exp else "")
+                       prefixes[exp-1] if exp else "")
 
 def fmt_size(nbytes, decimals=1, si=False, unit="B", long_unit="bytes"):
-    prefixes = " kMGTPEZYH"
+    prefixes = "kMGTPEZYH"
     div = 1000 if si else 1024
     if nbytes == 0:
         return "0 %s" % (long_unit or unit)
     exp = int(math.log(nbytes, div))
-    exp = min(exp, len(prefixes) - 1)
+    exp = min(exp, len(prefixes))
     if exp == 0:
         return "%.*f %s" % (decimals, nbytes,
                             long_unit or unit)
     else:
         return "%.*f %s%s" % (decimals, nbytes / div**exp,
-                             prefixes[exp] if exp else "", unit)
+                             prefixes[exp-1] if exp else "", unit)
 
 def unescape(line, errors="surrogateescape"):
     """

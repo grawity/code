@@ -23,15 +23,20 @@ R=$'\e[m'
 
 arg_mode=
 
-case ${0##*/} in
-	oui)	mode=oui;;
-esac
-
-while getopts "m" OPT; do
+while getopts "m:" OPT; do
 	case $OPT in
-	m) mode=oui;;
+	m) mode=$OPTARG;;
 	esac
 done; shift $((OPTIND-1))
+
+if [[ $1 =~ ^MAC=([0-9a-f:]{17}):([0-9a-f:]{17}):([0-9a-f:]{5})$ ]]; then
+	echo "destination:"
+	$0 -m oui "${BASH_REMATCH[1]}" | sed 's/^/  /'
+	echo "source:"
+	$0 -m oui "${BASH_REMATCH[2]}" | sed 's/^/  /'
+	echo "ethertype: ${BASH_REMATCH[3]}"
+	exit
+fi
 
 mac_re='^[0-9A-Fa-f]{12}$'
 mac_re+='|^([0-9A-Fa-f]{6}[-])[0-9A-Fa-f]{6}$'
@@ -41,6 +46,17 @@ mac_re+='|^([0-9A-Fa-f]{1,2}[:-]){5}[0-9A-Fa-f]{1,2}$'
 if [[ ! $mode && $1 =~ $mac_re ]]; then
 	mode=oui
 fi
+
+show_vendor() {
+	local arg=$1
+	if have systemd-hwdb; then
+		local v=$(grep_hwdb "OUI:$arg" ID_OUI_FROM_DATABASE)
+		echo "vendor: ${B}${v:--}${R} (from hwdb)"
+	elif [ -s "$NMAP_MAC_DB" ]; then
+		local v=$(grep_nmap "$arg")
+		echo "vendor: ${B}${v:--}${R} (from nmap)"
+	fi
+}
 
 case $mode in
 	oui)
@@ -57,18 +73,21 @@ case $mode in
 		else
 			echo "kind: globally unique"
 		fi
-		if have systemd-hwdb; then
-			v=$(grep_hwdb "OUI:$arg" ID_OUI_FROM_DATABASE)
-			echo "vendor: ${B}${v:--}${R} (from hwdb)"
-		fi
-		if [ -s "$NMAP_MAC_DB" ]; then
-			v=$(grep_nmap "$arg")
-			echo "vendor: ${B}${v:--}${R} (from nmap)"
-		fi
+		show_vendor "$arg"
 		if true; then
 			v=$(grep_ethers "$arg")
 			echo "device: ${B}${v:--}${R} (from ethers)"
 		fi
+		;;
+	wwn)
+		arg=$1
+		arg=${arg//[:.-]}
+		arg=${arg^^}
+		echo "query: $arg (WWN)"
+		case $arg in
+		1* | 2*) show_vendor "${arg#????}" ;;
+		5*) show_vendor "${arg#?}" ;;
+		esac
 		;;
 	*)
 		die "mode not specified"

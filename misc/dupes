@@ -208,8 +208,13 @@ def find_duplicates(root_dirs, only_globs=None):
         for path in paths:
             n_hash += 1
             status("hash %d%% (%d/%d)" % (hashed_size / total_size * 100, n_hash, n_head), path)
-            filehash = hash_file(path,
-                lambda p: status("hash %d%% (%d/%d, %d%%)" % ((hashed_size + size * (p / 100)) / total_size * 100, n_hash, n_head, p), path))
+            try:
+                filehash = hash_file(path,
+                    lambda p: status("hash %d%% (%d/%d, %d%%)" % ((hashed_size + size * (p / 100)) / total_size * 100, n_hash, n_head, p), path))
+            except FileNotFoundError:
+                status()
+                Core.notice("file %r disappeared mid-scan", path)
+                continue
             hashed_size += size
             known_hashes[size, filehash].append(path)
 

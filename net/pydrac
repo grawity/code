@@ -263,6 +263,8 @@ known_versions = ", ".join(DracProber.known_versions())
 ap = argparse.ArgumentParser()
 ap.add_argument("-v", "--version",
                 help="controller version (%s)" % known_versions)
+ap.add_argument("-k", "--insecure", action="store_true", default=False,
+                help="disable TLS certificate verification for discovery")
 ap.add_argument("host",
                 help="host or address to connect to")
 args = ap.parse_args()
@@ -277,6 +279,7 @@ except KeyError:
 
 drac = DracProber(host, creds)
 drac.version = args.version
+drac.ua.verify = not (args.insecure)
 
 try:
     drac.run()

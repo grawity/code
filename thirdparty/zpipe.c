@@ -1,6 +1,7 @@
+/* Original location: <https://zlib.net/zpipe.c> */
 /* zpipe.c: example of proper use of zlib's inflate() and deflate()
    Not copyrighted -- provided to the public domain
-   Version 1.4+  11 December 2005  Mark Adler */
+   Version 1.4  11 December 2005  Mark Adler */
 
 /* Version history:
    1.0  30 Oct 2004  First version

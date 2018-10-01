@@ -3,8 +3,8 @@ import ssl
 
 def connect_gssapi(host):
     serv = ldap3.Server(host,
-                        tls=ldap3.Tls(validate=ssl.CERT_REQUIRED))
-                        get_info="SCHEMA")
+                        tls=ldap3.Tls(validate=ssl.CERT_REQUIRED),
+                        get_info="NONE")
     conn = ldap3.Connection(serv,
                             authentication="SASL",
                             sasl_mechanism="GSSAPI")

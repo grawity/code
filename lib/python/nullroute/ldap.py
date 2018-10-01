@@ -3,11 +3,11 @@ import ssl
 
 def connect_gssapi(host):
     serv = ldap3.Server(host,
-                        tls=ldap3.Tls(validate=ssl.CERT_REQUIRED),
-                        get_info=ldap3.GET_ALL_INFO)
+                        tls=ldap3.Tls(validate=ssl.CERT_REQUIRED))
+                        get_info="SCHEMA")
     conn = ldap3.Connection(serv,
-                            authentication=ldap3.AUTH_SASL,
-                            sasl_mechanism=ldap3.GSSAPI)
+                            authentication="SASL",
+                            sasl_mechanism="GSSAPI")
     conn.open()
     if not conn.start_tls():
         raise Exception("start_tls failed", conn.result)

@@ -36,6 +36,7 @@ class BooruApi(object):
     NAME_RE = []
     URL_RE = []
 
+    ID_PREFIX = None
     HASH_SUFFIX = True
 
     def __init__(self, tag_filter=None):
@@ -95,7 +96,7 @@ class DanbooruApi(BooruApi):
         re.compile(r"https?://danbooru.donmai.us/posts/(?P<id>\d+)"),
         #re.compile(r"https?://danbooru\.donmai\.us/data/.+__(?<md5>[^_]+)\.\w+$"),
     ]
-    ID_PREFIX = "db%s"
+    #ID_PREFIX = "db%s"
     HASH_SUFFIX = True
 
     _cache = {}

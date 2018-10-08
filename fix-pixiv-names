@@ -113,13 +113,19 @@ def rename_file_in_dir(dirpath, filename):
     global args
     global bare_re
     global prefix_re
+    global suffix_re
     global pixiv_api
 
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
 
+    if re.search(r'_pixiv\d+', filename):
+        Core.debug("skip %r: found '_pixiv' in name", filename)
+        return
+
     m = bare_re.match(filename)
     if m:
+        Core.debug("process %r: matched bare regex, groups %r", filename, m.groups())
         old_path = os.path.join(dirpath, filename)
         print(old_path, end=" ", flush=True)
 
@@ -140,6 +146,7 @@ def rename_file_in_dir(dirpath, filename):
 
     m = prefix_re.match(filename)
     if m:
+        Core.debug("process %r: matched prefix regex, groups %r", filename, m.groups())
         old_path = os.path.join(dirpath, filename)
         print(old_path, end=" ", flush=True)
 
@@ -157,6 +164,29 @@ def rename_file_in_dir(dirpath, filename):
         if not args.dry_run:
             os.rename(old_path, new_path)
         return
+
+    m = suffix_re.match(filename)
+    if m:
+        Core.debug("process %r: matched suffix regex, groups %r", filename, m.groups())
+        old_path = os.path.join(dirpath, filename)
+        print(old_path, end=" ", flush=True)
+
+        illust_id = int(m.group(2))
+        try:
+            prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
+        except HTTPError as e:
+            print(fmt_notfound % "failed")
+            Core.err(str(e))
+            return
+
+        filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
+        new_path = os.path.join(dirpath, filename)
+        print("=>", fmt_found % filename)
+        if not args.dry_run:
+            os.rename(old_path, new_path)
+        return
+
+    Core.trace("skip %r: not matched", filename)
 
 def fixup_metadata(path):
     global bare_re
@@ -189,6 +219,7 @@ args = parser.parse_args()
 
 bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+(?: \(\d+\))?\.\w+$')
 prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
+suffix_re = re.compile(r'(.+) (\d+)(_p\d+(?: \(\d+\))?\.\w+)$')
 pixiv_api = PixivApi()
 
 for arg in args.path or ["."]:

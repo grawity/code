@@ -51,13 +51,15 @@ class TagFilter(object):
         return new
 
     def filter(self, tags):
-        tags = [filter_filename(tag) for tag in tags]
+        tags = [tag.replace(" ", "_") for tag in tags]
 
         for item in self.blacklist:
             tags = [tag for tag in tags if not item.fullmatch(tag)]
 
         for xmatch, xto in self.translate:
             tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+
+        tags = [filter_filename(tag) for tag in tags]
 
         # trim 'name_(show)' tags
         ntags = []

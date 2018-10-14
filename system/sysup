@@ -4,17 +4,30 @@
 
 set -e
 
+unset dist tool
 
-if have pacman; then
-	tool=pacman
-elif have apt && test -x /usr/bin/apt; then
-	tool=apt
-elif have apt-get; then
-	tool=apt-get
-elif have yum; then
-	tool=yum
-else
-	die "no known package manager found"
+if [[ -e /etc/os-release ]]; then
+	dist=$(. /etc/os-release && echo "$ID $ID_LIKE")
+	debug "found distribution IDs <$dist>"
+	dist=:${dist// /:}:
+fi
+
+case $dist in
+	*:arch:*|*:archlinux:*)
+		tool=pacman;;
+esac
+
+if [[ ! $tool ]]; then
+	debug "distro unknown, performing tool detection"
+	if have pacman; then
+		tool=pacman
+	elif have apt && test -x /usr/bin/apt; then
+		tool=apt
+	elif have apt-get; then
+		tool=apt-get
+	elif have yum; then
+		tool=yum
+	fi
 fi
 
 case $tool in
@@ -32,4 +45,6 @@ case $tool in
 	yum)
 		debug "detected Fedora yum"
 		sudo: yum update "$@";;
+	*)
+		die "no known package manager found";;
 esac

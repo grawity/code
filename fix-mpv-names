@@ -14,6 +14,18 @@ my $force;
 my $force_host;
 my $dry_run = 0;
 
+sub usage {
+	print for
+	"Usage: $::arg0 [options] <file...>\n",
+	"\n",                     #
+	"  -f, --force            Rename non-matching files (based on mtime)\n",
+	"  -n, --dry-run          Only show what would have been done\n",
+	"\n",
+	"  -h, --host=STR         Suffix a host name or some other label\n",
+	"  --force-host=STR       Likewise but has something to do with --force?\n",
+	;
+}
+
 sub do_file {
 	my ($file) = @_;
 	_debug("processing file '$file'");
@@ -109,6 +121,7 @@ sub do_dir {
 }
 
 GetOptions(
+	"help" => sub { usage(); exit },
 	"n|dry-run!" => \$dry_run,
 	"f|force!" => \$force,
 	"force-host=s" => \$force_host,

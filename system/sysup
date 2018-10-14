@@ -4,20 +4,32 @@
 
 set -e
 
+
 if have pacman; then
-	debug "detected Arch Linux pacman"
-	sudo: pacman -Syu "$@"
+	tool=pacman
 elif have apt && test -x /usr/bin/apt; then
-	debug "detected unified apt interface"
-	sudo: apt update
-	sudo: apt full-upgrade -V "$@"
+	tool=apt
 elif have apt-get; then
-	debug "detected Debian apt-get"
-	sudo: apt-get update
-	sudo: apt-get dist-upgrade -V "$@"
+	tool=apt-get
 elif have yum; then
-	debug "detected Fedora yum"
-	sudo: yum update "$@"
+	tool=yum
 else
 	die "no known package manager found"
 fi
+
+case $tool in
+	apt)
+		debug "detected unified apt interface"
+		sudo: apt update
+		sudo: apt full-upgrade -V "$@";;
+	apt-get)
+		debug "detected Debian apt-get"
+		sudo: apt-get update
+		sudo: apt-get dist-upgrade -V "$@";;
+	pacman)
+		debug "detected Arch Linux pacman"
+		sudo: pacman -Syu "$@";;
+	yum)
+		debug "detected Fedora yum"
+		sudo: yum update "$@";;
+esac

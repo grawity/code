@@ -55,18 +55,33 @@ sub do_file {
 		}
 	}
 
-	# normalize to Y-M-D.hms
+	_debug(" first stage => '$new_name'");
 
+	# normalize to Y-M-D.hms
 	for ($new_name) {
 		my $tail = $host ? ".$host" : "";
 
-		# stage 1
-		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4$tail/;
+		# Output of stage 1
+		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})$/$1.$2$3$4$tail/;
+
 		# Dropbox on Windows
-		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4$tail/;
+		# "Screenshot 2018-05-12 21.52.18.png"
+		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)$/$1.$2$3$4$tail/;
+
 		# GNOME Shell
-		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)/$1.$2$3$4$tail/;
+		# "Screenshot from 2018-10-14 14-36-34.png"
+		# "Screencast from 2013-09-04 00:49:14.webm"
+		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)$/$1.$2$3$4$tail/;
+		s/^Screencast from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)$/$1.$2$3$4$tail/;
+
+		# Android
+		#$tail ||= ".nexus";
+		# "Screenshot_20150514.172546.png"
+		# "Screenshot_20160417-124530.png"
+		s/^Screenshot_(\d{4})(\d{2})(\d{2})[.-](\d{6})$/$1-$2-$3.$4$tail/;
 	}
+
+	_debug(" second stage => '$new_name'");
 
 	$old_name .= $suffix;
 	$new_name .= $suffix;

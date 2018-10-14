@@ -12,6 +12,7 @@ my $qr_y_m_d = qr/\d{4}-\d{2}-\d{2}/;
 my $host;
 my $force;
 my $force_host;
+my $dry_run = 0;
 
 sub do_file {
 	my ($file) = @_;
@@ -62,7 +63,7 @@ sub do_file {
 		return;
 	} elsif (-e $new_name) {
 		_err("not renaming '$old_name' to '$new_name': target already exists");
-	} elsif ($::debug) {
+	} elsif ($dry_run) {
 		_info("would rename '$dir$old_name' to '$new_name'");
 	} else {
 		_info("renaming '$dir$old_name' to '$new_name'");
@@ -108,9 +109,10 @@ sub do_dir {
 }
 
 GetOptions(
-	"host=s" => \$host,
-	"force!" => \$force,
+	"n|dry-run!" => \$dry_run,
+	"f|force!" => \$force,
 	"force-host=s" => \$force_host,
+	"h|host=s" => \$host,
 ) or exit(2);
 
 my @args = @ARGV;

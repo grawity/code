@@ -6,6 +6,6 @@
 base="ou=people,dc=${1//./,dc=}"
 
 ldapsearch -Q -b "$base" 'objectClass=posixAccount' uidNumber | awk \
-	'BEGIN         { uid=0 }
-	 /^uidNumber:/ { if ($2 > uid) {uid = $2} }
-	 END           { print uid+1 }'
+	'BEGIN         { uid = 0 }
+	 /^uidNumber:/ { if (uid < $2) {uid = $2} }
+	 END           { print uid + 1 }'

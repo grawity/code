@@ -242,6 +242,7 @@ class Enumerator(object):
         for dev, mtpt, fstype in MtabReader():
             yield Partition(mtpt, fstype)
         if show_cached:
+            to_purge = []
             for mtpt, rest in self.cache.items():
                 if fs_kind_from_path(mtpt, rest["type"]) == KIND_MEDIA:
                     Core.debug("mtpt %r is media, using media maxage" % mtpt)
@@ -253,6 +254,9 @@ class Enumerator(object):
                     yield Partition(mtpt, rest["type"], cached=rest)
                 else:
                     Core.debug("mtpt %r is %s old and has expired" % (mtpt, fmt_duration(age)))
+                    to_purge.append(mtpt)
+            for mtpt in to_purge:
+                del self.cache[mtpt]
 
     def enum_partitions_system(self, show_cached=False):
         for part in self._enum_partitions(show_cached):

@@ -24,14 +24,16 @@ def get_deps_with_rdep(pkg, rdep):
     return {x for x in get_package_deps(pkg)
             if rdep in get_recursive_deps(x)}
 
+def build_dep_tree(start, end):
+    queue = {start}
+    deps = {}
+    while queue:
+        pkg = queue.pop()
+        deps[pkg] = get_deps_with_rdep(pkg, end)
+        queue |= deps[pkg] - {*deps}
+    return deps
+
 start = sys.argv[1]
 end = sys.argv[2]
-
-queue = {start}
-deps = dict()
-while queue:
-    pkg = queue.pop()
-    deps[pkg] = get_deps_with_rdep(pkg, end)
-    queue |= deps[pkg] - {*deps}
-
+deps = build_dep_tree(start, end)
 print_dependency_tree(deps, start)

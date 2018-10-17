@@ -4,20 +4,47 @@
 
 set -e
 
-if have pacman; then
-	debug "detected Arch Linux pacman"
-	sudo: pacman -Syu "$@"
-elif have apt && test -x /usr/bin/apt; then
-	debug "detected unified apt interface"
-	sudo: apt update
-	sudo: apt full-upgrade -V "$@"
-elif have apt-get; then
-	debug "detected Debian apt-get"
-	sudo: apt-get update
-	sudo: apt-get dist-upgrade -V "$@"
-elif have yum; then
-	debug "detected Fedora yum"
-	sudo: yum update "$@"
-else
-	die "no known package manager found"
+unset dist tool
+
+if [[ -e /etc/os-release ]]; then
+	dist=$(. /etc/os-release && echo "$ID $ID_LIKE")
+	debug "found distribution IDs <$dist>"
+	dist=:${dist// /:}:
 fi
+
+case $dist in
+	*:arch:*|*:archlinux:*)
+		tool=pacman;;
+esac
+
+if [[ ! $tool ]]; then
+	debug "distro unknown, performing tool detection"
+	if have pacman; then
+		tool=pacman
+	elif have apt && test -x /usr/bin/apt; then
+		tool=apt
+	elif have apt-get; then
+		tool=apt-get
+	elif have yum; then
+		tool=yum
+	fi
+fi
+
+case $tool in
+	apt)
+		debug "detected unified apt interface"
+		sudo: apt update
+		sudo: apt full-upgrade -V "$@";;
+	apt-get)
+		debug "detected Debian apt-get"
+		sudo: apt-get update
+		sudo: apt-get dist-upgrade -V "$@";;
+	pacman)
+		debug "detected Arch Linux pacman"
+		sudo: pacman -Syu "$@";;
+	yum)
+		debug "detected Fedora yum"
+		sudo: yum update "$@";;
+	*)
+		die "no known package manager found";;
+esac

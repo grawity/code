@@ -145,6 +145,7 @@ def parse_duration(arg):
     t = 0
     m = re.match(pat, arg, re.X)
     if m:
+        m = m.groupdict()
         if m["y"]: t += int(m["y"]) * 60*60*24*365
         if m["d"]: t += int(m["d"]) * 60*60*24
         if m["h"]: t += int(m["h"]) * 60*60

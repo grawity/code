@@ -121,7 +121,7 @@ class DanbooruApi(BooruApi):
                 if key.startswith("tag_string_"):
                     kind = _strip_prefix(key, "tag_string_")
                     attrib["tags"][kind] = val.split() if val else []
-            pprint(attrib)
+            #pprint(attrib)
             self._cache["id:%(id)s" % attrib] = attrib
             yield attrib
 

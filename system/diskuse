@@ -238,6 +238,17 @@ class Enumerator(object):
         self.cache_media_maxage = 90*86400
         self.seen_devnos = set()
 
+    def _find_mtpt_upwards(self, base):
+        base = os.path.abspath(base) + "/"
+        candidate = "/"
+        for dev, mtpt, fstype in MtabReader():
+            mtpt = mtpt.rstrip("/") + "/"
+            if base == mtpt or base.startswith(mtpt):
+                Core.trace("mtpt %r matches prefix %r", mtpt, base)
+                if len(mtpt) > len(candidate):
+                    candidate = mtpt
+        return candidate
+
     def _enum_partitions(self, show_cached=False):
         for dev, mtpt, fstype in MtabReader():
             yield Partition(mtpt, fstype)
@@ -267,7 +278,8 @@ class Enumerator(object):
             yield part
 
     def enum_partitions_exact(self, paths):
-        for mtpt in paths:
+        for path in paths:
+            mtpt = self._find_mtpt_upwards(path)
             yield Partition(mtpt, fstype=None)
 
     def _add_to_cache(self, part, data):

@@ -177,7 +177,12 @@ def find_duplicates(root_dirs, only_globs=None):
     for path in sorted(head_todo):
         n_head += 1
         status("head (%d/%d)" % (n_head, len(head_todo)), path)
-        header = get_header(path)
+        try:
+            header = get_header(path)
+        except FileNotFoundError:
+            status()
+            Core.notice("file %r disappeared mid-scan", path)
+            continue
         known_headers[size, header].append(path)
 
     status("head/hash")

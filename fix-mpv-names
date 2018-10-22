@@ -12,6 +12,21 @@ my $qr_y_m_d = qr/\d{4}-\d{2}-\d{2}/;
 my $host;
 my $force;
 my $force_host;
+my $dry_run = 0;
+my $do_prefix = 0;
+
+sub usage {
+	print for
+	"Usage: $::arg0 [options] <file...>\n",
+	"\n",                     #
+	"  -f, --force            Rename non-matching files (based on mtime)\n",
+	"  -n, --dry-run          Only show what would have been done\n",
+	"\n",
+	"  -h, --host=STR         Suffix a host name or some other label\n",
+	"  --force-host=STR       Likewise but has something to do with --force?\n",
+	"  -F, --prefix           Prefix current name (instead of replacing)\n",
+	;
+}
 
 sub do_file {
 	my ($file) = @_;
@@ -42,18 +57,38 @@ sub do_file {
 		}
 	}
 
-	# normalize to Y-M-D.hms
+	_debug(" first stage => '$new_name'");
 
+	# normalize to Y-M-D.hms
 	for ($new_name) {
 		my $tail = $host ? ".$host" : "";
+		$tail .= " - $old_name" if $do_prefix;
 
-		# stage 1
-		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})/$1.$2$3$4$tail/;
+		# Output of stage 1
+		s/^Screenshot_($qr_y_m_d)_(\d{2})(\d{2})(\d{2})\b/$1.$2$3$4$tail/;
+
+		# XnView
+		# "capture_2016-06-18_171100.png"
+		s/^capture_($qr_y_m_d)_(\d{6})\b/$1.$2$tail/;
+
 		# Dropbox on Windows
-		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)/$1.$2$3$4$tail/;
+		# "Screenshot 2018-05-12 21.52.18.png"
+		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)\b/$1.$2$3$4$tail/;
+
 		# GNOME Shell
-		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)/$1.$2$3$4$tail/;
+		# "Screenshot from 2018-10-14 14-36-34.png"
+		# "Screencast from 2013-09-04 00:49:14.webm"
+		s/^Screenshot from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)\b/$1.$2$3$4$tail/;
+		s/^Screencast from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)\b/$1.$2$3$4$tail/;
+
+		# Android
+		#$tail ||= ".nexus";
+		# "Screenshot_20150514.172546.png"
+		# "Screenshot_20160417-124530.png"
+		s/^Screenshot_(\d{4})(\d{2})(\d{2})[.-](\d{6})\b/$1-$2-$3.$4$tail/;
 	}
+
+	_debug(" second stage => '$new_name'");
 
 	$old_name .= $suffix;
 	$new_name .= $suffix;
@@ -62,7 +97,7 @@ sub do_file {
 		return;
 	} elsif (-e $new_name) {
 		_err("not renaming '$old_name' to '$new_name': target already exists");
-	} elsif ($::debug) {
+	} elsif ($dry_run) {
 		_info("would rename '$dir$old_name' to '$new_name'");
 	} else {
 		_info("renaming '$dir$old_name' to '$new_name'");
@@ -108,9 +143,12 @@ sub do_dir {
 }
 
 GetOptions(
-	"host=s" => \$host,
-	"force!" => \$force,
+	"help" => sub { usage(); exit },
+	"n|dry-run!" => \$dry_run,
+	"f|force!" => \$force,
 	"force-host=s" => \$force_host,
+	"h|host=s" => \$host,
+	"F|prefix!" => \$do_prefix,
 ) or exit(2);
 
 my @args = @ARGV;

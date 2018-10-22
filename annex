@@ -338,12 +338,14 @@ case $cmd in
                 return ($dir eq "" ? "." : $dir);
             }
             my $maxdepth = int($ENV{depth} // 2);
+            my $show_files = int($ENV{showfiles} // 0);
             my %dirs;
             my $total = 0;
             while (<>) {
                 chomp;
                 my ($key, $file) = split(/ /, $_, 2);
                 my $size; if ($key =~ /-s(\d+)--/) { $size = int $1; }
+                if ($show_files)             { $dirs{$file} += $size; }
                 while ($file =~ s!/[^/]+$!!) { $dirs{$file} += $size; }
                 $total += $size;
             }

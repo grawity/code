@@ -494,7 +494,7 @@ case $cmd in
             | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
             | git annex rmurl --batch
         ;;
-    store)
+    dup | store)
         # Move files like `annex move --to`, but to multiple remotes.
         files=()
         remotes=()
@@ -518,8 +518,10 @@ case $cmd in
             annex copy --to "$dest" --not --in "$dest" "${copyargs[@]}" "${files[@]}" &&
                 dropargs+=(--in "$dest")
         done
-        log2 "dropping from here"
-        annex drop "${dropargs[@]}" "${files[@]}"
+        if [[ $cmd == store ]]; then
+            log2 "dropping from here"
+            annex drop "${dropargs[@]}" "${files[@]}"
+        fi
         ;;
     # overrides
     addurl)

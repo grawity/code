@@ -322,6 +322,8 @@ case $cmd in
         for arg; do
             if [[ $arg == -[av] ]]; then
                 export showfiles=1
+            elif [[ $arg == -d[0-9]* ]]; then
+                export depth=${arg#-d}
             else
                 args+=("$arg")
             fi
@@ -345,8 +347,8 @@ case $cmd in
                 my ($dir) = @_;
                 return ($dir eq "" ? "." : $dir);
             }
-            my $maxdepth = int($ENV{depth} // 2);
             my $show_files = int($ENV{showfiles} // 0);
+            my $maxdepth = $show_files ? 0 : int($ENV{depth} // 2);
             my %dirs;
             my $total = 0;
             while (<>) {

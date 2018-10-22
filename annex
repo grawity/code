@@ -318,7 +318,15 @@ case $cmd in
         git annex find "$@" | xargs -d '\n' du -Dhsc
         ;;
     du)
-        annex find --format='${key} ${file}\n' --include '*' "$@" |
+        args=()
+        for arg; do
+            if [[ $arg == -[av] ]]; then
+                export showfiles=1
+            else
+                args+=("$arg")
+            fi
+        done
+        annex find --format='${key} ${file}\n' --include '*' "${args[@]}" |
         perl -E '
             use List::Util qw(min);
             sub fmt_size {

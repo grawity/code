@@ -1,0 +1,21 @@
+#!/usr/bin/env perl
+use Sys::Utmp qw(:constants);
+
+sub hup_line {
+	my ($tty) = @_;
+	system("pkill", "-HUP", "-t", $tty);
+}
+
+my $verbose = ($ARGV[0] eq "-v");
+
+my $utmp = Sys::Utmp->new;
+while (my $ut = $utmp->getutent) {
+	my $t = $ut->ut_line;
+	if ($ut->ut_type == USER_PROCESS) {
+		my $h = $ut->ut_host;
+		if ($h =~ /^mosh \[(\d+)\]$/) {
+			print "detaching $t ($h)\n" if $verbose;
+			hup_line($t);
+		}
+	}
+}

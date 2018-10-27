@@ -59,7 +59,11 @@ if [[ $host != *.* ]]; then
 	host=$(LOCALDOMAIN="${canonical_domains[*]}" fqdn "$host")
 fi
 debug "trying to resolve '$host'"
-addr=$(name2addr "$host" 2>/dev/null)
+if have name2addr; then
+	addr=$(name2addr "$host" 2>/dev/null)
+else
+	addr=$(getent ahosts "$host" 2>/dev/null | awk '{print $1; quit}')
+fi
 if [[ ! $addr ]]; then
 	_die "could not resolve host '$host'"
 fi

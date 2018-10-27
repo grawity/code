@@ -2,12 +2,15 @@
 use Nullroute::Lib;
 
 for my $orig (@ARGV) {
-	my @xlat = ($orig);
+	my @xlat;
 	if ($orig !~ /^(git|secondlife):/) {
 		if (open(my $proc, "-|", "uri", $orig)) {
 			@xlat = grep {chomp || 1} <$proc>;
 			close($proc);
 		}
+	}
+	if (!@xlat) {
+		@xlat = ($orig);
 	}
 	for my $uri (@xlat) {
 		forked { exec("/usr/bin/xdg-open", $uri) };

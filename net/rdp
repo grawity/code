@@ -68,9 +68,13 @@ if [[ ! $addr ]]; then
 	_die "could not resolve host '$host'"
 fi
 port=3389
-debug "probing TCP server [$host]:$port"
-if ! err=$(nc -v -z "$host" "$port" 2>&1); then
-	_die "host '$host' does not accept Remote Desktop connections"
+if have nc; then
+	debug "probing TCP server [$host]:$port"
+	if ! err=$(nc -v -z "$host" "$port" 2>&1); then
+		_die "host '$host' does not accept Remote Desktop connections"
+	fi
+else
+	warn "'nc' not available, skipping probe"
 fi
 info "connecting to ${host@Q}"
 

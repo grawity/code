@@ -1,17 +1,20 @@
 #!/usr/bin/env perl
-# (c) 2012-2016 Mantas Mikulėnas <grawity@gmail.com>
+# (c) 2012-2018 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)
+
+use warnings;
+use strict;
 
 if (-t STDIN) {
 	warn "error: expecting a schema as stdin\n";
 	exit 1;
 }
 
-my $name = shift(@ARGV) // "UNNAMED";
+my $name = shift(@ARGV) // "UNNAMEDSCHEMA";
+my $unwrap = 0;
 
 print "dn: cn=$name,cn=schema,cn=config\n";
 print "objectClass: olcSchemaConfig\n";
-print "cn: $name\n";
 
 my $key;
 my $value;
@@ -26,16 +29,25 @@ while (<STDIN>) {
 		($key, $value) = ($1, $2);
 
 		if ($key =~ /^attributeType(s)?$/i) {
-			$key = 'olcAttributeTypes';
+			$key = "olcAttributeTypes";
 		} elsif ($key =~ /^objectClass(es)?$/i) {
-			$key = 'olcObjectClasses';
+			$key = "olcObjectClasses";
 		} else {
 			$key = "olc$key";
 		}
 	}
 	elsif (/^\s+(.+)$/) {
-		$value .= "\n " . $_;
-		#$value .= " " . $1;
+		if ($unwrap) {
+			$value .= " $1";
+		} else {
+			$value .= "\n $&";
+		}
+	}
+	elsif (/^#.*/) {
+		print "$&\n";
+	}
+	elsif (/.+/) {
+		warn "$.:unrecognized input line: $&\n";
 	}
 }
 if ($key && $value) {

@@ -1,15 +1,25 @@
 #!/usr/bin/env perl
 use Nullroute::Lib;
 
+my @real = ("/usr/bin/xdg-open");
+
+for ($ENV{XDG_CURRENT_DESKTOP} // "") {
+	if (/^GNOME$/i) {
+		@real = ("/usr/bin/gio", "open");
+	}
+}
+
+exit(1) if !-x $real[0];
+
 for my $orig (@ARGV) {
 	my @xlat = ($orig);
-	if ($orig !~ /^(git|secondlife):/) {
+	unless ($orig =~ /^(git|secondlife):/) {
 		if (open(my $proc, "-|", "uri", $orig)) {
 			@xlat = grep {chomp || 1} <$proc>;
 			close($proc);
 		}
 	}
 	for my $uri (@xlat) {
-		forked { exec("/usr/bin/xdg-open", $uri) };
+		forked { exec(@real, $uri) };
 	}
 }

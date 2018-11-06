@@ -322,6 +322,8 @@ case $cmd in
         for arg; do
             if [[ $arg == -[av] ]]; then
                 export showfiles=1
+            elif [[ $arg == -s ]]; then
+                export sortbysize=1
             elif [[ $arg == -d[0-9]* ]]; then
                 export depth=${arg#-d}
             else
@@ -350,6 +352,7 @@ case $cmd in
                      . "\e[m";
             }
             my $show_files = int($ENV{showfiles} // 0);
+            my $sortbysize = int($ENV{sortbysize} // 0);
             my $maxdepth = $show_files ? 0 : int($ENV{depth} // 2);
             my %files;
             my %dirs;
@@ -366,6 +369,9 @@ case $cmd in
             my @dirs = sort keys %dirs;
             if ($maxdepth) {
                 @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
+            }
+            if ($sortbysize) {
+                @dirs = sort {$dirs{$b} <=> $dirs{$a}} @dirs;
             }
             my $fmt = "%s\e[38;5;12m%7s\e[m  %s\n";
             printf $fmt, indent_for(""), fmt_size($total), "TOTAL";

@@ -18,16 +18,24 @@ class ForeignFilenameError(ValueError):
     pass
 
 class DeviantArtScraper(Scraper):
-    _fn_re = re.compile(r"^(?:[a-f0-9]{32}|.*[-_]by[-_].*)-(d\w+)\.\w+$")
-    _upd_fn_re = re.compile(r"^.+ \((d\w+)\)\.\w+$")
-
     def get_favid_from_filename(self, filename, for_update=False):
-        m = self._fn_re.match(filename)
+        m = None
+        # new format uuid: dc841wo-35b69a98-6911-41fc-888f-b18529722ae5.jpg
+        if not m:
+            m = re.match(r"^(?P<id>d\w+)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$", filename)
+        # older format uuid-favid
+        if not m:
+            m = re.match(r"^[0-9a-f]{32}-(?P<id>d\w+)\.\w+$", filename)
+        # older format title_by_artist-favid
+        if not m:
+            m = re.match(r"^.*[-_]by[-_].*-(?P<id>d\w+)\.\w+$", filename)
+        # our own output
         if not m and for_update:
-            m = self._upd_fn_re.match(filename)
+            m = re.match(r"^.+ \((?P<id>d\w+)\)\.\w+$", filename)
+        # give up
         if not m:
             raise ForeignFilenameError("filename %r did not match regex" % filename)
-        return m.group(1)
+        return m.group("id")
 
     def get_favurl_by_favid(self, favid):
         if not re.match(r"^\w+$", favid):

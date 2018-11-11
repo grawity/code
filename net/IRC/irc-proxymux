@@ -68,12 +68,9 @@ config::$proxy = array(
 	"cluenet"	=> "tcp://$host:4202",
 );
 
-function putlog(/*$severity, $format, @args*/) {
-	$argv = func_get_args();
-	$severity = array_shift($argv);
+function putlog($severity, $format, ...$argv) {
 	if ($severity > config::$loglevel)
 		return;
-	$format = array_shift($argv);
 	$text = vsprintf($format, $argv);
 	fwrite(STDERR, $text."\n");
 }
@@ -91,8 +88,8 @@ class Irc {
 		return implode(" ", $args);
 	}
 
-	static function vjoin(/*@args*/) {
-		return self::join(func_get_args());
+	static function vjoin(...$args) {
+		return self::join($args);
 	}
 
 	static function split($str) {
@@ -147,10 +144,8 @@ class Stream {
 		return fwrite($this->fd, $data);
 	}
 
-	function printf(/*$fmt, @args*/) {
-		$_ = func_get_args();
-		$fmt = array_shift($_);
-		return vfprintf($this->fd, $fmt, $_);
+	function printf($fmt, ...$args) {
+		return vfprintf($this->fd, $fmt, $args);
 	}
 
 	function vprintf($fmt, $args) {
@@ -221,18 +216,15 @@ class Client extends StreamState {
 	public $queue = array();
 	public $nexthop;
 
-	public function send_numeric(/*$numeric, @args*/) {
+	public function send_numeric($numeric, ...$args) {
 		global $numeric_formats;
 
-		$_ = func_get_args();
-		$numeric = array_shift($_);
-
 		if (isset($numeric_formats[$numeric])) {
-			$msg = vsprintf($numeric_formats[$numeric], $_);
+			$msg = vsprintf($numeric_formats[$numeric], $args);
 		}
 		else {
 			putlog(LOG_WARNING, "numeric %03s missing format", $numeric);
-			$msg = Irc::join($_);
+			$msg = Irc::join($args);
 		}
 
 		return $this->printf(":%s %03s %s\r\n", config::$hostname, $numeric, $msg);
@@ -586,10 +578,7 @@ class Proxy {
 		return true;
 	}
 
-	private function reject_client(/*$stream, $format, @args*/) {
-		$argv = func_get_args();
-		$stream = array_shift($argv);
-		$format = array_shift($argv);
+	private function reject_client($stream, $format, ...$argv) {
 		$msg = vsprintf($format, $argv);
 		fprintf($stream, "ERROR :%s\r\n", $msg);
 		fclose($stream);

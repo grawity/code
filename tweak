@@ -23,10 +23,11 @@ do_gsettings() {
 	elif [[ $value ]]; then
 		case ${type#--} in
 		    uri)
+			value=${value#"'"}
+			value=${value%"'"}
 			[[ $value == *://* ]] ||
-				value="file://$(urlencode -p "$(readlink -f "$value")")"
-			[[ $value == \'*\' ]] ||
-				value="'$value'"
+				value="file://$(urlencode -p "$(realpath -s "$value")")"
+			value="'$value'"
 			;;
 		    bool)
 			case ${value,,} in
@@ -139,13 +140,10 @@ gnome/wallpaper)
 		value=${value#'file://'}
 		value=$(urlencode -d "$value")
 	fi
-	if [[ $value != /* ]]; then
-		value=$PWD/$value
-	fi
 	if [[ ! -e $value ]]; then
 		base=$(basename "$value")
 		log "trying to find $base"
-		new=$(find "$PWD" -type f -name "$base" | head -n 1)
+		new=$(find . -type f -name "$base" | head -n 1)
 		if [[ $new && -e $new ]]; then
 			log "found at $new"
 			value=$new
@@ -155,7 +153,7 @@ gnome/wallpaper)
 	fi
 	do_gsettings org.gnome.desktop.background picture-uri "$value" --uri
 	;;
-gnome/lock-screen)
+gnome/lockscreen|gnome/lock-screen)
 	do_gsettings org.gnome.desktop.screensaver picture-uri "$value" --uri
 	;;
 gnome/gtk-theme)

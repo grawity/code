@@ -3,19 +3,7 @@ from __future__ import print_function
 import os
 import sys
 import subprocess
-
-try:
-    from nullrute.core import Core
-except ImportError:
-    class Core:
-        @classmethod
-        def warn(self, fmt, *args):
-            print("warning:", fmt % args, file=sys.stderr)
-
-        @classmethod
-        def die(self, fmt, *args):
-            print("fatal:", fmt % args, file=sys.stderr)
-            sys.exit(1)
+from nullroute.core import Core
 
 def usage():
     print("Usage: envcp <pid> <command> [args ...]",
@@ -28,7 +16,7 @@ def read_env(pid):
         with open("/proc/%d/environ" % pid, "rb") as fd:
             env = parse_env(fd)
     except IOError as e:
-        Core.warn("could not access environment directly, using sudo: %s" % e)
+        Core.debug("could not access environment: %s" % e)
         with subprocess.Popen(["sudo", "cat", "/proc/%d/environ" % pid],
                               stdout=subprocess.PIPE) as proc:
             env = parse_env(proc.stdout)

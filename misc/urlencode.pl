@@ -104,7 +104,7 @@ sub encode {
 			s/>/&gt;/g;
 			s/"/&quot;/g;
 		} else {
-			s/[^\/A-Za-z0-9_.!~*',=()-]/sprintf("%%%02X", ord($&))/gse;
+			s/[^\/A-Za-z0-9_.!~*',=():-]/sprintf("%%%02X", ord($&))/gse;
 			if (!$opts{format_ldap_dn}) {
 				s/[,=]/sprintf("%%%02X", ord($&))/gse;
 			}

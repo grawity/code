@@ -20,6 +20,14 @@ repo="/vol3/Backup/Homes/${HOSTNAME}.borg"
 root=$HOME
 
 if (( do_mount )); then
+	if (( $# >= 2 )); then
+		host=$1
+		shift
+		case $host in
+			frost)
+				repo="/vol4/Backup/Homes/$host.borg";;
+		esac
+	fi
 	path=$1
 else
 	rel=${PWD#"${root%/}/"}
@@ -43,7 +51,7 @@ archive=$(borg list --last 1 --short "$repo")
 debug "latest archive is '$archive'"
 
 if (( do_mount )); then
-	info "mounting $repo ($archive)"
+	info "mounting $repo ($archive) at '$path'"
 	do: borg mount \
 		"$repo::$archive" "$path"
 else

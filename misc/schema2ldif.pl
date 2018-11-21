@@ -1,6 +1,9 @@
 #!/usr/bin/env perl
 # (c) 2012-2016 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)
+#
+# Converts OpenLDAP schema from traditional slapd.conf format to LDIF format
+# usable for importing into cn=config.
 
 if (-t STDIN) {
 	warn "error: expecting a schema as stdin\n";

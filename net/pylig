@@ -174,8 +174,8 @@ class Locator(Message):
     mc_priority: int = 0
     mc_weight: int = 0
     local: bool = False
-    pbit: bool = False
-    Rbit: bool = False
+    probe: bool = False
+    reachable: bool = False
     locator: AfiAddress = None
 
     @classmethod
@@ -187,8 +187,8 @@ class Locator(Message):
         self.mc_weight = buf.read("uint:8")
         buf.read("pad:13")
         (self.local,
-         self.pbit,
-         self.Rbit) = buf.readlist(["bool"] * 3)
+         self.probe,
+         self.reachable) = buf.readlist(["bool"] * 3)
         self.locator = AfiAddress.from_bits(buf)
         return self
 
@@ -201,8 +201,8 @@ class Locator(Message):
                 uint:8=mc_weight,
                 pad:13,
                 bool=local,
-                bool=pbit,
-                bool=Rbit,
+                bool=probe,
+                bool=reachable,
             """, **self.__dict__)
         buf += self.locator.to_bits()
         return buf
@@ -556,7 +556,7 @@ def show_map_reply(mrep):
             print("   rlocs:")
             print("      %3s  %3s  %-20s  %1s %1s %1s" % ("PRI", "WHT", "LOCATOR", "l", "p", "R"))
             for loc in rec.locators:
-                print("      %3d  %3d  %-20s  %1s %1s %1s" % (loc.priority, loc.weight, loc.locator.addr, B(loc.local), B(loc.pbit), B(loc.Rbit)))
+                print("      %3d  %3d  %-20s  %1s %1s %1s" % (loc.priority, loc.weight, loc.locator.addr, B(loc.local), B(loc.probe), B(loc.reachable)))
 
 my_rlocs = {
     Afi.IPv4: AfiAddress("212.71.255.217", Afi.IPv4),
@@ -609,9 +609,8 @@ if encapsulate:
 
     encap_mreq = EncapsulatedControlMessage()
     encap_mreq.payload = ip_udp_mreq
-    encap_mreq_buf = encap_mreq.to_bytes()
 
-    mreq_buf = encap_mreq_buf
+    mreq_buf = encap_mreq.to_bytes()
 
 if ms_rloc.version == 4:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

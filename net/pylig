@@ -80,6 +80,18 @@ class LispCanonicalAddress(Message):
         self.data = buf.read("bytes:%d" % self.length)
         return self
 
+    def to_bits(self):
+        buf = bitstring.pack(
+            """
+                pad:8,
+                uint:8=flags,
+                uint:8=type,
+                pad:8,
+                uintle:16=length,
+                bytes:data,
+            """, **self.__dict__)
+        return buf
+
 class AfiAddress():
     def __init__(self, addr=None, afi=None):
         if afi is None:

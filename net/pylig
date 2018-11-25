@@ -570,6 +570,7 @@ else:
 
 ms_rloc = ipaddress.ip_address(argv[0])
 query_eid = ipaddress.ip_network(argv[1])
+encapsulate = True
 
 mreq = MapRequestMessage()
 mreq.new_nonce()
@@ -582,34 +583,35 @@ mreq.itr_rlocs = [
 mreq.records = [MapRequestRecord.from_network(query_eid)]
 mreq_buf = mreq.to_bytes()
 
-udp_mreq = UdpMessage()
-udp_mreq.src_port = 4342
-udp_mreq.dst_port = 4342
-udp_mreq.payload = mreq_buf
+if encapsulate:
+    udp_mreq = UdpMessage()
+    udp_mreq.src_port = 4342
+    udp_mreq.dst_port = 4342
+    udp_mreq.payload = mreq_buf
 
-# NOTE: this should depend on ... uh, my itr_rloc version, I think?
-ip_src_addr = mreq.records[0].prefix.addr
-ip_dst_addr = mreq.records[0].prefix.addr
-udp_mreq.adjust_checksum(ip_src_addr, ip_dst_addr)
+    # NOTE: this should depend on ... uh, my itr_rloc version, I think?
+    ip_src_addr = mreq.records[0].prefix.addr
+    ip_dst_addr = mreq.records[0].prefix.addr
+    udp_mreq.adjust_checksum(ip_src_addr, ip_dst_addr)
 
-if ip_src_addr.version == 4:
-    ip_udp_mreq = IPv4Message()
-    ip_udp_mreq.src_addr = ip_src_addr
-    ip_udp_mreq.dst_addr = ip_dst_addr
-    ip_udp_mreq.protocol = ProtocolNumber.UDP
-    ip_udp_mreq.adjust_checksum()
-elif ip_src_addr.version == 6:
-    ip_udp_mreq = IPv6Message()
-    ip_udp_mreq.src_addr = ip_src_addr
-    ip_udp_mreq.dst_addr = ip_dst_addr
-    ip_udp_mreq.next_header = ProtocolNumber.UDP
-ip_udp_mreq.payload = udp_mreq.to_bytes()
+    if ip_src_addr.version == 4:
+        ip_udp_mreq = IPv4Message()
+        ip_udp_mreq.src_addr = ip_src_addr
+        ip_udp_mreq.dst_addr = ip_dst_addr
+        ip_udp_mreq.protocol = ProtocolNumber.UDP
+        ip_udp_mreq.adjust_checksum()
+    elif ip_src_addr.version == 6:
+        ip_udp_mreq = IPv6Message()
+        ip_udp_mreq.src_addr = ip_src_addr
+        ip_udp_mreq.dst_addr = ip_dst_addr
+        ip_udp_mreq.next_header = ProtocolNumber.UDP
+    ip_udp_mreq.payload = udp_mreq.to_bytes()
 
-encap_mreq = EncapsulatedControlMessage()
-encap_mreq.payload = ip_udp_mreq
-encap_mreq_buf = encap_mreq.to_bytes()
+    encap_mreq = EncapsulatedControlMessage()
+    encap_mreq.payload = ip_udp_mreq
+    encap_mreq_buf = encap_mreq.to_bytes()
 
-#encap_mreq_buf = mreq_buf
+    mreq_buf = encap_mreq_buf
 
 if ms_rloc.version == 4:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -617,7 +619,7 @@ if ms_rloc.version == 4:
 elif ms_rloc.version == 6:
     sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
     sock.bind(("::", 4342))
-sock.sendto(encap_mreq_buf, (str(ms_rloc), 4342))
+sock.sendto(mreq_buf, (str(ms_rloc), 4342))
 print("sent Map-Request %r to %s" % ([str(x.to_network()) for x in mreq.records], ms_rloc))
 
 while True:

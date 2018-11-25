@@ -300,7 +300,7 @@ class MapRequestMessage(LispControlMessage):
         self.nonce = buf.read("bytes:8")
         self.source_eid = AfiAddress.from_bits(buf)
         self.itr_rlocs = [AfiAddress.from_bits(buf)
-                          for x in range(max(self.itr_rloc_count, 1))]
+                          for x in range(self.itr_rloc_count + 1)]
         self.records = [MapRequestRecord.from_bits(buf)
                         for x in range(self.record_count)]
         if self.map_data_present:
@@ -308,9 +308,9 @@ class MapRequestMessage(LispControlMessage):
         return self
 
     def to_bits(self):
-        if self.itr_rloc_count != len(self.itr_rlocs):
+        if self.itr_rloc_count != len(self.itr_rlocs) - 1:
             #raise Exception("itr_rloc_count is inconsistent")
-            self.itr_rloc_count = len(self.itr_rlocs)
+            self.itr_rloc_count = len(self.itr_rlocs) - 1
         if self.record_count != len(self.records):
             #raise Exception("record_count is inconsistent")
             self.record_count = len(self.records)
@@ -566,7 +566,7 @@ query_eid = ipaddress.ip_network(argv[1])
 
 mreq = MapRequestMessage()
 mreq.new_nonce()
-mreq.itr_rloc_count = 1
+mreq.itr_rloc_count = 0
 mreq.itr_rlocs = [AfiAddress("212.71.255.217", Afi.IPv4)]
 mreq.record_count = 1
 mreq.records = [MapRequestRecord.from_network(query_eid)]

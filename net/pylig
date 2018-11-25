@@ -383,6 +383,14 @@ class MapReplyMessage(LispControlMessage):
             buf += i.to_bits()
         return buf
 
+def compute_checksum(buf):
+    carry_around = lambda x: (x & 0xffff) + (x >> 16)
+    s = 0
+    for i in range(0, len(buf), 2):
+        w = buf[i] + (buf[i+1] << 8)
+        s = carry_around(s + w)
+    return ~s & 0xffff
+
 @dataclass
 class UdpMessage(Message):
     src_port: int = 0
@@ -408,10 +416,21 @@ class UdpMessage(Message):
                 uintbe:16=src_port,
                 uintbe:16=dst_port,
                 uintbe:16=total_len,
-                uintbe:16=checksum,
+                uintle:16=checksum,
             """, **self.__dict__)
         buf += self.payload
         return buf
+
+    def adjust_checksum(self, ip_src, ip_dst):
+        self.checksum = 0
+        buf = bitstring.BitStream()
+        buf += ip_src.packed
+        buf += ip_dst.packed
+        buf += bitstring.pack("uintbe:16", ProtocolNumber.UDP)
+        buf += bitstring.pack("uintbe:16", 8 + len(self.payload))
+        buf += self.to_bytes()
+        sum = compute_checksum(buf.bytes)
+        self.checksum = (sum or 0xFFFF)
 
 class IPMessage(Message):
     pass
@@ -460,23 +479,10 @@ class IPv4Message(IPMessage):
         buf += self.payload
         return buf
 
-    @staticmethod
-    def _compute_checksum(buf):
-        carry_around = lambda x: (x & 0xffff) + (x >> 16)
-        def carry_around_add(a, b):
-            c = a + b
-            return (c & 0xffff) + (c >> 16)
-        s = 0
-        for i in range(0, len(buf), 2):
-            w = buf[i] + (buf[i+1] << 8)
-            #s = carry_around_add(s, w)
-            s = carry_around(s + w)
-        return ~s & 0xffff
-
     def adjust_checksum(self):
         self.header_checksum = 0
         hdr = self.to_bytes()
-        sum = self._compute_checksum(hdr)
+        sum = compute_checksum(hdr)
         self.header_checksum = sum
 
 @dataclass
@@ -580,11 +586,12 @@ udp_mreq = UdpMessage()
 udp_mreq.src_port = 4342
 udp_mreq.dst_port = 4342
 udp_mreq.payload = mreq_buf
-udp_mreq_buf = udp_mreq.to_bytes()
 
 # NOTE: this should depend on ... uh, my itr_rloc version, I think?
 ip_src_addr = mreq.records[0].prefix.addr
 ip_dst_addr = mreq.records[0].prefix.addr
+udp_mreq.adjust_checksum(ip_src_addr, ip_dst_addr)
+
 if ip_src_addr.version == 4:
     ip_udp_mreq = IPv4Message()
     ip_udp_mreq.src_addr = ip_src_addr
@@ -596,7 +603,7 @@ elif ip_src_addr.version == 6:
     ip_udp_mreq.src_addr = ip_src_addr
     ip_udp_mreq.dst_addr = ip_dst_addr
     ip_udp_mreq.next_header = ProtocolNumber.UDP
-ip_udp_mreq.payload = udp_mreq_buf
+ip_udp_mreq.payload = udp_mreq.to_bytes()
 
 encap_mreq = EncapsulatedControlMessage()
 encap_mreq.payload = ip_udp_mreq

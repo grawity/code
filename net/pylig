@@ -268,8 +268,8 @@ class MapRequestMessage(LispControlMessage):
     solicit_map_request: bool = False
     pitr: bool = False
     smr_invoked: bool = False
-    itr_rloc_count: int = 0
-    record_count: int = 0
+    _itr_rloc_count: int = 0
+    _record_count: int = 0
     nonce: bytes = None
     source_eid: AfiAddress = field(default_factory=AfiAddress)
     itr_rlocs: list = field(default_factory=list)
@@ -282,7 +282,7 @@ class MapRequestMessage(LispControlMessage):
     def add_record(self, addr, prefixlen=32, afi=None):
         addr = AfiAddress(addr, afi)
         rec = MapRequestRecord(prefixlen, addr)
-        self.record_count += 1
+        self._record_count += 1
         self.records.append(rec)
 
     @classmethod
@@ -295,25 +295,21 @@ class MapRequestMessage(LispControlMessage):
          self.pitr,
          self.smr_invoked) = buf.readlist(["bool"] * 6)
         buf.read("pad:9")
-        self.itr_rloc_count = buf.read("uint:5")
-        self.record_count = buf.read("uint:8")
+        self._itr_rloc_count = buf.read("uint:5")
+        self._record_count = buf.read("uint:8")
         self.nonce = buf.read("bytes:8")
         self.source_eid = AfiAddress.from_bits(buf)
         self.itr_rlocs = [AfiAddress.from_bits(buf)
-                          for x in range(self.itr_rloc_count + 1)]
+                          for x in range(self._itr_rloc_count + 1)]
         self.records = [MapRequestRecord.from_bits(buf)
-                        for x in range(self.record_count)]
+                        for x in range(self._record_count)]
         if self.map_data_present:
             self.reply_record = MapReplyRecord.from_bits(buf)
         return self
 
     def to_bits(self):
-        if self.itr_rloc_count != len(self.itr_rlocs) - 1:
-            #raise Exception("itr_rloc_count is inconsistent")
-            self.itr_rloc_count = len(self.itr_rlocs) - 1
-        if self.record_count != len(self.records):
-            #raise Exception("record_count is inconsistent")
-            self.record_count = len(self.records)
+        self._itr_rloc_count = len(self.itr_rlocs) - 1
+        self._record_count = len(self.records)
         buf = bitstring.pack(
             """
                 uint:4,
@@ -324,8 +320,8 @@ class MapRequestMessage(LispControlMessage):
                 bool=pitr,
                 bool=smr_invoked,
                 pad:9,
-                uint:5=itr_rloc_count,
-                uint:8=record_count,
+                uint:5=_itr_rloc_count,
+                uint:8=_record_count,
                 bytes:8=nonce
             """,
             self.type, **self.__dict__)
@@ -566,9 +562,7 @@ query_eid = ipaddress.ip_network(argv[1])
 
 mreq = MapRequestMessage()
 mreq.new_nonce()
-mreq.itr_rloc_count = 0
 mreq.itr_rlocs = [AfiAddress("212.71.255.217", Afi.IPv4)]
-mreq.record_count = 1
 mreq.records = [MapRequestRecord.from_network(query_eid)]
 mreq_buf = mreq.to_bytes()
 
@@ -580,6 +574,7 @@ udp_mreq_buf = udp_mreq.to_bytes()
 
 # NOTE: this should depend on ... uh, my itr_rloc version, I think?
 ip_src_addr = mreq.itr_rlocs[0].addr
+ip_src_addr = mreq.records[0].prefix.addr
 ip_dst_addr = mreq.records[0].prefix.addr
 if ip_src_addr.version == 4:
     ip_udp_mreq = IPv4Message()

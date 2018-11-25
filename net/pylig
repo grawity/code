@@ -22,6 +22,7 @@ class Afi(enum.IntEnum):
     Reserved = 0
     IPv4 = 1
     IPv6 = 2
+    LCAF = 0x4003
 
     @property
     def af(self):
@@ -51,6 +52,33 @@ IPVER_TO_AFI = {
     4: Afi.IPv4,
     6: Afi.IPv6,
 }
+
+class Message():
+    @classmethod
+    def from_bytes(self, buf):
+        return self.from_bits(bitstring.ConstBitStream(buf))
+
+    def to_bytes(self):
+        return self.to_bits().bytes
+
+@dataclass
+class LispCanonicalAddress(Message):
+    # https://tools.ietf.org/html/rfc8060
+    flags: int = 0
+    type: int = 0
+    length: int = 0
+    data: bytes = b""
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        buf.read("pad:8")
+        self.flags = buf.read("uint:8")
+        self.type = buf.read("uint:8")
+        buf.read("pad:8")
+        self.length = buf.read("uintle:16")
+        self.data = buf.read("bytes:%d" % self.length)
+        return self
 
 class AfiAddress():
     def __init__(self, addr=None, afi=None):
@@ -84,6 +112,8 @@ class AfiAddress():
             addr = ipaddress.IPv4Address(addr)
         elif afi == Afi.IPv6:
             addr = ipaddress.IPv6Address(addr)
+        elif afi == Afi.LCAF:
+            addr = LispCanonicalAddress.from_bits(buf)
         self.afi = Afi(afi)
         self.addr = addr
         return self
@@ -114,14 +144,6 @@ class LispMessageType(enum.IntEnum):
     MapRegister = 3
     MapNotify = 4
     Encapsulated = 8
-
-class Message():
-    @classmethod
-    def from_bytes(self, buf):
-        return self.from_bits(bitstring.ConstBitStream(buf))
-
-    def to_bytes(self):
-        return self.to_bits().bytes
 
 class LispControlMessage(Message):
     @classmethod

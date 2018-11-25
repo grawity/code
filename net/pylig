@@ -42,8 +42,14 @@ AFI_TO_AF = {
     Afi.IPv6: socket.AF_INET6,
 }
 IPVER_TO_AF = {
+    0: socket.AF_UNSPEC,
     4: socket.AF_INET,
     6: socket.AF_INET6,
+}
+IPVER_TO_AFI = {
+    0: Afi.Reserved,
+    4: Afi.IPv4,
+    6: Afi.IPv6,
 }
 
 class AfiAddress():
@@ -308,6 +314,8 @@ class MapRequestMessage(LispControlMessage):
         return self
 
     def to_bits(self):
+        if len(self.itr_rlocs) < 1:
+            raise ValueError("at least one ITR-RLOC must be present")
         self._itr_rloc_count = len(self.itr_rlocs) - 1
         self._record_count = len(self.records)
         buf = bitstring.pack(
@@ -544,13 +552,10 @@ def show_map_reply(mrep):
             for loc in rec.locators:
                 print("      %3d  %3d  %-20s  %1s %1s %1s" % (loc.priority, loc.weight, loc.locator.addr, B(loc.local), B(loc.pbit), B(loc.Rbit)))
 
-def get_rloc_for_afi(afi):
-    if afi == Afi.IPv4:
-        return AfiAddress("212.71.255.217", afi)
-    elif afi == Afi.IPv6:
-        return AfiAddress("2a01:7e00:e000:16a::1", afi)
-    else:
-        raise ValueError("unknown afi %r" % afi)
+my_rlocs = {
+    Afi.IPv4: AfiAddress("212.71.255.217", Afi.IPv4),
+    Afi.IPv6: AfiAddress("2a01:7e00:e000:16a::1", Afi.IPv6),
+}
 
 if len(sys.argv) > 1:
     argv = sys.argv[1:]
@@ -562,7 +567,12 @@ query_eid = ipaddress.ip_network(argv[1])
 
 mreq = MapRequestMessage()
 mreq.new_nonce()
-mreq.itr_rlocs = [AfiAddress("212.71.255.217", Afi.IPv4)]
+mreq.itr_rlocs = [
+    # Requests will be shuttled around, responses will arrive to this address.
+    # This may be different AFI from MS RLOC, and ideally should cover both AFIs,
+    # but currently we only have one listener socket (either v4 or v6).
+    my_rlocs[IPVER_TO_AFI[ms_rloc.version]],
+]
 mreq.records = [MapRequestRecord.from_network(query_eid)]
 mreq_buf = mreq.to_bytes()
 
@@ -573,7 +583,6 @@ udp_mreq.payload = mreq_buf
 udp_mreq_buf = udp_mreq.to_bytes()
 
 # NOTE: this should depend on ... uh, my itr_rloc version, I think?
-ip_src_addr = mreq.itr_rlocs[0].addr
 ip_src_addr = mreq.records[0].prefix.addr
 ip_dst_addr = mreq.records[0].prefix.addr
 if ip_src_addr.version == 4:

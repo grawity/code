@@ -1,0 +1,624 @@
+#!/usr/bin/env python3
+import bitstring
+from dataclasses import (dataclass, field)
+import enum
+import ipaddress
+import io
+import os
+from pprint import pprint
+import socket
+import struct
+import sys
+
+# Bits (immutable)
+# +-- BitArray (a mutable Bits)
+#     +-- BitStream (a sequential-readable Bits)
+
+class ProtocolNumber(enum.IntEnum):
+    UDP = 17
+
+class Afi(enum.IntEnum):
+    # https://www.iana.org/assignments/address-family-numbers/
+    Reserved = 0
+    IPv4 = 1
+    IPv6 = 2
+
+    @property
+    def af(self):
+        return AFI_TO_AF[self]
+
+        @property
+        def af(self):
+            return AFI_TO_AF[self]
+
+AFI_ADDR_LEN = {
+    Afi.Reserved: 0,
+    Afi.IPv4: 4,
+    Afi.IPv6: 16,
+}
+AFI_TO_AF = {
+    Afi.Reserved: socket.AF_UNSPEC,
+    Afi.IPv4: socket.AF_INET,
+    Afi.IPv6: socket.AF_INET6,
+}
+IPVER_TO_AF = {
+    4: socket.AF_INET,
+    6: socket.AF_INET6,
+}
+
+class AfiAddress():
+    def __init__(self, addr=None, afi=None):
+        if afi is None:
+            if addr is None:
+                afi = Afi.Reserved
+            elif type(addr) == ipaddress.IPv4Address:
+                afi = Afi.IPv4
+            elif type(addr) == ipaddress.IPv6Address:
+                afi = Afi.IPv6
+        elif afi == Afi.Reserved:
+            pass
+        elif afi == Afi.IPv4:
+            addr = ipaddress.IPv4Address(addr)
+        elif afi == Afi.IPv6:
+            addr = ipaddress.IPv6Address(addr)
+        else:
+            raise Exception("unknown afi %r", afi)
+        self.afi = Afi(afi)
+        self.addr = addr
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        afi = buf.read("uintbe:16")
+        alen = AFI_ADDR_LEN[afi]
+        addr = buf.read("bytes:%d" % alen)
+        if afi == Afi.Reserved:
+            addr = None
+        elif afi == Afi.IPv4:
+            addr = ipaddress.IPv4Address(addr)
+        elif afi == Afi.IPv6:
+            addr = ipaddress.IPv6Address(addr)
+        self.afi = Afi(afi)
+        self.addr = addr
+        return self
+
+    def to_bits(self):
+        afi = self.afi
+        addr = self.addr
+        if addr is None:
+            addr = b""
+        elif type(addr) == ipaddress.IPv4Address:
+            addr = addr.packed
+        elif type(addr) == ipaddress.IPv6Address:
+            addr = addr.packed
+        return bitstring.pack("uintbe:16, bytes", afi, addr)
+
+    def from_address(self, addr):
+        return self(ipaddress.ip_address(addr))
+
+    def __repr__(self):
+        if self.addr is None:
+            return "<Address: %s()>" % self.afi.name
+        return "<Address: %s(%s)>" % (self.afi.name, self.addr)
+
+class LispMessageType(enum.IntEnum):
+    # https://tools.ietf.org/html/rfc6830#section-6.1.1
+    MapRequest = 1
+    MapReply = 2
+    MapRegister = 3
+    MapNotify = 4
+    Encapsulated = 8
+
+class Message():
+    @classmethod
+    def from_bytes(self, buf):
+        return self.from_bits(bitstring.ConstBitStream(buf))
+
+    def to_bytes(self):
+        return self.to_bits().bytes
+
+class LispControlMessage(Message):
+    @classmethod
+    def from_bits(self, buf):
+        type = buf.read("uint:4")
+        if type == LispMessageType.MapRequest:
+            return MapRequestMessage.from_bits(buf)
+        elif type == LispMessageType.MapReply:
+            return MapReplyMessage.from_bits(buf)
+        elif type == LispMessageType.Encapsulated:
+            return EncapsulatedControlMessage.from_bits(buf)
+        else:
+            raise ValueError("unknown control message type %r" % type)
+
+@dataclass
+class MapRequestRecord(Message):
+    prefix: AfiAddress = field(default_factory=AfiAddress)
+    prefixlen: int = 0
+
+    @classmethod
+    def from_bits(self, buf):
+        prefixlen, prefix = buf.readlist("pad:8, uint:8, bits")
+        return self(prefixlen,
+                    AfiAddress.from_bits(prefix))
+
+    def to_bits(self):
+        return bitstring.pack("pad:8, uint:8, bits",
+                              self.prefixlen,
+                              self.prefix.to_bits())
+
+    @classmethod
+    def from_network(self, ifn):
+        return self(AfiAddress(ifn.network_address),
+                    ifn.prefixlen)
+
+    def to_network(self):
+        return ipaddress.ip_network((self.prefix.addr,
+                                     self.prefixlen))
+
+class NegativeMapReplyAction(enum.IntEnum):
+    NoAction = 0
+    NativelyForward = 1
+    SendMapRequset = 2
+    Drop = 3
+
+@dataclass
+class Locator(Message):
+    priority: int = 0
+    weight: int = 0
+    mc_priority: int = 0
+    mc_weight: int = 0
+    local: bool = False
+    pbit: bool = False
+    Rbit: bool = False
+    locator: AfiAddress = None
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        self.priority = buf.read("uint:8")
+        self.weight = buf.read("uint:8")
+        self.mc_priority = buf.read("uint:8")
+        self.mc_weight = buf.read("uint:8")
+        buf.read("pad:13")
+        (self.local,
+         self.pbit,
+         self.Rbit) = buf.readlist(["bool"] * 3)
+        self.locator = AfiAddress.from_bits(buf)
+        return self
+
+    def to_bits(self):
+        buf = bitstring.pack(
+            """
+                uint:8=priority,
+                uint:8=weight,
+                uint:8=mc_priority,
+                uint:8=mc_weight,
+                pad:13,
+                bool=local,
+                bool=pbit,
+                bool=Rbit,
+            """, **self.__dict__)
+        buf += self.locator.to_bits()
+        return buf
+
+    def locator_to_address(self):
+        return self.locator.addr
+
+@dataclass
+class MapReplyRecord(Message):
+    ttl: int = 0
+    locator_count: int = 0
+    eid_prefixlen: int = 0
+    action: NegativeMapReplyAction = 0
+    authoritative: bool = False
+    map_version: int = 0
+    eid_prefix: AfiAddress = None
+    locators: list = field(default_factory=list)
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        self.ttl = buf.read("uintbe:32")
+        #-
+        self.locator_count = buf.read("uint:8")
+        self.eid_prefixlen = buf.read("uint:8")
+        self.action = NegativeMapReplyAction(buf.read("uint:3"))
+        self.authoritative = buf.read("bool")
+        buf.read("pad:12")
+        #-
+        buf.read("pad:4")
+        self.map_version = buf.read("uint:12")
+        self.eid_prefix = AfiAddress.from_bits(buf)
+        #-
+        self.locators = [Locator.from_bits(buf)
+                         for x in range(self.locator_count)]
+        return self
+
+    def to_bits(self):
+        if self.locator_count != len(self.locators):
+            #raise Exception("locator_count is inconsistent")
+            self.locator_count = len(self.locators)
+        buf = bitstring.pack(
+            """
+                uintbe:32=ttl,
+                uint:8=locator_count,
+                uint:8=eid_prefixlen,
+                uint:3=action,
+                bool=authoritative,
+                pad:12,
+                pad:4,
+                uint:12=map_version,
+            """,
+            **self.__dict__)
+        buf += self.eid_prefix.to_bits()
+        for i in self.locators:
+            buf += i.to_bits()
+        return buf
+
+    def eid_prefix_to_network(self):
+        return ipaddress.ip_network((self.eid_prefix.addr,
+                                     self.eid_prefixlen))
+
+@dataclass
+class MapRequestMessage(LispControlMessage):
+    type = LispMessageType.MapRequest
+    authoritative: bool = False
+    map_data_present: bool = False
+    probe: bool = False
+    solicit_map_request: bool = False
+    pitr: bool = False
+    smr_invoked: bool = False
+    itr_rloc_count: int = 0
+    record_count: int = 0
+    nonce: bytes = None
+    source_eid: AfiAddress = field(default_factory=AfiAddress)
+    itr_rlocs: list = field(default_factory=list)
+    records: list = field(default_factory=list)
+    reply_record: MapReplyRecord = None
+
+    def new_nonce(self):
+        self.nonce = os.urandom(8)
+
+    def add_record(self, addr, prefixlen=32, afi=None):
+        addr = AfiAddress(addr, afi)
+        rec = MapRequestRecord(prefixlen, addr)
+        self.record_count += 1
+        self.records.append(rec)
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        (self.authoritative,
+         self.map_data_present,
+         self.probe,
+         self.solicit_map_request,
+         self.pitr,
+         self.smr_invoked) = buf.readlist(["bool"] * 6)
+        buf.read("pad:9")
+        self.itr_rloc_count = buf.read("uint:5")
+        self.record_count = buf.read("uint:8")
+        self.nonce = buf.read("bytes:8")
+        self.source_eid = AfiAddress.from_bits(buf)
+        self.itr_rlocs = [AfiAddress.from_bits(buf)
+                          for x in range(max(self.itr_rloc_count, 1))]
+        self.records = [MapRequestRecord.from_bits(buf)
+                        for x in range(self.record_count)]
+        if self.map_data_present:
+            self.reply_record = MapReplyRecord.from_bits(buf)
+        return self
+
+    def to_bits(self):
+        if self.itr_rloc_count != len(self.itr_rlocs):
+            #raise Exception("itr_rloc_count is inconsistent")
+            self.itr_rloc_count = len(self.itr_rlocs)
+        if self.record_count != len(self.records):
+            #raise Exception("record_count is inconsistent")
+            self.record_count = len(self.records)
+        buf = bitstring.pack(
+            """
+                uint:4,
+                bool=authoritative,
+                bool=map_data_present,
+                bool=probe,
+                bool=solicit_map_request,
+                bool=pitr,
+                bool=smr_invoked,
+                pad:9,
+                uint:5=itr_rloc_count,
+                uint:8=record_count,
+                bytes:8=nonce
+            """,
+            self.type, **self.__dict__)
+        buf += self.source_eid.to_bits()
+        for i in self.itr_rlocs:
+            buf += i.to_bits()
+        for i in self.records:
+            buf += i.to_bits()
+        if self.map_data_present:
+            buf += self.reply_record.to_bits()
+        return buf
+
+@dataclass
+class MapReplyMessage(LispControlMessage):
+    type = LispMessageType.MapReply
+    probe: bool = False
+    echo_nonce_usable: bool = False
+    security: bool = False
+    record_count: int = 0
+    nonce: bytes = None
+    records: list = field(default_factory=list)
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        (self.probe,
+         self.echo_nonce_usable,
+         self.security) = buf.readlist(["bool"] * 3)
+        buf.read("pad:17")
+        self.record_count = buf.read("uint:8")
+        self.nonce = buf.read("bytes:8")
+        self.records = [MapReplyRecord.from_bits(buf)
+                        for x in range(self.record_count)]
+        return self
+
+    def to_bits(self):
+        if self.record_count != len(self.records):
+            #raise Exception("record_count is inconsistent")
+            self.record_count = len(self.records)
+        buf = bitstring.pack(
+            """
+                uint:4,
+                bool=probe,
+                bool=echo_nonce_usable,
+                bool=security,
+                pad:17,
+                uint:8=record_count,
+                bytes:8=nonce,
+            """, self.type, **self.__dict__)
+        for i in self.records:
+            buf += i.to_bits()
+        return buf
+
+@dataclass
+class UdpMessage(Message):
+    src_port: int = 0
+    dst_port: int = 0
+    checksum: int = 0
+    total_len: int = -1
+    payload: bytes = None
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        self.src_port  = buf.read("uintbe:16")
+        self.dst_port  = buf.read("uintbe:16")
+        self.total_len = buf.read("uintbe:16")
+        self.checksum  = buf.read("uintbe:16")
+        self.payload   = buf.read("bytes")
+        return self
+
+    def to_bits(self):
+        self.total_len = 8 + len(self.payload)
+        buf = bitstring.pack(
+            """
+                uintbe:16=src_port,
+                uintbe:16=dst_port,
+                uintbe:16=total_len,
+                uintbe:16=checksum,
+            """, **self.__dict__)
+        buf += self.payload
+        return buf
+
+class IPMessage(Message):
+    pass
+
+@dataclass
+class IPv4Message(IPMessage):
+    version: int = 4
+    header_len_words: int = 5
+    traffic_class: int = 0
+    total_len: int = 0
+    id: int = 0
+    dont_fragment: bool = False
+    more_fragments: bool = False
+    fragment_offset: int = 0
+    ttl: int = 255
+    protocol: int = 0
+    header_checksum: int = 0
+    src_addr: ipaddress.IPv4Address = None
+    dst_addr: ipaddress.IPv4Address = None
+    payload: bytes = b""
+
+    def to_bits(self):
+        if self.src_addr.version != 4:
+            raise ValueError("wrong src_addr version: %r" % self.src_addr)
+        if self.dst_addr.version != 4:
+            raise ValueError("wrong dst_addr version: %r" % self.dst_addr)
+        self.total_len = (self.header_len_words * 4) + len(self.payload)
+        buf = bitstring.pack(
+            """
+                uint:4=version,
+                uint:4=header_len_words,
+                uint:8=traffic_class,
+                uintbe:16=total_len,
+                uintbe:16=id,
+                pad:1,
+                bool=dont_fragment,
+                bool=more_fragments,
+                uint:13=fragment_offset,
+                uint:8=ttl,
+                uint:8=protocol,
+                uint:16=header_checksum,
+            """, **self.__dict__)
+        buf += self.src_addr.packed
+        buf += self.dst_addr.packed
+        # no options
+        buf += self.payload
+        return buf
+
+    @staticmethod
+    def _compute_checksum(buf):
+        carry_around = lambda x: (x & 0xffff) + (x >> 16)
+        def carry_around_add(a, b):
+            c = a + b
+            return (c & 0xffff) + (c >> 16)
+        s = 0
+        for i in range(0, len(buf), 2):
+            w = buf[i] + (buf[i+1] << 8)
+            #s = carry_around_add(s, w)
+            s = carry_around(s + w)
+        return ~s & 0xffff
+
+    def adjust_checksum(self):
+        self.header_checksum = 0
+        hdr = self.to_bytes()
+        sum = self._compute_checksum(hdr)
+        self.header_checksum = sum
+
+@dataclass
+class IPv6Message(IPMessage):
+    version: int = 6
+    traffic_class: int = 0
+    flow_label: int = 0
+    payload_len: int = 0
+    next_header: int = 0
+    hop_limit: int = 255
+    src_addr: ipaddress.IPv6Address = None
+    dst_addr: ipaddress.IPv6Address = None
+    payload: bytes = b""
+
+    def to_bits(self):
+        if self.src_addr.version != 6:
+            raise ValueError("wrong src_addr version: %r" % self.src_addr)
+        if self.dst_addr.version != 6:
+            raise ValueError("wrong dst_addr version: %r" % self.dst_addr)
+        self.payload_len = len(self.payload)
+        buf = bitstring.pack(
+            """
+                uint:4=version,
+                uint:8=traffic_class,
+                uint:20=flow_label,
+                uintbe:16=payload_len,
+                uint:8=next_header,
+                uint:8=hop_limit,
+            """, **self.__dict__)
+        buf += self.src_addr.packed
+        buf += self.dst_addr.packed
+        # no options
+        buf += self.payload
+        return buf
+
+@dataclass
+class EncapsulatedControlMessage(LispControlMessage):
+    type = LispMessageType.Encapsulated
+    lispsec_capable: bool = False
+    ddt_originated: bool = False
+    payload: bytes = None
+
+    @classmethod
+    def from_bits(self, buf):
+        self = self()
+        (self.lispsec_capable,
+         self.ddt_originated) = buf.readlist(["bool"] * 2)
+        buf.read("pad:26")
+        self.payload = UdpMessage.from_bits(buf)
+        return self
+
+    def to_bits(self):
+        buf = bitstring.pack("""
+            uint:4,
+            bool=lispsec_capable,
+            bool=ddt_originated,
+            pad:26,
+        """, self.type, **self.__dict__)
+        buf += self.payload.to_bits()
+        return buf
+
+def show_map_reply(mrep):
+    for rec in mrep.records:
+        B = lambda val: "+" if val else ""
+        print("record (v=%d):" % rec.map_version)
+        print("   authoritative: %s" % rec.authoritative)
+        print("   eid: %s" % rec.eid_prefix_to_network())
+        if rec.action:
+            print("   action: %s" % rec.action)
+        if rec.locators:
+            print("   rlocs:")
+            print("      %3s  %3s  %-20s  %1s %1s %1s" % ("PRI", "WHT", "LOCATOR", "l", "p", "R"))
+            for loc in rec.locators:
+                print("      %3d  %3d  %-20s  %1s %1s %1s" % (loc.priority, loc.weight, loc.locator.addr, B(loc.local), B(loc.pbit), B(loc.Rbit)))
+
+def get_rloc_for_afi(afi):
+    if afi == Afi.IPv4:
+        return AfiAddress("212.71.255.217", afi)
+    elif afi == Afi.IPv6:
+        return AfiAddress("2a01:7e00:e000:16a::1", afi)
+    else:
+        raise ValueError("unknown afi %r" % afi)
+
+if len(sys.argv) > 1:
+    argv = sys.argv[1:]
+else:
+    argv = ["31.220.42.129", "153.16.58.210"]
+
+ms_rloc = ipaddress.ip_address(argv[0])
+query_eid = ipaddress.ip_network(argv[1])
+
+mreq = MapRequestMessage()
+mreq.new_nonce()
+mreq.itr_rloc_count = 1
+mreq.itr_rlocs = [AfiAddress("212.71.255.217", Afi.IPv4)]
+mreq.record_count = 1
+mreq.records = [MapRequestRecord.from_network(query_eid)]
+mreq_buf = mreq.to_bytes()
+
+udp_mreq = UdpMessage()
+udp_mreq.src_port = 4342
+udp_mreq.dst_port = 4342
+udp_mreq.payload = mreq_buf
+udp_mreq_buf = udp_mreq.to_bytes()
+
+# NOTE: this should depend on ... uh, my itr_rloc version, I think?
+ip_src_addr = mreq.itr_rlocs[0].addr
+ip_dst_addr = mreq.records[0].prefix.addr
+if ip_src_addr.version == 4:
+    ip_udp_mreq = IPv4Message()
+    ip_udp_mreq.src_addr = ip_src_addr
+    ip_udp_mreq.dst_addr = ip_dst_addr
+    ip_udp_mreq.protocol = ProtocolNumber.UDP
+    ip_udp_mreq.adjust_checksum()
+elif ip_src_addr.version == 6:
+    ip_udp_mreq = IPv6Message()
+    ip_udp_mreq.src_addr = ip_src_addr
+    ip_udp_mreq.dst_addr = ip_dst_addr
+    ip_udp_mreq.next_header = ProtocolNumber.UDP
+ip_udp_mreq.payload = udp_mreq_buf
+
+encap_mreq = EncapsulatedControlMessage()
+encap_mreq.payload = ip_udp_mreq
+encap_mreq_buf = encap_mreq.to_bytes()
+
+#encap_mreq_buf = mreq_buf
+
+if ms_rloc.version == 4:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("0.0.0.0", 4342))
+elif ms_rloc.version == 6:
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+    sock.bind(("::", 4342))
+sock.sendto(encap_mreq_buf, (str(ms_rloc), 4342))
+print("sent Map-Request %r to %s" % ([str(x.to_network()) for x in mreq.records], ms_rloc))
+
+while True:
+    (mrep_buf, ms) = sock.recvfrom(1024)
+    print("GOT PACKET")
+    mrep = LispControlMessage.from_bytes(mrep_buf)
+    if mrep.type != LispMessageType.MapReply:
+        print("bad type %r, waiting again" % mrep.type)
+        pprint(mrep.__dict__)
+        continue
+    if mrep.nonce != mreq.nonce:
+        print("bad nonce, waiting again")
+        continue
+    show_map_reply(mrep)
+    break

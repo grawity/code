@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+if [[ $SUDO_UID ]]; then
+	notify-send() {
+		sudo -u "#$SUDO_UID" \
+			XDG_RUNTIME_DIR="/run/user/$SUDO_UID" \
+			notify-send "$@"
+	}
+fi
+
+dev=$1
+[[ -b $dev ]] || die "path '$dev' is not a block device"
+
+tran=$(lsblk -Sno TRAN "$dev")
+[[ $tran == usb ]] || die "disk '$dev' is not USB-attached ($tran)"
+
+#buf=$(head -c 4096 "$dev" | xxd -p | sed 's/00//g' | tr -d '\n')
+#[[ $buf ]] && warn "disk '$dev' is not empty (buf)"
+
+buf=$(wipefs -p "$dev")
+[[ $buf ]] && warn "disk '$dev' is not empty"
+
+log "device identification:"
+lsblk -S "$dev"
+
+log "device contents:"
+lsblk -o +FSTYPE,LABEL "$dev"
+
+log "ATA information:"
+hdparm -I "$dev" | awk 'x&&/^[^\t]/{x=0} /^(Security:|ATA device,)/{x=1} x{print}'
+
+if ! hdparm -I "$dev" | grep -qs '^Security:'; then
+	die "disk '$dev' does not support ATA SECURITY ERASE"
+fi
+
+confirm "erase '$dev'?" || exit
+
+pwd="foo"
+
+info "setting ATA password of '$dev' to '$pwd'"
+do: hdparm --user-master u --security-set-pass "$pwd" "$dev"
+
+info "activating ATA erase of '$dev'"
+Tstart=$(date +%s); date -d "@$Tstart" +"started at %c"
+do: hdparm --user-master u --security-erase "$pwd" "$dev"
+Tfinish=$(date +%s); date -d "@$Tfinish" +"finished at %c"
+info "erase took $(interval $[Tfinish-Tstart])"
+notify-send "Security erase of '$dev' complete in $(interval $[Tfinish-Tstart])."
+
+info "erase done"
+do: hdparm -I "$dev" | awk '/^Security:/{x=1} /^[^S\t]/{x=0} x{print}'
+do: scsi_stop "$dev"

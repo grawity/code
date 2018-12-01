@@ -16,10 +16,14 @@ while [[ $1 == --* ]]; do
 	esac
 done
 
-repo="/vol3/Backup/Homes/${HOSTNAME}.borg"
+host=$HOSTNAME
 root=$HOME
 
 if (( do_mount )); then
+	if (( $# >= 2 )); then
+		host=$1
+		shift
+	fi
 	path=$1
 else
 	rel=${PWD#"${root%/}/"}
@@ -37,13 +41,18 @@ else
 	debug "paths to restore: ${paths[@]}"
 fi
 
+case $host in
+	frost)	repo="/vol4/Backup/Homes/$host.borg";;
+	rain)	repo="/vol3/Backup/Homes/$host.borg";;
+esac
+
 [[ -d $repo ]] || die "repository '$repo' not found"
 
 archive=$(borg list --last 1 --short "$repo")
 debug "latest archive is '$archive'"
 
 if (( do_mount )); then
-	info "mounting $repo ($archive)"
+	info "mounting $repo ($archive) at '$path'"
 	do: borg mount \
 		"$repo::$archive" "$path"
 else

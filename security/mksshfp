@@ -82,23 +82,22 @@ except IndexError:
     else:
         host = "-"
 
-try:
-    infile = sys.argv[2]
-except IndexError:
-    infile = None
+infiles = sys.argv[2:]
 
 if host in {"--help", "-h", "-?"}:
     usage()
     sys.exit()
 
-if (host, infile) == ("-", None):
+if host == "-" and not infiles:
     # 'mksshfp -' should just read from stdin
-    (host, infile) = ("", "-")
+    host = ""
+    infiles = ["-"]
 
-if infile:
-    Core.debug("loading all keys from %r" % infile)
-    for entry in parse(infile):
-        print(fmt_sshfp(host, entry))
+if infiles:
+    for infile in infiles:
+        Core.debug("loading all keys from %r" % infile)
+        for entry in parse(infile):
+            print(fmt_sshfp(host, entry))
 else:
     Core.debug("using existing keys from known_hosts")
     infile = os.path.expanduser("~/.ssh/known_hosts")

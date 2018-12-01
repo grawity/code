@@ -25,7 +25,7 @@ sub do_resolve {
 			$family_str = "AF_INET6";
 			my ($port, $addr, $scope, $flow) = Socket::unpack_sockaddr_in6($res->{addr});
 			$addr_str = Socket::inet_ntop($res->{family}, $addr);
-			if ($scope) { $addr_str .= "%" . $scope; }
+			if ($scope) { $addr_str .= " % " . $scope; }
 		}
 		else {
 			$family_str = "??";

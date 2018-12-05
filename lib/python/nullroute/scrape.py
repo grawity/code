@@ -80,10 +80,9 @@ class Scraper(object):
 
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
-                             prefix="", save_msg=None):
-        assert (not (name and prefix))
+                             save_msg=None):
         if not name:
-            name = prefix + os.path.basename(url)
+            name = os.path.basename(url)
         if output_dir:
             name = os.path.join(output_dir, name)
 

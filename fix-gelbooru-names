@@ -4,6 +4,7 @@ import argparse
 import hashlib
 from nullroute.core import *
 from nullroute.api.booru import apis
+from nullroute.fixutil import is_file_partial
 from nullroute.misc import (
     filter_filename,
     get_file_attr,
@@ -197,9 +198,15 @@ for arg in args.path or ["."]:
     if os.path.isdir(arg):
         for dirpath, dirnames, filenames in os.walk(arg):
             for filename in filenames:
+                if is_file_partial(filename):
+                    Core.debug("skipping partial file: %r", filename)
+                    continue
                 rename_file_in_dir(dirpath, filename, force_md5=args.force)
     else:
         dirpath, filename = os.path.split(arg)
+        if is_file_partial(filename):
+            Core.notice("skipping partial file: %r", arg)
+            continue
         rename_file_in_dir(dirpath, filename, force_md5=args.force)
 
 Core.exit()

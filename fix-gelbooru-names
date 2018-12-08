@@ -28,6 +28,11 @@ def hash_file(path):
             h.update(buf)
     return h.hexdigest()
 
+def compare_files(a, b):
+    return (os.path.exists(a)
+        and os.path.exists(b)
+        and hash_file(a) == hash_file(b))
+
 class TagFilter(object):
     def __init__(self):
         self.blacklist = []
@@ -94,6 +99,7 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
 
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
+    fmt_same = "\033[38;5;2m%s\033[m"
 
     old_path = os.path.join(dirpath, filename)
     file_md5 = None
@@ -136,7 +142,10 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
             new_filename = make_filename(api, post_id, None, file_md5)
             new_filename += file_ext
             new_path = os.path.join(dirpath, new_filename)
-            print("=>", fmt_found % new_filename)
+            if compare_files(old_path, new_path):
+                print("=>", fmt_same % new_filename)
+            else:
+                print("=>", fmt_found % new_filename)
             if not args.dry_run:
                 os.rename(old_path, new_path)
         else:

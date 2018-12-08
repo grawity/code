@@ -12,12 +12,15 @@ for ($ENV{XDG_CURRENT_DESKTOP} // "") {
 exit(1) if !-x $real[0];
 
 for my $orig (@ARGV) {
-	my @xlat = ($orig);
+	my @xlat;
 	unless ($orig =~ /^(git|secondlife):/) {
 		if (open(my $proc, "-|", "uri", $orig)) {
 			@xlat = grep {chomp || 1} <$proc>;
 			close($proc);
 		}
+	}
+	if (!@xlat) {
+		@xlat = ($orig);
 	}
 	for my $uri (@xlat) {
 		forked { exec(@real, $uri) };

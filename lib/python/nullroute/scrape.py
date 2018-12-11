@@ -45,6 +45,11 @@ class Scraper(object):
         self.ua = requests.Session()
         self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+        # unfortunately case-sensitive
+        # https://www.modpagespeed.com/doc/experiment
+        # currently only used by GamerCat scraper
+        self.ua.headers["PageSpeed"] = "off"
+        #self.ua.headers["X-PSA-Client-Options"] = "m=1"
 
         self.subclass_init()
 

@@ -36,6 +36,23 @@ def file_ext(url):
     else:
         return "bin"
 
+def _progress_bar(iterable, unit="", total=1):
+    try:
+        from tqdm import tqdm
+        fmt = "{percentage:3.0f}% │{bar}│ {n_fmt}B of {total_fmt}B"
+        return tqdm(iterable, total=total,
+                              unit="B",
+                              unit_scale=True,
+                              unit_divisor=1024,
+                              bar_format=fmt)
+    except ImportError:
+        try:
+            from clint.textui import progress
+            return progress.bar(iterable,
+                                expected_size=total)
+        except ImportError:
+            return iterable
+
 class Scraper(object):
     def __init__(self, output_dir="."):
         self.dir = output_dir
@@ -99,15 +116,14 @@ class Scraper(object):
 
         hdr = {"Referer": referer or url}
         if progress_bar:
-            from clint.textui import progress
             import math
             resp = self.get(url, headers=hdr, stream=True)
             with open(name, "wb") as fh:
                 num_bytes = int(resp.headers.get("content-length"))
                 chunk_size = 1024
                 num_chunks = math.ceil(num_bytes / chunk_size)
-                for chunk in progress.bar(resp.iter_content(chunk_size),
-                                          expected_size=(num_chunks)):
+                for chunk in _progress_bar(resp.iter_content(chunk_size),
+                                           total=num_chunks):
                     fh.write(chunk)
         else:
             resp = self.get(url, headers=hdr)

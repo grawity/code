@@ -28,6 +28,8 @@ class ProgressBar():
         now = time.time()
         if not self._first_in:
             self._first_in = now
+        if 0 <= (self.cur_bytes - self.max_bytes) <= delta:
+            self._last_out = 0
         if now - self._first_in >= self.delay and \
            now - self._last_out >= self.throttle:
             self.print()

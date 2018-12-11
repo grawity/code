@@ -9,7 +9,11 @@ if [ "$1" = "install" ]; then
 	*)		echo "Unsupported architecture `uname -m`" >&2; exit 1;;
 	esac
 	echo "Downloading $url"
-	curl -L "$url" | tar -xvzf -
+	tmp=$(mktemp -t dropbox-dist.XXXXXXXX.tar.gz)
+	curl -L -o "$tmp" "$url"
+	tar -xvzf "$tmp"
+	rm -f "$tmp"
+	mkdir -p ~/.config/systemd/user
 	exit
 elif [ "$1" = "version" ]; then
 	if [ -s ~/.dropbox-dist/VERSION ]; then

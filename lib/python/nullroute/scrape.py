@@ -49,17 +49,12 @@ def _progress_bar(iterable, num_bytes, chunk_size):
                 yield i
                 bar.update(len(i))
     except ImportError:
-        try:
-            from clint.textui import progress
-            yield from progress.bar(iterable,
-                                    expected_size=ceil(num_bytes / chunk_size))
-        except ImportError:
-            from nullroute.ui.progressbar import ProgressBar
-            bar = ProgressBar(max_bytes=num_bytes)
-            for i in iterable:
-                yield i
-                bar.incr(len(i))
-            print()
+        from nullroute.ui.progressbar import ProgressBar
+        bar = ProgressBar(max_bytes=num_bytes)
+        for i in iterable:
+            yield i
+            bar.incr(len(i))
+        print()
 
 class Scraper(object):
     def __init__(self, output_dir="."):

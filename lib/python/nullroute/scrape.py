@@ -43,7 +43,7 @@ def _progress_bar(iterable, num_bytes, chunk_size):
         fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
         bar = tqdm(iterable, total=num_bytes, unit="B",
                              unit_scale=True, unit_divisor=1024,
-                             bar_format=fmt)
+                             bar_format=fmt, ncols=80)
         with bar:
             for i in iterable:
                 yield i

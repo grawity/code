@@ -53,7 +53,7 @@ def _progress_bar(iterable, max_bytes, chunk_size):
         for i in iterable:
             yield i
             bar.incr(len(i))
-        print()
+        print("\n" if max_bytes >= 1*1024*1024 else "\033[K", end="", flush=True)
 
 class Scraper(object):
     def __init__(self, output_dir="."):

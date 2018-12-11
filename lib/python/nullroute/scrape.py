@@ -85,7 +85,7 @@ class Scraper(object):
 
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
-                             save_msg=None):
+                             progress_bar=False, save_msg=None):
         if not name:
             name = os.path.basename(url)
         if output_dir:
@@ -98,9 +98,21 @@ class Scraper(object):
             return name
 
         hdr = {"Referer": referer or url}
-        resp = self.get(url, headers=hdr)
-        with open(name, "wb") as fh:
-            fh.write(resp.content)
+        if progress_bar:
+            from clint.textui import progress
+            import math
+            resp = self.get(url, headers=hdr, stream=True)
+            with open(name, "wb") as fh:
+                num_bytes = int(resp.headers.get("content-length"))
+                chunk_size = 1024
+                num_chunks = math.ceil(num_bytes / chunk_size)
+                for chunk in progress.bar(resp.iter_content(chunk_size),
+                                          expected_size=(num_chunks)):
+                    fh.write(chunk)
+        else:
+            resp = self.get(url, headers=hdr)
+            with open(name, "wb") as fh:
+                fh.write(resp.content)
 
         set_file_attrs(name, {
             "xdg.origin.url": resp.url,

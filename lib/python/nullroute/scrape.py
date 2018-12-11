@@ -135,8 +135,8 @@ class Scraper(object):
         set_file_attrs(name, {
             "xdg.origin.url": resp.url,
             "xdg.referrer.url": resp.request.headers.get("Referer"),
-            "org.eu.nullroute.ETag": resp.headers.get("ETag"),
-            "org.eu.nullroute.Last-Modified": resp.headers.get("Last-Modified"),
+            "http.ETag": resp.headers.get("ETag"),
+            "http.Last-Modified": resp.headers.get("Last-Modified"),
         })
 
         mtime = resp.headers.get("Last-Modified")

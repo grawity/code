@@ -119,13 +119,14 @@ class Scraper(object):
         hdr = {"Referer": referer or url}
         if progress_bar:
             resp = self.get(url, headers=hdr, stream=True)
-            with open(name, "wb") as fh:
+            with open(name + ".part", "wb") as fh:
                 num_bytes = int(resp.headers.get("content-length"))
                 chunk_size = 1024
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
                                            max_bytes=num_bytes,
                                            chunk_size=chunk_size):
                     fh.write(chunk)
+            os.rename(name + ".part", name)
         else:
             resp = self.get(url, headers=hdr)
             with open(name, "wb") as fh:

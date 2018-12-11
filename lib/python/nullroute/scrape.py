@@ -36,11 +36,11 @@ def file_ext(url):
     else:
         return "bin"
 
-def _progress_bar(iterable, num_bytes, chunk_size):
+def _progress_bar(iterable, max_bytes, chunk_size):
     try:
         from tqdm import tqdm
         fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
-        bar = tqdm(iterable, total=num_bytes, unit="B",
+        bar = tqdm(iterable, total=max_bytes, unit="B",
                              unit_scale=True, unit_divisor=1024,
                              bar_format=fmt, ncols=80)
         with bar:
@@ -49,7 +49,7 @@ def _progress_bar(iterable, num_bytes, chunk_size):
                 bar.update(len(i))
     except ImportError:
         from nullroute.ui.progressbar import ProgressBar
-        bar = ProgressBar(max_bytes=num_bytes)
+        bar = ProgressBar(max_bytes=max_bytes)
         for i in iterable:
             yield i
             bar.incr(len(i))
@@ -123,7 +123,7 @@ class Scraper(object):
                 num_bytes = int(resp.headers.get("content-length"))
                 chunk_size = 1024
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
-                                           num_bytes=num_bytes,
+                                           max_bytes=num_bytes,
                                            chunk_size=chunk_size):
                     fh.write(chunk)
         else:

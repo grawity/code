@@ -37,7 +37,6 @@ def file_ext(url):
         return "bin"
 
 def _progress_bar(iterable, num_bytes, chunk_size):
-    from math import ceil
     try:
         from tqdm import tqdm
         fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"

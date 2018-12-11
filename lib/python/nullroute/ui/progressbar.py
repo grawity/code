@@ -4,11 +4,14 @@ import time
 
 class ProgressBar():
     def __init__(self, max_bytes):
-        self.throttle = 0.1
         self.bar_width = 40
         self.cur_bytes = 0
         self.max_bytes = max_bytes
         self._max_fmt = fmt_size_short(max_bytes)
+
+        self.delay = 0
+        self.throttle = 0.1
+        self._first_in = 0
         self._last_out = 0
 
     def print(self):
@@ -23,6 +26,9 @@ class ProgressBar():
         self.cur_bytes += delta
 
         now = time.time()
-        if now - self._last_out >= self.throttle:
+        if not self._first_in:
+            self._first_in = now
+        if now - self._first_in >= self.delay and \
+           now - self._last_out >= self.throttle:
             self.print()
             self._last_out = now

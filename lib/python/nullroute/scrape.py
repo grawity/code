@@ -2,6 +2,7 @@ import email.utils
 import http.cookiejar
 from nullroute.core import *
 from nullroute.misc import set_file_attrs, set_file_mtime
+from nullroute.string import fmt_size_short
 import os
 import requests
 from urllib.parse import urljoin
@@ -37,6 +38,7 @@ def file_ext(url):
         return "bin"
 
 def _progress_bar(iterable, num_bytes, chunk_size):
+    from math import ceil, floor
     try:
         from tqdm import tqdm
         fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
@@ -50,11 +52,22 @@ def _progress_bar(iterable, num_bytes, chunk_size):
     except ImportError:
         try:
             from clint.textui import progress
-            from math import ceil
             yield from progress.bar(iterable,
                                     expected_size=ceil(num_bytes / chunk_size))
         except ImportError:
-            yield from iterable
+            bar_width = 40
+            cur_bytes = 0
+            num_fmt = fmt_size_short(num_bytes)
+            for i in iterable:
+                yield i
+                cur_bytes += len(i)
+                cur_percent = 100 * cur_bytes / num_bytes
+                cur_width = bar_width * cur_bytes / num_bytes
+                cur_fmt = fmt_size_short(cur_bytes)
+                bar = "#" * ceil(cur_width) + " " * floor(bar_width - cur_width)
+                bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, num_fmt)
+                print(bar, end="\r", flush=True)
+            print()
 
 class Scraper(object):
     def __init__(self, output_dir="."):

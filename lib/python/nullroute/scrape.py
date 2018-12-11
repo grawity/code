@@ -36,22 +36,25 @@ def file_ext(url):
     else:
         return "bin"
 
-def _progress_bar(iterable, unit="", total=1):
+def _progress_bar(iterable, num_bytes, chunk_size):
     try:
         from tqdm import tqdm
-        fmt = "{percentage:3.0f}% │{bar}│ {n_fmt}B of {total_fmt}B"
-        return tqdm(iterable, total=total,
-                              unit="B",
-                              unit_scale=True,
-                              unit_divisor=1024,
-                              bar_format=fmt)
+        fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
+        bar = tqdm(iterable, total=num_bytes, unit="B",
+                             unit_scale=True, unit_divisor=1024,
+                             bar_format=fmt)
+        with bar:
+            for i in iterable:
+                yield i
+                bar.update(len(i))
     except ImportError:
         try:
             from clint.textui import progress
-            return progress.bar(iterable,
-                                expected_size=total)
+            from math import ceil
+            yield from progress.bar(iterable,
+                                    expected_size=ceil(num_bytes / chunk_size))
         except ImportError:
-            return iterable
+            yield from iterable
 
 class Scraper(object):
     def __init__(self, output_dir="."):
@@ -116,14 +119,13 @@ class Scraper(object):
 
         hdr = {"Referer": referer or url}
         if progress_bar:
-            import math
             resp = self.get(url, headers=hdr, stream=True)
             with open(name, "wb") as fh:
                 num_bytes = int(resp.headers.get("content-length"))
                 chunk_size = 1024
-                num_chunks = math.ceil(num_bytes / chunk_size)
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
-                                           total=num_chunks):
+                                           num_bytes=num_bytes,
+                                           chunk_size=chunk_size):
                     fh.write(chunk)
         else:
             resp = self.get(url, headers=hdr)

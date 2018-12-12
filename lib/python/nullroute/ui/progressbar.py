@@ -34,3 +34,6 @@ class ProgressBar():
            now - self._last_out >= self.throttle:
             self.print()
             self._last_out = now
+
+    def end(self, hide=False):
+        print("\033[K" if hide else "", end="", flush=True)

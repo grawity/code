@@ -37,6 +37,8 @@ def file_ext(url):
         return "bin"
 
 def _progress_bar(iterable, max_bytes, chunk_size):
+    #hide_complete = (max_bytes < 1*1024*1024)
+    hide_complete = True
     try:
         from tqdm import tqdm
         fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
@@ -53,7 +55,7 @@ def _progress_bar(iterable, max_bytes, chunk_size):
         for i in iterable:
             yield i
             bar.incr(len(i))
-        print("\n" if max_bytes >= 1*1024*1024 else "\033[K", end="", flush=True)
+        bar.end(hide_complete)
 
 class Scraper(object):
     def __init__(self, output_dir="."):

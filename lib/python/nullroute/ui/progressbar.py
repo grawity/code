@@ -22,7 +22,9 @@ class ProgressBar():
         bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, self._max_fmt)
         print(bar, end="\033[K\r", flush=True)
 
-    def _maybe_print(self):
+    def incr(self, delta):
+        self.cur_bytes += delta
+
         now = time.time()
         if not self._first_in:
             self._first_in = now
@@ -32,10 +34,6 @@ class ProgressBar():
            now - self._last_out >= self.throttle:
             self.print()
             self._last_out = now
-
-    def incr(self, delta):
-        self.cur_bytes += delta
-        self._maybe_print()
 
     def end(self, hide=False):
         print("\033[K" if hide else "", end="", flush=True)

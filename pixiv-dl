@@ -2,6 +2,7 @@
 from nullroute.core import Core
 from nullroute.misc import set_file_attr, set_file_attrs
 from nullroute.api.pixiv import PixivClient
+from nullroute.scrape import Scraper
 import os
 import re
 import sys
@@ -22,6 +23,8 @@ class PixivGrabber(PixivClient):
 
     def __init__(self):
         super().__init__()
+        self.s = Scraper()
+        self.s.ua = self.ua
         self.write_log = True
         self._authenticate()
 
@@ -37,16 +40,12 @@ class PixivGrabber(PixivClient):
             return
 
         Core.debug("saving %s to %r" % (url, name))
+        referer = url
         if attrs:
             referer = attrs.get("xdg.referrer.url", url)
-        else:
-            referer = url
-        resp = self.ua.get(url, headers={"Referer": referer})
-        resp.raise_for_status()
-        with open(name, "wb") as fh:
-            fh.write(resp.content)
-
-        set_file_attr(name, "xdg.origin.url", url)
+        name = self.s.save_file(url, name,
+                                referer=referer,
+                                progress=True)
         if attrs:
             set_file_attrs(name, attrs)
 

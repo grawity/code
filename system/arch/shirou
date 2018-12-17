@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+from collections import defaultdict
 from nullroute.core import Core, Env
 import os
 from pprint import pprint
+import re
 import requests
 import sys
 import subprocess
@@ -48,11 +50,31 @@ class AurHelper():
         subprocess.run(["git", "pull", "--ff-only"],
                        cwd=git_path)
 
-    def build_and_install_aurball(self, pkg_name):
+    def build_aurball(self, pkg_name):
         Core.info("building source package %r", pkg_name)
         git_path = self._aurball_path(pkg_name)
-        subprocess.run(["makepkg", "-r", "-s", "-i", "--noconfirm"],
+        subprocess.run(["makepkg", "-r", "-s", "--noconfirm"],
                        cwd=git_path)
+
+    def _pkg_path_to_name(self, path):
+        m = re.match(r"^(.+)-[^-]+-[^-]+-[^-]+\.pkg\.tar\.\w+$", os.path.basename(path))
+        return m.group(1)
+
+    def _aurball_pkglist(self, pkg_base):
+        git_path = self._aurball_path(pkg_base)
+        r = subprocess.run(["makepkg", "--packagelist"],
+                           cwd=git_path,
+                           stdout=subprocess.PIPE)
+        paths = r.stdout.decode().splitlines()
+        return {self._pkg_path_to_name(path): path
+                for path in paths}
+
+    def install_aurball(self, pkg_base, pkg_names):
+        Core.info("building source package %r", pkg_base)
+        pkg_paths = self._aurball_pkglist(pkg_base)
+        pkg_paths = [v for (k, v) in pkg_paths.items()
+                       if k in pkg_names]
+        subprocess.run(["sudo", "pacman", "-U", *pkg_paths])
 
     def do_sysupdate(self):
         local = self.get_local_foreign_pkgs()
@@ -61,26 +83,31 @@ class AurHelper():
         remote = {pkg["Name"]: pkg
                   for pkg in remote["results"]}
 
-        updates = set()
+        updates_packages = set()
+        updates_pkgbases = defaultdict(set)
         for pkg in local:
             if pkg not in remote:
                 Core.notice("local foreign package %r not in AUR", pkg)
                 continue
             local_ver = local[pkg]
             remote_ver = remote[pkg]["Version"]
+            remote_base = remote[pkg]["PackageBase"]
             ver_delta = vercmp(local_ver, remote_ver)
             if ver_delta < 0:
                 Core.info("local package %r is older than AUR (%r < %r)", pkg, local_ver, remote_ver)
-                updates.add(pkg)
+                updates_packages.add(pkg)
+                updates_pkgbases[remote_base].add(pkg)
             elif ver_delta > 0:
                 Core.notice("local package %r is newer than AUR (%r > %r)", pkg, local_ver, remote_ver)
             else:
                 Core.debug("local package %r matches AUR (%r)", pkg, local_ver)
-        Core.debug("pending updates: %r", updates)
+        Core.debug("pending updates: %r", updates_packages)
+        Core.debug("pending updates: %r", updates_pkgbases)
 
-        for pkg_name in updates:
-            self.update_aurball(pkg_name)
-            self.build_and_install_aurball(pkg_name)
+        for pkg_base, pkg_names in updates_pkgbases.items():
+            self.update_aurball(pkg_base)
+            self.build_aurball(pkg_base)
+            self.install_aurball(pkg_base, pkg_names)
 
 helper = AurHelper()
 helper.do_sysupdate()

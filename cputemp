@@ -27,7 +27,7 @@ draw_bar() {
 
 	if ((temp>79)); then
 		color+=1
-	elif ((temp>65)); then
+	elif ((temp>=65)); then
 		color+=3
 	elif ((temp>40)); then
 		color+=2
@@ -50,25 +50,37 @@ dev=""
 
 for _dev in /sys/class/hwmon/hwmon*/; do
 	if [[ "$(< $_dev/name)" == coretemp ]]; then
-		dev=$_dev
+		dev=${_dev%/}
 	fi
 done
-
 if [[ ! $dev ]]; then
 	die "no coretemp hwmon found"
 fi
 
 subdev=""
+subdev_pkg=""
+subdev_cr0=""
 
-for _subdev in $dev/temp*_label; do
-	if [[ "$(< $_subdev)" == "Core 0" ]]; then
-		subdev=${_subdev/%_label/_input}
+for _input in $dev/temp*_input; do
+	_label=$(< "${_input/%_input/_label}")
+	if [[ $_label == "Package id 0" ]]; then
+		subdev_pkg=$_input
+	elif [[ $_label == "Core 0" ]]; then
+		subdev_cr0=$_input
 	fi
 done
 
-if [[ ! $subdev ]]; then
+if [[ $subdev_pkg ]]; then
+	subdev=$subdev_pkg
+elif [[ $subdev_cr0 ]]; then
+	subdev=$subdev_cr0
+else
 	die "no coretemp/Core 0 hwmon found"
 fi
+
+dev_name=$(< $dev/name)
+subdev_name=$(< ${subdev/%_input/_label})
+info "Using sensor '$subdev' ($dev_name:$subdev_name)"
 
 interval=1
 last=0

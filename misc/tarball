@@ -23,7 +23,9 @@ do_archive() {
 	if (( opt_attributes )); then
 		log "dumping extended attributes"
 		local attr_tmp=$(mktemp /tmp/attrib.XXXXXXXX)
-		getfattr -Rhd "$dir" > "$attr_tmp"
+		getfattr -Rhd "$dir" \
+			| grep -v '^user\.com\.dropbox\.' \
+			> "$attr_tmp"
 		if [[ -s "$attr_tmp" ]]; then
 			mv "$attr_tmp" "$dir/_attributes"
 		else

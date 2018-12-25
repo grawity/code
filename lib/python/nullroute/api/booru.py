@@ -73,10 +73,12 @@ class BooruApi(object):
     def get_post_original(self, post_id):
         raise NotImplementedError
 
-    def sort_tags(self, raw_tags):
+    def sort_tags(self, raw_tags, skip_character_tags=False):
         all_tags = []
         for key in ("artist", "copyright", "character"):
             val = [t.replace(" ", "_") for t in raw_tags[key]]
+            if key == "character" and skip_character_tags:
+                continue
             if key == "character" and len(val) <= 2:
                 bad_suffixes = ["_(%s)" % s for s in raw_tags["copyright"]]
                 val = [_strip_suffixes(t, bad_suffixes) for t in val]

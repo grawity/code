@@ -36,6 +36,27 @@ def file_ext(url):
     else:
         return "bin"
 
+def _progress_bar(iterable, max_bytes, chunk_size):
+    #hide_complete = (max_bytes < 1*1024*1024)
+    hide_complete = True
+    try:
+        from tqdm import tqdm
+        fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
+        bar = tqdm(iterable, total=max_bytes, unit="B",
+                             unit_scale=True, unit_divisor=1024,
+                             bar_format=fmt, ncols=80)
+        with bar:
+            for i in iterable:
+                yield i
+                bar.update(len(i))
+    except ImportError:
+        from nullroute.ui.progressbar import ProgressBar
+        bar = ProgressBar(max_bytes=max_bytes)
+        for i in iterable:
+            yield i
+            bar.incr(len(i))
+        bar.end(hide_complete)
+
 class Scraper(object):
     def __init__(self, output_dir="."):
         self.dir = output_dir
@@ -45,6 +66,11 @@ class Scraper(object):
         self.ua = requests.Session()
         self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+        # unfortunately case-sensitive
+        # https://www.modpagespeed.com/doc/experiment
+        # currently only used by GamerCat scraper
+        self.ua.headers["PageSpeed"] = "off"
+        #self.ua.headers["X-PSA-Client-Options"] = "m=1"
 
         self.subclass_init()
 
@@ -80,7 +106,7 @@ class Scraper(object):
 
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
-                             save_msg=None):
+                             progress=False, save_msg=None):
         if not name:
             name = os.path.basename(url)
         if output_dir:
@@ -93,15 +119,26 @@ class Scraper(object):
             return name
 
         hdr = {"Referer": referer or url}
-        resp = self.get(url, headers=hdr)
-        with open(name, "wb") as fh:
-            fh.write(resp.content)
+        if progress:
+            resp = self.get(url, headers=hdr, stream=True)
+            with open(name + ".part", "wb") as fh:
+                num_bytes = int(resp.headers.get("content-length"))
+                chunk_size = 1024
+                for chunk in _progress_bar(resp.iter_content(chunk_size),
+                                           max_bytes=num_bytes,
+                                           chunk_size=chunk_size):
+                    fh.write(chunk)
+            os.rename(name + ".part", name)
+        else:
+            resp = self.get(url, headers=hdr)
+            with open(name, "wb") as fh:
+                fh.write(resp.content)
 
         set_file_attrs(name, {
             "xdg.origin.url": resp.url,
             "xdg.referrer.url": resp.request.headers.get("Referer"),
-            "org.eu.nullroute.ETag": resp.headers.get("ETag"),
-            "org.eu.nullroute.Last-Modified": resp.headers.get("Last-Modified"),
+            "http.ETag": resp.headers.get("ETag"),
+            "http.Last-Modified": resp.headers.get("Last-Modified"),
         })
 
         mtime = resp.headers.get("Last-Modified")

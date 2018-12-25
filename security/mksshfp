@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # mksshfp - convert OpenSSH public keys to DNS SSHFP records
+from glob import glob
 import os
 import sys
 import hashlib
 from nullroute import authorized_keys
-from nullroute.core import *
+from nullroute.core import Core
 
 KEY_ALGOS = {
     "ssh-rsa":              1,
@@ -82,23 +83,26 @@ except IndexError:
     else:
         host = "-"
 
-try:
-    infile = sys.argv[2]
-except IndexError:
-    infile = None
+infiles = sys.argv[2:]
 
 if host in {"--help", "-h", "-?"}:
     usage()
     sys.exit()
 
-if (host, infile) == ("-", None):
-    # 'mksshfp -' should just read from stdin
-    (host, infile) = ("", "-")
+if host in {"--local", "-l"}:
+    host = ""
+    infiles = glob("/etc/ssh/ssh_host_*_key.pub")
 
-if infile:
-    Core.debug("loading all keys from %r" % infile)
-    for entry in parse(infile):
-        print(fmt_sshfp(host, entry))
+if host == "-" and not infiles:
+    # 'mksshfp -' should just read from stdin
+    host = ""
+    infiles = ["-"]
+
+if infiles:
+    for infile in infiles:
+        Core.debug("loading all keys from %r" % infile)
+        for entry in parse(infile):
+            print(fmt_sshfp(host, entry))
 else:
     Core.debug("using existing keys from known_hosts")
     infile = os.path.expanduser("~/.ssh/known_hosts")

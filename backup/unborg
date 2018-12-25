@@ -16,17 +16,13 @@ while [[ $1 == --* ]]; do
 	esac
 done
 
-repo="/vol3/Backup/Homes/${HOSTNAME}.borg"
+host=$HOSTNAME
 root=$HOME
 
 if (( do_mount )); then
 	if (( $# >= 2 )); then
 		host=$1
 		shift
-		case $host in
-			frost)
-				repo="/vol4/Backup/Homes/$host.borg";;
-		esac
 	fi
 	path=$1
 else
@@ -44,6 +40,11 @@ else
 	done
 	debug "paths to restore: ${paths[@]}"
 fi
+
+case $host in
+	frost)	repo="/vol4/Backup/Homes/$host.borg";;
+	rain)	repo="/vol3/Backup/Homes/$host.borg";;
+esac
 
 [[ -d $repo ]] || die "repository '$repo' not found"
 

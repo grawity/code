@@ -113,6 +113,7 @@ getnetrc_fqdn() {
 		# TODO: this is a hack and probably makes it
 		# not do what I originally wanted
 		local fqdn=$host
+		host=${fqdn%%.*}
 	else
 		local fqdn=$(fqdn "$host")
 	fi

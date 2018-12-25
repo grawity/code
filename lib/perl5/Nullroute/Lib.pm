@@ -13,6 +13,7 @@ our @EXPORT = qw(
 	true
 	false
 	_say
+	_trace
 	_debug
 	_info
 	_log
@@ -154,6 +155,10 @@ sub _say {
 
 	if ($post_output) { $post_output->($msg, "", \*STDOUT); }
 }
+
+sub _trace  { _msg(*STDERR, "trace", "\e[36m", shift,
+		min_debug => 2,
+		@_); }
 
 sub _debug  { _msg(*STDERR, "debug", "\e[36m", shift,
 		min_debug => 1,

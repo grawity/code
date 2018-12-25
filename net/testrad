@@ -166,9 +166,11 @@ eapol_bin="eapol_test"
 
 # parse config
 
-debug "loading profiles from '$path_config/testrad.conf.sh'"
-
-. "$path_config/testrad.conf.sh" || die "could not load configuration"
+lib::find_file config= config:{,synced/}testrad.conf.sh ""
+if [[ $config ]]; then
+	debug "loading profiles from '$config'"
+	. "$config" || die "could not load configuration"
+fi
 
 # parse arguments
 
@@ -303,9 +305,6 @@ if [[ $profile && ! $host ]]; then
 fi
 
 # check for necessary tools
-
-have 'radtest' ||
-	err "missing 'radtest' binary"
 
 have "$eapol_bin" ||
 	err "missing '$eapol_bin' binary"
@@ -614,6 +613,8 @@ else
 	if (( dump_config )); then
 		notice "dumping generated config and exiting"
 		cmd=(: "${cmd[@]}")
+	else
+		have "${cmd[0]}" || die "missing '${cmd[0]}' binary"
 	fi
 fi
 

@@ -52,6 +52,9 @@ $(OBJ)/libdark.so:	CFLAGS += $(pkg-config x11 --cflags) -shared -fPIC
 $(OBJ)/libdark.so:	LDLIBS += $(pkg-config x11 --libs)
 $(OBJ)/libdark.so:	desktop/libdark.c
 
+$(OBJ)/libdropfox.so:	CFLAGS += -shared -fPIC
+$(OBJ)/libdropfox.so:	misc/libdropfox.c
+
 $(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
 $(OBJ)/libfunlink.so:	LDLIBS += $(DL_LDLIBS)
 $(OBJ)/libfunlink.so:	system/libfunlink.c

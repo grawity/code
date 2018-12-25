@@ -184,9 +184,9 @@ do_borg() {
 
 	if (( need_wd_env )); then
 		wrap+=(
-			# env --chdir: coreutils v8.28
+			# env --chdir: coreutils v8.28 (debian buster/sid)
 			#env --chdir="$base"
-			# nsenter --wd: util-linux v2.23
+			# nsenter --wd: util-linux v2.23 (debian jessie)
 			nsenter --wd="$base"
 			env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
 		)
@@ -314,30 +314,7 @@ do_job() {
 	$0 "$1" || { failed_jobs+=("$1"); false; }
 }
 
-if [[ ! $_inhibited ]]; then
-	export _inhibited=$$
-	debug "restarting under gnome-inhibit"
-	exec gnome-inhibit \
-		--always \
-		--who "backup" \
-		--what "suspend" \
-		--why "Performing a backup" \
-		-- "$0" "$@"
-fi
-
-set -e
-umask 077
-debug "started with: '$*'"
-
-trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
-
-(( $# )) || set -- "${default_jobs[@]}"
-
-for job; do
-	take_lock "$job"
-	log2 "running job '$job'"
-	t_begin=$(now)
-
+job_main() {
 	case $job in
 		push-hd)
 			do_job local
@@ -487,7 +464,36 @@ for job; do
 		*)
 			die "unknown job '$job'"
 			;;
-	esac || r=$?
+	esac
+}
+
+# Main task
+
+if [[ ! $_inhibited ]]; then
+	export _inhibited=$$
+	debug "restarting under gnome-inhibit"
+	exec gnome-inhibit \
+		--always \
+		--who "backup" \
+		--what "suspend" \
+		--why "Performing a backup" \
+		-- "$0" "$@"
+fi
+
+set -e
+umask 077
+debug "started with: '$*'"
+
+trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
+
+(( $# )) || set -- "${default_jobs[@]}"
+
+for job; do
+	take_lock "$job"
+	log2 "running job '$job'"
+	t_begin=$(now)
+
+	job_main || r=$?
 
 	t_end=$(now)
 	log "job '$job' finished in $(interval $[t_end-t_begin])"

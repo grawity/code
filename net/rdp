@@ -15,6 +15,7 @@ _die() {
 declare -a canonical_domains=()
 
 if [[ -e "$path_config/rdp.conf.sh" ]]; then
+	debug "loading config: '$path_config/rdp.conf.sh'"
 	. "$path_config/rdp.conf.sh"
 fi
 
@@ -56,17 +57,31 @@ if [[ ! $host ]]; then
 fi
 if [[ $host != *.* ]]; then
 	debug "trying to canonicalize bare name '$host'"
+	debug "setting LOCALDOMAIN to: '${canonical_domains[*]}'"
 	host=$(LOCALDOMAIN="${canonical_domains[*]}" fqdn "$host")
 fi
 debug "trying to resolve '$host'"
-addr=$(name2addr "$host" 2>/dev/null)
+if have name2addr; then
+	addr=$(name2addr "$host" 2>/dev/null)
+else
+	addr=$(getent ahosts "$host" 2>/dev/null | awk '{print $1; quit}')
+fi
 if [[ ! $addr ]]; then
 	_die "could not resolve host '$host'"
 fi
 port=3389
-debug "probing TCP server [$host]:$port"
-if ! err=$(nc -v -z "$host" "$port" 2>&1); then
-	_die "host '$host' does not accept Remote Desktop connections"
+for arg; do
+	if [[ $arg == /port:* ]]; then
+		port=${arg#/port:}
+	fi
+done
+if have nc; then
+	debug "probing TCP server [$host]:$port"
+	if ! err=$(nc -v -z "$host" "$port" 2>&1); then
+		_die "host '$host' does not accept Remote Desktop connections"
+	fi
+else
+	warn "'nc' not available, skipping probe"
 fi
 info "connecting to ${host@Q}"
 

@@ -1,7 +1,15 @@
 #!/usr/bin/env python
+import os
 from pprint import pprint
 import socket
 import sys
+
+def ifindex_to_ifname(idx):
+    for ifname in os.listdir("/sys/class/net"):
+        with open("/sys/class/net/%s/ifindex" % ifname, "r") as fh:
+            if fh.read().strip() == str(idx):
+                return ifname
+    return str(idx)
 
 args = sys.argv[1:]
 
@@ -14,7 +22,7 @@ for arg in args:
         elif af == socket.AF_INET6:
             (host, port, flow, scope) = addr
             if scope:
-                addr = host + "%" + str(scope)
+                addr = host + " % " + ifindex_to_ifname(scope)
             else:
                 addr = host
         if af in {socket.AF_INET, socket.AF_INET6}:

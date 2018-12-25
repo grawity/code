@@ -62,7 +62,8 @@ sub do_file {
 
 	# normalize to Y-M-D.hms
 	for ($new_name) {
-		my $tail = $host ? ".$host" : "";
+		my $tail = "";
+		$tail .= ".$host" if $host;
 		$tail .= " - $old_name" if $do_prefix;
 
 		# Output of stage 1
@@ -75,6 +76,11 @@ sub do_file {
 		# Dropbox on Windows
 		# "Screenshot 2018-05-12 21.52.18.png"
 		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)\b/$1.$2$3$4$tail/;
+
+		# VLC
+		# "Snapshot_2013-08-05-08h05m53s235.jpg"
+		# "vlcsnap-2015-02-07-21h30m11s81.jpg"
+		s/^(?:Snapshot_|vlcsnap-)($qr_y_m_d)-(\d{2})h(\d{2})m(\d{2})s\d+/$1.$2$3$4$tail/;
 
 		# GNOME Shell
 		# "Screenshot from 2018-10-14 14-36-34.png"

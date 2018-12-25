@@ -13,8 +13,10 @@ use Getopt::Long qw(:config bundling no_ignore_case);
 use Nullroute::Lib;
 use POSIX qw(strftime);
 
+my $quiet = 0;
 my $verbose = 1;
 my $interactive = 0;
+my $count = 0;
 
 sub confirm {
 	print "$::arg0: @_ "; $|++; <STDIN> =~ /^y/i;
@@ -306,14 +308,16 @@ sub restore_from_info {
 	if (dev($orig_dir, 1) == dev($trash_dir, 1)) {
 		if (rename($trashed_path, $orig_path)) {
 			unlink($info_path);
-			_info("restored '".abs2rel_down($orig_path)."'") if $verbose;
+			++$count;
+			_info("restored '".abs2rel_down($orig_path)."'") if $verbose && !$quiet;
 		} else {
 			_die("failed to rename '$trashed_path': $!");
 		}
 	} else {
 		if (xdev_move($trashed_path, $orig_path)) {
 			unlink($info_path);
-			_info("restored '$orig_path'") if $verbose;
+			++$count;
+			_info("restored '$orig_path'") if $verbose && !$quiet;
 		} else {
 			_die("failed to copy '$trashed_path' to '$orig_dir'");
 		}
@@ -447,7 +451,8 @@ sub trash {
 		_debug("... from '$orig_path'");
 		_debug("... to '$trashed_path'");
 		if (rename($orig_path, $trashed_path)) {
-			_info("trashed '$path'") if $verbose;
+			++$count;
+			_info("trashed '$path'") if $verbose && !$quiet;
 		} else {
 			my $err = "$!";
 			_debug("rename failed, unlinking info '$info_name'");
@@ -459,7 +464,8 @@ sub trash {
 		_debug("... from '$orig_path'");
 		_debug("... to '$trashed_path'");
 		if (xdev_move($orig_path, $trashed_path)) {
-			_info("trashed '$path' to \$HOME") if $verbose;
+			++$count;
+			_info("trashed '$path' to \$HOME") if $verbose && !$quiet;
 		} else {
 			_debug("xdev_move failed, unlinking info '$info_name'");
 			unlink($info_name);
@@ -604,6 +610,7 @@ GetOptions(
 	'find-trash!'	=> \$print_path,
 	'f|force'	=> sub { },
 	'i|interactive!'=> \$interactive,
+	'quiet!'	=> \$quiet,
 	'restore!'	=> \$restore,
 	'r|R|recursive'	=> sub { },
 	'v|verbose!'	=> \$verbose,
@@ -630,8 +637,10 @@ if ($print_path) {
 	say find_trash_dir(my_abs_path($_)) // "(not found?)" for @ARGV;
 } elsif ($restore) {
 	untrash($_) for @ARGV;
+	_info("restored $count files") if (!$verbose && !$quiet);
 } else {
 	trash($_) for @ARGV;
+	_info("trashed $count files") if (!$verbose && !$quiet);
 }
 
 _exit();

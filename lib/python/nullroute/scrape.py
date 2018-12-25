@@ -145,6 +145,8 @@ class Scraper(object):
         if mtime:
             set_file_mtime(name, _http_date_to_unix(mtime))
 
-        if save_msg:
+        if save_msg == True:
+            Core.info("saved '%s'", name)
+        elif save_msg:
             Core.info(save_msg)
         return name

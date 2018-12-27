@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+interval=5
+nlines=$(stty size | awk '{print $1}')
+nlines=$(( nlines - 5 ))
+nlines=20
+
+txlast=0
+rxlast=0
+last=0
+iter=0
+
+#for (( i=0; i<nlines; i++ )); do
+#	echo "-"
+#done
+
+while sleep $interval; do
+	url="http://192.168.1.254:8000/ltpd8iyjpxe/IGD/upnp/IGD.xml"
+	data=$(upnpc -u "$url" -S)
+	txbytes=$(echo "$data" | awk '/^Bytes:/{print $3}')
+	rxbytes=$(echo "$data" | awk '/^Bytes:/{print $5}')
+	now=$(date +%s)
+
+	if (( ++iter > nlines )); then
+		printf '\e[%dA\e[1M\e[%dB' $((nlines-1)) $((nlines-2))
+	fi
+
+	if (( last > 0 )); then
+		date=$(date +%T -d "@$now")
+		txdelta=$(( txbytes - txlast ))
+		rxdelta=$(( rxbytes - rxlast ))
+		txrate=$(( txdelta / interval ))
+		rxrate=$(( rxdelta / interval ))
+		if (( txrate > 70000 )); then
+			txcolor=31
+		elif (( txrate > 50000 )); then
+			txcolor=33
+		elif (( txrate > 10000 )); then
+			txcolor=32
+		else
+			txcolor=
+		fi
+		printf "%8s | UP \e[%sm%8d\e[m bps | DOWN \e[%sm%8d\e[m bps\n" "$date" "$txcolor" "$txrate" "$rxcolor" "$rxrate"
+		#echo "$date | UP $txrate bps, DOWN $rxrate bps"
+	fi
+
+	txlast=$txbytes
+	rxlast=$rxbytes
+	last=$now
+done

@@ -30,7 +30,7 @@ int statvfs64(const char *path, struct statvfs64 *buf)
 		real_statvfs64 = dlsym(RTLD_NEXT, "statvfs64");
 	result = real_statvfs64(path, buf);
 	buf->f_type = EXT2_SUPER_MAGIC;
-	if (is_wanted_path(path)) {
+	if (result == 0 && is_wanted_path(path)) {
 		printf("libdropfox: statvfs64(): faking fsid of '%s'\n", path);
 		printf("libdropfox: original fsid = 0x%llx\n", buf->f_fsid);
 		buf->f_fsid = DEFAULT_FSID;

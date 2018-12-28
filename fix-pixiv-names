@@ -13,6 +13,22 @@ from requests.exceptions import HTTPError
 # TODO: https://danbooru.donmai.us/wiki_pages/58938
 # TODO: https://github.com/r888888888/danbooru/issues/2383
 
+def hash_file(path):
+    import hashlib
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        buf = True
+        buf_size = 4 * 1024 * 1024
+        while buf:
+            buf = fh.read(buf_size)
+            h.update(buf)
+    return h.hexdigest()
+
+def compare_files(a, b):
+    return (os.path.exists(a)
+        and os.path.exists(b)
+        and hash_file(a) == hash_file(b))
+
 class PixivApi(PixivClient):
     MEMBER_URL = "http://www.pixiv.net/member.php?id=%s"
     ILLUST_URL = "http://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
@@ -122,6 +138,7 @@ def rename_file_in_dir(dirpath, filename):
 
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
+    fmt_same = "\033[38;5;2m%s\033[m"
 
     if re.search(r'_pixiv\d+', filename):
         Core.debug("skip %r: found '_pixiv' in name", filename)
@@ -143,9 +160,15 @@ def rename_file_in_dir(dirpath, filename):
 
         filename = prefix + " " + filename
         new_path = os.path.join(dirpath, filename)
-        print("=>", fmt_found % filename)
         if not args.dry_run:
-            os.rename(old_path, new_path)
+            if old_path == new_path:
+                print("=>", fmt_same % new_path)
+            elif os.path.exists(new_path) and not compare_files(old_path, new_path):
+                print("=>", fmt_notfound % new_path)
+                Core.warn("refusing to overwrite existing file %r", new_path)
+            else:
+                print("=>", fmt_found % new_path)
+                os.rename(old_path, new_path)
         return
 
     m = prefix_re.match(filename)

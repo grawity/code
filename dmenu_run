@@ -61,6 +61,11 @@ input=$(dmenu-print-history "$hist" | "${menu[@]}" -p "$prompt")
 input=${input#+}
 
 if [[ "$input" ]]; then
+	if ! command -v "${input%% *}" >&/dev/null; then
+		zenity --error --text="Command '${input%% *}' not found." --width=300 &
+		exit
+	fi
+
 	if ! [[ "$input" =~ $_ign ]]; then
 		echo "$(date +%s) $input" >> "$hist"
 	fi

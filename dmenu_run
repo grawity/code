@@ -2,10 +2,16 @@
 
 wm=$(wmctrl -m | sed -n 's/^Name: //p')
 hist=${XDG_CACHE_HOME:-$HOME/.cache}/dmenu.history
+width=$(wmctrl -d | sed -r -n '/.*DG: ([0-9]+)x.*/{s//\1/;p;q}')
 
 prompt='run:'
 #tool=rofi
-font='Source Sans Pro:size=12'
+
+if (( width >= 1920 )); then
+	font='Source Sans Pro:size=15'
+else
+	font='Source Sans Pro:size=12'
+fi
 
 # wmii theme
 normal_fg='#bbbbbb'
@@ -57,7 +63,15 @@ _ign="^($ign)( |\$)"
 
 input=$(dmenu-print-history "$hist" | "${menu[@]}" -p "$prompt")
 
+# Hack for bypassing dmenu's insistent autocompletion
+input=${input#+}
+
 if [[ "$input" ]]; then
+	if ! command -v "${input%% *}" >&/dev/null; then
+		zenity --error --text="Command '${input%% *}' not found." --width=300 &
+		exit
+	fi
+
 	if ! [[ "$input" =~ $_ign ]]; then
 		echo "$(date +%s) $input" >> "$hist"
 	fi

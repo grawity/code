@@ -251,11 +251,13 @@ confirm() {
 	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
 	case $text in
 	    "error: "*)
-		prefix="(!)"
-		color=$'\e[1;31m';;
+		text=${text#*: }
+		prefix="(!!)"
+		color=$'\e[1;7;31m';;
 	    "warning: "*)
-		prefix="(!)"
-		color=$'\e[1;33m';;
+		text=${text#*: }
+		prefix="(??)"
+		color=$'\e[1;31m';;
 	    *)
 		prefix="(?)"
 		color=$'\e[1;36m';;

@@ -201,6 +201,16 @@ class Partition(object):
 
         seen_devnos.add(devno)
 
+        if self.fstype == "zfs":
+            cmd = ["zfs", "list", "-H", "-p", "-o", "used,avail", self.mtpt]
+            with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+                tmp = proc.stdout.read().decode().split()
+            used = int(tmp[0])
+            avail = int(tmp[1])
+            return {"total": used + avail,
+                    "free":  avail,
+                    "avail": avail}
+
         return {"total": st.f_bsize * st.f_blocks,
                 "free":  st.f_bsize * st.f_bfree,
                 "avail": st.f_bsize * st.f_bavail}

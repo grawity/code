@@ -202,13 +202,22 @@ class Partition(object):
         seen_devnos.add(devno)
 
         if self.fstype == "zfs":
-            cmd = ["zfs", "list", "-H", "-p", "-o", "used,avail", self.mtpt]
+            cmd = ["zfs", "list", "-H", "-p", "-o", "used,avail,name", self.mtpt]
             with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
                 tmp = proc.stdout.read().decode().split()
-            used = int(tmp[0])
-            avail = int(tmp[1])
-            return {"total": used + avail,
-                    "free":  avail,
+                used = int(tmp[0])
+                avail = int(tmp[1])
+                pool = tmp[2].split("/")[0]
+
+            cmd = ["zfs", "list", "-H", "-p", "-o", "used,avail,name", pool]
+            with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+                tmp = proc.stdout.read().decode().split()
+                pool_used = int(tmp[0])
+                pool_avail = int(tmp[1])
+
+            pool_total = pool_used + pool_avail
+            return {"total": pool_total,
+                    "free":  pool_total - used,
                     "avail": avail}
 
         return {"total": st.f_bsize * st.f_blocks,
@@ -557,7 +566,7 @@ def dump_mtpt(part, data, with_quota=False):
 
             fmt_size_short(total_bytes, si=opts.si),
             fmt_size_short(used_bytes, si=opts.si),
-            fmt_size_short(free_bytes, si=opts.si),
+            fmt_size_short(avail_bytes, si=opts.si),
 
             (quota_part, quota_color),
             fmt_percent(disk_part, 1),
@@ -612,7 +621,7 @@ else:
         ("PATH",    "string", -20),
         ("TOTAL",   "string", 7),
         ("USED",    "string", 7),
-        ("FREE",    "string", 7),
+        ("AVAIL",   "string", 7),
         ("",        "gauge", -30),
         ("",        "string", 5),
     ]

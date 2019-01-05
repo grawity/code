@@ -29,9 +29,12 @@ sub remote_alias {
 	if (!defined $remote) {
 		croak("BUG: \$remote undefined");
 	}
-	if ($config{remote_alias}) {
-		return $config{remote_alias}->($remote);
-	}
+	my $afunc = $config{remote_alias};
+	$remote = $afunc->($remote) if $afunc;
+	$remote =~ s/ \(.+?\)$//;
+	$remote =~ s/ /_/g;
+	$remote = $afunc->($remote) if $afunc;
+	return $remote;
 }
 
 # remote_color($remote) -> color_idx

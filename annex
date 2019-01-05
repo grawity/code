@@ -86,7 +86,8 @@ case $cmd in
             path=$path/$subdir
             altpath=$altpath/$subdir
             log "$cmd: running '$*' at $host:$path" >&2
-            ssh "$host" "if [ -e ${altpath@Q} ]; then
+            ssh "$host" ". ~/.profile &&
+                        if [ -e ${altpath@Q} ]; then
                             cd ${altpath@Q}
                         else
                             cd ${path@Q}
@@ -520,6 +521,9 @@ case $cmd in
         done
         if (( ! ${#remotes[@]} )); then
             die "no remotes specified"
+        fi
+        if [[ $cmd == store && num=`annex find "${files[@]}" | wc -l` -gt 100 ]]; then
+            confirm "this will move and drop $num files; continue?" || exit
         fi
         if [[ $cmd == store ]] && (( ${#remotes[@]} == 1 )); then
             dest=${remotes[0]}

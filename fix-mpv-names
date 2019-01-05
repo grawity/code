@@ -35,6 +35,7 @@ sub do_file {
 	my ($old_name, $dir, $suffix) = fileparse($file, qr/\.[^.]+$/);
 	my $new_name = $old_name;
 
+	# match known non-date names
 	for ($new_name) {
 		my @stat = stat($file);
 		if (!@stat) {
@@ -51,8 +52,8 @@ sub do_file {
 		}
 
 		# mpv
-		if (/^(?:gnome-)?mpv-shot.*(\.[^.]+)$/) {
-			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime).$1/e;
+		if (/^(?:gnome-)?mpv-shot.*$/) {
+			s//strftime("Screenshot_%Y-%m-%d_%H%M%S", @mtime)/e;
 			last;
 		}
 	}
@@ -61,7 +62,8 @@ sub do_file {
 
 	# normalize to Y-M-D.hms
 	for ($new_name) {
-		my $tail = $host ? ".$host" : "";
+		my $tail = "";
+		$tail .= ".$host" if $host;
 		$tail .= " - $old_name" if $do_prefix;
 
 		# Output of stage 1
@@ -75,6 +77,11 @@ sub do_file {
 		# "Screenshot 2018-05-12 21.52.18.png"
 		s/^Screenshot ($qr_y_m_d) (\d+)\.(\d+)\.(\d+)\b/$1.$2$3$4$tail/;
 
+		# VLC
+		# "Snapshot_2013-08-05-08h05m53s235.jpg"
+		# "vlcsnap-2015-02-07-21h30m11s81.jpg"
+		s/^(?:Snapshot_|vlcsnap-)($qr_y_m_d)-(\d{2})h(\d{2})m(\d{2})s\d+/$1.$2$3$4$tail/;
+
 		# GNOME Shell
 		# "Screenshot from 2018-10-14 14-36-34.png"
 		# "Screencast from 2013-09-04 00:49:14.webm"
@@ -82,10 +89,17 @@ sub do_file {
 		s/^Screencast from ($qr_y_m_d) (\d+)[:-](\d+)[:-](\d+)\b/$1.$2$3$4$tail/;
 
 		# Android
-		#$tail ||= ".nexus";
 		# "Screenshot_20150514.172546.png"
 		# "Screenshot_20160417-124530.png"
-		s/^Screenshot_(\d{4})(\d{2})(\d{2})[.-](\d{6})\b/$1-$2-$3.$4$tail/;
+		# Also unknown similar
+		# "Screenshot_20130729_000844.jpg"
+		s/^Screenshot_(\d{4})(\d{2})(\d{2})[._-](\d{6})\b/$1-$2-$3.$4$tail/;
+
+		# Not sure
+		# "Screenshot_2016-09-18.221101.jpg"
+		s/^Screenshot_($qr_y_m_d)\.(\d{6})\b/$1.$2$tail/;
+		# "Screenshot_2015-01-10-01-02-17.jpg"
+		s/^Screenshot_($qr_y_m_d)-(\d{2})-(\d{2})-(\d{2})\b/$1.$2$3$4$tail/;
 	}
 
 	_debug(" second stage => '$new_name'");

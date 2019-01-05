@@ -18,6 +18,13 @@ class ForeignFilenameError(ValueError):
     pass
 
 class DeviantArtScraper(Scraper):
+    def should_force_update(self, filename):
+        if "_by_" in filename:
+            return True
+        if "file." in filename or "file (" in filename:
+            return True
+        return False
+
     def get_favid_from_filename(self, filename, for_update=False):
         m = None
         # new format uuid: dc841wo-35b69a98-6911-41fc-888f-b18529722ae5.jpg
@@ -128,7 +135,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     if referer and "deviantart.com" not in referer:
         referer = None
         foreign_referer = True
-    use_referer = bool(referer and (args.force_update or "_by_" in old_name))
+    use_referer = bool(referer and (args.force_update or da.should_force_update(old_name)))
     Core.trace("use_referer=%r (because referer=%r, force_update=%r, old_name=%r)",
                use_referer, referer, args.force_update, old_name)
 

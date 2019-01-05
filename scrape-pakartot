@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+import enum
+import os
+from nullroute.core import Core
+from nullroute.scrape import Scraper
+from nullroute.string import filter_filename
+import pprint
+import subprocess
+import sys
+import time
+
+class TracklistType():
+    Album = "aid"
+
+# POST api/backend/frontend/player/play.php
+# addPlaylist:  {"type": "pid", "id": <pid>}
+# addGenre:     {"type": "frgid", "id": <gid>}
+# addAlbum:     {"type": "aid", "id": <aid>}
+# addHits:      {"type": "hit": "id": 1, "year_from": <a>, "year_to": <b>, "offset": <x>}
+# addRandom:    {"type": "random", "id": 999999, "limit": <lim>}
+# addTrack:     {"type": "tid", "id": <tid>}
+
+class PakartotScraper(Scraper):
+    RENEW_EVERY_MSEC = 300000
+
+    def subclass_init(self):
+        self.last_renew = 0
+        # Not needed; just to be nice.
+        self.ua.headers["User-Agent"] = "Mozilla/5.0 (Potato x86_64) " + \
+                                        "AppleWebKit/537.36 (KHTML, like Gecko) " + \
+                                        "Chrome/71.0.3578.80 Safari/537.36"
+
+    def renew(self):
+        if (time.time() - self.last_renew) * 1000 >= self.RENEW_EVERY_MSEC:
+            r = self.ua.post("https://www.pakartot.lt/api/backend/renew.php")
+            r.raise_for_status()
+            data = r.content.decode().strip()
+            # 1 = nothing
+            # 2 = normal
+            # 3 = inactive
+            # else = force logout
+            if data == "1" or data == "2":
+                self.last_renew = time.time()
+                return True
+            else:
+                Core.die("session renew failed: %r", data)
+
+    def get_stream(self, fileid):
+        url = "https://stream1.pakartot.lt/mp3.php?file=24/hyug33lw65"
+
+    def get_tracklist(self, idtype, id):
+        if idtype not in {"aid", "frgid", "pid", "tid"}:
+            raise ValueError("unknown tracklist type %r" % idtype)
+        Core.debug("getting tracklist (%s %r)", idtype, id)
+        url = "https://www.pakartot.lt/api/backend/frontend/player/play.php"
+        r = self.ua.post(url, data={"type": idtype, "id": id})
+        r.raise_for_status()
+        r = r.json()
+        if r["result"]:
+            return r["info"]
+        else:
+            raise Exception("tracklist query (%s %r) failed: %r" % (idtype, id, r))
+
+    def scrape_album(self, album_url):
+        Core.info("reading %s", album_url)
+        page = self.get_page(album_url)
+
+        a = page.select_one("a.play-release")
+        album_id = a["data-id"]
+
+        d = page.select_one(".m-main-title .m-album-title")
+        album_name = d.get_text(strip=True).title()
+        d = page.select_one(".m-main-title .m-greytitle")
+        album_artist = d.get_text(strip=True).title()
+        # all-uppercase in the page
+
+        album_name_xxx = os.path.basename(album_url)
+        a = page.select_one(".m-main-title .m-greytitle a")
+        album_artist_xxx = os.path.basename(a["href"])
+        album_dir_xxx = "%s_%s_%s" % (album_artist_xxx, album_name_xxx, album_id)
+        print("Album dir: %r" % album_dir_xxx)
+
+        track_list = self.get_tracklist(TracklistType.Album, album_id)
+        Core.debug("album has %d tracks", len(track_list))
+        Core.trace(pprint.pformat(track_list))
+        for i, track in enumerate(track_list):
+            stream_url = track["filename"]
+            track_no = i+1
+            track_artist = track["artist"].strip().title()
+            track_title = track["title"].strip()
+            output_file = "%s/%02d. %s - %s.mp3" % (album_dir_xxx,
+                                                    track_no,
+                                                    filter_filename(track_artist),
+                                                    filter_filename(track_title))
+            Core.debug("output = %r", output_file)
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+            Core.info("downloading song %d/%d - %s - %s",
+                      track_no, len(track_list), track_artist, track_title)
+            self.renew()
+
+            cmd = ["curl",
+                    "--fail",
+                    "--show-error",
+                    "--progress-bar",
+                    "--header", "Referer: %s" % album_url,
+                    "--header", "User-Agent: %s" % self.ua.headers["User-Agent"],
+                    "--output", output_file,
+                    stream_url]
+            Core.trace("running %r", cmd)
+            r = subprocess.run(cmd)
+
+            set_id3_tags(output_file,
+                         artist=track_artist,
+                         album=album_name,
+                         title=track_title,
+                         track="%d/%d" % (track_no, len(track_list)),
+                         comment="Downloaded from: %s" % album_url)
+
+#def headers_to_curl(**kwargs):
+#    return ["--header=%s: %s" % (k, v) for k, v in kwargs.items()]
+
+def set_id3_tags(file, artist=None, title=None, comment=None, **kwargs):
+    cmd = ["mid3v2", file]
+    if artist:
+        cmd += ["--artist=%s" % artist]
+    if title:
+        cmd += ["--song=%s" % title]
+    if comment:
+        cmd += ["--comment=:%s:eng" % comment]
+    for (k, v) in kwargs.items():
+        cmd += ["--%s=%s" % (k, v)]
+    if len(cmd) > 2:
+        Core.trace("running %r", cmd)
+        r = subprocess.run(cmd)
+
+album_urls = sys.argv[1:]
+
+s = PakartotScraper()
+for album_url in album_urls:
+    s.scrape_album(album_url)

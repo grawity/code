@@ -1,7 +1,24 @@
 #!/usr/bin/env bash
 
-for arg; do
-	printf '\e[38;5;12m==> %s <==\e[m\n' "$arg"
-	cat "$arg"
-	printf '\n'
-done
+header='\e[38;5;12m==> %s <==\e[m\n'
+
+if [[ ${0%%*/} == *tail ]]; then
+	lines=10
+	if [[ $1 == -n ]]; then
+		lines=${1#-n}; shift
+		if [[ ! $lines ]]; then
+			lines=$2; shift
+		fi
+	fi
+	for arg; do
+		printf "$header" "$arg"
+		tail -n "$lines" "$arg"
+		printf '\n'
+	done
+else
+	for arg; do
+		printf "$header" "$arg"
+		cat "$arg"
+		printf '\n'
+	done
+fi

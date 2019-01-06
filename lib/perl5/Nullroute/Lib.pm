@@ -82,7 +82,11 @@ sub __extdebug_check {
 }
 
 sub _msg {
-	my ($io, $log_prefix, $log_color, $msg, %opt) = @_;
+	my ($io, $log_prefix, $log_color, $msg, @opt) = @_;
+	if (@opt % 2) {
+		Carp::cluck("_msg was called with incomplete %opt assignment");
+	}
+	my %opt = @opt;
 
 	__extdebug_check();
 

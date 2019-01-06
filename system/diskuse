@@ -7,6 +7,7 @@ import sys
 import subprocess
 import time
 from argparse import ArgumentParser
+from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.misc import fmt_duration, fmt_size_short
 from socket import gethostname
@@ -202,18 +203,14 @@ class Partition(object):
         seen_devnos.add(devno)
 
         if self.fstype == "zfs":
-            cmd = ["zfs", "list", "-H", "-p", "-o", "used,avail,name", self.mtpt]
-            with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
-                tmp = proc.stdout.read().decode().split()
-                used = int(tmp[0])
-                avail = int(tmp[1])
-                pool = tmp[2].split("/")[0]
+            tmp = _get_zfs_dataset_info(self.mtpt, "used,avail,name")
+            used = int(tmp[0])
+            avail = int(tmp[1])
+            pool = tmp[2].split("/")[0]
 
-            cmd = ["zfs", "list", "-H", "-p", "-o", "used,avail,name", pool]
-            with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
-                tmp = proc.stdout.read().decode().split()
-                pool_used = int(tmp[0])
-                pool_avail = int(tmp[1])
+            tmp = _get_zfs_dataset_info(pool, "used,avail,name")
+            pool_used = int(tmp[0])
+            pool_avail = int(tmp[1])
 
             pool_total = pool_used + pool_avail
             return {"total": pool_total,
@@ -380,13 +377,21 @@ def get_media_dir():
     return "/run/media/%s" % get_user_name()
 
 def _get_cmd_output(*argv):
+    Core.trace("calling command: %r", argv)
     proc = subprocess.Popen(argv, stdout=subprocess.PIPE)
     (out, err) = proc.communicate()
     return out.decode("utf-8").strip()
 
+@lru_cache()
+def _get_zfs_dataset_info(path, fields):
+    out = _get_cmd_output("zfs", "list", "-H", "-p", "-o", fields, path)
+    return out.split()
+
+@lru_cache()
 def get_dir_fsid(path):
     return _get_cmd_output("stat", "-f", "-c", "%i", path)
 
+@lru_cache()
 def get_fs_devno(mtpt):
     return _get_cmd_output("mountpoint", "-d", mtpt)
 

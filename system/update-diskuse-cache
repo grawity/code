@@ -19,10 +19,13 @@ def remote_fstat(host, paths):
     # ZFS df only reports dataset usage, not total usage
     for fs in out:
         if fs["fstype"] == "zfs":
-            cmd = "zfs list -H -p -o used '%s'"
+            cmd = "zfs list -H -p -o used,avail '%s'"
             with remote_popen(host, cmd % fs["target"]) as proc:
-                tmp = proc.stdout.read().decode()
-            fs["used"] = tmp.strip()
+                tmp = proc.stdout.read().decode().split()
+            used, avail = map(int, tmp)
+            fs["used"] = used
+            fs["avail"] = avail
+            fs["size"] = used + avail
     return out
 
 cache_path = Env.find_cache_file("diskuse.json")

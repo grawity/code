@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #define _XOPEN_SOURCE 500
 
 #include <errno.h>
@@ -84,6 +85,8 @@ int main(int argc, char *argv[]) {
 
 	if (!passwd)
 		passwd = getpass("Password: ");
+	if (!passwd)
+		return 1;
 
 	hash = crypt(passwd, salt);
 

@@ -7,6 +7,7 @@ import sys
 import subprocess
 import time
 from argparse import ArgumentParser
+from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.misc import fmt_duration, fmt_size_short
 from socket import gethostname
@@ -201,6 +202,21 @@ class Partition(object):
 
         seen_devnos.add(devno)
 
+        if self.fstype == "zfs":
+            tmp = _get_zfs_dataset_info(self.mtpt, "used,avail,name")
+            used = int(tmp[0])
+            avail = int(tmp[1])
+            pool = tmp[2].split("/")[0]
+
+            tmp = _get_zfs_dataset_info(pool, "used,avail,name")
+            pool_used = int(tmp[0])
+            pool_avail = int(tmp[1])
+
+            pool_total = pool_used + pool_avail
+            return {"total": pool_total,
+                    "free":  pool_total - used,
+                    "avail": avail}
+
         return {"total": st.f_bsize * st.f_blocks,
                 "free":  st.f_bsize * st.f_bfree,
                 "avail": st.f_bsize * st.f_bavail}
@@ -361,13 +377,21 @@ def get_media_dir():
     return "/run/media/%s" % get_user_name()
 
 def _get_cmd_output(*argv):
+    Core.trace("calling command: %r", argv)
     proc = subprocess.Popen(argv, stdout=subprocess.PIPE)
     (out, err) = proc.communicate()
     return out.decode("utf-8").strip()
 
+@lru_cache()
+def _get_zfs_dataset_info(path, fields):
+    out = _get_cmd_output("zfs", "list", "-H", "-p", "-o", fields, path)
+    return out.split()
+
+@lru_cache()
 def get_dir_fsid(path):
     return _get_cmd_output("stat", "-f", "-c", "%i", path)
 
+@lru_cache()
 def get_fs_devno(mtpt):
     return _get_cmd_output("mountpoint", "-d", mtpt)
 
@@ -478,14 +502,16 @@ def gauge3x(width, level, color, bars=None):
         if os.getenv("TERM") == "linux":
             bars = "##-"
         else:
-            bars = u"\u275a", u"\u275a", u"\u2758"
+            #bars = u"\u275a", u"\u275a", u"\u2758"
+            #bars = "■", "■", "□"
+            bars = "■", "■", "■"
     elif len(bars) != 3:
         bars = bars[0] * 3
 
     return gauge3(width, level, *bars,
                     full_fmt="38;5;%d" % bright,
                     partial_fmt="2;38;5;%d" % dark,
-                    empty_fmt="38;5;238")
+                    empty_fmt="2;38;5;238")
 
 def threshold(total, val):
     if total > 100e9:
@@ -547,7 +573,7 @@ def dump_mtpt(part, data, with_quota=False):
 
             fmt_size_short(total_bytes, si=opts.si),
             fmt_size_short(used_bytes, si=opts.si),
-            fmt_size_short(free_bytes, si=opts.si),
+            fmt_size_short(avail_bytes, si=opts.si),
 
             (quota_part, quota_color),
             fmt_percent(disk_part, 1),
@@ -602,7 +628,7 @@ else:
         ("PATH",    "string", -20),
         ("TOTAL",   "string", 7),
         ("USED",    "string", 7),
-        ("FREE",    "string", 7),
+        ("AVAIL",   "string", 7),
         ("",        "gauge", -30),
         ("",        "string", 5),
     ]

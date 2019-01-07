@@ -19,33 +19,29 @@ def remote_fstat(host, paths):
     # ZFS df only reports dataset usage, not total usage
     for fs in out:
         if fs["fstype"] == "zfs":
-            cmd = "zfs list -H -p -o used '%s'"
+            cmd = "zfs list -H -p -o used,avail '%s'"
             with remote_popen(host, cmd % fs["target"]) as proc:
-                tmp = proc.stdout.read().decode()
-            fs["used"] = tmp.strip()
+                tmp = proc.stdout.read().decode().split()
+            used, avail = map(int, tmp)
+            fs["used"] = used
+            fs["avail"] = avail
+            fs["size"] = used + avail
     return out
 
 cache_path = Env.find_cache_file("diskuse.json")
-
+config_path = Env.find_config_file("diskuse-autocache.json")
 media_dir = "/run/media/%(USER)s" % os.environ
-
-all_disks = {
-    "radius": {
-        "/mnt/vol5": "%s/vol5_anthology" % media_dir,
-        "/mnt/data1": "//uk-radius/data1",
-        "/mnt/data2": "//uk-radius/data2",
-    },
-    "ember": {
-        "/data": "%s/ember.data" % media_dir,
-    },
-}
 
 with open(cache_path, "r") as fh:
     local = json.load(fh)
 
+with open(config_path, "r") as fh:
+    all_disks = json.load(fh)
+
 for host, paths in all_disks.items():
     for fs in remote_fstat(host, paths.keys()):
         mtpt = paths[fs["target"]] or fs["target"]
+        mtpt = mtpt.format(media=media_dir)
         local[mtpt] = {
             "type":   fs["fstype"],
             "total":  int(fs["size"]),

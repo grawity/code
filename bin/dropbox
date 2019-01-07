@@ -30,5 +30,7 @@ elif [ "$1" = "daemon" ]; then
 	unset DISPLAY
 	set -- start
 fi
-export TMPDIR=$HOME/tmp
+if [ "$(findmnt -rno fstype /tmp)" != "tmpfs" ]; then
+	export TMPDIR=$HOME/tmp
+fi
 exec ${PYTHON:-python2} ~/code/thirdparty/dropbox "$@"

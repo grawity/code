@@ -354,7 +354,10 @@ case $cmd in
             }
             my $show_files = int($ENV{showfiles} // 0);
             my $sortbysize = int($ENV{sortbysize} // 0);
-            my $maxdepth = $show_files ? 0 : int($ENV{depth} // 2);
+            # default to infinite for -a, 2 levels otherwise
+            my $maxdepth = $show_files
+                           ? int($ENV{depth} // -1)
+                           : int($ENV{depth} // 2);
             my %files;
             my %dirs;
             my $total = 0;
@@ -368,7 +371,7 @@ case $cmd in
             }
             %dirs = (%dirs, %files);
             my @dirs = sort keys %dirs;
-            if ($maxdepth) {
+            if ($maxdepth >= 0) {
                 @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
             }
             if ($sortbysize) {

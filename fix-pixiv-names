@@ -29,6 +29,10 @@ def compare_files(a, b):
         and os.path.exists(b)
         and hash_file(a) == hash_file(b))
 
+def gio_rename_file(old_name, new_name):
+    import subprocess
+    subprocess.run(["gio", "rename", "-i", old_name, new_name]).check_returncode()
+
 class PixivApi(PixivClient):
     MEMBER_URL = "http://www.pixiv.net/member.php?id=%s"
     ILLUST_URL = "http://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
@@ -168,7 +172,8 @@ def rename_file_in_dir(dirpath, filename):
                 Core.warn("refusing to overwrite existing file %r", new_path)
             else:
                 print("=>", fmt_found % new_path)
-                os.rename(old_path, new_path)
+                #os.rename(old_path, new_path)
+                gio_rename_file(old_path, new_path)
         return
 
     m = prefix_re.match(filename)

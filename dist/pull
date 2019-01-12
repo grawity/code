@@ -89,6 +89,28 @@ else
 		~/lib/dotfiles/install
 	fi
 
+	if [ -d ~/lib/bin ]; then
+		(cd ~/lib/bin
+		if on_master; then
+			log "updating bin.git"
+			silent git fetch origin
+			silent git merge --ff-only origin/master || {
+				git stash save "dist/pull on $(date)"
+				git checkout -f master
+				git reset --hard origin/master
+			}
+
+		else
+			log "skipping bin.git (not on master)"
+		fi)
+
+		(cd ~/lib/bin
+		if [ $today -eq 14 ]; then
+			log "compacting bin.git"
+			silent nice git gc
+		fi) &
+	fi
+
 	if [ -f ~/.k5login ] && [ ! -k ~/.k5login ]; then
 		log "updating .k5login"
 		security/update-k5login

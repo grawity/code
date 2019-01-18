@@ -27,7 +27,7 @@ for f in "$@"; do
         continue
     fi
 
-    if [[ $DEBUG ]] && (( DEBUG >= 2 )); then
+    if (( DEBUG >= 2 )); then
         curl_args+=(-v)
     fi
 
@@ -37,34 +37,15 @@ for f in "$@"; do
         curl_args+=(-s)
     fi
 
-    if (( do_reupload )); then
-        debug "re-upload was forced"
-        unset url
-    elif expire=$(ks:getattr "$f" "uguu.expire"); then
-        if (( expire > `now` )); then
-            debug "previous upload is still valid ($expire)"
-            url=$(ks:getattr "$f" "uguu.url")
+    url=$(curl -S "${curl_args[@]}" "https://uguu.se/api.php?d=upload-tool")
+
+    if [[ $url == https://* ]]; then
+        if (( opt_quiet )); then
+            echo "$url"
         else
-            debug "previous upload has expired ($expire)"
-            unset url
+            echo "$f → $url"
+            clip+=("$url")
         fi
-    fi
-
-    if [[ $url ]]; then
-        debug "using stored URL '$url' (expires on $expire)"
-    else
-        debug "uploading to uguu"
-        url=$(curl -S "${curl_args[@]}" "https://uguu.se/api.php?d=upload-tool")
-    fi
-
-    if [[ $url == https://* ]] && (( opt_quiet )); then
-        echo "$url"
-    elif [[ $url == https://* ]]; then
-        echo "$f → $url"
-        clip+=("$url")
-
-        ks:setattr "$f" "uguu.expire" "$(( `now` + 86400 ))"
-        ks:setattr "$f" "uguu.url" "$url"
     else
         err "could not upload '$f', received: $url"
     fi

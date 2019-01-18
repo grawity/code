@@ -5,10 +5,12 @@
 . libkitchensink.bash || exit
 
 do_reupload=0
+opt_quiet=0
 
-while getopts ':f' OPT; do
+while getopts ':fq' OPT; do
     case $OPT in
     f) do_reupload=1;;
+    q) opt_quiet=1;;
     *) lib::die_getopts;;
     esac
 done; shift $((OPTIND-1))
@@ -29,7 +31,7 @@ for f in "$@"; do
         curl_args+=(-v)
     fi
 
-    if [[ -t 2 ]] && ks:larger_than "$f" "1 << 18"; then
+    if (( ! opt_quiet )) && [[ -t 2 ]] && ks:larger_than "$f" "1 << 18"; then
         curl_args+=(-#)
     else
         curl_args+=(-s)
@@ -55,7 +57,9 @@ for f in "$@"; do
         url=$(curl -S "${curl_args[@]}" "https://uguu.se/api.php?d=upload-tool")
     fi
 
-    if [[ $url == https://* ]]; then
+    if [[ $url == https://* ]] && (( opt_quiet )); then
+        echo "$url"
+    elif [[ $url == https://* ]]; then
         echo "$f → $url"
         clip+=("$url")
 

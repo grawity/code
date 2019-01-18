@@ -49,10 +49,16 @@ class TagFilter(object):
                     if line == "" or line.startswith("#"):
                         continue
                     elif " -> " in line:
-                        a, b = line.split(" -> ")
-                        new.translate.append([re.compile(a, re.I), b])
+                        tags, new_tag = line.split(" -> ")
+                        tags = tags.split()
+                        tags = [re.compile(t, re.I) for t in tags]
+                        *cond_tags, old_tag = tags
+                        new.translate.append((cond_tags, old_tag, new_tag))
                     else:
-                        new.blacklist.append(re.compile(line, re.I))
+                        tags = line.split()
+                        tags = [re.compile(t, re.I) for t in tags]
+                        *cond_tags, old_tag = tags
+                        new.blacklist.append((cond_tags, old_tag))
         except FileNotFoundError:
             pass
         return new
@@ -60,11 +66,14 @@ class TagFilter(object):
     def filter(self, tags):
         tags = [tag.replace(" ", "_") for tag in tags]
 
-        for item in self.blacklist:
-            tags = [tag for tag in tags if not item.fullmatch(tag)]
+        for condtags, oldtag in self.blacklist:
+            # if all conditions match, remove provided tag
+            if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                tags = [t for t in tags if not oldtag.fullmatch(t)]
 
-        for xmatch, xto in self.translate:
-            tags = [xto if xmatch.fullmatch(tag) else tag for tag in tags]
+        for condtags, oldtag, newtag in self.translate:
+            if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                tags = [newtag if oldtag.fullmatch(t) else t for t in tags]
 
         tags = [filter_filename(tag) for tag in tags]
 

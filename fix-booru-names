@@ -164,17 +164,16 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
                                          skip_character_tags=args.no_character_tags)
             new_filename += file_ext
             new_path = os.path.join(dirpath, new_filename)
-            if filename != new_filename:
-                if compare_files(old_path, new_path):
-                    print("=>", fmt_same % new_filename)
-                    if not args.dry_run:
-                        os.unlink(old_path)
-                else:
-                    print("=>", fmt_found % new_filename)
-                    if not args.dry_run:
-                        os.rename(old_path, new_path)
-            else:
+            if filename == new_filename:
                 print("=>", fmt_same % "[no change]")
+            elif compare_files(old_path, new_path):
+                print("=>", fmt_same % new_filename)
+                if not args.dry_run:
+                    os.unlink(old_path)
+            else:
+                print("=>", fmt_found % new_filename)
+                if not args.dry_run:
+                    os.rename(old_path, new_path)
         else:
             print("=>", fmt_notfound % "[not found]")
             set_file_attr(old_path, result_xattr, "notfound")

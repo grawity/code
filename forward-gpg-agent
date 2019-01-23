@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -ex
+
+host=$1
+
+local_socket="$(gpgconf --list-dirs agent-extra-socket)"
+
+remote_gpghome="$(ssh "$host" "echo \$HOME")/.gnupg/forwarded"
+
+ssh "$host" "mkdir -p -m 0700 ${remote_gpghome@Q}"
+
+remote_socket="$(ssh "$host" "GNUPGHOME=${remote_gpghome@Q} gpgconf --list-dirs agent-socket")"
+
+ssh "$host" -O forward -R "$remote_socket:$local_socket"
+
+gpg --with-colons --list-secret-keys |
+	awk -F: '/^sec:/{k=1} k&&/^fpr:/{print $10; k=0}' |
+	xargs gpg --export |
+	ssh "$host" "GNUPGHOME=${remote_gpghome@Q} gpg --batch --quiet --import"
+
+gpg --export-ownertrust |
+	ssh "$host" "GNUPGHOME=${remote_gpghome@Q} gpg --batch --quiet --import-ownertrust"
+
+ssh -t "$host" "GNUPGHOME=${remote_gpghome@Q} \$SHELL"

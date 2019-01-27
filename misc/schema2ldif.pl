@@ -9,9 +9,11 @@ use warnings;
 use strict;
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
 
+my $opt_replace = 0;
 my $opt_unwrap = 0;
 
 GetOptions(
+	"r|replace!" => \$opt_replace,
 	"unwrap!" => \$opt_unwrap,
 ) or exit(2);
 
@@ -23,27 +25,40 @@ if (-t STDIN) {
 my $name = shift(@ARGV) // "UNNAMEDSCHEMA";
 
 print "dn: cn=$name,cn=schema,cn=config\n";
-print "objectClass: olcSchemaConfig\n";
+if ($opt_replace) {
+	print "changetype: modify\n";
+} else {
+	print "objectClass: olcSchemaConfig\n";
+}
 
-my $key;
+my $key = "";
 my $value;
+my $count = 0;
 
 while (<STDIN>) {
 	chomp;
 	if (/^(attributeType(?:s)?|objectClass(?:es)?) (.+)$/i) {
-		if ($key && $value) {
+		my ($newkey, $newvalue) = ($1, $2);
+
+		if ($newkey =~ /^attributeType(s)?$/i) {
+			$newkey = "olcAttributeTypes";
+		} elsif ($newkey =~ /^objectClass(es)?$/i) {
+			$newkey = "olcObjectClasses";
+		} else {
+			$newkey = "olc$newkey";
+		}
+
+		if ($key) {
 			print "$key: $value\n";
 		}
 
-		($key, $value) = ($1, $2);
-
-		if ($key =~ /^attributeType(s)?$/i) {
-			$key = "olcAttributeTypes";
-		} elsif ($key =~ /^objectClass(es)?$/i) {
-			$key = "olcObjectClasses";
-		} else {
-			$key = "olc$key";
+		if ($opt_replace && lc($key) ne lc($newkey)) {
+			print "-\n" if $count++;
+			print "replace: $newkey\n";
 		}
+
+		($key, $value) = ($newkey, $newvalue);
+
 	}
 	elsif (/^\s+(.+)$/) {
 		if ($opt_unwrap) {

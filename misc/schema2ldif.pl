@@ -7,14 +7,20 @@
 
 use warnings;
 use strict;
+use Getopt::Long qw(:config gnu_getopt no_ignore_case);
+
+my $opt_unwrap = 0;
+
+GetOptions(
+	"unwrap!" => \$opt_unwrap,
+) or exit(2);
 
 if (-t STDIN) {
 	warn "error: expecting a schema as stdin\n";
-	exit 1;
+	exit(1);
 }
 
 my $name = shift(@ARGV) // "UNNAMEDSCHEMA";
-my $unwrap = 0;
 
 print "dn: cn=$name,cn=schema,cn=config\n";
 print "objectClass: olcSchemaConfig\n";
@@ -40,7 +46,7 @@ while (<STDIN>) {
 		}
 	}
 	elsif (/^\s+(.+)$/) {
-		if ($unwrap) {
+		if ($opt_unwrap) {
 			$value .= " $1";
 		} else {
 			$value .= "\n $&";

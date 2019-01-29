@@ -12,9 +12,7 @@ my %Opt = (
 sub is_gitdir {
 	my ($dir) = @_;
 
-	return (-f "$dir/config"
-		&& -d "$dir/objects"
-		&& -d "$dir/refs");
+	return (-f "$dir/config" && -d "$dir/objects" && -d "$dir/refs");
 }
 
 sub clean {
@@ -34,6 +32,11 @@ sub clean {
 			elsif (-l $path) {
 				;
 			}
+			# keep 'marker' directories
+			elsif ($name eq ".stfolder") {
+				_debug("skipping '$path' (SyncThing marker)");
+			}
+			# do not recurse into the git-annex maze
 			elsif (-d "$path/annex/objects") {
 				_notice("skipping '$path' (git-annex repository)");
 			}

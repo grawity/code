@@ -175,6 +175,12 @@ class Partition(object):
         if self.mtpt in fs_noskip_mounts:   return False
         if self.kind in fs_skip_kinds:      return True
         if self.fstype in fs_skip_fstypes:  return True
+        # For ZFS, only show the whole pool
+        if self.fstype == "zfs":
+            tmp = _get_zfs_dataset_info(self.mtpt, "used,avail,name")
+            tmp = tmp[2].split("/")
+            if len(tmp) > 1:
+                return True
         return False
 
     def can_cache(self):

@@ -146,7 +146,10 @@ class PersistentDict(dict):
                 data = json.load(fh)
             self.update(data)
         except FileNotFoundError as e:
-            Core.debug("cache load failed (%r)" % e)
+            Core.debug("cache load failed: %s", e)
+        except json.decoder.JSONDecodeError as e:
+            Core.warn("cache load failed: %s", e)
+            os.unlink(self.path)
 
     def flush(self):
         try:

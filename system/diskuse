@@ -172,8 +172,12 @@ class Partition(object):
         if self.mtpt in fs_noskip_mounts:   return False
         if self.kind in fs_skip_kinds:      return True
         if self.fstype in fs_skip_fstypes:  return True
-        # For ZFS, only show the whole pool
         if self.fstype == "zfs":
+            # For ZFS, only show the whole pool
+            if self.cached:
+                # If reading from cache, it's either a pool (which we won't
+                # skip) or another host's entry (which we can't check).
+                return False
             tmp = _get_zfs_dataset_info(self.mtpt, "used,avail,name")
             tmp = tmp[2].split("/")
             if len(tmp) > 1:
@@ -294,7 +298,7 @@ class Enumerator(object):
     def enum_partitions_system(self, show_cached=False):
         for part in self._enum_partitions(show_cached):
             if part.can_skip():
-                Core.debug("skipping %r", part)
+                Core.debug("skipping %r: is marked as skippable", part)
                 continue
             Core.debug("adding %r", part)
             yield part

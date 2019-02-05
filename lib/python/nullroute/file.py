@@ -93,3 +93,19 @@ def digest_files(paths, digest="sha1"):
         return {k: v for (v, k)
                 in [line.decode().rstrip("\n").split("  ", 1) for line
                     in proc.stdout]}
+
+def hash_file(path, digest="sha1"):
+    import hashlib
+    h = getattr(hashlib, digest)()
+    with open(path, "rb") as fh:
+        buf = True
+        buf_size = 4 * 1024 * 1024
+        while buf:
+            buf = fh.read(buf_size)
+            h.update(buf)
+    return h.hexdigest()
+
+def compare_files(a, b):
+    return (os.path.exists(a)
+        and os.path.exists(b)
+        and hash_file(a) == hash_file(b))

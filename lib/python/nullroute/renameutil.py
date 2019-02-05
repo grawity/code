@@ -46,7 +46,7 @@ class RenameJob():
                 gio_trash_file(old_path)
         elif os.path.exists(new_path):
             print("=>", self.fmt_notfound % new_filename, "[diff]")
-            Core.warn("refusing to overwrite existing file %r", new_filename)
+            Core.err("refusing to overwrite existing file %r", new_filename)
         else:
             print("=>", self.fmt_found % new_filename)
             if not self.dry_run:

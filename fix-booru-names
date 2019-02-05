@@ -4,13 +4,13 @@ import argparse
 import hashlib
 from nullroute.core import *
 from nullroute.api.booru import apis
-from nullroute.fixutil import is_file_partial
 from nullroute.misc import (
     filter_filename,
     get_file_attr,
     set_file_attr,
     uniq,
 )
+from nullroute.renameutil import is_file_partial, RenameJob
 from nullroute.scrape import Scraper
 import re
 import time
@@ -19,7 +19,7 @@ def get_file_origin(path):
     return (get_file_attr(path, "xdg.origin.url"),
             get_file_attr(path, "xdg.referrer.url"))
 
-def hash_file(path):
+def hash_file(path, digest="md5"):
     h = hashlib.md5()
     with open(path, "rb") as fh:
         buf = True
@@ -28,11 +28,6 @@ def hash_file(path):
             buf = fh.read(buf_size)
             h.update(buf)
     return h.hexdigest()
-
-def compare_files(a, b):
-    return (os.path.exists(a)
-        and os.path.exists(b)
-        and hash_file(a) == hash_file(b))
 
 class TagFilter(object):
     def __init__(self):
@@ -115,6 +110,7 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
     fmt_same = "\033[38;5;2m%s\033[m"
 
     old_path = os.path.join(dirpath, filename)
+    job = RenameJob(old_path, dry_run=args.dry_run)
     file_md5 = None
     result_xattr = "%s.id" % args.site
 
@@ -133,11 +129,11 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
     if not file_md5:
         if force_md5:
             Core.debug("hashing %r", old_path)
-            file_md5 = hash_file(old_path)
+            file_md5 = hash_file(old_path, "md5")
             _, file_ext = os.path.splitext(filename)
 
     if file_md5:
-        print(old_path, end=" ", flush=True)
+        job.begin()
         post_id = None
 
         if not post_id:
@@ -164,18 +160,9 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
                                          skip_character_tags=args.no_character_tags)
             new_filename += file_ext
             new_path = os.path.join(dirpath, new_filename)
-            if filename == new_filename:
-                print("=>", fmt_same % "[no change]")
-            elif compare_files(old_path, new_path):
-                print("=>", fmt_same % new_filename)
-                if not args.dry_run:
-                    os.unlink(old_path)
-            else:
-                print("=>", fmt_found % new_filename)
-                if not args.dry_run:
-                    os.rename(old_path, new_path)
+            job.end_rename(new_path)
         else:
-            print("=>", fmt_notfound % "[not found]")
+            job.end_notfound()
             set_file_attr(old_path, result_xattr, "notfound")
 
 def download_image(url):

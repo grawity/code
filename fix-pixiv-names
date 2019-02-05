@@ -5,6 +5,7 @@ from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.misc import filter_filename, set_file_attrs
 from nullroute.api.pixiv import PixivClient
+from nullroute.renameutil import RenameJob
 import os
 from pprint import pprint
 import re
@@ -12,26 +13,6 @@ from requests.exceptions import HTTPError
 
 # TODO: https://danbooru.donmai.us/wiki_pages/58938
 # TODO: https://github.com/r888888888/danbooru/issues/2383
-
-def hash_file(path):
-    import hashlib
-    h = hashlib.md5()
-    with open(path, "rb") as fh:
-        buf = True
-        buf_size = 4 * 1024 * 1024
-        while buf:
-            buf = fh.read(buf_size)
-            h.update(buf)
-    return h.hexdigest()
-
-def compare_files(a, b):
-    return (os.path.exists(a)
-        and os.path.exists(b)
-        and hash_file(a) == hash_file(b))
-
-def gio_rename_file(old_name, new_name):
-    import subprocess
-    subprocess.run(["gio", "move", old_name, new_name]).check_returncode()
 
 class PixivApi(PixivClient):
     MEMBER_URL = "http://www.pixiv.net/member.php?id=%s"
@@ -140,9 +121,8 @@ def rename_file_in_dir(dirpath, filename):
     global suffix_re
     global pixiv_api
 
-    fmt_found = "\033[38;5;10m%s\033[m"
-    fmt_notfound = "\033[38;5;9m%s\033[m"
-    fmt_same = "\033[38;5;2m%s\033[m"
+    old_path = os.path.join(dirpath, filename)
+    job = RenameJob(old_path, args.dry_run)
 
     if re.search(r'_pixiv\d+', filename):
         Core.debug("skip %r: found '_pixiv' in name", filename)
@@ -151,71 +131,43 @@ def rename_file_in_dir(dirpath, filename):
     m = bare_re.match(filename)
     if m:
         Core.debug("process %r: matched bare regex, groups %r", filename, m.groups())
-        old_path = os.path.join(dirpath, filename)
-        print(old_path, end=" ", flush=True)
-
+        job.begin()
         illust_id = int(m.group(1))
         try:
             prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
         except HTTPError as e:
-            print(fmt_notfound % "failed")
-            Core.err(str(e))
+            job.end_fail(e)
             return
-
         filename = prefix + " " + filename
-        new_path = os.path.join(dirpath, filename)
-        if not args.dry_run:
-            if old_path == new_path:
-                print("=>", fmt_same % new_path)
-            elif os.path.exists(new_path) and not compare_files(old_path, new_path):
-                print("=>", fmt_notfound % new_path)
-                Core.warn("refusing to overwrite existing file %r", new_path)
-            else:
-                print("=>", fmt_found % new_path)
-                #os.rename(old_path, new_path)
-                gio_rename_file(old_path, new_path)
+        job.end_rename(filename)
         return
 
     m = prefix_re.match(filename)
     if m:
         Core.debug("process %r: matched prefix regex, groups %r", filename, m.groups())
-        old_path = os.path.join(dirpath, filename)
-        print(old_path, end=" ", flush=True)
-
+        job.begin()
         member_id = int(m.group(1))
         try:
             prefix = pixiv_api.get_prefix_by_member_id(member_id)
         except HTTPError as e:
-            print(fmt_notfound % "failed")
-            Core.err(str(e))
+            job.end_fail(e)
             return
-
         filename = prefix + " " + m.group(2)
-        new_path = os.path.join(dirpath, filename)
-        print("=>", fmt_found % filename)
-        if not args.dry_run:
-            os.rename(old_path, new_path)
+        job.end_rename(filename)
         return
 
     m = suffix_re.match(filename)
     if m:
         Core.debug("process %r: matched suffix regex, groups %r", filename, m.groups())
-        old_path = os.path.join(dirpath, filename)
-        print(old_path, end=" ", flush=True)
-
+        job.begin()
         illust_id = int(m.group(2))
         try:
             prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
         except HTTPError as e:
-            print(fmt_notfound % "failed")
-            Core.err(str(e))
+            job.end_fail(e)
             return
-
         filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
-        new_path = os.path.join(dirpath, filename)
-        print("=>", fmt_found % filename)
-        if not args.dry_run:
-            os.rename(old_path, new_path)
+        job.end_rename(filename)
         return
 
     Core.trace("skip %r: not matched", filename)

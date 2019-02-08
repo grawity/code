@@ -31,8 +31,8 @@ class LdapClient():
         self._controls = {v.decode() for v in self.rootDSE["supportedControl"]}
         self._features = {v.decode() for v in self.rootDSE["supportedFeatures"]}
 
-    def bind_gssapi(self):
-        self.conn.sasl_interactive_bind_s("", ldap.sasl.gssapi())
+    def bind_gssapi(self, authzid=""):
+        self.conn.sasl_gssapi_bind_s(authz_id=authzid)
 
     def whoami(self):
         return self.conn.whoami_s()

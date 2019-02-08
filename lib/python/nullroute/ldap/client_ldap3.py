@@ -28,6 +28,9 @@ class LdapClient():
         self.conn.sasl_mechanism = ldap3.GSSAPI
         self.conn.bind()
 
+    def whoami(self):
+        return self.conn.extend.standard.who_am_i()
+
     def has_control(self, oid):
         return oid in self._controls
 

@@ -34,6 +34,9 @@ class LdapClient():
     def bind_gssapi(self):
         self.conn.sasl_interactive_bind_s("", ldap.sasl.gssapi())
 
+    def whoami(self):
+        return self.conn.whoami_s()
+
     def has_control(self, oid):
         return oid in self._controls
 

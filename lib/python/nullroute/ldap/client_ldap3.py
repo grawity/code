@@ -9,10 +9,10 @@ OID_LDAP_FEATURE_MODIFY_INCREMENT = "1.3.6.1.1.14"
 
 class LdapClient():
     def __init__(self, url):
-        self._serv = ldap3.Server(url,
-                                 tls=ldap3.Tls(validate=ssl.CERT_REQUIRED),
-                                 get_info=ldap3.DSA)
-        self.conn = ldap3.Connection(self._serv,
+        serv = ldap3.Server(url,
+                            tls=ldap3.Tls(validate=ssl.CERT_REQUIRED),
+                            get_info=ldap3.DSA)
+        self.conn = ldap3.Connection(serv,
                                      #authentication=ldap3.SASL,
                                      #sasl_mechanism=ldap3.GSSAPI,
                                      raise_exceptions=True)

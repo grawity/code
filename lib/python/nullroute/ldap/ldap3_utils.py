@@ -16,7 +16,7 @@ def connect_gssapi(url):
                             sasl_mechanism=ldap3.GSSAPI,
                             raise_exceptions=True)
     conn.open()
-    if not url.startswith("ldaps://"):
+    if not url.startswith(("ldaps://", "ldapi://")):
         if not conn.start_tls():
             raise Exception("start_tls failed", conn.result)
     if not conn.bind():

@@ -19,7 +19,7 @@ class CaseInsensitiveDict(dict):
 
 def connect_gssapi(url):
     conn = ldap.initialize(url)
-    if not url.startswith("ldaps://"):
+    if not url.startswith(("ldaps://", "ldapi://")):
         conn.start_tls_s()
     conn.sasl_interactive_bind_s("", ldap.sasl.gssapi())
     return conn

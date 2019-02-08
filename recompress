@@ -46,7 +46,10 @@ for iname in "${infiles[@]}"; do
 		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 	done
 	oname=${iname%.png}.jpg
-	magick convert "$iname" -quality "$quality" "$oname" & (( ++njobs ))
+	{
+		magick convert "$iname" -quality "$quality" "$oname" &&
+		touch "$oname" --reference="$iname"
+	} & (( ++njobs ))
 	outfiles+=("$oname")
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 done

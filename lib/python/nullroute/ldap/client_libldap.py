@@ -18,6 +18,9 @@ class CaseInsensitiveDict(dict):
     def __setitem__(self, key, value):
         super().__setitem__(key.lower(), value)
 
+    def get(self, key, default=None):
+        return super().get(key.lower(), default)
+
 def _decode_dict_values(d):
     return {k: [v.decode() for v in vs] for k, vs in d.items()}
 
@@ -28,8 +31,8 @@ class LdapClient():
             self.conn.start_tls_s()
 
         self.rootDSE = CaseInsensitiveDict(self.conn.read_rootdse_s())
-        self._controls = {v.decode() for v in self.rootDSE["supportedControl"]}
-        self._features = {v.decode() for v in self.rootDSE["supportedFeatures"]}
+        self._controls = {v.decode() for v in self.rootDSE.get("supportedControl", [])}
+        self._features = {v.decode() for v in self.rootDSE.get("supportedFeatures", [])}
 
     def bind_gssapi(self, authzid=""):
         self.conn.sasl_gssapi_bind_s(authz_id=authzid)

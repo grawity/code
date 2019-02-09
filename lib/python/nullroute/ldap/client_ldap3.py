@@ -8,7 +8,7 @@ OID_LDAP_CONTROL_POSTREAD = "1.3.6.1.1.13.2"
 OID_LDAP_FEATURE_MODIFY_INCREMENT = "1.3.6.1.1.14"
 
 class LdapClient():
-    def __init__(self, url):
+    def __init__(self, url, require_tls=True):
         serv = ldap3.Server(url,
                             tls=ldap3.Tls(validate=ssl.CERT_REQUIRED),
                             get_info=ldap3.DSA)
@@ -17,7 +17,7 @@ class LdapClient():
                                      #sasl_mechanism=ldap3.GSSAPI,
                                      raise_exceptions=True)
         self.conn.open()
-        if not url.startswith(("ldaps://", "ldapi://")):
+        if require_tls and not url.startswith(("ldaps://", "ldapi://")):
             self.conn.start_tls()
 
         self._controls = {c[0] for c in self.conn.server.info.supported_controls}

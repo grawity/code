@@ -22,9 +22,9 @@ def _decode_dict_values(d):
     return {k: [v.decode() for v in vs] for k, vs in d.items()}
 
 class LdapClient():
-    def __init__(self, url):
+    def __init__(self, url, require_tls=True):
         self.conn = ldap.initialize(url)
-        if not url.startswith(("ldaps://", "ldapi://")):
+        if require_tls and not url.startswith(("ldaps://", "ldapi://")):
             self.conn.start_tls_s()
 
         self.rootDSE = CaseInsensitiveDict(self.conn.read_rootdse_s())

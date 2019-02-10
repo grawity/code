@@ -4,6 +4,16 @@
 
 show_pkgnames=1
 
+if (( show_pkgnames )); then
+	if have pacman; then
+		pkg_file() { pacman -Qqo "$1"; }
+	elif have dpkg; then
+		pkg_file() { dpkg -S "$1" | sed "s/: .*$//; s/:[^:]*$//"; }
+	else
+		show_pkgnames=0
+	fi
+fi
+
 _head() { echo; echo "$@"; }
 
 listfiles() {
@@ -14,7 +24,7 @@ listfiles() {
 		name=${base#"$pref"}
 		name=${name%"$suff"}
 		if (( show_pkgnames )); then
-			name+=" [$(pacman -Qqo "$f")]"
+			name+=" [$(pkg_file "$f")]"
 		fi
 		echo "  - $name"
 	done

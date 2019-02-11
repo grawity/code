@@ -36,14 +36,17 @@ else
 
 	paths=()
 	for arg in "$@"; do
-		paths+=("$rel/$arg")
+		arg=$(realpath --relative-base="$root" "$arg")
+		#paths+=("$rel/$arg")
+		paths+=("$arg")
 	done
 	debug "paths to restore: ${paths[@]}"
 fi
 
 case $host in
 	frost)	repo="/vol4/Backup/Homes/$host.borg";;
-	rain)	repo="/vol3/Backup/Homes/$host.borg";;
+	rain|midnight)
+		repo="/vol3/Backup/Homes/$host.borg";;
 esac
 
 [[ -d $repo ]] || die "repository '$repo' not found"

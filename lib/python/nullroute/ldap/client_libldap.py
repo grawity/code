@@ -26,6 +26,7 @@ def _decode_dict_values(d):
 
 class LdapClient():
     def __init__(self, url, require_tls=True):
+        Core.debug("creating libldap connection to %r", url)
         self.conn = ldap.initialize(url)
         if require_tls and not url.startswith(("ldaps://", "ldapi://")):
             self.conn.start_tls_s()

@@ -82,7 +82,7 @@ idrac6_template = """<?xml version="1.0" encoding="UTF-8"?>
 
 def find_java(*versions):
     for v in version:
-        if os.path.exists("/usr/lib/jvm/%s" % v):
+        if os.path.exists("/usr/lib/jvm/%s/bin/javaws" % v):
             return v
     Core.die("Java version %r not installed", versions)
 
@@ -254,7 +254,7 @@ class DracProber(Scraper):
 
         else:
             #runtime = "java-11-jdk"
-            runtime = "java-8-jre/jre"
+            runtime = find_java("java-8-jre/jre", "java-8-jdk")
 
         jnlp_path = os.path.join(self.temp_dir.name, "vkvm.jnlp")
         with open(jnlp_path, "wb") as fh:

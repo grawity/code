@@ -33,6 +33,9 @@ class RenameJob():
         print("=>", self.fmt_notfound % "[not found]")
 
     def end_rename(self, new_filename):
+        if "/" in new_filename:
+            raise ValueError("end_rename() expects only basename, not full path")
+
         old_path = self.old_path
         new_path = os.path.join(os.path.dirname(old_path), new_filename)
         old_filename = os.path.basename(old_path)

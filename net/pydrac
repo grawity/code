@@ -80,6 +80,12 @@ idrac6_template = """<?xml version="1.0" encoding="UTF-8"?>
   </resources>
 </jnlp>"""
 
+def find_java(*versions):
+    for v in version:
+        if os.path.exists("/usr/lib/jvm/%s" % v):
+            return v
+    Core.die("Java version %r not installed", versions)
+
 class UnknownVersionError(Exception):
     pass
 
@@ -243,7 +249,7 @@ class DracProber(Scraper):
 
         elif self.version == "iDRAC6":
             # Java 9 or newer will not accept keyboard input
-            runtime = "java-8-jre/jre"
+            runtime = find_java("java-8-jre/jre", "java-8-openjdk/jre")
             jnlp = self._force_j2se_version(jnlp, "1.8 1.7 1.6")
 
         else:

@@ -52,6 +52,8 @@ sub decode {
 		if ($opts{format_QP}) {
 			s/=\n//gs;
 			s/=([A-F0-9]{2})/pack('C', hex($1))/gse;
+		} elsif ($opts{format_ldap_dn}) {
+			s/\\([0-9A-F]{2})/pack('C', hex($1))/gse;
 		} elsif ($opts{format_locale}) {
 			s/<U([0-9A-F]{4,8})>/pack('C', hex($1))/gse;
 		} elsif ($opts{format_xml}) {

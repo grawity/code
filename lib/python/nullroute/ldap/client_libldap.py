@@ -47,6 +47,22 @@ class LdapClient():
     def has_feature(self, oid):
         return oid in self._features
 
+    def search(self, base, filter=None, scope="sub", attrs=None):
+        filter = filter or "(objectClass=*)"
+        scope = {
+            "base":         ldap.SCOPE_BASE,
+            "subtree":      ldap.SCOPE_SUBTREE,
+            "sub":          ldap.SCOPE_SUBTREE,
+            "onelevel":     ldap.SCOPE_ONELEVEL,
+            "one":          ldap.SCOPE_ONELEVEL,
+            "subordinate":  ldap.SCOPE_SUBORDINATE,
+            "child":        ldap.SCOPE_SUBORDINATE,
+        }[scope]
+        attrs = [*attrs] if attrs else ["*"]
+        result = self.conn.search_ext_s(base, scope, filter, attrs)
+        result = [(dn, CaseInsensitiveDict(attrs)) for (dn, attrs) in result]
+        return result
+
     def read_entry(self, dn, raw=False):
         attrs = self.conn.read_s(dn)
         if not raw:

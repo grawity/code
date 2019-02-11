@@ -39,6 +39,26 @@ class LdapClient():
     def has_feature(self, oid):
         return oid in self._features
 
+    def search(self, base, filter=None, scope="sub", attrs=None):
+        filter = filter or "(objectClass=*)"
+        scope = {
+            "base":         ldap3.BASE,
+            "subtree":      ldap3.SUBTREE,
+            "sub":          ldap3.SUBTREE,
+            "onelevel":     ldap3.LEVEL,
+            "one":          ldap3.LEVEL,
+            # not natively supported by ldap3
+            #"subordinate":  ldap3.SUBORDINATE,
+            #"child":        ldap3.SUBORDINATE,
+        }[scope]
+        attrs = [*attrs] if attrs else ["*"]
+        ok = self.conn.search(base, filter,
+                              search_scope=scope,
+                              attributes=attrs)
+        entries = self.conn.entries
+        entries = [(entry.entry_dn, entry.entry_raw_attributes) for entry in entries]
+        return entries
+
     def read_entry(self, dn, raw=False):
         if not self.conn.search(dn, "(objectClass=*)",
                                 search_scope=ldap3.BASE,

@@ -12,6 +12,12 @@ char *unsafe_chars = "";
 bool decode_plus = true;
 bool do_quoted_printable = false;
 
+enum {
+	DecodeNormal = 0,
+	DecodeLeaderFound,
+	DecodeAccumulateHex,
+} DecodeState;
+
 static int htoi(char ch) {
 	switch (ch) {
 	case '0'...'9': return ch - '0';
@@ -100,47 +106,49 @@ static void encode_qp(FILE *fp, char *fh) {
 static void decode(FILE *fp, char *fn, char leader) {
 	int ch;
 	size_t pos = 0;
-	int state = 0;
+	int state = DecodeNormal;
 	int value;
 	int tmp;
 
 	while ((ch = getc(fp)) != EOF && ++pos) {
 		switch (state) {
-		case 0:
+		case DecodeNormal:
 			if (ch == leader) {
 				value = 0;
-				state = 1;
+				state = DecodeLeaderFound;
 			} else if (leader == '%' && ch == '+') {
 				putchar(decode_plus ? ' ' : ch);
 			} else {
 				putchar(ch);
 			}
 			break;
-		case 1:
+		case DecodeLeaderFound:
 			if (leader == '=' && (ch == '\r' || ch == '\n')) {
-				state = 0;
+				/* QP: leader + newline are ignored (unwrap lines) */
+				state = DecodeNormal;
 				continue;
 			}
 			tmp = htoi(ch);
 			if (tmp >= 0) {
 				value = tmp;
-				state = 2;
+				state = DecodeAccumulateHex;
 			} else {
 				putchar(leader);
 				putchar(ch);
-				state = 0;
+				state = DecodeNormal;
 			}
 			break;
-		case 2:
+		case DecodeAccumulateHex:
 			tmp = htoi(ch);
 			if (tmp >= 0) {
 				putchar((value << 4) | tmp);
+				state = DecodeNormal;
 			} else {
 				putchar(leader);
 				putchar(value);
 				putchar(ch);
+				state = DecodeNormal;
 			}
-			state = 0;
 			break;
 		}
 	}

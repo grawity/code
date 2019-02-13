@@ -11,6 +11,7 @@ char *safe_chars = "";
 char *unsafe_chars = "";
 bool decode_plus = true;
 bool do_quoted_printable = false;
+bool do_ldap_filter = false;
 
 enum {
 	DecodeNormal = 0,
@@ -28,6 +29,7 @@ static int htoi(char ch) {
 }
 
 static void encode_url(FILE *fp, char *fn) {
+	char leader = '%';
 	int ch;
 	size_t pos = 0;
 	bool safe;
@@ -68,7 +70,7 @@ static void encode_url(FILE *fp, char *fn) {
 		if (safe)
 			putchar(ch);
 		else
-			printf("%%%02X", ch);
+			printf("%c%02X", leader, ch);
 	}
 }
 
@@ -160,6 +162,11 @@ static void process(FILE *fp, char *fh) {
 			decode(fp, fh, '=');
 		else
 			encode_qp(fp, fh);
+	} else if (do_ldap_filter) {
+		if (do_decode)
+			decode(fp, fh, '\\');
+		else
+			encode_gen(fp, fh);
 	} else {
 		if (do_decode)
 			decode(fp, fh, '%');

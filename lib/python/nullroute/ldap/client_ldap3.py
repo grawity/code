@@ -39,7 +39,7 @@ class LdapClient():
     def has_feature(self, oid):
         return oid in self._features
 
-    def search(self, base, filter=None, scope="sub", attrs=None):
+    def search(self, base, filter=None, scope=None, attrs=None):
         filter = filter or "(objectClass=*)"
         scope = {
             "base":         ldap3.BASE,
@@ -50,7 +50,7 @@ class LdapClient():
             # not natively supported by ldap3
             #"subordinate":  ldap3.SUBORDINATE,
             #"child":        ldap3.SUBORDINATE,
-        }[scope]
+        }[scope or "subtree"]
         attrs = [*attrs] if attrs else ["*"]
         ok = self.conn.search(base, filter,
                               search_scope=scope,

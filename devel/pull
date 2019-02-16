@@ -67,24 +67,15 @@ do_pull() {
 				log: svnsync sync "$rroot"
 			fi
 		fi
+		rev() { git rev-parse --verify HEAD; }
+		old=$(rev)
 		log: git svn fetch
-		d=$(git rev-parse --git-dir)
-		h=$(< "$d/HEAD")
-		if [[ $h == 'ref: refs/heads/'* ]]; then
-			br=${h#'ref: refs/heads/'}
-			if [[ $(git config branch.$br.remote) == . ]] &&
-			   [[ $(git config branch.$br.merge) == refs/remotes/* ]]
-			then
-				rev() { git rev-parse --verify HEAD; }
-				old=$(rev)
-				log: git merge --ff-only
-				new=$(rev)
-				if [[ "$old" != "$new" ]]; then
-					old=${old:0:12}
-					new=${new:0:12}
-					upd: "$old" "$new" tig $old..$new
-				fi
-			fi
+		log: git svn rebase
+		new=$(rev)
+		if [[ "$old" != "$new" ]]; then
+			old=${old:0:12}
+			new=${new:0:12}
+			upd: "$old" "$new" tig $old..$new
 		fi
 	elif [[ -e .git ]]; then
 		is "Git"

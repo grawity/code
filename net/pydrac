@@ -240,6 +240,8 @@ class DracProber(Scraper):
         runtime = "default-runtime"
         jnlp = self.fetch_webstart()
 
+        jre8 = find_java("java-8-jre/jre", "java-8-openjdk/jre", "java-8-jdk")
+
         if self.version == "DRAC5":
             # Tested with DRAC5 firmware v1.60 and v1.65
             # Require Java 6, because applet is MD5-signed (and apparently uses SSLv3?)
@@ -249,12 +251,12 @@ class DracProber(Scraper):
 
         elif self.version == "iDRAC6":
             # Java 9 or newer will not accept keyboard input
-            runtime = find_java("java-8-jre/jre", "java-8-openjdk/jre")
+            runtime = jre8
             jnlp = self._force_j2se_version(jnlp, "1.8 1.7 1.6")
 
         else:
             #runtime = "java-11-jdk"
-            runtime = find_java("java-8-jre/jre", "java-8-jdk")
+            runtime = jre8
 
         jnlp_path = os.path.join(self.temp_dir.name, "vkvm.jnlp")
         with open(jnlp_path, "wb") as fh:

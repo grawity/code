@@ -211,6 +211,16 @@ except KeyError:
 else:
     api = api(tag_filter=tag_filter)
 
+types = [
+    ".jpeg",
+    ".jpg",
+    ".gif",
+    ".png",
+    ".bmp",
+    ".webm",
+    ".zip",
+]
+
 for arg in args.path or ["."]:
     if "://" in arg:
         download_image(arg)
@@ -223,6 +233,9 @@ for arg in args.path or ["."]:
             for filename in filenames:
                 if is_file_partial(filename):
                     Core.debug("skipping partial file: %r", filename)
+                    continue
+                if not filename.endswith((*types,)):
+                    Core.debug("skipping non-image file: %r", filename)
                     continue
                 rename_file_in_dir(dirpath, filename, force_md5=args.force)
     else:

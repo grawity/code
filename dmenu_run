@@ -71,7 +71,7 @@ input=${input#+}
 
 if [[ "$input" ]]; then
 	if ! command -v "${input%% *}" >&/dev/null; then
-		zenity --error --text="Command '${input%% *}' not found." --width=300 &
+		zenity --error --text="Command '${input%% *}' not found." --width=300
 		exit
 	fi
 
@@ -79,5 +79,20 @@ if [[ "$input" ]]; then
 		echo "$(date +%s) $input" >> "$hist"
 	fi
 
-	echo "$input" | ${SHELL:-/bin/sh} &
-fi
+	tag="run.$$.$RANDOM"
+	tstart=$(date +%s)
+
+	echo "$input" | ${SHELL:-/bin/sh} 2>&1 | systemd-cat -t "$tag"
+
+	tend=$(date +%s)
+	if (( tend - tstart <= 2 )); then
+		msg="Command '${input%% *}' exited in $(( tend - tstart )) seconds."
+		journal=$(journalctl -b -t "$tag" -o cat)
+		if [[ $journal ]]; then
+			zenity --error --text="$msg"$'\n\n'"$journal" --width=550
+		else
+			zenity --error --text="$msg" --width=300
+		fi
+		exit
+	fi
+fi &

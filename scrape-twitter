@@ -65,9 +65,12 @@ class TwitterImageScraper(Scraper):
                 filename = filename[:-len(":large")]
             else:
                 img_url = "%s:large" % img_url
-            Core.info("  saving %r" % filename)
-            self.save_file(img_url, filename,
-                           referer=post_url)
+            if os.path.exists(filename):
+                Core.info("  skipping %r (exists)", filename)
+            else:
+                Core.info("  saving %r", filename)
+                self.save_file(img_url, filename,
+                               referer=post_url)
 
 s = TwitterImageScraper()
 args = sys.argv[1:]

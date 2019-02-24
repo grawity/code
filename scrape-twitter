@@ -60,11 +60,14 @@ class TwitterImageScraper(Scraper):
             Core.err("no images found!")
 
         for img_url in photo_urls:
-            filename = "%s %s" % (filter_filename(user_name), os.path.basename(img_url))
-            if img_url.endswith(":large"):
-                filename = filename[:-len(":large")]
+            basename = os.path.basename(img_url)
+            if ":" in basename:
+                basename, suffix = basename.rsplit(":", 1)
+                if suffix != "orig":
+                    img_url = img_url[:-len(suffix)] + "orig"
             else:
-                img_url = "%s:large" % img_url
+                img_url += ":orig"
+            filename = "%s %s" % (filter_filename(user_name), basename)
             if os.path.exists(filename):
                 Core.info("  skipping %r (exists)", filename)
             else:

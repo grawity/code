@@ -33,6 +33,7 @@ def filter_filename(name, safe=False, allow_space=True):
         ('<', '_' if safe else '‹'),
         ('>', '_' if safe else '›'),
         ('?', '_' if safe else '？'),
+        ('|', '_' if safe else '¦'),
         ('\\', '_' if safe else '∖'),
         # wide characters
         ('　', '_' if not allow_space else ' '),

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+host=ember
+fqdn="bmc.$host.nullroute.eu.org"
+user=$(getnetrc -sdf %u "ipmi/$fqdn")
+pass=$(getnetrc -sdf %p "ipmi/$fqdn")
+k_g=$(getnetrc -sdf %p "rmcp/$fqdn")
+
+if have ipmi-console; then
+	echo "[escape sequence: & .]"
+	ipmi-console -h "$fqdn" -u "$user" -p "$pass" -k "$k_g"
+elif have ipmitool; then
+	# TODO: -k is string key, -y is hex key, which one matches ipmi-console?
+	# TODO: use -E -K
+	#IPMI_PASSWORD=$pass
+	#IPMI_KGKEY=$k_g
+	ipmitool -I lanplus -H "$fqdn" -U "$user" -P "$pass" -k "$k_g" sol activate
+else
+	die "no IPMI client tools installed"
+fi

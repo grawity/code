@@ -8,15 +8,41 @@ user=$(getnetrc -sdf %u "ipmi/$fqdn")
 pass=$(getnetrc -sdf %p "ipmi/$fqdn")
 k_g=$(getnetrc -sdf %p "rmcp/$fqdn")
 
-if have ipmi-console; then
-	echo "[escape sequence: & .]"
-	ipmi-console -h "$fqdn" -u "$user" -p "$pass" -k "$k_g"
-elif have ipmitool; then
-	# TODO: -k is string key, -y is hex key, which one matches ipmi-console?
-	# TODO: use -E -K
-	#IPMI_PASSWORD=$pass
-	#IPMI_KGKEY=$k_g
-	ipmitool -I lanplus -H "$fqdn" -U "$user" -P "$pass" -k "$k_g" sol activate
+freeipmi_args=(-h "$fqdn" -u "$user" -p "$pass" -k "$k_g")
+ipmitool_args=(-I lanplus -H "$fqdn" -U "$user" -P "$pass" -k "$k_g")
+# TODO: ipmitool -k is string key, -y is hex key, which one matches ipmi-console?
+# TODO: use -E -K for ipmitool
+#IPMI_PASSWORD=$pass
+#IPMI_KGKEY=$k_g
+
+if [[ $1 == --@(power|power-status) ]]; then
+	info "getting power status"
+	if have ipmi-power; then
+		ipmi-power -D LAN_2_0 "${freeipmi_args[@]}" --stat
+	elif have ipmitool; then
+		ipmitool "${ipmitool_args[@]}" status
+	else
+		die "no IPMI client tools installed"
+	fi
+elif [[ $1 == --power-@(on|off|cycle|reset) ]]; then
+	cmd=${1#--power-}
+	confirm "send 'power $cmd' command to $host?" || exit
+	info "sending 'power $cmd' command"
+	if have ipmi-power; then
+		ipmi-power -D LAN_2_0 "${freeipmi_args[@]}" --$cmd
+	elif have ipmitool; then
+		ipmitool "${ipmitool_args[@]}" $cmd
+	else
+		die "no IPMI client tools installed"
+	fi
 else
-	die "no IPMI client tools installed"
+	info "connecting to serial console"
+	if have ipmi-console; then
+		echo "[escape sequence: & .]"
+		ipmi-console "${freeipmi_args[@]}"
+	elif have ipmitool; then
+		ipmitool "${ipmitool_args[@]}" sol activate
+	else
+		die "no IPMI client tools installed"
+	fi
 fi

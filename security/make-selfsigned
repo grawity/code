@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+cn=$1
+
+if [[ ! $cn ]]; then
+	die "common name not specified"
+fi
+
+days=$(( 365 * 3 ))
+
+out_cert="$cn.crt"
+out_key="$cn.key"
+
+if have openssl; then
+	(umask 077; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > "$out_key")
+fi
+in_key=$out_key
+
+if have openssl; then
+	tmp_cfg="$(mktemp /tmp/openssl.cfg.XXXXXXXXXX)"
+	cat > "$tmp_cfg" <<-EOF
+	[req]
+	prompt = no
+	utf8 = yes
+	distinguished_name = dn
+	x509_extensions = exts
+
+	[dn]
+	CN = $cn
+
+	[exts]
+	basicConstraints = CA:FALSE
+	keyUsage = digitalSignature
+	extendedKeyUsage = clientAuth
+	EOF
+	openssl req -new -x509 -config "$tmp_cfg" -days "$days" -key "$in_key" > "$out_cert"
+	openssl x509 -in "$out_cert" -noout -text
+fi

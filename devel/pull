@@ -52,6 +52,7 @@ do_pull() {
 	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
 
 	local errors=0
+	local git_diffstat_opts=(":(exclude)vendor")
 
 	if (( opt_dryrun > 1 )); then
 		is "noop"
@@ -81,18 +82,18 @@ do_pull() {
 		is "Git"
 		rev() { git rev-parse --verify ${1:-HEAD}; }
 		old=$(rev)
-		if log: git pull --ff-only; then
+		if log: git pull --ff-only --no-stat; then
 			new=$(rev)
 			if [[ -e .gitmodules ]]; then
 				log: git submodule update
 			fi
 		else
 			new=$(rev @{u})
-			log: git --no-pager diff --stat "@{u}@{1}".."@{u}"
 		fi
 		if [[ "$old" != "$new" ]]; then
 			old=${old:0:12}
 			new=${new:0:12}
+			log: git --no-pager diff --stat "$old".."$new" "${git_diffstat_opts[@]}"
 			upd: "$old" "$new" tig $old..$new
 		fi
 	elif [[ -d .hg ]]; then
@@ -154,7 +155,7 @@ do_pull() {
 		log: git fetch
 		new=$(rev)
 		if [[ "$old" != "$new" ]]; then
-			git --no-pager diff --stat "$old" "$new"
+			git --no-pager diff --stat "$old" "$new" "${git_diffstat_opts[@]}"
 			old=${old:0:12}
 			new=${new:0:12}
 			upd: "$old" "$new" tig "$old..$new"

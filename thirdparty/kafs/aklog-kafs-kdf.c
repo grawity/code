@@ -15,12 +15,15 @@
  * Written by David Howells (dhowells@redhat.com)
  */
 
+#define progname "aklog"
+
 #define _XOPEN_SOURCE 500
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <err.h>
 #include <keyutils.h>
 #include <gcrypt.h>
 #include <krb5.h>
@@ -45,8 +48,6 @@ struct rxrpc_key_sec2_v1 {
 };
 
 #define RXKAD_TKT_TYPE_KERBEROS_V5              256
-#define OSERROR(X, Y) do { if ((long)(X) == -1) { perror(Y); exit(1); } } while(0)
-#define KRBERROR(X, Y) do { if ((X) != 0) { const char *msg = krb5_get_error_message(k5_ctx, (X)); fprintf(stderr, "%s: %s\n", (Y), msg); krb5_free_error_message(k5_ctx, msg); exit(1); } } while(0)
 
 #include "des-mini.h"
 
@@ -179,40 +180,59 @@ int main(int argc, char **argv)
 	krb5_ccache cc;
 	krb5_creds search_cred, *creds;
 
-	if (argc < 3) {
-		fprintf(stderr, "Usage: aklog cell realm\n");
-		exit(1);
+	if (argc != 3) {
+		fprintf(stderr, "Usage: %s <cell> <realm>\n", progname);
+		exit(2);
 	}
-	cell=argv[1];
-	realm=argv[2];
+	cell = argv[1];
+	realm = argv[2];
 
-	kresult=krb5_init_context(&k5_ctx);
+	kresult = krb5_init_context(&k5_ctx);
 	if (kresult) {
-		fprintf(stderr, "krb5_init_context failed\n");
+		com_err(progname, kresult, "while initializing krb5");
 		exit(1);
 	}
-	kresult=krb5_allow_weak_crypto(k5_ctx, 1);
-	KRBERROR(kresult, "Enabling weak crypto (DES) use");
+
+	kresult = krb5_allow_weak_crypto(k5_ctx, 1);
+	if (kresult) {
+		com_err(progname, kresult, "while enabling weak crypto (DES)");
+		exit(1);
+	}
+
 	kresult = krb5_cc_default(k5_ctx, &cc);
-	KRBERROR(kresult, "Getting credential cache");
+	if (kresult) {
+		com_err(progname, kresult, "while getting default credential cache");
+		exit(1);
+	}
 
 	memset(&search_cred, 0, sizeof(krb5_creds));
 
 	kresult = krb5_cc_get_principal(k5_ctx, cc, &search_cred.client);
-	KRBERROR(kresult, "Getting client principal");
+	if (kresult) {
+		com_err(progname, kresult, "while getting client principal");
+		exit(1);
+	}
 
-	for (mode=0;mode < 2;mode++) {
+	for (mode = 0; mode <= 1; mode++) {
 		kresult = krb5_build_principal(k5_ctx, &search_cred.server,
 		                               strlen(realm), realm, "afs",
 		                               mode ? NULL : cell, NULL);
-		KRBERROR(kresult, "Building server principal name");
+		if (kresult) {
+			com_err(progname, kresult, "while building server principal name");
+			exit(1);
+		}
+
 		kresult = krb5_get_credentials(k5_ctx, 0, cc, &search_cred, &creds);
 		if (kresult == 0)
 			break;
+		else if (mode) {
+			com_err(progname, kresult, "while getting tickets for afs%s%s", mode ? "" : "/", mode ? "" : cell);
+			exit(1);
+		}
+
 		krb5_free_principal(k5_ctx, search_cred.server);
-		search_cred.server=NULL;
+		search_cred.server = NULL;
 	}
-	KRBERROR(kresult, "Getting tickets");
 
 	plen = sizeof(*payload) + creds->ticket.length;
 	payload = calloc(1, plen + 4);
@@ -227,10 +247,8 @@ int main(int argc, char **argv)
 	payload->ticket_length  = creds->ticket.length;
 	payload->expiry         = creds->times.endtime;
 	payload->kvno           = RXKAD_TKT_TYPE_KERBEROS_V5;
-	if (convert_key(payload->session_key, CREDS_ENCTYPE(creds),
-	    CREDS_KEYLEN(creds), CREDS_KEYDATA(creds))) {
-		fprintf(stderr, "session key could not be converted to a suitable DES key\n");
-		exit(1);
+	if (convert_key(payload->session_key, CREDS_ENCTYPE(creds), CREDS_KEYLEN(creds), CREDS_KEYDATA(creds))) {
+		errx(1, "session key could not be converted to a suitable DES key\n");
 	}
 	memcpy(payload->ticket, creds->ticket.data, creds->ticket.length);
 
@@ -239,13 +257,15 @@ int main(int argc, char **argv)
 	added to KEY_SPEC_SESSION_KEYRING! Since we exit immediately, that
 	keyring will be orphaned. So, add the key to KEY_SPEC_USER_SESSION_KEYRING
 	in that case */
-	dest_keyring=KEY_SPEC_SESSION_KEYRING;
-	sessring=keyctl_get_keyring_ID(KEY_SPEC_SESSION_KEYRING, 0);
-	usessring=keyctl_get_keyring_ID(KEY_SPEC_USER_SESSION_KEYRING, 0);
+	sessring = keyctl_get_keyring_ID(KEY_SPEC_SESSION_KEYRING, 0);
+	usessring = keyctl_get_keyring_ID(KEY_SPEC_USER_SESSION_KEYRING, 0);
 	if (sessring == usessring)
-		dest_keyring=KEY_SPEC_USER_SESSION_KEYRING;
+		dest_keyring = KEY_SPEC_USER_SESSION_KEYRING;
+	else
+		dest_keyring = KEY_SPEC_SESSION_KEYRING;
+
 	snprintf(description, 255, "afs@%s", cell);
-	p=&description[4];
+	p = &description[4];
 	while(*p) {
 		if (isalpha(*p) && islower(*p))
 			*p=toupper(*p);
@@ -253,7 +273,9 @@ int main(int argc, char **argv)
 	}
 
 	ret = add_key("rxrpc", description, payload, plen, dest_keyring);
-	OSERROR(ret, "add_key");
+	if (ret == -1) {
+		err(1, "inserting rxrpc key into keyring failed");
+	}
 
 	krb5_free_creds(k5_ctx, creds);
 	krb5_free_cred_contents(k5_ctx, &search_cred);

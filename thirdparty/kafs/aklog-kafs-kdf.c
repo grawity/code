@@ -134,20 +134,20 @@ static int convert_key(void *out, int enctype, size_t keylen,
     memcpy(out, keydata, 8);
     break;
   case ENCTYPE_NULL:
-  case 4:
-  case 6:
-  case 8:
-  case 9:
-  case 10:
-  case 11:
-  case 12:
-  case 13:
-  case 14:
-  case 15:
+  case ENCTYPE_DES_CBC_RAW:
+  case ENCTYPE_DES3_CBC_RAW:
+  case ENCTYPE_DES_HMAC_SHA1:
+  case ENCTYPE_DSA_SHA1_CMS:
+  case ENCTYPE_MD5_RSA_CMS:
+  case ENCTYPE_SHA1_RSA_CMS:
+  case ENCTYPE_RC2_CBC_ENV:
+  case ENCTYPE_RSA_ENV:
+  case ENCTYPE_RSA_ES_OAEP_ENV:
+  case ENCTYPE_DES3_CBC_ENV:
     return 1;
     /*In order to become a "Cryptographic Key" as specified in
      * SP800-108, it must be indistinguishable from a random bitstring. */
-  case 5:
+  case ENCTYPE_DES3_CBC_SHA:
   case 7:
   case ENCTYPE_DES3_CBC_SHA1:
     if (keylen > 24)

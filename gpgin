@@ -7,6 +7,8 @@ umask 077
 options=()
 keydirs=()
 keybase="archive-%s.key"
+keyfile=
+clobber=0
 
 . "$path_config/gpgin.conf.sh" || exit
 
@@ -14,6 +16,14 @@ case ${0##*/} in
     gpgin)  mode=encrypt;;
     gpgout) mode=decrypt;;
 esac
+
+while getopts ":D:f" OPT; do
+	case $OPT in
+	D) keydirs+=("$OPTARG");;
+	f) clobber=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 archive=$1
 name=${archive##*/}
@@ -24,7 +34,6 @@ name=${name%.tar}
 [[ $archive == *.gpg ]] || die "archive path should have a .gpg extension"
 
 keybase=$(printf "$keybase" "${name##*/}")
-keyfile=
 
 for dir in "${keydirs[@]}"; do
 	if [[ -e "$dir/$keybase" ]]; then
@@ -35,6 +44,13 @@ done
 
 case $mode in
     encrypt)
+	if [[ -s "$archive" ]]; then
+		if (( clobber )); then
+			notice "overwriting existing file '$archive'"
+		else
+			die "won't overwrite existing archive '$archive'"
+		fi
+	fi
 	if [[ ! $keyfile ]]; then
 		keyfile="${keydirs[0]}/$keybase"
 		log "generating keyfile: $keyfile"

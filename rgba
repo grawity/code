@@ -1,0 +1,37 @@
+#!/bin/bash
+
+. lib.bash || exit
+
+case $1 in
+	y|yes|on)
+		info "enabling RGBA everywhere"
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing rgba
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting medium
+		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings overrides
+		;;
+	n|no|off)
+		info "disabling RGBA for GTK only"
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing rgba
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting medium
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings overrides "{'Xft/RGBA': <'none'>}"
+		;;
+	nn|really-no|really-off)
+		info "disabling RGBA everywhere"
+		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings antialiasing
+		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings hinting
+		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings overrides
+		;;
+	"")
+		info "current GNOME settings for g-s-d:"
+		for key in antialiasing hinting overrides; do
+			echo "  $key = $(gsettings get org.gnome.settings-daemon.plugins.xsettings $key)"
+		done
+		info "current XSETTINGS values for GTK:"
+		dump_xsettings | egrep '^Xft/(Antialias|Hinting|HintStyle|RGBA)' | sed 's/^/  /' | sort
+		info "current Xrdb values for Wine:"
+		xrdb -query | egrep '^Xft.(antialias|hinting|hintstyle|rgba):' | sed 's/[ \t]\+/ /g; s/^/  /' | sort
+		;;
+	*)
+		die "unknown subcommand '$1'"
+		;;
+esac

@@ -72,10 +72,11 @@ class SauceNao(Scraper):
         else:
             return False
 
-    def _format_data(self, data):
+    def _format_data(self, data, consumed):
         if "pixiv_id" in data:
             yield ("Pixiv ID", data["pixiv_id"], self.fmt["pixiv_illust"] % data["pixiv_id"])
             yield ("Member", data["member_name"], self.fmt["pixiv_member"] % data["member_id"])
+            consumed |= {"pixiv_id", "member_name", "member_id"}
 
     def find(self, file):
         Core.info("uploading %r" % file)
@@ -119,20 +120,15 @@ class SauceNao(Scraper):
                 print(fmt % "Title", data["title"])
                 consumed |= {"title"}
 
-            for head, name, url in self._format_data(data):
+            for head, name, url in self._format_data(data, consumed):
                 if head in {"Member"}:
                     name = "｢%s｣" % name
                 print(fmt % head, name, "<%s>" % url)
 
             if index == DbIndex.Pixiv:
-                print(fmt % "Pixiv",
-                      self.fmt["pixiv_illust"] % data["pixiv_id"])
-                print(fmt % "Member",
-                      "｢%s｣" % data["member_name"],
-                      "<%s>" % self.fmt["pixiv_member"] % data["member_id"])
                 if score >= 92 and not swapped:
                     swapped = self.swap(file, self.fmt["pixiv_illust"] % data["pixiv_id"], "pixiv")
-                consumed |= {"pixiv_id", "member_name", "member_id"}
+                #consumed |= {"pixiv_id", "member_name", "member_id"}
                 seenurls |= {self.fmt["pixiv_illust"] % data["pixiv_id"]}
 
             if index == DbIndex.Seiga:

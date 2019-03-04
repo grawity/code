@@ -18,6 +18,11 @@ class ForeignFilenameError(ValueError):
     pass
 
 class DeviantArtScraper(Scraper):
+    member_name_map = {
+        "axcy": "vhm-alex",
+        "pearlpencil": "Lilaccu"
+    }
+
     def should_force_update(self, filename):
         if "_by_" in filename:
             return True
@@ -187,6 +192,8 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
         return
 
     # apply the new name
+
+    info["author_name"] = da.member_name_map.get(info["author_name"].lower(), info["author_name"])
 
     info["_favid"] = favid
     info["_title"] = filter_title(info["title"], strict=(not args.inverse))

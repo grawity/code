@@ -69,11 +69,17 @@ sub parse_and_print {
 			my @query = parse_query($url{$_});
 			for (@query) {
 				my ($key, $value) = @$_;
-				print "  $indent'$key' => $value\n";
+				print "    $indent'$key' => $value\n";
 				if ($value =~ /^http/) {
-					parse_and_print($value, $depth+2);
+					print "$indent    nested URL {\n";
+					parse_and_print($value, $depth+2+2);
+					print "$indent    }\n";
 				}
 			}
+			print "$indent}\n";
+		} elsif ($_ eq "fragment" && $url{$_} =~ m{^#?/}) {
+			print "$indent$_: {\n";
+			parse_and_print($url{$_}, $depth+2);
 			print "$indent}\n";
 		} else {
 			print "$indent$_: $url{$_}\n";

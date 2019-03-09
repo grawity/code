@@ -265,6 +265,7 @@ int main(int argc, char **argv)
 		dest_keyring = KEY_SPEC_SESSION_KEYRING;
 
 	snprintf(description, 255, "afs@%s", cell);
+	/* XXX: should this really be uppercase? */
 	p = &description[4];
 	while(*p) {
 		if (isalpha(*p) && islower(*p))

@@ -52,10 +52,11 @@ do_pull() {
 	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
 
 	local errors=0
+	local git_diffstat_opts=(":(exclude)vendor")
 
 	if (( opt_dryrun > 1 )); then
 		is "noop"
-	elif [[ -f Pullfile ]]; then
+	elif [[ -f Pullfile ]] && ! [[ $1 == file && $2 == . ]]; then
 		do_main
 	elif (( opt_dryrun > 0 )); then
 		is "noop"
@@ -81,18 +82,18 @@ do_pull() {
 		is "Git"
 		rev() { git rev-parse --verify ${1:-HEAD}; }
 		old=$(rev)
-		if log: git pull --ff-only; then
+		if log: git pull --ff-only --no-stat; then
 			new=$(rev)
 			if [[ -e .gitmodules ]]; then
 				log: git submodule update
 			fi
 		else
 			new=$(rev @{u})
-			log: git --no-pager diff --stat "@{u}@{1}".."@{u}"
 		fi
 		if [[ "$old" != "$new" ]]; then
 			old=${old:0:12}
 			new=${new:0:12}
+			log: git --no-pager diff --stat "$old".."$new" "${git_diffstat_opts[@]}"
 			upd: "$old" "$new" tig $old..$new
 		fi
 	elif [[ -d .hg ]]; then
@@ -154,7 +155,7 @@ do_pull() {
 		log: git fetch
 		new=$(rev)
 		if [[ "$old" != "$new" ]]; then
-			git --no-pager diff --stat "$old" "$new"
+			git --no-pager diff --stat "$old" "$new" "${git_diffstat_opts[@]}"
 			old=${old:0:12}
 			new=${new:0:12}
 			upd: "$old" "$new" tig "$old..$new"
@@ -170,6 +171,7 @@ do_pull() {
 do_main() {
 	debug "main[$[++depth],$BASHPID] called, checking for Pullfile"
 
+	local src=none
 	local errors=0
 	local -A did
 
@@ -179,16 +181,19 @@ do_main() {
 
 	if (( ! $# )) && [[ -s Pullfile ]]; then
 		debug "reading args from Pullfile"
+		src=file
 		set -- $(grep '^[^#]' Pullfile)
 	fi
 
 	if (( ! $# )) && [[ -f Pullfile ]] && [[ ! -s Pullfile ]]; then
 		debug "empty Pullfile, assuming '*/'"
+		src=empty
 		set -- */
 	fi
 
 	if (( ! $# )); then
 		debug "no args, assuming '.'"
+		src=auto
 		set -- .
 	fi
 
@@ -247,7 +252,7 @@ do_main() {
 		fi
 
 		debug "- updating '$dir'"
-		(cd "$dir" && do_pull) || err "update of '$dir' failed"
+		(cd "$dir" && do_pull "$src" "$arg") || err "update of '$dir' failed"
 	done
 
 	if (( errors && depth == 1 )); then

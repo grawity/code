@@ -50,3 +50,23 @@ def print_dependency_tree(tree, root, *, indent=0, ctx=None):
             branches[depth] = ("│" if more else " ") + " "
             ctx = depth + 1, branches.copy(), seen.copy()
             print_dependency_tree(tree, child, indent=indent, ctx=ctx)
+
+def summarize_ranges(ints):
+    lo = hi = None
+    for x in ints:
+        if lo is None:
+            lo = hi = x
+        elif x == hi + 1:
+            hi = x
+        else:
+            yield (lo, hi)
+            lo = hi = x
+    if lo is not None:
+        yield (lo, hi)
+
+def stringify_ranges(ranges, sep="-"):
+    for a, b in ranges:
+        if a == b:
+            yield "%s" % a
+        else:
+            yield "%s%s%s" % (a, sep, b)

@@ -10,10 +10,6 @@ fi
 
 if [[ $PWD == $HOME/src/* ]]; then
 	dir=$(git rev-parse --git-dir) || exit
-	ssum() {
-		[[ -e "$dir/$2" ]] &&
-		echo "$1  $dir/$2" | sha1sum --check --quiet 2>/dev/null
-	}
 	fetch=$(git config --get-all remote.origin.fetch)
 	if [[ "$fetch" == "+refs/*:refs/*" ]]; then
 		warn "refspec '$fetch' may allow tag deletion"
@@ -22,7 +18,6 @@ if [[ $PWD == $HOME/src/* ]]; then
 			git config --unset-all remote.origin.fetch
 			git config --unset-all remote.origin.mirror
 			git config remote.origin.fetch "$fetch"
-
 			git for-each-ref --format="%(refname)" |
 			egrep -v '^refs/(heads|notes|tags)/' | {
 				declare refs=()
@@ -67,7 +62,6 @@ migrate_opt() {
 	fi
 }
 
-migrate_opt nullroute.{git.up,git-new.options}
 migrate_opt nullroute.git-new.{opts,options}
 migrate_opt nullroute.git-new.{args,paths}
 

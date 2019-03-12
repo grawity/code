@@ -10,8 +10,13 @@ put_bar() {
 	if ((color)); then
 		printf "\e[38;5;%dm" "$color"
 	fi
-	printf -v bar "%*s" "$width" ""
-	printf "%s" "${bar// /$char}"
+	if [[ $char == ?? ]]; then
+		printf -v bar "%*s" "$((width-1))" ""
+		printf "%s%s" "${bar// /${char%?}}" "${char#?}"
+	else
+		printf -v bar "%*s" "$width" ""
+		printf "%s" "${bar// /$char}"
+	fi
 	if ((color)); then
 		printf "\e[m"
 	fi
@@ -27,7 +32,8 @@ draw_bar() {
 
 	if ((temp>79)); then
 		color+=1
-	elif ((temp>=65)); then
+	elif ((temp>=63)); then
+		# Dell: fan threshold
 		color+=3
 	elif ((temp>40)); then
 		color+=2
@@ -40,6 +46,7 @@ draw_bar() {
 	if ((color<8)); then
 		: color+=8
 		: char=▓
+		char='-║'
 	fi
 	put_bar "$color" "$width" "$char"
 	printf ' %3d°C' "$temp"

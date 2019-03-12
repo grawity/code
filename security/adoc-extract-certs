@@ -242,7 +242,7 @@ for my $adoc (@ARGV) {
     elsif ($adoc =~ /\.(crt|cert|cer|pem)$/i) {
         $format = "x509";
     }
-    elsif ($adoc =~ /\.(p7b)$/i) {
+    elsif ($adoc =~ /\.(p7b|p7c)$/i) {
         $format = "pkcs7";
     }
     else {
@@ -311,9 +311,31 @@ for my $adoc (@ARGV) {
             _err("could not open '$adoc': $!");
         }
     }
-    #elsif ($format eq "pkcs7") {
-    #    _err("skipping '$adoc': PKCS#7 files not supported yet");
-    #}
+    elsif ($format eq "pkcs7") {
+        _log2("parsing PKCS#7 file '$adoc'");
+        if (open(my $f, "<:raw", $adoc)) {
+            my $inform = "DER";
+            my $data;
+            $f->read($data, 8*1024);
+            $f->close;
+            if ($data =~ /^-----/m) {
+                $inform = "PEM";
+            }
+            if (open(my $f, "-|", "openssl", "pkcs7", "-in", $adoc,
+                                                      "-inform", $inform,
+                                                      "-print_certs")) {
+                my $data;
+                $f->read($data, 1024*1024);
+                $f->close;
+                while ($data =~ /$pem_re/g) {
+                    my $cert_der = decode_base64($1);
+                    write_certificate($cert_der);
+                }
+            }
+        } else {
+            _err("could not open '$adoc': $!");
+        }
+    }
     else {
         _err("unknown file format '$format'");
     }

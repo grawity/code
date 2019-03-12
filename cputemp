@@ -25,21 +25,17 @@ put_bar() {
 draw_bar() {
 	local -i time=$1 color=$2 width=$3 temp=$4
 
-	#put_bar 2 $((temp < 40 ? temp : 40)) '#'; ((temp -= 40))
-	#put_bar 3 $((temp < 25 ? temp : 25)) '#'; ((temp -= 25))
-	#printf '\n'
-	#return
-
 	# Dell thresholds:
 	# off -> [~44°C] low ->
 
-	if ((temp>79)); then
+	local avg=$((count>depth ? roll/depth : temp))
+	if ((avg>79)); then
 		# red (bad)
 		color+=1
-	elif ((temp>=63)); then
+	elif ((avg>=63)); then
 		# yellow (medium/high fan)
 		color+=3
-	elif ((temp>43)); then
+	elif ((avg>43)); then
 		# green (low fan?)
 		color+=2
 	else
@@ -56,6 +52,9 @@ draw_bar() {
 	fi
 	put_bar "$color" "$width" "$char"
 	printf ' %3d°C' "$temp"
+	#if ((color>=8)); then
+	#	printf ' [%3d°C]' "$avg"
+	#fi
 	printf '\n'
 }
 
@@ -97,6 +96,10 @@ info "Using sensor '$subdev' ($dev_name:$subdev_name)"
 
 interval=1
 last=0
+count=0
+roll=0
+depth=3
+hist=()
 while (( !last )) || sleep $interval; do
 	printf -v ts '%(%s)T' -1
 	if (( last )); then
@@ -106,6 +109,12 @@ while (( !last )) || sleep $interval; do
 	fi
 	temp=$(< $subdev)
 	temp=$((temp / 1000))
+	if ((roll && hist[count%depth])); then
+		roll=$((roll-hist[count%depth]+temp))
+	else
+		roll=$((temp*depth))
+	fi
 	draw_bar $ts 8 $((temp-20)) $temp
 	last=$temp
+	hist[count++%depth]=$temp
 done

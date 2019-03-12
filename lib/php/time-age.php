@@ -1,50 +1,32 @@
 <?php
-function age($t, $max_elements=null) {
-	$age = array();
+function fmt_duration($t, $space="", $max_elements=null) {
+	$str = array();
 	
-	if ($s = $t%60) {
-		$age[] = "${s}s";
-		$t = floor($t/60);
+	$s = $t%60; $t = floor($t/60);
+	$m = $t%60; $t = floor($t/60);
+	$h = $t%24; $t = floor($t/24);
+	$d = $t%7; $t = floor($t/7);
+	$w = $t;
+
+	if ($s) {
+		$str[] = "${s}s";
 	}
-	if ($m = $t%60) {
-		$age[] = "${m}m";
-		$t = floor($t/60);
+	if ($m || ($h && $s) || ($d && $s)) {
+		$str[] = "${m}m";
 	}
-	if ($h = $t%24) {
-		$age[] = "${h}h";
-		$t = floor($t/24);
+	if ($d || $h || $m || $s) {
+		$str[] = "${h}h";
 	}
-	if ($d = $t%7) {
-		$age[] = "${d}d";
-		$t = floor($t/7);
+	if ($d || $w) {
+		$str[] = "${d}d";
 	}
-	if ($t) {
-		$age[] = "${t}w";
+	if ($w) {
+		$str[] = "${w}w";
 	}
 
-	$age = array_reverse($age);
+	$str = array_reverse($str);
 	if ($max_elements)
-		$age = array_slice($age, 0, $max_elements);
-	$age = implode("", $age);
-
-	/*
-	if ($d = floor($t/86400)) {
-		$age .= "${d}d";
-		$t -= $d*86400;
-	}
-	if ($h = floor($t/3600)) {
-		$age .= "${h}h";
-		$t -= $h*3600;
-	}
-	if ($m = floor($t/60)) {
-		$age .= "${m}m";
-		$t -= $m*60;
-	}
-	if ($t) {
-		$age .= "${t}s";
-	}
-	*/
-	return $age;
+		$str = array_slice($str, 0, $max_elements);
+	$str = implode($space, $str);
+	return $str;
 }
-
-//var_dump(age(4*7*86400 + 2*86400 + 7*3600 + 42*60 + 17));

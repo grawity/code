@@ -7,6 +7,42 @@ import base64
 import socket
 import re
 
+_tag_escape = {
+    ";":  "\\:",
+    " ":  "\\s",
+    "\\": "\\\\",
+    "\r": "\\r",
+    "\n": "\\n",
+}
+
+_tag_unescape = {
+    ":":  ";",
+    "s":  " ",
+    "\\": "\\",
+    "r":  "\r",
+    "n":  "\n",
+}
+
+def encode_tag_value(buf):
+    out = ""
+    for c in buf:
+        out += _tag_escape.get(c, c)
+    return out
+
+def decode_tag_value(buf):
+    out = ""
+    esc = False
+    for c in buf:
+        if not esc:
+            if c == "\\":
+                esc = True
+            else:
+                out += c
+        else:
+            out += _tag_unescape.get(c, c)
+            esc = False
+    return out
+
 class InvalidPrefixError(ValueError):
     pass
 
@@ -87,7 +123,7 @@ class Prefix(object):
         return [self.nick, self.user, self.host, self.is_server]
 
 class Frame(object):
-    def __init__(self, tags=None, prefix=None, cmd=None, args=None):
+    def __init__(self, *, tags=None, prefix=None, cmd=None, args=None):
         self.tags = tags or {}
         self.prefix = prefix
         self.cmd = cmd
@@ -158,6 +194,7 @@ class Frame(object):
             for item in tags.split(";"):
                 if "=" in item:
                     k, v = item.split("=", 1)
+                    v = decode_tag_value(v)
                 else:
                     k, v = item, True
                 self.tags[k] = v

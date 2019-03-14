@@ -1,12 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # git-up - fast-forward the latest changes from upstream
-#
-# based on Zach Holman's `git-up`
-#   https://github.com/holman/dotfiles/blob/master/bin/git-up
-# based on Ryan Tomayko's `git-up
-#   https://github.com/rtomayko/dotfiles/blob/rtomayko/bin/git-up
-# inspired by Kyle Neath's `git up' alias
-#   https://gist.github.com/249223
 
 set -e
 
@@ -18,8 +11,13 @@ fi
 
 opts=$(git config nullroute.git-new.options || true)
 paths=$(git config nullroute.git-new.paths || true)
+mark=$(git config --bool nullroute.git-new.last-read || true)
 
 old=$(git rev-parse "HEAD")
+
+if [[ $mark == true ]]; then
+	git-update-last-read -i .
+fi
 
 if [ "$(git rev-parse --is-bare-repository)" = "true" ]; then
 	git fetch
@@ -33,4 +31,8 @@ if [ "$new" != "$old" ]; then
 	# Reflogs are't always available in bare repositories; I'd be
 	# using "@{1}.." otherwise. Although maybe this is more readable.
 	tig $opts "$old..$new" -- $paths
+fi
+
+if [[ $mark == true ]]; then
+	git-update-last-read -e .
 fi

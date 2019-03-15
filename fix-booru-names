@@ -42,17 +42,13 @@ class TagFilter(object):
                     line = line.strip()
                     if line == "" or line.startswith("#"):
                         continue
-                    elif " -> " in line:
-                        tags, new_tag = line.split(" -> ")
-                        tags = tags.split()
-                        tags = [re.compile(t, re.I) for t in tags]
-                        *cond_tags, old_tag = tags
-                        new.translate.append((cond_tags, old_tag, new_tag))
-                    else:
-                        tags = line.split()
-                        tags = [re.compile(t, re.I) for t in tags]
-                        *cond_tags, old_tag = tags
-                        new.translate.append((cond_tags, old_tag, None))
+                    new_tag = None
+                    if " -> " in line:
+                        line, new_tag = line.split(" -> ")
+                    tags = line.split()
+                    tags = [re.compile(t, re.I) for t in tags]
+                    *cond_tags, old_tag = tags
+                    new.translate.append((cond_tags, old_tag, new_tag))
         except FileNotFoundError:
             pass
         return new

@@ -31,7 +31,6 @@ def hash_file(path, digest="md5"):
 
 class TagFilter(object):
     def __init__(self):
-        self.blacklist = []
         self.translate = []
 
     @classmethod
@@ -53,7 +52,7 @@ class TagFilter(object):
                         tags = line.split()
                         tags = [re.compile(t, re.I) for t in tags]
                         *cond_tags, old_tag = tags
-                        new.blacklist.append((cond_tags, old_tag))
+                        new.translate.append((cond_tags, old_tag, None))
         except FileNotFoundError:
             pass
         return new
@@ -61,19 +60,19 @@ class TagFilter(object):
     def filter(self, tags):
         tags = [tag.replace(" ", "_") for tag in tags]
 
-        for condtags, oldtag in self.blacklist:
-            # if all conditions match, remove provided tag
-            if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
-                tags = [t for t in tags if not oldtag.fullmatch(t)]
-
         for condtags, oldtag, newtag in self.translate:
-            if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
-                tags = [oldtag.sub(newtag, t) if oldtag.fullmatch(t) else t
-                        for t in tags]
+            if newtag is None:
+                # if all conditions match, remove provided tag
+                if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                    tags = [t for t in tags if not oldtag.fullmatch(t)]
+            else:
+                if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                    tags = [oldtag.sub(newtag, t) if oldtag.fullmatch(t) else t
+                            for t in tags]
 
         tags = [filter_filename(tag, safe=True) for tag in tags]
 
-        # trim 'name_(show)' tags
+        # trim 'name_(show)' tags if 'show' appears on its own
         ntags = []
         rx = re.compile(r"^(.+)_\((.+)\)$")
         for tag in tags:

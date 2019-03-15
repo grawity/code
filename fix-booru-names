@@ -38,7 +38,7 @@ class TagFilter(object):
         new = self()
         try:
             with open(Env.find_config_file(file_name)) as fh:
-                for line in fh:
+                for x, line in enumerate(fh):
                     line = line.strip()
                     if line == "" or line.startswith("#"):
                         continue
@@ -46,7 +46,11 @@ class TagFilter(object):
                     if " -> " in line:
                         line, new_tag = line.split(" -> ")
                     tags = line.split()
-                    tags = [re.compile(t, re.I) for t in tags]
+                    try:
+                        tags = [re.compile(t, re.I) for t in tags]
+                    except re.error as e:
+                        Core.err("%s:%s: regex compile error: %s", file_name, x+1, e)
+                        raise
                     *cond_tags, old_tag = tags
                     new.translate.append((cond_tags, old_tag, new_tag))
         except FileNotFoundError:

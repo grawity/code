@@ -51,7 +51,7 @@ def _progress_bar(iterable, max_bytes, chunk_size):
                 bar.update(len(i))
     except ImportError:
         from nullroute.ui.progressbar import ProgressBar
-        bar = ProgressBar(max_bytes=max_bytes)
+        bar = ProgressBar(max_value=max_bytes)
         for i in iterable:
             yield i
             bar.incr(len(i))

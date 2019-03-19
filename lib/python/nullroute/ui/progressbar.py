@@ -40,3 +40,10 @@ class ProgressBar():
 
     def end(self, hide=False):
         print("\033[K" if hide else "", end="", file=self.output_fh, flush=True)
+
+def progress_iter(iterable, *args, **kwargs):
+    bar = ProgressBar(*args, **kwargs)
+    for item in iterable:
+        yield item
+        bar.incr(1)
+    bar.end(True)

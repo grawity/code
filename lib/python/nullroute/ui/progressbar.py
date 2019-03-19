@@ -49,6 +49,15 @@ class ProgressBar():
             bar.incr(1)
         bar.end(True)
 
+class ProgressText(ProgressBar):
+    def __init__(self, *args, fmt="%s/%s", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.throttle = 0
+
+    def print(self):
+        bar = "row %s of %s" % (self.cur_value, self.max_value)
+        print(bar, end="\033[K\r", file=self.output_fh, flush=True)
+
 def progress_iter(iterable, *args, **kwargs):
     bar = ProgressBar(*args, **kwargs)
     for item in iterable:

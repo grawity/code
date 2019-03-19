@@ -10,7 +10,7 @@ class ProgressBar():
         self._fmt_func = fmt_func or fmt_size_short
         self._max_fmt = self._fmt_func(max_value)
 
-        self.output_fh = file or sys.stdout
+        self.output_fh = file or sys.stderr
         self.delay = 0
         self.throttle = 0.1
         self._first_in = 0

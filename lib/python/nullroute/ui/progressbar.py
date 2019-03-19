@@ -3,11 +3,12 @@ from nullroute.string import fmt_size_short
 import time
 
 class ProgressBar():
-    def __init__(self, max_value):
+    def __init__(self, max_value, *, fmt_func=None):
         self.bar_width = 40
         self.cur_value = 0
         self.max_value = max_value
-        self._max_fmt = fmt_size_short(max_value)
+        self._fmt_func = fmt_func or fmt_size_short
+        self._max_fmt = self._fmt_func(max_value)
 
         self.delay = 0
         self.throttle = 0.1
@@ -17,7 +18,7 @@ class ProgressBar():
     def print(self):
         cur_percent = 100 * self.cur_value / self.max_value
         cur_width = self.bar_width * self.cur_value / self.max_value
-        cur_fmt = fmt_size_short(self.cur_value)
+        cur_fmt = self._fmt_func(self.cur_value)
         bar = "#" * ceil(cur_width) + " " * floor(self.bar_width - cur_width)
         bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, self._max_fmt)
         print(bar, end="\033[K\r", flush=True)

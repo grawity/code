@@ -1,5 +1,6 @@
 from math import ceil, floor
 from nullroute.string import fmt_size_short
+import sys
 import time
 
 class ProgressBar():

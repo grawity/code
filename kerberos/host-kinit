@@ -4,12 +4,13 @@ fqdn=$(hostname -f)
 principal=''
 keytab='/etc/krb5.keytab'
 owner=''
-ccname='/tmp/krb5cc_host'
+ccname=''
 command=()
 runcommand=false
 
-while getopts 'k:s:u:' OPT; do
+while getopts 'c:k:s:u:' OPT; do
 	case $OPT in
+	c) ccname=$OPTARG;;
 	k) keytab=$OPTARG;;
 	s) service=$OPTARG;;
 	u) owner=$OPTARG;;
@@ -25,11 +26,15 @@ command=("${@:$OPTIND}")
 [[ ! $principal ]] &&
 	principal="$service/$fqdn"
 
-[[ $service != "host" ]] &&
-	ccname+="_$service"
+if [[ ! $ccname ]]; then
+	ccname='/tmp/krb5cc_host'
 
-$runcommand &&
-	ccname=$(mktemp "${ccname}_XXXXXXXX")
+	[[ $service != "host" ]] &&
+		ccname+="_$service"
+
+	$runcommand &&
+		ccname=$(mktemp "${ccname}_XXXXXXXX")
+fi
 
 export KRB5CCNAME=$ccname
 

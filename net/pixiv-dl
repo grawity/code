@@ -49,11 +49,6 @@ class PixivGrabber():
         if attrs:
             set_file_attrs(name, attrs)
 
-    def get_work_info(self, illust_id):
-        r = self.api.api.works(illust_id)
-        self._check(r)
-        return r.response[0]
-
     def _append_to_log(self, work):
         with open("pixiv%s.txt" % work.user.id, "a") as log:
             log.write("-- %s --\n" % work.id)
@@ -67,7 +62,7 @@ class PixivGrabber():
     def _save_work(self, work, only_pages=None):
         if (work.is_manga or work.type == "ugoira") and not work.metadata:
             Core.info("- refreshing metadata for work %s" % work.id)
-            work = self.get_work_info(work.id)
+            work = self.api.get_illust_info(work.id)
 
         attrs = {
             "dublincore.title": work.title,
@@ -101,7 +96,7 @@ class PixivGrabber():
             self._append_to_log(work)
 
     def save_one_work(self, illust_id, **kwargs):
-        work = self.get_work_info(illust_id)
+        work = self.api.get_illust_info(illust_id)
         Core.info("downloading work: %s ｢%s｣" % (work.id, work.title))
         self._save_work(work, **kwargs)
 

@@ -1,3 +1,4 @@
+from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.api.base import PersistentAuthBase
 import nullroute.sec
@@ -5,6 +6,9 @@ import os
 import pixivpy3
 import requests
 import time
+
+class PixivApiError(Exception):
+    pass
 
 class PixivApiClient(PersistentAuthBase):
     TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
@@ -86,3 +90,21 @@ class PixivApiClient(PersistentAuthBase):
 
         Core.die("could not log in to Pixiv (no credentials)")
         return False
+
+    ## JSON API functions
+
+    @lru_cache(maxsize=1024)
+    def get_illust_info(self, illust_id):
+        resp = self.api.works(illust_id)
+        if resp["status"] == "success":
+            return resp["response"][0]
+        else:
+            raise PixivApiError("API call failed: %r" % resp)
+
+    @lru_cache(maxsize=1024)
+    def get_member_info(self, member_id):
+        resp = self.api.users(member_id)
+        if resp["status"] == "success":
+            return resp["response"][0]
+        else:
+            raise PixivApiError("API call failed: %r" % resp)

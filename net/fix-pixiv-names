@@ -4,7 +4,7 @@ import bs4
 from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.misc import filter_filename, set_file_attrs
-from nullroute.api.pixiv import PixivApiClient
+from nullroute.api.pixiv import PixivApiClient, PixivApiError
 from nullroute.renameutil import RenameJob
 import os
 from pprint import pprint
@@ -75,39 +75,21 @@ class PixivRenamer():
             return int(m.group(1))
         raise ValueError("could not find member ID tag")
 
-    ## normal JSON API functions
-
-    @lru_cache(maxsize=1024)
-    def get_illust_info(self, illust_id):
-        resp = self.api.api.works(illust_id)
-        if resp["status"] == "success":
-            return resp["response"][0]
-        else:
-            raise ValueError("API call failed: %r" % resp)
-
-    @lru_cache(maxsize=1024)
-    def get_member_info(self, member_id):
-        resp = self.api.api.users(member_id)
-        if resp["status"] == "success":
-            return resp["response"][0]
-        else:
-            raise ValueError("API call failed: %r" % resp)
-
     ## public interface functions
 
     @lru_cache(maxsize=1024)
     def get_prefix_by_member_id(self, member_id):
-        resp = self.get_member_info(member_id)
+        resp = self.api.get_member_info(member_id)
         prefix = self.fmt_member_tag(resp["id"], resp["name"])
         return filter_filename(prefix)
 
     @lru_cache(maxsize=1024)
     def get_prefix_by_illust_id(self, illust_id):
         try:
-            resp = self.get_illust_info(illust_id)
+            resp = self.api.get_illust_info(illust_id)
             prefix = self.fmt_member_tag(resp["user"]["id"], resp["user"]["name"])
             return filter_filename(prefix)
-        except ValueError as e:
+        except (ValueError, PixivApiError) as e:
             Core.err(str(e))
             member_id = self.scrape_member_id_by_illust_id(illust_id)
             member_name = self.scrape_member_name_by_member_id(member_id)

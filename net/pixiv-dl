@@ -17,21 +17,30 @@ class PixivGrabber():
     member_re = re.compile(r"https?://www\.pixiv\.net/member(?:_illust)?\.php\?id=(?P<id>\d+)")
     illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
     bigpage_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga_big)&illust_id=(?P<id>\d+)&page=(?P<page>\d+)")
+    fanbox_post_re = re.compile(r"https://www.pixiv.net/fanbox/creator/\d+/post/(?P<id>\d+)")
 
     def __init__(self):
         self.pixiv = PixivClient()
         self.api = PixivApiClient()
         self.api._authenticate()
+        self.web = None
         self.s = Scraper()
         self.s.ua = self.api.ua
         self.write_log = True
 
-    def save_file(self, url, attrs=None):
-        name = os.path.basename(url)
+    def init_web_client(self):
+        if not self.web:
+            from nullroute.api.pixiv_web import PixivWebClient
+            self.web = PixivWebClient()
+            self.web._authenticate()
+            self.s.ua = self.web.ua
+
+    def save_file(self, url, name=None, attrs=None):
+        if not name:
+            name = os.path.basename(url)
         if is_nonempty(name):
             Core.debug("file %r already exists, skipping" % name)
             return
-
         Core.debug("saving %s to %r" % (url, name))
         referer = url
         if attrs:
@@ -66,7 +75,7 @@ class PixivGrabber():
         if work.type == "ugoira":
             for size, url in work.metadata.zip_urls.items():
                 Core.info("- saving zip %r" % size)
-                self.save_file(url, attrs)
+                self.save_file(url, attrs=attrs)
             with open("%s_delays.txt" % work.id, "w") as fh:
                 delays = [frame.delay_msec for frame in work.metadata.frames]
                 fh.write(str(delays))
@@ -81,9 +90,9 @@ class PixivGrabber():
                 Core.info("- saving %r (page %s of %s)",
                           os.path.basename(page.image_urls["large"]),
                           j+1, work.page_count)
-                self.save_file(page.image_urls["large"], attrs)
+                self.save_file(page.image_urls["large"], attrs=attrs)
         else:
-            self.save_file(work.image_urls["large"], attrs)
+            self.save_file(work.image_urls["large"], attrs=attrs)
 
         if self.write_log:
             self._append_to_log(work)
@@ -114,6 +123,27 @@ class PixivGrabber():
                           ))
                 self._save_work(work)
             start_page = works_r.pagination.next
+
+    def save_fanbox_post(self, post_id):
+        self.init_web_client()
+        post = self.web.get_fanbox_post(post_id)
+        Core.info("downloading fanbox post: %s ｢%s｣" % (post["id"], post["title"]))
+        prefix = self.pixiv.fmt_member_tag(post["user"]["userId"],
+                                           post["user"]["name"])
+        attrs = {
+            "dublincore.title": post["title"],
+            "dublincore.creator": prefix,
+            "xdg.referrer.url": "https://www.pixiv.net/fanbox/creator/%s/post/%s" \
+                                 % (post["user"]["userId"], post["id"]),
+        }
+        images = post["body"]["images"]
+        for i, img in enumerate(images):
+            url = img["originalUrl"]
+            filename = "%s fanbox%s_p%s %s" % (prefix, post["id"], i,
+                                               os.path.basename(url))
+            Core.info("- saving %r (image %s of %s)",
+                      filename, i+1, len(images))
+            self.save_file(url, filename, attrs)
 
 c = PixivGrabber()
 c.write_log = False
@@ -147,6 +177,12 @@ for arg in args:
     if m:
         member_id = int(m.group("id"))
         c.save_all_member_works(member_id)
+        continue
+
+    m = c.fanbox_post_re.match(arg)
+    if m:
+        post_id = int(m.group("id"))
+        c.save_fanbox_post(post_id)
         continue
 
     try:

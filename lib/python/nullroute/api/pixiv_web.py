@@ -73,24 +73,25 @@ class PixivWebClient(Scraper, PersistentAuthBase):
             Core.debug("token = %r", token)
             self._store_token(token)
 
-    def get_user(self, user_id):
-        resp = self.get("https://www.pixiv.net/ajax/user/%s" % user_id)
+    def _get_json(self, *args, **kwargs):
+        resp = self.get(*args, **kwargs)
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        if data["error"]:
+            raise Exception("API error: %r", data["message"])
+        else:
+            return data["body"]
+
+    def get_user(self, user_id):
+        return self._get_json("https://www.pixiv.net/ajax/user/%s" % user_id)
 
     def get_illust(self, illust_id):
-        resp = self.get("https://www.pixiv.net/ajax/illust/%s" % illust_id)
-        resp.raise_for_status()
-        return resp.json()
+        return self._get_json("https://www.pixiv.net/ajax/illust/%s" % illust_id)
 
     def get_fanbox_creator(self, user_id):
-        resp = self.get("https://www.pixiv.net/ajax/fanbox/creator",
-                        params={"userId": post_id})
-        resp.raise_for_status()
-        return resp.json()
+        return self._get_json("https://www.pixiv.net/ajax/fanbox/creator",
+                              params={"userId": post_id})
 
     def get_fanbox_post(self, post_id):
-        resp = self.get("https://www.pixiv.net/ajax/fanbox/post",
-                        params={"postId": post_id})
-        resp.raise_for_status()
-        return resp.json()
+        return self._get_json("https://www.pixiv.net/ajax/fanbox/post",
+                              params={"postId": post_id})

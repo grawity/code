@@ -28,7 +28,6 @@ class PixivWebClient(Scraper, PersistentAuthBase):
 
     def _authenticate(self):
         if self.user_id:
-            Core.warn("BUG: _authenticate() called twice")
             return True
 
         token = self._load_token()
@@ -51,6 +50,10 @@ class PixivWebClient(Scraper, PersistentAuthBase):
                         self.user_id = int(query["id"])
                         Core.debug("session is valid, userid %r", self.user_id)
                         return True
+                    else:
+                        raise Exception("authentication failed")
+                else:
+                    raise Exception("authentication POST request failed")
             else:
                 Core.debug("cookie has expired")
 
@@ -72,8 +75,12 @@ class PixivWebClient(Scraper, PersistentAuthBase):
                                "secure", "expires", "rfc2109"]}
             Core.debug("token = %r", token)
             self._store_token(token)
+            return True
+        else:
+            raise Exception("Pixiv credentials not found")
 
     def _get_json(self, *args, **kwargs):
+        self._authenticate()
         resp = self.get(*args, **kwargs)
         resp.raise_for_status()
         data = resp.json()

@@ -11,15 +11,17 @@ from pprint import pprint
 import re
 from requests.exceptions import HTTPError
 
-# TODO: https://danbooru.donmai.us/wiki_pages/58938
-# TODO: https://github.com/r888888888/danbooru/issues/2383
-
 class PixivRenamer():
+    bare_re = re.compile(r'^(\d+)(?:_big)?(?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+$')
+    prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
+    suffix_re = re.compile(r'(.+) (\d+)((?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+)$')
+
     def __init__(self):
         self.pixiv = PixivClient()
         self.api = PixivApiClient()
         self.api._authenticate()
         self.web = None
+        self.dry_run = False
 
     def init_web_client(self):
         if not self.web:
@@ -73,97 +75,85 @@ class PixivRenamer():
             prefix = self.pixiv.fmt_member_tag(member_id, member_name)
             return filter_filename(prefix)
 
-def rename_file_in_dir(dirpath, filename):
-    global args
-    global bare_re
-    global prefix_re
-    global suffix_re
-    global pixiv_api
+    def rename_file_in_dir(self, dirpath, filename):
+        old_path = os.path.join(dirpath, filename)
+        job = RenameJob(old_path, self.dry_run)
 
-    old_path = os.path.join(dirpath, filename)
-    job = RenameJob(old_path, args.dry_run)
-
-    if re.search(r'_pixiv\d+', filename):
-        Core.debug("skip %r: found '_pixiv' in name", filename)
-        return
-
-    m = bare_re.match(filename)
-    if m:
-        Core.debug("process %r: matched bare regex, groups %r", filename, m.groups())
-        job.begin()
-        illust_id = int(m.group(1))
-        try:
-            prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
-        except HTTPError as e:
-            job.end_fail(e)
+        if re.search(r'_pixiv\d+', filename):
+            Core.debug("skip %r: found '_pixiv' in name", filename)
             return
-        filename = prefix + " " + filename
-        job.end_rename(filename)
-        return
 
-    m = prefix_re.match(filename)
-    if m:
-        Core.debug("process %r: matched prefix regex, groups %r", filename, m.groups())
-        job.begin()
-        member_id = int(m.group(1))
-        try:
-            prefix = pixiv_api.get_prefix_by_member_id(member_id)
-        except HTTPError as e:
-            job.end_fail(e)
-            return
-        filename = prefix + " " + m.group(2)
-        job.end_rename(filename)
-        return
-
-    m = suffix_re.match(filename)
-    if m:
-        Core.debug("process %r: matched suffix regex, groups %r", filename, m.groups())
-        job.begin()
-        illust_id = int(m.group(2))
-        try:
-            prefix = pixiv_api.get_prefix_by_illust_id(illust_id)
-        except HTTPError as e:
-            job.end_fail(e)
-            return
-        filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
-        job.end_rename(filename)
-        return
-
-    Core.trace("skip %r: not matched", filename)
-
-def fixup_metadata(path):
-    global bare_re
-    global prefix_re
-    global pixiv_api
-
-    filename = os.path.basename(path)
-    m = bare_re.match(filename)
-    if m:
-        illust_id = int(m.group(1))
-    else:
-        m = prefix_re.match(filename)
-        print(m)
+        m = self.bare_re.match(filename)
         if m:
-            illust_id = int(m.group(2))
-        else:
+            Core.debug("process %r: matched bare regex, groups %r", filename, m.groups())
+            job.begin()
+            illust_id = int(m.group(1))
+            try:
+                prefix = self.get_prefix_by_illust_id(illust_id)
+            except HTTPError as e:
+                job.end_fail(e)
+                return
+            filename = prefix + " " + filename
+            job.end_rename(filename)
             return
 
-    work = pixiv_api.get_illust_info(illust_id)
-    attrs = {
-        "dublincore.title": work.title,
-        "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
-    }
-    set_file_attrs(filename, attrs)
+        m = self.prefix_re.match(filename)
+        if m:
+            Core.debug("process %r: matched prefix regex, groups %r", filename, m.groups())
+            job.begin()
+            member_id = int(m.group(1))
+            try:
+                prefix = self.get_prefix_by_member_id(member_id)
+            except HTTPError as e:
+                job.end_fail(e)
+                return
+            filename = prefix + " " + m.group(2)
+            job.end_rename(filename)
+            return
+
+        m = self.suffix_re.match(filename)
+        if m:
+            Core.debug("process %r: matched suffix regex, groups %r", filename, m.groups())
+            job.begin()
+            illust_id = int(m.group(2))
+            try:
+                prefix = self.get_prefix_by_illust_id(illust_id)
+            except HTTPError as e:
+                job.end_fail(e)
+                return
+            filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
+            job.end_rename(filename)
+            return
+
+        Core.trace("skip %r: not matched", filename)
+
+    def fixup_metadata(self, path):
+        filename = os.path.basename(path)
+        m = self.bare_re.match(filename)
+        if m:
+            illust_id = int(m.group(1))
+        else:
+            m = self.prefix_re.match(filename)
+            print(m)
+            if m:
+                illust_id = int(m.group(2))
+            else:
+                return
+
+        work = self.get_illust_info(illust_id)
+        attrs = {
+            "dublincore.title": work.title,
+            "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
+        }
+        set_file_attrs(filename, attrs)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
 args = parser.parse_args()
 
-bare_re = re.compile(r'^(\d+)(?:_big)?(?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+$')
-prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
-suffix_re = re.compile(r'(.+) (\d+)((?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+)$')
-pixiv_api = PixivRenamer()
+r = PixivRenamer()
+r.dry_run = args.dry_run
 
 allowed_exts = (
     ".webm",
@@ -183,10 +173,10 @@ for arg in args.path or ["."]:
             for filename in filenames:
                 if not filename.endswith(allowed_exts):
                     continue
-                rename_file_in_dir(dirpath, filename)
+                r.rename_file_in_dir(dirpath, filename)
     else:
         dirpath, filename = os.path.split(arg)
-        fixup_metadata(arg)
-        rename_file_in_dir(dirpath, filename)
+        #r.fixup_metadata(arg)
+        r.rename_file_in_dir(dirpath, filename)
 
 Core.exit()

@@ -15,6 +15,7 @@ class PixivRenamer():
     bare_re = re.compile(r'^(\d+)(?:_big)?(?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+$')
     prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
     suffix_re = re.compile(r'(.+) (\d+)((?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+)$')
+    fanbox_re = re.compile(r'^fanbox(\d+)[ _].*?(\w+)(\.\w+)$')
 
     def __init__(self):
         self.pixiv = PixivClient()
@@ -75,6 +76,16 @@ class PixivRenamer():
             prefix = self.pixiv.fmt_member_tag(member_id, member_name)
             return filter_filename(prefix)
 
+    def get_prefix_by_fanbox_id(self, fanbox_id, image_id):
+        self.init_web_client()
+        resp = self.web.get_fanbox_post(fanbox_id)
+        prefix = self.pixiv.fmt_member_tag(resp["user"]["userId"], resp["user"]["name"])
+        for i, img in enumerate(resp["body"]["images"]):
+            if img["id"] == image_id:
+                infix = "fanbox%s_p%s" % (resp["id"], i)
+                return prefix + " " + infix
+        raise ValueError("could not find image ID %r in fanbox post %r" % (image_id, fanbox_id))
+
     def rename_file_in_dir(self, dirpath, filename):
         old_path = os.path.join(dirpath, filename)
         job = RenameJob(old_path, self.dry_run)
@@ -122,6 +133,22 @@ class PixivRenamer():
                 job.end_fail(e)
                 return
             filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
+            job.end_rename(filename)
+            return
+
+        m = self.fanbox_re.match(filename)
+        if m:
+            Core.debug("process %r: matched fanbox regex, groups %r", filename, m.groups())
+            job.begin()
+            fanbox_id = int(m.group(1))
+            image_id = m.group(2)
+            file_ext = m.group(3)
+            try:
+                prefix = self.get_prefix_by_fanbox_id(fanbox_id, image_id)
+            except HTTPError as e:
+                job.end_fail(e)
+                return
+            filename = prefix + " " + image_id + file_ext
             job.end_rename(filename)
             return
 

@@ -1,13 +1,15 @@
-import json
 from nullroute.core import Core, Env
+from nullroute.api.base import PersistentAuthBase
 import nullroute.sec
 import os
 import pixivpy3
 import requests
 import time
 
-class PixivClient():
+class PixivClient(PersistentAuthBase):
     TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
+    TOKEN_NAME = "Pixiv OAuth token"
+    TOKEN_DOMAIN = "pixiv.net"
     TOKEN_PATH = Env.find_cache_file("pixiv.auth.json")
 
     def __init__(self):
@@ -22,27 +24,6 @@ class PixivClient():
         self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
         self.api.requests = self.ua
 
-    # OAuth token persistence
-
-    def _load_token(self):
-        try:
-            data = nullroute.sec.get_libsecret({"xdg:schema": self.TOKEN_SCHEMA,
-                                                "domain": "pixiv.net"})
-            Core.debug("found OAuth token in keyring")
-            return json.loads(data)
-        except KeyError:
-            try:
-                with open(self.TOKEN_PATH, "r") as fh:
-                    data = json.load(fh)
-                Core.debug("found OAuth token in filesystem")
-                return data
-            except FileNotFoundError:
-                pass
-            except Exception as e:
-                Core.debug("could not load %r: %r", self.TOKEN_PATH, e)
-                self._forget_token()
-        return None
-
     def _store_token(self, token):
         data = {
             "access_token": token.response.access_token,
@@ -50,26 +31,11 @@ class PixivClient():
             "expires_at": int(time.time() + token.response.expires_in),
             "user_id": token.response.user.id,
         }
-        Core.debug("storing OAuth tokens")
-        nullroute.sec.store_libsecret("Pixiv OAuth token",
-                                      json.dumps(data),
-                                      {"xdg:schema": self.TOKEN_SCHEMA,
-                                       "domain": "pixiv.net",
-                                       "userid": token.response.user.id,
-                                       "username": token.response.user.account})
-        try:
-            with open(self.TOKEN_PATH, "w") as fh:
-                json.dump(data, fh)
-            return True
-        except Exception as e:
-            Core.warn("could not write %r: %r", self.TOKEN_PATH, e)
-            return False
-
-    def _forget_token(self):
-        Core.debug("flushing OAuth tokens")
-        nullroute.sec.clear_libsecret({"xdg:schema": self.TOKEN_SCHEMA,
-                                       "domain": "pixiv.net"})
-        os.unlink(self.TOKEN_PATH)
+        extra = {
+           "userid": token.response.user.id,
+           "username": token.response.user.account,
+        }
+        return super()._store_token(data, extra)
 
     # API authentication
 

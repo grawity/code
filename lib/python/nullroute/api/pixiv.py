@@ -117,31 +117,32 @@ class PixivApiClient(PersistentAuthBase):
         else:
             raise PixivApiError("API call failed: %r" % resp)
 
+import re
+
 class PixivClient():
     MEMBER_FMT = "https://www.pixiv.net/member.php?id=%s"
     ILLUST_URL = "https://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
 
     def __init__(self):
+        self.member_name_map = {}
         self._load_member_name_map()
 
     def _load_member_name_map(self):
-        self.member_name_map = {}
+        map_path = Env.find_config_file("pixiv_member_names.txt")
         try:
-            _map_path = Env.find_config_file("pixiv_member_names.txt")
-            Core.debug("loading member aliases from %r", _map_path)
-            with open(_map_path, "r") as fh:
+            Core.debug("loading member aliases from %r", map_path)
+            with open(map_path, "r") as fh:
+                self.member_name_map = {}
                 for line in fh:
                     if line.startswith(";"):
                         continue
                     k, v = line.split("=")
-                    k = int(k.strip())
-                    v = v.strip()
-                    self.member_name_map[k] = v
+                    self.member_name_map[k.strip()] = v.strip()
         except FileNotFoundError:
-            pass
+            Core.debug("member alias file %r not found; ignoring", map_path)
 
     def fmt_member_tag(self, member_id, member_name):
-        member_name = self.member_name_map.get(member_id, member_name)
+        member_name = self.member_name_map.get(str(member_id), member_name)
         member_name = re.sub("(@|＠).*", "", member_name)
         member_name = re.sub(r"[◆|_]?[0-9一三]日.+?[0-9]+[a-z]*", "", member_name)
         member_name = member_name.replace(" ", "_")

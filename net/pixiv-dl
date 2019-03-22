@@ -136,7 +136,17 @@ class PixivGrabber():
             "xdg.referrer.url": "https://www.pixiv.net/fanbox/creator/%s/post/%s" \
                                  % (post["user"]["userId"], post["id"]),
         }
-        images = post["body"]["images"]
+        try:
+            images = post["body"]["images"]
+        except KeyError:
+            try:
+                images = [post["body"]["imageMap"][b["imageId"]]
+                          for b in post["body"]["blocks"]
+                          if b["type"] == "image"]
+            except KeyError:
+                import pprint
+                pprint.pprint(post)
+                raise
         for i, img in enumerate(images):
             url = img["originalUrl"]
             filename = "%s fanbox%s_p%s %s" % (prefix, post["id"], i,

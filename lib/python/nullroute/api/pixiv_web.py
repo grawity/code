@@ -1,7 +1,9 @@
 from functools import lru_cache
+import json
 from nullroute.core import Core, Env
 from nullroute.api.base import PersistentAuthBase
 from nullroute.scrape import Scraper
+from nullroute.string import ObjectDict
 import nullroute.sec
 import os
 import requests
@@ -83,7 +85,7 @@ class PixivWebClient(Scraper, PersistentAuthBase):
         self._authenticate()
         resp = self.get(*args, **kwargs)
         resp.raise_for_status()
-        data = resp.json()
+        data = json.loads(resp.text, object_hook=ObjectDict)
         if data["error"]:
             raise Exception("API error: %r", data["message"])
         else:

@@ -155,3 +155,14 @@ def parse_duration(arg):
     else:
         raise ValueError("malformed duration %r" % arg)
     return t
+
+class ObjectDict(dict):
+    def __getattr__(self, attr):
+        try:
+            return self[attr]
+        except KeyError:
+            raise AttributeError("%r object has no attribute %r" \
+                                 % (self.__class__.__name__, attr))
+
+    def __setattr__(self, attr, value):
+        self[attr] = value

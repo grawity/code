@@ -201,10 +201,20 @@ parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
 args = parser.parse_args()
 
-bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+(?: \(\d+\))?\.\w+$')
+bare_re = re.compile(r'^(\d+)(?:_big)?(?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+$')
 prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
-suffix_re = re.compile(r'(.+) (\d+)(_p\d+(?: \(\d+\))?\.\w+)$')
+suffix_re = re.compile(r'(.+) (\d+)((?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+)$')
 pixiv_api = PixivRenamer()
+
+allowed_exts = (
+    ".webm",
+    #".txt",
+    #".zip",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+)
 
 for arg in args.path or ["."]:
     if not os.path.exists(arg):
@@ -212,6 +222,8 @@ for arg in args.path or ["."]:
     if os.path.isdir(arg):
         for dirpath, dirnames, filenames in os.walk(arg):
             for filename in filenames:
+                if not filename.endswith(allowed_exts):
+                    continue
                 rename_file_in_dir(dirpath, filename)
     else:
         dirpath, filename = os.path.split(arg)

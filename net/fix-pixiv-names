@@ -4,7 +4,7 @@ import bs4
 from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.misc import filter_filename, set_file_attrs
-from nullroute.api.pixiv import PixivClient
+from nullroute.api.pixiv import PixivApiClient
 from nullroute.renameutil import RenameJob
 import os
 from pprint import pprint
@@ -14,13 +14,13 @@ from requests.exceptions import HTTPError
 # TODO: https://danbooru.donmai.us/wiki_pages/58938
 # TODO: https://github.com/r888888888/danbooru/issues/2383
 
-class PixivApi(PixivClient):
+class PixivRenamer():
     MEMBER_URL = "https://www.pixiv.net/member.php?id=%s"
     ILLUST_URL = "https://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
 
     def __init__(self):
-        super().__init__()
-        self._authenticate()
+        self.api = PixivApiClient()
+        self.api._authenticate()
 
         self.member_name_map = {}
         try:
@@ -39,9 +39,9 @@ class PixivApi(PixivClient):
 
     def fmt_member_tag(self, member_id, member_name):
         member_name = self.member_name_map.get(member_id, member_name)
-        member_name = member_name.replace(" ", "_")
         member_name = re.sub("(@|＠).*", "", member_name)
         member_name = re.sub(r"[◆|_]?[0-9一三]日.+?[0-9]+[a-z]*", "", member_name)
+        member_name = member_name.replace(" ", "_")
         return "%s_pixiv%s" % (member_name, member_id)
 
     def fmt_member_url(self, member_id):
@@ -79,7 +79,7 @@ class PixivApi(PixivClient):
 
     @lru_cache(maxsize=1024)
     def get_illust_info(self, illust_id):
-        resp = self.api.works(illust_id)
+        resp = self.api.api.works(illust_id)
         if resp["status"] == "success":
             return resp["response"][0]
         else:
@@ -87,7 +87,7 @@ class PixivApi(PixivClient):
 
     @lru_cache(maxsize=1024)
     def get_member_info(self, member_id):
-        resp = self.api.users(member_id)
+        resp = self.api.api.users(member_id)
         if resp["status"] == "success":
             return resp["response"][0]
         else:
@@ -204,7 +204,7 @@ args = parser.parse_args()
 bare_re = re.compile(r'^(\d+)(?:_big)?_p\d+(?: \(\d+\))?\.\w+$')
 prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
 suffix_re = re.compile(r'(.+) (\d+)(_p\d+(?: \(\d+\))?\.\w+)$')
-pixiv_api = PixivApi()
+pixiv_api = PixivRenamer()
 
 for arg in args.path or ["."]:
     if not os.path.exists(arg):

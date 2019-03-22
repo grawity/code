@@ -108,3 +108,11 @@ class PixivApiClient(PersistentAuthBase):
             return resp["response"][0]
         else:
             raise PixivApiError("API call failed: %r" % resp)
+
+    def get_member_works(self, member_id, **kwargs):
+        resp = self.api.users_works(member_id, **kwargs)
+        if resp["status"] == "success":
+            # paginated API -- include {pagination:, count:}
+            return resp
+        else:
+            raise PixivApiError("API call failed: %r" % resp)

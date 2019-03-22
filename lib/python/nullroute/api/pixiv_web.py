@@ -1,3 +1,4 @@
+from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.api.base import PersistentAuthBase
 from nullroute.scrape import Scraper
@@ -81,16 +82,20 @@ class PixivWebClient(Scraper, PersistentAuthBase):
         else:
             return data["body"]
 
+    @lru_cache(maxsize=1024)
     def get_user(self, user_id):
         return self._get_json("https://www.pixiv.net/ajax/user/%s" % user_id)
 
+    @lru_cache(maxsize=1024)
     def get_illust(self, illust_id):
         return self._get_json("https://www.pixiv.net/ajax/illust/%s" % illust_id)
 
+    @lru_cache(maxsize=1024)
     def get_fanbox_creator(self, user_id):
         return self._get_json("https://www.pixiv.net/ajax/fanbox/creator",
                               params={"userId": post_id})
 
+    @lru_cache(maxsize=1024)
     def get_fanbox_post(self, post_id):
         return self._get_json("https://www.pixiv.net/ajax/fanbox/post",
                               params={"postId": post_id})

@@ -73,6 +73,16 @@ class PixivWebClient(Scraper, PersistentAuthBase):
             Core.debug("token = %r", token)
             self._store_token(token)
 
+    def get_user(self, user_id):
+        resp = self.get("https://www.pixiv.net/ajax/user/%s" % user_id)
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_illust(self, illust_id):
+        resp = self.get("https://www.pixiv.net/ajax/illust/%s" % illust_id)
+        resp.raise_for_status()
+        return resp.json()
+
     def get_fanbox_creator(self, user_id):
         resp = self.get("https://www.pixiv.net/ajax/fanbox/creator",
                         params={"userId": post_id})

@@ -6,7 +6,7 @@ import pixivpy3
 import requests
 import time
 
-class PixivClient(PersistentAuthBase):
+class PixivApiClient(PersistentAuthBase):
     TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
     TOKEN_NAME = "Pixiv OAuth token"
     TOKEN_DOMAIN = "pixiv.net"

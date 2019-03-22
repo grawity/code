@@ -20,7 +20,6 @@ class PixivWebClient(Scraper, PersistentAuthBase):
     def __init__(self):
         super().__init__()
         self.user_id = None
-        self._authenticate()
 
     def _load_creds(self):
         creds = nullroute.sec.get_netrc_service("pixiv.net", "http")

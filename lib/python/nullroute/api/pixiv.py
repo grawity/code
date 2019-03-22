@@ -116,3 +116,39 @@ class PixivApiClient(PersistentAuthBase):
             return resp
         else:
             raise PixivApiError("API call failed: %r" % resp)
+
+class PixivClient():
+    MEMBER_FMT = "https://www.pixiv.net/member.php?id=%s"
+    ILLUST_URL = "https://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
+
+    def __init__(self):
+        self._load_member_name_map()
+
+    def _load_member_name_map(self):
+        self.member_name_map = {}
+        try:
+            _map_path = Env.find_config_file("pixiv_member_names.txt")
+            Core.debug("loading member aliases from %r", _map_path)
+            with open(_map_path, "r") as fh:
+                for line in fh:
+                    if line.startswith(";"):
+                        continue
+                    k, v = line.split("=")
+                    k = int(k.strip())
+                    v = v.strip()
+                    self.member_name_map[k] = v
+        except FileNotFoundError:
+            pass
+
+    def fmt_member_tag(self, member_id, member_name):
+        member_name = self.member_name_map.get(member_id, member_name)
+        member_name = re.sub("(@|＠).*", "", member_name)
+        member_name = re.sub(r"[◆|_]?[0-9一三]日.+?[0-9]+[a-z]*", "", member_name)
+        member_name = member_name.replace(" ", "_")
+        return "%s_pixiv%s" % (member_name, member_id)
+
+    def fmt_member_url(self, member_id):
+        return self.MEMBER_FMT % (member_id,)
+
+    def fmt_illust_url(self, illust_id, mode="medium"):
+        return self.ILLUST_URL % (mode, illust_id)

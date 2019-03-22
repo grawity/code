@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from nullroute.core import Core
 from nullroute.misc import set_file_attr, set_file_attrs
-from nullroute.api.pixiv import PixivApiClient
+from nullroute.api.pixiv import PixivClient, PixivApiClient
 from nullroute.scrape import Scraper
 import os
 import re
@@ -18,15 +18,13 @@ class PixivGrabber():
     illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
     bigpage_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga_big)&illust_id=(?P<id>\d+)&page=(?P<page>\d+)")
 
-    member_fmt = "https://www.pixiv.net/member_illust.php?id=%s"
-    illust_fmt = "https://www.pixiv.net/member_illust.php?mode=medium&illust_id=%s"
-
     def __init__(self):
+        self.pixiv = PixivClient()
         self.api = PixivApiClient()
+        self.api._authenticate()
         self.s = Scraper()
         self.s.ua = self.api.ua
         self.write_log = True
-        self.api._authenticate()
 
     def _check(self, r):
         if r.status != "success":
@@ -53,7 +51,7 @@ class PixivGrabber():
         with open("pixiv%s.txt" % work.user.id, "a") as log:
             log.write("-- %s --\n" % work.id)
             log.write("Title: ｢%s｣\n" % work.title)
-            log.write("Origin: <%s>\n" % (self.illust_fmt % work.id))
+            log.write("Origin: <%s>\n" % self.pixiv.fmt_illust_url(work.id))
             log.write("\n")
             if work.caption:
                 log.write("%s\n" % work.caption.replace("\r\n", "\n"))
@@ -67,7 +65,7 @@ class PixivGrabber():
         attrs = {
             "dublincore.title": work.title,
             "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
-            "xdg.referrer.url": self.illust_fmt % work.id,
+            "xdg.referrer.url": self.pixiv.fmt_illust_url(work.id),
         }
 
         if work.type == "ugoira":

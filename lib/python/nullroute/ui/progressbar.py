@@ -55,7 +55,7 @@ class ProgressText(ProgressBar):
         self.throttle = 0
 
     def print(self):
-        bar = "row %s of %s" % (self.cur_value, self.max_value)
+        bar = self.fmt % (self.cur_value, self.max_value)
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
 def progress_iter(iterable, *args, **kwargs):

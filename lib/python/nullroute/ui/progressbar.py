@@ -48,7 +48,7 @@ class ProgressBar():
             self._last_out = now
 
     def end(self, hide=False):
-        print("\033[K" if hide else "", end="", file=self.output_fh, flush=True)
+        print("\033[K" if hide else "\n", end="", file=self.output_fh, flush=True)
 
     @classmethod
     def iter(self, iterable, *args, **kwargs):

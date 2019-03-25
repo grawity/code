@@ -26,11 +26,11 @@ class ProgressBar():
             bar = "#" * ceil(cur_width) + " " * floor(self.bar_width - cur_width)
             bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, self._max_fmt)
         else:
-            ship = "-=-"
+            space, ship = "-", "=#="
             tmp = self.bar_width - len(ship)
             cur_width = tmp - abs(self.num_incrs % (tmp * 2) - tmp)
-            bar = " " * cur_width + ship
-            bar = " ??%% [%*s] %s" % (-self.bar_width, bar, cur_fmt)
+            bar = space * cur_width + ship + space * (tmp - cur_width)
+            bar = " ??%% [%s] %s" % (bar, cur_fmt)
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
     def incr(self, delta):

@@ -10,7 +10,6 @@ class ProgressBar():
         self.cur_value = 0
         self.max_value = max_value or 0
         self._fmt_func = fmt_func or fmt_size_short
-        self._max_fmt = self._fmt_func(self.max_value)
 
         self.output_fh = file or sys.stderr
         self.delay = 0
@@ -21,10 +20,11 @@ class ProgressBar():
     def print(self):
         cur_fmt = self._fmt_func(self.cur_value)
         if self.max_value:
+            max_fmt = self._fmt_func(self.max_value)
             cur_percent = 100 * self.cur_value / self.max_value
             cur_width = self.bar_width * self.cur_value / self.max_value
             bar = "#" * ceil(cur_width) + " " * floor(self.bar_width - cur_width)
-            bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, self._max_fmt)
+            bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, max_fmt)
         else:
             space, ship = "-", "=#="
             tmp = self.bar_width - len(ship)
@@ -66,7 +66,8 @@ class ProgressText(ProgressBar):
 
     def print(self):
         cur_fmt = self._fmt_func(self.cur_value)
-        bar = self.fmt % (cur_fmt, self._max_fmt)
+        max_fmt = self._fmt_func(self.max_value)
+        bar = self.fmt % (cur_fmt, max_fmt)
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
 class IndefiniteProgressText(ProgressBar):

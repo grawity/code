@@ -39,23 +39,12 @@ def file_ext(url):
 def _progress_bar(iterable, max_bytes, chunk_size):
     #hide_complete = (max_bytes < 1*1024*1024)
     hide_complete = True
-    try:
-        from tqdm import tqdm
-        fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
-        bar = tqdm(iterable, total=max_bytes, unit="B",
-                             unit_scale=True, unit_divisor=1024,
-                             bar_format=fmt, ncols=80)
-        with bar:
-            for i in iterable:
-                yield i
-                bar.update(len(i))
-    except ImportError:
-        from nullroute.ui.progressbar import ProgressBar
-        bar = ProgressBar(max_value=max_bytes)
-        for i in iterable:
-            yield i
-            bar.incr(len(i))
-        bar.end(hide_complete)
+    from nullroute.ui.progressbar import ProgressBar
+    bar = ProgressBar(max_value=max_bytes)
+    for i in iterable:
+        yield i
+        bar.incr(len(i))
+    bar.end(hide_complete)
 
 class Scraper(object):
     def __init__(self, output_dir="."):

@@ -6,6 +6,7 @@ import time
 class ProgressBar():
     def __init__(self, max_value, *, file=None, fmt_func=None):
         self.bar_width = 40
+        self.num_incrs = 0
         self.cur_value = 0
         self.max_value = max_value or 0
         self._fmt_func = fmt_func or fmt_size_short
@@ -26,6 +27,7 @@ class ProgressBar():
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
     def incr(self, delta):
+        self.num_incrs += 1
         self.cur_value += delta
 
         now = time.time()
@@ -56,22 +58,11 @@ class IndefiniteProgressBar(ProgressBar):
     def print(self):
         ship = "-=-"
         tmp = self.bar_width - len(ship)
-        cur_width = tmp - abs(self.cur_value % (tmp * 2) - tmp)
+        cur_width = tmp - abs(self.num_incrs % (tmp * 2) - tmp)
         cur_fmt = self._fmt_func(self.cur_value)
         bar = " " * ceil(cur_width) + ship
         bar = " ??%% [%*s] %s" % (-self.bar_width, bar, cur_fmt)
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
-
-    def incr(self, delta):
-        self.cur_value += 1
-
-        now = time.time()
-        if not self._first_in:
-            self._first_in = now
-        if now - self._first_in >= self.delay and \
-           now - self._last_out >= self.throttle:
-            self.print()
-            self._last_out = now
 
 class ProgressText(ProgressBar):
     def __init__(self, *args, fmt="%s/%s", **kwargs):

@@ -39,17 +39,16 @@ def file_ext(url):
 def _progress_bar(iterable, max_bytes, chunk_size):
     #hide_complete = (max_bytes < 1*1024*1024)
     hide_complete = True
-    if max_bytes is not None:
+    if max_bytes is None:
+        from nullroute.ui.progressbar import IndefiniteProgressBar
+        bar = IndefiniteProgressBar()
+    else:
         from nullroute.ui.progressbar import ProgressBar
         bar = ProgressBar(max_value=max_bytes)
-        for i in iterable:
-            yield i
-            bar.incr(len(i))
-        bar.end(hide_complete)
-    else:
-        # TODO: indefinite progress bar
-        for i in iterable:
-            yield i
+    for i in iterable:
+        yield i
+        bar.incr(len(i))
+    bar.end(hide_complete)
 
 class Scraper(object):
     def __init__(self, output_dir="."):
@@ -118,13 +117,12 @@ class Scraper(object):
             resp = self.get(url, headers=hdr, stream=True)
             with open(name + ".part", "wb") as fh:
                 num_bytes = resp.headers.get("content-length")
-                chunk_size = 1024
                 if num_bytes is not None:
                     num_bytes = int(num_bytes)
                 else:
                     Core.debug("response has no size, disabling progress bar")
                     Core.debug("headers: %r", resp.headers)
-                    chunk_size = 32*1024
+                chunk_size = 1024
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
                                            max_bytes=num_bytes,
                                            chunk_size=chunk_size):

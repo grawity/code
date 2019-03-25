@@ -27,10 +27,9 @@ class ProgressBar():
             bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, max_fmt)
         else:
             space, ship = "-", "=#="
-            space = " -" * self.bar_width
             tmp = self.bar_width - len(ship)
             cur_width = tmp - abs(self.num_incrs % (tmp * 2) - tmp)
-            bar = space[:cur_width] + ship + space[-(tmp - cur_width):]
+            bar = space * cur_width + ship + space * (tmp - cur_width)
             bar = " ??%% [%s] %s" % (bar, cur_fmt)
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 

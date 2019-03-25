@@ -19,11 +19,18 @@ class ProgressBar():
         self._last_out = 0
 
     def print(self):
-        cur_percent = 100 * self.cur_value / self.max_value
-        cur_width = self.bar_width * self.cur_value / self.max_value
         cur_fmt = self._fmt_func(self.cur_value)
-        bar = "#" * ceil(cur_width) + " " * floor(self.bar_width - cur_width)
-        bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, self._max_fmt)
+        if self.max_value:
+            cur_percent = 100 * self.cur_value / self.max_value
+            cur_width = self.bar_width * self.cur_value / self.max_value
+            bar = "#" * ceil(cur_width) + " " * floor(self.bar_width - cur_width)
+            bar = "%3.0f%% [%s] %s of %s" % (cur_percent, bar, cur_fmt, self._max_fmt)
+        else:
+            ship = "-=-"
+            tmp = self.bar_width - len(ship)
+            cur_width = tmp - abs(self.num_incrs % (tmp * 2) - tmp)
+            bar = " " * cur_width + ship
+            bar = " ??%% [%*s] %s" % (-self.bar_width, bar, cur_fmt)
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
     def incr(self, delta):
@@ -50,19 +57,6 @@ class ProgressBar():
             yield item
             bar.incr(1)
         bar.end(True)
-
-class IndefiniteProgressBar(ProgressBar):
-    def __init__(self, *args, **kwargs):
-        super().__init__(0, *args, **kwargs)
-
-    def print(self):
-        ship = "-=-"
-        tmp = self.bar_width - len(ship)
-        cur_width = tmp - abs(self.num_incrs % (tmp * 2) - tmp)
-        cur_fmt = self._fmt_func(self.cur_value)
-        bar = " " * ceil(cur_width) + ship
-        bar = " ??%% [%*s] %s" % (-self.bar_width, bar, cur_fmt)
-        print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
 class ProgressText(ProgressBar):
     def __init__(self, *args, fmt="%s/%s", **kwargs):

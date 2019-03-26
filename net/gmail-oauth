@@ -70,39 +70,6 @@ import smtplib
 import sys
 import urllib.request, urllib.parse, urllib.error
 
-
-def SetupOptionParser():
-    parser = argparse.ArgumentParser(usage=__doc__)
-    parser.add_argument("--generate-oauth2-token",
-                        action="store_true",
-                        help="generate an OAuth2 token for testing")
-    parser.add_argument("--generate-oauth2-string",
-                        action="store_true",
-                        help="generate an initial client response string for OAuth2")
-    parser.add_argument("--client-id",
-                        help="OAuth2 Client ID of the application that is authenticating")
-    parser.add_argument("--client-secret",
-                        help="OAuth2 Client secret of the application")
-    parser.add_argument("--access-token",
-                        help="OAuth2 access token")
-    parser.add_argument("--refresh-token",
-                        help="OAuth2 refresh token")
-    parser.add_argument("--scope",
-                        default="https://mail.google.com/",
-                        help="scopes for the access token, space-separated")
-    parser.add_argument("--test-imap-authentication",
-                        action="store_true",
-                        help="attempts to authenticate to IMAP")
-    parser.add_argument("--test-smtp-authentication",
-                        action="store_true",
-                        help="attempts to authenticate to SMTP")
-    parser.add_argument("--username",
-                        help="email address of user whose account is being accessed")
-    parser.add_argument("--quiet",
-                        action="store_true", default=False,
-                        help="Omit verbose descriptions and only print machine-readable outputs.")
-    return parser
-
 # The URL root for accessing Google Accounts.
 GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com'
 
@@ -280,49 +247,58 @@ def RequireOptions(options, *args):
 
 
 def main(argv):
-    options_parser = SetupOptionParser()
-    options = options_parser.parse_args()
-    if options.refresh_token:
-        RequireOptions(options, 'client_id', 'client_secret')
-        response = RefreshToken(options.client_id, options.client_secret,
-                                options.refresh_token)
-        if options.quiet:
+    parser = argparse.ArgumentParser(usage=__doc__)
+    parser.add_argument("--generate-oauth2-token", action="store_true", help="generate an OAuth2 token for testing")
+    parser.add_argument("--generate-oauth2-string", action="store_true", help="generate an initial client response string for OAuth2")
+    parser.add_argument("--client-id", help="OAuth2 Client ID of the application that is authenticating")
+    parser.add_argument("--client-secret", help="OAuth2 Client secret of the application")
+    parser.add_argument("--access-token", help="OAuth2 access token")
+    parser.add_argument("--refresh-token", help="OAuth2 refresh token")
+    parser.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
+    parser.add_argument("--test-imap-authentication", action="store_true", help="attempts to authenticate to IMAP")
+    parser.add_argument("--test-smtp-authentication", action="store_true", help="attempts to authenticate to SMTP")
+    parser.add_argument("--username", help="email address of user whose account is being accessed")
+    parser.add_argument("--quiet", action="store_true", default=False, help="Omit verbose descriptions and only print machine-readable outputs.")
+    args = parser.parse_args()
+
+    if args.refresh_token:
+        RequireOptions(args, 'client_id', 'client_secret')
+        response = RefreshToken(args.client_id, args.client_secret,
+                                args.refresh_token)
+        if args.quiet:
             print(response['access_token'])
         else:
             print('Access Token: %s' % response['access_token'])
             print('Access Token Expiration Seconds: %s' % response['expires_in'])
-    elif options.generate_oauth2_string:
-        RequireOptions(options, 'user', 'access_token')
-        oauth2_string = GenerateOAuth2String(options.user, options.access_token)
-        if options.quiet:
+    elif args.generate_oauth2_string:
+        RequireOptions(args, 'user', 'access_token')
+        oauth2_string = GenerateOAuth2String(args.user, args.access_token)
+        if args.quiet:
             print(oauth2_string)
         else:
             print('OAuth2 argument:\n' + oauth2_string)
-    elif options.generate_oauth2_token:
-        RequireOptions(options, 'client_id', 'client_secret')
+    elif args.generate_oauth2_token:
+        RequireOptions(args, 'client_id', 'client_secret')
         print('To authorize token, visit this url and follow the directions:')
-        print('  %s' % GeneratePermissionUrl(options.client_id, options.scope))
+        print('  %s' % GeneratePermissionUrl(args.client_id, args.scope))
         authorization_code = input('Enter verification code: ')
-        response = AuthorizeTokens(options.client_id, options.client_secret,
+        response = AuthorizeTokens(args.client_id, args.client_secret,
                                                                 authorization_code)
         print('Refresh Token: %s' % response['refresh_token'])
         print('Access Token: %s' % response['access_token'])
         print('Access Token Expiration Seconds: %s' % response['expires_in'])
-    elif options.test_imap_authentication:
-        RequireOptions(options, 'user', 'access_token')
-        TestImapAuthentication(options.user,
-                GenerateOAuth2String(options.user, options.access_token,
-                                     base64_encode=False))
-    elif options.test_smtp_authentication:
-        RequireOptions(options, 'user', 'access_token')
-        TestSmtpAuthentication(options.user,
-                GenerateOAuth2String(options.user, options.access_token,
-                                     base64_encode=False))
+    elif args.test_imap_authentication:
+        RequireOptions(args, 'user', 'access_token')
+        TestImapAuthentication(args.user,
+                GenerateOAuth2String(args.user, args.access_token, base64_encode=False))
+    elif args.test_smtp_authentication:
+        RequireOptions(args, 'user', 'access_token')
+        TestSmtpAuthentication(args.user,
+                GenerateOAuth2String(args.user, args.access_token, base64_encode=False))
     else:
         options_parser.print_help()
         print('Nothing to do, exiting.')
         return
-
 
 if __name__ == '__main__':
     main(sys.argv)

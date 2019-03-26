@@ -62,66 +62,46 @@ IMAPFE and pass it as the second argument to the AUTHENTICATE command.
     a AUTHENTICATE XOAUTH2 a9sha9sfs[...]9dfja929dk==
 """
 
+import argparse
 import base64
 import imaplib
 import json
-from optparse import OptionParser
 import smtplib
 import sys
 import urllib.request, urllib.parse, urllib.error
 
 
 def SetupOptionParser():
-    # Usage message is the module's docstring.
-    parser = OptionParser(usage=__doc__)
-    parser.add_option('--generate_oauth2_token',
-                      action='store_true',
-                      dest='generate_oauth2_token',
-                      help='generates an OAuth2 token for testing')
-    parser.add_option('--generate_oauth2_string',
-                      action='store_true',
-                      dest='generate_oauth2_string',
-                      help='generates an initial client response string for OAuth2')
-    parser.add_option('--client_id',
-                      default=None,
-                      help='Client ID of the application that is authenticating. '
-                                 'See OAuth2 documentation for details.')
-    parser.add_option('--client_secret',
-                      default=None,
-                      help='Client secret of the application that is '
-                                 'authenticating. See OAuth2 documentation for '
-                                 'details.')
-    parser.add_option('--access_token',
-                      default=None,
-                      help='OAuth2 access token')
-    parser.add_option('--refresh_token',
-                      default=None,
-                      help='OAuth2 refresh token')
-    parser.add_option('--scope',
-                      default='https://mail.google.com/',
-                      help='scope for the access token. Multiple scopes can be '
-                               'listed separated by spaces with the whole argument '
-                               'quoted.')
-    parser.add_option('--test_imap_authentication',
-                      action='store_true',
-                      dest='test_imap_authentication',
-                      help='attempts to authenticate to IMAP')
-    parser.add_option('--test_smtp_authentication',
-                      action='store_true',
-                      dest='test_smtp_authentication',
-                      help='attempts to authenticate to SMTP')
-    parser.add_option('--user',
-                      default=None,
-                      help='email address of user whose account is being '
-                               'accessed')
-    parser.add_option('--quiet',
-                      action='store_true',
-                      default=False,
-                      dest='quiet',
-                      help='Omit verbose descriptions and only print '
-                               'machine-readable outputs.')
+    parser = argparse.ArgumentParser(usage=__doc__)
+    parser.add_argument("--generate-oauth2-token",
+                        action="store_true",
+                        help="generate an OAuth2 token for testing")
+    parser.add_argument("--generate-oauth2-string",
+                        action="store_true",
+                        help="generate an initial client response string for OAuth2")
+    parser.add_argument("--client-id",
+                        help="OAuth2 Client ID of the application that is authenticating")
+    parser.add_argument("--client-secret",
+                        help="OAuth2 Client secret of the application")
+    parser.add_argument("--access-token",
+                        help="OAuth2 access token")
+    parser.add_argument("--refresh-token",
+                        help="OAuth2 refresh token")
+    parser.add_argument("--scope",
+                        default="https://mail.google.com/",
+                        help="scopes for the access token, space-separated")
+    parser.add_argument("--test-imap-authentication",
+                        action="store_true",
+                        help="attempts to authenticate to IMAP")
+    parser.add_argument("--test-smtp-authentication",
+                        action="store_true",
+                        help="attempts to authenticate to SMTP")
+    parser.add_argument("--username",
+                        help="email address of user whose account is being accessed")
+    parser.add_argument("--quiet",
+                        action="store_true", default=False,
+                        help="Omit verbose descriptions and only print machine-readable outputs.")
     return parser
-
 
 # The URL root for accessing Google Accounts.
 GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com'
@@ -301,7 +281,7 @@ def RequireOptions(options, *args):
 
 def main(argv):
     options_parser = SetupOptionParser()
-    (options, args) = options_parser.parse_args()
+    options = options_parser.parse_args()
     if options.refresh_token:
         RequireOptions(options, 'client_id', 'client_secret')
         response = RefreshToken(options.client_id, options.client_secret,

@@ -201,39 +201,25 @@ def decline_args(options, *args):
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    # modes
-    parser.add_argument("--authorize-app", action="store_true", help="interactively obtain the initial OAuth2 token")
-    parser.add_argument("--generate-oauth2-string", action="store_true", help="generate an initial client response string for OAuth2")
-    parser.add_argument("--test-imap", action="store_true", help="attempts to authenticate to IMAP")
-    parser.add_argument("--test-smtp", action="store_true", help="attempts to authenticate to SMTP")
-    # options
-    parser.add_argument("--client-id", help="OAuth2 Client ID of the application that is authenticating")
-    parser.add_argument("--client-secret", help="OAuth2 Client secret of the application")
-    parser.add_argument("--access-token", help="OAuth2 access token")
-    parser.add_argument("--refresh-token", help="OAuth2 refresh token")
-    parser.add_argument("--authorization-code", help="OAuth2 authorization code")
-    parser.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
-    parser.add_argument("--user", help="email address of user whose account is being accessed")
-    parser.add_argument("--quiet", action="store_true", help="Omit verbose descriptions and only print machine-readable outputs.")
-    parser.add_argument("--json", action="store_true", help="Show JSON-formatted output description")
+    group = parser.add_argument_group("Token retrieval mode options")
+    group.add_argument("--client-id", help="client ID of the application")
+    group.add_argument("--client-secret", help="client secret of the application")
+    group.add_argument("--authorization-code", help="authorization code")
+    group.add_argument("--refresh-token", help="OAuth2 refresh token")
+    group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
+    group.add_argument("--quiet", action="store_true", help="output only the token itself")
+    group = parser.add_argument_group("Test client mode options")
+    group.add_argument("--generate-oauth2-string", action="store_true", help="generate an initial client response string for OAuth2")
+    group.add_argument("--test-imap", action="store_true", help="attempts to authenticate to IMAP")
+    group.add_argument("--test-smtp", action="store_true", help="attempts to authenticate to SMTP")
+    group.add_argument("--user", help="specify the username (email address)")
+    group.add_argument("--access-token", help="specify the access token")
     args = parser.parse_args()
 
-    if args.authorize_app or args.authorization_code:
+    if args.authorization_code:
         require_args(args, "client-id", "client-secret")
-        decline_args(args, "access-token", "refresh-token")
-
-        if args.authorization_code:
-            authorization_code = args.authorization_code
-        else:
-            url = make_oauth2_permission_url(args.client_id, args.scope)
-            if args.quiet:
-                print(url)
-                authorization_code = input()
-            else:
-                print("Visit this URL: %s", url)
-                authorization_code = input("Enter verification code: ")
-
-        response = get_access_token(args.client_id, args.client_secret, authorization_code)
+        decline_args(args, "user", "access-token", "refresh-token")
+        response = get_access_token(args.client_id, args.client_secret, args.authorization_code)
         if args.quiet:
             print(response["access_token"])
             print(response["refresh_token"])
@@ -242,8 +228,7 @@ def main(argv):
 
     elif args.refresh_token:
         require_args(args, "client-id", "client-secret", "refresh-token")
-        decline_args(args, "access-token", "authorization-code")
-
+        decline_args(args, "user", "access-token", "authorization-code")
         response = refresh_access_token(args.client_id, args.client_secret, args.refresh_token)
         if args.quiet:
             print(response["access_token"])
@@ -267,7 +252,21 @@ def main(argv):
         test_smtp_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
 
     else:
-        Core.die("no mode specified")
+        require_args(args, "client-id", "client-secret")
+        decline_args(args, "user", "access-token")
+        url = make_oauth2_permission_url(args.client_id, args.scope)
+        if args.quiet:
+            print(url)
+            authorization_code = input()
+        else:
+            print("Visit this URL:", url)
+            authorization_code = input("Enter verification code: ")
+        response = get_access_token(args.client_id, args.client_secret, authorization_code)
+        if args.quiet:
+            print(response["access_token"])
+            print(response["refresh_token"])
+        else:
+            print(json.dumps(response))
 
 if __name__ == "__main__":
     main(sys.argv)

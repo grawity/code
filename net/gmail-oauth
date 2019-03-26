@@ -257,19 +257,23 @@ def main(argv):
     parser.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
     parser.add_argument("--test-imap-authentication", action="store_true", help="attempts to authenticate to IMAP")
     parser.add_argument("--test-smtp-authentication", action="store_true", help="attempts to authenticate to SMTP")
-    parser.add_argument("--username", help="email address of user whose account is being accessed")
-    parser.add_argument("--quiet", action="store_true", default=False, help="Omit verbose descriptions and only print machine-readable outputs.")
+    parser.add_argument("--user", help="email address of user whose account is being accessed")
+    parser.add_argument("--quiet", action="store_true", help="Omit verbose descriptions and only print machine-readable outputs.")
+    parser.add_argument("--verbose", action="store_true", help="Show verbose output description")
+    parser.add_argument("--json", action="store_true", help="Show JSON-formatted output description")
     args = parser.parse_args()
 
     if args.refresh_token:
         RequireOptions(args, 'client_id', 'client_secret')
         response = RefreshToken(args.client_id, args.client_secret,
                                 args.refresh_token)
-        if args.quiet:
-            print(response['access_token'])
+        if args.json:
+            print(json.dumps(response))
+        elif args.verbose:
+            print("access token:", response["access_token"])
+            print("expires in:", response["expires_in"])
         else:
-            print('Access Token: %s' % response['access_token'])
-            print('Access Token Expiration Seconds: %s' % response['expires_in'])
+            print(response["access_token"])
     elif args.generate_oauth2_string:
         RequireOptions(args, 'user', 'access_token')
         oauth2_string = GenerateOAuth2String(args.user, args.access_token)

@@ -183,28 +183,15 @@ def RefreshToken(client_id, client_secret, refresh_token):
     params['grant_type'] = 'refresh_token'
     request_url = AccountsUrl('o/oauth2/token')
 
-    response = urllib.request.urlopen(request_url, urllib.parse.urlencode(params)).read()
+    post_data = urllib.parse.urlencode(params).encode()
+    response = urllib.request.urlopen(request_url, post_data).read()
     return json.loads(response)
 
 
-def GenerateOAuth2String(username, access_token, base64_encode=True):
-    """Generates an IMAP OAuth2 authentication string.
+def sasl_xoauth2_response(username, access_token):
+    # https://developers.google.com/gmail/imap/xoauth2-protocol
 
-    See https://developers.google.com/google-apps/gmail/oauth2_overview
-
-    Args:
-        username: the username (email address) of the account to authenticate
-        access_token: An OAuth2 access token.
-        base64_encode: Whether to base64-encode the output.
-
-    Returns:
-        The SASL argument for the OAuth2 mechanism.
-    """
-    auth_string = 'user=%s\1auth=Bearer %s\1\1' % (username, access_token)
-    if base64_encode:
-        auth_string = base64.b64encode(auth_string)
-    return auth_string
-
+    return "user=%s\1auth=Bearer %s\1\1" % (username, access_token)
 
 def TestImapAuthentication(user, auth_string):
     """Authenticates to IMAP with the given auth_string.
@@ -213,7 +200,7 @@ def TestImapAuthentication(user, auth_string):
 
     Args:
         user: The Gmail username (full email address)
-        auth_string: A valid OAuth2 string, as returned by GenerateOAuth2String.
+        auth_string: A valid OAuth2 string, as returned by sasl_xoauth2_response.
                 Must not be base64-encoded, since imaplib does its own base64-encoding.
     """
     print()
@@ -229,7 +216,7 @@ def TestSmtpAuthentication(user, auth_string):
     Args:
         user: The Gmail username (full email address)
         auth_string: A valid OAuth2 string, not base64-encoded, as returned by
-                GenerateOAuth2String.
+                sasl_xoauth2_response.
     """
     print()
     smtp_conn = smtplib.SMTP('smtp.gmail.com', 587)
@@ -276,29 +263,23 @@ def main(argv):
             print(response["access_token"])
     elif args.generate_oauth2_string:
         RequireOptions(args, 'user', 'access_token')
-        oauth2_string = GenerateOAuth2String(args.user, args.access_token)
-        if args.quiet:
-            print(oauth2_string)
-        else:
-            print('OAuth2 argument:\n' + oauth2_string)
+        oauth2_string = sasl_xoauth2_response(args.user, args.access_token)
+        print(base64.b64encode(oauth2_string).decode())
     elif args.generate_oauth2_token:
         RequireOptions(args, 'client_id', 'client_secret')
         print('To authorize token, visit this url and follow the directions:')
         print('  %s' % GeneratePermissionUrl(args.client_id, args.scope))
         authorization_code = input('Enter verification code: ')
-        response = AuthorizeTokens(args.client_id, args.client_secret,
-                                                                authorization_code)
+        response = AuthorizeTokens(args.client_id, args.client_secret, authorization_code)
         print('Refresh Token: %s' % response['refresh_token'])
         print('Access Token: %s' % response['access_token'])
         print('Access Token Expiration Seconds: %s' % response['expires_in'])
     elif args.test_imap_authentication:
         RequireOptions(args, 'user', 'access_token')
-        TestImapAuthentication(args.user,
-                GenerateOAuth2String(args.user, args.access_token, base64_encode=False))
+        TestImapAuthentication(args.user, sasl_xoauth2_response(args.user, args.access_token))
     elif args.test_smtp_authentication:
         RequireOptions(args, 'user', 'access_token')
-        TestSmtpAuthentication(args.user,
-                GenerateOAuth2String(args.user, args.access_token, base64_encode=False))
+        TestSmtpAuthentication(args.user, sasl_xoauth2_response(args.user, args.access_token))
     else:
         options_parser.print_help()
         print('Nothing to do, exiting.')

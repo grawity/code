@@ -48,7 +48,13 @@ class ProgressBar():
             self._last_out = now
 
     def end(self, hide=False):
-        print("\033[K" if hide else "\n", end="", file=self.output_fh, flush=True)
+        if not hide and not self.max_value:
+            cur_fmt = self._fmt_func(self.cur_value)
+            bar = "-" * self.bar_width
+            bar = " --%% [%s] %s" % (bar, cur_fmt)
+            print(bar, end="\033[K\n", file=self.output_fh, flush=True)
+        else:
+            print("", end=("\033[K" if hide else "\n"), file=self.output_fh, flush=True)
 
     @classmethod
     def iter(self, iterable, *args, **kwargs):

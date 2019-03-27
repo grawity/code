@@ -37,10 +37,10 @@ def file_ext(url):
         return "bin"
 
 def _progress_bar(iterable, max_bytes, chunk_size):
-    #hide_complete = (max_bytes < 1*1024*1024)
     hide_complete = True
     from nullroute.ui.progressbar import ProgressBar
     bar = ProgressBar(max_value=max_bytes)
+    bar.incr(0)
     for i in iterable:
         yield i
         bar.incr(len(i))

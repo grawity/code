@@ -20,8 +20,29 @@ import argparse
 import base64
 import json
 from nullroute.core import Core
+import nullroute.sec
 from nullroute.sec.oauth2 import OAuth2Client
 import sys
+
+def try_load_keyring(**kwargs):
+    schema = "org.eu.nullroute.OAuthToken"
+    attrs = {"xdg:schema": schema, **kwargs}
+    data = None
+    try:
+        data = nullroute.sec.get_libsecret(attrs)
+        try:
+            data = json.loads(data)
+        except json.decoder.JSONDecodeError:
+            nullroute.sec.clear_libsecret(attrs)
+    except KeyError:
+        pass
+    return data
+
+def store_keyring(name, data, **kwargs):
+    schema = "org.eu.nullroute.OAuthToken"
+    attrs = {"xdg:schema": schema, **kwargs}
+    data = json.dumps(data)
+    return nullroute.sec.store_libsecret(name, data, attrs)
 
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
@@ -75,6 +96,7 @@ def main(argv):
     group.add_argument("--authorization-code", help="authorization code")
     group.add_argument("--refresh-token", help="OAuth2 refresh token")
     group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
+    group.add_argument("--store-keyring", action="store_true", help="store the access token in keyring")
     group.add_argument("--quiet", action="store_true", help="output only the token itself")
     group = parser.add_argument_group("Test client mode options")
     group.add_argument("--generate-sasl-response", action="store_true", help="generate an initial SASL client response string")
@@ -124,6 +146,12 @@ def main(argv):
             print(response["refresh_token"])
         else:
             print(json.dumps(response))
+        if args.store_keyring:
+            data = {"client_id": args.client_id,
+                    "client_secret": args.client_secret,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
     elif args.refresh_token:
         require_args(args, "client-id", "client-secret", "refresh-token")
@@ -134,6 +162,13 @@ def main(argv):
             print(response["access_token"])
         else:
             print(json.dumps(response))
+        if args.store_keyring:
+            data = {"client_id": args.client_id,
+                    "client_secret": args.client_secret,
+                    "refresh_token": args.refresh_token,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
     else:
         require_args(args, "client-id", "client-secret")
@@ -152,6 +187,12 @@ def main(argv):
             print(response["refresh_token"])
         else:
             print(json.dumps(response))
+        if args.store_keyring:
+            data = {"client_id": args.client_id,
+                    "client_secret": args.client_secret,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
 if __name__ == "__main__":
     main(sys.argv)

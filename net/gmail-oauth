@@ -170,7 +170,23 @@ def main(argv):
     group.add_argument("--access-token", help="specify the access token")
     args = parser.parse_args()
 
-    if args.authorization_code:
+    if args.generate_oauth2_string:
+        require_args(args, "user", "access-token")
+        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+        oauth2_string = sasl_xoauth2_response(args.user, args.access_token)
+        print(base64.b64encode(oauth2_string).decode())
+
+    elif args.test_imap:
+        require_args(args, "user", "access-token")
+        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+        test_imap_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
+
+    elif args.test_smtp:
+        require_args(args, "user", "access-token")
+        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+        test_smtp_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
+
+    elif args.authorization_code:
         require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token", "refresh-token")
         response = get_access_token(args.client_id, args.client_secret, args.authorization_code)
@@ -188,22 +204,6 @@ def main(argv):
             print(response["access_token"])
         else:
             print(json.dumps(response))
-
-    elif args.generate_oauth2_string:
-        require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        oauth2_string = sasl_xoauth2_response(args.user, args.access_token)
-        print(base64.b64encode(oauth2_string).decode())
-
-    elif args.test_imap:
-        require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        test_imap_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
-
-    elif args.test_smtp:
-        require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        test_smtp_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
 
     else:
         require_args(args, "client-id", "client-secret")

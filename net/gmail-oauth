@@ -28,12 +28,6 @@ import urllib.request, urllib.parse, urllib.error
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
-def fmt_url_query_string(params):
-    # See OAUTH 5.1 for a definition of which characters need to be escaped
-    params = ["%s=%s" % (key, urllib.parse.quote(val, safe="~-._"))
-              for (key, val) in sorted(params.items())]
-    return "&".join(params)
-
 class OAuth2Client():
     def __init__(self, client_id,
                        client_secret=None,
@@ -52,7 +46,11 @@ class OAuth2Client():
             "response_type": "code",
             "scope": scope,
         }
-        return "%s?%s" % (self.authorization_url, fmt_url_query_string(params))
+        # # See OAUTH 5.1 for a definition of which characters need to be escaped
+        params = urllib.parse.urlencode(params,
+                                        quote_via=urllib.parse.quote,
+                                        safe="~-._")
+        return "%s?%s" % (self.authorization_url, params)
 
     def _grant_token(self, **params):
         params = {

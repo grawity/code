@@ -32,11 +32,10 @@ def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
 def fmt_url_query_string(params):
-    param_fragments = []
-    for key, value in sorted(params.items()):
-        # See OAUTH 5.1 for a definition of which characters need to be escaped
-        param_fragments.append("%s=%s" % (key, urllib.parse.quote(value, safe="~-._")))
-    return "&".join(param_fragments)
+    # See OAUTH 5.1 for a definition of which characters need to be escaped
+    params = ["%s=%s" % (key, urllib.parse.quote(val, safe="~-._"))
+              for (key, val) in sorted(params.items())]
+    return "&".join(params)
 
 def make_oauth2_permission_url(client_id, scope):
     """Generates the URL for authorizing access.

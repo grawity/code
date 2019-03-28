@@ -28,29 +28,14 @@ import urllib.request, urllib.parse, urllib.error
 # Hardcoded dummy redirect URI for non-web apps
 REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
 
-def UrlEscape(text):
-    # See OAUTH 5.1 for a definition of which characters need to be escaped.
-    return urllib.parse.quote(text, safe='~-._')
-
-def UrlUnescape(text):
-    # See OAUTH 5.1 for a definition of which characters need to be escaped.
-    return urllib.parse.unquote(text)
-
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
 def fmt_url_query_string(params):
-    """Formats parameters into a URL query string.
-
-    Args:
-        params: A key-value map.
-
-    Returns:
-        A URL query string version of the given parameters.
-    """
     param_fragments = []
     for param in sorted(params.items(), key=lambda x: x[0]):
-        param_fragments.append("%s=%s" % (param[0], UrlEscape(param[1])))
+        # See OAUTH 5.1 for a definition of which characters need to be escaped
+        param_fragments.append("%s=%s" % (param[0], urllib.parse.quote(param[1], safe="~-._")))
     return "&".join(param_fragments)
 
 def make_oauth2_permission_url(client_id, scope):

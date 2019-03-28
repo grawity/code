@@ -185,30 +185,23 @@ def main(argv):
     group.add_argument("--access-token", help="specify the access token")
     args = parser.parse_args()
 
-    if args.generate_sasl_response:
+    if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
         decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+
         if args.xoauth2:
+            mechanism = "XOAUTH2"
             response = sasl_xoauth2_response(args.user, args.access_token)
         else:
+            mechanism = "OAUTHBEARER"
             response = sasl_oauthbearer_response(args.user, args.access_token)
-        print(base64.b64encode(response).decode())
 
-    elif args.test_imap:
-        require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        if args.xoauth2:
-            test_imap_auth(args.user, "XOAUTH2", sasl_xoauth2_response(args.user, args.access_token))
-        else:
-            test_imap_auth(args.user, "OAUTHBEARER", sasl_oauthbearer_response(args.user, args.access_token))
-
-    elif args.test_smtp:
-        require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        if args.xoauth2:
-            test_smtp_auth(args.user, "XOAUTH2", sasl_xoauth2_response(args.user, args.access_token))
-        else:
-            test_smtp_auth(args.user, "OAUTHBEARER", sasl_oauthbearer_response(args.user, args.access_token))
+        if args.generate_sasl_response:
+            print(base64.b64encode(response).decode())
+        elif args.test_imap:
+            test_imap_auth(args.user, mechanism, response)
+        elif args.test_smtp:
+            test_smtp_auth(args.user, mechanism, response)
 
     elif args.authorization_code:
         require_args(args, "client-id", "client-secret")

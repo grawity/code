@@ -25,9 +25,6 @@ import smtplib
 import sys
 import urllib.request, urllib.parse, urllib.error
 
-# Hardcoded dummy redirect URI for non-web apps
-REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
-
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
@@ -37,58 +34,46 @@ def fmt_url_query_string(params):
               for (key, val) in sorted(params.items())]
     return "&".join(params)
 
-def make_oauth2_permission_url(client_id, scope):
-    """Generates the URL for authorizing access.
+class OAuth2Client():
+    def __init__(self, client_id,
+                       client_secret=None,
+                       authorization_url=None,
+                       token_grant_url=None):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.authorization_url = authorization_url
+        self.token_grant_url = token_grant_url
+        self.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
 
-    This uses the "OAuth2 for Installed Applications" flow described at
-    https://developers.google.com/identity/protocols/OAuth2InstalledApp
+    def make_authorization_url(self, scope):
+        params = {
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "response_type": "code",
+            "scope": scope,
+        }
+        return "%s?%s" % (self.authorization_url, fmt_url_query_string(params))
 
-    Args:
-        client_id: Client ID obtained by registering your app.
-        scope: scope for access token, e.g. 'https://mail.google.com'
-    Returns:
-        A URL that the user should visit in their browser.
-    """
-    request_url = "https://accounts.google.com/o/oauth2/auth"
-    #request_url = "https://accounts.google.com/o/oauth2/v2/auth"
-    params = {
-        "client_id": client_id,
-        "redirect_uri": REDIRECT_URI,
-        "response_type": "code",
-        "scope": scope,
-    }
-    return "%s?%s" % (request_url, fmt_url_query_string(params))
+    def _grant_token(self, **params):
+        params = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            **params,
+        }
+        post_data = urllib.parse.urlencode(params).encode()
+        response = urllib.request.urlopen(self.token_grant_url, post_data).read()
+        return json.loads(response)
 
-def get_access_token(client_id, client_secret, authorization_code):
-    # https://developers.google.com/identity/protocols/OAuth2InstalledApp#exchange-authorization-code
-    # Returns: dict {access_token:, expires_in:, refresh_token:, ...}
-    request_url = "https://accounts.google.com/o/oauth2/token"
-    #request_url = "https://www.googleapis.com/oauth2/v4/token"
-    params = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "code": authorization_code,
-        "grant_type": "authorization_code",
-        "redirect_uri": REDIRECT_URI,
-    }
-    post_data = urllib.parse.urlencode(params).encode()
-    response = urllib.request.urlopen(request_url, post_data).read()
-    return json.loads(response)
+    def grant_token_via_authorization(self, authorization_code):
+        # https://developers.google.com/identity/protocols/OAuth2InstalledApp#exchange-authorization-code
+        return self._grant_token(grant_type="authorization_code",
+                                 code=authorization_code,
+                                 redirect_uri=self.redirect_uri)
 
-def refresh_access_token(client_id, client_secret, refresh_token):
-    # https://developers.google.com/identity/protocols/OAuth2InstalledApp#offline
-    # Returns: dict {access_token:, expires_in:, ...}
-    request_url = "https://accounts.google.com/o/oauth2/token"
-    #request_url = "https://www.googleapis.com/oauth2/v4/token"
-    params = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "refresh_token",
-        "refresh_token": refresh_token,
-    }
-    post_data = urllib.parse.urlencode(params).encode()
-    response = urllib.request.urlopen(request_url, post_data).read()
-    return json.loads(response)
+    def grant_token_via_refresh(self, refresh_token):
+        # https://developers.google.com/identity/protocols/OAuth2InstalledApp#offline
+        return self._grant_token(grant_type="refresh_token",
+                                 refresh_token=refresh_token)
 
 def sasl_xoauth2_response(username, access_token):
     # https://developers.google.com/gmail/imap/xoauth2-protocol
@@ -147,6 +132,17 @@ def main(argv):
     group.add_argument("--access-token", help="specify the access token")
     args = parser.parse_args()
 
+    google_endpoints = {
+        "authorization_url": "https://accounts.google.com/o/oauth2/auth",
+        #"authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_grant_url": "https://accounts.google.com/o/oauth2/token",
+        #"token_grant_url": "https://www.googleapis.com/oauth2/v4/token",
+    }
+
+    client = OAuth2Client(client_id=args.client_id,
+                          client_secret=args.client_secret,
+                          **google_endpoints)
+
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
         decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
@@ -169,7 +165,7 @@ def main(argv):
         require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token", "refresh-token")
 
-        response = get_access_token(args.client_id, args.client_secret, args.authorization_code)
+        response = client.grant_token_via_authorization(args.authorization_code)
         if args.quiet:
             print(response["access_token"])
             print(response["refresh_token"])
@@ -180,7 +176,7 @@ def main(argv):
         require_args(args, "client-id", "client-secret", "refresh-token")
         decline_args(args, "user", "access-token", "authorization-code")
 
-        response = refresh_access_token(args.client_id, args.client_secret, args.refresh_token)
+        response = client.grant_token_via_refresh(args.refresh_token)
         if args.quiet:
             print(response["access_token"])
         else:
@@ -190,7 +186,7 @@ def main(argv):
         require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token")
 
-        url = make_oauth2_permission_url(args.client_id, args.scope)
+        url = client.make_authorization_url(args.scope)
         if args.quiet:
             print(url)
             authorization_code = input()
@@ -198,7 +194,7 @@ def main(argv):
             print("Visit this URL:", url)
             authorization_code = input("Enter verification code: ")
 
-        response = get_access_token(args.client_id, args.client_secret, authorization_code)
+        response = client.grant_token_via_authorization(authorization_code)
         if args.quiet:
             print(response["refresh_token"])
         else:

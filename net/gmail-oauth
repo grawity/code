@@ -23,6 +23,7 @@ from nullroute.core import Core
 import nullroute.sec
 from nullroute.sec.oauth2 import OAuth2Client
 import sys
+import time
 
 def try_load_keyring(**kwargs):
     schema = "org.eu.nullroute.OAuthToken"
@@ -93,6 +94,7 @@ def main(argv):
     group = parser.add_argument_group("Token retrieval mode options")
     group.add_argument("--client-id", help="client ID of the application")
     group.add_argument("--client-secret", help="client secret of the application")
+    group.add_argument("--authorize", action="store_true", help="begin interactive authorization")
     group.add_argument("--authorization-code", help="authorization code")
     group.add_argument("--refresh-token", help="OAuth2 refresh token")
     group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
@@ -170,7 +172,7 @@ def main(argv):
                     **response}
             store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
-    else:
+    elif args.authorize:
         require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token")
 
@@ -193,6 +195,24 @@ def main(argv):
                     "expires_at": int(time.time() + response["expires_in"]),
                     **response}
             store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+
+    else:
+        data = try_load_keyring(domain="mail.google.com")
+        if not data:
+            Core.die("token not found in keyring; use --authorize interactively")
+        elif data.get("expires_at", 0) < time.time() + 60:
+            Core.debug("access token expired, refreshing")
+            client = OAuth2Client(client_id=(args.client_id or data["client_id"]),
+                                  client_secret=(args.client_secret or data["client_secret"]),
+                                  **google_endpoints)
+            response = client.grant_token_via_refresh(data["refresh_token"])
+            data = {**data,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+        else:
+            Core.debug("access token still valid")
+        print(data["access_token"])
 
 if __name__ == "__main__":
     main(sys.argv)

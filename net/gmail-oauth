@@ -177,7 +177,7 @@ def main(argv):
     group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
     group.add_argument("--quiet", action="store_true", help="output only the token itself")
     group = parser.add_argument_group("Test client mode options")
-    group.add_argument("--generate-oauth2-string", action="store_true", help="generate an initial client response string for OAuth2")
+    group.add_argument("--generate-sasl-response", action="store_true", help="generate an initial SASL client response string")
     group.add_argument("--test-imap", action="store_true", help="attempt to authenticate to Gmail via IMAP")
     group.add_argument("--test-smtp", action="store_true", help="attempt to authenticate to Gmail via SMTP")
     group.add_argument("--xoauth2", action="store_true", help="use legacy XOAUTH2 mechanism instead of OAUTHBEARER")
@@ -185,11 +185,14 @@ def main(argv):
     group.add_argument("--access-token", help="specify the access token")
     args = parser.parse_args()
 
-    if args.generate_oauth2_string:
+    if args.generate_sasl_response:
         require_args(args, "user", "access-token")
         decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        oauth2_string = sasl_xoauth2_response(args.user, args.access_token)
-        print(base64.b64encode(oauth2_string).decode())
+        if args.xoauth2:
+            response = sasl_xoauth2_response(args.user, args.access_token)
+        else:
+            response = sasl_oauthbearer_response(args.user, args.access_token)
+        print(base64.b64encode(response).decode())
 
     elif args.test_imap:
         require_args(args, "user", "access-token")

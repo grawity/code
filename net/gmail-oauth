@@ -39,6 +39,9 @@ def UrlUnescape(text):
     # See OAUTH 5.1 for a definition of which characters need to be escaped.
     return urllib.parse.unquote(text)
 
+def sasl_gs2_escape(text):
+    return text.replace("=", "=3D").replace(",", "=2C")
+
 def fmt_url_query_string(params):
     """Formats parameters into a URL query string.
 
@@ -127,21 +130,32 @@ def refresh_access_token(client_id, client_secret, refresh_token):
 
 def sasl_xoauth2_response(username, access_token):
     # https://developers.google.com/gmail/imap/xoauth2-protocol
-    buf = "user=%s\1auth=Bearer %s\1\1" % (username, access_token)
+    http_authz = "Bearer %s" % access_token
+    buf = "user=%s\1auth=%s\1\1" % (username, http_authz)
     return buf.encode()
 
-def test_imap_auth(user, auth_string):
+def sasl_oauthbearer_response(username, access_token):
+    # https://tools.ietf.org/html/rfc5801#section-4
+    gs2_header = "n,a=%s," % sasl_gs2_escape(username)
+    # https://tools.ietf.org/html/rfc6750#section-2.1
+    http_authz = "Bearer %s" % access_token
+    # https://tools.ietf.org/html/rfc7628#section-3.1
+    buf = "%s\1auth=%s\1\1" % (gs2_header, http_authz)
+    return buf.encode()
+
+def test_imap_auth(user, mech, auth_string):
+    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
     imap_conn = imaplib.IMAP4_SSL("imap.gmail.com")
     imap_conn.debug = 4
-    imap_conn.authenticate("XOAUTH2", lambda x: auth_string)
+    imap_conn.authenticate(mech, lambda x: auth_string)
     imap_conn.select("INBOX")
 
-def test_smtp_auth(user, auth_string):
-    smtp_conn = smtplib.SMTP("smtp.gmail.com", 587)
+def test_smtp_auth(user, mech, auth_string):
+    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+    smtp_conn = smtplib.SMTP_SSL("smtp.gmail.com", 465)
     smtp_conn.set_debuglevel(True)
     smtp_conn.ehlo("test")
-    smtp_conn.starttls()
-    smtp_conn.docmd("AUTH", "XOAUTH2 " + base64.b64encode(auth_string).decode())
+    smtp_conn.docmd("AUTH", mech + " " + base64.b64encode(auth_string).decode())
 
 def require_args(options, *args):
     missing = ["--%s" % arg for arg in args if getattr(options, arg.replace("-", "_")) is None]
@@ -164,8 +178,9 @@ def main(argv):
     group.add_argument("--quiet", action="store_true", help="output only the token itself")
     group = parser.add_argument_group("Test client mode options")
     group.add_argument("--generate-oauth2-string", action="store_true", help="generate an initial client response string for OAuth2")
-    group.add_argument("--test-imap", action="store_true", help="attempts to authenticate to IMAP")
-    group.add_argument("--test-smtp", action="store_true", help="attempts to authenticate to SMTP")
+    group.add_argument("--test-imap", action="store_true", help="attempt to authenticate to Gmail via IMAP")
+    group.add_argument("--test-smtp", action="store_true", help="attempt to authenticate to Gmail via SMTP")
+    group.add_argument("--xoauth2", action="store_true", help="use legacy XOAUTH2 mechanism instead of OAUTHBEARER")
     group.add_argument("--user", help="specify the username (email address)")
     group.add_argument("--access-token", help="specify the access token")
     args = parser.parse_args()
@@ -179,12 +194,18 @@ def main(argv):
     elif args.test_imap:
         require_args(args, "user", "access-token")
         decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        test_imap_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
+        if args.xoauth2:
+            test_imap_auth(args.user, "XOAUTH2", sasl_xoauth2_response(args.user, args.access_token))
+        else:
+            test_imap_auth(args.user, "OAUTHBEARER", sasl_oauthbearer_response(args.user, args.access_token))
 
     elif args.test_smtp:
         require_args(args, "user", "access-token")
         decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
-        test_smtp_auth(args.user, sasl_xoauth2_response(args.user, args.access_token))
+        if args.xoauth2:
+            test_smtp_auth(args.user, "XOAUTH2", sasl_xoauth2_response(args.user, args.access_token))
+        else:
+            test_smtp_auth(args.user, "OAUTHBEARER", sasl_oauthbearer_response(args.user, args.access_token))
 
     elif args.authorization_code:
         require_args(args, "client-id", "client-secret")

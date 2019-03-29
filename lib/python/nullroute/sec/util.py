@@ -3,9 +3,9 @@ from nullroute.core import Core, Env
 import nullroute.sec
 import os
 
-def try_load_keyring(**kwargs):
+def try_load_keyring(domain, **kwargs):
     schema = "org.eu.nullroute.OAuthToken"
-    attrs = {"xdg:schema": schema, **kwargs}
+    attrs = {"xdg:schema": schema, "domain": domain, **kwargs}
     data = None
     try:
         data = nullroute.sec.get_libsecret(attrs)
@@ -17,15 +17,15 @@ def try_load_keyring(**kwargs):
         pass
     return data
 
-def store_keyring(name, data, **kwargs):
+def store_keyring(name, data, domain, **kwargs):
     schema = "org.eu.nullroute.OAuthToken"
-    attrs = {"xdg:schema": schema, **kwargs}
+    attrs = {"xdg:schema": schema, "domain": domain, **kwargs}
     data = json.dumps(data)
     return nullroute.sec.store_libsecret(name, data, attrs)
 
-def clear_keyring(**kwargs):
+def clear_keyring(domain, **kwargs):
     schema = "org.eu.nullroute.OAuthToken"
-    attrs = {"xdg:schema": schema, **kwargs}
+    attrs = {"xdg:schema": schema, "domain": domain, **kwargs}
     return nullroute.sec.clear_libsecret(attrs)
 
 class OAuthTokenCache(object):

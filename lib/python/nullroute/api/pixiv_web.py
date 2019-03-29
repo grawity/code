@@ -1,10 +1,10 @@
 from functools import lru_cache
 import json
 from nullroute.core import Core, Env
-from nullroute.api.base import PersistentAuthBase
 from nullroute.scrape import Scraper
 from nullroute.string import ObjectDict
 import nullroute.sec
+from nullroute.sec.util import TokenCache
 import os
 import requests
 import time
@@ -14,15 +14,30 @@ def parse_query_string(query):
             for (k, v) in [x.split("=", 1)
                            for x in query.split("&")]}
 
-class PixivWebClient(Scraper, PersistentAuthBase):
-    TOKEN_SCHEMA = "org.eu.nullroute.BearerToken"
-    TOKEN_NAME = "Pixiv web cookie"
-    TOKEN_DOMAIN = "www.pixiv.net"
-    TOKEN_PATH = Env.find_cache_file("pixiv_web.auth.json")
-
+class PixivWebClient(Scraper):
     def __init__(self):
         super().__init__()
+
+        self.tc = TokenCache("www.pixiv.net", display_name="Pixiv")
         self.user_id = None
+
+    def _load_token(self):
+        #return self.tc.load_token()
+
+        # TODO: delete after 2019-05-01
+        data = self.tc.load_token()
+        if not data:
+            old_path = Env.find_cache_file("pixiv_web.auth.json")
+            if os.path.exists(old_path):
+                Core.notice("migrating auth token from %r", old_path)
+                with open(old_path, "r") as fh:
+                    data = json.load(fh)
+                self.tc.store_token(data)
+                os.unlink(old_path)
+        return data
+
+    def _store_token(self, token):
+        return self.tc.store_token(token)
 
     def _load_creds(self):
         creds = nullroute.sec.get_netrc_service("pixiv.net", "http")
@@ -37,7 +52,7 @@ class PixivWebClient(Scraper, PersistentAuthBase):
             if os.environ.get("FORCE_TOKEN_REFRESH"):
                 token_valid = False
             else:
-                token_valid = token["expires"] > time.time()
+                token_valid = token["expires"] >= time.time()
 
             if token_valid:
                 cookie = requests.cookies.create_cookie(**token)

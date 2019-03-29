@@ -18,7 +18,6 @@ class PixivApiClient():
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
 
         self.tc = OAuthTokenCache("api.pixiv.net", display_name="Pixiv API")
-        self._migrate_token_cache()
 
         self.api = pixivpy3.PixivAPI()
         if not hasattr(self.api, "client_secret"):
@@ -27,17 +26,21 @@ class PixivApiClient():
         self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
         self.api.requests = self.ua
 
-    def _migrate_token_cache(self):
-        old_path = Env.find_cache_file("pixiv.auth.json")
-        if os.path.exists(old_path):
-            Core.notice("migrating auth token from %r", old_path)
-            with open(old_path, "r") as fh:
-                data = json.load(fh)
-            self.tc.store_token(data)
-            os.unlink(old_path)
-
     def _load_token(self):
-        return self.tc.load_token()
+        #return self.tc.load_token()
+
+        # TODO: delete after 2019-05-01
+        data = self.tc.load_token()
+        if not data:
+            # search for old keyring entry
+            old_tc = OAuthTokenCache("pixiv.net")
+            old_tc.token_path = Env.find_cache_file("pixiv.auth.json")
+            data = old_tc.load_token()
+            if data:
+                Core.notice("migrated auth token from old storage")
+                self.tc.store_token(data)
+                old_tc.forget_token()
+        return data
 
     def _store_token(self, token):
         data = {

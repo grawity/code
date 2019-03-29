@@ -18,7 +18,7 @@ class PixivWebClient(Scraper):
     def __init__(self):
         super().__init__()
 
-        self.tc = TokenCache("www.pixiv.net", display_name="Pixiv")
+        self.tc = TokenCache("www.pixiv.net", display_name="Pixiv website")
         self.user_id = None
 
     def _load_token(self):

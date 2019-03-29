@@ -3,6 +3,7 @@ import argparse
 from nullroute.core import Core
 from nullroute.file import digest_files, get_file_attr, set_file_attrs
 from nullroute.misc import filter_filename
+from nullroute.renameutil import is_file_partial
 from nullroute.scrape import Scraper
 import os
 from pprint import pprint
@@ -263,7 +264,13 @@ for arg in args.path or ["."]:
                 filenames.clear()
                 dirnames.clear()
             for filename in filenames:
+                if is_file_partial(filename):
+                    Core.debug("skipping partial file: %r", filename)
+                    continue
                 rename_file_in_dir(dirpath, filename, args, foreign_warn=False)
     else:
         dirpath, filename = os.path.split(arg)
+        if is_file_partial(filename):
+            Core.notice("skipping partial file: %r", arg)
+            continue
         rename_file_in_dir(dirpath, filename, args, foreign_warn=True)

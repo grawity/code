@@ -132,7 +132,6 @@ def main(argv):
         if args.store_keyring:
             data = {"client_id": args.client_id,
                     "client_secret": args.client_secret,
-                    "expires_at": int(time.time() + response["expires_in"]),
                     **response}
             store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
@@ -149,7 +148,6 @@ def main(argv):
             data = {"client_id": args.client_id,
                     "client_secret": args.client_secret,
                     "refresh_token": args.refresh_token,
-                    "expires_at": int(time.time() + response["expires_in"]),
                     **response}
             store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
@@ -173,7 +171,6 @@ def main(argv):
         if args.store_keyring:
             data = {"client_id": args.client_id,
                     "client_secret": args.client_secret,
-                    "expires_at": int(time.time() + response["expires_in"]),
                     **response}
             store_keyring("Gmail OAuth token", data, domain="mail.google.com")
 
@@ -187,12 +184,11 @@ def main(argv):
                                   client_secret=(args.client_secret or data["client_secret"]),
                                   **google_endpoints)
             response = client.grant_token_via_refresh(data["refresh_token"])
-            data = {**data,
-                    "expires_at": int(time.time() + response["expires_in"]),
-                    **response}
+            data = {**data, **response}
             store_keyring("Gmail OAuth token", data, domain="mail.google.com")
         else:
             Core.debug("access token still valid")
+        Core.debug("token data: %r", data)
         print(data["access_token"])
 
 if __name__ == "__main__":

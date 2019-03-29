@@ -1,7 +1,8 @@
 from functools import lru_cache
+import json
 from nullroute.core import Core, Env
-from nullroute.api.base import PersistentAuthBase
 import nullroute.sec
+from nullroute.sec.util import OAuthTokenCache
 import os
 import pixivpy3
 import requests
@@ -10,16 +11,14 @@ import time
 class PixivApiError(Exception):
     pass
 
-class PixivApiClient(PersistentAuthBase):
-    TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
-    TOKEN_NAME = "Pixiv OAuth token"
-    TOKEN_DOMAIN = "pixiv.net"
-    TOKEN_PATH = Env.find_cache_file("pixiv.auth.json")
-
+class PixivApiClient():
     def __init__(self):
         self.ua = requests.Session()
         self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+
+        self.tc = OAuthTokenCache("api.pixiv.net", display_name="Pixiv API")
+        self._migrate_token_cache()
 
         self.api = pixivpy3.PixivAPI()
         if not hasattr(self.api, "client_secret"):
@@ -28,6 +27,18 @@ class PixivApiClient(PersistentAuthBase):
         self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
         self.api.requests = self.ua
 
+    def _migrate_token_cache(self):
+        old_path = Env.find_cache_file("pixiv.auth.json")
+        if os.path.exists(old_path):
+            Core.notice("migrating auth token from %r", old_path)
+            with open(old_path, "r") as fh:
+                data = json.load(fh)
+            self.tc.store_token(data)
+            os.unlink(old_path)
+
+    def _load_token(self):
+        return self.tc.load_token()
+
     def _store_token(self, token):
         data = {
             "access_token": token.response.access_token,
@@ -35,11 +46,7 @@ class PixivApiClient(PersistentAuthBase):
             "expires_at": int(time.time() + token.response.expires_in),
             "user_id": token.response.user.id,
         }
-        extra = {
-           "userid": token.response.user.id,
-           "username": token.response.user.account,
-        }
-        return super()._store_token(data, extra)
+        return self.tc.store_token(data)
 
     # API authentication
 

@@ -17,6 +17,7 @@ class RenameJob():
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
     fmt_same = "\033[38;5;2m%s\033[m"
+    fmt_foreign = "\033[38;5;11m%s\033[m"
 
     def __init__(self, old_path, dry_run=False):
         self.old_path = old_path
@@ -28,6 +29,9 @@ class RenameJob():
     def end_fail(self, e):
         print(self.fmt_notfound % "failed")
         Core.err(str(e))
+
+    def end_foreign(self):
+        print(self.fmt_foreign % "not recognized")
 
     def end_notfound(self):
         print("=>", self.fmt_notfound % "[not found]")

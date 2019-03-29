@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from nullroute.core import Core
-from nullroute.file import digest_files, get_file_attr, set_file_attrs
+from nullroute.file import get_file_attr, set_file_attrs
 from nullroute.misc import filter_filename
 from nullroute.renameutil import is_file_partial, RenameJob
 from nullroute.scrape import Scraper
@@ -106,22 +106,7 @@ def filter_title(title, strict):
         title = "'%s'" % title
     return title
 
-def files_eq(a, b):
-    astat = os.stat(a)
-    bstat = os.stat(b)
-    if astat.st_size != bstat.st_size:
-        return False
-    digests = digest_files([a, b])
-    if digests[a] != digests[b]:
-        return False
-    return True
-
 def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
-    fmt_foreign  = "\033[38;5;11m%s\033[m"
-    fmt_found    = "\033[38;5;10m%s\033[m"
-    fmt_notfound = "\033[38;5;9m%s\033[m"
-    fmt_noop     = "\033[38;5;8m%s\033[m"
-
     old_path = os.path.join(old_dir, old_name)
     job = RenameJob(old_path, dry_run=args.dry_run)
 

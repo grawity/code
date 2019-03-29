@@ -1,6 +1,5 @@
 import json
 from nullroute.core import Core
-import time
 import urllib.parse
 import urllib.request
 
@@ -35,9 +34,7 @@ class OAuth2Client():
         post_data = urllib.parse.urlencode(post_data).encode()
         Core.debug("encoded data: %r", post_data)
         response = urllib.request.urlopen(self.token_grant_url, post_data).read()
-        response = json.loads(response)
-        return {"expires_at": int(time.time() + response["expires_in"]),
-                **response}
+        return json.loads(response)
 
     def grant_token_via_authorization(self, authorization_code):
         return self._grant_token({"grant_type": "authorization_code",

@@ -2,6 +2,7 @@ import json
 from nullroute.core import Core, Env
 import nullroute.sec
 import os
+import time
 
 def try_load_keyring(domain, **kwargs):
     schema = "org.eu.nullroute.OAuthToken"
@@ -81,6 +82,8 @@ class OAuthTokenCache(object):
         return None
 
     def store_token(self, data):
+        if data.get("expires_in"):
+            data.setdefault("expires_at", int(time.time() + data["expires_in"]))
         Core.debug("storing OAuth token for %r", self.domain)
         self._store_token_libsecret(data)
         try:

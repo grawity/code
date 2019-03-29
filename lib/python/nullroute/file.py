@@ -108,4 +108,5 @@ def hash_file(path, digest="sha1"):
 def compare_files(a, b):
     return (os.path.exists(a)
         and os.path.exists(b)
+        and os.stat(a).st_size == os.stat(b).st_size
         and hash_file(a) == hash_file(b))

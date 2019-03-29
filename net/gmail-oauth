@@ -1,0 +1,218 @@
+#!/usr/bin/python3
+# gmail-oauth -- Mutt helper for Gmail's OAUTHBEARER and XOAUTH2 mechanisms
+#
+# Original version from: <https://github.com/google/gmail-oauth2-tools>
+# (c) 2012 Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#            http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+import base64
+import json
+from nullroute.core import Core
+import nullroute.sec
+from nullroute.sec.oauth2 import OAuth2Client
+import sys
+import time
+
+def try_load_keyring(**kwargs):
+    schema = "org.eu.nullroute.OAuthToken"
+    attrs = {"xdg:schema": schema, **kwargs}
+    data = None
+    try:
+        data = nullroute.sec.get_libsecret(attrs)
+        try:
+            data = json.loads(data)
+        except json.decoder.JSONDecodeError:
+            nullroute.sec.clear_libsecret(attrs)
+    except KeyError:
+        pass
+    return data
+
+def store_keyring(name, data, **kwargs):
+    schema = "org.eu.nullroute.OAuthToken"
+    attrs = {"xdg:schema": schema, **kwargs}
+    data = json.dumps(data)
+    return nullroute.sec.store_libsecret(name, data, attrs)
+
+def sasl_gs2_escape(text):
+    return text.replace("=", "=3D").replace(",", "=2C")
+
+def sasl_xoauth2_response(username, access_token):
+    # https://developers.google.com/gmail/imap/xoauth2-protocol
+    http_authz = "Bearer %s" % access_token
+    buf = "user=%s\1auth=%s\1\1" % (username, http_authz)
+    return buf.encode()
+
+def sasl_oauthbearer_response(username, access_token):
+    # https://tools.ietf.org/html/rfc5801#section-4
+    gs2_header = "n,a=%s," % sasl_gs2_escape(username)
+    # https://tools.ietf.org/html/rfc6750#section-2.1
+    http_authz = "Bearer %s" % access_token
+    # https://tools.ietf.org/html/rfc7628#section-3.1
+    buf = "%s\1auth=%s\1\1" % (gs2_header, http_authz)
+    return buf.encode()
+
+def test_imap_auth(mech, auth_string):
+    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+    import imaplib
+    imap_conn = imaplib.IMAP4_SSL("imap.gmail.com")
+    imap_conn.debug = 4
+    imap_conn.authenticate(mech, lambda x: auth_string)
+    imap_conn.select("INBOX")
+
+def test_smtp_auth(mech, auth_string):
+    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+    import smtplib
+    smtp_conn = smtplib.SMTP_SSL("smtp.gmail.com", 465)
+    smtp_conn.set_debuglevel(True)
+    smtp_conn.ehlo("test")
+    smtp_conn.docmd("AUTH", mech + " " + base64.b64encode(auth_string).decode())
+
+def require_args(options, *args):
+    missing = ["--%s" % arg for arg in args if getattr(options, arg.replace("-", "_")) is None]
+    if missing:
+        Core.die("missing options: %s" % ", ".join(missing))
+
+def decline_args(options, *args):
+    useless = ["--%s" % arg for arg in args if getattr(options, arg.replace("-", "_")) is not None]
+    if useless:
+        Core.warn("option %s useless in this mode" % ", ".join(useless))
+
+def main(argv):
+    parser = argparse.ArgumentParser()
+    group = parser.add_argument_group("Token retrieval mode options")
+    group.add_argument("--client-id", help="client ID of the application")
+    group.add_argument("--client-secret", help="client secret of the application")
+    group.add_argument("--authorize", action="store_true", help="begin interactive authorization")
+    group.add_argument("--authorization-code", help="authorization code")
+    group.add_argument("--refresh-token", help="OAuth2 refresh token")
+    group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
+    group.add_argument("--store-keyring", action="store_true", help="store the access token in keyring")
+    group.add_argument("--quiet", action="store_true", help="output only the token itself")
+    group = parser.add_argument_group("Test client mode options")
+    group.add_argument("--generate-sasl-response", action="store_true", help="generate an initial SASL client response string")
+    group.add_argument("--test-imap", action="store_true", help="attempt to authenticate to Gmail via IMAP")
+    group.add_argument("--test-smtp", action="store_true", help="attempt to authenticate to Gmail via SMTP")
+    group.add_argument("--xoauth2", action="store_true", help="use legacy XOAUTH2 mechanism instead of OAUTHBEARER")
+    group.add_argument("--user", help="specify the username (email address)")
+    group.add_argument("--access-token", help="specify the access token")
+    args = parser.parse_args()
+
+    google_endpoints = {
+        "authorization_url": "https://accounts.google.com/o/oauth2/auth",
+        #"authorization_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_grant_url": "https://accounts.google.com/o/oauth2/token",
+        #"token_grant_url": "https://www.googleapis.com/oauth2/v4/token",
+    }
+
+    client = OAuth2Client(client_id=args.client_id,
+                          client_secret=args.client_secret,
+                          **google_endpoints)
+
+    if (args.generate_sasl_response or args.test_imap or args.test_smtp):
+        require_args(args, "user", "access-token")
+        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+
+        if args.xoauth2:
+            mechanism = "XOAUTH2"
+            response = sasl_xoauth2_response(args.user, args.access_token)
+        else:
+            mechanism = "OAUTHBEARER"
+            response = sasl_oauthbearer_response(args.user, args.access_token)
+
+        if args.generate_sasl_response:
+            print(base64.b64encode(response).decode())
+        elif args.test_imap:
+            test_imap_auth(mechanism, response)
+        elif args.test_smtp:
+            test_smtp_auth(mechanism, response)
+
+    elif args.authorization_code:
+        require_args(args, "client-id", "client-secret")
+        decline_args(args, "user", "access-token", "refresh-token")
+
+        response = client.grant_token_via_authorization(args.authorization_code)
+        if args.quiet:
+            print(response["access_token"])
+            print(response["refresh_token"])
+        else:
+            print(json.dumps(response))
+        if args.store_keyring:
+            data = {"client_id": args.client_id,
+                    "client_secret": args.client_secret,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+
+    elif args.refresh_token:
+        require_args(args, "client-id", "client-secret", "refresh-token")
+        decline_args(args, "user", "access-token", "authorization-code")
+
+        response = client.grant_token_via_refresh(args.refresh_token)
+        if args.quiet:
+            print(response["access_token"])
+        else:
+            print(json.dumps(response))
+        if args.store_keyring:
+            data = {"client_id": args.client_id,
+                    "client_secret": args.client_secret,
+                    "refresh_token": args.refresh_token,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+
+    elif args.authorize:
+        require_args(args, "client-id", "client-secret")
+        decline_args(args, "user", "access-token")
+
+        url = client.make_authorization_url(args.scope)
+        if args.quiet:
+            print(url)
+            authorization_code = input()
+        else:
+            print("Visit this URL:", url)
+            authorization_code = input("Enter verification code: ")
+
+        response = client.grant_token_via_authorization(authorization_code)
+        if args.quiet:
+            print(response["refresh_token"])
+        else:
+            print(json.dumps(response))
+        if args.store_keyring:
+            data = {"client_id": args.client_id,
+                    "client_secret": args.client_secret,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+
+    else:
+        data = try_load_keyring(domain="mail.google.com")
+        if not data:
+            Core.die("token not found in keyring; use --authorize interactively")
+        elif data.get("expires_at", 0) < time.time() + 60:
+            Core.debug("access token expired, refreshing")
+            client = OAuth2Client(client_id=(args.client_id or data["client_id"]),
+                                  client_secret=(args.client_secret or data["client_secret"]),
+                                  **google_endpoints)
+            response = client.grant_token_via_refresh(data["refresh_token"])
+            data = {**data,
+                    "expires_at": int(time.time() + response["expires_in"]),
+                    **response}
+            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+        else:
+            Core.debug("access token still valid")
+        print(data["access_token"])
+
+if __name__ == "__main__":
+    main(sys.argv)

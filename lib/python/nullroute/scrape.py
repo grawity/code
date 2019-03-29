@@ -37,25 +37,14 @@ def file_ext(url):
         return "bin"
 
 def _progress_bar(iterable, max_bytes, chunk_size):
-    #hide_complete = (max_bytes < 1*1024*1024)
     hide_complete = True
-    try:
-        from tqdm import tqdm
-        fmt = "{percentage:3.0f}% │{bar}│ {n_fmt} of {total_fmt}"
-        bar = tqdm(iterable, total=max_bytes, unit="B",
-                             unit_scale=True, unit_divisor=1024,
-                             bar_format=fmt, ncols=80)
-        with bar:
-            for i in iterable:
-                yield i
-                bar.update(len(i))
-    except ImportError:
-        from nullroute.ui.progressbar import ProgressBar
-        bar = ProgressBar(max_value=max_bytes)
-        for i in iterable:
-            yield i
-            bar.incr(len(i))
-        bar.end(hide_complete)
+    from nullroute.ui.progressbar import ProgressBar
+    bar = ProgressBar(max_value=max_bytes)
+    bar.incr(0)
+    for i in iterable:
+        yield i
+        bar.incr(len(i))
+    bar.end(hide_complete)
 
 class Scraper(object):
     def __init__(self, output_dir="."):
@@ -119,10 +108,16 @@ class Scraper(object):
             return name
 
         hdr = {"Referer": referer or url}
+
         if progress:
             resp = self.get(url, headers=hdr, stream=True)
             with open(name + ".part", "wb") as fh:
-                num_bytes = int(resp.headers.get("content-length"))
+                num_bytes = resp.headers.get("content-length")
+                if num_bytes is not None:
+                    num_bytes = int(num_bytes)
+                else:
+                    Core.debug("response has no size, disabling progress bar")
+                    Core.debug("headers: %r", resp.headers)
                 chunk_size = 1024
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
                                            max_bytes=num_bytes,

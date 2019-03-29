@@ -32,3 +32,12 @@ except ImportError:
 
     def wcswidth(string):
         return _libc_wcswidth(string, _libc_wcslen(string))
+
+def wcpad(string, width):
+    pad = abs(width) - wcswidth(string)
+    if pad <= 0:
+        return string
+    elif width < 0:
+        return string + " " * pad
+    elif width > 0:
+        return " " * pad + string

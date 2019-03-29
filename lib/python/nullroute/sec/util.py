@@ -28,8 +28,9 @@ def clear_keyring(domain, **kwargs):
     attrs = {"xdg:schema": schema, "domain": domain, **kwargs}
     return nullroute.sec.clear_libsecret(attrs)
 
-class OAuthTokenCache(object):
-    TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
+class TokenCache(object):
+    TOKEN_SCHEMA = "org.eu.nullroute.BearerToken"
+    TOKEN_NAME = "Auth token for %s"
 
     def __init__(self, domain, display_name=None):
         self.domain = domain
@@ -37,7 +38,7 @@ class OAuthTokenCache(object):
         self.token_path = Env.find_cache_file("token_%s.json" % domain)
 
     def _store_token_libsecret(self, data):
-        nullroute.sec.store_libsecret("OAuth token for %s" % self.display_name,
+        nullroute.sec.store_libsecret(self.TOKEN_NAME % self.display_name,
                                       json.dumps(data),
                                       {"xdg:schema": self.TOKEN_SCHEMA,
                                        "domain": self.domain})
@@ -67,7 +68,7 @@ class OAuthTokenCache(object):
             pass
 
     def load_token(self):
-        Core.debug("loading OAuth token for %r", self.domain)
+        Core.debug("loading auth token for %r", self.domain)
         try:
             return self._load_token_libsecret()
         except KeyError:
@@ -81,7 +82,7 @@ class OAuthTokenCache(object):
         return None
 
     def store_token(self, data):
-        Core.debug("storing OAuth token for %r", self.domain)
+        Core.debug("storing auth token for %r", self.domain)
         self._store_token_libsecret(data)
         try:
             self._store_token_file(data)
@@ -89,7 +90,10 @@ class OAuthTokenCache(object):
             Core.warn("could not write %r: %r", self.token_path, e)
 
     def forget_token(self):
-        Core.debug("flushing OAuth tokens for %r", self.domain)
+        Core.debug("flushing auth tokens for %r", self.domain)
         self._clear_token_libsecret()
         self._clear_token_file()
 
+class OAuthTokenCache(TokenCache):
+    TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
+    TOKEN_NAME = "OAuth token for %s"

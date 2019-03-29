@@ -3,7 +3,7 @@ import argparse
 from nullroute.core import Core
 from nullroute.file import digest_files, get_file_attr, set_file_attrs
 from nullroute.misc import filter_filename
-from nullroute.renameutil import is_file_partial
+from nullroute.renameutil import is_file_partial, RenameJob
 from nullroute.scrape import Scraper
 import os
 from pprint import pprint
@@ -123,6 +123,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     fmt_noop     = "\033[38;5;8m%s\033[m"
 
     old_path = os.path.join(old_dir, old_name)
+    job = RenameJob(old_path, dry_run=args.dry_run)
 
     # Read locally available information
     # In default mode, we only need favid from filename (or referer as fallback)
@@ -162,7 +163,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     # So we ignore referer unless -U is also specified, or unless filename matches heuristic
 
     if meta_present or favid or use_referer or foreign_warn:
-        print(old_path, end=" ", flush=True)
+        job.begin()
 
     if meta_present:
         Core.trace("info already present")
@@ -172,8 +173,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
         try:
             info = da.get_oembed_info_by_favid(favid)
         except HTTPError as e:
-            print(fmt_notfound % "failed")
-            Core.err(str(e))
+            job.end_fail(e)
             return
     elif use_referer:
         Core.trace("retrieving info and favid by referer=%r", referer)
@@ -181,12 +181,11 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
             info = da.get_oembed_info_by_pageurl(referer)
             favid = da.get_favid_by_pageurl(referer)
         except HTTPError as e:
-            print(fmt_notfound % "failed")
-            Core.err(str(e))
+            job.end_fail(e)
             return
     elif foreign_warn:
         Core.debug("no favid nor referer - skipping foreign filename %r", filename)
-        print(fmt_foreign % "not recognized")
+        job.end_foreign()
         return
     else:
         Core.debug("no favid nor referer - skipping foreign filename %r", filename)
@@ -211,23 +210,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
         new_name = "%(author_name)s %(_title)s (%(_favid)s).%(_suffix)s" % info
 
     new_name = filter_filename(new_name, allow_space=True)
-    new_path = os.path.join(old_dir, new_name)
-
-    if old_path == new_path:
-        Core.debug("new file %r is the same as old; doing nothing", new_path)
-        print("=>", fmt_noop % "(no change)")
-        return
-    elif os.path.exists(new_path):
-        if files_eq(old_path, new_path):
-            Core.notice("new file %r already exists and is a duplicate; overwriting", new_path)
-        else:
-            Core.err("new file %r already exists and is different; skipping", new_path)
-            print("=>", fmt_notfound % "(conflict)")
-            return
-
-    print("=>", fmt_found % new_name)
-    if not args.dry_run:
-        os.rename(old_path, new_path)
+    job.end_rename(new_name)
 
     # apply xattrs
 
@@ -240,7 +223,10 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
         "xdg.referrer.url": referer,
     }
     if not args.dry_run:
+        new_path = os.path.join(old_dir, new_name)
         set_file_attrs(new_path, attrs)
+    else:
+        set_file_attrs(old_path, attrs)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)

@@ -22,7 +22,7 @@ import json
 from nullroute.core import Core
 import nullroute.sec
 from nullroute.sec.oauth2 import OAuth2Client
-from nullroute.sec.util import try_load_keyring, store_keyring
+from nullroute.sec.util import OAuthTokenCache
 import sys
 import time
 
@@ -101,6 +101,9 @@ def main(argv):
                           client_secret=args.client_secret,
                           **google_endpoints)
 
+    token_cache = OAuthTokenCache("mail.google.com",
+                                  display_name="Gmail")
+
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
         decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
@@ -133,7 +136,7 @@ def main(argv):
             data = {"client_id": args.client_id,
                     "client_secret": args.client_secret,
                     **response}
-            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+            token_cache.store_token(data)
 
     elif args.refresh_token:
         require_args(args, "client-id", "client-secret", "refresh-token")
@@ -149,7 +152,7 @@ def main(argv):
                     "client_secret": args.client_secret,
                     "refresh_token": args.refresh_token,
                     **response}
-            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+            token_cache.store_token(data)
 
     elif args.authorize:
         require_args(args, "client-id", "client-secret")
@@ -172,10 +175,10 @@ def main(argv):
             data = {"client_id": args.client_id,
                     "client_secret": args.client_secret,
                     **response}
-            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+            token_cache.store_token(data)
 
     else:
-        data = try_load_keyring(domain="mail.google.com")
+        data = token_cache.load_token()
         if not data:
             Core.die("token not found in keyring; use --authorize interactively")
         elif data.get("expires_at", 0) < time.time() + 60:
@@ -185,7 +188,7 @@ def main(argv):
                                   **google_endpoints)
             response = client.grant_token_via_refresh(data["refresh_token"])
             data = {**data, **response}
-            store_keyring("Gmail OAuth token", data, domain="mail.google.com")
+            token_cache.store_token(data)
         else:
             Core.debug("access token still valid")
         Core.debug("token data: %r", data)

@@ -34,6 +34,7 @@ options:
   -0                  allow a domain's updates to span packets
   -1                  abort if update doesn't fit in one packet
   -c                  compare records case-insensitively
+  -C                  do not ignore CDS/CDNSKEY records
   -d                  ignore DS records
   -D                  do not ignore DNSKEY records
   -i regex            ignore records matching the pattern
@@ -50,7 +51,7 @@ EOF
     exit 2;
 }
 my %opt;
-usage unless getopts '-hV01cdDi:m:s:S:quv:b:k:y:', \%opt;
+usage unless getopts '-hV01cCdDi:m:s:S:quv:b:k:y:', \%opt;
 version if $opt{V};
 exec "perldoc -F $0" if $opt{h};
 usage if @ARGV < 1 || @ARGV > 3;
@@ -75,6 +76,7 @@ my $verbosity = exists $opt{v} ? $opt{v} : $quiet ? '' : 'r';
 $opt{$_} and $opt{$_} =~ s{#}{ } for qw{ s m }; # for nsupdate server command
 
 my $secRRtypes = qr{NSEC|NSEC3|NSEC3PARAM|RRSIG|TYPE65534};
+$secRRtypes = qr{$secRRtypes|CDS|CDNSKEY} unless $opt{C};
 $secRRtypes = qr{$secRRtypes|DNSKEY} unless $opt{D};
 $secRRtypes = qr{$secRRtypes|DS} if $opt{d};
 
@@ -252,6 +254,13 @@ is missing it will get the server from the zone's SOA MNAME field. If both
 F<old> and F<new> files are not specified, B<nsdiff> will transfer the new
 version of the zone from the server given by the B<-m> option.
 
+The SOA serial number has special handling: any difference between the
+F<old> and F<new> serial numbers is ignored, because background DNSSEC
+signing activity can increment the serial number unpredictably. When
+the zones differ, B<nsdiff> sets the serial number according to the
+B<-S> option, and it uses the F<old> serial number to protect against
+conflicting updates.
+
 =head1 OPTIONS
 
 =over
@@ -272,6 +281,14 @@ multiple requests.
 =item B<-1>
 
 Abort if update does not fit in one request packet.
+
+=item B<-C>
+
+Do not ignore CDS or CDNSKEY records. They are normally managed by
+B<dnssec-settime> with the C<-P sync> and C<-D sync> options, but you
+can use this option if you are managing them some other way. In that
+case, your un-signed zone file should include the complete CDS and/or
+CDNSKEY RRset(s); if not, B<nsdiff> will delete the records.
 
 =item B<-c>
 
@@ -505,7 +522,7 @@ because it isn't possible to delete all a zone's name servers.
 
 =head1 VERSION
 
-  This is nsdiff-1.75 <https://dotat.at/prog/nsdiff/>
+  This is nsdiff-1.77 <https://dotat.at/prog/nsdiff/>
 
   Written by Tony Finch <fanf2@cam.ac.uk> <dot@dotat.at>
   at Cambridge University Information Services.
@@ -515,7 +532,8 @@ because it isn't possible to delete all a zone's name servers.
 =head1 ACKNOWLEDGMENTS
 
 Thanks to Mike Bristow, Piete Brooks (University of Cambridge Computer
-Laboratory), Terry Burton (University of Leicester), JP Mens, Mohamad
+Laboratory), Terry Burton (University of Leicester), Owen Dunn
+(University of Cambridge Faculty of Mathematics), JP Mens, Mohamad
 Shidiq Purnama (PANDI), and Jordan Rieger (webnames.ca) for providing
 useful feedback.
 

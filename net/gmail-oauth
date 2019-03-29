@@ -22,28 +22,9 @@ import json
 from nullroute.core import Core
 import nullroute.sec
 from nullroute.sec.oauth2 import OAuth2Client
+from nullroute.sec.util import try_load_keyring, store_keyring
 import sys
 import time
-
-def try_load_keyring(**kwargs):
-    schema = "org.eu.nullroute.OAuthToken"
-    attrs = {"xdg:schema": schema, **kwargs}
-    data = None
-    try:
-        data = nullroute.sec.get_libsecret(attrs)
-        try:
-            data = json.loads(data)
-        except json.decoder.JSONDecodeError:
-            nullroute.sec.clear_libsecret(attrs)
-    except KeyError:
-        pass
-    return data
-
-def store_keyring(name, data, **kwargs):
-    schema = "org.eu.nullroute.OAuthToken"
-    attrs = {"xdg:schema": schema, **kwargs}
-    data = json.dumps(data)
-    return nullroute.sec.store_libsecret(name, data, attrs)
 
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")

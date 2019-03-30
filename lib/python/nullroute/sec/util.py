@@ -54,6 +54,7 @@ class TokenCache(object):
 
     def _store_token_file(self, data):
         with open(self.token_path, "w") as fh:
+            os.chmod(fh.fileno(), 0o600)
             json.dump(data, fh)
 
     def _load_token_file(self):

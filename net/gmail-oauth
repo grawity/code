@@ -44,19 +44,23 @@ def sasl_oauthbearer_response(username, access_token):
     buf = "%s\1auth=%s\1\1" % (gs2_header, http_authz)
     return buf.encode()
 
-def test_imap_auth(mech, auth_string):
-    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+def test_imap_auth(mech, auth_string, quiet=False):
+    if not quiet:
+        print("testing mechanism %s with auth_string %r" % (mech, auth_string))
     import imaplib
     imap_conn = imaplib.IMAP4_SSL("imap.gmail.com")
-    imap_conn.debug = 4
+    if not quiet:
+        imap_conn.debug = 4
     imap_conn.authenticate(mech, lambda x: auth_string)
     imap_conn.select("INBOX")
 
-def test_smtp_auth(mech, auth_string):
-    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+def test_smtp_auth(mech, auth_string, quiet=False):
+    if not quiet:
+        print("testing mechanism %s with auth_string %r" % (mech, auth_string))
     import smtplib
     smtp_conn = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-    smtp_conn.set_debuglevel(True)
+    if not quiet:
+        smtp_conn.set_debuglevel(True)
     smtp_conn.ehlo("test")
     smtp_conn.docmd("AUTH", mech + " " + base64.b64encode(auth_string).decode())
 
@@ -128,9 +132,9 @@ def main(argv):
         if args.generate_sasl_response:
             print(base64.b64encode(response).decode())
         elif args.test_imap:
-            test_imap_auth(mechanism, response)
+            test_imap_auth(mechanism, response, args.quiet)
         elif args.test_smtp:
-            test_smtp_auth(mechanism, response)
+            test_smtp_auth(mechanism, response, args.quiet)
 
     elif args.authorization_code:
         require_args(args, "client-id", "client-secret")

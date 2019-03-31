@@ -82,7 +82,7 @@ def main(argv):
     group.add_argument("--authorize", action="store_true", help="begin interactive authorization")
     group.add_argument("--authorization-code", help="authorization code")
     group.add_argument("--refresh-token", help="OAuth2 refresh token")
-    group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
+    group.add_argument("--scope", help="scopes for the access token, space-separated")
     group.add_argument("--store-keyring", action="store_true", help="store the access token in keyring")
     group.add_argument("--quiet", action="store_true", help="output only the token itself")
     group = parser.add_argument_group("Test client mode options")
@@ -110,8 +110,8 @@ def main(argv):
 
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "scope", "refresh-token",
-                           "authorization-code", "store-keyring")
+        decline_args(args, "client-id", "client-secret", "scope",
+                           "refresh-token", "authorization-code")
 
         if args.access_token == "keyring":
             data = token_cache.load_token()
@@ -172,7 +172,7 @@ def main(argv):
         require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token")
 
-        url = client.make_authorization_url(args.scope)
+        url = client.make_authorization_url(args.scope or "https://mail.google.com/")
         if args.quiet:
             print(url)
             authorization_code = input()

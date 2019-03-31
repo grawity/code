@@ -22,12 +22,20 @@ class Format():
     LightPurple = "\033[38;5;13m" "%s" "\033[m"
     LightCyan   = "\033[38;5;14m" "%s" "\033[m"
     LightWhite  = "\033[38;5;15m" "%s" "\033[m"
+    Gray250     = "\033[38;5;250m" "%s" "\033[m"
 
 class FileSyncStatus(enum.Enum):
     Syncing     = "syncing"
     Unsyncable  = "unsyncable"
     Unwatched   = "unwatched"
     UpToDate    = "up to date"
+
+show_single_level = False
+
+nondescend_statuses = {
+    FileSyncStatus.UpToDate,
+    FileSyncStatus.Unwatched,
+}
 
 class DropboxClient():
     root = os.path.expanduser("~/Dropbox")
@@ -72,13 +80,16 @@ class DropboxClient():
         res = FileSyncStatus(res)
         return res
 
-def fmt_status(status):
+def fmt_status(status, is_dir):
     res = status.name
     width = len(res)
     if status == FileSyncStatus.UpToDate:
         res = Format.LightBlue % res
     elif status == FileSyncStatus.Syncing:
-        res = Format.LightGreen % res
+        if is_dir:
+            res = Format.Green % res
+        else:
+            res = Format.LightGreen % res
     elif status == FileSyncStatus.Unwatched:
         res = Format.Yellow % res
     else:
@@ -89,17 +100,18 @@ def fmt_status(status):
     return res
 
 def fmt_row(name, is_dir, status, branches):
+    branches = "".join(branches)
     if is_dir:
         name += "/"
-    branches = "".join(branches)
-    status = fmt_status(status)
+        name = Format.Gray250 % name
+        if show_single_level:
+            status = fmt_status(status, True)
+        else:
+            status = ""
+    else:
+        name = Format.LightWhite % name
+        status = fmt_status(status, False)
     return branches + name + " " + status
-
-show_single_level = False
-nondescend_statuses = {
-    FileSyncStatus.UpToDate,
-    FileSyncStatus.Unwatched,
-}
 
 def status_is_visible(status):
     if status in nondescend_statuses:
@@ -111,7 +123,7 @@ def show_root(path):
     name = "~/%s" % os.path.relpath(path, os.path.expanduser("~"))
     status = dc.sync_status(path)
     branches = []
-    print(fmt_row(name, os.path.isdir(path), status, branches))
+    print(fmt_row(name + "/", False, status, branches))
     if os.path.isdir(path) and status_is_visible(status):
         show_contents(path, branches)
 

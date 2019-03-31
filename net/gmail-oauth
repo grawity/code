@@ -106,7 +106,8 @@ def main(argv):
 
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+        decline_args(args, "client-id", "client-secret", "scope", "refresh-token",
+                           "authorization-code", "store-keyring")
 
         if args.access_token == "keyring":
             data = token_cache.load_token()
@@ -133,7 +134,7 @@ def main(argv):
 
     elif args.authorization_code:
         require_args(args, "client-id", "client-secret")
-        decline_args(args, "user", "access-token", "refresh-token")
+        decline_args(args, "user", "access-token", "scope", "refresh-token")
 
         response = client.grant_token_via_authorization(args.authorization_code)
         if args.quiet:
@@ -149,7 +150,7 @@ def main(argv):
 
     elif args.refresh_token:
         require_args(args, "client-id", "client-secret", "refresh-token")
-        decline_args(args, "user", "access-token", "authorization-code")
+        decline_args(args, "user", "access-token", "scope", "authorization-code")
 
         response = client.grant_token_via_refresh(args.refresh_token)
         if args.quiet:
@@ -187,6 +188,8 @@ def main(argv):
             token_cache.store_token(data)
 
     else:
+        decline_args(args, "user", "access-token", "scope", "authorization-code", "xoauth2")
+
         data = token_cache.load_token()
         if not data:
             Core.die("token not found in keyring; use --authorize interactively")

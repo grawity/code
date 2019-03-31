@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+import enum
+import os
+from nullroute.ui.wcwidth import wcpad
+from pprint import pprint
+import select
+import socket
+
+class Format():
+    Red         = "\033[38;5;1m" "%s" "\033[m"
+    Green       = "\033[38;5;2m" "%s" "\033[m"
+    Yellow      = "\033[38;5;3m" "%s" "\033[m"
+    Blue        = "\033[38;5;4m" "%s" "\033[m"
+    Purple      = "\033[38;5;5m" "%s" "\033[m"
+    Cyan        = "\033[38;5;6m" "%s" "\033[m"
+    DarkWhite   = "\033[38;5;7m" "%s" "\033[m"
+    Gray        = "\033[38;5;8m" "%s" "\033[m"
+    LightRed    = "\033[38;5;9m" "%s" "\033[m"
+    LightGreen  = "\033[38;5;10m" "%s" "\033[m"
+    LightYellow = "\033[38;5;11m" "%s" "\033[m"
+    LightBlue   = "\033[38;5;12m" "%s" "\033[m"
+    LightPurple = "\033[38;5;13m" "%s" "\033[m"
+    LightCyan   = "\033[38;5;14m" "%s" "\033[m"
+    LightWhite  = "\033[38;5;15m" "%s" "\033[m"
+
+class FileSyncStatus(enum.Enum):
+    Syncing     = "syncing"
+    Unsyncable  = "unsyncable"
+    Unwatched   = "unwatched"
+    UpToDate    = "up to date"
+
+class DropboxClient():
+    root = os.path.expanduser("~/Dropbox")
+
+    def __init__(self):
+        self._conn_path = os.path.expanduser("~/.dropbox/command_socket")
+        self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self._sock.connect(self._conn_path)
+        self._conn = self._sock.makefile("rw", 4096)
+
+    def is_underneath_root(self, path):
+        return (path + "/").startswith(self.root + "/")
+
+    def cmd(self, command, args):
+        buf = "%s\n" % command
+        for k, v in args.items():
+            buf += "%s\t%s\n" % (k, v)
+        buf += "done\n"
+        buf = buf.encode("utf-8")
+        self._sock.send(buf)
+        buf = ""
+        while True:
+            line = self._conn.readline()
+            buf += line
+            if line == "done\n":
+                break
+        buf = buf.splitlines()
+        if buf[0] != "ok":
+            raise Exception("command %r gave non-ok result %r" % (command, buf))
+        if buf[-1] != "done":
+            raise Exception("command %r gave incomplete result %r" % (command, buf))
+        buf = buf[1:-1]
+        buf = [line.split("\t") for line in buf]
+        buf = {words[0]: words[1:] for words in buf}
+        return buf
+
+    def sync_status(self, path):
+        if not path.startswith("/"):
+            raise ValueError("path must be absolute", path)
+        res = dc.cmd("icon_overlay_file_status", {"path": path})
+        res = res["status"][0]
+        res = FileSyncStatus(res)
+        return res
+
+def fmt_status(status):
+    res = status.name
+    width = len(res)
+    if status == FileSyncStatus.UpToDate:
+        res = Format.LightBlue % res
+    elif status == FileSyncStatus.Syncing:
+        res = Format.LightGreen % res
+    elif status == FileSyncStatus.Unwatched:
+        res = Format.Yellow % res
+    else:
+        res = Format.LightRed % res
+    lt = Format.Gray % "["
+    gt = Format.Gray % "]"
+    res = lt + res + gt
+    return res
+
+def fmt_row(name, is_dir, status, branches):
+    if is_dir:
+        name += "/"
+    branches = "".join(branches)
+    status = fmt_status(status)
+    return branches + name + " " + status
+
+show_single_level = False
+nondescend_statuses = {
+    FileSyncStatus.UpToDate,
+    FileSyncStatus.Unwatched,
+}
+
+def status_is_visible(status):
+    if status in nondescend_statuses:
+        return (show_single_level and status != FileSyncStatus.Unwatched)
+    else:
+        return True
+
+def show_root(path):
+    name = "~/%s" % os.path.relpath(path, os.path.expanduser("~"))
+    status = dc.sync_status(path)
+    branches = []
+    print(fmt_row(name, os.path.isdir(path), status, branches))
+    if os.path.isdir(path) and status_is_visible(status):
+        show_contents(path, branches)
+
+def show_contents(path, branches):
+    depth = len(branches)
+    branches = [*branches, None]
+    children = sorted(os.scandir(path), key=lambda x: x.name)
+    children = [(c, dc.sync_status(c.path)) for c in children]
+    children = [(c, s) for (c, s) in children if status_is_visible(s)]
+    n = len(children) - 1
+    for i, (child, status) in enumerate(children):
+        name = child.name
+        branches[depth] = ("└─" if i == n else "├─")
+        print(fmt_row(name, os.path.isdir(child.path), status, branches))
+        if os.path.isdir(child.path) and status not in nondescend_statuses:
+            branches[depth] = ("  " if i == n else "│ ")
+            show_contents(child.path, branches)
+
+dc = DropboxClient()
+cwd = os.getcwd()
+if dc.is_underneath_root(cwd):
+    show_root(cwd)
+else:
+    show_root(dc.root)

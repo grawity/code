@@ -54,7 +54,7 @@ class PixivApiClient():
     # API authentication
 
     def _load_creds(self):
-        creds = nullroute.sec.get_netrc_service("pixiv.net", "api")
+        creds = nullroute.sec.get_netrc("pixiv.net", service="api")
         return creds
 
     def _authenticate(self):

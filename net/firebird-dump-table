@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+from nullroute.core import Core
+from nullroute.ui.progressbar import progress_iter
+import argparse
+import fdb
+import sys
+
+def enum_tables(conn):
+    qry = """
+    SELECT rdb$relation_name
+    FROM rdb$relations
+    WHERE
+        rdb$view_blr IS null
+        AND (rdb$system_flag IS null OR rdb$system_flag = 0)
+    """
+    cur = conn.cursor()
+    cur.execute(qry)
+    for (table,) in cur:
+        yield table.rstrip()
+
+def dump_table(conn, table):
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM %s" % table)
+    n_rows = int(next(cur)[0])
+
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM %s" % table)
+    cur = progress_iter(cur, max_value=n_rows, fmt_func=str)
+    for row in cur:
+        print(row)
+
+ap = argparse.ArgumentParser()
+ap.add_argument("--dsn")
+ap.add_argument("--host")
+ap.add_argument("--db")
+ap.add_argument("--username")
+ap.add_argument("--password")
+ap.add_argument("--charset")
+ap.add_argument("--tables")
+ap.add_argument("--list-tables", action="store_true")
+opts = ap.parse_args()
+
+if not (opts.dsn or (opts.host and opts.db)):
+    Core.die("missing hostname and/or database name")
+
+if not (opts.username and opts.password):
+    Core.die("missing username and/or password")
+
+try:
+    conn = fdb.connect(dsn=opts.dsn,
+                       host=opts.host,
+                       database=opts.db,
+                       user=opts.username,
+                       password=opts.password,
+                       charset=opts.charset)
+    conn.begin()
+    if opts.tables:
+        tables = opts.tables.upper().split(",")
+    else:
+        tables = enum_tables(conn)
+    for table in sorted(tables):
+        if opts.list_tables:
+            print(table)
+        else:
+            Core.info("dumping table %r", table)
+            print("-- start %s" % table)
+            dump_table(conn, table)
+            print("-- end %s" % table)
+except KeyboardInterrupt:
+    Core.die("interrupted")
+except fdb.fbcore.DatabaseError as e:
+    Core.die("Firebird error: %s", e.args[0])

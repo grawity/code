@@ -87,13 +87,8 @@ class DropboxClient():
         return res
 
     def bad_filename(self, name):
-        if name.lower() in {"desktop.ini",
-                            "thumbs.db",
-                            ".ds_store",
-                            "icon\r",
-                            ".dropbox",
-                            ".dropbox.attr"}:
-            return True
+        # Actually blacklisted filenames are deliberately not checked here, as
+        # they're unsyncable for a reason instead of being problematic by accident.
         if name[-1] in ". ":
             return True
         if set(name) & set("/\\<>:\"|?*"):
@@ -101,6 +96,15 @@ class DropboxClient():
         if re.match(r"[^\u0000-\uFFFF]", name):
             return True
         return False
+
+    def ignored_filename(self, name):
+        if name.lower() in {"desktop.ini",
+                            "thumbs.db",
+                            ".ds_store",
+                            "icon\r",
+                            ".dropbox",
+                            ".dropbox.attr"}:
+            return True
 
     def deep_status(self, path, want):
         if want == FileSyncStatus.Unsyncable:

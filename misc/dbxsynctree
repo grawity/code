@@ -112,6 +112,7 @@ class DropboxClient():
             # so we have to aggregate all child item statuses.
             if os.path.isdir(path):
                 children = os.scandir(path)
+                children = [c for c in children if c.name != ".dropbox.cache"]
                 children = [(c, self.deep_status(c.path, want)) for c in children]
                 children = [(c, s) for (c, s) in children if s == want]
                 if children:
@@ -191,6 +192,7 @@ def show_contents(path, branches, mode):
     depth = len(branches)
     branches = [*branches, None]
     children = sorted(os.scandir(path), key=lambda x: (not x.is_dir(), x.name))
+    children = [c for c in children if c.name != ".dropbox.cache"]
     children = [(c, dc.deep_status(c.path, mode)) for c in children]
     children = [(c, s) for (c, s) in children if status_is_visible(s, mode)]
     n = len(children) - 1

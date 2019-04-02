@@ -208,17 +208,23 @@ def show_contents(path, branches, mode):
             branches[depth] = ("  " if i == n else "│ ")
             show_contents(child.path, branches, mode)
 
+dc = DropboxClient()
+
 ap = argparse.ArgumentParser()
 ap.add_argument("path", nargs=argparse.ZERO_OR_MORE)
 ap.add_argument("-u", "--unsyncable", action="store_true")
+ap.add_argument("--native-unsyncable", action="store_true")
 args = ap.parse_args()
 
 if args.unsyncable:
     mode = FileSyncStatus.Unsyncable
+    dc._fast_unsync = True
+elif args.native_unsyncable:
+    mode = FileSyncStatus.Unsyncable
+    dc._fast_unsync = False
 else:
     mode = FileSyncStatus.Syncing
 
-dc = DropboxClient()
 if args.path:
     for path in args.path:
         show_root(os.path.abspath(path), mode)

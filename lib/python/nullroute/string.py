@@ -1,4 +1,5 @@
 import math
+import re
 
 def escape_html(text):
     xlat = [
@@ -45,6 +46,10 @@ def filter_filename(name, safe=False, allow_space=True):
         name = "_" + name
     if name.endswith("~") and not safe:
         name = name.replace("~", "∼")
+    # Dropbox cannot sync non-BMP characters
+    # https://github.com/dropbox/dropbox-sdk-java/issues/42#issuecomment-195580050
+    if not allow_nonbmp:
+        name = re.sub(r"[^\u0000-\uFFFF]", "_" if safe else "�", name)
     return name
 
 def fmt_size_short(nbytes, decimals=1, si=False):

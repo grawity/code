@@ -5,6 +5,7 @@ from functools import lru_cache
 from nullroute.core import Core
 import os
 from pprint import pprint
+import re
 import select
 import socket
 import sys
@@ -48,6 +49,7 @@ class DropboxClient():
         self._sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._sock.connect(self._conn_path)
         self._conn = self._sock.makefile("rw", 4096)
+        self._fast_unsync = True
 
     def is_underneath_root(self, path):
         return (path + "/").startswith(self.root + "/")
@@ -84,6 +86,22 @@ class DropboxClient():
         res = FileSyncStatus(res)
         return res
 
+    def bad_filename(self, name):
+        if name.lower() in {"desktop.ini",
+                            "thumbs.db",
+                            ".ds_store",
+                            "icon\r",
+                            ".dropbox",
+                            ".dropbox.attr"}:
+            return True
+        if name[-1] in ". ":
+            return True
+        if set(name) & set("/\\<>:\"|?*"):
+            return True
+        if re.match(r"[^\u0000-\uFFFF]", name):
+            return True
+        return False
+
     def deep_status(self, path, want):
         if want == FileSyncStatus.Unsyncable:
             # The 'unsyncable' status does not automatically propagate upwards,
@@ -94,6 +112,16 @@ class DropboxClient():
                 children = [(c, s) for (c, s) in children if s == want]
                 if children:
                     return want
+
+            # Hack: Instead of querying the daemon, we can determine "unsyncable"
+            # status ourselves. This also covers filenames which are valid on Linux
+            # but wouldn't be synced to Windows.
+            if self._fast_unsync:
+                if self.bad_filename(os.path.basename(path)):
+                    return want
+                else:
+                    return FileSyncStatus.UpToDate
+
         return self.sync_status(path)
 
 def fmt_status(status, is_dir):

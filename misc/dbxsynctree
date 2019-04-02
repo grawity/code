@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+import argparse
 import enum
+from functools import lru_cache
 import os
-from nullroute.ui.wcwidth import wcpad
 from pprint import pprint
 import select
 import socket
+import sys
 
 class Format():
     Red         = "\033[38;5;1m" "%s" "\033[m"
@@ -72,6 +74,7 @@ class DropboxClient():
         buf = {words[0]: words[1:] for words in buf}
         return buf
 
+    @lru_cache(maxsize=1024*1024, typed=True)
     def sync_status(self, path):
         if not path.startswith("/"):
             raise ValueError("path must be absolute", path)
@@ -79,6 +82,18 @@ class DropboxClient():
         res = res["status"][0]
         res = FileSyncStatus(res)
         return res
+
+    def deep_status(self, path, want):
+        if want == FileSyncStatus.Unsyncable:
+            # The 'unsyncable' status does not automatically propagate upwards,
+            # so we have to aggregate all child item statuses.
+            if os.path.isdir(path):
+                children = os.scandir(path)
+                children = [(c, self.deep_status(c.path, want)) for c in children]
+                children = [(c, s) for (c, s) in children if s == want]
+                if children:
+                    return want
+        return self.sync_status(path)
 
 def fmt_status(status, is_dir):
     res = status.name
@@ -113,26 +128,29 @@ def fmt_row(name, is_dir, status, branches):
         status = fmt_status(status, False)
     return branches + name + " " + status
 
-def status_is_visible(status):
-    if status in nondescend_statuses:
-        return (show_single_level and status != FileSyncStatus.Unwatched)
+def status_is_visible(status, want):
+    if want == FileSyncStatus.Syncing:
+        if status in nondescend_statuses:
+            return (show_single_level and status != FileSyncStatus.Unwatched)
+        else:
+            return True
     else:
-        return True
+        return (status == want)
 
-def show_root(path):
+def show_root(path, mode):
     name = "~/%s" % os.path.relpath(path, os.path.expanduser("~"))
-    status = dc.sync_status(path)
+    status = dc.deep_status(path, mode)
     branches = []
     print(fmt_row(name + "/", False, status, branches))
-    if os.path.isdir(path) and status_is_visible(status):
-        show_contents(path, branches)
+    if os.path.isdir(path) and status_is_visible(status, mode):
+        show_contents(path, branches, mode)
 
-def show_contents(path, branches):
+def show_contents(path, branches, mode):
     depth = len(branches)
     branches = [*branches, None]
     children = sorted(os.scandir(path), key=lambda x: (not x.is_dir(), x.name))
-    children = [(c, dc.sync_status(c.path)) for c in children]
-    children = [(c, s) for (c, s) in children if status_is_visible(s)]
+    children = [(c, dc.deep_status(c.path, mode)) for c in children]
+    children = [(c, s) for (c, s) in children if status_is_visible(s, mode)]
     n = len(children) - 1
     for i, (child, status) in enumerate(children):
         name = child.name
@@ -140,11 +158,28 @@ def show_contents(path, branches):
         print(fmt_row(name, os.path.isdir(child.path), status, branches))
         if os.path.isdir(child.path) and status not in nondescend_statuses:
             branches[depth] = ("  " if i == n else "│ ")
-            show_contents(child.path, branches)
+            show_contents(child.path, branches, mode)
+
+ap = argparse.ArgumentParser()
+ap.add_argument("path", nargs=argparse.ZERO_OR_MORE)
+ap.add_argument("-u", "--unsyncable", action="store_true")
+args = ap.parse_args()
+
+if args.unsyncable:
+    mode = FileSyncStatus.Unsyncable
+else:
+    mode = FileSyncStatus.Syncing
 
 dc = DropboxClient()
-cwd = os.getcwd()
-if dc.is_underneath_root(cwd):
-    show_root(cwd)
+if args.path:
+    for path in args.path:
+        show_root(os.path.abspath(path), mode)
 else:
-    show_root(dc.root)
+    cwd = os.getcwd()
+    if dc.is_underneath_root(cwd):
+        show_root(cwd, mode)
+    else:
+        show_root(dc.root, mode)
+
+if args.unsyncable:
+    print(dc.sync_status.cache_info(), file=sys.stderr)

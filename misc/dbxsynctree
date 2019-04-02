@@ -137,11 +137,20 @@ def status_is_visible(status, want):
     else:
         return (status == want)
 
+def relative_to_home(path):
+    home = os.path.expanduser("~")
+    rel = os.path.relpath(path, home)
+    if (rel + "/").startswith(("./", "../")):
+        return os.path.abspath(path)
+    else:
+        return "~/%s" % rel
+
 def show_root(path, mode):
-    name = "~/%s" % os.path.relpath(path, os.path.expanduser("~"))
+    Core.debug("show_root(%r)", path)
+    name = relative_to_home(path)
     status = dc.deep_status(path, mode)
     branches = []
-    print(fmt_row(name + "/", False, status, branches))
+    print(fmt_row(name, False, status, branches))
     if os.path.isdir(path) and status_is_visible(status, mode):
         show_contents(path, branches, mode)
 

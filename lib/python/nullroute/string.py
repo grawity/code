@@ -21,9 +21,10 @@ def escape_shell(text):
         text = '"%s"' % text
     return text
 
-def filter_filename(name, safe=False, allow_space=True):
+def filter_filename(name, safe=False, allow_space=True, allow_nonbmp=True):
     if safe:
         allow_space = False
+        allow_nonbmp = False
     xlat = [
         # space and unsafe
         (' ', '_' if not allow_space else ' '),

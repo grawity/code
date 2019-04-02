@@ -54,7 +54,7 @@ class PixivApiClient():
     # API authentication
 
     def _load_creds(self):
-        creds = nullroute.sec.get_netrc_service("pixiv.net", "api")
+        creds = nullroute.sec.get_netrc("pixiv.net", service="api")
         return creds
 
     def _authenticate(self):
@@ -144,7 +144,7 @@ class PixivClient():
             with open(map_path, "r") as fh:
                 self.member_name_map = {}
                 for line in fh:
-                    if line.startswith(";"):
+                    if line.startswith((";", "#", "\n")):
                         continue
                     k, v = line.split("=")
                     self.member_name_map[k.strip()] = v.strip()
@@ -153,6 +153,8 @@ class PixivClient():
 
     def fmt_member_tag(self, member_id, member_name):
         member_name = self.member_name_map.get(str(member_id), member_name)
+        # Dropbox cannot sync non-BMP characters
+        member_name = re.sub(r"[^\u0000-\uFFFF]", "�", member_name)
         member_name = re.sub("(@|＠).*", "", member_name)
         member_name = re.sub(r"[◆|_]?[0-9一三]日.+?[0-9]+[a-z]*", "", member_name)
         member_name = member_name.replace(" ", "_")

@@ -93,7 +93,7 @@ def connect(server, login=None, password=None):
     if login:
         api_creds = {"login": login, "password": password, "machine": server}
     else:
-        api_creds = nullroute.sec.get_netrc("api/%s" % server)
+        api_creds = nullroute.sec.get_netrc(server, service="api")
         api_creds["machine"] = server
     api_base = "https://%(login)s:%(password)s@%(machine)s/rpc/" % api_creds
     return IceWarpAPI(api_base)

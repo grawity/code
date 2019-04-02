@@ -44,19 +44,23 @@ def sasl_oauthbearer_response(username, access_token):
     buf = "%s\1auth=%s\1\1" % (gs2_header, http_authz)
     return buf.encode()
 
-def test_imap_auth(mech, auth_string):
-    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+def test_imap_auth(mech, auth_string, quiet=False):
+    if not quiet:
+        print("testing mechanism %s with auth_string %r" % (mech, auth_string))
     import imaplib
     imap_conn = imaplib.IMAP4_SSL("imap.gmail.com")
-    imap_conn.debug = 4
+    if not quiet:
+        imap_conn.debug = 4
     imap_conn.authenticate(mech, lambda x: auth_string)
     imap_conn.select("INBOX")
 
-def test_smtp_auth(mech, auth_string):
-    print("testing mechanism %s with auth_string %r" % (mech, auth_string))
+def test_smtp_auth(mech, auth_string, quiet=False):
+    if not quiet:
+        print("testing mechanism %s with auth_string %r" % (mech, auth_string))
     import smtplib
     smtp_conn = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-    smtp_conn.set_debuglevel(True)
+    if not quiet:
+        smtp_conn.set_debuglevel(True)
     smtp_conn.ehlo("test")
     smtp_conn.docmd("AUTH", mech + " " + base64.b64encode(auth_string).decode())
 
@@ -78,7 +82,7 @@ def main(argv):
     group.add_argument("--authorize", action="store_true", help="begin interactive authorization")
     group.add_argument("--authorization-code", help="authorization code")
     group.add_argument("--refresh-token", help="OAuth2 refresh token")
-    group.add_argument("--scope", default="https://mail.google.com/", help="scopes for the access token, space-separated")
+    group.add_argument("--scope", help="scopes for the access token, space-separated")
     group.add_argument("--store-keyring", action="store_true", help="store the access token in keyring")
     group.add_argument("--quiet", action="store_true", help="output only the token itself")
     group = parser.add_argument_group("Test client mode options")
@@ -106,7 +110,17 @@ def main(argv):
 
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
-        decline_args(args, "client-id", "client-secret", "refresh-token", "authorization-code")
+        decline_args(args, "client-id", "client-secret", "scope",
+                           "refresh-token", "authorization-code")
+
+        if args.access_token == "keyring":
+            data = token_cache.load_token()
+            if not data:
+                Core.die("access token not found in keyring")
+            elif data["expires_at"] < time.time() + 60:
+                Core.warn("access token has expired")
+            else:
+                args.access_token = data["access_token"]
 
         if args.xoauth2:
             mechanism = "XOAUTH2"
@@ -118,13 +132,13 @@ def main(argv):
         if args.generate_sasl_response:
             print(base64.b64encode(response).decode())
         elif args.test_imap:
-            test_imap_auth(mechanism, response)
+            test_imap_auth(mechanism, response, args.quiet)
         elif args.test_smtp:
-            test_smtp_auth(mechanism, response)
+            test_smtp_auth(mechanism, response, args.quiet)
 
     elif args.authorization_code:
         require_args(args, "client-id", "client-secret")
-        decline_args(args, "user", "access-token", "refresh-token")
+        decline_args(args, "user", "access-token", "scope", "refresh-token")
 
         response = client.grant_token_via_authorization(args.authorization_code)
         if args.quiet:
@@ -140,7 +154,7 @@ def main(argv):
 
     elif args.refresh_token:
         require_args(args, "client-id", "client-secret", "refresh-token")
-        decline_args(args, "user", "access-token", "authorization-code")
+        decline_args(args, "user", "access-token", "scope", "authorization-code")
 
         response = client.grant_token_via_refresh(args.refresh_token)
         if args.quiet:
@@ -158,7 +172,7 @@ def main(argv):
         require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token")
 
-        url = client.make_authorization_url(args.scope)
+        url = client.make_authorization_url(args.scope or "https://mail.google.com/")
         if args.quiet:
             print(url)
             authorization_code = input()
@@ -178,10 +192,12 @@ def main(argv):
             token_cache.store_token(data)
 
     else:
+        decline_args(args, "user", "access-token", "scope", "authorization-code", "xoauth2")
+
         data = token_cache.load_token()
         if not data:
             Core.die("token not found in keyring; use --authorize interactively")
-        elif data.get("expires_at", 0) < time.time() + 60:
+        elif data["expires_at"] < time.time() + 60:
             Core.debug("access token expired, refreshing")
             client = OAuth2Client(client_id=(args.client_id or data["client_id"]),
                                   client_secret=(args.client_secret or data["client_secret"]),

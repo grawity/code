@@ -30,6 +30,7 @@ def clear_keyring(domain, **kwargs):
 
 class TokenCache(object):
     TOKEN_SCHEMA = "org.eu.nullroute.BearerToken"
+    TOKEN_PROTO = "cookie"
     TOKEN_NAME = "Auth token for %s"
 
     def __init__(self, domain, display_name=None):
@@ -41,6 +42,7 @@ class TokenCache(object):
         nullroute.sec.store_libsecret(self.TOKEN_NAME % self.display_name,
                                       json.dumps(data),
                                       {"xdg:schema": self.TOKEN_SCHEMA,
+                                       "protocol": self.TOKEN_PROTO,
                                        "domain": self.domain})
 
     def _load_token_libsecret(self):
@@ -54,6 +56,7 @@ class TokenCache(object):
 
     def _store_token_file(self, data):
         with open(self.token_path, "w") as fh:
+            os.chmod(fh.fileno(), 0o600)
             json.dump(data, fh)
 
     def _load_token_file(self):
@@ -96,4 +99,5 @@ class TokenCache(object):
 
 class OAuthTokenCache(TokenCache):
     TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"
+    TOKEN_PROTO = "oauth"
     TOKEN_NAME = "OAuth token for %s"

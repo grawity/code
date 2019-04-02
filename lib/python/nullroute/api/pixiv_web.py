@@ -40,7 +40,7 @@ class PixivWebClient(Scraper):
         return self.tc.store_token(token)
 
     def _load_creds(self):
-        creds = nullroute.sec.get_netrc_service("pixiv.net", "http")
+        creds = nullroute.sec.get_netrc("pixiv.net", service="http")
         return creds
 
     def _authenticate(self):

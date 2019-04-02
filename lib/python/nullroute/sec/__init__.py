@@ -1,6 +1,8 @@
+from nullroute.core import Core
 import subprocess
 
 def store_libsecret(label, secret, attributes):
+    Core.trace("libsecret store: %r %r", label, attributes)
     cmd = ["secret-tool", "store", "--label=%s" % label]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]
@@ -13,6 +15,7 @@ def store_libsecret(label, secret, attributes):
                                                             r.stderr.decode()))
 
 def get_libsecret(attributes):
+    Core.trace("libsecret query: %r", attributes)
     cmd = ["secret-tool", "lookup"]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]
@@ -25,6 +28,7 @@ def get_libsecret(attributes):
     return r.stdout.decode()
 
 def clear_libsecret(attributes):
+    Core.trace("libsecret clear: %r", attributes)
     cmd = ["secret-tool", "clear"]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]

@@ -144,7 +144,7 @@ class PixivClient():
             with open(map_path, "r") as fh:
                 self.member_name_map = {}
                 for line in fh:
-                    if line.startswith(";"):
+                    if line.startswith((";", "#", "\n")):
                         continue
                     k, v = line.split("=")
                     self.member_name_map[k.strip()] = v.strip()

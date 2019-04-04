@@ -241,9 +241,9 @@ for path in sys.argv[1:]:
                 print("=== local file header %d ===" % num_local)
                 pf("signature", sig, Signature)
                 pf("version needed to extract", br.read_u16_le())
-                lflags = br.read_u16_le()
+                flags = br.read_u16_le()
                 method = br.read_u16_le()
-                pf("general purpose bit flag", lflags,
+                pf("general purpose bit flag", flags,
                     lambda v: fmt_general_bitflags(v, method))
                 pf("compression method", method, fmt_method)
                 pf("last mod file time", br.read_u16_le(), fmt_msdos_time)
@@ -259,7 +259,7 @@ for path in sys.argv[1:]:
                 name = br.read(name_len)
                 extra = br.read(extra_len)
                 pb("file name", name)
-                if lflags & LFLAG_LANGUAGE_UTF8:
+                if flags & LFLAG_LANGUAGE_UTF8:
                     pb("- file name (UTF-8 decoded)", name.decode("utf-8"))
                 pb("extra field", extra)
                 cdata = br.read(cdata_len)
@@ -268,7 +268,7 @@ for path in sys.argv[1:]:
                 else:
                     ps("[compressed data]", "<%d> %r" % (cdata_len, cdata))
                 print()
-                if lflags & LFLAG_DATA_DESCRIPTOR:
+                if flags & LFLAG_DATA_DESCRIPTOR:
                     print("--- data descriptor ---")
                     sig = br.read_u32_le()
                     if sig == Signature.DATA_DESCRIPTOR:
@@ -287,9 +287,9 @@ for path in sys.argv[1:]:
                 os_version = br.read_u16_le()
                 pf("version made by", os_version, fmt_version_made_by)
                 pf("version needed to extract", br.read_u16_le())
-                cflags = br.read_u16_le()
+                flags = br.read_u16_le()
                 method = br.read_u16_le()
-                pf("general purpose bit flag", cflags,
+                pf("general purpose bit flag", flags,
                     lambda v: fmt_general_bitflags(v, method))
                 pf("compression method", method, fmt_method)
                 pf("last mod file time", br.read_u16_le(), fmt_msdos_time)
@@ -315,11 +315,11 @@ for path in sys.argv[1:]:
                 extra = br.read(extra_len)
                 comment = br.read(comment_len)
                 pb("file name", name)
-                if lflags & LFLAG_LANGUAGE_UTF8:
+                if flags & LFLAG_LANGUAGE_UTF8:
                     pb("- file name (UTF-8 decoded)", name.decode("utf-8"))
                 pb("extra field", extra)
                 pb("comment", comment)
-                if lflags & LFLAG_LANGUAGE_UTF8:
+                if flags & LFLAG_LANGUAGE_UTF8:
                     pb("- comment (UTF-8 decoded)", comment.decode("utf-8"))
                 print()
             elif sig == Signature.END_OF_CENTRAL_DIR:

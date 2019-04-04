@@ -88,10 +88,7 @@ METHOD_8_DEFLATE = 8
 METHOD_9_DEFLATE = 9
 METHOD_14_LZMA = 14
 
-fmt_local_bitflags = None
-fmt_method = None
-fmt_modtime = None
-fmt_moddate = None
+fmt_msdos_date = None
 fmt_bytes = None
 fmt_int_attr = None
 fmt_ext_attr = None
@@ -106,9 +103,21 @@ def fmt_version_made_by(value):
     minor = spec % 10
     return "%s, Zip %d.%d" % (os, major, minor)
 
-#def fmt_modtime(value):
+def fmt_msdos_time(value):
+    # 5 bits, 6 bits, 5 bits
+    h = (value >> 11) & 0b11111
+    m = (value >> 5) & 0b111111
+    s = (value >> 0) & 0b11111
+    return "%02d:%02d:%02d" % (h, m, s*2)
 
-def fmt_local_bitflags(value, method):
+def fmt_msdos_date(value):
+    # 7 bits, 4 bits, 5 bits
+    y = (value >> 9) & 0b1111111
+    m = (value >> 5) & 0b1111
+    d = (value >> 0) & 0b11111
+    return "%04d-%02d-%02d" % (1980+y, m, d)
+
+def fmt_general_bitflags(value, method):
     flags = []
     if value & BIT(0):
         flags.append((BIT(0), "data is encrypted"))
@@ -183,10 +192,10 @@ for path in sys.argv[1:]:
                 lflags = br.read_u16_le()
                 method = br.read_u16_le()
                 pf("general purpose bit flag", lflags,
-                    lambda v: fmt_local_bitflags(v, method))
+                    lambda v: fmt_general_bitflags(v, method))
                 pf("compression method", method, fmt_method)
-                pf("last mod file time", br.read_u16_le(), fmt_modtime)
-                pf("last mod file date", br.read_u16_le(), fmt_moddate)
+                pf("last mod file time", br.read_u16_le(), fmt_msdos_time)
+                pf("last mod file date", br.read_u16_le(), fmt_msdos_date)
                 pf("crc-32", br.read_u32_le())
                 cdata_len = br.read_u32_le()
                 pf("compressed size", cdata_len, fmt_bytes)
@@ -199,7 +208,7 @@ for path in sys.argv[1:]:
                 extra = br.read(extra_len)
                 pb("file name", name)
                 if lflags & LFLAG_LANGUAGE_UTF8:
-                    pb("- file name (decoded)", name.decode("utf-8"))
+                    pb("- file name (UTF-8 decoded)", name.decode("utf-8"))
                 pb("extra field", extra)
                 cdata = br.read(cdata_len)
                 if cdata_len > 20:
@@ -227,10 +236,10 @@ for path in sys.argv[1:]:
                 cflags = br.read_u16_le()
                 method = br.read_u16_le()
                 pf("general purpose bit flag", cflags,
-                    lambda v: fmt_local_bitflags(v, method))
+                    lambda v: fmt_general_bitflags(v, method))
                 pf("compression method", method, fmt_method)
-                pf("last mod file time", br.read_u16_le(), fmt_modtime)
-                pf("last mod file date", br.read_u16_le(), fmt_moddate)
+                pf("last mod file time", br.read_u16_le(), fmt_msdos_time)
+                pf("last mod file date", br.read_u16_le(), fmt_msdos_date)
                 pf("crc-32", br.read_u32_le())
                 cdata_len = br.read_u32_le()
                 pf("compressed size", cdata_len, fmt_bytes)
@@ -252,11 +261,11 @@ for path in sys.argv[1:]:
                 comment = br.read(comment_len)
                 pb("file name", name)
                 if lflags & LFLAG_LANGUAGE_UTF8:
-                    pb("- file name (decoded)", name.decode("utf-8"))
+                    pb("- file name (UTF-8 decoded)", name.decode("utf-8"))
                 pb("extra field", extra)
                 pb("comment", comment)
                 if lflags & LFLAG_LANGUAGE_UTF8:
-                    pb("- comment (decoded)", comment.decode("utf-8"))
+                    pb("- comment (UTF-8 decoded)", comment.decode("utf-8"))
                 print()
             elif sig == Signature.END_OF_CENTRAL_DIR:
                 print("=== end of central directory ===")

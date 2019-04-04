@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+import enum
+import os
+import struct
+import sys
+
+class BinaryReader():
+    def __init__(self, fh):
+        self.fh = fh
+
+    def _debug(self, typ, data):
+        if os.environ.get("DEBUG"):
+            c_on = "\033[33m" if sys.stdout.isatty() else ""
+            c_off = "\033[m" if sys.stdout.isatty() else ""
+            print(c_on, "#", typ, repr(data), c_off)
+        return data
+
+    def read(self, length):
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            if len(buf) == 0:
+                raise EOFError("Hit EOF after 0/%d bytes" % length)
+            else:
+                raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+        return self._debug("raw[%d]" % length, buf)
+
+    def _read_fmt(self, length, fmt, typ):
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            if len(buf) == 0:
+                raise EOFError("Hit EOF after 0/%d bytes" % length)
+            else:
+                raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+        data, = struct.unpack(fmt, buf)
+        return self._debug(typ, data)
+
+    def read_u8(self):
+        return self._read_fmt(1, ">B", "byte")
+
+    def read_u16_le(self):
+        return self._read_fmt(2, "<H", "short")
+
+    def read_u32_le(self):
+        return self._read_fmt(4, "<L", "long")
+
+    def read_u64_le(self):
+        return self._read_fmt(8, "<Q", "quad")
+
+class Method(enum.IntEnum):
+    Stored          = 0
+    Shrunk          = 1
+    Reduced_1       = 2
+    Reduced_2       = 3
+    Reduced_3       = 4
+    Reduced_4       = 5
+    Imploded        = 6
+    Tokenizing      = 7
+    Deflated        = 8
+    Deflate64       = 9
+    IBM_old_TERSE   = 10
+    BZip2           = 12
+    LZMA            = 14
+    IBM_zOS_CMPSC   = 16
+    IBM_new_TERSE   = 18
+    IBM_LZ77_z      = 19
+    JPEG_variant    = 96
+    WavPack         = 97
+    PPMd_v1_rev1    = 98
+    AE_x_encrypted  = 99
+
+BIT = lambda x: 1 << x
+
+class Signature(enum.IntEnum):
+    CENTRAL_DIRECTORY_HEADER    = 0x02014b50
+    TEMPORARY_SPANNING_MARKER   = 0x30304b50
+    LOCAL_FILE_HEADER           = 0x04034b50
+    DIGITAL_SIGNATURE           = 0x05054b50
+    DATA_DESCRIPTOR             = 0x08074b50
+    END_OF_CENTRAL_DIR          = 0x06054b50
+    ZIP64_END_OF_CENTRAL_DIR    = 0x06064b50
+
+LFLAG_ENCRYPTED = BIT(0)
+LFLAG_DATA_DESCRIPTOR = BIT(3)
+LFLAG_LANGUAGE_UTF8 = BIT(11)
+
+METHOD_6_IMPLODE = 6
+METHOD_8_DEFLATE = 8
+METHOD_9_DEFLATE = 9
+METHOD_14_LZMA = 14
+
+fmt_local_bitflags = None
+fmt_method = None
+fmt_modtime = None
+fmt_moddate = None
+fmt_bytes = None
+fmt_int_attr = None
+fmt_ext_attr = None
+
+def fmt_method(value):
+    return Method(value)
+
+def fmt_version_made_by(value):
+    os = (value >> 8) & 0xFF
+    spec = value & 0xFF
+    major = spec // 10
+    minor = spec % 10
+    return "%s, Zip %d.%d" % (os, major, minor)
+
+#def fmt_modtime(value):
+
+def fmt_local_bitflags(value, method):
+    flags = []
+    if value & BIT(0):
+        flags.append((BIT(0), "data is encrypted"))
+    if method == METHOD_6_IMPLODE:
+        if value & BIT(1):
+            flags.append((BIT(1), "Implode uses 8K dict"))
+        else:
+            flags.append((BIT(1), "Implode uses 4K dict"))
+        if value & BIT(2):
+            flags.append((BIT(2), "Implode uses 3 Shannon-Fano trees"))
+        else:
+            flags.append((BIT(2), "Implode uses 2 Shannon-Fano trees"))
+    elif method in {METHOD_8_DEFLATE, METHOD_9_DEFLATE}:
+        if value & BIT(1) and value & BIT(2):
+            flags.append((BIT(1) | BIT(2), "Deflate uses Super Fast mode"))
+        elif value & BIT(1):
+            flags.append((BIT(1) | BIT(2), "Deflate uses Fast mode"))
+        elif value & BIT(2):
+            flags.append((BIT(1) | BIT(2), "Deflate uses Maximum mode"))
+        else:
+            flags.append((BIT(1) | BIT(2), "Deflate uses Normal mode"))
+    elif method == METHOD_14_LZMA:
+        if value & BIT(1):
+            flags.append((BIT(1), "LZMA has end-of-stream marker"))
+    if value & BIT(3):
+        flags.append((BIT(3), "data descriptor present"))
+    if value & BIT(5):
+        flags.append((BIT(5), "file is compressed patched data"))
+    if value & BIT(6):
+        flags.append((BIT(6), "strong encryption used"))
+    if value & BIT(11):
+        flags.append((BIT(11), "name and comment are UTF-8 encoded"))
+    if value & BIT(13):
+        flags.append((BIT(13), "central directory data is encrypted"))
+    flags = ["<%s> %s" % (bin(value & mask), desc) for (mask, desc) in flags]
+    return flags
+
+def pf(name, value, fmt_func=None):
+    text = "%d (0x%X)" % (value, value)
+    ps(name, text, lambda f: fmt_func(value) if fmt_func else [])
+
+def pb(name, value, fmt_func=None):
+    text = "<%d> %r" % (len(value), value)
+    ps(name, text, lambda f: fmt_func(value) if fmt_func else [])
+
+def ps(name, value, fmt_func=None):
+    if fmt_func:
+        out = fmt_func(value)
+    else:
+        out = []
+
+    if type(out) == list:
+        print("  %-30s: %s" % (name, value))
+        for o in out:
+            print("   \\ %s" % o)
+    else:
+        print("  %-30s: %s (%s)" % (name, value, out))
+
+for path in sys.argv[1:]:
+    with open(path, "rb") as fh:
+        br = BinaryReader(fh)
+        while True:
+            try:
+                sig = br.read_u32_le()
+            except EOFError:
+                print("### EOF ###")
+                break
+            if sig == Signature.LOCAL_FILE_HEADER:
+                print("=== local file header ===")
+                pf("signature", sig, Signature)
+                pf("version needed to extract", br.read_u16_le())
+                lflags = br.read_u16_le()
+                method = br.read_u16_le()
+                pf("general purpose bit flag", lflags,
+                    lambda v: fmt_local_bitflags(v, method))
+                pf("compression method", method, fmt_method)
+                pf("last mod file time", br.read_u16_le(), fmt_modtime)
+                pf("last mod file date", br.read_u16_le(), fmt_moddate)
+                pf("crc-32", br.read_u32_le())
+                cdata_len = br.read_u32_le()
+                pf("compressed size", cdata_len, fmt_bytes)
+                pf("uncompressed size", br.read_u32_le(), fmt_bytes)
+                name_len = br.read_u16_le()
+                extra_len = br.read_u16_le()
+                pf("file name length", name_len, fmt_bytes)
+                pf("extra field length", extra_len, fmt_bytes)
+                name = br.read(name_len)
+                extra = br.read(extra_len)
+                pb("file name", name)
+                if lflags & LFLAG_LANGUAGE_UTF8:
+                    pb("- file name (decoded)", name.decode("utf-8"))
+                pb("extra field", extra)
+                cdata = br.read(cdata_len)
+                if cdata_len > 20:
+                    ps("[compressed data]", "<%d> %r..." % (cdata_len, cdata[:20]))
+                else:
+                    ps("[compressed data]", "<%d> %r" % (cdata_len, cdata))
+                print()
+                if lflags & LFLAG_DATA_DESCRIPTOR:
+                    print("--- data descriptor ---")
+                    sig = br.read_u32_le()
+                    if sig == Signature.DATA_DESCRIPTOR:
+                        pf("signature", sig, Signature)
+                        pf("crc-32", br.read_u32_le())
+                    else:
+                        ps("signature", "(absent)")
+                        pf("crc-32", sig)
+                    pf("compressed size", br.read_u32_le(), fmt_bytes)
+                    pf("uncompressed size", br.read_u32_le(), fmt_bytes)
+                    print()
+            elif sig == Signature.CENTRAL_DIRECTORY_HEADER:
+                print("=== central directory header ===")
+                pf("signature", sig, Signature)
+                pf("version made by", br.read_u16_le(), fmt_version_made_by)
+                pf("version needed to extract", br.read_u16_le())
+                cflags = br.read_u16_le()
+                method = br.read_u16_le()
+                pf("general purpose bit flag", cflags,
+                    lambda v: fmt_local_bitflags(v, method))
+                pf("compression method", method, fmt_method)
+                pf("last mod file time", br.read_u16_le(), fmt_modtime)
+                pf("last mod file date", br.read_u16_le(), fmt_moddate)
+                pf("crc-32", br.read_u32_le())
+                cdata_len = br.read_u32_le()
+                pf("compressed size", cdata_len, fmt_bytes)
+                pf("uncompressed size", br.read_u32_le(), fmt_bytes)
+                name_len = br.read_u16_le()
+                extra_len = br.read_u16_le()
+                comment_len = br.read_u16_le()
+                pf("file name length", name_len, fmt_bytes)
+                pf("extra field length", extra_len, fmt_bytes)
+                pf("comment length", comment_len, fmt_bytes)
+                pf("disk number start", br.read_u16_le())
+                int_attr = br.read_u16_le()
+                ext_attr = br.read_u32_le()
+                pf("internal file attributes", int_attr, fmt_int_attr)
+                pf("external file attributes", ext_attr, fmt_ext_attr)
+                pf("relative local hdr offset", br.read_u32_le())
+                name = br.read(name_len)
+                extra = br.read(extra_len)
+                comment = br.read(comment_len)
+                pb("file name", name)
+                if lflags & LFLAG_LANGUAGE_UTF8:
+                    pb("- file name (decoded)", name.decode("utf-8"))
+                pb("extra field", extra)
+                pb("comment", comment)
+                if lflags & LFLAG_LANGUAGE_UTF8:
+                    pb("- comment (decoded)", comment.decode("utf-8"))
+                print()
+            elif sig == Signature.END_OF_CENTRAL_DIR:
+                print("=== end of central directory ===")
+                pf("signature", sig, Signature)
+                pf("this disk", br.read_u16_le())
+                pf("disk with central dir start", br.read_u16_le())
+                pf("central records on this disk", br.read_u16_le())
+                pf("central records on all disks", br.read_u16_le())
+                pf("size of central directory", br.read_u32_le())
+                pf("offset of central directory", br.read_u32_le())
+                comment_len = br.read_u16_le()
+                pf("comment length", comment_len, fmt_bytes)
+                comment = br.read(comment_len)
+                pb("comment", comment)
+                print()
+            elif sig == Signature.DIGITAL_SIGNATURE:
+                print("=== digital signature ===")
+                pf("signature", sig, Signature)
+                size = br.read_u16_le()
+                data = br.read(size)
+                pf("size of data", size)
+                pb("[signature data]", data)
+                print()
+            else:
+                print("=== unknown ===")
+                try:
+                    pf("unknown sig", sig, Signature)
+                except ValueError:
+                    pf("unknown sig", sig)
+                exit()

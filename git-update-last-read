@@ -20,16 +20,20 @@ fast_forward() {
 	fi
 }
 
-update_marks() {
+export_marks() {
+	local repo=${1%/}
+	local git_dir="$repo/.git"
+	local mark_dir="$rootmarkdir/${repo##*/}.marks"
+	debug "exporting local marks to '$mark_dir'"
+	[[ -d $mark_dir ]] && mkdir -p "$mark_dir"
+	cp -u -v "$repo/.git/refs/heads/master" "$mark_dir/$ourhost.master"
+}
+
+import_marks() {
 	local repo=${1%/}
 	local git_dir="$repo/.git"
 	local mark_dir="$rootmarkdir/${repo##*/}.marks"
 	local file host ref
-
-	debug "exporting local marks to '$mark_dir'"
-	[[ -d $mark_dir ]] && mkdir -p "$mark_dir"
-	cp -u -v "$repo/.git/refs/heads/master" "$mark_dir/$ourhost.master"
-
 	debug "importing remote marks from '$mark_dir'"
 	for file in "$mark_dir"/*.master; do
 		if [[ $file == *\ * ]]; then
@@ -44,6 +48,12 @@ update_marks() {
 			fast_forward "refs/heads/all" "refs/heads/$host"
 		fi
 	done
+}
+
+update_marks() {
+	local repo=${1%/}
+	export_marks "$repo"
+	import_marks "$repo"
 }
 
 update_marks ~/src/linux

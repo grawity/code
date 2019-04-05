@@ -13,13 +13,18 @@ update_marks() {
 	local mark_dir="$rootmarkdir/${repo##*/}.marks"
 	local file host ref
 
-	# export local mark
+	debug "exporting local marks to '$mark_dir'"
 	[[ -d $mark_dir ]] && mkdir -p "$mark_dir"
 	cp -u -v "$repo/.git/refs/heads/master" "$mark_dir/$ourhost.master"
 	cp -u -v "$repo/.git/refs/heads/master" "$mark_dir/all.master"
 
-	# import remote marks
+	debug "importing remote marks from '$mark_dir'"
 	for file in "$mark_dir"/*.master; do
+		if [[ $file == *\ * ]]; then
+			debug "removing sync conflict '$file'"
+			rm -v "$file"
+			continue
+		fi
 		host=${file##*/}
 		host=${host%%.*}
 		if [[ $host != "$ourhost" && $host != "all" ]]; then

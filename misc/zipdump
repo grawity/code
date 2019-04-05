@@ -119,7 +119,7 @@ fmt_ext_attr = None
 def fmt_method(value):
     return Method(value)
 
-def fmt_version_made_by(value):
+def fmt_osversion(value):
     os = (value >> 8) & 0xFF
     try:
         os = Os(os)
@@ -240,7 +240,7 @@ for path in sys.argv[1:]:
                 num_local += 1
                 print("=== local file header %d ===" % num_local)
                 pf("signature", sig, Signature)
-                pf("version needed to extract", br.read_u16_le())
+                pf("version needed to extract", br.read_u16_le(), fmt_osversion)
                 flags = br.read_u16_le()
                 method = br.read_u16_le()
                 pf("general purpose bit flag", flags,
@@ -285,8 +285,8 @@ for path in sys.argv[1:]:
                 print("=== central directory header %d ===" % num_central)
                 pf("signature", sig, Signature)
                 os_version = br.read_u16_le()
-                pf("version made by", os_version, fmt_version_made_by)
-                pf("version needed to extract", br.read_u16_le())
+                pf("version made by", os_version, fmt_osversion)
+                pf("version needed to extract", br.read_u16_le(), fmt_osversion)
                 flags = br.read_u16_le()
                 method = br.read_u16_le()
                 pf("general purpose bit flag", flags,

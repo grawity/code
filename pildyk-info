@@ -2,14 +2,15 @@
 import os, sys
 import requests
 from nullroute.core import Core
-from nullroute.sec import get_netrc
+from nullroute.sec import get_libsecret, get_netrc
 from pprint import pprint
 
 class PildykApi(object):
     BASE = "https://mano.pildyk.lt/api"
 
-    def __init__(self, creds):
-        self.creds = creds
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
         self.ua = requests.Session()
         self.ua.headers["user-agent"] += " (~/bin/pildyk-balance at github/grawity/bin)"
 
@@ -29,8 +30,8 @@ class PildykApi(object):
 
     def login(self):
         self.post("/authentication/login",
-                  data={"Msisdn": self.creds["login"],
-                        "Password": self.creds["password"]})
+                  data={"Msisdn": self.username,
+                        "Password": self.password})
 
     def get_balance(self):
         # JS appends /<msisdn>, seems optional
@@ -45,10 +46,16 @@ class PildykApi(object):
         # JS appends /<msisdn>, seems optional
         return self.get("/accountinformation/get-price-plan-and-buckets")
 
-Login = "60396811"
+username = "60396811"
+try:
+    password = get_libsecret({"xdg:schema": "org.epiphany.FormPassword",
+                              "uri": "https://mano.pildyk.lt",
+                              "username": username})
+except KeyError:
+    creds = get_netrc("http@mano.pildyk.lt", username)
+    password = creds["password"]
 
-creds = get_netrc("http@mano.pildyk.lt", Login)
-api = PildykApi(creds)
+api = PildykApi(username, password)
 api.login()
 
 data = api.get_plan_and_balance()

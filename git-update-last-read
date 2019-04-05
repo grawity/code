@@ -56,5 +56,39 @@ update_marks() {
 	import_marks "$repo"
 }
 
-update_marks ~/src/linux
-update_marks ~/src/systemd
+do_export=0
+do_import=0
+
+while getopts ":ei" OPT; do
+	case $OPT in
+	e) do_export=1;;
+	i) do_import=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( !do_export && !do_import )); then
+	do_export=1
+	do_import=1
+fi
+
+if (( ! $# )); then
+	set -- ~/src/{linux,systemd}
+fi
+
+for dir in "$@"; do
+	dir=$(realpath -s "$dir")
+	debug "processing '$dir'"
+	if [[ ! -e "$dir/.git" ]]; then
+		err "'$dir' is not a Git repository"
+		continue
+	fi
+	if (( do_export )); then
+		export_marks "$dir"
+	fi
+	if (( do_import )); then
+		import_marks "$dir"
+	fi
+done
+
+lib::exit

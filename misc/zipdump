@@ -119,16 +119,16 @@ fmt_ext_attr = None
 def fmt_method(value):
     return Method(value)
 
-def fmt_osversion(value):
-    os = (value >> 8) & 0xFF
+def fmt_filesys(value):
     try:
-        os = Os(os)
+        return Os(value)
     except ValueError:
-        pass
-    spec = value & 0xFF
-    major = spec // 10
-    minor = spec % 10
-    return "%s, Zip %d.%d" % (os, major, minor)
+        return "Unknown(0x%02X)" % value
+
+def fmt_version(value):
+    major = value // 10
+    minor = value % 10
+    return "Zip %d.%d" % (major, minor)
 
 def fmt_msdos_time(value):
     # 5 bits, 6 bits, 5 bits
@@ -240,7 +240,8 @@ for path in sys.argv[1:]:
                 num_local += 1
                 print("=== local file header %d ===" % num_local)
                 pf("signature", sig, Signature)
-                pf("version needed to extract", br.read_u16_le(), fmt_osversion)
+                pf("version needed to extract", br.read_u8(), fmt_version)
+                pf("filesys needed to extract", br.read_u8(), fmt_filesys)
                 flags = br.read_u16_le()
                 method = br.read_u16_le()
                 pf("general purpose bit flag", flags,
@@ -284,9 +285,11 @@ for path in sys.argv[1:]:
                 num_central += 1
                 print("=== central directory header %d ===" % num_central)
                 pf("signature", sig, Signature)
-                os_version = br.read_u16_le()
-                pf("version made by", os_version, fmt_osversion)
-                pf("version needed to extract", br.read_u16_le(), fmt_osversion)
+                pf("version made by", br.read_u8(), fmt_version)
+                creator_os = br.read_u8()
+                pf("filesys made by", creator_os, fmt_filesys)
+                pf("version needed to extract", br.read_u8(), fmt_version)
+                pf("filesys needed to extract", br.read_u8(), fmt_filesys)
                 flags = br.read_u16_le()
                 method = br.read_u16_le()
                 pf("general purpose bit flag", flags,
@@ -309,7 +312,7 @@ for path in sys.argv[1:]:
                 ext_attr = br.read_u32_le()
                 pf("internal file attributes", int_attr, fmt_int_attr)
                 pf("external file attributes", ext_attr,
-                    lambda v: fmt_ext_attr(v, os_version >> 8))
+                    lambda v: fmt_ext_attr(v, creator_os))
                 pf("relative local hdr offset", br.read_u32_le())
                 name = br.read(name_len)
                 extra = br.read(extra_len)

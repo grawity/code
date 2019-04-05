@@ -7,6 +7,19 @@ rootmarkdir=$path_config/synced
 
 ourhost=${HOSTNAME%%.*}
 
+fast_forward() {
+	local ref=$1 newhead=$2
+	local behind=$(git rev-list --count "$ref..$newhead")
+	local ahead=$(git rev-list --count "$newhead..$ref")
+	debug "'$ref' is $ahead ahead, $behind behind '$newhead'"
+	if (( behind == 0 )); then
+		true
+	else
+		debug "updating $ref to $newhead"
+		git update-ref "$ref" "$newhead"
+	fi
+}
+
 update_marks() {
 	local repo=${1%/}
 	local git_dir="$repo/.git"
@@ -29,7 +42,7 @@ update_marks() {
 		host=${host%%.*}
 		if [[ $host != "$ourhost" && $host != "all" ]]; then
 			cp -u -v "$file" "$git_dir/refs/heads/$host"
-			cp -u -v "$file" "$git_dir/refs/heads/all"
+			fast_forward "refs/heads/all" "refs/heads/$host"
 		fi
 	done
 }

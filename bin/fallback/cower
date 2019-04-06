@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+mode=
+
+while getopts ":disu" OPT; do
+	case $OPT in
+	d) mode=download;;
+	i) mode=info;;
+	s) mode=search;;
+	u) mode=update;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+case $mode in
+	download)
+		auracle clone "$@" ;;
+	info)
+		auracle info "$@" ;;
+	search)
+		auracle search "$@" ;;
+	update)
+		auracle sync "$@" ;;
+	*)
+		die "BUG: unknown mode '$mode'" ;;
+esac

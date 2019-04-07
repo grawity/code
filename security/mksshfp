@@ -56,21 +56,22 @@ def parse(path):
             keyhash = hash_func(key.blob)
             yield {
                 "key": key,
+                "algo_id": KEY_ALGOS[key.algo],
                 "hash_id": hash_id,
-                "hash_name": keyhash.name,
-                "hash": keyhash.digest(),
-                "rrdata": "%d %d %s" % (KEY_ALGOS[key.algo],
-                                        hash_id,
-                                        keyhash.hexdigest())
+                "hash": keyhash,
             }
 
 def fmt_sshfp(host, pubkey):
-    record = "%s\t%s" % ("SSHFP", entry["rrdata"])
+    type = "SSHFP"
+    rrdata = ["%d" % entry["algo_id"],
+              "%d" % entry["hash_id"],
+              "%s" % entry["hash"].hexdigest()]
+    record = "%s\t%s" % (type, " ".join(rrdata))
     if host:
         if "." in host and host[-1] != ".":
             host = "%s." % host
         record = "%s\t%s" % (host, record)
-    comment = "; (%s, %s)" % (entry["key"].algo, entry["hash_name"])
+    comment = "; (%s, %s)" % (entry["key"].algo, entry["hash"].name)
     return "%s %s" % (record, comment)
 
 try:

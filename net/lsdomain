@@ -143,17 +143,64 @@ for my $host (@ARGV) {
 			}
 			my %policy = map {split /=/, $_, 2} split /;\s*/, $policy;
 			my @mode;
-			push @mode, {
-				none => "only send reports",
-				quarantine => "mark as spam",
-				reject => "SMTP-reject"}->{$policy{p}};
 			push @mode, "report to $policy{rua}"
 				if exists $policy{rua};
-			push @mode, "strict SPF"
-				if ($policy{aspf} // "r") eq "s";
-			say "\tDMARC: ".join("; ", @mode);
+			say "\tDMARC: $policy";
+			@mode = ();
+
+			my ($key, $keydesc, $val, $valdesc);
+			do {
+				$key = "p";
+				$keydesc = "failed message handling policy";
+				$val = $policy{"p"};
+				if ($val eq "none") {
+					$valdesc = "accept, but generate reports to my postmaster";
+				} elsif ($val eq "quarantine") {
+					$valdesc = "accept, but mark as spam (quarantine)";
+				} elsif ($val eq "reject") {
+					$valdesc = "reject during SMTP delivery";
+				}
+				push @mode, [$key, $keydesc, $val, $valdesc];
+			};
+			if ($policy{"rua"}) {
+				$key = "rua";
+				$keydesc = "send aggregate reports to";
+				$val = $policy{"rua"};
+				$valdesc = "";
+			}
+			do {
+				$key = "adkim";
+				$keydesc = "DKIM alignment (RFC822-From vs DKIM-Signature)";
+				$val = $policy{$key} // "r";
+				if ($val eq "r") {
+					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of DKIM-Signature domain)";
+				} elsif ($val eq "s") {
+					$valdesc = "strict (RFC822-From domain must exactly match DKIM-Signature domain)";
+				}
+				push @mode, [$key, $keydesc, $val, $valdesc];
+			};
+			do {
+				$key = "aspf";
+				$keydesc = "SPF alignment (RFC822-From vs SMTP Envelope-From)";
+				$val = $policy{$key} // "r";
+				if ($val eq "r") {
+					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of Envelope-From)";
+				} elsif ($val eq "s") {
+					$valdesc = "strict (RFC822-From domain must exactly match Envelope-From domain)";
+				}
+				push @mode, [$key, $keydesc, $val, $valdesc];
+			};
+
+			for (@mode) {
+				($key, $keydesc, $val, $valdesc) = @$_;
+				my $def = (defined $policy{$key}) ? "<policy>" : "<default>";
+				say "\t  $key=$val \e[2m$def\e[m";
+				say "\t    \e[mOption:\e[m \e[m$keydesc\e[m" if $keydesc;
+				say "\t    \e[mValue:\e[m \e[m$valdesc\e[m" if $valdesc;
+			}
+
 		}
-		say "\tSPF: $_" for @spf; 
+		say "\tSPF: $_" for @spf;
 	}
 
 	if ($do{kerberos}) {

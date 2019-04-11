@@ -161,14 +161,14 @@ for my $host (@ARGV) {
 			my (@mode, $key, $keydesc, $val, $valdesc);
 			do {
 				$key = "p";
-				$keydesc = "failed message handling policy";
+				$keydesc = "failure action";
 				$val = $policy{"p"};
 				if ($val eq "none") {
-					$valdesc = "accept, but generate reports to my postmaster";
+					$valdesc = "none (accept, but generate reports to my postmaster)";
 				} elsif ($val eq "quarantine") {
-					$valdesc = "accept, but mark as spam (quarantine)";
+					$valdesc = "quarantine (accept, but mark as spam)";
 				} elsif ($val eq "reject") {
-					$valdesc = "reject during SMTP delivery";
+					$valdesc = "reject (refuse during SMTP delivery)";
 				}
 				push @mode, [$key, $keydesc, $val, $valdesc];
 			};
@@ -180,7 +180,7 @@ for my $host (@ARGV) {
 			}
 			do {
 				$key = "adkim";
-				$keydesc = "DKIM alignment (RFC822-From vs DKIM-Signature)";
+				$keydesc = "DKIM alignment";
 				$val = $policy{$key} // "r";
 				if ($val eq "r") {
 					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of DKIM-Signature domain)";
@@ -191,10 +191,10 @@ for my $host (@ARGV) {
 			};
 			do {
 				$key = "aspf";
-				$keydesc = "SPF alignment (RFC822-From vs SMTP Envelope-From)";
+				$keydesc = "SPF alignment";
 				$val = $policy{$key} // "r";
 				if ($val eq "r") {
-					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of Envelope-From)";
+					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of Envelope-From domain)";
 				} elsif ($val eq "s") {
 					$valdesc = "strict (RFC822-From domain must exactly match Envelope-From domain)";
 				}
@@ -203,10 +203,8 @@ for my $host (@ARGV) {
 
 			for (@mode) {
 				($key, $keydesc, $val, $valdesc) = @$_;
-				my $def = (defined $policy{$key}) ? "<policy>" : "<default>";
-				say "\t  $key=$val \e[2m$def\e[m";
-				say "\t    \e[mOption:\e[m \e[m$keydesc\e[m" if $keydesc;
-				say "\t    \e[mValue:\e[m \e[m$valdesc\e[m" if $valdesc;
+				my $def = (defined $policy{$key}) ? "*" : "-";
+				say "\t\t$def $keydesc: $valdesc";
 			}
 
 		}

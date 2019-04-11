@@ -40,6 +40,13 @@ sub find_dom {
 
 $res->dnssec(1);
 
+sub grep_txt {
+	my ($ans) = @_;
+	return	map {$_->txtdata}
+		grep {$_->type eq "TXT"}
+		$ans->answer;
+}
+
 sub get_spf {
 	my ($dom) = @_;
 	my ($ans, @spf);
@@ -62,11 +69,23 @@ sub get_spf {
 	return uniq @spf;
 }
 
+sub sort_mx {
+	sort {$a->preference <=> $b->preference}
+	sort {$a->exchange cmp $b->exchange}
+	@_;
+}
+
 sub sort_srv {
 	sort {$a->priority <=> $b->priority}
 	sort {$a->weight <=> $b->weight}
 	sort {$a->target cmp $b->target}
 	@_;
+}
+
+sub format_mx {
+	uniq
+	map {"[".$_->preference."] ".$_->exchange}
+	sort_mx(grep {$_->type eq "MX"} @_);
 }
 
 sub format_srv {
@@ -120,39 +139,26 @@ for my $host (@ARGV) {
 
 	if ($do{mail}) {
 		status "Looking up mail servers...";
-		$ans = $res->query($host, "MX");
+		my $mx_ans = $res->query($host, "MX");
 		done;
-		if ($ans) {
+		if ($mx_ans) {
 			say "Mail:";
 			say "\tdomain: $host";
-			say "\tmailserver: $_"
-				for uniq map {"[".$_->preference."] ".$_->exchange}
-				sort {$a->preference <=> $b->preference}
-				sort {$a->exchange cmp $b->exchange}
-				grep {$_->type eq 'MX'} $ans->answer;
+			say "\tmailserver: $_" for format_mx($mx_ans->answer);
 		}
 
 		status "Looking up mail server configuration...";
 		my @spf = get_spf($host);
-		my $dmarcans = $res->query("_dmarc.$host", "TXT");
-		my $tlsrptans = $res->query("_smtp._tls.$host", "TXT");
-		my $mtastsans = $res->query("_mta-sts.$host", "TXT");
+		my $dmarc_ans = $res->query("_dmarc.$host", "TXT");
+		my $tls_rpt_ans = $res->query("_smtp._tls.$host", "TXT");
+		my $mta_sts_ans = $res->query("_mta-sts.$host", "TXT");
 		done;
-		if ($dmarcans) {
-			my $policy;
-			for my $ans ($dmarcans->answer) {
-				if ($ans->type eq "TXT") {
-					$policy = $ans->txtdata;
-				}
-			}
+		if ($dmarc_ans) {
+			my ($policy) = grep_txt($dmarc_ans);
 			my %policy = map {split /=/, $_, 2} split(/;\s*/, $policy);
-			my @mode;
-			push @mode, "report to $policy{rua}"
-				if exists $policy{rua};
 			say "\tDMARC: $policy";
-			@mode = ();
 
-			my ($key, $keydesc, $val, $valdesc);
+			my (@mode, $key, $keydesc, $val, $valdesc);
 			do {
 				$key = "p";
 				$keydesc = "failed message handling policy";
@@ -205,17 +211,17 @@ for my $host (@ARGV) {
 
 		}
 		say "\tSPF: $_" for @spf;
-		if ($tlsrptans) {
+		if ($tls_rpt_ans) {
 			# https://tools.ietf.org/html/rfc8460
-			my ($policy) = map {$_->txtdata} grep {$_->type eq "TXT"} $tlsrptans->answer;
+			my ($policy) = grep_txt($tls_rpt_ans);
 			if ($policy) {
 				say "\tTLS Reporting: $policy";
 			}
 		}
-		if ($mtastsans) {
+		if ($mta_sts_ans) {
 			# https://tools.ietf.org/html/rfc8461
-			my @txt = map {$_->txtdata} grep {$_->type eq "TXT"} $mtastsans->answer;
-			if (@txt) {
+			my ($flag) = grep_txt($mta_sts_ans);
+			if ($flag) {
 				say "\tMTA-STS: @txt";
 				my $url = "https://mta-sts.$host/.well-known/mta-sts.txt";
 				status("Retrieving MTA-STS policy...");

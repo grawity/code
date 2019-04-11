@@ -4,8 +4,10 @@ use Data::Dumper;
 use Net::DNS;
 use Net::LDAP;
 use List::MoreUtils qw(uniq);
+use LWP::UserAgent;
 
 my $res = Net::DNS::Resolver->new;
+my $ua = LWP::UserAgent->new;
 my $ans;
 
 my %do;
@@ -133,6 +135,8 @@ for my $host (@ARGV) {
 		status "Looking up mail server configuration...";
 		my @spf = get_spf($host);
 		my $dmarcans = $res->query("_dmarc.$host", "TXT");
+		my $tlsrptans = $res->query("_smtp._tls.$host", "TXT");
+		my $mtastsans = $res->query("_mta-sts.$host", "TXT");
 		done;
 		if ($dmarcans) {
 			my $policy;
@@ -141,7 +145,7 @@ for my $host (@ARGV) {
 					$policy = $ans->txtdata;
 				}
 			}
-			my %policy = map {split /=/, $_, 2} split /;\s*/, $policy;
+			my %policy = map {split /=/, $_, 2} split(/;\s*/, $policy);
 			my @mode;
 			push @mode, "report to $policy{rua}"
 				if exists $policy{rua};
@@ -201,6 +205,30 @@ for my $host (@ARGV) {
 
 		}
 		say "\tSPF: $_" for @spf;
+		if ($tlsrptans) {
+			# https://tools.ietf.org/html/rfc8460
+			my ($policy) = map {$_->txtdata} grep {$_->type eq "TXT"} $tlsrptans->answer;
+			if ($policy) {
+				say "\tTLS Reporting: $policy";
+			}
+		}
+		if ($mtastsans) {
+			# https://tools.ietf.org/html/rfc8461
+			my @txt = map {$_->txtdata} grep {$_->type eq "TXT"} $mtastsans->answer;
+			if (@txt) {
+				say "\tMTA-STS: @txt";
+				my $url = "https://mta-sts.$host/.well-known/mta-sts.txt";
+				status("Retrieving MTA-STS policy...");
+				my $resp = $ua->get($url);
+				if ($resp->is_success) {
+					$resp = $resp->decoded_content;
+				} else {
+					$resp = $resp->status_line;
+				}
+				done();
+				say "\t\t$_" for split(/\n+/, $resp);
+			}
+		}
 	}
 
 	if ($do{kerberos}) {

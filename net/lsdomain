@@ -153,6 +153,7 @@ for my $host (@ARGV) {
 		my $tls_rpt_ans = $res->query("_smtp._tls.$host", "TXT");
 		my $mta_sts_ans = $res->query("_mta-sts.$host", "TXT");
 		done;
+		say "\tSPF: $_" for @spf;
 		if ($dmarc_ans) {
 			my ($policy) = grep_txt($dmarc_ans);
 			my %policy = map {split /=/, $_, 2} split(/;\s*/, $policy);
@@ -208,7 +209,6 @@ for my $host (@ARGV) {
 			}
 
 		}
-		say "\tSPF: $_" for @spf;
 		if ($tls_rpt_ans) {
 			# https://tools.ietf.org/html/rfc8460
 			my ($policy) = grep_txt($tls_rpt_ans);

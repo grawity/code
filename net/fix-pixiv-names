@@ -12,9 +12,6 @@ import re
 from requests.exceptions import HTTPError
 
 class PixivRenamer():
-    bare_re = re.compile(r'^(\d+)(?:_big)?(?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+$')
-    prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
-    suffix_re = re.compile(r'(.+) (\d+)((?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+)$')
     fanbox_re = re.compile(r'^fanbox(\d+)[ _].*?(\w+)(\.\w+)$')
 
     def __init__(self):
@@ -110,49 +107,58 @@ class PixivRenamer():
             job.end_rename(filename)
             return
 
-        m = self.bare_re.match(filename)
-        if m:
-            Core.debug("process %r: matched bare regex, groups %r", filename, m.groups())
+        member_id = None
+        illust_id = None
+        fanbox_id = None
+        member_tag = []
+        illust_tag = []
+        prefix = []
+        suffix = []
+        current = prefix
+
+        name, ext = filename.rsplit(".", 1)
+        name = name.split()
+
+        for word in name:
+            m = re.match(r"^(.*)_pixiv(\d+)$", word)
+            if m:
+                member_id = int(m.group(1))
+                member_tag = [word]
+                continue
+            m = re.match(r"^(\d+)_(p\d+|delays|ugoira\d+x\d+)$", word)
+            if m:
+                illust_id = int(m.group(1))
+                illust_tag = [word]
+                current = suffix
+                continue
+            current.append(word)
+
+        if (illust_id or member_id):
+            Core.trace("process %r (before): prefix=%r, member=%r, illust=%r, suffix=%r",
+                       filename, prefix, member_tag, illust_tag, suffix)
+        else:
+            Core.trace("skip %r: no identifier", filename)
+            return
+
+        if illust_id:
             job.begin()
-            illust_id = int(m.group(1))
             try:
-                prefix = self.get_prefix_by_illust_id(illust_id)
+                member_tag = [self.get_prefix_by_illust_id(illust_id)]
             except HTTPError as e:
                 job.end_fail(e)
                 return
-            filename = prefix + " " + filename
-            job.end_rename(filename)
-            return
-
-        m = self.prefix_re.match(filename)
-        if m:
-            Core.debug("process %r: matched prefix regex, groups %r", filename, m.groups())
+        elif member_id:
             job.begin()
-            member_id = int(m.group(1))
             try:
-                prefix = self.get_prefix_by_member_id(member_id)
+                member_tag = [self.get_prefix_by_member_id(member_id)]
             except HTTPError as e:
                 job.end_fail(e)
                 return
-            filename = prefix + " " + m.group(2)
-            job.end_rename(filename)
-            return
 
-        m = self.suffix_re.match(filename)
-        if m:
-            Core.debug("process %r: matched suffix regex, groups %r", filename, m.groups())
-            job.begin()
-            illust_id = int(m.group(2))
-            try:
-                prefix = self.get_prefix_by_illust_id(illust_id)
-            except HTTPError as e:
-                job.end_fail(e)
-                return
-            filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
-            job.end_rename(filename)
-            return
-
-        Core.trace("skip %r: not matched", filename)
+        Core.trace("process %r (after): prefix=%r, member=%r, illust=%r, suffix=%r",
+                   filename, prefix, member_tag, illust_tag, suffix)
+        newname = " ".join(prefix + member_tag + illust_tag + suffix) + "." + ext
+        job.end_rename(newname)
 
 def prune_dotfiles(listref):
     for item in [*listref]:

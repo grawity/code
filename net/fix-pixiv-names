@@ -154,26 +154,6 @@ class PixivRenamer():
 
         Core.trace("skip %r: not matched", filename)
 
-    def fixup_metadata(self, path):
-        filename = os.path.basename(path)
-        m = self.bare_re.match(filename)
-        if m:
-            illust_id = int(m.group(1))
-        else:
-            m = self.prefix_re.match(filename)
-            print(m)
-            if m:
-                illust_id = int(m.group(2))
-            else:
-                return
-
-        work = self.get_illust_info(illust_id)
-        attrs = {
-            "dublincore.title": work.title,
-            "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
-        }
-        set_file_attrs(filename, attrs)
-
 def prune_dotfiles(listref):
     for item in [*listref]:
         if item.startswith("."):
@@ -209,7 +189,6 @@ for arg in args.path or ["."]:
                 r.rename_file_in_dir(dirpath, filename)
     else:
         dirpath, filename = os.path.split(arg)
-        #r.fixup_metadata(arg)
         r.rename_file_in_dir(dirpath, filename)
 
 Core.exit()

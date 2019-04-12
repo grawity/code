@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+import os
+import io
+import socket
+import struct
+import sys
+from pprint import pprint
+
+class BinaryReader():
+    def __init__(self, fh):
+        self.fh = fh
+
+    def _debug(self, typ, data):
+        if os.environ.get("DEBUG"):
+            c_on = "\033[33m" if sys.stdout.isatty() else ""
+            c_off = "\033[m" if sys.stdout.isatty() else ""
+            print(c_on, "#", typ, repr(data), c_off)
+        return data
+
+    def read(self, length):
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            if len(buf) == 0:
+                raise EOFError("Hit EOF after 0/%d bytes" % length)
+            else:
+                raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+        return self._debug("raw[%d]" % length, buf)
+
+    def _read_fmt(self, length, fmt, typ):
+        buf = self.fh.read(length)
+        if len(buf) < length:
+            if len(buf) == 0:
+                raise EOFError("Hit EOF after 0/%d bytes" % length)
+            else:
+                raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+        data, = struct.unpack(fmt, buf)
+        return self._debug(typ, data)
+
+    def read_u8(self):
+        return self._read_fmt(1, ">B", "byte")
+
+    def read_u16_le(self):
+        return self._read_fmt(2, "<H", "short")
+
+    def read_u32_le(self):
+        return self._read_fmt(4, "<L", "long")
+
+    def read_u32_be(self):
+        return self._read_fmt(4, ">L", "long")
+
+    def read_u64_le(self):
+        return self._read_fmt(8, "<Q", "quad")
+
+class SshBinaryReader(BinaryReader):
+    def read_string(self):
+        length = self.read_u32_be()
+        return self.read(length)
+
+    def read_array(self):
+        string = self.read_string()
+        return string.split(b",")
+
+def dump_one(buf, name):
+    print("\033[1m%s:\033[m" % name)
+    words = buf.decode().split(",")
+    pprint(words)
+
+def dump_hdr(buf):
+    br = SshBinaryReader(io.BytesIO(buf))
+    proposal = br.read_string()
+    br = SshBinaryReader(io.BytesIO(proposal))
+    header = {
+        None: br.read(18),
+        "kexes": br.read_array(),
+        "hostkeys": br.read_array(),
+        "ciphers": br.read_array(),
+        None: br.read_array(),
+        "macs": br.read_array(),
+        None: br.read_array(),
+        "compression": br.read_array(),
+        None: br.read_array(),
+    }
+    del header[None]
+    pprint(header)
+
+host = sys.argv[1]
+port = 22
+
+gais = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+
+for (g_family, g_type, g_proto, g_cname, g_addr) in gais:
+    sock = socket.socket(g_family, g_type, g_proto)
+    sock.connect(g_addr)
+    sock.recv(1024)
+    sock.send(b"SSH-2.0-Cipherscan\r\n")
+    buf = sock.recv(1024)
+    sock.close()
+    dump_hdr(buf)
+    break

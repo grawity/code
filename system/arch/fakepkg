@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+set -e
+
+pkgname=$1
+workdir=$(mktemp -d /tmp/fakepkg.XXXXXXXXXX)
+cd "$workdir"
+cat > PKGBUILD <<!
+pkgname=${pkgname@Q}-dummy
+pkgver=0
+pkgrel=0
+arch=(any)
+provides=(${pkgname@Q})
+replaces=(${pkgname@Q})
+conflicts=(${pkgname@Q})
+!
+makepkg --force --install --asdeps --noconfirm || true
+cd /
+rm -rvf "$workdir"

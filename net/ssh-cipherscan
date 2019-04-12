@@ -18,13 +18,20 @@ def dump_hdr(buf):
         None: br.read(18),
         "kexes": br.read_array(),
         "hostkeys": br.read_array(),
-        "ciphers": br.read_array(),
-        None: br.read_array(),
-        "macs": br.read_array(),
-        None: br.read_array(),
-        "compression": br.read_array(),
-        None: br.read_array(),
+        "ciphers s2c": br.read_array(),
+        "ciphers c2s": br.read_array(),
+        "macs s2c": br.read_array(),
+        "macs c2s": br.read_array(),
+        "compression s2c": br.read_array(),
+        "compression c2s": br.read_array(),
     }
+    for x in ["ciphers", "macs", "compression"]:
+        a = f"{x} s2c"
+        b = f"{x} c2s"
+        if header[a] == header[b]:
+            header[x] = header[a]
+            del header[a]
+            del header[b]
     del header[None]
     pprint(header)
 

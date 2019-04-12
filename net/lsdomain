@@ -4,8 +4,10 @@ use Data::Dumper;
 use Net::DNS;
 use Net::LDAP;
 use List::MoreUtils qw(uniq);
+use LWP::UserAgent;
 
 my $res = Net::DNS::Resolver->new;
+my $ua = LWP::UserAgent->new;
 my $ans;
 
 my %do;
@@ -38,6 +40,13 @@ sub find_dom {
 
 $res->dnssec(1);
 
+sub grep_txt {
+	my ($ans) = @_;
+	return	map {$_->txtdata}
+		grep {$_->type eq "TXT"}
+		$ans->answer;
+}
+
 sub get_spf {
 	my ($dom) = @_;
 	my ($ans, @spf);
@@ -60,11 +69,23 @@ sub get_spf {
 	return uniq @spf;
 }
 
+sub sort_mx {
+	sort {$a->preference <=> $b->preference}
+	sort {$a->exchange cmp $b->exchange}
+	@_;
+}
+
 sub sort_srv {
 	sort {$a->priority <=> $b->priority}
 	sort {$a->weight <=> $b->weight}
 	sort {$a->target cmp $b->target}
 	@_;
+}
+
+sub format_mx {
+	uniq
+	map {"[".$_->preference."] ".$_->exchange}
+	sort_mx(grep {$_->type eq "MX"} @_);
 }
 
 sub format_srv {
@@ -118,42 +139,100 @@ for my $host (@ARGV) {
 
 	if ($do{mail}) {
 		status "Looking up mail servers...";
-		$ans = $res->query($host, "MX");
+		my $mx_ans = $res->query($host, "MX");
 		done;
-		if ($ans) {
+		if ($mx_ans) {
 			say "Mail:";
 			say "\tdomain: $host";
-			say "\tmailserver: $_"
-				for uniq map {"[".$_->preference."] ".$_->exchange}
-				sort {$a->preference <=> $b->preference}
-				sort {$a->exchange cmp $b->exchange}
-				grep {$_->type eq 'MX'} $ans->answer;
+			say "\tmailserver: $_" for format_mx($mx_ans->answer);
 		}
 
 		status "Looking up mail server configuration...";
 		my @spf = get_spf($host);
-		my $dmarcans = $res->query("_dmarc.$host", "TXT");
+		my $dmarc_ans = $res->query("_dmarc.$host", "TXT");
+		my $tls_rpt_ans = $res->query("_smtp._tls.$host", "TXT");
+		my $mta_sts_ans = $res->query("_mta-sts.$host", "TXT");
 		done;
-		if ($dmarcans) {
-			my $policy;
-			for my $ans ($dmarcans->answer) {
-				if ($ans->type eq "TXT") {
-					$policy = $ans->txtdata;
+		say "\tSPF: $_" for @spf;
+		if ($dmarc_ans) {
+			my ($policy) = grep_txt($dmarc_ans);
+			my %policy = map {split /=/, $_, 2} split(/;\s*/, $policy);
+			say "\tDMARC: $policy";
+
+			my (@mode, $key, $keydesc, $val, $valdesc);
+			do {
+				$key = "p";
+				$keydesc = "failure action";
+				$val = $policy{"p"};
+				if ($val eq "none") {
+					$valdesc = "none (accept, but generate reports to my postmaster)";
+				} elsif ($val eq "quarantine") {
+					$valdesc = "quarantine (accept, but mark as spam)";
+				} elsif ($val eq "reject") {
+					$valdesc = "reject (refuse during SMTP delivery)";
 				}
+				push @mode, [$key, $keydesc, $val, $valdesc];
+			};
+			if ($policy{"rua"}) {
+				$key = "rua";
+				$keydesc = "send aggregate reports to";
+				$val = $policy{"rua"};
+				$valdesc = "";
 			}
-			my %policy = map {split /=/, $_, 2} split /;\s*/, $policy;
-			my @mode;
-			push @mode, {
-				none => "only send reports",
-				quarantine => "mark as spam",
-				reject => "SMTP-reject"}->{$policy{p}};
-			push @mode, "report to $policy{rua}"
-				if exists $policy{rua};
-			push @mode, "strict SPF"
-				if ($policy{aspf} // "r") eq "s";
-			say "\tDMARC: ".join("; ", @mode);
+			do {
+				$key = "adkim";
+				$keydesc = "DKIM alignment";
+				$val = $policy{$key} // "r";
+				if ($val eq "r") {
+					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of DKIM-Signature domain)";
+				} elsif ($val eq "s") {
+					$valdesc = "strict (RFC822-From domain must exactly match DKIM-Signature domain)";
+				}
+				push @mode, [$key, $keydesc, $val, $valdesc];
+			};
+			do {
+				$key = "aspf";
+				$keydesc = "SPF alignment";
+				$val = $policy{$key} // "r";
+				if ($val eq "r") {
+					$valdesc = "relaxed (RFC822-From domain must match or be a subdomain of Envelope-From domain)";
+				} elsif ($val eq "s") {
+					$valdesc = "strict (RFC822-From domain must exactly match Envelope-From domain)";
+				}
+				push @mode, [$key, $keydesc, $val, $valdesc];
+			};
+
+			for (@mode) {
+				($key, $keydesc, $val, $valdesc) = @$_;
+				my $def = (defined $policy{$key}) ? "*" : "-";
+				say "\t\t$def $keydesc: $valdesc";
+			}
+
 		}
-		say "\tSPF: $_" for @spf; 
+		if ($tls_rpt_ans) {
+			# https://tools.ietf.org/html/rfc8460
+			my ($policy) = grep_txt($tls_rpt_ans);
+			if ($policy) {
+				say "\tTLS Reporting: $policy";
+			}
+		}
+		if ($mta_sts_ans) {
+			# https://tools.ietf.org/html/rfc8461
+			my ($flag) = grep_txt($mta_sts_ans);
+			if ($flag) {
+				say "\tMTA-STS: $flag";
+				my $url = "https://mta-sts.$host/.well-known/mta-sts.txt";
+				status("Retrieving MTA-STS policy...");
+				my $resp = $ua->get($url);
+				if ($resp->is_success) {
+					$resp = $resp->decoded_content;
+				} else {
+					$resp = $resp->status_line;
+				}
+				done();
+				say "\t\t$_" for split(/\n+/, $resp);
+			}
+		}
 	}
 
 	if ($do{kerberos}) {

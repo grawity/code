@@ -12,11 +12,6 @@ import re
 from requests.exceptions import HTTPError
 
 class PixivRenamer():
-    bare_re = re.compile(r'^(\d+)(?:_big)?(?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+$')
-    prefix_re = re.compile(r'^pixiv(\d+) (.+)$')
-    suffix_re = re.compile(r'(.+) (\d+)((?:_p\d+|_delays|_ugoira\d+x\d+)(?: \(\d+\))?\.\w+)$')
-    fanbox_re = re.compile(r'^fanbox(\d+)[ _].*?(\w+)(\.\w+)$')
-
     def __init__(self):
         self.pixiv = PixivClient()
         self.api = PixivApiClient()
@@ -76,103 +71,110 @@ class PixivRenamer():
             prefix = self.pixiv.fmt_member_tag(member_id, member_name)
             return filter_filename(prefix)
 
-    def get_prefix_by_fanbox_id(self, fanbox_id, image_id):
+    @lru_cache(maxsize=1024)
+    def get_prefix_by_fanbox_id(self, fanbox_id):
         self.init_web_client()
         resp = self.web.get_fanbox_post(fanbox_id)
         prefix = self.pixiv.fmt_member_tag(resp["user"]["userId"], resp["user"]["name"])
+        return filter_filename(prefix)
+
+    def get_fanbox_post_number(self, fanbox_id, image_id):
+        self.init_web_client()
+        resp = self.web.get_fanbox_post(fanbox_id)
         for i, img in enumerate(resp["body"]["images"]):
             if img["id"] == image_id:
-                infix = "fanbox%s_p%s" % (resp["id"], i)
-                return prefix + " " + infix
+                return "fanbox%s_p%s" % (resp["id"], i)
         raise ValueError("could not find image ID %r in fanbox post %r" % (image_id, fanbox_id))
 
     def rename_file_in_dir(self, dirpath, filename):
         old_path = os.path.join(dirpath, filename)
         job = RenameJob(old_path, self.dry_run)
 
-        if re.search(r'_pixiv\d+', filename):
+        if re.search(r"_pixiv\d+", filename):
             Core.debug("skip %r: found '_pixiv' in name", filename)
             return
 
-        m = self.bare_re.match(filename)
-        if m:
-            Core.debug("process %r: matched bare regex, groups %r", filename, m.groups())
-            job.begin()
-            illust_id = int(m.group(1))
-            try:
-                prefix = self.get_prefix_by_illust_id(illust_id)
-            except HTTPError as e:
-                job.end_fail(e)
-                return
-            filename = prefix + " " + filename
-            job.end_rename(filename)
-            return
+        member_id = None
+        illust_id = None
+        fanbox_id = None
+        member_tag = []
+        illust_tag = []
+        fanbox_tag = []
+        prefix = []
+        suffix = []
+        current = prefix
 
-        m = self.prefix_re.match(filename)
-        if m:
-            Core.debug("process %r: matched prefix regex, groups %r", filename, m.groups())
-            job.begin()
-            member_id = int(m.group(1))
-            try:
-                prefix = self.get_prefix_by_member_id(member_id)
-            except HTTPError as e:
-                job.end_fail(e)
-                return
-            filename = prefix + " " + m.group(2)
-            job.end_rename(filename)
-            return
+        name, ext = filename.rsplit(".", 1)
+        name = name.split()
 
-        m = self.suffix_re.match(filename)
-        if m:
-            Core.debug("process %r: matched suffix regex, groups %r", filename, m.groups())
-            job.begin()
-            illust_id = int(m.group(2))
-            try:
-                prefix = self.get_prefix_by_illust_id(illust_id)
-            except HTTPError as e:
-                job.end_fail(e)
-                return
-            filename = m.group(1) + " " + prefix + " " + m.group(2) + m.group(3)
-            job.end_rename(filename)
-            return
-
-        m = self.fanbox_re.match(filename)
-        if m:
-            Core.debug("process %r: matched fanbox regex, groups %r", filename, m.groups())
-            job.begin()
-            fanbox_id = int(m.group(1))
-            image_id = m.group(2)
-            file_ext = m.group(3)
-            try:
-                prefix = self.get_prefix_by_fanbox_id(fanbox_id, image_id)
-            except HTTPError as e:
-                job.end_fail(e)
-                return
-            filename = prefix + " " + image_id + file_ext
-            job.end_rename(filename)
-            return
-
-        Core.trace("skip %r: not matched", filename)
-
-    def fixup_metadata(self, path):
-        filename = os.path.basename(path)
-        m = self.bare_re.match(filename)
-        if m:
-            illust_id = int(m.group(1))
-        else:
-            m = self.prefix_re.match(filename)
-            print(m)
+        for word in name:
+            m = re.match(r"^(.*)_pixiv(\d+)$", word)
             if m:
-                illust_id = int(m.group(2))
-            else:
+                member_id = int(m.group(1))
+                member_tag = [word]
+                continue
+            m = re.match(r"^(\d+)_(p\d+|delays|ugoira\d+x\d+)$", word)
+            if m:
+                illust_id = int(m.group(1))
+                illust_tag = [word]
+                current = suffix
+                continue
+            m = re.match(r"^fanbox(\d+)(_p\d+)?$", word)
+            if m:
+                fanbox_id = int(m.group(1))
+                fanbox_tag = [word]
+                current = fanbox_tag
+                continue
+            m = re.match(r"^\(\d\)$", word)
+            if m:
+                continue
+            if current is fanbox_tag:
+                m = re.match(r"^\w{24}$", word)
+                if m:
+                    fanbox_tag.append(word)
+                current = suffix
+                continue
+            current.append(word)
+
+        if len(prefix) >= 2:
+            Core.trace("skip %r: prefix=%r, suffix=%r, already has other tags",
+                       filename, prefix, suffix)
+            return
+        elif (illust_id or fanbox_id or member_id):
+            Core.trace("process %r (before): prefix=%r, member=%r, illust=%r, fanbox=%r, suffix=%r",
+                       filename, prefix, member_tag, illust_tag, fanbox_tag, suffix)
+        else:
+            Core.trace("skip %r: no identifier", filename)
+            return
+
+        if illust_id:
+            job.begin()
+            try:
+                member_tag = [self.get_prefix_by_illust_id(illust_id)]
+            except HTTPError as e:
+                job.end_fail(e)
+                return
+        elif fanbox_id:
+            try:
+                member_tag = [self.get_prefix_by_fanbox_id(fanbox_id)]
+                if len(fanbox_tag) > 1:
+                    assert(len(fanbox_tag) == 2)
+                    fanbox_tag[0] = self.get_fanbox_post_number(fanbox_id, fanbox_tag[1])
+            except HTTPError as e:
+                job.end_fail(e)
+                return
+        elif member_id:
+            job.begin()
+            try:
+                member_tag = [self.get_prefix_by_member_id(member_id)]
+            except HTTPError as e:
+                job.end_fail(e)
                 return
 
-        work = self.get_illust_info(illust_id)
-        attrs = {
-            "dublincore.title": work.title,
-            "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
-        }
-        set_file_attrs(filename, attrs)
+        Core.trace("process %r (after): prefix=%r, member=%r, illust=%r, fanbox=%r, suffix=%r",
+                   filename, prefix, member_tag, illust_tag, fanbox_tag, suffix)
+        newname = " ".join(prefix + member_tag + illust_tag + fanbox_tag + suffix) + "." + ext
+        job.end_rename(newname)
 
 def prune_dotfiles(listref):
     for item in [*listref]:
@@ -209,7 +211,6 @@ for arg in args.path or ["."]:
                 r.rename_file_in_dir(dirpath, filename)
     else:
         dirpath, filename = os.path.split(arg)
-        #r.fixup_metadata(arg)
         r.rename_file_in_dir(dirpath, filename)
 
 Core.exit()

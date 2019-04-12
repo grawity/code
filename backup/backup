@@ -84,16 +84,6 @@ is_older_than() {
 	(( a - b > seconds ))
 }
 
-check_stamp() {
-	local name=$1 seconds=$2
-	is_older_than "$path_cache/backup/$name.stamp" "$seconds"
-}
-
-update_stamp() {
-	local name=$1
-	install -Dm644 /dev/null "$path_cache/backup/$name.stamp"
-}
-
 do_borg() {
 	local kind=$1
 	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
@@ -217,7 +207,8 @@ do_borg() {
 	fi
 	local id=$("${cmd[@]}" | awk '{print $3}')
 	[[ "$id" ]] || return
-	check_stamp "borg_$id.prune" $(( 30*86400 )) || return 0
+	local stamp="$path_cache/backup/borg_$id.prune.stamp"
+	is_older_than "$stamp" $(( 30*86400 )) || return 0
 	cmd=(
 		"${wrap[@]}"
 		borg prune "$repo"
@@ -225,7 +216,7 @@ do_borg() {
 		"${borg_keep[@]}"
 	)
 	do: "${cmd[@]}" || return
-	update_stamp "borg_$id.prune"
+	touch "$stamp"
 }
 
 do_rsync() {

@@ -54,26 +54,35 @@ def parse(path):
                 continue
 
             keyhash = hash_func(key.blob)
-            hexhash = keyhash.hexdigest()
             yield {
                 "key": key,
+                "algo_id": KEY_ALGOS[key.algo],
                 "hash_id": hash_id,
-                "hash_name": keyhash.name,
-                "hash": keyhash.digest(),
-                "rrdata": "%d %d %s" % (KEY_ALGOS[key.algo],
-                                        hash_id,
-                                        keyhash.hexdigest())
+                "hash": keyhash,
             }
 
-def fmt_sshfp(host, pubkey):
-    comment = "; (%s, %s)" % (entry["key"].algo, entry["hash_name"])
+def fmt_sshfp(host, pubkey, generic=False):
+    if generic:
+        type = "TYPE44"
+        rrdata = ["%02x" % entry["algo_id"],
+                  "%02x" % entry["hash_id"],
+                  entry["hash"].hexdigest()]
+        rrlen = sum([len(s) // 2 for s in rrdata])
+        rrdata = ["\\#", "%d" % rrlen, *rrdata]
+    else:
+        type = "SSHFP"
+        rrdata = ["%d" % entry["algo_id"],
+                  "%d" % entry["hash_id"],
+                  entry["hash"].hexdigest()]
+    record = "%s\t%s" % (type, " ".join(rrdata))
     if host:
         if "." in host and host[-1] != ".":
             host = "%s." % host
-        record = "%s\t%s\t%s" % (host, "SSHFP", entry["rrdata"])
-    else:
-        record = "%s\t%s" % ("SSHFP", entry["rrdata"])
+        record = "%s\t%s" % (host, record)
+    comment = "; (%s, %s)" % (entry["key"].algo, entry["hash"].name)
     return "%s %s" % (record, comment)
+
+use_generic = False
 
 try:
     host = sys.argv[1]
@@ -109,7 +118,7 @@ else:
     found = 0
     for entry in parse(infile):
         if host in set(entry["key"].hosts):
-            print(fmt_sshfp(host, entry))
+            print(fmt_sshfp(host, entry, use_generic))
             found += 1
     if not found:
         Core.err("%r not found in known_hosts" % host)

@@ -36,7 +36,10 @@ def filter_filename(name, safe=False, allow_space=True, allow_nonbmp=True):
         ('>', '_' if safe else '›'),
         ('?', '_' if safe else '？'),
         ('|', '_' if safe else '¦'),
-        ('\\', '_' if safe else '∖'),
+        ('\\', '_' if safe else '∖'),   # U+2216 SET MINUS (1.1)
+        #('\\', '_' if safe else '⟍'),  # U+27CD MATHEMATICAL FALLING DIAGONAL (6.1)
+        #('\\', '_' if safe else '﹨'),  # U+FE68 SMALL REVERSE SOLIDUS (1.1)
+        #('\\', '_' if safe else '＼'),  # U+FF3C FULLWIDTH REVERSE SOLIDUS (1.1)
         # wide characters
         ('　', '_' if not allow_space else ' '),
     ]

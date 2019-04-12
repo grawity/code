@@ -48,3 +48,13 @@ case $tool in
 	*)
 		die "no known package manager found";;
 esac
+
+if [[ ! $* ]]; then
+	d=$(date +%F) f=${XDG_RUNTIME_DIR:-/tmp}/sysup.$UID
+	s=$(date +%s) t=$(stat -c %Y $f 2>/dev/null || true)
+	echo $d >> $f
+	n=$(grep -c "^$d" $f) i=$(interval $((s-t)))
+	if ((n>1)); then
+		info "you have used '$progname' $n times today (last used $i ago)"
+	fi
+fi

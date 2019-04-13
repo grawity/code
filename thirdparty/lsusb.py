@@ -133,34 +133,23 @@ def parse_usb_ids(path):
 
 def find_usb_prod(vid, pid):
     "Return device name from USB Vendor:Product list"
-    strg = ""
-
-    dev = UsbVendor(vid, "")
+    name = ""
     vendor = usbvendors.get(vid)
     if vendor:
-        strg = str(vendor)
-    else:
-        return ""
-
-    dev = UsbProduct(vid, pid, "")
-    product = usbproducts.get((vid, pid))
-    if product:
-        strg += " " + str(product)
-    else:
-        return ""
-
-    return strg
+        name = str(vendor)
+        product = usbproducts.get((vid, pid))
+        if product:
+            name += " " + str(product)
+    return name
 
 def find_usb_class(cid, sid, pid):
     "Return USB protocol from usbclasses list"
     uclass = usbclasses.get((cid, sid, pid)) \
-        or usbclasses.get((cid, sid, -1)) \
-        or usbclasses.get((cid, -1, -1))
+          or usbclasses.get((cid, sid, -1)) \
+          or usbclasses.get((cid, -1, -1))
     if uclass:
         return str(uclass)
-    else:
-        return ""
-
+    return ""
 
 devlst = [
     'host',                 # usb-storage

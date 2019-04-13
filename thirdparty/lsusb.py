@@ -16,15 +16,7 @@ import os
 import re
 import sys
 
-# Global options
-showint = False
-showhubint = False
-noemptyhub = False
-nohub = False
-showeps = False
-
 prefix = "/sys/bus/usb/devices/"
-usbids = "/usr/share/hwdata/usb.ids"
 
 usbvendors = {}
 usbproducts = {}
@@ -40,8 +32,6 @@ blue = esc + "[0;34m"
 
 HUB_ICLASS = 0x09
 
-cols = ("", "", "", "", "", "")
-
 def readattr(path, name):
 	"Read attribute from sysfs and return as string"
 	f = open(prefix + path + "/" + name);
@@ -50,6 +40,15 @@ def readattr(path, name):
 def readlink(path, name):
 	"Read symlink and return basename"
 	return os.path.basename(os.readlink(prefix + path + "/" + name));
+
+class Options:
+	show_interfaces = False
+	show_hub_interfaces = False
+	show_endpoints = False
+	no_hubs = False
+	no_empty_hubs = False
+	colors = ("", "", "", "", "", "")
+	usbids_file = "/usr/share/hwdata/usb.ids"
 
 class UsbClass:
 	"Container for USB Class/Subclass/Protocol"
@@ -85,14 +84,14 @@ def ishexdigit(str):
 	"return True if all digits are valid hex digits"
 	return bool({*str} <= {*"0123456789abcdef"})
 
-def parse_usb_ids():
+def parse_usb_ids(path):
 	"Parse /usr/share/usb.ids and fill usbvendors, usbproducts, usbclasses"
 	id = 0
 	sid = 0
 	mode = 0
 	strg = ""
 	cstrg = ""
-	for ln in open(usbids, "r", errors="replace").readlines():
+	for ln in open(path, "r", errors="replace").readlines():
 		if ln[0] == '#':
 			continue
 		ln = ln.rstrip('\n')
@@ -246,8 +245,8 @@ class UsbEndpoint:
 
 	def __str__(self):
 		return "%-17s  %s(EP) %02x: %s %s attr %02x len %02x max %03x%s\n" % \
-			(" " * self.indent, cols[5], self.epaddr, self.type,
-			 self.ival, self.attr, self.len, self.max, cols[0])
+			(" " * self.indent, Options.colors[5], self.epaddr, self.type,
+			 self.ival, self.attr, self.len, self.max, Options.colors[0])
 
 
 class UsbInterface:
@@ -283,7 +282,7 @@ class UsbInterface:
 		except:
 			pass
 		self.protoname = find_usb_class(self.iclass, self.isclass, self.iproto)
-		if showeps:
+		if Options.show_endpoints:
 			for epfnm in os.listdir(prefix + fullpath):
 				if epfnm[:3] == "ep_":
 					ep = UsbEndpoint(self, self.level+len(self.fname))
@@ -299,9 +298,9 @@ class UsbInterface:
 			(" " * self.level+self.fname, self.iclass,
 			 self.isclass, self.iproto, self.noep,
 			 plural, self.protoname,
-			 cols[3], self.driver,
-			 cols[4], self.devname, cols[0])
-		if showeps and self.eps:
+			 Options.colors[3], self.driver,
+			 Options.colors[4], self.devname, Options.colors[0])
+		if Options.show_endpoints and self.eps:
 			for ep in self.eps:
 				strg += str(ep)
 		return strg
@@ -404,34 +403,34 @@ class UsbDevice:
 	def __str__(self):
 		#buf = " " * self.level + self.fname
 		if self.iclass == HUB_ICLASS:
-			col = cols[2]
-			if noemptyhub and len(self.children) == 0:
+			col = Options.colors[2]
+			if Options.no_empty_hubs and len(self.children) == 0:
 				return ""
-			if nohub:
+			if Options.no_hubs:
 				buf = ""
 		else:
-			col = cols[1]
-		if not nohub or self.iclass != HUB_ICLASS:
+			col = Options.colors[1]
+		if not Options.no_hubs or self.iclass != HUB_ICLASS:
 			if self.nointerfaces == 1:
 				plural = " "
 			else:
 				plural = "s"
 			buf = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
 				(" " * self.level + self.fname,
-				 cols[1], self.vid, self.pid, cols[0],
+				 Options.colors[1], self.vid, self.pid, Options.colors[0],
 				 self.iclass, self.usbver, self.speed, self.maxpower,
-				 self.nointerfaces, plural, col, self.name, cols[0])
+				 self.nointerfaces, plural, col, self.name, Options.colors[0])
 			#if self.driver != "usb":
 			#	buf += " %s" % self.driver
-			if self.iclass == HUB_ICLASS and not showhubint:
-				buf += " %shub%s\n" % (cols[2], cols[0])
+			if self.iclass == HUB_ICLASS and not Options.show_hub_interfaces:
+				buf += " %shub%s\n" % (Options.colors[2], Options.colors[0])
 			else:
 				buf += "\n"
-				if showeps:
+				if Options.show_endpoints:
 					ep = UsbEndpoint(self, self.level + len(self.fname))
 					ep.read("ep_00")
 					buf += str(ep)
-				if showint:
+				if Options.show_interfaces:
 					for iface in self.interfaces:
 						buf += str(iface)
 		for child in self.children:
@@ -468,10 +467,6 @@ def read_usb():
 		print(usbdev, end="")
 
 def main(argv):
-	global showint, showhubint, noemptyhub, nohub
-	global cols, usbids, showeps
-	use_colors = None
-
 	short_options = "hiIuUwcCef:"
 	long_options = [
 		"help",
@@ -491,23 +486,25 @@ def main(argv):
 		print("Error:", e, file=sys.stderr)
 		sys.exit(2)
 
+	use_colors = None
+
 	for opt in optlist:
 		if opt[0] in {"-h", "--help"}:
 			usage()
 			sys.exit(0)
 		if opt[0] in {"-i", "--interfaces"}:
-			showint = True
+			Options.show_interfaces = True
 			continue
 		if opt[0] in {"-I", "--hub-interfaces"}:
-			showint = True
-			showhubint = True
+			Options.show_interfaces = True
+			Options.show_hub_interfaces = True
 			continue
 		if opt[0] in {"-u", "--hide-empty-hubs"}:
-			noemptyhub = True
+			Options.no_empty_hubs = True
 			continue
 		if opt[0] in {"-U", "--hide-hubs"}:
-			noemptyhub = True
-			nohub = True
+			Options.no_empty_hubs = True
+			Options.no_hubs = True
 			continue
 		if opt[0] in {"-c", "--color"}:
 			use_colors = True
@@ -519,10 +516,10 @@ def main(argv):
 			print("warning: option", opt[0], "is no longer supported", file=sys.stderr)
 			continue
 		if opt[0] in {"-f", "--usbids-path"}:
-			usbids = opt[1]
+			Options.usbids_file = opt[1]
 			continue
 		if opt[0] in {"-e", "--endpoints"}:
-			showeps = True
+			Options.show_endpoints = True
 			continue
 
 	if args:
@@ -532,9 +529,9 @@ def main(argv):
 	if use_colors is None:
 		use_colors = (os.environ.get("TERM", "dumb") != "dumb") and sys.stdout.isatty()
 	if use_colors:
-		cols = (norm, bold, red, green, amber, blue)
+		Options.colors = (norm, bold, red, green, amber, blue)
 
-	parse_usb_ids()
+	parse_usb_ids(Options.usbids_file)
 	read_usb()
 
 if __name__ == "__main__":

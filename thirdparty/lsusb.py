@@ -471,13 +471,6 @@ class UsbDevice:
 			str += child.__str__()
 		return str
 
-def deepcopy(lst):
-	"Returns a deep copy from the list lst"
-	copy = []
-	for item in lst:
-		copy.append(item)
-	return copy
-
 def display_diff(lst1, lst2, fmtstr, args):
 	"Compare lists (same length!) and display differences"
 	for idx in range(0, len(lst1)):
@@ -487,7 +480,7 @@ def display_diff(lst1, lst2, fmtstr, args):
 def fix_usbvend():
 	"Sort USB vendor list and (optionally) display diffs"
 	if warnsort:
-		oldusbvend = deepcopy(usbvendors)
+		oldusbvend = usbvendors[:]
 	usbvendors.sort()
 	if warnsort:
 		display_diff(usbvendors, oldusbvend, 
@@ -497,7 +490,7 @@ def fix_usbvend():
 def fix_usbprod():
 	"Sort USB products list"
 	if warnsort:
-		oldusbprod = deepcopy(usbproducts)
+		oldusbprod = usbproducts[:]
 	usbproducts.sort()
 	if warnsort:
 		display_diff(usbproducts, oldusbprod, 
@@ -507,7 +500,7 @@ def fix_usbprod():
 def fix_usbclass():
 	"Sort USB class list"
 	if warnsort:
-		oldusbcls = deepcopy(usbclasses)
+		oldusbcls = usbclasses[:]
 	usbclasses.sort()
 	if warnsort:
 		display_diff(usbclasses, oldusbcls,

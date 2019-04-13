@@ -195,7 +195,7 @@ class UsbEndpoint(UsbObject):
         self.epaddr = int(self.read_attr("bEndpointAddress"), 16)
         ival = int(self.read_attr("bInterval"), 16)
         if ival:
-            self.ival = "(%s)" % self.read_attr("interval")
+            self.ival = " (%s)" % self.read_attr("interval")
         self.len = int(self.read_attr("bLength"), 16)
         self.type = self.read_attr("type")
         self.attr = int(self.read_attr("bmAttributes"), 16)
@@ -204,7 +204,7 @@ class UsbEndpoint(UsbObject):
     def __str__(self):
         indent = "  " * self.level
         name = "%s/ep_%02X" % (self.parent.fname, self.epaddr)
-        body = "(EP) %02x: %s %s attr %02x len %02x max %03x" % \
+        body = "(EP) %02x: %s%s attr %02x len %02x max %03x" % \
                (self.epaddr, self.type, self.ival, self.attr, self.len, self.max)
         body = colorize(5, body)
         return "%-17s %s\n" % (indent + name, indent + body)

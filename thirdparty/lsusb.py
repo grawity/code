@@ -336,26 +336,25 @@ class UsbDevice:
 		self.iproto = int(readattr(fname, "bDeviceProtocol"), 16)
 		self.vid = int(readattr(fname, "idVendor"), 16)
 		self.pid = int(readattr(fname, "idProduct"), 16)
+
 		try:
 			self.name = readattr(fname, "manufacturer") + " " \
 				  + readattr(fname, "product")
-			#self.name += " " + readattr(fname, "serial")
 			if self.name[:5] == "Linux":
-				rx = re.compile(r"Linux [^ ]* (.hci_hcd) .HCI Host Controller")
-				mch = rx.match(self.name)
-				if mch:
-					self.name = mch.group(1)
+				m = re.match(r"Linux [^ ]* (.hci_hcd) .HCI Host Controller", self.name)
+				if m:
+					self.name = m.group(1)
 
 		except:
 			pass
+
 		if not self.name:
 			self.name = find_usb_prod(self.vid, self.pid)
+
 		# Some USB Card readers have a better name then Generic ...
 		if self.name[:7] == "Generic":
-			oldnm = self.name
-			self.name = find_usb_prod(self.vid, self.pid)
-			if not self.name:
-				self.name = oldnm
+			self.name = find_usb_prod(self.vid, self.pid) or self.name
+
 		try:
 			ser = readattr(fname, "serial")
 			# Some USB devs report "serial" as serial no. suppress
@@ -363,16 +362,17 @@ class UsbDevice:
 				self.name += " " + ser
 		except:
 			pass
+
 		self.usbver = readattr(fname, "version")
 		self.speed = readattr(fname, "speed")
 		self.maxpower = readattr(fname, "bMaxPower")
 		self.noports = int(readattr(fname, "maxchild"))
+
 		try:
 			self.nointerfaces = int(readattr(fname, "bNumInterfaces"))
 		except:
-			#print "ERROR: %s/bNumInterfaces = %s" % (fname,
-			#		readattr(fname, "bNumInterfaces"))a
-			self.nointerfaces = 0
+			pass
+
 		try:
 			self.driver = readlink(fname, "driver")
 			self.devname = find_dev(self.driver, fname)
@@ -384,6 +384,7 @@ class UsbDevice:
 			fname = self.fname[3:]
 		else:
 			fname = self.fname
+
 		for dirent in os.listdir(prefix + self.fname):
 			if not dirent[0:1].isdigit():
 				continue
@@ -396,6 +397,7 @@ class UsbDevice:
 				usbdev.read(dirent)
 				usbdev.readchildren()
 				self.children.append(usbdev)
+
 		usbsortkey = lambda obj: [int(x) for x in re.split(r"[-:.]", obj.fname)]
 		self.interfaces.sort(key=usbsortkey)
 		self.children.sort(key=usbsortkey)
@@ -433,8 +435,10 @@ class UsbDevice:
 				if Options.show_interfaces:
 					for iface in self.interfaces:
 						buf += str(iface)
+
 		for child in self.children:
 			buf += str(child)
+
 		return buf
 
 def usage():

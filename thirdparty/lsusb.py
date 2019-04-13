@@ -22,12 +22,12 @@ usbvendors = {}
 usbproducts = {}
 usbclasses = {}
 
-norm = "\033[0;0m"
-bold = "\033[0;1m"
-red =  "\033[0;31m"
-green= "\033[0;32m"
-amber= "\033[0;33m"
-blue = "\033[0;34m"
+norm    = "\033[m"
+bold    = "\033[1m"
+red     = "\033[31m"
+green   = "\033[32m"
+amber   = "\033[33m"
+blue    = "\033[34m"
 
 HUB_ICLASS = 0x09
 
@@ -39,6 +39,9 @@ class Options:
     no_empty_hubs = False
     colors = ("", "", "", "", "", "")
     usbids_file = "/usr/share/hwdata/usb.ids"
+
+def colorize(num, text):
+    return Options.colors[num] + str(text) + Options.colors[0]
 
 def ishexdigit(str):
     "return True if all digits are valid hex digits"
@@ -199,10 +202,12 @@ class UsbEndpoint(UsbObject):
         self.max = int(self.read_attr("wMaxPacketSize"), 16)
 
     def __str__(self):
-        indent = self.level + len(self.parent.fname)
-        return "%-17s  %s(EP) %02x: %s %s attr %02x len %02x max %03x%s\n" % \
-            (" " * indent, Options.colors[5], self.epaddr, self.type,
-             self.ival, self.attr, self.len, self.max, Options.colors[0])
+        indent = "  " * self.level
+        name = "%s/ep_%02X" % (self.parent.fname, self.epaddr)
+        body = "(EP) %02x: %s %s attr %02x len %02x max %03x" % \
+               (self.epaddr, self.type, self.ival, self.attr, self.len, self.max)
+        body = colorize(5, body)
+        return "%-17s %s\n" % (indent + name, indent + body)
 
 class UsbInterface(UsbObject):
     def __init__(self, parent, fname, level=1):
@@ -241,17 +246,17 @@ class UsbInterface(UsbObject):
                     self.eps.append(ep)
 
     def __str__(self):
+        indent = "  " * self.level
         plural = (" " if self.noep == 1 else "s")
-        strg = "%-17s (IF) %02x:%02x:%02x %iEP%s (%s) %s%s %s%s%s\n" % \
-            (" " * self.level+self.fname, self.iclass,
-             self.isclass, self.iproto, self.noep,
-             plural, self.protoname,
-             Options.colors[3], self.driver,
-             Options.colors[4], self.devname, Options.colors[0])
-        if Options.show_endpoints and self.eps:
+        name = self.fname
+        body = "(IF) %02x:%02x:%02x %iEP%s (%s) %s %s" % \
+               (self.iclass, self.isclass, self.iproto, self.noep, plural,
+                self.protoname, colorize(3, self.driver), colorize(4, self.devname))
+        buf = "%-17s %s\n" % (indent + name, indent + body)
+        if Options.show_endpoints:
             for ep in self.eps:
-                strg += str(ep)
-        return strg
+                buf += str(ep)
+        return buf
 
 class UsbDevice(UsbObject):
     def __init__(self, parent, fname, level=0):
@@ -348,18 +353,18 @@ class UsbDevice(UsbObject):
         if is_hub and (Options.no_hubs or (Options.no_empty_hubs and len(self.children) == 0)):
             buf = ""
         else:
+            indent = "  " * self.level
             plural = (" " if self.nointerfaces == 1 else "s")
-            buf = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
-                (" " * self.level + self.fname,
-                 Options.colors[1], self.vid, self.pid, Options.colors[0],
-                 self.iclass, self.usbver, self.speed, self.maxpower,
-                 self.nointerfaces, plural,
-                 Options.colors[2 if is_hub else 1], self.name, Options.colors[0])
+            name = self.fname
+            body = "%s %02x %s%5sMBit/s %s %iIF%s (%s) %s" % \
+                   (colorize(1, "%04x:%04x" % (self.vid, self.pid)),
+                    self.iclass, self.usbver, self.speed, self.maxpower,
+                    self.nointerfaces, plural,
+                    colorize(2 if is_hub else 1, self.name),
+                    colorize(2, "hub") if is_hub else "")
+            buf = "%-17s %s\n" % (indent + name, indent + body)
 
-            if is_hub and not Options.show_hub_interfaces:
-                buf += " %shub%s\n" % (Options.colors[2], Options.colors[0])
-            else:
-                buf += "\n"
+            if (not is_hub) or Options.show_hub_interfaces:
                 if Options.show_endpoints:
                     ep = UsbEndpoint(self, "ep_00", self.level+1)
                     buf += str(ep)

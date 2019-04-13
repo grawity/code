@@ -481,7 +481,7 @@ def main(argv):
 		"hide-hubs",
 		"color",
 		"no-color",
-		"usbids-path",
+		"usbids-path=",
 		"endpoints",
 	]
 

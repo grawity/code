@@ -520,6 +520,7 @@ def usage():
 	print("  -u            suppress empty hubs")
 	print("  -U            suppress all hubs")
 	print("  -c            use colors")
+	print("  -C            disable colors")
 	print("  -e            display endpoint info")
 	print("  -w            display warning if usb.ids is not sorted correctly")
 	print("  -f FILE       override filename for /usr/share/usb.ids")
@@ -541,8 +542,10 @@ def main(argv):
 	"main entry point"
 	global showint, showhubint, noemptyhub, nohub
 	global warnsort, cols, usbids, showeps
+	use_colors = None
+
 	try:
-		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcef:", ("help",))
+		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcCef:", ("help",))
 	except getopt.GetoptError as exc:
 		print("Error:", exc)
 		sys.exit(2)
@@ -565,7 +568,10 @@ def main(argv):
 			nohub = True
 			continue
 		if opt[0] == "-c":
-			cols = (norm, bold, red, green, amber, blue)
+			use_colors = True
+			continue
+		if opt[0] == "-C":
+			use_colors = False
 			continue
 		if opt[0] == "-w":
 			warnsort = True
@@ -579,6 +585,12 @@ def main(argv):
 	if len(args) > 0:
 		print("Error: excess args %s ..." % args[0])
 		sys.exit(2)
+
+	if use_colors is None:
+		use_colors = (os.environ.get("TERM", "dumb") != "dumb") and sys.stdout.isatty()
+
+	if use_colors:
+		cols = (norm, bold, red, green, amber, blue)
 
 	try:
 		parse_usb_ids()

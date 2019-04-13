@@ -11,9 +11,10 @@
 #
 # Usage: See usage()
 
-import os, sys, re, getopt
-
-# from __future__ import print_function
+import getopt
+import os
+import re
+import sys
 
 # Global options
 showint = False
@@ -25,6 +26,10 @@ showeps = False
 prefix = "/sys/bus/usb/devices/"
 usbids = "/usr/share/hwdata/usb.ids"
 
+usbvendors = {}
+usbproducts = {}
+usbclasses = {}
+
 esc = chr(27)
 norm = esc + "[0;0m"
 bold = esc + "[0;1m"
@@ -32,6 +37,8 @@ red =  esc + "[0;31m"
 green= esc + "[0;32m"
 amber= esc + "[0;33m"
 blue = esc + "[0;34m"
+
+HUB_ICLASS = 0x09
 
 cols = ("", "", "", "", "", "")
 
@@ -73,10 +80,6 @@ class UsbProduct:
 
 	def __str__(self):
 		return self.pname
-
-usbvendors = {}
-usbproducts = {}
-usbclasses = {}
 
 def ishexdigit(str):
 	"return True if all digits are valid hex digits"
@@ -163,19 +166,20 @@ def find_usb_class(cid, sid, pid):
 		return ""
 
 
-devlst = (	'host', 	# usb-storage
-		'video4linux/video', 	# uvcvideo et al.
-		'sound/card',	# snd-usb-audio 
-		'net/', 	# cdc_ether, ...
-		'input/input',	# usbhid
-		'usb:hiddev',	# usb hid
-		'bluetooth/hci',	# btusb
-		'ttyUSB',	# btusb
-		'tty/',		# cdc_acm
-		'usb:lp',	# usblp
-		#'usb/lp',	# usblp 
-		'usb/',		# hiddev, usblp
-	)
+devlst = [
+	'host',			# usb-storage
+	'video4linux/video', 	# uvcvideo et al.
+	'sound/card',		# snd-usb-audio
+	'net/',			# cdc_ether, ...
+	'input/input',		# usbhid
+	'usb:hiddev',		# usb hid
+	'bluetooth/hci',	# btusb
+	'ttyUSB',		# btusb
+	'tty/',			# cdc_acm
+	'usb:lp',		# usblp
+	#'usb/lp',		# usblp
+	'usb/',			# hiddev, usblp
+]
 
 def find_storage(hostno):
 	"Return SCSI block dev names for host"
@@ -196,7 +200,6 @@ def find_dev(driver, usbname):
 	for nm in devlst:
 		dir = prefix + usbname
 		prep = ""
-		#print nm
 		idx = nm.find('/')
 		if idx != -1:
 			prep = nm[:idx+1]
@@ -262,6 +265,7 @@ class UsbInterface:
 		self.devname = ""
 		self.protoname = ""
 		self.eps = []
+
 	def read(self, fname):
 		fullpath = ""
 		if self.parent:
@@ -269,9 +273,9 @@ class UsbInterface:
 		fullpath += fname
 		self.fullpath = fullpath
 		self.fname = fname
-		self.iclass = int(readattr(fullpath, "bInterfaceClass"),16)
-		self.isclass = int(readattr(fullpath, "bInterfaceSubClass"),16)
-		self.iproto = int(readattr(fullpath, "bInterfaceProtocol"),16)
+		self.iclass = int(readattr(fullpath, "bInterfaceClass"), 16)
+		self.isclass = int(readattr(fullpath, "bInterfaceSubClass"), 16)
+		self.iproto = int(readattr(fullpath, "bInterfaceProtocol"), 16)
 		self.noep = int(readattr(fullpath, "bNumEndpoints"))
 		try:
 			self.driver = readlink(fname, "driver")
@@ -294,7 +298,7 @@ class UsbInterface:
 		strg = "%-17s (IF) %02x:%02x:%02x %iEP%s (%s) %s%s %s%s%s\n" % \
 			(" " * self.level+self.fname, self.iclass,
 			 self.isclass, self.iproto, self.noep,
-			 plural, self.protoname, 
+			 plural, self.protoname,
 			 cols[3], self.driver,
 			 cols[4], self.devname, cols[0])
 		if showeps and self.eps:
@@ -384,7 +388,6 @@ class UsbDevice:
 		for dirent in os.listdir(prefix + self.fname):
 			if not dirent[0:1].isdigit():
 				continue
-			#print dirent
 			if os.access(prefix + dirent + "/bInterfaceClass", os.R_OK):
 				iface = UsbInterface(self, self.level+1)
 				iface.read(dirent)
@@ -400,7 +403,7 @@ class UsbDevice:
 
 	def __str__(self):
 		#buf = " " * self.level + self.fname
-		if self.iclass == 9:
+		if self.iclass == HUB_ICLASS:
 			col = cols[2]
 			if noemptyhub and len(self.children) == 0:
 				return ""
@@ -408,27 +411,27 @@ class UsbDevice:
 				buf = ""
 		else:
 			col = cols[1]
-		if not nohub or self.iclass != 9:
+		if not nohub or self.iclass != HUB_ICLASS:
 			if self.nointerfaces == 1:
 				plural = " "
 			else:
 				plural = "s"
 			buf = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
-				(" " * self.level + self.fname, 
+				(" " * self.level + self.fname,
 				 cols[1], self.vid, self.pid, cols[0],
 				 self.iclass, self.usbver, self.speed, self.maxpower,
 				 self.nointerfaces, plural, col, self.name, cols[0])
 			#if self.driver != "usb":
 			#	buf += " %s" % self.driver
-			if self.iclass == 9 and not showhubint:
+			if self.iclass == HUB_ICLASS and not showhubint:
 				buf += " %shub%s\n" % (cols[2], cols[0])
 			else:
 				buf += "\n"
 				if showeps:
-					ep = UsbEndpoint(self, self.level+len(self.fname))
+					ep = UsbEndpoint(self, self.level + len(self.fname))
 					ep.read("ep_00")
 					buf += str(ep)
-				if showint:	
+				if showint:
 					for iface in self.interfaces:
 						buf += str(iface)
 		for child in self.children:
@@ -457,7 +460,7 @@ def usage():
 def read_usb():
 	"Read toplevel USB entries and print"
 	for dirent in os.listdir(prefix):
-		if not dirent[0:3] == "usb":
+		if dirent[0:3] != "usb":
 			continue
 		usbdev = UsbDevice(None, 0)
 		usbdev.read(dirent)
@@ -465,11 +468,11 @@ def read_usb():
 		print(usbdev, end="")
 
 def main(argv):
-	"main entry point"
 	global showint, showhubint, noemptyhub, nohub
 	global cols, usbids, showeps
 	use_colors = None
 
+	short_options = "hiIuUwcCef:"
 	long_options = [
 		"help",
 		"interfaces",
@@ -483,10 +486,11 @@ def main(argv):
 	]
 
 	try:
-		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcCef:", long_options)
-	except getopt.GetoptError as exc:
-		print("Error:", exc, file=sys.stderr)
+		(optlist, args) = getopt.gnu_getopt(argv[1:], short_options, long_options)
+	except getopt.GetoptError as e:
+		print("Error:", e, file=sys.stderr)
 		sys.exit(2)
+
 	for opt in optlist:
 		if opt[0] in {"-h", "--help"}:
 			usage()
@@ -520,21 +524,18 @@ def main(argv):
 		if opt[0] in {"-e", "--endpoints"}:
 			showeps = True
 			continue
-	if len(args) > 0:
+
+	if args:
 		print("Error: excess args %s ..." % args[0], file=sys.stderr)
 		sys.exit(2)
 
 	if use_colors is None:
 		use_colors = (os.environ.get("TERM", "dumb") != "dumb") and sys.stdout.isatty()
-
 	if use_colors:
 		cols = (norm, bold, red, green, amber, blue)
 
 	parse_usb_ids()
 	read_usb()
 
-# Entry point
 if __name__ == "__main__":
 	main(sys.argv)
-
-

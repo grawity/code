@@ -31,10 +31,6 @@ blue = "\033[0;34m"
 
 HUB_ICLASS = 0x09
 
-def readlink(path, name):
-    "Read symlink and return basename"
-    return os.path.basename(os.readlink(prefix + path + "/" + name));
-
 class Options:
     show_interfaces = False
     show_hub_interfaces = False
@@ -171,6 +167,9 @@ class UsbObject:
         with open(prefix + self.path + "/" + name) as fh:
             return fh.readline().rstrip("\n")
 
+    def read_link(self, name):
+        return os.path.basename(os.readlink(prefix + self.path + "/" + name))
+
 class UsbEndpoint(UsbObject):
     def __init__(self, parent, fname, level):
         self.parent = parent
@@ -229,7 +228,7 @@ class UsbInterface(UsbObject):
         self.iproto = int(self.read_attr("bInterfaceProtocol"), 16)
         self.noep = int(self.read_attr("bNumEndpoints"))
         try:
-            self.driver = readlink(self.path, "driver")
+            self.driver = self.read_link("driver")
             self.devname = find_dev(self.driver, fname)
         except:
             pass
@@ -321,7 +320,7 @@ class UsbDevice(UsbObject):
             pass
 
         try:
-            self.driver = readlink(self.path, "driver")
+            self.driver = self.read_link("driver")
             self.devname = find_dev(self.driver, fname)
         except:
             pass

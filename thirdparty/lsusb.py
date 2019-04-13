@@ -511,18 +511,20 @@ def fix_usbclass():
 def usage():
 	"Displays usage information"
 	print("Usage: lsusb.py [options]")
+	print()
 	print("Options:")
-	print(" -h display this help")
-	print(" -i display interface information")
-	print(" -I display interface information, even for hubs")
-	print(" -u suppress empty hubs")
-	print(" -U suppress all hubs")
-	print(" -c use colors")
-	print(" -e display endpoint info")
-	print(" -w display warning if usb.ids is not sorted correctly")
-	print(" -f FILE override filename for /usr/share/usb.ids")
+	#     "|-------|-------|-------|-------|-------"
+	print("  -h            display this help")
+	print("  -i            display interface information")
+	print("  -I            display interface information, even for hubs")
+	print("  -u            suppress empty hubs")
+	print("  -U            suppress all hubs")
+	print("  -c            use colors")
+	print("  -e            display endpoint info")
+	print("  -w            display warning if usb.ids is not sorted correctly")
+	print("  -f FILE       override filename for /usr/share/usb.ids")
+	print()
 	print("Use lsusb.py -ciu to get a nice overview of your USB devices.")
-	return 2
 
 def read_usb():
 	"Read toplevel USB entries and print"
@@ -543,7 +545,7 @@ def main(argv):
 		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcef:", ("help",))
 	except getopt.GetoptError as exc:
 		print("Error:", exc)
-		sys.exit(usage())
+		sys.exit(2)
 	for opt in optlist:
 		if opt[0] == "-h" or opt[0] == "--help":
 			usage()
@@ -576,7 +578,7 @@ def main(argv):
 			continue
 	if len(args) > 0:
 		print("Error: excess args %s ..." % args[0])
-		sys.exit(usage())
+		sys.exit(2)
 
 	try:
 		parse_usb_ids()

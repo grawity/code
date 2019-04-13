@@ -81,10 +81,7 @@ usbclasses = {}
 
 def ishexdigit(str):
 	"return True if all digits are valid hex digits"
-	for dg in str:
-		if not dg.isdigit() and not dg in 'abcdef':
-			return False
-	return True
+	return bool({*str} & {*"0123456789abcdef"})
 
 def parse_usb_ids():
 	"Parse /usr/share/usb.ids and fill usbvendors, usbproducts, usbclasses"

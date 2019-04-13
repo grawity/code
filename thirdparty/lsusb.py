@@ -177,6 +177,7 @@ class UsbEndpoint:
         self.parent = parent
         self.level = level
         self.fname = fname
+        self.path = ""
         self.epaddr = 0
         self.len = 0
         self.ival = ""
@@ -187,18 +188,16 @@ class UsbEndpoint:
             self.read(self.fname)
 
     def read(self, fname):
-        fullpath = ""
-        if self.parent:
-            fullpath = self.parent.fullpath + "/"
-        fullpath += fname
-        self.epaddr = int(readattr(fullpath, "bEndpointAddress"), 16)
-        ival = int(readattr(fullpath, "bInterval"), 16)
+        self.fname = fname
+        self.path = self.parent.path + "/" + fname
+        self.epaddr = int(readattr(self.path, "bEndpointAddress"), 16)
+        ival = int(readattr(self.path, "bInterval"), 16)
         if ival:
-            self.ival = "(%s)" % readattr(fullpath, "interval")
-        self.len = int(readattr(fullpath, "bLength"), 16)
-        self.type = readattr(fullpath, "type")
-        self.attr = int(readattr(fullpath, "bmAttributes"), 16)
-        self.max = int(readattr(fullpath, "wMaxPacketSize"), 16)
+            self.ival = "(%s)" % readattr(self.path, "interval")
+        self.len = int(readattr(self.path, "bLength"), 16)
+        self.type = readattr(self.path, "type")
+        self.attr = int(readattr(self.path, "bmAttributes"), 16)
+        self.max = int(readattr(self.path, "wMaxPacketSize"), 16)
 
     def __str__(self):
         indent = self.level + len(self.parent.fname)
@@ -212,7 +211,7 @@ class UsbInterface:
     def __init__(self, parent, fname, level=1):
         self.parent = parent
         self.level = level
-        self.fullpath = ""
+        self.path = ""
         self.fname = fname
         self.iclass = 0
         self.isclass = 0
@@ -226,24 +225,20 @@ class UsbInterface:
             self.read(self.fname)
 
     def read(self, fname):
-        fullpath = ""
-        if self.parent:
-            fullpath += self.parent.fname + "/"
-        fullpath += fname
-        self.fullpath = fullpath
         self.fname = fname
-        self.iclass = int(readattr(fullpath, "bInterfaceClass"), 16)
-        self.isclass = int(readattr(fullpath, "bInterfaceSubClass"), 16)
-        self.iproto = int(readattr(fullpath, "bInterfaceProtocol"), 16)
-        self.noep = int(readattr(fullpath, "bNumEndpoints"))
+        self.path = self.parent.path + "/" + fname
+        self.iclass = int(readattr(self.path, "bInterfaceClass"), 16)
+        self.isclass = int(readattr(self.path, "bInterfaceSubClass"), 16)
+        self.iproto = int(readattr(self.path, "bInterfaceProtocol"), 16)
+        self.noep = int(readattr(self.path, "bNumEndpoints"))
         try:
-            self.driver = readlink(fname, "driver")
+            self.driver = readlink(self.path, "driver")
             self.devname = find_dev(self.driver, fname)
         except:
             pass
         self.protoname = find_usb_class(self.iclass, self.isclass, self.iproto)
         if Options.show_endpoints:
-            for dirent in os.listdir(prefix + fullpath):
+            for dirent in os.listdir(prefix + self.path):
                 if dirent.startswith("ep_"):
                     ep = UsbEndpoint(self, dirent, self.level+1)
                     self.eps.append(ep)
@@ -267,7 +262,6 @@ class UsbDevice:
         self.parent = parent
         self.level = level
         self.fname = fname
-        self.fullpath = ""
         self.iclass = 0
         self.isclass = 0
         self.iproto = 0
@@ -289,15 +283,15 @@ class UsbDevice:
 
     def read(self, fname):
         self.fname = fname
-        self.fullpath = fname
-        self.iclass = int(readattr(fname, "bDeviceClass"), 16)
-        self.isclass = int(readattr(fname, "bDeviceSubClass"), 16)
-        self.iproto = int(readattr(fname, "bDeviceProtocol"), 16)
-        self.vid = int(readattr(fname, "idVendor"), 16)
-        self.pid = int(readattr(fname, "idProduct"), 16)
+        self.path = fname
+        self.iclass = int(readattr(self.path, "bDeviceClass"), 16)
+        self.isclass = int(readattr(self.path, "bDeviceSubClass"), 16)
+        self.iproto = int(readattr(self.path, "bDeviceProtocol"), 16)
+        self.vid = int(readattr(self.path, "idVendor"), 16)
+        self.pid = int(readattr(self.path, "idProduct"), 16)
 
         try:
-            self.name = readattr(fname, "manufacturer") + " " + readattr(fname, "product")
+            self.name = readattr(self.path, "manufacturer") + " " + readattr(self.path, "product")
         except:
             pass
         else:
@@ -320,18 +314,18 @@ class UsbDevice:
         except:
             pass
 
-        self.usbver = readattr(fname, "version")
-        self.speed = readattr(fname, "speed")
-        self.maxpower = readattr(fname, "bMaxPower")
-        self.noports = int(readattr(fname, "maxchild"))
+        self.usbver = readattr(self.path, "version")
+        self.speed = readattr(self.path, "speed")
+        self.maxpower = readattr(self.path, "bMaxPower")
+        self.noports = int(readattr(self.path, "maxchild"))
 
         try:
-            self.nointerfaces = int(readattr(fname, "bNumInterfaces"))
+            self.nointerfaces = int(readattr(self.path, "bNumInterfaces"))
         except:
             pass
 
         try:
-            self.driver = readlink(fname, "driver")
+            self.driver = readlink(self.path, "driver")
             self.devname = find_dev(self.driver, fname)
         except:
             pass

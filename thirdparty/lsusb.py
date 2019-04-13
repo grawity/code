@@ -403,20 +403,18 @@ class UsbDevice:
 		self.children.sort(key=usbsortkey)
 
 	def __str__(self):
-		#buf = " " * self.level + self.fname
-		if self.iclass == HUB_ICLASS:
-			col = Options.colors[2]
-			if Options.no_empty_hubs and len(self.children) == 0:
-				return ""
+		is_hub = (self.iclass == HUB_ICLASS)
+		if is_hub:
 			if Options.no_hubs:
 				buf = ""
+			if Options.no_empty_hubs and len(self.children) == 0:
+				return ""
+			col = Options.colors[2]
 		else:
 			col = Options.colors[1]
-		if not Options.no_hubs or self.iclass != HUB_ICLASS:
-			if self.nointerfaces == 1:
-				plural = " "
-			else:
-				plural = "s"
+
+		if not (is_hub and Options.no_hubs):
+			plural = (" " if self.nointerfaces == 1 else "s")
 			buf = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
 				(" " * self.level + self.fname,
 				 Options.colors[1], self.vid, self.pid, Options.colors[0],
@@ -424,7 +422,7 @@ class UsbDevice:
 				 self.nointerfaces, plural, col, self.name, Options.colors[0])
 			#if self.driver != "usb":
 			#	buf += " %s" % self.driver
-			if self.iclass == HUB_ICLASS and not Options.show_hub_interfaces:
+			if is_hub and not Options.show_hub_interfaces:
 				buf += " %shub%s\n" % (Options.colors[2], Options.colors[0])
 			else:
 				buf += "\n"

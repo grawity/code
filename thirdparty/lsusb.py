@@ -356,10 +356,10 @@ class UsbDevice(UsbObject):
             indent = "  " * self.level
             plural = (" " if self.nointerfaces == 1 else "s")
             name = self.fname
-            body = "%s %02x %s%5sMBit/s %s %iIF%s (%s) %s" % \
+            body = "%s %02x %iIF%s [USB %s @ %s Mbps] (%s) (%s) %s" % \
                    (colorize(1, "%04x:%04x" % (self.vid, self.pid)),
-                    self.iclass, self.usbver, self.speed, self.maxpower,
-                    self.nointerfaces, plural,
+                    self.iclass, self.nointerfaces, plural,
+                    self.usbver.strip(), self.speed, self.maxpower,
                     colorize(2 if is_hub else 1, self.name),
                     colorize(2, "hub") if is_hub else "")
             buf = "%-17s %s\n" % (indent + name, indent + body)

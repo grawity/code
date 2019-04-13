@@ -300,7 +300,7 @@ class UsbInterface:
 			 cols[4], self.devname, cols[0])
 		if showeps and self.eps:
 			for ep in self.eps:
-				strg += ep.__str__()
+				strg += str(ep)
 		return strg
 
 class UsbDevice:
@@ -400,13 +400,13 @@ class UsbDevice:
 		self.children.sort(key=usbsortkey)
 
 	def __str__(self):
-		#str = " " * self.level + self.fname
+		#buf = " " * self.level + self.fname
 		if self.iclass == 9:
 			col = cols[2]
 			if noemptyhub and len(self.children) == 0:
 				return ""
 			if nohub:
-				str = ""
+				buf = ""
 		else:
 			col = cols[1]
 		if not nohub or self.iclass != 9:
@@ -414,27 +414,27 @@ class UsbDevice:
 				plural = " "
 			else:
 				plural = "s"
-			str = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
+			buf = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
 				(" " * self.level + self.fname, 
 				 cols[1], self.vid, self.pid, cols[0],
 				 self.iclass, self.usbver, self.speed, self.maxpower,
 				 self.nointerfaces, plural, col, self.name, cols[0])
 			#if self.driver != "usb":
-			#	str += " %s" % self.driver
+			#	buf += " %s" % self.driver
 			if self.iclass == 9 and not showhubint:
-				str += " %shub%s\n" % (cols[2], cols[0])
+				buf += " %shub%s\n" % (cols[2], cols[0])
 			else:
-				str += "\n"
+				buf += "\n"
 				if showeps:
 					ep = UsbEndpoint(self, self.level+len(self.fname))
 					ep.read("ep_00")
-					str += ep.__str__()
+					buf += str(ep)
 				if showint:	
 					for iface in self.interfaces:
-						str += iface.__str__()
+						buf += str(iface)
 		for child in self.children:
-			str += child.__str__()
-		return str
+			buf += str(child)
+		return buf
 
 def usage():
 	"Displays usage information"
@@ -464,7 +464,7 @@ def read_usb():
 		usbdev = UsbDevice(None, 0)
 		usbdev.read(dirent)
 		usbdev.readchildren()
-		os.write(sys.stdout.fileno(), str.encode(usbdev.__str__()))
+		os.write(sys.stdout.fileno(), str(usbdev).encode())
 
 def main(argv):
 	"main entry point"

@@ -10,6 +10,11 @@ import select
 import socket
 import sys
 
+try:
+    from natsort import natsorted
+except ImportError:
+    natsorted = sorted
+
 class Format():
     Red         = "\033[38;5;1m" "%s" "\033[m"
     Green       = "\033[38;5;2m" "%s" "\033[m"
@@ -196,7 +201,7 @@ def show_root(path, mode):
 def show_contents(path, branches, mode):
     depth = len(branches)
     branches = [*branches, None]
-    children = sorted(os.scandir(path), key=lambda x: (not x.is_dir(), x.name))
+    children = natsorted(os.scandir(path), key=lambda x: (not x.is_dir(), x.name))
     children = [c for c in children if c.name != ".dropbox.cache"]
     children = [(c, dc.deep_status(c.path, mode)) for c in children]
     children = [(c, s) for (c, s) in children if status_is_visible(s, mode)]

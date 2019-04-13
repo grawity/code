@@ -164,11 +164,12 @@ def find_dev(driver, usbname):
 
 class UsbObject:
     def read_attr(self, name):
-        with open(prefix + self.path + "/" + name) as fh:
-            return fh.readline().rstrip("\n")
+        path = prefix + self.path + "/" + name
+        return open(path).readline().rstrip("\n")
 
     def read_link(self, name):
-        return os.path.basename(os.readlink(prefix + self.path + "/" + name))
+        path = prefix + self.path + "/" + name
+        return os.path.basename(os.readlink(path))
 
 class UsbEndpoint(UsbObject):
     def __init__(self, parent, fname, level):

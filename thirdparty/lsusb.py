@@ -218,9 +218,9 @@ def find_dev(driver, usbname):
 
 class UsbEndpoint:
     "Container for USB endpoint info"
-    def __init__(self, parent, fname, indent=18):
+    def __init__(self, parent, fname, level):
         self.parent = parent
-        self.indent = indent
+        self.level = level
         self.fname = fname
         self.epaddr = 0
         self.len = 0
@@ -246,8 +246,9 @@ class UsbEndpoint:
         self.max = int(readattr(fullpath, "wMaxPacketSize"), 16)
 
     def __str__(self):
+        indent = self.level + len(self.parent.fname)
         return "%-17s  %s(EP) %02x: %s %s attr %02x len %02x max %03x%s\n" % \
-            (" " * self.indent, Options.colors[5], self.epaddr, self.type,
+            (" " * indent, Options.colors[5], self.epaddr, self.type,
              self.ival, self.attr, self.len, self.max, Options.colors[0])
 
 
@@ -289,7 +290,7 @@ class UsbInterface:
         if Options.show_endpoints:
             for dirent in os.listdir(prefix + fullpath):
                 if dirent[:3] == "ep_":
-                    ep = UsbEndpoint(self, dirent, self.level+len(self.fname))
+                    ep = UsbEndpoint(self, dirent, self.level+1)
                     self.eps.append(ep)
 
     def __str__(self):
@@ -428,7 +429,7 @@ class UsbDevice:
             else:
                 buf += "\n"
                 if Options.show_endpoints:
-                    ep = UsbEndpoint(self, "ep_00", self.level+len(self.fname))
+                    ep = UsbEndpoint(self, "ep_00", self.level+1)
                     buf += str(ep)
                 if Options.show_interfaces:
                     for iface in self.interfaces:

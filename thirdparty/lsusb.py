@@ -464,7 +464,7 @@ def read_usb():
 		usbdev = UsbDevice(None, 0)
 		usbdev.read(dirent)
 		usbdev.readchildren()
-		print(usbdev, end="")
+		sys.stdout.write(str(usbdev))
 
 def main(argv):
 	"main entry point"

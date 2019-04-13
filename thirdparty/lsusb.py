@@ -52,7 +52,8 @@ class UsbClass:
 		self.subclass = sc
 		self.proto = pr
 		self.desc = str
-	def __repr__(self):
+
+	def __str__(self):
 		return self.desc
 
 class UsbVendor:
@@ -60,7 +61,8 @@ class UsbVendor:
 	def __init__(self, vid, vname = ""):
 		self.vid = vid
 		self.vname = vname
-	def __repr__(self):
+
+	def __str__(self):
 		return self.vname
 
 class UsbProduct:
@@ -69,7 +71,8 @@ class UsbProduct:
 		self.vid = vid
 		self.pid = pid
 		self.pname = pname
-	def __repr__(self):
+
+	def __str__(self):
 		return self.pname
 
 usbvendors = {}
@@ -137,14 +140,14 @@ def find_usb_prod(vid, pid):
 	dev = UsbVendor(vid, "")
 	vendor = usbvendors.get(vid)
 	if vendor:
-		strg = repr(vendor)
+		strg = str(vendor)
 	else:
 		return ""
 
 	dev = UsbProduct(vid, pid, "")
 	product = usbproducts.get((vid, pid))
 	if product:
-		strg += " " + repr(product)
+		strg += " " + str(product)
 	else:
 		return ""
 
@@ -159,7 +162,7 @@ def find_usb_class(cid, sid, pid):
 		or usbclasses.get((cid, sid, -1)) \
 		or usbclasses.get((cid, -1, -1))
 	if uclass:
-		return repr(uclass)
+		return str(uclass)
 	else:
 		return ""
 

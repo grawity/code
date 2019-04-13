@@ -338,15 +338,13 @@ class UsbDevice:
         self.pid = int(readattr(fname, "idProduct"), 16)
 
         try:
-            self.name = readattr(fname, "manufacturer") + " " \
-                  + readattr(fname, "product")
-            if self.name[:5] == "Linux":
-                m = re.match(r"Linux [^ ]* (.hci_hcd) .HCI Host Controller", self.name)
-                if m:
-                    self.name = m.group(1)
-
+            self.name = readattr(fname, "manufacturer") + " " + readattr(fname, "product")
         except:
             pass
+        else:
+            m = re.match(r"Linux [^ ]* (.hci[-_]hcd) .HCI Host Controller", self.name)
+            if m:
+                self.name = m.group(1)
 
         if not self.name:
             self.name = find_usb_prod(self.vid, self.pid)

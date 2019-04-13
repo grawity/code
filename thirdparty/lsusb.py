@@ -72,9 +72,9 @@ class UsbProduct:
 	def __repr__(self):
 		return self.pname
 
-usbvendors = []
-usbproducts = []
-usbclasses = []
+usbvendors = {}
+usbproducts = {}
+usbclasses = {}
 
 def ishexdigit(str):
 	"return True if all digits are valid hex digits"
@@ -99,88 +99,69 @@ def parse_usb_ids():
 		if ishexdigit(ln[0:4]):
 			mode = 0
 			id = int(ln[:4], 16)
-			usbvendors.append(UsbVendor(id, ln[6:]))
+			name = ln[6:]
+			usbvendors[id] = UsbVendor(id, name)
 			continue
 		if ln[0] == '\t' and ishexdigit(ln[1:3]):
 			sid = int(ln[1:5], 16)
 			# USB devices
 			if mode == 0:
-				usbproducts.append(UsbProduct(id, sid, ln[7:]))
+				name = ln[7:]
+				usbproducts[id, sid] = UsbProduct(id, sid, name)
 				continue
 			elif mode == 1:
-				nm = ln[5:]
-				if nm != "Unused":
-					strg = cstrg + ":" + nm
+				name = ln[5:]
+				if name != "Unused":
+					strg = cstrg + ":" + name
 				else:
 					strg = cstrg + ":"
-				usbclasses.append(UsbClass(id, sid, -1, strg))
+				usbclasses[id, sid, -1] = UsbClass(id, sid, -1, strg)
 				continue
 		if ln[0] == 'C':
 			mode = 1
 			id = int(ln[2:4], 16)
 			cstrg = ln[6:]
-			usbclasses.append(UsbClass(id, -1, -1, cstrg))
+			usbclasses[id, -1, -1] = UsbClass(id, -1, -1, cstrg)
 			continue
 		if mode == 1 and ln[0] == '\t' and ln[1] == '\t' and ishexdigit(ln[2:4]):
 			prid = int(ln[2:4], 16)
-			usbclasses.append(UsbClass(id, sid, prid, strg + ":" + ln[6:]))
+			name = ln[6:]
+			usbclasses[id, sid, prid] = UsbClass(id, sid, prid, strg + ":" + name)
 			continue
 		mode = 2
-
-def bin_search(first, last, item, list):
-	"binary search on list, returns -1 on fail, match idx otherwise, recursive"
-	#print "bin_search(%i,%i)" % (first, last)
-	if first == last:
-		return -1
-	if first == last-1:
-		if item == list[first]:
-			return first
-		else:
-			return -1
-	mid = (first+last) // 2
-	if item == list[mid]:
-		return mid
-	elif item < list[mid]:
-		return bin_search(first, mid, item, list)
-	else:
-		return bin_search(mid, last, item, list)
-
 
 def find_usb_prod(vid, pid):
 	"Return device name from USB Vendor:Product list"
 	strg = ""
+
 	dev = UsbVendor(vid, "")
-	lnvend = len(usbvendors)
-	ix = bin_search(0, lnvend, dev, usbvendors)
-	if ix != -1:
-		strg = usbvendors[ix].__repr__()
+	vendor = usbvendors.get(vid)
+	if vendor:
+		strg = repr(vendor)
 	else:
 		return ""
+
 	dev = UsbProduct(vid, pid, "")
-	lnprod = len(usbproducts)
-	ix = bin_search(0, lnprod, dev, usbproducts)
-	if ix != -1:
-		return strg + " " + usbproducts[ix].__repr__()
+	product = usbproducts.get((vid, pid))
+	if product:
+		strg += " " + repr(product)
+	else:
+		return ""
+
 	return strg
 
 def find_usb_class(cid, sid, pid):
 	"Return USB protocol from usbclasses list"
 	if cid == 0xff and sid == 0xff and pid == 0xff:
 		return "Vendor Specific"
-	lnlst = len(usbclasses)
-	dev = UsbClass(cid, sid, pid, "")
-	ix = bin_search(0, lnlst, dev, usbclasses)
-	if ix != -1:
-		return usbclasses[ix].__repr__()
-	dev = UsbClass(cid, sid, -1, "")
-	ix = bin_search(0, lnlst, dev, usbclasses)
-	if ix != -1:
-		return usbclasses[ix].__repr__()
-	dev = UsbClass(cid, -1, -1, "")
-	ix = bin_search(0, lnlst, dev, usbclasses)
-	if ix != -1:
-		return usbclasses[ix].__repr__()
-	return ""
+
+	uclass = usbclasses.get((cid, sid, pid)) \
+		or usbclasses.get((cid, sid, -1)) \
+		or usbclasses.get((cid, -1, -1))
+	if uclass:
+		return repr(uclass)
+	else:
+		return ""
 
 
 devlst = (	'host', 	# usb-storage
@@ -453,43 +434,6 @@ class UsbDevice:
 			str += child.__str__()
 		return str
 
-def display_diff(lst1, lst2, fmtstr, args):
-	"Compare lists (same length!) and display differences"
-	for idx in range(0, len(lst1)):
-		if lst1[idx] != lst2[idx]:
-			print("Warning: " + fmtstr % args(lst2[idx]))
-
-def fix_usbvend():
-	"Sort USB vendor list and (optionally) display diffs"
-	if warnsort:
-		oldusbvend = usbvendors[:]
-	usbvendors.sort(key=lambda x: (x.vid,))
-	if warnsort:
-		display_diff(usbvendors, oldusbvend,
-				"Unsorted Vendor ID %04x",
-				lambda x: (x.vid,))
-
-def fix_usbprod():
-	"Sort USB products list"
-	if warnsort:
-		oldusbprod = usbproducts[:]
-	usbproducts.sort(key=lambda x: (x.vid, x.pid))
-	if warnsort:
-		display_diff(usbproducts, oldusbprod,
-				"Unsorted Vendor:Product ID %04x:%04x",
-				lambda x: (x.vid, x.pid))
-
-def fix_usbclass():
-	"Sort USB class list"
-	if warnsort:
-		oldusbcls = usbclasses[:]
-	usbclasses.sort(key=lambda x: (x.pclass, x.subclass, x.proto))
-	if warnsort:
-		display_diff(usbclasses, oldusbcls,
-				"Unsorted USB class %02x:%02x:%02x",
-				lambda x: (x.pclass, x.subclass, x.proto))
-
-
 def usage():
 	"Displays usage information"
 	print("Usage: lsusb.py [options]")
@@ -575,9 +519,6 @@ def main(argv):
 		cols = (norm, bold, red, green, amber, blue)
 
 	parse_usb_ids()
-	fix_usbvend()
-	fix_usbprod()
-	fix_usbclass()
 	read_usb()
 
 # Entry point

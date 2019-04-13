@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# vim: ts=8:sw=8:noet
 # SPDX-License-Identifier: GPL-2.0 OR GPL-3.0
 #
 # lsusb-010.py
@@ -431,6 +432,7 @@ class UsbDevice:
 				usbdev.read(dirent)
 				usbdev.readchildren()
 				self.children.append(usbdev)
+		self.children.sort(key=lambda dev: [int(c) for c in re.split(r"[-:.]", dev.fname)])
 
 	def __str__(self):
 		#str = " " * self.level + self.fname

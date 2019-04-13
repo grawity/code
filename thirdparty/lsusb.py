@@ -54,15 +54,6 @@ class UsbClass:
 		self.desc = str
 	def __repr__(self):
 		return self.desc
-	def __cmp__(self, oth):
-		# Works only on 64bit systems:
-		#return self.pclass*0x10000+self.subclass*0x100+self.proto \
-		#	- oth.pclass*0x10000-oth.subclass*0x100-oth.proto
-		if self.pclass != oth.pclass:
-			return self.pclass - oth.pclass
-		if self.subclass != oth.subclass:
-			return self.subclass - oth.subclass
-		return self.proto - oth.proto
 
 class UsbVendor:
 	"Container for USB Vendors"
@@ -71,8 +62,6 @@ class UsbVendor:
 		self.vname = vname
 	def __repr__(self):
 		return self.vname
-	def __cmp__(self, oth):
-		return self.vid - oth.vid
 
 class UsbProduct:
 	"Container for USB VID:PID devices"
@@ -82,13 +71,6 @@ class UsbProduct:
 		self.pname = pname
 	def __repr__(self):
 		return self.pname
-	def __cmp__(self, oth):
-		# Works only on 64bit systems:
-		# return self.vid*0x10000 + self.pid \
-		#	- oth.vid*0x10000 - oth.pid
-		if self.vid != oth.vid:
-			return self.vid - oth.vid
-		return self.pid - oth.pid
 
 usbvendors = []
 usbproducts = []
@@ -481,9 +463,9 @@ def fix_usbvend():
 	"Sort USB vendor list and (optionally) display diffs"
 	if warnsort:
 		oldusbvend = usbvendors[:]
-	usbvendors.sort()
+	usbvendors.sort(key=lambda x: (x.vid,))
 	if warnsort:
-		display_diff(usbvendors, oldusbvend, 
+		display_diff(usbvendors, oldusbvend,
 				"Unsorted Vendor ID %04x",
 				lambda x: (x.vid,))
 
@@ -491,9 +473,9 @@ def fix_usbprod():
 	"Sort USB products list"
 	if warnsort:
 		oldusbprod = usbproducts[:]
-	usbproducts.sort()
+	usbproducts.sort(key=lambda x: (x.vid, x.pid))
 	if warnsort:
-		display_diff(usbproducts, oldusbprod, 
+		display_diff(usbproducts, oldusbprod,
 				"Unsorted Vendor:Product ID %04x:%04x",
 				lambda x: (x.vid, x.pid))
 
@@ -501,7 +483,7 @@ def fix_usbclass():
 	"Sort USB class list"
 	if warnsort:
 		oldusbcls = usbclasses[:]
-	usbclasses.sort()
+	usbclasses.sort(key=lambda x: (x.pclass, x.subclass, x.proto))
 	if warnsort:
 		display_diff(usbclasses, oldusbcls,
 				"Unsorted USB class %02x:%02x:%02x",

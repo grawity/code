@@ -441,15 +441,16 @@ def usage():
 	print()
 	print("Options:")
 	#     "|-------|-------|-------|-------|-------"
-	print("  -h            display this help")
-	print("  -i            display interface information")
-	print("  -I            display interface information, even for hubs")
-	print("  -u            suppress empty hubs")
-	print("  -U            suppress all hubs")
-	print("  -c            use colors")
-	print("  -C            disable colors")
-	print("  -e            display endpoint info")
-	print("  -f FILE       override filename for /usr/share/usb.ids")
+	print("  -h, --help            display this help")
+	print("  -i, --interfaces      display interface information")
+	print("  -I, --hub-interfaces  display interface information, even for hubs")
+	print("  -u, --hide-empty-hubs suppress empty hubs")
+	print("  -U, --hide-hubs       suppress all hubs")
+	print("  -c, --color           use colors")
+	print("  -C, --no-color        disable colors")
+	print("  -e, --endpoints       display endpoint info")
+	print("  -f FILE, --usbids-path FILE")
+	print("                        override filename for /usr/share/usb.ids")
 	print()
 	print("Use lsusb.py -ciu to get a nice overview of your USB devices.")
 
@@ -470,42 +471,54 @@ def main(argv):
 	global cols, usbids, showeps
 	use_colors = None
 
+	long_options = [
+		"help",
+		"interfaces",
+		"hub-interfaces",
+		"hide-empty-hubs",
+		"hide-hubs",
+		"color",
+		"no-color",
+		"usbids-path",
+		"endpoints",
+	]
+
 	try:
-		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcCef:", ("help",))
+		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcCef:", long_options)
 	except getopt.GetoptError as exc:
 		print("Error:", exc)
 		sys.exit(2)
 	for opt in optlist:
-		if opt[0] == "-h" or opt[0] == "--help":
+		if opt[0] in {"-h", "--help"}:
 			usage()
 			sys.exit(0)
-		if opt[0] == "-i":
+		if opt[0] in {"-i", "--interfaces"}:
 			showint = True
 			continue
-		if opt[0] == "-I":
+		if opt[0] in {"-I", "--hub-interfaces"}:
 			showint = True
 			showhubint = True
 			continue
-		if opt[0] == "-u":
+		if opt[0] in {"-u", "--hide-empty-hubs"}:
 			noemptyhub = True
 			continue
-		if opt[0] == "-U":
+		if opt[0] in {"-U", "--hide-hubs"}:
 			noemptyhub = True
 			nohub = True
 			continue
-		if opt[0] == "-c":
+		if opt[0] in {"-c", "--color"}:
 			use_colors = True
 			continue
-		if opt[0] == "-C":
+		if opt[0] in {"-C", "--no-color"}:
 			use_colors = False
 			continue
 		if opt[0] == "-w":
 			print("warning: option", opt[0], "is no longer supported", file=sys.stderr)
 			continue
-		if opt[0] == "-f":
+		if opt[0] in {"-f", "--usbids-path"}:
 			usbids = opt[1]
 			continue
-		if opt[0] == "-e":
+		if opt[0] in {"-e", "--endpoints"}:
 			showeps = True
 			continue
 	if len(args) > 0:

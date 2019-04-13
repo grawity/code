@@ -592,14 +592,10 @@ def main(argv):
 	if use_colors:
 		cols = (norm, bold, red, green, amber, blue)
 
-	try:
-		parse_usb_ids()
-		fix_usbvend()	
-		fix_usbprod()
-		fix_usbclass()
-	except:
-		print(" WARNING: Failure to read usb.ids", file=sys.stderr)
-		#print >>sys.stderr, sys.exc_info()
+	parse_usb_ids()
+	fix_usbvend()
+	fix_usbprod()
+	fix_usbclass()
 	read_usb()
 
 # Entry point

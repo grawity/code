@@ -49,36 +49,6 @@ class Options:
     colors = ("", "", "", "", "", "")
     usbids_file = "/usr/share/hwdata/usb.ids"
 
-class UsbClass:
-    "Container for USB Class/Subclass/Protocol"
-    def __init__(self, cl, sc, pr, str = ""):
-        self.pclass = cl
-        self.subclass = sc
-        self.proto = pr
-        self.desc = str
-
-    def __str__(self):
-        return self.desc
-
-class UsbVendor:
-    "Container for USB Vendors"
-    def __init__(self, vid, vname = ""):
-        self.vid = vid
-        self.vname = vname
-
-    def __str__(self):
-        return self.vname
-
-class UsbProduct:
-    "Container for USB VID:PID devices"
-    def __init__(self, vid, pid, pname = ""):
-        self.vid = vid
-        self.pid = pid
-        self.pname = pname
-
-    def __str__(self):
-        return self.pname
-
 def ishexdigit(str):
     "return True if all digits are valid hex digits"
     return bool({*str} <= {*"0123456789abcdef"})
@@ -100,14 +70,14 @@ def parse_usb_ids(path):
             mode = 0
             id = int(ln[:4], 16)
             name = ln[6:]
-            usbvendors[id] = UsbVendor(id, name)
+            usbvendors[id] = name
             continue
         if ln[0] == '\t' and ishexdigit(ln[1:3]):
             sid = int(ln[1:5], 16)
             # USB devices
             if mode == 0:
                 name = ln[7:]
-                usbproducts[id, sid] = UsbProduct(id, sid, name)
+                usbproducts[id, sid] = name
                 continue
             elif mode == 1:
                 name = ln[5:]
@@ -115,21 +85,21 @@ def parse_usb_ids(path):
                     strg = cstrg + ":" + name
                 else:
                     strg = cstrg + ":"
-                usbclasses[id, sid, -1] = UsbClass(id, sid, -1, strg)
+                usbclasses[id, sid, -1] = strg
                 continue
         if ln[0] == 'C':
             mode = 1
             id = int(ln[2:4], 16)
             cstrg = ln[6:]
-            usbclasses[id, -1, -1] = UsbClass(id, -1, -1, cstrg)
+            usbclasses[id, -1, -1] = cstrg
             continue
         if mode == 1 and ln[0] == '\t' and ln[1] == '\t' and ishexdigit(ln[2:4]):
             prid = int(ln[2:4], 16)
             name = ln[6:]
-            usbclasses[id, sid, prid] = UsbClass(id, sid, prid, strg + ":" + name)
+            usbclasses[id, sid, prid] = strg + ":" + name
             continue
         mode = 2
-    usbclasses[0xFF, 0xFF, 0xFF] = UsbClass(0xFF, 0xFF, 0xFF, "Vendor Specific")
+    usbclasses[0xFF, 0xFF, 0xFF] = "Vendor Specific"
 
 def find_usb_prod(vid, pid):
     "Return device name from USB Vendor:Product list"

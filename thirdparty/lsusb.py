@@ -492,35 +492,26 @@ def main(argv):
 		if opt[0] in {"-h", "--help"}:
 			usage()
 			sys.exit(0)
-		if opt[0] in {"-i", "--interfaces"}:
+		elif opt[0] in {"-i", "--interfaces"}:
 			Options.show_interfaces = True
-			continue
-		if opt[0] in {"-I", "--hub-interfaces"}:
+		elif opt[0] in {"-I", "--hub-interfaces"}:
 			Options.show_interfaces = True
 			Options.show_hub_interfaces = True
-			continue
-		if opt[0] in {"-u", "--hide-empty-hubs"}:
+		elif opt[0] in {"-u", "--hide-empty-hubs"}:
 			Options.no_empty_hubs = True
-			continue
-		if opt[0] in {"-U", "--hide-hubs"}:
+		elif opt[0] in {"-U", "--hide-hubs"}:
 			Options.no_empty_hubs = True
 			Options.no_hubs = True
-			continue
-		if opt[0] in {"-c", "--color"}:
+		elif opt[0] in {"-c", "--color"}:
 			use_colors = True
-			continue
-		if opt[0] in {"-C", "--no-color"}:
+		elif opt[0] in {"-C", "--no-color"}:
 			use_colors = False
-			continue
-		if opt[0] == "-w":
+		elif opt[0] == "-w":
 			print("warning: option", opt[0], "is no longer supported", file=sys.stderr)
-			continue
-		if opt[0] in {"-f", "--usbids-path"}:
+		elif opt[0] in {"-f", "--usbids-path"}:
 			Options.usbids_file = opt[1]
-			continue
-		if opt[0] in {"-e", "--endpoints"}:
+		elif opt[0] in {"-e", "--endpoints"}:
 			Options.show_endpoints = True
-			continue
 
 	if args:
 		print("Error: excess args %s ..." % args[0], file=sys.stderr)

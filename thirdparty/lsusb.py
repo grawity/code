@@ -344,13 +344,10 @@ class UsbDevice(UsbObject):
 
     def __str__(self):
         is_hub = (self.iclass == HUB_ICLASS)
-        if is_hub:
-            if Options.no_hubs:
-                buf = ""
-            if Options.no_empty_hubs and len(self.children) == 0:
-                return ""
 
-        if not (is_hub and Options.no_hubs):
+        if is_hub and (Options.no_hubs or (Options.no_empty_hubs and len(self.children) == 0)):
+            buf = ""
+        else:
             plural = (" " if self.nointerfaces == 1 else "s")
             buf = "%-16s %s%04x:%04x%s %02x %s%5sMBit/s %s %iIF%s (%s%s%s)" % \
                 (" " * self.level + self.fname,

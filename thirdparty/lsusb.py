@@ -171,6 +171,9 @@ class UsbObject:
         with open(prefix + self.path + "/" + name) as fh:
             return fh.readline().rstrip("\n")
 
+    def read_int_attr(self, name):
+        return int(self.read_attr(name), 16)
+
 class UsbEndpoint(UsbObject):
     def __init__(self, parent, fname, level):
         self.parent = parent
@@ -189,14 +192,14 @@ class UsbEndpoint(UsbObject):
     def read(self, fname):
         self.fname = fname
         self.path = self.parent.path + "/" + fname
-        self.epaddr = int(self.read_attr("bEndpointAddress"), 16)
-        ival = int(self.read_attr("bInterval"), 16)
+        self.epaddr = self.read_int_attr("bEndpointAddress")
+        ival = self.read_int_attr("bInterval")
         if ival:
             self.ival = "(%s)" % self.read_attr("interval")
-        self.len = int(self.read_attr("bLength"), 16)
+        self.len = self.read_int_attr("bLength")
         self.type = self.read_attr("type")
-        self.attr = int(self.read_attr("bmAttributes"), 16)
-        self.max = int(self.read_attr("wMaxPacketSize"), 16)
+        self.attr = self.read_int_attr("bmAttributes")
+        self.max = self.read_int_attr("wMaxPacketSize")
 
     def __str__(self):
         indent = self.level + len(self.parent.fname)
@@ -224,9 +227,9 @@ class UsbInterface(UsbObject):
     def read(self, fname):
         self.fname = fname
         self.path = self.parent.path + "/" + fname
-        self.iclass = int(self.read_attr("bInterfaceClass"), 16)
-        self.isclass = int(self.read_attr("bInterfaceSubClass"), 16)
-        self.iproto = int(self.read_attr("bInterfaceProtocol"), 16)
+        self.iclass = self.read_int_attr("bInterfaceClass")
+        self.isclass = self.read_int_attr("bInterfaceSubClass")
+        self.iproto = self.read_int_attr("bInterfaceProtocol")
         self.noep = int(self.read_attr("bNumEndpoints"))
         try:
             self.driver = readlink(self.path, "driver")
@@ -280,11 +283,11 @@ class UsbDevice(UsbObject):
     def read(self, fname):
         self.fname = fname
         self.path = fname
-        self.iclass = int(self.read_attr("bDeviceClass"), 16)
-        self.isclass = int(self.read_attr("bDeviceSubClass"), 16)
-        self.iproto = int(self.read_attr("bDeviceProtocol"), 16)
-        self.vid = int(self.read_attr("idVendor"), 16)
-        self.pid = int(self.read_attr("idProduct"), 16)
+        self.iclass = self.read_int_attr("bDeviceClass")
+        self.isclass = self.read_int_attr("bDeviceSubClass")
+        self.iproto = self.read_int_attr("bDeviceProtocol")
+        self.vid = self.read_int_attr("idVendor")
+        self.pid = self.read_int_attr("idProduct")
 
         try:
             self.name = self.read_attr("manufacturer") + " " + self.read_attr("product")

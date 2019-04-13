@@ -218,16 +218,18 @@ def find_dev(driver, usbname):
 
 class UsbEndpoint:
     "Container for USB endpoint info"
-    def __init__(self, parent = None, indent = 18):
+    def __init__(self, parent, fname, indent=18):
         self.parent = parent
         self.indent = indent
-        self.fname = ""
+        self.fname = fname
         self.epaddr = 0
         self.len = 0
         self.ival = ""
         self.type = ""
         self.attr = 0
         self.max = 0
+        if self.fname:
+            self.read(self.fname)
 
     def read(self, fname):
         fullpath = ""
@@ -251,11 +253,11 @@ class UsbEndpoint:
 
 class UsbInterface:
     "Container for USB interface info"
-    def __init__(self, parent = None, level = 1):
+    def __init__(self, parent, fname, level=1):
         self.parent = parent
         self.level = level
         self.fullpath = ""
-        self.fname = ""
+        self.fname = fname
         self.iclass = 0
         self.isclass = 0
         self.iproto = 0
@@ -264,6 +266,8 @@ class UsbInterface:
         self.devname = ""
         self.protoname = ""
         self.eps = []
+        if self.fname:
+            self.read(self.fname)
 
     def read(self, fname):
         fullpath = ""
@@ -283,10 +287,9 @@ class UsbInterface:
             pass
         self.protoname = find_usb_class(self.iclass, self.isclass, self.iproto)
         if Options.show_endpoints:
-            for epfnm in os.listdir(prefix + fullpath):
-                if epfnm[:3] == "ep_":
-                    ep = UsbEndpoint(self, self.level+len(self.fname))
-                    ep.read(epfnm)
+            for dirent in os.listdir(prefix + fullpath):
+                if dirent[:3] == "ep_":
+                    ep = UsbEndpoint(self, dirent, self.level+len(self.fname))
                     self.eps.append(ep)
 
     def __str__(self):
@@ -307,10 +310,10 @@ class UsbInterface:
 
 class UsbDevice:
     "Container for USB device info"
-    def __init__(self, parent = None, level = 0):
+    def __init__(self, parent, fname, level=0):
         self.parent = parent
         self.level = level
-        self.fname = ""
+        self.fname = fname
         self.fullpath = ""
         self.iclass = 0
         self.isclass = 0
@@ -327,6 +330,9 @@ class UsbDevice:
         self.devname = ""
         self.interfaces = []
         self.children = []
+        if self.fname:
+            self.read(self.fname)
+            self.readchildren()
 
     def read(self, fname):
         self.fname = fname
@@ -387,13 +393,10 @@ class UsbDevice:
             if not dirent[0:1].isdigit():
                 continue
             if os.access(prefix + dirent + "/bInterfaceClass", os.R_OK):
-                iface = UsbInterface(self, self.level+1)
-                iface.read(dirent)
+                iface = UsbInterface(self, dirent, self.level+1)
                 self.interfaces.append(iface)
             else:
-                usbdev = UsbDevice(self, self.level+1)
-                usbdev.read(dirent)
-                usbdev.readchildren()
+                usbdev = UsbDevice(self, dirent, self.level+1)
                 self.children.append(usbdev)
 
         usbsortkey = lambda obj: [int(x) for x in re.split(r"[-:.]", obj.fname)]
@@ -425,8 +428,7 @@ class UsbDevice:
             else:
                 buf += "\n"
                 if Options.show_endpoints:
-                    ep = UsbEndpoint(self, self.level + len(self.fname))
-                    ep.read("ep_00")
+                    ep = UsbEndpoint(self, "ep_00", self.level+len(self.fname))
                     buf += str(ep)
                 if Options.show_interfaces:
                     for iface in self.interfaces:
@@ -461,9 +463,7 @@ def read_usb():
     for dirent in os.listdir(prefix):
         if dirent[0:3] != "usb":
             continue
-        usbdev = UsbDevice(None, 0)
-        usbdev.read(dirent)
-        usbdev.readchildren()
+        usbdev = UsbDevice(None, dirent, 0)
         print(usbdev, end="")
 
 def main(argv):

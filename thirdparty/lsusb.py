@@ -22,13 +22,12 @@ usbvendors = {}
 usbproducts = {}
 usbclasses = {}
 
-esc = chr(27)
-norm = esc + "[0;0m"
-bold = esc + "[0;1m"
-red =  esc + "[0;31m"
-green= esc + "[0;32m"
-amber= esc + "[0;33m"
-blue = esc + "[0;34m"
+norm = "\033[0;0m"
+bold = "\033[0;1m"
+red =  "\033[0;31m"
+green= "\033[0;32m"
+amber= "\033[0;33m"
+blue = "\033[0;34m"
 
 HUB_ICLASS = 0x09
 
@@ -183,7 +182,7 @@ devlst = [
 def find_storage(hostno):
     "Return SCSI block dev names for host"
     res = ""
-    for ent in os.listdir("/sys/class/scsi_device/"):
+    for ent in os.listdir("/sys/class/scsi_device"):
         (host, bus, tgt, lun) = ent.split(":")
         if host == hostno:
             try:
@@ -214,7 +213,6 @@ def find_dev(driver, usbname):
         except:
             pass
     return res
-
 
 class UsbEndpoint:
     "Container for USB endpoint info"
@@ -289,15 +287,12 @@ class UsbInterface:
         self.protoname = find_usb_class(self.iclass, self.isclass, self.iproto)
         if Options.show_endpoints:
             for dirent in os.listdir(prefix + fullpath):
-                if dirent[:3] == "ep_":
+                if dirent.startswith("ep_"):
                     ep = UsbEndpoint(self, dirent, self.level+1)
                     self.eps.append(ep)
 
     def __str__(self):
-        if self.noep == 1:
-            plural = " "
-        else:
-            plural = "s"
+        plural = (" " if self.noep == 1 else "s")
         strg = "%-17s (IF) %02x:%02x:%02x %iEP%s (%s) %s%s %s%s%s\n" % \
             (" " * self.level+self.fname, self.iclass,
              self.isclass, self.iproto, self.noep,
@@ -357,13 +352,13 @@ class UsbDevice:
             self.name = find_usb_prod(self.vid, self.pid)
 
         # Some USB Card readers have a better name then Generic ...
-        if self.name[:7] == "Generic":
+        if self.name.startswith("Generic"):
             self.name = find_usb_prod(self.vid, self.pid) or self.name
 
         try:
             ser = readattr(fname, "serial")
-            # Some USB devs report "serial" as serial no. suppress
-            if (ser and ser != "serial"):
+            # Some USB devs report literal 'serial' as the serial number. Suppress that.
+            if ser and ser != "serial":
                 self.name += " " + ser
         except:
             pass
@@ -385,15 +380,11 @@ class UsbDevice:
             pass
 
     def readchildren(self):
-        if self.fname[0:3] == "usb":
-            fname = self.fname[3:]
-        else:
-            fname = self.fname
-
         for dirent in os.listdir(prefix + self.fname):
-            if not dirent[0:1].isdigit():
+            if not dirent[0].isdigit():
                 continue
-            if os.access(prefix + dirent + "/bInterfaceClass", os.R_OK):
+
+            if os.path.exists(prefix + dirent + "/bInterfaceClass"):
                 iface = UsbInterface(self, dirent, self.level+1)
                 self.interfaces.append(iface)
             else:
@@ -422,8 +413,7 @@ class UsbDevice:
                  Options.colors[1], self.vid, self.pid, Options.colors[0],
                  self.iclass, self.usbver, self.speed, self.maxpower,
                  self.nointerfaces, plural, col, self.name, Options.colors[0])
-            #if self.driver != "usb":
-            #   buf += " %s" % self.driver
+
             if is_hub and not Options.show_hub_interfaces:
                 buf += " %shub%s\n" % (Options.colors[2], Options.colors[0])
             else:
@@ -462,10 +452,9 @@ def usage():
 def read_usb():
     "Read toplevel USB entries and print"
     for dirent in os.listdir(prefix):
-        if dirent[0:3] != "usb":
-            continue
-        usbdev = UsbDevice(None, dirent, 0)
-        print(usbdev, end="")
+        if dirent.startswith("usb"):
+            usbdev = UsbDevice(None, dirent, 0)
+            print(usbdev, end="")
 
 def main(argv):
     short_options = "hiIuUwcCef:"

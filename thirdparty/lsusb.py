@@ -108,7 +108,7 @@ def parse_usb_ids():
 	mode = 0
 	strg = ""
 	cstrg = ""
-	for ln in open(usbids, "r").readlines():
+	for ln in open(usbids, "r", errors="replace").readlines():
 		if ln[0] == '#':
 			continue
 		ln = ln.rstrip('\n')

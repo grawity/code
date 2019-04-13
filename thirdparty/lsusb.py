@@ -457,7 +457,6 @@ def usage():
 def read_usb():
 	"Read toplevel USB entries and print"
 	for dirent in os.listdir(prefix):
-		#print dirent,
 		if not dirent[0:3] == "usb":
 			continue
 		usbdev = UsbDevice(None, 0)
@@ -486,7 +485,7 @@ def main(argv):
 	try:
 		(optlist, args) = getopt.gnu_getopt(argv[1:], "hiIuUwcCef:", long_options)
 	except getopt.GetoptError as exc:
-		print("Error:", exc)
+		print("Error:", exc, file=sys.stderr)
 		sys.exit(2)
 	for opt in optlist:
 		if opt[0] in {"-h", "--help"}:
@@ -522,7 +521,7 @@ def main(argv):
 			showeps = True
 			continue
 	if len(args) > 0:
-		print("Error: excess args %s ..." % args[0])
+		print("Error: excess args %s ..." % args[0], file=sys.stderr)
 		sys.exit(2)
 
 	if use_colors is None:

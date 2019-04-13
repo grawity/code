@@ -20,7 +20,6 @@ showint = False
 showhubint = False
 noemptyhub = False
 nohub = False
-warnsort = False
 showeps = False
 
 prefix = "/sys/bus/usb/devices/"
@@ -450,7 +449,6 @@ def usage():
 	print("  -c            use colors")
 	print("  -C            disable colors")
 	print("  -e            display endpoint info")
-	print("  -w            display warning if usb.ids is not sorted correctly")
 	print("  -f FILE       override filename for /usr/share/usb.ids")
 	print()
 	print("Use lsusb.py -ciu to get a nice overview of your USB devices.")
@@ -469,7 +467,7 @@ def read_usb():
 def main(argv):
 	"main entry point"
 	global showint, showhubint, noemptyhub, nohub
-	global warnsort, cols, usbids, showeps
+	global cols, usbids, showeps
 	use_colors = None
 
 	try:
@@ -502,7 +500,7 @@ def main(argv):
 			use_colors = False
 			continue
 		if opt[0] == "-w":
-			warnsort = True
+			print("warning: option", opt[0], "is no longer supported", file=sys.stderr)
 			continue
 		if opt[0] == "-f":
 			usbids = opt[1]

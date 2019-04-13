@@ -349,9 +349,6 @@ class UsbDevice(UsbObject):
                 buf = ""
             if Options.no_empty_hubs and len(self.children) == 0:
                 return ""
-            col = Options.colors[2]
-        else:
-            col = Options.colors[1]
 
         if not (is_hub and Options.no_hubs):
             plural = (" " if self.nointerfaces == 1 else "s")
@@ -359,7 +356,8 @@ class UsbDevice(UsbObject):
                 (" " * self.level + self.fname,
                  Options.colors[1], self.vid, self.pid, Options.colors[0],
                  self.iclass, self.usbver, self.speed, self.maxpower,
-                 self.nointerfaces, plural, col, self.name, Options.colors[0])
+                 self.nointerfaces, plural,
+                 Options.colors[2 if is_hub else 1], self.name, Options.colors[0])
 
             if is_hub and not Options.show_hub_interfaces:
                 buf += " %shub%s\n" % (Options.colors[2], Options.colors[0])

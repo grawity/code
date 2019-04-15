@@ -407,10 +407,13 @@ def usage():
 
 def read_usb():
     "Read toplevel USB entries and print"
+    root_hubs = []
     for dirent in os.listdir(prefix):
         if dirent.startswith("usb"):
-            usbdev = UsbDevice(None, dirent, 0)
-            print(usbdev, end="")
+            root_hubs.append(UsbDevice(None, dirent, 0))
+    root_hubs.sort(key=lambda x: int(x.fname[3:]))
+    for usbdev in root_hubs:
+        print(usbdev, end="")
 
 def main(argv):
     short_options = "hiIuUwcCef:"

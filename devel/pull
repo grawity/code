@@ -17,7 +17,7 @@ is() {
 }
 
 log:() {
-	lib::msg "$*" 'logcmd'
+	lib::msg "$*" 'logcmd' >&2
 	"$@" || err "command '$1' failed (status $?)"
 }
 
@@ -68,7 +68,7 @@ do_pull() {
 	elif [[ -d .git/svn ]]; then
 		is "Git – SVN clone"
 		if remote=$(git config --get svn-remote.svn.url); then
-			rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
+			rroot=$(log: svn info "$remote" | sed -n 's/^Repository Root: //p')
 			if [[ $rroot == file://* ]]; then
 				log: svnsync sync "$rroot"
 			fi

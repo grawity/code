@@ -73,10 +73,13 @@ do_pull() {
 				log: svnsync sync "$rroot"
 			fi
 		fi
+		ref=$(git config --get svn-remote.svn.fetch)
+		ref=${ref#*:}
+		ref=${ref:-refs/remotes/git-svn}
 		rev() { git rev-parse --verify HEAD; }
 		old=$(rev)
 		log: git svn fetch
-		log: git merge --ff-only refs/remotes/git-svn
+		log: git merge --ff-only "$ref"
 		new=$(rev)
 		if [[ "$old" != "$new" ]]; then
 			old=${old:0:12}

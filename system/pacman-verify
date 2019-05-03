@@ -28,7 +28,10 @@ for dir in "${dirs[@]}"; do
 			continue
 		fi
 		name=/${name#./}
-		# TODO: decode name (octal-encoded)
+		if [[ $name == *\\* ]]; then
+			# spaces and UTF-8 symbols are octal-encoded
+			name=$(unescape -a "$name")
+		fi
 		for arg in $rest; do
 			k=${arg%%=*}
 			v=${arg#*=}

@@ -28,8 +28,9 @@ for dir in "${dirs[@]}"; do
 			continue
 		fi
 		name=/${name#./}
-		if [[ $name == *\\* ]]; then
+		if [[ $name == *\\* && $name != *\\@(12|012)* ]]; then
 			# spaces and UTF-8 symbols are octal-encoded
+			# (safeguard: do not decode if it contains a \n)
 			name=$(unescape -a "$name")
 		fi
 		for arg in $rest; do

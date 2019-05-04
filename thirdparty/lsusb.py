@@ -38,7 +38,11 @@ class Options:
     no_hubs = False
     no_empty_hubs = False
     colors = ("", "", "", "", "", "")
-    usbids_file = "/usr/share/hwdata/usb.ids"
+    usbids_file = None
+    usbids_files = [
+        "/usr/share/hwdata/usb.ids", # Arch
+        "/usr/share/misc/usb.ids", # Debian
+    ]
 
 def colorize(num, text):
     return Options.colors[num] + str(text) + Options.colors[0]
@@ -471,7 +475,19 @@ def main(argv):
     if use_colors:
         Options.colors = (norm, bold, red, green, amber, blue)
 
-    parse_usb_ids(Options.usbids_file)
+    if Options.usbids_file:
+        parse_usb_ids(Options.usbids_file)
+    else:
+        for path in Options.usbids_files:
+            try:
+                parse_usb_ids(path)
+            except FileNotFoundError:
+                pass
+            else:
+                break
+    if not usbvendors:
+        print("Warning: could not load any usb.ids file", file=sys.stderr)
+
     read_usb()
 
 if __name__ == "__main__":

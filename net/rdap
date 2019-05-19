@@ -29,18 +29,22 @@ class RdapClient():
         self.cache = nullroute.urlcache.JsonCache()
 
     def _fetch_json(self, url):
-        Core.debug(f"fetching {url!r}")
+        Core.debug("fetching %r", url)
         resp = self.ua.get(url)
         resp.raise_for_status()
         return resp.json()
 
-    def fetch_root(self, kind):
-        url = self.ROOTS[kind]
+    def _fetch_cached(self, url):
+        Core.debug("loading %r from cache", url)
         data = self.cache.load(url)
         if not data:
             data = self._fetch_json(url)
             self.cache.save(url, data)
         return data
+
+    def fetch_root(self, kind):
+        url = self.ROOTS[kind]
+        return self._fetch_cached(url)
 
     def find_server(self, kind, lookup):
         root = self.fetch_root(kind)
@@ -66,10 +70,7 @@ class RdapClient():
             base_url = self.SERVERS[base_url]
 
         url = urljoin(base_url, f"{res_type}/{lookup}")
-        data = self.cache.load(url)
-        if not data:
-            data = self._fetch_json(url)
-            self.cache.save(url, data)
+        data = self._fetch_cached(url)
         return data
 
 def format_vcard(vc):

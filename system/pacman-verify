@@ -24,11 +24,15 @@ for dir in "${dirs[@]}"; do
 	fi
 
 	while read -r name rest; do
-		if [[ $name == ./.@(CHANGELOG|INSTALL|PKGINFO) ]]; then
+		if [[ $name == ./.@(BUILDINFO|CHANGELOG|INSTALL|PKGINFO) ]]; then
 			continue
 		fi
 		name=/${name#./}
-		# TODO: decode name (octal-encoded)
+		if [[ $name == *\\* && $name != *\\@(12|012)* ]]; then
+			# spaces and UTF-8 symbols are octal-encoded
+			# (safeguard: do not decode if it contains a \n)
+			name=$(unescape -a "$name")
+		fi
 		for arg in $rest; do
 			k=${arg%%=*}
 			v=${arg#*=}

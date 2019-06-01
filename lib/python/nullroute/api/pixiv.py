@@ -156,7 +156,7 @@ class PixivClient():
         # Dropbox cannot sync non-BMP characters
         member_name = re.sub(r"[^\u0000-\uFFFF]", "�", member_name)
         member_name = re.sub("(@|＠).*", "", member_name)
-        member_name = re.sub(r"[◆|_]?[0-9一三]日.+?[0-9]+[a-z]*", "", member_name)
+        member_name = re.sub(r"[◆✦|_✳︎]?([0-9一三]|月曜)日.+?[0-9]+[a-z]*", "", member_name)
         member_name = member_name.replace(" ", "_")
         return "%s_pixiv%s" % (member_name, member_id)
 

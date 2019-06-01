@@ -13,6 +13,7 @@ stat = {
     "answers": 0,
     "nonterminals": 0,
     "nxdomains": 0,
+    "baddelegations": 0,
 }
 
 def get_rdns_domains(addr):
@@ -67,6 +68,11 @@ def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
             Core.trace("got NXDOMAIN for %r; continuing", domain)
             stat["nxdomains"] += 1
             continue
+        except dns.resolver.NoNameservers:
+            Core.warn("got SERVFAIL for %r; returning and continuing", domain)
+            stat["baddelegations"] += 1
+            yield (domain, None)
+            continue
         else:
             if depth < maxdepth:
                 Core.trace("got answer for %r; returning and descending", domain)
@@ -102,6 +108,11 @@ def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
                 except dns.resolver.NXDOMAIN:
                     Core.trace("got NXDOMAIN for %r; continuing", domain)
                     stat["nxdomains"] += 1
+                    continue
+                except dns.resolver.NoNameservers:
+                    Core.warn("got SERVFAIL for %r; returning and continuing", domain)
+                    stat["baddelegations"] += 1
+                    yield (domain, None)
                     continue
                 else:
                     if depth < maxdepth:
@@ -139,6 +150,8 @@ for arg in args.zone:
             params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
         elif zone.endswith(".ip6.arpa."):
             params = dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
+        elif zone.endswith(".in-addr.arpa."):
+            params = dict(card=256, fmt="%d", rtype="PTR", maxdepth=5)
         else:
             Core.err("unrecognized zone %r", zone)
             continue

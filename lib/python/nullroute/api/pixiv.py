@@ -38,6 +38,9 @@ class PixivApiClient():
         }
         return self.tc.store_token(data)
 
+    def _forget_token(self, token):
+        return self.tc.forget_token()
+
     # API authentication
 
     def _load_creds(self):

@@ -27,20 +27,7 @@ class PixivApiClient():
         self.api.requests = self.ua
 
     def _load_token(self):
-        #return self.tc.load_token()
-
-        # TODO: delete after 2019-05-01
-        data = self.tc.load_token()
-        if not data:
-            # search for old keyring entry
-            old_tc = OAuthTokenCache("pixiv.net")
-            old_tc.token_path = Env.find_cache_file("pixiv.auth.json")
-            data = old_tc.load_token()
-            if data:
-                Core.notice("migrated auth token from old storage")
-                self.tc.store_token(data)
-                old_tc.forget_token()
-        return data
+        return self.tc.load_token()
 
     def _store_token(self, token):
         data = {

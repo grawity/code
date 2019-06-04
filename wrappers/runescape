@@ -18,7 +18,9 @@ while [ "$1" ]; do
 	    --darkscape)
 		shift; java_prm="rsdarkscape.prm";;
 	    --beta)
-		shift; java_prm="runescape-beta.prm";;
+		shift;
+		nxt_conf="rs-launchs://www.runescape.com/jav_config_beta.ws";
+		java_prm="runescape-beta.prm";;
 	    --oldschool)
 		shift; client=java; java_prm="oldschool.prm";;
 	    --dgpu)
@@ -30,8 +32,10 @@ done
 
 case $client in
     nxt)
-	# TODO: beta URL
 	export HOME=${XDG_CACHE_HOME:-$HOME/.cache}
+	if [[ $nxt_conf ]]; then
+		set -- "$nxt_conf" "$@"
+	fi
 	exec /usr/bin/runescape-launcher "$@"
 	;;
     java)

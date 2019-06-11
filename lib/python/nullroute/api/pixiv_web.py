@@ -101,8 +101,8 @@ class PixivWebClient(Scraper):
         resp = self.get(*args, **kwargs)
         resp.raise_for_status()
         data = json.loads(resp.text, object_hook=ObjectDict)
-        if data["error"]:
-            raise Exception("API error: %r", data["message"])
+        if data.get("error"):
+            raise Exception("API error: %r", data.get("message") or data["error"])
         else:
             return data["body"]
 
@@ -121,5 +121,7 @@ class PixivWebClient(Scraper):
 
     @lru_cache(maxsize=1024)
     def get_fanbox_post(self, post_id):
-        return self._get_json("https://www.pixiv.net/ajax/fanbox/post",
-                              params={"postId": post_id})
+        # unauthenticated, but requires Origin
+        return self._get_json("https://fanbox.pixiv.net/api/post.info",
+                              params={"postId": post_id},
+                              headers={"origin": "https://www.pixiv.net"})

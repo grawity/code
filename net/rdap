@@ -3,8 +3,20 @@ from nullroute.core import *
 import nullroute.urlcache
 from nullroute.scrape import urljoin
 from pprint import pprint
+import re
 import requests
 import sys
+
+def range_from_str(s):
+    # we assume no negative numbers
+    x = s.split("-")
+    x = [int(i) for i in x]
+    if len(x) == 1:
+        return (x[0], x[0])
+    elif len(x) == 2:
+        return (x[0], x[1])
+    else:
+        raise ValueError("invalid range %r" % s)
 
 class RdapClient():
     ROOTS = {
@@ -29,22 +41,34 @@ class RdapClient():
         self.cache = nullroute.urlcache.JsonCache()
 
     def _fetch_json(self, url):
-        Core.debug(f"fetching {url!r}")
+        Core.debug("fetching %r", url)
         resp = self.ua.get(url)
         resp.raise_for_status()
         return resp.json()
 
-    def fetch_root(self, kind):
-        url = self.ROOTS[kind]
+    def _fetch_cached(self, url):
+        Core.debug("loading %r from cache", url)
         data = self.cache.load(url)
         if not data:
             data = self._fetch_json(url)
             self.cache.save(url, data)
         return data
 
+    def fetch_root(self, kind):
+        url = self.ROOTS[kind]
+        return self._fetch_cached(url)
+
     def find_server(self, kind, lookup):
         root = self.fetch_root(kind)
-        ...
+        if kind == "asn":
+            for blocks, servers in root["services"]:
+                for r in blocks:
+                    a, b = range_from_str(r)
+                    if a <= lookup <= b:
+                        Core.debug("query %r matches range %r", lookup, r)
+                        return servers
+        else:
+            raise Exception("XXX: find_server(%r) not yet implemented" % kind)
 
     def query_server(self, base_url, res_type, lookup):
         # autnum/<asn>
@@ -62,15 +86,15 @@ class RdapClient():
         #  nameservers?name=<pattern>
         #  nameservers?ip=<pattern>
 
-        if base_url in self.SERVERS:
-            base_url = self.SERVERS[base_url]
-
         url = urljoin(base_url, f"{res_type}/{lookup}")
-        data = self.cache.load(url)
-        if not data:
-            data = self._fetch_json(url)
-            self.cache.save(url, data)
+        data = self._fetch_cached(url)
         return data
+
+    def query_asn_topdown(self, lookup):
+        lookup = int(lookup)
+        servers = self.find_server("asn", lookup)
+        Core.debug("discovered servers %r", servers)
+        return self.query_server(servers[0], "autnum", lookup)
 
 def format_vcard(vc):
     if vc[0] == "vcard":
@@ -170,39 +194,50 @@ def format_object(obj):
         for ent in obj["entities"]:
             yield from format_object(ent)
 
-args = sys.argv[1:]
+
+def print_object(data):
+    #pprint(data)
+    for i in format_object(data):
+        n = i.get("nest", 0)
+        if i["row"] == "kvpair":
+            k = i["key"]
+            v = i["value"]
+            if i.get("header"):
+                print()
+                k = k.upper()
+            kl = f"{k}:"
+            if isinstance(v, list):
+                v = ", ".join(v)
+            if n:
+                nl = "  " * n
+                nl = f"{nl}- "
+                print(f"{nl}{kl:15} {v}")
+            else:
+                for vl in v.split("\n"):
+                    print(f"{kl:15} {vl}")
+                    kl = ""
+        elif i["row"] == "remark":
+            k = i["title"]
+            v = i["text"]
+            nl = "   " * n
+            print(f"{nl}--- {k} ---")
+            for vl in v.split("\n"):
+                print(f"{nl}; {vl}")
+        elif i["row"] == "nested":
+            k = i["key"]
+            print(f"{k}:")
+        else:
+            print(i)
 
 cli = RdapClient()
-data = cli.query_server(*args)
-#pprint(data)
-for i in format_object(data):
-    n = i.get("nest", 0)
-    if i["row"] == "kvpair":
-        k = i["key"]
-        v = i["value"]
-        if i.get("header"):
-            print()
-            k = k.upper()
-        kl = f"{k}:"
-        if isinstance(v, list):
-            v = ", ".join(v)
-        if n:
-            nl = "  " * n
-            nl = f"{nl}- "
-            print(f"{nl}{kl:15} {v}")
-        else:
-            for vl in v.split("\n"):
-                print(f"{kl:15} {vl}")
-                kl = ""
-    elif i["row"] == "remark":
-        k = i["title"]
-        v = i["text"]
-        nl = "   " * n
-        print(f"{nl}--- {k} ---")
-        for vl in v.split("\n"):
-            print(f"{nl}; {vl}")
-    elif i["row"] == "nested":
-        k = i["key"]
-        print(f"{k}:")
-    else:
-        print(i)
+
+args = sys.argv[1:]
+for arg in args:
+    m = re.match(r"^AS([0-9]+)$", arg)
+    if m:
+        data = cli.query_asn_topdown(m.group(1))
+        print_object(data)
+        continue
+    Core.err("unrecognized argument %r", arg)
+
+Core.fini()

@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+use Getopt::Long;
 use Sys::Utmp qw(:constants);
 
 sub hup_line {
@@ -6,7 +7,11 @@ sub hup_line {
 	system("pkill", "-HUP", "-t", $tty);
 }
 
-my $verbose = ($ARGV[0] eq "-v");
+my $quiet;
+
+GetOptions(
+	"q|quiet!" => \$quiet,
+);
 
 my $utmp = Sys::Utmp->new;
 while (my $ut = $utmp->getutent) {
@@ -14,7 +19,7 @@ while (my $ut = $utmp->getutent) {
 	if ($ut->ut_type == USER_PROCESS) {
 		my $h = $ut->ut_host;
 		if ($h =~ /^mosh \[(\d+)\]$/) {
-			print "detaching $t ($h)\n" if $verbose;
+			print "detaching $t ($h)\n" unless $quiet;
 			hup_line($t);
 		}
 	}

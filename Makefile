@@ -27,7 +27,7 @@ BASIC_BINS := args gettime mkpasswd natsort natxsort pause silentcat spawn unesc
 BASIC_BINS += ac-wait entropy proctool strtool subreaper xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
-LINUX_BINS := globalenv libfunlink.so libfunsync.so peekvc showsigmask tapchown
+LINUX_BINS := globalenv libfunlink.so libfunsync.so peekvc showsigmask statx tapchown
 
 .PHONY: all basic krb misc linux pklist
 

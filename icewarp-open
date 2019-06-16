@@ -23,12 +23,22 @@ def run(*args):
         Core.die("could not run %r: %r" % (args[0], e))
 
 def get_password(server, user):
+    Core.debug("getting password for %r @ %r from keyring", user, server)
+    try:
+        password = nullroute.sec.get_libsecret({"server": server,
+                                                "user": user})
+        return password
+    except KeyError:
+        pass
+
+    Core.debug("getting password for %r @ %r from ~/.netrc", user, server)
     try:
         creds = nullroute.sec.get_netrc(server, user)
         return creds["password"]
     except KeyError:
         pass
 
+    Core.debug("getting password for %r @ %r from IceWarp API", user, server)
     with subprocess.Popen(["icewarp-get-pass", user],
                           stdout=subprocess.PIPE) as proc:
         out = proc.stdout.read().decode("utf-8")

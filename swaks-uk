@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+host='mail.utenos-kolegija.lt'
+user=$(ad pass '@host=mail.utenos-kolegija.lt' :login)
+pass=$(ad pass '@host=mail.utenos-kolegija.lt' :pass)
+#user=$(getnetrc -df %u "smtp/$host")
+#pass=$(getnetrc -df %p "smtp/$host" "$user")
+
+[[ $user && $pass ]] || die "credentials for '$host' not found in ~/.netrc"
+
+case $user in
+	*@*) from="$user";;
+	*) from="$user"@"utenos-kolegija.lt";;
+esac
+
+do: swaks \
+	--server "$host" --port 587 --tls --tls-verify \
+	--auth PLAIN --auth-user "$user" --auth-password "$pass" \
+	--from "$from" "$@"

@@ -16,6 +16,7 @@ def is_nonempty(file):
 class PixivGrabber():
     member_re = re.compile(r"https?://www\.pixiv\.net/member(?:_illust)?\.php\?id=(?P<id>\d+)")
     illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium)&illust_id=(?P<id>\d+)")
+    illust_re2 = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?illust_id=(?P<id>\d+)&mode=(?P<mode>manga|medium)")
     bigpage_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga_big)&illust_id=(?P<id>\d+)&page=(?P<page>\d+)")
     pximg_re = re.compile(r"https?://i\.pximg\.net/img.*/(?P<id>\d+)_p(?P<page>\d+)\.\w+")
     fanbox_post_re = re.compile(r"https://www.pixiv.net/fanbox/creator/\d+/post/(?P<id>\d+)")
@@ -176,7 +177,7 @@ for arg in args:
         c.save_one_work(illust_id, only_pages=[page_no])
         continue
 
-    m = c.illust_re.match(arg)
+    m = c.illust_re.match(arg) or c.illust_re2.match(arg)
     if m:
         mode = m.group("mode")
         if mode not in {"medium", "manga"}:

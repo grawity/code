@@ -118,3 +118,17 @@ class BinaryWriter():
 
     def write_u64_be(self, val):
         return self._write_fmt(">Q", "quad", val)
+
+class SshBinaryWriter(BinaryWriter):
+    def write_bool(self, val):
+        return sef._write_fmt("?", "bool", val)
+
+    def write_uint32(self, val):
+        return self.write_u32_be()
+
+    def write_string(self, buf):
+        return self.write_u32_be(len(buf)) and self.write(buf)
+
+    def write_array(self, vec):
+        string = b",".join(vec)
+        return self.write_string(string)

@@ -54,6 +54,12 @@ class BinaryReader():
         return self._read_fmt(8, ">Q", "quad")
 
 class SshBinaryReader(BinaryReader):
+    def read_bool(self):
+        return self._read_fmt(1, "?", "bool")
+
+    def read_uint32(self):
+        return self.read_u32_be()
+
     def read_string(self):
         length = self.read_u32_be()
         return self.read(length)
@@ -61,3 +67,7 @@ class SshBinaryReader(BinaryReader):
     def read_array(self):
         string = self.read_string()
         return string.split(b",")
+
+    def read_mpint(self):
+        buf = self.read_string()
+        return int.from_bytes(buf, byteorder="big", signed=False)

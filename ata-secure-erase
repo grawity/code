@@ -2,6 +2,8 @@
 
 . lib.bash || exit
 
+force_tran=die
+
 if [[ $SUDO_UID ]]; then
 	notify-send() {
 		sudo -u "#$SUDO_UID" \
@@ -10,11 +12,18 @@ if [[ $SUDO_UID ]]; then
 	}
 fi
 
+while getopts ":F" OPT; do
+	case $OPT in
+	F) force_tran=warn;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 dev=$1
 [[ -b $dev ]] || die "path '$dev' is not a block device"
 
 tran=$(lsblk -Sno TRAN "$dev")
-[[ $tran == usb ]] || die "disk '$dev' is not USB-attached ($tran)"
+[[ $tran == usb ]] || $force_tran "disk '$dev' is not USB-attached ($tran)"
 
 #buf=$(head -c 4096 "$dev" | xxd -p | sed 's/00//g' | tr -d '\n')
 #[[ $buf ]] && warn "disk '$dev' is not empty (buf)"

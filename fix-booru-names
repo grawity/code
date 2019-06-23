@@ -112,10 +112,13 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
     old_path = os.path.join(dirpath, filename)
     job = RenameJob(old_path, dry_run=args.dry_run)
     file_md5 = None
+    file_prefix = ""
+    file_ext = ""
     result_xattr = "%s.id" % args.site
 
     if not file_md5:
         m = bare_re.match(filename)
+        Core.trace("match bare_re = %r", m)
         if m and get_file_attr(old_path, result_xattr) == "notfound":
             Core.debug("ignoring %r (cached negative result in %r)", old_path, result_xattr)
             m = None
@@ -131,6 +134,9 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
             Core.debug("hashing %r", old_path)
             file_md5 = hash_file(old_path, "md5")
             _, file_ext = os.path.splitext(filename)
+            m = re.match(r"^(\d+) yande\.re \d+", filename)
+            if m:
+                file_prefix = m.group(1) + " "
 
     if file_md5:
         job.begin()
@@ -158,7 +164,7 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
         if post_id:
             new_filename = make_filename(api, post_id, None, file_md5,
                                          skip_character_tags=args.no_character_tags)
-            new_filename += file_ext
+            new_filename = file_prefix + new_filename + file_ext
             job.end_rename(new_filename)
         else:
             job.end_notfound()

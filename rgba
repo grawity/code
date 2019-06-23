@@ -2,21 +2,21 @@
 
 . lib.bash || exit
 
-hintstyle=${hintstyle:-full}
-hintstyle=${hintstyle#hint}
+winehintstyle=${winehintstyle:-hintfull}
+gtkhintstyle=${gtkhintstyle:-hintslight}
 
 case $1 in
 	y|yes|on)
 		info "enabling RGBA everywhere"
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing rgba
-		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting $hintstyle
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting ${winehintstyle#hint}
 		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings overrides
 		;;
 	n|no|off)
 		info "disabling RGBA for GTK only"
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing rgba
-		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting $hintstyle
-		do: gsettings set org.gnome.settings-daemon.plugins.xsettings overrides "{'Xft/HintStyle': <'hintmedium'>, 'Xft/RGBA': <'none'>}"
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting ${winehintstyle#hint}
+		do: gsettings set org.gnome.settings-daemon.plugins.xsettings overrides "{'Xft/HintStyle': <'$gtkhintstyle'>, 'Xft/RGBA': <'none'>}"
 		;;
 	nn|really-no|really-off)
 		info "disabling RGBA everywhere"

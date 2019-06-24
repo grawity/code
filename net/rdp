@@ -37,8 +37,9 @@ if [[ $1 != -* ]]; then
 	host=$1; shift
 fi
 
-while getopts ":aFfRu:V:" OPT; do
+while getopts ":46aFfRu:V:" OPT; do
 	case $OPT in
+	4|6) arg_af=-$OPT;;
 	a) arg_console=1;;
 	F) use_rdesktop=0;;
 	f) arg_fork=1;;
@@ -62,12 +63,16 @@ if [[ $host != *.* ]]; then
 fi
 debug "trying to resolve '$host'"
 if have name2addr; then
-	addr=$(name2addr "$host" 2>/dev/null)
+	addr=$(name2addr $arg_af "$host" 2>/dev/null)
 else
-	addr=$(getent ahosts "$host" 2>/dev/null | awk '{print $1; quit}')
+	addr=$(getent ahosts${arg_af#-} "$host" 2>/dev/null | awk '{print $1; quit}')
 fi
 if [[ ! $addr ]]; then
 	_die "could not resolve host '$host'"
+elif [[ $addr == *:* ]]; then
+	haddr="[$addr]"
+else
+	haddr="$addr"
 fi
 port=3389
 for arg; do
@@ -76,8 +81,8 @@ for arg; do
 	fi
 done
 if have nc; then
-	debug "probing TCP server [$host]:$port"
-	if ! err=$(nc -v -z "$host" "$port" 2>&1); then
+	debug "probing TCP server $haddr:$port"
+	if ! err=$(nc -v -z $arg_af "$addr" "$port" 2>&1); then
 		_die "host '$host' does not accept Remote Desktop connections"
 	fi
 else
@@ -195,7 +200,7 @@ else
 	if [[ $arg_vm_id ]]; then
 		args+=(/vmconnect:"$arg_vm_id")
 	fi
-	args+=(/v:"$host" "$@")
+	args+=(/v:"$haddr" "$@")
 fi
 
 getcred_var "$host" "tsclient" "Remote Desktop" user pass || exit

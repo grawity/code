@@ -97,6 +97,7 @@ $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
+$(OBJ)/statx:		thirdparty/statx.c
 $(OBJ)/strtool:		misc/strtool.c
 $(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c

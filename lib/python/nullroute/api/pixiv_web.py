@@ -67,6 +67,7 @@ class PixivWebClient(Scraper):
                 Core.debug("verifying session status")
                 resp = self.get("https://www.pixiv.net/member.php", allow_redirects=False)
                 if resp.is_redirect:
+                    Core.trace("member.php redirects to %r", resp.next.url)
                     url = requests.utils.urlparse(resp.next.url)
                     if url.path == "/member.php":
                         query = parse_query_string(url.query)
@@ -84,17 +85,29 @@ class PixivWebClient(Scraper):
         if creds:
             Core.info("logging in to Pixiv as %r", creds["login"])
             page = self.get_page("https://accounts.pixiv.net/login?lang=en")
-            key = page.select_one("input[name='post_key']")["value"]
 
-            page = self.ua.post("https://accounts.pixiv.net/api/login?lang=en",
-                                data={"post_key": key,
-                                      "pixiv_id": creds["login"],
-                                      "password": creds["password"]})
-            print(page)
-
+            # initial visit gives one PHPSESSID
             cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
             token = serialize_cookie(cookie)
-            Core.debug("token = %r", token)
+            Core.debug("token (pre) = %r", token)
+
+            key = page.select_one("input[name='post_key']")["value"]
+
+            data = self._post_json("https://accounts.pixiv.net/api/login?lang=en",
+                                   data={"post_key": key,
+                                         "pixiv_id": creds["login"],
+                                         "password": creds["password"]})
+
+            if data["body"].get("validation_errors"):
+                raise Exception("authentication POST request failed: %r" % data["body"])
+
+            # the API POST then gives another
+            Core.trace("response (post) = %r", page.content)
+            Core.trace("headers (post) = %r", page.headers)
+            Core.trace("cookies (post) = %r", self.ua.cookies._cookies)
+            cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
+            token = serialize_cookie(cookie)
+            Core.debug("token (post) = %r", token)
 
             self._store_token(token)
             return True
@@ -105,6 +118,17 @@ class PixivWebClient(Scraper):
         resp = self.get(*args, **kwargs)
         resp.raise_for_status()
         data = json.loads(resp.text, object_hook=ObjectDict)
+        Core.trace("JSON (%r) = %r", args, data)
+        if data.get("error"):
+            raise Exception("API error: %r", data.get("message") or data["error"])
+        else:
+            return data["body"]
+
+    def _post_json(self, *args, **kwargs):
+        resp = self.ua.post(*args, **kwargs)
+        resp.raise_for_status()
+        data = json.loads(resp.text, object_hook=ObjectDict)
+        Core.trace("JSON (%r) = %r", args, data)
         if data.get("error"):
             raise Exception("API error: %r", data.get("message") or data["error"])
         else:

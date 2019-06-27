@@ -48,6 +48,20 @@ class PixivWebClient(Scraper):
         creds = nullroute.sec.get_netrc("pixiv.net", service="http")
         return creds
 
+    def _validate(self):
+        Core.debug("verifying session status")
+        resp = self.get("https://www.pixiv.net/member.php", allow_redirects=False)
+        if resp.is_redirect:
+            Core.trace("member.php redirects to %r", resp.next.url)
+            url = requests.utils.urlparse(resp.next.url)
+            if url.path == "/member.php":
+                query = parse_query_string(url.query)
+                self.user_id = int(query["id"])
+                Core.debug("session is valid, userid %r", self.user_id)
+                return True
+        Core.debug("session is not valid")
+        return False
+
     def _authenticate(self):
         if self.user_id:
             return True
@@ -64,20 +78,8 @@ class PixivWebClient(Scraper):
                 cookie = requests.cookies.create_cookie(**token)
                 Core.debug("loaded cookie: %r", cookie)
                 self.ua.cookies.set_cookie(cookie)
-                Core.debug("verifying session status")
-                resp = self.get("https://www.pixiv.net/member.php", allow_redirects=False)
-                if resp.is_redirect:
-                    Core.trace("member.php redirects to %r", resp.next.url)
-                    url = requests.utils.urlparse(resp.next.url)
-                    if url.path == "/member.php":
-                        query = parse_query_string(url.query)
-                        self.user_id = int(query["id"])
-                        Core.debug("session is valid, userid %r", self.user_id)
-                        return True
-                    else:
-                        raise Exception("authentication failed")
-                else:
-                    raise Exception("authentication POST request failed")
+                if self._validate():
+                    return True
             else:
                 Core.debug("cookie has expired")
 

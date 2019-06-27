@@ -14,6 +14,11 @@ def parse_query_string(query):
             for (k, v) in [x.split("=", 1)
                            for x in query.split("&")]}
 
+def serialize_cookie(cookie):
+    return {a: getattr(cookie, a)
+            for a in ["version", "name", "value", "port", "domain", "path",
+                      "secure", "expires", "rfc2109"]}
+
 class PixivWebClient(Scraper):
     def __init__(self):
         super().__init__()
@@ -87,10 +92,9 @@ class PixivWebClient(Scraper):
             print(page)
 
             cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
-            token = {a: getattr(cookie, a)
-                     for a in ["version", "name", "value", "port", "domain", "path",
-                               "secure", "expires", "rfc2109"]}
+            token = serialize_cookie(cookie)
             Core.debug("token = %r", token)
+
             self._store_token(token)
             return True
         else:

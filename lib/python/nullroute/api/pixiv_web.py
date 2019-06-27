@@ -66,6 +66,15 @@ class PixivWebClient(Scraper):
         if self.user_id:
             return True
 
+        psid = os.environ.get("PIXIV_PHPSESSID")
+        if psid:
+            page = self.get_page("https://accounts.pixiv.net/login?lang=en")
+            cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
+            cookie.value = psid
+            token = serialize_cookie(cookie)
+            Core.debug("storing token = %r", token)
+            self._store_token(token)
+
         token = self._load_token()
         if token:
             if os.environ.get("FORCE_TOKEN_REFRESH"):
@@ -83,38 +92,7 @@ class PixivWebClient(Scraper):
             else:
                 Core.debug("cookie has expired")
 
-        creds = self._load_creds()
-        if creds:
-            Core.info("logging in to Pixiv as %r", creds["login"])
-            page = self.get_page("https://accounts.pixiv.net/login?lang=en")
-
-            # initial visit gives one PHPSESSID
-            cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
-            token = serialize_cookie(cookie)
-            Core.debug("token (pre) = %r", token)
-
-            key = page.select_one("input[name='post_key']")["value"]
-
-            data = self._post_json("https://accounts.pixiv.net/api/login?lang=en",
-                                   data={"post_key": key,
-                                         "pixiv_id": creds["login"],
-                                         "password": creds["password"]})
-
-            if data["body"].get("validation_errors"):
-                raise Exception("authentication POST request failed: %r" % data["body"])
-
-            # the API POST then gives another
-            Core.trace("response (post) = %r", page.content)
-            Core.trace("headers (post) = %r", page.headers)
-            Core.trace("cookies (post) = %r", self.ua.cookies._cookies)
-            cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
-            token = serialize_cookie(cookie)
-            Core.debug("token (post) = %r", token)
-
-            self._store_token(token)
-            return True
-        else:
-            raise Exception("Pixiv credentials not found")
+        raise Exception("Pixiv cookie not found or expired")
 
     def _get_json(self, *args, **kwargs):
         resp = self.get(*args, **kwargs)

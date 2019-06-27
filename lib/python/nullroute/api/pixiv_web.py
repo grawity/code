@@ -101,7 +101,6 @@ class PixivWebClient(Scraper):
             raise Exception("Pixiv credentials not found")
 
     def _get_json(self, *args, **kwargs):
-        self._authenticate()
         resp = self.get(*args, **kwargs)
         resp.raise_for_status()
         data = json.loads(resp.text, object_hook=ObjectDict)
@@ -112,14 +111,17 @@ class PixivWebClient(Scraper):
 
     @lru_cache(maxsize=1024)
     def get_user(self, user_id):
+        self._authenticate()
         return self._get_json("https://www.pixiv.net/ajax/user/%s" % user_id)
 
     @lru_cache(maxsize=1024)
     def get_illust(self, illust_id):
+        self._authenticate()
         return self._get_json("https://www.pixiv.net/ajax/illust/%s" % illust_id)
 
     @lru_cache(maxsize=1024)
     def get_fanbox_creator(self, user_id):
+        self._authenticate()
         return self._get_json("https://www.pixiv.net/ajax/fanbox/creator",
                               params={"userId": post_id})
 

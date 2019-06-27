@@ -127,7 +127,8 @@ class PixivWebClient(Scraper):
 
     @lru_cache(maxsize=1024)
     def get_fanbox_post(self, post_id):
-        # unauthenticated, but requires Origin
+        # returns partial information if unauthenticated
+        self._authenticate()
         return self._get_json("https://fanbox.pixiv.net/api/post.info",
                               params={"postId": post_id},
                               headers={"origin": "https://www.pixiv.net"})

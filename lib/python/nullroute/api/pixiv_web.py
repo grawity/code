@@ -55,6 +55,7 @@ class PixivWebClient(Scraper):
         token = self._load_token()
         if token:
             if os.environ.get("FORCE_TOKEN_REFRESH"):
+                del os.environ["FORCE_TOKEN_REFRESH"]
                 token_valid = False
             else:
                 token_valid = token["expires"] >= time.time()

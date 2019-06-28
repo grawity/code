@@ -68,12 +68,12 @@ class PixivWebClient(Scraper):
 
         psid = os.environ.get("PIXIV_PHPSESSID")
         if psid:
-            page = self.get_page("https://accounts.pixiv.net/login?lang=en")
-            cookie = self.ua.cookies._cookies[".pixiv.net"]["/"]["PHPSESSID"]
-            cookie.value = psid
-            token = serialize_cookie(cookie)
-            Core.debug("storing token = %r", token)
-            self._store_token(token)
+            cookie = requests.cookies.create_cookie(name="PHPSESSID",
+                                                    value=psid,
+                                                    domain=".pixiv.net")
+            cookie.expires = int(time.time() + 3600)
+            Core.debug("storing cookie: %r", cookie)
+            self._store_token(serialize_cookie(cookie))
 
         token = self._load_token()
         if token:
@@ -88,6 +88,9 @@ class PixivWebClient(Scraper):
                 Core.debug("loaded cookie: %r", cookie)
                 self.ua.cookies.set_cookie(cookie)
                 if self._validate():
+                    cookie.expires = int(time.time() + (86400 * 30))
+                    Core.debug("updating cookie: %r", cookie)
+                    self._store_token(serialize_cookie(cookie))
                     return True
             else:
                 Core.debug("cookie has expired")

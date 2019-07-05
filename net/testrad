@@ -592,11 +592,6 @@ if [[ $eap && $eap != NONE ]]; then
 	if [[ $save_chain ]]; then
 		cmd+=(-o "$save_chain")
 	fi
-
-	if (( dump_config )); then
-		notice "dumping generated config and exiting"
-		cmd=(cat "$conf")
-	fi
 else
 	log "mechanism: $phase2 (direct)"
 	if [[ "$outer_id" != "$identity" ]]; then
@@ -616,7 +611,13 @@ fi
 
 echo "+ ${cmd[*]}"
 
-if "${cmd[@]}"; then
+if (( dump_config )); then
+	r=0
+	if [[ $conf ]]; then
+		cat "$conf"
+	fi
+	notice "dumping generated config and exiting"
+elif "${cmd[@]}"; then
 	r=0
 	log "test successful"
 else

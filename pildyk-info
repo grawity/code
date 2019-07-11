@@ -3,6 +3,7 @@ import os, sys
 import requests
 from nullroute.core import Core
 from nullroute.sec import get_libsecret, get_netrc
+from nullroute.string import fmt_size, ObjectDict
 from pprint import pprint
 
 class PildykApi(object):
@@ -19,32 +20,28 @@ class PildykApi(object):
         resp = self.ua.get(self.BASE + path, **kwargs)
         resp.raise_for_status()
         Core.trace("response: %r", resp.json(), skip=1)
-        return resp.json().get("result")
+        return resp.json(object_hook=ObjectDict).get("result")
 
     def post(self, path, **kwargs):
         Core.debug("POST %r %r", path, kwargs, skip=1)
         resp = self.ua.post(self.BASE + path, **kwargs)
         resp.raise_for_status()
         Core.trace("response: %r", resp.json(), skip=1)
-        return resp.json().get("result")
+        return resp.json(object_hook=ObjectDict).get("result")
 
     def login(self):
         self.post("/authentication/login",
                   data={"Msisdn": self.username,
                         "Password": self.password})
 
+    # JS appends /<msisdn> to all of these, seems optional
+
     def get_balance(self):
-        # JS appends /<msisdn>, seems optional
         # seems to be case-insensitive, JS mixes both variants
         return self.get("/AccountInformation/get-user-balance")
 
     def get_plan_and_balance(self):
-        # JS appends /<msisdn>, seems optional
         return self.get("/accountinformation/get-price-plan-and-account-balance")
-
-    def get_plan_and_buckets(self):
-        # JS appends /<msisdn>, seems optional
-        return self.get("/accountinformation/get-price-plan-and-buckets")
 
 username = "60396811"
 try:
@@ -62,6 +59,15 @@ data = api.get_plan_and_balance()
 print("Account: +370.%(msisdn)s" % data)
 print("Balance: %(balance)s €" % data)
 
-data = api.get_plan_and_buckets()
-data["dataPlanValidTill"] = data["dataPlanValidTill"].split("T")[0]
-print("Data:    %(addonData)s %(addonDataUnit)s (iki %(dataPlanValidTill)s)" % data)
+#resp = api.get("/accountinformation/get-additional-service-buckets")
+#pprint(resp)
+
+resp = api.get("/accountinformation/get-grouped-buckets")
+#pprint(resp)
+
+for bucket in resp.dataGroup.buckets:
+    assert(bucket.balanceUnit == 3)
+    quota = bucket.balance * 1024
+    quota = fmt_size(quota)
+    expire = bucket.expireDate.split("T")[0]
+    print("Data:    %s (iki %s)" % (quota, expire))

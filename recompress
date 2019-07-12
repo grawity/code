@@ -2,6 +2,11 @@
 
 . lib.bash || exit
 
+if ! have magick; then
+	# ImageMagick 6.x or older
+	magick() { "/usr/bin/$@"; }
+fi
+
 quality=98
 infiles=()
 outfiles=()
@@ -37,7 +42,7 @@ if (( nproc < 1 || nproc > $(nproc) )); then
 	die "invalid job count '$nproc'"
 fi
 
-echo "Recompressing ${#infiles[@]} files at $quality%"
+echo "Recompressing ${#infiles[@]} files at $quality% ($nproc jobs)"
 
 for iname in "${infiles[@]}"; do
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
@@ -45,7 +50,7 @@ for iname in "${infiles[@]}"; do
 		wait -n; (( --njobs )); (( ++ndone ))
 		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 	done
-	oname=${iname%.png}.jpg
+	oname=${iname%.*}.conv.jpg
 	{
 		magick convert "$iname" -quality "$quality" "$oname" &&
 		touch "$oname" --reference="$iname"
@@ -58,6 +63,10 @@ while (( njobs )); do
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 done
 printf '\n'
+
+for oname in "${outfiles[@]}"; do
+	[[ -s "$oname" ]] || exit
+done
 
 echo Orig: $(du -hsc "${infiles[@]}" | tail -1)
 echo JPEG: $(du -hsc "${outfiles[@]}" | tail -1)

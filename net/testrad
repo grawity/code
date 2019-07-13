@@ -235,13 +235,10 @@ parse_args() {
 			via)
 				load_conf server "$2"; shift;;
 			host)
-				[[ $type && $host ]] ||
 				host=$2; shift;;
 			port)
-				[[ $type && $secret ]] ||
 				port=$2; shift;;
 			proto)
-				[[ $type && $ip_version ]] ||
 				case $2 in
 				    any) ip_version="";;
 				   [46]) ip_version=$2;;
@@ -250,7 +247,6 @@ parse_args() {
 				*) die "invalid IP protocol version '$2'";;
 				esac; shift;;
 			secret)
-				[[ $type && $secret ]] ||
 				secret=$2; shift;;
 			# mechanism choice
 			eap|inside|phase1)
@@ -596,11 +592,6 @@ if [[ $eap && $eap != NONE ]]; then
 	if [[ $save_chain ]]; then
 		cmd+=(-o "$save_chain")
 	fi
-
-	if (( dump_config )); then
-		notice "dumping generated config and exiting"
-		cmd=(cat "$conf")
-	fi
 else
 	log "mechanism: $phase2 (direct)"
 	if [[ "$outer_id" != "$identity" ]]; then
@@ -618,9 +609,22 @@ else
 	fi
 fi
 
-echo "+ ${cmd[*]}"
+(scmd="+"
+for carg in "${cmd[@]}"; do
+	if ! [[ $carg =~ ^[0-9a-zA-Z_./-]+$ ]]; then
+		carg=${carg@Q}
+	fi
+	scmd+=" $carg"
+done
+echo "$scmd")
 
-if "${cmd[@]}"; then
+if (( dump_config )); then
+	r=0
+	if [[ $conf ]]; then
+		cat "$conf"
+	fi
+	notice "dumping generated config and exiting"
+elif "${cmd[@]}"; then
 	r=0
 	log "test successful"
 else

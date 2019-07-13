@@ -15,10 +15,6 @@ mark=$(git config --bool nullroute.git-new.last-read || true)
 
 old=$(git rev-parse "HEAD")
 
-if [[ $mark == true ]]; then
-	git-update-last-read -i .
-fi
-
 if [ "$(git rev-parse --is-bare-repository)" = "true" ]; then
 	git fetch
 else
@@ -28,11 +24,15 @@ fi
 new=$(git rev-parse "HEAD")
 
 if [ "$new" != "$old" ]; then
+	if [ "$mark" = "true" ]; then
+		git-update-last-read -i .
+	fi
+
 	# Reflogs are't always available in bare repositories; I'd be
 	# using "@{1}.." otherwise. Although maybe this is more readable.
 	tig $opts "$old..$new" -- $paths
-fi
 
-if [[ $mark == true ]]; then
-	git-update-last-read -e .
+	if [ "$mark" = "true" ]; then
+		git-update-last-read -e .
+	fi
 fi

@@ -45,6 +45,8 @@ class struct_statx_timestamp(ctypes.Structure, repr_trait):
         ("__reserved",          ctypes.c_int32),
     )
 
+#struct_statx_timestamp = ctypes.c_byte * 32
+
 class struct_statx(ctypes.Structure, repr_trait):
     _fields_ = (
         ("stx_mask",            ctypes.c_uint32),
@@ -104,3 +106,5 @@ for path in sys.argv[1:]:
     buf = statx(AT_FDCWD, path, 0, STATX_ALL)
     for n, t in buf._fields_:
         print(n, "=", getattr(buf, n))
+    # TODO: Explicit gc'ing makes it not crash. I don't know why.
+    del buf

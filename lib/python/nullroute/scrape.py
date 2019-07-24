@@ -95,7 +95,8 @@ class Scraper(object):
 
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
-                             progress=False, save_msg=None):
+                             progress=False, save_msg=None,
+                             keep_mtime=False):
         if not name:
             name = os.path.basename(url)
         if output_dir:
@@ -137,7 +138,7 @@ class Scraper(object):
         })
 
         mtime = resp.headers.get("Last-Modified")
-        if mtime:
+        if mtime and keep_mtime:
             set_file_mtime(name, _http_date_to_unix(mtime))
 
         if save_msg == True:

@@ -45,8 +45,6 @@ class struct_statx_timestamp(ctypes.Structure, repr_trait):
         ("__reserved",          ctypes.c_int32),
     )
 
-#struct_statx_timestamp = ctypes.c_byte * 32
-
 class struct_statx(ctypes.Structure, repr_trait):
     _fields_ = (
         ("stx_mask",            ctypes.c_uint32),
@@ -56,7 +54,7 @@ class struct_statx(ctypes.Structure, repr_trait):
         ("stx_uid",             ctypes.c_uint32),
         ("stx_gid",             ctypes.c_uint32),
         ("stx_mode",            ctypes.c_uint16),
-        ("__spare0",            ctypes.c_byte * 1),
+        ("__spare0",            ctypes.c_uint16 * 1),
         ("stx_ino",             ctypes.c_uint64),
         ("stx_size",            ctypes.c_uint64),
         ("stx_blocks",          ctypes.c_uint64),
@@ -69,7 +67,7 @@ class struct_statx(ctypes.Structure, repr_trait):
         ("stx_rdev_minor",      ctypes.c_uint32),
         ("stx_dev_major",       ctypes.c_uint32),
         ("stx_dev_minor",       ctypes.c_uint32),
-        ("__spare2",            ctypes.c_byte * 14),
+        ("__spare2",            ctypes.c_uint64 * 14),
     )
 
 def _get_libc_fn(fname, argtypes, restype):
@@ -107,5 +105,3 @@ if __name__ == "__main__":
         buf = statx(AT_FDCWD, path, 0, STATX_ALL)
         for n, t in buf._fields_:
             print(n, "=", getattr(buf, n))
-        # TODO: Explicit gc'ing makes it not crash. I don't know why.
-        del buf

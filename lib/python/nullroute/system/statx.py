@@ -100,11 +100,12 @@ def statx(fileno, path, flags, mask):
     else:
         raise OSError(e, "statx failed for %r" % path)
 
-import sys
-for path in sys.argv[1:]:
-    print("===", path, "===")
-    buf = statx(AT_FDCWD, path, 0, STATX_ALL)
-    for n, t in buf._fields_:
-        print(n, "=", getattr(buf, n))
-    # TODO: Explicit gc'ing makes it not crash. I don't know why.
-    del buf
+if __name__ == "__main__":
+    import sys
+    for path in sys.argv[1:]:
+        print("===", path, "===")
+        buf = statx(AT_FDCWD, path, 0, STATX_ALL)
+        for n, t in buf._fields_:
+            print(n, "=", getattr(buf, n))
+        # TODO: Explicit gc'ing makes it not crash. I don't know why.
+        del buf

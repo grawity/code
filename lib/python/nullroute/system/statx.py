@@ -1,6 +1,15 @@
 import ctypes
 import ctypes.util
 
+AT_FDCWD            = -100
+
+AT_SYMLINK_NOFOLLOW = 0x0100
+AT_NO_AUTOMOUNT     = 0x0800
+AT_EMPTY_PATH       = 0x1000
+
+AT_STATX_FORCE_SYNC = 0x2000
+AT_STATX_DONT_SYNC  = 0x4000
+
 STATX_TYPE          = 0x0001
 STATX_MODE          = 0x0002
 STATX_NLINK         = 0x0004
@@ -92,6 +101,6 @@ def statx(fileno, path, flags, mask):
 import sys
 for path in sys.argv[1:]:
     print("===", path, "===")
-    buf = statx(0, path, 0, STATX_ALL)
+    buf = statx(AT_FDCWD, path, 0, STATX_ALL)
     for n, t in buf._fields_:
         print(n, "=", getattr(buf, n))

@@ -70,28 +70,28 @@ def _get_libc_fn(fname, argtypes, restype):
 
 _libc_statx = None
 
-#_libc_statx = _get_libc_fn("statx", 
+def statx(fileno, path, flags, mask):
+    global _libc_statx
+    if not _libc_statx:
+        _libc_statx = ctypes.cdll[ctypes.util.find_library("c")]["statx"]
 
-_libc_statx = ctypes.cdll[ctypes.util.find_library("c")]["statx"]
-
-import sys
-for path in sys.argv[1:]:
-    print("===", path, "===")
-    fileno = 0
     buf = struct_statx()
-    size = ctypes.c_size_t(ctypes.sizeof(struct_statx))
-    size = ctypes.sizeof(struct_statx)
-    print("size = %d [%x]" % (size, size))
-    flags = 0
-    mask = STATX_ALL
     r = _libc_statx(ctypes.c_int(fileno),
                     ctypes.c_char_p(path.encode()),
                     ctypes.c_int(flags),
                     ctypes.c_uint(mask),
                     ctypes.byref(buf))
-    #res = statx(path)
-    print(r)
-    if r < 0:
-        print(ctypes.get_errno())
+
+    e = ctypes.get_errno()
+    # TODO: how do I make errno actually work and be non-zero
+    if r == 0:
+        return buf
+    else:
+        raise OSError(e, "statx failed for %r" % path)
+
+import sys
+for path in sys.argv[1:]:
+    print("===", path, "===")
+    buf = statx(0, path, 0, STATX_ALL)
     for n, t in buf._fields_:
         print(n, "=", getattr(buf, n))

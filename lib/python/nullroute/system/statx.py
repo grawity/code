@@ -1,0 +1,97 @@
+import ctypes
+import ctypes.util
+
+STATX_TYPE          = 0x0001
+STATX_MODE          = 0x0002
+STATX_NLINK         = 0x0004
+STATX_UID           = 0x0008
+STATX_GID           = 0x0010
+STATX_ATIME         = 0x0020
+STATX_MTIME         = 0x0040
+STATX_CTIME         = 0x0080
+STATX_INO           = 0x0100
+STATX_SIZE          = 0x0200
+STATX_BLOCKS        = 0x0400
+STATX_BASIC_STATS   = 0x07ff
+STATX_BTIME         = 0x0800
+STATX_ALL           = 0x0fff
+
+STATX_ATTR_COMPRESSED   = 0x00000004
+STATX_ATTR_IMMUTABLE    = 0x00000010
+STATX_ATTR_APPEND       = 0x00000020
+STATX_ATTR_NODUMP       = 0x00000040
+STATX_ATTR_ENCRYPTED    = 0x00000800
+STATX_ATTR_AUTOMOUNT    = 0x00001000
+
+class repr_trait():
+    def __repr__(self):
+        return "<%s(%s)>" % (self.__class__.__name__,
+                             ", ".join(["%s=%r" % (n, getattr(self, n))
+                                        for n, t in self._fields_]))
+
+class struct_statx_timestamp(ctypes.Structure, repr_trait):
+    _fields_ = (
+        ("tv_sec",              ctypes.c_int64),
+        ("tv_nsec",             ctypes.c_uint32),
+        ("__reserved",          ctypes.c_int32),
+    )
+
+class struct_statx(ctypes.Structure, repr_trait):
+    _fields_ = (
+        ("stx_mask",            ctypes.c_uint32),
+        ("stx_blksize",         ctypes.c_uint32),
+        ("stx_attributes",      ctypes.c_uint64),
+        ("stx_nlink",           ctypes.c_uint32),
+        ("stx_uid",             ctypes.c_uint32),
+        ("stx_gid",             ctypes.c_uint32),
+        ("stx_mode",            ctypes.c_uint16),
+        ("__spare0",            ctypes.c_byte * 1),
+        ("stx_ino",             ctypes.c_uint64),
+        ("stx_size",            ctypes.c_uint64),
+        ("stx_blocks",          ctypes.c_uint64),
+        ("stx_attributes_mask", ctypes.c_uint64),
+        ("stx_atime",           struct_statx_timestamp),
+        ("stx_btime",           struct_statx_timestamp),
+        ("stx_ctime",           struct_statx_timestamp),
+        ("stx_mtime",           struct_statx_timestamp),
+        ("stx_rdev_major",      ctypes.c_uint32),
+        ("stx_rdev_minor",      ctypes.c_uint32),
+        ("stx_dev_major",       ctypes.c_uint32),
+        ("stx_dev_minor",       ctypes.c_uint32),
+        ("__spare2",            ctypes.c_byte * 14),
+    )
+
+def _get_libc_fn(fname, argtypes, restype):
+    soname = ctypes.util.find_library("c")
+    func = ctypes.cdll[soname][fname]
+    func.argtypes = argtypes
+    func.restype = restype
+    return func
+
+_libc_statx = None
+
+#_libc_statx = _get_libc_fn("statx", 
+
+_libc_statx = ctypes.cdll[ctypes.util.find_library("c")]["statx"]
+
+import sys
+for path in sys.argv[1:]:
+    print("===", path, "===")
+    fileno = 0
+    buf = struct_statx()
+    size = ctypes.c_size_t(ctypes.sizeof(struct_statx))
+    size = ctypes.sizeof(struct_statx)
+    print("size = %d [%x]" % (size, size))
+    flags = 0
+    mask = STATX_ALL
+    r = _libc_statx(ctypes.c_int(fileno),
+                    ctypes.c_char_p(path.encode()),
+                    ctypes.c_int(flags),
+                    ctypes.c_uint(mask),
+                    ctypes.byref(buf))
+    #res = statx(path)
+    print(r)
+    if r < 0:
+        print(ctypes.get_errno())
+    for n, t in buf._fields_:
+        print(n, "=", getattr(buf, n))

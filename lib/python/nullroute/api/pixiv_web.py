@@ -27,19 +27,7 @@ class PixivWebClient(Scraper):
         self.user_id = None
 
     def _load_token(self):
-        #return self.tc.load_token()
-
-        # TODO: delete after 2019-05-01
-        data = self.tc.load_token()
-        if not data:
-            old_path = Env.find_cache_file("pixiv_web.auth.json")
-            if os.path.exists(old_path):
-                Core.notice("migrating auth token from %r", old_path)
-                with open(old_path, "r") as fh:
-                    data = json.load(fh)
-                self.tc.store_token(data)
-                os.unlink(old_path)
-        return data
+        return self.tc.load_token()
 
     def _store_token(self, token):
         return self.tc.store_token(token)

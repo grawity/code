@@ -20,21 +20,22 @@ case ${gtkhintstyle#hint} in
 		die "invalid GTK hint style '$gtkhintstyle'"
 		;;
 esac
+
 case $1 in
 	y|yes|on)
-		info "enabling RGBA everywhere"
+		info "enabling RGBA/$winehintstyle everywhere"
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing rgba
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting ${winehintstyle#hint}
 		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings overrides
 		;;
-	n|no|off)
-		info "disabling RGBA for GTK only"
+	off|mixed)
+		info "selecting grayscale/$gtkhintstyle for Gtk, RGBA/$winehintstyle for everything else"
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings antialiasing rgba
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings hinting ${winehintstyle#hint}
 		do: gsettings set org.gnome.settings-daemon.plugins.xsettings overrides "{'Xft/HintStyle': <'$gtkhintstyle'>, 'Xft/RGBA': <'none'>}"
 		;;
-	nn|really-no|really-off)
-		info "disabling RGBA everywhere"
+	default)
+		info "selecting global defaults (grayscale with slight hinting)"
 		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings antialiasing
 		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings hinting
 		do: gsettings reset org.gnome.settings-daemon.plugins.xsettings overrides

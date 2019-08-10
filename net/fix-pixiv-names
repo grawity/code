@@ -105,9 +105,13 @@ class PixivRenamer():
         current = prefix
 
         name, ext = filename.rsplit(".", 1)
-        name = name.split()
+        # preserve possible second extension (like .conv)
+        m = re.match(r"^(.+)\.([a-z]{1,5})$", name)
+        if m:
+            name = m.group(1)
+            ext = m.group(2) + "." + ext
 
-        for word in name:
+        for word in name.split():
             m = re.match(r"^(.*)_pixiv(\d+)$", word)
             if m:
                 member_id = int(m.group(1))

@@ -148,13 +148,13 @@ while n_found:
         Core.info("dropping %d files matching %r" % (len(todo), cmd[1]))
         dropped = []
         failed = []
-        for i in todo:
-            Core.say("dropping %r" % i.name)
-            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % i.key)
+        for i, f in enumerate(todo):
+            Core.say("dropping %r (%d/%d)", f.name, i+1, len(todo))
+            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % f.key)
             if r == 0:
-                dropped.append(i)
+                dropped.append(f)
             else:
-                failed.append(i)
+                failed.append(f)
         if failed:
             n_fail = len(failed)
             sz_fail = sum([i.size for i in failed])
@@ -173,13 +173,13 @@ while n_found:
         Core.info("recovering %d files matching %r" % (len(todo), cmd[1]))
         recovered = []
         failed = []
-        for i in todo:
-            Core.debug("creating placeholder for %r" % i.name)
-            r = subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % i.key, i.name])
+        for i, f in enumerate(todo):
+            Core.debug("creating placeholder for %r (%d/%d)", f.name, i+1, len(todo))
+            r = subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % f.key, f.name])
             if r == 0:
-                recovered.append(i)
+                recovered.append(f)
             else:
-                failed.append(i)
+                failed.append(f)
         if failed:
             n_fail = len(failed)
             sz_fail = sum([i.size for i in failed])
@@ -213,10 +213,10 @@ while n_found:
         Core.info("copying %d files matching %r" % (len(todo), cmd[1]))
         copied = []
         failed = []
-        for i in todo:
-            Core.info("transferring %r from %s", i.name, remote)
-            r = annex_run("transferkey", i.key, "--file=%s" % i.name, xfer_arg)
-            (copied if r == 0 else failed).append(i)
+        for i, f in enumerate(todo):
+            Core.info("transferring %r (%d/%d) from %s", f.name, i+1, len(todo), remote)
+            r = annex_run("transferkey", f.key, "--file=%s" % f.name, xfer_arg)
+            (copied if r == 0 else failed).append(f)
         if copied:
             n_copy = len(copied)
             sz_copy = sum([i.size for i in copied])

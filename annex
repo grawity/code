@@ -59,8 +59,10 @@ case $cmd in
         # assume annex subcommand by default
         if [[ $1 == !* || $1 == git ]]; then
             set -- "${1#!}" "${@:2}"
-        else
+        elif [[ $1 ]]; then
             set -- annex "$@"
+        else
+            set -- bash
         fi
         # determine remote path
         if ! path=$(git remote get-url "$name"); then
@@ -86,7 +88,7 @@ case $cmd in
             path=$path/$subdir
             altpath=$altpath/$subdir
             log "$cmd: running '$*' at $host:$path" >&2
-            ssh "$host" ". ~/.profile &&
+            ssh -t "$host" ". ~/.profile &&
                         if [ -e ${altpath@Q} ]; then
                             cd ${altpath@Q}
                         else

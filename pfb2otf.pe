@@ -4,10 +4,19 @@
 # longer having support for those formats.
 #
 # Based on https://fontforge.github.io/scripting-tutorial.html
-
+if ($argc < 2)
+	Error("usage: pfb2otf.pe <pfa/pfb files...>")
+endif
 i = 1
 while (i < $argc)
+	Print("* " + $argv[i])
 	Open($argv[i])
+	Print("  Font name = " + $fontname)
+	Print("  Family name = " + $familyname)
+	Print("  Full name = " + $fullname)
+	# Possible workaround for Windows messing up font grouping:
+	SetTTFName(0x0, 4, $familyname)
+	SetTTFName(0x409, 4, $familyname)
 	Generate($argv[i]:r + ".otf")
-	i = i+1
+	i++
 endloop

@@ -1,3 +1,4 @@
+import email.message
 import email.utils
 import http.cookiejar
 from nullroute.core import *
@@ -96,7 +97,7 @@ class Scraper(object):
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
                              progress=False, save_msg=None,
-                             keep_mtime=False):
+                             keep_name=False, keep_mtime=False):
         if not name:
             name = os.path.basename(url)
         if output_dir:
@@ -111,6 +112,19 @@ class Scraper(object):
         hdr = {"Referer": referer or url}
 
         resp = self.get(url, headers=hdr, stream=True)
+        if keep_name:
+            hdr = resp.headers.get("content-disposition")
+            if hdr:
+                Core.trace("getting original name from content disposition: %r", hdr)
+                #tokens = email.message._parseparam(hdr)
+                #email.utils.decode_rfc2231(...)
+                msg = email.message.Message()
+                msg._headers = [("content-disposition", hdr)]
+                hdr_name = msg.get_param("filename", "", "content-disposition")
+                Core.trace("got original name: %r", hdr_name)
+                hdr_name = os.path.basename(hdr_name)
+                if hdr_name and not hdr_name.startswith("."):
+                    name = os.path.join(os.path.dirname(name), hdr_name)
         with open(name + ".part", "wb") as fh:
             if progress:
                 num_bytes = resp.headers.get("content-length")

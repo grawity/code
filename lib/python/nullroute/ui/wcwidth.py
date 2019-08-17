@@ -1,5 +1,6 @@
 import ctypes
 import ctypes.util
+import sys
 
 _libc_wcwidth = None
 _libc_wcslen = None
@@ -15,23 +16,30 @@ def _get_libc_fn(fname, argtypes, restype):
 try:
     from wcwidth import wcwidth, wcswidth
 except ImportError:
-    _libc_wcwidth = _get_libc_fn("wcwidth",
-                                 (ctypes.c_wchar,),
-                                 ctypes.c_int)
+    if sys.platform == "win32":
+        def wcwidth(char):
+            return 1
 
-    _libc_wcslen = _get_libc_fn("wcslen",
-                                (ctypes.c_wchar_p,),
-                                ctypes.c_size_t)
+        def wcswidth(string):
+            return len(string)
+    else:
+        _libc_wcwidth = _get_libc_fn("wcwidth",
+                                     (ctypes.c_wchar,),
+                                     ctypes.c_int)
 
-    _libc_wcswidth = _get_libc_fn("wcswidth",
-                                  (ctypes.c_wchar_p, ctypes.c_size_t),
-                                  ctypes.c_int)
+        _libc_wcslen = _get_libc_fn("wcslen",
+                                    (ctypes.c_wchar_p,),
+                                    ctypes.c_size_t)
 
-    def wcwidth(char):
-        return _libc_wcwidth(char)
+        _libc_wcswidth = _get_libc_fn("wcswidth",
+                                      (ctypes.c_wchar_p, ctypes.c_size_t),
+                                      ctypes.c_int)
 
-    def wcswidth(string):
-        return _libc_wcswidth(string, _libc_wcslen(string))
+        def wcwidth(char):
+            return _libc_wcwidth(char)
+
+        def wcswidth(string):
+            return _libc_wcswidth(string, _libc_wcslen(string))
 
 def wcpad(string, width):
     pad = abs(width) - wcswidth(string)

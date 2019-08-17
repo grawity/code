@@ -108,4 +108,9 @@ class Table(object):
             print(buf)
         pass
 
-signal.signal(signal.SIGWINCH, _handle_sigwinch)
+if hasattr(signal, "SIGWINCH"):
+    signal.signal(signal.SIGWINCH, _handle_sigwinch)
+
+if sys.platform == "win32" and sys.stdout.isatty():
+    from nullroute.ui.win32 import enable_vt
+    enable_vt()

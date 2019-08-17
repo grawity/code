@@ -110,9 +110,9 @@ class Scraper(object):
 
         hdr = {"Referer": referer or url}
 
-        if progress:
-            resp = self.get(url, headers=hdr, stream=True)
-            with open(name + ".part", "wb") as fh:
+        resp = self.get(url, headers=hdr, stream=True)
+        with open(name + ".part", "wb") as fh:
+            if progress:
                 num_bytes = resp.headers.get("content-length")
                 if num_bytes is not None:
                     num_bytes = int(num_bytes)
@@ -124,11 +124,11 @@ class Scraper(object):
                                            max_bytes=num_bytes,
                                            chunk_size=chunk_size):
                     fh.write(chunk)
-            os.rename(name + ".part", name)
-        else:
-            resp = self.get(url, headers=hdr)
-            with open(name, "wb") as fh:
-                fh.write(resp.content)
+            else:
+                chunk_size = 65536
+                for chunk in resp.iter_content(chunk_size):
+                    fh.write(chunk)
+        os.rename(name + ".part", name)
 
         set_file_attrs(name, {
             "xdg.origin.url": resp.url,

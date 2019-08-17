@@ -20,9 +20,9 @@ def _http_date_to_unix(text):
 
 def _http_header_param(hdr, param, default=None):
     #email.utils.decode_rfc2231(...)
-    m = email.message.Message()
-    m.set_raw("dummy", hdr)
-    return m.get_param(param, default, "dummy")
+    msg = email.message.Message()
+    msg.set_raw("dummy", hdr)
+    return msg.get_param(param, default, "dummy")
 
 def file_ext(url):
     # throw away HTTP query, anchor

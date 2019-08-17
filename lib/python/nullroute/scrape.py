@@ -22,7 +22,10 @@ def _http_header_param(hdr, param, default=None):
     #email.utils.decode_rfc2231(...)
     msg = email.message.Message()
     msg.set_raw("dummy", hdr)
-    return msg.get_param(param, default, "dummy")
+    val = msg.get_param(param, default, "dummy")
+    if type(val) == tuple:
+        val = email.utils.collapse_rfc2231_value(val)
+    return val
 
 def file_ext(url):
     # throw away HTTP query, anchor

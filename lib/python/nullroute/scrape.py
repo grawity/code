@@ -119,7 +119,7 @@ class Scraper(object):
                 #tokens = email.message._parseparam(hdr)
                 #email.utils.decode_rfc2231(...)
                 msg = email.message.Message()
-                msg._headers = [("content-disposition", hdr)]
+                msg.set_raw("content-disposition", hdr)
                 hdr_name = msg.get_param("filename", "", "content-disposition")
                 Core.trace("got original name: %r", hdr_name)
                 hdr_name = os.path.basename(hdr_name)

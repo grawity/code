@@ -18,6 +18,12 @@ def _http_date_to_unix(text):
     t = email.utils.mktime_tz(t)
     return t
 
+def _http_header_param(hdr, param, default=None):
+    #email.utils.decode_rfc2231(...)
+    msg = email.message.Message()
+    msg.set_raw("dummy", hdr)
+    return msg.get_param(param, default, "dummy")
+
 def file_ext(url):
     # throw away HTTP query, anchor
     if "#" in url:
@@ -116,13 +122,9 @@ class Scraper(object):
             hdr = resp.headers.get("content-disposition")
             if hdr:
                 Core.trace("getting original name from content disposition: %r", hdr)
-                #tokens = email.message._parseparam(hdr)
-                #email.utils.decode_rfc2231(...)
-                msg = email.message.Message()
-                msg.set_raw("content-disposition", hdr)
-                hdr_name = msg.get_param("filename", "", "content-disposition")
-                Core.trace("got original name: %r", hdr_name)
+                hdr_name = _http_header_param(hdr, "filename")
                 hdr_name = os.path.basename(hdr_name)
+                Core.trace("got original name: %r", hdr_name)
                 if hdr_name and not hdr_name.startswith("."):
                     name = os.path.join(os.path.dirname(name), hdr_name)
         with open(name + ".part", "wb") as fh:

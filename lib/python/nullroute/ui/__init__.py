@@ -108,4 +108,5 @@ class Table(object):
             print(buf)
         pass
 
-signal.signal(signal.SIGWINCH, _handle_sigwinch)
+if hasattr(signal, "SIGWINCH"):
+    signal.signal(signal.SIGWINCH, _handle_sigwinch)

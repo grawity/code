@@ -116,9 +116,6 @@ class Scraper(object):
                 num_bytes = resp.headers.get("content-length")
                 if num_bytes is not None:
                     num_bytes = int(num_bytes)
-                else:
-                    Core.debug("response has no size, disabling progress bar")
-                    Core.debug("headers: %r", resp.headers)
                 chunk_size = 1024
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
                                            max_bytes=num_bytes,

@@ -59,6 +59,7 @@ class TagFilter(object):
 
     def filter(self, tags):
         tags = [tag.replace(" ", "_") for tag in tags]
+        Core.debug("tags before translate = %r", tags)
 
         for condtags, oldtag, newtag in self.translate:
             if newtag is None:
@@ -166,6 +167,10 @@ def rename_file_in_dir(dirpath, old_filename, force_md5=False):
         if post_id:
             new_filename = make_filename(api, post_id, None, file_md5,
                                          skip_character_tags=args.no_character_tags)
+            if args.keep_old_name:
+                old_artist, old_suffix = old_filename.split(" ", 1)
+                new_artist, new_suffix = new_filename.split(" ", 1)
+                new_filename = old_artist + " " + new_suffix + " " + old_suffix
             new_filename = file_prefix + new_filename + file_ext
             job.end_rename(new_filename)
         else:
@@ -205,6 +210,7 @@ parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing")
 parser.add_argument("--force", action="store_true", help="Force rename even if filename lacks MD5")
 parser.add_argument("--site", help="Select site")
 parser.add_argument("--no-character-tags", action="store_true", help="Do not add character tags")
+parser.add_argument("--keep-old-name", action="store_true", help="Prefix new tags to current file name")
 args = parser.parse_args()
 
 tag_filter = TagFilter.load_config("booru-tags.conf")

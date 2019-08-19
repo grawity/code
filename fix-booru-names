@@ -97,7 +97,7 @@ def make_filename(api, post_id, original_url=None, file_md5=None, skip_character
         name += ext
     return name
 
-def rename_file_in_dir(dirpath, filename, force_md5=False):
+def rename_file_in_dir(dirpath, old_filename, force_md5=False):
     global args
     global api
 
@@ -109,7 +109,7 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
     fmt_notfound = "\033[38;5;9m%s\033[m"
     fmt_same = "\033[38;5;2m%s\033[m"
 
-    old_path = os.path.join(dirpath, filename)
+    old_path = os.path.join(dirpath, old_filename)
     job = RenameJob(old_path, dry_run=args.dry_run)
     file_md5 = None
     file_prefix = ""
@@ -117,15 +117,15 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
     result_xattr = "%s.id" % args.site
 
     if not file_md5:
-        m = bare_re.match(filename)
+        m = bare_re.match(old_filename)
         Core.trace("match bare_re = %r", m)
         if m and get_file_attr(old_path, result_xattr) == "notfound":
             Core.debug("ignoring %r (cached negative result in %r)", old_path, result_xattr)
             m = None
         if not m and args.site == "danbooru":
-            m = danbooru_new_re.match(filename)
+            m = danbooru_new_re.match(old_filename)
         if not m and args.site == "danbooru":
-            m = danbooru_old_re.match(filename)
+            m = danbooru_old_re.match(old_filename)
         if m:
             file_md5 = m.group(1)
             file_ext = m.group(2)
@@ -135,8 +135,8 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
         if force_md5:
             Core.debug("hashing %r", old_path)
             file_md5 = hash_file(old_path, "md5")
-            _, file_ext = os.path.splitext(filename)
-            m = re.match(r"^(\d+) yande\.re \d+", filename)
+            _, file_ext = os.path.splitext(old_filename)
+            m = re.match(r"^(\d+) yande\.re \d+", old_filename)
             if m:
                 file_prefix = m.group(1) + " "
 

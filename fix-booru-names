@@ -84,8 +84,13 @@ class TagFilter(object):
 
         return ntags
 
-def make_filename(api, post_id, original_url=None, file_md5=None, skip_character_tags=False):
+def make_filename(api, post_id, original_url=None, file_md5=None,
+                  override_artist_tags=None,
+                  skip_character_tags=False):
     tags = api.get_post_tags(post_id)
+    Core.trace("tags: %r", tags)
+    if override_artist_tags:
+        tags["artist"] = override_artist_tags[:]
     tags = api.sort_tags(tags, skip_character_tags)
     if api.ID_PREFIX and not (api.HASH_SUFFIX and file_md5):
         tags.append(api.ID_PREFIX % post_id)
@@ -141,6 +146,16 @@ def rename_file_in_dir(dirpath, old_filename, force_md5=False):
             if m:
                 file_prefix = m.group(1) + " "
 
+    old_artist = None
+    file_md5_override = file_md5
+    if args.keep_old_name:
+        m = re.search(r"(\S+_pixiv\d+)", old_filename)
+        if m:
+            old_artist = [m.group(1)]
+        m = re.search(r"\b(\d+_p\d+)", old_filename)
+        if m:
+            file_md5_override = m.group(1)
+
     if file_md5:
         job.begin()
         post_id = None
@@ -165,12 +180,13 @@ def rename_file_in_dir(dirpath, old_filename, force_md5=False):
                     Core.debug("found post %r from md5 %r" % (post_id, file_md5))
 
         if post_id:
-            new_filename = make_filename(api, post_id, None, file_md5,
+            new_filename = make_filename(api, post_id, None, file_md5_override,
+                                         override_artist_tags=old_artist,
                                          skip_character_tags=args.no_character_tags)
-            if args.keep_old_name:
-                old_artist, old_suffix = old_filename.split(" ", 1)
-                new_artist, new_suffix = new_filename.split(" ", 1)
-                new_filename = old_artist + " " + new_suffix + " " + old_suffix
+            #if args.keep_old_name:
+            #    old_artist, old_suffix = old_filename.split(" ", 1)
+            #    new_artist, new_suffix = new_filename.split(" ", 1)
+            #    new_filename = old_artist + " " + new_suffix + " " + old_suffix
             new_filename = file_prefix + new_filename + file_ext
             job.end_rename(new_filename)
         else:

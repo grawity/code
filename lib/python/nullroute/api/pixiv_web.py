@@ -27,19 +27,7 @@ class PixivWebClient(Scraper):
         self.user_id = None
 
     def _load_token(self):
-        #return self.tc.load_token()
-
-        # TODO: delete after 2019-05-01
-        data = self.tc.load_token()
-        if not data:
-            old_path = Env.find_cache_file("pixiv_web.auth.json")
-            if os.path.exists(old_path):
-                Core.notice("migrating auth token from %r", old_path)
-                with open(old_path, "r") as fh:
-                    data = json.load(fh)
-                self.tc.store_token(data)
-                os.unlink(old_path)
-        return data
+        return self.tc.load_token()
 
     def _store_token(self, token):
         return self.tc.store_token(token)
@@ -81,14 +69,19 @@ class PixivWebClient(Scraper):
                 del os.environ["FORCE_TOKEN_REFRESH"]
                 token_valid = False
             else:
-                token_valid = token["expires"] >= time.time()
+                #token_valid = token["expires"] >= time.time()
+                # Just pretend the cookie is still valid, as it now comes
+                # from the web browser which will keep it active, and we
+                # don't really have any way to get a new one anyway.
+                token_valid = True
+                token["expires"] = int(time.time() + 86400 * 30)
 
             if token_valid:
                 cookie = requests.cookies.create_cookie(**token)
                 Core.debug("loaded cookie: %r", cookie)
                 self.ua.cookies.set_cookie(cookie)
                 if self._validate():
-                    cookie.expires = int(time.time() + (86400 * 30))
+                    cookie.expires = int(time.time() + 86400 * 30)
                     Core.debug("updating cookie: %r", cookie)
                     self._store_token(serialize_cookie(cookie))
                     return True

@@ -1,3 +1,4 @@
+import email.message
 import email.utils
 import http.cookiejar
 from nullroute.core import *
@@ -16,6 +17,15 @@ def _http_date_to_unix(text):
     t = email.utils.parsedate_tz(text)
     t = email.utils.mktime_tz(t)
     return t
+
+def _http_header_param(hdr, param, default=None):
+    #email.utils.decode_rfc2231(...)
+    msg = email.message.Message()
+    msg.set_raw("dummy", hdr)
+    val = msg.get_param(param, default, "dummy")
+    if type(val) == tuple:
+        val = email.utils.collapse_rfc2231_value(val)
+    return val
 
 def file_ext(url):
     # throw away HTTP query, anchor
@@ -96,7 +106,7 @@ class Scraper(object):
     def save_file(self, url, name=None, referer=None,
                              output_dir=None, clobber=False,
                              progress=False, save_msg=None,
-                             keep_mtime=False):
+                             keep_name=False, keep_mtime=False):
         if not name:
             name = os.path.basename(url)
         if output_dir:
@@ -110,25 +120,31 @@ class Scraper(object):
 
         hdr = {"Referer": referer or url}
 
-        if progress:
-            resp = self.get(url, headers=hdr, stream=True)
-            with open(name + ".part", "wb") as fh:
+        resp = self.get(url, headers=hdr, stream=True)
+        if keep_name:
+            hdr = resp.headers.get("content-disposition")
+            if hdr:
+                Core.trace("getting original name from content disposition: %r", hdr)
+                hdr_name = _http_header_param(hdr, "filename")
+                hdr_name = os.path.basename(hdr_name)
+                Core.trace("got original name: %r", hdr_name)
+                if hdr_name and not hdr_name.startswith("."):
+                    name = os.path.join(os.path.dirname(name), hdr_name)
+        with open(name + ".part", "wb") as fh:
+            if progress:
                 num_bytes = resp.headers.get("content-length")
                 if num_bytes is not None:
                     num_bytes = int(num_bytes)
-                else:
-                    Core.debug("response has no size, disabling progress bar")
-                    Core.debug("headers: %r", resp.headers)
                 chunk_size = 1024
                 for chunk in _progress_bar(resp.iter_content(chunk_size),
                                            max_bytes=num_bytes,
                                            chunk_size=chunk_size):
                     fh.write(chunk)
-            os.rename(name + ".part", name)
-        else:
-            resp = self.get(url, headers=hdr)
-            with open(name, "wb") as fh:
-                fh.write(resp.content)
+            else:
+                chunk_size = 65536
+                for chunk in resp.iter_content(chunk_size):
+                    fh.write(chunk)
+        os.rename(name + ".part", name)
 
         set_file_attrs(name, {
             "xdg.origin.url": resp.url,

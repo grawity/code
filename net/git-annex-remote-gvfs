@@ -12,12 +12,10 @@
 #
 #   type=external
 #   externaltype=gvfs
-#   mount=smb://<host>/<share>
-#   path=/<dir>
+#   path=smb://<host>/<share>/<dir>
+#   path=sftp://<host>/<dir>
 #
-# The 'mount' parameter must be something that `gio mount` or `gvfs-mount` accepts.
-#
-# Only tested with smb:// but in theory any gvfs-provided filesystem should work.
+# Only tested with smb:// and sftp://, but in theory any gvfs-provided filesystem should work.
 #
 # Chunking is not supported.
 
@@ -249,8 +247,21 @@ class AnnexGvfsBackend(AnnexBackend):
     """
     def __init__(self, *args):
         super().__init__(*args)
+
+        # It turns out that current `gio mount` does in fact accept complete URIs,
+        # not just the "mountable" prefixes. This allows a single parameter to be
+        # used for everything, like in a normal GNOME app.
+
+        self._base = self._annex.get_config("uri")
+        if not self._base:
+            self._base = self._annex.get_config("path")
+
         self._volume = self._annex.get_config("mount")
-        self._base = self._annex.get_config("path")
+        if not self._volume:
+            self._volume = self._base
+        elif self._volume == "none":
+            self._volume = None
+
         self.error = None
         self.gvfs = GvfsClient()
         self._mounted = False

@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 
-for fs in fs1; do
-	ssh $fs.nullroute.eu.org "df -h pub/$fs" \
-	| sed 1d \
-	| awk -v fs=$fs '{ printf "%s: %5s out of %s free (%s of %s used)\n",
-			fs, $4, $2, $5, $1 }'
+if [[ $1 == -a ]]; then
+	set -- wolke sky star ember virgule
+elif ! (( $# )); then
+	set -- fs1
+fi
+
+for host; do
+	if [[ $host == fs* ]]; then
+		dir=pub/$host
+	else
+		dir=\~
+	fi
+	ssh $host.nullroute.eu.org "df -h $dir" \
+	| awk -v host=$host 'NR > 1 { printf "%-8s %4s out of %s free (%s of %s used)\n",
+					host ":", $4, $2, $5, $1 }'
 done

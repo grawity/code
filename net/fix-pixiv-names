@@ -81,9 +81,21 @@ class PixivRenamer():
     def get_fanbox_post_number(self, fanbox_id, image_id):
         self.init_web_client()
         resp = self.web.get_fanbox_post(fanbox_id)
-        for i, img in enumerate(resp["body"]["images"]):
-            if img["id"] == image_id:
-                return "fanbox%s_p%s" % (resp["id"], i)
+        if "images" in resp["body"]:
+            # image-only posts
+            for i, img in enumerate(resp["body"]["images"]):
+                if img["id"] == image_id:
+                    return "fanbox%s_p%s" % (resp["id"], i)
+        elif "blocks" in resp["body"]:
+            # mixed text/image posts
+            blocks = resp["body"]["blocks"]
+            blocks = [b for b in blocks if b["type"] == "image"]
+            for i, blk in enumerate(blocks):
+                if blk["imageId"] == image_id:
+                    return "fanbox%s_p%s" % (resp["id"], i)
+        else:
+            pprint(resp)
+            raise ValueError("post %r has no 'images' array: %r" % (fanbox_id, resp["body"]))
         raise ValueError("could not find image ID %r in fanbox post %r" % (image_id, fanbox_id))
 
     def rename_file_in_dir(self, dirpath, filename):
@@ -91,7 +103,7 @@ class PixivRenamer():
         job = RenameJob(old_path, self.dry_run)
 
         if re.search(r"_pixiv\d+", filename):
-            Core.debug("skip %r: found '_pixiv' in name", filename)
+            Core.trace("skip %r: found '_pixiv' in name", filename)
             return
 
         member_id = None
@@ -105,9 +117,13 @@ class PixivRenamer():
         current = prefix
 
         name, ext = filename.rsplit(".", 1)
-        name = name.split()
+        # preserve possible second extension (like .conv)
+        m = re.match(r"^(.+)\.([a-z]{1,5})$", name)
+        if m:
+            name = m.group(1)
+            ext = m.group(2) + "." + ext
 
-        for word in name:
+        for word in name.split():
             m = re.match(r"^(.*)_pixiv(\d+)$", word)
             if m:
                 member_id = int(m.group(1))

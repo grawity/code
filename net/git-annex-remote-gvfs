@@ -1,23 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # git-annex-remote-gvfs - a Gvfs/Gio backend for git-annex
 #
-# (c) 2016-2017 Mantas Mikulėnas <grawity@gmail.com>
+# (c) 2016-2019 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)
 #
 # Sadly Gvfs only has a GTK password prompt, not a textual one, and therefore
 # requires X11 or Wayland. It *does not* require GNOME, though, and will work
-# with any desktop of your choice.
+# with any desktop of your choice. (If you use a GUI file manager to make the
+# initial connection and ensure the password is saved in keyring, it *might*
+# even work without GUI afterwards.)
 #
 # Parameters to initremote:
 #
 #   type=external
 #   externaltype=gvfs
-#   mount=smb://<host>/<share>
-#   path=/<dir>
+#   path=smb://<host>/<share>/<dir>
+#   path=sftp://<host>/<dir>
 #
-# The 'mount' parameter must be something that `gio mount` or `gvfs-mount` accepts.
-#
-# Only tested with smb:// but in theory any gvfs-provided filesystem should work.
+# Only tested with smb:// and sftp://, but in theory any gvfs-provided
+# filesystem should work.
 #
 # Chunking is not supported.
 
@@ -249,13 +250,27 @@ class AnnexGvfsBackend(AnnexBackend):
     """
     def __init__(self, *args):
         super().__init__(*args)
+
+        # It turns out that current `gio mount` does in fact accept complete URIs,
+        # not just the "mountable" prefixes. This allows a single parameter to be
+        # used for everything, like in a normal GNOME app.
+
+        self._base = self._annex.get_config("uri")
+        if not self._base:
+            self._base = self._annex.get_config("path")
+
         self._volume = self._annex.get_config("mount")
-        self._base = self._annex.get_config("path")
+        if not self._volume:
+            self._volume = self._base
+        elif self._volume == "none":
+            self._volume = None
+
         self.error = None
         self.gvfs = GvfsClient()
         self._mounted = False
 
     def path_to_uri(self, path):
+        assert(path[0] != "/")
         return os.path.join(self._base, path)
 
     def prepare(self):
@@ -299,7 +314,7 @@ class AnnexGvfsBackend(AnnexBackend):
     def has_repo(self):
         if not self.mount():
             return False
-        return self.gvfs._has_file(self._base)
+        return self.gvfs.has_file(self._base)
 
     def _has_file(self, path):
         if not self.mount():
@@ -388,8 +403,8 @@ def is_parent_of(a, b):
     """
     Check whether 'a' is a parent directory of 'b'.
     """
-    if not a.endswith("/"):
-        a += "/"
+    a = a.rstrip("/") + "/"
+    b = b.rstrip("/") + "/"
     return b.startswith(a)
 
 annex = AnnexStdio()

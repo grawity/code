@@ -297,7 +297,10 @@ if __name__ == "__main__":
                     qpath = escape_shell(path) if opts.quote else path
                     if num > 1 and path_is_removable(path):
                         print("   \033[1m\033[38;5;9m×\033[m", qpath)
-                        os.unlink(path)
+                        try:
+                            os.unlink(path)
+                        except FileNotFoundError:
+                            Core.notice("file %r already gone during unlink", path)
                         files_removed += 1
                         size_removed += size
                         num -= 1

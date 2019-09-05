@@ -493,6 +493,61 @@ sub ls {
 	return @files;
 }
 
+sub untrash_last {
+	my @infos;
+
+	my $home_trash = find_home_trash();
+
+	for my $trash_dir ($home_trash) {
+		_debug("searching trash '$trash_dir'");
+		if (!-d "$trash_dir/info" || !-d "$trash_dir/files") {
+			_debug("trash directory does not exist, skipping");
+			next;
+		}
+
+		my $vol_root = find_root($trash_dir);
+		_debug("volume root: '$vol_root'");
+
+		for my $info_path (sort + ls("$trash_dir/info", qr/\.trashinfo$/)) {
+			_debug("examining '$info_path'");
+			my $info = read_info($info_path);
+			if (!$info) {
+				next;
+			}
+			_debug("  Path: $info->{orig}");
+
+			if ($trash_dir ne $home_trash) {
+				if (file_name_is_absolute($info->{orig})) {
+					_warn("absolute Path= in '$info_path' is not permitted outside home, skipping");
+					next;
+				}
+				$info->{orig} = catdir($vol_root, $info->{orig});
+				_debug("  full: $info->{orig}");
+			}
+
+			_debug("found \"$info->{orig}\" time $info->{date}");
+			push @infos, $info;
+		}
+	}
+
+	if (!@infos) {
+		_err("no matching files in trash");
+		return;
+	}
+
+	@infos = sort {$b->{date} <=> $a->{date}} @infos;
+	_debug("candidate: $_->{date} (".interval($_->{date}).") $_->{info}") for $infos[0];
+
+	my $info = $infos[0];
+	my $age = interval($info->{date});
+	if (@infos == 1) {
+		_info("found one matching file ($age ago), restoring");
+	} else {
+		_info("found ".@infos." files, restoring most recent ($age ago)");
+	}
+	restore_from_info($info);
+}
+
 sub untrash {
 	my ($path) = @_;
 	_debug("trying to recover path='$path'");
@@ -602,6 +657,7 @@ my $opt_du = 0;
 my $opt_empty = 0;
 my $print_path = 0;
 my $restore = 0;
+my $restore_last = 0;
 
 GetOptions(
 	'help'		=> sub { usage(); exit; },
@@ -612,6 +668,7 @@ GetOptions(
 	'i|interactive!'=> \$interactive,
 	'quiet!'	=> \$quiet,
 	'restore!'	=> \$restore,
+	'restore-last!'	=> \$restore_last,
 	'r|R|recursive'	=> sub { },
 	'v|verbose!'	=> \$verbose,
 ) or exit 2;
@@ -628,13 +685,16 @@ if ($opt_du) {
 }
 
 if (!@ARGV) {
-	_die("no files given");
+	_die("no files given") unless $restore_last;
 }
 
 # Main code
 
 if ($print_path) {
 	say find_trash_dir(my_abs_path($_)) // "(not found?)" for @ARGV;
+} elsif ($restore_last) {
+	untrash_last();
+	_info("restored $count files") if (!$verbose && !$quiet);
 } elsif ($restore) {
 	untrash($_) for @ARGV;
 	_info("restored $count files") if (!$verbose && !$quiet);

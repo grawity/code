@@ -16,6 +16,7 @@ class ProgressBar():
         self.throttle = 0.1
         self._first_in = 0
         self._last_out = 0
+        self._last_val = 0
 
     def print(self):
         cur_fmt = self._fmt_func(self.cur_value)
@@ -31,6 +32,13 @@ class ProgressBar():
             cur_width = tmp - abs(self.num_incrs % (tmp * 2) - tmp)
             bar = space * cur_width + ship + space * (tmp - cur_width)
             bar = " ??%% [%s] %s" % (bar, cur_fmt)
+
+        if self._last_out and self._fmt_func == fmt_size_short:
+            Δtime = time.time() - self._last_out
+            Δvalue = self.cur_value - self._last_val
+            speed = self._fmt_func(Δvalue/Δtime)
+            bar += " (at ~%s/s)" % speed
+
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
     def incr(self, delta):
@@ -46,6 +54,7 @@ class ProgressBar():
            now - self._last_out >= self.throttle:
             self.print()
             self._last_out = now
+            self._last_val = self.cur_value
 
     def end(self, hide=False):
         print("\033[K" if hide else "\n", end="", file=self.output_fh, flush=True)

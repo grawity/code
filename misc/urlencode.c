@@ -166,7 +166,7 @@ static void process(FILE *fp, char *fh) {
 		if (do_decode)
 			decode(fp, fh, '\\');
 		else
-			encode_gen(fp, fh);
+			encode_url(fp, fh);
 	} else {
 		if (do_decode)
 			decode(fp, fh, '%');

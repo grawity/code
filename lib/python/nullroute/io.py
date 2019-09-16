@@ -124,7 +124,7 @@ class SshBinaryWriter(BinaryWriter):
         return sef._write_fmt("?", "bool", val)
 
     def write_uint32(self, val):
-        return self.write_u32_be()
+        return self.write_u32_be(val)
 
     def write_string(self, buf):
         return self.write_u32_be(len(buf)) and self.write(buf)

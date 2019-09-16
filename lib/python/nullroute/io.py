@@ -57,6 +57,9 @@ class SshBinaryReader(BinaryReader):
     def read_bool(self):
         return self._read_fmt(1, "?", "bool")
 
+    def read_byte(self):
+        return self.read_u8()
+
     def read_uint32(self):
         return self.read_u32_be()
 
@@ -122,6 +125,9 @@ class BinaryWriter():
 class SshBinaryWriter(BinaryWriter):
     def write_bool(self, val):
         return sef._write_fmt("?", "bool", val)
+
+    def write_byte(self, val):
+        return self.write_u8(val)
 
     def write_uint32(self, val):
         return self.write_u32_be(val)

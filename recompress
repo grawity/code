@@ -31,11 +31,19 @@ if [[ $1 =~ ^[0-9]+% ]]; then
 	shift
 fi
 
-if (( $# )); then
-	infiles=("$@")
-else
+if (( ! $# )); then
 	die 0 "no input files specified"
 fi
+
+for arg; do
+	if [[ ! -e $arg ]]; then
+		warn "input file '$arg' does not exist"
+	elif [[ $arg =~ \.conv\.[^.]+$ ]]; then
+		notice "skipping already converted file '$arg'"
+	else
+		infiles+=("$arg")
+	fi
+done
 
 if (( quality < 50 || quality > 100 )); then
 	die "invalid quality value '$quality'"

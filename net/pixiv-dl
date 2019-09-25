@@ -20,6 +20,7 @@ class PixivGrabber():
     bigpage_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga_big)&illust_id=(?P<id>\d+)&page=(?P<page>\d+)")
     pximg_re = re.compile(r"https?://i\.pximg\.net/img.*/(?P<id>\d+)_p(?P<page>\d+)\.\w+")
     fanbox_post_re = re.compile(r"https://www.pixiv.net/fanbox/creator/\d+/post/(?P<id>\d+)")
+    fanbox_img_re = re.compile(r"https://fanbox.pixiv.net/images/post/(?P<id>\d+)/(?P<img>[^.?#]+)")
 
     def __init__(self):
         self.pixiv = PixivClient()
@@ -126,7 +127,7 @@ class PixivGrabber():
                 self._save_work(work)
             start_page = works_r.pagination.next
 
-    def save_fanbox_post(self, post_id):
+    def save_fanbox_post(self, post_id, only_img_ids=None):
         self.init_web_client()
         post = self.web.get_fanbox_post(post_id)
         Core.info("downloading fanbox post: %s ｢%s｣" % (post["id"], post["title"]))
@@ -150,6 +151,9 @@ class PixivGrabber():
                 pprint.pprint(post)
                 raise
         for i, img in enumerate(images):
+            if only_img_ids and img["id"] not in only_img_ids:
+                Core.debug("- image %r not in wanted %r", img, only_img_ids)
+                continue
             url = img["originalUrl"]
             filename = "%s fanbox%s_p%s %s" % (prefix, post["id"], i,
                                                os.path.basename(url))
@@ -196,6 +200,13 @@ for arg in args:
     if m:
         post_id = int(m.group("id"))
         c.save_fanbox_post(post_id)
+        continue
+
+    m = c.fanbox_img_re.match(arg)
+    if m:
+        post_id = int(m.group("id"))
+        img_id = m.group("img")
+        c.save_fanbox_post(post_id, {img_id})
         continue
 
     try:

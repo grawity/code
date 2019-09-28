@@ -18,9 +18,9 @@ def to_crlf(s):
 def from_crlf(s):
     return s.replace("\r\n", "\n")
 
-def write_id3(file, lyrics):
+def write_id3(file, lyrics, lang="eng"):
     tag = mutagen.mp3.MP3(file)
-    atom = u"USLT::'eng'"
+    atom = "USLT::%s" % lang
     if lyrics is None:
         if atom in tag:
             del tag[atom]
@@ -28,17 +28,18 @@ def write_id3(file, lyrics):
         tag[atom] = mutagen.id3.USLT()
         tag[atom].text = lyrics
         tag[atom].encoding = 1
-        tag[atom].lang = "eng"
-        tag[atom].desc = u""
+        tag[atom].lang = lang
+        tag[atom].desc = ""
     Core.info("writing %s" % file)
     tag.save()
 
 def read_id3(file):
     tag = mutagen.mp3.MP3(file)
-    try:
-        return tag[u"USLT::'eng'"].text
-    except KeyError:
-        return None
+    for key in tag.keys():
+        if key.startswith("USLT:"):
+            Core.debug("returning lyrics tag %r", key)
+            return tag[key].text
+    return None
 
 mode = None
 lyricsfile = None

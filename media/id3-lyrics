@@ -41,6 +41,14 @@ def read_id3(file):
             return tag[key].text
     return None
 
+def strip_id3(file):
+    tag = mutagen.mp3.MP3(file)
+    for key in [*tag.keys()]:
+        if key.startswith("USLT:"):
+            Core.debug("removing lyrics tag %r", key)
+            del tag[key]
+    tag.save()
+
 mode = None
 lyricsfile = None
 verbose = False
@@ -72,6 +80,7 @@ if mode == "input":
     lyrics = f.read()
     lyrics = to_crlf(lyrics)
     for file in audiofiles:
+        strip_id3(file)
         write_id3(file, lyrics)
 elif mode == "output":
     if lyricsfile is None:
@@ -85,6 +94,6 @@ elif mode == "output":
             sys.stdout.write(lyrics)
 elif mode == "kill":
     for file in audiofiles:
-        write_id3(file, None)
+        strip_id3(file)
 else:
     Core.die("BUG: bad mode %r" % mode)

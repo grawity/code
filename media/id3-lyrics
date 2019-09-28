@@ -18,8 +18,7 @@ def to_crlf(s):
 def from_crlf(s):
     return s.replace("\r\n", "\n")
 
-def write_id3(file, lyrics, lang="eng"):
-    tag = mutagen.mp3.MP3(file)
+def write_id3(tag, lyrics, lang="eng"):
     atom = "USLT::%s" % lang
     if lyrics is None:
         if atom in tag:
@@ -30,24 +29,19 @@ def write_id3(file, lyrics, lang="eng"):
         tag[atom].encoding = 1
         tag[atom].lang = lang
         tag[atom].desc = ""
-    Core.info("writing %s" % file)
-    tag.save()
 
-def read_id3(file):
-    tag = mutagen.mp3.MP3(file)
+def read_id3(tag):
     for key in tag.keys():
         if key.startswith("USLT:"):
             Core.debug("returning lyrics tag %r", key)
             return tag[key].text
     return None
 
-def strip_id3(file):
-    tag = mutagen.mp3.MP3(file)
+def strip_id3(tag):
     for key in [*tag.keys()]:
         if key.startswith("USLT:"):
             Core.debug("removing lyrics tag %r", key)
             del tag[key]
-    tag.save()
 
 mode = None
 lyricsfile = None
@@ -79,21 +73,28 @@ if mode == "input":
         f = open(lyricsfile, "r")
     lyrics = f.read()
     lyrics = to_crlf(lyrics)
-    for file in audiofiles:
+    for path in audiofiles:
+        Core.info("writing %s", path)
+        file = mutagen.mp3.MP3(path)
         strip_id3(file)
         write_id3(file, lyrics)
+        file.save()
 elif mode == "output":
     if lyricsfile is None:
         f = sys.stdout
     else:
         f = open(lyricsfile, "w")
-    for file in audiofiles:
+    for path in audiofiles:
+        file = mutagen.mp3.MP3(path)
         lyrics = read_id3(file)
         if lyrics:
             lyrics = from_crlf(lyrics)
             sys.stdout.write(lyrics)
 elif mode == "kill":
-    for file in audiofiles:
+    for path in audiofiles:
+        Core.info("writing %s", path)
+        file = mutagen.mp3.MP3(path)
         strip_id3(file)
+        file.save()
 else:
     Core.die("BUG: bad mode %r" % mode)

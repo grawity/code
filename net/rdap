@@ -7,6 +7,12 @@ import re
 import requests
 import sys
 
+def strip_ipv4_leading_zeros(v):
+    # Strip leading zeroes from IP addresses.
+    # >>> strip_ipv4_leading_zeros("192.000.002.001")
+    # "192.0.2.1"
+    return ".".join([str(int(o, 10)) for o in v.split(".")])
+
 def range_from_str(s):
     # we assume no negative numbers
     x = s.split("-")
@@ -120,12 +126,12 @@ def format_vcard(vc):
                        "key": "vcard",
                        "value": repr(i),
                        "nest": 1}
-
-def fix_ipv4_lzero(v):
-    return ".".join([str(int(o, 10)) for o in v.split(".")])
+    else:
+        raise Exception("unrecognized structure %r" % vc)
 
 def format_object(obj):
     seen_keys = set()
+    seen_keys |= {"rdapConformance", "port43"}
 
     self_url = None
     if "links" in obj:
@@ -134,14 +140,14 @@ def format_object(obj):
                 self_url = l["href"]
 
     res_type = obj["objectClassName"]
-    seen_keys |= {"objectClassName"}
+    seen_keys.add("objectClassName")
 
     for k in ["handle", "ldhName"]:
         if k in obj:
             yield {"row": "kvpair",
                    "key": res_type,
                    "value": obj[k],
-                   "header": True}
+                   "is_header": True}
             seen_keys.add(k)
 
     for k in ["name", "type", "roles", "status",
@@ -150,7 +156,7 @@ def format_object(obj):
         if k in obj:
             v = obj[k]
             if k in {"startAddress", "endAddress"} and ":" not in v:
-                v = fix_ipv4_lzero(v)
+                v = strip_ipv4_leading_zeros(v)
             yield {"row": "kvpair",
                    "key": k,
                    "value": v}
@@ -181,9 +187,25 @@ def format_object(obj):
     for k in obj:
         if k in seen_keys:
             continue
-        elif k in {"entities",
-                    "lang",
-                    "links", "port43", "notices", "rdapConformance"}:
+        elif k == "notices":
+            for l in obj[k]:
+                if l["title"] in {
+                    "Filtered",
+                    "Source",
+                    "Terms and Conditions",
+                }:
+                    continue
+                yield {"row": "kvpair",
+                       "key": "notice",
+                       "value": l["title"]+": "+" ".join(l["description"])}
+        elif k == "links":
+            for l in obj[k]:
+                if l["rel"] in {"copyright", "self"}:
+                    continue
+                yield {"row": "kvpair",
+                       "key": "link",
+                       "value": l["rel"]+": "+l["href"]}
+        elif k in {"entities"}:
             continue
         else:
             yield {"row": "kvpair",
@@ -194,7 +216,6 @@ def format_object(obj):
         for ent in obj["entities"]:
             yield from format_object(ent)
 
-
 def print_object(data):
     #pprint(data)
     for i in format_object(data):
@@ -202,7 +223,7 @@ def print_object(data):
         if i["row"] == "kvpair":
             k = i["key"]
             v = i["value"]
-            if i.get("header"):
+            if i.get("is_header"):
                 print()
                 k = k.upper()
             kl = f"{k}:"

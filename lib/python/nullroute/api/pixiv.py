@@ -54,6 +54,7 @@ class PixivApiClient():
 
         data = self._load_token()
         if data:
+            Core.trace("loaded token: %r", data)
             if os.environ.get("FORCE_TOKEN_REFRESH"):
                 token_valid = False
             else:
@@ -69,9 +70,10 @@ class PixivApiClient():
                 Core.debug("access token has expired, renewing")
                 try:
                     token = self.api.auth(refresh_token=data["refresh_token"])
+                    Core.trace("retrieved token: %r", token)
                 except Exception as e:
                     Core.warn("could not refresh access token: %r", e)
-                    self._forget_token()
+                    #self._forget_token()
                 else:
                     self._store_token(token)
                     return True
@@ -95,6 +97,7 @@ class PixivApiClient():
 
     @lru_cache(maxsize=1024)
     def get_illust_info(self, illust_id):
+        Core.trace("calling api.works(illust_id=%r)", illust_id)
         resp = self.api.works(illust_id)
         if resp["status"] == "success":
             return resp["response"][0]
@@ -103,6 +106,7 @@ class PixivApiClient():
 
     @lru_cache(maxsize=1024)
     def get_member_info(self, member_id):
+        Core.trace("calling api.users(member_id=%r)", member_id)
         resp = self.api.users(member_id)
         if resp["status"] == "success":
             return resp["response"][0]

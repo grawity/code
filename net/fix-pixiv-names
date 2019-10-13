@@ -129,7 +129,7 @@ class PixivRenamer():
                 member_id = int(m.group(1))
                 member_tag = [word]
                 continue
-            m = re.match(r"^(\d+)_(p\d+|delays|ugoira\d+x\d+)$", word)
+            m = re.match(r"^(\d+)_(p\d+|delays|ugoira\d+x\d+(?:@\d+)?)$", word)
             if m:
                 illust_id = int(m.group(1))
                 illust_tag = [word]
@@ -143,6 +143,11 @@ class PixivRenamer():
                 continue
             m = re.match(r"^\(\d\)$", word)
             if m:
+                continue
+            m = re.match(r"^(\d{5,})$", word)
+            if m and ext == "webm":
+                illust_id = int(m.group(1))
+                illust_tag = [word]
                 continue
             if current is fanbox_tag:
                 m = re.match(r"^\w{24}$", word)

@@ -78,12 +78,18 @@ class PixivGrabber():
         }
 
         if work.type == "ugoira":
+            delays = [frame.delay_msec for frame in work.metadata.frames]
+            n_delays = len({*delays})
+            if n_delays > 1:
+                with open("%s_delays.json" % work.id, "w") as fh:
+                    fh.write(json.dumps(delays))
             for size, url in work.metadata.zip_urls.items():
                 Core.info("- saving zip %r" % size)
-                self.save_file(url, attrs=attrs)
-            with open("%s_delays.txt" % work.id, "w") as fh:
-                delays = [frame.delay_msec for frame in work.metadata.frames]
-                fh.write(json.dumps(delays))
+                zip_file = os.path.basename(url)
+                if n_delays == 1:
+                    a, b = zip_file.rsplit(".", 1)
+                    zip_file = "%s@%s.%s" % (a, delays[0], b)
+                self.save_file(url, zip_file, attrs=attrs)
         elif work.is_manga:
             Core.debug("- page whitelist %r" % only_pages)
             for j, page in enumerate(work.metadata.pages):

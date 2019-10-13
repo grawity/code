@@ -84,11 +84,13 @@ class PixivGrabber():
                 with open("%s_delays.json" % work.id, "w") as fh:
                     fh.write(json.dumps(delays))
             for size, url in work.metadata.zip_urls.items():
-                Core.info("- saving zip %r" % size)
-                zip_file = os.path.basename(url)
+                assert(size.startswith("ugoira"))
+                assert(url.endswith(".zip"))
                 if n_delays == 1:
-                    a, b = zip_file.rsplit(".", 1)
-                    zip_file = "%s@%s.%s" % (a, delays[0], b)
+                    zip_file = "%s_%s@%s.zip" % (work.id, size, delays[0])
+                else:
+                    zip_file = "%s_%s.zip" % (work.id, size)
+                Core.info("- saving %r" % zip_file)
                 self.save_file(url, zip_file, attrs=attrs)
         elif work.is_manga:
             Core.debug("- page whitelist %r" % only_pages)

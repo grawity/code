@@ -624,18 +624,20 @@ if (( dump_config )); then
 		cat "$conf"
 	fi
 	notice "dumping generated config and exiting"
-elif "${cmd[@]}"; then
-	r=0
-	log "test successful"
 else
-	r=$?
-	err "test failed ($cmd returned $r)"
-fi
+	if "${cmd[@]}"; then
+		r=0
+		log "test successful"
+	else
+		r=$?
+		err "test failed ($cmd returned $r)"
+	fi
 
-if [[ -s $save_chain ]]; then
-	log "server certificate chain saved to '$save_chain'"
-elif [[ $save_chain ]]; then
-	err "did not obtain server certificate chain"
+	if [[ -s $save_chain ]]; then
+		log "server certificate chain saved to '$save_chain'"
+	elif [[ $save_chain ]]; then
+		err "did not obtain server certificate chain"
+	fi
 fi
 
 if [[ $wd == /tmp/testrad.* ]]; then

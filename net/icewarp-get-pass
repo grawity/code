@@ -40,11 +40,16 @@ class ComProxy(object):
 
 server = "mail.utenos-kolegija.lt"
 default_domain = "utenos-kolegija.lt"
+terse = False
 
 try:
     api = nullroute.icewarp.connect(server)
 except KeyError as e:
     Core.die(e.args[0])
+
+if sys.argv[1] == "-q":
+    terse = True
+    sys.argv.pop(1)
 
 for arg in sys.argv[1:]:
     if "@" in arg:
@@ -56,4 +61,7 @@ for arg in sys.argv[1:]:
         passwd = api_acct.GetProperty("U_Password")
     else:
         passwd = "(no account)"
-    print(arg, passwd)
+    if terse:
+        print(passwd)
+    else:
+        print(arg, passwd)

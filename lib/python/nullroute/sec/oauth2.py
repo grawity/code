@@ -16,17 +16,14 @@ class OAuth2Client():
         self.authorization_url = authorization_url
         self.token_grant_url = token_grant_url
         self.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
-        self._discovery_data = None
 
     def _discover_endpoints(self):
         if not self.discovery_url:
             raise ValueError("either discovery URL or endpoint URLs must be specified")
-        if not self._discovery_data:
-            Core.debug("fetching discovery document %r", self.discovery_url)
-            response = urllib.request.urlopen(self.discovery_url).read()
-            response = json.loads(response)
-            Core.debug("response data: %r", response)
-            self._discovery_data = response
+        Core.debug("fetching discovery document %r", self.discovery_url)
+        response = urllib.request.urlopen(self.discovery_url).read()
+        response = json.loads(response)
+        Core.debug("response data: %r", response)
         if not self.authorization_url:
             self.authorization_url = response["authorization_endpoint"]
         if not self.token_grant_url:

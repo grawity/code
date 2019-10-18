@@ -7,15 +7,34 @@ import urllib.request
 class OAuth2Client():
     def __init__(self, client_id,
                        client_secret=None,
+                       discovery_url=None,
                        authorization_url=None,
                        token_grant_url=None):
         self.client_id = client_id
         self.client_secret = client_secret
+        self.discovery_url = discovery_url
         self.authorization_url = authorization_url
         self.token_grant_url = token_grant_url
         self.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+        self._discovery_data = None
+
+    def _discover_endpoints(self):
+        if not self.discovery_url:
+            raise ValueError("either discovery URL or endpoint URLs must be specified")
+        if not self._discovery_data:
+            Core.debug("fetching discovery document %r", self.discovery_url)
+            response = urllib.request.urlopen(self.discovery_url).read()
+            response = json.loads(response)
+            Core.debug("response data: %r", response)
+            self._discovery_data = response
+        if not self.authorization_url:
+            self.authorization_url = response["authorization_endpoint"]
+        if not self.token_grant_url:
+            self.token_grant_url = response["token_endpoint"]
 
     def make_authorization_url(self, scope):
+        if not self.authorization_url:
+            self._discover_endpoints()
         params = {"client_id": self.client_id,
                   "response_type": "code",
                   "redirect_uri": self.redirect_uri,
@@ -27,6 +46,8 @@ class OAuth2Client():
         return "%s?%s" % (self.authorization_url, params)
 
     def _grant_token(self, params):
+        if not self.token_grant_url:
+            self._discover_endpoints()
         Core.debug("token grant URL: %r", self.token_grant_url)
         post_data = {"client_id": self.client_id,
                      "client_secret": self.client_secret,

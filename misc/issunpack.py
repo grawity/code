@@ -137,7 +137,7 @@ class ISSetupStreamReader(BinaryReader):
             assert(data[0:2] == b'\x78\x9c')
             data = zlib.decompress(data)
 
-        return (file_name, file_data)
+        return (file_name, data)
 
     def extract_all(self, dir="."):
         (num_files,) = self.read_iss_header()

@@ -1,6 +1,15 @@
 import math
 import re
 
+ALPHABET_BASE36_TS6 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+def int_to_base(num, base, alphabet):
+    res = ""
+    while num:
+        res += alphabet[num % base]
+        num //= base
+    return res[::-1] or alphabet[0]
+
 def escape_html(text):
     xlat = [
         ('&', '&amp;'),

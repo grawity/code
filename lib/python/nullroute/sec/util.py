@@ -51,8 +51,22 @@ class TokenCache(object):
                                        "protocol": self.TOKEN_PROTO})
 
     def _load_token_libsecret(self):
-        data = nullroute.sec.get_libsecret(self.match_fields)
-        return json.loads(data)
+        if self.user_name:
+            try:
+                data = nullroute.sec.get_libsecret(self.match_fields)
+                return json.loads(data)
+            except KeyError:
+                Core.debug("entry not found; retrying without username")
+                old_match_fields = {**self.match_fields}
+                del old_match_fields["username"]
+                data = nullroute.sec.get_libsecret(old_match_fields)
+                Core.debug("migrating entry to add username field")
+                nullroute.sec.clear_libsecret(old_match_fields)
+                self._store_token_libsecret(json.loads(data))
+                return json.loads(data)
+        else:
+            data = nullroute.sec.get_libsecret(self.match_fields)
+            return json.loads(data)
 
     def _clear_token_libsecret(self):
         nullroute.sec.clear_libsecret(self.match_fields)
@@ -78,6 +92,7 @@ class TokenCache(object):
         try:
             return self._load_token_libsecret()
         except KeyError:
+            Core.debug("not found in libsecret; trying filesystem")
             try:
                 return self._load_token_file()
             except FileNotFoundError:

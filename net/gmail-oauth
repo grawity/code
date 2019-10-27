@@ -109,7 +109,8 @@ def main(argv):
                           **google_endpoints)
 
     token_cache = OAuthTokenCache("mail.google.com",
-                                  display_name="Gmail")
+                                  display_name="Gmail",
+                                  user_name=args.user)
 
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user", "access-token")
@@ -173,7 +174,7 @@ def main(argv):
 
     elif args.authorize:
         require_args(args, "client-id", "client-secret")
-        decline_args(args, "user", "access-token")
+        decline_args(args, "access-token")
 
         url = client.make_authorization_url(args.scope or "https://mail.google.com/")
         if args.quiet:
@@ -195,7 +196,7 @@ def main(argv):
             token_cache.store_token(data)
 
     else:
-        decline_args(args, "user", "access-token", "scope", "authorization-code")
+        decline_args(args, "access-token", "scope", "authorization-code")
 
         data = token_cache.load_token()
         if not data:

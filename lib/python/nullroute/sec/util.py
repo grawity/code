@@ -33,26 +33,29 @@ class TokenCache(object):
     TOKEN_PROTO = "cookie"
     TOKEN_NAME = "Auth token for %s"
 
-    def __init__(self, domain, display_name=None):
+    def __init__(self, domain, display_name=None, user_name=None):
         self.domain = domain
         self.display_name = display_name or domain
+        self.user_name = user_name
         self.token_path = Env.find_cache_file("token_%s.json" % domain)
+        self.match_fields = {"xdg:schema": self.TOKEN_SCHEMA,
+                              "domain": self.domain}
+        if self.user_name:
+            self.match_fields = {**self.match_fields,
+                                 "username": self.user_name}
 
     def _store_token_libsecret(self, data):
         nullroute.sec.store_libsecret(self.TOKEN_NAME % self.display_name,
                                       json.dumps(data),
-                                      {"xdg:schema": self.TOKEN_SCHEMA,
-                                       "protocol": self.TOKEN_PROTO,
-                                       "domain": self.domain})
+                                      {**self.match_fields,
+                                       "protocol": self.TOKEN_PROTO})
 
     def _load_token_libsecret(self):
-        data = nullroute.sec.get_libsecret({"xdg:schema": self.TOKEN_SCHEMA,
-                                            "domain": self.domain})
+        data = nullroute.sec.get_libsecret(self.match_fields)
         return json.loads(data)
 
     def _clear_token_libsecret(self):
-        nullroute.sec.clear_libsecret({"xdg:schema": self.TOKEN_SCHEMA,
-                                       "domain": self.domain})
+        nullroute.sec.clear_libsecret(self.match_fields)
 
     def _store_token_file(self, data):
         with open(self.token_path, "w") as fh:

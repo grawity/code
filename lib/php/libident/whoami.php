@@ -59,8 +59,9 @@ print "\n";
 if (function_exists("yaml_emit"))
 	print yaml_emit($i, YAML_UTF8_ENCODING);
 else {
-	print "(Notice: missing 'yaml' module)\n";
-	print_r($i);
+	//print "(Notice: missing 'yaml' module)\n";
+	//print_r($i);
+	print json_encode($i, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";
 }
 
 print "\n";

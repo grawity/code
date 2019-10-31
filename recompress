@@ -2,18 +2,26 @@
 
 . lib.bash || exit
 
+if ! have magick; then
+	# ImageMagick 6.x or older
+	magick() { "/usr/bin/$@"; }
+fi
+
 quality=98
+scale=100
 infiles=()
 outfiles=()
+addargs=()
 
 nproc=$(nproc)
 njobs=0
 ndone=0
 
-while getopts ":j:q:" OPT; do
+while getopts ":j:q:s:" OPT; do
 	case $OPT in
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
+	s) scale=${OPTARG%'%'};;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -23,21 +31,40 @@ if [[ $1 =~ ^[0-9]+% ]]; then
 	shift
 fi
 
-if (( $# )); then
-	infiles=("$@")
-else
+if (( ! $# )); then
 	die 0 "no input files specified"
 fi
 
+for arg; do
+	if [[ ! -e $arg ]]; then
+		warn "input file '$arg' does not exist"
+	elif [[ $arg =~ \.conv\.[^.]+$ ]]; then
+		notice "skipping already converted file '$arg'"
+	else
+		infiles+=("$arg")
+	fi
+done
+
 if (( quality < 50 || quality > 100 )); then
 	die "invalid quality value '$quality'"
+fi
+
+addargs+=(-background '#eeeeee' -alpha remove)
+addargs+=(-quality "$quality")
+
+if (( scale < 1 || scale > 100 )); then
+	die "invalid scale value '$scale'"
+fi
+
+if (( scale < 100 )); then
+	addargs+=(-scale "$scale%")
 fi
 
 if (( nproc < 1 || nproc > $(nproc) )); then
 	die "invalid job count '$nproc'"
 fi
 
-echo "Recompressing ${#infiles[@]} files at $quality%"
+echo "Recompressing ${#infiles[@]} files at scale $scale%, quality $quality% ($nproc jobs)"
 
 for iname in "${infiles[@]}"; do
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
@@ -45,10 +72,10 @@ for iname in "${infiles[@]}"; do
 		wait -n; (( --njobs )); (( ++ndone ))
 		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 	done
-	oname=${iname%.png}.jpg
+	oname=${iname%.*}.conv.jpg
 	{
-		magick convert "$iname" -quality "$quality" "$oname" &&
-		touch "$oname" --reference="$iname"
+		magick convert "$iname" "${addargs[@]}" "$oname" &&
+		touch "$oname" --reference="$iname" 2>/dev/null
 	} & (( ++njobs ))
 	outfiles+=("$oname")
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
@@ -58,6 +85,10 @@ while (( njobs )); do
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 done
 printf '\n'
+
+for oname in "${outfiles[@]}"; do
+	[[ -s "$oname" ]] || exit
+done
 
 echo Orig: $(du -hsc "${infiles[@]}" | tail -1)
 echo JPEG: $(du -hsc "${outfiles[@]}" | tail -1)

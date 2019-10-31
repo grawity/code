@@ -96,6 +96,7 @@ call() {
 }
 
 declare -A locations=()
+declare -A models=()
 
 if [[ -e "$path_config/hpavctl.conf.sh" ]]; then
 	. "$path_config/hpavctl.conf.sh" || exit
@@ -179,17 +180,24 @@ case $cmd in
 					echo "Network ID: ${kv[NID]} (short: ${kv[SNID]})"
 					;;
 				CCO)
-					echo "Central Coordinator Station:" ;;&
+					printf "\n"
+					printf "\e[1m* %s\e[m\n" "Central Coordinator:" ;;&
 				STA)
-					echo "Station:" ;;&
+					printf "\n"
+					printf "\e[1m* %s\e[m\n" "Station:" ;;&
 				CCO|STA)
 					while (( $# )); do kv[$1]=$2; shift; shift; done
 					location=${locations[${kv[MAC]}]}
-					[[ $location ]]  && echo "   Description: $location"
-					[[ ${kv[MAC]} ]] && echo "   MAC address: ${kv[MAC]} $(_get_vendor ${kv[MAC]})"
-					[[ ${kv[BDA]} ]] && echo "   Bridged to:  ${kv[BDA]} $(_get_vendor ${kv[BDA]})"
-					[[ ${kv[TX]} ]]  && echo "   TX speed:    ${kv[TX]} Mbps"
-					[[ ${kv[RX]} ]]  && echo "   RX speed:    ${kv[RX]} Mbps"
+					model=${models[${kv[MAC]}]}
+					tx=$[10#${kv[TX]}]
+					rx=$[10#${kv[RX]}]
+					[[ ${kv[MAC]} ]] &&
+					printf "   MAC address: \e[38:5:10m%s\e[m \e[38:5:8m%s\e[m\n" "${kv[MAC]}" "$(_get_vendor ${kv[MAC]})"
+					[[ $location || $model ]]  &&
+					printf "   Description: \e[38:5:11m%s\e[m \e[36m(%s)\e[m\n" "$location" "$model"
+					printf "   Speed:       %s Mbps TX / %s Mbps RX\n" "$tx" "$rx"
+					[[ ${kv[BDA]} ]] &&
+					printf "   Bridged to:  %s \e[38:5:8m%s\e[m\n" "${kv[BDA]}" "$(_get_vendor ${kv[BDA]})"
 					;;
 				esac
 			done

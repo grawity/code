@@ -31,7 +31,6 @@ def hash_file(path, digest="md5"):
 
 class TagFilter(object):
     def __init__(self):
-        self.blacklist = []
         self.translate = []
 
     @classmethod
@@ -39,41 +38,42 @@ class TagFilter(object):
         new = self()
         try:
             with open(Env.find_config_file(file_name)) as fh:
-                for line in fh:
+                for x, line in enumerate(fh):
                     line = line.strip()
                     if line == "" or line.startswith("#"):
                         continue
-                    elif " -> " in line:
-                        tags, new_tag = line.split(" -> ")
-                        tags = tags.split()
+                    new_tag = None
+                    if " -> " in line:
+                        line, new_tag = line.split(" -> ")
+                    tags = line.split()
+                    try:
                         tags = [re.compile(t, re.I) for t in tags]
-                        *cond_tags, old_tag = tags
-                        new.translate.append((cond_tags, old_tag, new_tag))
-                    else:
-                        tags = line.split()
-                        tags = [re.compile(t, re.I) for t in tags]
-                        *cond_tags, old_tag = tags
-                        new.blacklist.append((cond_tags, old_tag))
+                    except re.error as e:
+                        Core.err("%s:%s: regex compile error: %s", file_name, x+1, e)
+                        raise
+                    *cond_tags, old_tag = tags
+                    new.translate.append((cond_tags, old_tag, new_tag))
         except FileNotFoundError:
             pass
         return new
 
     def filter(self, tags):
         tags = [tag.replace(" ", "_") for tag in tags]
-
-        for condtags, oldtag in self.blacklist:
-            # if all conditions match, remove provided tag
-            if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
-                tags = [t for t in tags if not oldtag.fullmatch(t)]
+        Core.debug("tags before translate = %r", tags)
 
         for condtags, oldtag, newtag in self.translate:
-            if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
-                tags = [oldtag.sub(newtag, t) if oldtag.fullmatch(t) else t
-                        for t in tags]
+            if newtag is None:
+                # if all conditions match, remove provided tag
+                if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                    tags = [t for t in tags if not oldtag.fullmatch(t)]
+            else:
+                if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                    tags = [oldtag.sub(newtag, t) if oldtag.fullmatch(t) else t
+                            for t in tags]
 
         tags = [filter_filename(tag, safe=True) for tag in tags]
 
-        # trim 'name_(show)' tags
+        # trim 'name_(show)' tags if 'show' appears on its own
         ntags = []
         rx = re.compile(r"^(.+)_\((.+)\)$")
         for tag in tags:
@@ -84,8 +84,13 @@ class TagFilter(object):
 
         return ntags
 
-def make_filename(api, post_id, original_url=None, file_md5=None, skip_character_tags=False):
+def make_filename(api, post_id, original_url=None, file_md5=None,
+                  override_artist_tags=None,
+                  skip_character_tags=False):
     tags = api.get_post_tags(post_id)
+    Core.trace("tags: %r", tags)
+    if override_artist_tags:
+        tags["artist"] = override_artist_tags[:]
     tags = api.sort_tags(tags, skip_character_tags)
     if api.ID_PREFIX and not (api.HASH_SUFFIX and file_md5):
         tags.append(api.ID_PREFIX % post_id)
@@ -98,40 +103,58 @@ def make_filename(api, post_id, original_url=None, file_md5=None, skip_character
         name += ext
     return name
 
-def rename_file_in_dir(dirpath, filename, force_md5=False):
+def rename_file_in_dir(dirpath, old_filename, force_md5=False):
     global args
     global api
 
     bare_re = re.compile(r'^([0-9a-f]{32})(\.\w+)$')
-    danbooru_new_re = re.compile(r'.* drawn by .* - ([0-9a-f]{32})(\.\w+)$')
-    danbooru_old_re = re.compile(r'__.*_drawn_by_.*__(?:sample-)?([0-9a-f]{32})(\.\w+)$')
+    danbooru_new_re = re.compile(r'.*drawn by .* - ([0-9a-f]{32})(\.\w+)$')
+    danbooru_old_re = re.compile(r'__.*drawn_by_.*__(?:sample-)?([0-9a-f]{32})(\.\w+)$')
 
     fmt_found = "\033[38;5;10m%s\033[m"
     fmt_notfound = "\033[38;5;9m%s\033[m"
     fmt_same = "\033[38;5;2m%s\033[m"
 
-    old_path = os.path.join(dirpath, filename)
+    old_path = os.path.join(dirpath, old_filename)
     job = RenameJob(old_path, dry_run=args.dry_run)
     file_md5 = None
+    file_prefix = ""
+    file_ext = ""
     result_xattr = "%s.id" % args.site
 
     if not file_md5:
-        m = bare_re.match(filename)
+        m = bare_re.match(old_filename)
+        Core.trace("match bare_re = %r", m)
         if m and get_file_attr(old_path, result_xattr) == "notfound":
             Core.debug("ignoring %r (cached negative result in %r)", old_path, result_xattr)
             m = None
         if not m and args.site == "danbooru":
-            m = danbooru_new_re.match(filename)
+            m = danbooru_new_re.match(old_filename)
         if not m and args.site == "danbooru":
-            m = danbooru_old_re.match(filename)
+            m = danbooru_old_re.match(old_filename)
         if m:
             file_md5 = m.group(1)
             file_ext = m.group(2)
+        else:
+            Core.trace("ignoring %r (did not match any regex)", old_path)
     if not file_md5:
         if force_md5:
             Core.debug("hashing %r", old_path)
             file_md5 = hash_file(old_path, "md5")
-            _, file_ext = os.path.splitext(filename)
+            _, file_ext = os.path.splitext(old_filename)
+            m = re.match(r"^(\d+) yande\.re \d+", old_filename)
+            if m:
+                file_prefix = m.group(1) + " "
+
+    old_artist = None
+    file_md5_override = file_md5
+    if args.keep_old_name:
+        m = re.search(r"(\S+_pixiv\d+)", old_filename)
+        if m:
+            old_artist = [m.group(1)]
+        m = re.search(r"\b(\d+_p\d+)", old_filename)
+        if m:
+            file_md5_override = m.group(1)
 
     if file_md5:
         job.begin()
@@ -157,9 +180,14 @@ def rename_file_in_dir(dirpath, filename, force_md5=False):
                     Core.debug("found post %r from md5 %r" % (post_id, file_md5))
 
         if post_id:
-            new_filename = make_filename(api, post_id, None, file_md5,
+            new_filename = make_filename(api, post_id, None, file_md5_override,
+                                         override_artist_tags=old_artist,
                                          skip_character_tags=args.no_character_tags)
-            new_filename += file_ext
+            #if args.keep_old_name:
+            #    old_artist, old_suffix = old_filename.split(" ", 1)
+            #    new_artist, new_suffix = new_filename.split(" ", 1)
+            #    new_filename = old_artist + " " + new_suffix + " " + old_suffix
+            new_filename = file_prefix + new_filename + file_ext
             job.end_rename(new_filename)
         else:
             job.end_notfound()
@@ -198,6 +226,7 @@ parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing")
 parser.add_argument("--force", action="store_true", help="Force rename even if filename lacks MD5")
 parser.add_argument("--site", help="Select site")
 parser.add_argument("--no-character-tags", action="store_true", help="Do not add character tags")
+parser.add_argument("--keep-old-name", action="store_true", help="Prefix new tags to current file name")
 args = parser.parse_args()
 
 tag_filter = TagFilter.load_config("booru-tags.conf")

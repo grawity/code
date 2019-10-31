@@ -99,16 +99,10 @@ class PakartotScraper(Scraper):
                       track_no, len(track_list), track_artist, track_title)
             self.renew()
 
-            cmd = ["curl",
-                    "--fail",
-                    "--show-error",
-                    "--progress-bar",
-                    "--header", "Referer: %s" % album_url,
-                    "--header", "User-Agent: %s" % self.ua.headers["User-Agent"],
-                    "--output", output_file,
-                    stream_url]
-            Core.trace("running %r", cmd)
-            r = subprocess.run(cmd)
+            self.save_file(stream_url,
+                           name=output_file,
+                           referer=album_url,
+                           progress=True)
 
             set_id3_tags(output_file,
                          artist=track_artist,
@@ -116,6 +110,18 @@ class PakartotScraper(Scraper):
                          title=track_title,
                          track="%d/%d" % (track_no, len(track_list)),
                          comment="Downloaded from: %s" % album_url)
+
+    def save_file_stream(self, url, name=None, referer=None):
+        cmd = ["curl",
+                "--fail",
+                "--show-error",
+                "--progress-bar",
+                "--header", "Referer: %s" % (referer or url),
+                "--header", "User-Agent: %s" % self.ua.headers["User-Agent"],
+                "--output", name,
+                url]
+        Core.trace("running %r", cmd)
+        r = subprocess.run(cmd)
 
 #def headers_to_curl(**kwargs):
 #    return ["--header=%s: %s" % (k, v) for k, v in kwargs.items()]

@@ -6,6 +6,8 @@ _dig() {
 	dig +nomulti +noall +time=2 "$@"
 }
 
+declare -A cached_serials=()
+
 domain=${1%.}.
 parent=${domain#*.}
 debug "parent domain is '$parent'"
@@ -43,7 +45,12 @@ for pns in $parent_ns; do
 					printf "skipped (no IPv6)\n"
 					continue
 				fi
-				serial=$(get_serial "$domain" "$ip")
+				serial=${cached_serials["$domain/$ip"]}
+				if [[ ! $serial ]]; then
+					serial=$(get_serial "$domain" "$ip")
+					cached_serials["$domain/$ip"]=":$serial"
+				fi
+				serial=${serial#:}
 				if [[ $serial ]]; then
 					printf "serial \e[33m%s\e[m (from %s)\n" "$serial" "$from"
 				else

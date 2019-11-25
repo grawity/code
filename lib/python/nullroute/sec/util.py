@@ -104,7 +104,10 @@ class TokenCache(object):
 
     def store_token(self, data):
         Core.debug("storing auth token for %r", self.domain)
-        self._store_token_libsecret(data)
+        try:
+            self._store_token_libsecret(data)
+        except Exception as e:
+            Core.debug("could not access libsecret: %r", e)
         try:
             self._store_token_file(data)
         except Exception as e:

@@ -41,7 +41,7 @@ declare -A fsbase urlbase
 fsbase="star:pub/nullroute/tmp"
 urlbase="https://nullroute.eu.org/tmp"
 
-fsbase[fs1]="radius:pub/fs1/tmp"
+fsbase[fs1]="ember:/srv/http/fs1/tmp"
 urlbase[fs1]="https://fs1.nullroute.eu.org/tmp"
 
 rsync=(--chmod="a+r")
@@ -131,7 +131,10 @@ fi
 
 if (( arg_interactive )); then
 	if have lftp; then
-		url="sftp://${fsbase%%:*}/~/${fsbase#*:}"
+		case $fsbase in
+			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
+			*:*)  url="sftp://${fsbase%%:*}/~/${fsbase#*:}";;
+		esac
 		notice "connecting to '$url'"
 		lftp "$url"
 	elif have sftp; then

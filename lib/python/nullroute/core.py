@@ -1,4 +1,5 @@
 from __future__ import print_function
+import logging
 import os
 import sys
 import traceback
@@ -188,6 +189,25 @@ class Core(object):
     def __exit__(self, *args):
         if self._num_errors > 0:
             sys.exit(1)
+
+class LogHandler(logging.Handler):
+    def emit(self, record):
+        func = None
+        if record.levelno >= logging.CRITICAL:
+            func = Core.err
+        elif record.levelno >= logging.ERROR:
+            func = Core.err
+        elif record.levelno >= logging.WARNING:
+            func = Core.warn
+        elif record.levelno >= logging.INFO:
+            func = Core.info
+        elif record.levelno >= logging.DEBUG:
+            func = Core.debug
+        else:
+            func = Core.trace
+        func("%s", self.format(record),
+             mod_name=record.name,
+             func_name=record.funcName)
 
 class Env(object):
     vendor = "nullroute.eu.org"

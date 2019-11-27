@@ -64,6 +64,7 @@ class Core(object):
     def _log(self, level, msg, *args,
              log_prefix=None, log_color=None,
              fmt_prefix=None, fmt_color=None,
+             mod_name=None, func_name=None,
              skip=0):
 
         level = min(max(level, 0), self.LOG_TRACE)
@@ -99,16 +100,17 @@ class Core(object):
                 output.append("\033[m")
 
         if self._log_level >= self.LOG_DEBUG:
-            frame = traceback.extract_stack()[-(skip+3)]
-            module = os.path.basename(frame[0])
-            if module == "__init__.py":
-                module = os.path.basename(os.path.dirname(frame[0]))
-            func = frame[2]
-            if module != Core.arg0:
-                func = "%s:%s" % (module, func)
+            if not func_name:
+                frame = traceback.extract_stack()[-(skip+3)]
+                mod_name = os.path.basename(frame[0])
+                if mod_name == "__init__.py":
+                    mod_name = os.path.basename(os.path.dirname(frame[0]))
+                func_name = frame[2]
+            if mod_name and mod_name != Core.arg0:
+                func_name = "%s:%s" % (mod_name, func_name)
             if colors:
                 output.append("\033[38;5;60m")
-            output.append("(%s) " % func)
+            output.append("(%s) " % func_name)
             if colors:
                 output.append("\033[m")
 

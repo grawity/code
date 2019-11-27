@@ -1,4 +1,5 @@
 from __future__ import print_function
+import logging
 import os
 import sys
 import traceback
@@ -64,6 +65,7 @@ class Core(object):
     def _log(self, level, msg, *args,
              log_prefix=None, log_color=None,
              fmt_prefix=None, fmt_color=None,
+             mod_name=None, func_name=None,
              skip=0):
 
         level = min(max(level, 0), self.LOG_TRACE)
@@ -99,16 +101,17 @@ class Core(object):
                 output.append("\033[m")
 
         if self._log_level >= self.LOG_DEBUG:
-            frame = traceback.extract_stack()[-(skip+3)]
-            module = os.path.basename(frame[0])
-            if module == "__init__.py":
-                module = os.path.basename(os.path.dirname(frame[0]))
-            func = frame[2]
-            if module != Core.arg0:
-                func = "%s:%s" % (module, func)
+            if not func_name:
+                frame = traceback.extract_stack()[-(skip+3)]
+                mod_name = os.path.basename(frame[0])
+                if mod_name == "__init__.py":
+                    mod_name = os.path.basename(os.path.dirname(frame[0]))
+                func_name = frame[2]
+            if mod_name and mod_name != Core.arg0:
+                func_name = "%s:%s" % (mod_name, func_name)
             if colors:
                 output.append("\033[38;5;60m")
-            output.append("(%s) " % func)
+            output.append("(%s) " % func_name)
             if colors:
                 output.append("\033[m")
 
@@ -186,6 +189,25 @@ class Core(object):
     def __exit__(self, *args):
         if self._num_errors > 0:
             sys.exit(1)
+
+class LogHandler(logging.Handler):
+    def emit(self, record):
+        func = None
+        if record.levelno >= logging.CRITICAL:
+            func = Core.err
+        elif record.levelno >= logging.ERROR:
+            func = Core.err
+        elif record.levelno >= logging.WARNING:
+            func = Core.warn
+        elif record.levelno >= logging.INFO:
+            func = Core.info
+        elif record.levelno >= logging.DEBUG:
+            func = Core.debug
+        else:
+            func = Core.trace
+        func("%s", self.format(record),
+             mod_name=record.name,
+             func_name=record.funcName)
 
 class Env(object):
     vendor = "nullroute.eu.org"

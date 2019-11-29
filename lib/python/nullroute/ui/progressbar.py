@@ -1,5 +1,6 @@
 from math import ceil, floor
 from nullroute.string import fmt_size_short
+from shutil import get_terminal_size
 import sys
 import time
 
@@ -17,6 +18,12 @@ class ProgressBar():
         self._first_in = 0
         self._last_out = 0
         self._last_val = 0
+
+        if self.output_fh == sys.stderr:
+            self.bar_width = get_terminal_size().columns
+            self.bar_width -= len("###% [" + "] ###.#x of ###.#x (at ~###.#x/s)")
+            self.bar_width = max(3, self.bar_width)
+            self.bar_width = min(self.bar_width, 40)
 
     def print(self):
         cur_fmt = self._fmt_func(self.cur_value)

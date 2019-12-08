@@ -155,6 +155,7 @@ def parse_duration(arg):
     pat = r"""
         ^
         \s* (?: (?P<y> \d+ ) y )?
+        \s* (?: (?P<w> \d+ ) w )?
         \s* (?: (?P<d> \d+ ) d )?
         \s* (?: (?P<h> \d+ ) h )?
         \s* (?: (?P<m> \d+ ) m )?
@@ -166,6 +167,7 @@ def parse_duration(arg):
     if m:
         m = m.groupdict()
         if m["y"]: t += int(m["y"]) * 60*60*24*365
+        if m["w"]: t += int(m["w"]) * 60*60*24*7
         if m["d"]: t += int(m["d"]) * 60*60*24
         if m["h"]: t += int(m["h"]) * 60*60
         if m["m"]: t += int(m["m"]) * 60

@@ -210,12 +210,33 @@ def find_duplicates(root_dirs, only_globs=None):
             yield paths
             continue
 
+        def _status_fn(file_percentage, file_size,
+                       files_so_far, files_total,
+                       bytes_so_far, bytes_total):
+            bytes_so_far += file_size * (file_percentage / 100)
+            percentage_so_far = bytes_so_far / bytes_total * 100
+            status("hash %d%% (%d/%d, %d%%)" % (percentage_so_far,
+                                                files_so_far,
+                                                files_total,
+                                                file_percentage),
+                   path)
+
         for path in paths:
             n_hash += 1
-            status("hash %d%% (%d/%d)" % (hashed_size / total_size * 100, n_hash, n_head), path)
+            _status_fn(file_percentage=0,
+                       file_size=size,
+                       files_so_far=n_hash,
+                       files_total=n_head,
+                       bytes_so_far=hashed_size,
+                       bytes_total=total_size)
             try:
                 filehash = hash_file(path,
-                    lambda p: status("hash %d%% (%d/%d, %d%%)" % ((hashed_size + size * (p / 100)) / total_size * 100, n_hash, n_head, p), path))
+                                     status_func=lambda p: _status_fn(file_percentage=p,
+                                                                      file_size=size,
+                                                                      files_so_far=n_hash,
+                                                                      files_total=n_head,
+                                                                      bytes_so_far=hashed_size,
+                                                                      bytes_total=total_size))
             except FileNotFoundError:
                 status()
                 Core.notice("file %r disappeared mid-scan", path)

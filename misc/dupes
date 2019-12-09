@@ -125,6 +125,23 @@ def hash_image(path, status_func=None):
     buf = img.tobytes()
     return hashlib.sha1(buf).digest()
 
+def hash_image_cached(path, status_func=None):
+    file_mtime = int(os.stat(path).st_mtime)
+    attr_name = "user.lt.nullroute.imagehash"
+    try:
+        attr_data = os.getxattr(path, attr_name)
+    except OSError:
+        attr_data = None
+    if attr_data:
+        if b":" in attr_data:
+            attr_mtime, attr_hash = attr_data.decode().split(":", 1)
+            if str(file_mtime) == str(attr_mtime):
+                return binascii.a2b_hex(attr_hash)
+    file_hash = hash_image(path, status_func)
+    attr_data = ("%s:" % file_mtime).encode() + binascii.b2a_hex(file_hash)
+    os.setxattr(path, attr_name, attr_data)
+    return file_hash
+
 def fmt_hash(hash):
     return binascii.b2a_hex(hash).decode("utf-8")
 
@@ -166,7 +183,7 @@ def find_image_duplicates(root_dirs, only_globs=None):
         n_hash += 1
         status("ihash (%d/%d)" % (n_hash, n_size), path)
         try:
-            hash = hash_image(path)
+            hash = hash_image_cached(path)
             known_hashes[hash].append(path)
         except IOError as e:
             status()

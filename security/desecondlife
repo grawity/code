@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# deobfuscate Second Life stored credentials
+
+import os
+import re
+import sys
+from Crypto.Cipher import ARC4
+
+# indra/newview/llsechandler_basic.cpp:/read_protected_data/
+#
+# 	salt[16], data = read(~/.secondlife/user_settings/bin_conf.dat)
+#
+# 	{ key[i] = salt[i] ^ unique_id[i % 6] }
+#
+# 	data = rc4[key](data)
+#
+# indra/newview/llmachineid.cpp
+#
+# 	unique_id = Win32_OperatingSystem.SerialNumber || getNodeID()
+#
+# indra/llcommon/lluuid.cpp
+#
+# 	getNodeID = route[0.0.0.0/0].device.mac_address
+
+def get_device_hwaddr(dev):
+    with open("/sys/class/net/%s/address" % dev, "r") as fh:
+        addr = fh.read(1024).strip()
+        return parse_hwaddr(addr)
+
+def parse_hwaddr(addr):
+    addr = [int(c, 16) for c in addr.split(":")]
+    return bytes(addr)
+
+def format_hwaddr(addr):
+    addr = ["%02x" % c for c in addr]
+    return ":".join(addr)
+
+def xor(a, b):
+    n = max(len(a), len(b))
+    buf = [ a[i % len(a)] ^ b[i % len(b)]
+            for i in range(n) ]
+    return bytes(buf)
+
+def sl_read_protected(path, hwaddr):
+    with open(path, "rb") as fh:
+        salt = fh.read(16)
+        data = fh.read()
+
+    salt = xor(salt, hwaddr)
+    print("Salt: %s" % format_hwaddr(salt))
+    cipher = ARC4.new(salt)
+    data = cipher.decrypt(data)
+    if data.startswith(b"<llsd>"):
+        return data
+    else:
+        raise ValueError("decryption failed")
+
+mac_re = re.compile(r'^(?:[0-9a-f]{1,2}[:]){5}[0-9a-f]{1,2}$', re.I)
+
+data_dir = sys.argv[1]
+device = sys.argv[2]
+
+if mac_re.match(device):
+    addr = parse_hwaddr(device)
+else:
+    addr = get_device_hwaddr(device)
+print("Address: %s" % format_hwaddr(addr))
+
+path = os.path.join(data_dir, "user_settings", "bin_conf.dat")
+conf = sl_read_protected(path, addr)
+print(conf.decode("utf-8"))

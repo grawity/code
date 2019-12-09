@@ -134,7 +134,7 @@ def unquote(line, **kwargs):
         line = line[1:-1]
     return unescape(line, **kwargs)
 
-def fmt_duration(secs):
+def fmt_duration(secs, *, precise=False):
     y = abs(secs)
 
     y, s = divmod(y, 60)
@@ -142,23 +142,33 @@ def fmt_duration(secs):
     y, h = divmod(y, 24)
     y, d = divmod(y, 365)
 
-    if y > 0:       return "%dy %dd" % (y, d)
-    elif d > 14:    return "%dd" % (d,)
-    elif d > 0:     return "%dd %dh" % (d, h)
-    elif h > 0:     return "%dh %dm" % (h, m)
-    elif m > 9:     return "%dm" % (m,)
-    elif m > 0:     return "%dm %ds" % (m, s)
-    else:           return "%ds" % (s,)
+    if precise:
+        out = ""
+        if y or out:    out += " %dy" % y
+        if d or out:    out += " %dd" % d
+        if h or out:    out += " %dh" % h
+        if m or out:    out += " %dm" % m
+        if s or out:    out += " %ds" % s
+        return out[1:]
+    else:
+        if y > 0:       return "%dy %dd" % (y, d)
+        elif d > 14:    return "%dd" % (d,)
+        elif d > 0:     return "%dd %dh" % (d, h)
+        elif h > 0:     return "%dh %dm" % (h, m)
+        elif m > 9:     return "%dm" % (m,)
+        elif m > 0:     return "%dm %ds" % (m, s)
+        else:           return "%ds" % (s,)
 
 def parse_duration(arg):
     import re
     pat = r"""
         ^
-        \s* (?: (?P<y> \d+ ) y )?
-        \s* (?: (?P<d> \d+ ) d )?
-        \s* (?: (?P<h> \d+ ) h )?
-        \s* (?: (?P<m> \d+ ) m )?
-        \s* (?: (?P<s> \d+ ) s? )?
+        \s* (?: (?P<y> -? \d+ ) y )?
+        \s* (?: (?P<w> -? \d+ ) w )?
+        \s* (?: (?P<d> -? \d+ ) d )?
+        \s* (?: (?P<h> -? \d+ ) h )?
+        \s* (?: (?P<m> -? \d+ ) m )?
+        \s* (?: (?P<s> -? \d+ ) s? )?
         $
     """
     t = 0
@@ -166,6 +176,7 @@ def parse_duration(arg):
     if m:
         m = m.groupdict()
         if m["y"]: t += int(m["y"]) * 60*60*24*365
+        if m["w"]: t += int(m["w"]) * 60*60*24*7
         if m["d"]: t += int(m["d"]) * 60*60*24
         if m["h"]: t += int(m["h"]) * 60*60
         if m["m"]: t += int(m["m"]) * 60

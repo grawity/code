@@ -54,7 +54,7 @@ filter_file() {
 				unset stack[depth--]
 			fi
 		elif [[ $line == '#'[a-z]* ]]; then
-			err "line $nr: unknown directive '${line%% *}' was ignored"
+			warn "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
 		elif (( stack[depth] )); then
 			if (( DEBUG >= 2 )); then

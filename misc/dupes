@@ -119,6 +119,12 @@ def hash_file(path, status_func=None):
         file_hashes[path] = h.digest()
     return file_hashes[path]
 
+def hash_image(path, status_func=None):
+    import PIL.Image
+    img = PIL.Image.open(path)
+    buf = img.tobytes()
+    return hashlib.sha1(buf).digest()
+
 def fmt_hash(hash):
     return binascii.b2a_hex(hash).decode("utf-8")
 
@@ -131,6 +137,51 @@ def unfmt_size(sz, si=False):
     val = float(sz[:-1])
     exp = pos + 1
     return val * (mult ** exp)
+
+def find_image_duplicates(root_dirs, only_globs=None):
+    known_files = list()
+    known_hashes = defaultdict(list)
+
+    n_size = 0
+    n_head = 0
+    n_hash = 0
+
+    for root_dir in root_dirs:
+        for path in enum_files(root_dir):
+            n_size += 1
+            status("stat (%d)" % n_size, path)
+            st = os.lstat(path)
+            if not stat.S_ISREG(st.st_mode):
+                continue
+            #if st.st_size < opts.larger_than:
+            #    continue
+            if not path.lower().endswith((".jpg", ".jpeg", ".jfif", ".png")):
+                continue
+            file_sizes[path] = st.st_size
+            known_files.append(path)
+
+    status()
+
+    for path in known_files:
+        n_hash += 1
+        status("ihash (%d/%d)" % (n_hash, n_size), path)
+        try:
+            hash = hash_image(path)
+            known_hashes[hash].append(path)
+        except IOError as e:
+            status()
+            Core.notice("file %r could not be hashed: %s", path, e)
+            continue
+
+    status()
+
+    res = []
+    for hash, paths in known_hashes.items():
+        if len(paths) < 2:
+            continue
+        res.append(paths)
+    res.sort()
+    yield from res
 
 def find_duplicates(root_dirs, only_globs=None):
     known_sizes = defaultdict(list)
@@ -287,6 +338,9 @@ if __name__ == "__main__":
     ap.add_argument("--larger-than", metavar="SIZE",
                     dest="larger_than",
                     help="TODO")
+    ap.add_argument("--image",
+                    action="store_true", default=False,
+                    help="compare image contents rather than file properties")
     ap.add_argument("path", nargs="*")
 
     opts = ap.parse_args()
@@ -294,6 +348,10 @@ if __name__ == "__main__":
     opts.larger_than = unfmt_size(opts.larger_than)
 
     root_dir = opts.path[:] or ["."]
+
+    if opts.image:
+        Core.notice("comparing image bitmaps; skipping size and header checks")
+        find_duplicates = find_image_duplicates
 
     try:
         for paths in find_duplicates(root_dir, opts.only):

@@ -11,6 +11,7 @@ import math
 from argparse import ArgumentParser
 from collections import defaultdict
 from nullroute.core import Core
+from nullroute.file import get_file_attr, set_file_attr
 from nullroute.misc import escape_shell, fmt_size
 from nullroute.ui import print_status, stderr_tty
 
@@ -127,19 +128,15 @@ def hash_image(path, status_func=None):
 
 def hash_image_cached(path, status_func=None):
     file_mtime = int(os.stat(path).st_mtime)
-    attr_name = "user.lt.nullroute.imagehash"
-    try:
-        attr_data = os.getxattr(path, attr_name)
-    except OSError:
-        attr_data = None
-    if attr_data:
-        if b":" in attr_data:
-            attr_mtime, attr_hash = attr_data.decode().split(":", 1)
-            if str(file_mtime) == str(attr_mtime):
-                return binascii.a2b_hex(attr_hash)
+    attr_name = "lt.nullroute.imagehash"
+    attr_data = get_file_attr(path, attr_name)
+    if attr_data and ":" in attr_data:
+        attr_mtime, attr_hash = attr_data.split(":", 1)
+        if str(file_mtime) == str(attr_mtime):
+            return binascii.a2b_hex(attr_hash)
     file_hash = hash_image(path, status_func)
-    attr_data = ("%s:" % file_mtime).encode() + binascii.b2a_hex(file_hash)
-    os.setxattr(path, attr_name, attr_data)
+    attr_data = "%s:%s" % (file_mtime, fmt_hash(file_hash))
+    set_file_attr(path, attr_name, attr_data)
     return file_hash
 
 def fmt_hash(hash):

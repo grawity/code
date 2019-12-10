@@ -10,7 +10,8 @@ import io
 import math
 from argparse import ArgumentParser
 from collections import defaultdict
-from nullroute.core import *
+from nullroute.core import Core
+from nullroute.file import get_file_attr, set_file_attr
 from nullroute.misc import escape_shell, fmt_size
 from nullroute.ui import print_status, stderr_tty
 
@@ -119,6 +120,25 @@ def hash_file(path, status_func=None):
         file_hashes[path] = h.digest()
     return file_hashes[path]
 
+def hash_image(path, status_func=None):
+    import PIL.Image
+    img = PIL.Image.open(path)
+    buf = img.tobytes()
+    return hashlib.sha1(buf).digest()
+
+def hash_image_cached(path, status_func=None):
+    file_mtime = int(os.stat(path).st_mtime)
+    attr_name = "lt.nullroute.imagehash"
+    attr_data = get_file_attr(path, attr_name)
+    if attr_data and ":" in attr_data:
+        attr_mtime, attr_hash = attr_data.split(":", 1)
+        if str(file_mtime) == str(attr_mtime):
+            return binascii.a2b_hex(attr_hash)
+    file_hash = hash_image(path, status_func)
+    attr_data = "%s:%s" % (file_mtime, fmt_hash(file_hash))
+    set_file_attr(path, attr_name, attr_data)
+    return file_hash
+
 def fmt_hash(hash):
     return binascii.b2a_hex(hash).decode("utf-8")
 
@@ -131,6 +151,51 @@ def unfmt_size(sz, si=False):
     val = float(sz[:-1])
     exp = pos + 1
     return val * (mult ** exp)
+
+def find_image_duplicates(root_dirs, only_globs=None):
+    known_files = list()
+    known_hashes = defaultdict(list)
+
+    n_size = 0
+    n_head = 0
+    n_hash = 0
+
+    for root_dir in root_dirs:
+        for path in enum_files(root_dir):
+            n_size += 1
+            status("stat (%d)" % n_size, path)
+            st = os.lstat(path)
+            if not stat.S_ISREG(st.st_mode):
+                continue
+            #if st.st_size < opts.larger_than:
+            #    continue
+            if not path.lower().endswith((".jpg", ".jpeg", ".jfif", ".png")):
+                continue
+            file_sizes[path] = st.st_size
+            known_files.append(path)
+
+    status()
+
+    for path in known_files:
+        n_hash += 1
+        status("ihash (%d/%d)" % (n_hash, n_size), path)
+        try:
+            hash = hash_image_cached(path)
+            known_hashes[hash].append(path)
+        except IOError as e:
+            status()
+            Core.notice("file %r could not be hashed: %s", path, e)
+            continue
+
+    status()
+
+    res = []
+    for hash, paths in known_hashes.items():
+        if len(paths) < 2:
+            continue
+        res.append(paths)
+    res.sort()
+    yield from res
 
 def find_duplicates(root_dirs, only_globs=None):
     known_sizes = defaultdict(list)
@@ -210,12 +275,33 @@ def find_duplicates(root_dirs, only_globs=None):
             yield paths
             continue
 
+        def _status_fn(file_percentage, file_size,
+                       files_so_far, files_total,
+                       bytes_so_far, bytes_total):
+            bytes_so_far += file_size * (file_percentage / 100)
+            percentage_so_far = bytes_so_far / bytes_total * 100
+            status("hash %d%% (%d/%d, %d%%)" % (percentage_so_far,
+                                                files_so_far,
+                                                files_total,
+                                                file_percentage),
+                   path)
+
         for path in paths:
             n_hash += 1
-            status("hash %d%% (%d/%d)" % (hashed_size / total_size * 100, n_hash, n_head), path)
+            _status_fn(file_percentage=0,
+                       file_size=size,
+                       files_so_far=n_hash,
+                       files_total=n_head,
+                       bytes_so_far=hashed_size,
+                       bytes_total=total_size)
             try:
                 filehash = hash_file(path,
-                    lambda p: status("hash %d%% (%d/%d, %d%%)" % ((hashed_size + size * (p / 100)) / total_size * 100, n_hash, n_head, p), path))
+                                     status_func=lambda p: _status_fn(file_percentage=p,
+                                                                      file_size=size,
+                                                                      files_so_far=n_hash,
+                                                                      files_total=n_head,
+                                                                      bytes_so_far=hashed_size,
+                                                                      bytes_total=total_size))
             except FileNotFoundError:
                 status()
                 Core.notice("file %r disappeared mid-scan", path)
@@ -266,6 +352,9 @@ if __name__ == "__main__":
     ap.add_argument("--larger-than", metavar="SIZE",
                     dest="larger_than",
                     help="TODO")
+    ap.add_argument("--image",
+                    action="store_true", default=False,
+                    help="compare image contents rather than file properties")
     ap.add_argument("path", nargs="*")
 
     opts = ap.parse_args()
@@ -273,6 +362,10 @@ if __name__ == "__main__":
     opts.larger_than = unfmt_size(opts.larger_than)
 
     root_dir = opts.path[:] or ["."]
+
+    if opts.image:
+        Core.notice("comparing image bitmaps; skipping size and header checks")
+        find_duplicates = find_image_duplicates
 
     try:
         for paths in find_duplicates(root_dir, opts.only):

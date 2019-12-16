@@ -62,13 +62,14 @@ declare -- arg_subdir=
 declare -i arg_timestamp=0
 declare -i arg_yearly=1
 
-while getopts ":01cd:iqS:tX" OPT; do
+while getopts ":01cd:iIqS:tX" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	c) arg_clobber=1;;
 	d) arg_subdir=$OPTARG;;
 	i) arg_interactive=1;;
+	I) arg_interactive=2;;
 	q) arg_quiet=1;;
 	S) arg_mangle=$OPTARG;;
 	t) arg_timestamp+=1;;
@@ -130,7 +131,16 @@ fi
 # handle special modes
 
 if (( arg_interactive )); then
-	if have lftp; then
+	if (( arg_interactive == 2 )); then
+		rhome=$(ks:sshrun "${fsbase%%:*}" printenv HOME)
+		case $fsbase in
+			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
+			*:*)  url="sftp://${fsbase%%:*}${rhome%/}/${fsbase#*:}";;
+		esac
+		notice "connecting to '$url'"
+		gio info -f "$url" >/dev/null 2>&1 || gio mount "$url"
+		gio open "$url"
+	elif have lftp; then
 		case $fsbase in
 			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
 			*:*)  url="sftp://${fsbase%%:*}/~/${fsbase#*:}";;

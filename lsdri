@@ -31,6 +31,24 @@ listfiles() {
 	echo
 }
 
+listicds() {
+	local head=$1 dir=$2 jsondir=$3
+	echo "$head ($dir:$jsondir):"
+	for f in "$jsondir"/*.json; do
+		name=$(jq -r .ICD.library_path < "$f")
+		if [[ $name == "$dir"/* ]]; then
+			icdname=${f#"$jsondir/"}
+			libname=${name#"$dir/"}
+			name="$libname ($icdname)"
+			if (( show_pkgnames )); then
+				name+=" [$(pkg_file "$f")]"
+			fi
+			echo "  - $name"
+		fi
+	done
+	echo
+}
+
 shopt -s nullglob
 
 for lib in lib lib32 lib/i386-linux-gnu; do
@@ -39,7 +57,7 @@ for lib in lib lib32 lib/i386-linux-gnu; do
 	log2 "listing drivers in $dir"
 	echo #				PATH		PREFIX		SUFFIX
 	listfiles "Mesa DRI modules"	$dir/dri	""		"_dri.so"
-	listfiles "Vulkan drivers"	$dir		"libvulkan_"	".so"
+	listicds  "Vulkan drivers"	$dir		/usr/share/vulkan/icd.d
 	listfiles "VAAPI modules"	$dir/dri	""		"_drv_video.so"
 	listfiles "VDPAU modules"	$dir/vdpau	"libvdpau_"	".so"
 done

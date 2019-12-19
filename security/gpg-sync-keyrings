@@ -104,12 +104,11 @@ def gpg_pipe(export_cmd, import_cmd):
 
 h = gethostname().lower()
 
-if h == "rain":
-    local_args = ["gpg"]
-    remote_args = ["ssh", "snow.home", "gpg"]
-elif h == "snow":
-    local_args = ["gpg"]
-    remote_args = ["plink", "rain.home", "gpg"]
+local_args = ["gpg"]
+remote_args = [*sys.argv[1:], "gpg"]
+if len(remote_args) == 1:
+    print("Missing remote args")
+    exit(1)
 
 local = GpgKeyring.load(*local_args)
 print("Local: %d keys" % len(local))

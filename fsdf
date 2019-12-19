@@ -7,11 +7,11 @@ elif ! (( $# )); then
 fi
 
 for host; do
-	if [[ $host == fs* ]]; then
-		dir=pub/$host
-	else
-		dir=\~
-	fi
+	case $host in
+		fs1) dir="/srv/http/$host";;
+		fs*) dir="pub/$host";;
+		*) dir='~';;
+	esac
 	ssh $host.nullroute.eu.org "df -h $dir" \
 	| awk -v host=$host 'NR > 1 { printf "%-8s %4s out of %s free (%s of %s used)\n",
 					host ":", $4, $2, $5, $1 }'

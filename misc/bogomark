@@ -22,7 +22,6 @@ unlock() {
 }
 
 mark_all() {
-	# -k	kill message ID
 	# -n	ham
 	# -r	remove after filtering
 	# -s	spam
@@ -30,7 +29,6 @@ mark_all() {
 
 	mark -sr	Junk/Spam
 	mark -nr	Junk/Ham
-	#mark -nkr	Spam/ham-tk
 	#purge	7	Trash
 }
 
@@ -49,10 +47,9 @@ maildir() {
 
 mark() {
 	local OPTION OPTIND OPTARG
-	local mode= remove=false onlyseen=false changed=0 killfile=false
+	local mode= remove=false onlyseen=false changed=0
 	while getopts ":knprsS" OPT; do
 		case $OPT in
-		k) killfile=true;;
 		n) mode="-n"; smode="mark-ham";;
 		p) mode="-p"; smode="process";;
 		r) remove=true;;
@@ -88,15 +85,12 @@ mark() {
 
 			$onlyseen && [[ $flags != *S* ]] && continue
 
-			echo "dir=$dir action=$smode file=${file#$path/} flags=$flags remove=$remove killfile=$killfile"
+			echo "dir=$dir action=$smode file=${file#$path/} flags=$flags remove=$remove"
 
 			if [ "$mode" == "-p" ]; then
 				addheader "$path" "$file"
 				(( changed++ ))
 			elif bogofilter -e $mode < "$file"; then
-				if $killfile; then
-					killfile "$file"
-				fi
 				if $remove; then
 					rm -f "$file"
 				else
@@ -120,11 +114,6 @@ addheader() {
 	if bogofilter -ep < "$file" > "$temp" && [ -s "$temp" ]; then
 		ln -f "$temp" "$file" && rm -f "$temp"
 	fi
-}
-
-killfile() {
-	local file=$1
-	~/bin/threadkill -k < "$file"
 }
 
 shopt -s nullglob

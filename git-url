@@ -3,7 +3,7 @@
 . lib.bash || exit
 
 base=$(git config --get web.url)
-type=$(git config --get web.type)
+hosttype=$(git config --get web.type)
 head=$(git rev-parse --short=12 HEAD)
 
 if [[ ! $base ]]; then
@@ -12,31 +12,31 @@ if [[ ! $base ]]; then
 	case $remote in
 		https://github.com/*)
 			base=${remote%.git}
-			type=github
+			hosttype=github
 			;;
 		https://gitlab.gnome.org/*)
 			base=${remote%.git}
-			type=gitlab
+			hosttype=gitlab
 			;;
 	esac
-	debug "base guessed: '$base' (type=$type)"
+	debug "base guessed: '$base' (hosttype=$hosttype)"
 fi
 
-if [[ ! $type ]]; then
-	debug "type not found in 'web.type', guessing from base URL"
+if [[ ! $hosttype ]]; then
+	debug "hosttype not found in 'web.type', guessing from base URL"
 	case $base in
 	https://github.com/*)
-		type='github';;
+		hosttype='github';;
 	https://gitlab.gnome.org/*)
-		type='gitlab';;
+		hosttype='gitlab';;
 	*/cgit/*)
-		type='cgit';;
+		hosttype='cgit';;
 	esac
-	debug "type guessed: '$type'"
+	debug "hosttype guessed: '$hosttype'"
 fi
 
-if [[ ! $type ]]; then
-	die "unknown type for url '$base'"
+if [[ ! $hosttype ]]; then
+	die "unknown hosttype for url '$base'"
 fi
 
 toplevel=$(git rev-parse --show-toplevel)
@@ -48,7 +48,10 @@ base=${base%/}
 debug "base: '$base'"
 
 is_file() {
-	if [[ $(git config core.bare) == true ]]; then
+	if [[ $1 == *:* ]]; then
+		git rev-parse --verify "$1" >& /dev/null &&
+		[[ $(git cat-file -t "$1") == blob ]]
+	elif [[ $(git config core.bare) == true ]]; then
 		git rev-parse --verify "HEAD:/$1" >& /dev/null
 	else
 		[[ -e "$1" ]]
@@ -56,17 +59,27 @@ is_file() {
 }
 
 for arg; do
-	debug "arg: '$arg'"
+	debug "processing arg '$arg'"
 
 	if [[ $arg == @(pr|pull)/* ]]; then
 		mode=pull
 		arg=${arg#*/}
+		debug " - mode=$mode, arg='$arg' (matched pull-request regex)"
 	elif [[ $arg == @(bug|issue)/* ]]; then
 		mode=issue
 		arg=${arg#*/}
+		debug " - mode=$mode, arg='$arg' (matched bug/issue regex)"
 	elif t=$(git rev-parse --short=20 "$arg") && [[ $t ]]; then
-		: ${mode:=commit}
-		head=$t
+		type=$(git cat-file -t "$arg")
+		if [[ $type == commit ]]; then
+			: ${mode:=commit}
+			head=$t
+		elif [[ $type == blob ]]; then
+			mode=file
+			head=$(git rev-parse --short=20 ${arg%%:*})
+			path=${arg#*:}
+		fi
+		debug " - mode=$mode, arg='$arg', type='$type', head='$head' (rev-parse success)"
 	elif t=$prefix$arg && is_file "$arg"; then
 		debug "looking for file '$t'"
 		: ${mode:=file}
@@ -80,7 +93,7 @@ for arg; do
 
 	debug "arg '$arg' is a $mode"
 
-	case $type in
+	case $hosttype in
 	'cgit')
 		case $mode in
 		'log')    url="$base/log/$path?h=$head";; # TODO: make this global log
@@ -108,11 +121,11 @@ for arg; do
 		'flog')   url="$base;a=history;f=$path;h=$head";;
 		'file')   url="$base;a=blob;f=$path;h=$head";;
 		'commit') url="$base;a=commit;h=$head";;
-		*)        die "$type not yet implemented";;
+		*)        die "$hosttype not yet implemented";;
 		esac;;
 	esac
 
-	[[ $url ]] || die "$type/$mode not yet implemented"
+	[[ $url ]] || die "$mode for '$hosttype' hosts not yet implemented"
 
 	echo "$url"
 done

@@ -11,6 +11,8 @@ def dump_one(buf, name):
     pprint(words)
 
 def dump_hdr(buf):
+    hdr, buf = buf.split(b'\n', 1)
+    pprint(hdr)
     br = SshBinaryReader(io.BytesIO(buf))
     proposal = br.read_string()
     br = SshBinaryReader(io.BytesIO(proposal))
@@ -45,9 +47,9 @@ gais = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
 for (g_family, g_type, g_proto, g_cname, g_addr) in gais:
     sock = socket.socket(g_family, g_type, g_proto)
     sock.connect(g_addr)
-    sock.recv(1024)
+    buf = sock.recv(1024)
     sock.send(b"SSH-2.0-Cipherscan\r\n")
-    buf = sock.recv(16*1024)
+    buf += sock.recv(16*1024)
     sock.close()
     dump_hdr(buf)
     break

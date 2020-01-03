@@ -17,6 +17,7 @@ use Time::HiRes qw(usleep);
     ldap_cas_attr
     ldap_increment_attr
 
+    ldap_format_error
     ldap_check
 );
 

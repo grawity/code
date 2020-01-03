@@ -13,6 +13,9 @@ class BinaryReader():
             print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
         return data
 
+    def seek(self, pos, whence=0):
+        return self.fh.seek(pos, whence)
+
     def read(self, length):
         buf = self.fh.read(length)
         if len(buf) < length:

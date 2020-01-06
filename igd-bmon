@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-interval=5
+interval=3
 nlines=$(stty size | awk '{print $1}')
 nlines=$(( nlines - 5 ))
 nlines=20
@@ -40,7 +40,9 @@ while sleep $interval; do
 		else
 			txcolor=
 		fi
-		printf "%8s | UP \e[%sm%8d\e[m bps | DOWN \e[%sm%8d\e[m bps\n" "$date" "$txcolor" "$txrate" "$rxcolor" "$rxrate"
+		txrate=$(numfmt --to=iec $txrate)
+		rxrate=$(numfmt --to=iec $rxrate)
+		printf "%8s | UP \e[%sm%8s\e[m bps | DOWN \e[%sm%8s\e[m bps\n" "$date" "$txcolor" "$txrate" "$rxcolor" "$rxrate"
 		#echo "$date | UP $txrate bps, DOWN $rxrate bps"
 	fi
 

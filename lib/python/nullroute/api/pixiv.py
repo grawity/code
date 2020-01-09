@@ -151,8 +151,11 @@ class PixivClient():
         member_name = re.sub(r"[^\u0000-\uFFFF]",
                              lambda m: "[U+%04X]" % ord(m.group(0)),
                              member_name)
-        member_name = re.sub("(@|＠).*", "", member_name)
-        member_name = re.sub(r"[◆✦|_✳︎]?([0-9一三]|月曜)日.+?[0-9]+[a-z]*", "", member_name)
+        if str(member_id) not in self.member_name_map:
+            # Strip temporary info unless it was hardcoded in the map
+            member_name = re.sub("(@|＠).*", "", member_name)
+            member_name = re.sub(r"[◆✦|_✳︎]?([0-9一三]|月曜)日.+?[0-9]+[a-z]*", "",
+                                 member_name)
         member_name = member_name.replace(" ", "_")
         return "%s_pixiv%s" % (member_name, member_id)
 

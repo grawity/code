@@ -93,6 +93,19 @@ class PixivApiClient():
         Core.die("could not log in to Pixiv (no credentials)")
         return False
 
+    def _check_token_error(self, resp):
+        try:
+            if resp["errors"]["system"]["message"] == "The access token provided is invalid.":
+                data = self._load_token()
+                Core.notice("currently had token: %r", data)
+                valid_for = data["expires_at"] - time.time()
+                if valid_for > 0:
+                    Core.notice("should be valid for %d more seconds", valid_for)
+                else:
+                    Core.notice("already expired %d seconds ago", -valid_for)
+        except KeyError:
+            pass
+
     ## JSON API functions
 
     @lru_cache(maxsize=1024)
@@ -102,6 +115,7 @@ class PixivApiClient():
         if resp["status"] == "success":
             return resp["response"][0]
         else:
+            self._check_token_error(resp)
             raise PixivApiError("API call failed: %r" % resp)
 
     @lru_cache(maxsize=1024)
@@ -111,6 +125,7 @@ class PixivApiClient():
         if resp["status"] == "success":
             return resp["response"][0]
         else:
+            self._check_token_error(resp)
             raise PixivApiError("API call failed: %r" % resp)
 
     def get_member_works(self, member_id, **kwargs):
@@ -119,6 +134,7 @@ class PixivApiClient():
             # paginated API -- include {pagination:, count:}
             return resp
         else:
+            self._check_token_error(resp)
             raise PixivApiError("API call failed: %r" % resp)
 
 import re

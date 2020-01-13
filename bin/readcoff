@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+import sys
+from enum import IntEnum
+from nullroute.io import BinaryReader
+
+class CoffImageFileType(IntEnum):
+    Unknown = 0x0
+    I386 = 0x14c
+    Alpha = 0x184
+    Arm = 0x1c0
+    Itanium = 0x200
+    Alpha64 = 0x284
+    Motorola68k = 0x268
+    Mips16 = 0x266
+    MipsFPU = 0x366
+    MipsFPU16 = 0x466
+    PowerPC = 0x1f0
+    R3000 = 0x162
+    R4000 = 0x166
+    R10000 = 0x168
+    Sh3 = 0x1a2
+    Sh4 = 0x1a6
+    Thumb = 0x1c2
+
+def read_coff_section(file, want_section):
+    found_size = None
+    found_offset = None
+    with open(file, "rb") as fh:
+        br = BinaryReader(fh)
+        # MS-DOS stub and PE signature
+        dos_stub = br.read(0x3c)
+        if dos_stub[0:2] != b'MZ':
+            raise ValueError("File does not start with MS-DOS MZ magic")
+        pe_offset = br.read_u16_le()
+        br.seek(pe_offset)
+        pe_sig = br.read(4)
+        if pe_sig != b'PE\0\0':
+            raise ValueError("File does not contain PE signature")
+        # COFF header
+        target_machine = br.read_u16_le()
+        num_sections = br.read_u16_le()
+        time_date = br.read_u32_le()
+        symtab_offset = br.read_u32_le()
+        num_symbols = br.read_u32_le()
+        opthdr_size = br.read_u16_le()
+        characteristics = br.read_u16_le()
+        #target_machine = CoffImageFileType(target_machine)
+        #print(target_machine)
+        # Optional PE32 Header
+        _ = br.read(opthdr_size)
+        # Section Table
+        for i in range(num_sections):
+            section_name = br.read(8).rstrip(b'\0')
+            virtual_size = br.read_u32_le()
+            virtual_addr = br.read_u32_le()
+            section_size = br.read_u32_le()
+            section_offset = br.read_u32_le()
+            relocs_offset = br.read_u32_le()
+            linenums_offset = br.read_u32_le()
+            num_relocs = br.read_u16_le()
+            num_linenums = br.read_u16_le()
+            characteristics = br.read_u32_le()
+            if want_section is None:
+                print(section_name.decode())
+            elif section_name == want_section.encode():
+                found_size = min(section_size, virtual_size)
+                found_offset = section_offset
+        if want_section:
+            # The section
+            br.seek(found_offset)
+            data = br.read(found_size)
+            return data
+
+infile = sys.argv[1]
+if len(sys.argv) > 2:
+    section = sys.argv[2]
+    outfile = "/dev/stdout"
+    if len(sys.argv) > 3:
+        outfile = sys.argv[3]
+    data = read_coff_section(infile, section)
+    with open(outfile, "wb") as fh:
+        fh.write(data)
+else:
+    read_coff_section(infile, None)

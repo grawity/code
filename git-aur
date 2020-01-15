@@ -7,9 +7,17 @@ ahost=nullroute:pkg/aur
 pkgname() {
 	local pkgname
 	[[ -s PKGBUILD ]] || die "no PKGBUILD here"
+	eval "$(grep ^pkgbase= PKGBUILD)"
+	if [[ $pkgbase ]]; then
+		echo "$pkgbase"
+		return
+	fi
 	eval "$(grep ^pkgname= PKGBUILD)"
-	[[ $pkgname ]] || die "no pkgname in PKGBUILD"
-	echo "$pkgname"
+	if [[ $pkgname ]]; then
+		echo "$pkgname"
+		return
+	fi
+	die "no pkgname in PKGBUILD"
 }
 
 cmd=$1; shift

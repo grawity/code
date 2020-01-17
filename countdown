@@ -13,16 +13,26 @@ def _fmt_duration(t):
 secs = sum([parse_duration(arg)
             for arg in sys.argv[1:]])
 
-start = time.time()
-finish = start + secs
-try:
-    while time.time() < finish:
-        out("waiting (%s left) " % _fmt_duration(finish - time.time()))
-        next = min(secs, 1)
-        secs -= next
-        time.sleep(next)
-    out("done after %s\n" % _fmt_duration(time.time() - start))
-except KeyboardInterrupt:
-    out("break after %s (%s left)\n" % (_fmt_duration(time.time() - start),
-                                        _fmt_duration(finish - time.time())))
-    exit(1)
+if secs > 0:
+    start = time.time()
+    finish = start + secs
+    try:
+        while time.time() < finish:
+            out("waiting (%s left) " % _fmt_duration(finish - time.time()))
+            next = min(secs, 1)
+            secs -= next
+            time.sleep(next)
+        out("done after %s\n" % _fmt_duration(time.time() - start))
+    except KeyboardInterrupt:
+        out("break after %s (%s left)\n" % (_fmt_duration(time.time() - start),
+                                            _fmt_duration(finish - time.time())))
+        exit(1)
+else:
+    start = time.time() - abs(secs)
+    try:
+        while True:
+            out("waiting (%s elapsed) " % _fmt_duration(time.time() - start))
+            time.sleep(1)
+    except KeyboardInterrupt:
+        out("break after %s\n" % _fmt_duration(time.time() - start))
+        exit(1)

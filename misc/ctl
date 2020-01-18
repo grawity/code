@@ -8,19 +8,23 @@ use strict;
 my $err;
 my $value;
 
+my %c = (
+	esc => (-t 1) ? "\e[38;5;9m" : "",
+	name => (-t 1) ? "\e[m\e[38;5;11m" : "",
+	punct => (-t 1) ? "\e[2m" : "",
+	reset => (-t 1) ? "\e[m" : "",
+);
+
 sub err($) { warn @_; ++$err; }
 
 sub print_file_data {
 	my ($file, $data) = @_;
-	$data =~ s/\0/\\0/g;
-	$data =~ s/\n/\\n/g;
-	$data =~ s/\t/\\t/g;
-	$data =~ s/[\x00-\x1F\x80-\xFF]/sprintf("\\%03o", ord $&)/ge;
-	if (-t 1) {
-		print "\e[m\e[38;5;11m$file\e[m \e[2m=\e[m $data\n";
-	} else {
-		print "$file = $data\n";
-	}
+	$data =~ s/\e/$c{esc}\\e$c{reset}/g;
+	$data =~ s/\0/$c{esc}\\0$c{reset}/g;
+	$data =~ s/\n/$c{esc}\\n$c{reset}/g;
+	$data =~ s/\t/$c{esc}\\t$c{reset}/g;
+	$data =~ s/[\x00-\x1A\x1C-\x1F\x80-\xFF]/sprintf("$c{esc}\\%03o$c{reset}", ord $&)/ge;
+	print "$c{name}$file$c{reset} $c{punct}=$c{reset} $data\n";
 }
 
 sub write_ctl {

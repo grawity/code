@@ -16,7 +16,11 @@ sub print_file_data {
 	$data =~ s/\n/\\n/g;
 	$data =~ s/\t/\\t/g;
 	$data =~ s/[\x00-\x1F\x80-\xFF]/sprintf("\\%03o", ord $&)/ge;
-	print "$file = $data\n";
+	if (-t 1) {
+		print "\e[m\e[38;5;11m$file\e[m \e[2m=\e[m $data\n";
+	} else {
+		print "$file = $data\n";
+	}
 }
 
 sub write_ctl {

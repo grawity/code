@@ -32,6 +32,30 @@ sub get_ldap_conf {
 	}
 }
 
+sub ldap_attrset_parse {
+	my ($args, %opts) = @_;
+	my %changes;
+
+	for (@$args) {
+		if (/^(?<attr>\w+)(?<op>[+]?=)(?<value>.+)$/s) {
+			my ($op, $attr, $value) = ($+{op}, $+{attr}, $+{value});
+			_debug("value op '$op' on '$attr' with '$value'");
+			if ($opts{translate}) {
+				($attr, $value) = $opts{translate}->($attr, $value);
+			} elsif ($opts{attr_map}) {
+				$attr = $opts{attr_map}{$attr} // $attr;
+			}
+			push @{$changes{$attr}}, $value;
+		}
+		else {
+			_err("syntax error: bad operation '$_'");
+			return;
+		}
+	}
+
+	return \%changes;
+}
+
 sub ldap_changeset_parse {
 	my ($args, %opts) = @_;
 	my %changes;
@@ -217,11 +241,57 @@ if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
 			if (confirm("remove entry '$dn'?")) {
 				print "removing $dn\n";
 				my $res = $conn->delete($dn);
+				ldap_check($res);
 			}
 		} else {
 			print "$dn\n";
 		}
 	}
+}
+elsif ($cmd eq "new") {
+	my $dn;
+	my $changes;
+
+	$dn = shift @ARGV;
+	if (!$dn || $dn !~ /,/) {
+		_die("missing new entry DN");
+	}
+
+	for (@ARGV) {
+		if (/=/) {
+			push @opt_changes, $_;
+		} else {
+			_err("unrecognized argument '$_'");
+		}
+	}
+	$changes = ldap_attrset_parse(\@opt_changes);
+	if (!$changes || !%$changes) {
+		_die("no attributes specified");
+	}
+
+	_info("creating entry '$dn'");
+	for my $attr (sort keys %$changes) {
+		for my $val (sort @{$changes->{$attr}}) {
+			print "  \e[1m$attr\e[m: $val\n";
+		}
+	}
+
+	_debug("connecting to '$opt_uri'");
+	my $conn = Net::LDAP->new($opt_uri,
+				verify => "require")
+		or _die("failed to connect: $@");
+	_debug("connected to host '".$conn->host."'");
+
+	if ($opt_starttls) {
+		_debug("starting TLS");
+		ldap_check($conn->start_tls());
+	}
+
+	_debug("authenticating with SASL $opt_mech");
+	ldap_check($conn->bind(sasl => Authen::SASL->new($opt_mech)));
+
+	my $res = $conn->add($dn, attrs => [%$changes]);
+	ldap_check($res);
 }
 else {
 	_die("unknown subcommand '$cmd'");

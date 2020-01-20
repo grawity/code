@@ -2,6 +2,7 @@
 use warnings;
 use strict;
 use Authen::SASL;
+use File::Basename;
 use Net::LDAP;
 use Nullroute::Lib qw(_debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
@@ -142,12 +143,16 @@ GetOptions(
 $opt_uri //= get_ldap_conf("URI");
 $opt_base //= get_ldap_conf("BASE");
 
-$cmd = shift @ARGV;
-
-if (!$cmd) {
-	_die("missing subcommand");
+if (basename($0) =~ /^ldap(\w+)$/) {
+	$cmd = $1;
+} else {
+	$cmd = shift @ARGV;
+	if (!$cmd) {
+		_die("missing subcommand");
+	}
 }
-elsif ($cmd eq "ls" || $cmd eq "set") {
+
+if ($cmd eq "ls" || $cmd eq "set") {
 	if (!$opt_filter) {
 		$opt_filter = shift @ARGV;
 	}

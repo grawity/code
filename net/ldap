@@ -8,6 +8,13 @@ use Nullroute::Lib qw(_debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
 use Getopt::Long qw(:config bundling require_order);
 
+sub confirm {
+	my ($msg) = @_;
+	print "$msg ";
+	STDOUT->flush();
+	return (<STDIN> =~ /^y$/i);
+}
+
 sub get_ldap_conf {
 	my ($key) = @_;
 	my $path = "/etc/ldap/ldap.conf";
@@ -152,7 +159,7 @@ if (basename($0) =~ /^ldap(\w+)$/) {
 	}
 }
 
-if ($cmd eq "ls" || $cmd eq "set") {
+if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
 	if (!$opt_filter) {
 		$opt_filter = shift @ARGV;
 	}
@@ -205,6 +212,11 @@ if ($cmd eq "ls" || $cmd eq "set") {
 				} else {
 					_err($res->error);
 				}
+			}
+		} elsif ($cmd eq "rm") {
+			if (confirm("remove entry '$dn'?")) {
+				print "removing $dn\n";
+				my $res = $conn->delete($dn);
 			}
 		} else {
 			print "$dn\n";

@@ -5,7 +5,7 @@ use Authen::SASL;
 use Net::LDAP;
 use Nullroute::Lib qw(_debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
-use Getopt::Long;
+use Getopt::Long qw(:config bundling require_order);
 
 sub get_ldap_conf {
 	my ($key) = @_;
@@ -140,8 +140,10 @@ if (!$opt_filter) {
 }
 
 for (@ARGV) {
-	if (/=/) {
+	if (/=/ || /^-/) {
 		push @opt_changes, $_;
+	} else {
+		_err("unrecognized argument '$_'");
 	}
 }
 

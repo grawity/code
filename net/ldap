@@ -120,6 +120,9 @@ sub ldap_changeset_dump {
     return @out;
 }
 
+sub get_connection {
+}
+
 my $cmd;
 my $opt_uri;
 my $opt_starttls = 0;
@@ -136,11 +139,15 @@ GetOptions(
 	"s|scope=s" => \$opt_scope,
 ) or exit(2);
 
+$opt_uri //= get_ldap_conf("URI");
+$opt_base //= get_ldap_conf("BASE");
+
 $cmd = shift @ARGV;
+
 if (!$cmd) {
 	_die("missing subcommand");
 }
-elsif ($cmd eq "set") {
+elsif ($cmd eq "ls" || $cmd eq "set") {
 	if (!$opt_filter) {
 		$opt_filter = shift @ARGV;
 	}
@@ -148,18 +155,19 @@ elsif ($cmd eq "set") {
 		_die("missing entry filter");
 	}
 
-	for (@ARGV) {
-		if (/=/ || /^-/) {
-			push @opt_changes, $_;
-		} else {
-			_err("unrecognized argument '$_'");
+	my $changes;
+	if ($cmd eq "set") {
+		for (@ARGV) {
+			if (/=/ || /^-/) {
+				push @opt_changes, $_;
+			} else {
+				_err("unrecognized argument '$_'");
+			}
 		}
+		$changes = ldap_changeset_parse(\@opt_changes);
+	} else {
+		_die("too many arguments given") if @ARGV;
 	}
-
-	$opt_uri //= get_ldap_conf("URI");
-	$opt_base //= get_ldap_conf("BASE");
-
-	my $changes = ldap_changeset_parse(\@opt_changes);
 
 	_debug("connecting to '$opt_uri'");
 	my $conn = Net::LDAP->new($opt_uri,
@@ -181,10 +189,9 @@ elsif ($cmd eq "set") {
 				attrs => ["1.1"]);
 	ldap_check($srch);
 	_info("found ".$srch->count." entries");
-	#my @dn_queue = map {$_->dn} $srch->entries;
 	for my $en ($srch->entries) {
 		my $dn = $en->dn;
-		if (%$changes) {
+		if ($cmd eq "set" && %$changes) {
 			print "modifying $dn\n";
 			my $res = $conn->modify($dn, %$changes);
 			if ($res->is_error) {

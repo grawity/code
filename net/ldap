@@ -4,6 +4,7 @@ use strict;
 use Authen::SASL;
 use File::Basename;
 use Net::LDAP;
+use Net::LDAP::Util qw(ldap_explode_dn);
 use Nullroute::Lib qw(_debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
 use Getopt::Long qw(:config bundling require_order);
@@ -275,8 +276,18 @@ elsif ($cmd eq "new") {
 	}
 
 	_info("creating entry '$dn'");
-	for my $attr (sort keys %$changes) {
-		for my $val (sort @{$changes->{$attr}}) {
+	my $edn = ldap_explode_dn($dn);
+	my $echanges = {%$changes};
+	for my $attr (keys %{$edn->[0]}) {
+		# TODO: This doesn't work 100% well if the attr name
+		#       is not all-lowercase in the attrset...
+		my $val = $edn->[0]->{$attr};
+		if (!grep {$_ eq $val} @{$echanges->{lc($attr)}}) {
+			push @{$echanges->{lc($attr)}}, $val;
+		}
+	}
+	for my $attr (sort keys %$echanges) {
+		for my $val (sort @{$echanges->{$attr}}) {
 			print "  \e[1m$attr\e[m: $val\n";
 		}
 	}

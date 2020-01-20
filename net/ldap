@@ -256,10 +256,15 @@ elsif ($cmd eq "new") {
 	if (!$dn || $dn !~ /,/) {
 		_die("missing new entry DN");
 	}
+	if ($dn =~ /,$/) {
+		$dn .= $opt_base;
+	}
 
 	for (@ARGV) {
 		if (/=/) {
 			push @opt_changes, $_;
+		} elsif (/^@(.+)/) {
+			push @opt_changes, "objectClass=$1";
 		} else {
 			_err("unrecognized argument '$_'");
 		}

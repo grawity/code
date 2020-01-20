@@ -120,6 +120,7 @@ sub ldap_changeset_dump {
     return @out;
 }
 
+my $cmd;
 my $opt_uri;
 my $opt_starttls = 0;
 my $opt_mech = "GSSAPI";
@@ -135,57 +136,69 @@ GetOptions(
 	"s|scope=s" => \$opt_scope,
 ) or exit(2);
 
-if (!$opt_filter) {
-	$opt_filter = shift @ARGV;
+$cmd = shift @ARGV;
+if (!$cmd) {
+	_die("missing subcommand");
 }
-
-for (@ARGV) {
-	if (/=/ || /^-/) {
-		push @opt_changes, $_;
-	} else {
-		_err("unrecognized argument '$_'");
+elsif ($cmd eq "set") {
+	if (!$opt_filter) {
+		$opt_filter = shift @ARGV;
 	}
-}
+	if (!$opt_filter) {
+		_die("missing entry filter");
+	}
 
-$opt_uri //= get_ldap_conf("URI");
-$opt_base //= get_ldap_conf("BASE");
-
-my $changes = ldap_changeset_parse(\@opt_changes);
-
-_debug("connecting to '$opt_uri'");
-my $conn = Net::LDAP->new($opt_uri,
-			verify => "require")
-	or _die("failed to connect: $@");
-_debug("connected to host '".$conn->host."'");
-
-if ($opt_starttls) {
-	_debug("starting TLS");
-	ldap_check($conn->start_tls());
-}
-
-_debug("authenticating with SASL $opt_mech");
-ldap_check($conn->bind(sasl => Authen::SASL->new($opt_mech)));
-
-my $srch = $conn->search(base => $opt_base,
-			scope => $opt_scope,
-			filter => $opt_filter,
-			attrs => ["1.1"]);
-ldap_check($srch);
-_info("found ".$srch->count." entries");
-#my @dn_queue = map {$_->dn} $srch->entries;
-for my $en ($srch->entries) {
-	my $dn = $en->dn;
-	if (%$changes) {
-		print "modifying $dn\n";
-		my $res = $conn->modify($dn, %$changes);
-		if ($res->is_error) {
-			if ($res->error_name eq "LDAP_TYPE_OR_VALUE_EXISTS") {
-				_warn($res->error);
-			} else {
-				_err($res->error);
-			}
+	for (@ARGV) {
+		if (/=/ || /^-/) {
+			push @opt_changes, $_;
+		} else {
+			_err("unrecognized argument '$_'");
 		}
-	} else {
-		print "$dn\n";
 	}
+
+	$opt_uri //= get_ldap_conf("URI");
+	$opt_base //= get_ldap_conf("BASE");
+
+	my $changes = ldap_changeset_parse(\@opt_changes);
+
+	_debug("connecting to '$opt_uri'");
+	my $conn = Net::LDAP->new($opt_uri,
+				verify => "require")
+		or _die("failed to connect: $@");
+	_debug("connected to host '".$conn->host."'");
+
+	if ($opt_starttls) {
+		_debug("starting TLS");
+		ldap_check($conn->start_tls());
+	}
+
+	_debug("authenticating with SASL $opt_mech");
+	ldap_check($conn->bind(sasl => Authen::SASL->new($opt_mech)));
+
+	my $srch = $conn->search(base => $opt_base,
+				scope => $opt_scope,
+				filter => $opt_filter,
+				attrs => ["1.1"]);
+	ldap_check($srch);
+	_info("found ".$srch->count." entries");
+	#my @dn_queue = map {$_->dn} $srch->entries;
+	for my $en ($srch->entries) {
+		my $dn = $en->dn;
+		if (%$changes) {
+			print "modifying $dn\n";
+			my $res = $conn->modify($dn, %$changes);
+			if ($res->is_error) {
+				if ($res->error_name eq "LDAP_TYPE_OR_VALUE_EXISTS") {
+					_warn($res->error);
+				} else {
+					_err($res->error);
+				}
+			}
+		} else {
+			print "$dn\n";
+		}
+	}
+}
+else {
+	_die("unknown subcommand '$cmd'");
 }

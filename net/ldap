@@ -33,99 +33,99 @@ sub get_ldap_conf {
 }
 
 sub ldap_changeset_parse {
-    my ($args, %opts) = @_;
-    my %changes;
-    my %attrs;
+	my ($args, %opts) = @_;
+	my %changes;
+	my %attrs;
 
-    for (@$args) {
-        # interpret 'foo=' as unset op (due to '-foo' conflicting with getopt)
-        s/^(\w+)=$/-$1/;
-        # HACK: strip whitespace for easier copypasting
-        s/[\s\n]+/ /gs;
-        if (/^(?<op>-)(?<attr>\w+)$/s) {
-            my ($op, $attr) = ($+{op}, $+{attr});
-            _debug("attr op '$op' on '$attr'");
-            if ($opts{translate}) {
-                ($attr) = $opts{translate}->($attr);
-            } elsif ($opts{attr_map}) {
-                $attr = $opts{attr_map}{$attr} // $attr;
-            }
-            if ($op eq "-") {
-                $changes{"delete"}{$attr} = [];
-                $attrs{$attr}{delattr}++;
-            }
-            else {
-                _die("BUG: unhandled op '$op' in '$_'");
-            }
-        }
-        elsif (/^(?<attr>\w+)(?<op>[+-]?=)(?<value>.+)$/s) {
-            my ($op, $attr, $value) = ($+{op}, $+{attr}, $+{value});
-            _debug("value op '$op' on '$attr' with '$value'");
-            if ($opts{translate}) {
-                ($attr, $value) = $opts{translate}->($attr, $value);
-            } elsif ($opts{attr_map}) {
-                $attr = $opts{attr_map}{$attr} // $attr;
-            }
-            #if ($ATTR_PACK{lc $attr}) {
-            #    $value = $ATTR_PACK{lc $attr}->($value);
-            #}
-            if ($op eq "=") {
-                push @{$changes{"replace"}{$attr}}, $value;
-                $attrs{$attr}{"replace"}++;
-            }
-            elsif ($op eq "+=") {
-                push @{$changes{"add"}{$attr}}, $value;
-                $attrs{$attr}{"add"}++;
-            }
-            elsif ($op eq "-=") {
-                push @{$changes{"delete"}{$attr}}, $value;
-                $attrs{$attr}{"delete"}++;
-            }
-            else {
-                _die("BUG: unhandled op '$op' in '$_'");
-            }
-        }
-        else {
-            _err("syntax error: bad operation '$_'");
-            return;
-        }
-    }
+	for (@$args) {
+		# interpret 'foo=' as unset op (due to '-foo' conflicting with getopt)
+		s/^(\w+)=$/-$1/;
+		# HACK: strip whitespace for easier copypasting
+		s/[\s\n]+/ /gs;
+		if (/^(?<op>-)(?<attr>\w+)$/s) {
+			my ($op, $attr) = ($+{op}, $+{attr});
+			_debug("attr op '$op' on '$attr'");
+			if ($opts{translate}) {
+				($attr) = $opts{translate}->($attr);
+			} elsif ($opts{attr_map}) {
+				$attr = $opts{attr_map}{$attr} // $attr;
+			}
+			if ($op eq "-") {
+				$changes{"delete"}{$attr} = [];
+				$attrs{$attr}{delattr}++;
+			}
+			else {
+				_die("BUG: unhandled op '$op' in '$_'");
+			}
+		}
+		elsif (/^(?<attr>\w+)(?<op>[+-]?=)(?<value>.+)$/s) {
+			my ($op, $attr, $value) = ($+{op}, $+{attr}, $+{value});
+			_debug("value op '$op' on '$attr' with '$value'");
+			if ($opts{translate}) {
+				($attr, $value) = $opts{translate}->($attr, $value);
+			} elsif ($opts{attr_map}) {
+				$attr = $opts{attr_map}{$attr} // $attr;
+			}
+			#if ($ATTR_PACK{lc $attr}) {
+			#	 $value = $ATTR_PACK{lc $attr}->($value);
+			#}
+			if ($op eq "=") {
+				push @{$changes{"replace"}{$attr}}, $value;
+				$attrs{$attr}{"replace"}++;
+			}
+			elsif ($op eq "+=") {
+				push @{$changes{"add"}{$attr}}, $value;
+				$attrs{$attr}{"add"}++;
+			}
+			elsif ($op eq "-=") {
+				push @{$changes{"delete"}{$attr}}, $value;
+				$attrs{$attr}{"delete"}++;
+			}
+			else {
+				_die("BUG: unhandled op '$op' in '$_'");
+			}
+		}
+		else {
+			_err("syntax error: bad operation '$_'");
+			return;
+		}
+	}
 
-    for my $attr (keys %attrs) {
-        my $n = $attrs{$attr};
-        if (($n->{add} || $n->{replace}) && $n->{delattr}) {
-            _warn("'$attr': attribute deletion will override all other operations");
-        }
-        if (($n->{add} || $n->{delete}) && $n->{replace}) {
-            _warn("'$attr': reassignment will override add/delete operations");
-        }
-    }
+	for my $attr (keys %attrs) {
+		my $n = $attrs{$attr};
+		if (($n->{add} || $n->{replace}) && $n->{delattr}) {
+			_warn("'$attr': attribute deletion will override all other operations");
+		}
+		if (($n->{add} || $n->{delete}) && $n->{replace}) {
+			_warn("'$attr': reassignment will override add/delete operations");
+		}
+	}
 
-    return \%changes;
+	return \%changes;
 }
 
 sub ldap_changeset_dump {
-    my ($changes) = @_;
-    my @types = qw(replace add delete);
-    my %ops = qw(replace = add += delete -=);
-    my @out;
-    for my $type (@types) {
-        my $c = $changes->{$type};
-        if ($c && %$c) {
-            for my $key (sort keys %$c) {
-                my $vals = $c->{$key};
-                if (@$vals) {
-                    #if ($ATTR_UNPACK{lc $key}) {
-                    #    $vals = [map {$ATTR_UNPACK{lc $key}->($_)} @$vals];
-                    #}
-                    push @out, "$key $ops{$type} \"$_\"" for @$vals;
-                } else {
-                    push @out, "$key $ops{$type} all values";
-                }
-            }
-        }
-    }
-    return @out;
+	my ($changes) = @_;
+	my @types = qw(replace add delete);
+	my %ops = qw(replace = add += delete -=);
+	my @out;
+	for my $type (@types) {
+		my $c = $changes->{$type};
+		if ($c && %$c) {
+			for my $key (sort keys %$c) {
+				my $vals = $c->{$key};
+				if (@$vals) {
+					#if ($ATTR_UNPACK{lc $key}) {
+					#	$vals = [map {$ATTR_UNPACK{lc $key}->($_)} @$vals];
+					#}
+					push @out, "$key $ops{$type} \"$_\"" for @$vals;
+				} else {
+					push @out, "$key $ops{$type} all values";
+				}
+			}
+		}
+	}
+	return @out;
 }
 
 sub get_connection {

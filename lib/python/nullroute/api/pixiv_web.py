@@ -6,6 +6,7 @@ from nullroute.string import ObjectDict
 import nullroute.sec
 from nullroute.sec.util import TokenCache
 import os
+import re
 import requests
 import time
 
@@ -40,11 +41,10 @@ class PixivWebClient(Scraper):
         Core.debug("verifying session status")
         resp = self.get("https://www.pixiv.net/member.php", allow_redirects=False)
         if resp.is_redirect:
-            Core.trace("member.php redirects to %r", resp.next.url)
+            Core.debug("member.php redirects to %r", resp.next.url)
             url = requests.utils.urlparse(resp.next.url)
-            if url.path == "/member.php":
-                query = parse_query_string(url.query)
-                self.user_id = int(query["id"])
+            if m := re.match(r"^/en/users/(\d+)", url.path):
+                self.user_id = int(m.group(1))
                 Core.debug("session is valid, userid %r", self.user_id)
                 return True
         Core.debug("session is not valid")

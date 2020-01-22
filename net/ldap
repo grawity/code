@@ -166,6 +166,7 @@ my $opt_filter;
 my @opt_changes;
 
 GetOptions(
+	"cmd=s" => \$cmd,
 	"H|uri=s" => \$opt_uri,
 	"b|base=s" => \$opt_base,
 	"f|filter=s" => \$opt_filter,
@@ -175,13 +176,16 @@ GetOptions(
 $opt_uri //= get_ldap_conf("URI");
 $opt_base //= get_ldap_conf("BASE");
 
-if (basename($0) =~ /^ldap(\w+)$/) {
-	$cmd = $1;
-} else {
-	$cmd = shift @ARGV;
-	if (!$cmd) {
-		_die("missing subcommand");
+if (!$cmd) {
+	if (basename($0) =~ /^ldap(\w+)$/) {
+		$cmd = $1;
+	} else {
+		$cmd = shift @ARGV;
 	}
+}
+
+if (!$cmd) {
+	_die("missing subcommand");
 }
 
 if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {

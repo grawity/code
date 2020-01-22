@@ -296,19 +296,19 @@ elsif ($cmd eq "new") {
 		_die("no attributes specified");
 	}
 
-	_info("creating entry '$dn'");
-	my $edn = ldap_explode_dn($dn);
-	my $echanges = {%$changes};
-	for my $attr (keys %{$edn->[0]}) {
-		# TODO: This doesn't work 100% well if the attr name
-		#       is not all-lowercase in the attrset...
-		my $val = $edn->[0]->{$attr};
-		if (!grep {$_ eq $val} @{$echanges->{lc($attr)}}) {
-			push @{$echanges->{lc($attr)}}, $val;
-		}
+	my $entry = Net::LDAP::Entry->new();
+	my $edn = ldap_explode_dn($dn, casefold => "none");
+	$entry->dn($dn);
+	for my $attr (sort keys %{$edn->[0]}) {
+		$entry->add($attr => $edn->[0]->{$attr});
 	}
-	for my $attr (sort keys %$echanges) {
-		for my $val (sort @{$echanges->{$attr}}) {
+	for my $attr (sort keys %$changes) {
+		$entry->add($attr => $changes->{$attr});
+	}
+
+	_info("creating entry '$dn'");
+	for my $attr (sort $entry->attributes) {
+		for my $val (sort $entry->get_value($attr)) {
 			print "  \e[1m$attr\e[m: $val\n";
 		}
 	}
@@ -327,8 +327,7 @@ elsif ($cmd eq "new") {
 	_debug("authenticating with SASL $opt_mech");
 	ldap_check($conn->bind(sasl => Authen::SASL->new($opt_mech)));
 
-	my $res = $conn->add($dn,
-	                     attrs => [%$changes],
+	my $res = $conn->add($entry,
 	                     control => \@controls);
 	ldap_check($res);
 }

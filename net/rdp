@@ -25,7 +25,7 @@ use_rdesktop=0
 arg_console=0
 arg_cert_ignore=0
 arg_cred_delegate=1
-arg_ui_workarea=1
+arg_ui_workarea=0
 arg_share_audio=1
 arg_share_clip=1
 arg_share_home=1
@@ -37,10 +37,11 @@ if [[ $1 != -* ]]; then
 	host=$1; shift
 fi
 
-while getopts ":46aFfRu:V:" OPT; do
+while getopts ":46aDFfRu:V:" OPT; do
 	case $OPT in
 	4|6) arg_af=-$OPT;;
 	a) arg_console=1;;
+	D) arg_ui_workarea=1;;
 	F) use_rdesktop=0;;
 	f) arg_fork=1;;
 	R) use_rdesktop=1;;
@@ -178,6 +179,8 @@ else
 	fi
 	if (( arg_ui_workarea )); then
 		args+=(-decorations /workarea)
+	else
+		args+=(/f)
 	fi
 	if (( arg_share_audio )); then
 		args+=(/sound:sys:pulse)

@@ -4,6 +4,7 @@ use strict;
 use Authen::SASL;
 use File::Basename;
 use Net::LDAP;
+use Net::LDAP::Control::ManageDsaIT;
 use Net::LDAP::Util qw(ldap_explode_dn);
 use Nullroute::Lib qw(_debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
@@ -160,6 +161,7 @@ my $cmd;
 my $opt_uri;
 my $opt_starttls = 0;
 my $opt_mech = "GSSAPI";
+my $opt_manage_dit = 0;
 my $opt_base;
 my $opt_scope = "sub";
 my $opt_filter;
@@ -168,6 +170,7 @@ my @opt_changes;
 GetOptions(
 	"cmd=s" => \$cmd,
 	"H|uri=s" => \$opt_uri,
+	"M|manage-dit!" => \$opt_manage_dit,
 	"b|base=s" => \$opt_base,
 	"f|filter=s" => \$opt_filter,
 	"s|scope=s" => \$opt_scope,
@@ -186,6 +189,11 @@ if (!$cmd) {
 
 if (!$cmd) {
 	_die("missing subcommand");
+}
+
+my @controls;
+if ($opt_manage_dit) {
+	push @controls, Net::LDAP::Control::ManageDsaIT->new(critical => 1);
 }
 
 if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
@@ -227,14 +235,16 @@ if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
 	my $srch = $conn->search(base => $opt_base,
 				scope => $opt_scope,
 				filter => $opt_filter,
-				attrs => ["1.1"]);
+				attrs => ["1.1"],
+				control => \@controls);
 	ldap_check($srch);
 	_info("found ".$srch->count." entries");
 	for my $en ($srch->entries) {
 		my $dn = $en->dn;
 		if ($cmd eq "set" && %$changes) {
 			print "modifying $dn\n";
-			my $res = $conn->modify($dn, %$changes);
+			my $res = $conn->modify($dn, %$changes,
+			                        control => \@controls);
 			if ($res->is_error) {
 				if ($res->error_name eq "LDAP_TYPE_OR_VALUE_EXISTS") {
 					_warn($res->error);
@@ -245,7 +255,8 @@ if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
 		} elsif ($cmd eq "rm") {
 			if (confirm("remove entry '$dn'?")) {
 				print "removing $dn\n";
-				my $res = $conn->delete($dn);
+				my $res = $conn->delete($dn,
+				                        control => \@controls);
 				ldap_check($res);
 			}
 		} else {
@@ -310,7 +321,9 @@ elsif ($cmd eq "new") {
 	_debug("authenticating with SASL $opt_mech");
 	ldap_check($conn->bind(sasl => Authen::SASL->new($opt_mech)));
 
-	my $res = $conn->add($dn, attrs => [%$changes]);
+	my $res = $conn->add($dn,
+	                     attrs => [%$changes],
+	                     control => \@controls);
 	ldap_check($res);
 }
 else {

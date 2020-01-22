@@ -203,7 +203,7 @@ if ($opt_relax) {
 	push @controls, Net::LDAP::Control::Relax->new();
 }
 
-if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
+if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	if (!$opt_filter) {
 		$opt_filter = shift @ARGV;
 	}
@@ -242,12 +242,12 @@ if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
 	my $srch = $conn->search(base => $opt_base,
 				scope => $opt_scope,
 				filter => $opt_filter,
-				attrs => ["1.1"],
+				attrs => [$cmd eq "show" ? "*" : "1.1"],
 				control => \@controls);
 	ldap_check($srch);
 	_info("found ".$srch->count." entries");
-	for my $en ($srch->entries) {
-		my $dn = $en->dn;
+	for my $entry ($srch->entries) {
+		my $dn = $entry->dn;
 		if ($cmd eq "set" && %$changes) {
 			print "modifying $dn\n";
 			my $res = $conn->modify($dn, %$changes,
@@ -265,6 +265,14 @@ if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {
 				my $res = $conn->delete($dn,
 				                        control => \@controls);
 				ldap_check($res);
+			}
+		} elsif ($cmd eq "show") {
+			print "\e[1mdn:\e[m $dn\n";
+			my @attrs = uniq ("objectClass", sort $entry->attributes);
+			for my $attr (@attrs) {
+				for my $val (sort $entry->get_value($attr)) {
+					print "  \e[1m$attr\e[m: $val\n";
+				}
 			}
 		} else {
 			print "$dn\n";

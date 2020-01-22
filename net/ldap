@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use Authen::SASL;
 use File::Basename;
+use List::Util qw(uniq);
 use Net::LDAP;
 use Net::LDAP::Control::ManageDsaIT;
 use Net::LDAP::Control::Relax;
@@ -307,7 +308,8 @@ elsif ($cmd eq "new") {
 	}
 
 	_info("creating entry '$dn'");
-	for my $attr (sort $entry->attributes) {
+	my @eattrs = uniq ("objectClass", sort $entry->attributes);
+	for my $attr (@eattrs) {
 		for my $val (sort $entry->get_value($attr)) {
 			print "  \e[1m$attr\e[m: $val\n";
 		}

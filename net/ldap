@@ -5,6 +5,7 @@ use Authen::SASL;
 use File::Basename;
 use Net::LDAP;
 use Net::LDAP::Control::ManageDsaIT;
+use Net::LDAP::Control::Relax;
 use Net::LDAP::Util qw(ldap_explode_dn);
 use Nullroute::Lib qw(_debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
@@ -161,14 +162,16 @@ my $cmd;
 my $opt_uri;
 my $opt_starttls = 0;
 my $opt_mech = "GSSAPI";
-my $opt_manage_dit = 0;
 my $opt_base;
 my $opt_scope = "sub";
 my $opt_filter;
 my @opt_changes;
+my $opt_manage_dit = 0;
+my $opt_relax = 0;
 
 GetOptions(
 	"cmd=s" => \$cmd,
+	"relax!" => \$opt_relax,
 	"H|uri=s" => \$opt_uri,
 	"M|manage-dit!" => \$opt_manage_dit,
 	"b|base=s" => \$opt_base,
@@ -194,6 +197,9 @@ if (!$cmd) {
 my @controls;
 if ($opt_manage_dit) {
 	push @controls, Net::LDAP::Control::ManageDsaIT->new(critical => 1);
+}
+if ($opt_relax) {
+	push @controls, Net::LDAP::Control::Relax->new();
 }
 
 if ($cmd eq "ls" || $cmd eq "set" || $cmd eq "rm") {

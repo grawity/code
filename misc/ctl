@@ -4,19 +4,13 @@
 #   For example, ctl /sys/modules/snd_hda_intel/parameters/power_save=1
 use warnings;
 use strict;
+use Getopt::Long;
 
 my $err;
 my $value;
 my $recurse = 0;
 my $color = (-t 1 || $ENV{COLOR});
-
-my %c = (
-	esc => $color ? "\e[38;5;9m" : "",
-	name => $color ? "\e[m\e[38;5;11m" : "",
-	punct => $color ? "\e[2m" : "",
-	notice => $color ? "\e[2m" : "",
-	reset => $color ? "\e[m" : "",
-);
+my %c;
 
 sub err($) { warn @_; ++$err; }
 
@@ -82,6 +76,20 @@ sub read_ctl {
 	}
 }
 
+GetOptions(
+	"color!" => \$color,
+	"R|recurse!" => \$recurse,
+	"v|value=s" => \$value,
+) || exit(2);
+
+%c = (
+	esc => $color ? "\e[38;5;9m" : "",
+	name => $color ? "\e[m\e[38;5;11m" : "",
+	punct => $color ? "\e[2m" : "",
+	notice => $color ? "\e[2m" : "",
+	reset => $color ? "\e[m" : "",
+);
+
 push @ARGV, "." if !@ARGV;
 
 for (@ARGV) {
@@ -89,8 +97,6 @@ for (@ARGV) {
 		write_ctl($1, $2);
 	} elsif (/^=(.*)$/) {
 		$value = $1;
-	} elsif (/^-r$/) {
-		$recurse = 1;
 	} elsif (defined $value) {
 		write_ctl($_, $value);
 	} else {

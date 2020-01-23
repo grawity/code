@@ -7,6 +7,7 @@ use strict;
 
 my $err;
 my $value;
+my $recurse = 0;
 
 my %c = (
 	esc => (-t 1) ? "\e[38;5;9m" : "",
@@ -50,11 +51,13 @@ sub read_ctl {
 		warn "ctl: skipping symlink '$file'\n";
 	} elsif (-d $file) {
 		$file =~ s|/+$||;
-		if ($depth > 10) {
+		if (!$recurse && $depth > 0) {
+			warn "ctl: skipping directory '$file'\n";
+		} elsif ($depth > 10) {
 			warn "ctl: stopping descent into '$file/*'\n";
-			return;
+		} else {
+			read_ctl($_, $depth+1) for glob("$file/*");
 		}
-		read_ctl($_, $depth+1) for glob("$file/*");
 	} elsif (-f $file) {
 		if (my $fh = IO::File->new($file, "r")) {
 			my $data;
@@ -84,6 +87,8 @@ for (@ARGV) {
 		write_ctl($1, $2);
 	} elsif (/^=(.*)$/) {
 		$value = $1;
+	} elsif (/^-r$/) {
+		$recurse = 1;
 	} elsif (defined $value) {
 		write_ctl($_, $value);
 	} else {

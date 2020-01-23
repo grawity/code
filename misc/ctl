@@ -13,6 +13,7 @@ my %c = (
 	esc => (-t 1) ? "\e[38;5;9m" : "",
 	name => (-t 1) ? "\e[m\e[38;5;11m" : "",
 	punct => (-t 1) ? "\e[2m" : "",
+	notice => (-t 1) ? "\e[2m" : "",
 	reset => (-t 1) ? "\e[m" : "",
 );
 
@@ -48,11 +49,11 @@ sub read_ctl {
 	my ($file, $depth) = @_;
 
 	if (-d $file && -l $file) {
-		warn "ctl: skipping symlink '$file'\n";
+		warn "$c{notice}ctl: skipping symlink '$file'$c{reset}\n";
 	} elsif (-d $file) {
 		$file =~ s|/+$||;
 		if (!$recurse && $depth > 0) {
-			warn "ctl: skipping directory '$file'\n";
+			warn "$c{notice}ctl: skipping directory '$file'$c{reset}\n";
 		} elsif ($depth > 10) {
 			warn "ctl: stopping descent into '$file/*'\n";
 		} else {
@@ -74,7 +75,7 @@ sub read_ctl {
 			err "ctl: file '$file': open error: $!\n";
 		}
 	} elsif (-e $file || -l $file) {
-		warn "ctl: skipping non-regular file '$file'\n";
+		warn "$c{notice}ctl: skipping non-regular file '$file'$c{reset}\n";
 	} else {
 		err "ctl: no such file '$file'\n";
 	}

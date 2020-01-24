@@ -36,12 +36,58 @@ sub get_ldap_conf {
 	}
 }
 
+sub is_binary_attr {
+	my ($name) = @_;
+	return 1 if $name =~ /;binary$/;
+	return 0;
+}
+
+sub show_bindump {
+	my ($buf, %opts) = @_;
+	my $indent = $opts{indent} // 0;
+	my $showhex = $opts{showhex} // 1;
+	my $width = $opts{width} // ($showhex ? 16 : 64);
+	my $maxlines = $opts{maxlines} // 0;
+	my $offset = 0;
+	my $lineno = 1;
+	my $istr = " " x $indent;
+	while (length($buf)) {
+		if ($maxlines && ++$lineno > $maxlines) {
+			unless ($lineno - $maxlines == 1 && length($buf) <= $width) {
+				print $istr."[".length($buf)." more bytes]\n";
+				last;
+			}
+		}
+		my $chunk = substr($buf, 0, $width, "");
+		# TODO: use unpack instead
+		my @bytes = map {ord} split(//, $chunk);
+		my $ostr = sprintf("%08X", $offset);
+		$offset += @bytes;
+		my $bstr = join(" ", map {sprintf("%02X", $_)} @bytes);
+		my $astr = join("", map {$_ < 0x20 || $_ >= 0x7F ? "." : chr($_)} @bytes);
+		my $remain = $width - @bytes;
+		if ($remain) {
+			$bstr .= "   " x $remain;
+			$astr .= " " x $remain;
+		}
+		print $istr.$ostr.($showhex ? "  ".$bstr : "")."  |".$astr."|\n";
+	}
+}
+
 sub show_entry_pretty {
 	my ($entry) = @_;
 	my @attrs = uniq ("objectClass", sort $entry->attributes);
 	for my $attr (@attrs) {
 		for my $val (sort $entry->get_value($attr)) {
-			print "  \e[1m$attr\e[m: $val\n";
+			if (is_binary_attr($attr)) {
+				print "  \e[1m$attr\e[m::\n";
+				show_bindump($val,
+				             indent => 4,
+				             maxlines => 8,
+				             showhex => 0);
+			} else {
+				print "  \e[1m$attr\e[m: $val\n";
+			}
 		}
 	}
 }

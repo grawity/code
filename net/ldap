@@ -36,6 +36,16 @@ sub get_ldap_conf {
 	}
 }
 
+sub show_entry_pretty {
+	my ($entry) = @_;
+	my @attrs = uniq ("objectClass", sort $entry->attributes);
+	for my $attr (@attrs) {
+		for my $val (sort $entry->get_value($attr)) {
+			print "  \e[1m$attr\e[m: $val\n";
+		}
+	}
+}
+
 sub ldap_attrset_parse {
 	my ($args, %opts) = @_;
 	my %changes;
@@ -268,12 +278,7 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 			}
 		} elsif ($cmd eq "show") {
 			print "\e[1mdn:\e[m $dn\n";
-			my @attrs = uniq ("objectClass", sort $entry->attributes);
-			for my $attr (@attrs) {
-				for my $val (sort $entry->get_value($attr)) {
-					print "  \e[1m$attr\e[m: $val\n";
-				}
-			}
+			show_entry_pretty($entry);
 		} else {
 			print "$dn\n";
 		}
@@ -316,12 +321,7 @@ elsif ($cmd eq "new") {
 	}
 
 	_info("creating entry '$dn'");
-	my @eattrs = uniq ("objectClass", sort $entry->attributes);
-	for my $attr (@eattrs) {
-		for my $val (sort $entry->get_value($attr)) {
-			print "  \e[1m$attr\e[m: $val\n";
-		}
-	}
+	show_entry_pretty($entry);
 
 	_debug("connecting to '$opt_uri'");
 	my $conn = Net::LDAP->new($opt_uri,

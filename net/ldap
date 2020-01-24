@@ -51,7 +51,7 @@ sub show_bindump {
 	my $offset = 0;
 	my $lineno = 1;
 	my $istr = " " x $indent;
-	while (length($buf)) {
+	for ($offset = 0; length($buf) > 0; $offset += $width) {
 		if ($maxlines && ++$lineno > $maxlines) {
 			unless ($lineno - $maxlines == 1 && length($buf) <= $width) {
 				print $istr."[".length($buf)." more bytes]\n";
@@ -62,7 +62,6 @@ sub show_bindump {
 		# TODO: use unpack instead
 		my @bytes = map {ord} split(//, $chunk);
 		my $ostr = sprintf("%08X", $offset);
-		$offset += @bytes;
 		my $bstr = join(" ", map {sprintf("%02X", $_)} @bytes);
 		my $astr = join("", map {$_ < 0x20 || $_ >= 0x7F ? "." : chr($_)} @bytes);
 		my $remain = $width - @bytes;

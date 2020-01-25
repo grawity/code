@@ -36,6 +36,17 @@ sub get_ldap_conf {
 	}
 }
 
+sub is_guid_attr {
+	my ($name) = @_;
+	my %guid = (
+		"msFVE-RecoveryGuid" => 1,
+		"msFVE-VolumeGuid" => 1,
+		"objectGUID" => 1,
+	);
+	return 1 if $guid{$name};
+	return 0;
+}
+
 sub is_binary_attr {
 	my ($name) = @_;
 	my %binary = (
@@ -46,6 +57,17 @@ sub is_binary_attr {
 	return 1 if $name =~ /;binary$/;
 	return 1 if $binary{$name};
 	return 0;
+}
+
+sub unpack_guid {
+	my ($buf) = @_;
+	my @bytes = unpack("(H2)*", $buf);
+	return join("", "{",
+		@bytes[3,2,1,0], "-",
+		@bytes[5,4], "-",
+		@bytes[7,6], "-",
+		@bytes[8,9], "-",
+		@bytes[10..15], "}");
 }
 
 sub show_bindump {
@@ -83,7 +105,10 @@ sub show_entry_pretty {
 	my @attrs = uniq ("objectClass", sort $entry->attributes);
 	for my $attr (@attrs) {
 		for my $val (sort $entry->get_value($attr)) {
-			if (is_binary_attr($attr)) {
+			if (is_guid_attr($attr)) {
+				$val = unpack_guid($val);
+				print "  \e[1m$attr\e[m: \e[38;5;12m$val\e[m\n";
+			} elsif (is_binary_attr($attr)) {
 				print "  \e[1m$attr\e[m::\n";
 				print "\e[2m";
 				show_bindump($val,

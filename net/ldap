@@ -36,15 +36,40 @@ sub get_ldap_conf {
 	}
 }
 
+sub is_guid_attr {
+	my ($name, $value) = @_;
+	my %guid = (
+		"msfve-recoveryguid" => 1,
+		"msfve-volumeguid" => 1,
+		"objectguid" => 1,
+	);
+	return 0 if length($value) != 16;
+	return 1 if $guid{lc($name)};
+	return 0;
+}
+
 sub is_binary_attr {
-	my ($name) = @_;
+	my ($name, $value) = @_;
 	my %binary = (
-		krbExtraData => 1,
-		krbPrincipalKey => 1,
+		"krbextradata" => 1,
+		"krbprincipalkey" => 1,
+		"msfve-keypackage" => 1,
 	);
 	return 1 if $name =~ /;binary$/;
-	return 1 if $binary{$name};
+	return 1 if $binary{lc($name)};
+	return 1 if $value && $value =~ /[\x00-\x1F]/;
 	return 0;
+}
+
+sub unpack_guid {
+	my ($buf) = @_;
+	my @bytes = unpack("(H2)*", $buf);
+	return join("", "{",
+		@bytes[3,2,1,0], "-",
+		@bytes[5,4], "-",
+		@bytes[7,6], "-",
+		@bytes[8,9], "-",
+		@bytes[10..15], "}");
 }
 
 sub show_bindump {
@@ -79,10 +104,14 @@ sub show_bindump {
 
 sub show_entry_pretty {
 	my ($entry) = @_;
+	print "\e[1m- dn:\e[m \e[38;5;13m".$entry->dn."\e[m\n";
 	my @attrs = uniq ("objectClass", sort $entry->attributes);
 	for my $attr (@attrs) {
 		for my $val (sort $entry->get_value($attr)) {
-			if (is_binary_attr($attr)) {
+			if (is_guid_attr($attr, $val)) {
+				$val = unpack_guid($val);
+				print "  \e[1m$attr\e[m: \e[38;5;12m$val\e[m\n";
+			} elsif (is_binary_attr($attr, $val)) {
 				print "  \e[1m$attr\e[m::\n";
 				print "\e[2m";
 				show_bindump($val,
@@ -333,7 +362,6 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 			}
 		} elsif ($cmd eq "show") {
 			print "\n" if $i++;
-			print "\e[38:5:12m\e[1mdn:\e[22m $dn\e[m\n";
 			show_entry_pretty($entry);
 		} else {
 			print "$dn\n";

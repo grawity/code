@@ -23,6 +23,7 @@ arg_af=
 arg_fork=0
 use_rdesktop=0
 arg_console=0
+arg_allow_rdpsec=0
 arg_cert_ignore=0
 arg_cred_delegate=1
 arg_ui_workarea=0
@@ -80,7 +81,13 @@ for arg; do
 	if [[ $arg == /port:* ]]; then
 		port=${arg#/port:}
 	fi
+	if [[ $arg == /sec:rdp ]]; then
+		arg_allow_rdpsec=1
+		arg_cert_ignore=0
+		arg_cred_delegate=0
+	fi
 done
+paddr="$host ($haddr:$port)"
 if have nc; then
 	debug "probing TCP server $haddr:$port"
 	if ! err=$(nc -v -z $arg_af "$addr" "$port" 2>&1); then
@@ -160,10 +167,6 @@ else
 		#/jpeg
 		#/rfx
 
-		# Authn and security
-		-sec-rdp
-		/cert-ignore
-
 		+auto-reconnect
 		+heartbeat
 
@@ -171,6 +174,11 @@ else
 		+async-update
 		+async-channels
 	     )
+	if (( arg_allow_rdpsec )); then
+		args+=(+sec-rdp)
+	else
+		args+=(-sec-rdp)
+	fi
 	if (( arg_cert_ignore )); then
 		args+=(/cert-ignore)
 	fi
@@ -180,7 +188,7 @@ else
 	if (( arg_ui_workarea )); then
 		args+=(-decorations /workarea)
 	else
-		args+=(/f)
+		args+=(/f +floatbar)
 	fi
 	if (( arg_share_audio )); then
 		args+=(/sound:sys:pulse)

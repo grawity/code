@@ -113,11 +113,11 @@ def main(argv):
                                   user_name=args.user)
 
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
-        require_args(args, "user", "access-token")
+        require_args(args, "user")
         decline_args(args, "client-id", "client-secret", "scope",
                            "refresh-token", "authorization-code")
 
-        if args.access_token == "keyring":
+        if args.access_token in {None, "keyring"}:
             data = token_cache.load_token()
             if not data:
                 Core.die("access token not found in keyring")

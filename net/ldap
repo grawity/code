@@ -302,6 +302,7 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	}
 
 	my $changes;
+	my @attrs = ("1.1");
 	if ($cmd eq "set") {
 		for (@ARGV) {
 			if (/=/ || /^-/) {
@@ -311,6 +312,8 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 			}
 		}
 		$changes = ldap_changeset_parse(\@opt_changes);
+	} elsif ($cmd eq "show") {
+		@attrs = @ARGV ? @ARGV : ("*");
 	} else {
 		_die("too many arguments given") if @ARGV;
 	}
@@ -332,7 +335,7 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	my $srch = $conn->search(base => $opt_base,
 				scope => $opt_scope,
 				filter => $opt_filter,
-				attrs => [$cmd eq "show" ? "*" : "1.1"],
+				attrs => \@attrs,
 				control => \@controls);
 	ldap_check($srch);
 	_info("found ".$srch->count." entries");

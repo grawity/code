@@ -346,9 +346,15 @@ if __name__ == "__main__":
     ap.add_argument("--remove", metavar="GLOB",
                     dest="remove", action="append", default=[],
                     help="automatically remove matching paths")
+    ap.add_argument("--keep-oldest",
+                    action="store_true", default=False,
+                    help="always keep the oldest file")
     ap.add_argument("--only", metavar="GLOB",
                     dest="only", action="append", default=[],
                     help="only list files with duplicates matching given paths")
+    ap.add_argument("--dry-run",
+                    action="store_true", default=False,
+                    help="TODO")
     ap.add_argument("--larger-than", metavar="SIZE",
                     dest="larger_than",
                     help="TODO")
@@ -386,14 +392,20 @@ if __name__ == "__main__":
                     print(wasted, fmt_hash(hash), path)
             else:
                 print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
+                oldest = None
+                if opts.keep_oldest:
+                    mtimes = [(os.stat(path).st_mtime, path) for path in paths]
+                    mtimes.sort()
+                    oldest = mtimes[0][1]
                 for path in paths:
                     qpath = escape_shell(path) if opts.quote else path
-                    if num > 1 and path_is_removable(path):
+                    if num > 1 and path_is_removable(path) and path != oldest:
                         print("   \033[1m\033[38;5;9m×\033[m", qpath)
-                        try:
-                            os.unlink(path)
-                        except FileNotFoundError:
-                            Core.notice("file %r already gone during unlink", path)
+                        if not opts.dry_run:
+                            try:
+                                os.unlink(path)
+                            except FileNotFoundError:
+                                Core.notice("file %r already gone during unlink", path)
                         files_removed += 1
                         size_removed += size
                         num -= 1

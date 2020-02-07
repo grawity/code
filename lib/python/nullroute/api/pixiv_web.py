@@ -23,7 +23,7 @@ def serialize_cookie(cookie):
 class PixivWebClient(Scraper):
     def __init__(self):
         super().__init__()
-
+        self.ua.mount("http://", requests.adapters.BaseAdapter())
         self.tc = TokenCache("www.pixiv.net", display_name="Pixiv website")
         self.user_id = None
 

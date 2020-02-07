@@ -14,7 +14,7 @@ class PixivApiError(Exception):
 class PixivApiClient():
     def __init__(self):
         self.ua = requests.Session()
-        self.ua.mount("http://", requests.adapters.HTTPAdapter(max_retries=3))
+        self.ua.mount("http://", requests.adapters.BaseAdapter())
         self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
 
         self.tc = OAuthTokenCache("api.pixiv.net", display_name="Pixiv API")

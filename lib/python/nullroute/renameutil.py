@@ -6,10 +6,12 @@ def is_file_partial(fname):
     return fname.endswith((".crdownload", ".filepart", ".part"))
 
 def gio_trash_file(path):
+    #os.unlink(old_path)
     import subprocess
     subprocess.run(["gio", "trash", path]).check_returncode()
 
 def gio_rename_file(old_name, new_name):
+    #os.rename(old_path, new_path)
     import subprocess
     subprocess.run(["gio", "move", old_name, new_name]).check_returncode()
 
@@ -49,7 +51,6 @@ class RenameJob():
         elif compare_files(old_path, new_path):
             print("=>", self.fmt_same % new_filename, "[same]")
             if not self.dry_run:
-                #os.unlink(old_path)
                 gio_trash_file(old_path)
         elif os.path.exists(new_path):
             print("=>", self.fmt_notfound % new_filename, "[diff]")
@@ -57,5 +58,4 @@ class RenameJob():
         else:
             print("=>", self.fmt_found % new_filename)
             if not self.dry_run:
-                #os.rename(old_path, new_path)
                 gio_rename_file(old_path, new_path)

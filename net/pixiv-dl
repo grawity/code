@@ -15,6 +15,7 @@ def is_nonempty(file):
     return False
 
 class PixivGrabber():
+    basename_re = re.compile(r"(?P<id>\d+)_p(?P<page>\d+)")
     member_re = re.compile(r"https?://www\.pixiv\.net/member(?:_illust)?\.php\?id=(?P<id>\d+)")
     member_re2 = re.compile(r"https?://www\.pixiv\.net/(?:en/)?users/(?P<id>\d+)")
     illust_re = re.compile(r"https?://www\.pixiv\.net/member_illust\.php\?mode=(?P<mode>manga|medium|big)&illust_id=(?P<id>\d+)")
@@ -185,7 +186,8 @@ for arg in args:
         continue
 
     m = c.bigpage_re.match(arg) \
-        or c.pximg_re.match(arg)
+        or c.pximg_re.match(arg) \
+        or c.basename_re.match(arg)
     if m:
         illust_id = int(m.group("id"))
         page_no = int(m.group("page"))

@@ -243,7 +243,8 @@ int main(int argc, char *argv[]) {
 			if (!strcmp(fn, "-"))
 				fp = stdin, fn = "stdin";
 			else
-				fp = fopen(fn, "rb");
+				errx(1, "urlencode.c should not be given args");
+				//fp = fopen(fn, "rb");
 			if (!fp) {
 				warn("failed to open %s", fn);
 				r = 1;

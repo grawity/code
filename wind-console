@@ -6,6 +6,7 @@ host=wind
 fqdn="bmc.$host.nullroute.eu.org"
 user=$(getnetrc -sdf %u "ipmi/$fqdn")
 pass=$(getnetrc -sdf %p "ipmi/$fqdn")
+priv=$(getnetrc -sdf %a "ipmi/$fqdn")
 k_g=$(getnetrc -sdf %p "rmcp/$fqdn")
 
 if [[ ! $user || ! $pass ]]; then
@@ -13,8 +14,14 @@ if [[ ! $user || ! $pass ]]; then
 fi
 debug "connecting as user '$user', password '${pass::3}...'"
 
-freeipmi_args=(-h "$fqdn" -u "$user" -p "$pass" -k "$k_g")
-ipmitool_args=(-I lanplus -H "$fqdn" -U "$user" -P "$pass" -k "$k_g")
+if [[ ! $priv ]]; then
+	debug "privilege level for 'ipmi/$fqdn' not specified in ~/.netrc"
+	priv="${user^^}"
+	debug "guessing privilege level '$priv'"
+fi
+
+freeipmi_args=(           -h "$fqdn" -u "$user" -p "$pass" -l "$priv" -k "$k_g")
+ipmitool_args=(-I lanplus -H "$fqdn" -U "$user" -P "$pass" -L "$priv" -k "$k_g")
 # TODO: ipmitool -k is string key, -y is hex key, which one matches ipmi-console?
 # TODO: use -E -K for ipmitool
 #IPMI_PASSWORD=$pass

@@ -37,6 +37,8 @@ fmt() {
 		$max = -1;
 	}
 
+	$maxage = int($ENV{maxage} || 0);
+
 	@lines = ();
 
 	for (<>) {
@@ -106,6 +108,10 @@ fmt() {
 		$fmt = (time - $udate < 70000) ? "%H:%M" : "%b %-d, %H:%M";
 		$sdate = strftime($fmt, @tm);
 
+		if ($maxage && time - $udate > $maxage) {
+			next;
+		}
+
 		if ($from =~ /^-/) {
 			$C{tPFX} = $C{NOTICE};
 		} elsif ($buffer !~ /#/) {
@@ -164,7 +170,7 @@ opts='-4 --connect-timeout 3'
 size=$(stat -c %s "$log")
 now=$(date +%s)
 
-export date color prefix private notice text maxlines
+export date color prefix private notice text maxlines maxage
 
 debug "local cache is <$log>"
 
@@ -175,6 +181,10 @@ private=$prefix
 notice=$prefix
 text='38;5;188'
 maxlines=${1:-"-3"}
+maxage=$(( 3600 * 18 ))
+if (( -maxlines > 3 )); then
+	maxage=0
+fi
 
 cat "$log" | fmt
 
@@ -185,6 +195,7 @@ prefix='38;5;150'
 notice='38;5;66'
 text=''
 maxlines=''
+maxage=0
 
 tmp="$log.tmp"
 

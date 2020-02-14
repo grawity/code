@@ -84,7 +84,7 @@ def verify_timestamp():
             Core.die("timestamp of %r has changed; exiting to avoid data corruption"
                      % _unused_path)
 
-def get_last_path(key):
+def _get_last_path(key):
     with subprocess.Popen(["git", "log", "--format=",
                                          "--name-only",
                                          "--no-renames",
@@ -100,6 +100,26 @@ def get_last_path(key):
                 raise
             return line
 
+class DbmCache():
+    def __init__(self, path):
+        import dbm
+        self.db = dbm.open(path, "c")
+        self.s_total = 0
+        self.s_warm = 0
+        self.s_cold = 0
+
+    def get(self, key, fallback):
+        self.s_total += 1
+        if key in self.db:
+            self.s_warm += 1
+        else:
+            self.db[key] = fallback()
+            self.s_cold += 1
+        return self.db[key]
+
+def get_last_path(key):
+    return key2name.get(key, lambda: (_get_last_path(key) or "").encode()).decode()
+
 def print_items(items):
     total = 0
     for num, size, key, name in items:
@@ -110,6 +130,8 @@ def print_items(items):
 
 if not is_annex():
     Core.die("not a git-annex repository")
+
+key2name = DbmCache(os.path.join(git_dir(), "annex-purge-key2name.db"))
 
 remote = sys.argv[1] if len(sys.argv) > 1 else None
 
@@ -251,3 +273,9 @@ while n_found:
             print("  %-1s  %-16s  %s" % (s, l, d))
     else:
         Core.err("unknown command %r" % cmd[0])
+
+pct = key2name.s_cold / key2name.s_total * 100
+print("key2name:",
+    key2name.s_total, "total;",
+    key2name.s_cold, "cold;",
+    "%.1f" % (100 - pct), "% cached")

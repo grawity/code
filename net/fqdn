@@ -9,7 +9,8 @@ sub joinhost {
 	my ($domain, $suffix) = @_;
 
 	return $domain if $domain =~ /\.$/;
-	return $domain."." if $suffix eq ".";
+	return $domain if $suffix eq "";
+	return $domain if $suffix eq ".";
 	return $domain.".".$suffix;
 }
 
@@ -20,7 +21,7 @@ sub getfqdn {
 
 	if ($suffixes) {
 		my @suffixes = split(/[:, ]/, $suffixes);
-		for my $suffix (@suffixes, ".") {
+		for my $suffix (@suffixes, "") {
 			my $fqdn = joinhost($host, $suffix);
 			warn "fqdn: trying to resolve '$fqdn'\n" if $v;
 			my ($err, @res) = getaddrinfo($fqdn, undef, $hints);

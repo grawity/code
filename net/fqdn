@@ -13,7 +13,7 @@ sub joinhost {
 }
 
 sub getfqdn {
-	my ($host, $suffixes) = @_;
+	my ($host, $suffixes, $v) = @_;
 
 	my $hints = {flags => AI_CANONNAME};
 
@@ -21,31 +21,36 @@ sub getfqdn {
 		my @suffixes = split(/[:, ]/, $suffixes);
 		for my $suffix (@suffixes) {
 			my $fqdn = joinhost($host, $suffix);
+			warn "fqdn: trying to resolve '$fqdn'\n" if $v;
 			my ($err, @res) = getaddrinfo($fqdn, undef, $hints);
 			if (@res && !$err) {
 				# we don't want rDNS here, so no canonname
 				return $fqdn;
 			}
 		}
+		warn "fqdn: lookup of '$host' ran out of suffixes\n" if $v;
 	} else {
 		my ($err, @res) = getaddrinfo($host, undef, $hints);
 		warn "fqdn: could not resolve '$host': $err\n" if $err;
 		return $res[0]->{canonname} if @res;
 		return $host;
+		warn "fqdn: lookup of '$host' failed with no suffixes given\n" if $v;
 	}
 }
 
 my $suffixes = $ENV{LOCALDOMAIN};
+my $verbose = 0;
 
 GetOptions(
 	"d|s|search=s" => \$suffixes,
+	"verbose" => \$verbose,
 ) || exit(2);
 
 my @args = @ARGV ? @ARGV : hostname();
 my $errs = 0;
 
 for my $arg (@args) {
-	my $res = getfqdn($arg, $suffixes);
+	my $res = getfqdn($arg, $suffixes, $verbose);
 	if ($res) {
 		print "$res\n";
 	} else {

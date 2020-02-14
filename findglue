@@ -30,11 +30,11 @@ for pns in $parent_ns; do
 			debug "looking up glue record $domain/NS at '$pns'"
 			gip=$(_dig +additional $domain NS @$pns |
 				awk -v d=$gns '$1 == d {print $5}' | natsort)
-			from='glue'
+			from=' (from glue)'
 		else
 			debug "looking up normal record $gns/A,AAAA"
 			gip=$(_dig +short $gns A; _dig +short $gns AAAA | natsort)
-			from='DNS'
+			from=''
 		fi
 		debug "got result: [${gip//$'\n'/'; '}]"
 		if [[ $gip ]]; then
@@ -52,9 +52,9 @@ for pns in $parent_ns; do
 				fi
 				serial=${serial#:}
 				if [[ $serial ]]; then
-					printf "serial \e[33m%s\e[m (from %s)\n" "$serial" "$from"
+					printf "serial \e[33m%s\e[m%s\n" "$serial" "$from"
 				else
-					printf "no serial (from %s)\n" "$from"
+					printf "no serial%s\n" "$from"
 				fi
 			done
 		else

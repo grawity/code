@@ -335,10 +335,10 @@ sub describe {
 
 	my $out = $name;
 
-	my $identity = eval {$player->()->Get(MPRIS_MAIN_IFACE, "Identity")};
+	my $identity = eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "Identity")};
 	$out .= " ($identity)" if defined $identity;
 
-	my $status = eval {$player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus")};
+	my $status = eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus")};
 	$out .= " – $status" if defined $status;
 
 	say $out;
@@ -354,7 +354,7 @@ sub describe_as_separator {
 
 	my $out = $name;
 
-	my $identity = eval {$player->()->Get(MPRIS_MAIN_IFACE, "Identity")};
+	my $identity = eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "Identity")};
 	$out .= " ($identity)" if defined $identity;
 
 	say "-- $out --";
@@ -444,10 +444,10 @@ sub show_notification {
 	$app_id = $bus_name;
 	$app_id =~ s/$prefix_re//;
 
-	$app_name{$bus_name} //= $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
+	$app_name{$bus_name} //= $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "Identity");
 	$app_name{$bus_name} //= $app_id;
 
-	$app_desktop{$bus_name} //= $player->()->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
+	$app_desktop{$bus_name} //= $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "DesktopEntry");
 	$app_desktop{$bus_name} //= $app_id;
 
 	for ($status) {
@@ -508,7 +508,7 @@ sub _notify_handle_propchange {
 	if ("PlaybackStatus" ~~ %changed) {
 		$status = $changed{"PlaybackStatus"};
 	} elsif ("PlaybackStatus" ~~ @invalidated || !defined $status{$bus_name}) {
-		$status = $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+		$status = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
 	} else {
 		$status = $status{$bus_name};
 	}
@@ -516,7 +516,7 @@ sub _notify_handle_propchange {
 	if ("Metadata" ~~ %changed) {
 		$meta = $changed{"Metadata"};
 	} elsif ("Metadata" ~~ @invalidated || !defined $meta{$bus_name}) {
-		$meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+		$meta = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Metadata");
 	} else {
 		$meta = $meta{$bus_name};
 	}
@@ -618,65 +618,60 @@ sub player_getprop {
 		# main:
 
 		when ("can-fullscreen") {
-			saybool eval {$player->()->Get(MPRIS_MAIN_IFACE,
-							"CanSetFullscreen")} // 0;
+			saybool eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "CanSetFullscreen")} // 0;
 		}
 		when ("can-raise") {
-			saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanRaise");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "CanRaise");
 		}
 		when ("can-quit") {
-			saybool $player->()->Get(MPRIS_MAIN_IFACE, "CanQuit");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "CanQuit");
 		}
 		when ("desktop") {
-			say eval {$player->()->Get(MPRIS_MAIN_IFACE,
-							"DesktopEntry")} // "";
+			say eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "DesktopEntry")} // "";
 		}
 		when ("fullscreen") {
-			saybool eval {$player->()->Get(MPRIS_MAIN_IFACE,
-							"Fullscreen")} // 0;
+			saybool eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "Fullscreen")} // 0;
 		}
 		when ("has-track-list") {
-			saybool $player->()->Get(MPRIS_MAIN_IFACE, "HasTrackList");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "HasTrackList");
 		}
 		when ("identity") {
-			say $player->()->Get(MPRIS_MAIN_IFACE, "Identity");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "Identity");
 		}
 		when ("mime-types") {
-			my $types = $player->()->Get(MPRIS_MAIN_IFACE,
-							"SupportedMimeTypes");
+			my $types = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "SupportedMimeTypes");
 			say for @$types;
 		}
 		when ("uri-schemes") {
-			my $schemes = $player->()->Get(MPRIS_MAIN_IFACE,
-							"SupportedUriSchemes");
+			my $schemes = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_MAIN_IFACE, "SupportedUriSchemes");
 			say for @$schemes;
 		}
 
 		# player:
 
 		when ("player/can-control") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanControl");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "CanControl");
 		}
 		when ("player/can-go-next") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoNext");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "CanGoNext");
 		}
 		when ("player/can-go-prev") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanGoPrevious");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "CanGoPrevious");
 		}
 		when ("player/can-pause") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPause");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "CanPause");
 		}
 		when ("player/can-play") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanPlay");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "CanPlay");
 		}
 		when ("player/can-seek") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "CanSeek");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "CanSeek");
 		}
 		when ("player/loop-status") {
-			say $player->()->Get(MPRIS_PLAYER_IFACE, "LoopStatus");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "LoopStatus");
 		}
 		when ("player/metadata") {
-			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+			my $meta = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Metadata");
 			my @wantkeys = @_ ? @_ : keys(%$meta);
 			for my $key (sort @wantkeys) {
 				my $value = $meta->{$key};
@@ -695,12 +690,12 @@ sub player_getprop {
 			}
 		}
 		when ("player/position") {
-			my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
+			my $pos = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Position");
 			say int2time($pos);
 		}
 		when ("player/position\@track") {
-			my $pos = $player->()->Get(MPRIS_PLAYER_IFACE, "Position");
-			my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+			my $pos = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Position");
+			my $meta = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Metadata");
 			my $track = $meta->{"mpris:trackid"};
 			if (!defined $track) {
 				_die2("couldn't get current track ID");
@@ -711,28 +706,28 @@ sub player_getprop {
 			say int2time($pos)."\@".$track;
 		}
 		when ("player/rate") {
-			say $player->()->Get(MPRIS_PLAYER_IFACE, "Rate");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Rate");
 		}
 		when ("player/rate-max") {
-			say $player->()->Get(MPRIS_PLAYER_IFACE, "MaximumRate");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "MaximumRate");
 		}
 		when ("player/rate-min") {
-			say $player->()->Get(MPRIS_PLAYER_IFACE, "MinimumRate");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "MinimumRate");
 		}
 		when ("player/shuffle") {
-			saybool $player->()->Get(MPRIS_PLAYER_IFACE, "Shuffle");
+			saybool $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Shuffle");
 		}
 		when ("player/status") {
-			say $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
 		}
 		when ("player/volume") {
-			say $player->()->Get(MPRIS_PLAYER_IFACE, "Volume");
+			say $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Volume");
 		}
 
 		# playlist:
 
 		when ("playlist/active") {
-			my $ret = $player->()->Get(MPRIS_PLAYLIST_IFACE, "ActivePlaylist");
+			my $ret = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYLIST_IFACE, "ActivePlaylist");
 			my ($valid, $struct) = @$ret;
 			if ($valid) {
 				my ($obj, $name, $icon) = @$struct;
@@ -806,8 +801,7 @@ sub player_setprop {
 			} elsif ($position =~ /@/) {
 				_die2("invalid track number '$position'");
 			} else {
-				my $meta = $player->()->Get(MPRIS_PLAYER_IFACE,
-							"Metadata");
+				my $meta = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Metadata");
 				$track = $meta->{"mpris:trackid"};
 				if (!defined $track) {
 					_die2("couldn't get current track ID");
@@ -823,10 +817,8 @@ sub player_setprop {
 		when ("player/rate") {
 			my $arg = shift;
 			if (!defined $arg) {
-				my $min = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
-							"MinimumRate")} // 1.0;
-				my $max = eval {$player->()->Get(MPRIS_PLAYER_IFACE,
-							"MaximumRate")} // 1.0;
+				my $min = eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "MinimumRate")} // 1.0;
+				my $max = eval {$player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "MaximumRate")} // 1.0;
 				_die2("missing value [$min .. $max]");
 			}
 			$arg = dbus_double($arg);
@@ -871,10 +863,8 @@ sub player_setprop {
 		when ("playlist/active") {
 			my $arg = shift;
 			if (!defined $arg) {
-				my $orderings = $player->()->Get(MPRIS_PLAYLIST_IFACE,
-							"Orderings");
-				my $playlists = $player->()->GetPlaylists(0, 9999,
-							@$orderings[0], dbus_boolean(0));
+				my $orderings = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYLIST_IFACE, "Orderings");
+				my $playlists = $player->()->as_interface(DBUS_PROPERTY_IFACE)->GetPlaylists(0, 9999, @$orderings[0], dbus_boolean(0));
 				warn "Missing playlist name:\n";
 				for my $playlist (@$playlists) {
 					my ($obj, $name, $icon) = @$playlist;
@@ -933,8 +923,8 @@ my %commands = (
 	"notify-once" => sub {
 		my $player = shift;
 		my $bus_name = $player->()->get_service->get_service_name;
-		my $status = $player->()->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
-		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+		my $status = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "PlaybackStatus");
+		my $meta = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Metadata");
 		show_notification($bus_name, $player, $status, $meta);
 		return 0;
 	},
@@ -946,9 +936,8 @@ my %commands = (
 	},
 	playlists => sub {
 		my $player = shift;
-		my $orderings = $player->()->Get(MPRIS_PLAYLIST_IFACE, "Orderings");
-		my $playlists = $player->()->GetPlaylists(0, 9999,
-						@$orderings[0], dbus_boolean(0));
+		my $orderings = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYLIST_IFACE, "Orderings");
+		my $playlists = $player->()->as_interface(DBUS_PROPERTY_IFACE)->GetPlaylists(0, 9999, @$orderings[0], dbus_boolean(0));
 		for my $playlist (@$playlists) {
 			my ($obj, $name, $icon) = @$playlist;
 			say "$obj ($name)";
@@ -979,7 +968,7 @@ my %commands = (
 			return help("printf");
 		}
 
-		my $meta = $player->()->Get(MPRIS_PLAYER_IFACE, "Metadata");
+		my $meta = $player->()->as_interface(DBUS_PROPERTY_IFACE)->Get(MPRIS_PLAYER_IFACE, "Metadata");
 		my $fmt_re = qr/ %\{
 				# property name
 				( \w+:\w+ )
@@ -1028,7 +1017,7 @@ my %commands = (
 	},
 	summary => sub {
 		my $player = shift;
-		my $props = $player->()->GetAll(MPRIS_PLAYER_IFACE);
+		my $props = $player->()->as_interface(DBUS_PROPERTY_IFACE)->GetAll(MPRIS_PLAYER_IFACE);
 		my $status = $props->{PlaybackStatus};
 		my %colors = (
 			Playing => "1;32",

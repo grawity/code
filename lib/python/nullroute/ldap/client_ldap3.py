@@ -7,6 +7,9 @@ import ssl
 OID_LDAP_CONTROL_POSTREAD = "1.3.6.1.1.13.2"
 OID_LDAP_FEATURE_MODIFY_INCREMENT = "1.3.6.1.1.14"
 
+def quote_filter(s):
+    return ldap3.utils.conv.escape_filter_chars(s)
+
 class LdapClient():
     def __init__(self, url, require_tls=True):
         Core.debug("creating ldap3 connection to %r", url)

@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from nullroute.core import Core
 from nullroute.file import get_file_attr, set_file_attr
-from nullroute.misc import escape_shell, fmt_size
+from nullroute.misc import escape_shell, fmt_size, fmt_size_short
 from nullroute.ui import print_status, stderr_tty
 
 opts = None
@@ -280,10 +280,14 @@ def find_duplicates(root_dirs, only_globs=None):
                        bytes_so_far, bytes_total):
             bytes_so_far += file_size * (file_percentage / 100)
             percentage_so_far = bytes_so_far / bytes_total * 100
-            status("hash %d%% (%d/%d, %d%%)" % (percentage_so_far,
-                                                files_so_far,
-                                                files_total,
-                                                file_percentage),
+            size_so_far = fmt_size_short(bytes_so_far)
+            size_total = fmt_size_short(bytes_total)
+            status("hash %d%% (%d/%d) %d%% (%s/%s)" % (percentage_so_far,
+                                                       files_so_far,
+                                                       files_total,
+                                                       file_percentage,
+                                                       size_so_far,
+                                                       size_total),
                    path)
 
         for path in paths:

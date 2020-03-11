@@ -1,5 +1,6 @@
 import ldap
 import ldap.controls.readentry
+import ldap.filter
 from nullroute.core import Core
 import time
 
@@ -23,6 +24,9 @@ class CaseInsensitiveDict(dict):
 
 def _decode_dict_values(d):
     return {k: [v.decode() for v in vs] for k, vs in d.items()}
+
+def quote_filter(s):
+    return ldap.filter.escape_filter_chars(s)
 
 class LdapClient():
     def __init__(self, url, require_tls=True):

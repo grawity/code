@@ -117,10 +117,9 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     # In -u (update) mode, we read from xattrs and only refetch if missing
     # In -U (force_update) mode, we operate as default (only with different filename regex)
 
-    old_name, file_ext = old_name.rsplit(".", 1)
-    if old_name.endswith(".conv"):
-        old_name, sub_ext = old_name.rsplit(".", 1)
-        file_ext = sub_ext + "." + file_ext
+    if m := re.match(r"^(.+?)((-fullview)?(\.conv)?(\.\w+))$", old_name):
+        old_name = m.group(1)
+        file_ext = m.group(2)
     Core.trace("parsed into name %r ext %r", old_name, file_ext)
 
     try:
@@ -199,11 +198,11 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
         pprint(info)
 
     if args.inverse:
-        new_name = "%(_title)s by %(author_name)s (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(_title)s by %(author_name)s (%(_favid)s)%(_suffix)s" % info
     elif args.no_title:
-        new_name = "%(author_name)s (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(author_name)s (%(_favid)s)%(_suffix)s" % info
     else:
-        new_name = "%(author_name)s %(_title)s (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(author_name)s %(_title)s (%(_favid)s)%(_suffix)s" % info
 
     new_name = filter_filename(new_name, allow_space=True)
     job.end_rename(new_name)

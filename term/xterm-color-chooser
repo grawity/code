@@ -24,7 +24,8 @@ properties = {
     "red": (0, 5),
     "green": (0, 5),
     "blue": (0, 5),
-    "color": (0, 15),
+    "color": (0, 7),
+    "bright": (0, 1),
     "gray": (0, 23),
     "tcred": (0, 255),
     "tcgreen": (0, 255),
@@ -207,9 +208,9 @@ class State(dict):
 
     def getcolor(self, iso=False):
         if iso and self["mode"] == "iso":
-            return self["color"]
+            return self["color"] + self["bright"]*60
         elif self["mode"] == "sys":
-            return self["color"]
+            return self["color"] + self["bright"]*8
         elif self["mode"] == "rgb":
             return 16 + self["red"]*36 + self["green"]*6 + self["blue"]
         elif self["mode"] == "gray":
@@ -226,14 +227,14 @@ class State(dict):
         r, g, b = 0, 0, 0
 
         if self["mode"] in {"iso", "sys"}:
-            if self["color"] < 8:
-                r = 0xAA if self["color"] & 1 else 0x00
-                g = 0xAA if self["color"] & 2 else 0x00
-                b = 0xAA if self["color"] & 4 else 0x00
-            else:
+            if self["bright"]:
                 r = 0xFF if self["color"] & 1 else 0x55
                 g = 0xFF if self["color"] & 2 else 0x55
                 b = 0xFF if self["color"] & 4 else 0x55
+            else:
+                r = 0xAA if self["color"] & 1 else 0x00
+                g = 0xAA if self["color"] & 2 else 0x00
+                b = 0xAA if self["color"] & 4 else 0x00
         elif self["mode"] == "rgb":
             r = self["red"]   * 85 / 2
             g = self["green"] * 85 / 2
@@ -248,9 +249,14 @@ class State(dict):
         return r * 0x10000 + g * 0x100 + b
 
     def setcolor(self, color):
-        if color <= 15:
-            self["mode"] = iso
+        if color <= 7:
+            self["mode"] = "sys"
             self["color"] = color
+            self["bright"] = 0
+        elif color <= 15:
+            self["mode"] = "sys"
+            self["color"] = color - 8
+            self["bright"] = 1
         elif color <= 231:
             self["mode"] = "rgb";       color -= 16
             self["blue"] = color % 6;   color = (color - self["blue"]) / 6
@@ -277,11 +283,10 @@ class State(dict):
 
         if self["mode"] == "iso":
             color = self["color"]
-            if color > 7:
-                color -= 8
-                if 1 not in sgr:
-                    sgr.append(1)
-            color += 40 if bg else 30
+            if self["bright"]:
+                color += 100 if bg else 90
+            else:
+                color += 40 if bg else 30
             sgr.append(color)
 
         if len(sgr) > 0:
@@ -398,7 +403,7 @@ def main(state):
         print(indent, "red 7/9 (q/e), green 4/6 (a/d), blue 1/3 (z/c)")
         print(indent, "all +/-, reset 8/5/2 (w/s/x), reset all 0")
     elif state["mode"] in {"sys", "iso"}:
-        print(indent, "color +/- (q/e), reset 0")
+        print(indent, "color +/- (q/e), bright 1/3 (z/c), reset 0")
     elif state["mode"] == "gray":
         print(indent, "level +/- (q/e), reset 0")
     print()
@@ -408,7 +413,8 @@ def main(state):
         bar("green", state, "green", 3, "4/6 or a/d")
         bar("blue",  state, "blue",  3, "1/3 or z/c")
     elif state["mode"] in {"sys", "iso"}:
-        bar("color", state, "color", 2, "+/- or q/e")
+        bar("color", state, "color", 4, "+/- or q/e")
+        bar("bright",state, "bright",16, "1/3 or z/c")
     elif state["mode"] == "gray":
         bar("gray",  state, "gray",  1, "+/- or q/e")
     elif state["mode"] == "rgb888":
@@ -500,14 +506,22 @@ def main(state):
         elif k in "*":  state.incr_carry("blue", "green", "red")
     elif state["mode"] == "sys":
         if None: pass
-        elif k in "741qaz-":    state.decr("color")
-        elif k in "852wsx0":    state.reset("color", "flags")
-        elif k in "963edc+":    state.incr("color")
+        elif k in "74qa+":      state.decr("color")
+        elif k in "852wsx0":    state.reset("color", "bright", "flags")
+        elif k in "96ed-":      state.incr("color")
+        elif k in "1z":         state.decr("bright")
+        elif k in "3c":         state.incr("bright")
+        elif k in "/":          state.decr_carry("color", "bright")
+        elif k in "*":          state.incr_carry("color", "bright")
     elif state["mode"] == "iso":
         if None: pass
-        elif k in "741qaz-":    state.decr("color")
+        elif k in "74qa-":      state.decr("color")
         elif k in "852wsx0":    state.reset("color")
-        elif k in "963edc+":    state.incr("color")
+        elif k in "96ed+":      state.incr("color")
+        elif k in "1z":         state.decr("bright")
+        elif k in "3c":         state.incr("bright")
+        elif k in "/":          state.decr_carry("color", "bright")
+        elif k in "*":          state.incr_carry("color", "bright")
     elif state["mode"] == "gray":
         if None: pass
         elif k in "741qaz-":    state.decr("gray")

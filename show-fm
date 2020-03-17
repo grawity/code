@@ -1,16 +1,16 @@
-#!/usr/bin/env perl
+#!/usr/bin/env python3
 # show-fm - Reveal specified items in a file manager window
-use File::Spec;
-use Net::DBus;
+import dbus
+import os
+import sys
 
-my @urls = map {"file://$_"} map {File::Spec->rel2abs($_)} @ARGV;
-if (!@urls) {
-	warn "Usage: $0 PATH...\n";
-	exit 2;
-}
+urls = ["file://%s" % os.path.abspath(p) for p in sys.argv[1:]]
+if not urls:
+    print("Usage: %s PATH..." % sys.argv[0], file=sys.stderr)
+    exit(2)
 
-my $bus = Net::DBus->session();
-my $fm = $bus->get_service("org.freedesktop.FileManager1")
-             ->get_object("/org/freedesktop/FileManager1")
-             ->as_interface("org.freedesktop.FileManager1");
-$fm->ShowItems([@urls], "");
+bus = dbus.SessionBus()
+fm = dbus.Interface(bus.get_object("org.freedesktop.FileManager1",
+                                   "/org/freedesktop/FileManager1"),
+                    "org.freedesktop.FileManager1")
+fm.ShowItems(urls, "")

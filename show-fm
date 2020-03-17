@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+# show-fm - Reveal specified items in a file manager window
+use File::Spec;
+use Net::DBus;
+
+my @urls = map {"file://$_"} map {File::Spec->rel2abs($_)} @ARGV;
+if (!@urls) {
+	warn "Usage: $0 PATH...\n";
+	exit 2;
+}
+
+my $bus = Net::DBus->session();
+my $fm = $bus->get_service("org.freedesktop.FileManager1")
+             ->get_object("/org/freedesktop/FileManager1")
+             ->as_interface("org.freedesktop.FileManager1");
+$fm->ShowItems([@urls], "");

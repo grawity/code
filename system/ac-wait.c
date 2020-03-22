@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <libudev.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <err.h>
@@ -52,10 +53,16 @@ static struct udev_device * find_device(struct udev *udev) {
 	return dev;
 }
 
-static void monitor_device(struct udev *udev, struct udev_device *dev) {
+static void signal_handler(int sig) {
+	exit(0);
+}
+
+static void monitor_device(struct udev *udev, struct udev_device *dev, int delay) {
 	struct udev_monitor *mon;
 	struct pollfd pf[1];
 	int ret;
+
+	signal(SIGALRM, signal_handler);
 
 	mon = udev_monitor_new_from_netlink(udev, "udev");
 
@@ -70,6 +77,10 @@ static void monitor_device(struct udev *udev, struct udev_device *dev) {
 
 	udev_monitor_enable_receiving(mon);
 
+	/* Note: SIGALRM will interrupt the poll syscall, so if you ever want
+	 * the loop to continue after alarm, you'll need to handle EINTR here.
+	 */
+
 	while ((ret = poll(pf, 1, -1)) >= 0) {
 		struct udev_device *dev;
 		const char *sysname;
@@ -80,10 +91,17 @@ static void monitor_device(struct udev *udev, struct udev_device *dev) {
 		if (strncmp(sysname, "AC", 2) != 0)
 			continue;
 
-		if (is_online(dev))
+		if (is_online(dev)) {
 			warnx("went online");
-		else
-			errx(0, "went offline");
+			alarm(0);
+		} else {
+			if (delay) {
+				warnx("went offline, holding for %ds", delay);
+				alarm(delay);
+			} else {
+				errx(0, "went offline, exiting");
+			}
+		}
 	}
 }
 
@@ -92,14 +110,19 @@ int main(int argc, char *argv[]) {
 	struct udev_device *dev = NULL;
 	bool wait_online = false;
 	int opt;
+	int delay = 3;
 
-	while ((opt = getopt(argc, argv, "w")) != -1) {
+	while ((opt = getopt(argc, argv, "d:w")) != -1) {
 		switch (opt) {
+		case 'd':
+			delay = atoi(optarg);
+			warnx("exit delay is %d seconds", delay);
+			break;
 		case 'w':
 			wait_online = true;
 			break;
 		default:
-			errx(1, "Usage: %s [-w]", argv[0]);
+			errx(1, "Usage: %s [-d SECONDS] [-w]", argv[0]);
 		}
 	}
 
@@ -111,13 +134,13 @@ int main(int argc, char *argv[]) {
 		errx(1, "no device found, exiting");
 
 	if (is_online(dev))
-		warnx("online, waiting");
+		warnx("online, waiting for events");
 	else if (wait_online)
-		warnx("offline, waiting");
+		warnx("offline, waiting for online event");
 	else
-		errx(0, "offline, exiting");
+		errx(0, "offline, exiting immediately");
 
-	monitor_device(udev, dev);
+	monitor_device(udev, dev, delay);
 
 	return 0;
 }

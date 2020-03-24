@@ -1,1 +1,1 @@
-hacks/devel/goto-vim
+code/devel/goto-vim

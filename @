@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+if [[ ${0##*/} == @* ]]; then
+	host=${0##*/}
+	host=${host#@}
+elif [[ $1 == @* ]]; then
+	host=${1@@}
+	shift
+else
+	die "missing hostname"
+fi
+
+(( $# )) || set bash
+
+ssh -t "$host" ". ~/.profile && cd ${PWD@Q} && (${@@Q})"

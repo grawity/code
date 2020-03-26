@@ -77,6 +77,27 @@ def nprint(k, *v):
     width = 12
     print("\033[33m%*s\033[m" % (width, k), *v)
 
+def ipv4_is_netmask(addr):
+    if addr.version != 4:
+        return False
+    want = 255
+    mid = {
+        0b11111110,
+        0b11111100,
+        0b11111000,
+        0b11110000,
+        0b11100000,
+        0b11000000,
+        0b10000000,
+        0b00000000,
+    }
+    for x in addr.packed:
+        if x in mid:
+            want = 0
+        elif x != want:
+            return False
+    return True
+
 def ipv4_mcast_describe(addr):
     for mask, scope, desc in IPV4_MCAST_BLOCKS:
         if addr in ip_network(mask):
@@ -324,7 +345,7 @@ for i, arg in enumerate(sys.argv[1:]):
             show_net(addr.network)
         else:
             addr = ip_address(arg)
-            if addr.version == 4 and addr._is_valid_netmask(arg):
+            if addr.version == 4 and ipv4_is_netmask(addr):
                 net = ip_network("0.0.0.0/%s" % arg)
                 nprint("netmask", net.netmask)
                 nprint("prefix", "/%d" % net.prefixlen)

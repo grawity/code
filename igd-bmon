@@ -4,6 +4,10 @@
 # (Can probably be adjusted to work with IGD:1 as well, but upnpc appears to
 # make several more IPC calls for '-s' than '-S', possibly reducing accuracy.)
 
+# URL of the "XML root description" (find using Wireshark and 'upnpc -S')
+url="http://192.168.1.254:8000/ltpd8iyjpxe/IGD/upnp/IGD.xml"
+
+# Poll interval (2–5 seconds recommended)
 interval=3
 
 #nlines=$(stty size | awk '{print $1}')
@@ -17,7 +21,6 @@ iter=0
 
 while true; do
 	sleep $interval &
-	url="http://192.168.1.254:8000/ltpd8iyjpxe/IGD/upnp/IGD.xml"
 	data=$(upnpc -u "$url" -S)
 	txbytes=$(echo "$data" | awk '/^Bytes:/{print $3}')
 	rxbytes=$(echo "$data" | awk '/^Bytes:/{print $5}')

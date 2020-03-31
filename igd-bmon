@@ -17,12 +17,11 @@ while (( !iter )) || sleep $interval; do
 	rxbytes=$(echo "$data" | awk '/^Bytes:/{print $5}')
 	now=$(date +%s)
 
-	if (( ++iter > nlines )); then
+	if (( ++iter >= nlines )); then
 		printf '\e[%dA\e[1M\e[%dB' $((nlines-1)) $((nlines-2))
 	fi
 
 	if (( last > 0 )); then
-		date=$(date +%T -d "@$now")
 		txdelta=$(( txbytes - txlast ))
 		rxdelta=$(( rxbytes - rxlast ))
 		if (( txdelta < 0 || rxdelta < 0 )); then
@@ -41,12 +40,21 @@ while (( !iter )) || sleep $interval; do
 		else
 			txcolor=
 		fi
+		rxcolor=
+		date=$(date +%T -d "@$now")
 		txrate=$(numfmt --to=iec --suffix=B/s -- $txrate | sed -r 's/[0-9.]+/& /')
 		rxrate=$(numfmt --to=iec --suffix=B/s -- $rxrate | sed -r 's/[0-9.]+/& /')
-		printf "\e[2m%8s\e[m  "                   "$date"
-		printf "\e[%sm%12s\e[m \e[2mup\e[m  "     "$txcolor" "$txrate"
-		printf "\e[%sm%12s\e[m \e[2mdown\e[2m\n"  "$rxcolor" "$rxrate"
+	else
+		txcolor=35
+		rxcolor=35
+		date="Total"
+		txrate=$(numfmt --to=iec --suffix=B -- $txbytes | sed -r 's/[0-9.]+/& /')
+		rxrate=$(numfmt --to=iec --suffix=B -- $rxbytes | sed -r 's/[0-9.]+/& /')
 	fi
+
+	printf "\e[2m%8s\e[m  "                   "$date"
+	printf "\e[%sm%12s\e[m \e[2mup\e[m  "     "$txcolor" "$txrate"
+	printf "\e[%sm%12s\e[m \e[2mdown\e[2m\n"  "$rxcolor" "$rxrate"
 
 	txlast=$txbytes
 	rxlast=$rxbytes

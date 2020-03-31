@@ -23,13 +23,14 @@ while true; do
 	fi
 
 	if (( last > 0 )); then
+		if (( txbytes < txlast )); then
+			logger -t "igd-bmon" "Received TxBytes lower than before (was $txlast, now $txbytes)"
+		fi
+		if (( rxbytes < rxlast )); then
+			logger -t "igd-bmon" "Received RxBytes lower than before (was $rxlast, now $rxbytes)"
+		fi
 		txdelta=$(( txbytes - txlast ))
 		rxdelta=$(( rxbytes - rxlast ))
-		if (( txdelta < 0 || rxdelta < 0 )); then
-			echo "negative delta:"
-			echo "tx = ($txbytes - $txlast) => ($txdelta)"
-			echo "rx = ($rxbytes - $rxlast) => ($rxdelta)"
-		fi
 		txrate=$(( txdelta / interval ))
 		rxrate=$(( rxdelta / interval ))
 		if (( txrate > 70000 )); then

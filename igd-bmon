@@ -25,6 +25,11 @@ while sleep $interval; do
 		date=$(date +%T -d "@$now")
 		txdelta=$(( txbytes - txlast ))
 		rxdelta=$(( rxbytes - rxlast ))
+		if (( txdelta < 0 || rxdelta < 0 )); then
+			echo "negative delta:"
+			echo "tx = ($txbytes - $txlast) => ($txdelta)"
+			echo "rx = ($rxbytes - $rxlast) => ($rxdelta)"
+		fi
 		txrate=$(( txdelta / interval ))
 		rxrate=$(( rxdelta / interval ))
 		if (( txrate > 70000 )); then
@@ -36,8 +41,8 @@ while sleep $interval; do
 		else
 			txcolor=
 		fi
-		txrate=$(numfmt --to=iec --suffix=B/s $txrate | sed -r 's/[0-9.]+/& /')
-		rxrate=$(numfmt --to=iec --suffix=B/s $rxrate | sed -r 's/[0-9.]+/& /')
+		txrate=$(numfmt --to=iec --suffix=B/s -- $txrate | sed -r 's/[0-9.]+/& /')
+		rxrate=$(numfmt --to=iec --suffix=B/s -- $rxrate | sed -r 's/[0-9.]+/& /')
 		printf "%8s | UP \e[%sm%12s\e[m | DOWN \e[%sm%12s\e[m\n" "$date" "$txcolor" "$txrate" "$rxcolor" "$rxrate"
 		#echo "$date | UP $txrate bps, DOWN $rxrate bps"
 	fi

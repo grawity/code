@@ -10,6 +10,12 @@ url="http://192.168.1.254:8000/ltpd8iyjpxe/IGD/upnp/IGD.xml"
 # Poll interval (2–5 seconds recommended)
 interval=3
 
+# Whether to show rate as bits or bytes per second
+unit=B/s
+mult=1
+#unit=bps
+#mult=8
+
 #nlines=$(stty size | awk '{print $1}')
 #nlines=$(( nlines - 5 ))
 nlines=20
@@ -56,8 +62,8 @@ while true; do
 		else rxcolor=2
 		fi
 		date=$(date +%T -d "@$now")
-		txrate=$(numfmt --to=iec --suffix=B/s -- $txrate | sed -r 's/[0-9.]+/& /')
-		rxrate=$(numfmt --to=iec --suffix=B/s -- $rxrate | sed -r 's/[0-9.]+/& /')
+		txrate=$(numfmt --to=iec --suffix=$unit -- $[txrate*mult] | sed -r 's/[0-9.]+/& /')
+		rxrate=$(numfmt --to=iec --suffix=$unit -- $[rxrate*mult] | sed -r 's/[0-9.]+/& /')
 	else
 		txcolor=35
 		rxcolor=35

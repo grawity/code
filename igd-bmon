@@ -22,6 +22,8 @@ nlines=20
 
 txlast=0
 rxlast=0
+txepoch=0
+rxepoch=0
 last=0
 iter=0
 
@@ -37,14 +39,23 @@ while true; do
 	fi
 
 	if (( last > 0 )); then
+		txbytes=$(( txbytes + txepoch ))
+		rxbytes=$(( rxbytes + rxepoch ))
 		if (( txbytes < txlast )); then
 			logger -t "igd-bmon" "Received TxBytes lower than before (was $txlast, now $txbytes)"
+			txbytes=$(( txbytes + 0x100000000 ))
+			txepoch=$(( txepoch + 0x100000000 ))
+			logger -t "igd-bmon" "Adjusted RxBytes for rollover (now $txbytes, epoch $[txepoch>>32])"
 		fi
 		if (( rxbytes < rxlast )); then
 			logger -t "igd-bmon" "Received RxBytes lower than before (was $rxlast, now $rxbytes)"
+			rxbytes=$(( rxbytes + 0x100000000 ))
+			rxepoch=$(( rxepoch + 0x100000000 ))
+			logger -t "igd-bmon" "Adjusted RxBytes for rollover (now $rxbytes, epoch $[rxepoch>>32])"
 		fi
 		txdelta=$(( txbytes - txlast ))
 		rxdelta=$(( rxbytes - rxlast ))
+		foo="(tx last=$txlast now=$txbytes Δ=$txdelta) (rx last=$rxlast now=$rxbytes Δ=$rxdelta)"
 		txrate=$(( txdelta / interval ))
 		rxrate=$(( rxdelta / interval ))
 		if (( txrate >= 80*1000 )); then txcolor=91
@@ -70,11 +81,14 @@ while true; do
 		date="Total"
 		txrate=$(numfmt --to=iec --suffix=B -- $txbytes | sed -r 's/[0-9.]+/& /')
 		rxrate=$(numfmt --to=iec --suffix=B -- $rxbytes | sed -r 's/[0-9.]+/& /')
+		foo=
 	fi
 
 	printf "\e[2m%8s\e[m  "                   "$date"
 	printf "\e[%sm%12s\e[m \e[2mup\e[m  "     "$txcolor" "$txrate"
-	printf "\e[%sm%12s\e[m \e[2mdown\e[2m\n"  "$rxcolor" "$rxrate"
+	printf "\e[%sm%12s\e[m \e[2mdown\e[2m  "  "$rxcolor" "$rxrate"
+	#printf "%s" "$foo"
+	printf "\n"
 
 	txlast=$txbytes
 	rxlast=$rxbytes

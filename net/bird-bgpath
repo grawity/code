@@ -142,10 +142,29 @@ sub filter {
 	my $rest;
 	my $proto;
 	while (<STDIN>) {
-		if (s/^(\S+\/\d+)?\s+(via|dev) /$2 /) {
+		if (m{^(\S*)\s+(unicast) \[(\S+) (\S+)( from \S+)?\] ([I*]+ )?(\([0-9/]+\) .*)}) {
+			# unicast [ospf_lan4 16:55:32.740] I (150/75) [10.147.2.37]
+			# unicast [henet 2020-04-04] * (100) [AS2847i]
+			# unicast [int_sky 2020-04-05 from 2a06:e881:108:1::2] (100/17) [AS2847i]
+			#print " · \e[38;5;210m$1\e[m\n" if $1;
+			my $prefix = $1;
+			my $proto = $3;
+			my $date = $4;
+			my $status = $6;
+			my $rest = $7;
+			my $primary = ($status =~ /\*/);
+			print "\e[4m$prefix\e[m\n";
+			if ($primary) {
+				print "\t\e[2mProtocol:\e[m $proto \e[2m[since $date]\e[m \e[1mprimary\e[m $status$rest\e[m\n";
+			} else {
+				print "\t\e[2mProtocol:\e[m $proto \e[2m[since $date]\e[m $status$rest\e[m\n";
+			}
+		}
+		elsif (/^\s+(via \S+ on \S+)$/) { 
+			print "\t\e[94mNexthop:\e[m $1\n";
+		}
+		elsif (s/^(\S+\/\d+)?\s+(via|dev) /$2 /) {
 			$rt = $1 if $1;
-			print "\n";
-			print " · \e[38;5;210m$rt\e[m\n" if $1;
 			if (/^via (\S+) on (\S+) (.+) \[AS(\d+)(\w*?)\??\]$/) {
 				$via = $1; $dev = $2; $rest = $3; $asn = $4;
 				print "\t",
@@ -169,11 +188,12 @@ sub filter {
 					$rest."\n";
 			}
 			else {
-				print "\t>> ", $_;
+				print "\t\e[33m>> ", $_, "\e[m";
 			}
 		}
 		elsif (/(\s+Type:) (.+)$/) {
-			print if $2 !~ /^(BGP|OSPF) unicast univ$/;
+			# Type: BGP univ
+			print if $2 !~ /^(BGP|OSPF) univ$/;
 		}
 		elsif (/(\s+BGP\.as_path:) (.+)$/) {
 			my $prefix = $1;
@@ -194,7 +214,7 @@ sub filter {
 			} else {
 				@tags = sort @tags;
 			}
-			print $prefix." ".join(" ", @tags)."\n";
+			#print $prefix." ".join(" ", @tags)."\n";
 		}
 		elsif (/^(\s+BGP\.local_pref:) (.+)$/) {
 			print if $2 ne "100";

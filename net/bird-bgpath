@@ -69,22 +69,44 @@ sub is_private_as {
 	return 0;
 }
 
+sub dns_asname_cymru {
+	my ($as) = @_;
+	my $r = `dig +short AS$as.asn.cymru.com txt`;
+	$r =~ s/^"$as \| \S+ \| \S+ \| \S+ \| (.+)"/$1/ || return $as;
+	$r =~ s/\n.*//s;
+	#$r =~ s/,.*?$//;
+	$r =~ s/^(\S{4,}).*, (\S+)$/$1, $2/;
+	return $r;
+}
+
+sub dns_asname_dn42 {
+	my ($as) = @_;
+	my $r = `dig +short AS$as.asn.dn42 txt \@172.23.0.53`;
+	$r =~ s/^"$as \| \S* \| \S* \| \S* \| (.+)"/$1/ || return $as;
+	$r =~ s/\n.*//s;
+	#$r =~ s/,.*?$//;
+	$r =~ s/^(\S{4,}).*, (\S+)$/$1, $2/;
+	$r =~ s!\s*https?://\S+!!;
+	return $r;
+}
+
 sub asname {
 	my ($as, $fmt) = @_;
 	$fmt //= "%s";
-	my $tail = ($as =~ s/^424242/./r);
-	if ($AS{$as}) {
-		return $AS{$as}." (".$tail.")";
+	if (is_private_as($as)) {
+		my $tail = ($as =~ s/^424242/./r);
+		if ($AS{$as}) {
+			return $AS{$as}." (".$tail.")";
+		} else {
+			return dns_asname_dn42($as)." (".$tail.")";
+		}
+	} else {
+		if ($AS{$as}) {
+			return $AS{$as}." (".$as.")";
+		} else {
+			return dns_asname_cymru($as)." (".$as.")";
+		}
 	}
-	if (!is_private_as($as)) {
-		my $r = `dig +short AS$as.asn.cymru.com txt`;
-		$r =~ s/^"$as \| \S+ \| \S+ \| \S+ \| (.+)"/$1/ || return $as;
-		$r =~ s/\n.*//s;
-		#$r =~ s/,.*?$//;
-		$r =~ s/^(\S{4,}).*, (\S+)$/$1, $2/;
-		return "$r ($as)";
-	}
-	return $as;
 }
 
 sub tagname {

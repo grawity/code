@@ -35,16 +35,8 @@ properties = {
 
 xdg_config_dir = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
 
-older_state_path = os.path.join(xdg_config_dir, "xterm-color-chooser.json")
-
-old_state_dir = os.path.join(xdg_config_dir, "nullroute")
-old_state_path = os.path.join(old_state_dir, "xterm-color-chooser.json")
-
 state_dir = os.path.join(xdg_config_dir, "nullroute.eu.org")
 state_path = os.path.join(state_dir, "xterm-color-chooser.json")
-
-older_state_found = False
-old_state_found = False
 
 def screen_init(mode):
     if mode:
@@ -94,39 +86,16 @@ class State(dict):
         return data
 
     def load_persistent(self):
-        global old_state_found
         try:
             with open(state_path, "r") as fh:
                 self.load(json.load(fh))
         except FileNotFoundError:
-            try:
-                with open(old_state_path, "r") as fh:
-                    self.load(json.load(fh))
-                    old_state_found = True
-            except FileNotFoundError:
-                try:
-                    with open(older_state_path, "r") as fh:
-                        self.load(json.load(fh))
-                        older_state_found = True
-                except FileNotFoundError:
-                    pass
+            pass
 
     def save_persistent(self):
         data = self.save()
         with open(state_path, "w") as fh:
             json.dump(data, fh)
-
-        if old_state_found:
-            try:
-                os.unlink(old_state_path)
-            except FileNotFoundError:
-                pass
-
-        if older_state_found:
-            try:
-                os.unlink(older_state_path)
-            except FileNotFoundError:
-                pass
 
     def incr(self, *props):
         for prop in props:

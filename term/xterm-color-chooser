@@ -91,6 +91,10 @@ class State(dict):
                 self.load(json.load(fh))
         except FileNotFoundError:
             pass
+        except json.decoder.JSONDecodeError as e:
+            print("State file could not be loaded (%s), moving aside." % e,
+                  file=sys.stderr)
+            os.rename(state_path, state_path + "~")
 
     def save_persistent(self):
         data = self.save()

@@ -407,12 +407,6 @@ void show_cred(krb5_creds *cred) {
 	if (is_config && !show_cfg_tkts)
 		return;
 
-	retval = krb5_decode_ticket(&cred->ticket, &ticket);
-	if (retval) {
-		com_err(progname, retval, "while decoding ticket");
-		goto cleanup;
-	}
-
 	retval = krb5_unparse_name(ctx, cred->client, &clientname);
 	if (retval) {
 		com_err(progname, retval, "while unparsing client name");
@@ -425,10 +419,18 @@ void show_cred(krb5_creds *cred) {
 		goto cleanup;
 	}
 
-	retval = krb5_unparse_name(ctx, ticket->server, &tktservername);
-	if (retval) {
-		com_err(progname, retval, "while unparsing ticket server name");
-		goto cleanup;
+	if (!is_config) {
+		retval = krb5_decode_ticket(&cred->ticket, &ticket);
+		if (retval) {
+			com_err(progname, retval, "while decoding ticket");
+			goto cleanup;
+		}
+
+		retval = krb5_unparse_name(ctx, ticket->server, &tktservername);
+		if (retval) {
+			com_err(progname, retval, "while unparsing ticket server name");
+			goto cleanup;
+		}
 	}
 
 	if (show_names_only) {
@@ -458,7 +460,7 @@ void show_cred(krb5_creds *cred) {
 		// "ticket" <server> <client> <start> <renew> <flags> [data]
 		printf(is_config ? "cfgticket" : "ticket");
 		printf("\t%s", clientname);
-		printf("\t%s", tktservername);
+		printf("\t%s", tktservername ? tktservername : "-");
 		printf("\t%s", servername);
 		printf("\t%ld", (unsigned long) cred->times.starttime);
 		printf("\t%ld", (unsigned long) cred->times.endtime);

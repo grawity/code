@@ -268,7 +268,7 @@ int do_ccache(krb5_ccache cache) {
 			printf("cache\t%s\n", ccname);
 			printf("principal\t%s\n", princname);
 		}
-		printf("CREDENTIALS\tclient_name\tserver_name\t"
+		printf("CREDENTIALS\tclient_name\tserver_name\tcred_server_name\t"
 			"start_time\texpiry_time\trenew_time\tflags\tticket_data\n");
 	}
 
@@ -395,15 +395,23 @@ void print_data(krb5_data *ticket) {
  */
 void show_cred(krb5_creds *cred) {
 	krb5_error_code	retval;
+	krb5_boolean	is_config;
+	krb5_ticket	*ticket = NULL;
 	char		*clientname = NULL;
 	char		*servername = NULL;
+	char		*tktservername = NULL;
 	char		*flags;
-	int		is_config;
 	int		i;
 
 	is_config = krb5_is_config_principal(ctx, cred->server);
 	if (is_config && !show_cfg_tkts)
 		return;
+
+	retval = krb5_decode_ticket(&cred->ticket, &ticket);
+	if (retval) {
+		com_err(progname, retval, "while decoding ticket");
+		goto cleanup;
+	}
 
 	retval = krb5_unparse_name(ctx, cred->client, &clientname);
 	if (retval) {
@@ -414,6 +422,12 @@ void show_cred(krb5_creds *cred) {
 	retval = krb5_unparse_name(ctx, cred->server, &servername);
 	if (retval) {
 		com_err(progname, retval, "while unparsing server name");
+		goto cleanup;
+	}
+
+	retval = krb5_unparse_name(ctx, ticket->server, &tktservername);
+	if (retval) {
+		com_err(progname, retval, "while unparsing ticket server name");
 		goto cleanup;
 	}
 
@@ -444,6 +458,7 @@ void show_cred(krb5_creds *cred) {
 		// "ticket" <server> <client> <start> <renew> <flags> [data]
 		printf(is_config ? "cfgticket" : "ticket");
 		printf("\t%s", clientname);
+		printf("\t%s", tktservername);
 		printf("\t%s", servername);
 		printf("\t%ld", (unsigned long) cred->times.starttime);
 		printf("\t%ld", (unsigned long) cred->times.endtime);
@@ -471,6 +486,10 @@ cleanup:
 		krb5_free_unparsed_name(ctx, clientname);
 	if (servername)
 		krb5_free_unparsed_name(ctx, servername);
+	if (tktservername)
+		krb5_free_unparsed_name(ctx, tktservername);
+	if (ticket)
+		krb5_free_ticket(ctx, ticket);
 }
 
 /*

@@ -268,7 +268,7 @@ int do_ccache(krb5_ccache cache) {
 			printf("cache\t%s\n", ccname);
 			printf("principal\t%s\n", princname);
 		}
-		printf("CREDENTIALS\tclient_name\tserver_name\tcred_server_name\t"
+		printf("CREDENTIALS\tclient_name\tserver_name\tcached_server_name\t"
 			"start_time\texpiry_time\trenew_time\tflags\tticket_data\n");
 	}
 

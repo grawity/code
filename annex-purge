@@ -45,8 +45,11 @@ def annex(*cmd):
     return subprocess.Popen(["git", "annex", *cmd],
                             stdout=subprocess.PIPE)
 
-def annex_run(*cmd):
-    return subprocess.call(["git", "annex", *cmd])
+def annex_run(*cmd, autocommit=True):
+    opts = []
+    if autocommit == False:
+        opts += ["-c", "annex.alwayscommit=false"]
+    return subprocess.call(["git", *opts, "annex", *cmd])
 
 def getkeysize(key):
     for item in key.split("-"):
@@ -180,7 +183,8 @@ while n_found:
         failed = []
         for i, f in enumerate(todo):
             Core.say("dropping %r (%d/%d)", f.name, i+1, len(todo))
-            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % f.key)
+            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % f.key,
+                          autocommit=False)
             if r == 0:
                 dropped.append(f)
             else:
@@ -190,6 +194,7 @@ while n_found:
             sz_fail = sum([i.size for i in failed])
             Core.err("failed to drop %d files (%s)" % (n_fail, fmt_size(sz_fail)))
         if dropped:
+            annex_run("merge") # commit changes
             n_dropped = len(dropped)
             n_found -= n_dropped
             sz_dropped = sum([i.size for i in dropped])

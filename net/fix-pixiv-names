@@ -11,11 +11,6 @@ from pprint import pprint
 import re
 from requests.exceptions import HTTPError
 
-def re_match(regex, string, *args, **kwargs):
-    m = re.match(regex, string, *args, **kwargs)
-    Core.trace("text %r %s %r", string, "matched" if m else "did not match", regex)
-    return m
-
 class PixivRenamer():
     def __init__(self):
         self.pixiv = PixivClient()
@@ -129,33 +124,33 @@ class PixivRenamer():
             ext = m.group(2) + "." + ext
 
         for word in name.split():
-            m = re_match(r"^(.*)_pixiv(\d+)$", word)
+            m = re.match(r"^(.*)_pixiv(\d+)$", word)
             if m:
                 member_id = int(m.group(1))
                 member_tag = [word]
                 continue
-            m = re_match(r"^(\d+)_(p\d+|delays|ugoira\d+x\d+(?:@\d+)?)$", word)
+            m = re.match(r"^(\d+)_(p\d+|delays|ugoira\d+x\d+(?:@\d+)?)$", word)
             if m:
                 illust_id = int(m.group(1))
                 illust_tag = [word]
                 current = suffix
                 continue
-            m = re_match(r"^fanbox(\d+)(_p\d+)?$", word)
+            m = re.match(r"^fanbox(\d+)(_p\d+)?$", word)
             if m:
                 fanbox_id = int(m.group(1))
                 fanbox_tag = [word]
                 current = fanbox_tag
                 continue
-            m = re_match(r"^\(\d\)$", word)
+            m = re.match(r"^\(\d\)$", word)
             if m:
                 continue
-            m = re_match(r"^(\d{5,9})$", word)
+            m = re.match(r"^(\d{5,9})$", word)
             if m and ext == "webm":
                 illust_id = int(m.group(1))
                 illust_tag = [word]
                 continue
             if current is fanbox_tag:
-                m = re_match(r"^\w{24}$", word)
+                m = re.match(r"^\w{24}$", word)
                 if m:
                     fanbox_tag.append(word)
                 current = suffix

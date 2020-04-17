@@ -13,6 +13,12 @@ def _file_nonempty(path):
     except FileNotFoundError:
         return False
 
+def _fmt_params(d):
+    if d:
+        return "?" + "&".join(["%s=%s" % (k, v) for (k, v) in sorted(d.items())])
+    else:
+        return ""
+
 def _http_date_to_unix(text):
     t = email.utils.parsedate_tz(text)
     t = email.utils.mktime_tz(t)
@@ -90,14 +96,18 @@ class Scraper(object):
         self.ua.cookies.save()
 
     def get(self, url, *args, **kwargs):
-        Core.debug("fetching %r" % url, skip=1)
+        Core.debug("fetching %r",
+                   url + _fmt_params(kwargs.get("params")),
+                   skip=1)
         resp = self.ua.get(url, *args, **kwargs)
         resp.raise_for_status()
         return resp
 
     def get_page(self, url, *args, **kwargs):
         import bs4
-        Core.debug("fetching %r" % url, skip=1)
+        Core.debug("fetching %r",
+                   url + _fmt_params(kwargs.get("params")),
+                   skip=1)
         resp = self.ua.get(url, *args, **kwargs)
         resp.raise_for_status()
         page = bs4.BeautifulSoup(resp.content, "lxml")

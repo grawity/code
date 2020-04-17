@@ -65,6 +65,17 @@ def filter_filename(name, safe=False, allow_space=True, allow_nonbmp=True):
         name = re.sub(r"[^\u0000-\uFFFF]", "_" if safe else "�", name)
     return name
 
+def filename_with_ext(new_basename, old_name):
+    # Replace the basename while preserving .ext (or lack thereof)
+    old = old_name.split(".")
+    if len(old) >= 3 and old[-2] == "tar":
+        ext = ".%s.%s" % (old[-2], old[-1])
+    elif len(old) >= 2:
+        ext = ".%s" % old[-1]
+    else:
+        ext = ""
+    return new_basename + ext
+
 def fmt_size_short(nbytes, decimals=1, si=False):
     prefixes = "kMGTPEZYH"
     div = 1000 if si else 1024

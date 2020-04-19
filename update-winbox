@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+pkgver=3.22
+dstbin=~/.local/bin/winbox.exe
+
+case $HOSTTYPE in
+	i686)
+		url="https://download.mikrotik.com/winbox/${pkgver}/winbox.exe";;
+	x86_64)
+		url="https://download.mikrotik.com/winbox/${pkgver}/winbox64.exe";;
+	*)
+		die "unsupported architecture '$HOSTTYPE'";;
+esac
+
+wget "$url" -O "$dstbin.tmp" ||
+	die "could not download '$url'"
+
+osslsigncode verify -in "$dstbin.tmp" ||
+	die "could not verify Authenticode signature for '$dstbin'"
+
+mv -b "$dstbin.tmp" "$dstbin"
+chmod +x "$dstbin"
+info "downloaded to '$dstbin'"

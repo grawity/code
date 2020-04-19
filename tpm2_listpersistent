@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+declare -A hnames=(
+	# NV indices
+	[0x01C00002]="EK Certificate (RSA) (TPM TCG)"
+	[0x01C90000]="IDevID Certificate (TPM TCG)"
+	# Object handles
+	[0x81000001]="Storage Root Key (Microsoft, TPM TCG)"
+	[0x81010001]="Endorsement Key (RSA) (Microsoft, TPM TCG)"
+	[0x81020000]="IDevID Key (TPM TCG)"
+)
+
+handles=$(tpm2_getcap handles-persistent | sed "s/^- //")
+verbose=0
+
+if [[ "$1" == "-v" ]]; then
+	verbose=1
+fi
+
+for h in $handles; do
+	if (( verbose )); then
+		echo "=== $h ==="
+		tpm2_readpublic -c $h
+		echo ""
+	else
+		echo "$h: ${hnames[$h]}"
+		tpm2_readpublic -c $h | awk '
+			/^[^ ].*:$/ {
+				k=$1
+			}
+			/^[^ ].*: .*/ {
+				if (/^rsa:/) {
+					print "  ", $1, substr($2, 1, 16) "..."
+				} else {
+					print "  ", $0
+				}
+			}
+			/^  value:/ {
+				print "  ", k, $2
+			}
+		'
+		echo ""
+	fi
+done

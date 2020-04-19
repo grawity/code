@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+if [[ ${0##*/} == @?* ]]; then
+	host=${0##*/}
+	host=${host#@}
+elif [[ ${0##*/} == @ && $1 ]]; then
+	host=$1
+	shift
+else
+	die "missing hostname"
+fi
+
+(( $# )) || set bash
+
+ssh -t "$host" ". ~/.profile && cd ${PWD@Q} && (${@@Q})"

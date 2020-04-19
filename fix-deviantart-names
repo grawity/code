@@ -35,21 +35,21 @@ class DeviantArtScraper(Scraper):
         m = None
         # new format uuid: dc841wo-35b69a98-6911-41fc-888f-b18529722ae5.jpg
         if not m:
-            m = re.match(r"^(?P<id>d\w+)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.\w+$", filename)
+            m = re.match(r"^(?P<id>d\w+)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", filename)
         # older format uuid-favid
         if not m:
-            m = re.match(r"^[0-9a-f]{32}-(?P<id>d\w+)\.\w+$", filename)
+            m = re.match(r"^[0-9a-f]{32}-(?P<id>d\w+)$", filename)
         # older format title_by_artist-favid, title_by_artist_favid
         if not m:
-            m = re.match(r"^.*[-_]by[-_].*[-_](?P<id>d\w+)\.\w+$", filename)
+            m = re.match(r"^.*[-_]by[-_].*[-_](?P<id>d\w+)$", filename)
         if not m:
-            m = re.match(r"^file-(?P<id>d\w+)\.\w+$", filename)
+            m = re.match(r"^file-(?P<id>d\w+)$", filename)
         # our own output
         if not m and for_update:
-            m = re.match(r"^.+ \((?P<id>d\w+)\)\.\w+$", filename)
+            m = re.match(r"^.+ \((?P<id>d\w+)\)$", filename)
         # give up
         if not m:
-            raise ForeignFilenameError("filename %r did not match regex" % filename)
+            raise ForeignFilenameError("basename %r did not match regex" % filename)
         return m.group("id")
 
     def get_favurl_by_favid(self, favid):
@@ -117,6 +117,13 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
     # In -u (update) mode, we read from xattrs and only refetch if missing
     # In -U (force_update) mode, we operate as default (only with different filename regex)
 
+    if m := re.match(r"^(.+?)((-fullview)?(\.conv)?(\.\w+))$", old_name):
+        old_name = m.group(1)
+        file_ext = m.group(2)
+    else:
+        file_ext = ""
+    Core.trace("parsed into name %r ext %r", old_name, file_ext)
+
     try:
         favid = da.get_favid_from_filename(old_name, for_update=(args.update or args.force_update))
         Core.trace("got favid %r from filename=%r", favid, old_name)
@@ -135,7 +142,7 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
 
     if args.update and not args.force_update:
         info = {
-            "imagetype": old_name.split(".")[-1],
+            "imagetype": file_ext,
             "author_name": get_file_attr(old_path, "dublincore.creator"),
             "title": get_file_attr(old_path, "dublincore.title"),
         }
@@ -187,17 +194,17 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
 
     info["_favid"] = favid
     info["_title"] = filter_title(info["title"], strict=(not args.inverse))
-    info["_suffix"] = old_name.split(".")[-1]
+    info["_suffix"] = file_ext
 
     if Core._log_level >= Core.LOG_TRACE:
         pprint(info)
 
     if args.inverse:
-        new_name = "%(_title)s by %(author_name)s (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(_title)s by %(author_name)s (%(_favid)s)%(_suffix)s" % info
     elif args.no_title:
-        new_name = "%(author_name)s (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(author_name)s (%(_favid)s)%(_suffix)s" % info
     else:
-        new_name = "%(author_name)s %(_title)s (%(_favid)s).%(_suffix)s" % info
+        new_name = "%(author_name)s %(_title)s (%(_favid)s)%(_suffix)s" % info
 
     new_name = filter_filename(new_name, allow_space=True)
     job.end_rename(new_name)

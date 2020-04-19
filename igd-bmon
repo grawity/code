@@ -1,52 +1,97 @@
 #!/usr/bin/env bash
+# igd-bmon - Monitor bandwidth usage of an UPnP IGD:2 capable router.
+#
+# (Can probably be adjusted to work with IGD:1 as well, but upnpc appears to
+# make several more IPC calls for '-s' than '-S', possibly reducing accuracy.)
 
+# URL of the "XML root description" (find using Wireshark and 'upnpc -S')
+url="http://192.168.1.254:8000/ltpd8iyjpxe/IGD/upnp/IGD.xml"
+
+# Poll interval (2–5 seconds recommended)
 interval=3
-nlines=$(stty size | awk '{print $1}')
-nlines=$(( nlines - 5 ))
+
+# Whether to show rate as bits or bytes per second
+unit=B/s
+mult=1
+#unit=bps
+#mult=8
+
+#nlines=$(stty size | awk '{print $1}')
+#nlines=$(( nlines - 5 ))
 nlines=20
 
 txlast=0
 rxlast=0
+txepoch=0
+rxepoch=0
 last=0
 iter=0
 
-#for (( i=0; i<nlines; i++ )); do
-#	echo "-"
-#done
-
-while sleep $interval; do
-	url="http://192.168.1.254:8000/ltpd8iyjpxe/IGD/upnp/IGD.xml"
+while true; do
+	sleep $interval &
 	data=$(upnpc -u "$url" -S)
 	txbytes=$(echo "$data" | awk '/^Bytes:/{print $3}')
 	rxbytes=$(echo "$data" | awk '/^Bytes:/{print $5}')
 	now=$(date +%s)
 
-	if (( ++iter > nlines )); then
+	if (( nlines && ++iter >= nlines )); then
 		printf '\e[%dA\e[1M\e[%dB' $((nlines-1)) $((nlines-2))
 	fi
 
 	if (( last > 0 )); then
-		date=$(date +%T -d "@$now")
+		txbytes=$(( txbytes + txepoch ))
+		rxbytes=$(( rxbytes + rxepoch ))
+		if (( txbytes < txlast )); then
+			logger -t "igd-bmon" "Received TxBytes lower than before (was $txlast, now $txbytes)"
+			txbytes=$(( txbytes + 0x100000000 ))
+			txepoch=$(( txepoch + 0x100000000 ))
+			logger -t "igd-bmon" "Adjusted RxBytes for rollover (now $txbytes, epoch $[txepoch>>32])"
+		fi
+		if (( rxbytes < rxlast )); then
+			logger -t "igd-bmon" "Received RxBytes lower than before (was $rxlast, now $rxbytes)"
+			rxbytes=$(( rxbytes + 0x100000000 ))
+			rxepoch=$(( rxepoch + 0x100000000 ))
+			logger -t "igd-bmon" "Adjusted RxBytes for rollover (now $rxbytes, epoch $[rxepoch>>32])"
+		fi
 		txdelta=$(( txbytes - txlast ))
 		rxdelta=$(( rxbytes - rxlast ))
+		foo="(tx last=$txlast now=$txbytes Δ=$txdelta) (rx last=$rxlast now=$rxbytes Δ=$rxdelta)"
 		txrate=$(( txdelta / interval ))
 		rxrate=$(( rxdelta / interval ))
-		if (( txrate > 70000 )); then
-			txcolor=31
-		elif (( txrate > 50000 )); then
-			txcolor=33
-		elif (( txrate > 10000 )); then
-			txcolor=32
-		else
-			txcolor=
+		if (( txrate >= 80*1000 )); then txcolor=91
+		elif (( txrate >= 70*1000 )); then txcolor=31
+		elif (( txrate >= 50*1000 )); then txcolor=33
+		elif (( txrate >= 10*1000 )); then txcolor=32
+		elif (( txrate >= 1*1000 )); then txcolor=
+		else txcolor=2
 		fi
-		txrate=$(numfmt --to=iec $txrate)
-		rxrate=$(numfmt --to=iec $rxrate)
-		printf "%8s | UP \e[%sm%8s\e[m bps | DOWN \e[%sm%8s\e[m bps\n" "$date" "$txcolor" "$txrate" "$rxcolor" "$rxrate"
-		#echo "$date | UP $txrate bps, DOWN $rxrate bps"
+		if (( rxrate >= 1*1000*1000 )); then rxcolor=91
+		elif (( rxrate >= 850*1000 )); then rxcolor=31
+		elif (( rxrate >= 700*1000 )); then rxcolor=33
+		elif (( rxrate >= 100*1000 )); then rxcolor=32
+		elif (( rxrate >= 1*1000 )); then rxcolor=
+		else rxcolor=2
+		fi
+		date=$(date +%T -d "@$now")
+		txrate=$(numfmt --to=iec --suffix=$unit -- $[txrate*mult] | sed -r 's/[0-9.]+/& /')
+		rxrate=$(numfmt --to=iec --suffix=$unit -- $[rxrate*mult] | sed -r 's/[0-9.]+/& /')
+	else
+		txcolor=35
+		rxcolor=35
+		date="Total"
+		txrate=$(numfmt --to=iec --suffix=B -- $txbytes | sed -r 's/[0-9.]+/& /')
+		rxrate=$(numfmt --to=iec --suffix=B -- $rxbytes | sed -r 's/[0-9.]+/& /')
+		foo=
 	fi
+
+	printf "\e[2m%8s\e[m  "                   "$date"
+	printf "\e[%sm%12s\e[m \e[2mup\e[m  "     "$txcolor" "$txrate"
+	printf "\e[%sm%12s\e[m \e[2mdown\e[2m  "  "$rxcolor" "$rxrate"
+	#printf "%s" "$foo"
+	printf "\n"
 
 	txlast=$txbytes
 	rxlast=$rxbytes
 	last=$now
+	wait
 done

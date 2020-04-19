@@ -129,7 +129,8 @@ case $cmd in
         ;;
     setup)
         name=$1
-        dir=$PWD/$name
+        dir="$PWD/$name"
+        rdir="Attic/$name.git"
         if [[ ! $name ]]; then
             die "missing name (e.g. Videos)"
         elif [[ -d $dir ]]; then
@@ -144,13 +145,12 @@ case $cmd in
         fi
         log "setting up git-annex repository"
         git init
+        git config receive.denyCurrentBranch updateInstead
         git annex init
-        git annex direct
-        log "setting up origin repository"
-        rdir="Attic/$name.git"
-        if ! ssh virgule "[ -d $rdir ]"; then
-            ssh virgule "git init --bare $rdir && cd $rdir && git annex init"
-        fi
+        #log "setting up origin repository"
+        #if ! ssh $rhost "[ -d $rdir ]"; then
+        #    ssh $rhost "git init --bare $rdir && cd $rdir && git annex init"
+        #fi
         log "initial sync"
         git remote add origin "annex:${rdir%.git}"
         git annex sync
@@ -327,7 +327,9 @@ case $cmd in
                 export showfiles=1
             elif [[ $arg == -s ]]; then
                 export sortbysize=1
-            elif [[ $arg == -d[0-9]* ]]; then
+            elif [[ $arg =~ ^-[0-9]+$ ]]; then
+                export depth=${arg#-}
+            elif [[ $arg =~ ^-d[0-9]+$ ]]; then
                 export depth=${arg#-d}
             else
                 args+=("$arg")

@@ -1,16 +1,28 @@
 #!/bin/sh
+
 run() { echo ""; "$@"; r=$?; echo "=> $r"; return $r; }
+
 dir=~/Attic/Misc/$(date +%Y)/traceroute
 mkdir -p "$dir"
+
 local=$(hostname -s)
+af='4 6'
+
+case $1 in
+	-4) af='4'; shift;;
+	-6) af='6'; shift;;
+	-*) exit 1;;
+esac
+
 for host; do
-	log="$dir/trace-$local-$host-$(date +%Y-%m).log"
-	{
-		echo ""
-		echo "--- $host ($(date -R) @$(date +%s)) ---"
-		run traceroute -4 "$host"
-		run traceroute -6 "$host"
-		#run mtr -r -w -c 1 --show-ips "$host"
-	} \
-	|& tee -a "$log"
+	for af in $af; do
+		log="$dir/trace-$local-${host%%.*}-IPv$af-$(date +%Y-%m).log"
+		{
+			echo ""
+			echo "--- $host ($(date -R) @$(date +%s)) ---"
+			run traceroute -$af "$host"
+			#run mtr -r -w -c 1 --show-ips "$host"
+		} \
+		|& tee -a "$log"
+	done
 done

@@ -1,18 +1,17 @@
 from nullroute.core import Core
 from nullroute.file import compare_files
 import os
+import subprocess
 
 def is_file_partial(fname):
     return fname.endswith((".crdownload", ".filepart", ".part"))
 
 def gio_trash_file(path):
     #os.unlink(old_path)
-    import subprocess
     subprocess.run(["gio", "trash", path]).check_returncode()
 
 def gio_rename_file(old_name, new_name):
     #os.rename(old_path, new_path)
-    import subprocess
     subprocess.run(["gio", "move", old_name, new_name]).check_returncode()
 
 class RenameJob():

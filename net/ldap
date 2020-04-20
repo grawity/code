@@ -246,6 +246,18 @@ sub ldap_changeset_dump {
 	return @out;
 }
 
+sub combine_relative_base {
+	my ($head, $tail) = @_;
+	return ($head =~ /,$/) ? $head.$tail : $head;
+}
+
+sub path_to_dn {
+	my ($path, $base_dn) = @_;
+	my @path = split(m!/!, $path);
+	# /Hosts/cn=ember.nullroute.eu.org/iLO4
+	#TODO;
+}
+
 sub get_connection {
 }
 
@@ -300,11 +312,20 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	if (!$opt_filter) {
 		_die("missing entry filter");
 	}
+	if ($opt_filter =~ s/^@//) {
+		$opt_base = combine_relative_base($opt_filter, $opt_base);
+		$opt_filter = "(objectClass=*)";
+	}
+	elsif ($opt_filter =~ m!^/!) {
+		$opt_base = path_to_dn($opt_filter, $opt_base);
+		$opt_filter = "(objectClass=*)";
+	}
 
 	my $changes;
 	my @attrs = ("1.1");
 	if ($cmd eq "set") {
 		for (@ARGV) {
+			s/^([+-])@/objectClass$1=/;
 			if (/=/ || /^-/) {
 				push @opt_changes, $_;
 			} else {
@@ -340,7 +361,12 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	ldap_check($srch);
 	_info("found ".$srch->count." entries");
 	my $i = 0;
-	for my $entry ($srch->entries) {
+	my @entries = $srch->entries;
+	if ($cmd eq "rm") {
+		# Cheap way to ensure depth-first deletion
+		@entries = sort {length($b->dn) <=> length($a->dn)} @entries;
+	}
+	for my $entry (@entries) {
 		my $dn = $entry->dn;
 		if ($cmd eq "set" && %$changes) {
 			print "modifying $dn\n";

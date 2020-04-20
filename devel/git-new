@@ -3,6 +3,24 @@
 
 . lib.bash || exit
 
+while [[ $1 == --* ]]; do
+	case $1 in
+		--add-no-merges)
+			git config --add nullroute.git-new.options "--no-merges"
+			shift
+			;;
+		--add-no-po)
+			git config --add nullroute.git-new.paths ":(exclude)**.po"
+			shift
+			;;
+		--*)
+			die "unknown option '$1'"
+			;;
+		*)
+			break
+	esac
+done
+
 if [[ ! -d .git ]] && [[ -d $1 ]]; then
 	cd "$1" || exit
 	shift

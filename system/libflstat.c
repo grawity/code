@@ -20,7 +20,7 @@
 #define XS_IFWEIRD	0160000
 
 #define BADMODE(m) (S_ISDIR(m) && (m & S_ISUID) && !(m & S_ISGID))
-#define HACKMODE(m) if (result == 0 && BADMODE(m)) { m = XS_IFWEIRD; }
+#define HACKMODE(m) if (result == 0 && BADMODE(m)) { m = S_IFSOCK; }
 #else
 #define HACKMODE(m)
 #endif

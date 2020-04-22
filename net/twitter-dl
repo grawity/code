@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+import sys
+from nullroute.core import Core
+from nullroute.scrape import Scraper
+from nullroute.sec.util import OAuthTokenCache
+from pprint import pprint
+import re
+import subprocess
+import tweepy
+
+def save_m3u_video(url, file_name):
+    subprocess.run(["youtube-dl", url, "-o", file_name + ".%(ext)s"])
+
+class TwitterMediaScraper(Scraper):
+    def scrape(self, url):
+        Core.info("processing tweet %r", url)
+
+        if m := re.match(r"https://twitter\.com/.+/status/(\d+)", url):
+            id = m.group(1)
+        else:
+            Core.die("unrecognized URL %r", url)
+
+        status = self.api.get_status(id, tweet_mode="extended")
+        #pprint(status._json)
+        author = status.user.screen_name
+        for i, medium in enumerate(status.extended_entities["media"]):
+            #Core.info("processing medium %r", medium["expanded_url"])
+            if medium["type"] in {"video", "animated_gif"}:
+                # 'video' has a m3u variant & a few video/mp4 variants
+                # 'animated_gif' has no m3u & only one variant (video/mp4 with bitrate=0)
+                video_id = medium["id_str"]
+                file_name = "%s %s %s" % (author, status.id_str, video_id)
+                m3u_url = None
+                best_bitrate = -1
+                best_bitrate_url = None
+                for variant in medium["video_info"]["variants"]:
+                    Core.trace("variant: %r", variant)
+                    if variant["content_type"] == "application/x-mpegURL":
+                        m3u_url = variant["url"]
+                    elif variant["bitrate"] > best_bitrate:
+                        best_bitrate = variant["bitrate"]
+                        best_bitrate_url = variant["url"]
+                if m3u_url:
+                    # youtube-dl will choose the 'best' format from the playlist
+                    Core.info("- downloading %r to %r", m3u_url, file_name)
+                    save_m3u_video(m3u_url, file_name)
+                elif best_bitrate_url:
+                    file_name += ".mp4"
+                    Core.info("- downloading %r to %r", best_bitrate_url, file_name)
+                    self.save_file(best_bitrate_url,
+                                   file_name,
+                                   progress=True)
+                else:
+                    Core.err("video attachment didn't have MPEG playlist")
+            elif medium["type"] == "photo":
+                photo_url = medium["media_url_https"] + "?name=orig"
+                photo_id = medium["media_url_https"].split("/")[-1]
+                file_name = "%s %s p%d %s" % (author, status.id_str, i, photo_id)
+                Core.info("- downloading %r to %r", photo_url, file_name)
+                self.save_file(photo_url,
+                               file_name,
+                               progress=True)
+            else:
+                Core.warn("- skipping non-video medium")
+                pprint(medium)
+
+user_name = sys.argv[1]
+
+tc = OAuthTokenCache("api.twitter.com", display_name="Twitter API")
+creds = tc.load_token()
+if not creds:
+    creds = {
+        "consumer_key": input("consumer key?"),
+        "consumer_secret": input("consumer secret?"),
+        "token": input("auth token?"),
+        "secret": input("auth secret?"),
+    }
+    tc.store_token(creds)
+
+auth = tweepy.OAuthHandler(creds["consumer_key"],
+                           creds["consumer_secret"])
+auth.set_access_token(creds["token"],
+                      creds["secret"])
+api = tweepy.API(auth)
+
+s = TwitterMediaScraper()
+s.api = api
+for url in sys.argv[1:]:
+    s.scrape(url)
+Core.fini()

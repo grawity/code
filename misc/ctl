@@ -16,12 +16,13 @@ my %c;
 sub err($) { warn @_; ++$err; }
 
 sub print_file_data {
-	my ($file, $data) = @_;
+	my ($file, $data, $more) = @_;
 	$data =~ s/\e/$c{esc}\\e$c{reset}/g;
 	$data =~ s/\0/$c{esc}\\0$c{reset}/g;
 	$data =~ s/\n/$c{esc}\\n$c{reset}/g;
 	$data =~ s/\t/$c{esc}\\t$c{reset}/g;
 	$data =~ s/[\x00-\x1A\x1C-\x1F\x80-\xFF]/sprintf("$c{esc}\\%03o$c{reset}", ord $&)/ge;
+	$data .= "$c{punct}<...>$c{reset}" if $more;
 	print "$c{name}$file$c{reset} $c{punct}=$c{reset} $data\n";
 }
 
@@ -58,9 +59,10 @@ sub read_ctl {
 	} elsif (-f $file) {
 		if (my $fh = IO::File->new($file, "r")) {
 			my $data;
+			my $foo;
 			if ($fh->read($data, 512)) {
 				chomp $data;
-				print_file_data($file, $data);
+				print_file_data($file, $data, $fh->read($foo, 1));
 			} elsif ($!) {
 				print "$file: read error ($!)\n";
 			} else {

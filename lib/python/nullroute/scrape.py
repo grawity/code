@@ -33,7 +33,7 @@ def _http_header_param(hdr, param, default=None):
         val = email.utils.collapse_rfc2231_value(val)
     return val
 
-def file_ext(url):
+def file_ext_from_url(url):
     # throw away HTTP query, anchor
     if "#" in url:
         url = url.split("#")[0]

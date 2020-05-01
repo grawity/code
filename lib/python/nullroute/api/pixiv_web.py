@@ -80,6 +80,10 @@ class PixivWebClient(Scraper):
                 cookie = requests.cookies.create_cookie(**token)
                 Core.debug("loaded cookie: %r", cookie)
                 self.ua.cookies.set_cookie(cookie)
+                token = {**token, "name": "FANBOXSESSID"}
+                cookie2 = requests.cookies.create_cookie(**token)
+                Core.debug("loaded cookie: %r", cookie2)
+                self.ua.cookies.set_cookie(cookie2)
                 if self._validate():
                     cookie.expires = int(time.time() + 86400 * 30)
                     Core.debug("updating cookie: %r", cookie)
@@ -123,6 +127,10 @@ class PixivWebClient(Scraper):
     @lru_cache(maxsize=1024)
     def get_fanbox_creator(self, user_id):
         self._authenticate()
+        # NOTE: New API uses '@username' as creatorId
+        #return self._get_json("https://api.fanbox.cc/creator.get",
+        #                      params={"creatorId": user_id},
+        #                      headers={"origin": "https://www.fanbox.cc"})
         return self._get_json("https://www.pixiv.net/ajax/fanbox/creator",
                               params={"userId": post_id})
 
@@ -130,6 +138,9 @@ class PixivWebClient(Scraper):
     def get_fanbox_post(self, post_id):
         # returns partial information if unauthenticated
         self._authenticate()
+        #return self._get_json("https://api.fanbox.cc/post.info",
+        #                      params={"postId": post_id},
+        #                      headers={"origin": "https://www.fanbox.cc"})
         return self._get_json("https://fanbox.pixiv.net/api/post.info",
                               params={"postId": post_id},
                               headers={"origin": "https://www.pixiv.net"})

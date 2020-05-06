@@ -208,22 +208,8 @@ if [[ $highlights_file ]]; then
 	ssh "$irc_host" "tail -c +$size '$highlights_file'" > "$log.tmp"
 	ret=$?
 
-elif [[ $highlights_url ]]; then
-	debug "remote URL is <$highlights_url>"
-	out=$({ curl -s -S -C "$size" $opts "$highlights_url" > "$log.tmp"; } 2>&1)
-	ret=$?
-
-	bad='^<head><title>416 Requested Range Not Satisfiable</title></head>'
-	if [ $ret -eq 0 ] && grep -qs "$bad" "$log.tmp"; then
-		# I hate nginx.
-		# I also hate curl, because for some reason even with --fail it
-		# considers 416 with data a successful reply.
-		ret=33
-		: > "$log.tmp"
-	fi
-
 else
-	die "no highlights source defined (\$highlights_file nor \$highlights_url)"
+	die "\$highlights_file not defined"
 fi
 
 if [ $ret -eq 0 ] && [ -e "$log.tmp" ] && [ ! -s "$log.tmp" ]; then

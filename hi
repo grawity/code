@@ -3,16 +3,6 @@
 
 . lib.bash || exit
 
-set -o pipefail
-
-log=$path_cache/highlights.txt
-
-if [[ -s $path_config/synced/irc.conf ]]; then
-	. "$path_config/synced/irc.conf" || exit
-else
-	. "$path_config/irc.conf" || exit
-fi
-
 fmt() {
 	perl -M'POSIX' -M'POSIX::strptime' -M'Nullroute::Lib' -E'
 
@@ -161,6 +151,15 @@ fmt() {
 }
 
 umask 077
+set -o pipefail
+
+lib::find_file log= cache:highlights.txt
+lib::find_file conf= config:{synced/,}irc.conf
+
+[[ -f "$conf" ]] || die "config file '$conf' not found"
+
+. "$conf" || exit
+
 mkdir -p "${log%/*}" || die "cannot create cache directory"
 touch "$log"     || die "cannot create highlight cache"
 exec {fd}<"$log" || die "cannot open highlight cache"
@@ -224,7 +223,7 @@ elif [[ $highlights_url ]]; then
 	fi
 
 else
-	die "no highlights source defined"
+	die "no highlights source defined (\$highlights_file nor \$highlights_url)"
 fi
 
 if [ $ret -eq 0 ] && [ -e "$log.tmp" ] && [ ! -s "$log.tmp" ]; then

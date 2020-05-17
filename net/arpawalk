@@ -55,12 +55,18 @@ def fmt_domain(dom):
 
 def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
                                  maxdepth=-1, depth=0):
+    Core.debug("(%d) >> crawling zone %r recursively", depth, zone)
     if not depth:
         depth = len(zone.strip(".").split("."))
 
-    Core.debug("(%d) >> crawling %r", depth, zone)
-    for i in range(card):
-        domain = "%s.%s" % (fmt % i, zone)
+    if depth > maxdepth:
+        domains = [zone]
+        Core.trace(" - domain already at max length; using as-is")
+    else:
+        domains = ["%s.%s" % (fmt % i, zone) for i in range(card)]
+        Core.trace(" - domain below max length; expanding to %d subdomains", len(domains))
+
+    for domain in domains:
         stat["requests"] += 1
         try:
             answers = dns.resolver.query(domain, rtype)
@@ -92,17 +98,24 @@ def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
 
 def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
                                  maxdepth=-1, depth=0):
+    Core.debug("crawling zone %r iteratively", zone)
     if not depth:
         depth = len(zone.strip(".").split("."))
 
     queue = [zone]
     while queue:
-        Core.debug("(%d) processing queue[%d]", depth, len(queue))
+        Core.debug("processing queue [%d items] at depth %d", len(queue), depth)
         next = []
         for suffix in queue:
             Core.debug("processing suffix %r", suffix)
-            for i in range(card):
-                domain = "%s.%s" % (fmt % i, suffix)
+            if depth > maxdepth:
+                domains = [suffix]
+                Core.trace(" - domain already at max length; using as-is")
+            else:
+                domains = ["%s.%s" % (fmt % i, suffix) for i in range(card)]
+                Core.trace(" - domain below max length; expanding to %d subdomains", len(domains))
+
+            for domain in domains:
                 stat["requests"] += 1
                 try:
                     answers = dns.resolver.query(domain, rtype)

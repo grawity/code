@@ -24,6 +24,7 @@ STATX_BLOCKS        = 0x0400
 STATX_BASIC_STATS   = 0x07ff
 STATX_BTIME         = 0x0800
 STATX_ALL           = STATX_BASIC_STATS | STATX_BTIME
+STATX_MNT_ID        = 0x1000
 
 STATX_ATTR_COMPRESSED   = 0x00000004
 STATX_ATTR_IMMUTABLE    = 0x00000010
@@ -67,7 +68,8 @@ class struct_statx(ctypes.Structure, repr_trait):
         ("stx_rdev_minor",      ctypes.c_uint32),
         ("stx_dev_major",       ctypes.c_uint32),
         ("stx_dev_minor",       ctypes.c_uint32),
-        ("__spare2",            ctypes.c_uint64 * 14),
+        ("stx_mnt_id",          ctypes.c_uint64),
+        ("__spare23",           ctypes.c_uint64 * 13),
     )
 
 def _get_libc_fn(fname, argtypes, restype):

@@ -32,17 +32,17 @@ class PixivGrabber():
         self.pixiv = PixivClient()
         self.api = PixivApiClient()
         self.api._authenticate()
-        self.web = None
+        self.fanbox = None
         self.s = Scraper()
         self.s.ua = self.api.ua
         self.write_log = True
 
-    def init_web_client(self):
-        if not self.web:
-            from nullroute.api.pixiv_web import PixivWebClient
-            self.web = PixivWebClient()
-            self.web._authenticate()
-            self.s.ua = self.web.ua
+    def init_fanbox_client(self):
+        if not self.fanbox:
+            from nullroute.api.pixiv_web import PixivFanboxClient
+            self.fanbox = PixivFanboxClient()
+            self.fanbox._authenticate()
+            self.s.ua = self.fanbox.ua
 
     def save_file(self, url, name=None, attrs=None):
         if not name:
@@ -142,8 +142,8 @@ class PixivGrabber():
             start_page = works_r.pagination.next
 
     def save_fanbox_post(self, post_id, only_img_ids=None):
-        self.init_web_client()
-        post = self.web.get_fanbox_post(post_id)
+        self.init_fanbox_client()
+        post = self.fanbox.get_fanbox_post(post_id)
         Core.info("downloading fanbox post: %s ｢%s｣" % (post["id"], post["title"]))
         prefix = self.pixiv.fmt_member_tag(post["user"]["userId"],
                                            post["user"]["name"])

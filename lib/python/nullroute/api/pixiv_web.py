@@ -20,11 +20,11 @@ def serialize_cookie(cookie):
             for a in ["version", "name", "value", "port", "domain", "path",
                       "secure", "expires", "rfc2109"]}
 
-class PixivWebClient(Scraper):
+class PixivFanboxClient(Scraper):
     def __init__(self):
         super().__init__()
         self.ua.mount("http://", requests.adapters.BaseAdapter())
-        self.tc = TokenCache("www.pixiv.net", display_name="Pixiv website")
+        self.tc = TokenCache("fanbox.cc", display_name="Pixiv FANBOX")
         self.user_id = None
 
     def _load_token(self):
@@ -33,18 +33,13 @@ class PixivWebClient(Scraper):
     def _store_token(self, token):
         return self.tc.store_token(token)
 
-    def _load_creds(self):
-        creds = nullroute.sec.get_netrc("pixiv.net", service="http")
-        return creds
-
     def _validate(self):
         Core.debug("verifying session status")
-        resp = self.get("https://www.pixiv.net/member.php", allow_redirects=False)
-        if resp.is_redirect:
-            Core.debug("member.php redirects to %r", resp.next.url)
-            url = requests.utils.urlparse(resp.next.url)
-            if m := re.match(r"^/en/users/(\d+)", url.path):
-                self.user_id = int(m.group(1))
+        page = self.get_page("https://www.fanbox.cc")
+        if tag := page.find("meta", {"id": "metadata"}):
+            meta = json.loads(tag["content"])
+            Core.debug("metadata = %s", meta)
+            if self.user_id := meta["context"]["user"]["userId"]:
                 Core.debug("session is valid, userid %r", self.user_id)
                 return True
         Core.debug("session is not valid")
@@ -54,11 +49,11 @@ class PixivWebClient(Scraper):
         if self.user_id:
             return True
 
-        psid = os.environ.get("PIXIV_PHPSESSID")
+        psid = os.environ.get("FANBOXSESSID")
         if psid:
-            cookie = requests.cookies.create_cookie(name="PHPSESSID",
+            cookie = requests.cookies.create_cookie(name="FANBOXSESSID",
                                                     value=psid,
-                                                    domain=".pixiv.net")
+                                                    domain=".fanbox.cc")
             cookie.expires = int(time.time() + 3600)
             Core.debug("storing cookie: %r", cookie)
             self._store_token(serialize_cookie(cookie))
@@ -80,10 +75,6 @@ class PixivWebClient(Scraper):
                 cookie = requests.cookies.create_cookie(**token)
                 Core.debug("loaded cookie: %r", cookie)
                 self.ua.cookies.set_cookie(cookie)
-                token = {**token, "name": "FANBOXSESSID"}
-                cookie2 = requests.cookies.create_cookie(**token)
-                Core.debug("loaded cookie: %r", cookie2)
-                self.ua.cookies.set_cookie(cookie2)
                 if self._validate():
                     cookie.expires = int(time.time() + 86400 * 30)
                     Core.debug("updating cookie: %r", cookie)
@@ -136,11 +127,7 @@ class PixivWebClient(Scraper):
 
     @lru_cache(maxsize=1024)
     def get_fanbox_post(self, post_id):
-        # returns partial information if unauthenticated
         self._authenticate()
-        #return self._get_json("https://api.fanbox.cc/post.info",
-        #                      params={"postId": post_id},
-        #                      headers={"origin": "https://www.fanbox.cc"})
-        return self._get_json("https://fanbox.pixiv.net/api/post.info",
+        return self._get_json("https://api.fanbox.cc/post.info",
                               params={"postId": post_id},
-                              headers={"origin": "https://www.pixiv.net"})
+                              headers={"origin": "https://www.fanbox.cc"})

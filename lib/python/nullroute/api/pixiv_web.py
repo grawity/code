@@ -39,7 +39,8 @@ class PixivFanboxClient(Scraper):
         if tag := page.find("meta", {"id": "metadata"}):
             meta = json.loads(tag["content"])
             Core.debug("metadata = %s", meta)
-            if self.user_id := meta["context"]["user"]["userId"]:
+            self.user_id = meta["context"]["user"]["userId"]
+            if self.user_id:
                 Core.debug("session is valid, userid %r", self.user_id)
                 return True
         Core.debug("session is not valid")

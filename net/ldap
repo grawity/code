@@ -352,7 +352,7 @@ if ($opt_relax) {
 	push @modify_controls, Net::LDAP::Control::Relax->new();
 }
 
-if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
+if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm" || $cmd eq "rename") {
 	if (!$opt_filter) {
 		$opt_filter = shift @ARGV;
 	}
@@ -369,6 +369,7 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	}
 
 	my $changes;
+	my $newdn;
 	my @attrs = ("1.1");
 	if ($cmd eq "set") {
 		for (@ARGV) {
@@ -382,6 +383,14 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 		$changes = ldap_changeset_parse(\@opt_changes);
 	} elsif ($cmd eq "show") {
 		@attrs = @ARGV ? @ARGV : ("*");
+	} elsif ($cmd eq "rename") {
+		_die("missing new RDN") if @ARGV < 1;
+		_die("too many arguments given") if @ARGV > 1;
+		($newdn) = @ARGV;
+	} elsif ($cmd eq "move") {
+		_die("missing new superior DN") if @ARGV < 1;
+		_die("too many arguments given") if @ARGV > 1;
+		($newdn) = @ARGV;
 	} else {
 		_die("too many arguments given") if @ARGV;
 	}
@@ -400,6 +409,9 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 	if ($cmd eq "rm") {
 		# Cheap way to ensure depth-first deletion
 		@entries = sort {length($b->dn) <=> length($a->dn)} @entries;
+	}
+	if ($cmd eq "rename" && $srch->count > 1) {
+		_die("refusing to rename more than 1 result");
 	}
 	for my $entry (@entries) {
 		my $dn = $entry->dn;
@@ -421,6 +433,16 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm") {
 				                        control => \@modify_controls);
 				ldap_check($res);
 			}
+		} elsif ($cmd eq "rename") {
+			print "modrdn $dn\n";
+			my $res = $conn->moddn($dn, newrdn => $newdn,
+			                            control => \@modify_controls);
+			ldap_check($res);
+		} elsif ($cmd eq "move") {
+			print "newsuperior $dn\n";
+			my $res = $conn->moddn($dn, newsuperior => $newdn,
+			                            control => \@modify_controls);
+			ldap_check($res);
 		} elsif ($cmd eq "show") {
 			print "\n" if $i++;
 			show_entry_pretty($entry);

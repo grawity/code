@@ -91,6 +91,19 @@ sub is_binary_attr {
 	return 0;
 }
 
+sub is_sensitive_attr {
+	my ($name, $value) = @_;
+	my %sensitive = (
+		"krbprincipalkey" => 1,
+		"msfve-keypackage" => 1,
+		"sambantpassword" => 1,
+		"sambapasswordhistory" => 1,
+		"userpassword" => 1,
+	);
+	return 1 if $sensitive{lc($name)};
+	return 0;
+}
+
 sub unpack_guid {
 	my ($buf) = @_;
 	my @bytes = unpack("(H2)*", $buf);
@@ -138,7 +151,9 @@ sub show_entry_pretty {
 	my @attrs = uniq ("objectClass", sort $entry->attributes);
 	for my $attr (@attrs) {
 		for my $val (sort $entry->get_value($attr)) {
-			if (is_guid_attr($attr, $val)) {
+			if (is_sensitive_attr($attr, $val) && !$::opt_reveal_sensitive) {
+				print "  \e[1m$attr\e[m: \e[38;5;243m(sensitive)\e[m\n";
+			} elsif (is_guid_attr($attr, $val)) {
 				$val = unpack_guid($val);
 				print "  \e[1m$attr\e[m: \e[38;5;12m$val\e[m\n";
 			} elsif (is_binary_attr($attr, $val)) {
@@ -298,6 +313,7 @@ my $opt_filter;
 my @opt_changes;
 my $opt_manage_dit = 0;
 my $opt_relax = 0;
+$::opt_reveal_sensitive = 0;
 
 GetOptions(
 	"cmd=s" => \$cmd,
@@ -307,6 +323,7 @@ GetOptions(
 	"b|base=s" => \$opt_base,
 	"f|filter=s" => \$opt_filter,
 	"s|scope=s" => \$opt_scope,
+	"V|reveal!" => \$::opt_reveal_sensitive,
 ) or exit(2);
 
 $opt_uri //= get_ldap_conf("URI");

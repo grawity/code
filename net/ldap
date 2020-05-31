@@ -298,9 +298,48 @@ sub combine_relative_base {
 
 sub path_to_dn {
 	my ($path, $base_dn) = @_;
+	_trace("input path = '$path'");
 	my @path = split(m!/!, $path);
-	# /Hosts/cn=ember.nullroute.eu.org/iLO4
-	#TODO;
+	if (shift(@path) ne "") {
+		_die("relative paths are not understood");
+	}
+	_trace("components = {".join(", ", map {qq{"$_"}} @path)."}");
+	if ($path =~ m!/$!) {
+		(@path) = grep {/=/ || s/^/ou=/} @path;
+	} else {
+		my $head = pop(@path);
+		(@path) = grep {/=/ || s/^/ou=/} @path;
+		($head) = grep {/=/ || s/^/cn=/} $head;
+		push @path, $head;
+	}
+	my $dn = join(",", reverse(@path), $base_dn);
+	_trace("final DN = '$dn'");
+	return $dn;
+}
+
+sub dwim_filter {
+	my ($filter, $base) = @_;
+	_trace("was given filter '$filter' and base '$base'");
+	if ($filter =~ s/^@//) {
+		$filter = "(objectClass=$filter)";
+	}
+	elsif ($filter =~ m!^/!) {
+		$base = path_to_dn($filter, $base);
+		$filter = "(objectClass=*)";
+	}
+	_trace("modified to filter '$filter' and base '$base'");
+	return ($filter, $base);
+}
+
+sub dwim_path {
+	my ($path, $base) = @_;
+	if ($path =~ m!^/!) {
+		$path = path_to_dn($path, $base);
+	}
+	elsif ($path =~ /,$/) {
+		$path .= $base;
+	}
+	return $path;
 }
 
 my $cmd;
@@ -359,14 +398,7 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm" || $cmd eq "
 	if (!$opt_filter) {
 		_die("missing entry filter");
 	}
-	if ($opt_filter =~ s/^@//) {
-		$opt_base = combine_relative_base($opt_filter, $opt_base);
-		$opt_filter = "(objectClass=*)";
-	}
-	elsif ($opt_filter =~ m!^/!) {
-		$opt_base = path_to_dn($opt_filter, $opt_base);
-		$opt_filter = "(objectClass=*)";
-	}
+	($opt_filter, $opt_base) = dwim_filter($opt_filter, $opt_base);
 
 	my $changes;
 	my $newdn;
@@ -391,12 +423,14 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm" || $cmd eq "
 		_die("missing new superior DN") if @ARGV < 1;
 		_die("too many arguments given") if @ARGV > 1;
 		($newdn) = @ARGV;
+		$newdn = dwim_path($newdn, $opt_base);
 	} else {
 		_die("too many arguments given") if @ARGV;
 	}
 
 	my $conn = ldap_connect($opt_uri, $opt_starttls, $opt_mech);
 
+	_debug("searching for $opt_filter under $opt_base");
 	my $srch = $conn->search(base => $opt_base,
 				scope => $opt_scope,
 				filter => $opt_filter,
@@ -456,12 +490,10 @@ elsif ($cmd eq "new") {
 	my $changes;
 
 	$dn = shift @ARGV;
-	if (!$dn || $dn !~ /,/) {
+	if (!$dn) {
 		_die("missing new entry DN");
 	}
-	if ($dn =~ /,$/) {
-		$dn .= $opt_base;
-	}
+	$dn = dwim_path($dn, $opt_base);
 
 	for (@ARGV) {
 		if (/=/) {

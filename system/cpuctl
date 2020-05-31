@@ -141,6 +141,25 @@ for ($cmd) {
 			err "no cores given";
 		}
 	}
+	when ("smt") {
+		my $path = "/sys/devices/system/cpu/smt";
+		if (@ARGV) {
+			if ($ARGV[0] =~ /^(on|yes|true|enable)$/) {
+				say "Enabling SMT";
+				put("$path/control", "on");
+			}
+			elsif ($ARGV[0] =~ /^(off|no|false|disable)$/) {
+				say "Disabling SMT";
+				put("$path/control", "off");
+			}
+			else {
+				err "bad parameter '$ARGV[0]'";
+			}
+		} else {
+			say "enabled: ".get($path."/control");
+			say "active: ".(get($path."/active") ? "yes" : "no");
+		}
+	}
 	when ("governor") {
 		if (@ARGV) {
 			system("cpupower", "frequency-set", "-g", @ARGV);

@@ -317,10 +317,21 @@ sub path_to_dn {
 sub dwim_filter {
 	my ($filter, $base) = @_;
 	_trace("was given filter '$filter' and base '$base'");
-	if ($filter =~ s/^@//) {
-		$filter = "(objectClass=$filter)";
+	if ($filter =~ /^-/) {
+		_die("unexpected '$filter' (option in non-option context?)");
+	}
+	elsif ($filter =~ /^@(\w+)$/) {
+		# @account
+		$filter = "(objectClass=$1)";
+	}
+	elsif ($filter =~ /^@(\w+):(.+=.+)$/) {
+		# @account:uid=grawity
+		# More complex @foo:(bar) is not supported
+		$filter = "(&(objectClass=$1)($2))";
 	}
 	elsif ($filter =~ m!^/!) {
+		# /People/grawity
+		# /ou=People/cn=grawity
 		$base = path_to_dn($filter, $base);
 		$filter = "(objectClass=*)";
 	}

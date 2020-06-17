@@ -533,11 +533,13 @@ elsif ($cmd eq "new") {
 	}
 
 	my $entry = Net::LDAP::Entry->new();
-	my $edn = ldap_explode_dn($dn, casefold => "none");
 	$entry->dn($dn);
-	for my $attr (sort keys %{$edn->[0]}) {
-		$entry->add($attr => $edn->[0]->{$attr});
+	# First add implicit attributes from the RDN
+	my $parsed_dn = ldap_explode_dn($dn, casefold => "none");
+	for my $attr (sort keys %{$parsed_dn->[0]}) {
+		$entry->add($attr => $parsed_dn->[0]->{$attr});
 	}
+	# Then the explicitly specified attributes
 	for my $attr (sort keys %$changes) {
 		$entry->add($attr => $changes->{$attr});
 	}
@@ -546,7 +548,6 @@ elsif ($cmd eq "new") {
 	show_entry_pretty($entry);
 
 	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
-
 	my $res = $conn->add($entry,
 	                     control => \@modify_controls);
 	ldap_check($res);

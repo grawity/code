@@ -12,6 +12,8 @@ use Nullroute::Lib qw(_trace _debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
 use Getopt::Long qw(:config bundling require_order);
 
+my %Opt;
+
 sub confirm {
 	my ($msg) = @_;
 	print "$msg ";
@@ -151,7 +153,7 @@ sub show_entry_pretty {
 	my @attrs = uniq ("objectClass", sort $entry->attributes);
 	for my $attr (@attrs) {
 		for my $val (sort $entry->get_value($attr)) {
-			if (is_sensitive_attr($attr, $val) && !$::opt_reveal_sensitive) {
+			if (is_sensitive_attr($attr, $val) && !$Opt{reveal_sensitive}) {
 				print "  \e[1m$attr\e[m: \e[38;5;243m(sensitive)\e[m\n";
 			} elsif (is_guid_attr($attr, $val)) {
 				$val = unpack_guid($val);
@@ -337,31 +339,33 @@ sub dwim_path {
 	return $path;
 }
 
+# User input
 my $cmd;
-my $opt_uri;
-my $opt_starttls = 0;
-my $opt_mech = "GSSAPI";
-my $opt_base;
-my $opt_scope = "sub";
-my $opt_filter;
 my @opt_changes;
-my $opt_manage_dit = 0;
-my $opt_relax = 0;
-$::opt_reveal_sensitive = 0;
+# Connection
+$Opt{starttls} = 0;
+$Opt{sasl_mech} = "GSSAPI";
+# Operational
+$Opt{scope} = "sub";
+$Opt{manage_dit} = 0;
+$Opt{relax} = 0;
+# UI
+$Opt{reveal_sensitive} = 0;
 
 GetOptions(
 	"cmd=s" => \$cmd,
-	"relax!" => \$opt_relax,
-	"H|uri=s" => \$opt_uri,
-	"M|manage-dit!" => \$opt_manage_dit,
-	"b|base=s" => \$opt_base,
-	"f|filter=s" => \$opt_filter,
-	"s|scope=s" => \$opt_scope,
-	"V|reveal!" => \$::opt_reveal_sensitive,
+	"relax!" => \$Opt{relax},
+	"H|uri=s" => \$Opt{uri},
+	"M|manage-dit!" => \$Opt{manage_dit},
+	"b|base=s" => \$Opt{base},
+	"f|filter=s" => \$Opt{filter},
+	"s|scope=s" => \$Opt{scope},
+	"V|reveal!" => \$Opt{reveal_sensitive},
 ) or exit(2);
 
-$opt_uri //= get_ldap_conf("URI");
-$opt_base //= get_ldap_conf("BASE");
+$Opt{uri} //= get_ldap_conf("URI");
+$Opt{base} //= get_ldap_conf("BASE");
+# TODO: defaults from current domain
 
 if (!$cmd) {
 	if (basename($0) =~ /^ldap(\w+)$/) {
@@ -378,27 +382,37 @@ if (!$cmd) {
 my @search_controls;
 my @modify_controls;
 
-if ($opt_manage_dit) {
+if ($Opt{manage_dit}) {
 	push @search_controls, Net::LDAP::Control::ManageDsaIT->new(critical => 1);
 	push @modify_controls, Net::LDAP::Control::ManageDsaIT->new(critical => 1);
 }
-if ($opt_relax) {
+if ($Opt{relax}) {
 	push @modify_controls, Net::LDAP::Control::Relax->new();
 }
 
-if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm" || $cmd eq "rename") {
-	if (!$opt_filter) {
-		$opt_filter = shift @ARGV;
+# Handle all search-based commands
+if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
+	$cmd =~ s/^mv$/move/;
+	$cmd =~ s/^rm$/delete/;
+
+	my $filter = $Opt{filter};
+	my $base = $Opt{base};
+
+	# Simplified 'ldap set <obj> <attrs...>' syntax
+	if (!$filter) {
+		_die("missing entry filter") if !@ARGV;
+		$filter = shift(@ARGV);
+		($filter, $base) = dwim_filter($filter, $base);
 	}
-	if (!$opt_filter) {
-		_die("missing entry filter");
-	}
-	($opt_filter, $opt_base) = dwim_filter($opt_filter, $opt_base);
 
 	my $changes;
 	my $newdn;
 	my @attrs = ("1.1");
+
 	if ($cmd eq "set") {
+		# ldap set <obj> <attrs...>
+		#   Each attr can be either an assignment (k=v, k+=v, k-=v) or a delete (-k).
+		#   There's a weird shortcut for object classes (+@v, -@v) which I don't even use.
 		for (@ARGV) {
 			s/^([+-])@/objectClass$1=/;
 			if (/=/ || /^-/) {
@@ -408,40 +422,54 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm" || $cmd eq "
 			}
 		}
 		$changes = ldap_changeset_parse(\@opt_changes);
-	} elsif ($cmd eq "show") {
+	}
+	elsif ($cmd eq "show") {
+		# ldap set <obj> [attrs...]
+		#   Only attribute names can be optionally listed.
 		@attrs = @ARGV ? @ARGV : ("*");
-	} elsif ($cmd eq "rename") {
+	}
+	elsif ($cmd eq "rename") {
+		# ldap rename <obj> <rdn>
 		_die("missing new RDN") if @ARGV < 1;
 		_die("too many arguments given") if @ARGV > 1;
 		($newdn) = @ARGV;
-	} elsif ($cmd eq "move") {
+	}
+	elsif ($cmd eq "move") {
+		# ldap move <obj> <parent_dn>
 		_die("missing new superior DN") if @ARGV < 1;
 		_die("too many arguments given") if @ARGV > 1;
 		($newdn) = @ARGV;
-		$newdn = dwim_path($newdn, $opt_base);
-	} else {
+		$newdn = dwim_path($newdn, $base);
+	}
+	else {
 		_die("too many arguments given") if @ARGV;
 	}
 
-	my $conn = ldap_connect($opt_uri, $opt_starttls, $opt_mech);
+	# Connect to the server
+	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
 
-	_debug("searching for $opt_filter under $opt_base");
-	my $srch = $conn->search(base => $opt_base,
-				scope => $opt_scope,
-				filter => $opt_filter,
+	# Search for required objects
+	_debug("searching for $filter under base '$Opt{base}'");
+	my $srch = $conn->search(base => $base,
+				scope => $Opt{scope},
+				filter => $filter,
 				attrs => \@attrs,
 				control => \@search_controls);
 	ldap_check($srch);
+
 	_info("found ".$srch->count." entries");
 	my $i = 0;
 	my @entries = $srch->entries;
-	if ($cmd eq "rm") {
+
+	if ($cmd eq "delete") {
 		# Cheap way to ensure depth-first deletion
 		@entries = sort {length($b->dn) <=> length($a->dn)} @entries;
 	}
-	if ($cmd eq "rename" && $srch->count > 1) {
-		_die("refusing to rename more than 1 result");
+	if ($cmd eq "rename") {
+		_die("refusing to rename more than 1 result") if $srch->count > 1;
 	}
+
+	# Apply the operation
 	for my $entry (@entries) {
 		my $dn = $entry->dn;
 		if ($cmd eq "set" && %$changes) {
@@ -455,7 +483,7 @@ if ($cmd eq "ls" || $cmd eq "show" || $cmd eq "set" || $cmd eq "rm" || $cmd eq "
 					_err($res->error);
 				}
 			}
-		} elsif ($cmd eq "rm") {
+		} elsif ($cmd eq "delete") {
 			if (confirm("remove entry '$dn'?")) {
 				print "removing $dn\n";
 				my $res = $conn->delete($dn,
@@ -488,7 +516,7 @@ elsif ($cmd eq "new") {
 	if (!$dn) {
 		_die("missing new entry DN");
 	}
-	$dn = dwim_path($dn, $opt_base);
+	$dn = dwim_path($dn, $Opt{base});
 
 	for (@ARGV) {
 		if (/=/) {
@@ -517,7 +545,7 @@ elsif ($cmd eq "new") {
 	_info("creating entry '$dn'");
 	show_entry_pretty($entry);
 
-	my $conn = ldap_connect($opt_uri, $opt_starttls, $opt_mech);
+	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
 
 	my $res = $conn->add($entry,
 	                     control => \@modify_controls);

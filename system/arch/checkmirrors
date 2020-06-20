@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+checklast() {
+	local base=$1 tag=$2
+	local stamp
+
+	if ! stamp=$(curl -sSL "$base/last$tag"); then
+		err "could not access mirror '$base'"
+	elif [[ ! $stamp ]]; then
+		err "mirror '$base' has malformed last$tag"
+	else
+		datestr=$(date +%F -d @$stamp)
+		agestr=$(interval $[now - stamp])
+		if (( now - stamp > 2*86400 )); then
+			warn "last $tag: $agestr ($datestr)"
+		else
+			info "last $tag: $agestr ($datestr)"
+		fi
+	fi
+}
+
+checkdb() {
+	local base=$1 url=$2
+	url=${url//'$repo'/$repo}
+	url=${url//'$arch'/$arch}
+
+	local mdate=$(curl -sI "$url/$repo.db" | grep -i "^last-modified:" | sed "s/^last-modified: *//i; s/\r//")
+	local mtime=$(date -d "$mdate" +%s)
+
+	local agestr=$(interval $[now - mtime])
+	if (( now - mtime > 2*86400 )); then
+		warn "$repo.db age: $agestr ($mdate)"
+	else
+		info "$repo.db age: $agestr ($mdate)"
+	fi
+}
+
+repo=core
+arch=`uname -m`
+now=`date +%s`
+
+re='^#? *Server *= *(.+)'
+
+while read -r line; do
+	if [[ $line =~ $re ]]; then
+		echo "$line"
+		url=${BASH_REMATCH[1]}
+		url=${url//'$repo'/$repo}
+		url=${url//'$arch'/$arch}
+		base=${url%/*/os/*}
+		checklast "$base" sync &&
+		checklast "$base" update &&
+		checkdb "$base" "$url"
+	elif [[ $line == \#* ]]; then
+		printf '\e[2m%s\e[m\n' "$line"
+	else
+		echo "$line"
+	fi
+done < /etc/pacman.d/mirrorlist

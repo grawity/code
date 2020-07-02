@@ -415,12 +415,21 @@ sub find_ccache_for_principal {
 
 		open(my $proc, "-|", which("pklist"), "-c", $ccname)
 		or _die("could not run 'pklist': $!");
+		my (@fields, %row);
 		while (my $line = <$proc>) {
 			chomp($line);
 			my @l = split(/\t/, $line);
 			for (shift @l) {
-				if ($_ eq "ticket") {
-					my ($t_client, $t_service, undef, $t_expiry, undef, $t_flags) = @l;
+				if ($_ eq "CREDENTIALS") {
+					@fields = @l;
+				}
+				elsif ($_ eq "ticket") {
+					_die("pklist output was missing header line") if !@l;
+					@row{@fields} = @l;
+					my $t_client = $row{client_name};
+					my $t_service = $row{server_name};
+					my $t_expiry = $row{expiry_time};
+					my $t_flags = $row{flags};
 					if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
 						$tgt_expiry = $t_expiry;
 					}
@@ -505,6 +514,7 @@ sub do_print_ccache {
 
 	open(my $proc, "-|", which("pklist"), "-c", $ccname)
 	or _die("could not run 'pklist': $!");
+	my (@fields, %row);
 	while (<$proc>) {
 		chomp;
 		my @l = split(/\t/, $_);
@@ -516,9 +526,16 @@ sub do_print_ccache {
 					$ccrealm = $1;
 				}
 			}
+			elsif ($_ eq "CREDENTIALS") {
+				@fields = @l;
+			}
 			elsif ($_ eq "ticket") {
-				my ($t_client, $t_service, undef,
-					$t_expiry, undef, $t_flags, undef) = @l;
+				_die("pklist output was missing header line") if !@l;
+				@row{@fields} = @l;
+				my $t_client = $row{client_name};
+				my $t_service = $row{server_name};
+				my $t_expiry = $row{expiry_time};
+				my $t_flags = $row{flags};
 
 				if ($t_service eq "krbtgt/$ccrealm\@$ccrealm") {
 					$tgt_expiry = $t_expiry;

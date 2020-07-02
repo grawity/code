@@ -262,11 +262,14 @@ sub expand_ccname {
 				return $caches[$i - 1];
 			}
 		}
-		elsif (m/^\^$/) {
-			return "KEYRING:persistent:$UID";
+		elsif (m/^\^\^(.+)$/) {
+			return "KEYRING:$1";
 		}
 		elsif (m/^\^(.+)$/) {
 			return "KEYRING:persistent:$UID:$1";
+		}
+		elsif (m/^\^$/) {
+			return "KEYRING:persistent:$UID";
 		}
 		# +foo
 		elsif (m|^\+$|) {
@@ -329,10 +332,10 @@ sub collapse_ccname {
 		elsif ($_ eq "KCM:$UID") {
 			return "KCM";
 		}
-		elsif ($_ eq "KEYRING:krb5cc") {
+		elsif ($_ eq "KEYRING:persistent:$UID") {
 			return "^";
 		}
-		elsif (m|^KEYRING:krb5cc\.(.+)$|) {
+		elsif (m|^KEYRING:persistent:$UID:(.+)$|) {
 			return "^$1";
 		}
 		elsif (m|^KEYRING:(.*)$|) {

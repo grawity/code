@@ -5,6 +5,14 @@
 #
 # Usage: tls-cert-check [HOST:PORT...]
 #
+# Command-line args:
+#
+#   <hostname>[:<port>][/<sni>] - check a single host (port 443 if not specified)
+#
+#   MX:<name> - check all hosts from MX on port 25
+#
+#   SRV:<name>[/<sni>] - check all hosts from SRV
+#
 # Configuration (~/.config/nullroute.eu.org/cert-check.conf):
 #
 #   # cache success results for 3600 seconds
@@ -17,6 +25,11 @@
 #   # check these hosts on given ports (STARTTLS is used automatically)
 #   check example.com 389 443 636
 #   check mail.example.com 25 143 587
+#
+#   # check all mail servers listed by MX or SRV records
+#   checkmx example.com
+#   checksrv _imaps._tls.example.com
+#   checksrv _submissions._tls.example.com
 #
 #   # check individual HA instances using Server Name Indication
 #   check host1.example.com/www.example.com 443
@@ -35,8 +48,11 @@
 #   - SMTP on port 25, 587
 #   - regular implicit TLS on all other ports
 #
-# TLS SNI is always used (even if not specified explicitly).
+# TLS SNI extension is always sent (even if not specified explicitly).
 #
+# When checksrv is used against _xmpp-client and SNI is not explicitly set,
+# then the domain itself is used for SNI in accordance with XEP-0368.
+
 require 'json'
 require 'openssl'
 require 'optparse'
@@ -387,6 +403,7 @@ def check_service(host, port, sni = nil)
         # Allow TLSv1.0; default is :TLS1_2
         ssl_context.min_version = :TLS1
         ssl_sock = OpenSSL::SSL::SSLSocket.new(raw_sock, ssl_context)
+        # Always send SNI even if `sni` is nil
         ssl_sock.hostname = sni || host
         ssl_sock.connect
         cert = ssl_sock.peer_cert
@@ -441,16 +458,16 @@ class CertChecker
                             end
                         when "checkmx"
                             name, *rest = *rest
-                            # for MX, either no SNI, or sni = host
                             mx_lookup(name).each do |host, port|
                                 self.add_host(host, port, nil)
                             end
                         when "checksrv"
                             name, *rest = *rest
+                            sni = nil
                             if name =~ /^(.+)\/(.+?)$/
                                 _, name, sni = $~.to_a
-                            else
-                                sni = nil
+                            elsif name =~ /^_xmpps?-(?:client|server)\._tcp\.(.+)$/
+                                sni = $1
                             end
                             srv_lookup(name).each do |host, port|
                                 self.add_host(host, port, sni)
@@ -485,6 +502,29 @@ class CertChecker
             @services[host] = []
         end
         @services[host] << {port: port, sni: sni}
+    end
+
+    def add_host_parse(arg)
+        if arg =~ /^MX:(.+)$/
+            mx_lookup($1).each do |host, port|
+                self.add_host(host, port, nil)
+            end
+        elsif arg =~ /^SRV:(.+)$/
+            # Unlike most other protocols, XMPP uses the JID @domain part as SNI.
+            # So allow SNI to be specified explicitly, and try to guess it as well.
+            name, sni = $1, nil
+            if name =~ /^(.+)\/(.+?)$/
+                _, name, sni = $~.to_a
+            elsif name =~ /^_xmpps?-(?:client|server)\._tcp\.(.+)$/
+                sni = $1
+            end
+            srv_lookup(name).each do |host, port|
+                self.add_host(host, port, sni)
+            end
+        else
+            host, port, sni = parse_host_port_sni(arg, 443)
+            self.add_host(host, port, sni)
+        end
     end
 
     def check_one!(host, port, sni = nil)
@@ -600,8 +640,7 @@ if ARGV.empty?
     cc.store_state!
 else
     ARGV.each do |arg|
-        host, port, sni = parse_host_port_sni(arg, 443)
-        cc.add_host(host, port, sni)
+        cc.add_host_parse(arg)
     end
     cc.check_all!
 end

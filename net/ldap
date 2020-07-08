@@ -7,6 +7,7 @@ use List::Util qw(uniq);
 use Net::LDAP;
 use Net::LDAP::Control::ManageDsaIT;
 use Net::LDAP::Control::Relax;
+use Net::LDAP::Extension::WhoAmI;
 use Net::LDAP::Util qw(ldap_explode_dn);
 use Nullroute::Lib qw(_trace _debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
@@ -568,6 +569,16 @@ elsif ($cmd eq "new") {
 	my $res = $conn->add($entry,
 	                     control => \@modify_controls);
 	ldap_check($res);
+}
+elsif ($cmd eq "whoami") {
+	if (@ARGV) {
+		_err("unrecognized arguments");
+	}
+
+	my $conn = ldap_connect_opt(%Opt);
+	my $res = $conn->who_am_i();
+	ldap_check($res);
+	print $res->response()."\n";
 }
 else {
 	_die("unknown subcommand '$cmd'");

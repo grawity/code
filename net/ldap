@@ -7,6 +7,7 @@ use List::Util qw(uniq);
 use Net::LDAP;
 use Net::LDAP::Control::ManageDsaIT;
 use Net::LDAP::Control::Relax;
+use Net::LDAP::Extension::WhoAmI;
 use Net::LDAP::Util qw(ldap_explode_dn);
 use Nullroute::Lib qw(_trace _debug _info _warn _err _die);
 use Nullroute::LDAP qw(ldap_check ldap_format_error);
@@ -66,6 +67,12 @@ sub ldap_connect {
 	}
 
 	return $conn;
+}
+
+sub ldap_connect_opt {
+	my (%opt) = @_;
+
+	return ldap_connect($opt{uri}, $opt{starttls}, $opt{sasl_mech});
 }
 
 sub is_guid_attr {
@@ -418,6 +425,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 
 	my $changes;
 	my $newdn;
+	my $keepolddn = 1;
 	my @attrs = ("1.1");
 
 	if ($cmd eq "set") {
@@ -441,9 +449,14 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	}
 	elsif ($cmd eq "rename") {
 		# ldap rename <obj> <rdn>
+		#   Accepts "foo:=bar" or "foo:=bar+baz=quux" as a weird shorthand to delete
+		#   the old RDN (which is kept by default).
 		_die("missing new RDN") if @ARGV < 1;
 		_die("too many arguments given") if @ARGV > 1;
 		($newdn) = @ARGV;
+		if ($newdn =~ s/^(\w+):=(.*)$/$1=$2/) {
+			$keepolddn = 0;
+		}
 	}
 	elsif ($cmd eq "move") {
 		# ldap move <obj> <parent_dn>
@@ -457,7 +470,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	}
 
 	# Connect to the server
-	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
+	my $conn = ldap_connect_opt(%Opt);
 
 	# Search for required objects
 	_debug("searching for $filter under base '$Opt{base}'");
@@ -504,6 +517,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 		} elsif ($cmd eq "rename") {
 			print "modrdn $dn\n";
 			my $res = $conn->moddn($dn, newrdn => $newdn,
+			                            deleteoldrdn => !$keepolddn,
 			                            control => \@modify_controls);
 			ldap_check($res);
 		} elsif ($cmd eq "move") {
@@ -558,10 +572,20 @@ elsif ($cmd eq "new") {
 	_info("creating entry '$dn'");
 	show_entry_pretty($entry);
 
-	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
+	my $conn = ldap_connect_opt(%Opt);
 	my $res = $conn->add($entry,
 	                     control => \@modify_controls);
 	ldap_check($res);
+}
+elsif ($cmd eq "whoami") {
+	if (@ARGV) {
+		_err("unrecognized arguments");
+	}
+
+	my $conn = ldap_connect_opt(%Opt);
+	my $res = $conn->who_am_i();
+	ldap_check($res);
+	print $res->response()."\n";
 }
 else {
 	_die("unknown subcommand '$cmd'");

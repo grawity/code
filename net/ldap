@@ -425,6 +425,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 
 	my $changes;
 	my $newdn;
+	my $keepolddn = 1;
 	my @attrs = ("1.1");
 
 	if ($cmd eq "set") {
@@ -448,9 +449,14 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	}
 	elsif ($cmd eq "rename") {
 		# ldap rename <obj> <rdn>
+		#   Accepts "foo:=bar" or "foo:=bar+baz=quux" as a weird shorthand to delete
+		#   the old RDN (which is kept by default).
 		_die("missing new RDN") if @ARGV < 1;
 		_die("too many arguments given") if @ARGV > 1;
 		($newdn) = @ARGV;
+		if ($newdn =~ s/^(\w+):=(.*)$/$1=$2/) {
+			$keepolddn = 0;
+		}
 	}
 	elsif ($cmd eq "move") {
 		# ldap move <obj> <parent_dn>
@@ -511,6 +517,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 		} elsif ($cmd eq "rename") {
 			print "modrdn $dn\n";
 			my $res = $conn->moddn($dn, newrdn => $newdn,
+			                            deleteoldrdn => !$keepolddn,
 			                            control => \@modify_controls);
 			ldap_check($res);
 		} elsif ($cmd eq "move") {

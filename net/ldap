@@ -68,6 +68,12 @@ sub ldap_connect {
 	return $conn;
 }
 
+sub ldap_connect_opt {
+	my (%opt) = @_;
+
+	return ldap_connect($opt{uri}, $opt{starttls}, $opt{sasl_mech});
+}
+
 sub is_guid_attr {
 	my ($name, $value) = @_;
 	my %guid = (
@@ -457,7 +463,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	}
 
 	# Connect to the server
-	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
+	my $conn = ldap_connect_opt(%Opt);
 
 	# Search for required objects
 	_debug("searching for $filter under base '$Opt{base}'");
@@ -558,7 +564,7 @@ elsif ($cmd eq "new") {
 	_info("creating entry '$dn'");
 	show_entry_pretty($entry);
 
-	my $conn = ldap_connect($Opt{uri}, $Opt{starttls}, $Opt{sasl_mech});
+	my $conn = ldap_connect_opt(%Opt);
 	my $res = $conn->add($entry,
 	                     control => \@modify_controls);
 	ldap_check($res);

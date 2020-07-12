@@ -13,7 +13,6 @@
 #   - 'lsh' SSH server/client, for storing keys
 #   - GnuPG 'gpgsm', for storing private keys (private-keys-v1.d)
 
-from __future__ import print_function
 import base64
 from io import BytesIO
 
@@ -336,10 +335,6 @@ def dump_string(obj, canonical=False, hex=False, hint=None):
         out = bytes(obj)
     elif is_quoteable(obj):
         out = bytearray(b'"')
-        # This sucks.
-        # In python2, iterates over 1-char strings.
-        # In python3, iterates over integers. NOT 1-char bytes()
-        # No, screw it. I officially drop Python 2 compatibility here.
         for char in obj:
             if char in ESCAPE_CHARS:
                 out += b"\\"

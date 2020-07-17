@@ -20,6 +20,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 use Getopt::Long;
+use Image::Magick;
 
 my $sep1 = ":";
 my $sep2 = "::";
@@ -41,69 +42,60 @@ if (!@ARGV) {
 	exit(2);
 }
 
-if (!grep {-x "$_/magick"} split(/:/, $ENV{PATH})) {
-	warn "Please install ImageMagick to run this script.\n";
-	exit(1);
+if (!-f $ARGV[0]) {
+	die "imgrgb: input '$ARGV[0]' is not a file\n";
 }
 
 my $COLUMNS = int(`tput cols`);
 my $LINES = int(`tput lines`);
 
+$COLUMNS -= 1;
 $LINES -= 3; # reserve space for shell prompt
 $LINES *= 2; # two rows per text line
 
 my $size = ($fullwidth) ? "${COLUMNS}x" : "${COLUMNS}x${LINES}";
 
-my @cmd = ("magick", "convert", "-thumbnail", $size, "-define", "txt:compliance=SVG", $ARGV[0], "txt:-");
+my $image = Image::Magick->new;
+$image->Read($ARGV[0]);
+$image->Thumbnail(geometry => $size);
+$image->Quantize(colorspace => "srgb");
 
 my @upper = ();
 my @lower = ();
 my $buf = "";
+for my $row (0..$image->Get("height")) {
+	for my $col (0..$image->Get("width")) {
+		my ($r, $g, $b, $a) = $image->GetPixel(x => $col, y => $row);
 
-if (open(my $fh, "-|", @cmd)) {
-	while (my $line = <$fh>) {
-		if ($line =~ /^(\d+),(\d+): \(.+\)  #([0-9A-F]+)  /) {
-			my $col = int($1);
-			my $row = int($2);
-			my $rgb = hex($3);
-			my $r = ($rgb >> 24) & 0xFF;
-			my $g = ($rgb >> 16) & 0xFF;
-			my $b = ($rgb >>  8) & 0xFF;
+		# GetPixel returns values 0..1 after Quantize()
+		if ($r > 1 || $g > 1 || $b > 1) {
+			warn "pixel ($col,$row) = <$r $g $b $a>\n";
+		}
+		$r = int($r * 256);
+		$g = int($g * 256);
+		$b = int($b * 256);
 
-			if (@lower && $col == 0) {
-				# Show previous line.
-				for my $i (0..@lower-1) {
-					$buf .= "\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀";
-				}
-				$buf .= "\e[0m\e[K\n";
-				@upper = ();
-				@lower = ();
-			}
-
-			if ($row % 2) {
-				$lower[$col] = "$r$sep1$g$sep1$b";
-			} else {
-				$upper[$col] = "$r$sep1$g$sep1$b";
-			}
-		} elsif ($line !~ /^#/) {
-			warn "bad line: $line";
+		if ($row % 2) {
+			$lower[$col] = "$r$sep1$g$sep1$b";
+		} else {
+			$upper[$col] = "$r$sep1$g$sep1$b";
 		}
 	}
-	# Print the last (half-)line, if required.
-	if (@lower) {
+
+	if ($row % 2) {
 		for my $i (0..@lower-1) {
 			$buf .= "\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀";
 		}
 		$buf .= "\e[0m\e[K\n";
-	} elsif (@upper) {
-		for my $i (0..@upper-1) {
-			$buf .= "\e[38${sep1}2${sep2}${upper[$i]}m▀";
-		}
-		$buf .= "\e[0m\e[K\n";
+		@upper = ();
+		@lower = ();
 	}
-	print $buf;
-	close($fh);
-} else {
-	warn "Failed to run magick convert\n";
-	exit(1);
 }
+# Print the last half line, if required.
+if (@upper) {
+	for my $i (0..@upper-1) {
+		$buf .= "\e[38${sep1}2${sep2}${upper[$i]}m▀";
+	}
+	$buf .= "\e[0m\e[K\n";
+}
+print $buf;

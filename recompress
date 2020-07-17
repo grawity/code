@@ -90,5 +90,14 @@ for oname in "${outfiles[@]}"; do
 	[[ -s "$oname" ]] || exit
 done
 
-echo Orig: $(du -hsc "${infiles[@]}" | tail -1)
-echo JPEG: $(du -hsc "${outfiles[@]}" | tail -1)
+orig_total_str=$(du -hsc "${infiles[@]}" | awk 'END {print $1}')
+jpeg_total_str=$(du -hsc "${outfiles[@]}" | awk 'END {print $1}')
+
+orig_total_bytes=$(numfmt --from=iec "$orig_total_str")
+jpeg_total_bytes=$(numfmt --from=iec "$jpeg_total_str")
+
+orig_avg_str=$(numfmt --to=iec $[orig_total_bytes/${#infiles[@]}])
+jpeg_avg_str=$(numfmt --to=iec $[jpeg_total_bytes/${#outfiles[@]}])
+
+echo "Orig: $orig_total_str total ($orig_avg_str average)"
+echo "JPEG: $jpeg_total_str total ($jpeg_avg_str average)"

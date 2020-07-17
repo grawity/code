@@ -112,7 +112,7 @@ class DanbooruApi(BooruApi):
         except KeyError:
             Core.debug("Danbooru API key not found")
         else:
-            Core.debug("Danbooru API key for '%r' found", creds["login"])
+            Core.debug("Danbooru API key for %r found", creds["login"])
             self.ua.auth = HTTPBasicAuth(creds["login"], creds["password"])
 
     def find_posts(self, tags, page=1, limit=100):
@@ -161,37 +161,37 @@ class GelbooruApi(BooruApi):
     ID_PREFIX = "g%s"
     TAG_SCRAPE = True
 
+    def __init__(self, *args, **kwargs):
+        from requests.auth import HTTPBasicAuth
+        super().__init__(*args, **kwargs)
+
+        try:
+            creds = nullroute.sec.get_netrc("gelbooru.com", service="api")
+        except KeyError:
+            Core.debug("Gelbooru API key not found")
+            self._apikey_params = {}
+        else:
+            Core.debug("Gelbooru API key for %r found", creds["login"])
+            self._apikey_params = {"user_id": creds["login"],
+                                   "api_key": creds["password"]}
+
     def _fetch_url(self, url, *args, **kwargs):
-        Core.debug("fetching %r" % url)
+        Core.debug("fetching %r %r %r", url, args, kwargs)
         resp = self.ua.get(url, *args, **kwargs)
         resp.raise_for_status()
         return resp
 
     def find_posts(self, query, limit=100):
-        # API has been blocked
-        post_ids = []
-        next_url = None
-
-        while True:
-            if next_url:
-                resp = self._fetch_url(next_url)
-            else:
-                args = {"page": "post", "s": "list", "tags": query}
-                resp = self._fetch_url(self.SITE_URL, params=args)
-            body = bs4.BeautifulSoup(resp.content, "lxml")
-            post_ids = []
-            for span in body.select("span.thumb"):
-                post_id = span["id"].lstrip("s")
-                post_ids.append(post_id)
-                if len(post_ids) >= limit:
-                    break
-            tmp = body.select_one("#paginater a[alt='next']")
-            if not tmp:
-                break
-            next_url = urljoin(self.SITE_URL, tmp["href"])
-
-        for post_id in post_ids:
-            yield {"id": post_id}
+        args = {"page": "dapi", "s": "post", "q": "index",
+                "tags": query, "limit": limit, "json": 1}
+        resp = self.ua.get(self.SITE_URL, params={**args, **self._apikey_params})
+        resp.raise_for_status()
+        if resp.content.startswith(b"["):
+            yield from resp.json()
+        elif resp.content == b"":
+            Core.debug("API query returned empty body")
+        else:
+            raise ValueError(resp.content)
 
     def _scrape_post_info(self, post_id):
         args = {"page": "post", "s": "view", "id": post_id}

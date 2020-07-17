@@ -1,8 +1,9 @@
-#!/usr/bin/env bash
-# vim: ts=2:sw=2:et
-
+#!/usr/bin/env perl
 # Image viewer for terminals that support true colors.
-# Copyright (C) 2014  Egmont Koblinger
+# (c) 2020 Mantas Mikulėnas <grawity@gmail.com>
+#
+# Based on vte/perf/img.sh
+# (c) 2014 Egmont Koblinger
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,77 +19,75 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-sep1=':'
-sep2='::'
-if [ "$1" = "-colon4" -o "$1" = "-official" -o "$1" = "-dejure" ]; then
-  shift
-elif [ "$1" = "-colon3" -o "$1" = "-wrong" ]; then
-  sep2=':'
-  shift
-elif [ "$1" = "-semicolon" -o "$1" = "-common" -o "$1" = "-defacto" ]; then
-  sep1=';'
-  sep2=';'
-  shift
-fi
+use Getopt::Long;
 
-if [ $# != 1 -o "${1:0:1}" = "-" ]; then
-  echo 'Usage: img.sh [-format] imagefile' >&2
-  echo >&2
-  echo '  -colon4|-official|-dejure:    Official format (default)  \e[38:2::R:G:Bm' >&2
-  echo '  -colon3|-wrong:               Misinterpreted format      \e[38:2:R:G:Bm' >&2
-  echo '  -semicolon|-common|-defacto:  Commonly used format       \e[38;2;R;G;Bm' >&2
-  exit 1
-elif [ -z $(type -p magick) ]; then
-  echo 'Please install ImageMagick to run this script.' >&2
-  exit 1
-fi
+my $sep1 = ":";
+my $sep2 = "::";
 
-# This is so that "upper" is still visible after exiting the while loop.
-shopt -s lastpipe
+GetOptions(
+	"colon4|official|dejure" => sub { },
+	"colon3|wrong" => sub { $sep2 = ":"; },
+	"semicolon|common|defacto" => sub { $sep1 = $sep2 = ";"; },
+) || exit(2);
 
-COLUMNS=$(tput cols)
+if (!@ARGV) {
+	print "Usage: imgrgb [--format] imagefile\n";
+	print "\n";
+	print "  --colon4|--official|--dejure:    Official format (default)  \\e[38:2::R:G:Bm\n";
+	print "  --colon3|--wrong:                Misinterpreted format      \\e[38:2:R:G:Bm\n";
+	print "  --semicolon|--common|--defacto:  Commonly used format       \\e[38;2;R;G;Bm\n";
+	exit(2);
+}
 
-declare -a upper lower
-upper=()
-lower=()
+if (!grep {-x "$_/magick"} split(/:/, $ENV{PATH})) {
+	warn "Please install ImageMagick to run this script.\n";
+	exit(1);
+}
 
-magick convert -thumbnail ${COLUMNS}x -define txt:compliance=SVG "$1" txt:- |
-while IFS=',:() ' read col row dummy dummy_r dummy_g dummy_b dummy_a hex rest; do
-  if [ "$col" = "#" ]; then
-    continue
-  fi
+my $COLUMNS = int(`tput cols`);
 
-  red=$(( 0x${hex:1:2} ))
-  green=$(( 0x${hex:3:2} ))
-  blue=$(( 0x${hex:5:2} ))
+my @cmd = ("magick", "convert", "-thumbnail", "${COLUMNS}x", "-define", "txt:compliance=SVG", $ARGV[0], "txt:-");
 
-  if (( row % 2 == 0 )); then
-    upper[$col]="$red$sep1$green$sep1$blue"
-  else
-    lower[$col]="$red$sep1$green$sep1$blue"
-  fi
+my @upper = ();
+my @lower = ();
 
-  # After reading every second image row, print them out.
-  if (( row % 2 == 1 && col == COLUMNS-1 )); then
-    i=0
-    buf=''
-    while (( i++ < COLUMNS )); do
-      buf+="\\e[38${sep1}2${sep2}${upper[i]};48${sep1}2${sep2}${lower[i]}m▀"
-    done
-    # \e[K is useful when you resize the terminal while this script is still running.
-    buf+="\\e[0m\e[K"
-    echo -e "$buf"
-    upper=()
-    d=()
-  fi
-done
-
-# Print the last half line, if required.
-if [ "${upper[0]}" != "" ]; then
-  i=0
-  while [ $i -lt $COLUMNS ]; do
-    echo -ne "\\e[38${sep1}2${sep2}${upper[$i]}m▀"
-    i=$((i+1))
-  done
-  echo -e "\\e[0m\e[K"
-fi
+if (open(my $fh, "-|", @cmd)) {
+	while (my $line = <$fh>) {
+		if ($line =~ /^(\d+),(\d+): \(.+\)  #([0-9A-F]+)  /) {
+			my $col = int($1);
+			my $row = int($2);
+			my $rgb = hex($3);
+			my $r = ($rgb >> 24) & 0xFF;
+			my $g = ($rgb >> 16) & 0xFF;
+			my $b = ($rgb >>  8) & 0xFF;
+			if ($row % 2) {
+				$lower[$col] = "$r$sep1$g$sep1$b";
+			} else {
+				$upper[$col] = "$r$sep1$g$sep1$b";
+			}
+			if ($row % 2 && $col == $COLUMNS-1) {
+				my $buf = "";
+				for my $i (0..$COLUMNS-1) {
+					$buf .= "\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀";
+				}
+				$buf .= "\e[0m\e[K\n";
+				print $buf;
+				@upper = ();
+				@lower = ();
+			}
+		}
+	}
+	# Print the last half line, if required.
+	if (@upper) {
+		my $buf = "";
+		for my $i (0..$COLUMNS-1) {
+			$buf .= "\e[38${sep1}2${sep2}${upper[$i]}m▀";
+		}
+		$buf .= "\e[0m\e[K\n";
+		print $buf;
+	}
+	close($fh);
+} else {
+	warn "Failed to run magick convert\n";
+	exit(1);
+}

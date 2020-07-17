@@ -62,19 +62,18 @@ while IFS=',:() ' read col row dummy dummy_r dummy_g dummy_b dummy_a hex rest; d
   green=$(( 0x${hex:3:2} ))
   blue=$(( 0x${hex:5:2} ))
 
-  if [ $((row%2)) = 0 ]; then
+  if (( row % 2 == 0 )); then
     upper[$col]="$red$sep1$green$sep1$blue"
   else
     lower[$col]="$red$sep1$green$sep1$blue"
   fi
 
   # After reading every second image row, print them out.
-  if [ $((row%2)) = 1 -a $col = $((COLUMNS-1)) ]; then
+  if (( row % 2 == 1 && col == COLUMNS-1 )); then
     i=0
     buf=''
-    while [ $i -lt $COLUMNS ]; do
-      buf+="\\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀"
-      i=$((i+1))
+    while (( i++ < COLUMNS )); do
+      buf+="\\e[38${sep1}2${sep2}${upper[i]};48${sep1}2${sep2}${lower[i]}m▀"
     done
     # \e[K is useful when you resize the terminal while this script is still running.
     buf+="\\e[0m\e[K"

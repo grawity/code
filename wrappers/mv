@@ -2,20 +2,36 @@
 
 confirm() { local reply; read -p "$1 " reply && [[ $reply =~ ^[Yy] ]]; }
 
+# DWIM when no args or only 1 arg
 if (( $# <= 1 )); then
 	clip=$(xsel -o -b)
 	if [[ ! $clip ]]; then
 		clip=$(xsel -o)
 	fi
-	if [[ -f $clip && $clip != */* ]]; then
-		if [[ ! $1 ]]; then
-			read -p "mv: DWIM: new name: " -r -e -i "$clip" new
-			set -- "$new"
+
+	# existing file from another directory in command line
+	if [[ $1 == */* && $1 == @(/|../)* && -f $1 ]]; then
+		if confirm "mv: DWIM (arg): move '$1' to current directory?"; then
+			set -- -v -i "$1" .
 		fi
-		if [[ ! $1 || $1 == "$clip" ]]; then
-			exit 1
-		elif confirm "mv: DWIM: rename '$clip' to '$1'?"; then
+	# old file in selection, new file in command line
+	elif [[ $clip && -f $clip && $clip != */* && $1 && ! -f $1 ]]; then
+		if confirm "mv: DWIM (clip>arg): rename '$clip' to '$1'?"; then
 			set -- -v -i "$clip" "$1"
+		fi
+	# existing file in command line
+	elif [[ $1 && -f $1 ]]; then
+		old=$1
+		read -p "mv: DWIM (arg): new name: " -r -e -i "$old" new
+		if confirm "mv: DWIM (arg): rename '$old' to '$new'?"; then
+			set -- -v -i "$old" "$new"
+		fi
+	# old file in selection, nothing in command line
+	elif [[ $clip && -f $clip && ! $1 ]]; then
+		old=$clip
+		read -p "mv: DWIM (arg): new name: " -r -e -i "$old" new
+		if confirm "mv: DWIM (arg): rename '$old' to '$new'?"; then
+			set -- -v -i "$old" "$new"
 		fi
 	fi
 fi

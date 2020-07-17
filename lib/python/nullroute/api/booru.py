@@ -2,8 +2,9 @@ import bs4
 from collections import defaultdict
 from functools import lru_cache
 import lxml.etree
-from nullroute.core import *
+from nullroute.core import Core
 from nullroute.scrape import urljoin
+import nullroute.sec
 from pprint import pprint
 import re
 import requests
@@ -102,6 +103,18 @@ class DanbooruApi(BooruApi):
 
     _cache = {}
 
+    def __init__(self, *args, **kwargs):
+        from requests.auth import HTTPBasicAuth
+        super().__init__(*args, **kwargs)
+
+        try:
+            creds = nullroute.sec.get_netrc("danbooru.donmai.us", service="api")
+        except KeyError:
+            Core.debug("Danbooru API key not found")
+        else:
+            Core.debug("Danbooru API key for '%r' found", creds["login"])
+            self.ua.auth = HTTPBasicAuth(creds["login"], creds["password"])
+
     def find_posts(self, tags, page=1, limit=100):
         ep = "/posts.xml"
         args = {"tags": tags,
@@ -124,6 +137,8 @@ class DanbooruApi(BooruApi):
                     kind = _strip_prefix(key, "tag_string_")
                     attrib["tags"][kind] = val.split() if val else []
             #pprint(attrib)
+            if "id" not in attrib:
+                print("BUG: missing id in %r", attrib)
             self._cache["id:%(id)s" % attrib] = attrib
             yield attrib
 

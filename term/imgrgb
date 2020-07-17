@@ -50,6 +50,7 @@ my @cmd = ("magick", "convert", "-thumbnail", "${COLUMNS}x", "-define", "txt:com
 
 my @upper = ();
 my @lower = ();
+my $buf = "";
 
 if (open(my $fh, "-|", @cmd)) {
 	while (my $line = <$fh>) {
@@ -66,12 +67,10 @@ if (open(my $fh, "-|", @cmd)) {
 				$upper[$col] = "$r$sep1$g$sep1$b";
 			}
 			if ($row % 2 && $col == $COLUMNS-1) {
-				my $buf = "";
 				for my $i (0..$COLUMNS-1) {
 					$buf .= "\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀";
 				}
 				$buf .= "\e[0m\e[K\n";
-				print $buf;
 				@upper = ();
 				@lower = ();
 			}
@@ -79,13 +78,12 @@ if (open(my $fh, "-|", @cmd)) {
 	}
 	# Print the last half line, if required.
 	if (@upper) {
-		my $buf = "";
 		for my $i (0..$COLUMNS-1) {
 			$buf .= "\e[38${sep1}2${sep2}${upper[$i]}m▀";
 		}
 		$buf .= "\e[0m\e[K\n";
-		print $buf;
 	}
+	print $buf;
 	close($fh);
 } else {
 	warn "Failed to run magick convert\n";

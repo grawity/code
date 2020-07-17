@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# vim: ts=2:sw=2:et
 
 # Image viewer for terminals that support true colors.
 # Copyright (C) 2014  Egmont Koblinger
@@ -37,7 +38,7 @@ if [ $# != 1 -o "${1:0:1}" = "-" ]; then
   echo '  -colon3|-wrong:               Misinterpreted format      \e[38:2:R:G:Bm' >&2
   echo '  -semicolon|-common|-defacto:  Commonly used format       \e[38;2;R;G;Bm' >&2
   exit 1
-elif [ -z $(type -p convert) ]; then
+elif [ -z $(type -p magick) ]; then
   echo 'Please install ImageMagick to run this script.' >&2
   exit 1
 fi
@@ -51,7 +52,7 @@ declare -a upper lower
 upper=()
 lower=()
 
-convert -thumbnail ${COLUMNS}x -define txt:compliance=SVG "$1" txt:- |
+magick convert -thumbnail ${COLUMNS}x -define txt:compliance=SVG "$1" txt:- |
 while IFS=',:() ' read col row dummy red green blue rest; do
   if [ "$col" = "#" ]; then
     continue

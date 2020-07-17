@@ -23,11 +23,13 @@ use Getopt::Long;
 
 my $sep1 = ":";
 my $sep2 = "::";
+my $fullwidth = 0;
 
 GetOptions(
 	"colon4|official|dejure" => sub { },
 	"colon3|wrong" => sub { $sep2 = ":"; },
 	"semicolon|common|defacto" => sub { $sep1 = $sep2 = ";"; },
+	"w|wide" => \$fullwidth,
 ) || exit(2);
 
 if (!@ARGV) {
@@ -45,8 +47,14 @@ if (!grep {-x "$_/magick"} split(/:/, $ENV{PATH})) {
 }
 
 my $COLUMNS = int(`tput cols`);
+my $LINES = int(`tput lines`);
 
-my @cmd = ("magick", "convert", "-thumbnail", "${COLUMNS}x", "-define", "txt:compliance=SVG", $ARGV[0], "txt:-");
+$LINES -= 3; # reserve space for shell prompt
+$LINES *= 2; # two rows per text line
+
+my $size = ($fullwidth) ? "${COLUMNS}x" : "${COLUMNS}x${LINES}";
+
+my @cmd = ("magick", "convert", "-thumbnail", $size, "-define", "txt:compliance=SVG", $ARGV[0], "txt:-");
 
 my @upper = ();
 my @lower = ();

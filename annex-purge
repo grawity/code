@@ -3,7 +3,7 @@ from collections import namedtuple
 from fnmatch import fnmatch
 import os
 import sys
-from nullroute.core import *
+from nullroute.core import Core
 from nullroute.misc import unquote
 import nullroute.string
 from subprocess import Popen, PIPE
@@ -45,8 +45,11 @@ def annex(*cmd):
     return subprocess.Popen(["git", "annex", *cmd],
                             stdout=subprocess.PIPE)
 
-def annex_run(*cmd):
-    return subprocess.call(["git", "annex", *cmd])
+def annex_run(*cmd, autocommit=True):
+    opts = []
+    if autocommit == False:
+        opts += ["-c", "annex.alwayscommit=false"]
+    return subprocess.call(["git", *opts, "annex", *cmd])
 
 def getkeysize(key):
     for item in key.split("-"):
@@ -180,7 +183,8 @@ while n_found:
         failed = []
         for i, f in enumerate(todo):
             Core.say("dropping %r (%d/%d)", f.name, i+1, len(todo))
-            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % f.key)
+            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % f.key,
+                          autocommit=False)
             if r == 0:
                 dropped.append(f)
             else:
@@ -190,6 +194,7 @@ while n_found:
             sz_fail = sum([i.size for i in failed])
             Core.err("failed to drop %d files (%s)" % (n_fail, fmt_size(sz_fail)))
         if dropped:
+            annex_run("merge") # commit changes
             n_dropped = len(dropped)
             n_found -= n_dropped
             sz_dropped = sum([i.size for i in dropped])
@@ -274,8 +279,9 @@ while n_found:
     else:
         Core.err("unknown command %r" % cmd[0])
 
-pct = key2name.s_cold / key2name.s_total * 100
-print("key2name:",
-    key2name.s_total, "total;",
-    key2name.s_cold, "cold;",
-    "%.1f" % (100 - pct), "% cached")
+if key2name.s_total:
+    pct = key2name.s_cold / key2name.s_total * 100
+    print("key2name:",
+        key2name.s_total, "total;",
+        key2name.s_cold, "cold;",
+        "%.1f" % (100 - pct), "% cached")

@@ -3,16 +3,6 @@
 
 . lib.bash || exit
 
-set -o pipefail
-
-log=$path_cache/highlights.txt
-
-if [[ -s $path_config/synced/irc.conf ]]; then
-	. "$path_config/synced/irc.conf" || exit
-else
-	. "$path_config/irc.conf" || exit
-fi
-
 fmt() {
 	perl -M'POSIX' -M'POSIX::strptime' -M'Nullroute::Lib' -E'
 
@@ -161,12 +151,20 @@ fmt() {
 }
 
 umask 077
+set -o pipefail
+
+lib::find_file log= cache:highlights.txt
+lib::find_file conf= config:{synced/,}irc.conf
+
+[[ -f "$conf" ]] || die "config file '$conf' not found"
+
+. "$conf" || exit
+
 mkdir -p "${log%/*}" || die "cannot create cache directory"
 touch "$log"     || die "cannot create highlight cache"
 exec {fd}<"$log" || die "cannot open highlight cache"
 flock -x -w3 $fd || die "another instance is running"
 
-opts='-4 --connect-timeout 3'
 size=$(stat -c %s "$log")
 now=$(date +%s)
 
@@ -209,22 +207,8 @@ if [[ $highlights_file ]]; then
 	ssh "$irc_host" "tail -c +$size '$highlights_file'" > "$log.tmp"
 	ret=$?
 
-elif [[ $highlights_url ]]; then
-	debug "remote URL is <$highlights_url>"
-	out=$({ curl -s -S -C "$size" $opts "$highlights_url" > "$log.tmp"; } 2>&1)
-	ret=$?
-
-	bad='^<head><title>416 Requested Range Not Satisfiable</title></head>'
-	if [ $ret -eq 0 ] && grep -qs "$bad" "$log.tmp"; then
-		# I hate nginx.
-		# I also hate curl, because for some reason even with --fail it
-		# considers 416 with data a successful reply.
-		ret=33
-		: > "$log.tmp"
-	fi
-
 else
-	die "no highlights source defined"
+	die "\$highlights_file not defined"
 fi
 
 if [ $ret -eq 0 ] && [ -e "$log.tmp" ] && [ ! -s "$log.tmp" ]; then

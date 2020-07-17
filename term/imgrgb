@@ -72,12 +72,14 @@ while IFS=',:() ' read col row dummy red green blue rest; do
   # After reading every second image row, print them out.
   if [ $((row%2)) = 1 -a $col = $((COLUMNS-1)) ]; then
     i=0
+    buf=''
     while [ $i -lt $COLUMNS ]; do
-      echo -ne "\\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀"
+      buf+="\\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀"
       i=$((i+1))
     done
     # \e[K is useful when you resize the terminal while this script is still running.
-    echo -e "\\e[0m\e[K"
+    buf+="\\e[0m\e[K"
+    echo -e "$buf"
     upper=()
     d=()
   fi

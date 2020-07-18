@@ -15,6 +15,7 @@ def bad_win32_name(item):
         return False
 
 roots = sys.argv[1:]
+bad = 0
 
 for root in roots:
     seen = defaultdict(set)
@@ -36,10 +37,16 @@ for root in roots:
             print("Colliding paths:")
             for ogpath in sorted(seen[cfpath]):
                 print("  %s" % ogpath)
+                bad += 1
 
-    if len(badwin) > 0:
+    if badwin:
         print("Names incompatible with Windows:")
         for path in sorted(badwin):
             print("  %r" % path)
+            bad += 1
 
     print("Scanned %s items with %s unique paths" % (total, len(seen)))
+
+if bad > 0:
+    print("Found %d issues" % bad)
+    sys.exit(1)

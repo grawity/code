@@ -22,6 +22,7 @@ fi
 
 freeipmi_args=(           -h "$fqdn" -u "$user" -p "$pass" -l "$priv" -k "$k_g")
 ipmitool_args=(-I lanplus -H "$fqdn" -U "$user" -P "$pass" -L "$priv" -k "$k_g")
+
 # TODO: ipmitool -k is string key, -y is hex key, which one matches ipmi-console?
 # TODO: use -E -K for ipmitool
 #IPMI_PASSWORD=$pass
@@ -32,7 +33,7 @@ if [[ $1 == --@(power|power-status) ]]; then
 	if have ipmi-power; then
 		ipmi-power -D LAN_2_0 "${freeipmi_args[@]}" --stat
 	elif have ipmitool; then
-		ipmitool "${ipmitool_args[@]}" status
+		ipmitool "${ipmitool_args[@]}" power status
 	else
 		die "no IPMI client tools installed"
 	fi

@@ -7,6 +7,7 @@ roots = sys.argv[1:]
 
 for root in roots:
     seen = defaultdict(set)
+    badwin = set()
     total = 0
 
     for dirpath, dirnames, filenames in os.walk(root):
@@ -15,6 +16,8 @@ for root in roots:
             path = os.path.relpath(path, root)
             cfpath = path.casefold()
             seen[cfpath].add(path)
+            if {*item} & {*"?*<>|:\"\n\\"}:
+                badwin.add(path)
             total += 1
 
     for cfpath in sorted(seen):
@@ -22,5 +25,10 @@ for root in roots:
             print("Colliding paths:")
             for ogpath in sorted(seen[cfpath]):
                 print("  %s" % ogpath)
+
+    if len(badwin) > 0:
+        print("Names incompatible with Windows:")
+        for path in sorted(badwin):
+            print("  %r" % path)
 
     print("Scanned %s items with %s unique paths" % (total, len(seen)))

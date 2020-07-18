@@ -14,12 +14,19 @@ def bad_win32_name(item):
     else:
         return False
 
+def bad_ucs2_name(item):
+    if re.match(r"[^\u0000-\uFFFF]", item):
+        return True
+    else:
+        return False
+
 roots = sys.argv[1:]
 bad = 0
 
 for root in roots:
     seen = defaultdict(set)
     badwin = set()
+    baducs = set()
     total = 0
 
     for dirpath, dirnames, filenames in os.walk(root):
@@ -30,6 +37,8 @@ for root in roots:
             seen[cfpath].add(path)
             if bad_win32_name(item):
                 badwin.add(path)
+            if bad_ucs2_name(item):
+                baducs.add(path)
             total += 1
 
     for cfpath in sorted(seen):
@@ -42,6 +51,12 @@ for root in roots:
     if badwin:
         print("Names incompatible with Windows:")
         for path in sorted(badwin):
+            print("  %r" % path)
+            bad += 1
+
+    if baducs:
+        print("Names incompatible with Dropbox:")
+        for path in sorted(baducs):
             print("  %r" % path)
             bad += 1
 

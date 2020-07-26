@@ -44,6 +44,11 @@ class BinaryReader():
     def read_u16_be(self):
         return self._read_fmt(2, ">H", "short")
 
+    def read_u24_be(self):
+        hi = self._read_fmt(1, "B", "medium.hi")
+        lo = self._read_fmt(2, ">H", "medium.lo")
+        return (hi << 16) | lo
+
     def read_u32_le(self):
         return self._read_fmt(4, "<L", "long")
 
@@ -112,6 +117,11 @@ class BinaryWriter():
 
     def write_u16_be(self, val):
         return self._write_fmt(">H", "short", val)
+
+    def write_u24_be(self, x):
+        hi = (x >> 16)
+        lo = (x & 0xFFFF)
+        return self._write_fmt(">BH", "medium", hi, lo)
 
     def write_u32_le(self, val):
         return self._write_fmt("<L", "long", val)

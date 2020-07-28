@@ -6,7 +6,7 @@ import sys
 import urllib.parse
 import xdg.BaseDirectory as basedir
 
-def load_mappings(path):
+def load_mappings(path, gateways=True):
     mappings = []
     with open(path, "r") as f:
         Core.trace("loading from %r" % path)
@@ -15,13 +15,21 @@ def load_mappings(path):
             if (not line) or line.startswith("#"):
                 continue
             line = line.split()
-            line[0] = re.compile("^%s$" % line[0])
-            mappings.append(line)
+            match = re.compile("^%s$" % line[0])
+            if line[1] == "<via>":
+                replacement, *rest = line[2:]
+                iscanonical = False
+            else:
+                replacement, *rest = line[1:]
+                iscanonical = True
+            line = (match, replacement, iscanonical, *rest)
+            if iscanonical or gateways:
+                mappings.append(line)
     return mappings
 
 def find_mapping(mappings, uri):
     Core.trace("looking up %r" % uri)
-    for regex, replace, *rest in mappings:
+    for regex, replace, iscanonical, *rest in mappings:
         #Core.trace("considering %r / %r" % (regex, replace))
         flags = ""
         if rest:
@@ -91,13 +99,19 @@ conf_paths = [os.path.join(dir, "uri.conf")
 mappings = None
 seen = set()
 
+args = sys.argv[1:]
+gateways = False
+if args[0] == "-g":
+    args.pop(0)
+    gateways = True
+
 for path in conf_paths:
     try:
-        mappings = load_mappings(path)
+        mappings = load_mappings(path, gateways)
     except FileNotFoundError:
         pass
 
-for start_uri in sys.argv[1:]:
+for start_uri in args:
     Core.trace("start arg: %r" % start_uri)
     if mappings is None:
         Core.trace("... no mappings defined, returning original arg")

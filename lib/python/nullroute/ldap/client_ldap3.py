@@ -62,6 +62,10 @@ class LdapClient():
         entries = [(entry.entry_dn, entry.entry_raw_attributes) for entry in entries]
         return entries
 
+    def list_children(self, base, filter=None, attrs=None):
+        attrs = [*attrs] if attrs else ["1.1"]
+        return self.search(base, filter, scope="one", attrs=attrs)
+
     def read_entry(self, dn, raw=False):
         if not self.conn.search(dn, "(objectClass=*)",
                                 search_scope=ldap3.BASE,

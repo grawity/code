@@ -58,7 +58,7 @@ class LdapClient():
             "sub":          ldap.SCOPE_SUBTREE,
             "onelevel":     ldap.SCOPE_ONELEVEL,
             "one":          ldap.SCOPE_ONELEVEL,
-            "subordinate":  ldap.SCOPE_SUBORDINATE,
+            "subordinates": ldap.SCOPE_SUBORDINATE,
             "child":        ldap.SCOPE_SUBORDINATE,
         }[scope or "subtree"]
         result = self.conn.search_ext_s(base, scope, filter, attrs)

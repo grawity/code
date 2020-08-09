@@ -51,7 +51,7 @@ class LdapClient():
             "onelevel":     ldap3.LEVEL,
             "one":          ldap3.LEVEL,
             # not natively supported by ldap3
-            #"subordinate":  ldap3.SUBORDINATE,
+            #"subordinates": ldap3.SUBORDINATE,
             #"child":        ldap3.SUBORDINATE,
         }[scope or "subtree"]
         attrs = [*attrs] if attrs else ["*"]

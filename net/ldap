@@ -459,6 +459,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 		# ldap set <obj> [attrs...]
 		#   Only attribute names can be optionally listed.
 		@attrs = @ARGV ? @ARGV : ("*");
+		_err("unrecognized argument '$_' (did you want 'ldap set'?)") for grep {/=/} @attrs;
 	}
 	elsif ($cmd eq "rename") {
 		# ldap rename <obj> <rdn>
@@ -481,6 +482,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	else {
 		_die("too many arguments given") if @ARGV;
 	}
+	exit(1) if $::errors;
 
 	# Connect to the server
 	my $conn = ldap_connect_opt(%Opt);

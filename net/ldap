@@ -72,6 +72,12 @@ sub ldap_connect {
 sub ldap_connect_opt {
 	my (%opt) = @_;
 
+	my $uri = $opt{uri};
+	if ($uri =~ /\s/) {
+		_warn("using only the first URI out of provided list ($uri)");
+		($uri) = split(/\s+/, $uri);
+	}
+
 	return ldap_connect($opt{uri}, $opt{starttls}, $opt{sasl_mech});
 }
 
@@ -381,9 +387,16 @@ GetOptions(
 	"V|reveal!" => \$Opt{reveal_sensitive},
 ) or exit(2);
 
+if (!$Opt{uri}) {
+	$Opt{uri} = get_ldap_conf("URI");
+}
+if (!$Opt{uri}) {
+	# TODO: defaults from current domain
+	_die("LDAP server URI could not be determined");
+}
+
 $Opt{uri} //= get_ldap_conf("URI");
 $Opt{base} //= get_ldap_conf("BASE");
-# TODO: defaults from current domain
 
 if (!$cmd) {
 	if (basename($0) =~ /^ldap(\w+)$/) {

@@ -9,25 +9,32 @@ use warnings;
 use strict;
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
 
+sub show_help {
+	print "Usage: $0 [-r|--replace] [-u|--unwrap] <schema_name>\n";
+	return 2;
+}
+
+my $opt_name;
+my $opt_dn;
 my $opt_replace = 0;
 my $opt_unwrap = 0;
+my $opt_mode = "openldap";
 
 GetOptions(
 	"r|replace!" => \$opt_replace,
-	"unwrap!" => \$opt_unwrap,
-) or exit(2);
+	"u|unwrap!" => \$opt_unwrap,
+) or exit(show_help());
 
 if (-t STDIN) {
 	warn "error: expecting a schema as stdin\n";
 	exit(1);
 }
 
-my $name = shift(@ARGV) // "UNNAMEDSCHEMA";
+$opt_name //= shift(@ARGV) // "UNNAMEDSCHEMA";
+$opt_dn //= "cn=$opt_name,cn=schema,cn=config";
 
-print "dn: cn=$name,cn=schema,cn=config\n";
-if ($opt_replace) {
-	print "changetype: modify\n";
-} else {
+print "dn: $opt_dn\n";
+if (!$opt_replace) {
 	print "objectClass: olcSchemaConfig\n";
 }
 
@@ -68,7 +75,7 @@ while (<STDIN>) {
 		}
 	}
 	elsif (/^#.*/) {
-		print "$&\n";
+		next;
 	}
 	elsif (/.+/) {
 		warn "$.:unrecognized input line: $&\n";

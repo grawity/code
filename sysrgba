@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+mode=$1
+
+if [[ ! $mode ]]; then
+	info "listing current symlinks"
+	for file in 10-{sub-pixel,sub-pixel-{bgr,rgb,vbgr,vrgb},no-sub-pixel}.conf; do
+		if [[ -e /etc/fonts/conf.d/$file ]]; then
+			echo "$file => $(readlink /etc/fonts/conf.d/$file)"
+		fi
+	done
+	exit
+fi
+
+if [[ $mode == @(none|off) ]]; then
+	mode=no-sub-pixel
+	info "setting mode to '$mode'"
+elif [[ $mode == @(rgb|bgr|vrgb|vbgr) ]]; then
+	mode=sub-pixel-$mode
+	info "setting mode to '$mode'"
+elif [[ $mode == @(default|reset) ]]; then
+	mode=default
+	info "clearing all symlinks"
+else
+	die "invalid mode '$mode'"
+fi
+
+if [[ -d /usr/share/fontconfig/conf.avail ]]; then
+	dir=/usr/share/fontconfig/conf.avail # Debian
+elif [[ -d /etc/fonts/conf.avail ]]; then
+	dir=.. # Arch
+else
+	die "'conf.avail' directory not found"
+fi
+
+# Remove all other files
+sudo rm -vf /etc/fonts/conf.d/10-{sub-pixel-{bgr,rgb,vbgr,vrgb},no-sub-pixel}.conf
+
+if [[ $mode == default ]]; then
+	sudo rm -vf /etc/fonts/conf.d/10-sub-pixel.conf
+else
+	sudo ln -vnsf $dir/conf.avail/10-$mode.conf /etc/fonts/conf.d/10-sub-pixel.conf
+fi

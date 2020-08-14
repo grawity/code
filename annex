@@ -127,7 +127,7 @@ case $cmd in
             echo "$now - $HOSTNAME wants '$(realpath --strip --relative-to="$repo_root" "$arg")'"
         done | tee -a ~/Dropbox/Todo-annex.txt
         ;;
-    setup)
+    deploy)
         name=$1
         dir="$PWD/$name"
         rdir="Attic/$name.git"
@@ -138,6 +138,7 @@ case $cmd in
         fi
         mkdir "$dir"
         cd "$dir"
+        annex prepare
         if is_annex; then
             die "'$PWD' is already a git-annex repository"
         elif is_git; then
@@ -315,6 +316,7 @@ case $cmd in
         (( r == 0 ))
         ;;
     commit|ci)
+        git config receive.denyCurrentBranch updateInstead
         git annex sync --no-pull --no-push
         ;;
     ldu)

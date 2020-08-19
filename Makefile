@@ -26,7 +26,7 @@ $(dummy): $(OBJ)/config-krb5.h
 BASIC_BINS := args gettime mkpasswd natsort natxsort pause silentcat spawn unescape
 BASIC_BINS += ac-wait entropy proctool strtool subreaper xor xors xorf
 KRB_BINS   := k5userok pklist
-MISC_BINS  := libwcwidth.so logwipe writevt zlib
+MISC_BINS  := libwcwidth.so writevt zlib
 LINUX_BINS := globalenv libfunlink.so libfunsync.so libflstat.so peekvc showsigmask statx tapchown
 
 .PHONY: all basic krb misc linux pklist
@@ -88,7 +88,6 @@ $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/codeset:		misc/codeset.c
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/k5userok:	kerberos/k5userok.c
-$(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o

@@ -1,0 +1,289 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Carp;
+use Data::Dumper;
+use Getopt::Long qw(:config bundling no_ignore_case);
+use File::Basename;
+use Nullroute::Dir qw(find_first_file);
+
+our %config;
+my %Opt = (
+	full => 0,
+	hide_remotes => {},
+);
+my %Locs_by_dir;
+my %Locs_by_file;
+my @Remote_names;
+my @Remote_usage;
+
+# remote_alias($remote) -> string
+#
+# Accepts a local remote name or description and mangles it into something
+# shorter. Particularly useful for shortening descriptions of
+# not-locally-configured remotes.
+
+sub remote_alias {
+	my ($remote) = @_;
+
+	if (!defined $remote) {
+		croak("BUG: \$remote undefined");
+	}
+	my $afunc = $config{remote_alias};
+	$remote = $afunc->($remote) if $afunc;
+	$remote =~ s/ \(.+?\)$//;
+	$remote =~ s/ /_/g;
+	$remote = $afunc->($remote) if $afunc;
+	return $remote;
+}
+
+# remote_color($remote) -> color_idx
+#
+# Accepts a local remote name, which might be empty if the remote is not
+# configured locally (i.e. only exists in git-annex database but not
+# .git/config).
+#
+# Returns index to 256-color palette, which can be negative to indicate 'bold';
+# see fg() below.
+
+sub remote_color {
+	my ($remote) = @_;
+
+	if (!defined $remote) {
+		croak("BUG: \$remote undefined");
+	}
+	if ($config{remote_color}) {
+		return $config{remote_color}->($remote);
+	}
+	for ($remote) {
+		return   8 if /^$/;
+		return  -3 if /^here$/;
+		return  15;
+	}
+}
+
+# remote_hidden($remote) -> bool
+#
+# Checks whether the remote is uninteresting and should be hidden. By default,
+# returns true for bittorrent & web.
+
+sub remote_hidden {
+	my ($remote) = @_;
+
+	if (!defined $remote) {
+		croak("BUG: \$remote undefined");
+	}
+	if ($Opt{hide_remotes}{$remote}) {
+		return 1;
+	}
+	if ($config{remote_hidden}) {
+		return $config{remote_hidden}->($remote);
+	}
+	return ($remote =~ /^(bittorrent|web)$/);
+}
+
+# fmt(str, fmt) -> str
+#
+# Wraps string in given ANSI format string, adding escape codes as needed.
+
+sub fmt {
+	my ($str, $fmt) = @_;
+	return (length($str) && length($fmt))
+		? "\e[".$fmt."m".$str."\e[m"
+		: $str;
+}
+
+# fg(str, color_idx) -> str
+#
+# Wraps string in the ANSI format string for the given 256-color idx (which may
+# be negative to additionally enable bold text).
+
+sub fg {
+	my ($str, $color) = @_;
+	if ($color < 0) {
+		$str = fmt($str, "1");
+	}
+	return fmt($str, "38;5;".abs($color));
+}
+
+# fmt_remotes(@remotes) -> str
+#
+# Accepts a list of (already formatted) remote names, applies final display
+# formatting (prefix, suffix, optional columns).
+
+sub fmt_remotes {
+	my (@remotes) = @_;
+	return fg("{", 8).join(" ", @remotes).fg("}", 8);
+}
+
+# LocationBitmap->new(bitmap_str)
+#
+# Accepts a location bitmap (_Xx_X) and allows checking if bit at given index
+# is set. Hidden remotes are always unset.
+
+sub LocationBitmap::new {
+	no warnings "once";
+	my ($self, $loc) = @_;
+
+	# prune hidden remotes from bitmap, to avoid mysterious 'identical'
+	# rows (when two files differ only by hidden remote)
+	substr($loc, $_, 1) = "_"
+		for grep {remote_hidden($Remote_names[$_])} 0..length($loc);
+
+	return $LocationBitmap::cache{$loc} //= bless(\$loc, $self);
+}
+
+sub LocationBitmap::data {
+	my ($self) = @_;
+	return $$self;
+}
+
+sub LocationBitmap::size {
+	my ($self) = @_;
+	return length($$self);
+}
+
+sub LocationBitmap::present {
+	my ($self, $idx) = @_;
+	return (!remote_hidden($Remote_names[$idx])
+		&& $idx < length($$self)
+		&& substr($$self, $idx, 1) ne "_");
+}
+
+# LocationBitmap::diff(bitmap) -> hash
+#
+# Accepts two location bitmaps, and returns a hash keyed by index, with
+# diff-like "-"/"+" values (corresponding to "removed" and "added").
+
+sub LocationBitmap::diff {
+	my ($self, $other) = @_;
+	my @self_only = grep {
+		$self->present($_) && !$other->present($_)
+	} 0..$self->size;
+	my @other_only = grep {
+		!$self->present($_) && $other->present($_)
+	} 0..$self->size;
+	return ((map {$_ => "-"} @self_only),
+		(map {$_ => "+"} @other_only));
+}
+
+# locset_str(bitmap) -> str
+#
+# Accepts a location bitmap, returns a formatted list of remote names. Absent
+# remotes will be included if they were present for at least one other file in
+# the current session.
+#
+# TODO: Split into a function that returns a list without calling fmt_remotes.
+
+sub LocationBitmap::fullstr {
+	my ($self) = @_;
+
+	my @remotes = map {
+		my $name = $Remote_names[$_];
+		my $color = remote_color($self->present($_) ? $name : "");
+		$name = remote_alias($name) // $name;
+		fg($name, $color);
+	} grep {
+		!$Opt{only_present} || $self->present($_);
+	} grep {
+		$Remote_usage[$_];
+	} sort {
+		$Remote_names[$a] cmp $Remote_names[$b]
+	} 0..$#Remote_names;
+
+	return fmt_remotes(@remotes);
+}
+
+# locset_diffstr(base_bitmap, new_bitmap) -> str
+#
+# Similar to locset_str, but returns a short diff-like list (with "+name" and
+# "-name" indicating added/removed remotes, compared to base_bitmap).
+
+sub LocationBitmap::diffstr {
+	my ($self, $other) = @_;
+
+	if (ref $other ne ref $self) {
+		croak("BUG: \$other must be of the same type");
+	}
+	my %diff = $self->diff($other);
+	my @remotes = map {
+		my $name = $Remote_names[$_];
+		my $color = remote_color($diff{$_} eq "+" ? $name : "");
+		$name = remote_alias($name) // $name;
+		$diff{$_}.fg($name, $color);
+	} grep {
+		$diff{$_}
+	} sort {
+		$Remote_names[$a] cmp $Remote_names[$b]
+	} 0..$#Remote_names;
+
+	return if !@remotes;
+	return fmt_remotes(@remotes);
+}
+
+# Process command line.
+
+GetOptions(
+	# don't collapse identical items in directories
+	"a|f|all|full+" => \$Opt{full},
+	# don't show this remote
+	"ignore=s" => sub { $Opt{hide_remotes}{$_} = 1 for split(/,/, $_[1]) },
+	# don't show remotes that would be grayed out
+	"p|present" => \$Opt{only_present},
+) or exit(2);
+
+my $conf = find_first_file("config:annex-where.conf.pl",
+                           "config:synced/annex-where.conf.pl");
+
+if ($conf) { do $conf; }
+
+# Parse `git annex list` input.
+
+while (<STDIN>) {
+	if (/^([_Xx]+) (.+)$/) {
+		my $loc = LocationBitmap->new($1);
+		my $dir = dirname($2);
+		my $base = basename($2);
+		$Locs_by_dir{$dir}{$loc->data} += 1;
+		$Locs_by_file{$dir}{$base} = $loc;
+		for (0..$loc->size) {
+			$Remote_usage[$_]++ if $loc->present($_);
+		}
+	}
+	elsif (/^(\|*)([^|_Xx].*?)$/) {
+		my $idx = length($1);
+		my $name = $2;
+		$name =~ s/ \(untrusted\)$//;
+		$Remote_names[$idx] = $name;
+	}
+	else {
+		warn "!! unrecognized line:$.: $_\n";
+	}
+}
+
+my @dirs = sort keys %Locs_by_dir;
+
+my $show_unabridged = ($Opt{full} >= 1);
+my $show_non_diverging = ($Opt{full} >= 2);
+
+for my $dir (@dirs) {
+	my %locs = %{$Locs_by_dir{$dir}};
+	my @locs = sort {$locs{$a} <=> $locs{$b}} keys %locs;
+	# print the most common bitmap, representing the whole directoy
+	my $main = LocationBitmap->new(pop @locs);
+	print $main->fullstr()." $dir/\n";
+	# if any files diverge, or if -a -a was given, print those bitmaps
+	if (@locs || $show_non_diverging) {
+		# if -a was given, print unabridged bitmaps, otherwise deltas
+		my $full = $show_unabridged || ($locs{$main->data} - $locs{$locs[-1]} <= 2);
+		my %files = %{$Locs_by_file{$dir}};
+		my @files = sort grep {$full || $files{$_} ne $main} keys %files;
+		for (@files) {
+			my $loc_str = $full ? $files{$_}->fullstr() : $main->diffstr($files{$_});
+			my $name_fmt = $full ? "" : "1";
+			if ($loc_str) {
+				print "  ".$loc_str." ".fmt($_, $name_fmt)."\n";
+			}
+		}
+	}
+}

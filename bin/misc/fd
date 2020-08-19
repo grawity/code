@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname make <name>"
+	echo "       $progname mount <name>"
+	echo "       $progname umount"
+}
+
+sizes=(
+	[720]=$((  720 * 1024 ))
+	[144]=$(( 1440 * 1024 ))
+	[288]=$(( 2880 * 1024 ))
+)
+
+case $1 in
+    make|mk)
+	name=$2
+	if ! [[ $name ]]; then
+		die "missing image file name"
+	fi
+
+	size=${3:-144}
+	if [[ $size == *k ]]; then
+		size=${size%k}
+		size=$(( size * 1024 ))
+	elif [[ ${sizes[size]} ]]; then
+		size=${sizes[size]}
+	elif (( size < 4096 )); then
+		size=$(( size * 1024 ))
+	else
+		die "unknown size '$size'"
+	fi
+
+	size_k=$(( size / 1024 ))
+	log "image size: $size_k kB ($size bytes)"
+
+	if [[ -e $name ]]; then
+		die "file \"$name\" already exists"
+	fi
+
+	echo "allocating image"
+	head -c "$size" /dev/zero > "$name"
+
+	echo "creating filesystem"
+	mkfs.vfat "$name"
+
+	if (( $# > 3 )); then
+		echo "adding files"
+		mcopy -i "$name" "${@:4}" ::
+	fi
+
+	log "created \"$name\""
+	;;
+    mount|m)
+	name=$2
+	if ! [[ $name ]]; then
+		die "missing image file name"
+	fi
+
+	if [[ -e $name.img ]]; then
+		name+=.img
+	fi
+	if ! [[ -e $name ]]; then
+		die "file \"$name\" does not eixist"
+	fi
+
+	log "mounting image '$name'"
+	mtpt=$XDG_RUNTIME_DIR/fd
+	mkdir -p "$mtpt"
+	if sudo mount "$name" "$mtpt" -o loop,uid=$UID; then
+		log "mounted \"$name\" on $mtpt"
+	else
+		die "mount failed"
+	fi
+	;;
+    umount|unmount|u)
+	mtpt=$XDG_RUNTIME_DIR/fd
+	if ! mountpoint -q "$mtpt"; then
+		die "nothing mounted at \"$mtpt\""
+	fi
+
+	ldev=$(findmnt -n -o SOURCE "$mtpt")
+	if [[ $ldev != /dev/loop* ]]; then
+		die "not a loop device – \"$mtpt\" has $ldev mounted"
+	fi
+
+	#file=$(losetup -n -O BACK-FILE "$ldev")
+
+	if sudo umount "$mtpt"; then
+		until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
+		log "unmounted \"$mtpt\""
+	else
+		die "unmount failed"
+	fi
+	;;
+    cp)
+	mcopy -i "${@:2}" ::/
+	;;
+    ls)
+	mdir -i "${@:2}"
+	;;
+    '')
+	(die "missing command")
+	usage
+	exit 1
+	;;
+    *)
+	die "unknown command '$1'"
+	;;
+esac

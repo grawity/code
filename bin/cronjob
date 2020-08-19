@@ -1,0 +1,34 @@
+#!/bin/sh
+# wrapper for cronjobs, to set basic environment
+
+test "$XDG_RUNTIME_DIR"	|| export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+test "$SSH_AUTH_SOCK"	|| export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent"
+
+. ~/lib/dotfiles/environ || exit
+
+while true; do
+	case $1 in
+	-c)
+		shift
+		set -- sh -c "$@"
+		;;
+	-k)
+		shift
+		export KRB5CCNAME="FILE:/tmp/krb5cc_$(id -u)_cron"
+		export KRB5_CLIENT_KTNAME="FILE:$HOME/.config/cron.keytab"
+		;;
+	-n)
+		shift
+		nm-online -qx || exit 0
+		;;
+	-*)
+		echo "$0: fatal: unknown option '$1'" >&2
+		exit 2
+		;;
+	*)
+		break
+		;;
+	esac
+done
+
+nice chronic "$@"

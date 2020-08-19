@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+if [[ ! $_DYM && -t 1 ]]; then
+	if [[ $# -eq 2 && $2 != [+/]* && -f $1 && ! -f $2 ]]; then
+		read -n 1 -p "Did you mean 'mv' again? " REPLY
+		if [[ $REPLY == y ]]; then
+			echo "eah, I suck"
+			echo "mv \"$1\" \"$2\""
+			mv -v "$@"
+			exit
+		else
+			echo ""
+		fi
+	elif [[ " $* " == *\ pkg\ * || " $* " == */pkg\ * ]]; then
+		args=()
+		for arg; do
+			if [[ -d $arg ]]; then
+				fix=${arg/%pkg/PKGBUILD}
+				read -n 1 -p "Did you mean '$fix'? " REPLY
+				if [[ $REPLY == y ]]; then
+					arg=$fix
+				fi
+				echo ""
+			fi
+			args+=("$arg")
+		done
+		set -- "${args[@]}"
+	fi
+	export _DYM=1
+fi
+
+if [[ $EDITOR == nvim ]]; then
+	exec nvim "$@"
+else
+	exec /usr/bin/vim "$@"
+fi

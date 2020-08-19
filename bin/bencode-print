@@ -1,0 +1,110 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Convert::Bencode qw(bdecode);
+use List::Util qw(min);
+use JSON;
+
+my $indent = " " x 4;
+
+sub is_valid_utf8 {
+	my ($str) = @_;
+
+	return utf8::decode($str);
+}
+
+sub is_printable {
+	my ($str) = @_;
+
+	return ($str !~ /[\x00-\x1F]/) && is_valid_utf8($str);
+}
+
+sub dump_str {
+	my ($str, @path) = @_;
+	my $depth = @path;
+	my $i = 0;
+	my $n = length($str);
+
+	if ("@path" eq "peers" && ($n % 4) == 0) {
+		require Socket;
+		my $z = 4;
+		print "ipv4 <";
+		while ($i + $z < $n) {
+			print ", " if $i;
+			print Socket::inet_ntop(&Socket::AF_INET,
+						substr($str, $i, $z));
+			$i += $z;
+		}
+		print ">";
+		return;
+	}
+
+	if (is_printable($str)) {
+		print "\"".$str."\"";
+	} else {
+		my @bytes = map {sprintf("%02x", $_)} unpack("C*", $str);
+		my $z = 24;
+		print "bytes <<";
+		if ($n > $z) {
+			print "\n";
+			while ($i < $n) {
+				print $indent x ($depth+1);
+				if ($i >= 128) {
+					print "... (".($n-$i)." more bytes)\n";
+					last;
+				}
+				print join(" ", @bytes[$i..min($i + $z, $n)-1]);
+				print "\n";
+				$i += $z;
+			}
+			print $indent x $depth;
+		} else {
+			print " ";
+			print join(" ", @bytes);
+			print " ";
+		}
+		print ">>";
+	}
+}
+
+sub dump_rec {
+	my ($data, @path) = @_;
+	my $depth = @path;
+
+	if ($ENV{DEBUG}) {
+		print "\e[33m<$depth: ".join(", ", map {"'$_'"} @path)."> \e[m";
+	}
+
+	if (ref $data eq "HASH") {
+		print "{\n";
+		for my $key (sort keys %$data) {
+			print $indent x ($depth+1);
+			dump_str($key, (@path));
+			print ": ";
+			dump_rec($data->{$key}, (@path, $key));
+		}
+		print $indent x $depth;
+		print "}\n";
+	}
+	elsif (ref $data eq "ARRAY") {
+		print "[\n";
+		my $i = 0;
+		for my $item (@$data) {
+			print $indent x ($depth+1);
+			print $i++;
+			print ": ";
+			dump_rec($item, (@path, "[]"));
+		}
+		print $indent x $depth;
+		print "]\n";
+	}
+	else {
+		dump_str($data, (@path));
+		print "\n";
+	}
+}
+
+my $benc = do { local $/; <STDIN>; };
+my $data = bdecode($benc);
+
+dump_rec($data);

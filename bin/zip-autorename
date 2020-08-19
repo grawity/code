@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+from argparse import ArgumentParser
+from nullroute.core import *
+import sys
+
+def find_ext(path):
+    base = os.path.basename(old_path)
+    ext_pos = base.rfind(".")
+    if ext_pos > 0:
+        return base[ext_pos + 1]
+    else:
+        return None
+
+def replace_basename(old_path, new_base):
+    old_dir = os.path.dirname(old_path)
+    old_base = os.path.basename(old_path)
+    ext_pos = old_base.rfind(".")
+    if ext_pos > 0:
+        new_base += old_base[ext_pos:]
+    return os.path.join(old_dir, new_base)
+
+def enum_root_rar(file):
+    import subprocess
+
+    with subprocess.Popen(["unrar", "vb", file],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            yield line.rstrip(b"\n").split(b"/")[0]
+
+def enum_root_bsdtar(file):
+    import subprocess
+
+    with subprocess.Popen(["bsdtar", "tf", file],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            yield line.rstrip(b"\n").split(b"/")[0]
+
+def enum_root_zip(file):
+    import subprocess
+
+    with subprocess.Popen(["zipinfo", "-1", file],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            yield line.rstrip(b"\n").split(b"/")[0]
+
+def find_root(file, handler):
+    found = set(handler(file))
+
+    if len(found) == 1:
+        return found.pop()
+    elif len(found) == 0:
+        raise ValueError("file %r has no items in root directory" % file)
+    else:
+        raise ValueError("file %r has too many items in root directory" % file)
+
+ap = ArgumentParser()
+ap.add_argument("-n", "--dry-run",
+                dest="dry_run", action="store_true", default=False,
+                help="only show actions, implies --verbose")
+ap.add_argument("-v", "--verbose",
+                dest="verbose", action="store_true", default=False,
+                help="show actions")
+ap.add_argument("file", nargs="*")
+
+opts = ap.parse_args()
+if not opts.verbose:
+    opts.dry_run = True
+opts.verbose = True
+
+for file in opts.file:
+    if file.lower().endswith(".zip"):
+        handler = enum_root_zip
+    elif file.lower().endswith(".rar"):
+        handler = enum_root_rar
+    elif file.lower().endswith(".7z"):
+        handler = enum_root_bsdtar
+    else:
+        Core.err("unrecognized archive type: %r" % file)
+        continue
+
+    try:
+        root = find_root(file, handler)
+    except ValueError as e:
+        Core.err("%s, skipping" % e)
+        continue
+
+    if hasattr(root, "decode"):
+        root = root.decode(errors="replace")
+
+    new_name = replace_basename(file, root)
+    if file == new_name:
+        if opts.verbose:
+            print("‘%s’ unchanged" % file)
+    else:
+        if opts.verbose:
+            print("‘%s’ -> ‘%s’" % (file, new_name))
+        if not opts.dry_run:
+            try:
+                os.rename(file, new_name)
+            except OSError as e:
+                Core.err("could not rename %r: %r" % (file, e))
+
+if opts.dry_run:
+    Core.notice("dry run complete")
+
+Core.exit()

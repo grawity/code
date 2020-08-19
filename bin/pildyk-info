@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+import os, sys
+import requests
+from nullroute.core import Core
+from nullroute.sec import get_libsecret, get_netrc
+from nullroute.string import fmt_size, ObjectDict
+from pprint import pprint
+
+class PildykApi(object):
+    BASE = "https://mano.pildyk.lt/api"
+
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+        self.ua = requests.Session()
+        self.ua.headers["user-agent"] += " (~/bin/pildyk-balance at github/grawity/bin)"
+
+    def get(self, path, **kwargs):
+        Core.debug("GET %r %r", path, kwargs, skip=1)
+        resp = self.ua.get(self.BASE + path, **kwargs)
+        resp.raise_for_status()
+        Core.trace("response: %r", resp.json(), skip=1)
+        return resp.json(object_hook=ObjectDict).get("result")
+
+    def post(self, path, **kwargs):
+        Core.debug("POST %r %r", path, kwargs, skip=1)
+        resp = self.ua.post(self.BASE + path, **kwargs)
+        resp.raise_for_status()
+        Core.trace("response: %r", resp.json(), skip=1)
+        return resp.json(object_hook=ObjectDict).get("result")
+
+    def login(self):
+        self.post("/authentication/login",
+                  data={"Msisdn": self.username,
+                        "Password": self.password})
+
+    # JS appends /<msisdn> to all of these, seems optional
+
+    def get_balance(self):
+        # seems to be case-insensitive, JS mixes both variants
+        return self.get("/AccountInformation/get-user-balance")
+
+    def get_plan_and_balance(self):
+        return self.get("/accountinformation/get-price-plan-and-account-balance")
+
+username = "60396811"
+try:
+    password = get_libsecret({"xdg:schema": "org.epiphany.FormPassword",
+                              "uri": "https://mano.pildyk.lt",
+                              "username": username})
+except KeyError:
+    creds = get_netrc("http@mano.pildyk.lt", username)
+    password = creds["password"]
+
+api = PildykApi(username, password)
+api.login()
+
+data = api.get_plan_and_balance()
+print("Account: +370.%(msisdn)s" % data)
+print("Balance: %(balance)s €" % data)
+
+#resp = api.get("/accountinformation/get-additional-service-buckets")
+#pprint(resp)
+
+resp = api.get("/accountinformation/get-grouped-buckets")
+#pprint(resp)
+
+for bucket in resp.dataGroup.buckets:
+    assert(bucket.balanceUnit == 3)
+    quota = bucket.balance * 1024
+    quota = fmt_size(quota)
+    expire = bucket.expireDate.split("T")[0]
+    print("Data:    %s (iki %s)" % (quota, expire))

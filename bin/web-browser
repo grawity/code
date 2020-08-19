@@ -1,0 +1,19 @@
+#!/bin/sh
+# web-browser - open a sensible web browser
+
+is_running() { pgrep -u "$USER" -x "$1" >&/dev/null; }
+
+if [ -n "$DISPLAY" ]; then
+	if is_running 'chromium'; then
+		exec chromium "$@"
+	elif is_running 'firefox'; then
+		exec firefox "$@"
+	else
+		exec xdg-open "$@"
+	fi
+elif [ -t 1 ]; then
+	exec w3m "$@"
+else
+	echo "error: neither tty nor x11 available" >&2
+	exit 1
+fi

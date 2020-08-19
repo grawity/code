@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+import argparse
+from nullroute.core import Core
+from nullroute.file import get_file_attr, set_file_attrs
+from nullroute.misc import filter_filename
+from nullroute.renameutil import is_file_partial, RenameJob
+from nullroute.scrape import Scraper
+import os
+from pprint import pprint
+import re
+from requests.exceptions import HTTPError
+import urllib.parse
+import sys
+
+class ScrapeError(Exception):
+    pass
+
+class ForeignFilenameError(ValueError):
+    pass
+
+class DeviantArtScraper(Scraper):
+    member_name_map = {
+        "axcy": "vhm-alex",
+        "pearlpencil": "Lilaccu"
+    }
+
+    def should_force_update(self, filename):
+        if "_by_" in filename:
+            return True
+        if "file." in filename or "file (" in filename:
+            return True
+        return False
+
+    def get_favid_from_filename(self, filename, for_update=False):
+        m = None
+        # new format uuid: dc841wo-35b69a98-6911-41fc-888f-b18529722ae5.jpg
+        if not m:
+            m = re.match(r"^(?P<id>d\w+)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", filename)
+        # older format uuid-favid
+        if not m:
+            m = re.match(r"^[0-9a-f]{32}-(?P<id>d\w+)$", filename)
+        # older format title_by_artist-favid, title_by_artist_favid
+        if not m:
+            m = re.match(r"^.*[-_]by[-_].*[-_](?P<id>d\w+)$", filename)
+        if not m:
+            m = re.match(r"^file-(?P<id>d\w+)$", filename)
+        # our own output
+        if not m and for_update:
+            m = re.match(r"^.+ \((?P<id>d\w+)\)$", filename)
+        # give up
+        if not m:
+            raise ForeignFilenameError("basename %r did not match regex" % filename)
+        return m.group("id")
+
+    def get_favurl_by_favid(self, favid):
+        if not re.match(r"^\w+$", favid):
+            raise ValueError("favid %r did not match regex" % favid)
+        return "http://fav.me/%s" % favid
+
+    def _get_favid_from_favurl(self, favurl):
+        if not favurl.startswith("http://fav.me/"):
+            raise ValueError("favurl %r does not have the expected prefix" % favurl)
+        return favurl[len("http://fav.me/"):]
+
+    def get_oembed_info_by_favid(self, favid):
+        favurl = self.get_favurl_by_favid(favid)
+        r = self.get("https://backend.deviantart.com/oembed",
+                     params={"url": favurl, "format": "json"})
+        return r.json()
+
+    def get_oembed_info_by_pageurl(self, pageurl):
+        r = self.get("https://backend.deviantart.com/oembed",
+                     params={"url": pageurl, "format": "json"})
+        return r.json()
+
+    def get_pageurl_by_favid(self, favid):
+        favurl = self.get_favurl_by_favid(favid)
+        Core.debug("fetching %r", favurl)
+        r = self.ua.head(favurl,
+                         allow_redirects=False,
+                         # server returns 403 if A-E is missing
+                         # requests adds its own, but let's be 100% sure
+                         headers={"Accept-Encoding": "identity"})
+        r.raise_for_status()
+        if r.status_code != 301:
+            raise ScrapeError("unexpected status %r from %r" % (r, favurl))
+        Core.trace("found redirect: %r", r.headers["location"])
+        return r.headers["location"]
+
+    def get_favid_by_pageurl(self, pageurl):
+        Core.debug("fetching %r", pageurl)
+        page = self.get_page(pageurl)
+        for tag in page.find_all("link", {"rel": "alternate",
+                                          "type": "application/json+oembed"}):
+            Core.trace("found tag: %r", tag)
+            val = urllib.parse.urlparse(tag["href"])
+            val = urllib.parse.parse_qs(val.query)
+            return self._get_favid_from_favurl(val["url"][0])
+
+def filter_title(title, strict):
+    title = title.replace("[+Video]", "")
+    title = title.strip()
+    title = re.sub(r"\s+", " ", title)
+    if strict:
+        title = re.sub(r"\W+", "_", title)
+        title = re.sub(r"_+", "_", title)
+        title = title.strip("_")
+        title = "'%s'" % title
+    return title
+
+def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
+    old_path = os.path.join(old_dir, old_name)
+    job = RenameJob(old_path, dry_run=args.dry_run)
+
+    # Read locally available information
+    # In default mode, we only need favid from filename (or referer as fallback)
+    # In -u (update) mode, we read from xattrs and only refetch if missing
+    # In -U (force_update) mode, we operate as default (only with different filename regex)
+
+    if m := re.match(r"^(.+?)((-fullview)?(\.conv)?(\.\w+))$", old_name):
+        old_name = m.group(1)
+        file_ext = m.group(2)
+    else:
+        file_ext = ""
+    Core.trace("parsed into name %r ext %r", old_name, file_ext)
+
+    try:
+        favid = da.get_favid_from_filename(old_name, for_update=(args.update or args.force_update))
+        Core.trace("got favid %r from filename=%r", favid, old_name)
+    except (ForeignFilenameError, ValueError):
+        favid = None
+        Core.trace("no favid found in filename=%r", old_name)
+
+    referer = get_file_attr(old_path, "xdg.referrer.url")
+    foreign_referer = False
+    if referer and "deviantart.com" not in referer:
+        referer = None
+        foreign_referer = True
+    use_referer = bool(referer and (args.force_update or da.should_force_update(old_name)))
+    Core.trace("use_referer=%r (because referer=%r, force_update=%r, old_name=%r)",
+               use_referer, referer, args.force_update, old_name)
+
+    if args.update and not args.force_update:
+        info = {
+            "imagetype": file_ext,
+            "author_name": get_file_attr(old_path, "dublincore.creator"),
+            "title": get_file_attr(old_path, "dublincore.title"),
+        }
+        meta_present = info["author_name"] and info["title"] and not foreign_referer
+        Core.trace("update mode - xattrs retrieved; meta_present=%r", meta_present)
+    else:
+        info = {}
+        meta_present = False
+        Core.trace("not update mode - xattrs ignored; meta_present=%r", meta_present)
+
+    # Compatibility: Previously, files with no favid were quickly skipped in default mode.
+    # So we ignore referer unless -U is also specified, or unless filename matches heuristic
+
+    if meta_present or favid or use_referer or foreign_warn:
+        job.begin()
+
+    if meta_present:
+        Core.trace("info already present")
+        pass
+    elif favid:
+        Core.trace("retrieving info by favid=%r", favid)
+        try:
+            info = da.get_oembed_info_by_favid(favid)
+        except HTTPError as e:
+            job.end_fail(e)
+            return
+    elif use_referer:
+        Core.trace("retrieving info and favid by referer=%r", referer)
+        try:
+            info = da.get_oembed_info_by_pageurl(referer)
+            favid = da.get_favid_by_pageurl(referer)
+        except HTTPError as e:
+            job.end_fail(e)
+            return
+        except ValueError as e:
+            job.end_fail(e)
+            return
+    elif foreign_warn:
+        Core.debug("no favid nor referer - skipping foreign filename %r", filename)
+        job.end_foreign()
+        return
+    else:
+        Core.debug("no favid nor referer - skipping foreign filename %r", filename)
+        return
+
+    # apply the new name
+
+    info["author_name"] = da.member_name_map.get(info["author_name"].lower(), info["author_name"])
+
+    info["_favid"] = favid
+    info["_title"] = filter_title(info["title"], strict=(not args.inverse))
+    info["_suffix"] = file_ext
+
+    if Core._log_level >= Core.LOG_TRACE:
+        pprint(info)
+
+    if args.inverse:
+        new_name = "%(_title)s by %(author_name)s (%(_favid)s)%(_suffix)s" % info
+    elif args.no_title:
+        new_name = "%(author_name)s (%(_favid)s)%(_suffix)s" % info
+    else:
+        new_name = "%(author_name)s %(_title)s (%(_favid)s)%(_suffix)s" % info
+
+    new_name = filter_filename(new_name, allow_space=True)
+    job.end_rename(new_name)
+
+    # apply xattrs
+
+    if not (referer and ".deviantart.com/" in referer):
+        referer = da.get_pageurl_by_favid(favid)
+
+    attrs = {
+        "dublincore.title": info["title"],
+        "dublincore.creator": info["author_name"],
+        "xdg.referrer.url": referer,
+    }
+    if not args.dry_run:
+        new_path = os.path.join(old_dir, new_name)
+        set_file_attrs(new_path, attrs)
+    else:
+        set_file_attrs(old_path, attrs)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
+parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing.")
+parser.add_argument("-I", "--inverse", action="store_true", help="Use '<title> by <artist>' filenames.")
+parser.add_argument("-u", "--update", action="store_true", help="Match and update existing filenames only.")
+parser.add_argument("-U", "--force-update", action="store_true", help="Update from the net (ignore existing attrs).")
+parser.add_argument("--no-title", action="store_true", help="Do not add artwork title to filename.")
+args = parser.parse_args()
+
+if sum(map(int, [args.inverse, args.no_title])) > 1:
+    Core.die("mutually exclusive options specified")
+
+da = DeviantArtScraper()
+
+for arg in args.path or ["."]:
+    if os.path.isdir(arg):
+        for dirpath, dirnames, filenames in os.walk(arg):
+            if ".nofix" in filenames:
+                Core.notice("found %r; skipping directory", os.path.join(dirpath, ".nofix"))
+                filenames.clear()
+                dirnames.clear()
+            for filename in filenames:
+                if is_file_partial(filename):
+                    Core.debug("skipping partial file: %r", filename)
+                    continue
+                rename_file_in_dir(dirpath, filename, args, foreign_warn=False)
+    else:
+        dirpath, filename = os.path.split(arg)
+        if is_file_partial(filename):
+            Core.notice("skipping partial file: %r", arg)
+            continue
+        rename_file_in_dir(dirpath, filename, args, foreign_warn=True)

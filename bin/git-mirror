@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# 2019-04 grawity: With git 2.21, this no longer works, resulting in:
+#         "fatal: multiple updates for ref '<ref>' not allowed"
+#git clone --bare --config remote.origin.fetch='+refs/heads/*:refs/heads/*' "$@"
+
+. lib.bash || exit
+
+while (( $# )); do
+	url=$1; shift
+	if [[ $url != *:* ]]; then
+		die "expected repository URL, got '$url' instead"
+	fi
+
+	if [[ $1 != */* ]]; then
+		dir=$1; shift
+	fi
+
+	if [[ $dir && $dir != *.git ]]; then
+		dir+=.git
+	fi
+
+	if [[ ! $dir ]]; then
+		tmp=$url
+		while [[ $tmp == */ ]]; do tmp=${tmp%/}; done
+		tmp=${tmp%.git}
+		while [[ $tmp == */ ]]; do tmp=${tmp%/}; done
+		tmp=${tmp##*/}
+		dir=$tmp.git
+		info "cloning to '$dir'"
+	fi
+
+	if [[ -e $dir ]]; then
+		err "target '$dir' already exists"
+		continue
+	fi
+
+	git init --bare "$dir" &&
+	git -C "$dir" remote add origin "$url" &&
+	git -C "$dir" config remote.origin.fetch "+refs/heads/*:refs/heads/*" &&
+	git -C "$dir" remote update
+done
+
+((!errors))

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+thisgit=$(git rev-parse --git-dir)
+thisalts=$thisgit/objects/info/alternates
+
+mkdir -p "${thisalts%/*}"
+
+if ! (( $# )); then
+	if [ -s "$thisalts" ]; then
+		cat "$thisalts"
+	else
+		echo "(no alternates)" >&2
+	fi
+	exit
+fi
+
+do_reset=0
+do_repack=0
+
+for thatgit; do
+	if [[ $thatgit == - ]]; then
+		do_reset=1
+	else
+		do_repack=1
+	fi
+done
+
+if (( do_reset )); then
+	log "repacking (local)"
+	git repack -d -a
+fi
+
+for thatgit; do
+	if [[ $thatgit == - ]]; then
+		log "resetting"
+		rm -f "$thisalts"
+	else
+		thatgit=${thatgit%/}
+		thatgit=${thatgit%/objects}
+		thatgit=${thatgit%/.git}
+		if [ -e $thatgit/.git/objects ]; then
+			thatobj=$thatgit/.git/objects
+		elif [ -e $thatgit/objects ]; then
+			thatobj=$thatgit/objects
+		else
+			echo "$thatgit: bad alternate" >&2
+		fi
+		log "adding $thatobj"
+		echo "$thatobj" >> "$thisalts"
+	fi
+done
+
+if (( do_repack )); then
+	log "repacking"
+	git repack -d -a -l
+fi

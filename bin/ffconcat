@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+inputs=()
+args=(-c copy)
+argmode=0
+
+for arg; do
+	if [[ $arg == "--" ]]; then
+		(( ++argmode ));
+	elif (( argmode == 0 )); then
+		if [[ ! -e "$arg" ]]; then
+			err "'$arg' is not a file"
+			continue
+		fi
+		arg=$(readlink -f "$arg")
+		inputs+=("$arg")
+	elif (( argmode >= 1 )); then
+		args+=("$arg")
+	fi
+done
+
+if (( argmode == 0 )); then
+	err "did you forget to specify '--' and an output file?"
+fi
+
+lib::assert_ok
+
+ffmpeg -safe 0 -f concat -i <(printf "file '%s'\n" "${inputs[@]}") "${args[@]}"

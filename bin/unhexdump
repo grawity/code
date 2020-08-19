@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+import sys
+import re
+
+out = open("/dev/stdout", "wb")
+rowlen = 16
+last = None
+same = False
+
+for line in sys.stdin:
+    line = line.strip()
+    if m := re.match(r"^([0-9a-f]+)  ([0-9a-f ]+)  \|.*\|", line):
+        offset = int(m.group(1), 16)
+        chunk = bytes([int(c, 16) for c in m.group(2).split()])
+        assert(offset % rowlen == 0)
+        assert(len(chunk) == rowlen)
+        if same:
+            count = ((offset - lastoffset) // rowlen) - 1
+            out.write(lastchunk * count)
+            same = False
+        out.write(chunk)
+        lastoffset = offset
+        lastchunk = chunk
+    elif line == "*":
+        same = True
+    else:
+        print("unrecognized line: %r" % line, file=sys.stderr)
+        exit(1)

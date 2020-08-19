@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# java-redir - prevent Java programs from littering $HOME
+
+. lib.bash || exit
+
+origname=${progname%-redir}
+progname="java-redir"
+homedir="$XDG_DATA_HOME/java-home"
+
+# this is a convenient place to enforce some workarounds
+
+# 2017-12: deal with Java 9 not rendering airControl2 correctly
+export MESA_GL_VERSION_OVERRIDE="3.0"
+
+debug "executed with ${@@Q}"
+
+jar=""
+for arg; do
+	if [[ $jar == -jar ]]; then
+		jar=$arg
+		break
+	elif [[ $arg == -jar ]]; then
+		jar=$arg
+	fi
+done
+
+if [[ $jar == /opt/ApacheDirectoryStudio/* ]]; then
+	notice "applying workaround for '$jar': Java 11 required"
+	for dir in /usr/lib/jvm/java-11-*/jre; do
+		if [[ -d $dir ]]; then
+			export JAVA_HOME=$dir
+			break
+		fi
+	done
+fi
+
+# find the actual Java runtime
+
+for dir in ~/.local/bin "${JAVA_HOME:-/usr}"/bin; do
+	java="$dir/$origname"
+	debug "checking for '$origname' in '$dir'"
+	if [[ -f "$java" && -x "$java" ]]; then
+		break
+	fi
+done
+
+if [[ ! -x "$java" ]]; then
+	die "could not find '$origname'"
+fi
+
+debug "Java runtime: '$java' -> '$(readlink -f "$java")'"
+debug "Java homedir: '$homedir'"
+
+case $origname in
+	java)
+		set -- -Duser.home="$homedir" "$@";;
+	javaws)
+		set -- -J-Duser.home="$homedir" "$@";;
+	*)
+		die "unknown program '$origname'";;
+esac
+
+if [[ ! -d "$homedir" ]]; then
+	mkdir "$homedir"
+fi
+
+if [[ ! -e "$homedir/.java" ]] && [[ -e "$HOME/.java" ]]; then
+	ln -n -r -s -f "$HOME/.java" "$homedir/.java"
+fi
+
+exec "$java" "$@"

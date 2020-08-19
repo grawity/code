@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+dir=/usr/share/pacman/keyrings
+rings=archlinux
+
+TRUST_ULTIMATE=6
+TRUST_FULL=5
+TRUST_MARGINAL=4
+TRUST_NONE=3
+TRUST_DONTKNOW=2
+
+for ring in $rings; do
+	log2 "importing keyring"
+	gpg --no-auto-check-trustdb \
+		--key-origin "url,https://www.archlinux.org/master-keys/" \
+		--import "$dir/$ring.gpg" || exit
+
+	revoked=$(< "$dir/$ring-revoked")
+	trusted=$(awk -F: '{print $1}' "$dir/$ring-trusted")
+
+	log2 "refreshing revoked keys"
+	gpg --no-auto-check-trustdb --recv-keys $revoked
+
+	log2 "locally signing master keys"
+	for k in $trusted; do
+		gpg --no-auto-check-trustdb --quick-lsign-key "$k"
+	done
+
+	log2 "setting master keys to marginal trust"
+	for k in $trusted; do
+		echo "$k:$TRUST_MARGINAL:"
+	done | gpg --no-auto-check-trustdb --import-ownertrust
+done
+
+log2 "updating trustdb"
+gpg --check-trustdb

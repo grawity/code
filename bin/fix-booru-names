@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+# vim: ts=4:sw=4:et
+import argparse
+import hashlib
+from nullroute.core import *
+from nullroute.api.booru import apis
+from nullroute.misc import (
+    filter_filename,
+    get_file_attr,
+    set_file_attr,
+    uniq,
+)
+from nullroute.renameutil import is_file_partial, RenameJob
+from nullroute.scrape import Scraper
+import re
+import time
+
+def get_file_origin(path):
+    return (get_file_attr(path, "xdg.origin.url"),
+            get_file_attr(path, "xdg.referrer.url"))
+
+def hash_file(path, digest="md5"):
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        buf = True
+        buf_size = 4 * 1024 * 1024
+        while buf:
+            buf = fh.read(buf_size)
+            h.update(buf)
+    return h.hexdigest()
+
+class TagFilter(object):
+    def __init__(self):
+        self.translate = []
+
+    @classmethod
+    def load_config(self, file_name):
+        new = self()
+        try:
+            with open(Env.find_config_file(file_name)) as fh:
+                for x, line in enumerate(fh):
+                    line = line.strip()
+                    if line == "" or line.startswith("#"):
+                        continue
+                    new_tag = None
+                    if " -> " in line:
+                        line, new_tag = line.split(" -> ")
+                    tags = line.split()
+                    try:
+                        tags = [re.compile(t, re.I) for t in tags]
+                    except re.error as e:
+                        Core.err("%s:%s: regex compile error: %s", file_name, x+1, e)
+                        raise
+                    *cond_tags, old_tag = tags
+                    new.translate.append((cond_tags, old_tag, new_tag))
+        except FileNotFoundError:
+            pass
+        return new
+
+    def filter(self, tags):
+        tags = [tag.replace(" ", "_") for tag in tags]
+        Core.debug("tags before translate = %r", tags)
+
+        for condtags, oldtag, newtag in self.translate:
+            if newtag is None:
+                # if all conditions match, remove provided tag
+                if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                    tags = [t for t in tags if not oldtag.fullmatch(t)]
+            else:
+                if all([any([c.fullmatch(t) for t in tags]) for c in condtags]):
+                    tags = [oldtag.sub(newtag, t) if oldtag.fullmatch(t) else t
+                            for t in tags]
+
+        tags = [filter_filename(tag, safe=True) for tag in tags]
+
+        # trim 'name_(show)' tags if 'show' appears on its own
+        ntags = []
+        rx = re.compile(r"^(.+)_\((.+)\)$")
+        for tag in tags:
+            m = rx.match(tag)
+            if m and m.group(2) in tags:
+                tag = m.group(1)
+            ntags.append(tag)
+
+        return ntags
+
+def make_filename(api, post_id, original_url=None, file_md5=None,
+                  override_artist_tags=None,
+                  skip_character_tags=False):
+    tags = api.get_post_tags(post_id)
+    Core.trace("tags: %r", tags)
+    if override_artist_tags:
+        tags["artist"] = override_artist_tags[:]
+    tags = api.sort_tags(tags, skip_character_tags)
+    if api.ID_PREFIX and not (api.HASH_SUFFIX and file_md5):
+        tags.append(api.ID_PREFIX % post_id)
+    tags = list(uniq(tags))
+    if api.HASH_SUFFIX and file_md5:
+        tags.append(file_md5)
+    name = " ".join(tags)
+    if original_url:
+        head, ext = os.path.splitext(original_url)
+        name += ext
+    return name
+
+def rename_file_in_dir(dirpath, old_filename, force_md5=False):
+    global args
+    global api
+
+    bare_re = re.compile(r'^([0-9a-f]{32})(\.\w+)$')
+    danbooru_new_re = re.compile(r'.*drawn by .* - ([0-9a-f]{32})(\.\w+)$')
+    danbooru_old_re = re.compile(r'__.*drawn_by_.*__(?:sample-)?([0-9a-f]{32})(\.\w+)$')
+
+    fmt_found = "\033[38;5;10m%s\033[m"
+    fmt_notfound = "\033[38;5;9m%s\033[m"
+    fmt_same = "\033[38;5;2m%s\033[m"
+
+    old_path = os.path.join(dirpath, old_filename)
+    job = RenameJob(old_path, dry_run=args.dry_run)
+    file_md5 = None
+    file_prefix = ""
+    file_ext = ""
+    result_xattr = "%s.id" % args.site
+
+    if not file_md5:
+        m = bare_re.match(old_filename)
+        Core.trace("match bare_re = %r", m)
+        if m and get_file_attr(old_path, result_xattr) == "notfound":
+            Core.debug("ignoring %r (cached negative result in %r)", old_path, result_xattr)
+            m = None
+        if not m and args.site == "danbooru":
+            m = danbooru_new_re.match(old_filename)
+        if not m and args.site == "danbooru":
+            m = danbooru_old_re.match(old_filename)
+        if m:
+            file_md5 = m.group(1)
+            file_ext = m.group(2)
+        else:
+            Core.trace("ignoring %r (did not match any regex)", old_path)
+    if not file_md5:
+        if force_md5:
+            Core.debug("hashing %r", old_path)
+            file_md5 = hash_file(old_path, "md5")
+            _, file_ext = os.path.splitext(old_filename)
+            m = re.match(r"^(\d+) yande\.re \d+", old_filename)
+            if m:
+                file_prefix = m.group(1) + " "
+
+    old_artist = None
+    file_md5_override = file_md5
+    if args.keep_old_name:
+        m = re.search(r"(\S+_pixiv\d+)", old_filename)
+        if m:
+            old_artist = [m.group(1)]
+        m = re.search(r"\b(\d+_p\d+)", old_filename)
+        if m:
+            file_md5_override = m.group(1)
+
+    if file_md5:
+        job.begin()
+        post_id = None
+
+        if not post_id:
+            url = get_file_attr(old_path, "xdg.referrer.url")
+            if url:
+                post_id = api.match_post_url(url)
+                if post_id:
+                    Core.debug("found post %r from referer %r" % (post_id, url))
+        if not post_id:
+            url = get_file_attr(old_path, "xdg.origin.url")
+            if url:
+                post_id = api.match_post_url(url)
+                if post_id:
+                    Core.debug("found post %r from origin %r" % (post_id, url))
+        if not post_id:
+            posts = list(api.find_posts_by_md5(file_md5))
+            if posts:
+                post_id = posts[0]["id"]
+                if post_id:
+                    Core.debug("found post %r from md5 %r" % (post_id, file_md5))
+
+        if post_id:
+            new_filename = make_filename(api, post_id, None, file_md5_override,
+                                         override_artist_tags=old_artist,
+                                         skip_character_tags=args.no_character_tags)
+            #if args.keep_old_name:
+            #    old_artist, old_suffix = old_filename.split(" ", 1)
+            #    new_artist, new_suffix = new_filename.split(" ", 1)
+            #    new_filename = old_artist + " " + new_suffix + " " + old_suffix
+            new_filename = file_prefix + new_filename + file_ext
+            job.end_rename(new_filename)
+        else:
+            job.end_notfound()
+            set_file_attr(old_path, result_xattr, "notfound")
+
+def download_image(url):
+    global args
+    global api
+    global scraper
+
+    post_id = api.match_post_url(url)
+    Core.debug("post %r => post_id %r" % (url, post_id))
+    if not post_id:
+        Core.err("unrecognized URL %r" % url)
+        return False
+
+    post_info = api.get_post_info(post_id)
+    Core.debug("post_id %r => info %r" % (post_id, post_info))
+    if not post_info:
+        Core.err("could not obtain post info for %r" % url)
+        return false
+    file_md5 = post_info.get("md5")
+
+    original_url = api.get_post_original(post_id)
+    Core.debug("post_id %r => original %r" % (post_id, original_url))
+    if not original_url:
+        Core.err("could not determine original URL for %r" % url)
+        return False
+
+    new_filename = make_filename(api, post_id, original_url, file_md5)
+    scraper.save_file(original_url, name=new_filename, referer=url)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)
+parser.add_argument("-n", "--dry-run", action="store_true", help="Do nothing")
+parser.add_argument("--force", action="store_true", help="Force rename even if filename lacks MD5")
+parser.add_argument("--site", help="Select site")
+parser.add_argument("--no-character-tags", action="store_true", help="Do not add character tags")
+parser.add_argument("--keep-old-name", action="store_true", help="Prefix new tags to current file name")
+args = parser.parse_args()
+
+tag_filter = TagFilter.load_config("booru-tags.conf")
+
+scraper = Scraper()
+
+try:
+    args.site = args.site or "danbooru"
+    api = apis[args.site]
+except KeyError:
+    Core.die("unknown site %r" % args.site)
+else:
+    api = api(tag_filter=tag_filter)
+
+types = [
+    ".jpeg",
+    ".jpg",
+    ".gif",
+    ".png",
+    ".bmp",
+    ".webm",
+    ".zip",
+]
+
+for arg in args.path or ["."]:
+    if "://" in arg:
+        download_image(arg)
+        continue
+
+    if not os.path.exists(arg):
+        Core.err("path %r does not exist" % arg)
+    elif os.path.isdir(arg):
+        for dirpath, dirnames, filenames in os.walk(arg):
+            for filename in filenames:
+                if is_file_partial(filename):
+                    Core.trace("skipping partial file: %r", filename)
+                    continue
+                if not filename.endswith((*types,)):
+                    Core.trace("skipping non-image file: %r", filename)
+                    continue
+                rename_file_in_dir(dirpath, filename, force_md5=args.force)
+    else:
+        dirpath, filename = os.path.split(arg)
+        if is_file_partial(filename):
+            Core.notice("skipping partial file: %r", arg)
+            continue
+        rename_file_in_dir(dirpath, filename, force_md5=args.force)
+
+Core.exit()

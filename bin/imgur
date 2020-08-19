@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# originally by Bart Nagel <bart@tremby.net>
+
+API_CLIENT_ID="1d4fa0f8eeeec73" # grawity@gmail.com
+
+. lib.bash || exit
+
+have curl || die "missing 'curl' program"
+have jq   || die "missing 'jq' program"
+
+lib::find_file log_file= \
+	"config:synced/imgur-${HOSTNAME%%.*}.log" \
+	"data:synced/imgur-${HOSTNAME%%.*}.log" ;
+
+images=0
+clip=""
+
+for file; do
+	if [[ ! -f $file ]]; then
+		err "'$file' is not a file, skipping"
+		continue
+	fi
+
+	size=$(stat -c %s "$file")
+
+	curlopt=(
+		-H "Authorization: Client-ID $API_CLIENT_ID"
+		-F "image=@\"$file\""
+	)
+
+	if [[ $DEBUG ]]; then
+		curlopt+=("-v")
+	fi
+
+	if (( size > 1024*100 )) && [[ -t 2 ]]; then
+		curlopt+=("-#")
+	else
+		curlopt+=("-s")
+	fi
+
+	response=$(curl "${curlopt[@]}" https://api.imgur.com/3/upload)
+
+	if (( $? )); then
+		err "upload failed (curl returned $?)"
+		continue
+	elif [[ $response != {*} ]]; then
+		err "upload failed (non-JSON response)"
+		echo "Response from imgur:" >&2
+		echo "$response" >&2
+		continue
+	elif [[ $(echo "$response" | jq -r .success) != true ]]; then
+		echo "upload failed (API returned error)"
+		echo "Response from imgur:" >&2
+		echo "$response" >&2
+		continue
+	fi
+
+	url=$(echo "$response" | jq -r .data.link)
+	url=${url/#http:/https:}
+	deletehash=$(echo "$response" | jq -r .data.deletehash)
+	deleteurl="https://imgur.com/delete/$deletehash"
+
+	setfattr -n "user.imgur.image-url" -v "$url" "$file"
+	setfattr -n "user.imgur.delete-url" -v "$deleteurl" "$file"
+
+	printf "%s\n" "$url $deleteurl" >> "$log_file"
+
+	printf "%s\n" "$url"
+	printf "Delete page:\n%s\n" "$deleteurl" >&2
+
+	if (( images++ )); then
+		clip+=$'\n'
+	fi
+	clip+=$url
+done
+
+if [[ $DISPLAY && $clip ]]; then
+	echo -n "$clip" | xsel -i -b
+fi
+
+lib::exit

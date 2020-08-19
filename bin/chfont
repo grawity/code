@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# chfont - change the default font of various programs
+
+. lib.bash || exit
+
+require() {
+	if [[ $font && $font != '-' ]]; then
+		case $1 in
+		gtk)
+			re=' [[:digit:].]+(px)?$'
+			eg='Cantarell 11'
+			[[ $font =~ $re ]];;
+		esac || die "bad font spec '$font' (example: '$eg')"
+	fi
+}
+
+do_gsettings() {
+	local schema=$1 key=$2 value=$3
+	if [[ $value == '-' ]]; then
+		gsettings reset "$schema" "$key"
+	elif [[ $value ]]; then
+		gsettings set "$schema" "$key" "$value"
+	else
+		gsettings get "$schema" "$key"
+	fi
+}
+
+do_dconf() {
+	local path=$1 value=$2
+	if [[ $value == '-' ]]; then
+		dconf reset "$path"
+	elif [[ $value ]]; then
+		dconf write "$path" "'$value'"
+	else
+		dconf read "$path"
+	fi
+}
+
+app=$1 font=$2
+
+case $app in
+term|terminal)
+	require gtk
+	profile='b1dcc9dd-5262-4d8d-a863-c897e6d979b9'
+	path="/org/gnome/terminal/legacy/profiles:/:$profile/"
+	do_gsettings "org.gnome.Terminal.Legacy.Profile:$path" 'font' "$font"
+	#do_dconf "/org/gnome/terminal/legacy/profiles:/:$profile/font" "$font"
+	;;
+gnome|gtk|gui)
+	require gtk
+	do_gsettings 'org.gnome.desktop.interface' 'font-name' "$font"
+	;;
+gnome-mono|gtk-mono|gui-mono)
+	require gtk
+	do_gsettings 'org.gnome.desktop.interface' 'monospace-font-name' "$font"
+	;;
+wm|mutter|titlebar)
+	require gtk
+	do_gsettings 'org.gnome.desktop.wm.preferences' 'titlebar-font' "$font"
+	;;
+gedit)
+	require gtk
+	do_gsettings 'org.gnome.gedit.preferences.editor' 'editor-font' "$font"
+	;;
+*)
+	die "unknown setting '$app'"
+	;;
+esac

@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+import sys
+import bs4
+import requests
+
+def run(cmd, arg):
+    resp = requests.get("https://ipv6.lt/tools.php",
+                        params={"action": cmd,
+                                "value": arg})
+    resp.raise_for_status()
+    page = bs4.BeautifulSoup(resp.content, "lxml")
+    res = page.select_one("pre.console")
+    print(res.text)
+
+for arg in sys.argv[1:]:
+    run("traceroute", arg)

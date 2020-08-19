@@ -1,0 +1,176 @@
+#!/usr/bin/env perl
+# run-secondlife -- Second Life viewer wrapper with single-instance support
+use warnings;
+use strict;
+use Fcntl qw(S_ISUID);
+use File::Basename qw(dirname);
+use Getopt::Long qw(:config gnu_getopt no_permute);
+use Net::DBus;
+use Net::Netrc;
+use Nullroute::Dir qw(find_first_file);
+use Nullroute::Lib qw(_debug _info _warn);
+use constant {
+	SL_DOMAIN => "secondlife.com",
+	SL_BUS_NAME => "com.secondlife.ViewerAppAPIService",
+	SL_BUS_PATH => "/com/secondlife/ViewerAppAPI",
+};
+
+sub _die {
+	if ($ENV{DISPLAY} && !-t 2) {
+		my ($msg) = @_;
+		$msg = "<b>Fatal error:</b>\n$msg";
+		system("zenity",
+			"--error",
+			"--width=250",
+			"--title=Second Life",
+			"--text=$msg");
+	}
+	goto &Nullroute::Lib::_die;
+}
+
+sub find_alias {
+	my ($name) = @_;
+
+	my %aliases;
+	my $path = find_first_file("config:secondlife.aliases");
+	if (open(my $fh, "<", $path)) {
+		%aliases = map {/^(\w+)\s*=\s*(.+)\s*$/} <$fh>;
+		close($fh);
+	}
+	return $aliases{$name} // $name;
+}
+
+sub find_login {
+	my ($name, $domain) = @_;
+
+	_debug("looking up login '$name' for '$domain' in .netrc");
+	my $entry = Net::Netrc->lookup($domain, $name);
+	if (!$entry || !defined $entry->{machine}) {
+		_die("login '$name' not found in .netrc");
+	} elsif (!defined $entry->{password}) {
+		_die("password for '$name' missing from .netrc");
+	} else {
+		my @acct = defined($entry->{account})
+		         ? split(/\s+/, $entry->{account})
+		         : split(/\s+/, $name);
+		_debug("using account '@acct' from .netrc");
+		return (@acct, $entry->{password});
+	}
+}
+
+sub set_environment {
+	my ($env) = @_;
+	my $wmclass = $env->{wm_class};
+	my $name = $env->{app_name} // $wmclass;
+	my $icon = $env->{icon_name} // $wmclass;
+
+	my @paenv;
+	push @paenv, "media.role='game'";
+	push @paenv, "application.name='$name'" if $name;
+	push @paenv, "application.icon_name='$icon'" if $icon;
+	$ENV{"PULSE_PROP_OVERRIDE"} = join(" ", @paenv) if @paenv;
+	$ENV{"SDL_VIDEO_X11_WMCLASS"} = $wmclass if $wmclass;
+
+	_debug("set $_ to \"$ENV{$_}\"")
+		for ("SDL_VIDEO_X11_WMCLASS", "PULSE_PROP_OVERRIDE");
+}
+
+sub fix_cef_sandbox {
+	my ($sl_exe) = @_;
+
+	my $cef_exe = dirname($sl_exe)."/bin/chrome-sandbox";
+	if (!-f $cef_exe) {
+		_debug("CEF sandbox not found");
+		return;
+	}
+
+	my @stat = stat($cef_exe);
+	if ($stat[4] != 0 || $stat[5] != 0 || !($stat[2] & S_ISUID)) {
+		_info("CEF sandbox not owned by root; fixing");
+		#system ("sudo", "chown", "-v", "0:0", $cef_exe);
+		#system ("sudo", "chmod", "-v", "u+s", $cef_exe);
+		system ("mv", "-v", $cef_exe, $cef_exe."~");
+		system ("ln", "-vnsf", "/usr/lib/chromium/chrome-sandbox", $cef_exe);
+	}
+}
+
+$::bus = Net::DBus->session;
+
+my @default_args = ("--novoice");
+
+my %env;
+my $exe;
+my $url;
+my @args;
+my $new;
+
+GetOptions(
+	"app-name=s" => \$env{app_name},
+	"icon-name=s" => \$env{icon_name},
+	"wm-class=s" => \$env{wm_class},
+) or exit(2);
+
+$exe = shift @ARGV;
+if (!defined $exe) {
+	_die("missing executable path");
+} elsif (!-f $exe || !-x $exe) {
+	_die("not an executable: $exe");
+}
+
+for my $arg (@ARGV) {
+	if ($arg =~ /^@(.+)$/) {
+		my $name = $1;
+		my $domain = SL_DOMAIN;
+		my @creds = find_login($name, $domain);
+		if (@creds) {
+			push @args, ("--login", @creds);
+		}
+	}
+	elsif ($arg =~ m!^(secondlife://|https://maps\.secondlife\.com/)!) {
+		push @args, $url = $arg;
+	}
+	elsif ($arg eq "--new") {
+		$new = 1;
+	}
+	elsif ($arg eq "--voice") {
+		@default_args = grep {$_ ne "--novoice"} @default_args;
+	}
+	else {
+		push @args, $arg;
+	}
+}
+
+if (defined $url) {
+	if ($new) {
+		_debug("--new given, starting new instance");
+	}
+	elsif (@args > 1) {
+		_debug("command line given, starting new instance");
+	}
+	elsif ($::bus->get_service_owner(SL_BUS_NAME)) {
+		_info("activating existing viewer instance");
+		eval {
+			$::bus
+			->get_service(SL_BUS_NAME)
+			->get_object(SL_BUS_PATH)
+			->GoSLURL($url);
+		};
+		if ($@) {
+			_warn("could not contact the viewer: $@");
+		} else {
+			exit 0;
+		}
+	}
+	else {
+		_debug("viewer not found in DBus, starting new instance");
+	}
+}
+
+set_environment(\%env);
+fix_cef_sandbox($exe);
+if ($::debug) {
+	_debug("starting '$exe'");
+	_debug(" - with arg '$_'") for @default_args, @args;
+}
+exec {$exe} ($exe, @default_args, @args)
+or _die("could not run '$exe': $!");

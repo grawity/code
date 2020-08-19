@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+show_pkgnames=1
+
+if (( show_pkgnames )); then
+	if have pacman; then
+		pkg_file() { pacman -Qqo "$1"; }
+	elif have dpkg; then
+		pkg_file() { dpkg -S "$1" | sed "s/: .*$//; s/:[^:]*$//"; }
+	else
+		show_pkgnames=0
+	fi
+fi
+
+_head() { echo; echo "$@"; }
+
+listfiles() {
+	local head=$1 dir=$2 pref=$3 suff=$4
+	echo "$head ($dir/$pref*$suff):"
+	for f in "$dir"/"$pref"*"$suff"; do
+		base=${f#"$dir/"}
+		name=${base#"$pref"}
+		name=${name%"$suff"}
+		if (( show_pkgnames )); then
+			name+=" [$(pkg_file "$f")]"
+		fi
+		echo "  - $name"
+	done
+	echo
+}
+
+listicds() {
+	local head=$1 dir=$2 jsondir=$3
+	echo "$head ($dir:$jsondir):"
+	for f in "$jsondir"/*.json; do
+		name=$(jq -r .ICD.library_path < "$f")
+		if [[ $name == "$dir"/* ]]; then
+			icdname=${f#"$jsondir/"}
+			libname=${name#"$dir/"}
+			name="$libname ($icdname)"
+			if (( show_pkgnames )); then
+				name+=" [$(pkg_file "$f")]"
+			fi
+			echo "  - $name"
+		fi
+	done
+	echo
+}
+
+shopt -s nullglob
+
+for lib in lib lib32 lib/i386-linux-gnu; do
+	dir=/usr/$lib
+	test -d "$dir" || continue
+	log2 "listing drivers in $dir"
+	echo #				PATH		PREFIX		SUFFIX
+	listfiles "Mesa DRI modules"	$dir/dri	""		"_dri.so"
+	listicds  "Vulkan drivers"	$dir		/usr/share/vulkan/icd.d
+	listfiles "VAAPI modules"	$dir/dri	""		"_drv_video.so"
+	listfiles "VDPAU modules"	$dir/vdpau	"libvdpau_"	".so"
+done

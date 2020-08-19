@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Convert a Sony camera 4x4-tile "burst" photo to a 16-frame gif
+
+for input; do
+	base=${input%.*}
+	convert -crop "25%x25%" "$input" +repage "$base".tile%02d.png
+	mogrify +repage "$base".tile*.png
+	convert -loop 1 -delay 10 "$base".tile*.png "$base".gif
+	rm "$base".tile*.png
+done

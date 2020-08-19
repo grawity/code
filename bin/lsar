@@ -1,0 +1,72 @@
+#!/bin/sh
+# vim: sw=4
+
+do_list() {
+    local f=$1
+    case ${f,,} in
+	*.rar)
+	    unrar vb "$f";;
+	*.rpa)
+	    unrpa -l "$f";;
+	*.tar.*|*.tbz2|*.tgz|*.txz)
+	    tar tf "$f";;
+	*.zip|*.jar|*.xpi)
+	    unzip -l "$f";;
+	*.7z|*.deb|*.iso|*.rpm)
+	    bsdtar tf "$f";;
+	*.cab|*.jar|*.lha|*.msi)
+	    7z l "$f";;
+	*)
+	    echo Unknown file type >&2; exit 1;;
+    esac
+}
+
+uncompress_as() {
+    local t=$1
+    case $t in
+	gz) gzip -d;;
+	xz) xz -d;;
+    esac
+}
+
+do_extract() {
+    local f=$1 d=${1%.*}.out/
+    mkdir -p "$d"
+    case ${f,,} in
+	*.deb)
+	    sub=$(bsdtar -tf "$f" | grep '^data\.')
+	    echo "looking for '$sub'"
+	    bsdtar -xOf "$f" "$sub" | bsdtar -xvf - -C "$d"
+	    sub=$(bsdtar -tf "$f" | grep '^control\.')
+	    echo "looking for '$sub'"
+	    bsdtar -xOf "$f" "$sub" | bsdtar -xvf - -C "$d"
+	    ;;
+	*.iso|*.tar|*.tar.*|*.tbz2|*.tgz|*.txz|*.cpio|*.rpm)
+	    bsdtar -xvf "$f" -C "$d";;
+	*.bz2)
+	    do_pv "$f" bzip2;;
+	*.gz)
+	    do_pv "$f" gzip;;
+	*.rar)
+	    rar x "$f" "$d/";;
+	*.zip|*.jar|*.xpi)
+	    #unzip -d "$d" "$f";;
+	    ;&
+	*.7z|*.cab|*.lha|*.msi|*.rar|*.jar|*.zip|*.exe)
+	    7z x -o"$d" "$f";;
+	*)
+	    echo "Unknown file type of '$f'" >&2; exit 1;;
+    esac
+}
+
+do_pv() {
+    local f=$1 o=${f%.*} c=$2
+    pv -c "$f" | "$c" -d | pv -c > "$o"
+}
+
+case ${0##*/} in
+    lsar)
+	do_list "$@";;
+    unar)
+	do_extract "$@";;
+esac

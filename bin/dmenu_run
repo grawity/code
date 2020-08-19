@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+
+# 2019-02-08: having XMODIFIERS='@im=ibus' crashes dmenu on keypress
+unset XMODIFIERS
+
+wm=$(wmctrl -m | sed -n 's/^Name: //p')
+hist=${XDG_CACHE_HOME:-$HOME/.cache}/dmenu.history
+width=$(wmctrl -d | sed -r -n '/.*DG: ([0-9]+)x.*/{s//\1/;p;q}')
+
+prompt='run:'
+#tool=bemenu
+
+if [[ $WAYLAND_DISPLAY && ! $tool ]]; then
+	tool=bemenu
+fi
+
+if (( width >= 1920 )); then
+	font='Source Sans Pro'
+	size='15'
+else
+	font='Source Sans Pro'
+	size='12'
+fi
+
+# wmii theme
+normal_fg='#bbbbbb'
+normal_bg='#222222'
+selected_fg='#eeeeee'
+selected_bg='#005577'
+
+normal_fg='#cacaca'
+normal_bg='#121212'
+
+# for bemenu & rofi
+#title_fg='#d81860'
+#title_bg='#121212'
+title_fg=$selected_fg
+title_bg=$selected_bg
+
+if [[ $wm == Openbox ]]; then
+	font='Monaco'
+	size='10'
+	normal_fg='#bbbbbb'
+	normal_bg='#222222'
+	selected_bg='#303436'
+	selected_fg='#94d01c'
+fi
+
+if [[ $tool == bemenu ]]; then
+	menu=(bemenu -l 7
+		--fn "$font $size"
+		--nb "$normal_bg"
+		--nf "$normal_fg"
+		--hb "$selected_bg"
+		--hf "$selected_fg"
+		--tb "$title_bg"
+		--tf "$title_fg")
+elif [[ $tool == rofi ]]; then
+	menu=(rofi -dmenu
+		-location 0
+		-matching fuzzy
+		-color-window "$normal_bg,$title_fg"
+		-color-normal "$normal_bg,$normal_fg,$normal_bg,$selected_bg,$selected_fg")
+	prompt=${prompt%:}
+else
+	menu=(dmenu -l 7 -fn "$font:size=$size"
+		-nb "$normal_bg"
+		-nf "$normal_fg"
+		-sb "$selected_bg"
+		-sf "$selected_fg")
+fi
+
+ign='mm'
+
+_ign="^($ign)( |\$)"
+
+input=$(dmenu-print-history "$hist" | "${menu[@]}" -p "$prompt")
+
+# Hack for bypassing dmenu's insistent autocompletion
+input=${input#+}
+
+if [[ "$input" ]]; then
+	if ! command -v "${input%% *}" >&/dev/null; then
+		zenity --error --text="Command '${input%% *}' not found." --width=300
+		exit
+	fi
+
+	if ! [[ "$input" =~ $_ign ]]; then
+		echo "$(date +%s) $input" >> "$hist"
+	fi
+
+	tag="run.$$.$RANDOM"
+	tstart=$(date +%s)
+
+	echo "$input" | ${SHELL:-/bin/sh} 2>&1 | systemd-cat -t "$tag"
+
+	tend=$(date +%s)
+	if (( tend - tstart <= 2 )); then
+		msg="Command '${input%% *}' exited in $(( tend - tstart )) seconds."
+		journal=$(journalctl -b -t "$tag" -o cat)
+		if [[ $journal ]]; then
+			zenity --error --text="$msg"$'\n\n'"$journal" --width=550
+		else
+			zenity --error --text="$msg" --width=300
+		fi
+		exit
+	fi
+fi &

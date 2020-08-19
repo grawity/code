@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+
+import socket
+import sys
+
+consts = {
+    "SOCK": {
+        1: "STREAM",
+        2: "DGRAM",
+        3: "RAW",
+        4: "RDM",
+        5: "SEQPACKET",
+        6: "DCCP",
+        10: "PACKET",
+    },
+}
+
+def name(const, prefix):
+    suffix = consts.get(prefix, {}).get(const, "<%s>" % const)
+    return getattr(const, "name", "%s_%s" % (prefix, suffix))
+
+args = sys.argv[1:]
+
+service = "discard"
+want_af = socket.AF_UNSPEC
+
+for host in args:
+    if host == "-4":
+        want_af = socket.AF_INET
+        continue
+    if host == "-6":
+        want_af = socket.AF_INET6
+        continue
+
+    r = socket.getaddrinfo(host, service, want_af, socket.SOCK_DGRAM)
+    for r_af, r_type, r_proto, r_cname, r_addr in r:
+        if r_af == socket.AF_INET:
+            addr_str = "{host: %r, port: %r}" % r_addr
+        elif r_af == socket.AF_INET6:
+            addr_str = "{host: %r, port: %r, flow: %r, scope: %r}" % r_addr
+        else:
+            addr_str = repr(r_addr)
+        print(name(r_af, "AF"), addr_str)

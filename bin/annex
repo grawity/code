@@ -1,0 +1,597 @@
+#!/usr/bin/env bash
+
+# 2018-08-04: glibc 2.28 breaks nocache
+ANNEX_SKIP_NOCACHE=1
+
+. lib.bash || exit
+. libks.bash || exit
+
+annexes=(~/Attic/{Anime,Annex,Software,Videos})
+
+is_git() { git rev-parse --git-dir >&/dev/null; }
+
+is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
+is_annex!() { is_annex || die "not a git-annex repository"; }
+
+is_remote() {
+    [[ $1 == web ]] || git config --get "remote.$1.annex-uuid" >&/dev/null
+}
+
+is_remote!() {
+    if ! [[ $1 ]]; then
+        die "missing remote name"
+    elif ! is_remote "$1"; then
+        die "'$1' is not a git-annex remote"
+    fi
+}
+
+if [[ "$2" == "--help" ]]; then
+    exec git-annex help "$1" || exit
+fi
+
+cmd=$1; shift
+
+if [[ $ANNEX_SKIP_NOCACHE ]]; then
+    debug "nocache: disabled by environment"
+elif [[ $cmd == @(add|copy|fsck|get|import|move|push|reinject) ]]; then
+    lib=/usr/lib/nocache.so
+    if [[ ! -f $lib ]]; then
+        lib=/usr/lib/nocache/nocache.so
+    fi
+    if [[ -f $lib ]]; then
+        if [[ ":$LD_PRELOAD:" != *:"$lib":* ]]; then
+            debug "nocache: appending '$lib' to \$LD_PRELOAD"
+            export LD_PRELOAD="$LD_PRELOAD${LD_PRELOAD:+:}$lib"
+            export ANNEX_SKIP_NOCACHE=1
+        else
+            debug "nocache: found '$lib' in \$LD_PRELOAD"
+        fi
+    else
+        notice "nocache: '$lib' not found; may hurt performance"
+    fi
+else
+    debug "nocache: disabled for command '$cmd'"
+fi
+
+case $cmd in
+    @*)
+        name=${cmd#@}
+        # assume annex subcommand by default
+        if [[ $1 == !* || $1 == git ]]; then
+            set -- "${1#!}" "${@:2}"
+        elif [[ $1 ]]; then
+            set -- annex "$@"
+        else
+            set -- bash
+        fi
+        # determine remote path
+        if ! path=$(git remote get-url "$name"); then
+            err "remote '$name' not found"
+        elif [[ $path == [!/]*:* ]]; then
+            host=${path%%:*}
+            path=${path#*:}
+        elif [[ $path != /* ]]; then
+            err "remote '$name' has a non-local URL '$path'"
+        elif [[ ! -d $path ]]; then
+            err "remote path '$path' does not exist"
+        fi
+        # determine local relative subdirectory
+        # * `git rev-parse --show-prefix` does not work in bare (direct)
+        #   repos even with `-c core.bare=false`, so use indirect methods
+        gitdir=$(git rev-parse --git-dir)
+        subdir=$(realpath --relative-to="$gitdir/.." "$PWD")
+        # run command
+        if [[ $host ]]; then
+            path=${path%/}
+            path=${path%.git}
+            altpath=${path}.git
+            path=$path/$subdir
+            altpath=$altpath/$subdir
+            log "$cmd: running '$*' at $host:$path" >&2
+            ssh -t "$host" ". ~/.profile &&
+                        if [ -e ${altpath@Q} ]; then
+                            cd ${altpath@Q}
+                        else
+                            cd ${path@Q}
+                        fi && ${*@Q}"
+        else
+            path=$(realpath "$path/$subdir") \
+                || die "subpath '$subdir' does not exist in remote '$name'"
+            log "$cmd: running '$*' in $path" >&2
+            (cd "$path" && "$@")
+        fi
+        ;;
+    each)
+        if [[ $1 == !* || $1 == git ]]; then
+            set -- "${1#!}" "${@:2}"
+        else
+            set -- annex "$@"
+            lib::is_nested -= 1
+        fi
+        for dir in "${annexes[@]}"; do
+            log2 "$cmd: running '$*' in $dir"
+            (cd "$dir" && "${@//"{}"/"${dir##*/}"}")
+            if (( r=$? )); then
+                err "command '$*' returned $r (while in $dir)"
+            fi
+        done
+        if (( errors )); then
+            warn "command '$*' failed in at least one repository"
+        fi
+        ;;
+    want)
+        repo_root=$(realpath "$(git rev-parse --git-dir)/..")
+        repo_name=${repo_root##*/}
+        now=$(date +'%Y-%m-%d')
+        for arg; do
+            echo "$now - $HOSTNAME wants '$(realpath --strip --relative-to="$repo_root" "$arg")'"
+        done | tee -a ~/Dropbox/Todo-annex.txt
+        ;;
+    deploy)
+        name=$1
+        dir="$PWD/$name"
+        rdir="Attic/$name.git"
+        if [[ ! $name ]]; then
+            die "missing name (e.g. Videos)"
+        elif [[ -d $dir ]]; then
+            die "'$dir' already exists"
+        fi
+        mkdir "$dir"
+        cd "$dir"
+        annex prepare
+        if is_annex; then
+            die "'$PWD' is already a git-annex repository"
+        elif is_git; then
+            die "'$PWD' is already a non-annex Git repository"
+        fi
+        log "setting up git-annex repository"
+        git init
+        git config receive.denyCurrentBranch updateInstead
+        git annex init
+        #log "setting up origin repository"
+        #if ! ssh $rhost "[ -d $rdir ]"; then
+        #    ssh $rhost "git init --bare $rdir && cd $rdir && git annex init"
+        #fi
+        log "initial sync"
+        git remote add origin "annex:${rdir%.git}"
+        git annex sync
+        ;;
+    link)
+        base=$(git config --get nullroute.annex-name \
+                || basename "$(git -c core.bare=false rev-parse --show-toplevel)")
+        for name; do
+            case $name in
+                origin)
+                    dir="annex:Attic";;
+                vol3)
+                    dir="/run/media/grawity/vol3_tombstone/Attic";;
+                vol4)
+                    dir="/run/media/grawity/vol4_grimoire/Attic";;
+                vol*)
+                    dir="$name:Attic/$base";;
+                frost|rain)
+                    dir="/home/grawity/.$name/Attic";;
+                *)
+                    err "unknown remote '$name'"; continue;;
+            esac
+            git remote add "$name" "$dir/$base"
+            git annex sync "$name"
+        done
+        git annex sync
+        ;;
+    upgrade-index)
+        dir=$(git rev-parse --git-dir)
+        files=("$dir/index" "$dir/annex/index")
+        du -hsc "${files[@]}"
+        for f in "${files[@]}"; do
+            GIT_INDEX_FILE=$f git update-index --index-version 4
+        done
+        du -hsc "${files[@]}"
+        ;;
+    want-get)
+        git annex find --want-get --not --in .
+        ;;
+    want-drop)
+        git annex find --want-drop --in .
+        ;;
+    want-auto)
+        is_annex!
+        git annex find --want-get --not --in . | sed $'s/.*/\e[;32mwant\e[m &/'
+        git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
+        ;;
+    want-push)
+        is_remote! "$1"
+        git annex find --in . --not --in "$@"
+        ;;
+    only-in)
+        (( $# == 1 )) || warn "too many arguments (expected 1)"
+        git annex find --in "$1" --not --copies 2
+        ;;
+    unsafe)
+        #git annex find --not --copies semitrusted+:1
+        annex where --not --copies semitrusted+:1
+        ;;
+    examine)
+        is_annex!
+        if (( ! $# )); then
+            exec 2>/dev/null
+            set -- uuid.log group.log trust.log preferred-content.log
+        fi
+        for arg; do
+            if [[ $arg != */* && $arg != *.* ]]; then
+                arg+=".log"
+            fi
+            if (( $# > 1 )); then
+                echo -e "\e[1m--- $arg ---\e[m"
+            fi
+            git show "git-annex:$arg"
+        done
+        ;;
+    where|lsf)
+        declare -a annex_args=("--allrepos")
+        declare -a fmt_args=()
+        declare -i consume_args=0
+        for arg; do
+            if (( consume_args )); then
+                fmt_args+=("$arg")
+                consume_args+=-1
+            elif [[ $arg == -[afp]* || $arg == --@(all|full|present|ignore=*) ]]; then
+                fmt_args+=("$arg")
+            elif [[ $arg == --ignore ]]; then
+                fmt_args+=("$arg")
+                consume_args=1
+            else
+                annex_args+=("$arg")
+            fi
+        done
+        git annex list "${annex_args[@]}" | annex-list-format "${fmt_args[@]}"
+        ;;
+    log-format)
+        perl -E '
+            use List::MoreUtils qw(uniq);
+            %items = ();
+            @items = ();
+            while (<>) {
+                chomp;
+                my ($key, $value, $time) = /^(\S+) (.*) timestamp=([0-9.]+)s$/;
+                if (!$items{$key}) {
+                    push @items, $key;
+                    $items{$key} //= [];
+                }
+                push @{$items{$key}}, [$time, $value, $_];
+            }
+            for my $key (@items) {
+                my @items = uniq
+                            map {"(".$_->[0].") ".$_->[1]}
+                            grep {$_->[1] =~ /./}
+                            sort {$a->[0] <=> $b->[0]}
+                            @{$items{$key}};
+                my $last = pop @items;
+                say "\e[1m$key\e[m";
+                say " - $_" for $last;
+                say " \e[38;5;242m- $_\e[m" for reverse @items;
+                say "";
+            }
+        '
+        ;;
+    addurls|registerurls)
+        git annex add "$@"
+
+        if (( $# )); then
+            find "$@" -xtype f
+        else
+            git annex find --in here --not --in web
+        fi | while read -r file; do
+            if [[ -d $file ]]; then
+                :
+            elif [[ -L $file && ! -e $file ]]; then
+                :
+            elif [[ ! -f $file ]]; then
+                warn "item '$file' is not a file"
+            else
+                url=$(attr -L -q -g xdg.origin.url "$file" 2>/dev/null)
+                if [[ $url == https://dynasty-scans.com/* ]]; then
+                    notice "ignoring blacklisted origin '$url' for file '$file'" >&2
+                elif [[ $url == @(http|https|ftp)://* ]]; then
+                    info "adding origin '$url' to file '$file'" >&2
+                    echo "$url $file"
+                elif [[ $url ]]; then
+                    notice "ignoring non-web origin '$url' for file '$file'" >&2
+                else
+                    warn "no origin URL for file '$file'" >&2
+                fi
+            fi | git annex addurl --batch --with-files
+        done
+        ;;
+    hasurls)
+        r=0
+        for file; do
+            if key=$(git annex lookupkey "$file"); then
+                git annex readpresentkey "$key" "00000000-0000-0000-0000-000000000001"
+                (( r += $? ))
+            else
+                (( r += 1 ))
+            fi
+        done
+        (( r == 0 ))
+        ;;
+    commit|ci)
+        git config receive.denyCurrentBranch updateInstead
+        git annex sync --no-pull --no-push
+        ;;
+    ldu)
+        git annex find "$@" | xargs -d '\n' du -Dhsc
+        ;;
+    du)
+        args=()
+        for arg; do
+            if [[ $arg == -[av] ]]; then
+                export showfiles=1
+            elif [[ $arg == -s ]]; then
+                export sortbysize=1
+            elif [[ $arg =~ ^-[0-9]+$ ]]; then
+                export depth=${arg#-}
+            elif [[ $arg =~ ^-d[0-9]+$ ]]; then
+                export depth=${arg#-d}
+            else
+                args+=("$arg")
+            fi
+        done
+        annex find --format='${key} ${file}\n' --include '*' "${args[@]}" |
+        perl -E '
+            use List::Util qw(min);
+            sub fmt_size {
+                my ($bytes) = @_;
+                return "0" if !$bytes;
+                my @prefixes = qw(k M G T P E Z Y H);
+                my $div = 1024;
+                my $exp = min(int(log($bytes) / log($div)), scalar @prefixes);
+                sprintf "%.1f%s", $bytes / $div ** $exp, ($exp ? $prefixes[$exp-1] : "");
+            }
+            sub indent_for {
+                my ($dir) = @_;
+                return "    " x split(m!/!, $dir);
+            }
+            sub color_for {
+                my ($dir) = @_;
+                my $idx = scalar split(m!/!, $dir);
+                return 2 + $idx;
+                #my @colors = (51, 39, 26, 21, 93, 165, 198);
+                #return $colors[$idx] // $colors[$#colors];
+            }
+            sub fmt_dir {
+                my ($dir, $darken) = @_;
+                $dir =~ s{.*/}{};
+                return ($darken ? "\e[2m" : "")
+                     . ($dir eq "" ? "." : $dir)
+                     . "\e[m";
+            }
+            my $show_files = int($ENV{showfiles} // 0);
+            my $sortbysize = int($ENV{sortbysize} // 0);
+            # default to infinite for -a, 2 levels otherwise
+            my $maxdepth = $show_files
+                           ? int($ENV{depth} // -1)
+                           : int($ENV{depth} // 2);
+            my %files;
+            my %dirs;
+            my $total = 0;
+            while (<>) {
+                chomp;
+                my ($key, $file) = split(/ /, $_, 2);
+                my $size; if ($key =~ /-s(\d+)--/) { $size = int $1; }
+                if ($show_files)            { $files{$file} += $size; }
+                while ($file =~ s!/[^/]+$!!) { $dirs{$file} += $size; }
+                $total += $size;
+            }
+            %dirs = (%dirs, %files);
+            my @dirs = sort keys %dirs;
+            if ($maxdepth >= 0) {
+                @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
+            }
+            if ($sortbysize) {
+                @dirs = sort {$dirs{$b} <=> $dirs{$a}} @dirs;
+            }
+            my $fmt = "%s\e[38;5;%sm%7s\e[m  %s\n";
+            printf $fmt, indent_for(""), color_for(""), fmt_size($total), "TOTAL";
+            printf $fmt, indent_for($_), color_for($_), fmt_size($dirs{$_}), fmt_dir($_, exists($files{$_})) for @dirs;
+        '
+        ;;
+    dupes)
+        export MIN_BYTES=$(( 0 * 1024 ))
+        annex find --format='${key} ${file}\n' --include '*' "$@" |
+        perl -E '
+            sub fmt_key {
+                my ($key) = @_;
+                #return "\e[m$key\e[m";
+                return (-t STDOUT) ? "\e[38;5;208m$key\e[m" : "$key";
+            }
+            sub fmt_path {
+                my ($path) = @_;
+                my ($head, $tail) = ($path =~ m!^(.+)/(.+?)$!);
+                $head //= ".";
+                $tail //= $path;
+                return (-t STDOUT) ? "$head/\e[2m$tail\e[m" : "$head/$tail";
+            }
+            my $min = int($ENV{MIN_BYTES} // "0");
+            my %keys;
+            while (<>) {
+                chomp;
+                my ($key, $file) = split(/ /, $_, 2);
+                next if $min && ($key =~ /-s(\d+)--/) && ($1 < $min);
+                push @{$keys{$key}}, $file;
+            }
+            for my $key (sort {$keys{$a}[0] cmp $keys{$b}[0]} keys %keys) {
+                my @files = @{$keys{$key}};
+                if (@files > 1) {
+                    print fmt_key($key), "\n";
+                    print "  ", fmt_path($_), "\n" for sort @files;
+                    print "\n";
+                }
+            }
+        '
+        ;;
+    copy-remote-uuid)
+        remote=$1
+        desc=${2:-"$remote"}
+        if ! [[ $remote && $desc ]]; then
+            echo "Usage: $cmd <remote> <match_desc>"
+            die "missing remote name or description"
+        elif ! url=$(git config --get remote.$remote.url) || ! [[ $url ]]; then
+            die "no such remote '$remote'"
+        elif uuid=$(git config --get remote.$remote.annex-uuid) && [[ $uuid ]]; then
+            notice "remote already has UUID {$uuid}"
+        else
+            git annex info --fast --json \
+                | jq -r 'map(.[]?) | .[]? | (.uuid?, .description?)' \
+                | {
+                    r_uuid= r_desc= uuid=
+                    while read -r line; do
+                        if [[ $r_uuid ]]; then
+                            r_desc=$line
+                            if [[ "$r_desc" == "$desc" ]]; then
+                                uuid=$r_uuid
+                            elif [[ "${r_desc% \[*\]}" == "$desc" ]]; then
+                                debug "remote is already configured"
+                            fi
+                            r_uuid=
+                        else
+                            r_uuid=$line
+                        fi
+                    done
+                    if [[ $uuid ]]; then
+                        info "found UUID {$uuid}"
+                        git config remote.$remote.annex-uuid "$uuid"
+                    else
+                        err "description not found"
+                    fi
+                }
+        fi
+        ;;
+    grab)
+        from=$1
+        via=vol5
+        #annex sync
+        annex get --in "$from" --from "$via"
+        annex drop --in "$from" --in here --from "$from"
+        ;;
+    mv)
+        git annex proxy -- git mv "$@"
+        find "$1" -depth -type d -exec rmdir --ignore-fail-on-non-empty {} \;
+        ;;
+    purge)
+        annex-purge "$@"
+        ;;
+    push)
+        is_remote! "$1"
+        annex copy --to "$1" --not --in "$1" "${@:2}"
+        ;;
+    geturls)
+        (( $# )) || set -- "--include=*"
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '. as {file: $file} | (.whereis, .untrusted) | .[].urls[] | "\($file) \(.)"'
+        ;;
+    geturls-attr)
+        (( $# )) || set -- "--include=*"
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '@sh "attr -q -s xdg.origin.url -V \((.whereis, .untrusted) | .[].urls[]) \(.file)"'
+        ;;
+    geturls-json)
+        (( $# )) || set -- "--include=*"
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq '{file: .file,
+                    key: .key,
+                    urls: [(.whereis, .untrusted) | .[].urls[]]}'
+        ;;
+    geturls-sh)
+        (( $# )) || set -- "--include=*"
+        git annex find "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r '@sh "git annex addurl --relaxed --file=\(.file) \((.whereis, .untrusted) | .[].urls[])"'
+        ;;
+    pruneurls)
+        regex=$1; shift
+        git annex find --in web "$@" \
+            | git annex whereis --batch --fast --json \
+            | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
+            | git annex rmurl --batch
+        ;;
+    dup | store)
+        # Move files like `annex move --to`, but to multiple remotes.
+        files=()
+        remotes=()
+        copyargs=()
+        dropargs=()
+        argstate=0
+        for arg in "$@"; do
+            if [[ $arg == -J* ]]; then
+                copyargs+=("$arg")
+            elif (( argstate == 0 )) && [[ $arg == "--" ]]; then
+                argstate=1
+            elif (( argstate == 0 )) && [[ $arg == *[/.]* ]]; then
+                argstate=1
+                files+=("$arg")
+            elif (( argstate == 0 )); then
+                is_remote! "$arg"
+                remotes+=("$arg")
+            elif (( argstate == 1 )); then
+                files+=("$arg")
+            fi
+        done
+        if (( ! ${#remotes[@]} )); then
+            die "no remotes specified"
+        fi
+        if [[ $cmd == store && num=`annex find "${files[@]}" | wc -l` -gt 100 ]]; then
+            confirm "this will move and drop $num files; continue?" || exit
+        fi
+        if [[ $cmd == store ]] && (( ${#remotes[@]} == 1 )); then
+            dest=${remotes[0]}
+            log2 "moving to '$dest'"
+            annex move --to "$dest" "${copyargs[@]}" "${files[@]}"
+            remotes=()
+        fi
+        for dest in "${remotes[@]}"; do
+            log2 "copying to '$dest'"
+            annex copy --to "$dest" --not --in "$dest" "${copyargs[@]}" "${files[@]}"
+            dropargs+=(--in "$dest")
+        done
+        if [[ $cmd == store ]] && (( ${#dropargs[@]} )); then
+            log2 "dropping from here"
+            annex drop "${dropargs[@]}" "${files[@]}"
+        fi
+        ;;
+    # overrides
+    addurl)
+        if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then
+            set -- --file="$1" "$2"
+        elif (( $# == 1 )); then
+            set -- --file="$(urlencode.pl -dS "${1##*/}")" "$1"
+        fi
+        ;;&
+    get)
+        set -- "${@%@}"
+        ;;&
+    info)
+        if (( ! $# )); then
+            set -- --fast
+        elif [[ $* == @(-v|--slow) ]]; then
+            set --
+        fi
+        ;;&
+    ls)
+        cmd=find ;;&
+    st)
+        cmd=status ;;&
+    *)
+        if [[ $cmd ]]; then
+            set -- "$cmd" "$@"
+        fi
+        exec git annex "$@"
+        ;;
+esac
+
+exit $(( $? ? $? : errors ))
+
+# vim: ts=4:sw=4:et

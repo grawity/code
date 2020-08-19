@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# ffmpeg-utils(1) → Time duration
+
+. lib.bash || exit
+
+preview=0
+acodec=copy
+vcodec=copy
+
+while (( $# )); do
+	case ${1#--} in
+	to|end)	end=$2; shift;;
+	in|input)   input=$2; shift;;
+	from|start)	start=$2; shift;;
+	out|output) output=$2; shift;;
+	recode)	vcodec="libx264";;
+	acodec)	acodec=$2; shift;;
+	vcodec)	vcodec=$2; shift;;
+	play)	preview=1;;
+	*)	die "unrecognized argument '$1'";;
+	esac; shift
+done
+
+[[ $input ]]  || die "missing 'input' file"
+[[ $output ]]    || die "missing 'output' file"
+[[ $start ]] || die "missing 'start' time"
+[[ $end ]]   || die "missing 'end' time"
+
+if (( preview )); then
+	ffplay -ss "$start" "$input"
+	exit
+fi
+
+ffmpeg -i "$input" -ss "$start" -to "$end" -codec:a "$acodec" -codec:v "$vcodec" "$output"

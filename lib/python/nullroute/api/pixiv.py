@@ -55,24 +55,35 @@ class PixivApiClient():
         data = self._load_token()
         if data:
             Core.trace("loaded token: %r", data)
+            exp = data.get("expires_at", 0)
+            now = time.time()
+            # Check whether it will still be valid during the entire script runtime,
+            # hence the "+ 300". (In particular because the token lasts exactly 1 hour,
+            # so it will expire every 4th cronjob run, *usually during the run.*)
             if os.environ.get("FORCE_TOKEN_REFRESH"):
+                Core.debug("access token invalidated by environment variable, renewing")
+                token_valid = False
+            elif exp >= (now + 300):
+                Core.debug("access token still valid for %.1f seconds, using as-is", exp-now)
+                token_valid = True
+            elif exp >= now:
+                Core.debug("access token is about to expire in %.1f seconds, renewing", exp-now)
                 token_valid = False
             else:
-                token_valid = data["expires_at"] > time.time()
+                Core.debug("access token has expired %.1f seconds ago, renewing", now-exp)
+                token_valid = False
 
             if token_valid:
-                Core.debug("access token within expiry time, using as-is")
                 self.api.user_id = data["user_id"]
                 self.api.access_token = data["access_token"]
                 self.api.refresh_token = data["refresh_token"]
                 return True
             else:
-                Core.debug("access token has expired, renewing")
                 try:
                     token = self.api.auth(refresh_token=data["refresh_token"])
-                    Core.trace("retrieved token: %r", token)
+                    Core.debug("refreshed access token: %r", token)
                 except Exception as e:
-                    Core.warn("could not refresh access token: %r", e)
+                    Core.err("could not refresh access token: %r", e)
                     #self._forget_token()
                 else:
                     self._store_token(token)

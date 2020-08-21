@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+import os
+import sys
+import ipaddress
+import subprocess
+from nullroute import ui
+from nullroute.core import Core
+
+def ip_addr_list(inf):
+    with subprocess.Popen(["ip", "addr", "show", "dev", inf],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            line = line.decode("utf-8").strip().split()
+            if line[0] == "inet":
+                yield ipaddress.IPv4Interface(line[1])
+
+def ip_addr_add(inf, *addrs):
+    for addr in addrs:
+        subprocess.call(["ip", "addr", "add", str(addr), "dev", inf])
+
+def ip_interface_from_addr(addr, net):
+    if addr in net:
+        return ipaddress.IPv4Interface("%s/%s" % (addr, net.prefixlen))
+    else:
+        raise ValueError("address %r does not belong to %r" % (addr, net))
+
+interface = "eth0"
+lease_time = "1h"
+ip4_dns = "8.8.8.8"
+
+try:
+    ip4_range = sys.argv[1]
+except IndexError:
+    ip4_range = ""
+
+if "@" in ip4_range:
+    ip4_range, interface = ip4_range.split("@", 1)
+    Core.debug("using interface '%s'" % interface)
+
+if not ip4_range:
+    ip4_range = "192.168.1.0/24"
+
+try:
+    ip4_range = ipaddress.IPv4Network(ip4_range)
+except ValueError as e:
+    Core.die("bad range: %s" % e)
+
+if ip4_range.num_addresses < 8:
+    Core.die("chosen range %s too small" % ip4_range)
+
+ip4_start = ip4_range.network_address + 1
+ip4_end   = ip4_range.broadcast_address - 1
+ip4_mask  = ip4_range.netmask
+
+inf_has_ip4 = False
+for addr in ip_addr_list(interface):
+    if addr in ip4_range:
+        inf_has_ip4 = True
+if not inf_has_ip4:
+    addr = ip_interface_from_addr(ip4_start, ip4_range)
+    Core.info("adding %s to '%s'" % (addr, interface))
+    ip_addr_add(interface, addr)
+
+ui.window_title("Serving DHCP on %s" % interface)
+
+args = [
+    "/usr/bin/sudo",
+    "/usr/bin/dnsmasq",
+    "--no-daemon",
+    # ignore default config
+    "--conf-file=/dev/null",
+    "--no-hosts",
+    "--leasefile-ro",
+    # turn off DNS
+    "--port=0",
+    # set up DHCP
+    "--interface=%s" % interface,
+    "--bind-dynamic",
+    #"--bind-interfaces",
+    "--dhcp-range=%s,%s,%s,%s" % (ip4_start, ip4_end, ip4_mask, lease_time),
+    "--dhcp-option=option:dns-server,%s" % ip4_dns,
+]
+
+Core.debug("starting %r", args)
+os.execv(args[0], args)

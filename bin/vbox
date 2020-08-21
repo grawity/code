@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+try_load() {
+	[ -d /sys/module/vboxdrv ] || sudo: modprobe -v vboxdrv
+}
+
+cmd=$1; shift
+vm=$1; shift
+
+case $cmd in
+load)
+	sudo: modprobe -v vboxdrv
+	;;
+unload)
+	sudo: modprobe -v -r vboxdrv
+	;;
+ls)
+	do: vboxmanage list vms
+	;;
+lsr|lsrun|lsrunning)
+	do: vboxmanage list runningvms
+	;;
+bgstart)
+	try_load
+	do: vboxmanage startvm "$vm"
+	;;
+start|fgstart)
+	try_load
+	do: vboxmanage startvm "$vm" --type gui
+	;;
+pause|resume|reset|poweroff)
+	try_load
+	do: vboxmanage controlvm "$vm" "$cmd"
+	;;
+save)
+	do: vboxmanage controlvm "$vm" savestate
+	;;
+ctl)
+	do: vboxmanage controlvm "$vm" "$@"
+	;;
+modify)
+	do: vboxmanage modifyvm "$vm" "$@"
+	;;
+insertfd)
+	do: vboxmanage storageattach "$vm" --storagectl Floppy --device 0 --medium "$@"
+	;;
+ejectfd)
+	do: vboxmanage storageattach "$vm" --storagectl Floppy --device 0 --medium emptydrive
+	;;
+get)
+	if [[ ! $1 ]]; then
+		set -- 'enumerate'
+	fi
+	do: vboxmanage getextradata "$vm" "$@"
+	;;
+set)
+	do: vboxmanage setextradata "$vm" "$@"
+	;;
+fixvesa)
+	do: vboxmanage setextradata "$vm" "CustomVideoMode1" "1366x768x32"
+	;;
+fixup)
+	do: vboxmanage modifyvm "$vm" \
+		--boot1 disk			\
+		--boot2 floppy			\
+		--boot3 dvd			\
+		--pae on			\
+		--ioapic on			\
+		--nic1 bridged			\
+		--bridgeadapter1 "vmbr"		;
+	;;
+"")
+	lsmod | grep --color ^vbox
+	;;
+*)
+	die "unknown command '$cmd'"
+	;;
+esac

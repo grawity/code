@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+bare=0
+dir=
+
+for arg; do
+	if [[ $arg == "--bare" ]]; then
+		bare=1
+	elif [[ ! $dir ]]; then
+		dir=$arg
+	else
+		warn "extra arguments: '$arg'"
+	fi
+done
+
+set -e
+
+if [[ ! "$dir" ]]; then
+	die "missing arguments"
+fi
+
+if [[ -d "$dir" ]]; then
+	(cd "$dir" && rm -rf .git/refs .git/packed-refs)
+fi
+
+if (( bare )); then
+	git init --bare "$dir"
+else
+	git init "$dir"
+fi
+
+cd "$dir"
+if git fast-import --quiet; then
+	if (( ! bare )); then
+		git checkout -f
+	fi
+
+	log "import done"
+else
+	die "import failed ($?)"
+fi

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-d path] <package>..."
+	echo ""
+	echo_opt "-d <dir>" "specify output directory"
+}
+
+dir=$XDG_CACHE_HOME/bacman
+
+while getopts ":d:" OPT; do
+	case $OPT in
+	d) dir=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+(( $# )) || die "missing package names"
+
+log "archiving packages"
+
+mkdir -p "$dir" && cd "$dir" || exit
+for pkg; do
+	sudo: bacman "$pkg" || err "could not back up '$pkg'"
+done
+
+(( !errors )) || exit
+
+log "uninstalling packages"
+
+orphans_before=$(mktemp /tmp/nukepkg.XXXXXXXX)
+pacman -Qqdt | sort > "$orphans_before"
+
+sudo: pacman -Rn "$@"
+
+orphans_after=$(mktemp /tmp/nukepkg.XXXXXXXX)
+pacman -Qqdt | sort > "$orphans_after"
+
+new_orphans=$(comm -13 "$orphans_before" "$orphans_after")
+if [[ $new_orphans ]]; then
+	notice "new orphans: ${new_orphans//$'\n'/ }"
+	if confirm "clean again?"; then
+		nukepkg ${new_orphans}
+	fi
+fi
+rm -f "$orphans_before" "$orphans_after"

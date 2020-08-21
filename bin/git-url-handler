@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+get_terminal() {
+	{ gsettings get org.gnome.desktop.default-applications.terminal exec |
+		sed "s/^'//; s/'$//; s/\\\'/'/g"; }
+}
+
+do_start_term() {
+	exec "$(get_terminal)" -e "$0"
+}
+
+if [[ $_GIT_URL_HANDLER && $GIT_CLONE_TO ]]; then
+	if [[ $VTE_VERSION ]]; then
+		printf '\e]7;file://%s%s\a' \
+			"$HOSTNAME" "$(urlencode -r -p "$GIT_CLONE_TO")"
+	fi
+	if [[ $GIT_CLONE_URL ]]; then
+		settitle "$GIT_CLONE_URL"
+		echo "--> Cloning $GIT_CLONE_URL"
+		git clone "$GIT_CLONE_URL" "$GIT_CLONE_TO"
+		cd "$GIT_CLONE_TO" || exit
+	else
+		settitle "$GIT_CLONE_TO"
+		echo "--> Updating local clone"
+		cd "$GIT_CLONE_TO" || exit
+		if git rev-parse --verify --quiet '@{upstream}' > /dev/null; then
+			git pull --ff-only
+		fi
+	fi || read
+	if [[ $GIT_CLONE_REF ]]; then
+		echo "--> Checking out $GIT_CLONE_REF"
+		git checkout "$GIT_CLONE_REF" || read
+	fi
+	SILENT=1 exec $SHELL -i -c "tig \$GIT_CLONE_REF"
+	exit 1
+fi
+
+url=$1
+export _GIT_URL_HANDLER=$url
+
+clonebase=~/src
+case $url in
+	git://anongit.freedesktop.org/xorg/*)
+		clonebase+="/xorg"
+		;;
+	git://anongit.freedesktop.org/*)
+		clonebase+="/gnome"
+		;;
+	git://git.gnome.org/*)
+		clonebase+="/gnome"
+		;;
+esac
+
+unset ref
+
+if [[ $url == *#* ]]; then
+	ref=${url#*\#}
+	url=${url%%\#*}
+	case $ref in
+		tag=*)
+			ref=refs/tags/${ref#*=};;
+		branch=*)
+			ref=refs/heads/${ref#*=};;
+	esac
+fi
+
+basename=${url#*:}
+case $basename in
+	*/.git)
+		basename=${basename%/.git};;
+	*.git)
+		basename=${basename%.git};;
+esac
+basename=${basename##*/}
+
+dir=$clonebase/$basename
+prettydir=${dir/#$HOME/\~}
+
+export GIT_CLONE_REF=$ref
+export GIT_CLONE_TO=$dir
+
+env | sort | grep ^GIT
+
+if [[ -d $dir ]]; then
+	export GIT_CLONE_URL=
+	do_start_term
+else
+	export GIT_CLONE_URL=$url
+	zenity --question \
+		--title "Git" \
+		--text "Clone the Git repository\n\n<b>$url</b>\n\nto <b>$prettydir</b>?" \
+		--no-wrap \
+		--ok-label 'Clone' \
+		--cancel-label 'Cancel' \
+	&& do_start_term
+fi

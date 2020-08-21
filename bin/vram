@@ -1,0 +1,113 @@
+#!/usr/bin/env perl
+use Nullroute::Lib;
+
+$prev_total = 0;
+$prev_used = 0;
+
+sub getsize {
+	@size = map {int $_} split /\s/, `stty size`;
+}
+
+sub _get_radeon {
+	my ($path) = @_;
+
+	if (open(my $f, "<", $path)) {
+		my @m;
+		while (<$f>) {
+			last if @m = /^total: (\d+), used (\d+) free (\d+)$/;
+		}
+		close $f;
+		if (!@m) { _die("could not find VRAM usage in debugfs"); }
+		return map {$_ >> 8} @m;
+	}
+}
+
+sub _get_gem {
+	my ($path) = @_;
+
+	if (open(my $f, "<", $path)) {
+		my (@m, $total, $used, $free);
+		while (<$f>) {
+			if (@m = /^\d+ objects, (\d+) bytes$/) {
+				$used = $1;
+			}
+			elsif (@m = /^(\d+) \[\d+\] gtt total$/) {
+				$total = $1;
+			}
+		}
+		close $f;
+		@m = ($total, $used, $total-$used);
+		if (!$total) { _die("could not find VRAM usage in debugfs"); }
+		return map {$_ >> 20} @m;
+	}
+}
+
+sub getvalues {
+	for my $dir (glob("/sys/kernel/debug/dri/*/")) {
+		if (-e "$dir/radeon_vram_mm") {
+			return _get_radeon("$dir/radeon_vram_mm");
+		}
+		elsif (-e "$dir/amdgpu_vram_mm") {
+			return _get_radeon("$dir/amdgpu_vram_mm");
+		}
+		elsif (-e "$dir/i915_gem_objects") {
+			return _get_gem("$dir/i915_gem_objects");
+		}
+	}
+}
+
+sub draw {
+	($height, $width) = @size;
+
+	($total, $used) = getvalues();
+
+	if ($total) {
+		$p_used = $used / $total * 100;
+		$color = $p_used > 90 ? 31
+		       : $p_used > 75 ? 33
+		       : 32 ;
+		$prev_total = $total;
+		$prev_used = $used;
+	} else {
+		$p_used = $prev_used / $prev_total * 100;
+		$color = 31;
+	}
+
+	$left = sprintf "%3d%%", $p_used;
+	$right = sprintf "(%d/%d MB)", $used, $total;
+	$right = sprintf "%*s", (6 + length($total)*2), $right;
+
+	$width -= 1 + length $left;
+	$width -= 1 + length $right;
+
+
+	$w_used = $width * ($p_used / 100);
+	$frac = ($w_used * 10) % 10;
+	$w_used = int $w_used;
+
+	$bar = "";
+
+	$bar .= "█" x $w_used;
+	if ($frac >= 6) {
+		$bar .= "▓"; $w_frac = 1;
+	} elsif ($frac >= 3) {
+		$bar .= "▒"; $w_frac = 1;
+	} else {
+		$w_frac = 0;
+	}
+	$bar .= "░" x ($width - ($w_used + $w_frac));
+
+	return "${left} \e[${color}m${bar}\e[m ${right}";
+}
+
+getsize();
+
+$prev = "";
+
+do {
+	$str = draw();
+	if (defined $str && $str ne $prev) {
+		printf "\e[J%s\r", $str; $|++;
+	}
+	$prev = $str;
+} while sleep 1;

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# asn1 -- convenience wrapper for 'dumpasn1', which doesn't base64-decode input
+# on its own, and won't completely decode unseekable input
+
+. lib.bash || exit
+
+arg.from_stdin!() {
+	arg=$(mktemp /tmp/asn1.XXXXXXXX)
+	temp+=("$arg")
+	cat > "$arg"
+}
+
+arg.decode_base64!() {
+	if grep -qs "^-----" "$arg"; then
+		raw=$(mktemp /tmp/asn1.XXXXXXXX)
+		temp+=("$raw")
+		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
+				s/\r//g; /^[A-Za-z0-9+/=]*$/p
+			}' < "$arg" | base64 -d > "$raw"
+		debug "PEM-decoded '$raw' from '$arg'"
+		if (( DEBUG > 1 )); then
+			debug "<dump>"
+			xxd "$raw"
+			debug "</dump>"
+		fi
+		arg=$raw
+	fi
+}
+
+args=()
+temp=()
+files=0
+optend=0
+optargs=0
+
+for arg; do
+	debug "input arg '$arg'"
+	detect=0
+
+	if (( optargs )); then
+		debug "- consuming as optarg"
+		(( optargs -= 1 ))
+	elif [[ $arg == - ]]; then
+		debug "- consuming as stdin"
+		detect=1
+		arg.from_stdin!
+	elif (( ! optend )) && [[ $arg == -[cfwm] ]]; then
+		debug "- consuming as option with optargs"
+		optargs=1
+	elif (( ! optend )) && [[ $arg == -- ]]; then
+		debug "- consuming as option end"
+		optend=1
+	elif (( ! optend )) && [[ $arg == -* ]]; then
+		debug "- consuming as option"
+	else
+		debug "- consuming as file arg"
+		detect=1
+	fi
+
+	if (( detect )) && [[ -f $arg ]] && [[ -s $arg ]]; then
+		debug "arg '$arg' is a file, detecting contents"
+		arg.decode_base64!
+		(( ++files ))
+	fi
+
+	args+=("$arg")
+done
+
+if (( ! files )); then
+	arg.from_stdin!
+	arg.decode_base64!
+	args+=("$arg")
+fi
+
+dumpasn1 "${args[@]}"; r=$?
+
+if [[ $temp ]]; then
+	rm -f "${temp[@]}"
+fi
+
+exit $r

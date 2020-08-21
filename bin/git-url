@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+base=$(git config --get web.url)
+hosttype=$(git config --get web.type)
+head=$(git rev-parse --short=12 HEAD)
+
+if [[ ! $base ]]; then
+	debug "base URL not found in 'web.url', guessing from origin"
+	remote=$(git remote get-url origin)
+	case $remote in
+		https://github.com/*)
+			base=${remote%.git}
+			hosttype=github
+			;;
+		https://gitlab.gnome.org/*)
+			base=${remote%.git}
+			hosttype=gitlab
+			;;
+	esac
+	debug "base guessed: '$base' (hosttype=$hosttype)"
+fi
+
+if [[ ! $hosttype ]]; then
+	debug "hosttype not found in 'web.type', guessing from base URL"
+	case $base in
+	https://github.com/*)
+		hosttype='github';;
+	https://gitlab.gnome.org/*)
+		hosttype='gitlab';;
+	*/cgit/*)
+		hosttype='cgit';;
+	esac
+	debug "hosttype guessed: '$hosttype'"
+fi
+
+if [[ ! $hosttype ]]; then
+	die "unknown hosttype for url '$base'"
+fi
+
+toplevel=$(git rev-parse --show-toplevel)
+prefix=$(git rev-parse --show-prefix)
+debug "repo toplevel: '$toplevel'"
+debug "repo prefix: '$prefix'"
+
+base=${base%/}
+debug "base: '$base'"
+
+is_file() {
+	if [[ $1 == *:* ]]; then
+		git rev-parse --verify "$1" >& /dev/null &&
+		[[ $(git cat-file -t "$1") == blob ]]
+	elif [[ $(git config core.bare) == true ]]; then
+		git rev-parse --verify "HEAD:/$1" >& /dev/null
+	else
+		[[ -e "$1" ]]
+	fi
+}
+
+for arg; do
+	debug "processing arg '$arg'"
+
+	if [[ $arg == @(pr|pull)/* ]]; then
+		mode=pull
+		arg=${arg#*/}
+		debug " - mode=$mode, arg='$arg' (matched pull-request regex)"
+	elif [[ $arg == @(bug|issue)/* ]]; then
+		mode=issue
+		arg=${arg#*/}
+		debug " - mode=$mode, arg='$arg' (matched bug/issue regex)"
+	elif t=$(git rev-parse --short=20 "$arg") && [[ $t ]]; then
+		type=$(git cat-file -t "$arg")
+		if [[ $type == commit ]]; then
+			: ${mode:=commit}
+			head=$t
+		elif [[ $type == blob ]]; then
+			mode=file
+			head=$(git rev-parse --short=20 ${arg%%:*})
+			path=${arg#*:}
+		fi
+		debug " - mode=$mode, arg='$arg', type='$type', head='$head' (rev-parse success)"
+	elif t=$prefix$arg && is_file "$arg"; then
+		debug "looking for file '$t'"
+		: ${mode:=file}
+		path=$t
+	fi
+
+	if [[ ! $mode ]]; then
+		err "cannot understand arg '$arg'"
+		continue
+	fi
+
+	debug "arg '$arg' is a $mode"
+
+	case $hosttype in
+	'cgit')
+		case $mode in
+		'log')    url="$base/log/$path?h=$head";; # TODO: make this global log
+		'flog')   url="$base/log/$path?h=$head";;
+		'file')   url="$base/tree/$path?h=$head";;
+		'commit') url="$base/commit/?id=$head";;
+		esac;;
+	'github')
+		case $mode in
+		'log')    url="$base/commits/$head";;
+		'flog')   url="$base/commits/$head/$path";;
+		'file')   url="$base/blob/$head/$path";;
+			issue)	url="$base/issues/$arg";;
+		'commit') url="$base/commit/$head";;
+		esac;;
+	'gitlab')
+		case $mode in
+			issue)	url="$base/issues/$arg";;
+			pull)	url="$base/merge_requests/$arg";;
+		esac;;
+	'gitweb')
+		base=${base//";a=summary"/}
+		case $mode in
+		'log')    url="$base;a=shortlog;h=$head";;
+		'flog')   url="$base;a=history;f=$path;h=$head";;
+		'file')   url="$base;a=blob;f=$path;h=$head";;
+		'commit') url="$base;a=commit;h=$head";;
+		*)        die "$hosttype not yet implemented";;
+		esac;;
+	esac
+
+	[[ $url ]] || die "$mode for '$hosttype' hosts not yet implemented"
+
+	echo "$url"
+done

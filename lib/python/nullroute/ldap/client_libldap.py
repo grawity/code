@@ -58,12 +58,16 @@ class LdapClient():
             "sub":          ldap.SCOPE_SUBTREE,
             "onelevel":     ldap.SCOPE_ONELEVEL,
             "one":          ldap.SCOPE_ONELEVEL,
-            "subordinate":  ldap.SCOPE_SUBORDINATE,
+            "subordinates": ldap.SCOPE_SUBORDINATE,
             "child":        ldap.SCOPE_SUBORDINATE,
         }[scope or "subtree"]
         result = self.conn.search_ext_s(base, scope, filter, attrs)
         result = [(dn, CaseInsensitiveDict(attrs)) for (dn, attrs) in result]
         return result
+
+    def list_children(self, base, filter=None, attrs=None):
+        attrs = [*attrs] if attrs else ["1.1"]
+        return self.search(base, filter, scope="one", attrs=attrs)
 
     def read_entry(self, dn, raw=False):
         attrs = self.conn.read_s(dn)

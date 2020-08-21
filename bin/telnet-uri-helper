@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# convert a telnet:// URI to `telnet` args
+
+. lib.bash || exit
+
+case $1 in
+    telnet:*)
+	uri=$1
+	uri=${uri#'telnet:'}
+	uri=${uri#'//'}
+	uri=${uri%'/'}
+	opts=()
+	if [[ $uri == *@* ]]; then
+		opts+=('--user' "${uri%@*}")
+		uri=${uri##*@}
+	else
+		opts+=('--no-login')
+	fi
+	settitle "telnet – $uri"
+	exec telnet "${opts[@]}" "$uri"
+	;;
+    '')
+	die "missing URL"
+	;;
+    *)
+	die "not a 'telnet:' URI: $1"
+	;;
+esac

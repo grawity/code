@@ -51,7 +51,7 @@ class LdapClient():
             "onelevel":     ldap3.LEVEL,
             "one":          ldap3.LEVEL,
             # not natively supported by ldap3
-            #"subordinate":  ldap3.SUBORDINATE,
+            #"subordinates": ldap3.SUBORDINATE,
             #"child":        ldap3.SUBORDINATE,
         }[scope or "subtree"]
         attrs = [*attrs] if attrs else ["*"]
@@ -61,6 +61,10 @@ class LdapClient():
         entries = self.conn.entries
         entries = [(entry.entry_dn, entry.entry_raw_attributes) for entry in entries]
         return entries
+
+    def list_children(self, base, filter=None, attrs=None):
+        attrs = [*attrs] if attrs else ["1.1"]
+        return self.search(base, filter, scope="one", attrs=attrs)
 
     def read_entry(self, dn, raw=False):
         if not self.conn.search(dn, "(objectClass=*)",

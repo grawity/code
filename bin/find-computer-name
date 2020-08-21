@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+root="$1"
+
+for name in 'Windows' 'System32' 'config' 'SYSTEM'; do
+	debug "lookup '$name' in '$root'"
+	next=$(find "$root" -maxdepth 1 -iname "$name") ||
+		die "path '$root/$name' not found"
+	root=$next
+done
+
+[[ -f $root ]] || die "hive '$root' not a regular file"
+
+echo "reading '$root'"
+
+reged -x "$root" \
+	'HKEY_LOCAL_MACHINE\SYSTEM' \
+	'\ControlSet001\Control\ComputerName\ComputerName' \
+	/dev/stdout |&
+grep -i '"ComputerName"'

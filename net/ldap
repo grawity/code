@@ -72,6 +72,12 @@ sub ldap_connect {
 sub ldap_connect_opt {
 	my (%opt) = @_;
 
+	my $uri = $opt{uri};
+	if ($uri =~ /\s/) {
+		_warn("using only the first URI out of provided list ($uri)");
+		($uri) = split(/\s+/, $uri);
+	}
+
 	return ldap_connect($opt{uri}, $opt{starttls}, $opt{sasl_mech});
 }
 
@@ -381,9 +387,16 @@ GetOptions(
 	"V|reveal!" => \$Opt{reveal_sensitive},
 ) or exit(2);
 
+if (!$Opt{uri}) {
+	$Opt{uri} = get_ldap_conf("URI");
+}
+if (!$Opt{uri}) {
+	# TODO: defaults from current domain
+	_die("LDAP server URI could not be determined");
+}
+
 $Opt{uri} //= get_ldap_conf("URI");
 $Opt{base} //= get_ldap_conf("BASE");
-# TODO: defaults from current domain
 
 if (!$cmd) {
 	if (basename($0) =~ /^ldap(\w+)$/) {
@@ -446,6 +459,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 		# ldap set <obj> [attrs...]
 		#   Only attribute names can be optionally listed.
 		@attrs = @ARGV ? @ARGV : ("*");
+		_err("unrecognized argument '$_' (did you want 'ldap set'?)") for grep {/=/} @attrs;
 	}
 	elsif ($cmd eq "rename") {
 		# ldap rename <obj> <rdn>
@@ -468,6 +482,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	else {
 		_die("too many arguments given") if @ARGV;
 	}
+	exit(1) if $::errors;
 
 	# Connect to the server
 	my $conn = ldap_connect_opt(%Opt);
@@ -490,7 +505,7 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 		@entries = sort {length($b->dn) <=> length($a->dn)} @entries;
 	}
 	if ($cmd eq "rename") {
-		_die("refusing to rename more than 1 result") if $srch->count > 1;
+		#_die("refusing to rename more than 1 result") if $srch->count > 1;
 	}
 
 	# Apply the operation

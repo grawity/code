@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+arg_fmode=0644
+arg_dmode=0755
+
+while getopts "D:F:p" OPT; do
+	case $OPT in
+	D) arg_dmode=$OPTARG;;
+	F) arg_fmode=$OPTARG;;
+	p) arg_fmode=0600 arg_dmode=0700;;
+	esac
+done; shift $((OPTIND-1))
+
+find "$@" \( -name .git -prune \) -o \( -type d -exec chmod -c "$arg_dmode" {} + \)
+find "$@" \( -name .git -prune \) -o \( -type f -exec chmod -c "$arg_fmode" {} + \)
+
+find "$@" -type f \( -iname "*.cmd" -o -iname "*.exe" -o -iname "*.msi" \) -exec chmod -c "a+x" {} +

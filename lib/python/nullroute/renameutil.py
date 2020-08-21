@@ -3,16 +3,32 @@ from nullroute.file import compare_files
 import os
 import subprocess
 
+_has_gio = False
+_has_trash = False
+for d in os.environ["PATH"].split(":"):
+    if not _has_gio and os.path.exists("%s/gio" % d):
+        _has_gio = True
+    if not _has_trash and os.path.exists("%s/trash" % d):
+        _has_trash = True
+
 def is_file_partial(fname):
     return fname.endswith((".crdownload", ".filepart", ".part"))
 
 def gio_trash_file(path):
-    #os.unlink(old_path)
-    subprocess.run(["gio", "trash", path]).check_returncode()
+    if _has_gio:
+        subprocess.run(["gio", "trash", path]).check_returncode()
+    elif _has_trash:
+        subprocess.run(["trash", "-q", path]).check_returncode()
+    else:
+        #os.unlink(old_path)
+        Core.die("'gio' tool is missing")
 
 def gio_rename_file(old_name, new_name):
-    #os.rename(old_path, new_path)
-    subprocess.run(["gio", "move", old_name, new_name]).check_returncode()
+    if _has_gio:
+        subprocess.run(["gio", "move", old_name, new_name]).check_returncode()
+    else:
+        #os.rename(old_path, new_path)
+        Core.die("'gio' tool is missing")
 
 class RenameJob():
     fmt_found = "\033[38;5;10m%s\033[m"

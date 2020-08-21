@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+g_show_osd() {
+	busctl call --user \
+		org.gnome.Shell /org/gnome/Shell \
+		org.gnome.Shell ShowOSD \
+		a{sv} 2 \
+			icon  s "$1" \
+			label s "$2" ;
+}
+
+state=$path_data/backtick.state.sh
+
+declare -i is_disabled=0
+declare -- schema=
+declare -- key=
+declare -- value=
+
+if [[ -f "$state" ]]; then
+	. "$state" || rm -f "$state"
+fi
+
+if (( is_disabled )); then
+	debug "already disabled according to state; re-setting original values"
+	debug " - schema = $schema"
+	debug " - key = $key"
+	debug " - value = \"${value}\""
+	info "re-enabling Alt+Backtick"
+	gsettings set "$schema" "$key" "$value"
+	is_disabled=0
+else
+	debug "currently enabled; searching for matching settings"
+	schema="org.gnome.desktop.wm.keybindings"
+	unset key
+	unset value
+	re="'<Alt>Above_Tab'"
+	while read -r r_schema r_key r_value; do
+		if [[ $r_value == *$re* ]]; then
+			debug "probably found a match"
+			debug " - schema = $r_schema"
+			debug " - key = $r_key"
+			debug " - value = $r_value"
+			schema=$r_schema
+			key=$r_key
+			value=$r_value
+		fi
+	done < <(gsettings list-recursively "$schema")
+	if [[ $schema && $key && $value ]]; then
+		new_value=${value//"$re"/}
+		new_value=${new_value//"[, "/"["}
+		new_value=${new_value//", ]"/"]"}
+		info "disabling Alt+Backtick"
+		gsettings set "$schema" "$key" "$new_value"
+		is_disabled=1
+	else
+		die "could not find apropriate setting"
+	fi
+fi
+
+declare -p is_disabled schema key value > "$state"
+
+if [[ ! -t 1 ]]; then
+	case $is_disabled in
+		1) status="disabled"; icon="system-lock-screen";;
+		0) status="enabled"; icon="preferences-desktop-keyboard-shortcuts";;
+	esac
+	g_show_osd "$icon-symbolic" "Alt+Backtick $status"
+fi

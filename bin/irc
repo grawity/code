@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+. $path_config/synced/irc.conf || exit
+
+session=${XDG_SESSION_ID:-systemd}
+
+lock=$path_runtime/irc-$session.lock
+exec {fd}<>"$lock" && flock -xn $fd ||
+	die "already connected from $HOSTNAME/$session"
+
+export MOSH_TITLE_NOPREFIX='y'
+mosh $irc_host -- tmux attach -t irc
+r=$?
+
+hi >&/dev/null {fd}>&- &
+
+exit $r

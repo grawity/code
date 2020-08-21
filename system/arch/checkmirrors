@@ -26,7 +26,10 @@ checkdb() {
 	url=${url//'$repo'/$repo}
 	url=${url//'$arch'/$arch}
 
-	local mdate=$(curl -sI "$url/$repo.db" | grep -i "^last-modified:" | sed "s/^last-modified: *//i; s/\r//")
+	local mdate=$(curl -sSLI "$url/$repo.db" \
+			| grep -i "^last-modified:" \
+			| tail -1 \
+			| sed "s/^last-modified: *//i; s/\r//")
 	local mtime=$(date -d "$mdate" +%s)
 
 	local agestr=$(interval $[now - mtime])

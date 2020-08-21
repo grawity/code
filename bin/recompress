@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+if ! have magick; then
+	# ImageMagick 6.x or older
+	magick() { "/usr/bin/$@"; }
+fi
+
+quality=98
+scale=100
+infiles=()
+outfiles=()
+addargs=()
+
+nproc=$(nproc)
+njobs=0
+ndone=0
+
+while getopts ":j:q:s:" OPT; do
+	case $OPT in
+	q) quality=${OPTARG%'%'};;
+	j) nproc=$OPTARG;;
+	s) scale=${OPTARG%'%'};;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ $1 =~ ^[0-9]+% ]]; then
+	quality=${1%'%'}
+	shift
+fi
+
+if (( ! $# )); then
+	die 0 "no input files specified"
+fi
+
+for arg; do
+	if [[ ! -e $arg ]]; then
+		warn "input file '$arg' does not exist"
+	elif [[ $arg =~ \.conv\.[^.]+$ ]]; then
+		notice "skipping already converted file '$arg'"
+	else
+		infiles+=("$arg")
+	fi
+done
+
+if (( quality < 50 || quality > 100 )); then
+	die "invalid quality value '$quality'"
+fi
+
+addargs+=(-background '#eeeeee' -alpha remove)
+addargs+=(-quality "$quality")
+
+if (( scale < 1 || scale > 100 )); then
+	die "invalid scale value '$scale'"
+fi
+
+if (( scale < 100 )); then
+	addargs+=(-scale "$scale%")
+fi
+
+if (( nproc < 1 || nproc > $(nproc)*4 )); then
+	die "invalid job count '$nproc'"
+fi
+
+echo "Recompressing ${#infiles[@]} files at scale $scale%, quality $quality% ($nproc jobs)"
+
+for iname in "${infiles[@]}"; do
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	while (( njobs >= nproc )); do
+		wait -n; (( --njobs )); (( ++ndone ))
+		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	done
+	oname=${iname%.*}.conv.jpg
+	{
+		magick convert "$iname" "${addargs[@]}" "$oname" &&
+		touch "$oname" --reference="$iname" 2>/dev/null
+	} & (( ++njobs ))
+	outfiles+=("$oname")
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+done
+while (( njobs )); do
+	wait -n; (( --njobs )); (( ++ndone ))
+	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+done
+printf '\n'
+
+for oname in "${outfiles[@]}"; do
+	[[ -s "$oname" ]] || exit
+done
+
+orig_total_str=$(du -hsc "${infiles[@]}" | awk 'END {print $1}')
+jpeg_total_str=$(du -hsc "${outfiles[@]}" | awk 'END {print $1}')
+
+orig_total_bytes=$(numfmt --from=iec "$orig_total_str")
+jpeg_total_bytes=$(numfmt --from=iec "$jpeg_total_str")
+
+orig_avg_str=$(numfmt --to=iec $[orig_total_bytes/${#infiles[@]}])
+jpeg_avg_str=$(numfmt --to=iec $[jpeg_total_bytes/${#outfiles[@]}])
+
+echo "Orig: $orig_total_str total ($orig_avg_str average)"
+echo "JPEG: $jpeg_total_str total ($jpeg_avg_str average)"

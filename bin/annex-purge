@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+from collections import namedtuple
+from fnmatch import fnmatch
+import os
+import sys
+from nullroute.core import Core
+from nullroute.misc import unquote
+import nullroute.string
+from subprocess import Popen, PIPE
+import subprocess
+
+Item = namedtuple("Item", ["num", "size", "key", "name"])
+
+_unused_path = None
+_unused_ts = None
+
+def fmt_size(x):
+    return nullroute.string.fmt_size(x, long_unit=None)
+
+def confirm(msg):
+    print(msg, end=" ", flush=True)
+    try:
+        return sys.stdin.readline().lower().startswith("y")
+    except KeyboardInterrupt:
+        sys.exit(1)
+
+def prompt(msg):
+    print(msg, end=" ", flush=True)
+    try:
+        return sys.stdin.readline().strip()
+    except KeyboardInterrupt:
+        sys.exit(1)
+
+def is_annex():
+    return subprocess.call(["git", "rev-parse", "refs/heads/git-annex"],
+                           stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL) == 0
+
+def git_dir():
+    with subprocess.Popen(["git", "rev-parse", "--git-dir"],
+                          stdout=subprocess.PIPE) as res:
+        return res.stdout.read().decode().rstrip("\n")
+
+def annex(*cmd):
+    return subprocess.Popen(["git", "annex", *cmd],
+                            stdout=subprocess.PIPE)
+
+def annex_run(*cmd, autocommit=True):
+    opts = []
+    if autocommit == False:
+        opts += ["-c", "annex.alwayscommit=false"]
+    return subprocess.call(["git", *opts, "annex", *cmd])
+
+def getkeysize(key):
+    for item in key.split("-"):
+        if item == "":
+            break
+        elif item[0] == "s":
+            return int(item[1:])
+    raise ValueError("no 'size' field in key %r" % key)
+
+def annex_unused(remote=None):
+    if remote and remote != "here":
+        args = ["--from=%s" % remote]
+    else:
+        args = []
+
+    with annex("unused", *args) as proc:
+        for line in proc.stdout:
+            line = line.decode(errors="surrogateescape")
+            if line.startswith("    "):
+                num, key = line.strip().split()
+                if num == "NUMBER":
+                    continue
+                yield int(num), key
+
+def verify_timestamp():
+    global _unused_path
+    global _unused_ts
+
+    if _unused_ts is None:
+        _unused_path = os.path.join(git_dir(), "annex/unused")
+        _unused_ts = os.stat(_unused_path).st_mtime
+    else:
+        check_ts = os.stat(_unused_path).st_mtime
+        if check_ts != _unused_ts:
+            Core.die("timestamp of %r has changed; exiting to avoid data corruption"
+                     % _unused_path)
+
+def _get_last_path(key):
+    with subprocess.Popen(["git", "log", "--format=",
+                                         "--name-only",
+                                         "--no-renames",
+                                         "-S%s" % key,
+                                         "-n1"],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            line = line.decode().strip()
+            try:
+                line = unquote(line, errors="backslashreplace")
+            except ValueError:
+                print(repr(line))
+                raise
+            return line
+
+class DbmCache():
+    def __init__(self, path):
+        import dbm
+        self.db = dbm.open(path, "c")
+        self.s_total = 0
+        self.s_warm = 0
+        self.s_cold = 0
+
+    def get(self, key, fallback):
+        self.s_total += 1
+        if key in self.db:
+            self.s_warm += 1
+        else:
+            self.db[key] = fallback()
+            self.s_cold += 1
+        return self.db[key]
+
+def get_last_path(key):
+    return key2name.get(key, lambda: (_get_last_path(key) or "").encode()).decode()
+
+def print_items(items):
+    total = 0
+    for num, size, key, name in items:
+        print("  %-4d  %8s  %s" % (num, fmt_size(size), name))
+        total += size
+    print("  ----  --------  -----")
+    print("  %-4d  %8s  %s" % (len(items), fmt_size(total), "TOTAL"))
+
+if not is_annex():
+    Core.die("not a git-annex repository")
+
+key2name = DbmCache(os.path.join(git_dir(), "annex-purge-key2name.db"))
+
+remote = sys.argv[1] if len(sys.argv) > 1 else None
+
+remote_str = (remote or "local repository")
+remote_arg = ["--from=%s" % remote] if remote else []
+
+Core.info("searching for unused data in %s" % remote_str)
+unused = list(annex_unused(remote))
+verify_timestamp()
+
+Core.info("listing %d unused files" % len(unused))
+n_found = len(unused)
+sz_found = 0
+items = []
+for num, key in unused:
+    try:
+        size = getkeysize(key)
+    except ValueError:
+        size = 0
+    sz_found += size
+    name = get_last_path(key)
+    name = os.path.basename(name) if name else key
+    items.append(Item(num, size, key, name))
+items.sort(key=lambda x: x[3].casefold())
+k_dropped = set()
+print_items(items)
+
+while n_found:
+    items = [i for i in items if i.key not in k_dropped]
+    cmd = prompt("Drop %d files (%s) from %s?" % (n_found, fmt_size(sz_found),
+                                                  remote_str)).split(None, 1)
+    if not cmd or cmd[0] in {"n", "no", "q", "quit"}:
+        Core.info("exiting")
+        break
+    elif cmd[0] in {"y", "yes"}:
+        verify_timestamp()
+        Core.info("dropping all unused files from %s" % remote_str)
+        annex_run("dropunused", *remote_arg, "--force", "all")
+        Core.info("dropped %d files (%s)" % (n_found, fmt_size(sz_found)))
+        break
+    elif cmd[0] in {"d", "drop"}:
+        verify_timestamp()
+        todo = [i for i in items if fnmatch(i.name, cmd[1])]
+        Core.info("dropping %d files matching %r" % (len(todo), cmd[1]))
+        dropped = []
+        failed = []
+        for i, f in enumerate(todo):
+            Core.say("dropping %r (%d/%d)", f.name, i+1, len(todo))
+            r = annex_run("drop", *remote_arg, "--force", "--key=%s" % f.key,
+                          autocommit=False)
+            if r == 0:
+                dropped.append(f)
+            else:
+                failed.append(f)
+        if failed:
+            n_fail = len(failed)
+            sz_fail = sum([i.size for i in failed])
+            Core.err("failed to drop %d files (%s)" % (n_fail, fmt_size(sz_fail)))
+        if dropped:
+            annex_run("merge") # commit changes
+            n_dropped = len(dropped)
+            n_found -= n_dropped
+            sz_dropped = sum([i.size for i in dropped])
+            sz_found -= sz_dropped
+            k_dropped |= {i.key for i in dropped}
+            Core.info("dropped %d files (%s)" % (n_dropped, fmt_size(sz_dropped)))
+        elif not todo:
+            Core.err("no files matched %r" % cmd[1])
+    elif cmd[0] in {"r", "recover"}:
+        todo = [i for i in items if fnmatch(i.name, cmd[1])]
+        Core.info("recovering %d files matching %r" % (len(todo), cmd[1]))
+        recovered = []
+        failed = []
+        for i, f in enumerate(todo):
+            Core.debug("creating placeholder for %r (%d/%d)", f.name, i+1, len(todo))
+            r = subprocess.call(["ln", "-nsf", ".git/annex/objects/%s" % f.key, f.name])
+            if r == 0:
+                recovered.append(f)
+            else:
+                failed.append(f)
+        if failed:
+            n_fail = len(failed)
+            sz_fail = sum([i.size for i in failed])
+            Core.err("failed to recover %d files (%s)" % (n_fail, fmt_size(sz_fail)))
+        if recovered:
+            names = [i.name for i in recovered]
+            r = annex_run("add", *names)
+            if r == 0:
+                n_recover = len(recovered)
+                n_found -= n_recover
+                sz_recover = sum([i.size for i in recovered])
+                sz_found -= sz_recover
+                k_dropped |= {i.key for i in recovered}
+                Core.info("recovered %d files (%s)" % (n_recover, fmt_size(sz_recover)))
+            else:
+                Core.err("annex add of symlinks failed")
+        elif not todo:
+            Core.err("no files matched %r" % cmd[1])
+    elif cmd[0] in {"get", "put"}:
+        if cmd[0] in {"put"}:
+            if remote:
+                Core.err("only 'get' is supported when working with remote repositories")
+                continue
+            xfer_arg = "--to=%s" % cmd.pop(1)
+        elif cmd[0] in {"get"}:
+            if not remote:
+                Core.err("only 'put' is supported when working with local repository")
+                continue
+            xfer_arg = "--from=%s" % remote
+        todo = [i for i in items if fnmatch(i.name, cmd[1])]
+        Core.info("copying %d files matching %r" % (len(todo), cmd[1]))
+        copied = []
+        failed = []
+        for i, f in enumerate(todo):
+            Core.info("transferring %r (%d/%d) from %s", f.name, i+1, len(todo), remote)
+            r = annex_run("transferkey", f.key, "--file=%s" % f.name, xfer_arg)
+            (copied if r == 0 else failed).append(f)
+        if copied:
+            n_copy = len(copied)
+            sz_copy = sum([i.size for i in copied])
+            Core.info("copied %d files (%s)" % (n_copy, fmt_size(sz_copy)))
+        if failed:
+            n_fail = len(failed)
+            sz_fail = sum([i.size for i in failed])
+            Core.err("failed to copy %d files (%s)" % (n_fail, fmt_size(sz_fail)))
+        if not todo:
+            Core.err("no files matched %r" % cmd[1])
+    elif cmd[0] in {"/", "p", "print"}:
+        todo = items
+        if len(cmd) > 1:
+            todo = [i for i in todo if fnmatch(i.name, cmd[1])]
+        print_items(todo)
+    elif cmd[0] in {"?", "h"}:
+        cmds = [
+            ("y", "yes", "drop everything"),
+            ("d", "drop <glob>", "drop items matching a wildcard"),
+            ("r", "recover <glob>", "re-add items matching a wildcard"),
+            ("/", "print", "display item list"),
+        ]
+        for s, l, d in cmds:
+            print("  %-1s  %-16s  %s" % (s, l, d))
+    else:
+        Core.err("unknown command %r" % cmd[0])
+
+if key2name.s_total:
+    pct = key2name.s_cold / key2name.s_total * 100
+    print("key2name:",
+        key2name.s_total, "total;",
+        key2name.s_cold, "cold;",
+        "%.1f" % (100 - pct), "% cached")

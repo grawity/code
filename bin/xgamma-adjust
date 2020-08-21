@@ -1,0 +1,64 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Nullroute::KitchenSink qw(gnome_show_osd);
+use POSIX qw(ceil floor);
+
+sub log10 { log(shift) / log(10); }
+
+sub clamp {
+	my ($val, $min, $max) = @_;
+	return ($val < $min) ? $min : ($val > $max) ? $max : $val;
+}
+
+my $set = undef;
+my $adj = undef;
+
+if (!@ARGV) {
+	$set = 1.0;
+} elsif ($ARGV[0] =~ /^[-+]/) {
+	$adj = $ARGV[0] + 0.0;
+} else {
+	$set = $ARGV[0] + 0.0;
+}
+
+my $min = 0.1;
+my $max = 10.0;
+
+sub nightlight_is_active {
+	system("nightlight", "is-active") == 0;
+}
+
+my ($red, $green, $blue);
+
+open(STDOUT, ">", "/dev/null");
+open(STDERR, ">", "/dev/null");
+
+if (nightlight_is_active()) {
+	show_osd("Gamma: Night Light", "night-light-symbolic", 0);
+	exit(0);
+}
+
+if (defined($adj)) {
+	if (`xgamma 2>&1` =~ /Red\s+([\d.]+), Green\s+([\d.]+), Blue\s+([\d.]+)/) {
+		$red = $1 + 0.0;
+		$green = $2 + 0.0;
+		$blue = $3 + 0.0;
+	}
+	$red = clamp($red + $adj, $min, $max);
+	$green = clamp($green + $adj, $min, $max);
+	$blue = clamp($blue + $adj, $min, $max);
+} else {
+	$red = $green = $blue = clamp($set, $min, $max);
+}
+
+system("xgamma",
+	"-rgamma", $red,
+	"-ggamma", $green,
+	"-bgamma", $blue);
+
+my $avg = ($red + $green + $blue) / 3.0;
+my $level = ceil(log($avg) / log($max) / 2 * 100) + 50;
+$level = clamp($level, 0.1, 100); # OSD doesn't like zero
+
+gnome_show_osd(sprintf("Gamma: %.01f", $avg), "camera-photo-symbolic", $level);

@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+def get_local_tags():
+    tags = set()
+    with os.popen("git tag") as proc:
+        for line in proc:
+            tags.add(line.strip())
+    return tags
+
+def get_remotes():
+    remotes = set()
+    with os.popen("git remote") as proc:
+        for line in proc:
+            remotes.add(line.strip())
+    return remotes
+
+def get_remote_tagopt(remote="origin"):
+    with os.popen("git config remote.%s.tagopt" % remote) as proc:
+        line = proc.read().strip()
+    return (line != "--no-tags")
+
+def get_remote_tags(remote="origin"):
+    tags = set()
+    prefix = "refs/tags/"
+    with os.popen("git ls-remote %s" % remote) as proc:
+        for line in proc:
+            sha, ref = line.strip().split()
+            if ref.endswith("^{}"):
+                continue
+            if ref.startswith(prefix):
+                tags.add(ref[len(prefix):])
+    return tags
+
+do_clean = False
+
+try:
+    if sys.argv[1] == "-d":
+        do_clean = True
+        sys.argv.pop(1)
+except IndexError:
+    pass
+
+remotes = sys.argv[1:] or get_remotes()
+
+local_tags = get_local_tags()
+remote_tags = set()
+tag_remotes = dict()
+for remote in remotes:
+    if get_remote_tagopt(remote):
+        tags = get_remote_tags(remote)
+        remote_tags |= tags
+        for tag in tags:
+            tag_remotes.setdefault(tag, set()).add(remote)
+
+if do_clean:
+    diff = local_tags - remote_tags
+    for tag in diff:
+        os.system("git tag -d '%s'" % tag)
+else:
+    diff = local_tags - remote_tags
+    if diff:
+        print("# Local only:")
+        for tag in sorted(diff):
+            print("+ %s" % tag)
+
+    diff = remote_tags - local_tags
+    if diff:
+        print("# Remote only:")
+        for tag in sorted(diff):
+            remotes = ", ".join(sorted(tag_remotes[tag]))
+            print("- %s (%s)" % (tag, remotes))

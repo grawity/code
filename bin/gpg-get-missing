@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+gpg --with-colons --list-sigs "$@" | {
+	declare -A todo=()
+	while IFS=: read -r type _ _ _ id _ _ _ _ uid _; do
+		if [[ $type == sig ]]; then
+			if [[ $uid == *User\ ID\ not\ found* ]]; then
+				echo "- [$id] $uid"
+				todo[$id]=1
+			else
+				echo "+ [$id] $uid"
+			fi
+		fi
+	done
+	echo "recv ${!todo[@]}"
+	gpg --recv-keys "${!todo[@]}"
+}

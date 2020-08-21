@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+iso=$1
+
+[[ -s "$iso" ]] || die "image file not found: $iso"
+
+if have growisofs; then
+	dev=/dev/cdrom
+	growisofs -Z "$dev=$iso"
+elif have wodim; them
+	wodim -sao "$iso"
+elif have cdrecord; then
+	cdrecord -sao "$iso"
+elif have cdrdao; then
+	toc=$(mktemp "/tmp/burn-XXXXXXXX.toc") || exit
+	trap 'rm -f "$toc"; exit' INTR
+	printf 'TRACK MODE1\nDATAFILE "%s"\n' "$iso" > "$toc"
+	cdrdao write --overburn "$toc"
+	rm -f "$toc"
+fi

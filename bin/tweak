@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+# tweak - change various non-exposed settings
+
+. lib.bash || exit
+
+require() {
+	if [[ $font && $font != '-' ]]; then
+		case $1 in
+		gtk)
+			re=' [[:digit:]]+$'
+			eg='Cantarell 11'
+			[[ $font =~ $re ]];;
+		esac || die "bad font spec '$font' (example: '$eg')"
+	fi
+}
+
+do_gsettings() {
+	local schema=$1 key=$2 value=$3 type=${4:-raw}
+	if [[ $value == '-' || $value == 'reset' ]]; then
+		debug "resetting '$schema' '$key'"
+		gsettings reset "$schema" "$key"
+		info "$schema $key reset to $(gsettings get "$schema" "$key")"
+	elif [[ $value ]]; then
+		case ${type#--} in
+		    uri)
+			value=${value#"'"}
+			value=${value%"'"}
+			[[ $value == *://* ]] ||
+				value="file://$(urlencode -p "$(realpath -s "$value")")"
+			value="'$value'"
+			;;
+		    bool)
+			case ${value,,} in
+			    t*|y*|1|on)  value="true";;
+			    f*|n*|0|off) value="false";;
+			esac
+			;;
+		    string)
+			[[ $value == \'*\' ]] ||
+				value="'$value'"
+			;;
+		    relativetime)
+			case $value in
+			    *m) value=$[ ${value%m} * 60 ];;
+			    *h) value=$[ ${value%m} * 60 * 60 ];;
+			esac
+			value="uint32 $value"
+			;;
+		esac
+		debug "writing '$schema' '$key' '$value'"
+		gsettings set "$schema" "$key" "$value"
+	else
+		debug "reading '$schema' '$key'"
+		gsettings get "$schema" "$key"
+	fi
+}
+
+do_dconf() {
+	local path=$1 value=$2
+	if [[ $value == '-' || $value == 'reset' ]]; then
+		debug "resetting '$path'"
+		dconf reset "$path"
+	elif [[ $value ]]; then
+		debug "writing '$path' \"'$value'\""
+		dconf write "$path" "'$value'"
+	else
+		debug "reading '$path'"
+		dconf read "$path"
+	fi
+}
+
+do_xfconf() {
+	local channel=$1 path=$2 value=$3
+	if [[ $value == '-' || $value == 'reset' ]]; then
+		debug "resetting channel '$channel' path '$path'"
+		xfconf-query -c "$channel" -p "$path" --reset
+	elif [[ $value ]]; then
+		debug "writing channel '$channel' path '$path' to '$value'"
+		xfconf-query -c "$channel" -p "$path" --set "$value"
+	else
+		debug "reading channel '$channel' path '$path'"
+		xfconf-query -c "$channel" -p "$path"
+	fi
+}
+
+tweak=$1 value=$2
+
+if [[ $tweak != */* ]]; then
+	session=$DESKTOP_SESSION
+	session=${session%-xorg}
+	tweak=$session/$tweak
+fi
+
+case $tweak in
+gnome/attach-dialogs)
+	do_gsettings org.gnome.shell.overrides attach-modal-dialogs "$value" --bool
+	;;
+gnome/battery-percentage)
+	do_gsettings org.gnome.desktop.interface show-battery-percentage "$value" --bool
+	;;
+gnome/animate|gnome/animations)
+	do_gsettings org.gnome.desktop.interface enable-animations "$value" --bool
+	;;
+gnome/touchpad-speed|gnome/touchpad-accel)
+	do_gsettings org.gnome.desktop.peripherals.touchpad speed "$value" --float
+	;;
+gnome/touchpad-dwt|gnome/disable-while-typing)
+	do_gsettings org.gnome.desktop.peripherals.touchpad disable-while-typing "$value" --bool
+	;;
+gnome/focus-mode)
+	do_gsettings org.gnome.desktop.wm.preferences focus-mode "$value"
+	;;
+gnome/lock|gnome/do-lock|gnome/lock-enabled)
+	do_gsettings org.gnome.desktop.screensaver lock-enabled "$value" --bool
+	;;
+gnome/lock-delay)
+	do_gsettings org.gnome.desktop.screensaver lock-delay "$value" --relativetime
+	;;
+gnome/wallpaper)
+	if [[ $value == --fav ]]; then
+		cd ~/Pictures/Wallpapers
+		value=$(shuf < used.txt | head -1)
+		log "using $value"
+	elif [[ $value == --rand ]]; then
+		cd ~/Pictures/Wallpapers
+		value=$(find -type f |
+			egrep '\.(jpe?g|png)$' |
+			egrep -v '/Textures/|NSFW|Witty|GNOME-|Old comput' |
+			shuf | head -1)
+		log "using $value"
+	elif [[ ! $value ]]; then
+		do_gsettings org.gnome.desktop.background picture-uri | sed "s/'//g"
+		exit
+	fi
+	if [[ $value == \'*\' ]]; then
+		value=${value#\'}
+		value=${value%\'}
+	fi
+	if [[ $value == file://* ]]; then
+		value=${value#'file://'}
+		value=$(urlencode -d "$value")
+	fi
+	if [[ ! -e $value ]]; then
+		base=$(basename "$value")
+		log "trying to find $base"
+		new=$(find . -type f -name "$base" | head -n 1)
+		if [[ $new && -e $new ]]; then
+			log "found at $new"
+			value=$new
+		else
+			die "not found: $value"
+		fi
+	fi
+	do_gsettings org.gnome.desktop.background picture-uri "$value" --uri
+	;;
+gnome/lockscreen|gnome/lock-screen)
+	do_gsettings org.gnome.desktop.screensaver picture-uri "$value" --uri
+	;;
+gnome/gtk-theme)
+	do_gsettings org.gnome.desktop.interface gtk-theme "$value"
+	;;
+gnome/icon-theme)
+	do_gsettings org.gnome.desktop.interface icon-theme "$value"
+	;;
+gnome/wm-theme)
+	do_gsettings org.gnome.desktop.wm.preferences theme "$value"
+	;;
+gnome/antialias)
+	do_gsettings org.gnome.settings-daemon.plugins.xsettings antialiasing "$value"
+	;;
+gnome/hinting)
+	do_gsettings org.gnome.settings-daemon.plugins.xsettings hinting "$value"
+	;;
+gnome/rgba)
+	do_gsettings org.gnome.settings-daemon.plugins.xsettings rgba-order "$value"
+	;;
+gnome/text-scaling)
+	do_gsettings org.gnome.desktop.interface text-scaling-factor "$value"
+	;;
+gnome/natural-scroll)
+	do_gsettings org.gnome.desktop.peripherals.touchpad natural-scroll "$value"
+	;;
+gnome/dwt|gnome/disable-while-typing)
+	do_gsettings org.gnome.desktop.peripherals.touchpad disable-while-typing "$value" --bool
+	;;
+gnome/automount)
+	do_gsettings org.gnome.desktop.media-handling automount "$value" --bool
+	;;
+vino/require-tls)
+	do_gsettings org.gnome.Vino require-encryption "$value" --bool
+	;;
+xfce/gtk-theme)
+	do_xfconf xsettings /Net/ThemeName "$value"
+	;;
+xfce/wm-theme)
+	do_xfconf xfwm4 /general/theme "$value"
+	;;
+*)
+	die "unknown setting '$tweak'"
+	;;
+esac

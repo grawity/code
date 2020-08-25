@@ -10,9 +10,27 @@ for dev in /sys/bus/usb/devices/*; do
 		continue
 	fi
 
-	{ manu=$(< $dev/manufacturer) || manu="(unknown)"
-	  prod=$(< $dev/product) || prod="${dev#/sys/bus/usb/devices/}"
-	} 2> /dev/null
+	vid=$(< $dev/idVendor)
+	pid=$(< $dev/idProduct)
+	modalias=usb:v${vid^^}p${pid^^}
+
+	manu=$(systemd-hwdb query $modalias | sed -n 's/^ID_VENDOR_FROM_DATABASE=//p')
+	if [[ ! $manu ]]; then
+		if [[ -e $dev/manufacturer ]]; then
+			manu=$(< $dev/manufacturer)
+		else
+			manu="Unknown vendor $vid"
+		fi
+	fi
+
+	prod=$(systemd-hwdb query $modalias | sed -n 's/^ID_MODEL_FROM_DATABASE=//p')
+	if [[ ! $prod ]]; then
+		if [[ -e $dev/product ]]; then
+			prod=$(< $dev/product)
+		else
+			prod="Unknown product $pid"
+		fi
+	fi
 
 	autosusp=$(< $dev/power/autosuspend)
 	rstat=$(< $dev/power/runtime_status)

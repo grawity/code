@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import glob
 import re
 import subprocess
+import sys
 import pprint
 
 def enum_subvolumes(root):
@@ -12,43 +14,47 @@ def enum_subvolumes(root):
             m = re.match(r"^ID (\d+) gen \d+ top level (\d+) path (.+)$", line)
             yield int(m.group(1)), int(m.group(2)), m.group(3)
 
-mtpt = "/ember"
-roots = {}
-names = {}
-paths = {}
+args = sys.argv[1:]
+if not args:
+    args = glob.glob("/run/btrfs/*/")
 
-for subvol_id, parent_id, subvol_name in enum_subvolumes(mtpt):
-    names[subvol_id] = subvol_name
-    roots[subvol_id] = parent_id
+for mtpt in args:
+    roots = {}
+    names = {}
+    paths = {}
 
-for subvol_id in names:
-    path = []
-    parent_id = subvol_id
-    while parent_id != 5:
-        path.append(names[parent_id])
-        parent_id = roots[parent_id]
-    paths[subvol_id] = "/".join(path[::-1])
+    for subvol_id, parent_id, subvol_name in enum_subvolumes(mtpt):
+        names[subvol_id] = subvol_name
+        roots[subvol_id] = parent_id
 
-cmd = [
-    "column",
-    "--separator=\t",
-    "--table",
-    "--table-columns=ID,PARENT,NAME,PATH",
-    "--table-order=NAME",
-    "--table-hide=ID,PARENT,PATH",
-    "--tree=NAME",
-    "--tree-id=ID",
-    "--tree-parent=PARENT",
-]
-with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
     for subvol_id in names:
-        line = [
-            subvol_id,
-            roots[subvol_id],
-            names[subvol_id] or "(root)",
-            paths[subvol_id] or "@",
-        ]
-        line = "\t".join(map(str, line)) + "\n"
-        line = line.encode()
-        proc.stdin.write(line)
-    proc.stdin.close()
+        path = []
+        parent_id = subvol_id
+        while parent_id != 5:
+            path.append(names[parent_id])
+            parent_id = roots[parent_id]
+        paths[subvol_id] = "/".join(path[::-1])
+
+    cmd = [
+        "column",
+        "--separator=\t",
+        "--table",
+        "--table-columns=ID,PARENT,NAME,PATH",
+        "--table-order=NAME",
+        "--table-hide=ID,PARENT,PATH",
+        "--tree=NAME",
+        "--tree-id=ID",
+        "--tree-parent=PARENT",
+    ]
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
+        for subvol_id in names:
+            line = [
+                subvol_id,
+                roots[subvol_id],
+                names[subvol_id] or "%s" % mtpt,
+                paths[subvol_id] or "@",
+            ]
+            line = "\t".join(map(str, line)) + "\n"
+            line = line.encode()
+            proc.stdin.write(line)
+        proc.stdin.close()

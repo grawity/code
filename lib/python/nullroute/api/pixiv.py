@@ -62,7 +62,7 @@ class PixivApiClient():
             # hence the "+ 300". (In particular because the token lasts exactly 1 hour,
             # so it will expire every 4th cronjob run, *usually during the run.*)
             if os.environ.get("FORCE_TOKEN_REFRESH"):
-                Core.debug("access token invalidated by environment variable, renewing")
+                Core.notice("access token invalidated by environment variable, renewing")
                 token_valid = False
             elif exp >= (now + 300):
                 Core.debug("access token still valid for %.1f seconds, using as-is", exp-now)

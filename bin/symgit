@@ -48,6 +48,24 @@ case $cmd in
 			ssh $host "mv -Tvn $dir/${old@Q} $dir/${new@Q}"
 		fi
 		;;
+	export)
+		if (( !$# )); then
+			die "no repository names given"
+		fi
+		for arg; do
+			arg=${arg%.git}.git
+			url=$prefix${arg%.git}
+			if ! ssh $host "test -d $dir/${arg@Q}"; then
+				err "repository '$url' does not exist"
+				continue
+			elif ssh $host "test -d $dir/${arg@Q}/git-daemon-export-ok"; then
+				info "repository '$url' already public"
+				continue
+			fi
+			info "publishing repository '$url'"
+			ssh $host "touch $dir/${arg@Q}/git-daemon-export-ok"
+		done
+		;;
 esac
 
 lib::exit

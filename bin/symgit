@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+host=star
+dir='~/pub/git'
+prefix='nullroute:'
+
+klist -s || kinit || die "no Kerberos credentials"
+
+cmd=$1; shift
+
+case $cmd in
+	ls|list)
+		if (( $# )); then
+			die "extraneous arguments: '$*'"
+		fi
+		ssh $host "find $dir -type d -name '*.git' -printf '%P\n' -prune" | sort \
+		| sed "s|^|$prefix|; s|\\.git\$||"
+		;;
+	new)
+		if (( !$# )); then
+			die "no repository names given"
+		fi
+		for arg; do
+			arg=${arg%.git}.git
+			url=$prefix${arg%.git}
+			if ssh $host "test -d $dir/${arg@Q}"; then
+				err "repository '$url' already exists"
+				continue
+			fi
+			info "creating repository '$url'"
+			ssh $host "git init --bare $dir/${arg@Q}"
+		done
+		;;
+esac
+
+lib::exit

@@ -45,6 +45,7 @@ class PixivApiClient():
 
     def _load_creds(self):
         creds = nullroute.sec.get_netrc("pixiv.net", service="api")
+        Core.trace("got credentials from netrc: %r", creds)
         return creds
 
     def _authenticate(self):

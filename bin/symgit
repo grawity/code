@@ -33,6 +33,21 @@ case $cmd in
 			ssh $host "git init --bare $dir/${arg@Q}"
 		done
 		;;
+	mv|move|rename)
+		if (( $# != 2 )); then
+			die "usage: $0 $cmd <old> <new>"
+		fi
+		old=${1%.git}.git; oldu=$prefix${old%.git}
+		new=${2%.git}.git; newu=$prefix${new%.git}
+		if ! ssh $host "test -d $dir/${old@Q}"; then
+			err "source repository '$oldu' does not exist"
+		elif ssh $host "test -d $dir/${new@Q}"; then
+			err "target repository '$newu' already exists"
+		else
+			info "renaming repository '$oldu' => '$newu'"
+			ssh $host "mv -Tvn $dir/${old@Q} $dir/${new@Q}"
+		fi
+		;;
 esac
 
 lib::exit

@@ -175,10 +175,11 @@ class PixivClient():
 
     def fmt_member_tag(self, member_id, member_name):
         member_name = self.member_name_map.get(str(member_id), member_name)
-        # Dropbox cannot sync non-BMP characters
-        member_name = re.sub(r"[^\u0000-\uFFFF]",
-                             lambda m: "[U+%04X]" % ord(m.group(0)),
-                             member_name)
+        if False:
+            # Dropbox cannot sync non-BMP characters
+            member_name = re.sub(r"[^\u0000-\uFFFF]",
+                                 lambda m: "[U+%04X]" % ord(m.group(0)),
+                                 member_name)
         if str(member_id) not in self.member_name_map:
             # Strip temporary info unless it was hardcoded in the map
             member_name = re.sub("(@|＠).*", "", member_name)

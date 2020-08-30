@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+import argparse
+import time
+
+def get_loads():
+    v = open("/proc/loadavg").read().split()
+    return float(v[0]), float(v[1]), float(v[2])
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--1-min", dest="interval", action="store_const", const=0, default=0)
+parser.add_argument("-b", "--5-min", dest="interval", action="store_const", const=1, default=0)
+parser.add_argument("-c", "--15-min", dest="interval", action="store_const", const=2, default=0)
+parser.add_argument("--above", action="store_true")
+parser.add_argument("target", nargs="?", type=float, default=0.5)
+args = parser.parse_args()
+
+target = float(args.target)
+interval = [1, 5, 15][args.interval]
+polltime = 10 * interval
+
+print("waiting for %s-minute load to reach %.1f" % (interval, target))
+while True:
+    load = get_loads()
+    print("current load: %.1f / %.1f / %.1f" % load, end="\r", flush=True)
+    if args.above == True and load[args.interval] > target:
+        break
+    if args.above == False and load[args.interval] < target:
+        break
+    time.sleep(polltime)
+print()

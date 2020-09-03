@@ -68,10 +68,10 @@ class PixivApiClient():
                 Core.debug("access token still valid for %.1f seconds, using as-is", exp-now)
                 token_valid = True
             elif exp >= now:
-                Core.notice("access token is about to expire in %.1f seconds, renewing", exp-now)
+                Core.debug("access token is about to expire in %.1f seconds, renewing", exp-now)
                 token_valid = False
             else:
-                Core.notice("access token has expired %.1f seconds ago, renewing", now-exp)
+                Core.debug("access token has expired %.1f seconds ago, renewing", now-exp)
                 token_valid = False
 
             if token_valid:

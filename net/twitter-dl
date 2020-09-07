@@ -21,8 +21,16 @@ class TwitterMediaScraper(Scraper):
             Core.die("unrecognized URL %r", url)
 
         status = self.api.get_status(id, tweet_mode="extended")
-        #pprint(status._json)
         author = status.user.screen_name
+
+        if not hasattr(status, "extended_entities"):
+            if Core._in_debug_mode():
+                pprint(status._json)
+                #pprint(status.__dict__)
+            Core.warn("tweet %r (%r) does not have attached media", url,
+                                                                    status.full_text[:30])
+            return False
+
         for i, medium in enumerate(status.extended_entities["media"]):
             #Core.info("processing medium %r", medium["expanded_url"])
             if medium["type"] in {"video", "animated_gif"}:

@@ -60,17 +60,19 @@ try:
         subnet = next(subnets)
     else:
         for subnet in subnets:
+            count += 1
             if opt_list:
                 print(subnet)
+                if count > 2**24:
+                    Core.die("output limit of 2^24 subnets reached (total %d)" % total)
             else:
                 print(" ", subnet)
-            count += 1
-            if count > 2**5:
-                last_net = ip_interface("%s/%s" % (net.broadcast_address,
-                                                   subnet.prefixlen)).network
-                print(" ", "... (%d more subnets)" % (total - count - 1))
-                print(" ", last_net)
-                break
+                if count > 2**5:
+                    last_net = ip_interface("%s/%s" % (net.broadcast_address,
+                                                       subnet.prefixlen)).network
+                    print(" ", "... (%d more subnets)" % (total - count - 1))
+                    print(" ", last_net)
+                    break
 
     if not opt_list:
         if net.version == 6 and subnet.prefixlen < 64:

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import enum
+import os
 from pprint import pprint
 
 class MtabReader():
@@ -27,11 +29,89 @@ class MtabReader():
                 mtpt = self._unescape(mtpt)
                 yield dev, mtpt, fstype
 
+def get_user_name():
+    return os.environ.get("LOGNAME", "root")
+
+def get_home_dir():
+    return os.path.expanduser("~")
+
+def get_media_dir():
+    return "/run/media/%s" % get_user_name()
+
+class Kind(enum.Enum):
+    Misc        = 1
+    Home        = 2
+    Root        = 3     # like Fixed, but sorted first
+    Kernel      = 4
+    System      = 5
+    Fixed       = 6
+    Portable    = 7
+    Network     = 8
+
 class Volume():
     def __init__(self):
         pass
 
+    def __repr__(self):
+        return "<Volume (%s)>" % ", ".join(["%s=%r" % (k, v) for k, v in sorted(self.__dict__.items())])
+
 def enum_volumes():
+    kernel_fstypes = {
+        "cgroup",
+        "cgroup2",
+        "fusectl",
+        "tracefs",
+        "pstore",
+        "proc",
+    }
+    virtual_fstypes = {
+        *kernel_fstypes,
+        "fuse.gvfsd-fuse",
+    }
+
     for dev, mtpt, fstype in MtabReader():
+        v = Volume()
+        v.device = dev
+        v.mount = mtpt
+        v.fstype = fstype
+        v.kind = Kind.Misc
+
+        mtpt = mtpt.rstrip("/") + "/"
+        home = get_home_dir().rstrip("/") + "/"
+        media = get_media_dir().rstrip("/") + "/"
+
+        if mtpt == "/":
+            v.kind = Kind.Root
+        elif mtpt.startswith("/run/btrfs/"):
+            v.kind = Kind.Fixed
+        elif mtpt.startswith(("/dev/", "/proc/", "/sys/")):
+            v.kind = Kind.Kernel
+        elif fstype in virtual_fstypes:
+            v.kind = Kind.Kernel
+        elif mtpt.startswith(("/boot/", "/run/", "/tmp/")):
+            v.kind = Kind.System
+        #elif fstype == "tmpfs":
+        #    v.kind = Kind.Kernel
+        elif fstype in {"nfs"}:
+            v.kind = Kind.Network
+
+        if v.kind == Kind.Kernel:
+            continue
+
+        if mtpt == "/":
+            v.label = "/ (rootfs)"
+            v.kind = Kind.Root
+        elif mtpt == home:
+            v.label = "~"
+            v.kind = Kind.Home
+        elif mtpt.startswith(home):
+            v.label = "~/" + mtpt[len(home):-1]
+        elif mtpt.startswith(media):
+            v.label = mtpt[len(media):-1]
+            v.kind = Kind.Portable
+        else:
+            v.label = mtpt[:-1]
+
+        yield v
 
 pprint([*enum_volumes()])

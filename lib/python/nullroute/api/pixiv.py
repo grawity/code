@@ -45,6 +45,7 @@ class PixivApiClient():
 
     def _load_creds(self):
         creds = nullroute.sec.get_netrc("pixiv.net", service="api")
+        Core.trace("got credentials from netrc: %r", creds)
         return creds
 
     def _authenticate(self):
@@ -61,7 +62,7 @@ class PixivApiClient():
             # hence the "+ 300". (In particular because the token lasts exactly 1 hour,
             # so it will expire every 4th cronjob run, *usually during the run.*)
             if os.environ.get("FORCE_TOKEN_REFRESH"):
-                Core.debug("access token invalidated by environment variable, renewing")
+                Core.notice("access token invalidated by environment variable, renewing")
                 token_valid = False
             elif exp >= (now + 300):
                 Core.debug("access token still valid for %.1f seconds, using as-is", exp-now)
@@ -174,10 +175,11 @@ class PixivClient():
 
     def fmt_member_tag(self, member_id, member_name):
         member_name = self.member_name_map.get(str(member_id), member_name)
-        # Dropbox cannot sync non-BMP characters
-        member_name = re.sub(r"[^\u0000-\uFFFF]",
-                             lambda m: "[U+%04X]" % ord(m.group(0)),
-                             member_name)
+        if False:
+            # Dropbox cannot sync non-BMP characters
+            member_name = re.sub(r"[^\u0000-\uFFFF]",
+                                 lambda m: "[U+%04X]" % ord(m.group(0)),
+                                 member_name)
         if str(member_id) not in self.member_name_map:
             # Strip temporary info unless it was hardcoded in the map
             member_name = re.sub("(@|＠).*", "", member_name)

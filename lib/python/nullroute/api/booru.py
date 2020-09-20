@@ -302,6 +302,18 @@ class MoebooruApi(BooruApi):
         for item in tree.xpath("/posts/post"):
             yield dict(item.attrib)
 
+    def list_pool(self, pool_id, page=1):
+        ep = "/pool/show.xml"
+        args = {"id": pool_id,
+                "page": page}
+
+        resp = self.ua.get(self.SITE_URL + ep, params=args)
+        resp.raise_for_status()
+
+        tree = lxml.etree.XML(resp.content)
+        for item in tree.xpath("/pool/posts/post"):
+            yield dict(item.attrib)
+
     # information unavailable via API (tag types)
 
     @lru_cache(maxsize=1024)

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+host=star
+dir='~/pub/git'
+prefix='nullroute:'
+
+klist -s || kinit || die "no Kerberos credentials"
+
+cmd=$1; shift
+
+case $cmd in
+	ls|list)
+		if (( $# )); then
+			die "extraneous arguments: '$*'"
+		fi
+		ssh $host "find $dir -type d -name '*.git' -printf '%P\n' -prune" | sort \
+		| sed "s|^|$prefix|; s|\\.git\$||"
+		;;
+	new)
+		if (( !$# )); then
+			die "no repository names given"
+		fi
+		for arg; do
+			arg=${arg%.git}.git
+			url=$prefix${arg%.git}
+			if ssh $host "test -d $dir/${arg@Q}"; then
+				err "repository '$url' already exists"
+				continue
+			fi
+			info "creating repository '$url'"
+			ssh $host "git init --bare $dir/${arg@Q}"
+		done
+		;;
+	mv|move|rename)
+		if (( $# != 2 )); then
+			die "usage: $0 $cmd <old> <new>"
+		fi
+		old=${1%.git}.git; oldu=$prefix${old%.git}
+		new=${2%.git}.git; newu=$prefix${new%.git}
+		if ! ssh $host "test -d $dir/${old@Q}"; then
+			err "source repository '$oldu' does not exist"
+		elif ssh $host "test -d $dir/${new@Q}"; then
+			err "target repository '$newu' already exists"
+		else
+			info "renaming repository '$oldu' => '$newu'"
+			ssh $host "mv -Tvn $dir/${old@Q} $dir/${new@Q}"
+		fi
+		;;
+	export)
+		if (( !$# )); then
+			die "no repository names given"
+		fi
+		for arg; do
+			arg=${arg%.git}.git
+			url=$prefix${arg%.git}
+			if ! ssh $host "test -d $dir/${arg@Q}"; then
+				err "repository '$url' does not exist"
+				continue
+			elif ssh $host "test -d $dir/${arg@Q}/git-daemon-export-ok"; then
+				info "repository '$url' already public"
+				continue
+			fi
+			info "publishing repository '$url'"
+			ssh $host "touch $dir/${arg@Q}/git-daemon-export-ok"
+		done
+		;;
+esac
+
+lib::exit

@@ -1,18 +1,34 @@
 #!/usr/bin/env bash
 # usb-status -- display USB power management status on Linux
 
-fmt="%-10s %-54s %-4s %-10s %-10s\n"
-
-printf "$fmt" "ID" "DEVICE" "AUTO" "RUNTIME" "STATUS"
-
+{
+printf "%s\t%s\t%s\t%s\t%s\n" "ID" "DEVICE" "AUTO" "RUNTIME" "STATUS"
 for dev in /sys/bus/usb/devices/*; do
 	if ! test -e $dev/power/autosuspend; then
 		continue
 	fi
 
-	{ manu=$(< $dev/manufacturer) || manu="(unknown)"
-	  prod=$(< $dev/product) || prod="${dev#/sys/bus/usb/devices/}"
-	} 2> /dev/null
+	vid=$(< $dev/idVendor)
+	pid=$(< $dev/idProduct)
+	modalias=usb:v${vid^^}p${pid^^}
+
+	manu=$(systemd-hwdb query $modalias | sed -n 's/^ID_VENDOR_FROM_DATABASE=//p')
+	if [[ ! $manu ]]; then
+		if [[ -e $dev/manufacturer ]]; then
+			manu=$(< $dev/manufacturer)
+		else
+			manu="Unknown vendor $vid"
+		fi
+	fi
+
+	prod=$(systemd-hwdb query $modalias | sed -n 's/^ID_MODEL_FROM_DATABASE=//p')
+	if [[ ! $prod ]]; then
+		if [[ -e $dev/product ]]; then
+			prod=$(< $dev/product)
+		else
+			prod="Unknown product $pid"
+		fi
+	fi
 
 	autosusp=$(< $dev/power/autosuspend)
 	rstat=$(< $dev/power/runtime_status)
@@ -20,5 +36,6 @@ for dev in /sys/bus/usb/devices/*; do
 
 	manu=${manu//"$(uname -sr)"/"$(uname -s)"}
 
-	printf "$fmt" "${dev##*/}" "$manu $prod" "$autosusp" "${renab:0:10}" "${rstat:0:10}"
+	printf "%s\t%s\t%s\t%s\t%s\n" "${dev##*/}" "$manu $prod" "$autosusp" "${renab:0:10}" "${rstat:0:10}"
 done
+} | column -t -s $'\t'

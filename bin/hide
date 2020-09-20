@@ -5,13 +5,14 @@
 . libks.bash || exit
 
 usage() {
-	echo "Usage: $progname [-d <dir>] [-T] <files>..."
+	echo "Usage: $progname [-d <dir>] [-T] [-y <year>] <files>..."
 	echo ""
 	echo "Puts useless files in ~/Attic/Misc/<year>/ because I don't want to actually"
 	echo "delete them."
 	echo ""
 	echo_opt "-d <dir>" "Put all files in a subdirectory"
 	echo_opt "-T" "Use current year, not file modification time"
+	echo_opt "-y <year>" "Use specified year, not file modification time"
 }
 
 _put() {
@@ -29,12 +30,14 @@ dir="$HOME/Attic/Misc"
 
 arg_mtime=1
 arg_subdir=
+arg_year=$(date +%Y)
 
-while getopts ":D:d:T" OPT; do
+while getopts ":D:d:Ty:" OPT; do
 	case $OPT in
 	D) dir=$OPTARG;;
 	d) arg_subdir=$OPTARG;;
-	T) arg_mtime=0;;
+	T) arg_mtime=0; arg_year=$(date +%Y);;
+	y) arg_mtime=0; arg_year=$OPTARG;;
 	*) die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -65,7 +68,9 @@ for arg; do
 	fi
 	debug "... base='$base' ext='$ext'"
 
-	if (( arg_mtime )); then
+	if (( arg_year )); then
+		dstdir=$dir/$arg_year
+	elif (( arg_mtime )); then
 		dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
 	else
 		dstdir=$dir/$(date +%Y)

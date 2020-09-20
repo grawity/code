@@ -39,6 +39,7 @@ class FileSyncStatus(enum.Enum):
     Unsyncable      = "unsyncable"
     Unwatched       = "unwatched"
     UpToDate        = "up to date"
+    Missing         = "gone"
 
 show_single_level = False
 
@@ -75,6 +76,8 @@ class DropboxClient():
                 break
         buf = buf.splitlines()
         if buf[0] != "ok":
+            if buf[0] == "notok" and buf[1] == "The 'path' argument does not exist":
+                raise FileNotFoundError()
             raise Exception("command %r gave non-ok result %r" % (command, buf))
         if buf[-1] != "done":
             raise Exception("command %r gave incomplete result %r" % (command, buf))
@@ -87,9 +90,13 @@ class DropboxClient():
     def sync_status(self, path):
         if not path.startswith("/"):
             raise ValueError("path must be absolute", path)
-        res = dc.cmd("icon_overlay_file_status", {"path": path})
-        res = res["status"][0]
-        res = FileSyncStatus(res)
+        try:
+            res = dc.cmd("icon_overlay_file_status", {"path": path})
+            res = res["status"][0]
+            res = FileSyncStatus(res)
+        except FileNotFoundError:
+            Core.warn("file %r could not be checked", path)
+            res = FileSyncStatus.Missing
         return res
 
     def bad_filename(self, name):

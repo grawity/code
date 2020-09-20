@@ -157,7 +157,7 @@ static void dump_statx(struct statx *stx)
 			"????????"	/* 39-32 */
 			"????????"	/* 31-24	0x00000000-ff000000 */
 			"????????"	/* 23-16	0x00000000-00ff0000 */
-			"???me???"	/* 15- 8	0x00000000-0000ff00 */
+			"??rme???"	/* 15- 8	0x00000000-0000ff00 */
 			"?dai?c??"	/*  7- 0	0x00000000-000000ff */
 			;
 
@@ -182,6 +182,32 @@ static void dump_statx(struct statx *stx)
 				putchar(' ');
 		}
 		printf(")\n");
+
+		static char *attr_name[64] = {
+			[2] = "compressed",
+			[4] = "immutable",
+			[5] = "append",
+			[6] = "nodump",
+			[11] = "encrypted",
+			[12] = "automount",
+			[13] = "mount_root",
+			[20] = "fsverity",
+		};
+
+		printf("Attributes");
+		unsigned long long attrs = stx->stx_attributes & stx->stx_attributes_mask;
+		int count = 0;
+		for (int bit = 0; bit < 64; bit++) {
+			if (attrs & (1ULL << bit)) {
+				printf(count++ ? ", " : ": ");
+				if (attr_name[bit]) {
+					printf("%s(%d)", attr_name[bit], bit);
+				} else {
+					printf("%s(%d)", "unknown", bit);
+				}
+			}
+		}
+		printf(count ? "\n" : ": (none)\n");
 	}
 }
 

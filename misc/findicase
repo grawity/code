@@ -23,6 +23,12 @@ def bad_ucs2_name(item):
     else:
         return False
 
+def hl(item):
+    return "\033[41m%s\033[m" % item
+
+def hl_win32_name(item):
+    return re.sub(r"(^(con|prn|aux|nul|com[1-9]|lpt[1-9])$|[. ]$|[?*<>|:\"\\\n])", hl(r"\1"), item, re.I)
+
 roots = sys.argv[1:] or ["."]
 bad = 0
 
@@ -54,12 +60,12 @@ for root in roots:
             print("Colliding paths:")
             for ogpath in sorted(seen[cfpath]):
                 print("  %s" % ogpath)
-                bad += 1
+            bad += 1
 
     if badwin:
         print("Names incompatible with Windows:")
         for path in sorted(badwin):
-            print("  %r" % path)
+            print("  %s" % hl_win32_name(path))
             bad += 1
 
     if baducs:

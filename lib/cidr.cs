@@ -1,6 +1,5 @@
 using System;
 using System.Net;
-using System.Net.Sockets;
 
 class Cidr
 {
@@ -13,14 +12,8 @@ class Cidr
 		IPAddress naddr = IPAddress.Parse(tmp[0]);
 		int plen = Int32.Parse(tmp[1]);
 
-		/*
 		if (haddr.AddressFamily != naddr.AddressFamily)
 			return false;
-		if (haddr.AddressFamily == AddressFamily.InterNetwork && plen > 32)
-			return false;
-		if (haddr.AddressFamily == AddressFamily.InterNetworkV6 && plen > 128)
-			return false;
-		*/
 
 		byte[] hbyte = haddr.GetAddressBytes();
 		byte[] nbyte = naddr.GetAddressBytes();

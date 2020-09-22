@@ -3,7 +3,7 @@ using System.Net;
 
 class Cidr
 {
-	static bool ip_in_net(string host, string net)
+	static bool IsIPAddressInNetwork(string host, string net)
 	{
 		string[] tmp = net.Split("/", 2);
 		IPAddress haddr = IPAddress.Parse(host);
@@ -38,7 +38,7 @@ class Cidr
 		string host = args[0];
 		string net = args[1];
 
-		if (ip_in_net(host, net)) {
+		if (IsIPAddressInNetwork(host, net)) {
 			Console.WriteLine("yes, "+host+" is in network "+net);
 		} else {
 			Console.WriteLine("no, "+host+" is not in network "+net);

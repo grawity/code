@@ -5,9 +5,7 @@ class Cidr
 {
 	static bool ip_in_net(string host, string net)
 	{
-		string[] tmp = net.Split("/");
-		//assert(tmp.Length == 2)
-
+		string[] tmp = net.Split("/", 2);
 		IPAddress haddr = IPAddress.Parse(host);
 		IPAddress naddr = IPAddress.Parse(tmp[0]);
 		int plen = Int32.Parse(tmp[1]);

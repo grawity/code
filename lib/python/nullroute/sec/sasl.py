@@ -108,9 +108,9 @@ class SaslGSSAPI(SaslMechanism):
         self.server_name = gssapi.Name("%s@%s" % (service, host), gssapi.NameType.hostbased_service)
         self.authz_id = authz_id
 
-        # We don't need to do any hostname canonicalization, as .canonicalize() will do that for us.
+        # We don't need to do any hostname canonicalization, as GSSAPI will do that for us.
         # [imap@mail, hostbased] -> [imap/wolke@NULLROUTE, kerberos]
-        # We also don't need to call it manually, either.
+        # We also don't need to call .canonicalize() manually, either.
         #self.server_name = self.server_name.canonicalize(gssapi.MechType.kerberos)
 
         Core.debug("authenticating to %r", str(self.server_name))

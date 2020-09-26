@@ -27,10 +27,10 @@ class LdapClient():
         self._controls = {c[0] for c in self.conn.server.info.supported_controls}
         self._features = {c[0] for c in self.conn.server.info.supported_features}
 
-    def bind_gssapi(self, authzid=""):
+    def bind_gssapi(self, authz_id=""):
         self.conn.authentication = ldap3.SASL
         self.conn.sasl_mechanism = ldap3.GSSAPI
-        self.conn.sasl_credentials = (self.conn.server.host, authzid)
+        self.conn.sasl_credentials = (self.conn.server.host, authz_id)
         self.conn.bind()
 
     def whoami(self):

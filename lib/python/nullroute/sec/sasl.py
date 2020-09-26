@@ -25,11 +25,11 @@ class SaslPLAIN(SaslMechanism):
     mech_name = "PLAIN"
     client_first = True
 
-    def __init__(self, user, password, authzid=None):
+    def __init__(self, user, password, authz_id=None):
         super().__init__()
         self.user = user
         self.password = password
-        self.authz_id = authzid
+        self.authz_id = authz_id
 
     def _respond(self, challenge):
         if self.step == 1:
@@ -43,10 +43,10 @@ class SaslXOAUTH2(SaslMechanism):
     mech_name = "XOAUTH2"
     client_first = True
 
-    def __init__(self, access_token, authzid=None):
+    def __init__(self, access_token, authz_id=None):
         super().__init__()
         self.access_token = access_token
-        self.authz_id = authzid
+        self.authz_id = authz_id
         if not self.authz_id:
             raise MechanismFailure("Google XOAUTH2 requires an authz_id")
 
@@ -63,10 +63,10 @@ class SaslOAUTHBEARER(SaslMechanism):
     mech_name = "OAUTHBEARER"
     client_first = True
 
-    def __init__(self, access_token, authzid=None):
+    def __init__(self, access_token, authz_id=None):
         super().__init__()
         self.access_token = access_token
-        self.authz_id = authzid
+        self.authz_id = authz_id
 
     def _respond(self, challenge):
         if self.step == 1:
@@ -89,12 +89,12 @@ class SaslGSSAPI(SaslMechanism):
     SEC_INTEGRITY = 0x02        # wrap(conf=False)
     SEC_CONFIDENTIALITY = 0x04  # wrap(conf=True)
 
-    def __init__(self, host, service, authzid=None):
+    def __init__(self, host, service, authz_id=None):
         import gssapi
 
         super().__init__()
         self.server_name = gssapi.Name("%s@%s" % (service, host), gssapi.NameType.hostbased_service)
-        self.authz_id = authzid
+        self.authz_id = authz_id
 
         # We don't need to do any hostname canonicalization, as .canonicalize() will do that for us.
         # [imap@mail, hostbased] -> [imap/wolke@NULLROUTE, kerberos]

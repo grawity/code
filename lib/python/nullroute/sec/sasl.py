@@ -1,3 +1,8 @@
+# Client SASL mechanism implementations
+#
+# (c) Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
+
 from nullroute.core import Core
 
 def sasl_gs2_escape(text):

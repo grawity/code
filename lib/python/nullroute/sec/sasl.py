@@ -11,10 +11,12 @@ class SaslMechanism():
         self.step = 0
 
     def respond(self, challenge):
+        Core.trace("SASL challenge: %r", challenge)
         self.step += 1
         if self.step == 1 and self.client_first and challenge:
             raise MechanismFailure("unexpected initial challenge for a client-first mechanism")
         response = self._respond(challenge)
+        Core.trace("SASL response: %r", response)
         if response is None:
             raise MechanismFailure("unexpected step or other internal error")
         return response
@@ -108,7 +110,6 @@ class SaslGSSAPI(SaslMechanism):
         self._done = False
 
     def _respond(self, challenge):
-        Core.trace("SASL challenge: %r", challenge)
         if self._done:
             raise MechanismFailure("mechanism is already finished")
         if not self.ctx.complete:
@@ -130,5 +131,4 @@ class SaslGSSAPI(SaslMechanism):
             Core.debug("SASL-GSSAPI client token: %r", client_token)
             response, _ = self.ctx.wrap(client_token, encrypted)
             self._done = True
-        Core.trace("SASL response: %r", response)
         return response

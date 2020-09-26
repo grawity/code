@@ -126,12 +126,12 @@ class SaslGSSAPI(SaslMechanism):
                 Core.trace("GSSAPI: continue needed")
         else:
             server_token, encrypted, qop = self.ctx.unwrap(challenge)
-            Core.debug("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token, encrypted, qop)
+            Core.trace("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token, encrypted, qop)
             assert(len(server_token) == 4)
             # bitmask security_layers [1 byte], uint max_msg_size [3 bytes]
             # We only set bit '1' (no security layers).
             client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authz_id or "").encode("utf-8")
-            Core.debug("SASL-GSSAPI client token: %r", client_token)
+            Core.trace("SASL-GSSAPI client token: %r", client_token)
             response, _ = self.ctx.wrap(client_token, encrypted)
             self._done = True
         return response

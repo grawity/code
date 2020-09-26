@@ -12,6 +12,8 @@ class SaslMechanism():
 
     def respond(self, challenge):
         self.step += 1
+        if self.step == 1 and self.client_first and challenge:
+            raise MechanismFailure("unexpected initial challenge for a client-first mechanism")
         response = self._respond(challenge)
         if response is None:
             raise MechanismFailure("unexpected step or other internal error")
@@ -109,9 +111,6 @@ class SaslGSSAPI(SaslMechanism):
         assert(not self.done)
         Core.trace("SASL challenge: %r", challenge)
         if not self.ctx.complete:
-            if self.step == 1:
-                # Client goes first.
-                assert(challenge == b"")
             response = self.ctx.step(challenge)
             if self.ctx.complete:
                 # The final call always returns None in Kerberos, though it

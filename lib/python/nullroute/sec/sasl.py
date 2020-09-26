@@ -22,6 +22,9 @@ class SaslMechanism():
         return self.respond(challenge)
 
 class SaslPLAIN(SaslMechanism):
+    mech_name = "PLAIN"
+    client_first = True
+
     def __init__(self, user, password, authzid=None):
         super().__init__()
         self.user = user
@@ -37,6 +40,9 @@ class SaslPLAIN(SaslMechanism):
             return response.encode("utf-8")
 
 class SaslXOAUTH2(SaslMechanism):
+    mech_name = "XOAUTH2"
+    client_first = True
+
     def __init__(self, access_token, authzid=None):
         super().__init__()
         self.access_token = access_token
@@ -54,6 +60,9 @@ class SaslXOAUTH2(SaslMechanism):
             return response.encode("utf-8")
 
 class SaslOAUTHBEARER(SaslMechanism):
+    mech_name = "OAUTHBEARER"
+    client_first = True
+
     def __init__(self, access_token, authzid=None):
         super().__init__()
         self.access_token = access_token
@@ -73,6 +82,8 @@ class SaslOAUTHBEARER(SaslMechanism):
 
 class SaslGSSAPI(SaslMechanism):
     # https://tools.ietf.org/html/rfc4752
+    mech_name = "GSSAPI"
+    client_first = True
 
     SEC_NONE = 0x01             # don't wrap
     SEC_INTEGRITY = 0x02        # wrap(conf=False)

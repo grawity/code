@@ -14,12 +14,12 @@ class SaslMechanism():
         self.step = 0
 
     def respond(self, challenge):
-        Core.trace("SASL challenge: %r", challenge)
         self.step += 1
+        Core.trace("SASL challenge (#%d): %r", self.step, challenge)
         if self.step == 1 and self.client_first and challenge:
             raise MechanismFailure("unexpected initial challenge for a client-first mechanism")
         response = self._respond(challenge)
-        Core.trace("SASL response: %r", response)
+        Core.trace("SASL response (#%d): %r", self.step, response)
         if response is None:
             raise MechanismFailure("unexpected step or other internal error")
         return response

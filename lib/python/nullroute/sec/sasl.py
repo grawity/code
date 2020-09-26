@@ -29,14 +29,14 @@ class SaslPLAIN(SaslMechanism):
         super().__init__()
         self.user = user
         self.password = password
-        self.authzid = authzid
+        self.authz_id = authzid
 
     def _respond(self, challenge):
         if self.step == 1:
             if challenge:
                 return None
             # https://tools.ietf.org/html/rfc4616#section-2
-            response = "%s\0%s\0%s" % (self.authzid or "", self.user, self.password)
+            response = "%s\0%s\0%s" % (self.authz_id or "", self.user, self.password)
             return response.encode("utf-8")
 
 class SaslXOAUTH2(SaslMechanism):
@@ -46,9 +46,9 @@ class SaslXOAUTH2(SaslMechanism):
     def __init__(self, access_token, authzid=None):
         super().__init__()
         self.access_token = access_token
-        self.authzid = authzid
-        if not self.authzid:
-            raise MechanismFailure("Google XOAUTH2 requires an authzid")
+        self.authz_id = authzid
+        if not self.authz_id:
+            raise MechanismFailure("Google XOAUTH2 requires an authz_id")
 
     def _respond(self, challenge):
         if self.step == 1:
@@ -56,7 +56,7 @@ class SaslXOAUTH2(SaslMechanism):
                 return None
             # https://developers.google.com/gmail/imap/xoauth2-protocol
             http_authz = "Bearer %s" % self.access_token
-            response = "user=%s\1auth=%s\1\1" % (self.authzid, http_authz)
+            response = "user=%s\1auth=%s\1\1" % (self.authz_id, http_authz)
             return response.encode("utf-8")
 
 class SaslOAUTHBEARER(SaslMechanism):
@@ -66,14 +66,14 @@ class SaslOAUTHBEARER(SaslMechanism):
     def __init__(self, access_token, authzid=None):
         super().__init__()
         self.access_token = access_token
-        self.authzid = authzid
+        self.authz_id = authzid
 
     def _respond(self, challenge):
         if self.step == 1:
             if challenge:
                 return None
             # https://tools.ietf.org/html/rfc5801#section-4
-            gs2_header = "n,a=%s," % sasl_gs2_escape(self.authzid) if self.authzid else "n,,"
+            gs2_header = "n,a=%s," % sasl_gs2_escape(self.authz_id) if self.authz_id else "n,,"
             # https://tools.ietf.org/html/rfc6750#section-2.1
             http_authz = "Bearer %s" % self.access_token
             # https://tools.ietf.org/html/rfc7628#section-3.1
@@ -94,7 +94,7 @@ class SaslGSSAPI(SaslMechanism):
 
         super().__init__()
         self.server_name = gssapi.Name("%s@%s" % (service, host), gssapi.NameType.hostbased_service)
-        self.authzid = authzid
+        self.authz_id = authzid
 
         # We don't need to do any hostname canonicalization, as .canonicalize() will do that for us.
         # [imap@mail, hostbased] -> [imap/wolke@NULLROUTE, kerberos]
@@ -126,7 +126,7 @@ class SaslGSSAPI(SaslMechanism):
             assert(len(server_token) == 4)
             # bitmask security_layers [1 byte], uint max_msg_size [3 bytes]
             # We only set bit '1' (no security layers).
-            client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authzid or "").encode("utf-8")
+            client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authz_id or "").encode("utf-8")
             Core.debug("SASL-GSSAPI client token: %r", client_token)
             response, _ = self.ctx.wrap(client_token, encrypted)
             self.done = True

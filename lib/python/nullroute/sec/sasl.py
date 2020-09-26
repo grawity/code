@@ -105,11 +105,12 @@ class SaslGSSAPI(SaslMechanism):
 
         Core.debug("authenticating to %r", str(self.server_name))
         self.ctx = gssapi.SecurityContext(name=self.server_name, mech=gssapi.MechType.kerberos, usage="initiate")
-        self.done = False
+        self._done = False
 
     def _respond(self, challenge):
-        assert(not self.done)
         Core.trace("SASL challenge: %r", challenge)
+        if self._done:
+            raise MechanismFailure("mechanism is already finished")
         if not self.ctx.complete:
             response = self.ctx.step(challenge)
             if self.ctx.complete:
@@ -128,6 +129,6 @@ class SaslGSSAPI(SaslMechanism):
             client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authz_id or "").encode("utf-8")
             Core.debug("SASL-GSSAPI client token: %r", client_token)
             response, _ = self.ctx.wrap(client_token, encrypted)
-            self.done = True
+            self._done = True
         Core.trace("SASL response: %r", response)
         return response

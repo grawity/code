@@ -109,7 +109,7 @@ class SaslGSSAPI(SaslMechanism):
         assert(not self.done)
         Core.trace("SASL challenge: %r", challenge)
         if not self.ctx.complete:
-            if self.step == 0:
+            if self.step == 1:
                 # Client goes first.
                 assert(challenge == b"")
             response = self.ctx.step(challenge)

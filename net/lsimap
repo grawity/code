@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+# List folders on an IMAP server.
+#
+# Portions of code are taken from imapclient 2.1.0, which is:
+# (c) 2014, Menno Smits
+# Released under the "New" BSD license <https://spdx.org/licenses/BSD-3-Clause.html>
+
+import argparse
+import gssapi
+import imaplib
+from nullroute.core import Core
+import re
+import ssl
+
+# BEGIN CODE FROM imapclient.imap_utf7
+def decode_imap_utf7(s: bytes) -> str:
+    def base64_utf7_decode(s):
+        s_utf7 = b"+" + s.replace(b",", b"/") + b"-"
+        return s_utf7.decode("utf-7")
+
+    res = []
+    # Store base64 substring that will be decoded once stepping on end shift character
+    b64_buffer = bytearray()
+    for c in s:
+        # Shift character without anything in buffer -> starts storing base64 substring
+        if c == ord(b"&") and not b64_buffer:
+            b64_buffer.append(c)
+        # End shift char. -> append the decoded buffer to the result and reset it
+        elif c == ord(b"-") and b64_buffer:
+            # Special case &-, representing "&" escaped
+            if len(b64_buffer) == 1:
+                res.append("&")
+            else:
+                res.append(base64_utf7_decode(b64_buffer[1:]))
+            b64_buffer = bytearray()
+        # Still buffering between the shift character and the shift back to ASCII
+        elif b64_buffer:
+            b64_buffer.append(c)
+        # No buffer initialized yet, should be an ASCII printable char
+        else:
+            res.append(chr(c))
+    # Decode the remaining buffer if any
+    if b64_buffer:
+        res.append(base64_utf7_decode(b64_buffer[1:]))
+    return "".join(res)
+# END
+
+class SaslGSSAPI():
+    # https://tools.ietf.org/html/rfc4752
+
+    SEC_NONE = 0x01             # don't wrap
+    SEC_INTEGRITY = 0x02        # wrap(conf=False)
+    SEC_CONFIDENTIALITY = 0x04  # wrap(conf=True)
+
+    def __init__(self, host, service, authzid=None):
+        self.authz_id = authzid
+        self.server_name = gssapi.Name("%s@%s" % (service, host), gssapi.NameType.hostbased_service)
+        # We don't need to do any hostname canonicalization, as .canonicalize() will do that for us.
+        # [imap@mail, hostbased] -> [imap/wolke@NULLROUTE, kerberos]
+        # We also don't need to call it manually, either.
+        #self.server_name = self.server_name.canonicalize(gssapi.MechType.kerberos)
+        Core.debug("authenticating to %r", str(self.server_name))
+        self.ctx = gssapi.SecurityContext(name=self.server_name, mech=gssapi.MechType.kerberos, usage="initiate")
+        self.step = 0
+        self.done = False
+        pass
+
+    def __call__(self, challenge):
+        assert(not self.done)
+        Core.trace("SASL challenge: %r", challenge)
+        if not self.ctx.complete:
+            if self.step == 0:
+                # Client goes first.
+                assert(challenge == b"")
+            response = self.ctx.step(challenge)
+            if self.ctx.complete:
+                # The final call always returns None in Kerberos, though it
+                # *may* return an actual response in some other mechanisms.
+                response = response or b""
+                Core.trace("GSSAPI: finished")
+            else:
+                Core.trace("GSSAPI: continue needed")
+        else:
+            server_token, encrypted, qop = self.ctx.unwrap(challenge)
+            Core.debug("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token, encrypted, qop)
+            assert(len(server_token) == 4)
+            # bitmask security_layers [1 byte], uint max_msg_size [3 bytes]
+            # We only set bit '1' (no security layers).
+            client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authz_id or "").encode("utf-8")
+            Core.debug("SASL-GSSAPI client token: %r", client_token)
+            response, _ = self.ctx.wrap(client_token, encrypted)
+            self.done = True
+        self.step += 1
+        Core.trace("SASL response: %r", response)
+        return response
+
+parser = argparse.ArgumentParser()
+parser.add_argument("host")
+parser.add_argument("--starttls", action="store_true",
+                    help="Negotiate STARTTLS instead of using direct TLS")
+parser.add_argument("--cleartext", action="store_true",
+                    help="Do not use TLS at all")
+parser.add_argument("--username",
+                    help="Username for basic authentication (LOGIN)")
+parser.add_argument("--password",
+                    help="Password for basic authentication (LOGIN)")
+parser.add_argument("--subscribed", action="store_true",
+                    help="Show subscribed folders (LSUB) instead of all")
+args = parser.parse_args()
+
+if args.cleartext and args.password:
+    Core.die("refusing to do plain-password LOGIN on a cleartext connection")
+
+tlsctx = ssl.create_default_context()
+
+try:
+    if args.starttls and args.cleartext:
+        Core.die("contradictory options (--starttls and --cleartext) given")
+    elif args.starttls or args.cleartext:
+        Core.debug("connecting to %r using plaintext", args.host)
+        clnt = imaplib.IMAP4(args.host)
+        if args.starttls:
+            Core.debug("negotiating STARTTLS")
+            clnt.starttls(ssl_context=tlsctx)
+    else:
+        Core.debug("connecting to %r using TLS", args.host)
+        clnt = imaplib.IMAP4_SSL(args.host, ssl_context=tlsctx)
+except ssl.SSLCertVerificationError as e:
+    Core.die("TLS connection failed: %s", e)
+
+if args.username and args.password:
+    Core.debug("authenticating as %r using plaintext", args.username)
+    clnt.login(args.username, args.password)
+else:
+    Core.debug("authenticating using GSSAPI")
+    saslobj = SaslGSSAPI(args.host, "imap")
+    try:
+        clnt.authenticate("GSSAPI", saslobj)
+    except gssapi.raw.misc.GSSError as e:
+        Core.die("GSSAPI authentication failed: %s", e)
+
+#ok, data = clnt.list()
+ok, data = clnt.lsub()
+for line in data:
+    # imaplib only has a half-assed parser so each array item looks like this:
+    # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
+    # b'() "/" "Archive/Foobar &2D3cTdg93E7YPdxKJwonDNg93EwnCw-"'
+    Core.trace("have line: %r", line)
+    m = re.match(br'^\((?P<flags>.*?)\) "(?P<delimiter>.*?)" (?P<name>.*)$', line)
+    if m:
+        flags, delim, name = m.groups()
+        # Names with spaces may be in quotes.
+        # In any case the name will be imap utf7 encoded.
+        if re.match(br'^".+"$', name):
+            name = name[1:-1]
+        name = decode_imap_utf7(name)
+        print(name)
+    else:
+        Core.err("could not parse IMAP response line: %r", line)
+
+clnt.logout()

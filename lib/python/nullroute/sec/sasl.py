@@ -6,6 +6,9 @@ def sasl_gs2_escape(text):
 class MechanismFailure(Exception):
     pass
 
+class TooManyStepsError(MechanismFailure):
+    pass
+
 class SaslMechanism():
     def __init__(self):
         self.step = 0
@@ -111,7 +114,7 @@ class SaslGSSAPI(SaslMechanism):
 
     def _respond(self, challenge):
         if self._done:
-            raise MechanismFailure("mechanism is already finished")
+            raise TooManyStepsError("SASL mechanism is already finished")
         if not self.ctx.complete:
             response = self.ctx.step(challenge)
             if self.ctx.complete:

@@ -1,3 +1,5 @@
+from nullroute.core import Core
+
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
@@ -14,6 +16,10 @@ class SaslMechanism():
         if response is None:
             raise MechanismFailure("unexpected step or other internal error")
         return response
+
+    def __call__(self, challenge):
+        # For compatibility with imaplib, which requires a callable.
+        return self.respond(challenge)
 
 class SaslPLAIN(SaslMechanism):
     def __init__(self, user, password, authzid=None):
@@ -64,3 +70,54 @@ class SaslOAUTHBEARER(SaslMechanism):
             # https://tools.ietf.org/html/rfc7628#section-3.1
             response = "%s\1auth=%s\1\1" % (gs2_header, http_authz)
             return response.encode("utf-8")
+
+class SaslGSSAPI(SaslMechanism):
+    # https://tools.ietf.org/html/rfc4752
+
+    SEC_NONE = 0x01             # don't wrap
+    SEC_INTEGRITY = 0x02        # wrap(conf=False)
+    SEC_CONFIDENTIALITY = 0x04  # wrap(conf=True)
+
+    def __init__(self, host, service, authzid=None):
+        import gssapi
+
+        super().__init__()
+        self.server_name = gssapi.Name("%s@%s" % (service, host), gssapi.NameType.hostbased_service)
+        self.authzid = authzid
+
+        # We don't need to do any hostname canonicalization, as .canonicalize() will do that for us.
+        # [imap@mail, hostbased] -> [imap/wolke@NULLROUTE, kerberos]
+        # We also don't need to call it manually, either.
+        #self.server_name = self.server_name.canonicalize(gssapi.MechType.kerberos)
+
+        Core.debug("authenticating to %r", str(self.server_name))
+        self.ctx = gssapi.SecurityContext(name=self.server_name, mech=gssapi.MechType.kerberos, usage="initiate")
+        self.done = False
+
+    def _respond(self, challenge):
+        assert(not self.done)
+        Core.trace("SASL challenge: %r", challenge)
+        if not self.ctx.complete:
+            if self.step == 0:
+                # Client goes first.
+                assert(challenge == b"")
+            response = self.ctx.step(challenge)
+            if self.ctx.complete:
+                # The final call always returns None in Kerberos, though it
+                # *may* return an actual response in some other mechanisms.
+                response = response or b""
+                Core.trace("GSSAPI: finished")
+            else:
+                Core.trace("GSSAPI: continue needed")
+        else:
+            server_token, encrypted, qop = self.ctx.unwrap(challenge)
+            Core.debug("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token, encrypted, qop)
+            assert(len(server_token) == 4)
+            # bitmask security_layers [1 byte], uint max_msg_size [3 bytes]
+            # We only set bit '1' (no security layers).
+            client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authzid or "").encode("utf-8")
+            Core.debug("SASL-GSSAPI client token: %r", client_token)
+            response, _ = self.ctx.wrap(client_token, encrypted)
+            self.done = True
+        Core.trace("SASL response: %r", response)
+        return response

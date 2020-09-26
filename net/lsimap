@@ -6,9 +6,9 @@
 # Released under the "New" BSD license <https://spdx.org/licenses/BSD-3-Clause.html>
 
 import argparse
-import gssapi
 import imaplib
 from nullroute.core import Core
+from nullroute.sec.sasl import SaslGSSAPI
 import re
 import ssl
 
@@ -44,55 +44,6 @@ def decode_imap_utf7(s: bytes) -> str:
         res.append(base64_utf7_decode(b64_buffer[1:]))
     return "".join(res)
 # END
-
-class SaslGSSAPI():
-    # https://tools.ietf.org/html/rfc4752
-
-    SEC_NONE = 0x01             # don't wrap
-    SEC_INTEGRITY = 0x02        # wrap(conf=False)
-    SEC_CONFIDENTIALITY = 0x04  # wrap(conf=True)
-
-    def __init__(self, host, service, authzid=None):
-        self.authz_id = authzid
-        self.server_name = gssapi.Name("%s@%s" % (service, host), gssapi.NameType.hostbased_service)
-        # We don't need to do any hostname canonicalization, as .canonicalize() will do that for us.
-        # [imap@mail, hostbased] -> [imap/wolke@NULLROUTE, kerberos]
-        # We also don't need to call it manually, either.
-        #self.server_name = self.server_name.canonicalize(gssapi.MechType.kerberos)
-        Core.debug("authenticating to %r", str(self.server_name))
-        self.ctx = gssapi.SecurityContext(name=self.server_name, mech=gssapi.MechType.kerberos, usage="initiate")
-        self.step = 0
-        self.done = False
-        pass
-
-    def __call__(self, challenge):
-        assert(not self.done)
-        Core.trace("SASL challenge: %r", challenge)
-        if not self.ctx.complete:
-            if self.step == 0:
-                # Client goes first.
-                assert(challenge == b"")
-            response = self.ctx.step(challenge)
-            if self.ctx.complete:
-                # The final call always returns None in Kerberos, though it
-                # *may* return an actual response in some other mechanisms.
-                response = response or b""
-                Core.trace("GSSAPI: finished")
-            else:
-                Core.trace("GSSAPI: continue needed")
-        else:
-            server_token, encrypted, qop = self.ctx.unwrap(challenge)
-            Core.debug("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token, encrypted, qop)
-            assert(len(server_token) == 4)
-            # bitmask security_layers [1 byte], uint max_msg_size [3 bytes]
-            # We only set bit '1' (no security layers).
-            client_token = b'\x01' + b'\xFF\xFF\xFF' + (self.authz_id or "").encode("utf-8")
-            Core.debug("SASL-GSSAPI client token: %r", client_token)
-            response, _ = self.ctx.wrap(client_token, encrypted)
-            self.done = True
-        self.step += 1
-        Core.trace("SASL response: %r", response)
-        return response
 
 parser = argparse.ArgumentParser()
 parser.add_argument("host")

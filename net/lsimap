@@ -84,10 +84,10 @@ if args.username and args.password:
     Core.debug("authenticating as %r using plaintext", args.username)
     clnt.login(args.username, args.password)
 else:
-    Core.debug("authenticating using GSSAPI")
-    saslobj = SaslGSSAPI(args.host, "imap")
+    sasl = SaslGSSAPI(args.host, "imap")
     try:
-        clnt.authenticate("GSSAPI", saslobj)
+        Core.debug("authenticating using %s", sasl.mech_name)
+        clnt.authenticate(sasl.mech_name, sasl)
     except gssapi.raw.misc.GSSError as e:
         Core.die("GSSAPI authentication failed: %s", e)
 

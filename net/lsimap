@@ -82,7 +82,10 @@ except ssl.SSLCertVerificationError as e:
 
 if args.username and args.password:
     Core.debug("authenticating as %r using plaintext", args.username)
-    clnt.login(args.username, args.password)
+    try:
+        clnt.login(args.username, args.password)
+    except imaplib.IMAP4.error as e:
+        Core.die("LOGIN authentication failed: %s", e)
 else:
     sasl = SaslGSSAPI(args.host, "imap")
     try:

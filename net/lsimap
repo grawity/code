@@ -5,7 +5,7 @@ import gssapi # for GSSError
 import imaplib
 from nullroute.core import Core
 from nullroute.sec.sasl import SaslGSSAPI
-from nullroute.string.imaputf7 import decode_imap_utf7
+from nullroute.string.imaputf7 import encode_imap_utf7, decode_imap_utf7
 import re
 import ssl
 
@@ -21,6 +21,10 @@ parser.add_argument("--password",
                     help="Password for basic authentication (LOGIN)")
 parser.add_argument("--subscribed", action="store_true",
                     help="Show subscribed folders (LSUB) instead of all")
+parser.add_argument("--create",
+                    help="Create a folder")
+parser.add_argument("--delete",
+                    help="Delete a folder")
 args = parser.parse_args()
 
 if args.cleartext and args.password:
@@ -57,26 +61,36 @@ else:
     except gssapi.raw.misc.GSSError as e:
         Core.die("GSSAPI authentication failed: %s", e)
 
-if args.subscribed:
-    ok, data = clnt.lsub()
+if args.create:
+    Core.info("creating mailbox %r", args.create)
+    ok, data = clnt.create(encode_imap_utf7(args.create))
+    clnt.logout()
+    assert(ok == "OK")
+elif args.delete:
+    Core.info("deleting mailbox %r", args.delete)
+    ok, data = clnt.delete(encode_imap_utf7(args.delete))
+    clnt.logout()
+    assert(ok == "OK")
 else:
-    ok, data = clnt.list()
-
-clnt.logout()
-
-for line in data:
-    # imaplib only has a half-assed parser so each array item looks like this:
-    # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
-    # b'() "/" "Archive/Foobar &2D3cTdg93E7YPdxKJwonDNg93EwnCw-"'
-    Core.trace("have line: %r", line)
-    m = re.match(br'^\((?P<flags>.*?)\) "(?P<delimiter>.*?)" (?P<name>.*)$', line)
-    if m:
-        flags, delim, name = m.groups()
-        # Names with spaces may be in quotes.
-        # In any case the name will be imap utf7 encoded.
-        if re.match(br'^".+"$', name):
-            name = name[1:-1]
-        name = decode_imap_utf7(name)
-        print(name)
+    if args.subscribed:
+        ok, data = clnt.lsub()
     else:
-        Core.err("could not parse IMAP response line: %r", line)
+        ok, data = clnt.list()
+    clnt.logout()
+    assert(ok == "OK")
+    for line in data:
+        # imaplib only has a half-assed parser so each array item looks like this:
+        # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
+        # b'() "/" "Archive/Foobar &2D3cTdg93E7YPdxKJwonDNg93EwnCw-"'
+        Core.trace("have line: %r", line)
+        m = re.match(br'^\((?P<flags>.*?)\) "(?P<delimiter>.*?)" (?P<name>.*)$', line)
+        if m:
+            flags, delim, name = m.groups()
+            # Names with spaces may be in quotes.
+            # In any case the name will be imap utf7 encoded.
+            if re.match(br'^".+"$', name):
+                name = name[1:-1]
+            name = decode_imap_utf7(name)
+            print(name)
+        else:
+            Core.err("could not parse IMAP response line: %r", line)

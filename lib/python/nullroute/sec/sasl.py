@@ -3,6 +3,7 @@
 # (c) Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License <https://spdx.org/licenses/MIT>
 
+import json
 from nullroute.core import Core
 
 def sasl_gs2_escape(text):
@@ -91,6 +92,12 @@ class SaslOAUTHBEARER(SaslMechanism):
             # https://tools.ietf.org/html/rfc7628#section-3.1
             response = "%s\1auth=%s\1\1" % (gs2_header, http_authz)
             return response.encode("utf-8")
+        else:
+            if challenge:
+                data = json.loads(challenge)
+                raise MechanismFailure("error response: %r" % data)
+            else:
+                raise MechanismFailure("unexpected step")
 
 class SaslGSSAPI(SaslMechanism):
     # https://tools.ietf.org/html/rfc4752

@@ -9,11 +9,11 @@ import hmac
 import json
 from nullroute.core import Core
 
-def sasl_gs2_escape(text):
-    return text.replace("=", "=3D").replace(",", "=2C")
-
 def base64_encode(text):
     return base64.b64encode(text).decode()
+
+def sasl_gs2_escape(text):
+    return text.replace("=", "=3D").replace(",", "=2C")
 
 class MechanismFailure(Exception):
     pass
@@ -147,7 +147,8 @@ class SaslGSSAPI(SaslMechanism):
                 Core.trace("GSSAPI: continue needed")
         else:
             server_token, encrypted, qop = self.ctx.unwrap(challenge)
-            Core.trace("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token, encrypted, qop)
+            Core.trace("SASL-GSSAPI server token: %r (encrypted=%r, QoP=%r)", server_token,
+                                                                              encrypted, qop)
             if len(server_token) != 4:
                 raise MechanismFailure("incorrect length for SASL-GSSAPI server token")
             if not (server_token[0] & self.SEC_NONE):
@@ -195,6 +196,7 @@ class SaslSCRAM(SaslMechanism):
         self._gs2_header = None
         self._nonce = None
         self._init_msg = None
+        self._server_sig = None
 
     def digest(self, data):
         return hashlib.new(self._hash_name, data).digest()
@@ -225,6 +227,7 @@ class SaslSCRAM(SaslMechanism):
             self._gs2_header = gs2_header
             self._nonce = nonce
             self._init_msg = init_msg
+            self._server_sig = None
             return (gs2_header + init_msg).encode("utf-8")
 
         elif self.step == 2:
@@ -324,5 +327,6 @@ class SaslSCRAM(SaslMechanism):
             if s_verifier != server_sig:
                 raise MechanismFailure("received server signature does not match computed")
             return b""
+
         else:
             raise TooManyStepsError()

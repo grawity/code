@@ -23,7 +23,7 @@ class SaslMechanism():
         Core.trace("SASL challenge (#%d): %r", self.step, challenge)
         if self.step == 1 and self.client_first and challenge:
             raise MechanismFailure("unexpected initial challenge for a client-first mechanism")
-        response = self._respond(challenge)
+        response = self.do_client_step(challenge)
         Core.trace("SASL response (#%d): %r", self.step, response)
         if response is None:
             raise MechanismFailure("unexpected step or other internal error")
@@ -43,7 +43,7 @@ class SaslPLAIN(SaslMechanism):
         self.password = password
         self.authz_id = authz_id
 
-    def _respond(self, challenge):
+    def do_client_step(self, challenge):
         if self.step == 1:
             if challenge:
                 return None
@@ -62,7 +62,7 @@ class SaslXOAUTH2(SaslMechanism):
         if not self.authz_id:
             raise MechanismFailure("Google XOAUTH2 requires an authz_id")
 
-    def _respond(self, challenge):
+    def do_client_step(self, challenge):
         if self.step == 1:
             if challenge:
                 return None
@@ -80,7 +80,7 @@ class SaslOAUTHBEARER(SaslMechanism):
         self.access_token = access_token
         self.authz_id = authz_id
 
-    def _respond(self, challenge):
+    def do_client_step(self, challenge):
         if self.step == 1:
             if challenge:
                 return None
@@ -119,7 +119,7 @@ class SaslGSSAPI(SaslMechanism):
                                           usage="initiate")
         self._done = False
 
-    def _respond(self, challenge):
+    def do_client_step(self, challenge):
         if self._done:
             raise TooManyStepsError("SASL mechanism is already finished")
         if not self.ctx.complete:

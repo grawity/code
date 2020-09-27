@@ -63,21 +63,24 @@ else:
 
 if args.create:
     Core.info("creating mailbox %r", args.create)
-    ok, data = clnt.create(encode_imap_utf7(args.create))
+    ok, data = clnt.create('"%s"' % encode_imap_utf7(args.create).decode())
+    if ok != "OK":
+        Core.err("failed to create folder %r: %s", args.create, data[0].decode())
     clnt.logout()
-    assert(ok == "OK")
 elif args.delete:
     Core.info("deleting mailbox %r", args.delete)
-    ok, data = clnt.delete(encode_imap_utf7(args.delete))
+    ok, data = clnt.delete('"%s"' % encode_imap_utf7(args.delete).decode())
+    if ok != "OK":
+        Core.err("failed to delete folder %r: %s", args.delete, data[0].decode())
     clnt.logout()
-    assert(ok == "OK")
 else:
     if args.subscribed:
         ok, data = clnt.lsub()
     else:
         ok, data = clnt.list()
+    if ok != "OK":
+        Core.err("failed to obtain folder list: %s", data[0].decode())
     clnt.logout()
-    assert(ok == "OK")
     for line in data:
         # imaplib only has a half-assed parser so each array item looks like this:
         # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
@@ -94,3 +97,4 @@ else:
             print(name)
         else:
             Core.err("could not parse IMAP response line: %r", line)
+Core.fini()

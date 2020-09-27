@@ -252,10 +252,15 @@ class SaslSCRAM(SaslMechanism):
                     raise ValueError("provided SCRAM token has wrong algorithm")
                 if pwd.get("s") != attrs["s"] or pwd.get("i") != attrs["i"]:
                     raise ValueError("provided SCRAM token has mismatching salt and/or itercount")
-                if not pwd.get("C") or not pwd.get("S"):
+                if pwd.get("C") and pwd.get("S"):
+                    client_key = base64.b64decode(pwd["C"])
+                    server_key = base64.b64decode(pwd["S"])
+                elif pwd.get("H"):
+                    salted_password = base64.b64decode(pwd["H"])
+                    client_key = self.hmac(b"Client Key", key=salted_password)
+                    server_key = self.hmac(b"Server Key", key=salted_password)
+                else:
                     raise ValueError("provided SCRAM token is missing required attributes")
-                client_key = base64.b64decode(pwd["C"])
-                server_key = base64.b64decode(pwd["S"])
             else:
                 s_salt = attrs["s"]
                 if not s_salt:
@@ -271,6 +276,13 @@ class SaslSCRAM(SaslMechanism):
                 salted_password = self.pbkdf2(self.password, s_salt, s_iter)
                 client_key = self.hmac(b"Client Key", key=salted_password)
                 server_key = self.hmac(b"Server Key", key=salted_password)
+                # XXX: I am still undecided as to whether C/S or the original H should be cached;
+                #      the spec allows doing it either way, and differences in security are
+                #      unclear to me.
+                #self.password = "scram:a=%s,s=%s,i=%s,H=%s" % (self._hash_name,
+                #                                               s_salt,
+                #                                               s_iter,
+                #                                               base64_encode(salted_password))
                 self.password = "scram:a=%s,s=%s,i=%s,C=%s,S=%s" % (self._hash_name,
                                                                     s_salt,
                                                                     s_iter,

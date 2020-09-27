@@ -114,7 +114,9 @@ class SaslGSSAPI(SaslMechanism):
         #self.server_name = self.server_name.canonicalize(gssapi.MechType.kerberos)
 
         Core.debug("authenticating to %r", str(self.server_name))
-        self.ctx = gssapi.SecurityContext(name=self.server_name, mech=gssapi.MechType.kerberos, usage="initiate")
+        self.ctx = gssapi.SecurityContext(name=self.server_name,
+                                          mech=gssapi.MechType.kerberos,
+                                          usage="initiate")
         self._done = False
 
     def _respond(self, challenge):

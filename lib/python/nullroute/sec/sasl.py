@@ -279,15 +279,15 @@ class SaslSCRAM(SaslMechanism):
                 # XXX: I am still undecided as to whether C/S or the original H should be cached;
                 #      the spec allows doing it either way, and differences in security are
                 #      unclear to me.
-                #self.password = "scram:a=%s,s=%s,i=%s,H=%s" % (self._hash_name,
-                #                                               s_salt,
-                #                                               s_iter,
-                #                                               base64_encode(salted_password))
-                self.password = "scram:a=%s,s=%s,i=%s,C=%s,S=%s" % (self._hash_name,
-                                                                    s_salt,
-                                                                    s_iter,
-                                                                    base64_encode(client_key),
-                                                                    base64_encode(server_key))
+                self.password = "scram:a=%s,s=%s,i=%s,H=%s" % (self._hash_name,
+                                                               s_salt,
+                                                               s_iter,
+                                                               base64_encode(salted_password))
+                #self.password = "scram:a=%s,s=%s,i=%s,C=%s,S=%s" % (self._hash_name,
+                #                                                    s_salt,
+                #                                                    s_iter,
+                #                                                    base64_encode(client_key),
+                #                                                    base64_encode(server_key))
                 # Note: This is an entirely proprietary 'token' format, previously invented for
                 # my Tcl SCRAM implementation (g_scram.tcl) but not used by anything else.
 

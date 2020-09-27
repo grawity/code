@@ -3,17 +3,24 @@
 # (c) Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License <https://spdx.org/licenses/MIT>
 
+import base64
+import hashlib
+import hmac
 import json
 from nullroute.core import Core
 
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
+def base64_encode(text):
+    return base64.b64encode(text).decode()
+
 class MechanismFailure(Exception):
     pass
 
 class TooManyStepsError(MechanismFailure):
-    pass
+    def __init__(self):
+        super().__init__("SASL mechanism is already finished")
 
 class SaslMechanism():
     def __init__(self):
@@ -152,3 +159,158 @@ class SaslGSSAPI(SaslMechanism):
             response, _ = self.ctx.wrap(client_token, encrypted)
             self._done = True
         return response
+
+class SaslSCRAM(SaslMechanism):
+    # https://tools.ietf.org/html/rfc5802
+    # XXX: Completely untested.
+    # XXX: see ~/Attic/Misc/2016/hacks/sasl.py
+    mech_name = "SCRAM"
+    client_first = True
+
+    @staticmethod
+    def _parse_attributes(buf):
+        attrs = {}
+        for token in buf.split(b","):
+            if token[1] != b"=":
+                return None
+            k = token[0]
+            v = token[2:]
+            attrs[k] = v
+        return attrs
+
+    def __init__(self, digest, user, password, authz_id=None):
+        self.user = user
+        self.password = password
+        self.authz_id = authz_id
+
+        if digest == "SHA-1":
+            self.mech_name = "SCRAM-SHA-1"
+            self._hash_name = "sha1"
+        elif digest == "SHA-256":
+            self.mech_name = "SCRAM-SHA-256"
+            self._hash_name = "sha256"
+        else:
+            raise ValueError("mechanism SCRAM-%s is not yet supported" % digest.upper())
+
+        self._gs2_header = None
+        self._nonce = None
+        self._init_msg = None
+
+    def digest(self, data):
+        return hashlib.new(self._hash_name, data).digest()
+
+    def hmac(self, data, key):
+        return hmac.HMAC(key, msg=data, digestmod=self._hash_name).digest()
+
+    def pbkdf2(self, password, salt, iter_count):
+        return hashlib.pbkdf2_hmac(self._hash_name, password, salt, iter_count)
+
+    def xor_buffer(self, a, b):
+        if len(a) != len(b):
+            raise ValueError("buffers have different lengths (%d vs %d)" % (len(a), len(b)))
+        return bytes([a[i] ^ b[i] for i in range(len(a))])
+
+    def do_client_step(self, challenge):
+        if self.step == 1:
+            if challenge:
+                return None
+
+            # https://tools.ietf.org/html/rfc5801#section-4
+            gs2_header = "n,a=%s," % sasl_gs2_escape(self.authz_id) if self.authz_id else "n,,"
+            # https://tools.ietf.org/html/rfc5802#section-5.1
+            nonce = base64_encode(os.urandom(18))
+            # https://tools.ietf.org/html/rfc5802#section-5.1
+            init_msg = "n=%s,r=%s" % (sasl_gs2_escape(self.user), nonce)
+
+            self._gs2_header = gs2_header
+            self._nonce = nonce
+            self._init_msg = init_msg
+            return (gs2_header + init_msg).encode("utf-8")
+
+        elif self.step == 2:
+            attrs = self._parse_attributes(challenge)
+            if "m" in attrs:
+                raise MechanismFailure("unsupported extension attribute in SCRAM challenge")
+            if not attrs.get("i"):
+                raise MechanismFailure("iteration count missing from SCRAM challenge")
+            if not attrs.get("r"):
+                raise MechanismFailure("server nonce missing from SCRAM challenge")
+            if not attrs.get("s"):
+                raise MechanismFailure("salt missing from SCRAM challenge")
+
+            s_nonce = attrs["r"]
+            c_nonce = self._nonce
+            if len(s_nonce) <= len(c_nonce):
+                raise MechanismFailure("server nonce truncated in SCRAM challenge")
+            if not s_nonce.startswith(c_nonce):
+                raise MechanismFailure("server/client nonce prefix mismatch in SCRAM challenge")
+
+            # produce client_key, server_key
+            if self.password.startswith("scram:"):
+                pwd = self._parse_attributes(self.password[6:])
+                if pwd.get("a") != self._hash_name:
+                    raise ValueError("provided SCRAM token has wrong algorithm")
+                if pwd.get("s") != attrs["s"] or pwd.get("i") != attrs["i"]:
+                    raise ValueError("provided SCRAM token has mismatching salt and/or itercount")
+                if not pwd.get("C") or not pwd.get("S"):
+                    raise ValueError("provided SCRAM token is missing required attributes")
+                client_key = base64.b64decode(pwd["C"])
+                server_key = base64.b64decode(pwd["S"])
+            else:
+                s_salt = attrs["s"]
+                if not s_salt:
+                    raise MechanismFailure("server sent invalid salt in SCRAM challenge")
+
+                try:
+                    s_iter = int(attrs["i"])
+                except:
+                    raise MechanismFailure("server sent invalid iteration count in SCRAM challenge")
+                if not (500 <= s_iter <= 65535):
+                    raise MechanismFailure("server sent unsupported iteration count in SCRAM challenge")
+
+                salted_password = self.pbkdf2(self.password, s_salt, s_iter)
+                client_key = self.hmac(b"Client Key", key=salted_password)
+                server_key = self.hmac(b"Server Key", key=salted_password)
+                self.password = "scram:a=%s,s=%s,i=%s,C=%s,S=%s" % (self._hash_name,
+                                                                    s_salt,
+                                                                    s_iter,
+                                                                    base64_encode(client_key),
+                                                                    base64_encode(server_key))
+                # Note: This is an entirely proprietary 'token' format, previously invented for
+                # my Tcl SCRAM implementation (g_scram.tcl) but not used by anything else.
+
+            gs2_header = self._gs2_header
+            c_init_msg = self._init_msg
+            s_first_msg = challenge
+            c_final_msg_bare = "c=%s,r=%s" % (base64_encode(gs2_header), nonce)
+            auth_msg = "%s,%s,%s" % (c_init_msg, s_first_msg, c_final_msg_bare)
+
+            stored_key = self.digest(client_key)
+            client_sig = self.hmac(auth_msg, key=stored_key)
+            server_sig = self.hmac(auth_msg, key=server_key)
+
+            client_proof = self.xor_buffer(client_key, client_sig)
+            c_final_msg = "%s,p=%s" % (c_final_msg_bare, base64_encode(client_proof))
+
+            self._server_sig = server_sig
+            return c_final_msg.encode("utf-8")
+
+        elif self.step == 3:
+            if not challenge:
+                raise MechanismFailure()
+
+            attrs = self._parse_attributes(challenge)
+            if "e" in attrs:
+                raise MechanismFailure("server returns authentication error %r" % attrs["e"])
+            if "m" in attrs:
+                raise MechanismFailure("unsupported extension attribute in SCRAM challenge")
+            if not attrs.get("v"):
+                raise MechanismFailure("server verifier missing from challenge")
+
+            s_verifier = base64.b64decode(attrs["v"])
+            server_sig = self._server_sig
+            if s_verifier != server_sig:
+                raise MechanismFailure("received server signature does not match computed")
+            return b""
+        else:
+            raise TooManyStepsError()

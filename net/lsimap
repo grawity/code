@@ -25,6 +25,10 @@ parser.add_argument("--create",
                     help="Create a folder")
 parser.add_argument("--delete",
                     help="Delete a folder")
+parser.add_argument("--subscribe",
+                    help="Subscribe to a folder")
+parser.add_argument("--unsubscribe",
+                    help="Unsubscribe from a folder")
 args = parser.parse_args()
 
 if args.cleartext and args.password:
@@ -72,6 +76,18 @@ elif args.delete:
     ok, data = clnt.delete('"%s"' % encode_imap_utf7(args.delete).decode())
     if ok != "OK":
         Core.err("failed to delete folder %r: %s", args.delete, data[0].decode())
+    clnt.logout()
+elif args.subscribe:
+    Core.info("subscribing to mailbox %r", args.subscribe)
+    ok, data = clnt.subscribe('"%s"' % encode_imap_utf7(args.subscribe).decode())
+    if ok != "OK":
+        Core.err("failed to subscribe to folder %r: %s", args.subscribe, data[0].decode())
+    clnt.logout()
+elif args.unsubscribe:
+    Core.info("unsubscribing from mailbox %r", args.unsubscribe)
+    ok, data = clnt.unsubscribe('"%s"' % encode_imap_utf7(args.unsubscribe).decode())
+    if ok != "OK":
+        Core.err("failed to unsubscribe from folder %r: %s", args.unsubscribe, data[0].decode())
     clnt.logout()
 else:
     if args.lsub:

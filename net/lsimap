@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# List folders on an IMAP server.
+import argparse
+import gssapi # for GSSError
+import imaplib
+from nullroute.core import Core
+from nullroute.sec.sasl import SaslGSSAPI
+from nullroute.string.imaputf7 import encode_imap_utf7, decode_imap_utf7
+import re
+import ssl
+
+parser = argparse.ArgumentParser()
+parser.add_argument("host")
+parser.add_argument("--starttls", action="store_true",
+                    help="Negotiate STARTTLS instead of using direct TLS")
+parser.add_argument("--cleartext", action="store_true",
+                    help="Do not use TLS at all")
+parser.add_argument("--username",
+                    help="Username for basic authentication (LOGIN)")
+parser.add_argument("--password",
+                    help="Password for basic authentication (LOGIN)")
+parser.add_argument("--subscribed", action="store_true",
+                    help="Show subscribed folders (LSUB) instead of all")
+parser.add_argument("--create",
+                    help="Create a folder")
+parser.add_argument("--delete",
+                    help="Delete a folder")
+args = parser.parse_args()
+
+if args.cleartext and args.password:
+    Core.die("refusing to do plain-password LOGIN on a cleartext connection")
+
+tlsctx = ssl.create_default_context()
+
+try:
+    if args.starttls and args.cleartext:
+        Core.die("contradictory options (--starttls and --cleartext) given")
+    elif args.starttls or args.cleartext:
+        Core.debug("connecting to %r using plaintext", args.host)
+        clnt = imaplib.IMAP4(args.host)
+        if args.starttls:
+            Core.debug("negotiating STARTTLS")
+            clnt.starttls(ssl_context=tlsctx)
+    else:
+        Core.debug("connecting to %r using TLS", args.host)
+        clnt = imaplib.IMAP4_SSL(args.host, ssl_context=tlsctx)
+except ssl.SSLCertVerificationError as e:
+    Core.die("TLS connection failed: %s", e)
+
+if args.username and args.password:
+    Core.debug("authenticating as %r using plaintext", args.username)
+    try:
+        clnt.login(args.username, args.password)
+    except imaplib.IMAP4.error as e:
+        Core.die("LOGIN authentication failed: %s", e)
+else:
+    sasl = SaslGSSAPI(args.host, "imap")
+    try:
+        Core.debug("authenticating using %s", sasl.mech_name)
+        clnt.authenticate(sasl.mech_name, sasl)
+    except gssapi.raw.misc.GSSError as e:
+        Core.die("GSSAPI authentication failed: %s", e)
+
+if args.create:
+    Core.info("creating mailbox %r", args.create)
+    ok, data = clnt.create('"%s"' % encode_imap_utf7(args.create).decode())
+    if ok != "OK":
+        Core.err("failed to create folder %r: %s", args.create, data[0].decode())
+    clnt.logout()
+elif args.delete:
+    Core.info("deleting mailbox %r", args.delete)
+    ok, data = clnt.delete('"%s"' % encode_imap_utf7(args.delete).decode())
+    if ok != "OK":
+        Core.err("failed to delete folder %r: %s", args.delete, data[0].decode())
+    clnt.logout()
+else:
+    if args.subscribed:
+        ok, data = clnt.lsub()
+    else:
+        ok, data = clnt.list()
+    if ok != "OK":
+        Core.err("failed to obtain folder list: %s", data[0].decode())
+    clnt.logout()
+    for line in data:
+        # imaplib only has a half-assed parser so each array item looks like this:
+        # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
+        # b'() "/" "Archive/Foobar &2D3cTdg93E7YPdxKJwonDNg93EwnCw-"'
+        Core.trace("have line: %r", line)
+        m = re.match(br'^\((?P<flags>.*?)\) "(?P<delimiter>.*?)" (?P<name>.*)$', line)
+        if m:
+            flags, delim, name = m.groups()
+            # Names with spaces may be in quotes.
+            # In any case the name will be imap utf7 encoded.
+            if re.match(br'^".+"$', name):
+                name = name[1:-1]
+            name = decode_imap_utf7(name)
+            print(name)
+        else:
+            Core.err("could not parse IMAP response line: %r", line)
+Core.fini()

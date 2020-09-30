@@ -73,6 +73,9 @@ if mbox := args.create:
     clnt.logout()
 elif mbox := args.delete:
     Core.info("deleting mailbox %r", mbox)
+    ok, data = clnt.unsubscribe('"%s"' % encode_imap_utf7(mbox).decode())
+    if ok != "OK":
+        Core.err("failed to unsubscribe from folder %r: %s", mbox, data[0].decode())
     ok, data = clnt.delete('"%s"' % encode_imap_utf7(mbox).decode())
     if ok != "OK":
         Core.err("failed to delete folder %r: %s", mbox, data[0].decode())

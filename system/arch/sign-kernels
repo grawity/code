@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+no:() { echo "+ ${@}"; }
+
+shopt -s extglob
+
+efi_stub="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+sb_cert="/etc/private/efi/DatabaseKey.crt"
+sb_key="/etc/private/efi/DatabaseKey.key"
+in_kernels=()
+in_ucode=(/boot/intel-ucode.img)
+out_dir=/boot/EFI/Linux
+
+if [[ $1 == @(--help|-h) ]]; then
+	echo "Usage: $0 [<vmlinuz_path>...]"
+	exit
+fi
+
+if (( UID > 0 )); then
+	echo "error: root privileges are needed" >&2
+	exit 1
+fi
+
+if [[ $1 == --hook ]]; then
+	while read -r line; do
+		if [[ ${line#/} == @(boot/vmlinuz*|usr/lib/modules/*/vmlinuz) ]]; then
+			echo "info: handling updated image '$line'" >&2
+			in_kernels+=("/${line#/}")
+		fi
+	done
+	shift
+fi
+
+if (( ! ${#in_kernels[@]} )); then
+	if (( $# )); then
+		in_kernels=("$@")
+	else
+		echo "info: signing all found kernel images" >&2
+		in_kernels=(/boot/vmlinuz-linux!(*.*))
+	fi
+fi
+
+if [[ ! -e $efi_stub ]]; then
+	echo "error: bootloader stub '$efi_stub' not found" >&2
+	exit 1
+elif [[ ! -e $sb_key ]]; then
+	echo "error: Secure Boot signing key '$sb_key' not found" >&2
+	exit 1
+elif [[ ! -e $sb_cert ]]; then
+	echo "error: Secure Boot signing certificate '$sb_key' not found" >&2
+	exit 1
+fi
+
+mkdir -p "$out_dir" || exit
+
+for in_vmlinuz in "${in_kernels[@]}"; do
+	if [[ ! -e $in_vmlinuz ]]; then
+		echo "error: kernel image '$in_vmlinuz' not found" >&2
+		exit 1
+	elif [[ $in_vmlinuz == /usr/lib/modules/*/vmlinuz ]]; then
+		package=$(< "${in_vmlinuz%/*}/pkgbase")
+	elif [[ $in_vmlinuz == /boot/vmlinuz-* ]]; then
+		package=${in_vmlinuz##*/vmlinuz-}
+	else
+		echo "error: could not determine package name for '$in_vmlinuz'" >&2
+		exit 1
+	fi
+
+	os_name="$(. /etc/os-release && echo "$PRETTY_NAME")" || exit
+	os_version="$(expac %v "$package")"
+	os_release=(
+		PRETTY_NAME	"$os_name"
+		ID		"linux"
+		VERSION_ID	"${os_version}-signed"
+	)
+	echo "[$package] found $in_vmlinuz, version $os_version"
+
+	cmdline=$(grep '^[^#]' /etc/kernel/cmdline | tr -s '\n' ' ') || exit
+	in_initrd="/boot/initramfs-$package.img"
+	in_initrds=("${in_ucode[@]}" "$in_initrd")
+	out_image="$out_dir/vmlinuz-$package.efi"
+	if [[ ! -s $in_initrd ]]; then
+		echo "error: could not find initramfs '$in_initrd'" >&2
+		exit 1
+	fi
+
+	# Put temporary files where space is plentiful, as osslsigncode silently eats -ENOSPC
+	tmp_raw_image=$(mktemp /tmp/vmlinuzXXXXXXXX)
+	tmp_signed_image=$(mktemp /tmp/vmlinuzXXXXXXXX)
+
+	copy_args=(
+		--add-section		.osrel=<(printf '%s="%s"\n' "${os_release[@]}")
+		--change-section-vma	.osrel=0x20000
+		--add-section		.cmdline=<(printf '%s' "$cmdline")
+		--change-section-vma	.cmdline=0x30000
+		--add-section		.linux="$in_vmlinuz"
+		--change-section-vma	.linux=0x2000000
+		--add-section		.initrd=<(cat "${in_initrds[@]}")
+		--change-section-vma	.initrd=0x3000000
+	)
+
+	echo "[$package] generating bundle from '$in_vmlinuz'"
+	objcopy "${copy_args[@]}" "$efi_stub" "$tmp_raw_image" || exit
+
+	sbsign_args=(--cert "$sb_cert" --key "$sb_key")
+	ossl_args=(-certs "$sb_cert" -key "$sb_key" -h sha256 -verbose)
+
+	echo "[$package] signing with key '$sb_key'"
+	#sbsign "${sbsign_args[@]}" --output "$tmp_signed_image" "$tmp_raw_image" || exit
+	osslsigncode sign "${ossl_args[@]}" -in "$tmp_raw_image" -out "$tmp_signed_image" || exit
+
+	echo "[$package] installing as '$out_image'"
+	rm -f "$tmp_raw_image"
+	mv -b "$tmp_signed_image" "$out_image" || exit
+	sync "$out_image" || exit
+	rm -f "$out_image~"
+done

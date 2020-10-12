@@ -64,8 +64,11 @@ else
 		security/update-authorized-keys
 	fi
 
-	if [ -d ~/lib/dotfiles ]; then
-		(cd ~/lib/dotfiles
+	dotdir=~/.dotfiles
+	[ -d "$dotdir" ] || dotdir=~/.config/dotfiles
+	[ -d "$dotdir" ] || dotdir=~/lib/dotfiles
+	if [ -d "$dotdir" ]; then
+		(cd "$dotdir"
 		if on_master; then
 			log "updating dotfiles.git"
 			silent git fetch origin
@@ -79,14 +82,14 @@ else
 			log "skipping dotfiles.git (not on master)"
 		fi)
 
-		(cd ~/lib/dotfiles
+		(cd "$dotdir"
 		if [ $today -eq 14 ]; then
 			log "compacting dotfiles.git"
 			silent nice git gc
 		fi) &
 
 		log "running dotfiles/install"
-		~/lib/dotfiles/install -u
+		"$dotdir"/install -u
 	fi
 
 	if [ -f ~/.k5login ] && [ ! -k ~/.k5login ]; then

@@ -7,8 +7,12 @@ def xprint(buf, decode=False):
     if decode and ": " in buf:
         k, v = buf.split(": ", 1)
         if k.endswith(":"):
-            k = k[:-1]
-            v = base64.b64decode(v).decode()
+            try:
+                v = base64.b64decode(v).decode()
+            except UnicodeDecodeError:
+                pass
+            else:
+                k = k[:-1]
         buf = "%s: %s" % (k, v)
     print(buf)
 

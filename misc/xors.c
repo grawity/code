@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 	size_t buflen;
 	unsigned i, key = 0, incr = 1, step = 1;
 
-	if (argc < 3)
+	if (argc < 1)
 		errx(2, "usage: xors <key> [<incr> [<step>]]");
 
 	if (argc > 1) key = atoi(argv[1]);

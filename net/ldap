@@ -328,8 +328,8 @@ sub path_to_dn {
 }
 
 sub dwim_filter {
-	my ($filter, $base) = @_;
-	_trace("was given filter '$filter' and base '$base'");
+	my ($filter, $base, $scope) = @_;
+	_trace("was given filter '$filter' base '$base' scope '$scope'");
 	if ($filter =~ /^-/) {
 		_die("unexpected '$filter' (option in non-option context?)");
 	}
@@ -345,11 +345,18 @@ sub dwim_filter {
 	elsif ($filter =~ m!^/!) {
 		# /People/grawity
 		# /ou=People/cn=grawity
+		if ($filter =~ m{//$}) {
+			$scope = "sub";
+		} elsif ($filter =~ m{/$}) {
+			$scope = "one";
+		} else {
+			$scope = "base";
+		}
 		$base = path_to_dn($filter, $base);
 		$filter = "(objectClass=*)";
 	}
 	_trace("modified to filter '$filter' and base '$base'");
-	return ($filter, $base);
+	return ($filter, $base, $scope);
 }
 
 sub dwim_path {
@@ -370,7 +377,7 @@ my @opt_changes;
 $Opt{starttls} = 0;
 $Opt{sasl_mech} = "GSSAPI";
 # Operational
-$Opt{scope} = "sub";
+$Opt{scope} = undef;
 $Opt{manage_dit} = 0;
 $Opt{relax} = 0;
 # UI
@@ -428,12 +435,15 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 
 	my $filter = $Opt{filter};
 	my $base = $Opt{base};
+	my $scope = $Opt{scope};
+
+	$scope //= "sub";
 
 	# Simplified 'ldap set <obj> <attrs...>' syntax
 	if (!$filter) {
 		_die("missing entry filter") if !@ARGV;
 		$filter = shift(@ARGV);
-		($filter, $base) = dwim_filter($filter, $base);
+		($filter, $base, $scope) = dwim_filter($filter, $base, $scope);
 	}
 
 	my $changes;
@@ -488,9 +498,9 @@ if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
 	my $conn = ldap_connect_opt(%Opt);
 
 	# Search for required objects
-	_debug("searching for $filter under base '$Opt{base}'");
+	_debug("searching for $filter under '$base' [$scope]");
 	my $srch = $conn->search(base => $base,
-				scope => $Opt{scope},
+				scope => $scope,
 				filter => $filter,
 				attrs => \@attrs,
 				control => \@search_controls);

@@ -306,10 +306,38 @@ sub ldap_changeset_dump {
 	return @out;
 }
 
+sub _slash_split {
+	# This is similar to split(m!/!, $path) but honors escaped slashes within
+	# a path component, e.g. "/Filesystems/cn=\/net\/ember".
+	my ($path) = @_;
+	my @path = ();
+	my $buf = "";
+	my $state = 0;
+	for my $char (split(//, $path)) {
+		if ($state == 0) {
+			if ($char eq "\\") {
+				$state = 1;
+			} elsif ($char eq "/") {
+				push @path, $buf;
+				$buf = "";
+			} else {
+				$buf .= $char;
+			}
+		} elsif ($state == 1) {
+			$buf .= $char;
+			$state = 0;
+		}
+	}
+	push @path, $buf;
+	# split() does not return empty elements at the end, we shouldn't either
+	pop @path while length($path[$#path]) == 0;
+	return @path;
+}
+
 sub path_to_dn {
 	my ($path, $base_dn) = @_;
 	_trace("input path = '$path'");
-	my @path = split(m!/!, $path);
+	my @path = _slash_split($path);
 	if (@path && shift(@path) ne "") {
 		_die("relative paths are not understood");
 	}

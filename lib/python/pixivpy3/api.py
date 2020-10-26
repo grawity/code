@@ -6,6 +6,7 @@ import shutil
 from datetime import datetime
 
 import requests
+import cloudscraper
 
 from .utils import PixivError, JsonDict
 
@@ -21,7 +22,8 @@ class BasePixivAPI(object):
 
     def __init__(self, **requests_kwargs):
         """initialize requests kwargs if need be"""
-        self.requests = requests.Session()
+        #self.requests = requests.Session()
+        self.requests = cloudscraper.CloudScraper()
         self.requests_kwargs = requests_kwargs
         self.additional_headers = {}
 

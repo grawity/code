@@ -17,7 +17,7 @@ def uniq(items):
             seen.add(item)
             yield item
 
-def print_dependency_tree(tree, root, *, indent=0, ctx=None):
+def print_dependency_tree(tree, root, *, indent=0, sep="", ctx=None):
     """
     >>> tree = {"a": {"b", "c"},
     >>>         "b": {"d"},
@@ -45,11 +45,11 @@ def print_dependency_tree(tree, root, *, indent=0, ctx=None):
         branches[depth] = ("├" if more else "└") + "─"
         if child in seen:
             continue
-        print(" "*indent + "".join(branches) + child)
+        print(" "*indent + "".join([b+sep for b in branches]) + child)
         if child in tree:
             branches[depth] = ("│" if more else " ") + " "
             ctx = depth + 1, branches.copy(), seen.copy()
-            print_dependency_tree(tree, child, indent=indent, ctx=ctx)
+            print_dependency_tree(tree, child, indent=indent, sep=sep, ctx=ctx)
 
 def summarize_ranges(ints):
     lo = hi = None

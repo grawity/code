@@ -53,6 +53,26 @@ else
     debug "nocache: disabled for command '$cmd'"
 fi
 
+newargs=()
+changes=0
+for arg; do
+    if [[ $arg == --*!=* ]]; then
+        newargs+=("--not" "${arg%%!=*}=${arg#*!=}")
+        changes=1
+    elif [[ $arg == --!* ]]; then
+        newargs+=("--not" "--${arg#--!}")
+        changes=1
+    else
+        newargs+=("$arg")
+    fi
+done
+if (( changes )); then
+    debug "rewrote args:"
+    debug "  from ${*@Q}"
+    debug "  to ${newargs[*]@Q}"
+    set -- "${newargs[@]}"
+fi
+
 case $cmd in
     @*)
         name=${cmd#@}

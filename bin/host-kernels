@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 
-hosts=' wolke sky star ember wind '
-hosts+=' radius gw-core '
+hosts='
+	wolke
+	sky
+	star
+	land
+	ember
+	wind
+'
 
-(for host in $hosts; do ssh $host 'printf "%s\t%s\t%s\t[%s]\n" "$(hostname)" "$(uname -r)" "$(uptime -p | sed "s/,.*//")" "$(uname -v)"' & done; wait) | sort -V -k 2 -r | column -t -s $'\t' -N HOST,KERNEL,UPTIME,BUILD
+if [[ $1 == @(-w|--work) ]]; then
+	hosts+=' radius gw-core '
+fi
+
+(for host in $hosts; do
+	ssh $host 'printf "%s\t%s\t%s\t[%s]\n" "$(hostname)" "$(uname -r)" "$(uptime -p | sed "s/,.*//")" "$(uname -v)"' &
+done
+wait) | sort -V -k 2 -r | column -t -s $'\t' -N HOST,KERNEL,UPTIME,BUILD

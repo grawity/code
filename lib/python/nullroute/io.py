@@ -97,6 +97,12 @@ class BinaryWriter():
             print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
         return data
 
+    def seek(self, pos, whence=0):
+        return self.fh.seek(pos, whence)
+
+    def tell(self):
+        return self.fh.tell()
+
     def write(self, buf, flush=False):
         self._debug("raw[%d]" % len(buf), buf)
         ret = self.fh.write(buf)

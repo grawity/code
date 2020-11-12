@@ -16,6 +16,9 @@ class BinaryReader():
     def seek(self, pos, whence=0):
         return self.fh.seek(pos, whence)
 
+    def tell(self):
+        return self.fh.tell()
+
     def read(self, length):
         buf = self.fh.read(length)
         if len(buf) < length:

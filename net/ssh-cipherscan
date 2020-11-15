@@ -28,36 +28,7 @@ def read_ssh_packets(r):
         Core.trace("  mac = [%d] %r", len(mac), mac)
         yield payload, mac
 
-def dump_one(buf, name):
-    print("\033[1m%s:\033[m" % name)
-    words = buf.decode().split(",")
-    pprint(words)
-
-def dump_hdr(buf):
-    packet = buf
-    while packet:
-        banner, packet = packet.split(b"\r\n", 1)
-        if banner.startswith(b"SSH-"):
-            break
-
-    Core.trace("parsed buffer:")
-    Core.trace("  banner = [%d] %r", len(banner), banner)
-    Core.trace("  packet = [%d] %r", len(packet), packet)
-
-    print("SSH version banner: %r" % banner)
-
-    for payload, *_ in read_ssh_packets(io.BytesIO(packet)):
-        br = SshBinaryReader(io.BytesIO(payload))
-        packet_type = br.read_byte()
-        if packet_type == SSH_MSG_IGNORE:
-            Core.trace("got SSH_MSG_IGNORE")
-            continue
-        elif packet_type == SSH_MSG_KEXINIT:
-            Core.trace("got SSH_MSG_KEXINIT")
-            break
-        else:
-            raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)
-
+def dump_keyexchange_packet(br):
     cookie = br.read(16)
     header = {
         "kexes": br.read_array(),
@@ -84,6 +55,34 @@ def dump_hdr(buf):
     for x in header:
         header[x] = [y.decode() for y in header[x]]
     pprint(header)
+
+def dump_one(buf, name):
+    print("\033[1m%s:\033[m" % name)
+    words = buf.decode().split(",")
+    pprint(words)
+
+def dump_hdr(buf):
+    packet = buf
+    while packet:
+        banner, packet = packet.split(b"\r\n", 1)
+        if banner.startswith(b"SSH-"):
+            break
+    Core.trace("parsed buffer:")
+    Core.trace("  banner = [%d] %r", len(banner), banner)
+    Core.trace("  packet = [%d] %r", len(packet), packet)
+    print("SSH version banner: %r" % banner)
+
+    for payload, *_ in read_ssh_packets(io.BytesIO(packet)):
+        br = SshBinaryReader(io.BytesIO(payload))
+        packet_type = br.read_byte()
+        if packet_type == SSH_MSG_IGNORE:
+            Core.trace("got SSH_MSG_IGNORE")
+        elif packet_type == SSH_MSG_KEXINIT:
+            Core.trace("got SSH_MSG_KEXINIT")
+            dump_keyexchange_packet(br)
+            break
+        else:
+            raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)
 
 host = sys.argv[1]
 port = 22

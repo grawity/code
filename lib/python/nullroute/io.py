@@ -7,10 +7,14 @@ class BinaryReader():
         self.fh = fh
 
     def _debug(self, typ, data):
-        if os.environ.get("DEBUG"):
-            c_on = "\033[33m" if sys.stderr.isatty() else ""
-            c_off = "\033[m" if sys.stderr.isatty() else ""
-            print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
+        try:
+            level = int(os.environ.get("DEBUG") or "0")
+            if level >= 3:
+                c_on = "\033[33m" if sys.stderr.isatty() else ""
+                c_off = "\033[m" if sys.stderr.isatty() else ""
+                print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
+        except ValueError:
+            pass
         return data
 
     def seek(self, pos, whence=0):

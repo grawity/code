@@ -329,8 +329,9 @@ sub _slash_split {
 		}
 	}
 	push @path, $buf;
+	_trace("split into {".join(", ", map {qq{"$_"}} @path)."}");
 	# split() does not return empty elements at the end, we shouldn't either
-	pop @path while length($path[$#path]) == 0;
+	pop @path while @path && length($path[$#path]) == 0;
 	return @path;
 }
 
@@ -342,7 +343,9 @@ sub path_to_dn {
 		_die("relative paths are not understood");
 	}
 	_trace("components = {".join(", ", map {qq{"$_"}} @path)."}");
-	if ($path =~ m!/$!) {
+	if ($path eq "") {
+		# nothing to do
+	} elsif ($path =~ m!/$!) {
 		(@path) = grep {/=/ || s/^/ou=/} @path;
 	} else {
 		my $head = pop(@path);
@@ -370,7 +373,7 @@ sub dwim_filter {
 		# More complex @foo:(bar) is not supported
 		$filter = "(&(objectClass=$1)($2))";
 	}
-	elsif ($filter =~ m!^/!) {
+	elsif ($filter =~ m!^/! || $filter eq "") {
 		# /People/grawity
 		# /ou=People/cn=grawity
 		if ($filter =~ m{//$}) {

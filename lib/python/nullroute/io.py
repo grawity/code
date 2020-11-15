@@ -20,6 +20,9 @@ class BinaryReader():
     def seek(self, pos, whence=0):
         return self.fh.seek(pos, whence)
 
+    def tell(self):
+        return self.fh.tell()
+
     def read(self, length):
         buf = self.fh.read(length)
         if len(buf) < length:
@@ -97,6 +100,12 @@ class BinaryWriter():
             c_off = "\033[m" if sys.stderr.isatty() else ""
             print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
         return data
+
+    def seek(self, pos, whence=0):
+        return self.fh.seek(pos, whence)
+
+    def tell(self):
+        return self.fh.tell()
 
     def write(self, buf, flush=False):
         self._debug("raw[%d]" % len(buf), buf)

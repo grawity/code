@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+from nullroute.core import Core
 from nullroute.io import SshBinaryReader
 from pprint import pprint
 import io
 import socket
 import sys
 
+SSH_MSG_IGNORE = 2
 SSH_MSG_KEXINIT = 20
 
 def dump_one(buf, name):
@@ -19,23 +21,42 @@ def dump_hdr(buf):
         if banner.startswith(b"SSH-"):
             break
 
+    Core.trace("parsed buffer:")
+    Core.trace("  banner = [%d] %r", len(banner), banner)
+    Core.trace("  packet = [%d] %r", len(packet), packet)
+
     print("SSH version banner: %r" % banner)
 
     # Binary packet protocol
+    l1br = SshBinaryReader(io.BytesIO(packet))
+    while True:
 
-    br = SshBinaryReader(io.BytesIO(packet))
-    packet_len = br.read_uint32()
-    padding_len = br.read_byte()
-    payload = br.read(packet_len - padding_len - 1)
-    padding = br.read(padding_len)
-    # no MAC for initial handshake packets
+        Core.trace("reading binary packet...")
+        packet_len = l1br.read_uint32()
+        padding_len = l1br.read_byte()
+        payload = l1br.read(packet_len - padding_len - 1)
+        padding = l1br.read(padding_len)
+        # no MAC for initial handshake packets
 
-    # Key exchange packet
+        Core.trace("parsed binary packet:")
+        Core.trace("  packet_len = %d", packet_len)
+        Core.trace("  padding_len = %d", padding_len)
+        Core.trace("  payload = [%d] %r", len(payload), payload)
+        Core.trace("  padding = [%d] %r", len(padding), padding)
 
-    br = SshBinaryReader(io.BytesIO(payload))
-    packet_type = br.read_byte()
-    if packet_type != SSH_MSG_KEXINIT:
-        raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)
+        # Key exchange packet
+
+        br = SshBinaryReader(io.BytesIO(payload))
+        packet_type = br.read_byte()
+        if packet_type == SSH_MSG_IGNORE:
+            Core.trace("got SSH_MSG_IGNORE")
+            continue
+        elif packet_type == SSH_MSG_KEXINIT:
+            Core.trace("got SSH_MSG_KEXINIT")
+            break
+        else:
+            raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)
+
     cookie = br.read(16)
     header = {
         "kexes": br.read_array(),
@@ -48,6 +69,8 @@ def dump_hdr(buf):
         "compression s2c": br.read_array(),
         "languages c2s": br.read_array(),
         "languages s2c": br.read_array(),
+        None: br.read_bool(),
+        None: br.read_u32_be(),
     }
     for x in ["ciphers", "macs", "compression", "languages"]:
         a = f"{x} s2c"

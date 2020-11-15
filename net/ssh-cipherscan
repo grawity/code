@@ -9,6 +9,25 @@ import sys
 SSH_MSG_IGNORE = 2
 SSH_MSG_KEXINIT = 20
 
+def read_ssh_packets(r):
+    br = SshBinaryReader(r)
+    while True:
+        Core.trace("reading binary packet...")
+        packet_len = br.read_uint32()
+        padding_len = br.read_byte()
+        payload = br.read(packet_len - padding_len - 1)
+        padding = br.read(padding_len)
+        mac = br.read(0)
+        # no MAC for initial handshake packets
+
+        Core.trace("parsed binary packet:")
+        Core.trace("  packet_len = %d", packet_len)
+        Core.trace("  padding_len = %d", padding_len)
+        Core.trace("  payload = [%d] %r", len(payload), payload)
+        Core.trace("  padding = [%d] %r", len(padding), padding)
+        Core.trace("  mac = [%d] %r", len(mac), mac)
+        yield payload, mac
+
 def dump_one(buf, name):
     print("\033[1m%s:\033[m" % name)
     words = buf.decode().split(",")
@@ -27,25 +46,7 @@ def dump_hdr(buf):
 
     print("SSH version banner: %r" % banner)
 
-    # Binary packet protocol
-    l1br = SshBinaryReader(io.BytesIO(packet))
-    while True:
-
-        Core.trace("reading binary packet...")
-        packet_len = l1br.read_uint32()
-        padding_len = l1br.read_byte()
-        payload = l1br.read(packet_len - padding_len - 1)
-        padding = l1br.read(padding_len)
-        # no MAC for initial handshake packets
-
-        Core.trace("parsed binary packet:")
-        Core.trace("  packet_len = %d", packet_len)
-        Core.trace("  padding_len = %d", padding_len)
-        Core.trace("  payload = [%d] %r", len(payload), payload)
-        Core.trace("  padding = [%d] %r", len(padding), padding)
-
-        # Key exchange packet
-
+    for payload, *_ in read_ssh_packets(io.BytesIO(packet)):
         br = SshBinaryReader(io.BytesIO(payload))
         packet_type = br.read_byte()
         if packet_type == SSH_MSG_IGNORE:

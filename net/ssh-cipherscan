@@ -5,22 +5,39 @@ import io
 import socket
 import sys
 
+SSH_MSG_KEXINIT = 20
+
 def dump_one(buf, name):
     print("\033[1m%s:\033[m" % name)
     words = buf.decode().split(",")
     pprint(words)
 
 def dump_hdr(buf):
-    while buf:
-        hdr, buf = buf.split(b"\r\n", 1)
-        if hdr.startswith(b"SSH-"):
+    packet = buf
+    while packet:
+        banner, packet = packet.split(b"\r\n", 1)
+        if banner.startswith(b"SSH-"):
             break
-    pprint(hdr)
-    br = SshBinaryReader(io.BytesIO(buf))
-    proposal = br.read_string()
-    br = SshBinaryReader(io.BytesIO(proposal))
+
+    print("SSH version banner: %r" % banner)
+
+    # Binary packet protocol
+
+    br = SshBinaryReader(io.BytesIO(packet))
+    packet_len = br.read_uint32()
+    padding_len = br.read_byte()
+    payload = br.read(packet_len - padding_len - 1)
+    padding = br.read(padding_len)
+    # no MAC for initial handshake packets
+
+    # Key exchange packet
+
+    br = SshBinaryReader(io.BytesIO(payload))
+    packet_type = br.read_byte()
+    if packet_type != SSH_MSG_KEXINIT:
+        raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)
+    cookie = br.read(16)
     header = {
-        None: br.read(18),
         "kexes": br.read_array(),
         "hostkeys": br.read_array(),
         "ciphers c2s": br.read_array(),

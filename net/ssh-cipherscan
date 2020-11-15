@@ -6,7 +6,14 @@ import io
 import socket
 import sys
 
+# Binary packet protocol:
+#   https://tools.ietf.org/html/rfc4253#section-6
+# KEXINIT packet format:
+#   https://tools.ietf.org/html/rfc4253#section-7.1
+
+SSH_MSG_DISCONNECT = 1
 SSH_MSG_IGNORE = 2
+SSH_MSG_DEBUG = 4
 SSH_MSG_KEXINIT = 20
 
 def read_ssh_packets(r):
@@ -67,18 +74,32 @@ def dump_hdr(buf):
         banner, packet = packet.split(b"\r\n", 1)
         if banner.startswith(b"SSH-"):
             break
-    Core.trace("parsed buffer:")
-    Core.trace("  banner = [%d] %r", len(banner), banner)
-    Core.trace("  packet = [%d] %r", len(packet), packet)
+    Core.debug("parsed buffer:")
+    Core.debug("  banner = [%d] %r", len(banner), banner)
+    Core.debug("  packet = [%d] %r", len(packet), packet)
     print("SSH version banner: %r" % banner)
 
     for payload, *_ in read_ssh_packets(io.BytesIO(packet)):
         br = SshBinaryReader(io.BytesIO(payload))
         packet_type = br.read_byte()
-        if packet_type == SSH_MSG_IGNORE:
-            Core.trace("got SSH_MSG_IGNORE")
+        if packet_type == SSH_MSG_DISCONNECT:
+            Core.debug("got SSH_MSG_DISCONNECT packet")
+            reason = br.read_uint32()
+            text = br.read_string().decode("utf-8", errors="ignore")
+            lang = br.read_string()
+            raise IOError("received a disconnect packet: reason=%d, %r" % (reason, text))
+        elif packet_type == SSH_MSG_IGNORE:
+            Core.debug("got SSH_MSG_IGNORE packet")
+            data = br.read_string()
+            Core.debug("  data = [%d] %r", len(data), data)
+        elif packet_type == SSH_MSG_DEBUG:
+            Core.debug("got SSH_MSG_DEBUG")
+            display = br.read_bool()
+            text = br.read_string().decode("utf-8", errors="ignore")
+            lang = br.read_string()
+            Core.debug("  text = [%d] %r", len(text), text)
         elif packet_type == SSH_MSG_KEXINIT:
-            Core.trace("got SSH_MSG_KEXINIT")
+            Core.debug("got SSH_MSG_KEXINIT")
             dump_keyexchange_packet(br)
             break
         else:

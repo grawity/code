@@ -231,6 +231,14 @@ case $cmd in
         #git annex find --not --copies semitrusted+:1
         annex where --not --copies semitrusted+:1
         ;;
+    fast-migrate)
+        # Can migrate SHA256E to SHA256 without rehashing
+        # Needs --filename= for the opposite conversion
+        is_annex!
+        for arg; do
+            git annex examinekey "$arg" --migrate-to-backend=SHA256
+        done
+        ;;
     examine)
         is_annex!
         if (( ! $# )); then

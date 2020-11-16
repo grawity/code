@@ -1,7 +1,7 @@
 try:
-    from .client_libldap import (LdapClient, quote_filter)
+    from .client_libldap import *
 except ImportError:
-    from .client_ldap3 import (LdapClient, quote_filter)
+    from .client_ldap3 import *
 
 class NullrouteLdapClient(LdapClient):
     base = "dc=nullroute,dc=eu,dc=org"

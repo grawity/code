@@ -25,6 +25,9 @@ class CaseInsensitiveDict(dict):
 def _decode_dict_values(d):
     return {k: [v.decode() for v in vs] for k, vs in d.items()}
 
+def dn2rdn(dn):
+    return ldap.dn.str2dn(dn)[0][0][1]
+
 def quote_filter(s):
     return ldap.filter.escape_filter_chars(s)
 

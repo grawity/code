@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+root=~/pub/git
+public=1
+repos=()
+
+for arg; do
+	if [[ $arg == @(-p|--private|--no-export) ]]; then
+		public=0
+	elif [[ $arg == -* ]]; then
+		die "unknown option '$arg'"
+	else
+		repos+=("${arg%.git}")
+	fi
+done
+
+if (( ! ${#repos[@]} )); then
+	die "no repositories specified"
+fi
+
+for arg in "${repos[@]}"; do
+	dir="$root/$arg.git"
+	if [[ -d "$dir" ]]; then
+		err "repository ${dir@Q} already exists"
+		continue
+	fi
+	git init --bare "$dir"
+	if (( public )); then
+		touch "$dir/git-daemon-export-ok"
+		if read -e -r -p "Describe $arg: " desc && [[ $desc ]]; then
+			echo "$desc" > "$dir/description"
+		fi
+	fi
+done

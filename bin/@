@@ -12,6 +12,14 @@ else
 	die "missing hostname"
 fi
 
+if (( $# == 0 )); then
+	qcmd="bash"
+elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
+	qcmd="$1"
+else
+	qcmd="${@@Q}"
+fi
+
 (( $# )) || set bash
 
-ssh -q -t "$host" ". ~/.profile && cd ${PWD@Q} && (${@@Q})"
+ssh -q -t "$host" ". ~/.profile && cd ${PWD@Q} && ($qcmd)"

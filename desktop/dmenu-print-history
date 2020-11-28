@@ -16,7 +16,12 @@
 
 use warnings;
 use strict;
-use Nullroute::Lib qw(uniq _debug _die);
+
+sub uniq (@) {
+	my %seen;
+
+	grep {!$seen{$_}++} @_;
+}
 
 sub rank {
 	my ($time) = @_;
@@ -33,7 +38,7 @@ my @history;
 my %time;
 my %count;
 
-$histfile = shift @ARGV // "/dev/stdin";
+$histfile = shift(@ARGV) // "/dev/stdin";
 
 if (open(my $f, "<", $histfile)) {
 	my $ts = 0;
@@ -49,10 +54,10 @@ if (open(my $f, "<", $histfile)) {
 	close($f);
 } else {
 	if ($!{ENOENT}) {
-		_debug("could not open histfile: $!");
+		warn "could not open histfile: $!\n" if -t STDERR;
 		exit;
 	} else {
-		_die("could not open histfile: $!");
+		die "could not open histfile: $!\n";
 	}
 }
 

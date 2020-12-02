@@ -11,7 +11,9 @@ prompt='run:'
 #tool=bemenu
 
 if [[ $WAYLAND_DISPLAY && ! $tool ]]; then
-	tool=bemenu
+	#tool=bemenu
+	#tool=rofi
+	:
 fi
 
 if (( width >= 1920 )); then
@@ -62,19 +64,28 @@ bemenu)
 	;;
 rofi)
 	max=10
-	prompt=${prompt%:}
+	normal_fg='#bbbbbb'
+	normal_bg='#222222'
 	menu=(rofi
 		-dmenu
+		# Read all data before displaying window
+		-sync
 		# Do not override-redirect (for XWayland)
 		-normal-window
-		# Prompt
-		-p "$prompt"
+		# Prompt string
+		-p "${prompt%:}"
 		# Max number of lines
 		-l $max
 		# Match letters anywhere (tks ≈ tweaks)
 		-matching fuzzy
-		-location 0
-		-color-window "$normal_bg,$title_fg"
+		# Don't highlight matching text
+		-no-show-match
+		# Border
+		-bw 0
+		# Internal padding
+		-padding 2
+		# bg, fg, separator line
+		-color-window "$normal_bg,$title_fg,#666666"
 		-color-normal "$normal_bg,$normal_fg,$normal_bg,$sel_bg,$sel_fg"
 	)
 	;;

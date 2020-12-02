@@ -2,15 +2,21 @@
 
 . lib.bash || exit
 
-if [[ ${0##*/} == @?* ]]; then
-	host=${0##*/}
-	host=${host#@}
-elif [[ ${0##*/} == @ && $1 ]]; then
-	host=$1
-	shift
+# Accept '@foo' symlinks (hostname in argv[0]) like ssh/rsh
+
+arg0=${0##*/}
+
+if [[ $arg0 == @?* ]]; then
+	host=${arg0#@}
+elif [[ $arg0 == @(@|on) && $1 ]]; then
+	host=$1; shift
 else
 	die "missing hostname"
 fi
+
+# 0 args - run a shell
+# 1 arg - use as raw command line
+# 2+ args - quote individual args
 
 if (( $# == 0 )); then
 	qcmd="bash"
@@ -20,6 +26,4 @@ else
 	qcmd="${@@Q}"
 fi
 
-(( $# )) || set bash
-
-ssh -q -t "$host" "export SILENT=1; . ~/.profile && cd ${PWD@Q} && ($qcmd)"
+exec ssh -q -t "$host" "export SILENT=1; . ~/.profile && cd ${PWD@Q} && ($qcmd)"

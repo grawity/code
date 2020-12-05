@@ -76,8 +76,6 @@ static void dump_statx(struct statx *stx)
 {
 	char buffer[256], ft = '?';
 
-	printf("results=%x\n", stx->stx_mask);
-
 	printf(" ");
 	if (stx->stx_mask & STATX_SIZE)
 		printf(" Size: %-15llu", (unsigned long long)stx->stx_size);

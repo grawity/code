@@ -143,46 +143,31 @@ static void dump_statx(struct statx *stx)
 	if (stx->stx_mask & STATX_BTIME)
 		print_time(" Birth: ", &stx->stx_btime);
 
+	/* Print supported attributes in short format */
 	if (stx->stx_attributes_mask) {
-#if 0
-		unsigned char bits, mbits;
-		int loop, byte;
+		static char attr_flag[64] = {
+			[2] = 'c', /* compressed */
+			[4] = 'i', /* immutable */
+			[5] = 'a', /* append-only */
+			[6] = 'd', /* no-dump */
+			[11] = 'e', /* encrypted */
+			[12] = 'm', /* automount */
+			[13] = 'r', /* mount-root */
+			[20] = 'v', /* fs-verity */
+		};
 
-		static char attr_representation[64 + 1] =
-			/* STATX_ATTR_ flags: */
-			"????????"	/* 63-56 */
-			"????????"	/* 55-48 */
-			"????????"	/* 47-40 */
-			"????????"	/* 39-32 */
-			"????????"	/* 31-24	0x00000000-ff000000 */
-			"????????"	/* 23-16	0x00000000-00ff0000 */
-			"??rme???"	/* 15- 8	0x00000000-0000ff00 */
-			"?dai?c??"	/*  7- 0	0x00000000-000000ff */
-			;
-
-		printf("Attributes: %016llx (",
-		       (unsigned long long)stx->stx_attributes);
-		for (byte = 64 - 8; byte >= 0; byte -= 8) {
-			bits = stx->stx_attributes >> byte;
-			mbits = stx->stx_attributes_mask >> byte;
-			for (loop = 7; loop >= 0; loop--) {
-				int bit = byte + loop;
-
-				if (!(mbits & 0x80))
-					putchar('.');	/* Not supported */
-				else if (bits & 0x80)
-					putchar(attr_representation[63 - bit]);
-				else
-					putchar('-');	/* Not set */
-				bits <<= 1;
-				mbits <<= 1;
+		printf("Attributes: 0x%016llx (", (unsigned long long)stx->stx_attributes);
+		for (int bit = 0; bit < 64; bit++) {
+			unsigned long long mbit = 1ULL << bit;
+			if (stx->stx_attributes_mask & mbit) {
+				putchar((stx->stx_attributes & mbit) ? attr_flag[bit] : '-');
 			}
-			if (byte)
-				putchar(' ');
 		}
 		printf(")\n");
-#endif
+	}
 
+	/* Print in verbose format */
+	if (stx->stx_attributes_mask) {
 		static char *attr_name[64] = {
 			[2] = "compressed",
 			[4] = "immutable",

@@ -144,6 +144,7 @@ static void dump_statx(struct statx *stx)
 		print_time(" Birth: ", &stx->stx_btime);
 
 	if (stx->stx_attributes_mask) {
+#if 0
 		unsigned char bits, mbits;
 		int loop, byte;
 
@@ -180,6 +181,7 @@ static void dump_statx(struct statx *stx)
 				putchar(' ');
 		}
 		printf(")\n");
+#endif
 
 		static char *attr_name[64] = {
 			[2] = "compressed",

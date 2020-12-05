@@ -193,18 +193,13 @@ static void dump_statx(struct statx *stx)
 			[13] = "mount_root",
 			[20] = "fsverity",
 		};
+		int count = 0;
 
 		printf("Attributes");
-		unsigned long long attrs = stx->stx_attributes & stx->stx_attributes_mask;
-		int count = 0;
 		for (int bit = 0; bit < 64; bit++) {
-			if (attrs & (1ULL << bit)) {
+			if (stx->stx_attributes & (1ULL << bit)) {
 				printf(count++ ? ", " : ": ");
-				if (attr_name[bit]) {
-					printf("%s(%d)", attr_name[bit], bit);
-				} else {
-					printf("%s(%d)", "unknown", bit);
-				}
+				printf("%s(%d)", attr_name[bit] ?: "unknown", bit);
 			}
 		}
 		printf(count ? "\n" : ": (none)\n");

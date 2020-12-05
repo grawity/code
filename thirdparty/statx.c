@@ -160,7 +160,7 @@ static void dump_statx(struct statx *stx)
 		for (int bit = 0; bit < 64; bit++) {
 			unsigned long long mbit = 1ULL << bit;
 			if (stx->stx_attributes_mask & mbit) {
-				putchar((stx->stx_attributes & mbit) ? attr_flag[bit] : '-');
+				putchar((stx->stx_attributes & mbit) ? (attr_flag[bit] ?: '?') : '-');
 			}
 		}
 		printf(")\n");

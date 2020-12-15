@@ -11,6 +11,7 @@ quality=98
 scale=100
 infiles=()
 outfiles=()
+declare -A outmap=()
 addargs=()
 
 nproc=$(nproc)
@@ -79,6 +80,7 @@ for iname in "${infiles[@]}"; do
 		touch "$oname" --reference="$iname" 2>/dev/null
 	} & (( ++njobs ))
 	outfiles+=("$oname")
+	outmap["$oname"]=$iname
 	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
 done
 while (( njobs )); do
@@ -87,9 +89,29 @@ while (( njobs )); do
 done
 printf '\n'
 
+outsmaller=()
+outlarger=()
 for oname in "${outfiles[@]}"; do
-	[[ -s "$oname" ]] || exit
+	iname=${outmap["$oname"]}
+	if [[ ! -s "$oname" ]]; then
+		die "conversion of '$iname' failed"
+	fi
+	if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") )); then
+		outlarger+=("$oname")
+	else
+		outsmaller+=("$oname")
+	fi
 done
+
+if (( ${#outlarger[@]} )); then
+	rm -f "${outlarger[@]}"
+	notice "${#outlarger[@]} files were larger than originals; deleted."
+	outfiles=("${outsmaller[@]}")
+fi
+
+if (( ! ${#outfiles[@]} )); then
+	die "no conversions succeeded"
+fi
 
 orig_total_str=$(du -hsc "${infiles[@]}" | awk 'END {print $1}')
 jpeg_total_str=$(du -hsc "${outfiles[@]}" | awk 'END {print $1}')

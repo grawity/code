@@ -1,22 +1,36 @@
 #!/usr/bin/env python3
 # ndpwatch - poll ARP & ND caches and store to database
-# (c) 2016 Mantas Mikulėnas <grawity@gmail.com>
+# (c) 2016-2020 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)
 import ipaddress
 import json
 import mysql.connector
-from nullroute.core import *
+import os
 import re
 import time
+import sys
 import subprocess
 
-def _sh_escape(arg):
+# Log functions (which should start doing syslog one day)
+
+def log_debug(msg):
+    pass
+
+def log_info(msg):
+    print(msg, file=sys.stdout, flush=True)
+
+def log_error(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+# String utility functions
+
+def shell_escape(arg):
     return "'%s'" % arg.replace("'", "'\\''")
 
-def _sh_join(args):
-    return " ".join(map(_sh_escape, args))
+def shell_join(args):
+    return " ".join(map(shell_escape, args))
 
-def _fix_mac(mac):
+def canon_mac(mac):
     return ":".join(["%02x" % int(i, 16) for i in mac.split(":")])
 
 class NeighbourTable():
@@ -33,7 +47,7 @@ class _SshNeighbourTable(NeighbourTable):
 
     def _popen(self, args):
         if self.host:
-            return subprocess.Popen(["ssh", self.host, _sh_join(args)],
+            return subprocess.Popen(["ssh", self.host, shell_join(args)],
                                     stdout=subprocess.PIPE)
         else:
             return subprocess.Popen(args, stdout=subprocess.PIPE)
@@ -256,7 +270,7 @@ class SnmpNeighbourTable(NeighbourTable):
             addr = bytes([int(c) for c in oid[14:]])
             item = {
                 "ip": ipaddress.ip_address(addr),
-                "mac": _fix_mac(value),
+                "mac": canon_mac(value),
                 "dev": idx2name.get(ifindex, ifindex),
             }
             self._cache[af].append(item)
@@ -276,7 +290,7 @@ _systems = {
     "routeros": RouterOsNeighbourTable,
 }
 
-config = Env.find_config_file("ndpwatch.conf")
+config = os.path.expanduser("~/.config/nullroute.eu.org/ndpwatch.conf")
 db_url = None
 hosts = []
 max_age_days = 6*30
@@ -295,41 +309,33 @@ with open(config, "r") as f:
             hosts.append(v)
         elif k == "age":
             max_age_days = int(v)
-        elif k == "mode":
-            if v in {"ipv4", "ipv6", "all", "both"}:
-                mode = v
-            else:
-                Core.die("config parameter %r has unrecognized value %r" % (k, v))
 
 if not db_url:
-    Core.die("database URL not configured")
+    log_error("database URL not configured")
+    exit(2)
 
 m = re.match(r"^mysql://([^:]+):([^@]+)@([^/]+)/(.+)", db_url)
 if not m:
-    Core.die("unrecognized database URL %r", db_url)
+    log_error("unrecognized database URL %r" % db_url)
+    exit(2)
+
 conn = mysql.connector.connect(host=m.group(3),
                                user=m.group(1),
                                password=m.group(2),
                                database=m.group(4))
 
-if mode == "ipv4":
-    func = lambda nt: nt.get_arp4()
-elif mode == "ipv6":
-    func = lambda nt: nt.get_ndp6()
-else:
-    func = lambda nt: nt.get_all()
-
+errors = 0
 for conn_type, host, *conn_args in hosts:
-    Core.say("connecting to %s" % host)
+    log_info("connecting to %s [%s]" % (conn_type, host))
     n_arp = n_ndp = 0
     try:
         nt = _systems[conn_type](host, *conn_args)
         now = time.time()
-        for item in func(nt):
+        for item in nt.get_all():
             ip = item["ip"].split("%")[0]
             mac = item["mac"].lower()
             if ip.startswith("fe80:"):
-                Core.trace("skipping link-local ip=%r mac=%r", ip, mac)
+                log_debug("skipping link-local ip=%r mac=%r" % (ip, mac))
                 continue
             if verbose:
                 print("- found", ip, "->", mac)
@@ -338,26 +344,27 @@ for conn_type, host, *conn_args in hosts:
             else:
                 n_arp += 1
             cursor = conn.cursor()
-            Core.trace("inserting ip=%r mac=%r now=%r", ip, mac, now)
+            log_debug("inserting ip=%r mac=%r now=%r" % (ip, mac, now))
             cursor.execute("""INSERT INTO arplog (ip_addr, mac_addr, first_seen, last_seen)
                               VALUES (%(ip_addr)s, %(mac_addr)s, %(now)s, %(now)s)
                               ON DUPLICATE KEY UPDATE last_seen=%(now)s""",
                            {"ip_addr": ip, "mac_addr": mac, "now": now})
     except IOError as e:
-        Core.err("connection to %r failed: %r", host, e)
-    Core.say(" - logged %d ARP entries, %d NDP entries" % (n_arp, n_ndp))
-
+        log_error("connection to %r failed: %r" % (host, e))
+        errors += 1
+    log_info(" - logged %d ARP entries, %d NDP entries" % (n_arp, n_ndp))
 conn.commit()
-Core.exit_if_errors()
 
+if errors:
+    log_error("some hosts couldn't be scanned, exiting without cleanup")
+    exit(1)
+
+log_info("cleaning up records more than %d days old" % max_age_days)
 max_age_secs = max_age_days*86400
-
-Core.say("cleaning up old records")
-
 cursor = conn.cursor()
 cursor.execute("DELETE FROM arplog WHERE last_seen < %(then)s",
                {"then": time.time() - max_age_secs})
-
 conn.commit()
+
+log_info("finished")
 conn.close()
-Core.fini()

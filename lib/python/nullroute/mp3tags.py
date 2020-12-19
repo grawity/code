@@ -130,9 +130,9 @@ class GainValue(object):
         tag[u'RVA2:%s' % self._mode] = self.to_rva2()
 
         rg_gain, rg_peak = self.to_string()
-        tx_gain = mutagen.id3.TXXX(desc=u'replaygain_%s_gain' % self._mode,
+        tx_gain = mutagen.id3.TXXX(desc=u'REPLAYGAIN_%s_GAIN' % self._mode,
                                    encoding=1, text=[rg_gain])
-        tx_peak = mutagen.id3.TXXX(desc=u'replaygain_%s_peak' % self._mode,
+        tx_peak = mutagen.id3.TXXX(desc=u'REPLAYGAIN_%s_PEAK' % self._mode,
                                    encoding=1, text=[rg_peak])
         tag[u'TXXX:'+tx_gain.desc] = tx_gain
         tag[u'TXXX:'+tx_peak.desc] = tx_peak

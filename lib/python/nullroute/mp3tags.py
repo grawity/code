@@ -86,14 +86,17 @@ class GainValue(object):
         return gv
 
     def to_string(self):
+        # New format
         rg_gain = self._raw_gain or "%.2f dB" % self.gain
         rg_peak = self._raw_peak or "%.2f dB" % self.peak
         return (rg_gain, rg_peak)
 
     def to_rva2(self):
+        # Legacy format
         return mutagen.id3.RVA2(desc=self._mode, channel=1, gain=self.gain, peak=self.peak)
 
     def to_soundcheck(self):
+        # iTUnes format
         return rva_to_soundcheck(self)
 
     @classmethod
@@ -101,16 +104,22 @@ class GainValue(object):
         if mode not in self.MODES:
             raise ValueError("mode must be one of %r" % self.MODES)
 
-        if (u'RVA2:%s' % mode) in tag:
-            # ID3v2.4 RVA2
-            #print "Found ID3v2.4 RVA2 frame"
-            return self.from_rva2(mode, tag[u'RVA2:%s' % mode])
+        if (u'TXXX:REPLAYGAIN_%s_GAIN' % mode) in tag:
+            # ID3v2 foobar2000
+            #print "Found ID3v2 foobar2000 tag"
+            return self.from_string(mode,
+                                    tag[u'TXXX:REPLAYGAIN_%s_GAIN' % mode],
+                                    tag[u'TXXX:REPLAYGAIN_%s_PEAK' % mode])
         elif (u'TXXX:replaygain_%s_gain' % mode) in tag:
             # ID3v2 foobar2000
             #print "Found ID3v2 foobar2000 tag"
             return self.from_string(mode,
                                     tag[u'TXXX:replaygain_%s_gain' % mode],
                                     tag[u'TXXX:replaygain_%s_peak' % mode])
+        elif (u'RVA2:%s' % mode) in tag:
+            # ID3v2.4 RVA2 (legacy format)
+            #print "Found ID3v2.4 RVA2 frame"
+            return self.from_rva2(mode, tag[u'RVA2:%s' % mode])
         elif ('----:com.apple.iTunes:replaygain_%s_gain' % mode) in tag:
             # MP4 foobar2000
             #print "Found MP4 foobar2000 tag"

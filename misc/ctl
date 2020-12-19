@@ -75,13 +75,13 @@ sub read_ctl {
 					print_file_data($file, $data, $fh->read($foo, 1));
 				}
 			} elsif ($!) {
-				print "$file: read error ($!)\n";
+				warn "$c{error}ctl: file '$file': read error ($!)$c{reset}\n";
 			} else {
 				print "$file: empty\n";
 			}
 			$fh->close();
 		} else {
-			err "ctl: file '$file': open error: $!\n";
+			err "$c{error}ctl: file '$file': open error ($!)$c{reset}\n";
 		}
 	} elsif (-e $file || -l $file) {
 		warn "$c{notice}ctl: skipping non-regular file '$file'$c{reset}\n";
@@ -99,6 +99,7 @@ GetOptions(
 %c = (
 	esc => $color ? "\e[38;5;9m" : "",
 	name => $color ? "\e[m\e[38;5;11m" : "",
+	error => $color ? "\e[m\e[91m" : "",
 	punct => $color ? "\e[2m" : "",
 	notice => $color ? "\e[2m" : "",
 	reset => $color ? "\e[m" : "",

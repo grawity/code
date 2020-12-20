@@ -217,6 +217,16 @@ case $cmd in
 		info "querying network topology at '$mac'"
 		call plcstat -t $mac
 		;;
+	statistics|stat)
+		clear=''
+		mac=${2:-local}
+		if [[ $mac == clear ]]; then
+			clear='-C'
+			mac=${3:-local}
+		fi
+		info "querying link statistics at '$mac'"
+		call plcstat -s CSMA-ALL -d both $clear $mac
+		;;
 	show-local-pib|pib)
 		mac=${2:-local}
 		[[ $mac == local ]] || die "PIB query only supported for local device"

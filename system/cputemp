@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+from glob import glob
+import os
+import time
+
+def get_loadavg():
+    with open("/proc/loadavg", "r") as fh:
+        a, b, c, *_ = fh.read().split()
+        return float(a)
+
+def put_bar(color, width, char):
+    bar = ""
+    if width <= 0:
+        return
+    if color:
+        bar += "\033[38;5;%dm" % color
+    if len(char) == 2:
+        bar += char[0] * (width-1) + char[1]
+    else:
+        bar += char[0] * width
+    if color:
+        bar += "\033[m"
+    print(bar, end="")
+
+def draw_bar(ts, color, width, temp, load):
+    # Dell thresholds:
+    # off -> [~44°C] low ->
+
+    global count, depth, roll
+    avg = roll/depth if count>depth else temp
+    if avg > 79:
+        # red (bad)
+        color += 1
+    elif avg >= 63:
+        # yellow (medium/high)
+        color += 3
+    elif avg > 43:
+        # green (low?)
+        color += 2
+    else:
+        # blue (cold)
+        color += 4
+
+    width = int(temp) - 20
+    print(time.strftime("%T ", time.localtime(ts)), end="")
+    char = "█"
+    if color < 8:
+	    # color += 8
+	    # char = "▓"
+	    char = "-║"
+    put_bar(color, width, char)
+    print(" %3d°C" % temp, end="")
+    #if color >= 8:
+    #    print(" [%3d°C]" % avg)
+    if load:
+        print("  \033[2m%s\033[m" % load, end="")
+    print(flush=True)
+
+def rsuffix(string, old, new):
+    if string.endswith(old):
+        return string[:-len(old)] + str(new)
+    return string
+
+def find_sensor():
+    dev = None
+    for _dev in glob("/sys/class/hwmon/hwmon*/"):
+        if os.path.exists("%s/name" % _dev):
+            name = open("%s/name" % _dev, "r").read().strip()
+            if name == "coretemp":
+                dev = _dev
+    if not dev:
+        raise Exception("no 'coretemp' hwmon sensor found")
+
+    subdev = None
+    subdev_pkg = None
+    subdev_cr0 = None
+    for _input in glob("%s/temp*_input" % dev):
+        _label = open(rsuffix(_input, "_input", "_label"), "r").read().strip()
+        if _label == "Package id 0":
+            subdev_pkg = _input
+        elif _label == "Core 0":
+            subdev_cr0 = _input
+    if subdev_pkg:
+        subdev = subdev_pkg
+    elif subdev_cr0:
+        subdev = subdev_cr0
+    else:
+        raise Exception("no 'coretemp/Core 0' hwmon sensor found")
+
+    dev_name = open("%s/name" % dev, "r").read().strip()
+    subdev_name = open(rsuffix(_input, "_input", "_label"), "r").read().strip()
+    print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name))
+
+    return subdev
+
+subdev = find_sensor()
+interval = 1
+last = 0
+lastload = ""
+count = 0
+roll = 0
+depth = 3
+hist = [0] * depth
+
+try:
+    while True:
+        if last:
+            time.sleep(interval)
+
+        ts = time.time() - 1
+
+        if last:
+            temp = last
+            load = lastload
+            print("\033[A", end="")
+            draw_bar(ts-1, 0, temp-20, temp, load)
+        temp = open(subdev, "r").read().strip()
+        temp = int(temp) / 1000
+        if roll and hist[count % depth]:
+            roll = roll - hist[count % depth] + temp
+        else:
+            roll = temp * depth
+        load = open("/proc/loadavg", "r").read().strip()
+        load = load.split()[0]
+        draw_bar(ts, 8, temp-20, temp, load)
+        last = temp
+        lastload = load
+        hist[count % depth] = temp
+        count += 1
+except KeyboardInterrupt:
+    exit(0)

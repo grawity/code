@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
+import enum
 from glob import glob
 import os
 import time
 
+class Color(enum.IntEnum):
+    Red = 1
+    Green = 2
+    Yellow = 3
+    Blue = 4
+
+def read(path):
+    return open(path, "r").read().strip()
+
 def get_loadavg():
     with open("/proc/loadavg", "r") as fh:
         a, b, c, *_ = fh.read().split()
-        return float(a)
+    return float(a), float(b), float(c)
 
 def put_bar(color, width, char):
     bar = ""
@@ -23,23 +33,16 @@ def put_bar(color, width, char):
     print(bar, end="")
 
 def draw_bar(ts, color, width, temp, load):
-    # Dell thresholds:
-    # off -> [~44°C] low ->
-
     global count, depth, roll
     avg = roll/depth if count>depth else temp
     if avg > 79:
-        # red (bad)
-        color += 1
+        color += Color.Red
     elif avg >= 63:
-        # yellow (medium/high)
-        color += 3
+        color += Color.Yellow
     elif avg > 43:
-        # green (low?)
-        color += 2
+        color += Color.Green
     else:
-        # blue (cold)
-        color += 4
+        color += Color.Blue
 
     width = int(temp) - 20
     print(time.strftime("%T ", time.localtime(ts)), end="")
@@ -61,25 +64,27 @@ def rsuffix(string, old, new):
         return string[:-len(old)] + str(new)
     return string
 
+def find_hwmon_by_name(name):
+    for dev in glob("/sys/class/hwmon/hwmon*"):
+        if os.path.exists("%s/name" % dev):
+            dev_name = read("%s/name" % dev)
+            if dev_name == "coretemp":
+                return dev
+    raise Exception("no %r hwmon device found" % name)
+
 def find_sensor():
-    dev = None
-    for _dev in glob("/sys/class/hwmon/hwmon*/"):
-        if os.path.exists("%s/name" % _dev):
-            name = open("%s/name" % _dev, "r").read().strip()
-            if name == "coretemp":
-                dev = _dev
-    if not dev:
-        raise Exception("no 'coretemp' hwmon sensor found")
+    dev = find_hwmon_by_name("coretemp")
 
     subdev = None
     subdev_pkg = None
     subdev_cr0 = None
-    for _input in glob("%s/temp*_input" % dev):
-        _label = open(rsuffix(_input, "_input", "_label"), "r").read().strip()
-        if _label == "Package id 0":
-            subdev_pkg = _input
-        elif _label == "Core 0":
-            subdev_cr0 = _input
+    for path_label in glob("%s/temp*_label" % dev):
+        path_input = rsuffix(path_label, "_label", "_input")
+        label = read(path_label)
+        if label == "Package id 0":
+            subdev_pkg = path_input
+        elif label == "Core 0":
+            subdev_cr0 = path_input
     if subdev_pkg:
         subdev = subdev_pkg
     elif subdev_cr0:
@@ -87,16 +92,16 @@ def find_sensor():
     else:
         raise Exception("no 'coretemp/Core 0' hwmon sensor found")
 
-    dev_name = open("%s/name" % dev, "r").read().strip()
-    subdev_name = open(rsuffix(_input, "_input", "_label"), "r").read().strip()
+    dev_name = read("%s/name" % dev)
+    subdev_name = read(rsuffix(subdev, "_input", "_label"))
     print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name))
 
     return subdev
 
 subdev = find_sensor()
 interval = 1
-last = 0
-lastload = ""
+last_temp = 0
+last_load = ""
 count = 0
 roll = 0
 depth = 3
@@ -104,17 +109,13 @@ hist = [0] * depth
 
 try:
     while True:
-        if last:
+        if last_temp:
             time.sleep(interval)
-
         ts = time.time() - 1
-
-        if last:
-            temp = last
-            load = lastload
+        if last_temp:
             print("\033[A", end="")
-            draw_bar(ts-1, 0, temp-20, temp, load)
-        temp = open(subdev, "r").read().strip()
+            draw_bar(ts-1, 0, last_temp-20, last_temp, last_load)
+        temp = read(subdev)
         temp = int(temp) / 1000
         if roll and hist[count % depth]:
             roll = roll - hist[count % depth] + temp
@@ -123,8 +124,8 @@ try:
         load = open("/proc/loadavg", "r").read().strip()
         load = load.split()[0]
         draw_bar(ts, 8, temp-20, temp, load)
-        last = temp
-        lastload = load
+        last_temp = temp
+        last_load = load
         hist[count % depth] = temp
         count += 1
 except KeyboardInterrupt:

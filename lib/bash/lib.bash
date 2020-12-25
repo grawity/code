@@ -112,8 +112,9 @@ lib::printf() {
 
 # LIB.BASH	SHOWN	FORMAT	LOG4J	PYTHON
 # -------------	-------	-------	-------	-------
+# trace		debug2	prefix	DEBUG	debug
 # debug		debug	prefix	DEBUG	debug
-# trace		verbose	plain	-	info
+# (TODO: missing verbose log, aka python info)
 # info		!quiet	plain	-	-
 # log		!quiet	decorat	-	-
 # log2		!quiet	decorat	-	-
@@ -123,8 +124,8 @@ lib::printf() {
 # fatal		always	prefix	FATAL	critical
 
 declare -A _log_color=(
-	[debug]='\e[36m'
-	[trace]='\e[34m'
+	[trace]='\e[36m'
+	[debug]='\e[96m'
 	[info]='\e[1;34m'
 	[log]='\e[1;32m'
 	[log2]='\e[1;35m'
@@ -135,14 +136,12 @@ declare -A _log_color=(
 )
 
 declare -A _log_fprefix=(
-	[trace]='%'
 	[log]='~'
 	[log2]='=='
 	[notice]='notice:'
 )
 
 declare -A _log_fcolor=(
-	[trace]='\e[34m'
 	[log]='\e[38;5;10m'
 	[log2]='\e[35m'
 	[notice]='\e[38;5;13m'
@@ -152,24 +151,27 @@ declare -A _log_mcolor=(
 	[log2]='\e[1m'
 )
 
+trace() {
+	local color reset
+	if [[ -t 1 ]]; then
+		color=${_log_color[trace]} reset='\e[m'
+	fi
+	if [[ $DEBUG ]] && (( DEBUG >= 2 )); then
+		printf "%s[%s]: ${color}trace (%s):${reset} %s\n" \
+			"$progname" "$$" "${FUNCNAME[1]}" "$*"
+	fi
+} >&2
+
 debug() {
 	local color reset
 	if [[ -t 1 ]]; then
-		color='\e[36m' reset='\e[m'
+		color=${_log_color[debug]} reset='\e[m'
 	fi
 	if [[ $DEBUG ]]; then
 		printf "%s[%s]: ${color}debug (%s):${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
 	fi
 } >&2
-
-trace() {
-	if [[ $DEBUG ]]; then
-		lib::msg "$*" trace
-	elif [[ $VERBOSE ]]; then
-		lib::printf "%s" "$*"
-	fi
-}
 
 msg() {
 	if [[ $DEBUG ]]; then

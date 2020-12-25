@@ -57,13 +57,13 @@ filter_file() {
 			warn "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
 		elif (( stack[depth] )); then
-			if (( DEBUG >= 2 )); then
-				echo $'\e[1;36m'"+++ $line"$'\e[m' >&2
+			if (( FILTERDEBUG )); then
+				printf '\e[92m++\e[;m %s\e[m\n' "$line" >&2
 			fi
 			echo "$line"
 		else
-			if (( DEBUG >= 2 )); then
-				echo $'\e[1;35m'"--- $line"$'\e[m' >&2
+			if (( FILTERDEBUG )); then
+				printf '\e[91m--\e[;2m %s\e[m\n' "$line" >&2
 			fi
 		fi
 

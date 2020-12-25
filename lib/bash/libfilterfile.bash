@@ -4,13 +4,10 @@
 . lib.bash || exit
 
 filter_file() {
-	local -- func='' line='' cond='' dp=''
-	local -i verbose=0 nr=0 depth=0
+	local -- func=${1:-false}
+	local -- line='' cond='' dp=''
+	local -i nr=0 depth=0
 	local -ai stack=(1) elif=() else=()
-	if [[ $1 == -v ]]; then
-		verbose=1; shift
-	fi
-	func=${1:-false}
 	debug "use FILTERDEBUG=1 to see the final result"
 	while IFS='' read -r line; do
 		printf -v dp '%-3d:%*s' $((++nr)) $((depth*2)) ''
@@ -25,7 +22,6 @@ filter_file() {
 			else
 				stack[depth]=0
 			fi
-			if (( verbose )); then echo "$line"; fi
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then
 				err "line $nr: '#elif' directive outside '#if' was ignored"
@@ -38,7 +34,6 @@ filter_file() {
 			else
 				stack[depth]=0
 			fi
-			if (( verbose )); then echo "$line"; fi
 		elif [[ $line == '#else' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#else' directive outside '#if' was ignored"
@@ -51,7 +46,6 @@ filter_file() {
 			else
 				stack[depth]=0
 			fi
-			if (( verbose )); then echo "$line"; fi
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#endif' directive outside '#if' was ignored"
@@ -60,7 +54,6 @@ filter_file() {
 				unset else[depth]
 				unset stack[depth--]
 			fi
-			if (( verbose )); then echo "$line"; fi
 		elif [[ $line == '#'[a-z]* ]]; then
 			warn "line $nr: unknown directive '${line%% *}' was ignored"
 			continue
@@ -73,7 +66,6 @@ filter_file() {
 			if (( FILTERDEBUG )); then
 				printf '\e[91m--\e[;2m %s\e[m\n' "$line" >&2
 			fi
-			if (( verbose )); then echo "#OFF# $line"; fi
 		fi
 
 		if [[ $line == '#'* ]]; then

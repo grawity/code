@@ -8,10 +8,11 @@ filter_file() {
 	local -- line='' cond='' dp=''
 	local -i nr=0 depth=0
 	local -ai stack=(1) elif=() else=()
+	debug "use FILTERDEBUG=1 to see the final result"
 	while IFS='' read -r line; do
 		printf -v dp '%-3d:%*s' $((++nr)) $((depth*2)) ''
 		if [[ $line == '#'* ]]; then
-			debug "${dp}${line%% *}... ($depth:[${stack[*]}])"
+			trace "${dp}${line%% *}... ($depth:[${stack[*]}])"
 		fi
 
 		if [[ $line == '#if '* ]]; then
@@ -68,7 +69,7 @@ filter_file() {
 		fi
 
 		if [[ $line == '#'* ]]; then
-			debug "${dp}${line%% *} => $depth:[${stack[*]}]"
+			trace "${dp}${line%% *} => $depth:[${stack[*]}]"
 		fi
 	done
 	if (( depth )); then

@@ -31,7 +31,18 @@ silent() {
 }
 
 on_master() {
-	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/master ]
+	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/master ] ||
+	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/main ]
+}
+
+migrate_head() {
+	if [ "$(git symbolic-ref HEAD)" = refs/heads/master ]; then
+		if git rev-parse --quiet --verify refs/remotes/origin/main >/dev/null; then
+			echo "renaming branch 'master' to 'main' at $(pwd)"
+			git branch -m main
+			git branch -u origin/main
+		fi
+	fi
 }
 
 if [ ! "$xyzzy" ]; then
@@ -53,6 +64,8 @@ if [ ! "$xyzzy" ]; then
 	xyzzy=42 exec dist/pull
 else
 	today=$(date +%d)
+
+	migrate_head
 
 	if [ $today -eq 7 ]; then
 		log "compacting code.git"

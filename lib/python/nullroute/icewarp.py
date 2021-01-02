@@ -7,7 +7,6 @@ class NullPointerException(Exception):
 class NoSuchDomainException(Exception):
     pass
 
-# IceWarpProxy {{{
 class IceWarpProxy(object):
     _types_ = {
         "None->Create": "APIObject",
@@ -59,9 +58,7 @@ class IceWarpProxy(object):
 
     def __repr__(self):
         return "<IceWarpProxy [%s %r]>" % (self.type, self.ptr)
-# }}}
 
-# IceWarpAPI {{{
 class IceWarpAPI(object):
     def __init__(self, api_url):
         self.xmlrpc_proxy = xmlrpc.client.ServerProxy(api_url)
@@ -87,7 +84,6 @@ class IceWarpAPI(object):
                 raise NoSuchDomainException(domain)
             self._accounts[acct] = domain_object.OpenAccount(alias)
         return self._accounts[acct]
-# }}}
 
 def connect(server, login=None, password=None):
     if login:

@@ -19,10 +19,7 @@ attach_console() {
 }
 
 setup_vlan() {
-	[[ $HOSTNAME == @(ember|wind) ]] || {
-		echo "[40;93mWarning: This machine does not have direct access to gw-core VLAN.[m"
-		return
-	}
+	[[ $HOSTNAME == @(ember|wind) ]] || return
 	echo "[adding temporary VLAN]"
 	sudo ip link add vlan2 link eno1 type vlan id 2
 	sudo ip link set vlan2 up
@@ -34,6 +31,12 @@ teardown_vlan() {
 	echo "[removing temporary VLAN]"
 	sudo ip link del vlan2
 }
+
+case $HOSTNAME in
+	ember|wind) echo "[40;92mDirect IPMI access.[m";;
+	star) echo "[40;93mNo direct access.[m Connect to ember/wind via gw-b56."; exit 3;;
+	*) echo "[40;91mNo access from this system.[m Connect to star."; exit 3;;
+esac
 
 trap teardown_vlan SIGINT
 setup_vlan

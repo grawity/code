@@ -19,7 +19,10 @@ attach_console() {
 }
 
 setup_vlan() {
-	[[ $HOSTNAME == @(ember|wind) ]] || return
+	[[ $HOSTNAME == @(ember|wind) ]] || {
+		echo "[40;93mWarning: This machine does not have direct access to gw-core VLAN.[m"
+		return
+	}
 	echo "[adding temporary VLAN]"
 	sudo ip link add vlan2 link eno1 type vlan id 2
 	sudo ip link set vlan2 up

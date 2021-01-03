@@ -1,12 +1,38 @@
 #!/usr/bin/env bash
 
-h=idrac-gw-core.utenos-kolegija.lt
-#h=10.129.2.11
-u=cons
+attach_console() {
+	# Use IP address in case DNS is broken (which it will be,
+	# because gw-core is also the primary DNS resolver).
+	local host='idrac-gw-core.utenos-kolegija.lt'
+	local addr='10.129.2.11'
+	local kg=$(getnetrc -df %p "rmcp/$host")
 
-k=$(getnetrc -df %p "rmcp/$h")
-p=$(getnetrc -df %p "ipmi/$h" "$u")
-a=$(getnetrc -df %a "ipmi/$h" "$u")
-a=${a:-ADMINISTRATOR}
+	local user='cons'
+	local pass=$(getnetrc -df %p "ipmi/$host" "$user")
+	local priv=$(getnetrc -df %a "ipmi/$host" "$user")
 
-ipmiconsole -h "$h" -k "$k" -u "$u" -p "$p" -l "$a"
+	ip -c route get $addr
+
+	echo "[connecting to $addr]"
+	ipmiconsole -h "$addr" -k "$kg" \
+	            -u "$user" -p "$pass" -l "${priv:-ADMINISTRATOR}"
+}
+
+setup_vlan() {
+	[[ $HOSTNAME == ember ]] || return
+	echo "[adding temporary VLAN]"
+	sudo ip link add vlan2 link eno1 type vlan id 2
+	sudo ip link set vlan2 up
+	sudo ip addr add 10.129.255.1/16 dev vlan2
+}
+
+teardown_vlan() {
+	[[ $HOSTNAME == ember ]] || return
+	echo "[removing temporary VLAN]"
+	sudo ip link del vlan2
+}
+
+trap teardown_vlan SIGINT
+setup_vlan
+attach_console
+teardown_vlan

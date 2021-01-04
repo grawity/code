@@ -2,7 +2,7 @@
 import argparse
 import json
 from nullroute.core import Core
-from nullroute.misc import set_file_attr, set_file_attrs
+from nullroute.misc import set_file_attr, set_file_attrs, filter_filename
 from nullroute.api.pixiv import PixivClient, PixivApiClient
 from nullroute.scrape import Scraper
 import os
@@ -156,13 +156,35 @@ class PixivGrabber():
             "xdg.referrer.url": "https://www.pixiv.net/fanbox/creator/%s/post/%s" \
                                  % (post["user"]["userId"], post["id"]),
         }
+
+        # files
+        files = []
+        if "fileMap" in post["body"]:
+            files = [post["body"]["fileMap"][b["fileId"]]
+                     for b in post["body"]["blocks"]
+                     if b["type"] == "file"]
+            # fileMap = {id: {extension, id, name, size, url}}
+        for i, fl in enumerate(files):
+            if only_img_ids:
+                continue
+            url = fl["url"]
+            filename = "%s fanbox%s_f%s %s %s.%s" % (prefix, post["id"], i,
+                                                     fl["id"],
+                                                     filter_filename(fl["name"]),
+                                                     fl["extension"])
+            Core.info("- saving '%s' (file %s of %s)", filename, i+1, len(files))
+            self.save_file(url, filename, attrs)
+
+        # images
         try:
             images = post["body"]["images"]
+            Core.notice("this post had body.images")
         except KeyError:
             try:
                 images = [post["body"]["imageMap"][b["imageId"]]
                           for b in post["body"]["blocks"]
                           if b["type"] == "image"]
+                Core.notice("this post didn't have body.images, but had body.blocks")
             except KeyError:
                 import pprint
                 pprint.pprint(post)

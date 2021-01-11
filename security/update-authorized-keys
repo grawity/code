@@ -103,6 +103,17 @@ if [[ -e ~/.ssh/authorized_keys.optout ]]; then
 	fi
 fi
 
+if [[ $LOGNAME != grawity ]]; then
+	if [[ -e ~/.ssh/authorized_keys.optin ]]; then
+		debug "username does not match 'grawity' but opt-in file found"
+	elif (( force )); then
+		echo "Overridden by $LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
+		warn "username does not match 'grawity', proceeding anyway"
+	else
+		die "username does not match 'grawity'"
+	fi
+fi
+
 # find the tool
 
 if have gpg2; then

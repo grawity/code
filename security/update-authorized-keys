@@ -80,11 +80,13 @@ readonly src_url="http://nullroute.eu.org/~grawity/files/authorized_keys.txt"
 readonly dst_file="$HOME/.ssh/authorized_keys"
 readonly signer_fpr="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 
+force=0
 import_key=0
 keyserver="hkps://keyserver.ubuntu.com"
 
-while getopts ":k:r" OPT; do
+while getopts ":fk:r" OPT; do
 	case $OPT in
+	f) force=1;;
 	k) keyserver=$OPTARG;;
 	r) import_key=1;;
 	*) lib::die_getopts;;
@@ -94,7 +96,11 @@ done
 umask 077
 
 if [[ -e ~/.ssh/authorized_keys.optout ]]; then
-	die "found opt-out marker"
+	if (( force )); then
+		warn "found opt-out marker, but proceeding anyway"
+	else
+		die "found opt-out marker"
+	fi
 fi
 
 # find the tool

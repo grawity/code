@@ -158,7 +158,7 @@ fi
 
 mkdir -p "${dst_file%/*}"
 
-tmp_signed=$(mktemp "$file.XXXXXXXX")
+tmp_signed=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! fetch "$src_url" "$tmp_signed"; then
 	rm -f "$tmp_signed"
@@ -168,19 +168,21 @@ elif ! test -s "$tmp_signed"; then
 	die "empty file fetched from $src_url"
 fi
 
-tmp_plain=$(mktemp "$file.XXXXXXXX")
+tmp_plain=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! verify "$tmp_signed" "$tmp_plain"; then
 	rm -f "$tmp_plain"
 	die "verification of $tmp_signed failed"
 fi
 
+local_file="$dst_file.local"
+
 { echo "# updated: at $(date +"%Y-%m-%d %H:%M:%S %z")"
   echo "# updated: from $src_url"
   cat "$tmp_plain"
-  if [ -s "$file.local" ]; then
-	echo "# updated: from $file.local"
-	cat "$file.local"
+  if [[ -s $local_file ]]; then
+	echo "# updated: from $local_file"
+	cat "$local_file"
   fi
   echo "# updated: end"
 } | filter_keys > "$dst_file"

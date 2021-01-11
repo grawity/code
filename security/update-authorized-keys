@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 # ssh-authz-update - authorized_keys updater tool
 
-SRCURL="http://nullroute.eu.org/~grawity/files/authorized_keys.txt"
-KEYFP="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
-[[ $KEYSERVER ]] || KEYSERVER="hkps://keyserver.ubuntu.com"
-
-PATH="$HOME/code/bin:$PATH"
+PATH="$HOME/bin:$HOME/code/bin:$PATH"
 
 . lib.bash || exit
+. libfilterfile.bash || exit
 . libhttpfetch.bash || exit
 
 progname_prefix=0
@@ -25,11 +22,11 @@ usage() {
 recv_key() {
 	local key=$1 status=
 	debug "retrieving key '$key'"
-	if status=$($GPG --keyserver "$KEYSERVER" --recv-key "$key" 2>&1); then
+	if status=$($GPG --keyserver "$keyserver" --recv-key "$key" 2>&1); then
 		trace "$status"
 	else
 		echo "$status" >&2
-		warn "failed to receive key $key from $KEYSERVER"
+		warn "failed to receive key $key from $keyserver"
 		return 1
 	fi
 }
@@ -59,7 +56,7 @@ verify() {
 	debug "verifying '$input' to '$output'"
 	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
-		if ! egrep -qs "^\\[GNUPG:\\] VALIDSIG $KEYFP " <<< "$status"; then
+		if ! egrep -qs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
 			err "file has invalid signature"
 		fi
 		if ! egrep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
@@ -79,20 +76,24 @@ verify() {
 	fi
 }
 
-import=false
-file="$HOME/.ssh/authorized_keys"
+readonly src_url="http://nullroute.eu.org/~grawity/files/authorized_keys.txt"
+readonly dst_file="$HOME/.ssh/authorized_keys"
+readonly signer_fpr="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
+
+import_key=0
+keyserver="hkps://keyserver.ubuntu.com"
 
 while getopts ":kr" OPT; do
 	case $OPT in
-	k) KEYSERVER=$OPTARG;;
-	r) import=true;;
-	*) die_getopts;;
+	k) keyserver=$OPTARG;;
+	r) import_key=1;;
+	*) lib::die_getopts;;
 	esac
 done
 
 umask 077
 
-if [ -e ~/.ssh/authorized_keys.optout ]; then
+if [[ -e ~/.ssh/authorized_keys.optout ]]; then
 	die "found opt-out marker"
 fi
 
@@ -108,32 +109,31 @@ fi
 
 # ensure key exists in keyring
 
-if $import; then
-	recv_key "$KEYFP" && {
-		log "imported owner's key into keyring"
-		if confirm "mark this key as ultimately trusted?"; then
-			(echo "$KEYFP:6:" | $GPG --import-ownertrust) &&
-			log "key's ownertrust updated"
-		else
-			err "only ultimately trusted keys are accepted"
-		fi
-	} || exit
-elif ! $GPG --list-keys "$KEYFP" > /dev/null; then
-	die "key $KEYFP not found in keyring"
+if (( import_key )); then
+	recv_key "$signer_fpr" || die "failed to import key '$signer_fpr'"
+	log "imported owner's key into keyring"
+	if confirm "mark this key as ultimately trusted?"; then
+		(echo "$signer_fpr:6:" | $GPG --import-ownertrust) &&
+		log "key's ownertrust updated"
+	else
+		die "only ultimately trusted keys are accepted"
+	fi
+elif ! $GPG --list-keys "$signer_fpr" > /dev/null; then
+	die "key $signer_fpr not found in keyring"
 fi
 
 # download new pubkeys
 
-mkdir -p "${file%/*}"
+mkdir -p "${dst_file%/*}"
 
 tmp_signed=$(mktemp "$file.XXXXXXXX")
 
-if ! fetch "$SRCURL" "$tmp_signed"; then
+if ! fetch "$src_url" "$tmp_signed"; then
 	rm -f "$tmp_signed"
-	die "fetch of $SRCURL failed"
+	die "fetch of $src_url failed"
 elif ! test -s "$tmp_signed"; then
 	rm -f "$tmp_signed"
-	die "empty file fetched from $SRCURL"
+	die "empty file fetched from $src_url"
 fi
 
 tmp_plain=$(mktemp "$file.XXXXXXXX")
@@ -144,18 +144,18 @@ if ! verify "$tmp_signed" "$tmp_plain"; then
 fi
 
 { echo "# updated: at $(date +"%Y-%m-%d %H:%M:%S %z")"
-  echo "# updated: from $SRCURL"
+  echo "# updated: from $src_url"
   cat "$tmp_plain"
   if [ -s "$file.local" ]; then
 	echo "# updated: from $file.local"
 	cat "$file.local"
   fi
   echo "# updated: end"
-} > "$file"
+} > "$dst_file"
 
 rm -f "$tmp_plain" "$tmp_signed"
 
 if [[ -t 1 ]]; then
-	num=$(grep -c '^[^#]' "$file")
+	num=$(grep -c '^[^#]' "$dst_file")
 	log "imported $num authorized keys"
 fi

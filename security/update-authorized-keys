@@ -82,11 +82,10 @@ verify() {
 import=false
 file="$HOME/.ssh/authorized_keys"
 
-while getopts ":krv" OPT; do
+while getopts ":kr" OPT; do
 	case $OPT in
 	k) KEYSERVER=$OPTARG;;
 	r) import=true;;
-	v) VERBOSE=true;;
 	*) die_getopts;;
 	esac
 done
@@ -110,7 +109,7 @@ fi
 # ensure key exists in keyring
 
 if $import; then
-	VERBOSE=true recv_key "$KEYFP" && {
+	recv_key "$KEYFP" && {
 		log "imported owner's key into keyring"
 		if confirm "mark this key as ultimately trusted?"; then
 			(echo "$KEYFP:6:" | $GPG --import-ownertrust) &&

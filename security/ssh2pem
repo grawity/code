@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# Convert SSH private keys from OpenSSH to PKCS#8 PEM format.
+#
+# What about "ssh-keygen -m PKCS8"?
+#
+#   This only works with the -e option, i.e. it only outputs public keys.
+#
+# What about "ssh-keygen -m PEM"?
+#
+#   I'm not confident that it will always work the same way, e.g. if OpenSSH is
+#   built against a different crypto library one day.
+#
+# What about "pageant -O private-openssh"?
+#
+#   Okay I guess that one works, although it is still PEM and not PKCS#8.
+
+import argparse
+import getpass
+import os
+
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization import PrivateFormat
+from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.hazmat.primitives.serialization import BestAvailableEncryption
+from cryptography.hazmat.primitives.serialization.ssh import load_ssh_private_key
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--force", action="store_true",
+                                     help="overwrite existing files")
+parser.add_argument("file", nargs="+")
+args = parser.parse_args()
+
+os.umask(0o77)
+
+for in_file in args.file:
+    out_file = in_file + ".pk8"
+    if os.path.exists(out_file) and not args.force:
+        exit("error: Output file %r already exists" % out_file)
+
+    buf = open(in_file, "rb").read()
+
+    try:
+        passphrase = b""
+        encryption = NoEncryption()
+        key = load_ssh_private_key(buf, passphrase)
+    except ValueError:
+        passphrase = getpass.getpass("Passphrase for %r: " % in_file)
+        passphrase = passphrase.encode("utf-8")
+        encryption = BestAvailableEncryption(passphrase)
+        key = load_ssh_private_key(buf, passphrase)
+
+    buf = key.private_bytes(Encoding.PEM,
+                            PrivateFormat.PKCS8,
+                            encryption)
+
+    open(out_file, "wb").write(buf)
+    print("Key written to %r" % out_file)

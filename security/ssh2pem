@@ -1,0 +1,257 @@
+#!/usr/bin/env python3
+# Convert SSH private keys from OpenSSH to PKCS#8 PEM format.
+#
+# What about "ssh-keygen -m PEM"?
+#
+#   I'm not confident that it will always work the same way, e.g. if OpenSSH is
+#   built against a different crypto library one day.
+#
+# What about "ssh-keygen -m PKCS8"?
+#
+#   This only works with the -e option, i.e. it only outputs public keys.
+import argparse
+import base64
+import bcrypt
+import os
+import re
+import struct
+import sys
+import io
+#from nullroute.io import SshBinaryReader
+from nullroute.misc import chunk
+from pprint import pprint
+
+def read_openssh_armored(path):
+    with open(path, "r") as fh:
+        buf = fh.read()
+    if m := re.match(r"^-----BEGIN OPENSSH PRIVATE KEY-----\n"
+                     r"(.+\n)"
+                     r"-----END OPENSSH PRIVATE KEY-----\n",
+                     buf,
+                     re.S):
+        buf = m.group(1)
+        return base64.b64decode(buf)
+    else:
+        raise ValueError("file %r does not look like an OpenSSH key file" % path)
+
+def write_openssh_armored(buf, path):
+    buf = base64.b64encode(buf).decode()
+    with open(path, "w") as fh:
+        fh.write("-----BEGIN OPENSSH PRIVATE KEY-----\n")
+        for x in chunk(buf, 70):
+            fh.write(x + "\n")
+        fh.write("-----END OPENSSH PRIVATE KEY-----\n")
+
+class SshEndOfStream(Exception):
+    pass
+
+class UnsupportedKeyType(Exception):
+    pass
+
+class SshReader(object):
+    @classmethod
+    def from_bytes(self, buf):
+        return self(io.BytesIO(buf)) if type(buf) != self else buf
+
+    def __init__(self, input_fh):
+        if hasattr(input_fh, "makefile"):
+            input_fh = input_fh.makefile("rb")
+        self.input_fh = input_fh
+
+    def read(self, length=None):
+        buf = self.input_fh.read(length)
+        if (not buf) and (length != None) and (length != 0):
+            raise SshEndOfStream()
+        return buf
+
+    def read_byte(self):
+        buf = self.read(1)
+        val, = struct.unpack("!B", buf)
+        return val
+
+    def read_uint32(self):
+        buf = self.read(4)
+        val, = struct.unpack("!L", buf)
+        return val
+
+    def read_bool(self):
+        buf = self.read(1)
+        val, = struct.unpack("!?", buf)
+        return val
+
+    def read_string(self):
+        length = self.read_uint32()
+        buf = self.read(length)
+        return buf
+
+    def read_string_pkt(self):
+        buf = self.read_string()
+        return SshReader.from_bytes(buf)
+
+    def read_mpint(self):
+        buf = self.read_string()
+        return int.from_bytes(buf, byteorder="big", signed=False)
+
+def ssh_parse_publickey(buf, peek=False):
+    pkt = SshReader.from_bytes(buf)
+    algo = pkt.read_string().decode()
+    data = {"algo": algo}
+    if peek:
+        return data
+    elif algo == "ssh-rsa":
+        # https://tools.ietf.org/html/rfc4253#section-6.6
+        data["e"] = pkt.read_mpint()
+        data["n"] = pkt.read_mpint()
+    elif algo == "ssh-dss":
+        # https://tools.ietf.org/html/rfc4253#section-6.6
+        data["p"] = pkt.read_mpint()
+        data["q"] = pkt.read_mpint()
+        data["g"] = pkt.read_mpint()
+        data["y"] = pkt.read_mpint()
+    elif algo in {"ssh-ed25519", "ssh-ed448"}:
+        # https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448-00#section-4
+        data["key"] = pkt.read_string()
+    elif algo == "sk-ssh-ed25519@openssh.com":
+        data["key"] = pkt.read_string()
+        data["appid"] = pkt.read_string()
+    elif re.match(r"^ecdsa-sha2-\w+@openssh\.com$", algo):
+        # https://tools.ietf.org/html/rfc5656#section-3.1
+        data["curve_name"] = pkt.read_string()
+        data["Q"] = pkt.read_string()
+    elif algo == "sk-ecdsa-sha2-nistp256@openssh.com":
+        # PROTOCOL.u2f
+        data["curve_name"] = pkt.read_string()
+        data["Q"] = pkt.read_string()
+        data["appid"] = pkt.read_string()
+    else:
+        raise UnsupportedKeyType(algo)
+    return data
+
+def ssh_parse_privatekey(buf, peek=False):
+    pkt = SshReader.from_bytes(buf)
+    algo = pkt.read_string().decode()
+    data = {"algo": algo}
+    if peek:
+        return data
+    # WOULD BE NICE IF THESE FORMATS WERE ANYWHERE DOCUMENTED
+    # Okay fine I guess https://tools.ietf.org/html/draft-miller-ssh-agent-04 counts
+    elif algo == "ssh-rsa":
+        # Yes of course these are backwards from publickey.
+        data["n"] = pkt.read_mpint()
+        data["e"] = pkt.read_mpint()
+        data["d"] = pkt.read_mpint()
+        data["iqmp"] = pkt.read_mpint()
+        data["p"] = pkt.read_mpint()
+        data["q"] = pkt.read_mpint()
+        data["comment"] = pkt.read_string()
+    elif algo == "ssh-dss":
+        data["p"] = pkt.read_mpint()
+        data["q"] = pkt.read_mpint()
+        data["g"] = pkt.read_mpint()
+        data["y"] = pkt.read_mpint()
+        data["x"] = pkt.read_mpint()
+        data["comment"] = pkt.read_string()
+    elif algo == "ssh-ed25519":
+        # ENC(A) is the public key, k is the private key
+        data["ENC(A)"] = pkt.read_string()
+        data["k_ENC(A)"] = pkt.read_string()
+        data["comment"] = pkt.read_string()
+    elif re.match(r"^ecdsa-sha2-\w+@openssh\.com$", algo):
+        data["curve_name"] = pkt.read_string()
+        data["Q"] = pkt.read_string()
+        data["d"] = pkt.read_mpint()
+        data["comment"] = pkt.read_string()
+    else:
+        raise UnsupportedKeyType(algo)
+    return data
+
+def parse_openssh_key_file(buf):
+    pkt = SshReader.from_bytes(buf)
+    magic = pkt.read(15)
+    if magic != b"openssh-key-v1\0":
+        raise ValueError("file does not start with AUTH_MAGIC")
+    data = {}
+    data["cipher_name"] = pkt.read_string()
+    data["kdf_name"] = pkt.read_string()
+    data["kdf_options"] = pkt.read_string()
+    data["n_keys"] = pkt.read_uint32()
+    data["public_keys"] = []
+    for i in range(data["n_keys"]):
+        pubkey_buf = pkt.read_string()
+        data["public_keys"].append(pubkey_buf)
+    data["encrypted_private_keys"] = pkt.read_string()
+    return data
+
+def decrypt_openssh_blob(enc_buf, passphrase, cipher_name, kdf_name, kdf_options):
+    if cipher_name == b"none" and kdf_name == b"none":
+        return enc_buf
+
+    from cryptography.hazmat.primitives.ciphers import Cipher
+    from cryptography.hazmat.primitives.ciphers.algorithms import AES
+    from cryptography.hazmat.primitives.ciphers.modes import CTR
+
+    if cipher_name == b"aes256-ctr":
+        key_bits = 256
+        iv_bits = AES.block_size
+    else:
+        raise ValueError("unsupported cipher %r" % cipher_name)
+
+    assert(key_bits % 8 == 0)
+    key_bytes = key_bits // 8
+    assert(iv_bits % 8 == 0)
+    iv_bytes = iv_bits // 8
+
+    if kdf_name == b"bcrypt":
+        import warnings
+        subpkt = SshReader.from_bytes(kdf_options)
+        bcrypt_salt = subpkt.read_string()
+        bcrypt_rounds = subpkt.read_uint32()
+        with warnings.catch_warnings():
+            # Suppress bcrypt warnings about 16 KDF rounds. Wasn't our choice.
+            warnings.simplefilter("ignore", category=UserWarning)
+            kdf_output = bcrypt.kdf(passphrase.encode("utf-8"),
+                                    bcrypt_salt,
+                                    key_bytes + iv_bytes,
+                                    bcrypt_rounds)
+    else:
+        raise ValueError("unsupported KDF %r" % kdf_name)
+
+    key = bytes(kdf_output[:key_bytes])
+    iv = bytes(kdf_output[key_bytes:])
+
+    if cipher_name == b"aes256-ctr":
+        cipher = Cipher(AES(key), CTR(iv)).decryptor()
+    else:
+        raise ValueError("unsupported cipher %r" % cipher_name)
+
+    dec_buf = cipher.update(enc_buf) + cipher.finalize()
+    return dec_buf
+
+def decrypt_openssh_private_keys(data, passphrase):
+    buf = decrypt_openssh_blob(data["encrypted_private_keys"],
+                               passphrase,
+                               data["cipher_name"],
+                               data["kdf_name"],
+                               data["kdf_options"])
+
+    pkt = SshReader.from_bytes(buf)
+    check_a = pkt.read_uint32()
+    check_b = pkt.read_uint32()
+    if check_a != check_b:
+        raise IOError("decryption failed (check_int mismatch)")
+    data["encrypted_private_keys"] = None
+    data["private_keys"] = []
+    for i in range(data["n_keys"]):
+        # PROTOCOL.key is lying through its teeth.
+        #key = pkt.read_string()
+        #comment = pkt.read_string()
+        key = ssh_parse_privatekey(pkt)
+        data["private_keys"].append(key)
+    return data
+
+in_file = sys.argv[1]
+passphrase = os.environ["p"]
+buf = read_openssh_armored(in_file)
+pkey = parse_openssh_key_file(buf)
+pkey = decrypt_openssh_private_keys(pkey, passphrase)
+pprint(pkey)

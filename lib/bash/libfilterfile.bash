@@ -4,11 +4,19 @@
 . lib.bash || exit
 
 filter_file() {
-	local -- func=${1:-false}
+	local -- func=${1:-false} dfmt=''
 	local -- line='' cond='' dp=''
 	local -i nr=0 depth=0
 	local -ai stack=(1) elif=() else=()
 	debug "use FILTERDEBUG=1 to see the final result"
+	local -A dfmts=(
+		[err]='\e[30;41m!!'
+		[warn]='\e[93m??\e[;93m'
+		[condok]='\e[95m>>\e[;35m'
+		[condfail]='\e[94m<<\e[;34m'
+		[vis]='\e[92m +\e[m'
+		[invis]='\e[91m -\e[;2m'
+	)
 	while IFS='' read -r line; do
 		printf -v dp '%-3d:%*s' $((++nr)) $((depth*2)) ''
 		if [[ $line == '#'* ]]; then
@@ -19,55 +27,66 @@ filter_file() {
 			if (( stack[depth++] )) && $func "${line#* }"; then
 				stack[depth]=1
 				elif[depth]+=1
+				dfmt=condok
 			else
 				stack[depth]=0
+				dfmt=condfail
 			fi
 		elif [[ $line == '#elif '* ]]; then
 			if (( !depth )); then
 				err "line $nr: '#elif' directive outside '#if' was ignored"
+				dfmt=err
 			elif (( else[depth] )); then
 				err "line $nr: '#elif' block after '#else' will be skipped"
 				stack[depth]=0
+				dfmt=err
 			elif (( stack[depth-1] && !elif[depth] )) && $func "${line#* }"; then
 				stack[depth]=1
 				elif[depth]+=1
+				dfmt=condok
 			else
 				stack[depth]=0
+				dfmt=condfail
 			fi
 		elif [[ $line == '#else' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#else' directive outside '#if' was ignored"
+				dfmt=err
 			elif (( else[depth]++ )); then
 				err "line $nr: duplicate '#else' block will be skipped"
 				stack[depth]=0
+				dfmt=err
 			elif (( stack[depth-1] && !elif[depth] )); then
 				stack[depth]=1
 				elif[depth]+=1
+				dfmt=condok
 			else
 				stack[depth]=0
+				dfmt=condfail
 			fi
 		elif [[ $line == '#endif' ]]; then
 			if (( !depth )); then
 				err "line $nr: '#endif' directive outside '#if' was ignored"
+				dfmt=err
 			else
 				unset elif[depth]
 				unset else[depth]
 				unset stack[depth--]
+				dfmt=condok
 			fi
 		elif [[ $line == '#'[a-z]* ]]; then
-			warn "line $nr: unknown directive '${line%% *}' was ignored"
-			continue
+			warn "line $nr: unknown directive '${line%% *}'"
+			dfmt=warn
 		elif (( stack[depth] )); then
-			if (( FILTERDEBUG )); then
-				printf '\e[92m++\e[;m %s\e[m\n' "$line" >&2
-			fi
 			echo "$line"
+			dfmt=vis
 		else
-			if (( FILTERDEBUG )); then
-				printf '\e[91m--\e[;2m %s\e[m\n' "$line" >&2
-			fi
+			dfmt=invis
 		fi
 
+		if (( FILTERDEBUG )); then
+			printf "${dfmts[$dfmt]} %s\e[m\n" "$line" >&2
+		fi
 		if [[ $line == '#'* ]]; then
 			trace "${dp}${line%% *} => $depth:[${stack[*]}]"
 		fi

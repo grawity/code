@@ -84,8 +84,11 @@ match_eval() {
 }
 
 match_hostname() {
-	local mask=${1:-*}
-	debug "matching fqdn='$FQDN', host='$HOSTNAME' against '$mask'"
-	(shopt -s extglob;
-		[[ $FQDN == $mask || $HOSTNAME == $mask ]])
+	local arg=${1:-*}
+	local mask=${arg#!}; mask=${mask// }
+	debug "matching fqdn='$FQDN', host='$HOSTNAME' against extglob '$mask'"
+	if (shopt -s extglob; [[ $FQDN == $mask || $HOSTNAME == $mask ]])
+	then [[ $arg != !* ]]
+	else [[ $arg == !* ]]
+	fi
 }

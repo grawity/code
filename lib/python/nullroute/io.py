@@ -1,9 +1,12 @@
+import io
 import os
 import struct
 import sys
 
 class BinaryReader():
     def __init__(self, fh):
+        if isinstance(fh, bytes) or isinstance(fh, bytearray):
+            fh = io.BytesIO(fh)
         self.fh = fh
 
     def _debug(self, typ, data):
@@ -91,8 +94,8 @@ class SshBinaryReader(BinaryReader):
         return int.from_bytes(buf, byteorder="big", signed=False)
 
 class BinaryWriter():
-    def __init__(self, fh):
-        self.fh = fh
+    def __init__(self, fh=None):
+        self.fh = fh or io.BytesIO()
 
     def _debug(self, typ, data):
         if os.environ.get("DEBUG"):

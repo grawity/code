@@ -9,6 +9,7 @@ fi
 
 quality=98
 scale=100
+force=0
 infiles=()
 outfiles=()
 declare -A outmap=()
@@ -18,8 +19,9 @@ nproc=$(nproc)
 njobs=0
 ndone=0
 
-while getopts ":j:q:s:O:" OPT; do
+while getopts ":fj:q:s:O:" OPT; do
 	case $OPT in
+	f) force=1;;
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
 	s) scale=${OPTARG%'%'};;
@@ -103,7 +105,7 @@ for oname in "${outfiles[@]}"; do
 	fi
 done
 
-if (( ${#outlarger[@]} )); then
+if (( ${#outlarger[@]} && !force )); then
 	rm -f "${outlarger[@]}"
 	notice "${#outlarger[@]} files were larger than originals; deleted."
 	outfiles=("${outsmaller[@]}")

@@ -29,8 +29,8 @@ for i, mtpt in enumerate(args):
     parents = {}
 
     for subvol_id, parent_id, subvol_name in enum_subvolumes(mtpt):
-        names[subvol_id] = subvol_name
-        parents[subvol_id] = parent_id
+        names[mtpt, subvol_id] = subvol_name
+        parents[mtpt, subvol_id] = parent_id
 
     if i > 0:
         print()
@@ -48,13 +48,13 @@ for i, mtpt in enumerate(args):
     ]
 
     with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
-        for subvol_id in names:
+        for mtpt, subvol_id in names:
             line = [
                 names[mtpt, subvol_id] or mtpt,
                 subvol_id,
-                parents[subvol_id],
+                parents[mtpt, subvol_id],
                 "%s@%s" % (mtpt, subvol_id),
-                "%s@%s" % (mtpt, parents[subvol_id]),
+                "%s@%s" % (mtpt, parents[mtpt, subvol_id]),
             ]
             line = "\t".join(map(str, line)) + "\n"
             line = line.encode()

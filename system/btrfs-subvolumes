@@ -20,20 +20,20 @@ if not args:
     args = [arg.rstrip("/") for arg in args]
 
 for i, mtpt in enumerate(args):
-    roots = {}
+    parents = {}
     names = {}
     paths = {}
 
     for subvol_id, parent_id, subvol_name in enum_subvolumes(mtpt):
         names[subvol_id] = subvol_name
-        roots[subvol_id] = parent_id
+        parents[subvol_id] = parent_id
 
     for subvol_id in names:
         path = []
         parent_id = subvol_id
         while parent_id != 5:
             path.append(names[parent_id])
-            parent_id = roots[parent_id]
+            parent_id = parents[parent_id]
         paths[subvol_id] = "/".join(path[::-1])
 
     if i > 0:
@@ -54,7 +54,7 @@ for i, mtpt in enumerate(args):
         for subvol_id in names:
             line = [
                 subvol_id,
-                roots[subvol_id],
+                parents[subvol_id],
                 names[subvol_id] or "%s" % mtpt,
                 paths[subvol_id] or "@",
             ]

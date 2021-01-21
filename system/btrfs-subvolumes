@@ -6,13 +6,18 @@ import sys
 import pprint
 
 def enum_subvolumes(root):
-    cmd = ["sudo", "btrfs", "subvolume", "list", root]
+    cmd = ["sudo", "btrfs", "subvolume", "list", "-a", root]
     yield (5, 0, "")
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         for line in proc.stdout:
             line = line.decode().strip()
             m = re.match(r"^ID (\d+) gen \d+ top level (\d+) path (.+)$", line)
-            yield int(m.group(1)), int(m.group(2)), m.group(3)
+            subvol_id = int(m.group(1))
+            parent_id = int(m.group(2))
+            path = m.group(3)
+            if path.startswith("<FS_TREE>/"):
+                path = path[len("<FS_TREE>/"):]
+            yield subvol_id, parent_id, path
 
 args = sys.argv[1:]
 if not args:

@@ -2,39 +2,96 @@
 
 . lib.bash || exit
 
-cn=$1
+cn=
+in_key=
+out_cert=
+tool=
+years=10
+rsabits=2048
 
-if [[ ! $cn ]]; then
-	die "common name not specified"
+while getopts ":Gk:" OPT; do
+	case $OPT in
+	G) tool=gnutls;;
+	k) in_key=$OPTARG;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ ! $tool ]]; then
+	if have openssl; then
+		tool=openssl
+	elif have certtool; then
+		tool=gnutls
+	else
+		die "no tools found"
+	fi
 fi
 
-days=$(( 365 * 3 ))
+if [[ ! $cn ]]; then
+	cn=$1
+	if [[ ! $cn ]]; then
+		die "common name not specified"
+	fi
+fi
+
+days=$(( 365 * years ))
 
 out_cert="$cn.crt"
 out_key="$cn.key"
 
-if have openssl; then
-	(umask 077; openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 > "$out_key")
+if [[ $in_key ]]; then
+	info "using existing key from '$in_key'"
+else
+	info "generating a new key"
+	case $tool in
+		openssl)
+			(umask 077; openssl genpkey -algorithm RSA -pkeyopt "rsa_keygen_bits:$rsabits" -out "$out_key")
+		;;
+		gnutls)
+			certtool --generate-privkey --bits="$rsabits" --outfile="$out_key"
+		;;
+	esac
+	in_key=$out_key
 fi
-in_key=$out_key
 
-if have openssl; then
-	tmp_cfg="$(mktemp /tmp/openssl.cfg.XXXXXXXXXX)"
-	cat > "$tmp_cfg" <<-EOF
-	[req]
-	prompt = no
-	utf8 = yes
-	distinguished_name = dn
-	x509_extensions = exts
+# create the certificate
 
-	[dn]
-	CN = $cn
+case $tool in
+	openssl)
+		tmp_cfg=$(mktemp /tmp/openssl.XXXXXXXX)
+		cat > "$tmp_cfg" <<-EOF
+		[req]
+		prompt = no
+		utf8 = yes
+		distinguished_name = dn
+		x509_extensions = exts
 
-	[exts]
-	basicConstraints = CA:FALSE
-	keyUsage = digitalSignature
-	extendedKeyUsage = clientAuth
-	EOF
-	openssl req -new -x509 -config "$tmp_cfg" -days "$days" -key "$in_key" > "$out_cert"
-	openssl x509 -in "$out_cert" -noout -text
-fi
+		[dn]
+		CN = $cn
+
+		[exts]
+		basicConstraints = critical, CA:FALSE
+		# keyUsage = digitalSignature
+		extendedKeyUsage = clientAuth
+		subjectKeyIdentifier = hash
+		EOF
+		openssl req -new -x509 -config "$tmp_cfg" -days "$days" -key "$in_key" -out "$out_cert"
+		openssl x509 -in "$out_cert" -noout -text -nameopt RFC2253 -certopt no_sigdump
+	;;
+	gnutls)
+		if egrep -qs "^-----BEGIN ENCRYPTED PRIVATE KEY-----$" "$in_key"; then
+			read -s -p "Key passphrase: " GNUTLS_PIN
+			export GNUTLS_PIN
+		fi
+		tmp_cfg=$(mktemp /tmp/certtool.XXXXXXXX)
+		cat > "$tmp_cfg" <<-EOF
+		cn = "${cn//\"/\\\"}"
+		expiration_days = $days
+		# signing_key
+		tls_www_client
+		EOF
+		certtool --generate-self-signed --load-privkey="$in_key" --template="$tmp_cfg" --hash=sha256 --outfile="$out_cert"
+	;;
+esac
+
+info "certificate written to '$out_cert'"

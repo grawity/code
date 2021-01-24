@@ -3,6 +3,7 @@
 . lib.bash || exit
 
 cn=
+overwrite=0
 in_key=
 out_cert=
 tool=
@@ -12,7 +13,9 @@ rsabits=2048
 while getopts ":Gk:" OPT; do
 	case $OPT in
 	G) tool=gnutls;;
+	f) overwrite=1;;
 	k) in_key=$OPTARG;;
+	o) out_cert=$OPTARG;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -36,8 +39,20 @@ fi
 
 days=$(( 365 * years ))
 
-out_cert="$cn.crt"
-out_key="$cn.key"
+if [[ ! $out_cert ]]; then
+	out_cert="$cn.crt"
+fi
+
+out_key="${out_cert%.crt}.key"
+
+if (( !overwrite )); then
+	if [[ -e $out_key ]] && [[ ! $in_key ]]; then
+		die "private key '$out_key' already exists"
+	fi
+	if [[ -e $out_cert ]]; then
+		die "certificate '$out_cert' already exists"
+	fi
+fi
 
 if [[ $in_key ]]; then
 	info "using existing key from '$in_key'"
@@ -48,7 +63,7 @@ else
 			(umask 077; openssl genpkey -algorithm RSA -pkeyopt "rsa_keygen_bits:$rsabits" -out "$out_key")
 		;;
 		gnutls)
-			certtool --generate-privkey --bits="$rsabits" --outfile="$out_key"
+			certtool --generate-privkey --key-type=rsa --bits="$rsabits" --outfile="$out_key"
 		;;
 	esac
 	in_key=$out_key

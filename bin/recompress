@@ -2,6 +2,20 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $0 <files>"
+	echo
+	echo_opt "-q <percent>" "Quality for JPEG compression (default $quality%)"
+	echo_opt "-s <percent>" "Scale for the output image (default $scale%)"
+	echo_opt "-B <color>" "Background color for transparent PNGs (default $background)"
+	echo_opt "-O <arg>" "Additional option for 'magick convert'"
+	echo
+	echo_opt "-f" "Keep converted files even if larger than originals"
+	echo_opt "-T" "Don't try to preserve modification time of the original"
+	echo
+	echo_opt "-j <nproc>" "Number of parallel conversions (default $nproc)"
+}
+
 if ! have magick; then
 	# ImageMagick 6.x or older
 	magick() { "/usr/bin/$@"; }
@@ -11,6 +25,7 @@ quality=98
 scale=100
 force=0
 background='#eeeeee'
+keepmtime=1
 infiles=()
 outfiles=()
 declare -A outmap=()
@@ -20,7 +35,7 @@ nproc=$(nproc)
 njobs=0
 ndone=0
 
-while getopts ":B:fj:q:s:O:" OPT; do
+while getopts ":B:fj:q:s:O:T" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	f) force=1;;
@@ -28,6 +43,7 @@ while getopts ":B:fj:q:s:O:" OPT; do
 	j) nproc=$OPTARG;;
 	s) scale=${OPTARG%'%'};;
 	O) addargs+=("$OPTARG");;
+	T) keepmtime=0;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -81,7 +97,9 @@ for iname in "${infiles[@]}"; do
 	oname=${iname%.*}.conv.jpg
 	{
 		magick convert "$iname" "${addargs[@]}" "$oname" &&
-		touch "$oname" --reference="$iname" 2>/dev/null
+		if (( keepmtime )); then
+			touch "$oname" --reference="$iname" 2>/dev/null
+		fi
 	} & (( ++njobs ))
 	outfiles+=("$oname")
 	outmap["$oname"]=$iname

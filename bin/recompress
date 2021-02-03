@@ -10,6 +10,7 @@ fi
 quality=98
 scale=100
 force=0
+background='#eeeeee'
 infiles=()
 outfiles=()
 declare -A outmap=()
@@ -19,8 +20,9 @@ nproc=$(nproc)
 njobs=0
 ndone=0
 
-while getopts ":fj:q:s:O:" OPT; do
+while getopts ":B:fj:q:s:O:" OPT; do
 	case $OPT in
+	B) background="#${OPTARG#'#'}";;
 	f) force=1;;
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
@@ -53,7 +55,7 @@ if (( quality < 50 || quality > 100 )); then
 	die "invalid quality value '$quality'"
 fi
 
-addargs+=(-background '#eeeeee' -alpha remove)
+addargs+=(-background "$background" -alpha remove)
 addargs+=(-quality "$quality")
 
 if (( scale < 1 || scale > 100 )); then

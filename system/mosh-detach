@@ -1,26 +1,21 @@
-#!/usr/bin/env perl
-use Getopt::Long;
-use Sys::Utmp qw(:constants);
+#!/usr/bin/env python
+import argparse
+from nullroute.system.utmp import enum_utmp, UtType
+import re
+import subprocess
 
-sub hup_line {
-	my ($tty) = @_;
-	system("pkill", "-HUP", "-t", $tty);
-}
+def hup(tty):
+    subprocess.run(["pkill", "-HUP", "-t", tty], check=True)
 
-my $quiet;
+parser = argparse.ArgumentParser()
+parser.add_argument("-n", "--dry-run", action="store_true")
+parser.add_argument("-q", "--quiet", action="store_true")
+args = parser.parse_args()
 
-GetOptions(
-	"q|quiet!" => \$quiet,
-);
-
-my $utmp = Sys::Utmp->new;
-while (my $ut = $utmp->getutent) {
-	my $t = $ut->ut_line;
-	if ($ut->ut_type == USER_PROCESS) {
-		my $h = $ut->ut_host;
-		if ($h =~ /^mosh \[(\d+)\]$/) {
-			print "detaching $t ($h)\n" unless $quiet;
-			hup_line($t);
-		}
-	}
-}
+for ent in enum_utmp():
+    if ent["type"] == UtType.USER_PROCESS:
+        if re.match(r"^mosh \[\d+\]$", ent["host"]):
+            if args.dry_run or not args.quiet:
+                print("detaching %(line)s (%(host)s)" % ent)
+            if not args.dry_run:
+                hup(ent["line"])

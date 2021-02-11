@@ -53,7 +53,9 @@ class TokenCache(object):
     def _load_token_libsecret(self):
         if self.user_name:
             try:
+                Core.trace("trying to load token from libsecret: %r", self.match_fields)
                 data = nullroute.sec.get_libsecret(self.match_fields)
+                Core.trace("loaded token: %r", data)
                 return json.loads(data)
             except KeyError:
                 Core.debug("entry not found; retrying without username")
@@ -65,7 +67,9 @@ class TokenCache(object):
                 self._store_token_libsecret(json.loads(data))
                 return json.loads(data)
         else:
+            Core.trace("trying to load token from libsecret: %r", self.match_fields)
             data = nullroute.sec.get_libsecret(self.match_fields)
+            Core.trace("loaded token: %r", data)
             return json.loads(data)
 
     def _clear_token_libsecret(self):
@@ -77,8 +81,10 @@ class TokenCache(object):
             json.dump(data, fh)
 
     def _load_token_file(self):
+        Core.trace("trying to load token from file: %r", self.token_path)
         with open(self.token_path, "r") as fh:
             data = fh.read()
+        Core.trace("loaded token: %r", data)
         return json.loads(data)
 
     def _clear_token_file(self):

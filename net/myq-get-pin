@@ -4,7 +4,6 @@ from collections import namedtuple
 import fdb
 from hashlib import md5
 import os
-from nullroute.core import Core
 import sys
 
 class MyQDatabase(object):
@@ -18,7 +17,6 @@ class MyQDatabase(object):
                                 password=password)
 
     def find_user(self, arg):
-        Core.debug("searching for %r", arg)
         qry = """
         SELECT e.id, e.name, u.fullname, u.email, c.card_id
             FROM tblEntities e
@@ -61,7 +59,6 @@ def crack_md5(arg, digits=4):
     return None
 
 def crack_pin(arg):
-    Core.debug("cracking hash %r", arg)
     for digits in [4, 5, 6]:
         result = crack_md5(arg, digits)
         if result:
@@ -89,7 +86,6 @@ for arg in args.username[:]:
         if not db:
             db = MyQDatabase(db_host, db_username, db_password)
         for row in db.find_user(arg):
-            Core.debug("found row %r", row)
             pin = crack_pin(row.card)
             if args.raw:
                 print("\t".join(map(str, [*row, pin])))

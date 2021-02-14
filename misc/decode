@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+import argparse
+import binascii
+import datetime
+import io
+from nullroute.io import BinaryReader
+
+def parse_hex(s):
+    if ":" in s:
+        s = s.split(":")
+        s = [int(c, 16) for c in s]
+        return bytes(s)
+    else:
+        s = s.replace("-", "")
+        s = s.replace(" ", "")
+        return binascii.unhexlify(s)
+
+def fmt_hex(buf):
+    h = ["%02x" % c for c in buf]
+    h = ":".join(h).upper()
+    return h
+
+def is_ascii(buf):
+    return all(0x20 < x < 0x7F for x in buf)
+
+def decode_dhcp_client_id(buf):
+    # https://tools.ietf.org/html/rfc2132#section-9.14
+    # Types (except 0 and 255) correspond to link-layer types, 1 is Ethernet
+    br = BinaryReader(buf)
+    type = br.read_u8()
+    if type == 0x00:
+        print("Type:", "non-hardware (%d)" % type)
+        ident = br.fh.read()
+        if is_ascii(ident):
+            print("Identifier:", repr(ident))
+        else:
+            print("Identifier:", fmt_hex(ident))
+    elif type == 0x01:
+        print("Type:", "link-layer (Ethernet) (%d)" % type)
+        mac = br.read(6)
+        print("Link-layer address:", fmt_hex(mac))
+    elif type == 0xFF:
+        # https://tools.ietf.org/html/rfc4361#section-6.1
+        print("Type:", "embedded RFC 3315 IAID+DUID (%d)" % type)
+        iaid = br.read(4)
+        print("IAID:", fmt_hex(iaid))
+        duid = br.fh.read()
+        print("DUID:", fmt_hex(duid))
+        decode_dhcpv6_duid(duid)
+    else:
+        print("Type:", "unknown (%d)" % type)
+
+def lookup_iana_pen(vendor):
+    return {
+        43793: "systemd (Tom Gundersen)",
+    }.get(vendor, "unknown")
+
+def decode_dhcpv6_duid(buf):
+    # https://tools.ietf.org/html/rfc3315#section-9.1
+    br = BinaryReader(buf)
+    type = br.read_u16_be()
+    if type == 1:
+        print("Type:", "link-layer + time (DUID-LLT) (%d)" % type)
+        hwtype = br.read_u16_be()
+        print("Hardware type:", "unknown (%d)" % hwtype)
+        time = br.read_u32_be()
+        time = datetime.datetime.fromtimestamp(time)
+        print("Time:", time)
+        lladdr = br.fh.read()
+        print("Link-layer address:", fmt_hex(mac))
+    elif type == 2:
+        print("Type:", "vendor-assigned (%d)" % type)
+        vendor = br.read_u32_be()
+        print("Vendor:", "%s (%d)" % (lookup_iana_pen(vendor), vendor))
+        rest = br.fh.read()
+        print("Identifier:", fmt_hex(rest))
+    elif type == 3:
+        print("Type:", "link-layer (%d)" % type)
+        hwtype = br.read_u16_be()
+        print("Hardware type:", "unknown (%d)" % hwtype)
+        lladdr = br.fh.read()
+        print("Link-layer address:", fmt_hex(mac))
+    else:
+        print("Type:", "unknown (%d)" % type)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("type")
+parser.add_argument("data")
+args = parser.parse_args()
+data = parse_hex(args.data)
+
+if args.type == "dhcp-client-id":
+    decode_dhcp_client_id(data)
+elif args.type == "dhcpv6-duid":
+    decode_dhcpv6_duid(data)
+else:
+    exit("error: Unknown type %r" % args.type)

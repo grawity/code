@@ -27,7 +27,7 @@ BASIC_BINS := args gettime mkpasswd natsort natxsort pause silentcat spawn unesc
 BASIC_BINS += ac-wait entropy proctool strtool subreaper xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
-LINUX_BINS := globalenv libfunlink.so libfunsync.so libflstat.so peekvc showsigmask statx tapchown
+LINUX_BINS := globalenv libfunsync.so libflstat.so peekvc showsigmask statx tapchown
 
 .PHONY: all basic krb misc linux pklist
 
@@ -51,10 +51,6 @@ emergency-su: $(OBJ)/emergency-su
 $(OBJ)/libdark.so:	CFLAGS += $(pkg-config x11 --cflags) -shared -fPIC
 $(OBJ)/libdark.so:	LDLIBS += $(pkg-config x11 --libs)
 $(OBJ)/libdark.so:	desktop/libdark.c
-
-$(OBJ)/libfunlink.so:	CFLAGS += -shared -fPIC
-$(OBJ)/libfunlink.so:	LDLIBS += $(DL_LDLIBS)
-$(OBJ)/libfunlink.so:	system/libfunlink.c
 
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	system/libfunsync.c

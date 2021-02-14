@@ -1,4 +1,5 @@
 import ldap
+from ldap.cidict import cidict as CaseInsensitiveDict
 import ldap.controls.readentry
 import ldap.filter
 from nullroute.core import Core
@@ -6,21 +7,6 @@ import time
 
 OID_LDAP_CONTROL_POSTREAD = "1.3.6.1.1.13.2"
 OID_LDAP_FEATURE_MODIFY_INCREMENT = "1.3.6.1.1.14"
-
-class CaseInsensitiveDict(dict):
-    def __init__(self, *args, **kwargs):
-        tmp = dict(*args, **kwargs)
-        tmp = {k.lower(): v for k, v in tmp.items()}
-        super().__init__(tmp)
-
-    def __getitem__(self, key):
-        return super().__getitem__(key.lower())
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key.lower(), value)
-
-    def get(self, key, default=None):
-        return super().get(key.lower(), default)
 
 def _decode_dict_values(d):
     return {k: [v.decode() for v in vs] for k, vs in d.items()}

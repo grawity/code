@@ -5,13 +5,30 @@
 # Accept '@foo' symlinks (hostname in argv[0]) like ssh/rsh
 
 arg0=${0##*/}
+pwd=$PWD
+nfs=0
 
-if [[ $arg0 == @?* ]]; then
+if [[ $arg0 == @@?* ]]; then
+	host=${arg0#@@}
+	nfs=1
+elif [[ $arg0 == @(@@|on) && $1 ]]; then
+	host=$1; shift
+	nfs=1
+elif [[ $arg0 == @?* ]]; then
 	host=${arg0#@}
-elif [[ $arg0 == @(@|on) && $1 ]]; then
+elif [[ $arg0 == @ && $1 ]]; then
 	host=$1; shift
 else
 	die "missing hostname"
+fi
+
+if [[ $1 == -n ]]; then
+	nfs=1; shift
+fi
+
+if (( nfs )); then
+	pwd="/net/$HOSTNAME$PWD"
+	info "Running in $pwd"
 fi
 
 # 0 args - run a shell
@@ -26,4 +43,4 @@ else
 	qcmd="${@@Q}"
 fi
 
-exec ssh -q -t "$host" "export SILENT=1; . ~/.profile && cd ${PWD@Q} && ($qcmd)"
+exec ssh -q -t "$host" "export SILENT=1; . ~/.profile && cd ${pwd@Q} && ($qcmd)"

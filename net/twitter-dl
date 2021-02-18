@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import sys
 from nullroute.core import Core
 from nullroute.scrape import Scraper
@@ -72,7 +73,9 @@ class TwitterMediaScraper(Scraper):
                 Core.warn("- skipping non-video medium")
                 pprint(medium)
 
-user_name = sys.argv[1]
+parser = argparse.ArgumentParser()
+parser.add_argument("url", nargs="*")
+args = parser.parse_args()
 
 tc = OAuthTokenCache("api.twitter.com", display_name="Twitter API")
 creds = tc.load_token()
@@ -93,6 +96,6 @@ api = tweepy.API(auth)
 
 s = TwitterMediaScraper()
 s.api = api
-for url in sys.argv[1:]:
+for url in args.url:
     s.scrape(url)
 Core.fini()

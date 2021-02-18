@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+import argparse
+import errno
+import os
+import sys
+
+def map_sparse(fh):
+    end = fh.seek(0)
+    while True:
+        try:
+            begin = end
+            end = fh.seek(begin, os.SEEK_DATA)
+            if begin != end:
+                yield (begin, end, False)
+        except OSError as e:
+            if e.errno == errno.ENXIO:
+                break
+            else:
+                raise
+
+        try:
+            # If there is no hole, this will seek to end of file.
+            begin = end
+            end = fh.seek(begin, os.SEEK_HOLE)
+            if begin != end:
+                yield (begin, end, True)
+        except OSError as e:
+            if e.errno == errno.ENXIO:
+                print("no more holes")
+            else:
+                raise
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", action="store_true")
+parser.add_argument("file", nargs="+")
+args = parser.parse_args()
+
+for path in args.file:
+    print("%s:" % path)
+    with open(path, "rb") as fh:
+        for start, end, is_data in map_sparse(fh):
+            size = end-start
+            if args.v:
+                print("%8d .. %8d (%8d) %s" % (start, end, size, "data" if is_data else "----"))
+            else:
+                if start != 0:
+                    print(" ", end="")
+                if is_data:
+                    print("data %d" % size, end="")
+                else:
+                    print("[hole %d]" % size, end="")
+    if not args.v:
+        print()

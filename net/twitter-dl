@@ -14,14 +14,13 @@ def save_m3u_video(url, file_name):
 
 class TwitterMediaScraper(Scraper):
     def scrape(self, url):
-        Core.info("processing tweet %r", url)
-
-        if m := re.fullmatch(r"https://(?:mobile\.)?twitter\.com/[^/]+/status/(\d+)(?:/photo/\d+)?", url):
+        if m := re.fullmatch(r"https://(?:mobile\.)?twitter\.com/(?:i/web|[^/]+)/status/(\d+)(?:/photo/\d+)?", url):
             id = m.group(1)
         else:
             Core.err("unrecognized URL %r", url)
             return False
 
+        Core.info("processing tweet %r", url)
         status = self.api.get_status(id, tweet_mode="extended")
         author = status.user.screen_name
 

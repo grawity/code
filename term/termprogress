@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Update the "progress" indicator in ConEmu and Windows Terminal
+
+readonly Remove=0
+readonly Normal=1
+readonly Error=2
+readonly Indeterminate=3
+readonly Paused=4
+
+usage() {
+	echo "Usage: ${0##*/} [-pe] VALUE"
+	echo "       ${0##*/} -i"
+	echo "       ${0##*/} -r"
+	echo
+	echo "  -p            indicate 'paused' state"
+	echo "  -e            indicate 'error' state"
+	echo "  -i            indeterminate progress"
+	echo "  -r            remove all indicators"
+}
+
+state=$Normal
+value=0
+
+if (( ! $# )); then
+	usage; exit 2
+fi
+
+while getopts "eipr" OPT; do
+	case $OPT in
+	e) state=$Error;;
+	i) state=$Indeterminate;;
+	p) state=$Paused;;
+	r) state=$Remove;;
+	*) exit 2;;
+	esac
+done; shift $((OPTIND-1))
+
+if [[ $1 ]]; then
+	if (( state == Indeterminate )); then
+		echo "${0##*/}: value ignored in indeterminate mode" >&2
+	elif (( state == Remove )); then
+		echo "${0##*/}: value ignored when removing progress" >&2
+	elif [[ $1 =~ ^[[:digit:]]+$ ]] && (( $1 >= 0 && $1 <= 100 )); then
+		value=$1
+	else
+		echo "${0##*/}: value must be a number between 0 and 100" >&2
+		exit 2
+	fi
+else
+	if (( state == Paused || state == Error )); then
+		echo "${0##*/}: value should be provided in paused/error modes too" >&2
+		exit 2
+	fi
+fi
+
+printf '\e]9;4;%d;%d\e\\' "$state" "$value"

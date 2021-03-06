@@ -14,6 +14,14 @@ if [[ $1 == @(-w|--work) ]]; then
 fi
 
 (for host in $hosts; do
-	ssh $host 'printf "%s\t%s\t%s\t[%s]\n" "$(hostname)" "$(uname -r)" "$(uptime -p | sed "s/,.*//")" "$(uname -v)"' &
+	ssh $host 'printf "%s\t%s\t%s\t[%s]\t%s used (%s free)\t%s\n" \
+			"$(hostname)" \
+			"$(uname -r)" \
+			"$(uptime -p | sed "s/,.*//")" \
+			"$(uname -v)" \
+			"$(free -b | awk "/^Mem:/{printf \"%.0f%%\", \$3*100/\$2}")" \
+			"$(free -b | awk "/^Mem:/{print \$7}" | numfmt --to=iec)" \
+			"$(free -b | awk "/^Mem:/{print \$2}" | numfmt --to=iec)" \
+			' &
 done
-wait) | sort -V -k 2 -r | column -t -s $'\t' -N HOST,KERNEL,UPTIME,BUILD
+wait) | sort -V -k 2 -r | column -t -s $'\t' -N "HOST,KERNEL,UPTIME,BUILD,MEM USAGE,MEM TOTAL" -H "BUILD"

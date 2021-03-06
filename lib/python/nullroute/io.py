@@ -1,24 +1,11 @@
 import io
-import os
 import struct
-import sys
 
 class BinaryReader():
     def __init__(self, fh):
         if isinstance(fh, bytes) or isinstance(fh, bytearray):
             fh = io.BytesIO(fh)
         self.fh = fh
-
-    def _debug(self, typ, data):
-        try:
-            level = int(os.environ.get("DEBUG") or "0")
-            if level >= 3:
-                c_on = "\033[33m" if sys.stderr.isatty() else ""
-                c_off = "\033[m" if sys.stderr.isatty() else ""
-                print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
-        except ValueError:
-            pass
-        return data
 
     def seek(self, pos, whence=0):
         return self.fh.seek(pos, whence)
@@ -33,9 +20,9 @@ class BinaryReader():
                 raise EOFError("Hit EOF after 0/%d bytes" % length)
             else:
                 raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
-        return self._debug("raw[%d]" % length, buf)
+        return buf
 
-    def _read_fmt(self, length, fmt, typ):
+    def _read_fmt(self, length, fmt):
         buf = self.fh.read(length)
         if len(buf) < length:
             if len(buf) == 0:
@@ -43,37 +30,37 @@ class BinaryReader():
             else:
                 raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
         data, = struct.unpack(fmt, buf)
-        return self._debug(typ, data)
+        return data
 
     def read_u8(self):
-        return self._read_fmt(1, "B", "byte")
+        return self._read_fmt(1, "B")
 
     def read_u16_le(self):
-        return self._read_fmt(2, "<H", "short")
+        return self._read_fmt(2, "<H")
 
     def read_u16_be(self):
-        return self._read_fmt(2, ">H", "short")
+        return self._read_fmt(2, ">H")
 
     def read_u24_be(self):
-        hi = self._read_fmt(1, "B", "medium.hi")
-        lo = self._read_fmt(2, ">H", "medium.lo")
+        hi = self._read_fmt(1, "B")
+        lo = self._read_fmt(2, ">H")
         return (hi << 16) | lo
 
     def read_u32_le(self):
-        return self._read_fmt(4, "<L", "long")
+        return self._read_fmt(4, "<L")
 
     def read_u32_be(self):
-        return self._read_fmt(4, ">L", "long")
+        return self._read_fmt(4, ">L")
 
     def read_u64_le(self):
-        return self._read_fmt(8, "<Q", "quad")
+        return self._read_fmt(8, "<Q")
 
     def read_u64_be(self):
-        return self._read_fmt(8, ">Q", "quad")
+        return self._read_fmt(8, ">Q")
 
 class SshBinaryReader(BinaryReader):
     def read_bool(self):
-        return self._read_fmt(1, "?", "bool")
+        return self._read_fmt(1, "?")
 
     def read_byte(self):
         return self.read_u8()
@@ -97,13 +84,6 @@ class BinaryWriter():
     def __init__(self, fh=None):
         self.fh = fh or io.BytesIO()
 
-    def _debug(self, typ, data):
-        if os.environ.get("DEBUG"):
-            c_on = "\033[35m" if sys.stderr.isatty() else ""
-            c_off = "\033[m" if sys.stderr.isatty() else ""
-            print(c_on, "#", typ, repr(data), c_off, file=sys.stderr)
-        return data
-
     def seek(self, pos, whence=0):
         return self.fh.seek(pos, whence)
 
@@ -111,49 +91,47 @@ class BinaryWriter():
         return self.fh.tell()
 
     def write(self, buf, flush=False):
-        self._debug("raw[%d]" % len(buf), buf)
         ret = self.fh.write(buf)
         if ret and flush:
             self.fh.flush()
         return ret
 
-    def _write_fmt(self, fmt, typ, *args, flush=False):
+    def _write_fmt(self, fmt, *args, flush=False):
         buf = struct.pack(fmt, *args)
-        self._debug(typ, buf)
         ret = self.fh.write(buf)
         if ret and flush:
             self.fh.flush()
         return ret
 
     def write_u8(self, val):
-        return self._write_fmt("B", "byte", val)
+        return self._write_fmt("B", val)
 
     def write_u16_le(self, val):
-        return self._write_fmt("<H", "short", val)
+        return self._write_fmt("<H", val)
 
     def write_u16_be(self, val):
-        return self._write_fmt(">H", "short", val)
+        return self._write_fmt(">H", val)
 
     def write_u24_be(self, x):
         hi = (x >> 16)
         lo = (x & 0xFFFF)
-        return self._write_fmt(">BH", "medium", hi, lo)
+        return self._write_fmt(">BH", hi, lo)
 
     def write_u32_le(self, val):
-        return self._write_fmt("<L", "long", val)
+        return self._write_fmt("<L", val)
 
     def write_u32_be(self, val):
-        return self._write_fmt(">L", "long", val)
+        return self._write_fmt(">L", val)
 
     def write_u64_le(self, val):
-        return self._write_fmt("<Q", "quad", val)
+        return self._write_fmt("<Q", val)
 
     def write_u64_be(self, val):
-        return self._write_fmt(">Q", "quad", val)
+        return self._write_fmt(">Q", val)
 
 class SshBinaryWriter(BinaryWriter):
     def write_bool(self, val):
-        return sef._write_fmt("?", "bool", val)
+        return sef._write_fmt("?", val)
 
     def write_byte(self, val):
         return self.write_u8(val)

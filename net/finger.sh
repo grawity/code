@@ -48,6 +48,9 @@ if [[ $force_client ]]; then
 elif (( webgw )); then
 	debug "requested web gateway"
 	client=gateway
+elif have python3; then
+	debug "found Python 3"
+	client=finger.py
 elif have curl && curl -V | grep -wqs gopher; then
 	debug "found curl with Gopher support"
 	client=curl-gopher
@@ -74,6 +77,8 @@ debug "using client mode '$client'"
 
 if [[ $client == gateway ]]; then
 	http-get "http://nullroute.eu.org/finger/?q=$uquery@$host&raw=1"
+elif [[ $client == finger.py ]]; then
+	~/code/net/finger.py "$query@$host"
 else
 	if have name2addr; then
 		debug "found name2addr resolver"

@@ -45,7 +45,7 @@ class PixivApiClient():
     # API authentication
 
     def _load_creds(self):
-        creds = nullroute.sec.get_netrc("pixiv.net", service="api")
+        creds = nullroute.sec.get_netrc("api.pixiv.net", service="oauth")
         Core.trace("got credentials from netrc: %r", creds)
         return creds
 
@@ -92,13 +92,13 @@ class PixivApiClient():
                     return True
 
         data = self._load_creds()
-        if data:
-            Core.info("logging in to Pixiv as %r", data["login"])
+        if data and data["password"]:
+            Core.info("refresh token is present in credential store, renewing")
             try:
-                token = self.api.auth(username=data["login"],
-                                      password=data["password"])
+                token = self.api.auth(refresh_token=data["password"])
+                Core.debug("acquired access token: %r", token)
             except Exception as e:
-                Core.warn("could not log in using username & password: %r", e)
+                Core.err("could not refresh access token: %r", e)
             else:
                 self._store_token(token)
                 return True

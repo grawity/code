@@ -54,6 +54,19 @@ function is_inet6addr($a) {
 	return ($p = @inet_pton($a)) !== false and strlen($p) == 16;
 }
 
+# cmp() for IP addresses
+function ipcmp($a, $b) {
+	$ap = @inet_pton($a);
+	$bp = @inet_pton($b);
+	if ($ap === false || $bp === false) {
+		return 0;
+	} else {
+		# Sort IPv4 before IPv6, then lexicographically.
+		return (strlen($ap) - strlen($bp))
+			?: strcmp($ap, $bp);
+	}
+}
+
 # Convert IP address to .arpa domain for PTR
 function to_ptr($ip) {
 	$packed = @inet_pton($ip);
@@ -155,7 +168,8 @@ function go($from, $depth = 0, $skip = array(), &$visited = array()) {
 	# print current address
 	print str_repeat(" ", $depth*3) . colour($from) . " = ";
 
-	$addresses = resolve($from); sort($addresses);
+	$addresses = resolve($from);
+	usort($addresses, "ipcmp");
 
 	if (empty($addresses))
 		print colour("(none)");
@@ -242,7 +256,7 @@ function gosrv($from) {
 			}
 			print str_repeat(" ", 1*3) . colour($rr["target"]) . " port " . colour($rr["port"])." = ";
 			$addresses = resolve($rr["target"]);
-			sort($addresses);
+			usort($addresses, "ipcmp");
 			if (empty($addresses))
 				print colour("(none)");
 			else

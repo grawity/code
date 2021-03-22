@@ -38,13 +38,15 @@ def finger(user, host, whois=False):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--long", action="store_true")
-parser.add_argument("target")
+parser.add_argument("target", nargs="?")
 args = parser.parse_args()
 
-if "@" in args.target:
-    user, host = args.target.rsplit("@", 1)
-else:
+if not args.target:
+    user, host = "", "localhost"
+elif "@" not in args.target:
     user, host = args.target, "localhost"
+else:
+    user, host = args.target.rsplit("@", 1)
 
 addr, data = finger(user, host, args.long)
 

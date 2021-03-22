@@ -106,7 +106,7 @@ function getdomain() {
 # Do DNS requests.
 # - Always return IP addresses sorted by their binary value.
 function resolve($addr) {
-	$ipsort = false;
+	$sortfunc = "strcmp";
 
 	if (is_inetaddr($addr)) {
 		$addr = to_ptr($addr);
@@ -118,7 +118,7 @@ function resolve($addr) {
 			$rr6 = @dns_get_record($addr, DNS_AAAA);
 			$rr = array_merge($rr4 ? $rr4 : array(),
 			                  $rr6 ? $rr6 : array());
-			$ipsort = true;
+			$sortfunc = "ipcmp";
 		}
 	}
 
@@ -139,9 +139,7 @@ function resolve($addr) {
 			break;
 		}
 	}
-	if ($ipsort) {
-		usort($addresses, "ipcmp");
-	}
+	usort($addresses, $sortfunc);
 	return $addresses;
 }
 

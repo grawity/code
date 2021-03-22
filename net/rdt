@@ -74,7 +74,16 @@ function getdomain() {
 	if ($dom) {
 		return $dom;
 	}
-	return "nullroute.eu.org";
+	$host = gethostname();
+	if (!preg_match('/\./', $host)) {
+		$addr = gethostbyname($host);
+		$host = gethostbyaddr($addr);
+	}
+	if (preg_match('/^[^.]+\.(.+)$/', $host, $m)) {
+		return $m[1];
+	}
+	fwrite(STDERR, "rdt: could not determine the system's local domain\n");
+	exit(1);
 }
 
 # Do DNS requests

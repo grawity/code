@@ -40,6 +40,10 @@ EOTFM;
 	return 2;
 }
 
+function warn($msg) {
+	fwrite(STDERR, "rdt: $msg\n");
+}
+
 function is_inetaddr($a) {
 	return @inet_pton($a) !== false;
 }
@@ -82,7 +86,7 @@ function getdomain() {
 	if (preg_match('/^[^.]+\.(.+)$/', $host, $m)) {
 		return $m[1];
 	}
-	fwrite(STDERR, "rdt: could not determine the system's local domain\n");
+	warn("could not determine the system's local domain");
 	exit(1);
 }
 
@@ -181,15 +185,15 @@ function gosrv($from) {
 	}
 
 	if (!strlen($domain)) {
-		fprintf(STDERR, "rdt: domain name cannot be empty\n");
+		warn("domain name cannot be empty");
 		return false;
 	}
 	if (!strlen($service)) {
-		fprintf(STDERR, "rdt: service name cannot be empty\n");
+		warn("service name cannot be empty");
 		return false;
 	}
 	if (!preg_match('/^[a-z0-9-]+$/', $service)) {
-		fprintf(STDERR, "rdt: service '$service' does not look valid\n");
+		warn("service '$service' does not look valid");
 		return false;
 	}
 	switch ($service) {
@@ -199,7 +203,7 @@ function gosrv($from) {
 
 	$rrsets = [];
 	if ($service == "smtp") {
-		fprintf(STDERR, "rdt: service '$service' uses MX instead of SRV\n");
+		warn("service '$service' uses MX instead of SRV");
 		foreach ([$domain] as $name) {
 			$rrset = dns_get_record($name, DNS_MX);
 			if (!$rrset)
@@ -248,7 +252,7 @@ function gosrv($from) {
 		$found++;
 	}
 	if (!$found) {
-		fprintf(STDERR, "rdt: service '$service' on '$domain' not found\n");
+		warn("service '$service' on '$domain' not found");
 		return false;
 	}
 	return true;
@@ -283,7 +287,7 @@ foreach (getopt("cChs", ["color", "no-color", "help", "srv"], $optind) as $opt =
 		case "help":
 			exit(msg_help());
 		default:
-			fwrite(STDERR, "rdt: unknown option '$opt'\n");
+			warn("unknown option '$opt'");
 			++$err;
 	}
 }

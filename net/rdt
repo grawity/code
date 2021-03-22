@@ -176,21 +176,40 @@ function gosrv($from) {
 		case "kadmin": $service = "kerberos-adm"; break;
 	}
 
+	$rrsets = [];
+	if ($service == "smtp") {
+		fprintf(STDERR, "rdt: service '$service' uses MX instead of SRV\n");
+		foreach ([$domain] as $name) {
+			$rrset = dns_get_record($name, DNS_MX);
+			if (!$rrset)
+				continue;
+			foreach ($rrset as &$rr) {
+				$rr["weight"] = 0;
+				$rr["port"] = 25;
+			}
+			$rrsets[] = ["Mail exchange on ", $name, $rrset];
+		}
+	} else {
+		foreach (["tcp", "udp", "sctp"] as $proto) {
+			$name = "_$service._$proto.$domain";
+			$rrset = dns_get_record($name, DNS_SRV);
+			if (!$rrset)
+				continue;
+			$rrsets[] = ["", $name, $rrset];
+		}
+	}
+
 	$found = 0;
-	foreach (["tcp", "udp", "sctp"] as $proto) {
-		$name = "_$service._$proto.$domain";
-		$rrset = dns_get_record($name, DNS_SRV);
-		if (!$rrset)
-			continue;
-		if ($found > 0)
-			print "\n";
-		print colour($name) . " is provided by:\n";
+	foreach ($rrsets as [$vis_prefix, $name, $rrset]) {
 		usort($rrset, function ($a, $b) {
 			return ($a["pri"] - $b["pri"])
 				?: -($a["weight"] - $b["weight"])
 				?: strcmp($a["target"], $b["target"])
 				?: ($a["port"] - $b["port"]);
 		});
+		if ($found > 0)
+			print "\n";
+		print $vis_prefix . colour($name) . " is provided by:\n";
 		foreach ($rrset as $rr) {
 			if ($rr["target"] == "" && $rr["port"] == 0) {
 				print str_repeat(" ", 1*3) . colour("(none)") . " (null record found)\n";

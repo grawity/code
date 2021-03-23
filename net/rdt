@@ -1,9 +1,9 @@
 #!/usr/bin/env php
 <?php
-# rdt v1.5 - recursive DNS lookup tool
+# rdt - recursive DNS lookup tool
 #
-# (c) 2009–2020 Mantas Mikulėnas <grawity@gmail.com>
-# Released under the MIT License (dist/LICENSE.mit)
+# (c) 2009–2021 Mantas Mikulėnas <grawity@gmail.com>
+# Released under the MIT License <https://spdx.org/licenses/MIT>
 #
 # Q: Why haven't you rewritten this in Python, Perl, or some other
 #    civilized language?
@@ -40,6 +40,10 @@ EOTFM;
 	return 2;
 }
 
+function warn($msg) {
+	fwrite(STDERR, "rdt: $msg\n");
+}
+
 function is_inetaddr($a) {
 	return @inet_pton($a) !== false;
 }
@@ -50,7 +54,20 @@ function is_inet6addr($a) {
 	return ($p = @inet_pton($a)) !== false and strlen($p) == 16;
 }
 
-# convert IP address to .arpa domain for PTR
+# cmp() for IP addresses
+function ipcmp($a, $b) {
+	$ap = @inet_pton($a);
+	$bp = @inet_pton($b);
+	if ($ap === false || $bp === false) {
+		return 0;
+	} else {
+		# Sort IPv4 before IPv6, then lexicographically.
+		return (strlen($ap) - strlen($bp))
+			?: strcmp($ap, $bp);
+	}
+}
+
+# Convert IP address to .arpa domain for PTR
 function to_ptr($ip) {
 	$packed = @inet_pton($ip);
 	if ($packed === false) {
@@ -68,8 +85,29 @@ function to_ptr($ip) {
 	return implode(".", array_reverse($ip)) . $suffix;
 }
 
-# Do DNS requests
+# Determine the system's domain name
+function getdomain() {
+	$dom = getenv("LOCALDOMAIN");
+	if ($dom) {
+		return $dom;
+	}
+	$host = gethostname();
+	if (!preg_match('/\./', $host)) {
+		$addr = gethostbyname($host);
+		$host = gethostbyaddr($addr);
+	}
+	if (preg_match('/^[^.]+\.(.+)$/', $host, $m)) {
+		return $m[1];
+	}
+	warn("could not determine the system's local domain");
+	exit(1);
+}
+
+# Do DNS requests.
+# - Always return IP addresses sorted by their binary value.
 function resolve($addr) {
+	$sortfunc = "strcmp";
+
 	if (is_inetaddr($addr)) {
 		$addr = to_ptr($addr);
 		$rr = @dns_get_record($addr, DNS_PTR);
@@ -80,6 +118,7 @@ function resolve($addr) {
 			$rr6 = @dns_get_record($addr, DNS_AAAA);
 			$rr = array_merge($rr4 ? $rr4 : array(),
 			                  $rr6 ? $rr6 : array());
+			$sortfunc = "ipcmp";
 		}
 	}
 
@@ -100,6 +139,7 @@ function resolve($addr) {
 			break;
 		}
 	}
+	usort($addresses, $sortfunc);
 	return $addresses;
 }
 
@@ -133,7 +173,7 @@ function go($from, $depth = 0, $skip = array(), &$visited = array()) {
 	# print current address
 	print str_repeat(" ", $depth*3) . colour($from) . " = ";
 
-	$addresses = resolve($from); sort($addresses);
+	$addresses = resolve($from);
 
 	if (empty($addresses))
 		print colour("(none)");
@@ -154,21 +194,24 @@ function go($from, $depth = 0, $skip = array(), &$visited = array()) {
 function gosrv($from) {
 	if (preg_match('/^(.*)@(.*)$/', $from, $m)) {
 		list(, $service, $domain) = $m;
+		if (preg_match('/^[^.]+$/', $domain)) {
+			$domain .= "." . getdomain();
+		}
 	} else {
 		$service = $from;
-		$domain = "nullroute.eu.org";
+		$domain = getdomain();
 	}
 
 	if (!strlen($domain)) {
-		fprintf(STDERR, "rdt: domain name cannot be empty\n");
+		warn("domain name cannot be empty");
 		return false;
 	}
 	if (!strlen($service)) {
-		fprintf(STDERR, "rdt: service name cannot be empty\n");
+		warn("service name cannot be empty");
 		return false;
 	}
 	if (!preg_match('/^[a-z0-9-]+$/', $service)) {
-		fprintf(STDERR, "rdt: service '$service' does not look valid\n");
+		warn("service '$service' does not look valid");
 		return false;
 	}
 	switch ($service) {
@@ -176,29 +219,47 @@ function gosrv($from) {
 		case "kadmin": $service = "kerberos-adm"; break;
 	}
 
+	$rrsets = [];
+	if ($service == "smtp") {
+		warn("service '$service' uses MX instead of SRV");
+		foreach ([$domain] as $name) {
+			$rrset = dns_get_record($name, DNS_MX);
+			if (!$rrset)
+				continue;
+			foreach ($rrset as &$rr) {
+				$rr["weight"] = 0;
+				$rr["port"] = 25;
+			}
+			$rrsets[] = ["Mail exchange on ", $name, $rrset];
+		}
+	} else {
+		foreach (["tcp", "udp", "sctp"] as $proto) {
+			$name = "_$service._$proto.$domain";
+			$rrset = dns_get_record($name, DNS_SRV);
+			if (!$rrset)
+				continue;
+			$rrsets[] = ["", $name, $rrset];
+		}
+	}
+
 	$found = 0;
-	foreach (["tcp", "udp", "sctp"] as $proto) {
-		$name = "_$service._$proto.$domain";
-		$rrset = dns_get_record($name, DNS_SRV);
-		if (!$rrset)
-			continue;
-		if ($found > 0)
-			print "\n";
-		print colour($name) . " is provided by:\n";
+	foreach ($rrsets as [$vis_prefix, $name, $rrset]) {
 		usort($rrset, function ($a, $b) {
 			return ($a["pri"] - $b["pri"])
 				?: -($a["weight"] - $b["weight"])
 				?: strcmp($a["target"], $b["target"])
 				?: ($a["port"] - $b["port"]);
 		});
+		if ($found > 0)
+			print "\n";
+		print $vis_prefix . colour($name) . " is provided by:\n";
 		foreach ($rrset as $rr) {
 			if ($rr["target"] == "" && $rr["port"] == 0) {
 				print str_repeat(" ", 1*3) . colour("(none)") . " (null record found)\n";
 				continue;
 			}
-			print str_repeat(" ", 1*3) . colour($rr["target"]) . " port " . colour($rr["port"])." = ";
+			print str_repeat(" ", 1*3) . "(" . $rr["pri"] . ") " . colour($rr["target"]) . " port " . colour($rr["port"])." = ";
 			$addresses = resolve($rr["target"]);
-			sort($addresses);
 			if (empty($addresses))
 				print colour("(none)");
 			else
@@ -208,7 +269,7 @@ function gosrv($from) {
 		$found++;
 	}
 	if (!$found) {
-		fprintf(STDERR, "rdt: service '$service' on '$domain' not found\n");
+		warn("service '$service' on '$domain' not found");
 		return false;
 	}
 	return true;
@@ -243,7 +304,7 @@ foreach (getopt("cChs", ["color", "no-color", "help", "srv"], $optind) as $opt =
 		case "help":
 			exit(msg_help());
 		default:
-			fwrite(STDERR, "rdt: unknown option '$opt'\n");
+			warn("unknown option '$opt'");
 			++$err;
 	}
 }

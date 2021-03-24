@@ -10,6 +10,7 @@ usage() {
 	echo_opt "-B <color>" "Background color for transparent PNGs (default $background)"
 	echo_opt "-O <arg>" "Additional option for 'magick convert'"
 	echo
+	echo_opt "-L <size>" "Only convert files larger than X megabytes"
 	echo_opt "-f" "Keep converted files even if larger than originals"
 	echo_opt "-T" "Don't try to preserve modification time of the original"
 	echo
@@ -25,6 +26,7 @@ quality=98
 scale=100
 force=0
 background='#eeeeee'
+minorigsize=0
 keepmtime=1
 infiles=()
 outfiles=()
@@ -35,12 +37,13 @@ nproc=$(nproc)
 njobs=0
 ndone=0
 
-while getopts ":B:fj:q:s:O:T" OPT; do
+while getopts ":B:fj:L:q:s:O:T" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	f) force=1;;
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
+	L) minorigsize=$OPTARG;;
 	s) scale=${OPTARG%'%'};;
 	O) addargs+=("$OPTARG");;
 	T) keepmtime=0;;
@@ -57,11 +60,24 @@ if (( ! $# )); then
 	die 0 "no input files specified"
 fi
 
+if [[ $minorigsize != 0 ]]; then
+	minorigsize=$(numfmt --from=iec "${minorigsize%[Bb]}") || exit
+	if (( minorigsize < 128 )); then
+		warn "minimum size of $minorigsize bytes looks too low, assuming this is megabytes"
+		minorigsize=$(numfmt --from=iec "${minorigsize}M") || exit
+	elif (( minorigsize < 1024 )); then
+		warn "minimum size of $minorigsize bytes looks too low, assuming this is kilobytes"
+		minorigsize=$(numfmt --from=iec "${minorigsize}K") || exit
+	fi
+fi
+
 for arg; do
 	if [[ ! -e $arg ]]; then
 		warn "input file '$arg' does not exist"
 	elif [[ $arg =~ \.conv\.[^.]+$ ]]; then
 		notice "skipping already converted file '$arg'"
+	elif (( minorigsize && $(stat -c %s "$arg") < minorigsize )); then
+		debug "skipping already small file '$arg'"
 	else
 		infiles+=("$arg")
 	fi

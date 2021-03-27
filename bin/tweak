@@ -222,7 +222,16 @@ xfce/wm-theme)
 		'.[$session][$setting]' \
 		<<< "$settings")
 	if (( $? )); then
-		die "unknown setting '$tweak'"
+		err "unknown setting '$tweak'"
+		similar=$(jq -e -r \
+			--arg session "$session" \
+			'.[$session] | keys[]' \
+			<<< "$settings" |
+			grep "$(sed 's/./.*&/g' <<< "$setting")")
+		if [[ "$similar" ]]; then
+			info "similar settings: $similar"
+		fi
+		exit 1
 	fi
 	debug "Setting $session.$setting defined as: $config"
 	method=$(jq -e -r '.method' <<< "$config")

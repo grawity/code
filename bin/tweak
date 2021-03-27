@@ -66,6 +66,20 @@ settings='
 			"key": "speed",
 			"type": "float"
 		}
+	},
+	"xfce": {
+		"gtk-theme": {
+			"method": "xfconf",
+			"channel": "xsettings",
+			"property": "/Net/ThemeName",
+			"type": "string"
+		},
+		"wm-theme": {
+			"method": "xfconf",
+			"channel": "xfwm4",
+			"property": "/general/theme",
+			"type": "string"
+		}
 	}
 }
 '
@@ -150,16 +164,19 @@ do_xfconf() {
 	fi
 }
 
-tweak=$1 value=$2
+setting=$1
+value=$2
 
-if [[ $tweak != */* ]]; then
+if [[ $setting == *.* ]]; then
+	session=${setting%%.*}
+	setting=${setting#*.}
+else
 	session=$DESKTOP_SESSION
 	session=${session%-xorg}
-	tweak=$session/$tweak
 fi
 
-case $tweak in
-gnome/wallpaper)
+case $session.$setting in
+gnome.wallpaper)
 	if [[ $value == --fav ]]; then
 		cd ~/Pictures/Wallpapers
 		value=$(shuf < used.txt | head -1)
@@ -196,26 +213,7 @@ gnome/wallpaper)
 	fi
 	do_gsettings org.gnome.desktop.background picture-uri "$value" --uri
 	;;
-gnome/lockscreen|gnome/lock-screen)
-	do_gsettings org.gnome.desktop.screensaver picture-uri "$value" --uri
-	;;
-gnome/wm-theme)
-	do_gsettings org.gnome.desktop.wm.preferences theme "$value"
-	;;
-gnome/natural-scroll)
-	do_gsettings org.gnome.desktop.peripherals.touchpad natural-scroll "$value"
-	;;
-vino/require-tls)
-	do_gsettings org.gnome.Vino require-encryption "$value" --bool
-	;;
-xfce/gtk-theme)
-	do_xfconf xsettings /Net/ThemeName "$value"
-	;;
-xfce/wm-theme)
-	do_xfconf xfwm4 /general/theme "$value"
-	;;
 *)
-	setting=${tweak#*/}
 	config=$(jq -e \
 		--arg session "$session" \
 		--arg setting "$setting" \
@@ -244,6 +242,12 @@ xfce/wm-theme)
 				'@sh "schema=\(.schema) key=\(.key) type=\(.type)"' \
 				<<< "$config")"
 			do_gsettings "$schema" "$key" "$value" --$type
+			;;
+		xfconf)
+			eval "$(jq -e -r \
+				'@sh "chan=\(.channel) prop=\(.property) type=\(.type)"' \
+				<<< "$config")"
+			do_xfconf "$chan" "$prop" "$value" --$type
 			;;
 		*)
 			die "BUG: unknown method '$method'"

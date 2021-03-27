@@ -3,6 +3,31 @@
 
 . lib.bash || exit
 
+settings='
+{
+	"gnome": {
+		"gtk-theme": {
+			"method": "gsettings",
+			"schema": "org.gnome.desktop.interface",
+			"key": "gtk-theme",
+			"type": "string"
+		},
+		"icon-theme": {
+			"method": "gsettings",
+			"schema": "org.gnome.desktop.interface",
+			"key": "icon-theme",
+			"type": "string"
+		},
+		"text-scale": {
+			"method": "gsettings",
+			"schema": "org.gnome.desktop.interface",
+			"key": "text-scaling-factor",
+			"type": "float"
+		}
+	}
+}
+'
+
 require() {
 	if [[ $font && $font != '-' ]]; then
 		case $1 in
@@ -156,12 +181,6 @@ gnome/wallpaper)
 gnome/lockscreen|gnome/lock-screen)
 	do_gsettings org.gnome.desktop.screensaver picture-uri "$value" --uri
 	;;
-gnome/gtk-theme)
-	do_gsettings org.gnome.desktop.interface gtk-theme "$value"
-	;;
-gnome/icon-theme)
-	do_gsettings org.gnome.desktop.interface icon-theme "$value"
-	;;
 gnome/wm-theme)
 	do_gsettings org.gnome.desktop.wm.preferences theme "$value"
 	;;
@@ -196,6 +215,30 @@ xfce/wm-theme)
 	do_xfconf xfwm4 /general/theme "$value"
 	;;
 *)
-	die "unknown setting '$tweak'"
+	setting=${tweak#*/}
+	config=$(jq -e \
+		--arg session "$session" \
+		--arg setting "$setting" \
+		'.[$session][$setting]' \
+		<<< "$settings")
+	if (( $? )); then
+		die "unknown setting '$tweak'"
+	fi
+	debug "Setting $session.$setting defined as: $config"
+	method=$(jq -e -r '.method' <<< "$config")
+	if (( $? )); then
+		die "BUG: missing '$session.$setting.method'"
+	fi
+	case $method in
+		gsettings)
+			eval "$(jq -e -r \
+				'@sh "schema=\(.schema) key=\(.key) type=\(.type)"' \
+				<<< "$config")"
+			do_gsettings "$schema" "$key" "$value" --$type
+			;;
+		*)
+			die "BUG: unknown method '$method'"
+			;;
+	esac
 	;;
 esac

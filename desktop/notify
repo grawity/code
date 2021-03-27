@@ -8,7 +8,6 @@ use File::Path qw(make_path);
 use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
-use Nullroute::Dir;
 
 $::arg0 = ($0 =~ s!.*/!!r);
 
@@ -22,6 +21,16 @@ sub _die {
 	warn "\e[1;31mfatal:\e[m @_\n";
 	exit 1;
 }
+
+sub _xdg_basedir {
+	my ($env, $fallback, $suffix) = @_;
+	my $base = $ENV{$env} // $ENV{HOME}."/".$fallback;
+	return length($suffix) ? $base."/".$suffix : $base;
+}
+sub xdg_cache   { _xdg_basedir("XDG_CACHE_HOME",  ".cache",       @_); }
+sub xdg_config  { _xdg_basedir("XDG_CONFIG_HOME", ".config",      @_); }
+sub xdg_data    { _xdg_basedir("XDG_DATA_HOME",   ".local/share", @_); }
+sub xdg_runtime { _xdg_basedir("XDG_RUNTIME_DIR", xdg_cache(@_),  @_); }
 
 sub Notifications {
 	$bus

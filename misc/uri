@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 from nullroute.core import Core
 import os
 import re
@@ -99,11 +100,11 @@ conf_paths = [os.path.join(dir, "uri.conf")
 mappings = None
 seen = set()
 
-args = sys.argv[1:]
-gateways = False
-if args[0] == "-g":
-    args.pop(0)
-    gateways = True
+parser = argparse.ArgumentParser()
+parser.add_argument("-g", "--gateways", action="store_true",
+                    help="include mappings via web gateways")
+parser.add_argument("uri", nargs="*")
+args = parser.parse_args()
 
 for path in conf_paths:
     try:
@@ -111,7 +112,7 @@ for path in conf_paths:
     except FileNotFoundError:
         pass
 
-for start_uri in args:
+for start_uri in args.uri:
     Core.trace("start arg: %r" % start_uri)
     if mappings is None:
         Core.trace("... no mappings defined, returning original arg")

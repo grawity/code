@@ -94,23 +94,28 @@ def subst(template, match):
             state = 0
     return out
 
-conf_paths = [os.path.join(dir, "uri.conf")
-              for dir in basedir.load_config_paths("nullroute.eu.org")]
-
 mappings = None
 seen = set()
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-C", "--config",
+                    help="specify a non-default mapping file")
 parser.add_argument("-g", "--gateways", action="store_true",
                     help="include mappings via web gateways")
 parser.add_argument("uri", nargs="*")
 args = parser.parse_args()
 
-for path in conf_paths:
-    try:
-        mappings = load_mappings(path, gateways)
-    except FileNotFoundError:
-        pass
+if args.config:
+    mappings = load_mappings(args.config, args.gateways)
+else:
+    for conf_dir in basedir.load_config_paths("nullroute.eu.org"):
+        try:
+            mappings = load_mappings(os.path.join(conf_dir, "uri.conf"),
+                                     args.gateways)
+        except FileNotFoundError:
+            pass
+        else:
+            break
 
 for start_uri in args.uri:
     Core.trace("start arg: %r" % start_uri)

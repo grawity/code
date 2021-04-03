@@ -92,7 +92,8 @@ do_pull() {
 		old=$(rev)
 		if log: git pull --ff-only --no-stat; then
 			new=$(rev)
-			if [[ -e .gitmodules ]]; then
+			sparse=$(git config --type bool core.sparseCheckout || echo false)
+			if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
 				log: git submodule update
 			fi
 		else

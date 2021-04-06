@@ -13,7 +13,7 @@ def save_m3u_video(url, file_name):
     subprocess.run(["youtube-dl", url, "-o", file_name + ".%(ext)s"])
 
 class TwitterMediaScraper(Scraper):
-    def scrape(self, url):
+    def scrape(self, url, file_prefix):
         if m := re.fullmatch(r"https://(?:mobile\.)?twitter\.com/(?:i/web|[^/]+)/status/(\d+)(?:/photo/\d+)?", url):
             id = m.group(1)
         else:
@@ -39,6 +39,8 @@ class TwitterMediaScraper(Scraper):
                 # 'animated_gif' has no m3u & only one variant (video/mp4 with bitrate=0)
                 video_id = medium["id_str"]
                 file_name = "%s %s %s" % (author, status.id_str, video_id)
+                if file_prefix:
+                    file_name = "%s %s" % (file_prefix, file_name)
                 m3u_url = None
                 best_bitrate = -1
                 best_bitrate_url = None
@@ -74,6 +76,7 @@ class TwitterMediaScraper(Scraper):
                 pprint(medium)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--prefix")
 parser.add_argument("url", nargs="*")
 args = parser.parse_args()
 
@@ -97,7 +100,7 @@ api = tweepy.API(auth)
 s = TwitterMediaScraper()
 s.api = api
 for url in args.url:
-    s.scrape(url)
+    s.scrape(url, args.prefix)
 
 if len(args.url) > len({*args.url}):
     Core.warn("duplicate URL arguments were found")

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+src=$1 dest=$2 rest=("${@:3}")
+
+args=()
+
+if [[ $SKIP_NOCACHE ]]; then
+	debug "skipping 'nocache' (\$SKIP_NOCACHE)"
+elif have nocache; then
+	debug "using 'nocache'"
+	args+=(nocache)
+else
+	notice "you should install 'nocache'"
+fi
+
+# note: add -x to jobs instead of here
+args+=(rsync "$src" "$dest"
+	-aHAXvzh
+	--info=progress2
+	--delete-after
+	--delete-excluded)
+
+for arg in "${rest[@]}"; do
+	if [[ $last == -f && $arg == @(merge|.)\ * ]]; then
+		debug "processing '$arg'"
+		if [[ -f ${arg#* } ]]; then
+			args+=("$arg")
+		else
+			debug "merge file not found, replacing with /dev/null"
+			args+=("merge /dev/null")
+		fi
+	else
+		args+=("$arg")
+	fi
+	last=$arg
+done
+
+log "rsyncing $src -> $dest"
+
+"${args[@]}"; r=$?
+
+(( !r )) ||	# success
+(( r == 24 ))	# files vanished

@@ -3,6 +3,8 @@
 # 2018-04-05 grawity: nocache is broken with glibc 2.28
 SKIP_NOCACHE=1
 
+PATH="$HOME/code/backup:$PATH"
+
 . lib.bash || exit
 
 progname_prefix=0
@@ -220,50 +222,6 @@ do_borg() {
 	)
 	do: "${cmd[@]}" || return
 	touch "$stamp"
-}
-
-do_rsync() {
-	local src=$1 dest=$2 rest=("${@:3}")
-
-	local arg last args=()
-
-	if [[ $SKIP_NOCACHE ]]; then
-		debug "skipping 'nocache' (\$SKIP_NOCACHE)"
-	elif have nocache; then
-		debug "using 'nocache'"
-		args+=(nocache)
-	else
-		notice "you should install 'nocache'"
-	fi
-
-	# note: add -x to jobs instead of here
-	args+=(rsync "$src" "$dest"
-		-aHAXvzh
-		--info=progress2
-		--delete-after
-		--delete-excluded)
-
-	for arg in "${rest[@]}"; do
-		if [[ $last == -f && $arg == @(merge|.)\ * ]]; then
-			debug "processing '$arg'"
-			if [[ -f ${arg#* } ]]; then
-				args+=("$arg")
-			else
-				debug "merge file not found, replacing with /dev/null"
-				args+=("merge /dev/null")
-			fi
-		else
-			args+=("$arg")
-		fi
-		last=$arg
-	done
-
-	log "rsyncing $src -> $dest"
-
-	"${args[@]}"; r=$?
-
-	(( !r )) ||	# success
-	(( r == 24 ))	# files vanished
 }
 
 do_annex_archive() {

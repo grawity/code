@@ -65,63 +65,31 @@ def do_borg(*,
     # run borg create
 
     if sudo:
-        if confirm("call borg via systemd-run?"):
-            wrap = [
-                "sudo",
-                "systemd-run",
-                    "--pty",
-                    f"--description=borg backup task for {user}/root"
-                    f"--property=WorkingDirectory={base}",
-                    "--collect",
-                    "--",
-            ]
-            need_wd_env = False
-        else:
-            wrap = ["sudo", "-i"]
-            need_wd_env = True
+        wrap = [
+            "sudo",
+            "systemd-run",
+                "--pty",
+                f"--description=borg backup task for {user}/root"
+                f"--property=WorkingDirectory={base}",
+                "--collect",
+                "--",
+        ]
     else:
-        if confirm("call borg via systemd-run?"):
-            user = os.environ["LOGNAME"]
-            ssh_sock = os.environ["SSH_AUTH_SOCK"]
-            wrap = [
+        user = os.environ["LOGNAME"]
+        ssh_sock = os.environ["SSH_AUTH_SOCK"]
+        wrap = [
+            "sudo",
+            "systemd-run",
+                #"--quiet",
+                "--pty",
+                f"--description=borg backup task for {user}"
                 # Systemd automatically sets $HOME based on --uid.
-                "sudo",
-                "systemd-run",
-                    #"--quiet",
-                    "--pty",
-                    f"--description=borg backup task for {user}"
-                    f"--uid={user}",
-                    f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
-                    "--property=AmbientCapabilities=cap_dac_read_search",
-                    f"--property=WorkingDirectory={base}",
-                    "--collect",
-                    "--",
-            ]
-            need_wd_env = False
-        else:
-            home = os.environ["HOME"]
-            gids = ",".join(map(str, os.getgroups()))
-            wrap = [
-                # Fix $HOME here, *not* in global need_wd_env,
-                # because the latter also applies to inherited
-                # 'sudo -i' with its deliberate reset-to-root.
-                "sudo",
-                    f"HOME={home}",
-                "setpriv",
-                    f"--reuid={os.getuid()}",
-                    f"--regid={os.getgid()}",
-                    f"--groups={gids}",
-                    "--inh-caps=+dac_read_search",
-                    "--ambient-caps=+dac_read_search",
-                    "--",
-            ]
-            need_wd_env = True
-
-    if need_wd_env:
-        wrap += [
-            "env",
-                f"--chdir={base}",
-                f"SSH_AUTH_SOCK={os.environ['SSH_AUTH_SOCK']}",
+                f"--uid={user}",
+                f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
+                "--property=AmbientCapabilities=cap_dac_read_search",
+                f"--property=WorkingDirectory={base}",
+                "--collect",
+                "--",
         ]
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]

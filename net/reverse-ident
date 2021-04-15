@@ -1,0 +1,35 @@
+#!/usr/bin/env perl
+use IO::Socket::INET;
+
+my ($host, $port) = @ARGV;
+
+die "Usage: $0 <host> <port>\n" if !($host && $port);
+
+my $mainsock = IO::Socket::INET->new
+				(PeerAddr => $host,
+				PeerPort => $port,
+				Proto => "tcp");
+
+die "Could not connect to service: $@\n" if !$mainsock;
+
+my $lh = $mainsock->sockhost;
+my $lp = $mainsock->sockport;
+my $rh = $mainsock->peerhost;
+my $rp = $mainsock->peerport;
+
+print "Connected to service: [$lh]:$lp <--> [$rh]:$rp\n";
+
+my $identsock = IO::Socket::INET->new
+				(PeerAddr => $rh,
+				PeerPort => "113",
+				LocalAddr => $lh,
+				Proto => "tcp");
+
+die "Could not connect to identd: $@\n" if !$identsock;
+
+print "Reached identd at: [$rh]:113\n";
+
+print {$identsock} "$rp,$lp\r\n";
+$identsock->flush;
+
+print "Received reply: $_" while <$identsock>;

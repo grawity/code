@@ -14,6 +14,7 @@ default_jobs=(push-hd)
 hosts=()
 borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
 borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
+rsync_base_dir="$HOME/Backup"
 
 borg_args=(
 	--progress
@@ -284,7 +285,7 @@ job_main() {
 			;;
 		root@*)
 			host=${job#*@}
-			do_rsync root@$host:/ ~/Backup/Roots/$host/			\
+			do_rsync "root@$host:/" "$rsync_base_dir/Roots/$host/" \
 				-f "merge $conf/rsync-filters/server_root_all"		\
 				-f "merge $conf/rsync-filters/server_root_extra"	\
 				-f "merge $conf/rsync-filters/server_root_$host"	\
@@ -292,7 +293,7 @@ job_main() {
 			;;
 		@*)
 			host=${job#@}
-			do_rsync $host: ~/Backup/Homes/$host/				\
+			do_rsync "$host:" "$rsync_base_dir/Homes/$host/" \
 				-f "merge $conf/rsync-filters/home_all"			\
 				-f "merge $conf/rsync-filters/home_$host"		\
 				-f "merge $conf/rsync-filters/server_home_all"		\

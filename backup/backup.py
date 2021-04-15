@@ -75,15 +75,15 @@ def do_borg(*,
             # Systemd automatically sets $HOME based on --uid.
             "sudo",
             "systemd-run",
-                    #"--quiet",
-                    "--pty",
-                    f"--description=borg backup task for {user}"
-                    f"--uid={user}",
-                    f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
-                    "--property=AmbientCapabilities=cap_dac_read_search",
-                    f"--property=WorkingDirectory={base}",
-                    "--collect",
-                    "--",
+                #"--quiet",
+                "--pty",
+                f"--description=borg backup task for {user}"
+                f"--uid={user}",
+                f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
+                "--property=AmbientCapabilities=cap_dac_read_search",
+                f"--property=WorkingDirectory={base}",
+                "--collect",
+                "--",
         ]
         need_wd_env = False
     elif not wrap and confirm("call borg via setpriv?"):

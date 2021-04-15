@@ -12,25 +12,10 @@ local_config_file=$path_config/backup.conf.sh
 
 default_jobs=(push-hd)
 hosts=()
+borg_args=()
 borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
 borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 rsync_base_dir="$HOME/Backup"
-
-borg_args=(
-	--progress
-	--stats
-	--one-file-system
-	--exclude-caches
-	--exclude-if-present=".nobackup"
-	--keep-exclude-tags
-)
-
-borg_keep=(
-	--keep-daily 7
-	--keep-weekly 8
-	--keep-monthly $[12 * 5] # 5 years
-	--keep-yearly 10
-)
 
 # Used by backup.conf to override borg_* config variables at job run time
 borg_pre() { true; }
@@ -93,132 +78,28 @@ do_borg() {
 
 	borg_pre "$kind"
 	var="borg_${kind}_repo"; local repo="${!var}"
-	var="borg_${kind}_base"; local base="${!var}"
 	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")
 	var="borg_${kind}_args[@]"; local args=("${!var}")
-	var="borg_${kind}_wrap[@]"; local wrap=("${!var}")
 
-	[[ $repo ]] || die "borg_${kind}_repo not defined"
-	[[ $base ]] || die "borg_${kind}_base not defined"
-	[[ $dirs ]] || die "borg_${kind}_dirs not defined"
-	[[ $repo == *:* || -d $repo ]] || die "repository '$repo' does not exist"
-
-	# idiot-proofing: if nonexistent exclude files were specified, create them
-
-	local arg next=-1
-	for arg in "${args[@]}"; do
-		if [[ $arg == --exclude-from ]]; then
-			next=1
-		elif [[ $arg == --exclude-from=* ]]; then
-			arg=${arg#*=}
-			next=0
-		fi
-		if (( next == 0 )) && [[ ! -f $arg ]]; then
-			info "creating missing exclude file '$arg'"
-			touch "$arg" || return
-		fi
-		if (( next >= 0 )); then
-			(( --next ))
-		fi
-	done
-
-	# run borg create
-
-	# This has to be 1 by default, because we might have inherited
-	# 'sudo' from borg_$job_wrap.
-	local need_wd_env=1
-
-	if [[ ! $wrap ]] && confirm "experiment: call borg via systemd-run?"; then
-		wrap=(
-			# Systemd automatically sets $HOME based on --uid.
-			sudo
-			systemd-run
-				#--quiet
-				--pty
-				--description="borg backup task for $USER"
-				--uid="$USER"
-				--setenv="SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
-				--property="AmbientCapabilities=cap_dac_read_search"
-				--property="WorkingDirectory=$base"
-				--collect
-				--
-		)
-		need_wd_env=0
-	elif [[ ! $wrap ]] && confirm "experiment: call borg via setpriv?"; then
-		wrap=(
-			# Fix $HOME here, *not* in global need_wd_env,
-			# because the latter also applies to inherited
-			# 'sudo -i' with its deliberate reset-to-root.
-			sudo
-				HOME="$HOME"
-			# setpriv --ambient-caps: util-linux v2.31
-			setpriv
-				--reuid="$(id -u)"
-				--regid="$(id -g)"
-				--groups="$(id -G | sed 's/ /,/g')"
-				--inh-caps="+dac_read_search"
-				--ambient-caps="+dac_read_search"
-				--
-		)
-		need_wd_env=1
-	elif [[ ! $wrap ]]; then
-		# No special environment. We always need to chdir, although
-		# the envvars are already okay.
-		warn "running borg without DAC_READ_SEARCH"
-		need_wd_env=1
-	else
-		# We inherited sudo from borg_root_wrap. It deliberately
-		# overrides $HOME to /root's, but we still need to chdir
-		# and set the SSH socket.
-		need_wd_env=1
-		# TODO: Maybe move SSH_AUTH_SOCK to here & to setpriv case.
+	if [[ ! $repo ]]; then
+		die "borg_${kind}_repo not defined"
+	fi
+	if ! [[ $repo == *:* || -d $repo ]]; then
+		die "repository '$repo' does not exist"
+	fi
+	if [[ $borg_args ]]; then
+		die "borg_args cannot be changed anymore"
+	fi
+	if [[ $dirs ]]; then
+		die "borg_${kind}_dirs cannot be changed anymore"
+	fi
+	if [[ $args ]]; then
+		die "borg_${kind}_args cannot be changed anymore"
 	fi
 
-	if (( need_wd_env )); then
-		wrap+=(
-			# env --chdir: coreutils v8.28 (debian buster/sid)
-			#env --chdir="$base"
-			# nsenter --wd: util-linux v2.23 (debian jessie)
-			nsenter --wd="$base"
-			env SSH_AUTH_SOCK="$SSH_AUTH_SOCK"
-		)
-	fi
-
-	local cmd=(
-		"${wrap[@]}"
-		borg create "$repo::$tag"
-		"${dirs[@]}"
-		"${args[@]}"
-	)
-	do: "${cmd[@]}" || return
-
-	# run borg prune (if it has been a month since the last run)
-
-	if [[ $repo == *:* ]]; then
-		cmd=(
-			"${wrap[@]}"
-			ssh "${repo%%:*}"
-			"grep '^id =' '${repo#*:}/config'"
-		)
-	else
-		cmd=(
-			"${wrap[@]}"
-			sh -c
-			"grep '^id =' '$repo/config'"
-		)
-	fi
-	local id=$("${cmd[@]}" | awk '{print $3}')
-	[[ "$id" ]] || return
-	local stamp="$path_cache/backup/borg_$id.prune.stamp"
-	is_older_than "$stamp" $(( 30*86400 )) || return 0
-	cmd=(
-		"${wrap[@]}"
-		borg prune "$repo"
-		--verbose
-		"${borg_keep[@]}"
-	)
-	do: "${cmd[@]}" || return
-	touch "$stamp"
+	~/code/backup/backup.py \
+		--borg-repo="$repo" \
+		"$kind"
 }
 
 do_job() {
@@ -233,24 +114,9 @@ job_main() {
 			sync
 			;;
 		home | borg-home)
-			borg_home_base=~
-			borg_home_dirs=(.)
-			borg_home_args=(
-				"${borg_args[@]}"
-				--exclude-from="$conf/borg/home_all.exclude"
-				--exclude-from="$conf/borg/home_$HOSTNAME.exclude"
-			)
 			do_borg home
 			;;
 		root | borg-root)
-			borg_root_base=/
-			borg_root_dirs=(/)
-			borg_root_wrap=(sudo -i)
-			borg_root_args=(
-				"${borg_args[@]}"
-				--exclude-from="$conf/borg/root_all.exclude"
-				--exclude-from="$conf/borg/root_$HOSTNAME.exclude"
-			)
 			do_borg root
 			;;
 		pull)

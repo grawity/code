@@ -98,7 +98,7 @@ def do_borg(*,
                     "--",
             ]
             need_wd_env = False
-        elif confirm("call borg via setpriv?"):
+        else:
             home = os.environ["HOME"]
             gids = ",".join(map(str, os.getgroups()))
             wrap = [
@@ -115,11 +115,6 @@ def do_borg(*,
                     "--ambient-caps=+dac_read_search",
                     "--",
             ]
-            need_wd_env = True
-        else:
-            # No special environment. We always need to chdir, although
-            # the envvars are already okay.
-            Core.warn("running borg without CAP_DAC_READ_SEARCH")
             need_wd_env = True
 
     if need_wd_env:

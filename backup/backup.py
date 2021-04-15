@@ -71,17 +71,19 @@ def do_borg(*,
             "--collect"]
     if sudo:
         wrap += [f"--description=borg backup task for {user}/root"
-                 f"--property=WorkingDirectory={base}"]
+                 f"--property=WorkingDirectory={base}",
+                 "--"]
     else:
+        # Systemd automatically sets $HOME based on --uid.
+        setenv = [f"--setenv={e}={v}"
+                  for e in ["KRB5CCNAME", "SSH_AUTH_SOCK"]
+                  if (v := os.environ.get(e))]
         wrap += [f"--description=borg backup task for {user}"
                  f"--property=WorkingDirectory={base}",
                  f"--property=AmbientCapabilities=cap_dac_read_search",
-                 f"--uid={user}"]
-        # Systemd automatically sets $HOME based on --uid.
-        for e in ["KRB5CCNAME", "SSH_AUTH_SOCK"]:
-            if v := os.environ.get(e):
-                wrap += [f"--setenv={e}={v}"]
-    wrap += ["--"]
+                 f"--uid={user}",
+                 *setenv,
+                 "--"]
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
     print(f"Running {cmd!r}")

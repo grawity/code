@@ -14,7 +14,6 @@ local_config_file=$path_config/backup.conf.sh
 default_jobs=(push-hd)
 annexes=(~/Attic/{Annex,Software,Videos,Anime})
 hosts=()
-push_volume="/vol4"
 borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
 borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
 
@@ -43,9 +42,12 @@ else
 	warn "config file '$local_config_file' missing"
 fi
 
+if [[ $push_volume ]]; then
+	notice "obsolete \$push_volume defined in ${local_config_file@Q}"
+fi
+
 # misc
 
-bvol=$push_volume
 conf=$path_config/synced
 
 lock_path=
@@ -413,10 +415,7 @@ job_main() {
 			;;
 		gphotos)
 			src="gphotos:media/by-year"
-			dst="$bvol/Backup/Google Drive Photos"
-			if [[ $bvol != /vol4 ]]; then
-				confirm "expected /vol4, continue with $bvol?" || exit
-			fi
+			dst="/vol4/Backup/Google Drive Photos"
 			if [[ ! -d "$dst" ]]; then
 				confirm "missing '$dst', create?" || exit
 			fi

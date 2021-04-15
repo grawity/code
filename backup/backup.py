@@ -87,7 +87,7 @@ def do_borg(*,
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
     print(f"Running {cmd!r}")
-    #subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True)
 
     if ":" in repo:
         host, _, path = repo.partition(":")
@@ -106,9 +106,9 @@ def do_borg(*,
 
     cmd = [*wrap, "borg", "prune", repo, "--verbose", *borg_keep]
     print(f"Running {cmd!r}")
-    #subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True)
 
-    #touch(stamp)
+    touch(stamp)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--borg-repo")

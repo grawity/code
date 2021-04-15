@@ -64,57 +64,53 @@ def do_borg(*,
 
     # run borg create
 
-    # This has to be 1 by default, because we might have inherited
-    # 'sudo' from borg_$job_wrap.
-    need_wd_env = True
-
-    if not wrap and confirm("call borg via systemd-run?"):
-        user = os.environ["LOGNAME"]
-        ssh_sock = os.environ["SSH_AUTH_SOCK"]
-        wrap = [
-            # Systemd automatically sets $HOME based on --uid.
-            "sudo",
-            "systemd-run",
-                #"--quiet",
-                "--pty",
-                f"--description=borg backup task for {user}"
-                f"--uid={user}",
-                f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
-                "--property=AmbientCapabilities=cap_dac_read_search",
-                f"--property=WorkingDirectory={base}",
-                "--collect",
-                "--",
-        ]
-        need_wd_env = False
-    elif not wrap and confirm("call borg via setpriv?"):
-        home = os.environ["HOME"]
-        gids = ",".join(map(str, os.getgroups()))
-        wrap = [
-            # Fix $HOME here, *not* in global need_wd_env,
-            # because the latter also applies to inherited
-            # 'sudo -i' with its deliberate reset-to-root.
-            "sudo",
-                f"HOME={home}",
-            "setpriv",
-                f"--reuid={os.getuid()}",
-                f"--regid={os.getgid()}",
-                f"--groups={gids}",
-                "--inh-caps=+dac_read_search",
-                "--ambient-caps=+dac_read_search",
-                "--",
-        ]
-        need_wd_env = True
-    elif not wrap:
-        # No special environment. We always need to chdir, although
-        # the envvars are already okay.
-        Core.warn("running borg without CAP_DAC_READ_SEARCH")
-        need_wd_env = True
-    else:
+    if wrap:
         # We inherited sudo from borg_root_wrap. It deliberately
         # overrides $HOME to /root's, but we still need to chdir
         # and set the SSH socket.
         need_wd_env = True
-        # TODO: Maybe move SSH_AUTH_SOCK to here & to setpriv case.
+    else:
+        if confirm("call borg via systemd-run?"):
+            user = os.environ["LOGNAME"]
+            ssh_sock = os.environ["SSH_AUTH_SOCK"]
+            wrap = [
+                # Systemd automatically sets $HOME based on --uid.
+                "sudo",
+                "systemd-run",
+                    #"--quiet",
+                    "--pty",
+                    f"--description=borg backup task for {user}"
+                    f"--uid={user}",
+                    f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
+                    "--property=AmbientCapabilities=cap_dac_read_search",
+                    f"--property=WorkingDirectory={base}",
+                    "--collect",
+                    "--",
+            ]
+            need_wd_env = False
+        elif confirm("call borg via setpriv?"):
+            home = os.environ["HOME"]
+            gids = ",".join(map(str, os.getgroups()))
+            wrap = [
+                # Fix $HOME here, *not* in global need_wd_env,
+                # because the latter also applies to inherited
+                # 'sudo -i' with its deliberate reset-to-root.
+                "sudo",
+                    f"HOME={home}",
+                "setpriv",
+                    f"--reuid={os.getuid()}",
+                    f"--regid={os.getgid()}",
+                    f"--groups={gids}",
+                    "--inh-caps=+dac_read_search",
+                    "--ambient-caps=+dac_read_search",
+                    "--",
+            ]
+            need_wd_env = True
+        else:
+            # No special environment. We always need to chdir, although
+            # the envvars are already okay.
+            Core.warn("running borg without CAP_DAC_READ_SEARCH")
+            need_wd_env = True
 
     if need_wd_env:
         wrap += [

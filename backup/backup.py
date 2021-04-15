@@ -41,7 +41,7 @@ def do_borg(*,
             repo=None,
             base=None,
             dirs=None,
-            wrap=None,
+            sudo=False,
             args=None):
 
     tag = hostname + "." + time.strftime("%Y%m%d.%H%M")
@@ -64,10 +64,8 @@ def do_borg(*,
 
     # run borg create
 
-    if wrap:
-        # We inherited sudo from borg_root_wrap. It deliberately
-        # overrides $HOME to /root's, but we still need to chdir
-        # and set the SSH socket.
+    if sudo:
+        wrap = ["sudo", "-i"]
         need_wd_env = True
     else:
         if confirm("call borg via systemd-run?"):
@@ -163,7 +161,7 @@ for job in args.job:
         do_borg(repo=args.borg_repo or borg_root_repo,
                 base="/",
                 dirs=["/"],
-                wrap=["sudo", "-i"],
+                sudo=True,
                 args=[
                     *borg_args,
                     f"--exclude-from={conf}/borg/root_all.exclude",

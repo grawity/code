@@ -118,11 +118,9 @@ def do_borg(*,
 
     if need_wd_env:
         wrap += [
-            # env --chdir: coreutils v8.28 (debian buster/sid)
-            #"env", f"--chdir={base}",
-            # nsenter --wd: util-linux v2.23 (debian jessie)
-            "nsenter", f"--wd={base}",
-            "env", f"SSH_AUTH_SOCK={os.environ['SSH_AUTH_SOCK']}",
+            "env",
+                f"--chdir={base}",
+                f"SSH_AUTH_SOCK={os.environ['SSH_AUTH_SOCK']}",
         ]
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]

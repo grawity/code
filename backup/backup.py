@@ -76,16 +76,20 @@ def do_borg(*,
         ]
     else:
         user = os.environ["LOGNAME"]
-        ssh_sock = os.environ["SSH_AUTH_SOCK"]
+        # Systemd automatically sets $HOME based on --uid.
+        env = ["KRB5CCNAME",
+               "SSH_AUTH_SOCK"]
+        setenv = ["--setenv=%s=%s" % (e, os.environ[e])
+                  for e in env
+                  if e in os.environ]
         wrap = [
             "sudo",
             "systemd-run",
                 #"--quiet",
                 "--pty",
                 f"--description=borg backup task for {user}"
-                # Systemd automatically sets $HOME based on --uid.
                 f"--uid={user}",
-                f"--setenv=SSH_AUTH_SOCK={ssh_sock}",
+                *setenv,
                 "--property=AmbientCapabilities=cap_dac_read_search",
                 f"--property=WorkingDirectory={base}",
                 "--collect",

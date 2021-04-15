@@ -4,9 +4,12 @@ confirm() { local reply; read -p "$1 " reply && [[ $reply =~ ^[Yy] ]]; }
 
 # DWIM when no args or only 1 arg
 if (( $# <= 1 )); then
-	clip=$(xsel -o -b)
-	if [[ ! $clip ]]; then
-		clip=$(xsel -o)
+	clip=""
+	if [[ $DISPLAY ]]; then
+		clip=$(xsel -o -b)
+		if [[ ! $clip ]]; then
+			clip=$(xsel -o)
+		fi
 	fi
 
 	# existing file from another directory in command line

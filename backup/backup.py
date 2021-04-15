@@ -65,8 +65,20 @@ def do_borg(*,
     # run borg create
 
     if sudo:
-        wrap = ["sudo", "-i"]
-        need_wd_env = True
+        if confirm("call borg via systemd-run?"):
+            wrap = [
+                "sudo",
+                "systemd-run",
+                    "--pty",
+                    f"--description=borg backup task for {user}/root"
+                    f"--property=WorkingDirectory={base}",
+                    "--collect",
+                    "--",
+            ]
+            need_wd_env = False
+        else:
+            wrap = ["sudo", "-i"]
+            need_wd_env = True
     else:
         if confirm("call borg via systemd-run?"):
             user = os.environ["LOGNAME"]

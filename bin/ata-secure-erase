@@ -48,6 +48,9 @@ confirm "erase '$dev'?" || exit
 
 do: partx --delete "$dev"
 
+attrib="/tmp/${dev//'/'/'_'}"
+do: smartctl -A "$dev" | tee "$attrib-old.txt"
+
 pwd="foo"
 
 info "setting ATA password of '$dev' to '$pwd'"
@@ -62,5 +65,6 @@ notify-send "Security erase of '$dev' complete in $(interval $[Tfinish-Tstart]).
 
 info "erase done"
 do: hdparm -I "$dev" | awk '/^Security:/{x=1} /^[^S\t]/{x=0} x{print}'
-do: smartctl -A "$dev"
+do: smartctl -A "$dev" | tee "$attrib-new.txt"
+colordiff -u "$attrib-old.txt" "$attrib-new.txt" || true
 do: scsi_stop "$dev"

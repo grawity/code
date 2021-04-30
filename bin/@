@@ -62,4 +62,10 @@ else
 	qcmd="${@@Q}"
 fi
 
-exec ssh -K -q -t "$host" "export SILENT=1; . ~/.profile && cd ${pwd@Q} && ($qcmd)"
+if [[ -t 0 && -t 1 && -t 2 ]]; then
+	tty_arg="-t"
+else
+	tty_arg=""
+fi
+
+exec ssh -K -q $tty_arg "$host" "export SILENT=1; . ~/.profile && cd ${pwd@Q} && ($qcmd)"

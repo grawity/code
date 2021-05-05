@@ -35,7 +35,8 @@ elif [[ $arg0 == @?* ]]; then
 elif [[ $arg0 == @ && $1 ]]; then
 	host=$1; shift
 else
-	die "missing hostname"
+	host=$arg0
+	pwd=""
 fi
 
 if [[ $1 == -n ]]; then
@@ -48,6 +49,12 @@ if (( nfs )); then
 	fi
 	pwd="/net/$HOSTNAME$PWD"
 	info "Running in $host:$pwd"
+fi
+
+if [[ $pwd ]]; then
+	qpwd=${pwd@Q}
+else
+	qpwd=""
 fi
 
 # 0 args - run a shell
@@ -68,4 +75,4 @@ else
 	tty_arg=""
 fi
 
-exec ssh -K -q $tty_arg "$host" "export SILENT=1; . ~/.profile && cd ${pwd@Q} && ($qcmd)"
+exec ssh -K -q $tty_arg "$host" "export SILENT=1; . ~/.profile && cd $qpwd && ($qcmd)"

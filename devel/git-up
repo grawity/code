@@ -11,7 +11,6 @@ fi
 
 opts=$(git config --get-all nullroute.git-new.options || true)
 paths=$(git config --get-all nullroute.git-new.paths || true)
-mark=$(git config --bool nullroute.git-new.last-read || true)
 
 old=$(git rev-parse "HEAD")
 
@@ -24,15 +23,7 @@ fi
 new=$(git rev-parse "HEAD")
 
 if [ "$new" != "$old" ]; then
-	if [ "$mark" = "true" ]; then
-		git-update-last-read -i .
-	fi
-
 	# Reflogs are't always available in bare repositories; I'd be
 	# using "@{1}.." otherwise. Although maybe this is more readable.
 	tig $opts "$old..$new" -- $paths
-
-	if [ "$mark" = "true" ]; then
-		git-update-last-read -e .
-	fi
 fi

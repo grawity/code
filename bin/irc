@@ -4,14 +4,27 @@
 
 . $path_config/synced/irc.conf || exit
 
+opt_mosh=1
+
+while getopts :s OPT; do
+	case $OPT in
+	s) opt_mosh=0;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 session=${XDG_SESSION_ID:-systemd}
 
 lock=$path_runtime/irc-$session.lock
 exec {fd}<>"$lock" && flock -xn $fd ||
 	die "already connected from $HOSTNAME/$session"
 
-export MOSH_TITLE_NOPREFIX='y'
-mosh $irc_host -- tmux attach -t irc
+if (( opt_mosh )); then
+	export MOSH_TITLE_NOPREFIX='y'
+	mosh $irc_host -- tmux attach -t irc
+else
+	ssh -t $irc_host "tmux attach -t irc"
+fi
 r=$?
 
 hi >&/dev/null {fd}>&- &

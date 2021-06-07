@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+# Copy data from stdin to a remote file over SFTP. To be used if the target
+# server doesn't have a POSIX-like shell interface and cannot reliably use 'cat
+# > quoted_path'.
+
+import argparse
+import paramiko
+import re
+import sys
+import subprocess
+
+def parse_dest(arg):
+    if arg.startswith("sftp://"):
+        raise ValueError("parsing sftp:// URLs not supported yet")
+    else:
+        if m := re.match(r"^([^:]+):(.+)$", args.dest):
+            host, path = m.groups()
+        else:
+            raise ValueError(f"could not parse {arg!r}")
+
+        if m := re.match(r"^(.+)@([^@]+)$", host):
+            user, host = m.groups()
+        else:
+            user = None
+
+        return user, host, path
+
+class OpenSshSubsystemChannel():
+    """
+    A socket-like object to be used in place of paramiko.channel.Channel(), in
+    order to use Paramiko SFTP client with OpenSSH host/user authentication.
+    """
+
+    def __init__(self, endpoint, subsystem):
+        self.ep = endpoint
+        self.subsys = subsystem
+        self.sshcmd = ["ssh", "-q", "-s", endpoint, subsystem]
+        self.proc = subprocess.Popen(self.sshcmd,
+                                     stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE)
+
+    def get_name(self):
+        return f"[fake channel to {self.subsys!r} on {self.ep!r}]"
+
+    def send(self, buf):
+        n = self.proc.stdin.write(buf)
+        self.proc.stdin.flush()
+        return n
+
+    def recv(self, nbytes):
+        return self.proc.stdout.read(nbytes)
+
+    def close(self):
+        self.proc.stdin.close()
+        self.proc.wait()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("dest")
+args = parser.parse_args()
+
+user, host, path = parse_dest(args.dest)
+
+print(f"sftpipe: Connecting to {host!r}...", file=sys.stderr)
+
+'''
+client = paramiko.client.SSHClient()
+client.load_system_host_keys()
+client.set_missing_host_key_policy(paramiko.client.WarningPolicy)
+client.connect(host,
+               username=user,
+               gss_kex=True,
+               gss_auth=True)
+'''
+
+ep = f"{user}@{host}" if user else f"{host}"
+chan = OpenSshSubsystemChannel(ep, "sftp")
+sftp = paramiko.sftp_client.SFTPClient(chan)
+
+print(f"sftpipe: Uploading to {path!r}...", file=sys.stderr)
+
+sftp.putfo(sys.stdin.buffer, path)
+sftp.close()

@@ -15,14 +15,13 @@ class PixivApiClient():
     def __init__(self):
         self.ua = requests.Session()
         self.ua.mount("http://", requests.adapters.BaseAdapter())
-        self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=3))
+        self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=10))
         #self.ua = cloudscraper.CloudScraper()
+        #self.ua = cloudscraper.create_scraper()
 
         self.tc = OAuthTokenCache("api.pixiv.net", display_name="Pixiv API")
 
         self.api = pixivpy3.PixivAPI()
-        if not hasattr(self.api, "client_secret"):
-            Core.warn("this pixivpy3.PixivAPI version does not allow overridding client_secret; OAuth won't work properly")
         self.api.client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
         self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
         #self.api.requests = self.ua
@@ -81,15 +80,29 @@ class PixivApiClient():
                 self.api.refresh_token = data["refresh_token"]
                 return True
             else:
-                try:
-                    token = self.api.auth(refresh_token=data["refresh_token"])
-                    Core.debug("refreshed access token: %r", token)
-                except Exception as e:
-                    Core.err("could not refresh access token: %r", e)
-                    #self._forget_token()
-                else:
-                    self._store_token(token)
-                    return True
+                # TODO: on failure, retry 5 seconds
+                attempts = 5
+                while attempts > 0:
+                    try:
+                        token = self.api.auth(refresh_token=data["refresh_token"])
+                        Core.debug("refreshed access token: %r", token)
+                    except Exception as e:
+                        Core.err("could not refresh access token: %r", e)
+                        print(f"str(e) = {e}")
+                        print(f"e.args = {e.args!r}")
+                        #self._forget_token()
+                        attempts -= 1
+                        if attempts == 0:
+                            Core.notice("giving up")
+                            return False
+                        else:
+                            Core.notice("waiting 5 seconds before retrying")
+                            time.sleep(5)
+                            continue
+                    else:
+                        self._store_token(token)
+                        return True
+                    break
 
         data = self._load_creds()
         if data and data["password"]:

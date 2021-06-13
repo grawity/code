@@ -85,9 +85,7 @@ class BasePixivAPI(object):
         """Login with password, or use the refresh_token to acquire a new bearer token"""
         local_time = datetime.utcnow().strftime( '%Y-%m-%dT%H:%M:%S+00:00' )
         headers = {
-            # 2020-10-15 grawity: The app UA hits CloudFlare wall
-            #'User-Agent': 'PixivAndroidApp/5.0.64 (Android 6.0)',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:81.0) Gecko/20100101 Firefox/81.0',
+            'User-Agent': 'PixivAndroidApp/5.0.64 (Android 6.0)',
             'X-Client-Time': local_time,
             'X-Client-Hash': hashlib.md5((local_time + self.hash_secret).encode('utf-8')).hexdigest(),
         }

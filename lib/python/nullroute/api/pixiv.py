@@ -6,7 +6,18 @@ from nullroute.sec.util import OAuthTokenCache
 import os
 import pixivpy3
 import requests
+import ssl
 import time
+
+class CustomAdapter(requests.adapters.HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        # When urllib3 hand-rolls a SSLContext, it sets 'options |= OP_NO_TICKET'
+        # and CloudFlare really does not like this. We cannot control this behavior
+        # in urllib3, but we *can* just pass our own standard context instead.
+        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ctx.load_default_certs()
+        ctx.set_alpn_protocols(["http/1.1"])
+        return super().init_poolmanager(*args, **kwargs, ssl_context=ctx)
 
 class PixivApiError(Exception):
     pass
@@ -15,7 +26,8 @@ class PixivApiClient():
     def __init__(self):
         self.ua = requests.Session()
         self.ua.mount("http://", requests.adapters.BaseAdapter())
-        self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=10))
+        #self.ua.mount("https://", requests.adapters.HTTPAdapter(max_retries=10))
+        self.ua.mount("https://", CustomAdapter(max_retries=10))
         #self.ua = cloudscraper.CloudScraper()
         #self.ua = cloudscraper.create_scraper()
 
@@ -24,7 +36,7 @@ class PixivApiClient():
         self.api = pixivpy3.PixivAPI()
         self.api.client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
         self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
-        #self.api.requests = self.ua
+        self.api.requests = self.ua
 
     def _load_token(self):
         return self.tc.load_token()

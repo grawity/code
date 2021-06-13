@@ -6,9 +6,13 @@ import re
 import shutil
 import json
 import requests
+from .utils import PixivError, JsonDict  # nopep8
+from .api import BasePixivAPI  # nopep8
 
-from .api import BasePixivAPI
-from .utils import PixivError, JsonDict
+if sys.version_info >= (3, 0):
+    import urllib.parse as up
+else:
+    import urlparse as up
 
 
 # App-API (6.x - app-api.pixiv.net)
@@ -57,29 +61,37 @@ class AppPixivAPI(BasePixivAPI):
 
     # 返回翻页用参数
     def parse_qs(self, next_url):
-        if not next_url: return None
-        if sys.version_info >= (3, 0):
-            from urllib.parse import urlparse, unquote
-            safe_unquote = lambda s: unquote(s)
-        else:
-            from urlparse import urlparse, unquote
-            safe_unquote = lambda s: unquote(s.encode('utf8')).decode('utf8')
+        if not next_url:
+            return None
 
         result_qs = {}
-        query = urlparse(next_url).query
-        for kv in query.split('&'):
-            # split than unquote() to k,v strings
-            k, v = map(safe_unquote, kv.split('='))
+        query = up.urlparse(next_url).query
 
-            # merge seed_illust_ids[] liked PHP params to array
-            matched = re.match('(?P<key>[\w]*)\[(?P<idx>[\w]*)\]', k)
-            if matched:
-                mk = matched.group('key')
-                marray = result_qs.get(mk, [])
-                # keep the origin sequence, just ignore group('idx')
-                result_qs[mk] = marray + [v]
-            else:
-                result_qs[k] = v
+        if sys.version_info >= (3, 0):
+            for key, value in up.parse_qs(query).items():
+                # merge seed_illust_ids[] liked PHP params to array
+                if '[' in key and key.endswith(']'):
+                    # keep the origin sequence, just ignore array length
+                    result_qs[key.split('[')[0]] = value
+                else:
+                    result_qs[key] = value[-1]
+
+        else:
+            # Python2 unquote may return utf8 instand unicode
+            def safe_unquote(s): return up.unquote(s.encode('utf8')).decode('utf8')
+            for kv in query.split('&'):
+                # split than unquote() to k,v strings
+                k, v = map(safe_unquote, kv.split('='))
+
+                # merge seed_illust_ids[] liked PHP params to array
+                matched = re.match('(?P<key>[\w]*)\[(?P<idx>[\w]*)\]', k)
+                if matched:
+                    mk = matched.group('key')
+                    marray = result_qs.get(mk, [])
+                    # keep the origin sequence, just ignore group('idx')
+                    result_qs[mk] = marray + [v]
+                else:
+                    result_qs[k] = v
 
         return result_qs
 
@@ -242,14 +254,64 @@ class AppPixivAPI(BasePixivAPI):
     #   partial_match_for_tags  - 标签部分一致
     #   exact_match_for_tags    - 标签完全一致
     #   title_and_caption       - 标题说明文
-    # sort: [date_desc, date_asc]
+    # sort: [date_desc, date_asc, popular_desc] - popular_desc为会员的热门排序
     # duration: [within_last_day, within_last_week, within_last_month]
+    # start_date, end_date: '2020-07-01'
     def search_illust(self, word, search_target='partial_match_for_tags', sort='date_desc', duration=None,
+                      start_date=None, end_date=None,
                       filter='for_ios', offset=None, req_auth=True):
         url = '%s/v1/search/illust' % self.hosts
         params = {
             'word': word,
             'search_target': search_target,
+            'sort': sort,
+            'filter': filter,
+        }
+        if (start_date):
+            params['start_date'] = start_date
+        if (end_date):
+            params['end_date'] = end_date
+        if (duration):
+            params['duration'] = duration
+        if (offset):
+            params['offset'] = offset
+        r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
+        return self.parse_result(r)
+
+    # 搜索小说 (Search Novel)
+    # search_target - 搜索类型
+    #   partial_match_for_tags  - 标签部分一致
+    #   exact_match_for_tags    - 标签完全一致
+    #   text                    - 正文
+    #   keyword                 - 关键词
+    # sort: [date_desc, date_asc]
+    # start_date/end_date: 2020-06-01
+    def search_novel(self, word, search_target='partial_match_for_tags', sort='date_desc',
+                     merge_plain_keyword_results='true', include_translated_tag_results='true',
+                     start_date=None, end_date=None, filter=None, offset=None, req_auth=True):
+        url = '%s/v1/search/novel' % self.hosts
+        params = {
+            'word': word,
+            'search_target': search_target,
+            'merge_plain_keyword_results': merge_plain_keyword_results,
+            'include_translated_tag_results': include_translated_tag_results,
+            'sort': sort,
+            'filter': filter,
+        }
+        if (start_date):
+            params['start_date'] = start_date
+        if (end_date):
+            params['end_date'] = end_date
+        if (offset):
+            params['offset'] = offset
+        r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
+        return self.parse_result(r)
+
+    def search_user(self, word, sort='date_desc', duration=None,
+                    filter='for_ios', offset=None, req_auth=True):
+        url = '%s/v1/search/user' % self.hosts
+        params = {
+            'word': word,
             'sort': sort,
             'filter': filter,
         }
@@ -276,11 +338,11 @@ class AppPixivAPI(BasePixivAPI):
             'illust_id': illust_id,
             'restrict': restrict,
         }
-        ## TODO: tags mast quote like 'tags=%E5%B0%BB%E7%A5%9E%E6%A7%98%20%E8%A3%B8%E8%B6%B3%20Fate%2FGO'
-        # if (type(tags) == str):
-        #     data['tags'] = tags
-        # if (type(tags) == list):
-        #     data['tags'] = " ".join([ str(tag) for tag in tags ])
+
+        if isinstance(tags, list):
+            tags = " ".join(str(tag) for tag in tags)
+        if tags:
+            data['tags[]'] = tags
 
         r = self.no_auth_requests_call('POST', url, data=data, req_auth=req_auth)
         return self.parse_result(r)
@@ -290,6 +352,25 @@ class AppPixivAPI(BasePixivAPI):
         url = '%s/v1/illust/bookmark/delete' % self.hosts
         data = {
             'illust_id': illust_id,
+        }
+        r = self.no_auth_requests_call('POST', url, data=data, req_auth=req_auth)
+        return self.parse_result(r)
+
+    # 关注用户
+    def user_follow_add(self, user_id, restrict='public', req_auth=True):
+        url = '%s/v1/user/follow/add' % self.hosts
+        data = {
+            'user_id': user_id,
+            'restrict': restrict
+        }
+        r = self.no_auth_requests_call('POST', url, data=data, req_auth=req_auth)
+        return self.parse_result(r)
+
+    # 取消关注用户
+    def user_follow_delete(self, user_id, req_auth=True):
+        url = '%s/v1/user/follow/delete' % self.hosts
+        data = {
+            'user_id': user_id
         }
         r = self.no_auth_requests_call('POST', url, data=data, req_auth=req_auth)
         return self.parse_result(r)
@@ -366,12 +447,57 @@ class AppPixivAPI(BasePixivAPI):
         r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
         return self.parse_result(r)
 
+    # 用户小说列表
+    def user_novels(self, user_id, filter='for_ios', offset=None, req_auth=True):
+        url = '%s/v1/user/novels' % self.hosts
+        params = {
+            'user_id': user_id,
+            'filter': filter,
+        }
+        if (offset):
+            params['offset'] = offset
+        r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
+        return self.parse_result(r)
+
+    # 小说系列详情
+    def novel_series(self, series_id, filter='for_ios', last_order=None, req_auth=True):
+        url = '%s/v2/novel/series' % self.hosts
+        params = {
+            'series_id': series_id,
+            'filter': filter,
+        }
+        if (last_order):
+            params['last_order'] = last_order
+        r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
+        return self.parse_result(r)
+
+    # 小说详情
+    def novel_detail(self, novel_id, req_auth=True):
+        url = '%s/v2/novel/detail' % self.hosts
+        params = {
+            'novel_id': novel_id,
+        }
+
+        r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
+        return self.parse_result(r)
+
+    # 小说正文
+    def novel_text(self, novel_id, req_auth=True):
+        url = '%s/v1/novel/text' % self.hosts
+        params = {
+            'novel_id': novel_id,
+        }
+
+        r = self.no_auth_requests_call('GET', url, params=params, req_auth=req_auth)
+        return self.parse_result(r)
+
     # 特辑详情 (无需登录，调用Web API)
     def showcase_article(self, showcase_id):
         url = 'https://www.pixiv.net/ajax/showcase/article'
         # Web API，伪造Chrome的User-Agent
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 '
+            + '(KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36',
             'Referer': 'https://www.pixiv.net',
         }
         params = {

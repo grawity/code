@@ -10,6 +10,11 @@ import cloudscraper
 
 from .utils import PixivError, JsonDict
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
 
 class BasePixivAPI(object):
     client_id = 'MOBrBDS8blbauoSck0ZfDbtuzpyT'
@@ -22,8 +27,8 @@ class BasePixivAPI(object):
 
     def __init__(self, **requests_kwargs):
         """initialize requests kwargs if need be"""
-        #self.requests = requests.Session()
-        self.requests = cloudscraper.CloudScraper()
+        # self.requests = requests.Session()
+        self.requests = cloudscraper.create_scraper()  # fix due to #140
         self.requests_kwargs = requests_kwargs
         self.additional_headers = {}
 
@@ -39,15 +44,7 @@ class BasePixivAPI(object):
 
     def parse_json(self, json_str):
         """parse str into JsonDict"""
-
-        def _obj_hook(pairs):
-            """convert json object to python object"""
-            o = JsonDict()
-            for k, v in pairs.items():
-                o[str(k)] = v
-            return o
-
-        return json.loads(json_str, object_hook=_obj_hook)
+        return json.loads(json_str, object_hook=JsonDict)
 
     def require_auth(self):
         if self.access_token is None:
@@ -83,9 +80,9 @@ class BasePixivAPI(object):
 
     def auth(self, username=None, password=None, refresh_token=None):
         """Login with password, or use the refresh_token to acquire a new bearer token"""
-        local_time = datetime.utcnow().strftime( '%Y-%m-%dT%H:%M:%S+00:00' )
+        local_time = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S+00:00')
         headers = {
-            'User-Agent': 'PixivAndroidApp/5.0.64 (Android 6.0)',
+            'User-Agent': 'PixivAndroidApp/5.0.115 (Android 6.0; PixivBot)',
             'X-Client-Time': local_time,
             'X-Client-Hash': hashlib.md5((local_time + self.hash_secret).encode('utf-8')).hexdigest(),
         }
@@ -134,21 +131,26 @@ class BasePixivAPI(object):
         # return auth/token response
         return token
 
-    def download(self, url, prefix='', path=os.path.curdir, name=None, replace=False,
+    def download(self, url, prefix='', path=os.path.curdir, name=None, replace=False, fname=None,
                  referer='https://app-api.pixiv.net/'):
         """Download image to file (use 6.0 app-api)"""
-        if not name:
-            name = prefix + os.path.basename(url)
-        else:
-            name = prefix + name
+        if fname is None and name is None:
+            name = os.path.basename(url)
+        elif isinstance(fname, basestring):
+            name = fname
 
-        img_path = os.path.join(path, name)
-        if (not os.path.exists(img_path)) or replace:
-            # Write stream to file
-            response = self.requests_call('GET', url, headers={'Referer': referer}, stream=True)
+        if name:
+            name = prefix + name
+            img_path = os.path.join(path, name)
+
+            if os.path.exists(img_path) and not replace:
+                return False
+
+        response = self.requests_call('GET', url, headers={'Referer': referer}, stream=True)
+        if name:
             with open(img_path, 'wb') as out_file:
                 shutil.copyfileobj(response.raw, out_file)
-            del response
-            return True
         else:
-            return False
+            shutil.copyfileobj(response.raw, fname)
+        del response
+        return True

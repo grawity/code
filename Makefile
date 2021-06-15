@@ -23,7 +23,7 @@ $(dummy): $(OBJ)/config-krb5.h
 
 # compile targets
 
-BASIC_BINS := args gettime mkpasswd natsort natxsort pause silentcat spawn unescape
+BASIC_BINS := args gettime mkpasswd natsort natxsort pause spawn unescape
 BASIC_BINS += ac-wait entropy proctool strtool subreaper xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
@@ -95,7 +95,6 @@ $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/showsigmask:	system/showsigmask.c
-$(OBJ)/silentcat:	misc/silentcat.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
 $(OBJ)/statx:		thirdparty/statx.c
 $(OBJ)/strtool:		misc/strtool.c

@@ -113,34 +113,69 @@ class Scraper(object):
         page = bs4.BeautifulSoup(resp.content, "lxml")
         return page
 
-    def save_file(self, url, name=None, referer=None,
-                             output_dir=None, clobber=False,
-                             progress=False, save_msg=None,
-                             keep_name=False, keep_mtime=False):
-        if not name:
-            name = os.path.basename(url)
-        if output_dir:
-            name = os.path.join(output_dir, name)
+    def save_file(self, url,
+                        name=None,
+                        referer=None,
+                        output_dir=None, clobber=False,
+                        progress=False, save_msg=None,
+                        keep_name=False, keep_mtime=False):
 
-        if clobber:
-            pass
-        elif _file_nonempty(name):
-            Core.debug("skipping %r" % url)
-            return name
+        # TODO: I'm not sure if it's safe to allow guessing the name from URL, so
+        #       let's first check if we have any callers like this.
+        if not (name or keep_name):
+            raise Exception("save_file() wasn't given a 'name=', check if this is OK")
+
+        # TODO: I suspect that if 'name' is a path, then keep_name will choose the
+        #       wrong output directory, so check if we ever call it like that
+        #       (even if the caller doesn't use keep_name).
+        if name and "/" in name:
+            raise Exception("save_file() was given a path in 'name=', check if this is OK")
+
+        # Guess file name from URL (TODO: if we forbid name=None, this can be simplified)
+        file_name = name or os.path.basename(url)
+        file_name = file_name.strip(". ")
+        if output_dir:
+            output_file = os.path.join(output_dir, file_name)
+        else:
+            output_file = file_name
+
+        if not clobber:
+            if keep_name:
+                # Might be worth checking later? But for sites like Dynasty,
+                # it will still consume a download count so who cares.
+                raise ValueError("keep_name only works with clobber")
+
+            if _file_nonempty(output_file):
+                Core.debug("skipping %r as local file exists" % url)
+                return output_file
 
         hdr = {"Referer": referer or url}
-
         resp = self.get(url, headers=hdr, stream=True)
+
         if keep_name:
             hdr = resp.headers.get("content-disposition")
             if hdr:
                 Core.trace("getting original name from content disposition: %r", hdr)
-                hdr_name = _http_header_param(hdr, "filename")
-                hdr_name = os.path.basename(hdr_name)
-                Core.trace("got original name: %r", hdr_name)
-                if hdr_name and not hdr_name.startswith("."):
-                    name = os.path.join(os.path.dirname(name), hdr_name)
-        with open(name + ".part", "wb") as fh:
+                file_name = _http_header_param(hdr, "filename")
+            else:
+                Core.trace("content disposition header not present")
+
+            if file_name:
+                Core.trace("got original name: %r", file_name)
+                file_name = os.path.basename(file_name)
+                file_name = file_name.strip(". ")
+                if type(keep_name) == str:
+                    file_name = keep_name % (file_name,)
+                if output_dir:
+                    output_file = os.path.join(output_dir, file_name)
+                else:
+                    output_file = file_name
+            else:
+                raise Exception("with keep_name, could not determine original name")
+
+        output_part = output_file + ".part"
+
+        with open(output_part, "wb") as fh:
             if progress:
                 num_bytes = resp.headers.get("content-length")
                 if num_bytes is not None:
@@ -154,21 +189,23 @@ class Scraper(object):
                 chunk_size = 65536
                 for chunk in resp.iter_content(chunk_size):
                     fh.write(chunk)
-        os.rename(name + ".part", name)
 
-        set_file_attrs(name, {
+        set_file_attrs(output_part, {
             "xdg.origin.url": resp.url,
             "xdg.referrer.url": resp.request.headers.get("Referer"),
             "http.ETag": resp.headers.get("ETag"),
             "http.Last-Modified": resp.headers.get("Last-Modified"),
         })
 
-        mtime = resp.headers.get("Last-Modified")
-        if mtime and keep_mtime:
-            set_file_mtime(name, _http_date_to_unix(mtime))
+        if keep_mtime:
+            if mtime := resp.headers.get("Last-Modified"):
+                set_file_mtime(output_part, _http_date_to_unix(mtime))
+
+        os.rename(output_part, output_file)
 
         if save_msg == True:
-            Core.info("saved '%s'", name)
+            Core.info("saved '%s'", output_file)
         elif save_msg:
             Core.info(save_msg)
-        return name
+
+        return output_file

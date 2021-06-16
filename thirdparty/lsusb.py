@@ -2,12 +2,12 @@
 # vim: ts=4:sw=4:et
 # SPDX-License-Identifier: GPL-2.0 OR GPL-3.0
 #
-# lsusb-010.py
+# lsusb-013.py
 #
 # Displays your USB devices in reasonable form.
 #
 # Copyright (c) 2009 Kurt Garloff <garloff@suse.de>
-# Copyright (c) 2013 Kurt Garloff <kurt@garloff.de>
+# Copyright (c) 2013,2018 Kurt Garloff <kurt@garloff.de>
 #
 # Usage: See usage()
 
@@ -16,11 +16,9 @@ import os
 import re
 import sys
 
-prefix = "/sys/bus/usb/devices/"
+HUB_ICLASS = 0x09
 
-usbvendors = {}
-usbproducts = {}
-usbclasses = {}
+prefix = "/sys/bus/usb/devices/"
 
 norm    = "\033[m"
 bold    = "\033[1m"
@@ -29,7 +27,9 @@ green   = "\033[32m"
 amber   = "\033[33m"
 blue    = "\033[34m"
 
-HUB_ICLASS = 0x09
+usbvendors = {}
+usbproducts = {}
+usbclasses = {}
 
 class Options:
     show_interfaces = False
@@ -395,7 +395,6 @@ def usage():
     print("Usage: lsusb.py [options]")
     print()
     print("Options:")
-    #     "|-------|-------|-------|-------|-------"
     print("  -h, --help            display this help")
     print("  -i, --interfaces      display interface information")
     print("  -I, --hub-interfaces  display interface information, even for hubs")

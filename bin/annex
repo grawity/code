@@ -5,11 +5,6 @@
 
 annexes=(~/Attic/{Anime,Annex,Software,Videos})
 
-is_git() { git rev-parse --git-dir >&/dev/null; }
-
-is_annex() { git rev-parse refs/heads/git-annex >&/dev/null; }
-is_annex!() { is_annex || die "not a git-annex repository"; }
-
 is_remote() {
     [[ $1 == web ]] || git config --get "remote.$1.annex-uuid" >&/dev/null
 }
@@ -69,6 +64,15 @@ if (( changes )); then
     debug "  to ${newargs[*]@Q}"
     set -- "${newargs[@]}"
 fi
+
+case $cmd in
+    each | help | init)
+        ;;
+    *)
+        if ! git rev-parse --verify 'refs/heads/git-annex' >&/dev/null; then
+            die "not in a git-annex repository"
+        fi ;;
+esac
 
 case $cmd in
     @*)
@@ -152,7 +156,6 @@ case $cmd in
         git annex find --want-drop --in .
         ;;
     want-auto)
-        is_annex!
         git annex find --want-get --not --in . | sed $'s/.*/\e[;32mwant\e[m &/'
         git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
         ;;

@@ -112,10 +112,10 @@ if args.verbose:
     only_present = False
     show_diffs_for_files = False
 
+# Note: all_remotes only contains those remotes that have been used for at least one file.
 all_remotes = set()
 locs_by_dir = defaultdict(lambda: defaultdict(int))
 locs_by_file = defaultdict(dict)
-remote_usage = defaultdict(int)
 
 for path, locations in whereis(find_args):
     locations -= always_hide
@@ -124,8 +124,6 @@ for path, locations in whereis(find_args):
     base_name = os.path.basename(path)
     locs_by_dir[dir_name][locations] += 1
     locs_by_file[dir_name][base_name] = locations
-    for r in locations:
-        remote_usage[r] += 1
 
 # Make it feel snappier by outputting whole chunks at once
 sys.stdout.reconfigure(line_buffering=False)

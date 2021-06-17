@@ -136,74 +136,14 @@ case $cmd in
             warn "command '$*' failed in at least one repository"
         fi
         ;;
-    want)
-        repo_root=$(realpath "$(git rev-parse --git-dir)/..")
-        repo_name=${repo_root##*/}
-        now=$(date +'%Y-%m-%d')
-        for arg; do
-            echo "$now - $HOSTNAME wants '$(realpath --strip --relative-to="$repo_root" "$arg")'"
-        done | tee -a ~/Dropbox/Todo-annex.txt
-        ;;
-    deploy)
-        name=$1
-        dir="$PWD/$name"
-        rdir="Attic/$name.git"
-        if [[ ! $name ]]; then
-            die "missing name (e.g. Videos)"
-        elif [[ -d $dir ]]; then
-            die "'$dir' already exists"
-        fi
-        mkdir "$dir"
-        cd "$dir"
-        annex prepare
-        if is_annex; then
-            die "'$PWD' is already a git-annex repository"
-        elif is_git; then
-            die "'$PWD' is already a non-annex Git repository"
-        fi
-        log "setting up git-annex repository"
-        git init
-        git config receive.denyCurrentBranch updateInstead
-        git annex init
-        #log "setting up origin repository"
-        #if ! ssh $rhost "[ -d $rdir ]"; then
-        #    ssh $rhost "git init --bare $rdir && cd $rdir && git annex init"
-        #fi
-        log "initial sync"
-        git remote add origin "annex:${rdir%.git}"
-        git annex sync
-        ;;
-    link)
-        base=$(git config --get nullroute.annex-name \
-                || basename "$(git -c core.bare=false rev-parse --show-toplevel)")
-        for name; do
-            case $name in
-                origin)
-                    dir="annex:Attic";;
-                vol3)
-                    dir="/run/media/grawity/vol3_tombstone/Attic";;
-                vol4)
-                    dir="/run/media/grawity/vol4_grimoire/Attic";;
-                vol*)
-                    dir="$name:Attic/$base";;
-                frost|rain)
-                    dir="/home/grawity/.$name/Attic";;
-                *)
-                    err "unknown remote '$name'"; continue;;
-            esac
-            git remote add "$name" "$dir/$base"
-            git annex sync "$name"
-        done
-        git annex sync
-        ;;
     upgrade-index)
         dir=$(git rev-parse --git-dir)
         files=("$dir/index" "$dir/annex/index")
-        du -hsc "${files[@]}"
+        echo "Before:"; du -hsc "${files[@]}"
         for f in "${files[@]}"; do
             GIT_INDEX_FILE=$f git update-index --index-version 4
         done
-        du -hsc "${files[@]}"
+        echo "After:"; du -hsc "${files[@]}"
         ;;
     want-get)
         git annex find --want-get --not --in .
@@ -225,16 +165,7 @@ case $cmd in
         git annex find --in "$1" --not --copies 2
         ;;
     unsafe)
-        #git annex find --not --copies semitrusted+:1
         annex where --not --copies semitrusted+:1
-        ;;
-    fast-migrate)
-        # Can migrate SHA256E to SHA256 without rehashing
-        # Needs --filename= for the opposite conversion
-        is_annex!
-        for arg; do
-            git annex examinekey "$arg" --migrate-to-backend=SHA256
-        done
         ;;
     examine)
         is_annex!
@@ -328,24 +259,9 @@ case $cmd in
             fi | git annex addurl --batch --with-files
         done
         ;;
-    hasurls)
-        r=0
-        for file; do
-            if key=$(git annex lookupkey "$file"); then
-                git annex readpresentkey "$key" "00000000-0000-0000-0000-000000000001"
-                (( r += $? ))
-            else
-                (( r += 1 ))
-            fi
-        done
-        (( r == 0 ))
-        ;;
     commit|ci)
         git config receive.denyCurrentBranch updateInstead
         git annex sync --no-pull --no-push
-        ;;
-    ldu)
-        git annex find "$@" | xargs -d '\n' du -Dhsc
         ;;
     du)
         args=()
@@ -422,7 +338,7 @@ case $cmd in
         '
         ;;
     dupes)
-        export MIN_BYTES=$(( 0 * 1024 ))
+        export MIN_BYTES=512
         annex find --format='${key} ${file}\n' --include '*' "$@" |
         perl -E '
             sub fmt_key {
@@ -454,57 +370,6 @@ case $cmd in
                 }
             }
         '
-        ;;
-    copy-remote-uuid)
-        remote=$1
-        desc=${2:-"$remote"}
-        if ! [[ $remote && $desc ]]; then
-            echo "Usage: $cmd <remote> <match_desc>"
-            die "missing remote name or description"
-        elif ! url=$(git config --get remote.$remote.url) || ! [[ $url ]]; then
-            die "no such remote '$remote'"
-        elif uuid=$(git config --get remote.$remote.annex-uuid) && [[ $uuid ]]; then
-            notice "remote already has UUID {$uuid}"
-        else
-            git annex info --fast --json \
-                | jq -r 'map(.[]?) | .[]? | (.uuid?, .description?)' \
-                | {
-                    r_uuid= r_desc= uuid=
-                    while read -r line; do
-                        if [[ $r_uuid ]]; then
-                            r_desc=$line
-                            if [[ "$r_desc" == "$desc" ]]; then
-                                uuid=$r_uuid
-                            elif [[ "${r_desc% \[*\]}" == "$desc" ]]; then
-                                debug "remote is already configured"
-                            fi
-                            r_uuid=
-                        else
-                            r_uuid=$line
-                        fi
-                    done
-                    if [[ $uuid ]]; then
-                        info "found UUID {$uuid}"
-                        git config remote.$remote.annex-uuid "$uuid"
-                    else
-                        err "description not found"
-                    fi
-                }
-        fi
-        ;;
-    grab)
-        from=$1
-        via=vol5
-        #annex sync
-        annex get --in "$from" --from "$via"
-        annex drop --in "$from" --in here --from "$from"
-        ;;
-    mv)
-        git annex proxy -- git mv "$@"
-        find "$1" -depth -type d -exec rmdir --ignore-fail-on-non-empty {} \;
-        ;;
-    purge)
-        annex-purge "$@"
         ;;
     push)
         is_remote! "$1"
@@ -588,6 +453,9 @@ case $cmd in
             annex drop "${dropargs[@]}" "${files[@]}"
         fi
         ;;
+    purge)
+        annex-$cmd "$@"
+        ;;
     # overrides
     addurl)
         if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then
@@ -614,7 +482,7 @@ case $cmd in
         if [[ $cmd ]]; then
             set -- "$cmd" "$@"
         fi
-        exec git annex "$@"
+        git annex "$@"
         ;;
 esac
 

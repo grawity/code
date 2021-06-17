@@ -149,11 +149,6 @@ sub LocationBitmap::new {
 	no warnings "once";
 	my ($self, $loc) = @_;
 
-	# prune hidden remotes from bitmap, to avoid mysterious 'identical'
-	# rows (when two files differ only by hidden remote)
-	substr($loc, $_, 1) = "_"
-		for grep {remote_hidden($Remote_names[$_])} 0..length($loc);
-
 	return $LocationBitmap::cache{$loc} //= bless(\$loc, $self);
 }
 
@@ -169,9 +164,7 @@ sub LocationBitmap::size {
 
 sub LocationBitmap::present {
 	my ($self, $idx) = @_;
-	return (!remote_hidden($Remote_names[$idx])
-		&& $idx < length($$self)
-		&& substr($$self, $idx, 1) ne "_");
+	return ($idx < length($$self) && substr($$self, $idx, 1) ne "_");
 }
 
 # LocationBitmap::diff(bitmap) -> hash
@@ -258,9 +251,14 @@ GetOptions(
 
 while (<STDIN>) {
 	if (/^([_Xx]+) (.+)$/) {
-		my $loc = LocationBitmap->new($1);
+		my $bitmap = $1;
 		my $dir = dirname($2);
 		my $base = basename($2);
+		# prune hidden remotes from bitmap, to avoid mysterious 'identical'
+		# rows (when two files differ only by hidden remote)
+		substr($bitmap, $_, 1) = "_"
+			for grep {remote_hidden($Remote_names[$_])} 0..length($bitmap);
+		my $loc = LocationBitmap->new($1);
 		$Locs_by_dir{$dir}{$loc->data} += 1;
 		$Locs_by_file{$dir}{$base} = $loc;
 		for (0..$loc->size) {

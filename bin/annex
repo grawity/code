@@ -300,52 +300,7 @@ case $cmd in
             | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
             | git annex rmurl --batch
         ;;
-    dup | store)
-        # Move files like `annex move --to`, but to multiple remotes.
-        files=()
-        remotes=()
-        copyargs=()
-        dropargs=()
-        argstate=0
-        for arg in "$@"; do
-            if [[ $arg == -J* ]]; then
-                copyargs+=("$arg")
-            elif (( argstate == 0 )) && [[ $arg == -- ]]; then
-                argstate=1
-            elif (( argstate == 0 )) && [[ $arg == --* || $arg == *[/.]* ]]; then
-                argstate=1
-                files+=("$arg")
-            elif (( argstate == 0 )); then
-                is_remote! "$arg"
-                remotes+=("$arg")
-            elif (( argstate == 1 )); then
-                files+=("$arg")
-            fi
-        done
-        if (( ! ${#remotes[@]} )); then
-            die "no remotes specified"
-        fi
-        settitle "annex: counting files"
-        if [[ $cmd == store && num=`annex find "${files[@]}" | wc -l` -gt 100 ]]; then
-            confirm "this will move and drop $num files; continue?" || exit
-        fi
-        if [[ $cmd == store ]] && (( ${#remotes[@]} == 1 )); then
-            dest=${remotes[0]}
-            log2 "moving to '$dest'"
-            annex move --to "$dest" "${copyargs[@]}" "${files[@]}"
-            remotes=()
-        fi
-        for dest in "${remotes[@]}"; do
-            log2 "copying to '$dest'"
-            annex copy --to "$dest" --not --in "$dest" "${copyargs[@]}" "${files[@]}"
-            dropargs+=(--in "$dest")
-        done
-        if [[ $cmd == store ]] && (( ${#dropargs[@]} )); then
-            log2 "dropping from here"
-            annex drop "${dropargs[@]}" "${files[@]}"
-        fi
-        ;;
-    du | dupes | purge)
+    du | dup | dupes | purge | store)
         annex-$cmd "$@"
         ;;
     # overrides

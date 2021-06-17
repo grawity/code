@@ -6,6 +6,16 @@ import os
 import subprocess
 import sys
 
+def trim_remote(remote):
+    remote = remote.removesuffix(" (untrusted)")
+    # user@host:/path -> host (but not for removable media)
+    if m := re.match(r"^\w+@(\w+):/home/.+/Attic/.+", remote):
+        remote = m.group(1)
+    # user@host:/run/media/foo -> foo
+    if m := re.match(r"^\w+@\w+:/run/media/\w+/(.+?)/", remote):
+        remote = m.group(1)
+    return remote
+
 def parse_annex_list(lines):
     is_header = True
     all_remotes = []
@@ -15,7 +25,8 @@ def parse_annex_list(lines):
             if m := re.match(r"^[|]+$", line):
                 is_header = False
             elif m := re.match(r"^[|]*([^|]+)$", line):
-                remote = m.group(1).removesuffix(" (untrusted)")
+                remote = m.group(1)
+                remote = trim_remote(remote)
                 all_remotes.append(remote)
             else:
                 raise ValueError(f"bad header line {line!r}")
@@ -30,7 +41,8 @@ def parse_annex_list(lines):
                 raise ValueError(f"bad list line {line!r}")
 
 def whereis(find_args):
-    with subprocess.Popen(["git-annex", "list", *find_args],
+    # Pass --allrepos to see remotes that aren't in .git/config
+    with subprocess.Popen(["git-annex", "list", "--allrepos", *find_args],
                           stdout=subprocess.PIPE) as proc:
         yield from parse_annex_list(io.TextIOWrapper(proc.stdout))
 
@@ -44,8 +56,15 @@ def fg(string, color):
     return fmt(string, f"38;5;{color}")
 
 def fmt_remote(remote):
-    # TODO
-    return remote
+    if remote == "here":                return fg(remote, -3)
+    elif remote == "ember":             return fg(remote, 208)
+    elif remote == "frost":             return fg(remote, 109)
+    elif remote == "midnight":          return fg(remote, 146)
+    elif remote == "rain":              return fg(remote, 82)
+    elif remote == "vol4":              return fg(remote, -13)
+    elif re.match(r"^archive", remote): return fg(remote, 251)
+    elif re.match(r"^vol\d", remote):   return fg(remote, 13)
+    else:                               return fg(remote, 15)
 
 def fmt_absent(remote):
     return fg(remote, 240)
@@ -65,6 +84,7 @@ find_args = []
 only_present = True
 show_unabridged = False
 show_non_diverging = False
+always_hide = {"web"}
 
 for arg in sys.argv[1:]:
     # Handle -a or -v
@@ -86,6 +106,7 @@ locs_by_file = defaultdict(dict)
 remote_usage = defaultdict(int)
 
 for path, locations in whereis(find_args):
+    locations -= always_hide
     all_remotes |= locations
     dir_name = os.path.dirname(path)
     base_name = os.path.basename(path)
@@ -93,6 +114,9 @@ for path, locations in whereis(find_args):
     locs_by_file[dir_name][base_name] = locations
     for r in locations:
         remote_usage[r] += 1
+
+# Make it feel snappier by outputting whole chunks at once
+sys.stdout.reconfigure(line_buffering=False)
 
 for dir_name, loc_usage in sorted(locs_by_dir.items()):
     # All distinct location-sets for this directory, sorted by num. of occurences

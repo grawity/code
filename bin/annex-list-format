@@ -43,15 +43,12 @@ $config{remote_color_map} = [
 
 $config{remote_color} = sub {
 	my ($remote) = @_;
-	my $alias = $config{remote_alias}->($remote);
-	#warn "\033[2m<want color for '$remote'>\e[m\n";
 	for (@{$config{remote_color_map}}) {
 		my ($match, $color) = @$_;
-		#warn "\033[2m<try '$match' for $color>\e[m\n";
 		if (ref $match eq "Regexp") {
-			return $color if $remote =~ $match || $alias =~ $match;
+			return $color if $remote =~ $match;
 		} elsif (defined $match) {
-			return $color if $remote eq $match || $alias eq $match;
+			return $color if $remote eq $match;
 		} else {
 			return $color;
 		}
@@ -236,7 +233,6 @@ sub LocationBitmap::fullstr {
 	my @remotes = map {
 		my $name = $Remote_names[$_];
 		my $color = remote_color($self->present($_) ? $name : "");
-		$name = remote_alias($name) // $name;
 		fg($name, $color);
 	} grep {
 		!$Opt{only_present} || $self->present($_);
@@ -264,7 +260,6 @@ sub LocationBitmap::diffstr {
 	my @remotes = map {
 		my $name = $Remote_names[$_];
 		my $color = remote_color($diff{$_} eq "+" ? $name : "");
-		$name = remote_alias($name) // $name;
 		$diff{$_}.fg($name, $color);
 	} grep {
 		$diff{$_}
@@ -304,6 +299,7 @@ while (<STDIN>) {
 		my $idx = length($1);
 		my $name = $2;
 		$name =~ s/ \(untrusted\)$//;
+		$name = remote_alias($name);
 		$Remote_names[$idx] = $name;
 	}
 	else {

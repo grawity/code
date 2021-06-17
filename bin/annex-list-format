@@ -5,7 +5,6 @@ use Carp;
 use Data::Dumper;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
-use Nullroute::Dir qw(find_first_file);
 
 our %config;
 my %Opt = (
@@ -16,6 +15,76 @@ my %Locs_by_dir;
 my %Locs_by_file;
 my @Remote_names;
 my @Remote_usage;
+
+# These remotes have a mix of present/absent files
+$config{default_hidden_remotes} = {
+	#rain => 1,
+	frost => 1,
+	midnight => 1,
+};
+
+$config{remote_color_map} = [
+	["", 8],
+	["here", -3],
+	## hosts
+	["rain", 82],
+	["frost", 109],
+	["ember", 208],
+	["midnight", 146],
+	## dead - gray
+	[qr/^old/, 102],
+	#[qr/^vol4$/, 102],
+	## volumes
+	[qr/^vol4$/, -13],
+	[qr/^vol\d/, 13],
+	## default
+	[undef, 15],
+];
+
+$config{remote_color} = sub {
+	my ($remote) = @_;
+	my $alias = $config{remote_alias}->($remote);
+	#warn "\033[2m<want color for '$remote'>\e[m\n";
+	for (@{$config{remote_color_map}}) {
+		my ($match, $color) = @$_;
+		#warn "\033[2m<try '$match' for $color>\e[m\n";
+		if (ref $match eq "Regexp") {
+			return $color if $remote =~ $match || $alias =~ $match;
+		} elsif (defined $match) {
+			return $color if $remote eq $match || $alias eq $match;
+		} else {
+			return $color;
+		}
+	}
+};
+
+$config{remote_alias} = sub {
+	my ($remote) = @_;
+	my $tmp = $remote;
+	for ($remote) {
+		# strip general descriptions
+		s/^(.+?) \(.+\)$/$1/;
+		# strip description from vol*
+		s/^(vol\S+) .*/$1/;
+		s/^[^@]+@([^:]+):\/home\/.*/$1/;
+		s/^[^@]+@([^:]+):\/run\/media\/\w+\/(.+?)\/.*/$2/;
+		s{^//([^/]+)/.*}{$1};
+		last if s/(^vol\d+)_.*/$1/;
+		last if s/^uk-?//;
+	}
+	#warn "\033[2m<alias '$tmp' => '$remote'>\033[m\n";
+	return $remote;
+};
+
+$config{remote_hidden} = sub {
+	my ($remote) = @_;
+	$remote =~ s/\s.*//;
+	if (!$Opt{show_all_remotes}) {
+		return 1 if $config{default_hidden_remotes}{$remote};
+	}
+	return 1 if $remote eq "web";
+	return 0;
+};
 
 # remote_alias($remote) -> string
 #
@@ -231,11 +300,6 @@ GetOptions(
 	# don't show remotes that would be grayed out
 	"p|present" => \$Opt{only_present},
 ) or exit(2);
-
-my $conf = find_first_file("config:annex-where.conf.pl",
-                           "config:synced/annex-where.conf.pl");
-
-if ($conf) { do $conf; }
 
 # Parse `git annex list` input.
 

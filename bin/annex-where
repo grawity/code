@@ -20,6 +20,20 @@ def trim_remote(remote):
         remote = m.group(1)
     return remote
 
+def fmt_remote(remote):
+    if remote == "here":                return fg(remote, -3)
+    elif remote == "ember":             return fg(remote, 208)
+    elif remote == "frost":             return fg(remote, 109)
+    elif remote == "midnight":          return fg(remote, 146)
+    elif remote == "rain":              return fg(remote, 82)
+    elif remote == "vol4":              return fg(remote, -13)
+    elif re.match(r"^archive", remote): return fg(remote, 251)
+    elif re.match(r"^vol\d", remote):   return fg(remote, 13)
+    else:                               return fg(remote, 15)
+
+def fmt_absent(remote):
+    return fg(remote, 240)
+
 def parse_annex_list(lines):
     is_header = True
     all_remotes = []
@@ -58,20 +72,6 @@ def fg(string, color):
         string = fmt(string, "1")
         color = abs(color)
     return fmt(string, f"38;5;{color}")
-
-def fmt_remote(remote):
-    if remote == "here":                return fg(remote, -3)
-    elif remote == "ember":             return fg(remote, 208)
-    elif remote == "frost":             return fg(remote, 109)
-    elif remote == "midnight":          return fg(remote, 146)
-    elif remote == "rain":              return fg(remote, 82)
-    elif remote == "vol4":              return fg(remote, -13)
-    elif re.match(r"^archive", remote): return fg(remote, 251)
-    elif re.match(r"^vol\d", remote):   return fg(remote, 13)
-    else:                               return fg(remote, 15)
-
-def fmt_absent(remote):
-    return fg(remote, 240)
 
 def loc_fullstr(present, total, only_present):
     loc = sorted(present if only_present else total)

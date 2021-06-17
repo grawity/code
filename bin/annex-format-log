@@ -1,0 +1,28 @@
+#!/usr/bin/env perl
+# Format git-annex:*.log
+# vim: ts=4 sw=4 et
+use List::MoreUtils qw(uniq);
+
+%items = ();
+@items = ();
+while (<>) {
+    chomp;
+    my ($key, $value, $time) = /^(\S+) (.*) timestamp=([0-9.]+)s$/;
+    if (!$items{$key}) {
+        push @items, $key;
+        $items{$key} //= [];
+    }
+    push @{$items{$key}}, [$time, $value, $_];
+}
+for my $key (@items) {
+    my @items = uniq
+                map {"(".$_->[0].") ".$_->[1]}
+                grep {$_->[1] =~ /./}
+                sort {$a->[0] <=> $b->[0]}
+                @{$items{$key}};
+    my $last = pop @items;
+    print "\e[1m$key\e[m\n";
+    print " - $_\n" for $last;
+    print " \e[38;5;242m- $_\e[m\n" for reverse @items;
+    print "\n";
+}

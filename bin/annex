@@ -160,25 +160,6 @@ case $cmd in
     unsafe)
         annex where --not --copies semitrusted+:1 "$@"
         ;;
-    where)
-        declare -a annex_args=("--allrepos")
-        declare -a fmt_args=()
-        declare -i consume_args=0
-        for arg; do
-            if (( consume_args )); then
-                fmt_args+=("$arg")
-                consume_args+=-1
-            elif [[ $arg == -[afp]* || $arg == --@(all|full|present|ignore=*) ]]; then
-                fmt_args+=("$arg")
-            elif [[ $arg == --ignore ]]; then
-                fmt_args+=("$arg")
-                consume_args=1
-            else
-                annex_args+=("$arg")
-            fi
-        done
-        git annex list "${annex_args[@]}" | annex-list-format "${fmt_args[@]}"
-        ;;
     addurls|registerurls)
         git annex add "$@"
 

@@ -248,9 +248,6 @@ case $cmd in
             | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
             | git annex rmurl --batch
         ;;
-    du | dup | dupes | format-log | purge | store)
-        annex-$cmd "$@"
-        ;;
     ci | commit)
         git config receive.denyCurrentBranch updateInstead
         git annex sync --no-pull --no-push
@@ -278,10 +275,14 @@ case $cmd in
     st)
         cmd=status ;;&
     *)
-        if [[ $cmd ]]; then
-            set -- "$cmd" "$@"
+        if have annex-$cmd; then
+            annex-$cmd "$@"
+        else
+            if [[ $cmd ]]; then
+                set -- "$cmd" "$@"
+            fi
+            git annex "$@"
         fi
-        git annex "$@"
         ;;
 esac
 

@@ -58,24 +58,6 @@ $config{remote_color} = sub {
 	}
 };
 
-$config{remote_alias} = sub {
-	my ($remote) = @_;
-	my $tmp = $remote;
-	for ($remote) {
-		# strip general descriptions
-		s/^(.+?) \(.+\)$/$1/;
-		# strip description from vol*
-		s/^(vol\S+) .*/$1/;
-		s/^[^@]+@([^:]+):\/home\/.*/$1/;
-		s/^[^@]+@([^:]+):\/run\/media\/\w+\/(.+?)\/.*/$2/;
-		s{^//([^/]+)/.*}{$1};
-		last if s/(^vol\d+)_.*/$1/;
-		last if s/^uk-?//;
-	}
-	#warn "\033[2m<alias '$tmp' => '$remote'>\033[m\n";
-	return $remote;
-};
-
 $config{remote_hidden} = sub {
 	my ($remote) = @_;
 	$remote =~ s/\s.*//;
@@ -98,11 +80,15 @@ sub remote_alias {
 	if (!defined $remote) {
 		croak("BUG: \$remote undefined");
 	}
-	my $afunc = $config{remote_alias};
-	$remote = $afunc->($remote) if $afunc;
-	$remote =~ s/ \(.+?\)$//;
-	$remote =~ s/ /_/g;
-	$remote = $afunc->($remote) if $afunc;
+	for ($remote) {
+		# strip general descriptions
+		s/^(.+?) \(.+\)$/$1/;
+		# strip description from vol*
+		s/^(vol\S+) .*/$1/;
+		s/^[^@]+@([^:]+):\/home\/.*/$1/;
+		s/^[^@]+@([^:]+):\/run\/media\/\w+\/(.+?)\/.*/$2/;
+		s{^//([^/]+)/.*}{$1};
+	}
 	return $remote;
 }
 

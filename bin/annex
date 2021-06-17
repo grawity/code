@@ -5,18 +5,6 @@
 
 annexes=(~/Attic/{Anime,Annex,Software,Videos})
 
-is_remote() {
-    [[ $1 == web ]] || git config --get "remote.$1.annex-uuid" >&/dev/null
-}
-
-is_remote!() {
-    if ! [[ $1 ]]; then
-        die "missing remote name"
-    elif ! is_remote "$1"; then
-        die "'$1' is not a git-annex remote"
-    fi
-}
-
 if [[ "$2" == "--help" ]]; then
     exec git-annex help "$1" || exit
 fi
@@ -160,11 +148,9 @@ case $cmd in
         git annex find --want-drop --in . | sed $'s/.*/\e[;31mdrop\e[m &/'
         ;;
     want-push)
-        is_remote! "$1"
         git annex find --in . --not --in "$@"
         ;;
     push)
-        is_remote! "$1"
         annex copy --to "$1" --not --in "$1" "${@:2}"
         ;;
     only-in)

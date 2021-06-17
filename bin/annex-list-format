@@ -26,34 +26,15 @@ $config{default_hidden_remotes} = {
 $config{remote_color_map} = [
 	["", 8],
 	["here", -3],
-	## hosts
 	["rain", 82],
 	["frost", 109],
 	["ember", 208],
 	["midnight", 146],
-	## dead - gray
 	[qr/^old/, 102],
-	#[qr/^vol4$/, 102],
-	## volumes
 	[qr/^vol4$/, -13],
 	[qr/^vol\d/, 13],
-	## default
 	[undef, 15],
 ];
-
-$config{remote_color} = sub {
-	my ($remote) = @_;
-	for (@{$config{remote_color_map}}) {
-		my ($match, $color) = @$_;
-		if (ref $match eq "Regexp") {
-			return $color if $remote =~ $match;
-		} elsif (defined $match) {
-			return $color if $remote eq $match;
-		} else {
-			return $color;
-		}
-	}
-};
 
 $config{remote_hidden} = sub {
 	my ($remote) = @_;
@@ -104,13 +85,15 @@ sub remote_color {
 	if (!defined $remote) {
 		croak("BUG: \$remote undefined");
 	}
-	if ($config{remote_color}) {
-		return $config{remote_color}->($remote);
-	}
-	for ($remote) {
-		return   8 if /^$/;
-		return  -3 if /^here$/;
-		return  15;
+	for (@{$config{remote_color_map}}) {
+		my ($match, $color) = @$_;
+		if (ref $match eq "Regexp") {
+			return $color if $remote =~ $match;
+		} elsif (defined $match) {
+			return $color if $remote eq $match;
+		} else {
+			return $color;
+		}
 	}
 }
 

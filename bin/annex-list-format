@@ -36,16 +36,6 @@ $config{remote_color_map} = [
 	[undef, 15],
 ];
 
-$config{remote_hidden} = sub {
-	my ($remote) = @_;
-	$remote =~ s/\s.*//;
-	if (!$Opt{show_all_remotes}) {
-		return 1 if $config{default_hidden_remotes}{$remote};
-	}
-	return 1 if $remote eq "web";
-	return 0;
-};
-
 # remote_alias($remote) -> string
 #
 # Accepts a local remote name or description and mangles it into something
@@ -111,8 +101,8 @@ sub remote_hidden {
 	if ($Opt{hide_remotes}{$remote}) {
 		return 1;
 	}
-	if ($config{remote_hidden}) {
-		return $config{remote_hidden}->($remote);
+	if (!$Opt{show_all_remotes}) {
+		return 1 if $config{default_hidden_remotes}{$remote};
 	}
 	return ($remote =~ /^(bittorrent|web)$/);
 }

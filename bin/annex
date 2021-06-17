@@ -263,80 +263,6 @@ case $cmd in
         git config receive.denyCurrentBranch updateInstead
         git annex sync --no-pull --no-push
         ;;
-    du)
-        args=()
-        for arg; do
-            if [[ $arg == -[av] ]]; then
-                export showfiles=1
-            elif [[ $arg == -s ]]; then
-                export sortbysize=1
-            elif [[ $arg =~ ^-[0-9]+$ ]]; then
-                export depth=${arg#-}
-            elif [[ $arg =~ ^-d[0-9]+$ ]]; then
-                export depth=${arg#-d}
-            else
-                args+=("$arg")
-            fi
-        done
-        annex find --format='${key} ${file}\n' --include '*' "${args[@]}" |
-        perl -E '
-            use List::Util qw(min);
-            sub fmt_size {
-                my ($bytes) = @_;
-                return "0" if !$bytes;
-                my @prefixes = qw(k M G T P E Z Y H);
-                my $div = 1024;
-                my $exp = min(int(log($bytes) / log($div)), scalar @prefixes);
-                sprintf "%.1f%s", $bytes / $div ** $exp, ($exp ? $prefixes[$exp-1] : "");
-            }
-            sub indent_for {
-                my ($dir) = @_;
-                return "    " x split(m!/!, $dir);
-            }
-            sub color_for {
-                my ($dir) = @_;
-                my $idx = scalar split(m!/!, $dir);
-                return 2 + $idx;
-                #my @colors = (51, 39, 26, 21, 93, 165, 198);
-                #return $colors[$idx] // $colors[$#colors];
-            }
-            sub fmt_dir {
-                my ($dir, $darken) = @_;
-                $dir =~ s{.*/}{};
-                return ($darken ? "\e[2m" : "")
-                     . ($dir eq "" ? "." : $dir)
-                     . "\e[m";
-            }
-            my $show_files = int($ENV{showfiles} // 0);
-            my $sortbysize = int($ENV{sortbysize} // 0);
-            # default to infinite for -a, 2 levels otherwise
-            my $maxdepth = $show_files
-                           ? int($ENV{depth} // -1)
-                           : int($ENV{depth} // 2);
-            my %files;
-            my %dirs;
-            my $total = 0;
-            while (<>) {
-                chomp;
-                my ($key, $file) = split(/ /, $_, 2);
-                my $size; if ($key =~ /-s(\d+)--/) { $size = int $1; }
-                if ($show_files)            { $files{$file} += $size; }
-                while ($file =~ s!/[^/]+$!!) { $dirs{$file} += $size; }
-                $total += $size;
-            }
-            %dirs = (%dirs, %files);
-            my @dirs = sort keys %dirs;
-            if ($maxdepth >= 0) {
-                @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
-            }
-            if ($sortbysize) {
-                @dirs = sort {$dirs{$b} <=> $dirs{$a}} @dirs;
-            }
-            my $fmt = "%s\e[38;5;%sm%7s\e[m  %s\n";
-            printf $fmt, indent_for(""), color_for(""), fmt_size($total), "TOTAL";
-            printf $fmt, indent_for($_), color_for($_), fmt_size($dirs{$_}), fmt_dir($_, exists($files{$_})) for @dirs;
-        '
-        ;;
     push)
         is_remote! "$1"
         annex copy --to "$1" --not --in "$1" "${@:2}"
@@ -419,7 +345,7 @@ case $cmd in
             annex drop "${dropargs[@]}" "${files[@]}"
         fi
         ;;
-    dupes | purge)
+    du | dupes | purge)
         annex-$cmd "$@"
         ;;
     # overrides

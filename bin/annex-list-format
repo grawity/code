@@ -249,31 +249,41 @@ GetOptions(
 
 # Parse `git annex list` input.
 
+my $header = 1;
 while (<STDIN>) {
-	if (/^([_Xx]+) (.+)$/) {
-		my $bitmap = $1;
-		my $dir = dirname($2);
-		my $base = basename($2);
-		# prune hidden remotes from bitmap, to avoid mysterious 'identical'
-		# rows (when two files differ only by hidden remote)
-		substr($bitmap, $_, 1) = "_"
-			for grep {remote_hidden($Remote_names[$_])} 0..length($bitmap);
-		my $loc = LocationBitmap->new($1);
-		$Locs_by_dir{$dir}{$loc->data} += 1;
-		$Locs_by_file{$dir}{$base} = $loc;
-		for (0..$loc->size) {
-			$Remote_usage[$_]++ if $loc->present($_);
+	chomp;
+	if ($header) {
+		if (/^\|+$/) {
+			$header = 0;
 		}
-	}
-	elsif (/^(\|*)([^|_Xx].*?)$/) {
-		my $idx = length($1);
-		my $name = $2;
-		$name =~ s/ \(untrusted\)$//;
-		$name = remote_alias($name);
-		$Remote_names[$idx] = $name;
-	}
-	else {
-		warn "!! unrecognized line:$.: $_\n";
+		elsif (/^\|*(.+)$/) {
+			my $name = $1;
+			$name =~ s/ \(untrusted\)$//;
+			$name = remote_alias($name);
+			push @Remote_names, $name;
+		}
+		else {
+			warn "!! unrecognized line:$.: $_\n";
+		}
+	} else {
+		if (/^([_Xx]+) (.+)$/) {
+			my $bitmap = $1;
+			my $dir = dirname($2);
+			my $base = basename($2);
+			# prune hidden remotes from bitmap, to avoid mysterious 'identical'
+			# rows (when two files differ only by hidden remote)
+			substr($bitmap, $_, 1) = "_"
+				for grep {remote_hidden($Remote_names[$_])} 0..length($bitmap);
+			my $loc = LocationBitmap->new($1);
+			$Locs_by_dir{$dir}{$loc->data} += 1;
+			$Locs_by_file{$dir}{$base} = $loc;
+			for (0..$loc->size) {
+				$Remote_usage[$_]++ if $loc->present($_);
+			}
+		}
+		else {
+			warn "!! unrecognized line:$.: $_\n";
+		}
 	}
 }
 

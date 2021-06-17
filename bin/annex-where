@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+from collections import defaultdict
+import io
+import re
+import os
+import subprocess
+import sys
+
+def parse_annex_list(lines):
+    is_header = True
+    all_remotes = []
+    for line in lines:
+        line = line.rstrip()
+        if is_header:
+            if m := re.match(r"^[|]+$", line):
+                is_header = False
+            elif m := re.match(r"^[|]*([^|]+)$", line):
+                remote = m.group(1).removesuffix(" (untrusted)")
+                all_remotes.append(remote)
+            else:
+                raise ValueError(f"bad header line {line!r}")
+        else:
+            if m := re.match(r"([Xx_]+) (.+)$", line):
+                # 'X' indicates a normal remote, 'x' untrusted
+                bits, path = m.groups()
+                assert(len(bits) == len(all_remotes))
+                locations = {all_remotes[i] for i in range(len(bits)) if bits[i] in "Xx"}
+                yield path, frozenset(locations)
+            else:
+                raise ValueError(f"bad list line {line!r}")
+
+def whereis(find_args):
+    with subprocess.Popen(["git-annex", "list", *find_args],
+                          stdout=subprocess.PIPE) as proc:
+        yield from parse_annex_list(io.TextIOWrapper(proc.stdout))
+
+def fmt(string, ansifmt):
+    return f"\033[{ansifmt}m{string}\033[m" if ansifmt else f"{string}"
+
+def fg(string, color):
+    if color < 0:
+        string = fmt(string, "1")
+        color = abs(color)
+    return fmt(string, f"38;5;{color}")
+
+def fmt_remote(remote):
+    # TODO
+    return remote
+
+def fmt_absent(remote):
+    return fg(remote, 240)
+
+def loc_fullstr(present, total, only_present):
+    loc = sorted(present if only_present else total)
+    loc = [fmt_remote(r) if r in present else fmt_absent(r) for r in loc]
+    return fg("{", 8) + " ".join(loc) + fg("}", 8)
+
+def loc_diffstr(old, new):
+    loc = sorted(old | new)
+    loc = [x for x in loc if (x in old) != (x in new)]
+    loc = ["+"+fmt_remote(x) if x in new else "-"+fmt_absent(x) for x in loc]
+    return fg("{", 8) + " ".join(loc) + fg("}", 8)
+
+find_args = []
+only_present = True
+show_unabridged = False
+show_non_diverging = False
+
+for arg in sys.argv[1:]:
+    # Handle -a or -v
+    if m := re.match(r"^-[av]+$", arg):
+        if "a" in arg:
+            only_present = False
+            show_unabridged = True
+        if "v" in arg:
+            only_present = False
+            show_non_diverging = True
+    elif m := re.match(r"^-[^-]", arg):
+        exit(f"unknown option {arg}")
+    else:
+        find_args.append(arg)
+
+all_remotes = set()
+locs_by_dir = defaultdict(lambda: defaultdict(int))
+locs_by_file = defaultdict(dict)
+remote_usage = defaultdict(int)
+
+for path, locations in whereis(find_args):
+    all_remotes |= locations
+    dir_name = os.path.dirname(path)
+    base_name = os.path.basename(path)
+    locs_by_dir[dir_name][locations] += 1
+    locs_by_file[dir_name][base_name] = locations
+    for r in locations:
+        remote_usage[r] += 1
+
+for dir_name, loc_usage in sorted(locs_by_dir.items()):
+    # All distinct location-sets for this directory, sorted by num. of occurences
+    loc_sets = sorted(loc_usage.keys(), key=lambda i: loc_usage[i])
+    loc_sets.reverse()
+
+    # Print the most common set, approximately representing the whole directoy
+    main_loc = loc_sets[0]
+    main_loc_str = loc_fullstr(main_loc, all_remotes, only_present)
+    print(f"{main_loc_str} {dir_name}/")
+
+    if show_unabridged:
+        # Show all sets in full
+        full = True
+    else:
+        # Are top and bottom sets roughly equally common? If so, print all in full.
+        top_usage = loc_usage[loc_sets[0]]
+        btm_usage = loc_usage[loc_sets[-1]]
+        full = (top_usage - btm_usage <= 2)
+
+    # If any files diverge, or if -a -a was given, print those bitmaps
+    if show_non_diverging or len(loc_sets) > 1:
+        files = locs_by_file[dir_name]
+        for file, file_loc in sorted(files.items()):
+            if not full and file_loc == main_loc:
+                continue
+            if full:
+                file_loc_str = loc_fullstr(file_loc, all_remotes, only_present)
+            else:
+                file_loc_str = loc_diffstr(main_loc, file_loc)
+                file = fmt(file, "1")
+            # The Perl version had a check to skip printing if the set was empty,
+            # but I'm not sure if this can happen (due to the file==main check above).
+            assert(file_loc_str)
+            print(f"  {file_loc_str} {file}")

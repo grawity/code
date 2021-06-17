@@ -6,7 +6,6 @@ use Data::Dumper;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use File::Basename;
 
-our %config;
 my %Opt = (
 	full => 0,
 	hide_remotes => {},
@@ -17,13 +16,13 @@ my @Remote_names;
 my @Remote_usage;
 
 # These remotes have a mix of present/absent files
-$config{default_hidden_remotes} = {
+my %default_hidden_remotes = (
 	#rain => 1,
 	frost => 1,
 	midnight => 1,
-};
+);
 
-$config{remote_color_map} = [
+my @remote_color_map = (
 	["", 8],
 	["here", -3],
 	["rain", 82],
@@ -34,7 +33,7 @@ $config{remote_color_map} = [
 	[qr/^vol4$/, -13],
 	[qr/^vol\d/, 13],
 	[undef, 15],
-];
+);
 
 # remote_alias($remote) -> string
 #
@@ -75,7 +74,7 @@ sub remote_color {
 	if (!defined $remote) {
 		croak("BUG: \$remote undefined");
 	}
-	for (@{$config{remote_color_map}}) {
+	for (@remote_color_map) {
 		my ($match, $color) = @$_;
 		if (ref $match eq "Regexp") {
 			return $color if $remote =~ $match;
@@ -102,7 +101,7 @@ sub remote_hidden {
 		return 1;
 	}
 	if (!$Opt{show_all_remotes}) {
-		return 1 if $config{default_hidden_remotes}{$remote};
+		return 1 if $default_hidden_remotes{$remote};
 	}
 	return ($remote =~ /^(bittorrent|web)$/);
 }

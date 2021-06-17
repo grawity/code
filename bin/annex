@@ -160,30 +160,18 @@ case $cmd in
         is_remote! "$1"
         git annex find --in . --not --in "$@"
         ;;
+    push)
+        is_remote! "$1"
+        annex copy --to "$1" --not --in "$1" "${@:2}"
+        ;;
     only-in)
         (( $# == 1 )) || warn "too many arguments (expected 1)"
         git annex find --in "$1" --not --copies 2
         ;;
     unsafe)
-        annex where --not --copies semitrusted+:1
+        annex where --not --copies semitrusted+:1 "$@"
         ;;
-    examine)
-        is_annex!
-        if (( ! $# )); then
-            exec 2>/dev/null
-            set -- uuid.log group.log trust.log preferred-content.log
-        fi
-        for arg; do
-            if [[ $arg != */* && $arg != *.* ]]; then
-                arg+=".log"
-            fi
-            if (( $# > 1 )); then
-                echo -e "\e[1m--- $arg ---\e[m"
-            fi
-            git show "git-annex:$arg"
-        done
-        ;;
-    where|lsf)
+    where)
         declare -a annex_args=("--allrepos")
         declare -a fmt_args=()
         declare -i consume_args=0
@@ -201,6 +189,22 @@ case $cmd in
             fi
         done
         git annex list "${annex_args[@]}" | annex-list-format "${fmt_args[@]}"
+        ;;
+    examine)
+        is_annex!
+        if (( ! $# )); then
+            exec 2>/dev/null
+            set -- uuid.log group.log trust.log preferred-content.log
+        fi
+        for arg; do
+            if [[ $arg != */* && $arg != *.* ]]; then
+                arg+=".log"
+            fi
+            if (( $# > 1 )); then
+                echo -e "\e[1m--- $arg ---\e[m"
+            fi
+            git show "git-annex:$arg"
+        done
         ;;
     log-format)
         perl -E '
@@ -259,25 +263,11 @@ case $cmd in
             fi | git annex addurl --batch --with-files
         done
         ;;
-    commit|ci)
-        git config receive.denyCurrentBranch updateInstead
-        git annex sync --no-pull --no-push
-        ;;
-    push)
-        is_remote! "$1"
-        annex copy --to "$1" --not --in "$1" "${@:2}"
-        ;;
     geturls)
         (( $# )) || set -- "--include=*"
         git annex find "$@" \
             | git annex whereis --batch --fast --json \
             | jq -r '. as {file: $file} | (.whereis, .untrusted) | .[].urls[] | "\($file) \(.)"'
-        ;;
-    geturls-attr)
-        (( $# )) || set -- "--include=*"
-        git annex find "$@" \
-            | git annex whereis --batch --fast --json \
-            | jq -r '@sh "attr -q -s xdg.origin.url -V \((.whereis, .untrusted) | .[].urls[]) \(.file)"'
         ;;
     geturls-json)
         (( $# )) || set -- "--include=*"
@@ -294,7 +284,9 @@ case $cmd in
             | jq -r '@sh "git annex addurl --relaxed --file=\(.file) \((.whereis, .untrusted) | .[].urls[])"'
         ;;
     pruneurls)
+        # pruneurls <regex> [<findargs>]
         regex=$1; shift
+        [[ $regex && $regex != -* ]] || die "prune regex not specified"
         git annex find --in web "$@" \
             | git annex whereis --batch --fast --json \
             | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
@@ -302,6 +294,10 @@ case $cmd in
         ;;
     du | dup | dupes | purge | store)
         annex-$cmd "$@"
+        ;;
+    ci | commit)
+        git config receive.denyCurrentBranch updateInstead
+        git annex sync --no-pull --no-push
         ;;
     # overrides
     addurl)

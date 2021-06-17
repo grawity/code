@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 from collections import defaultdict
 import io
 import re
@@ -80,6 +81,7 @@ def loc_diffstr(old, new):
     loc = ["+"+fmt_remote(x) if x in new else "-"+fmt_absent(x) for x in loc]
     return fg("{", 8) + " ".join(loc) + fg("}", 8)
 
+my_args = []
 find_args = []
 only_present = True
 show_unabridged = False
@@ -87,18 +89,24 @@ show_non_diverging = False
 always_hide = {"web"}
 
 for arg in sys.argv[1:]:
-    # Handle -a or -v
-    if m := re.match(r"^-[av]+$", arg):
-        if "a" in arg:
-            only_present = False
-            show_unabridged = True
-        if "v" in arg:
-            only_present = False
-            show_non_diverging = True
-    elif m := re.match(r"^-[^-]", arg):
-        exit(f"unknown option {arg}")
+    if m := re.match(r"^-[^-]", arg):
+        my_args.append(arg)
+    elif m := re.match(r"^--(all|verbose)$", arg):
+        my_args.append(arg)
     else:
         find_args.append(arg)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--all", action="store_true")
+parser.add_argument("-v", "--verbose", action="store_true")
+args = parser.parse_args(my_args)
+
+if args.all:
+    only_present = False
+    show_unabridged = True
+if args.verbose:
+    only_present = False
+    show_non_diverging = True
 
 all_remotes = set()
 locs_by_dir = defaultdict(lambda: defaultdict(int))

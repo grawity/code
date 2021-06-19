@@ -84,21 +84,11 @@ def loc_diffstr(old, new):
     loc = ["+"+fmt_remote(x) if x in new else "-"+fmt_absent(x) for x in loc]
     return fg("{", 8) + " ".join(loc) + fg("}", 8)
 
-my_args = []
-find_args = []
 only_present = True
 show_diffs_for_files = False
 show_unabridged = False
 show_non_diverging = False
 always_hide = {"web"}
-
-for arg in sys.argv[1:]:
-    if m := re.match(r"^-[^-]", arg):
-        my_args.append(arg)
-    elif m := re.match(r"^--(all|diff|files)$", arg):
-        my_args.append(arg)
-    else:
-        find_args.append(arg)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--all", action="store_true",
@@ -107,7 +97,7 @@ parser.add_argument("-f", "--files", action="store_true",
                     help="show all files, not only diverging ones")
 parser.add_argument("-d", "--diff", action="store_true",
                     help="show ±diff for diverging file locations")
-args = parser.parse_args(my_args)
+args, find_args = parser.parse_known_args()
 
 if args.all:
     only_present = False

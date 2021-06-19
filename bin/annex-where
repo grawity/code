@@ -87,7 +87,7 @@ def loc_diffstr(old, new):
 my_args = []
 find_args = []
 only_present = True
-show_diffs_for_files = True
+show_diffs_for_files = False
 show_unabridged = False
 show_non_diverging = False
 always_hide = {"web"}
@@ -95,22 +95,26 @@ always_hide = {"web"}
 for arg in sys.argv[1:]:
     if m := re.match(r"^-[^-]", arg):
         my_args.append(arg)
-    elif m := re.match(r"^--(all|verbose)$", arg):
+    elif m := re.match(r"^--(all|diff|files)$", arg):
         my_args.append(arg)
     else:
         find_args.append(arg)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-a", "--all", action="store_true")
-parser.add_argument("-v", "--verbose", action="store_true")
+parser.add_argument("-a", "--all", action="store_true",
+                    help="show all remotes, not only 'present' ones")
+parser.add_argument("-f", "--files", action="store_true",
+                    help="show all files, not only diverging ones")
+parser.add_argument("-d", "--diff", action="store_true",
+                    help="show ±diff for diverging file locations")
 args = parser.parse_args(my_args)
 
 if args.all:
     only_present = False
+if args.files:
     show_unabridged = True
-if args.verbose:
-    only_present = False
-    show_diffs_for_files = False
+if args.diff:
+    show_diffs_for_files = True
 
 # Note: all_remotes only contains those remotes that have been used for at least one file.
 all_remotes = set()
@@ -153,11 +157,12 @@ for dir_name, loc_usage in sorted(locs_by_dir.items()):
         for file, file_loc in sorted(files.items()):
             if not full and file_loc == main_loc:
                 continue
-            if full or (not show_diffs_for_files):
-                file_loc_str = loc_fullstr(file_loc, all_remotes, only_present)
-            else:
+            if show_diffs_for_files:
                 file_loc_str = loc_diffstr(main_loc, file_loc)
-                file = fmt(file, "1")
+                if file_loc != main_loc:
+                    file = fmt(file, "1")
+            else:
+                file_loc_str = loc_fullstr(file_loc, all_remotes, only_present)
             # The Perl version had a check to skip printing if the set was empty,
             # but I'm not sure if this can happen (due to the file==main check above).
             assert(file_loc_str)

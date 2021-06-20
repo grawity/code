@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+use Data::Dumper;
+use Getopt::Long;
+use warnings;
+use strict;
+use constant {
+	TRUST_DEAD => "X",
+};
+
+sub read_log {
+	my ($log) = @_;
+	my %descs = ();
+	my %times = ();
+	if (open(my $fh, "-|", "git", "show", "git-annex:$log")) {
+		for (<$fh>) {
+			if (my ($uuid, $desc, $time) = /^(\S+) (.+) timestamp=([0-9.]+)s$/) {
+				if (!$times{$uuid} || $times{$uuid} < $time) {
+					$descs{$uuid} = $desc;
+					$times{$uuid} = $time;
+				}
+			} else {
+				warn "could not parse line $_";
+			}
+		}
+		close($fh);
+		return %descs;
+	} else {
+		die "could not read $log: $@";
+	}
+}
+
+my $want_uuid = 0;
+
+GetOptions(
+	"u|uuid!" => sub { $want_uuid = 1 },
+	"d|desc!" => sub { $want_uuid = 0 },
+);
+
+my ($arg) = @ARGV;
+
+my %descs = read_log("uuid.log");
+my %trusts = read_log("trust.log");
+
+for my $uuid (keys %trusts) {
+	if ($trusts{$uuid} eq TRUST_DEAD) {
+		delete $descs{$uuid};
+		delete $trusts{$uuid};
+	}
+}
+
+my $candidate;
+
+for my $uuid (keys %descs) {
+	if ($descs{$uuid} eq $arg) {
+		$candidate = $uuid;
+		last;
+	}
+	elsif ($descs{$uuid} =~ /^\Q$arg\E \(.*\)/) {
+		$candidate = $uuid;
+	}
+}
+
+if ($candidate) {
+	if ($want_uuid) {
+		print $candidate."\n";
+	} else {
+		print $descs{$candidate}."\n";
+	}
+} else {
+	die "could not find a matching remote for '$arg'\n";
+}

@@ -52,7 +52,9 @@ def parse_annex_list(lines):
             if m := re.match(r"([Xx_]+) (.+)$", line):
                 # 'X' indicates a normal remote, 'x' untrusted
                 bits, path = m.groups()
-                assert(len(bits) == len(all_remotes))
+                if len(bits) != len(all_remotes):
+                    raise ValueError(f"bitmap length {len(bits)} of {bits!r} != "
+                                     f"remote count {len(all_remotes)} of {all_remotes!r}")
                 locations = {all_remotes[i] for i in range(len(bits)) if bits[i] in "Xx"}
                 yield path, frozenset(locations)
             else:

@@ -4,6 +4,27 @@ from glob import glob
 import os
 import time
 
+class RollingAverage():
+    def __init__(self, depth=3):
+        assert(depth > 0)
+        self._depth = depth
+        self._hist = [0] * depth
+        self._roll = 0
+        self._count = 0
+
+    def add(self, value):
+        if self._count == 0:
+            self._hist = [value] * self._depth
+            self._roll = value * self._depth
+        else:
+            self._roll -= self._hist[self._count % self._depth]
+            self._hist[self._count % self._depth] = value
+            self._roll += value
+        self._count += 1
+
+    def get(self):
+        return self._roll / self._depth
+
 class Color(enum.IntEnum):
     Red = 1
     Green = 2
@@ -33,8 +54,8 @@ def put_bar(color, width, char):
     print(bar, end="")
 
 def draw_bar(ts, color, width, temp, load):
-    global count, depth, roll
-    avg = roll/depth if count>depth else temp
+    global ravg
+    avg = ravg.get()
     if avg > 79:
         color += Color.Red
     elif avg >= 63:
@@ -102,10 +123,7 @@ subdev = find_sensor()
 interval = 1
 last_temp = 0
 last_load = ""
-count = 0
-roll = 0
-depth = 3
-hist = [0] * depth
+ravg = RollingAverage(3)
 
 try:
     while True:
@@ -117,16 +135,11 @@ try:
             draw_bar(ts-1, 0, last_temp-20, last_temp, last_load)
         temp = read(subdev)
         temp = int(temp) / 1000
-        if roll and hist[count % depth]:
-            roll = roll - hist[count % depth] + temp
-        else:
-            roll = temp * depth
+        ravg.add(temp)
         load = open("/proc/loadavg", "r").read().strip()
         load = load.split()[0]
         draw_bar(ts, 8, temp-20, temp, load)
         last_temp = temp
         last_load = load
-        hist[count % depth] = temp
-        count += 1
 except KeyboardInterrupt:
     exit(0)

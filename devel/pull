@@ -92,10 +92,14 @@ do_pull() {
 	elif [[ -e .git ]]; then
 		is "Git"
 		rev() { git rev-parse --verify ${1:-HEAD}; }
+		sparse=$(git config --type bool core.sparseCheckout || echo false)
+		case $sparse in
+			true) recurseopt='--recurse-submodules=no';;
+			*) recurseopt='';
+		esac
 		old=$(rev)
-		if log: git pull --ff-only --no-stat; then
+		if log: git pull --ff-only --no-stat $recurseopt; then
 			new=$(rev)
-			sparse=$(git config --type bool core.sparseCheckout || echo false)
 			if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
 				log: git submodule update
 			fi

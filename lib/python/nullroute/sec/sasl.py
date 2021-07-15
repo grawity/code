@@ -22,6 +22,20 @@ class TooManyStepsError(MechanismFailure):
     def __init__(self):
         super().__init__("SASL mechanism is already finished")
 
+def _wip_smtplib_authenticate(conn, mech):
+    conn.docmd("AUTH", mech.mech_name)
+    challenge = None
+    while True:
+        response = mech(challenge)
+        print("--> response %r" % (response,))
+        output = base64.b64encode(response).decode()
+        print("==> output %r" % (output,))
+        (code, input) = conn.docmd("AUTH", output)
+        print("<== input %r" % ((code, input),))
+        challenge = base64.b64decode(input)
+        print("<-- challenge %r" % (challenge))
+        break
+
 class SaslMechanism():
     def __init__(self):
         self.step = 0
@@ -40,6 +54,20 @@ class SaslMechanism():
     def __call__(self, challenge):
         # For compatibility with imaplib, which requires a callable.
         return self.respond(challenge)
+
+        # Note for SMTP via smtplib:
+        #   1. For SASL-IR, the first call will be with 0 parameters, so
+        #      'challenge' should default to None.
+        #   2. Currently smtplib always expects to receive a `str` which it
+        #      will .encode("ascii") before Base64-encoding. It doesn't accept
+        #      `bytes` as-is, so we will need a fake `KindaStr` that has an
+        #      .encode() method.
+        #   3. If the response is 0-length, smtplib seems to send it as "b''\r\n"
+        #      instead of just "\r\n".
+        #   4. Smtplib seems to be rather unfamiliar with the concept of auth
+        #      mechanisms which produce further challenges (except the ones it
+        #      already implements?), and will raise an AuthenticationError upon
+        #      receiving a 334 with the GSSAPI second step challenge.
 
 class SaslPLAIN(SaslMechanism):
     mech_name = "PLAIN"

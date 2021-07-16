@@ -3,11 +3,22 @@
 import dbus
 import os
 import sys
+import urllib.parse
 
-urls = ["file://%s" % os.path.abspath(p) for p in sys.argv[1:]]
-if not urls:
-    print("Usage: %s PATH..." % sys.argv[0], file=sys.stderr)
-    exit(2)
+def path2url(path):
+    path = os.path.abspath(path)
+    return "file://" + urllib.parse.quote(path)
+
+files = sys.argv[1:]
+
+if not files:
+    exit("Usage: %s PATH..." % sys.argv[0])
+
+for f in files:
+    if not os.path.exists(f):
+        exit("error: Path %r does not exist" % f)
+
+urls = [path2url(p) for p in files]
 
 bus = dbus.SessionBus()
 fm = dbus.Interface(bus.get_object("org.freedesktop.FileManager1",

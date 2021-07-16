@@ -10,64 +10,64 @@ use warnings;
 use strict;
 
 package FakeFileManager;
-use base "Net::DBus::Object";
-use File::Basename;
-use Net::DBus::Exporter "org.freedesktop.FileManager1";
+	use base "Net::DBus::Object";
+	use File::Basename;
+	use Net::DBus::Exporter "org.freedesktop.FileManager1";
 
-dbus_method("ShowFolders", [["array", "string"], "string"], []);
-dbus_method("ShowItems", [["array", "string"], "string"], []);
-dbus_method("ShowItemProperties", [["array", "string"], "string"], []);
+	dbus_method("ShowFolders", [["array", "string"], "string"], []);
+	dbus_method("ShowItems", [["array", "string"], "string"], []);
+	dbus_method("ShowItemProperties", [["array", "string"], "string"], []);
 
-sub get_Thunar {
-	(shift)
-	->get_service("org.xfce.FileManager")
-	->get_object("/org/xfce/FileManager")
-}
-
-sub ShowFolders {
-	my ($self, $uris, $startup_id) = @_;
-
-	my $Thunar = get_Thunar($self->get_service->get_bus);
-	my $display = "";
-
-	for my $uri (@$uris) {
-		$Thunar->DisplayFolder($uri, $display, $startup_id);
+	sub get_Thunar {
+		(shift)
+		->get_service("org.xfce.FileManager")
+		->get_object("/org/xfce/FileManager")
 	}
-	return;
-}
 
-sub ShowItems {
-	my ($self, $uris, $startup_id) = @_;
+	sub ShowFolders {
+		my ($self, $uris, $startup_id) = @_;
 
-	my $Thunar = get_Thunar($self->get_service->get_bus);
-	my $display = "";
+		my $Thunar = get_Thunar($self->get_service->get_bus);
+		my $display = "";
 
-	for my $uri (@$uris) {
-		my $dir_uri = dirname($uri);
-		my $basename = basename($uri);
-		$Thunar->DisplayFolderAndSelect($dir_uri, $basename,
-						$display, $startup_id);
+		for my $uri (@$uris) {
+			$Thunar->DisplayFolder($uri, $display, $startup_id);
+		}
+		return;
 	}
-	return;
-}
 
-sub ShowItemProperties {
-	my ($self, $uris, $startup_id) = @_;
+	sub ShowItems {
+		my ($self, $uris, $startup_id) = @_;
 
-	my $Thunar = get_Thunar($self->get_service->get_bus);
-	my $display = "";
+		my $Thunar = get_Thunar($self->get_service->get_bus);
+		my $display = "";
 
-	for my $uri (@$uris) {
-		$Thunar->DisplayFileProperties($uri, $display, $startup_id);
+		for my $uri (@$uris) {
+			my $dir_uri = dirname($uri);
+			my $basename = basename($uri);
+			$Thunar->DisplayFolderAndSelect($dir_uri, $basename,
+							$display, $startup_id);
+		}
+		return;
 	}
-	return;
-}
+
+	sub ShowItemProperties {
+		my ($self, $uris, $startup_id) = @_;
+
+		my $Thunar = get_Thunar($self->get_service->get_bus);
+		my $display = "";
+
+		for my $uri (@$uris) {
+			$Thunar->DisplayFileProperties($uri, $display, $startup_id);
+		}
+		return;
+	}
 
 package main;
-use Net::DBus;
-use Net::DBus::Reactor;
+	use Net::DBus;
+	use Net::DBus::Reactor;
 
-my $bus = Net::DBus->session;
-my $svc = $bus->export_service("org.freedesktop.FileManager1");
-my $obj = FakeFileManager->new($svc, "/org/freedesktop/FileManager1");
-Net::DBus::Reactor->main->run;
+	my $bus = Net::DBus->session;
+	my $svc = $bus->export_service("org.freedesktop.FileManager1");
+	my $obj = FakeFileManager->new($svc, "/org/freedesktop/FileManager1");
+	Net::DBus::Reactor->main->run;

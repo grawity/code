@@ -18,6 +18,17 @@ if [ "$(git rev-parse --is-bare-repository)" = "true" ]; then
 	git fetch
 else
 	git pull --ff-only --no-stat "$@"
+
+	if [ -e ".git/refs/remotes/origin/main" ]; then
+		if [ "$(< .git/HEAD)" = "ref: refs/heads/master" ]; then
+			echo "looks loke master branch was renamed, following"
+			git reset --keep HEAD^ &&
+			git branch -m main &&
+			git branch -u origin/main &&
+			git remote set-head origin main &&
+			git pull --ff-only --no-stat "$@"
+		fi
+	fi
 fi
 
 new=$(git rev-parse "HEAD")

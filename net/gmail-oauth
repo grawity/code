@@ -26,6 +26,10 @@ from nullroute.sec.util import OAuthTokenCache
 import sys
 import time
 
+# Project ID 'modified-shape-320507'
+DEFAULT_CLIENT_ID = "1084562062310-bn1p5os4leu4ebvmsciiddsie19h1opa.apps.googleusercontent.com"
+DEFAULT_CLIENT_SECRET = "Rk7ct8l-CveSOVxI8bT87tlL"
+
 def sasl_gs2_escape(text):
     return text.replace("=", "=3D").replace(",", "=2C")
 
@@ -104,8 +108,8 @@ def main(argv):
         "token_grant_url": "https://oauth2.googleapis.com/token",
     }
 
-    client = OAuth2Client(client_id=args.client_id,
-                          client_secret=args.client_secret,
+    client = OAuth2Client(client_id=args.client_id or DEFAULT_CLIENT_ID,
+                          client_secret=args.client_secret or DEFAULT_CLIENT_SECRET,
                           **google_endpoints)
 
     token_cache = OAuthTokenCache("mail.google.com",
@@ -141,7 +145,7 @@ def main(argv):
             test_smtp_auth(mechanism, response, args.quiet)
 
     elif args.authorization_code:
-        require_args(args, "client-id", "client-secret")
+        #require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token", "scope", "refresh-token")
 
         response = client.grant_token_via_authorization(args.authorization_code)
@@ -157,7 +161,8 @@ def main(argv):
             token_cache.store_token(data)
 
     elif args.refresh_token:
-        require_args(args, "client-id", "client-secret", "refresh-token")
+        #require_args(args, "client-id", "client-secret", "refresh-token")
+        require_args(args, "refresh-token")
         decline_args(args, "user", "access-token", "scope", "authorization-code")
 
         response = client.grant_token_via_refresh(args.refresh_token)
@@ -173,7 +178,7 @@ def main(argv):
             token_cache.store_token(data)
 
     elif args.authorize:
-        require_args(args, "client-id", "client-secret")
+        #require_args(args, "client-id", "client-secret")
         decline_args(args, "access-token")
 
         url = client.make_authorization_url(args.scope or "https://mail.google.com/")

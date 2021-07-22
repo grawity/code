@@ -25,13 +25,10 @@ except ImportError:
         _MAX_LOG = 6 + max(0, int(os.environ.get("DEBUG", 0)))
     except ValueError:
         _MAX_LOG = 7
-    _ERRORS = 0
 
     def _log(level, prefix, msg, *args):
         if args:
             msg = msg % args
-        if level <= 3:
-            _ERRORS += 1
         if level <= _MAX_LOG:
             print("%s: %s" % (prefix, msg), file=sys.stderr)
 
@@ -42,7 +39,6 @@ except ImportError:
         info   = staticmethod(lambda *args: _log(6, "info", *args))
         debug  = staticmethod(lambda *args: _log(7, "debug", *args))
         trace  = staticmethod(lambda *args: _log(8, "trace", *args))
-        fini   = staticmethod(lambda: exit(_ERRORS))
 # }}}
 
 stat = {

@@ -6,6 +6,7 @@
 # http://web.archive.org/web/20120905125325/http://7bits.nl/blog/2012/03/26/finding-v6-hosts-by-efficiently-mapping-ip6-arpa
 
 import argparse
+from collections import deque
 import dns.name
 import dns.resolver
 import dns.reversename
@@ -115,9 +116,10 @@ def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
                                  maxdepth=-1):
     Core.debug("crawling zone %r iteratively", zone)
     depth = len(zone.strip(".").split("."))
-    queue = [(depth, zone)]
+    queue = deque()
+    queue += [(depth, zone)]
     while queue:
-        (depth, domain) = queue.pop(0)
+        (depth, domain) = queue.popleft()
         Core.debug("processing suffix %r at depth %d (%d more queued)", domain, depth, len(queue))
         childs = ["%s.%s" % (fmt % i, domain) for i in range(card)]
         childs = [(depth + 1, d) for d in childs]

@@ -8,7 +8,7 @@
 # http://web.archive.org/web/20120905125325/http://7bits.nl/blog/2012/03/26/finding-v6-hosts-by-efficiently-mapping-ip6-arpa
 
 import argparse
-from collections import deque
+from collections import defaultdict, deque
 import dns.name
 import dns.resolver
 import dns.reversename
@@ -185,13 +185,7 @@ for arg in args.domain:
         domains.append((domain, params))
 
 for domain, params in domains:
-    stat = {
-        "requests": 0,
-        "answers": 0,
-        "nonterminals": 0,
-        "nxdomains": 0,
-        "baddelegations": 0,
-    }
+    stat = defaultdict(int)
     for name, rdata in crawl(domain, **params):
         print(fmt_domain(name), "=>", rdata)
     Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",

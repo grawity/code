@@ -116,60 +116,43 @@ def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
     Core.debug("crawling zone %r iteratively", zone)
     if not depth:
         depth = len(zone.strip(".").split("."))
-
-    queue = [zone]
+    queue = [(depth, zone)]
     while queue:
-        Core.debug("processing queue [%d items] at depth %d", len(queue), depth)
-        next = []
-        for suffix in queue:
-            Core.debug("processing suffix %r", suffix)
-            # XXX: Need to re-think this -- the expanded domains, not the
-            # parent, should be put in the queue. This would allow the "too
-            # long NoAnswer" case to just work.
+        (depth, domain) = queue.pop(0)
+        Core.debug("processing suffix %r at depth %d (%d more queued)", domain, depth, len(queue))
+        childs = ["%s.%s" % (fmt % i, domain) for i in range(card)]
+        childs = [(depth + 1, d) for d in childs]
+        stat["requests"] += 1
+        try:
+            answers = dns.resolver.query(domain, rtype)
+        except dns.resolver.NoAnswer:
             if depth > maxdepth:
-                domains = [suffix]
-                Core.trace(" - domain already at max length; using as-is")
+                # Could be that the hostmaster accidentally added
+                # records with too many labels (e.g. the PTR record for
+                # 2001:778:0:20::192 has too many '0's in the middle),
+                # in this case we won't know how to descend further and
+                # will loop forever.
+                Core.trace("got NoAnswer for %r at terminal depth; continuing", domain)
+                stat["baddelegations"] += 1
             else:
-                domains = ["%s.%s" % (fmt % i, suffix) for i in range(card)]
-                Core.trace(" - domain below max length; expanding to %d subdomains", len(domains))
-
-            for domain in domains:
-                stat["requests"] += 1
-                try:
-                    answers = dns.resolver.query(domain, rtype)
-                except dns.resolver.NoAnswer:
-                    if depth > maxdepth:
-                        # Could be that the hostmaster accidentally added
-                        # records with too many labels (e.g. the PTR record for
-                        # 2001:778:0:20::192 has too many '0's in the middle),
-                        # in this case we won't know how to descend further and
-                        # will loop forever.
-                        Core.trace("got NoAnswer for %r at terminal depth; continuing", domain)
-                        stat["baddelegations"] += 1
-                        continue
-                    else:
-                        Core.trace("got NoAnswer for %r; descending", domain)
-                        stat["nonterminals"] += 1
-                        next.append(domain)
-                except dns.resolver.NXDOMAIN:
-                    Core.trace("got NXDOMAIN for %r; continuing", domain)
-                    stat["nxdomains"] += 1
-                    continue
-                except dns.resolver.NoNameservers:
-                    Core.warn("got SERVFAIL for %r; returning and continuing", domain)
-                    stat["baddelegations"] += 1
-                    yield (domain, None)
-                    continue
-                else:
-                    if depth < maxdepth:
-                        next.append(domain)
-                        Core.trace("got answer for %r; returning and descending", domain)
-                    else:
-                        Core.trace("got answer for %r; assuming terminal and returning", domain)
-                    stat["answers"] += 1
-                    yield from [(domain, j) for j in answers]
-        queue = next
-        depth += 1
+                Core.trace("got NoAnswer for %r; descending", domain)
+                stat["nonterminals"] += 1
+                queue += childs
+        except dns.resolver.NXDOMAIN:
+            Core.trace("got NXDOMAIN for %r; continuing", domain)
+            stat["nxdomains"] += 1
+        except dns.resolver.NoNameservers:
+            Core.warn("got SERVFAIL for %r; returning and continuing", domain)
+            stat["baddelegations"] += 1
+            yield (domain, None)
+        else:
+            if depth < maxdepth:
+                Core.trace("got answer for %r; returning and descending", domain)
+                queue += childs
+            else:
+                Core.trace("got answer for %r; assuming terminal and returning", domain)
+            stat["answers"] += 1
+            yield from [(domain, j) for j in answers]
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-r", dest="recursive", action="store_true")

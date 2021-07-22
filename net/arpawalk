@@ -59,17 +59,17 @@ def fmt_domain(dom):
         dom = dns.reversename.to_address(dom)
     return dom
 
-def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
-                                 maxdepth=-1, depth=0):
-    Core.debug("(%d) >> crawling zone %r recursively", depth, zone)
+def crawl_zone_recursively(domain, card=16, fmt="%x", rtype="PTR",
+                                   maxdepth=-1, depth=0):
+    Core.debug("(%d) >> crawling zone %r recursively", depth, domain)
     if not depth:
-        depth = len(zone.strip(".").split("."))
+        depth = len(domain.strip(".").split("."))
 
     if depth > maxdepth:
-        domains = [zone]
+        domains = [domain]
         Core.trace(" - domain already at max length; using as-is")
     else:
-        domains = ["%s.%s" % (fmt % i, zone) for i in range(card)]
+        domains = ["%s.%s" % (fmt % i, domain) for i in range(card)]
         Core.trace(" - domain below max length; expanding to %d subdomains", len(domains))
 
     for domain in domains:
@@ -110,14 +110,14 @@ def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
             if depth < maxdepth:
                 yield from crawl_zone_recursively(domain, card, fmt, rtype,
                                                           maxdepth, depth+1)
-    Core.debug("(%d) << leaving %r", depth, zone)
+    Core.debug("(%d) << leaving %r", depth, domain)
 
-def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
-                                 maxdepth=-1):
-    Core.debug("crawling zone %r iteratively", zone)
-    depth = len(zone.strip(".").split("."))
+def crawl_zone_iteratively(domain, card=16, fmt="%x", rtype="PTR",
+                                   maxdepth=-1):
+    Core.debug("crawling zone %r iteratively", domain)
+    depth = len(domain.strip(".").split("."))
     queue = deque()
-    queue += [(depth, zone)]
+    queue += [(depth, domain)]
     while queue:
         (depth, domain) = queue.popleft()
         Core.debug("processing suffix %r at depth %d (%d more queued)", domain, depth, len(queue))

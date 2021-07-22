@@ -179,6 +179,8 @@ if args.recursive:
 else:
     crawl = crawl_iteratively
 
+domains = []
+
 for arg in args.domain:
     if "/" in arg:
         tmp = [*get_rdns_domains(arg)]
@@ -189,7 +191,6 @@ for arg in args.domain:
         domain = domain.lower()
         if not domain.endswith("."):
             domain = "%s." % domain
-
         if domain.endswith(".e164.arpa."):
             params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
         elif domain.endswith(".ip6.arpa."):
@@ -198,15 +199,14 @@ for arg in args.domain:
             params = dict(card=256, fmt="%d", rtype="PTR", maxdepth=5)
         else:
             Core.err("unrecognized domain %r", domain)
-            continue
+            exit(1)
+        domains.append(domain)
 
-        for node in crawl(domain, **params):
-            name, rdata = node
-            name = fmt_domain(name)
-            print(name, "=>", rdata)
-
-        Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
-                  domain, stat["requests"], stat["answers"],
-                  stat["nonterminals"], stat["nxdomains"])
-
-Core.fini()
+for domain in domains:
+    for node in crawl(domain, **params):
+        name, rdata = node
+        name = fmt_domain(name)
+        print(name, "=>", rdata)
+    Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
+              domain, stat["requests"], stat["answers"],
+              stat["nonterminals"], stat["nxdomains"])

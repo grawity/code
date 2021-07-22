@@ -41,14 +41,6 @@ except ImportError:
         trace  = staticmethod(lambda *args: _log(8, "trace", *args))
 # }}}
 
-stat = {
-    "requests": 0,
-    "answers": 0,
-    "nonterminals": 0,
-    "nxdomains": 0,
-    "baddelegations": 0,
-}
-
 def get_rdns_domains(addr):
     net = ipaddress.ip_network(addr)
     rev = net.reverse_pointer.split(".")
@@ -88,6 +80,7 @@ def fmt_domain(dom):
 
 def crawl_recursively(domain, card=16, fmt="%x", rtype="PTR",
                               maxdepth=-1, depth=0):
+    global stat
     depth = depth or len(domain.strip(".").split("."))
     childs = ["%s.%s" % (fmt % i, domain) for i in range(card)]
     Core.debug("querying %r at depth %d", domain, depth)
@@ -126,6 +119,7 @@ def crawl_recursively(domain, card=16, fmt="%x", rtype="PTR",
 
 def crawl_iteratively(domain, card=16, fmt="%x", rtype="PTR",
                               maxdepth=-1):
+    global stat
     Core.debug("crawling %r iteratively", domain)
     depth = len(domain.strip(".").split("."))
     queue = deque()
@@ -195,6 +189,13 @@ for arg in args.domain:
         domains.append((domain, params))
 
 for domain, params in domains:
+    stat = {
+        "requests": 0,
+        "answers": 0,
+        "nonterminals": 0,
+        "nxdomains": 0,
+        "baddelegations": 0,
+    }
     for name, rdata in crawl(domain, **params):
         print(fmt_domain(name), "=>", rdata)
     Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",

@@ -176,17 +176,13 @@ else:
     crawl = crawl_iteratively
 
 domains = []
-
 for arg in args.domain:
     if "/" in arg:
         tmp = [*get_rdns_domains(arg)]
     else:
         tmp = [arg]
-    Core.trace("initial zones: %r", tmp)
     for domain in tmp:
-        domain = domain.lower()
-        if not domain.endswith("."):
-            domain = "%s." % domain
+        domain = "%s." % domain.lower().rstrip(".")
         if domain.endswith(".e164.arpa."):
             params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
         elif domain.endswith(".ip6.arpa."):
@@ -199,10 +195,8 @@ for arg in args.domain:
         domains.append(domain)
 
 for domain in domains:
-    for node in crawl(domain, **params):
-        name, rdata = node
-        name = fmt_domain(name)
-        print(name, "=>", rdata)
+    for name, rdata in crawl(domain, **params):
+        print(fmt_domain(name), "=>", rdata)
     Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
               domain, stat["requests"], stat["answers"],
               stat["nonterminals"], stat["nxdomains"])

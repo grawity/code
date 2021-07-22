@@ -69,19 +69,15 @@ def crawl_recursively(domain, card=16, fmt="%x", rtype="PTR",
         answers = dns.resolver.query(domain, rtype)
     except dns.resolver.NoAnswer:
         if depth > maxdepth:
-            # Could be that the hostmaster accidentally added
-            # records with too many labels (e.g. the PTR record for
-            # 2001:778:0:20::192 has too many '0's in the middle),
-            # in this case we won't know how to descend further and
-            # will loop forever.
-            Core.trace("got NoAnswer for %r at terminal depth; continuing", domain)
-            stat["baddelegations"] += 1
-        else:
-            Core.trace("got NoAnswer for %r; descending", domain)
-            stat["nonterminals"] += 1
-            for child in childs:
-                yield from crawl_recursively(child, card, fmt, rtype,
-                                                    maxdepth, depth+1)
+            # Could be that the hostmaster accidentally added records with
+            # too many labels (e.g. the PTR records for 2001:778:0:20::19x
+            # have too many '0's in the middle). We now *can* handle those.
+            Core.notice("found non-terminal %r beyond expected depth", domain)
+        Core.trace("got NoAnswer for %r; descending", domain)
+        stat["nonterminals"] += 1
+        for child in childs:
+            yield from crawl_recursively(child, card, fmt, rtype,
+                                                maxdepth, depth+1)
     except dns.resolver.NXDOMAIN:
         Core.trace("got NXDOMAIN for %r; continuing", domain)
         stat["nxdomains"] += 1

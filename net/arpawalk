@@ -1,25 +1,45 @@
 #!/usr/bin/env python3
-# arpawalk -- nibble crawler for {e164,ip6,in-addr}.arpa
+# arpawalk -- search for Ents among the Trees in the deep Forest of Arpanet
+#
+# Crawls {e164,ip6,in-addr}.arpa searching for empty non-terminals (ENTs),
+# allowing rapid enumeration of IPv6 hosts through rDNS.
 #
 # This is the same method as described here:
-#
 # http://web.archive.org/web/20120905125325/http://7bits.nl/blog/2012/03/26/finding-v6-hosts-by-efficiently-mapping-ip6-arpa
 
 import argparse
+from collections import deque
 import dns.name
 import dns.resolver
 import dns.reversename
 import ipaddress
-from nullroute.core import Core
 import sys
 
-stat = {
-    "requests": 0,
-    "answers": 0,
-    "nonterminals": 0,
-    "nxdomains": 0,
-    "baddelegations": 0,
-}
+# {{{
+try:
+    from nullroute.core import Core
+except ImportError:
+    import os
+
+    try:
+        _MAX_LOG = 6 + max(0, int(os.environ.get("DEBUG", 0)))
+    except ValueError:
+        _MAX_LOG = 7
+
+    def _log(level, prefix, msg, *args):
+        if args:
+            msg = msg % args
+        if level <= _MAX_LOG:
+            print("%s: %s" % (prefix, msg), file=sys.stderr)
+
+    class Core:
+        err    = staticmethod(lambda *args: _log(3, "error", *args))
+        warn   = staticmethod(lambda *args: _log(4, "warning", *args))
+        notice = staticmethod(lambda *args: _log(5, "notice", *args))
+        info   = staticmethod(lambda *args: _log(6, "info", *args))
+        debug  = staticmethod(lambda *args: _log(7, "debug", *args))
+        trace  = staticmethod(lambda *args: _log(8, "trace", *args))
+# }}}
 
 def get_rdns_domains(addr):
     net = ipaddress.ip_network(addr)
@@ -58,134 +78,122 @@ def fmt_domain(dom):
         dom = dns.reversename.to_address(dom)
     return dom
 
-def crawl_zone_recursively(zone, card=16, fmt="%x", rtype="PTR",
-                                 maxdepth=-1, depth=0):
-    Core.debug("(%d) >> crawling zone %r recursively", depth, zone)
-    if not depth:
-        depth = len(zone.strip(".").split("."))
-
-    if depth > maxdepth:
-        domains = [zone]
-        Core.trace(" - domain already at max length; using as-is")
+def crawl_recursively(domain, card=16, fmt="%x", rtype="PTR",
+                              maxdepth=-1, depth=0):
+    global stat
+    depth = depth or len(domain.strip(".").split("."))
+    childs = ["%s.%s" % (fmt % i, domain) for i in range(card)]
+    Core.debug("querying %r at depth %d", domain, depth)
+    stat["requests"] += 1
+    try:
+        answers = dns.resolver.query(domain, rtype)
+    except dns.resolver.NoAnswer:
+        if depth > maxdepth:
+            # Hostmaster accidentally added records with too many labels
+            Core.notice("found non-terminal %r beyond expected depth", domain)
+        Core.trace("got NoAnswer for %r; descending", domain)
+        stat["nonterminals"] += 1
+        for child in childs:
+            yield from crawl_recursively(child, card, fmt, rtype,
+                                                maxdepth, depth+1)
+    except dns.resolver.NXDOMAIN:
+        Core.trace("got NXDOMAIN for %r; continuing", domain)
+        stat["nxdomains"] += 1
+    except dns.resolver.NoNameservers:
+        Core.warn("got SERVFAIL for %r; returning and continuing", domain)
+        stat["baddelegations"] += 1
+        yield (domain, None)
     else:
-        domains = ["%s.%s" % (fmt % i, zone) for i in range(card)]
-        Core.trace(" - domain below max length; expanding to %d subdomains", len(domains))
+        if depth < maxdepth:
+            Core.trace("got answer for %r; returning and descending", domain)
+        else:
+            Core.trace("got answer for %r; assuming terminal and returning", domain)
+        stat["answers"] += 1
+        yield from [(domain, j) for j in answers]
+        if depth < maxdepth:
+            for child in childs:
+                yield from crawl_recursively(child, card, fmt, rtype,
+                                                    maxdepth, depth+1)
 
-    for domain in domains:
+def crawl_iteratively(domain, card=16, fmt="%x", rtype="PTR",
+                              maxdepth=-1):
+    global stat
+    Core.debug("crawling %r iteratively", domain)
+    depth = len(domain.strip(".").split("."))
+    queue = deque()
+    queue += [(depth, domain)]
+    while queue:
+        (depth, domain) = queue.popleft()
+        childs = ["%s.%s" % (fmt % i, domain) for i in range(card)]
+        childs = [(depth + 1, d) for d in childs]
+        Core.debug("querying %r at depth %d [%d more]", domain, depth, len(queue))
         stat["requests"] += 1
         try:
             answers = dns.resolver.query(domain, rtype)
         except dns.resolver.NoAnswer:
+            if depth > maxdepth:
+                # Hostmaster accidentally added records with too many labels
+                Core.notice("found non-terminal %r beyond expected depth", domain)
             Core.trace("got NoAnswer for %r; descending", domain)
             stat["nonterminals"] += 1
-            yield from crawl_zone_recursively(domain, card, fmt, rtype,
-                                                      maxdepth, depth+1)
+            queue += childs
         except dns.resolver.NXDOMAIN:
             Core.trace("got NXDOMAIN for %r; continuing", domain)
             stat["nxdomains"] += 1
-            continue
         except dns.resolver.NoNameservers:
             Core.warn("got SERVFAIL for %r; returning and continuing", domain)
             stat["baddelegations"] += 1
             yield (domain, None)
-            continue
         else:
             if depth < maxdepth:
                 Core.trace("got answer for %r; returning and descending", domain)
+                queue += childs
             else:
                 Core.trace("got answer for %r; assuming terminal and returning", domain)
             stat["answers"] += 1
             yield from [(domain, j) for j in answers]
-            if depth < maxdepth:
-                yield from crawl_zone_recursively(domain, card, fmt, rtype,
-                                                          maxdepth, depth+1)
-    Core.debug("(%d) << leaving %r", depth, zone)
-
-def crawl_zone_iteratively(zone, card=16, fmt="%x", rtype="PTR",
-                                 maxdepth=-1, depth=0):
-    Core.debug("crawling zone %r iteratively", zone)
-    if not depth:
-        depth = len(zone.strip(".").split("."))
-
-    queue = [zone]
-    while queue:
-        Core.debug("processing queue [%d items] at depth %d", len(queue), depth)
-        next = []
-        for suffix in queue:
-            Core.debug("processing suffix %r", suffix)
-            if depth > maxdepth:
-                domains = [suffix]
-                Core.trace(" - domain already at max length; using as-is")
-            else:
-                domains = ["%s.%s" % (fmt % i, suffix) for i in range(card)]
-                Core.trace(" - domain below max length; expanding to %d subdomains", len(domains))
-
-            for domain in domains:
-                stat["requests"] += 1
-                try:
-                    answers = dns.resolver.query(domain, rtype)
-                except dns.resolver.NoAnswer:
-                    Core.trace("got NoAnswer for %r; descending", domain)
-                    stat["nonterminals"] += 1
-                    next.append(domain)
-                except dns.resolver.NXDOMAIN:
-                    Core.trace("got NXDOMAIN for %r; continuing", domain)
-                    stat["nxdomains"] += 1
-                    continue
-                except dns.resolver.NoNameservers:
-                    Core.warn("got SERVFAIL for %r; returning and continuing", domain)
-                    stat["baddelegations"] += 1
-                    yield (domain, None)
-                    continue
-                else:
-                    if depth < maxdepth:
-                        next.append(domain)
-                        Core.trace("got answer for %r; returning and descending", domain)
-                    else:
-                        Core.trace("got answer for %r; assuming terminal and returning", domain)
-                    stat["answers"] += 1
-                    yield from [(domain, j) for j in answers]
-        queue = next
-        depth += 1
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-r", dest="recursive", action="store_true")
-ap.add_argument("zone", nargs="+")
+ap.add_argument("-r", "--recursive", action="store_true",
+                                     help="use recursive crawl instead of iterative")
+ap.add_argument("domain", nargs="+",
+                          help="IP prefix (CIDR format) or .arpa domain to crawl")
 args = ap.parse_args()
 
 if args.recursive:
-    crawl_zone = crawl_zone_recursively
+    crawl = crawl_recursively
 else:
-    crawl_zone = crawl_zone_iteratively
+    crawl = crawl_iteratively
 
-for arg in args.zone:
+domains = []
+for arg in args.domain:
     if "/" in arg:
         tmp = [*get_rdns_domains(arg)]
     else:
         tmp = [arg]
-    Core.trace("initial zones: %r", tmp)
-    for zone in tmp:
-        zone = zone.lower()
-        if not zone.endswith("."):
-            zone = "%s." % zone
-
-        if zone.endswith(".e164.arpa."):
+    for domain in tmp:
+        domain = "%s." % domain.lower().rstrip(".")
+        if domain.endswith(".e164.arpa."):
             params = dict(card=10, fmt="%d", rtype="NAPTR", maxdepth=13)
-        elif zone.endswith(".ip6.arpa."):
+        elif domain.endswith(".ip6.arpa."):
             params = dict(card=16, fmt="%x", rtype="PTR", maxdepth=33)
-        elif zone.endswith(".in-addr.arpa."):
+        elif domain.endswith(".in-addr.arpa."):
             params = dict(card=256, fmt="%d", rtype="PTR", maxdepth=5)
         else:
-            Core.err("unrecognized zone %r", zone)
-            continue
+            Core.err("unrecognized domain %r", domain)
+            exit(1)
+        domains.append((domain, params))
 
-        for node in crawl_zone(zone, **params):
-            name, rdata = node
-            name = fmt_domain(name)
-            print(name, "=>", rdata)
-
-        Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
-                  zone, stat["requests"], stat["answers"],
-                  stat["nonterminals"], stat["nxdomains"])
-
-Core.fini()
+for domain, params in domains:
+    stat = {
+        "requests": 0,
+        "answers": 0,
+        "nonterminals": 0,
+        "nxdomains": 0,
+        "baddelegations": 0,
+    }
+    for name, rdata in crawl(domain, **params):
+        print(fmt_domain(name), "=>", rdata)
+    Core.info("crawled %r in %d requests (%d pos, %d mid, %d neg)",
+              domain, stat["requests"], stat["answers"],
+              stat["nonterminals"], stat["nxdomains"])

@@ -32,11 +32,19 @@ teardown_vlan() {
 	sudo ip link del vlan2
 }
 
-case $HOSTNAME in
-	ember|wind) echo "[40;92mDirect IPMI access.[m";;
-	star|land) echo "[40;93mNo direct access.[m Connect to ember/wind via gw-b56."; exit 3;;
-	*) echo "[40;91mNo access from this system.[m Connect to star/land first."; exit 3;;
-esac
+if [[ $HOSTNAME == @(ember|wind) ]]; then
+	if [[ ${SSH_CONNECTION%% *} == @(193.219.181.195|2001:778:e27f::56) ]]; then
+		echo "[40;92mDirect IPMI access.[m"
+	else
+		echo "[40;93mWarning: Dependent connection.[m Connect via gw-b56-bypass instead."
+	fi
+elif [[ $HOSTNAME == @(star|land) ]]; then
+	echo "[40;93mNo direct access.[m Connect to ember/wind via gw-b56."
+	exit 3
+else
+	echo "[40;91mNo access from this system.[m Connect to star/land first."
+	exit 3
+fi
 
 trap teardown_vlan SIGINT
 setup_vlan

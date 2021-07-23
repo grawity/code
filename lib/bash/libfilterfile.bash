@@ -5,7 +5,7 @@
 
 filter_file() {
 	local -- func=${1:-false} dfmt=''
-	local -- line='' cond='' dp=''
+	local -- line='' cond=''
 	local -i nr=0 depth=0
 	local -ai stack=(1) elif=() else=()
 	debug "use FILTERDEBUG=1 to see the final result"
@@ -18,11 +18,6 @@ filter_file() {
 		[invis]='\e[91m -\e[;2m'
 	)
 	while IFS='' read -r line; do
-		printf -v dp '%-3d:%*s' $((++nr)) $((depth*2)) ''
-		if [[ $line == '#'* ]]; then
-			trace "${dp}${line%% *}... ($depth:[${stack[*]}])"
-		fi
-
 		if [[ $line == '#if '* ]]; then
 			if (( stack[depth++] )) && $func "${line#* }"; then
 				stack[depth]=1
@@ -83,12 +78,8 @@ filter_file() {
 		else
 			dfmt=invis
 		fi
-
 		if (( FILTERDEBUG )); then
 			printf "${dfmts[$dfmt]} %s\e[m\n" "$line" >&2
-		fi
-		if [[ $line == '#'* ]]; then
-			trace "${dp}${line%% *} => $depth:[${stack[*]}]"
 		fi
 	done
 	if (( depth )); then

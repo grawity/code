@@ -85,7 +85,6 @@ migrate_opt nullroute.git-new.{args,paths}
 
 opts=$(git config --get-all nullroute.git-new.options || true)
 paths=$(git config --get-all nullroute.git-new.paths || true)
-mark=$(git config --bool nullroute.git-new.last-read || true)
 
 if [[ -t 1 ]] && which tig >/dev/null 2>&1; then
 	cmd='tig'
@@ -103,12 +102,4 @@ if [[ $ref != HEAD ]]; then
 	fi
 fi
 
-if [[ $mark == true ]]; then
-	git-update-last-read -i .
-fi
-
 exec $cmd $opts "^$ref@{1}" "$ref" "${@:2}" -- $paths
-
-if [[ $mark == true ]]; then
-	git-update-last-read -e .
-fi

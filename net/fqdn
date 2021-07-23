@@ -31,7 +31,9 @@ sub getfqdn {
 			warn "fqdn: trying to resolve '$fqdn'\n" if $v;
 			my ($err, @res) = getaddrinfo($fqdn, undef, $hints);
 			if (@res && !$err) {
-				# we don't want rDNS here, so no canonname
+				# Return $fqdn instead of canonname, because in
+				# this case it is not our goal to chase CNAMEs,
+				# only to discover the correct domain suffix.
 				return $fqdn;
 			}
 		}

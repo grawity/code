@@ -81,7 +81,6 @@ $(OBJ)/gettime:		LDLIBS += -lrt
 $(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
-$(OBJ)/codeset:		misc/codeset.c
 $(OBJ)/hex:		misc/hex.c
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/k5userok:	kerberos/k5userok.c

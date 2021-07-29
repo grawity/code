@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
 			pid = atoi(optarg);
 			break;
 		default:
-			errx(2, "bad usage");
+			return 2;
 		}
 	}
 

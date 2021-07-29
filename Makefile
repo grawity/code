@@ -24,7 +24,7 @@ $(dummy): $(OBJ)/config-krb5.h
 # compile targets
 
 BASIC_BINS := args gettime mkpasswd natsort natxsort pause spawn unescape
-BASIC_BINS += ac-wait entropy hex unhex proctool strtool subreaper xor xors xorf
+BASIC_BINS += ac-wait entropy hex unhex proctool strtool xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
 LINUX_BINS := globalenv libfunsync.so libflstat.so peekvc showsigmask statx tapchown
@@ -98,7 +98,6 @@ $(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
 $(OBJ)/statx:		thirdparty/statx.c
 $(OBJ)/strtool:		misc/strtool.c
-$(OBJ)/subreaper:	system/subreaper.c
 $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/unescape:	misc/unescape.c
 $(OBJ)/unhex:		misc/unhex.c

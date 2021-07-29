@@ -86,19 +86,19 @@ void printpidmasks(int pid) {
 
 int main(int argc, char *argv[]) {
 	int opt, pid = -1;
-	char *hex = NULL;
+	char *arg = NULL;
 
-	while ((opt = getopt(argc, argv, "p:x:")) != -1) {
+	while ((opt = getopt(argc, argv, "a:p:")) != -1) {
 		switch (opt) {
-		case 'p':
-			if (pid != -1 || hex)
-				errx(2, "-p or -x already specified");
-			pid = atoi(optarg);
+		case 'a':
+			if (pid != -1 || arg)
+				errx(2, "-a or -p already specified");
+			arg = optarg;
 			break;
-		case 'x':
-			if (pid != -1 || hex)
-				errx(2, "-p or -x already specified");
-			hex = optarg;
+		case 'p':
+			if (pid != -1 || arg)
+				errx(2, "-a or -p already specified");
+			pid = atoi(optarg);
 			break;
 		default:
 			errx(2, "bad usage");
@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
 
 	if (argc > 1)
 		errx(2, "too many arguments");
-	else if (hex)
-		printmask("arg", hex);
+	else if (arg)
+		printmask("arg", arg);
 	else
 		printpidmasks(pid);
 

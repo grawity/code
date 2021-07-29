@@ -6,13 +6,17 @@
 #include <stdlib.h>
 #include <unistd.h> /* getopt */
 
+#if 0
 extern const char *const sys_sigabbrev[NSIG];
+
+#define sigabbrev_np(sig) sys_sigabbrev[sig]
+#endif
 
 const char * strsigabbrev(int sig) {
 	static char rt_sigabbrev[NSIG][12];
 
-	if (sys_sigabbrev[sig])
-		return sys_sigabbrev[sig];
+	if (sigabbrev_np(sig))
+		return sigabbrev_np(sig);
 	else if (sig == SIGRTMIN)
 		return "RTMIN";
 	else if (sig == SIGRTMAX)

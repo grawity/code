@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 #include <fcntl.h> /* AT_* */
+#include <syslog.h>
 
 /* Additional hack to hide '.git' directory */
 
@@ -50,6 +51,8 @@ int __lxstat(int ver, const char *pathname, struct stat *statbuf) {
 	static int (*__real_lxstat)(int, const char *, struct stat *);
 	int result = -1;
 
+	syslog(LOG_DEBUG, "intercepted __lxstat('%s')", pathname);
+
 	if (!__real_lxstat)
 		__real_lxstat = dlsym(RTLD_NEXT, "__lxstat");
 
@@ -65,6 +68,8 @@ int __lxstat(int ver, const char *pathname, struct stat *statbuf) {
 int __lxstat64(int ver, const char *pathname, struct stat64 *stat64buf) {
 	static int (*__real_lxstat64)(int, const char *, struct stat64 *);
 	int result = -1;
+
+	syslog(LOG_DEBUG, "intercepted __lxstat64('%s')", pathname);
 
 	if (!__real_lxstat64)
 		__real_lxstat64 = dlsym(RTLD_NEXT, "__lxstat64");
@@ -84,6 +89,8 @@ int fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags) {
 	static int (*real_fstatat)(int, const char *, struct stat *, int);
 	int result = -1;
 
+	syslog(LOG_DEBUG, "intercepted fstatat('%s')", pathname);
+
 	if (!real_fstatat)
 		real_fstatat = dlsym(RTLD_NEXT, "fstatat");
 
@@ -102,6 +109,8 @@ int fstatat(int dirfd, const char *pathname, struct stat *statbuf, int flags) {
 int statx(int dirfd, const char *pathname, int flags, unsigned int mask, struct statx *statxbuf) {
 	static int (*real_statx)(int, const char *, int, unsigned int, struct statx*);
 	int result = -1;
+
+	syslog(LOG_DEBUG, "intercepted statx('%s')", pathname);
 
 	if (!real_statx)
 		real_statx = dlsym(RTLD_NEXT, "statx");

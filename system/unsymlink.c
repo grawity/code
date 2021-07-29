@@ -31,11 +31,13 @@
 #define HACKMODE(m)
 #endif
 
+/* Used by sftp-server */
 
-#if 0
 int lstat(const char *pathname, struct stat *statbuf) {
 	static int (*real_lstat)(const char *, struct stat *);
 	int result = -1;
+
+	syslog(LOG_DEBUG, "intercepted lstat('%s')", pathname);
 
 	if (!real_lstat)
 		real_lstat = dlsym(RTLD_NEXT, "lstat");
@@ -48,7 +50,6 @@ int lstat(const char *pathname, struct stat *statbuf) {
 	HACKMODE(statbuf->st_mode);
 	return result;
 }
-#endif
 
 /* Actual glibc lstat() implementations */
 

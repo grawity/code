@@ -29,13 +29,13 @@ const char * strsigabbrev(int sig) {
 		return "-";
 }
 
-void prsigs(char *k, char *v) {
+void printmask(char *label, char *hexstrmask) {
 	unsigned i, sig;
 	unsigned long long arg, bit;
 
-	arg = strtoul(v, NULL, 16);
+	arg = strtoul(hexstrmask, NULL, 16);
 
-	printf("%s: %016llx\n\n", k, arg);
+	printf("%s: %016llx\n\n", label, arg);
 
 	if (!arg)
 		printf("  (no signal bits set)\n");
@@ -52,10 +52,39 @@ void prsigs(char *k, char *v) {
 	printf("\n");
 }
 
-int main(int argc, char *argv[]) {
-	FILE *fp;
+void printpidmasks(int pid) {
 	char *path = "/proc/self/status";
 	char *k, *v;
+	FILE *fp;
+
+	if (pid >= 0) {
+		printf("showing signal masks for PID %d\n", pid);
+		asprintf(&path, "/proc/%d/status", pid);
+	} else {
+		printf("showing signal masks for current process (PID %d)\n", getpid());
+	}
+	printf("\n");
+
+	fp = fopen(path, "r");
+	if (!fp)
+		err(1, "could not open '%s'", path);
+
+	while (fscanf(fp, "%m[^:]: %m[^\n]\n", &k, &v) > 0) {
+		if (!strcmp(k, "SigBlk"))
+			printmask("blocked", v);
+		else if (!strcmp(k, "SigIgn"))
+			printmask("ignored", v);
+		else if (!strcmp(k, "SigCgt"))
+			printmask("caught", v);
+
+		free(k);
+		free(v);
+	}
+
+	fclose(fp);
+}
+
+int main(int argc, char *argv[]) {
 	int opt, pid = -1;
 
 	while ((opt = getopt(argc, argv, "p:")) != -1) {
@@ -75,29 +104,12 @@ int main(int argc, char *argv[]) {
 
 	if (argc > 1) {
 		int i = 0;
+
 		while (argv[++i])
-			prsigs("arg", argv[i]);
-		return 0;
+			printmask("arg", argv[i]);
+	} else {
+		printpidmasks(pid);
 	}
 
-	if (pid > 0)
-		asprintf(&path, "/proc/%d/status", pid);
-	fp = fopen(path, "r");
-	if (!fp)
-		err(1, "could not open '%s'", path);
-
-	while (fscanf(fp, "%m[^:]: %m[^\n]\n", &k, &v) > 0) {
-		if (!strcmp(k, "SigBlk"))
-			prsigs("blocked", v);
-		else if (!strcmp(k, "SigIgn"))
-			prsigs("ignored", v);
-		else if (!strcmp(k, "SigCgt"))
-			prsigs("caught", v);
-
-		free(k);
-		free(v);
-	}
-
-	fclose(fp);
 	return 0;
 }

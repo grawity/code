@@ -2,7 +2,7 @@
 
 int main(void) {
 	char c, d;
-	int ctr = 0;
+	int odd = 0;
 
 	for (;;) {
 		c = fgetc(stdin);
@@ -13,16 +13,16 @@ int main(void) {
 		else if (c >= 'A' && c <= 'F') c -= 'A' - 10;
 		else continue;
 
-		if (ctr)
+		if (odd)
 			fputc(d | c, stdout);
 		else
 			d = c << 4;
 
-		ctr = !ctr;
+		odd = !odd;
 	}
 
-	if (ctr)
+	if (odd)
 		fprintf(stderr, "unhex: odd number of input nibbles\n");
 
-	return ctr;
+	return odd;
 }

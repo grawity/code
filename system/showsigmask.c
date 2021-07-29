@@ -70,8 +70,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	argc -= optind;
-	argv += optind;
+	argc -= optind-1;
+	argv += optind-1;
 
 	if (argc > 1) {
 		int i = 0;

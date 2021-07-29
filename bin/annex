@@ -177,6 +177,19 @@ case $cmd in
         done
         echo "After:"; du -hsc "${files[@]}"
         ;;
+    minimize)
+        git diff --quiet || die "working tree is not clean"
+        h=$(git rev-parse --verify HEAD) || die "could not resolve HEAD"
+        m=$(git rev-parse --verify master) || die "could not resolve 'master'"
+        o=$(git rev-parse --verify origin/master) || die "could not resolve 'origin/master'"
+        [[ "$h" == "$m" ]] || die "something else than master is checked out"
+        [[ "$m" == "$o" ]] || die "local master branch is not up-to-date with origin"
+        confirm "minimize?" || exit
+        do: git symbolic-ref HEAD refs/heads/master
+        do: git update-ref -d refs/heads/master
+        do: git read-tree --empty
+        do: git clean -fdx
+        ;;
     want-get)
         git annex find --want-get --not --in .
         ;;

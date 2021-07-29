@@ -5,7 +5,12 @@
 #include <dlfcn.h>
 #include <sys/stat.h>
 #include <fcntl.h> /* AT_* */
+
+#if 0
 #include <syslog.h>
+#else
+#define syslog(...)
+#endif
 
 /* Additional hack to hide '.git' directory */
 

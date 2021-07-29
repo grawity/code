@@ -47,6 +47,10 @@ int lstat(const char *pathname, struct stat *statbuf) {
 
 /* Actual glibc lstat() implementations */
 
+extern int __xstat(int, const char *, struct stat *);
+
+extern int __xstat64(int, const char *, struct stat64 *);
+
 int __lxstat(int ver, const char *pathname, struct stat *statbuf) {
 	static int (*__real_lxstat)(int, const char *, struct stat *);
 	int result = -1;

@@ -48,10 +48,6 @@ emergency-su: $(OBJ)/emergency-su
 
 # libraries
 
-$(OBJ)/libdark.so:	CFLAGS += $(pkg-config x11 --cflags) -shared -fPIC
-$(OBJ)/libdark.so:	LDLIBS += $(pkg-config x11 --libs)
-$(OBJ)/libdark.so:	desktop/libdark.c
-
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	system/libfunsync.c
 

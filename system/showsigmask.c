@@ -84,6 +84,17 @@ void printpidmasks(int pid) {
 	fclose(fp);
 }
 
+static void usage() {
+	printf("Usage: %s [-a MASK] [-p PID]\n", "showsigmask");
+	printf("\n");
+	printf("Options:\n");
+	//      |-------|-------|-------|
+	printf("  -a MASK        interpret given mask value (in hexadecimal)\n");
+	printf("  -p PID         show signal masks for given process\n");
+	printf("\n");
+	printf("If neither -a nor -p specified, will show its own signal mask values.\n");
+}
+
 int main(int argc, char *argv[]) {
 	int opt, pid = -1;
 	char *arg = NULL;
@@ -101,6 +112,7 @@ int main(int argc, char *argv[]) {
 			pid = atoi(optarg);
 			break;
 		default:
+			usage();
 			return 2;
 		}
 	}

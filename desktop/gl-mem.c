@@ -35,14 +35,14 @@ int get_mem_MESA(void) {
 bool has_gl_extension(const char *name)
 {
 	bool r = epoxy_has_gl_extension(name);
-	printf("%c %s\n", r ? '+' : '-', name);
+	printf(" [%c] %s\n", r ? '+' : ' ', name);
 	return r;
 }
 
 bool has_glx_extension(Display *dpy, int screen, const char *name)
 {
 	bool r = epoxy_has_glx_extension(dpy, screen, name);
-	printf("%c %s\n", r ? '+' : '-', name);
+	printf(" [%c] %s\n", r ? '+' : ' ', name);
 	return r;
 }
 

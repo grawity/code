@@ -38,8 +38,7 @@ def hl_win32_name(item):
     return re.sub(r"(^(con|prn|aux|nul|com[1-9]|lpt[1-9])$|[. ]$|[?*<>|:\"\\\n])", hl(r"\1"), item, re.I)
 
 def hl_nonutf_name(item):
-    hl_surrogate = lambda s: "\033[41m\\x%02X\033[m" % (ord(s[0]) & 0xFF)
-    return re.sub(r"([\uDC80-\uDCFF])", hl_surrogate, item, re.I)
+    return re.sub(r"([\uDC80-\uDCFF])", lambda s: hl("\\x%02X" % (ord(s[0]) & 0xFF)), item, re.I)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--no-case", action="store_true")

@@ -37,6 +37,9 @@ borg_keep = [
 def is_older_than(path, age):
     return (time.time() - os.stat(path).st_mtime > age)
 
+def touch(path):
+    open(path, "r+").close()
+
 def do_borg(*,
             repo=None,
             base=None,

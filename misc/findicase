@@ -23,11 +23,22 @@ def bad_ucs2_name(item):
     else:
         return False
 
+def non_utf8_name(item):
+    # Python uses lone surrogates to represent such filenames
+    if re.search(r"[\uDC80-\uDCFF]", item):
+        return True
+    else:
+        return False
+
 def hl(item):
     return "\033[41m%s\033[m" % item
 
 def hl_win32_name(item):
     return re.sub(r"(^(con|prn|aux|nul|com[1-9]|lpt[1-9])$|[. ]$|[?*<>|:\"\\\n])", hl(r"\1"), item, re.I)
+
+def hl_nonutf_name(item):
+    hl_surrogate = lambda s: "\033[41m\\x%02X\033[m" % (ord(s[0]) & 0xFF)
+    return re.sub(r"([\uDC80-\uDCFF])", hl_surrogate, item, re.I)
 
 roots = sys.argv[1:] or ["."]
 bad = 0
@@ -36,6 +47,7 @@ for root in roots:
     seen = defaultdict(set)
     badwin = set()
     baducs = set()
+    nonutf = set()
     total = 0
 
     print_status(root)
@@ -51,6 +63,8 @@ for root in roots:
                 badwin.add(path)
             if bad_ucs2_name(item):
                 baducs.add(path)
+            if non_utf8_name(item):
+                nonutf.add(path)
             total += 1
 
     print_status()
@@ -72,6 +86,12 @@ for root in roots:
         print("Names incompatible with Dropbox:")
         for path in sorted(baducs):
             print("  %r" % path)
+            bad += 1
+
+    if nonutf:
+        print("Names incompatible with UTF-8:")
+        for path in sorted(nonutf):
+            print("  %s" % hl_nonutf_name(path))
             bad += 1
 
     print("Scanned %s items with %s unique paths" % (total, len(seen)))

@@ -70,7 +70,7 @@ def do_borg(*,
             "--pty",
             "--collect"]
     if sudo:
-        wrap += [f"--description=borg backup task for {user}/root"
+        wrap += [f"--description=borg backup task for {user}/root",
                  f"--property=WorkingDirectory={base}",
                  "--"]
     else:
@@ -78,7 +78,7 @@ def do_borg(*,
         setenv = [f"--setenv={e}={v}"
                   for e in ["KRB5CCNAME", "SSH_AUTH_SOCK"]
                   if (v := os.environ.get(e))]
-        wrap += [f"--description=borg backup task for {user}"
+        wrap += [f"--description=borg backup task for {user}",
                  f"--property=WorkingDirectory={base}",
                  f"--property=AmbientCapabilities=cap_dac_read_search",
                  f"--uid={user}",

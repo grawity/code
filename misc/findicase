@@ -42,6 +42,7 @@ def hl_nonutf_name(item):
     return re.sub(r"([\uDC80-\uDCFF])", hl_surrogate, item, re.I)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-C", "--no-case", action="store_true")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
@@ -74,12 +75,13 @@ for root in roots:
 
     print_status()
 
-    for cfpath in sorted(seen):
-        if len(seen[cfpath]) > 1:
-            print("Colliding paths:")
-            for ogpath in sorted(seen[cfpath]):
-                print("  %s" % ogpath)
-            bad += 1
+    if not args.no_case:
+        for cfpath in sorted(seen):
+            if len(seen[cfpath]) > 1:
+                print("Colliding paths:")
+                for ogpath in sorted(seen[cfpath]):
+                    print("  %s" % ogpath)
+                bad += 1
 
     if badwin:
         print("Names incompatible with Windows:")

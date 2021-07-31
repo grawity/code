@@ -41,7 +41,8 @@ def hl_nonutf_name(item):
     return re.sub(r"([\uDC80-\uDCFF])", lambda s: hl("\\x%02X" % (ord(s[0]) & 0xFF)), item, re.I)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-C", "--no-case", action="store_true")
+parser.add_argument("-C", "--ignore-case", action="store_true", help="ignore case collisions")
+parser.add_argument("-B", "--ignore-bmp", action="store_true", help="ignore non-BMP names")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
@@ -74,7 +75,7 @@ for root in roots:
 
     print_status()
 
-    if not args.no_case:
+    if not args.ignore_case:
         for cfpath in sorted(seen):
             if len(seen[cfpath]) > 1:
                 print("Colliding paths:")
@@ -88,7 +89,7 @@ for root in roots:
             print("  %s" % hl_win32_name(path))
             bad += 1
 
-    if baducs:
+    if baducs and not args.ignore_bmp:
         print("Names incompatible with Dropbox:")
         for path in sorted(baducs):
             print("  %r" % path)

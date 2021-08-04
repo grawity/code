@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-from argparse import ArgumentParser
+import argparse
 import bs4
-from nullroute.core import *
+from nullroute.core import Core
 from nullroute.misc import escape_html, filter_filename, set_file_attr
 from nullroute.scrape import Scraper
 from pprint import pprint
-import sys
 
 class LiteroticaScraper(Scraper):
     def scrape_story_page(self, page_url):
@@ -142,19 +141,18 @@ class LiteroticaScraper(Scraper):
             for also_url, also_title in data["also_series"]:
                 self.save_story(also_url)
 
-ap = ArgumentParser()
-#ap.add_argument("-s", "--series",
-#                dest="series", action="store_true", default=False,
-#                help="download all related stories in the series")
-ap.add_argument("-S", "--no-series",
-                dest="series", action="store_false", default=True,
-                help="only download given story, not the entire series")
-ap.add_argument("--name-author",
-                dest="author", action="store_true", default=False,
-                help="include author in filename")
-ap.add_argument("url", nargs="*")
-
-opts = ap.parse_args()
+parser = argparse.ArgumentParser()
+#parser.add_argument("-s", "--series",
+#                    dest="series", action="store_true", default=False,
+#                    help="download all related stories in the series")
+parser.add_argument("-S", "--no-series",
+                    dest="series", action="store_false", default=True,
+                    help="only download given story, not the entire series")
+parser.add_argument("--name-author",
+                    dest="author", action="store_true", default=False,
+                    help="include author in filename")
+parser.add_argument("url", nargs="*")
+opts = parser.parse_args()
 
 foo = LiteroticaScraper()
 for url in opts.url:

@@ -1,3 +1,4 @@
+import hashlib
 import os
 import time
 
@@ -95,7 +96,6 @@ def digest_files(paths, digest="sha1"):
                     in proc.stdout]}
 
 def hash_file(path, digest="sha1"):
-    import hashlib
     h = getattr(hashlib, digest)()
     with open(path, "rb") as fh:
         buf = True

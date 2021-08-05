@@ -6,9 +6,8 @@
 #include <stdlib.h>
 #include <unistd.h> /* getopt */
 
-#if 0
+#if !defined(HAVE_SIGABBREV_NP)
 extern const char *const sys_sigabbrev[NSIG];
-
 #define sigabbrev_np(sig) sys_sigabbrev[sig]
 #endif
 

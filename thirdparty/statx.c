@@ -42,6 +42,28 @@ ssize_t statx(int dfd, const char *filename, unsigned flags,
 }
 #endif
 
+static char *attr_name[64] = {
+	[2] = "compressed",
+	[4] = "immutable",
+	[5] = "append",
+	[6] = "nodump",
+	[11] = "encrypted",
+	[12] = "automount",
+	[13] = "mount_root",
+	[20] = "fsverity",
+};
+
+static char attr_flag[64] = {
+	[2] = 'c', /* compressed */
+	[4] = 'i', /* immutable */
+	[5] = 'a', /* append-only */
+	[6] = 'd', /* no-dump */
+	[11] = 'e', /* encrypted */
+	[12] = 'm', /* automount */
+	[13] = 'r', /* mount-root */
+	[20] = 'v', /* fs-verity */
+};
+
 static void print_time(const char *field, struct statx_timestamp *ts)
 {
 	struct tm tm;
@@ -144,17 +166,6 @@ static void dump_statx(struct statx *stx)
 
 	/* Print supported attributes in short format */
 	if (stx->stx_attributes_mask) {
-		static char attr_flag[64] = {
-			[2] = 'c', /* compressed */
-			[4] = 'i', /* immutable */
-			[5] = 'a', /* append-only */
-			[6] = 'd', /* no-dump */
-			[11] = 'e', /* encrypted */
-			[12] = 'm', /* automount */
-			[13] = 'r', /* mount-root */
-			[20] = 'v', /* fs-verity */
-		};
-
 		printf("Attributes: 0x%016llx (", (unsigned long long)stx->stx_attributes);
 		for (int bit = 0; bit < 64; bit++) {
 			unsigned long long mbit = 1ULL << bit;
@@ -169,16 +180,6 @@ static void dump_statx(struct statx *stx)
 
 	/* Print in verbose format */
 	if (stx->stx_attributes_mask) {
-		static char *attr_name[64] = {
-			[2] = "compressed",
-			[4] = "immutable",
-			[5] = "append",
-			[6] = "nodump",
-			[11] = "encrypted",
-			[12] = "automount",
-			[13] = "mount_root",
-			[20] = "fsverity",
-		};
 		int count = 0;
 
 		printf("Attributes");

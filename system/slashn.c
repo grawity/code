@@ -2,7 +2,7 @@
 src = $(MAKEFILE_LIST)
 app = $(basename $(src))
 
-$(app): CFLAGS = $(shell pkg-config --cflags fuse3) -Wall
+$(app): CFLAGS = $(shell pkg-config --cflags fuse3) -Wall -D_FILE_OFFSET_BITS=64
 $(app): LDLIBS = $(shell pkg-config --libs fuse3)
 $(app): $(src)
 

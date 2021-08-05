@@ -15,6 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <time.h>
 #include <sys/syscall.h>
@@ -224,34 +225,38 @@ int main(int argc, char **argv)
 
 	unsigned int mask = STATX_ALL;
 
-	for (argv++; *argv; argv++) {
-		if (strcmp(*argv, "-F") == 0) {
+	int opt;
+	while ((opt = getopt(argc, argv, "FDLOAR")) != -1) {
+		switch (opt) {
+		case 'F':
 			atflag &= ~AT_STATX_SYNC_TYPE;
 			atflag |= AT_STATX_FORCE_SYNC;
-			continue;
-		}
-		if (strcmp(*argv, "-D") == 0) {
+			break;
+		case 'D':
 			atflag &= ~AT_STATX_SYNC_TYPE;
 			atflag |= AT_STATX_DONT_SYNC;
-			continue;
-		}
-		if (strcmp(*argv, "-L") == 0) {
+			break;
+		case 'L':
 			atflag &= ~AT_SYMLINK_NOFOLLOW;
-			continue;
-		}
-		if (strcmp(*argv, "-O") == 0) {
+			break;
+		case 'O':
 			mask &= ~STATX_BASIC_STATS;
-			continue;
-		}
-		if (strcmp(*argv, "-A") == 0) {
+			break;
+		case 'A':
 			atflag |= AT_NO_AUTOMOUNT;
-			continue;
-		}
-		if (strcmp(*argv, "-R") == 0) {
+			break;
+		case 'R':
 			raw = 1;
-			continue;
+			break;
+		default:
+			errx(2, "Usage: statx [-F | -D] [-A] [-L] [-O] [-R] <path>...");
 		}
+	}
 
+	argc -= optind-1;
+	argv += optind-1;
+
+	for (argv++; *argv; argv++) {
 		memset(&stx, 0xbf, sizeof(stx));
 		ret = statx(AT_FDCWD, *argv, atflag, mask, &stx);
 		printf("statx(%s) = %d\n", *argv, ret);

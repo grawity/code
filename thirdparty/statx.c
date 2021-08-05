@@ -159,6 +159,8 @@ static void dump_statx(struct statx *stx)
 			unsigned long long mbit = 1ULL << bit;
 			if (stx->stx_attributes_mask & mbit) {
 				putchar((stx->stx_attributes & mbit) ? (attr_flag[bit] ?: '?') : '-');
+			} else {
+				putchar('.');
 			}
 		}
 		printf(")\n");

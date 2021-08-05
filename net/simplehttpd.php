@@ -111,7 +111,7 @@ $config->index_files = array("index.html", "index.htm");
 $config->hide_dotfiles = true;
 
 $config->listen_addr = "any";
-$config->listen_port = null;
+$config->listen_port = 80;
 
 $config->force_af = null;
 $config->use_af = AF_INET;

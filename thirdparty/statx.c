@@ -259,15 +259,10 @@ int main(int argc, char **argv)
 	for (argv++; *argv; argv++) {
 		memset(&stx, 0xbf, sizeof(stx));
 		ret = statx(AT_FDCWD, *argv, atflag, mask, &stx);
-		printf("statx(%s) = %d\n", *argv, ret);
-		if (ret < 0) {
-			perror(*argv);
-			exit(1);
-		}
-
+		if (ret < 0)
+			err(1, "could not stat '%s'", *argv);
 		if (raw)
 			dump_hex((unsigned long long *)&stx, 0, sizeof(stx));
-
 		dump_statx(&stx);
 	}
 	return 0;

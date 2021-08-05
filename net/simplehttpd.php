@@ -145,6 +145,11 @@ foreach ($options as $opt => $value) switch ($opt) {
 		exit();
 }
 
+if ($config->listen_port <= 0 || $config->listen_port > 0xFFFF) {
+	fwrite(STDERR, "Error: invalid listen port\n");
+	exit(1);
+}
+
 # determine real docroot
 $config->docroot = realpath($config->docroot);
 

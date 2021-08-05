@@ -199,7 +199,11 @@ function listen() {
 	#TODO# retval?
 
 	#socket_set_option($listener, SOL_SOCKET, SO_REUSEADDR, 1);
-	socket_bind($listener, $config->listen_addr, $config->listen_port);
+	$r = socket_bind($listener, $config->listen_addr, $config->listen_port);
+	if (!$r) {
+		fwrite(STDERR, "Error: binding to socket failed\n");
+		exit(1);
+	}
 	socket_listen($listener, 2);
 	#TODO# retval?
 

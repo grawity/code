@@ -21,20 +21,17 @@
 #include <sys/types.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
-#define statx foo
-#define statx_timestamp foo_timestamp
 #include <sys/stat.h>
-#undef statx
-#undef statx_timestamp
-
-#define AT_STATX_SYNC_TYPE	0x6000
-#define AT_STATX_SYNC_AS_STAT	0x0000
-#define AT_STATX_FORCE_SYNC	0x2000
-#define AT_STATX_DONT_SYNC	0x4000
 
 #ifndef __NR_statx
-#define __NR_statx -1
+#  define __NR_statx -1
 #endif
+
+#ifndef AT_STATX_SYNC_TYPE
+#  define AT_STATX_SYNC_TYPE	0x6000
+#  define AT_STATX_SYNC_AS_STAT	0x0000
+#  define AT_STATX_FORCE_SYNC	0x2000
+#  define AT_STATX_DONT_SYNC	0x4000
 
 static __attribute__((unused))
 ssize_t statx(int dfd, const char *filename, unsigned flags,
@@ -42,6 +39,7 @@ ssize_t statx(int dfd, const char *filename, unsigned flags,
 {
 	return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
 }
+#endif
 
 static void print_time(const char *field, struct statx_timestamp *ts)
 {

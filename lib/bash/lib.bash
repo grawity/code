@@ -269,6 +269,16 @@ confirm() {
 	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }
 
+lib::progress() {
+	local -i done=$1 total=$2 width=40
+	local -i fill=$(( width * done / total ))
+	local -i perc=$(( 100 * done / total ))
+	local lbar rbar
+	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
+	printf -v rbar '%*s' $(( width-fill )) ''
+	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
+}
+
 lib::backtrace() {
 	local -i i=${1:-1}
 	printf "%s[%s]: call stack:\n" "$progname" "$$"

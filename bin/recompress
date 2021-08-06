@@ -104,11 +104,16 @@ fi
 
 echo "Recompressing ${#infiles[@]} files at scale $scale%, quality $quality% ($nproc jobs)"
 
+show_progress() {
+	local -i done=$1 total=$2
+	printf '[%s/%s done]\r' "$done" "$total"
+}
+
 for iname in "${infiles[@]}"; do
-	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
 		wait -n; (( --njobs )); (( ++ndone ))
-		printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+		show_progress "$ndone" "${#infiles[@]}"
 	done
 	oname=${iname%.*}.conv.jpg
 	{
@@ -119,11 +124,11 @@ for iname in "${infiles[@]}"; do
 	} & (( ++njobs ))
 	outfiles+=("$oname")
 	outmap["$oname"]=$iname
-	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	show_progress "$ndone" "${#infiles[@]}"
 done
 while (( njobs )); do
 	wait -n; (( --njobs )); (( ++ndone ))
-	printf '[%s/%s done]\r' "$ndone" "${#infiles[@]}"
+	show_progress "$ndone" "${#infiles[@]}"
 done
 printf '\n'
 

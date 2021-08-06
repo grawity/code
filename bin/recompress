@@ -112,8 +112,15 @@ show_progress() {
 	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
 	printf -v rbar '%*s' $(( width-fill )) ''
 	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
+	printf '\e]9;4;%d;%d\e\\' 1 "$perc"
 }
 
+clear_progress() {
+	printf '\n'
+	printf '\e]9;4;%d;%d\e\\' 0 0
+}
+
+trap 'clear_progress' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
@@ -135,7 +142,8 @@ while (( njobs )); do
 	wait -n; (( --njobs )); (( ++ndone ))
 	show_progress "$ndone" "${#infiles[@]}"
 done
-printf '\n'
+clear_progress
+trap - EXIT
 
 outsmaller=()
 outlarger=()

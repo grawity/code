@@ -102,6 +102,7 @@ int main(argc, argv)
 	 * positional arguments, and FUSE only expects one (the mount point).
 	 */
 	if (argc > 1 && strcmp(argv[1], "none") == 0) {
+		argv[1] = argv[0];
 		argc--;
 		argv++;
 	}

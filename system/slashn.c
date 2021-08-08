@@ -98,6 +98,14 @@ int main(argc, argv)
 	int argc;
 	char *argv[];
 {
+	/* From fstab (none /n fuse.slashn), we are invoked with *two*
+	 * positional arguments, and FUSE only expects one (the mount point).
+	 */
+	if (argc > 1 && strcmp(argv[1], "none") == 0) {
+		argc--;
+		argv++;
+	}
+
 	return fuse_main(argc, argv, &slashn_ops, NULL);
 }
 

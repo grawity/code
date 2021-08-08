@@ -1,6 +1,9 @@
 CRYPT_LDLIBS := -lcrypt
 DL_LDLIBS := -ldl
-KRB_LDLIBS := -lkrb5 -lcom_err
+#KRB_LDLIBS := -lkrb5 -lcom_err
+
+KRB_CFLAGS = $(shell krb5-config --cflags)
+KRB_LDLIBS = $(shell krb5-config --libs)
 
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX

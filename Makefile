@@ -78,6 +78,7 @@ $(OBJ)/gettime:		misc/gettime.c
 $(OBJ)/globalenv:	LDLIBS += -lkeyutils
 $(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/hex:		misc/hex.c
+$(OBJ)/k5userok:	CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/k5userok:	kerberos/k5userok.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
@@ -86,6 +87,7 @@ $(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 $(OBJ)/natxsort:	thirdparty/natsort.c $(OBJ)/strnatxcmp.o
 $(OBJ)/peekvc:		thirdparty/peekvc.c
+$(OBJ)/pklist:		CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c

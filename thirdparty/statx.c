@@ -34,6 +34,42 @@
 #  define AT_STATX_FORCE_SYNC	0x2000
 #  define AT_STATX_DONT_SYNC	0x4000
 
+#if 0
+#define STATX_MNT_ID 0x00001000U
+
+struct statx_timestamp {
+	__s64 tv_sec;
+	__u32 tv_nsec;
+	__s32 __reserved;
+};
+
+struct statx {
+	__u32 stx_mask;
+	__u32 stx_blksize;
+	__u64 stx_attributes;
+	__u32 stx_nlink;
+	__u32 stx_uid;
+	__u32 stx_gid;
+	__u16 stx_mode;
+	__u16 __spare0[1];
+	__u64 stx_ino;
+	__u64 stx_size;
+	__u64 stx_blocks;
+	__u64 stx_attributes_mask;
+	struct statx_timestamp stx_atime;
+	struct statx_timestamp stx_btime;
+	struct statx_timestamp stx_ctime;
+	struct statx_timestamp stx_mtime;
+	__u32 stx_rdev_major;
+	__u32 stx_rdev_minor;
+	__u32 stx_dev_major;
+	__u32 stx_dev_minor;
+	__u64 stx_mnt_id;
+	__u64 __spare2;
+	__u64 __spare3[12];
+};
+#endif
+
 static __attribute__((unused))
 ssize_t statx(int dfd, const char *filename, unsigned flags,
 	      unsigned int mask, struct statx *buffer)
@@ -122,6 +158,8 @@ static void dump_statx(struct statx *stx)
 
 	sprintf(buffer, "%02x:%02x", stx->stx_dev_major, stx->stx_dev_minor);
 	printf("Device: %-15s", buffer);
+	if (stx->stx_mask & STATX_MNT_ID)
+		printf(" Mount: 0x%-9llx", (unsigned long long) stx->stx_mnt_id);
 	if (stx->stx_mask & STATX_INO)
 		printf(" Inode: %-11llu", (unsigned long long) stx->stx_ino);
 	if (stx->stx_mask & STATX_NLINK)

@@ -95,7 +95,7 @@ $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
 $(OBJ)/showsigmask:	CFLAGS += -I$(OBJ)
 $(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
-$(OBJ)/statx:		thirdparty/statx.c
+$(OBJ)/statx:		system/statx.c
 $(OBJ)/strtool:		misc/strtool.c
 $(OBJ)/tapchown:	net/tapchown.c
 $(OBJ)/unescape:	misc/unescape.c

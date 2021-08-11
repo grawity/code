@@ -94,7 +94,7 @@ def do_borg(*,
 
     if ":" in repo:
         host, _, path = repo.partition(":")
-        cmd = [*wrap, "ssh", host, f"grep '^id =' '{repo}/config'"]
+        cmd = [*wrap, "ssh", host, f"grep '^id =' '{path}/config'"]
     else:
         cmd = [*wrap, "sh", "-c", f"grep '^id =' '{repo}/config'"]
     res = subprocess.run(cmd, stdout=subprocess.PIPE, check=True)

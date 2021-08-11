@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include "config.h"
 #include <err.h>
 #include <signal.h> /* NSIG */
 #include <stdio.h>

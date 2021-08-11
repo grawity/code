@@ -92,6 +92,7 @@ $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/pklist:		kerberos/pklist.c
 $(OBJ)/pause:		system/pause.c
 $(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
+$(OBJ)/showsigmask:	CFLAGS += -I$(OBJ)
 $(OBJ)/showsigmask:	system/showsigmask.c
 $(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
 $(OBJ)/statx:		thirdparty/statx.c

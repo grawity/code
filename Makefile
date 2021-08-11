@@ -63,8 +63,6 @@ $(OBJ)/libwcwidth.so:	thirdparty/wcwidth.c
 
 $(OBJ)/misc_util.o:	misc/util.c misc/util.h
 $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
-$(OBJ)/strnatxcmp.o:	CFLAGS += -DNATSORT_HEX
-$(OBJ)/strnatxcmp.o:	thirdparty/strnatcmp.c
 
 # executables
 
@@ -85,7 +83,6 @@ $(OBJ)/logwipe:		thirdparty/logwipe.c
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	security/mkpasswd.c
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
-$(OBJ)/natxsort:	thirdparty/natsort.c $(OBJ)/strnatxcmp.o
 $(OBJ)/peekvc:		thirdparty/peekvc.c
 $(OBJ)/pklist:		CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)

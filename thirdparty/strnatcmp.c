@@ -41,11 +41,7 @@
 static inline int
 nat_isdigit(nat_char a)
 {
-#ifdef NATSORT_HEX
-     return isxdigit((unsigned char) a);
-#else
      return isdigit((unsigned char) a);
-#endif
 }
 
 

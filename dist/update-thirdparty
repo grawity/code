@@ -5,7 +5,13 @@ list="$dir/update.txt"
 grep '^[^#]' "$list" | while read -r file url mode; do
 	echo "$url → $file"
 	path="$dir/$file"
-	curl -s -S -f -L "$url" -o "$path"
+	case $url in
+		/afs/*)
+			#url="https://lost-contact.mit.edu$url" ;;&
+			scp "wind:$url" "$path" ;;
+		http://*|https://*)
+			curl -s -S -f -L "$url" -o "$path" ;;
+	esac
 	if [[ $mode ]]; then
 		chmod "$mode" "$path"
 	fi

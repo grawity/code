@@ -27,7 +27,7 @@ borg_args = [
 borg_keep = [
     "--keep-daily", str(7),
     "--keep-weekly", str(8),
-    "--keep-monthly", str(12 * 5), # 5 years
+    "--keep-monthly", str(12 * 3), # 3 years
     "--keep-yearly", str(10),
 ]
 

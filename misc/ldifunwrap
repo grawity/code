@@ -1,5 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # unwrap LDIF files
+import argparse
 import base64
 import sys
 
@@ -16,10 +17,11 @@ def xprint(buf, decode=False):
         buf = "%s: %s" % (k, v)
     print(buf)
 
-opts = {"decode": False}
-for arg in sys.argv[1:]:
-    if arg == "-d":
-        opts["decode"] = True
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--decode", action="store_true",
+                    help="Base64-decode fields that are valid UTF-8")
+args = parser.parse_args()
+opts = {"decode": args.decode}
 
 buf = ""
 for line in sys.stdin:

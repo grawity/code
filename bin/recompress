@@ -17,6 +17,24 @@ usage() {
 	echo_opt "-j <nproc>" "Number of parallel conversions (default $nproc)"
 }
 
+# Print out a progress bar, and set the ConEmu taskbar progress.
+show_progress() {
+	local -i done=$1 total=$2 width=40
+	local -i fill=$(( width * done / total ))
+	local -i perc=$(( 100 * done / total ))
+	local lbar rbar
+	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
+	printf -v rbar '%*s' $(( width-fill )) ''
+	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
+	printf '\e]9;4;%d;%d\e\\' 1 "$perc"
+}
+
+# Finalize the progress bar, go to next line, and clear the ConEmu progress.
+clear_progress() {
+	printf '\n'
+	printf '\e]9;4;%d;%d\e\\' 0 0
+}
+
 if ! have magick; then
 	# ImageMagick 6.x or older
 	magick() { "/usr/bin/$@"; }
@@ -103,22 +121,6 @@ if (( nproc < 1 || nproc > $(nproc)*4 )); then
 fi
 
 echo "Recompressing ${#infiles[@]} files at scale $scale%, quality $quality% ($nproc jobs)"
-
-show_progress() {
-	local -i done=$1 total=$2 width=40
-	local -i fill=$(( width * done / total ))
-	local -i perc=$(( 100 * done / total ))
-	local lbar rbar
-	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
-	printf -v rbar '%*s' $(( width-fill )) ''
-	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
-	printf '\e]9;4;%d;%d\e\\' 1 "$perc"
-}
-
-clear_progress() {
-	printf '\n'
-	printf '\e]9;4;%d;%d\e\\' 0 0
-}
 
 trap 'clear_progress' EXIT
 for iname in "${infiles[@]}"; do

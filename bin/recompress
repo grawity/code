@@ -69,11 +69,6 @@ while getopts ":B:fj:L:q:s:O:T" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-if [[ $1 =~ ^[0-9]+% ]]; then
-	quality=${1%'%'}
-	shift
-fi
-
 if (( ! $# )); then
 	die 0 "no input files specified"
 fi
@@ -87,9 +82,10 @@ if [[ $minorigsize != 0 ]]; then
 		warn "minimum size of $minorigsize bytes looks too low, assuming this is kilobytes"
 		minorigsize=$(numfmt --from=iec "${minorigsize}K") || exit
 	fi
+	info "will skip files smaller than $(numfmt --to=iec "$minorigsize")B"
 fi
 
-for arg; do
+for arg in "$@"; do
 	if [[ ! -e $arg ]]; then
 		warn "input file '$arg' does not exist"
 	elif [[ $arg =~ \.conv\.[^.]+$ ]]; then

@@ -12,6 +12,9 @@ def tabdump():
         else:
             yield dict(zip(fields, values))
 
+def j(items):
+    return ", ".join(sorted(items))
+
 by_princ = defaultdict(set)
 
 for x in tabdump():
@@ -47,11 +50,11 @@ for name, etypes in by_princ.items():
         continue
 
     if not (GOOD_TYPES & etypes):
-        Core.warn("'\033[1m%s\033[m' has no new enctypes: only \033[1m%s\033[m", name, etypes)
+        Core.warn("'\033[1m%s\033[m' has no new enctypes: only \033[1m%s\033[m", name, j(etypes))
     elif missing := (GOOD_TYPES - etypes):
-        Core.notice("'\033[1m%s\033[m' is missing some new enctypes: has \033[1m%s\033[m, needs \033[1m%s\033[m", name, etypes, missing)
+        Core.notice("'\033[1m%s\033[m' is missing some new enctypes: has \033[1m%s\033[m, needs \033[1m%s\033[m", name, j(etypes), j(missing))
 
     if unwanted := (BAD_ETYPES & etypes):
-        Core.warn("'\033[1m%s\033[m' has some broken enctypes: \033[1;33m%s\033[m", name, unwanted)
+        Core.warn("'\033[1m%s\033[m' has some broken enctypes: \033[1;33m%s\033[m", name, j(unwanted))
     if unwanted := (OBS_ETYPES & etypes):
-        Core.info("'%s' has some deprecated enctypes: \033[1m%s\033[m", name, unwanted)
+        Core.info("'%s' has some deprecated enctypes: \033[1m%s\033[m", name, j(unwanted))

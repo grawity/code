@@ -52,6 +52,6 @@ for name, etypes in by_princ.items():
         Core.notice("'\033[1m%s\033[m' is missing some new enctypes: has \033[1m%s\033[m, needs \033[1m%s\033[m", name, etypes, missing)
 
     if unwanted := (BAD_ETYPES & etypes):
-        Core.warn("'\033[1m%s\033[m' has some broken enctypes: \033[1m%s\033[m in addition to %s", name, unwanted, etypes-unwanted)
-    elif unwanted := (OBS_ETYPES & etypes):
-        Core.info("'%s' has a mix of new and deprecated enctypes", name)
+        Core.warn("'\033[1m%s\033[m' has some broken enctypes: \033[1;33m%s\033[m", name, unwanted)
+    if unwanted := (OBS_ETYPES & etypes):
+        Core.info("'%s' has some deprecated enctypes: \033[1m%s\033[m", name, unwanted)

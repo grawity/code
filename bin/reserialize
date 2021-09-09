@@ -11,26 +11,39 @@ except ImportError:
     # avakar/pytoml - old (used by pip)
     import pytoml as toml
 
+try:
+    import bson
+except ImportError:
+    bson = None
+
 fh_loaders = {
+    "bson": lambda fh: next(bson.decode_file_iter(fh)),
+    "json": lambda fh: json.load(fh),
     "toml": lambda fh: toml.load(fh),
     "yaml": lambda fh: yaml.safe_load(fh),
-    "json": lambda fh: json.load(fh),
 }
+
 str_loaders = {
+    #"bson": lambda buf: bson.decode(buf),
+    "bson": lambda buf: bson.loads(buf),
+    "json": lambda buf: json.loads(buf),
     "toml": lambda buf: toml.loads(buf),
     "yaml": lambda buf: yaml.load(buf),
-    "json": lambda buf: json.loads(buf),
 }
 
 fh_dumpers = {
+    "bson": lambda arg, fh: fh.write(bson.encode(arg)),
     "toml": lambda arg, fh: toml.dump(arg, fh),
     "yaml": lambda arg, fh: yaml.dump(arg, stream=fh),
     "json": lambda arg, fh: json.dump(arg, fh),
 }
+
 str_dumpers = {
+    #"bson": lambda arg: bson.encode(arg),
+    "bson": lambda arg: bson.dumps(arg),
+    "json": lambda arg: json.dumps(arg),
     "toml": lambda arg: toml.dumps(arg),
     "yaml": lambda arg: yaml.dump(arg),
-    "json": lambda arg: json.dumps(arg),
 }
 
 arg0 = os.path.basename(sys.argv[0])

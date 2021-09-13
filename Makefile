@@ -23,7 +23,7 @@ $(dummy): $(OBJ)/config-krb5.h
 
 # compile targets
 
-BASIC_BINS := args gettime mkpasswd natsort natxsort pause spawn unescape
+BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape
 BASIC_BINS += ac-wait entropy hex unhex proctool strtool xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib

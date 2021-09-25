@@ -7,6 +7,9 @@ import time
 import urllib.parse
 import urllib.request
 
+# Specifications:
+#   - PKCE (https://datatracker.ietf.org/doc/html/rfc7636)
+
 # Special redirect URI that indicates manual copy-paste
 OOB_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
 
@@ -37,6 +40,7 @@ class OAuth2Client():
         self.authorization_url = authorization_url
         self.token_grant_url = token_grant_url
         self.redirect_uri = redirect_url or OOB_REDIRECT_URI
+        self.pkce_verifier = generate_verifier()
 
     def _discover_endpoints(self):
         if not self.discovery_url:
@@ -56,8 +60,11 @@ class OAuth2Client():
         params = {"client_id": self.client_id,
                   "response_type": "code",
                   "redirect_uri": self.redirect_uri,
-                  "scope": scope}
-        # # See OAUTH 5.1 for a definition of which characters need to be escaped
+                  "scope": scope,
+                  # Use PKCE to compensate for the client_secret not being secret.
+                  "code_challenge": generate_s256_challenge(self.pkce_verifier),
+                  "code_challenge_method": "S256"}
+        # See OAUTH 5.1 for a definition of which characters need to be escaped
         params = urllib.parse.urlencode(params,
                                         quote_via=urllib.parse.quote,
                                         safe="~-._")
@@ -81,6 +88,7 @@ class OAuth2Client():
     def grant_token_via_authorization(self, authorization_code):
         return self._grant_token({"grant_type": "authorization_code",
                                   "code": authorization_code,
+                                  "code_verifier": self.pkce_verifier,
                                   "redirect_uri": self.redirect_uri})
 
     def grant_token_via_refresh(self, refresh_token):

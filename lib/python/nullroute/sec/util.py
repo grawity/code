@@ -13,7 +13,7 @@ class TokenCache(object):
         self.display_name = display_name or domain
         self.user_name = user_name
         self.match_fields = {"xdg:schema": self.TOKEN_SCHEMA,
-                              "domain": self.domain}
+                             "domain": self.domain}
         if self.user_name:
             self.match_fields = {**self.match_fields,
                                  "username": self.user_name}
@@ -25,26 +25,10 @@ class TokenCache(object):
                                        "protocol": self.TOKEN_PROTO})
 
     def _load_token_libsecret(self):
-        if self.user_name:
-            try:
-                Core.trace("trying to load token from libsecret: %r", self.match_fields)
-                data = nullroute.sec.get_libsecret(self.match_fields)
-                Core.trace("loaded token: %r", data)
-                return json.loads(data)
-            except KeyError:
-                Core.debug("entry not found; retrying without username")
-                old_match_fields = {**self.match_fields}
-                del old_match_fields["username"]
-                data = nullroute.sec.get_libsecret(old_match_fields)
-                Core.debug("migrating entry to add username field")
-                nullroute.sec.clear_libsecret(old_match_fields)
-                self._store_token_libsecret(json.loads(data))
-                return json.loads(data)
-        else:
-            Core.trace("trying to load token from libsecret: %r", self.match_fields)
-            data = nullroute.sec.get_libsecret(self.match_fields)
-            Core.trace("loaded token: %r", data)
-            return json.loads(data)
+        Core.trace("trying to load token from libsecret: %r", self.match_fields)
+        data = nullroute.sec.get_libsecret(self.match_fields)
+        Core.trace("loaded token: %r", data)
+        return json.loads(data)
 
     def _clear_token_libsecret(self):
         nullroute.sec.clear_libsecret(self.match_fields)

@@ -1,5 +1,5 @@
 import json
-from nullroute.core import Core, Env
+from nullroute.core import Core
 import nullroute.sec
 import os
 
@@ -37,7 +37,6 @@ class TokenCache(object):
         self.domain = domain
         self.display_name = display_name or domain
         self.user_name = user_name
-        self.token_path = Env.find_cache_file("token_%s.json" % domain)
         self.match_fields = {"xdg:schema": self.TOKEN_SCHEMA,
                               "domain": self.domain}
         if self.user_name:
@@ -75,38 +74,13 @@ class TokenCache(object):
     def _clear_token_libsecret(self):
         nullroute.sec.clear_libsecret(self.match_fields)
 
-    def _store_token_file(self, data):
-        with open(self.token_path, "w") as fh:
-            os.chmod(fh.fileno(), 0o600)
-            json.dump(data, fh)
-
-    def _load_token_file(self):
-        Core.trace("trying to load token from file: %r", self.token_path)
-        with open(self.token_path, "r") as fh:
-            data = fh.read()
-        Core.trace("loaded token: %r", data)
-        return json.loads(data)
-
-    def _clear_token_file(self):
-        try:
-            os.unlink(self.token_path)
-        except FileNotFoundError:
-            pass
-
     def load_token(self):
         Core.debug("loading auth token for %r", self.domain)
         try:
             return self._load_token_libsecret()
         except KeyError:
-            Core.debug("not found in libsecret; trying filesystem")
-            try:
-                return self._load_token_file()
-            except FileNotFoundError:
-                pass
-            except Exception as e:
-                Core.debug("could not load %r: %r", self.token_path, e)
-                self.forget_token()
-        return None
+            Core.debug("not found in libsecret")
+            return None
 
     def store_token(self, data):
         Core.debug("storing auth token for %r", self.domain)
@@ -114,15 +88,10 @@ class TokenCache(object):
             self._store_token_libsecret(data)
         except Exception as e:
             Core.debug("could not access libsecret: %r", e)
-        try:
-            self._store_token_file(data)
-        except Exception as e:
-            Core.warn("could not write %r: %r", self.token_path, e)
 
     def forget_token(self):
         Core.debug("flushing auth tokens for %r", self.domain)
         self._clear_token_libsecret()
-        self._clear_token_file()
 
 class OAuthTokenCache(TokenCache):
     TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"

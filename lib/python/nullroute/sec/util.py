@@ -13,6 +13,7 @@ class TokenCache(object):
         self.display_name = display_name or domain
         self.user_name = user_name
         self.match_fields = {"xdg:schema": self.TOKEN_SCHEMA,
+                             "protocol": self.TOKEN_PROTO,
                              "domain": self.domain}
         if self.user_name:
             self.match_fields = {**self.match_fields,
@@ -21,8 +22,7 @@ class TokenCache(object):
     def _store_token_libsecret(self, data):
         nullroute.sec.store_libsecret(self.TOKEN_NAME % self.display_name,
                                       json.dumps(data),
-                                      {**self.match_fields,
-                                       "protocol": self.TOKEN_PROTO})
+                                      self.match_fields)
 
     def _load_token_libsecret(self):
         Core.trace("trying to load token from libsecret: %r", self.match_fields)

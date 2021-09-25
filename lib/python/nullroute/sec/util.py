@@ -19,24 +19,13 @@ class TokenCache(object):
             self.match_fields = {**self.match_fields,
                                  "username": self.user_name}
 
-    def _store_token_libsecret(self, data):
-        nullroute.sec.store_libsecret(self.TOKEN_NAME % self.display_name,
-                                      json.dumps(data),
-                                      self.match_fields)
-
-    def _load_token_libsecret(self):
-        Core.trace("trying to load token from libsecret: %r", self.match_fields)
-        data = nullroute.sec.get_libsecret(self.match_fields)
-        Core.trace("loaded token: %r", data)
-        return json.loads(data)
-
-    def _clear_token_libsecret(self):
-        nullroute.sec.clear_libsecret(self.match_fields)
-
     def load_token(self):
         Core.debug("loading auth token for %r", self.domain)
         try:
-            return self._load_token_libsecret()
+            Core.trace("trying to load token from libsecret: %r", self.match_fields)
+            data = nullroute.sec.get_libsecret(self.match_fields)
+            Core.trace("loaded token: %r", data)
+            return json.loads(data)
         except KeyError:
             Core.debug("not found in libsecret")
             return None
@@ -44,13 +33,15 @@ class TokenCache(object):
     def store_token(self, data):
         Core.debug("storing auth token for %r", self.domain)
         try:
-            self._store_token_libsecret(data)
+            nullroute.sec.store_libsecret(self.TOKEN_NAME % self.display_name,
+                                          json.dumps(data),
+                                          self.match_fields)
         except Exception as e:
             Core.debug("could not access libsecret: %r", e)
 
     def forget_token(self):
         Core.debug("flushing auth tokens for %r", self.domain)
-        self._clear_token_libsecret()
+        nullroute.sec.clear_libsecret(self.match_fields)
 
 class OAuthTokenCache(TokenCache):
     TOKEN_SCHEMA = "org.eu.nullroute.OAuthToken"

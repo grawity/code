@@ -145,7 +145,6 @@ def main(argv):
             test_smtp_auth(mechanism, response, args.quiet)
 
     elif args.authorization_code:
-        #require_args(args, "client-id", "client-secret")
         decline_args(args, "user", "access-token", "scope", "refresh-token")
 
         response = client.grant_token_via_authorization(args.authorization_code)
@@ -155,13 +154,12 @@ def main(argv):
         else:
             print(json.dumps(response))
         if args.store_keyring:
-            data = {"client_id": args.client_id,
-                    "client_secret": args.client_secret,
+            data = {"client_id": client.client_id,
+                    "client_secret": client.client_secret,
                     **response}
             token_cache.store_token(data)
 
     elif args.refresh_token:
-        #require_args(args, "client-id", "client-secret", "refresh-token")
         require_args(args, "refresh-token")
         decline_args(args, "user", "access-token", "scope", "authorization-code")
 
@@ -171,14 +169,13 @@ def main(argv):
         else:
             print(json.dumps(response))
         if args.store_keyring:
-            data = {"client_id": args.client_id,
-                    "client_secret": args.client_secret,
+            data = {"client_id": client.client_id,
+                    "client_secret": client.client_secret,
                     "refresh_token": args.refresh_token,
                     **response}
             token_cache.store_token(data)
 
     elif args.authorize:
-        #require_args(args, "client-id", "client-secret")
         decline_args(args, "access-token")
 
         url = client.make_authorization_url(args.scope or "https://mail.google.com/")
@@ -195,8 +192,8 @@ def main(argv):
         else:
             print(json.dumps(response))
         if args.store_keyring:
-            data = {"client_id": args.client_id,
-                    "client_secret": args.client_secret,
+            data = {"client_id": client.client_id,
+                    "client_secret": client.client_secret,
                     **response}
             token_cache.store_token(data)
 

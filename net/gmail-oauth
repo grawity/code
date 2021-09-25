@@ -84,7 +84,6 @@ def main(argv):
     group.add_argument("--client-id", help="client ID of the application")
     group.add_argument("--client-secret", help="client secret of the application")
     group.add_argument("--authorize", action="store_true", help="begin interactive authorization")
-    group.add_argument("--authorization-code", help="authorization code")
     group.add_argument("--refresh-token", help="OAuth2 refresh token")
     group.add_argument("--scope", help="scopes for the access token, space-separated")
     group.add_argument("--force-refresh", action="store_true", help="refresh access token regardless of expiry")
@@ -118,8 +117,7 @@ def main(argv):
 
     if (args.generate_sasl_response or args.test_imap or args.test_smtp):
         require_args(args, "user")
-        decline_args(args, "client-id", "client-secret", "scope",
-                           "refresh-token", "authorization-code")
+        decline_args(args, "client-id", "client-secret", "scope", "refresh-token")
 
         if args.access_token in {None, "keyring"}:
             data = token_cache.load_token()
@@ -144,24 +142,9 @@ def main(argv):
         elif args.test_smtp:
             test_smtp_auth(mechanism, response, args.quiet)
 
-    elif args.authorization_code:
-        decline_args(args, "user", "access-token", "scope", "refresh-token")
-
-        response = client.grant_token_via_authorization(args.authorization_code)
-        if args.quiet:
-            print(response["access_token"])
-            print(response["refresh_token"])
-        else:
-            print(json.dumps(response))
-        if args.store_keyring:
-            data = {"client_id": client.client_id,
-                    "client_secret": client.client_secret,
-                    **response}
-            token_cache.store_token(data)
-
     elif args.refresh_token:
         require_args(args, "refresh-token")
-        decline_args(args, "user", "access-token", "scope", "authorization-code")
+        decline_args(args, "user", "access-token", "scope")
 
         response = client.grant_token_via_refresh(args.refresh_token)
         if args.quiet:
@@ -198,7 +181,7 @@ def main(argv):
             token_cache.store_token(data)
 
     else:
-        decline_args(args, "access-token", "scope", "authorization-code")
+        decline_args(args, "access-token", "scope")
 
         data = token_cache.load_token()
         if not data:

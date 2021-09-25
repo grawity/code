@@ -1,7 +1,6 @@
 import json
 from nullroute.core import Core
 import nullroute.sec
-import os
 
 class TokenCache(object):
     TOKEN_SCHEMA = "org.eu.nullroute.BearerToken"

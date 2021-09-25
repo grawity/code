@@ -1,11 +1,28 @@
+import base64
+import hashlib
 import json
 from nullroute.core import Core
+import os
 import time
 import urllib.parse
 import urllib.request
 
 # Special redirect URI that indicates manual copy-paste
 OOB_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
+
+def generate_verifier(length=64):
+    if not (43 <= length <= 128):
+        raise ValueError("length out of bounds")
+    buf = os.urandom((length + 1) * 3 // 4)
+    buf = base64.urlsafe_b64encode(buf)
+    assert(len(buf) >= length)
+    return buf[:length].decode()
+
+def generate_s256_challenge(verifier):
+    buf = verifier.encode()
+    buf = hashlib.sha256(buf).digest()
+    buf = base64.urlsafe_b64encode(buf)
+    return buf.rstrip(b"=").decode()
 
 class OAuth2Client():
     def __init__(self, client_id,

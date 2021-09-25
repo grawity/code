@@ -4,18 +4,22 @@ import time
 import urllib.parse
 import urllib.request
 
+# Special redirect URI that indicates manual copy-paste
+OOB_REDIRECT_URI = "urn:ietf:wg:oauth:2.0:oob"
+
 class OAuth2Client():
     def __init__(self, client_id,
                        client_secret=None,
                        discovery_url=None,
                        authorization_url=None,
-                       token_grant_url=None):
+                       token_grant_url=None,
+                       redirect_url=None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.discovery_url = discovery_url
         self.authorization_url = authorization_url
         self.token_grant_url = token_grant_url
-        self.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+        self.redirect_uri = redirect_url or OOB_REDIRECT_URI
 
     def _discover_endpoints(self):
         if not self.discovery_url:

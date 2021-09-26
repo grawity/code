@@ -87,7 +87,8 @@ class OAuth2Client():
         request.add_header("Accept", "application/json")
         response = urllib.request.urlopen(request, post_data).read()
         response = json.loads(response)
-        response.setdefault("expires_at", int(time.time() + response["expires_in"]))
+        if exp := response.get("expires_in"):
+            response.setdefault("expires_at", int(time.time() + exp))
         return response
 
     def grant_token_via_authorization(self, authorization_code):

@@ -84,6 +84,7 @@ class OAuth2Client():
         if use_http_auth:
             request.add_header("Authorization", format_http_basic_auth(self.client_id,
                                                                        self.client_secret))
+        request.add_header("Accept", "application/json")
         response = urllib.request.urlopen(request, post_data).read()
         response = json.loads(response)
         response.setdefault("expires_at", int(time.time() + response["expires_in"]))

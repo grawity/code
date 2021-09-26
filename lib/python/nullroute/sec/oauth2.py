@@ -27,6 +27,11 @@ def generate_s256_challenge(verifier):
     buf = base64.urlsafe_b64encode(buf)
     return buf.rstrip(b"=").decode()
 
+def format_http_basic_auth(username, password):
+    buf = ("%s:%s" % (username, password)).encode()
+    buf = base64.b64encode(buf).decode()
+    return "Basic %s" % buf
+
 class OAuth2Client():
     def __init__(self, client_id,
                        client_secret=None,
@@ -70,17 +75,17 @@ class OAuth2Client():
                                         safe="~-._")
         return "%s?%s" % (self.authorization_url, params)
 
-    def _grant_token(self, params):
+    def _grant_token(self, post_data):
         if not self.token_grant_url:
             self._discover_endpoints()
         Core.debug("token grant URL: %r", self.token_grant_url)
-        post_data = {"client_id": self.client_id,
-                     "client_secret": self.client_secret,
-                     **params}
         Core.debug("request data: %r", post_data)
         post_data = urllib.parse.urlencode(post_data).encode()
         Core.debug("encoded data: %r", post_data)
-        response = urllib.request.urlopen(self.token_grant_url, post_data).read()
+        request = urllib.request.Request(self.token_grant_url)
+        request.add_header("Authorization", format_http_basic_auth(self.client_id,
+                                                                   self.client_secret))
+        response = urllib.request.urlopen(request, post_data).read()
         response = json.loads(response)
         response.setdefault("expires_at", int(time.time() + response["expires_in"]))
         return response

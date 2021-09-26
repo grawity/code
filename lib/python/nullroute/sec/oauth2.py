@@ -34,13 +34,13 @@ def format_http_basic_auth(username, password):
 class OAuth2Client():
     def __init__(self, client_id,
                        client_secret=None,
-                       discovery_domain=None,
+                       discovery_url=None,
                        authorization_url=None,
                        token_grant_url=None,
                        redirect_url=None):
         self.client_id = client_id
         self.client_secret = client_secret
-        self.discovery_domain = discovery_domain,
+        self.discovery_url = discovery_url,
         self.authorization_url = authorization_url
         self.token_grant_url = token_grant_url
         self.redirect_uri = redirect_url or OOB_REDIRECT_URI
@@ -48,9 +48,9 @@ class OAuth2Client():
 
     def _discover_endpoints(self):
         # OIDC-specific; implemented by Google (at "accounts.google.com") but not GitHub
-        if not self.discovery_domain:
+        if not self.discovery_url:
             raise ValueError("either discovery URL or endpoint URLs must be specified")
-        discovery_url = "https://%s/.well-known/openid-configuration" % self.discovery_domain
+        discovery_url = urllib.parse.urljoin(self.discovery_url, ".well-known/openid-configuration")
         response = urllib.request.urlopen(discovery_url).read()
         response = json.loads(response)
         if not self.authorization_url:

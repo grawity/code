@@ -1,7 +1,7 @@
 import io
 import struct
 
-class BinaryReader():
+class PacketReader():
     def __init__(self, fh):
         if isinstance(fh, bytes) or isinstance(fh, bytearray):
             fh = io.BytesIO(fh)
@@ -58,7 +58,7 @@ class BinaryReader():
     def read_u64_be(self):
         return self._read_fmt(8, ">Q")
 
-class SshBinaryReader(BinaryReader):
+class SshPacketReader(PacketReader):
     def read_bool(self):
         return self._read_fmt(1, "?")
 
@@ -80,7 +80,7 @@ class SshBinaryReader(BinaryReader):
         buf = self.read_string()
         return int.from_bytes(buf, byteorder="big", signed=False)
 
-class BinaryWriter():
+class PacketWriter():
     def __init__(self, fh=None):
         self.fh = fh or io.BytesIO()
 
@@ -129,7 +129,7 @@ class BinaryWriter():
     def write_u64_be(self, val):
         return self._write_fmt(">Q", val)
 
-class SshBinaryWriter(BinaryWriter):
+class SshPacketWriter(PacketWriter):
     def write_bool(self, val):
         return sef._write_fmt("?", val)
 

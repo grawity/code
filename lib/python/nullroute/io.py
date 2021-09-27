@@ -159,6 +159,10 @@ class DnsPacketReader(PacketReader):
                 # Normal label
                 buf = self.read(length)
                 labels.append(buf)
+            elif length & 0xC0 == 0x40:
+                # Extended label type (including bit-string labels)
+                elt = length & ~0xC0
+                raise IOError("extended label types are not supported")
             elif length & 0xC0 == 0xC0:
                 # Compressed label
                 ptr = (length & ~0xC0) << 8 | self.read_u8()

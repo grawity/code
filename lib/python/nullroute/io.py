@@ -167,6 +167,8 @@ class DnsPacketReader(PacketReader):
                 labels += self.read_domain()
                 self.seek(pos)
                 break
+            else:
+                raise IOError("unknown DNS label type %d" % ((length & 0xC0) >> 6))
         return labels
 
 class DnsPacketWriter(PacketWriter):

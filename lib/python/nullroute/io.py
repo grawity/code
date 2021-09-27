@@ -146,12 +146,35 @@ class SshPacketWriter(PacketWriter):
         string = b",".join(vec)
         return self.write_string(string)
 
+class DnsPacketReader(PacketReader):
+    def read_domain(self):
+        labels = []
+        while True:
+            length = self.read_u8()
+            if length == 0x00:
+                # End of name
+                labels.append(b"")
+                break
+            elif length & 0xC0 == 0x00:
+                # Normal label
+                buf = self.read(length)
+                labels.append(buf)
+            elif length & 0xC0 == 0xC0:
+                # Compressed label
+                ptr = (length & ~0xC0) << 8 | self.read_u8()
+                pos = self.tell()
+                self.seek(ptr)
+                labels += self.read_domain()
+                self.seek(pos)
+                break
+        return labels
+
 class DnsPacketWriter(PacketWriter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._suffixes = {}
 
-    def write_dns(self, domain):
+    def write_domain(self, domain):
         labels = domain.encode().lower().strip(b".").split(b".") + [b""]
         for i, label in enumerate(labels):
             suffix = b".".join(labels[i:]).lower()

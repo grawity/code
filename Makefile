@@ -111,7 +111,3 @@ $(OBJ)/gl-mem:		desktop/gl-mem.c
 
 $(OBJ)/emergency-su:	LDLIBS += $(CRYPT_LDLIBS) -static
 $(OBJ)/emergency-su:	security/emergency-su.c
-
-$(OBJ)/slashn:		CFLAGS += $(shell pkg-config --cflags fuse3) -D_FILE_OFFSET_BITS=64
-$(OBJ)/slashn:		LDLIBS += $(shell pkg-config --libs fuse3)
-$(OBJ)/slashn:		system/slashn.c

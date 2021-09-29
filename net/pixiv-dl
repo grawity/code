@@ -74,13 +74,6 @@ class PixivGrabber():
                 log.write("\n")
 
     def _save_work(self, work, only_pages=None):
-        assert(work.type in {"illust"})
-
-        # tentative .type=="manga"
-        if (work.type == "manga" or work.type == "ugoira") and not work.metadata:
-            Core.info("- refreshing metadata for work %s" % work.id)
-            work = self.api.get_illust_info(work.id)
-
         attrs = {
             "dublincore.title": work.title,
             "dublincore.creator": "%s_pixiv%s" % (work.user.name, work.user.id),
@@ -88,6 +81,8 @@ class PixivGrabber():
         }
 
         if work.type == "ugoira":
+            Core.die("XXX: work.type %r not yet fixed", work.type)
+            '''
             delays = [frame.delay_msec for frame in work.metadata.frames]
             n_delays = len({*delays})
             if n_delays > 1:
@@ -102,21 +97,26 @@ class PixivGrabber():
                     zip_file = "%s_%s.zip" % (work.id, size)
                 Core.info("- saving %r" % zip_file)
                 self.save_file(url, zip_file, attrs=attrs)
-        elif work.type == "manga":
-            Core.debug("- page whitelist %r" % only_pages)
-            for j, page in enumerate(work.metadata.pages):
-                # only_pages is 0-indexed, as are pages themselves,
-                # but UI will show 1-indexed numbers
-                if only_pages and j not in only_pages:
-                    Core.debug("- skipping page %s, not in whitelist" % (j+1))
-                    continue
-                Core.info("- saving %r (page %s of %s)",
-                          os.path.basename(page.image_urls["large"]),
-                          j+1, work.page_count)
-                self.save_file(page.image_urls["large"], attrs=attrs)
+            '''
+        elif work.type == "illust":
+            if work["page_count"] > 1:
+                Core.debug("- page whitelist %r" % only_pages)
+                for j, page in enumerate(work["meta_pages"]):
+                    # only_pages is 0-indexed, as are pages themselves,
+                    # but UI will show 1-indexed numbers
+                    if only_pages and j not in only_pages:
+                        Core.debug("- skipping page %s, not in whitelist" % (j+1))
+                        continue
+                    url = page["image_urls"]["original"]
+                    Core.info("- saving %r (page %s of %s)",
+                              os.path.basename(url),
+                              j+1, work.page_count)
+                    self.save_file(url, attrs=attrs)
+            else:
+                url = work["meta_single_page"]["original_image_url"]
+                self.save_file(url, attrs=attrs)
         else:
-            url = work["meta_single_page"]["original_image_url"]
-            self.save_file(url, attrs=attrs)
+            Core.die("BUG: unknown work.type %r", work.type)
 
         if self.write_log:
             self._append_to_log(work)

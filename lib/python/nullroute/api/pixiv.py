@@ -33,9 +33,7 @@ class PixivApiClient():
 
         self.tc = OAuthTokenCache("api.pixiv.net", display_name="Pixiv API")
 
-        self.api = pixivpy3.PixivAPI()
-        self.api.client_id = "MOBrBDS8blbauoSck0ZfDbtuzpyT"
-        self.api.client_secret = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
+        self.api = pixivpy3.AppPixivAPI()
         self.api.requests = self.ua
 
     def _load_token(self):
@@ -148,32 +146,22 @@ class PixivApiClient():
 
     @lru_cache(maxsize=1024)
     def get_illust_info(self, illust_id):
-        Core.trace("calling api.works(illust_id=%r)", illust_id)
-        resp = self.api.works(illust_id)
-        if resp["status"] == "success":
-            return resp["response"][0]
+        Core.trace("calling api.illust_detail(illust_id=%r)", illust_id)
+        resp = self.api.illust_detail(illust_id)
+        if err := resp.get("error"):
+            raise PixivApiError("API call failed: %r" % err)
         else:
-            self._check_token_error(resp)
-            raise PixivApiError("API call failed: %r" % resp)
+            return resp["illust"]
 
     @lru_cache(maxsize=1024)
     def get_member_info(self, member_id):
-        Core.trace("calling api.users(member_id=%r)", member_id)
-        resp = self.api.users(member_id)
-        if resp["status"] == "success":
-            return resp["response"][0]
+        Core.trace("calling api.user_detail(member_id=%r)", member_id)
+        resp = self.api.user_detail(member_id)
+        if err := resp.get("error"):
+            raise PixivApiError("API call failed: %r" % err)
         else:
-            self._check_token_error(resp)
-            raise PixivApiError("API call failed: %r" % resp)
-
-    def get_member_works(self, member_id, **kwargs):
-        resp = self.api.users_works(member_id, **kwargs)
-        if resp["status"] == "success":
-            # paginated API -- include {pagination:, count:}
-            return resp
-        else:
-            self._check_token_error(resp)
-            raise PixivApiError("API call failed: %r" % resp)
+            # deliberately discard resp["profile"], etc.
+            return resp["user"]
 
 import re
 

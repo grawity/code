@@ -74,7 +74,10 @@ class PixivGrabber():
                 log.write("\n")
 
     def _save_work(self, work, only_pages=None):
-        if (work.is_manga or work.type == "ugoira") and not work.metadata:
+        assert(work.type in {"illust"})
+
+        # tentative .type=="manga"
+        if (work.type == "manga" or work.type == "ugoira") and not work.metadata:
             Core.info("- refreshing metadata for work %s" % work.id)
             work = self.api.get_illust_info(work.id)
 
@@ -99,7 +102,7 @@ class PixivGrabber():
                     zip_file = "%s_%s.zip" % (work.id, size)
                 Core.info("- saving %r" % zip_file)
                 self.save_file(url, zip_file, attrs=attrs)
-        elif work.is_manga:
+        elif work.type == "manga":
             Core.debug("- page whitelist %r" % only_pages)
             for j, page in enumerate(work.metadata.pages):
                 # only_pages is 0-indexed, as are pages themselves,
@@ -112,7 +115,8 @@ class PixivGrabber():
                           j+1, work.page_count)
                 self.save_file(page.image_urls["large"], attrs=attrs)
         else:
-            self.save_file(work.image_urls["large"], attrs=attrs)
+            url = work["meta_single_page"]["original_image_url"]
+            self.save_file(url, attrs=attrs)
 
         if self.write_log:
             self._append_to_log(work)

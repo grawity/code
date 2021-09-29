@@ -60,7 +60,6 @@ class PixivApiClient():
 
     def _authenticate(self):
         if self.api.user_id:
-            Core.warn("BUG: _authenticate() called twice")
             return True
 
         data = self._load_token()
@@ -146,6 +145,7 @@ class PixivApiClient():
 
     @cache
     def get_illust_info(self, illust_id):
+        self._authenticate()
         Core.trace("calling api.illust_detail(illust_id=%r)", illust_id)
         resp = self.api.illust_detail(illust_id)
         if err := resp.get("error"):
@@ -155,6 +155,7 @@ class PixivApiClient():
 
     @cache
     def get_member_info(self, member_id):
+        self._authenticate()
         Core.trace("calling api.user_detail(member_id=%r)", member_id)
         resp = self.api.user_detail(member_id)
         if err := resp.get("error"):

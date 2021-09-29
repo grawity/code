@@ -84,29 +84,18 @@ class PixivApiClient():
                 self.api.refresh_token = data["refresh_token"]
                 return True
             else:
-                # TODO: on failure, retry 5 seconds
-                attempts = 5
-                while attempts > 0:
-                    try:
-                        token = self.api.auth(refresh_token=data["refresh_token"])
-                        Core.debug("refreshed access token: %r", token)
-                    except Exception as e:
-                        Core.err("could not refresh access token: %r", e)
-                        print(f"str(e) = {e}")
-                        print(f"e.args = {e.args!r}")
-                        #self._forget_token()
-                        attempts -= 1
-                        if attempts == 0:
-                            Core.notice("giving up")
-                            return False
-                        else:
-                            Core.notice("waiting 5 seconds before retrying")
-                            time.sleep(5)
-                            continue
-                    else:
-                        self._store_token(token)
-                        return True
-                    break
+                try:
+                    token = self.api.auth(refresh_token=data["refresh_token"])
+                    Core.debug("refreshed access token: %r", token)
+                except Exception as e:
+                    Core.err("could not refresh access token: %r", e)
+                    print(f"str(e) = {e}")
+                    print(f"e.args = {e.args!r}")
+                    #self._forget_token()
+                    return False
+                else:
+                    self._store_token(token)
+                    return True
 
         creds = nullroute.sec.get_netrc("api.pixiv.net", service="oauth")
         if creds:

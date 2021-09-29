@@ -57,9 +57,13 @@ class PixivApiClient():
         if self.api.user_id:
             return True
 
-        data = self._load_token()
-        if data:
+        refresh_token = None
+
+        if data := self._load_token():
             Core.trace("loaded token: %r", data)
+            refresh_token = data["refresh_token"]
+
+            # Is the access token still valid?
             exp = data.get("expires_at", 0)
             now = time.time()
             # Check whether it will still be valid during the entire script runtime,
@@ -77,40 +81,34 @@ class PixivApiClient():
             else:
                 Core.debug("access token has expired %.1f seconds ago, renewing", now-exp)
                 token_valid = False
-
             if token_valid:
                 self.api.user_id = data["user_id"]
                 self.api.access_token = data["access_token"]
                 self.api.refresh_token = data["refresh_token"]
                 return True
-            else:
-                try:
-                    token = self.api.auth(refresh_token=data["refresh_token"])
-                    Core.debug("refreshed access token: %r", token)
-                except Exception as e:
-                    Core.err("could not refresh access token: %r", e)
-                    print(f"str(e) = {e}")
-                    print(f"e.args = {e.args!r}")
-                    #self._forget_token()
-                    return False
-                else:
-                    self._store_token(token)
-                    return True
 
-        creds = nullroute.sec.get_netrc("api.pixiv.net", service="oauth")
-        if creds:
-            Core.debug("using refresh token from netrc: %r", creds)
-            try:
-                token = self.api.auth(refresh_token=data["password"])
-                Core.debug("acquired access token: %r", token)
-            except Exception as e:
-                Core.err("could not refresh access token: %r", e)
-            else:
-                self._store_token(token)
-                return True
+        if not refresh_token:
+            creds = nullroute.sec.get_netrc("api.pixiv.net", service="oauth")
+            if creds and creds["password"]:
+                Core.debug("using refresh token from netrc: %r", creds)
+                refresh_token = creds["password"]
 
-        Core.die("could not log in to Pixiv (no credentials)")
-        return False
+        if not refresh_token:
+            Core.die("could not log in to Pixiv -- no refresh token")
+            return False
+
+        try:
+            token = self.api.auth(refresh_token=refresh_token)
+            Core.debug("acquired access token: %r", token)
+        except Exception as e:
+            Core.die("could not acquire access token: %r", e)
+            print(f"str(e) = {e}")
+            print(f"e.args = {e.args!r}")
+            #self._forget_token()
+            return False
+        else:
+            self._store_token(token)
+            return True
 
     ## JSON API functions
 

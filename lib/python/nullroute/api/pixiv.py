@@ -40,13 +40,7 @@ class PixivApiClient():
         return self.tc.load_token()
 
     def _store_token(self, token):
-        data = {
-            "access_token": token.response.access_token,
-            "refresh_token": token.response.refresh_token,
-            "expires_at": int(time.time() + token.response.expires_in),
-            "user_id": token.response.user.id,
-        }
-        return self.tc.store_token(data)
+        return self.tc.store_token(token)
 
     def _forget_token(self, token):
         return self.tc.forget_token()
@@ -107,7 +101,11 @@ class PixivApiClient():
             #self._forget_token()
             return False
         else:
-            self._store_token(token)
+            data = {"access_token": token.response.access_token,
+                    "refresh_token": token.response.refresh_token,
+                    "expires_at": int(time.time() + token.response.expires_in),
+                    "user_id": token.response.user.id}
+            self._store_token(data)
             return True
 
     ## JSON API functions

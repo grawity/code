@@ -86,6 +86,9 @@ parser.add_argument("--legacy", "--old",
 parser.add_argument("--restricted-admin", "--ra",
                     action="store_true",
                     help="Restricted Admin mode - don't delegate any credentials")
+parser.add_argument("--workarea",
+                    action="store_true",
+                    help="fit display into the work area instead of full-screen")
 parser.add_argument("host")
 args = parser.parse_args()
 
@@ -101,6 +104,7 @@ else:
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn)
+#cmd.append("/cert:name:%s" % fqdn)
 
 cmd.append("/u:%s" % username)
 cmd.append("/p:%s" % password)
@@ -133,8 +137,12 @@ cmd.append("+clipboard")
 #cmd.append("/drive:media,/run/media/%s" % os.getlogin())
 #cmd.append("/smartcard")
 
-cmd.append("/f")
-cmd.append("+floatbar")
+if args.workarea:
+    cmd.append("/workarea")
+    cmd.append("-decorations")
+else:
+    cmd.append("/f")
+    cmd.append("+floatbar")
 
 print(cmd)
 subprocess.run(cmd)

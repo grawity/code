@@ -1,4 +1,4 @@
-from functools import lru_cache
+from functools import cache
 import json
 from nullroute.core import Core, Env
 import nullroute.sec
@@ -144,7 +144,7 @@ class PixivApiClient():
 
     ## JSON API functions
 
-    @lru_cache(maxsize=1024)
+    @cache
     def get_illust_info(self, illust_id):
         Core.trace("calling api.illust_detail(illust_id=%r)", illust_id)
         resp = self.api.illust_detail(illust_id)
@@ -153,7 +153,7 @@ class PixivApiClient():
         else:
             return resp["illust"]
 
-    @lru_cache(maxsize=1024)
+    @cache
     def get_member_info(self, member_id):
         Core.trace("calling api.user_detail(member_id=%r)", member_id)
         resp = self.api.user_detail(member_id)

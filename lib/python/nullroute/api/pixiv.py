@@ -123,19 +123,6 @@ class PixivApiClient():
         Core.die("could not log in to Pixiv (no credentials)")
         return False
 
-    def _check_token_error(self, resp):
-        try:
-            if resp["errors"]["system"]["message"] == "The access token provided is invalid.":
-                data = self._load_token()
-                Core.notice("currently had token: %r", data)
-                valid_for = data["expires_at"] - time.time()
-                if valid_for > 0:
-                    Core.notice("should be valid for %d more seconds", valid_for)
-                else:
-                    Core.notice("already expired %d seconds ago", -valid_for)
-        except KeyError:
-            pass
-
     ## JSON API functions
 
     @cache

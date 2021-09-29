@@ -100,7 +100,7 @@ else:
     cmd = ["xfreerdp"]
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
-cmd.append("/v:%s" % args.host)
+cmd.append("/v:%s" % fqdn)
 
 cmd.append("/u:%s" % username)
 cmd.append("/p:%s" % password)

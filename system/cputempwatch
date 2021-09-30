@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+import argparse
+import enum
+from glob import glob
+import os
+import subprocess
+import time
+
+class RollingAverage():
+    def __init__(self, depth=3):
+        assert(depth > 0)
+        self._depth = depth
+        self._hist = [0] * depth
+        self._roll = 0
+        self._count = 0
+
+    def add(self, value):
+        if self._count == 0:
+            self._hist = [value] * self._depth
+            self._roll = value * self._depth
+        else:
+            self._roll -= self._hist[self._count % self._depth]
+            self._hist[self._count % self._depth] = value
+            self._roll += value
+        self._count += 1
+
+    def get(self):
+        return self._roll / self._depth
+
+def read(path):
+    return open(path, "r").read().strip()
+
+def rsuffix(string, old, new):
+    if string.endswith(old):
+        return string[:-len(old)] + str(new)
+    return string
+
+def find_hwmon_by_name(name):
+    for dev in glob("/sys/class/hwmon/hwmon*"):
+        if os.path.exists("%s/name" % dev):
+            dev_name = read("%s/name" % dev)
+            if dev_name == "coretemp":
+                return dev
+    raise Exception("no %r hwmon device found" % name)
+
+def find_sensor():
+    dev = find_hwmon_by_name("coretemp")
+
+    subdev = None
+    subdev_pkg = None
+    subdev_cr0 = None
+    for path_label in glob("%s/temp*_label" % dev):
+        path_input = rsuffix(path_label, "_label", "_input")
+        label = read(path_label)
+        if label == "Package id 0":
+            subdev_pkg = path_input
+        elif label == "Core 0":
+            subdev_cr0 = path_input
+    if subdev_pkg:
+        subdev = subdev_pkg
+    elif subdev_cr0:
+        subdev = subdev_cr0
+    else:
+        raise Exception("no 'coretemp/Core 0' hwmon sensor found")
+
+    dev_name = read("%s/name" % dev)
+    subdev_name = read(rsuffix(subdev, "_input", "_label"))
+    print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name))
+
+    return subdev
+
+def do_something_about_it(command):
+    if command:
+        subprocess.run(command)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--max-temp", metavar="TEMP", type=int, default=78)
+args, rest_args = parser.parse_known_args()
+
+command = None
+if rest_args:
+    command = rest_args[:]
+    if command[0] == "--":
+        command.pop(0)
+
+subdev = find_sensor()
+interval = 1
+
+ravg = RollingAverage(3)
+acted = 0
+
+while True:
+    temp = read(subdev)
+    temp = int(temp) / 1000
+    ravg.add(temp)
+    print(f"\r\033[K{temp}°C (rolling average {ravg.get():.1f}°C)",
+          end="", flush=True)
+    if ravg.get() > args.max_temp:
+        if time.time() - acted > 60:
+            acted = time.time()
+            print("warning: average temp {temp}C over threshold", flush=True)
+            do_something_about_it(command)
+    time.sleep(interval)

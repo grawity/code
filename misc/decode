@@ -46,6 +46,7 @@ def decode_dhcp_client_id(buf):
         print("IAID:", fmt_hex(iaid))
         duid = br.fh.read()
         print("DUID:", fmt_hex(duid))
+        print("-- Decoding nested DUID --")
         decode_dhcpv6_duid(duid)
     else:
         print("Type:", "unknown (%d)" % type)
@@ -69,13 +70,13 @@ def decode_dhcpv6_duid(buf):
         lladdr = br.fh.read()
         print("Link-layer address:", fmt_hex(mac))
     elif type == 2:
-        print("Type:", "vendor-assigned (%d)" % type)
+        print("Type:", "vendor-assigned (DUID-EN) (%d)" % type)
         vendor = br.read_u32_be()
         print("Vendor:", "%s (%d)" % (lookup_iana_pen(vendor), vendor))
         rest = br.fh.read()
         print("Identifier:", fmt_hex(rest))
     elif type == 3:
-        print("Type:", "link-layer (%d)" % type)
+        print("Type:", "link-layer (DUID-LL) (%d)" % type)
         hwtype = br.read_u16_be()
         print("Hardware type:", "unknown (%d)" % hwtype)
         lladdr = br.fh.read()

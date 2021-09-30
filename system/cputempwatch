@@ -3,6 +3,7 @@ import argparse
 import enum
 from glob import glob
 import os
+import subprocess
 import time
 
 class RollingAverage():
@@ -68,8 +69,9 @@ def find_sensor():
 
     return subdev
 
-def do_something_about_it():
-    pass
+def do_something_about_it(command):
+    if command:
+        subprocess.run(command)
 
 parser = argparse.ArgumentParser()
 args, rest_args = parser.parse_known_args()
@@ -96,5 +98,5 @@ while True:
         if time.time() - acted > 60:
             acted = time.time()
             print("warning: average temp {temp}C over threshold", flush=True)
-            do_something_about_it()
+            do_something_about_it(command)
     time.sleep(interval)

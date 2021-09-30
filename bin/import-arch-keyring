@@ -24,9 +24,11 @@ for ring in $rings; do
 	gpg --no-auto-check-trustdb --recv-keys $revoked
 
 	log2 "locally signing master keys"
-	for k in $trusted; do
-		gpg --no-auto-check-trustdb --quick-lsign-key "$k"
-	done
+	if confirm "proceed with lsign-key?"; then
+		for k in $trusted; do
+			gpg --no-auto-check-trustdb --quick-lsign-key "$k"
+		done
+	fi
 
 	log2 "setting master keys to marginal trust"
 	for k in $trusted; do

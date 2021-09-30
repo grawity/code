@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+import argparse
+from getpass import getpass
+import gi
+gi.require_version("Secret", "1")
+from gi.repository import GLib
+from gi.repository import Secret
+from nullroute.core import Core
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-u", "--username", required=True)
+parser.add_argument("-t", "--protocol", default="rdp")
+parser.add_argument("host")
+args = parser.parse_args()
+
+target = args.host
+username = args.username
+password = getpass("Password for '%s' on '%s': " % (username, target))
+
+#if "\\" in username:
+#    domain, username = username.split("\\", 1)
+
+label = "rdp: Password for '%s' on '%s'" % (username, target)
+attrs = {"xdg:schema": "org.gnome.keyring.NetworkPassword",
+         "protocol": args.protocol,
+         "username": username,
+         #"domain": domain,
+         "server": target}
+
+ok = Secret.password_store_sync(None,
+                                attrs,
+                                None,
+                                label,
+                                password,
+                                None)
+
+if ok:
+    print("Saved.")
+else:
+    exit("Failed!")

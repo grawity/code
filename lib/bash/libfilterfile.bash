@@ -4,11 +4,9 @@
 . lib.bash || exit
 
 filter_file() {
-	local -- func=${1:-false} dfmt=''
-	local -- line='' cond=''
+	local -- func=${1:-false} dfmt='' line='' cond=''
 	local -i nr=0 depth=0
 	local -ai stack=(1) elif=() else=()
-	debug "use FILTERDEBUG=1 to see the final result"
 	local -A dfmts=(
 		[err]='\e[30;41m!!'
 		[warn]='\e[93m??\e[;93m'
@@ -17,6 +15,7 @@ filter_file() {
 		[vis]='\e[92m +\e[m'
 		[invis]='\e[91m -\e[;2m'
 	)
+	debug "use FILTERDEBUG=1 to see the final result"
 	while IFS='' read -r line; do
 		if [[ $line == '#if '* ]]; then
 			if (( stack[depth++] )) && $func "${line#* }"; then

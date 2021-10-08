@@ -305,7 +305,11 @@ do_print:
 				$fmt{label} .= " "x2;
 
 				$str{label} .= $svname;
-				$svname =~ s|/([^.]+)\.|/$COLORS{bold}$1$COLORS{reset}.|;
+				if ($svname =~ /\/([^\/]+)(\.\Q$svrealm\E)$/i) {
+					$svname =~ s//\/$COLORS{bold}$1$COLORS{reset}$COLORS{dark}$2$COLORS{reset}/;
+				} elsif ($svname =~ /\/([^.\/]+)\./) {
+					$svname =~ s//\/$COLORS{bold}$1$COLORS{reset}./;
+				}
 				$fmt{label} .= $svname;
 
 				if ($tkt->{client_name} ne $defprinc) {

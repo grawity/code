@@ -41,7 +41,14 @@ sub joinhost {
 sub get_fqdn_from_suffix {
 	my ($host, $suffixes, $v) = @_;
 
-	for my $suffix (@$suffixes, "") {
+	my @suffixes = @$suffixes;
+
+	# Make sure we can find names which already are qualified.
+	# (But don't do so for non-qualified names, to avoid the delay
+	# caused by mDNS/LLMNR lookups.)
+	push @suffixes, "." if $host =~ /\./;
+
+	for my $suffix (@suffixes) {
 		my $fqdn = joinhost($host, $suffix);
 		warn "fqdn: trying to resolve '$fqdn'\n" if $v;
 		my $hints = {flags => AI_CANONNAME};

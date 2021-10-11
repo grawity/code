@@ -59,8 +59,9 @@ sub get_fqdn_from_suffix {
 			# only to discover the correct domain suffix.
 			return $fqdn;
 		}
+		warn "fqdn: lookup of '$fqdn' failed: $err\n" if $v;
 	}
-	warn "fqdn: lookup of '$host' ran out of suffixes\n" if $v;
+	warn "fqdn: could not find '$host' with specified suffixes\n";
 	return $host;
 }
 
@@ -69,9 +70,10 @@ sub get_fqdn_from_cnames {
 
 	my $hints = {flags => AI_CANONNAME};
 	my ($err, @res) = getaddrinfo($host, undef, $hints);
-	warn "fqdn: could not resolve '$host': $err\n" if $err;
-	return $res[0]->{canonname} if @res;
-	warn "fqdn: lookup of '$host' failed with no suffixes given\n" if $v;
+	if (@res && !$err) {
+		return $res[0]->{canonname};
+	}
+	warn "fqdn: could not resolve '$host': $err\n";
 	return $host;
 }
 

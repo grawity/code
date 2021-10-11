@@ -24,9 +24,8 @@ sub getfqdn {
 
 	my $hints = {flags => AI_CANONNAME};
 
-	if ($suffixes) {
-		my @suffixes = split(/[:, ]/, $suffixes);
-		for my $suffix (@suffixes, "") {
+	if ($suffixes && @$suffixes) {
+		for my $suffix (@$suffixes, "") {
 			my $fqdn = joinhost($host, $suffix);
 			warn "fqdn: trying to resolve '$fqdn'\n" if $v;
 			my ($err, @res) = getaddrinfo($fqdn, undef, $hints);
@@ -54,6 +53,8 @@ GetOptions(
 	"d|s|search=s" => \$suffixes,
 	"verbose" => \$verbose,
 ) || exit(2);
+
+my @suffixes = split(/[:, ]/, $suffixes // "");
 
 my @args = @ARGV ? @ARGV : hostname();
 my $errs = 0;

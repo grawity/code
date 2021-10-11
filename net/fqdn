@@ -10,6 +10,25 @@ use Getopt::Long;
 use Socket qw(AI_CANONNAME getaddrinfo);
 use Sys::Hostname;
 
+sub usage {
+	print for
+		"Usage: $0 [-s suffixes] [-v] <domain>...\n",
+		"\n",
+		"Options:\n",
+		"\n",
+		"  -s suffixes   perform a suffix search instead\n",
+		"  -v            verbose mode\n",
+		"\n",
+		#12345678........12345678........12345678........12345678........12345678........
+		"In default mode, the given name is looked up using system DNS search suffixes\n",
+		"and the CNAME chain is followed to find the canonnical name (like getaddrinfo\n",
+		"with AI_CANONNAME).\n",
+		"\n",
+		"In suffix search mode, the given name is looked up using only the specified\n",
+		"suffixes, and aliases are NOT followed; each name is merely tested to see if it\n",
+		"resolves at all.\n";
+}
+
 sub joinhost {
 	my ($domain, $suffix) = @_;
 
@@ -55,6 +74,7 @@ my $verbose = 0;
 GetOptions(
 	"d|s|search=s" => \$suffixes,
 	"verbose" => \$verbose,
+	"help" => sub { usage(); exit(0); },
 ) || exit(2);
 
 my @suffixes = split(/[:, ]/, $suffixes // "");

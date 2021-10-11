@@ -19,31 +19,34 @@ sub joinhost {
 	return $domain.".".$suffix;
 }
 
-sub getfqdn {
+sub get_fqdn_from_suffix {
 	my ($host, $suffixes, $v) = @_;
 
-	my $hints = {flags => AI_CANONNAME};
-
-	if ($suffixes && @$suffixes) {
-		for my $suffix (@$suffixes, "") {
-			my $fqdn = joinhost($host, $suffix);
-			warn "fqdn: trying to resolve '$fqdn'\n" if $v;
-			my ($err, @res) = getaddrinfo($fqdn, undef, $hints);
-			if (@res && !$err) {
-				# Return $fqdn instead of canonname, because in
-				# this case it is not our goal to chase CNAMEs,
-				# only to discover the correct domain suffix.
-				return $fqdn;
-			}
+	for my $suffix (@$suffixes, "") {
+		my $fqdn = joinhost($host, $suffix);
+		warn "fqdn: trying to resolve '$fqdn'\n" if $v;
+		my $hints = {flags => AI_CANONNAME};
+		my ($err, @res) = getaddrinfo($fqdn, undef, $hints);
+		if (@res && !$err) {
+			# Return $fqdn instead of canonname, because in
+			# this case it is not our goal to chase CNAMEs,
+			# only to discover the correct domain suffix.
+			return $fqdn;
 		}
-		warn "fqdn: lookup of '$host' ran out of suffixes\n" if $v;
-	} else {
-		my ($err, @res) = getaddrinfo($host, undef, $hints);
-		warn "fqdn: could not resolve '$host': $err\n" if $err;
-		return $res[0]->{canonname} if @res;
-		return $host;
-		warn "fqdn: lookup of '$host' failed with no suffixes given\n" if $v;
 	}
+	warn "fqdn: lookup of '$host' ran out of suffixes\n" if $v;
+	return $host;
+}
+
+sub get_fqdn_from_cnames {
+	my ($host, $v) = @_;
+
+	my $hints = {flags => AI_CANONNAME};
+	my ($err, @res) = getaddrinfo($host, undef, $hints);
+	warn "fqdn: could not resolve '$host': $err\n" if $err;
+	return $res[0]->{canonname} if @res;
+	return $host;
+	warn "fqdn: lookup of '$host' failed with no suffixes given\n" if $v;
 }
 
 my $suffixes = $ENV{LOCALDOMAIN};
@@ -60,7 +63,14 @@ my @args = @ARGV ? @ARGV : hostname();
 my $errs = 0;
 
 for my $arg (@args) {
-	my $res = getfqdn($arg, $suffixes, $verbose);
+	my $res;
+
+	if (@suffixes) {
+		$res = get_fqdn_from_suffix($arg, \@suffixes, $verbose);
+	} else {
+		$res = get_fqdn_from_cnames($arg, $verbose);
+	}
+
 	if ($res) {
 		print "$res\n";
 	} else {

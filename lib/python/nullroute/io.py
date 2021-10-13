@@ -1,7 +1,7 @@
 import io
 import struct
 
-class PacketReader():
+class BinaryReader():
     def __init__(self, fh):
         if isinstance(fh, bytes) or isinstance(fh, bytearray):
             fh = io.BytesIO(fh)
@@ -58,7 +58,7 @@ class PacketReader():
     def read_u64_be(self):
         return self._read_fmt(8, ">Q")
 
-class SshPacketReader(PacketReader):
+class SshPacketReader(BinaryReader):
     def read_bool(self):
         return self._read_fmt(1, "?")
 
@@ -80,7 +80,7 @@ class SshPacketReader(PacketReader):
         buf = self.read_string()
         return int.from_bytes(buf, byteorder="big", signed=False)
 
-class PacketWriter():
+class BinaryWriter():
     def __init__(self, fh=None):
         self.fh = fh or io.BytesIO()
 
@@ -129,7 +129,7 @@ class PacketWriter():
     def write_u64_be(self, val):
         return self._write_fmt(">Q", val)
 
-class SshPacketWriter(PacketWriter):
+class SshPacketWriter(BinaryWriter):
     def write_bool(self, val):
         return sef._write_fmt("?", val)
 
@@ -146,7 +146,7 @@ class SshPacketWriter(PacketWriter):
         string = b",".join(vec)
         return self.write_string(string)
 
-class DnsPacketReader(PacketReader):
+class DnsPacketReader(BinaryReader):
     def read_domain(self):
         labels = []
         while True:
@@ -175,7 +175,7 @@ class DnsPacketReader(PacketReader):
                 raise IOError("unknown DNS label type %d" % ((length & 0xC0) >> 6))
         return labels
 
-class DnsPacketWriter(PacketWriter):
+class DnsPacketWriter(BinaryWriter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._suffixes = {}

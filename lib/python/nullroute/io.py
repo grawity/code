@@ -25,12 +25,13 @@ class StreamWrapper():
 
     def write(self, buf):
         ret = self.fh.write(buf)
+        if ret < len(buf):
+            raise IOError("Write truncated at %d/%d bytes" % (ret, len(buf)))
         return ret
 
 class BinaryReader(StreamWrapper):
     def _read_fmt(self, length, fmt):
-        buf = self.read(length)
-        data, = struct.unpack(fmt, buf)
+        data, = struct.unpack(fmt, self.read(length))
         return data
 
     def read_u8(self):
@@ -83,8 +84,7 @@ class SshPacketReader(BinaryReader):
 
 class BinaryWriter(StreamWrapper):
     def _write_fmt(self, fmt, *args):
-        buf = struct.pack(fmt, *args)
-        return self.write(buf)
+        return self.write(struct.pack(fmt, *args))
 
     def write_u8(self, val):
         return self._write_fmt("B", val)

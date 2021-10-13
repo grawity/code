@@ -23,10 +23,8 @@ class StreamWrapper():
                 raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
         return buf
 
-    def write(self, buf, flush=False):
+    def write(self, buf):
         ret = self.fh.write(buf)
-        if ret and flush:
-            self.fh.flush()
         return ret
 
 class BinaryReader(StreamWrapper):
@@ -84,9 +82,9 @@ class SshPacketReader(BinaryReader):
         return int.from_bytes(buf, byteorder="big", signed=False)
 
 class BinaryWriter(StreamWrapper):
-    def _write_fmt(self, fmt, *args, flush=False):
+    def _write_fmt(self, fmt, *args):
         buf = struct.pack(fmt, *args)
-        return self.write(buf, flush=flush)
+        return self.write(buf)
 
     def write_u8(self, val):
         return self._write_fmt("B", val)

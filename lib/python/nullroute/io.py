@@ -1,11 +1,12 @@
 import io
 import struct
 
-class BinaryReader():
-    def __init__(self, fh):
-        if isinstance(fh, bytes) or isinstance(fh, bytearray):
-            fh = io.BytesIO(fh)
-        self.fh = fh
+class StreamWrapper():
+    def __init__(self, fh=b""):
+        if type(fh) in {bytes, bytearray}:
+            self.fh = io.BytesIO(fh)
+        else:
+            self.fh = fh
 
     def seek(self, pos, whence=0):
         return self.fh.seek(pos, whence)
@@ -22,13 +23,15 @@ class BinaryReader():
                 raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
         return buf
 
+    def write(self, buf, flush=False):
+        ret = self.fh.write(buf)
+        if ret and flush:
+            self.fh.flush()
+        return ret
+
+class BinaryReader(StreamWrapper):
     def _read_fmt(self, length, fmt):
-        buf = self.fh.read(length)
-        if len(buf) < length:
-            if len(buf) == 0:
-                raise EOFError("Hit EOF after 0/%d bytes" % length)
-            else:
-                raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
+        buf = self.read(length)
         data, = struct.unpack(fmt, buf)
         return data
 
@@ -80,28 +83,10 @@ class SshPacketReader(BinaryReader):
         buf = self.read_string()
         return int.from_bytes(buf, byteorder="big", signed=False)
 
-class BinaryWriter():
-    def __init__(self, fh=None):
-        self.fh = fh or io.BytesIO()
-
-    def seek(self, pos, whence=0):
-        return self.fh.seek(pos, whence)
-
-    def tell(self):
-        return self.fh.tell()
-
-    def write(self, buf, flush=False):
-        ret = self.fh.write(buf)
-        if ret and flush:
-            self.fh.flush()
-        return ret
-
+class BinaryWriter(StreamWrapper):
     def _write_fmt(self, fmt, *args, flush=False):
         buf = struct.pack(fmt, *args)
-        ret = self.fh.write(buf)
-        if ret and flush:
-            self.fh.flush()
-        return ret
+        return self.write(buf, flush=flush)
 
     def write_u8(self, val):
         return self._write_fmt("B", val)

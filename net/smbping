@@ -8,23 +8,23 @@ parser.add_argument("target",
                     help="server hostname to ping, or UNC path to list")
 args = parser.parse_args()
 
-if "\\" in args.target:
-    unc = args.target
-    print("Contents of %s:" % unc)
+target = args.target.replace("/", "\\")
+
+if target.startswith(r"\\"):
+    print("Contents of %s:" % target)
     try:
-        result = smbclient.listdir(unc)
+        result = smbclient.listdir(target)
         #print(*result, sep="\n")
         pprint(result)
     except Exception as e:
-        exit("Failed to connect to \"%s\": %r" % (unc, e))
+        exit("Failed to connect to \"%s\": %r" % (target, e))
 else:
-    host = args.target
     try:
-        session = smbclient.register_session(host)
+        session = smbclient.register_session(target)
         print("Connected via SMB to \"%s\" using %r." % (session.connection.server_name,
                                                          session.auth_protocol))
     except Exception as e:
-        exit("Failed to connect to \"%s\": %r" % (host, e))
+        exit("Failed to connect to \"%s\": %r" % (target, e))
 
 # It would be useful to list available shares when "\\foo" is provided, but
 # apparently this involves some relatively complex RPC to the SRVSVC pipe,

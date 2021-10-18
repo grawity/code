@@ -15,17 +15,17 @@ class InvalidPrefixError(ValueError):
     pass
 
 class Tags(dict):
-    _ESCAPE_MAP = {";": "\\:",
-                   " ": "\\s",
-                   "\\": "\\\\",
-                   "\r": "\\r",
-                   "\n": "\\n"}
+    _ESCAPE_MAP = {"\x0a": "\\n",
+                   "\x0d": "\\r",
+                   "\x20": "\\s",
+                   "\x3b": "\\:",
+                   "\x5c": "\\\\"}
 
-    _UNESCAPE_MAP = {":":  ";",
-                     "s":  " ",
-                     "\\": "\\",
-                     "r":  "\r",
-                     "n":  "\n"}
+    _UNESCAPE_MAP = {"n": "\x0a",
+                     "r": "\x0d",
+                     "s": "\x20",
+                     ":": "\x3b",
+                     "\\": "\x5c"}
 
     def _escape(self, buf):
         out = ""
@@ -37,16 +37,15 @@ class Tags(dict):
         out = ""
         esc = False
         for c in buf:
-            if not esc:
-                if c == "\\":
-                    esc = True
-                else:
-                    out += c
-            else:
+            if esc:
+                # Spec: Other characters unescape to themselves
                 out += self._UNESCAPE_MAP.get(c, c)
                 esc = False
-        if esc:
-            raise ValueError("unclosed \\ escape in tag value \"%s\"" % (buf,))
+            elif c == "\\":
+                esc = True
+            else:
+                out += c
+        # Spec: Lone \ at the end should be dropped
         return out
 
     @classmethod

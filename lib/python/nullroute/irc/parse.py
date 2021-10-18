@@ -1,5 +1,9 @@
 # Parser for IRC protocol messages (RFC 1459 + IRCv3 message-tag extension)
 #
+# Note that this parser always decodes command parameters as UTF-8, which is
+# what most users will end up doing anyway. This should be easy to change if
+# needed.
+#
 # (c) 2012-2014 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)
 
@@ -196,13 +200,11 @@ class Frame(object):
         while i < n:
             if parv[i].startswith(b":"):
                 trailing = b" ".join(parv[i:])
-                self.args.append(trailing[1:])
+                self.args.append(trailing[1:].decode("utf-8", "replace"))
                 break
             elif parv[i] != b"":
-                self.args.append(parv[i])
+                self.args.append(parv[i].decode("utf-8", "replace"))
             i += 1
-
-        self.args = [a.decode("utf-8", "replace") for a in self.args]
 
         return self
 

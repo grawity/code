@@ -7,100 +7,121 @@ import base64
 import socket
 import re
 
-_tag_escape = {
-    ";":  "\\:",
-    " ":  "\\s",
-    "\\": "\\\\",
-    "\r": "\\r",
-    "\n": "\\n",
-}
-
-_tag_unescape = {
-    ":":  ";",
-    "s":  " ",
-    "\\": "\\",
-    "r":  "\r",
-    "n":  "\n",
-}
-
-def encode_tag_value(buf):
-    out = ""
-    for c in buf:
-        out += _tag_escape.get(c, c)
-    return out
-
-def decode_tag_value(buf):
-    out = ""
-    esc = False
-    for c in buf:
-        if not esc:
-            if c == "\\":
-                esc = True
-            else:
-                out += c
-        else:
-            out += _tag_unescape.get(c, c)
-            esc = False
-    return out
-
 class InvalidPrefixError(ValueError):
     pass
 
-class Prefix(object):
-    def __init__(self, nick=None, user=None, host=None, is_server=False):
-        if is_server:
-            self.host = host or nick
-        else:
-            self.nick = nick
-            self.user = user
-            self.host = host
-        self.is_server = is_server
+class Tags(dict):
+    _ESCAPE_MAP = {";": "\\:",
+                   " ": "\\s",
+                   "\\": "\\\\",
+                   "\r": "\\r",
+                   "\n": "\\n"}
+
+    _UNESCAPE_MAP = {":":  ";",
+                     "s":  " ",
+                     "\\": "\\",
+                     "r":  "\r",
+                     "n":  "\n"}
+
+    def _escape(self, buf):
+        out = ""
+        for c in buf:
+            out += self._ESCAPE_MAP.get(c, c)
+        return out
+
+    def _unescape(self, buf):
+        out = ""
+        esc = False
+        for c in buf:
+            if not esc:
+                if c == "\\":
+                    esc = True
+                else:
+                    out += c
+            else:
+                out += self._UNESCAPE_MAP.get(c, c)
+                esc = False
+        if esc:
+            raise ValueError("unclosed \\ escape in tag value \"%s\"" % (buf,))
+        return out
 
     @classmethod
-    def parse(cls, prefix):
-        if len(prefix) == 0:
-            return None
+    def from_bytes(cls, buf):
+        return cls()._from_bytes(buf)
 
-        dpos = prefix.find(".") + 1
-        upos = prefix.find("!") + 1
-        hpos = prefix.find("@", upos) + 1
+    def _from_bytes(self, buf):
+        # Tags are required to be UTF-8.
+        buf = buf.decode("utf-8", "replace")
+        return self._from_str(buf)
 
-        if upos == 1 or hpos == 1:
-            return None
-
-        self = cls()
-        if upos > 0:
-            self.nick = prefix[:upos-1]
-            if hpos > 0:
-                self.user = prefix[upos:hpos-1]
-                self.host = prefix[hpos:]
+    def _from_str(self, buf):
+        for item in buf.split(";"):
+            if "=" in item:
+                k, v = item.split("=", 1)
+                self[k] = self._unescape(v)
             else:
-                self.user = prefix[upos:]
-        elif hpos > 0:
-            self.nick = prefix[:hpos-1]
-            self.host = prefix[hpos:]
-        elif dpos > 0:
-            self.host = prefix
-            self.is_server = True
-        else:
-            self.nick = prefix
-
+                self[item] = True
         return self
 
-    def unparse(self):
-        if self.nick is not None:
-            res = self.nick
-            if self.user is not None:
-                res += "!" + self.user
-            if self.host is not None:
-                res += "@" + self.host
-            return res
-        elif self.host is not None:
-            return self.host
-        else:
-            return None
+    def to_str(self):
+        tags = []
+        for k, v in self.items():
+            if v is True:
+                tags.append(k)
+            else:
+                tags.append(k + "=" + self._escape(v))
+        return ";".join(tags)
+
+    def to_bytes(self):
+        return self.to_str().encode("utf-8")
 
     def __str__(self):
+        return self.to_str()
+
+    def __repr__(self):
+        return "Tags(%s)" % super().__repr__()
+
+class Prefix(object):
+    def __init__(self, nick=None, user=None, host=None):
+        self.nick = nick
+        self.user = user
+        self.host = host
+
+    @classmethod
+    def from_bytes(cls, buf):
+        return cls()._from_bytes(buf)
+
+    def _from_bytes(self, buf):
+        # Prefix is usually ASCII-only, and should be safe to assume UTF-8,
+        # so it should be safe to decode the entire thing at once.
+        buf = buf.decode("utf-8", "replace")
+        return self._from_str(buf)
+
+    def _from_str(self, buf):
+        if not buf:
+            return self
+        dpos = buf.find(".") + 1
+        upos = buf.find("!") + 1
+        hpos = buf.find("@", upos) + 1
+        if upos == 1 or hpos == 1:
+            return self
+        if upos > 0:
+            self.nick = buf[:upos-1]
+            if hpos > 0:
+                self.user = buf[upos:hpos-1]
+                self.host = buf[hpos:]
+            else:
+                self.user = buf[upos:]
+        elif hpos > 0:
+            self.nick = buf[:hpos-1]
+            self.host = buf[hpos:]
+        elif dpos > 0:
+            self.host = buf
+        else:
+            self.nick = buf
+        return self
+
+    def to_str(self):
         if self.nick is not None:
             res = self.nick
             if self.user is not None:
@@ -111,177 +132,122 @@ class Prefix(object):
         elif self.host is not None:
             return self.host
         else:
-            return "(empty)"
+            return ""
+
+    def to_bytes(self):
+        return self.to_str().encode("utf-8")
+
+    def __str__(self):
+        return self.to_str()
 
     def __repr__(self):
-        if self.is_server:
-            return "Prefix(%r, is_server=%r)" % (self.host, self.is_server)
-        else:
-            return "Prefix(%r, %r, %r)" % (self.nick, self.user, self.host)
-
-    def to_a(self):
-        return [self.nick, self.user, self.host, self.is_server]
+        return "Prefix(%r, %r, %r)" % (self.nick, self.user, self.host)
 
 class Frame(object):
-    def __init__(self, *, tags=None, prefix=None, cmd=None, args=None):
+    def __init__(self, buf=None, *, tags=None, prefix=None, cmd=None, args=None):
         self.tags = tags or {}
         self.prefix = prefix
         self.cmd = cmd
         self.args = args or []
+        if buf:
+            self._from_bytes(buf)
 
     @classmethod
-    def split(cls, line):
-        """
-        Decode an IRC protocol line as UTF-8 and split into tokens as defined
-        in RFC 1459 and the IRCv3 message-tags extension.
-        """
-
-        line = line.decode("utf-8", "replace")
-        line = line.rstrip("\r\n").split(" ")
-        i, n = 0, len(line)
-        parv = []
-
-        while i < n and line[i] == "":
-            i += 1
-
-        if i < n and line[i].startswith("@"):
-            parv.append(line[i])
-            i += 1
-            while i < n and line[i] == "":
-                i += 1
-
-        if i + 1 < n and line[i].startswith(":"):
-            parv.append(line[i])
-            i += 1
-            while i < n and line[i] == "":
-                i += 1
-
-        while i < n:
-            if line[i].startswith(":"):
-                break
-            elif line[i] != "":
-                parv.append(line[i])
-            i += 1
-
-        if i < n:
-            trailing = " ".join(line[i:])
-            parv.append(trailing[1:])
-
-        return parv
+    def from_bytes(cls, buf, **kwargs):
+        return cls()._from_bytes(buf, **kwargs)
 
     @classmethod
-    def parse(cls, line, parse_prefix=True):
-        """
-        Decode an IRC protocol line as UTF-8 and parse into a Frame object
-        consisting of tags, prefix, command, and arguments.
-        """
+    def parse(cls, buf, **kwargs):
+        return cls()._from_bytes(buf, **kwargs)
 
-        line = line.decode("utf-8", "replace")
-        parv = line.rstrip("\r\n").split(" ")
+    def _from_bytes(self, buf):
+        # Keep in mind that the trailing parameter *can* contain consecutive
+        # spaces and those should be preserved when it is joined back. Hence
+        # the manual space-skipping until we find the trailing parameter.
+        #
+        # (And no, we can't just look for a " :" because there can be two of
+        # them in a message with @tags. This quickly gets just as complex as it
+        # already is now.)
+
+        parv = buf.rstrip(b"\r\n").split(b" ")
         i, n = 0, len(parv)
-        self = cls()
 
-        while i < n and parv[i] == "":
+        while i < n and parv[i] == b"":
             i += 1
 
-        if i < n and parv[i].startswith("@"):
-            tags = parv[i][1:]
+        if i < n and parv[i].startswith(b"@"):
+            self.tags = Tags.from_bytes(parv[i][1:])
             i += 1
-            while i < n and parv[i] == "":
+            while i < n and parv[i] == b"":
                 i += 1
 
-            self.tags = dict()
-            for item in tags.split(";"):
-                if "=" in item:
-                    k, v = item.split("=", 1)
-                    v = decode_tag_value(v)
-                else:
-                    k, v = item, True
-                self.tags[k] = v
-
-        if i < n and parv[i].startswith(":"):
-            prefix = parv[i][1:]
+        if i < n and parv[i].startswith(b":"):
+            self.prefix = Prefix.from_bytes(parv[i][1:])
             i += 1
-            while i < n and parv[i] == "":
+            while i < n and parv[i] == b"":
                 i += 1
-
-            if parse_prefix:
-                self.prefix = Prefix.parse(prefix)
-            else:
-                self.prefix = prefix
 
         if i < n:
-            self.cmd = parv[i].upper()
+            self.cmd = parv[i].upper().decode("utf-8", "replace")
+            i += 1
+            while i < n and parv[i] == b"":
+                i += 1
 
         while i < n:
-            if parv[i].startswith(":"):
-                trailing = " ".join(parv[i:])
+            if parv[i].startswith(b":"):
+                trailing = b" ".join(parv[i:])
                 self.args.append(trailing[1:])
                 break
-            elif parv[i] != "":
+            elif parv[i] != b"":
                 self.args.append(parv[i])
             i += 1
 
+        self.args = [a.decode("utf-8", "replace") for a in self.args]
+
         return self
 
-    @classmethod
-    def join(cls, argv):
-        """
-        Join a parameter array into an IRC protocol line (without constructing
-        an intermediate Frame object), and encode as UTF-8.
-        """
-
-        i, n = 0, len(argv)
-
-        if i < n and argv[i].startswith("@"):
-            if " " in argv[i]:
-                raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
-            i += 1
-
-        if i < n and " " in argv[i]:
-            raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
-
-        if i < n and argv[i].startswith(":"):
-            if " " in argv[i]:
-                raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
-            i += 1
-
-        while i < n-1:
-            if not argv[i]:
-                raise ValueError("Argument %d is empty: %r" % (i, argv[i]))
-            elif argv[i].startswith(":"):
-                raise ValueError("Argument %d starts with colon: %r" % (i, argv[i]))
-            elif " " in argv[i]:
-                raise ValueError("Argument %d contains spaces: %r" % (i, argv[i]))
-            i += 1
-
-        parv = argv[:i]
-
-        if i < n:
-            if not argv[i] or argv[i].startswith(":") or " " in argv[i]:
-                parv.append(":%s" % argv[i])
-            else:
-                parv.append(argv[i])
-
-        return " ".join(parv).encode("utf-8") + b"\r\n"
-
-    def unparse(self):
+    def to_bytes(self):
         parv = []
-
         if self.tags:
-            tags = [k if v is True else k + b"=" + v
-                    for k, v in self.tags.items()]
-            parv.append("@" + ";".join(tags))
-
+            parv.append(b"@" + self.tags.to_bytes())
         if self.prefix:
-            parv.append(":" + str(self.prefix))
+            parv.append(b":" + self.prefix.to_bytes())
 
-        parv.append(self.cmd)
+        if not self.cmd:
+            raise ValueError("Command cannot be empty")
+        elif self.cmd.startswith(":"):
+            raise ValueError("Command cannot start with colon: %r" % (self.cmd,))
+        elif (" " in self.cmd) or ("\n" in self.cmd):
+            raise ValueError("Command cannot contain spaces: %r" % (self.cmd,))
+        else:
+            parv.append(self.cmd.encode("utf-8"))
 
-        parv.extend(self.args)
+        args = [a.encode("utf-8") for a in self.args]
+        for arg in args[:-1]:
+            if not arg:
+                raise ValueError("Non-final parameters cannot be empty: %r" % (self.args,))
+            elif arg.startswith(b":"):
+                raise ValueError("Non-final parameters cannot start with colon: %r" % (self.args,))
+            elif (b" " in arg) or (b"\n" in arg):
+                raise ValueError("Non-final parameters cannot contain spaces: %r" % (self.args,))
+            else:
+                parv.append(arg)
+        if args:
+            arg = args[-1]
+            if b"\n" in arg:
+                raise ValueError("Parameter cannot contain line breaks: %r" % (self.args,))
+            elif (not arg) or arg.startswith(b" ") or (b" " in arg):
+                parv.append(b":" + arg)
+            else:
+                parv.append(arg)
 
-        return self.join(parv)
+        return b" ".join(parv) + b"\r\n"
 
     def __repr__(self):
-        return "<IRC.Frame: tags=%r prefix=%r cmd=%r args=%r>" % \
+        return "Frame(tags=%r, prefix=%r, cmd=%r, args=%r)" % \
                 (self.tags, self.prefix, self.cmd, self.args)
+
+if __name__ == "__main__":
+    buf = b"@ab;cd=efg\\:quux :foo@bar!baz@ohno PING  yay ab  bc :cd  ef"
+    print(Frame(buf))
+    print(Frame(buf).to_bytes())

@@ -5,8 +5,7 @@
 int main(int argc, char *argv[]) {
 	FILE *input = stdin;
 	int opt;
-
-	char c;
+	int c;
 
 	while ((opt = getopt(argc, argv, "a:")) != -1) {
 		switch (opt) {
@@ -27,7 +26,7 @@ int main(int argc, char *argv[]) {
 		c = fgetc(input);
 		if (c == EOF)
 			break;
-		fprintf(stdout, "%02x", c);
+		fprintf(stdout, "%02x", (unsigned char) c);
 	}
 
 	return 0;

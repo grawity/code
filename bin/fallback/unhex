@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 # Un-convert input from hexadecimal.
+import argparse
+import io
 import re
 import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", metavar="STRING", help="input text")
+args = parser.parse_args()
 
 while hasattr(sys.stdout, "encoding"):
     sys.stdout = sys.stdout.detach()
 
+input = sys.stdin
+if args.a is not None:
+    input = io.StringIO(args.a)
+
 extra = ""
-while buf := sys.stdin.read(4096):
+while buf := input.read(4096):
     buf = re.sub(r"\s+", "", buf)
     #buf = re.sub(r"[^0-9A-Fa-f]", "", buf)
     # After stripping whitespace, we might end up with an odd number of nibbles

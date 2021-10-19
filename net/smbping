@@ -5,26 +5,26 @@ import smbclient
 
 parser = argparse.ArgumentParser()
 parser.add_argument("target",
-                    help="server hostname to ping, or UNC path to list")
+                    help="server hostname to ping, or UNC path to list",
+                    nargs="+")
 args = parser.parse_args()
 
-target = args.target.replace("/", "\\")
-
-if target.startswith(r"\\"):
-    try:
-        result = smbclient.listdir(target)
-        print("Contents of %s:" % target)
-        #print(*result, sep="\n")
-        pprint(sorted(result))
-    except Exception as e:
-        exit("Failed to connect to \"%s\": %r" % (target, e))
-else:
-    try:
-        session = smbclient.register_session(target)
-        print("Connected via SMB to \"%s\" using %r." % (session.connection.server_name,
-                                                         session.auth_protocol))
-    except Exception as e:
-        exit("Failed to connect to \"%s\": %r" % (target, e))
+for target in args.target:
+    target = target.replace("/", "\\")
+    if target.startswith(r"\\"):
+        try:
+            result = smbclient.listdir(target)
+            print("Contents of %s:" % target)
+            pprint(sorted(result))
+        except Exception as e:
+            exit("Failed to connect to \"%s\": %r" % (target, e))
+    else:
+        try:
+            sess = smbclient.register_session(target)
+            print("Connected via SMB to \"%s\" using %r." % (sess.connection.server_name,
+                                                             sess.auth_protocol))
+        except Exception as e:
+            exit("Failed to connect to \"%s\": %r" % (target, e))
 
 # It would be useful to list available shares when "\\foo" is provided, but
 # apparently this involves some relatively complex RPC to the SRVSVC pipe,

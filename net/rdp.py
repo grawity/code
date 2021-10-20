@@ -92,8 +92,9 @@ parser.add_argument("--workarea",
 parser.add_argument("host")
 args = parser.parse_args()
 
-Core.debug("Trying to resolve host %r", args.host)
+Core.debug("trying to resolve host %r", args.host)
 fqdn, addrs = resolve(args.host)
+Core.debug("resolved to fqdn %r, addresses %r", fqdn, addrs)
 
 username, password = get_credentials(fqdn)
 
@@ -123,7 +124,7 @@ else:
         cmd.append("/restricted-admin")
 
 cmd.append("/network:auto")
-cmd.append("/gfx")
+cmd.append("/gfx:avc420")
 #cmd.append("/bpp:32")
 #cmd.append("+fonts")
 #cmd.append("+aero")

@@ -183,19 +183,17 @@ class PixivGrabber():
             self.save_file(url, filename, attrs)
 
         # images
-        try:
+        if "images" in post["body"]:
             images = post["body"]["images"]
-            Core.notice("this post had body.images")
-        except KeyError:
-            try:
-                images = [post["body"]["imageMap"][b["imageId"]]
-                          for b in post["body"]["blocks"]
-                          if b["type"] == "image"]
-                Core.notice("this post didn't have body.images, but had body.blocks")
-            except KeyError:
-                import pprint
-                pprint.pprint(post)
-                raise
+        elif "blocks" in post["body"]:
+            images = [post["body"]["imageMap"][b["imageId"]]
+                      for b in post["body"]["blocks"]
+                      if b["type"] == "image"]
+        else:
+            import pprint
+            pprint.pprint(post)
+            raise RuntimeError("post had neither .images nor .blocks")
+
         for i, img in enumerate(images):
             if only_img_ids and img["id"] not in only_img_ids:
                 Core.debug("- image %r not in wanted %r", img, only_img_ids)

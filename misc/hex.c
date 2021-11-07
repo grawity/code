@@ -1,3 +1,4 @@
+/* hex -- convert data to hexadecimal */
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

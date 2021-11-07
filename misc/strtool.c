@@ -1,3 +1,4 @@
+/* strtool -- basic string manipulation helper for wmiirc */
 #define _XOPEN_SOURCE
 #include <err.h>
 #include <locale.h>

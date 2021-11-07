@@ -1,3 +1,4 @@
+/* xorf -- XOR two files */
 #include <err.h>
 #include <unistd.h>
 #include <stdio.h>

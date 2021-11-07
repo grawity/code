@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# rdp -- launch FreeRDP to make Remote Desktop connections
 import argparse
 from nullroute.core import Core
 import os

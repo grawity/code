@@ -1,3 +1,7 @@
+/* tapchown -- change the ownership of 'tun' and 'tap' interfaces
+ *
+ * Strangely, this is impossible to do through 'ip tuntap'.
+ */
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <net/if.h>

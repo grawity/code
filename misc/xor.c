@@ -1,3 +1,4 @@
+/* xor -- XOR input with a fixed string key */
 #include <err.h>
 #include <unistd.h>
 #include <stdio.h>

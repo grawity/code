@@ -1,3 +1,4 @@
+/* xors -- XOR input with an incrementing value */
 #include <err.h>
 #include <unistd.h>
 #include <stdio.h>

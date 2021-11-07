@@ -1,3 +1,4 @@
+/* urlencode -- perform URL percent encoding */
 #include <err.h>
 #include <stdbool.h>
 #include <stdio.h>

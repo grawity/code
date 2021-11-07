@@ -1,3 +1,4 @@
+/* unescape -- process C-like backslash escapes */
 #include <err.h>
 #include <stdbool.h>
 #include <stdio.h>

@@ -1,3 +1,6 @@
+/* gl-mem -- query available VRAM space through GL and GLX extensions
+ *
+ * Now somewhat superseded by 'glxinfo -B'. */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <err.h>

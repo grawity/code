@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ldif2passwd -- convert a LDAP directory dump into /etc/passwd format
 import base64
 from collections import defaultdict
 import sys

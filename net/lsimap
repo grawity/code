@@ -11,6 +11,8 @@ import ssl
 
 parser = argparse.ArgumentParser()
 parser.add_argument("host")
+parser.add_argument("--port", type=int,
+                    help="Use an alternate port")
 parser.add_argument("--starttls", action="store_true",
                     help="Negotiate STARTTLS instead of using direct TLS")
 parser.add_argument("--cleartext", action="store_true",
@@ -41,13 +43,16 @@ try:
         Core.die("contradictory options (--starttls and --cleartext) given")
     elif args.starttls or args.cleartext:
         Core.debug("connecting to %r using plaintext", args.host)
-        clnt = imaplib.IMAP4(args.host)
+        clnt = imaplib.IMAP4(args.host,
+                             args.port or imaplib.IMAP4_PORT)
         if args.starttls:
             Core.debug("negotiating STARTTLS")
             clnt.starttls(ssl_context=tlsctx)
     else:
         Core.debug("connecting to %r using TLS", args.host)
-        clnt = imaplib.IMAP4_SSL(args.host, ssl_context=tlsctx)
+        clnt = imaplib.IMAP4_SSL(args.host,
+                                 args.port or imaplib.IMAP4_SSL_PORT,
+                                 ssl_context=tlsctx)
 except ssl.SSLCertVerificationError as e:
     Core.die("TLS connection failed: %s", e)
 

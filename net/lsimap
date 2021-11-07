@@ -43,6 +43,27 @@ def find_default_host():
 
     return str(host).rstrip("."), port, starttls
 
+def imap_parse_list(resp):
+    ok, data = resp
+    if ok != "OK":
+        Core.die("failed to obtain folder list: %s", data[0].decode())
+    for line in data:
+        # imaplib only has a half-assed parser so each array item looks like this:
+        # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
+        # b'() "/" "Archive/Foobar &2D3cTdg93E7YPdxKJwonDNg93EwnCw-"'
+        Core.trace("have line: %r", line)
+        m = re.match(br'^\((?P<flags>.*?)\) "(?P<delimiter>.*?)" (?P<name>.*)$', line)
+        if m:
+            flags, delim, name = m.groups()
+            # Names with spaces may be in quotes.
+            # In any case the name will be imap utf7 encoded.
+            if re.match(br'^".+"$', name):
+                name = name[1:-1]
+            name = decode_imap_utf7(name)
+            yield name
+        else:
+            Core.die("could not parse IMAP response line: %r", line)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("host", nargs="?")
 parser.add_argument("--port", type=int,
@@ -140,26 +161,10 @@ elif args.unsubscribe:
     clnt.logout()
 else:
     if args.lsub:
-        ok, data = clnt.lsub()
+        data = imap_parse_list(clnt.lsub())
     else:
-        ok, data = clnt.list()
-    if ok != "OK":
-        Core.err("failed to obtain folder list: %s", data[0].decode())
+        data = imap_parse_list(clnt.list())
     clnt.logout()
-    for line in data:
-        # imaplib only has a half-assed parser so each array item looks like this:
-        # b'(\\HasNoChildren \\UnMarked) "/" Archive/Work/LITNET'
-        # b'() "/" "Archive/Foobar &2D3cTdg93E7YPdxKJwonDNg93EwnCw-"'
-        Core.trace("have line: %r", line)
-        m = re.match(br'^\((?P<flags>.*?)\) "(?P<delimiter>.*?)" (?P<name>.*)$', line)
-        if m:
-            flags, delim, name = m.groups()
-            # Names with spaces may be in quotes.
-            # In any case the name will be imap utf7 encoded.
-            if re.match(br'^".+"$', name):
-                name = name[1:-1]
-            name = decode_imap_utf7(name)
-            print(name)
-        else:
-            Core.err("could not parse IMAP response line: %r", line)
+    for item in data:
+        print(item)
 Core.fini()

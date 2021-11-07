@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-import sys
+# arpaname -- convert IP addresses to their reverse-lookup domain names
+#
+# This is an improved version of BIND's 'arpaname' with support for CIDR
+# prefixes, e.g. `arpaname 2001:db8::/48` outputs the domain for that network.
+import argparse
 import ipaddress
 
-args = sys.argv[1:]
+parser = argparse.ArgumentParser()
+parser.add_argument("address", nargs="+")
+args = parser.parse_args()
 
-for arg in args:
+for arg in args.address:
     if "/" in arg:
         net = ipaddress.ip_network(arg)
         rev = net.reverse_pointer.split(".")

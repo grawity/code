@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+# shamerge -- generate a SHA1 sums file for the current directory
+#
+# If sums files are found in subdirectories, they will be incorporated.
+import argparse
 import os
-import sys
 import binascii
 import base64
 import hashlib
@@ -42,11 +45,15 @@ def is_excluded(path):
 
 SHAFILE_NAME = "directory.sha"
 
+parser = argparse.ArgumentParser()
+parser.add_argument("path", nargs="*")
+args = parser.parse_args()
+
 n_hashed = 0
 n_loaded = 0
 n_error = 0
 
-for root_dir in sys.argv[1:] or ["."]:
+for root_dir in args.path or ["."]:
     print("scanning", root_dir)
     out_file = os.path.join(root_dir, SHAFILE_NAME)
     seen_files = set()

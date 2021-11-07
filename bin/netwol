@@ -1,0 +1,79 @@
+#!/usr/bin/env python
+# netwol -- send Wake-on-LAN packets, looking up MAC addresses in LDAP
+import argparse
+from nullroute.core import Core
+from nullroute.ldap import NullrouteLdapClient
+from pprint import pprint
+
+def mac_parse(mac):
+    # LDAP style, no leading zeros, variable length
+    tmp = mac.split(":")
+    if len(tmp) == 6:
+        return bytes([int(x, 16) for x in tmp])
+    # common style, with leading zeros, fixed length
+    mac = mac.replace(":", "")
+    mac = mac.replace("-", "")
+    if len(mac) == 12:
+        return bytes.fromhex(mac)
+    raise ValueError("invalid MAC address %r" % mac)
+
+def make_magic_packet(mac):
+    pkt = (b"\xFF" * 6) + (mac * 16)
+    return pkt
+
+def broadcast(pkt):
+    import socket
+
+    port = socket.getservbyname("discard", "udp")
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    Core.debug("broadcasting over IPv4")
+    sock.sendto(pkt, ("255.255.255.255", port))
+
+    sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    for (ifindex, ifname) in socket.if_nameindex():
+        if ifname.startswith(("eth", "en", "wlan", "wl")):
+            dest = ("ff02::1", port, 0, ifindex)
+            Core.debug("broadcasting over IPv6 to %r on %r", dest, ifname)
+            try:
+                sock.sendto(pkt, dest)
+            except OSError as e:
+                Core.trace("ignoring error: %s", e)
+                pass
+        else:
+            Core.trace("skipping non-Ethernet interface %r", ifname)
+
+def ldap_find_host(conn, fqdn, attrs):
+    pass
+
+parser = argparse.ArgumentParser()
+parser.add_argument("host", nargs="+")
+args = parser.parse_args()
+
+conn = NullrouteLdapClient()
+conn.bind_gssapi()
+
+for host in args.host:
+    fqdn = "%s.nullroute.eu.org" % host
+    entries = conn.search(base="dc=nullroute,dc=eu,dc=org",
+                          filter="(cn=%s)" % fqdn,
+                          attrs=["cn", "macAddress"])
+    if not entries:
+        Core.err("host %r not found", host)
+        continue
+    for (dn, attrs) in entries:
+        Core.debug("found entry: %r", dn)
+        Core.debug("attributes: %r", attrs)
+        if not attrs.get("macAddress"):
+            Core.err("host %r has no MAC addresses", host)
+            continue
+        for mac in attrs["macAddress"]:
+            mac = mac.decode()
+            print("waking up host %r at %r" % (host, mac))
+            mac = mac_parse(mac)
+            pkt = make_magic_packet(mac)
+            Core.trace("raw packet: %r", pkt)
+            broadcast(pkt)
+
+Core.fini()

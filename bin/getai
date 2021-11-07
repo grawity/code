@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-
+# getai -- perform getaddrinfo() queries
+import argparse
 import socket
-import sys
 
 consts = {
     "SOCK": {
@@ -19,12 +19,17 @@ def name(const, prefix):
     suffix = consts.get(prefix, {}).get(const, "<%s>" % const)
     return getattr(const, "name", "%s_%s" % (prefix, suffix))
 
-args = sys.argv[1:]
+parser = argparse.ArgumentParser()
+parser.add_argument("hostname", nargs="*")
+args = parser.parse_args()
+# We don't handle '-4' and '-6' as options because we want the last one to take
+# priority. Fortunately, argparse will already treat '-4' and '-6' as
+# non-options by default, so we don't have to do anything special for that.
 
 service = "discard"
 want_af = socket.AF_UNSPEC
 
-for host in args:
+for host in args.hostname:
     if host == "-4":
         want_af = socket.AF_INET
         continue

@@ -1,4 +1,6 @@
 #!/bin/sh -x
+# use ath9k Wi-Fi adapter to perform a 2.4 GHz spectral scan
+#
 # http://blog.altermundi.net/article/playing-with-ath9k-spectral-scan/
 # https://github.com/simonwunderlich/FFT_eval
 

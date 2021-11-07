@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+# eth0-dhcp -- launch an instant DHCP server on eth0
+import argparse
 import os
-import sys
 import ipaddress
 import subprocess
 from nullroute import ui
@@ -24,14 +25,16 @@ def ip_interface_from_addr(addr, net):
     else:
         raise ValueError("address %r does not belong to %r" % (addr, net))
 
-interface = "eth0"
-lease_time = "1h"
-ip4_dns = "8.8.8.8"
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--interface", default="eth0")
+parser.add_argument("-d", "--dns-server", default="8.8.8.8")
+parser.add_argument("ip_range", default="")
+args = parser.parse_args()
 
-try:
-    ip4_range = sys.argv[1]
-except IndexError:
-    ip4_range = ""
+interface = args.interface
+lease_time = "1h"
+ip4_dns = args.dns_server
+ip4_range = args.ip_range
 
 if "@" in ip4_range:
     ip4_range, interface = ip4_range.split("@", 1)

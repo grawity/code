@@ -10,17 +10,17 @@ hosts='
 '
 
 (for host in $hosts; do
-	ssh $host 'printf "%s\t%s\t%s\t[%s]\t%s used (%s free)\t%s\t%s\n" \
+	ssh $host 'printf "%s\t%s\t%s\t[%s]\t%s\t%s used (%s free)\t%s\n" \
 			"$(hostname)" \
 			"$(uname -r)" \
 			"$(uptime -p | sed "s/,.*//")" \
 			"$(uname -v)" \
+			"$(uptime | sed "s/.*load average: //")" \
 			"$(free -b | awk "/^Mem:/{printf \"%2.0f%%\", \$3*100/\$2}")" \
 			"$(free -b | awk "/^Mem:/{print \$7}" | numfmt --to=iec)" \
 			"$(free -b | awk "/^Mem:/{print \$2}" | numfmt --to=iec)" \
-			"$(uptime | sed "s/.*load average: //")" \
 			' &
 done
 wait) |
 sort -V -k 2,1 |
-column -t -s $'\t' -N "HOST,KERNEL,UPTIME,BUILD,MEM USAGE,MEM TOTAL,LOAD AVG" -H "BUILD"
+column -t -s $'\t' -N "HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM USAGE,MEM TOTAL" -H "BUILD"

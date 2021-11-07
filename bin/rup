@@ -16,11 +16,11 @@ hosts='
 			"$(uptime -p | sed "s/,.*//")" \
 			"$(uname -v | sed "s/.*/[&]/")" \
 			"$(uptime | sed "s/.*load average: //")" \
-			"$(free -b | awk "/^Mem:/{printf \"%2.0f%% used\", \$3*100/\$2}")" \
+			"$(free -b | awk "/^Mem:/{printf \"%.0f%% used\", \$3*100/\$2}")" \
 			"$(free -b | awk "/^Mem:/{print \$7, \"free\"}" | numfmt --to=iec)" \
-			"$(free -b | awk "/^Mem:/{print \$2}" | numfmt --to=iec)" \
+			"$(free -b | awk "/^Mem:/{print \$2, \"total\"}" | numfmt --to=iec)" \
 			' &
 done
 wait) |
 sort -V -k 2,1 |
-column -t -s $'\t' -N "HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM USAGE,MEM FREE,MEM TOTAL" -H "BUILD"
+column -t -s $'\t' -N "HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM USAGE,MEM FREE,MEM TOTAL" -H "BUILD" -R "MEM USAGE,MEM FREE,MEM TOTAL"

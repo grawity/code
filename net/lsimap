@@ -8,6 +8,7 @@ from nullroute.sec.sasl import SaslGSSAPI
 from nullroute.string.imaputf7 import encode_imap_utf7, decode_imap_utf7
 import re
 import ssl
+import sys
 
 def find_default_domain():
     import socket
@@ -160,11 +161,31 @@ elif args.unsubscribe:
         Core.err("failed to unsubscribe from folder %r: %s", mbox, data[0].decode())
     clnt.logout()
 else:
-    if args.lsub:
-        data = imap_parse_list(clnt.lsub())
-    else:
-        data = imap_parse_list(clnt.list())
+    all_folders = imap_parse_list(clnt.list())
+    sub_folders = imap_parse_list(clnt.lsub())
     clnt.logout()
-    for item in data:
-        print(item)
+    if args.lsub:
+        if sys.stdout.isatty():
+            all_folders = {*all_folders}
+            sub_folders = [*sub_folders]
+            for item in sub_folders:
+                if item in all_folders:
+                    print(item)
+                else:
+                    print("\033[38;5;1m%s\033[m" % item)
+        else:
+            for item in sub_folders:
+                print(item)
+    else:
+        if sys.stdout.isatty():
+            all_folders = [*all_folders]
+            sub_folders = {*sub_folders}
+            for item in all_folders:
+                if item in sub_folders:
+                    print(item)
+                else:
+                    print("\033[2m%s\033[m" % item)
+        else:
+            for item in all_folders:
+                print(item)
 Core.fini()

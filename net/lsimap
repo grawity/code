@@ -9,8 +9,42 @@ from nullroute.string.imaputf7 import encode_imap_utf7, decode_imap_utf7
 import re
 import ssl
 
+def find_default_domain():
+    import socket
+
+    fqdn = socket.getfqdn()
+    if "." not in fqdn:
+        raise RuntimeError("local host does not have a domain name")
+
+    _, domain = fqdn.split(".", 1)
+    return domain
+
+def find_default_host():
+    import dns.resolver
+    import dns.rdtypes.util # Workaround for missing import
+
+    domain = find_default_domain()
+
+    try:
+        Core.debug("querying for service 'imaps'")
+        starttls = False
+        answer = dns.resolver.resolve(f"_imaps._tcp.{domain}", "SRV")
+    except dns.resolver.NXDOMAIN:
+        Core.debug("querying for service 'imap'")
+        starttls = True
+        answer = dns.resolver.resolve(f"_imap._tcp.{domain}", "SRV")
+
+    hosts = answer.rrset.processing_order()
+    Core.trace("SRV hosts: %r", hosts)
+
+    host = hosts[0].target
+    port = hosts[0].port
+    Core.debug("found server %r on port %r (starttls=%r)", host, port, starttls)
+
+    return str(host).rstrip("."), port, starttls
+
 parser = argparse.ArgumentParser()
-parser.add_argument("host")
+parser.add_argument("host", nargs="?")
 parser.add_argument("--port", type=int,
                     help="Use an alternate port")
 parser.add_argument("--starttls", action="store_true",
@@ -35,6 +69,9 @@ args = parser.parse_args()
 
 if args.cleartext and args.password:
     Core.die("refusing to do plain-password LOGIN on a cleartext connection")
+
+if not args.host:
+    args.host, args.port, args.starttls = find_default_host()
 
 tlsctx = ssl.create_default_context()
 

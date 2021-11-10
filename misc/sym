@@ -128,6 +128,8 @@ my $link_dest;
 my $dest_is_dir;
 
 if (defined $link_dir) {
+	_debug("\$link_dir (--target) given: '$link_dir'");
+
 	if (!-d $link_dir) {
 		_die("destination \"$link_dir\" is not a directory");
 	}
@@ -137,9 +139,15 @@ if (defined $link_dir) {
 	_debug("link parent directory: \"$link_dir\"");
 }
 else {
-	$link_dest = (@ARGV > 1) ? pop @ARGV : ".";
+	_debug("\$link_dir not given, trying to guess");
 
-	_debug("link destination: \"$link_dest\"");
+	if (@ARGV > 1) {
+		_debug("more than one arg; taking the last item as destination");
+		$link_dest = pop(@ARGV);
+	} else {
+		_debug("only one arg; assuming . as destination");
+		$link_dest = ".";
+	}
 
 	if (-l $link_dest && $no_deref) {
 		$dest_is_dir = 0;
@@ -157,20 +165,17 @@ else {
 		$link_dir = dirname($link_dest);
 	}
 
-	_debug("link parent directory: \"$link_dir\"");
+	_debug("\$link_dir guessed: '$link_dir'");
 }
 
 # Resolve all symlinks in the target path
 
 my $abs_dir = realpath($link_dir);
-
 if (!defined $abs_dir) {
 	_die("destination \"$link_dir\" could not be resolved");
 }
-
 $link_dir = $abs_dir;
-
-_debug("link parent, absolute: \"$link_dir\"");
+_debug("\$link_dir converted to absolute path: '$link_dir'");
 
 # Create the links
 

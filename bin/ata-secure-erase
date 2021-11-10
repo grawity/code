@@ -44,6 +44,9 @@ if ! hdparm -I "$dev" | grep -qs '^Security:'; then
 	die "disk '$dev' does not support ATA SECURITY ERASE"
 fi
 
+minutes=$(hdparm -I "$dev" | sed -E -n 's/^	([0-9]+)min for SECURITY ERASE.*/\1m/p')
+info "erase duration: $minutes"
+
 confirm "erase '$dev'?" || exit
 
 attrib="/tmp/${dev//'/'/'_'}"
@@ -61,7 +64,15 @@ for part in {1..15}; do
 	fi
 done
 #do: partx --delete "$dev" || exit
-do: hdparm --user-master u --security-erase "$pwd" "$dev"
+
+hdparm --user-master u --security-erase "$pwd" "$dev" & erase_pid=$!
+countdown "$minutes" & countdown_pid=$!
+wait -p pid; r=$?
+if [[ $pid == $erase_pid ]]; then
+	kill -INT $countdown_pid
+fi
+wait -n || true
+
 Tfinish=$(date +%s); date -d "@$Tfinish" +"finished at %c"
 info "erase took $(interval $[Tfinish-Tstart])"
 notify-send "Security erase of '$dev' complete in $(interval $[Tfinish-Tstart])."

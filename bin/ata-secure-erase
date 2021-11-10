@@ -67,11 +67,14 @@ done
 
 hdparm --user-master u --security-erase "$pwd" "$dev" & erase_pid=$!
 countdown "$minutes" & countdown_pid=$!
-wait -p pid; r=$?
+wait -n -p pid; r=$?
 if [[ $pid == $erase_pid ]]; then
-	kill -INT $countdown_pid
+	kill $countdown_pid
+	echo "hdparm finished"
+else
+	echo "hdparm still running..."
+	wait -n
 fi
-wait -n || true
 
 Tfinish=$(date +%s); date -d "@$Tfinish" +"finished at %c"
 info "erase took $(interval $[Tfinish-Tstart])"

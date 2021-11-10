@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# mkwindowsurl -- create a .URL "Internet Shortcut" for Windows
+
+. lib.bash || exit
+
+file=$1
+url=$2
+force=0
+
+if [[ ${file,,} != *.url ]]; then
+	file+=".url"
+fi
+
+if [[ -e "$file" ]] && (( !force )); then
+	die "file '$file' already exists"
+fi
+
+printf '[InternetShortcut]\r\nURL=%s\r\n' "$url" > "$file"

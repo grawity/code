@@ -197,7 +197,7 @@ def find_image_duplicates(root_dirs, only_globs=None):
     res.sort()
     yield from res
 
-def find_duplicates(root_dirs, only_globs=None):
+def find_duplicates(root_dirs, only_globs=None, include_symlinks=False):
     known_sizes = defaultdict(list)
     known_headers = defaultdict(list)
     known_hashes = defaultdict(list)
@@ -211,8 +211,12 @@ def find_duplicates(root_dirs, only_globs=None):
         for path in enum_files(root_dir):
             n_size += 1
             status("stat (%d)" % n_size, path)
-            st = os.lstat(path)
+            if include_symlinks:
+                st = os.stat(path)
+            else:
+                st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
+                Core.trace("skipping %r (not a regular file)", path)
                 continue
             #if st.st_size < opts.larger_than:
             #    continue
@@ -333,6 +337,9 @@ if __name__ == "__main__":
     ap.add_argument("--all",
                     dest="all", action="store_true", default=False,
                     help="disregard .nodupes tags in directories")
+    ap.add_argument("-L", "--symlinks",
+                    action="store_true", default=False,
+                    help="include symlinks")
     ap.add_argument("-v", "--verbose",
                     dest="verbose", action="store_true", default=False,
                     help="show files as they are processed")
@@ -379,7 +386,8 @@ if __name__ == "__main__":
         find_duplicates = find_image_duplicates
 
     try:
-        for paths in find_duplicates(root_dir, opts.only):
+        for paths in find_duplicates(root_dir, opts.only,
+                                     include_symlinks=opts.symlinks):
             if opts.only and not any(path_is_perishable(p) for p in paths):
                 continue
             paths.sort()

@@ -52,7 +52,7 @@ def do_borg(*,
 
     tag = hostname + "." + time.strftime("%Y%m%d.%H%M")
 
-    # idiot-proofing: if nonexistent exclude files were specified, create them
+    # Idiot-proofing: if nonexistent exclude files were specified, create them.
     next = -1
     for arg in args:
         if arg.startswith("--exclude-from="):
@@ -68,8 +68,7 @@ def do_borg(*,
         if next >= 0:
             next -= 1
 
-    # run borg create
-
+    # Prepare the environment for 'borg create'
     user = os.environ["LOGNAME"]
     wrap = ["sudo",
             "systemd-run",
@@ -90,6 +89,15 @@ def do_borg(*,
                  f"--property=AmbientCapabilities=cap_dac_read_search",
                  f"--uid={user}",
                  "--"]
+
+    # If we'll be running as root and using SSH, default to including the
+    # non-root username for SSH.
+    if sudo and ":" in repo:
+        host, _, path = repo.partition(":")
+        if "@" not in host:
+            host = user + "@" + host
+        repo = host + ":" + path
+        print(f"Rewrote repository to {repo!r}")
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
     print(f"Running {cmd!r}")

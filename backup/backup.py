@@ -6,6 +6,9 @@ import os
 import subprocess
 import time
 
+os.environ["BORG_RELOCATED_REPO_ACCESS_IS_OK"] = "yes"
+os.environ["BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK"] = "yes"
+
 hostname = os.uname().nodename
 
 conf = os.path.join(Env.xdg_config_home(),

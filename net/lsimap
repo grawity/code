@@ -35,7 +35,12 @@ def find_default_host():
         starttls = True
         answer = dns.resolver.resolve(f"_imap._tcp.{domain}", "SRV")
 
-    hosts = answer.rrset.processing_order()
+    try:
+        hosts = answer.rrset.processing_order()
+    except AttributeError:
+        # It seems dnspython 2.0 doesn't have this method, bodge something
+        # together as we only use the 1st result for now.
+        hosts = sorted(answer.rrset, key=lambda r: r.priority)
     Core.trace("SRV hosts: %r", hosts)
 
     host = hosts[0].target

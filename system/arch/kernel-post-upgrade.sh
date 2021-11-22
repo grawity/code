@@ -41,10 +41,10 @@ install_kernel() {
 	echo "Installing package: $kernel $version as \"$PRETTY_NAME\""
 
 	echo "+ copying kernel to EFI system partition"
-	mkdir -p "$ESP/EFI/$ID"
 	if [[ $ESP == /boot ]]; then
 		echo "ESP is mounted at $ESP, copy not needed"
 	else
+		mkdir -p "$ESP/EFI/$ID"
 		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
 		cp -uf "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
@@ -52,7 +52,6 @@ install_kernel() {
 	fi
 
 	echo "+ generating bootloader config"
-	mkdir -p "$ESP/loader/entries"
 	if [[ $ESP == /boot ]]; then
 		parameters=(
 			"title"		"$PRETTY_NAME"
@@ -74,6 +73,7 @@ install_kernel() {
 			"options"	"$BOOT_OPTIONS"
 		)
 	fi
+	mkdir -p "$ESP/loader/entries"
 	printf '%-15s %s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
 	sync -f "$ESP"
 }

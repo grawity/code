@@ -22,12 +22,6 @@ sub has_Shell {
 	->get_service_owner("org.gnome.Shell")
 }
 
-sub Shell {
-	Net::DBus->session
-	->get_service("org.gnome.Shell")
-	->get_object(shift // "/org/gnome/Shell")
-}
-
 sub Notifications {
 	Net::DBus->session
 	->get_service("org.freedesktop.Notifications")
@@ -115,30 +109,25 @@ for (dirname $file) {
 }
 
 if ($use_shell && has_Shell) {
-	_debug("using GNOME Shell interface");
+	_debug("using gnome-screenshot");
 
-	my $ShellScreenshot = Shell("/org/gnome/Shell/Screenshot");
-
+	my @args;
 	for ($mode) {
 		when ('area') {
-			my ($x, $y, $w, $h) = eval {$ShellScreenshot->SelectArea()}
-			or _die("Shell->SelectArea failed");
 			if ($sleep_area) {
-				say STDERR "waiting $sleep_area seconds...";
-				usleep($sleep_area * 1_000_000);
+				@args = ("--area", "--delay=$sleep_area");
+			} else {
+				@args = ("--area");
 			}
-			$ShellScreenshot->ScreenshotArea($x, $y, $w, $h, $flash, $file_rel)
-			or _die("Shell->ScreenshotArea failed");
 		}
 		when ('fullscreen') {
-			$ShellScreenshot->Screenshot($cursor, $flash, $file_rel)
-			or _die("Shell->Screenshot failed");
+			@args = ();
 		}
 		when ('window') {
-			$ShellScreenshot->ScreenshotWindow($frame, $cursor, $flash, $file_rel)
-			or _die("Shell->ScreenshotWindow failed");
+			@args = ("--window");
 		}
 	}
+	system {"gnome-screenshot"} ("gnome-screenshot", "--file=$file", @args);
 } elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
 	_debug("using fallback method (maim+slop)");
 

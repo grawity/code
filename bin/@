@@ -40,9 +40,12 @@ else
 	pwd=""
 fi
 
-if [[ $1 == -n ]]; then
-	nfs=1; shift
-fi
+while getopts ":n" OPT; do
+	case $OPT in
+	n) nfs=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 # Optionally trim loopback symlinks (ember:/net/ember/foo -> ember:/foo)
 pwd=${pwd/#"/net/$host/"/"/"}

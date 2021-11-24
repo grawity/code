@@ -22,7 +22,7 @@
 . lib.bash || exit
 
 arg0=${0##*/}
-pwd=$PWD
+wd=$PWD
 nfs=0
 
 if [[ $arg0 == @@?* ]]; then
@@ -37,34 +37,34 @@ elif [[ $arg0 == @ && $1 ]]; then
 	host=$1; shift
 else
 	host=$arg0
-	pwd=""
+	wd=""
 fi
 
 while getopts ":d:n" OPT; do
 	case $OPT in
-	d) pwd=$OPTARG;;
+	d) wd=$OPTARG;;
 	n) nfs=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
 # Optionally trim loopback symlinks (ember:/net/ember/foo -> ember:/foo)
-pwd=${pwd/#"/net/$host/"/"/"}
+wd=${wd/#"/net/$host/"/"/"}
 
 if (( nfs )); then
-	if [[ $pwd != /net/* ]]; then
+	if [[ $wd != /net/* ]]; then
 		if [[ ! -e /proc/fs/nfsd/versions ]]; then
 			die "NFS service not running on $HOSTNAME"
 		fi
-		pwd="/net/$HOSTNAME$pwd"
+		wd="/net/$HOSTNAME$wd"
 	fi
-	info "Running in $host:$pwd"
+	info "Running in $host:$wd"
 fi
 
-if [[ $pwd ]]; then
-	qpwd=${pwd@Q}
+if [[ $wd ]]; then
+	q_wd=${wd@Q}
 else
-	qpwd=""
+	q_wd=""
 fi
 
 # 0 args - run a shell
@@ -72,11 +72,11 @@ fi
 # 2+ args - quote individual args
 
 if (( $# == 0 )); then
-	qcmd="bash"
+	q_cmd=bash
 elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
-	qcmd="$1"
+	q_cmd=$1
 else
-	qcmd="${@@Q}"
+	q_cmd=${@@Q}
 fi
 
 if [[ -t 0 && -t 1 && -t 2 ]]; then
@@ -85,4 +85,4 @@ else
 	tty_arg=""
 fi
 
-exec ssh -K -q $tty_arg "$host" "export SILENT=1; . ~/.profile && cd $qpwd && ($qcmd)"
+exec ssh -K -q $tty_arg "$host" "export SILENT=1; . ~/.profile && cd $q_wd && ($q_cmd)"

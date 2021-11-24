@@ -40,8 +40,9 @@ else
 	pwd=""
 fi
 
-while getopts ":n" OPT; do
+while getopts ":d:n" OPT; do
 	case $OPT in
+	d) pwd=$OPTARG;;
 	n) nfs=1;;
 	*) lib::die_getopts;;
 	esac
@@ -51,11 +52,11 @@ done; shift $((OPTIND-1))
 pwd=${pwd/#"/net/$host/"/"/"}
 
 if (( nfs )); then
-	if [[ $PWD != /net/* ]]; then
+	if [[ $pwd != /net/* ]]; then
 		if [[ ! -e /proc/fs/nfsd/versions ]]; then
 			die "NFS service not running on $HOSTNAME"
 		fi
-		pwd="/net/$HOSTNAME$PWD"
+		pwd="/net/$HOSTNAME$pwd"
 	fi
 	info "Running in $host:$pwd"
 fi

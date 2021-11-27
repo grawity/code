@@ -125,7 +125,7 @@ else:
         cmd.append("/restricted-admin")
 
 cmd.append("/network:auto")
-cmd.append("/gfx:avc420")
+#cmd.append("/gfx:avc420")
 #cmd.append("/bpp:32")
 #cmd.append("+fonts")
 #cmd.append("+aero")

@@ -2,6 +2,13 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $0 [-E] [-F] <dev>"
+	echo ""
+	echo_opt "-E" "use ATA ENHANCED SECURITY ERASE (for SSDs)"
+	echo_opt "-F" "override safety check for non-USB transport"
+}
+
 force_tran=die
 enhanced=''
 
@@ -25,69 +32,103 @@ dev=$1
 [[ -b $dev ]] || die "path '$dev' is not a block device"
 [[ -w $dev ]] || die "no write permission for '$dev'"
 
-tran=$(lsblk -Sno TRAN "$dev")
-[[ $tran == usb ]] || $force_tran "disk '$dev' is not USB-attached ($tran)"
+info "ATA information:"
+hdparm_data=$(hdparm -I "$dev")
+echo "$hdparm_data" | awk 'x&&/^[^\t]/{x=0} /^(Security:|ATA device,)/{x=1} x{print}'
 
-#buf=$(head -c 4096 "$dev" | xxd -p | sed 's/00//g' | tr -d '\n')
-#[[ $buf ]] && warn "disk '$dev' is not empty (buf)"
-
-buf=$(wipefs -p "$dev")
-[[ $buf ]] && warn "disk '$dev' is not empty"
-
-log "device identification:"
-lsblk -S "$dev"
-
-log "device contents:"
-lsblk -o +FSTYPE,LABEL "$dev"
-
-log "ATA information:"
-hdparm -I "$dev" | awk 'x&&/^[^\t]/{x=0} /^(Security:|ATA device,)/{x=1} x{print}'
-
-if ! hdparm -I "$dev" | grep -qs '^Security:'; then
-	die "disk '$dev' does not support ATA SECURITY ERASE"
+if ! echo "$hdparm_data" | grep -qs '^Security:'; then
+	die "Disk '$dev' does not support ATA SECURITY features"
 fi
 
-minutes=$(hdparm -I "$dev" | if [[ $enhanced ]]; then
+if [[ $enhanced ]] &&
+   ! echo "$hdparm_data" | grep -qs 'ENHANCED SECURITY ERASE UNIT'; then
+	die "Disk '$dev' does not support enhanced erase mode"
+fi
+
+minutes=$(echo "$hdparm_data" | if [[ $enhanced ]]; then
 	sed -E -n 's/.* ([0-9]+)min for ENHANCED SECURITY ERASE UNIT.*/\1m/p'
 else
-	sed -E -n 's/^ ([0-9]+)min for SECURITY ERASE.*/\1m/p'
+	sed -E -n 's/^	([0-9]+)min for SECURITY ERASE UNIT.*/\1m/p'
 fi)
+info "Expected erase duration: $minutes minutes"
 
-confirm "erase '$dev'?" || exit
-
-attrib="/tmp/${dev//'/'/'_'}"
-do: smartctl -A "$dev" | tee "$attrib-old.txt"
-
-pwd="foo"
-info "setting ATA password of '$dev' to '$pwd'"
-do: hdparm --security-set-pass "$pwd" "$dev"
-info "activating ATA erase of '$dev' (expected duration: $minutes)"
-Tstart=$(date +%s); date -d "@$Tstart" +"started at %c"
-for part in {1..15}; do
-	if [[ -e $dev$part ]]; then
-		umount "$dev$part" || true
-		partx --delete --nr "$part" "$dev"
-	fi
-done
-#do: partx --delete "$dev" || exit
-
-hdparm --security-erase$enhanced "$pwd" "$dev" & erase_pid=$!
-countdown "$minutes" & countdown_pid=$!
-wait -n -p pid; r=$?
-if [[ $pid == $erase_pid ]]; then
-	kill $countdown_pid
-	echo "hdparm finished"
-else
-	echo "hdparm still running..."
-	wait -n
+info "Device identification:"
+lsblk -S "$dev"
+tran=$(lsblk -Sno TRAN "$dev")
+if [[ $tran != 'usb' ]]; then
+	$force_tran "Disk '$dev' is not USB-attached (found: $tran)"
 fi
 
-Tfinish=$(date +%s); date -d "@$Tfinish" +"finished at %c"
-info "erase took $(interval $[Tfinish-Tstart])"
-notify-send "Security erase of '$dev' complete in $(interval $[Tfinish-Tstart])."
+if [[ $(wipefs -p "$dev") ]]; then
+	info "Device contents:"
+	lsblk -o +FSTYPE,LABEL "$dev"
+	warn "Disk $dev is not empty"
+fi
 
-info "erase done"
-do: hdparm -I "$dev" | awk '/^Security:/{x=1} /^[^S\t]/{x=0} x{print}'
-do: smartctl -A "$dev" | tee "$attrib-new.txt"
-colordiff -u "$attrib-old.txt" "$attrib-new.txt" || true
-do: scsi_stop "$dev"
+confirm "Erase '$dev'?" || exit
+
+# Wipe partition table manually, so that if erase is interrupted, the next time
+# we won't need to do this at all.
+do: wipefs -a "$dev"
+
+# Remove all partition device nodes. Try unmounting if mounted.
+for part in {1..15}; do
+	if [[ -e $dev$part ]]; then
+		do: partx --delete --nr "$part" "$dev" || {
+			do: umount "$dev$part" &&
+			do: partx --delete --nr "$part" "$dev" ||
+			die "Could not unmount $dev$part"
+		}
+	fi
+done
+
+attrib="/tmp/${dev//'/'/'_'}"
+smartctl -A "$dev" | tee "$attrib-old.txt"
+
+info "Starting ATA secure erase of $dev (expected duration: $minutes)"
+password="foo"
+hdparm --security-set-pass "$password" "$dev"
+
+# For some reason, the 1st ERASE sometimes immediately fails. 
+for tries in {1..3}; do
+	sleep 0.2
+
+	Tstart=$(date +%s)
+	info "Started at $(date -d "@$Tstart" +%c)"
+
+	hdparm --security-erase$enhanced "$password" "$dev" & hdparm_pid=$!
+	countdown "$minutes" & countdown_pid=$!
+	trap 'kill $hdparm_pid $countdown_pid; exit' INT EXIT
+
+	wait -n -p pid; r=$?
+	if [[ $pid == $hdparm_pid ]]; then
+		kill $countdown_pid
+		echo "hdparm finished with $r"
+	else
+		echo "hdparm still running..."
+		wait -n; r=$?
+		echo "hdparm now finished with $r"
+	fi
+	trap - INT EXIT
+
+	Tfinish=$(date +%s)
+	info "Finished at $(date -d "@$Tfinish" +%c), in $(interval $[Tfinish-Tstart])"
+	if (( Tfinish-Tstart > 1 )); then
+		notify-send "Security erase of $dev done in $(interval $[Tfinish-Tstart])"
+		break
+	fi
+done
+
+# Verify that security has been disabled after erase.
+info "ATA security information:"
+hdparm -I "$dev" | awk '/^Security:/{x=1} /^[^S\t]/{x=0} x{print}'
+
+info "SMART attributes after erase:"
+smartctl -A "$dev" > "$attrib-new.txt"
+! colordiff -U999 "$attrib-old.txt" "$attrib-new.txt" || cat "$attrib-new.txt"
+
+info "Initializing a new GPT on $dev"
+sgdisk -o "$dev"
+
+info "Putting $dev to standby"
+scsi_stop "$dev"

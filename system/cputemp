@@ -139,11 +139,12 @@ try:
             draw_bar(ts-1, 0, last_temp-20, last_temp, last_load)
         temp = read(subdev)
         temp = int(temp) / 1000
+        temp = round(temp + 0.1) # Python rounds 0.5 down
         ravg.add(temp)
         load = open("/proc/loadavg", "r").read().strip()
         load = load.split()[0]
         draw_bar(ts, 8, temp-20, temp, load)
-        set_title(f"{hostname}: {round(temp+0.1)}°C (load {load})")
+        set_title(f"{hostname}: {temp}°C (load {load})")
         last_temp = temp
         last_load = load
 except KeyboardInterrupt:

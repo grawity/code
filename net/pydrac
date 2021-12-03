@@ -97,12 +97,12 @@ class NoConsolePrivilegeError(Exception):
     pass
 
 class DracProber():
-    def __init__(self, host, creds):
+    def __init__(self, host, username, password):
         self.ua = requests.Session()
         self.address = host
         self.base_url = "https://%s" % host
-        self.username = creds["login"]
-        self.password = creds["password"]
+        self.username = username
+        self.password = password
         self.version = None
 
         # turn off SubjectAltNameWarning
@@ -283,18 +283,19 @@ ap.add_argument("host",
 args = ap.parse_args()
 
 host = args.host
-if args.username and args.password:
-    creds = {"login": args.username,
-             "password": args.password}
-else:
+username = args.username
+password = args.password
+if not (username and password):
     try:
         creds = get_netrc(host, service="ipmi") or \
                 get_netrc(host, service="idrac") or \
                 get_netrc(host, service="ilo")
     except KeyError:
         Core.die("credentials for %r not found", host)
+    username = creds["login"]
+    password = creds["password"]
 
-drac = DracProber(host, creds)
+drac = DracProber(host, username, password)
 drac.version = args.version
 drac.ua.verify = not (args.insecure)
 

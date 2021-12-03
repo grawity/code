@@ -233,7 +233,9 @@ class DracProber():
         runtime = "default-runtime"
         jnlp = self.fetch_webstart()
 
-        jre8 = find_java("java-8-jre/jre", "java-8-openjdk/jre", "java-8-jdk")
+        #jre8 = find_java("java-8-jre/jre", "java-8-openjdk/jre", "java-8-jdk")
+        # openjdk not included because it lacks javaws; use aur/jre8 instead
+        jre8 = find_java("java-8-jre/jre", "java-8-jdk")
 
         if self.version == "DRAC5":
             # Tested with DRAC5 firmware v1.60 and v1.65
@@ -256,6 +258,7 @@ class DracProber():
             print("Writing JNLP to %r" % jnlp_path)
             fh.write(jnlp)
 
+        #os.environ["JAVA_HOME"] = "/usr/lib/jvm/%s" % runtime
         cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime, "-wait", jnlp_path]
         print("Launching %r" % (cmd,))
         subprocess.run(cmd, cwd=self.temp_dir.name)

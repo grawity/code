@@ -2,7 +2,6 @@
 # pydrac -- launch iDRAC or iLO remote KVM clients
 import argparse
 import lxml.etree
-from nullroute.core import Core
 import os
 from pprint import pprint
 import requests
@@ -84,7 +83,7 @@ def find_java(*versions):
     for v in versions:
         if os.path.exists("/usr/lib/jvm/%s/bin/javaws" % v):
             return v
-    Core.die("Java version %r not installed or missing 'javaws' executable", versions)
+    exit("error: Java version %r not installed or missing 'javaws' executable" % (versions,))
 
 class UnknownVersionError(Exception):
     pass
@@ -109,13 +108,13 @@ class DracProber():
 
     def _probe_path(self, path, head=False):
         url = self.base_url + path
-        Core.debug("testing existence of %r" % url, skip=1)
+        #Core.debug("testing existence of %r" % url, skip=1)
         resp = self.ua.head(url) if head else self.ua.get(url)
         if resp.status_code == 200:
-            Core.debug(" - file exists (got %r)", resp)
+            #Core.debug(" - file exists (got %r)", resp)
             return resp
         elif resp.status_code == 404:
-            Core.debug(" - file does not exist (got %r)", resp)
+            #Core.debug(" - file does not exist (got %r)", resp)
             return False
         else:
             resp.raise_for_status()
@@ -172,7 +171,7 @@ class DracProber():
             # vkvm?state=1 - connect
             # vkvm?state=3 - disconnect
             # fetch /cgi-bin/webcgi/vkvmjnlp - automatically connects
-            Core.debug("posting credentials")
+            print("Sending credentials...")
             resp = self.ua.post(self.base_url + "/cgi-bin/webcgi/login",
                                 data={"user": self.username, "password": self.password})
             resp.raise_for_status()
@@ -180,14 +179,14 @@ class DracProber():
             if tree.xpath("string(/drac/privilege/@console)") != "1":
                 raise LoginFailedError()
 
-            Core.debug("fetching JNLP")
+            print("Fetching JNLP...")
             resp = self.ua.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
             return resp.content
 
         elif self.version == "iDRAC6":
             # the JNLP retrieval is unnecessarily complex in v6,
             # but we can pass credentials directly to the applet
-            Core.debug("using JNLP template")
+            print("Using built-in JNLP template")
             return self.load_template_webstart(idrac6_template)
 
         elif self.version == "iLO4":
@@ -196,7 +195,7 @@ class DracProber():
             # decode json
             # set Cookie: session_key = json["session_key"]
             # fetch /html/jnlp_template.html
-            Core.debug("posting credentials")
+            print("Sending credentials...")
             resp = self.ua.post(self.base_url + "/json/login_session",
                                 json={"method": "login",
                                       "user_login": self.username,
@@ -209,7 +208,7 @@ class DracProber():
                 raise NoConsolePrivilegeError()
             sid = data["session_key"]
 
-            Core.debug("fetching JNLP template")
+            print("Fetching JNLP...")
             # note: this may 404 if Requests decides to send "Authorization: Basic"
             #       after finding the .netrc entry all on its own...
             #       hence the "ipmi/" service prefix *and* the "bmc." subdomain
@@ -229,7 +228,7 @@ class DracProber():
         self.temp_dir = tempfile.TemporaryDirectory(prefix="pydrac")
 
         self.version = self.probe_version()
-        Core.info("detected version %s", self.version)
+        print("Detected version %s" % self.version)
 
         runtime = "default-runtime"
         jnlp = self.fetch_webstart()
@@ -254,11 +253,11 @@ class DracProber():
 
         jnlp_path = os.path.join(self.temp_dir.name, "vkvm.jnlp")
         with open(jnlp_path, "wb") as fh:
-            Core.debug("saving JNLP to %r", jnlp_path)
+            print("Writing JNLP to %r" % jnlp_path)
             fh.write(jnlp)
 
         cmd = ["/usr/lib/jvm/%s/bin/javaws" % runtime, "-wait", jnlp_path]
-        Core.debug("launching %r", cmd)
+        print("Launching %r" % (cmd,))
         subprocess.run(cmd, cwd=self.temp_dir.name)
 
 known_versions = ", ".join(DracProber.known_versions())
@@ -286,7 +285,7 @@ if not (username and password):
                 get_netrc(host, service="idrac") or \
                 get_netrc(host, service="ilo")
     except KeyError:
-        Core.die("credentials for %r not found", host)
+        exit("error: Credentials for %r not found in ~/.netrc" % host)
     username = creds["login"]
     password = creds["password"]
 
@@ -297,6 +296,6 @@ drac.ua.verify = not (args.insecure)
 try:
     drac.run()
 except UnknownVersionError:
-    Core.die("could not determine controller version")
+    exit("error: Could not determine controller version")
 except requests.exceptions.ConnectionError as e:
-    Core.die("%s" % e)
+    exit("error: %s" % e)

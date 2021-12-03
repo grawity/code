@@ -3,11 +3,11 @@
 import argparse
 import lxml.etree
 from nullroute.core import Core
-from nullroute.scrape import Scraper
 from nullroute.sec import get_netrc
 import os
 from pprint import pprint
 import requests
+import requests.packages.urllib3
 import subprocess
 import sys
 import tempfile
@@ -96,9 +96,9 @@ class LoginFailedError(Exception):
 class NoConsolePrivilegeError(Exception):
     pass
 
-class DracProber(Scraper):
+class DracProber():
     def __init__(self, host, creds):
-        super().__init__(output_dir=None)
+        self.ua = requests.Session()
         self.address = host
         self.base_url = "https://%s" % host
         self.username = creds["login"]
@@ -106,7 +106,6 @@ class DracProber(Scraper):
         self.version = None
 
         # turn off SubjectAltNameWarning
-        import requests.packages.urllib3
         requests.packages.urllib3.disable_warnings()
 
     def _post(self, path, *args, **kwargs):
@@ -188,7 +187,7 @@ class DracProber(Scraper):
                 raise LoginFailedError()
 
             Core.debug("fetching JNLP")
-            resp = self.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
+            resp = self.ua.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
             return resp.content
 
         elif self.version == "iDRAC6":
@@ -220,7 +219,7 @@ class DracProber(Scraper):
             # note: this may 404 if Requests decides to send "Authorization: Basic"
             #       after finding the .netrc entry all on its own...
             #       hence the "ipmi/" service prefix *and* the "bmc." subdomain
-            resp = self.get(self.base_url + "/html/jnlp_template.html")
+            resp = self.ua.get(self.base_url + "/html/jnlp_template.html")
             jnlp = resp.content
             jnlp = jnlp.replace(b"<script type=text/x-jqote-template id=jnlpTemplate><![CDATA[\n", b"")
             jnlp = jnlp.replace(b"\n]]></script>", b"")

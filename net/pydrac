@@ -275,17 +275,25 @@ ap.add_argument("-v", "--version",
                 help="controller version (%s)" % known_versions)
 ap.add_argument("-k", "--insecure", action="store_true", default=False,
                 help="disable TLS certificate verification for discovery")
+ap.add_argument("-U", "--username",
+                help="username for authenticating to the BMC")
+ap.add_argument("-P", "--password",
+                help="password for authenticating to the BMC")
 ap.add_argument("host",
-                help="host or address to connect to")
+                help="BMC hostname or address to connect to")
 args = ap.parse_args()
 
 host = args.host
-try:
-    creds = get_netrc(host, service="ipmi") or \
-            get_netrc(host, service="idrac") or \
-            get_netrc(host, service="ilo")
-except KeyError:
-    Core.die("credentials for %r not found", host)
+if args.username and args.password:
+    creds = {"login": args.username,
+             "password": args.password}
+else:
+    try:
+        creds = get_netrc(host, service="ipmi") or \
+                get_netrc(host, service="idrac") or \
+                get_netrc(host, service="ilo")
+    except KeyError:
+        Core.die("credentials for %r not found", host)
 
 drac = DracProber(host, creds)
 drac.version = args.version

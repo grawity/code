@@ -17,6 +17,7 @@ def setup_signal(session_id, signal_handler):
     session_path = manager.GetSession(session_id)
     session = bus.get_object("org.freedesktop.login1", session_path)
     session.connect_to_signal("Lock", signal_handler)
+    return session
 
 def handler_dbus_fdo():
     print("Locking session using D-Bus")
@@ -52,12 +53,12 @@ dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 if args.dbus:
     print("Using ScreenSaver D-Bus API")
-    setup_signal(session_id,
-                 handler_dbus_fdo)
+    listener = setup_signal(session_id,
+                            handler_dbus_fdo)
 elif args.command:
     print("Using external command %r" % args.command[0])
-    setup_signal(session_id,
-                 lambda: handler_external(args.command))
+    listener = setup_signal(session_id,
+                            lambda: handler_external(args.command))
 
 print("Waiting for lock signals on session %s" % session_id)
 

@@ -29,25 +29,21 @@ def handler_external():
     print("locking session using %r" % lock_command[0])
     os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
-def main():
-    global lock_command, session_id
-    lock_command = sys.argv[1:] or ["--dbus"]
-    try:
-        session_id = os.environ["XDG_SESSION_ID"]
-    except KeyError:
-        exit("error: $XDG_SESSION_ID not set; are you using pam_systemd?")
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    if lock_command == ["--dbus"]:
-        print("using freedesktop.org DBus API")
-        setup_signal(handler_dbus_fdo)
-    else:
-        print("using external command %r" % lock_command[0])
-        setup_signal(handler_external)
-    print("waiting for lock signals on session %s" % session_id)
-    try:
-        loop = GLib.MainLoop()
-        loop.run()
-    except KeyboardInterrupt:
-        sys.exit(0)
-
-main()
+lock_command = sys.argv[1:] or ["--dbus"]
+try:
+    session_id = os.environ["XDG_SESSION_ID"]
+except KeyError:
+    exit("error: $XDG_SESSION_ID not set; are you using pam_systemd?")
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+if lock_command == ["--dbus"]:
+    print("using freedesktop.org DBus API")
+    setup_signal(handler_dbus_fdo)
+else:
+    print("using external command %r" % lock_command[0])
+    setup_signal(handler_external)
+print("waiting for lock signals on session %s" % session_id)
+try:
+    loop = GLib.MainLoop()
+    loop.run()
+except KeyboardInterrupt:
+    sys.exit(0)

@@ -24,8 +24,7 @@ def handler_dbus_fdo():
     screensaver = bus.get_object("org.freedesktop.ScreenSaver", "/ScreenSaver")
     screensaver.Lock()
 
-def handler_external():
-    global lock_command
+def handler_external(lock_command):
     print("locking session using %r" % lock_command[0])
     os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
@@ -45,7 +44,7 @@ if lock_command == ["--dbus"]:
     setup_signal(handler_dbus_fdo)
 else:
     print("using external command %r" % lock_command[0])
-    setup_signal(handler_external)
+    setup_signal(lambda: handler_external(lock_command))
 
 print("waiting for lock signals on session %s" % session_id)
 

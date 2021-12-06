@@ -8,8 +8,7 @@ from gi.repository import GLib
 import os
 import sys
 
-def setup_signal(signal_handler):
-    global session_id
+def setup_signal(session_id, signal_handler):
     bus = dbus.SystemBus()
     manager = bus.get_object("org.freedesktop.login1", "/org/freedesktop/login1")
     # yecch
@@ -41,10 +40,12 @@ dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 if lock_command == ["--dbus"]:
     print("using freedesktop.org DBus API")
-    setup_signal(handler_dbus_fdo)
+    setup_signal(session_id,
+                 handler_dbus_fdo)
 else:
     print("using external command %r" % lock_command[0])
-    setup_signal(lambda: handler_external(lock_command))
+    setup_signal(session_id,
+                 lambda: handler_external(lock_command))
 
 print("waiting for lock signals on session %s" % session_id)
 

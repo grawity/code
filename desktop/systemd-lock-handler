@@ -2,6 +2,7 @@
 # systemd-lock-handler -- proxy between systemd-logind's "Lock" signal and your
 # favourite screen lock command
 
+import argparse
 import dbus
 import dbus.mainloop.glib
 from gi.repository import GLib
@@ -27,7 +28,18 @@ def handler_external(lock_command):
     print("Locking session using %r" % lock_command[0])
     os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
-lock_command = sys.argv[1:] or ["--dbus"]
+parser = argparse.ArgumentParser()
+parser.add_argument("--dbus", action="store_true",
+                    help="use the 'ScreenSaver' D-Bus API for locking")
+parser.add_argument("command", nargs="*",
+                    help="run the specified command to lock the screen")
+args = parser.parse_args()
+
+if not (args.dbus or args.command):
+    exit("error: Either D-Bus mode or an executable must be specified.")
+elif (args.dbus and args.command):
+    # We *could* very easily allow both, but usually it's pointless.
+    exit("error: D-Bus mode cannot be used together with command mode.")
 
 try:
     session_id = os.environ["XDG_SESSION_ID"]
@@ -38,14 +50,14 @@ except KeyError:
 
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-if lock_command == ["--dbus"]:
+if args.dbus:
     print("Using ScreenSaver D-Bus API")
     setup_signal(session_id,
                  handler_dbus_fdo)
-else:
-    print("Using external command %r" % lock_command[0])
+elif args.command:
+    print("Using external command %r" % args.command[0])
     setup_signal(session_id,
-                 lambda: handler_external(lock_command))
+                 lambda: handler_external(args.command))
 
 print("Waiting for lock signals on session %s" % session_id)
 

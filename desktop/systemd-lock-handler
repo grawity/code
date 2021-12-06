@@ -18,13 +18,13 @@ def setup_signal(session_id, signal_handler):
     session.connect_to_signal("Lock", signal_handler)
 
 def handler_dbus_fdo():
-    print("locking session using DBus")
+    print("Locking session using D-Bus")
     bus = dbus.SessionBus()
     screensaver = bus.get_object("org.freedesktop.ScreenSaver", "/ScreenSaver")
     screensaver.Lock()
 
 def handler_external(lock_command):
-    print("locking session using %r" % lock_command[0])
+    print("Locking session using %r" % lock_command[0])
     os.spawnvp(os.P_NOWAIT, lock_command[0], lock_command)
 
 lock_command = sys.argv[1:] or ["--dbus"]
@@ -39,15 +39,15 @@ except KeyError:
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 if lock_command == ["--dbus"]:
-    print("using freedesktop.org DBus API")
+    print("Using ScreenSaver D-Bus API")
     setup_signal(session_id,
                  handler_dbus_fdo)
 else:
-    print("using external command %r" % lock_command[0])
+    print("Using external command %r" % lock_command[0])
     setup_signal(session_id,
                  lambda: handler_external(lock_command))
 
-print("waiting for lock signals on session %s" % session_id)
+print("Waiting for lock signals on session %s" % session_id)
 
 try:
     loop = GLib.MainLoop()

@@ -24,6 +24,7 @@
 arg0=${0##*/}
 wd=$PWD
 nfs=0
+qflag="-q"
 
 if [[ $arg0 == '@@'?* ]]; then
 	host=${arg0#@@}
@@ -49,7 +50,8 @@ while getopts ":d:n" OPT; do
 done; shift $((OPTIND-1))
 
 if ! klist -s; then
-	die "Kerberos tickets not available"
+	warn "Kerberos tickets not available"
+	qflag=""
 fi
 
 # Optionally trim loopback symlinks (ember:/net/ember/foo -> ember:/foo)
@@ -84,9 +86,9 @@ else
 fi
 
 if [[ -t 0 && -t 1 && -t 2 ]]; then
-	tty_arg="-t"
+	tflag="-t"
 else
-	tty_arg=""
+	tflag=""
 fi
 
-exec ssh -K -q $tty_arg "$host" "export SILENT=1; . ~/.profile && cd $q_wd && ($q_cmd)"
+exec ssh -K $qflag $tflag "$host" "export SILENT=1; . ~/.profile && cd $q_wd && ($q_cmd)"

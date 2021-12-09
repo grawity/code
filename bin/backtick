@@ -5,15 +5,6 @@
 
 . lib.bash || exit
 
-g_show_osd() {
-	busctl call --user \
-		org.gnome.Shell /org/gnome/Shell \
-		org.gnome.Shell ShowOSD \
-		a{sv} 2 \
-			icon  s "$1" \
-			label s "$2" ;
-}
-
 state=$path_data/backtick.state.sh
 
 declare -i is_disabled=0
@@ -69,5 +60,11 @@ if [[ ! -t 1 ]]; then
 		1) status="disabled"; icon="system-lock-screen";;
 		0) status="enabled"; icon="preferences-desktop-keyboard-shortcuts";;
 	esac
-	g_show_osd "$icon-symbolic" "Alt+Backtick $status"
+	notify \
+		--state=backtick \
+		--icon="$icon-symbolic" \
+		--hint=transient \
+		--hint=synchronous \
+		"Alt+Backtick" \
+		"Alt+Backtick has been $status."
 fi

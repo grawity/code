@@ -12,10 +12,10 @@ sub GsdColor {
 	->get_object("/org/gnome/SettingsDaemon/Color");
 }
 
-sub Shell {
+sub Notifications {
 	Net::DBus->session
-	->get_service("org.gnome.Shell")
-	->get_object("/org/gnome/Shell");
+	->get_service("org.freedesktop.Notifications")
+	->get_object("/org/freedesktop/Notifications")
 }
 
 sub get_gsetting {
@@ -127,7 +127,21 @@ elsif ($action ~~ ["suspend", "resume", "poke"]) {
 	my $icon = ($value ? "weather-clear" : "night-light");
 	set_suspended($value);
 	if ($osd) {
-		Shell->ShowOSD({label => "Night Light $text",
-				icon => "$icon-symbolic"});
+		system("notify",
+		       "--state=nightlight",
+		       "--icon=$icon-symbolic",
+		       "--hint=transient",
+		       "--hint=synchronous",
+		       "Night Light",
+		       "Night Light has been $text.");
+		#my $id = 0;
+		#$id = Notifications->Notify("Night Light toggle",
+		#                            $id,
+		#                            "$icon-symbolic",
+		#                            "Night Light",
+		#                            "Night Light has been $text.",
+		#                            [],
+		#                            {},
+		#                            0);
 	}
 }

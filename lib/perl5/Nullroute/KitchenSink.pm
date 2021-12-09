@@ -28,7 +28,6 @@ our @EXPORT = qw(
 	shannon_entropy
 
 	sd_notify
-	gnome_show_osd
 );
 
 ### National identification numbers
@@ -143,27 +142,6 @@ sub sd_notify {
 			$sock->close;
 		}
 	}
-}
-
-### GNOME
-
-sub gnome_show_osd {
-	my ($label, $icon, $level) = @_;
-
-	system("busctl", "call", "--user",
-		"org.gnome.Shell",
-		"/org/gnome/Shell",
-		"org.gnome.Shell", "ShowOSD",
-		"a{sv}", 3,
-			"label" => "s" => $label,
-			"icon" => "s" => $icon,
-			"level" => "u" => $level);
-
-	#system("gdbus", "call", "-e",
-	#	"-d", "org.gnome.Shell",
-	#	"-o", "/org/gnome/Shell",
-	#	"-m", "org.gnome.Shell.ShowOSD",
-	#	"{'label': <'$label'>, 'icon': <'$icon'>, 'level': <$level>}");
 }
 
 1;

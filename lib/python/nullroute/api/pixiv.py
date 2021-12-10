@@ -131,6 +131,16 @@ class PixivApiClient():
             # deliberately discard resp["profile"], etc.
             return resp["user"]
 
+    @cache
+    def get_illust_ugoira_info(self, illust_id):
+        self._authenticate()
+        Core.trace("calling api.ugoira_metadata(illust_id=%r)", illust_id)
+        resp = self.api.ugoira_metadata(illust_id)
+        if err := resp.get("error"):
+            raise PixivApiError("API call failed: %r" % err)
+        else:
+            return resp["ugoira_metadata"]
+
 import re
 
 class PixivClient():

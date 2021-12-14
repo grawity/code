@@ -14,7 +14,7 @@ class CustomAdapter(requests.adapters.HTTPAdapter):
         # When urllib3 hand-rolls a SSLContext, it sets 'options |= OP_NO_TICKET'
         # and CloudFlare really does not like this. We cannot control this behavior
         # in urllib3, but we *can* just pass our own standard context instead.
-        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
         ctx.load_default_certs()
         ctx.set_alpn_protocols(["http/1.1"])
         return super().init_poolmanager(*args, **kwargs, ssl_context=ctx)

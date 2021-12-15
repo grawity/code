@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# osguess -- show distribution-specific information
+
+have() { command -v "$1" &>/dev/null; }
+
+unset dist
+
+if [[ -e /etc/os-release ]]; then
+	dist=$(. /etc/os-release && echo "$ID $ID_LIKE")
+	xdist=:${dist// /:}:
+fi
+
+for arg in "$@"; do
+	case $arg in
+	dist)
+		echo "$dist" ;;
+
+	package-mgr)
+		case $xdist in
+		*:arch:*)
+			echo pacman ;;
+		*:debian:*)
+			echo dpkg ;;
+		*)
+			echo "$0: unknown distribution" >&2
+			exit 1 ;;
+		esac ;;
+
+	*)
+		echo "$0: unknown argument '$arg'" >&2
+		exit 2 ;;
+	esac
+done

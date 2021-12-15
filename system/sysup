@@ -1,54 +1,26 @@
 #!/usr/bin/env bash
 # sysup -- upgrade all installed packages
-# (group: lspkg, lspkgs, whatowns, lcpkg, sysup)
 
 . lib.bash || exit
 
-set -e
-
-unset dist tool
-
-if [[ -e /etc/os-release ]]; then
-	dist=$(. /etc/os-release && echo "$ID $ID_LIKE")
-	debug "found distribution IDs <$dist>"
-	dist=:${dist// /:}:
-fi
-
-case $dist in
-	*:arch:*|*:archlinux:*)
-		tool=pacman;;
-esac
-
-if [[ ! $tool ]]; then
-	debug "distro unknown, performing tool detection"
-	if have pacman; then
-		tool=pacman
-	elif have apt && test -x /usr/bin/apt; then
-		tool=apt
-	elif have apt-get; then
-		tool=apt-get
-	elif have yum; then
-		tool=yum
-	fi
-fi
+tool=$(osguess package-mgr) || exit
 
 case $tool in
-	apt)
-		debug "detected unified apt interface"
-		sudo: apt update
-		sudo: apt full-upgrade -V "$@";;
-	apt-get)
-		debug "detected Debian apt-get"
-		sudo: apt-get update
-		sudo: apt-get dist-upgrade -V "$@";;
+	dpkg)
+		if test -x /usr/bin/apt; then
+			sudo: apt update
+			sudo: apt full-upgrade -V "$@"
+		else
+			sudo: apt-get update
+			sudo: apt-get dist-upgrade -V "$@"
+		fi ;;
 	pacman)
-		debug "detected Arch Linux pacman"
-		sudo: pacman -Syu "$@";;
-	yum)
-		debug "detected Fedora yum"
-		sudo: yum update "$@";;
+		sudo: pacman -Syu "$@" ;;
+	rpm)
+		sudo: yum update "$@" ;;
 	*)
-		die "no known package manager found";;
+		echo "$0: unknown distribution" >&2
+		exit 1 ;;
 esac
 
 if [[ ! $* ]]; then

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# whatowns -- show packages owning a specific file
+# (group: lspkg, lspkgs, whatowns, lcpkg, sysup)
+
+have() { command -v "$1" &>/dev/null; }
+
+unset dist tool
+
+if [ -e /etc/os-release ]; then
+	dist=$(. /etc/os-release && echo "$ID $ID_LIKE")
+	dist=:${dist// /:}:
+fi
+
+case $dist in
+	*:arch:*)
+		tool=pacman;;
+	*:debian:*)
+		tool=dpkg;;
+	*)
+		echo "$0: unknown distribution" >&2
+		exit 2
+esac
+
+case $tool in
+	dpkg)
+		dpkg -S "$@";;
+	pacman)
+		pacman -Qo "$@";;
+	rpm)
+		rpm -q --whatprovides "$@";;
+	pkg-freebsd)
+		pkg which "$@";;
+	*)
+		echo "$0: unknown distribution" >&2
+		exit 2
+esac

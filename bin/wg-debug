@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# wg-debug -- control WireGuard debug mode
+
+if (( UID )); then
+	echo "$0: must be run as root" >&2
+	exit 1
+fi
+
+case $1 in
+-e|1|y|on)
+	echo "Enabling dynamic debugging for WireGuard..."
+	echo "module wireguard +p" > /sys/kernel/debug/dynamic_debug/control
+	;;
+-d|0|n|off)
+	echo "Disabling dynamic debugging for WireGuard..."
+	echo "module wireguard -p" > /sys/kernel/debug/dynamic_debug/control
+	;;
+esac
+
+current=$(awk '$2 ~ /\[wireguard\]/ {print $3}' /sys/kernel/debug/dynamic_debug/control | sort -u)
+
+case $current in
+'=p')
+	echo "WireGuard debugging is currently enabled.";;
+'=_')
+	echo "WireGuard debugging is currently disabled.";;
+*)
+	echo "WireGuard debugging is in a mixed state.";;
+esac

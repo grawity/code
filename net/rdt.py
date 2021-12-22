@@ -38,7 +38,7 @@ def to_ptr(addr):
 
 def query(addr, rrtype):
     try:
-        answer = dns.resolver.query(addr, rrtype)
+        answer = dns.resolver.resolve(addr, rrtype)
         return [rr.to_text() for rr in answer]
     except:
         return []

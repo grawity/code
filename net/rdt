@@ -4,40 +4,25 @@
 #
 # (c) 2009–2021 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License <https://spdx.org/licenses/MIT>
-#
-# Q: Why haven't you rewritten this in Python, Perl, or some other
-#    civilized language?
-# A: Performance. It takes longer to `import dns.resolver` in Python
-#    than to run this whole script to completion in PHP.
-#
-# Q: Does it matter, since lookups from cold cache are slow anyway?
-# A: Yes.
-#
-# Q: Would PyDNS be faster?
-# A: I don't know. I already have other scripts using dnspython and
-#    don't feel like rewriting them for consistency. (And I would feel
-#    bad if I had some scripts using one and some using the other.)
-#
-# Q: Golang?
-# A: Goaway.
-#
-# Q: Rust?
-# A: Not yet.
 
 error_reporting(-1); // use strict;
 
-function msg_help() {
-	$usage = <<<EOTFM
-Usage: rdt [-cC] ADDRESS [ADDRESS ...]
+function usage() {
+	$usage = <<<EOM
+Usage: rdt [options] <address>...
 
-Displays forward and/or reverse DNS of a given address, recursively.
+Displays forward and reverse DNS of a given address, recursively. The starting
+point can be either a domain name or an IPv4 or IPv6 address.
+
+In SRV mode, the address should be "service@domain", e.g. "imaps@example.com",
+returning a list of hosts which provide that service (for both TCP and UDP).
 
 Options:
-  -c, -C                        Enable/disable coloured output.
+  --[no]-color                  colorize output
+  -s, --srv                     perform SRV lookup instead of PTR
 
-EOTFM;
+EOM;
 	fwrite(STDERR, $usage);
-	return 2;
 }
 
 function warn($msg) {
@@ -291,7 +276,6 @@ if (function_exists("posix_isatty")) {
 $dosrv = (basename($argv[0]) == "srv");
 $addresses = array();
 
-$err = 0;
 $optind = 0;
 foreach (getopt("cChs", ["color", "no-color", "help", "srv"], $optind) as $opt => $arg) {
 	switch ($opt) {
@@ -306,18 +290,22 @@ foreach (getopt("cChs", ["color", "no-color", "help", "srv"], $optind) as $opt =
 			$dosrv = true; break;
 		case "h":
 		case "help":
-			exit(msg_help());
+			usage();
+			exit(0);
 		default:
+			// Unfortunately getopt() as of 8.0 doesn't indicate anything
+			// at all for unknown options, so this is not reached.
 			warn("unknown option '$opt'");
-			++$err;
+			exit(2);
 	}
 }
 for ($i = $optind; $i < $argc; $i++) {
 	$addresses[] = $argv[$i];
 }
-
-if ($err > 0 || count($addresses) == 0)
-	exit(msg_help());
+if (!count($addresses)) {
+	warn("no addresses specified");
+	exit(2);
+}
 
 foreach ($addresses as $i => $start_addr) {
 	if ($i > 0)

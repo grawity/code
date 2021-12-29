@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# rdo -- run command across all hosts
+
+hosts=$(rlisthosts)
+
+if (( ! $# )); then
+	echo "error: Command not specified" >&2
+	exit 1
+elif (( $# == 1 )); then
+	cmd="$1"
+else
+	cmd="${*@Q}"
+fi
+
+(for host in $hosts; do
+	echo "$host:$(ssh $host "(${cmd:-:}) 2>&1 || echo '=> '\$?" | sed 's/^/\t/')" &
+done
+wait)

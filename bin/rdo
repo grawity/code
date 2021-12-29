@@ -12,7 +12,9 @@ else
 	cmd="${*@Q}"
 fi
 
+cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
+
 (for host in $hosts; do
-	echo "$host:$(ssh $host "(${cmd:-:}) 2>&1 || echo '=> '\$?" | sed 's/^/\t/')" &
+	echo "$host:$(ssh -n $host "$cmd" | sed 's/^/\t/')" &
 done
 wait)

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
+# wrapper that runs Git's `diff-highlight` script if it's not in bin
 
 paths=(
 	# Arch
 	/usr/share/git/diff-highlight
-
 	# Debian
 	/usr/share/doc/git/contrib/diff-highlight
 )
 
-for p in "${paths[@]}"; do
-	if [[ -f "$p/diff-highlight" ]]; then
-		exec perl "$p/diff-highlight" "$@"
-	elif [[ -f "$p/DiffHighlight.pm" && -f "$p/diff-highlight.perl" ]]; then
-		exec perl -I"$p" -M"DiffHighlight" "$p/diff-highlight.perl" "$@"
+for dir in "${paths[@]}"; do
+	if [[ -f $dir/diff-highlight ]]; then
+		exec perl $dir/diff-highlight "$@"
+	elif [[ -f $dir/DiffHighlight.pm && -f $dir/diff-highlight.perl ]]; then
+		exec perl -I$dir -MDiffHighlight $dir/diff-highlight.perl $@
 	fi
 done
 

@@ -9,22 +9,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-a", metavar="STRING", help="input text")
 args = parser.parse_args()
 
+if args.a is not None:
+    input = io.StringIO(args.a)
+else:
+    input = sys.stdin
+
 while hasattr(sys.stdout, "encoding"):
     sys.stdout = sys.stdout.detach()
 
-input = sys.stdin
-if args.a is not None:
-    input = io.StringIO(args.a)
-
-extra = ""
+carry = ""
 while buf := input.read(4096):
     buf = re.sub(r"\s+", "", buf)
     #buf = re.sub(r"[^0-9A-Fa-f]", "", buf)
     # After stripping whitespace, we might end up with an odd number of nibbles
-    buf = extra + buf
+    buf = carry + buf
     if len(buf) % 2:
-        extra = buf[-1]
+        carry = buf[-1]
         buf = buf[:-1]
     else:
-        extra = ""
+        carry = ""
     sys.stdout.write(bytes.fromhex(buf))

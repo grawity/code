@@ -4,18 +4,20 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-S] <command>"
+	echo "Usage: $progname [-h HOSTS] [-S] <command>"
 	echo
 	echo "Run a command simultaneously on all hosts."
 	echo
+	echo_opt "-h HOSTS" "list of hosts to connect to"
 	echo_opt "-S" "connect as superuser (root)"
 }
 
 hosts=$(rlisthosts)
 user=""
 
-while getopts ":S" OPT; do
+while getopts ":h:S" OPT; do
 	case $OPT in
+	h) hosts="${OPTARG//,/ }";;
 	S) user="root@";;
 	*) lib::die_getopts;;
 	esac

@@ -1,7 +1,27 @@
 #!/usr/bin/env bash
 # rdo -- run command across all hosts
 
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-h HOSTS] [-S] <command>"
+	echo
+	echo "Run a command simultaneously on all hosts."
+	echo
+	echo_opt "-h HOSTS" "list of hosts to connect to"
+	echo_opt "-S" "connect as superuser (root)"
+}
+
 hosts=$(rlisthosts)
+user=""
+
+while getopts ":h:S" OPT; do
+	case $OPT in
+	h) hosts="${OPTARG//,/ }";;
+	S) user="root@";;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 if (( ! $# )); then
 	echo "error: Command not specified" >&2
@@ -13,8 +33,7 @@ else
 fi
 
 cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
-
-(for host in $hosts; do
-	echo "$host:$(ssh -n $host "$cmd" | sed 's/^/\t/')" &
+for host in $hosts; do
+	echo "$host:$(ssh -n $user$host "$cmd" | sed 's/^/\t/')" &
 done
-wait)
+wait

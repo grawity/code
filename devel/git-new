@@ -3,19 +3,17 @@
 
 . lib.bash || exit
 
+opt_no_merges=0
+opt_no_po=0
+
 while [[ $1 == --* ]]; do
 	case $1 in
 		--add-no-merges)
-			git config --add nullroute.git-new.options "--no-merges"
-			shift
-			;;
+			opt_no_merges=1; shift;;
 		--add-no-po)
-			git config --add nullroute.git-new.paths ":(exclude)**.po"
-			shift
-			;;
+			opt_no_po=1; shift;;
 		--*)
-			die "unknown option '$1'"
-			;;
+			die "unknown option '$1'";;
 		*)
 			break
 	esac
@@ -81,6 +79,13 @@ if [[ $PWD == $HOME/src/* ]]; then
 		git pull --ff-only
 		exec "$0" "$@"
 	fi
+fi
+
+if (( opt_no_merges )); then
+	git config --add nullroute.git-new.options "--no-merges" || exit
+fi
+if (( opt_no_po )); then
+	git config --add nullroute.git-new.paths ":(exclude)**.po" || exit
 fi
 
 opts=$(git config --get-all nullroute.git-new.options || true)

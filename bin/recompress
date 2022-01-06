@@ -7,7 +7,7 @@ usage() {
 	echo "Usage: $0 <files>"
 	echo
 	echo_opt "-q <percent>" "Quality for JPEG compression (default $quality%)"
-	echo_opt "-s <percent>" "Scale for the output image (default $scale%)"
+	echo_opt "-s <percent>|<WxH>" "Scale or dimensions for the output image (default $scale%)"
 	echo_opt "-B <color>" "Background color for transparent PNGs (default $background)"
 	echo_opt "-O <arg>" "Additional option for 'magick convert'"
 	echo
@@ -109,7 +109,9 @@ if (( quality < 50 || quality > 100 )); then
 fi
 addargs+=(-quality "$quality")
 
-if (( scale < 1 || scale > 100 )); then
+if [[ $scale == *x* ]]; then
+	addargs+=(-resize "$scale")
+elif (( scale < 1 || scale > 100 )); then
 	die "invalid scale value '$scale'"
 elif (( scale < 100 )); then
 	addargs+=(-scale "$scale%")
@@ -119,7 +121,7 @@ if (( nproc < 1 || nproc > $(nproc)*4 )); then
 	die "invalid job count '$nproc'"
 fi
 
-echo "Recompressing ${#infiles[@]} files at scale $scale%, quality $quality% ($nproc jobs)"
+echo "Recompressing ${#infiles[@]} files ($nproc jobs)"
 
 trap 'clear_progress' EXIT
 for iname in "${infiles[@]}"; do

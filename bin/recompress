@@ -14,6 +14,7 @@ usage() {
 	echo_opt "-L <size>" "Only convert files larger than X megabytes"
 	echo_opt "-f" "Keep converted files even if larger than originals"
 	echo_opt "-T" "Don't try to preserve modification time of the original"
+	echo_opt "-d <dir>" "Put converted files in another directory"
 	echo
 	echo_opt "-j <nproc>" "Number of parallel conversions (default $nproc)"
 }
@@ -49,6 +50,7 @@ minorigsize=0
 keepmtime=1
 infiles=()
 outfiles=()
+outdir=
 declare -A outmap=()
 addargs=()
 
@@ -56,9 +58,10 @@ nproc=$(nproc)
 njobs=0
 ndone=0
 
-while getopts ":B:fj:L:q:s:O:T" OPT; do
+while getopts ":B:d:fj:L:q:s:O:T" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
+	d) outdir=$OPTARG;;
 	f) force=1;;
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
@@ -87,9 +90,10 @@ if [[ $minorigsize != 0 ]]; then
 fi
 
 for arg in "$@"; do
+	oarg=${outdir%/}${outdir:+/}$arg
 	if [[ ! -e $arg ]]; then
 		warn "input file '$arg' does not exist"
-	elif [[ $arg =~ \.conv\.[^.]+$ ]]; then
+	elif [[ $arg =~ \.conv\.[^.]+$ ]] && [[ $arg -ef $oarg ]]; then
 		notice "skipping already converted file '$arg'"
 	elif (( minorigsize && $(stat -c %s "$arg") < minorigsize )); then
 		debug "skipping already small file '$arg'"
@@ -124,7 +128,7 @@ for iname in "${infiles[@]}"; do
 		wait -n; (( --njobs )); (( ++ndone ))
 		show_progress "$ndone" "${#infiles[@]}"
 	done
-	oname=${iname%.*}.conv.jpg
+	oname=${outdir%/}${outdir:+/}${iname%.*}.conv.jpg
 	{
 		magick convert "$iname" "${addargs[@]}" "$oname" &&
 		if (( keepmtime )); then
@@ -156,7 +160,7 @@ for oname in "${outfiles[@]}"; do
 	fi
 done
 
-if (( ${#outlarger[@]} && !force )); then
+if (( ${#outlarger[@]} && !force )) && [[ ! $outdir ]]; then
 	rm -f "${outlarger[@]}"
 	notice "${#outlarger[@]} files were larger than originals; deleted."
 	outfiles=("${outsmaller[@]}")

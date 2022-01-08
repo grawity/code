@@ -8,8 +8,8 @@ usage() {
 	echo
 	echo "Run a command simultaneously on all hosts."
 	echo
-	echo_opt "-h HOSTS" "list of hosts to connect to"
-	echo_opt "-S" "connect as superuser (root)"
+	echo_opt "-h HOSTS"	"list of hosts to connect to"
+	echo_opt "-S"		"connect as superuser (root)"
 }
 
 hosts=$(rlisthosts)
@@ -17,22 +17,24 @@ user=""
 
 while getopts ":h:S" OPT; do
 	case $OPT in
-	h) hosts="${OPTARG//,/ }";;
+	h) hosts=${OPTARG//,/ };;
 	S) user="root@";;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
 if (( ! $# )); then
-	echo "error: Command not specified" >&2
-	exit 1
+	die "command not specified"
 elif (( $# == 1 )); then
-	cmd="$1"
+	cmd=$1
 else
-	cmd="${*@Q}"
+	cmd=${*@Q}
 fi
 
+# Make sure to show return code on failure. (XXX: This could probably also be
+# done locally, as ssh propagates the exit status.)
 cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
+
 for host in $hosts; do
 	echo "$host:$(ssh -n $user$host "$cmd" | sed 's/^/\t/')" &
 done

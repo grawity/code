@@ -51,10 +51,12 @@ def get_credentials(host):
     from gi.repository import GLib
     from gi.repository import Secret
 
+    targets = [host]
     if len(host.split(".")) >= 3:
         _, domain = host.split(".", 1)
+        targets = [host, "*." + domain]
 
-    for target in [host, "*." + domain]:
+    for target in targets:
         for proto in ["rdp", "smb"]:
             qattrs = {"xdg:schema": "org.gnome.keyring.NetworkPassword",
                       "protocol": proto,

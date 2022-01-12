@@ -12,13 +12,13 @@ from urllib.parse import unquote as urlunquote
 class Downgrader(Scraper):
     def enum_cache(self, pkg):
         for path in glob.glob("/var/cache/pacman/pkg/%s-*.pkg.tar*" % pkg):
-            if path.endswith((".part", ".sig")):
-                continue
-            yield {
-                "name": os.path.basename(path),
-                "src": "cache",
-                "url": path,
-            }
+            name = os.path.basename(path)
+            if pkg_matches_filename(pkg, name):
+                yield {
+                    "name": name,
+                    "src": "cache",
+                    "url": path,
+                }
 
     def enum_ala(self, pkg):
         page_url = "https://archive.archlinux.org/packages/%s/%s/" % (pkg[0], pkg)
@@ -28,10 +28,8 @@ class Downgrader(Scraper):
             return
         for tag in page.select("a"):
             href = str(tag["href"])
-            if href.startswith("%s-" % pkg):
-                if href.endswith(".sig"):
-                    continue
-                name = urlunquote(os.path.basename(href))
+            name = urlunquote(os.path.basename(href))
+            if pkg_matches_filename(pkg, name):
                 yield {
                     "name": name,
                     "src": "ala",
@@ -48,9 +46,7 @@ class Downgrader(Scraper):
         meta = page.content
         meta = lxml.etree.fromstring(meta)
         for name in meta.xpath("/files/file/@name"):
-            if name.startswith("%s-" % pkg):
-                if name.endswith(".sig"):
-                    continue
+            if pkg_matches_filename(pkg, name):
                 yield {
                     "name": name,
                     "src": "ia",
@@ -78,6 +74,14 @@ def parse_pkg_filename(pkg):
     pkg = pkg.rsplit(".pkg.tar", 1)[0]
     name, ver, rel, arch = pkg.rsplit("-", 3)
     return (name, ver, rel, arch)
+
+def pkg_matches_filename(pkg, filename):
+    if filename.endswith((".part", ".sig")):
+        return False
+    if ".pkg.tar" not in filename:
+        return False
+    pkgname, *_ = parse_pkg_filename(filename)
+    return pkgname == pkg
 
 def cmp_version(a, b):
     res = subprocess.run(["vercmp", a, b], stdout=subprocess.PIPE)

@@ -15,7 +15,7 @@ from nullroute.file import get_file_attr, set_file_attr
 from nullroute.misc import escape_shell, fmt_size, fmt_size_short
 from nullroute.ui import print_status, stderr_tty
 
-opts = None
+args = None
 
 header_size = 512
 file_sizes = {}     # path → size (stage 1)
@@ -35,7 +35,7 @@ if Core._log_level >= Core.LOG_TRACE:
         Core.trace(" ".join(args))
 
 def status(*args):
-    if stderr_tty() and not opts.verbose:
+    if stderr_tty() and not args.verbose:
         import time
         global _last_status
         print_status(*args)
@@ -45,22 +45,22 @@ def status(*args):
             _last_status = now
 
 def path_is_ignored(path):
-    for filter in opts.ignore:
+    for filter in args.ignore:
         if fnmatch.fnmatch(path, filter):
             return True
     return False
 
 def path_is_removable(path):
-    for filter in opts.keep:
+    for filter in args.keep:
         if fnmatch.fnmatch(path, filter):
             return False
-    for filter in opts.remove:
+    for filter in args.remove:
         if fnmatch.fnmatch(path, filter):
             return True
     return False
 
 def path_is_perishable(path):
-    for filter in opts.only:
+    for filter in args.only:
         if fnmatch.fnmatch(path, filter):
             return True
     return False
@@ -71,7 +71,7 @@ def enum_files(root_dir):
     Core.debug("enumerating %r" % root_dir)
     if os.path.isdir(root_dir):
         for subdir, dirs, files in os.walk(root_dir):
-            if ".nodupes" in files and subdir != "." and not opts.all:
+            if ".nodupes" in files and subdir != "." and not args.all:
                 Core.debug("skipping %r (found .nodupes marker)", subdir)
                 dirs.clear()
                 dirs_skipped += 1
@@ -93,7 +93,7 @@ def enum_files(root_dir):
 
 def get_header(path):
     if path not in file_headers:
-        if opts.verbose:
+        if args.verbose:
             print("reading", path, file=sys.stderr)
         with open(path, "rb") as fh:
             file_headers[path] = hashlib.sha1(fh.read(header_size)).digest()
@@ -101,7 +101,7 @@ def get_header(path):
 
 def hash_file(path, status_func=None):
     if path not in file_hashes:
-        if opts.verbose:
+        if args.verbose:
             print("hashing", path, file=sys.stderr)
         h = hashlib.sha1()
         buf_size = 4 * 1024 * 1024
@@ -167,7 +167,7 @@ def find_image_duplicates(root_dirs, only_globs=None):
             st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
                 continue
-            #if st.st_size < opts.larger_than:
+            #if st.st_size < args.larger_than:
             #    continue
             if not path.lower().endswith((".jpg", ".jpeg", ".jfif", ".png")):
                 continue
@@ -218,7 +218,7 @@ def find_duplicates(root_dirs, only_globs=None, include_symlinks=False):
             if not stat.S_ISREG(st.st_mode):
                 Core.trace("skipping %r (not a regular file)", path)
                 continue
-            #if st.st_size < opts.larger_than:
+            #if st.st_size < args.larger_than:
             #    continue
             file_sizes[path] = st.st_size
             known_sizes[st.st_size].append(path)
@@ -375,46 +375,46 @@ if __name__ == "__main__":
                     help="compare image contents rather than file properties")
     ap.add_argument("path", nargs="*")
 
-    opts = ap.parse_args()
+    args = ap.parse_args()
 
-    opts.larger_than = unfmt_size(opts.larger_than)
+    args.larger_than = unfmt_size(args.larger_than)
 
-    root_dir = opts.path[:] or ["."]
+    root_dir = args.path[:] or ["."]
 
-    if opts.image:
+    if args.image:
         Core.notice("comparing image bitmaps; skipping size and header checks")
         find_duplicates = find_image_duplicates
 
     try:
-        for paths in find_duplicates(root_dir, opts.only,
-                                     include_symlinks=opts.symlinks):
-            if opts.only and not any(path_is_perishable(p) for p in paths):
+        for paths in find_duplicates(root_dir, args.only,
+                                     include_symlinks=args.symlinks):
+            if args.only and not any(path_is_perishable(p) for p in paths):
                 continue
             paths.sort()
             size = file_sizes[paths[0]]
             hash = hash_file(paths[0])
             num = len(paths)
             wasted = size * (num - 1)
-            if opts.list and opts.remove:
+            if args.list and args.remove:
                 for path in paths:
                     if num > 1 and path_is_removable(path):
                         print("rm -vf %s" % escape_shell(path))
                         num -= 1
-            elif opts.list:
+            elif args.list:
                 for path in paths:
                     print(wasted, fmt_hash(hash), path)
             else:
                 print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
                 oldest = None
-                if opts.keep_oldest:
+                if args.keep_oldest:
                     mtimes = [(os.stat(path).st_mtime, path) for path in paths]
                     mtimes.sort()
                     oldest = mtimes[0][1]
                 for path in paths:
-                    qpath = escape_shell(path) if opts.quote else path
+                    qpath = escape_shell(path) if args.quote else path
                     if num > 1 and path_is_removable(path) and path != oldest:
                         print("   \033[1m\033[38;5;9m×\033[m", qpath)
-                        if not opts.dry_run:
+                        if not args.dry_run:
                             try:
                                 os.unlink(path)
                             except FileNotFoundError:
@@ -434,9 +434,9 @@ if __name__ == "__main__":
 
     sys.stdout.flush()
 
-    if opts.list and opts.remove:
+    if args.list and args.remove:
         pass
-    elif opts.verbose or opts.list:
+    elif args.verbose or args.list:
         wasted_files = total_files - unique_files
         print("; %d files compared by header" % len(file_headers))
         print("; %d files compared by hash" % len(file_hashes))

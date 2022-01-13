@@ -54,17 +54,26 @@ if ! klist -s; then
 	qflag=""
 fi
 
-# Optionally trim loopback symlinks (ember:/net/ember/foo -> ember:/foo)
-wd=${wd/#"/net/$host/"/"/"}
-
 if (( nfs )); then
-	if [[ $wd != /net/* ]]; then
+	if [[ $wd == /net/* ]]; then
+		# Already on NFS mount -- don't stack another one; assume the
+		# mount is directly accessible from target. But trim loopback
+		# paths in case we're already on an NFS mount from the target
+		# system.
+		wd=${wd/#"/net/$host/"/"/"}
+	else
+		# We're on a local filesystem. Convert it to an NFS path.
+		wd="/net/$HOSTNAME$wd"
 		if [[ ! -e /proc/fs/nfsd/versions ]]; then
 			die "NFS service not running on $HOSTNAME"
 		fi
-		wd="/net/$HOSTNAME$wd"
 	fi
 	info "Running in $host:$wd"
+else
+	# If already on NFS mount from the target system, trim loopback paths
+	# (e.g. "cd /net/ember/home; @ ember foo" will use just /home). The
+	# target ought to have a loopback symlink, but it's cleaner to trim it.
+	wd=${wd/#"/net/$host/"/"/"}
 fi
 
 if [[ $wd ]]; then

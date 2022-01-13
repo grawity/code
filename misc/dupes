@@ -145,6 +145,12 @@ def fmt_hash(hash):
 def unfmt_size(sz, si=False):
     if not sz:
         return -1
+
+    try:
+        return int(sz)
+    except ValueError:
+        pass
+
     prefixes = "kMGTPE"
     mult = 1000 if si else 1024
     pos = prefixes.index(sz[-1])
@@ -152,7 +158,7 @@ def unfmt_size(sz, si=False):
     exp = pos + 1
     return val * (mult ** exp)
 
-def find_image_duplicates(root_dirs, only_globs=None):
+def find_image_duplicates(root_dirs, only_globs=None, min_size=0):
     known_files = list()
     known_hashes = defaultdict(list)
 
@@ -167,8 +173,8 @@ def find_image_duplicates(root_dirs, only_globs=None):
             st = os.lstat(path)
             if not stat.S_ISREG(st.st_mode):
                 continue
-            #if st.st_size < args.larger_than:
-            #    continue
+            if st.st_size < min_size:
+                continue
             if not path.lower().endswith((".jpg", ".jpeg", ".jfif", ".png")):
                 continue
             file_sizes[path] = st.st_size
@@ -197,7 +203,10 @@ def find_image_duplicates(root_dirs, only_globs=None):
     res.sort()
     yield from res
 
-def find_duplicates(root_dirs, only_globs=None, include_symlinks=False):
+def find_duplicates(root_dirs, *,
+                    only_globs=None,
+                    include_symlinks=False,
+                    min_size=0):
     known_sizes = defaultdict(list)
     known_headers = defaultdict(list)
     known_hashes = defaultdict(list)
@@ -218,8 +227,9 @@ def find_duplicates(root_dirs, only_globs=None, include_symlinks=False):
             if not stat.S_ISREG(st.st_mode):
                 Core.trace("skipping %r (not a regular file)", path)
                 continue
-            #if st.st_size < args.larger_than:
-            #    continue
+            if st.st_size < min_size:
+                Core.trace("skipping %r (smaller than min_size)", path)
+                continue
             file_sizes[path] = st.st_size
             known_sizes[st.st_size].append(path)
 
@@ -356,14 +366,14 @@ if __name__ == "__main__":
                         help="only list files with duplicates matching given paths")
     parser.add_argument("--dry-run", action="store_true", default=False,
                         help="TODO")
-    parser.add_argument("--larger-than", metavar="SIZE",
-                        help="TODO")
+    parser.add_argument("--min-size", metavar="SIZE", default="1",
+                        help="only check files at least this large (default: 1 byte)")
     parser.add_argument("--image", action="store_true", default=False,
                         help="compare image contents rather than file properties")
     parser.add_argument("path", nargs="*")
     args = parser.parse_args()
 
-    args.larger_than = unfmt_size(args.larger_than)
+    args.min_size = unfmt_size(args.min_size)
 
     root_dir = args.path[:] or ["."]
 
@@ -372,8 +382,10 @@ if __name__ == "__main__":
         find_duplicates = find_image_duplicates
 
     try:
-        for paths in find_duplicates(root_dir, args.only,
-                                     include_symlinks=args.symlinks):
+        for paths in find_duplicates(root_dir,
+                                     only_globs=args.only,
+                                     include_symlinks=args.symlinks,
+                                     min_size=args.min_size):
             if args.only and not any(path_is_perishable(p) for p in paths):
                 continue
             paths.sort()

@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+# git rconfig -- invoke `git config` on the remote
+import argparse
+import shlex
+import subprocess
+
+def parse_url(url):
+    if "://" in url:
+        raise Exception("Remote %r is not an rcp-style address" % url)
+    host, path = url.split(":", 1)
+    return host, path
+
+def fixup_path(host, path):
+    # XXX
+    return f"{path}.git"
+
+def shell_join(args):
+    return " ".join(map(shlex.quote, args))
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-r", "--remote",
+                    default="origin",
+                    help="the remote to perform configuration at")
+parser.add_argument("rest", nargs="*")
+args = parser.parse_args()
+
+r = subprocess.run(["git", "remote", "get-url", "--push", args.remote],
+                   stdout=subprocess.PIPE)
+remote_url = r.stdout.decode().strip()
+
+host, path = parse_url(remote_url)
+if host.startswith("git@"):
+    exit("error: Remote %r looks like it's fetch/push-only; config won't work." % host)
+
+path = fixup_path(host, path)
+cmd = ["git", "-C", path, "config", "--local", *args.rest]
+subprocess.run(["ssh", host, shell_join(cmd)])

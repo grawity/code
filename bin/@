@@ -21,6 +21,25 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: @ <host> [-n] [<command>]"
+	echo "       on <host> [<command>]"
+	echo
+	echo "Run an interactive shell or command on the specified host, preserving"
+	echo "the current working directory. When invoked as '@' will use the remote"
+	echo "equivalent of the local path; when invoked as 'on' or '@@' will access"
+	echo "the local directory via NFS."
+	echo
+	echo_opt "-n"		"access local directory via NFS (always on for 'on')"
+	echo_opt "-S"		"connect as superuser (root)"
+	echo
+	echo "The program may also be invoked through symlinks for specific hosts:"
+	echo
+	echo_opt "@<host>"	"like '@ <host>' (use remote path)"
+	echo_opt "@@<host>"	"like 'on <host>' (access local path via NFS)"
+	echo_opt "<host>"	"do not preserve path at all"
+}
+
 arg0=${0##*/}
 wd=$PWD
 nfs=0
@@ -30,12 +49,12 @@ qflag="-q"
 if [[ $arg0 == '@@'?* ]]; then
 	host=${arg0#@@}
 	nfs=1
-elif [[ $arg0 == @('@@'|'on') && $1 ]]; then
+elif [[ $arg0 == @('@@'|'on') && $1 == [!-]* ]]; then
 	host=$1; shift
 	nfs=1
 elif [[ $arg0 == '@'?* ]]; then
 	host=${arg0#@}
-elif [[ $arg0 == '@' && $1 ]]; then
+elif [[ $arg0 == '@' && $1 == [!-]* ]]; then
 	host=$1; shift
 else
 	host=$arg0

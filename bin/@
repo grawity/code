@@ -24,6 +24,7 @@
 arg0=${0##*/}
 wd=$PWD
 nfs=0
+user=""
 qflag="-q"
 
 if [[ $arg0 == '@@'?* ]]; then
@@ -41,10 +42,11 @@ else
 	wd=""
 fi
 
-while getopts ":d:n" OPT; do
+while getopts ":d:nS" OPT; do
 	case $OPT in
 	d) nfs=0; wd=$OPTARG;;
 	n) nfs=1;;
+	S) user="root@";;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -100,4 +102,5 @@ else
 	tflag=""
 fi
 
-exec ssh -K $qflag $tflag "$host" "export SILENT=1; . ~/.profile && cd $q_wd && ($q_cmd)"
+exec ssh -K $qflag $tflag "$user$host" \
+	"export SILENT=1; . ~/.profile && cd $q_wd && ($q_cmd)"

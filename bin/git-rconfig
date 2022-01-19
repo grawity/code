@@ -21,6 +21,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--remote",
                     default="origin",
                     help="the remote to perform configuration at")
+parser.add_argument("-H", "--set-head",
+                    action="store_true",
+                    help="change remote HEAD symref")
 parser.add_argument("rest", nargs="*")
 args = parser.parse_args()
 
@@ -33,5 +36,8 @@ if host.startswith("git@"):
     exit("error: Remote %r looks like it's fetch/push-only; config won't work." % host)
 
 path = fixup_path(host, path)
-cmd = ["git", "-C", path, "config", "--local", *args.rest]
+if args.set_head:
+    cmd = ["git", "-C", path, "symbolic-ref", "HEAD", *args.rest]
+else:
+    cmd = ["git", "-C", path, "config", "--local", *args.rest]
 subprocess.run(["ssh", host, shell_join(cmd)])

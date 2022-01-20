@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+# Clean out proftpd clutter out of /var/log/wtmp
+import argparse
+import ctypes
+import re
+
+from nullroute.system.utmp import UtType, struct_utent
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--skip-user", metavar="REGEX",
+                    help="ignore entries where .user fully matches regex")
+parser.add_argument("--skip-line", metavar="REGEX",
+                    help="ignore entries where .line fully matches regex")
+parser.add_argument("input")
+parser.add_argument("output")
+args = parser.parse_args()
+
+sz = ctypes.sizeof(struct_utent)
+
+with open(args.input, "rb") as ifh:
+    with open(args.output, "wb") as ofh:
+        while buf := ifh.read(sz):
+            en = struct_utent.from_buffer_copy(buf)
+            if args.skip_user and re.fullmatch(args.skip_user, en.ut_user.decode()):
+                print("SKIP:", en)
+                continue
+            if args.skip_line and re.fullmatch(args.skip_line, en.ut_line.decode()):
+                print("SKIP:", en)
+                continue
+            print("pass:", en)
+            ofh.write(buf)

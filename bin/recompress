@@ -186,3 +186,19 @@ percentage=$(( 100 * jpeg_total_bytes / orig_total_bytes ))
 echo "Orig: $orig_total_str total ($orig_avg_str average)"
 echo "JPEG: $jpeg_total_str total ($jpeg_avg_str average)"
 echo "Overall reduction: 100% -> $percentage%"
+
+if (( ${#outfiles[@]} <= 15 )); then
+	for oname in "${outfiles[@]}"; do
+		if [[ -e "$oname" ]]; then
+			osize=$(stat -c %s "$oname")
+			iname=${outmap["$oname"]}
+			isize=$(stat -c %s "$iname")
+			perc=$[100 * osize / isize]
+			printf '%6s -> %6s  (%2d%%)  %s\n' \
+				"$(numfmt --to=iec $isize)" \
+				"$(numfmt --to=iec $osize)" \
+				"$perc" \
+				"$iname"
+		fi
+	done
+fi

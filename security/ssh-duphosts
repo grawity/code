@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # ssh-duphosts -- checks for duplicate entries in ~/.ssh/known_hosts
 from operator import itemgetter
 import argparse
 import os
 import sys
-
-def xprint(*args, **kwargs):
-    file = kwargs.get("file", sys.stdout)
-    args = " ".join(map(str, args))
-    file.write(args + "\n")
-    file.flush()
 
 class Hostname(object):
     def __init__(self, value):
@@ -63,7 +57,7 @@ def find_duplicates(fh):
                 host, ktype, key = line.split(" ", 2)
                 tag = ""
         except ValueError:
-            xprint("bad line %r" % line, file=sys.stderr)
+            print("bad line %r" % line, file=sys.stderr)
             continue
 
         if (tag, ktype, key) in keys:
@@ -82,10 +76,10 @@ def print_duplicates(keys):
         tag, ktype, key = entry
         if len(hosts) > 1:
             short_key = tag + (" " if tag else "") + ktype + " ..." + key[-15:]
-            xprint("Key [%s] has %d entries:" % (short_key, len(hosts)))
+            print("Key [%s] has %d entries:" % (short_key, len(hosts)))
             for host in hosts:
                 addrs = host.split(",")
-                xprint("\t%s" % "\n\t| ".join(addrs))
+                print("\t%s" % "\n\t| ".join(addrs))
 
 def print_merged(bykey, unmerge=False):
     byhost = {}
@@ -113,9 +107,9 @@ def print_merged(bykey, unmerge=False):
         tag, host, ktype = entry
         key = byhost[entry]
         if tag:
-            xprint(tag, host, ktype, key)
+            print(tag, host, ktype, key)
         else:
-            xprint(host, ktype, key)
+            print(host, ktype, key)
 
 opt_input = os.path.expanduser("~/.ssh/known_hosts")
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # ssh-duphosts -- checks for duplicate entries in ~/.ssh/known_hosts
 from operator import itemgetter
+import argparse
 import os
 import sys
-import getopt
 
 def xprint(*args, **kwargs):
     file = kwargs.get("file", sys.stdout)
@@ -120,27 +120,26 @@ def print_merged(bykey, unmerge=False):
             xprint(host, ktype, key)
 
 opt_input = os.path.expanduser("~/.ssh/known_hosts")
-opt_merge = False
-opt_unmerge = False
 
-opts, args = getopt.getopt(sys.argv[1:], 'mM')
-for opt, optarg in opts:
-    if opt in ('m', '-m'):
-        opt_merge = True
-    elif opt in ('M', '-M'):
-        opt_unmerge = True
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", "--merge", action="store_true",
+                    help="filter mode - merge entries with identical keys")
+parser.add_argument("-M", "--unmerge", action="store_true",
+                    help="filter mode - split one hostname per line")
+parser.add_argument("input_file", nargs="?", default=opt_input,
+                    help="known_hosts file to read")
+args = parser.parse_args()
 
-if args:
-    opt_input = args.pop(0)
+if args.merge + args.unmerge > 1:
+    exit("error: merge and unmerge filters are mutually exclusive")
 
-if opt_input == "-":
+if args.input_file == "-":
     keys = find_duplicates(sys.stdin)
 else:
-    fh = open(opt_input, "r")
-    keys = find_duplicates(fh)
-    fh.close()
+    with open(args.input_file, "r") as fh:
+        keys = find_duplicates(fh)
 
-if opt_merge or opt_unmerge:
-    print_merged(keys, opt_unmerge)
+if args.merge or args.unmerge:
+    print_merged(keys, args.unmerge)
 else:
     print_duplicates(keys)

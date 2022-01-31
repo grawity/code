@@ -4,6 +4,7 @@
 import argparse
 from pprint import pprint
 import smbclient
+import stat
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-k", "--kerberos", action="store_true",
@@ -19,9 +20,15 @@ for target in args.target:
     target = target.replace("/", "\\")
     if target.startswith(r"\\"):
         try:
-            result = smbclient.listdir(target)
-            print("Contents of %s:" % target)
-            pprint(sorted(result))
+            result = smbclient.stat(target)
+            if stat.S_ISDIR(result.st_mode):
+                result = smbclient.listdir(target)
+                print("Contents of %s:" % target)
+                pprint(sorted(result))
+            else:
+                result = smbclient.open_file(target, "r", share_access="rwd").read()
+                print("Contents of %s:" % target)
+                print(result)
         except Exception as e:
             exit("Failed to connect to \"%s\": %r" % (target, e))
     else:

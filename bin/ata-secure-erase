@@ -67,10 +67,6 @@ fi
 
 confirm "Erase '$dev'?" || exit
 
-# Wipe partition table manually, so that if erase is interrupted, the next time
-# we won't need to do this at all.
-do: wipefs -a "$dev"
-
 # Remove all partition device nodes. Try unmounting if mounted.
 for part in {1..15}; do
 	if [[ -e $dev$part ]]; then
@@ -81,6 +77,10 @@ for part in {1..15}; do
 		}
 	fi
 done
+
+# Wipe partition table manually, so that if erase is interrupted, the next time
+# we won't need to do this at all.
+do: wipefs -a "$dev"
 
 attrib="/tmp/${dev//'/'/'_'}"
 smartctl -A "$dev" | tee "$attrib-old.txt"

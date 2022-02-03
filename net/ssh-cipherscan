@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from nullroute.core import Core
-from nullroute.io import SshBinaryReader
+from nullroute.io import SshPacketReader
 from pprint import pprint
 import io
 import socket
@@ -17,7 +17,7 @@ SSH_MSG_DEBUG = 4
 SSH_MSG_KEXINIT = 20
 
 def read_ssh_packets(r):
-    br = SshBinaryReader(r)
+    br = SshPacketReader(r)
     while True:
         Core.trace("reading binary packet...")
         packet_len = br.read_uint32()
@@ -80,7 +80,7 @@ def dump_hdr(buf):
     print("SSH version banner: %r" % banner)
 
     for payload, *_ in read_ssh_packets(io.BytesIO(packet)):
-        br = SshBinaryReader(io.BytesIO(payload))
+        br = SshPacketReader(io.BytesIO(payload))
         packet_type = br.read_byte()
         if packet_type == SSH_MSG_DISCONNECT:
             Core.debug("got SSH_MSG_DISCONNECT packet")

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 from nullroute.core import Core
 from nullroute.io import SshPacketReader
 from pprint import pprint
@@ -105,10 +106,12 @@ def dump_hdr(buf):
         else:
             raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)
 
-host = sys.argv[1]
-port = 22
+parser = argparse.ArgumentParser()
+parser.add_argument("-p", "--port", type=int, default=22)
+parser.add_argument("host")
+args = parser.parse_args()
 
-gais = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+gais = socket.getaddrinfo(args.host, args.port, type=socket.SOCK_STREAM)
 
 for (g_family, g_type, g_proto, g_cname, g_addr) in gais:
     sock = socket.socket(g_family, g_type, g_proto)

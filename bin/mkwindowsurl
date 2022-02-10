@@ -1,22 +1,21 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # mkwindowsurl -- create a .URL "Internet Shortcut" for Windows
+import argparse
 
-. lib.bash || exit
+parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--force", action="store_true",
+                    help="overwrite existing files")
+parser.add_argument("url",
+                    help="destination URL")
+parser.add_argument("file",
+                    help="shortcut file (suffixed .url)")
+args = parser.parse_args()
 
-file=$1
-url=$2
-force=0
+if not args.file.upper().endswith(".URL"):
+    args.file += ".URL"
 
-if [[ ! $file || ! $url ]]; then
-	die "missing arguments"
-fi
+with open(args.file, "w" if args.force else "x") as fh:
+    fh.write("[InternetShortcut]\r\n")
+    fh.write("URL=%s\r\n" % args.url)
 
-if [[ ${file,,} != *.url ]]; then
-	file+=".url"
-fi
-
-if [[ -e "$file" ]] && (( !force )); then
-	die "file '$file' already exists"
-fi
-
-printf '[InternetShortcut]\r\nURL=%s\r\n' "$url" > "$file"
+print("Shortcut %r created." % args.file)

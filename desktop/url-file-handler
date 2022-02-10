@@ -1,31 +1,32 @@
-#!/usr/bin/env bash
-# url-file-handler - Windows "Internet Shortcut" file handler
+#!/usr/bin/env python3
+import argparse
+import subprocess
 
-parse() {
-	local file=$1
-	local line=
-	local url=
+def parse_file(path):
+    with open(path, "r") as fh:
+        for line in fh:
+            line = line.rstrip()
+            if line.startswith("URL="):
+                return line[4:]
+            elif line.startswith("URL:"):
+                # Sony-Ericsson vCard syntax
+                return line[4:]
 
-	[[ -f $file ]] || return 1
+def alert(msg):
+    subprocess.run(["zenity",
+                    "--error",
+                    "--title", "Error",
+                    "--text", msg])
+    exit("error: %s" % msg)
 
-	while read -r line; do
-		line=${line%$'\n'}
-		line=${line%$'\r'}
-		case $line in
-			# also handle Sony-Ericsson vCard syntax
-			URL[:=]*)
-				url=${line#URL?}
-				break
-				;;
-		esac
-	done <"$file"
+def open_url(url):
+    subprocess.run(["xdg-open", url])
 
-	[[ $url ]] && xdg-open "$url"
-}
+parser = argparse.ArgumentParser()
+parser.add_argument("file")
+args = parser.parse_args()
 
-msg=$(parse "$1" 2>&1) || {
-	[[ $msg ]] || msg="Invalid Internet shortcut."
-	zenity --error --title "$file" --text "$msg"
-	echo "$file: $msg" >&2
-	exit 1
-}
+url = parse_file(args.file)
+if not url:
+    alert("File %r is not a valid Internet shortcut." % args.file)
+open_url(url)

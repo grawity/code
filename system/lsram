@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+
+getp() {
+	udevadm info --query=property --property="$1" --value /sys/devices/virtual/dmi/id
+}
+
+echo "Array location: $(getp MEMORY_ARRAY_LOCATION)"
+echo "Max capacity: $(getp MEMORY_ARRAY_MAX_CAPACITY | numfmt --to=iec-i)"
+
+ndev=$(getp MEMORY_ARRAY_NUM_DEVICES)
+echo "Number of devices: $ndev"
+echo
+
+columns=(
+	NUM
+	LOCATOR
+	FORM_FACTOR
+	TYPE
+	SIZE
+	RANK
+	SPEED_MTS
+	CONFIGURED_SPEED_MTS
+)
+
+if (( 1 )); then
+	columns+=(
+		MANUFACTURER
+		PART_NUMBER
+		SERIAL_NUMBER
+	)
+fi
+
+hdr=""
+fmt=""
+for c in "${columns[@]}"; do
+	case $c in
+		SPEED_MTS)
+			c=MT/s;;
+		CONFIGURED_SPEED_MTS)
+			c=REAL_MT/s;;
+	esac
+	hdr+="${c//_/ },"
+	fmt+="%s\t"
+done
+hdr="${hdr%','}"
+fmt="${fmt/%'\t'/'\n'}"
+
+for (( i=0; i<ndev; i++ )); do
+	row=()
+	for c in "${columns[@]}"; do
+		case $c in
+			NUM)
+				val=$i;;
+			SIZE)
+				val=$(getp "MEMORY_DEVICE_${i}_${c}")
+				val=$(numfmt --to=iec-i "$val");;
+			*)
+				val=$(getp "MEMORY_DEVICE_${i}_${c}");;
+		esac
+		row+=("$val")
+	done
+	printf "$fmt" "${row[@]}"
+done | column -s $'\t' -t -N "$hdr"

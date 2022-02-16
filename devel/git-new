@@ -6,18 +6,13 @@
 opt_no_merges=0
 opt_no_po=0
 
-while [[ $1 == --* ]]; do
-	case $1 in
-		--add-no-merges)
-			opt_no_merges=1; shift;;
-		--add-no-po)
-			opt_no_po=1; shift;;
-		--*)
-			die "unknown option '$1'";;
-		*)
-			break
+while getopts ':MP' OPT; do
+	case $OPT in
+	M) opt_no_merges=1;;
+	P) opt_no_po=1;;
+	*) lib::die_getopts;;
 	esac
-done
+done; shift $((OPTIND-1))
 
 if [[ ! -d .git ]] && [[ -d $1 ]]; then
 	cd "$1" || exit

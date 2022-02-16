@@ -63,38 +63,40 @@ fi
 
 # Rewrite args to expand remote names to their descriptions, so that
 # "--in" could be used with repositories that aren't in .git/config.
-newargs=()
-changes=0
-for arg; do
-    if [[ "$arg" == --in=* ]]; then
-        arghead='--in='
-        arg=${arg#'--in='}
-    elif [[ "$newargs" && "${newargs[-1]}" == --in ]]; then
-        arghead=''
-    else
-        newargs+=("$arg")
-        continue
-    fi
-    if [[ $arg == here ]]; then
-        :
-    elif git config "remote.$arg.annex-uuid" >/dev/null; then
-        :
-    elif remote=$(annex-dwim-remote "$arg"); then
-        if [[ "$arg" != "$remote" ]]; then
-            debug "remote '$arg' guessed to be '$remote'"
-            arg=$remote
-            changes=1
+if [[ $cmd != each ]]; then
+    newargs=()
+    changes=0
+    for arg; do
+        if [[ "$arg" == --in=* ]]; then
+            arghead='--in='
+            arg=${arg#'--in='}
+        elif [[ "$newargs" && "${newargs[-1]}" == --in ]]; then
+            arghead=''
+        else
+            newargs+=("$arg")
+            continue
         fi
-    else
-        warn "remote '$arg' could not be guessed"
+        if [[ $arg == here ]]; then
+            :
+        elif git config "remote.$arg.annex-uuid" >/dev/null; then
+            :
+        elif remote=$(annex-dwim-remote "$arg"); then
+            if [[ "$arg" != "$remote" ]]; then
+                debug "remote '$arg' guessed to be '$remote'"
+                arg=$remote
+                changes=1
+            fi
+        else
+            warn "remote '$arg' could not be guessed"
+        fi
+        newargs+=("$arghead$arg")
+    done
+    if (( changes )); then
+        debug "rewrote args:"
+        debug "  from ${*@Q}"
+        debug "  to ${newargs[*]@Q}"
+        set -- "${newargs[@]}"
     fi
-    newargs+=("$arghead$arg")
-done
-if (( changes )); then
-    debug "rewrote args:"
-    debug "  from ${*@Q}"
-    debug "  to ${newargs[*]@Q}"
-    set -- "${newargs[@]}"
 fi
 
 case $cmd in

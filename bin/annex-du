@@ -3,12 +3,12 @@
 use List::Util qw(min);
 
 sub fmt_size {
-	my ($bytes) = @_;
+	my ($bytes, $si) = @_;
 	return "0" if !$bytes;
 	my @prefixes = qw(k M G T P E Z Y H);
-	my $div = 1024;
+	my $div = $si ? 1000 : 1024;
 	my $exp = min(int(log($bytes) / log($div)), scalar @prefixes);
-	sprintf "%.1f%s", $bytes / $div ** $exp, ($exp ? $prefixes[$exp-1] : "");
+	sprintf "%.1f%s", ($bytes / $div ** $exp), ($exp ? $prefixes[$exp-1] : "");
 }
 
 # Get indent prefix for depth(path)
@@ -38,6 +38,7 @@ my $max_depth = undef;
 my $show_files = 0;
 my $sort_by_size = 0;
 my $sort_reverse = 0;
+my $decimal_size = 0;
 
 my @cmd = ("annex", "find", "--format=\${key} \${file}\\n", "--include=*");
 
@@ -50,6 +51,10 @@ for (@ARGV) {
 		$sort_reverse = 1;
 	} elsif (/^-s$/) {
 		$sort_by_size = 1;
+	} elsif (/^-h/ || /^--iec$/) {
+		$decimal_size = 0;
+	} elsif (/^-H/ || /^--si$/) {
+		$decimal_size = 1;
 	} else {
 		push @cmd, $_;
 	}
@@ -99,5 +104,5 @@ if ($sort_reverse) {
 }
 
 my $fmt = "%s\e[38;5;%sm%7s\e[m  %s\n";
-printf $fmt, indent_for(""), color_for(""), fmt_size($total), "TOTAL";
-printf $fmt, indent_for($_), color_for($_), fmt_size($dirs{$_}), fmt_dir($_, exists($files{$_})) for @dirs;
+printf $fmt, indent_for(""), color_for(""), fmt_size($total, $decimal_size), "TOTAL";
+printf $fmt, indent_for($_), color_for($_), fmt_size($dirs{$_}, $decimal_size), fmt_dir($_, exists($files{$_})) for @dirs;

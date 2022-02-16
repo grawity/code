@@ -1,76 +1,77 @@
 #!/usr/bin/env perl
-# vim: ts=4 sw=4 et
+# vim: ts=4 sw=4 noet
 use List::Util qw(min);
 
 my @cmd;
 my @args;
 my $show_files = 0;
 my $sortbysize = 0;
-my $depth = undef;
+my $maxdepth = undef;
 
 for (@ARGV) {
-    if (/^-[av]$/) {
-        $show_files = 1;
-    } elsif (/^-s$/) {
-        $sortbysize = 1;
-    } elsif (/^-d?([0-9]+)$/) {
-        $depth = int $1;
-    } else {
-        push @args, $_;
-    }
+	if (/^-[av]$/) {
+		$show_files = 1;
+	} elsif (/^-s$/) {
+		$sortbysize = 1;
+	} elsif (/^-d?([0-9]+)$/) {
+		$maxdepth = int $1;
+	} else {
+		push @args, $_;
+	}
+}
+
+# default to infinite for -a, 2 levels otherwise
+if (!defined $maxdepth) {
+	$maxdepth = ($show_files) ? -1 : 2;
 }
 
 @cmd = ("annex", "find", "--format=\${key} \${file}\\n", "--include=*", @args);
 open(my $fh, "-|", @cmd);
 
 sub fmt_size {
-    my ($bytes) = @_;
-    return "0" if !$bytes;
-    my @prefixes = qw(k M G T P E Z Y H);
-    my $div = 1024;
-    my $exp = min(int(log($bytes) / log($div)), scalar @prefixes);
-    sprintf "%.1f%s", $bytes / $div ** $exp, ($exp ? $prefixes[$exp-1] : "");
+	my ($bytes) = @_;
+	return "0" if !$bytes;
+	my @prefixes = qw(k M G T P E Z Y H);
+	my $div = 1024;
+	my $exp = min(int(log($bytes) / log($div)), scalar @prefixes);
+	sprintf "%.1f%s", $bytes / $div ** $exp, ($exp ? $prefixes[$exp-1] : "");
 }
 sub indent_for {
-    my ($dir) = @_;
-    return "    " x split(m!/!, $dir);
+	my ($dir) = @_;
+	return "	" x split(m!/!, $dir);
 }
 sub color_for {
-    my ($dir) = @_;
-    my $idx = scalar split(m!/!, $dir);
-    return 2 + $idx;
-    #my @colors = (51, 39, 26, 21, 93, 165, 198);
-    #return $colors[$idx] // $colors[$#colors];
+	my ($dir) = @_;
+	my $idx = scalar split(m!/!, $dir);
+	return 2 + $idx;
+	#my @colors = (51, 39, 26, 21, 93, 165, 198);
+	#return $colors[$idx] // $colors[$#colors];
 }
 sub fmt_dir {
-    my ($dir, $darken) = @_;
-    $dir =~ s{.*/}{};
-    return ($darken ? "\e[2m" : "")
-         . ($dir eq "" ? "." : $dir)
-         . "\e[m";
+	my ($dir, $darken) = @_;
+	$dir =~ s{.*/}{};
+	return ($darken ? "\e[2m" : "")
+		 . ($dir eq "" ? "." : $dir)
+		 . "\e[m";
 }
-# default to infinite for -a, 2 levels otherwise
-my $maxdepth = $show_files
-               ? ($depth // -1)
-               : ($depth // 2);
 my %files;
 my %dirs;
 my $total = 0;
 while (<$fh>) {
-    chomp;
-    my ($key, $file) = split(/ /, $_, 2);
-    my $size; if ($key =~ /-s(\d+)--/) { $size = int $1; }
-    if ($show_files)            { $files{$file} += $size; }
-    while ($file =~ s!/[^/]+$!!) { $dirs{$file} += $size; }
-    $total += $size;
+	chomp;
+	my ($key, $file) = split(/ /, $_, 2);
+	my $size; if ($key =~ /-s(\d+)--/) { $size = int $1; }
+	if ($show_files)			{ $files{$file} += $size; }
+	while ($file =~ s!/[^/]+$!!) { $dirs{$file} += $size; }
+	$total += $size;
 }
 %dirs = (%dirs, %files);
 my @dirs = sort keys %dirs;
 if ($maxdepth >= 0) {
-    @dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
+	@dirs = grep {split(m!/!, $_) <= $maxdepth} @dirs;
 }
 if ($sortbysize) {
-    @dirs = sort {$dirs{$b} <=> $dirs{$a}} @dirs;
+	@dirs = sort {$dirs{$b} <=> $dirs{$a}} @dirs;
 }
 my $fmt = "%s\e[38;5;%sm%7s\e[m  %s\n";
 printf $fmt, indent_for(""), color_for(""), fmt_size($total), "TOTAL";

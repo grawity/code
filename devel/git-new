@@ -5,18 +5,33 @@
 
 opt_no_merges=0
 opt_no_po=0
+opt_chdir=
+opt_ref=
 
-while getopts ':MP' OPT; do
+while getopts ':b:C:MP' OPT; do
 	case $OPT in
+	b) opt_ref=$OPTARG;;
+	C) opt_chdir=$OPTARG;;
 	M) opt_no_merges=1;;
 	P) opt_no_po=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
-if [[ ! -d .git ]] && [[ -d $1 ]]; then
-	cd "$1" || exit
-	shift
+if [[ ! $opt_chdir && ! -d .git && -d $1 ]]; then
+	opt_chdir=$1; shift
+fi
+
+if [[ ! $opt_ref ]]; then
+	opt_ref=${1:-HEAD}; shift
+fi
+
+if (( $# )); then
+	die "too many arguments: ${*@Q}"
+fi
+
+if [[ $opt_chdir ]]; then
+	cd "$opt_chdir" || exit
 fi
 
 if [[ $PWD == $HOME/src/* ]]; then
@@ -92,7 +107,7 @@ else
 	cmd='git lg'
 fi
 
-ref=${1:-HEAD}
+ref=$opt_ref
 
 if [[ $ref != HEAD ]]; then
 	# explicit check is faster than letting tig do it

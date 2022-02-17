@@ -67,20 +67,24 @@ fi
 
 confirm "Erase '$dev'?" || exit
 
-# Remove all partition device nodes. Try unmounting if mounted.
+# Remove all partition device nodes.
 for part in {1..15}; do
 	if [[ -e $dev$part ]]; then
-		do: partx --delete --nr "$part" "$dev" || {
-			do: umount "$dev$part" &&
-			do: partx --delete --nr "$part" "$dev" ||
-			die "Could not unmount $dev$part"
-		}
+		info "Clearing partition $part"
+		if findmnt -S "$dev$part" >/dev/null; then
+			do: umount "$dev$part"
+		fi &&
+		do: wipefs -a "$dev$part" &&
+		sleep 0.2 &&
+		do: partx --delete --nr "$part" "$dev" ||
+		die "Could not unmount $dev$part"
 	fi
 done
 
 # Wipe partition table manually, so that if erase is interrupted, the next time
 # we won't need to do this at all.
-do: wipefs -a "$dev"
+info "Clearing partition table"
+wipefs -a "$dev"
 
 attrib="/tmp/${dev//'/'/'_'}"
 smartctl -A "$dev" | tee "$attrib-old.txt"

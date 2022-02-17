@@ -86,8 +86,18 @@ done
 info "Clearing partition table"
 wipefs -a "$dev"
 
+info "Dumping SMART data before erase"
 attrib="/tmp/${dev//'/'/'_'}"
-smartctl -A "$dev" | tee "$attrib-old.txt"
+smartctl -A "$dev" | tee "$attrib-old.txt" | awk '
+	/Reallocated_Sector_Ct|Current_Pending_Sector|Offline_Uncorrectable/ {
+		if ($10 != "0") {
+			$0 = "\033[1;93m" $0 "\033[m"
+		} else {
+			$0 = "\033[1;92m" $0 "\033[m"
+		}
+	}
+	{ print }
+'
 
 info "Starting ATA secure erase of $dev (expected duration: $minutes)"
 password="foo"

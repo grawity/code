@@ -151,26 +151,29 @@ done
 clear_progress
 trap - EXIT
 
-outsmaller=()
-outlarger=()
-for oname in "${outfiles[@]}"; do
-	iname=${outmap["$oname"]}
-	if [[ ! -s "$oname" ]]; then
-		die "conversion of '$iname' failed"
-	fi
-	if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") )); then
-		outlarger+=("$oname")
-	else
-		outsmaller+=("$oname")
-	fi
-done
-
-if (( ${#outlarger[@]} && !force )) && [[ ! $outdir ]]; then
-	rm -f "${outlarger[@]}"
-	notice "${#outlarger[@]} files were larger than originals; deleted."
-	outfiles=("${outsmaller[@]}")
+if [[ $outdir ]]; then
+	force=1
 fi
-
+if (( !force )); then
+	outsmaller=()
+	outlarger=()
+	for oname in "${outfiles[@]}"; do
+		iname=${outmap["$oname"]}
+		if [[ ! -s "$oname" ]]; then
+			die "conversion of '$iname' failed"
+		fi
+		if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") )); then
+			outlarger+=("$oname")
+		else
+			outsmaller+=("$oname")
+		fi
+	done
+	if (( ${#outlarger[@]} )); then
+		rm -f "${outlarger[@]}"
+		notice "${#outlarger[@]} files were larger than originals; deleted."
+		outfiles=("${outsmaller[@]}")
+	fi
+fi
 if (( ! ${#outfiles[@]} )); then
 	die "no conversions succeeded"
 fi

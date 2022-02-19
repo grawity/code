@@ -132,6 +132,9 @@ for iname in "${infiles[@]}"; do
 	done
 	oname=${outdir%/}${outdir:+/}${iname%.*}.conv.jpg
 	{
+		if [[ $outdir ]]; then
+			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
+		fi
 		magick convert "$iname" "${addargs[@]}" "$oname" &&
 		if (( keepmtime )); then
 			touch "$oname" --reference="$iname" 2>/dev/null

@@ -3,6 +3,7 @@ import email.utils
 import http.cookiejar
 from nullroute.core import *
 from nullroute.misc import set_file_attrs, set_file_mtime
+from nullroute.ui.progressbar import ProgressBar
 import os
 import requests
 from urllib.parse import urljoin
@@ -52,9 +53,7 @@ def file_ext_from_url(url):
     else:
         return "bin"
 
-def _progress_bar(iterable, max_bytes, chunk_size):
-    hide_complete = True
-    from nullroute.ui.progressbar import ProgressBar
+def _progress_bar(iterable, max_bytes, chunk_size, *, hide_complete=True):
     bar = ProgressBar(max_value=max_bytes)
     bar.incr(0)
     for i in iterable:

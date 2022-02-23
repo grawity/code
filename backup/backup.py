@@ -122,6 +122,10 @@ def do_borg(*,
     print(f"Running {cmd!r}")
     subprocess.run(cmd, check=True)
 
+    cmd = [*wrap, "borg", "compact", repo, "--progress"]
+    print(f"Running {cmd!r}")
+    subprocess.run(cmd, check=True)
+
     touch(stamp)
 
 parser = argparse.ArgumentParser()

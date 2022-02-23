@@ -31,6 +31,7 @@ usage() {
 	echo "the local directory via NFS."
 	echo
 	echo_opt "-n"		"access local directory via NFS (always on for 'on')"
+	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-v"		"verbose (display remote host and path)"
 	echo
@@ -45,6 +46,7 @@ arg0=${0##*/}
 wd=$PWD
 nfs=0
 user=""
+Kflag=""
 qflag="-q"
 verbose=0
 
@@ -65,9 +67,10 @@ else
 	die "host not specified"
 fi
 
-while getopts ":d:nSv" OPT; do
+while getopts ":d:KnSv" OPT; do
 	case $OPT in
 	d) nfs=0; wd=$OPTARG;;
+	K) Kflag="-K -Snone";;
 	n) nfs=1;;
 	S) user="root@";;
 	v) verbose=1;;
@@ -129,5 +132,5 @@ else
 	tflag=""
 fi
 
-exec ssh $qflag $tflag "$user$host" \
+exec ssh $Kflag $qflag $tflag "$user$host" \
 	"export SILENT=1; . ~/.profile && cd $q_wd && ($q_cmd)"

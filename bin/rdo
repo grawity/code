@@ -36,6 +36,7 @@ fi
 cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
 
 for host in $hosts; do
-	echo "$host:$(ssh -n $user$host "$cmd" | sed 's/^/\t/')" &
+	(out=$(ssh -n $user$host "$cmd" | sed 's/^/\t/');
+	flock 1 echo "$host:$out") &
 done
 wait

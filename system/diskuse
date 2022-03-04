@@ -579,9 +579,9 @@ def dump_mtpt(part, data, with_quota=False):
         row = (
             path_shorten(part.mtpt),
 
-            fmt_size_short(total_bytes, si=opts.si),
-            fmt_size_short(free_bytes, si=opts.si),
-            fmt_size_short(avail_bytes, si=opts.si),
+            fmt_size_short(total_bytes, si=args.si),
+            fmt_size_short(free_bytes, si=args.si),
+            fmt_size_short(avail_bytes, si=args.si),
 
             (quota_part, quota_color),
             fmt_percent(quota_part, 1),
@@ -593,9 +593,9 @@ def dump_mtpt(part, data, with_quota=False):
         row = (
             path_shorten(part.mtpt),
 
-            fmt_size_short(total_bytes, si=opts.si),
-            fmt_size_short(used_bytes, si=opts.si),
-            fmt_size_short(avail_bytes, si=opts.si),
+            fmt_size_short(total_bytes, si=args.si),
+            fmt_size_short(used_bytes, si=args.si),
+            fmt_size_short(avail_bytes, si=args.si),
 
             (quota_part, quota_color),
             fmt_percent(disk_part, 1),
@@ -617,21 +617,21 @@ ap.add_argument("--quota",
                 action="store_true",
                 help="display quota information")
 ap.add_argument("path", nargs="*")
-opts = ap.parse_args()
+args = parser.parse_args()
 
 en = Enumerator()
-if opts.path:
-    partitions = en.enum_partitions_exact(opts.path)
+if args.path:
+    partitions = en.enum_partitions_exact(args.path)
 else:
-    partitions = en.enum_partitions_system(show_cached=opts.cached,
-                                           show_all=opts.all)
+    partitions = en.enum_partitions_system(show_cached=args.cached,
+                                           show_all=args.all)
 partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 
 t = Table()
 
-if opts.quota:
+if args.quota:
     t.columns = [
         ("PATH",        "string", -16),
         ("TOTAL",       "string", 7),
@@ -663,7 +663,7 @@ for part in partitions:
     group = fs_kind_groups.get(part.kind)
     Core.debug("got %r (priority %r, group %r)", part.mtpt,
                fs_kind_priorities.get(part.kind, 0), group)
-    row = dump_mtpt(part, data, opts.quota)
+    row = dump_mtpt(part, data, args.quota)
     if row:
         if this_group and group != this_group:
             t.rows.append(None)

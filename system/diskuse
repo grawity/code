@@ -358,7 +358,7 @@ class Table(object):
         cols = 0
         for (head, type, width) in self.columns:
             cols += 1 + abs(width)
-        return fmt_ansi("-" * cols, "2")
+        return " " + fmt_ansi("-" * (cols-1), "2")
 
     def _make_row(self, values):
         out = ""
@@ -399,9 +399,10 @@ def get_media_dir():
 
 def _get_cmd_output(*argv):
     Core.trace("calling command: %r", argv)
-    proc = subprocess.Popen(argv, stdout=subprocess.PIPE)
-    (out, err) = proc.communicate()
-    return out.decode("utf-8").strip()
+    ret = subprocess.run(argv,
+                         check=True,
+                         stdout=subprocess.PIPE)
+    return ret.stdout.decode().strip()
 
 @cache
 def _get_zfs_dataset_info(path, fields):

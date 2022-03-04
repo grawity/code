@@ -165,6 +165,16 @@ class PixivClient():
         except FileNotFoundError:
             Core.debug("member alias file %r not found; ignoring", map_path)
 
+    def _update_member_name_map(self, k, v):
+        if self.member_name_map.get(str(k)) == v:
+            Core.debug("member alias %r=%r already known; ignoring", k, v)
+            return
+        map_path = Env.find_config_file("pixiv_member_names.txt")
+        Core.debug("appending alias %r=%r to file %r", k, v, map_path)
+        with open(map_path, "a") as fh:
+            print(k, "=", v, file=fh)
+            self.member_name_map[str(k)] = v
+
     def fmt_member_tag(self, member_id, member_name):
         member_name = self.member_name_map.get(str(member_id), member_name)
         if False:

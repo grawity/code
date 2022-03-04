@@ -314,8 +314,9 @@ class Enumerator():
             if part.can_skip(verbose=show_all):
                 Core.trace("skipping %r: is marked as skippable", part)
                 continue
-            Core.trace("adding %r", part)
-            yield part
+            else:
+                Core.trace("adding %r", part)
+                yield part
 
     def enum_partitions_exact(self, paths):
         for path in paths:
@@ -329,8 +330,7 @@ class Enumerator():
                 "time": int(time.time())}
         mtpt = part.mtpt
         if part.kind != Kind.MEDIA:
-            if not mtpt.startswith("/"):
-                Core.die("BUG: trying to cache a weird partition %r", part)
+            assert(mtpt.startswith("/"))
             mtpt = "//" + gethostname() + mtpt
         self.cache[mtpt] = data
 
@@ -513,16 +513,16 @@ def gauge3(width, level,
          + fmt_ansi(partial_char * n_partial, partial_fmt) \
          + fmt_ansi(empty_char   * n_empty,   empty_fmt)
 
-def rgb_split(color):
-    r = (color - 16) // 6 // 6 % 6
-    g = (color - 16) // 6 % 6
-    b = (color - 16) % 6
-    return (r, g, b)
-
-def rgb_merge(r, g, b):
-    return (r * 6 * 6) + (g * 6) + b + 16
-
 def darken(color, n):
+    def rgb_split(color):
+        r = (color - 16) // 6 // 6 % 6
+        g = (color - 16) // 6 % 6
+        b = (color - 16) % 6
+        return (r, g, b)
+
+    def rgb_merge(r, g, b):
+        return (r * 6 * 6) + (g * 6) + b + 16
+
     if 0 <= color <= 7:
         return color
     elif 8 <= color <= 15:

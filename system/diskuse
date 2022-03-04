@@ -205,11 +205,11 @@ class Partition():
             st = os.statvfs(self.mtpt)
         except (PermissionError, OSError) as e:
             Core.debug("skipping %r: could not statvfs: %r", self.mtpt, e)
-            return
+            return None
 
         if st.f_blocks == 0:
             Core.debug("skipping %r: f_blocks == 0", self.mtpt)
-            return
+            return None
 
         if self.fstype == "zfs":
             tmp = _get_zfs_dataset_info(self.mtpt, "used,avail,name")
@@ -495,10 +495,10 @@ def gauge3(width, level,
            full_char="█", partial_char="▌", empty_char=" ",
            full_fmt="", partial_fmt="", empty_fmt=""):
 
-    cells = width * level / 100
-    n_full = int(cells)
+    cells     = width * level / 100
+    n_full    = int(cells)
     n_partial = int(round(cells % 1))
-    n_empty = int(width - n_full - n_partial)
+    n_empty   = int(width - n_full - n_partial)
 
     return fmt_ansi(full_char    * n_full,    full_fmt) \
          + fmt_ansi(partial_char * n_partial, partial_fmt) \
@@ -605,21 +605,11 @@ parser.add_argument("-c", "--cached",
 parser.add_argument("--si",
                     action="store_true",
                     help="use SI decimal units, not IEC binary units")
-parser.add_argument("--quota",
+parser.add_argument("-Q", "--quota",
                     action="store_true",
                     help="display quota information")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
-
-en = Enumerator()
-if args.path:
-    partitions = en.enum_partitions_exact(args.path)
-else:
-    partitions = en.enum_partitions_system(show_cached=args.cached,
-                                           show_all=args.all)
-partitions = [*partitions]
-partitions.sort(key=lambda x: x.mtpt)
-partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 
 t = Table()
 
@@ -647,6 +637,16 @@ else:
 this_group = 0
 seen_mtpts = set()
 seen_devnos = set()
+
+en = Enumerator()
+if args.path:
+    partitions = en.enum_partitions_exact(args.path)
+else:
+    partitions = en.enum_partitions_system(show_cached=args.cached,
+                                           show_all=args.all)
+partitions = [*partitions]
+partitions.sort(key=lambda x: x.mtpt)
+partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
 for part in partitions:
     if part.mtpt in seen_mtpts:
         continue
@@ -666,7 +666,6 @@ for part in partitions:
         this_group = group
         seen_mtpts.add(part.mtpt)
         seen_devnos.add(part.devno)
+en.close()
 
 t.print()
-
-en.close()

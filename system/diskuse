@@ -195,7 +195,12 @@ class Partition():
             return True
         return False
 
-    def get_fstat(self, seen_devnos):
+    @property
+    @cache
+    def devno(self):
+        return get_fs_devno(self.mtpt)
+
+    def get_fstat(self):
         try:
             st = os.statvfs(self.mtpt)
         except (PermissionError, OSError) as e:
@@ -205,13 +210,6 @@ class Partition():
         if st.f_blocks == 0:
             Core.debug("skipping %r: f_blocks == 0", self.mtpt)
             return
-
-        devno = get_fs_devno(self.mtpt)
-        if devno in seen_devnos:
-            Core.debug("skipping %r: devno %r already seen", self.mtpt, devno)
-            return
-
-        seen_devnos.add(devno)
 
         if self.fstype == "zfs":
             tmp = _get_zfs_dataset_info(self.mtpt, "used,avail,name")
@@ -331,8 +329,12 @@ class Enumerator():
     def get_partition_data(self, part):
         if part.cached:
             return part.cached
+        elif part.devno in self.seen_devnos:
+            Core.debug("skipping %r: devno %r already seen", part.mtpt, part.devno)
+            return None
         else:
-            data = part.get_fstat(self.seen_devnos)
+            self.seen_devnos.add(part.devno)
+            data = part.get_fstat()
             if data and (part.cached or part.can_cache()):
                 self._add_to_cache(part, data)
             return data

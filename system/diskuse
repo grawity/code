@@ -131,7 +131,7 @@ class PersistentDict(dict):
         except Exception as e:
             Core.debug("cache save failed (%r)" % e)
 
-class Partition(object):
+class Partition():
     # These filesystems will be hidden from all views, as their 'capacity' is
     # either mostly (for tmpfs) or completely irrelevant.
     IGNORED_FSTYPES = {
@@ -232,7 +232,14 @@ class Partition(object):
                 "free":  st.f_bsize * st.f_bfree,
                 "avail": st.f_bsize * st.f_bavail}
 
-class MtabReader(object):
+class FindmntReader():
+    def __iter__(self):
+        buf = _get_cmd_output("findmnt", "--json", "--list")
+        buf = json.loads(buf)
+        for fs in buf["filesystems"]:
+            yield fs["source"], fs["target"], fs["fstype"]
+
+class MtabReader():
     def _unescape(self, val):
         out = ""
         state = num = acc = 0
@@ -258,7 +265,7 @@ class MtabReader(object):
                 mtpt = self._unescape(mtpt)
                 yield dev, mtpt, fstype
 
-class Enumerator(object):
+class Enumerator():
     def __init__(self):
         self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
         self.cache_fixed_maxage = 14*86400
@@ -291,7 +298,8 @@ class Enumerator(object):
                 if age <= maxage:
                     yield Partition(mtpt, rest["type"], cached=rest)
                 else:
-                    Core.debug("mtpt %r is %s old and has expired" % (mtpt, fmt_duration(age)))
+                    Core.debug("cache entry for %r has expired (%s old)",
+                               mtpt, fmt_duration(age))
                     to_purge.append(mtpt)
             for mtpt in to_purge:
                 del self.cache[mtpt]
@@ -333,7 +341,7 @@ class Enumerator(object):
     def close(self):
         self.cache.flush()
 
-class Table(object):
+class Table():
     def __init__(self):
         self.columns = []
         self.rows = []

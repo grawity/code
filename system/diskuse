@@ -234,22 +234,17 @@ class Partition():
 
 def get_mounts_from_mtab():
     def octal_unescape(val):
-        out = ""
-        state = num = acc = 0
-        for char in val:
-            if state == 0:
-                if char == "\\":
-                    num = 0
-                    acc = 0
-                    state = 1
+        out = ""; acc = 0; state = -1
+        for c in val:
+            if state < 0:
+                if c == "\\":
+                    acc = 0; state = 0
                 else:
-                    out += char
-            elif state == 1:
-                num += 1
-                acc = (acc << 3) | int(char)
-                if num == 3:
-                    out += chr(acc)
-                    state = 0
+                    out += c
+            else:
+                acc = (acc << 3) | int(c); state += 1
+                if state == 3:
+                    out += chr(acc); state = -1
         return out
 
     with open("/etc/mtab") as fh:

@@ -345,6 +345,8 @@ class Table():
     def __init__(self):
         self.columns = []
         self.rows = []
+        self.can_color = True
+        self.can_unicode = not (os.getenv("TERM") == "linux")
 
     def _make_header(self):
         out = ""
@@ -358,6 +360,21 @@ class Table():
             cols += 1 + abs(width)
         return " " + fmt_ansi("-" * (cols-1), "2")
 
+    def _make_gauge(self, width, level, color):
+        bright = color
+        dark = darken(color, 1)
+        if self.can_unicode:
+            if self.can_color:
+                bars = "■", "■", "■"
+            else:
+                bars = "■", "■", "□"
+        else:
+            bars = "##-"
+        return gauge3(width, level, *bars,
+                      full_fmt="38;5;%d" % bright,
+                      partial_fmt="2;38;5;%d" % dark,
+                      empty_fmt="2;38;5;238")
+
     def _make_row(self, values):
         out = ""
         cols = 0
@@ -367,7 +384,7 @@ class Table():
                 cell_w = len(values[i])
             elif type == "gauge":
                 percent, color = values[i]
-                cell_s = gauge3x(abs(width), percent, color)
+                cell_s = self._make_gauge(abs(width), percent, color)
                 cell_w = abs(width)
 
             out += " " + cell_s
@@ -513,25 +530,6 @@ def darken(color, n):
         return rgb_merge(r, g, b)
     elif 232 <= color <= 255:
         return max(color - 3*n, 232)
-
-def gauge3x(width, level, color, bars=None):
-    bright = color
-    dark = darken(color, 1)
-
-    if not bars:
-        if os.getenv("TERM") == "linux":
-            bars = "##-"
-        else:
-            #bars = u"\u275a", u"\u275a", u"\u2758"
-            #bars = "■", "■", "□"
-            bars = "■", "■", "■"
-    elif len(bars) != 3:
-        bars = bars[0] * 3
-
-    return gauge3(width, level, *bars,
-                    full_fmt="38;5;%d" % bright,
-                    partial_fmt="2;38;5;%d" % dark,
-                    empty_fmt="2;38;5;238")
 
 def threshold(total, val):
     if total > 100e9:

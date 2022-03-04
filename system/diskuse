@@ -262,7 +262,6 @@ class Enumerator():
         self.cache = PersistentDict(Env.find_cache_file("diskuse.json"))
         self.cache_fixed_maxage = 14*86400
         self.cache_media_maxage = 90*86400
-        self.seen_devnos = set()
 
     @cache
     def _get_mounts(self):
@@ -329,11 +328,7 @@ class Enumerator():
     def get_partition_data(self, part):
         if part.cached:
             return part.cached
-        elif part.devno in self.seen_devnos:
-            Core.debug("skipping %r: devno %r already seen", part.mtpt, part.devno)
-            return None
         else:
-            self.seen_devnos.add(part.devno)
             data = part.get_fstat()
             if data and (part.cached or part.can_cache()):
                 self._add_to_cache(part, data)
@@ -651,8 +646,11 @@ else:
 
 this_group = 0
 seen_mtpts = set()
+seen_devnos = set()
 for part in partitions:
     if part.mtpt in seen_mtpts:
+        continue
+    if part.devno in seen_devnos:
         continue
     data = en.get_partition_data(part)
     if not data:
@@ -667,6 +665,7 @@ for part in partitions:
         t.rows.append(row)
         this_group = group
         seen_mtpts.add(part.mtpt)
+        seen_devnos.add(part.devno)
 
 t.print()
 

@@ -109,29 +109,6 @@ fs_kind_fstypes = {
     "tmpfs":        KIND_MEMORY,
 }
 
-# not skipped even if kind or type would say otherwise
-fs_noskip_mounts = {
-    "/run/user/%d" % os.getuid(),
-    "/tmp",
-}
-
-# always skipped
-fs_skip_mounts = {
-    #"/boot",
-    #"/efi",
-}
-fs_skip_kinds = {
-    KIND_KERNEL,
-}
-fs_skip_fstypes = {
-    "afs", "cgroup", "devpts", "devtmpfs",
-    "fuse.revokefs-fuse",
-    "ecryptfs", "efivarfs", "rootfs", "tmpfs",
-}
-
-# skipped unless in verbose mode
-fs_verbose_kinds = { KIND_SYSTEM, KIND_MEMORY, KIND_NET }
-
 # cached and shown even if not present
 fs_cache_kinds = {
     KIND_ROOT,
@@ -165,6 +142,20 @@ class PersistentDict(dict):
             Core.debug("cache save failed (%r)" % e)
 
 class Partition(object):
+    # These filesystems will be hidden from all views, as their 'capacity' is
+    # either mostly (for tmpfs) or completely irrelevant.
+    IGNORED_FSTYPES = {
+        "afs", "cgroup", "devpts", "devtmpfs", "fuse.revokefs-fuse",
+        "ecryptfs", "efivarfs", "rootfs", "tmpfs",
+    }
+
+    # Exceptions for IGNORED_FSTYPES – e.g. /tmp is user-facing and should be
+    # shown in "all" view even if it's a tmpfs.
+    IGNORED_FSTYPES_EXCEPTIONS = {
+        "/run/user/%d" % os.getuid(),
+        "/tmp",
+    }
+
     def __init__(self, mtpt, fstype, cached=None):
         self.mtpt   = mtpt
         self.fstype = fstype
@@ -176,11 +167,15 @@ class Partition(object):
         return "Partition(mtpt=%r, fstype=%r, cached=%r, kind=%r)" \
                % (self.mtpt, self.fstype, self.cached, kind)
 
-    def can_skip(self):
-        if self.mtpt in fs_skip_mounts:     return True
-        if self.mtpt in fs_noskip_mounts:   return False
-        if self.kind in fs_skip_kinds:      return True
-        if self.fstype in fs_skip_fstypes:  return True
+    def can_skip(self, *, verbose=False):
+        if self.kind in {KIND_KERNEL}:
+            return True
+        if not verbose and self.kind in {KIND_SYSTEM, KIND_MEMORY, KIND_NET}:
+            return True
+        if self.fstype in self.IGNORED_FSTYPES:
+            if verbose and self.mtpt in self.IGNORED_FSTYPES_EXCEPTIONS:
+                return False
+            return True
         if self.fstype == "zfs":
             # For ZFS, only show the whole pool
             if self.cached:
@@ -312,9 +307,9 @@ class Enumerator(object):
             for mtpt in to_purge:
                 del self.cache[mtpt]
 
-    def enum_partitions_system(self, show_cached=False):
+    def enum_partitions_system(self, show_cached=False, show_all=False):
         for part in self._enum_partitions(show_cached):
-            if part.can_skip():
+            if part.can_skip(verbose=show_all):
                 Core.debug("skipping %r: is marked as skippable", part)
                 continue
             Core.debug("adding %r", part)
@@ -624,15 +619,12 @@ ap.add_argument("--quota",
 ap.add_argument("path", nargs="*")
 opts = ap.parse_args()
 
-if not opts.all:
-    fs_noskip_mounts.clear()
-    fs_skip_kinds |= fs_verbose_kinds
-
 en = Enumerator()
 if opts.path:
     partitions = en.enum_partitions_exact(opts.path)
 else:
-    partitions = en.enum_partitions_system(show_cached=opts.cached)
+    partitions = en.enum_partitions_system(show_cached=opts.cached,
+                                           show_all=opts.all)
 partitions = [*partitions]
 partitions.sort(key=lambda x: x.mtpt)
 partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)

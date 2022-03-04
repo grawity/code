@@ -43,17 +43,6 @@ class Kind(enum.Enum):
     SYSTEM = 6      # Real but "internal" filesystems (like /boot)
     KERNEL = 7      # Virtual pseudo-filesystems (like /proc)
 
-fs_kind_names = {
-    Kind.HOME:      "home",
-    Kind.MEDIA:     "media",
-    Kind.NONE:      "-",
-    Kind.ROOT:      "root",
-    Kind.SYSTEM:    "system",
-    Kind.NETWORK:   "net",
-    Kind.MEMORY:    "memory",
-    Kind.KERNEL:    "kernel",
-}
-
 fs_kind_priorities = {
     Kind.HOME:      100,
     Kind.MEDIA:     50,
@@ -164,9 +153,8 @@ class Partition(object):
         self.kind   = fs_kind_from_path(mtpt, fstype)
 
     def __repr__(self):
-        kind = fs_kind_names.get(self.kind, self.kind)
         return "Partition(mtpt=%r, fstype=%r, cached=%r, kind=%r)" \
-               % (self.mtpt, self.fstype, self.cached, kind)
+               % (self.mtpt, self.fstype, self.cached, self.kind)
 
     def can_skip(self, *, verbose=False):
         if self.kind in {Kind.KERNEL}:

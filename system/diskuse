@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-# encoding: utf-8
+import argparse
+from functools import cache
 import json
-import os
-import re
-import sys
-import subprocess
-import time
-from argparse import ArgumentParser
-from functools import lru_cache
 from nullroute.core import Core, Env
 from nullroute.misc import fmt_duration, fmt_size_short
+import os
+import re
 from socket import gethostname
+import subprocess
+import sys
+import time
 
 level_colors = {
     "red":      (196,  9),
@@ -404,16 +403,16 @@ def _get_cmd_output(*argv):
     (out, err) = proc.communicate()
     return out.decode("utf-8").strip()
 
-@lru_cache()
+@cache
 def _get_zfs_dataset_info(path, fields):
     out = _get_cmd_output("zfs", "list", "-H", "-p", "-o", fields, path)
     return out.split()
 
-@lru_cache()
+@cache
 def get_dir_fsid(path):
     return _get_cmd_output("stat", "-f", "-c", "%i", path)
 
-@lru_cache()
+@cache
 def get_fs_devno(mtpt):
     return _get_cmd_output("mountpoint", "-d", mtpt)
 
@@ -603,20 +602,20 @@ def dump_mtpt(part, data, with_quota=False):
 
     return row
 
-ap = ArgumentParser()
-ap.add_argument("-a", "--all",
-                action="store_true",
-                help="show unimportant filesystems")
-ap.add_argument("-c", "--cached",
-                action="store_true",
-                help="include nonpresent cached filesystems")
-ap.add_argument("--si",
-                action="store_true",
-                help="use SI decimal units, not IEC binary units")
-ap.add_argument("--quota",
-                action="store_true",
-                help="display quota information")
-ap.add_argument("path", nargs="*")
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--all",
+                    action="store_true",
+                    help="show unimportant filesystems")
+parser.add_argument("-c", "--cached",
+                    action="store_true",
+                    help="include nonpresent cached filesystems")
+parser.add_argument("--si",
+                    action="store_true",
+                    help="use SI decimal units, not IEC binary units")
+parser.add_argument("--quota",
+                    action="store_true",
+                    help="display quota information")
+parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
 en = Enumerator()

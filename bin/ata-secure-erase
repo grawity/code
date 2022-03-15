@@ -11,6 +11,7 @@ usage() {
 
 force_tran=die
 enhanced=''
+noconfirm=0
 
 if [[ $SUDO_UID ]]; then
 	notify-send() {
@@ -20,10 +21,11 @@ if [[ $SUDO_UID ]]; then
 	}
 fi
 
-while getopts ":EF" OPT; do
+while getopts ":EFy" OPT; do
 	case $OPT in
 	F) force_tran=warn;;
 	E) enhanced='-enhanced';;
+	y) noconfirm=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -65,7 +67,7 @@ if [[ $(wipefs -p "$dev") ]]; then
 	warn "Disk $dev is not empty"
 fi
 
-confirm "Erase '$dev'?" || exit
+((noconfirm)) || confirm "Erase '$dev'?" || exit
 
 # Remove all partition device nodes.
 for part in {1..15}; do

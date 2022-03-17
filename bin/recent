@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # recent -- show recently modified files in the current directory
 
+. lib.bash || exit
+
 dirs=(.)
 opts=()
 today=1
@@ -9,7 +11,11 @@ days=1
 if [[ $1 =~ ^-([0-9])+$ ]]; then
 	days=${BASH_REMATCH[1]}
 	shift
+elif [[ $1 == -* ]]; then
+	die "unknown option '$1'"
 fi
+
+dirs=("$@")
 
 if (( today )); then
 	opts+=(-daystart)
@@ -20,8 +26,6 @@ if (( today )); then
 		echo "Files modified in the last $days days:"
 	fi
 fi
-
-opts+=("$@")
 
 # -mtime x
 #   match if mtime is between {x*24 hours ago} and {(x+1)*24 hours ago}

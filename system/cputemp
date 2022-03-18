@@ -34,6 +34,10 @@ class Color(enum.IntEnum):
 def set_title(text):
     print("\033]0;%s\033\\" % text, end="", flush=True)
 
+def set_wname(text):
+    if os.environ["TERM"].startswith("tmux"):
+        print("\033k%s\033\\" % text, end="", flush=True)
+
 def read(path):
     return open(path, "r").read().strip()
 
@@ -145,6 +149,7 @@ try:
         load = load.split()[0]
         draw_bar(ts, 8, temp-20, temp, load)
         set_title(f"{hostname}: {temp}°C (load {load})")
+        set_wname(f"{temp}°C")
         last_temp = temp
         last_load = load
 except KeyboardInterrupt:

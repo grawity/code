@@ -148,7 +148,7 @@ try:
         temp = int(temp) / 1000
         temp = round(temp + 0.1) # Python rounds 0.5 down
         ravg.add(temp)
-        time_temps[temp] += 1
+        time_temps[temp] += interval
         load = open("/proc/loadavg", "r").read().strip()
         load = load.split()[0]
         draw_bar(ts, 8, temp-20, temp, load)
@@ -162,9 +162,9 @@ except KeyboardInterrupt:
     for _min in [60, 70, 80, 90]:
         temp_secs = sum([_time
                          for (_temp, _time) in time_temps.items()
-                         if _temp >= 90])
+                         if _temp >= _min])
         if temp_secs:
-            print(f"At or above {_min}°C for {temp_secs} seconds total")
+            print(f"Spent {temp_secs} at or above {_min}°C")
     max_temp_secs = time_temps[max_temp]
     print(f"Maximum temperature: {max_temp}°C (for {max_temp_secs} seconds total)")
     exit(0)

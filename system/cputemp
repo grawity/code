@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from collections import defaultdict
 import enum
 from glob import glob
 import os
@@ -132,6 +133,8 @@ interval = 1
 last_temp = 0
 last_load = ""
 ravg = RollingAverage(3)
+time_temps = defaultdict(int)
+max_temp = 0
 
 try:
     while True:
@@ -145,6 +148,7 @@ try:
         temp = int(temp) / 1000
         temp = round(temp + 0.1) # Python rounds 0.5 down
         ravg.add(temp)
+        time_temps[temp] += 1
         load = open("/proc/loadavg", "r").read().strip()
         load = load.split()[0]
         draw_bar(ts, 8, temp-20, temp, load)
@@ -152,5 +156,15 @@ try:
         set_wname(f"{temp}°C")
         last_temp = temp
         last_load = load
+        max_temp = max(max_temp, temp)
 except KeyboardInterrupt:
+    print()
+    for _min in [60, 70, 80, 90]:
+        temp_secs = sum([_time
+                         for (_temp, _time) in time_temps.items()
+                         if _temp >= 90])
+        if temp_secs:
+            print(f"At or above {_min}°C for {temp_secs} seconds total")
+    max_temp_secs = time_temps[max_temp]
+    print(f"Maximum temperature: {max_temp}°C (for {max_temp_secs} seconds total)")
     exit(0)

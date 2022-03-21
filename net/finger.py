@@ -38,8 +38,11 @@ def finger(user, host, whois=False, *, timeout=10):
     exit(1)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-l", "--long", action="store_true")
-parser.add_argument("target", nargs="?", default="")
+parser.add_argument("-l", "--long", action="store_true",
+                    help="request 'long' or 'whois' result (/W query)")
+parser.add_argument("target", metavar="[user]@host",
+                    nargs="?", default="",
+                    help="remote system to query")
 args = parser.parse_args()
 
 if args.target:

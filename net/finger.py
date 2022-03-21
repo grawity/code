@@ -3,7 +3,7 @@ import argparse
 import socket
 import sys
 
-def finger(user, host, whois=False):
+def finger(user, host, whois=False, *, timeout=10):
     wflag = "/W " if whois else ""
     query = "%s%s\r\n" % (wflag, user)
     query = query.encode("utf-8")
@@ -16,6 +16,7 @@ def finger(user, host, whois=False):
         cname = canonname or cname
         try:
             sock = socket.socket(family, type, proto)
+            sock.settimeout(timeout)
             sock.connect(sockaddr)
             sock.send(query)
             data = b""

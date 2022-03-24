@@ -7,8 +7,9 @@ import glob
 import os
 
 fmt = "%9s kB  %s"
+usage = []
 total = 0
-for dir in sorted(glob.glob("/proc/[0-9]*/")):
+for dir in glob.glob("/proc/[0-9]*/"):
     pid = os.path.basename(dir.rstrip("/"))
     with open(f"{dir}/comm", "r") as fh:
         name = fh.read().strip()
@@ -18,6 +19,9 @@ for dir in sorted(glob.glob("/proc/[0-9]*/")):
             if line.startswith("VmSwap"):
                 swap += int(line.split()[1])
     if swap > 0:
-        print(fmt % (swap, f"{name} ({pid})"))
-    total += swap
+        usage += [(swap, name, pid)]
+        total += swap
+usage.sort()
+for swap, name, pid in usage:
+    print(fmt % (swap, f"{name} ({pid})"))
 print(fmt % (total, "TOTAL"))

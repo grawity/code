@@ -14,11 +14,13 @@ usage() {
 
 hosts=$(rlisthosts)
 user=""
+wait=0
 
-while getopts ":H:S" OPT; do
+while getopts ":H:SW" OPT; do
 	case $OPT in
 	H) hosts=${OPTARG//,/ };;
 	S) user="root@";;
+	W) wait=1;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -36,7 +38,10 @@ fi
 cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
 
 for host in $hosts; do
-	(out=$(ssh -n $user$host "$cmd" | sed 's/^/\t/');
-	flock /dev/stdout echo "$host:$out") &
+	(
+		out=$(ssh -n $user$host "$cmd" | sed 's/^/\t/')
+		flock /dev/stdout echo "$host:$out"
+	) &
+	if (( wait )); then wait; fi
 done
 wait

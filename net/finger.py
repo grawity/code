@@ -3,7 +3,7 @@ import argparse
 import socket
 import sys
 
-def finger(user, host, whois=False):
+def finger(user, host, whois=False, *, timeout=10):
     wflag = "/W " if whois else ""
     query = "%s%s\r\n" % (wflag, user)
     query = query.encode("utf-8")
@@ -16,6 +16,7 @@ def finger(user, host, whois=False):
         cname = canonname or cname
         try:
             sock = socket.socket(family, type, proto)
+            sock.settimeout(timeout)
             sock.connect(sockaddr)
             sock.send(query)
             data = b""
@@ -28,19 +29,20 @@ def finger(user, host, whois=False):
             sock.close()
             data = data.replace(b"\r\n", b"\n")
             if not data.strip():
-                print("Error: Host %r returned nothing." % addr,
-                      file=sys.stderr)
+                print("Empty response from %s" % addr, file=sys.stderr)
                 continue
             return cname or addr, data
         except OSError as e:
-            print("Connection to %r failed: %r" % (addr, e),
-                  file=sys.stderr)
-    print("Error: Unable to query %r" % host, file=sys.stderr)
+            print("Connect to %s failed: %s" % (addr, e), file=sys.stderr)
+    print("Unable to query \"%s@%s\"" % (user, host), file=sys.stderr)
     exit(1)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-l", "--long", action="store_true")
-parser.add_argument("target", nargs="?", default="")
+parser.add_argument("-l", "--long", action="store_true",
+                    help="request 'long' or 'whois' result (/W query)")
+parser.add_argument("target", metavar="[user]@host",
+                    nargs="?", default="",
+                    help="remote system to query")
 args = parser.parse_args()
 
 if args.target:

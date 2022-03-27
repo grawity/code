@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+# swapusage -- Get current swap usage for all running processes
+#
+# (A port of shell-based `swapusage` tool by Erik Ljungstrom, Mikko
+# Rantalainen, and Marc Methot.)
+import glob
+import os
+
+usage = []
+for dir in glob.glob("/proc/[0-9]*/"):
+    pid = os.path.basename(dir.rstrip("/"))
+    with open(f"{dir}/comm", "r") as fh:
+        name = fh.read().strip()
+    swap = 0
+    with open(f"{dir}/status", "r") as fh:
+        for line in fh:
+            if line.startswith("VmSwap"):
+                swap += int(line.split()[1])
+    if swap > 0:
+        usage += [(swap, name, pid)]
+usage.sort()
+
+fmt = "%9s kB  %s"
+total = 0
+for swap, name, pid in usage:
+    print(fmt % (swap, f"{name} ({pid})"))
+    total += swap
+print(fmt % (total, "TOTAL"))

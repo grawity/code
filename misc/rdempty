@@ -16,6 +16,12 @@ sub is_gitdir {
 	return (-f "$dir/config" && -d "$dir/objects" && -d "$dir/refs");
 }
 
+sub is_maildir {
+	my ($dir) = @_;
+
+	return (-d "$dir/cur" && -d "$dir/new" && -d "$dir/tmp");
+}
+
 sub clean {
 	my ($root) = @_;
 
@@ -32,6 +38,9 @@ sub clean {
 			}
 			elsif (-l $path) {
 				;
+			}
+			elsif ($name eq "tmp" && is_maildir($root)) {
+				_debug("skipping '$path' (Maildir)");
 			}
 			# keep 'marker' directories
 			elsif ($name eq ".stfolder") {

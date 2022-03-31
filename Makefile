@@ -27,7 +27,7 @@ BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape urlencode
 BASIC_BINS += ac-wait entropy hex unhex proctool strtool xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
-LINUX_BINS := globalenv libfunsync.so unsymlink.so peekvc showsigmask statx tapchown
+LINUX_BINS := libfunsync.so unsymlink.so peekvc showsigmask statx tapchown
 
 .PHONY: all basic krb misc linux pklist
 
@@ -73,8 +73,6 @@ $(OBJ)/entropy:		LDLIBS += -lm
 $(OBJ)/entropy:		security/entropy.c
 $(OBJ)/gettime:		LDLIBS += -lrt
 $(OBJ)/gettime:		misc/gettime.c
-$(OBJ)/globalenv:	LDLIBS += -lkeyutils
-$(OBJ)/globalenv:	system/globalenv.c $(OBJ)/misc_util.o
 $(OBJ)/hex:		misc/hex.c
 $(OBJ)/k5userok:	CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+klog() {
+	# Nspawn containers don't have kmsg
+	if [[ -c /dev/kmsg ]]; then
+		echo "nftables: $*" > /dev/kmsg
+	else
+		logger -t nftables -- "$*"
+	fi
+}
+
+set -e
+umask 077
+
+if ! grep -qs '^flush ruleset$' /etc/nftables.conf; then
+	# We *could* handle it by using 'include' like nftables.service does
+	echo "$0: current config is not atomic; refusing to reload" >&2
+	exit 1
+fi
+
+err=0
+old=$(mktemp /tmp/nftables.old.XXXXXXXX)
+new=$(mktemp /tmp/nftables.new.XXXXXXXX)
+
+nft list ruleset > "$old"
+#nft 'flush ruleset; include "/etc/nftables.conf"' || err=1
+nft -f /etc/nftables.conf || err=1
+nft list ruleset > "$new"
+
+if (( ! err )); then
+	klog "reloaded by ${SUDO_USER:-${USER:-(service)}}"
+
+	if have git; then
+		git diff --no-index -- "$old" "$new" || true
+	elif have colordiff; then
+		colordiff -u "$old" "$new" || true
+	elif have tig; then
+		diff -u "$old" "$new" | tig
+	elif have diff; then
+		diff -u "$old" "$new" || true
+	else
+		echo "$0: successfully reloaded, but no diff tool available" >&2
+		err=1
+	fi
+fi
+
+rm -f "$old" "$new"
+exit $err

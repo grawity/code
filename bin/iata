@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+import argparse
+import bs4
+import requests
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("query", nargs="+", help="City name or IATA code")
+args = parser.parse_args()
+
+ua = requests.Session()
+header = []
+results = []
+err = False
+
+for query in args.query:
+    resp = ua.get("https://www.iata.org/AirportCodesSearch/Search",
+                  params={"currentBlock": "314384",
+                          "currentPage": "12572",
+                          "airport.search": query})
+    resp.raise_for_status()
+    page = bs4.BeautifulSoup(resp.content, "lxml")
+    if tag := page.select_one("table.datatable"):
+        for row in tag.select("thead tr"):
+            header = [t.get_text(strip=True) for t in row.select("td")]
+        if rows := tag.select("tbody tr"):
+            for row in rows:
+                results.append([t.get_text(strip=True) for t in row.select("td")])
+        else:
+            err = False
+    elif tags := page.select(".registry-result-text"):
+        for tag in tags:
+            print("\033[31m%s\033[m" % tag.get_text(strip=True), file=sys.stderr)
+            err = True
+    else:
+        print(page)
+        exit("Parse error")
+
+cmd = ["column",
+       "--table",
+       "--separator=\t",
+       "--table-columns=%s" % ",".join(header).upper()]
+with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
+    for row in results:
+        proc.stdin.write("\t".join(row).encode() + b"\n")
+    proc.stdin.close()
+
+exit(err)

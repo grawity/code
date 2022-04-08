@@ -20,6 +20,14 @@ def die(msg):
                                   "--width=300"])
         exit(1)
 
+def safe(args):
+    nargs = []
+    for arg in args:
+        if arg.startswith("/p:"):
+            arg = "/p:" + "*"*(len(arg)-len("/p:"))
+        nargs.append(arg)
+    return nargs
+
 def resolve(host):
     fqdn = None
     addrs = []
@@ -148,5 +156,5 @@ else:
     cmd.append("/f")
     cmd.append("+floatbar")
 
-print(cmd)
+print(safe(cmd))
 subprocess.run(cmd)

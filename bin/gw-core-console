@@ -18,9 +18,18 @@ attach_console() {
 	            -u "$user" -p "$pass" -l "${priv:-ADMINISTRATOR}"
 }
 
+has_vlan() {
+	ip -j -d link | jq -e -r '
+		.[]
+		| select(.linkinfo.info_kind == "vlan")
+		| select(.linkinfo.info_data.id == 2)
+		| .ifname
+	'
+}
+
 setup_vlan() {
 	[[ $HOSTNAME == @(ember|wind) ]] || return
-	if [[ -e /sys/class/net/vlan2 || -e /sys/class/net/mgmt ]]; then
+	if has_vlan >/dev/null; then
 		vlan_added=0
 	else
 		echo "[adding temporary VLAN]"

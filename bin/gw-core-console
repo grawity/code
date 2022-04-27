@@ -18,18 +18,34 @@ attach_console() {
 	            -u "$user" -p "$pass" -l "${priv:-ADMINISTRATOR}"
 }
 
+has_vlan() {
+	ip -j -d link | jq -e -r '
+		.[]
+		| select(.linkinfo.info_kind == "vlan")
+		| select(.linkinfo.info_data.id == 2)
+		| .ifname
+	'
+}
+
 setup_vlan() {
 	[[ $HOSTNAME == @(ember|wind) ]] || return
-	echo "[adding temporary VLAN]"
-	sudo ip link add vlan2 link eno1 type vlan id 2
-	sudo ip link set vlan2 up
-	sudo ip addr add 10.129.255.1/16 dev vlan2
+	if has_vlan >/dev/null; then
+		vlan_added=0
+	else
+		echo "[adding temporary VLAN]"
+		sudo ip link add vlan2 link eno1 type vlan id 2
+		sudo ip link set vlan2 up
+		sudo ip addr add 10.129.255.1/16 dev vlan2
+		vlan_added=1
+	fi
 }
 
 teardown_vlan() {
 	[[ $HOSTNAME == @(ember|wind) ]] || return
-	echo "[removing temporary VLAN]"
-	sudo ip link del vlan2
+	if (( vlan_added )); then
+		echo "[removing temporary VLAN]"
+		sudo ip link del vlan2
+	fi
 }
 
 if [[ $HOSTNAME == @(ember|wind) ]]; then

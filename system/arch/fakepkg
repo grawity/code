@@ -3,33 +3,52 @@
 . lib.bash || exit
 
 suffix="-dummy"
+deps=()
 
-while getopts ":F" OPT; do
+while getopts ":Fd:" OPT; do
 	case $OPT in
 	F) suffix="";;
+	d) suffix=""; deps+=("$OPTARG");;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
 (( $# )) || die "no package names specified"
 
+if (( ${#deps[@]} )); then
+	asdeps=""
+else
+	asdeps="--asdeps"
+fi
+
 set -e
 workdir=$(mktemp -d /tmp/fakepkg.XXXXXXXXXX)
 cd "$workdir"
 for pkgname in "$@"; do
 	pkgname=${pkgname@Q}
-	cat > PKGBUILD <<-!
-	pkgname=$pkgname$suffix
-	pkgdesc="Dummy package providing "$pkgname
-	pkgver=0
-	pkgrel=0
-	arch=(any)
-	provides=($pkgname)
-	replaces=($pkgname)
-	conflicts=($pkgname)
-	!
+	if (( ${#deps[@]} )); then
+		cat > PKGBUILD <<-!
+		pkgname=$pkgname$suffix
+		pkgdesc="Dummy metapackage"
+		pkgver=0
+		pkgrel=0
+		arch=(any)
+		depends=(${deps[@]@Q})
+		!
+	else
+		cat > PKGBUILD <<-!
+		pkgname=$pkgname$suffix
+		pkgdesc="Dummy package providing "$pkgname
+		pkgver=0
+		pkgrel=0
+		arch=(any)
+		provides=($pkgname)
+		replaces=($pkgname)
+		conflicts=($pkgname)
+		!
+	fi
 	${EDITOR:-vim} PKGBUILD
-	makepkg --force --nosign --install --asdeps || true
+	makepkg --force --nosign --install $asdeps || true
 done
 cd /
 rm -rvf "$workdir"

@@ -14,18 +14,25 @@ for d in os.environ["PATH"].split(":"):
 def is_file_partial(fname):
     return fname.endswith((".crdownload", ".filepart", ".part"))
 
+def _safe_path(path):
+    if path.startswith("-"):
+        return "./" + path
+    return path
+
 def gio_trash_file(path):
     if _has_gio:
-        subprocess.run(["gio", "trash", path]).check_returncode()
+        subprocess.run(["gio", "trash", _safe_path(path)], check=True)
     elif _has_trash:
-        subprocess.run(["trash", "-q", path]).check_returncode()
+        subprocess.run(["trash", "-q", _safe_path(path)], check=True)
     else:
         #os.unlink(old_path)
         Core.die("'gio' tool is missing")
 
 def gio_rename_file(old_name, new_name):
     if _has_gio:
-        subprocess.run(["gio", "move", old_name, new_name]).check_returncode()
+        subprocess.run(["gio", "move", _safe_path(old_name),
+                                       _safe_path(new_name)],
+                       check=True)
     else:
         #os.rename(old_path, new_path)
         Core.die("'gio' tool is missing")

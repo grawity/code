@@ -24,6 +24,15 @@ XA_DC_RELATION      = "dublincore.relation"
 XA_DC_COVERAGE      = "dublincore.coverage"
 XA_DC_RIGHTS        = "dublincore.rights"
 
+def walk(root):
+    """
+    Like os.walk() but accepts individual files, returning themselves.
+    """
+    if os.path.isdir(root):
+        yield from os.walk(root)
+    else:
+        yield os.path.dirname(root), [], [os.path.basename(root)]
+
 def set_file_mtime(path, timestamp):
     if hasattr(path, "fileno"):
         path = path.fileno()

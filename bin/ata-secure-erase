@@ -52,7 +52,12 @@ minutes=$(echo "$hdparm_data" | if [[ $enhanced ]]; then
 else
 	sed -E -n 's/^	([0-9]+)min for SECURITY ERASE UNIT.*/\1m/p'
 fi)
-info "Expected erase duration: $minutes minutes"
+if [[ $minutes ]]; then
+	seconds=$(( ${minutes%m} * 60 ))
+	info "Expected erase duration: $(interval $seconds)"
+else
+	warn "Device did not report expected erase duration."
+fi
 
 info "Device identification:"
 lsblk -S "$dev"

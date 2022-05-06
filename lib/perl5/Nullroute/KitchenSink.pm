@@ -18,8 +18,6 @@ our @EXPORT = qw(
 
 	coord_distance
 	shannon_entropy
-
-	sd_notify
 );
 
 ### math
@@ -57,21 +55,6 @@ sub shannon_entropy {
 			grep {$_} @histogram;
 
 	return $entropy;
-}
-
-### systemd
-
-sub sd_notify {
-	if (my $path = $ENV{NOTIFY_SOCKET}) {
-		$path =~ s/^@/\0/;
-		my $data = join("\n", @_);
-		my $sock = IO::Socket::UNIX->new(Peer => $path,
-		                                 Type => SOCK_DGRAM);
-		if ($sock) {
-			$sock->send($data);
-			$sock->close;
-		}
-	}
 }
 
 1;

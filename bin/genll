@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+import argparse
+import ipaddress
+import os
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-l", "--link-local", action="store_true")
+parser.add_argument("-u", "--ula", action="store_true")
+parser.add_argument("-U", "--ula64", action="store_true")
+args = parser.parse_args()
+
+if (args.link_local + args.ula + args.ula64) > 1:
+    exit("error: Conflicting modes specified")
+
+elif args.ula:
+    buf = bytes([0xfd, *os.urandom(5),               0x00, 0x00,
+                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    addr = ipaddress.IPv6Address(buf)
+    net = ipaddress.IPv6Network("%s/48" % addr)
+    print(net)
+
+elif args.ula64:
+    buf = bytes([0xfd, *os.urandom(7),
+                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+    addr = ipaddress.IPv6Address(buf)
+    net = ipaddress.IPv6Network("%s/64" % addr)
+    print(net)
+
+else:
+    iid = bytearray(os.urandom(8))
+    # Clear the U/L bit to indicate "Local"
+    iid[0] &= ~0x2
+    buf = bytes([0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                 *iid])
+    addr = ipaddress.IPv6Address(buf)
+    print(addr)

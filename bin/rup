@@ -21,7 +21,7 @@ while getopts ":H:S" OPT; do
 done; shift $((OPTIND-1))
 
 (for host in $hosts; do
-	ssh $user$host 'printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+	ssh $user$host 'printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
 			"$(hostname)" \
 			"$(uname -r)" \
 			"$(uptime -p | sed "s/^up //; s/,.*//")" \
@@ -30,12 +30,15 @@ done; shift $((OPTIND-1))
 			"$(free -b | awk "/^Mem:/{printf \"%.0f%% used\", \$3*100/\$2}")" \
 			"$(free -b | awk "/^Mem:/{print \$7, \"free\"}" | numfmt --to=iec)" \
 			"$(free -b | awk "/^Mem:/{print \$2, \"total\"}" | numfmt --to=iec)" \
+			"$(df -h / | awk "NR==2{print \$5, \"used\"}")" \
+			"$(df -h / | awk "NR==2{print \$4, \"free\"}")" \
+			"$(df -h / | awk "NR==2{print \$2, \"total\"}")" \
 			' &
 done
 wait) |
 sort -V -k 2,1 |
 column -s $'\t' \
 	--table \
-	--table-columns "HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM USAGE,MEM FREE,MEM TOTAL" \
+	--table-columns "HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM,MEM FREE,MEM TOTAL,DISK,DISK FREE,DISK TOTAL" \
 	--table-hide "BUILD" \
-	--table-right "MEM USAGE,MEM FREE,MEM TOTAL"
+	--table-right "MEM,MEM FREE,MEM TOTAL,DISK,DISK FREE,DISK TOTAL"

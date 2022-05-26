@@ -11,14 +11,34 @@ usage() {
 
 hosts=$(rlisthosts)
 user=
+what=
 
-while getopts ":H:S" OPT; do
+while getopts ":H:Sdm" OPT; do
 	case $OPT in
 	H) hosts=${OPTARG//,/ };;
 	S) user=root@;;
+	d) what=disk;;
+	m) what=mem;;
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
+
+columns='HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM USE,MEM FREE,MEM TOTAL,DISK USE,DISK FREE,DISK TOTAL'
+
+show='HOST,'
+case $what in
+"disk") show+='DISK USE,DISK FREE,DISK TOTAL,';;
+"mem") show+='MEM USE,MEM FREE,MEM TOTAL,';;
+"") show+='KERNEL,UPTIME,LOAD AVG,MEM USE,MEM FREE,DISK USE,DISK FREE,';;
+esac
+
+hide=",$columns,"
+while [[ ${show%,} ]]; do
+	hide=${hide/,${show%%,*},/,}
+	show=${show#*,}
+done
+hide=${hide#,}
+hide=${hide%,}
 
 (for host in $hosts; do
 	ssh $user$host 'printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
@@ -27,18 +47,18 @@ done; shift $((OPTIND-1))
 			"$(uptime -p | sed "s/^up //; s/,.*//")" \
 			"$(uname -v | sed "s/.*/[&]/")" \
 			"$(uptime | sed "s/.*load average: //")" \
-			"$(free -b | awk "/^Mem:/{printf \"%.0f%% used\", \$3*100/\$2}")" \
-			"$(free -b | awk "/^Mem:/{print \$7, \"free\"}" | numfmt --to=iec)" \
-			"$(free -b | awk "/^Mem:/{print \$2, \"total\"}" | numfmt --to=iec)" \
-			"$(df -h / | awk "NR==2{print \$5, \"used\"}")" \
-			"$(df -h / | awk "NR==2{print \$4, \"free\"}")" \
-			"$(df -h / | awk "NR==2{print \$2, \"total\"}")" \
+			"$(free -b | awk "/^Mem:/{printf \"%.0f%%\", \$3*100/\$2}")" \
+			"$(free -b | awk "/^Mem:/{print \$7}" | numfmt --to=iec)" \
+			"$(free -b | awk "/^Mem:/{print \$2}" | numfmt --to=iec)" \
+			"$(df -h / | awk "NR==2{print \$5}")" \
+			"$(df -h / | awk "NR==2{print \$4}")" \
+			"$(df -h / | awk "NR==2{print \$2}")" \
 			' &
 done
 wait) |
 sort -V -k 2,1 |
 column -s $'\t' \
 	--table \
-	--table-columns "HOST,KERNEL,UPTIME,BUILD,LOAD AVG,MEM,MEM FREE,MEM TOTAL,DISK,DISK FREE,DISK TOTAL" \
-	--table-hide "BUILD" \
-	--table-right "MEM,MEM FREE,MEM TOTAL,DISK,DISK FREE,DISK TOTAL"
+	--table-columns "$columns" \
+	--table-hide "$hide" \
+	--table-right "MEM USE,MEM FREE,MEM TOTAL,DISK USE,DISK FREE,DISK TOTAL"

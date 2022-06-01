@@ -241,8 +241,6 @@ sub interval {
 	$y -= $d = $y % 365; $y /= 365;
 	$y += 0;
 
-	_debug("$end-$start = {y=$y, d=$d, h=$h, m=$m, s=$s}");
-
 	if ($y)		{ "${y}y ${d}d" }
 	elsif ($d > 14)	{ "${d}d" }
 	elsif ($d > 0)	{ "${d}d ${h}h" }

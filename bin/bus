@@ -16,7 +16,7 @@ my %COLOR = (
 	"upcoming" => "\e[1m",
 	"+" => "\e[38;5;10m",
 	"?" => "\e[38;5;3m",
-	"-" => "\e[38;5;9m",
+	"-" => "\e[38;5;8m",
 	"reset" => "\e[m",
 	"upcoming_bg" => "\e[48;5;234m",
 	"reset_bg" => "\e[49m",
@@ -81,6 +81,7 @@ sub load_datafile {
 }
 
 my $file = find_first_file("~/lib/buses.txt", "data:buses.txt");
+_debug("loading $file");
 my @buses = load_datafile($file);
 my $walk_time = 10;
 
@@ -133,22 +134,26 @@ for my $bus (@buses) {
 	_debug(" - status '$status', upcoming ".int($upcoming));
 
 	print
+		# Arrow
 		$upcoming ? "→" : " ",
 		" ",
+		# Scheduled time
 		$upcoming ? $COLOR{"upcoming"} : "",
 		$status eq "-" || $delta < $walk_time ? "\e[2m" : "",
 		($delta < 0) ? $COLOR{"missed"} : $COLOR{$_status},
 		$time,
 		$COLOR{"reset"},
 		"  ",
-		$upcoming ? $COLOR{"upcoming"} : "",
-		$status eq "-" || $delta < $walk_time ? "\e[2m" : "",
+		# Name
+		$status eq "-" || $delta < $walk_time ? $COLOR{"missed"}
+				: $upcoming ? $COLOR{"upcoming"} : "",
 		$dest,
-		"\e[m",
-		" "x(20-mbswidth($dest)),
-		$upcoming ? $COLOR{"upcoming"} : "",
-		"\e[2m",
-		$delta > 0 ? interval($delta*60, 0) : "",
+		$COLOR{"reset"},
+		" "x(35-mbswidth($dest)),
+		# time remaining
+		$status eq "-" || $delta < $walk_time ? $COLOR{"missed"}
+				: $upcoming ? $COLOR{"upcoming"} : "",
+		$delta > 0 ? "\e[2mleaves in\e[22m ".interval($delta*60, 0) : "\e[2malready left",
 		$COLOR{"reset"},
 		"\n";
 

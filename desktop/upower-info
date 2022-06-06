@@ -40,16 +40,12 @@ my $devices = 0;
 
 for my $dev_p (@{UPower->EnumerateDevices()}) {
 	my $dev = UPower($dev_p);
-	if ($dev->Get(UP_DEVICE_IFACE, "IsRechargeable")) {
-		my ($n) = ($dev_p =~ /BAT(\d+)$/);
-
+	if ($dev->Get(UP_DEVICE_IFACE, "Percentage")) {
 		my $data = $dev->GetAll(UP_DEVICE_IFACE);
-
 		my $state = $data->{State};
 		my $charge = $data->{Percentage};
 
 		my $status = ucfirst($STATE[$state]).", $charge%";
-
 		my $time = $data->{TimeToEmpty} || $data->{TimeToFull};
 		if ($time) {
 			if ($state == $STATE{charging}) {
@@ -60,7 +56,14 @@ for my $dev_p (@{UPower->EnumerateDevices()}) {
 			}
 		}
 
-		print "Battery $n: $status\n";
+		my $label;
+		if ($dev_p =~ /BAT(\d+)$/) {
+			$label = "Battery $1";
+		} else {
+			$label = $data->{Model};
+		}
+		print "$label: $status\n";
+
 		++$devices;
 	}
 }

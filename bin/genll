@@ -5,12 +5,20 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--link-local", action="store_true")
+parser.add_argument("-m", "--mac", action="store_true")
 parser.add_argument("-u", "--ula", action="store_true")
 parser.add_argument("-U", "--ula64", action="store_true")
 args = parser.parse_args()
 
-if (args.link_local + args.ula + args.ula64) > 1:
+if (args.link_local + args.mac + args.ula + args.ula64) > 1:
     exit("error: Conflicting modes specified")
+
+elif args.mac:
+    buf = bytearray(os.urandom(6))
+    buf[0] &= ~1    # Clear "unicast/group" bit
+    buf[0] |= 2     # Set "global/local" bit to locally administered
+    mac = ":".join(["%02x" % b for b in buf])
+    print(mac)
 
 elif args.ula:
     buf = bytes([0xfd, *os.urandom(5),               0x00, 0x00,

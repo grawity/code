@@ -50,6 +50,7 @@ minorigsize=0
 keepmtime=1
 infiles=()
 outfiles=()
+infix="conv"
 outdir=
 declare -A outmap=()
 addargs=()
@@ -111,10 +112,12 @@ addargs+=(-quality "$quality")
 
 if [[ $scale == *x* ]]; then
 	addargs+=(-resize "$scale")
+	infix="resize.$infix"
 elif (( scale < 1 || scale > 100 )); then
 	die "invalid scale value '$scale'"
 elif (( scale < 100 )); then
 	addargs+=(-scale "$scale%")
+	infix="scale$scale.$infix"
 fi
 
 if (( nproc < 1 || nproc > $(nproc)*4 )); then
@@ -130,7 +133,7 @@ for iname in "${infiles[@]}"; do
 		wait -n; (( --njobs )); (( ++ndone ))
 		show_progress "$ndone" "${#infiles[@]}"
 	done
-	oname=${outdir%/}${outdir:+/}${iname%.*}.conv.jpg
+	oname=${outdir%/}${outdir:+/}${iname%.*}.$infix.jpg
 	{
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"

@@ -32,13 +32,18 @@ class TwitterMediaScraper(Scraper):
                                                                     status.full_text[:30])
             return False
 
-        for i, medium in enumerate(status.extended_entities["media"]):
+        media = status.extended_entities["media"]
+
+        for i, medium in enumerate(media):
             #Core.info("processing medium %r", medium["expanded_url"])
             if medium["type"] in {"video", "animated_gif"}:
                 # 'video' has a m3u variant & a few video/mp4 variants
                 # 'animated_gif' has no m3u & only one variant (video/mp4 with bitrate=0)
                 video_id = medium["id_str"]
-                file_name = "%s [%s v%d]" % (author, status.id_str, i)
+                if len(media) > 1:
+                    file_name = "%s [%s_v%d]" % (author, status.id_str, i)
+                else:
+                    file_name = "%s [%s]" % (author, status.id_str)
                 if file_prefix:
                     file_name = "%s %s" % (file_prefix, file_name)
                 m3u_url = None
@@ -66,7 +71,10 @@ class TwitterMediaScraper(Scraper):
             elif medium["type"] == "photo":
                 photo_url = medium["media_url_https"] + "?name=orig"
                 photo_id = medium["media_url_https"].split("/")[-1]
-                file_name = "%s [%s p%d] %s" % (author, status.id_str, i, photo_id)
+                if len(media) > 1:
+                    file_name = "%s [%s_p%d] %s" % (author, status.id_str, i, photo_id)
+                else:
+                    file_name = "%s [%s] %s" % (author, status.id_str, photo_id)
                 if file_prefix:
                     file_name = "%s %s" % (file_prefix, file_name)
                 Core.info("- downloading %r to %r", photo_url, file_name)

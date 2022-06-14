@@ -365,10 +365,26 @@ class YandereApi(MoebooruApi):
     ID_PREFIX = "yande.re %s"
     HASH_SUFFIX = False
 
+class DerpibooruApi(BooruApi):
+    SITE_URL = "https://derpibooru.org"
+    POST_URL = "https://derpibooru.org/images/%s"
+    URL_RE = [
+        re.compile(r"^https://derpibooru.org/images/(?P<id>\d+)"),
+    ]
+    ID_PREFIX = "%s"
+    HASH_SUFFIX = False
+
+    def get_post_tags(self, post_id):
+        resp = self.ua.get("https://derpibooru.org/api/v1/json/images/%s" % post_id)
+        data = resp.json()
+        pprint(data)
+        raise NotImplementedError
+
 apis = {
     "gelbooru": GelbooruApi,
     "sankaku": SankakuApi,
     "danbooru": DanbooruApi,
     "yandere": YandereApi,
     "konachan": KonachanApi,
+    "derpibooru": DerpibooruApi,
 }

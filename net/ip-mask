@@ -98,6 +98,9 @@ def ipv4_is_netmask(addr):
             return False
     return True
 
+def ipv4_flip_netmask(addr):
+    return ip_address(bytes([255-x for x in addr.packed]))
+
 def ipv4_mcast_describe(addr):
     for mask, scope, desc in IPV4_MCAST_BLOCKS:
         if addr in ip_network(mask):
@@ -308,6 +311,8 @@ def show_net(net):
     nprint("network", net)
     if net.version == 4:
         nprint("netmask", net.netmask, "(%d addresses)" % net.num_addresses)
+        if cisco = True:
+            nprint("wildcard", ipv4_flip_netmask(net.netmask))
     if net.prefixlen < net.max_prefixlen:
         nprint("first addr", net.network_address.exploded)
         nprint("last addr", net.broadcast_address.exploded)

@@ -110,7 +110,7 @@ static void decode(FILE *fp, char *fn, char leader) {
 	int ch;
 	size_t pos = 0;
 	int state = DecodeNormal;
-	int value;
+	int value = -1;
 	int tmp;
 
 	while ((ch = getc(fp)) != EOF && ++pos) {

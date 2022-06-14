@@ -62,7 +62,7 @@ static void putchar_utf8(int ch) {
 }
 
 static void process(FILE *fp, char *fn) {
-	int ch, state = None, letter,
+	int ch, state = None, letter = -1,
 	    acc = 0, len = 0, maxlen = 0, val;
 	size_t pos = 0;
 

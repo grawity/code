@@ -127,6 +127,25 @@ def find_sensor():
 
     return subdev
 
+def print_histogram(data, *, width=5, unit="", barwidth=50):
+    def buckets(data, width):
+        res = defaultdict(int)
+        for k, v in data.items():
+            lo = k - (k % width)
+            hi = lo + width
+            res[lo, hi] += v
+        return res
+
+    total = sum(data.values())
+    grouped = buckets(data, width)
+    for (lo, hi), v in sorted(grouped.items()):
+        percentage = 100 * v / total
+        width = barwidth * percentage / 100
+        label = "%4s, %-4s" % ("[%s" % lo, "%s)" % hi)
+        suffix = "(%d%s, %d%%)" % (v, unit, percentage)
+        print("%10s | %s  %s" % (label, "=" * round(width), suffix))
+    print("%10s +-%s" % ("", "-" * barwidth))
+
 hostname = os.uname().nodename
 subdev = find_sensor()
 interval = 1
@@ -159,6 +178,7 @@ try:
         max_temp = max(max_temp, temp)
 except KeyboardInterrupt:
     print()
+    print_histogram(time_temps, unit="s")
     for _min in [60, 70, 80, 90]:
         temp_secs = sum([_time
                          for (_temp, _time) in time_temps.items()

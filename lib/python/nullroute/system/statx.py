@@ -76,31 +76,30 @@ class struct_statx(ctypes.Structure, repr_trait):
 
 def _get_libc_fn(fname, argtypes, restype):
     soname = ctypes.util.find_library("c")
-    func = ctypes.cdll[soname][fname]
+    func = ctypes.CDLL(soname, use_errno=True)[fname]
     func.argtypes = argtypes
     func.restype = restype
     return func
 
-_libc_statx = None
+_libc = None
 
 def statx(fileno, path, flags, mask):
-    global _libc_statx
-    if not _libc_statx:
-        _libc_statx = ctypes.cdll[ctypes.util.find_library("c")]["statx"]
+    global _libc
+
+    if not _libc:
+        _libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
 
     buf = struct_statx()
-    r = _libc_statx(ctypes.c_int(fileno),
+
+    r = _libc.statx(ctypes.c_int(fileno),
                     ctypes.c_char_p(path.encode()),
                     ctypes.c_int(flags),
                     ctypes.c_uint(mask),
                     ctypes.byref(buf))
+    if r != 0:
+        raise OSError(ctypes.get_errno(), "statx failed for %r" % path)
 
-    e = ctypes.get_errno()
-    # TODO: how do I make errno actually work and be non-zero
-    if r == 0:
-        return buf
-    else:
-        raise OSError(e, "statx failed for %r" % path)
+    return buf
 
 if __name__ == "__main__":
     import sys

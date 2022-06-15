@@ -32,6 +32,12 @@ checkdb() {
 			| grep -i "^last-modified:" \
 			| tail -1 \
 			| sed "s/^last-modified: *//i; s/\r//")
+
+	if [[ ! $mdate ]]; then
+		err "mirror '$base' is missing Last-Modified for $repo.db"
+		return
+	fi
+
 	local mtime=$(date -d "$mdate" +%s)
 
 	local agestr=$(interval $[now - mtime])

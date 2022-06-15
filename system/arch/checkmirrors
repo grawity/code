@@ -7,7 +7,7 @@ checklast() {
 	local stamp
 
 	if ! stamp=$(curl -sSL "$base/last$tag"); then
-		err "could not access mirror '$base'"
+		err "could not access last$tag at mirror '$base'"
 	elif [[ ! $stamp ]]; then
 		err "mirror '$base' has malformed last$tag (file is empty)"
 	elif ! [[ $stamp =~ ^[0-9]+$ ]]; then
@@ -25,10 +25,16 @@ checklast() {
 
 checkdb() {
 	local base=$1 url=$2
+	local header
+
 	url=${url//'$repo'/$repo}
 	url=${url//'$arch'/$arch}
 
-	local mdate=$(curl -sSLI "$url/$repo.db" \
+	if ! header=$(curl -sSLI "$url/$repo.db"); then
+		err "could not access $repo.db at mirror <$base>"
+		return
+	fi
+	local mdate=$(echo "$header" \
 			| grep -i "^last-modified:" \
 			| tail -1 \
 			| sed "s/^last-modified: *//i; s/\r//")
@@ -37,9 +43,7 @@ checkdb() {
 		err "mirror '$base' is missing Last-Modified for $repo.db"
 		return
 	fi
-
 	local mtime=$(date -d "$mdate" +%s)
-
 	local agestr=$(interval $[now - mtime])
 	if (( now - mtime > 2*86400 )); then
 		warn "$repo.db age: $agestr ($mdate)"

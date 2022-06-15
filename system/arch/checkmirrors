@@ -27,9 +27,6 @@ checkdb() {
 	local base=$1 url=$2
 	local header
 
-	url=${url//'$repo'/$repo}
-	url=${url//'$arch'/$arch}
-
 	if ! header=$(curl -sSLI "$url/$repo.db"); then
 		err "could not access $repo.db at mirror <$base>"
 		return
@@ -52,9 +49,25 @@ checkdb() {
 	fi
 }
 
+checkspeed() {
+	local base=$1 url=$2 pkg=$3
+	local result
+
+	result=$(timeout --foreground 30s wget -O /dev/null "$url/$pkg" 2>&1); r=$?
+
+	if (( ! r )); then
+		info "speed: $(echo "$result" | tail -1 | awk '{print $3, $4}')"
+	elif (( r == 124 )); then
+		warn "speed: definitely too slow (timeout 30s)"
+	else
+		err "speed: wget failed: $result"
+	fi
+}
+
 repo=core
 arch=`uname -m`
 now=`date +%s`
+linux=`expac -S %f linux`
 
 re='^#? *Server *= *(.+)'
 
@@ -67,7 +80,8 @@ while read -r line; do
 		base=${url%/*/os/*}
 		checklast "$base" sync &&
 		checklast "$base" update &&
-		checkdb "$base" "$url"
+		checkdb "$base" "$url" &&
+		checkspeed "$base" "$url" "$linux"
 	elif [[ $line == \#* ]]; then
 		printf '\e[2m%s\e[m\n' "$line"
 	else

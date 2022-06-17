@@ -3,6 +3,7 @@ from collections import defaultdict
 import enum
 from glob import glob
 import os
+import signal
 import time
 
 class RollingAverage():
@@ -146,6 +147,30 @@ def print_histogram(data, *, width=5, unit="", barwidth=50):
         print("%10s | %s  %s" % (label, "=" * round(width), suffix))
     print("%10s +-%s" % ("", "-" * barwidth))
 
+def print_stats(from_signal=False):
+    global time_temps
+    global ts, temp, load
+
+    if from_signal:
+        print("\033[A\r\033[K", end="")
+        draw_bar(ts, 0, temp-20, temp, load)
+
+    print()
+    print("Statistics:")
+    print_histogram(time_temps, unit="s")
+    for _min in [60, 70, 80, 90]:
+        temp_secs = sum([_time
+                         for (_temp, _time) in time_temps.items()
+                         if _temp >= _min])
+        if temp_secs:
+            print(f"Spent {temp_secs}s at or above {_min}°C")
+    max_temp_secs = time_temps[max_temp]
+    print(f"Maximum temperature: {max_temp}°C (for {max_temp_secs}s)")
+
+    if from_signal:
+        print()
+        draw_bar(ts, 8, temp-20, temp, load)
+
 hostname = os.uname().nodename
 subdev = find_sensor()
 interval = 1
@@ -154,6 +179,8 @@ last_load = ""
 ravg = RollingAverage(3)
 time_temps = defaultdict(int)
 max_temp = 0
+
+signal.signal(signal.SIGQUIT, lambda s, f: print_stats(True))
 
 try:
     while True:
@@ -177,14 +204,5 @@ try:
         last_load = load
         max_temp = max(max_temp, temp)
 except KeyboardInterrupt:
-    print()
-    print_histogram(time_temps, unit="s")
-    for _min in [60, 70, 80, 90]:
-        temp_secs = sum([_time
-                         for (_temp, _time) in time_temps.items()
-                         if _temp >= _min])
-        if temp_secs:
-            print(f"Spent {temp_secs}s at or above {_min}°C")
-    max_temp_secs = time_temps[max_temp]
-    print(f"Maximum temperature: {max_temp}°C (for {max_temp_secs}s)")
+    print_stats()
     exit(0)

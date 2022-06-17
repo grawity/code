@@ -129,6 +129,16 @@ int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		errx(2, "missing subcommand");
 	}
+	else if (streq(cmd, "--help")) {
+		puts("Subcommands:");
+		puts("");
+		puts("  next <arg>            Print stdin line that follows <arg>");
+		puts("  nextw <arg>           `- same, but wrap around to 1st line");
+		puts("  prev <arg>            Print stdin line that precedes <arg>");
+		puts("  prevw <arg>           `- same, but wrap around to last line");
+		puts("  rstrip <arg>          Strip <arg> from the end of all lines");
+		puts("  width <arg>           Calculate the character-grid width of <arg>");
+	}
 	else if (streq(cmd, "next")) {
 		if (argc < 3)
 			errx(2, "missing text parameter");

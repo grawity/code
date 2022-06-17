@@ -17,6 +17,13 @@ int main(int argc, char *argv[]) {
 	if (argc < 2) {
 		errx(1, "missing subcommand");
 	}
+	else if (streq(cmd, "--help")) {
+		puts("Subcommands:");
+		puts("");
+		puts("  getpgid <pid>         Get the process group ID (PGID) of <pid>");
+		puts("  getsid <pid>          Get the session ID (SID) of <pid>");
+		puts("  wait <pid>            Wait for <pid> to exit");
+	}
 	else if (streq(cmd, "getpgid")) {
 		pid_t pid, pgid;
 		if (argc < 3) {

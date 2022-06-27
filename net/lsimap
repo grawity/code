@@ -9,6 +9,7 @@ from nullroute.string.imaputf7 import encode_imap_utf7, decode_imap_utf7
 import re
 import ssl
 import sys
+from urllib.parse import urlparse
 
 def find_default_domain():
     import socket
@@ -97,6 +98,19 @@ args = parser.parse_args()
 
 if args.cleartext and args.password:
     Core.die("refusing to do plain-password LOGIN on a cleartext connection")
+
+if args.host and "://" in args.host:
+    url = urlparse(args.host)
+    if url.scheme not in {"imap", "imaps"}:
+        Core.die("only imap: and imaps: URLs are supported")
+    args.host = url.hostname
+    args.starttls = (url.scheme == "imap")
+    if not args.port:
+        args.port = url.port
+    if not args.username:
+        args.username = url.username
+    if not args.password:
+        args.password = url.password
 
 if not args.host:
     args.host, args.port, args.starttls = find_default_host()

@@ -21,20 +21,25 @@ def find_default_domain():
     _, domain = fqdn.split(".", 1)
     return domain
 
-def find_default_host():
+def find_default_host(want_starttls=False):
     import dns.resolver
     import dns.rdtypes.util # Workaround for missing import
 
     domain = find_default_domain()
 
-    try:
-        Core.debug("querying for service 'imaps'")
-        starttls = False
-        answer = dns.resolver.resolve(f"_imaps._tcp.{domain}", "SRV")
-    except dns.resolver.NXDOMAIN:
+    if want_starttls:
         Core.debug("querying for service 'imap'")
         starttls = True
         answer = dns.resolver.resolve(f"_imap._tcp.{domain}", "SRV")
+    else:
+        try:
+            Core.debug("querying for service 'imaps'")
+            starttls = False
+            answer = dns.resolver.resolve(f"_imaps._tcp.{domain}", "SRV")
+        except dns.resolver.NXDOMAIN:
+            Core.debug("querying for service 'imap'")
+            starttls = True
+            answer = dns.resolver.resolve(f"_imap._tcp.{domain}", "SRV")
 
     try:
         hosts = answer.rrset.processing_order()
@@ -110,7 +115,9 @@ if args.host and "://" in args.host:
         args.password = url.password
 
 if not args.host:
-    args.host, args.port, args.starttls = find_default_host()
+    if args.port:
+        Core.die("contradictory options (--port but no --host) given")
+    args.host, args.port, args.starttls = find_default_host(args.starttls)
 
 if args.cleartext and args.password:
     # Only GSSAPI is supported. (Maybe SCRAM in the future.)

@@ -96,9 +96,6 @@ parser.add_argument("--unsubscribe", metavar="FOLDER",
                     help="Unsubscribe from a folder")
 args = parser.parse_args()
 
-if args.cleartext and args.password:
-    Core.die("refusing to do plain-password LOGIN on a cleartext connection")
-
 if args.host and "://" in args.host:
     url = urlparse(args.host)
     if url.scheme not in {"imap", "imaps"}:
@@ -114,6 +111,10 @@ if args.host and "://" in args.host:
 
 if not args.host:
     args.host, args.port, args.starttls = find_default_host()
+
+if args.cleartext and args.password:
+    # Only GSSAPI is supported. (Maybe SCRAM in the future.)
+    Core.die("refusing to do plain-password LOGIN on a cleartext connection")
 
 tlsctx = ssl.create_default_context()
 

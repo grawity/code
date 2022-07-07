@@ -137,6 +137,6 @@ class OAuth2Client():
         # print("and enter the activation code:")
         # print(user_code)
         #
-        # Poll token endpoint
+        # Poll token endpoint every 5 seconds (for 5 minutes max)
         #self._grant_token({"grant_type": "urn:ietf:params:oauth:grant-type:device_code",
         #                   "device_code": device_code})

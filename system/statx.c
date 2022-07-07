@@ -257,6 +257,18 @@ static void dump_hex(unsigned long long *data, int from, int to)
 		printf("\n");
 }
 
+int usage(void)
+{
+	printf("Usage: %s ...\n", "statx");
+	puts("\n");
+	puts("  -F\tForce sync\n");
+	puts("  -D\tDon't sync\n");
+	puts("  -L\tDon't follow symlinks\n");
+	puts("  -O\tBasic stats only\n");
+	puts("  -A\tDo not automount\n");
+	puts("  -R\tRaw hexdump\n");
+}
+
 int main(int argc, char **argv)
 {
 	struct statx stx;
@@ -294,6 +306,9 @@ int main(int argc, char **argv)
 
 	argc -= optind-1;
 	argv += optind-1;
+
+	static struct option long_options[] = {
+	};
 
 	for (argv++; *argv; argv++) {
 		memset(&stx, 0xbf, sizeof(stx));

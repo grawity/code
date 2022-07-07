@@ -1,0 +1,12 @@
+#!/bin/bash
+# Monitor the progress of tracker-extract-3
+
+pids=(`pidof tracker-extract-3`) || {
+	echo "tracker-extract-3 is not running" >&2
+	exit 1
+}
+
+#if (( ${#pids[@]} > 1 )); then
+
+sudo stdbuf -oL -- strace -p ${pids[0]} -e statx |&
+	perl -nE 'chomp; if(s/.*AT_FDCWD, "(.+?)", AT_STATX.*/$1/){s/\\(\d{3})/chr oct $1/ge; s!^(.+/)([^/]+)$!\033[93m$2\033[m \033[2m($1$2)\033[m!; say}'

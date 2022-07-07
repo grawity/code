@@ -57,6 +57,8 @@ class OAuth2Client():
             self.authorization_url = response["authorization_endpoint"]
         if not self.token_grant_url:
             self.token_grant_url = response["token_endpoint"]
+        if not self.device_authz_url:
+            self.device_authz_url = response.get("device_authorization_endpoint", None)
 
     def make_authorization_url(self, scope):
         if not self.authorization_url:
@@ -102,3 +104,39 @@ class OAuth2Client():
     def grant_token_via_refresh(self, refresh_token):
         return self._grant_token({"grant_type": "refresh_token",
                                   "refresh_token": refresh_token})
+
+    def _device_authz(self):
+        """
+        Get a temporary device token using 'Device Authorization' grant.
+        https://datatracker.ietf.org/doc/html/rfc8628
+        """
+        if not self.device_authz_url:
+            self._discover_endpoints()
+        if not self.device_authz_url:
+            raise Exception("IdP does not have Device Authorization endpoint")
+        post_data = {}
+            post_data |= {"client_id": self.client_id,
+                          "client_secret": self.client_secret}
+        post_data = urllib.parse.urlencode(post_data).encode()
+        if use_http_auth:
+            request.add_header("Authorization", format_http_basic_auth(self.client_id,
+                                                                       self.client_secret))
+        request.add_header("Accept", "application/json")
+        response = urllib.request.urlopen(request, post_data).read()
+        response = json.loads(response)
+        raise Exception(str(response))
+
+        # try:
+        # url = response["verification_url"]
+        # except KeyError:
+        # hack from Step-CLI: Google uses nonstandard key '_uri' instead of '_url', use as fallback
+        # url = response["verification_uri"]
+        #
+        # print("Go to the following website:")
+        # print(url)
+        # print("and enter the activation code:")
+        # print(user_code)
+        #
+        # Poll token endpoint
+        #self._grant_token({"grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+        #                   "device_code": device_code})

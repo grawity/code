@@ -37,11 +37,13 @@ class OAuth2Client():
                        discovery_url=None,
                        authorization_url=None,
                        token_grant_url=None,
+                       device_authz_url=None,
                        redirect_url=None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.discovery_url = discovery_url,
         self.authorization_url = authorization_url
+        self.device_authz_url = device_authz_url
         self.token_grant_url = token_grant_url
         self.redirect_uri = redirect_url or OOB_REDIRECT_URI
         self.pkce_verifier = generate_verifier()
@@ -115,6 +117,7 @@ class OAuth2Client():
         if not self.device_authz_url:
             raise Exception("IdP does not have Device Authorization endpoint")
         post_data = {}
+        if not use_http_auth:
             post_data |= {"client_id": self.client_id,
                           "client_secret": self.client_secret}
         post_data = urllib.parse.urlencode(post_data).encode()

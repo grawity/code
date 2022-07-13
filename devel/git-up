@@ -16,11 +16,12 @@ old=$(git rev-parse "HEAD")
 if [ "$(git rev-parse --is-bare-repository)" = "true" ]; then
 	git fetch
 else
-	git pull --ff-only --no-stat "$@"
+	git pull --ff-only --no-stat --recurse-submodules=no "$@"
 
 	if [ -e ".git/refs/remotes/origin/main" ]; then
+		echo "A 'main' branch exists upstream..."
 		if [ "$(< .git/HEAD)" = "ref: refs/heads/master" ]; then
-			echo "looks loke master branch was renamed, following"
+			echo "looks like master branch was renamed, following"
 			git reset --keep HEAD^ &&
 			git branch -m main &&
 			git branch -u origin/main &&

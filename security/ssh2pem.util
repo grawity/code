@@ -165,6 +165,8 @@ def ssh_parse_privatekey(buf, peek=False):
         raise UnsupportedKeyType(algo)
     return data
 
+# Wait, I could have just used cryptography.hazmat.primitives.serialization.load_ssh_private_key() instead of all this nonsense.
+
 def parse_openssh_key_file(buf):
     pkt = SshReader.from_bytes(buf)
     magic = pkt.read(15)
@@ -249,9 +251,18 @@ def decrypt_openssh_private_keys(data, passphrase):
         data["private_keys"].append(key)
     return data
 
+def serialize_private_key_as_pkcs8(data):
+    algo = data["algo"]
+    #if algo == "ssh-rsa":
+
 in_file = sys.argv[1]
 passphrase = os.environ["p"]
 buf = read_openssh_armored(in_file)
-pkey = parse_openssh_key_file(buf)
-pkey = decrypt_openssh_private_keys(pkey, passphrase)
-pprint(pkey)
+data = parse_openssh_key_file(buf)
+data = decrypt_openssh_private_keys(data, passphrase)
+pprint(data)
+for i in range(data["n_keys"]):
+    pubkey_buf = data["public_keys"][i]
+    privkey = data["private_keys"][i]
+    foo = serialize_private_key_as_pkcs8(privkey)
+    pprint(foo)

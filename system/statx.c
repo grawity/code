@@ -267,6 +267,7 @@ int usage(void)
 	puts("  -O\tBasic stats only\n");
 	puts("  -A\tDo not automount\n");
 	puts("  -R\tRaw hexdump\n");
+	return 0;
 }
 
 int main(int argc, char **argv)
@@ -306,9 +307,6 @@ int main(int argc, char **argv)
 
 	argc -= optind-1;
 	argv += optind-1;
-
-	static struct option long_options[] = {
-	};
 
 	for (argv++; *argv; argv++) {
 		memset(&stx, 0xbf, sizeof(stx));

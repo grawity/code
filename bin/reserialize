@@ -3,6 +3,8 @@ import os
 import sys
 import yaml
 import json
+import plistlib
+import pprint
 
 try:
     # uiri/toml - new
@@ -21,6 +23,8 @@ fh_loaders = {
     "json": lambda fh: json.load(fh),
     "toml": lambda fh: toml.load(fh),
     "yaml": lambda fh: yaml.safe_load(fh),
+    "plist": lambda fh: plistlib.load(fh),
+    "bplist": lambda fh: plistlib.load(fh, fmt=plistlib.FMT_BINARY),
 }
 
 str_loaders = {
@@ -29,6 +33,8 @@ str_loaders = {
     "json": lambda buf: json.loads(buf),
     "toml": lambda buf: toml.loads(buf),
     "yaml": lambda buf: yaml.load(buf),
+    "plist": lambda buf: plistlib.loads(buf),
+    "bplist": lambda buf: plistlib.loads(buf, plistlib.FMT_BINARY),
 }
 
 fh_dumpers = {
@@ -36,6 +42,9 @@ fh_dumpers = {
     "toml": lambda arg, fh: toml.dump(arg, fh),
     "yaml": lambda arg, fh: yaml.dump(arg, stream=fh),
     "json": lambda arg, fh: json.dump(arg, fh),
+    "plist": lambda arg, fh: plistlib.dump(arg, fh),
+    "bplist": lambda arg, fh: plistlib.dump(arg, fh, fmt=plistlib.FMT_BINARY),
+    "pprint": lambda arg, fh: fh.write(pprint.pprint(arg)),
 }
 
 str_dumpers = {
@@ -44,6 +53,9 @@ str_dumpers = {
     "json": lambda arg: json.dumps(arg),
     "toml": lambda arg: toml.dumps(arg),
     "yaml": lambda arg: yaml.dump(arg),
+    "plist": lambda arg: plistlib.dumps(arg),
+    "bplist": lambda arg: plistlib.dumps(arg, fmt=plistlib.FMT_BINARY),
+    "pprint": lambda arg: pprint.pprint(arg),
 }
 
 arg0 = os.path.basename(sys.argv[0])
@@ -51,10 +63,22 @@ arg0 = os.path.basename(sys.argv[0])
 if "2" not in arg0:
     arg0 = sys.argv.pop(1)
 
+args = sys.argv[1:]
+if len(args):
+    exit("Too many arguments")
+
 itype, otype = arg0.split("2", 1)
 
-fh = sys.stdin
+ifh = sys.stdin
+if itype == "plist":
+    ifh = sys.stdin.detach()
 
-data = fh_loaders[itype](fh)
+data = fh_loaders[itype](ifh)
 
-print(str_dumpers[otype](data))
+if otype == "bplist":
+    data = str_dumpers[otype](data)
+    ofh = sys.stdout.detach()
+    ofh.write(data)
+else:
+    data = str_dumpers[otype](data)
+    print(data)

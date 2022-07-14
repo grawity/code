@@ -110,7 +110,7 @@ sub linux_get_attrs_batch {
 		}
 		close($fh);
 	}
-	return \%results;
+	return %results;
 }
 
 sub set_attrs {
@@ -139,28 +139,97 @@ sub _show_file_attrs {
 	print "\n";
 }
 
+my $read_fattrs_batch;
+my $read_fattrs;
+my $list_fattrs;
+my $read_fattr;
+my $write_fattr;
+
+if (eval {require File::ExtAttr}) {
+	_debug("using File::ExtAttr");
+
+	$list_fattrs = sub {
+		my ($path) = @_;
+		my @keys = ();
+		$! = undef;
+		my @namespaces = File::ExtAttr::listfattrns($path);
+		return if $!;
+		for my $ns (@namespaces) {
+			$! = undef;
+			my @nskeys = File::ExtAttr::listfattr($path, {namespace => $ns});
+			return if $!;
+			push @keys, map {"$ns.$_"} @nskeys;
+		}
+		return @keys;
+	};
+	$read_fattr = sub {
+		my ($path, $attr) = @_;
+		my ($ns, $tail) = split(/\./, $attr, 2);
+		$! = undef;
+		my $val = File::ExtAttr::getfattr($path, $tail, {namespace => $ns});
+		return if $!;
+		return $val;
+	};
+}
+elsif (eval {require Linux::UserXAttr}) {
+	_debug("File::ExtAttr missing; falling back to Linux::UserXAttr");
+
+	$list_fattrs = sub {
+		my ($path) = @_;
+		my @keys = Linux::UserXAttr::listxattr($path);
+		return @keys;
+	};
+	$read_fattr = sub {
+		my ($path, $attr) = @_;
+		my $value = Linux::UserXAttr::getxattr($path, $attr);
+		return $value;
+	};
+}
+else {
+	_notice("File::ExtAttr missing; falling back to getfattr");
+
+	$read_fattrs = sub {
+		my ($path) = @_;
+		my @cmd = ("getfattr", "--dump", "--match=.*", "--encoding=base64", "--absolute-names");
+		my %attrs;
+		if (open(my $fh, "-|", @cmd, "--", $path)) {
+			my ($file, $key, $val);
+			while (<$fh>) {
+				if (/^# file: (.+)$/) {
+					$file = $1;
+					%attrs = ();
+				} elsif (/^$/) {
+					$file = undef;
+				} elsif (/^(.+?)=0s(.*)$/) {
+					$key = $1;
+					$val = decode_base64($2);
+					$attrs{$key} = $val;
+				} else {
+					die("BUG: getfattr returned unparsable line: $_");
+				}
+			}
+			close($fh);
+		} else {
+			die("fork getfattr failed");
+		}
+		return %attrs;
+	};
+
+	$read_fattrs_batch = sub {
+		my (@paths) = @_;
+		return linux_get_attrs_batch(@paths);
+	};
+}
+
 sub dump_attrs {
 	my (@files) = @_;
 	my $ret = 0;
-	if (eval {require File::ExtAttr}) {
-		_debug("using File::ExtAttr");
+
+	if ($read_fattrs_batch) {
+		my %all_attrs = $read_fattrs_batch->(@files);
 		for my $file (@files) {
-			$! = undef;
-			my @namespaces = File::ExtAttr::listfattrns($file);
-			if ($!) {
-				_err("cannot list attr namespaces of '$file': $!");
-				++$ret; next;
-			}
-			my @keys = map {
-				my $ns = $_;
-				$! = undef;
-				my @keys = File::ExtAttr::listfattr($file, {namespace => $ns});
-				if ($!) {
-					_err("cannot list attrs of '$file': $!");
-					++$ret;
-				}
-				map {"$ns.$_"} @keys;
-			} @namespaces;
+			my $attrs = $all_attrs{$file};
+			my @keys = keys %$attrs;
 			unless ($Opt{all}) {
 				@keys = grep {/^user\./} @keys;
 				@keys = grep {!$HIDE_ATTRS{$_}} @keys;
@@ -168,27 +237,14 @@ sub dump_attrs {
 			unless ($Opt{all} || $Opt{empty}) {
 				next if !@keys;
 			}
-			my %attrs = map {
-				my $key = $_;
-				my ($ns, $tail) = split(/\./, $key, 2);
-				$! = undef;
-				my $val = File::ExtAttr::getfattr($file, $tail, {namespace => $ns});
-				if ($!) {
-					_err("cannot read attr '$key' of '$file': $!");
-					++$ret; ();
-				} else {
-					($key => $val);
-				}
-			} @keys;
-			_show_file_attrs($file, \%attrs, \@keys);
+			_show_file_attrs($file, $attrs, \@keys);
 		}
 	}
-	elsif (eval {require Linux::UserXAttr}) {
-		_debug("File::ExtAttr missing; falling back to Linux::UserXAttr");
+	elsif ($list_fattrs && $read_fattr) {
 		for my $file (@files) {
-			my @keys = Linux::UserXAttr::listxattr($file);
+			my @keys = $list_fattrs->($file);
 			if ($!) {
-				_err("cannot read attrs of '$file': $!");
+				_err("cannot list attrs of '$file': $!");
 				++$ret; next;
 			}
 			unless ($Opt{all}) {
@@ -200,30 +256,17 @@ sub dump_attrs {
 			}
 			my %attrs;
 			for my $key (@keys) {
-				$attrs{$key} = Linux::UserXAttr::getxattr($file, $key);
+				$attrs{$key} = $read_fattr->($file, $key);
 				if ($!) {
 					_err("cannot read attr '$key' of '$file': $!");
-					++$ret; next;
+					++$ret;
 				}
 			}
 			_show_file_attrs($file, \%attrs, \@keys);
 		}
 	}
 	else {
-		_notice("File::ExtAttr missing; falling back to getfattr");
-		my $all_attrs = linux_get_attrs_batch(@files);
-		for my $file (@files) {
-			my $attrs = $all_attrs->{$file};
-			my @keys = keys %$attrs;
-			unless ($Opt{all}) {
-				@keys = grep {/^user\./} @keys;
-				@keys = grep {!$HIDE_ATTRS{$_}} @keys;
-			}
-			unless ($Opt{all} || $Opt{empty}) {
-				next if !@keys;
-			}
-			_show_file_attrs($file, $attrs, \@keys);
-		}
+		die("no implementation");
 	}
 	return ($ret > 0);
 }

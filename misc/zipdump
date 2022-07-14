@@ -65,6 +65,35 @@ class ExtSignature(enum.IntEnum):
     UNICODE_PATH                = 0x7075 # up: Info-ZIP Unicode Path
     UNIX_EXTRA_3                = 0x7875 # ux: Unix Extra Type 3
 
+class ZipHeader():
+    def __init__(self, br):
+        self.br = br
+        self._read()
+
+class LocalFileHeader(ZipHeader):
+    pass
+
+class EndOfCentralDirectoryHeader(ZipHeader):
+    def _read(self):
+        self.this_disk                      = self.br.read_u16_le()
+        self.central_dir_start_disk         = self.br.read_u16_le()
+        self.num_central_records_this_disk  = self.br.read_u16_le()
+        self.num_central_records_all_disks  = self.br.read_u16_le()
+        self.central_dir_size               = self.br.read_u32_le()
+        self.central_dir_offset             = self.br.read_u32_le()
+        self.comment_len                    = self.br.read_u16_le()
+        self.comment                        = self.br.read(self.comment_len)
+
+    def _print(self):
+        return [
+            ("this disk", self.this_disk),
+            ("disk with start of central directory", self.central_dir_start_disk),
+            ("central dir records on this disk", self.num_central_records_this_disk),
+            ("central dir records on all disks", self.num_central_records_all_disks),
+            ("central directory size", self.central_dir_size),
+            ("central directory offset", self.central_dir_offset),
+        ]
+
 LFLAG_ENCRYPTED = BIT(0)
 LFLAG_DATA_DESCRIPTOR = BIT(3)
 LFLAG_LANGUAGE_UTF8 = BIT(11)

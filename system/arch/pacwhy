@@ -6,6 +6,11 @@ from pprint import pprint
 import subprocess
 import sys
 
+def enum_packages():
+    with subprocess.Popen(["pacman", "-Slq"],
+                          stdout=subprocess.PIPE) as proc:
+        return {*proc.stdout.read().decode().split()}
+
 @lru_cache(maxsize=1024)
 def get_package_deps(pkg):
     with subprocess.Popen(["expac", "%E", pkg],

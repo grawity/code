@@ -22,6 +22,10 @@ def find_default_domain():
     return domain
 
 def find_default_host(want_starttls=False):
+    return discover_srv(find_default_domain(),
+                        want_starttls=want_starttls)
+
+def discover_srv(domain, *, want_starttls=False):
     """
     Find IMAP server for specified domain via DNS SRV.
 
@@ -31,8 +35,6 @@ def find_default_host(want_starttls=False):
 
     import dns.resolver
     import dns.rdtypes.util # Workaround for missing import
-
-    domain = find_default_domain()
 
     if want_starttls:
         Core.debug("querying for service 'imap'")

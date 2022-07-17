@@ -22,6 +22,13 @@ def find_default_domain():
     return domain
 
 def find_default_host(want_starttls=False):
+    """
+    Find IMAP server for specified domain via DNS SRV.
+
+    If 'want_starttls' is given, will only search for the 'imap' service.
+    By default will search for 'imaps' first, falling back to 'imap'.
+    """
+
     import dns.resolver
     import dns.rdtypes.util # Workaround for missing import
 
@@ -117,7 +124,10 @@ if args.host and "://" in args.host:
 if not args.host:
     if args.port:
         Core.die("contradictory options (--port but no --host) given")
-    args.host, args.port, args.starttls = find_default_host(args.starttls)
+    if args.cleartext:
+        args.host, args.port, _ = find_default_host(True)
+    else:
+        args.host, args.port, args.starttls = find_default_host(args.starttls)
 
 if args.cleartext and args.password:
     # Only GSSAPI is supported. (Maybe SCRAM in the future.)

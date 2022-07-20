@@ -38,10 +38,13 @@ borg_keep = [
 #    res = subprocess.run(["bash", "-c", '. "$conf" && 
 
 def is_older_than(path, age):
-    return (time.time() - os.stat(path).st_mtime > age)
+    try:
+        return (time.time() - os.stat(path).st_mtime > age)
+    except FileNotFoundError:
+        return True
 
 def touch(path):
-    open(path, "r+").close()
+    open(path, "a").close()
 
 def do_borg(*,
             repo=None,

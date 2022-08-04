@@ -15,9 +15,17 @@ def parse_file(path):
 def alert(msg):
     subprocess.run(["zenity",
                     "--error",
-                    "--title", "Error",
+                    "--title", "Internet Shortcut – Error",
                     "--text", msg])
     exit("error: %s" % msg)
+
+def confirm(url):
+    msg = f"Do you want to visit this site?\n\n<b>{url}</b>"
+    r = subprocess.run(["zenity",
+                        "--question",
+                        "--title", "Internet Shortcut",
+                        "--text", msg])
+    return (r.returncode == 0)
 
 def open_url(url):
     subprocess.run(["xdg-open", url])
@@ -29,4 +37,6 @@ args = parser.parse_args()
 url = parse_file(args.file)
 if not url:
     alert("File %r is not a valid Internet shortcut." % args.file)
+if not confirm(url):
+    exit(1)
 open_url(url)

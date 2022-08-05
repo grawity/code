@@ -1,21 +1,27 @@
 #!/bin/sh
 
-nickname="$1"
-network="freenode"
+have() { command -v "$1" > /dev/null 2>&1; }
 
+nickname="$1"
+network="$2"
 rsabits=2048 # GnuTLS default
 
-have() { command -v "$1" > /dev/null 2>&1; }
+if [ ! "$nickname" ] || [ ! "$network" ]; then
+	echo "Usage: $0 <nickname> <network_name>" >&2
+	exit 2
+fi
+
+umask 077
 
 if have openssl; then
 	# OpenSSL
 
 	openssl req -new -subj "/CN=${nickname//\//\\/}" -days 3650 \
 		-extensions v3_req -x509 -out "$network.cert" \
-		-newkey "rsa:$rsabits" -nodes -keyout "$network.pkey"
+		-newkey "rsa:$rsabits" -nodes -keyout "$network.pkey" 2> /dev/null
 
 	# convert PKCS#8 to bare OpenSSL (PKCS#1?) format
-	openssl rsa -in "$network.pkey" -out "$network.key"
+	openssl rsa -in "$network.pkey" -out "$network.key" 2>/dev/null
 	rm -f "$network.pkey"
 
 	echo "Your certificate and private key are in '$network.cert' and '$network.key'"

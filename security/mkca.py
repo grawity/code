@@ -44,7 +44,7 @@ def parse_duration(string):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--common-name", "--cn",
-                    default="My Little CA",
+                    required=True,
                     help="Subject common name (CN)")
 parser.add_argument("-g", "--organization",
                     help="Subject organization (O)")

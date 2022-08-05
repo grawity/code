@@ -11,19 +11,20 @@ hist_file=${XDG_CACHE_HOME:-$HOME/.cache}/dmenu.history
 hist_ignore='mm'
 hist_ignore="^($hist_ignore)( |\$)"
 
-wm=$(wmctrl -m | sed -n 's/^Name: //p')
-width=$(wmctrl -d | sed -r -n '/.*DG: ([0-9]+)x.*/{s//\1/;p;q}')
-
 prompt='run:'
-#tool=bemenu
 
-if [[ $WAYLAND_DISPLAY && ! $tool ]]; then
-	#tool=bemenu
-	#tool=rofi
-	:
-fi
+# wmii theme
+#normal_fg='#bbbbbb'
+#normal_bg='#222222'
+sel_fg='#eeeeee'
+sel_bg='#005577'
 
-if (( width >= 1920 )); then
+# Higher-contrast version
+normal_fg='#cacaca'
+normal_bg='#121212'
+
+screen_width=$(wmctrl -d | sed -r -n '/.*DG: ([0-9]+)x.*/{s//\1/;p;q}')
+if (( screen_width >= 1920 )); then
 	font='Source Sans Pro'
 	size='15'
 else
@@ -31,22 +32,8 @@ else
 	size='12'
 fi
 
-# wmii theme
-normal_fg='#bbbbbb'
-normal_bg='#222222'
-sel_fg='#eeeeee'
-sel_bg='#005577'
-
-normal_fg='#cacaca'
-normal_bg='#121212'
-
-# for bemenu & rofi
-#title_fg='#d81860'
-#title_bg='#121212'
-title_fg=$sel_fg
-title_bg=$sel_bg
-
-if [[ $wm == Openbox ]]; then
+wm_name=$(wmctrl -m | sed -n 's/^Name: //p')
+if [[ $wm_name == Openbox ]]; then
 	font='Monaco'
 	size='10'
 	normal_fg='#bbbbbb'
@@ -54,6 +41,12 @@ if [[ $wm == Openbox ]]; then
 	sel_bg='#303436'
 	sel_fg='#94d01c'
 fi
+
+# for bemenu & rofi
+#title_fg='#d81860'
+#title_bg='#121212'
+title_fg=$sel_fg
+title_bg=$sel_bg
 
 case $tool in
 	bemenu)

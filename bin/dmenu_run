@@ -131,11 +131,11 @@ if [[ "$input" ]]; then
 	tag="run.$$.$RANDOM"
 	tstart=$(date +%s)
 
-	${SHELL:-/bin/sh} -c "$input" 2>&1 | systemd-cat -t "$tag"
+	systemd-cat -t "$tag" -- ${SHELL:-/bin/sh} -c "$input"; r=$?
 
 	tend=$(date +%s)
-	if (( tend - tstart <= 1 )); then
-		msg="Command '${input%% *}' exited in $(( tend - tstart )) seconds."
+	if (( r > 0 && tend - tstart <= 1 )); then
+		msg="Command '${input%% *}' exited with $r in $[tend-tstart] seconds."
 		journal=$(journalctl -b -t "$tag" -o cat)
 		if [[ $journal ]]; then
 			zenity --error --text="$msg"$'\n\n'"$journal" --width=550

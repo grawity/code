@@ -103,13 +103,16 @@ case $tool in
 		;;
 esac
 
-ign='mm'
-
-_ign="^($ign)( |\$)"
+# Commands not stored in history
+# (Currently: 'mm <song>' for mpd control)
+hist_ignore='mm'
+hist_ignore="^($hist_ignore)( |\$)"
 
 input=$(dmenu-print-history "$hist" | "${menu[@]}")
 
-# Hack for bypassing dmenu's insistent autocompletion
+# Hack for bypassing dmenu's insistent autocompletion. It is impossible to
+# provide input that's an exact prefix of a history entry (e.g. 'foo' when
+# history contains 'foobar'). To bypass this, input '+foo' and strip the +.
 input=${input#+}
 
 if [[ "$input" ]]; then
@@ -118,7 +121,7 @@ if [[ "$input" ]]; then
 		exit
 	fi
 
-	if ! [[ "$input" =~ $_ign ]]; then
+	if ! [[ "$input" =~ $hist_ignore ]]; then
 		echo "$(date +%s) $input" >> "$hist"
 	fi
 

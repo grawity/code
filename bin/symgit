@@ -3,24 +3,31 @@
 . lib.bash || exit
 
 host=star
-dir='~/pub/git'
-prefix='nullroute:'
+dir='/srv/git'
+prefix=':'
 
 klist -s || kinit || die "no Kerberos credentials"
 
 cmd=$1; shift
 
 case $cmd in
+	help)
+		echo "Commands:"
+		echo "  ls | list"
+		echo "  new <repo>..."
+		echo "  mv <old_repo> <new_repo>"
+		echo "  export <repo>..."
+		;;
 	ls|list)
 		if (( $# )); then
 			die "extraneous arguments: '$*'"
 		fi
-		ssh $host "find $dir -type d -name '*.git' -printf '%P\n' -prune" | sort \
+		ssh $host "find '$dir/' -type d -name '*.git' -printf '%P\n' -prune" | sort \
 		| sed "s|^|$prefix|; s|\\.git\$||"
 		;;
 	new)
-		if (( !$# )); then
-			die "no repository names given"
+		if (( $# < 1 )); then
+			die "Usage: $0 $cmd <repo>..."
 		fi
 		for arg; do
 			arg=${arg%.git}.git
@@ -35,7 +42,7 @@ case $cmd in
 		;;
 	mv|move|rename)
 		if (( $# != 2 )); then
-			die "usage: $0 $cmd <old> <new>"
+			die "Usage: $0 $cmd <old> <new>"
 		fi
 		old=${1%.git}.git; oldu=$prefix${old%.git}
 		new=${2%.git}.git; newu=$prefix${new%.git}
@@ -49,8 +56,8 @@ case $cmd in
 		fi
 		;;
 	export)
-		if (( !$# )); then
-			die "no repository names given"
+		if (( $# < 1 )); then
+			die "Usage: $0 $cmd <repo>..."
 		fi
 		for arg; do
 			arg=${arg%.git}.git

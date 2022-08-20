@@ -13,10 +13,10 @@ cmd=$1; shift
 case ${cmd:-help} in
 	help)
 		echo "Commands:"
-		echo "  ls | list"
+		echo "  ls|list"
 		echo "  new <repo>..."
-		echo "  mv <old_repo> <new_repo>"
-		echo "  export <repo>..."
+		echo "  mv|rename <old_repo> <new_repo>"
+		echo "  exp|export <repo>..."
 		;;
 	ls|list)
 		if (( $# )); then
@@ -27,7 +27,7 @@ case ${cmd:-help} in
 		;;
 	new)
 		if (( $# < 1 )); then
-			die "Usage: $0 $cmd <repo>..."
+			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
 			arg=${arg%.git}.git
@@ -42,7 +42,7 @@ case ${cmd:-help} in
 		;;
 	mv|move|rename)
 		if (( $# != 2 )); then
-			die "Usage: $0 $cmd <old> <new>"
+			die "Usage: $progname $cmd <old> <new>"
 		fi
 		old=${1%.git}.git; oldu=$prefix${old%.git}
 		new=${2%.git}.git; newu=$prefix${new%.git}
@@ -55,9 +55,9 @@ case ${cmd:-help} in
 			ssh $host "mv -Tvn $dir/${old@Q} $dir/${new@Q}"
 		fi
 		;;
-	export)
+	pub|publish|exp|export)
 		if (( $# < 1 )); then
-			die "Usage: $0 $cmd <repo>..."
+			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
 			arg=${arg%.git}.git

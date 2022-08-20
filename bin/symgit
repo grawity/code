@@ -3,8 +3,8 @@
 . lib.bash || exit
 
 host=star
-dir='/srv/git'
-prefix=':'
+fsroot='/srv/git'
+urlprefix=':'
 
 klist -s || kinit || die "no Kerberos credentials"
 
@@ -23,8 +23,8 @@ case ${cmd:-help} in
 		if (( $# )); then
 			die "extraneous arguments: '$*'"
 		fi
-		ssh $host "find '$dir/' -type d -name '*.git' -printf '%P\n' -prune" | sort \
-		| sed "s|^|$prefix|; s|\\.git\$||"
+		ssh $host "find '$fsroot/' -type d -name '*.git' -printf '%P\n' -prune" | sort \
+		| sed "s|^|$urlprefix|; s|\\.git\$||"
 		;;
 	new)
 		if (( $# < 1 )); then
@@ -32,29 +32,30 @@ case ${cmd:-help} in
 		fi
 		for arg; do
 			arg=${arg%.git}.git
-			url=$prefix${arg%.git}
-			if ssh $host "test -d $dir/${arg@Q}"; then
+			dir=$fsroot/$arg
+			url=$urlprefix${arg%.git}
+			if ssh $host "test -d ${dir@Q}"; then
 				err "repository '$url' already exists"
 				continue
 			fi
 			info "creating repository '$url'"
-			ssh $host "git init --bare $dir/${arg@Q}"
-			ssh $host "chmod go-rx $dir/${arg@Q}"
+			ssh $host "git init --bare ${dir@Q}"
+			ssh $host "chmod go-rx ${dir@Q}"
 		done
 		;;
 	mv|move|rename)
 		if (( $# != 2 )); then
 			die "Usage: $progname $cmd <old> <new>"
 		fi
-		old=${1%.git}.git; oldu=$prefix${old%.git}
-		new=${2%.git}.git; newu=$prefix${new%.git}
-		if ! ssh $host "test -d $dir/${old@Q}"; then
+		old=${1%.git}.git; olddir=$fsroot/$old; oldu=$urlprefix${old%.git}
+		new=${2%.git}.git; newdir=$fsroot/$new; newu=$urlprefix${new%.git}
+		if ! ssh $host "test -d ${olddir@Q}"; then
 			err "source repository '$oldu' does not exist"
-		elif ssh $host "test -d $dir/${new@Q}"; then
+		elif ssh $host "test -d ${newdir@Q}"; then
 			err "target repository '$newu' already exists"
 		else
 			info "renaming repository '$oldu' => '$newu'"
-			ssh $host "mv -Tvn $dir/${old@Q} $dir/${new@Q}"
+			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
 		;;
 	pub|publish|exp|export)
@@ -63,17 +64,18 @@ case ${cmd:-help} in
 		fi
 		for arg; do
 			arg=${arg%.git}.git
-			url=$prefix${arg%.git}
-			if ! ssh $host "test -d $dir/${arg@Q}"; then
+			dir=$fsroot/$arg
+			url=$urlprefix${arg%.git}
+			if ! ssh $host "test -d ${dir@Q}"; then
 				err "repository '$url' does not exist"
 				continue
-			elif ssh $host "test -f $dir/${arg@Q}/git-daemon-export-ok"; then
+			elif ssh $host "test -f ${dir@Q}/git-daemon-export-ok"; then
 				info "repository '$url' already public"
 				continue
 			fi
 			info "publishing repository '$url'"
-			ssh $host "touch $dir/${arg@Q}/git-daemon-export-ok"
-			ssh $host "chmod a+rx $dir/${arg@Q}"
+			ssh $host "touch ${dir@Q}/git-daemon-export-ok"
+			ssh $host "chmod a+rx ${dir@Q}"
 		done
 		;;
 	unpub|unpublish|unexp|unexport)
@@ -82,14 +84,15 @@ case ${cmd:-help} in
 		fi
 		for arg; do
 			arg=${arg%.git}.git
-			url=$prefix${arg%.git}
-			if ! ssh $host "test -d $dir/${arg@Q}"; then
+			dir=$fsroot/$arg
+			url=$urlprefix${arg%.git}
+			if ! ssh $host "test -d ${dir@Q}"; then
 				err "repository '$url' does not exist"
 				continue
 			fi
 			info "unpublishing repository '$url'"
-			ssh $host "rm -f $dir/${arg@Q}/git-daemon-export-ok"
-			ssh $host "chmod go-rx $dir/${arg@Q}"
+			ssh $host "rm -f ${dir@Q}/git-daemon-export-ok"
+			ssh $host "chmod go-rx ${dir@Q}"
 		done
 		;;
 esac

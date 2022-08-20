@@ -17,6 +17,7 @@ case ${cmd:-help} in
 		echo "  new <repo>..."
 		echo "  mv|rename <old_repo> <new_repo>"
 		echo "  exp|export <repo>..."
+		echo "  unexp|unexport <repo>..."
 		;;
 	ls|list)
 		if (( $# )); then
@@ -71,6 +72,24 @@ case ${cmd:-help} in
 			fi
 			info "publishing repository '$url'"
 			ssh $host "touch $dir/${arg@Q}/git-daemon-export-ok"
+		done
+		;;
+	unpub|unpublish|unexp|unexport)
+		if (( $# < 1 )); then
+			die "Usage: $progname $cmd <repo>..."
+		fi
+		for arg; do
+			arg=${arg%.git}.git
+			url=$prefix${arg%.git}
+			if ! ssh $host "test -d $dir/${arg@Q}"; then
+				err "repository '$url' does not exist"
+				continue
+			elif ! ssh $host "test -f $dir/${arg@Q}/git-daemon-export-ok"; then
+				info "repository '$url' not public"
+				continue
+			fi
+			info "unpublishing repository '$url'"
+			ssh $host "rm $dir/${arg@Q}/git-daemon-export-ok"
 		done
 		;;
 esac

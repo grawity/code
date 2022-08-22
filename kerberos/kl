@@ -305,7 +305,11 @@ do_print:
 				$fmt{label} .= " "x2;
 
 				$str{label} .= $svname;
-				if ($svname =~ /\/([^\/]+)(\.\Q$svrealm\E)$/i) {
+				if ($svname =~ /\/(\Q$svrealm\E)$/i) {
+					# service/domain (matching the realm, e.g. afs/foo.tld)
+					$svname =~ s//\/$COLORS{dark}$1$COLORS{reset}/;
+				}
+				elsif ($svname =~ /\/([^\/]+)(\.\Q$svrealm\E)$/i) {
 					# service/host.domain (matching the realm)
 					$svname =~ s//\/$COLORS{bold}$1$COLORS{reset}$COLORS{dark}$2$COLORS{reset}/;
 				}

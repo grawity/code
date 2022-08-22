@@ -20,7 +20,7 @@ def create_certificate(subject_cn, subject_o, days, *,
     if algorithm == "ec":
         (pub, priv) = oscrypto.asymmetric.generate_pair("ec", curve="secp256r1")
     elif algorithm == "rsa":
-        (pub, priv) = oscrypto.asymmetric.generate_pair("rsa", bit_size=3072)
+        (pub, priv) = oscrypto.asymmetric.generate_pair("rsa", bit_size=2048)
     else:
         raise ValueError(f"Bad algorithm {algorithm!r}")
 

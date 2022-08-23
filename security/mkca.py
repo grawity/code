@@ -32,10 +32,10 @@ def create_certificate(subject_cn, subject_o, days, *,
         raise ValueError(f"Bad algorithm {algorithm!r}")
 
     cb = certbuilder.CertificateBuilder(subj, pub)
+    cb.self_signed = True
     cb.serial_number = generate_serial()
     cb.end_date = datetime.now().astimezone(timezone.utc) + timedelta(days=days)
     cb.ca = True
-    cb.self_signed = True
     cert = cb.build(priv)
 
     pem_cert = oscrypto.asymmetric.dump_certificate(cert, "pem").decode()

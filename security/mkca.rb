@@ -127,19 +127,9 @@ parser = OptionParser.new do |opts|
 end
 parser.parse!
 
-begin
-    days = parse_lifetime(lifetime)
-rescue => e
-    warn "error: #{e}"
-    exit 1
-end
+days = parse_lifetime(lifetime)
 
-begin
-    priv_key = generate_key(key_type)
-rescue => e
-    warn "error: #{e}"
-    exit 1
-end
+priv_key = generate_key(key_type)
 
 cert = create_certificate(subject, days, priv_key)
 

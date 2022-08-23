@@ -5,7 +5,13 @@ import certbuilder
 from datetime import datetime, timedelta, timezone
 import os
 import oscrypto.asymmetric
+import secrets
 import sys
+
+def generate_serial():
+    # The serial number must be <= 20 bytes (including the '00' padding if the
+    # high bit is set, to avoid it being interpreted as negative).
+    return secrets.randbits(64)
 
 def create_certificate(subject_cn, subject_o, days, *,
                        algorithm="ec"):
@@ -26,6 +32,7 @@ def create_certificate(subject_cn, subject_o, days, *,
         raise ValueError(f"Bad algorithm {algorithm!r}")
 
     cb = certbuilder.CertificateBuilder(subj, pub)
+    cb.serial_number = generate_serial()
     cb.end_date = datetime.now().astimezone(timezone.utc) + timedelta(days=days)
     cb.ca = True
     cb.self_signed = True

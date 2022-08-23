@@ -47,6 +47,12 @@ class OpenSSL::PKey::PKey
     end
 end
 
+def generate_serial
+    # The serial number must be <= 20 bytes (including the '00' padding if the
+    # high bit is set, to avoid it being interpreted as negative).
+    OpenSSL::BN.new(OpenSSL::Random.random_bytes(8).unpack("H*").first, 16)
+end
+
 def generate_key(key_type)
     case key_type
         when /^rsa(\d+)$/
@@ -71,6 +77,7 @@ end
 def create_certificate(subject, days, priv_key)
     cert = OpenSSL::X509::Certificate.new
     cert.version = 2
+    cert.serial = generate_serial()
     cert.subject = OpenSSL::X509::Name.parse_rfc2253(subject)
     cert.issuer = cert.subject
     cert.not_before = Time.now

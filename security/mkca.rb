@@ -79,8 +79,6 @@ def parse_lifetime(string)
     end
 end
 
-generate = true
-
 subject = "CN=Foo"
 lifetime = "15d"
 key_type = "ecp256"
@@ -117,17 +115,11 @@ rescue => e
     exit 1
 end
 
-if generate
-    begin
-        priv_key = generate_key(key_type)
-    rescue => e
-        warn "error: #{e}"
-        exit 1
-    end
-else
-    File.open(pkey_path) do |fh|
-        priv_key = OpenSSL::PKey.read(fh)
-    end
+begin
+    priv_key = generate_key(key_type)
+rescue => e
+    warn "error: #{e}"
+    exit 1
 end
 
 cert = OpenSSL::X509::Certificate.new
@@ -153,12 +145,10 @@ else
     puts cert
 end
 
-if generate
-    if out_pkey
-        File.open(out_pkey, overwrite ? "w" : "wx", 0o600) do |f|
-            f.puts priv_key.to_pkcs8_pem
-        end
-    else
-        puts priv_key.to_pkcs8_pem
+if out_pkey
+    File.open(out_pkey, overwrite ? "w" : "wx", 0o600) do |f|
+        f.puts priv_key.to_pkcs8_pem
     end
+else
+    puts priv_key.to_pkcs8_pem
 end

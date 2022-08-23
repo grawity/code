@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# mkca -- tool to generate root CA certificates
 import argparse
 import certbuilder
 from datetime import datetime, timedelta, timezone

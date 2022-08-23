@@ -1,15 +1,9 @@
 #!/usr/bin/env ruby
+# mkca -- tool to generate root CA certificates
+# vim: ts=4:sw=4:et
 require 'base64'
 require 'openssl'
 require 'optparse'
-
-class OpenSSL::PKey::PKey
-    def to_pkcs8_pem
-        "-----BEGIN PRIVATE KEY-----\n" +
-        Base64.encode64(self.to_pkcs8_der) +
-        "-----END PRIVATE KEY-----\n"
-    end
-end
 
 class OpenSSL::PKey::EC
     def to_pkcs8_der
@@ -42,6 +36,14 @@ class OpenSSL::PKey::RSA
             ]),
             OpenSSL::ASN1::OctetString(self.to_der),
         ]).to_der
+    end
+end
+
+class OpenSSL::PKey::PKey
+    def to_pkcs8_pem
+        "-----BEGIN PRIVATE KEY-----\n" +
+        Base64.encode64(self.to_pkcs8_der) +
+        "-----END PRIVATE KEY-----\n"
     end
 end
 

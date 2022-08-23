@@ -47,18 +47,40 @@ class OpenSSL::PKey::PKey
     end
 end
 
+def parse_lifetime(string)
+    case string
+        when /^(\d+)y$/
+            return ($1.to_i * 365.25).to_i
+        when /^(\d+)d?$/
+            return $1.to_i
+        else
+            raise "Invalid lifetime #{string.inspect}"
+    end
+end
+
 generate = true
 key_type = "rsa"
 bits = 2048
-days = 15
+
 subject = "CN=Foo"
+lifetime = "15d"
 
 parser = OptionParser.new do |opts|
     opts.on("-s", "--subject DN", String, "Subject DN") do |s|
         subject = s
     end
+    opts.on("-l", "--lifetime DAYS", String, "Certificate lifetime") do |s|
+        lifetime = s
+    end
 end
 parser.parse!
+
+begin
+    days = parse_lifetime(lifetime)
+rescue => e
+    warn "error: #{e}"
+    exit 1
+end
 
 if generate
     case key_type

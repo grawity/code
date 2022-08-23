@@ -86,9 +86,9 @@ def create_certificate(subject, days, priv_key)
     # directly signs OCSP responses; approximately 30% of all CAs seem to
     # enable this usage.
 
-    cert.add_extension(ef.create_ext("subjectKeyIdentifier", "hash"))
     cert.add_extension(ef.create_ext("basicConstraints", "CA:TRUE", true))
     cert.add_extension(ef.create_ext("keyUsage", "keyCertSign, cRLSign", true))
+    cert.add_extension(ef.create_ext("subjectKeyIdentifier", "hash"))
 
     cert.sign(priv_key, OpenSSL::Digest::SHA256.new)
 

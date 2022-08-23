@@ -47,6 +47,27 @@ class OpenSSL::PKey::PKey
     end
 end
 
+def generate_key(key_type)
+    case key_type
+        when /^rsa(\d+)$/
+            bits = $1.to_i
+            if bits != 2048 && bits != 4096
+                raise "RSA keys must be 2048 or 4096 bits"
+            end
+            return OpenSSL::PKey::RSA.new(bits)
+        when "rsa"
+            return OpenSSL::PKey::RSA.new(2048)
+        when "ecp256"
+            return OpenSSL::PKey::EC.new("prime256v1").generate_key
+        when "ecp384"
+            return OpenSSL::PKey::EC.new("secp384r1").generate_key
+        when "ecp521"
+            return OpenSSL::PKey::EC.new("secp521r1").generate_key
+        else
+            raise "Unknown private key algorithm #{key_type.inspect}"
+    end
+end
+
 def parse_lifetime(string)
     case string
         when /^(\d+)y$/
@@ -59,11 +80,10 @@ def parse_lifetime(string)
 end
 
 generate = true
-key_type = "ecp256"
-bits = 2048
 
 subject = "CN=Foo"
 lifetime = "15d"
+key_type = "ecp256"
 out_cert = nil
 out_pkey = nil
 overwrite = false
@@ -74,6 +94,9 @@ parser = OptionParser.new do |opts|
     end
     opts.on("-l", "--lifetime DAYS", String, "Certificate lifetime") do |s|
         lifetime = s
+    end
+    opts.on("-a", "--key-type ALG", String, "Private key algorithm") do |s|
+        key_type = s
     end
     opts.on("-o", "--out-cert PATH", String, "Certificate output path") do |s|
         out_cert = s
@@ -95,17 +118,11 @@ rescue => e
 end
 
 if generate
-    case key_type
-    when "rsa"
-        priv_key = OpenSSL::PKey::RSA.new(bits)
-    when "ecp256"
-        priv_key = OpenSSL::PKey::EC.new("prime256v1").generate_key
-    when "ecp384"
-        priv_key = OpenSSL::PKey::EC.new("secp384r1").generate_key
-    when "ecp521"
-        priv_key = OpenSSL::PKey::EC.new("secp521r1").generate_key
-    else
-        raise "unknown private key algorithm #{key_type.inspect}"
+    begin
+        priv_key = generate_key(key_type)
+    rescue => e
+        warn "error: #{e}"
+        exit 1
     end
 else
     File.open(pkey_path) do |fh|

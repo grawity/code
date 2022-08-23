@@ -59,11 +59,14 @@ def parse_lifetime(string)
 end
 
 generate = true
-key_type = "rsa"
+key_type = "ecp256"
 bits = 2048
 
 subject = "CN=Foo"
 lifetime = "15d"
+out_cert = nil
+out_pkey = nil
+overwrite = false
 
 parser = OptionParser.new do |opts|
     opts.on("-s", "--subject DN", String, "Subject DN") do |s|
@@ -71,6 +74,15 @@ parser = OptionParser.new do |opts|
     end
     opts.on("-l", "--lifetime DAYS", String, "Certificate lifetime") do |s|
         lifetime = s
+    end
+    opts.on("-o", "--out-cert PATH", String, "Certificate output path") do |s|
+        out_cert = s
+    end
+    opts.on("-O", "--out-key PATH", String, "Private key output path") do |s|
+        out_pkey = s
+    end
+    opts.on("-y", "--force", "Overwrite existing output files") do
+        overwrite = true
     end
 end
 parser.parse!
@@ -116,9 +128,20 @@ cert.extensions << ef.create_extension("basicConstraints", "CA:TRUE", true)
 
 cert.sign(priv_key, OpenSSL::Digest::SHA256.new)
 
-puts cert
+if out_cert
+    File.open(out_cert, overwrite ? "w" : "wx", 0o644) do |f|
+        f.puts cert
+    end
+else
+    puts cert
+end
 
 if generate
-    #puts priv_key.to_pem
-    puts priv_key.to_pkcs8_pem
+    if out_pkey
+        File.open(out_pkey, overwrite ? "w" : "wx", 0o600) do |f|
+            f.puts priv_key.to_pkcs8_pem
+        end
+    else
+        puts priv_key.to_pkcs8_pem
+    end
 end

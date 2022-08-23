@@ -35,7 +35,7 @@ def create_certificate(subject_cn, subject_o, days, *,
     pem_priv = oscrypto.asymmetric.dump_private_key(priv, None).decode()
     return pem_cert, pem_priv
 
-def parse_duration(string):
+def parse_lifetime(string):
     if string[-1] == "y":
         return int(int(string[:-1]) * 365.25)
     elif string[-1] == "d":
@@ -49,9 +49,9 @@ parser.add_argument("-c", "--common-name", "--cn",
                     help="Subject common name (CN)")
 parser.add_argument("-g", "--organization",
                     help="Subject organization (O)")
-parser.add_argument("-d", "--days",
+parser.add_argument("-l", "--lifetime",
                     default="1d",
-                    help="Certificate lifetime")
+                    help="Certificate lifetime in days")
 parser.add_argument("-o", "--out-cert",
                     help="Certificate output path")
 parser.add_argument("-O", "--out-key",
@@ -59,9 +59,9 @@ parser.add_argument("-O", "--out-key",
 args = parser.parse_args()
 
 try:
-    days = parse_duration(args.days)
+    days = parse_lifetime(args.lifetime)
 except ValueError as e:
-    exit(f"error: Invalid duration {args.days!r}")
+    exit(f"error: Invalid lifetime {args.lifetime!r}")
 
 cert, priv = create_certificate(subject_cn=args.common_name,
                                 subject_o=args.organization,

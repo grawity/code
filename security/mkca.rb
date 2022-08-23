@@ -51,6 +51,13 @@ bits = 2048
 days = 15
 subject = "CN=Foo"
 
+parser = OptionParser.new do |opts|
+    opts.on("-s", "--subject DN", String, "Subject DN") do |s|
+        subject = s
+    end
+end
+parser.parse!
+
 if generate
     case key_type
     when "rsa"
@@ -85,7 +92,7 @@ cert.extensions << ef.create_extension("basicConstraints", "CA:TRUE", true)
 
 cert.sign(priv_key, OpenSSL::Digest::SHA256.new)
 
-#puts cert
+puts cert
 
 if generate
     #puts priv_key.to_pem

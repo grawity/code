@@ -81,18 +81,12 @@ def create_certificate(subject, days, priv_key)
     ef.subject_certificate = cert
     ef.issuer_certificate = cert
 
-    # Per PKIX Part 1, authorityKeyIdentifier is optional for self-signed root
-    # CAs, but 25% of real-world CAs seem to include it anyway. (It must be
-    # preceded by subjectKeyIdentifier as that's how OpenSSL determines it.)
-    # CA/B does not mention it for root CAs.
-    #
     # keyUsage must be critical (PKIX says that it isn't enforced if not marked
     # critical). Per CA/B, it needs to include 'digitalSignature' if the CA
     # directly signs OCSP responses; approximately 30% of all CAs seem to
     # enable this usage.
 
     cert.add_extension(ef.create_ext("subjectKeyIdentifier", "hash"))
-    cert.add_extension(ef.create_ext("authorityKeyIdentifier", "keyid:always, issuer"))
     cert.add_extension(ef.create_ext("basicConstraints", "CA:TRUE", true))
     cert.add_extension(ef.create_ext("keyUsage", "keyCertSign, cRLSign", true))
 

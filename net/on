@@ -22,25 +22,26 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: @ <host> [-KNSnv] [<command>]"
-	echo "       on <host> [-KNSnv] [<command>]"
+	echo "Usage: @ <host> [-KNSnv] [-d <path>] [<command>]"
+	echo "       on <host> [-KNSnv] [-d <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving"
 	echo "the current working directory. When invoked as '@' will use the remote"
 	echo "equivalent of the local path; when invoked as 'on' or '@@' will access"
 	echo "the local directory via NFS."
 	echo
-	echo_opt "-N"		"access remote directory (default for '@')"
-	echo_opt "-n"		"access local directory via NFS (default for 'on')"
+	echo_opt "-N"		"access remote current directory (default for '@')"
+	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
+	echo_opt "-d <path>"	"access specified remote directory ('-d.' is home directory)"
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-v"		"verbose (display remote host and path)"
 	echo
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
-	echo_opt "@<host>"	"like '@ <host>' (use remote path)"
-	echo_opt "@@<host>"	"like 'on <host>' (access local path via NFS)"
-	echo_opt "<host>"	"do not preserve path at all"
+	echo_opt "<host>"	"do not preserve cwd"
+	echo_opt "@<host>"	"like '@ <host>' (the -N option)"
+	echo_opt "@@<host>"	"like 'on <host>' (the -n option)"
 }
 
 arg0=${0##*/}

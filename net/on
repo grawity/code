@@ -68,7 +68,7 @@ elif [[ $arg0 != @('@'|'@@'|'on') ]]; then
 	host=$arg0
 	wd=""
 else
-	die "host not specified"
+	host=""
 fi
 
 while getopts ":d:KNnSv" OPT; do
@@ -82,6 +82,13 @@ while getopts ":d:KNnSv" OPT; do
 	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
+
+if [[ ! $host ]]; then
+	host=$1; shift
+	if [[ ! $host ]]; then
+		die "host not specified"
+	fi
+fi
 
 if ! klist -s; then
 	warn "Kerberos tickets not available"

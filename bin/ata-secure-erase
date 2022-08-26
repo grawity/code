@@ -119,7 +119,7 @@ for tries in {1..3}; do
 	Tstart=$(date +%s)
 	info "Started at $(date -d "@$Tstart" +%c)"
 
-	hdparm --security-erase$enhanced "$password" "$dev" & hdparm_pid=$!
+	flock -F "$dev" hdparm --security-erase$enhanced "$password" "$dev" & hdparm_pid=$!
 	countdown "$minutes" & countdown_pid=$!
 	trap 'kill $hdparm_pid $countdown_pid; exit' INT EXIT
 

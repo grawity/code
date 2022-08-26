@@ -1,0 +1,79 @@
+.TH k5userok 1 2022-08-26 Linux
+
+.SH NAME
+k5userok \- check and translate Kerberos 5 user principal names
+
+.SH SYNOPSIS
+k5userok [-e] [-q] [-t | -u user] principal...
+
+.SH DESCRIPTION
+In default mode, the
+.I k5userok
+tool verifies whether a Kerberos 5 principal is authorized to become the
+.I specified
+local user (or the invoking user if the
+.I -u
+option was not given).
+.PP
+Authorization is checked by calling the
+.I krb5_kuserok()
+function, which typically performs the authorization check in two ways: first, by searching for an exact match of the principal within the user's
+.I ~/.k5login
+file; then, if no match was found, by translating the principal name to a local user name and verifying that it matches the supplied user name.
+.PP
+In "translate" mode (if the
+.I -t
+option was given), the tool doesn't check against a known local user but instead uses the
+.I krb5_aname_to_localname()
+function to map each Kerberos principal to a local user and returns the mapped user name (or * if the principal could not be mapped). In this mode, authorization results for each mapping are still returned but are practically meaningless.
+.PP
+The default mapping rule checks whether the principal belongs to the system's "default" realm, and if so, returns the principal name without the realm. Principals with instances or belonging to other realms are not mapped by default, unless custom "auth_to_local" or "aname2lname" rules have been defined in the
+.I /etc/krb5.conf
+file.
+
+.SH OPTIONS
+.TP
+-u USER
+The local user account name against which to check authorization. If not specified, the invoker's user name is used by default.
+.TP
+-t
+Translate principals to local accounts, instead of checking them against a known account.
+.TP
+-e
+Parse principals as "enterprise" names.
+.TP
+-q
+Quiet mode; only set the exit status.
+
+.SH OUTPUT
+.I k5userok
+outputs three space-separated fields for each principal that was supplied: the canonical form of the principal (e.g. with the default realm appended if none was given); the local user name (either supplied or translated depending on mode); and the authorization result for that principal/user pair (either the string "allowed" or "denied").
+
+.SH EXAMPLES
+Performing authorization checks for the current user (with a ~/.k5userok file handling a foreign realm principal):
+.PP
+.in +4n
+.EX
+$ k5userok fred@HADES.ARPA sam fred@FOOBAR.COM
+fred@HADES.ARPA fred allowed
+sam@HADES.ARPA fred denied
+fred@FOOBAR.COM fred allowed
+.EE
+.in
+.PP
+Translating principal names to local names (with a custom an2ln rule already in place to handle "/cron" instances):
+.PP
+.in +4n
+.EX
+$ k5userok -t anthy utena/cron sam@FOOBAR.COM
+anthy@HADES.ARPA anthy allowed
+utena/cron@HADES.ARPA utena allowed
+sam@FOOBAR.COM * denied
+.EE
+.in
+
+.SH "EXIT STATUS"
+Zero if all translations and authorization checks were successful, 1 if any of them failed.
+
+.SH "SEE ALSO"
+krb5.conf (5)

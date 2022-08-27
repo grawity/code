@@ -13,8 +13,7 @@ def generate_serial():
     # high bit is set, to avoid it being interpreted as negative).
     return secrets.randbits(64)
 
-def create_certificate(subject_cn, subject_o, days, *,
-                       algorithm="ec"):
+def create_certificate(subject_cn, subject_o, days, *, key_type="ecp256"):
     """
     Create a self-signed CA certificate; return both the certificate and
     private key as ASCII PEM strings.
@@ -24,12 +23,12 @@ def create_certificate(subject_cn, subject_o, days, *,
     if subject_o:
         subj |= {"organization_name": subject_o}
 
-    if algorithm == "ec":
+    if key_type in {"ec", "ecp256"}:
         (pub, priv) = oscrypto.asymmetric.generate_pair("ec", curve="secp256r1")
-    elif algorithm == "rsa":
+    elif key_type in {"rsa", "rsa2048"}:
         (pub, priv) = oscrypto.asymmetric.generate_pair("rsa", bit_size=2048)
     else:
-        raise ValueError(f"Bad algorithm {algorithm!r}")
+        raise ValueError(f"Bad algorithm {key_type!r}")
 
     cb = certbuilder.CertificateBuilder(subj, pub)
     cb.self_signed = True
@@ -59,6 +58,9 @@ parser.add_argument("-g", "--organization",
 parser.add_argument("-l", "--lifetime",
                     default="1d",
                     help="Certificate lifetime in days")
+parser.add_argument("-a", "--key-type",
+                    default="ecp256",
+                    help="Private key algorithm")
 parser.add_argument("-o", "--out-cert",
                     help="Certificate output path")
 parser.add_argument("-O", "--out-key",
@@ -72,7 +74,8 @@ except ValueError as e:
 
 cert, priv = create_certificate(subject_cn=args.common_name,
                                 subject_o=args.organization,
-                                days=days)
+                                days=days,
+                                key_type=args.key_type)
 
 if args.out_cert:
     cert_fh = open(args.out_cert, "w")

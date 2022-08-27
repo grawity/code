@@ -1,0 +1,61 @@
+.TH pklist 1 2022-08-27 Linux
+
+.SH NAME
+pklist \- list a Kerberos 5 ticket cache in script-readable format
+
+.SH SYNOPSIS
+pklist [-l|-N|-P|-p|-R|-r <hostname>] [-C] [-T] [-c <ccname>]
+
+.SH DESCRIPTION
+By default
+.I pklist
+will list all tickets in the current credential cache, using a tab-separated format.
+
+.SH OPTIONS
+-TP
+-c
+Use the specified cache instead of the environment default.
+.TP
+-T
+Include the raw ticket (in binary ASN.1 format) in the 'ticket_data' field. If the option is specified twice, also show the session key in the 'session_key' field.
+.TP
+-C
+Include special "configuration tickets" in the output. Such cache entries do not hold an actual Kerberos ticket but are used internally by the implementation to store parameters for re-acquiring the initial ticket (such as whether FAST was being used).
+.IP
+Normally configuration tickets will be shown as 'cfgticket' entries. Specifying this option twice will handle them as if they were regular 'ticket' entries.
+.TP
+-q
+Output nothing; set exit status depending on whether the credential cache exists.
+.TP
+-l
+List all caches in the current collection. If the option is specified twice, tickets from each cache will additionally be shown.
+.TP
+-N
+Only output the name of current ccache (the 'cache' header field). This can be used to learn the default ccache name when
+.I KRB5CCNAME
+is not set.
+.TP
+-P
+Only output the client principal name (the 'principal' header field).
+.TP
+-p
+Only output server principal names (the 'server_name' credential field).
+.TP
+-R
+Only output the system default Kerberos 5 realm name.
+.TP
+-r <host>
+Attempt to map the provided domain name to its realm. This only works with static
+.I [domain_realm]
+mappings defined within
+.I /etc/krb5.conf
+and won't return anything if a
+.I _kerberos
+DNS lookup or an implicit "uppercase domain" mapping would be done.
+
+.SH "OUTPUT FORMAT"
+The output of
+.I pklist
+uses the general format of a tab-separated key and any number of values.
+.PP
+In most modes, the output consists of three parts: a global header (individual key-value pairs); a field heading (with the key in upper case); and a list of entries (usually several instances of the same key such as 'ticket').

@@ -7,7 +7,7 @@
 #     remote commands will act on remote files.
 #     (For example, 'cd ~/Dropbox; @ ember wget ...')
 #
-#   - If called as 'on' or '@@', it will try to access the *local* cwd via NFS,
+#   - If called as 'on', it will try to access the *local* cwd via NFS,
 #     i.e. remote commands will still act on local files.
 #     (For example, 'cd ~src/systemd; on buildbox ninja')
 #
@@ -25,10 +25,9 @@ usage() {
 	echo "Usage: @ <host> [-KNSnv] [-d <path>] [<command>]"
 	echo "       on <host> [-KNSnv] [-d <path>] [<command>]"
 	echo
-	echo "Run an interactive shell or command on the specified host, preserving"
-	echo "the current working directory. When invoked as '@' will use the remote"
-	echo "equivalent of the local path; when invoked as 'on' or '@@' will access"
-	echo "the local directory via NFS."
+	echo "Run an interactive shell or command on the specified host, preserving the"
+	echo "current working directory. When invoked as '@' will use the remote equivalent"
+	echo "of the local path; if invoked as 'on' will access the local directory via NFS."
 	echo
 	echo_opt "-N"		"access remote current directory (default for '@')"
 	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
@@ -41,7 +40,6 @@ usage() {
 	echo
 	echo_opt "<host>"	"do not preserve cwd"
 	echo_opt "@<host>"	"like '@ <host>' (the -N option)"
-	echo_opt "@@<host>"	"like 'on <host>' (the -n option)"
 }
 
 arg0=${0##*/}
@@ -54,17 +52,14 @@ verbose=0
 
 if [[ $1 == --help ]]; then
 	usage; exit
-elif [[ $arg0 == '@@'?* ]]; then
-	host=${arg0#@@}
-	nfs=1
-elif [[ $arg0 == @('@@'|'on') && $1 == [!-]* ]]; then
+elif [[ $arg0 == 'on' && $1 == [!-]* ]]; then
 	host=$1; shift
 	nfs=1
 elif [[ $arg0 == '@'?* ]]; then
 	host=${arg0#@}
 elif [[ $arg0 == '@' && $1 == [!-]* ]]; then
 	host=$1; shift
-elif [[ $arg0 != @('@'|'@@'|'on') ]]; then
+elif [[ $arg0 != @('@'|'on') ]]; then
 	host=$arg0
 	wd=""
 else

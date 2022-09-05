@@ -59,10 +59,10 @@ verify() {
 	debug "verifying '$input' to '$output'"
 	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
-		if ! egrep -qs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+		if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
 			err "file has invalid signature"
 		fi
-		if ! egrep -qs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
+		if ! grep -Eqs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
 			err "signer's key is not ultimately trusted"
 		fi
 		if (( errors )); then

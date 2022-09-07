@@ -9,12 +9,18 @@ import paramiko
 import re
 import sys
 import subprocess
+import urllib.parse
 
 def parse_dest(arg):
     if arg.startswith("sftp://"):
-        raise ValueError("parsing sftp:// URLs not supported yet")
+        u = urllib.parse.urlparse(arg)
+
+        if not u.hostname:
+            raise ValueError(f"URL {arg!r} has empty hostname")
+
+        return u.username, u.hostname, u.path[1:]
     else:
-        if m := re.match(r"^([^:]+):(.+)$", args.dest):
+        if m := re.match(r"^([^:]+):(.+)$", arg):
             host, path = m.groups()
         else:
             raise ValueError(f"could not parse {arg!r}")
@@ -56,7 +62,7 @@ class OpenSshSubsystemChannel():
         self.proc.wait()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("dest")
+parser.add_argument("dest", help="Remote file (rcp-style path or sftp:// URL)")
 args = parser.parse_args()
 
 user, host, path = parse_dest(args.dest)

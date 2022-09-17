@@ -103,6 +103,9 @@ $(OBJ)/xors:		misc/xors.c
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c
 
+$(OBJ)/newrdt:		LDLIBS += -lresolv
+$(OBJ)/newrdt:		net/rdt.c
+
 $(OBJ)/gl-mem:		CFLAGS += $(shell pkg-config --cflags x11 epoxy)
 $(OBJ)/gl-mem:		LDLIBS += $(shell pkg-config --libs x11 epoxy)
 $(OBJ)/gl-mem:		desktop/gl-mem.c

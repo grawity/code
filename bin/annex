@@ -157,14 +157,17 @@ case $cmd in
         fi
         ;;
     each)
-        if [[ $1 == !* || $1 == git ]]; then
+        if (( ! $# )); then
+            set -- pwd
+            quiet=1
+        elif [[ $1 == !* || $1 == git ]]; then
             set -- "${1#!}" "${@:2}"
         else
             set -- annex "$@"
             lib::is_nested -= 1
         fi
         for dir in "${annexes[@]}"; do
-            log2 "$cmd: running '$*' in $dir"
+            (( quiet )) || log2 "$cmd: running '$*' in $dir"
             (cd "$dir" && "${@//"{}"/"${dir##*/}"}")
             if (( r=$? )); then
                 err "command '$*' returned $r (while in $dir)"

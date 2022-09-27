@@ -30,7 +30,7 @@ silent() {
 	return $rc
 }
 
-on_master() {
+on_main() {
 	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/master ] ||
 	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/main ]
 }
@@ -56,7 +56,7 @@ if [ ! "$xyzzy" ]; then
 	fi
 
 	cd ~/code
-	if on_master; then
+	if on_main; then
 		log "fetching code.git"
 		silent git pull --ff-only
 	else
@@ -83,17 +83,17 @@ else
 	[ -d "$dotdir" ] || dotdir=~/lib/dotfiles
 	if [ -d "$dotdir" ]; then
 		(cd "$dotdir"
-		if on_master; then
+		if on_main; then
 			log "updating dotfiles.git"
 			silent git fetch origin
-			silent git merge --ff-only origin/master || {
+			migrate_head
+			silent git merge --ff-only origin/main || {
 				git stash save "dist/pull on $(date)"
-				git checkout -f master
-				git reset --hard origin/master
+				git checkout -f main
+				git reset --hard origin/main
 			}
-
 		else
-			log "skipping dotfiles.git (not on master)"
+			log "skipping dotfiles.git (not on main)"
 		fi)
 
 		(cd "$dotdir"

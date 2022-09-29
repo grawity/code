@@ -100,7 +100,7 @@ def find_hwmon_by_name(name):
             dev_name = read("%s/name" % dev)
             if dev_name == "coretemp":
                 return dev
-    raise Exception("no %r hwmon device found" % name)
+    raise RuntimeError("no %r hwmon device found" % name)
 
 def find_sensor():
     dev = find_hwmon_by_name("coretemp")
@@ -120,7 +120,7 @@ def find_sensor():
     elif subdev_cr0:
         subdev = subdev_cr0
     else:
-        raise Exception("no 'coretemp/Core 0' hwmon sensor found")
+        raise RuntimeError("no 'coretemp/Core 0' hwmon sensor found")
 
     dev_name = read("%s/name" % dev)
     subdev_name = read(rsuffix(subdev, "_input", "_label"))
@@ -171,18 +171,18 @@ def print_stats(from_signal=False):
         print()
         draw_bar(ts, 8, temp-20, temp, load)
 
-hostname = os.uname().nodename
-subdev = find_sensor()
-interval = 1
-last_temp = 0
-last_load = ""
-ravg = RollingAverage(3)
-time_temps = defaultdict(int)
-max_temp = 0
-
-signal.signal(signal.SIGQUIT, lambda s, f: print_stats(True))
-
 try:
+    hostname = os.uname().nodename
+    subdev = find_sensor()
+    interval = 1
+    last_temp = 0
+    last_load = ""
+    ravg = RollingAverage(3)
+    time_temps = defaultdict(int)
+    max_temp = 0
+
+    signal.signal(signal.SIGQUIT, lambda s, f: print_stats(True))
+
     while True:
         if last_temp:
             time.sleep(interval)
@@ -203,6 +203,8 @@ try:
         last_temp = temp
         last_load = load
         max_temp = max(max_temp, temp)
+except RuntimeError as e:
+    exit("error: %s" % e)
 except KeyboardInterrupt:
     print_stats()
     exit(0)

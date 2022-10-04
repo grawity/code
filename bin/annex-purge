@@ -108,16 +108,16 @@ class DbmCache():
         import dbm
         self.db = dbm.open(path, "c")
         self.s_total = 0
-        self.s_warm = 0
-        self.s_cold = 0
+        self.s_hit = 0
+        self.s_miss = 0
 
     def get(self, key, fallback):
         self.s_total += 1
         if key in self.db:
-            self.s_warm += 1
+            self.s_hit += 1
         else:
             self.db[key] = fallback()
-            self.s_cold += 1
+            self.s_miss += 1
         return self.db[key]
 
 def get_last_path(key):
@@ -280,8 +280,9 @@ while n_found:
         Core.err("unknown command %r" % cmd[0])
 
 if key2name.s_total:
-    pct = key2name.s_cold / key2name.s_total * 100
+    pct = key2name.s_miss / key2name.s_total * 100
     print("key2name:",
         key2name.s_total, "total;",
-        key2name.s_cold, "cold;",
+        key2name.s_hit, "hit;",
+        key2name.s_miss, "miss;",
         "%.1f" % (100 - pct), "% cached")

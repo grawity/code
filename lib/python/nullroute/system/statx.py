@@ -34,6 +34,8 @@ class StatxMask(enum.IntFlag):
     BTIME       = 0x0800
     ALL         = BASIC_STATS | BTIME
     MNT_ID      = 0x1000
+    DIOALIGN    = 0x2000
+    _REALLY_ALL = ALL | MNT_ID | DIOALIGN
 
 STATX_TYPE              = StatxMask.TYPE
 STATX_MODE              = StatxMask.MODE
@@ -50,6 +52,8 @@ STATX_BASIC_STATS       = StatxMask.BASIC_STATS
 STATX_BTIME             = StatxMask.BTIME
 STATX_ALL               = StatxMask.ALL
 STATX_MNT_ID            = StatxMask.MNT_ID
+STATX_DIOALIGN          = StatxMask.DIOALIGN
+STATX__REALLY_ALL       = StatxMask._REALLY_ALL
 
 class StatxAttr(enum.IntFlag):
     # Corresponds to flags STATX_ATTR_*
@@ -109,7 +113,9 @@ class struct_statx(ctypes.Structure, repr_trait):
         ("stx_dev_major",       ctypes.c_uint32),
         ("stx_dev_minor",       ctypes.c_uint32),
         ("stx_mnt_id",          ctypes.c_uint64),
-        ("__spare23",           ctypes.c_uint64 * 13),
+        ("stx_dio_mem_align",   ctypes.c_uint32),
+        ("stx_dio_offset_align",ctypes.c_uint32),
+        ("__spare23",           ctypes.c_uint64 * 12),
     )
 
 def _get_libc_fn(fname, argtypes, restype):
@@ -143,7 +149,7 @@ if __name__ == "__main__":
     import sys
     for path in sys.argv[1:]:
         print("===", path, "===")
-        buf = statx(AT_FDCWD, path, 0, STATX_ALL)
+        buf = statx(AT_FDCWD, path, 0, STATX__REALLY_ALL)
         for n, t in buf._fields_:
             v = getattr(buf, n)
             if n.startswith("__spare"):

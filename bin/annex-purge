@@ -131,7 +131,12 @@ class DbmCache():
         return value
 
 def get_last_path(key):
-    return key2name.get(key, lambda: (_get_last_path(key) or "").encode()).decode()
+    if value := key2name.get(key):
+        return value.decode()
+    if value := _get_last_path(key):
+        key2name.set(key, value.encode())
+        return value
+    return ""
 
 def print_items(items):
     total = 0

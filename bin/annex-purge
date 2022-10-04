@@ -103,6 +103,28 @@ def _get_last_path(key):
                 raise
             return line
 
+class AnnexKeysdb():
+    def __init__(self, path):
+        import sqlite3
+        #self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        self.s_total = 0
+        self.s_hit = 0
+        self.s_miss = 0
+
+    def get(self, key):
+        self.s_total += 1
+        cur = self.db.cursor()
+        cur.execute("SELECT file FROM associated WHERE key = ?", (key,))
+        r = cur.fetchone()
+        #return r[0] if r else None
+        if r:
+            self.s_hit += 1
+            return r[0]
+        else:
+            self.s_miss += 1
+            return None
+
 class DbmCache():
     def __init__(self, path):
         import dbm
@@ -131,6 +153,8 @@ class DbmCache():
         return value
 
 def get_last_path(key):
+    if value := keysdb.get(key):
+        return value
     if value := key2name.get(key):
         return value.decode()
     if value := _get_last_path(key):
@@ -148,6 +172,8 @@ def print_items(items):
 
 if not is_annex():
     Core.die("not a git-annex repository")
+
+keysdb = AnnexKeysdb(os.path.join(git_dir(), "annex", "keysdb", "db"))
 
 key2name = DbmCache(os.path.join(git_dir(), "annex", "annex-purge_key2name.db"))
 
@@ -293,6 +319,14 @@ while n_found:
             print("  %-1s  %-16s  %s" % (s, l, d))
     else:
         Core.err("unknown command %r" % cmd[0])
+
+if keysdb.s_total:
+    pct = keysdb.s_miss / keysdb.s_total * 100
+    print("keysdb:",
+        keysdb.s_total, "total;",
+        keysdb.s_hit, "hit;",
+        keysdb.s_miss, "miss;",
+        "%.1f" % (100 - pct), "% cached")
 
 if key2name.s_total:
     pct = key2name.s_miss / key2name.s_total * 100

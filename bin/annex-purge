@@ -88,6 +88,17 @@ def verify_timestamp():
                      % _unused_path)
 
 def _get_last_path(key):
+    with subprocess.Popen(["git", "annex", "whereused",
+                                           "--historical",
+                                           "--key=%s" % key],
+                          stdout=subprocess.PIPE) as proc:
+        for line in proc.stdout:
+            line = line.decode().strip()
+            key, path = line.split(" ", 1)
+            _, path = path.split(":", 1)
+            return path.removeprefix("./")
+
+def _get_last_path_via_log(key):
     with subprocess.Popen(["git", "log", "--format=",
                                          "--name-only",
                                          "--no-renames",

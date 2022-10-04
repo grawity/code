@@ -6,6 +6,7 @@ import sys
 from nullroute.core import Core
 from nullroute.misc import unquote
 import nullroute.string
+from nullroute.ui import print_status
 from subprocess import Popen, PIPE
 import subprocess
 
@@ -197,11 +198,13 @@ Core.info("searching for unused data in %s" % remote_str)
 unused = list(annex_unused(remote))
 verify_timestamp()
 
-Core.info("listing %d unused files" % len(unused))
 n_found = len(unused)
 sz_found = 0
+
+Core.info("looking up historical paths for %d items" % n_found)
 items = []
-for num, key in unused:
+for i, (num, key) in enumerate(unused, 1):
+    print_status("[%d/%d] whereused %s" % (i, n_found, key))
     try:
         size = getkeysize(key)
     except ValueError:
@@ -210,8 +213,11 @@ for num, key in unused:
     name = get_last_path(key)
     name = os.path.basename(name) if name else key
     items.append(Item(num, size, key, name))
+print_status()
 items.sort(key=lambda x: x[3].casefold())
 k_dropped = set()
+
+Core.info("listing %d unused files" % len(unused))
 print_items(items)
 
 while n_found:

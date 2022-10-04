@@ -111,14 +111,24 @@ class DbmCache():
         self.s_hit = 0
         self.s_miss = 0
 
-    def get(self, key, fallback):
+    def get(self, key):
         self.s_total += 1
         if key in self.db:
             self.s_hit += 1
+            return self.db[key]
         else:
-            self.db[key] = fallback()
             self.s_miss += 1
-        return self.db[key]
+            return None
+
+    def set(self, key, value):
+        self.db[key] = value
+
+    def get_or_set(self, key, fallback):
+        value = self.get(key)
+        if value is None:
+            value = fallback()
+            self.set(key, value)
+        return value
 
 def get_last_path(key):
     return key2name.get(key, lambda: (_get_last_path(key) or "").encode()).decode()

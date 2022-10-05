@@ -186,12 +186,11 @@ class GelbooruApi(BooruApi):
                 "tags": query, "limit": limit, "json": 1}
         resp = self.ua.get(self.SITE_URL, params={**args, **self._apikey_params})
         resp.raise_for_status()
-        if resp.content.startswith(b"["):
-            yield from resp.json()
-        elif resp.content == b"":
-            Core.debug("API query returned empty body")
-        else:
-            raise ValueError(resp.content)
+        if not resp.content.startswith(b"{"):
+            raise ValueError(f"API query failed: {resp.content!r}")
+        data = resp.json()
+        if data["@attributes"]["count"]:
+            yield from data["post"]
 
     def _scrape_post_info(self, post_id):
         args = {"page": "post", "s": "view", "id": post_id}

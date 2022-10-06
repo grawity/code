@@ -100,12 +100,15 @@ def show_choices(alist):
     else:
         return int(choice)-1
 
-def install_from_url(url):
-    cmd = ["sudo", "pacman", "-U", url]
+def install_from_url(url, *, asdeps=False):
+    deps_arg = ["--asdeps"] if asdeps else []
+    cmd = ["sudo", "pacman", "-U", *deps_arg, url]
     print(cmd)
     subprocess.run(cmd)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--asdeps", action="store_true",
+                    help="mark installed package as dependency")
 parser.add_argument("package")
 args = parser.parse_args()
 
@@ -121,6 +124,6 @@ if results:
     menu = ["%(ver)-20s <%(url)s>" % r for r in results]
     choice = show_choices(menu)
     chosen = results[choice]
-    install_from_url(chosen["url"])
+    install_from_url(chosen["url"], asdeps=args.asdeps)
 else:
     exit("error: No results for %r." % pkg)

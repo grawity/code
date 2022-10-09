@@ -29,6 +29,23 @@ def is_bad_ucs2_name(item):
     else:
         return False
 
+def is_bad_win1252_name(item):
+    # Check whether the name cannot be represented as Windows-1252 (Latin-1 aka
+    # Western European).
+    try:
+        _ = item.encode("cp1252")
+    except UnicodeEncodeError:
+        return True
+    return False
+
+def is_bad_win1257_name(item):
+    # Check whether the name cannot be represented as Windows-1257 (Baltic).
+    try:
+        _ = item.encode("cp1257")
+    except UnicodeEncodeError:
+        return True
+    return False
+
 def is_non_utf8_name(item):
     # Check whether the name isn't valid UTF-8 (Python uses lone surrogates to
     # represent such filenames).
@@ -55,6 +72,8 @@ def hl_nonutf_name(item):
 parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--ignore-case", action="store_true", help="ignore case collisions")
 parser.add_argument("-B", "--ignore-bmp", action="store_true", help="ignore non-BMP names")
+parser.add_argument("-1", "--check-1252", action="store_true", help="check Windows-1252 compliance")
+parser.add_argument("-7", "--check-1257", action="store_true", help="check Windows-1257 compliance")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
@@ -65,6 +84,8 @@ for root in roots:
     seen = defaultdict(set)
     badwin = set()
     baducs = set()
+    bad1252 = set()
+    bad1257 = set()
     nonutf = set()
     total = 0
 
@@ -83,6 +104,10 @@ for root in roots:
                 baducs.add(path)
             if is_non_utf8_name(item):
                 nonutf.add(path)
+            if args.check_1252 and is_bad_win1252_name(item):
+                bad1252.add(path)
+            if args.check_1257 and is_bad_win1257_name(item):
+                bad1257.add(path)
             total += 1
 
     print_status()
@@ -104,6 +129,18 @@ for root in roots:
     if baducs and not args.ignore_bmp:
         print("Names incompatible with Dropbox:")
         for path in sorted(baducs):
+            print("  %r" % path)
+            bad += 1
+
+    if bad1252:
+        print("Names incompatible with Windows-1252 (Latin-1):")
+        for path in sorted(bad1252):
+            print("  %r" % path)
+            bad += 1
+
+    if bad1257:
+        print("Names incompatible with Windows-1257 (Baltic):")
+        for path in sorted(bad1257):
             print("  %r" % path)
             bad += 1
 

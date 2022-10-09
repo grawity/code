@@ -63,11 +63,16 @@ def hl_win32_name(item):
                   item,
                   re.I)
 
+def hl_baducs_name(item):
+    return re.sub(r"([^\u0000-\uFFFF])",
+                  hl(r"\1"),
+                  #lambda s: hl("\\u{%04X}" % ord(s[0])),
+                  item)
+
 def hl_nonutf_name(item):
     return re.sub(r"([\uDC80-\uDCFF])",
                   lambda s: hl("\\x%02X" % (ord(s[0]) & 0xFF)),
-                  item,
-                  re.I)
+                  item)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--ignore-case", action="store_true", help="ignore case collisions")
@@ -129,7 +134,7 @@ for root in roots:
     if baducs and not args.ignore_bmp:
         print("Names incompatible with Dropbox:")
         for path in sorted(baducs):
-            print("  %r" % path)
+            print("  %s" % hl_baducs_name(path))
             bad += 1
 
     if bad1252:

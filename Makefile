@@ -27,7 +27,7 @@ BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape urlencode
 BASIC_BINS += ac-wait entropy hex unhex proctool strtool xor xors xorf
 KRB_BINS   := k5userok pklist
 MISC_BINS  := libwcwidth.so logwipe writevt zlib
-LINUX_BINS := libfunsync.so unsymlink.so peekvc showsigmask statx tapchown
+LINUX_BINS := libfunsync.so ssh_force_lp.so unsymlink.so peekvc showsigmask statx tapchown
 
 .PHONY: all basic krb misc linux pklist
 
@@ -50,6 +50,9 @@ emergency-su: $(OBJ)/emergency-su
 
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	system/libfunsync.c
+
+$(OBJ)/ssh_force_lp.so:	CFLAGS += -shared
+$(OBJ)/ssh_force_lp.so:	net/ssh_force_lp.c
 
 $(OBJ)/unsymlink.so:	CFLAGS += -shared
 $(OBJ)/unsymlink.so:	LDLIBS += $(DL_LDLIBS)

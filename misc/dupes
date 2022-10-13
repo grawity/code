@@ -223,7 +223,12 @@ def find_duplicates(root_dirs, *,
             if include_symlinks:
                 st = os.stat(path)
             else:
-                st = os.lstat(path)
+                try:
+                    st = os.lstat(path)
+                except FileNotFoundError:
+                    status()
+                    Core.warn("skipping %r (failed to stat)", path)
+                    continue
             if not stat.S_ISREG(st.st_mode):
                 Core.trace("skipping %r (not a regular file)", path)
                 continue

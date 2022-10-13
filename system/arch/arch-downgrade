@@ -95,14 +95,22 @@ def show_choices(alist):
     for i, text in enumerate(alist):
         print("%4d  %s" % (i+1, text))
     choice = input("> ")
-    return int(choice)-1
+    if choice in {"l", "last", "latest"}:
+        return len(alist)-1
+    else:
+        return int(choice)-1
 
-def install_from_url(url):
-    cmd = ["sudo", "pacman", "-U", url]
+def install_from_url(url, *, asdeps=False):
+    deps_arg = ["--asdeps"] if asdeps else []
+    cmd = ["sudo", "pacman", "-U", *deps_arg, url]
     print(cmd)
     subprocess.run(cmd)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--download", action="store_true",
+                    help="only download the package")
+parser.add_argument("--asdeps", action="store_true",
+                    help="mark installed package as dependency")
 parser.add_argument("package")
 args = parser.parse_args()
 
@@ -118,6 +126,15 @@ if results:
     menu = ["%(ver)-20s <%(url)s>" % r for r in results]
     choice = show_choices(menu)
     chosen = results[choice]
-    install_from_url(chosen["url"])
+    url = chosen["url"]
+    if args.download:
+        print("Saving", chosen["url"])
+        d.save_file(chosen["url"],
+                    name=os.path.basename(chosen["url"]),
+                    progress=True,
+                    save_msg=True,
+                    keep_mtime=True)
+    else:
+        install_from_url(chosen["url"], asdeps=args.asdeps)
 else:
     exit("error: No results for %r." % pkg)

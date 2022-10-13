@@ -7,7 +7,9 @@ import os
 import re
 import sys
 
-def bad_win32_name(item):
+def is_bad_win32_name(item):
+    # Check whether the name is unacceptable to Win32 (has bad characters or is
+    # reserved).
     if {*item} & {*"?*<>|:\"\n\x7F\\"}:
         return True
     elif re.match(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])$", item.lower()):
@@ -19,33 +21,94 @@ def bad_win32_name(item):
     else:
         return False
 
-def bad_ucs2_name(item):
+def is_bad_ucs2_name(item):
+    # Check whether the name uses Unicode codepoints outside the 16-bit BMP
+    # (e.g. Dropbox cannot deal with those).
     if re.search(r"[^\u0000-\uFFFF]", item):
         return True
     else:
         return False
 
-def non_utf8_name(item):
-    # Python uses lone surrogates to represent such filenames
+def is_non_utf8_name(item):
+    # Check whether the name isn't valid UTF-8 (Python uses lone surrogates to
+    # represent such filenames).
     if re.search(r"[\uDC80-\uDCFF]", item):
         return True
     else:
         return False
 
+def is_bad_win1252_name(item):
+    # Check whether the name cannot be represented as Windows-1252 (Latin-1 aka
+    # Western European).
+    try:
+        _ = item.encode("cp1252")
+    except UnicodeEncodeError:
+        return True
+    return False
+
+def is_bad_win1257_name(item):
+    # Check whether the name cannot be represented as Windows-1257 (Baltic).
+    try:
+        _ = item.encode("cp1257")
+    except UnicodeEncodeError:
+        return True
+    return False
+
+def find_valid_chars(codepage):
+    # Given a cp#### codepage, create a list of Unicode characters valid in
+    # that codepage.
+    chars = ""
+    for x in range(20, 256):
+        try:
+            chars += bytes([x]).decode(codepage)
+        except UnicodeDecodeError:
+            pass
+    return chars
+
+def make_inv_regex(valid_chars):
+    # Given a list of valid characters, return a regex that makes everything
+    # except those characters.
+    chars = [r"\U%08X" % ord(c) for c in valid_chars]
+    return "([^%s])" % "".join(chars)
+
 def hl(item):
     return "\033[41m%s\033[m" % item
 
 def hl_win32_name(item):
-    return re.sub(r"(^(con|prn|aux|nul|com[1-9]|lpt[1-9])$|[. ]$|[?*<>|:\"\\\n])", hl(r"\1"), item, re.I)
+    return re.sub(r"(^(con|prn|aux|nul|com[1-9]|lpt[1-9])$|[. ]$|[?*<>|:\"\\\n])",
+                  hl(r"\1"),
+                  item,
+                  re.I)
+
+def hl_baducs_name(item):
+    return re.sub(r"([^\u0000-\uFFFF])",
+                  hl(r"\1"),
+                  #lambda s: hl("\\u{%04X}" % ord(s[0])),
+                  item)
 
 def hl_nonutf_name(item):
-    return re.sub(r"([\uDC80-\uDCFF])", lambda s: hl("\\x%02X" % (ord(s[0]) & 0xFF)), item, re.I)
+    return re.sub(r"([\uDC80-\uDCFF])",
+                  lambda s: hl("\\x%02X" % (ord(s[0]) & 0xFF)),
+                  item)
+
+def hl_bad_name(item, regex):
+    return re.sub(regex,
+                  hl(r"\1"),
+                  item)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--ignore-case", action="store_true", help="ignore case collisions")
 parser.add_argument("-B", "--ignore-bmp", action="store_true", help="ignore non-BMP names")
+parser.add_argument("-1", "--check-1252", action="store_true", help="check Windows-1252 compliance only")
+parser.add_argument("-7", "--check-1257", action="store_true", help="check Windows-1257 compliance only")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
+
+if args.check_1252:
+    REGEX_1252 = make_inv_regex(find_valid_chars("cp1252"))
+
+if args.check_1257:
+    REGEX_1257 = make_inv_regex(find_valid_chars("cp1257"))
 
 roots = args.path or ["."]
 bad = 0
@@ -54,6 +117,8 @@ for root in roots:
     seen = defaultdict(set)
     badwin = set()
     baducs = set()
+    bad1252 = set()
+    bad1257 = set()
     nonutf = set()
     total = 0
 
@@ -66,13 +131,23 @@ for root in roots:
             path = os.path.relpath(path, root)
             cfpath = path.casefold()
             seen[cfpath].add(path)
-            if bad_win32_name(item):
-                badwin.add(path)
-            if bad_ucs2_name(item):
-                baducs.add(path)
-            if non_utf8_name(item):
-                nonutf.add(path)
             total += 1
+
+            if not (args.check_1252 + args.check_1257):
+                if is_bad_win32_name(item):
+                    badwin.add(path)
+                if is_bad_ucs2_name(item):
+                    baducs.add(path)
+                if is_non_utf8_name(item):
+                    nonutf.add(path)
+
+            if args.check_1252:
+                if is_bad_win1252_name(item):
+                    bad1252.add(path)
+
+            if args.check_1257:
+                if is_bad_win1257_name(item):
+                    bad1257.add(path)
 
     print_status()
 
@@ -93,11 +168,23 @@ for root in roots:
     if baducs and not args.ignore_bmp:
         print("Names incompatible with Dropbox:")
         for path in sorted(baducs):
-            print("  %r" % path)
+            print("  %s" % hl_baducs_name(path))
+            bad += 1
+
+    if bad1252:
+        print("Names incompatible with Windows-1252 (Latin-1):")
+        for path in sorted(bad1252):
+            print("  %s" % hl_bad_name(path, REGEX_1252))
+            bad += 1
+
+    if bad1257:
+        print("Names incompatible with Windows-1257 (Baltic):")
+        for path in sorted(bad1257):
+            print("  %s" % hl_bad_name(path, REGEX_1257))
             bad += 1
 
     if nonutf:
-        print("Names incompatible with UTF-8:")
+        print("Names not encoded as UTF-8:")
         for path in sorted(nonutf):
             print("  %s" % hl_nonutf_name(path))
             bad += 1

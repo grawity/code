@@ -31,19 +31,7 @@ silent() {
 }
 
 on_main() {
-	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/master ] ||
 	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/main ]
-}
-
-migrate_head() {
-	if [ "$(git symbolic-ref HEAD)" = refs/heads/master ]; then
-		if git rev-parse --quiet --verify refs/remotes/origin/main >/dev/null; then
-			echo "renaming branch 'master' to 'main' at $(pwd)"
-			git branch -m main
-			git branch -u origin/main
-			git update-ref -d refs/remotes/origin/master
-		fi
-	fi
 }
 
 if [ ! "$xyzzy" ]; then
@@ -60,13 +48,11 @@ if [ ! "$xyzzy" ]; then
 		log "fetching code.git"
 		silent git pull --ff-only
 	else
-		log "skipping code.git (not on master)"
+		log "skipping code.git (not on main branch)"
 	fi
 	xyzzy=42 exec dist/pull
 else
 	today=$(date +%d)
-
-	migrate_head
 
 	if [ $today -eq 7 ]; then
 		log "compacting code.git"
@@ -86,14 +72,13 @@ else
 		if on_main; then
 			log "updating dotfiles.git"
 			silent git fetch origin
-			migrate_head
 			silent git merge --ff-only origin/main || {
 				git stash save "dist/pull on $(date)"
 				git checkout -f main
 				git reset --hard origin/main
 			}
 		else
-			log "skipping dotfiles.git (not on main)"
+			log "skipping dotfiles.git (not on main branch)"
 		fi)
 
 		(cd "$dotdir"

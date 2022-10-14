@@ -64,11 +64,8 @@ else
 		security/update-authorized-keys
 	fi
 
-	dotdir=~/.dotfiles
-	[ -d "$dotdir" ] || dotdir=~/.config/dotfiles
-	[ -d "$dotdir" ] || dotdir=~/lib/dotfiles
-	if [ -d "$dotdir" ]; then
-		(cd "$dotdir"
+	if [ -d ~/.dotfiles ]; then
+		(cd ~/.dotfiles
 		if on_main; then
 			log "updating dotfiles.git"
 			silent git fetch origin
@@ -81,14 +78,14 @@ else
 			log "skipping dotfiles.git (not on main branch)"
 		fi)
 
-		(cd "$dotdir"
+		(cd ~/.dotfiles
 		if [ $today -eq 14 ]; then
 			log "compacting dotfiles.git"
 			silent nice git gc
 		fi) &
 
 		log "running dotfiles/install"
-		"$dotdir"/install -u
+		~/.dotfiles/install -u
 	fi
 
 	if [ -f ~/.forward ] && [ ! -k ~/.forward ] && [ ! -L ~/.forward ]; then

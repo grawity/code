@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# imv -- interactive mv
+
+. lib.bash || exit
+
+pclip() { xclip -out -sel clipboard; }
+psel() { xclip -out -sel primary; }
+
+interactive_mv() {
+	local old=$1
+	local new=$2
+	read -p "rename '$old' to: " -e -i "$new" new
+	if [[ "$old" != "$new" ]]; then
+		mv -v -i "$old" "$new"
+	fi
+}
+
+if (( $# < 1 )); then
+	old=$(psel)
+	if [[ ! -e $old ]]; then
+		die "no arguments and no file name in current selection"
+	fi
+fi
+
+if (( $# < 2 )); then
+	old=$1
+	if [[ -e $old ]]; then
+		interactive_mv "$old" "$old"
+	else
+		old=$(psel)
+		new=$1
+		notice "guessing old name '$old' from selection"
+		if [[ ! -e $old ]]; then
+			die "old name doesn't exits"
+		else
+			interactive_mv "$old" "$new"
+		fi
+	fi
+fi
+
+if (( $# >= 2 )); then
+	mv -v -i "$@"
+fi

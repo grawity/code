@@ -57,9 +57,7 @@ class TokenCache(object):
                                  "username": self.user_name}
 
     def load_token(self):
-        Core.debug("loading auth token for %r", self.domain)
         try:
-            Core.trace("trying to load token from libsecret: %r", self.match_fields)
             data = get_libsecret(self.match_fields)
             Core.trace("loaded token: %r", data)
             return json.loads(data)
@@ -68,13 +66,12 @@ class TokenCache(object):
             return None
 
     def store_token(self, data):
-        Core.debug("storing auth token for %r", self.domain)
         try:
             store_libsecret(self.TOKEN_NAME % self.display_name,
                             json.dumps(data),
                             self.match_fields)
         except Exception as e:
-            Core.debug("could not access libsecret: %r", e)
+            Core.warn("could not access libsecret: %r", e)
 
     def forget_token(self):
         Core.debug("flushing auth tokens for %r", self.domain)

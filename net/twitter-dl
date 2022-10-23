@@ -87,10 +87,20 @@ class TwitterMediaScraper(Scraper):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix")
+parser.add_argument("--dump-token", action="store_true")
+parser.add_argument("--load-token", action="store_true")
 parser.add_argument("url", nargs="*")
 args = parser.parse_args()
 
 tc = OAuthTokenCache("api.twitter.com", display_name="Twitter API")
+
+if args.dump_token:
+    print(json.dumps(tc.load_token()))
+    exit()
+elif args.load_token:
+    tc.store_token(json.loads(sys.stdin.read()))
+    exit()
+
 creds = tc.load_token()
 if not creds:
     creds = {

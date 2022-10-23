@@ -1,7 +1,7 @@
 from functools import cache
 import json
 from nullroute.core import Core, Env
-from nullroute.sec.util import OAuthTokenCache
+from nullroute.sec import OAuthTokenCache
 import os
 import pixivpy3
 import re

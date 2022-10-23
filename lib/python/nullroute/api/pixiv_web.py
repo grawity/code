@@ -3,8 +3,7 @@ import json
 from nullroute.core import Core, Env
 from nullroute.scrape import Scraper
 from nullroute.string import ObjectDict
-import nullroute.sec
-from nullroute.sec.util import TokenCache
+from nullroute.sec import TokenCache
 import os
 import re
 import requests
@@ -132,3 +131,18 @@ class PixivFanboxClient(Scraper):
         return self._get_json("https://api.fanbox.cc/post.info",
                               params={"postId": post_id},
                               headers={"origin": "https://www.fanbox.cc"})
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dump-token", action="store_true")
+    parser.add_argument("--load-token", action="store_true")
+    args = parser.parse_args()
+
+    api = PixivFanboxClient()
+    if args.dump_token:
+        print(json.dumps(api._load_token()))
+    elif args.load_token:
+        api._store_token(json.loads(sys.stdin.read()))

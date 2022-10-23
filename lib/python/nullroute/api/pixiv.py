@@ -5,6 +5,7 @@ import nullroute.sec
 from nullroute.sec.util import OAuthTokenCache
 import os
 import pixivpy3
+import re
 import requests
 import ssl
 import time
@@ -141,8 +142,6 @@ class PixivApiClient():
         else:
             return resp["ugoira_metadata"]
 
-import re
-
 class PixivClient():
     MEMBER_FMT = "https://www.pixiv.net/member.php?id=%s"
     ILLUST_URL = "https://www.pixiv.net/member_illust.php?mode=%s&illust_id=%s"
@@ -195,3 +194,18 @@ class PixivClient():
 
     def fmt_illust_url(self, illust_id, mode="medium"):
         return self.ILLUST_URL % (mode, illust_id)
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dump-token", action="store_true")
+    parser.add_argument("--load-token", action="store_true")
+    args = parser.parse_args()
+
+    api = PixivApiClient()
+    if args.dump_token:
+        print(json.dumps(api._load_token()))
+    elif args.load_token:
+        api._store_token(json.loads(sys.stdin.read()))

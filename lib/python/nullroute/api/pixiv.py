@@ -1,7 +1,6 @@
 from functools import cache
 import json
 from nullroute.core import Core, Env
-import nullroute.sec
 from nullroute.sec.util import OAuthTokenCache
 import os
 import pixivpy3
@@ -81,12 +80,6 @@ class PixivApiClient():
                 self.api.access_token = data["access_token"]
                 self.api.refresh_token = data["refresh_token"]
                 return True
-
-        if not refresh_token:
-            creds = nullroute.sec.get_netrc("api.pixiv.net", service="oauth")
-            if creds and creds["password"]:
-                Core.debug("using refresh token from netrc: %r", creds)
-                refresh_token = creds["password"]
 
         if not refresh_token:
             Core.die("could not log in to Pixiv -- no refresh token")

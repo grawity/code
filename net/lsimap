@@ -102,6 +102,8 @@ parser.add_argument("-s", "--lsub", action="store_true",
                     help="Show subscribed folders (LSUB) instead of all folders")
 parser.add_argument("--create", metavar="FOLDER",
                     help="Create a folder")
+parser.add_argument("--rename", metavar="FOLDER:FOLDER",
+                    help="Rename a folder")
 parser.add_argument("--delete", metavar="FOLDER",
                     help="Delete a folder")
 parser.add_argument("--subscribe", metavar="FOLDER",
@@ -175,6 +177,20 @@ if args.create:
     ok, data = clnt.create('"%s"' % encode_imap_utf7(mbox).decode())
     if ok != "OK":
         Core.err("failed to create folder %r: %s", mbox, data[0].decode())
+    clnt.logout()
+elif args.rename:
+    oldmbox, newmbox = args.rename.split(":")
+    Core.info("renaming mailbox %r to %r", oldmbox, newmbox)
+    ok, data = clnt.unsubscribe('"%s"' % encode_imap_utf7(oldmbox).decode())
+    if ok != "OK":
+        Core.err("failed to unsubscribe from folder %r: %s", oldmbox, data[0].decode())
+    ok, data = clnt.rename('"%s"' % encode_imap_utf7(oldmbox).decode(),
+                           '"%s"' % encode_imap_utf7(newmbox).decode())
+    if ok != "OK":
+        Core.err("failed to rename folder %r to %r: %s", oldmbox, newmbox, data[0].decode())
+    ok, data = clnt.subscribe('"%s"' % encode_imap_utf7(newmbox).decode())
+    if ok != "OK":
+        Core.err("failed to subscribe to folder %r: %s", newmbox, data[0].decode())
     clnt.logout()
 elif args.delete:
     mbox = args.delete

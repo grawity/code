@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+schema="org.gnome.desktop.interface"
+key="color-scheme"
+value_on="'prefer-dark'"
+
+current=$(gsettings get "$schema" "$key")
+
+if [[ "$current" == "$value_on" ]]; then
+	gsettings reset "$schema" "$key"
+	text="disabled"
+else
+	gsettings set "$schema" "$key" "$value_on"
+	text="enabled"
+fi
+
+notify \
+	--state="nightlight" \
+	--icon="dark-mode-symbolic" \
+	--hint=transient \
+	--hint=synchronous \
+	"Dark Mode" \
+	"Dark Mode has been $text."

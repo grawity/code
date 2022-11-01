@@ -33,6 +33,49 @@ def _strip_suffixes(arg, sfs):
             return arg[:-len(sf)]
     return arg
 
+def _find_libsecret(query_attrs):
+    import gi
+    gi.require_version("Secret", "1")
+    from gi.repository import Secret
+
+    res = Secret.password_search_sync(None,
+                                      query_attrs,
+                                      Secret.SearchFlags.LOAD_SECRETS,
+                                      None)
+    if not res:
+        raise KeyError(query_attrs)
+    if len(res) > 1:
+        Core.warn("multiple secrets found for %r" % query_attrs)
+    attrs = res[0].get_attributes()
+    secret = res[0].get_secret().get_text()
+    return attrs, secret
+
+def _obtain_credentials(domain, label):
+    import sys
+    import subprocess
+
+    qattrs = {"server": domain,
+              "protocol": "api"}
+    try:
+        rattrs, secret = _find_libsecret(qattrs)
+        return {"login": rattrs["username"],
+                "password": secret}
+    except KeyError:
+        if sys.stdout.isatty():
+            Core.notice("Input API credentials for %s:" % domain)
+            username = input("Username: ")
+            password = input("Password: ")
+            cmd = ["secret-tool", "store", "--label=%s" % label]
+            for k, v in qattrs.items():
+                cmd += [str(k), str(v)]
+            cmd += ["username", username]
+            subprocess.run(cmd, input=password.encode(),
+                                check=True)
+            Core.notice("API credentials saved.")
+            return _obtain_credentials(domain, label)
+        else:
+            Core.die("API credentials for %r not found" % domain)
+
 class BooruApi(object):
     NAME_RE = []
     URL_RE = []
@@ -108,7 +151,8 @@ class DanbooruApi(BooruApi):
         super().__init__(*args, **kwargs)
 
         try:
-            creds = nullroute.sec.get_netrc("danbooru.donmai.us", service="api")
+            creds = _obtain_credentials("danbooru.donmai.us",
+                                        "Danbooru API key")
         except KeyError:
             Core.debug("Danbooru API key not found")
         else:
@@ -166,7 +210,8 @@ class GelbooruApi(BooruApi):
         super().__init__(*args, **kwargs)
 
         try:
-            creds = nullroute.sec.get_netrc("gelbooru.com", service="api")
+            creds = _obtain_credentials("gelbooru.com",
+                                        "Gelbooru API key")
         except KeyError:
             Core.debug("Gelbooru API key not found")
             self._apikey_params = {}

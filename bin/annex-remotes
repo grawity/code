@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+from functools import cache
+import re
+import subprocess
+
+def AnnexTimestamp(string):
+    assert(string.endswith("s"))
+    string = string.removesuffix("s")
+    return float(string)
+
+def run(*args):
+    res = subprocess.run([*args],
+                         stdout=subprocess.PIPE)
+    return res.stdout.decode().rstrip()
+
+def table(rows, *, headers=None, args=None):
+    cmd = ["column", "--table", "--separator", "\t"]
+    if headers:
+        cmd += ["--table-columns", ",".join(headers)]
+    if args:
+        cmd += args
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
+        for row in rows:
+            line = "\t".join(map(str, row)) + "\n"
+            proc.stdin.write(line.encode())
+        proc.stdin.flush()
+        proc.stdin.close()
+        proc.wait()
+
+def get_remotes():
+    yield from run("git", "remote").splitlines()
+
+def get_examine(file):
+    yield from run("git", "show", f"git-annex:{file}").splitlines()
+
+def parse_kvps(kvps):
+    kvps = kvps.split(" ")
+    kvps = [kvp.split("=", 1) for kvp in kvps]
+    kvps = {k: v for (k, v) in kvps}
+    kvps["timestamp"] = AnnexTimestamp(kvps["timestamp"])
+    return kvps
+
+def get_examine_uuid():
+    data = {}
+    for line in get_examine("uuid.log"):
+        if m := re.search(r"^(\S+) (.+) (timestamp=\S+)$", line):
+            key, desc, rest = m.groups()
+            rest = parse_kvps(rest)
+            rest["description"] = desc
+            if key in data and data[key]["timestamp"] > rest["timestamp"]:
+                continue
+            data[key] = rest
+    return {k: v["description"] for k, v in data.items()}
+    return data
+
+def get_examine_kvp(file):
+    # XXX: The timestamp= parameter is probably treated specially, then the middle parsed (or not) in a second stage.
+    data = {}
+    for line in run("git", "show", f"git-annex:{file}").splitlines():
+        key, *rest = line.split(" ")
+        entry = parse_kvps(rest)
+        if key in data and data[key]["timestamp"] > entry["timestamp"]:
+            continue
+        data[key] = entry
+    return data
+
+remotes = sorted(get_remotes())
+remotedescs = get_examine_uuid()
+
+rows = []
+
+for remote in remotes:
+    rurl = run("git", "config", f"remote.{remote}.url")
+    furl = run("git", "remote", "get-url", remote)
+    uuid = run("git", "config", f"remote.{remote}.annex-uuid")
+    sync = run("git", "config", "--default=true", f"remote.{remote}.annex-sync") == "true"
+    desc = remotedescs.get(uuid)
+    row = (
+        " %s " % " ✔"[sync],
+        remote,
+        desc or "--",
+        uuid,
+        rurl,
+    )
+    rows.append(row)
+
+table(rows,
+      headers=["SYNC", "NAME", "DESCRIPTION", "UUID", "ADDRESS"],
+      args=["--table-right", "SYNC",
+            "--table-hide", "UUID"])

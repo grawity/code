@@ -21,7 +21,7 @@ case ${cmd:-help} in
 		;;
 	ls|list)
 		if (( $# )); then
-			die "extraneous arguments: '$*'"
+			die "Extraneous arguments: '$*'"
 		fi
 		ssh $host "find '$fsroot/' -type d -name '*.git' -printf '%P\n' -prune" \
 			| sort \
@@ -36,10 +36,10 @@ case ${cmd:-help} in
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
 			if ssh $host "test -d ${dir@Q}"; then
-				err "repository '$url' already exists"
+				err "Repository '$url' already exists"
 				continue
 			fi
-			info "creating repository '$url'"
+			info "Creating repository '$url'"
 			ssh $host "git init --bare ${dir@Q}"
 			ssh $host "chmod go-rx ${dir@Q}"
 		done
@@ -51,11 +51,11 @@ case ${cmd:-help} in
 		old=${1%.git}.git; olddir=$fsroot/$old; oldu=$urlprefix${old%.git}
 		new=${2%.git}.git; newdir=$fsroot/$new; newu=$urlprefix${new%.git}
 		if ! ssh $host "test -d ${olddir@Q}"; then
-			err "source repository '$oldu' does not exist"
+			err "Source repository '$oldu' does not exist"
 		elif ssh $host "test -d ${newdir@Q}"; then
-			err "target repository '$newu' already exists"
+			err "Target repository '$newu' already exists"
 		else
-			info "renaming repository '$oldu' => '$newu'"
+			info "Renaming repository '$oldu' => '$newu'"
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
 		;;
@@ -86,16 +86,16 @@ case ${cmd:-help} in
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
 			if ! ssh $host "test -d ${dir@Q}"; then
-				err "repository '$url' does not exist"
+				err "Repository '$url' does not exist"
 				continue
 			elif ssh $host "test -f ${dir@Q}/git-daemon-export-ok"; then
-				info "repository '$url' already public"
+				info "Repository '$url' already public"
 				continue
 			fi
 			if ! ssh $host "test -s ${dir@Q}/description"; then
 				warn "Repository '$url' has no description, use '$progname desc'"
 			fi
-			info "publishing repository '$url'"
+			info "Publishing repository '$url'"
 			ssh $host "touch ${dir@Q}/git-daemon-export-ok"
 			ssh $host "chmod a+rx ${dir@Q}"
 		done
@@ -109,10 +109,10 @@ case ${cmd:-help} in
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
 			if ! ssh $host "test -d ${dir@Q}"; then
-				err "repository '$url' does not exist"
+				err "Repository '$url' does not exist"
 				continue
 			fi
-			info "unpublishing repository '$url'"
+			info "Unpublishing repository '$url'"
 			ssh $host "rm -f ${dir@Q}/git-daemon-export-ok"
 			ssh $host "chmod go-rx ${dir@Q}"
 		done

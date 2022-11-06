@@ -59,6 +59,24 @@ case ${cmd:-help} in
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
 		;;
+	desc|describe)
+		if (( $# < 1 )); then
+			die "Usage: $progname $cmd <repo> [<description>]"
+		fi
+		arg=$1 newdesc=$2
+		arg=${arg%.git}.git
+		dir=$fsroot/$arg
+		if [[ $newdesc ]]; then
+			info "Setting description for '$arg' to \"$newdesc\""
+			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
+		else
+			if ! ssh $host "test -s ${dir@Q}/description"; then
+				info "Repository '$arg' has no description"
+			else
+				ssh $host "cat ${dir@Q}/description"
+			fi
+		fi
+		;;
 	pub|publish|exp|export)
 		if (( $# < 1 )); then
 			die "Usage: $progname $cmd <repo>..."
@@ -73,6 +91,9 @@ case ${cmd:-help} in
 			elif ssh $host "test -f ${dir@Q}/git-daemon-export-ok"; then
 				info "repository '$url' already public"
 				continue
+			fi
+			if ! ssh $host "test -s ${dir@Q}/description"; then
+				warn "Repository '$url' has no description, use '$progname desc'"
 			fi
 			info "publishing repository '$url'"
 			ssh $host "touch ${dir@Q}/git-daemon-export-ok"

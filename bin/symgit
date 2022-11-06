@@ -117,6 +117,20 @@ case ${cmd:-help} in
 			ssh $host "chmod go-rx ${dir@Q}"
 		done
 		;;
+	web)
+		if (( $# < 1 )); then
+			die "Usage: $progname $cmd <repo>..."
+		fi
+		for arg; do
+			if [[ $arg == "." ]]; then
+				url=$(git config remote.origin.url) || exit
+				arg=${url#"$urlprefix"}
+			fi
+			arg=${arg%.git}.git
+			url="https://git.nullroute.lt/cgit/$arg/"
+			echo "$arg => $url"
+		done
+		;;
 	*)
 		die "Unknown subcommand '$cmd'"
 		;;

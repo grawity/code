@@ -16,8 +16,11 @@ case ${cmd:-help} in
 		echo "  ls|list"
 		echo "  new <repo>..."
 		echo "  mv|rename <old_repo> <new_repo>"
+		echo "  desc|describe <repo> [<description>]"
 		echo "  exp|export <repo>..."
 		echo "  unexp|unexport <repo>..."
+		echo "  web <repo>..."
+		echo "  cgit-flush"
 		;;
 	ls|list)
 		if (( $# )); then
@@ -130,6 +133,13 @@ case ${cmd:-help} in
 			url="https://git.nullroute.lt/cgit/$arg/"
 			echo "$arg => $url"
 		done
+		;;
+	cgit-flush)
+		if (( $# )); then
+			die "Extraneous arguments: '$*'"
+		fi
+		ssh $host "sudo find /var/cache/cgit -type f -ls -delete"
+		info "Cgit cache purged."
 		;;
 	*)
 		die "Unknown subcommand '$cmd'"

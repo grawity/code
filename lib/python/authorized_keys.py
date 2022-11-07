@@ -1,3 +1,6 @@
+# IMPORTED FROM:
+# https://github.com/grawity/python-authorized_keys
+
 # Parser for OpenSSH authorized_keys files
 # (c) 2010-2016 Mantas Mikulėnas <grawity@gmail.com>
 # Released under the MIT License (dist/LICENSE.mit)

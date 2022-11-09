@@ -50,6 +50,8 @@ case ${cmd:-help} in
 			ssh $host "git init --bare ${dir@Q}"
 			ssh $host "chmod go-rx ${dir@Q}"
 		done
+		info "Flushing cgit configuration cache"
+		ssh $host "sudo find /var/cache/cgit -name 'rc-*' -delete"
 		;;
 	mv|move|rename)
 		if (( $# != 2 )); then
@@ -65,6 +67,8 @@ case ${cmd:-help} in
 			info "Renaming repository '$oldu' => '$newu'"
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
+		info "Flushing cgit configuration cache"
+		ssh $host "sudo find /var/cache/cgit -name 'rc-*' -delete"
 		;;
 	desc|describe)
 		if (( $# < 1 )); then

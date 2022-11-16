@@ -28,6 +28,13 @@ def safe(args):
         nargs.append(arg)
     return nargs
 
+def which(cmd):
+    dirs = os.environ["PATH"].split(":")
+    for d in dirs:
+        exe = os.path.join(d or ".", cmd)
+        if os.path.exists(exe):
+            return exe
+
 def resolve(host):
     fqdn = None
     addrs = []
@@ -123,10 +130,16 @@ Core.debug("resolved to fqdn %r, addresses %r", fqdn, addrs)
 
 username, password = get_credentials(fqdn)
 
-if os.environ.get("WAYLAND_DISPLAY"):
+if args.dev:
+    os.environ["PATH"] = os.path.expanduser("~/.local/pkg/FreeRDP/bin") + ":" + os.environ["PATH"]
+
+if os.environ.get("WAYLAND_DISPLAY") and not args.no_wayland:
     cmd = ["wlfreerdp"]
 else:
     cmd = ["xfreerdp"]
+
+cmd[0] = which(cmd[0])
+Core.info("using freerdp executable %r", cmd[0])
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn)

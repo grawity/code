@@ -38,7 +38,7 @@ os.environ["BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK"] = "yes"
 hostname = os.uname().nodename
 
 conf = os.path.join(Env.xdg_config_home(),
-                    Env.vendor,
+                    "nullroute.eu.org",
                     "synced")
 
 local_config_file = Env.find_config_file("backup.conf.sh")
@@ -137,7 +137,7 @@ def do_borg(*,
     res = subprocess.run(cmd, stdout=subprocess.PIPE, check=True)
     repo_id = res.stdout.decode().split()[2]
     stamp = os.path.join(Env.xdg_cache_home(),
-                         Env.vendor,
+                         "nullroute.eu.org",
                          "backup",
                          f"borg_{repo_id}.prune.stamp")
 

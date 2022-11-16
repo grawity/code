@@ -5,6 +5,7 @@ import argparse
 import os
 import subprocess
 import time
+import urllib.parse
 
 os.environ["BORG_RELOCATED_REPO_ACCESS_IS_OK"] = "yes"
 os.environ["BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK"] = "yes"
@@ -96,10 +97,21 @@ def do_borg(*,
     # If we'll be running as root and using SSH, default to including the
     # non-root username for SSH.
     if sudo and ":" in repo:
-        host, _, path = repo.partition(":")
-        if "@" not in host:
-            host = user + "@" + host
-        repo = host + ":" + path
+        if "://" in repo:
+            url = urllib.parse.urlparse(repo)
+            host = url.netloc
+            if "@" not in host:
+                host = user + "@" + host
+            repo = urllib.parse.urlunsplit([url.scheme,
+                                            host,
+                                            url.path,
+                                            url.query,
+                                            url.fragment])
+        else:
+            host, _, path = repo.partition(":")
+            if "@" not in host:
+                host = user + "@" + host
+            repo = host + ":" + path
         print(f"Rewrote repository to {repo!r}")
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
@@ -107,7 +119,10 @@ def do_borg(*,
     subprocess.run(cmd, check=True)
 
     if ":" in repo:
-        host, _, path = repo.partition(":")
+        if "://" in repo:
+            _, host, path, *_ = urllib.parse.urlparse(repo)
+        else:
+            host, _, path = repo.partition(":")
         cmd = [*wrap, "ssh", host, f"grep '^id =' '{path}/config'"]
     else:
         cmd = [*wrap, "sh", "-c", f"grep '^id =' '{repo}/config'"]

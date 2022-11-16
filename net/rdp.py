@@ -102,6 +102,18 @@ parser.add_argument("--restricted-admin", "--ra",
 parser.add_argument("--workarea",
                     action="store_true",
                     help="fit display into the work area instead of full-screen")
+parser.add_argument("--gfx",
+                    action="store_true",
+                    help="enable support for RDP8 \"Graphics Pipeline\"")
+parser.add_argument("--rfx",
+                    action="store_true",
+                    help="enable support for RDP7 \"RemoteFX\" graphics")
+parser.add_argument("--dev",
+                    action="store_true",
+                    help="use local FreeRDP build if available")
+parser.add_argument("--no-wayland",
+                    action="store_true",
+                    help="disable Wayland even if available (use X11)")
 parser.add_argument("host")
 args = parser.parse_args()
 

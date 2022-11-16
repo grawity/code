@@ -156,13 +156,19 @@ if args.legacy:
         die("Restricted Admin mode is not supported by legacy servers")
 else:
     cmd.append("/ipv6")
-    cmd.append("-sec-rdp")
-    cmd.append("-sec-tls")
+    #cmd.append("-sec-rdp")
+    #cmd.append("-sec-tls")
+    cmd.append("/sec:nla")
     if args.restricted_admin:
         cmd.append("/restricted-admin")
 
 cmd.append("/network:auto")
-#cmd.append("/gfx:avc420")
+
+if args.gfx:
+    cmd.append("/gfx")
+if args.rfx:
+    cmd.append("/rfx")
+
 #cmd.append("/bpp:32")
 #cmd.append("+fonts")
 #cmd.append("+aero")

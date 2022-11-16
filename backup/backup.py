@@ -7,6 +7,31 @@ import subprocess
 import time
 import urllib.parse
 
+def get_host_and_path(repo):
+    if "://" in repo:
+        _, host, path, *_ = urllib.parse.urlparse(repo)
+        return host, path
+    elif ":" in repo:
+        host, _, path = repo.partition(":")
+        return host, path
+    else:
+        return None, repo
+
+def add_user_to_host(repo):
+    if "://" in repo:
+        url = urllib.parse.urlparse(repo)
+        if "@" not in url.netloc:
+            repo = urllib.parse.urlunsplit([url.scheme,
+                                            user + "@" + url.netloc,
+                                            url.path,
+                                            url.query,
+                                            url.fragment])
+    elif ":" in repo:
+        host, _, path = repo.partition(":")
+        if "@" not in host:
+            repo = user + "@" + host + ":" + path
+    return repo
+
 os.environ["BORG_RELOCATED_REPO_ACCESS_IS_OK"] = "yes"
 os.environ["BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK"] = "yes"
 
@@ -97,21 +122,7 @@ def do_borg(*,
     # If we'll be running as root and using SSH, default to including the
     # non-root username for SSH.
     if sudo and ":" in repo:
-        if "://" in repo:
-            url = urllib.parse.urlparse(repo)
-            host = url.netloc
-            if "@" not in host:
-                host = user + "@" + host
-            repo = urllib.parse.urlunsplit([url.scheme,
-                                            host,
-                                            url.path,
-                                            url.query,
-                                            url.fragment])
-        else:
-            host, _, path = repo.partition(":")
-            if "@" not in host:
-                host = user + "@" + host
-            repo = host + ":" + path
+        repo = add_user_to_host(repo, user)
         print(f"Rewrote repository to {repo!r}")
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
@@ -119,10 +130,7 @@ def do_borg(*,
     subprocess.run(cmd, check=True)
 
     if ":" in repo:
-        if "://" in repo:
-            _, host, path, *_ = urllib.parse.urlparse(repo)
-        else:
-            host, _, path = repo.partition(":")
+        host, path = get_host_and_path(repo)
         cmd = [*wrap, "ssh", host, f"grep '^id =' '{path}/config'"]
     else:
         cmd = [*wrap, "sh", "-c", f"grep '^id =' '{repo}/config'"]
@@ -172,4 +180,4 @@ for job in args.job:
                     f"--exclude-from={conf}/borg/root_{hostname}.exclude",
                 ])
     else:
-        Core.die(f"unknown job {job!r}")
+        exit(f"error: Unknown job {job!r}")

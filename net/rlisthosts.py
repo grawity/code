@@ -11,10 +11,18 @@ other_hosts = ["vm-vol5", "vm-litnet"]
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", action="store_true",
                           help="include primary containers")
+parser.add_argument("host", nargs="*")
 args = parser.parse_args()
 
 hosts = base_hosts[:]
 if args.a:
     hosts += other_hosts[:]
+
+if args.host:
+    arg_hosts = " ".join(args.host).replace(",", " ")
+    if arg_hosts.startswith("+"):
+        hosts += arg_hosts[1:].split()
+    else:
+        hosts = arg_hosts.split()
 
 print(*hosts)

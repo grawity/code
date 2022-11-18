@@ -60,15 +60,15 @@ def generate_key(key_type)
             if bits != 2048 && bits != 4096
                 raise "RSA keys must be 2048 or 4096 bits"
             end
-            return OpenSSL::PKey::RSA.new(bits)
+            return OpenSSL::PKey::RSA.generate(bits)
         when "rsa"
-            return OpenSSL::PKey::RSA.new(2048)
+            return OpenSSL::PKey::RSA.generate(2048)
         when "ecp256"
-            return OpenSSL::PKey::EC.new("prime256v1").generate_key
+            return OpenSSL::PKey::EC.generate("prime256v1")
         when "ecp384"
-            return OpenSSL::PKey::EC.new("secp384r1").generate_key
+            return OpenSSL::PKey::EC.generate("secp384r1")
         when "ecp521"
-            return OpenSSL::PKey::EC.new("secp521r1").generate_key
+            return OpenSSL::PKey::EC.generate("secp521r1")
         else
             raise "Unknown private key algorithm #{key_type.inspect}"
     end

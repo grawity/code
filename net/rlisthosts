@@ -29,7 +29,10 @@ for arg; do
 		@all)
 			hosts+=" ${groups[*]}";;
 		@*)
-			hosts+=" ${groups[${arg#@}]?"no such group '$arg'"}";;
+			if [[ ! ${groups[${arg#@}]} ]]; then
+				echo "${0##*/}: Unknown group '$arg'" >&2; exit 1
+			fi
+			hosts+=" ${groups[${arg#@}]}";;
 		*)
 			hosts+=" $arg";;
 	esac

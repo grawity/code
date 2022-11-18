@@ -24,9 +24,9 @@ $(dummy): $(OBJ)/config-krb5.h
 # compile targets
 
 BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape urlencode
-BASIC_BINS += ac-wait entropy hex unhex proctool strtool xor xors xorf
+BASIC_BINS += entropy hex unhex proctool strtool xor xors xorf
 KRB_BINS   := k5userok pklist
-MISC_BINS  := libwcwidth.so logwipe writevt zlib
+MISC_BINS  := ac-wait libwcwidth.so logwipe writevt zlib
 LINUX_BINS := libfunsync.so ssh_force_lp.so unsymlink.so peekvc showsigmask statx tapchown
 
 .PHONY: all basic krb misc linux pklist
@@ -35,6 +35,9 @@ basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 krb:   $(addprefix $(OBJ)/,$(KRB_BINS))
 misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
 linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
+
+desktop: $(OBJ)/ac-wait
+desktop: $(OBJ)/spawn
 
 all: basic krb misc
 ifeq ($(UNAME),Linux)

@@ -28,12 +28,19 @@ show_progress() {
 	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
 	printf -v rbar '%*s' $(( width-fill )) ''
 	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
+	# Set window title
+	printf '\e]0;%s\e\\' "Recompressing $perc% ($done/$total)"
+	# Set tmux window name
+	printf '\ek%s\e\\' "$perc% ($done/$total)"
+	# Set ConEmu progress
 	printf '\e]9;4;%d;%d\e\\' 1 "$perc"
 }
 
 # Finalize the progress bar, go to next line, and clear the ConEmu progress.
 clear_progress() {
 	printf '\n'
+	printf '\e]0;%s\e\\' ""
+	printf '\ek%s\e\\' ""
 	printf '\e]9;4;%d;%d\e\\' 0 0
 }
 

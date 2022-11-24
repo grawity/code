@@ -24,17 +24,20 @@ else
 	targetdir=~/Dropbox
 fi
 
-if [[ ! $script ]]; then
-	script=$(mktemp /tmp/job.XXXXXXXX.sh)
-	cat <<-! > "$script"
-	#!/bin/bash
-	!
-	${EDITOR:-vi} "$script"
-	if ! grep -vqs "^#!" "$script"; then
+if [[ ! $script || $script == "-" ]]; then
+	tmp=$(mktemp /tmp/job.XXXXXXXX.sh)
+	echo '#!/bin/bash' > "$tmp"
+	if [[ ! $script && -t 0 ]]; then
+		${EDITOR:-vi} "$tmp"
+	else
+		cat > "$tmp"
+	fi
+	if ! grep -vqs "^#!" "$tmp"; then
 		notice "script is empty, exiting"
-		rm -f "$script"
+		rm -f "$tmp"
 		exit
 	fi
+	script=$tmp
 elif [[ ! -f $script ]]; then
 	die "script file '$script' not found"
 elif [[ ! -s $script ]]; then

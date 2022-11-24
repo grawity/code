@@ -2,10 +2,25 @@
 
 . lib.bash || exit
 
+usenfs=0
+
+while getopts :n OPT; do
+	case $OPT in
+	n) usenfs=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 host=${1%%.*}
 script=$2
 
 [[ $host ]] || die "missing hostname parameter"
+
+if (( usenfs )); then
+	targetdir=/n/$host/Dropbox
+else
+	targetdir=~/Dropbox
+fi
 
 if [[ ! $script ]]; then
 	script=$(mktemp /tmp/job.XXXXXXXX.sh)
@@ -25,7 +40,7 @@ elif [[ ! -s $script ]]; then
 	exit
 fi
 
-dest=~/Dropbox/$host-$(date +%s).sh
+dest=$targetdir/$host-$(date +%s).sh
 cp "$script" "$dest"
 chmod u+x "$dest"
 

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+#i3lock-fancy -g
+
+#i3lock -c 111111 -i ~/.dotfiles/gui/noise.png -t
+
+IMAGE="$HOME/.cache/i3lock.png"
+
+if [ "$0" -nt "$IMAGE" ]; then
+        rm -f "$IMAGE"
+        bg=111111
+        noise=~/.dotfiles/gui/noise.png
+
+	res=$(xdpyinfo | awk '/dimensions:/ {print $2}')
+	xres=${res%x*}
+	yres=${res#*x}
+
+        W=$xres H=$yres Xoff=0 Yoff=0
+        MIDXi=$(($W / 2 + $Xoff - 60  / 2))
+        MIDYi=$(($H / 2 + $Yoff - 60  / 2))
+        MIDXt=$(($W / 2 + $Xoff - 285 / 2))
+        MIDYt=$(($H / 2 + $Yoff + 320 / 2))
+        LOCK=()
+        FONT=Arimo
+        TEXT="Type password to unlock"
+        ICON=/usr/share/i3lock-fancy/lock.png
+        LOCK+=(-font "$FONT" -pointsize 26
+               #-fill lightgrey -stroke grey10 -strokewidth 2 -annotate +$MIDXt+$MIDYt "$TEXT"
+               #-fill lightgrey -stroke lightgrey -strokewidth 1 -annotate +$MIDXt+$MIDYt "$TEXT"
+               #-fill grey60 -annotate +$MIDXt+$MIDYt "$TEXT"
+               "$ICON" -geometry +$MIDXi+$MIDYi -composite)
+        set -x
+        magick convert "$noise" -background "#$bg" -flatten /tmp/tile.png
+        magick convert -size "${xres}x${yres}" tile:/tmp/tile.png "$IMAGE"
+        magick convert "$IMAGE" "${LOCK[@]}" "$IMAGE"
+fi
+
+i3lock -n -i "$IMAGE" -e -f

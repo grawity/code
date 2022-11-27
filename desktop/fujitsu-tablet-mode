@@ -30,7 +30,8 @@ case $orientation in
                           0  1  0
                           0  0  1 )
                 subpixel='rgb'
-                buttons='Prior Next'
+                button1='Prior'
+                button2='Next'
                 ;;
 	1|right)
                 display='right'
@@ -38,7 +39,8 @@ case $orientation in
                          -1  0  1
                           0  0  1 )
                 subpixel='vbgr'
-                buttons='Prior Next'
+                button1='Prior'
+                button2='Next'
 		;;
         2|inverted)
                 display='inverted'
@@ -46,7 +48,8 @@ case $orientation in
                           0 -1  1
                           0  0  1 )
                 subpixel='bgr'
-                buttons='Next Prior'
+                button1='Next'
+                button2='Prior'
                 ;;
         3|left)
                 display='left'
@@ -54,7 +57,8 @@ case $orientation in
                           1  0  1
                           0  0  1 )
                 subpixel='vrgb'
-                buttons='Next Prior'
+                button1='Next'
+                button2='Prior'
                 ;;
         *)
         	exit 2
@@ -67,15 +71,20 @@ elif [ ! -e /etc/fonts/conf.d/10-sub-pixel.conf ]; then
 	subpixel='none'
 fi
 
-logger -t tablet-mode "Setting orientation '$display', subpixel '$subpixel', panel buttons '$buttons', pen ${matrix[*]}"
+#logger -t tablet-mode "Setting orientation '$display', subpixel '$subpixel', panel buttons '$buttons', pen ${matrix[*]}"
 
-#PATH=~/.local/bin:$PATH
-#xhotkey.set-subpixel "$subpixel"
-
+# Rotate LCD
 xrandr --output LVDS1 --rotate "$display"
+
+# Rotate pen input
 xinput set-prop "Wacom Serial Penabled Pen stylus" "Coordinate Transformation Matrix" "${matrix[@]}"
 xinput set-prop "Wacom Serial Penabled Pen eraser" "Coordinate Transformation Matrix" "${matrix[@]}"
 
-set -- $buttons
-(echo "keycode 185 = $1 NoSymbol $1"; echo "keycode 186 = $2 NoSymbol $2") | xmodmap -
-#xmodmap /home/grawity/.Xmodmap-${buttons// }
+# Map the ↙ and ↗ panel buttons to PageUp/PageDown
+xmodmap - <<-!
+keycode 185 = $button1 NoSymbol $button1
+keycode 186 = $button2 NoSymbol $button2
+!
+
+#PATH=~/.local/bin:$PATH
+#xhotkey.set-subpixel "$subpixel"

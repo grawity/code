@@ -84,7 +84,8 @@ class BinaryReader():
 class ISSetupStreamReader(BinaryReader):
     def read_iss_header(self):
         magic = self.read(14)
-        assert(magic == b'ISSetupStream\x00')
+        if magic == b'ISSetupStream\x00':
+            raise ValueError("Bad magic header: %r" % magic)
         num_files = self.read_u16_le()
         _ = self.read_u32_le()
         _ = self.read(8)
@@ -134,7 +135,7 @@ class ISSetupStreamReader(BinaryReader):
             data = decode_chunk(file_data, key)
 
         if is_unicode:
-            assert(data[0:2] == b'\x78\x9c')
+            assert (data[0:2] == b'\x78\x9c')
             data = zlib.decompress(data)
 
         return (file_name, data)

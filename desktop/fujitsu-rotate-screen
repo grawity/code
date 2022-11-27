@@ -1,0 +1,32 @@
+#!/bin/bash
+# Handler for the 'Rotate' LCD-panel button (XF86RotateWindows) on fujitsu
+# (Usually run via ~/.xbindkeysrc)
+
+# Does acpid say the LCD panel is in "tablet mode"?
+if [ -e /run/tablet-mode ]; then
+	# Orientation change in tablet mode is persistent
+	statefile=/etc/acpi/tablet-mode-orientation
+else
+	# In normal mode, keep the changes temporary and independent
+	statefile=/run/normal-mode-orientation
+fi
+
+if [ -s $statefile ]; then
+	read -r orientation < $statefile
+else
+	orientation=0
+fi
+
+# Rotate it by 90° (backwards if Fn+Rotate pressed)
+case $1 in
+	--cw|"")
+		orientation=$[ (orientation + 1) % 4 ];;
+	--ccw)
+		orientation=$[ (orientation + 3) % 4 ];;
+	*)
+		echo "$0: bad args '$*'" >&2; exit 2;;
+esac
+
+sudo sh -c "echo $orientation > $statefile"
+
+fujitsu-tablet-mode --rotate $orientation

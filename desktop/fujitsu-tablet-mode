@@ -1,0 +1,81 @@
+#!/bin/bash
+# "Tablet mode" handler for fujitsu tilt&rotate LCD panel
+# Activated by acpid on tablet-mode on/off, as well as following the
+# orientation change in 'rotate' button handler
+
+case $1 in
+	-e|--enable)
+		# Invoked by /etc/acpi/tablet-mode after LCD panel tilt into "tablet" mode
+		statefile=/etc/acpi/tablet-mode-orientation
+		if [ -s $statefile ]; then
+			read -r orientation < $statefile
+		else
+			orientation=normal
+		fi;;
+	-d|--disable)
+		# Invoked by /etc/acpi/tablet-mode after LCD panel tilt into "laptop" mode
+		# (Deliberately ignore the state, always return to upright)
+		orientation=normal;;
+	-r|--rotate)
+		# Invoked by fujitsu-rotate-screen after "Rotate" button press
+		orientation=${2?missing orientation arg};;
+	*)
+		echo "$0: bad args '$*'" >&2; exit 2;;
+esac
+
+case $orientation in
+        0|normal)
+                display='normal'
+                matrix=(  1  0  0
+                          0  1  0
+                          0  0  1 )
+                subpixel='rgb'
+                buttons='Prior Next'
+                ;;
+	1|right)
+                display='right'
+                matrix=(  0  1  0
+                         -1  0  1
+                          0  0  1 )
+                subpixel='vbgr'
+                buttons='Prior Next'
+		;;
+        2|inverted)
+                display='inverted'
+                matrix=( -1  0  1
+                          0 -1  1
+                          0  0  1 )
+                subpixel='bgr'
+                buttons='Next Prior'
+                ;;
+        3|left)
+                display='left'
+                matrix=(  0 -1  0
+                          1  0  1
+                          0  0  1 )
+                subpixel='vrgb'
+                buttons='Next Prior'
+                ;;
+        *)
+        	exit 2
+        	;;
+esac
+
+if [ /etc/fonts/conf.d/10-sub-pixel.conf -ef /usr/share/fontconfig/conf.avail/10-no-sub-pixel.conf ]; then
+	subpixel='none'
+elif [ ! -e /etc/fonts/conf.d/10-sub-pixel.conf ]; then
+	subpixel='none'
+fi
+
+logger -t tablet-mode "Setting orientation '$display', subpixel '$subpixel', panel buttons '$buttons', pen ${matrix[*]}"
+
+#PATH=~/.local/bin:$PATH
+#xhotkey.set-subpixel "$subpixel"
+
+xrandr --output LVDS1 --rotate "$display"
+xinput set-prop "Wacom Serial Penabled Pen stylus" "Coordinate Transformation Matrix" "${matrix[@]}"
+xinput set-prop "Wacom Serial Penabled Pen eraser" "Coordinate Transformation Matrix" "${matrix[@]}"
+
+set -- $buttons
+(echo "keycode 185 = $1 NoSymbol $1"; echo "keycode 186 = $2 NoSymbol $2") | xmodmap -
+#xmodmap /home/grawity/.Xmodmap-${buttons// }

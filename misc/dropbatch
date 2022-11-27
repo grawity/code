@@ -2,22 +2,42 @@
 
 . lib.bash || exit
 
+usenfs=0
+wait=0
+
+while getopts :nw OPT; do
+	case $OPT in
+	n) usenfs=1;;
+	w) wait=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 host=${1%%.*}
 script=$2
 
 [[ $host ]] || die "missing hostname parameter"
 
-if [[ ! $script ]]; then
-	script=$(mktemp /tmp/job.XXXXXXXX.sh)
-	cat <<-! > "$script"
-	#!/bin/bash
-	!
-	${EDITOR:-vi} "$script"
-	if ! grep -vqs "^#!" "$script"; then
+if (( usenfs )); then
+	targetdir=/n/$host/Dropbox
+else
+	targetdir=~/Dropbox
+fi
+
+if [[ ! $script || $script == "-" ]]; then
+	tmp=$(mktemp /tmp/job.XXXXXXXX.sh)
+	echo '#!/bin/bash' > "$tmp"
+	if [[ ! $script && -t 0 ]]; then
+		${EDITOR:-vi} "$tmp"
+	else
+		cat > "$tmp"
+	fi
+	if ! grep -vqs "^#!" "$tmp"; then
 		notice "script is empty, exiting"
-		rm -f "$script"
+		rm -f "$tmp"
 		exit
 	fi
+	script=$tmp
 elif [[ ! -f $script ]]; then
 	die "script file '$script' not found"
 elif [[ ! -s $script ]]; then
@@ -25,8 +45,37 @@ elif [[ ! -s $script ]]; then
 	exit
 fi
 
-dest=~/Dropbox/$host-$(date +%s).sh
-cp "$script" "$dest"
-chmod u+x "$dest"
+dest=$targetdir/$host-$(date +%s).sh
 
-log "task $dest submitted"
+cp "$script" "$dest.tmp" &&
+chmod u+x "$dest.tmp" &&
+mv "$dest.tmp" "$dest" &&
+rm "$script" || exit
+
+log "job $dest submitted"
+
+if (( wait )); then
+	log "waiting for job to be processed..."
+	time=0
+	if (( usenfs )); then
+		# For submissions over NFS, wait for the job to complete before
+		# checking -- doing it too quickly will populate negative stat
+		# cache which takes 30 seconds to expire.
+		time=3; sleep $time
+	fi
+	until [[ -e $dest.done ]]; do
+		printf '\r%ds' $[time++]
+		sleep 1
+	done
+	if [[ -e $dest.log ]]; then
+		log "job finished"
+	else
+		log "job finished, waiting for result..."
+		time=0
+		until [[ -e $dest.log ]]; do
+			printf '\r%ds' $[time++]
+			sleep 1
+		done
+	fi
+	${PAGER:-cat} "$dest.log"
+fi

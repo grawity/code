@@ -1,16 +1,42 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # rlisthosts -- helper for rup to discover hosts
 #
-# Might use LDAP one day, but for now it's just a static list (instead of
+# Might use LDAP one day, but for now it"s just a static list (instead of
 # having that list hardcoded in rup, then copied to other tools).
 
-hosts='wolke sky star land ember wind'
+declare -A groups
 
-case $1 in
-	-a) hosts+=' vm-litnet vm-vol5 vm-ampere vm-okeanos';;
-	+*) hosts+=" ${*#+}";;
-	[!-]*) hosts="$*";;
-esac
+groups[default]="wolke sky star land ember wind"
+groups[nondefault]="vm-litnet vm-vol5 vm-ampere vm-okeanos"
+
+hosts=
+
+set -f
+set -- ${*//,/ }
+set +f
+
+(( $# )) || set -- @default
+
+for arg; do
+	if [[ $arg == +* ]]; then
+		hosts=${groups[default]}
+	fi
+	case $arg in
+		-a)
+			hosts+=" ${groups[*]}";;
+		-*)
+			echo "${0##*/}: Unknown option '$arg'" >&2; exit 2;;
+		@all)
+			hosts+=" ${groups[*]}";;
+		@*)
+			if [[ ! ${groups[${arg#@}]} ]]; then
+				echo "${0##*/}: Unknown group '$arg'" >&2; exit 1
+			fi
+			hosts+=" ${groups[${arg#@}]}";;
+		*)
+			hosts+=" $arg";;
+	esac
+done
 
 hosts=${hosts//,/ }
 

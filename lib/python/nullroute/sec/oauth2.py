@@ -17,7 +17,7 @@ def generate_verifier(length=64):
         raise ValueError("length out of bounds")
     buf = os.urandom((length + 1) * 3 // 4)
     buf = base64.urlsafe_b64encode(buf)
-    assert(len(buf) >= length)
+    assert len(buf) >= length
     return buf[:length].decode()
 
 def generate_s256_challenge(verifier):

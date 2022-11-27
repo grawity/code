@@ -5,10 +5,10 @@
 # Does acpid say the LCD panel is in "tablet mode"?
 if [ -e /run/tablet-mode ]; then
 	# Orientation change in tablet mode is persistent
-	statefile=/etc/acpi/tablet-mode-orientation
+	statefile=$HOME/.config/tablet-mode-orientation
 else
 	# In normal mode, keep the changes temporary and independent
-	statefile=/run/normal-mode-orientation
+	statefile=/run/user/$UID/normal-mode-orientation
 fi
 
 if [ -s $statefile ]; then
@@ -27,6 +27,6 @@ case $1 in
 		echo "$0: bad args '$*'" >&2; exit 2;;
 esac
 
-sudo sh -c "echo $orientation > $statefile"
+echo $orientation > $statefile
 
 fujitsu-tablet-mode --rotate $orientation

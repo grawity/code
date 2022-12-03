@@ -1,36 +1,110 @@
 #!/bin/bash
-# Handler for the 'Rotate' LCD-panel button (XF86RotateWindows) on fujitsu
-# (Usually run via ~/.xbindkeysrc)
+# Handle LCD panel rotation on Fujitsu Lifebook
 
 # Does acpid say the LCD panel is in "tablet mode"?
 if [ -e /run/tablet-mode ]; then
 	# Orientation change in tablet mode is persistent
 	statefile=$HOME/.config/tablet-mode-orientation
+	orientation=2
 else
 	# In normal mode, keep the changes temporary and independent
 	statefile=/run/user/$UID/normal-mode-orientation
+	orientation=0
 fi
 
 if [ -s $statefile ]; then
 	read -r orientation < $statefile
-else
-	orientation=0
 fi
 
-# Rotate it by 90° (backwards if Fn+Rotate pressed)
 case $1 in
 	[0123])
 		orientation=$1;;
-	--normal|--inverted|--left|--right)
-		orientation=${1#--};;
+	-t|--top|--normal)
+		orientation=0;;
+	-l|--left)
+		orientation=1;;
+	-b|--bottom|--inverted)
+		orientation=2;;
+	-r|--right)
+		orientation=3;;
 	--cw)
+		# Invoked by xbindkeys after 'XF86RotateWindows' button press
 		orientation=$[ (orientation + 1) % 4 ];;
 	--ccw)
+		# Invoked by xbindkeys after 'Fn + XF86RotateWindows' button
 		orientation=$[ (orientation + 3) % 4 ];;
+	--tablet)
+		# Invoked by acpid after panel flip into/out of "tablet" mode
+		if [ -e /run/tablet-mode ]; then
+			true  # Just restore $orientation from tablet-mode state
+		else
+			orientation=0  # Always upright in laptop-mode
+		fi;;
 	*)
 		echo "$0: bad args '$*'" >&2; exit 2;;
 esac
 
 echo $orientation > $statefile
 
-fujitsu-tablet-mode --rotate $orientation
+case $orientation in
+        0|normal)
+                display='normal'
+                matrix=(  1  0  0
+                          0  1  0
+                          0  0  1 )
+                subpixel='rgb'
+                button1='Prior'
+                button2='Next'
+                ;;
+	1|right)
+                display='right'
+                matrix=(  0  1  0
+                         -1  0  1
+                          0  0  1 )
+                subpixel='vbgr'
+                button1='Prior'
+                button2='Next'
+		;;
+        2|inverted)
+                display='inverted'
+                matrix=( -1  0  1
+                          0 -1  1
+                          0  0  1 )
+                subpixel='bgr'
+                button1='Next'
+                button2='Prior'
+                ;;
+        3|left)
+                display='left'
+                matrix=(  0 -1  0
+                          1  0  1
+                          0  0  1 )
+                subpixel='vrgb'
+                button1='Next'
+                button2='Prior'
+                ;;
+esac
+
+if [ /etc/fonts/conf.d/10-sub-pixel.conf -ef /usr/share/fontconfig/conf.avail/10-no-sub-pixel.conf ]; then
+	subpixel='none'
+elif [ ! -e /etc/fonts/conf.d/10-sub-pixel.conf ]; then
+	subpixel='none'
+fi
+
+#logger -t tablet-mode "Setting orientation '$display', subpixel '$subpixel', panel buttons '$buttons', pen ${matrix[*]}"
+
+# Rotate LCD
+xrandr --output LVDS1 --rotate "$display"
+
+# Rotate pen input
+xinput set-prop "Wacom Serial Penabled Pen stylus" "Coordinate Transformation Matrix" "${matrix[@]}"
+xinput set-prop "Wacom Serial Penabled Pen eraser" "Coordinate Transformation Matrix" "${matrix[@]}"
+
+# Map the ↙ and ↗ panel buttons to PageUp/PageDown
+xmodmap - <<-!
+keycode 185 = $button1 NoSymbol $button1
+keycode 186 = $button2 NoSymbol $button2
+!
+
+#PATH=~/.local/bin:$PATH
+#xhotkey.set-subpixel "$subpixel"

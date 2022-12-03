@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-from nullroute.core import Core
-import sys
-import os
-import subprocess
-import re
+import argparse
 import glob
+from nullroute.core import Core
+import os
 from pprint import pprint
+import re
+import subprocess
+import sys
 
 needed_re = re.compile(r'Shared library: \[(.+)\]$')
 rpath_re = re.compile(r'Library rpath: \[(.+)\]$')
@@ -188,7 +189,7 @@ def flip_tree(roots, tree):
                 user = dep
     return flipped_tree
 
-class LdMissing(object):
+class MissingLibScanner(object):
     def __init__(self, exe_path=None):
         self.exe_path = exe_path
         self.lib_paths = get_lib_paths()
@@ -247,16 +248,19 @@ class LdMissing(object):
         show_tree(self.exe_path, flipped_deps, indent=2,
               highlight={lib: "38;5;11" for lib in self.missing_libs})
 
-if __name__ == "__main__":
-    os_paths = os.environ.get("PATH", "").split(":")
-    ldm = LdMissing()
+parser = argparse.ArgumentParser()
+parser.add_argument("file", nargs="+")
+args = parser.parse_args()
 
-    for exe_path in sys.argv[1:]:
-        ldm.exe_path = find_in_path(os_paths, exe_path)
-        #print("Scanning %s" % ldm.exe_path, file=sys.stderr)
-        missing = ldm.find_missing()
-        m = os.environ.get("PRETEND_MISSING", "")
-        if m:
-            missing |= set(m.split(","))
-        if missing:
-            ldm.show_forward_tree()
+os_paths = os.environ.get("PATH", "").split(":")
+ldm = MissingLibScanner()
+
+for exe_path in args.file:
+    ldm.exe_path = find_in_path(os_paths, exe_path)
+    #print("Scanning %s" % ldm.exe_path, file=sys.stderr)
+    missing = ldm.find_missing()
+    m = os.environ.get("PRETEND_MISSING", "")
+    if m:
+        missing |= set(m.split(","))
+    if missing:
+        ldm.show_forward_tree()

@@ -6,9 +6,10 @@
 # also <https://gist.github.com/NikitaKarnauhov/5d9129f13e7b0e257cfbe93215751c7a>
 # also `openssl enc -d -des-ecb -nopad -K 478DA50BF9E3D2CF -in config.bin`
 
+import argparse
+import sys
 from Crypto.Cipher import DES
 from Crypto.Hash import MD5
-import sys
 
 key = b"\x47\x8D\xA5\x0B\xF9\xE3\xD2\xCF"
 
@@ -24,18 +25,19 @@ def tplink_encrypt(buf):
     buf = DES.new(key, DES.MODE_ECB).encrypt(buf)
     return buf
 
-do_encrypt = False
+parser = argparse.ArgumentParser()
+parser.add_argument("-e", "--encrypt", action="store_true")
+parser.add_argument("config_file", nargs="*", default=["config.bin"])
+args = parser.parse_args()
 
-args = sys.argv[1:] or ["config.bin"]
+for file in args.config_file:
+    with open(file, "rb") as fh:
+        buf = fh.read()
 
-for arg in args:
-    if arg == "-e":
-        do_encrypt = True
-    elif do_encrypt:
-        buf = open(arg, "rb").read()
+    if args.encrypt:
         buf = tplink_encrypt(buf)
-        open("%s.bin" % arg).write(buf)
+        with open("%s.bin" % file, "wb") as fh:
+            fh.write(buf)
     else:
-        buf = open(arg, "rb").read()
         buf = tplink_decrypt(buf)
         print(buf.decode())

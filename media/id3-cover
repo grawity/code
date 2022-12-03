@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-from __future__ import print_function
-import sys, os
-import getopt
-from mutagen import mp3, id3
-from nullroute.core import *
+#!/usr/bin/env python3
+import argparse
+import mutagen
+import os
+import sys
+from nullroute.core import Core
 
 def trace(msg):
     global verbose
@@ -31,7 +31,7 @@ def type_to_fileext(type):
 
 def export_cover(file, cover_file):
     try:
-        filetag = mp3.MP3(file)
+        filetag = mutagen.mp3.MP3(file)
     except BaseException as e:
         Core.err(e)
         return False
@@ -47,19 +47,19 @@ def export_cover(file, cover_file):
 
 def import_cover(file, image_data, image_type="image/jpeg"):
     try:
-        filetag = mp3.MP3(file)
+        filetag = mutagen.mp3.MP3(file)
     except BaseException as e:
         Core.err(e)
         return False
 
     trace("using content type %r" % image_type)
 
-    filetag.tags.add(id3.APIC(
+    filetag.tags.add(mutagen.id3.APIC(
         data=image_data,
         mime=image_type,
-        type=id3.PictureType.COVER_FRONT,
+        type=mutagen.id3.PictureType.COVER_FRONT,
         desc=u"",
-        encoding=id3.Encoding.UTF8))
+        encoding=mutagen.id3.Encoding.UTF8))
 
     trace("updating tags: %s" % file)
     try:
@@ -72,7 +72,7 @@ def import_cover(file, image_data, image_type="image/jpeg"):
 
 def remove_cover(file):
     try:
-        filetag = mp3.MP3(file)
+        filetag = mutagen.mp3.MP3(file)
     except BaseException as e:
         Core.err(e)
         return False
@@ -89,58 +89,57 @@ def remove_cover(file):
     else:
         return True
 
-try:
-    options, files = getopt.gnu_getopt(sys.argv[1:], "ef:iovx")
-except getopt.GetoptError as e:
-    Core.err(str(e))
-    usage()
-    sys.exit(2)
+parser = argparse.ArgumentParser()
+parser.add_argument("-e", "-o", "--export",
+                    dest="do_export",
+                    action="store_true",
+                    help="export cover art from ID3 tag to file")
+parser.add_argument("-i", "--import",
+                    dest="do_import",
+                    action="store_true",
+                    help="import cover art from file to ID3 tag")
+parser.add_argument("-r", "-x", "--remove",
+                    dest="do_remove",
+                    action="store_true",
+                    help="remove cover art from ID3 tags")
+parser.add_argument("-f", "--cover-file",
+                    help="path to image file")
+parser.add_argument("-v", "--verbose",
+                    action="store_true",
+                    help="print more details")
+parser.add_argument("mp3_file", nargs="+")
+args = parser.parse_args()
 
-mode = None
-cover_file = None
-verbose = os.getenv("DEBUG")
+cover_file = args.cover_file
+verbose = args.verbose
+files = args.mp3_file
 
-for opt, value in options:
-    if   opt == "-e": mode = "export"
-    elif opt == "-f": cover_file = value
-    elif opt == "-i": mode = "import"
-    elif opt == "-o": mode = "export"
-    elif opt == "-v": verbose = True
-    elif opt == "-x": mode = "kill"
+if (args.do_export + args.do_import + args.do_remove) > 1:
+    exit("error: Conflicting mode options given")
 
-if not mode:
-    Core.die("mode not specified")
-
-if len(files) < 1:
-    Core.die("no .mp3 files specified")
-
-if mode == "import":
+elif args.do_import:
     if cover_file:
-        cover_fh = open(cover_file, 'rb')
         _, ext = os.path.splitext(cover_file)
         image_type = fileext_to_type(ext)
     else:
-        cover_fh = sys.stdin
+        cover_file = "/dev/stdin"
         image_type = None #"image/jpeg"
-    image_data = cover_fh.read()
+    with open(cover_file, "rb") as fh:
+        image_data = fh.read()
     for audiofile in files:
         import_cover(audiofile, image_data, image_type)
 
-elif mode == "export":
+elif args.do_export:
     if len(files) > 1:
-        Core.die("cannot export multiple covers to one file")
-
+        exit("error: Cannot export multiple covers to one file")
     ret = export_cover(files[0], cover_file)
-
     sys.exit(0 if ret else 1)
 
-elif mode == "kill":
+elif args.do_remove:
     ret = True
-
     for audiofile in files:
         ret = remove_cover(audiofile) and ret
-
     sys.exit(0 if ret else 1)
 
 else:
-    Core.die("BUG: bad mode %r" % mode)
+    exit("error: No operation specified")

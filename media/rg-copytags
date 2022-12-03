@@ -1,27 +1,24 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copy ReplayGain tags from various formats to MP3 (for iPod downconversion;
 # ffmpeg does not copy RVA2 automatically)
-from __future__ import print_function
-import sys
+import argparse
 import mutagen
-from nullroute.mp3tags import *
+import sys
+from nullroute.mp3tags import GainValue
 
-srcfile = sys.argv[1]
-try:
-    dstfile = sys.argv[2]
-except IndexError:
-    dstfile = None
+parser = argparse.ArgumentParser()
+parser.add_argument("src_file")
+parser.add_argument("dst_file")
+args = parser.parse_args()
 
-srctag = mutagen.File(srcfile)
-dsttag = mutagen.mp3.MP3(dstfile) if dstfile else None
+srctag = mutagen.File(args.src_file)
+dsttag = mutagen.mp3.MP3(args.dst_file)
 
 gv = GainValue.import_tag(srctag, 'track')
-
-if gv:
-    if dsttag:
-        gv.export_id3(dsttag)
-        print(dsttag.keys())
-        dsttag.save()
-else:
-    print("No ReplayGain tag found.")
+if not gv:
+    print("No ReplayGain tag found in %r" % args.src_file, file=sys.stderr)
     print(srctag)
+    exit(1)
+
+gv.export_id3(dsttag)
+dsttag.save()

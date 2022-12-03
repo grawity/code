@@ -1,10 +1,10 @@
-#!/usr/bin/env python2
-# encoding: utf-8
+#!/usr/bin/env python3
 # capture screenshots of Sony-Ericsson phones over USB-serial
 
-import sys
+import argparse
+import PIL
 import serial
-from PIL import Image
+import sys
 
 """
 >>> AT*ZIPI=?
@@ -91,7 +91,7 @@ def flatten(scanlines):
 def store_image(data, output_file):
     size = data[1], data[0]
     buf = flatten(data[2])
-    img = Image.fromstring("RGBA", size, buf, "raw", "RGBA", 0, 1)
+    img = PIL.Image.fromstring("RGBA", size, buf, "raw", "RGBA", 0, 1)
     img.save(output_file)
 
 def store_raw(data, output_file):
@@ -99,12 +99,13 @@ def store_raw(data, output_file):
     with open(output_file, "wb") as img:
         img.write(buf)
 
-try:
-    port, output_file = sys.argv[1:]
-except IndexError:
-    trace("Usage: grabscreen.py <port> <imagefile>\n")
-    trace("(imagefile can be rgba:<file> to output raw rgba data)\n")
-    sys.exit(2)
+parser = argparse.ArgumentParser()
+parser.add_argument("com_port")
+parser.add_argument("image_file")
+args = parser.parse_args()
+
+port = args.com_port
+output_file = args.image_file
 
 if output_file[:4] == "raw:":
     writer = store_raw

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # countdown -- like 'sleep', but display a running countdown
+import argparse
 import re
 import sys
 import time
 
 sys.path.append(sys.path[0] + "/../lib/python")
+
 from nullroute.string import fmt_duration, parse_duration
 
 def out(msg):
@@ -13,10 +15,14 @@ def out(msg):
 def _fmt_duration(t):
     return fmt_duration(round(t))
 
-secs = sum([parse_duration(arg)
-            for arg in sys.argv[1:]])
+parser = argparse.ArgumentParser()
+parser.add_argument("duration", nargs="*")
+args, rest = parser.parse_known_args()
+
+secs = sum(map(parse_duration, args.duration + rest))
 
 if secs > 0:
+    # Positive argument = count down from the specified time to zero
     start = time.time()
     finish = start + secs
     try:
@@ -31,6 +37,7 @@ if secs > 0:
                                             _fmt_duration(finish - time.time())))
         exit(1)
 else:
+    # Zero or negative argument = count up to infinity
     start = time.time() - abs(secs)
     try:
         while True:

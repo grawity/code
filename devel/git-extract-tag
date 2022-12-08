@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # git-extract-tag -- extract 'merged tags' from Git merge commits, to verify
 #                    their signatures
-import sys
+import argparse
 import subprocess
-from io import BytesIO
+import sys
 
 def parse_object(stream):
     in_head = True
@@ -43,10 +43,12 @@ def extract_tag(stream, verify=True, create_ref=False):
             subprocess.call(["git", "cat-file", "tag", tag_hash])
             subprocess.call(["git", "verify-tag", tag_hash])
 
-objs = sys.argv[1:]
+parser = argparse.ArgumentParser()
+parser.add_argument("object_id", nargs="*")
+args = parser.parse_args()
 
-if objs:
-    for commit_hash in objs:
+if args.object_id:
+    for commit_hash in args.object_id:
         with subprocess.Popen(["git", "cat-file", "commit", commit_hash],
                               stdout=subprocess.PIPE) as proc:
             extract_tag(proc.stdout)

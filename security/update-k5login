@@ -1,7 +1,8 @@
-#!/usr/bin/env python
-import os
+#!/usr/bin/env python3
+import argparse
 import fnmatch
 import getopt
+import os
 import socket
 import sys
 
@@ -40,7 +41,7 @@ def read_rules(rules_file):
             masks = line[1:]
 
         if not defprinc:
-            sys.stderr.write("warning: missing principal on line %d\n" % lineno)
+            print("warning: missing principal on line %d\n" % lineno, file=sys.stderr)
             continue
 
         if isgroup:
@@ -84,31 +85,36 @@ def test_rule(fqdn, masks):
     return ok
 
 fqdn = getfqdn()
+
 rules_file = os.path.expanduser("~/.config/nullroute.eu.org/k5login.rules")
 if not os.path.exists(rules_file):
     rules_file = os.path.expanduser("~/.dotfiles/k5login.rules")
 if not os.path.exists(rules_file):
     rules_file = os.path.expanduser("~/lib/dotfiles/k5login.rules")
+
 k5login_file = os.path.expanduser("~/.k5login")
-verbose = False
 
-opts, args = getopt.getopt(sys.argv[1:], "F:i:o:v")
-for opt, optarg in opts:
-    if opt == "-v":     verbose = True
-    elif opt == "-F":   fqdn = optarg
-    elif opt == "-i":   rules_file = optarg
-    elif opt == "-o":   k5login_file = optarg
+parser = argparse.ArgumentParser()
+parser.add_argument("-F", "--fqdn",
+                    help="produce output for a different host FQDN")
+parser.add_argument("-i", "--rules-file",
+                    help="path to input rules file")
+parser.add_argument("-o", "--k5login-file",
+                    help="path to output .k5login file")
+args = parser.parse_args()
 
-if verbose:
-    sys.stderr.write("fqdn: %s\n" % fqdn)
-    sys.stderr.write("rules_file: %s\n" % rules_file)
-    sys.stderr.write("k5login_file: %s\n" % k5login_file)
+if args.fqdn:
+    fqdn = args.fqdn
+if args.rules_file:
+    rules_file = args.rules_file
+
+if args.k5login_file:
+    k5login_file = args.k5login_file
 
 principals, rules = read_rules(rules_file)
 
-outfd = open(k5login_file, "w")
-for princ in principals:
-    masks = rules[princ]
-    if test_rule(fqdn, masks):
-        outfd.write(princ+"\n")
-outfd.close()
+with open(k5login_file, "w") as outfd:
+    for princ in principals:
+        masks = rules[princ]
+        if test_rule(fqdn, masks):
+            outfd.write(princ+"\n")

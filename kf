@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+# kf -- forward Kerberos TGT to remote hosts
+import argparse
+import gssapi
+import os
+import subprocess
+import sys
+
+def is_local(host):
+    return host.lower() == os.uname().nodename.lower()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("host", nargs="+")
+args = parser.parse_args()
+
+princ = gssapi.Credentials(usage="initiate").name
+realm = str(princ).rpartition("@")[-1]
+
+# SSH will do the GSSAPI dance for delegating a ticket -- just need to copy it
+# from the per-connection cache to the default cache.
+
+print(f"Forwarding tickets for {princ}...")
+cmd = f"kvno -q --out-cache FILE:/tmp/krb5cc_$(id -u) krbtgt/{realm}"
+errors = 0
+procs = []
+
+for host in args.host:
+    if is_local(host):
+        print(f"{host} skipped (local)")
+        continue
+    proc = subprocess.Popen(["ssh", "-S", "none", "-K", host, cmd])
+    procs.append((host, proc))
+
+for host, proc in procs:
+    r = proc.wait()
+    if r == 0:
+        print(f"{host} OK")
+    else:
+        print(f"{host} = {r!r}", file=sys.stderr)
+        errors = 1
+
+exit(errors)

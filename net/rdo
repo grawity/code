@@ -41,8 +41,12 @@ cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
 
 for host in $hosts; do
 	(
-		out=$(ssh -n $user$host "$cmd" | sed 's/^/\t/')
-		flock /dev/stdout echo "$host:$out"
+		out=$(mktemp /tmp/rdo.XXXXXXXX) || exit
+		echo -n "$host:" > "$out"
+		ssh -n $user$host "$cmd" |
+			awk '{print "\t"$0} END {if (!NR) print}' >> "$out"
+		flock /dev/stdout cat "$out"
+		rm -f "$out"
 	) &
 	if (( wait )); then wait; fi
 done

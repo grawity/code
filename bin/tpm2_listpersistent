@@ -3,8 +3,9 @@
 # https://trustedcomputinggroup.org/wp-content/uploads/RegistryOfReservedTPM2HandlesAndLocalities_v1p1_pub.pdf
 declare -A hnames=(
 	# NV indices
-	[0x01C00002]="EK Certificate (RSA) (TPM TCG)"
-	[0x01C90000]="IDevID Certificate (TPM TCG)"
+	[0x1C00002]="EK Certificate (RSA) (TPM TCG)"
+	[0x1C0000A]="EK Certificate (EC) (TPM TCG)"
+	[0x1C90000]="IDevID Certificate (TPM TCG)"
 	# Object handles
 	[0x81000001]="Storage Root Key (Microsoft, TPM TCG)"
 	[0x81000002]="Not sure what (Microsoft)"
@@ -12,13 +13,12 @@ declare -A hnames=(
 	[0x81020000]="IDevID Key (TPM TCG)"
 )
 
-handles=$(tpm2_getcap handles-persistent | sed "s/^- //")
 verbose=0
-
 if [[ "$1" == "-v" ]]; then
 	verbose=1
 fi
 
+handles=$(tpm2_getcap handles-persistent | sed "s/^- //")
 for h in $handles; do
 	if (( verbose )); then
 		echo "=== $h ==="
@@ -38,9 +38,17 @@ for h in $handles; do
 				}
 			}
 			/^  value:/ {
-				print "  ", k, $2
+				rest = substr($0, length("  value: ")+1)
+				if (rest != "null" && rest != "(null)") {
+					print "  ", k, rest
+				}
 			}
 		'
 		echo ""
 	fi
+done
+
+handles=$(tpm2_getcap handles-nv-index | sed "s/^- //")
+for h in $handles; do
+	echo "NV index $h: ${hnames[$h]}"
 done

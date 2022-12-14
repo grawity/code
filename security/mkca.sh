@@ -209,10 +209,15 @@ if [[ $tool == openssl ]]; then
 	keyUsage = critical, cRLSign, keyCertSign
 	subjectKeyIdentifier = hash
 	EOF
-	openssl req -new -x509 -config "$cnf" -subj "$opt_subject" -days "$days" -key "$opt_keyin" -out "$opt_certout"
 	# openssl automatically generates a 160-bit serial number
-	openssl x509 -in "$opt_certout" -noout -text -certopt no_sigdump -nameopt RFC2253 -nameopt sep_comma_plus_space
+	openssl req -new -x509 -config "$cnf" -subj "$opt_subject" -days "$days" -key "$opt_keyin" -out "$opt_certout"
+	r=$?
 	rm -f "$cnf"
+	if (( r )); then
+		rm -f "$opt_certout"
+		die "certificate creation failed"
+	fi
+	openssl x509 -in "$opt_certout" -noout -text -certopt no_sigdump -nameopt RFC2253 -nameopt sep_comma_plus_space
 elif [[ $tool == gnutls ]]; then
 	if [[ $(certtool --version) == certtool\ 3.6.* ]]; then
 		die "GnuTLS certtool (3.6.6) includes spurious zero bits in keyUsage bitstring"
@@ -238,10 +243,14 @@ elif [[ $tool == gnutls ]]; then
 	cert_signing_key
 	crl_signing_key
 	EOF
-	certtool --generate-self-signed --load-privkey="$opt_keyin" --template="$cnf" --outfile="$opt_certout"
 	# certtool automatically generates a 160-bit serial number
-	# certtool automatically shows the final certificate
+	certtool --generate-self-signed --load-privkey="$opt_keyin" --template="$cnf" --outfile="$opt_certout"; r=$?
 	rm -f "$cnf"
+	if (( r )); then
+		rm -f "$opt_certout"
+		die "certificate creation failed"
+	fi
+	# certtool automatically shows the final certificate
 else
 	die "no certificate building tools available"
 fi

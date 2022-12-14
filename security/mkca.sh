@@ -206,7 +206,7 @@ if [[ $tool == openssl ]]; then
 	[dn]
 	[exts]
 	basicConstraints = critical, CA:TRUE
-	keyUsage = critical, cRLSign, keyCertSign
+	keyUsage = critical, digitalSignature, cRLSign, keyCertSign
 	subjectKeyIdentifier = hash
 	EOF
 	# openssl automatically generates a 160-bit serial number
@@ -240,6 +240,7 @@ elif [[ $tool == gnutls ]]; then
 	dn = "$opt_subject"
 	expiration_days = $days
 	ca
+	signing_key
 	cert_signing_key
 	crl_signing_key
 	EOF

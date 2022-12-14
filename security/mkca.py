@@ -11,7 +11,7 @@ import sys
 def generate_serial():
     # The serial number must be <= 20 bytes (including the '00' padding if the
     # high bit is set, to avoid it being interpreted as negative).
-    return secrets.randbits(64)
+    return secrets.randbits(128)
 
 def create_certificate(subject_cn, subject_o, days, *, key_type="ecp256"):
     """

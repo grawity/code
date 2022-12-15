@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+do_rename=0
+
+if [[ $1 == "-m" ]]; then
+	do_rename=1
+	shift
+fi
+
+file=$1
+
+[[ -f "$file" ]] || die "'$file' is not a regular file"
+[[ "$file" == *.zip ]] || die "'$file' is not a Zip archive"
+
+date=$(unzip -l "$file" | grep -v '/$' | awk '/^ / && $2 ~ /^2/ {print $2}' | sort | tail -1)
+
+if (( do_rename )); then
+	new=$file
+	new=${new%.zip}
+	new=${new%_????-??-??}
+	new=${new}_${date}.zip
+	if [[ "$file" != "$new" ]]; then
+		mv -vi "$file" "$new"
+	else
+		echo "${file%%*/}: no change"
+	fi
+else
+	echo "$date"
+fi

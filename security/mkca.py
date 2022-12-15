@@ -13,29 +13,24 @@ def generate_serial():
     # high bit is set, to avoid it being interpreted as negative).
     return secrets.randbits(128)
 
-def generate_keypair(key_type):
-    if key_type in {"ec", "ecp256"}:
-        return oscrypto.asymmetric.generate_pair("ec", curve="secp256r1")
-    elif key_type in {"rsa", "rsa2048"}:
-        return oscrypto.asymmetric.generate_pair("rsa", bit_size=2048)
-    else:
-        raise ValueError(f"Bad algorithm {key_type!r}")
-
-def load_keypair(key_file):
-    priv = oscrypto.asymmetric.load_private_key(key_file)
-    return (priv.public_key, priv)
-
-def create_certificate(subject_cn, subject_o, days, public_key, private_key):
+def create_certificate(subject_cn, subject_o, days, *, key_type="ecp256"):
     """
     Create a self-signed CA certificate; return both the certificate and
     private key as ASCII PEM strings.
     """
 
-    subject = {"common_name": subject_cn}
+    subj = {"common_name": subject_cn}
     if subject_o:
-        subject |= {"organization_name": subject_o}
+        subj |= {"organization_name": subject_o}
 
-    cb = certbuilder.CertificateBuilder(subject, public_key)
+    if key_type in {"ec", "ecp256"}:
+        (pub, priv) = oscrypto.asymmetric.generate_pair("ec", curve="secp256r1")
+    elif key_type in {"rsa", "rsa2048"}:
+        (pub, priv) = oscrypto.asymmetric.generate_pair("rsa", bit_size=2048)
+    else:
+        raise ValueError(f"Bad algorithm {key_type!r}")
+
+    cb = certbuilder.CertificateBuilder(subj, pub)
     cb.self_signed = True
     cb.serial_number = generate_serial()
     cb.end_date = datetime.now().astimezone(timezone.utc) + timedelta(days=days)
@@ -43,10 +38,10 @@ def create_certificate(subject_cn, subject_o, days, public_key, private_key):
     # Override the key_usage set by 'ca = True' to include digital_signature,
     # as many new CAs also do.
     cb.key_usage = {"digital_signature", "key_cert_sign", "crl_sign"}
-    certificate = cb.build(private_key)
+    cert = cb.build(priv)
 
-    pem_cert = oscrypto.asymmetric.dump_certificate(certificate, "pem").decode()
-    pem_priv = oscrypto.asymmetric.dump_private_key(private_key, None).decode()
+    pem_cert = oscrypto.asymmetric.dump_certificate(cert, "pem").decode()
+    pem_priv = oscrypto.asymmetric.dump_private_key(priv, None).decode()
     return pem_cert, pem_priv
 
 def parse_lifetime(string):
@@ -64,11 +59,11 @@ parser.add_argument("-c", "--common-name", "--cn",
 parser.add_argument("-g", "--organization",
                     help="Subject organization (O)")
 parser.add_argument("-l", "--lifetime",
+                    default="1d",
                     help="Certificate lifetime in days")
 parser.add_argument("-a", "--key-type",
+                    default="ecp256",
                     help="Private key algorithm")
-parser.add_argument("-K", "--key-file",
-                    help="Existing private key")
 parser.add_argument("-o", "--out-cert",
                     help="Certificate output path")
 parser.add_argument("-O", "--out-key",
@@ -76,22 +71,14 @@ parser.add_argument("-O", "--out-key",
 args = parser.parse_args()
 
 try:
-    days = parse_lifetime(args.lifetime or "1d")
+    days = parse_lifetime(args.lifetime)
 except ValueError as e:
     exit(f"error: Invalid lifetime {args.lifetime!r}")
 
-if args.key_file and args.key_type:
-    exit(f"error: Cannot specify both a key type and existing key file")
-elif args.key_file:
-    pub, priv = load_keypair(args.key_file)
-else:
-    pub, priv = generate_keypair(args.key_type or "ecp256")
-
-cert_buf, priv_buf = create_certificate(subject_cn=args.common_name,
-                                        subject_o=args.organization,
-                                        days=days,
-                                        public_key=pub,
-                                        private_key=priv)
+cert, priv = create_certificate(subject_cn=args.common_name,
+                                subject_o=args.organization,
+                                days=days,
+                                key_type=args.key_type)
 
 if args.out_cert:
     cert_fh = open(args.out_cert, "w")
@@ -104,8 +91,8 @@ if args.out_key:
 else:
     priv_fh = sys.stdout
 
-cert_fh.write(cert_buf)
+cert_fh.write(cert)
 cert_fh.flush()
 
-priv_fh.write(priv_buf)
+priv_fh.write(priv)
 priv_fh.flush()

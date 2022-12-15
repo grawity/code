@@ -35,6 +35,9 @@ def create_certificate(subject_cn, subject_o, days, *, key_type="ecp256"):
     cb.serial_number = generate_serial()
     cb.end_date = datetime.now().astimezone(timezone.utc) + timedelta(days=days)
     cb.ca = True
+    # Override the key_usage set by 'ca = True' to include digital_signature,
+    # as many new CAs also do.
+    cb.key_usage = {"digital_signature", "key_cert_sign", "crl_sign"}
     cert = cb.build(priv)
 
     pem_cert = oscrypto.asymmetric.dump_certificate(cert, "pem").decode()

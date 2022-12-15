@@ -6,8 +6,8 @@
 # Certificate profile:
 #  * Basic constraints: <critical>, CA=TRUE, no path length
 #        OID 2.5.29.19, BOOL true, OCTET { SEQ [ BOOL true ] }
-#  * Key usage: <critical>, cert sign, CRL sign (0x20 | 0x40)
-#        OID 2.5.29.15, BOOL true, OCTET { BITSTRING <pad 1> '1100000'b }
+#  * Key usage: <critical>, digital signature, cert sign, CRL sign (0x01 | 0x20 | 0x40)
+#        OID 2.5.29.15, BOOL true, OCTET { BITSTRING <pad 1> '1100001'b }
 #  * Subject key identifier: [hash]
 #        OID 2.5.29.14, OCTET { OCTET[20] }
 

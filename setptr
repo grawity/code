@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # setptr -- change rDNS PTR records using DNS UPDATE
+#
+# setptr is address-oriented (the user must manually specify an IP address and
+# its desired name pointer), while setreverse is host-oriented (automatically
+# looks up and updates PTR for all IP addresses of a given hostname).
 import argparse
 import dns.name
 import dns.resolver
@@ -7,12 +11,12 @@ import ipaddress
 import subprocess
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-z", "--zone",
+                    help="override automatically determined rDNS zone")
 parser.add_argument("-g", "--gss", action="store_true",
                     help="use Kerberos authentication via GSS-TSIG")
 parser.add_argument("-d", "--debug", action="store_true",
                     help="enable nsupdate debugging")
-parser.add_argument("-z", "--zone",
-                    help="override automatically determined rDNS zone")
 parser.add_argument("address",
                     help="IP address to update the PTR for")
 parser.add_argument("target",

@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# setreverse -- change rDNS PTR records using DNS UPDATE
+#
+# setptr is address-oriented (the user must manually specify an IP address and
+# its desired name pointer), while setreverse is host-oriented (automatically
+# looks up and updates PTR for all IP addresses of a given hostname).
+import argparse
+import dns.name
+import dns.resolver
+import ipaddress
+import sys
+import subprocess
+
+def lookup_suffix(name):
+    ans = dns.resolver.resolve(name,
+                               search=True,
+                               raise_on_no_answer=False)
+    return ans.qname
+
+def lookup_addrs(name, *, allow_cname=False):
+    addrs = []
+    for rrtype in ["A", "AAAA"]:
+        ans = dns.resolver.resolve(name, rrtype)
+        addrs += [rr.address for rr in ans.rrset]
+        if cnames := ans.chaining_result.cnames:
+            print(f"warning: \"{name}\" is an alias to \"{ans.canonical_name}\"",
+                  file=sys.stderr)
+            if not allow_cname:
+                exit("error: Refusing to point rDNS to an alias; use --allow-cname if needed")
+    return addrs
+
+def nsupdate(address, target, ttl):
+    rname = dns.name.from_text(address.reverse_pointer)
+    zone = dns.resolver.zone_for_name(rname)
+
+    print(f"Updating zone \"{zone}\"")
+
+    nsupdate_args = ["nsupdate"]
+    if args.debug:
+        nsupdate_args += ["-d"]
+    if args.gss:
+        nsupdate_args += ["-g"]
+
+    if args.remove:
+        print(f"Removing PTR for [{address}]")
+        cmds = [f"zone {zone}\n",
+                f"del {rname} {ttl} PTR\n",
+                f"send\n"]
+    else:
+        print(f"Changing PTR for [{address}] to \"{host}\"")
+        cmds = [f"zone {zone}\n",
+                f"del {rname} {ttl} PTR\n",
+                f"add {rname} {ttl} PTR {host}\n",
+                f"send\n"]
+
+    subprocess.run(nsupdate_args,
+                   input="".join(cmds).encode(),
+                   check=True)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--allow-cname", action="store_true",
+                    help="allow the hostname to be an alias (a CNAME)")
+parser.add_argument("-r", "--remove", action="store_true",
+                    help="unset rDNS pointers")
+parser.add_argument("-t", "--ttl", type=int, default=3600,
+                    help="set the TTL for created records")
+parser.add_argument("-g", "--gss", action="store_true",
+                    help="use Kerberos authentication via GSS-TSIG")
+parser.add_argument("-d", "--debug", action="store_true",
+                    help="enable nsupdate debugging")
+parser.add_argument("host",
+                    help="domain name to update PTR for")
+parser.add_argument("address",
+                    help="single IP address to update (for development)",
+                    nargs="*")
+args = parser.parse_args()
+
+host = lookup_suffix(args.host)
+
+if args.address:
+    addresses = args.address
+else:
+    addresses = lookup_addrs(host, allow_cname=args.allow_cname)
+
+print(f"Host \"{host}\" has addresses: {addresses}")
+
+addresses = [*map(ipaddress.ip_address, addresses)]
+
+failed = False
+for address in addresses:
+    try:
+        if args.remove:
+            nsupdate(address, ".", args.ttl)
+        else:
+            nsupdate(address, host, args.ttl)
+    except subprocess.CalledProcessError as e:
+        print("error: %s" % e, file=sys.stderr)
+        failed = True
+
+exit(failed)

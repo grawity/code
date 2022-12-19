@@ -25,6 +25,40 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
+# dnspython 2.0 in Debian lacks Answer.chaining_result
+def compat_chaining_result_cnames(answer):
+    if hasattr(answer, "chaining_result"):
+        return answer.chaining_result.cnames
+
+    resp = answer.response
+    names = []
+    count = 0
+    qname = answer.qname
+    while count < 16:
+        try:
+            rrset = resp.find_rrset(resp.answer,
+                                    qname,
+                                    resp.question[0].rdclass,
+                                    resp.question[0].rdtype)
+            break
+        except KeyError:
+            if resp.question[0].rdtype != dns.rdatatype.CNAME:
+                try:
+                    rrset = resp.find_rrset(resp.answer,
+                                            qname,
+                                            resp.question[0].rdclass,
+                                            dns.rdatatype.CNAME)
+                    names.append(rrset)
+                    count += 1
+                    for rr in rrset:
+                        qname = rr.target
+                        break
+                except KeyError:
+                    break
+            else:
+                break
+    return names
+
 def lookup_addrs(name, *, allow_cname=False):
     addrs = []
     for rrtype in ["A", "AAAA"]:
@@ -33,7 +67,8 @@ def lookup_addrs(name, *, allow_cname=False):
         except dns.resolver.NoAnswer:
             continue
         addrs += [rr.address for rr in ans.rrset]
-        if cnames := ans.chaining_result.cnames:
+        #if cnames := ans.chaining_result.cnames: # needs v2.1.0+
+        if cnames := compat_chaining_result_cnames(ans):
             print(f"warning: \"{name}\" is an alias to \"{ans.canonical_name}\"",
                   file=sys.stderr)
             if not allow_cname:

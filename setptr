@@ -10,6 +10,14 @@ import dns.resolver
 import ipaddress
 import subprocess
 
+def chase_one_cname(name):
+    try:
+        ans = dns.resolver.resolve(name, "CNAME")
+    except dns.resolver.NoAnswer:
+        return name
+    else:
+        return ans.rrset[0].target
+
 def nsupdate(zone, rname, target, ttl):
     print(f"Updating zone \"{zone}\"")
 
@@ -58,13 +66,7 @@ if args.zone:
     zone = dns.name.from_text(args.zone)
 else:
     # Detect IPv4 classless delegations
-    try:
-        ans = dns.resolver.resolve(rname, "CNAME")
-    except dns.resolver.NoAnswer:
-        pass
-    else:
-        rname = ans.rrset[0].target
-
+    rname = chase_one_cname(rname)
     zone = dns.resolver.zone_for_name(rname)
 
 nsupdate(zone, rname, target, args.ttl)

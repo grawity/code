@@ -17,6 +17,14 @@ def lookup_suffix(name):
                                raise_on_no_answer=False)
     return ans.qname
 
+def chase_one_cname(name):
+    try:
+        ans = dns.resolver.resolve(name, "CNAME")
+    except dns.resolver.NoAnswer:
+        return name
+    else:
+        return ans.rrset[0].target
+
 def lookup_addrs(name, *, allow_cname=False):
     addrs = []
     for rrtype in ["A", "AAAA"]:
@@ -36,12 +44,7 @@ def nsupdate(address, target, ttl):
     rname = dns.name.from_text(address.reverse_pointer)
 
     # Detect IPv4 classless delegation, as well as other uses of CNAME.
-    try:
-        ans = dns.resolver.resolve(rname, "CNAME")
-    except dns.resolver.NoAnswer:
-        pass
-    else:
-        rname = ans.rrset[0].target
+    rname = chase_one_cname(rname)
 
     zone = dns.resolver.zone_for_name(rname)
     print(f"Updating zone <{zone}>")

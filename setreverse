@@ -40,8 +40,8 @@ def lookup_addrs(name, *, allow_cname=False):
                 exit("error: Refusing to point rDNS to an alias; use --allow-cname if needed")
     return addrs
 
-def nsupdate(address, target, ttl):
-    rname = dns.name.from_text(address.reverse_pointer)
+def nsupdate(addr, target, ttl):
+    rname = dns.name.from_text(addr.reverse_pointer)
 
     # Detect IPv4 classless delegation, as well as other uses of CNAME.
     rname = chase_one_cname(rname)
@@ -56,12 +56,12 @@ def nsupdate(address, target, ttl):
         nsupdate_args += ["-g"]
 
     if args.remove:
-        print(f"Removing PTR for [{address}]")
+        print(f"Removing PTR for [{addr}]")
         cmds = [f"zone {zone}\n",
                 f"del {rname} {ttl} PTR\n",
                 f"send\n"]
     else:
-        print(f"Changing PTR for [{address}] to \"{host}\"")
+        print(f"Changing PTR for [{addr}] to \"{host}\"")
         cmds = [f"zone {zone}\n",
                 f"del {rname} {ttl} PTR\n",
                 f"add {rname} {ttl} PTR {host}\n",
@@ -96,13 +96,13 @@ print(f"Host <{host}> has addresses:", *sorted(addresses))
 
 failed = False
 
-for address in addresses:
-    address = ipaddress.ip_address(address)
+for addr in addresses:
+    addr = ipaddress.ip_address(addr)
     try:
         if args.remove:
-            nsupdate(address, ".", args.ttl)
+            nsupdate(addr, ".", args.ttl)
         else:
-            nsupdate(address, host, args.ttl)
+            nsupdate(addr, host, args.ttl)
     except subprocess.CalledProcessError as e:
         print("error: %s" % e, file=sys.stderr)
         failed = True

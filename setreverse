@@ -75,18 +75,20 @@ parser.add_argument("address",
                     nargs="*")
 args = parser.parse_args()
 
+print(f"Looking up \"{args.host}\"...")
+
 host = lookup_suffix(args.host)
+print(f"Canonicalized to \"{host}\"")
 
 if args.address:
     addresses = args.address
 else:
     addresses = lookup_addrs(host, allow_cname=args.allow_cname)
-
-print(f"Host \"{host}\" has addresses: {addresses}")
+    print(f"Host \"{host}\" has addresses: {addresses}")
 
 addresses = [*map(ipaddress.ip_address, addresses)]
-
 failed = False
+
 for address in addresses:
     try:
         if args.remove:

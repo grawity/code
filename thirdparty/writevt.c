@@ -2,6 +2,7 @@
  * Mostly ripped off of console-tools' writevt.c
  */
 
+#include <err.h>
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -30,43 +31,37 @@ int main(int argc, char **argv) {
 	if (argi < argc)
 		term = argv[argi++];
 	else {
-		fprintf(stderr, "%s: no tty specified\n", progname);
+		warnx("no tty specified");
 		return usage();
 	}
 
 	if (argi < argc)
 		text = argv[argi++];
 	else {
-		fprintf(stderr, "%s: no text specified\n", progname);
+		warnx("no text specified");
 		return usage();
 	}
 
 	if (argi != argc) {
-		fprintf(stderr, "%s: too many arguments\n", progname);
+		warnx("too many arguments");
 		return usage();
 	}
 
 	fd = open(sysctl, O_WRONLY);
 	if (fd >= 0) {
 		if (write(fd, "1", sizeof "1") < 0) {
-			perror(sysctl);
-			fprintf(stderr, "%s: could not activate sysctl\n", progname);
-			return 1;
+			err(1, "could not write to %s", sysctl);
 		}
 		close(fd);
 	} else if (errno == ENOENT) {
 		// ignore; pre-6.2 kernel always had TIOCSTI enabled
 	} else {
-		perror(sysctl);
-		fprintf(stderr, "%s: could not activate sysctl\n", progname);
-		return 1;
+		err(1, "could not open %s", sysctl);
 	}
 
 	fd = open(term, O_RDONLY);
 	if (fd < 0) {
-		perror(term);
-		fprintf(stderr, "%s: could not open tty\n", progname);
-		return 1;
+		err(1, "could not open %s", term);
 	}
 
 	while (*text) {

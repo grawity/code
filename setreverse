@@ -31,26 +31,16 @@ def lookup_addrs(name, *, allow_cname=False):
 
 def nsupdate(address, target, ttl):
     rname = dns.name.from_text(address.reverse_pointer)
+
+    # Detect IPv4 classless delegation, as well as other uses of CNAME.
+    try:
+        ans = dns.resolver.resolve(rname, "CNAME")
+    except dns.resolver.NoAnswer:
+        pass
+    else:
+        rname = ans.rrset[0].target
+
     zone = dns.resolver.zone_for_name(rname)
-
-    # Detect classless delegation of IPv4 rDNS
-    if address.version == 4:
-        try:
-            ans = dns.resolver.resolve(rname, "CNAME")
-        except dns.resolver.NoAnswer:
-            pass
-        else:
-            target = ans.rrset[0].target
-            if target.is_subdomain(zone):
-                print(f"Found classless delegation of <{rname}> via <{target}>")
-                rname = target
-                zone = dns.resolver.zone_for_name(rname)
-            else:
-                # Not classless delegation, but still a CNAME and we should probably follow it.
-                print(f"Found alias of <{rname}> via <{target}>")
-                rname = target
-                zone = dns.resolver.zone_for_name(rname)
-
     print(f"Updating zone <{zone}>")
 
     nsupdate_args = ["nsupdate"]

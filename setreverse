@@ -75,8 +75,6 @@ parser.add_argument("-r", "--remove", action="store_true",
                     help="unset rDNS pointers")
 parser.add_argument("-t", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
-parser.add_argument("-l", "--only", metavar="ADDR", action="append", default=[],
-                    help="limit update to specified IP addresses")
 parser.add_argument("-g", "--gss", action="store_true",
                     help="use Kerberos authentication via GSS-TSIG")
 parser.add_argument("-d", "--debug", action="store_true",
@@ -90,11 +88,8 @@ print(f"Looking up \"{args.host}\"...", end=" ", flush=True)
 host = lookup_suffix(args.host)
 print(f"Canonicalized to <{host}>")
 
-if args.only:
-    addresses = args.only
-else:
-    addresses = lookup_addrs(host, allow_cname=args.allow_cname)
-    print(f"Host <{host}> has addresses:", *sorted(addresses))
+addresses = lookup_addrs(host, allow_cname=args.allow_cname)
+print(f"Host <{host}> has addresses:", *sorted(addresses))
 
 addresses = [*map(ipaddress.ip_address, addresses)]
 failed = False

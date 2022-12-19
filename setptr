@@ -55,6 +55,14 @@ target = dns.name.from_text(args.target)
 if args.zone:
     zone = dns.name.from_text(args.zone)
 else:
+    # Detect IPv4 classless delegations
+    try:
+        ans = dns.resolver.resolve(rname, "CNAME")
+    except dns.resolver.NoAnswer:
+        pass
+    else:
+        rname = ans.rrset[0].target
+
     zone = dns.resolver.zone_for_name(rname)
 
 ttl = 3600

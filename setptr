@@ -38,6 +38,8 @@ def nsupdate(zone, rname, target, ttl):
 parser = argparse.ArgumentParser()
 parser.add_argument("-z", "--zone",
                     help="override automatically determined rDNS zone")
+parser.add_argument("-t", "--ttl", type=int, default=3600,
+                    help="set the TTL for created records")
 parser.add_argument("-g", "--gss", action="store_true",
                     help="use Kerberos authentication via GSS-TSIG")
 parser.add_argument("-d", "--debug", action="store_true",
@@ -49,9 +51,9 @@ parser.add_argument("target",
 args = parser.parse_args()
 
 address = ipaddress.ip_address(args.address)
-rname = dns.name.from_text(address.reverse_pointer)
 target = dns.name.from_text(args.target)
 
+rname = dns.name.from_text(address.reverse_pointer)
 if args.zone:
     zone = dns.name.from_text(args.zone)
 else:
@@ -65,5 +67,4 @@ else:
 
     zone = dns.resolver.zone_for_name(rname)
 
-ttl = 3600
-nsupdate(zone, rname, target, ttl)
+nsupdate(zone, rname, target, args.ttl)

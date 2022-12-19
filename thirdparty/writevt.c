@@ -44,8 +44,7 @@ int main(int argc, char **argv) {
 	if (fd >= 0) {
 		while (*text) {
 			if (ioctl(fd, TIOCSTI, text)) {
-				perror("ioctl");
-				return 1;
+				err(1, "ioctl(TIOCSTI) failed");
 			}
 			text++;
 		}

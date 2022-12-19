@@ -41,16 +41,17 @@ int main(int argc, char **argv) {
 	}
 
 	fd = open(term, O_RDONLY);
-	if (fd < 0) {
-		err(1, "could not open %s", term);
-	}
-
-	while (*text) {
-		if (ioctl(fd, TIOCSTI, text)) {
-			perror("ioctl");
-			return 1;
+	if (fd >= 0) {
+		while (*text) {
+			if (ioctl(fd, TIOCSTI, text)) {
+				perror("ioctl");
+				return 1;
+			}
+			text++;
 		}
-		text++;
+		close(fd);
+	} else {
+		err(1, "could not open %s", term);
 	}
 
 	return 0;

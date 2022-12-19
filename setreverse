@@ -20,7 +20,10 @@ def lookup_suffix(name):
 def lookup_addrs(name, *, allow_cname=False):
     addrs = []
     for rrtype in ["A", "AAAA"]:
-        ans = dns.resolver.resolve(name, rrtype)
+        try:
+            ans = dns.resolver.resolve(name, rrtype)
+        except dns.resolver.NoAnswer:
+            continue
         addrs += [rr.address for rr in ans.rrset]
         if cnames := ans.chaining_result.cnames:
             print(f"warning: \"{name}\" is an alias to \"{ans.canonical_name}\"",

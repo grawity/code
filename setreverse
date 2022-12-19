@@ -89,10 +89,12 @@ args = parser.parse_args()
 failed = False
 
 for host in args.host:
-    print(f"Looking up \"{host}\"...", end=" ", flush=True)
-
-    host = lookup_suffix(host)
-    print(f"Canonicalized to <{host}>")
+    if "." in host:
+        host = dns.name.from_text(host)
+    else:
+        print(f"Looking up \"{host}\"...", end=" ", flush=True)
+        host = lookup_suffix(host)
+        print(f"canonicalized to <{host}>")
 
     addresses = lookup_addrs(host, allow_cname=args.allow_cname)
     print(f"Host <{host}> has addresses:", *sorted(addresses))

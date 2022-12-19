@@ -18,7 +18,15 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
-def nsupdate(zone, rname, target, ttl):
+def nsupdate(addr, target, ttl, *, zone=None):
+    rname = dns.name.from_text(addr.reverse_pointer)
+
+    if zone:
+        zone = dns.name.from_text(zone)
+    else:
+        # Detect IPv4 classless delegations
+        rname = chase_one_cname(rname)
+        zone = dns.resolver.zone_for_name(rname)
     print(f"Updating zone \"{zone}\"")
 
     nsupdate_args = ["nsupdate"]
@@ -28,12 +36,12 @@ def nsupdate(zone, rname, target, ttl):
         nsupdate_args += ["-g"]
 
     if str(target) == ".":
-        print(f"Removing PTR for [{address}]")
+        print(f"Removing PTR for [{addr}]")
         cmds = [f"zone {zone}\n",
                 f"del {rname} {ttl} PTR\n",
                 f"send\n"]
     else:
-        print(f"Changing PTR for [{address}] to \"{target}\"")
+        print(f"Changing PTR for [{addr}] to \"{target}\"")
         cmds = [f"zone {zone}\n",
                 f"del {rname} {ttl} PTR\n",
                 f"add {rname} {ttl} PTR {target}\n",
@@ -58,15 +66,7 @@ parser.add_argument("target",
                     help="PTR target domain name, or \".\" to remove")
 args = parser.parse_args()
 
-address = ipaddress.ip_address(args.address)
+addr = ipaddress.ip_address(args.address)
 target = dns.name.from_text(args.target)
 
-rname = dns.name.from_text(address.reverse_pointer)
-if args.zone:
-    zone = dns.name.from_text(args.zone)
-else:
-    # Detect IPv4 classless delegations
-    rname = chase_one_cname(rname)
-    zone = dns.resolver.zone_for_name(rname)
-
-nsupdate(zone, rname, target, args.ttl)
+nsupdate(addr, target, args.ttl, zone=args.zone)

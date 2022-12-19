@@ -18,30 +18,15 @@ static int usage() {
 }
 
 int main(int argc, char **argv) {
-	int fd, argi;
+	int fd;
 	char *term = NULL;
 	char *text = NULL;
 
-	argi = 1;
-
-	if (argi < argc)
-		term = argv[argi++];
-	else {
-		warnx("no tty specified");
+	if (argc != 3)
 		return usage();
-	}
 
-	if (argi < argc)
-		text = argv[argi++];
-	else {
-		warnx("no text specified");
-		return usage();
-	}
-
-	if (argi != argc) {
-		warnx("too many arguments");
-		return usage();
-	}
+	term = argv[1];
+	text = argv[2];
 
 	fd = open(sysctl, O_WRONLY);
 	if (fd >= 0) {

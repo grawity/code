@@ -10,6 +10,31 @@ import dns.resolver
 import ipaddress
 import subprocess
 
+def nsupdate(zone, rname, target, ttl):
+    print(f"Updating zone \"{zone}\"")
+
+    nsupdate_args = ["nsupdate"]
+    if args.debug:
+        nsupdate_args += ["-d"]
+    if args.gss:
+        nsupdate_args += ["-g"]
+
+    if str(target) == ".":
+        print(f"Removing PTR for [{address}]")
+        cmds = [f"zone {zone}\n",
+                f"del {rname} {ttl} PTR\n",
+                f"send\n"]
+    else:
+        print(f"Changing PTR for [{address}] to \"{target}\"")
+        cmds = [f"zone {zone}\n",
+                f"del {rname} {ttl} PTR\n",
+                f"add {rname} {ttl} PTR {target}\n",
+                f"send\n"]
+
+    subprocess.run(nsupdate_args,
+                   input="".join(cmds).encode(),
+                   check=True)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-z", "--zone",
                     help="override automatically determined rDNS zone")
@@ -33,27 +58,4 @@ else:
     zone = dns.resolver.zone_for_name(rname)
 
 ttl = 3600
-
-print(f"Updating zone \"{zone}\"")
-
-nsupdate_args = ["nsupdate"]
-if args.debug:
-    nsupdate_args += ["-d"]
-if args.gss:
-    nsupdate_args += ["-g"]
-
-if str(target) == ".":
-    print(f"Removing PTR for [{address}]")
-    cmds = [f"zone {zone}\n",
-            f"del {rname} {ttl} PTR\n",
-            f"send\n"]
-else:
-    print(f"Changing PTR for [{address}] to \"{target}\"")
-    cmds = [f"zone {zone}\n",
-            f"del {rname} {ttl} PTR\n",
-            f"add {rname} {ttl} PTR {target}\n",
-            f"send\n"]
-
-subprocess.run(nsupdate_args,
-               input="".join(cmds).encode(),
-               check=True)
+nsupdate(zone, rname, target, ttl)

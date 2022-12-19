@@ -33,7 +33,7 @@ def nsupdate(address, target, ttl):
     rname = dns.name.from_text(address.reverse_pointer)
     zone = dns.resolver.zone_for_name(rname)
 
-    print(f"Updating zone \"{zone}\"")
+    print(f"Updating zone <{zone}>")
 
     nsupdate_args = ["nsupdate"]
     if args.debug:
@@ -75,16 +75,16 @@ parser.add_argument("address",
                     nargs="*")
 args = parser.parse_args()
 
-print(f"Looking up \"{args.host}\"...")
+print(f"Looking up \"{args.host}\"...", end=" ", flush=True)
 
 host = lookup_suffix(args.host)
-print(f"Canonicalized to \"{host}\"")
+print(f"Canonicalized to <{host}>")
 
 if args.address:
     addresses = args.address
 else:
     addresses = lookup_addrs(host, allow_cname=args.allow_cname)
-    print(f"Host \"{host}\" has addresses: {addresses}")
+    print(f"Host <{host}> has addresses: {addresses}")
 
 addresses = [*map(ipaddress.ip_address, addresses)]
 failed = False

@@ -10,12 +10,10 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-char *progname;
-
 const char sysctl[] = "/proc/sys/dev/tty/legacy_tiocsti";
 
 static int usage() {
-	printf("Usage: %s ttydev text\n", progname);
+	printf("Usage: %s ttydev text\n", "writevt");
 	return 2;
 }
 
@@ -23,8 +21,6 @@ int main(int argc, char **argv) {
 	int fd, argi;
 	char *term = NULL;
 	char *text = NULL;
-
-	progname = argv[0];
 
 	argi = 1;
 

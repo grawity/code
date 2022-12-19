@@ -2,6 +2,7 @@
  * Mostly ripped off of console-tools' writevt.c
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <termios.h>
@@ -9,6 +10,8 @@
 #include <unistd.h>
 
 char *progname;
+
+const char sysctl[] = "/proc/sys/dev/tty/legacy_tiocsti";
 
 static int usage() {
 	printf("Usage: %s ttydev text\n", progname);
@@ -41,6 +44,22 @@ int main(int argc, char **argv) {
 	if (argi != argc) {
 		fprintf(stderr, "%s: too many arguments\n", progname);
 		return usage();
+	}
+
+	fd = open(sysctl, O_WRONLY);
+	if (fd >= 0) {
+		if (write(fd, "1", sizeof "1") < 0) {
+			perror(sysctl);
+			fprintf(stderr, "%s: could not activate sysctl\n", progname);
+			return 1;
+		}
+		close(fd);
+	} else if (errno == ENOENT) {
+		// ignore; pre-6.2 kernel always had TIOCSTI enabled
+	} else {
+		perror(sysctl);
+		fprintf(stderr, "%s: could not activate sysctl\n", progname);
+		return 1;
 	}
 
 	fd = open(term, O_RDONLY);

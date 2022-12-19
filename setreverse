@@ -82,29 +82,30 @@ parser.add_argument("-g", "--gss", action="store_true",
                     help="use Kerberos authentication via GSS-TSIG")
 parser.add_argument("-d", "--debug", action="store_true",
                     help="enable nsupdate debugging")
-parser.add_argument("host",
+parser.add_argument("host", nargs="+",
                     help="domain name to update PTR for")
 args = parser.parse_args()
 
-print(f"Looking up \"{args.host}\"...", end=" ", flush=True)
-
-host = lookup_suffix(args.host)
-print(f"Canonicalized to <{host}>")
-
-addresses = lookup_addrs(host, allow_cname=args.allow_cname)
-print(f"Host <{host}> has addresses:", *sorted(addresses))
-
 failed = False
 
-for addr in addresses:
-    addr = ipaddress.ip_address(addr)
-    try:
-        if args.remove:
-            nsupdate(addr, ".", args.ttl)
-        else:
-            nsupdate(addr, host, args.ttl)
-    except subprocess.CalledProcessError as e:
-        print("error: %s" % e, file=sys.stderr)
-        failed = True
+for host in args.host:
+    print(f"Looking up \"{host}\"...", end=" ", flush=True)
+
+    host = lookup_suffix(host)
+    print(f"Canonicalized to <{host}>")
+
+    addresses = lookup_addrs(host, allow_cname=args.allow_cname)
+    print(f"Host <{host}> has addresses:", *sorted(addresses))
+
+    for addr in addresses:
+        addr = ipaddress.ip_address(addr)
+        try:
+            if args.remove:
+                nsupdate(addr, ".", args.ttl)
+            else:
+                nsupdate(addr, host, args.ttl)
+        except subprocess.CalledProcessError as e:
+            print("error: %s" % e, file=sys.stderr)
+            failed = True
 
 exit(failed)

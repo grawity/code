@@ -102,6 +102,51 @@ case ${cmd:-help} in
 			fi
 		fi
 		;;
+	mirror)
+		if (( $# != 2 )); then
+			die "Usage: $progname $cmd <repo> <upstream>"
+		fi
+		arg=$1 upstream=$2
+		if [[ $arg == "." ]]; then
+			url=$(git config remote.origin.url) || exit
+			arg=${url#"$urlprefix"}
+		fi
+		arg=${arg#"$urlprefix"}
+		arg=${arg%.git}.git
+		dir=$fsroot/$arg
+		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
+		ssh $host "git -C ${dir@Q} remote add --mirror=fetch origin ${upstream@Q}"
+		ssh $host "git -C ${dir@Q} fetch origin"
+		info "Added remote 'origin' from '$upstream'"
+		if ssh $host "test -s ${dir@Q}/description"; then
+			desc=$(ssh $host "cat ${dir@Q}/description")
+			desc=$(echo "$desc" | sed 's/^Mirror of [^ ]*$//')
+			desc=$(echo "$desc" | sed 's/^\[Mirror of [^ ]*\] //')
+			desc="[Mirror of $upstream] $desc"
+		else
+			desc="Mirror of $upstream"
+		fi
+		ssh $host "echo ${desc@Q} > ${dir@Q}/description"
+		;;
+	unmirror)
+		if (( $# != 1 )); then
+			die "Usage: $progname $cmd <repo>"
+		fi
+		arg=$1
+		arg=${arg#"$urlprefix"}
+		arg=${arg%.git}.git
+		dir=$fsroot/$arg
+		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
+		info "Removed remote 'origin'"
+		if ssh $host "test -s ${dir@Q}/description"; then
+			desc=$(ssh $host "cat ${dir@Q}/description")
+			desc=$(echo "$desc" | sed 's/^Mirror of [^ ]*$//')
+			desc=$(echo "$desc" | sed 's/^\[Mirror of [^ ]*\] //')
+		else
+			desc=""
+		fi
+		ssh $host "echo ${desc@Q} > ${dir@Q}/description"
+		;;
 	pub|publish|exp|export)
 		if (( $# < 1 )); then
 			die "Usage: $progname $cmd <repo>..."

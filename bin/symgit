@@ -39,6 +39,7 @@ case ${cmd:-help} in
 				err "Shortcut '$arg' not allowed here"
 				continue
 			fi
+			arg=${arg#"$urlprefix"}
 			arg=${arg%.git}.git
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
@@ -57,14 +58,22 @@ case ${cmd:-help} in
 		if (( $# != 2 )); then
 			die "Usage: $progname $cmd <old> <new>"
 		fi
-		old=${1%.git}.git; olddir=$fsroot/$old; oldu=$urlprefix${old%.git}
-		new=${2%.git}.git; newdir=$fsroot/$new; newu=$urlprefix${new%.git}
+		old=$1
+		new=$2
+		old=${old#"$urlprefix"}
+		new=${new#"$urlprefix"}
+		old=${new%.git}.git
+		new=${new%.git}.git
+		olddir=$fsroot/$old
+		newdir=$fsroot/$new
+		oldurl=$urlprefix${old%.git}
+		newurl=$urlprefix${new%.git}
 		if ! ssh $host "test -d ${olddir@Q}"; then
-			err "Source repository '$oldu' does not exist"
+			err "Source repository '$oldurl' does not exist"
 		elif ssh $host "test -d ${newdir@Q}"; then
-			err "Target repository '$newu' already exists"
+			err "Target repository '$newurl' already exists"
 		else
-			info "Renaming repository '$oldu' => '$newu'"
+			info "Renaming repository '$oldurl' => '$newurl'"
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
 		info "Flushing cgit configuration cache"
@@ -79,6 +88,7 @@ case ${cmd:-help} in
 			url=$(git config remote.origin.url) || exit
 			arg=${url#"$urlprefix"}
 		fi
+		arg=${arg#"$urlprefix"}
 		arg=${arg%.git}.git
 		dir=$fsroot/$arg
 		if [[ $newdesc ]]; then
@@ -101,6 +111,7 @@ case ${cmd:-help} in
 				url=$(git config remote.origin.url) || exit
 				arg=${url#"$urlprefix"}
 			fi
+			arg=${arg#"$urlprefix"}
 			arg=${arg%.git}.git
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
@@ -128,6 +139,7 @@ case ${cmd:-help} in
 				url=$(git config remote.origin.url) || exit
 				arg=${url#"$urlprefix"}
 			fi
+			arg=${arg#"$urlprefix"}
 			arg=${arg%.git}.git
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
@@ -149,6 +161,7 @@ case ${cmd:-help} in
 				url=$(git config remote.origin.url) || exit
 				arg=${url#"$urlprefix"}
 			fi
+			arg=${arg#"$urlprefix"}
 			arg=${arg%.git}.git
 			url="https://git.nullroute.lt/cgit/$arg/"
 			echo "$arg => $url"

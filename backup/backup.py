@@ -17,7 +17,7 @@ def get_host_and_path(repo):
     else:
         return None, repo
 
-def add_user_to_host(repo):
+def add_user_to_host(repo, user):
     if "://" in repo:
         url = urllib.parse.urlparse(repo)
         if "@" not in url.netloc:

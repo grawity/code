@@ -69,7 +69,9 @@ else:
     print(f"starts at <{zone}>")
 
 rtype = dns.rdatatype.from_text(args.type or "ANY").name
-if args.remove and args.data:
+if args.remove and args.add:
+    exit("error: Options '--add' and '--remove' are mutually exclusive")
+elif args.remove and args.data:
     if rtype == "ANY":
         exit("error: Cannot specify data with type 'ANY'")
     rdata = dns.rdata.from_text(IN, rtype, args.data)
@@ -81,6 +83,14 @@ elif args.remove:
     else:
         print(f"Removing all {rtype} records from <{rname}>")
     cmds = [f"del {rname} 0 {rtype}\n"]
+elif args.add and args.data:
+    if rtype == "ANY":
+        exit("error: Cannot create record with type 'ANY'")
+    rdata = dns.rdata.from_text(IN, rtype, args.data)
+    print(f"Adding {rtype} record at <{rname}>")
+    cmds = [f"add {rname} {args.ttl} {rtype} {rdata}\n"]
+elif args.add:
+    exit("error: Record data must be specified")
 elif args.data:
     if rtype == "ANY":
         exit("error: Cannot create record with type 'ANY'")

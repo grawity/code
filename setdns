@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+# setdns -- change DNS records using DNS UPDATE
+import argparse
+import dns.name
+import dns.rdata
+from dns.rdataclass import IN
+import dns.rdatatype
+import dns.resolver
+import subprocess
+
+def lookup_suffix(name):
+    ans = dns.resolver.resolve(name,
+                               search=True,
+                               raise_on_no_answer=False)
+    return ans.qname
+
+def chase_one_cname(name):
+    try:
+        ans = dns.resolver.resolve(name, "CNAME")
+    except dns.resolver.NoAnswer:
+        return name
+    else:
+        return ans.rrset[0].target
+
+def nsupdate(cmds, zone):
+    if zone:
+        zone = dns.name.from_text(zone)
+    else:
+        zone = dns.resolver.zone_for_name(rname)
+    print(f"Updating zone \"{zone}\"")
+
+    if isinstance(rtype, dns.rdatatype.RdataType):
+        rtype = rtype.name
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--add", action="store_true",
+                    help="keep existing records of same type")
+parser.add_argument("-r", "--remove", action="store_true",
+                    help="remove all specified records")
+parser.add_argument("-z", "--zone",
+                    help="override automatically determined DNS zone")
+parser.add_argument("-t", "--ttl", type=int, default=3600,
+                    help="set the TTL for created records")
+parser.add_argument("-x", "--no-gss", action="store_true",
+                    help="disable Kerberos (GSS-TSIG) authentication")
+parser.add_argument("-d", "--debug", action="store_true",
+                    help="enable nsupdate debugging")
+parser.add_argument("name",
+                    help="domain name to update")
+parser.add_argument("type",
+                    help="record type to update")
+parser.add_argument("data", nargs="?",
+                    help="record data")
+args = parser.parse_args()
+
+if "." in args.name:
+    rname = dns.name.from_text(args.name)
+else:
+    print(f"Looking up \"{args.name}\"...", end=" ", flush=True)
+    rname = lookup_suffix(args.name)
+    print(f"canonicalized to <{rname}>")
+
+if args.zone:
+    zone = dns.name.from_text(args.zone)
+else:
+    print(f"Finding zone root...", end=" ", flush=True)
+    zone = dns.resolver.zone_for_name(rname)
+    print(f"starts at <{zone}>")
+
+rtype = dns.rdatatype.from_text(args.type or "ANY").name
+if args.remove and args.data:
+    if rtype == "ANY":
+        exit("error: Cannot specify data with type 'ANY'")
+    rdata = dns.rdata.from_text(IN, rtype, args.data)
+    print(f"Removing {rtype} record from <{rname}>")
+    cmds = [f"del {rname} 0 {rtype} {rdata}\n"]
+elif args.remove:
+    if rtype == "ANY":
+        print(f"Removing all records from <{rname}>")
+    else:
+        print(f"Removing all {rtype} records from <{rname}>")
+    cmds = [f"del {rname} 0 {rtype}\n"]
+elif args.data:
+    if rtype == "ANY":
+        exit("error: Cannot create record with type 'ANY'")
+    rdata = dns.rdata.from_text(IN, rtype, args.data)
+    print(f"Changing {rtype} record at <{rname}>")
+    cmds = [f"del {rname} 0 {rtype}\n",
+            f"add {rname} {args.ttl} {rtype} {rdata}\n"]
+else:
+    exit("error: Either record data or '--remove' must be specified")
+
+# Issue the update
+
+cmds = [f"zone {zone}\n",
+        *cmds,
+        f"send\n"]
+if args.debug:
+    print("\n\t" + "\t".join(cmds))
+
+nsupdate_args = ["nsupdate"]
+if args.debug:
+    nsupdate_args += ["-d"]
+if not args.no_gss:
+    nsupdate_args += ["-g"]
+subprocess.run(nsupdate_args,
+               input="".join(cmds).encode(),
+               check=True)

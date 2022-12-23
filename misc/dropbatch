@@ -33,6 +33,10 @@ else
 	targetdir=~/Dropbox
 fi
 
+if (( wait )); then
+	targetdir=$targetdir/.System/Batch
+fi
+
 if [[ ! $script || $script == "-" ]]; then
 	tmp=$(mktemp /tmp/job.XXXXXXXX.sh)
 	echo '#!/bin/bash' > "$tmp"
@@ -73,9 +77,10 @@ if (( wait )); then
 		time=3; sleep $time
 	fi
 	until [[ -e $dest.done ]]; do
-		printf '\r%ds' $[time++]
+		printf '\rwaiting (%ds)...' $[time++]
 		sleep 1
 	done
+	printf '\n'
 	if [[ -e $dest.log ]]; then
 		log "job finished"
 	else

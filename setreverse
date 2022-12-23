@@ -25,6 +25,40 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
+# dnspython 2.0 in Debian lacks Answer.chaining_result
+def compat_chaining_result_cnames(answer):
+    if hasattr(answer, "chaining_result"):
+        return answer.chaining_result.cnames
+
+    resp = answer.response
+    names = []
+    count = 0
+    qname = answer.qname
+    while count < 16:
+        try:
+            rrset = resp.find_rrset(resp.answer,
+                                    qname,
+                                    resp.question[0].rdclass,
+                                    resp.question[0].rdtype)
+            break
+        except KeyError:
+            if resp.question[0].rdtype != dns.rdatatype.CNAME:
+                try:
+                    rrset = resp.find_rrset(resp.answer,
+                                            qname,
+                                            resp.question[0].rdclass,
+                                            dns.rdatatype.CNAME)
+                    names.append(rrset)
+                    count += 1
+                    for rr in rrset:
+                        qname = rr.target
+                        break
+                except KeyError:
+                    break
+            else:
+                break
+    return names
+
 def lookup_addrs(name, *, allow_cname=False):
     addrs = []
     for rrtype in ["A", "AAAA"]:
@@ -33,7 +67,8 @@ def lookup_addrs(name, *, allow_cname=False):
         except dns.resolver.NoAnswer:
             continue
         addrs += [rr.address for rr in ans.rrset]
-        if cnames := ans.chaining_result.cnames:
+        #if cnames := ans.chaining_result.cnames: # needs v2.1.0+
+        if cnames := compat_chaining_result_cnames(ans):
             print(f"warning: \"{name}\" is an alias to \"{ans.canonical_name}\"",
                   file=sys.stderr)
             if not allow_cname:
@@ -52,7 +87,7 @@ def nsupdate(addr, target, ttl):
     nsupdate_args = ["nsupdate"]
     if args.debug:
         nsupdate_args += ["-d"]
-    if args.gss:
+    if not args.no_gss:
         nsupdate_args += ["-g"]
 
     if args.remove:
@@ -78,8 +113,8 @@ parser.add_argument("-r", "--remove", action="store_true",
                     help="unset rDNS pointers")
 parser.add_argument("-t", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
-parser.add_argument("-g", "--gss", action="store_true",
-                    help="use Kerberos authentication via GSS-TSIG")
+parser.add_argument("-x", "--no-gss", action="store_true",
+                    help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="store_true",
                     help="enable nsupdate debugging")
 parser.add_argument("host", nargs="+",
@@ -89,10 +124,12 @@ args = parser.parse_args()
 failed = False
 
 for host in args.host:
-    print(f"Looking up \"{host}\"...", end=" ", flush=True)
-
-    host = lookup_suffix(host)
-    print(f"Canonicalized to <{host}>")
+    if "." in host:
+        host = dns.name.from_text(host)
+    else:
+        print(f"Looking up \"{host}\"...", end=" ", flush=True)
+        host = lookup_suffix(host)
+        print(f"canonicalized to <{host}>")
 
     addresses = lookup_addrs(host, allow_cname=args.allow_cname)
     print(f"Host <{host}> has addresses:", *sorted(addresses))

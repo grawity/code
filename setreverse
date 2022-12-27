@@ -22,6 +22,8 @@ def chase_one_cname(name):
         ans = dns.resolver.resolve(name, "CNAME")
     except dns.resolver.NoAnswer:
         return name
+    except dns.resolver.NXDOMAIN:
+        return name
     else:
         return ans.rrset[0].target
 
@@ -59,9 +61,13 @@ def compat_chaining_result_cnames(answer):
                 break
     return names
 
-def lookup_addrs(name, *, allow_cname=False):
+def lookup_addrs(name, *, allow_cname=False,
+                          only_a=False,
+                          only_aaaa=False):
     addrs = []
     for rrtype in ["A", "AAAA"]:
+        if (only_a and rrtype != "A") or (only_aaaa and rrtype != "AAAA"):
+            continue
         try:
             ans = dns.resolver.resolve(name, rrtype)
         except dns.resolver.NoAnswer:
@@ -87,7 +93,7 @@ def nsupdate(addr, target, ttl):
     nsupdate_args = ["nsupdate"]
     if args.debug:
         nsupdate_args += ["-d"]
-    if args.gss:
+    if not args.no_gss:
         nsupdate_args += ["-g"]
 
     if args.remove:
@@ -111,15 +117,22 @@ parser.add_argument("--allow-cname", action="store_true",
                     help="allow the hostname to be an alias (a CNAME)")
 parser.add_argument("-r", "--remove", action="store_true",
                     help="unset rDNS pointers")
+parser.add_argument("-4", "--only-v4", action="store_true",
+                    help="only update IPv4 rDNS")
+parser.add_argument("-6", "--only-v6", action="store_true",
+                    help="only update IPv6 rDNS")
 parser.add_argument("-t", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
-parser.add_argument("-g", "--gss", action="store_true",
-                    help="use Kerberos authentication via GSS-TSIG")
+parser.add_argument("-x", "--no-gss", action="store_true",
+                    help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="store_true",
                     help="enable nsupdate debugging")
 parser.add_argument("host", nargs="+",
                     help="domain name to update PTR for")
 args = parser.parse_args()
+
+if args.only_v4 and args.only_v6:
+    exit("error: Options -4 and -6 are mutually exclusive")
 
 failed = False
 
@@ -131,7 +144,9 @@ for host in args.host:
         host = lookup_suffix(host)
         print(f"canonicalized to <{host}>")
 
-    addresses = lookup_addrs(host, allow_cname=args.allow_cname)
+    addresses = lookup_addrs(host, allow_cname=args.allow_cname,
+                                   only_a=args.only_v4,
+                                   only_aaaa=args.only_v6)
     print(f"Host <{host}> has addresses:", *sorted(addresses))
 
     for addr in addresses:

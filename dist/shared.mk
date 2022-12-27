@@ -1,10 +1,9 @@
-comma := ,
-empty :=
-space := $(empty) $(empty)
-
-UNAME := $(shell uname)
-DIST  ?= dist
-OBJ   := $(shell $(DIST)/prepare -o)
+comma	:= ,
+empty	:=
+space	:= $(empty) $(empty)
+UNAME	:= $(shell uname)
+DIST	?= dist
+OBJ	:= $(shell $(DIST)/prepare -o)
 
 # cflags
 
@@ -55,6 +54,7 @@ $(OBJ)/.prepare:
 	$(verbose_hide) $(DIST)/prepare
 	$(verbose_hide) touch $@
 
+# A trick to make every other job depend on $(OBJ)
 -include $(OBJ)/.prepare
 
 clean:

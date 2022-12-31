@@ -8,6 +8,7 @@ import argparse
 import dns.name
 import dns.resolver
 import ipaddress
+import logging
 import sys
 import subprocess
 
@@ -88,7 +89,7 @@ def nsupdate(addr, target, ttl):
     rname = chase_one_cname(rname)
 
     zone = dns.resolver.zone_for_name(rname)
-    print(f"Updating zone <{zone}>")
+    logging.debug(f"Updating zone <{zone}>")
 
     nsupdate_args = ["nsupdate"]
     if args.debug:
@@ -127,9 +128,14 @@ parser.add_argument("-x", "--no-gss", action="store_true",
                     help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="store_true",
                     help="enable nsupdate debugging")
+parser.add_argument("-v", "--verbose", action="store_true",
+                    help="show detailed information")
 parser.add_argument("host", nargs="+",
                     help="domain name to update PTR for")
 args = parser.parse_args()
+
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
 
 if args.only_v4 and args.only_v6:
     exit("error: Options -4 and -6 are mutually exclusive")

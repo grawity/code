@@ -88,18 +88,6 @@ elif args.remove:
     else:
         print(f"Removing all {rtype} records from <{rname}>")
     cmds = [f"del {rname} 0 {rtype}\n"]
-elif args.add and args.data:
-    if args.type:
-        rtype = dns.rdatatype.from_text(args.type).name
-    else:
-        rtype = rtype_for_address(args.data)
-    if rtype == "ANY":
-        exit("error: Cannot create record with type 'ANY'")
-    rdata = dns.rdata.from_text(IN, rtype, args.data)
-    print(f"Adding {rtype} record at <{rname}>")
-    cmds = [f"add {rname} {args.ttl} {rtype} {rdata}\n"]
-elif args.add:
-    exit("error: Record data must be specified")
 elif args.data:
     if args.type:
         rtype = dns.rdatatype.from_text(args.type).name
@@ -108,11 +96,18 @@ elif args.data:
     if rtype == "ANY":
         exit("error: Cannot create record with type 'ANY'")
     rdata = dns.rdata.from_text(IN, rtype, args.data)
-    print(f"Changing {rtype} record at <{rname}>")
-    cmds = [f"del {rname} 0 {rtype}\n",
-            f"add {rname} {args.ttl} {rtype} {rdata}\n"]
+    if args.add:
+        print(f"Adding {rtype} record at <{rname}>")
+        cmds = [f"add {rname} {args.ttl} {rtype} {rdata}\n"]
+    else:
+        print(f"Changing {rtype} record at <{rname}>")
+        cmds = [f"del {rname} 0 {rtype}\n",
+                f"add {rname} {args.ttl} {rtype} {rdata}\n"]
 else:
-    exit("error: Either record data or '--remove' must be specified")
+    if args.add:
+        exit("error: Record data must be specified")
+    else:
+        exit("error: Either record data or '--remove' must be specified")
 
 # Issue the update
 

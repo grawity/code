@@ -10,10 +10,10 @@ case ${0##*/} in
 esac
 
 fqdn="bmc.$host.nullroute.lt"
-user=$(getnetrc -sdf %u "ipmi/$fqdn")
-pass=$(getnetrc -sdf %p "ipmi/$fqdn")
-priv=$(getnetrc -sdf %a "ipmi/$fqdn")
-k_g=$(getnetrc -sdf %p "rmcp/$fqdn")
+user=$(getnetrc -sdf %u "ipmi/$fqdn" || getnetrc -sdf %u "ipmi/*")
+pass=$(getnetrc -sdf %p "ipmi/$fqdn" || getnetrc -sdf %p "ipmi/*")
+priv=$(getnetrc -sdf %a "ipmi/$fqdn" || getnetrc -sdf %a "ipmi/*")
+k_g=$(getnetrc -sdf %p "rmcp/$fqdn" || getnetrc -sdf %p "rmcp/*")
 
 if [[ ! $user || ! $pass ]]; then
 	die "credentials for 'ipmi/$fqdn' not found in ~/.netrc"

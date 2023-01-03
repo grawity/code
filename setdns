@@ -32,6 +32,23 @@ def rtype_for_address(rdata):
         return "AAAA"
     raise ValueError
 
+def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
+    cmds = [f"zone {zone}\n",
+            *cmds,
+            f"send\n"]
+    if debug:
+        print("\n\t" + "\t".join(cmds))
+
+    nsupdate_args = ["nsupdate"]
+    if debug:
+        nsupdate_args += ["-d"]
+    if not no_gss:
+        nsupdate_args += ["-g"]
+
+    subprocess.run(nsupdate_args,
+                   input="".join(cmds).encode(),
+                   check=True)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--add", action="store_true",
                     help="keep existing records of same type")
@@ -109,19 +126,4 @@ else:
     else:
         exit("error: Either record data or '--remove' must be specified")
 
-# Issue the update
-
-cmds = [f"zone {zone}\n",
-        *cmds,
-        f"send\n"]
-if args.debug:
-    print("\n\t" + "\t".join(cmds))
-
-nsupdate_args = ["nsupdate"]
-if args.debug:
-    nsupdate_args += ["-d"]
-if not args.no_gss:
-    nsupdate_args += ["-g"]
-subprocess.run(nsupdate_args,
-               input="".join(cmds).encode(),
-               check=True)
+send_nsupdate(zone, cmds, debug=args.debug, no_gss=args.no_gss)

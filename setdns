@@ -6,6 +6,7 @@ import dns.rdata
 from dns.rdataclass import IN
 import dns.rdatatype
 import dns.resolver
+import ipaddress
 import logging
 import subprocess
 
@@ -23,6 +24,14 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
+def rtype_for_address(rdata):
+    addr = ipaddress.ip_address(rdata)
+    if addr.version == 4:
+        return "A"
+    if addr.version == 6:
+        return "AAAA"
+    raise ValueError
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--add", action="store_true",
                     help="keep existing records of same type")
@@ -30,7 +39,9 @@ parser.add_argument("-r", "--remove", action="store_true",
                     help="remove all specified records")
 parser.add_argument("-z", "--zone",
                     help="override automatically determined DNS zone")
-parser.add_argument("-t", "--ttl", type=int, default=3600,
+parser.add_argument("-t", "--type",
+                    help="manage records of the specified type")
+parser.add_argument("-l", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
 parser.add_argument("-x", "--no-gss", action="store_true",
                     help="disable Kerberos (GSS-TSIG) authentication")
@@ -40,8 +51,6 @@ parser.add_argument("-v", "--verbose", action="store_true",
                     help="show detailed information")
 parser.add_argument("name",
                     help="domain name to update")
-parser.add_argument("type",
-                    help="record type to update")
 parser.add_argument("data", nargs="?",
                     help="record data")
 args = parser.parse_args()
@@ -63,22 +72,27 @@ else:
     zone = dns.resolver.zone_for_name(rname)
     print(f"starts at <{zone}>")
 
-rtype = dns.rdatatype.from_text(args.type or "ANY").name
 if args.remove and args.add:
     exit("error: Options '--add' and '--remove' are mutually exclusive")
 elif args.remove and args.data:
+    rtype = dns.rdatatype.from_text(args.type or "ANY").name
     if rtype == "ANY":
         exit("error: Cannot specify data with type 'ANY'")
     rdata = dns.rdata.from_text(IN, rtype, args.data)
     print(f"Removing {rtype} record from <{rname}>")
     cmds = [f"del {rname} 0 {rtype} {rdata}\n"]
 elif args.remove:
+    rtype = dns.rdatatype.from_text(args.type or "ANY").name
     if rtype == "ANY":
         print(f"Removing all records from <{rname}>")
     else:
         print(f"Removing all {rtype} records from <{rname}>")
     cmds = [f"del {rname} 0 {rtype}\n"]
 elif args.add and args.data:
+    if args.type:
+        rtype = dns.rdatatype.from_text(args.type).name
+    else:
+        rtype = rtype_for_address(args.data)
     if rtype == "ANY":
         exit("error: Cannot create record with type 'ANY'")
     rdata = dns.rdata.from_text(IN, rtype, args.data)
@@ -87,6 +101,10 @@ elif args.add and args.data:
 elif args.add:
     exit("error: Record data must be specified")
 elif args.data:
+    if args.type:
+        rtype = dns.rdatatype.from_text(args.type).name
+    else:
+        rtype = rtype_for_address(args.data)
     if rtype == "ANY":
         exit("error: Cannot create record with type 'ANY'")
     rdata = dns.rdata.from_text(IN, rtype, args.data)

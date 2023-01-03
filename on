@@ -22,8 +22,8 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: on <host> [-KNSnv] [-d <path>] [<command>]"
-	echo "       @ <host> [-KNSnv] [-d <path>] [<command>]"
+	echo "Usage: on <host> [-DKNSnv] [-d <path>] [<command>]"
+	echo "       @ <host> [-DKNSnv] [-d <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
@@ -31,6 +31,7 @@ usage() {
 	echo
 	echo_opt "-N"		"access remote current directory (default for '@')"
 	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
+	echo_opt "-D"		"access remote home directory (usually equal to '-d.')"
 	echo_opt "-d <path>"	"access specified remote directory ('-d.' is home directory)"
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
@@ -38,7 +39,7 @@ usage() {
 	echo
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
-	echo_opt "<host>"	"like 'on -d. <host>'"
+	echo_opt "<host>"	"like 'on -D <host>' or 'on -d. <host>'"
 	echo_opt "@<host>"	"like 'on -N <host>' or '@ <host>'"
 }
 
@@ -66,8 +67,9 @@ else
 	host=""
 fi
 
-while getopts ":d:KNnSv" OPT; do
+while getopts ":Dd:KNnSv" OPT; do
 	case $OPT in
+	D) nfs=0; wd=".";;
 	d) nfs=0; wd=$OPTARG;;
 	K) Kflag="-K -Snone";;
 	N) nfs=0;;

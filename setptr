@@ -17,34 +17,18 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
-def nsupdate(addr, target, ttl, *, zone=None):
-    rname = dns.name.from_text(addr.reverse_pointer)
-
-    if zone:
-        zone = dns.name.from_text(zone)
-    else:
-        # Detect IPv4 classless delegations
-        rname = chase_one_cname(rname)
-        zone = dns.resolver.zone_for_name(rname)
-    logging.debug(f"Updating zone \"{zone}\"")
+def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
+    cmds = [f"zone {zone}\n",
+            *cmds,
+            f"send\n"]
+    if debug:
+        print("\n\t" + "\t".join(cmds))
 
     nsupdate_args = ["nsupdate"]
-    if args.debug:
+    if debug:
         nsupdate_args += ["-d"]
-    if not args.no_gss:
+    if not no_gss:
         nsupdate_args += ["-g"]
-
-    if str(target) == ".":
-        print(f"Removing PTR for [{addr}]")
-        cmds = [f"zone {zone}\n",
-                f"del {rname} {ttl} PTR\n",
-                f"send\n"]
-    else:
-        print(f"Changing PTR for [{addr}] to \"{target}\"")
-        cmds = [f"zone {zone}\n",
-                f"del {rname} {ttl} PTR\n",
-                f"add {rname} {ttl} PTR {target}\n",
-                f"send\n"]
 
     subprocess.run(nsupdate_args,
                    input="".join(cmds).encode(),
@@ -71,6 +55,24 @@ logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
 addr = ipaddress.ip_address(args.address)
+rname = dns.name.from_text(addr.reverse_pointer)
 target = dns.name.from_text(args.target)
 
-nsupdate(addr, target, args.ttl, zone=args.zone)
+if args.zone:
+    zone = dns.name.from_text(args.zone)
+else:
+    # Detect IPv4 classless delegations
+    rname = chase_one_cname(rname)
+    zone = dns.resolver.zone_for_name(rname)
+
+logging.debug(f"Updating zone \"{zone}\"")
+
+if str(target) == ".":
+    print(f"Removing PTR for [{addr}]")
+    cmds = [f"del {rname} {args.ttl} PTR\n"]
+else:
+    print(f"Changing PTR for [{addr}] to \"{target}\"")
+    cmds = [f"del {rname} {args.ttl} PTR\n",
+            f"add {rname} {args.ttl} PTR {target}\n"]
+
+send_nsupdate(zone, cmds, debug=args.debug, no_gss=args.no_gss)

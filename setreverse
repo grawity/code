@@ -78,32 +78,18 @@ def lookup_addrs(name, *, allow_cname=False,
                 exit("error: Refusing to point rDNS to an alias; use --allow-cname if needed")
     return addrs
 
-def nsupdate(addr, target, ttl):
-    rname = dns.name.from_text(addr.reverse_pointer)
-
-    # Detect IPv4 classless delegation, as well as other uses of CNAME.
-    rname = chase_one_cname(rname)
-
-    zone = dns.resolver.zone_for_name(rname)
-    logging.debug(f"Updating zone <{zone}>")
+def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
+    cmds = [f"zone {zone}\n",
+            *cmds,
+            f"send\n"]
+    if debug:
+        print("\n\t" + "\t".join(cmds))
 
     nsupdate_args = ["nsupdate"]
-    if args.debug:
+    if debug:
         nsupdate_args += ["-d"]
-    if not args.no_gss:
+    if not no_gss:
         nsupdate_args += ["-g"]
-
-    if args.remove:
-        print(f"Removing PTR for [{addr}]")
-        cmds = [f"zone {zone}\n",
-                f"del {rname} {ttl} PTR\n",
-                f"send\n"]
-    else:
-        print(f"Changing PTR for [{addr}] to \"{host}\"")
-        cmds = [f"zone {zone}\n",
-                f"del {rname} {ttl} PTR\n",
-                f"add {rname} {ttl} PTR {host}\n",
-                f"send\n"]
 
     subprocess.run(nsupdate_args,
                    input="".join(cmds).encode(),
@@ -153,11 +139,24 @@ for host in args.host:
 
     for addr in addresses:
         addr = ipaddress.ip_address(addr)
+        rname = dns.name.from_text(addr.reverse_pointer)
+
+        # Detect IPv4 classless delegation, as well as other uses of CNAME.
+        rname = chase_one_cname(rname)
+
+        zone = dns.resolver.zone_for_name(rname)
+        logging.debug(f"Updating zone <{zone}>")
+
+        if args.remove:
+            print(f"Removing PTR for [{addr}]")
+            cmds = [f"del {rname} {args.ttl} PTR\n"]
+        else:
+            print(f"Changing PTR for [{addr}] to \"{host}\"")
+            cmds = [f"del {rname} {args.ttl} PTR\n",
+                    f"add {rname} {args.ttl} PTR {host}\n"]
+
         try:
-            if args.remove:
-                nsupdate(addr, ".", args.ttl)
-            else:
-                nsupdate(addr, host, args.ttl)
+            send_nsupdate(zone, cmds, debug=args.debug, no_gss=args.no_gss)
         except subprocess.CalledProcessError as e:
             print("error: %s" % e, file=sys.stderr)
             failed = True

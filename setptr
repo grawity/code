@@ -17,7 +17,7 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
-def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
+def send_nsupdate(zone, cmds, *, debug=False, gssapi=True):
     cmds = [f"zone {zone}\n",
             *cmds,
             f"send\n"]
@@ -27,7 +27,7 @@ def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
     nsupdate_args = ["nsupdate"]
     if debug:
         nsupdate_args += ["-d"]
-    if not no_gss:
+    if gssapi:
         nsupdate_args += ["-g"]
 
     subprocess.run(nsupdate_args,
@@ -75,4 +75,5 @@ else:
     cmds = [f"del {rname} {args.ttl} PTR\n",
             f"add {rname} {args.ttl} PTR {target}\n"]
 
-send_nsupdate(zone, cmds, debug=args.debug, no_gss=args.no_gss)
+send_nsupdate(zone, cmds, debug=args.debug,
+                          gssapi=not args.no_gss)

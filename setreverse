@@ -78,7 +78,7 @@ def lookup_addrs(name, *, allow_cname=False,
                 exit("error: Refusing to point rDNS to an alias; use --allow-cname if needed")
     return addrs
 
-def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
+def send_nsupdate(zone, cmds, *, debug=False, gssapi=True):
     cmds = [f"zone {zone}\n",
             *cmds,
             f"send\n"]
@@ -88,7 +88,7 @@ def send_nsupdate(zone, cmds, *, debug=False, no_gss=False):
     nsupdate_args = ["nsupdate"]
     if debug:
         nsupdate_args += ["-d"]
-    if not no_gss:
+    if gssapi:
         nsupdate_args += ["-g"]
 
     subprocess.run(nsupdate_args,
@@ -156,7 +156,8 @@ for host in args.host:
                     f"add {rname} {args.ttl} PTR {host}\n"]
 
         try:
-            send_nsupdate(zone, cmds, debug=args.debug, no_gss=args.no_gss)
+            send_nsupdate(zone, cmds, debug=args.debug,
+                                      gssapi=not args.no_gss)
         except subprocess.CalledProcessError as e:
             print("error: %s" % e, file=sys.stderr)
             failed = True

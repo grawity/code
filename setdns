@@ -6,6 +6,7 @@ import dns.rdata
 from dns.rdataclass import IN
 import dns.rdatatype
 import dns.resolver
+import logging
 import subprocess
 
 def lookup_suffix(name):
@@ -35,6 +36,8 @@ parser.add_argument("-x", "--no-gss", action="store_true",
                     help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="store_true",
                     help="enable nsupdate debugging")
+parser.add_argument("-v", "--verbose", action="store_true",
+                    help="show detailed information")
 parser.add_argument("name",
                     help="domain name to update")
 parser.add_argument("type",
@@ -42,6 +45,9 @@ parser.add_argument("type",
 parser.add_argument("data", nargs="?",
                     help="record data")
 args = parser.parse_args()
+
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
 
 if "." in args.name:
     rname = dns.name.from_text(args.name)

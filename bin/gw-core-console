@@ -49,16 +49,16 @@ teardown_vlan() {
 }
 
 if [[ $HOSTNAME == @(ember|wind) ]]; then
-	echo "[40;92mDirect IPMI access.[m"
-elif [[ $HOSTNAME == @(star|land) ]]; then
-	echo "[40;93mNo direct access.[m Connect to ember/wind via gw-b56."
-	exit 3
+	echo "[40;92mDirect access through VLAN.[m"
+	trap teardown_vlan SIGINT
+	setup_vlan
+	attach_console
+	teardown_vlan
+elif [[ $1 == -f ]]; then
+	echo "[40;93mIndirect access through network.[m"
+	attach_console
 else
-	echo "[40;91mNo access from this system.[m Connect to star/land first."
+	echo "[40;91mNo access from this system.[m"
+	echo "Connect to [1member.sym[m or [1mwind.sym[m, or add a VLAN on EmberGW."
 	exit 3
 fi
-
-trap teardown_vlan SIGINT
-setup_vlan
-attach_console
-teardown_vlan

@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+# sethost -- create DNS A/AAAA records for a hostname using DNS update
+import argparse
+import dns.name
+import dns.resolver
+import ipaddress
+import logging
+import sys
+import subprocess
+
+def lookup_suffix(name):
+    ans = dns.resolver.resolve(name,
+                               search=True,
+                               raise_on_no_answer=False)
+    return ans.qname
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--add", action="store_true",
+                    help="keep existing address records")
+parser.add_argument("-r", "--remove", action="store_true",
+                    help="remove specified address records")
+parser.add_argument("-z", "--zone",
+                    help="override automatically determined rDNS zone")
+parser.add_argument("-t", "--ttl", type=int, default=3600,
+                    help="set the TTL for created records")
+parser.add_argument("-x", "--no-gss", action="store_true",
+                    help="disable Kerberos (GSS-TSIG) authentication")
+parser.add_argument("-d", "--debug", action="store_true",
+                    help="enable nsupdate debugging")
+parser.add_argument("-v", "--verbose", action="store_true",
+                    help="show detailed information")
+parser.add_argument("host",
+                    help="host name to update")
+parser.add_argument("address", nargs="*",
+                    help="IP address of the host")
+args = parser.parse_args()
+
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
+
+if "." in args.host:
+    rname = dns.name.from_text(args.host)
+else:
+    print(f"Looking up \"{args.host}\"...", end=" ", flush=True)
+    rname = lookup_suffix(args.host)
+    print(f"canonicalized to <{rname}>")
+
+if args.zone:
+    zone = dns.name.from_text(args.zone)
+else:
+    print(f"Finding zone root...", end=" ", flush=True)
+    zone = dns.resolver.zone_for_name(rname)
+    print(f"starts at <{zone}>")
+
+addresses = [ipaddress.ip_address(arg) for arg in args.address]
+
+print(f"Changing addresses of <{rname}> to: {addresses}")
+
+cmds = [f"del {rname} 0 A\n",
+        f"del {rname} 0 AAAA\n"]
+
+for addr in addresses:
+    if addr.version == 4:
+        rtype = "A"
+    elif addr.version == 6:
+        rtype = "AAAA"
+    cmds += [f"add {rname} {args.ttl} {rtype} {addr}\n"]
+
+print(*cmds, sep="")

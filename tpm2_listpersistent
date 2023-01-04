@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+from pprint import pprint
+import yaml
+import subprocess
+
+PCRFirst            = 0x00000000
+HMACSessionFirst    = 0x02000000
+LoadedSessionFirst  = 0x02000000
+PolicySessionFirst  = 0x03000000
+ActiveSessionFirst  = 0x03000000
+TransientFirst      = 0x80000000
+PersistentFirst     = 0x81000000
+PersistentLast      = 0x81FFFFFF
+PlatformPersistent  = 0x81800000
+NVIndexFirst        = 0x01000000
+NVIndexLast         = 0x01FFFFFF
+PermanentFirst      = 0x40000000
+PermanentLast       = 0x4000010F
+
+def yrun(*cmd):
+    res = subprocess.run(cmd, stdout=subprocess.PIPE,
+                              check=True)
+    return yaml.safe_load(res.stdout)
+
+# https://trustedcomputinggroup.org/wp-content/uploads/RegistryOfReservedTPM2HandlesAndLocalities_v1p1_pub.pdf
+hnames = {
+	# NV indices
+	0x01C00002: "EK Certificate (RSA) (TPM TCG)",
+	0x01C0000A: "EK Certificate (EC) (TPM TCG)",
+	0x01C90000: "IDevID Certificate (TPM TCG)",
+	# Object handles
+	0x81000001: "Storage Root Key (Microsoft, TPM TCG)",
+	0x81000002: "Not sure what (Microsoft)",
+	0x81010001: "Endorsement Key (RSA) (Microsoft, TPM TCG)",
+	0x81020000: "IDevID Key (TPM TCG)",
+}
+
+handles = yrun("tpm2_getcap", "handles-persistent")
+for handle in handles:
+    hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
+    if handle >= PlatformPersistent:
+        hdesc = hdesc or "(platform persistent)"
+    print("\033[32mObject \033[1m0x%08x:\033[m %s" % (handle, hdesc))
+    info = yrun("tpm2_readpublic", "-c", hex(handle))
+    #pprint(info)
+    print("\tAttributes:", info["attributes"]["value"])
+    print("\tType:", info["type"]["value"])
+    if info["curve-id"]["value"]:
+        print("\tCurve:", info["curve-id"]["value"])
+    if info["sym-alg"]["value"]:
+        print("\tSym alg:", info["sym-alg"]["value"],
+                            info["sym-keybits"],
+                            info["sym-mode"]["value"])
+    if info["scheme"]["value"]:
+        print("\tSig alg:", info["scheme"]["value"],
+                            info["scheme-halg"]["value"])
+    if info["kdfa-alg"]["value"]:
+        print("\tKDF alg:", info["kdfa-alg"]["value"],
+                            info["kdfa-halg"]["value"])
+    print()
+
+
+handles = yrun("tpm2_getcap", "handles-nv-index")
+for handle in handles:
+    hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
+    print("\033[36mNV index \033[1m0x%08x:\033[m %s" % (handle, hdesc))
+    info = yrun("tpm2_nvreadpublic", hex(handle))
+    info = info[handle]
+    #pprint(info)
+    print("\tAttributes:", info["attributes"]["friendly"])
+    print("\tPolicy:", info.get("authorization policy"))
+    print()

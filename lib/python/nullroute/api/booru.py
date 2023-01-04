@@ -158,6 +158,8 @@ class DanbooruApi(BooruApi):
         else:
             Core.debug("Danbooru API key for %r found", creds["login"])
             self.ua.auth = HTTPBasicAuth(creds["login"], creds["password"])
+            # 2023-01-02: Default Requests UA causes a 403.
+            self.ua.headers["user-agent"] = "curl/7.87.0"
 
     def find_posts(self, tags, page=1, limit=100):
         ep = "/posts.xml"

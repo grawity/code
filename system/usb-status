@@ -2,7 +2,7 @@
 # usb-status -- display USB power management status on Linux
 
 {
-printf "%s\t%s\t%s\t%s\t%s\n" "ID" "DEVICE" "AUTO" "RUNTIME" "STATUS"
+printf "%s\t%s\t%s\t%s\t%s\n" "ID" "DEVICE" "AUTO" "STATUS" "LEVEL"
 for dev in /sys/bus/usb/devices/*; do
 	if ! test -e $dev/power/autosuspend; then
 		continue
@@ -32,10 +32,10 @@ for dev in /sys/bus/usb/devices/*; do
 
 	autosusp=$(< $dev/power/autosuspend)
 	rstat=$(< $dev/power/runtime_status)
-	renab=$(< $dev/power/runtime_enabled)
+	level=$(< $dev/power/level)
 
 	manu=${manu//"$(uname -sr)"/"$(uname -s)"}
 
-	printf "%s\t%s\t%s\t%s\t%s\n" "${dev##*/}" "$manu $prod" "$autosusp" "${renab:0:10}" "${rstat:0:10}"
+	printf "%s\t%s\t%s\t%s\t%s\n" "${dev##*/}" "$manu $prod" "$autosusp" "${rstat:0:10}" "$level"
 done
 } | column -t -s $'\t'

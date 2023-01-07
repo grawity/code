@@ -4,20 +4,23 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-H HOSTS] [-S] <command>"
+	echo "Usage: $progname [-C path] [-H hosts] [-S] <command>"
 	echo
 	echo "Run a command simultaneously on all hosts."
 	echo
-	echo_opt "-H HOSTS"	"list of hosts to connect to"
+	echo_opt "-C path"	"working directory"
+	echo_opt "-H hosts"	"list of hosts to connect to"
 	echo_opt "-S"		"connect as superuser (root)"
 }
 
+cwd=.
 hosts=
 user=
 wait=0
 
-while getopts ":H:SW" OPT; do
+while getopts ":C:H:SW" OPT; do
 	case $OPT in
+	C) cwd=$OPTARG;;
 	H) hosts=${OPTARG//,/ };;
 	S) user="root@";;
 	W) wait=1;;
@@ -37,7 +40,7 @@ fi
 
 # Make sure to show return code on failure. (XXX: This could probably also be
 # done locally, as ssh propagates the exit status.)
-cmd="(${cmd:-:}) 2>&1 || echo '=> '\$?"
+cmd="(cd ${cwd@Q} && ${cmd:-:}) 2>&1 || echo '=> '\$?"
 
 for host in $hosts; do
 	(

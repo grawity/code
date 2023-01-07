@@ -67,6 +67,7 @@ addargs=()
 nproc=$(nproc)
 njobs=0
 ndone=0
+r=0
 
 while getopts ":B:d:fj:L:q:s:O:T" OPT; do
 	case $OPT in
@@ -182,7 +183,7 @@ if (( !force )); then
 	done
 	if (( ${#outlarger[@]} )); then
 		rm -f "${outlarger[@]}"
-		notice "${#outlarger[@]} files were larger than originals; deleted."
+		warn "${#outlarger[@]} files were larger than originals; deleted."; ((++r))
 		outfiles=("${outsmaller[@]}")
 	fi
 fi
@@ -223,3 +224,5 @@ if true; then
 		if (( i++ > 15 )); then break; fi
 	done
 fi
+
+exit $r

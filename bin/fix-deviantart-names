@@ -19,10 +19,7 @@ class ForeignFilenameError(ValueError):
     pass
 
 class DeviantArtScraper(Scraper):
-    member_name_map = {
-        "axcy": "vhm-alex",
-        "pearlpencil": "Lilaccu"
-    }
+    member_name_map = {}
 
     def should_force_update(self, filename):
         if "_by_" in filename:
@@ -191,7 +188,8 @@ def rename_file_in_dir(old_dir, old_name, args, foreign_warn=True):
 
     # apply the new name
 
-    info["author_name"] = da.member_name_map.get(info["author_name"].lower(), info["author_name"])
+    info["author_name"] = da.member_name_map.get(info["author_name"].lower(),
+                                                 info["author_name"])
 
     info["_favid"] = favid
     info["_title"] = filter_title(info["title"], strict=(not args.inverse))
@@ -239,6 +237,11 @@ if sum(map(int, [args.inverse, args.no_title])) > 1:
     Core.die("mutually exclusive options specified")
 
 da = DeviantArtScraper()
+
+with open(os.path.expanduser("~/.config/nullroute.eu.org/synced/deviantart_aliases.txt")) as fh:
+    for line in fh:
+        if m := re.match(r"^(\S+) -> (.+)$", line.strip()):
+            da.member_name_map[m.group(1).lower()] = m.group(2)
 
 for arg in args.path or ["."]:
     if os.path.isdir(arg):

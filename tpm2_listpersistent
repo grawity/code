@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 from pprint import pprint
 import yaml
 import subprocess
@@ -35,38 +36,46 @@ hnames = {
 	0x81020000: "IDevID Key (TPM TCG)",
 }
 
-handles = yrun("tpm2_getcap", "handles-persistent")
-for handle in handles:
-    hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
-    if handle >= PlatformPersistent:
-        hdesc = hdesc or "(platform persistent)"
-    print("\033[32mObject \033[1m0x%08x:\033[m %s" % (handle, hdesc))
-    info = yrun("tpm2_readpublic", "-c", hex(handle))
-    #pprint(info)
-    print("\tAttributes:", info["attributes"]["value"])
-    print("\tType:", info["type"]["value"])
-    if info.get("sym-alg") and info["sym-alg"]["value"]:
-        print("\tSym alg:", info["sym-alg"]["value"],
-                            info["sym-keybits"],
-                            info["sym-mode"]["value"])
-    if info.get("scheme") and info["scheme"]["value"]:
-        print("\tSig alg:", info["scheme"]["value"],
-                            info["scheme-halg"]["value"])
-    if info.get("curve-id") and info["curve-id"]["value"]:
-        print("\tCurve:", info["curve-id"]["value"])
-    if info.get("kdfa-alg") and info["kdfa-alg"]["value"]:
-        print("\tKDF alg:", info["kdfa-alg"]["value"],
-                            info["kdfa-halg"]["value"])
-    print()
+parser = argparse.ArgumentParser()
+parser.add_argument("-N", "--nv", action="store_true",
+                    help="show NV indices")
+args = parser.parse_args()
 
+if not args.nv:
+    handles = yrun("tpm2_getcap", "handles-persistent")
+    for i, handle in enumerate(handles):
+        if i:
+            print()
+        hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
+        if handle >= PlatformPersistent:
+            hdesc = hdesc or "(platform persistent)"
+        print("\033[32mObject \033[1m0x%08x:\033[m %s" % (handle, hdesc))
+        info = yrun("tpm2_readpublic", "-c", hex(handle))
+        #pprint(info)
+        print("\tAttributes:", info["attributes"]["value"])
+        print("\tType:", info["type"]["value"])
+        if info.get("sym-alg") and info["sym-alg"]["value"]:
+            print("\tSym alg:", info["sym-alg"]["value"],
+                                info["sym-keybits"],
+                                info["sym-mode"]["value"])
+        if info.get("scheme") and info["scheme"]["value"]:
+            print("\tSig alg:", info["scheme"]["value"],
+                                info["scheme-halg"]["value"])
+        if info.get("curve-id") and info["curve-id"]["value"]:
+            print("\tCurve:", info["curve-id"]["value"])
+        if info.get("kdfa-alg") and info["kdfa-alg"]["value"]:
+            print("\tKDF alg:", info["kdfa-alg"]["value"],
+                                info["kdfa-halg"]["value"])
 
-handles = yrun("tpm2_getcap", "handles-nv-index")
-for handle in handles:
-    hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
-    print("\033[36mNV index \033[1m0x%08x:\033[m %s" % (handle, hdesc))
-    info = yrun("tpm2_nvreadpublic", hex(handle))
-    info = info[handle]
-    #pprint(info)
-    print("\tAttributes:", info["attributes"]["friendly"])
-    print("\tPolicy:", info.get("authorization policy"))
-    print()
+if args.nv:
+    handles = yrun("tpm2_getcap", "handles-nv-index")
+    for i, handle in enumerate(handles):
+        if i:
+            print()
+        hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
+        print("\033[36mNV index \033[1m0x%08x:\033[m %s" % (handle, hdesc))
+        info = yrun("tpm2_nvreadpublic", hex(handle))
+        info = info[handle]
+        #pprint(info)
+        print("\tAttributes:", info["attributes"]["friendly"])
+        print("\tPolicy:", info.get("authorization policy"))

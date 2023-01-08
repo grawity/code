@@ -10,10 +10,22 @@ case ${0##*/} in
 		host=${1?missing hostname}; shift;;
 esac
 
-verbose=0
+usage() {
+	echo "Usage: $progname <host> [-p] [-P <state>] [-v]"
+	echo
+	echo_opt "-p"		"show system power status"
+	echo_opt "-P state"	"switch system power on/off/reset/cycle"
+	echo_opt "-v"		"be verbose"
+}
 
-while getopts ":v" OPT; do
+verbose=0
+opt_gpower=0
+opt_spower=""
+
+while getopts ":P:pv" OPT; do
 	case $OPT in
+	P) opt_spower=$OPTARG;;
+	p) opt_gpower=1;;
 	v) verbose=1;;
 	*) lib::die_getopts;;
 	esac
@@ -61,14 +73,16 @@ else
 	die "no IPMI client tools installed"
 fi
 
-if [[ $1 == --@(power|power-status) || $1 == -p ]]; then
+if (( opt_gpower )); then
 	echo "[Connecting to '$bhost']"
 	bmc_get_power
-elif [[ $1 == --power-@(on|off|cycle|reset) ]]; then
-	cmd=${1#--power-}
-	confirm "Send 'power $cmd' command to '$bhost'?" || exit
+elif [[ $opt_spower ]]; then
+	if [[ $opt_spower != @(on|off|cycle|reset) ]]; then
+		die "Unknown power command '$opt_spower'"
+	fi
+	confirm "Send 'power $opt_spower' command to '$bhost'?" || exit
 	echo "[Connecting to '$bhost']"
-	bmc_set_power "$cmd"
+	bmc_set_power "$opt_spower"
 elif [[ ! $1 ]]; then
 	echo "[Connecting to '$bhost' ... escape sequence is '&.']"
 	bmc_console

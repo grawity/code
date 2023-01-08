@@ -36,12 +36,27 @@ def get_token_sspi(service_name):
 
     return buffers[0].Buffer
 
+def get_token_pyspnego(service_name):
+    import spnego
+
+    service, _, hostname = service_name.partition("@")
+
+    context = spnego.client(hostname=hostname,
+                            service=service,
+                            protocol="kerberos")
+
+    return context.step(None)
+
 parser = argparse.ArgumentParser()
+parser.add_argument("-s", "--spnego", action="store_true",
+                    help="Use PySPNEGO")
 parser.add_argument("service_name",
                     help="Target GSS name (service@host)")
 args = parser.parse_args()
 
-if sys.platform == "win32":
+if args.spnego:
+    out_token = get_token_pyspnego(args.service_name)
+elif sys.platform == "win32":
     try:
         out_token = get_token_sspi(args.service_name)
     except ModuleNotFoundError:

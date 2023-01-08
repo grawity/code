@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
+# vim (wrapper) -- fix typos
 
 if [[ ! $_DYM && -t 1 ]]; then
+	# Detect when I type 'vim foo bar' instead of 'mv foo bar'
 	if [[ $# -eq 2 && $2 != [+/]* && -f $1 && ! -f $2 ]]; then
-		read -n 1 -p "Did you mean 'mv' again? " REPLY
+		read -n 1 -p "Did you mean 'mv' again? " REPLY; echo
 		if [[ $REPLY == y ]]; then
-			echo "eah, I suck"
 			echo "mv \"$1\" \"$2\""
 			mv -v "$@"
 			exit
-		else
-			echo ""
 		fi
+	# Detect when I tab-complete 'vim pkg' instead of 'vim PKGBUILD'
 	elif [[ " $* " == *\ pkg\ * || " $* " == */pkg\ * ]]; then
 		args=()
 		for arg; do
 			if [[ -d $arg ]]; then
 				fix=${arg/%pkg/PKGBUILD}
-				read -n 1 -p "Did you mean '$fix'? " REPLY
+				read -n 1 -p "Did you mean '$fix'? " REPLY; echo
 				if [[ $REPLY == y ]]; then
 					arg=$fix
 				fi
-				echo ""
 			fi
 			args+=("$arg")
 		done

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# hi -- show recent IRC highlights
 import argparse
 from nullroute.core import Env
 import os

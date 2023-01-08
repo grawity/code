@@ -10,6 +10,15 @@ case ${0##*/} in
 		host=${1?missing hostname}; shift;;
 esac
 
+verbose=0
+
+while getopts ":v" OPT; do
+	case $OPT in
+	v) verbose=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 case $host in
 	*.*)	bhost=$host;;
 	*)	bhost="bmc.$host.nullroute.lt";;
@@ -26,6 +35,10 @@ fi
 if [[ ! $priv ]]; then
 	# Guess privilege level from username (e.g. Operator => priv OPERATOR)
 	priv=${user^^}
+fi
+
+if ((verbose)); then
+	echo "Connecting to '$bhost' as '$user' level '$priv'" >&2
 fi
 
 # New ipmitool defaults to ciphersuite 17 (AES-CBC-128 with HMAC-SHA256), which

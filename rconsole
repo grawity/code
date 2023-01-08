@@ -10,28 +10,27 @@ case ${0##*/} in
 		host=${1?missing hostname}; shift;;
 esac
 
-fqdn="bmc.$host.nullroute.lt"
-creds=$(getnetrc -sdf %a:%u:%p "ipmi/$fqdn" ||
+bhost="bmc.$host.nullroute.lt"
+
+creds=$(getnetrc -sdf %a:%u:%p "ipmi/$bhost" ||
         getnetrc -sdf %a:%u:%p "ipmi/*")
 priv=${creds%%:*}; creds=${creds#*:}
 user=${creds%%:*}; creds=${creds#*:}
 pass=$creds
-k_g=$(getnetrc -sdf %p "rmcp/$fqdn" ||
+if [[ ! $user || ! $pass ]]; then
+	die "Credentials for 'ipmi/$bhost' not found in ~/.netrc"
+fi
+if [[ ! $priv ]]; then
+	# Guess privilege level from username (e.g. Operator => priv OPERATOR)
+	priv=${user^^}
+fi
+
+k_g=$(getnetrc -sdf %p "rmcp/$bhost" ||
       getnetrc -sdf %p "rmcp/*")
 
-if [[ ! $user || ! $pass ]]; then
-	die "credentials for 'ipmi/$fqdn' not found in ~/.netrc"
-fi
-debug "connecting as user '$user', password '${pass::3}...'"
 
-if [[ ! $priv ]]; then
-	debug "privilege level for 'ipmi/$fqdn' not specified in ~/.netrc"
-	priv="${user^^}"
-	debug "guessing privilege level '$priv'"
-fi
-
-freeipmi_args=(           -h "$fqdn" -u "$user" -p "$pass" -l "$priv" -k "$k_g")
-ipmitool_args=(-I lanplus -H "$fqdn" -U "$user" -P "$pass" -L "$priv" -k "$k_g")
+freeipmi_args=(           -h "$bhost" -u "$user" -p "$pass" -l "$priv" -k "$k_g")
+ipmitool_args=(-I lanplus -H "$bhost" -U "$user" -P "$pass" -L "$priv" -k "$k_g")
 
 # TODO: ipmitool -k is string key, -y is hex key, which one matches ipmi-console?
 # TODO: use -E -K for ipmitool
@@ -39,7 +38,7 @@ ipmitool_args=(-I lanplus -H "$fqdn" -U "$user" -P "$pass" -L "$priv" -k "$k_g")
 #IPMI_KGKEY=$k_g
 
 if [[ $1 == --@(power|power-status) ]]; then
-	info "getting power status"
+	echo "Getting power status from '$bhost'"
 	if have ipmi-power; then
 		ipmi-power -D LAN_2_0 "${freeipmi_args[@]}" --stat
 	elif have ipmitool; then
@@ -49,8 +48,8 @@ if [[ $1 == --@(power|power-status) ]]; then
 	fi
 elif [[ $1 == --power-@(on|off|cycle|reset) ]]; then
 	cmd=${1#--power-}
-	confirm "send 'power $cmd' command to $host?" || exit
-	info "sending 'power $cmd' command"
+	confirm "Send 'power $cmd' command to '$bhost'?" || exit
+	info "Sending 'power $cmd' command to '$bhost'"
 	if have ipmi-power; then
 		ipmi-power -D LAN_2_0 "${freeipmi_args[@]}" --$cmd
 	elif have ipmitool; then
@@ -59,7 +58,7 @@ elif [[ $1 == --power-@(on|off|cycle|reset) ]]; then
 		die "no IPMI client tools installed"
 	fi
 elif [[ ! $1 ]]; then
-	info "connecting to serial console"
+	info "Connecting to serial console at '$bhost'"
 	if have ipmi-console; then
 		echo "[escape sequence: & .]"
 		ipmi-console "${freeipmi_args[@]}"

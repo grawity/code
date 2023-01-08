@@ -39,6 +39,19 @@ sub joinhost {
 	return $domain.".".$suffix;
 }
 
+sub get_resolv_conf_suffixes {
+	if (open(my $fh, "</etc/resolv.conf")) {
+		while (my $line = <$fh>) {
+			if ($line =~ /^(domain|search) (.+)$/) {
+				close $fh;
+				return $2;
+			}
+		}
+		close $fh;
+		return "";
+	}
+}
+
 sub get_fqdn_from_suffix {
 	my ($host, $suffixes, $v) = @_;
 
@@ -86,6 +99,11 @@ GetOptions(
 	"v|verbose" => \$verbose,
 	"help" => sub { usage(); exit(0); },
 ) || exit(2);
+
+if ($search && !length($suffixes)) {
+	$suffixes = get_resolv_conf_suffixes();
+	warn "fqdn: using system suffixes '$suffixes'\n" if $verbose;
+}
 
 my @suffixes = split(/[:, ]/, $suffixes // "");
 

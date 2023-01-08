@@ -12,12 +12,13 @@ use Sys::Hostname;
 
 sub usage {
 	print for
-		"Usage: $0 [-s suffixes] [-v] <domain>...\n",
+		"Usage: $0 [-s [-d <domains>]] [-v] <name>...\n",
 		"\n",
 		"Options:\n",
 		"\n",
-		"  -s suffixes   perform a suffix search instead\n",
-		"  -v            verbose mode\n",
+		"  -s            perform a suffix search\n",
+		"  -d domains    specify a custom list of domain suffixes\n",
+		"  -v            be verbose\n",
 		"\n",
 		#12345678........12345678........12345678........12345678........12345678........
 		"In default mode, the given name is looked up using system DNS search suffixes\n",
@@ -25,8 +26,8 @@ sub usage {
 		"with AI_CANONNAME).\n",
 		"\n",
 		"In suffix search mode, the given name is looked up using only the specified\n",
-		"suffixes, and aliases are NOT followed; each name is merely tested to see if it\n",
-		"resolves at all.\n";
+		"suffixes (aliases are NOT followed; each name is merely tested to see if it\n",
+		"resolves at all).\n";
 }
 
 sub joinhost {
@@ -75,11 +76,13 @@ sub get_fqdn_from_cnames {
 	return $host;
 }
 
+my $search = 0;
 my $suffixes = $ENV{LOCALDOMAIN};
 my $verbose = 0;
 
 GetOptions(
-	"d|s|search=s" => \$suffixes,
+	"s|search" => \$search,
+	"d|domains=s" => \$suffixes,
 	"v|verbose" => \$verbose,
 	"help" => sub { usage(); exit(0); },
 ) || exit(2);
@@ -92,7 +95,7 @@ my $errs = 0;
 for my $arg (@args) {
 	my $res;
 
-	if (@suffixes) {
+	if ($search) {
 		$res = get_fqdn_from_suffix($arg, \@suffixes, $verbose);
 	} else {
 		$res = get_fqdn_from_cnames($arg, $verbose);

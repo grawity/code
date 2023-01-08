@@ -33,7 +33,7 @@ cipher=3
 k_g=$(getnetrc -sdf %p "rmcp/$bhost" ||
       getnetrc -sdf %p "rmcp/*")
 
-if have ipmipower && have ipmiconsole; then
+if have ipmipower && have ipmiconsole && [[ ! $USE_IPMITOOL ]]; then
 	# FreeIPMI
 	args=(-h "$bhost" -u "$user" -p "$pass" -l "$priv" -I "$cipher" -k "$k_g")
 
@@ -43,6 +43,9 @@ if have ipmipower && have ipmiconsole; then
 elif have ipmitool; then
 	# ipmitool
 	args=(-H "$bhost" -U "$user" -P "$pass" -L "$priv" -C "$cipher" -k "$k_g")
+	# Use an escape character different from the SSH one
+	args+=(-e '&')
+
 	# TODO: use -E -K for ipmitool
 	#IPMI_PASSWORD=$pass
 	#IPMI_KGKEY=$k_g
@@ -55,15 +58,15 @@ else
 fi
 
 if [[ $1 == --@(power|power-status) || $1 == -p ]]; then
-	echo "Getting power status from '$bhost'"
+	echo "[Connecting to '$bhost']"
 	bmc_get_power
 elif [[ $1 == --power-@(on|off|cycle|reset) ]]; then
 	cmd=${1#--power-}
 	confirm "Send 'power $cmd' command to '$bhost'?" || exit
-	info "Sending 'power $cmd' command to '$bhost'"
+	echo "[Connecting to '$bhost']"
 	bmc_set_power "$cmd"
 elif [[ ! $1 ]]; then
-	info "Connecting to serial console at '$bhost'"
+	echo "[Connecting to '$bhost' ... escape sequence is '&.']"
 	bmc_console
 else
 	die "Unrecognized arguments: '$*'"

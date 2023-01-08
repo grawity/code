@@ -32,6 +32,11 @@ k_g=$(getnetrc -sdf %p "rmcp/$bhost" ||
 freeipmi_args=(           -h "$bhost" -u "$user" -p "$pass" -l "$priv" -k "$k_g")
 ipmitool_args=(-I lanplus -H "$bhost" -U "$user" -P "$pass" -L "$priv" -k "$k_g")
 
+# New ipmitool defaults to ciphersuite 17 (AES-CBC-128 with HMAC-SHA256), which
+# iLO4 does not support. Fall back to the HMAC-SHA1 variant.
+freeipmi_args+=(-I 3)
+ipmitool_args+=(-C 3)
+
 # TODO: ipmitool -k is string key, -y is hex key, which one matches ipmi-console?
 # TODO: use -E -K for ipmitool
 #IPMI_PASSWORD=$pass

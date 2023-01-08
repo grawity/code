@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# rlisthosts -- helper for rup to discover hosts
+# rlisthosts -- helper for rdo/rup to discover hosts
 #
 # Might use LDAP one day, but for now it's just a static list (instead of
 # having that list hardcoded in rup, then copied to other tools).
+
 import argparse
 
 base_hosts = ["wolke", "sky", "star", "land", "ember", "wind"]

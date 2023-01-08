@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+readonly AESCBC128_HMACSHA1=3
+
 attach_console() {
 	# Use IP address in case DNS is broken (which it will be,
 	# because gw-core is also the primary DNS resolver).
@@ -13,9 +15,11 @@ attach_console() {
 
 	ip -c route get $addr
 
-	echo "[connecting to $addr]"
+	echo "[connecting to $addr ... escape sequence is '&.']"
 	ipmiconsole -h "$addr" -k "$kg" \
-	            -u "$user" -p "$pass" -l "${priv:-ADMINISTRATOR}"
+	            -u "$user" -p "$pass" \
+	            -l "${priv:-ADMINISTRATOR}" \
+	            -I $AESCBC128_HMACSHA1
 }
 
 has_vlan() {

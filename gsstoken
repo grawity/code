@@ -17,10 +17,17 @@ def get_token_gssapi(service_name):
 
     return context.step()
 
+# SSPI/GSSAPI interoperability notes:
+# https://learn.microsoft.com/en-us/windows/win32/secauthn/sspi-kerberos-interoperability-with-gssapi
+
 def get_token_sspi(service_name):
     import sspi
 
-    service_name = args.service_name.replace("@", "/")
+    if "/" not in service_name:
+        # Convert the name to a Kerberos principal, as Windows SSPI does not
+        # support HOSTBASED_SERVICE names. (It also doesn't canonicalize host
+        # names -- the SPN is passed to the KDC as-is).
+        service_name = args.service_name.replace("@", "/")
 
     context = sspi.ClientAuth("Kerberos",
                               targetspn=service_name)

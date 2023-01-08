@@ -3,7 +3,7 @@ empty	:=
 space	:= $(empty) $(empty)
 UNAME	:= $(shell uname)
 DIST	?= dist
-OBJ	:= $(shell $(DIST)/prepare -o)
+OBJ	:= obj/host.$(shell hostname -s)
 
 # cflags
 

@@ -29,27 +29,15 @@ fi
 # iLO4 does not support. Fall back to the HMAC-SHA1 variant.
 cipher=3
 
-# iLO4 does not support setting a custom key, but keep it around
-k_g=$(getnetrc -sdf %p "rmcp/$bhost" ||
-      getnetrc -sdf %p "rmcp/*")
-
 if have ipmipower && have ipmiconsole && [[ ! $USE_IPMITOOL ]]; then
-	# FreeIPMI
-	args=(-h "$bhost" -u "$user" -p "$pass" -l "$priv" -I "$cipher" -k "$k_g")
-
+	args=(-h "$bhost" -u "$user" -p "$pass" -l "$priv" -I "$cipher")
 	bmc_console() { ipmiconsole "${args[@]}"; }
 	bmc_get_power() { ipmipower -D LAN_2_0 "${args[@]}" --stat; }
 	bmc_set_power() { ipmipower -D LAN_2_0 "${args[@]}" --${1?}; }
 elif have ipmitool; then
-	# ipmitool
-	args=(-H "$bhost" -U "$user" -P "$pass" -L "$priv" -C "$cipher" -k "$k_g")
+	args=(-H "$bhost" -U "$user" -P "$pass" -L "$priv" -C "$cipher")
 	# Use an escape character different from the SSH one
 	args+=(-e '&')
-
-	# TODO: use -E -K for ipmitool
-	#IPMI_PASSWORD=$pass
-	#IPMI_KGKEY=$k_g
-
 	bmc_console() { ipmitool -I lanplus "${args[@]}" sol activate; }
 	bmc_get_power() { ipmitool -I lanplus "${args[@]}" power status; }
 	bmc_set_power() { ipmitool -I lanplus "${args[@]}" power ${1?}; }

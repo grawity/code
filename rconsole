@@ -10,7 +10,10 @@ case ${0##*/} in
 		host=${1?missing hostname}; shift;;
 esac
 
-bhost="bmc.$host.nullroute.lt"
+case $host in
+	*.*)	bhost=$host;;
+	*)	bhost="bmc.$host.nullroute.lt";;
+esac
 
 creds=$(getnetrc -sdf %a:%u:%p "ipmi/$bhost" ||
         getnetrc -sdf %a:%u:%p "ipmi/*")

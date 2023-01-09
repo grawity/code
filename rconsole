@@ -3,13 +3,6 @@
 
 . lib.bash || exit
 
-case ${0##*/} in
-	*-console)
-		host=${0##*/}; host=${host%-console};;
-	*)
-		host=${1?missing hostname}; shift;;
-esac
-
 usage() {
 	echo "Usage: $progname <host> [-p] [-P <state>] [-v]"
 	echo
@@ -17,6 +10,14 @@ usage() {
 	echo_opt "-P state"	"switch system power on/off/reset/cycle"
 	echo_opt "-v"		"be verbose"
 }
+
+case $1 in
+	--help)		usage; exit;;
+esac
+case ${0##*/} in
+	*-console)	host=${0##*/}; host=${host%-console};;
+	*)		host=${1?missing hostname}; shift;;
+esac
 
 verbose=0
 opt_gpower=0

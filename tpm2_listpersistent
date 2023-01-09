@@ -5,27 +5,71 @@ from pprint import pprint
 import yaml
 import subprocess
 
-PCRFirst            = 0x00000000
-HMACSessionFirst    = 0x02000000
-LoadedSessionFirst  = 0x02000000
-PolicySessionFirst  = 0x03000000
-ActiveSessionFirst  = 0x03000000
-TransientFirst      = 0x80000000
-PersistentFirst     = 0x81000000
-PersistentLast      = 0x81FFFFFF
-PlatformPersistent  = 0x81800000
-NVIndexFirst        = 0x01000000
-NVIndexLast         = 0x01FFFFFF
-PermanentFirst      = 0x40000000
-PermanentLast       = 0x4000010F
-
 def yrun(*cmd):
     res = subprocess.run(cmd, stdout=subprocess.PIPE,
                               check=True)
     return yaml.safe_load(res.stdout)
 
+def findrange(ranges, key):
+    for (start, end, *rest) in ranges:
+        if start <= key <= end:
+            return rest
+
 # https://trustedcomputinggroup.org/wp-content/uploads/RegistryOfReservedTPM2HandlesAndLocalities_v1p1_pub.pdf
-hnames = {
+handle_ranges = [
+    (0x01000000, 0x013FFFFF, "Free use: TPM OEM"),
+    (0x01400000, 0x017FFFFF, "Free use: platform"),
+    (0x01800000, 0x01BFFFFF, "Free use: owner"),
+
+    (0x01C07F00, 0x01C07FFF, "TCG: EK policies"),
+    (0x01C00000, 0x01C07FFF, "TCG: Endorsement certificates"),
+
+    (0x01C08000, 0x01C0FFFF, "TCG: Platform certificates"),
+
+    (0x01C10100, 0x01C1013F, "TCG: component OEM - Intel"),
+    (0x01C10140, 0x01C1017F, "TCG: component OEM - Cisco"),
+    (0x01C10180, 0x01C101BF, "TCG: component OEM - IBM"),
+    (0x01C101C0, 0x01C101FF, "TCG: component OEM - Microsoft"),
+    (0x01C10200, 0x01C1023F, "TCG: component OEM - AMD"),
+    (0x01C10240, 0x01C1027F, "TCG: component OEM - HP"),
+    (0x01C10280, 0x01C102BF, "TCG: component OEM - HPE"),
+    (0x01C10000, 0x01C1FFFF, "TCG: component OEM"),
+
+    (0x01C20000, 0x01C2007F, "TCG: TPM OEM - Infineon"),
+    (0x01C20000, 0x01C2FFFF, "TCG: TPM OEM"),
+
+    (0x01C30100, 0x01C3013F, "TCG: platform OEM - Intel"),
+    (0x01C30140, 0x01C3017F, "TCG: platform OEM - Cisco"),
+    (0x01C30180, 0x01C301BF, "TCG: platform OEM - HPE"),
+    (0x01C301C0, 0x01C301FF, "TCG: platform OEM - IBM"),
+    (0x01C30200, 0x01C3023F, "TCG: platform OEM - Juniper"),
+    (0x01C30240, 0x01C3027F, "TCG: platform OEM - GE"),
+    (0x01C30280, 0x01C302BF, "TCG: platform OEM - Raytheon"),
+    (0x01C302C0, 0x01C302FF, "TCG: platform OEM - HP"),
+    (0x01C30300, 0x01C3033F, "TCG: platform OEM - AMD"),
+    (0x01C30340, 0x01C3037F, "TCG: platform OEM - Qualcomm"),
+    (0x01C30000, 0x01C3FFFF, "TCG: platform OEM"),
+
+    (0x01C40000, 0x01C4000F, "TCG: PC-Client: GPIO"),
+    (0x01C40100, 0x01C401FF, "TCG: PC-Client: EPI"),
+    (0x01C40000, 0x01C4FFFF, "TCG: PC-Client workgroup"),
+    (0x01C50000, 0x01C5FFFF, "TCG: Server workgroup"),
+    (0x01C60000, 0x01C6FFFF, "TCG: Virtualized workgroup"),
+    (0x01C70000, 0x01C7FFFF, "TCG: MP workgroup"),
+    (0x01C80000, 0x01C8FFFF, "TCG: Embedded workgroup"),
+    (0x01C90000, 0x01C9FFFF, "TCG: Infrastructure workgroup"),
+    (0x01D00000, 0x01D0FFFF, "TCG: TPM workgroup"),
+    (0x01C40000, 0x01FFFFFF, "TCG: other specific usages"),
+
+    (0x81000000, 0x810000FF, "Storage Primary Key"),
+    (0x81000000, 0x8100FFFF, "Storage hierarchy"),
+    (0x81010000, 0x810100FF, "Endorsement Primary Key"),
+    (0x81020000, 0x810200FF, "Endorsement Infrastructure WG"),
+    (0x81010000, 0x8103FFFF, "Endorsement hierarchy"),
+    (0x81800000, 0x818000FF, "Platform Primary Key"),
+    (0x81800000, 0x81FFFFFF, "Platform hierarchy"),
+]
+handle_names = {
 	# NV indices
 	0x01C00002: "EK Certificate (RSA) (TPM TCG)",
 	0x01C0000A: "EK Certificate (EC) (TPM TCG)",
@@ -52,10 +96,12 @@ if not args.nv:
     for i, handle in enumerate(handles):
         if i:
             print()
-        hdesc = hnames.get(handle)
-        if handle >= PlatformPersistent:
-            hdesc = hdesc or "(platform persistent)"
-        hdesc = "\033[1m%s\033[m" % hdesc
+        if hdesc := handle_names.get(handle):
+            hdesc = "\033[1m%s\033[m" % hdesc
+        else:
+            hdesc = "\033[3m%s\033[m" % "unknown"
+        if htype := findrange(handle_ranges, handle):
+            hdesc += " \033[2m(%s)\033[m" % htype[0]
         print("\033[32mObject \033[1m0x%08x:\033[m %s" % (handle, hdesc))
         info = yrun("tpm2_readpublic", "-c", hex(handle))
         #pprint(info)
@@ -79,7 +125,12 @@ if args.nv:
     for i, handle in enumerate(handles):
         if i:
             print()
-        hdesc = "\033[1m%s\033[m" % hnames.get(handle, "")
+        if hdesc := handle_names.get(handle):
+            hdesc = "\033[1m%s\033[m" % hdesc
+        else:
+            hdesc = "\033[3m%s\033[m" % "unknown"
+        if htype := findrange(handle_ranges, handle):
+            hdesc += " \033[2m(%s)\033[m" % htype[0]
         print("\033[36mNV index \033[1m0x%08x:\033[m %s" % (handle, hdesc))
         info = yrun("tpm2_nvreadpublic", hex(handle))
         info = info[handle]

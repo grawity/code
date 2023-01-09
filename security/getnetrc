@@ -51,29 +51,19 @@ sub usage {
 	"exception of the 'service/machine' extension specific to grawity's netrc.";
 }
 
-sub _str {
-	my ($str) = @_;
-	defined($str) ? "'$str'" : "(nil)";
-}
-
 sub lookup {
 	my ($machines, $login) = @_;
 	my $fallback;
 	for my $machine (@$machines) {
-		_debug("searching for "._str($machine).", login="._str($login));
 		my $en = Net::Netrc->lookup($machine, $login);
 		if (defined $en) {
-			_debug("- found entry for machine "._str($en->{machine}));
 			if (defined $en->{machine}) {
-				_debug("- returning entry");
 				return $en;
 			} elsif (!$no_default) {
-				_debug("- storing as fallback");
 				$fallback //= $en;
 			}
 		}
 	}
-	_debug("- returning fallback");
 	return $fallback;
 }
 
@@ -120,17 +110,10 @@ unless (defined($machine) && length($machine)) {
 	_die("missing machine name");
 }
 
-_debug("input: @ARGV");
-
 if ($machine =~ m{^([^/]+)[@/](.+)$}) {
 	$service = $1;
 	$machine = $2;
 }
-
-_debug("parsed:".
-	" host="._str($machine).
-	" service="._str($service).
-	" login="._str($login));
 
 # look up entry
 

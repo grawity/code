@@ -6,19 +6,17 @@ use strict;
 use Getopt::Long qw(:config gnu_getopt no_ignore_case);
 use Net::Netrc;
 
-BEGIN {
-	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _warn _err _die));
-	} else {
-		$::arg0 = (split m!/!, $0)[-1];
-		$::debug = !!$ENV{DEBUG};
-		$::warnings = 0;
-		$::errors = 0;
-		sub _debug { warn "debug: @_\n" if $::debug; }
-		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
-		sub _err   { warn "error: @_\n"; ! ++$::errors; }
-		sub _die   { _err(@_); exit 1; }
-	}
+$::arg0 = (split m!/!, $0)[-1];
+
+sub warnx {
+	my ($msg) = @_;
+	warn "$::arg0: $msg\n";
+}
+
+sub errx {
+	my ($exit, $msg) = @_;
+	warnx($msg);
+	exit $exit;
 }
 
 my $format		= "%l:%p";
@@ -74,7 +72,7 @@ sub _fmt_expn {
 	} elsif (exists $data->{$key}) {
 		return $data->{$key} // "";
 	} else {
-		_err("unknown format character '$raw'");
+		warnx("unknown format character '$raw'");
 		return "$raw";
 	}
 }
@@ -107,7 +105,7 @@ GetOptions(
 my ($machine, $login) = @ARGV;
 
 unless (defined($machine) && length($machine)) {
-	_die("missing machine name");
+	errx(2, "missing machine name");
 }
 
 if ($machine =~ m{^([^/]+)[@/](.+)$}) {

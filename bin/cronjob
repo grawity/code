@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # cronjob -- wrapper for cron jobs to set common environment
 
 test "$XDG_RUNTIME_DIR"	|| export XDG_RUNTIME_DIR="/run/user/$(id -u)"
@@ -7,34 +7,36 @@ test "$SSH_AUTH_SOCK"	|| export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent"
 . ~/.dotfiles/environ || exit
 
 chronic='chronic'
+useshell=0
+krbcc=0
+waitnet=0
 
-while true; do
-	case $1 in
-	-c)
-		shift
-		set -- sh -c "$@"
-		;;
-	-k)
-		shift
-		export KRB5CCNAME="FILE:/tmp/krb5cc_$(id -u)_cron"
-		export KRB5_CLIENT_KTNAME="FILE:$HOME/.config/cron.keytab"
-		;;
-	-n)
-		shift
-		nm-online -qx || exit 0
-		;;
-	-v)
-		shift
-		chronic=''
-		;;
-	-*)
-		echo "$0: fatal: unknown option '$1'" >&2
-		exit 2
-		;;
-	*)
-		break
-		;;
+while getopts 'cknv' OPT; do
+	case $OPT in
+	c)	useshell=1;;
+	k)	krbcc=1;;
+	n)	waitnet=1;;
+	v)	chronic="";;
+	\?)	exit 2;;
 	esac
-done
+done; shift $((OPTIND-1))
+
+if (( ! $# )); then
+	echo "$0: no command given" >&2
+	exit 2
+fi
+
+if (( useshell )); then
+	set -- sh -c "$*"
+fi
+
+if (( krbcc )); then
+	export KRB5CCNAME="FILE:/tmp/krb5cc_$(id -u)_cron"
+	export KRB5_CLIENT_KTNAME="FILE:$HOME/.config/cron.keytab"
+fi
+
+if (( waitnet )); then
+	nm-online -qx || exit 0
+fi
 
 nice $chronic "$@"

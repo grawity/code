@@ -22,7 +22,6 @@ sub errx {
 my $format		= "%l:%p";
 my $format_nonewline	= 0;
 my $format_url_encode	= 0;
-my $service		= undef;
 my $service_required	= 0;
 my $no_default		= 0;
 
@@ -93,6 +92,50 @@ sub uri_encode {
 	return $str;
 }
 
+sub lookuparg {
+	my ($machine, $login, $strip_service) = @_;
+
+	my $service;
+	if ($machine =~ m{^([^/]+)[@/](.+)$}) {
+		$service = $1;
+		$machine = $2;
+	}
+
+	my @machines;
+	if ($service && !$strip_service) {
+		push @machines, $service.'/'.$machine;
+		push @machines, $service.'@'.$machine;
+	} else {
+		push @machines, $machine;
+	}
+
+	my $entry = lookup(\@machines, $login);
+	if ($entry) {
+		my %output = (
+			%$entry,
+			a => $entry->{account},
+			h => $entry->{machine},
+			l => $entry->{login},
+			m => $entry->{machine},
+			p => $entry->{password},
+			u => $entry->{login},
+			M => $machine,
+			S => $service,
+		);
+		if ($format_url_encode) {
+			$output{$_} = uri_encode($output{$_}) for keys %output;
+		}
+		@output{"n", "0"} = ("\n", "\0");
+
+		if (!$format_nonewline) {
+			$format .= "%n";
+		}
+		print fmt($format, \%output);
+		return 1;
+	}
+	return 0;
+}
+
 # parse command line
 
 GetOptions(
@@ -104,50 +147,26 @@ GetOptions(
 	"d|no-default"		=> \$no_default,
 ) or exit 2;
 
-my ($machine, $login) = @ARGV;
+my ($machinearg, $login) = @ARGV;
 
-unless (defined($machine) && length($machine)) {
+unless (defined($machinearg) && length($machinearg)) {
 	errx(2, "missing machine name");
 }
 
-if ($machine =~ m{^([^/]+)[@/](.+)$}) {
-	$service = $1;
-	$machine = $2;
+my @machinearg = split(/\s+/, $machinearg);
+
+# First try all machine names as-is, then try them again without the "service@"
+# prefix. (This prioritizes a service/* match over a */host one, as it's more
+# likely that a specific service will have its unique credentials.)
+
+for my $machine (@machinearg) {
+	exit 0 if lookuparg($machine, $login, 0);
 }
 
-# look up entry
-
-my @machines;
-if ($service) {
-	push @machines, $service.'/'.$machine;
-	push @machines, $service.'@'.$machine;
-}
-if (!$service || !$service_required) {
-	push @machines, $machine;
+if (!$service_required) {
+	for my $machine (@machinearg) {
+		exit 0 if lookuparg($machine, $login, 1);
+	}
 }
 
-my $entry = lookup(\@machines, $login) || exit 1;
-
-# format results
-
-if (!$format_nonewline) {
-	$format .= "%n";
-}
-
-my %output = (
-	%$entry,
-	a => $entry->{account},
-	h => $entry->{machine},
-	l => $entry->{login},
-	m => $entry->{machine},
-	p => $entry->{password},
-	u => $entry->{login},
-	M => $machine,
-	S => $service,
-);
-if ($format_url_encode) {
-	$output{$_} = uri_encode($output{$_}) for keys %output;
-}
-@output{"n", "0"} = ("\n", "\0");
-
-print fmt($format, \%output);
+exit 1;

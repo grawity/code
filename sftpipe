@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # sftpipe -- copy data from stdin to a remote file over SFTP
 #
-# To be used if the target server doesn't have a POSIX-like shell interface and
-# cannot reliably use 'cat > quoted_path'.
+# sftpipe can be used to stream data to systems that don't support POSIX-style
+# "cat > foo" remote commands (such as Windows, RouterOS, or OpenVMS).
 
 import argparse
 import paramiko
@@ -62,28 +62,41 @@ class OpenSshSubsystemChannel():
         self.proc.wait()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("dest", help="Remote file (rcp-style path or sftp:// URL)")
+parser.add_argument("-P", "--paramiko",
+                    action="store_true",
+                    help="use Paramiko as transport instead of OpenSSH")
+parser.add_argument("-v", "--verbose",
+                    action="store_true",
+                    help="show connection progress")
+parser.add_argument("dest",
+                    metavar="HOST:PATH",
+                    help="remote file (rcp-style path or sftp:// URL)")
 args = parser.parse_args()
 
 user, host, path = parse_dest(args.dest)
 
-print(f"sftpipe: Connecting to {host!r}...", file=sys.stderr)
+if args.verbose:
+    print(f"sftpipe: Connecting to {host!r}...", file=sys.stderr)
 
-'''
-client = paramiko.client.SSHClient()
-client.load_system_host_keys()
-client.set_missing_host_key_policy(paramiko.client.WarningPolicy)
-client.connect(host,
-               username=user,
-               gss_kex=True,
-               gss_auth=True)
-'''
+# For most uses, OpenSSH is a more useful transport as it reuses the same
+# configuration as `sftp` (and automatically deals with key passphrases,
+# SSH host certificates, etc).
+if args.paramiko:
+    client = paramiko.client.SSHClient()
+    client.load_system_host_keys()
+    client.set_missing_host_key_policy(paramiko.client.WarningPolicy)
+    client.connect(host,
+                   username=user,
+                   gss_kex=True,
+                   gss_auth=True)
+    sftp = client.open_sftp()
+else:
+    ep = f"{user}@{host}" if user else f"{host}"
+    chan = OpenSshSubsystemChannel(ep, "sftp")
+    sftp = paramiko.sftp_client.SFTPClient(chan)
 
-ep = f"{user}@{host}" if user else f"{host}"
-chan = OpenSshSubsystemChannel(ep, "sftp")
-sftp = paramiko.sftp_client.SFTPClient(chan)
-
-print(f"sftpipe: Uploading to {path!r}...", file=sys.stderr)
+if args.verbose:
+    print(f"sftpipe: Uploading to {path!r}...", file=sys.stderr)
 
 sftp.putfo(sys.stdin.buffer, path)
 sftp.close()

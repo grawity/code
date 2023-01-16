@@ -71,6 +71,10 @@ handle_ranges = [
 ]
 handle_names = {
 	# NV indices
+	#0x01800001: "unknown (HP platform)",
+	#0x01800003: "unknown (HP platform)",
+	#0x01800004: "unknown (HP platform)",
+	#0x01810000: "unknown (HP platform)",
 	0x01C00002: "EK Certificate (RSA) (TPM TCG)",
 	0x01C0000A: "EK Certificate (EC) (TPM TCG)",
 	0x01C90000: "IDevID Certificate (TPM TCG)",
@@ -129,15 +133,18 @@ if args.nv:
     for i, handle in enumerate(handles):
         if i:
             print()
+        info = yrun("tpm2_nvreadpublic", hex(handle))
+        info = info[handle]
+        #pprint(info)
         if hdesc := handle_names.get(handle):
             hdesc = "\033[1m%s\033[m" % hdesc
         else:
             hdesc = "\033[3m%s\033[m" % "unknown"
         if htype := findrange(handle_ranges, handle):
             hdesc += " \033[2m(%s)\033[m" % htype[0]
-        print("\033[36mNV index \033[1m0x%08x:\033[m %s" % (handle, hdesc))
-        info = yrun("tpm2_nvreadpublic", hex(handle))
-        info = info[handle]
-        #pprint(info)
+        if "platformcreate" in info["attributes"]["friendly"].split("|"):
+            print("\033[95m\033[1m0x%08x\033[22m (platform):\033[m %s" % (handle, hdesc))
+        else:
+            print("\033[96m\033[1m0x%08x\033[22m (user):\033[m %s" % (handle, hdesc))
         print("\tAttributes:", info["attributes"]["friendly"])
         print("\tPolicy:", info.get("authorization policy"))

@@ -92,7 +92,9 @@ if not args.nv:
     print("TPM has capacity for %d persistent objects." % capacity)
     print()
 
-    handles = yrun("tpm2_getcap", "handles-persistent")
+    handles = yrun("tpm2_getcap", "handles-persistent") or []
+    if not handles:
+        print("No persistent objects.")
     for i, handle in enumerate(handles):
         if i:
             print()
@@ -121,7 +123,9 @@ if not args.nv:
                                 info["kdfa-halg"]["value"].upper())
 
 if args.nv:
-    handles = yrun("tpm2_getcap", "handles-nv-index")
+    handles = yrun("tpm2_getcap", "handles-nv-index") or []
+    if not handles:
+        print("No NV indices.")
     for i, handle in enumerate(handles):
         if i:
             print()

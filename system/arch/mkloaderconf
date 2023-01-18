@@ -1,8 +1,10 @@
 #!/usr/bin/bash -eu
 
-err() { echo "error: $*" >&2; return 1; }
+arg0=${0##*/}
 
-die() { err "$*"; exit 1; }
+say() { echo "$arg0: $*"; }
+err() { echo "$arg0: $*" >&2; return 1; }
+die() { echo "$arg0: $*" >&2; exit 1; }
 
 try_esp() {
 	mountpoint -q "$1" && [[ ! -L "$1" ]] && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
@@ -21,12 +23,10 @@ install_kernel() {
 		return
 	fi
 
-	echo "Installing package: $kernel $version as \"$PRETTY_NAME\""
+	say "installing package '$kernel' ($version) as \"$PRETTY_NAME\""
 
-	echo "+ copying kernel to EFI system partition"
-	if [[ $ESP == /boot ]]; then
-		echo "ESP is mounted at $ESP, copy not needed"
-	else
+	if [[ $ESP != /boot ]]; then
+		say "copying kernel '$kernel' to EFI system partition"
 		mkdir -p "$ESP/EFI/$ID"
 		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
@@ -34,7 +34,7 @@ install_kernel() {
 		sync -f "$ESP"
 	fi
 
-	echo "+ generating bootloader config"
+	say "generating loader entry for '$kernel'"
 	if [[ $ESP == /boot ]]; then
 		parameters=(
 			"title"		"$PRETTY_NAME"
@@ -66,13 +66,9 @@ remove_kernel() {
 	local suffix=$2
 	local config=$3
 
-	echo "Uninstalling package: $kernel"
-
-	echo "+ removing kernel from EFI system partition"
+	say "uninstalling package '$kernel'"
 	rm -f "$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 	rm -f "$ESP/EFI/$ID/initramfs-$kernel.img"
-
-	echo "+ removing bootloader config"
 	rm -f "$ESP/loader/entries/$config.conf"
 }
 
@@ -86,7 +82,7 @@ done
 [[ $ESP ]] ||
 	die "EFI system partition not found; please \`mkdir <efisys>/loader\`"
 
-echo "Found EFI system partition at $ESP"
+say "found EFI system partition at $ESP"
 
 for f in /etc/os-release /usr/lib/os-release; do
 	[[ $os_release ]] || { [[ -e $f ]] && os_release=$f; }

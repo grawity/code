@@ -8,23 +8,6 @@ try_esp() {
 	mountpoint -q "$1" && [[ ! -L "$1" ]] && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
 }
 
-check_kernel() {
-	local kernel=$1
-	local suffix=
-	local config=$ID
-
-	if [[ $kernel != 'linux' ]]; then
-		suffix="-${kernel#linux-}"
-		config=$config$suffix
-	fi
-
-	if [[ -e "/boot/vmlinuz-$kernel" ]]; then
-		install_kernel "$kernel" "$suffix" "$config"
-	else
-		remove_kernel "$kernel" "$suffix" "$config"
-	fi
-}
-
 install_kernel() {
 	local kernel=$1
 	local suffix=$2
@@ -130,4 +113,26 @@ exec {lock_fd}> "/run/kernel-post-upgrade.lock"
 flock -x -w 60 $lock_fd ||
 	die "failed to take lock; is another kernel-post-upgrade instance running?"
 
-check_kernel "${1:-linux}"
+if [[ ${1-} ]]; then
+	kernel=$1
+	suffix=
+	config=$ID
+
+	if [[ $kernel != 'linux' ]]; then
+		suffix="-${kernel#linux-}"
+		config=$config$suffix
+	fi
+
+	if [[ -e "/boot/vmlinuz-$kernel" ]]; then
+		install_kernel "$kernel" "$suffix" "$config"
+	else
+		remove_kernel "$kernel" "$suffix" "$config"
+	fi
+else
+	for path in /boot/vmlinuz-*; do
+		suffix=${path#/boot/vmlinuz-linux}
+		kernel=linux$suffix
+		config=$ID$suffix
+		install_kernel "$kernel" "$suffix" "$config"
+	done
+fi

@@ -10,6 +10,18 @@ try_esp() {
 	mountpoint -q "$1" && [[ ! -L "$1" ]] && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
 }
 
+getkey() {
+	local path=$1 key=$2
+	local k v
+	while read -r k v; do
+		if [[ $k == "$key" ]]; then
+			echo "$v"
+			return
+		fi
+	done < "$path"
+	return 1
+}
+
 install_kernel() {
 	local kernel=$1
 	local suffix=$2
@@ -129,10 +141,46 @@ if [[ ${1-} ]]; then
 		remove_kernel "$kernel" "$suffix" "$config"
 	fi
 else
+	declare -A seenconfigs=()
+
 	for path in /boot/vmlinuz-*; do
 		suffix=${path#/boot/vmlinuz-linux}
 		kernel=linux$suffix
 		config=$ID$suffix
 		install_kernel "$kernel" "$suffix" "$config"
+		seenconfigs[$config]=1
+	done
+
+	seenconfigs=() #XXX
+
+	for path in "$ESP/loader/entries"/*.conf; do
+		config=${path##**/}
+		config=${config%.conf}
+		if [[ ${seenconfigs[$config]-} ]]; then
+			# We just installed this.
+			continue
+		fi
+		machine=$(getkey "$path" machine-id)
+		if [[ $machine != "$MACHINE_ID" ]]; then
+			say "keeping entry '$config' (foreign machine-id)"
+			continue
+		fi
+		kernel=$(getkey "$path" linux | tr '\\' '/')
+		if [[ ! $kernel ]]; then
+			say "keeping entry '$config' (not a kernel entry)"
+			continue
+		fi
+		if [[ -s $ESP/$kernel ]]; then
+			say "keeping entry '$config' (kernel exists)"
+			continue
+		fi
+		kernel=${kernel##*/}
+		if [[ $kernel != vmlinuz-linux* ]]; then
+			say "keeping entry '$config' (unusual kernel path)"
+			continue
+		fi
+		say "removing old entry '$config'"
+		kernel=${kernel#vmlinuz-}
+		remove_kernel "$kernel" "" "$config"
 	done
 fi

@@ -1,7 +1,10 @@
 #!/usr/bin/bash -eu
 
-arg0=${0##*/}
+readonly arg0=${0##*/}
 
+verbose=0
+
+dbg() { if (( verbose )); then say "$*"; fi; }
 say() { echo "$arg0: $*"; }
 err() { echo "$arg0: $*" >&2; return 1; }
 die() { echo "$arg0: $*" >&2; exit 1; }
@@ -38,7 +41,7 @@ install_kernel() {
 	say "installing package '$kernel' ($version) as \"$PRETTY_NAME\""
 
 	if [[ $ESP != /boot ]]; then
-		say "copying kernel '$kernel' to EFI system partition"
+		dbg "copying kernel '$kernel' to EFI system partition"
 		mkdir -p "$ESP/EFI/$ID"
 		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
 		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
@@ -83,6 +86,55 @@ remove_kernel() {
 	rm -f "$ESP/loader/entries/$config.conf"
 }
 
+config_for_kernel() {
+	# Transform a kernel filename such as "vmlinuz-linux-lts" to a loader
+	# entry name such as "arch-lts".
+	local path=$1
+}
+
+check_kernel() {
+	local path=$1
+	local suffix=${path#/boot/vmlinuz-linux}
+	local kernel=linux$suffix
+	local config=$ID$suffix
+
+	if [[ -s $path ]]; then
+		install_kernel "$kernel" "$suffix" "$config"
+	else
+		remove_kernel "$kernel" "$suffix" "$config"
+	fi
+}
+
+check_config() {
+	local path=$1
+	local config=${path##**/}; config=${config%.conf}
+
+	local machine=$(getkey "$path" machine-id)
+	if [[ $machine != "$MACHINE_ID" ]]; then
+		dbg "keeping entry '$config' (foreign machine-id)"
+		return
+	fi
+
+	local kernel=$(getkey "$path" linux | tr '\\' '/')
+	if [[ ! $kernel ]]; then
+		dbg "keeping entry '$config' (not a kernel entry)"
+		return
+	fi
+	if [[ $kernel != */vmlinuz-linux* ]]; then
+		dbg "keeping entry '$config' (unusual kernel path)"
+		return
+	fi
+	if [[ -s $ESP/$kernel ]]; then
+		dbg "keeping entry '$config' (kernel exists)"
+		return
+	fi
+
+	dbg "removing old entry '$config'"
+	kernel=${kernel##*/}
+	kernel=${kernel#vmlinuz-}
+	remove_kernel "$kernel" "" "$config"
+}
+
 declare ESP= os_release=
 unset ID NAME PRETTY_NAME MACHINE_ID BOOT_OPTIONS
 
@@ -123,59 +175,13 @@ flock -x -w 60 $lock_fd ||
 	die "failed to take lock; is another $arg0 instance running?"
 
 if [[ ${1-} ]]; then
-	kernel=$1
-	suffix=
-	config=$ID
-
-	if [[ $kernel != 'linux' ]]; then
-		suffix="-${kernel#linux-}"
-		config=$config$suffix
-	fi
-
-	if [[ -e "/boot/vmlinuz-$kernel" ]]; then
-		install_kernel "$kernel" "$suffix" "$config"
-	else
-		remove_kernel "$kernel" "$suffix" "$config"
-	fi
+	check_kernel "$1"
 else
-	declare -A seenconfigs=()
-
-	for path in /boot/vmlinuz-*; do
-		suffix=${path#/boot/vmlinuz-linux}
-		kernel=linux$suffix
-		config=$ID$suffix
-		install_kernel "$kernel" "$suffix" "$config"
-		seenconfigs[$config]=1
+	for path in "$ESP/loader/entries"/*.conf; do
+		check_config "$path"
 	done
 
-	for path in "$ESP/loader/entries"/*.conf; do
-		config=${path##**/}
-		config=${config%.conf}
-		if [[ ${seenconfigs[$config]-} ]]; then
-			# We just installed this.
-			continue
-		fi
-		machine=$(getkey "$path" machine-id)
-		if [[ $machine != "$MACHINE_ID" ]]; then
-			say "keeping entry '$config' (foreign machine-id)"
-			continue
-		fi
-		kernel=$(getkey "$path" linux | tr '\\' '/')
-		if [[ ! $kernel ]]; then
-			say "keeping entry '$config' (not a kernel entry)"
-			continue
-		fi
-		if [[ -s $ESP/$kernel ]]; then
-			say "keeping entry '$config' (kernel exists)"
-			continue
-		fi
-		kernel=${kernel##*/}
-		if [[ $kernel != vmlinuz-linux* ]]; then
-			say "keeping entry '$config' (unusual kernel path)"
-			continue
-		fi
-		say "removing old entry '$config'"
-		kernel=${kernel#vmlinuz-}
-		remove_kernel "$kernel" "" "$config"
+	for path in /boot/vmlinuz-*; do
+		check_kernel "$path"
 	done
 fi

@@ -65,28 +65,6 @@ class BinaryReader(StreamWrapper):
     def read_u64_be(self):
         return self._read_fmt(8, ">Q")
 
-class SshPacketReader(BinaryReader):
-    def read_bool(self):
-        return self._read_fmt(1, "?")
-
-    def read_byte(self):
-        return self.read_u8()
-
-    def read_uint32(self):
-        return self.read_u32_be()
-
-    def read_string(self):
-        length = self.read_u32_be()
-        return self.read(length)
-
-    def read_array(self):
-        string = self.read_string()
-        return string.split(b",")
-
-    def read_mpint(self):
-        buf = self.read_string()
-        return int.from_bytes(buf, byteorder="big", signed=False)
-
 class BinaryWriter(StreamWrapper):
     def _write_fmt(self, fmt, *args):
         return self.write(struct.pack(fmt, *args))
@@ -120,6 +98,30 @@ class BinaryWriter(StreamWrapper):
 class BinaryStream(BinaryReader, BinaryWriter):
     pass
 
+# SSHv2
+
+class SshPacketReader(BinaryReader):
+    def read_bool(self):
+        return self._read_fmt(1, "?")
+
+    def read_byte(self):
+        return self.read_u8()
+
+    def read_uint32(self):
+        return self.read_u32_be()
+
+    def read_string(self):
+        length = self.read_u32_be()
+        return self.read(length)
+
+    def read_array(self):
+        string = self.read_string()
+        return string.split(b",")
+
+    def read_mpint(self):
+        buf = self.read_string()
+        return int.from_bytes(buf, byteorder="big", signed=False)
+
 class SshPacketWriter(BinaryWriter):
     def write_bool(self, val):
         return sef._write_fmt("?", val)
@@ -137,8 +139,10 @@ class SshPacketWriter(BinaryWriter):
         string = b",".join(vec)
         return self.write_string(string)
 
-class SshStream(SshReader, SshWriter, BinaryStream):
+class SshPacketStream(SshPacketReader, SshPacketWriter, BinaryStream):
     pass
+
+# DNS
 
 class DnsPacketReader(BinaryReader):
     def read_domain(self):

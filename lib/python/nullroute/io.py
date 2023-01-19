@@ -5,6 +5,8 @@ class StreamWrapper():
     def __init__(self, fh=b""):
         if type(fh) in {bytes, bytearray}:
             self.fh = io.BytesIO(fh)
+        elif hasattr(fh, "makefile"):
+            self.fh = fh.makefile("rwb")
         else:
             self.fh = fh
 
@@ -18,7 +20,7 @@ class StreamWrapper():
         buf = self.fh.read(length)
         if len(buf) < length:
             if len(buf) == 0:
-                raise EOFError("Hit EOF after 0/%d bytes" % length)
+                raise EOFError("Hit EOF after %d/%d bytes" % (len(buf), length))
             else:
                 raise IOError("Hit EOF after %d/%d bytes" % (len(buf), length))
         return buf
@@ -28,6 +30,9 @@ class StreamWrapper():
         if ret < len(buf):
             raise IOError("Write truncated at %d/%d bytes" % (ret, len(buf)))
         return ret
+
+    def flush(self):
+        return self.fh.flush()
 
 class BinaryReader(StreamWrapper):
     def _read_fmt(self, length, fmt):
@@ -112,6 +117,9 @@ class BinaryWriter(StreamWrapper):
     def write_u64_be(self, val):
         return self._write_fmt(">Q", val)
 
+class BinaryStream(BinaryReader, BinaryWriter):
+    pass
+
 class SshPacketWriter(BinaryWriter):
     def write_bool(self, val):
         return sef._write_fmt("?", val)
@@ -128,6 +136,9 @@ class SshPacketWriter(BinaryWriter):
     def write_array(self, vec):
         string = b",".join(vec)
         return self.write_string(string)
+
+class SshStream(SshReader, SshWriter, BinaryStream):
+    pass
 
 class DnsPacketReader(BinaryReader):
     def read_domain(self):

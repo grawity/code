@@ -25,83 +25,107 @@ getkey() {
 	return 1
 }
 
+get_kversion() {
+	case $(uname -m) in
+	x86_64)
+		perl -w -e '
+		my $kernel = $ARGV[0];
+		open(my $fh, "<", $kernel);
+		seek($fh, 0x200 + 0x0e, 0);
+		read($fh, my $buf1, 2);
+		my ($pos) = unpack("S", $buf1);
+		seek($fh, 0x200 + $pos, 0);
+		read($fh, my $buf2, 128);
+		close($fh);
+		$buf2 =~ s/\0.*//;
+		$buf2 =~ s/ .*//;
+		print "$buf2\n";
+		' "$kernel";;
+	*)
+		err "cannot guess kernel version on this architecture";;
+	esac
+}
+
 install_kernel() {
 	local kernel=$1
-	local suffix=$2
-	local config=$3
-	local version=
-
-	if version=$(pacman -Q "$kernel" 2>/dev/null); then
-		version=${version#"$kernel "}${suffix}
+	local kname=${kernel#/boot/vmlinuz-}
+	local version=$(get_kversion "$kernel")
+	local entryid=
+	if [[ $kname == linux?(-*) ]]; then
+		version=${version}${kname#linux}
+		entryid=${kname/#"linux"/"$ID"}
 	else
-		err "package '$kernel' does not exist"
-		return
+		version=$version-$kname
+		entryid=$kname
 	fi
+	local mucode=/boot/intel-ucode.img
+	local initrd=/boot/initramfs-$kname.img
+	local config=$ESP/loader/entries/$entryid.conf
 
-	say "installing package '$kernel' ($version) as \"$PRETTY_NAME\""
+	say "installing kernel $kernel ($version) as \"$PRETTY_NAME\" ($entryid)"
+	parameters=(
+		"title"		"$PRETTY_NAME"
+		"version"	"$version"
+		"machine-id"	"$MACHINE_ID"
+		"linux"		"${kernel#/boot/}"
+		"initrd"	"${mucode#/boot/}"
+		"initrd"	"${initrd#/boot/}"
+		"options"	"$BOOT_OPTIONS"
+	)
 
 	if [[ $ESP != /boot ]]; then
-		dbg "copying kernel '$kernel' to EFI system partition"
+		dbg "copying $kernel to EFI system partition"
 		mkdir -p "$ESP/EFI/$ID"
-		cp -uf "/boot/vmlinuz-$kernel"		"$ESP/EFI/$ID/vmlinuz-$kernel.efi"
-		cp -uf "/boot/intel-ucode.img"		"$ESP/EFI/$ID/intel-ucode.img"
-		cp -uf "/boot/initramfs-$kernel.img"	"$ESP/EFI/$ID/initramfs-$kernel.img"
+		cp -uf "$kernel"	"$ESP/EFI/$ID/vmlinuz-$kname.efi"
+		cp -uf "$mucode"	"$ESP/EFI/$ID/intel-ucode.img"
+		cp -uf "$initrd"	"$ESP/EFI/$ID/initramfs-$kname.img"
 		sync -f "$ESP"
+		parameters=(
+			"title"		"$PRETTY_NAME"
+			"version"	"$version"
+			"machine-id"	"$MACHINE_ID"
+			"linux"		"/EFI/$ID/vmlinuz-$kname.efi"
+			"initrd"	"/EFI/$ID/intel-ucode.img"
+			"initrd"	"/EFI/$ID/initramfs-$kname.img"
+			"options"	"$BOOT_OPTIONS"
+		)
 	fi
 
-	if [[ $ESP == /boot ]]; then
-		parameters=(
-			"title"		"$PRETTY_NAME"
-			"version"	"$version"
-			"machine-id"	"$MACHINE_ID"
-			"linux"		"/vmlinuz-$kernel"
-			"initrd"	"/intel-ucode.img"
-			"initrd"	"/initramfs-$kernel.img"
-			"options"	"$BOOT_OPTIONS"
-		)
-	else
-		parameters=(
-			"title"		"$PRETTY_NAME"
-			"version"	"$version"
-			"machine-id"	"$MACHINE_ID"
-			"linux"		"/EFI/$ID/vmlinuz-$kernel.efi"
-			"initrd"	"/EFI/$ID/intel-ucode.img"
-			"initrd"	"/EFI/$ID/initramfs-$kernel.img"
-			"options"	"$BOOT_OPTIONS"
-		)
-	fi
+	dbg "generating entry '$entryid'"
 	mkdir -p "$ESP/loader/entries"
-	printf '%-15s %s\n' "${parameters[@]}" > "$ESP/loader/entries/$config.conf"
+	printf '%-15s %s\n' "${parameters[@]}" > "$ESP/loader/entries/$entryid.conf"
 	sync -f "$ESP"
 }
 
 remove_kernel() {
 	local kernel=$1
-	local suffix=$2
-	local config=$3
+	local kname=${kernel#/boot/vmlinuz-}
+	local entryid=
+	if [[ $kname == linux?(-*) ]]; then
+		entryid=${kname/#"linux"/"$ID"}
+	else
+		entryid=$kname
+	fi
+	local initrd=/boot/initramfs-$kname.img
+	local config=$ESP/loader/entries/$entryid.conf
 
-	say "uninstalling package '$kernel'"
-	rm -f "$ESP/EFI/$ID/vmlinuz-$kernel.efi"
-	rm -f "$ESP/EFI/$ID/initramfs-$kernel.img"
-	rm -f "$ESP/loader/entries/$config.conf"
-}
-
-config_for_kernel() {
-	# Transform a kernel filename such as "vmlinuz-linux-lts" to a loader
-	# entry name such as "arch-lts".
-	local path=$1
+	say "removing kernel '$kernel'"
+	rm -f "$ESP/EFI/$ID/vmlinuz-$kname.efi"
+	rm -f "$ESP/EFI/$ID/initramfs-$kname.img"
+	rm -f "$ESP/loader/entries/$entryid.conf"
 }
 
 check_kernel() {
-	local path=$1
-	local suffix=${path#/boot/vmlinuz-linux}
-	local kernel=linux$suffix
-	local config=$ID$suffix
+	local kernel=$1
 
-	if [[ -s $path ]]; then
-		install_kernel "$kernel" "$suffix" "$config"
+	if [[ $kernel != /boot/vmlinuz-?* ]]; then
+		return 1
+	fi
+
+	if [[ -s $kernel ]]; then
+		install_kernel "$kernel"
 	else
-		remove_kernel "$kernel" "$suffix" "$config"
+		remove_kernel "$kernel"
 	fi
 }
 
@@ -120,7 +144,7 @@ check_config() {
 		dbg "keeping entry '$config' (not a kernel entry)"
 		return
 	fi
-	if [[ $kernel != */vmlinuz-linux* ]]; then
+	if [[ $kernel != ?(/)vmlinuz-* ]]; then
 		dbg "keeping entry '$config' (unusual kernel path)"
 		return
 	fi
@@ -178,10 +202,12 @@ if [[ ${1-} ]]; then
 	check_kernel "$1"
 else
 	for path in "$ESP/loader/entries"/*.conf; do
+		dbg "found entry '$path'"
 		check_config "$path"
 	done
 
 	for path in /boot/vmlinuz-*; do
+		dbg "found kernel '$path'"
 		check_kernel "$path"
 	done
 fi

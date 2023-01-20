@@ -49,22 +49,22 @@ get_kversion() {
 install_kernel() {
 	local kernel=$1
 	local kname=${kernel#/boot/vmlinuz-}
+	local title=$PRETTY_NAME
 	local version=$(get_kversion "$kernel")
 	local entryid=
 	if [[ $kname == linux?(-*) ]]; then
-		version=${version}${kname#linux}
-		entryid=${kname/#"linux"/"$ID"}
+		entryid=${kname/#linux/"$ID"}
 	else
-		version=$version-$kname
+		title="$kernel"
 		entryid=$kname
 	fi
 	local mucode=/boot/intel-ucode.img
 	local initrd=/boot/initramfs-$kname.img
 	local config=$ESP/loader/entries/$entryid.conf
 
-	say "installing kernel $kernel ($version) as \"$PRETTY_NAME\" ($entryid)"
+	say "installing kernel $kernel ($version) as \"$title\" ($entryid)"
 	parameters=(
-		"title"		"$PRETTY_NAME"
+		"title"		"$title"
 		"version"	"$version"
 		"machine-id"	"$MACHINE_ID"
 		"linux"		"${kernel#/boot/}"
@@ -81,7 +81,7 @@ install_kernel() {
 		cp -uf "$initrd"	"$ESP/EFI/$ID/initramfs-$kname.img"
 		sync -f "$ESP"
 		parameters=(
-			"title"		"$PRETTY_NAME"
+			"title"		"$title"
 			"version"	"$version"
 			"machine-id"	"$MACHINE_ID"
 			"linux"		"/EFI/$ID/vmlinuz-$kname.efi"

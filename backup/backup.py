@@ -2,6 +2,7 @@
 from nullroute.core import Core, Env
 from nullroute.ui import confirm
 import argparse
+import logging
 import os
 import subprocess
 import time
@@ -126,7 +127,7 @@ def do_borg(*,
         print(f"Rewrote repository to {repo!r}")
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
-    print(f"Running {cmd!r}")
+    Core.debug(f"Running {cmd!r}")
     subprocess.run(cmd, check=True)
 
     if ":" in repo:
@@ -145,39 +146,47 @@ def do_borg(*,
         return
 
     cmd = [*wrap, "borg", "prune", repo, "--verbose", *borg_keep]
-    print(f"Running {cmd!r}")
+    Core.debug(f"Running {cmd!r}")
     subprocess.run(cmd, check=True)
 
     cmd = [*wrap, "borg", "compact", repo, "--progress"]
-    print(f"Running {cmd!r}")
+    Core.debug(f"Running {cmd!r}")
     subprocess.run(cmd, check=True)
 
     touch(stamp)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--borg-repo")
+parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("job", nargs="*")
 args = parser.parse_args()
 
+Core.set_log_level([Core.LOG_INFO, Core.LOG_DEBUG][args.verbose])
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
+
 for job in args.job:
-    if job == "home":
-        do_borg(repo=args.borg_repo or borg_home_repo,
-                base="~",
-                dirs=["."],
-                args=[
-                    *borg_args,
-                    f"--exclude-from={conf}/borg/home_all.exclude",
-                    f"--exclude-from={conf}/borg/home_{hostname}.exclude",
-                ])
-    elif job == "root":
-        do_borg(repo=args.borg_repo or borg_root_repo,
-                base="/",
-                dirs=["/"],
-                sudo=True,
-                args=[
-                    *borg_args,
-                    f"--exclude-from={conf}/borg/root_all.exclude",
-                    f"--exclude-from={conf}/borg/root_{hostname}.exclude",
-                ])
-    else:
-        exit(f"error: Unknown job {job!r}")
+    try:
+        if job == "home":
+            do_borg(repo=args.borg_repo or borg_home_repo,
+                    base="~",
+                    dirs=["."],
+                    args=[
+                        *borg_args,
+                        f"--exclude-from={conf}/borg/home_all.exclude",
+                        f"--exclude-from={conf}/borg/home_{hostname}.exclude",
+                    ])
+        elif job == "root":
+            do_borg(repo=args.borg_repo or borg_root_repo,
+                    base="/",
+                    dirs=["/"],
+                    sudo=True,
+                    args=[
+                        *borg_args,
+                        f"--exclude-from={conf}/borg/root_all.exclude",
+                        f"--exclude-from={conf}/borg/root_{hostname}.exclude",
+                    ])
+        else:
+            exit(f"error: Unknown job {job!r}")
+    except subprocess.CalledProcessError as e:
+        exit(f"error: {e.cmd[0]!r} exited with {e.returncode}")

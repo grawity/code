@@ -25,6 +25,13 @@ class UtType(enum.IntEnum):
 def timeval_to_float(tv):
     return tv[0] + tv[1]/1e6
 
+class struct_lastlog(_Structure):
+    _fields_ = [
+        ("ll_time",         ctypes.c_int32),
+        ("ll_line",         ctypes.c_char * UT_LINESIZE),
+        ("ll_host",         ctypes.c_char * UT_HOSTSIZE),
+    ]
+
 class struct_exit_status(ctypes.Structure):
     _fields_ = [
         ("e_termination",   ctypes.c_short),

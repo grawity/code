@@ -139,6 +139,7 @@ declare -A _log_fprefix=(
 	[log]='~'
 	[log2]='=='
 	[notice]='notice:'
+	[fatal]='error:'
 )
 
 declare -A _log_fcolor=(

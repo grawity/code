@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # notify-resend -- wrapper around notify-send that automatically replaces the
-# previous notification from the same program
+#                  previous notification from the same program
 
 opt_urgency=
 opt_expire=
@@ -12,9 +12,9 @@ opt_hints=()
 opt_printid=0
 opt_replaceid=
 
-# Handle most notify-send options except --print-id, --wait, and --action
-# (conflicts with --print-id stdout usage).
-while getopts "a:c:eh:i:pr:t:u:" OPT; do
+while getopts ":a:c:eh:i:pr:t:u:" OPT; do
+	# Handle most notify-send options except --action and --wait
+	# (both of which conflict with the stdout usage of --print-id).
 	case $OPT in
 	u) opt_urgency=$OPTARG;;
 	t) opt_expire=$OPTARG;;
@@ -25,9 +25,13 @@ while getopts "a:c:eh:i:pr:t:u:" OPT; do
 	h) opt_hints+=("$OPTARG");;
 	p) opt_printid=1;;
 	r) opt_replaceid=$OPTARG;;
-	*) exit 2;;
+	*) echo "${0##*/}: bad option '-$OPTARG'" >&2; exit 2;;
 	esac
 done; shift $((OPTIND-1))
+
+if (( $# > 2 )); then
+	echo "${0##*/}: too many arguments" >&2; exit 2
+fi
 
 args=()
 if [[ $opt_urgency ]]; then
@@ -57,9 +61,8 @@ if [[ $opt_replaceid ]]; then
 	replaceid=$(< "$statefile")
 	args+=(-r "${replaceid:-0}")
 fi
-args+=("$@")
 
-replaceid=$(notify-send -p "${args[@]}")
+replaceid=$(notify-send -p "${args[@]}" -- "$@")
 
 if [[ $opt_replaceid ]]; then
 	echo "$replaceid" > "$statefile"

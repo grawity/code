@@ -55,16 +55,15 @@ fi
 
 declare -p is_disabled schema key value > "$state"
 
-if [[ ! -t 1 ]]; then
-	case $is_disabled in
-		1) status="disabled"; icon="system-lock-screen";;
-		0) status="enabled"; icon="preferences-desktop-keyboard-shortcuts";;
-	esac
-	notify \
-		--state=backtick \
-		--icon="$icon-symbolic" \
-		--hint=transient \
-		--hint=synchronous \
+case $is_disabled in
+	1) status="disabled"; icon="system-lock-screen";;
+	0) status="enabled"; icon="preferences-desktop-keyboard-shortcuts";;
+esac
+
+if [[ -t 1 ]]; then
+	echo "Alt+Backtick has been $status."
+else
+	notify-resend -r backtick -e -i "$icon-symbolic" \
 		"Alt+Backtick" \
 		"Alt+Backtick has been $status."
 fi

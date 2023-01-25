@@ -14,10 +14,14 @@ else
 	text="enabled"
 fi
 
-notify \
-	--state="nightlight" \
+idfile=${XDG_RUNTIME_DIR?}/notify-send.darkmode
+>> "$idfile"
+id=$(< "$idfile")
+notify-send \
+	--replace-id="${id:-0}" \
+	--print-id \
+	--transient \
 	--icon="dark-mode-symbolic" \
-	--hint=transient \
-	--hint=synchronous \
 	"Dark Mode" \
-	"Dark Mode has been $text."
+	"Dark mode has been $text." \
+	> "$idfile"

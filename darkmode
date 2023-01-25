@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
+# darkmode -- Toggle between light/dark mode in GNOME
 
-schema="org.gnome.desktop.interface"
-key="color-scheme"
-value_on="'prefer-dark'"
+schema=org.gnome.desktop.interface
+key=color-scheme
+value="'prefer-dark'"
 
-current=$(gsettings get "$schema" "$key")
+case $(gsettings get $schema $key) in
+	"$value")
+		gsettings reset $schema $key
+		text=disabled;;
+	*)
+		gsettings set $schema $key "$value"
+		text=enabled;;
+esac
 
-if [[ "$current" == "$value_on" ]]; then
-	gsettings reset "$schema" "$key"
-	text="disabled"
-else
-	gsettings set "$schema" "$key" "$value_on"
-	text="enabled"
-fi
-
-if [[ -t 1 ]]; then
+if [ -t 1 ]; then
 	echo "Dark Mode has been $text."
 else
 	notify-resend -r hotkey -e -i "dark-mode-symbolic" \
-		"Dark Mode" \
-		"Dark Mode has been $text."
+		"Dark Mode" "Dark Mode has been $text."
 fi

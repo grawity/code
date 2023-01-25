@@ -2,6 +2,20 @@
 # notifysend -- wrapper around notify-send that automatically replaces the
 #               previous notification from the same program
 
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [options] <title> <body>"
+	echo
+	echo_opt "-u LEVEL"	"urgency (low, normal, critical)"
+	echo_opt "-t TIME"	"expiry timeout (milliseconds)"
+	echo_opt "-a NAME"	"application name for the icon"
+	echo_opt "-i ICON"	"icon name"
+	echo_opt "-e"		"transient notification"
+	echo_opt "-h HINT"	"custom hint (type:name:value)"
+	echo_opt "-r NAME"	"state name to replace last notification"
+}
+
 opt_urgency=
 opt_expire=
 opt_appname=
@@ -25,12 +39,12 @@ while getopts ":a:c:eh:i:pr:t:u:" OPT; do
 	h) opt_hints+=("$OPTARG");;
 	p) opt_printid=1;;
 	r) opt_replaceid=$OPTARG;;
-	*) echo "${0##*/}: bad option '-$OPTARG'" >&2; exit 2;;
+	*) lib::die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 
 if (( $# > 2 )); then
-	echo "${0##*/}: too many arguments" >&2; exit 2
+	die "too many arguments"
 fi
 
 args=()
@@ -62,7 +76,7 @@ if [[ $opt_replaceid ]]; then
 	args+=(-r "${replaceid:-0}")
 fi
 
-replaceid=$(notify-send -p "${args[@]}" -- "$@")
+replaceid=$(notify-send -p "${args[@]}" -- "$@") || exit
 
 if [[ $opt_replaceid ]]; then
 	echo "$replaceid" > "$statefile"

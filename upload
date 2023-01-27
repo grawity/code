@@ -17,6 +17,7 @@ usage() {
 	echo_opt "-t"		"add 'Ymd' timestamps to destination filenames"
 	echo_opt "-tt"		"add Unix timestamps"
 	echo_opt "-ttt"		"add 'Ymd.HMS' timestamps"
+	echo_opt "-T"		"use file modification time as timestamp"
 	echo_opt "-X"		"delete files instead of uploading"
 }
 
@@ -61,9 +62,10 @@ declare -i arg_remove=0
 declare -- arg_server=
 declare -- arg_subdir=
 declare -i arg_timestamp=0
+declare -i arg_mtime=0
 declare -i arg_yearly=1
 
-while getopts ":01cd:iIqS:tX" OPT; do
+while getopts ":01cd:iIqS:tTX" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
@@ -74,6 +76,7 @@ while getopts ":01cd:iIqS:tX" OPT; do
 	q) arg_quiet=1;;
 	S) arg_mangle=$OPTARG;;
 	t) arg_timestamp+=1;;
+	T) arg_mtime=1;;
 	X) arg_remove=1;;
 	*) die_getopts;;
 	esac
@@ -107,6 +110,10 @@ fi
 
 debug "base dir: '$fsbase'"
 debug "base url: '$urlbase'"
+
+if (( arg_mtime && !arg_timestamp )); then
+	arg_timestamp=1
+fi
 
 if (( arg_timestamp > 2 )); then
 	timefmt='%Y%m%d.%H%M%S.'
@@ -188,7 +195,9 @@ for arg; do
 	if [[ $arg_mangle ]]; then
 		name=$(echo "$name" | sed -r "$arg_mangle")
 	fi
-	if (( arg_timestamp )); then
+	if (( arg_timestamp && arg_mtime )); then
+		name=$(date +"$timefmt" -r "$arg")$name
+	elif (( arg_timestamp )); then
 		name=$(date +"$timefmt")$name
 	fi
 	source=$(readlink -f "$arg")

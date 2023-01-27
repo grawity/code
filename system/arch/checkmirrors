@@ -64,6 +64,15 @@ checkspeed() {
 	fi
 }
 
+opt_speed=0
+
+while getopts ":w" OPT; do
+	case $OPT in
+	w) opt_speed=1;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
 repo=core
 arch=`uname -m`
 now=`date +%s`
@@ -81,7 +90,9 @@ while read -r line; do
 		checklast "$base" sync &&
 		checklast "$base" update &&
 		checkdb "$base" "$url" &&
-		true # checkspeed "$base" "$url" "$linux"
+		if (( opt_speed )); then
+			checkspeed "$base" "$url" "$linux"
+		fi
 	elif [[ $line == \#* ]]; then
 		printf '\e[2m%s\e[m\n' "$line"
 	else

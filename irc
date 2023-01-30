@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# irc -- attach to my tmux session with the IRC client
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-s]"
+	echo
+	echo_opt "-s"	"use plain SSH instead of Mosh"
+	echo_opt "-f"	"allow duplicate attach"
+}
+
+session=${XDG_SESSION_ID:-${DISPLAY:-${WAYLAND_DISPLAY:-none}}}
+lockfile=${XDG_RUNTIME_DIR?}/irc-$session.lock
+
+opt_mosh=1
+opt_force=0
+
+while getopts :fs OPT; do
+	case $OPT in
+	f) opt_force=1;;
+	s) opt_mosh=0;;
+	*) lib::die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+. ~/.config/nullroute.lt/irc.conf || exit
+
+exec {fd}<>"$lockfile"
+if (( !opt_force )); then
+	flock -xn $fd || die "already connected from $HOSTNAME/$session"
+fi
+
+if (( opt_mosh )); then
+	export MOSH_TITLE_NOPREFIX=y
+	mosh "${irc_host?}" -- tmux attach -t irc; r=$?
+else
+	ssh -t "${irc_host?}" "tmux attach -t irc"; r=$?
+fi
+
+exec {fd}>&-
+hi &> /dev/null &
+exit $r

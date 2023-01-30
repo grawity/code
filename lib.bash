@@ -225,7 +225,7 @@ declare -A _log_mcolor=(
 	[log2]='\e[1m'
 )
 
-trace() {
+lib:trace() {
 	local color reset
 	if [[ -t 1 ]]; then
 		color=${_log_color[trace]} reset='\e[m'

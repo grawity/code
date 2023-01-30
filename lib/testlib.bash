@@ -13,8 +13,8 @@ messages() {
 	log "log message"
 	info "info message"
 	msg "msg message"
-	trace "trace message"
 	debug "debug message"
+	lib:trace "trace message"
 	true
 }
 

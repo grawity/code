@@ -27,11 +27,6 @@ path_config="$XDG_CONFIG_HOME/nullroute.eu.org"
 path_data="$XDG_DATA_HOME/nullroute.eu.org"
 path_runtime="$XDG_RUNTIME_DIR/nullroute.eu.org"
 
-if [[ -e /etc/os-release ]]
-	then path_os_release="/etc/os-release"
-	else path_os_release="/usr/lib/os-release"
-fi
-
 ## Logging
 
 progname=${0##*/}

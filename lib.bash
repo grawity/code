@@ -163,6 +163,20 @@ lib:printf() {
 	printf "%s$1\n" "$name_prefix" "${@:2}"
 }
 
+# lib:echo(format, args...)
+
+lib:echo() {
+	local name_prefix
+
+	if [[ $DEBUG ]]; then
+		name_prefix="$progname[$$]: "
+	else
+		name_prefix="$progname: "
+	fi
+
+	echo "$name_prefix$*"
+}
+
 # lib:backtrace
 #
 # Print a call trace.

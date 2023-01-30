@@ -34,24 +34,24 @@ case $1 in
 	fi
 
 	size_k=$(( size / 1024 ))
-	log "image size: $size_k kB ($size bytes)"
+	echo "Image size: $size_k kB ($size bytes)"
 
 	if [[ -e $name ]]; then
 		die "file \"$name\" already exists"
 	fi
 
-	echo "allocating image"
+	lib:echo "Allocating image '$name'"
 	head -c "$size" /dev/zero > "$name"
 
-	echo "creating filesystem"
+	lib:echo "Creating FAT filesystem"
 	mkfs.vfat "$name"
 
 	if (( $# > 3 )); then
-		echo "adding files"
+		lib:echo "Adding files"
 		mcopy -i "$name" "${@:4}" ::
 	fi
 
-	log "created \"$name\""
+	lib:echo "Created '$name'"
 	;;
     mount|m)
 	name=$2
@@ -66,13 +66,13 @@ case $1 in
 		die "file \"$name\" does not eixist"
 	fi
 
-	log "mounting image '$name'"
 	mtpt=$XDG_RUNTIME_DIR/fd
 	mkdir -p "$mtpt"
+
 	if sudo mount "$name" "$mtpt" -o loop,uid=$UID; then
-		log "mounted \"$name\" on $mtpt"
+		lib:echo "Mounted '$name' on '$mtpt'"
 	else
-		die "mount failed"
+		die "Could not mount '$name' on '$mtpt'"
 	fi
 	;;
     umount|unmount|u)
@@ -90,7 +90,7 @@ case $1 in
 
 	if sudo umount "$mtpt"; then
 		until rmdir "$mtpt" 2>/dev/null; do sleep 1; done &
-		log "unmounted \"$mtpt\""
+		lib:echo "Unmounted '$mtpt'"
 	else
 		die "unmount failed"
 	fi

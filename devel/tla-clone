@@ -38,15 +38,17 @@ dest=$(readlink -f "$dest")
 info "destination: $dest"
 
 if ! [[ "$(tla whereis-archive "$name-SOURCE")" == "$src" ]]; then
-	log "registering origin archive"
+	lib:echo "Registering origin archive '$name-SOURCE'"
 	tla register-archive --force "$name-SOURCE" "$src"
 fi
 
 if ! [[ -d "$dest/=meta-info" ]]; then
-	log "creating local mirror archive"
+	lib:echo "Registering local mirror archive '$name'"
 	tla register-archive --force --delete "$name"
+
+	lib:echo "Mirroring local archive"
 	tla make-archive $arg_format --mirror-from "$name-SOURCE" "$dest"
 fi
 
-log "updating local mirror"
+lib:echo "Updating local mirror archive"
 tla archive-mirror "$name"

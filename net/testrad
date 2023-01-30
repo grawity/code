@@ -10,6 +10,8 @@
 
 lib_config[opt_width]=24
 
+config_file=${XDG_CONFIG_HOME?}/nullroute.lt/testrad.conf.sh
+
 usage() {
 	echo "Usage: $progname PROFILE [via SERVER] [options]"
 	echo ""
@@ -134,8 +136,7 @@ help_phase2() {
 }
 
 help_config() {
-	local c=$path_config/testrad.conf.sh
-	echo "Configurations are loaded from ${c/#"$HOME"/"~"}:"
+	echo "Configurations are loaded from ${config_file/#"$HOME"/"~"}:"
 	echo ""
 	echo "  server_foo=("
 	echo "      host radius.example.com"
@@ -166,10 +167,9 @@ eapol_bin="eapol_test"
 
 # parse config
 
-lib::find_file config= config:{,synced/}testrad.conf.sh ""
-if [[ $config ]]; then
-	debug "loading profiles from '$config'"
-	. "$config" || die "could not load configuration"
+if [[ -e $config_file ]]; then
+	debug "loading profiles from '$config_file'"
+	. "$config_file" || die "could not load configuration"
 fi
 
 # parse arguments

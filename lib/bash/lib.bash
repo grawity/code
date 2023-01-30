@@ -335,31 +335,6 @@ sudo:() {
 	fi
 }
 
-lib::find_file() {
-	local var=${1%=} _file
-	for _file in "${@:2}"; do
-		case $_file in
-			cache:/*)    _file=$XDG_CACHE_HOME/${_file#*/};;
-			cache:*)     _file=$path_cache/${_file#*:};;
-			config:/*)   _file=$XDG_CONFIG_HOME/${_file#*/};;
-			config:*)    _file=$path_config/${_file#*:};;
-			data:/*)     _file=$XDG_DATA_HOME/${_file#*/};;
-			data:*)      _file=$path_data/${_file#*:};;
-		esac
-		if [[ -e "$_file" ]]; then
-			debug "found $var = '$_file'"
-			eval "$var=\$_file"
-			return 0
-		fi
-	done
-	debug "fallback $var = '$_file'"
-	if [[ ! -d "${_file%/*}" ]]; then
-		mkdir -p "${_file%/*}"
-	fi
-	eval "$var=\$_file"
-	return 1
-}
-
 if (( DEBUG > 1 )); then
 	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"
 fi

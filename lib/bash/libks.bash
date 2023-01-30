@@ -65,8 +65,39 @@ ks:larger_than() {
 	(( filesz > size ))
 }
 
+# ks:find_file(&$var, @paths) -> nil
+#   $var: variable to set
+#   @paths: list of paths to check for existence
+# Finds the first existing file in list; if none exist, returns the last path
+# and ensures its parent directory exists.
+
+ks:find_file() {
+	local var=${1%=} _file
+	for _file in "${@:2}"; do
+		case $_file in
+			cache:/*)    _file=$XDG_CACHE_HOME/${_file#*/};;
+			cache:*)     _file=$path_cache/${_file#*:};;
+			config:/*)   _file=$XDG_CONFIG_HOME/${_file#*/};;
+			config:*)    _file=$path_config/${_file#*:};;
+			data:/*)     _file=$XDG_DATA_HOME/${_file#*/};;
+			data:*)      _file=$path_data/${_file#*:};;
+		esac
+		if [[ -e "$_file" ]]; then
+			debug "found $var = '$_file'"
+			eval "$var=\$_file"
+			return 0
+		fi
+	done
+	debug "fallback $var = '$_file'"
+	if [[ ! -d "${_file%/*}" ]]; then
+		mkdir -p "${_file%/*}"
+	fi
+	eval "$var=\$_file"
+	return 1
+}
+
 # ks:next_file_slot($base) -> $slot
-# $base: printf template with one %d or %s
+#   $base: printf template with one %d or %s
 # Finds the first nonexistent file named after $base.
 # Not atomic/racefree.
 

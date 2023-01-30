@@ -1,1 +1,0 @@
-libks.bash

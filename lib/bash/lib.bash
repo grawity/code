@@ -35,7 +35,7 @@ declare -A lib_config=(
 	[opt_width]=14
 )
 
-# lib::msg(text, level_prefix, level_color, [fancy_prefix, fancy_color, [text_color]])
+# lib:msg(text, level_prefix, level_color, [fancy_prefix, fancy_color, [text_color]])
 #
 # Print a log message.
 #
@@ -46,7 +46,7 @@ declare -A lib_config=(
 #
 # If $DEBUG is set, $fancy_prefix and $fancy_color will be ignored.
 
-lib::msg() {
+lib:msg() {
 	local text=$1
 	local level_prefix=$2
 	local level_color=${_log_color[$level_prefix]}
@@ -81,12 +81,12 @@ lib::msg() {
 		"$name_prefix" "$prefix" "$text"
 }
 
-# lib::printf(format, args...)
+# lib:printf(format, args...)
 #
 # Print a log message with an entirely custom format and parameters. Almost
 # like `printf` but adds the program name when necessary.
 
-lib::printf() {
+lib:printf() {
 	local name_prefix
 
 	if [[ $DEBUG ]]; then
@@ -170,52 +170,52 @@ debug() {
 
 msg() {
 	if [[ $DEBUG ]]; then
-		lib::msg "$*" info
+		lib:msg "$*" info
 	else
-		lib::printf "%s" "$*"
+		lib:printf "%s" "$*"
 	fi
 }
 
 info() {
-	lib::msg "$*" info
+	lib:msg "$*" info
 }
 
 log() {
-	lib::msg "$*" log
+	lib:msg "$*" log
 }
 
 log2() {
-	lib::msg "$*" log2
+	lib:msg "$*" log2
 	settitle "$progname: $*"
 }
 
 notice() {
-	lib::msg "$*" notice
+	lib:msg "$*" notice
 } >&2
 
 warn() {
-	lib::msg "$*" warning
-	if (( DEBUG > 1 )); then lib::backtrace; fi
+	lib:msg "$*" warning
+	if (( DEBUG > 1 )); then lib:backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
-	lib::msg "$*" error
-	if (( DEBUG > 1 )); then lib::backtrace; fi
+	lib:msg "$*" error
+	if (( DEBUG > 1 )); then lib:backtrace; fi
 	! (( ++errors ))
 } >&2
 
 die() {
 	local r=1
 	if [[ $1 =~ ^-?[0-9]+$ ]]; then r=${1#-}; shift; fi
-	lib::msg "$*" fatal
-	if (( DEBUG > 1 )); then lib::backtrace; fi
+	lib:msg "$*" fatal
+	if (( DEBUG > 1 )); then lib:backtrace; fi
 	exit $r
 } >&2
 
 croak() {
-	lib::msg "BUG: $*" fatal
-	lib::backtrace
+	lib:msg "BUG: $*" fatal
+	lib:backtrace
 	exit 3
 }
 
@@ -254,7 +254,7 @@ confirm() {
 	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }
 
-lib::progress() {
+lib:progress() {
 	local -i done=$1 total=$2 width=40
 	local -i fill=$(( width * done / total ))
 	local -i perc=$(( 100 * done / total ))
@@ -264,7 +264,7 @@ lib::progress() {
 	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
 }
 
-lib::backtrace() {
+lib:backtrace() {
 	local -i i=${1:-1}
 	printf "%s[%s]: call stack:\n" "$progname" "$$"
 	for (( 1; i <= ${#BASH_SOURCE[@]}; i++ )); do
@@ -301,7 +301,7 @@ lib:die_getopts() {
 			usage || croak "help text not available"
 			exit 0
 		elif [[ $OPTARG ]]; then
-			lib::msg "unknown option '-$OPTARG'" fatal
+			lib:msg "unknown option '-$OPTARG'" fatal
 			usage || true
 			exit 2
 		else
@@ -314,7 +314,7 @@ lib:die_getopts() {
 	esac
 }
 
-lib::is_nested() {
+lib:is_nested() {
 	(( LVL "$@" ))
 }
 

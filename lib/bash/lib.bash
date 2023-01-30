@@ -227,10 +227,6 @@ croak() {
 
 ## Other stuff
 
-lib::exit() {
-	(( !errors )); exit
-}
-
 usage() { false; } # overridden
 
 echo_opt() {

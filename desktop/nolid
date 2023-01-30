@@ -3,7 +3,6 @@
 
 . lib.bash || exit
 
-lock="${XDG_RUNTIME_DIR?}/nolid.lock"
 hold="${XDG_RUNTIME_DIR?}/nolid.hold"
 
 usage() {
@@ -41,33 +40,18 @@ if (( ! $# )); then
 	set -- ac-wait
 fi
 
-if [[ $_NOLID ]]; then
-	progname_prefix=1
-	warn "running nested"
-	exec env LVL="$_lvl" "$@" || exit
-fi
-
 if [[ -t 0 ]]; then
 	settitle "nolid${1:+: $1}"
 fi
 
-touch "$lock"
-
-trap 'flock -xn "$lock" rm -f "$lock"' EXIT
-
-flock -s "$lock" \
-	systemd-inhibit --who="$name" \
-		--what="sleep:handle-lid-switch" \
-		--why="Manually inhibited" \
-	gnome-inhibit --always \
-		--who="$name" \
-		--what="suspend" \
-		--why="Manually inhibited" \
-	env \
-		LVL="$_lvl" \
-		_NOLID="1" \
+systemd-inhibit --who="$name" \
+	--what="sleep:handle-lid-switch" \
+	--why="Manually inhibited" \
+gnome-inhibit --always \
+	--who="$name" \
+	--what="suspend" \
+	--why="Manually inhibited" \
+env \
+	LVL="$_lvl" \
+	_NOLID="1" \
 	"$@"
-
-r=$?
-
-exit $r

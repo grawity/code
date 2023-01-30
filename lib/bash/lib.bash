@@ -25,7 +25,6 @@ fi
 path_cache="$XDG_CACHE_HOME/nullroute.eu.org"
 path_config="$XDG_CONFIG_HOME/nullroute.eu.org"
 path_data="$XDG_DATA_HOME/nullroute.eu.org"
-path_runtime="$XDG_RUNTIME_DIR/nullroute.eu.org"
 
 ## Logging
 

@@ -103,7 +103,7 @@ else
 	err "neither input private key (-K) nor output private key (-k) specified"
 fi
 
-lib::assert_ok
+((!errors)) || exit
 
 if (( opt_certyears < 1 )); then
 	die "expiry time (-y) must be at least 1 year"

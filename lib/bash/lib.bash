@@ -12,7 +12,11 @@ fi
 
 : ${LVL:=0}; _lvl=$(( LVL++ )); export LVL
 
-## Variable defaults
+lib:is_nested() {
+	(( LVL "$@" ))
+}
+
+# Variable defaults
 
 : ${DEBUG:=}
 
@@ -26,14 +30,75 @@ path_cache="$XDG_CACHE_HOME/nullroute.eu.org"
 path_config="$XDG_CONFIG_HOME/nullroute.eu.org"
 path_data="$XDG_DATA_HOME/nullroute.eu.org"
 
-## Logging
-
 progname=${0##*/}
 progname_prefix=-1
 
 declare -A lib_config=(
 	[opt_width]=14
 )
+
+# Various
+
+have() {
+	command -v "$1" >&/dev/null
+}
+
+do:() {
+	(PS4='+ '; set -x; "$@")
+}
+
+sudo:() {
+	if (( UID ))
+		then do: sudo "$@"
+		else do: "$@"
+	fi
+}
+
+confirm() {
+	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
+	case $text in
+	    "error: "*)
+		text=${text#*: }
+		prefix="(!!)"
+		color=$'\e[1;7;31m';;
+	    "warning: "*)
+		text=${text#*: }
+		prefix="(??)"
+		color=$'\e[1;31m';;
+	    *)
+		prefix="(?)"
+		color=$'\e[1;36m';;
+	esac
+	local prompt=${si}${color}${so}${prefix}${si}${reset}${so}" "${text}" "
+	local answer="n"
+	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
+}
+
+lib:progress() {
+	local -i done=$1 total=$2 width=40
+	local -i fill=$(( width * done / total ))
+	local -i perc=$(( 100 * done / total ))
+	local lbar rbar
+	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
+	printf -v rbar '%*s' $(( width-fill )) ''
+	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
+}
+
+# settitle(text)
+#
+# Set terminal title. Used by log/log2 levels.
+
+settitle() {
+	local str="$*"
+	case $TERM in
+	[xkE]term*|rxvt*|cygwin|dtterm|termite|tmux*)
+		printf '\e]0;%s\a' "$str";;
+	screen*)
+		printf '\ek%s\e\\' "$str";;
+	vt300*)
+		printf '\e]21;%s\e\\' "$str";;
+	esac
+}
 
 # lib:msg(text, level_prefix, level_color, [fancy_prefix, fancy_color, [text_color]])
 #
@@ -98,6 +163,20 @@ lib:printf() {
 	printf "%s$1\n" "$name_prefix" "${@:2}"
 }
 
+# lib:backtrace
+#
+# Print a call trace.
+
+lib:backtrace() {
+	local -i i=${1:-1}
+	printf "%s[%s]: call stack:\n" "$progname" "$$"
+	for (( 1; i <= ${#BASH_SOURCE[@]}; i++ )); do
+		printf "... %s:%s: %s -> %s\n" \
+			"${BASH_SOURCE[i]}" "${BASH_LINENO[i-1]}" \
+			"${FUNCNAME[i]:-?}" "${FUNCNAME[i-1]}"
+	done
+} >&2
+
 ## Log levels
 
 # As lib.bash is oriented towards interactive scripts, there are additional
@@ -130,7 +209,7 @@ declare -A _log_color=(
 )
 
 declare -A _log_fprefix=(
-	[log]='~'
+	[log]='~~'
 	[log2]='=='
 	[notice]='notice:'
 	[fatal]='error:'
@@ -213,15 +292,18 @@ die() {
 	exit $r
 } >&2
 
-croak() {
+lib:crash() {
 	lib:msg "BUG: $*" fatal
 	lib:backtrace
 	exit 3
 }
 
-## Other stuff
+# getopts
 
-usage() { false; } # overridden
+usage() {
+	# Placeholder (to be overridden by programs)
+	false
+}
 
 echo_opt() {
 	local opt=$1 desc=$2
@@ -234,97 +316,24 @@ echo_opt() {
 	fi
 }
 
-confirm() {
-	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
-	case $text in
-	    "error: "*)
-		text=${text#*: }
-		prefix="(!!)"
-		color=$'\e[1;7;31m';;
-	    "warning: "*)
-		text=${text#*: }
-		prefix="(??)"
-		color=$'\e[1;31m';;
-	    *)
-		prefix="(?)"
-		color=$'\e[1;36m';;
-	esac
-	local prompt=${si}${color}${so}${prefix}${si}${reset}${so}" "${text}" "
-	local answer="n"
-	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
-}
-
-lib:progress() {
-	local -i done=$1 total=$2 width=40
-	local -i fill=$(( width * done / total ))
-	local -i perc=$(( 100 * done / total ))
-	local lbar rbar
-	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
-	printf -v rbar '%*s' $(( width-fill )) ''
-	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
-}
-
-lib:backtrace() {
-	local -i i=${1:-1}
-	printf "%s[%s]: call stack:\n" "$progname" "$$"
-	for (( 1; i <= ${#BASH_SOURCE[@]}; i++ )); do
-		printf "... %s:%s: %s -> %s\n" \
-			"${BASH_SOURCE[i]}" "${BASH_LINENO[i-1]}" \
-			"${FUNCNAME[i]:-?}" "${FUNCNAME[i-1]}"
-	done
-} >&2
-
-settitle() {
-	local str="$*"
-	case $TERM in
-	[xkE]term*|rxvt*|cygwin|dtterm|termite|tmux*)
-		printf '\e]0;%s\a' "$str";;
-	screen*)
-		printf '\ek%s\e\\' "$str";;
-	vt300*)
-		printf '\e]21;%s\e\\' "$str";;
-	esac
-}
-
-## Various
-
-have() {
-	command -v "$1" >&/dev/null
-}
-
 lib:die_getopts() {
 	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
 	case $OPT in
 	    "?")
 		if [[ $OPTARG == "?" ]] ||
 		   [[ $OPTARG == "-" && ${BASH_ARGV[0]} == "--help" ]]; then
-			usage || croak "help text not available"
+			usage || lib:crash "help text not available"
 			exit 0
 		elif [[ $OPTARG ]]; then
 			lib:msg "unknown option '-$OPTARG'" fatal
 			usage || true
 			exit 2
 		else
-			croak "incorrect options specified for getopts"
+			lib:crash "incorrect options specified for getopts"
 		fi;;
 	    ":")
 		die 2 "missing argument to '-$OPTARG'";;
 	    *)
-		croak "unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
+		lib:crash "unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
-}
-
-lib:is_nested() {
-	(( LVL "$@" ))
-}
-
-do:() {
-	(PS4='+ '; set -x; "$@")
-}
-
-sudo:() {
-	if (( UID ))
-		then do: sudo "$@"
-		else do: "$@"
-	fi
 }

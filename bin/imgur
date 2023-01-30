@@ -9,9 +9,14 @@ API_CLIENT_ID="1d4fa0f8eeeec73" # grawity@gmail.com
 have curl || die "missing 'curl' program"
 have jq   || die "missing 'jq' program"
 
-lib::find_file log_file= \
-	"config:synced/imgur-${HOSTNAME%%.*}.log" \
-	"data:synced/imgur-${HOSTNAME%%.*}.log" ;
+log_name=imgur="${HOSTNAME%%.*}.log"
+# try old path first
+log_file=${XDG_CONFIG_HOME?}/nullroute.lt/synced/$log_name
+if [[ ! -e $log_file ]]; then
+	# otherwise prefer XDG_DATA_HOME
+	log_file=${XDG_DATA_HOME?}/nullroute.lt/synced/$log_name
+fi
+mkdir -p "${log_file%/*}"
 
 images=0
 clip=""

@@ -36,7 +36,9 @@ done
 
 declare -A hosts=() interfaces=()
 
-lib::find_file config_file= ~/lib/capture.aliases config:capture.aliases && {
+alias_file=${XDG_CONFIG_HOME?}/nullroute.lt/capture.aliases
+
+if [[ -e $alias_file ]]; then
 	while IFS='=' read -r key value; do
 		if [[ $key == '#'* ]]; then
 			continue
@@ -53,8 +55,8 @@ lib::find_file config_file= ~/lib/capture.aliases config:capture.aliases && {
 				hosts["$current_host"]=$value
 			fi
 		fi
-	done < "$config_file" || die "could not read alias file '$config_file'"
-}
+	done < "$alias_file" || die "could not read alias file '$alias_file'"
+fi
 
 arg_host=${arg_on%%/*}
 arg_iface=${arg_on#*/}

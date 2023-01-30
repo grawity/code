@@ -292,7 +292,7 @@ have() {
 	command -v "$1" >&/dev/null
 }
 
-lib::die_getopts() {
+lib:die_getopts() {
 	debug "opt '$OPT', optarg '$OPTARG', argv[0] '${BASH_ARGV[0]}'"
 	case $OPT in
 	    "?")
@@ -314,13 +314,13 @@ lib::die_getopts() {
 	esac
 }
 
-die_getopts() { lib::die_getopts "$@"; } # TEMPORARY
-
 lib::is_nested() {
 	(( LVL "$@" ))
 }
 
-do:() { (PS4='+ '; set -x; "$@") }
+do:() {
+	(PS4='+ '; set -x; "$@")
+}
 
 sudo:() {
 	if (( UID ))

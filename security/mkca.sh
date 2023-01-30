@@ -62,7 +62,7 @@ while getopts ":b:c:fK:k:s:t:y:" OPT; do
 	s) opt_subject=$OPTARG;;
 	t) opt_keytype=${OPTARG,,};;
 	y) opt_certyears=$OPTARG;;
-	*) lib::die_getopts;;
+	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 

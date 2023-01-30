@@ -21,7 +21,7 @@ while getopts ":gl" OPT; do
 	case $OPT in
 	g) webgw=1;;
 	l) detail=1;;
-	*) die_getopts;;
+	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
 

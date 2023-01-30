@@ -464,14 +464,22 @@ if [[ $eap == @(PEAP|TLS|TTLS) ]]; then
 	done
 fi
 
-(( ! errors )) || exit
+(( !errors )) || exit
 
 # do the test
 
-log "account: \"$identity\""
-debug "password: \"$password\""
-log "host: $host"
-debug "secret: \"$secret\""
+if (( DEBUG )); then
+	xpassword=$password
+	xsecret=$secret
+else
+	xpassword="-hidden-"
+	xsecret="-hidden-"
+fi
+
+lib:info "Identity: $identity"
+lib:info "Password: $xpassword"
+lib:info "RADIUS host: $host"
+lib:info "RADIUS secret: $xsecret"
 
 if [[ $eap && $eap != NONE ]]; then
 	# base options
@@ -560,9 +568,9 @@ if [[ $eap && $eap != NONE ]]; then
 		ecfg_values["$k"]=$v
 	done
 
-	log "mechanism: EAP-$eap (outer), ${phase2:-default} (inner)"
+	lib:info "Mechanism: EAP-$eap (outer), ${phase2:-default} (inner)"
 	if [[ "$outer_id" != "$identity" ]]; then
-		log "anonymous identity: \"$outer_id\""
+		lib:info "Anonymous identity: \"$outer_id\""
 	fi
 
 	# generate the eapol_test config
@@ -593,7 +601,7 @@ if [[ $eap && $eap != NONE ]]; then
 		cmd+=(-o "$save_chain")
 	fi
 else
-	log "mechanism: $phase2 (direct)"
+	lib:info "Mechanism: $phase2 (direct)"
 	if [[ "$outer_id" != "$identity" ]]; then
 		die "anonymous identity \"$outer_id\" not supported without EAP"
 	fi
@@ -627,14 +635,14 @@ if (( dump_config )); then
 else
 	if "${cmd[@]}"; then
 		r=0
-		log "test successful"
+		lib:info "test successful"
 	else
 		r=$?
 		err "test failed ($cmd returned $r)"
 	fi
 
 	if [[ -s $save_chain ]]; then
-		log "server certificate chain saved to '$save_chain'"
+		lib:info "server certificate chain saved to '$save_chain'"
 	elif [[ $save_chain ]]; then
 		err "did not obtain server certificate chain"
 	fi

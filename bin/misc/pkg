@@ -43,16 +43,16 @@ dist_configure() {
 		if test ! -e configure || test configure.ac -nt configure; then
 			notice "'configure' is older than 'configure.ac'"
 			if test -x autogen.sh; then
-				log "updating configure through ./autogen.sh"
+				lib:log "Updating configure through ./autogen.sh"
 				NOCONFIGURE=1 ./autogen.sh
 			else
-				log "updating configure through autoreconf"
+				lib:log "Updating configure through autoreconf"
 				autoreconf -i -f
 			fi
 		fi
 	fi
 
-	log "configuring for $PREFIX"
+	lib:log "Configuring for $PREFIX"
 	./configure --prefix="$PREFIX" "$@"
 }
 
@@ -114,11 +114,11 @@ case $cmd in
 	dist_install "$tempdest" "$@"
 
 	if test -e "$filelist"; then
-		log "uninstalling old version"
+		lib:log "Uninstalling old version"
 		pkg remove
 	fi
 
-	log "installing to file system"
+	lib:log "Installing to file system"
 	list_create "$tempdest/$PREFIX" > "$filelist"
 	dir_copy "$tempdest/$PREFIX" "$PREFIX"
 	list_stats "$filelist"

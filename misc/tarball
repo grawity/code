@@ -21,7 +21,7 @@ do_archive() {
 	local dir=$1 out=$2
 
 	if (( opt_attributes )); then
-		log "dumping extended attributes"
+		lib:echo "dumping extended attributes"
 		local attr_tmp=$(mktemp /tmp/attrib.XXXXXXXX)
 		getfattr -Rhd "$dir" \
 			| grep -v '^user\.com\.dropbox\.' \
@@ -34,7 +34,7 @@ do_archive() {
 		fi
 	fi
 
-	log "archiving files"
+	lib:echo "archiving files"
 	set -o pipefail
 	case $out in
 	    *.tgz) tar -cvzf "$out" "$dir" | progress;;
@@ -160,18 +160,18 @@ if do_archive "$dir" "$out"; then
 		owner=$(stat -c %u:%g "$dir")
 		chown "$owner" "$out"
 	fi
-	log "archived to \"$out\""
+	lib:echo "archived to \"$out\""
 	ls -lh "$out"
 	if (( auto_remove )); then
-		log "removing original"
+		lib:echo "removing original"
 		if [[ -e ~/.local/share/Trash ]]; then
 			trash "$dir/"
 		else
 			rm -rf "$dir/"
 		fi
-		log "original directory removed"
+		lib:echo "original directory removed"
 	else
-		log "original directory preserved"
+		lib:echo "original directory preserved"
 	fi
 else
 	die "archiving failed"

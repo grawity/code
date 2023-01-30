@@ -10,7 +10,7 @@ messages() {
 	warn "warning message"
 	notice "notice message"
 	log2 "log2 message"
-	log "log message"
+	lib:log "log message"
 	info "info message"
 	msg "msg message"
 	debug "debug message"

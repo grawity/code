@@ -273,7 +273,11 @@ info() {
 	lib:msg "$*" info
 }
 
-log() {
+lib:info() {
+	lib:msg "$*" info
+}
+
+lib:log() {
 	lib:msg "$*" log
 }
 

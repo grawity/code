@@ -12,7 +12,6 @@ if [[ $_NOLID ]]; then
 fi
 
 name="nolid"
-pushover=0
 
 if [[ -t 0 ]]; then
 	tty=$(tty)
@@ -31,9 +30,6 @@ case $1 in
 		rm -f "$hold"
 		echo "Released."
 		exit;;
-	-p)
-		pushover=1
-		shift;;
 esac
 
 if (( ! $# )); then
@@ -43,8 +39,6 @@ fi
 if [[ -t 0 ]]; then
 	settitle "nolid${1:+: $1}"
 fi
-
-t_start=$(date +%s)
 
 touch "$lock"
 
@@ -64,11 +58,5 @@ flock -s "$lock" \
 	"$@"
 
 r=$?
-
-t_end=$(date +%s)
-
-if (( pushover )); then
-	pushover "$HOSTNAME: Lid lock released" "Command \"$1\" exit with status $r. Lid lock \"$name\" released."
-fi
 
 exit $r

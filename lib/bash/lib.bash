@@ -328,7 +328,3 @@ sudo:() {
 		else do: "$@"
 	fi
 }
-
-if (( DEBUG > 1 )); then
-	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"
-fi

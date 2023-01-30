@@ -360,21 +360,6 @@ lib::find_file() {
 	return 1
 }
 
-lib::init_env() {
-	local dir
-
-	for dir in "$path_runtime"; do
-		if [[ ! -e $dir ]]; then
-			debug "pre-creating directory '$dir'"
-			mkdir -p "$dir"
-		fi
-	done
-}
-
-if (( _lvl == 0 )); then
-	lib::init_env
-fi
-
 if (( DEBUG > 1 )); then
 	debug "[$LVL] lib.bash loaded by ${BASH_SOURCE[1]}"
 fi

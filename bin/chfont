@@ -41,10 +41,15 @@ app=$1 font=$2
 case $app in
 term|terminal)
 	require gtk
-	profile='b1dcc9dd-5262-4d8d-a863-c897e6d979b9'
-	path="/org/gnome/terminal/legacy/profiles:/:$profile/"
-	do_gsettings "org.gnome.Terminal.Legacy.Profile:$path" 'font' "$font"
-	#do_dconf "/org/gnome/terminal/legacy/profiles:/:$profile/font" "$font"
+	dconf list /org/gnome/terminal/legacy/profiles:/ |
+	grep '^:.*/$' |
+	while read -r profile; do
+		profile=${profile#":"}
+		profile=${profile%"/"}
+		path="/org/gnome/terminal/legacy/profiles:/:$profile/"
+		do_gsettings "org.gnome.Terminal.Legacy.Profile:$path" 'font' "$font"
+		#do_dconf "/org/gnome/terminal/legacy/profiles:/:$profile/font" "$font"
+	done
 	;;
 builder)
 	require gtk

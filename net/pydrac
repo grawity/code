@@ -3,6 +3,7 @@
 import argparse
 import logging
 import lxml.etree
+import netrc
 import os
 from pprint import pprint
 import requests
@@ -287,15 +288,11 @@ host = args.host
 username = args.username
 password = args.password
 if not (username and password):
-    from nullroute.sec import get_netrc
-    try:
-        creds = get_netrc(host, service="ipmi") or \
-                get_netrc(host, service="idrac") or \
-                get_netrc(host, service="ilo")
-    except KeyError:
+    creds = netrc.netrc().authenticators(f"ipmi@{host}") or \
+            netrc.netrc().authenticators(f"ipmi/{host}")
+    if not creds:
         exit("error: Credentials for %r not found in ~/.netrc" % host)
-    username = creds["login"]
-    password = creds["password"]
+    username, _, password = creds
 
 if "." not in host:
     host = f"bmc.{host}.nullroute.lt"

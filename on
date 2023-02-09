@@ -22,8 +22,8 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: on <host> [-DKNSnv] [-d <path>] [<command>]"
-	echo "       @ <host> [-DKNSnv] [-d <path>] [<command>]"
+	echo "Usage: on <host> [-DKNSTnv] [-d <path>] [<command>]"
+	echo "       @ <host> [-DKNSTnv] [-d <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
@@ -31,8 +31,10 @@ usage() {
 	echo
 	echo_opt "-N"		"access remote current directory (default for '@')"
 	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
+	echo_opt "-T"		"access remote current directory, always on target host"
 	echo_opt "-D"		"access remote home directory (usually equal to '-d.')"
 	echo_opt "-d <path>"	"access specified remote directory ('-d.' is home directory)"
+	echo
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-v"		"verbose (display remote host and path)"
@@ -46,6 +48,7 @@ usage() {
 arg0=${0##*/}
 wd=$PWD
 nfs=0
+unnfs=0
 user=""
 Kflag=""
 qflag="-q"
@@ -67,13 +70,14 @@ else
 	host=""
 fi
 
-while getopts ":C:Dd:KNnSv" OPT; do
+while getopts ":C:Dd:KNnSTv" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfs=0; wd=$OPTARG;;
 	D) nfs=0; wd=".";;
 	d) nfs=0; wd=$OPTARG;;
 	K) Kflag="-K -Snone";;
+	T) nfs=0; unnfs=1;;
 	N) nfs=0;;
 	n) nfs=1;;
 	S) user="root@";;
@@ -107,6 +111,11 @@ if (( nfs )); then
 		if [[ ! -e /proc/fs/nfsd/versions ]]; then
 			die "NFS service not running on $HOSTNAME"
 		fi
+	fi
+elif (( unnfs )); then
+	# Always trim NFS mount paths (e.g. "cd /net/foo/home; on -L bar foo"
+	if [[ $wd == /net/*/?* ]]; then
+		wd=/${wd#/net/*/}
 	fi
 else
 	# If already on NFS mount from the target system, trim loopback paths

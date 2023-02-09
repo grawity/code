@@ -29,9 +29,9 @@ usage() {
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
 	echo "of the local path; if invoked as 'on' will access the local directory via NFS."
 	echo
-	echo_opt "-N"		"access remote current directory (default for '@')"
 	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
-	echo_opt "-T"		"access remote current directory, always on target host"
+	echo_opt "-T"		"access current directory on target (default for '@')"
+	echo_opt "-N"		"access current directory on target, keeping NFS paths"
 	echo_opt "-D"		"access remote home directory (usually equal to '-d.')"
 	echo_opt "-d <path>"	"access specified remote directory ('-d.' is home directory)"
 	echo
@@ -42,7 +42,7 @@ usage() {
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
 	echo_opt "<host>"	"like 'on -D <host>' or 'on -d. <host>'"
-	echo_opt "@<host>"	"like 'on -N <host>' or '@ <host>'"
+	echo_opt "@<host>"	"like 'on -T <host>' or '@ <host>'"
 }
 
 arg0=${0##*/}
@@ -60,11 +60,14 @@ elif [[ $arg0 == 'on' && $1 == [!-]* ]]; then
 	host=$1; shift
 	nfs=1
 elif [[ $arg0 == 'on' ]]; then
+	host=""
 	nfs=1
 elif [[ $arg0 == '@'?* ]]; then
 	host=${arg0#@}
+	unnfs=1
 elif [[ $arg0 == '@' && $1 == [!-]* ]]; then
 	host=$1; shift
+	unnfs=1
 elif [[ $arg0 != @('@'|'on') ]]; then
 	host=$arg0
 	wd=""
@@ -80,8 +83,8 @@ while getopts ":C:Dd:KNnSTv" OPT; do
 	d) nfs=0; wd=$OPTARG;;
 	K) Kflag="-K -Snone";;
 	T) nfs=0; unnfs=1;;
-	N) nfs=0;;
-	n) nfs=1;;
+	N) nfs=0; unnfs=0;;
+	n) nfs=1; unnfs=0;;
 	S) user="root@";;
 	v) verbose=1;;
 	*) lib:die_getopts;;

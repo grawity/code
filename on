@@ -47,8 +47,7 @@ usage() {
 
 arg0=${0##*/}
 wd=$PWD
-nfs=0
-unnfs=0
+nfsmode=KEEP
 user=""
 Kflag=""
 qflag="-q"
@@ -58,16 +57,16 @@ if [[ $1 == --help ]]; then
 	usage; exit
 elif [[ $arg0 == 'on' && $1 == [!-]* ]]; then
 	host=$1; shift
-	nfs=1
+	nfsmode=USE
 elif [[ $arg0 == 'on' ]]; then
 	host=""
-	nfs=1
+	nfsmode=USE
 elif [[ $arg0 == '@'?* ]]; then
 	host=${arg0#@}
-	unnfs=1
+	nfsmode=STRIP
 elif [[ $arg0 == '@' && $1 == [!-]* ]]; then
 	host=$1; shift
-	unnfs=1
+	nfsmode=STRIP
 elif [[ $arg0 != @('@'|'on') ]]; then
 	host=$arg0
 	wd=""
@@ -78,13 +77,13 @@ fi
 while getopts ":C:Dd:KNnSTv" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
-	C) nfs=0; wd=$OPTARG;;
-	D) nfs=0; wd=".";;
-	d) nfs=0; wd=$OPTARG;;
+	C) nfsmode=KEEP; wd=$OPTARG;;
+	D) nfsmode=KEEP; wd=".";;
+	d) nfsmode=KEEP; wd=$OPTARG;;
 	K) Kflag="-K -Snone";;
-	T) nfs=0; unnfs=1;;
-	N) nfs=0; unnfs=0;;
-	n) nfs=1; unnfs=0;;
+	T) nfsmode=STRIP;;
+	N) nfsmode=KEEP;;
+	n) nfsmode=USE;;
 	S) user="root@";;
 	v) verbose=1;;
 	*) lib:die_getopts;;
@@ -103,31 +102,36 @@ if ! klist -s; then
 	qflag=""
 fi
 
-if (( nfs )); then
-	if [[ $wd == /net/* ]]; then
-		# Already on NFS mount -- don't stack another one; assume the
-		# mount is directly accessible from target. But trim loopback
-		# paths in case we're already on an NFS mount from the target
-		# system.
-		wd=${wd/#"/net/$host/"/"/"}
-	else
-		# We're on a local filesystem. Convert it to an NFS path.
-		wd="/net/$HOSTNAME$wd"
-		if [[ ! -e /proc/fs/nfsd/versions ]]; then
-			die "NFS service not running on $HOSTNAME"
+case $nfsmode in
+	USE)
+		if [[ $wd == /net/* ]]; then
+			# Already on NFS mount -- don't stack another one; assume the
+			# mount is directly accessible from target. But trim loopback
+			# paths in case we're already on an NFS mount from the target
+			# system.
+			wd=${wd/#"/net/$host/"/"/"}
+		else
+			# We're on a local filesystem. Convert it to an NFS path.
+			wd="/net/$HOSTNAME$wd"
+			if [[ ! -e /proc/fs/nfsd/versions ]]; then
+				die "NFS service not running on $HOSTNAME"
+			fi
 		fi
-	fi
-elif (( unnfs )); then
-	# Always trim NFS mount paths (e.g. "cd /net/foo/home; on -L bar foo"
-	if [[ $wd == /net/*/?* ]]; then
-		wd=/${wd#/net/*/}
-	fi
-else
-	# If already on NFS mount from the target system, trim loopback paths
-	# (e.g. "cd /net/ember/home; @ ember foo" will use just /home). The
-	# target ought to have a loopback symlink, but it's cleaner to trim it.
-	wd=${wd/#"/net/$host/"/"/"}
-fi
+		;;
+	KEEP)
+		# Trim loopback paths if alrady on NFS mount from the target system
+		# (e.g. "cd /net/ember/home; @ ember foo" will use just /home).
+		wd=${wd/#"/net/$host/"/"/"}
+		;;
+	STRIP)
+		# Always trim NFS mount paths regardless of host
+		# (e.g. "cd /net/foo/home; on -L bar foo" will use /home).
+		wd="/${wd#/net/*/}"
+		wd=${wd/#"//"/"/"}
+		;;
+	*)
+		lib:crash "bad nfsmode value"
+esac
 
 if (( verbose )); then
 	info "Running in $host:${wd:-~}"

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # pydrac -- launch iDRAC or iLO remote KVM clients
 import argparse
+import logging
 import lxml.etree
 import os
 from pprint import pprint
@@ -108,13 +109,13 @@ class DracProber():
 
     def _probe_path(self, path, head=False):
         url = self.base_url + path
-        #Core.debug("testing existence of %r" % url, skip=1)
+        logging.debug("probe_path: Testing existence of %r", url)
         resp = self.ua.head(url) if head else self.ua.get(url)
         if resp.status_code == 200:
-            #Core.debug(" - file exists (got %r)", resp)
+            logging.debug("probe_path: URL exists (got %r)", resp)
             return resp
         elif resp.status_code == 404:
-            #Core.debug(" - file does not exist (got %r)", resp)
+            logging.debug("probe_path: URL does not exist (got %r)", resp)
             return False
         else:
             resp.raise_for_status()
@@ -171,7 +172,7 @@ class DracProber():
             # vkvm?state=1 - connect
             # vkvm?state=3 - disconnect
             # fetch /cgi-bin/webcgi/vkvmjnlp - automatically connects
-            print("Sending credentials...")
+            logging.debug("Sending credentials...")
             resp = self.ua.post(self.base_url + "/cgi-bin/webcgi/login",
                                 data={"user": self.username, "password": self.password})
             resp.raise_for_status()
@@ -179,14 +180,14 @@ class DracProber():
             if tree.xpath("string(/drac/privilege/@console)") != "1":
                 raise LoginFailedError()
 
-            print("Fetching JNLP...")
+            logging.debug("Fetching vKVM JNLP...")
             resp = self.ua.get(self.base_url + "/cgi-bin/webcgi/vkvmjnlp")
             return resp.content
 
         elif self.version == "iDRAC6":
             # the JNLP retrieval is unnecessarily complex in v6,
             # but we can pass credentials directly to the applet
-            print("Using built-in JNLP template")
+            logging.debug("Using built-in JNLP template")
             return self.load_template_webstart(idrac6_template)
 
         elif self.version == "iLO4":
@@ -195,7 +196,7 @@ class DracProber():
             # decode json
             # set Cookie: session_key = json["session_key"]
             # fetch /html/jnlp_template.html
-            print("Sending credentials...")
+            logging.debug("Sending credentials...")
             resp = self.ua.post(self.base_url + "/json/login_session",
                                 json={"method": "login",
                                       "user_login": self.username,
@@ -208,7 +209,7 @@ class DracProber():
                 raise NoConsolePrivilegeError()
             sid = data["session_key"]
 
-            print("Fetching JNLP...")
+            logging.debug("Fetching JNLP template...")
             # note: this may 404 if Requests decides to send "Authorization: Basic"
             #       after finding the .netrc entry all on its own...
             #       hence the "ipmi/" service prefix *and* the "bmc." subdomain
@@ -230,7 +231,7 @@ class DracProber():
         self.temp_dir = tempfile.TemporaryDirectory(prefix="pydrac")
 
         self.version = self.probe_version()
-        print("Detected version %s" % self.version)
+        print("Detected BMC version: %s" % self.version)
 
         runtime = "default-runtime"
         jnlp = self.fetch_webstart()
@@ -254,7 +255,7 @@ class DracProber():
 
         jnlp_path = os.path.join(self.temp_dir.name, "vkvm.jnlp")
         with open(jnlp_path, "wb") as fh:
-            print("Writing JNLP to %r" % jnlp_path)
+            logging.debug("Writing JNLP to %r" % jnlp_path)
             fh.write(jnlp)
 
         #os.environ["JAVA_HOME"] = "/usr/lib/jvm/%s" % runtime
@@ -265,7 +266,7 @@ class DracProber():
 known_versions = ", ".join(DracProber.known_versions())
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-v", "--version",
+parser.add_argument("-V", "--version",
                     help="controller version (%s)" % known_versions)
 parser.add_argument("-k", "--insecure", action="store_true", default=False,
                     help="disable TLS certificate verification for discovery")
@@ -273,9 +274,14 @@ parser.add_argument("-U", "--username",
                     help="username for authenticating to the BMC")
 parser.add_argument("-P", "--password",
                     help="password for authenticating to the BMC")
+parser.add_argument("-v", "--verbose", action="store_true",
+                    help="show detailed information")
 parser.add_argument("host",
                     help="BMC hostname or address to connect to")
 args = parser.parse_args()
+
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
 
 host = args.host
 username = args.username
@@ -293,6 +299,7 @@ if not (username and password):
 
 if "." not in host:
     host = f"bmc.{host}.nullroute.lt"
+    logging.debug("Assumed hostname: %r", host)
 
 drac = DracProber(host, username, password)
 drac.version = args.version

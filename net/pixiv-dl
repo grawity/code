@@ -174,11 +174,15 @@ class PixivGrabber():
 
         # files
         files = []
-        if "fileMap" in post["body"]:
+        if "files" in post["body"]:
+            files = post["body"]["files"]
+            # files = [{extension, id, name, size, url}]
+        elif "fileMap" in post["body"]:
             files = [post["body"]["fileMap"][b["fileId"]]
                      for b in post["body"]["blocks"]
                      if b["type"] == "file"]
             # fileMap = {id: {extension, id, name, size, url}}
+
         for i, fl in enumerate(files):
             if only_img_ids:
                 continue
@@ -191,16 +195,13 @@ class PixivGrabber():
             self.save_file(url, filename, attrs)
 
         # images
+        images = []
         if "images" in post["body"]:
             images = post["body"]["images"]
         elif "blocks" in post["body"]:
             images = [post["body"]["imageMap"][b["imageId"]]
                       for b in post["body"]["blocks"]
                       if b["type"] == "image"]
-        else:
-            import pprint
-            pprint.pprint(post)
-            raise RuntimeError("post had neither .images nor .blocks")
 
         for i, img in enumerate(images):
             if only_img_ids and img["id"] not in only_img_ids:
@@ -212,6 +213,9 @@ class PixivGrabber():
             Core.info("- saving %r (image %s of %s)",
                       filename, i+1, len(images))
             self.save_file(url, filename, attrs)
+
+        if not (files or images):
+            Core.err("post had neither files nor images")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("path", nargs=argparse.ZERO_OR_MORE)

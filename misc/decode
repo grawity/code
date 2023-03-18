@@ -5,8 +5,35 @@
 import argparse
 import binascii
 import datetime
+import enum
 import io
+import uuid
 from nullroute.io import BinaryReader
+
+# https://www.iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-2
+class ArpHardwareType(enum.IntEnum):
+    NonHardware = 0 # Defined for DHCP client identifiers (RFC 2132)
+    Ethernet = 1
+    Ieee802 = 6     # *Sometimes* used for Wi-Fi aka IEEE 802.11
+    Ieee1394 = 24   # FireWire
+
+# https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-6
+class DUIDType(enum.IntEnum):
+    LLT = 1         # Link-Layer + Time (RFC 3315)
+    EN = 2          # Enterprise Number (RFC 3315)
+    LL = 3          # Link Layer (RFC 3315)
+    UUID = 4        # Universally Unique ID (RFC 6355)
+
+def try_enum(etype, value):
+    try:
+        return etype(value)
+    except ValueError:
+        return value
+
+def lookup_iana_pen(vendor):
+    return {
+        43793: "systemd (Tom Gundersen)",
+    }.get(vendor, "unknown")
 
 def parse_hex(s):
     if ":" in s:
@@ -26,64 +53,70 @@ def fmt_hex(buf):
 def is_ascii(buf):
     return all(0x20 < x < 0x7F for x in buf)
 
+def print_hdr(hdr):
+    print("\033[1m%s\033[m" % hdr)
+
 def decode_dhcp_client_id(buf):
     # https://tools.ietf.org/html/rfc2132#section-9.14
     # Types (except 0 and 255) correspond to link-layer types, 1 is Ethernet
+    print_hdr("DHCP Client Identifier")
     br = BinaryReader(buf)
     type = br.read_u8()
+    type = try_enum(ArpHardwareType, type)
     if type == 0x00:
         print("Type:", "non-hardware (%d)" % type)
         ident = br.fh.read()
         if is_ascii(ident):
-            print("Identifier:", repr(ident))
+            print("  Identifier:", repr(ident))
         else:
-            print("Identifier:", fmt_hex(ident))
-    elif type == 0x01:
-        print("Type:", "link-layer (Ethernet) (%d)" % type)
-        mac = br.read(6)
-        print("Link-layer address:", fmt_hex(mac))
+            print("  Identifier:", fmt_hex(ident))
     elif type == 0xFF:
         # https://tools.ietf.org/html/rfc4361#section-6.1
         print("Type:", "embedded RFC 3315 IAID+DUID (%d)" % type)
         iaid = br.read(4)
-        print("IAID:", fmt_hex(iaid))
+        print("  IAID:", fmt_hex(iaid))
         duid = br.fh.read()
-        print("DUID:", fmt_hex(duid))
-        print("-- Decoding nested DUID --")
+        print("  DUID:", fmt_hex(duid))
+        print("  -- Decoding nested DUID --")
         decode_dhcpv6_duid(duid)
     else:
-        print("Type:", "unknown (%d)" % type)
-
-def lookup_iana_pen(vendor):
-    return {
-        43793: "systemd (Tom Gundersen)",
-    }.get(vendor, "unknown")
+        print("Type:", "link-layer address (%s) (%d)" % (type.name, type))
+        mac = br.fh.read()
+        print("  Link-layer address:", fmt_hex(mac))
 
 def decode_dhcpv6_duid(buf):
     # https://tools.ietf.org/html/rfc3315#section-9.1
+    print_hdr("DHCPv6 DUID")
     br = BinaryReader(buf)
     type = br.read_u16_be()
-    if type == 1:
+    type = try_enum(DUIDType, type)
+    if type == DUIDType.LLT:
         print("Type:", "link-layer + time (DUID-LLT) (%d)" % type)
         hwtype = br.read_u16_be()
-        print("Hardware type:", "unknown (%d)" % hwtype)
+        print("  Hardware type:", "unknown (%d)" % hwtype)
         time = br.read_u32_be()
         time = datetime.datetime.fromtimestamp(time)
-        print("Time:", time)
+        print("  Time:", time)
         lladdr = br.fh.read()
-        print("Link-layer address:", fmt_hex(lladdr))
-    elif type == 2:
+        print("  Link-layer address:", fmt_hex(lladdr))
+    elif type == DUIDType.EN:
         print("Type:", "vendor-assigned (DUID-EN) (%d)" % type)
         vendor = br.read_u32_be()
-        print("Vendor:", "%s (%d)" % (lookup_iana_pen(vendor), vendor))
+        print("  Vendor:", "%s (%d)" % (lookup_iana_pen(vendor), vendor))
         rest = br.fh.read()
-        print("Identifier:", fmt_hex(rest))
-    elif type == 3:
+        print("  Identifier:", fmt_hex(rest))
+    elif type == DUIDType.LL:
         print("Type:", "link-layer (DUID-LL) (%d)" % type)
         hwtype = br.read_u16_be()
-        print("Hardware type:", "unknown (%d)" % hwtype)
+        hwtype = try_enum(ArpHardwareType, hwtype)
+        print("  Hardware type:", hwtype)
         lladdr = br.fh.read()
-        print("Link-layer address:", fmt_hex(lladdr))
+        print("  Link-layer address:", fmt_hex(lladdr))
+    elif type == DUIDType.UUID:
+        print("Type:", "universally unique (DUID-UUID) (%d)" % type)
+        uid = br.read(16)
+        uid = uuid.UUID(bytes=buf)
+        print("  UUID:", uid)
     else:
         print("Type:", "unknown (%d)" % type)
 

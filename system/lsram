@@ -13,6 +13,7 @@ echo
 
 columns=(
 	NUM
+	#PRESENT
 	LOCATOR
 	FORM_FACTOR
 	TYPE
@@ -47,15 +48,32 @@ fmt="${fmt/%'\t'/'\n'}"
 
 for (( i=0; i<ndev; i++ )); do
 	row=()
+	present=$(getp "MEMORY_DEVICE_${i}_PRESENT")
+	present=${present:-1}
 	for c in "${columns[@]}"; do
 		case $c in
 			NUM)
 				val=$i;;
-			SIZE)
-				val=$(getp "MEMORY_DEVICE_${i}_${c}")
-				val=$(numfmt --to=iec-i "$val");;
-			*)
+			LOCATOR|FORM_FACTOR|TYPE)
 				val=$(getp "MEMORY_DEVICE_${i}_${c}");;
+			PRESENT)
+				val=$(getp "MEMORY_DEVICE_${i}_${c}")
+				val=${val:-1}
+				case $val in
+					1) val=yes;;
+					0) val=no;;
+				esac;;
+			SIZE)
+				val='--'
+				if (( present )); then
+					val=$(getp "MEMORY_DEVICE_${i}_${c}")
+					val=$(numfmt --to=iec-i "$val")
+				fi;;
+			*)
+				val='--'
+				if (( present )); then
+					val=$(getp "MEMORY_DEVICE_${i}_${c}")
+				fi;;
 		esac
 		row+=("$val")
 	done

@@ -9,6 +9,21 @@ declare -A groups
 groups[default]="wolke sky star land ember wind"
 groups[nondefault]="vm-litnet vm-vol5 vm-ampere vm-okeanos"
 
+usage() {
+	echo "Usage: ${0##*/} [+]<host|@group>..."
+	echo
+	echo "Produce a list of hostnames, expanding '@group' specifications."
+	echo "Comma-separated items are accepted and expanded to space-separated."
+	echo
+	echo "  -a            add all hosts from all groups"
+	echo "  host          add a single hostname"
+	echo "  @group        add hosts in the specified group"
+	echo "  +arg          append to default list instead of replacing"
+	echo
+	echo "Hardcoded groups: ${!groups[@]}"
+	echo "Default hosts: ${groups[default]}"
+}
+
 hosts=
 
 set -f
@@ -23,6 +38,8 @@ for arg; do
 		hosts=${groups[default]}
 	fi
 	case $arg in
+		--help)
+			usage; exit 0;;
 		-a)
 			hosts+=" ${groups[*]}";;
 		-*)

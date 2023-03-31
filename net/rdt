@@ -82,8 +82,11 @@ function getdomain() {
 	if (!preg_match('/\./', $host)) {
 		$addr = gethostbyname($host);
 		$host = gethostbyaddr($addr);
+		if ($host === $addr) {
+			$host = null;
+		}
 	}
-	if (preg_match('/^[^.]+\.(.+)$/', $host, $m)) {
+	if ($host && preg_match('/^[^.]+\.(.+)$/', $host, $m)) {
 		return $m[1];
 	}
 	warn("could not determine the system's local domain");

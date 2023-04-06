@@ -103,6 +103,7 @@ def do_borg(*,
     wrap = ["sudo",
             "systemd-run",
             "--pty",
+            "--quiet",
             "--collect"]
     wrap += [f"--setenv={e}={os.environ[e]}"
              for e in ["KRB5CCNAME",

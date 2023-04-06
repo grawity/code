@@ -64,11 +64,11 @@ borg_keep = [
 #if os.path.exists(local_config_file):
 #    res = subprocess.run(["bash", "-c", '. "$conf" && 
 
-def is_older_than(path, age):
+def mtime_is_within(path, age):
     try:
-        return (time.time() - os.stat(path).st_mtime > age)
+        return abs(time.time() - os.stat(path).st_mtime) <= age
     except FileNotFoundError:
-        return True
+        return False
 
 def touch(path):
     with open(path, "a") as fh:
@@ -144,7 +144,7 @@ def do_borg(*,
                          "backup",
                          f"borg_{repo_id}.prune.stamp")
 
-    if not is_older_than(stamp, 30*86400):
+    if mtime_is_within(stamp, 30*86400):
         return
 
     cmd = [*wrap, "borg", "prune", repo, "--verbose", *borg_keep]

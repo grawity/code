@@ -125,7 +125,7 @@ def do_borg(*,
     # non-root username for SSH.
     if sudo and ":" in repo:
         repo = add_user_to_host(repo, user)
-        print(f"Rewrote repository to {repo!r}")
+        Core.debug(f"Rewrote repository to {repo!r}")
 
     cmd = [*wrap, "borg", "create", f"{repo}::{tag}", *dirs, *args]
     Core.debug(f"Running {cmd!r}")
@@ -147,10 +147,12 @@ def do_borg(*,
         return
 
     cmd = [*wrap, "borg", "prune", repo, "--verbose", *borg_keep]
+    Core.info("Pruning old snapshots")
     Core.debug(f"Running {cmd!r}")
     subprocess.run(cmd, check=True)
 
     cmd = [*wrap, "borg", "compact", repo, "--progress"]
+    Core.info("Compacting repository")
     Core.debug(f"Running {cmd!r}")
     subprocess.run(cmd, check=True)
 

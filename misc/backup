@@ -38,10 +38,6 @@ lock_path=
 lock_fd=
 failed_jobs=()
 
-now() {
-	printf "%(%Y%m%d.%H%M%S)T"
-}
-
 take_lock() {
 	local job=$1
 
@@ -199,11 +195,11 @@ trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
 for job; do
 	take_lock "$job"
 	log2 "running job '$job'"
-	t_begin=$(now)
+	t_begin=$(date +%s)
 
 	job_main || r=$?
 
-	t_end=$(now)
+	t_end=$(date +%s)
 	lib:echo "Job '$job' finished in $(interval $[t_end-t_begin])"
 	drop_lock
 

@@ -71,7 +71,8 @@ def is_older_than(path, age):
         return True
 
 def touch(path):
-    open(path, "a").close()
+    with open(path, "a") as fh:
+        os.utime(fh.fileno(), None)
 
 def do_borg(*,
             repo=None,

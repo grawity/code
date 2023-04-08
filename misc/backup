@@ -138,7 +138,9 @@ job_main() {
 			;;
 		root@*)
 			host=${job#*@}
-			do_rsync "root@$host:/" "$rsync_base_dir/Roots/$host/" \
+			~/bin/misc/do_rsync \
+				"root@$host:/" \
+				"$rsync_base_dir/Roots/$host/" \
 				-f "merge $conf/rsync-filters/server_root_all"		\
 				-f "merge $conf/rsync-filters/server_root_extra"	\
 				-f "merge $conf/rsync-filters/server_root_$host"	\
@@ -146,7 +148,9 @@ job_main() {
 			;;
 		@*)
 			host=${job#@}
-			do_rsync "$host:" "$rsync_base_dir/Homes/$host/" \
+			~/bin/misc/do_rsync \
+				"$host:" \
+				"$rsync_base_dir/Homes/$host/" \
 				-f "merge $conf/rsync-filters/home_all"			\
 				-f "merge $conf/rsync-filters/home_$host"		\
 				-f "merge $conf/rsync-filters/server_home_all"		\
@@ -163,7 +167,9 @@ job_main() {
 			;;
 		irc)
 			. ~/.config/nullroute.eu.org/synced/irc.conf
-			do_rsync "$irc_host:$irc_log_path/" ~/Attic/Chatlogs/current/
+			~/bin/misc/do_rsync \
+				"$irc_host:$irc_log_path/" \
+				~/Attic/Chatlogs/current/
 			;;
 		*)
 			die "unknown job '$job'"

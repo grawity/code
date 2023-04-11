@@ -87,15 +87,51 @@ def decode_dhcpv6_duid(buf):
     else:
         print("Type:", "unknown (%d)" % type)
 
+def decode_osi_nsap(buf):
+    br = BinaryReader(buf)
+    afi = br.read_u8()
+    if afi == 0x47:
+        print("AFI: ISO 6523-ICD IDI (%02x)" % afi)
+        icd = br.read_u16_be()
+        icd_name = {
+            0x0005: "US Federal Government (GOSIP)",
+            0x0079: "ATM Forum",
+            0x0090: "IANA",
+            0x0180: "Lithuania",
+        }.get(icd)
+        print("IDI (ICD): %s (%04x)" % (icd_name, icd))
+        if icd == 0x0005:
+            # 47.0005.80FFE1000000F21A26D8.0020EA000EE0.00
+            print("HO-DSP (US GOSIP v2):")
+            print("  DFI: %s"           % fmt_hex(br.read(1)))
+            print("  AdmAuthority: %s"  % fmt_hex(br.read(3)))
+            print("  Reserved: %s"      % fmt_hex(br.read(2)))
+            print("  RtDomainID: %s"    % fmt_hex(br.read(2)))
+            print("  AreaID: %s"        % fmt_hex(br.read(2)))
+            print("ID: %s"              % fmt_hex(br.read(6)))
+            print("SEL: %s"             % fmt_hex(br.read(1)))
+        elif icd == 0x0091:
+            print("HO-DSP (Cisco):")
+            print("  %s" % fmt_hex(br.read(4)))
+            print("  MAC: %s" % fmt_hex(br.read(6)))
+            print("ID: %s"              % fmt_hex(br.read(6)))
+            print("SEL: %s"             % fmt_hex(br.read(1)))
+        else:
+            print("Unknown DSP format")
+    else:
+        print("AFI: unknown (%02x)" % afi)
+
 parser = argparse.ArgumentParser()
 parser.add_argument("type")
 parser.add_argument("data")
 args = parser.parse_args()
-data = parse_hex(args.data)
+data = parse_hex(args.data.replace(".", ""))
 
 if args.type == "dhcp-client-id":
     decode_dhcp_client_id(data)
 elif args.type == "dhcpv6-duid":
     decode_dhcpv6_duid(data)
+elif args.type == "osi-nsap":
+    decode_osi_nsap(data)
 else:
     exit("error: Unknown type %r" % args.type)

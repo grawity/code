@@ -26,10 +26,6 @@ lib:is_nested() {
 : ${XDG_DATA_DIRS:="/usr/local/share:/usr/share"}
 : ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
-path_cache="$XDG_CACHE_HOME/nullroute.eu.org"
-path_config="$XDG_CONFIG_HOME/nullroute.eu.org"
-path_data="$XDG_DATA_HOME/nullroute.eu.org"
-
 progname=${0##*/}
 progname_prefix=-1
 

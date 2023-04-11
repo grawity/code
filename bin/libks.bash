@@ -1,3 +1,7 @@
+path_cache="$XDG_CACHE_HOME/nullroute.eu.org"
+path_config="$XDG_CONFIG_HOME/nullroute.eu.org"
+path_data="$XDG_DATA_HOME/nullroute.eu.org"
+
 ks:getattr() {
 	local file=$1 name=$2
 	if have getfattr; then

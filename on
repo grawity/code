@@ -30,11 +30,11 @@ usage() {
 	echo "of the local path; if invoked as 'on' will access the local directory via NFS."
 	echo
 	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
+	echo_opt "-N"		"access remote current directory, keeping NFS paths"
 	echo_opt "-r"		"access remote current directory (default for '@')"
 	echo
-	echo_opt "-N"		"access current directory on target, keeping NFS paths"
-	echo_opt "-D"		"access remote home directory (usually equal to '-C.')"
-	echo_opt "-C <path>"	"access specified remote directory ('-C.' is home directory)"
+	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
+	echo_opt "-D"		"access remote home directory (equal to '-C.')"
 	echo
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
@@ -103,14 +103,17 @@ fi
 
 case $nfsmode in
 	USE)
+		# 'on' mode, add /net and try to access client filesystem via NFS
+		# (but if client is on an NFS mount, try to access that NFS mount)
+		#
+		#	/etc			-> /net/clienthost/etc
+		#	/net/targethost/etc	-> /etc
+		#	/net/otherhost/etc	-> /net/otherhost/etc
 		if [[ $wd == /net/* ]]; then
-			# Already on NFS mount -- don't stack another one; assume the
-			# mount is directly accessible from target. But trim loopback
-			# paths in case we're already on an NFS mount from the target
-			# system.
+			# NFS mount - strip if it's for target, keep as-is otherwise
 			wd=${wd/#"/net/$host/"/"/"}
 		else
-			# We're on a local filesystem. Convert it to an NFS path.
+			# Local path - convert to NFS mount
 			wd="/net/$HOSTNAME$wd"
 			if [[ ! -e /proc/fs/nfsd/versions ]]; then
 				die "NFS service not running on $HOSTNAME"
@@ -118,13 +121,21 @@ case $nfsmode in
 		fi
 		;;
 	KEEP)
-		# Trim loopback paths if alrady on NFS mount from the target system
+		# Partial '@' mode, access remote filesystem but preserve /net PWD
 		# (e.g. "cd /net/ember/home; @ ember foo" will use just /home).
+		#
+		#	/etc			-> /etc
+		#	/net/targethost/etc	-> /etc
+		#	/net/otherhost/etc	-> /net/otherhost/etc
 		wd=${wd/#"/net/$host/"/"/"}
 		;;
 	STRIP)
-		# Always trim NFS mount paths regardless of host
-		# (e.g. "cd /net/foo/home; on -L bar foo" will use /home).
+		# Full '@' mode, always strip /net and access remote filesystem
+		# (even if the client is on an NFS mount to a third host)
+		#
+		#	/etc			-> /etc
+		#	/net/targethost/etc	-> /etc
+		#	/net/otherhost/ec	-> /etc
 		wd="/${wd#/net/*/}"
 		wd=${wd/#"//"/"/"}
 		;;

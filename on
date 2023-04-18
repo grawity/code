@@ -22,15 +22,16 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: on <host> [-DKNSTnv] [-C <path>] [<command>]"
-	echo "       @ <host> [-DKNSTnv] [-C <path>] [<command>]"
+	echo "Usage: on <host> [-DKNSnrv] [-C <path>] [<command>]"
+	echo "       @ <host> [-DKNSnrv] [-C <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
 	echo "of the local path; if invoked as 'on' will access the local directory via NFS."
 	echo
 	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
-	echo_opt "-T"		"access current directory on target (default for '@')"
+	echo_opt "-r"		"access remote current directory (default for '@')"
+	echo
 	echo_opt "-N"		"access current directory on target, keeping NFS paths"
 	echo_opt "-D"		"access remote home directory (usually equal to '-C.')"
 	echo_opt "-C <path>"	"access specified remote directory ('-C.' is home directory)"
@@ -42,7 +43,7 @@ usage() {
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
 	echo_opt "<host>"	"like 'on -D <host>' or 'on -d. <host>'"
-	echo_opt "@<host>"	"like 'on -T <host>' or '@ <host>'"
+	echo_opt "@<host>"	"like 'on -r <host>' or '@ <host>'"
 }
 
 arg0=${0##*/}
@@ -72,16 +73,16 @@ elif [[ $arg0 != @('@'|'on') ]]; then
 	wd=""
 fi
 
-while getopts ":C:Dd:KNnSTv" OPT; do
+while getopts ":C:Dd:KNnrSv" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=KEEP; wd=$OPTARG;;
 	D) nfsmode=KEEP; wd=".";;
 	d) nfsmode=KEEP; wd=$OPTARG;;
 	K) Kflag="-K -Snone";;
-	T) nfsmode=STRIP;;
 	N) nfsmode=KEEP;;
-	n) nfsmode=USE;;
+	n) nfsmode=USE;;	# default 'on' behavior
+	r) nfsmode=STRIP;;	# default '@' behavior
 	S) user="root@";;
 	v) verbose=1;;
 	*) lib:die_getopts;;

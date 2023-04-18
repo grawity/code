@@ -22,16 +22,16 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: on <host> [-DKNSnrv] [-C <path>] [<command>]"
-	echo "       @ <host> [-DKNSnrv] [-C <path>] [<command>]"
+	echo "Usage: on <host> [-DKLNRSv] [-C <path>] [<command>]"
+	echo "       @ <host> [-DKLNRSv] [-C <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
 	echo "of the local path; if invoked as 'on' will access the local directory via NFS."
 	echo
-	echo_opt "-n"		"access local current directory via NFS (default for 'on')"
+	echo_opt "-L"		"access local current directory via NFS (default for 'on')"
 	echo_opt "-N"		"access remote current directory, keeping NFS paths"
-	echo_opt "-r"		"access remote current directory (default for '@')"
+	echo_opt "-R"		"access remote current directory (default for '@')"
 	echo
 	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
 	echo_opt "-D"		"access remote home directory (equal to '-C.')"
@@ -73,16 +73,16 @@ elif [[ $arg0 != @('@'|'on') ]]; then
 	wd=""
 fi
 
-while getopts ":C:Dd:KNnrSv" OPT; do
+while getopts ":C:Dd:KLNRSv" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=KEEP; wd=$OPTARG;;
 	D) nfsmode=KEEP; wd=".";;
 	d) nfsmode=KEEP; wd=$OPTARG;;
 	K) Kflag="-K -Snone";;
+	L) nfsmode=USE;;	# default 'on' behavior
 	N) nfsmode=KEEP;;
-	n) nfsmode=USE;;	# default 'on' behavior
-	r) nfsmode=STRIP;;	# default '@' behavior
+	R) nfsmode=STRIP;;	# default '@' behavior
 	S) user="root@";;
 	v) verbose=1;;
 	*) lib:die_getopts;;

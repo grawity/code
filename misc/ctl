@@ -63,7 +63,8 @@ sub read_ctl {
 		} elsif ($depth > 10) {
 			warn "ctl: stopping descent into '$file/*'\n";
 		} else {
-			read_ctl($_, $depth+1) for glob("$file/*");
+			my @all = glob("$file/*");
+			read_ctl($_, $depth+1) for (grep {!-d} @all), (grep {-d} @all);
 		}
 	} elsif (-f $file) {
 		if (my $fh = IO::File->new($file, "r")) {

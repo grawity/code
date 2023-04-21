@@ -65,7 +65,7 @@ fix_dotforward() {
 
 if [ ! "$xyzzy" ]; then
 	# Parent - update ourselves before trying to update .dotfiles
-	export PATH="$HOME/code/bin:$HOME/bin:$PATH"
+	export PATH="$HOME/bin/bin:$HOME/bin:$PATH"
 
 	# Guard against .dotfiles deploying bad git/config
 	if ! git var GIT_AUTHOR_IDENT >/dev/null; then
@@ -78,19 +78,19 @@ if [ ! "$xyzzy" ]; then
 		fi
 	fi
 
-	cd ~/code
+	cd ~/bin
 	if on_main; then
-		log "Updating code.git"
+		log "Updating ~/bin"
 		silent git pull --ff-only
 	else
-		log "Skipping code.git (not on main branch)"
+		log "Skipping ~/bin (not on main branch)"
 	fi
-	xyzzy=42 exec ~/code/dist/pull
+	xyzzy=42 exec ~/bin/dist/pull
 else
 	# Child - update dotfiles
 	if [ $today -eq 7 ]; then
-		log "Compacting code.git"
-		(cd ~/code && silent nice git gc) &
+		log "Compacting ~/bin"
+		(cd ~/bin && silent nice git gc) &
 	fi
 
 	if [ -d ~/.gnupg ] && [ ! -e ~/.ssh/authorized_keys.optout ]; then

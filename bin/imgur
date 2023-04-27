@@ -22,7 +22,14 @@ images=0
 clip=""
 
 for file; do
-	if [[ ! -f $file ]]; then
+	if [[ $file == @(clip|--clip|-c) ]]; then
+		file=$(mktemp /tmp/imgur.XXXXXXXX.png)
+		xclip -out -sel CLIPBOARD -target image/png > "$file" || {
+			err "clipboard does not contain an image"
+			rm -f "$file"
+			continue
+		}
+	elif [[ ! -f $file ]]; then
 		err "'$file' is not a file, skipping"
 		continue
 	fi
@@ -66,8 +73,10 @@ for file; do
 	deletehash=$(echo "$response" | jq -r .data.deletehash)
 	deleteurl="https://imgur.com/delete/$deletehash"
 
-	setfattr -n "user.imgur.image-url" -v "$url" "$file"
-	setfattr -n "user.imgur.delete-url" -v "$deleteurl" "$file"
+	if [[ $file != /tmp/imgur.* ]]; then
+		setfattr -n "user.imgur.image-url" -v "$url" "$file"
+		setfattr -n "user.imgur.delete-url" -v "$deleteurl" "$file"
+	fi
 
 	printf "%s\n" "$url $deleteurl" >> "$log_file"
 

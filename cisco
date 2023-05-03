@@ -1,0 +1,81 @@
+#!/usr/bin/env expect
+# cisco -- connect to one of the "Dunelab" Cisco1760 routers
+# vim: ft=tcl
+
+set host ""
+set enable 1
+set monitor 0
+set datadump 0
+set backup 0
+set config 0
+set command ""
+set cmdexit 0
+
+foreach arg $argv {
+	if {$command == ""} {
+		switch -glob $arg {
+			-b { set backup 1 }
+			-c { set config 1 }
+			-d { set datadump 1 }
+			-m { set monitor 1 }
+			-u { set enable 0 }
+			-* { puts stderr "unknown option $arg"; exit 1 }
+			+* { set command [string trim $arg "+"]; set cmdexit 0 }
+			/* { set command [string trim $arg "/"]; set cmdexit 1 }
+			*  { set host $arg }
+		}
+	} else {
+		set command "$command $arg"
+	}
+}
+if {$backup} {
+	set datadump 1
+	set enable 1
+	set monitor 0
+}
+if {$command != ""} {
+	# Won't be able to interact
+	set datadump 1
+}
+if {$host == ""} {
+	puts stderr "host not specified"
+	exit 1
+}
+if {[regexp "^(top|mid|btm)$" $host]} {
+	set host "cisco-$host.sym"
+}
+
+set consolepass "cisco"
+set enablepass "enable"
+set ::env(TERM) "xterm"
+
+spawn telnet $host
+expect "Password:" { send "$consolepass\r" }
+set prompt ">"
+if {$enable} {
+	expect $prompt { send "enable\r" }
+	expect "Password:" { send "$enablepass\r" }
+	set prompt "#"
+}
+if {$datadump} {
+	expect $prompt { send "terminal length 0\r" }
+}
+if {$backup} {
+	expect $prompt { send "show run\r" }
+	expect $prompt { send "logout\r" }
+	exit
+}
+if {$monitor} {
+	expect $prompt { send "terminal monitor\r" }
+}
+if {$config} {
+	expect $prompt { send "config terminal\r" }
+}
+if {$command != ""} {
+	expect $prompt { send "$command\r" }
+	if {$cmdexit} {
+		expect $prompt { send "logout\r" }
+		exit
+	}
+}
+interact

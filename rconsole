@@ -20,13 +20,13 @@ case ${0##*/} in
 esac
 
 verbose=0
-opt_gpower=0
-opt_spower=""
+opt_getpower=0
+opt_setpower=""
 
 while getopts ":P:pv" OPT; do
 	case $OPT in
-	P) opt_spower=$OPTARG;;
-	p) opt_gpower=1;;
+	P) opt_setpower=$OPTARG;;
+	p) opt_getpower=1;;
 	v) verbose=1;;
 	*) lib:die_getopts;;
 	esac
@@ -37,22 +37,26 @@ case $host in
 	*)	bhost="bmc.$host.nullroute.lt";;
 esac
 
+# Look up operator password in ~/.netrc
 creds=$(getnetrc -sdf %a:%u:%p "ipmi/$bhost" ||
         getnetrc -sdf %a:%u:%p "ipmi/$host" ||
         getnetrc -sdf %a:%u:%p "ipmi/*")
+
 priv=${creds%%:*}; creds=${creds#*:}
 user=${creds%%:*}; creds=${creds#*:}
 pass=$creds
+
 if [[ ! $user || ! $pass ]]; then
 	die "Credentials for 'ipmi/$bhost' not found in ~/.netrc"
 fi
+
 if [[ ! $priv ]]; then
 	# Guess privilege level from username (e.g. Operator => priv OPERATOR)
 	priv=${user^^}
 fi
 
-if ((verbose)); then
-	echo "Connecting to '$bhost' as '$user' level '$priv'" >&2
+if (( verbose )); then
+	echo "Connecting to '$bhost' as '$user', privilege level '$priv'" >&2
 fi
 
 # New ipmitool defaults to ciphersuite 17 (AES-CBC-128 with HMAC-SHA256), which
@@ -72,19 +76,19 @@ elif have ipmitool; then
 	bmc_get_power() { ipmitool -I lanplus "${args[@]}" power status; }
 	bmc_set_power() { ipmitool -I lanplus "${args[@]}" power ${1?}; }
 else
-	die "no IPMI client tools installed"
+	die "No IPMI client tool (freeipmi nor ipmitool) found"
 fi
 
-if (( opt_gpower )); then
+if (( opt_getpower )); then
 	echo "[Connecting to '$bhost']"
 	bmc_get_power
-elif [[ $opt_spower ]]; then
-	if [[ $opt_spower != @(on|off|cycle|reset) ]]; then
-		die "Unknown power command '$opt_spower'"
+elif [[ $opt_setpower ]]; then
+	if [[ $opt_setpower != @(on|off|cycle|reset) ]]; then
+		die "Unknown power command '$opt_setpower'"
 	fi
-	confirm "Send 'power $opt_spower' command to '$bhost'?" || exit
+	confirm "Send 'power $opt_setpower' command to '$bhost'?" || exit
 	echo "[Connecting to '$bhost']"
-	bmc_set_power "$opt_spower"
+	bmc_set_power "$opt_setpower"
 elif [[ ! $1 ]]; then
 	echo "[Connecting to '$bhost' ... escape sequence is '&.']"
 	bmc_console

@@ -167,6 +167,7 @@ class PublicKey(object):
         # always starts with the same key type.
 
         algo_pos = None
+        prev_token = None
         for pos, token in enumerate(tokens):
             token = token.encode("utf-8")
             if pos > 0 and token.startswith(b"AAAA"):

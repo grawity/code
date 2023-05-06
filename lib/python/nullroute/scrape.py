@@ -1,7 +1,7 @@
 import email.message
 import email.utils
 import http.cookiejar
-from nullroute.core import *
+from nullroute.core import Core, Env
 from nullroute.misc import set_file_attrs, set_file_mtime
 from nullroute.ui.progressbar import ProgressBar
 import os
@@ -202,7 +202,7 @@ class Scraper(object):
 
         os.rename(output_part, output_file)
 
-        if save_msg == True:
+        if save_msg is True:
             Core.info("saved '%s'", output_file)
         elif save_msg:
             Core.info(save_msg)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import base64
+from base64 import b64decode
 import sys
 from pprint import pformat
 from nullroute.irc import Frame
@@ -346,7 +347,7 @@ class IrcClient(object):
                 break
 
             ok = yield from self.process_frame(frame)
-            if ok == False:
+            if ok is False:
                 break
 
     def send_message(self, rcpt, text):

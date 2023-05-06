@@ -124,7 +124,7 @@ class SshPacketReader(BinaryReader):
 
 class SshPacketWriter(BinaryWriter):
     def write_bool(self, val):
-        return sef._write_fmt("?", val)
+        return self._write_fmt("?", val)
 
     def write_byte(self, val):
         return self.write_u8(val)

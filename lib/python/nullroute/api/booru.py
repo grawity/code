@@ -4,10 +4,10 @@ from functools import lru_cache
 import lxml.etree
 from nullroute.core import Core
 from nullroute.scrape import urljoin
-import nullroute.sec
 from pprint import pprint
 import re
 import requests
+import time
 
 FAKE_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.84 Safari/537.36"
 

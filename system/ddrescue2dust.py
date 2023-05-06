@@ -22,9 +22,9 @@ for line in sys.stdin:
         start_byte = int(start_byte, 16)
         num_bytes = int(num_bytes, 16)
         if start_byte % BS:
-            exit(f"start not mod {bs}: {line!r}")
+            exit(f"start not mod {BS}: {line!r}")
         if num_bytes % BS:
-            exit(f"count not mod {bs}: {line!r}")
+            exit(f"count not mod {BS}: {line!r}")
         start_sector = start_byte // BS
         num_sectors = num_bytes // BS
         print(f"# {start_sector} +{num_sectors}")

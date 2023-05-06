@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 from nullroute.core import Core
+import os
 
 def base64_encode(text):
     return base64.b64encode(text).decode()
@@ -299,7 +300,7 @@ class SaslSCRAM(SaslMechanism):
 
                 try:
                     s_iter = int(attrs["i"])
-                except:
+                except ValueError:
                     raise MechanismFailure("server sent invalid iteration count in SCRAM challenge")
                 if not (500 <= s_iter <= 65535):
                     raise MechanismFailure("server sent unsupported iteration count in SCRAM challenge")

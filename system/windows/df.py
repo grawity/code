@@ -1,7 +1,8 @@
 #!python
 # a df-like utility for Windows
 
-import os, sys
+import os
+import sys
 
 import win32api     as Api
 import win32file    as File

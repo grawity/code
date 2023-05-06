@@ -40,7 +40,8 @@ def query(addr, rrtype):
     try:
         answer = dns.resolver.resolve(addr, rrtype)
         return [rr.to_text() for rr in answer]
-    except:
+    except Exception as e:
+        print("error:", e, file=sys.stderr)
         return []
 
 def resolve(addr):

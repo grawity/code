@@ -133,5 +133,4 @@ class CertCentralClient(object):
                 "type": resp.headers["Content-Type"],
                 "name": cert_name,
                 "format": format,
-                "serial": serial,
-                "format": format}
+                "serial": serial}

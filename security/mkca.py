@@ -73,7 +73,7 @@ args = parser.parse_args()
 try:
     days = parse_lifetime(args.lifetime)
 except ValueError as e:
-    exit(f"error: Invalid lifetime {args.lifetime!r}")
+    exit(f"error: Invalid lifetime {args.lifetime!r}: {e}")
 
 cert, priv = create_certificate(subject_cn=args.common_name,
                                 subject_o=args.organization,

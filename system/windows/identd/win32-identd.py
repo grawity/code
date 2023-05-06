@@ -366,7 +366,7 @@ class Identd():
             return user_sid, user[0], user[1]
         except win32api.error as e:
             self.logEx("error",
-                "%s failed" % funcname,
+                "%s failed" % e.funcname,
                 ("exception",   e),
                 ("function",    e.funcname),
                 ("error",       "[%(winerror)d] %(strerror)s" % e),

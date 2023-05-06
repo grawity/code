@@ -1,7 +1,8 @@
 #!python
 from __future__ import print_function
 
-import os, sys
+import os
+import sys
 
 from win32con import *
 from win32gui import *

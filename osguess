@@ -7,8 +7,11 @@ unset dist
 
 if [[ -e /etc/os-release ]]; then
 	dist=$(. /etc/os-release && echo "$ID $ID_LIKE")
-	xdist=:${dist// /:}:
 fi
+if [[ ! $dist ]]; then
+	dist=$(uname)
+fi
+xdist=:${dist// /:}:
 
 for arg in "$@"; do
 	case $arg in
@@ -24,7 +27,7 @@ for arg in "$@"; do
 		*:debian:*)
 			echo dpkg;;
 		*)
-			echo "$0: unknown distribution" >&2
+			echo "$0: unknown distribution '$dist'" >&2
 			exit 1;;
 		esac;;
 

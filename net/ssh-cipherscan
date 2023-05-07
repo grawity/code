@@ -36,33 +36,29 @@ def read_ssh_packets(r):
         Core.trace("  mac = [%d] %r", len(mac), mac)
         yield payload, mac
 
-def dump_keyexchange_packet(br):
-    cookie = br.read(16)
-    header = {
-        "kexes": br.read_array(),
-        "hostkeys": br.read_array(),
-        "ciphers c2s": br.read_array(),
-        "ciphers s2c": br.read_array(),
-        "macs c2s": br.read_array(),
-        "macs s2c": br.read_array(),
-        "compression c2s": br.read_array(),
-        "compression s2c": br.read_array(),
-        "languages c2s": br.read_array(),
-        "languages s2c": br.read_array(),
-        None: br.read_bool(),
-        None: br.read_u32_be(),
-    }
-    for x in ["ciphers", "macs", "compression", "languages"]:
-        a = f"{x} s2c"
-        b = f"{x} c2s"
-        if header[a] == header[b]:
-            header[x] = header[a]
-            del header[a]
-            del header[b]
-    del header[None]
-    for x in header:
-        header[x] = [y.decode() for y in header[x]]
-    pprint(header)
+def show_kex_packet(br):
+    def _parse_kex_packet(br):
+        u_fields = ["Key exchange", "Host key signature"]
+        b_fields = ["Cipher", "MAC", "Compression", "Languages"]
+        cookie = br.read(16)
+        for field in u_fields:
+            values = br.read_array()
+            yield field, values
+        for field in b_fields:
+            values_c2s = br.read_array()
+            values_s2c = br.read_array()
+            if values_c2s == values_s2c:
+                yield field, values_c2s
+            else:
+                yield f"{field} (c2s)", values_c2s
+                yield f"{field} (s2c)", values_s2c
+
+    for field, values in _parse_kex_packet(br):
+        print(f"{field}:")
+        for v in values:
+            print(f"    \"{v.decode()}\"")
+        if not values:
+            print(f"    (empty list)")
 
 def dump_one(buf, name):
     print("\033[1m%s:\033[m" % name)
@@ -101,7 +97,7 @@ def dump_hdr(buf):
             Core.debug("  text = [%d] %r", len(text), text)
         elif packet_type == SSH_MSG_KEXINIT:
             Core.debug("got SSH_MSG_KEXINIT")
-            dump_keyexchange_packet(br)
+            show_kex_packet(br)
             break
         else:
             raise IOError("received message was not SSH_MSG_KEXINIT (got %d)" % packet_type)

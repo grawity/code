@@ -256,10 +256,16 @@ for arg in args.path or ["."]:
                 if is_file_partial(filename):
                     Core.debug("skipping partial file: %r", filename)
                     continue
-                rename_file_in_dir(dirpath, filename, args, foreign_warn=False)
+                try:
+                    rename_file_in_dir(dirpath, filename, args, foreign_warn=False)
+                except FileNotFoundError as e:
+                    Core.warn("skipping %r: %s", os.path.join(dirpath, filename), e)
     else:
         dirpath, filename = os.path.split(arg)
         if is_file_partial(filename):
             Core.notice("skipping partial file: %r", arg)
             continue
-        rename_file_in_dir(dirpath, filename, args, foreign_warn=True)
+        try:
+            rename_file_in_dir(dirpath, filename, args, foreign_warn=True)
+        except FileNotFoundError as e:
+            Core.warn("skipping %r: %s", os.path.join(dirpath, filename), e)

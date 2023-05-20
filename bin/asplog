@@ -1,18 +1,29 @@
 #!/usr/bin/env bash
+# asplog -- show changelog for an Arch Linux package
+#
+# Previously (before GitLab migration) this was a wrapper around the svn2git
+# `asp log` tool.
 
-cd "${XDG_CACHE_HOME:-$HOME/.cache}/asp" || exit
+base="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
+
+if [[ ! -d $base ]]; then
+	mkdir -p "$base"
+fi
+
+#if [[ -d $base/cache ]]; then
+#	echo "Removing old svn2git cache"
+#	rm -rf "$base/cache"
+#fi
 
 pkg=${1#*/}
+url="https://gitlab.archlinux.org/archlinux/packaging/packages/$pkg.git"
 
-#asp update
+if [[ ! -d $base/$pkg ]]; then
+	git clone "$url" "$base/$pkg"
+else
+	git -C "$base/$pkg" pull --ff-only
+fi
 
-asp update "$pkg"
+settitle "$pkg"
 
-for repo in packages community; do
-	ref="refs/remotes/$repo/packages/$pkg"
-	if git rev-parse --verify "$ref" &>/dev/null; then
-		settitle "$pkg [$repo.git]"
-		tig "$ref" -- trunk/
-		break
-	fi
-done
+tig -C "$base/$pkg"

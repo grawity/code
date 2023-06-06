@@ -2,11 +2,16 @@
 
 readonly AESCBC128_HMACSHA1=3
 
+PHY_IF="eno1"
+VLAN_ID="28"
+VLAN_IP="10.254.28.219/24"
+VLAN_IF="$PHY_IF.$VLAN_ID"
+
 attach_console() {
 	# Use IP address in case DNS is broken (which it will be,
 	# because gw-core is also the primary DNS resolver).
-	local host='idrac-gw-core.utenos-kolegija.lt'
-	local addr='10.129.2.11'
+	local host='bmc-gw.utenos-kolegija.lt'
+	local addr='10.254.28.9'
 	local kg=$(getnetrc -df %p "rmcp/$host")
 
 	local user='cons'
@@ -23,23 +28,24 @@ attach_console() {
 }
 
 has_vlan() {
-	ip -j -d link | jq -e -r '
+	ip -j -d link | jq -e -r "
 		.[]
-		| select(.linkinfo.info_kind == "vlan")
-		| select(.linkinfo.info_data.id == 2)
+		| select(.linkinfo.info_kind == \"vlan\")
+		| select(.linkinfo.info_data.id == $VLAN_ID)
 		| .ifname
-	'
+	"
 }
 
 setup_vlan() {
 	[[ $HOSTNAME == @(ember|wind) ]] || return
+
 	if has_vlan >/dev/null; then
 		vlan_added=0
 	else
 		echo "[adding temporary VLAN]"
-		sudo ip link add vlan2 link eno1 type vlan id 2
-		sudo ip link set vlan2 up
-		sudo ip addr add 10.129.255.1/16 dev vlan2
+		sudo ip link add $VLAN_IF link $PHY_IF type vlan id $VLAN_ID
+		sudo ip link set $VLAN_IF up
+		sudo ip addr add $VLAN_IP dev $VLAN_IF
 		vlan_added=1
 	fi
 }
@@ -48,19 +54,20 @@ teardown_vlan() {
 	[[ $HOSTNAME == @(ember|wind) ]] || return
 	if (( vlan_added )); then
 		echo "[removing temporary VLAN]"
-		sudo ip link del vlan2
+		sudo ip link del $VLAN_IF
+		vlan_added=0
 	fi
 }
 
-if [[ $HOSTNAME == @(ember|wind) ]]; then
+if [[ $1 == -f ]]; then
+	echo "[40;93mIndirect access through network.[m"
+	attach_console
+elif [[ $HOSTNAME == @(ember|wind) ]]; then
 	echo "[40;92mDirect access through VLAN.[m"
 	trap teardown_vlan SIGINT
 	setup_vlan
 	attach_console
 	teardown_vlan
-elif [[ $1 == -f ]]; then
-	echo "[40;93mIndirect access through network.[m"
-	attach_console
 else
 	echo "[40;91mNo access from this system.[m"
 	echo "Connect to [1member.sym[m or [1mwind.sym[m, or add a VLAN on EmberGW."

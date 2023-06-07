@@ -14,7 +14,7 @@ attach_console() {
 	local addr='10.254.28.9'
 	local kg=$(getnetrc -df %p "rmcp/$host")
 
-	local user='cons'
+	local user=$(getnetrc -df %u "ipmi/$host")
 	local pass=$(getnetrc -df %p "ipmi/$host" "$user")
 	local priv=$(getnetrc -df %a "ipmi/$host" "$user")
 
@@ -23,7 +23,7 @@ attach_console() {
 	echo "[connecting to $addr ... escape sequence is '&.']"
 	ipmiconsole -h "$addr" -k "$kg" \
 	            -u "$user" -p "$pass" \
-	            -l "${priv:-ADMINISTRATOR}" \
+	            -l "${priv:-${user^^}}" \
 	            -I $AESCBC128_HMACSHA1
 }
 

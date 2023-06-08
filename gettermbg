@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# gettermbg -- Check whether the terminal has a light or dark background.
+#
+# Queries the Xterm background and uses the formula from:
+# https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/apply-windows-themes#know-when-dark-mode-is-enabled
+#
+# A more advanced tool is available at:
+# https://github.com/rocky/shell-term-background/blob/master/term-background.bash
+
+printf '\e]11;?\e\\'
+
+if read -r -s -d '\\' -t 3 ans; then
+	re=$'^\e\\]11;(rgb:(.+)/(.+)/(.+))\e$'
+	if [[ $ans =~ $re ]]; then
+		declare -i r="0x${BASH_REMATCH[2]}"
+		declare -i g="0x${BASH_REMATCH[3]}"
+		declare -i b="0x${BASH_REMATCH[4]}"
+		# X11 colors are rrrr/gggg/bbbb, e.g. "rgb:ffff/f7f7/dfdf"
+		# or "rgb:1c1c/1c1c/1c1c".
+		r="r >> 8"
+		g="g >> 8"
+		b="b >> 8"
+		# Use the formula from Microsoft
+		declare -i is_light='(5*g + 2*r + b) > (8*128)'
+
+		case $1 in
+		"")		echo "${BASH_REMATCH[1]}";;
+		-l|--is-light)	(( is_light ));;
+		-d|--is-dark)	(( !is_light ));;
+		*)		echo "gettermbg: Bad usage" >&2; exit 2;;
+		esac
+	else
+		echo "gettermbg: Invalid reply from terminal: ${ans@Q}" >&2
+		exit 3
+	fi
+else
+	echo "gettermbg: Did not receive reply from terminal" >&2
+	exit 4
+fi

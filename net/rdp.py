@@ -106,6 +106,9 @@ parser.add_argument("--legacy", "--old",
 parser.add_argument("--restricted-admin", "--ra",
                     action="store_true",
                     help="Restricted Admin mode - don't delegate any credentials")
+parser.add_argument("-k", "--insecure",
+                    action="store_true",
+                    help="ignore certificates")
 parser.add_argument("--workarea",
                     action="store_true",
                     help="fit display into the work area instead of full-screen")
@@ -161,6 +164,8 @@ else:
     cmd.append("/sec:nla")
     if args.restricted_admin:
         cmd.append("/restricted-admin")
+    if args.insecure:
+        cmd.append("/cert:ignore")
 
 cmd.append("/network:auto")
 

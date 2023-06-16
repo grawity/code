@@ -95,22 +95,6 @@ def ansicolor_for_temp(temp, bright=False):
     base = 90 if bright else 30
     return f"{base+color}"
 
-def draw_bar(ts, is_current, width, temp, load):
-    global ravg
-    color = ansicolor_for_temp(ravg.get(), is_current)
-
-    width = int(temp) - 20
-    print(time.strftime("%T ", time.localtime(ts)), end="")
-    if is_current:
-        char = "█"
-    else:
-	    char = "-║"
-    put_bar(color, width, char)
-    print(f" {temp:3d}°C", end="")
-    if load:
-        print(f"  \033[2m{load:.2f}\033[m", end="")
-    print(flush=True)
-
 def rsuffix(string, old, new):
     if string.endswith(old):
         return string[:-len(old)] + str(new)
@@ -197,9 +181,20 @@ class MeterBar:
         self.max_temp = 0
         self.time_temps = defaultdict(int)
 
-    def _draw_bar(self, is_current, time, temp, load):
-        width = temp - 20
-        draw_bar(time, is_current, width, temp, load)
+    def _draw_bar(self, is_current, ts, temp, load):
+        global ravg
+        color = ansicolor_for_temp(ravg.get(), is_current)
+
+        width = int(temp) - 20
+        put(time.strftime("%T ", time.localtime(ts)))
+        if is_current:
+            char = "█"
+        else:
+	        char = "-║"
+        put_bar(color, width, char)
+        put(f" {temp:3d}°C")
+        put(f"  \033[2m{load:.2f}\033[m")
+        print(flush=True)
 
     def overdraw_bar(self):
         put("\033[A") # One line up

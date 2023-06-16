@@ -104,43 +104,55 @@ def rsuffix(string, old, new):
         return string[:-len(old)] + str(new)
     return string
 
-def find_hwmon_by_name(name):
-    for dev in glob("/sys/class/hwmon/hwmon*"):
-        if os.path.exists("%s/name" % dev):
-            with open("%s/name" % dev, "r") as fh:
-                dev_name = fh.read().strip()
-            if dev_name == "coretemp":
-                return dev
-    raise RuntimeError("no %r hwmon device found" % name)
+class Sensor:
+    def __init__(self, dev, subdev):
+        self.dev = dev
+        self.subdev = subdev
 
-def find_sensor():
-    dev = find_hwmon_by_name("coretemp")
+    def read(self):
+        with open(self.subdev, "r") as fh:
+            temp = int(fh.read())
+            return temp / 1000
 
-    subdev = None
-    subdev_pkg = None
-    subdev_cr0 = None
-    for path_label in glob("%s/temp*_label" % dev):
-        path_input = rsuffix(path_label, "_label", "_input")
-        with open(path_label, "r") as fh:
-            label = fh.read().strip()
-        if label == "Package id 0":
-            subdev_pkg = path_input
-        elif label == "Core 0":
-            subdev_cr0 = path_input
-    if subdev_pkg:
-        subdev = subdev_pkg
-    elif subdev_cr0:
-        subdev = subdev_cr0
-    else:
-        raise RuntimeError("no 'coretemp/Core 0' hwmon sensor found")
+    @classmethod
+    def find_hwmon_by_name(self, name):
+        for dev in glob("/sys/class/hwmon/hwmon*"):
+            if os.path.exists("%s/name" % dev):
+                with open("%s/name" % dev, "r") as fh:
+                    dev_name = fh.read().strip()
+                if dev_name == "coretemp":
+                    return dev
+        raise RuntimeError("no %r hwmon device found" % name)
 
-    with open("%s/name" % dev, "r") as fh:
-        dev_name = fh.read().strip()
-    with open(rsuffix(subdev, "_input", "_label"), "r") as fh:
-        subdev_name = fh.read().strip()
-    print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name), file=sys.stderr)
+    @classmethod
+    def find_sensor(self):
+        dev = self.find_hwmon_by_name("coretemp")
 
-    return subdev
+        subdev = None
+        subdev_pkg = None
+        subdev_cr0 = None
+        for path_label in glob("%s/temp*_label" % dev):
+            path_input = rsuffix(path_label, "_label", "_input")
+            with open(path_label, "r") as fh:
+                label = fh.read().strip()
+            if label == "Package id 0":
+                subdev_pkg = path_input
+            elif label == "Core 0":
+                subdev_cr0 = path_input
+        if subdev_pkg:
+            subdev = subdev_pkg
+        elif subdev_cr0:
+            subdev = subdev_cr0
+        else:
+            raise RuntimeError("no 'coretemp/Core 0' hwmon sensor found")
+
+        with open("%s/name" % dev, "r") as fh:
+            dev_name = fh.read().strip()
+        with open(rsuffix(subdev, "_input", "_label"), "r") as fh:
+            subdev_name = fh.read().strip()
+        print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name), file=sys.stderr)
+
+        return Sensor(dev, subdev)
 
 def print_histogram(data, *, width=5, unit="", barwidth=50):
     def buckets(data, width):
@@ -228,14 +240,12 @@ parser.add_argument("-n", "--interval", metavar="SECS", type=int, default=1,
 args = parser.parse_args()
 
 hostname = os.uname().nodename
-subdev = find_sensor()
+sensor = Sensor.find_sensor()
 
 if args.raw:
     try:
         while True:
-            with open(subdev, "r") as fh:
-                temp = int(fh.read())
-                temp = temp / 1000
+            temp = sensor.read()
             print(f"{temp:.1f}", flush=True)
             time.sleep(args.interval)
     except KeyboardInterrupt:
@@ -250,10 +260,9 @@ else:
                 time.sleep(args.interval)
                 m.overdraw_bar()
             ts = time.time()
-            with open(subdev, "r") as fh:
-                temp = int(fh.read())
-                temp = fround(temp / 1000)
-                ravg.add(temp)
+            temp = sensor.read()
+            temp = fround(temp)
+            ravg.add(temp)
             load = get_load_averages()[0]
             m.update(ts, temp, load)
     except RuntimeError as e:

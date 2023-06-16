@@ -65,8 +65,9 @@ def put_bar(color, width, char):
         bar += "\033[m"
     print(bar, end="")
 
-def draw_bar(ts, color, width, temp, load):
+def draw_bar(ts, is_current, width, temp, load):
     global ravg
+    color = 8 if is_current else 0
     avg = ravg.get()
     if avg > 79:
         color += Color.Red
@@ -156,7 +157,7 @@ def print_stats(from_signal=False):
 
     if from_signal:
         print("\033[A\r\033[K", end="")
-        draw_bar(ts, 0, temp-20, temp, load)
+        draw_bar(ts, False, temp-20, temp, load)
 
     print()
     print("Statistics:")
@@ -172,7 +173,7 @@ def print_stats(from_signal=False):
 
     if from_signal:
         print()
-        draw_bar(ts, 8, temp-20, temp, load)
+        draw_bar(ts, True, temp-20, temp, load)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--raw", action="store_true",
@@ -209,7 +210,7 @@ else:
             ts = time.time() - args.interval
             if last_temp:
                 print("\033[A", end="")
-                draw_bar(ts-args.interval, 0, last_temp-20, last_temp, last_load)
+                draw_bar(ts-args.interval, False, last_temp-20, last_temp, last_load)
             temp = read(subdev)
             temp = int(temp) / 1000
             temp = round(temp + 0.1) # Python rounds 0.5 down
@@ -217,7 +218,7 @@ else:
             time_temps[temp] += args.interval
             load = open("/proc/loadavg", "r").read().strip()
             load = load.split()[0]
-            draw_bar(ts, 8, temp-20, temp, load)
+            draw_bar(ts, True, temp-20, temp, load)
             set_title(f"{hostname}: {temp}°C (load {load})")
             set_wname(f"{temp}°C")
             last_temp = temp

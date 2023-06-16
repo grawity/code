@@ -177,11 +177,12 @@ def print_stats(from_signal=False):
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--raw", action="store_true",
                     help="output only temperature value")
+parser.add_argument("-n", "--interval", metavar="SECS", type=int, default=1,
+                    help="specify update interval")
 args = parser.parse_args()
 
 hostname = os.uname().nodename
 subdev = find_sensor()
-interval = 1
 
 if args.raw:
     try:
@@ -189,7 +190,7 @@ if args.raw:
             temp = read(subdev)
             temp = int(temp) / 1000
             print("%.1f" % temp, flush=True)
-            time.sleep(interval)
+            time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)
 else:
@@ -204,16 +205,16 @@ else:
 
         while True:
             if last_temp:
-                time.sleep(interval)
-            ts = time.time() - 1
+                time.sleep(args.interval)
+            ts = time.time() - args.interval
             if last_temp:
                 print("\033[A", end="")
-                draw_bar(ts-1, 0, last_temp-20, last_temp, last_load)
+                draw_bar(ts-args.interval, 0, last_temp-20, last_temp, last_load)
             temp = read(subdev)
             temp = int(temp) / 1000
             temp = round(temp + 0.1) # Python rounds 0.5 down
             ravg.add(temp)
-            time_temps[temp] += interval
+            time_temps[temp] += args.interval
             load = open("/proc/loadavg", "r").read().strip()
             load = load.split()[0]
             draw_bar(ts, 8, temp-20, temp, load)

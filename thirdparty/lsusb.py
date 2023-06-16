@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # vim: ts=4:sw=4:et
-# SPDX-License-Identifier: GPL-2.0 OR GPL-3.0
+# SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only
 #
-# lsusb-013.py
+# lsusb-015.py
 #
 # Displays your USB devices in reasonable form.
 #
@@ -147,26 +147,56 @@ def find_storage(hostno):
                 pass
     return res
 
+def add_drv(path, drvnm):
+    res = ""
+    try:
+        for e2 in os.listdir(path+"/"+drvnm):
+            if e2[0:len(drvnm)] == drvnm:
+                res += e2 + " "
+        try:
+            if res:
+                res += "(" + os.path.basename(os.readlink(path+"/driver")) + ") "
+        except:
+            pass
+    except:
+        pass
+    return res
+
+
 def find_dev(driver, usbname):
     "Return pseudo devname that's driven by driver"
     res = ""
     for nm in devlst:
-        dir = prefix + usbname
+        dirnm = prefix + usbname
         prep = ""
         idx = nm.find('/')
         if idx != -1:
             prep = nm[:idx+1]
-            dir += "/" + nm[:idx]
+            dirnm += "/" + nm[:idx]
             nm = nm[idx+1:]
         ln = len(nm)
         try:
-            for ent in os.listdir(dir):
+            for ent in os.listdir(dirnm):
                 if ent[:ln] == nm:
                     res += prep+ent+" "
                     if nm == "host":
                         res += "(" + find_storage(ent[ln:])[:-1] + ")"
         except:
             pass
+    if driver == "usbhid":
+        rg = re.compile(r'[0-9A-F]{4}:[0-9A-F]{4}:[0-9A-F]{4}\.[0-9A-F]{4}')
+        for ent in os.listdir(prefix + usbname):
+            m = rg.match(ent)
+            if m:
+                res += add_drv(prefix+usbname+"/"+ent, "hidraw")
+                add = add_drv(prefix+usbname+"/"+ent, "input")
+                if add:
+                    res += add
+                else:
+                    for ent2 in os.listdir(prefix+usbname+"/"+ent):
+                        m = rg.match(ent2)
+                        if m:
+                            res += add_drv(prefix+usbname+"/"+ent+"/"+ent2, "input")
     return res
 
 class UsbObject:

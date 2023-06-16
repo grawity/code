@@ -85,15 +85,12 @@ def draw_bar(ts, is_current, width, temp, load):
 
     width = int(temp) - 20
     print(time.strftime("%T ", time.localtime(ts)), end="")
-    char = "█"
-    if color < 8:
-	    # color += 8
-	    # char = "▓"
+    if is_current:
+        char = "█"
+    else:
 	    char = "-║"
     put_bar(color, width, char)
-    print(" %3d°C" % temp, end="")
-    #if color >= 8:
-    #    print(" [%3d°C]" % avg)
+    print(f" {temp:3d}°C", end="")
     if load:
         print(f"  \033[2m{load:.2f}\033[m", end="")
     print(flush=True)
@@ -195,7 +192,7 @@ if args.raw:
         while True:
             temp = read(subdev)
             temp = int(temp) / 1000
-            print("%.1f" % temp, flush=True)
+            print(f"{temp:.1f}", flush=True)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)
@@ -229,7 +226,7 @@ else:
             last_load = load
             max_temp = max(max_temp, temp)
     except RuntimeError as e:
-        exit("error: %s" % e)
+        exit(f"error: {e}")
     except KeyboardInterrupt:
         print_stats()
         exit(0)

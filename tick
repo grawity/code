@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+# tick -- output a "spark line" graph
+#
+#     $ seq 0 7 | tick -l 0 -h 7
+#     ▁▂▃▄▅▆▇█ 7.0
+#
+# Reads a series of numbers from stdin and outputs them as a "spark line",
+# similar to how `prettyping` works. Input is assumed to be streamed, so the
+# low/high bounds must be specified explicitly:
+#
+#     while sleep 1; do get_temp; done | tick --low 30 --high 50
+#
+# Note to self: It appears impossible to support showing summary on Ctrl-\
+# (like in `ping` or `cputemp`), as the SIGQUIT will be sent to the entire
+# pipeline and will kill the data source process.
+
+import argparse
+import math
+import os
+import sys
+import termios
+
+def mix(a, b, t):
+    return a*(1-t) + b*t
+
+def vec_mix(a, b, t):
+    assert len(a) == len(b)
+    return [mix(a[i], b[i], t) for i in range(len(a))]
+
+def vec_gamma_scale(a, gamma):
+    return [x**gamma for x in a]
+
+def vec_gamma_mix(a, b, t, gamma=1.0):
+    aG = vec_gamma_scale(a, gamma)
+    bG = vec_gamma_scale(b, gamma)
+    linear_mix = vec_mix(aG, bG, t)
+    return vec_gamma_scale(linear_mix, 1/gamma)
+
+def linear_gradient(stops, value, gamma=1.0):
+    n = 1 / (len(stops) - 1)
+    ratio = value / n
+    i = math.floor(ratio)
+    if i == len(stops) - 1:
+        return stops[len(stops) - 1]
+    frac = ratio % 1
+    stops = [vec_gamma_scale(x, gamma) for x in stops]
+    result = vec_mix(stops[i], stops[i+1], frac)
+    return vec_gamma_scale(result, 1/gamma)
+
+def put(s):
+    print(s, end="", flush=True)
+
+class no_echo:
+    def __enter__(self):
+        self.old_attrs = termios.tcgetattr(sys.stdout)
+        attrs = self.old_attrs[:]
+        attrs[3] &= ~termios.ECHO
+        termios.tcsetattr(sys.stdout, termios.TCSAFLUSH, attrs)
+        return self
+
+    def __exit__(self, *_):
+        termios.tcsetattr(sys.stdout, termios.TCSAFLUSH, self.old_attrs)
+
+class Ticker:
+    TICKS = "▁▂▃▄▅▆▇█"
+
+    COLORS = [
+        (0x00, 0x00, 0xFF), # blue
+        (0x00, 0xFF, 0x00), # green
+        (0xFF, 0xFF, 0x00), # yellow
+        (0xFF, 0x00, 0x00), # red
+    ]
+
+    def __init__(self, low, high):
+        self.low = low
+        self.high = high
+
+        # Horizontal cursor position
+        self.w = 0
+        self.update_ttysize()
+
+        self.last_tail = None
+
+    def update_ttysize(self):
+        self.ncols = os.get_terminal_size(sys.stderr.fileno()).columns
+
+    def print_tick(self, val):
+        val = max(val, self.low)
+        val = min(val, self.high)
+
+        t = (val - self.low) / (self.high - self.low)
+        ti = math.floor(t * (len(self.TICKS)-1))
+        r, g, b = [int(x) for x in linear_gradient(self.COLORS, t, gamma=1.8)]
+
+        put(f"\033[38;2;{r};{g};{b}m")
+        put(self.TICKS[ti])
+        put("\033[m")
+
+        self.w += 1
+
+    def unprint_tail(self):
+        # Split out of print_tail() to delay line-wrapping until the next tick
+        # arrives, instead of doing it immediately (which looks weird).
+        tail = self.last_tail
+        if self.w + len(tail) >= self.ncols:
+            put(f"\033[m{tail}\033[m")
+            put("\n")
+            self.w = 0
+
+    def print_tail(self, tail):
+        put(f"\033[1m{tail}\033[m")
+        put("\b" * len(tail))
+        self.last_tail = tail
+
+    def add_datum(self, val):
+        self.unprint_tail()
+        self.print_tick(val)
+        self.print_tail(" %.1f" % val)
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--help", action="help", help="show this help message and exit")
+parser.add_argument("-l", "--low", type=float, default=0,
+                    help="minimum value to clamp the sparkline to")
+parser.add_argument("-h", "--high", type=float, default=100,
+                    help="maximum value to clamp the sparkline to")
+args = parser.parse_args()
+
+T = Ticker(low=args.low,
+           high=args.high)
+
+try:
+    with no_echo():
+        T.print_tail(" wait")
+        for line in sys.stdin:
+            for val in line.split():
+                val = float(val)
+                T.add_datum(val)
+except KeyboardInterrupt:
+    exit()

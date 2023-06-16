@@ -36,10 +36,17 @@ class Color(enum.IntEnum):
     Yellow = 3
     Blue = 4
 
+def fround(val):
+    # Round 0.5 up (Python rounds 0.5 down)
+    return round(val + 0.1)
+
 def get_load_averages():
     with open("/proc/loadavg", "r") as fh:
         buf = fh.read().strip().split()
     return [float(x) for x in buf[:3]]
+
+def put(s):
+    print(s, end="", flush=True)
 
 def set_title(text):
     print("\033]0;%s\033\\" % text, end="", flush=True)
@@ -153,29 +160,64 @@ def print_histogram(data, *, width=5, unit="", barwidth=50):
         print("%10s | %s  %s" % (label, "=" * round(width), suffix))
     print("%10s +-%s" % ("", "-" * barwidth))
 
-def print_stats(from_signal=False):
-    global time_temps
-    global ts, temp, load
+class MeterBar:
+    def __init__(self, interval):
+        # Last values for redraw/overdraw
+        self.last_ts = 0
+        self.last_temp = 0
+        self.last_load = 0
 
-    if from_signal:
-        print("\033[A\r\033[K", end="")
-        draw_bar(ts, False, temp-20, temp, load)
+        # Statistics
+        self.interval = interval
+        self.max_temp = 0
+        self.time_temps = defaultdict(int)
 
-    print()
-    print("Statistics:")
-    print_histogram(time_temps, unit="s")
-    for _min in [60, 70, 80, 90]:
-        temp_secs = sum([_time
-                         for (_temp, _time) in time_temps.items()
-                         if _temp >= _min])
-        if temp_secs:
-            print(f"Spent {temp_secs}s at or above {_min}°C")
-    max_temp_secs = time_temps[max_temp]
-    print(f"Maximum temperature: {max_temp}°C (for {max_temp_secs}s)")
+    def _draw_bar(self, is_current, time, temp, load):
+        width = temp - 20
+        draw_bar(time, is_current, width, temp, load)
 
-    if from_signal:
+    def overdraw_bar(self):
+        put("\033[A") # One line up
+        put("\r\033[K") # Reset position after signal
+        self._draw_bar(False, self.last_ts, self.last_temp, self.last_load)
+
+    def update(self, ts, temp, load):
+        temp = fround(temp)
+
+        self._draw_bar(True, ts, temp, load)
+        set_title(f"{hostname}: {temp}°C (load {load:.2f})")
+        set_wname(f"{temp}°C")
+
+        # Store values for overdraw
+        self.last_ts = ts
+        self.last_temp = temp
+        self.last_load = load
+
+        # Update stats
+        self.max_temp = max(self.max_temp, temp)
+        self.time_temps[fround(temp)] += args.interval
+
+    def print_stats(self, from_signal=False):
+        if from_signal:
+            self.overdraw_bar()
+
         print()
-        draw_bar(ts, True, temp-20, temp, load)
+        print("Statistics:")
+        print_histogram(time_temps, unit="s")
+        for _min in [60, 70, 80, 90]:
+            temp_secs = sum([_time
+                             for (_temp, _time) in time_temps.items()
+                             if _temp >= _min])
+            if temp_secs:
+                print(f"Spent {temp_secs}s at or above {_min}°C")
+
+        max_temp = self.max_temp
+        max_temp_secs = self.time_temps[max_temp]
+        print(f"Maximum temperature: {max_temp}°C (for {max_temp_secs}s)")
+
+        if from_signal:
+            print()
+            self._draw_bar(True, self.last_ts, self.last_temp, self.last_load)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--raw", action="store_true",
@@ -198,35 +240,25 @@ if args.raw:
         exit(0)
 else:
     try:
-        last_temp = 0
-        last_load = 0
+        m = MeterBar(interval=args.interval)
         ravg = RollingAverage(3)
-        time_temps = defaultdict(int)
-        max_temp = 0
 
-        signal.signal(signal.SIGQUIT, lambda s, f: print_stats(True))
+        signal.signal(signal.SIGQUIT, lambda s, f: m.print_stats(True))
 
         while True:
-            if last_temp:
+            if m.last_temp:
                 time.sleep(args.interval)
             ts = time.time() - args.interval
-            if last_temp:
-                print("\033[A", end="")
-                draw_bar(ts-args.interval, False, last_temp-20, last_temp, last_load)
+            if m.last_temp:
+                m.overdraw_bar()
             temp = read(subdev)
             temp = int(temp) / 1000
-            temp = round(temp + 0.1) # Python rounds 0.5 down
+            temp = fround(temp)
             ravg.add(temp)
-            time_temps[temp] += args.interval
             load = get_load_averages()[0]
-            draw_bar(ts, True, temp-20, temp, load)
-            set_title(f"{hostname}: {temp}°C (load {load:.2f})")
-            set_wname(f"{temp}°C")
-            last_temp = temp
-            last_load = load
-            max_temp = max(max_temp, temp)
+            m.update(ts, temp, load)
     except RuntimeError as e:
         exit(f"error: {e}")
     except KeyboardInterrupt:
-        print_stats()
+        m.print_stats()
         exit(0)

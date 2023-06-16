@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
+# cputemp -- visually monitor CPU temperature
+import argparse
 from collections import defaultdict
 import enum
 from glob import glob
 import os
 import signal
+import sys
 import time
 
 class RollingAverage():
@@ -124,7 +127,7 @@ def find_sensor():
 
     dev_name = read("%s/name" % dev)
     subdev_name = read(rsuffix(subdev, "_input", "_label"))
-    print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name))
+    print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name), file=sys.stderr)
 
     return subdev
 
@@ -171,40 +174,56 @@ def print_stats(from_signal=False):
         print()
         draw_bar(ts, 8, temp-20, temp, load)
 
-try:
-    hostname = os.uname().nodename
-    subdev = find_sensor()
-    interval = 1
-    last_temp = 0
-    last_load = ""
-    ravg = RollingAverage(3)
-    time_temps = defaultdict(int)
-    max_temp = 0
+parser = argparse.ArgumentParser()
+parser.add_argument("-r", "--raw", action="store_true",
+                    help="output only temperature value")
+args = parser.parse_args()
 
-    signal.signal(signal.SIGQUIT, lambda s, f: print_stats(True))
+hostname = os.uname().nodename
+subdev = find_sensor()
+interval = 1
 
-    while True:
-        if last_temp:
+if args.raw:
+    try:
+        while True:
+            temp = read(subdev)
+            temp = int(temp) / 1000
+            print("%.1f" % temp, flush=True)
             time.sleep(interval)
-        ts = time.time() - 1
-        if last_temp:
-            print("\033[A", end="")
-            draw_bar(ts-1, 0, last_temp-20, last_temp, last_load)
-        temp = read(subdev)
-        temp = int(temp) / 1000
-        temp = round(temp + 0.1) # Python rounds 0.5 down
-        ravg.add(temp)
-        time_temps[temp] += interval
-        load = open("/proc/loadavg", "r").read().strip()
-        load = load.split()[0]
-        draw_bar(ts, 8, temp-20, temp, load)
-        set_title(f"{hostname}: {temp}°C (load {load})")
-        set_wname(f"{temp}°C")
-        last_temp = temp
-        last_load = load
-        max_temp = max(max_temp, temp)
-except RuntimeError as e:
-    exit("error: %s" % e)
-except KeyboardInterrupt:
-    print_stats()
-    exit(0)
+    except KeyboardInterrupt:
+        exit(0)
+else:
+    try:
+        last_temp = 0
+        last_load = ""
+        ravg = RollingAverage(3)
+        time_temps = defaultdict(int)
+        max_temp = 0
+
+        signal.signal(signal.SIGQUIT, lambda s, f: print_stats(True))
+
+        while True:
+            if last_temp:
+                time.sleep(interval)
+            ts = time.time() - 1
+            if last_temp:
+                print("\033[A", end="")
+                draw_bar(ts-1, 0, last_temp-20, last_temp, last_load)
+            temp = read(subdev)
+            temp = int(temp) / 1000
+            temp = round(temp + 0.1) # Python rounds 0.5 down
+            ravg.add(temp)
+            time_temps[temp] += interval
+            load = open("/proc/loadavg", "r").read().strip()
+            load = load.split()[0]
+            draw_bar(ts, 8, temp-20, temp, load)
+            set_title(f"{hostname}: {temp}°C (load {load})")
+            set_wname(f"{temp}°C")
+            last_temp = temp
+            last_load = load
+            max_temp = max(max_temp, temp)
+    except RuntimeError as e:
+        exit("error: %s" % e)
+    except KeyboardInterrupt:
+        print_stats()
+        exit(0)

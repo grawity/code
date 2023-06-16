@@ -84,7 +84,7 @@ class Sparkline:
     def update_ttysize(self):
         self.ncols = os.get_terminal_size(sys.stderr.fileno()).columns
 
-    def print_tick(self, val):
+    def _print_tick(self, val):
         val = clamp(val, self.low, self.high)
 
         t = normalize(val, self.low, self.high)
@@ -95,31 +95,22 @@ class Sparkline:
         put(f"\033[38;2;{r};{g};{b}m")
         put(self.TICKS[ti])
         put("\033[m")
-
         self.w += 1
 
-    def unprint_tail(self, next_tail):
-        # Split out of print_tail() to delay line-wrapping until the next tick
-        # arrives, instead of doing it immediately (which looks weird).
-        #
-        # Despite that, however, we still need to consider the width of the
-        # *next* tail, not the previous one -- as ugly as it makes the code look.
+    def update(self, val):
+        tail = f" {val:.1f}"
+
         put("\033[K")
-        if self.w + len(next_tail) + 1 >= self.ncols:
+        if self.w + len(tail) + 1 >= self.ncols:
             put(f"\033[38;5;244m{self.last_tail}\033[m")
             put("\n")
             self.w = 0
 
-    def print_tail(self, tail):
+        self._print_tick(val)
+
         put(f"\033[1m{tail}\033[m")
         put("\b" * len(tail))
         self.last_tail = tail
-
-    def update(self, val):
-        tail = f" {val:.1f}"
-        self.unprint_tail(tail)
-        self.print_tick(val)
-        self.print_tail(tail)
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--help", action="help", help="show this help message and exit")

@@ -30,12 +30,6 @@ class RollingAverage():
     def get(self):
         return self._roll / self._depth
 
-class Color(enum.IntEnum):
-    Red = 1
-    Green = 2
-    Yellow = 3
-    Blue = 4
-
 def fround(val):
     # Round 0.5 up (Python rounds 0.5 down)
     return round(val + 0.1)
@@ -65,7 +59,7 @@ def put_bar(color, width, char):
     if width <= 0:
         return
     if color:
-        bar += "\033[38;5;%dm" % color
+        bar += "\033[%sm" % color
     if len(char) == 2:
         bar += char[0] * (width-1) + char[1]
     else:
@@ -74,18 +68,36 @@ def put_bar(color, width, char):
         bar += "\033[m"
     print(bar, end="")
 
+class AnsiColor(enum.IntEnum):
+    Red = 1
+    Green = 2
+    Yellow = 3
+    Blue = 4
+
+def ansicolor_for_temp(temp, bright=False):
+    COLORS = [
+        (79.0, AnsiColor.Red),
+        (64.0, AnsiColor.Yellow),
+        (43.0, AnsiColor.Green),
+        (None, AnsiColor.Blue),
+    ]
+
+    for xt, xc in COLORS:
+        if xt is None or temp >= xt:
+            color = int(xc)
+            break
+
+    # 256-color style
+    #base = 8 if bright else 0
+    #return f"38;5;{base+color}"
+
+    # Urxvt style
+    base = 90 if bright else 30
+    return f"{base+color}"
+
 def draw_bar(ts, is_current, width, temp, load):
     global ravg
-    color = 8 if is_current else 0
-    avg = ravg.get()
-    if avg > 79:
-        color += Color.Red
-    elif avg >= 63:
-        color += Color.Yellow
-    elif avg > 43:
-        color += Color.Green
-    else:
-        color += Color.Blue
+    color = ansicolor_for_temp(ravg.get(), is_current)
 
     width = int(temp) - 20
     print(time.strftime("%T ", time.localtime(ts)), end="")

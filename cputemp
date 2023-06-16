@@ -36,6 +36,11 @@ class Color(enum.IntEnum):
     Yellow = 3
     Blue = 4
 
+def get_load_averages():
+    with open("/proc/loadavg", "r") as fh:
+        buf = fh.read().strip().split()
+    return [float(x) for x in buf[:3]]
+
 def set_title(text):
     print("\033]0;%s\033\\" % text, end="", flush=True)
 
@@ -90,7 +95,7 @@ def draw_bar(ts, is_current, width, temp, load):
     #if color >= 8:
     #    print(" [%3d°C]" % avg)
     if load:
-        print("  \033[2m%s\033[m" % load, end="")
+        print(f"  \033[2m{load:.2f}\033[m", end="")
     print(flush=True)
 
 def rsuffix(string, old, new):
@@ -197,7 +202,7 @@ if args.raw:
 else:
     try:
         last_temp = 0
-        last_load = ""
+        last_load = 0
         ravg = RollingAverage(3)
         time_temps = defaultdict(int)
         max_temp = 0
@@ -216,10 +221,9 @@ else:
             temp = round(temp + 0.1) # Python rounds 0.5 down
             ravg.add(temp)
             time_temps[temp] += args.interval
-            load = open("/proc/loadavg", "r").read().strip()
-            load = load.split()[0]
+            load = get_load_averages()[0]
             draw_bar(ts, True, temp-20, temp, load)
-            set_title(f"{hostname}: {temp}°C (load {load})")
+            set_title(f"{hostname}: {temp}°C (load {load:.2f})")
             set_wname(f"{temp}°C")
             last_temp = temp
             last_load = load

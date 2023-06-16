@@ -55,9 +55,6 @@ def set_wname(text):
     if os.environ["TERM"].startswith("tmux"):
         print("\033k%s\033\\" % text, end="", flush=True)
 
-def read(path):
-    return open(path, "r").read().strip()
-
 def get_loadavg():
     with open("/proc/loadavg", "r") as fh:
         a, b, c, *_ = fh.read().split()
@@ -110,7 +107,8 @@ def rsuffix(string, old, new):
 def find_hwmon_by_name(name):
     for dev in glob("/sys/class/hwmon/hwmon*"):
         if os.path.exists("%s/name" % dev):
-            dev_name = read("%s/name" % dev)
+            with open("%s/name" % dev, "r") as fh:
+                dev_name = fh.read().strip()
             if dev_name == "coretemp":
                 return dev
     raise RuntimeError("no %r hwmon device found" % name)
@@ -123,7 +121,8 @@ def find_sensor():
     subdev_cr0 = None
     for path_label in glob("%s/temp*_label" % dev):
         path_input = rsuffix(path_label, "_label", "_input")
-        label = read(path_label)
+        with open(path_label, "r") as fh:
+            label = fh.read().strip()
         if label == "Package id 0":
             subdev_pkg = path_input
         elif label == "Core 0":
@@ -135,8 +134,10 @@ def find_sensor():
     else:
         raise RuntimeError("no 'coretemp/Core 0' hwmon sensor found")
 
-    dev_name = read("%s/name" % dev)
-    subdev_name = read(rsuffix(subdev, "_input", "_label"))
+    with open("%s/name" % dev, "r") as fh:
+        dev_name = fh.read().strip()
+    with open(rsuffix(subdev, "_input", "_label"), "r") as fh:
+        subdev_name = fh.read().strip()
     print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name), file=sys.stderr)
 
     return subdev
@@ -232,29 +233,27 @@ subdev = find_sensor()
 if args.raw:
     try:
         while True:
-            temp = read(subdev)
-            temp = int(temp) / 1000
+            with open(subdev, "r") as fh:
+                temp = int(fh.read())
+                temp = temp / 1000
             print(f"{temp:.1f}", flush=True)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)
 else:
     try:
-        m = MeterBar(interval=args.interval)
         ravg = RollingAverage(3)
-
+        m = MeterBar(interval=args.interval)
         signal.signal(signal.SIGQUIT, lambda s, f: m.print_stats(True))
-
         while True:
             if m.last_temp:
                 time.sleep(args.interval)
-            ts = time.time() - args.interval
-            if m.last_temp:
                 m.overdraw_bar()
-            temp = read(subdev)
-            temp = int(temp) / 1000
-            temp = fround(temp)
-            ravg.add(temp)
+            ts = time.time()
+            with open(subdev, "r") as fh:
+                temp = int(fh.read())
+                temp = fround(temp / 1000)
+                ravg.add(temp)
             load = get_load_averages()[0]
             m.update(ts, temp, load)
     except RuntimeError as e:

@@ -96,6 +96,17 @@ class Sensor:
         self.dev = dev
         self.subdev = subdev
 
+    @property
+    def devname(self):
+        with open(f"{self.dev}/name", "r") as fh:
+            return fh.read().strip()
+
+    @property
+    def label(self):
+        path = rsuffix(self.subdev, "_input", "_label")
+        with open(path, "r") as fh:
+            return fh.read().strip()
+
     def read(self):
         with open(self.subdev, "r") as fh:
             temp = int(fh.read())
@@ -137,7 +148,6 @@ class Sensor:
             dev_name = fh.read().strip()
         with open(rsuffix(subdev, "_input", "_label"), "r") as fh:
             subdev_name = fh.read().strip()
-        print("Using sensor %r (%s:%s)" % (subdev, dev_name, subdev_name), file=sys.stderr)
 
         return Sensor(dev, subdev)
 
@@ -241,6 +251,8 @@ args = parser.parse_args()
 
 hostname = os.uname().nodename
 sensor = Sensor.find_sensor()
+
+print(f"Using sensor {sensor.subdev} ({sensor.devname}:{sensor.label})", file=sys.stderr)
 
 if args.raw:
     try:

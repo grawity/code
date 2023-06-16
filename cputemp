@@ -29,20 +29,6 @@ def get_loadavg():
         a, b, c, *_ = fh.read().split()
     return float(a), float(b), float(c)
 
-def put_bar(color, width, char):
-    bar = ""
-    if width <= 0:
-        return
-    if color:
-        bar += "\033[%sm" % color
-    if len(char) == 2:
-        bar += char[0] * (width-1) + char[1]
-    else:
-        bar += char[0] * width
-    if color:
-        bar += "\033[m"
-    print(bar, end="")
-
 def clamp(val, low, high):
     return min(max(val, low), high)
 
@@ -69,22 +55,6 @@ def linear_gradient(stops, value, gamma=1.0):
     stops = [vec_gamma_scale(x, gamma) for x in stops]
     result = vec_mix(stops[i], stops[i+1], frac)
     return vec_gamma_scale(result, 1/gamma)
-
-def ansicolor_for_temp(temp):
-    low, high = 25, 65
-    stops = [
-        (0, 0, 5), # blue
-        (0, 5, 0), # green
-        (5, 5, 0), # yellow
-        (5, 0, 0), # red
-    ]
-
-    t = clamp(temp, low, high)
-    t = normalize(t, low, high)
-    r, g, b = [int(x) for x in linear_gradient(stops, t, gamma=2.2)]
-
-    color = 16 + r*36 + g*6 + b
-    return f"38;5;{color}"
 
 def rsuffix(string, old, new):
     if string.endswith(old):
@@ -185,16 +155,38 @@ class MeterBar:
         self.max_temp = 0
         self.time_temps = defaultdict(int)
 
-    def _draw_bar(self, is_current, ts, temp, load):
-        color = ansicolor_for_temp(temp)
+    def _ansicolor_for_temp(self, temp):
+        low, high = 25, 65
+        stops = [
+            (0, 0, 5), # blue
+            (0, 5, 0), # green
+            (5, 5, 0), # yellow
+            (5, 0, 0), # red
+        ]
 
+        t = clamp(temp, low, high)
+        t = normalize(t, low, high)
+        r, g, b = [int(x) for x in linear_gradient(stops, t, gamma=2.2)]
+
+        color = 16 + r*36 + g*6 + b
+        return f"38;5;{color}"
+
+    def _bar(self, width, chars, color):
+        if width <= 0:
+            return ""
+
+        bar = chars[0] * (width-1) + chars[-1]
+        if color:
+            bar = f"\033[{color}m{bar}\033[m"
+        return bar
+
+    def _draw_bar(self, is_current, ts, temp, load):
         width = int(temp) - 20
+        chars = "█" if is_current else "-║"
+        color = self._ansicolor_for_temp(temp)
+
         put(time.strftime("%T ", time.localtime(ts)))
-        if is_current:
-            char = "█"
-        else:
-	        char = "-║"
-        put_bar(color, width, char)
+        put(self._bar(width, chars, color))
         put(f" {temp:3d}°C")
         put(f"  \033[2m{load:.2f}\033[m")
         print(flush=True)

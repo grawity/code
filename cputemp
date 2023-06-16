@@ -4,6 +4,7 @@ import argparse
 from collections import defaultdict
 import enum
 from glob import glob
+import math
 import os
 import signal
 import sys
@@ -63,32 +64,48 @@ def put_bar(color, width, char):
         bar += "\033[m"
     print(bar, end="")
 
-class AnsiColor(enum.IntEnum):
-    Red = 1
-    Green = 2
-    Yellow = 3
-    Blue = 4
+def clamp(val, low, high):
+    return min(max(val, low), high)
 
-def ansicolor_for_temp(temp, bright=False):
-    COLORS = [
-        (79.0, AnsiColor.Red),
-        (64.0, AnsiColor.Yellow),
-        (43.0, AnsiColor.Green),
-        (None, AnsiColor.Blue),
+def normalize(val, low, high):
+    return (val - low) / (high - low)
+
+def mix(a, b, t):
+    return a*(1-t) + b*t
+
+def vec_mix(a, b, t):
+    assert len(a) == len(b)
+    return [mix(a[i], b[i], t) for i in range(len(a))]
+
+def vec_gamma_scale(a, gamma):
+    return [x**gamma for x in a]
+
+def linear_gradient(stops, value, gamma=1.0):
+    n = 1 / (len(stops) - 1)
+    ratio = value / n
+    i = math.floor(ratio)
+    if i == len(stops) - 1:
+        return stops[len(stops) - 1]
+    frac = ratio % 1
+    stops = [vec_gamma_scale(x, gamma) for x in stops]
+    result = vec_mix(stops[i], stops[i+1], frac)
+    return vec_gamma_scale(result, 1/gamma)
+
+def ansicolor_for_temp(temp):
+    low, high = 25, 65
+    stops = [
+        (0, 0, 5), # blue
+        (0, 5, 0), # green
+        (5, 5, 0), # yellow
+        (5, 0, 0), # red
     ]
 
-    for xt, xc in COLORS:
-        if xt is None or temp >= xt:
-            color = int(xc)
-            break
+    t = clamp(temp, low, high)
+    t = normalize(t, low, high)
+    r, g, b = [int(x) for x in linear_gradient(stops, t, gamma=2.2)]
 
-    # 256-color style
-    #base = 8 if bright else 0
-    #return f"38;5;{base+color}"
-
-    # Urxvt style
-    base = 90 if bright else 30
-    return f"{base+color}"
+    color = 16 + r*36 + g*6 + b
+    return f"38;5;{color}"
 
 def rsuffix(string, old, new):
     if string.endswith(old):
@@ -181,7 +198,7 @@ class MeterBar:
 
     def _draw_bar(self, is_current, ts, temp, load):
         global ravg
-        color = ansicolor_for_temp(ravg.get(), is_current)
+        color = ansicolor_for_temp(ravg.get())
 
         width = int(temp) - 20
         put(time.strftime("%T ", time.localtime(ts)))

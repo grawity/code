@@ -237,6 +237,8 @@ class MeterBar:
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--raw", action="store_true",
                     help="output only temperature value")
+parser.add_argument("-l", "--load", action="store_true",
+                    help="monitor load average")
 parser.add_argument("-n", "--interval", metavar="SECS", type=int, default=1,
                     help="specify update interval")
 args = parser.parse_args()
@@ -244,17 +246,21 @@ args = parser.parse_args()
 hostname = os.uname().nodename
 sensor = Sensor.find_sensor()
 
-print(f"Using sensor {sensor.subdev} ({sensor.devname}:{sensor.label})", file=sys.stderr)
-
 if args.raw:
     try:
         while True:
-            temp = sensor.read()
-            print(f"{temp:.1f}", flush=True)
+            if args.load:
+                load = get_loadavg()[0]
+                print(f"{load:.2f}", flush=True)
+            else:
+                temp = sensor.read()
+                print(f"{temp:.1f}", flush=True)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)
 else:
+    print(f"Using sensor {sensor.subdev} ({sensor.devname}:{sensor.label})",
+          file=sys.stderr)
     try:
         m = MeterBar(interval=args.interval)
         signal.signal(signal.SIGQUIT, lambda s, f: m.print_stats(True))

@@ -199,8 +199,6 @@ class MeterBar:
 
     def update(self, ts, temp, load):
         self._draw_bar(True, ts, temp, load)
-        set_title(f"{hostname}: {temp}°C (load {load:.2f})")
-        set_wname(f"{temp}°C")
 
         # Store values for overdraw
         self.last_ts = ts
@@ -253,7 +251,7 @@ if args.raw:
             if args.load:
                 print(f"{load:.2f}", flush=True)
             else:
-                print(f"{temp:.1f}", flush=True)
+                print(f"{temp:.0f}", flush=True)
             set_title(f"{hostname}: {temp:.0f}°C (load {load:.2f})")
             time.sleep(args.interval)
     except KeyboardInterrupt:
@@ -277,6 +275,7 @@ else:
             load = get_loadavg()[0]
             m.update(ts, temp, load)
             set_title(f"{hostname}: {temp:.0f}°C (load {load:.2f})")
+            set_wname(f"{temp:.0f}°C")
     except RuntimeError as e:
         exit(f"error: {e}")
     except KeyboardInterrupt:

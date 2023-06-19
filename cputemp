@@ -144,9 +144,7 @@ def print_histogram(data, *, width=5, unit="", barwidth=50):
     print(f"{'':9} +-{bar}")
 
 class MeterBar:
-    def __init__(self, interval=1.0, use_load=False):
-        self.use_load = use_load
-
+    def __init__(self, interval=1.0):
         # Last values for redraw/overdraw
         self.last_ts = 0
         self.last_temp = 0
@@ -183,10 +181,7 @@ class MeterBar:
         return bar
 
     def _draw_bar(self, is_current, ts, temp, load):
-        if self.use_load:
-            width = round(math.log10(load * 1000 + 1))
-        else:
-            width = int(temp) - 20
+        width = int(temp) - 20
         width = clamp(width, 1, 60)
         chars = "█" if is_current else "-║"
         color = self._ansicolor_for_temp(temp)
@@ -205,10 +200,7 @@ class MeterBar:
     def update(self, ts, temp, load):
         self._draw_bar(True, ts, temp, load)
         set_title(f"{hostname}: {temp}°C (load {load:.2f})")
-        if self.use_load:
-            set_wname(f"{load:.2f}")
-        else:
-            set_wname(f"{temp}°C")
+        set_wname(f"{temp}°C")
 
         # Store values for overdraw
         self.last_ts = ts
@@ -267,11 +259,13 @@ if args.raw:
     except KeyboardInterrupt:
         exit(0)
 else:
+    if args.load:
+        print("cputemp: Option --load is ignored when not in raw mode",
+              file=sys.stderr)
     print(f"Using sensor {sensor.subdev} ({sensor.devname}:{sensor.label})",
           file=sys.stderr)
     try:
-        m = MeterBar(interval=args.interval,
-                     use_load=args.load)
+        m = MeterBar(interval=args.interval)
         signal.signal(signal.SIGQUIT, lambda s, f: m.print_stats(True))
         while True:
             if m.last_temp:

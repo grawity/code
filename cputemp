@@ -18,11 +18,11 @@ def put(s):
     print(s, end="", flush=True)
 
 def set_title(text):
-    print("\033]0;%s\033\\" % text, end="", flush=True)
+    print("\033]0;%s\033\\" % text, end="", file=sys.stderr, flush=True)
 
 def set_wname(text):
     if os.environ["TERM"].startswith("tmux"):
-        print("\033k%s\033\\" % text, end="", flush=True)
+        print("\033k%s\033\\" % text, end="", file=sys.stderr, flush=True)
 
 def get_loadavg():
     with open("/proc/loadavg", "r") as fh:
@@ -203,8 +203,6 @@ class MeterBar:
         self._draw_bar(False, self.last_ts, self.last_temp, self.last_load)
 
     def update(self, ts, temp, load):
-        temp = fround(temp)
-
         self._draw_bar(True, ts, temp, load)
         set_title(f"{hostname}: {temp}°C (load {load:.2f})")
         if self.use_load:
@@ -258,12 +256,13 @@ sensor = Sensor.find_sensor()
 if args.raw:
     try:
         while True:
+            temp = sensor.read()
+            load = get_loadavg()[0]
             if args.load:
-                load = get_loadavg()[0]
                 print(f"{load:.2f}", flush=True)
             else:
-                temp = sensor.read()
                 print(f"{temp:.1f}", flush=True)
+            set_title(f"{hostname}: {temp:.0f}°C (load {load:.2f})")
             time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)
@@ -283,6 +282,7 @@ else:
             temp = fround(temp)
             load = get_loadavg()[0]
             m.update(ts, temp, load)
+            set_title(f"{hostname}: {temp:.0f}°C (load {load:.2f})")
     except RuntimeError as e:
         exit(f"error: {e}")
     except KeyboardInterrupt:

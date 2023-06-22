@@ -235,6 +235,8 @@ parser.add_argument("-r", "--raw", action="store_true",
                     help="output only temperature value")
 parser.add_argument("-l", "--load", action="store_true",
                     help="monitor load average")
+parser.add_argument("-W", "--wname", action="store_true",
+                    help="update tmux window name")
 parser.add_argument("-n", "--interval", metavar="SECS", type=int, default=1,
                     help="specify update interval")
 args = parser.parse_args()
@@ -247,11 +249,14 @@ if args.raw:
         while True:
             temp = sensor.read()
             load = get_loadavg()[0]
-            if args.load:
-                print(f"{load:.2f}", flush=True)
-            else:
-                print(f"{temp:.0f}", flush=True)
+
+            print(f"{load:.2f}" if args.load else f"{temp:.0f}",
+                  flush=True)
+
             set_title(f"{hostname}: {temp:.0f}°C (load {load:.2f})")
+            if args.wname:
+                set_wname(f"{load:.2f}" if args.load else f"{temp:.0f}°C")
+
             time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)

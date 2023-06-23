@@ -17,7 +17,7 @@ usage() {
 	# perceived delay, though, so it should be -WW or something.
 }
 
-cwd=.
+cwd=
 hosts=
 user=
 wait=0
@@ -40,6 +40,15 @@ elif (( $# == 1 )); then
 	cmd=$1
 else
 	cmd=${*@Q}
+fi
+
+if [[ $cwd ]]; then
+	# Allow '-C .' to be specified in a useful way
+	if [[ $cwd != /* ]]; then
+		cwd=$(realpath -s "$cwd")
+	fi
+else
+	cwd="."
 fi
 
 # Make sure to show return code on failure. (XXX: This could probably also be

@@ -17,7 +17,7 @@ usage() {
 	# perceived delay, though, so it should be -WW or something.
 }
 
-cwd=
+wd=
 nfs=0
 hosts=
 user=
@@ -25,7 +25,7 @@ wait=0
 
 while getopts ":C:H:NSW" OPT; do
 	case $OPT in
-	C) cwd=$OPTARG;;
+	C) wd=$OPTARG;;
 	H) hosts=${OPTARG//,/ };;
 	N) nfs=1;;
 	S) user="root@";;
@@ -46,25 +46,25 @@ fi
 
 if (( nfs )); then
 	# "-N" implies "-C ." in order to be useful
-	cwd=${cwd:-"."}
+	wd=${wd:-"."}
 fi
 
-if [[ $cwd ]]; then
+if [[ $wd ]]; then
 	# Allow "-C ." to be specified in a useful way
-	if [[ $cwd != /* ]]; then
-		cwd=$(realpath -s "$cwd")
+	if [[ $wd != /* ]]; then
+		wd=$(realpath -s "$wd")
 	fi
 	if (( nfs )); then
-		cwd="$cwd/"
-		cwd="/net/$HOSTNAME/${cwd#/net/*/}"
-		cwd="${cwd%/}"
+		wd="$wd/"
+		wd="/net/$HOSTNAME/${wd#/net/*/}"
+		wd="${wd%/}"
 	fi
 fi
 
 # Make sure to show return code on failure. (XXX: This could probably also be
 # done locally, as ssh propagates the exit status.)
-cwd=${cwd:-"."}
-cmd="(cd ${cwd@Q} && ${cmd:-:}) 2>&1 || echo '=> '\$?"
+wd=${wd:-"."}
+cmd="(cd ${wd@Q} && ${cmd:-:}) 2>&1 || echo '=> '\$?"
 
 for host in $hosts; do
 	(

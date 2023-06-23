@@ -18,14 +18,16 @@ usage() {
 }
 
 cwd=
+nfs=0
 hosts=
 user=
 wait=0
 
-while getopts ":C:H:SW" OPT; do
+while getopts ":C:H:NSW" OPT; do
 	case $OPT in
 	C) cwd=$OPTARG;;
 	H) hosts=${OPTARG//,/ };;
+	N) nfs=1;;
 	S) user="root@";;
 	W) wait=1;;
 	*) lib:die_getopts;;
@@ -42,17 +44,24 @@ else
 	cmd=${*@Q}
 fi
 
+if (( nfs )); then
+	# "-N" implies "-C ." in order to be useful
+	cwd=${cwd:-"."}
+fi
+
 if [[ $cwd ]]; then
-	# Allow '-C .' to be specified in a useful way
+	# Allow "-C ." to be specified in a useful way
 	if [[ $cwd != /* ]]; then
 		cwd=$(realpath -s "$cwd")
 	fi
-else
-	cwd="."
+	if (( nfs )); then
+		cwd="/net/$HOSTNAME/${cwd#/net/*/}"
+	fi
 fi
 
 # Make sure to show return code on failure. (XXX: This could probably also be
 # done locally, as ssh propagates the exit status.)
+cwd=${cwd:-"."}
 cmd="(cd ${cwd@Q} && ${cmd:-:}) 2>&1 || echo '=> '\$?"
 
 for host in $hosts; do

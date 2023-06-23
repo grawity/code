@@ -119,9 +119,9 @@ def print_info(data, buffer, args):
                 msg = u'not listening to anything on %s' % identity
             else:
                 artist = u', '.join(metadata.get('xesam:artist', [u'Unknown artist']))
-                genre  = u'/'.join(metadata.get('xesam:genre', []))
+                #genre  = u'/'.join(metadata.get('xesam:genre', []))
                 album  = metadata.get('xesam:album', None)
-                track  = metadata.get('xesam:trackNumber', None)
+                #track  = metadata.get('xesam:trackNumber', None)
                 title  = metadata.get('xesam:title', u'Unknown title')
                 year   = metadata.get('xesam:contentCreated', None)
 

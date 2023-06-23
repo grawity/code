@@ -6,12 +6,12 @@ import traceback
 
 try:
     _debug_env = int(os.environ.get("DEBUG"))
-except:
+except (TypeError, ValueError):
     _debug_env = 0
 
 try:
     _nested_env = int(os.environ.get("LVL"))
-except:
+except (TypeError, ValueError):
     _nested_env = 0
 
 os.environ["LVL"] = str(_nested_env + 1)

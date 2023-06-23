@@ -270,10 +270,10 @@ class IrcClient(object):
                         self.isupport["EXTBAN.char"] = char
                         self.isupport["EXTBAN.types"] = set(types)
                     elif k == "NAMESX":
-                        if "multi-prefix" not in enabled_caps:
+                        if "multi-prefix" not in self.enabled_caps:
                             self.send("PROTOCTL NAMESX")
                     elif k == "UHNAMES":
-                        if "userhost-in-names" not in enabled_caps:
+                        if "userhost-in-names" not in self.enabled_caps:
                             self.send("PROTOCTL UHNAMES")
                     elif k == "PREFIX":
                         self.isupport["PREFIX.modes"] = {}
@@ -293,7 +293,7 @@ class IrcClient(object):
             yield from self.check_high_connected()
         elif frame.cmd == "433":
             trace("Nickname %r is already in use" % self.settings["nick"])
-            nick_counter += 1
+            self.nick_counter += 1
             self.current_nick = "%s%d" % (self.settings["nick"], self.nick_counter)
             self.send("NICK " + self.current_nick)
         elif frame.cmd == "903":

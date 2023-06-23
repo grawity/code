@@ -160,7 +160,7 @@ class DnsPacketReader(BinaryReader):
             elif length & 0xC0 == 0x40:
                 # Extended label type (including bit-string labels)
                 elt = length & ~0xC0
-                raise IOError("extended label types are not supported")
+                raise IOError("extended label types are not supported (type %d)" % elt)
             elif length & 0xC0 == 0xC0:
                 # Compressed label
                 ptr = (length & ~0xC0) << 8 | self.read_u8()

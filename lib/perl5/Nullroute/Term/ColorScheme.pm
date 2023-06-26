@@ -45,19 +45,12 @@ sub parse_seq {
 
 sub setup_color_scheme {
 	my ($name, %default) = @_;
-	my %colors;
-	my $term = $ENV{TERM} // "";
-	my $mode = ($term ? "auto" : "never");
+	my $mode = ($ENV{TERM} ? "auto" : "never");
 	if ($mode eq "never") {
-		for (keys %default) {
-			$colors{$_} = "";
-		}
+		return map {$_ => ""} keys %default;
 	} else {
-		for (keys %default) {
-			$colors{$_} = parse_seq($default{$_});
-		}
+		return map {$_ => parse_seq($default{$_})} keys %default;
 	}
-	return %colors;
 }
 
 1;

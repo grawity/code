@@ -34,29 +34,12 @@ my %COLOR_NAMES = (
 	#white		=> missing in util-linux
 );
 
-my %CESCAPE_CHARS = (
-	# Compatible with util-linux:cn_sequence()
-	a => "\a",
-	b => "\b",
-	e => "\e",
-	f => "\f",
-	n => "\n",
-	r => "\r",
-	t => "\t",
-	v => "\013",
-	"\\" => "\\",
-	"_" => " ",
-	"#" => "#",
-	"?" => "?",
-);
-
 sub parse_seq {
 	my ($seq) = @_;
 	if ($COLOR_NAMES{$seq}) {
 		return $COLOR_NAMES{$seq};
 	}
 	$seq =~ s/^.*$/\e[$&m/;
-	$seq =~ s!\\(.)!$CESCAPE_CHARS{$1} // $&!ge;
 	return $seq;
 }
 

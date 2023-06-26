@@ -2,8 +2,6 @@ package Nullroute::Term::ColorScheme;
 use base "Exporter";
 use warnings;
 use strict;
-use Nullroute::Dir qw(xdg_config);
-use Nullroute::Lib qw(_debug);
 
 our @EXPORT = qw(
 	setup_color_scheme
@@ -52,48 +50,6 @@ my %CESCAPE_CHARS = (
 	"?" => "?",
 );
 
-sub find_config_files {
-	# Uses the same algorithm as colors_readdir() in util-linux:lib/colors.c
-	my ($prog, $term) = @_;
-	my @dirs = map {"$_/terminal-colors.d"} xdg_config(), "/etc";
-	for my $dir (@dirs) {
-		next unless (-d $dir);
-		_debug("searching in '$dir'");
-		my @files;
-		if (opendir(my $dh, $dir)) {
-			@files = readdir($dh);
-			closedir($dh);
-		} else {
-			_debug("cannot open directory '$dir': $!");
-			next;
-		}
-		my $scheme;
-		my %scores;
-		for my $file (@files) {
-			my $path = $dir."/".$file;
-			next unless (-f $path);
-			my ($ident, $type) = $file =~ /
-				^
-				( \Q$prog\E@\Q$term\E\. | \Q$prog\E\. | @\Q$term\E\. | )
-				( enable|disable|scheme )
-				$
-			/x or next;
-			my $score = 1;
-			$score += 20 if $ident;
-			$score += 10 if $ident =~ /@/;
-			$score -= 20 if $ident =~ /^@/;
-			_debug("found file: ident='$ident' type='$type' score=$score");
-			if (($scores{$type} || 0) < $score) {
-				$scores{$type} = $score;
-				if ($type eq "scheme") {
-					$scheme = $path;
-				}
-			}
-		}
-		return ($scheme, %scores);
-	}
-}
-
 sub parse_seq {
 	my ($seq) = @_;
 	if ($COLOR_NAMES{$seq}) {
@@ -104,56 +60,18 @@ sub parse_seq {
 	return $seq;
 }
 
-sub read_scheme_file {
-	my ($path) = @_;
-	my %colors;
-	if (open(my $fh, "<", $path)) {
-		while (<$fh>) {
-			if (/^$/ || /^#/) {
-				next;
-			}
-			if (/^(\S+) (\S+)/) {
-				$colors{$1} = parse_seq($2);
-			}
-		}
-		close($fh);
-	} else {
-		_debug("cannot open file '$path': $!");
-	}
-	return %colors;
-}
-
-sub load_color_scheme {
-	my ($prog, $mode) = @_;
-	my $term = $ENV{TERM} // "";
-	my ($scheme, %scores);
-	if (!$mode) {
-		$mode = ($term ? "auto" : "never");
-	}
-	if ($mode ne "never") {
-		($scheme, %scores) = find_config_files($prog, $term);
-		# XXX: this should be moved inside find_config_files()
-		if (($scores{disable} || 0) > ($scores{enable} || 0)) {
-			_debug("setting mode to 'never' since .disable has higher score");
-			$mode = "never";
-		}
-	}
-	my %colors;
-	if ($mode ne "never" && $scheme) {
-		%colors = read_scheme_file($scheme);
-	}
-	return ($mode, %colors);
-}
-
 sub setup_color_scheme {
 	my ($name, %default) = @_;
-	my ($mode, %colors) = load_color_scheme($name);
-	for (keys %default) {
-		$colors{$_} ||= parse_seq($default{$_});
-	}
+	my %colors;
+	my $term = $ENV{TERM} // "";
+	my $mode = ($term ? "auto" : "never");
 	if ($mode eq "never") {
-		for (keys %colors) {
+		for (keys %default) {
 			$colors{$_} = "";
+		}
+	} else {
+		for (keys %default) {
+			$colors{$_} = parse_seq($default{$_});
 		}
 	}
 	return %colors;

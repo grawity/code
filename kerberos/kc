@@ -9,7 +9,6 @@ use File::Basename;
 use File::stat;
 use File::Temp qw(tempfile);
 use Nullroute::Lib;
-use Nullroute::Term::ColorScheme;
 
 my $rundir;
 my $ccprefix;
@@ -24,17 +23,17 @@ my @caches;
 my $can_switch = 1;
 
 my %COLORS = (
-	reset		=> "reset",
+	reset		=> "0",
 
-	empty		=> "magenta",
-	normal		=> "",
-	expiring	=> "brown",
-	expired		=> "red",
+	empty		=> "35",
+	normal		=> "0",
+	expiring	=> "33",
+	expired		=> "31",
 
-	empty_active	=> "lightmagenta",
-	normal_active	=> "lightgreen",
-	expiring_active	=> "yellow",
-	expired_active	=> "lightred",
+	empty_active	=> "95",
+	normal_active	=> "32",
+	expiring_active	=> "33",
+	expired_active	=> "91",
 );
 
 sub usage {
@@ -628,6 +627,12 @@ do_print:
 	return 1;
 }
 
+if (-t 1 && $ENV{TERM}) {
+	%COLORS = map {$_ => "\e[$COLORS{$_}m"} keys %COLORS;
+} else {
+	%COLORS = map {$_ => ""} keys %COLORS;
+}
+
 if (!which("pklist")) {
 	_die("'pklist' must be installed to use this tool");
 }
@@ -637,8 +642,6 @@ open(EVAL, ">&=", 3) or do {
 	$can_switch = 0;
 	open(EVAL, ">/dev/null");
 };
-
-%COLORS = setup_color_scheme("org.eu.nullroute.kc", %COLORS);
 
 $rundir = $ENV{XDG_RUNTIME_DIR} || $ENV{XDG_CACHE_HOME} || $ENV{HOME}."/.cache";
 $ccprefix = "/tmp/krb5cc_${UID}_";

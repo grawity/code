@@ -6,7 +6,6 @@ use feature qw(say switch);
 use Getopt::Long qw(:config bundling);
 use List::Util qw(max);
 use Nullroute::Lib;
-use Nullroute::Term::ColorScheme;
 
 my %COLORS = (
 	tgt_local	=> "32", # same realm as client
@@ -19,9 +18,9 @@ my %COLORS = (
 	expired		=> "1;31",
 	invalid		=> "1;35",
 
-	bold		=> "bold",
-	dark		=> "halfbright",
-	reset		=> "reset",
+	bold		=> "1",
+	dark		=> "2",
+	reset		=> "0",
 );
 
 my $verbose;
@@ -402,7 +401,11 @@ GetOptions(
 	"v|verbose!"	=> \$verbose,
 ) or exit 2;
 
-%COLORS = setup_color_scheme("org.eu.nullroute.kl", %COLORS);
+if (-t 1 && $ENV{TERM}) {
+	%COLORS = map {$_ => "\e[$COLORS{$_}m"} keys %COLORS;
+} else {
+	%COLORS = map {$_ => ""} keys %COLORS;
+}
 
 my $defcc = $ccache // $ENV{KRB5CCNAME};
 

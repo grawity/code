@@ -3,6 +3,7 @@
 # vim: ft=tcl
 
 set host ""
+set console 0
 set enable 1
 set monitor 0
 set datadump 0
@@ -14,6 +15,7 @@ set cmdexit 0
 foreach arg $argv {
 	if {$command == ""} {
 		switch -glob $arg {
+			-C { set console 1 }
 			-b { set backup 1 }
 			-c { set config 1 }
 			-d { set datadump 1 }
@@ -43,6 +45,18 @@ if {$host == ""} {
 }
 if {[regexp "^(top|mid|btm)$" $host]} {
 	set host "cisco-$host.sym"
+}
+
+if {$console} {
+	# TODO: Move c-top to dust or something -- RouterOS 7 is just too crashy
+	switch -glob $host {
+		#cisco-top.sym { system "ssh -t dunegw /system/serial-terminal usb2" }
+		cisco-top.sym { puts stderr "this will crash DuneGW" }
+		cisco-mid.sym { system "telnet cisco-top.sym 2005" }
+		cisco-btm.sym { system "ssh -t dust picocom -q /dev/ttyS0" }
+		* { puts stderr "don't know console server for $host" }
+	}
+	exit
 }
 
 set consolepass "cisco"

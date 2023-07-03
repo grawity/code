@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
+# gw-core-console -- attach to ttyS0 of UK-GW
 
 # Use IP address in case DNS is broken (which it will be,
 # because gw-core is also the primary DNS resolver).
-BMC_HOST="bmc-gw.utenos-kolegija.lt"
-BMC_ADDR="10.254.28.9"
+bmc_host=bmc-gw.utenos-kolegija.lt
+bmc_addr=10.254.28.9
 
-PHY_IF="eno1"
-VLAN_ID="28"
-VLAN_IP="10.254.28.219/24"
-VLAN_IF="$PHY_IF.$VLAN_ID"
+# VLAN for direct L2 access (2023-07-03: likely not needed
+# anymore, as the gateway is now gw-b56 rather than gw-core)
+phy_dev=eno1
+vlan_id=28
+vlan_dev=$phy_dev.$vlan_id
+vlan_addr=10.254.28.219/24
 
 attach_console() {
-	rconsole "${BMC_HOST}@${BMC_ADDR}"
+	rconsole ${bmc_host}@${bmc_addr}
 }
 
 can_have_vlan() {
@@ -22,7 +25,7 @@ has_vlan() {
 	ip -j -d link | jq -e -r "
 		.[]
 		| select(.linkinfo.info_kind == \"vlan\")
-		| select(.linkinfo.info_data.id == $VLAN_ID)
+		| select(.linkinfo.info_data.id == $vlan_id)
 		| .ifname
 	"
 }
@@ -34,10 +37,10 @@ setup_vlan() {
 		vlan_added=0
 	else
 		echo "[Adding temporary VLAN]"
-		sudo ip link add $VLAN_IF link $PHY_IF type vlan id $VLAN_ID
-		sudo ip link set $VLAN_IF alias "Temporary VLAN for ${0##*/}"
-		sudo ip link set $VLAN_IF up
-		sudo ip addr add $VLAN_IP dev $VLAN_IF
+		sudo ip link add $vlan_dev link $phy_dev type vlan id $vlan_id
+		sudo ip link set $vlan_dev alias "Temporary VLAN for ${0##*/}"
+		sudo ip link set $vlan_dev up
+		sudo ip addr add $vlan_addr dev $vlan_dev
 		vlan_added=1
 	fi
 }
@@ -47,7 +50,7 @@ teardown_vlan() {
 		return
 	elif (( vlan_added )); then
 		echo "[Removing temporary VLAN]"
-		sudo ip link del $VLAN_IF
+		sudo ip link del $vlan_dev
 		vlan_added=0
 	fi
 }

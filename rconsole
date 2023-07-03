@@ -66,6 +66,7 @@ readonly AESCBC128_HMACSHA1=3
 cipher=$AESCBC128_HMACSHA1
 
 if have ipmipower && have ipmiconsole && [[ ! $USE_IPMITOOL ]]; then
+	# FreeIPMI
 	args=(-h "$bhost" -u "$user" -p "$pass" -l "$priv" -I "$cipher")
 	bmc_console() { ipmiconsole "${args[@]}"; }
 	bmc_get_power() { ipmipower -D LAN_2_0 "${args[@]}" --stat; }
@@ -77,6 +78,10 @@ elif have ipmitool; then
 	bmc_console() { ipmitool -I lanplus "${args[@]}" sol activate; }
 	bmc_get_power() { ipmitool -I lanplus "${args[@]}" power status; }
 	bmc_set_power() { ipmitool -I lanplus "${args[@]}" power ${1?}; }
+elif have solterm; then
+	# OpenIPMI
+	args=(lan -U "$user" -P "$pass" -l "${priv,,}" "$bhost")
+	bmc_console() { solterm "${args[@]}" -e '&' -v; }
 else
 	die "No IPMI client tool (freeipmi nor ipmitool) found"
 fi

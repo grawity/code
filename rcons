@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# rcons -- attach to a host's local console over network
+
+host=${1?hostname missing}
+
+case $host in
+	ember|wind|dune)
+		echo "${0##*/}: using IPMI Serial-over-LAN for $host"
+		rconsole $host;;
+	wolke)
+		echo "${0##*/}: using Linode Lish for $host"
+		wolke-console;;
+	cisco-*)
+		# TODO: Expand to individual cases and make -C call rcons,
+		# instead of the other way around.
+		echo "${0##*/}: using whatever for $host"
+		cisco ${host#cisco-} -C;;
+	gw-core|uk-gw)
+		echo "${0##*/}: using IPMI Serial-over-LAN for $host"
+		gw-core-console;;
+	*)
+		echo "${0##*/}: unknown host: $host" >&2
+		exit 2;;
+esac

@@ -33,6 +33,7 @@ while getopts ":P:pv" OPT; do
 done; shift $((OPTIND-1))
 
 case $host in
+	*@*)	bhost=${host##*@}; host=${host%@*};;
 	*.*)	bhost=$host;;
 	*)	bhost="bmc.$host.nullroute.lt";;
 esac
@@ -61,7 +62,8 @@ fi
 
 # New ipmitool defaults to ciphersuite 17 (AES-CBC-128 with HMAC-SHA256), which
 # iLO4 does not support. Fall back to the HMAC-SHA1 variant.
-cipher=3
+readonly AESCBC128_HMACSHA1=3
+cipher=$AESCBC128_HMACSHA1
 
 if have ipmipower && have ipmiconsole && [[ ! $USE_IPMITOOL ]]; then
 	args=(-h "$bhost" -u "$user" -p "$pass" -l "$priv" -I "$cipher")

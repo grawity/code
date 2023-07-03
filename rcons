@@ -1,44 +1,37 @@
 #!/usr/bin/env bash
 # rcons -- attach to a host's local console over network
 
+do:() { (PS4="+ "; set -x; "$@"); }
+
 host=${1?hostname missing}
 
 case $host in
 	ember|wind|dune)
-		echo "${0##*/}: using IPMI Serial-over-LAN"
-		rconsole $host;;
+		do: rconsole $host;;
 	wolke)
-		echo "${0##*/}: using Linode Lish"
-		ssh -t lish-london.linode.com $host;;
+		do: ssh -t lish-london.linode.com $host;;
 	sky)
-		echo "Go to: https://cloud.hosthatch.com/servers/25904/console"
-		exit 1;;
+		echo "Go to: https://cloud.hosthatch.com/servers/25904/console";;
 	star)
-		echo "Go to: https://klientams.iv.lt/server.php?id=658792"
-		exit 1;;
+		echo "Go to: https://klientams.iv.lt/server.php?id=658792";;
 	land)
-		echo "Go to: https://web7.php-friends.de/"
-		exit 1;;
+		echo "Go to: https://web7.php-friends.de/";;
 	cisco-top)
 		echo "${0##*/}: this will probably crash DuneGW"
-		echo 'Do: ssh -t dunegw /system/serial-terminal usb2'; exit 2;;
+		do: ssh -t dunegw "/system/serial-terminal usb2";;
 	cisco-mid)
-		echo "${0##*/}: using reverse telnet via cisco-top"
-		echo "Use C-] 'send brk' to send BREAK."
-		telnet cisco-top.sym 2005;;
+		echo "Use Ctrl-] 'send brk' to send break"
+		do: telnet cisco-top.sym 2005;;
 	cisco-btm)
-		echo "${0##*/}: using serial console via Dust"
-		echo "Use C-a C-\\ to send BREAK, C-a C-q to detach."
-		ssh -t dust "set -x; picocom -q /dev/ttyS0";;
+		echo "Use C-a C-\\ to send break, C-a C-q to detach."
+		do: ssh -t dust "set -x; picocom -q /dev/ttyS0";;
 	uk-gw|gw-core)
-		echo "${0##*/}: using IPMI Serial-over-LAN"
-		gw-core-console;;
+		do: gw-core-console -f;;
 	uk-lnx1)
-		echo "${0##*/}: using serial console via AP-M7-14"
-		ssh cons@10.34.1.14;;
+		echo "Using serial console via AP-M7-14."
+		do: ssh cons@10.34.1.14;;
 	uk-lnx2)
-		echo "${0##*/}: using IPMI Serial-over-LAN"
-		rconsole bmc-${host#uk-}.utenos-kolegija.lt;;
+		do: rconsole bmc-${host#uk-}.utenos-kolegija.lt;;
 	*)
 		echo "${0##*/}: unknown host: $host" >&2
 		exit 1;;

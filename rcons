@@ -3,7 +3,12 @@
 
 do:() { (PS4="+ "; set -x; "$@"); }
 
-host=${1?hostname missing}
+case ${0##*/} in
+	*-console)
+		host=${0##*/}; host=${host%-console};;
+	*)
+		host=${1?missing hostname}; shift;;
+esac
 
 case $host in
 	ember|wind|dune)

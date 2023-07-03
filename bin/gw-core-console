@@ -31,9 +31,7 @@ has_vlan() {
 }
 
 setup_vlan() {
-	if ! can_have_vlan; then
-		return
-	elif has_vlan >/dev/null; then
+	if has_vlan >/dev/null; then
 		vlan_added=0
 	else
 		echo "[Adding temporary VLAN]"
@@ -46,9 +44,7 @@ setup_vlan() {
 }
 
 teardown_vlan() {
-	if ! can_have_vlan; then
-		return
-	elif (( vlan_added )); then
+	if (( vlan_added )); then
 		echo "[Removing temporary VLAN]"
 		sudo ip link del $vlan_dev
 		vlan_added=0
@@ -58,7 +54,7 @@ teardown_vlan() {
 if [[ $1 == -f ]]; then
 	echo "[40;93mIndirect access through network.[m"
 	attach_console
-elif can_have_vlan; then
+elif [[ $1 == -v ]] || can_have_vlan; then
 	echo "[40;92mDirect access through VLAN.[m"
 	trap teardown_vlan SIGINT
 	setup_vlan

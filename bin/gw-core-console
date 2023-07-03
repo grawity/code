@@ -13,6 +13,10 @@ attach_console() {
 	rconsole "$host@$addr"
 }
 
+can_have_vlan() {
+	[[ $HOSTNAME == @(ember|wind) ]]
+}
+
 has_vlan() {
 	ip -j -d link | jq -e -r "
 		.[]
@@ -23,13 +27,14 @@ has_vlan() {
 }
 
 setup_vlan() {
-	[[ $HOSTNAME == @(ember|wind) ]] || return
-
-	if has_vlan >/dev/null; then
+	if ! can_have_vlan; then
+		return
+	elif has_vlan >/dev/null; then
 		vlan_added=0
 	else
-		echo "[adding temporary VLAN]"
+		echo "[Adding temporary VLAN]"
 		sudo ip link add $VLAN_IF link $PHY_IF type vlan id $VLAN_ID
+		sudo ip link set $VLAN_IF alias "Temporary VLAN for ${0##*/}"
 		sudo ip link set $VLAN_IF up
 		sudo ip addr add $VLAN_IP dev $VLAN_IF
 		vlan_added=1
@@ -37,9 +42,10 @@ setup_vlan() {
 }
 
 teardown_vlan() {
-	[[ $HOSTNAME == @(ember|wind) ]] || return
-	if (( vlan_added )); then
-		echo "[removing temporary VLAN]"
+	if ! can_have_vlan; then
+		return
+	elif (( vlan_added )); then
+		echo "[Removing temporary VLAN]"
 		sudo ip link del $VLAN_IF
 		vlan_added=0
 	fi
@@ -48,7 +54,7 @@ teardown_vlan() {
 if [[ $1 == -f ]]; then
 	echo "[40;93mIndirect access through network.[m"
 	attach_console
-elif [[ $HOSTNAME == @(ember|wind) ]]; then
+elif can_have_vlan; then
 	echo "[40;92mDirect access through VLAN.[m"
 	trap teardown_vlan SIGINT
 	setup_vlan
@@ -56,6 +62,5 @@ elif [[ $HOSTNAME == @(ember|wind) ]]; then
 	teardown_vlan
 else
 	echo "[40;91mNo access from this system.[m"
-	echo "Connect to [1member.sym[m or [1mwind.sym[m."
 	exit 3
 fi

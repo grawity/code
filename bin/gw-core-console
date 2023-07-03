@@ -22,19 +22,19 @@ can_have_vlan() {
 }
 
 has_vlan() {
-	ip -j -d link | jq -e -r "
-		.[]
+	ip -j -d link | jq -e -r \
+		".[]
 		| select(.linkinfo.info_kind == \"vlan\")
 		| select(.linkinfo.info_data.id == $vlan_id)
-		| .ifname
-	"
+		| .ifname" > /dev/null
 }
 
 setup_vlan() {
-	if has_vlan >/dev/null; then
+	if has_vlan; then
+		echo "[VLAN $vlan_id already exists]"
 		vlan_added=0
 	else
-		echo "[Adding temporary VLAN]"
+		echo "[Adding temporary VLAN $vlan_id]"
 		sudo ip link add $vlan_dev link $phy_dev type vlan id $vlan_id &&
 		sudo ip link set $vlan_dev alias "Temporary VLAN for ${0##*/}" &&
 		sudo ip link set $vlan_dev up &&

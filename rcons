@@ -19,11 +19,17 @@ case $host in
 	land)
 		echo "Go to: https://web7.php-friends.de/"
 		exit 1;;
-	cisco-*)
-		# TODO: Expand to individual cases and make -C call rcons,
-		# instead of the other way around.
-		echo "${0##*/}: using whatever"
-		cisco ${host#cisco-} -C;;
+	cisco-top)
+		echo "${0##*/}: this will probably crash DuneGW"
+		echo 'Do: ssh -t dunegw /system/serial-terminal usb2'; exit 2;;
+	cisco-mid)
+		echo "${0##*/}: using reverse telnet via cisco-top"
+		echo "Use C-] 'send brk' to send BREAK."
+		telnet cisco-top.sym 2005;;
+	cisco-btm)
+		echo "${0##*/}: using serial console via Dust"
+		echo "Use C-a C-\\ to send BREAK, C-a C-q to detach."
+		ssh -t dust "set -x; picocom -q /dev/ttyS0";;
 	uk-gw|gw-core)
 		echo "${0##*/}: using IPMI Serial-over-LAN"
 		gw-core-console;;

@@ -57,6 +57,7 @@ def print_status(*args, fmt=fmt_status, wrap=True, flush=False):
             lines = math.ceil(wcswidth(msg) / stderr_width())
             if lines > 1:
                 out += "\033[%dA" % (lines-1) # cursor up 1
+            out += "\r"
         else:
             msg = wctruncate(msg, stderr_width())
             out += fmt_status(msg)

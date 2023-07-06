@@ -42,7 +42,7 @@ def wctruncate(text, width=80):
 def fmt_status(msg):
     return "\033[33m" + msg + "\033[m"
 
-def print_status(*args, fmt=fmt_status, wrap=True):
+def print_status(*args, fmt=fmt_status, wrap=True, flush=False):
     if not stderr_tty():
         return
     out = ""
@@ -61,7 +61,7 @@ def print_status(*args, fmt=fmt_status, wrap=True):
             msg = wctruncate(msg, stderr_width())
             out += fmt_status(msg)
     sys.stderr.write(out)
-    if not args:
+    if flush or not args:
         sys.stderr.flush()
 
 def prompt(msg):

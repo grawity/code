@@ -8,6 +8,7 @@ use Nullroute::Lib;
 my %Opt = (
 	undo => 0,
 	quiet => 0,
+	force => 0,
 );
 
 sub is_gitdir {
@@ -25,6 +26,8 @@ sub is_maildir {
 sub clean {
 	my ($root) = @_;
 
+	my $force = $Opt{force};
+
 	_debug("cleaning '$root'");
 
 	# recursively remove contents
@@ -39,15 +42,15 @@ sub clean {
 			elsif (-l $path) {
 				;
 			}
-			elsif ($name eq "tmp" && is_maildir($root)) {
+			elsif (!$force && $name eq "tmp" && is_maildir($root)) {
 				_debug("skipping '$path' (Maildir)");
 			}
 			# keep 'marker' directories
-			elsif ($name eq ".stfolder") {
+			elsif (!$force && $name eq ".stfolder") {
 				_debug("skipping '$path' (SyncThing marker)");
 			}
 			# do not recurse into the git-annex maze
-			elsif (-d "$path/annex/objects") {
+			elsif (!$force && -d "$path/annex/objects") {
 				_notice("skipping '$path' (git-annex repository)");
 			}
 			elsif (-d $path) {
@@ -64,7 +67,7 @@ sub clean {
 	if ($root eq ".") {
 		;
 	}
-	elsif ($root =~ m|/refs$| && is_gitdir("$root/..")) {
+	elsif (!$force && $root =~ m|/refs$| && is_gitdir("$root/..")) {
 		_debug("skipping '$root' (Git repo)");
 	}
 	elsif (rmdir($root)) {
@@ -99,6 +102,7 @@ sub undo {
 GetOptions(
 	"undo" => \$Opt{undo},
 	"quiet!" => \$Opt{quiet},
+	"force!" => \$Opt{force},
 ) || exit(2);
 
 if ($Opt{undo}) {

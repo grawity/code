@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # oci-console -- attach to serial console of Oracle Cloud VM instance
+#
+# Requires oci-cli (not just python-oci!) to be installed.
+
 import argparse
 import oci
 import os
@@ -21,7 +24,7 @@ def get_session_token_signer(oci_config):
 
     stc = oci.auth.security_token_container.SecurityTokenContainer(None, token)
     if not stc.valid():
-        # invoke 'oci authenticate'
+        # XXX: invoke 'oci session authenticate'
         exit(f"error: CLI token has expired")
 
     private_key = oci.signer.load_private_key_from_file(oci_config["key_file"],
@@ -135,6 +138,7 @@ class OciRcons():
                 # cmd = f"ssh -F '{ssh_config_file.name}' {cmd}"
                 # print(f"Running: {cmd}")
                 # subprocess.run(cmd, shell=True)
+                print("Starting console connection (use ~. to exit)")
                 subprocess.run(["ssh", "-F", ssh_config_file.name, inst.id])
 
         self._delete_console(conn)

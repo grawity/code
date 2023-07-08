@@ -5,8 +5,7 @@
 
 filter_file() {
 	local -- func=${1:-false} dfmt='' line='' cond=''
-	local -i nr=0 depth=0
-	local -ai stack=(1) elif=() else=()
+	local -i nr=0 depth=0 stack=(1) elif=() else=()
 	local -A dfmts=(
 		[err]='\e[30;41m!!'
 		[warn]='\e[93m??\e[;93m'

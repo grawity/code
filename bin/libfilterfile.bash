@@ -4,7 +4,7 @@
 . lib.bash || exit
 
 filter_file() {
-	local -- func=${1:-false} dfmt='' line='' cond=''
+	local -- func=${1:-false} dfmt="" line="" cond=""
 	local -i nr=0 depth=0 stack=(1) elif=() else=()
 	local -A dfmts=(
 		[err]='\e[30;41m!!'
@@ -15,8 +15,8 @@ filter_file() {
 		[invis]='\e[91m -\e[;2m'
 	)
 	debug "use FILTERDEBUG=1 to see the final result"
-	while (( ++nr )) && IFS='' read -r line; do
-		if [[ $line == '#if '* ]]; then
+	while (( ++nr )) && IFS="" read -r line; do
+		if [[ $line == "#if "* ]]; then
 			if (( stack[depth++] )) && $func "${line#* }"; then
 				stack[depth]=1
 				elif[depth]+=1
@@ -25,7 +25,7 @@ filter_file() {
 				stack[depth]=0
 				dfmt=condfail
 			fi
-		elif [[ $line == '#elif '* ]]; then
+		elif [[ $line == "#elif "* ]]; then
 			if (( !depth )); then
 				err "line $nr: '#elif' directive outside '#if' was ignored"
 				dfmt=err
@@ -41,7 +41,7 @@ filter_file() {
 				stack[depth]=0
 				dfmt=condfail
 			fi
-		elif [[ $line == '#else' ]]; then
+		elif [[ $line == "#else" ]]; then
 			if (( !depth )); then
 				err "line $nr: '#else' directive outside '#if' was ignored"
 				dfmt=err
@@ -57,7 +57,7 @@ filter_file() {
 				stack[depth]=0
 				dfmt=condfail
 			fi
-		elif [[ $line == '#endif' ]]; then
+		elif [[ $line == "#endif" ]]; then
 			if (( !depth )); then
 				err "line $nr: '#endif' directive outside '#if' was ignored"
 				dfmt=err
@@ -67,7 +67,7 @@ filter_file() {
 				unset stack[depth--]
 				dfmt=condok
 			fi
-		elif [[ $line == '#'[a-z]* ]]; then
+		elif [[ $line == "#"[a-z]* ]]; then
 			warn "line $nr: unknown directive '${line%% *}'"
 			dfmt=warn
 		elif (( stack[depth] )); then

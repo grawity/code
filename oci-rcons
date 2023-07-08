@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+# oci-rcons -- attach to serial console of Oracle Cloud VM instance
+import argparse
+import oci
+import os
+from pprint import pprint
+import re
+import subprocess
+import tempfile
+import time
+
+def get_session_token_signer(oci_config):
+    # If OCI_CLI_AUTH is "security_token"
+    # cli_util.py:get_session_token_signer()
+
+    subprocess.run(["oci", "session", "refresh"], check=True)
+
+    path = os.path.expanduser(oci_config["security_token_file"])
+    with open(path, "r") as fh:
+        token = fh.read()
+
+    stc = oci.auth.security_token_container.SecurityTokenContainer(None, token)
+    if not stc.valid():
+        # invoke 'oci authenticate'
+        exit(f"error: CLI token has expired")
+
+    private_key = oci.signer.load_private_key_from_file(oci_config["key_file"],
+                                                        oci_config.get("pass_phrase"))
+
+    return oci.auth.signers.SecurityTokenSigner(token, private_key)
+
+def validate_safe_cmd(cmd):
+    pattern = r"^ssh -o ProxyCommand='ssh -W %h:%p -p 443 [\w@.-]+\.oraclecloud\.com' [\w@.-]+$"
+    if re.fullmatch(pattern, cmd):
+        return cmd
+    else:
+        raise Exception(f"Unsafe SSH command: {cmd!r}")
+
+class OciRcons():
+    def __init__(self):
+        self.config = oci.config.from_file()
+        self.compartment_id = self.config["tenancy"]
+        self.signer = get_session_token_signer(self.config)
+        self.compute_api = oci.core.ComputeClient(self.config, signer=self.signer)
+
+    def do_list_instances(self):
+        print(f"Listing instances...")
+        resp = self.compute_api.list_instances(self.compartment_id)
+        for x in resp.data:
+            print(f" - {x.display_name}")
+
+    def _create_console(self, instance_id, ssh_pubkey):
+        parv = oci.core.models.CreateInstanceConsoleConnectionDetails(instance_id=instance_id,
+                                                                      public_key=ssh_pubkey)
+        resp = self.compute_api.create_instance_console_connection(parv)
+        conn = resp.data
+
+        while conn.lifecycle_state != "ACTIVE":
+            time.sleep(1)
+            resp = self.compute_api.get_instance_console_connection(conn.id)
+            conn = resp.data
+            print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
+
+        return conn
+
+    def _delete_console(self, conn):
+        print(f"Deleting console connection...")
+        self.compute_api.delete_instance_console_connection(conn.id)
+
+        while conn.lifecycle_state != "DELETED":
+            time.sleep(1)
+            resp = self.compute_api.get_instance_console_connection(conn.id)
+            conn = resp.data
+            print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
+
+    def do_connect_instance(self, instance_name, ssh_pubkey):
+        print(f"Querying instance...")
+        resp = self.compute_api.list_instances(self.compartment_id,
+                                               display_name=instance_name)
+        for x in resp.data:
+            if x.display_name == instance_name:
+                inst = x
+                print(f"Instance {inst.display_name!r} is {inst.lifecycle_state}")
+                if inst.lifecycle_state != "RUNNING":
+                    exit(f"error: Instance {inst.display_name!r} is not running")
+                break
+        else:
+            exit(f"error: Instance {instance_name} not found")
+
+        print(f"Querying console connection...")
+        resp = self.compute_api.list_instance_console_connections(self.compartment_id,
+                                                                  instance_id=inst.id)
+        #for x in resp.data:
+        #    print(f" - Connection '...{x.id[-20:]}' is {x.lifecycle_state}")
+        for x in resp.data:
+            if x.lifecycle_state == "ACTIVE":
+                # XXX: compare public key
+                conn = x
+                break
+        else:
+            print(f"Console connection not found, creating one.")
+            conn = self._create_console(inst.id, ssh_pubkey)
+
+        ssh_config = ("Host *\n"
+                      "    ControlPath none\n"
+                      "    HostKeyAlgorithms +ssh-rsa\n"
+                      "    PubkeyAcceptedAlgorithms +ssh-rsa\n"
+                      "    UserKnownHostsFile {known_hosts_file}\n"
+                      "    StrictHostKeyChecking accept-new\n"
+                      "\n"
+                      "Include ~/.ssh/config\n")
+
+        with tempfile.NamedTemporaryFile() as known_hosts_file:
+            ssh_config = ssh_config.format(known_hosts_file=known_hosts_file.name)
+            with tempfile.NamedTemporaryFile() as ssh_config_file:
+                ssh_config_file.write(ssh_config.encode())
+                ssh_config_file.flush()
+
+                # TODO: validate conn.service_host_key_fingerprint
+
+                cmd = validate_safe_cmd(conn.connection_string)
+                cmd = cmd.removeprefix("ssh ")
+                cmd = f"ssh -F '{ssh_config_file.name}' {cmd}"
+                print(f"Running: {cmd}")
+                subprocess.run(cmd, shell=True)
+
+        self._delete_console(conn)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--ssh-key", default="~/.ssh/id_rsa")
+parser.add_argument("instance_name", nargs="?")
+args = parser.parse_args()
+
+rc = OciRcons()
+if args.instance_name:
+    ssh_privkey = os.path.expanduser(args.ssh_key)
+    with open(f"{ssh_privkey}.pub", "r") as fh:
+        ssh_pubkey = fh.read()
+    rc.do_connect_instance(args.instance_name, ssh_pubkey)
+else:
+    rc.do_list_instances()

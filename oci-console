@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # oci-console -- attach to serial console of Oracle Cloud VM instance
 #
-# Requires oci-cli (not just python-oci!) to be installed.
+# Requires python-oci. Visit the "Profile" page in Oracle Cloud Console to set
+# up an API key and generate the ~/.oci/config file (or install oci-cli and use
+# `oci setup bootstrap`).
 #
-# API reference: https://docs.oracle.com/en-us/iaas/tools/python/2.105.0/api/core.html
+# API reference:
+# https://docs.oracle.com/en-us/iaas/tools/python/2.105.0/api/core.html
 
 import argparse
 import oci
@@ -13,24 +16,6 @@ import re
 import subprocess
 import tempfile
 import time
-
-def get_session_token_signer(oci_config):
-    # If OCI_CLI_AUTH is "security_token"
-    # cli_util.py:get_session_token_signer()
-
-    path = os.path.expanduser(oci_config["security_token_file"])
-    with open(path, "r") as fh:
-        token = fh.read()
-
-    stc = oci.auth.security_token_container.SecurityTokenContainer(None, token)
-    if not stc.valid():
-        # XXX: invoke 'oci session authenticate'
-        exit(f"error: CLI token has expired")
-
-    private_key = oci.signer.load_private_key_from_file(oci_config["key_file"],
-                                                        oci_config.get("pass_phrase"))
-
-    return oci.auth.signers.SecurityTokenSigner(token, private_key)
 
 def validate_safe_cmd(cmd):
     pattern = r"^ssh -o ProxyCommand='ssh -W %h:%p -p 443 [\w@.-]+\.oraclecloud\.com' [\w@.-]+$"
@@ -43,8 +28,28 @@ class OciRcons():
     def __init__(self):
         self.config = oci.config.from_file()
         self.compartment_id = self.config["tenancy"]
-        self.signer = get_session_token_signer(self.config)
+        self.signer = self._get_api_signer()
         self.compute_api = oci.core.ComputeClient(self.config, signer=self.signer)
+
+    def _get_api_signer(self):
+        if "security_token_file" in self.config:
+            # If OCI_CLI_AUTH is "security_token"
+            # cli_util.py:get_session_token_signer()
+            path = os.path.expanduser(self.config["security_token_file"])
+            with open(path, "r") as fh:
+                token = fh.read()
+            stc = oci.auth.security_token_container.SecurityTokenContainer(None, token)
+            if not stc.valid():
+                exit(f"error: CLI token has expired")
+            private_key = oci.signer.load_private_key_from_file(self.config["key_file"],
+                                                                self.config.get("pass_phrase"))
+            return oci.auth.signers.SecurityTokenSigner(token, private_key)
+
+        return oci.signer.Signer(self.config["tenancy"],
+                                 self.config["user"],
+                                 self.config["fingerprint"],
+                                 self.config["key_file"],
+                                 self.config.get("pass_phrase"))
 
     def do_list_instances(self):
         print(f"Listing instances...")

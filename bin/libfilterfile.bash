@@ -16,7 +16,7 @@ filter_file() {
 		[invis]='\e[91m -\e[;2m'
 	)
 	debug "use FILTERDEBUG=1 to see the final result"
-	while IFS='' read -r line; do
+	while (( ++nr )) && IFS='' read -r line; do
 		if [[ $line == '#if '* ]]; then
 			if (( stack[depth++] )) && $func "${line#* }"; then
 				stack[depth]=1

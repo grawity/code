@@ -108,10 +108,22 @@ class OciRcons():
                       "    UserKnownHostsFile {known_hosts_file}\n"
                       "    StrictHostKeyChecking accept-new\n"
                       "\n"
+                      "Host instance-console.{region}.oci.oraclecloud.com\n"
+                      "    Port 443\n"
+                      "    User {connection_id}\n"
+                      "    # Hide the initial SSH banner\n"
+                      "    LogLevel QUIET\n"
+                      "\n"
+                      "Host {instance_id}\n"
+                      "    ProxyJump instance-console.{region}.oci.oraclecloud.com\n"
+                      "\n"
                       "Include ~/.ssh/config\n")
 
         with tempfile.NamedTemporaryFile() as known_hosts_file:
-            ssh_config = ssh_config.format(known_hosts_file=known_hosts_file.name)
+            ssh_config = ssh_config.format(known_hosts_file=known_hosts_file.name,
+                                           region=inst.region,
+                                           instance_id=inst.id,
+                                           connection_id=conn.id)
             with tempfile.NamedTemporaryFile() as ssh_config_file:
                 ssh_config_file.write(ssh_config.encode())
                 ssh_config_file.flush()
@@ -119,10 +131,11 @@ class OciRcons():
                 # TODO: validate conn.service_host_key_fingerprint
 
                 cmd = validate_safe_cmd(conn.connection_string)
-                cmd = cmd.removeprefix("ssh ")
-                cmd = f"ssh -F '{ssh_config_file.name}' {cmd}"
-                print(f"Running: {cmd}")
-                subprocess.run(cmd, shell=True)
+                # cmd = cmd.removeprefix("ssh ")
+                # cmd = f"ssh -F '{ssh_config_file.name}' {cmd}"
+                # print(f"Running: {cmd}")
+                # subprocess.run(cmd, shell=True)
+                subprocess.run(["ssh", "-F", ssh_config_file.name, inst.id])
 
         self._delete_console(conn)
 

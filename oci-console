@@ -33,7 +33,7 @@ class OciRcons():
 
     def _get_api_signer(self):
         if "security_token_file" in self.config:
-            # If OCI_CLI_AUTH is "security_token"
+            # Short-term auth tokens retrieved via `oci session authenticate`
             # cli_util.py:get_session_token_signer()
             path = os.path.expanduser(self.config["security_token_file"])
             with open(path, "r") as fh:
@@ -41,15 +41,13 @@ class OciRcons():
             stc = oci.auth.security_token_container.SecurityTokenContainer(None, token)
             if not stc.valid():
                 exit(f"error: CLI token has expired")
-            private_key = oci.signer.load_private_key_from_file(self.config["key_file"],
-                                                                self.config.get("pass_phrase"))
-            return oci.auth.signers.SecurityTokenSigner(token, private_key)
+            priv_key = oci.signer.load_private_key_from_file(self.config["key_file"])
+            return oci.auth.signers.SecurityTokenSigner(token, priv_key)
 
         return oci.signer.Signer(self.config["tenancy"],
                                  self.config["user"],
                                  self.config["fingerprint"],
-                                 self.config["key_file"],
-                                 self.config.get("pass_phrase"))
+                                 self.config["key_file"])
 
     def do_list_instances(self):
         print(f"Listing instances...")

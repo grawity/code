@@ -56,6 +56,7 @@ class OciRcons():
             print(f" - {x.display_name} ({x.lifecycle_state})")
 
     def _create_console(self, instance_id, ssh_pubkey):
+        print(f"Creating console connection...", end=" ", flush=True)
         parv = oci.core.models.CreateInstanceConsoleConnectionDetails(instance_id=instance_id,
                                                                       public_key=ssh_pubkey)
         # TODO: ComputeClientCompositeOperations.create_instance_console_connection_and_wait_for_state
@@ -66,12 +67,13 @@ class OciRcons():
             time.sleep(1)
             resp = self.compute_api.get_instance_console_connection(conn.id)
             conn = resp.data
-            print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
+            #print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
+        print(f"done.")
 
         return conn
 
     def _delete_console(self, conn):
-        print(f"Deleting console connection...")
+        print(f"Deleting console connection...", end=" ", flush=True)
         # TODO: ComputeClientCompositeOperations.delete_instance_console_connection_and_wait_for_state
         self.compute_api.delete_instance_console_connection(conn.id)
 
@@ -79,7 +81,8 @@ class OciRcons():
             time.sleep(1)
             resp = self.compute_api.get_instance_console_connection(conn.id)
             conn = resp.data
-            print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
+            #print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
+        print(f"done.")
 
     def do_connect_instance(self, instance_name, ssh_pubkey):
         print(f"Querying instance...", end=" ", flush=True)
@@ -108,7 +111,7 @@ class OciRcons():
                 conn = x
                 break
         else:
-            print(f"not found, creating.")
+            print(f"not found.")
             conn = self._create_console(inst.id, ssh_pubkey)
 
         ssh_config = ("Host *\n"

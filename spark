@@ -15,6 +15,7 @@
 # pipeline and will kill the data source process.
 
 import argparse
+import datetime
 import math
 import os
 import sys
@@ -71,15 +72,17 @@ class Sparkline:
         (0xFF, 0x00, 0x00), # red
     ]
 
-    def __init__(self, low, high):
+    def __init__(self, low, high, *, hourly=False):
         self.low = low
         self.high = high
+        self.hourly = hourly
 
         # Horizontal cursor position
         self.w = 0
         self.update_ttysize()
 
         self.last_tail = None
+        self.last_date = None
 
     def update_ttysize(self):
         self.ncols = os.get_terminal_size(sys.stderr.fileno()).columns
@@ -97,6 +100,20 @@ class Sparkline:
         put("\033[m")
         self.w += 1
 
+    def _maybe_print_date(self):
+        if not self.hourly:
+            return
+
+        now = datetime.datetime.now()
+        was = (self.last_date or now)
+
+        if (was.date(), was.time().hour) != (now.date(), now.time().hour):
+            out = now.strftime("%Y-%m-%d %H:%M")
+            out = f"-- {out} ".ljust(self.ncols, "-")
+            put(f"\033[38;5;244m{out}\033[m\n")
+
+        self.last_date = now
+
     def update(self, val):
         tail = f" {val:4.1f}"
 
@@ -105,6 +122,7 @@ class Sparkline:
             put(f"\033[38;5;244m{self.last_tail}\033[m")
             put("\n")
             self.w = 0
+            self._maybe_print_date()
 
         self._print_tick(val)
 
@@ -118,13 +136,16 @@ parser.add_argument("-l", "--low", type=float, default=0,
                     help="minimum value to clamp the sparkline to")
 parser.add_argument("-h", "--high", type=float, default=100,
                     help="maximum value to clamp the sparkline to")
+parser.add_argument("-y", "--hourly", action="store_true",
+                    help="insert hourly separators")
 args = parser.parse_args()
 
 if args.low >= args.high:
     exit("error: Maximum must be higher than minimum")
 
 s = Sparkline(low=args.low,
-              high=args.high)
+              high=args.high,
+              hourly=args.hourly)
 
 try:
     with no_echo():

@@ -17,6 +17,9 @@ import subprocess
 import tempfile
 import time
 
+def hprint(arg, **kwargs):
+    print(f"\033[2m{arg}\033[m", **kwargs)
+
 def validate_safe_cmd(cmd):
     pattern = r"^ssh -o ProxyCommand='ssh -W %h:%p -p 443 [\w@.-]+\.oraclecloud\.com' [\w@.-]+$"
     if re.fullmatch(pattern, cmd):
@@ -50,16 +53,15 @@ class OciRcons():
                                  self.config["key_file"])
 
     def do_list_instances(self):
-        print(f"Listing instances...")
+        hprint(f"Listing instances...")
         resp = self.compute_api.list_instances(self.compartment_id)
         for x in resp.data:
-            print(f" - {x.display_name} ({x.lifecycle_state})")
+            print(f"{x.display_name} ({x.lifecycle_state})")
 
     def _create_console(self, instance_id, ssh_pubkey):
-        print(f"Creating console connection...", end=" ", flush=True)
+        hprint(f"Creating console connection...", end=" ", flush=True)
         parv = oci.core.models.CreateInstanceConsoleConnectionDetails(instance_id=instance_id,
                                                                       public_key=ssh_pubkey)
-        # TODO: ComputeClientCompositeOperations.create_instance_console_connection_and_wait_for_state
         resp = self.compute_api.create_instance_console_connection(parv)
         conn = resp.data
 
@@ -68,13 +70,12 @@ class OciRcons():
             resp = self.compute_api.get_instance_console_connection(conn.id)
             conn = resp.data
             #print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
-        print(f"done.")
+        hprint(f"done.")
 
         return conn
 
     def _delete_console(self, conn):
-        print(f"Deleting console connection...", end=" ", flush=True)
-        # TODO: ComputeClientCompositeOperations.delete_instance_console_connection_and_wait_for_state
+        hprint(f"Deleting console connection...", end=" ", flush=True)
         self.compute_api.delete_instance_console_connection(conn.id)
 
         while conn.lifecycle_state != "DELETED":
@@ -82,24 +83,24 @@ class OciRcons():
             resp = self.compute_api.get_instance_console_connection(conn.id)
             conn = resp.data
             #print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
-        print(f"done.")
+        hprint(f"done.")
 
     def do_connect_instance(self, instance_name, ssh_pubkey):
-        print(f"Querying instance...", end=" ", flush=True)
+        hprint(f"Querying instance...", end=" ", flush=True)
         resp = self.compute_api.list_instances(self.compartment_id,
                                                display_name=instance_name)
         for x in resp.data:
             if x.display_name == instance_name:
                 inst = x
-                print(f"instance {inst.display_name!r} is {inst.lifecycle_state}")
+                hprint(f"instance {inst.display_name!r} is {inst.lifecycle_state}")
                 if inst.lifecycle_state != "RUNNING":
                     exit(f"error: Instance {inst.display_name!r} is not running")
                 break
         else:
-            print(f"not found")
+            hprint(f"not found")
             exit(f"error: Instance {instance_name} not found")
 
-        print(f"Querying console connection...", end=" ", flush=True)
+        hprint(f"Querying console connection...", end=" ", flush=True)
         resp = self.compute_api.list_instance_console_connections(self.compartment_id,
                                                                   instance_id=inst.id)
         #for x in resp.data:
@@ -107,11 +108,11 @@ class OciRcons():
         for x in resp.data:
             if x.lifecycle_state == "ACTIVE":
                 # XXX: compare public key
-                print(f"found existing.")
+                hprint(f"found existing.")
                 conn = x
                 break
         else:
-            print(f"not found.")
+            hprint(f"not found.")
             conn = self._create_console(inst.id, ssh_pubkey)
 
         ssh_config = ("Host *\n"

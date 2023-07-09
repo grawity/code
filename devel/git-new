@@ -9,20 +9,23 @@ usage() {
 	echo_opt "-b REF" "show new commits in a different branch"
 	echo_opt "-C DIR" "change to specified directory"
 	echo_opt "-M" "add --no-merges to configuration"
-	echo_opt "-P" "add *.po exclusion to configuration"
+	echo_opt "-P" "add *.po exclusion"
+	echo_opt "-G" "add .github exclusion"
 }
 
 opt_no_merges=0
 opt_no_po=0
+opt_no_github=0
 opt_chdir=
 opt_ref=
 
-while getopts ':b:C:MP' OPT; do
+while getopts ':b:C:GMP' OPT; do
 	case $OPT in
 	b) opt_ref=$OPTARG;;
 	C) opt_chdir=$OPTARG;;
 	M) opt_no_merges=1;;
 	P) opt_no_po=1;;
+	G) opt_no_github=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -104,7 +107,10 @@ if (( opt_no_merges )); then
 	git config --add nullroute.git-new.options "--no-merges" || exit
 fi
 if (( opt_no_po )); then
-	git config --add nullroute.git-new.paths ":(exclude)**.po" || exit
+	git config --add nullroute.git-new.paths ":!**.po" || exit
+fi
+if (( opt_no_github )); then
+	git config --add nullroute.git-new.paths ":!.github/" || exit
 fi
 
 opts=$(git config --get-all nullroute.git-new.options || true)

@@ -82,20 +82,21 @@ class OciRcons():
             print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
 
     def do_connect_instance(self, instance_name, ssh_pubkey):
-        print(f"Querying instance...")
+        print(f"Querying instance...", end=" ", flush=True)
         resp = self.compute_api.list_instances(self.compartment_id,
                                                display_name=instance_name)
         for x in resp.data:
             if x.display_name == instance_name:
                 inst = x
-                print(f"Instance {inst.display_name!r} is {inst.lifecycle_state}")
+                print(f"instance {inst.display_name!r} is {inst.lifecycle_state}")
                 if inst.lifecycle_state != "RUNNING":
                     exit(f"error: Instance {inst.display_name!r} is not running")
                 break
         else:
+            print(f"not found")
             exit(f"error: Instance {instance_name} not found")
 
-        print(f"Querying console connection...")
+        print(f"Querying console connection...", end=" ", flush=True)
         resp = self.compute_api.list_instance_console_connections(self.compartment_id,
                                                                   instance_id=inst.id)
         #for x in resp.data:
@@ -103,10 +104,11 @@ class OciRcons():
         for x in resp.data:
             if x.lifecycle_state == "ACTIVE":
                 # XXX: compare public key
+                print(f"found existing.")
                 conn = x
                 break
         else:
-            print(f"Console connection not found, creating one.")
+            print(f"not found, creating.")
             conn = self._create_console(inst.id, ssh_pubkey)
 
         ssh_config = ("Host *\n"

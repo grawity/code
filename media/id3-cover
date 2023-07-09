@@ -41,9 +41,15 @@ def export_cover(file, cover_file):
         Core.err("no cover image (APIC frame not found)")
         return False
 
+    buf = filetag["APIC:"].data
+
+    if (not cover_file) and sys.stdout.isatty():
+        exit("error: Not writing cover to terminal (%d bytes)" % len(buf))
+
     with open(cover_file or "/dev/stdout", "wb") as cover_fh:
         trace("exporting image: %s" % cover_file)
-        cover_fh.write(filetag["APIC:"].data)
+        cover_fh.write(buf)
+
     return True
 
 def import_cover(file, image_data, image_type="image/jpeg"):

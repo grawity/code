@@ -85,36 +85,7 @@ class OciRcons():
             #print(f" - Connection '...{conn.id[-20:]}' is {conn.lifecycle_state}")
         hprint(f"done.")
 
-    def do_connect_instance(self, instance_name, ssh_pubkey):
-        hprint(f"Querying instance...", end=" ", flush=True)
-        resp = self.compute_api.list_instances(self.compartment_id,
-                                               display_name=instance_name)
-        for x in resp.data:
-            if x.display_name == instance_name:
-                inst = x
-                hprint(f"instance {inst.display_name!r} is {inst.lifecycle_state}")
-                if inst.lifecycle_state != "RUNNING":
-                    exit(f"error: Instance {inst.display_name!r} is not running")
-                break
-        else:
-            hprint(f"not found")
-            exit(f"error: Instance {instance_name} not found")
-
-        hprint(f"Querying console connection...", end=" ", flush=True)
-        resp = self.compute_api.list_instance_console_connections(self.compartment_id,
-                                                                  instance_id=inst.id)
-        #for x in resp.data:
-        #    print(f" - Connection '...{x.id[-20:]}' is {x.lifecycle_state}")
-        for x in resp.data:
-            if x.lifecycle_state == "ACTIVE":
-                # XXX: compare public key
-                hprint(f"found existing.")
-                conn = x
-                break
-        else:
-            hprint(f"not found.")
-            conn = self._create_console(inst.id, ssh_pubkey)
-
+    def _run_console(self, inst, conn):
         ssh_config = ("Host *\n"
                       "    EscapeChar &\n"
                       "    ControlPath none\n"
@@ -139,6 +110,7 @@ class OciRcons():
                                            region=inst.region,
                                            instance_id=inst.id,
                                            connection_id=conn.id)
+
             with tempfile.NamedTemporaryFile() as ssh_config_file:
                 ssh_config_file.write(ssh_config.encode())
                 ssh_config_file.flush()
@@ -152,6 +124,38 @@ class OciRcons():
                 # subprocess.run(cmd, shell=True)
                 print("\033[1mStarting console connection (use &. to exit)\033[m")
                 subprocess.run(["ssh", "-F", ssh_config_file.name, inst.id])
+
+    def do_connect_instance(self, instance_name, ssh_pubkey):
+        hprint(f"Querying instance...", end=" ", flush=True)
+        resp = self.compute_api.list_instances(self.compartment_id,
+                                               display_name=instance_name)
+        for x in resp.data:
+            if x.display_name == instance_name:
+                inst = x
+                hprint(f"instance {inst.display_name!r} is {inst.lifecycle_state}")
+                if inst.lifecycle_state != "RUNNING":
+                    exit(f"error: Instance {inst.display_name!r} is not running")
+                break
+        else:
+            hprint(f"not found")
+            exit(f"error: Instance {instance_name} not found")
+
+        hprint(f"Querying console connection...", end=" ", flush=True)
+        resp = self.compute_api.list_instance_console_connections(self.compartment_id,
+                                                                  instance_id=inst.id)
+        #for x in resp.data:
+        #    print(f" - Connection '...{x.id[-20:]}' is {x.lifecycle_state}")
+        for x in resp.data:
+            if x.lifecycle_state == "ACTIVE":
+                # XXX: compare public key
+                conn = x
+                hprint(f"found existing")
+                break
+        else:
+            hprint(f"not found")
+            conn = self._create_console(inst.id, ssh_pubkey)
+
+        self._run_console(inst, conn)
 
         self._delete_console(conn)
 

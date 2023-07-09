@@ -72,10 +72,10 @@ class Sparkline:
         (0xFF, 0x00, 0x00), # red
     ]
 
-    def __init__(self, low, high, *, hourly=False):
+    def __init__(self, low, high, *, sep=False):
         self.low = low
         self.high = high
-        self.hourly = hourly
+        self.sep = sep
 
         # Horizontal cursor position
         self.w = 0
@@ -101,7 +101,7 @@ class Sparkline:
         self.w += 1
 
     def _maybe_print_date(self):
-        if not self.hourly:
+        if not self.sep:
             return
 
         now = datetime.datetime.now()
@@ -136,8 +136,8 @@ parser.add_argument("-l", "--low", type=float, default=0,
                     help="minimum value to clamp the sparkline to")
 parser.add_argument("-h", "--high", type=float, default=100,
                     help="maximum value to clamp the sparkline to")
-parser.add_argument("-y", "--hourly", action="store_true",
-                    help="insert hourly separators")
+parser.add_argument("-n", "--no-sep", action="store_true",
+                    help="disable hourly separators")
 args = parser.parse_args()
 
 if args.low >= args.high:
@@ -145,7 +145,7 @@ if args.low >= args.high:
 
 s = Sparkline(low=args.low,
               high=args.high,
-              hourly=args.hourly)
+              sep=(not args.no_sep))
 
 try:
     with no_echo():

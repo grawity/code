@@ -32,17 +32,34 @@ if [[ -t 0 ]]; then
 
 	# Collect "cmd -- args"
 	for (( i=1; i<=$#; i++ )); do
+		arg=${!i}
 		if (( i < ldash )); then
-			cmd+=("${!i}")
+			cmd+=("$arg")
 		elif (( i == ldash )); then
 			continue
 		else
-			args+=("${!i}")
+			args+=("$arg")
 		fi
 	done
 
+	# Find the {} placeholder
+	lpos=0
+	for (( i=0; i<${#cmd[@]}; i++ )); do
+		if [[ ${cmd[i]} == "{}" ]]; then
+			if (( lpos )); then
+				echo "each: only one '{}' is allowed" >&2
+				exit 2
+			fi
+			lpos=$i
+		fi
+	done
+	if (( !lpos )); then
+		# If no placeholder, append arg as the last item
+		lpos=${#cmd[@]}
+	fi
+
 	for arg in "${args[@]}"; do
-		"${cmd[@]}" "$arg"
+		cmd[lpos]=$arg; "${cmd[@]}"
 	done
 else
 	for arg; do

@@ -160,15 +160,12 @@ fi
 # 1 arg - use as raw command line
 # 2+ args - quote individual args
 
-if (( $# == 0 )); then
-	q_cmd=bash
-elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
-	if (( expaths )); then
+if (( expaths )); then
+	if (( $# == 0 )); then
+		true
+	elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
 		die "unable to expand paths in a quoted shell command"
-	fi
-	q_cmd=$1
-else
-	if (( expaths )); then
+	else
 		args=()
 		for arg; do
 			if [[ $arg == ./* ]]; then
@@ -181,6 +178,13 @@ else
 		done
 		set -- "${args[@]}"
 	fi
+fi
+
+if (( $# == 0 )); then
+	q_cmd=bash
+elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
+	q_cmd=$1
+else
 	q_cmd=${@@Q}
 fi
 

@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# :here -- expand local paths to NFS paths
+#
+# Default mode:
+#     Arguments are assumed to be local paths; will be expanded to absolute
+#     paths, prefixed with "/net/<localhost>" and output to stdout.
+#
+# Command mode (-w):
+#     Arguments are assumed to be command names; will be looked up in $PATH,
+#     prefixed with "/net/<localhost>" and output to stdout.
+#
+# Execute mode (-x):
+#     Arguments are assumed to be a command line; path-like arguments (i.e.
+#     absolute "/foo" or dot-relative "./foo", but not any others) will be
+#     expanded to absolute paths, prefixed with "/net/<localhost>", and the
+#     resulting command executed.
+#
+# Example:
+#
+#     Run a remote editor on a local file:
+#
+#         $ ssh -t foobox vim $(:here foo.c)
+#         $ :here -x ssh -t foobox vim ./foo.c
+#
+#         (This is similar in effect to `on foobox vim foo.c`, except without
+#         changing the editor's "working directory" into NFS.)
+#
+#     Execute a local program on a remote system:
+#
+#         $ ssh foobox $(:here -w frob)
+#         $ ssh foobox $(:here ~/bin/frob)
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname <path...>"
+	echo "       $progname -w <command...>"
+	echo "       $progname (-x | -h <host>) <command> [<args>]"
+	echo ""
+	echo "Expand local paths to their NFS equivalents via /net/$HOSTNAME."
+	echo ""
+	echo_opt "-w"		"expand args through \$PATH"
+	echo_opt "-x"		"expand and execute a command"
+}
+
+host=
+w_flag=0
+x_flag=0
+
+while getopts ":h:wx" OPT; do
+	case $OPT in
+	h) x_flag=1; host=$OPTARG;;
+	w) w_flag=1;;
+	x) x_flag=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( w_flag + x_flag > 1 )); then
+	die "-w and -x modes are mutually exclusive"
+elif (( x_flag )); then
+	# Execute mode
+	args=()
+	if [[ $host ]]; then
+		# Mimic the '<host>' aliases in .bashrc
+		args+=(on -D "$host")
+	fi
+	for arg; do
+		if [[ $arg == @(.|./*) ]]; then
+			arg=$(realpath -s "$arg")
+			#arg=$(readlink -m "$arg")
+		fi
+		if [[ $arg == /* && $arg != /@(n|net)/* ]]; then
+			arg=/net/$HOSTNAME$arg
+		fi
+		args+=("$arg")
+	done
+	(PS4="+ "; set -x; "${args[@]}")
+elif (( w_flag )); then
+	# 'which' expand mode
+	for arg; do
+		arg=$(command -v "$arg") || exit
+		if [[ $arg == /* && $arg != /net/* ]]; then
+			arg=/net/$HOSTNAME$arg
+		fi
+		printf '%s\n' "$arg"
+	done
+else
+	# Direct expand mode
+	for arg; do
+		arg=$(readlink -m "$arg")
+		if [[ $arg == /* && $arg != /net/* ]]; then
+			arg=/net/$HOSTNAME$arg
+		fi
+		printf '%s\n' "$arg"
+	done
+fi

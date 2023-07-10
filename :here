@@ -35,7 +35,7 @@
 usage() {
 	echo "Usage: $progname <path...>"
 	echo "       $progname -w <command...>"
-	echo "       $progname (-x | -h <host>) <command> [<args>]"
+	echo "       $progname -x <command> [<args>]"
 	echo ""
 	echo "Expand local paths to their NFS equivalents via /net/$HOSTNAME."
 	echo ""
@@ -43,13 +43,11 @@ usage() {
 	echo_opt "-x"		"expand and execute a command"
 }
 
-host=
 w_flag=0
 x_flag=0
 
-while getopts ":h:wx" OPT; do
+while getopts ":wx" OPT; do
 	case $OPT in
-	h) x_flag=1; host=$OPTARG;;
 	w) w_flag=1;;
 	x) x_flag=1;;
 	*) lib:die_getopts;;
@@ -61,10 +59,6 @@ if (( w_flag + x_flag > 1 )); then
 elif (( x_flag )); then
 	# Execute mode
 	args=()
-	if [[ $host ]]; then
-		# Mimic the '<host>' aliases in .bashrc
-		args+=(on -D "$host")
-	fi
 	for arg; do
 		if [[ $arg == @(.|./*) ]]; then
 			arg=$(realpath -s "$arg")

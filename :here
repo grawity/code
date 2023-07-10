@@ -56,36 +56,28 @@ done; shift $((OPTIND-1))
 
 if (( w_flag + x_flag > 1 )); then
 	die "-w and -x modes are mutually exclusive"
-elif (( x_flag )); then
-	# Execute mode
-	args=()
-	for arg; do
+fi
+
+args=()
+for arg; do
+	if (( w_flag )); then
+		arg=$(command -v "$arg") || exit
+	elif (( x_flag )); then
 		if [[ $arg == @(.|./*) ]]; then
 			arg=$(realpath -s "$arg")
-			#arg=$(readlink -m "$arg")
 		fi
-		if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-			arg=/net/$HOSTNAME$arg
-		fi
-		args+=("$arg")
-	done
+	else
+		arg=$(realpath -s "$arg")
+	fi
+
+	if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
+		arg="/net/$HOSTNAME$arg"
+	fi
+	args+=("$arg")
+done
+
+if (( x_flag )); then
 	(PS4="+ "; set -x; "${args[@]}")
-elif (( w_flag )); then
-	# 'which' expand mode
-	for arg; do
-		arg=$(command -v "$arg") || exit
-		if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-			arg=/net/$HOSTNAME$arg
-		fi
-		printf '%s\n' "$arg"
-	done
 else
-	# Direct expand mode
-	for arg; do
-		arg=$(readlink -m "$arg")
-		if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-			arg=/net/$HOSTNAME$arg
-		fi
-		printf '%s\n' "$arg"
-	done
+	printf '%s\n' "${args[@]}"
 fi

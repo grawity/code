@@ -15,7 +15,13 @@ case $tool in
 			sudo: apt-get dist-upgrade -V "$@"
 		fi;;
 	pacman)
-		sudo: pacman -Syu "$@";;
+		sudo: pacman -Syu "$@"
+
+		pkgs=$(pacman -Qqdt | grep ^haskell-)
+		if [[ $pkgs ]]; then
+			sudo: pacman -Rns $pkgs
+		fi
+		;;
 	rpm)
 		sudo: yum update "$@";;
 	*)

@@ -22,6 +22,7 @@
 . lib.bash || exit
 
 usage() {
+	#cho "|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------"
 	echo "Usage: on <host> [-DKLNRSvx] [-C <path>] [<command>]"
 	echo "       @ <host> [-DKLNRSvx] [-C <path>] [<command>]"
 	echo
@@ -29,9 +30,12 @@ usage() {
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
 	echo "of the local path; if invoked as 'on' will access the local directory via NFS."
 	echo
+	echo "(If the current directory is under /net/<otherhost>, -R will map it to reference"
+	echo "the same location on the target system, while -L and -N will retain it as-is.)"
+	echo
 	echo_opt "-L"		"access local current directory via NFS (default for 'on')"
-	echo_opt "-N"		"access remote current directory, keeping NFS paths"
-	echo_opt "-R"		"access remote current directory (default for '@')"
+	echo_opt "-N"		"keep current directory exactly (preserve /net/<thirdhost>)"
+	echo_opt "-R"		"always map current directory to target host (default for '@')"
 	echo
 	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
 	echo_opt "-D"		"access remote home directory (equal to '-C.')"
@@ -43,8 +47,8 @@ usage() {
 	echo
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
-	echo_opt "<host>"	"like 'on -D <host>' or 'on -d. <host>'"
-	echo_opt "@<host>"	"like 'on -r <host>' or '@ <host>'"
+	echo_opt "<host>"	"like 'on -D <host>' or 'on -C. <host>'"
+	echo_opt "@<host>"	"like 'on -R <host>' or '@ <host>'"
 }
 
 arg0=${0##*/}

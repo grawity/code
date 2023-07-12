@@ -27,7 +27,6 @@ BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape urlencode
 BASIC_BINS += hex unhex proctool strtool xor xors xorf
 MISC_BINS  := ac-wait entropy libwcwidth.so writevt zlib
 LINUX_BINS := libfunsync.so ssh_force_lp.so unsymlink.so peekvc showsigmask statx tapchown
-LINUX_BINS += mount-idmapped
 
 .PHONY: all basic krb misc linux pklist
 
@@ -92,8 +91,6 @@ $(OBJ)/logwipe:		thirdparty/logwipe.c
 
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	security/mkpasswd.c
-
-$(OBJ)/mount-idmapped:	thirdparty/mount-idmapped.c
 
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 

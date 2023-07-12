@@ -116,9 +116,13 @@ case $nfsmode in
 		#	/etc			-> /net/clienthost/etc
 		#	/net/targethost/etc	-> /etc
 		#	/net/otherhost/etc	-> /net/otherhost/etc
+
 		if [[ $wd == /net/* ]]; then
 			# NFS mount - strip if it's for target, keep as-is otherwise
+			wd=${wd%/}/
 			wd=${wd/#"/net/$host/"/"/"}
+			wd=${wd%/}
+			wd=/${wd#/}
 		else
 			# Local path - convert to NFS mount
 			wd="/net/$HOSTNAME$wd"
@@ -134,7 +138,10 @@ case $nfsmode in
 		#	/etc			-> /etc
 		#	/net/targethost/etc	-> /etc
 		#	/net/otherhost/etc	-> /net/otherhost/etc
+		wd=${wd%/}/
 		wd=${wd/#"/net/$host/"/"/"}
+		wd=${wd%/}
+		wd=/${wd#/}
 		;;
 	STRIP)
 		# Full '@' mode, always strip /net and access remote filesystem
@@ -143,8 +150,10 @@ case $nfsmode in
 		#	/etc			-> /etc
 		#	/net/targethost/etc	-> /etc
 		#	/net/otherhost/ec	-> /etc
-		wd="/${wd#/net/*/}"
-		wd=${wd/#"//"/"/"}
+		wd=${wd%/}/
+		wd=/${wd#/net/*/}
+		wd=${wd%/}
+		wd=/${wd#/}
 		;;
 	*)
 		lib:crash "bad nfsmode value"

@@ -15,12 +15,16 @@ def probe_object_dir(path):
             return p
     raise FileNotFoundError(path)
 
+def git_repack_thick():
+    # "-a" Repack existing packs into one
+    # "-d" Prune redundant packs
+    res = subprocess.run(["git", "repack", "-a", "-d"], check=True)
+
 def git_repack_thin():
     # "-a" Repack existing packs into one
     # "-d" Prune redundant packs
     # "-l" Don't pack borrowed objects
-    res = subprocess.run(["git", "repack", "-a", "-d", "-l"],
-                         check=True)
+    res = subprocess.run(["git", "repack", "-a", "-d", "-l"], check=True)
 
 def load_alternates(file):
     try:
@@ -53,6 +57,10 @@ alt_file = f"{git_dir}/objects/info/alternates"
 if len(args.add) + len(args.remove) + args.clear > 1:
     exit("error: More than one action (add/remove) specified")
 
+if args.repack and (args.remove or args.clear):
+    print("Repacking repository as thick.")
+    git_repack_thick()
+
 if args.clear:
     print("Clearing alternates list.")
     save_alternates(alt_file, None)
@@ -80,7 +88,7 @@ if args.add:
         alt_paths.append(path)
     save_alternates(alt_file, alt_paths)
 
-if args.repack:
+if args.repack and (args.add):
     print("Repacking repository as thin.")
     git_repack_thin()
 

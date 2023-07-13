@@ -26,16 +26,16 @@ case $host in
 		do: oci session refresh ||
 		do: oci session authenticate --region eu-frankfurt-1 --profile-name DEFAULT &&
 		do: oci-console fra-ampere-1;;
-	cisco-top)
-		echo "${0##*/}: this will probably crash DuneGW"
-		#do: ssh -t dunegw "/system/serial-terminal usb2";;
-		do: ssh cons@dunegw;;
-	cisco-mid)
-		echo "Use Ctrl-] 'send brk' to send break."
-		telnet cisco-top.sym 2005;;
-	cisco-btm)
+	cisco-top|cisco-mid|cisco-btm)
+		case $host in
+			cisco-top) tty=ttyUSB0;;
+			cisco-mid) tty=ttyUSB1;;
+			cisco-btm) tty=ttyUSB2;;
+		esac
 		echo "Use C-a C-\\ to send break, C-a C-q to detach."
-		do: ssh -t dust "set -x; picocom -q /dev/ttyS0";;
+		do: ssh -t dust "set -x; picocom -q /dev/$tty";;
+		#echo "Use Ctrl-] 'send brk' to send break."
+		#telnet cisco-top.sym 2005;;
 	uk-gw|gw-core)
 		gw-core-console;;
 	uk-lnx1)

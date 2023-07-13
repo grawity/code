@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+import os
+import subprocess
+
+pwd = os.getcwd()
+
+# -L (USE) always tries to add /net/$CLIENT if it doesn't exist already, but
+# keeps /net/$OTHERHOST.
+L_flag = [
+    ("/",                   "/net/$CLIENT"),
+    ("/etc",                "/net/$CLIENT/etc"),
+    ("/net/$CLIENT",        "/net/$CLIENT"),
+    ("/net/$CLIENT/etc",    "/net/$CLIENT/etc"),
+    ("/net/$TARGET",        "/"),
+    ("/net/$TARGET/etc",    "/etc"),
+    ("/net/land",           "/net/land"),
+    ("/net/land/etc",       "/net/land/etc"),
+]
+
+# -N (KEEP) only removes /net/$TARGET, but otherwise preserves paths as is
+# (client maps to target, /net/$OTHER continues to use $OTHER).
+N_flag = [
+    ("/",                   "/"),
+    ("/etc",                "/etc"),
+    ("/net/$TARGET",        "/"),
+    ("/net/$TARGET/etc",    "/etc"),
+    ("/net/$CLIENT",        "/net/$CLIENT"),
+    ("/net/$CLIENT/etc",    "/net/$CLIENT/etc"),
+    ("/net/land",           "/net/land"),
+    ("/net/land/etc",       "/net/land/etc"),
+]
+
+# -R (STRIP) always tries to remove /net/* (regardless of which host), so that
+# the result represents the target. Relative paths stay as is (assumed to
+# already reflect the target).
+R_flag = [
+    # "." automatically sets -R, so it is only tested for -R
+    # (The default for other modes is $PWD, not ".")
+    (".",                   "."),
+    ("bin",                 "bin"),
+    ("/",                   "/"),
+    ("/etc",                "/etc"),
+    ("/net/$CLIENT",        "/"),
+    ("/net/$CLIENT/etc",    "/etc"),
+    ("/net/land",           "/"),
+    ("/net/land/etc",       "/etc"),
+]
+
+client_host = os.uname().nodename
+server_host = "wolke"
+
+all_tests = [
+    (["-L"], L_flag),
+    (["-N"], N_flag),
+    (["-R"], R_flag),
+]
+
+for flag, tests in all_tests:
+    print(f"Testing {flag}")
+    for local, expect in tests:
+        local = local.replace("$CLIENT", client_host)
+        local = local.replace("$TARGET", server_host)
+        expect = expect.replace("$CLIENT", client_host)
+        expect = expect.replace("$TARGET", server_host)
+        res = subprocess.run(["on", "-C", local, *flag, server_host, "pwd"],
+                             check=True,
+                             env={**os.environ, "TEST_ON": "1"},
+                             stdout=subprocess.PIPE)
+        result = res.stdout.decode().strip()
+
+        if expect == result:
+            print(f"ok\t{local!r} => \033[92m{result!r}\033[m")
+        elif expect == result.rstrip("/"):
+            print(f"ok?\t{local!r} => \033[92m{result!r}\033[m \033[2m(unwanted backslash)\033[m")
+        else:
+            print(f"BAD\t{local!r} => \033[91m{result!r}\033[m (want \033[1m{expect!r}\033[m)")

@@ -110,41 +110,65 @@ fi
 
 case $nfsmode in
 	USE)
-		# 'on' mode, add /net and try to access client filesystem via NFS
-		# (but if client is on an NFS mount, try to access that NFS mount)
+		# 'on <host>' mode (-L)
 		#
-		#	/etc			-> /net/clienthost/etc
-		#	/net/targethost/etc	-> /etc
-		#	/net/otherhost/etc	-> /net/otherhost/etc
+		# Always add /net/$CLIENT (unless already on /net/$OTHER)
+		# in order to stay wherever the client's working directory is.
+
 		if [[ $wd == /net/* ]]; then
 			# NFS mount - strip if it's for target, keep as-is otherwise
-			wd=${wd/#"/net/$host/"/"/"}
-		else
+			shopt -s extglob
+			wd=${wd%/}/
+			wd=/${wd#"/net/$host/"}
+			wd=${wd%/}
+			wd=/${wd##+(/)}
+			shopt -u extglob
+		elif [[ $wd == /* ]]; then
 			# Local path - convert to NFS mount
 			wd="/net/$HOSTNAME$wd"
+			wd=${wd%/}
 			if [[ ! -e /proc/fs/nfsd/versions ]]; then
 				die "NFS service not running on $HOSTNAME"
 			fi
+		else
+			# Semantics undecided
+			die "TODO: -L with relative paths"
 		fi
 		;;
 	KEEP)
-		# Partial '@' mode, access remote filesystem but preserve /net PWD
-		# (e.g. "cd /net/ember/home; @ ember foo" will use just /home).
+		# Partial-'@' mode (-N)
 		#
-		#	/etc			-> /etc
-		#	/net/targethost/etc	-> /etc
-		#	/net/otherhost/etc	-> /net/otherhost/etc
-		wd=${wd/#"/net/$host/"/"/"}
+		# Keep the path intact (local path maps to target; /net/$OTHER
+		# stays as-is). Only strip /net/$TARGET to make the path nicer
+		# without functional change.
+
+		if [[ $wd == /* ]]; then
+			shopt -s extglob
+			wd=${wd%/}/
+			wd=/${wd#"/net/$host/"}
+			wd=${wd%/}
+			wd=/${wd##+(/)}
+			shopt -u extglob
+		fi
 		;;
 	STRIP)
-		# Full '@' mode, always strip /net and access remote filesystem
-		# (even if the client is on an NFS mount to a third host)
+		# '@<host>' mode (-R), also '<host>' (-D)
 		#
-		#	/etc			-> /etc
-		#	/net/targethost/etc	-> /etc
-		#	/net/otherhost/ec	-> /etc
-		wd="/${wd#/net/*/}"
-		wd=${wd/#"//"/"/"}
+		# Always strip /net/* (including /net/$OTHER) and access the
+		# target host.
+		#
+		# Relative paths remain as-is and are assumed to already be
+		# valid on the target. (In particular, "." used by '<host>'
+		# aliases should continue to refer to the remote homedir.)
+
+		if [[ $wd == /* ]]; then
+			shopt -s extglob
+			wd=${wd%/}/
+			wd=/${wd#/net/*/}
+			wd=${wd%/}
+			wd=/${wd##+(/)}
+			shopt -u extglob
+		fi
 		;;
 	*)
 		lib:crash "bad nfsmode value"

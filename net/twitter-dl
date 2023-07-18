@@ -3,11 +3,11 @@ import argparse
 import sys
 from nullroute.core import Core
 from nullroute.scrape import Scraper
-from nullroute.sec import OAuthTokenCache
 from pprint import pprint
 import re
 import subprocess
-import tweepy
+import twitter.util
+import twitter.scraper
 
 def save_m3u_video(url, file_name):
     subprocess.run(["youtube-dl", url, "-o", file_name + ".%(ext)s"])
@@ -21,18 +21,19 @@ class TwitterMediaScraper(Scraper):
             return False
 
         Core.info("processing tweet %r", url)
-        status = self.api.get_status(id, tweet_mode="extended")
-        author = status.user.screen_name
 
-        if not hasattr(status, "extended_entities"):
-            if Core._in_debug_mode():
-                pprint(status._json)
-                #pprint(status.__dict__)
+        _res = self.api.tweets_by_id([id])
+        _res = _res[0]["data"]["tweetResult"]["result"]
+
+        status = _res["legacy"]
+        author = _res["core"]["user_results"]["result"]["legacy"]["screen_name"]
+
+        if "extended_entities" not in status:
             Core.warn("tweet %r (%r) does not have attached media", url,
-                                                                    status.full_text[:30])
+                                                                    status["full_text"][:30])
             return False
 
-        media = status.extended_entities["media"]
+        media = status["extended_entities"]["media"]
 
         for i, medium in enumerate(media):
             #Core.info("processing medium %r", medium["expanded_url"])
@@ -41,9 +42,9 @@ class TwitterMediaScraper(Scraper):
                 # 'animated_gif' has no m3u & only one variant (video/mp4 with bitrate=0)
                 video_id = medium["id_str"]
                 if len(media) > 1:
-                    file_name = "%s [%s_v%d]" % (author, status.id_str, i)
+                    file_name = "%s [%s_v%d]" % (author, status["id_str"], i)
                 else:
-                    file_name = "%s [%s]" % (author, status.id_str)
+                    file_name = "%s [%s]" % (author, status["id_str"])
                 if file_prefix:
                     file_name = "%s %s" % (file_prefix, file_name)
                 m3u_url = None
@@ -72,9 +73,9 @@ class TwitterMediaScraper(Scraper):
                 photo_url = medium["media_url_https"] + "?name=orig"
                 photo_id = medium["media_url_https"].split("/")[-1]
                 if len(media) > 1:
-                    file_name = "%s [%s_p%d] %s" % (author, status.id_str, i, photo_id)
+                    file_name = "%s [%s_p%d] %s" % (author, status["id_str"], i, photo_id)
                 else:
-                    file_name = "%s [%s] %s" % (author, status.id_str, photo_id)
+                    file_name = "%s [%s] %s" % (author, status["id_str"], photo_id)
                 if file_prefix:
                     file_name = "%s %s" % (file_prefix, file_name)
                 Core.info("- downloading %r to %r", photo_url, file_name)
@@ -87,37 +88,12 @@ class TwitterMediaScraper(Scraper):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix")
-parser.add_argument("--dump-token", action="store_true")
-parser.add_argument("--load-token", action="store_true")
 parser.add_argument("url", nargs="*")
 args = parser.parse_args()
 
-tc = OAuthTokenCache("api.twitter.com", display_name="Twitter API")
-
-if args.dump_token:
-    import json
-    print(json.dumps(tc.load_token()))
-    exit()
-elif args.load_token:
-    import json
-    tc.store_token(json.loads(sys.stdin.read()))
-    exit()
-
-creds = tc.load_token()
-if not creds:
-    creds = {
-        "consumer_key": input("consumer key?"),
-        "consumer_secret": input("consumer secret?"),
-        "token": input("auth token?"),
-        "secret": input("auth secret?"),
-    }
-    tc.store_token(creds)
-
-auth = tweepy.OAuthHandler(creds["consumer_key"],
-                           creds["consumer_secret"])
-auth.set_access_token(creds["token"],
-                      creds["secret"])
-api = tweepy.API(auth)
+api = twitter.scraper.Scraper(session=twitter.util.init_session(),
+                              save=False,
+                              pbar=False)
 
 s = TwitterMediaScraper()
 s.api = api

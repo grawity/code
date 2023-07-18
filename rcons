@@ -26,16 +26,15 @@ case $host in
 		do: oci session refresh ||
 		do: oci session authenticate --region eu-frankfurt-1 --profile-name DEFAULT &&
 		do: oci-console fra-ampere-1;;
-	cisco-top|cisco-mid|cisco-btm)
-		case $host in
-			cisco-top) tty=ttyUSB0;;
-			cisco-mid) tty=ttyUSB1;;
-			cisco-btm) tty=ttyUSB2;;
-		esac
-		echo "Use C-a C-\\ to send break, C-a C-q to detach."
-		do: ssh -t dust "set -x; picocom -q /dev/$tty";;
-		#echo "Use Ctrl-] 'send brk' to send break."
-		#telnet cisco-top.sym 2005;;
+	cisco-top)
+		echo "Use &# to break, &. to detach."
+		ssh -t alter "doas cu -E '&' -l /dev/ttyU0";;
+	cisco-mid)
+		echo "Use Ctrl-] 'send brk' to break."
+		telnet cisco-top 2005;;
+	cisco-btm)
+		echo "Use Ctrl-] 'send brk' to break."
+		telnet cisco-mid 2005;;
 	uk-gw|gw-core)
 		gw-core-console;;
 	uk-lnx1)

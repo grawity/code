@@ -76,6 +76,16 @@ def filename_with_ext(new_basename, old_name):
         ext = ""
     return new_basename + ext
 
+def filename_swap_ext(old_name, new_ext):
+    old = old_name.split(".")
+    if len(old) >= 3 and old[-2] == "tar":
+        base = ".".join(old[:-2])
+    elif len(old) >= 2:
+        base = ".".join(old[:-1])
+    else:
+        base = ".".join(old)
+    return base + new_ext
+
 def fmt_size_short(nbytes, decimals=1, si=False):
     prefixes = "kMGTPEZYH"
     div = 1000 if si else 1024

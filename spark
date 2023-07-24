@@ -65,7 +65,14 @@ class no_echo:
 class Sparkline:
     TICKS = "▁▂▃▄▅▆▇█"
 
-    COLORS = [
+    SIX_COLORS = [
+        (0, 0, 5), # blue
+        (0, 5, 0), # green
+        (5, 5, 0), # yellow
+        (5, 0, 0), # red
+    ]
+
+    RGB_COLORS = [
         (0x00, 0x00, 0xFF), # blue
         (0x00, 0xFF, 0x00), # green
         (0xFF, 0xFF, 0x00), # yellow
@@ -84,6 +91,13 @@ class Sparkline:
         self.last_tail = None
         self.last_date = None
 
+        if os.environ.get("SPARK_NO_RGB"):
+            self.truecolor = False
+            self.colors = self.SIX_COLORS
+        else:
+            self.truecolor = True
+            self.colors = self.RGB_COLORS
+
     def update_ttysize(self):
         self.ncols = os.get_terminal_size(sys.stderr.fileno()).columns
 
@@ -93,9 +107,12 @@ class Sparkline:
         t = normalize(val, self.low, self.high)
         t = (val - self.low) / (self.high - self.low)
         ti = math.floor(t * (len(self.TICKS)-1))
-        r, g, b = [round(x) for x in linear_gradient(self.COLORS, t, gamma=1.8)]
+        r, g, b = [round(x) for x in linear_gradient(self.colors, t, gamma=1.8)]
 
-        put(f"\033[38;2;{r};{g};{b}m")
+        if self.truecolor:
+            put(f"\033[38;2;{r};{g};{b}m")
+        else:
+            put(f"\033[38;5;{16 + r*36 + g*6 + b}m")
         put(self.TICKS[ti])
         put("\033[m")
         self.w += 1

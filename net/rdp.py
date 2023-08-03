@@ -121,6 +121,9 @@ parser.add_argument("--rfx",
 parser.add_argument("--dev",
                     action="store_true",
                     help="use local FreeRDP build if available")
+parser.add_argument("--sdl",
+                    action="store_true",
+                    help="use the SDL client")
 parser.add_argument("--no-wayland",
                     action="store_true",
                     help="disable Wayland even if available (use X11)")
@@ -136,7 +139,9 @@ username, password = get_credentials(fqdn)
 if args.dev:
     os.environ["PATH"] = os.path.expanduser("~/.local/pkg/FreeRDP/bin") + ":" + os.environ["PATH"]
 
-if os.environ.get("WAYLAND_DISPLAY") and not args.no_wayland:
+if args.sdl:
+    cmd = ["sdl-freerdp"]
+elif os.environ.get("WAYLAND_DISPLAY") and not args.no_wayland:
     cmd = ["wlfreerdp"]
 else:
     cmd = ["xfreerdp"]

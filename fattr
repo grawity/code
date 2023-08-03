@@ -27,15 +27,17 @@ hidden_attrs = {
     "user.wine.sd",
 }
 
-def show_attrs(file, *, all_ns=False):
+def show_attrs(file, *,
+               follow=False,
+               all_ns=False):
     print(f"\033[1m{file}\033[m")
-    keys = os.listxattr(file)
+    keys = os.listxattr(file, follow_symlinks=follow)
     if not args.all:
         keys = {k for k in keys if k.startswith("user.")}
         keys -= hidden_attrs
     #if not keys and not (args.all or args.empty):
     #    continue
-    attrs = {key: os.getxattr(file, key)
+    attrs = {key: os.getxattr(file, key, follow_symlinks=follow)
              for key in keys}
     if not attrs:
         print(f"  (No attributes.)")
@@ -44,9 +46,13 @@ def show_attrs(file, *, all_ns=False):
             key = key.removeprefix("user.")
         print(f"  {key} = {value}")
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--help", action="help",
+                    help="show this help message and exit")
 parser.add_argument("-a", "--all", action="store_true",
                     help="do not hide any attributes")
+parser.add_argument("-h", "--no-dereference", action="store_true",
+                    help="do not dereference symbolic links")
 parser.add_argument("-s", "--set", metavar="KEY=VALUE",
                     default=[], action="append",
                     help="set an attribute")
@@ -55,6 +61,7 @@ args = parser.parse_args()
 
 for path in args.path:
     show_attrs(path,
+               follow=not args.no_dereference,
                all_ns=args.all)
 
 '''

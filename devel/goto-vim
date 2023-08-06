@@ -1,8 +1,6 @@
 #!/usr/bin/env perl
 # goto-vim - open vim with a specific file and position taken from primary
 # selection.  Usually symlinked to 'vim' or even 'v'.
-use feature qw(switch);
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
@@ -130,79 +128,79 @@ sub shunescape {
 }
 
 sub parse {
-	for (shift) {
-		if (!defined) { _die("missing arguments"); }
+	my ($arg) = @_;
+	for ($arg) {
 		chomp;
 		s/^\s+//;
 		s/\s+$//;
-		when ($pythonre) {
+		if (/$pythonre/) {
 			_debug("pythonre: '$&' -> '$1' '$2'");
 			my ($file, $line) = ($1, $2);
 			return ($file, "+".$line);
 		}
-		when ($fileurlre) {
+		elsif (/$fileurlre/) {
 			_debug("fileurlre: '$&' -> '$1'");
 			my ($file) = (urldecode($1));
 			return ($file) if -e $file;
 		}
-		when ($urlre) {
+		elsif (/$urlre/) {
 			_debug("urlre: '$&'");
 			my ($url) = ($1);
 			return ($url);
 		}
-		when (-e $_) {
+		elsif (-e $_) {
 			_debug("exact path (-e): '$_'");
 			return ($_);
 		}
-		when ($vimre) {
+		elsif (/$vimre/) {
 			_debug("vimre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = (shunescape($1), $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			return ($file, $cmd) if -e $file;
 		}
-		#when ($hgspecre) {
+		#elsif (/$hgspecre/) {
 		#	_debug("hgspecre: '$&' -> '$1' '$2'");
 		#	my ($file, $cmd) = ($1, $2);
 		#	$cmd =~ s|^|+|;
 		#	return ($file, $cmd) if -e $file;
 		#}
-		when ($specre) {
+		elsif (/$specre/) {
 			_debug("specre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
-		when ($perlre) {
+		elsif (/$perlre/) {
 			_debug("perlre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
-		when ($diffpathre) {
+		elsif (/$diffpathre/) {
 			_debug("diffpathre: '$&'");
 			my ($file) = ($1);
 			return ($file);
 		}
-		when ($pathre) {
+		elsif (/$pathre/) {
 			_debug("pathre: '$&' -> '$1'");
 			my ($file) = ($1);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			return ($file) if -e $file;
 		}
-		when ($ctxspecre) {
+		elsif (/$ctxspecre/) {
 			_debug("ctxspecre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
 		}
-		when (/^(.+)$/m && -e $1) {
+		elsif (/^(.+)$/m && -e $1) {
 			_debug("-e: $1");
 			return ($1);
 		}
-		default {
+		else {
 			_debug("nothing matched, giving up");
 			return;
 		}

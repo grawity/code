@@ -2,16 +2,12 @@
 
 readonly arg0=${0##*/}
 
-verbose=0
+verbose=1
 
 dbg() { if (( verbose )); then say "$*"; fi; }
 say() { echo "$arg0: $*"; }
 err() { echo "$arg0: $*" >&2; return 1; }
 die() { echo "$arg0: $*" >&2; exit 1; }
-
-try_esp() {
-	mountpoint -q "$1" && [[ ! -L "$1" ]] && [[ -d "$1/EFI" ]] && [[ -d "$1/loader" ]]
-}
 
 getkey() {
 	local path=$1 key=$2
@@ -162,8 +158,17 @@ check_config() {
 declare ESP= os_release=
 unset ID NAME PRETTY_NAME MACHINE_ID BOOT_OPTIONS
 
-for f in /efi /boot/efi /boot; do
-	[[ $ESP ]] || { try_esp "$f" && ESP=$f; }
+for path in /efi /boot/efi /boot; do
+	if
+		mountpoint -q "$path" &&
+		[[ ! -L "$path" ]] &&
+		[[ -d "$path/EFI" ]] &&
+		[[ -d "$path/loader" ]]
+	then
+		dbg "found EFI System Partition at '$path'"
+		ESP=$path
+		break
+	fi
 done
 
 [[ $ESP ]] ||

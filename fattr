@@ -53,16 +53,23 @@ parser.add_argument("-a", "--all", action="store_true",
                     help="do not hide any attributes")
 parser.add_argument("-h", "--no-dereference", action="store_true",
                     help="do not dereference symbolic links")
+parser.add_argument("-r", "--recurse", action="store_true",
+                    help="descend into directories")
 parser.add_argument("-s", "--set", metavar="KEY=VALUE",
                     default=[], action="append",
                     help="set an attribute")
 parser.add_argument("path", nargs="+")
 args = parser.parse_args()
 
+sargs = dict(follow=not args.no_dereference,
+             all_ns=args.all)
+
 for path in args.path:
-    show_attrs(path,
-               follow=not args.no_dereference,
-               all_ns=args.all)
+    show_attrs(path, **sargs)
+    if os.path.isdir(path) and args.recurse:
+        for dirpath, dirnames, filenames in os.walk(path):
+            for name in dirnames + filenames:
+                show_attrs(os.path.join(dirpath, name), **sargs)
 
 '''
 files = []

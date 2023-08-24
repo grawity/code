@@ -23,6 +23,10 @@ def get_auth(machine):
     if r.returncode == 0:
         return r.stdout.decode().split("\t")
 
+class HTTPNoneAuth(requests.auth.AuthBase):
+    def __call__(self, r):
+        return r
+
 idrac6_template = """<?xml version="1.0" encoding="UTF-8"?>
 <jnlp codebase="{URLBASE}" spec="1.0+">
   <information>
@@ -226,7 +230,7 @@ class DracProber():
             # prevent `requests.get()` from finding credentials in ~/.netrc,
             # as iLO rejects requests with 404 if they have an auth header.
             resp = self.ua.get(self.base_url + "/html/jnlp_template.html",
-                               auth=lambda r: r)
+                               auth=HTTPNoneAuth())
             jnlp = resp.content
             jnlp = jnlp.replace(b"<script type=text/x-jqote-template id=jnlpTemplate><![CDATA[\n", b"")
             jnlp = jnlp.replace(b"\n]]></script>", b"")

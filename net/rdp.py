@@ -45,8 +45,6 @@ def resolve(host):
         if ai_fqdn:
             fqdn = ai_fqdn
         addrs.append(ai_addr[0])
-    if not fqdn:
-        fqdn, addrs = resolve_harder(host, prefixes)
     return fqdn, addrs
 
 def get_credentials_zenity(text):

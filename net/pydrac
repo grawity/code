@@ -222,12 +222,11 @@ class DracProber():
             sid = data["session_key"]
 
             logging.debug("Fetching JNLP template...")
-            # note: this may 404 if Requests decides to send "Authorization: Basic"
-            #       after finding the .netrc entry all on its own...
-            #       hence the "ipmi/" service prefix *and* the "bmc." subdomain
-            # note: see https://github.com/psf/requests/issues/2773#issuecomment-174312831
-            #       for a possible workaround
-            resp = self.ua.get(self.base_url + "/html/jnlp_template.html")
+            # We must explicitly set `auth=` to a no-op handler in order to
+            # prevent `requests.get()` from finding credentials in ~/.netrc,
+            # as iLO rejects requests with 404 if they have an auth header.
+            resp = self.ua.get(self.base_url + "/html/jnlp_template.html",
+                               auth=lambda r: r)
             jnlp = resp.content
             jnlp = jnlp.replace(b"<script type=text/x-jqote-template id=jnlpTemplate><![CDATA[\n", b"")
             jnlp = jnlp.replace(b"\n]]></script>", b"")

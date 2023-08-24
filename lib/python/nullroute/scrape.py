@@ -2,7 +2,7 @@ import email.message
 import email.utils
 import http.cookiejar
 from nullroute.core import Core, Env
-from nullroute.misc import set_file_attrs, set_file_mtime
+from nullroute.file import set_file_attrs, set_file_mtime
 from nullroute.ui.progressbar import ProgressBar
 import os
 import requests

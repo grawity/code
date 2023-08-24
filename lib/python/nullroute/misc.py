@@ -1,6 +1,3 @@
-from .file import *
-from .string import *
-
 def chunk(vec, size):
     for i in range(0, len(vec), size):
         yield vec[i:i+size]

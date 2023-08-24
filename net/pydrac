@@ -3,7 +3,6 @@
 import argparse
 import logging
 import lxml.etree
-import netrc
 import os
 from pprint import pprint
 import requests
@@ -11,6 +10,18 @@ import requests.packages.urllib3
 import subprocess
 import sys
 import tempfile
+
+def get_auth(machine):
+    # Unfortunately, netrc.py doesn't even support #comments.
+    #import netrc
+    #return netrc.netrc().authenticators(machine)
+
+    # Fall back to ~/bin/getnetrc.
+    import subprocess
+    r = subprocess.run(["getnetrc", "-ndf", "%u\t%a\t%p", machine],
+                       stdout=subprocess.PIPE)
+    if r.returncode == 0:
+        return r.stdout.decode().split("\t")
 
 idrac6_template = """<?xml version="1.0" encoding="UTF-8"?>
 <jnlp codebase="{URLBASE}" spec="1.0+">
@@ -288,8 +299,8 @@ host = args.host
 username = args.username
 password = args.password
 if not (username and password):
-    creds = netrc.netrc().authenticators(f"ipmi@{host}") or \
-            netrc.netrc().authenticators(f"ipmi/{host}")
+    creds = get_auth(f"ipmi@{host}") or \
+            get_auth(f"ipmi/{host}")
     if not creds:
         exit("error: Credentials for %r not found in ~/.netrc" % host)
     username, _, password = creds

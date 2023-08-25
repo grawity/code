@@ -2,6 +2,15 @@ def chunk(vec, size):
     for i in range(0, len(vec), size):
         yield vec[i:i+size]
 
+def addprefix(prefix, items):
+    """
+    >>> addprefix("foo", ["one", "two", "three"])
+    ['foo', 'one', 'foo', 'two', 'foo', 'three']
+    """
+    return (y
+            for x in items
+            for y in [prefix, x])
+
 def flatten_dict(d):
     for k, v in d.items():
         yield k

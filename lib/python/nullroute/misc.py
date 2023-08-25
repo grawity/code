@@ -2,9 +2,9 @@ def chunk(vec, size):
     for i in range(0, len(vec), size):
         yield vec[i:i+size]
 
-def addprefix(prefix, items):
+def zip_prefix(prefix, items):
     """
-    >>> addprefix("foo", ["one", "two", "three"])
+    >>> zip_prefix("foo", ["one", "two", "three"])
     ['foo', 'one', 'foo', 'two', 'foo', 'three']
     """
     return (y

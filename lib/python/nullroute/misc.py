@@ -12,9 +12,9 @@ def addprefix(prefix, items):
             for y in [prefix, x])
 
 def flatten_dict(d):
-    for k, v in d.items():
-        yield k
-        yield v
+    return (x
+            for kv in d.items()
+            for x in kv)
 
 def uniq(items):
     seen = set()

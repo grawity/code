@@ -4,21 +4,22 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-s] [-f]"
+	echo "Usage: $progname [-f] [-m]"
 	echo
-	echo_opt "-s"	"use plain SSH instead of Mosh"
 	echo_opt "-f"	"allow duplicate attach"
+	echo_opt "-m"	"use Mosh"
 }
 
 session=${XDG_SESSION_ID:-${DISPLAY:-${WAYLAND_DISPLAY:-none}}}
 lockfile=${XDG_RUNTIME_DIR?}/irc-$session.lock
 
-opt_mosh=1
+opt_mosh=0
 opt_force=0
 
-while getopts :fs OPT; do
+while getopts :fms OPT; do
 	case $OPT in
 	f) opt_force=1;;
+	m) opt_mosh=1;;
 	s) opt_mosh=0;;
 	*) lib:die_getopts;;
 	esac

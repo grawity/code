@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+# genclassless - Generate DHCP option 121 (classless static route)
+import argparse
+import ipaddress
+
+def n_octets(width):
+    assert 0 <= width <= 32
+    return int((width + 7) / 8) # equivalent to int(ceil(width / 8))
+
+parser = argparse.ArgumentParser()
+parser.add_argument("route", nargs="+",
+                    help="route as 'prefix/len@gateway'")
+args = parser.parse_args()
+
+routes = []
+has_default = False
+
+for arg in args.route:
+    network, _, gateway = arg.partition("@")
+    network = ipaddress.IPv4Network(network)
+    gateway = ipaddress.IPv4Address(gateway or "0.0.0.0")
+    if network.prefixlen == 0:
+        has_default = True
+    routes.append((network, gateway))
+
+if not has_default:
+    exit("error: Default route was not specified")
+
+routes.sort()
+buf = b""
+
+print("Routes:")
+for network, gateway in routes:
+    print(f"\t{network} via {gateway}")
+    buf += bytes([network.prefixlen])
+    buf += network.network_address.packed[:n_octets(network.prefixlen)]
+    buf += gateway.packed
+
+hex = buf.hex()
+
+print()
+print(f"Option code: 121")
+print(f"Option data: 0x{hex.upper()}")
+print()
+print(f"/ip/dhcp-server/option")
+print(f"add code=121 name=classless value=0x{hex.upper()}")

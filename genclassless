@@ -21,7 +21,9 @@ for arg in args.route:
     gateway = ipaddress.IPv4Address(gateway or "0.0.0.0")
     if network.prefixlen == 0:
         has_default = True
-    routes.append((network, gateway))
+    routes.append((network.network_address,
+                   network.prefixlen,
+                   gateway))
 
 if not has_default:
     exit("error: Default route was not specified")
@@ -30,10 +32,10 @@ routes.sort()
 buf = b""
 
 print("Routes:")
-for network, gateway in routes:
-    print(f"\t{network} via {gateway}")
-    buf += bytes([network.prefixlen])
-    buf += network.network_address.packed[:n_octets(network.prefixlen)]
+for network, prefixlen, gateway in routes:
+    print(f"\t{network}/{prefixlen} via {gateway}")
+    buf += bytes([prefixlen])
+    buf += network.packed[:n_octets(prefixlen)]
     buf += gateway.packed
 
 hex = buf.hex()

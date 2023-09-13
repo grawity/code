@@ -27,7 +27,11 @@ foreach arg $argv {
 			*  { set host $arg }
 		}
 	} else {
-		set command "$command $arg"
+		switch -glob $arg {
+			+* { set command "$command\n[string trim $arg "+"]" }
+			/* { set command "$command\n[string trim $arg "/"]" }
+			*  { set command "$command $arg" }
+		}
 	}
 }
 if {$backup} {
@@ -79,7 +83,9 @@ if {$config} {
 	expect $prompt { send "config terminal\r" }
 }
 if {$command != ""} {
-	expect $prompt { send "$command\r" }
+	foreach line [split $command "\n"] {
+		expect $prompt { send "$line\r" }
+	}
 	if {$cmdexit} {
 		expect $prompt { send "logout\r" }
 		exit

@@ -5,7 +5,6 @@
 # `asp log` tool.
 
 basedir="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
-
 if [[ ! -d $basedir ]]; then
 	mkdir -p "$basedir"
 fi
@@ -15,10 +14,14 @@ fi
 #	rm -rf "$basedir/cache"
 #fi
 
-pkg=${1#*/}
+pkg=$1
 
-# TODO: does not work with 'qemu' as it has no such pkgname, only pkgbase
-pkg=$(expac -S -1 %e "$pkg") || exit
+# Fix up tab-completion
+pkg=${pkg#*/}
+
+# Look up pkgbase if a binary package is specified
+pkg=$(expac -S -1 %e "$pkg" || echo "$pkg")
+echo "${0##*/}: using '$pkg' as source name"
 
 url="https://gitlab.archlinux.org/archlinux/packaging/packages/$pkg.git"
 

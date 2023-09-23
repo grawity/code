@@ -10,8 +10,13 @@ if [[ $file != /* ]]; then
 	file=$(readlink -m "$file")
 fi
 
+if [[ $package != */* ]]; then
+	# Ensure that expac finds the same package that pacman does
+	package=$(expac -S1 %r/%n "$package")
+fi
+
 url=$(pacman -Sddp "$package")
-pkg=$(expac -S %f "$package" | sed 1q)
+pkg=$(expac -S1 %f "$package")
 pkg=/var/cache/pacman/pkg/$pkg
 
 if [[ ! -s $pkg ]]; then

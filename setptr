@@ -17,12 +17,16 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
-def send_nsupdate(zone, cmds, *, debug=False, gssapi=True):
+def send_nsupdate(zone, cmds, *, gssapi=True,
+                                 show_input=False,
+                                 debug=False):
     cmds = [f"zone {zone}\n",
             *cmds,
             f"send\n"]
-    if debug:
-        print("\n\t" + "\t".join(cmds))
+
+    if show_input:
+        print("Commands:")
+        print("\t" + "\t".join(cmds), end="")
 
     nsupdate_args = ["nsupdate"]
     if debug:
@@ -41,7 +45,7 @@ parser.add_argument("-l", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
 parser.add_argument("-x", "--no-gss", action="store_true",
                     help="disable Kerberos (GSS-TSIG) authentication")
-parser.add_argument("-d", "--debug", action="store_true",
+parser.add_argument("-d", "--debug", action="count", default=0,
                     help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
                     help="show detailed information")
@@ -75,5 +79,6 @@ else:
     cmds = [f"del {rname} {args.ttl} PTR\n",
             f"add {rname} {args.ttl} PTR {target}\n"]
 
-send_nsupdate(zone, cmds, debug=args.debug,
-                          gssapi=not args.no_gss)
+send_nsupdate(zone, cmds, gssapi=not args.no_gss,
+                          show_input=(args.debug >= 1),
+                          debug=(args.debug >= 2))

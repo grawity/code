@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
+import argparse
 from collections import defaultdict
 import logging
 import os
 
-def tabdump():
+def parse_tabdump(iter):
     fields = None
-    for line in os.popen("sudo kdb5_util tabdump keyinfo", "r"):
+    for line in iter:
         values = line.rstrip("\n").split("\t")
         if not fields:
             fields = values
@@ -15,16 +16,27 @@ def tabdump():
 def join(items):
     return ", ".join(sorted(items))
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--input", metavar="FILE",
+                    help="load 'kdb5_util tabdump keyinfo' output from a file")
+args = parser.parse_args()
+
 logging.basicConfig(level=logging.DEBUG,
                     format="%(levelname)s: %(message)s")
 
 by_princ = defaultdict(set)
 
-for x in tabdump():
-    name = x["name"]
-    kvno = int(x["kvno"])
-    etype = x["enctype"]
-    by_princ[name].add(etype)
+if args.input:
+    fh = open(args.input, "r")
+else:
+    fh = os.popen("sudo kdb5_util tabdump keyinfo", "r")
+
+with fh:
+    for x in parse_tabdump(fh):
+        name = x["name"]
+        kvno = int(x["kvno"])
+        etype = x["enctype"]
+        by_princ[name].add(etype)
 
 GOOD_TYPES = {
     "aes256-cts-hmac-sha1-96",

@@ -10,9 +10,10 @@ PATH="$HOME/bin:$HOME/code/bin:$PATH"
 progname_prefix=0
 
 usage() {
-	echo "Usage: $progname [-f] [-r [-k URI]]"
+	echo "Usage: $progname [-f] [-q] [-r [-k URI]]"
 	echo ""
 	echo_opt "-f" "proceed if opt-out or username mismatch was found"
+	echo_opt "-q" "quietly exit if update is not to be done"
 	echo ""
 	echo_opt "-r" "import the signing key from keyserver"
 	echo_opt "-k URL" "use another keyserver"
@@ -86,14 +87,16 @@ readonly signer_fpr="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 filter_test=0
 force=0
 import_key=0
+stayquiet=0
 keyserver="hkps://keyserver.ubuntu.com"
 
-while getopts ":Ffk:r" OPT; do
+while getopts ":Ffk:rq" OPT; do
 	case $OPT in
 	F) filter_test=1;;
 	f) force=1;;
 	k) keyserver=$OPTARG;;
 	r) import_key=1;;
+	q) stayquiet=1;;
 	*) lib:die_getopts;;
 	esac
 done
@@ -113,8 +116,10 @@ fi
 if [[ -e ~/.ssh/authorized_keys.optout ]]; then
 	if (( force )); then
 		warn "found opt-out marker, but proceeding anyway"
-	else
+	elif (( !stayquiet )); then
 		die "found opt-out marker"
+	else
+		exit 0
 	fi
 fi
 
@@ -124,8 +129,10 @@ if [[ $LOGNAME != grawity ]]; then
 	elif (( force )); then
 		echo "Overridden by $LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
 		warn "username does not match 'grawity', proceeding anyway"
-	else
+	elif (( !stayquiet )); then
 		die "username does not match 'grawity'"
+	else
+		exit 0
 	fi
 fi
 
@@ -150,8 +157,18 @@ if (( import_key )); then
 	else
 		die "only ultimately trusted keys are accepted"
 	fi
+elif ! [[ -d ~/.gnupg ]]; then
+	if (( !stayquiet )); then
+		die "GnuPG data directory is missing"
+	else
+		exit 0
+	fi
 elif ! $GPG --list-keys "$signer_fpr" > /dev/null; then
-	die "key $signer_fpr not found in keyring"
+	if (( !stayquiet )); then
+		die "Public key $signer_fpr not found in keyring"
+	else
+		exit 0
+	fi
 fi
 
 # download new pubkeys

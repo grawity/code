@@ -30,39 +30,6 @@ on_main() {
 	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/main ]
 }
 
-fix_dotforward() {
-	local from
-	local fwd
-	local sendmail
-
-	if [ ! -f ~/.forward ]; then
-		return
-	elif [ -k ~/.forward ]; then
-		return
-	elif [ -L ~/.forward ]; then
-		return
-	fi
-
-	fwd=$(cat ~/.forward)
-	case $fwd in grawity@*)
-		echo "Adjusting ~/.forward to use sendmail"
-		echo "Old forward: '$fwd'"
-		if [ -x /usr/sbin/sendmail ]; then
-			sendmail=/usr/sbin/sendmail
-		elif [ -x /usr/lib/sendmail ]; then
-			sendmail=/usr/lib/sendmail
-		else
-			echo "No sendmail, fix $(hostname):$HOME/.forward manually!"
-		fi
-		# TODO: Figure out whether we *actually* need -f or not.
-		# from="$(whoami)@$(bin/fqdn || hostname -f)"
-		# fwd="\"|$sendmail -oi -f $from $fwd\""
-		fwd="\"|$sendmail -i $fwd\""
-		echo "$fwd" > ~/.forward
-		echo "New forward: '$fwd'"
-	esac
-}
-
 if [ ! "$xyzzy" ]; then
 	# Parent - update ourselves before trying to update .dotfiles
 	export PATH="$HOME/bin/bin:$HOME/bin:$PATH"
@@ -120,12 +87,6 @@ else
 		log "Running ~/.dotfiles/install"
 		~/.dotfiles/install -u
 	fi
-
-	# Adjust mail forward to re-submit the message as new, so that it will
-	# be delivered using the local site's Envelope-From and will pass SPF
-	# checks.
-	# TODO: This should be done in .dotfiles/install, probably
-	fix_dotforward
 
 	wait
 fi

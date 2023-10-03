@@ -1,29 +1,8 @@
 #!/usr/bin/env bash
-if [ "$DEBUG" ]; then set -x; fi
 set -e
 
-lastmsg=
-today=$(date +%d)
-
 log() {
-	lastmsg=$*
-	if [ -t 1 ]; then echo "dist/pull: $*"; fi
-}
-
-silent() {
-	local tmp=$(mktemp /tmp/pull.XXXXXX) rc=0
-	if "$@" >"$tmp" 2>&1; then
-		rc=0
-	else
-		rc=$?
-		echo "error: command '$1' returned $rc"
-		echo "# log: $lastmsg"
-		echo "# cwd: $PWD"
-		echo "# args: $*"
-		cat "$tmp"
-	fi >&2
-	rm -f "$tmp"
-	return $rc
+	echo "dist/pull: $*" >&2
 }
 
 on_main() {
@@ -36,7 +15,7 @@ if [ ! "$xyzzy" ]; then
 
 	# Guard against .dotfiles deploying bad git/config
 	if ! git var GIT_AUTHOR_IDENT >/dev/null; then
-		echo "Removed broken git configuration file"
+		log "Removed broken git configuration file"
 		if [ -e ~/.config/git/config ]; then
 			mv -f ~/.config/git/config ~/.config/git/config.bad
 		fi
@@ -48,16 +27,16 @@ if [ ! "$xyzzy" ]; then
 	cd ~/bin
 	if on_main; then
 		log "Updating ~/bin"
-		silent git pull --ff-only
+		git pull --ff-only
 	else
 		log "Skipping ~/bin (not on main branch)"
 	fi
 	xyzzy=42 exec ~/bin/dist/pull
 else
 	# Child - update dotfiles
-	if [ $today -eq 7 ]; then
+	if [ $(date +%d) -eq 7 ]; then
 		log "Compacting ~/bin"
-		(cd ~/bin && silent nice git gc) &
+		(cd ~/bin && git gc)
 	fi
 
 	if [ -d ~/.gnupg ] && [ ! -e ~/.ssh/authorized_keys.optout ]; then
@@ -69,8 +48,8 @@ else
 		(cd ~/.dotfiles
 		if on_main; then
 			log "Updating ~/.dotfiles"
-			silent git fetch origin
-			silent git merge --ff-only origin/main || {
+			git fetch origin
+			git merge --ff-only origin/main || {
 				git stash save "dist/pull on $(date)"
 				git checkout -f main
 				git reset --hard origin/main
@@ -79,9 +58,9 @@ else
 			log "Skipping ~/.dotfiles (not on main branch)"
 		fi)
 
-		if [ $today -eq 14 ]; then
+		if [ $(date +%d) -eq 14 ]; then
 			log "Compacting ~/.dotfiles"
-			(cd ~/.dotfiles && silent nice git gc) &
+			(cd ~/.dotfiles && nice git gc)
 		fi
 
 		log "Running ~/.dotfiles/install"

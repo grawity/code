@@ -79,6 +79,16 @@ def decode_dhcp_client_id(buf):
         print("  DUID:", fmt_hex(duid))
         print("  -- Decoding nested DUID --")
         decode_dhcpv6_duid(duid)
+    elif type == 0x01 and len(buf) == (1 + 16) and buf[1:5] == b'RAS ':
+        print("Type:", "Windows RRAS dial-in pool lease")
+        magic = br.read(4)
+        print("  Magic:", repr(magic))
+        mac = br.read(6)
+        print("  Server MAC:", fmt_hex(mac))
+        foo = br.read(2)
+        print("  Unknown field:", fmt_hex(foo))
+        rest = br.fh.read()
+        print("  RAS port number:", fmt_hex(rest))
     else:
         print("Type:", "link-layer address (%s) (%d)" % (type.name, type))
         mac = br.fh.read()

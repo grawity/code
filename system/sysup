@@ -7,24 +7,25 @@ tool=$(osguess package-mgr) || exit
 
 case $tool in
 	dpkg)
-		if test -x /usr/bin/apt; then
-			sudo: apt update
+		if [[ -x /usr/bin/apt ]]; then
+			sudo: apt update &&
 			sudo: apt full-upgrade -V "$@"
 		else
-			sudo: apt-get update
+			sudo: apt-get update &&
 			sudo: apt-get dist-upgrade -V "$@"
-		fi;;
+		fi
+		;;
 	pacman)
-		sudo: pacman -Syu "$@"
-
-		pkgs=$(pacman -Qqdt | grep ^haskell-)
-		if [[ $pkgs ]]; then
+		sudo: pacman -Syu "$@" &&
+		if pkgs=$(pacman -Qqdt | grep ^haskell-); then
 			sudo: pacman -Rns $pkgs
 		fi
 		;;
 	rpm)
-		sudo: yum update "$@";;
+		sudo: yum update "$@"
+		;;
 	*)
-		echo "$0: unknown distribution" >&2
-		exit 1;;
+		echo "${0##*/}: unknown distribution" >&2
+		exit 1
+		;;
 esac

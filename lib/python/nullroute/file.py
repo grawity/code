@@ -33,6 +33,14 @@ def walk(root):
     else:
         yield os.path.dirname(root), [], [os.path.basename(root)]
 
+def walk_files(dir=".", pattern="*"):
+    """
+    Recursively find files matching a pattern.
+    """
+    for rpath, rdirs, rfiles in os.walk(dir):
+        for rfile in fnmatch.filter(rfiles, pattern):
+            yield os.path.join(rpath, rfile)
+
 def set_file_mtime(path, timestamp):
     if hasattr(path, "fileno"):
         path = path.fileno()

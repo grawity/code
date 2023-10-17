@@ -34,6 +34,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-o", "--output", metavar="FIELDS",
                                       help="output columns")
 parser.add_argument("-f", "--full-path", action="store_true")
+parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
@@ -45,8 +46,13 @@ if not mtpts:
 mtpts = [arg.rstrip("/") or "/" for arg in mtpts]
 
 known_columns = ["NAME", "ID", "PARENT", "ABS_ID", "ABS_PARENT"]
-visible_columns = ["NAME"]
-hidden_columns = ["ID", "PARENT", "ABS_ID", "ABS_PARENT"]
+if args.verbose:
+    visible_columns = ["NAME", "ID", "PARENT"]
+    hidden_columns = ["ABS_ID", "ABS_PARENT"]
+else:
+    visible_columns = ["NAME"]
+    hidden_columns = ["ID", "PARENT", "ABS_ID", "ABS_PARENT"]
+
 if arg := args.output:
     if arg.startswith("+"):
         arg = arg[1:]

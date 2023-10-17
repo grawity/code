@@ -98,18 +98,17 @@ for i, mtpt in enumerate(mtpts):
         for mtpt, subvol_id in names:
             subvol_name = names[mtpt, subvol_id]
             parent_id = parents[mtpt, subvol_id]
-            if args.full_path >= 2:
-                name = os.path.join(mtpt, subvol_name or "")
+            if not parent_id:
+                assert not subvol_name
+                name = mtpt
+            elif args.full_path >= 2:
+                name = os.path.join(mtpt, subvol_name)
             elif args.full_path == 1:
-                name = subvol_name or mtpt
+                name = subvol_name
             else:
-                if parent_id:
-                    parent_name = names[mtpt, parent_id]
-                    name = os.path.relpath(os.path.join(mtpt, subvol_name),
-                                           os.path.join(mtpt, parent_name))
-                else:
-                    assert not subvol_name
-                    name = mtpt
+                parent_name = names[mtpt, parent_id]
+                name = os.path.relpath(os.path.join(mtpt, subvol_name),
+                                       os.path.join(mtpt, parent_name))
             line = [
                 name,
                 subvol_id,

@@ -2,6 +2,7 @@
 import argparse
 import glob
 import json
+import os
 import re
 import subprocess
 import sys
@@ -32,6 +33,7 @@ def enum_subvolumes(root):
 parser = argparse.ArgumentParser()
 parser.add_argument("-o", "--output", metavar="FIELDS",
                                       help="output columns")
+parser.add_argument("-f", "--full-path", action="store_true")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
@@ -88,8 +90,13 @@ for i, mtpt in enumerate(mtpts):
 
     with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
         for mtpt, subvol_id in names:
+            if args.full_path:
+                name = os.path.join(mtpt,
+                                    names[mtpt, subvol_id] or "")
+            else:
+                name = names[mtpt, subvol_id] or mtpt
             line = [
-                names[mtpt, subvol_id] or mtpt,
+                name,
                 subvol_id,
                 parents[mtpt, subvol_id],
                 "%s@%s" % (mtpt, subvol_id),

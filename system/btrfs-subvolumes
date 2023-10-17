@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 import argparse
 import glob
+import json
 import re
 import subprocess
 import sys
 import pprint
+
+def enum_filesystems():
+    cmd = ["findmnt", "-J", "-l", "-t", "btrfs"]
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+        data = json.load(proc.stdout)
+        for row in data["filesystems"]:
+            if "subvol=/" in row["options"].split(","):
+                yield row["target"]
 
 def enum_subvolumes(root):
     cmd = ["sudo", "btrfs", "subvolume", "list", "-a", root]
@@ -30,7 +39,7 @@ mtpts = args.path
 if not mtpts:
     mtpts = glob.glob("/run/btrfs/*/")
 if not mtpts:
-    mtpts = ["/"]
+    mtpts = enum_filesystems()
 mtpts = [arg.rstrip("/") or "/" for arg in mtpts]
 
 known_columns = ["NAME", "ID", "PARENT", "ABS_ID", "ABS_PARENT"]

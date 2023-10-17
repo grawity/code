@@ -96,25 +96,26 @@ for i, mtpt in enumerate(mtpts):
 
     with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
         for mtpt, subvol_id in names:
+            subvol_name = names[mtpt, subvol_id]
+            parent_id = parents[mtpt, subvol_id]
             if args.full_path >= 2:
-                name = os.path.join(mtpt, names[mtpt, subvol_id] or "")
+                name = os.path.join(mtpt, subvol_name or "")
             elif args.full_path == 1:
-                name = names[mtpt, subvol_id] or mtpt
+                name = subvol_name or mtpt
             else:
-                parent_id = parents[mtpt, subvol_id]
                 if parent_id:
-                    name = os.path.join(mtpt, names[mtpt, subvol_id])
-                    parent = os.path.join(mtpt, names[mtpt, parent_id])
-                    name = os.path.relpath(name, parent)
+                    parent_name = names[mtpt, parent_id]
+                    name = os.path.relpath(os.path.join(mtpt, subvol_name),
+                                           os.path.join(mtpt, parent_name))
                 else:
-                    # names[mtpt, subvol_id] will be empty in this case
+                    assert not subvol_name
                     name = mtpt
             line = [
                 name,
                 subvol_id,
-                parents[mtpt, subvol_id],
+                parent_id,
                 "%s@%s" % (mtpt, subvol_id),
-                "%s@%s" % (mtpt, parents[mtpt, subvol_id]),
+                "%s@%s" % (mtpt, parent_id),
             ]
             line = "\t".join(map(str, line)) + "\n"
             line = line.encode()

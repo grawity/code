@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# vireverse -- interactively edit reverse-DNS records
+import argparse
+import dns.name
+import dns.resolver
+import dns.reversename
+import dns.zone
+import ipaddress
+import logging
+import os
+import subprocess
+import tempfile
+
+def zones_for_prefix(net):
+    net = ipaddress.ip_network(net)
+    rev = net.reverse_pointer.split(".")
+    if net.version == 6:
+        full, bits = divmod(net.prefixlen, 4)
+        full += 2
+        if bits:
+            full += 1
+            start = int(rev[-full], 16)
+            count = 2 ** (4 - bits)
+            for i in range(count):
+                rev[-full] = "%x" % (start + i)
+                yield ".".join(rev[-full:])
+        else:
+            yield ".".join(rev[-full:])
+    else:
+        full, bits = divmod(net.prefixlen, 8)
+        full += 2
+        if bits:
+            raise NotImplementedError(f"{rev} has {bits=}")
+        else:
+            if net.prefixlen == 32:
+                rev[0] = "0"
+            yield ".".join(rev[-full:])
+
+def ptr_for_address(addr):
+    assert isinstance(addr, (ipaddress.IPv4Address,
+                             ipaddress.IPv6Address))
+
+    return dns.reversename.from_address(str(addr))
+
+def address_for_ptr(domain):
+    assert isinstance(domain, dns.name.Name)
+
+    addr = dns.reversename.to_address(domain)
+    return ipaddress.ip_address(addr)
+
+def master_for_zone(zone):
+    ans = dns.resolver.resolve(zone, "SOA")
+    return ans.rrset[0].mname
+
+def axfr(zone, server):
+    proc = subprocess.run(["dig", f"@{server}", f"{zone}", "AXFR"],
+                          stdout=subprocess.PIPE,
+                          check=True)
+
+    return dns.zone.from_text(proc.stdout, zone,
+                              relativize=False)
+
+    # for addr in ...:
+    # qry = dns.query.xfr(addr, zone)
+    # dns.zone.from_xfr(qry)
+
+def run_visual(filename):
+    editor = os.environ.get("VISUAL") \
+          or os.environ.get("EDITOR") \
+          or "vi"
+    subprocess.run([editor, filename])
+
+def case_eq(a, b):
+    """
+    Compare two sets or rdatasets, paying attention to case changes (as
+    dns.name.Name normally compares case-insensitive).
+    """
+    assert isinstance(a, dns.rdataset.Rdataset)
+    name = dns.name.from_text(".")
+    if a == b:
+        #return a.to_text() == b.to_text()
+        a = {str(i.target) for i in a}
+        b = {str(i.target) for i in b}
+        return a == b
+    else:
+        return False
+
+def send_nsupdate(zone, cmds, *, gssapi=True,
+                                 show_input=False,
+                                 debug=False):
+    cmds = [f"zone {zone}\n",
+            *cmds,
+            f"send\n"]
+
+    if show_input:
+        print("Commands:")
+        print("\t" + "\t".join(cmds), end="")
+
+    nsupdate_args = ["nsupdate"]
+    if debug:
+        nsupdate_args += ["-d"]
+    if gssapi:
+        nsupdate_args += ["-g"]
+
+    subprocess.run(nsupdate_args,
+                   input="".join(cmds).encode(),
+                   check=True)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-l", "--ttl", type=int, default=3600,
+                    help="set the TTL for created records")
+parser.add_argument("-x", "--no-gss", action="store_true",
+                    help="disable Kerberos (GSS-TSIG) authentication")
+parser.add_argument("-d", "--debug", action="count", default=0,
+                    help="enable nsupdate debugging")
+parser.add_argument("-v", "--verbose", action="store_true",
+                    help="show detailed information")
+parser.add_argument("network",
+                    help="IP prefix to edit the zone for")
+args = parser.parse_args()
+
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
+
+arg = args.network
+if "/" in arg:
+    zones = zones_for_prefix(arg)
+    zones = [*zones]
+    if len(zones) > 1:
+        exit(f"error: Multiple zones for {arg}: {zones}")
+    zone = dns.name.from_text(zones[0])
+    logging.debug(f"Domain for {arg} is <{zone}>")
+else:
+    zone = dns.name.from_text(arg)
+
+apex = dns.resolver.zone_for_name(zone)
+if apex != zone:
+    logging.warning(f"Actual zone apex is <{apex}>")
+    zone = apex
+
+master = master_for_zone(zone)
+logging.debug(f"Master for zone <{zone}> is <{master}>")
+
+zone_data = axfr(zone, master)
+logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
+
+old_soa = zone_data[zone].get_rdataset(dns.rdataclass.IN,
+                                       dns.rdatatype.SOA)
+logging.debug(f"Old serial number {old_soa[0].serial}.")
+
+old = {}
+new = {}
+
+for name, node in zone_data.items():
+    rdset = node.get_rdataset(dns.rdataclass.IN,
+                              dns.rdatatype.PTR)
+    if not rdset:
+        continue
+    addr = address_for_ptr(name)
+    old[addr] = rdset
+    #old[addr] = set(rdset)
+
+with tempfile.NamedTemporaryFile("w", delete=False) as temp:
+    for addr in sorted(old):
+        for rdata in old[addr]:
+            print(f"{addr}\t\t{rdata.target}", file=temp.file)
+    edit_path = temp.name
+
+run_visual(edit_path)
+
+with open(edit_path, "r") as temp:
+    for line in temp:
+        line = line.rstrip()
+        if not line:
+            continue
+        addr, target = line.split()
+        addr = ipaddress.ip_address(addr)
+        target = dns.name.from_text(target)
+        rdata = dns.rdtypes.ANY.PTR.PTR(dns.rdataclass.IN,
+                                        dns.rdatatype.PTR,
+                                        target)
+        if addr not in new:
+            new[addr] = dns.rdataset.Rdataset(dns.rdataclass.IN,
+                                              dns.rdatatype.PTR)
+            #new[addr] = set()
+        new[addr].add(rdata)
+    os.unlink(edit_path)
+
+addrs_missing = {*old} - {*new}
+addrs_created = {*new} - {*old}
+addrs_updated = {addr
+                 for addr in {*old} & {*new}
+                 if not case_eq(old[addr], new[addr])}
+
+if not new:
+    exit(f"error: Zone became empty.")
+
+if len(addrs_missing) + len(addrs_created) + len(addrs_updated) == 0:
+    print("No changes were made.")
+    exit()
+
+# Safety check
+assert len(addrs_missing) < 20
+
+cmds = []
+cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
+
+for addr in addrs_missing | addrs_updated:
+    rname = ptr_for_address(addr)
+    cmds += [f"update del {rname} {args.ttl} PTR\n"]
+    print(f"Deleting: {addr}")
+
+for addr in addrs_created | addrs_updated:
+    rname = ptr_for_address(addr)
+    rdset = new[addr]
+    for rdata in rdset:
+        cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
+        print(f"Adding:   {addr} = {rdata.target}")
+
+send_nsupdate(zone, cmds, gssapi=not args.no_gss,
+                          show_input=(args.debug >= 1),
+                          debug=(args.debug >= 2))

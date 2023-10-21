@@ -8,24 +8,42 @@ def get_loads():
     return float(v[0]), float(v[1]), float(v[2])
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-a", "--1-min", dest="interval", action="store_const", const=0, default=0)
-parser.add_argument("-b", "--5-min", dest="interval", action="store_const", const=1, default=0)
-parser.add_argument("-c", "--15-min", dest="interval", action="store_const", const=2, default=0)
-parser.add_argument("--above", action="store_true")
-parser.add_argument("target", nargs="?", type=float, default=0.5)
+parser.add_argument("-a", "--1-min",
+                    dest="interval",
+                    action="store_const", const=0,
+                    help="use the 1-minute average (default)")
+parser.add_argument("-b", "--5-min",
+                    dest="interval",
+                    action="store_const", const=1,
+                    help="use the 5-minute average")
+parser.add_argument("-c", "--15-min",
+                    dest="interval",
+                    action="store_const", const=2,
+                    help="use the 15-minute average")
+parser.add_argument("-v", "--above",
+                    action="store_true",
+                    help="wait for load to rise above target (default: below)")
+parser.add_argument("target",
+                    nargs="?",
+                    type=float, default=0.5,
+                    help="threshold (default: 0.5)")
 args = parser.parse_args()
 
 target = float(args.target)
-interval = [1, 5, 15][args.interval]
-polltime = 10 * interval
+fieldnum = args.interval or 0
+minutes = [1, 5, 15][fieldnum]
+polltime = 10 * minutes
 
-print("waiting for %s-minute load to reach %.1f" % (interval, target))
+print("waiting for %s-minute load to reach %.1f" % (minutes, target))
 while True:
     load = get_loads()
     print("current load: %.1f / %.1f / %.1f" % load, end="\r", flush=True)
-    if args.above == True and load[args.interval] > target:
+    if args.above == True and load[fieldnum] > target:
         break
-    if args.above == False and load[args.interval] < target:
+    if args.above == False and load[fieldnum] < target:
         break
-    time.sleep(polltime)
+    try:
+        time.sleep(polltime)
+    except KeyboardInterrupt:
+        break
 print()

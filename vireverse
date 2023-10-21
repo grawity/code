@@ -12,7 +12,9 @@ import subprocess
 import tempfile
 
 def zones_for_prefix(net):
-    net = ipaddress.ip_network(net)
+    assert isinstance(net, (ipaddress.IPv4Network,
+                            ipaddress.IPv6Network))
+
     rev = net.reverse_pointer.split(".")
     if net.version == 6:
         full, bits = divmod(net.prefixlen, 4)
@@ -75,15 +77,11 @@ def case_eq(a, b):
     Compare two sets or rdatasets, paying attention to case changes (as
     dns.name.Name normally compares case-insensitive).
     """
-    assert isinstance(a, dns.rdataset.Rdataset)
-    name = dns.name.from_text(".")
+    assert isinstance(a, (set, dns.rdataset.Rdataset))
     if a == b:
-        #return a.to_text() == b.to_text()
-        a = {str(i.target) for i in a}
-        b = {str(i.target) for i in b}
-        return a == b
-    else:
-        return False
+        a = {*map(str, a)}
+        b = {*map(str, b)}
+    return a == b
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
                                  show_input=False,
@@ -124,13 +122,16 @@ logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
 
 arg = args.network
 if "/" in arg:
-    zones = zones_for_prefix(arg)
+    prefix = ipaddress.ip_network(arg)
+    zones = zones_for_prefix(prefix)
     zones = [*zones]
     if len(zones) > 1:
-        exit(f"error: Multiple zones for {arg}: {zones}")
+        exit(f"error: Multiple zones for {prefix}: {zones}")
     zone = dns.name.from_text(zones[0])
-    logging.debug(f"Domain for {arg} is <{zone}>")
+    logging.debug(f"Domain for {prefix} is <{zone}>")
 else:
+    # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
+    # so we can't just address_for_ptr() it to get the prefix back.
     zone = dns.name.from_text(arg)
 
 apex = dns.resolver.zone_for_name(zone)
@@ -175,6 +176,8 @@ with open(edit_path, "r") as temp:
             continue
         addr, target = line.split()
         addr = ipaddress.ip_address(addr)
+        # TODO: Check whether 'addr' is in 'prefix'. If not, output to stdout
+        # and skip the change.
         target = dns.name.from_text(target)
         rdata = dns.rdtypes.ANY.PTR.PTR(dns.rdataclass.IN,
                                         dns.rdatatype.PTR,

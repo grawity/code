@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# finger.sh -- a multi-backend Finger client
 
 . lib.bash || exit
 
@@ -9,7 +10,9 @@ usage() {
 	echo_opt "-l" "long output (/W request)"
 }
 
-filter() { perl -pe 's/\033/"^".chr(ord($&)+0100)/ge'; }
+filter() {
+	perl -pe 's/\033/"^".chr(ord($&)+0100)/ge'
+}
 
 set -o pipefail
 
@@ -76,9 +79,9 @@ fi
 debug "using client mode '$client'"
 
 if [[ $client == gateway ]]; then
-	http-get "http://nullroute.eu.org/finger/?q=$uquery@$host&raw=1"
+	http-get "http://nullroute.lt/finger/?q=$uquery@$host&raw=1"
 elif [[ $client == finger.py ]]; then
-	~/code/net/finger.py "$query@$host"
+	~/bin/net/finger.py "$query@$host"
 else
 	if have name2addr; then
 		debug "found name2addr resolver"

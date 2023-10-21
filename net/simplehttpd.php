@@ -1,15 +1,7 @@
 #!/usr/bin/php
 <?php
-# simplehttpd v1.7 - simple HTTP server
-#  * status: working
-#  * dependencies:
-#       "socket" extension
+# simplehttpd v1.7 -- simple HTTP server
 
-define("VERSION", "simplehttpd v1.7");
-
-$WARNING = "[;37;41;1;5m NOT TO BE USED IN PRODUCTION ENVIRONMENTS [m";
-
-# help message must be not wider than 80 characters                            #
 $HELP = <<<EOTFM
 Usage: simplehttpd [-46Lahv] -d docroot [-l address] -p port
 
@@ -21,10 +13,6 @@ Options:
   -L                           Bind to localhost (::1 or 127.0.0.1)
   -l address                   Bind to specified local address
   -p port                      Listen on specified port
-  -v                           Display version
-
-$WARNING
-
 EOTFM;
 
 # pass through PHP-enabled webservers
@@ -103,6 +91,11 @@ function send($fd, $data) {
 	return $total;
 }
 
+if (!function_exists("socket_create")) {
+	fwrite(STDERR, "Error: 'socket' PHP module not enabled\n");
+	exit(1);
+}
+
 ## Default configuration {{{
 $config = new stdClass();
 
@@ -118,7 +111,7 @@ $config->use_af = AF_INET;
 # }}}
 
 ## Command-line options {{{
-$options = getopt("64ad:hLl:p:v");
+$options = getopt("64ad:hLl:p:");
 
 if (isset($options["h"]) or $options === false) {
 	fwrite(STDERR, $HELP);
@@ -140,9 +133,6 @@ foreach ($options as $opt => $value) switch ($opt) {
 		$config->listen_addr = $value; break;
 	case "p":
 		$config->listen_port = intval($value); break;
-	case "v":
-		echo VERSION."\n";
-		exit();
 }
 
 if ($config->listen_port <= 0 || $config->listen_port > 0xFFFF) {

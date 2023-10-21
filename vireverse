@@ -208,12 +208,12 @@ cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
 for addr in addrs_missing | addrs_updated:
     rname = ptr_for_address(addr)
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
-    print(f"Deleting: {addr}")
+    for rdata in old[addr]:
+        print(f"Deleting: {addr} (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
     rname = ptr_for_address(addr)
-    rdset = new[addr]
-    for rdata in rdset:
+    for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} = {rdata.target}")
 

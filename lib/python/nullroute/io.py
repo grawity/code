@@ -180,17 +180,18 @@ class DnsPacketWriter(BinaryWriter):
 
     def write_domain(self, domain):
         labels = domain.encode().lower().strip(b".").split(b".") + [b""]
+        ret = 0
         for i, label in enumerate(labels):
             suffix = b".".join(labels[i:]).lower()
             if len(suffix) > 0:
                 if suffix in self._suffixes:
                     offset = self._suffixes[suffix]
-                    self.write_u16_be(0xC000 | offset)
-                    return
+                    ret += self.write_u16_be(0xC000 | offset)
+                    break
                 else:
                     self._suffixes[suffix] = self.tell()
-            self.write_u8(len(label))
-            self.write(label)
+            ret += self.write_u8(len(label))
+            ret += self.write(label)
         """
         name = dns.name.from_text(domain)
         for i, label in enumerate(name.labels):
@@ -199,10 +200,11 @@ class DnsPacketWriter(BinaryWriter):
             if not atroot:
                 try:
                     offset = self._suffixes[suffix]
-                    self.write_u16_be(0xC000 | offset)
-                    return
+                    ret += self.write_u16_be(0xC000 | offset)
+                    break
                 except KeyError:
                     self._suffixes[suffix] = self.tell()
-            self.write_u8(len(label))
-            self.write(label)
+            ret += self.write_u8(len(label))
+            ret += self.write(label)
         """
+        return ret

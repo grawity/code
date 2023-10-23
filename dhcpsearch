@@ -1,7 +1,36 @@
 #!/usr/bin/env python3
 # dhcpsearch - Generate DHCP option 119 (domain search list)
 import argparse
-from nullroute.io import DnsPacketWriter
+import io
+import struct
+
+class DnsPacketIO(io.BytesIO):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._suffixes = {}
+
+    def write_u8(self, value):
+        return self.write(struct.pack("B", value))
+
+    def write_u16_be(self, value):
+        return self.write(struct.pack(">H", value))
+
+    def write_domain(self, domain):
+        labels = domain.encode().lower().strip(b".").split(b".") + [b""]
+        ret = 0
+        for i, label in enumerate(labels):
+            suffix = b".".join(labels[i:]).lower()
+            if len(suffix) > 0:
+                # Note: Suffix lookup for compression must be case-insensitive.
+                if suffix in self._suffixes:
+                    offset = self._suffixes[suffix]
+                    ret += self.write_u16_be(0xC000 | offset)
+                    break
+                else:
+                    self._suffixes[suffix] = self.tell()
+            ret += self.write_u8(len(label))
+            ret += self.write(label)
+        return ret
 
 parser = argparse.ArgumentParser()
 parser.add_argument("domain", nargs="+",
@@ -9,12 +38,12 @@ parser.add_argument("domain", nargs="+",
 args = parser.parse_args()
 
 print("Domains:")
-pkt = DnsPacketWriter()
+pkt = DnsPacketIO()
 for domain in args.domain:
     print(f"\t{domain}")
     pkt.write_domain(domain)
 
-buf = pkt.fh.getvalue()
+buf = pkt.getvalue()
 hex = buf.hex()
 
 print()

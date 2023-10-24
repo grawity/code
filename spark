@@ -18,6 +18,7 @@ import argparse
 import datetime
 import math
 import os
+import signal
 import sys
 import termios
 
@@ -163,6 +164,10 @@ if args.low >= args.high:
 s = Sparkline(low=args.low,
               high=args.high,
               sep=(not args.no_sep))
+
+if hasattr(signal, "SIGWINCH"):
+    signal.signal(signal.SIGWINCH,
+                  lambda signum, stack: s.update_ttysize())
 
 try:
     with no_echo():

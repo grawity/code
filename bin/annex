@@ -301,12 +301,10 @@ case $cmd in
         ;;
     # overrides
     addurl)
-        if (( $# == 2 )) && [[ -f $1 || -L $1 ]]; then
-            set -- --file="$1" "$2"
-        elif (( $# == 1 )); then
-            set -- --file="$(urlencode.pl -dS "${1##*/}")" "$1"
-        fi
-        ;;&
+        for url; do
+            git annex addurl --file="$(urlencode.pl -dS "${url##*/}")" "$url"
+        done
+        ;;
     get)
         set -- "${@%@}"
         ;;&

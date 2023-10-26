@@ -301,13 +301,18 @@ case $cmd in
         ;;
     # overrides
     addurl)
-        for url; do
-            url=$(printf '%s\n' "$url" | sed -E '
+        args=()
+        for arg; do
+            arg=$(printf '%s\n' "$arg" | sed -E '
                 s,https://(sourceforge\.net/project)s/([^/]+)/files/,https://downloads.\1/\2/,
             ')
-            git annex addurl --file="$(urlencode.pl -dS "${url##*/}")" "$url"
+            args+=("$arg")
         done
-        ;;
+        set -- "${args[@]}"
+        if (( $# == 1 )); then
+            set -- --file="$(urlencode.pl -dS "${1##*/}")" "$1"
+        fi
+        ;;&
     get)
         set -- "${@%@}"
         ;;&

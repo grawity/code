@@ -286,7 +286,13 @@ case $cmd in
         [[ $regex && $regex != -* ]] || die "prune regex not specified"
         git annex find --in web "$@" \
             | git annex whereis --batch --fast --json \
-            | jq -r --arg cond "$regex" '. as {file: $file, key: $key} | (.whereis, .untrusted) | .[].urls[] | select(test($cond)) | "\($file) \(.)"' \
+            | jq -r --arg cond "$regex" '
+                . as {file: $file, key: $key}
+                | (.whereis, .untrusted)
+                | .[].urls[]
+                | select(test($cond))
+                | "\($file) \(.)"
+            ' \
             | git annex rmurl --batch
         ;;
     ci | commit)

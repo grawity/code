@@ -302,6 +302,9 @@ case $cmd in
     # overrides
     addurl)
         for url; do
+            url=$(printf '%s\n' "$url" | sed -E '
+                s,https://(sourceforge\.net/project)s/([^/]+)/files/,https://downloads.\1/\2/,
+            ')
             git annex addurl --file="$(urlencode.pl -dS "${url##*/}")" "$url"
         done
         ;;

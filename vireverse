@@ -11,6 +11,9 @@ import os
 import subprocess
 import tempfile
 
+def confirm(text):
+    return input(f"{text} ").startswith("y")
+
 def zones_for_prefix(net):
     assert isinstance(net, (ipaddress.IPv4Network,
                             ipaddress.IPv6Network))
@@ -201,6 +204,22 @@ if not new:
 if len(addrs_missing) + len(addrs_created) + len(addrs_updated) == 0:
     print("No changes were made.")
     exit()
+else:
+    fmt = lambda rs: ", ".join(sorted([str(r.target) for r in rs]))
+    if addrs_missing:
+        print("Deletions:")
+        for addr in addrs_missing:
+            print(f"\t{addr} (was {fmt(old[addr])})")
+    if addrs_created:
+        print("Additions:")
+        for addr in addrs_created:
+            print(f"\t{addr} = {fmt(new[addr])}")
+    if addrs_updated:
+        print("Changes:")
+        for addr in addrs_updated:
+            print(f"\t{addr} = {fmt(new[addr])} (was {fmt(old[addr])})")
+    if not confirm("Continue?"):
+        exit("Changes discarded.")
 
 # Safety check
 assert len(addrs_missing) < 20

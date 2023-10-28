@@ -120,19 +120,19 @@ args = parser.parse_args()
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
-arg = args.network
-if "/" in arg:
-    prefix = ipaddress.ip_network(arg)
+try:
+    prefix = ipaddress.ip_network(args.network)
+except ValueError:
+    # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
+    # so we can't just address_for_ptr() it to get the prefix back.
+    zone = dns.name.from_text(args.network)
+else:
     zones = zones_for_prefix(prefix)
     zones = [*zones]
     if len(zones) > 1:
         exit(f"error: Multiple zones for {prefix}: {zones}")
     zone = dns.name.from_text(zones[0])
     logging.debug(f"Domain for {prefix} is <{zone}>")
-else:
-    # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
-    # so we can't just address_for_ptr() it to get the prefix back.
-    zone = dns.name.from_text(arg)
 
 apex = dns.resolver.zone_for_name(zone)
 if apex != zone:

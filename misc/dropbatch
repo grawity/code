@@ -11,11 +11,13 @@ usage() {
 	echo_opt "-w"		"wait and show job output when it appears"
 }
 
+dolist=0
 usenfs=0
 wait=0
 
-while getopts :nw OPT; do
+while getopts :lnw OPT; do
 	case $OPT in
+	l) dolist=1;;
 	n) usenfs=1;;
 	w) wait=1;;
 	*) lib:die_getopts;;
@@ -25,12 +27,41 @@ done; shift $((OPTIND-1))
 host=${1%%.*}
 script=$2
 
-[[ $host ]] || die "Missing hostname parameter"
+if [[ ! $host ]] && (( !dolist || usenfs )); then
+	die "Missing hostname"
+fi
 
 if (( usenfs )); then
-	targetdir=/n/$host/Dropbox
+	targetdir=/n/${host?}/Dropbox
 else
 	targetdir=~/Dropbox
+fi
+
+if (( dolist )); then
+	targetdirs=("$targetdir")
+	if (( wait )); then
+		targetdirs+=("$targetdir"/.System/Batch)
+	fi
+	for targetdir in "${targetdirs[@]}"; do
+		for path in "$targetdir"/[a-z]*-[0-9]*.sh*; do
+			file=${path##*/}
+			if [[ $host && $file != "$host"-* ]]; then
+				continue
+			fi
+			if ! [[ $file =~ ^([a-z]+)-([0-9]+)\.sh(\.done|\.log)?$ ]]; then
+				continue
+			fi
+			jhost=${BASH_REMATCH[1]}
+			jtime=${BASH_REMATCH[2]}
+			jstatus=${BASH_REMATCH[3]}
+			jdate=$(date -d "@$jtime" +"%b %-d, %H:%M")
+			printf '%s\t%s\t%s\t%s\n' \
+				"$jtime" "$jdate" "$jhost" "$path"
+		done
+	done \
+	| sort -t $'\t' -k 1 -n \
+	| column -t -s $'\t' -N TIME,DATE,HOST,FILE -H TIME -O DATE,HOST,FILE
+	exit
 fi
 
 if (( wait )); then

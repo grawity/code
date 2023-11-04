@@ -5,11 +5,15 @@ schema=org.gnome.desktop.interface
 key=color-scheme
 value="'prefer-dark'"
 
+bdev=/sys/class/backlight/intel_backlight/brightness
+
 case $(gsettings get $schema $key) in
 	"$value")
+		sudo sh -c "echo 3043 > $bdev" &
 		gsettings reset $schema $key
 		text=disabled;;
 	*)
+		sudo sh -c "echo 743 > $bdev" &
 		gsettings set $schema $key "$value"
 		text=enabled;;
 esac

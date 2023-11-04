@@ -8,6 +8,7 @@ import dns.zone
 import ipaddress
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -122,6 +123,9 @@ args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
+
+if not shutil.which("nsupdate"):
+    exit("error: 'nsupdate' must be installed for dynamic updates")
 
 try:
     prefix = ipaddress.ip_network(args.network)

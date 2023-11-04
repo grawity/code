@@ -37,35 +37,29 @@ else
 	targetdir=~/Dropbox
 fi
 
+if (( wait )); then
+	targetdir=$targetdir/.System/Batch
+fi
+
 if (( dolist )); then
-	targetdirs=("$targetdir")
-	if (( wait )); then
-		targetdirs+=("$targetdir"/.System/Batch)
-	fi
-	for targetdir in "${targetdirs[@]}"; do
-		for path in "$targetdir"/[a-z]*-[0-9]*.sh*; do
-			file=${path##*/}
-			if [[ $host && $file != "$host"-* ]]; then
-				continue
-			fi
-			if ! [[ $file =~ ^([a-z]+)-([0-9]+)\.sh(\.done|\.log)?$ ]]; then
-				continue
-			fi
-			jhost=${BASH_REMATCH[1]}
-			jtime=${BASH_REMATCH[2]}
-			jstatus=${BASH_REMATCH[3]}
-			jdate=$(date -d "@$jtime" +"%b %-d, %H:%M")
-			printf '%s\t%s\t%s\t%s\n' \
-				"$jtime" "$jdate" "$jhost" "$path"
-		done
+	for path in "$targetdir"/[a-z]*-[0-9]*.sh*; do
+		file=${path##*/}
+		if [[ $host && $file != "$host"-* ]]; then
+			continue
+		fi
+		if ! [[ $file =~ ^([a-z]+)-([0-9]+)\.sh(\.done|\.log)?$ ]]; then
+			continue
+		fi
+		jhost=${BASH_REMATCH[1]}
+		jtime=${BASH_REMATCH[2]}
+		jstatus=${BASH_REMATCH[3]}
+		jdate=$(date -d "@$jtime" +"%b %-d, %H:%M")
+		printf '%s\t%s\t%s\t%s\n' \
+			"$jtime" "$jdate" "$jhost" "$path"
 	done \
 	| sort -t $'\t' -k 1 -n \
 	| column -t -s $'\t' -N TIME,DATE,HOST,FILE -H TIME -O DATE,HOST,FILE
 	exit
-fi
-
-if (( wait )); then
-	targetdir=$targetdir/.System/Batch
 fi
 
 if [[ ! $script || $script == "-" ]]; then

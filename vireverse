@@ -165,9 +165,13 @@ for name, node in zone_data.items():
     #old[addr] = set(rdset)
 
 with tempfile.NamedTemporaryFile("w", delete=False) as temp:
+    addr_width = max(len(str(addr)) for addr in old)
     for addr in sorted(old):
         for rdata in old[addr]:
-            print(f"{addr}\t\t{rdata.target}", file=temp.file)
+            pad = addr_width - len(str(addr))
+            pad = int(pad / 8)
+            tabs = "\t" * (pad + 2)
+            print(f"{addr}{tabs}{rdata.target}", file=temp.file)
     edit_path = temp.name
 
 run_visual(edit_path)

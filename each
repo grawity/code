@@ -62,28 +62,30 @@ fi
 # Find the {} placeholder
 lpos=0
 for (( i=0; i<${#cmd[@]}; i++ )); do
-	if [[ ${cmd[i]} == "{}" ]]; then
+	if [[ ${cmd[i]} == *"{}"* ]]; then
 		if (( lpos )); then
 			echo "each: only one '{}' is allowed" >&2
 			exit 2
 		fi
 		lpos=$i
+		larg=${cmd[lpos]}
 	fi
 done
 if (( !lpos )); then
 	# If no placeholder, append arg as the last item
 	lpos=${#cmd[@]}
+	larg="{}"
 fi
 
 # Run with args
 if [[ -t 0 ]]; then
 	for arg in "${args[@]}"; do
-		cmd[lpos]=$arg
+		cmd[lpos]=${larg//"{}"/"$arg"}
 		"${cmd[@]}"
 	done
 else
 	while IFS= read -r arg; do
-		cmd[lpos]=$arg
+		cmd[lpos]=${larg//"{}"/"$arg"}
 		"${cmd[@]}" </dev/tty
 	done
 fi

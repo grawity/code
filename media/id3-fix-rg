@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-# Apparently the ReplayGain ID3 fields are supposed in upper-case, even though Ex Falso has been writing them in lower-case the whole time. TODO: Check what foobar2k does?
+# Apparently the ReplayGain ID3 fields are supposed in upper-case, even though
+# Ex Falso has been writing them in lower-case the whole time. (And so has
+# foobar2000 at least up to 1.5.6 ...)
 #
 # https://github.com/quodlibet/quodlibet/issues/3228
 # https://wiki.hydrogenaud.io/index.php?title=ReplayGain_2.0_specification#ID3v2
@@ -8,8 +10,8 @@
 # (Note: Spec says that players *should* accept alternate capitalization, as
 # well as other formatting quirks.)
 
+import argparse
 import mutagen.mp3
-import sys
 
 replaygain_keys = [
     "REPLAYGAIN_TRACK_GAIN",
@@ -18,15 +20,15 @@ replaygain_keys = [
     "REPLAYGAIN_ALBUM_PEAK",
 ]
 
-dry_run = False
+parser = argparse.ArgumentParser()
+parser.add_argument("-n", "--dry-run", action="store_true")
+parser.add_argument("file", nargs="+")
+args = parser.parse_args()
+
 n_good = 0
 n_bad = 0
 
-for path in sys.argv[1:]:
-    if path in {"-n", "--dry-run"}:
-        dry_run = True
-        continue
-
+for path in args.file:
     if not path.lower().endswith(".mp3"):
         print("ignoring", path, "(not an MP3 file)")
         continue
@@ -39,7 +41,7 @@ for path in sys.argv[1:]:
         old = "TXXX:%s" % k.lower()
         new = "TXXX:%s" % k.upper()
         if old in tag:
-            if dry_run:
+            if args.dry_run:
                 print("  found %r" % tag[old])
             elif new in tag:
                 print("  deleting %r (duplicate)" % tag[old])

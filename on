@@ -23,8 +23,8 @@
 
 usage() {
 	#cho "|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------"
-	echo "Usage: on <host> [-DKLNRSvx] [-C <path>] [<command>]"
-	echo "       @ <host> [-DKLNRSvx] [-C <path>] [<command>]"
+	echo "Usage: on <host> [-HKLNRSvx] [-C <path>] [<command>]"
+	echo "       @ <host> [-HKLNRSvx] [-C <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
@@ -38,7 +38,7 @@ usage() {
 	echo_opt "-R"		"always map current directory to target host (default for '@')"
 	echo
 	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
-	echo_opt "-D"		"access remote home directory (equal to '-C.')"
+	echo_opt "-H"		"access remote home directory (equal to '-C.')"
 	echo
 	echo_opt "-x"		"expand local paths in command to NFS paths"
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
@@ -47,7 +47,7 @@ usage() {
 	echo
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
-	echo_opt "<host>"	"like 'on -D <host>' or 'on -C. <host>'"
+	echo_opt "<host>"	"like 'on -H <host>' or 'on -C. <host>'"
 	echo_opt "@<host>"	"like 'on -R <host>' or '@ <host>'"
 }
 
@@ -79,12 +79,12 @@ elif [[ $arg0 != @('@'|'on') ]]; then
 	wd=""
 fi
 
-while getopts ":C:Dd:KLNRSvx" OPT; do
+while getopts ":C:d:HKLNRSvx" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=KEEP; wd=$OPTARG;;
-	D) nfsmode=KEEP; wd=".";;
 	d) nfsmode=KEEP; wd=$OPTARG;;
+	H) nfsmode=KEEP; wd=".";;
 	K) Kflag="-K -Snone";;
 	L) nfsmode=USE;;	# default 'on' behavior
 	N) nfsmode=KEEP;;

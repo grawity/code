@@ -140,12 +140,12 @@ fi
 # (it may be a new branch).
 if git rev-parse --verify "$ref@{1}" >/dev/null 2>&1; then
 	debug "Have a previous reflog entry. Will show new commits"
-	spec=("^$ref@{1}" "$ref")
+	parent="$ref@{1}"
 else
 	debug "No previous reflog entry; probably a new branch. Will show entire branch"
-	spec=("^HEAD" "$ref")
+	parent="HEAD"
 fi
 
 settitle "git new [${PWD/#"$HOME/"/"~/"}]"
 
-exec $cmd $opts "${spec[@]}" "${@:2}" -- $paths
+exec $cmd $opts "^$parent" "$ref" "${@:2}" -- $paths

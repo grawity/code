@@ -128,14 +128,24 @@ fi
 
 ref=$opt_ref
 
+# Verify that the ref exists -- faster than letting `tig` do it
 if [[ $ref != HEAD ]]; then
-	# explicit check is faster than letting tig do it
 	if ! git rev-parse --verify "$ref" >/dev/null 2>&1; then
 		echo "error: bad ref '$ref'" >&2
 		exit 1
 	fi
 fi
 
+# Verify that the reflog has at least two entries. If not, show the full branch
+# (it may be a new branch).
+if git rev-parse --verify "$ref@{1}" >/dev/null 2>&1; then
+	debug "Have a previous reflog entry. Will show new commits"
+	spec=("^$ref@{1}" "$ref")
+else
+	debug "No previous reflog entry; probably a new branch. Will show entire branch"
+	spec=("^HEAD" "$ref")
+fi
+
 settitle "git new [${PWD/#"$HOME/"/"~/"}]"
 
-exec $cmd $opts "^$ref@{1}" "$ref" "${@:2}" -- $paths
+exec $cmd $opts "${spec[@]}" "${@:2}" -- $paths

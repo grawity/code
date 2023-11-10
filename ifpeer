@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+# ifpeer -- show the peer IP address of a point-to-point link
+import argparse
+import ipaddress
+import json
+import pprint
+import subprocess
+import sys
+
+def warn(text):
+    print(f"ifpeer: {text}", file=sys.stderr)
+
+def get_ip_addrs(iface):
+    res = subprocess.run(["ip", "--json", "addr", "list", "dev", args.interface],
+                         stdout=subprocess.PIPE,
+                         check=True)
+    res = json.loads(res.stdout)
+    for ifdata in res:
+        for adata in ifdata["addr_info"]:
+            if adata["family"] == "inet":
+                addr = ipaddress.IPv4Interface("%(local)s/%(prefixlen)s" % adata)
+                peer = None
+                if adata.get("address"):
+                    peer = ipaddress.IPv4Interface("%(address)s/%(prefixlen)s" % adata)
+                yield (addr, peer)
+            elif adata["family"] == "inet6":
+                if adata["scope"] == "link":
+                    continue
+                addr = ipaddress.IPv6Interface("%(local)s/%(prefixlen)s" % adata)
+                peer = None
+                yield (addr, peer)
+            else:
+                continue
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-4", dest="ip4", action="store_true", help="show the IPv4 address")
+parser.add_argument("-6", dest="ip6", action="store_true", help="show the IPv6 address")
+parser.add_argument("-1", dest="one", action="store_true", help="show at most one result")
+parser.add_argument("interface", help="network interface to use")
+args = parser.parse_args()
+
+if args.ip4 + args.ip6 > 1:
+    exit(f"ifpeer: Contradictory options -4 and -6 given.")
+
+if "/" in args.interface:
+    # Convenience shortcut to output the peer of a /30 or /31
+    addrs = [(ipaddress.ip_interface(args.interface), None)]
+else:
+    addrs = [*get_ip_addrs(args.interface)]
+
+ip4 = [(a, p) for (a, p) in addrs if a.version == 4]
+ip6 = [(a, p) for (a, p) in addrs if a.version == 6]
+
+addrs = (ip4 if args.ip4 else
+         ip6 if args.ip6 else
+         ip4 + ip6)
+
+peers = []
+
+for addr, peer in addrs:
+    maxlen = addr.network.max_prefixlen
+    if peer:
+        # Bird treats this as a non-PtP interface despite presence of a peer address.
+        if peer.network.prefixlen < maxlen:
+            warn(f"Non-/{maxlen} peer address will confuse Bird: {peer}")
+        peers.append(peer.ip)
+    elif addr.network.prefixlen == maxlen:
+        warn(f"Missing peer address for /{maxlen} address: {addr}")
+    elif addr.network.prefixlen == maxlen - 1:
+        a, b = addr.network
+        peers.append(b if (addr.ip == a) else a)
+    elif addr.network.prefixlen == maxlen - 2:
+        _, a, b, _ = addr.network
+        # Warn about /126 three-address shenanigans and assume that 'a' is our peer
+        if addr.ip not in {a, b}:
+            warn(f"Ambiguous configuration: {addr} <--> [{addr.network}]")
+        peers.append(b if (addr.ip == a) else a)
+    else:
+        if addr.version == 4:
+            a = addr.network.network_address + 1
+            b = addr.network.broadcast_address - 1
+            warn(f"Not a point-to-point link: {addr} [{a} ~ {b}]")
+        else:
+            warn(f"Not a point-to-point link: {addr}")
+
+for peer in peers:
+    print(peer)
+    if args.one:
+        break
+
+if not peers:
+    exit(f"ifpeer: No point-to-point links found on interface '{args.interface}'")

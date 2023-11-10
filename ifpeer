@@ -75,13 +75,12 @@ for addr, peer in addrs:
         if addr.ip not in {a, b}:
             warn(f"Ambiguous configuration: {addr} <--> [{addr.network}]")
         peers.append(b if (addr.ip == a) else a)
+    elif addr.version == 4:
+        a = addr.network.network_address + 1
+        b = addr.network.broadcast_address - 1
+        warn(f"Not a point-to-point link: {addr} [{a} ~ {b}]")
     else:
-        if addr.version == 4:
-            a = addr.network.network_address + 1
-            b = addr.network.broadcast_address - 1
-            warn(f"Not a point-to-point link: {addr} [{a} ~ {b}]")
-        else:
-            warn(f"Not a point-to-point link: {addr}")
+        warn(f"Not a point-to-point link: {addr}")
 
 for peer in peers:
     print(peer)

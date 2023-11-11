@@ -69,11 +69,14 @@ def axfr(zone, server):
     # qry = dns.query.xfr(addr, zone)
     # dns.zone.from_xfr(qry)
 
-def run_visual(filename):
+def run_visual(filename, line=0):
     editor = os.environ.get("VISUAL") \
           or os.environ.get("EDITOR") \
           or "vi"
-    subprocess.run([editor, filename])
+    if line and os.path.basename(editor) in {"vi", "vim", "nvim"}:
+        subprocess.run([editor, filename, f"+{line}"])
+    else:
+        subprocess.run([editor, filename])
 
 def case_eq(a, b):
     """
@@ -128,6 +131,7 @@ try:
 except ValueError:
     # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
     # so we can't just address_for_ptr() it to get the prefix back.
+    prefix = None
     zone = dns.name.from_text(args.network)
 else:
     zones = zones_for_prefix(prefix)
@@ -164,17 +168,23 @@ for name, node in zone_data.items():
     old[addr] = rdset
     #old[addr] = set(rdset)
 
+pref_line = 0
+
 with tempfile.NamedTemporaryFile("w", delete=False) as temp:
     addr_width = max(len(str(addr)) for addr in old)
+    n_lines = 0
     for addr in sorted(old):
+        if prefix and addr in prefix and not pref_line:
+            pref_line = n_lines + 1
         for rdata in old[addr]:
             pad = addr_width - len(str(addr))
             pad = int(pad / 8)
             tabs = "\t" * (pad + 2)
             print(f"{addr}{tabs}{rdata.target}", file=temp.file)
+            n_lines += 1
     edit_path = temp.name
 
-run_visual(edit_path)
+run_visual(edit_path, pref_line)
 
 with open(edit_path, "r") as temp:
     for line in temp:

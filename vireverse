@@ -223,15 +223,15 @@ else:
     if addrs_missing:
         print("Deletions:")
         for addr in addrs_missing:
-            print(f"\t{addr} (was {fmt(old[addr])})")
+            print(f"\t{addr} -= (was {fmt(old[addr])})")
     if addrs_created:
         print("Additions:")
         for addr in addrs_created:
-            print(f"\t{addr} = {fmt(new[addr])}")
+            print(f"\t{addr} += {fmt(new[addr])}")
     if addrs_updated:
         print("Changes:")
         for addr in addrs_updated:
-            print(f"\t{addr} = {fmt(new[addr])} (was {fmt(old[addr])})")
+            print(f"\t{addr} := {fmt(new[addr])} (was {fmt(old[addr])})")
     if not confirm("Continue?"):
         exit("Changes discarded.")
 
@@ -245,13 +245,13 @@ for addr in addrs_missing | addrs_updated:
     rname = ptr_for_address(addr)
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
     for rdata in old[addr]:
-        print(f"Deleting: {addr} (was {rdata.target})")
+        print(f"Deleting: {addr} -= (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
     rname = ptr_for_address(addr)
     for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
-        print(f"Adding:   {addr} = {rdata.target}")
+        print(f"Adding:   {addr} += {rdata.target}")
 
 send_nsupdate(zone, cmds, gssapi=not args.no_gss,
                           show_input=(args.debug >= 1),

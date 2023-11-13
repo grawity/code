@@ -129,7 +129,7 @@ _check_nmk!() {
 }
 
 call() {
-	"$1" "${opts[@]}" "${@:2}"
+	do: "$1" "${opts[@]}" "${@:2}"
 }
 
 declare -A locations=()
@@ -197,12 +197,10 @@ cmd=$1
 case $cmd in
 	devices|dev)
 		mac=${2:-broadcast}; _check_mac! mac
-		info "querying device information at '$mac'"
 		call plctool -q -r $mac
 		;;
 	network|net|peers)
 		mac=${2:-local}; _check_mac! mac
-		info "querying network information at '$mac'"
 		if (( verbose >= 2 )); then
 			call plctool -m $mac
 		elif (( verbose >= 1 )); then
@@ -219,7 +217,6 @@ case $cmd in
 		;;
 	topology|topo)
 		mac=${2:-local}
-		info "querying network topology at '$mac'"
 		call plcstat -t $mac
 		;;
 	statistics|stat)
@@ -229,13 +226,11 @@ case $cmd in
 			clear='-C'
 			mac=${3:-local}
 		fi
-		info "querying link statistics at '$mac'"
 		call plcstat -s CSMA-ALL -d both $clear $mac
 		;;
 	show-local-pib|pib)
 		mac=${2:-local}
 		[[ $mac == local ]] || die "PIB query only supported for local device"
-		info "querying local device's PIB"
 		call plctool -I
 		;;
 	set-local-nmk)

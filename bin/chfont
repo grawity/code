@@ -48,12 +48,21 @@ term|terminal)
 		profile=${profile%"/"}
 		path="/org/gnome/terminal/legacy/profiles:/:$profile/"
 		do_gsettings "org.gnome.Terminal.Legacy.Profile:$path" 'font' "$font"
-		#do_dconf "/org/gnome/terminal/legacy/profiles:/:$profile/font" "$font"
 	done
 	;;
 builder)
 	require gtk
 	do_gsettings 'org.gnome.builder.editor' 'font-name' "$font"
+	;;
+kgx|gnome-console)
+	require gtk
+	do_gsettings 'org.gnome.Console' 'custom-font' "$font"
+	if [[ $font == "-" ]]; then
+		do_gsettings 'org.gnome.TextEditor' 'use-system-font' -
+	elif [[ $font ]]; then
+		do_gsettings 'org.gnome.TextEditor' 'use-system-font' false
+	fi
+	echo "Font scale: $(do_gsettings 'org.gnome.Console' 'font-scale')"
 	;;
 gte|gnome-text-editor)
 	require gtk

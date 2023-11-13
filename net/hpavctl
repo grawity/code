@@ -21,6 +21,42 @@ usage() {
 	done
 }
 
+pretty_nw_info() {
+	local hed tail
+	while read -r head tail; do
+		set -- $tail
+		local -A kv=()
+		case $head in
+		NID)
+			set -- NID "$@"
+			while (( $# )); do kv[$1]=$2; shift; shift; done
+			echo "Network ID: ${kv[NID]} (short: ${kv[SNID]})"
+			;;
+		CCO)
+			printf "\n"
+			printf "\e[1m* %s\e[m\n" "Central Coordinator:" ;;&
+		STA)
+			printf "\n"
+			printf "\e[1m* %s\e[m\n" "Station:" ;;&
+		CCO|STA)
+			while (( $# )); do kv[$1]=$2; shift; shift; done
+			local location=${locations[${kv[MAC]}]}
+			local model=${models[${kv[MAC]}]}
+			[[ ${kv[MAC]} ]] &&
+			printf "   MAC address: \e[38;5;10m%s\e[m \e[38;5;8m%s\e[m\n" "${kv[MAC]}" "$(_get_vendor ${kv[MAC]})"
+			[[ $location || $model ]]  &&
+			printf "   Description: \e[38;5;11m%s\e[m \e[36m(%s)\e[m\n" "$location" "$model"
+			[[ ${kv[TX]} ]] && tx=$[10#${kv[TX]}]
+			[[ ${kv[RX]} ]] && rx=$[10#${kv[RX]}]
+			[[ ${kv[TX]} && ${kv[RX]} ]] &&
+			printf "   Speed:       %s Mbps TX / %s Mbps RX\n" "$tx" "$rx"
+			[[ ${kv[BDA]} ]] &&
+			printf "   Bridged to:  %s \e[38;5;8m%s\e[m\n" "${kv[BDA]}" "$(_get_vendor ${kv[BDA]})"
+			;;
+		esac
+	done
+}
+
 valid_dak() {
 	[[ $1 == key[12] ]] ||
 	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){15}[0-9A-Fa-f]{2}$ ]]
@@ -170,39 +206,7 @@ case $cmd in
 		if (( verbose >= 2 )); then
 			call plctool -m $mac
 		elif (( verbose >= 1 )); then
-			call plcstat -m $mac |
-			while read -r head tail; do
-				set -- $tail
-				declare -A kv=()
-				case $head in
-				NID)
-					set -- NID "$@"
-					while (( $# )); do kv[$1]=$2; shift; shift; done
-					echo "Network ID: ${kv[NID]} (short: ${kv[SNID]})"
-					;;
-				CCO)
-					printf "\n"
-					printf "\e[1m* %s\e[m\n" "Central Coordinator:" ;;&
-				STA)
-					printf "\n"
-					printf "\e[1m* %s\e[m\n" "Station:" ;;&
-				CCO|STA)
-					while (( $# )); do kv[$1]=$2; shift; shift; done
-					location=${locations[${kv[MAC]}]}
-					model=${models[${kv[MAC]}]}
-					[[ ${kv[MAC]} ]] &&
-					printf "   MAC address: \e[38;5;10m%s\e[m \e[38;5;8m%s\e[m\n" "${kv[MAC]}" "$(_get_vendor ${kv[MAC]})"
-					[[ $location || $model ]]  &&
-					printf "   Description: \e[38;5;11m%s\e[m \e[36m(%s)\e[m\n" "$location" "$model"
-					[[ ${kv[TX]} ]] && tx=$[10#${kv[TX]}]
-					[[ ${kv[RX]} ]] && rx=$[10#${kv[RX]}]
-					[[ ${kv[TX]} && ${kv[RX]} ]] &&
-					printf "   Speed:       %s Mbps TX / %s Mbps RX\n" "$tx" "$rx"
-					[[ ${kv[BDA]} ]] &&
-					printf "   Bridged to:  %s \e[38;5;8m%s\e[m\n" "${kv[BDA]}" "$(_get_vendor ${kv[BDA]})"
-					;;
-				esac
-			done
+			call plcstat -m $mac | pretty_nw_info
 		elif [[ $mac == broadcast ]]; then
 			call plctool -q -r $mac |
 			while read -r _dev _mac _; do

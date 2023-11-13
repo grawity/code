@@ -197,27 +197,33 @@ cmd=$1
 case $cmd in
 	devices|dev)
 		mac=${2:-broadcast}; _check_mac! mac
-		call plctool -q -r $mac
+		# VS_NW_INFO + VS_SW_VER
+		call plcstat -t $mac
+		# VS_SW_VER, one device only
+		#call plctool -q -r $mac
 		;;
-	network|net|peers)
+	network|net|peers|topo|topology)
 		mac=${2:-local}; _check_mac! mac
-		if (( verbose >= 2 )); then
+		if (( verbose >= 3 )); then
+			# VS_NW_INFO + VS_SW_VER
+			call plcstat -t $mac
+		elif (( verbose >= 2 )); then
+			# VS_NW_INFO
 			call plctool -m $mac
 		elif (( verbose >= 1 )); then
-			call plcstat -m $mac | pretty_nw_info
+			# VS_NW_INFO
+			call plcstat -m $mac
 		elif [[ $mac == broadcast ]]; then
 			call plctool -q -r $mac |
 			while read -r _dev _mac _; do
 				echo "--- $_mac ---"
+				# VS_NW_INFO
 				call plcstat -m $_mac
 			done
 		else
-			call plcstat -m $mac
+			# VS_NW_INFO
+			call plcstat -m $mac | pretty_nw_info
 		fi
-		;;
-	topology|topo)
-		mac=${2:-local}
-		call plcstat -t $mac
 		;;
 	statistics|stat)
 		clear=''

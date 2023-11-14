@@ -83,8 +83,11 @@ case ${cmd:-help} in
 	desc|describe)
 		if (( $# < 1 )); then
 			die "Usage: $progname $cmd <repo> [<description>]"
+		elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
+			arg=. newdesc=$1
+		else
+			arg=$1 newdesc=$2
 		fi
-		arg=$1 newdesc=$2
 		if [[ $arg == "." ]]; then
 			url=$(git config remote.origin.url) || exit
 			arg=${url#"$urlprefix"}

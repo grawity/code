@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from dataclasses import dataclass
 import enum
 from functools import cache
 import json
@@ -131,7 +132,7 @@ class PersistentDict(dict):
         except Exception as e:
             Core.debug("cache save failed (%r)" % e)
 
-class Partition():
+class Partition:
     # These filesystems will be hidden from all views, as their 'capacity' is
     # either mostly (for tmpfs) or completely irrelevant.
     IGNORED_FSTYPES = {
@@ -139,8 +140,8 @@ class Partition():
         "ecryptfs", "efivarfs", "rootfs", "tmpfs",
     }
 
-    # Exceptions for IGNORED_FSTYPES -- e.g. /tmp is user-facing and should be
-    # shown in "all" view even if it's a tmpfs.
+    # Exceptions for IGNORED_FSTYPES; e.g. /tmp is user-facing and should be
+    # shown in "--all" even if tmpfs, although it remains hidden by default.
     IGNORED_FSTYPES_EXCEPTIONS = {
         "/run/user/%d" % os.getuid(),
         "/tmp",
@@ -263,6 +264,12 @@ class Enumerator():
         self.cache_fixed_maxage = 14*86400
         self.cache_media_maxage = 90*86400
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.cache.flush()
+
     @cache
     def _get_mounts(self):
         #return [*get_mounts_from_findmnt()]
@@ -310,6 +317,11 @@ class Enumerator():
                 yield part
 
     def enum_partitions_exact(self, paths):
+        """
+        Return only the containing mounts for the paths specified in CLI.
+
+        All 'skip' rules are ignored for explicitly given paths.
+        """
         for path in paths:
             mtpt = self._find_mtpt_upwards(path)
             yield Partition(mtpt, fstype=None)
@@ -333,9 +345,6 @@ class Enumerator():
             if data and (part.cached or part.can_cache()):
                 self._add_to_cache(part, data)
             return data
-
-    def close(self):
-        self.cache.flush()
 
 class Table():
     def __init__(self):
@@ -638,34 +647,33 @@ this_group = 0
 seen_mtpts = set()
 seen_devnos = set()
 
-en = Enumerator()
-if args.path:
-    partitions = en.enum_partitions_exact(args.path)
-else:
-    partitions = en.enum_partitions_system(show_cached=args.cached,
-                                           show_all=args.all)
-partitions = [*partitions]
-partitions.sort(key=lambda x: x.mtpt)
-partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
-for part in partitions:
-    if part.mtpt in seen_mtpts:
-        continue
-    if part.devno in seen_devnos:
-        continue
-    data = en.get_partition_data(part)
-    if not data:
-        continue
-    group = fs_kind_groups.get(part.kind)
-    Core.debug("got %r (priority %r, group %r)", part.mtpt,
-               fs_kind_priorities.get(part.kind, 0), group)
-    row = dump_mtpt(part, data, args.quota)
-    if row:
-        if this_group and group != this_group:
-            t.rows.append(None)
-        t.rows.append(row)
-        this_group = group
-        seen_mtpts.add(part.mtpt)
-        seen_devnos.add(part.devno)
-en.close()
+with Enumerator() as en:
+    if args.path:
+        partitions = en.enum_partitions_exact(args.path)
+    else:
+        partitions = en.enum_partitions_system(show_cached=args.cached,
+                                               show_all=args.all)
+    partitions = [*partitions]
+    partitions.sort(key=lambda x: x.mtpt)
+    partitions.sort(key=lambda x: fs_kind_priorities[x.kind], reverse=True)
+    for part in partitions:
+        if part.mtpt in seen_mtpts:
+            continue
+        if part.devno in seen_devnos:
+            continue
+        data = en.get_partition_data(part)
+        if not data:
+            continue
+        group = fs_kind_groups.get(part.kind)
+        Core.debug("got %r (priority %r, group %r)", part.mtpt,
+                   fs_kind_priorities.get(part.kind, 0), group)
+        row = dump_mtpt(part, data, args.quota)
+        if row:
+            if this_group and group != this_group:
+                t.rows.append(None)
+            t.rows.append(row)
+            this_group = group
+            seen_mtpts.add(part.mtpt)
+            seen_devnos.add(part.devno)
 
 t.print()

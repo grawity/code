@@ -53,7 +53,7 @@ fi
 
 quality=95
 scale=100
-force=0
+keeplarger=0
 background='#eeeeee'
 minorigsize=0
 keepmtime=1
@@ -73,7 +73,7 @@ while getopts ":B:d:fj:L:q:s:O:T" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	d) outdir=$OPTARG;;
-	f) force=1;;
+	f) keeplarger=1;;
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
 	L) minorigsize=$OPTARG;;
@@ -165,9 +165,9 @@ clear_progress
 trap - EXIT
 
 if [[ $outdir ]]; then
-	force=1
+	keeplarger=1
 fi
-if (( !force )); then
+if true; then
 	outsmaller=()
 	outlarger=()
 	for oname in "${outfiles[@]}"; do
@@ -181,10 +181,12 @@ if (( !force )); then
 			outsmaller+=("$oname")
 		fi
 	done
-	if (( ${#outlarger[@]} )); then
+	if (( ${#outlarger[@]} )) && (( !keeplarger )); then
+		warn "${#outlarger[@]} files were larger than originals; deleting."; ((++r))
 		rm -f "${outlarger[@]}"
-		warn "${#outlarger[@]} files were larger than originals; deleted."; ((++r))
 		outfiles=("${outsmaller[@]}")
+	elif (( ${#outlarger[@]} )); then
+		warn "${#outlarger[@]} files are larger than originals"
 	fi
 fi
 if (( ! ${#outfiles[@]} )); then

@@ -211,7 +211,14 @@ echo "Overall reduction: 100% -> $percentage%"
 #if (( ${#outfiles[@]} <= 15 )); then
 if true; then
 	i=0
+	n=${#outfiles[@]}
+	max=15
 	for oname in "${outfiles[@]}"; do
+		if (( i >= max-1 && n-i > 1 )); then
+			echo "... [$[n-i] more files, $n total]"
+			break
+		fi
+		let ++i
 		if [[ -e "$oname" ]]; then
 			osize=$(stat -c %s "$oname")
 			iname=${outmap["$oname"]}
@@ -223,7 +230,6 @@ if true; then
 				"$perc" \
 				"$iname"
 		fi
-		if (( i++ > 15 )); then break; fi
 	done
 fi
 

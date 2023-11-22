@@ -1,10 +1,26 @@
 #!/usr/bin/env bash
+# yesterday -- map a file path to latest snapshot
+#
+# Inspired by the Plan 9 'yesterday' command, and by AFS 'vos backup' (where
+# it's common practice to link the backup snapshots into home directories).
+#
+# https://9fans.github.io/plan9port/man/man1/yesterday.html
+# https://computing.help.inf.ed.ac.uk/yesterday
 
-path=${1:-.}
-base=$HOME
-rpath=$(realpath --relative-base="$base" "$path")
-if [[ $rpath == /* ]]; then
-	echo "error: path '$path' is not under '$base'" >&2
+if [[ -d $HOME/.old ]]; then
+	base=$HOME
+elif [[ -d /.old ]]; then
+	base=/
+else
+	echo "${0##*/}: No snapshots on $HOSTNAME" >&2
 	exit 1
 fi
-echo "$base/.old/latest/$rpath"
+
+for path; do
+	rpath=$(realpath --relative-base="$base" "$path")
+	if [[ $rpath == /* ]]; then
+		echo "${0##*/}: Path '$path' is not under '$base'" >&2
+		exit 1
+	fi
+	echo "${base%/}/.old/latest/$rpath"
+done

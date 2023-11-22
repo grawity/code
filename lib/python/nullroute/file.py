@@ -1,3 +1,4 @@
+import fnmatch
 import hashlib
 import os
 import time

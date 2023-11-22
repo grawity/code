@@ -38,7 +38,7 @@ def walk_files(dir=".", pattern="*"):
     """
     Recursively find files matching a pattern.
     """
-    for rpath, rdirs, rfiles in os.walk(dir):
+    for rpath, rdirs, rfiles in walk(dir):
         for rfile in fnmatch.filter(rfiles, pattern):
             yield os.path.join(rpath, rfile)
 

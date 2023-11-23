@@ -38,21 +38,21 @@ if [[ -t 0 ]]; then
 			ldash=$i
 		fi
 	done
-	if (( !ldash )); then
+	if (( ldash )); then
+		# Collect "cmd -- args"
+		for (( i=1; i<=$#; i++ )); do
+			if (( i < ldash )); then
+				cmd+=("${!i}")
+			elif (( i == ldash )); then
+				continue
+			else
+				args+=("${!i}")
+			fi
+		done
+	else
 		echo "each: args must be specified" >&2
 		exit 2
 	fi
-
-	# Collect "cmd -- args"
-	for (( i=1; i<=$#; i++ )); do
-		if (( i < ldash )); then
-			cmd+=("${!i}")
-		elif (( i == ldash )); then
-			continue
-		else
-			args+=("${!i}")
-		fi
-	done
 else
 	for arg; do
 		cmd+=("$arg")

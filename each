@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# each -- reverse xargs
+# each -- apply command to each argument individually
 #
-# Syntax not set in stone yet. Should probably be called 'map'.
-#
-# Usage 1:
-#
-#   - for x in one two three; do frob "$x"; done
-#   + each frob -- one two three
-#
-# Usage 2:
-#
-#   - find ./foo/ | xargs -I -d '\n' frob {}
-#   - find ./foo/ | xargs -i frob {}
-#   + find ./foo/ | each frob
+# Example:
+#   --- for x in one two three; do frob "$x"; done
+#   +++ each frob -- one two three
+
+. lib.bash || exit
 
 usage() {
-	echo "Usage: ${0##*/} <command> -- <args>"
+	echo "Usage: ${0##*/} <command> [<static args>] -- <loop args>"
+	echo
+	echo_opt "-n" "dry run; output shell commands to stdout"
+	echo
+	echo "The static arguments may include a {}, which will be replaced with the"
+	echo "current loop argument in each iteration."
 }
 
 Xecho() {
@@ -28,14 +26,12 @@ cmd=()
 dryrun=0
 flag=0
 
-case $1 in
-	--help)
-		usage; exit;;
-	-n|--dry-run)
-		dryrun=1; shift;;
-	--?*|-[!-]*)
-		echo "${0##*/}: unknown option '$1'" >&2; exit 2;;
-esac
+while getopts ":n" OPT; do
+	case $OPT in
+	n) dryrun=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 if [[ -t 0 ]]; then
 	# Find the *last* double-dash arg
@@ -79,8 +75,9 @@ for (( i=0; i<${#cmd[@]}; i++ )); do
 		larg=${cmd[lpos]}
 	fi
 done
+
+# If no placeholder, append arg as the last item
 if (( !lpos )); then
-	# If no placeholder, append arg as the last item
 	lpos=${#cmd[@]}
 	larg="{}"
 fi

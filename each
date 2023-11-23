@@ -19,16 +19,24 @@ usage() {
 	echo "       <input> | ${0##*/} <command>"
 }
 
-case $1 in
-	--help)
-		usage; exit;;
-	--?*|-[!-]*)
-		echo "${0##*/}: unknown option '$1'" >&2; exit 2;;
-esac
+Xecho() {
+	printf '%q ' "${@:1:$#-1}"
+	printf '%q\n' "${!#}"
+}
 
 args=()
 cmd=()
+dryrun=0
 flag=0
+
+case $1 in
+	--help)
+		usage; exit;;
+	-n|--dry-run)
+		dryrun=1; shift;;
+	--?*|-[!-]*)
+		echo "${0##*/}: unknown option '$1'" >&2; exit 2;;
+esac
 
 if [[ -t 0 ]]; then
 	# Find the *last* double-dash arg
@@ -49,6 +57,10 @@ else
 	for arg; do
 		cmd+=("$arg")
 	done
+fi
+
+if (( dryrun )); then
+	cmd=(Xecho "${cmd[@]}")
 fi
 
 # Find the {} placeholder

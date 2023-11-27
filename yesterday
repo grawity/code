@@ -7,20 +7,25 @@
 # https://9fans.github.io/plan9port/man/man1/yesterday.html
 # https://computing.help.inf.ed.ac.uk/yesterday
 
-if [[ -d $HOME/.old ]]; then
-	base=$HOME
-elif [[ -d /.old ]]; then
-	base=/
-else
-	echo "${0##*/}: No snapshots on $HOSTNAME" >&2
-	exit 1
+usage() {
+	echo "Usage: ${0##*/} <path>"
+}
+
+if (( ! $# )); then
+	usage
+	exit 2
 fi
 
 for path; do
-	rpath=$(realpath --relative-base="$base" "$path")
-	if [[ $rpath == /* ]]; then
-		echo "${0##*/}: Path '$path' is not under '$base'" >&2
+	apath=$(realpath "$path")
+	if [[ -d $HOME/.old && "$apath/" == "$HOME/"* ]]; then
+		base=$HOME
+	elif [[ -d /.old ]]; then
+		base=/
+	else
+		echo "${0##*/}: No snapshots on $HOSTNAME" >&2
 		exit 1
 	fi
-	echo "${base%/}/.old/latest/$rpath"
+	rpath=$(realpath --relative-base="$base" "$path")
+	realpath "${base%/}/.old/latest/$rpath"
 done

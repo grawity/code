@@ -12,8 +12,9 @@ usage() {
 	echo
 	echo_opt "-n" "dry run; output shell commands to stdout"
 	echo
-	echo "The static arguments may include a {}, which will be replaced with the"
-	echo "current loop argument in each iteration."
+	echo "The static arguments may include a {}, which will be replaced with the current"
+	echo "loop argument in each iteration; otherwise the argument will be appended to the"
+	echo "end of the command."
 }
 
 Xecho() {
@@ -42,13 +43,17 @@ if [[ -t 0 ]]; then
 		fi
 	done
 	if (( ldash )); then
+		# Split command args and loop args at the last double-dash
 		cmd=("${@:1:ldash-1}")
 		args=("${@:ldash+1}")
 	else
+		# For convenience, if no double-dash then assume that only
+		# the first word is the command, e.g. 'each unzip *.zip'.
 		cmd=("${@:1:1}")
 		args=("${@:2}")
 	fi
 else
+	# Will read loop args from stdin, like 'xargs -i'
 	cmd=("$@")
 fi
 
@@ -61,7 +66,6 @@ if (( dryrun )); then
 	cmd=(Xecho "${cmd[@]}")
 fi
 
-# Find the {} placeholder
 lpos=0
 for (( i=0; i<${#cmd[@]}; i++ )); do
 	if [[ ${cmd[i]} == *"{}"* ]]; then
@@ -74,13 +78,11 @@ for (( i=0; i<${#cmd[@]}; i++ )); do
 	fi
 done
 
-# If no placeholder, append arg as the last item
 if (( !lpos )); then
 	lpos=${#cmd[@]}
 	larg="{}"
 fi
 
-# Run with args
 if [[ -t 0 ]]; then
 	for arg in "${args[@]}"; do
 		cmd[lpos]=${larg//"{}"/"$arg"}

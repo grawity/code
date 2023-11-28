@@ -21,7 +21,7 @@ case ${cmd:-help} in
 		echo "  exp|export <repo>..."
 		echo "  unexp|unexport <repo>..."
 		echo "  mirror <repo> <upstream>"
-		ecoh "  unmirror <repo>"
+		echo "  unmirror <repo>"
 		echo "  web <repo>..."
 		echo "  cgit-flush"
 		;;
@@ -120,6 +120,8 @@ case ${cmd:-help} in
 		arg=${arg#"$urlprefix"}
 		arg=${arg%.git}.git
 		dir=$fsroot/$arg
+		# Set up parameters for the hourly re-fetch cronjob, which looks for
+		# repositories with a remote that have [Mirror] in their description.
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
 		ssh $host "git -C ${dir@Q} remote add --mirror=fetch origin ${upstream@Q}"
 		ssh $host "git -C ${dir@Q} fetch origin"
@@ -166,6 +168,8 @@ case ${cmd:-help} in
 			arg=${arg%.git}.git
 			dir=$fsroot/$arg
 			url=$urlprefix${arg%.git}
+			# Make world-readable and create the 'export-ok' flag
+			# that both Cgit and git-daemon look for.
 			if ! ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' does not exist"
 				continue
@@ -218,7 +222,7 @@ case ${cmd:-help} in
 			echo "$arg => $url"
 		done
 		;;
-	cgit-flush)
+	cgit-flush|flush-cgit)
 		if (( $# )); then
 			die "Extraneous arguments: '$*'"
 		fi

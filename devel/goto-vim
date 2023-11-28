@@ -183,18 +183,18 @@ sub parse {
 			my ($file) = ($1);
 			return ($file);
 		}
-		elsif (/$pathre/) {
-			_debug("pathre: '$&' -> '$1'");
-			my ($file) = ($1);
-			$file =~ s|^~/|$ENV{HOME}/|;
-			return ($file) if -e $file;
-		}
 		elsif (/$ctxspecre/) {
 			_debug("ctxspecre: '$&' -> '$1' '$2'");
 			my ($file, $cmd) = ($1, $2);
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
+		}
+		elsif (/$pathre/) {
+			_debug("pathre: '$&' -> '$1'");
+			my ($file) = ($1);
+			$file =~ s|^~/|$ENV{HOME}/|;
+			return ($file) if -e $file;
 		}
 		elsif (/^(.+)$/m && -e $1) {
 			_debug("-e: $1");

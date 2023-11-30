@@ -1,10 +1,51 @@
 #!/usr/bin/env bash
 . lib.bash || exit
-n="${prefix}${prefix+ - }%(title)s [%(id)s].%(ext)s"
+
+extraargs=()
+
+case ${0##*/} in
+	ytdl-mp4-1080p)
+		vh="[height<=1080]"
+		vf="[vcodec^=avc1.][ext=mp4]"
+		;;
+	ytdl-mp4-720p)
+		confirm "YouTube's 720p is now crap, use anyway?" || exec ytdl-mp4-1080p "$@"
+		vh="[height<=720]"
+		vf="[vcodec^=avc1.][ext=mp4]"
+		;;
+	ytdl-mp4)
+		vh=""
+		vf="[vcodec^=avc1.][ext=mp4]"
+		;;
+	ytdl-mp4)
+		vh=""
+		vf="[ext=mp4]"
+		extraargs+=(
+			--sub-format "ass/srt/best" \
+			--convert-subs "ass" \
+		)
+		;;
+esac
+
+if [[ $vh || $vf ]]; then
+	f="bestvideo${vh}${vf}+bestaudio[ext=m4a]/bestvideo${vh}+bestaudio"
+	extraargs+=(--format "$f")
+fi
+
+name="${prefix}${prefix+ - }%(title)s [%(id)s].%(ext)s"
+
+if [[ "$1" = -n ]]; then
+	shift
+	name="%(channel)s - $name"
+fi
+
 do: youtube-dl \
 	--console-title \
 	--add-metadata \
 	--embed-subs \
 	--sub-langs "all,-live_chat" \
-	--output "$n" \
+	--output "$name" \
+	--merge-output-format "mp4" \
+	--windows-filenames \
+	"${extraargs[@]}" \
 	"$@"

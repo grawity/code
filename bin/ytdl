@@ -1,7 +1,30 @@
 #!/usr/bin/env bash
+
 . lib.bash || exit
 
+addchannel=0
 extraargs=()
+
+# XXX: fail on errors, '|| exit' does not work here
+eval set -- "$(getopt -n ${0##*/} -o np: -l channel,prefix: -- "$@")"
+
+while (( $# )); do
+	arg=$1; shift
+	case $arg in
+	-n|--channel)
+		addchannel=1;;
+	-p|--prefix)
+		prefix=$1; shift;;
+	--)
+		break;;
+	*)
+		exit 2;;
+	esac
+done
+
+if (( ! $# )); then
+	die "no URLs specified"
+fi
 
 case ${0##*/} in
 	ytdl-mp4-1080p)
@@ -33,9 +56,7 @@ if [[ $vh || $vf ]]; then
 fi
 
 name="${prefix}${prefix+ - }%(title)s [%(id)s].%(ext)s"
-
-if [[ "$1" = -n ]]; then
-	shift
+if (( addchannel )); then
 	name="%(channel)s - $name"
 fi
 

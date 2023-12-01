@@ -70,13 +70,14 @@ cmd="if [ -e /etc/profile ]; then . /etc/profile; fi; \
      if [ -e ~/.profile ]; then . ~/.profile; fi; \
      (cd ${wd@Q} && ${cmd:-:}) 2>&1"
 
+trap 'wait' INT
 for host in $hosts; do
 	out=$(mktemp /tmp/rdo.XXXXXXXX) || exit
 	(
-		echo -n "$host:" > "$out"
-		{ ssh -n $user$host "$cmd" || echo "=> $?"; } |
-			awk '{print "\t"$0} END {if (!NR) print}' >> "$out"
-		flock /dev/stdout cat "$out"
+		{ ssh -n $user$host "$cmd" || echo "=> $?"; } > "$out"
+		flock 1
+		echo -n "$host:"
+		awk '{print "\t"$0} END {if (!NR) print}' < "$out"
 		rm -f "$out"
 	) &
 	if (( wait )); then wait; fi

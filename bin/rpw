@@ -9,6 +9,22 @@ _rpw() {
 	esac
 }
 
-pw=$(_rpw "$@")
+length=-20
+lcase=0
+
+for arg; do
+	case $arg in
+	-l)		lcase=1;;
+	-[0-9]*)	length=$arg;;
+	[0-9]*)		length=$arg;;
+	*)		echo "rpw: bad arg '$arg'" >&2; exit 2;;
+	esac
+done
+
+pw=$(_rpw "$length")
+
+if (( lcase )); then
+	pw=${pw,,}
+fi
 
 printf '%s\n' "$pw"

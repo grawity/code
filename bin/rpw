@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
 # rpw - generate a random password
 
-_rpw() {
-	tr -dc "A-Za-z0-9" < /dev/urandom | case $1 in
-		"") head -c 20 | sed -r "s/.{5}/-&/g; s/^-//";;
-		-*) head -c $((-$1)) | sed -r "s/.{5}/-&/g; s/^-//";;
-		*) head -c "$1";;
-	esac
-}
-
 length=-20
+dash=0
 lcase=0
 
 for arg; do
@@ -21,10 +14,19 @@ for arg; do
 	esac
 done
 
-pw=$(_rpw "$length")
+if (( length < 0 )); then
+	dash=1
+	length=$(( -length ))
+fi
+
+pw=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length")
 
 if (( lcase )); then
 	pw=${pw,,}
+fi
+
+if (( dash )); then
+	pw=$(printf '%s\n' "$pw" | sed -r "s/.{5}/-&/g; s/^-//")
 fi
 
 printf '%s\n' "$pw"

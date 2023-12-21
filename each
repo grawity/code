@@ -10,7 +10,8 @@
 usage() {
 	echo "Usage: ${0##*/} <command> [<static args> --] <loop args>"
 	echo
-	echo_opt "-n" "dry run; output shell commands to stdout"
+	echo_opt "-n" "dry run (output shell commands but don't run them)"
+	echo_opt "-v" "verbose (show commands before running)"
 	echo
 	echo "The static arguments may include a {}, which will be replaced with the current"
 	echo "loop argument in each iteration; otherwise the argument will be appended to the"
@@ -22,14 +23,20 @@ Xecho() {
 	printf '%q\n' "${!#}"
 }
 
+Xverb() {
+	Xecho "$@"; "$@"
+}
+
 args=()
 cmd=()
 dryrun=0
+verbose=0
 flag=0
 
-while getopts ":n" OPT; do
+while getopts ":nv" OPT; do
 	case $OPT in
 	n) dryrun=1;;
+	v) verbose=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -64,6 +71,8 @@ fi
 
 if (( dryrun )); then
 	cmd=(Xecho "${cmd[@]}")
+elif (( verbose )); then
+	cmd=(Xverb "${cmd[@]}")
 fi
 
 lpos=0

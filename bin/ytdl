@@ -3,6 +3,7 @@
 . lib.bash || exit
 
 addchannel=0
+fileext=""
 extraargs=()
 
 # XXX: fail on errors, '|| exit' does not work here
@@ -32,19 +33,23 @@ case ${0##*/} in
 	ytdl-mp4-1080p)
 		vh="[height<=1080]"
 		vf="[vcodec^=avc1.][ext=mp4]"
+		fileext="mp4"
 		;;
 	ytdl-mp4-720p)
 		confirm "YouTube's 720p is now crap, use anyway?" || exec ytdl-mp4-1080p "$@"
 		vh="[height<=720]"
 		vf="[vcodec^=avc1.][ext=mp4]"
+		fileext="mp4"
 		;;
 	ytdl-mp4)
 		vh=""
 		vf="[vcodec^=avc1.][ext=mp4]"
+		fileext="mp4"
 		;;
 	ytdl-mkv)
 		vh=""
 		vf="[ext=mp4]"
+		fileext="mkv"
 		extraargs+=(
 			--sub-format "ass/srt/best" \
 			--convert-subs "ass" \
@@ -55,6 +60,10 @@ esac
 if [[ $vh || $vf ]]; then
 	f="bestvideo${vh}${vf}+bestaudio[ext=m4a]/bestvideo${vh}+bestaudio"
 	extraargs+=(--format "$f")
+fi
+
+if [[ $fileext ]]; then
+	extraargs+=(--merge-output-format "$fileext")
 fi
 
 name="${prefix}${prefix+ - }%(title)s [%(id)s].%(ext)s"
@@ -68,7 +77,6 @@ do: youtube-dl \
 	--embed-subs \
 	--sub-langs "all,-live_chat" \
 	--output "$name" \
-	--merge-output-format "mp4" \
 	--windows-filenames \
 	"${extraargs[@]}" \
 	"$@"

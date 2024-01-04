@@ -310,12 +310,12 @@ def show_addr(addr):
     for k, v in misc:
         nprint(k, v)
 
-def show_net(net):
+def show_net(net, *, cisco=False):
     nprint("network", net)
     if net.version == 4:
         nprint("netmask", net.netmask, "(%d addresses)" % net.num_addresses)
-        #if cisco:
-        #    nprint("wildcard", ipv4_flip_netmask(net.netmask))
+        if cisco:
+            nprint("wildcard", ipv4_flip_netmask(net.netmask))
     if net.prefixlen < net.max_prefixlen:
         nprint("first addr", net.network_address.exploded)
         nprint("last addr", net.broadcast_address.exploded)
@@ -329,6 +329,8 @@ def show_net(net):
         nprint("next net", next_net)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--cisco", action="store_true",
+                    help="display Cisco IOS wildcard masks")
 parser.add_argument("arg", nargs="+")
 args = parser.parse_args()
 
@@ -348,18 +350,22 @@ for i, arg in enumerate(args.arg):
             if plen <= 32:
                 net = ip_network("0.0.0.0/%d" % plen)
                 nprint("v4 netmask", net.netmask, "(%d addresses)" % net.num_addresses)
+                if args.cisco:
+                    nprint("wildcard", ipv4_flip_netmask(net.netmask))
             net = ip_network("::/%d" % plen)
             nprint("v6 netmask", net.netmask.exploded)
         elif "/" in arg:
             addr = ip_interface(arg)
             show_addr(addr)
             print()
-            show_net(addr.network)
+            show_net(addr.network, cisco=args.cisco)
         else:
             addr = ip_address(arg)
             if addr.version == 4 and ipv4_is_netmask(addr):
                 net = ip_network("0.0.0.0/%s" % arg)
                 nprint("netmask", net.netmask)
+                if args.cisco:
+                    nprint("wildcard", ipv4_flip_netmask(net.netmask))
                 nprint("prefix", "/%d" % net.prefixlen)
                 nprint("size", net.num_addresses)
             else:

@@ -16,6 +16,7 @@ usage() {
 	echo_opt "-f"		"Keep converted files even if larger than originals"
 	echo_opt "-T"		"Don't try to preserve modification time of the original"
 	echo_opt "-d <dir>"	"Put converted files in another directory"
+	echo_opt "-r"		"Remove originals after successful conversion"
 	echo
 	echo_opt "-j <nproc>"	"Number of parallel conversions (default $nproc)"
 }
@@ -58,6 +59,7 @@ keeplarger=0
 background='#eeeeee'
 minorigsize=0
 keepmtime=1
+trashorig=0
 infiles=()
 outfiles=()
 infix="conv"
@@ -70,7 +72,7 @@ njobs=0
 ndone=0
 r=0
 
-while getopts ":B:d:fj:L:O:q:s:T" OPT; do
+while getopts ":B:d:fj:L:O:q:rs:T" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	d) outdir=$OPTARG;;
@@ -79,6 +81,7 @@ while getopts ":B:d:fj:L:O:q:s:T" OPT; do
 	j) nproc=$OPTARG;;
 	L) minorigsize=$OPTARG;;
 	O) addargs+=("$OPTARG");;
+	r) trashorig=1;;
 	s) scale=${OPTARG%'%'};;
 	T) keepmtime=0;;
 	*) lib:die_getopts;;
@@ -235,6 +238,17 @@ if true; then
 				"$iname"
 		fi
 	done
+fi
+
+if (( r == 0 && trashorig )); then
+	if confirm "Remove originals?"; then
+		echo "Removing ${#infiles[@]} originals."
+		if have trash && [[ -d ~/.local/share/Trash ]]; then
+			trash "${infiles[@]}"
+		else
+			rm -v "${infiles[@]}"
+		fi
+	fi
 fi
 
 exit $[r > 0]

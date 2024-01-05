@@ -6,17 +6,18 @@
 usage() {
 	echo "Usage: $0 <files>"
 	echo
-	echo_opt "-q <percent>" "Quality for JPEG compression (default $quality%)"
-	echo_opt "-s <percent>|<WxH>" "Scale or dimensions for the output image (default $scale%)"
-	echo_opt "-B <color>" "Background color for transparent PNGs (default $background)"
-	echo_opt "-O <arg>" "Additional option for 'magick convert'"
+	echo_opt "-q <percent>"	"Quality for JPEG compression (default $quality%)"
+	echo_opt "-s <percent>|<WxH>" \
+				"Scale or dimensions for the output image (default $scale%)"
+	echo_opt "-B <color>"	"Background color for transparent PNGs (default $background)"
+	echo_opt "-O <arg>"	"Additional option for 'magick convert'"
 	echo
-	echo_opt "-L <size>" "Only convert files larger than X megabytes"
-	echo_opt "-f" "Keep converted files even if larger than originals"
-	echo_opt "-T" "Don't try to preserve modification time of the original"
-	echo_opt "-d <dir>" "Put converted files in another directory"
+	echo_opt "-L <size>"	"Only convert files larger than X megabytes"
+	echo_opt "-f"		"Keep converted files even if larger than originals"
+	echo_opt "-T"		"Don't try to preserve modification time of the original"
+	echo_opt "-d <dir>"	"Put converted files in another directory"
 	echo
-	echo_opt "-j <nproc>" "Number of parallel conversions (default $nproc)"
+	echo_opt "-j <nproc>"	"Number of parallel conversions (default $nproc)"
 }
 
 # Print out a progress bar, and set the ConEmu taskbar progress.
@@ -69,7 +70,7 @@ njobs=0
 ndone=0
 r=0
 
-while getopts ":B:d:fj:L:q:s:O:T" OPT; do
+while getopts ":B:d:fj:L:O:q:s:T" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	d) outdir=$OPTARG;;
@@ -77,8 +78,8 @@ while getopts ":B:d:fj:L:q:s:O:T" OPT; do
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
 	L) minorigsize=$OPTARG;;
-	s) scale=${OPTARG%'%'};;
 	O) addargs+=("$OPTARG");;
+	s) scale=${OPTARG%'%'};;
 	T) keepmtime=0;;
 	*) lib:die_getopts;;
 	esac

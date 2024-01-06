@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 
 from nullroute.core import Core
@@ -21,9 +22,12 @@ def get_libsecret(attributes):
     cmd = ["secret-tool", "lookup"]
     for k, v in attributes.items():
         cmd += [str(k), str(v)]
+    # secret-tool outputs debug messages to stdout
+    env = {**os.environ, "G_MESSAGES_DEBUG": "none"}
 
     r = subprocess.run(cmd, stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+                            stderr=subprocess.PIPE,
+                            env=env)
     if r.returncode != 0:
         raise KeyError("libsecret lookup failed: %r" % r.stderr.decode())
 

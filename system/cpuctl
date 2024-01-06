@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 # cpuctl - hotplug CPUs on Linux
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
-use feature qw(say switch);
+use feature "say";
 
 sub err {
 	say STDERR "error: @_";
@@ -14,13 +13,11 @@ sub range_split {
 	my ($str) = @_;
 	my @items;
 	for (split /,/, $str) {
-		when (/^(\d+)-(\d+)$/) {
+		if (/^(\d+)-(\d+)$/) {
 			push @items, $1..$2;
-		}
-		when (/^\d+$/) {
+		} elsif (/^\d+$/) {
 			push @items, $_;
-		}
-		default {
+		} else {
 			err "not a number: $_";
 		}
 	}
@@ -88,7 +85,7 @@ sub core_cpus {
 my $cmd = shift(@ARGV);
 
 for ($cmd) {
-	when (undef) {
+	if (!defined $_) {
 		for (all_cpus()) {
 			my $core = core_id($_);
 			my $status = is_online($_) ? "online" : "offline";
@@ -96,15 +93,15 @@ for ($cmd) {
 			say "cpu $_ (core $core): $status";
 		}
 	}
-	when ("get-cpus") {
+	elsif ($_ eq "get-cpus") {
 		my @cpus = all_cpus();
 		say "@cpus";
 	}
-	when ("get-online-cpus") {
+	elsif ($_ eq "get-online-cpus") {
 		my @cpus = grep {is_online($_)} all_cpus();
 		say "@cpus";
 	}
-	when ("online") {
+	elsif ($_ eq "online") {
 		my @cpus = @ARGV ? map {range_split($_)} @ARGV : all_cpus();
 		@cpus = grep {can_offline($_)} @cpus;
 		if (@cpus) {
@@ -114,7 +111,7 @@ for ($cmd) {
 			err "no hotpluggable CPUs given";
 		}
 	}
-	when ("offline") {
+	elsif ($_ eq "offline") {
 		my @cpus = @ARGV ? map {range_split($_)} @ARGV : all_cpus();
 		@cpus = grep {can_offline($_)} @cpus;
 		if (@cpus) {
@@ -124,7 +121,7 @@ for ($cmd) {
 			err "no hotpluggable CPUs given";
 		}
 	}
-	when ("offline-core") {
+	elsif ($_ eq "offline-core") {
 		my @cores = @ARGV ? map {range_split($_)} @ARGV
 			          : grep {$_ > 0} all_cores();
 		if (@cores) {
@@ -141,7 +138,7 @@ for ($cmd) {
 			err "no cores given";
 		}
 	}
-	when ("smt") {
+	elsif ($_ eq "smt") {
 		my $path = "/sys/devices/system/cpu/smt";
 		if (@ARGV) {
 			if ($ARGV[0] =~ /^(on|yes|true|enable)$/) {
@@ -160,14 +157,14 @@ for ($cmd) {
 			say "active: ".(get($path."/active") ? "yes" : "no");
 		}
 	}
-	when ("governor") {
+	elsif ($_ eq "governor") {
 		if (@ARGV) {
 			system("cpupower", "frequency-set", "-g", @ARGV);
 		} else {
 			system("cpupower", "frequency-info");
 		}
 	}
-	when ("gpu-governor") {
+	elsif ($_ eq "gpu-governor") {
 		my $path = "/sys/class/drm/card0/device/power_dpm_state";
 		if (@ARGV) {
 			put($path, $ARGV[1]);

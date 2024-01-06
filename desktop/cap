@@ -4,8 +4,7 @@
 # Uses GNOME Shell's screenshot functionality, which means decorations
 # and window shadows get captured correctly (as transparent PNG).
 
-use feature qw(say state switch);
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
+use feature qw(say state);
 use File::Basename qw(dirname);
 use File::Path qw(make_path);
 use File::Spec::Functions qw(rel2abs);
@@ -114,17 +113,17 @@ if ($use_shell && has_Shell) {
 
 	my @args;
 	for ($mode) {
-		when ('area') {
+		if ($_ eq 'area') {
 			if ($sleep_area) {
 				@args = ("--area", "--delay=$sleep_area");
 			} else {
 				@args = ("--area");
 			}
 		}
-		when ('fullscreen') {
+		elsif ($_ eq 'fullscreen') {
 			@args = ();
 		}
-		when ('window') {
+		elsif ($_ eq 'window') {
 			@args = ("--window");
 		}
 	}
@@ -133,7 +132,7 @@ if ($use_shell && has_Shell) {
 	_debug("using fallback method (maim+slop)");
 
 	for ($mode) {
-		when ('area') {
+		if ($_ eq 'area') {
 			if ($sleep_area) {
 				chomp(my $geom = `slop -f %g`);
 				say STDERR "waiting $sleep_area seconds...";
@@ -143,10 +142,10 @@ if ($use_shell && has_Shell) {
 				system("maim", "-s", $file);
 			}
 		}
-		when ('fullscreen') {
+		elsif ($_ eq 'fullscreen') {
 			system("maim", $file);
 		}
-		when ('window') {
+		elsif ($_ eq 'window') {
 			if (-x "/usr/bin/xdotool") {
 				system("maim", "-i", int `xdotool getactivewindow`, $file);
 			} else {
@@ -158,13 +157,13 @@ if ($use_shell && has_Shell) {
 	_debug("using fallback method (scrot)");
 
 	for ($mode) {
-		when ('area') {
+		if ($_ eq 'area') {
 			system("scrot", "-s", $file);
 		}
-		when ('fullscreen') {
+		elsif ($_ eq 'fullscreen') {
 			system("scrot", $file);
 		}
-		when ('window') {
+		elsif ($_ eq 'window') {
 			system("scrot", "-s", $file);
 		}
 	}

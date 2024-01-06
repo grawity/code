@@ -5,7 +5,6 @@
 # Released under the MIT License <https://spdx.org/licenses/MIT>
 use v5.14;
 use warnings;
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use Getopt::Long qw(:config bundling);
 use Net::DBus;
 use Net::DBus::Reactor;
@@ -131,23 +130,23 @@ my %color = (
 );
 
 for ($busaddr) {
-	when (undef) {
+	if (!defined $_) {
 		$bus = Net::DBus->find;
 	}
-	when ("system") {
+	elsif ($_ eq "system") {
 		$bus = Net::DBus->system;
 	}
-	when ("session") {
+	elsif ($_ eq "session") {
 		$bus = Net::DBus->session;
 	}
-	when ("user") {
+	elsif ($_ eq "user") {
 		my $rundir = $ENV{XDG_RUNTIME_DIR};
 		if (!defined $rundir) {
 			_die("connecting to user bus requires XDG_RUNTIME_DIR");
 		}
 		$bus = Net::DBus->new("unix:path=$rundir/bus");
 	}
-	default {
+	else {
 		$bus = Net::DBus->new($busaddr);
 	}
 }

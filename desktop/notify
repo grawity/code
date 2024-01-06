@@ -1,9 +1,8 @@
 #!/usr/bin/env perl
 # notify - libnotify command-line interface not entirely unlike 'notify-send'
 use warnings;
-no if $] >= 5.017011, warnings => qw(experimental::smartmatch);
 use strict;
-use feature qw(say switch);
+use feature qw(say);
 use File::Path qw(make_path);
 use Getopt::Long qw(:config no_ignore_case bundling);
 use Net::DBus;
@@ -89,7 +88,7 @@ my @actions	= ();
 my @hints	= ();
 my %hints	= ();
 my $application	= "notify";
-my $timeout	= -1;
+my $timeout	= undef;
 my $statefile	= undef;
 my $oldbody	= "";
 my $appendbody	= 0;
@@ -163,19 +162,20 @@ if ($appendbody) {
 } @actions;
 
 for (@hints) {
-	when (/^(urgency)=(.*)$/) {
+	if (/^(urgency)=(.*)$/) {
 		my ($key, $val) = ($1, $2);
-		for ($val) {
-			$val = 0 when ["0", "low"];
-			$val = 1 when ["1", "normal"];
-			$val = 2 when ["2", "high", "critical"];
-			default {
-				_die("invalid urgency level '$_'", 2);
-			}
+		if ($val eq "0" || $val eq "low") {
+			$val = 0;
+		} elsif ($val eq "1" || $val eq "normal") {
+			$val = 1;
+		} elsif ($val eq "2" || $val eq "high" || $val eq "critical") {
+			$val = 2;
+		} else {
+			_die("invalid urgency level '$_'", 2);
 		}
 		$hints{$key} = Net::DBus::dbus_byte($val);
 	}
-	when (/^(desktop-entry)=(.*)$/) {
+	elsif (/^(desktop-entry)=(.*)$/) {
 		my ($key, $val) = ($1, $2);
 		# TODO: did I get this right?
 		if ($val =~ m!/!) {
@@ -186,50 +186,50 @@ for (@hints) {
 		}
 		$hints{$key} = $val;
 	}
-	when (/^(category|image-path)=(.*)$/) {
+	elsif (/^(category|image-path)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_string($2);
 	}
-	when (/^(resident|transient)$/) {
+	elsif (/^(resident|transient)$/) {
 		$hints{$1} = Net::DBus::dbus_boolean(1);
 	}
-	when (/^(icon-only|synchronous)$/) {
+	elsif (/^(icon-only|synchronous)$/) {
 		$hints{"x-canonical-private-$1"} =
 		$hints{$1} = Net::DBus::dbus_string("");
 	}
-	when (/^(privacy-scope)=(system|user)$/) {
+	elsif (/^(privacy-scope)=(system|user)$/) {
 		$hints{"x-gnome-$1"} = Net::DBus::dbus_string($2);
 	}
-	when (/^(value)=(.*)$/) {
+	elsif (/^(value)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_int32($2);
 	}
-	when (/^bool:([^=]+)=(.*)$/) {
+	elsif (/^bool:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_boolean($2);
 	}
-	when (/^byte:([^=]+)=(.*)$/) {
+	elsif (/^byte:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_byte($2);
 	}
-	when (/^int32:([^=]+)=(.*)$/) {
+	elsif (/^int32:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_int32($2);
 	}
-	when (/^str:([^=]+)=(.*)$/) {
+	elsif (/^str:([^=]+)=(.*)$/) {
 		$hints{$1} = Net::DBus::dbus_string($2);
 	}
-	default {
+	else {
 		_die("invalid hint parameter '$_'", 2);
 	}
 }
 
 for ($timeout) {
-	when (-1) {
-		;
+	if (!defined $_) {
+		$timeout = -1;
 	}
-	when (/^(\d+)s?$/) {
-		$timeout = $1 * 1_000;
+	elsif (/^(\d+)s?$/) {
+		$timeout = int($1) * 1_000;
 	}
-	when (/^(\d+)ms$/) {
-		$timeout = $1;
+	elsif (/^(\d+)ms$/) {
+		$timeout = int($1);
 	}
-	default {
+	else {
 		_die("invalid timeout value '$_'", 2);
 	}
 }

@@ -4,7 +4,6 @@
 
 use warnings;
 use strict;
-use feature "switch";
 use Data::Dumper;
 use IO::Socket::INET;
 use IO::Select;
@@ -115,34 +114,34 @@ my $fd		= undef;
 my $idletime	= 120;
 
 for (shift @ARGV) {
-	when (undef) {
+	if (!defined $_) {
 		$mode = "daemon";
 	}
-	when (/^--inetd(-nowait)?$/) {
+	elsif ($_ =~ /^--inetd(-nowait)?$/) {
 		$mode = "fdclient"; $fd = 0;
 	}
-	when ("--inetd-wait") {
+	elsif ($_ eq "--inetd-wait") {
 		$mode = "fdlisten"; $fd = 0;
 	}
-	when ("--systemd") {
+	elsif ($_ eq "--systemd") {
 		$mode = "fdlisten"; $fd = 3;
 	}
-	when (/^--listen-fd=(\d+)$/) {
+	elsif ($_ =~ /^--listen-fd=(\d+)$/) {
 		$mode = "fdlisten"; $fd = int $1;
 	}
-	default {
+	else {
 		warn "Unknown option: $_\n";
 		exit 2;
 	}
 }
 
 for ($mode) {
-	when ("fdclient") {
+	if ($_ eq "fdclient") {
 		my $client = IO::Handle->new;
 		$client->fdopen($fd, "r+");
 		handle_client($client);
 	}
-	when ("fdlisten") {
+	elsif ($_ eq "fdlisten") {
 		my $listener = IO::Socket::INET->new;
 		$listener->fdopen($fd, "r+");
 		alarm($idletime);
@@ -153,7 +152,7 @@ for ($mode) {
 		}
 		warn "accept failed: $!\n";
 	}
-	when ("daemon") {
+	elsif ($_ eq "daemon") {
 		my $listener = IO::Socket::INET->new(
 						LocalHost => "0.0.0.0",
 						LocalPort => $port,

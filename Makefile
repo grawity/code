@@ -139,5 +139,5 @@ $(OBJ)/gl-mem:		CFLAGS += $(shell pkg-config --cflags x11 epoxy)
 $(OBJ)/gl-mem:		LDLIBS += $(shell pkg-config --libs x11 epoxy)
 $(OBJ)/gl-mem:		desktop/gl-mem.c
 
-$(OBJ)/emergency-su:	LDLIBS += $(CRYPT_LDLIBS) -static
+$(OBJ)/emergency-su:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/emergency-su:	security/emergency-su.c

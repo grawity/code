@@ -7,6 +7,14 @@
 
 dirs=(/usr/lib/pkcs11 /usr/lib)
 lib='p11-kit-proxy.so'
+do_add=0
+
+while getopts "a" OPT; do
+	case $OPT in
+	a) do_add=1;;
+	*) exit 2;;
+	esac
+done; shift $((OPTIND-1))
 
 if [[ ! $_SSH_PKCS11_MOD ]]; then
 	if [[ $lib != */* ]]; then
@@ -21,8 +29,12 @@ if [[ ! $_SSH_PKCS11_MOD ]]; then
 		echo "${0##*/}: Could not find PKCS#11 library '$lib'" >&2
 		exit 1
 	fi
-	export _SSH_PKCS11_MOD=$lib
-	exec ssh-agent "$0" "$@"
+	if (( do_add )); then
+		ssh-add -s "$lib"
+	else
+		export _SSH_PKCS11_MOD=$lib
+		exec ssh-agent "$0" "$@"
+	fi
 else
 	ssh-add -s "$_SSH_PKCS11_MOD" &&
 	exec "$@" || exit

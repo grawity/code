@@ -1,7 +1,10 @@
 #!/usr/bin/env perl
 # utfvis -- make non-ASCII Unicode characters highly visible
 
+use warnings;
+use strict;
 use open qw(:std :encoding(UTF-8));
+use Getopt::Long qw(:config bundling no_ignore_case);
 
 sub hilight {
 	my ($c) = @_;
@@ -13,7 +16,17 @@ sub hilight {
 	}
 }
 
+my $opt_only = 0;
+
+GetOptions(
+	"o|only!" => \$opt_only,
+) or exit(2);
+
 while (<>) {
-	s/[^\n\t\x20-\x7e]/hilight($&)/ge;
-	print;
+	my $n = s/[^\n\t\x20-\x7e]/hilight($&)/ge;
+	if ($opt_only) {
+		print "\e[1m$.\e[m:$_" if $n;
+	} else {
+		print;
+	}
 }

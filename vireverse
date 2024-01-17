@@ -89,6 +89,13 @@ def case_eq(a, b):
         b = {*map(str, b)}
     return a == b
 
+def group_for_addr(addr):
+    """
+    Round the address up to the nearest IPv4 /24 or IPv6 /64 that covers it.
+    """
+    bits = {4: 24, 6: 64}[addr.version]
+    return ipaddress.ip_interface((addr, bits)).network
+
 def send_nsupdate(zone, cmds, *, gssapi=True,
                                  show_input=False,
                                  debug=False):
@@ -171,18 +178,32 @@ for name, node in zone_data.items():
 pref_line = 0
 
 with tempfile.NamedTemporaryFile("w", delete=False) as temp:
-    print(f"# Editing {zone} (serial {old_soa[0].serial})", file=temp.file)
     addr_width = max(len(str(addr)) for addr in old)
     n_lines = 0
+    last_net = None
+
+    print(f"# Editing {zone} (serial {old_soa[0].serial})", file=temp.file)
+    n_lines += 1
+
     for addr in sorted(old):
+        # Output a blank line between each /24 or /64
+        this_net = group_for_addr(addr)
+        if last_net and this_net != last_net:
+            print("", file=temp.file)
+            n_lines += 1
+        last_net = this_net
+
+        # Let the editor open with the cursor at this location
         if prefix and addr in prefix and not pref_line:
             pref_line = n_lines + 1
+
         for rdata in old[addr]:
             pad = addr_width - len(str(addr))
             pad = int(pad / 8)
             tabs = "\t" * (pad + 2)
             print(f"{addr}{tabs}{rdata.target}", file=temp.file)
             n_lines += 1
+
     print(f"# End of file", file=temp.file)
     edit_path = temp.name
 

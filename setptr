@@ -7,6 +7,9 @@ import ipaddress
 import logging
 import subprocess
 
+def confirm(text):
+    return input(f"{text} ").startswith("y")
+
 def chase_one_cname(name):
     try:
         ans = dns.resolver.resolve(name, "CNAME")
@@ -58,26 +61,56 @@ args = parser.parse_args()
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
-addr = ipaddress.ip_address(args.address)
-rname = dns.name.from_text(addr.reverse_pointer)
-target = dns.name.from_text(args.target)
+if "/" in args.address:
+    addrs = ipaddress.ip_network(args.address)
+    target = dns.name.from_text(args.target)
 
-if args.zone:
-    zone = dns.name.from_text(args.zone)
+    if addrs.prefixlen < 24:
+        # Safety check to prevent excessive deletions
+        exit(f"setptr: address prefix too short")
+    if str(target) != ".":
+        exit(f"setptr: prefixes only allowed when removing records")
+
+    rnames = [dns.name.from_text(addr.reverse_pointer)
+              for addr in addrs]
+
+    if args.zone:
+        zone = dns.name.from_text(args.zone)
+    else:
+        # Detect IPv4 classless delegations
+        rname = chase_one_cname(rnames[0])
+        zone = dns.resolver.zone_for_name(rname)
+
+    logging.debug(f"Updating zone \"{zone}\"")
+
+    cmds = [f"del {rname} {args.ttl} PTR\n"
+            for rname in rnames]
+
+    print(f"Removing {len(rnames)} PTRs for {addrs}")
+    if not confirm("Continue?"):
+        exit("Changes discarded.")
+
 else:
-    # Detect IPv4 classless delegations
-    rname = chase_one_cname(rname)
-    zone = dns.resolver.zone_for_name(rname)
+    addr = ipaddress.ip_address(args.address)
+    rname = dns.name.from_text(addr.reverse_pointer)
+    target = dns.name.from_text(args.target)
 
-logging.debug(f"Updating zone \"{zone}\"")
+    if args.zone:
+        zone = dns.name.from_text(args.zone)
+    else:
+        # Detect IPv4 classless delegations
+        rname = chase_one_cname(rname)
+        zone = dns.resolver.zone_for_name(rname)
 
-if str(target) == ".":
-    print(f"Removing PTR for [{addr}]")
-    cmds = [f"del {rname} {args.ttl} PTR\n"]
-else:
-    print(f"Changing PTR for [{addr}] to \"{target}\"")
-    cmds = [f"del {rname} {args.ttl} PTR\n",
-            f"add {rname} {args.ttl} PTR {target}\n"]
+    logging.debug(f"Updating zone \"{zone}\"")
+
+    if str(target) == ".":
+        print(f"Removing PTR for [{addr}]")
+        cmds = [f"del {rname} {args.ttl} PTR\n"]
+    else:
+        print(f"Changing PTR for [{addr}] to \"{target}\"")
+        cmds = [f"del {rname} {args.ttl} PTR\n",
+                f"add {rname} {args.ttl} PTR {target}\n"]
 
 send_nsupdate(zone, cmds, gssapi=not args.no_gss,
                           show_input=(args.debug >= 1),

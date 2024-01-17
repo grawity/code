@@ -171,6 +171,7 @@ for name, node in zone_data.items():
 pref_line = 0
 
 with tempfile.NamedTemporaryFile("w", delete=False) as temp:
+    print(f"# Editing {zone} (serial {old_soa[0].serial})", file=temp.file)
     addr_width = max(len(str(addr)) for addr in old)
     n_lines = 0
     for addr in sorted(old):
@@ -182,6 +183,7 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
             tabs = "\t" * (pad + 2)
             print(f"{addr}{tabs}{rdata.target}", file=temp.file)
             n_lines += 1
+    print(f"# End of file", file=temp.file)
     edit_path = temp.name
 
 run_visual(edit_path, pref_line)
@@ -190,6 +192,8 @@ with open(edit_path, "r") as temp:
     for line in temp:
         line = line.rstrip()
         if not line:
+            continue
+        if line[0] in {"#", ";"}:
             continue
         addr, target = line.split()
         addr = ipaddress.ip_address(addr)

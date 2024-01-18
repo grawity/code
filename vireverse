@@ -186,6 +186,7 @@ for name, node in zone_data.items():
     old[addr] = rdset
     #old[addr] = set(rdset)
 
+pref_line = 0
 near_line = 0
 near_addr = None
 
@@ -207,9 +208,12 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
 
         # Let `whatip <addr>` open the editor with the cursor at this location
         # (or the nearest line if the address is not in the zone yet).
-        if prefix and addr_diff(prefix[0], addr) < addr_diff(prefix[0], near_addr):
-            near_addr = addr
-            near_line = n_lines + 1
+        if prefix:
+            if addr in prefix and not pref_line:
+                pref_line = n_lines + 1
+            elif addr_diff(prefix[0], addr) < addr_diff(prefix[0], near_addr):
+                near_addr = addr
+                near_line = n_lines + 1
 
         for rdata in old[addr]:
             pad = addr_width - len(str(addr))
@@ -221,7 +225,7 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
     print(f"# End of file", file=temp.file)
     edit_path = temp.name
 
-run_visual(edit_path, near_line)
+run_visual(edit_path, pref_line or near_line)
 
 with open(edit_path, "r") as temp:
     for line in temp:

@@ -13,17 +13,15 @@ def ipmatch(ip, net):
         net = re.escape(net).replace("x", r"[0-9]+")
         if re.fullmatch(net, str(ip)):
             return True
-        return False
-    if "/" not in net:
-        net = ipaddress.ip_address(net)
-        if ip == net:
-            return True
-        return False
-    else:
+    elif "/" in net:
         net = ipaddress.ip_network(net)
         if ip in net:
             return True
-        return False
+    else:
+        net = ipaddress.ip_address(net)
+        if ip == net:
+            return True
+    return False
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--edit", action="store_true",

@@ -3,7 +3,7 @@ import mutagen
 def rva_from_string(gain, peak):
     rg_gain = float(gain[0].split(' ')[0])
     rg_peak = float(peak[0])
-    return mutagen.id3.RVA2(desc=u'track', channel=1, gain=rg_gain, peak=rg_peak)
+    return mutagen.id3.RVA2(desc='track', channel=1, gain=rg_gain, peak=rg_peak)
 
 def rva_to_string(rva):
     rg_gain = rva._raw_gain or "%.2f dB" % rva.gain
@@ -18,34 +18,34 @@ def rva_to_soundcheck(rva):
     # [4, 5]: unsure (identical for same song when volumes differ)
     # [6, 7]: peak (max sample) as absolute value: 0x7FFF for 16-bit samples
     # [8, 9]: same as [4, 5]
-    gain2sc = lambda gain, base: u"%08X" % min(round((10 ** (-gain/10)) * base), 65534)
+    gain2sc = lambda gain, base: "%08X" % min(round((10 ** (-gain/10)) * base), 65534)
 
     sc = [
-        u"",
+        "",
         # 1/1000 W per dBm
         gain2sc(rva.gain, 1000),
         gain2sc(rva.gain, 1000),
         # 1/2500 W per dBm
         gain2sc(rva.gain, 2500),
         gain2sc(rva.gain, 2500),
-        u"00024CA8",
-        u"00024CA8",
-        u"00007FFF",
-        u"00007FFF",
-        u"00024CA8",
-        u"00024CA8",
+        "00024CA8",
+        "00024CA8",
+        "00007FFF",
+        "00007FFF",
+        "00024CA8",
+        "00024CA8",
     ]
 
-    return u" ".join(sc)
+    return " ".join(sc)
 
 class GainValue(object):
     MODES = {'track', 'album'}
 
-    def __init__(self, mode=u'track'):
+    def __init__(self, mode='track'):
         if mode not in self.MODES:
             raise ValueError("mode must be one of %r" % self.MODES)
 
-        self._mode = unicode(mode)
+        self._mode = mode
 
         self.gain = None
         self.peak = 1.0
@@ -64,7 +64,7 @@ class GainValue(object):
         if value not in self.MODES:
             raise ValueError("mode must be one of %r" % self.MODES)
 
-        self._mode = unicode(value)
+        self._mode = value
 
     @classmethod
     def from_rva2(self, mode, frame):
@@ -104,22 +104,22 @@ class GainValue(object):
         if mode not in self.MODES:
             raise ValueError("mode must be one of %r" % self.MODES)
 
-        if (u'TXXX:REPLAYGAIN_%s_GAIN' % mode) in tag:
+        if ('TXXX:REPLAYGAIN_%s_GAIN' % mode) in tag:
             # ID3v2 foobar2000
             #print "Found ID3v2 foobar2000 tag"
             return self.from_string(mode,
-                                    tag[u'TXXX:REPLAYGAIN_%s_GAIN' % mode],
-                                    tag[u'TXXX:REPLAYGAIN_%s_PEAK' % mode])
-        elif (u'TXXX:replaygain_%s_gain' % mode) in tag:
+                                    tag['TXXX:REPLAYGAIN_%s_GAIN' % mode],
+                                    tag['TXXX:REPLAYGAIN_%s_PEAK' % mode])
+        elif ('TXXX:replaygain_%s_gain' % mode) in tag:
             # ID3v2 foobar2000
             #print "Found ID3v2 foobar2000 tag"
             return self.from_string(mode,
-                                    tag[u'TXXX:replaygain_%s_gain' % mode],
-                                    tag[u'TXXX:replaygain_%s_peak' % mode])
-        elif (u'RVA2:%s' % mode) in tag:
+                                    tag['TXXX:replaygain_%s_gain' % mode],
+                                    tag['TXXX:replaygain_%s_peak' % mode])
+        elif ('RVA2:%s' % mode) in tag:
             # ID3v2.4 RVA2 (legacy format)
             #print "Found ID3v2.4 RVA2 frame"
-            return self.from_rva2(mode, tag[u'RVA2:%s' % mode])
+            return self.from_rva2(mode, tag['RVA2:%s' % mode])
         elif ('----:com.apple.iTunes:replaygain_%s_gain' % mode) in tag:
             # MP4 foobar2000
             #print "Found MP4 foobar2000 tag"
@@ -136,22 +136,22 @@ class GainValue(object):
             return None
 
     def export_id3(self, tag):
-        tag[u'RVA2:%s' % self._mode] = self.to_rva2()
+        tag['RVA2:%s' % self._mode] = self.to_rva2()
 
         rg_gain, rg_peak = self.to_string()
-        tx_gain = mutagen.id3.TXXX(desc=u'REPLAYGAIN_%s_GAIN' % self._mode,
+        tx_gain = mutagen.id3.TXXX(desc='REPLAYGAIN_%s_GAIN' % self._mode,
                                    encoding=1, text=[rg_gain])
-        tx_peak = mutagen.id3.TXXX(desc=u'REPLAYGAIN_%s_PEAK' % self._mode,
+        tx_peak = mutagen.id3.TXXX(desc='REPLAYGAIN_%s_PEAK' % self._mode,
                                    encoding=1, text=[rg_peak])
-        tag[u'TXXX:'+tx_gain.desc] = tx_gain
-        tag[u'TXXX:'+tx_peak.desc] = tx_peak
+        tag['TXXX:'+tx_gain.desc] = tx_gain
+        tag['TXXX:'+tx_peak.desc] = tx_peak
 
         if self._mode == 'track':
             sc_raw = self.to_soundcheck()
-            sc_norm = mutagen.id3.COMM(desc=u'iTunNORM', lang='eng',
+            sc_norm = mutagen.id3.COMM(desc='iTunNORM', lang='eng',
                                        encoding=0, text=[sc_raw])
-            #tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)] = sc_norm
-            del tag[u"COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)]
+            #tag["COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)] = sc_norm
+            del tag["COMM:%s:'%s'" % (sc_norm.desc, sc_norm.lang)]
 
     def export_mp4(self, tag):
         #print "Adding MP4 foobar2000 tag"

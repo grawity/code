@@ -54,6 +54,14 @@ def is_bad_win1257_name(item):
         return True
     return False
 
+def is_bad_sjis_name(item):
+    # Check whether the name cannot be represented as Windows-1257 (Baltic).
+    try:
+        _ = item.encode("shift-jis")
+    except UnicodeEncodeError:
+        return True
+    return False
+
 def find_valid_chars(codepage):
     # Given a cp#### codepage, create a list of Unicode characters valid in
     # that codepage.
@@ -96,19 +104,37 @@ def hl_bad_name(item, regex):
                   hl(r"\1"),
                   item)
 
+SJIS_GOOD = set()
+SJIS_BAD = set()
+
+def hl_bad_sjis_name(item):
+    out = ""
+    for char in item:
+        if char in SJIS_GOOD:
+            out += char
+        elif char in SJIS_BAD:
+            out += hl(char)
+        else:
+            try:
+                _ = char.encode("shift-jis")
+                out += char
+                SJIS_GOOD.add(char)
+            except UnicodeEncodeError:
+                out += hl(char)
+                SJIS_BAD.add(char)
+    return out
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--ignore-case", action="store_true", help="ignore case collisions")
 parser.add_argument("-B", "--ignore-bmp", action="store_true", help="ignore non-BMP names")
 parser.add_argument("-1", "--check-1252", action="store_true", help="check Windows-1252 compliance only")
 parser.add_argument("-7", "--check-1257", action="store_true", help="check Windows-1257 compliance only")
+parser.add_argument("-j", "--check-sjis", action="store_true", help="check Shift-JIS compliance only")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
-if args.check_1252:
-    REGEX_1252 = make_inv_regex(find_valid_chars("cp1252"))
-
-if args.check_1257:
-    REGEX_1257 = make_inv_regex(find_valid_chars("cp1257"))
+REGEX_1252 = make_inv_regex(find_valid_chars("cp1252"))
+REGEX_1257 = make_inv_regex(find_valid_chars("cp1257"))
 
 roots = args.path or ["."]
 bad = 0
@@ -119,6 +145,7 @@ for root in roots:
     baducs = set()
     bad1252 = set()
     bad1257 = set()
+    badsjis = set()
     nonutf = set()
     total = 0
 
@@ -133,7 +160,7 @@ for root in roots:
             seen[cfpath].add(path)
             total += 1
 
-            if not (args.check_1252 + args.check_1257):
+            if not (args.check_1252 + args.check_1257 + args.check_sjis):
                 if is_bad_win32_name(item):
                     badwin.add(path)
                 if is_bad_ucs2_name(item):
@@ -148,6 +175,10 @@ for root in roots:
             if args.check_1257:
                 if is_bad_win1257_name(item):
                     bad1257.add(path)
+
+            if args.check_sjis:
+                if is_bad_sjis_name(item):
+                    badsjis.add(path)
 
     print_status()
 
@@ -181,6 +212,12 @@ for root in roots:
         print("Names incompatible with Windows-1257 (Baltic):")
         for path in sorted(bad1257):
             print("  %s" % hl_bad_name(path, REGEX_1257))
+            bad += 1
+
+    if badsjis:
+        print("Names incompatible with Shift-JIS:")
+        for path in sorted(badsjis):
+            print("  %s" % hl_bad_sjis_name(path))
             bad += 1
 
     if nonutf:

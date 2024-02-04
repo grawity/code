@@ -55,6 +55,7 @@ def filter_filename(name, safe=False, allow_space=True, allow_nonbmp=True):
     name = name.strip()
     for k, v in xlat:
         name = name.replace(k, v)
+    name = re.sub(r"_+", "_", name)
     if name.startswith("."):
         name = "_" + name
     if name.endswith("~") and not safe:

@@ -107,7 +107,7 @@ fi
 for arg in "$@"; do
 	oarg=${outdir%/}${outdir:+/}$arg
 	if [[ ! -e $arg ]]; then
-		warn "input file '$arg' does not exist"
+		err "input file '$arg' does not exist"
 	elif [[ $arg =~ \.conv\.[^.]+$ ]] && [[ $arg -ef $oarg ]]; then
 		notice "skipping already converted file '$arg'"
 	elif (( minorigsize && $(stat -c %s "$arg") < minorigsize )); then
@@ -116,6 +116,8 @@ for arg in "$@"; do
 		infiles+=("$arg")
 	fi
 done
+
+(( !errors )) || exit
 
 addargs+=(-background "$background" -alpha remove)
 

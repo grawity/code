@@ -163,7 +163,7 @@ class Scraper(object):
                 Core.trace("got original name: %r", file_name)
                 file_name = os.path.basename(file_name)
                 file_name = file_name.strip(". ")
-                if type(keep_name) == str:
+                if isinstance(keep_name, str):
                     file_name = keep_name % (file_name,)
                 if output_dir:
                     output_file = os.path.join(output_dir, file_name)

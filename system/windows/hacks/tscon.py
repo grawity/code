@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import win32cred as Cred
 import win32ts as Ts
@@ -24,18 +25,18 @@ def GetPassword(target):
 def Connect(id):
 	current = Ts.WTSGetActiveConsoleSessionId()
 	if current == id:
-		print "Already connected to session %d." % id
+		print("Already connected to session %d." % id)
 		return True # because we *are* connected to the requested session
 	domain, user = GetUsername(id)
 	target = "%s\\%s" % (domain, user)
 	target, passwd, persist = GetPassword(target)
 	domain, user = Cred.CredUIParseUserName(target)
-	
-	print `domain`, `user`, `passwd`
+
+	print(repr(domain), repr(user), repr(passwd))
 	try:
 		Wts.winstation.Connect(None, id, None, passwd, True)
 	except Wts.Win32Error as e:
-		print "[%s] %s" % (e.err, e.message)
+		print("[%s] %s" % (e.err, e.message))
 		if e.args[0] == 1326:
 			Cred.CredUIConfirmCredentials(target, False)
 		return False

@@ -2,19 +2,21 @@
 # darkmode -- Toggle between light/dark mode in GNOME
 
 setbacklight() {
-	local light=$1
+	local light_mode=$1
 
 	case $HOSTNAME in
-	midnight)
-		hi=3043 lo=743 dev=/sys/class/backlight/intel_backlight;;
-	*)
-		return;;
+		midnight)
+			local hi=3043 lo=743 dev=intel_backlight;;
+		*)
+			return;;
 	esac
 
-	if (( light )); then
-		sudo sh -c "echo $hi > ${dev?}/brightness"
-	else
-		sudo sh -c "echo $lo > ${dev?}/brightness"
+	local path=/sys/class/backlight/${dev?}/brightness
+	local current=$(< $path)
+	if (( light_mode && current < hi )); then
+		sudo sh -c "echo $hi > $path"
+	elif (( !light_mode && current > lo )); then
+		sudo sh -c "echo $lo > $path"
 	fi
 }
 

@@ -3,22 +3,26 @@
 
 . lib.bash || exit
 
-dirs=(.)
+dirs=()
 opts=()
 today=1
 days=1
 
-if [[ $1 =~ ^-([0-9]+)$ ]]; then
-	days=${BASH_REMATCH[1]}
-	shift
-elif [[ $1 == -* ]]; then
-	die "unknown option '$1'"
-elif [[ $1 =~ ^\+([0-9]+)[Mm]$ ]]; then
-	opts+=(-size +${BASH_REMATCH[1]}M)
-	shift
-fi
+for arg; do
+	if [[ $arg =~ ^-([0-9]+)$ ]]; then
+		days=${BASH_REMATCH[1]}
+	elif [[ $1 == -* ]]; then
+		die "unknown option '$1'"
+	elif [[ $1 =~ ^\+([0-9]+)[Mm]$ ]]; then
+		opts+=(-size +${BASH_REMATCH[1]}M)
+	else
+		dirs+=("$arg")
+	fi
+done
 
-dirs=("$@")
+if (( ! ${#dirs[@]} )); then
+	dirs=(.)
+fi
 
 if (( today )); then
 	opts+=(-daystart)
@@ -41,4 +45,4 @@ opts+=(-printf '%h/%f  \033[2m[%kk]\033[m\n')
 # e.g. -mtime -1
 #   match if mtime is newer than {24 hours ago}
 
-find "${dirs[@]}" -type f "${opts[@]}" | treeify
+find "${dirs[@]}" -xtype f "${opts[@]}" | treeify

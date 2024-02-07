@@ -43,7 +43,7 @@ putclip() {
 post() {
 	local file=$1
 	echo -n "$file → "
-	local url=$(upload -q -0 -d txt "$file")
+	local url=$(upload -q -0 -d txt -S "s/^sprunge\.//" "$file")
 	#local url=$(curl -sfSF "file=@$file" "https://0x0.st")
 	#local url=$(curl -sfS --data-binary "@$file" "https://paste.rs")
 	if [ "$url" ]; then
@@ -64,9 +64,9 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 	# curl handles stdin buffering in a funny way, often
 	# resulting in only the first write() to be pastebinned
 	if [ -d "$cache" ]; then
-		file="$cache/$(now).txt"
+		file=$(mktemp "$cache/$(now).XXXXXXXX.txt")
 	else
-		file=$(mktemp /tmp/sprunge.XXXXXXXX.txt)
+		file=$(mktemp "/tmp/sprunge.$(now).XXXXXXXX.txt")
 	fi
 
 	if [ ! "$1" ] && [ -t 0 ] && [ "$DISPLAY" ]; then

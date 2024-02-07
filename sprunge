@@ -5,10 +5,6 @@
 
 . lib.bash || exit
 
-now() {
-	printf "%(%Y%m%d.%H%M%S)T"
-}
-
 getsel() {
 	if have xclip; then
 		xclip -out -selection primary
@@ -42,16 +38,19 @@ post() {
 	fi
 }
 
+filename() {
+	printf "%(%Y%m%d.%H%M%S)T.XXXXXX.txt"
+}
+
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/sprunge
 
-err=0
 umask 077
 
 if [ ! "$1" ] || [ "$*" = "-" ]; then
 	if [ -d "$cache" ]; then
-		file=$cache/$(now).txt
+		file=$(mktemp "$cache/$(filename)")
 	else
-		file=$(mktemp "/tmp/sprunge.$(now).XXXXXXXX.txt")
+		file=$(mktemp "/tmp/sprunge.$(filename)")
 	fi
 
 	if [ ! "$1" ] && [ -t 0 ] && [ "$DISPLAY" ]; then
@@ -81,11 +80,10 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 	fi
 else
 	for file; do
-		newname=$(mktemp -u "$(now).XXXXXXXX.txt")
 		if [ ! -f "$file" ]; then
 			err "$file: not a file"
 		elif [ -s "$file" ]; then
-			post "$file" "$newname"
+			post "$file" "$(mktemp -u "$(filename)")"
 		elif [ -e "$file" ]; then
 			err "$file: empty"
 		else

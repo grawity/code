@@ -41,13 +41,10 @@ putclip() {
 }
 
 post() {
-	local file=$1
+	local file=$1 newname=${2:-${1##*/}}
 	echo -n "$file → "
-	local url=$(upload -q -0 -d txt -S "s/^sprunge\.//" "$file")
-	#local url=$(curl -sfSF "file=@$file" "https://0x0.st")
-	#local url=$(curl -sfS --data-binary "@$file" "https://paste.rs")
+	local url=$(upload -q -0 -d txt -S "s/.*/$newname/" "$file")
 	if [ "$url" ]; then
-		seturl "$file" $url
 		echo $url
 		putclip $url
 	else
@@ -64,7 +61,7 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 	# curl handles stdin buffering in a funny way, often
 	# resulting in only the first write() to be pastebinned
 	if [ -d "$cache" ]; then
-		file=$(mktemp "$cache/$(now).XXXXXXXX.txt")
+		file=$cache/$(now).txt
 	else
 		file=$(mktemp "/tmp/sprunge.$(now).XXXXXXXX.txt")
 	fi
@@ -96,10 +93,11 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 	fi
 else
 	for file; do
+		newname=$(mktemp -u "$(now).XXXXXXXX.txt")
 		if [ ! -f "$file" ]; then
 			err "$file: not a file"
 		elif [ -s "$file" ]; then
-			post "$file"
+			post "$file" "$newname"
 		elif [ -e "$file" ]; then
 			err "$file: empty"
 		else

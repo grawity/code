@@ -119,6 +119,9 @@ parser.add_argument("--rfx",
 parser.add_argument("--dev",
                     action="store_true",
                     help="use local FreeRDP build if available")
+parser.add_argument("--flatpak",
+                    action="store_true",
+                    help="use the Flatpak build")
 parser.add_argument("--x11",
                     action="store_true",
                     help="use the X11 client instead of SDL client")
@@ -139,8 +142,11 @@ if args.x11:
 else:
     cmd = ["sdl-freerdp"]
 
-cmd[0] = which(cmd[0])
-Core.info("using freerdp executable %r", cmd[0])
+if args.flatpak:
+    cmd = ["flatpak", "run", "--command=%s" % cmd[0], "com.freerdp.FreeRDP"]
+else:
+    cmd[0] = which(cmd[0])
+    Core.info("using freerdp executable %r", cmd[0])
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn)

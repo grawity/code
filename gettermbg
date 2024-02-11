@@ -11,8 +11,12 @@ exec </dev/tty >/dev/tty
 
 printf '\e]11;?\e\\'
 
+# Request something to avoid timeouts when we have a tty but the terminal doesn't understand the OSC
+#printf '\e[c' # Primary DA
+
 if read -r -s -d '\\' -t 3 ans; then
-	re=$'^\e\\]11;(rgb:(.+)/(.+)/(.+))\e$'
+	re=$'^\e\\]11;(rgb:(.+)/(.+)/(.+))\e'
+	br=$'^\e\[\?1;0c^' # second response
 	if [[ $ans =~ $re ]]; then
 		declare -i r="0x${BASH_REMATCH[2]}"
 		declare -i g="0x${BASH_REMATCH[3]}"

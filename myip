@@ -1,5 +1,20 @@
 #!/bin/sh
 # myip -- use online services to determine external IPv4 address
-dig +short whoami.akamai.net. A @ns1-1.akamaitech.net. ||
-dig +short myip.opendns.com. A @resolver1.opendns.com. ||
-curl -Ssf4 http://whatismyip.akamai.com
+
+afs='-4 -6'
+
+case $1 in
+-4) afs='-4';;
+-6) afs='-6';;
+-*) echo "${0##*/}: bad option '$1'" >&2; exit 2;;
+esac
+
+for af in $afs; do
+	case $af in
+	-4) type=A;;
+	-6) type=AAAA;;
+	esac
+
+	dig $af +short myip.opendns.com. $type @resolver1.opendns.com. ||
+	curl $af -Ssf http://whatismyip.akamai.com
+done

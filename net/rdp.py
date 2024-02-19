@@ -34,6 +34,7 @@ def which(cmd):
         exe = os.path.join(d or ".", cmd)
         if os.path.exists(exe):
             return exe
+    raise KeyError(f"{cmd!r} not found in PATH")
 
 def resolve(host):
     fqdn = None

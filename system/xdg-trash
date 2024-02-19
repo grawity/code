@@ -354,6 +354,13 @@ sub find_trash_dir {
 		return undef;
 	} elsif ($fdev == $hdev) {
 		return $home_trash;
+	} elsif ($orig_path =~ m{^(/net/\w+/home/\w+/)}) {
+		_debug("Detected NFS home directory '$1'");
+		my $dir = catdir($1, ".local/share/Trash");
+		if (-d $dir && ! -l $dir && ensure($dir)) {
+			_debug("Using trash at '$dir'");
+			return $dir;
+		}
 	} else {
 		my $root = find_root($orig_path);
 		my $dir = catdir($root, ".Trash");

@@ -62,6 +62,14 @@ do_pull() {
 		":(exclude)vendor/*"
 	)
 
+	if [[ -d .git ]]; then
+		while IFS="" read -r line; do
+			if [[ $line == @(":(exclude)"*|":!"*) ]]; then
+				git_diffstat_opts+=("$line")
+			fi
+		done < <(git config --get-all nullroute.git-new.paths)
+	fi
+
 	if (( opt_dryrun > 1 )); then
 		is "noop"
 	elif [[ -f Pullfile ]] && ! [[ $1 == file && $2 == . ]]; then

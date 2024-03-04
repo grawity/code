@@ -39,15 +39,18 @@ usage() {
 	echo ""
 	echo "Expand local paths to their NFS equivalents via /net/$HOSTNAME."
 	echo ""
+	echo_opt "-H <host>"	"use a different hostname instead of local host"
 	echo_opt "-w"		"expand args through \$PATH"
 	echo_opt "-x"		"expand and execute a command"
 }
 
+host=$HOSTNAME
 w_flag=0
 x_flag=0
 
-while getopts ":wx" OPT; do
+while getopts ":H:wx" OPT; do
 	case $OPT in
+	H) host=$OPTARG;;
 	w) w_flag=1;;
 	x) x_flag=1;;
 	*) lib:die_getopts;;
@@ -71,7 +74,7 @@ for arg; do
 	fi
 
 	if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-		arg="/net/$HOSTNAME$arg"
+		arg="/net/$host$arg"
 	fi
 	args+=("$arg")
 done

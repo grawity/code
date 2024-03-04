@@ -4,17 +4,30 @@
 # Previously (before GitLab migration) this was a wrapper around the svn2git
 # `asp log` tool.
 
+. lib.bash || exit
+
 basedir="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
 if [[ ! -d $basedir ]]; then
 	mkdir -p "$basedir"
+fi
+
+verbose=0
+for arg; do
+	case $arg in
+	-v) verbose=1;;
+	-*) die "unknown option '$arg'";;
+	*) pkg=$arg;;
+	esac
+done
+
+if [[ ! $pkg ]]; then
+	die "missing package name"
 fi
 
 #if [[ -d $basedir/cache ]]; then
 #	echo "Removing old svn2git cache"
 #	rm -rf "$basedir/cache"
 #fi
-
-pkg=$1
 
 # Fix up tab-completion
 pkg=${pkg#*/}
@@ -31,6 +44,12 @@ else
 	git -C "$basedir/$pkg" pull --ff-only
 fi
 
+if (( verbose )); then
+	paths=()
+else
+	paths=(":!/.SRCINFO")
+fi
+
 settitle "asplog [$pkg]"
 
-tig -C "$basedir/$pkg" -- :!/.SRCINFO
+tig -C "$basedir/$pkg" -- "${paths[@]}"

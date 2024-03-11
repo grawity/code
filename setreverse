@@ -14,6 +14,14 @@ def lookup_suffix(name):
                                raise_on_no_answer=False)
     return ans.qname
 
+def lookup_ptr(name):
+    try:
+        ans = dns.resolver.resolve(name, "PTR")
+    except dns.resolver.NXDOMAIN:
+        return None
+    else:
+        return ans.rrset[0].target
+
 def chase_one_cname(name):
     try:
         ans = dns.resolver.resolve(name, "CNAME")
@@ -144,6 +152,7 @@ for host in args.host:
     for addr in addresses:
         addr = ipaddress.ip_address(addr)
         rname = dns.name.from_text(addr.reverse_pointer)
+        old = lookup_ptr(rname)
 
         # Detect IPv4 classless delegation, as well as other uses of CNAME.
         rname = chase_one_cname(rname)
@@ -152,10 +161,16 @@ for host in args.host:
         logging.debug(f"Updating zone <{zone}>")
 
         if args.remove:
-            print(f"Removing PTR for [{addr}]")
+            if old:
+                print(f"Removing PTR for [{addr}] (was \"{old}\")")
+            else:
+                print(f"Removing PTR for [{addr}]")
             cmds = [f"del {rname} {args.ttl} PTR\n"]
         else:
-            print(f"Changing PTR for [{addr}] to \"{host}\"")
+            if old:
+                print(f"Changing PTR for [{addr}] to \"{host}\" (was \"{old}\")")
+            else:
+                print(f"Changing PTR for [{addr}] to \"{host}\"")
             cmds = [f"del {rname} {args.ttl} PTR\n",
                     f"add {rname} {args.ttl} PTR {host}\n"]
 

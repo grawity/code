@@ -1,27 +1,24 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # sx -- start X11
-#
-# Does more or less the same thing as `startx` from xorg-xinit, but simpler.
 
-if ! test -O "$XDG_RUNTIME_DIR"; then
-	echo "$0: XDG_RUNTIME_DIR missing or not owned" >&2
+if ! [ -O "$XDG_RUNTIME_DIR" ]; then
+	echo "${0##*/}: XDG_RUNTIME_DIR missing or not owned" >&2
 	exit 1
 fi
 
 if ! vt="vt$(fgconsole)"; then
-	echo "$0: could not determine current virtual terminal" >&2
+	echo "${0##*/}: could not determine current virtual terminal" >&2
 	exit 1
 fi
 
 cd ~
 unset SHLVL
-exec </dev/null
 
 export DISPLAY=$(i=0;
-		while test -e /tmp/.X$i-lock || test -e /tmp/.X11-unix/X$i; do
-			i=$(( i+1 ))
-		done;
-		echo ":$i")
+	while [ -e /tmp/.X$i-lock ] || [ -e /tmp/.X11-unix/X$i ]; do
+		i=$((i+1))
+	done;
+	echo ":$i")
 
 touch "${XAUTHORITY:-"$HOME/.Xauthority"}"
 cookie=$(xauth -n list "$DISPLAY" | awk '{print $3}')
@@ -34,7 +31,9 @@ serverauth=$(mktemp /tmp/serverauth.XXXXXXXX) || exit
 xauth -f "$serverauth" add :0 . "$cookie"
 
 echo "Starting Xorg display $DISPLAY on $vt"
-xinit "$@" -- "$DISPLAY" "$vt" -keeptty -noreset -background none -quiet -auth "$serverauth" -listen tcp; r=$?
+xinit "$@" -- "$DISPLAY" "$vt" \
+	-keeptty -noreset -background none -quiet \
+	-auth "$serverauth" -listen tcp < /dev/null; r=$?
 
 rm -f "$serverauth"
 exit $r

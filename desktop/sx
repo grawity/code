@@ -13,30 +13,25 @@ if ! vt="vt$(fgconsole)"; then
 	exit 1
 fi
 
-exec </dev/null
 cd ~
 unset SHLVL
+exec </dev/null
+
 export DISPLAY=$(i=0;
 		while test -e /tmp/.X$i-lock || test -e /tmp/.X11-unix/X$i; do
 			i=$(( i+1 ))
 		done;
 		echo ":$i")
+
 export XAUTHORITY=$XDG_RUNTIME_DIR/Xauthority
-
-# add Xauth
-
 touch "$XAUTHORITY" || exit
 xauth remove "$(hostname)$DISPLAY"
 xauth remove "$DISPLAY"
 xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(mcookie) || exit
 
-# start Xorg
-
 echo "Starting Xorg display $DISPLAY on $vt"
 xinit "$@" -- "$DISPLAY" "$vt" -noreset -auth "$XAUTHORITY" -quiet -background none
 r=$?
-
-# clean up
 
 xauth remove "$DISPLAY"
 exit $r

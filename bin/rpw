@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
 # rpw - generate a random password
 
+. lib.bash || exit
+
+gclip() {
+	if have wl-copy && [[ $WAYLAND_DISPLAY ]]; then
+		wl-copy
+	elif have xclip; then
+		xclip -in -selection clipboard
+	fi
+}
+
 length=-20
 dash=0
 lcase=0
+clip=0
 
 for arg; do
 	case $arg in
+	-c)		clip=1;;
 	-l)		lcase=1;;
 	-[0-9]*)	length=$arg;;
 	[0-9]*)		length=$arg;;
@@ -27,6 +39,10 @@ fi
 
 if (( dash )); then
 	pw=$(printf '%s\n' "$pw" | sed -r 's/.{5}/&-/g; s/-$//')
+fi
+
+if (( clip )); then
+	printf '%s' "$pw" | gclip
 fi
 
 printf '%s\n' "$pw"

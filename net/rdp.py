@@ -61,7 +61,7 @@ def get_credentials_zenity(text):
     username, password, _ = res.stdout.decode().split("\n")
     return username, password
 
-def get_credentials(host):
+def get_credentials_libsecret(host):
     import gi
     gi.require_version("Secret", "1")
     from gi.repository import GLib
@@ -95,8 +95,13 @@ def get_credentials(host):
                         username = "%s\\%s" % (domain, username)
                 return username, password
 
-    print("Credentials not found, asking interactively")
-    return get_credentials_zenity("Remote Desktop on %s" % host)
+def get_credentials(host, ask=True):
+    if r := get_credentials_libsecret(host):
+        return r
+    if ask:
+        print("Credentials not found, asking interactively")
+        return get_credentials_zenity("Remote Desktop on %s" % host)
+    return None, None
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--legacy", "--old",
@@ -133,7 +138,7 @@ Core.debug("trying to resolve host %r", args.host)
 fqdn, addrs = resolve(args.host)
 Core.debug("resolved to fqdn %r, addresses %r", fqdn, addrs)
 
-username, password = get_credentials(fqdn)
+username, password = get_credentials(fqdn, ask=(not args.legacy))
 
 if args.dev:
     os.environ["PATH"] = os.path.expanduser("~/.local/pkg/FreeRDP/bin") + ":" + os.environ["PATH"]
@@ -156,8 +161,13 @@ cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn)
 #cmd.append("/cert:name:%s" % fqdn)
 
-cmd.append("/u:%s" % username)
-cmd.append("/p:%s" % password)
+if username and password:
+    cmd.append("/u:%s" % username)
+    cmd.append("/p:%s" % password)
+else:
+    # Even with --legacy, still append empty options to prevent the SDL-FreeRDP popup
+    cmd.append("/u:")
+    cmd.append("/p:")
 
 if args.legacy:
     cmd.append("/sec:rdp")

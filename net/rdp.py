@@ -146,8 +146,11 @@ else:
 if args.flatpak:
     cmd = ["flatpak", "run", "--command=%s" % cmd[0], "com.freerdp.FreeRDP"]
 else:
-    cmd[0] = which(cmd[0])
-    Core.info("using freerdp executable %r", cmd[0])
+    try:
+        cmd[0] = which(cmd[0] + "3")
+    except KeyError:
+        cmd[0] = which(cmd[0])
+Core.info("using freerdp executable: %s", " ".join(cmd))
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn)

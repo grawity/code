@@ -160,15 +160,12 @@ cmd.append("/u:%s" % username)
 cmd.append("/p:%s" % password)
 
 if args.legacy:
+    cmd.append("/sec:rdp")
     cmd.append("/cert:ignore")
-    cmd.append("+sec-rdp")
-    cmd.append("+sec-tls")
     if args.restricted_admin:
         die("Restricted Admin mode is not supported by legacy servers")
 else:
     cmd.append("/ipv6")
-    #cmd.append("-sec-rdp")
-    #cmd.append("-sec-tls")
     cmd.append("/sec:nla")
     if args.restricted_admin:
         cmd.append("/restricted-admin")

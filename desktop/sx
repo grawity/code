@@ -23,15 +23,18 @@ export DISPLAY=$(i=0;
 		done;
 		echo ":$i")
 
-export XAUTHORITY=$XDG_RUNTIME_DIR/Xauthority
-touch "$XAUTHORITY" || exit
-xauth remove "$(hostname)$DISPLAY"
-xauth remove "$DISPLAY"
-xauth add "$DISPLAY" MIT-MAGIC-COOKIE-1 $(mcookie) || exit
+touch "${XAUTHORITY:-"$HOME/.Xauthority"}"
+cookie=$(xauth -n list "$DISPLAY" | awk '{print $3}')
+if ! test "$cookie"; then
+	cookie=$(mcookie)
+	xauth -q add "$DISPLAY" . "$cookie"
+fi
+
+serverauth=$(mktemp /tmp/serverauth.XXXXXXXX) || exit
+xauth -f "$serverauth" add :0 . "$cookie"
 
 echo "Starting Xorg display $DISPLAY on $vt"
-xinit "$@" -- "$DISPLAY" "$vt" -keeptty -noreset -auth "$XAUTHORITY" -quiet -background none
-r=$?
+xinit "$@" -- "$DISPLAY" "$vt" -keeptty -noreset -background none -quiet -auth "$serverauth" -listen tcp; r=$?
 
-xauth remove "$DISPLAY"
+rm -f "$serverauth"
 exit $r

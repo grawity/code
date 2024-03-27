@@ -55,20 +55,23 @@ for path; do
 	base=${base%/}
 	rpath=$(realpath --relative-base="$base" "$path")
 	if (( opt_a )); then
+		shopt -s nullglob
 		paths=("$base"/.old/*/????-??-??/"$rpath")
-		lastm=0
-		# Sort by date
+		shopt -u nullglob
+		if (( ! ${#paths[@]} )); then
+			echo "${0##*/}: No snapshots for '$base/$rpath'" >&2
+			exit 1
+		fi
+		# Sort by date, then filter duplicates by mtime
 		nf=$(echo "/$base///" | tr -dc / | wc -c)
-		printf '%s\n' "${paths[@]}" | sort -t/ -k$nf |
-		while IFS= read -r opath; do
+		{ printf '%s\n' "${paths[@]}" | sort -t/ -k$nf; realpath "$path"; } \
+		| while IFS= read -r opath; do
 			mtime=$(stat -c %Y "$opath")
 			if [[ "$mtime" != "$lastm" ]]; then
 				echo_l "$opath"
 				lastm=$mtime
 			fi
 		done
-		# Show current version for comparison
-		echo_l "$(realpath "$path")"
 	else
 		echo_l "$(realpath "$base/.old/latest/$rpath")"
 	fi

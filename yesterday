@@ -63,15 +63,22 @@ for path; do
 			exit 1
 		fi
 		# Sort by date, then filter duplicates by mtime
-		nf=$(echo "/$base///" | tr -dc / | wc -c)
-		{ printf '%s\n' "${paths[@]}" | sort -t/ -k$nf; realpath "$path"; } \
-		| while IFS= read -r opath; do
-			mtime=$(stat -c %Y "$opath")
-			if [[ "$mtime" != "$lastm" ]]; then
-				echo_l "$opath"
-				lastm=$mtime
-			fi
-		done
+		{
+			nf=$(echo "/$base///" | tr -dc / | wc -c)
+			printf '%s\n' "${paths[@]}" | sort -t/ -k$nf
+			realpath "$path"
+		} | {
+			opaths=()
+			lastm=
+			while IFS= read -r opath; do
+				mtime=$(stat -c %Y "$opath")
+				if [[ "$mtime" != "$lastm" ]]; then
+					opaths+=("$opath")
+					lastm=$mtime
+				fi
+			done
+			echo_l "${opaths[@]}"
+		}
 	else
 		echo_l "$(realpath "$base/.old/latest/$rpath")"
 	fi

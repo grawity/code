@@ -7,9 +7,35 @@
 # https://9fans.github.io/plan9port/man/man1/yesterday.html
 # https://computing.help.inf.ed.ac.uk/yesterday
 
+. lib.bash || exit
+
 usage() {
 	echo "Usage: ${0##*/} <path>"
+	echo ""
+	echo_opt "-a" "show all unique versions"
+	echo_opt "-l" "long listing"
 }
+
+echo_l() {
+	if (( opt_l )); then
+		ls -loghd "$@"
+	elif [[ -t 1 ]]; then
+		ls -d "$@"
+	else
+		printf '%s\n' "$@"
+	fi
+}
+
+opt_a=0
+opt_l=0
+
+while getopts :al OPT; do
+	case $OPT in
+	a) opt_a=1;;
+	l) opt_l=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
 
 if (( ! $# )); then
 	usage
@@ -26,6 +52,24 @@ for path; do
 		echo "${0##*/}: No snapshots on $HOSTNAME" >&2
 		exit 1
 	fi
+	base=${base%/}
 	rpath=$(realpath --relative-base="$base" "$path")
-	realpath "${base%/}/.old/latest/$rpath"
+	if (( opt_a )); then
+		paths=("$base"/.old/*/????-??-??/"$rpath")
+		lastm=0
+		# Sort by date
+		nf=$(echo "/$base///" | tr -dc / | wc -c)
+		printf '%s\n' "${paths[@]}" | sort -t/ -k$nf |
+		while IFS= read -r opath; do
+			mtime=$(stat -c %Y "$opath")
+			if [[ "$mtime" != "$lastm" ]]; then
+				echo_l "$opath"
+				lastm=$mtime
+			fi
+		done
+		# Show current version for comparison
+		echo_l "$(realpath "$path")"
+	else
+		echo_l "$(realpath "$base/.old/latest/$rpath")"
+	fi
 done

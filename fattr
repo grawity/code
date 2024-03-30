@@ -22,11 +22,62 @@ attr_aliases = {
     "title":        "user.dublincore.title",
 }
 
+# Hidden from default view
 hidden_attrs = {
     "user.com.dropbox.attributes",
     "user.com.dropbox.attrs",
     "user.wine.sd",
 }
+
+def fmt_dosattrib_samba3(buf):
+    # ~/src/samba/librpc/idl/xattr.idl
+    import enum
+    import io
+    import struct
+
+    class DosAttrib(enum.IntFlag):
+        ReadOnly = 0x1
+        Hidden = 0x2
+        System = 0x4
+        Volume = 0x8
+        Directory = 0x10
+        Archive = 0x20
+        Device = 0x40
+        Normal = 0x80
+        Temporary = 0x100
+        Sparse = 0x200
+        ReparsePoint = 0x400
+        Compressed = 0x800
+        Offline = 0x1000
+        NonIndexed = 0x2000
+        Encrypted = 0x4000
+
+    # Read legacy attrib_hex
+    attrib, _, rest = buf.partition(b"\x00")
+    if attrib:
+        attrib = int(attrib, 16)
+        attrib = DosAttrib(attrib)
+        return f"({attrib._name_}) {buf}"
+    else:
+        print(f"fattr: XXX: attrib_hex not present in {buf!r}",
+              file=sys.stderr)
+
+    # Someday later
+    #class ValidFlags(enum.IntFlag):
+    #    Attrib = 0x1
+    #    EaSize = 0x2
+    #    Size = 0x4
+    #    AllocSize = 0x8
+    #    CreateTime = 0x10
+    #    ChangeTime = 0x20
+    #    ITime = 0x40
+    #if buf:
+    #    rd = io.BytesIO(buf)
+    #    version = struct.unpack(">H", rd.read(2))
+    #    print(f"{version = }")
+    #    if version == 3:
+
+    return buf
 
 def show_attrs(file, *,
                follow=False,
@@ -44,6 +95,8 @@ def show_attrs(file, *,
     if not attrs:
         print(f"  (No attributes.)")
     for key, value in sorted(attrs.items()):
+        if key == "user.DOSATTRIB" and not args.all:
+            value = fmt_dosattrib_samba3(value)
         if not args.all:
             key = key.removeprefix("user.")
         print(f"  {key} = {value}")

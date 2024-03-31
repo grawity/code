@@ -45,12 +45,6 @@ svnsync() {
 	fi
 }
 
-is_ignored() {
-	local dir=$1
-	# ignore setuid directories
-	[[ -u $dir ]]
-}
-
 do_pull() {
 	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
 
@@ -271,7 +265,7 @@ do_main() {
 		fi
 		did[$dir]=y
 
-		if is_ignored "$dir"; then
+		if [[ -u $dir ]]; then
 			debug "- dir '$dir' is ignored (+u), skipping"
 			continue
 		fi

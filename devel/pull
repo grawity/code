@@ -16,15 +16,6 @@ _skip_glob=""
 skip_glob=""
 errors=0
 
-is() {
-	local dir=$(realpath --relative-to="$_PULL_STARTDIR" "$PWD")
-	if [[ $1 == none ]]; then
-		log2 "skipping '$dir' (unknown)"
-	else
-		log2 "updating '$dir' ($1)"
-	fi
-}
-
 log:() {
 	#lib:msg "$*" 'logcmd' >&2
 	"$@" || err "command '$1' failed (status $?)"
@@ -68,7 +59,6 @@ do_git() {
 	fi
 
 	if [[ -d .git/svn ]]; then
-		is "Git (SVN clone)"
 		if remote=$(git config --get svn-remote.svn.url); then
 			rroot=$(log: svn info "$remote" | sed -n 's/^Repository Root: //p')
 			if [[ $rroot == file://* ]]; then
@@ -88,7 +78,6 @@ do_git() {
 			upd: "$old" "$new" tig $old..$new
 		fi
 	elif [[ -e .git ]]; then
-		is "Git"
 		sparse=$(git config --type bool core.sparseCheckout || echo false)
 		case $sparse in
 			true) recurseopt='--recurse-submodules=no';;
@@ -110,7 +99,6 @@ do_git() {
 			upd: "$old" "$new" tig $old..$new
 		fi
 	elif [[ "$(git config core.bare)" == "true" ]]; then
-		is "Git bare"
 		old=$(git rev-parse --verify HEAD)
 		log: git fetch
 		new=$(git rev-parse --verify HEAD)
@@ -120,8 +108,6 @@ do_git() {
 			new=${new:0:12}
 			upd: "$old" "$new" tig "$old..$new"
 		fi
-	else
-		is none
 	fi
 }
 

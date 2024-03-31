@@ -110,13 +110,12 @@ settitle() {
 lib:msg() {
 	local text=$1
 	local level_prefix=$2
-	local level_color=${_log_color[$level_prefix]}
-	local fancy_prefix=${_log_fprefix[$level_prefix]}
-	local fancy_color=${_log_fcolor[$level_prefix]}
-	local text_color=${_log_mcolor[$level_prefix]}
-	local -i skip_func=$3
-
-	local name_prefix prefix color reset msg_color msg_reset
+	local level_color=${_log_color[$level_prefix]-}
+	local fancy_prefix=${_log_fprefix[$level_prefix]-}
+	local fancy_color=${_log_fcolor[$level_prefix]-}
+	local text_color=${_log_mcolor[$level_prefix]-}
+	local -i skip_func=${3-}
+	local name_prefix= prefix= color= reset= msg_color= msg_reset=
 
 	if [[ $DEBUG ]]; then
 		fancy_prefix=

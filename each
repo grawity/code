@@ -8,8 +8,9 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: ${0##*/} <command> [<static args> --] <loop args>"
+	echo "Usage: ${0##*/} [-env] <command> [<static args> --] <loop args>"
 	echo
+	echo_opt "-e" "exit if a command fails"
 	echo_opt "-n" "dry run (output shell commands but don't run them)"
 	echo_opt "-v" "verbose (show commands before running)"
 	echo
@@ -31,10 +32,12 @@ args=()
 cmd=()
 dryrun=0
 verbose=0
+errexit=0
 flag=0
 
-while getopts ":nv" OPT; do
+while getopts ":env" OPT; do
 	case $OPT in
+	e) errexit=1;;
 	n) dryrun=1;;
 	v) verbose=1;;
 	*) lib:die_getopts;;
@@ -96,10 +99,18 @@ if [[ -t 0 ]]; then
 	for arg in "${args[@]}"; do
 		cmd[lpos]=${larg//"{}"/"$arg"}
 		"${cmd[@]}"
+		if (( $? && errexit )); then
+			echo "each: command failed with result $?" >&2
+			exit 1
+		fi
 	done
 else
 	while IFS= read -r arg; do
 		cmd[lpos]=${larg//"{}"/"$arg"}
 		"${cmd[@]}" </dev/tty
+		if (( $? && errexit )); then
+			echo "each: command failed with result $?" >&2
+			exit 1
+		fi
 	done
 fi

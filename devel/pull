@@ -30,6 +30,9 @@ upd:() {
 	if [[ "$old" != "$new" ]]; then
 		lib:log "Updated from ${bold}${old}${reset} to ${bold}${new}${reset}"
 		echo " # ${cmd[*]}"
+		if (( opt_tig )); then
+			("${cmd[@]}")
+		fi
 	fi
 }
 
@@ -235,20 +238,23 @@ do_main() {
 }
 
 usage() {
-	echo "Usage: $progname [-ln] [DIR...]"
+	echo "Usage: $progname [-lnt] [DIR...]"
 	echo
 	echo_opt "-l" "only list paths to be updated (implies '-n')"
 	echo_opt "-n" "dry run (parse Pullfile but don't update anything)"
+	echo_opt "-t" "immediately run 'tig' to browse commits"
 }
 
 depth=0
 opt_dryrun=0
 opt_list=0
+opt_tig=0
 
-while getopts ":ln" OPT; do
+while getopts ":lnt" OPT; do
 	case $OPT in
 	l) (( ++opt_list ));;
 	n) (( ++opt_dryrun ));;
+	t) (( ++opt_tig ));;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))

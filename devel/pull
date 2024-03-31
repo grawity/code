@@ -126,7 +126,9 @@ do_git() {
 }
 
 do_pull() {
-	debug "pull[$[++depth],$BASHPID] called, checking '$PWD' for repo"
+	local source=$1 arg=$2
+
+	debug "pull[$[++depth],$BASHPID] called($1, $2), checking '$PWD' for repo"
 
 	# This function is always called with the repo as current directory.
 	local rdir=$(realpath --relative-to="$_PULL_STARTDIR" "$PWD")
@@ -134,24 +136,26 @@ do_pull() {
 		rdir=$PWD
 	fi
 
-	# With -nn, only list and don't recurse.
-	if (( opt_dryrun > 1 )); then
-		echo "${0##*/}: Would update '$rdir'" >&2
-		return
-	fi
-
 	# Check cwd for supported repositories
 	if [[ -f Pullfile ]]; then
 		# Collection containing more repos
-		if [[ $1 == file && $2 == . ]]; then
-			err "Avoiding recursive descent into '$2' at '$PWD'"
+		if [[ $source == file && $arg == . ]]; then
+			err "Avoiding recursive descent into '$rdir' at '$PWD'"
 			return 1
+		elif [[ $source == file ]] && (( opt_dryrun > 1 )); then
+			echo "${0##*/}: Would descend into '$rdir'" >&2
+			return 0
 		else
 			do_main
 		fi
 	elif [[ -d .git ]]; then
-		log2 "Updating '$rdir'"
-		do_git
+		if (( opt_dryrun )); then
+			echo "${0##*/}: Would update '$rdir'" >&2
+			return
+		else
+			log2 "Updating '$rdir'"
+			do_git
+		fi
 	else
 		err "No repository at '$rdir'"
 	fi

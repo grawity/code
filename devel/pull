@@ -81,11 +81,10 @@ do_pull() {
 		ref=$(git config --get svn-remote.svn.fetch)
 		ref=${ref#*:}
 		ref=${ref:-refs/remotes/git-svn}
-		rev() { git rev-parse --verify HEAD; }
-		old=$(rev)
+		old=$(git rev-parse --verify HEAD)
 		log: git svn fetch
 		log: git merge --ff-only "$ref"
-		new=$(rev)
+		new=$(git rev-parse --verify HEAD)
 		if [[ "$old" != "$new" ]]; then
 			old=${old:0:12}
 			new=${new:0:12}
@@ -93,20 +92,19 @@ do_pull() {
 		fi
 	elif [[ -e .git ]]; then
 		is "Git"
-		rev() { git rev-parse --verify ${1:-HEAD}; }
 		sparse=$(git config --type bool core.sparseCheckout || echo false)
 		case $sparse in
 			true) recurseopt='--recurse-submodules=no';;
 			*) recurseopt='';
 		esac
-		old=$(rev)
+		old=$(git rev-parse --verify HEAD)
 		if log: git pull --ff-only --no-stat $recurseopt; then
-			new=$(rev)
+			new=$(git rev-parse --verify HEAD)
 			if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
 				log: git submodule update
 			fi
 		else
-			new=$(rev @{u})
+			new=$(git rev-parse --verify @{u})
 		fi
 		if [[ "$old" != "$new" ]]; then
 			old=${old:0:12}
@@ -116,10 +114,9 @@ do_pull() {
 		fi
 	elif [[ "$(git config core.bare)" == "true" ]]; then
 		is "Git bare"
-		rev() { git rev-parse --verify HEAD; }
-		old=$(rev)
+		old=$(git rev-parse --verify HEAD)
 		log: git fetch
-		new=$(rev)
+		new=$(git rev-parse --verify HEAD)
 		if [[ "$old" != "$new" ]]; then
 			git --no-pager diff --stat "$old" "$new" "${git_diffstat_opts[@]}"
 			old=${old:0:12}

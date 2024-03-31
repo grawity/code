@@ -114,17 +114,6 @@ do_pull() {
 			log: git --no-pager diff --stat "$old".."$new" -- "${git_diffstat_opts[@]}"
 			upd: "$old" "$new" tig $old..$new
 		fi
-	elif [[ -d .svn ]]; then
-		is "SVN"
-		rev() { svnversion; }
-		old=$(rev)
-		rroot=$(svn info "$remote" | sed -n 's/^Repository Root: //p')
-		if [[ $rroot == file://* ]]; then
-			log: svnsync sync "$rroot"
-		fi
-		log: svn update
-		new=$(rev)
-		upd: "$old" "$new" svn log -v -r "$old:$new"
 	elif [[ "$(git config core.bare)" == "true" ]]; then
 		is "Git bare"
 		rev() { git rev-parse --verify HEAD; }

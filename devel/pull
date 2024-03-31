@@ -70,11 +70,6 @@ do_git() {
 		log: git svn fetch
 		log: git merge --ff-only "$ref"
 		new=$(git rev-parse --verify HEAD)
-		if [[ "$old" != "$new" ]]; then
-			old=${old:0:12}
-			new=${new:0:12}
-			upd: "$old" "$new" tig $old..$new
-		fi
 	elif [[ -e .git ]]; then
 		sparse=$(git config --type bool core.sparseCheckout || echo false)
 		case $sparse in
@@ -90,22 +85,17 @@ do_git() {
 		else
 			new=$(git rev-parse --verify @{u})
 		fi
-		if [[ "$old" != "$new" ]]; then
-			old=${old:0:12}
-			new=${new:0:12}
-			log: git --no-pager diff --stat "$old".."$new" -- "${git_diffstat_opts[@]}"
-			upd: "$old" "$new" tig $old..$new
-		fi
 	elif [[ "$(git config core.bare)" == "true" ]]; then
 		old=$(git rev-parse --verify HEAD)
 		log: git fetch
 		new=$(git rev-parse --verify HEAD)
-		if [[ "$old" != "$new" ]]; then
-			git --no-pager diff --stat "$old" "$new" "${git_diffstat_opts[@]}"
-			old=${old:0:12}
-			new=${new:0:12}
-			upd: "$old" "$new" tig "$old..$new"
-		fi
+	fi
+
+	if [[ "$old" != "$new" ]]; then
+		git --no-pager diff --stat "$old" "$new" "${git_diffstat_opts[@]}"
+		old=${old:0:12}
+		new=${new:0:12}
+		upd: "$old" "$new" tig "$old..$new"
 	fi
 }
 

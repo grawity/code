@@ -50,13 +50,11 @@ do_git() {
 		":(exclude)vendor/*"
 	)
 
-	if [[ -d .git ]]; then
-		while IFS="" read -r line; do
-			if [[ $line == @(":(exclude)"*|":!"*) ]]; then
-				git_diffstat_opts+=("$line")
-			fi
-		done < <(git config --get-all nullroute.git-new.paths)
-	fi
+	while IFS="" read -r line; do
+		if [[ $line == @(":(exclude)"*|":!"*) ]]; then
+			git_diffstat_opts+=("$line")
+		fi
+	done < <(git config --get-all nullroute.git-new.paths)
 
 	if [[ -d .git/svn ]]; then
 		if remote=$(git config --get svn-remote.svn.url); then

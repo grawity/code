@@ -135,7 +135,10 @@ do_pull() {
 			do_main
 		fi
 	elif [[ -d .git ]]; then
-		if (( opt_dryrun )); then
+		if (( opt_list )); then
+			echo "$rdir"
+			return
+		elif (( opt_dryrun )); then
 			echo "${0##*/}: Would update '$rdir'" >&2
 			return
 		else
@@ -244,16 +247,19 @@ do_main() {
 }
 
 usage() {
-	echo "Usage: $progname [-n] [DIR...]"
+	echo "Usage: $progname [-ln] [DIR...]"
 	echo
-	echo_opt "-n" "dry run (process Pullfile and exit)"
+	echo_opt "-l" "only list paths to be updated (implies '-n')"
+	echo_opt "-n" "dry run (parse Pullfile but don't update anything)"
 }
 
 depth=0
 opt_dryrun=0
+opt_list=0
 
-while getopts ":n" OPT; do
+while getopts ":ln" OPT; do
 	case $OPT in
+	l) (( ++opt_list ));;
 	n) (( ++opt_dryrun ));;
 	*) lib:die_getopts;;
 	esac

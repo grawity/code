@@ -67,8 +67,8 @@ do_git() {
 		ref=${ref#*:}
 		ref=${ref:-refs/remotes/git-svn}
 		old=$(git rev-parse --verify HEAD)
-		log: git svn fetch
-		log: git merge --ff-only "$ref"
+		log: git svn fetch &&
+		log: git merge --ff-only "$ref" || return
 		new=$(git rev-parse --verify HEAD)
 	elif [[ -e .git ]]; then
 		sparse=$(git config --type bool core.sparseCheckout || echo false)
@@ -87,7 +87,7 @@ do_git() {
 		fi
 	elif [[ "$(git config core.bare)" == "true" ]]; then
 		old=$(git rev-parse --verify HEAD)
-		log: git fetch
+		log: git fetch || return
 		new=$(git rev-parse --verify HEAD)
 	fi
 
@@ -97,7 +97,7 @@ do_git() {
 		new=${new:0:12}
 		upd: "$old" "$new" tig "$old..$new"
 		if (( opt_tig )); then
-			tig "$old..$new" "${git_diffstat_opts[@]}"
+			tig "$old..$new" "${git_diffstat_opts[@]}" || true
 		fi
 	fi
 }

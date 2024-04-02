@@ -28,17 +28,16 @@ elif [[ $TERM != @(xterm|xterm-*) ]]; then
 	exit 1
 fi
 
-# Request secondary DA, then primary DA
-printf '\e[>c'	# returns '\e[>XXXc'
-printf '\e[c'	# returns '\e[?XXXc'
+# Request Secondary DA and Primary DA
+printf '\e[>c\e[c'
 
 if read -r -s -d '?' -t 2 ans1 &&
    read -r -s -d 'c' -t 2 ans2; then
 	ans="${ans1}?${ans2}c"
-	case $ans in
-		$'\e[>0;136;0c\e[?6c')	[[ $arg_wanted == putty ]];;
-		$'\e[>1;10;0c\e[?62c')	[[ $arg_wanted == juicessh ]];;
-		*)			exit 1;;
+	case $ans=$arg_wanted in
+		$'\e[>0;136;0c\e[?6c'=putty)	true;;
+		$'\e[>1;10;0c\e[?62c'=juicessh)	true;;
+		*)				false;;
 	esac
 else
 	echo "${0##*/}: Did not receive Primary DA reply from terminal" >&2

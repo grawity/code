@@ -31,6 +31,7 @@
 #         $ ssh foobox $(here ~/bin/frob)
 
 . lib.bash || exit
+progname_prefix=1
 
 usage() {
 	echo "Usage: $progname <path...>"
@@ -42,15 +43,18 @@ usage() {
 	echo_opt "-H <host>"	"use a different hostname instead of local host"
 	echo_opt "-w"		"expand args through \$PATH"
 	echo_opt "-x"		"expand and execute a command"
+	echo_opt "-n"		"dry-run (only for '-x')"
 }
 
 host=$HOSTNAME
+n_flag=0
 w_flag=0
 x_flag=0
 
-while getopts ":H:wx" OPT; do
+while getopts ":H:nwx" OPT; do
 	case $OPT in
 	H) host=$OPTARG;;
+	n) n_flag=1;;
 	w) w_flag=1;;
 	x) x_flag=1;;
 	*) lib:die_getopts;;
@@ -59,6 +63,9 @@ done; shift $((OPTIND-1))
 
 if (( w_flag + x_flag > 1 )); then
 	die "-w and -x modes are mutually exclusive"
+fi
+if (( n_flag && !x_flag )); then
+	warn "-n has no effect in modes other than -x"
 fi
 
 args=()
@@ -83,7 +90,11 @@ for arg; do
 done
 
 if (( x_flag )); then
-	(PS4="+ "; set -x; "${args[@]}")
+	if (( n_flag )); then
+		echo "${args[@]@Q}"
+	else
+		(PS4="+ "; set -x; "${args[@]}")
+	fi
 else
 	printf '%s\n' "${args[@]}"
 fi

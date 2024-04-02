@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # isputty -- Check whether xterm is being emulated by PuTTY
 #
+# Issues the Secondary DA and Primary DA queries and checks for a known reply.
+#
 # This is needed for things like Neovim, which strictly adhere to terminfo data
 # and do not recognize the (or rather, incorrectly recognize) Home/End keys,
 # which PuTTY sends as \e[1~ and \e[4~ whereas terminfo(xterm-256color) says
 # khome/kend are \eOH and \eOF respectively.
 
-# Don't bother checking when inside tmux
-if [[ $TERM != @(xterm|xterm-256color) ]]; then
+if [[ $TERM == @(putty|putty-*) ]]; then
+	exit 0
+elif [[ $TERM != @(xterm|xterm-*) ]]; then
 	exit 1
 fi
 
-# Request Secondary DA and Primary DA
 printf '\e[>c\e[c'
 
 if read -r -s -d '?' -t 2 ans1 &&

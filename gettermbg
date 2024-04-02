@@ -9,15 +9,19 @@
 
 exec </dev/tty >/dev/tty
 
-printf '\e]11;?\e\\'
+# Request Xterm background color OSC
+printf '\e]11;?\e\\' # returns '\e]11;rgb:XXXX/YYYY/ZZZZ\e\\'
 
-# Request something to avoid timeouts when we have a tty but the terminal doesn't understand the OSC
-#printf '\e[c' # Primary DA
+# Request Primary Device Attributes, to avoid timeouts when the terminal
+# doesn't understand the Xterm OSC
+printf '\e[c' # returns '\e[?XXXc'
 
-if read -r -s -d '\\' -t 3 ans; then
+# Read up to the ? in the middle of Primary DA answer
+if read -r -s -d '?' -t 2 ans1 &&
+   read -r -s -d 'c' -t 2 ans2; then
+	ans="${ans1}?${ans2}c"
 	re=$'^\e\\]11;(rgb:(.+)/(.+)/(.+))\e'
-	br=$'^\e\[\?1;0c^' # second response
-	if [[ $ans =~ $re ]]; then
+	if [[ $ans1 =~ $re ]]; then
 		declare -i r="0x${BASH_REMATCH[2]}"
 		declare -i g="0x${BASH_REMATCH[3]}"
 		declare -i b="0x${BASH_REMATCH[4]}"
@@ -35,11 +39,19 @@ if read -r -s -d '\\' -t 3 ans; then
 		-d|--is-dark)	(( !is_light ));;
 		*)		echo "gettermbg: Bad usage" >&2; exit 2;;
 		esac
+	elif [[ $ans1 == $'\e[' ]]; then
+		# No answer to color inquiry, all we got is Primary DA
+		case $1 in
+		"")		echo "gettermbg: No reply" >&2; exit 1;;
+		-l|--is-light)	false;;
+		-d|--is-dark)	true;;
+		*)		echo "gettermbg: Bad usage" >&2; exit 2;;
+		esac
 	else
 		echo "gettermbg: Invalid reply from terminal: ${ans@Q}" >&2
 		exit 3
 	fi
 else
-	echo "gettermbg: Did not receive reply from terminal" >&2
+	echo "gettermbg: Did not receive Primary DA reply from terminal" >&2
 	exit 4
 fi

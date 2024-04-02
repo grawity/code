@@ -30,9 +30,6 @@ upd:() {
 	if [[ "$old" != "$new" ]]; then
 		lib:log "Updated from ${bold}${old}${reset} to ${bold}${new}${reset}"
 		echo " # ${cmd[*]}"
-		if (( opt_tig )); then
-			("${cmd[@]}")
-		fi
 	fi
 }
 
@@ -99,6 +96,9 @@ do_git() {
 		old=${old:0:12}
 		new=${new:0:12}
 		upd: "$old" "$new" tig "$old..$new"
+		if (( opt_tig )); then
+			tig "$old..$new" "${git_diffstat_opts[@]}"
+		fi
 	fi
 }
 

@@ -15,7 +15,7 @@ sub warnx {
 
 sub errx {
 	my ($exit, $msg) = @_;
-	warnx($msg);
+	warnx($msg) if $msg;
 	exit $exit;
 }
 
@@ -24,6 +24,7 @@ my $format_nonewline	= 0;
 my $format_url_encode	= 0;
 my $service_required	= 0;
 my $no_default		= 0;
+my $quiet		= 0;
 
 sub usage {
 	print "$_\n" for
@@ -36,6 +37,7 @@ sub usage {
 	"  -n            suppress final newline",
 	"  -s            disable fallback from '<service>/<machine>' to '<machine>'",
 	"  -u            URL-encode output (each field encoded separately)",
+	"  -q            quiet on failure to find machine entry",
 	"",
 	"Format strings:",
 	"  %m, %h        result machine (hostname)",
@@ -145,6 +147,7 @@ GetOptions(
 	"u|urlencode"		=> \$format_url_encode,
 	"s|service-required"	=> \$service_required,
 	"d|no-default"		=> \$no_default,
+	"q|quiet!"		=> \$quiet,
 ) or exit 2;
 
 my ($machinearg, $login) = @ARGV;
@@ -169,4 +172,10 @@ if (!$service_required) {
 	}
 }
 
-exit 1;
+if ($quiet) {
+	errx(1);
+} elsif (length($login)) {
+	errx(1, "could not find '$machinearg' as '$login' in ~/.netrc");
+} else {
+	errx(1, "could not find '$machinearg' in ~/.netrc");
+}

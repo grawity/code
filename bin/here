@@ -5,7 +5,7 @@
 #     Arguments are assumed to be local paths; will be expanded to absolute
 #     paths, prefixed with "/net/<localhost>" and output to stdout.
 #
-# Command mode (-w):
+# Command mode aka 'which' mode (-w):
 #     Arguments are assumed to be command names; will be looked up in $PATH,
 #     prefixed with "/net/<localhost>" and output to stdout.
 #
@@ -73,7 +73,10 @@ for arg; do
 		arg=$(realpath -s "$arg")
 	fi
 
-	if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
+	if [[ $arg == /n/*/* ]]; then
+		nhost=${arg#/n/}; nhost=${nhost%%/*}
+		arg="/net/$nhost$HOME/${arg#/n/*/}"
+	elif [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
 		arg="/net/$host$arg"
 	fi
 	args+=("$arg")

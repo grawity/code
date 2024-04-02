@@ -7,6 +7,10 @@
 # A more advanced tool is available at:
 # https://github.com/rocky/shell-term-background/blob/master/term-background.bash
 
+usage() {
+	echo "Usage: ${0##*/} {-d|-l|--is-dark|--is-light}"
+}
+
 exec </dev/tty >/dev/tty
 
 # Request Xterm background color OSC
@@ -37,7 +41,7 @@ if read -r -s -d '?' -t 2 ans1 &&
 		"")		echo "${BASH_REMATCH[1]}";;
 		-l|--is-light)	(( is_light ));;
 		-d|--is-dark)	(( !is_light ));;
-		*)		echo "gettermbg: Bad usage" >&2; exit 2;;
+		*)		usage >&2; exit 2;;
 		esac
 	elif [[ $ans1 == $'\e[' ]]; then
 		# No answer to color inquiry, all we got is Primary DA
@@ -45,7 +49,7 @@ if read -r -s -d '?' -t 2 ans1 &&
 		"")		echo "gettermbg: No OSC reply from terminal" >&2; exit 1;;
 		-l|--is-light)	false;;
 		-d|--is-dark)	true;;
-		*)		echo "gettermbg: Bad usage" >&2; exit 2;;
+		*)		usage >&2; exit 2;;
 		esac
 	else
 		echo "gettermbg: Invalid reply from terminal: ${ans@Q}" >&2

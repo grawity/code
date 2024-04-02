@@ -69,15 +69,17 @@ if (( n_flag && !x_flag )); then
 fi
 
 args=()
-for arg; do
+for iarg; do
 	if (( w_flag )); then
-		arg=$(command -v "$arg") || exit
+		arg=$(command -v "$iarg") || die "'$iarg' not found in PATH"
 	elif (( x_flag )); then
-		if [[ $arg == @(.|./*) ]]; then
-			arg=$(realpath -s "$arg")
+		if [[ $iarg == @(.|./*) ]]; then
+			arg=$(realpath -s "$iarg")
+		else
+			arg=$iarg
 		fi
 	else
-		arg=$(realpath -s "$arg")
+		arg=$(realpath -s "$iarg")
 	fi
 
 	if [[ $arg == /n/*/* ]]; then

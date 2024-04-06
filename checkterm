@@ -18,6 +18,7 @@ elif [[ $1 != @(juicessh|putty) ]]; then
 	exit 2
 fi
 
+e=$'\e'
 arg_wanted=$1
 
 if [[ $TERM == @(putty|putty-*) && $arg_wanted == putty ]]; then
@@ -31,9 +32,10 @@ fi
 # Request Secondary DA and Primary DA
 printf '\e[>c\e[c'
 
-if read -r -s -d '?' -t 2 ans1 &&
+if read -r -s -d "$e" -t 2 ans0 &&
+   read -r -s -d '?' -t 2 ans1 &&
    read -r -s -d 'c' -t 2 ans2; then
-	ans="${ans1}?${ans2}c"
+	ans="${e}${ans1}?${ans2}c"
 	case $ans=$arg_wanted in
 		$'\e[>0;136;0c\e[?6c'=putty)	true;;
 		$'\e[>1;10;0c\e[?62c'=juicessh)	true;;

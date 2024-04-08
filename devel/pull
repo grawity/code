@@ -43,16 +43,22 @@ svnsync() {
 }
 
 do_git() {
-	local git_diffstat_opts=(
+	local tig_opts=()
+	local diff_paths=(
 		":(exclude)fuzz/*"
 		":(exclude)testing/*"
 		":(exclude)tests/*"
 		":(exclude)vendor/*"
 	)
 
+	# Collect options like --no-merges
+	while IFS="" read -r line; do
+		tig_opts+=("$line")
+	done < <(git config --get-all nullroute.git-new.options)
+
 	while IFS="" read -r line; do
 		if [[ $line == @(":(exclude)"*|":!"*) ]]; then
-			git_diffstat_opts+=("$line")
+			diff_paths+=("$line")
 		fi
 	done < <(git config --get-all nullroute.git-new.paths)
 
@@ -92,9 +98,9 @@ do_git() {
 	fi
 
 	if [[ "$old" != "$new" ]]; then
-		git --no-pager diff --stat "$old" "$new" -- "${git_diffstat_opts[@]}"
+		git --no-pager diff --stat "$old" "$new" -- "${diff_paths[@]}"
 		if (( opt_tig )); then
-			tig "$old..$new" -- "${git_diffstat_opts[@]}" || true
+			tig "${tig_opts[@]}" "$old..$new" -- "${diff_paths[@]}" || true
 		fi
 	fi
 }

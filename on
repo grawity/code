@@ -42,6 +42,7 @@ usage() {
 	echo
 	echo_opt "-x"		"expand the command to an NFS path"
 	echo_opt "-X"		"expand paths in arguments to NFS paths"
+	echo
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-v"		"verbose (display remote host and path)"
@@ -184,7 +185,7 @@ if (( TEST_ON )); then
 fi
 
 if (( verbose )); then
-	info "Running in $host:${wd:-~}"
+	info "Running in \"$host:${wd:-~}\""
 fi
 
 if [[ $wd ]]; then
@@ -195,46 +196,41 @@ fi
 
 # Optionally expand the command and/or any ./relative paths to NFS paths
 
-if (( excomm || expaths )); then
-	if (( $# == 0 )); then
-		true
-	elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
-		die "unable to expand paths in a quoted shell command"
-	fi
-fi
-
-if (( excomm )); then
-	arg=$1; shift
-	arg=$(which "$arg")
-	if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-		arg="/net/$HOSTNAME$arg"
-	fi
-	set -- "$arg" "$@"
-fi
-
-if (( expaths )); then
-	args=()
-	for arg; do
-		if [[ $arg == ./* ]]; then
-			arg=$(realpath -s "$arg")
-		fi
-		if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-			arg="/net/$HOSTNAME$arg"
-		fi
-		args+=("$arg")
-	done
-	set -- "${args[@]}"
-fi
-
-# 0 args - run a shell
-# 1 arg - use as raw command line
-# 2+ args - quote individual args
-
 if (( $# == 0 )); then
 	q_cmd='$SHELL'
 elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
+	if (( excomm || expaths )); then
+		die "unable to expand paths in a quoted shell command"
+	fi
 	q_cmd=$1
 else
+	if (( excomm )); then
+		arg=$1; shift
+		arg=$(which "$arg") || exit
+		if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
+			arg="/net/$HOSTNAME$arg"
+		fi
+		if (( verbose )); then
+			info "Using \"$arg\" as remote command"
+		fi
+		set -- "$arg" "$@"
+	fi
+	if (( expaths )); then
+		args=()
+		for arg; do
+			if [[ $arg == ./* ]]; then
+				arg=$(realpath -s "$arg")
+			fi
+			if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
+				arg="/net/$HOSTNAME$arg"
+			fi
+			if (( verbose )); then
+				info "Expanding argument to \"$arg\""
+			fi
+			args+=("$arg")
+		done
+		set -- "${args[@]}"
+	fi
 	q_cmd=${@@Q}
 fi
 

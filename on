@@ -23,8 +23,8 @@
 
 usage() {
 	#cho "|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------"
-	echo "Usage: on <host> [-HKLNRSvx] [-C <path>] [<command>]"
-	echo "       @ <host> [-HKLNRSvx] [-C <path>] [<command>]"
+	echo "Usage: on <host> [-HKLNRSvxX] [-C <path>] [<command>]"
+	echo "       @ <host> [-HKLNRSvxX] [-C <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
@@ -40,7 +40,8 @@ usage() {
 	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
 	echo_opt "-H"		"access remote home directory (equal to '-C.')"
 	echo
-	echo_opt "-x"		"expand local paths in command to NFS paths"
+	echo_opt "-x"		"expand the command to an NFS path"
+	echo_opt "-X"		"expand paths in arguments to NFS paths"
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-v"		"verbose (display remote host and path)"
@@ -58,6 +59,7 @@ host=""
 user=""
 Kflag=""
 qflag="-q"
+excomm=0
 expaths=0
 verbose=0
 
@@ -79,7 +81,7 @@ elif [[ $arg0 != @('@'|'on') ]]; then
 	wd=""
 fi
 
-while getopts ":C:d:HKLNRSvx" OPT; do
+while getopts ":C:d:HKLNRSvxX" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=KEEP; wd=$OPTARG;;
@@ -91,7 +93,8 @@ while getopts ":C:d:HKLNRSvx" OPT; do
 	R) nfsmode=STRIP;;	# default '@' behavior
 	S) user="root@";;
 	v) verbose=1;;
-	x) expaths=1;;
+	x) excomm=1;;
+	X) expaths=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -107,6 +110,8 @@ if ! klist -s; then
 	warn "Kerberos tickets not available"
 	qflag=""
 fi
+
+# Translate the local working directory
 
 case $nfsmode in
 	USE)
@@ -188,29 +193,42 @@ else
 	q_wd=""
 fi
 
-# 0 args - run a shell
-# 1 arg - use as raw command line
-# 2+ args - quote individual args
+# Optionally expand the command and/or any ./relative paths to NFS paths
 
-if (( expaths )); then
+if (( excomm || expaths )); then
 	if (( $# == 0 )); then
 		true
 	elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
 		die "unable to expand paths in a quoted shell command"
-	else
-		args=()
-		for arg; do
-			if [[ $arg == ./* ]]; then
-				arg=$(realpath -s "$arg")
-			fi
-			if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
-				arg="/net/$HOSTNAME$arg"
-			fi
-			args+=("$arg")
-		done
-		set -- "${args[@]}"
 	fi
 fi
+
+if (( excomm )); then
+	arg=$1; shift
+	arg=$(which "$arg")
+	if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
+		arg="/net/$HOSTNAME$arg"
+	fi
+	set -- "$arg" "$@"
+fi
+
+if (( expaths )); then
+	args=()
+	for arg; do
+		if [[ $arg == ./* ]]; then
+			arg=$(realpath -s "$arg")
+		fi
+		if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
+			arg="/net/$HOSTNAME$arg"
+		fi
+		args+=("$arg")
+	done
+	set -- "${args[@]}"
+fi
+
+# 0 args - run a shell
+# 1 arg - use as raw command line
+# 2+ args - quote individual args
 
 if (( $# == 0 )); then
 	q_cmd='$SHELL'

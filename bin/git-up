@@ -1,1 +1,55 @@
-../devel/git-up
+#!/usr/bin/env bash
+# git-up - fast-forward the latest changes from upstream
+
+. lib.bash || exit
+
+check_master_rename() {
+	# Running in a subshell, with the repository as cwd.
+	if [ -e .git/refs/remotes/origin/main ]; then
+		if [ "$(< .git/HEAD)" = "ref: refs/heads/master" ]; then
+			echo "looks like master branch was renamed, following"
+			git branch -m main &&
+			git branch -u origin/main &&
+			git remote set-head origin -a
+		fi
+	fi
+}
+
+git_up_here() {
+	# Running in a subshell, with the repository as cwd.
+	set -e
+
+	if ! git rev-parse --git-dir >&/dev/null; then
+		echo "error: '$PWD' is not a Git repository" >&2
+		return 1
+	fi
+
+	old=$(git rev-parse "HEAD")
+	if [ -e .git/svn ]; then
+		~/bin/bin/pull .
+	else
+		git fetch
+		if [ "$(git rev-parse --is-bare-repository)" != "true" ]; then
+			check_master_rename
+			git pull --ff-only --no-stat --no-recurse-submodules
+		fi
+	fi
+	new=$(git rev-parse "HEAD")
+
+	if [ "$new" != "$old" ]; then
+		opts=$(git config --get-all nullroute.git-new.options || true)
+		paths=$(git config --get-all nullroute.git-new.paths || true)
+		# Not using "@{1}.." because reflogs aren't always available in
+		# bare repositories.
+		settitle "git up [${PWD/#"$HOME/"/"~/"}]"
+		tig $opts "$old..$new" -- $paths
+	fi
+}
+
+(( $# )) || set -- "."
+
+err=0
+for repo in "$@"; do
+	(cd "$repo" && git_up_here) || err=1
+done
+exit $err

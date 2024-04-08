@@ -1,1 +1,44 @@
-../system/envcp
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+from nullroute.core import Core
+
+def usage():
+    print("Usage: envcp <pid> <command> [args ...]",
+          file=sys.stderr)
+    sys.exit(2)
+
+def read_env(pid):
+    env = None
+    try:
+        with open("/proc/%d/environ" % pid, "rb") as fd:
+            env = parse_env(fd)
+    except IOError as e:
+        Core.debug("could not access environment: %s" % e)
+        with subprocess.Popen(["sudo", "cat", "/proc/%d/environ" % pid],
+                              stdout=subprocess.PIPE) as proc:
+            env = parse_env(proc.stdout)
+    return env
+
+def parse_env(fd):
+    env = fd.read().split(b'\0')
+    return dict(k.split(b'=', 1) for k in env if k != b'')
+
+try:
+    pid = int(sys.argv[1])
+    cmd = sys.argv[2:]
+except IndexError:
+    usage()
+except ValueError:
+    Core.die("pid must be an integer")
+
+if not len(cmd):
+    cmd = ["/usr/bin/env"]
+
+env = read_env(pid)
+
+if not env:
+    Core.warn("environment appears to be empty")
+
+os.execvpe(cmd[0], cmd, env)

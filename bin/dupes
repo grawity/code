@@ -1,1 +1,463 @@
-../misc/dupes
+#!/usr/bin/env python3
+# dupes -- find duplicate files
+import os
+import sys
+import stat
+import binascii
+import fnmatch
+import hashlib
+import io
+import math
+from argparse import ArgumentParser
+from collections import defaultdict
+from nullroute.core import Core
+from nullroute.file import get_file_attr, set_file_attr
+from nullroute.string import escape_shell, fmt_size, fmt_size_short
+from nullroute.ui import print_status, stderr_tty
+
+args = None
+
+header_size = 512
+file_sizes = {}     # path → size (stage 1)
+file_headers = {}   # path → header (stage 2)
+file_hashes = {}    # path → hash (stage 3)
+total_files = 0
+unique_files = 0
+total_wasted = 0
+files_removed = 0
+size_removed = 0
+dirs_skipped = 0
+
+_last_status = 0
+
+if Core._log_level >= Core.LOG_TRACE:
+    def print_status(*vargs):
+        Core.trace(" ".join(vargs))
+
+def status(*vargs):
+    if stderr_tty() and not args.verbose:
+        import time
+        global _last_status
+        print_status(*vargs)
+        now = time.time()
+        if (not vargs) or (now - _last_status > 0.1):
+            sys.stderr.flush()
+            _last_status = now
+
+def path_is_ignored(path):
+    for filter in args.ignore:
+        if fnmatch.fnmatch(path, filter):
+            return True
+    return False
+
+def path_is_removable(path):
+    for filter in args.keep:
+        if fnmatch.fnmatch(path, filter):
+            return False
+    for filter in args.remove:
+        if fnmatch.fnmatch(path, filter):
+            return True
+    return False
+
+def path_is_perishable(path):
+    for filter in args.only:
+        if fnmatch.fnmatch(path, filter):
+            return True
+    return False
+
+def enum_files(root_dir):
+    global dirs_skipped
+    ignores = {".git", ".hg", ".sync"}
+    Core.debug("enumerating %r" % root_dir)
+    if os.path.isdir(root_dir):
+        for subdir, dirs, files in os.walk(root_dir):
+            if ".nodupes" in files and subdir != "." and not args.all:
+                Core.debug("skipping %r (found .nodupes marker)", subdir)
+                dirs.clear()
+                dirs_skipped += 1
+                continue
+            for item in dirs[:]:
+                if item in ignores:
+                    Core.debug("skipping %r/%r (ignored directory)", subdir, item)
+                    dirs.remove(item)
+            for name in files:
+                path = os.path.join(subdir, name)
+                if path_is_ignored(path):
+                    continue
+                yield path
+    else:
+        if not path_is_ignored(root_dir):
+            yield root_dir
+        else:
+            Core.debug("skipping %r (root directory matches ignore)")
+
+def get_header(path):
+    if path not in file_headers:
+        if args.verbose:
+            print("reading", path, file=sys.stderr)
+        with open(path, "rb") as fh:
+            file_headers[path] = hashlib.sha1(fh.read(header_size)).digest()
+    return file_headers[path]
+
+def hash_file(path, status_func=None):
+    if path not in file_hashes:
+        if args.verbose:
+            print("hashing", path, file=sys.stderr)
+        h = hashlib.sha1()
+        buf_size = 4 * 1024 * 1024
+        n_bytes = os.stat(path).st_size
+        with open(path, "rb") as fh:
+            if status_func and n_bytes > 0:
+                n_hashed = 0
+                status_func(0.0)
+            buf = True
+            while buf:
+                buf = fh.read(buf_size)
+                h.update(buf)
+                if status_func and n_bytes > 0:
+                    n_hashed += len(buf)
+                    status_func(n_hashed / n_bytes * 100)
+        file_hashes[path] = h.digest()
+    return file_hashes[path]
+
+def hash_image(path, status_func=None):
+    import PIL.Image
+    img = PIL.Image.open(path)
+    buf = img.tobytes()
+    return hashlib.sha1(buf).digest()
+
+def hash_image_cached(path, status_func=None):
+    file_mtime = int(os.stat(path).st_mtime)
+    attr_name = "lt.nullroute.imagehash"
+    attr_data = get_file_attr(path, attr_name)
+    if attr_data and ":" in attr_data:
+        attr_mtime, attr_hash = attr_data.split(":", 1)
+        if str(file_mtime) == str(attr_mtime):
+            return binascii.a2b_hex(attr_hash)
+    file_hash = hash_image(path, status_func)
+    attr_data = "%s:%s" % (file_mtime, fmt_hash(file_hash))
+    set_file_attr(path, attr_name, attr_data)
+    return file_hash
+
+def fmt_hash(hash):
+    return binascii.b2a_hex(hash).decode("utf-8")
+
+def unfmt_size(sz, si=False):
+    if not sz:
+        return -1
+
+    try:
+        return int(sz)
+    except ValueError:
+        pass
+
+    prefixes = "kMGTPE"
+    mult = 1000 if si else 1024
+    pos = prefixes.index(sz[-1])
+    val = float(sz[:-1])
+    exp = pos + 1
+    return val * (mult ** exp)
+
+def find_image_duplicates(root_dirs, only_globs=None, min_size=0):
+    known_files = list()
+    known_hashes = defaultdict(list)
+
+    n_size = 0
+    n_head = 0
+    n_hash = 0
+
+    for root_dir in root_dirs:
+        for path in enum_files(root_dir):
+            n_size += 1
+            status("stat (%d)" % n_size, path)
+            st = os.lstat(path)
+            if not stat.S_ISREG(st.st_mode):
+                continue
+            if st.st_size < min_size:
+                continue
+            if not path.lower().endswith((".jpg", ".jpeg", ".jfif", ".png")):
+                continue
+            file_sizes[path] = st.st_size
+            known_files.append(path)
+
+    status()
+
+    for path in known_files:
+        n_hash += 1
+        status("ihash (%d/%d)" % (n_hash, n_size), path)
+        try:
+            hash = hash_image_cached(path)
+            known_hashes[hash].append(path)
+        except IOError as e:
+            status()
+            Core.notice("file %r could not be hashed: %s", path, e)
+            continue
+
+    status()
+
+    res = []
+    for hash, paths in known_hashes.items():
+        if len(paths) < 2:
+            continue
+        res.append(paths)
+    res.sort()
+    yield from res
+
+def find_duplicates(root_dirs, *,
+                    only_globs=None,
+                    include_symlinks=False,
+                    min_size=0):
+    known_sizes = defaultdict(list)
+    known_headers = defaultdict(list)
+    known_hashes = defaultdict(list)
+
+    n_size = 0
+    n_head = 0
+    n_hash = 0
+
+    # find files identical in size
+    for root_dir in root_dirs:
+        for path in enum_files(root_dir):
+            n_size += 1
+            status("stat (%d)" % n_size, path)
+            if include_symlinks:
+                st = os.stat(path)
+            else:
+                try:
+                    st = os.lstat(path)
+                except FileNotFoundError:
+                    status()
+                    Core.warn("skipping %r (failed to stat)", path)
+                    continue
+            if not stat.S_ISREG(st.st_mode):
+                Core.trace("skipping %r (not a regular file)", path)
+                continue
+            if st.st_size < min_size:
+                Core.trace("skipping %r (smaller than min_size)", path)
+                continue
+            file_sizes[path] = st.st_size
+            known_sizes[st.st_size].append(path)
+
+    status("stat/prune")
+
+    # skip duplicates if none of the paths match --only=
+    if only_globs:
+        for size, paths in known_sizes.items():
+            if len(paths) > 1:
+                if not any([fnmatch.fnmatch(p, g)
+                            for p in paths
+                            for g in only_globs]):
+                    known_sizes[size] = []
+
+    status("stat/head")
+
+    # find files identical in size and first `header_size` bytes
+    head_todo = []
+
+    for size, paths in known_sizes.items():
+        if len(paths) > 1:
+            head_todo += paths
+
+    for path in sorted(head_todo):
+        n_head += 1
+        status("head (%d/%d)" % (n_head, len(head_todo)), path)
+        try:
+            header = get_header(path)
+        except FileNotFoundError:
+            status()
+            Core.notice("file %r disappeared mid-scan", path)
+            continue
+        size = file_sizes[path]
+        known_headers[size, header].append(path)
+
+    status("head/hash")
+
+    # find files identical in size and hash
+
+    def _status_fn(file_percentage, file_size,
+                   files_so_far, files_total,
+                   bytes_so_far, bytes_total):
+        bytes_so_far += file_size * (file_percentage / 100)
+        percentage_so_far = bytes_so_far / bytes_total * 100
+        size_so_far = fmt_size_short(bytes_so_far)
+        size_total = fmt_size_short(bytes_total)
+        status("hash %d%% (%d/%d, %s/%s): %d%%" % (percentage_so_far,
+                                                   files_so_far,
+                                                   files_total,
+                                                   size_so_far,
+                                                   size_total,
+                                                   file_percentage),
+               path)
+
+    total_size = 0
+    hashed_size = 0
+
+    for (size, header), paths in known_headers.items():
+        total_size += size * len(paths)
+
+    for (size, header), paths in known_headers.items():
+        if len(paths) < 2:
+            n_hash += 1
+            hashed_size += size
+            continue
+
+        if size <= header_size:
+            # optimization: don't compare by hash if
+            # the entire contents are already known
+            n_hash += len(paths)
+            hashed_size += size * len(paths)
+            status()
+            yield paths
+            continue
+
+        for path in paths:
+            n_hash += 1
+            _status_fn(file_percentage=0,
+                       file_size=size,
+                       files_so_far=n_hash,
+                       files_total=n_head,
+                       bytes_so_far=hashed_size,
+                       bytes_total=total_size)
+            try:
+                filehash = hash_file(path,
+                                     status_func=lambda p: _status_fn(file_percentage=p,
+                                                                      file_size=size,
+                                                                      files_so_far=n_hash,
+                                                                      files_total=n_head,
+                                                                      bytes_so_far=hashed_size,
+                                                                      bytes_total=total_size))
+            except FileNotFoundError:
+                status()
+                Core.notice("file %r disappeared mid-scan", path)
+                continue
+            hashed_size += size
+            known_hashes[size, filehash].append(path)
+
+    status()
+
+    res = []
+    for (size, filehash), paths in known_hashes.items():
+        if len(paths) < 2:
+            continue
+        res.append(paths)
+    res.sort()
+    yield from res
+
+if __name__ == "__main__":
+    sys.stdout = io.TextIOWrapper(sys.stdout.detach(),
+                                  encoding="utf-8",
+                                  errors="surrogateescape")
+
+    parser = ArgumentParser()
+    parser.add_argument("--all", action="store_true", default=False,
+                        help="disregard .nodupes tags in directories")
+    parser.add_argument("-L", "--symlinks", action="store_true", default=False,
+                        help="include symlinks")
+    parser.add_argument("-v", "--verbose", action="store_true", default=False,
+                        help="show files as they are processed")
+    parser.add_argument("-l", "--list", action="store_true", default=False,
+                        help="output files as a sortable list")
+    parser.add_argument("-Q", "--quote", action="store_true", default=False,
+                        help="quote paths for shell")
+    parser.add_argument("--ignore", metavar="GLOB", action="append", default=[],
+                        help="ignore matching paths entirely")
+    parser.add_argument("--keep", metavar="GLOB", action="append", default=[],
+                        help="always keep matching paths")
+    parser.add_argument("--remove", metavar="GLOB", action="append", default=[],
+                        help="automatically remove matching paths")
+    parser.add_argument("--keep-oldest", action="store_true", default=False,
+                        help="always keep the oldest file")
+    parser.add_argument("--only", metavar="GLOB", action="append", default=[],
+                        help="only list files with duplicates matching given paths")
+    parser.add_argument("--dry-run", action="store_true", default=False,
+                        help="TODO")
+    parser.add_argument("--min-size", metavar="SIZE", default="1",
+                        help="only check files at least this large (default: 1 byte)")
+    parser.add_argument("--image", action="store_true", default=False,
+                        help="compare image contents rather than file properties")
+    parser.add_argument("path", nargs="*")
+    args = parser.parse_args()
+
+    args.min_size = unfmt_size(args.min_size)
+
+    root_dir = args.path[:] or ["."]
+
+    if args.image:
+        Core.notice("comparing image bitmaps; skipping size and header checks")
+        find_duplicates = find_image_duplicates
+
+    try:
+        for paths in find_duplicates(root_dir,
+                                     only_globs=args.only,
+                                     include_symlinks=args.symlinks,
+                                     min_size=args.min_size):
+            if args.only and not any(path_is_perishable(p) for p in paths):
+                continue
+            paths.sort()
+            size = file_sizes[paths[0]]
+            hash = hash_file(paths[0])
+            num = len(paths)
+            wasted = size * (num - 1)
+            if args.list and args.remove:
+                for path in paths:
+                    if num > 1 and path_is_removable(path):
+                        print("rm -vf %s" % escape_shell(path))
+                        num -= 1
+            elif args.list:
+                for path in paths:
+                    print(wasted, fmt_hash(hash), path)
+            else:
+                print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
+                oldest = None
+                if args.keep_oldest:
+                    mtimes = [(os.stat(path).st_mtime, path) for path in paths]
+                    mtimes.sort()
+                    oldest = mtimes[0][1]
+                for path in paths:
+                    qpath = escape_shell(path) if args.quote else path
+                    if num > 1 and path_is_removable(path) and path != oldest:
+                        print("   \033[1m\033[38;5;9m×\033[m", qpath)
+                        if not args.dry_run:
+                            try:
+                                os.unlink(path)
+                            except FileNotFoundError:
+                                Core.notice("file %r already gone during unlink", path)
+                        files_removed += 1
+                        size_removed += size
+                        num -= 1
+                        wasted -= size
+                    else:
+                        print("    ", qpath)
+            total_files += num
+            unique_files += 1
+            total_wasted += wasted
+    except KeyboardInterrupt:
+        status()
+        Core.notice("scan interrupted")
+
+    sys.stdout.flush()
+
+    if args.list and args.remove:
+        pass
+    elif args.verbose or args.list:
+        wasted_files = total_files - unique_files
+        print("; %d files compared by header" % len(file_headers))
+        print("; %d files compared by hash" % len(file_hashes))
+        print("; %s wasted by %d duplicates" % (fmt_size(total_wasted), wasted_files))
+        if dirs_skipped:
+            print("; %d directories skipped" % dirs_skipped)
+    else:
+        if dirs_skipped:
+            Core.notice("%d directories skipped" % dirs_skipped)
+        if files_removed:
+            Core.info("%s files removed, %s saved" % (
+                files_removed,
+                fmt_size(size_removed),
+            ))
+        if total_files:
+            Core.info("%s files %s (%s unique), %s wasted" % (
+                total_files,
+                "remain" if files_removed else "found",
+                unique_files,
+                fmt_size(total_wasted),
+            ))

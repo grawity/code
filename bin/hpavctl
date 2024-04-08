@@ -1,1 +1,278 @@
-../net/hpavctl
+#!/usr/bin/env bash
+
+. lib.bash || exit
+. libks.bash || exit
+
+usage() {
+	cmds=(
+		"devices [mac]"
+		"peers [mac]"
+		"topology"
+		"show-local-pib"
+		"set-local-nmk <nmk> [mac]"
+		"set-remote-nmk <nmk> <mac> <dak> <via_mac>"
+		"reboot <mac>"
+		"reset-to-factory <mac>"
+	)
+	echo "usage: $progname <cmd> ..."
+	echo ""
+	for c in "${cmds[@]}"; do
+		echo "  $progname $c"
+	done
+}
+
+pretty_nw_info() {
+	local hed tail
+	while read -r head tail; do
+		set -- $tail
+		local -A kv=()
+		case $head in
+		NID)
+			set -- NID "$@"
+			while (( $# )); do kv[$1]=$2; shift; shift; done
+			echo "Network ID: ${kv[NID]} (short: ${kv[SNID]})"
+			;;
+		CCO)
+			printf "\n"
+			printf "\e[1m* %s\e[m\n" "Central Coordinator:" ;;&
+		STA)
+			printf "\n"
+			printf "\e[1m* %s\e[m\n" "Station:" ;;&
+		CCO|STA)
+			while (( $# )); do kv[$1]=$2; shift; shift; done
+			local location=${locations[${kv[MAC]}]}
+			local model=${models[${kv[MAC]}]}
+			[[ ${kv[MAC]} ]] &&
+			printf "   MAC address: \e[38;5;10m%s\e[m \e[38;5;8m%s\e[m\n" "${kv[MAC]}" "$(_get_vendor ${kv[MAC]})"
+			[[ $location || $model ]]  &&
+			printf "   Description: \e[38;5;11m%s\e[m \e[36m(%s)\e[m\n" "$location" "$model"
+			[[ ${kv[TX]} ]] && tx=$[10#${kv[TX]}]
+			[[ ${kv[RX]} ]] && rx=$[10#${kv[RX]}]
+			[[ ${kv[TX]} && ${kv[RX]} ]] &&
+			printf "   Speed:       %s Mbps TX / %s Mbps RX\n" "$tx" "$rx"
+			[[ ${kv[BDA]} ]] &&
+			printf "   Bridged to:  %s \e[38;5;8m%s\e[m\n" "${kv[BDA]}" "$(_get_vendor ${kv[BDA]})"
+			;;
+		esac
+	done
+}
+
+valid_dak() {
+	[[ $1 == key[12] ]] ||
+	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){15}[0-9A-Fa-f]{2}$ ]]
+}
+valid_mac() {
+	[[ $1 == @(local|all|broadcast) ]] ||
+	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){5}[0-9A-Fa-f]{2}$ ]]
+}
+valid_nid() {
+	err "TODO: don't know NID rules yet"
+}
+valid_nmk() {
+	[[ $1 == @(key[12]|none) ]] ||
+	[[ $1 =~ ^([0-9A-Fa-f]{2}:?){15}[0-9A-Fa-f]{2}$ ]]
+}
+
+__check() {
+	if [[ ! $1 ]]; then
+		die "missing ${3}${4:+ (}${4}${4:+)}"
+	elif ! valid_$2 "$1"; then
+		die "bad $3 '$1'"
+	fi
+}
+check_dak!() {
+	__check "$1" dak "device access key"
+}
+check_mac!() {
+	__check "$1" mac "device address" "MAC or 'local' or 'broadcast'"
+}
+check_nid!() {
+	__check "$1" nid "network identifier"
+}
+check_nmk!() {
+	__check "$1" nmk "network membership key"
+}
+
+_check_dak!() {
+	local -n v=$1
+	if [[ $v == @* ]]; then
+		local _v=$(getnetrc -sdf %p "dak/$v")
+		if [[ $_v ]]; then
+			v=$_v
+		fi
+	fi
+	case $v in
+		????-????-????-????) v=$(hpavkey -D "$v");;
+	esac
+	check_dak! "$v"
+}
+_check_mac!() {
+	local -n v=$1
+	case $v in
+		a|all) v=broadcast;;
+		b|bcast) v=broadcast;;
+		l|local) v=local;;
+	esac
+	check_mac! "$v"
+}
+_check_nid!() {
+	local -n v=$1
+	check_nid! "$v"
+}
+_check_nmk!() {
+	local -n v=$1
+	case $v in
+		????-????-????-????) v=$(hpavkey -M "$v");;
+		default|HomePlugAV) v=key1;;
+	esac
+	check_nmk! "$v"
+}
+
+call() {
+	do: "$1" "${opts[@]}" "${@:2}"
+}
+
+declare -A locations=()
+declare -A models=()
+
+declare -- dev=
+declare -- dak=
+declare -a opts=()
+declare -i verbose=0
+
+if [[ -e "$path_config/hpavctl.conf.sh" ]]; then
+	. "$path_config/hpavctl.conf.sh" || exit
+fi
+
+while getopts ":D:i:v" OPT; do
+	case $OPT in
+	D) dak=$OPTARG;;
+	i) dev=$OPTARG;;
+	v) verbose+=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+(( $# )) || set -- net
+
+if [[ $dak ]]; then
+	_check_dak! dak
+	info "using device access key $dak"
+	opts+=(-D "$dak")
+fi
+
+if [[ ! $dev ]]; then
+	for path in /sys/class/net/*; do
+		if [[ $(< $path/type) == 1 ]] &&
+		   [[ $(< $path/operstate) == up ]] &&
+		   [[ ! -e $path/bridge ]]; then
+			dev=${path##*/}
+			debug "selecting interface '$dev'"
+			break
+		fi
+	done
+fi
+if [[ ! $dev ]]; then
+	die "interface not specified (use -i)"
+elif [[ ! -e /sys/class/net/$dev ]]; then
+	die "interface '$dev' does not exist"
+elif [[ $(< /sys/class/net/$dev/operstate) == down ]]; then
+	die "interface '$dev' is down"
+elif [[ $(< /sys/class/net/$dev/operstate) != up ]]; then
+	warn "interface '$dev' seems to be down"
+fi
+opts+=(-i "$dev")
+
+_grep_hwdb() {
+	systemd-hwdb query "$1" | sed -n "s/^$2=//p"
+}
+
+_get_vendor() {
+	local mac=$1 vendor
+	vendor=$(_grep_hwdb "OUI:${mac//:/}" ID_OUI_FROM_DATABASE)
+	echo "($vendor)"
+}
+
+cmd=$1
+case $cmd in
+	devices|dev)
+		mac=${2:-broadcast}; _check_mac! mac
+		# VS_NW_INFO + VS_SW_VER
+		call plcstat -t $mac
+		# VS_SW_VER, one device only
+		#call plctool -q -r $mac
+		;;
+	network|net|peers|topo|topology)
+		mac=${2:-local}; _check_mac! mac
+		if (( verbose >= 3 )); then
+			# VS_NW_INFO + VS_SW_VER
+			call plcstat -t $mac
+		elif (( verbose >= 2 )); then
+			# VS_NW_INFO
+			call plctool -m $mac
+		elif (( verbose >= 1 )); then
+			# VS_NW_INFO
+			call plcstat -m $mac
+		elif [[ $mac == broadcast ]]; then
+			call plctool -q -r $mac |
+			while read -r _dev _mac _; do
+				echo "--- $_mac ---"
+				# VS_NW_INFO
+				call plcstat -m $_mac
+			done
+		else
+			# VS_NW_INFO
+			call plcstat -m $mac | pretty_nw_info
+		fi
+		;;
+	statistics|stat)
+		clear=''
+		mac=${2:-local}
+		if [[ $mac == clear ]]; then
+			clear='-C'
+			mac=${3:-local}
+		fi
+		call plcstat -s CSMA-ALL -d both $clear $mac
+		;;
+	show-local-pib|pib)
+		mac=${2:-local}
+		[[ $mac == local ]] || die "PIB query only supported for local device"
+		call plctool -I
+		;;
+	set-local-nmk)
+		[[ $2 ]] || die "Usage: $cmd <nmk> [mac]"
+		nmk=$2; _check_nmk! nmk
+		mac=${3:-local}; _check_mac! mac
+		info "setting NMK at '$mac' (via Ethernet)"
+		debug "setting network membership key '$nmk'"
+		call plctool -M -K "$nmk" "$mac"
+		;;
+	set-remote-nmk)
+		[[ $5 ]] || die "Usage: $cmd <nmk> <mac> <dak> <via_mac>"
+		nmk=$2; _check_nmk! nmk
+		rmac=$3; _check_mac! rmac
+		dak=$4; _check_dak! dak
+		lmac=$5; _check_mac! lmac
+		info "setting NMK at '$rmac' (via Powerline through '$lmac')"
+		debug "using device access key '$dak'"
+		debug "setting network membership key '$nmk'"
+		call plctool -J "$rmac" -D "$dak" -K "$nmk" "$lmac"
+		;;
+	reboot)
+		mac=$2; _check_mac! mac
+		info "rebooting device '$mac'"
+		call plctool -R "$mac"
+		;;
+	reset-to-factory)
+		mac=$2; _check_mac! mac
+		confirm "reset device '$mac'?" || exit
+		info "resetting device '$mac' to factory defaults"
+		call plctool -T "$mac"
+		;;
+	generate-password|pwgen)
+		mac2pw -q -l 16 -b 4 -n ${2:-1} 00B052000001;;
+	"")
+		die "missing command";;
+	*)
+		die "unknown command '$1'";;
+esac

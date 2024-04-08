@@ -1,1 +1,18 @@
-../net/ip-summarize
+#!/usr/bin/env python3
+# ip-summarize - print summarized CIDR masks for a given IP address range
+import argparse
+import ipaddress
+
+parser = argparse.ArgumentParser()
+parser.add_argument("first_addr")
+parser.add_argument("last_addr")
+args = parser.parse_args()
+
+try:
+    first  = ipaddress.ip_address(args.first_addr)
+    last   = ipaddress.ip_address(args.last_addr)
+    ranges = ipaddress.summarize_address_range(first, last)
+    for net in ranges:
+        print(net)
+except ValueError as e:
+    exit("error: %s" % (e,))

@@ -1,1 +1,35 @@
-../misc/ldifunwrap
+#!/usr/bin/env python3
+# unwrap LDIF files
+import argparse
+import base64
+import sys
+
+def xprint(buf, decode=False):
+    if decode and ": " in buf:
+        k, v = buf.split(": ", 1)
+        if k.endswith(":"):
+            try:
+                v = base64.b64decode(v).decode()
+            except UnicodeDecodeError:
+                pass
+            else:
+                k = k[:-1]
+        buf = "%s: %s" % (k, v)
+    print(buf)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--decode", action="store_true",
+                    help="Base64-decode fields that are valid UTF-8")
+args = parser.parse_args()
+opts = {"decode": args.decode}
+
+buf = ""
+for line in sys.stdin:
+    line = line.rstrip("\r\n")
+    if line.startswith(" "):
+        buf += line[1:]
+    else:
+        xprint(buf, **opts)
+        buf = line
+if buf:
+    xprint(buf, **opts)

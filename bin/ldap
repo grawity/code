@@ -1,1 +1,648 @@
-../net/ldap
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Authen::SASL;
+use File::Basename;
+use List::Util qw(uniq);
+use Net::LDAP;
+use Net::LDAP::Control::ManageDsaIT;
+use Net::LDAP::Control::Relax;
+use Net::LDAP::Extension::WhoAmI;
+use Net::LDAP::Util qw(ldap_explode_dn);
+use Nullroute::Lib qw(_trace _debug _info _warn _err _die);
+use Nullroute::LDAP qw(ldap_check ldap_format_error);
+use Getopt::Long qw(:config bundling require_order);
+
+my %Opt;
+
+sub confirm {
+	my ($msg) = @_;
+	print "$msg ";
+	STDOUT->flush();
+	return (<STDIN> =~ /^y$/i);
+}
+
+sub get_ldap_conf {
+	my ($key) = @_;
+	my $path = "/etc/ldap/ldap.conf";
+	if (open(my $fh, "<", $path)) {
+		while (<$fh>) {
+			next if /^#/;
+			next unless /^\w/;
+			if (/^\Q$key\E\s+(.+?)\s*$/) {
+				_debug("found $key = '$1'");
+				close($fh);
+				return $1;
+			}
+		}
+		close($fh);
+	}
+}
+
+sub ldap_connect {
+	my ($uri, $starttls, $mech) = @_;
+
+	_debug("connecting to '$uri'");
+	my $conn = Net::LDAP->new($uri, verify => "require");
+	if (!$conn) {
+		_die("failed to connect: $@");
+	}
+	_debug("connected to host '".$conn->host."'");
+
+	if ($starttls) {
+		_debug("starting TLS");
+		ldap_check($conn->start_tls());
+	}
+
+	if ($mech) {
+		_debug("authenticating via SASL $mech");
+		ldap_check($conn->bind(sasl => Authen::SASL->new($mech)));
+	}
+
+	if ($::debug >= 4) {
+		_trace("enabling raw packet dump");
+	} elsif ($::debug >= 3) {
+		_trace("enabling structured packet dump");
+		$conn->debug(4|8); # structured dump
+	}
+
+	return $conn;
+}
+
+sub ldap_connect_opt {
+	my (%opt) = @_;
+
+	my $uri = $opt{uri};
+	if ($uri =~ /\s/) {
+		_warn("using only the first URI out of provided list ($uri)");
+		($uri) = split(/\s+/, $uri);
+	}
+
+	return ldap_connect($opt{uri}, $opt{starttls}, $opt{sasl_mech});
+}
+
+sub is_guid_attr {
+	my ($name, $value) = @_;
+	my %guid = (
+		"msfve-recoveryguid" => 1,
+		"msfve-volumeguid" => 1,
+		"objectguid" => 1,
+	);
+	return 0 if length($value) != 16;
+	return 1 if $guid{lc($name)};
+	return 0;
+}
+
+sub is_binary_attr {
+	my ($name, $value) = @_;
+	my %binary = (
+		"krbextradata" => 1,
+		"krbprincipalkey" => 1,
+		"msfve-keypackage" => 1,
+	);
+	return 1 if $name =~ /;binary$/;
+	return 1 if $binary{lc($name)};
+	return 1 if $value && $value =~ /[\x00-\x1F]/;
+	return 0;
+}
+
+sub is_sensitive_attr {
+	my ($name, $value) = @_;
+	my %sensitive = (
+		"krbprincipalkey" => 1,
+		"msfve-keypackage" => 1,
+		"sambantpassword" => 1,
+		"sambapasswordhistory" => 1,
+		"userpassword" => 1,
+	);
+	return 1 if $sensitive{lc($name)};
+	return 0;
+}
+
+sub unpack_guid {
+	my ($buf) = @_;
+	my @bytes = unpack("(H2)*", $buf);
+	return join("", "{",
+		@bytes[3,2,1,0], "-",
+		@bytes[5,4], "-",
+		@bytes[7,6], "-",
+		@bytes[8,9], "-",
+		@bytes[10..15], "}");
+}
+
+sub show_bindump {
+	my ($buf, %opts) = @_;
+	my $indent = $opts{indent} // 0;
+	my $showhex = $opts{showhex} // 1;
+	my $width = $opts{width} // ($showhex ? 16 : 64);
+	my $maxlines = $opts{maxlines} // 0;
+	my $offset = 0;
+	my $lineno = 1;
+	my $istr = " " x $indent;
+	for ($offset = 0; length($buf) > 0; $offset += $width) {
+		if ($maxlines && ++$lineno > $maxlines) {
+			unless ($lineno - $maxlines == 1 && length($buf) <= $width) {
+				print $istr."[".length($buf)." more bytes]\n";
+				last;
+			}
+		}
+		my $chunk = substr($buf, 0, $width, "");
+		my @bytes = unpack("C*", $chunk);
+		my $ostr = sprintf("%08X", $offset);
+		my $bstr = join(" ", map {sprintf("%02X", $_)} @bytes);
+		my $astr = join("", map {$_ < 0x20 || $_ >= 0x7F ? "." : chr($_)} @bytes);
+		my $remain = $width - @bytes;
+		if ($remain) {
+			$bstr .= "   " x $remain;
+			$astr .= " " x $remain;
+		}
+		print $istr.$ostr.($showhex ? "  ".$bstr : "")."  |".$astr."|\n";
+	}
+}
+
+sub show_entry_pretty {
+	my ($entry) = @_;
+	print "\e[1m- dn:\e[m \e[38;5;13m".$entry->dn."\e[m\n";
+	my @attrs = uniq ("objectClass", sort $entry->attributes);
+	for my $attr (@attrs) {
+		for my $val (sort $entry->get_value($attr)) {
+			if (is_sensitive_attr($attr, $val) && !$Opt{reveal_sensitive}) {
+				print "  \e[1m$attr\e[m: \e[38;5;243m(sensitive)\e[m\n";
+			} elsif (is_guid_attr($attr, $val)) {
+				$val = unpack_guid($val);
+				print "  \e[1m$attr\e[m: \e[38;5;12m$val\e[m\n";
+			} elsif (is_binary_attr($attr, $val)) {
+				print "  \e[1m$attr\e[m::\n";
+				print "\e[2m";
+				show_bindump($val,
+				             indent => 4,
+				             maxlines => 8,
+				             showhex => (length($val) < 100));
+				print "\e[m";
+			} else {
+				print "  \e[1m$attr\e[m: $val\n";
+			}
+		}
+	}
+}
+
+sub ldap_attrset_parse {
+	my ($args, %opts) = @_;
+	my %changes;
+
+	for (@$args) {
+		if (/^(?<attr>\w+)(?<op>[+]?=)(?<value>.+)$/s) {
+			my ($op, $attr, $value) = ($+{op}, $+{attr}, $+{value});
+			_debug("value op '$op' on '$attr' with '$value'");
+			if ($opts{translate}) {
+				($attr, $value) = $opts{translate}->($attr, $value);
+			} elsif ($opts{attr_map}) {
+				$attr = $opts{attr_map}{$attr} // $attr;
+			}
+			push @{$changes{$attr}}, $value;
+		}
+		else {
+			_err("syntax error: bad operation '$_'");
+			return;
+		}
+	}
+
+	return \%changes;
+}
+
+sub ldap_changeset_parse {
+	my ($args, %opts) = @_;
+	my %changes;
+	my %attrs;
+
+	for (@$args) {
+		# interpret 'foo=' as unset op (due to '-foo' conflicting with getopt)
+		s/^(\w+)=$/-$1/;
+		# HACK: strip whitespace for easier copypasting
+		s/[\s\n]+/ /gs;
+		if (/^(?<op>-)(?<attr>\w+)$/s) {
+			my ($op, $attr) = ($+{op}, $+{attr});
+			_debug("attr op '$op' on '$attr'");
+			if ($opts{translate}) {
+				($attr) = $opts{translate}->($attr);
+			} elsif ($opts{attr_map}) {
+				$attr = $opts{attr_map}{$attr} // $attr;
+			}
+			if ($op eq "-") {
+				$changes{"delete"}{$attr} = [];
+				$attrs{$attr}{delattr}++;
+			}
+			else {
+				_die("BUG: unhandled op '$op' in '$_'");
+			}
+		}
+		elsif (/^(?<attr>\w+)(?<op>[+-]?=)(?<value>.+)$/s) {
+			my ($op, $attr, $value) = ($+{op}, $+{attr}, $+{value});
+			_debug("value op '$op' on '$attr' with '$value'");
+			if ($opts{translate}) {
+				($attr, $value) = $opts{translate}->($attr, $value);
+			} elsif ($opts{attr_map}) {
+				$attr = $opts{attr_map}{$attr} // $attr;
+			}
+			#if ($ATTR_PACK{lc $attr}) {
+			#	 $value = $ATTR_PACK{lc $attr}->($value);
+			#}
+			if ($op eq "=") {
+				push @{$changes{"replace"}{$attr}}, $value;
+				$attrs{$attr}{"replace"}++;
+			}
+			elsif ($op eq "+=") {
+				push @{$changes{"add"}{$attr}}, $value;
+				$attrs{$attr}{"add"}++;
+			}
+			elsif ($op eq "-=") {
+				push @{$changes{"delete"}{$attr}}, $value;
+				$attrs{$attr}{"delete"}++;
+			}
+			else {
+				_die("BUG: unhandled op '$op' in '$_'");
+			}
+		}
+		else {
+			_err("syntax error: bad operation '$_'");
+			return;
+		}
+	}
+
+	for my $attr (keys %attrs) {
+		my $n = $attrs{$attr};
+		if (($n->{add} || $n->{replace}) && $n->{delattr}) {
+			_warn("'$attr': attribute deletion will override all other operations");
+		}
+		if (($n->{add} || $n->{delete}) && $n->{replace}) {
+			_warn("'$attr': reassignment will override add/delete operations");
+		}
+	}
+
+	return \%changes;
+}
+
+sub ldap_changeset_dump {
+	my ($changes) = @_;
+	my @types = qw(replace add delete);
+	my %ops = qw(replace = add += delete -=);
+	my @out;
+	for my $type (@types) {
+		my $c = $changes->{$type};
+		if ($c && %$c) {
+			for my $key (sort keys %$c) {
+				my $vals = $c->{$key};
+				if (@$vals) {
+					#if ($ATTR_UNPACK{lc $key}) {
+					#	$vals = [map {$ATTR_UNPACK{lc $key}->($_)} @$vals];
+					#}
+					push @out, "$key $ops{$type} \"$_\"" for @$vals;
+				} else {
+					push @out, "$key $ops{$type} all values";
+				}
+			}
+		}
+	}
+	return @out;
+}
+
+sub _slash_split {
+	# This is similar to split(m!/!, $path) but honors escaped slashes within
+	# a path component, e.g. "/Filesystems/cn=\/net\/ember".
+	my ($path) = @_;
+	my @path = ();
+	my $buf = "";
+	my $state = 0;
+	for my $char (split(//, $path)) {
+		if ($state == 0) {
+			if ($char eq "\\") {
+				$state = 1;
+			} elsif ($char eq "/") {
+				push @path, $buf;
+				$buf = "";
+			} else {
+				$buf .= $char;
+			}
+		} elsif ($state == 1) {
+			$buf .= $char;
+			$state = 0;
+		}
+	}
+	push @path, $buf;
+	_trace("split into {".join(", ", map {qq{"$_"}} @path)."}");
+	# split() does not return empty elements at the end, we shouldn't either
+	pop @path while @path && length($path[$#path]) == 0;
+	return @path;
+}
+
+sub path_to_dn {
+	my ($path, $base_dn) = @_;
+	_trace("input path = '$path'");
+	my @path = _slash_split($path);
+	if (@path && shift(@path) ne "") {
+		_die("relative paths are not understood");
+	}
+	_trace("components = {".join(", ", map {qq{"$_"}} @path)."}");
+	if ($path eq "") {
+		# nothing to do
+	} elsif ($path =~ m!/$!) {
+		(@path) = grep {/=/ || s/^/ou=/} @path;
+	} else {
+		my $head = pop(@path);
+		(@path) = grep {/=/ || s/^/ou=/} @path;
+		($head) = grep {/=/ || s/^/cn=/} $head;
+		push @path, $head;
+	}
+	my $dn = join(",", reverse(@path), $base_dn);
+	_trace("final DN = '$dn'");
+	return $dn;
+}
+
+sub dwim_filter {
+	my ($filter, $base, $scope) = @_;
+	_trace("was given filter '$filter' base '$base' scope '$scope'");
+	if ($filter =~ /^-/) {
+		_die("unexpected '$filter' (option in non-option context?)");
+	}
+	elsif ($filter =~ /^@(\w+)$/) {
+		# @account
+		$filter = "(objectClass=$1)";
+	}
+	elsif ($filter =~ /^@(\w+):(.+=.+)$/) {
+		# @account:uid=grawity
+		# More complex @foo:(bar) is not supported
+		$filter = "(&(objectClass=$1)($2))";
+	}
+	elsif ($filter =~ m!^/! || $filter eq "") {
+		# /People/grawity
+		# /ou=People/cn=grawity
+		if ($filter =~ m{//$}) {
+			$scope = "sub";
+		} elsif ($filter =~ m{/$}) {
+			$scope = "one";
+		} else {
+			$scope = "base";
+		}
+		$base = path_to_dn($filter, $base);
+		$filter = "(objectClass=*)";
+	}
+	_trace("modified to filter '$filter' and base '$base'");
+	return ($filter, $base, $scope);
+}
+
+sub dwim_path {
+	my ($path, $base) = @_;
+	if ($path =~ m!^/!) {
+		$path = path_to_dn($path, $base);
+	}
+	elsif ($path =~ /,$/) {
+		$path .= $base;
+	}
+	return $path;
+}
+
+# User input
+my $cmd;
+my @opt_changes;
+# Connection
+$Opt{starttls} = 0;
+$Opt{sasl_mech} = "GSSAPI";
+# Operational
+$Opt{scope} = undef;
+$Opt{manage_dit} = 0;
+$Opt{relax} = 0;
+# UI
+$Opt{reveal_sensitive} = 0;
+
+GetOptions(
+	"cmd=s" => \$cmd,
+	"relax!" => \$Opt{relax},
+	"H|uri=s" => \$Opt{uri},
+	"M|manage-dit!" => \$Opt{manage_dit},
+	"b|base=s" => \$Opt{base},
+	"f|filter=s" => \$Opt{filter},
+	"s|scope=s" => \$Opt{scope},
+	"V|reveal!" => \$Opt{reveal_sensitive},
+) or exit(2);
+
+if (!$Opt{uri}) {
+	$Opt{uri} = get_ldap_conf("URI");
+}
+if (!$Opt{uri}) {
+	# TODO: defaults from current domain
+	_die("LDAP server URI could not be determined");
+}
+
+$Opt{uri} //= get_ldap_conf("URI");
+$Opt{base} //= get_ldap_conf("BASE");
+
+if (!$cmd) {
+	if (basename($0) =~ /^ldap(\w+)$/) {
+		$cmd = $1;
+	} else {
+		$cmd = shift @ARGV;
+	}
+}
+
+if (!$cmd) {
+	_die("missing subcommand");
+}
+
+my @search_controls;
+my @modify_controls;
+
+if ($Opt{manage_dit}) {
+	push @search_controls, Net::LDAP::Control::ManageDsaIT->new(critical => 1);
+	push @modify_controls, Net::LDAP::Control::ManageDsaIT->new(critical => 1);
+}
+if ($Opt{relax}) {
+	push @modify_controls, Net::LDAP::Control::Relax->new();
+}
+
+# Handle all search-based commands
+if ($cmd =~ /^(ls|show|set|rm|rename)$/) {
+	$cmd =~ s/^mv$/move/;
+	$cmd =~ s/^rm$/delete/;
+
+	my $filter = $Opt{filter};
+	my $base = $Opt{base};
+	my $scope = $Opt{scope};
+
+	$scope //= "sub";
+
+	# Simplified 'ldap set <obj> <attrs...>' syntax
+	if (!$filter) {
+		_die("missing entry filter") if !@ARGV;
+		$filter = shift(@ARGV);
+		($filter, $base, $scope) = dwim_filter($filter, $base, $scope);
+	}
+
+	my $changes;
+	my $newdn;
+	my $keepolddn = 1;
+	my @attrs = ("1.1");
+
+	if ($cmd eq "set") {
+		# ldap set <obj> <attrs...>
+		#   Each attr can be either an assignment (k=v, k+=v, k-=v) or a delete (-k).
+		#   There's a weird shortcut for object classes (+@v, -@v) which I don't even use.
+		for (@ARGV) {
+			s/^([+-])@/objectClass$1=/;
+			if (/=/ || /^-/) {
+				push @opt_changes, $_;
+			} else {
+				_err("unrecognized argument '$_'");
+			}
+		}
+		$changes = ldap_changeset_parse(\@opt_changes);
+	}
+	elsif ($cmd eq "show") {
+		# ldap set <obj> [attrs...]
+		#   Only attribute names can be optionally listed.
+		@attrs = @ARGV ? @ARGV : ("*");
+		_err("unrecognized argument '$_' (did you want 'ldap set'?)") for grep {/=/} @attrs;
+	}
+	elsif ($cmd eq "rename") {
+		# ldap rename <obj> <rdn>
+		#   Accepts "foo:=bar" or "foo:=bar+baz=quux" as a weird shorthand to delete
+		#   the old RDN (which is kept by default).
+		_die("missing new RDN") if @ARGV < 1;
+		_die("too many arguments given") if @ARGV > 1;
+		($newdn) = @ARGV;
+		if ($newdn =~ s/^(\w+):=(.*)$/$1=$2/) {
+			$keepolddn = 0;
+		}
+	}
+	elsif ($cmd eq "move") {
+		# ldap move <obj> <parent_dn>
+		_die("missing new superior DN") if @ARGV < 1;
+		_die("too many arguments given") if @ARGV > 1;
+		($newdn) = @ARGV;
+		$newdn = dwim_path($newdn, $base);
+	}
+	else {
+		_die("too many arguments given") if @ARGV;
+	}
+	exit(1) if $::errors;
+
+	# Connect to the server
+	my $conn = ldap_connect_opt(%Opt);
+
+	# Search for required objects
+	_debug("searching for $filter under '$base' [$scope]");
+	my $srch = $conn->search(base => $base,
+				scope => $scope,
+				filter => $filter,
+				attrs => \@attrs,
+				control => \@search_controls);
+	ldap_check($srch);
+
+	_info("found ".$srch->count." entries");
+	my $i = 0;
+	my @entries = $srch->entries;
+
+	if ($cmd eq "delete") {
+		# Cheap way to ensure depth-first deletion
+		@entries = sort {length($b->dn) <=> length($a->dn)} @entries;
+	}
+	if ($cmd eq "rename") {
+		#_die("refusing to rename more than 1 result") if $srch->count > 1;
+	}
+
+	# Apply the operation
+	for my $entry (@entries) {
+		my $dn = $entry->dn;
+		if ($cmd eq "set" && %$changes) {
+			print "modifying $dn\n";
+			my $res = $conn->modify($dn, %$changes,
+			                        control => \@modify_controls);
+			if ($res->is_error) {
+				if ($res->error_name eq "LDAP_TYPE_OR_VALUE_EXISTS") {
+					_warn($res->error);
+				} else {
+					_err($res->error);
+				}
+			}
+		} elsif ($cmd eq "delete") {
+			if (confirm("remove entry '$dn'?")) {
+				print "removing $dn\n";
+				my $res = $conn->delete($dn,
+				                        control => \@modify_controls);
+				ldap_check($res);
+			}
+		} elsif ($cmd eq "rename") {
+			print "modrdn $dn\n";
+			my $res = $conn->moddn($dn, newrdn => $newdn,
+			                            deleteoldrdn => !$keepolddn,
+			                            control => \@modify_controls);
+			ldap_check($res);
+		} elsif ($cmd eq "move") {
+			print "newsuperior $dn\n";
+			my $res = $conn->moddn($dn, newsuperior => $newdn,
+			                            control => \@modify_controls);
+			ldap_check($res);
+		} elsif ($cmd eq "show") {
+			print "\n" if $i++;
+			show_entry_pretty($entry);
+		} else {
+			print "$dn\n";
+		}
+	}
+}
+elsif ($cmd eq "new") {
+	my $dn;
+	my $changes;
+
+	$dn = shift @ARGV;
+	if (!$dn) {
+		_die("missing new entry DN");
+	}
+	$dn = dwim_path($dn, $Opt{base});
+
+	for (@ARGV) {
+		if (/=/) {
+			push @opt_changes, $_;
+		} elsif (/^@(.+)/) {
+			push @opt_changes, "objectClass=$1";
+		} else {
+			_err("unrecognized argument '$_'");
+		}
+	}
+	$changes = ldap_attrset_parse(\@opt_changes);
+	if (!$changes || !%$changes) {
+		_die("no attributes specified");
+	}
+
+	my $entry = Net::LDAP::Entry->new();
+	$entry->dn($dn);
+	# First add implicit attributes from the RDN
+	my $parsed_dn = ldap_explode_dn($dn, casefold => "none");
+	for my $attr (sort keys %{$parsed_dn->[0]}) {
+		$entry->add($attr => $parsed_dn->[0]->{$attr});
+	}
+	# Then the explicitly specified attributes
+	for my $attr (sort keys %$changes) {
+		$entry->add($attr => $changes->{$attr});
+	}
+
+	_info("creating entry '$dn'");
+	show_entry_pretty($entry);
+
+	my $conn = ldap_connect_opt(%Opt);
+	my $res = $conn->add($entry,
+	                     control => \@modify_controls);
+	ldap_check($res);
+}
+elsif ($cmd eq "whoami") {
+	if (@ARGV) {
+		_err("unrecognized arguments");
+	}
+
+	my $conn = ldap_connect_opt(%Opt);
+	my $res = $conn->who_am_i();
+	ldap_check($res);
+	print $res->response()."\n";
+}
+else {
+	_die("unknown subcommand '$cmd'");
+}

@@ -1,1 +1,154 @@
-../misc/urimap
+#!/usr/bin/env python
+# urimap -- translate URIs according to a mapping table
+import argparse
+from nullroute.core import Core
+import os
+import re
+import sys
+import urllib.parse
+import xdg.BaseDirectory as basedir
+
+def load_mappings(path, gateways=True):
+    Core.trace("looking for %r" % path)
+    mappings = []
+    with open(path, "r") as f:
+        Core.debug("loading from %r" % path)
+        for line in f:
+            line = line.strip()
+            if (not line) or line.startswith("#"):
+                continue
+            line = line.split()
+            match = re.compile("^%s$" % line[0])
+            if line[1] == "<via>":
+                replacement, *rest = line[2:]
+                iscanonical = False
+            else:
+                replacement, *rest = line[1:]
+                iscanonical = True
+            line = (match, replacement, iscanonical, *rest)
+            if iscanonical or gateways:
+                mappings.append(line)
+    return mappings
+
+def find_mapping(mappings, uri):
+    Core.trace("looking up %r" % uri)
+    for regex, replace, iscanonical, *rest in mappings:
+        #Core.trace("considering %r / %r" % (regex, replace))
+        flags = ""
+        if rest:
+            flags = rest.pop(0)
+        m = regex.match(uri)
+        if m:
+            if replace != "$0":
+                yield subst(replace, m)
+            if not ("+" in flags):
+                return
+
+def subst(template, match):
+    state = 0
+    out = ""
+    buf = fbuf = ""
+    for char in template:
+        if state == 0:
+            if char == "$":
+                state = 1
+            elif char == "\\":
+                state = 3
+            else:
+                out += char
+        elif state == 1:
+            if char in "0123456789":
+                try:
+                    out += match.group(int(char))
+                except IndexError:
+                    pass
+                state = 0
+            elif char == "&":
+                out += match.group(0)
+                state = 0
+            elif char == "{":
+                buf = fbuf = ""
+                state = 2
+            else:
+                out += "$" + char
+                state = 0
+        elif state == 2:
+            if char in "0123456789" and not fbuf:
+                buf += char
+            elif char == "}":
+                try:
+                    r = match.group(int(buf))
+                    if "/" in fbuf:
+                        r = r.replace(":", "/")
+                    if "%" in fbuf:
+                        r = urllib.parse.quote(r)
+                    out += r
+                except IndexError:
+                    pass
+                state = 0
+            elif char in "%/" and buf:
+                fbuf += char
+            else:
+                out += "${" + buf + char
+                state = 0
+        elif state == 3:
+            out += char
+            state = 0
+    return out
+
+mappings = None
+seen = set()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-C", "--config",
+                    help="specify a non-default mapping file")
+parser.add_argument("-g", "--gateways", action="store_true",
+                    help="include mappings via web gateways")
+parser.add_argument("uri", nargs="*")
+args = parser.parse_args()
+
+if args.config:
+    mappings = load_mappings(args.config, args.gateways)
+else:
+    for conf_dir in basedir.load_config_paths("nullroute.eu.org"):
+        try:
+            mappings = load_mappings(os.path.join(conf_dir, "urimap.conf"),
+                                     args.gateways)
+        except FileNotFoundError:
+            pass
+        else:
+            break
+
+for start_uri in args.uri:
+    Core.trace("start arg: %r" % start_uri)
+    if mappings is None:
+        Core.trace("... no mappings defined, returning original arg")
+        print(start_uri)
+        continue
+    inputs = [start_uri]
+    found = 0
+    while inputs:
+        Core.trace("- have inputs: %r" % inputs)
+        next = []
+        for uri in inputs:
+            Core.trace("- trying to map %r" % uri)
+            if uri in seen:
+                Core.trace("... already seen, skipping")
+                continue
+            mapped = list(find_mapping(mappings, uri))
+            Core.trace("... output %r" % mapped)
+            if mapped:
+                Core.trace("... mapping found, adding to next-inputs")
+                next += mapped
+            else:
+                Core.trace("... no mapping, uri is final")
+                found += 1
+                print(uri)
+            seen.add(uri)
+        if len(seen) > 100:
+            raise Exception("possible infinite loop at %r" % start_uri)
+        inputs = next
+    Core.trace("- no more inputs")
+    if found == 0:
+        Core.trace("... no mappings ever found, returning original arg")
+        print(start_uri)

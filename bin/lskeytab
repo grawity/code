@@ -1,1 +1,32 @@
-../kerberos/lskeytab
+#!/usr/bin/env perl
+use List::MoreUtils 'uniq';
+use feature 'say';
+
+my %hosts;
+my %services;
+my %kvnos;
+
+my @cmd = @ARGV ? ("klist", "-k", shift(@ARGV))
+		: ("klist", "-k");
+
+if (open(my $fh, "-|", @cmd)) {
+	my $skip = 3;
+	while (<$fh>) {
+		next if $skip and $skip--;
+		if (/^\s*(\d+)\s+(\S+)@(\S+)$/) {
+			my ($kvno, $princ, $realm) = ($1, $2, $3);
+			my ($svc, $host) = split(m|/|, $princ, 2);
+			push @{$hosts{$host}}, $svc;
+			push @{$services{$svc}}, $host;
+			push @{$kvnos{$princ}}, $kvno;
+		}
+	}
+	close($fh);
+}
+
+for my $host (sort keys %hosts) {
+	say "host $host:";
+	say "    ", join(" ", map {
+		$_."(".join(",", uniq sort @{$kvnos{"$_/$host"}}).")"
+	} uniq sort {lc $a cmp lc $b} @{$hosts{$host}});
+}

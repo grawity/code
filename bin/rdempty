@@ -1,1 +1,118 @@
-../misc/rdempty
+#!/usr/bin/env perl
+# rdempty -- recursively remove almost all empty directories
+use warnings;
+use strict;
+use Getopt::Long;
+use Nullroute::Lib;
+
+my %Opt = (
+	undo => 0,
+	quiet => 0,
+	force => 0,
+);
+
+sub is_gitdir {
+	my ($dir) = @_;
+
+	return (-f "$dir/config" && -d "$dir/objects" && -d "$dir/refs");
+}
+
+sub is_maildir {
+	my ($dir) = @_;
+
+	return (-d "$dir/cur" && -d "$dir/new" && -d "$dir/tmp");
+}
+
+sub clean {
+	my ($root, $flags) = @_;
+
+	my $force = $Opt{force};
+
+	_debug("cleaning '$root'");
+
+	# recursively remove contents
+
+	if (opendir(my $dh, $root)) {
+		while (defined(my $name = readdir($dh))) {
+			my $path = "$root/$name";
+			_debug("- child '$path'");
+			if ($name eq "." || $name eq "..") {
+				;
+			}
+			elsif (-l $path) {
+				;
+			}
+			elsif (!$force && $name eq "tmp" && is_maildir($root)) {
+				_debug("skipping '$path' (Maildir)");
+			}
+			# keep 'marker' directories
+			elsif (!$force && $name eq ".stfolder") {
+				_debug("skipping '$path' (SyncThing marker)");
+			}
+			# do not recurse into the git-annex maze
+			elsif (!$force && -d "$path/annex/objects") {
+				_notice("skipping '$path' (git-annex repository)");
+			}
+			elsif (-d $path) {
+				clean($path, $flags);
+			}
+		}
+		closedir($dh);
+	} else {
+		_err("cannot open '$root': $!");
+	}
+
+	# remove the directory itself
+
+	if ($root eq ".") {
+		;
+	}
+	elsif (!$force && $root =~ m|/refs$| && is_gitdir("$root/..")) {
+		_debug("skipping '$root' (Git repo)");
+	}
+	elsif (rmdir($root)) {
+		_info("removed: $root") unless $Opt{quiet};
+	}
+	elsif ($!{ENOTEMPTY}) {
+		;
+	}
+	else {
+		_err("cannot remove '$root': $!");
+	}
+}
+
+sub undo {
+	my @dirs;
+
+	while (<STDIN>) {
+		if (/.*?removed: (.+)$/) {
+			push @dirs, $1;
+		}
+	}
+
+	for (reverse @dirs) {
+		if (mkdir($_)) {
+			_info("created $_") unless $Opt{quiet};
+		} else {
+			_err("cannot create '$_': $!");
+		}
+	}
+}
+
+GetOptions(
+	"undo" => \$Opt{undo},
+	"quiet!" => \$Opt{quiet},
+	"force!" => \$Opt{force},
+) || exit(2);
+
+if ($Opt{undo}) {
+	undo();
+}
+elsif (@ARGV) {
+	clean($_) for @ARGV;
+}
+else {
+	clean(".");
+}
+
+exit(!!$::errors);

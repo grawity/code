@@ -1,1 +1,222 @@
-../misc/backup
+#!/usr/bin/env bash
+
+PATH="$HOME/code/backup:$PATH"
+
+. lib.bash || exit
+. libks.bash || exit
+
+progname_prefix=0
+
+# configuration
+
+local_config_file=$path_config/backup.conf.sh
+
+default_jobs=(push-hd)
+hosts=()
+borg_args=()
+borg_root_repo="/vol4/Backup/Roots/$HOSTNAME.borg"
+borg_home_repo="/vol4/Backup/Homes/$HOSTNAME.borg"
+rsync_base_dir="$HOME/Backup"
+
+# Used by backup.conf to override borg_* config variables at job run time
+borg_pre() { true; }
+
+if [[ -f $local_config_file ]]; then
+	. "$local_config_file" || die "failed to load configuration from '$local_config_file'"
+else
+	warn "config file '$local_config_file' missing"
+fi
+
+if [[ $push_volume ]]; then
+	notice "obsolete \$push_volume defined in ${local_config_file@Q}"
+fi
+
+# misc
+
+conf=$path_config/synced
+
+lock_path=
+lock_fd=
+failed_jobs=()
+
+take_lock() {
+	local job=$1
+
+	lock_path=${XDG_RUNTIME_DIR?}/backup-$1.lock
+	exec {lock_fd}<>$lock_path
+	flock -x -n $lock_fd || {
+		if read ldate < "$lock_path" || true; then
+			lmsg="started on $(date -d "${ldate%% *}" +"%F %T")"
+		else
+			lmsg="status unknown"
+		fi
+		die "job '$job' is already running ($lmsg)"
+	}
+	echo "$(date -Isecond) $*" >&$lock_fd
+}
+
+drop_lock() {
+	exec {lock_fd}<&-
+	rm -f "$lock_path"
+}
+
+is_mounted() {
+	local path=$1
+	test -d "$path" && mountpoint -q "$path"
+}
+
+is_older_than() {
+	local path=$1 seconds=$2
+	local a=$(date +%s)
+	local b=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+	(( a - b > seconds ))
+}
+
+do_borg() {
+	local kind=$1
+	local tag="$HOSTNAME.$(date +%Y%m%d.%H%M)"
+	local var
+
+	borg_pre "$kind"
+	var="borg_${kind}_repo"; local repo="${!var}"
+	var="borg_${kind}_dirs[@]"; local dirs=("${!var}")
+	var="borg_${kind}_args[@]"; local args=("${!var}")
+
+	if [[ ! $repo ]]; then
+		die "borg_${kind}_repo not defined"
+	fi
+	if ! [[ $repo == *:* || -d $repo ]]; then
+		die "repository '$repo' does not exist"
+	fi
+	if [[ $borg_args ]]; then
+		die "borg_args cannot be changed anymore"
+	fi
+	if [[ $dirs ]]; then
+		die "borg_${kind}_dirs cannot be changed anymore"
+	fi
+	if [[ $args ]]; then
+		die "borg_${kind}_args cannot be changed anymore"
+	fi
+
+	~/bin/misc/backup.py \
+		--borg-repo="$repo" \
+		"$kind"
+}
+
+do_job() {
+	$0 "$1" || { failed_jobs+=("$1"); false; }
+}
+
+job_main() {
+	case $job in
+		home | borg-home)
+			do_borg home
+			;;
+		root | borg-root)
+			do_borg root
+			;;
+		servers)
+			homes=()
+			roots=()
+			for host in "${hosts[@]}"; do
+				if [[ $host == '#'* ]]; then
+					continue
+				elif [[ $host == *'!' ]]; then
+					host=${host%!}
+					roots+=($host)
+				fi
+				homes+=($host)
+			done
+			debug "backup home from: ${homes[*]}"
+			debug "backup rootfs from: ${roots[*]}"
+			debug "running jobs"
+			for host in ${homes[@]}; do
+				do_job @$host
+			done
+			for host in ${roots[@]}; do
+				do_job root@$host
+			done
+			;;
+		root@*)
+			host=${job#*@}
+			~/bin/misc/do_rsync \
+				"root@$host:/" \
+				"$rsync_base_dir/Roots/$host/" \
+				-f "merge $conf/rsync-filters/server_root_all"		\
+				-f "merge $conf/rsync-filters/server_root_extra"	\
+				-f "merge $conf/rsync-filters/server_root_$host"	\
+				-F -x -P --fake-super					;
+			;;
+		@*)
+			host=${job#@}
+			~/bin/misc/do_rsync \
+				"$host:" \
+				"$rsync_base_dir/Homes/$host/" \
+				-f "merge $conf/rsync-filters/home_all"			\
+				-f "merge $conf/rsync-filters/home_$host"		\
+				-f "merge $conf/rsync-filters/server_home_all"		\
+				-f "merge $conf/rsync-filters/server_home_$host"	\
+				-F -x -P						;
+			;;
+		gphotos)
+			src="gphotos:media/by-year"
+			dst="/vol4/Backup/Google Drive Photos"
+			if [[ ! -d "$dst" ]]; then
+				confirm "missing '$dst', create?" || exit
+			fi
+			do: rclone sync -v "$src" "$dst"
+			;;
+		irc)
+			. ~/.config/nullroute.eu.org/synced/irc.conf
+			~/bin/misc/do_rsync \
+				"$irc_host:$irc_log_path/" \
+				~/Attic/Chatlogs/current/
+			;;
+		*)
+			die "unknown job '$job'"
+			;;
+	esac
+}
+
+# Main task
+
+if [[ ! $_inhibited ]]; then
+	export _inhibited=$$
+	debug "restarting under gnome-inhibit"
+	exec gnome-inhibit \
+		--always \
+		--who "backup" \
+		--what "suspend" \
+		--why "Performing a backup" \
+		-- "$0" "$@"
+fi
+
+set -e
+umask 077
+debug "started with: '$*'"
+
+trap "die \"[\$BASHPID] '\$job' interrupted\"" INT
+
+(( $# )) || set -- "${default_jobs[@]}"
+
+for job; do
+	take_lock "$job"
+	log2 "running job '$job'"
+	t_begin=$(date +%s)
+
+	job_main || r=$?
+
+	t_end=$(date +%s)
+	lib:echo "Job '$job' finished in $(interval $[t_end-t_begin])"
+	drop_lock
+
+	if (( r )); then
+		failed_jobs+=("$job")
+		break
+	fi
+done
+
+if (( ${#failed_jobs[@]} )); then
+	_fail=${failed_jobs[*]}
+	err "backup failed for ${_fail// /, }"
+fi

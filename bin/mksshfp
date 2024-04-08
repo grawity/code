@@ -1,1 +1,126 @@
-../security/mksshfp
+#!/usr/bin/env python3
+# mksshfp - convert OpenSSH public keys to DNS SSHFP records
+from glob import glob
+import os
+import sys
+import hashlib
+import authorized_keys
+from nullroute.core import Core
+
+KEY_ALGOS = {
+    "ssh-rsa":              1,
+    "ssh-dss":              2,
+    "ecdsa-sha2-nistp256":  3,
+    "ecdsa-sha2-nistp384":  3,
+    "ecdsa-sha2-nistp521":  3,
+    "ssh-ed25519":          4, # RFC 7479
+}
+
+HASH_ALGOS = [
+    (1, hashlib.sha1),
+    (2, hashlib.sha256),
+]
+
+def usage():
+    print("Usage: %s <hostname> [pubkey-file]" % Core.arg0)
+    print()
+    print("If pubkey-file is given, SSHFP records for all keys in that file will")
+    print("be printed. Otherwise, your ~/.ssh/known_hosts will be searched for keys")
+    print("with a matching hostname.")
+
+def parse(path):
+    if path == "-":
+        path = "/dev/stdin"
+
+    for line in open(path):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        try:
+            key = authorized_keys.PublicKey(line, host_prefix=True)
+        except ValueError:
+            Core.warn("parse error at: %r" % line)
+            continue
+
+        if key.algo not in KEY_ALGOS:
+            Core.err("no SSHFP type for '%s' keys" % key.algo)
+            continue
+
+        for hash_id, hash_func in HASH_ALGOS:
+            if hash_id == 1 and KEY_ALGOS[key.algo] >= 3:
+                # RFC 7479 only defines SHA-256 for ssh-ed25519
+                # SHA-1 for ecdsa-* skipped intentionally
+                continue
+
+            keyhash = hash_func(key.blob)
+            yield {
+                "key": key,
+                "algo_id": KEY_ALGOS[key.algo],
+                "hash_id": hash_id,
+                "hash": keyhash,
+            }
+
+def fmt_sshfp(host, pubkey, generic=False):
+    if generic:
+        type = "TYPE44"
+        rrdata = ["%02x" % entry["algo_id"],
+                  "%02x" % entry["hash_id"],
+                  entry["hash"].hexdigest()]
+        rrlen = sum([len(s) // 2 for s in rrdata])
+        rrdata = ["\\#", "%d" % rrlen, *rrdata]
+    else:
+        type = "SSHFP"
+        rrdata = ["%d" % entry["algo_id"],
+                  "%d" % entry["hash_id"],
+                  entry["hash"].hexdigest()]
+    record = "%s\t%s" % (type, " ".join(rrdata))
+    if host:
+        if "." in host and host[-1] != ".":
+            host = "%s." % host
+        record = "%s\t%s" % (host, record)
+    comment = "; (%s, %s)" % (entry["key"].algo, entry["hash"].name)
+    return "%s %s" % (record, comment)
+
+use_generic = False
+
+try:
+    host = sys.argv[1]
+except IndexError:
+    if sys.stdin.isatty():
+        Core.die("missing host parameter")
+    else:
+        host = "-"
+
+infiles = sys.argv[2:]
+
+if host in {"--help", "-h", "-?"}:
+    usage()
+    sys.exit()
+
+if host in {"--local", "-l"}:
+    host = ""
+    infiles = glob("/etc/ssh/ssh_host_*_key.pub")
+
+if host == "-" and not infiles:
+    # 'mksshfp -' should just read from stdin
+    host = ""
+    infiles = ["-"]
+
+if infiles:
+    for infile in infiles:
+        Core.debug("loading all keys from %r" % infile)
+        for entry in parse(infile):
+            print(fmt_sshfp(host, entry))
+else:
+    Core.debug("using existing keys from known_hosts")
+    infile = os.path.expanduser("~/.ssh/known_hosts")
+    found = 0
+    for entry in parse(infile):
+        if host in set(entry["key"].hosts):
+            print(fmt_sshfp(host, entry, use_generic))
+            found += 1
+    if not found:
+        Core.err("%r not found in known_hosts" % host)
+
+Core.exit()

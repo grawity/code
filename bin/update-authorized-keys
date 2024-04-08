@@ -1,1 +1,213 @@
-../security/update-authorized-keys
+#!/usr/bin/env bash
+# ssh-authz-update - authorized_keys updater tool
+
+PATH="$HOME/bin:$HOME/code/bin:$PATH"
+
+. lib.bash || exit
+. libfilterfile.bash || exit
+. libhttpfetch.bash || exit
+
+progname_prefix=0
+
+usage() {
+	echo "Usage: $progname [-f] [-q] [-r [-k URI]]"
+	echo ""
+	echo_opt "-f" "proceed if opt-out or username mismatch was found"
+	echo_opt "-q" "quietly exit if update is not to be done"
+	echo ""
+	echo_opt "-r" "import the signing key from keyserver"
+	echo_opt "-k URL" "use another keyserver"
+}
+
+filter_keys() {
+	filter_file 'match_hostname'
+}
+
+recv_key() {
+	local key=$1 status=
+	debug "retrieving key '$key'"
+	if status=$($GPG --keyserver "$keyserver" --recv-key "$key" 2>&1); then
+		lib:trace "$status"
+	else
+		echo "$status" >&2
+		warn "failed to receive key $key from $keyserver"
+		return 1
+	fi
+}
+
+fetch() {
+	local url=$1 out=$2
+	local max_tries=3 retry_wait=3 attempt=1
+	while true; do
+		debug "fetching $url (#$attempt)"
+		if http_fetch "$url" "$out"; then
+			return 0
+		elif (( $? == 99 )); then
+			break
+		fi
+		rm -f "$out"
+		if (( attempt++ >= max_tries )); then
+			break
+		fi
+		sleep $retry_wait
+		(( retry_wait *= 2 ))
+	done
+	return 1
+}
+
+verify() {
+	local input=$1 output=$2 status= errors=0
+	debug "verifying '$input' to '$output'"
+	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
+	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
+		if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+			err "file has invalid signature"
+		fi
+		if ! grep -Eqs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
+			err "signer's key is not ultimately trusted"
+		fi
+		if (( errors )); then
+			echo "$status" >&2
+			return 1
+		else
+			lib:trace "$status"
+			return 0
+		fi
+	else
+		err "unknown GnuPG error occured"
+		echo "$status" >&2
+		return 1
+	fi
+}
+
+readonly src_url="http://nullroute.lt/~grawity/files/authorized_keys.txt"
+readonly dst_file="$HOME/.ssh/authorized_keys"
+readonly signer_fpr="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
+
+filter_test=0
+force=0
+import_key=0
+stayquiet=0
+keyserver="hkps://keyserver.ubuntu.com"
+
+while getopts ":Ffk:rq" OPT; do
+	case $OPT in
+	F) filter_test=1;;
+	f) force=1;;
+	k) keyserver=$OPTARG;;
+	r) import_key=1;;
+	q) stayquiet=1;;
+	*) lib:die_getopts;;
+	esac
+done
+
+umask 077
+
+if (( filter_test )); then
+	info "filter test mode"
+	if [[ -t 1 ]]; then
+		export FILTERDEBUG=1
+		exec >/dev/null
+	fi
+	filter_keys
+	exit
+fi
+
+if [[ -e ~/.ssh/authorized_keys.optout ]]; then
+	if (( force )); then
+		warn "found opt-out marker, but proceeding anyway"
+	elif (( !stayquiet )); then
+		die "found opt-out marker"
+	else
+		exit 0
+	fi
+fi
+
+if [[ $LOGNAME != grawity ]]; then
+	if [[ -e ~/.ssh/authorized_keys.optin ]]; then
+		debug "username does not match 'grawity' but opt-in file found"
+	elif (( force )); then
+		echo "Overridden by $LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
+		warn "username does not match 'grawity', proceeding anyway"
+	elif (( !stayquiet )); then
+		die "username does not match 'grawity'"
+	else
+		exit 0
+	fi
+fi
+
+# find the tool
+
+if have gpg2; then
+	GPG=gpg2
+elif have gpg; then
+	GPG=gpg
+else
+	die "'gpg' not found in \$PATH"
+fi
+
+# ensure key exists in keyring
+
+if (( import_key )); then
+	recv_key "$signer_fpr" || die "failed to import key '$signer_fpr'"
+	info "imported owner's key into keyring"
+	if confirm "mark this key as ultimately trusted?"; then
+		(echo "$signer_fpr:6:" | $GPG --import-ownertrust) &&
+		info "key's ownertrust updated"
+	else
+		die "only ultimately trusted keys are accepted"
+	fi
+elif ! [[ -d ~/.gnupg ]]; then
+	if (( !stayquiet )); then
+		die "GnuPG data directory is missing"
+	else
+		exit 0
+	fi
+elif ! $GPG --list-keys "$signer_fpr" > /dev/null; then
+	if (( !stayquiet )); then
+		die "Public key $signer_fpr not found in keyring"
+	else
+		exit 0
+	fi
+fi
+
+# download new pubkeys
+
+mkdir -p "${dst_file%/*}"
+
+tmp_signed=$(mktemp "$dst_file.XXXXXXXX")
+
+if ! fetch "$src_url" "$tmp_signed"; then
+	rm -f "$tmp_signed"
+	die "fetch of $src_url failed"
+elif ! test -s "$tmp_signed"; then
+	rm -f "$tmp_signed"
+	die "empty file fetched from $src_url"
+fi
+
+tmp_plain=$(mktemp "$dst_file.XXXXXXXX")
+
+if ! verify "$tmp_signed" "$tmp_plain"; then
+	rm -f "$tmp_plain"
+	die "verification of $tmp_signed failed"
+fi
+
+local_file="$dst_file.local"
+
+{
+	echo "# updated: at $(date +"%Y-%m-%d %H:%M:%S %z")"
+	echo "# updated: from $src_url"
+	cat "$tmp_plain"
+	if [[ -s $local_file ]]; then
+		echo "# updated: from $local_file"
+		cat "$local_file"
+	fi
+	echo "# updated: end"
+} | filter_keys > "$dst_file"
+
+rm -f "$tmp_plain" "$tmp_signed"
+
+if [[ -t 1 ]]; then
+	num=$(grep -c '^[^#]' "$dst_file")
+	info "imported $num authorized keys"
+fi

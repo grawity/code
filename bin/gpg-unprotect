@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+GNUPGHOME=$(mktemp -d /tmp/gpg.XXXXXXXXXX)
+export GNUPGHOME
+
+info "importing from stdin" >&2
+gpg --import || exit
+
+info "unprotecting all secret keys" >&2
+unset pass
+for key in "$GNUPGHOME"/private-keys-v1.d/*.key; do
+	while true; do
+		if [[ ! $pass ]]; then
+			read -s -p "Passphrase: " pass < /dev/tty >&2 && echo >&2
+		fi
+		if gpg-protect-tool -P "$pass" -u < "$key" > "$key.new"; then
+			log "unprotected $key" >&2
+			mv "$key.new" "$key"
+			break
+		else
+			err "passphrase appears to be incorrect"
+			unset pass
+		fi
+	done
+done
+#gpg-connect-agent "keyinfo --list" /bye |
+#	awk '/^S KEYINFO / {print $3}' |
+#	while read keygrip; do
+#		info "unprotecting &$keygrip"
+#		gpg-connect-agent "passwd $keygrip" /bye
+#	done
+
+info "exporting to stdout" >&2
+gpg --armor --export
+gpg --armor --export-secret-keys
+
+info "cleaning up" >&2
+rm -rf "$GNUPGHOME"

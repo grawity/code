@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+. lib.bash || exit
+confirm "YouTube's 480p is now crap, use anyway?" || exec ytdl-mp4-1080p "$@"
+vh="[height<=480]"
+vf="[vcodec^=avc1.][ext=mp4]"
+f="bestvideo${vh}${vf}+bestaudio[ext=m4a]/bestvideo${vh}+bestaudio"
+do: youtube-dl \
+	--console-title \
+	--add-metadata \
+	--embed-subs \
+	--sub-langs "all,-live_chat" \
+	--format "$f" \
+	--merge-output-format "mp4" \
+	"$@"

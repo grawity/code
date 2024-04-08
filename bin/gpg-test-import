@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+GNUPGHOME=$(mktemp -d /tmp/gpg.XXXXXXXXXX)
+export GNUPGHOME
+
+info "importing from stdin"
+gpg --import || exit
+
+gpg --with-colons --list-keys |
+	awk -F: '/^(pub|sub):/ {print $5, $12}' |
+	while read id usage; do
+		case $usage in
+			*s*)
+				info "testing signing with $id"
+				date | gpg -u "$id!" --sign | gpg --trust-model always --verify
+				;;&
+			*e*)
+				info "testing encryption with $id"
+				date | gpg -r "$id!" --trust-model always --encrypt | gpg --decrypt
+				;;&
+			*a*)
+				info "testing authentication with $id"
+				notice "cannot test authentication"
+				;;&
+			*c*)
+				info "testing certification with $id"
+				testuid=test.$$.$RANDOM$RANDOM$RANDOM
+				gpg --batch --pinentry-mode loopback --passphrase "" --quick-gen-key "$testuid"
+				gpg --batch --yes -u "$id!" --lsign-key "$testuid"
+				;;&
+		esac
+	done
+
+rm -rf "$GNUPGHOME"

@@ -51,7 +51,9 @@ sudo:() {
 }
 
 confirm() {
-	local text=$1 prefix color reset=$'\e[m' si=$'\001' so=$'\002'
+	local text=${1:-"Continue?"}
+	local prefix= color= prompt= answer="n"
+	local reset=$'\e[m' si=$'\001' so=$'\002'
 	case $text in
 	    "error: "*)
 		text=${text#*: }
@@ -65,8 +67,8 @@ confirm() {
 		prefix="(?)"
 		color=$'\e[1;36m';;
 	esac
-	local prompt=${si}${color}${so}${prefix}${si}${reset}${so}" "${text}" "
-	local answer="n"
+	prompt="${si}${color}${so}${prefix}${si}${reset}${so} ${text} "
+	answer="n"
 	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
 }
 

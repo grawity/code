@@ -20,9 +20,10 @@
 # http://www.bitsavers.org/pdf/sun/sunos/3.4/800-1295-04A_Commands_Reference_Manual_198609.pdf#page=290
 
 . lib.bash || exit
+progname="on"
+progname_prefix=1
 
 usage() {
-	#cho "|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------"
 	echo "Usage: on <host> [-HKLNRSvxX] [-C <path>] [<command>]"
 	echo "       @ <host> [-HKLNRSvxX] [-C <path>] [<command>]"
 	echo
@@ -33,12 +34,10 @@ usage() {
 	echo "(If the current directory is under /net/<otherhost>, -R will map it to reference"
 	echo "the same location on the target system, while -L and -N will retain it as-is.)"
 	echo
+	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
 	echo_opt "-L"		"access local current directory via NFS (default for 'on')"
 	echo_opt "-N"		"keep current directory exactly (preserve /net/<thirdhost>)"
 	echo_opt "-R"		"always map current directory to target host (default for '@')"
-	echo
-	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
-	echo_opt "-H"		"access remote home directory (equal to '-C.')"
 	echo
 	echo_opt "-x"		"expand the command to an NFS path"
 	echo_opt "-X"		"expand paths in arguments to NFS paths"
@@ -49,7 +48,7 @@ usage() {
 	echo
 	echo "The program may also be invoked through symlinks for specific hosts:"
 	echo
-	echo_opt "<host>"	"like 'on -H <host>' or 'on -C. <host>'"
+	echo_opt "<host>"	"like 'on -C. <host>'"
 	echo_opt "@<host>"	"like 'on -R <host>' or '@ <host>'"
 }
 
@@ -103,7 +102,7 @@ done; shift $((OPTIND-1))
 if [[ ! $host ]]; then
 	host=$1; shift
 	if [[ ! $host ]]; then
-		die "host not specified"
+		die "Host not specified"
 	fi
 fi
 
@@ -142,9 +141,9 @@ case $nfsmode in
 		fi
 		;;
 	KEEP)
-		# Partial-'@' mode (-N)
+		# Partial-'@' mode (-N), also implied by '-C <path>'
 		#
-		# Keep the path intact (local path maps to target; /net/$OTHER
+		# Keep the path intact (map local 1:1 to target; /net/$OTHER
 		# stays as-is). Only strip /net/$TARGET to make the path nicer
 		# without functional change.
 
@@ -185,7 +184,7 @@ if (( TEST_ON )); then
 fi
 
 if (( verbose )); then
-	info "Running in \"$host:${wd:-~}\""
+	vmsg "Running in \"$host:${wd:-~}\""
 fi
 
 if [[ $wd ]]; then
@@ -200,7 +199,7 @@ if (( $# == 0 )); then
 	q_cmd='$SHELL'
 elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
 	if (( excomm || expaths )); then
-		die "unable to expand paths in a quoted shell command"
+		die "cannot expand paths in a quoted shell command"
 	fi
 	q_cmd=$1
 else
@@ -211,7 +210,7 @@ else
 			arg="/net/$HOSTNAME$arg"
 		fi
 		if (( verbose )); then
-			info "Using \"$arg\" as remote command"
+			vmsg "Using \"$arg\" as remote command"
 		fi
 		set -- "$arg" "$@"
 	fi
@@ -224,9 +223,7 @@ else
 			if [[ $arg == /* && $arg != /@(afs|n|net)/* ]]; then
 				arg="/net/$HOSTNAME$arg"
 			fi
-			if (( verbose )); then
-				info "Expanding argument to \"$arg\""
-			fi
+			debug "Expanding argument to \"$arg\""
 			args+=("$arg")
 		done
 		set -- "${args[@]}"

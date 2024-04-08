@@ -143,35 +143,28 @@ lib:msg() {
 		"$name_prefix" "$prefix" "$text"
 }
 
-# lib:printf(format, args...)
+# lib:echo
 #
-# Print a log message with an entirely custom format and parameters. Almost
-# like `printf` but adds the program name when necessary.
-
-lib:printf() {
-	local name_prefix
-
-	if [[ $DEBUG ]]; then
-		name_prefix="$progname[$$]: "
-	elif (( progname_prefix > 0 )) || (( progname_prefix < 0 && _lvl > 0 )); then
-		name_prefix="$progname: "
-	fi
-
-	printf "%s$1\n" "$name_prefix" "${@:2}"
-}
-
-# lib:echo(format, args...)
+# Less fancy messages.
 
 lib:echo() {
-	local name_prefix
+	vmsg "$@"
+}
 
+vmsg() {
 	if [[ $DEBUG ]]; then
-		name_prefix="$progname[$$]: "
+		lib:msg "$*" info
 	else
-		name_prefix="$progname: "
+		printf "%s\n" "$progname: $*"
 	fi
+}
 
-	echo "$name_prefix$*"
+msg() {
+	if [[ $DEBUG ]]; then
+		lib:msg "$*" info
+	else
+		printf "%s\n" "$*"
+	fi
 }
 
 # lib:backtrace
@@ -237,33 +230,25 @@ declare -A _log_mcolor=(
 )
 
 lib:trace() {
-	local color reset
+	local color= reset=
 	if [[ -t 1 ]]; then
 		color=${_log_color[trace]} reset='\e[m'
 	fi
 	if [[ $DEBUG ]] && (( DEBUG >= 2 )); then
 		printf "%s[%s]: ${color}trace (%s):${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
-	fi
-} >&2
+	fi >&2
+}
 
 debug() {
-	local color reset
+	local color= reset=
 	if [[ -t 1 ]]; then
 		color=${_log_color[debug]} reset='\e[m'
 	fi
 	if [[ $DEBUG ]]; then
 		printf "%s[%s]: ${color}debug (%s):${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
-	fi
-} >&2
-
-msg() {
-	if [[ $DEBUG ]]; then
-		lib:msg "$*" info
-	else
-		lib:printf "%s" "$*"
-	fi
+	fi >&2
 }
 
 info() {

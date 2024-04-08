@@ -3,9 +3,9 @@
 
 . lib.bash || exit
 
-client=$(pklist -P)
+client=$(pklist -P) || exit
 realm=${client##*@}
-ccname=${KRB5CCNAME:-$(pklist -N)}
+ccname=${KRB5CCNAME:-$(pklist -N)} || exit
 
 while getopts ":r:" OPT; do
 	case $OPT in
@@ -15,12 +15,11 @@ while getopts ":r:" OPT; do
 done; shift $((OPTIND-1))
 
 service="kadmin/admin@$realm"
-debug "using service '$service'"
 
 if kvno -q "$service"; then
-	debug "using existing ccache '$ccname'"
+	vmsg "Using existing ccache '$ccname'"
 	kadmin -r "$realm" -p "$client" -c "$ccname" "$@"
 else
-	notice "could not obtain ticket for '$service'"
+	vmsg "Could not obtain ticket for '$service'"
 	kadmin -r "$realm" -p "$client" "$@"
 fi

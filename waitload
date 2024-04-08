@@ -34,10 +34,14 @@ fieldnum = args.interval or 0
 minutes = [1, 5, 15][fieldnum]
 polltime = 10 * minutes
 
-print("waiting for %s-minute load to reach %.1f" % (minutes, target))
+if args.above:
+    print("Waiting for %s-minute load to rise above %.1f" % (minutes, target))
+else:
+    print("Waiting for %s-minute load to drop below %.1f" % (minutes, target))
+
 while True:
     load = get_loads()
-    print("current load: %.1f / %.1f / %.1f" % load, end="\r", flush=True)
+    print("Current load: %.1f / %.1f / %.1f" % load, end="\r", flush=True)
     if args.above == True and load[fieldnum] > target:
         break
     if args.above == False and load[fieldnum] < target:

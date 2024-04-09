@@ -68,12 +68,13 @@ fi
 wd=${wd:-"."}
 cmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
 
-trap 'wait' INT
+lck=$(mktemp /tmp/rdo.XXXXXXXX) || exit
+trap 'wait; rm -f "$lck"' INT
 for host in $hosts; do
 	out=$(mktemp /tmp/rdo.XXXXXXXX) || exit
 	(
 		{ ssh -n $user$host "$cmd" || echo "=> $?"; } > "$out"
-		awk -v host=$host \
+		flock "$lck" awk -v host=$host \
 			'BEGIN {printf "%s:", host}
 			{print "\t" $0}
 			END {if (!NR) print}' < "$out"
@@ -81,4 +82,4 @@ for host in $hosts; do
 	) &
 	if (( wait )); then wait; fi
 done
-wait
+wait; rm -f "$lck"

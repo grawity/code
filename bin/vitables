@@ -12,7 +12,6 @@ esac
 
 temp=$(mktemp /tmp/iptables.XXXXXXXX.tmp)
 orig=$(mktemp /tmp/iptables.XXXXXXXX.tmp)
-r=0
 
 sudo $iptables-save > "$temp"
 cp "$temp" "$orig"
@@ -28,11 +27,10 @@ while true; do
 	elif sudo $iptables-restore < "$temp"; then
 		lib:echo "Rules reloaded successfully"
 		break
-	elif ! confirm "error: Failed to load rules; edit again?"; then
-		r=1
+	elif ! confirm "warning: Failed to load rules; edit again?"; then
+		exit
 		break
 	fi
 done
 
 rm -f "$temp" "$orig"
-exit $r

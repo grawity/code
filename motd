@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# motd - display /etc/motd only when it is updated
+# motd -- display /etc/motd only when it is updated
 
 . lib.bash || exit
 
@@ -16,19 +16,15 @@ usage() {
 
 mtime() { perl -e 'print ((stat $ARGV[0])[9])' "$1"; }
 strftime() { perl -MPOSIX -e 'print strftime $ARGV[0], localtime $ARGV[1]' "$@"; }
-strdate() { strftime "%F %H:%M" "$1"; }
-when() { strdate "$(mtime "$file")"; }
+when() { strftime "%F %H:%M" "$(mtime "$file")"; }
+copy() { mkdir -p "${2%/*}" && cp "$1" "$2" && touch -r "$1" "$2"; }
 
-copy() { mkdir -p "${2%/*}"; cp "$1" "$2" && touch -r "$1" "$2"; }
-
-# set defaults
 file=/etc/motd
-cached=$XDG_CACHE_HOME/motd-$HOSTNAME
+cached=${XDG_CACHE_HOME:-$HOME/.cache}/motd-$HOSTNAME
 diff=false
 quiet=false
 
-# parse options
-while getopts ":do:q" OPT; do
+while getopts :do:q OPT; do
 	case $OPT in
 	d) diff=true;;
 	o) cached=$OPTARG;;
@@ -37,20 +33,19 @@ while getopts ":do:q" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-[ "$1" ] && file=$1
+file=${1:-$file}
 
-# do the job
 if [ ! -f "$cached" ]; then
 	# motd added (first run on this host)
 	if [ -s "$file" ]; then
 		cat "$file"
-		$quiet || msg "$file added (last update $(when))"
+		$quiet || vmsg "$file added (last update $(when))"
 		copy "$file" "$cached"
 	elif [ -f "$file" ]; then
-		$quiet || msg "$file is empty (last update $(when))"
+		$quiet || vmsg "$file is empty (last update $(when))"
 		copy "$file" "$cached"
 	else
-		$quiet || msg "$file is missing"
+		$quiet || vmsg "$file is missing"
 	fi
 
 elif [ ! -f "$file" ]; then
@@ -58,7 +53,7 @@ elif [ ! -f "$file" ]; then
 	if $diff; then
 		diff -uN "$cached" "$file"
 	else
-		msg "$file is gone"
+		vmsg "$file is gone"
 	fi
 	rm "$cached"
 
@@ -69,7 +64,7 @@ elif ! cmp -s "$cached" "$file"; then
 	else
 		cat "$file"
 	fi
-	msg "$file updated (last update $(when))"
+	vmsg "$file updated (last update $(when))"
 	copy "$file" "$cached"
 
 else
@@ -77,6 +72,6 @@ else
 	if ! $diff; then
 		$quiet || cat "$file"
 	fi
-	$quiet || msg "$file unchanged (last update $(when))"
+	$quiet || vmsg "$file unchanged (last update $(when))"
 	copy "$file" "$cached" # in case local copy is newer
 fi

@@ -19,13 +19,13 @@ cp "$temp" "$orig"
 while true; do
 	${EDITOR:-vi} "$temp"
 	if ! grep -qs '^[^#]' "$temp"; then
-		lib:echo "File empty, reload aborted" >&2
+		vmsg "File empty, reload aborted" >&2
 		break
 	elif cmp -s "$temp" "$orig"; then
-		lib:echo "No changes made" >&2
+		vmsg "No changes made" >&2
 		break
 	elif sudo $iptables-restore < "$temp"; then
-		lib:echo "Rules reloaded successfully"
+		vmsg "Rules reloaded successfully"
 		break
 	elif ! confirm "warning: Failed to load rules; edit again?"; then
 		exit

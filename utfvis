@@ -6,13 +6,21 @@ use strict;
 use open qw(:std :encoding(UTF-8));
 use Getopt::Long qw(:config bundling no_ignore_case);
 
+sub usage {
+	print for
+	"Usage: utfvis [-o] <file>...\n",
+	"\n",
+	"Options:\n",
+	"  -o, --only    show only lines containing non-ASCII characters\n";
+}
+
 sub hilight {
-	my ($c) = @_;
-	$c = sprintf "<U+%04X>", ord($c);
+	my ($char) = @_;
+	$char = sprintf "<U+%04X>", ord($char);
 	if (-t 1) {
-		return "\e[1;37;41m$c\e[m";
+		return "\e[1;37;41m$char\e[m";
 	} else {
-		return "$c";
+		return $char;
 	}
 }
 
@@ -20,6 +28,7 @@ my $opt_only = 0;
 
 GetOptions(
 	"o|only!" => \$opt_only,
+	"help" => sub { usage(); exit(0); },
 ) or exit(2);
 
 while (<>) {
@@ -30,7 +39,6 @@ while (<>) {
 		print;
 	}
 } continue {
-	# Reset the $. pointer if we're at the end, as
-	# otherwise <> doesn't do that.
+	# Reset $. between files, as <> doesn't do that automatically.
 	close ARGV if eof(ARGV);
 }

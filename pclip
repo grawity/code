@@ -12,20 +12,8 @@ case ${0##*/} in
 		elif [ "$DISPLAY" ] && have xclip; then
 			cmd="xclip -in -selection clipboard"
 		else
-			vmsg "no suitable tools available" >&2
+			vmsg "no clipboard tools available" >&2
 			exit 1
-		fi
-
-		if [[ $1 == -q ]]; then
-			echo "$cmd"
-			exit
-		elif [[ $1 == -- ]]; then
-			shift
-			printf "%s" "$*" | $cmd
-		elif (( $# )); then
-			printf "%s" "$*" | $cmd
-		else
-			$cmd
 		fi;;
 
 	pclip|*)
@@ -36,13 +24,13 @@ case ${0##*/} in
 		elif [ "$DISPLAY" ] && have xclip; then
 			cmd="xclip -out -selection clipboard"
 		else
-			vmsg "no suitable tools available" >&2
+			vmsg "no clipboard tools available" >&2
 			exit 1
-		fi
-
-		if [[ $1 == -q ]]; then
-			echo "$cmd"
-		else
-			$cmd
 		fi;;
 esac
+
+if [ "$1" = -q ]; then
+	echo "$cmd"
+else
+	$cmd
+fi

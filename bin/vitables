@@ -10,10 +10,17 @@ case ${0##*/} in
 		iptables='iptables';;
 esac
 
-temp=$(mktemp /tmp/iptables.XXXXXXXX.tmp)
-orig=$(mktemp /tmp/iptables.XXXXXXXX.tmp)
+temp=$(mktemp /tmp/vitables.XXXXXXXX)
+orig=$(mktemp /tmp/vitables.XXXXXXXX)
 
-sudo $iptables-save > "$temp"
+sudo $iptables-save > "$temp" || exit
+
+if [[ ! -s "$temp" ]]; then
+	vmsg "No tables found; iptables is probably not in use on this system." >&2
+	rm -f "$temp"
+	exit 1
+fi
+
 cp "$temp" "$orig"
 
 while true; do

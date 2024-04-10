@@ -4,24 +4,23 @@
 # Might use LDAP one day, but for now it"s just a static list (instead of
 # having that list hardcoded in rup, then copied to other tools).
 
+. lib.bash || exit
+
 usage() {
 	echo "Usage: ${0##*/} [+]<host|@group>..."
 	echo
 	echo "Produce a list of hostnames, expanding '@group' specifications."
 	echo "Comma-separated items are accepted and expanded to space-separated."
 	echo
-	echo "  host          add a single hostname"
-	echo "  @group        add hosts in the specified group"
-	echo "  +arg          append to default list instead of replacing"
-	echo "  -a            add all hosts from all groups"
-	echo "  -l            list all known groups and exit"
+	echo_opt "host, @grp"	"add single host or the specified group"
+	echo_opt "+host, +@grp"	"append to default list, instead of replacing"
+	echo_opt "-a"		"add all hosts from all groups"
+	echo_opt "-l"		"list known groups and exit"
 }
 
 declare -A groups=()
 
 groups[default]="wolke sky star land ember wind dust"
-groups[phys]="ember wind dust"
-groups[nondefault]="vm-vol5 vm-ampere"
 
 if [[ -e ~/.config/rlisthosts ]]; then
 	while read -r alias rest; do
@@ -54,12 +53,12 @@ for arg; do
 				echo "$group = ${groups[$group]}"
 			done; exit 0;;
 		-*)
-			echo "${0##*/}: Unknown option '$arg'" >&2; exit 2;;
+			vmsg "Unknown option '$arg'" >&2; exit 2;;
 		@all)
 			hosts+=" ${groups[*]}";;
 		@*)
 			if [[ ! ${groups[${arg#@}]} ]]; then
-				echo "${0##*/}: Unknown group '$arg'" >&2; exit 1
+				vmsg "Unknown group '$arg'" >&2; exit 1
 			fi
 			hosts+=" ${groups[${arg#@}]}";;
 		*)

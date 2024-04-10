@@ -67,7 +67,7 @@ confirm() {
 		;;
 	esac
 	printf -v text "$format" "$text"
-	read -e -p "$text" -n 1 answer <> /dev/tty && [[ $answer == y ]]
+	read -e -p "$text" answer <> /dev/tty && [[ $answer == y ]]
 }
 
 lib:progress() {

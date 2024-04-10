@@ -79,7 +79,7 @@ lib:progress() {
 settitle() {
 	local str="$*"
 	case $TERM in
-	[xkE]term*|rxvt*|cygwin|dtterm|termite|tmux*)
+	[xkE]term*|putty*|rxvt*|cygwin|dtterm|termite|tmux*)
 		printf '\e]0;%s\a' "$str";;
 	screen*)
 		printf '\ek%s\e\\' "$str";;

@@ -7,55 +7,65 @@
 . lib.bash || exit
 
 basedir="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
+verbose=0
+
+while getopts ":v" OPT; do
+	case $OPT in
+	v) verbose=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( ! $# )); then
+	die "package name not specified"
+fi
+
 if [[ ! -d $basedir ]]; then
 	mkdir -p "$basedir"
 fi
 
-verbose=0
-for arg; do
-	case $arg in
-	-v) verbose=1;;
-	-*) die "unknown option '$arg'";;
-	*) pkg=$arg;;
-	esac
-done
+for pkg; do
+	# Fix up tab-completion
+	pkg=${pkg#*/}
 
-if [[ ! $pkg ]]; then
-	die "missing package name"
-fi
+	# Look up pkgbase if a binary package is specified
+	pkgbase=$(expac -S -1 %e "$pkg" || echo "$pkg")
+	if [[ "$pkg" != "$pkgbase" ]]; then
+		vmsg "using '$pkgbase' as source package name for '$pkg'"
+		pkg=$pkgbase
+	fi
 
-#if [[ -d $basedir/cache ]]; then
-#	echo "Removing old svn2git cache"
-#	rm -rf "$basedir/cache"
-#fi
+	dir="$basedir/$pkg"
+	url="https://gitlab.archlinux.org/archlinux/packaging/packages/$pkg.git"
 
-# Fix up tab-completion
-pkg=${pkg#*/}
+	# Update the repository
+	if [[ ! -d $dir ]]; then
+		vmsg "initial clone of '$pkg'"
+		git clone "$url" "$dir"
+	else
+		vmsg "updating '$pkg'"
+		git -C "$dir" pull --quiet --ff-only
+	fi
 
-# Look up pkgbase if a binary package is specified
-pkg=$(expac -S -1 %e "$pkg" || echo "$pkg")
-echo "${0##*/}: using '$pkg' as source name"
+	# Always hide really verbose PGP-key diffs
+	if [[ ! -e $basedir/.gitattributes ]]; then
+		cat > "$basedir/.gitattributes" <<-!
+		# Symlinked into each repository's .git/info/attributes
+		/keys/pgp/*.asc -diff
+		!
+	fi
+	if [[ ! -e $dir/.git/info/attributes ]]; then
+		ln -rnsf "$basedir/.gitattributes" "$dir/.git/info/attributes"
+	fi
 
-url="https://gitlab.archlinux.org/archlinux/packaging/packages/$pkg.git"
-
-if [[ ! -d $basedir/$pkg ]]; then
-	git clone "$url" "$basedir/$pkg"
-else
-	git -C "$basedir/$pkg" pull --ff-only
-fi
-
-if (( verbose )); then
+	# Optionally hide redundant .SRCINFO diffs
 	paths=()
-else
-	paths=(":!/.SRCINFO")
-fi
+	if (( !verbose )); then
+		paths+=(":!/.SRCINFO")
+		paths+=(":!/keys/pgp")
+	fi
 
-if [[ $2 ]]; then
-	ref="origin/$2"
-else
-	ref="--all"
-fi
+	settitle "asplog [$pkg]"
 
-settitle "asplog [$pkg]"
-
-tig -C "$basedir/$pkg" "$ref" -- "${paths[@]}"
+	tig -C "$dir" "$ref" -- "${paths[@]}"
+done

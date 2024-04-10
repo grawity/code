@@ -52,24 +52,22 @@ sudo:() {
 
 confirm() {
 	local text=${1:-"Continue?"}
-	local prefix= color= prompt= answer="n"
-	local reset=$'\e[m' si=$'\001' so=$'\002'
+	local format="%s " answer="n"
 	case $text in
-	    "error: "*)
+	"error: "*)
 		text=${text#*: }
-		prefix="(!!)"
-		color=$'\e[1;7;31m';;
-	    "warning: "*)
+		format='\1\e[1;91m\2%s\1\e[m\2 '
+		;;
+	"warning: "*)
 		text=${text#*: }
-		prefix="(??)"
-		color=$'\e[1;31m';;
-	    *)
-		prefix="(?)"
-		color=$'\e[1;36m';;
+		format='\1\e[1;93m\2%s\1\e[m\2 '
+		;;
+	*)
+		format='\1\e[1m\2%s\1\e[m\2 '
+		;;
 	esac
-	prompt="${si}${color}${so}${prefix}${si}${reset}${so} ${text} "
-	answer="n"
-	read -e -p "$prompt" answer <> /dev/tty && [[ $answer == y ]]
+	printf -v text "$format" "$text"
+	read -e -p "$text" answer <> /dev/tty && [[ $answer == y ]]
 }
 
 lib:progress() {

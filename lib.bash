@@ -54,19 +54,11 @@ confirm() {
 	local text=${1:-"Continue?"}
 	local format="%s " answer="n"
 	case $text in
-	"error: "*)
-		text=${text#*: }
-		format='\1\e[1;91m\2%s\1\e[m\2 '
-		;;
-	"warning: "*)
-		text=${text#*: }
-		format='\1\e[1;93m\2%s\1\e[m\2 '
-		;;
-	*)
-		format='\1\e[1m\2%s\1\e[m\2 '
-		;;
+	"error: "*)	text=${text#*: } format='1;91' ;;
+	"warning: "*)	text=${text#*: } format='1;93' ;;
+	*)		format='1' ;;
 	esac
-	printf -v text "$format" "$text"
+	printf -v text '\1\e[%sm\2%s\1\e[m\2 ' "$format" "$text"
 	read -e -p "$text" answer <> /dev/tty && [[ $answer == y ]]
 }
 

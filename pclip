@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# pclip -- put/paste text from clipboard
+
+. lib.bash || exit
+
+case ${0##*/} in
+	gclip)
+		if [ "$WAYLAND_DISPLAY" ] && have wl-copy; then
+			cmd="wl-copy"
+		elif [ "$DISPLAY" ] && have xsel; then
+			cmd="xsel -i -b"
+		elif [ "$DISPLAY" ] && have xclip; then
+			cmd="xclip -in -selection clipboard"
+		else
+			vmsg "no suitable tools available" >&2
+			exit 1
+		fi
+
+		if [[ $1 == -q ]]; then
+			echo "$cmd"
+			exit
+		elif [[ $1 == -- ]]; then
+			shift
+			printf "%s" "$*" | $cmd
+		elif (( $# )); then
+			printf "%s" "$*" | $cmd
+		else
+			$cmd
+		fi;;
+
+	pclip|*)
+		if [ "$WAYLAND_DISPLAY" ] && have wl-paste; then
+			cmd="wl-paste"
+		elif [ "$DISPLAY" ] && have xsel; then
+			cmd="xsel -o -b"
+		elif [ "$DISPLAY" ] && have xclip; then
+			cmd="xclip -out -selection clipboard"
+		else
+			vmsg "no suitable tools available" >&2
+			exit 1
+		fi
+
+		if [[ $1 == -q ]]; then
+			echo "$cmd"
+		else
+			$cmd
+		fi;;
+esac

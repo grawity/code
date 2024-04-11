@@ -16,7 +16,7 @@ case ${0##*/} in
 			exit 1
 		fi;;
 
-	pclip|*)
+	pclip)
 		if [ "$WAYLAND_DISPLAY" ] && have wl-paste; then
 			cmd="wl-paste"
 		elif [ "$DISPLAY" ] && have xsel; then
@@ -27,6 +27,22 @@ case ${0##*/} in
 			vmsg "no clipboard tools available" >&2
 			exit 1
 		fi;;
+
+	psel)
+		if [ "$WAYLAND_DISPLAY" ] && have wl-paste; then
+			cmd="wl-paste -p"
+		elif [ "$DISPLAY" ] && have xsel; then
+			cmd="xsel -o -p"
+		elif [ "$DISPLAY" ] && have xclip; then
+			cmd="xclip -out -selection primary"
+		else
+			vmsg "no clipboard tools available" >&2
+			exit 1
+		fi;;
+
+	*)
+		vmsg "bad invocation" >&2
+		exit 2;;
 esac
 
 if [ "$1" = -q ]; then

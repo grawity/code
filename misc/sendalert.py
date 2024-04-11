@@ -1,0 +1,49 @@
+# sendalert -- send a push notification to my phone using LOG_ALERT syslog messages
+import argparse
+import enum
+import os
+import socket
+import time
+
+DEFAULT_SERVER = "syslog"
+DEFAULT_HOST = socket.gethostname().lower()
+#DEFAULT_TAG = os.environ["USERNAME"].lower()
+DEFAULT_TAG = DEFAULT_HOST
+
+# Definitions per <https://datatracker.ietf.org/doc/html/rfc3164>:
+FAC_USER = 1
+SEV_ALERT = 1
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--help", action="help",
+                        help="show this help message")
+parser.add_argument("-t", "--tag", metavar="STR", default=DEFAULT_TAG,
+                        help="application tag string")
+parser.add_argument("-h", "--host", metavar="STR", default=DEFAULT_HOST,
+                        help="local hostname string")
+parser.add_argument("-s", "--server", metavar="HOST", default=DEFAULT_SERVER,
+                        help="Syslog server hostname")
+parser.add_argument("-b", "--bsd", action="store_true",
+                        help="use legacy BSD Syslog protocol")
+parser.add_argument("text", nargs="+",
+                        help="message to send")
+args = parser.parse_args()
+
+pri = (FAC_USER << 3) | SEV_ALERT
+host = args.host or "-"
+tag = args.tag or "-"
+msg = " ".join(args.text) or "-"
+
+if args.bsd:
+    now = time.strftime("%b %d %H:%M:%S") # no %_d on Windows, but it works
+    buf = f"<{pri}>{now} {host} {tag}: {msg}".encode()
+else:
+    now = time.strftime("%FT%TZ", time.gmtime())
+    buf = f"<{pri}>1 {now} {host} {tag} - - - {msg}".encode()
+
+res = socket.getaddrinfo(args.server, "syslog", type=socket.SOCK_DGRAM)
+for family, kind, proto, cname, ep in res:
+    s = socket.socket(family, kind, proto)
+    s.connect(ep)
+    s.send(buf)
+    break

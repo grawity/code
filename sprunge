@@ -5,34 +5,15 @@
 
 . lib.bash || exit
 
-getsel() {
-	if have xclip; then
-		xclip -out -selection primary
-	elif have xsel; then
-		xsel -o -p
-	else
-		err "no xclip nor xsel"
-	fi
-}
-
-putclip() {
-	if [ "$DISPLAY" ]; then
-		if have xclip; then
-			echo "$1" | xclip -in -selection clipboard
-		elif have xsel; then
-			echo "$1" | xsel -i -b
-		fi
-	fi
-	putclip() { true; }
-}
-
 post() {
 	local file=$1 newname=${2:-${1##*/}}
 	echo -n "$file → "
 	local url=$(upload -q -0 -d txt -S "s/.*/$newname/" "$file")
 	if [ "$url" ]; then
 		echo $url
-		putclip $url
+		if gclip -q &> /dev/null; then
+			printf '%s' "$*" | gclip
+		fi
 	else
 		err "upload failed"
 	fi
@@ -53,8 +34,8 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 		file=$(mktemp "/tmp/sprunge.$(filename)")
 	fi
 
-	if [ ! "$1" ] && [ -t 0 ] && [ "$DISPLAY" ]; then
-		getsel > "$file"
+	if [ ! "$1" ] && [ -t 0 ] && psel -q &> /dev/null; then
+		psel > "$file"
 	else
 		: > "$file"
 	fi

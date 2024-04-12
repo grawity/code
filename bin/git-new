@@ -14,6 +14,13 @@ usage() {
 	echo_opt "-x PATH" "exclude specified path"
 }
 
+add_unique_config() {
+	local key=$1 value=$2
+	if ! git config --get-all --fixed-value "$key" "$value" > /dev/null; then
+		git config --add "$key" "$value"
+	fi
+}
+
 opt_no_merges=0
 opt_exclude=()
 opt_chdir=
@@ -105,16 +112,16 @@ if [[ $PWD == $HOME/src/* ]]; then
 fi
 
 if (( opt_no_merges )); then
-	git config --add nullroute.git-new.options "--no-merges" || exit
+	add_unique_config nullroute.git-new.options "--no-merges" || exit
 fi
 if (( opt_no_po )); then
-	git config --add nullroute.git-new.paths ":!**.po" || exit
+	add_unique_config nullroute.git-new.paths ":!**.po" || exit
 fi
 if (( opt_no_github )); then
-	git config --add nullroute.git-new.paths ":!.github/" || exit
+	add_unique_config nullroute.git-new.paths ":!.github/" || exit
 fi
 for path in "${opt_exclude[@]}"; do
-	git config --add nullroute.git-new.paths ":!$path" || exit
+	add_unique_config nullroute.git-new.paths ":!$path" || exit
 done
 
 opts=$(git config --get-all nullroute.git-new.options || true)

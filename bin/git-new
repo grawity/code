@@ -98,7 +98,7 @@ if [[ $PWD == $HOME/src/* ]]; then
 	#rdempty --quiet "$dir" &
 
 	if [[ "$(git symbolic-ref HEAD)" == refs/heads/master ]] &&
-	   git rev-parse --verify refs/remotes/origin/main >&/dev/null &&
+	   git rev-parse --verify refs/remotes/origin/main &> /dev/null &&
 	   notice "querying remote branches" &&
 	   ! [[ "$(git ls-remote origin refs/heads/master)" ]] &&
 	   confirm "switch 'master' branch to 'main'?"; then
@@ -121,7 +121,7 @@ done
 opts=$(git config --get-all nullroute.git-new.options || true)
 paths=$(git config --get-all nullroute.git-new.paths || true)
 
-if [[ -t 1 ]] && which tig >/dev/null 2>&1; then
+if [[ -t 1 ]] && have tig; then
 	cmd='tig'
 else
 	cmd='git lg'
@@ -131,7 +131,7 @@ ref=${opt_ref#".."}
 
 # Verify that the ref exists -- faster than letting `tig` do it
 if [[ $ref != HEAD ]]; then
-	if ! git rev-parse --verify "$ref" >/dev/null 2>&1; then
+	if ! git rev-parse --verify "$ref" &> /dev/null; then
 		echo "error: bad ref '$ref'" >&2
 		exit 1
 	fi
@@ -139,7 +139,7 @@ fi
 
 # Verify that the reflog has at least two entries. If not, show the full branch
 # (it may be a new branch).
-if git rev-parse --verify "$ref@{1}" >/dev/null 2>&1; then
+if git rev-parse --verify "$ref@{1}" &> /dev/null; then
 	debug "Have a previous reflog entry. Will show new commits"
 	parent="$ref@{1}"
 else

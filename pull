@@ -48,13 +48,10 @@ do_git() {
 			*) recurseopt='';
 		esac
 		old=$(git rev-parse --verify HEAD)
-		if log: git pull --ff-only --no-stat $recurseopt; then
-			new=$(git rev-parse --verify HEAD)
-			if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
-				log: git submodule update
-			fi
-		else
-			new=$(git rev-parse --verify @{u})
+		log: git pull --ff-only --no-stat $recurseopt || return
+		new=$(git rev-parse --verify HEAD)
+		if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
+			log: git submodule update
 		fi
 	elif [[ "$(git config core.bare)" == "true" ]]; then
 		old=$(git rev-parse --verify HEAD)

@@ -81,9 +81,15 @@ do_git() {
 	fi
 
 	if [[ "$old" != "$new" ]]; then
-		git --no-pager diff --stat "$old" "$new" -- "${diff_paths[@]}"
-		if (( opt_tig )); then
-			tig "${tig_opts[@]}" "$old..$new" -- "${diff_paths[@]}" || true
+		local diff_args=("$old..$new" -- "${diff_paths[@]}")
+
+		git --no-pager diff --stat "${diff_args[@]}"
+
+		if (( opt_tig )) && ! git diff --quiet "${diff_args[@]}"; then
+			# Only run tig if there are commits to show, as
+			# otherwise it still triggers the 'focus' \e[I and
+			# there's no Bash prompt to consume that.
+			tig "${tig_opts[@]}" "${diff_args[@]}" || true
 		fi
 	fi
 }

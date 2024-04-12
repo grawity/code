@@ -4,14 +4,14 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $0 [options] [DIR [REF]]"
+	echo "Usage: $0 [options] [<dir> [<branch>]]"
 	echo ""
-	echo_opt "-b REF" "show new commits in a different branch"
-	echo_opt "-C DIR" "change to specified directory"
-	echo_opt "-M" "add --no-merges to configuration"
-	echo_opt "-P" "add *.po exclusion"
-	echo_opt "-G" "add .github exclusion"
-	echo_opt "-x PATH" "exclude specified path"
+	echo_opt "-b REF"	"show new commits in a different branch"
+	echo_opt "-C DIR"	"change to specified directory"
+	echo_opt "-M"		"add --no-merges to configuration"
+	echo_opt "-P"		"add *.po exclusion"
+	echo_opt "-G"		"add .github exclusion"
+	echo_opt "-X PATH"	"exclude specified path"
 }
 
 add_unique_config() {
@@ -26,14 +26,14 @@ opt_exclude=()
 opt_chdir=
 opt_ref=
 
-while getopts ':b:C:GMPx:' OPT; do
+while getopts :b:C:GMPX: OPT; do
 	case $OPT in
 	b) opt_ref=$OPTARG;;
 	C) opt_chdir=$OPTARG;;
 	M) opt_no_merges=1;;
 	P) opt_exclude+=("**.po");;
 	G) opt_exclude+=(".github/" ".gitlab-ci/" ".gitlab-ci.yml");;
-	x) opt_exclude+=("$OPTARG");;
+	X) opt_exclude+=("$OPTARG");;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))

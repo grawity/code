@@ -18,6 +18,7 @@ log:() {
 
 svnsync() {
 	local lib=$(which libfunsync.so 2>/dev/null)
+
 	if [[ -f $lib ]]; then
 		env LD_PRELOAD="$lib" svnsync "$@"
 	else
@@ -26,25 +27,6 @@ svnsync() {
 }
 
 do_git() {
-	local tig_opts=()
-	local diff_paths=(
-		":(exclude)fuzz/*"
-		":(exclude)testing/*"
-		":(exclude)tests/*"
-		":(exclude)vendor/*"
-	)
-
-	# Collect options like --no-merges
-	while IFS="" read -r line; do
-		tig_opts+=("$line")
-	done < <(git config --get-all nullroute.git-new.options)
-
-	while IFS="" read -r line; do
-		if [[ $line == @(":(exclude)"*|":!"*) ]]; then
-			diff_paths+=("$line")
-		fi
-	done < <(git config --get-all nullroute.git-new.paths)
-
 	if [[ -d .git/svn ]]; then
 		if remote=$(git config --get svn-remote.svn.url); then
 			rroot=$(log: svn info "$remote" | sed -n 's/^Repository Root: //p')
@@ -76,11 +58,22 @@ do_git() {
 		fi
 	elif [[ "$(git config core.bare)" == "true" ]]; then
 		old=$(git rev-parse --verify HEAD)
-		log: git fetch || return
+		git fetch || return
 		new=$(git rev-parse --verify HEAD)
 	fi
 
 	if [[ "$old" != "$new" ]]; then
+		local diff_paths=(
+			":(exclude)fuzz/*"
+			":(exclude)testing/*"
+			":(exclude)tests/*"
+			":(exclude)vendor/*"
+		)
+		while IFS="" read -r line; do
+			if [[ $line == @(":(exclude)"*|":!"*) ]]; then
+				diff_paths+=("$line")
+			fi
+		done < <(git config --get-all nullroute.git-new.paths)
 		local diff_args=("$old..$new" -- "${diff_paths[@]}")
 
 		git --no-pager diff --stat "${diff_args[@]}"
@@ -89,6 +82,10 @@ do_git() {
 			# Only run tig if there are commits to show, as
 			# otherwise it still triggers the 'focus' \e[I and
 			# there's no Bash prompt to consume that.
+			local tig_opts=()
+			while IFS="" read -r line; do
+				tig_opts+=("$line")
+			done < <(git config --get-all nullroute.git-new.options)
 			tig "${tig_opts[@]}" "${diff_args[@]}" || true
 		fi
 	fi

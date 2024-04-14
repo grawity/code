@@ -8,7 +8,6 @@ messages() {
 	(die "fatal message")
 	err "error message"
 	warn "warning message"
-	notice "notice message"
 	log2 "log2 message"
 	lib:log "log message"
 	info "info message"

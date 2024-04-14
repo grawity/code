@@ -394,8 +394,8 @@ fi
 
 if [[ $eap == PEAP && $phase2 && $phase2 != EAP-* ]]; then
 	case $phase2 in
-		PAP|GTC)	notice "you probably want 'phase2 EAP-GTC'";;
-		MSCHAP*)	notice "you probably want 'phase2 EAP-MSCHAPV2'";;
+		PAP|GTC)	info "you probably want 'phase2 EAP-GTC'";;
+		MSCHAP*)	info "you probably want 'phase2 EAP-MSCHAPV2'";;
 	esac
 	die "EAP-$eap can only transport EAP mechanisms"
 fi
@@ -610,7 +610,7 @@ else
 	fi
 	cmd=(radtest -t "$mech" "$identity" "$password" "$host:$port" 0 "$secret")
 	if (( dump_config )); then
-		notice "dumping generated config and exiting"
+		vmsg "dumping generated config and exiting" >&2
 		cmd=(: "${cmd[@]}")
 	else
 		have "${cmd[0]}" || die "missing '${cmd[0]}' binary"
@@ -631,7 +631,7 @@ if (( dump_config )); then
 	if [[ $conf ]]; then
 		cat "$conf"
 	fi
-	notice "dumping generated config and exiting"
+	vmsg "dumping generated config and exiting" >&2
 else
 	if "${cmd[@]}"; then
 		r=0

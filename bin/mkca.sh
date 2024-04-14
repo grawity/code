@@ -189,12 +189,12 @@ if [[ $tool == openssl ]]; then
 	if [[ $opt_subject != /* ]]; then
 		warn "subject is not in OpenSSL format (must be /C=XX/O=Bar/CN=Foo)"
 		opt_subject=$(dn_reverse "$opt_subject" "," "/")
-		notice "rewritten subject to '$opt_subject'"
+		warn "rewritten subject to '$opt_subject'"
 	fi
 	if [[ $opt_subject == /CN=*/* ]]; then
 		warn "subject order seems reversed (OpenSSL wants CN-last)"
 		opt_subject=$(dn_reverse "$opt_subject" "/" "/")
-		notice "rewritten subject to '$opt_subject'"
+		warn "rewritten subject to '$opt_subject'"
 	fi
 	cnf=$(mktemp /tmp/openssl.XXXXXXXXXX)
 	cat > "$cnf" <<-EOF
@@ -228,12 +228,12 @@ elif [[ $tool == gnutls ]]; then
 	if [[ $opt_subject == /* ]]; then
 		warn "subject is not in RFC 2253 format (must be CN=Foo,O=Bar,C=XX)"
 		opt_subject=$(dn_reverse "$opt_subject" "/" ",")
-		notice "rewritten subject to '$opt_subject'"
+		warn "rewritten subject to '$opt_subject'"
 	fi
 	if [[ $opt_subject == *,CN=* ]]; then
 		warn "subject order seems reversed (RFC 2253 wants CN-first)"
 		opt_subject=$(dn_reverse "$opt_subject" "," ",")
-		notice "rewritten subject to '$opt_subject'"
+		warn "rewritten subject to '$opt_subject'"
 	fi
 	cnf=$(mktemp /tmp/certtool.XXXXXXXXXX)
 	cat > "$cnf" <<-EOF

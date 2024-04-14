@@ -26,9 +26,11 @@ lib:is_nested() {
 : ${XDG_DATA_DIRS:="/usr/local/share:/usr/share"}
 : ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
+declare -i warnings=0
+declare -i errors=0
+
 progname=${0##*/}
 progname_prefix=-1
-
 declare -A lib_config=(
 	[opt_width]=14
 )

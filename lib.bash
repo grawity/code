@@ -185,7 +185,6 @@ lib:backtrace() {
 # info		!quiet	plain	-	-
 # log		!quiet	decorat	-	-
 # log2		!quiet	decorat	-	-
-# notice	always	prefix	INFO	-
 # warning	always	prefix	WARN	warning
 # error		always	prefix	ERROR	error
 # fatal		always	prefix	FATAL	critical
@@ -196,7 +195,6 @@ declare -A _log_color=(
 	[info]='\e[1;34m'
 	[log]='\e[1;32m'
 	[log2]='\e[1;35m'
-	[notice]='\e[1;35m'
 	[warning]='\e[1;33m'
 	[error]='\e[1;31m'
 	[fatal]='\e[1;31m'
@@ -205,14 +203,12 @@ declare -A _log_color=(
 declare -A _log_fprefix=(
 	[log]='~~'
 	[log2]='=='
-	[notice]='notice:'
 	[fatal]='error:'
 )
 
 declare -A _log_fcolor=(
 	[log]='\e[38;5;10m'
 	[log2]='\e[35m'
-	[notice]='\e[38;5;13m'
 )
 
 declare -A _log_mcolor=(
@@ -257,10 +253,6 @@ log2() {
 	lib:msg "$*" log2
 	settitle "$progname: $*"
 }
-
-notice() {
-	lib:msg "$*" notice
-} >&2
 
 warn() {
 	lib:msg "$*" warning
@@ -326,4 +318,12 @@ lib:die_getopts() {
 	    *)
 		lib:crash "unhandled option '-$OPT${OPTARG:+ }$OPTARG'";;
 	esac
+}
+
+# obsolete
+
+notice() {
+	vmsg "$*" >&2
+	DEBUG=2 lib:msg "BUG: obsolete function notice() used" warning >&2
+	DEBUG=2 lib:backtrace 2 >&2
 }

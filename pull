@@ -132,10 +132,6 @@ do_main() {
 	local errors=0
 	local -A did=()
 
-	if [[ ! ${_PULL_STARTDIR-} ]]; then
-		export _PULL_STARTDIR=$PWD
-	fi
-
 	if (( ! $# )) && [[ -s Pullfile ]]; then
 		debug "reading args from Pullfile"
 		src=file
@@ -227,6 +223,12 @@ usage() {
 	echo_opt "-n" "dry run (parse Pullfile but don't update anything)"
 	echo_opt "-t" "immediately run 'tig' to browse commits"
 }
+
+# Remember original starting directory for displaying subdirs
+# when doing a recursive pull
+if [[ ! ${_PULL_STARTDIR-} ]]; then
+	export _PULL_STARTDIR=$PWD
+fi
 
 depth=0
 opt_dryrun=0

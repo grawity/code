@@ -141,6 +141,15 @@ lib:echo() {
 	vmsg "$@"
 }
 
+vdie() {
+	if [[ $DEBUG ]]; then
+		lib:msg "$*" error >&2
+	else
+		printf "%s\n" "$progname: $*" >&2
+	fi
+	exit 1
+}
+
 vmsg() {
 	if [[ $DEBUG ]]; then
 		lib:msg "$*" info

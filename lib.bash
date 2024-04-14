@@ -165,9 +165,10 @@ lib:backtrace() {
 	local -i i=${1:-1}
 	printf "%s[%s]: call stack:\n" "$progname" "$$"
 	for (( 1; i <= ${#BASH_SOURCE[@]}; i++ )); do
-		printf "... %s:%s: %s -> %s\n" \
-			"${BASH_SOURCE[i]}" "${BASH_LINENO[i-1]}" \
-			"${FUNCNAME[i]:-?}" "${FUNCNAME[i-1]}"
+		printf "%s[%s]:     %s:%s: %s -> %s\n" \
+			"$progname" "$$" \
+			"${BASH_SOURCE[i]:-???}" "${BASH_LINENO[i-1]}" \
+			"${FUNCNAME[i]:-(no func)}" "${FUNCNAME[i-1]}"
 	done
 } >&2
 

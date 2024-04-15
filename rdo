@@ -53,8 +53,9 @@ if (( nfs )); then
 	wd=${wd:-"."}
 fi
 
-if [[ $wd ]]; then
-	# Allow "-C ." to be specified in a useful way
+if [[ $wd && $wd != - ]]; then
+	# Allow "-C ." to be specified in a useful way (i.e. translate the
+	# local working directory into its remote or NFS equivalent)
 	if [[ $wd != /* ]]; then
 		wd=$(realpath -s "$wd")
 	fi
@@ -65,8 +66,12 @@ if [[ $wd ]]; then
 	fi
 fi
 
-wd=${wd:-"."}
-cmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
+if [[ $wd != - ]]; then
+	# Allow "-C -" to disable the command wrapping completely (both 'cd'
+	# and ~/.profile loading), for use with RouterOS
+	wd=${wd:-"."}
+	cmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
+fi
 
 lck=$(mktemp /tmp/rdo.XXXXXXXX) || exit
 trap 'wait; rm -f "$lck"' INT

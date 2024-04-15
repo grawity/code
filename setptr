@@ -42,6 +42,8 @@ def send_nsupdate(zone, cmds, *, gssapi=True,
                    check=True)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-e", "--edit", action="store_true",
+                    help="interactively edit the zone")
 parser.add_argument("-z", "--zone",
                     help="override automatically determined rDNS zone")
 parser.add_argument("-l", "--ttl", type=int, default=3600,
@@ -54,12 +56,28 @@ parser.add_argument("-v", "--verbose", action="store_true",
                     help="show detailed information")
 parser.add_argument("address",
                     help="IP address to update the PTR for")
-parser.add_argument("target",
+parser.add_argument("target", nargs="?",
                     help="PTR target domain name, or \".\" to remove")
 args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
+
+if args.edit:
+    if args.target:
+        exit(f"setptr: target cannot be specified when using interactive mode")
+    cmd = ["vireverse"]
+    if args.debug:
+        cmd += ["--debug"]
+    if args.verbose:
+        cmd += ["--verbose"]
+    if args.no_gss:
+        cmd += ["--no-gss"]
+    cmd += [args.address]
+    exit(subprocess.call(cmd))
+else:
+    if not args.target:
+        exit(f"setptr: target must be specified when not using interactive mode")
 
 if "/" in args.address:
     addrs = ipaddress.ip_network(args.address)

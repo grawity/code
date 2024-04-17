@@ -36,29 +36,26 @@ basic: $(OBJ)/hex
 basic: $(OBJ)/unhex
 basic: $(OBJ)/proctool
 basic: $(OBJ)/strtool
-
-.PHONY: misc
-misc: $(OBJ)/ac-wait
-misc: $(OBJ)/entropy
-misc: $(OBJ)/libwcwidth.so
-misc: $(OBJ)/writevt
-misc: $(OBJ)/zlib
+basic: $(OBJ)/zlib
 
 .PHONY: linux
+linux: $(OBJ)/ac-wait
 linux: $(OBJ)/libfunsync.so
+linux: $(OBJ)/libwcwidth.so
 linux: $(OBJ)/ssh_force_lp.so
 linux: $(OBJ)/unsymlink.so
 linux: $(OBJ)/peekvc
 linux: $(OBJ)/showsigmask
 linux: $(OBJ)/statx
 linux: $(OBJ)/tapchown
+linux: $(OBJ)/writevt
 
 .PHONY: krb
 krb: $(OBJ)/k5userok
 krb: $(OBJ)/pklist
 
 .PHONY: all
-all: basic krb misc
+all: basic krb
 ifeq ($(UNAME),Linux)
 all: linux
 endif

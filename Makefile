@@ -53,14 +53,14 @@ emergency-su: $(OBJ)/emergency-su
 	sudo install -o 'root' -g 'wheel' -m 'u=rxs,g=rx,o=' $< /usr/bin/$@
 
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
-$(OBJ)/libfunsync.so:	system/libfunsync.c
+$(OBJ)/libfunsync.so:	misc/libfunsync.c
 
 $(OBJ)/ssh_force_lp.so:	CFLAGS += -shared
-$(OBJ)/ssh_force_lp.so:	net/ssh_force_lp.c
+$(OBJ)/ssh_force_lp.so:	misc/ssh_force_lp.c
 
 $(OBJ)/unsymlink.so:	CFLAGS += -shared
 $(OBJ)/unsymlink.so:	LDLIBS += $(DL_LDLIBS)
-$(OBJ)/unsymlink.so:	system/unsymlink.c
+$(OBJ)/unsymlink.so:	misc/unsymlink.c
 
 $(OBJ)/libwcwidth.so:	CFLAGS += -shared -fPIC \
 				-Dmk_wcwidth=wcwidth -Dmk_wcswidth=wcswidth
@@ -71,12 +71,12 @@ $(OBJ)/misc_util.o:	misc/util.c misc/util.h
 $(OBJ)/strnatcmp.o:	thirdparty/strnatcmp.c
 
 $(OBJ)/ac-wait:		LDLIBS += -ludev
-$(OBJ)/ac-wait:		system/ac-wait.c
+$(OBJ)/ac-wait:		misc/ac-wait.c
 
 $(OBJ)/args:		misc/args.c
 
 $(OBJ)/entropy:		LDLIBS += -lm
-$(OBJ)/entropy:		security/entropy.c
+$(OBJ)/entropy:		misc/entropy.c
 
 $(OBJ)/gettime:		LDLIBS += -lrt
 $(OBJ)/gettime:		misc/gettime.c
@@ -90,7 +90,7 @@ $(OBJ)/k5userok:	kerberos/k5userok.c
 $(OBJ)/logwipe:		thirdparty/logwipe.c
 
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
-$(OBJ)/mkpasswd:	security/mkpasswd.c
+$(OBJ)/mkpasswd:	misc/mkpasswd.c
 
 $(OBJ)/natsort:		thirdparty/natsort.c $(OBJ)/strnatcmp.o
 
@@ -100,20 +100,20 @@ $(OBJ)/pklist:		CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/pklist:		kerberos/pklist.c
 
-$(OBJ)/pause:		system/pause.c
+$(OBJ)/pause:		misc/pause.c
 
-$(OBJ)/proctool:	system/proctool.c $(OBJ)/misc_util.o
+$(OBJ)/proctool:	misc/proctool.c $(OBJ)/misc_util.o
 
 $(OBJ)/showsigmask:	CFLAGS += -I$(OBJ)
-$(OBJ)/showsigmask:	system/showsigmask.c
+$(OBJ)/showsigmask:	misc/showsigmask.c
 
-$(OBJ)/spawn:		system/spawn.c $(OBJ)/misc_util.o
+$(OBJ)/spawn:		misc/spawn.c $(OBJ)/misc_util.o
 
-$(OBJ)/statx:		system/statx.c
+$(OBJ)/statx:		misc/statx.c
 
 $(OBJ)/strtool:		misc/strtool.c
 
-$(OBJ)/tapchown:	net/tapchown.c
+$(OBJ)/tapchown:	misc/tapchown.c
 
 $(OBJ)/unescape:	misc/unescape.c
 
@@ -127,11 +127,11 @@ $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c
 
 $(OBJ)/newrdt:		LDLIBS += -lresolv
-$(OBJ)/newrdt:		net/rdt.c
+$(OBJ)/newrdt:		misc/rdt.c
 
 $(OBJ)/gl-mem:		CFLAGS += $(shell pkg-config --cflags x11 epoxy)
 $(OBJ)/gl-mem:		LDLIBS += $(shell pkg-config --libs x11 epoxy)
-$(OBJ)/gl-mem:		desktop/gl-mem.c
+$(OBJ)/gl-mem:		misc/gl-mem.c
 
 $(OBJ)/emergency-su:	LDLIBS += $(CRYPT_LDLIBS)
-$(OBJ)/emergency-su:	security/emergency-su.c
+$(OBJ)/emergency-su:	misc/emergency-su.c

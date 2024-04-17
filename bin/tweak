@@ -242,8 +242,7 @@ gnome.wallpaper)
 	if (( $? )); then
 		err "unknown setting '$setting'"
 		similar=$(jq -e -r \
-			--arg session "$session" \
-			'.[$session] | keys[]' \
+			'to_entries[] | .key as $key | .value | keys[] | "\($key).\(.)"' \
 			<<< "$settings" |
 			grep "$(sed 's/./.*&/g' <<< "$setting")")
 		if [[ "$similar" ]]; then

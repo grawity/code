@@ -26,15 +26,25 @@ sub hilight {
 
 my $opt_only = 0;
 my $opt_color = (-t 1);
+my $opt_control = 0;
 
 GetOptions(
 	"o|only!" => \$opt_only,
 	"color!" => \$opt_color,
+	"control" => \$opt_control,
 	"help" => sub { usage(); exit(0); },
 ) or exit(2);
 
 while (<>) {
-	my $n = s/[^\n\t\x20-\x7e]/hilight($&, $opt_color)/ge;
+	my $n = 0;
+	if ($opt_control) {
+		# Highlight only control characters
+		$n = s/[\x00-\x09\x0b-\x1f\x80-\xff]/hilight($&, $opt_color)/ge;
+	} else {
+		# Highlight all non-printable-ASCII characters
+		$n = s/[^\n\t\x20-\x7e]/hilight($&, $opt_color)/ge;
+	}
+
 	if ($opt_only) {
 		if ($opt_color) {
 			print "\e[4m$ARGV:$.:\e[m$_" if $n;

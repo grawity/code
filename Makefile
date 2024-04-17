@@ -34,10 +34,6 @@ basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
 misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
 linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
 
-.PHONY: desktop
-desktop: $(OBJ)/ac-wait
-desktop: $(OBJ)/spawn
-
 .PHONY: krb
 krb: $(OBJ)/k5userok
 krb: $(OBJ)/pklist

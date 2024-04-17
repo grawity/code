@@ -178,22 +178,27 @@ logging.debug(f"Old serial number {old_soa[0].serial}.")
 
 old = {}
 new = {}
+non_ptr = 0
 
 for name, node in zone_data.items():
     rdset = node.get_rdataset(dns.rdataclass.IN,
                               dns.rdatatype.PTR)
     if not rdset:
+        non_ptr += 1
         continue
     addr = address_for_ptr(name)
     old[addr] = rdset
     #old[addr] = set(rdset)
+
+if not prefix and not old and non_ptr > 5:
+    exit(f"error: This doesn't look like a reverse zone (too many non-PTR records).")
 
 pref_line = 0
 near_line = 0
 near_addr = None
 
 with tempfile.NamedTemporaryFile("w", delete=False) as temp:
-    addr_width = max(len(str(addr)) for addr in old)
+    addr_width = max(len(str(addr)) for addr in old) if old else 0
     n_lines = 0
     last_net = None
 
@@ -258,7 +263,11 @@ addrs_updated = {addr
                  if not case_eq(old[addr], new[addr])}
 
 if not new:
-    exit(f"error: Zone became empty.")
+    if not old:
+        print("No changes were made (zone remains empty).")
+        exit()
+    else:
+        exit(f"error: Zone became empty.")
 
 if len(addrs_missing) + len(addrs_created) + len(addrs_updated) == 0:
     print("No changes were made.")

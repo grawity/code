@@ -23,26 +23,47 @@ $(dummy): $(OBJ)/config-krb5.h
 
 # compile targets
 
-BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape urlencode
-BASIC_BINS += hex unhex proctool strtool
-MISC_BINS  := ac-wait entropy libwcwidth.so writevt zlib
-LINUX_BINS := libfunsync.so ssh_force_lp.so unsymlink.so peekvc showsigmask statx tapchown
+.PHONY: basic
+basic: $(OBJ)/args
+basic: $(OBJ)/gettime
+basic: $(OBJ)/mkpasswd
+basic: $(OBJ)/natsort
+basic: $(OBJ)/pause
+basic: $(OBJ)/spawn
+basic: $(OBJ)/unescape
+basic: $(OBJ)/urlencode
+basic: $(OBJ)/hex
+basic: $(OBJ)/unhex
+basic: $(OBJ)/proctool
+basic: $(OBJ)/strtool
 
-.PHONY: all basic krb misc linux pklist
+.PHONY: misc
+misc: $(OBJ)/ac-wait
+misc: $(OBJ)/entropy
+misc: $(OBJ)/libwcwidth.so
+misc: $(OBJ)/writevt
+misc: $(OBJ)/zlib
 
-basic: $(addprefix $(OBJ)/,$(BASIC_BINS))
-misc:  $(addprefix $(OBJ)/,$(MISC_BINS))
-linux: $(addprefix $(OBJ)/,$(LINUX_BINS))
+.PHONY: linux
+linux: $(OBJ)/libfunsync.so
+linux: $(OBJ)/ssh_force_lp.so
+linux: $(OBJ)/unsymlink.so
+linux: $(OBJ)/peekvc
+linux: $(OBJ)/showsigmask
+linux: $(OBJ)/statx
+linux: $(OBJ)/tapchown
 
 .PHONY: krb
 krb: $(OBJ)/k5userok
 krb: $(OBJ)/pklist
 
+.PHONY: all
 all: basic krb misc
 ifeq ($(UNAME),Linux)
 all: linux
 endif
 
+.PHONY: pklist
 pklist: $(OBJ)/pklist
 
 emergency-su: $(OBJ)/emergency-su

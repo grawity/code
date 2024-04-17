@@ -15,9 +15,9 @@ sub usage {
 }
 
 sub hilight {
-	my ($char) = @_;
+	my ($char, $color) = @_;
 	$char = sprintf "<U+%04X>", ord($char);
-	if (-t 1) {
+	if ($color) {
 		return "\e[1;37;41m$char\e[m";
 	} else {
 		return $char;
@@ -25,16 +25,22 @@ sub hilight {
 }
 
 my $opt_only = 0;
+my $opt_color = (-t 1);
 
 GetOptions(
 	"o|only!" => \$opt_only,
+	"color!" => \$opt_color,
 	"help" => sub { usage(); exit(0); },
 ) or exit(2);
 
 while (<>) {
-	my $n = s/[^\n\t\x20-\x7e]/hilight($&)/ge;
+	my $n = s/[^\n\t\x20-\x7e]/hilight($&, $opt_color)/ge;
 	if ($opt_only) {
-		print "\e[4m$ARGV:$.:\e[m$_" if $n;
+		if ($opt_color) {
+			print "\e[4m$ARGV:$.:\e[m$_" if $n;
+		} else {
+			print "$ARGV:$.:$_" if $n;
+		}
 	} else {
 		print;
 	}

@@ -67,6 +67,22 @@ settings='
 			"type": "float"
 		}
 	},
+	"builder": {
+		"line-height": {
+			"method": "gsettings",
+			"schema": "org.gnome.builder.editor",
+			"key": "line-height",
+			"type": "float"
+		}
+	},
+	"gte": {
+		"line-height": {
+			"method": "gsettings",
+			"schema": "org.gnome.TextEditor",
+			"key": "line-height",
+			"type": "float"
+		}
+	},
 	"xfce": {
 		"gtk-theme": {
 			"method": "xfconf",
@@ -167,6 +183,10 @@ do_xfconf() {
 setting=$1
 value=$2
 
+if [[ $setting == */* ]]; then
+	setting=${setting/\//.}
+fi
+
 if [[ $setting == *.* ]]; then
 	session=${setting%%.*}
 	setting=${setting#*.}
@@ -176,6 +196,12 @@ else
 fi
 
 case $session.$setting in
+*.)
+	jq -e -r \
+		'to_entries[] | .key as $key | .value | keys[] | "\($key).\(.)"' \
+		<<< "$settings" |
+		treeify -s. -g -f
+	;;
 gnome.wallpaper)
 	if [[ $value == --fav ]]; then
 		cd ~/Pictures/Wallpapers
@@ -220,10 +246,9 @@ gnome.wallpaper)
 		'.[$session][$setting]' \
 		<<< "$settings")
 	if (( $? )); then
-		err "unknown setting '$tweak'"
+		err "unknown setting '$setting'"
 		similar=$(jq -e -r \
-			--arg session "$session" \
-			'.[$session] | keys[]' \
+			'to_entries[] | .key as $key | .value | keys[] | "\($key).\(.)"' \
 			<<< "$settings" |
 			grep "$(sed 's/./.*&/g' <<< "$setting")")
 		if [[ "$similar" ]]; then

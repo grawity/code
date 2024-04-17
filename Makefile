@@ -24,7 +24,7 @@ $(dummy): $(OBJ)/config-krb5.h
 # compile targets
 
 BASIC_BINS := args gettime mkpasswd natsort pause spawn unescape urlencode
-BASIC_BINS += hex unhex proctool strtool xor xorf
+BASIC_BINS += hex unhex proctool strtool
 MISC_BINS  := ac-wait entropy libwcwidth.so writevt zlib
 LINUX_BINS := libfunsync.so ssh_force_lp.so unsymlink.so peekvc showsigmask statx tapchown
 
@@ -122,10 +122,6 @@ $(OBJ)/unhex:		misc/unhex.c
 $(OBJ)/urlencode:	misc/urlencode.c
 
 $(OBJ)/writevt:		thirdparty/writevt.c
-
-$(OBJ)/xor:		misc/xor.c
-
-$(OBJ)/xorf:		misc/xorf.c
 
 $(OBJ)/zlib:		LDLIBS += -lz
 $(OBJ)/zlib:		thirdparty/zpipe.c

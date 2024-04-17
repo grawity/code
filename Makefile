@@ -87,8 +87,6 @@ $(OBJ)/k5userok:	CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
 $(OBJ)/k5userok:	kerberos/k5userok.c
 
-$(OBJ)/logwipe:		thirdparty/logwipe.c
-
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	misc/mkpasswd.c
 

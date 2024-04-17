@@ -92,9 +92,6 @@ $(OBJ)/ac-wait:		misc/ac-wait.c
 
 $(OBJ)/args:		misc/args.c
 
-$(OBJ)/entropy:		LDLIBS += -lm
-$(OBJ)/entropy:		misc/entropy.c
-
 $(OBJ)/gettime:		LDLIBS += -lrt
 $(OBJ)/gettime:		misc/gettime.c
 

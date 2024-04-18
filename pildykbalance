@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+import argparse
+import gi
+import os
+from pprint import pprint
+import requests
+import sys
+import time
+from urllib.parse import urljoin
+
+gi.require_version("Secret", "1")
+
+from gi.repository import Secret
+
+class PildykClient():
+    def __init__(self):
+        self.ua = requests.Session()
+        self.ua.headers["Origin"] = "https://pildyk.lt"
+        self.ua.headers["Referer"] = "https://pildyk.lt/prisijungti?useAutoLogin=false"
+        self.ua.headers["User-Agent"] = "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0"
+
+    def _get(self, url, **kwargs):
+        resp = self.ua.get(urljoin("https://brandtier.pildyk.lt/", url),
+                            **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    def _post(self, url, **kwargs):
+        resp = self.ua.post(urljoin("https://brandtier.pildyk.lt/", url),
+                            **kwargs)
+        resp.raise_for_status()
+        return resp
+
+    def login(self, account, password):
+        #print(f"XXX: Logging in as {account=}, {password=}")
+        resp = self.ua.post("https://brandtier.pildyk.lt/auth/login?returnUrl=",
+                            json={"msisdn": account,
+                                  "password": password})
+        if resp.status_code != 200:
+            raise Exception(f"Login failed: {resp.text}")
+        resp.raise_for_status()
+        j = resp.json()
+        # {
+        #   token: <str>
+        #   grantType: <str> "bearer"
+        #   expiresIn: <int> 1800
+        # }
+        self.account = account
+        self.password = password
+        self.auth_token = j["token"]
+        self.auth_expires = time.time() + j["expiresIn"]
+        self.ua.headers["Authorization"] = f"Bearer {self.auth_token}"
+        print(f"Authenticated as {account}.")
+
+    def get_user_profile(self):
+        resp = self._get("/profile/user")
+        return resp.json()
+        # {
+        #   profileName: <?str>
+        #   email: <str>
+        #   isEmailValidated: <bool>
+        #   personCode: <str>
+        # }
+
+    def get_customer_info(self):
+        resp = self._get("/user-information/user")
+        return resp.json()
+        # {
+        #   fullName: <?str>
+        #   expirationDate: <str.iso8601>
+        # }
+
+    def get_price_plans(self):
+        resp = self._get("/price-plan/active")
+        return resp.json()
+
+    def get_customer_buckets(self):
+        resp = self._get("/user-information/grouped-buckets")
+        return resp.json()
+        # [
+        #   smsGroup: <group{}>
+        #   voiceGroup: <group{}>
+        #   dataGroup: <group{}>
+        #   balanceGroup: <group{}>
+        # ]
+        # group ::= {
+        #   balance: <int>
+        #   groupUnit: <str> "KB", "EUR"
+        #   allocatedBalance: <int>
+        #   allocatedGroupUnit: <str>
+        #   buckets: [<bucket{}>]
+        # }
+        # bucket :== {
+        #   name: <str>
+        #   bucketType: <int>
+        #   balance: <int>
+        #   balanceUnit: <int>
+        #   allocatedBalance: <int>
+        #   allocatedBalanceUnit: <int>
+        #   expireDate: <str.iso8601>
+        #   priority: <int>
+        #   isUnlimited: <bool>
+        #   isUnlimitedToPildyk: <bool>
+        #   fupStatus: <int>
+        # }
+
+class LibsecretItem():
+    def __init__(self, label, attrs):
+        self.label = label
+        self.attrs = attrs
+
+    def _attrlist(self):
+        res = []
+        for k, v in self.attrs.items():
+            res += [k, v]
+        return res
+
+    def lookup(self):
+        return Secret.password_lookup_sync(None, self.attrs)
+
+    def clear(self):
+        import subprocess
+        subprocess.run(["secret-tool", "clear",
+                        *self._attrlist()],
+                       check=True)
+
+    def interactive_store(self):
+        import subprocess
+        subprocess.run(["secret-tool", "store",
+                        f"--label={self.label}",
+                        *self._attrlist()],
+                       check=True)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--account", required=True)
+parser.add_argument("-p", "--password")
+args = parser.parse_args()
+
+account = args.account
+password = args.password or os.environ.get("p")
+
+pwd_item = LibsecretItem(f"PILDYK password for {account}",
+                         {"xdg:schema": "org.freedesktop.Secret.Generic",
+                          "target": "https://pildyk.lt",
+                          "account": account})
+
+if not password:
+    password = pwd_item.lookup()
+if not password:
+    if sys.stdin.isatty():
+        print(f"Password for account {account!r} not yet stored.", file=sys.stderr)
+        pwd_item.interactive_store()
+        print(f"Password stored successfully. Run the program again.", file=sys.stderr)
+    else:
+        exit(f"error: Password for account {account!r} not found")
+
+pc = PildykClient()
+try:
+    pc.login(account, password)
+except requests.exceptions.HTTPError as e:
+    #pwd_item.clear()
+    raise
+
+#p = pc.get_user_profile()
+#pprint(p)
+
+#p = pc.get_price_plans()
+#pprint(p)
+
+p = pc.get_customer_buckets()
+#pprint(p)
+
+warned = 0
+
+dg = p["balanceGroup"]
+#pprint(dg)
+units = dg["groupUnit"]
+assert units == "CURRENCY" # (it's really in €ct, hence /100)
+units = "€"
+avail = dg["balance"] / 100
+limit = 4.0 # Warn at 4 EUR
+
+print(f"Balance: {avail} {units}")
+if avail < limit:
+    print("warning: Balance low", file=sys.stderr)
+    warned = 1
+
+dg = p["dataGroup"]
+units = dg["groupUnit"]
+assert units == "KB"
+avail = dg["balance"]
+total = dg["allocatedBalance"]
+limit = 100*1024 # Warn at 100 MB remaining
+
+units = "MB"
+avail /= 1024
+total /= 1024
+limit /= 1024
+
+print(f"Data: {avail} {units} (out of {total} {units})")
+if avail < limit:
+    print("warning: Data quota low", file=sys.stderr)
+    warned = 1
+
+exit(warned)

@@ -64,7 +64,8 @@ infiles=()
 outfiles=()
 infix="conv"
 outdir=
-declare -A outmap=()
+declare -A iomap=()
+declare -A oimap=()
 addargs=()
 
 nproc=$(nproc)
@@ -145,6 +146,23 @@ fi
 
 echo "Recompressing ${#infiles[@]} files ($nproc jobs)"
 
+for iname in "${infiles[@]}"; do
+	oname=${outdir%/}${outdir:+/}${iname%.*}.$infix.jpg
+	if [[ ${oimap["$oname"]} && ! ${iomap["$iname"]} ]]; then
+		# More than one input (e.g. foo.png & foo.tiff) maps to the
+		# same output file, so keep the original extensions.
+		xiname=${oimap["$oname"]}
+		xoname=${outdir%/}${outdir:+/}$xiname.$infix.jpg
+		oname=${outdir%/}${outdir:+/}$iname.$infix.jpg
+		iomap["$xiname"]=$xoname
+		oimap["$xoname"]=$xiname
+		# (Keep the old $oname in the oimap, so that we would detect
+		# collisions between 3 items, not only between 2-pairs.)
+	fi
+	iomap["$iname"]=$oname
+	oimap["$oname"]=$iname
+done
+
 trap 'clear_progress' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
@@ -152,7 +170,7 @@ for iname in "${infiles[@]}"; do
 		wait -n; (( --njobs )); (( ++ndone ))
 		show_progress "$ndone" "${#infiles[@]}"
 	done
-	oname=${outdir%/}${outdir:+/}${iname%.*}.$infix.jpg
+	oname=${iomap["$iname"]}
 	{
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
@@ -163,7 +181,6 @@ for iname in "${infiles[@]}"; do
 		fi
 	} & (( ++njobs ))
 	outfiles+=("$oname")
-	outmap["$oname"]=$iname
 	show_progress "$ndone" "${#infiles[@]}"
 done
 while (( njobs )); do
@@ -180,7 +197,7 @@ if true; then
 	outsmaller=()
 	outlarger=()
 	for oname in "${outfiles[@]}"; do
-		iname=${outmap["$oname"]}
+		iname=${oimap["$oname"]}
 		if [[ ! -s "$oname" ]]; then
 			die "conversion of '$iname' failed"
 		fi
@@ -230,7 +247,7 @@ if true; then
 		let ++i
 		if [[ -e "$oname" ]]; then
 			osize=$(stat -c %s "$oname")
-			iname=${outmap["$oname"]}
+			iname=${oimap["$oname"]}
 			isize=$(stat -c %s "$iname")
 			perc=$[100 * osize / isize]
 			printf '%6s -> %6s  (%2d%%)  %s\n' \

@@ -43,6 +43,8 @@ parser.add_argument("-z", "--zone",
                     help="override automatically determined rDNS zone")
 parser.add_argument("-l", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
+parser.add_argument("-n", "--dry-run", action="store_true",
+                    help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
                     help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="count", default=0,
@@ -129,5 +131,6 @@ if args.debug >= 1:
     print("Commands:")
     print("\t" + "\t".join(cmds), end="")
 
-send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                          debug=(args.debug >= 2))
+if not args.dry_run:
+    send_nsupdate(zone, cmds, gssapi=not args.no_gss,
+                              debug=(args.debug >= 2))

@@ -113,6 +113,8 @@ parser.add_argument("-6", "--only-v6", action="store_true",
                     help="only update IPv6 rDNS")
 parser.add_argument("-l", "--ttl", type=int, default=3600,
                     help="set the TTL for created records")
+parser.add_argument("-n", "--dry-run", action="store_true",
+                    help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
                     help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="count", default=0,
@@ -173,11 +175,12 @@ for host in args.host:
             print("Commands:")
             print("\t" + "\t".join(cmds), end="")
 
-        try:
-            send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                                      debug=(args.debug >= 2))
-        except subprocess.CalledProcessError as e:
-            print("error: %s" % e, file=sys.stderr)
-            failed = True
+        if not args.dry_run:
+            try:
+                send_nsupdate(zone, cmds, gssapi=not args.no_gss,
+                                          debug=(args.debug >= 2))
+            except subprocess.CalledProcessError as e:
+                print("error: %s" % e, file=sys.stderr)
+                failed = True
 
 exit(failed)

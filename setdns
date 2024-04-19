@@ -33,15 +33,10 @@ def rtype_for_address(rdata):
     raise ValueError
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
-                                 show_input=False,
                                  debug=False):
     cmds = [f"zone {zone}\n",
             *cmds,
             f"send\n"]
-
-    if show_input:
-        print("Commands:")
-        print("\t" + "\t".join(cmds), end="")
 
     nsupdate_args = ["nsupdate"]
     if debug:
@@ -130,6 +125,9 @@ else:
     else:
         exit("error: Either record data or '--remove' must be specified")
 
+if args.debug >= 1:
+    print("Commands:")
+    print("\t" + "\t".join(cmds), end="")
+
 send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                          show_input=(args.debug >= 1),
                           debug=(args.debug >= 2))

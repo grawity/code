@@ -109,15 +109,10 @@ def group_for_addr(addr):
     return ipaddress.ip_interface((addr, bits)).network
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
-                                 show_input=False,
                                  debug=False):
     cmds = [f"zone {zone}\n",
             *cmds,
             f"send\n"]
-
-    if show_input:
-        print("Commands:")
-        print("\t" + "\t".join(cmds), end="")
 
     nsupdate_args = ["nsupdate"]
     if debug:
@@ -307,6 +302,9 @@ for addr in addrs_created | addrs_updated:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} += {rdata.target}")
 
+if args.debug >= 1:
+    print("Commands:")
+    print("\t" + "\t".join(cmds), end="")
+
 send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                          show_input=(args.debug >= 1),
                           debug=(args.debug >= 2))

@@ -87,15 +87,10 @@ def lookup_addrs(name, *, allow_cname=False,
     return addrs
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
-                                 show_input=False,
                                  debug=False):
     cmds = [f"zone {zone}\n",
             *cmds,
             f"send\n"]
-
-    if show_input:
-        print("Commands:")
-        print("\t" + "\t".join(cmds), end="")
 
     nsupdate_args = ["nsupdate"]
     if debug:
@@ -174,9 +169,12 @@ for host in args.host:
             cmds = [f"del {rname} {args.ttl} PTR\n",
                     f"add {rname} {args.ttl} PTR {host}\n"]
 
+        if args.debug >= 1:
+            print("Commands:")
+            print("\t" + "\t".join(cmds), end="")
+
         try:
             send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                                      show_input=(args.debug >= 1),
                                       debug=(args.debug >= 2))
         except subprocess.CalledProcessError as e:
             print("error: %s" % e, file=sys.stderr)

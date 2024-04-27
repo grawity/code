@@ -77,22 +77,8 @@ my $perlre = qr{ at \s (.+?) \s line \s (\d+),? }mx;
 my $editor = $ENV{VISUAL} // $ENV{EDITOR} // "vim";
 my @args = ($editor);
 
-sub in_path {
-	my ($exe) = @_;
-	return grep {-f && -x} map {"$_/$exe"} split(/:/, $ENV{PATH});
-}
-
 sub getselection {
-	if (in_path("xsel")) {
-		_debug("using xsel");
-		return `xsel -o -p -l /dev/null`;
-	} elsif (in_path("xclip")) {
-		_debug("using xclip");
-		return `xclip -o -s primary`;
-	} else {
-		_debug("nothing available");
-		return;
-	}
+	return `psel`;
 }
 
 sub urldecode {

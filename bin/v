@@ -73,10 +73,6 @@ my $perlre = qr{ at \s (.+?) \s line \s (\d+),? }mx;
 
 
 
-sub getselection {
-	return `psel`;
-}
-
 sub urldecode {
 	my ($str) = @_;
 	$str =~ s/%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
@@ -194,7 +190,13 @@ if (@ARGV) {
 		}
 	}
 } elsif (length $ENV{DISPLAY}) {
-	if (my @r = parse(getselection())) {
+	my $sel = `psel`;
+	chomp($sel);
+	if (!$sel) {
+		warn "v: selection is empty\n";
+		exit 1;
+	}
+	if (my @r = parse($sel)) {
 		push @args, @r;
 	}
 }

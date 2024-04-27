@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+args=""
+hosts=`rlisthosts`
+
+if (( ! $# )); then
+	vdie "query not specified"
+fi
+
+for arg; do
+	args+=" ${arg@Q}"
+done
+
+for host in $hosts; do
+	ssh $host "bin/loc $args | sed 's,^,/net/$host,'"
+done

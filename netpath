@@ -62,16 +62,19 @@ while getopts ":H:nwx" OPT; do
 done; shift $((OPTIND-1))
 
 if (( w_flag + x_flag > 1 )); then
-	die "-w and -x modes are mutually exclusive"
+	vdie "-w and -x modes are mutually exclusive"
 fi
 if (( n_flag && !x_flag )); then
 	warn "-n has no effect in modes other than -x"
+fi
+if (( ! $# )); then
+	vdie "no arguments specified"
 fi
 
 args=()
 for iarg; do
 	if (( w_flag )); then
-		arg=$(command -v "$iarg") || die "'$iarg' not found in PATH"
+		arg=$(command -v "$iarg") || vdie "'$iarg' not found in PATH"
 	elif (( x_flag )); then
 		if [[ $iarg == @(.|./*) ]]; then
 			arg=$(realpath -s "$iarg")

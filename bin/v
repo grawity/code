@@ -72,19 +72,10 @@ my $pythonre = qr{ ^ File \s "(.+?)", \s line \s (\d+) }mx;
 
 my $perlre = qr{ at \s (.+?) \s line \s (\d+),? }mx;
 
-# this script is *not* usually symlinked as ~/bin/vim anymore
 
-my $vim = "vim";
-my @args = ($vim);
 
-if (my $env = $ENV{VISUAL} // $ENV{EDITOR}) {
-	if ($env eq "nvim" || $env eq "kak") {
-		$vim = "$env";
-		@args = ("$env");
-	}
-}
-
-_debug("found vim executable at '$vim'");
+my $editor = $ENV{VISUAL} // $ENV{EDITOR} // "vim";
+my @args = ($editor);
 
 sub in_path {
 	my ($exe) = @_;
@@ -223,7 +214,7 @@ if (@ARGV) {
 	}
 }
 
-print join(" ", map {shescape($_)} @args), "\n";
+print "+ ", join(" ", map {shescape($_)} @args), "\n";
 
-exec {$vim} @args;
-die "v: could not execute '$vim': $!\n";
+exec {$editor} @args;
+die "v: could not execute '$editor': $!\n";

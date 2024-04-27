@@ -182,19 +182,17 @@ for job in args.job:
             do_borg(repo=args.borg_repo or borg_home_repo,
                     base="~",
                     dirs=["."],
-                    excl=[
-                        f"{conf}/borg/home_all.exclude",
-                        f"{conf}/borg/home_{hostname}.exclude",
-                    ])
+                    excl=[f"{conf}/borg/home_all.exclude",
+                          f"{conf}/borg/home_{hostname}.exclude"],
+                    args=[*borg_args])
         elif job == "root":
             do_borg(repo=args.borg_repo or borg_root_repo,
                     base="/",
                     dirs=["/"],
                     sudo=True,
-                    excl=[
-                        f"{conf}/borg/root_all.exclude",
-                        f"{conf}/borg/root_{hostname}.exclude",
-                    ])
+                    excl=[f"{conf}/borg/root_all.exclude",
+                          f"{conf}/borg/root_{hostname}.exclude"],
+                    args=[*borg_args])
         else:
             exit(f"error: Unknown job {job!r}")
     except subprocess.CalledProcessError as e:

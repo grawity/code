@@ -1,6 +1,5 @@
 #!/usr/bin/env perl
-# goto-vim - open vim with a specific file and position taken from primary
-# selection.  Usually symlinked to 'vim' or even 'v'.
+# v -- open vim with a specific file and position taken from primary selection
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
@@ -73,9 +72,6 @@ my $pythonre = qr{ ^ File \s "(.+?)", \s line \s (\d+) }mx;
 my $perlre = qr{ at \s (.+?) \s line \s (\d+),? }mx;
 
 
-
-my $editor = $ENV{VISUAL} // $ENV{EDITOR} // "vim";
-my @args = ($editor);
 
 sub getselection {
 	return `psel`;
@@ -186,6 +182,9 @@ sub parse {
 	return;
 }
 
+my $editor = $ENV{VISUAL} // $ENV{EDITOR} // "vim";
+my @args = ($editor);
+
 if (@ARGV) {
 	for my $arg (@ARGV) {
 		if (my @r = parse($arg)) {
@@ -200,7 +199,6 @@ if (@ARGV) {
 	}
 }
 
-print "+ ", join(" ", map {shescape($_)} @args), "\n";
-
+print join(" ", map {shescape($_)} @args), "\n";
 exec {$editor} @args;
 die "v: could not execute '$editor': $!\n";

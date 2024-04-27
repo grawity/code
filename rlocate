@@ -2,8 +2,23 @@
 
 . lib.bash || exit
 
-args=""
-hosts=`rlisthosts`
+usage() {
+	echo "Usage: $progname [-H hosts] <keyword>..."
+	echo
+	echo_opt "-H hosts"	"list of hosts to search"
+}
+
+args=
+hosts=
+
+while getopts ":H:" OPT; do
+	case $OPT in
+	H) hosts=${OPTARG//,/ };;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+hosts=`rlisthosts "$hosts"` || exit
 
 if (( ! $# )); then
 	vdie "query not specified"

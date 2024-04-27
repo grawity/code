@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# Force using the ~/bin/less wrapper for LESS_TERMCAP overrides.
+if [ ! "$PAGER" ] && [ ! "$MANPAGER" ]; then
+	export PAGER="less"
+fi
+
+# Disable "new" rendering mode in grotty(1) so that the LESS_TERMCAP overrides
+# would work. (Note: Debian already disables this by default and adds GROFF_SGR
+# to un-do that, so let's honor that here as well.)
+if [ ! "$GROFF_SGR" ]; then
+	export GROFF_NO_SGR=1
+fi
+
+# Set terminal title to "manpage(section)".
+#MANLESS="]0;\$MAN_PN ?ltline %lt?L/%L.:byte %bB?s/%s..?e (END):?pB %pB\\%.. "
+# (2022-08-05: Broken, part of the title string goes into Less status)
+
+exec /usr/bin/man "$@"

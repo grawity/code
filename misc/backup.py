@@ -5,6 +5,8 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
+import tempfile
 import time
 import urllib.parse
 
@@ -79,25 +81,30 @@ def do_borg(*,
             base=None,
             dirs=None,
             sudo=False,
+            excl=None,
             args=None):
 
     tag = hostname + "." + time.strftime("%Y%m%d.%H%M")
 
-    # Idiot-proofing: if nonexistent exclude files were specified, create them.
-    next = -1
-    for arg in args:
-        if arg.startswith("--exclude-from="):
-            _, _, arg = arg.partition("=")
-            next = 1
-        elif arg == "--exclude-from":
-            next = 0
+    excl = excl or []
+    args = args or []
 
-        if next == 0 and not os.path.exists(arg):
-            Core.notice(f"creating missing exclude file {arg!r}")
-            touch(arg)
-
-        if next >= 0:
-            next -= 1
+    # Collect all exclude files, both so that it would not be an error to
+    # specify paths of nonexistent host-specific files, and so that 'backup
+    # root' would be able to access them in case ~/Dropbox is on NFS.
+    excludefile = tempfile.NamedTemporaryFile()
+    for x in excl:
+        try:
+            print(f"backup: using exclude file {x}")
+            with open(x, "rb") as fh:
+                excludefile.file.write(b"# Begin %s\n" % x.encode())
+                for line in fh:
+                    excludefile.file.write(line)
+                excludefile.file.write(b"\n")
+        except FileNotFoundError:
+            print(f"backup: {epath} is missing, ignored", file=sys.stderr)
+    excludefile.file.flush()
+    args += [f"--exclude-from={excludefile.name}"]
 
     # Prepare the environment for 'borg create'
     user = os.environ["LOGNAME"]
@@ -175,20 +182,18 @@ for job in args.job:
             do_borg(repo=args.borg_repo or borg_home_repo,
                     base="~",
                     dirs=["."],
-                    args=[
-                        *borg_args,
-                        f"--exclude-from={conf}/borg/home_all.exclude",
-                        f"--exclude-from={conf}/borg/home_{hostname}.exclude",
+                    excl=[
+                        f"{conf}/borg/home_all.exclude",
+                        f"{conf}/borg/home_{hostname}.exclude",
                     ])
         elif job == "root":
             do_borg(repo=args.borg_repo or borg_root_repo,
                     base="/",
                     dirs=["/"],
                     sudo=True,
-                    args=[
-                        *borg_args,
-                        f"--exclude-from={conf}/borg/root_all.exclude",
-                        f"--exclude-from={conf}/borg/root_{hostname}.exclude",
+                    excl=[
+                        f"{conf}/borg/root_all.exclude",
+                        f"{conf}/borg/root_{hostname}.exclude",
                     ])
         else:
             exit(f"error: Unknown job {job!r}")

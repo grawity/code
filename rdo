@@ -4,7 +4,7 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-C path] [-H hosts] [-NSW] <command>"
+	echo "Usage: $progname [-C path] [-H hosts] [-NSWq] <command>"
 	echo
 	echo "Run a command simultaneously on all hosts."
 	echo
@@ -13,6 +13,7 @@ usage() {
 	echo_opt "-H hosts"	"list of hosts to connect to"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-W"		"output in order (disables parallel output)"
+	echo_opt "-q"		"quiet; don't output hostnames"
 	# XXX: We could still invoke the commands in parallel and only show
 	# output in order, after all have returned. This might increase the
 	# perceived delay, though, so it should be -WW or something.
@@ -23,14 +24,16 @@ nfs=0
 hosts=
 user=
 wait=0
+quiet=0
 
-while getopts ":C:H:NSW" OPT; do
+while getopts ":C:H:NSWq" OPT; do
 	case $OPT in
 	C) wd=$OPTARG;;
 	H) hosts=${OPTARG//,/ };;
 	N) nfs=1;;
 	S) user="root@";;
 	W) wait=1;;
+	q) quiet=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -75,16 +78,23 @@ fi
 
 lck=$(mktemp /tmp/rdo.XXXXXXXX) || exit
 trap 'wait; rm -f "$lck"' INT
+
 for host in $hosts; do
-	out=$(mktemp /tmp/rdo.XXXXXXXX) || exit
-	(
-		{ ssh -n $user$host "$cmd" || echo "=> $?"; } > "$out"
-		flock "$lck" awk -v host=$host \
-			'BEGIN {printf "%s:", host}
-			{print "\t" $0}
-			END {if (!NR) print}' < "$out"
+	{
+		out=$(mktemp /tmp/rdo.XXXXXXXX) || exit
+		if (( quiet )); then
+			ssh -n $user$host "$cmd" > "$out"
+			flock "$lck" cat "$out"
+		else
+			(ssh -n $user$host "$cmd" || echo "=> $?") > "$out"
+			flock "$lck" awk -v host=$host \
+				'BEGIN {printf "%s:", host}
+				{print "\t" $0}
+				END {if (!NR) print}' < "$out"
+		fi
 		rm -f "$out"
-	) &
+	} &
 	if (( wait )); then wait; fi
 done
+
 wait; rm -f "$lck"

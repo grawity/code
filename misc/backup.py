@@ -170,7 +170,7 @@ def do_borg(*,
     touch(stamp)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--borg-repo")
+parser.add_argument("-r", "--borg-repo")
 parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("job", nargs="*")
 args = parser.parse_args()

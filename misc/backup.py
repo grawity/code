@@ -35,6 +35,20 @@ def add_user_to_host(repo, user):
             repo = user + "@" + host + ":" + path
     return repo
 
+def gather_files(paths):
+    output = tempfile.NamedTemporaryFile()
+    for path in paths:
+        try:
+            with open(path, "rb") as fh:
+                output.file.write(b"# Begin %s\n" % path.encode())
+                for line in fh:
+                    output.file.write(line)
+                output.file.write(b"\n")
+        except FileNotFoundError:
+            print(f"backup: {epath} is missing, ignored", file=sys.stderr)
+    output.file.flush()
+    return output
+
 os.environ["BORG_RELOCATED_REPO_ACCESS_IS_OK"] = "yes"
 os.environ["BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK"] = "yes"
 
@@ -92,18 +106,7 @@ def do_borg(*,
     # Collect all exclude files, both so that it would not be an error to
     # specify paths of nonexistent host-specific files, and so that 'backup
     # root' would be able to access them in case ~/Dropbox is on NFS.
-    excludefile = tempfile.NamedTemporaryFile()
-    for x in excl:
-        try:
-            print(f"backup: using exclude file {x}")
-            with open(x, "rb") as fh:
-                excludefile.file.write(b"# Begin %s\n" % x.encode())
-                for line in fh:
-                    excludefile.file.write(line)
-                excludefile.file.write(b"\n")
-        except FileNotFoundError:
-            print(f"backup: {epath} is missing, ignored", file=sys.stderr)
-    excludefile.file.flush()
+    excludefile = gather_files(excl)
     args += [f"--exclude-from={excludefile.name}"]
 
     # Prepare the environment for 'borg create'

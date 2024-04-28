@@ -202,6 +202,11 @@ static void dump_statx(struct statx *stx)
 	if (stx->stx_mask & STATX_BTIME)
 		print_time(" Birth: ", &stx->stx_btime);
 
+	if (stx->stx_mask & STATX_MNT_ID_UNIQUE)
+		printf("Mount ID (long): %llu\n", stx->stx_mnt_id);
+	else if (stx->stx_mask & STATX_MNT_ID)
+		printf("Mount ID (short): %llu\n", stx->stx_mnt_id);
+
 	/* Print supported attributes in short format */
 	if (stx->stx_attributes_mask) {
 		printf("Attributes: 0x%016llx (", (unsigned long long)stx->stx_attributes);

@@ -198,6 +198,9 @@ if (@ARGV) {
 	}
 	if (my @r = parse($sel)) {
 		push @args, @r;
+	} else {
+		warn "v: no match for selection\n";
+		exit 1;
 	}
 } else {
 	warn "v: cannot operate without X display\n";

@@ -7,6 +7,7 @@ import math
 import os
 import signal
 import sys
+import subprocess
 import time
 
 def fround(val):
@@ -233,6 +234,8 @@ class MeterBar:
 parser = argparse.ArgumentParser()
 parser.add_argument("-r", "--raw", action="store_true",
                     help="output only temperature value")
+parser.add_argument("-s", "--spark", action="store_true",
+                    help="output through 'spark'")
 parser.add_argument("-l", "--load", action="store_true",
                     help="monitor load average")
 parser.add_argument("-W", "--wname", action="store_true",
@@ -243,6 +246,13 @@ args = parser.parse_args()
 
 hostname = os.uname().nodename
 sensor = Sensor.find_sensor()
+
+if args.spark:
+    args.raw = True
+    spark_proc = subprocess.Popen(["spark", "-l", "20", "-h", "70"],
+                                  stdin=subprocess.PIPE,
+                                  text=True)
+    sys.stdout = spark_proc.stdin
 
 if args.raw:
     try:

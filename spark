@@ -100,7 +100,10 @@ class Sparkline:
             self.colors = self.RGB_COLORS
 
     def update_ttysize(self):
-        self.ncols = os.get_terminal_size(sys.stderr.fileno()).columns
+        if x := os.environ.get("COLUMNS"):
+            self.ncols = int(x)
+        else:
+            self.ncols = os.get_terminal_size(sys.stderr.fileno()).columns
 
     def _print_tick(self, val):
         val = clamp(val, self.low, self.high)

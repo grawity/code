@@ -10,16 +10,17 @@ usage() {
 paths=()
 cmd=()
 
-state=0
+while getopts : OPT; do
+	case $OPT in
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+argstate=0
 for arg; do
-	if (( state == 0 )); then
-		if [[ $arg == --help ]]; then
-			usage
-			exit 0
-		elif [[ $arg == -- ]]; then
-			state=1
-		elif [[ $arg == -?* ]]; then
-			die "Unknown option '$arg'"
+	if (( argstate == 0 )); then
+		if [[ $arg == -- ]]; then
+			argstate=1
 		else
 			paths+=("$arg")
 		fi
@@ -29,8 +30,7 @@ for arg; do
 done
 
 if (( ! ${#paths[@]} )); then
-	usage
-	die "No files specified"
+	vdie "No files specified"
 fi
 
 if (( ! ${#cmd[@]} )); then

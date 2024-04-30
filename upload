@@ -189,13 +189,13 @@ for arg; do
 	name=${arg##*/}
 	# yay special case
 	if [[ $name == Screencast?from* ]]; then
-		name=$(echo "$name" | sed -r "s/^Screencast from //; s/ /./g; s/://g")
+		name=$(sed -E "s/^Screencast from //; s/ /./g; s/://g" <<< "$name")
 	fi
 	if [[ $arg_subdir == cap ]]; then
-		name=$(echo "$name" | sed -r 's/ .*(\.[a-z]+)$/\1/')
+		name=$(sed -E 's/ .*(\.[a-z]+)$/\1/' <<< "$name")
 	fi
 	if [[ $arg_mangle ]]; then
-		name=$(echo "$name" | sed -r "$arg_mangle")
+		name=$(sed -E "$arg_mangle" <<< "$name")
 	fi
 	if (( arg_timestamp && arg_mtime )); then
 		name=$(date +"$timefmt" -r "$arg")$name

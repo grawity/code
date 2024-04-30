@@ -109,11 +109,11 @@ if (( arg_mtime && !arg_timestamp )); then
 	arg_timestamp=1
 fi
 
-if (( arg_timestamp > 2 )); then
+if (( arg_timestamp >= 3 )); then
 	timefmt='%Y%m%d.%H%M%S.'
-elif (( arg_timestamp > 1 )); then
+elif (( arg_timestamp == 2 )); then
 	timefmt='%s.'
-elif (( arg_timestamp > 0 )); then
+elif (( arg_timestamp == 1 )); then
 	timefmt='%Y%m%d.'
 fi
 
@@ -132,7 +132,7 @@ fi
 
 # handle special modes
 
-if (( arg_interactive == 3 )); then
+if (( arg_interactive >= 3 )); then
 	rhome=$(ks:sshrun "${fsbase%%:*}" printenv HOME)
 	case $fsbase in
 		*:/*) url="/net/${fsbase%%:*}${fsbase#*:}";;
@@ -149,7 +149,7 @@ elif (( arg_interactive == 2 )); then
 	msg "Connecting to '$url'"
 	gio info -f "$url" >/dev/null 2>&1 || gio mount "$url"
 	gio open "$url"
-elif (( arg_interactive )); then
+elif (( arg_interactive == 1 )); then
 	if have lftp; then
 		case $fsbase in
 			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;

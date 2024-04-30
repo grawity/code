@@ -11,8 +11,9 @@ usage() {
 	echo_opt "-1"		"upload to fs1 instead of main site"
 	echo_opt "-c"		"continue upload / overwrite file"
 	echo_opt "-d path"	"create a subdirectory"
-	echo_opt "-i"		"interactive mode -- connect via lftp"
-	echo_opt "-I"		"interactive mode -- open a graphical file manager"
+	echo_opt "-i"		"connect interactively (using lftp)"
+	echo_opt "-ii"		"connect using gvfs-ftp"
+	echo_opt "-iii"		"connect using NFS"
 	echo_opt "-q"		"quiet -- no transfer progress, no clipboard"
 	echo_opt "-S regex"	"mangle (sed) the destination filename"
 	echo_opt "-t"		"add 'Ymd' timestamps to destination filenames"
@@ -61,14 +62,13 @@ declare -i arg_timestamp=0
 declare -i arg_mtime=0
 declare -i arg_yearly=1
 
-while getopts ":01cd:iIqS:tTX" OPT; do
+while getopts ":01cd:iqS:tTX" OPT; do
 	case $OPT in
 	0) arg_yearly=0;;
 	1) arg_server=fs1;;
 	c) arg_clobber=1;;
 	d) arg_subdir=$OPTARG;;
-	i) arg_interactive=1;;
-	I) arg_interactive=2;;
+	i) arg_interactive+=1;;
 	q) arg_quiet=1;;
 	S) arg_mangle=$OPTARG;;
 	t) arg_timestamp+=1;;
@@ -132,17 +132,25 @@ fi
 
 # handle special modes
 
-if (( arg_interactive )); then
-	if (( arg_interactive == 2 )); then
-		rhome=$(ks:sshrun "${fsbase%%:*}" printenv HOME)
-		case $fsbase in
-			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
-			*:*)  url="sftp://${fsbase%%:*}${rhome%/}/${fsbase#*:}";;
-		esac
-		msg "Connecting to '$url'"
-		gio info -f "$url" >/dev/null 2>&1 || gio mount "$url"
-		gio open "$url"
-	elif have lftp; then
+if (( arg_interactive == 3 )); then
+	rhome=$(ks:sshrun "${fsbase%%:*}" printenv HOME)
+	case $fsbase in
+		*:/*) url="/net/${fsbase%%:*}${fsbase#*:}";;
+		*:*)  url="/net/${fsbase%%:*}${rhome%/}/${fsbase#*:}";;
+	esac
+	msg "Opening '$url'"
+	gio open "$url"
+elif (( arg_interactive == 2 )); then
+	rhome=$(ks:sshrun "${fsbase%%:*}" printenv HOME)
+	case $fsbase in
+		*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
+		*:*)  url="sftp://${fsbase%%:*}${rhome%/}/${fsbase#*:}";;
+	esac
+	msg "Connecting to '$url'"
+	gio info -f "$url" >/dev/null 2>&1 || gio mount "$url"
+	gio open "$url"
+elif (( arg_interactive )); then
+	if have lftp; then
 		case $fsbase in
 			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
 			*:*)  url="sftp://${fsbase%%:*}/~/${fsbase#*:}";;

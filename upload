@@ -138,28 +138,32 @@ if (( arg_interactive >= 3 )); then
 		*:/*) url="/net/${fsbase%%:*}${fsbase#*:}";;
 		*:*)  url="/net/${fsbase%%:*}${rhome%/}/${fsbase#*:}";;
 	esac
-	msg "Opening '$url'"
-	gio open "$url"
+	if (( arg_quiet )); then
+		echo "$url"
+	else
+		gio open "$url"
+	fi
 elif (( arg_interactive == 2 )); then
 	rhome=$(ks:sshrun "${fsbase%%:*}" printenv HOME)
 	case $fsbase in
 		*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
 		*:*)  url="sftp://${fsbase%%:*}${rhome%/}/${fsbase#*:}";;
 	esac
-	msg "Connecting to '$url'"
-	gio info -f "$url" >/dev/null 2>&1 || gio mount "$url"
-	gio open "$url"
+	if (( arg_quiet )); then
+		echo "$url"
+	else
+		gio info -f "$url" &> /dev/null || gio mount "$url"
+		gio open "$url"
+	fi
 elif (( arg_interactive == 1 )); then
 	if have lftp; then
 		case $fsbase in
 			*:/*) url="sftp://${fsbase%%:*}${fsbase#*:}";;
 			*:*)  url="sftp://${fsbase%%:*}/~/${fsbase#*:}";;
 		esac
-		msg "Connecting to '$url'"
 		lftp "$url"
 	elif have sftp; then
 		addr="$fsbase/"
-		msg "Connecting to '$addr'"
 		sftp "$addr"
 	else
 		die "couldn't find a known SFTP client"
@@ -248,7 +252,7 @@ for arg; do
 		if (( arg_quiet )); then
 			echo "$url"
 		else
-			echo "$name ⇒ $url"
+			echo "$name => $url"
 			clip+=("$url")
 		fi
 	fi

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# lastwake -- show time since system resumed from sleep
+#
+# Similar to `uptime` but returns only the duration of the current session.
+
+x=$(journalctl -b -o json -n 1 MESSAGE_ID=8811e6df2a8e40f58a94cea26f8ebf14)
+
+if [[ $x ]]; then
+	x=$(jq -r .__REALTIME_TIMESTAMP <<< "$x")
+	x=$[x/1000000]
+	a=$(interval $[`date +%s` - x])
+	echo "System resumed from sleep on:"
+	date -d "@$x"
+	echo "($a ago)"
+else
+	echo "System did not sleep since last boot."
+	exit 1
+fi

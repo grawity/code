@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-from argparse import ArgumentParser
-from nullroute.core import *
+# ziprename -- rename archives according to their toplevel item
+#
+# Looks for a single toplevel directory and renames the archive accordingly
+# (e.g. an archive containing 'foo/00xx.jpg' would be renamed to 'foo.zip').
+
+import argparse
+from nullroute.core import Core
 import sys
 
 def find_ext(path):
@@ -53,19 +58,20 @@ def find_root(file, handler):
     else:
         raise ValueError("file %r has too many items in root directory" % file)
 
-ap = ArgumentParser()
-ap.add_argument("-n", "--dry-run",
-                dest="dry_run", action="store_true", default=False,
-                help="only show actions, implies --verbose")
-ap.add_argument("-v", "--verbose",
-                dest="verbose", action="store_true", default=False,
-                help="show actions")
-ap.add_argument("file", nargs="*")
+parser = argparse.ArgumentParser()
+parser.add_argument("-n", "--dry-run",
+                    action="store_true",
+                    help="only show new names but don't apply them")
+parser.add_argument("-v", "--verbose",
+                    action="store_true",
+                    help="show what is being done")
+parser.add_argument("file", nargs="*")
+opts = parser.parse_args()
 
-opts = ap.parse_args()
 if not opts.verbose:
     opts.dry_run = True
-opts.verbose = True
+
+#opts.verbose = True
 
 for file in opts.file:
     if file.lower().endswith(".zip"):
@@ -92,15 +98,14 @@ for file in opts.file:
         if opts.verbose:
             print("‘%s’ unchanged" % file)
     else:
-        if opts.verbose:
-            print("‘%s’ -> ‘%s’" % (file, new_name))
-        if not opts.dry_run:
+        if opts.dry_run:
+            print("‘%s’ -> ‘%s’ (dry run)" % (file, new_name))
+        else:
+            if opts.verbose:
+                print("‘%s’ -> ‘%s’" % (file, new_name))
             try:
                 os.rename(file, new_name)
             except OSError as e:
                 Core.err("could not rename %r: %r" % (file, e))
-
-if opts.dry_run:
-    Core.notice("dry run complete")
 
 Core.exit()

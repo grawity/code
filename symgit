@@ -82,6 +82,27 @@ case ${cmd:-help} in
 		info "Flushing cgit configuration cache"
 		ssh $host "sudo find /var/cache/cgit -name 'rc-*' -delete"
 		;;
+	head)
+		if (( $# < 1 )); then
+			die "Usage: $progname $cmd <repo> <head>"
+		else
+			arg=$1 newhead=$2
+		fi
+		if [[ $arg == "." ]]; then
+			url=$(git config remote.origin.url) || exit
+			arg=${url#"$urlprefix"}
+		fi
+		arg=${arg#"$urlprefix"}
+		arg=${arg%.git}.git
+		dir=$fsroot/$arg
+		if [[ $newhead ]]; then
+			newhead=refs/heads/${newhead#refs/heads/}
+			info "Setting default branch for '$arg' to '$newhead'"
+			ssh $host "git -C ${dir@Q} symbolic-ref HEAD ${newhead@Q}"
+		else
+			ssh $host "git -C ${dir@Q} symbolic-ref HEAD"
+		fi
+		;;
 	desc|describe)
 		if (( $# < 1 )); then
 			die "Usage: $progname $cmd <repo> [<description>]"

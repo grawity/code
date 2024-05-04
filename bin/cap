@@ -110,62 +110,53 @@ for (dirname $file) {
 
 if ($use_shell && has_Shell) {
 	_debug("using gnome-screenshot");
-
 	my @args;
-	for ($mode) {
-		if ($_ eq 'area') {
-			if ($sleep_area) {
-				@args = ("--area", "--delay=$sleep_area");
-			} else {
-				@args = ("--area");
-			}
+	if ($mode eq 'area') {
+		if ($sleep_area) {
+			@args = ("--area", "--delay=$sleep_area");
+		} else {
+			@args = ("--area");
 		}
-		elsif ($_ eq 'fullscreen') {
-			@args = ();
-		}
-		elsif ($_ eq 'window') {
-			@args = ("--window");
-		}
+	}
+	elsif ($mode eq 'fullscreen') {
+		@args = ();
+	}
+	elsif ($mode eq 'window') {
+		@args = ("--window");
 	}
 	system {"gnome-screenshot"} ("gnome-screenshot", "--file=$file", @args);
 } elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
 	_debug("using fallback method (maim+slop)");
-
-	for ($mode) {
-		if ($_ eq 'area') {
-			if ($sleep_area) {
-				chomp(my $geom = `slop -f %g`);
-				say STDERR "waiting $sleep_area seconds...";
-				usleep($sleep_area * 1_000_000);
-				system("maim", "-g", $geom, $file);
-			} else {
-				system("maim", "-s", $file);
-			}
+	if ($mode eq 'area') {
+		if ($sleep_area) {
+			chomp(my $geom = `slop -f %g`);
+			say STDERR "waiting $sleep_area seconds...";
+			usleep($sleep_area * 1_000_000);
+			system("maim", "-g", $geom, $file);
+		} else {
+			system("maim", "-s", $file);
 		}
-		elsif ($_ eq 'fullscreen') {
-			system("maim", $file);
-		}
-		elsif ($_ eq 'window') {
-			if (-x "/usr/bin/xdotool") {
-				system("maim", "-i", int `xdotool getactivewindow`, $file);
-			} else {
-				system("maim", "-s", $file);
-			}
+	}
+	elsif ($mode eq 'fullscreen') {
+		system("maim", $file);
+	}
+	elsif ($mode eq 'window') {
+		if (-x "/usr/bin/xdotool") {
+			system("maim", "-i", int `xdotool getactivewindow`, $file);
+		} else {
+			system("maim", "-s", $file);
 		}
 	}
 } else {
 	_debug("using fallback method (scrot)");
-
-	for ($mode) {
-		if ($_ eq 'area') {
-			system("scrot", "-s", $file);
-		}
-		elsif ($_ eq 'fullscreen') {
-			system("scrot", $file);
-		}
-		elsif ($_ eq 'window') {
-			system("scrot", "-s", $file);
-		}
+	if ($mode eq 'area') {
+		system("scrot", "-s", $file);
+	}
+	elsif ($mode eq 'fullscreen') {
+		system("scrot", $file);
+	}
+	elsif ($mode eq 'window') {
+		system("scrot", "-s", $file);
 	}
 }
 

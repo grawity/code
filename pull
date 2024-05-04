@@ -200,12 +200,16 @@ while getopts ":lnt" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
+if (( opt_tig )) && ! have tig; then
+	vdie "tig is not installed"
+fi
+
 (( $# )) || set -- .
 
 for arg; do
 	if [[ -d $arg ]]; then
 		(cd "$arg" && main)
 	else
-		vdie "Path not a directory: $arg"
+		vdie "path is not a directory: $arg"
 	fi
 done

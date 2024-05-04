@@ -50,6 +50,10 @@ if (( $# )); then
 	die "too many arguments: ${*@Q}"
 fi
 
+if ! have tig; then
+	vdie "tig is not installed"
+fi
+
 if [[ $opt_chdir ]]; then
 	cd "$opt_chdir" || exit
 fi
@@ -75,12 +79,6 @@ fi
 opts=$(git config --get-all nullroute.git-new.options || true)
 paths=$(git config --get-all nullroute.git-new.paths || true)
 
-if [[ -t 1 ]] && have tig; then
-	cmd='tig'
-else
-	cmd='git lg'
-fi
-
 ref=${opt_ref#".."}
 
 # Verify that the ref exists -- faster than letting `tig` do it
@@ -103,4 +101,4 @@ fi
 
 settitle "git new [${PWD/#"$HOME/"/"~/"}]"
 
-exec $cmd $opts "^$parent" "$ref" "${@:2}" -- $paths
+tig $opts "^$parent" "$ref" "${@:2}" -- $paths

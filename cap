@@ -61,12 +61,14 @@ sub trash {
 my ($hostname) = split(/\./, hostname());
 my $suffix = ".$hostname";
 
+my $opt_area = 0;
+my $opt_window = 0;
+
 my $sleep = 0;
 my $sleep_area = 0;
 my $frame = 1;
 my $flash = 1;
 my $cursor = 0;
-my $mode = 'fullscreen';
 my $template = "Screenshots/%Y-%m-%d.%H%M%S$suffix.png";
 my $file_rel = undef;
 my $file = undef;
@@ -77,8 +79,8 @@ my $use_shell = 1;
 my $do_notify = 1;
 
 GetOptions(
-	'a|area'	=> sub { $mode = 'area' },
-	'w|window'	=> sub { $mode = 'window' },
+	'a|area'	=> \$opt_area,
+	'w|window'	=> \$opt_window,
 	'frame!'	=> \$frame,
 	'cursor!'	=> \$cursor,
 	'flash!'	=> \$flash,
@@ -90,6 +92,10 @@ GetOptions(
 	'shell!'	=> \$use_shell,
 	'notify!'	=> \$do_notify,
 ) or exit 2;
+
+if ($opt_area && $opt_window) {
+	errx(2, "cap: -a and -w cannot be used together");
+}
 
 if ($qrcode) {
 	$upload = 0;
@@ -118,10 +124,10 @@ for (dirname $file) {
 if ($use_shell && has_Shell) {
 	_debug("using gnome-screenshot");
 	my @args = ("gnome-screenshot", "--file=$file");
-	if ($mode eq 'area') {
+	if ($opt_area) {
 		push @args, ("--area");
 		push @args, ("--delay=$sleep_area") if $sleep_area;
-	} elsif ($mode eq 'window') {
+	} elsif ($opt_window) {
 		push @args, ("--window");
 	}
 	system(@args);
@@ -129,7 +135,7 @@ if ($use_shell && has_Shell) {
 elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
 	_debug("using main/slop");
 	my @args = ("maim");
-	if ($mode eq 'area') {
+	if ($opt_area) {
 		if ($sleep_area) {
 			chomp(my $geom = `slop -f %g`);
 			usleep($sleep_area * 1_000_000);
@@ -137,7 +143,7 @@ elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
 		} else {
 			push @args, ("-s");
 		}
-	} elsif ($mode eq 'window') {
+	} elsif ($opt_window) {
 		if (-x "/usr/bin/xdotool") {
 			my $xid = int(`xdotool getactivewindow`);
 			push @args, ("-i", $xid);
@@ -150,7 +156,7 @@ elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
 else {
 	_debug("using scrot");
 	my @args = ("scrot");
-	if ($mode eq 'area' || $mode eq 'window') {
+	if ($opt_area || $opt_window) {
 		push @args, ("-s");
 	}
 	system(@args, $file);

@@ -92,8 +92,9 @@ if ! git rev-parse --verify "$ref@{1}" &> /dev/null; then
 	range="$ref"
 fi
 
-options=$(getconfig options)
-paths=$(getconfig paths)
+options=(); mapfile -t options < <(getconfig options)
+paths=(); mapfile -t paths < <(getconfig paths)
 
 settitle "git new [${PWD/#"$HOME/"/"~/"}]"
-tig $options "$range" "${@:2}" -- $paths
+
+tig "${options[@]}" "$range" "${@:2}" -- "${paths[@]}"

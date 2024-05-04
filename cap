@@ -48,9 +48,7 @@ if (( opt_area && opt_window )); then
 	vdie "-a and -w cannot be used together"
 fi
 
-if (( opt_upload )); then
-	vdie "-u is not yet implemented"
-fi
+# XXX: implement delay and selectdelay
 
 if have gnome-screenshot && has_gnome_shell; then
 	args=()
@@ -94,5 +92,22 @@ if [[ ! -s $file ]]; then
 	vdie "screenshot failed ('$file' not created)"
 fi
 
-notifysend -i "$file" "Screenshot captured" "${file/#"$HOME/"/"~/"}" &
-echo "$file"
+sfile=${file/#"$HOME/"/"~/"}
+
+if (( opt_upload )); then
+	url=$(cap-upload.sh "$file")
+	if (( $? )); then
+		notify-send -i error "Screenshot captured but upload failed" &
+		echo "$file" | gclip
+		echo "$file"
+		vdie "screenshot upload failed"
+	else
+		notify-send -i "$file" "Screenshot captured and uploaded" &
+		echo "$url" | gclip
+		echo "$url"
+	fi
+else
+	notifysend -i "$file" "Screenshot captured" "$sfile" &
+	echo "$file" | gclip
+	echo "$file"
+fi

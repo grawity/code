@@ -3,18 +3,6 @@
 
 . lib.bash || exit
 
-check_master_rename() {
-	# Running in a subshell, with the repository as cwd.
-	if [ -e .git/refs/remotes/origin/main ]; then
-		if [ "$(< .git/HEAD)" = "ref: refs/heads/master" ]; then
-			echo "looks like master branch was renamed, following"
-			git branch -m main &&
-			git branch -u origin/main &&
-			git remote set-head origin -a
-		fi
-	fi
-}
-
 git_up_here() {
 	# Running in a subshell, with the repository as cwd.
 	set -e
@@ -30,7 +18,6 @@ git_up_here() {
 	else
 		git fetch
 		if [ "$(git rev-parse --is-bare-repository)" != "true" ]; then
-			check_master_rename
 			git pull --ff-only --no-stat --no-recurse-submodules
 		fi
 	fi

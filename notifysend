@@ -76,11 +76,15 @@ if [[ $opt_replaceid ]]; then
 	args+=(-r "${replaceid:-0}")
 fi
 
-replaceid=$(notify-send -p "${args[@]}" -- "$@") || exit
-
-if [[ $opt_replaceid ]]; then
-	echo "$replaceid" > "$statefile"
-fi
-if (( opt_printid )); then
-	echo "$replaceid"
+# Use -p optionally, as it's not yet available on Debian 11.
+if (( opt_printid || opt_replaceid )); then
+	replaceid=$(notify-send -p "${args[@]}" -- "$@") || exit
+	if [[ $opt_replaceid ]]; then
+		echo "$replaceid" > "$statefile"
+	fi
+	if (( opt_printid )); then
+		echo "$replaceid"
+	fi
+else
+	notify-send "${args[@]}" -- "$@"
 fi

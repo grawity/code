@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# git checksrc -- do certain checks on ~/src/* repositories
+
+. lib.bash || exit
+
+dir=$(git rev-parse --git-dir) || exit
+
+# Check fetch specs
+fetch=$(git config --get-all remote.origin.fetch)
+if [[ "$fetch" == "+refs/*:refs/*" ]]; then
+	warn "refspec '$fetch' may allow tag deletion"
+	fetch="+refs/heads/*:refs/heads/*"
+	if confirm "change to '$fetch'?"; then
+		git config --unset-all remote.origin.fetch
+		git config --unset-all remote.origin.mirror
+		git config remote.origin.fetch "$fetch"
+		git for-each-ref --format="%(refname)" |
+		grep -E -v '^refs/(heads|notes|tags)/' | {
+			declare refs=()
+			while read -r ref; do
+				echo "found junk ref '$ref'"
+				refs+=("$ref")
+			done
+			if (( ${#refs[@]} )) && confirm "purge refs?"; then
+				for ref in "${refs[@]}"; do
+					git update-ref -d "$ref"
+				done
+			fi
+		}
+	fi
+elif [[ ! "$fetch" ]] && [[ "$(git config --get remote.origin.url)" ]]; then
+	fetch="+refs/heads/*:refs/heads/*"
+	warn "refspec not set; changing to '$fetch'"
+	git config remote.origin.fetch "$fetch"
+fi
+
+# Check remote URLs
+for remote in $(git remote); do
+	url_raw=$(git config --get remote.$remote.url)
+	url_new=$(git remote get-url $remote)
+	if [[ "$url_new" == @(git|http)://* ]]; then
+		warn "Remote '$remote' uses insecure protocol: $url_new"
+	elif [[ "$url_raw" == @(git|http)://* ]]; then
+		warn "Remote '$remote' relies on URL rewriting: $url_raw"
+		if confirm "Change remote URL to '$url_new'?"; then
+			git remote set-url $remote "$url_new"
+		fi
+	fi
+done

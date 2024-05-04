@@ -30,24 +30,19 @@ sub Notifications {
 sub notify {
 	state $id = 0;
 	my ($summary, %opts) = @_;
-
-	$id = Notifications->Notify(
-		$opts{app} // "Screenshot",
-		$id,
-		$opts{icon} // "document-send",
-		$summary,
-		$opts{body},
-		$opts{actions} // [],
-		$opts{hints} // {},
-		$opts{timeout} // 1*1000);
+	$id = Notifications->Notify($opts{app} // "Screenshot",
+	                            $id,
+	                            $opts{icon} // "document-send",
+	                            $summary,
+	                            $opts{body},
+	                            $opts{actions} // [],
+	                            $opts{hints} // {},
+	                            $opts{timeout} // 1*1000);
 }
 
 sub trash {
 	my ($path) = @_;
-
-	system {"trash"} ("trash", $path);
-
-	if (-e $path) { unlink($path); }
+	system ("trash", $path);
 }
 
 my ($hostname) = split(/\./, hostname());
@@ -153,9 +148,7 @@ if (!-f $file) {
 	_debug("screenshot failed, \$file is nil");
 	notify("Screenshot failed.",
 		icon => "error",
-		hints => {
-			category => "transfer",
-		});
+		hints => { category => "transfer" });
 	exit 1;
 }
 
@@ -183,8 +176,7 @@ if ($qrcode) {
 		unlink($file);
 		exit 0;
 	} else {
-		notify("Decode failed",
-			icon => "error");
+		notify("Decode failed", icon => "error");
 		unlink($file);
 		exit 1;
 	}
@@ -232,10 +224,8 @@ if ($upload) {
 		notify("Screenshot uploaded",
 			body => $upload_output,
 			icon => $uri,
-			hints => {
-				category => "transfer.complete",
-				transient => dbus_boolean(1),
-			});
+			hints => { category => "transfer.complete",
+			           transient => dbus_boolean(1) });
 		if ($temporary) {
 			_debug("screenshot is temporary, deleting");
 			trash($file);
@@ -244,14 +234,13 @@ if ($upload) {
 		notify("Screenshot upload failed",
 			body => $upload_output,
 			icon => $uri,
-			hints => {
-				category => "transfer.error",
-				transient => dbus_boolean(1),
-			});
+			hints => { category => "transfer.error",
+			           transient => dbus_boolean(1) });
 	}
 } else {
-	notify("Screenshot captured",
-		icon => $uri) if $do_notify;
+	if ($do_notify) {
+		notify("Screenshot captured", icon => $uri);
+	}
 	if ($temporary) {
 		_notice("uploading disabled; keeping temporary screenshot");
 	}

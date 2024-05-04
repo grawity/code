@@ -61,6 +61,14 @@ if have gnome-screenshot && has_gnome_shell; then
 		fi
 	fi
 	gnome-screenshot "${args[@]}" --file="$file"
+elif have scrot; then
+	args=()
+	if (( opt_window )); then
+		args+=(-u -b)
+	elif (( opt_area )); then
+		args+=(-s -b)
+	fi
+	scrot "${args[@]}" "$file"
 elif have maim && have slop; then
 	args=()
 	if (( opt_window )); then
@@ -78,14 +86,6 @@ elif have maim && have slop; then
 		fi
 	fi
 	maim "${args[@]}" "$file"
-elif have scrot; then
-	args=()
-	if (( opt_window )); then
-		args+=(-u -b)
-	elif (( opt_area )); then
-		args+=(-s -b)
-	fi
-	scrot "${args[@]}" "$file"
 else
 	vdie "no screenshot program"
 fi

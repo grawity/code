@@ -10,11 +10,24 @@ use File::Path qw(make_path);
 use File::Spec::Functions qw(rel2abs);
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Net::DBus qw(:typing);
-use Nullroute::Lib qw(_debug _notice _die);
+use Nullroute::Lib qw(_debug);
 use Nullroute::Dir qw(xdg_userdir);
 use POSIX qw(strftime :sys_wait_h);
 use Sys::Hostname;
 use Time::HiRes qw(usleep);
+
+$::arg0 = (split m!/!, $0)[-1];
+
+sub warnx {
+	my ($msg) = @_;
+	warn "$::arg0: $msg\n";
+}
+
+sub errx {
+	my ($exit, $msg) = @_;
+	warnx($msg);
+	exit $exit;
+}
 
 sub has_Shell {
 	Net::DBus->session
@@ -84,7 +97,7 @@ if ($qrcode) {
 }
 
 if ($sleep) {
-	warn "waiting $sleep seconds...\n";
+	warnx("waiting $sleep seconds...");
 	usleep($sleep * 1_000_000);
 }
 
@@ -144,14 +157,11 @@ else {
 }
 
 if (!-f $file) {
-	_debug("screenshot failed, \$file is nil");
 	notify("Screenshot failed.",
 		icon => "error",
 		hints => { category => "transfer" });
-	exit 1;
+	errx(1, "screenshot failed ('$file' is missing)");
 }
-
-_debug("screenshot successful, \$file is '$file'");
 
 if ($qrcode) {
 	my $zbarimg_proc;
@@ -162,7 +172,7 @@ if ($qrcode) {
 		chomp($zbarimg_output = <$zbarimg_proc>);
 		close($zbarimg_proc);
 	} else {
-		_die("could not run zbarimg");
+		errx(1, "could not run zbarimg: $!");
 	}
 
 	if ($? == 0) {
@@ -239,8 +249,5 @@ if ($upload) {
 } else {
 	if ($do_notify) {
 		notify("Screenshot captured", icon => $uri);
-	}
-	if ($temporary) {
-		_notice("uploading disabled; keeping temporary screenshot");
 	}
 }

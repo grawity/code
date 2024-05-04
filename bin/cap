@@ -110,54 +110,43 @@ for (dirname $file) {
 
 if ($use_shell && has_Shell) {
 	_debug("using gnome-screenshot");
-	my @args;
+	my @args = ("gnome-screenshot", "--file=$file");
 	if ($mode eq 'area') {
-		if ($sleep_area) {
-			@args = ("--area", "--delay=$sleep_area");
-		} else {
-			@args = ("--area");
-		}
+		push @args, ("--area");
+		push @args, ("--delay=$sleep_area") if $sleep_area;
+	} elsif ($mode eq 'window') {
+		push @args, ("--window");
 	}
-	elsif ($mode eq 'fullscreen') {
-		@args = ();
-	}
-	elsif ($mode eq 'window') {
-		@args = ("--window");
-	}
-	system {"gnome-screenshot"} ("gnome-screenshot", "--file=$file", @args);
-} elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
-	_debug("using fallback method (maim+slop)");
+	system(@args);
+}
+elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
+	_debug("using main/slop");
+	my @args = ("maim");
 	if ($mode eq 'area') {
 		if ($sleep_area) {
 			chomp(my $geom = `slop -f %g`);
-			say STDERR "waiting $sleep_area seconds...";
 			usleep($sleep_area * 1_000_000);
-			system("maim", "-g", $geom, $file);
+			push @args, ("-g", $geom);
 		} else {
-			system("maim", "-s", $file);
+			push @args, ("-s");
 		}
-	}
-	elsif ($mode eq 'fullscreen') {
-		system("maim", $file);
-	}
-	elsif ($mode eq 'window') {
+	} elsif ($mode eq 'window') {
 		if (-x "/usr/bin/xdotool") {
-			system("maim", "-i", int `xdotool getactivewindow`, $file);
+			my $xid = int(`xdotool getactivewindow`);
+			push @args, ("-i", $xid);
 		} else {
-			system("maim", "-s", $file);
+			push @args, ("-s");
 		}
 	}
-} else {
-	_debug("using fallback method (scrot)");
-	if ($mode eq 'area') {
-		system("scrot", "-s", $file);
+	system(@args, $file);
+}
+else {
+	_debug("using scrot");
+	my @args = ("scrot");
+	if ($mode eq 'area' || $mode eq 'window') {
+		push @args, ("-s");
 	}
-	elsif ($mode eq 'fullscreen') {
-		system("scrot", $file);
-	}
-	elsif ($mode eq 'window') {
-		system("scrot", "-s", $file);
-	}
+	system(@args, $file);
 }
 
 if (!-f $file) {

@@ -163,7 +163,7 @@ else {
 }
 
 if (!-f $file) {
-	notify("Screenshot failed.",
+	notify("Screenshot failed",
 		icon => "error",
 		hints => { category => "transfer" });
 	errx(1, "screenshot failed ('$file' is missing)");
@@ -213,20 +213,17 @@ if ($upload) {
 		}
 	};
 
-	_debug("uploading via cap-upload.sh");
 	$upload_pid = open(my $upload_proc, "-|") || do {
 		open(STDERR, ">&", \*STDOUT);
 		exec("cap-upload.sh", $file) || die "$!\n";
 	};
 
 	while ($upload_pid) {
-		my $t = time - $upload_start;
+		my $t = int(time - $upload_start);
 		notify("Screenshot captured",
 			body => "Uploading… (".$t."s)",
-			hints => {
-				category => "transfer",
-				transient => dbus_boolean(1),
-			});
+			hints => { category => "transfer",
+			           transient => dbus_boolean(1) });
 		sleep 1;
 	}
 

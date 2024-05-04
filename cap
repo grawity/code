@@ -20,7 +20,7 @@ usage() {
 	echo "Usage: $progname [-auw]"
 	echo ""
 	echo_opt "-a"		"capture selected area"
-	echo_opt "-w"		"capture selected window"
+	echo_opt "-w"		"capture active window"
 	echo_opt "-u"		"upload image after capture"
 }
 
@@ -65,7 +65,8 @@ elif have maim && have slop; then
 	args=()
 	if (( opt_window )); then
 		# XXX: 'xdotool getactivewindow' only reports the "real" window
-		# and has no way to report the parent WM frame.
+		# and has no way to report the parent WM frame, so we must
+		# select the window interactively.
 		args+=(-s)
 	elif (( opt_area )); then
 		if (( sleep_area )); then
@@ -79,8 +80,10 @@ elif have maim && have slop; then
 	maim "${args[@]}" "$file"
 elif have scrot; then
 	args=()
-	if (( opt_window || opt_area )); then
-		args+=(-s)
+	if (( opt_window )); then
+		args+=(-u -b)
+	elif (( opt_area )); then
+		args+=(-s -b)
 	fi
 	scrot "${args[@]}" "$file"
 fi

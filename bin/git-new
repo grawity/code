@@ -4,26 +4,34 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $0 [options] [<dir> [<branch>]]"
+	echo "Usage: $progname [options] [<dir> [<branch>]]"
 	echo ""
 	echo_opt "-b REF"	"show new commits in a different branch"
 	echo_opt "-C DIR"	"change to specified directory"
+	echo ""
 	echo_opt "-M"		"add --no-merges to configuration"
+	echo ""
+	echo_opt "-X PATH"	"exclude specified path"
 	echo_opt "-P"		"add *.po exclusion"
 	echo_opt "-G"		"add .github exclusion"
-	echo_opt "-X PATH"	"exclude specified path"
 }
 
-add_unique_config() {
-	local key=$1 value=$2
+addconfig() {
+	local key="nullroute.git-new.$1" value=$2
 	if ! git config --get-all --fixed-value "$key" "$value" > /dev/null; then
 		git config --add "$key" "$value"
+		vmsg "added ${key##*.} $value"
 	fi
+}
+
+getconfig() {
+	local key="nullroute.git-new.$1"
+	git config --get-all "$key" || true
 }
 
 opt_no_merges=0
 opt_exclude=()
-opt_chdir=
+opt_chdir=.
 opt_ref=
 
 while getopts :b:C:GMPX: OPT; do
@@ -36,69 +44,55 @@ while getopts :b:C:GMPX: OPT; do
 	X) opt_exclude+=("$OPTARG");;
 	*) lib:die_getopts;;
 	esac
-done; shift $((OPTIND-1))
+done; shift $[OPTIND-1]
 
 if [[ ! $opt_chdir && ! -d .git && -d $1 ]]; then
 	opt_chdir=$1; shift
 fi
-
 if [[ ! $opt_ref ]]; then
 	opt_ref=${1:-HEAD}; shift
 fi
-
 if (( $# )); then
-	die "too many arguments: ${*@Q}"
+	vdie "excess arguments"
 fi
 
 if ! have tig; then
 	vdie "tig is not installed"
 fi
 
-if [[ $opt_chdir ]]; then
-	cd "$opt_chdir" || exit
-fi
-
+cd "$opt_chdir" || exit
 if [[ $PWD == $HOME/src/* ]]; then
 	git checksrc
 fi
 
 # Update configuration only
-didconfig=0
+hadconfig=0
 if (( opt_no_merges )); then
-	add_unique_config nullroute.git-new.options "--no-merges"
-	didconfig=1
+	addconfig nullroute.git-new.options "--no-merges"
+	hadconfig=1
 fi
 for path in "${opt_exclude[@]}"; do
-	add_unique_config nullroute.git-new.paths ":!$path"
-	didconfig=1
+	addconfig nullroute.git-new.paths ":!$path"
+	hadconfig=1
 done
-if (( didconfig )); then
+if (( hadconfig )); then
 	exit
 fi
 
-opts=$(git config --get-all nullroute.git-new.options || true)
-paths=$(git config --get-all nullroute.git-new.paths || true)
-
 ref=${opt_ref#".."}
-
 # Verify that the ref exists -- faster than letting `tig` do it
-if [[ $ref != HEAD ]]; then
-	if ! git rev-parse --verify "$ref" &> /dev/null; then
-		echo "error: bad ref '$ref'" >&2
-		exit 1
-	fi
+if ! git rev-parse --verify "$ref" &> /dev/null; then
+	vdie "nonexistent ref '$ref'"
 fi
 
-# Verify that the reflog has at least two entries. If not, show the full branch
-# (it may be a new branch).
-if git rev-parse --verify "$ref@{1}" &> /dev/null; then
-	debug "Have a previous reflog entry. Will show new commits"
-	parent="$ref@{1}"
-else
-	debug "No previous reflog entry; probably a new branch. Will show entire branch"
-	parent="HEAD"
+range="$ref@{1}..$ref"
+if ! git rev-parse --verify "$ref@{1}" &> /dev/null; then
+	vmsg "no reflog for '$ref', showing entire branch" >&2
+	range="$ref"
 fi
+
+options=$(getconfig options)
+paths=$(getconfig paths)
 
 settitle "git new [${PWD/#"$HOME/"/"~/"}]"
-
-tig $opts "^$parent" "$ref" "${@:2}" -- $paths
+tig $options "$range" "${@:2}" -- $paths

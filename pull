@@ -71,17 +71,20 @@ do_git() {
 
 		git --no-pager diff --stat "${diff_args[@]}"
 
-		if (( opt_tig && $(git rev-list --count "${diff_args[@]}") > 0 )); then
+		if (( opt_tig )); then
+			revs=$(git rev-list --count "${diff_args[@]}")
 			# Only run tig if there are commits to show, as
 			# otherwise it still triggers the 'focus' \e[I and
 			# there's no Bash prompt to consume that.
-			local tig_opts=()
-			while IFS="" read -r line; do
-				tig_opts+=("$line")
-			done < <(git config --get-all nullroute.git-new.options)
-			tig "${tig_opts[@]}" "${diff_args[@]}" || true
-		else
-			echo "${0##*/}: No interesting commits to show."
+			if (( revs )); then
+				local tig_opts=()
+				while IFS="" read -r line; do
+					tig_opts+=("$line")
+				done < <(git config --get-all nullroute.git-new.options)
+				tig "${tig_opts[@]}" "${diff_args[@]}" || true
+			else
+				vmsg "no interesting commits to show"
+			fi
 		fi
 	fi
 }

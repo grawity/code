@@ -10,7 +10,6 @@ use File::Path qw(make_path);
 use File::Spec::Functions qw(rel2abs);
 use Getopt::Long qw(:config bundling no_ignore_case);
 use Net::DBus qw(:typing);
-use Nullroute::Lib qw(_debug);
 use Nullroute::Dir qw(xdg_userdir);
 use POSIX qw(strftime :sys_wait_h);
 use Sys::Hostname;
@@ -114,15 +113,11 @@ if ($temporary) {
 $file_rel = strftime($template, localtime);
 $file = rel2abs($file_rel, xdg_userdir("Pictures"));
 
-_debug("rel path: $file_rel");
-_debug("abs path: $file");
-
 for (dirname $file) {
 	make_path($_) unless -d $_;
 }
 
 if ($use_shell && has_Shell) {
-	_debug("using gnome-screenshot");
 	my @args = ("gnome-screenshot", "--file=$file");
 	if ($opt_area) {
 		push @args, ("--area");
@@ -133,7 +128,6 @@ if ($use_shell && has_Shell) {
 	system(@args);
 }
 elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
-	_debug("using main/slop");
 	my @args = ("maim");
 	if ($opt_area) {
 		if ($sleep_area) {
@@ -154,7 +148,6 @@ elsif (-x "/usr/bin/maim" && -x "/usr/bin/slop") {
 	system(@args, $file);
 }
 else {
-	_debug("using scrot");
 	my @args = ("scrot");
 	if ($opt_area || $opt_window) {
 		push @args, ("-s");
@@ -239,7 +232,6 @@ if ($upload) {
 			hints => { category => "transfer.complete",
 			           transient => dbus_boolean(1) });
 		if ($temporary) {
-			_debug("screenshot is temporary, deleting");
 			trash($file);
 		}
 	} else {

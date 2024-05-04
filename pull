@@ -56,17 +56,10 @@ do_git() {
 	fi
 
 	if [[ "$old" != "$new" ]]; then
-		local diff_paths=(
-			":(exclude)fuzz/*"
-			":(exclude)testing/*"
-			":(exclude)tests/*"
-			":(exclude)vendor/*"
-		)
-		while IFS="" read -r line; do
-			diff_paths+=("$line")
-		done < <(git config --get-all nullroute.git-new.paths)
+		local diff_paths=(":!fuzz/*" ":!test*/*" ":!vendor/*")
+		mapfile -t -O ${#diff_paths[@]} diff_paths \
+			< <(git config --get-all nullroute.git-new.paths)
 		local diff_args=("$old..$new" -- "${diff_paths[@]}")
-
 		git --no-pager diff --stat "${diff_args[@]}"
 
 		if (( opt_tig )); then
@@ -76,9 +69,8 @@ do_git() {
 			# there's no Bash prompt to consume that.
 			if (( revs )); then
 				local tig_opts=()
-				while IFS="" read -r line; do
-					tig_opts+=("$line")
-				done < <(git config --get-all nullroute.git-new.options)
+				mapfile -t tig_opts \
+					< <(git config --get-all nullroute.git-new.options)
 				tig "${tig_opts[@]}" "${diff_args[@]}" || true
 			else
 				vmsg "no interesting commits to show"

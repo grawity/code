@@ -44,7 +44,7 @@ while getopts ":a:c:eh:i:pr:t:u:" OPT; do
 done; shift $((OPTIND-1))
 
 if (( $# > 2 )); then
-	die "too many arguments"
+	vdie "excess arguments"
 fi
 
 args=()
@@ -71,16 +71,20 @@ for hint in "${opt_hints[@]}"; do
 done
 if [[ $opt_replaceid ]]; then
 	statefile=${XDG_RUNTIME_DIR?}/notify-send.$opt_replaceid
-	>> "$statefile"
+	: >> "$statefile"
 	replaceid=$(< "$statefile")
 	args+=(-r "${replaceid:-0}")
 fi
 
-replaceid=$(notify-send -p "${args[@]}" -- "$@") || exit
-
-if [[ $opt_replaceid ]]; then
-	echo "$replaceid" > "$statefile"
-fi
-if (( opt_printid )); then
-	echo "$replaceid"
+# Use -p optionally, as it's not yet available on Debian 11.
+if (( opt_printid || opt_replaceid )); then
+	replaceid=$(notify-send -p "${args[@]}" -- "$@") || exit
+	if [[ $opt_replaceid ]]; then
+		echo "$replaceid" > "$statefile"
+	fi
+	if (( opt_printid )); then
+		echo "$replaceid"
+	fi
+else
+	notify-send "${args[@]}" -- "$@"
 fi

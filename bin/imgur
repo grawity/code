@@ -6,17 +6,11 @@ API_CLIENT_ID="1d4fa0f8eeeec73" # grawity@gmail.com
 
 . lib.bash || exit
 
-have curl || die "missing 'curl' program"
-have jq   || die "missing 'jq' program"
+have curl || vdie "curl is not installed"
+have jq || vdie "jq is not installed"
 
-log_name=imgur="${HOSTNAME%%.*}.log"
-# try old path first
-log_file=${XDG_CONFIG_HOME?}/nullroute.lt/synced/$log_name
-if [[ ! -e $log_file ]]; then
-	# otherwise prefer XDG_DATA_HOME
-	log_file=${XDG_DATA_HOME?}/nullroute.lt/synced/$log_name
-fi
-mkdir -p "${log_file%/*}"
+logfile="${XDG_CONFIG_HOME?}/nullroute.lt/synced/${HOSTNAME%%.*}.log"
+mkdir -p "${logfile%/*}"
 
 images=0
 clip=""
@@ -78,7 +72,7 @@ for file; do
 		setfattr -n "user.imgur.delete-url" -v "$deleteurl" "$file"
 	fi
 
-	printf "%s\n" "$url $deleteurl" >> "$log_file"
+	printf "%s\n" "$url $deleteurl" >> "$logfile"
 
 	printf "%s\n" "$url"
 	printf "Delete page:\n%s\n" "$deleteurl" >&2

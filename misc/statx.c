@@ -28,6 +28,10 @@
 #  define __NR_statx -1
 #endif
 
+#ifndef STATX_MNT_ID_UNIQUE
+#  define STATX_MNT_ID_UNIQUE 0x00004000U
+#endif
+
 #ifndef AT_STATX_SYNC_TYPE
 #  define AT_STATX_SYNC_TYPE	0x6000
 #  define AT_STATX_SYNC_AS_STAT	0x0000

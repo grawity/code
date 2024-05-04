@@ -111,12 +111,19 @@ if [[ $PWD == $HOME/src/* ]]; then
 	fi
 fi
 
+# Update configuration only
+didconfig=0
 if (( opt_no_merges )); then
-	add_unique_config nullroute.git-new.options "--no-merges" || exit
+	add_unique_config nullroute.git-new.options "--no-merges"
+	didconfig=1
 fi
 for path in "${opt_exclude[@]}"; do
-	add_unique_config nullroute.git-new.paths ":!$path" || exit
+	add_unique_config nullroute.git-new.paths ":!$path"
+	didconfig=1
 done
+if (( didconfig )); then
+	exit
+fi
 
 opts=$(git config --get-all nullroute.git-new.options || true)
 paths=$(git config --get-all nullroute.git-new.paths || true)

@@ -9,7 +9,16 @@ import win32file    as File
 import win32net     as Net
 
 try:
-    from win32con import *
+    from win32con import (
+        DRIVE_UNKNOWN,
+        DRIVE_NO_ROOT_DIR,
+        DRIVE_REMOVABLE,
+        DRIVE_FIXED,
+        DRIVE_REMOTE,
+        DRIVE_CDROM,
+        DRIVE_RAMDISK,
+        MAX_PATH,
+    )
 except ImportError:
     DRIVE_UNKNOWN     = 0
     DRIVE_NO_ROOT_DIR = 1
@@ -21,7 +30,17 @@ except ImportError:
     MAX_PATH          = 260
     SEM_FAILCRITICALERRORS = 1
 
-from ctypes import *
+from ctypes import (
+    addressof,
+    byref,
+    c_int32,
+    c_wchar_p,
+    create_unicode_buffer,
+    sizeof,
+    windll,
+    wstring_at,
+)
+
 kernel32 = windll.kernel32
 kernel32.SetErrorMode(SEM_FAILCRITICALERRORS)
 
@@ -41,15 +60,14 @@ drivetypes = {
 def prettySize(bytes):
     if bytes is None: return "-"
     size = float(bytes)
-    l = -1
+    p = -1
     while size >= 1000:
         size /= 1024.
-        l += 1
-    return "%.2f %sB" % (size, "kMGTPEY"[l] if l >= 0 else "")
+        p += 1
+    return "%.2f %sB" % (size, "kMGTPEY"[p] if p >= 0 else "")
 
 def EnumVolumes():
     buf = create_unicode_buffer(256)
-    volumes = []
 
     h = kernel32.FindFirstVolumeW(buf, sizeof(buf))
     if h:

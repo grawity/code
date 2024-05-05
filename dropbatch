@@ -33,7 +33,7 @@ host=${1%%.*}
 script=$2
 
 if [[ ! $host ]] && (( !dolist || usenfs )); then
-	die "Missing hostname"
+	vdie "missing hostname"
 fi
 
 if (( usenfs )); then
@@ -76,15 +76,15 @@ if [[ ! $script || $script == "-" ]]; then
 		cat > "$tmp"
 	fi
 	if ! grep -vqs "^#!" "$tmp"; then
-		vmsg "Script is empty, exiting"
+		vmsg "script is empty"
 		rm -f "$tmp"
 		exit
 	fi
 	script=$tmp
 elif [[ ! -f $script ]]; then
-	die "Script file '$script' not found"
+	vdie "script file '$script' not found"
 elif [[ ! -s $script ]]; then
-	vmsg "Script file is empty"
+	vmsg "script file is empty"
 	exit
 fi
 
@@ -95,10 +95,10 @@ chmod u+x "$dest.tmp" &&
 mv "$dest.tmp" "$dest" &&
 rm "$script" || exit
 
-lib:echo "Job $dest submitted"
+vmsg "job $dest submitted"
 
 if (( wait )); then
-	lib:echo "Waiting for job to be processed..."
+	vmsg "waiting for job to be processed..."
 	time=0
 	if (( usenfs )); then
 		# For submissions over NFS, wait for the job to complete before
@@ -112,9 +112,9 @@ if (( wait )); then
 	done
 	printf '\n'
 	if [[ -e $dest.log ]]; then
-		lib:echo "Job finished"
+		vmsg "job finished"
 	else
-		lib:echo "Job finished, waiting for result..."
+		vmsg "job finished, waiting for result..."
 		time=0
 		until [[ -e $dest.log ]]; do
 			if [[ -t 1 ]]; then

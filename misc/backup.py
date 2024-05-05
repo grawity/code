@@ -45,7 +45,7 @@ def gather_files(paths):
                     output.file.write(line)
                 output.file.write(b"\n")
         except FileNotFoundError:
-            print(f"backup: {epath} is missing, ignored", file=sys.stderr)
+            print(f"backup: {path} is missing, ignored", file=sys.stderr)
     output.file.flush()
     return output
 

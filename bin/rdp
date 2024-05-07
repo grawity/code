@@ -92,6 +92,8 @@ def get_credentials_libsecret(host):
                 username = res[0].get_attributes()["user"]
                 password = res[0].get_secret().get_text()
                 if domain := res[0].get_attributes().get("domain"):
+                    Core.warn("XXX: Found credential with separate domain, u=%r d=%r",
+                              username, domain)
                     if "." in domain:
                         username = "%s@%s" % (username, domain)
                     else:
@@ -104,12 +106,6 @@ def save_credentials(host, username, password):
              "protocol": "rdp",
              "server": host,
              "user": username}
-    if "\\" in username:
-        domain, username = username.split("\\", 1)
-        attrs |= {"user": username,
-                  "domain": domain}
-    else:
-        attrs |= {"user": username}
     Secret.password_store_sync(None,
                                attrs,
                                Secret.COLLECTION_DEFAULT,

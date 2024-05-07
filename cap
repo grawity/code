@@ -17,23 +17,26 @@ has_gnome_shell() {
 }
 
 usage() {
-	echo "Usage: $progname [-auw]"
+	echo "Usage: $progname [-auw] [-l SEC]"
 	echo ""
-	echo_opt "-a"		"capture selected area"
 	echo_opt "-w"		"capture active window"
+	echo_opt "-a"		"capture selected area"
+	echo_opt "-l SEC"	"delay before capture"
 	echo_opt "-u"		"upload image after capture"
 }
 
 basedir=$(systemd-path user-pictures || echo ~/Pictures)
 file=$basedir/Screenshots/$(date +%Y-%m-%d.%H%M%S).${HOSTNAME%%.*}.png
 
+opt_window=0		# capture the active window only
 opt_area=0
 opt_upload=0
-opt_window=0
+opt_delay=0		# delay between area select and capture
 
-while getopts :auw OPT; do
+while getopts :al:uw OPT; do
 	case $OPT in
 	a) opt_area=1;;
+	l) opt_delay=$OPTARG;;
 	u) opt_upload=1;;
 	w) opt_window=1;;
 	*) lib:die_getopts;;
@@ -44,11 +47,13 @@ if (( $# )); then
 	vdie "excess arguments"
 fi
 
+if [[ ! $opt_delay =~ ^[0-9]+$ ]]; then
+	vdie "invalid -l value"
+fi
+
 if (( opt_area && opt_window )); then
 	vdie "-a and -w cannot be used together"
 fi
-
-# XXX: implement delay and selectdelay
 
 if have gnome-screenshot && has_gnome_shell; then
 	args=()
@@ -56,9 +61,9 @@ if have gnome-screenshot && has_gnome_shell; then
 		args+=(--window)
 	elif (( opt_area )); then
 		args+=(--area)
-		if (( sleep_area )); then
-			args+=(--delay=$sleep_area)
-		fi
+	fi
+	if (( opt_delay )); then
+		args+=(--delay=$opt_delay)
 	fi
 	gnome-screenshot "${args[@]}" --file="$file"
 elif have scrot; then
@@ -68,6 +73,7 @@ elif have scrot; then
 	elif (( opt_area )); then
 		args+=(-s -b)
 	fi
+	# TODO: implement opt_delay
 	scrot "${args[@]}" "$file"
 elif have maim && have slop; then
 	args=()
@@ -77,9 +83,9 @@ elif have maim && have slop; then
 		# select the window interactively.
 		args+=(-s)
 	elif (( opt_area )); then
-		if (( sleep_area )); then
+		if (( opt_delay )); then
 			geom=$(slop -f %g)
-			sleep $sleep_area
+			sleep $opt_delay
 			args+=(-g "$geom")
 		else
 			args+=(-s)

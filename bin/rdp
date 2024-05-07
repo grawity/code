@@ -48,11 +48,11 @@ def resolve(host):
         addrs.append(ai_addr[0])
     return fqdn, addrs
 
-def get_credentials_zenity(text):
+def ask_credentials_zenity(host, title):
     res = subprocess.run(["zenity",
                           "--forms",
                           "--title", "Enter credentials",
-                          "--text", "Enter credentials for %s:" % text,
+                          "--text", "Enter credentials for %s:" % title,
                           "--add-entry", "Username:",
                           "--add-password", "Password:",
                           "--separator", "\n"],
@@ -60,6 +60,10 @@ def get_credentials_zenity(text):
     Core.debug("Zenity output: %r", res.stdout)
     username, password, _ = res.stdout.decode().split("\n")
     return username, password
+
+def ask_credentials(host):
+    title = "Remote Desktop on %s" % host
+    return ask_credentials_zenity(host, title)
 
 def get_credentials_libsecret(host):
     import gi
@@ -100,7 +104,7 @@ def get_credentials(host, ask=True):
         return r
     if ask:
         print("Credentials not found, asking interactively")
-        return get_credentials_zenity("Remote Desktop on %s" % host)
+        return ask_credentials(host)
     return None, None
 
 parser = argparse.ArgumentParser()

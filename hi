@@ -24,6 +24,9 @@ def download_log(remote_host, remote_path, local_path):
     nsize = os.stat(local_path).st_size
     return nsize-osize, osize
 
+def csi(arg, text):
+    return "\033[%sm%s\033[m" % (arg, text)
+
 def vis(text):
     return re.sub(r"[\x00-\x1F\x80-\x9F]",
                   lambda m: "\033[2m<%02X>\033[m" % ord(m[0]),
@@ -31,6 +34,10 @@ def vis(text):
 
 def print_log(fh):
     now = datetime.datetime.now().astimezone()
+
+    firstdate = None
+    lastdate = None
+    lastwname = None
 
     for line in fh:
         date, wname, text = line.split("\t", 2)
@@ -61,8 +68,39 @@ def print_log(fh):
         else:
             datefmt = "%H:%M"
 
-        print("-- %s %s --" % (date.strftime(datefmt), wname))
-        print("  %s %s" % (name, text))
+        FMT_DASH = "38;5;8"
+        FMT_ODATE = "38;5;8"
+        FMT_HDATE = "1;91"
+        FMT_WNAME = "38;5;72"
+        FMT_NAME_CHAN = "38;5;150"
+        FMT_NAME_PRIV = "38;5;178"
+        FMT_NAME_NOTICE = "38;5;66"
+
+        if wname != lastwname:
+            # Always print full header if buffer changes
+            firstdate = date
+            print(csi(FMT_DASH, "--"),
+                  csi(FMT_HDATE, date.strftime(datefmt)),
+                  csi(FMT_WNAME, wname),
+                  csi(FMT_DASH, "--"))
+        elif (date - firstdate).total_seconds() > 300:
+            # If same buffer, print date-only header every 5 minutes
+            firstdate = date
+            print(csi(FMT_DASH, "--"),
+                  csi(FMT_ODATE, date.strftime(datefmt)),
+                  csi(FMT_DASH, "--"))
+
+        if name.startswith("-"):
+            fmt = FMT_NAME_NOTICE
+        elif "#" in wname:
+            fmt = FMT_NAME_CHAN
+        else:
+            fmt = FMT_NAME_PRIV
+
+        print("  " + csi(fmt, name), text)
+
+        lastdate = date
+        lastwname = wname
 
 os.umask(0o077)
 

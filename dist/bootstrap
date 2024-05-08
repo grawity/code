@@ -5,9 +5,6 @@ PATH=$dir/bin:$PATH
 
 . lib.bash || exit
 
-progname='dist/bootstrap'
-progname_prefix=0
-
 pick() { until have "$1"; do shift; (( $# )) || return; done; echo "$1"; }
 
 check-gpg-version() {
@@ -85,25 +82,23 @@ fi
 
 # nightly dist/pull cronjob
 
-if [[ -e ~/.config/.nocron ]]; then
-	vmsg "skipping dist/pull cronjob (found ~/.config/.nocron)"
+if [ -e ~/.config/.nocron ]; then
+	vmsg "skipping cronjob (found ~/.config/.nocron)"
 elif ! have crontab; then
-	warn "skipping dist/pull cronjob ('crontab' missing)"
+	warn "skipping cronjob (cron not installed)"
 else
 	err=$(crontab -l 2>&1 >/dev/null)
-
 	if [[ "$err" == "no crontab for $USER" ]]; then
 		err=""
 	fi
 
 	if [[ "$err" ]]; then
-		warn "skipping dist/pull cronjob: '$err'"
+		vmsg "skipping cronjob: $err" >&2
 	elif ! crontab -l 2>/dev/null | grep -qs "/dist/pull"; then
-		vmsg "adding dist/pull cronjob"
-		(crontab -l 2>/dev/null
-		 echo "@daily	~/bin/dist/pull") | crontab -
+		vmsg "adding cronjob"
+		(crontab -l; echo "@daily	~/bin/dist/pull") | crontab -
 	else
-		vmsg "dist/pull cronjob already configured"
+		vmsg "cronjob already configured"
 	fi
 fi
 

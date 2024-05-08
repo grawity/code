@@ -28,7 +28,7 @@ filter_keys() {
 
 recv_key() {
 	local key=$1 status=
-	if status=$($GPG --keyserver "$keyserver" --recv-key "$key" 2>&1); then
+	if status=$(gpg --keyserver "$keyserver" --recv-key "$key" 2>&1); then
 		lib:trace "$status"
 	else
 		echo "$status" >&2
@@ -59,7 +59,7 @@ fetch() {
 
 verify() {
 	local input=$1 output=$2 status= errors=0
-	if ! status=$($GPG --batch --yes --status-fd 1 --output "$output" \
+	if ! status=$(gpg --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
 		vmsg "unknown gpg error" >&2
 		echo "$status" >&2
@@ -136,14 +136,8 @@ if [[ "$LOGNAME" != "$unix_user" ]]; then
 	fi
 fi
 
-# find the tool
-
-if have gpg2; then
-	GPG=gpg2
-elif have gpg; then
-	GPG=gpg
-else
-	vdie "gpg not installed"
+if ! have gpg; then
+	vdie "gpg is not installed"
 fi
 
 # ensure key exists in keyring
@@ -151,7 +145,7 @@ fi
 if (( opt_import )); then
 	recv_key "$signer_fpr" || vdie "failed to import key '$signer_fpr'"
 	vmsg "owner key imported"
-	echo "$signer_fpr:6:" | $GPG --import-ownertrust
+	echo "$signer_fpr:6:" | gpg --import-ownertrust
 	vmsg "ultimate trust set"
 elif ! [[ -d ~/.gnupg ]]; then
 	if (( !opt_quiet )); then
@@ -159,7 +153,7 @@ elif ! [[ -d ~/.gnupg ]]; then
 	else
 		exit 0
 	fi
-elif ! $GPG --list-keys "$signer_fpr" > /dev/null; then
+elif ! gpg --list-keys "$signer_fpr" > /dev/null; then
 	if (( !opt_quiet )); then
 		vdie "signer key $signer_fpr not found in keyring"
 	else

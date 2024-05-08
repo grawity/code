@@ -7,8 +7,12 @@ import io
 import re
 import os
 import subprocess
+import textwrap
 
 from nullroute.core import Env
+
+def tty_width():
+    return int(os.environ.get("COLUMNS", os.get_terminal_size().columns))
 
 def download_log(remote_host, remote_path, local_path):
     with open(local_path, "ab") as fh:
@@ -80,6 +84,7 @@ def print_log(fh, unseen):
     SGR_WTAIL = "32"
     SGR_TIME = "38;5;244"
 
+    columns = tty_width() - len("   HH:MM | ") - len(" ")
     lastdate = None
     lastwname = None
 
@@ -103,11 +108,17 @@ def print_log(fh, unseen):
 
             print(hdrdate, hdrname, hdrtail)
 
-        print(" "*2,
-              sgr(SGR_TIME, date.strftime("%H:%M")),
-              sgr(SGR_TIME, "│"),
-              vis(name),
-              vis(text))
+        lines = textwrap.wrap(text, columns - len(name))
+        datestr = date.strftime("%H:%M")
+        namestr = name
+        for line in lines:
+            print(" "*2,
+                  sgr(SGR_TIME, datestr),
+                  sgr(SGR_TIME, "│"),
+                  vis(namestr),
+                  vis(line))
+            datestr = " " * len(datestr)
+            namestr = " " * len(namestr)
 
         lastdate = date
         lastwname = wname

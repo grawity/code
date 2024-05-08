@@ -12,21 +12,20 @@ on_main() {
 if [ "$1" != "--child" ]; then
 	export PATH="$HOME/bin/bin:$HOME/bin:$PATH"
 
-	# Guard against .dotfiles deploying bad git/config
 	if ! git var GIT_AUTHOR_IDENT >/dev/null; then
 		vmsg "removed broken git configuration file"
 		if [ -e ~/.config/git/config ]; then
-			mv -f ~/.config/git/config ~/.config/git/config.bad
+			mv -f ~/.config/git/config ~/.config/git/config.bad ||
+			mv -f ~/.config/git        ~/.config/git.bad
 		fi
 		if [ -e ~/.gitconfig ]; then
 			rm -f ~/.gitconfig
 		fi
 	fi
 
-	cd ~/bin
-	if on_main; then
+	if (cd ~/bin && on_main); then
 		vmsg "updating ~/bin"
-		git pull --ff-only
+		(cd ~/bin && git pull --ff-only)
 	else
 		vmsg "skipping ~/bin (not on main branch)"
 	fi
@@ -35,7 +34,7 @@ if [ "$1" != "--child" ]; then
 else
 	if [ $(date +%d) -eq 7 ]; then
 		vmsg "compacting ~/bin"
-		(cd ~/bin && git gc)
+		(cd ~/bin && nice git gc)
 	fi
 
 	vmsg "updating authorized_keys"

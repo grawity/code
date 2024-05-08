@@ -110,19 +110,21 @@ def print_log(fh, unseen):
         lastdate = date
         lastwname = wname
 
-os.umask(0o077)
+parser = argparse.ArgumentParser()
+args = parser.parse_args()
 
-cache_path = Env.find_cache_file("highlights.txt")
+os.umask(0o077)
 
 rhost = "star"
 rpath = "irclogs/perl.highmon.log"
+cpath = Env.find_cache_file("highlights.txt")
 
-delta, offs = download_log(rhost, rpath, cache_path)
+delta, offs = download_log(rhost, rpath, cpath)
 if delta:
-    with open(cache_path, "rb") as fh:
+    with open(cpath, "rb") as fh:
         fh.seek(offs)
         print_log(io.TextIOWrapper(fh), unseen=True)
 else:
-    with os.popen("tail -n 10 '%s'" % cache_path, "r") as fh:
+    with os.popen("tail -n 10 '%s'" % cpath, "r") as fh:
         print_log(fh, unseen=False)
     print("hi: no new items")

@@ -5,15 +5,6 @@ PATH=$dir/bin:$PATH
 
 . lib.bash || exit
 
-pick() { until have "$1"; do shift; (( $# )) || return; done; echo "$1"; }
-
-check-gpg-version() {
-	$gpg --version | sed 's/gpg (GnuPG) //; q' | {
-		IFS="." read -r major minor rest
-		(( major >= 2 )) || (( major == 1 && minor >= 4 ))
-	}
-}
-
 # set up own environment
 
 OWNER=grawity
@@ -41,8 +32,6 @@ for bin in $wants; do
 	esac
 done
 
-gpg=$(pick gpg2 gpg) || err "'gpg' not installed"
-
 (( errors ))   && die "required tools missing"
 (( warnings )) && { confirm "continue bootstrap?" || exit 1; }
 
@@ -69,14 +58,7 @@ fi
 
 # initial authorized_keys fetch
 
-if [[ -s ~/.ssh/authorized_keys ]]; then
-	vmsg "authorized_keys already configured"
-elif [[ ! "$gpg" ]]; then
-	warn "skipping authorized_keys (GnuPG missing)"
-elif ! check-gpg-version; then
-	warn "skipping authorized_keys ('$gpg' older than v1.4)"
-else
-	vmsg "Configuring authorized_keys"
+if [ ! -s ~/.ssh/authorized_keys ]; then
 	sshkeyupdate -r
 fi
 

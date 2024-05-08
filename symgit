@@ -89,25 +89,25 @@ case ${cmd:-help} in
 	new)
 		vusage $# 1 1 "$cmd <repo> [<description>]"
 		arg=$1 newdesc=${2-}
-		if [[ $arg == "." ]]; then
-			err "Shortcut '$arg' not allowed here"
-			continue
-		fi
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		url=$(repourl "$repo")
 		if ssh $host "test -d ${dir@Q}"; then
-			err "Repository '$url' already exists"
-			continue
+			vdie "repository already exists: $dir"
 		fi
-		info "Creating repository '$url'"
+		vmsg "creating repository $dir"
 		ssh $host "git init --bare ${dir@Q}"
 		ssh $host "chmod go-rx ${dir@Q}"
 		if [[ $newdesc ]]; then
-			info "Setting description for '$repo' to \"$newdesc\""
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
 		fi
 		flushconf
+		if git rev-parse --git-dir &> /dev/null; then
+			if [[ "$(git remote)" == "" ]]; then
+				vmsg "adding repository as git remote"
+				git remote add origin "$url"
+			fi
+		fi
 		;;
 	mv|move|rename)
 		vusage $# 2 2 "$cmd <old> <new>"

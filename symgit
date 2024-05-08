@@ -35,6 +35,16 @@ repourl() {
 	echo "$urlprefix$repo"
 }
 
+flushconf() {
+	vmsg "flushing cgit config"
+	ssh $host "sudo find /var/cache/cgit -name 'rc-*' -delete"
+}
+
+flushall() {
+	vmsg "flushing cgit cache"
+	ssh $host "sudo find /var/cache/cgit -type f -delete"
+}
+
 klist -s || kinit || die "no Kerberos credentials"
 
 cmd=$1; shift
@@ -81,8 +91,7 @@ case ${cmd:-help} in
 			ssh $host "git init --bare ${dir@Q}"
 			ssh $host "chmod go-rx ${dir@Q}"
 		done
-		info "Flushing cgit configuration cache"
-		ssh $host "sudo find /var/cache/cgit -name 'rc-*' -delete"
+		flushconf
 		;;
 	mv|move|rename)
 		if (( $# != 2 )); then
@@ -104,8 +113,7 @@ case ${cmd:-help} in
 			info "Renaming repository '$oldurl' => '$newurl'"
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
-		info "Flushing cgit configuration cache"
-		ssh $host "sudo find /var/cache/cgit -name 'rc-*' -delete"
+		flushconf
 		;;
 	head)
 		if (( $# < 1 )); then
@@ -237,12 +245,11 @@ case ${cmd:-help} in
 			echo "$repo => $url"
 		done
 		;;
-	cgit-flush|flush-cgit)
+	flush)
 		if (( $# )); then
 			die "Extraneous arguments: '$*'"
 		fi
-		ssh $host "sudo find /var/cache/cgit -type f -ls -delete"
-		info "Cgit cache purged."
+		flushall
 		;;
 	*)
 		die "Unknown subcommand '$cmd'"

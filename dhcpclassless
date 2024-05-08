@@ -8,6 +8,8 @@ def n_octets(width):
     return int((width + 7) / 8) # equivalent to int(ceil(width / 8))
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--no-default", action="store_true",
+                    help="allow default route to be missing")
 parser.add_argument("route", nargs="+",
                     help="route as 'prefix/len@gateway'")
 args = parser.parse_args()
@@ -25,7 +27,7 @@ for arg in args.route:
                    network.prefixlen,
                    gateway))
 
-if not has_default:
+if not has_default and not args.no_default:
     exit("error: Default route was not specified")
 
 routes.sort()

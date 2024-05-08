@@ -19,6 +19,14 @@ argtorepo() {
 	echo "$arg"
 }
 
+repodir() {
+	local repo=$1
+	case $repo in [!a-z]*|*.git)
+		lib:crash "repo should have been canonicalized: $repo"
+	esac
+	echo "$fsroot/$repo.git"
+}
+
 klist -s || kinit || die "no Kerberos credentials"
 
 cmd=$1; shift
@@ -55,7 +63,7 @@ case ${cmd:-help} in
 				continue
 			fi
 			repo=$(argtorepo "$arg")
-			dir=$fsroot/$repo.git
+			dir=$(repodir "$repo")
 			url=$urlprefix$repo
 			if ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' already exists"
@@ -76,8 +84,8 @@ case ${cmd:-help} in
 		new=$2
 		oldrepo=$(argtorepo "$old")
 		newrepo=$(argtorepo "$new")
-		olddir=$fsroot/$oldrepo.git
-		newdir=$fsroot/$newrepo.git
+		olddir=$(repodir "$oldrepo")
+		newdir=$(repodir "$newrepo")
 		oldurl=$urlprefix$oldrepo
 		newurl=$urlprefix$newrepo
 		if ! ssh $host "test -d ${olddir@Q}"; then
@@ -98,7 +106,7 @@ case ${cmd:-help} in
 			arg=$1 newhead=$2
 		fi
 		repo=$(argtorepo "$arg")
-		dir=$fsroot/$repo.git
+		dir=$(repodir "$repo")
 		if [[ $newhead ]]; then
 			newhead=refs/heads/${newhead#refs/heads/}
 			info "Setting default branch for '$repo' to '$newhead'"
@@ -116,7 +124,7 @@ case ${cmd:-help} in
 			arg=$1 newdesc=$2
 		fi
 		repo=$(argtorepo "$arg")
-		dir=$fsroot/$repo.git
+		dir=$(repodir "$repo")
 		if [[ $newdesc ]]; then
 			info "Setting description for '$repo' to \"$newdesc\""
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
@@ -134,7 +142,7 @@ case ${cmd:-help} in
 		fi
 		arg=$1 upstream=$2
 		repo=$(argtorepo "$arg")
-		dir=$fsroot/$repo.git
+		dir=$(repodir "$repo")
 		# Set up parameters for the hourly re-fetch cronjob, which looks for
 		# repositories with a remote that have [Mirror] in their description.
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
@@ -157,7 +165,7 @@ case ${cmd:-help} in
 		fi
 		arg=$1
 		repo=$(argtorepo "$arg")
-		dir=$fsroot/$repo.git
+		dir=$(repodir "$repo")
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
 		info "Removed remote 'origin'"
 		if ssh $host "test -s ${dir@Q}/description"; then
@@ -175,7 +183,7 @@ case ${cmd:-help} in
 		fi
 		for arg; do
 			repo=$(argtorepo "$arg")
-			dir=$fsroot/$repo.git
+			dir=$(repodir "$repo")
 			url=$urlprefix$repo
 			# Make world-readable and create the 'export-ok' flag
 			# that both Cgit and git-daemon look for.
@@ -200,7 +208,7 @@ case ${cmd:-help} in
 		fi
 		for arg; do
 			repo=$(argtorepo "$arg")
-			dir=$fsroot/$repo.git
+			dir=$(repodir "$repo")
 			url=$urlprefix$repo
 			if ! ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' does not exist"

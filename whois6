@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# whois4, whois6 -- make Whois queries for a domain's IP addresses
+
+. lib.bash || exit
+
+case ${0##*/} in
+	whois4) af="-4" afname="IPv4";;
+	whois6) af="-6" afname="IPv6";;
+	*) vdie "bad invocation";;
+esac
+
+if (( $# < 1 )); then
+	vdie "missing hostname"
+fi
+
+if (( $# > 1 )); then
+	vdie "excess arguments"
+fi
+
+if ! have name2addr; then
+	vdie "ndisc6 not installed"
+fi
+
+if addr=$(name2addr $af "$1") && [[ $addr ]]; then
+	vmsg "looking up $addr"
+	whois "$addr"
+else
+	vdie "no $afname address for '$1'"
+fi

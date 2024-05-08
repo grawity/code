@@ -51,7 +51,7 @@ flushall() {
 
 vusage() {
 	local argc=$1 min=$2 max=$3 text=$4
-	if (( argc > max )); then
+	if (( max >= 0 && argc > max )); then
 		vdie "excess arguments"
 	elif (( argc < min )); then
 		vdie "usage: $progname $text" >&2
@@ -197,7 +197,7 @@ case ${cmd:-help} in
 		ssh $host "echo ${desc@Q} > ${dir@Q}/description"
 		;;
 	pub|publish|exp|export)
-		vusage $# 1 1 "$cmd <repo>"
+		vusage $# 1 -1 "$cmd <repo>..."
 		for arg; do
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
@@ -220,7 +220,7 @@ case ${cmd:-help} in
 		done
 		;;
 	unpub|unpublish|unexp|unexport)
-		vusage $# 1 1 "$cmd <repo>"
+		vusage $# 1 -1 "$cmd <repo>..."
 		for arg; do
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
@@ -235,7 +235,7 @@ case ${cmd:-help} in
 		done
 		;;
 	web)
-		vusage $# 1 1 "$cmd <repo>"
+		vusage $# 1 -1 "$cmd <repo>..."
 		for arg; do
 			repo=$(argtorepo "$arg")
 			url="https://git.nullroute.lt/cgit/$repo.git/"

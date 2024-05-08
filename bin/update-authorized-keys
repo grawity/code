@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # ssh-authz-update - authorized_keys updater tool
 
+readonly unix_user="grawity"
+readonly src_url="http://nullroute.lt/~grawity/files/authorized_keys.txt"
+readonly signer_fpr="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
+
 PATH="$HOME/bin:$HOME/code/bin:$PATH"
 
 . lib.bash || exit
@@ -12,9 +16,8 @@ progname_prefix=0
 usage() {
 	echo "Usage: $progname [-f] [-q] [-r [-k URI]]"
 	echo ""
-	echo_opt "-f" "proceed if opt-out or username mismatch was found"
+	echo_opt "-f" "proceed on username mismatch"
 	echo_opt "-q" "quietly exit if update is not to be done"
-	echo ""
 	echo_opt "-r" "import the signing key from keyserver"
 	echo_opt "-k URL" "use another keyserver"
 }
@@ -25,7 +28,6 @@ filter_keys() {
 
 recv_key() {
 	local key=$1 status=
-	debug "retrieving key '$key'"
 	if status=$($GPG --keyserver "$keyserver" --recv-key "$key" 2>&1); then
 		lib:trace "$status"
 	else
@@ -39,7 +41,7 @@ fetch() {
 	local url=$1 out=$2
 	local max_tries=3 retry_wait=3 attempt=1
 	while true; do
-		debug "fetching $url (#$attempt)"
+		debug "fetching $url (try #$attempt)"
 		if http_fetch "$url" "$out"; then
 			return 0
 		elif (( $? == 99 )); then
@@ -57,14 +59,15 @@ fetch() {
 
 verify() {
 	local input=$1 output=$2 status= errors=0
-	debug "verifying '$input' to '$output'"
 	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
 		if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
-			err "file has invalid signature"
+			vmsg "file has invalid signature" >&2
+			errors=1
 		fi
 		if ! grep -Eqs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
-			err "signer's key is not ultimately trusted"
+			vmsg "signer key is not ultimately trusted" >&2
+			errors=1
 		fi
 		if (( errors )); then
 			echo "$status" >&2
@@ -74,23 +77,20 @@ verify() {
 			return 0
 		fi
 	else
-		err "unknown GnuPG error occured"
+		vmsg "unknown gpg error occured" >&2
 		echo "$status" >&2
 		return 1
 	fi
 }
-
-readonly src_url="http://nullroute.lt/~grawity/files/authorized_keys.txt"
-readonly dst_file="$HOME/.ssh/authorized_keys"
-readonly signer_fpr="2357E10CEF4F7ED27E233AD5D24F6CB2C1B52632"
 
 filter_test=0
 force=0
 import_key=0
 stayquiet=0
 keyserver="hkps://keyserver.ubuntu.com"
+dst_file=~/.ssh/authorized_keys
 
-while getopts ":Ffk:rq" OPT; do
+while getopts :Ffk:rq OPT; do
 	case $OPT in
 	F) filter_test=1;;
 	f) force=1;;
@@ -99,12 +99,18 @@ while getopts ":Ffk:rq" OPT; do
 	q) stayquiet=1;;
 	*) lib:die_getopts;;
 	esac
-done
+done; shift $[OPTIND-1]
+
+if (( $# )); then
+	vdie "excess arguments"
+fi
 
 umask 077
 
 if (( filter_test )); then
-	info "filter test mode"
+	if [[ -t 0 ]]; then
+		vdie "filter test mode requires file input"
+	fi
 	if [[ -t 1 ]]; then
 		export FILTERDEBUG=1
 		exec >/dev/null
@@ -123,14 +129,13 @@ if [[ -e ~/.ssh/authorized_keys.optout ]]; then
 	fi
 fi
 
-if [[ $LOGNAME != grawity ]]; then
+if [[ "$LOGNAME" != "$unix_user" ]]; then
 	if [[ -e ~/.ssh/authorized_keys.optin ]]; then
-		debug "username does not match 'grawity' but opt-in file found"
+		true
 	elif (( force )); then
-		echo "Overridden by $LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
-		warn "username does not match 'grawity', proceeding anyway"
+		echo "$LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
 	elif (( !stayquiet )); then
-		die "username does not match 'grawity'"
+		vdie "username mismatch, this program isn't for you"
 	else
 		exit 0
 	fi
@@ -143,29 +148,25 @@ if have gpg2; then
 elif have gpg; then
 	GPG=gpg
 else
-	die "'gpg' not found in \$PATH"
+	vdie "gpg not installed"
 fi
 
 # ensure key exists in keyring
 
 if (( import_key )); then
-	recv_key "$signer_fpr" || die "failed to import key '$signer_fpr'"
-	info "imported owner's key into keyring"
-	if confirm "mark this key as ultimately trusted?"; then
-		(echo "$signer_fpr:6:" | $GPG --import-ownertrust) &&
-		info "key's ownertrust updated"
-	else
-		die "only ultimately trusted keys are accepted"
-	fi
+	recv_key "$signer_fpr" || vdie "failed to import key '$signer_fpr'"
+	vmsg "owner key imported"
+	echo "$signer_fpr:6:" | $GPG --import-ownertrust
+	vmsg "ultimate trust set"
 elif ! [[ -d ~/.gnupg ]]; then
 	if (( !stayquiet )); then
-		die "GnuPG data directory is missing"
+		vdie "~/.gnupg is not initialized"
 	else
 		exit 0
 	fi
 elif ! $GPG --list-keys "$signer_fpr" > /dev/null; then
 	if (( !stayquiet )); then
-		die "Public key $signer_fpr not found in keyring"
+		vdie "signer key $signer_fpr not found in keyring"
 	else
 		exit 0
 	fi
@@ -179,17 +180,17 @@ tmp_signed=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! fetch "$src_url" "$tmp_signed"; then
 	rm -f "$tmp_signed"
-	die "fetch of $src_url failed"
+	vdie "fetch of $src_url failed"
 elif ! test -s "$tmp_signed"; then
 	rm -f "$tmp_signed"
-	die "empty file fetched from $src_url"
+	vdie "empty file fetched from $src_url"
 fi
 
 tmp_plain=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! verify "$tmp_signed" "$tmp_plain"; then
 	rm -f "$tmp_plain"
-	die "verification of $tmp_signed failed"
+	vdie "verification of $tmp_signed failed"
 fi
 
 local_file="$dst_file.local"
@@ -209,5 +210,5 @@ rm -f "$tmp_plain" "$tmp_signed"
 
 if [[ -t 1 ]]; then
 	num=$(grep -c '^[^#]' "$dst_file")
-	info "imported $num authorized keys"
+	vmsg "imported $num keys"
 fi

@@ -2,27 +2,31 @@
 # hi -- show recent IRC highlights
 import argparse
 import datetime
-from nullroute.core import Env
+import fcntl
 import io
 import re
 import os
 import subprocess
 
-def download_log(remote_host, remote_path, local_path):
-    try:
-        osize = os.stat(local_path).st_size
-        rcmd = f"tail -c +{osize+1} '{remote_path}'"
-    except FileNotFoundError:
-        osize = 0
-        rcmd = f"cat '{remote_path}'"
+from nullroute.core import Env
 
+def download_log(remote_host, remote_path, local_path):
     with open(local_path, "ab") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+
+        try:
+            osize = os.stat(local_path).st_size
+            rcmd = f"tail -c +{osize+1} '{remote_path}'"
+        except FileNotFoundError:
+            osize = 0
+            rcmd = f"cat '{remote_path}'"
+
         subprocess.run(["ssh", remote_host, rcmd],
                        stdout=fh,
                        check=True)
 
-    nsize = os.stat(local_path).st_size
-    return nsize-osize, osize
+        nsize = os.stat(local_path).st_size
+        return nsize-osize, osize
 
 def parse_log(fh):
     for line in fh:

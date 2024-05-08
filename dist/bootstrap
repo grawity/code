@@ -17,32 +17,11 @@ if [ "$USER" != grawity ] && (( !opt_force )); then
 	vdie "username mismatch"
 fi
 
-# set up own environment
-
-EMAIL=grawity@gmail.com
-
-errors=0 warnings=0
-
-# check for necessary programs
-
-wants="crontab curl! gcc git! mailx perl!"
-
-for bin in $wants; do
-	case $bin in
-	*!)	bin=${bin%!}
-		have "$bin" || err  "'$bin' not installed";;
-	*)	have "$bin" || warn "'$bin' not installed";;
-	esac
+for cmd in git gpg; do
+	if ! have $cmd; then
+		vdie "$cmd not installed"
+	fi
 done
-
-(( errors ))   && die "required tools missing"
-(( warnings )) && { confirm "continue bootstrap?" || exit 1; }
-
-warnings=0
-
-# base layout and dotfiles
-
-cd "$dir" || exit
 
 mkdir -p -m 0755 ~/bin
 mkdir -p -m 0755 ~/lib

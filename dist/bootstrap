@@ -110,28 +110,17 @@ elif [[ -s ~/.forward ]]; then
 	vmsg "mail forwarding already configured (to $(sed 1q ~/.forward))"
 elif [[ -s ~/.mailfilter ]]; then
 	vmsg "mail forwarding already configured (via ~/.mailfilter)"
+elif ! mta=$(PATH=/usr/lib:/usr/sbin:/usr/bin:/bin command -v sendmail); then
+	vmsg "mail forwarding cannot be configured (sendmail not found)"
 else
-	if ! sendmail=$(pick /usr/{lib,bin,sbin}/sendmail); then
-		warn "'sendmail' not installed"
-		sendmail=/usr/sbin/sendmail
-	fi
+	vmsg "updating ~/.forward"
+	echo "\"|$mta -i $opt_addr\"" > ~/.forward
+	vmsg "sending test message"
+	$mta -i "$USER" <<-EOF
+	Subject: Test from $(hostname)
+	Date: $(date "+%a, %d %b %Y %H:%M:%S %z")
+	To: <$opt_addr>
 
-	vmsg "forwarding mail to $EMAIL"
-
-	echo "\"|$sendmail -i $EMAIL\"" > ~/.forward
-	if have maildrop; then
-		echo "to \"!$EMAIL\"" > ~/.mailfilter
-	fi
-
-	if [[ -x $sendmail ]]; then
-		if confirm "send test mail?"; then
-			{
-			echo "Subject: Test from $HOSTNAME"
-			echo "Date: $(date "+%a, %d %b %Y %H:%M:%S %z")"
-			echo "To: <$EMAIL>"
-			echo ""
-			echo "Test mail from $USER ($UID) at $(fqdn || hostname)"
-			} | $sendmail -i "$EMAIL"
-		fi
-	fi
+	Test mail from $USER ($UID) at $(fqdn || hostname)
+	EOF
 fi

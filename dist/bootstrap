@@ -60,12 +60,12 @@ mkdir -p -m 0755 ~/lib
 mkdir -p -m 0700 ~/.cache
 
 if [[ ! -d ~/.dotfiles ]]; then
-	lib:echo "Cloning dotfiles.git"
+	vmsg "Cloning dotfiles.git"
 	git clone "https://github.com/grawity/dotfiles.git" ~/.dotfiles
 fi
 
 if [[ ! "$PREFIX" ]]; then
-	lib:echo "Installing dotfiles"
+	vmsg "Installing dotfiles"
 	~/.dotfiles/install
 	. ~/.dotfiles/environ
 fi
@@ -73,20 +73,20 @@ fi
 # initial authorized_keys fetch
 
 if [[ -s ~/.ssh/authorized_keys ]]; then
-	lib:echo "authorized_keys already configured"
+	vmsg "authorized_keys already configured"
 elif [[ ! "$gpg" ]]; then
 	warn "skipping authorized_keys (GnuPG missing)"
 elif ! check-gpg-version; then
 	warn "skipping authorized_keys ('$gpg' older than v1.4)"
 else
-	lib:echo "Configuring authorized_keys"
+	vmsg "Configuring authorized_keys"
 	sshkeyupdate -r
 fi
 
 # nightly dist/pull cronjob
 
 if [[ -e ~/.config/.nocron ]]; then
-	lib:echo "skipping dist/pull cronjob (found ~/.config/.nocron)"
+	vmsg "skipping dist/pull cronjob (found ~/.config/.nocron)"
 elif ! have crontab; then
 	warn "skipping dist/pull cronjob ('crontab' missing)"
 else
@@ -99,29 +99,29 @@ else
 	if [[ "$err" ]]; then
 		warn "skipping dist/pull cronjob: '$err'"
 	elif ! crontab -l 2>/dev/null | grep -qs "/dist/pull"; then
-		lib:echo "adding dist/pull cronjob"
+		vmsg "adding dist/pull cronjob"
 		(crontab -l 2>/dev/null
 		 echo "@daily	~/bin/dist/pull") | crontab -
 	else
-		lib:echo "dist/pull cronjob already configured"
+		vmsg "dist/pull cronjob already configured"
 	fi
 fi
 
 # mail forwarding
 
 if [[ -e ~/.noforward ]]; then
-	lib:echo "skipping mail forwarding (found ~/.noforward)"
+	vmsg "skipping mail forwarding (found ~/.noforward)"
 elif [[ -s ~/.forward ]]; then
-	lib:echo "mail forwarding already configured (to $(sed 1q ~/.forward))"
+	vmsg "mail forwarding already configured (to $(sed 1q ~/.forward))"
 elif [[ -s ~/.mailfilter ]]; then
-	lib:echo "mail forwarding already configured (via ~/.mailfilter)"
+	vmsg "mail forwarding already configured (via ~/.mailfilter)"
 else
 	if ! sendmail=$(pick /usr/{lib,bin,sbin}/sendmail); then
 		warn "'sendmail' not installed"
 		sendmail=/usr/sbin/sendmail
 	fi
 
-	lib:echo "forwarding mail to $EMAIL"
+	vmsg "forwarding mail to $EMAIL"
 
 	echo "\"|$sendmail -i $EMAIL\"" > ~/.forward
 	if have maildrop; then

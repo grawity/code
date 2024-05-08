@@ -4,18 +4,22 @@ export PATH=$HOME/bin:$PATH
 
 . lib.bash || exit
 
+opt_force=0
+
+while getopts :f OPT; do
+	case $OPT in
+	f) opt_force=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
+if [ "$USER" != grawity ] && (( !opt_force )); then
+	vdie "username mismatch"
+fi
+
 # set up own environment
 
-OWNER=grawity
 EMAIL=grawity@gmail.com
-
-if [[ "$USER" != @($OWNER|mantas) ]]; then
-	warn "This script should not be used by anyone else than $OWNER."
-	warn "  It installs $OWNER's SSH authorized_keys, their Kerberos"
-	warn "  ~/.k5login, and forwards all mail to their inbox."
-	warn "  I'm fairly sure you do not want any of that, do you?"
-	confirm "continue anyway?" || exit
-fi
 
 errors=0 warnings=0
 

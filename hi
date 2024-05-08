@@ -33,6 +33,14 @@ def vis(text):
                   text)
 
 def print_log(fh):
+    FMT_DASH = "38;5;8"
+    FMT_DATE_FULL = "1;91"
+    FMT_DATE_SAME = "38;5;8"
+    FMT_WNAME = "38;5;72"
+    FMT_NAME_CHAN = "38;5;150"
+    FMT_NAME_PRIV = "38;5;178"
+    FMT_NAME_NOTICE = "38;5;66"
+
     now = datetime.datetime.now().astimezone()
 
     firstdate = None
@@ -73,26 +81,18 @@ def print_log(fh):
         else:
             datefmt = "%H:%M"
 
-        FMT_DASH = "38;5;8"
-        FMT_ODATE = "38;5;8"
-        FMT_HDATE = "1;91"
-        FMT_WNAME = "38;5;72"
-        FMT_NAME_CHAN = "38;5;150"
-        FMT_NAME_PRIV = "38;5;178"
-        FMT_NAME_NOTICE = "38;5;66"
-
         if wname != lastwname:
             # Always print full header if buffer changes
             firstdate = date
             print(csi(FMT_DASH, "--"),
-                  csi(FMT_HDATE, date.strftime(datefmt)),
+                  csi(FMT_DATE_FULL, date.strftime(datefmt)),
                   csi(FMT_WNAME, wname),
                   csi(FMT_DASH, "--"))
         elif (date - firstdate).total_seconds() > 300:
             # If same buffer, print date-only header every 5 minutes
             firstdate = date
             print(csi(FMT_DASH, "--"),
-                  csi(FMT_ODATE, date.strftime(datefmt)),
+                  csi(FMT_DATE_SAME, date.strftime(datefmt)),
                   csi(FMT_DASH, "--"))
 
         if name.startswith("-"):

@@ -85,7 +85,30 @@ case ${cmd:-help} in
 		vusage $# 0 0 "$cmd"
 		ssh $host "find '$fsroot/' -type d -name '*.git' -printf '%P\n' -prune" \
 			| sort \
-			| sed "s|^|$urlprefix|; s|\\.git\$||"
+			| sed "s|\\.git\$||"
+		;;
+	vlist)
+		vusage $# 0 0 "$cmd"
+		lib_config[opt_width]=32
+		ssh $host "find '$fsroot/' -type d -name '*.git' -printf '%P\n' -prune" \
+			| sort \
+			| while read -r dir; do
+				repo=${dir%.git}
+				descfile="/net/star$fsroot/$repo.git/description"
+				expfile="/net/star$fsroot/$repo.git/git-daemon-export-ok"
+				if [ -s "$descfile" ]; then
+					desc=$(< "$descfile")
+				else
+					desc="--"
+				fi
+				if [ -e "$expfile" ]; then
+					exp="PUB"
+				else
+					exp="---"
+				fi
+				printf '%s\t%s\t%s\n' "$exp" "$repo" "$desc"
+			done \
+			| column -t -s $'\t' -N PUB,NAME,DESCRIPTION -T DESCRIPTION
 		;;
 	new)
 		vusage $# 1 1 "$cmd <repo> [<description>]"

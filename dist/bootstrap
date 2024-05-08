@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-dir=${0%/dist/*}
-PATH=$dir/bin:$PATH
+export PATH=$HOME/bin:$PATH
 
 . lib.bash || exit
 
@@ -45,14 +44,11 @@ mkdir -p -m 0755 ~/bin
 mkdir -p -m 0755 ~/lib
 mkdir -p -m 0700 ~/.cache
 
-if [[ ! -d ~/.dotfiles ]]; then
-	vmsg "Cloning dotfiles.git"
-	git clone "https://github.com/grawity/dotfiles.git" ~/.dotfiles
-fi
-
-if [[ ! "$PREFIX" ]]; then
-	vmsg "Installing dotfiles"
+if [ ! -d ~/.dotfiles ]; then
+	vmsg "downloading ~/.dotfiles"
+	git clone "https://github.com/grawity/dotfiles" ~/.dotfiles
 	~/.dotfiles/install
+	# Get $EMAIL
 	. ~/.dotfiles/environ
 fi
 
@@ -86,12 +82,12 @@ fi
 
 # mail forwarding
 
-if [[ -e ~/.noforward ]]; then
-	vmsg "skipping mail forwarding (found ~/.noforward)"
-elif [[ -s ~/.forward ]]; then
-	vmsg "mail forwarding already configured (to $(sed 1q ~/.forward))"
-elif [[ -s ~/.mailfilter ]]; then
-	vmsg "mail forwarding already configured (via ~/.mailfilter)"
+if [ -e ~/.config/.noforward ]; then
+	vmsg "not creating ~/.forward (found optout)"
+elif [ -s ~/.forward ]; then
+	vmsg "not updating existing ~/.forward"
+elif [ -s ~/.mailfilter ]; then
+	vmsg "found ~/.mailfilter"
 elif ! mta=$(PATH=/usr/lib:/usr/sbin:/usr/bin:/bin command -v sendmail); then
 	vmsg "mail forwarding cannot be configured (sendmail not found)"
 else

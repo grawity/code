@@ -287,8 +287,8 @@ die() {
 } >&2
 
 lib:crash() {
-	lib:msg "BUG: $*" fatal
-	lib:backtrace 2
+	lib:msg "BUG: $*" fatal >&2
+	lib:backtrace 2 >&2
 	exit 3
 }
 

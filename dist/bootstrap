@@ -41,20 +41,12 @@ if [ ! -s ~/.ssh/authorized_keys ]; then
 fi
 
 if ! have crontab; then
-	warn "skipping cron job (crontab not found)"
+	vmsg "skipping cron job (crontab not found)"
 else
-	err=$(crontab -l 2>&1 >/dev/null)
-	if [[ "$err" == "no crontab for $USER" ]]; then
-		err=""
-	fi
-
-	if [[ "$err" ]]; then
-		vmsg "skipping cronjob: $err" >&2
-	elif ! crontab -l 2>/dev/null | grep -qs "/dist/pull"; then
-		vmsg "adding cronjob"
-		(crontab -l; echo "@daily	~/bin/dist/pull") | crontab -
-	else
-		vmsg "cronjob already configured"
+	line="@daily	~/bin/dist/pull"
+	if ! crontab -l |& grep -q /dist/pull; then
+		vmsg "adding cron job"
+		(crontab -l; echo "$line") | crontab -
 	fi
 fi
 

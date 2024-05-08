@@ -2,6 +2,7 @@
 # hi -- show recent IRC highlights
 import argparse
 from nullroute.core import Env
+import io
 import os
 import subprocess
 
@@ -33,3 +34,8 @@ delta, offs = download_log(rhost, rpath, cache_path)
 if delta == 0:
     print("hi: no new items")
     exit()
+
+with open(cache_path, "rb") as fh:
+    fh.seek(offs)
+    for line in io.TextIOWrapper(fh):
+        print(line, end="")

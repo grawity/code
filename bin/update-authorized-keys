@@ -83,20 +83,20 @@ verify() {
 	fi
 }
 
-filter_test=0
-force=0
-import_key=0
-stayquiet=0
+opt_testfilter=0
+opt_force=0
+opt_import=0
+opt_quiet=0
 keyserver="hkps://keyserver.ubuntu.com"
 dst_file=~/.ssh/authorized_keys
 
 while getopts :Ffk:rq OPT; do
 	case $OPT in
-	F) filter_test=1;;
-	f) force=1;;
+	F) opt_testfilter=1;;
+	f) opt_force=1;;
 	k) keyserver=$OPTARG;;
-	r) import_key=1;;
-	q) stayquiet=1;;
+	r) opt_import=1;;
+	q) opt_quiet=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $[OPTIND-1]
@@ -107,7 +107,7 @@ fi
 
 umask 077
 
-if (( filter_test )); then
+if (( opt_testfilter )); then
 	if [[ -t 0 ]]; then
 		vdie "filter test mode requires file input"
 	fi
@@ -120,9 +120,9 @@ if (( filter_test )); then
 fi
 
 if [[ -e ~/.ssh/authorized_keys.optout ]]; then
-	if (( force )); then
+	if (( opt_force )); then
 		warn "found opt-out marker, but proceeding anyway"
-	elif (( !stayquiet )); then
+	elif (( !opt_quiet )); then
 		die "found opt-out marker"
 	else
 		exit 0
@@ -132,9 +132,9 @@ fi
 if [[ "$LOGNAME" != "$unix_user" ]]; then
 	if [[ -e ~/.ssh/authorized_keys.optin ]]; then
 		true
-	elif (( force )); then
+	elif (( opt_force )); then
 		echo "$LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
-	elif (( !stayquiet )); then
+	elif (( !opt_quiet )); then
 		vdie "username mismatch, this program isn't for you"
 	else
 		exit 0
@@ -153,19 +153,19 @@ fi
 
 # ensure key exists in keyring
 
-if (( import_key )); then
+if (( opt_import )); then
 	recv_key "$signer_fpr" || vdie "failed to import key '$signer_fpr'"
 	vmsg "owner key imported"
 	echo "$signer_fpr:6:" | $GPG --import-ownertrust
 	vmsg "ultimate trust set"
 elif ! [[ -d ~/.gnupg ]]; then
-	if (( !stayquiet )); then
+	if (( !opt_quiet )); then
 		vdie "~/.gnupg is not initialized"
 	else
 		exit 0
 	fi
 elif ! $GPG --list-keys "$signer_fpr" > /dev/null; then
-	if (( !stayquiet )); then
+	if (( !opt_quiet )); then
 		vdie "signer key $signer_fpr not found in keyring"
 	else
 		exit 0

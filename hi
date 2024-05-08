@@ -30,6 +30,8 @@ def vis(text):
                   text)
 
 def print_log(fh):
+    now = datetime.datetime.now().astimezone()
+
     for line in fh:
         date, wname, text = line.split("\t", 2)
         date = datetime.datetime.fromisoformat(date)
@@ -54,7 +56,12 @@ def print_log(fh):
                 name = "* %s" % m[1]
                 text = m[2]
 
-        print("-- %s %s --" % (date, wname))
+        if (now - date).total_seconds() > 70000:
+            datefmt = "%b %-d, %H:%M"
+        else:
+            datefmt = "%H:%M"
+
+        print("-- %s %s --" % (date.strftime(datefmt), wname))
         print("  %s %s" % (name, text))
 
 os.umask(0o077)

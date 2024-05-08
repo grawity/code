@@ -3,6 +3,8 @@
 
 . lib.bash || exit
 
+set -u
+
 host=star
 fsroot='/srv/git'
 urlprefix=':'
@@ -52,9 +54,9 @@ case ${cmd:-help} in
 				err "Shortcut '$arg' not allowed here"
 				continue
 			fi
-			arg=$(argtorepo "$arg")
-			dir=$fsroot/$arg.git
-			url=$urlprefix$arg
+			repo=$(argtorepo "$arg")
+			dir=$fsroot/$repo.git
+			url=$urlprefix$repo
 			if ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' already exists"
 				continue
@@ -72,12 +74,12 @@ case ${cmd:-help} in
 		fi
 		old=$1
 		new=$2
-		old=$(argtorepo "$old")
-		new=$(argtorepo "$new")
-		olddir=$fsroot/$old.git
-		newdir=$fsroot/$new.git
-		oldurl=$urlprefix$old
-		newurl=$urlprefix$new
+		oldrepo=$(argtorepo "$old")
+		newrepo=$(argtorepo "$new")
+		olddir=$fsroot/$oldrepo.git
+		newdir=$fsroot/$newrepo.git
+		oldurl=$urlprefix$oldrepo
+		newurl=$urlprefix$newrepo
 		if ! ssh $host "test -d ${olddir@Q}"; then
 			err "Source repository '$oldurl' does not exist"
 		elif ssh $host "test -d ${newdir@Q}"; then
@@ -95,11 +97,11 @@ case ${cmd:-help} in
 		else
 			arg=$1 newhead=$2
 		fi
-		arg=$(argtorepo "$arg")
-		dir=$fsroot/$arg.git
+		repo=$(argtorepo "$arg")
+		dir=$fsroot/$repo.git
 		if [[ $newhead ]]; then
 			newhead=refs/heads/${newhead#refs/heads/}
-			info "Setting default branch for '$arg' to '$newhead'"
+			info "Setting default branch for '$repo' to '$newhead'"
 			ssh $host "git -C ${dir@Q} symbolic-ref HEAD ${newhead@Q}"
 		else
 			ssh $host "git -C ${dir@Q} symbolic-ref HEAD"
@@ -113,14 +115,14 @@ case ${cmd:-help} in
 		else
 			arg=$1 newdesc=$2
 		fi
-		arg=$(argtorepo "$arg")
-		dir=$fsroot/$arg.git
+		repo=$(argtorepo "$arg")
+		dir=$fsroot/$repo.git
 		if [[ $newdesc ]]; then
-			info "Setting description for '$arg' to \"$newdesc\""
+			info "Setting description for '$repo' to \"$newdesc\""
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
 		else
 			if ! ssh $host "test -s ${dir@Q}/description"; then
-				info "Repository '$arg' has no description"
+				info "Repository '$repo' has no description"
 			else
 				ssh $host "cat ${dir@Q}/description"
 			fi
@@ -131,8 +133,8 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo> <upstream>"
 		fi
 		arg=$1 upstream=$2
-		arg=$(argtorepo "$arg")
-		dir=$fsroot/$arg.git
+		repo=$(argtorepo "$arg")
+		dir=$fsroot/$repo.git
 		# Set up parameters for the hourly re-fetch cronjob, which looks for
 		# repositories with a remote that have [Mirror] in their description.
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
@@ -154,8 +156,8 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>"
 		fi
 		arg=$1
-		arg=$(argtorepo "$arg")
-		dir=$fsroot/$arg.git
+		repo=$(argtorepo "$arg")
+		dir=$fsroot/$repo.git
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
 		info "Removed remote 'origin'"
 		if ssh $host "test -s ${dir@Q}/description"; then
@@ -172,9 +174,9 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			arg=$(argtorepo "$arg")
-			dir=$fsroot/$arg.git
-			url=$urlprefix$arg
+			repo=$(argtorepo "$arg")
+			dir=$fsroot/$repo.git
+			url=$urlprefix$repo
 			# Make world-readable and create the 'export-ok' flag
 			# that both Cgit and git-daemon look for.
 			if ! ssh $host "test -d ${dir@Q}"; then
@@ -197,9 +199,9 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			arg=$(argtorepo "$arg")
-			dir=$fsroot/$arg.git
-			url=$urlprefix$arg
+			repo=$(argtorepo "$arg")
+			dir=$fsroot/$repo.git
+			url=$urlprefix$repo
 			if ! ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' does not exist"
 				continue
@@ -214,9 +216,9 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			arg=$(argtorepo "$arg")
-			url="https://git.nullroute.lt/cgit/$arg.git/"
-			echo "$arg => $url"
+			repo=$(argtorepo "$arg")
+			url="https://git.nullroute.lt/cgit/$repo.git/"
+			echo "$repo => $url"
 		done
 		;;
 	cgit-flush|flush-cgit)

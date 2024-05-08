@@ -4,6 +4,12 @@ export PATH=$HOME/bin:$PATH
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $0 [-f]"
+	echo
+	echo_opt "-f"		"proceed if username does not match"
+}
+
 opt_force=0
 
 while getopts :f OPT; do
@@ -19,7 +25,7 @@ fi
 
 for cmd in git gpg; do
 	if ! have $cmd; then
-		vdie "$cmd not installed"
+		vdie "$cmd not found"
 	fi
 done
 
@@ -29,18 +35,12 @@ if [ ! -d ~/.dotfiles ]; then
 	~/.dotfiles/install
 fi
 
-# initial authorized_keys fetch
-
 if [ ! -s ~/.ssh/authorized_keys ]; then
 	sshkeyupdate -r
 fi
 
-# nightly dist/pull cronjob
-
-if [ -e ~/.config/.nocron ]; then
-	vmsg "skipping cronjob (found ~/.config/.nocron)"
-elif ! have crontab; then
-	warn "skipping cronjob (cron not installed)"
+if ! have crontab; then
+	warn "skipping cron job (crontab not found)"
 else
 	err=$(crontab -l 2>&1 >/dev/null)
 	if [[ "$err" == "no crontab for $USER" ]]; then
@@ -57,16 +57,10 @@ else
 	fi
 fi
 
-# mail forwarding
-
-if [ -e ~/.config/.noforward ]; then
-	vmsg "not creating ~/.forward (found optout)"
+if ! mta=$(PATH=/usr/lib:/usr/sbin:/usr/bin:/bin command -v sendmail); then
+	vmsg "skipping ~/.forward (sendmail not found)"
 elif [ -s ~/.forward ]; then
 	vmsg "not updating existing ~/.forward"
-elif [ -s ~/.mailfilter ]; then
-	vmsg "found ~/.mailfilter"
-elif ! mta=$(PATH=/usr/lib:/usr/sbin:/usr/bin:/bin command -v sendmail); then
-	vmsg "mail forwarding cannot be configured (sendmail not found)"
 else
 	vmsg "updating ~/.forward"
 	echo "\"|$mta -i $opt_addr\"" > ~/.forward

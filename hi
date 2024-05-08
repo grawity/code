@@ -109,6 +109,9 @@ def print_log(fh, unseen):
         lastwname = wname
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-q", "--quiet",
+                        action="store_true",
+                        help="don't show old messages")
 args = parser.parse_args()
 
 os.umask(0o077)
@@ -122,6 +125,8 @@ if delta:
     with open(cpath, "rb") as fh:
         fh.seek(offs)
         print_log(io.TextIOWrapper(fh), unseen=True)
+elif args.quiet:
+    print("hi: no new messages")
 else:
     with os.popen("tail -n 10 '%s'" % cpath, "r") as fh:
         print_log(fh, unseen=False)

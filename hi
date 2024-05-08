@@ -24,14 +24,6 @@ def download_log(remote_host, remote_path, local_path):
     nsize = os.stat(local_path).st_size
     return nsize-osize, osize
 
-def csi(arg, text):
-    return "\033[%sm%s\033[m" % (arg, text)
-
-def vis(text):
-    return re.sub(r"[\x00-\x1F\x80-\x9F]",
-                  lambda m: "\033[2m<%02X>\033[m" % ord(m[0]),
-                  text)
-
 def parse_log(fh):
     for line in fh:
         date, wname, text = line.split("\t", 2)
@@ -63,14 +55,22 @@ def parse_log(fh):
 
         yield (date, wname, name, text)
 
-def print_log(fh, dim=False):
-    FMT_DASH = "38;5;8"
-    FMT_DATE_FULL = "1;91"
-    FMT_DATE_SAME = "38;5;8"
-    FMT_WNAME = "38;5;72"
-    FMT_NAME_CHAN = "38;5;150"
-    FMT_NAME_PRIV = "38;5;178"
-    FMT_NAME_NOTICE = "38;5;66"
+def sgr(arg, text):
+    return "\033[%sm%s\033[m" % (arg, text)
+
+def vis(text):
+    return re.sub(r"[\x00-\x1F\x80-\x9F]",
+                  lambda m: "\033[2m<%02X>\033[m" % ord(m[0]),
+                  text)
+
+def print_log(fh):
+    SGR_DATE_FULL   = "1;31"
+    SGR_DATE_SAME   = "31"
+    SGR_WNAME       = "1;32"
+    SGR_WTAIL       = "32"
+    SGR_NAME_CHAN   = ""
+    SGR_NAME_PRIV   = ""
+    SGR_NAME_NOTICE = ""
 
     now = datetime.datetime.now().astimezone()
 
@@ -80,32 +80,41 @@ def print_log(fh, dim=False):
 
     for date, wname, name, text in parse_log(fh):
         if (now - date).total_seconds() > 70000:
-            datefmt = "%b %-d, %H:%M"
+            datefmt = "%b %-d"
         else:
             datefmt = "%H:%M"
 
+        if m := re.match(r"^(.+)(#.+)$", wname):
+            hdrname = m[2]
+            hdrtail = " (%s)" % m[1]
+        else:
+            hdrname = wname
+            hdrtail = ""
+
         if wname != lastwname:
+            if lastwname:
+                print()
             # Always print full header if buffer changes
             firstdate = date
-            print(csi(FMT_DASH, "--"),
-                  csi(FMT_DATE_FULL, date.strftime(datefmt)),
-                  csi(FMT_WNAME, wname),
-                  csi(FMT_DASH, "--"))
+            print(sgr(SGR_DATE_FULL, date.strftime(datefmt)),
+                  " ",
+                  sgr(SGR_WNAME, hdrname),
+                  sgr(SGR_WTAIL, hdrtail),
+                  sep="")
         elif (date - firstdate).total_seconds() > 300:
             # If same buffer, print date-only header every 5 minutes
             firstdate = date
-            print(csi(FMT_DASH, "--"),
-                  csi(FMT_DATE_SAME, date.strftime(datefmt)),
-                  csi(FMT_DASH, "--"))
+            print(sgr(SGR_DATE_SAME, date.strftime(datefmt)),
+                  sep="")
 
         if name.startswith("-"):
-            fmt = FMT_NAME_NOTICE
+            fmt = SGR_NAME_NOTICE
         elif "#" in wname:
-            fmt = FMT_NAME_CHAN
+            fmt = SGR_NAME_CHAN
         else:
-            fmt = FMT_NAME_PRIV
+            fmt = SGR_NAME_PRIV
 
-        print("  " + csi(fmt, name), vis(text))
+        print(" "*3, sgr(fmt, name), " ", vis(text), sep="")
 
         lastdate = date
         lastwname = wname

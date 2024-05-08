@@ -32,27 +32,12 @@ def vis(text):
                   lambda m: "\033[2m<%02X>\033[m" % ord(m[0]),
                   text)
 
-def print_log(fh):
-    FMT_DASH = "38;5;8"
-    FMT_DATE_FULL = "1;91"
-    FMT_DATE_SAME = "38;5;8"
-    FMT_WNAME = "38;5;72"
-    FMT_NAME_CHAN = "38;5;150"
-    FMT_NAME_PRIV = "38;5;178"
-    FMT_NAME_NOTICE = "38;5;66"
-
-    now = datetime.datetime.now().astimezone()
-
-    firstdate = None
-    lastdate = None
-    lastwname = None
-
+def parse_log(fh):
     for line in fh:
         date, wname, text = line.split("\t", 2)
         date = datetime.datetime.fromisoformat(date)
         wname = re.sub(r"^<(.+)>$", r"\1", wname)
         text = text.rstrip()
-        text = vis(text)
 
         if "#" in wname:
             # Channel messages
@@ -76,6 +61,24 @@ def print_log(fh):
                 name = "* %s" % m[1]
                 text = m[2]
 
+        yield (date, wname, name, text)
+
+def print_log(fh, dim=False):
+    FMT_DASH = "38;5;8"
+    FMT_DATE_FULL = "1;91"
+    FMT_DATE_SAME = "38;5;8"
+    FMT_WNAME = "38;5;72"
+    FMT_NAME_CHAN = "38;5;150"
+    FMT_NAME_PRIV = "38;5;178"
+    FMT_NAME_NOTICE = "38;5;66"
+
+    now = datetime.datetime.now().astimezone()
+
+    firstdate = None
+    lastdate = None
+    lastwname = None
+
+    for date, wname, name, text in parse_log(fh):
         if (now - date).total_seconds() > 70000:
             datefmt = "%b %-d, %H:%M"
         else:
@@ -102,7 +105,7 @@ def print_log(fh):
         else:
             fmt = FMT_NAME_PRIV
 
-        print("  " + csi(fmt, name), text)
+        print("  " + csi(fmt, name), vis(text))
 
         lastdate = date
         lastwname = wname

@@ -1,84 +1,64 @@
 #!/usr/bin/env bash
-# asn1 -- convenience wrapper for 'dumpasn1', which doesn't base64-decode input
-# on its own, and won't completely decode unseekable input
+# asn1 -- convenience wrapper for dumpasn1
+#
+# The dumpasn1 tool doesn't base64-decode input on its own, and won't
+# completely decode unseekable input such as stdin or pipes.
 
 . lib.bash || exit
 
-arg.from_stdin!() {
-	if [[ -t 0 ]]; then
-		vdie "expected ASN.1 data on stdin"
-	fi
-	arg=$(mktemp /tmp/asn1.XXXXXXXX)
-	temp+=("$arg")
-	cat > "$arg"
-}
-
-arg.decode_base64!() {
-	if grep -qs "^-----" "$arg"; then
-		raw=$(mktemp /tmp/asn1.XXXXXXXX)
-		temp+=("$raw")
-		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
-				s/\r//g; /^[A-Za-z0-9+/=]*$/p
-			}' < "$arg" | base64 -d > "$raw"
-		debug "PEM-decoded '$raw' from '$arg'"
-		if (( DEBUG > 1 )); then
-			debug "<dump>"
-			xxd "$raw"
-			debug "</dump>"
-		fi
-		arg=$raw
-	fi
-}
-
-args=()
-temp=()
-files=0
+options=()
+inputs=()
+waitarg=0
 optend=0
-optargs=0
 
 for arg; do
-	debug "input arg '$arg'"
-	detect=0
-
-	if (( optargs )); then
-		debug "- consuming as optarg"
-		(( optargs -= 1 ))
-	elif [[ $arg == - ]]; then
-		debug "- consuming as stdin"
-		detect=1
-		arg.from_stdin!
-	elif (( ! optend )) && [[ $arg == -[cfwm] ]]; then
-		debug "- consuming as option with optargs"
-		optargs=1
-	elif (( ! optend )) && [[ $arg == -- ]]; then
-		debug "- consuming as option end"
+	if (( optend )); then
+		inputs+=("$arg")
+	elif (( waitarg )); then
+		options+=("$arg")
+		waitarg=0
+	elif [[ $arg == -[cfwm] ]]; then
+		options+=("$arg")
+		waitarg=1
+	elif [[ $arg == -- ]]; then
+		options+=("$arg")
 		optend=1
-	elif (( ! optend )) && [[ $arg == -* ]]; then
-		debug "- consuming as option"
+	elif [[ $arg == -[!-]* ]]; then
+		options+=("$arg")
+	elif [[ $arg == --help ]]; then
+		dumpasn1 --help
+		exit 0
 	else
-		debug "- consuming as file arg"
-		detect=1
+		inputs+=("$arg")
 	fi
-
-	if (( detect )) && [[ -f $arg ]] && [[ -s $arg ]]; then
-		debug "arg '$arg' is a file, detecting contents"
-		arg.decode_base64!
-		(( ++files ))
-	fi
-
-	args+=("$arg")
 done
 
-if (( ! files )); then
-	arg.from_stdin!
-	arg.decode_base64!
-	args+=("$arg")
+if (( ! ${#inputs[@]} )); then
+	vdie "no input files"
 fi
 
-dumpasn1 "${args[@]}"; r=$?
+r=0
+for arg in "${inputs[@]}"; do
+	tmp=()
+	if [[ $arg == "-" ]]; then
+		buf=$(mktemp /tmp/asn1.XXXXXXXX)
+		tmp+=("$buf")
+		cat > "$buf"
+		arg=$buf
+	fi
+	if grep -qs "^-----" "$arg"; then
+		raw=$(mktemp /tmp/asn1.XXXXXXXX)
+		tmp+=("$raw")
+		sed -n '/^-----BEGIN .*-----/,/^-----END .*-----/ {
+				s/\r//g; /^[A-Za-z0-9+/=]*$/p
+			}' "$arg" | base64 -d > "$raw"
+		arg=$raw
+	fi
 
-if [[ $temp ]]; then
-	rm -f "${temp[@]}"
-fi
+	dumpasn1 "${options[@]}" -- "$arg" || r=1
 
+	if (( ${#tmp[@]} )); then
+		rm -f "${tmp[@]}"
+	fi
+done
 exit $r

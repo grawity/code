@@ -14,12 +14,12 @@ PATH="$HOME/bin:$HOME/code/bin:$PATH"
 progname_prefix=0
 
 usage() {
-	echo "Usage: $progname [-f] [-q] [-r [-k URI]]"
+	echo "Usage: $progname [-f] [-q] [-r [-k URL]]"
 	echo ""
-	echo_opt "-f" "proceed on username mismatch"
-	echo_opt "-q" "quietly exit if update is not to be done"
-	echo_opt "-r" "import the signing key from keyserver"
-	echo_opt "-k URL" "use another keyserver"
+	echo_opt "-f"		"proceed on username mismatch"
+	echo_opt "-q"		"quietly exit if update is not to be done"
+	echo_opt "-r"		"import the signing key from keyserver"
+	echo_opt "-k URL"	"use a different keyserver for -r"
 }
 
 filter_keys() {
@@ -32,14 +32,14 @@ recv_key() {
 		lib:trace "$status"
 	else
 		echo "$status" >&2
-		warn "failed to receive key $key from $keyserver"
+		vmsg "failed to receive key $key from $keyserver" >&2
 		return 1
 	fi
 }
 
 fetch() {
 	local url=$1 out=$2
-	local max_tries=3 retry_wait=3 attempt=1
+	local maxtries=3 delay=3 attempt=1
 	while true; do
 		debug "fetching $url (try #$attempt)"
 		if http_fetch "$url" "$out"; then
@@ -48,39 +48,34 @@ fetch() {
 			break
 		fi
 		rm -f "$out"
-		if (( attempt++ >= max_tries )); then
+		if (( attempt++ >= maxtries )); then
 			break
 		fi
-		sleep $retry_wait
-		(( retry_wait *= 2 ))
+		sleep $delay
+		(( delay *= 2 ))
 	done
 	return 1
 }
 
 verify() {
 	local input=$1 output=$2 status= errors=0
-	if status=$($GPG --batch --yes --status-fd 1 --output "$output" \
+	if ! status=$($GPG --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
-		if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
-			vmsg "file has invalid signature" >&2
-			errors=1
-		fi
-		if ! grep -Eqs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
-			vmsg "signer key is not ultimately trusted" >&2
-			errors=1
-		fi
-		if (( errors )); then
-			echo "$status" >&2
-			return 1
-		else
-			lib:trace "$status"
-			return 0
-		fi
-	else
-		vmsg "unknown gpg error occured" >&2
+		vmsg "unknown gpg error" >&2
 		echo "$status" >&2
 		return 1
 	fi
+	if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+		vmsg "file has invalid signature" >&2
+		echo "$status" >&2
+		return 1
+	fi
+	if ! grep -Eqs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
+		vmsg "signer key is not ultimately trusted" >&2
+		echo "$status" >&2
+		return 1
+	fi
+	return 0
 }
 
 opt_testfilter=0
@@ -121,9 +116,9 @@ fi
 
 if [[ -e ~/.ssh/authorized_keys.optout ]]; then
 	if (( opt_force )); then
-		warn "found opt-out marker, but proceeding anyway"
+		true
 	elif (( !opt_quiet )); then
-		die "found opt-out marker"
+		vdie "optout marker found"
 	else
 		exit 0
 	fi

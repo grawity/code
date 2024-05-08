@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-log() {
+vmsg() {
 	echo "dist/pull: $*" >&2
 }
 
@@ -15,7 +15,7 @@ if [ ! "$xyzzy" ]; then
 
 	# Guard against .dotfiles deploying bad git/config
 	if ! git var GIT_AUTHOR_IDENT >/dev/null; then
-		log "Removed broken git configuration file"
+		vmsg "removed broken git configuration file"
 		if [ -e ~/.config/git/config ]; then
 			mv -f ~/.config/git/config ~/.config/git/config.bad
 		fi
@@ -26,26 +26,26 @@ if [ ! "$xyzzy" ]; then
 
 	cd ~/bin
 	if on_main; then
-		log "Updating ~/bin"
+		vmsg "updating ~/bin"
 		git pull --ff-only
 	else
-		log "Skipping ~/bin (not on main branch)"
+		vmsg "skipping ~/bin (not on main branch)"
 	fi
 	xyzzy=42 exec ~/bin/dist/pull
 else
 	# Child - update dotfiles
 	if [ $(date +%d) -eq 7 ]; then
-		log "Compacting ~/bin"
+		vmsg "compacting ~/bin"
 		(cd ~/bin && git gc)
 	fi
 
-	log "Updating authorized_keys"
+	vmsg "updating authorized_keys"
 	sshkeyupdate -q
 
 	if [ -d ~/.dotfiles ]; then
 		(cd ~/.dotfiles
 		if on_main; then
-			log "Updating ~/.dotfiles"
+			vmsg "updating ~/.dotfiles"
 			git fetch origin
 			git merge --ff-only origin/main || {
 				git stash save "dist/pull on $(date)"
@@ -53,15 +53,15 @@ else
 				git reset --hard origin/main
 			}
 		else
-			log "Skipping ~/.dotfiles (not on main branch)"
+			vmsg "skipping ~/.dotfiles (not on main branch)"
 		fi)
 
 		if [ $(date +%d) -eq 14 ]; then
-			log "Compacting ~/.dotfiles"
+			vmsg "compacting ~/.dotfiles"
 			(cd ~/.dotfiles && nice git gc)
 		fi
 
-		log "Running ~/.dotfiles/install"
+		vmsg "running ~/.dotfiles/install"
 		~/.dotfiles/install -u
 	fi
 

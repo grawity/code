@@ -4,6 +4,7 @@
 . lib.bash || exit
 
 set -u
+set -e
 
 host=star
 fsroot='/srv/git'
@@ -12,7 +13,7 @@ urlprefix=':'
 argtorepo() {
 	local arg=$1
 	if [[ $arg == . ]]; then
-		arg=$(git config remote.origin.url) || exit
+		arg=$(git config remote.origin.url)
 	fi
 	case $arg in [!a-z]*)
 		vdie "bad repository name: $arg"
@@ -83,7 +84,7 @@ case ${cmd:-help} in
 				err "Shortcut '$arg' not allowed here"
 				continue
 			fi
-			repo=$(argtorepo "$arg") || exit
+			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
 			url=$(repourl "$repo")
 			if ssh $host "test -d ${dir@Q}"; then
@@ -102,8 +103,8 @@ case ${cmd:-help} in
 		fi
 		old=$1
 		new=$2
-		oldrepo=$(argtorepo "$old") || exit
-		newrepo=$(argtorepo "$new") || exit
+		oldrepo=$(argtorepo "$old")
+		newrepo=$(argtorepo "$new")
 		olddir=$(repodir "$oldrepo")
 		newdir=$(repodir "$newrepo")
 		oldurl=$urlprefix$oldrepo
@@ -124,7 +125,7 @@ case ${cmd:-help} in
 		else
 			arg=$1 newhead=$2
 		fi
-		repo=$(argtorepo "$arg") || exit
+		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		if [[ $newhead ]]; then
 			newhead=refs/heads/${newhead#refs/heads/}
@@ -142,7 +143,7 @@ case ${cmd:-help} in
 		else
 			arg=$1 newdesc=${2-}
 		fi
-		repo=$(argtorepo "$arg") || exit
+		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		if [[ $newdesc ]]; then
 			info "Setting description for '$repo' to \"$newdesc\""
@@ -160,7 +161,7 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo> <upstream>"
 		fi
 		arg=$1 upstream=$2
-		repo=$(argtorepo "$arg") || exit
+		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		# Set up parameters for the hourly re-fetch cronjob, which looks for
 		# repositories with a remote that have [Mirror] in their description.
@@ -183,7 +184,7 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>"
 		fi
 		arg=$1
-		repo=$(argtorepo "$arg") || exit
+		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
 		info "Removed remote 'origin'"
@@ -201,7 +202,7 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			repo=$(argtorepo "$arg") || exit
+			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
 			url=$(repourl "$repo")
 			# Make world-readable and create the 'export-ok' flag
@@ -226,7 +227,7 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			repo=$(argtorepo "$arg") || exit
+			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
 			url=$(repourl "$repo")
 			if ! ssh $host "test -d ${dir@Q}"; then
@@ -243,7 +244,7 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			repo=$(argtorepo "$arg") || exit
+			repo=$(argtorepo "$arg")
 			url="https://git.nullroute.lt/cgit/$repo.git/"
 			echo "$repo => $url"
 		done

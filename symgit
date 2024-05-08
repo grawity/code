@@ -4,8 +4,8 @@
 . lib.bash || exit
 
 host=star
-fsroot='/srv/git'
-urlprefix=':'
+fsroot=/srv/git
+urlprefix=":"
 
 argtorepo() {
 	local arg=$1
@@ -58,7 +58,7 @@ vusage() {
 	fi
 }
 
-klist -s || kinit || die "no Kerberos credentials"
+klist -s || kinit || vdie "no Kerberos credentials"
 
 cmd=$1; shift
 
@@ -78,7 +78,7 @@ case ${cmd:-help} in
 		echo "  mirror <repo> <upstream>"
 		echo "  unmirror <repo>"
 		echo "  web <repo>..."
-		echo "  cgit-flush"
+		echo "  flush"
 		;;
 	ls|list)
 		vusage $# 0 0 "$cmd"
@@ -120,11 +120,11 @@ case ${cmd:-help} in
 		oldurl=$urlprefix$oldrepo
 		newurl=$urlprefix$newrepo
 		if ! ssh $host "test -d ${olddir@Q}"; then
-			err "Source repository '$oldurl' does not exist"
+			vdie "old repository does not exist: $olddir"
 		elif ssh $host "test -d ${newdir@Q}"; then
-			err "Target repository '$newurl' already exists"
+			vdie "new repository already exists: $newdir"
 		else
-			info "Renaming repository '$oldurl' => '$newurl'"
+			vmsg "renaming repository: $oldrepo => $newrepo"
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
 		fi
 		flushconf
@@ -136,7 +136,7 @@ case ${cmd:-help} in
 		dir=$(repodir "$repo")
 		if [[ $newhead ]]; then
 			newhead=refs/heads/${newhead#refs/heads/}
-			info "Setting default branch for '$repo' to '$newhead'"
+			vmsg "setting default branch for $repo to \"$newhead\""
 			ssh $host "git -C ${dir@Q} symbolic-ref HEAD ${newhead@Q}"
 		else
 			ssh $host "git -C ${dir@Q} symbolic-ref HEAD"
@@ -152,11 +152,11 @@ case ${cmd:-help} in
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		if [[ $newdesc ]]; then
-			info "Setting description for '$repo' to \"$newdesc\""
+			vmsg "setting description for $repo to \"$newdesc\""
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
 		else
 			if ! ssh $host "test -s ${dir@Q}/description"; then
-				info "Repository '$repo' has no description"
+				vmsg "$repo has no description"
 			else
 				ssh $host "cat ${dir@Q}/description"
 			fi
@@ -169,10 +169,10 @@ case ${cmd:-help} in
 		dir=$(repodir "$repo")
 		# Set up parameters for the hourly re-fetch cronjob, which looks for
 		# repositories with a remote that have [Mirror] in their description.
+		vmsg "adding remote \"origin\" from \"$upstream\""
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
 		ssh $host "git -C ${dir@Q} remote add --mirror=fetch origin ${upstream@Q}"
 		ssh $host "git -C ${dir@Q} fetch origin"
-		info "Added remote 'origin' from '$upstream'"
 		if ssh $host "test -s ${dir@Q}/description"; then
 			desc=$(ssh $host "cat ${dir@Q}/description")
 			desc=$(echo "$desc" | sed 's/^Mirror of [^ ]*$//')
@@ -188,8 +188,8 @@ case ${cmd:-help} in
 		arg=$1
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
+		vmsg "removing \"origin\" remote"
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
-		info "Removed remote 'origin'"
 		if ssh $host "test -s ${dir@Q}/description"; then
 			desc=$(ssh $host "cat ${dir@Q}/description")
 			desc=$(echo "$desc" | sed 's/^Mirror of [^ ]*$//')
@@ -208,16 +208,16 @@ case ${cmd:-help} in
 			# Make world-readable and create the 'export-ok' flag
 			# that both Cgit and git-daemon look for.
 			if ! ssh $host "test -d ${dir@Q}"; then
-				err "Repository '$url' does not exist"
+				vdie "repository does not exist: $dir"
 				continue
 			elif ssh $host "test -f ${dir@Q}/git-daemon-export-ok"; then
-				info "Repository '$url' already public"
+				vmsg "$repo is already public"
 				continue
 			fi
 			if ! ssh $host "test -s ${dir@Q}/description"; then
-				warn "Repository '$url' has no description, use '$progname desc'"
+				vmsg "$repo has no description; use '$progname desc' to set"
 			fi
-			info "Publishing repository '$url'"
+			vmsg "publishing repository $repo"
 			ssh $host "touch ${dir@Q}/git-daemon-export-ok"
 			ssh $host "chmod a+rx ${dir@Q}"
 		done
@@ -229,10 +229,10 @@ case ${cmd:-help} in
 			dir=$(repodir "$repo")
 			url=$(repourl "$repo")
 			if ! ssh $host "test -d ${dir@Q}"; then
-				err "Repository '$url' does not exist"
+				vdie "repository does not exist: $dir"
 				continue
 			fi
-			info "Unpublishing repository '$url'"
+			vmsg "unpublishing repository $repo"
 			ssh $host "rm -f ${dir@Q}/git-daemon-export-ok"
 			ssh $host "chmod go-rx ${dir@Q}"
 		done

@@ -9,8 +9,7 @@ on_main() {
 	[ "$(git symbolic-ref HEAD 2>/dev/null)" = refs/heads/main ]
 }
 
-if [ ! "$xyzzy" ]; then
-	# Parent - update ourselves before trying to update .dotfiles
+if [ "$1" != "--child" ]; then
 	export PATH="$HOME/bin/bin:$HOME/bin:$PATH"
 
 	# Guard against .dotfiles deploying bad git/config
@@ -31,9 +30,9 @@ if [ ! "$xyzzy" ]; then
 	else
 		vmsg "skipping ~/bin (not on main branch)"
 	fi
-	xyzzy=42 exec ~/bin/dist/pull
+
+	exec "$0" --child
 else
-	# Child - update dotfiles
 	if [ $(date +%d) -eq 7 ]; then
 		vmsg "compacting ~/bin"
 		(cd ~/bin && git gc)

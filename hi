@@ -82,12 +82,12 @@ def print_log(fh, unseen):
     for date, wname, name, text in parse_log(fh):
         if wname != lastwname:
             hdrdate = date.strftime("%b %-d")
+            hdrname = wname
+            hdrtail = ""
+
             if m := re.match(r"^(.+)(#.+)$", wname):
                 hdrname = m[2]
                 hdrtail = "(%s)" % m[1]
-            else:
-                hdrname = wname
-                hdrtail = ""
 
             if unseen:
                 hdrdate = sgr(SGR_DATE, hdrdate)
@@ -125,4 +125,4 @@ if delta:
 else:
     with os.popen("tail -n 10 '%s'" % cpath, "r") as fh:
         print_log(fh, unseen=False)
-    print("hi: no new items")
+    print("hi: no new messages")

@@ -4,6 +4,8 @@ export PATH=$HOME/bin:$PATH
 
 . lib.bash || exit
 
+set -u
+
 usage() {
 	echo "Usage: $0 [-f]"
 	echo
@@ -42,20 +44,19 @@ fi
 
 if ! have crontab; then
 	vmsg "skipping cron job (crontab not found)"
+elif crontab -l |& grep -q /dist/pull; then
+	vmsg "cron job already present"
 else
-	line="@daily	~/bin/dist/pull"
-	if ! crontab -l |& grep -q /dist/pull; then
-		vmsg "adding cron job"
-		(crontab -l; echo "$line") | crontab -
-	fi
+	vmsg "adding cron job"
+	(crontab -l; echo "@daily	~/bin/dist/pull") | crontab -
 fi
 
 if ! mta=$(PATH=/usr/lib:/usr/sbin:/usr/bin:/bin command -v sendmail); then
 	vmsg "skipping ~/.forward (sendmail not found)"
 elif [ -s ~/.forward ]; then
-	vmsg "not updating existing ~/.forward"
+	vmsg "~/.forward already present"
 else
-	vmsg "updating ~/.forward"
+	vmsg "creating ~/.forward"
 	echo "\"|$mta -i $opt_addr\"" > ~/.forward
 	vmsg "sending test message"
 	$mta -i "$USER" <<-EOF

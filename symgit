@@ -16,7 +16,7 @@ argtorepo() {
 		vdie "not a symgit repo: $arg"
 	esac
 	arg=${arg#$urlprefix}
-	case $arg in [!A-Za-z_]*|"")
+	case $arg in [!A-Za-z_]*|*/|"")
 		vdie "bad repository name: $arg"
 	esac
 	arg=${arg%.git}
@@ -121,6 +121,8 @@ case ${cmd:-help} in
 			vdie "repository already exists: $dir"
 		fi
 		vmsg "creating repository $dir"
+		pdir=${dir%/*}
+		ssh $host "umask 022; mkdir -p ${pdir@Q}"
 		ssh $host "git init --bare ${dir@Q}"
 		ssh $host "chmod go-rx ${dir@Q}"
 		if [[ $newdesc ]]; then
@@ -150,7 +152,11 @@ case ${cmd:-help} in
 			vdie "new repository already exists: $newdir"
 		else
 			vmsg "renaming repository: $oldrepo => $newrepo"
+			oldpdir=${olddir%/*}
+			newpdir=${newdir%/*}
+			ssh $host "umask 022; mkdir -vp ${newpdir@Q}"
 			ssh $host "mv -Tvn ${olddir@Q} ${newdir@Q}"
+			ssh $host "rmdir -p --ignore-fail-on-non-empty ${oldpdir@Q}"
 		fi
 		flushconf
 		;;

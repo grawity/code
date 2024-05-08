@@ -4,6 +4,7 @@ import argparse
 import datetime
 from nullroute.core import Env
 import io
+import re
 import os
 import subprocess
 
@@ -22,6 +23,11 @@ def download_log(remote_host, remote_path, local_path):
 
     nsize = os.stat(local_path).st_size
     return nsize-osize, osize
+
+def vis(text):
+    return re.sub(r"[\x00-\x1F\x80-\x9F]",
+                  lambda m: "\033[2m<%02X>\033[m" % ord(m[0]),
+                  text)
 
 os.umask(0o077)
 
@@ -43,4 +49,5 @@ with open(cache_path, "rb") as fh:
         date = datetime.datetime.fromisoformat(date)
         wname = wname.strip("<>")
         text = text.rstrip()
+        text = vis(text)
         print(date, wname, text)

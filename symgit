@@ -87,23 +87,26 @@ case ${cmd:-help} in
 			| sed "s|^|$urlprefix|; s|\\.git\$||"
 		;;
 	new)
-		vusage $# 1 1 "$cmd <repo>"
-		for arg; do
-			if [[ $arg == "." ]]; then
-				err "Shortcut '$arg' not allowed here"
-				continue
-			fi
-			repo=$(argtorepo "$arg")
-			dir=$(repodir "$repo")
-			url=$(repourl "$repo")
-			if ssh $host "test -d ${dir@Q}"; then
-				err "Repository '$url' already exists"
-				continue
-			fi
-			info "Creating repository '$url'"
-			ssh $host "git init --bare ${dir@Q}"
-			ssh $host "chmod go-rx ${dir@Q}"
-		done
+		vusage $# 1 1 "$cmd <repo> [<description>]"
+		arg=$1 newdesc=${2-}
+		if [[ $arg == "." ]]; then
+			err "Shortcut '$arg' not allowed here"
+			continue
+		fi
+		repo=$(argtorepo "$arg")
+		dir=$(repodir "$repo")
+		url=$(repourl "$repo")
+		if ssh $host "test -d ${dir@Q}"; then
+			err "Repository '$url' already exists"
+			continue
+		fi
+		info "Creating repository '$url'"
+		ssh $host "git init --bare ${dir@Q}"
+		ssh $host "chmod go-rx ${dir@Q}"
+		if [[ $newdesc ]]; then
+			info "Setting description for '$repo' to \"$newdesc\""
+			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
+		fi
 		flushconf
 		;;
 	mv|move|rename)

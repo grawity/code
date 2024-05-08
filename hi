@@ -7,10 +7,10 @@ import subprocess
 
 def download_log(remote_host, remote_path, local_path):
     try:
-        size = os.stat(local_path).st_size
-        rcmd = f"tail -c +{size+1} '{remote_path}'"
+        osize = os.stat(local_path).st_size
+        rcmd = f"tail -c +{osize+1} '{remote_path}'"
     except FileNotFoundError:
-        size = 0
+        osize = 0
         rcmd = f"cat '{remote_path}'"
 
     with open(local_path, "ab") as fh:
@@ -18,7 +18,8 @@ def download_log(remote_host, remote_path, local_path):
                        stdout=fh,
                        check=True)
 
-    return os.stat(local_path).st_size - size
+    nsize = os.stat(local_path).st_size
+    return nsize-osize, osize
 
 os.umask(0o077)
 
@@ -28,6 +29,7 @@ config_path = Env.find_config_file("irc.conf")
 rhost = "star"
 rpath = "irclogs/perl.highmon.log"
 
-delta = download_log(rhost, rpath, cache_path)
+delta, offs = download_log(rhost, rpath, cache_path)
 if delta == 0:
-    print("No new items.")
+    print("hi: no new items")
+    exit()

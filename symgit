@@ -7,6 +7,16 @@ host=star
 fsroot='/srv/git'
 urlprefix=':'
 
+argtorepo() {
+	local arg=$1
+	if [[ $arg == . ]]; then
+		arg=$(git config remote.origin.url) || exit
+	fi
+	arg=${arg#$urlprefix}
+	arg=${arg%.git}
+	echo "$arg"
+}
+
 klist -s || kinit || die "no Kerberos credentials"
 
 cmd=$1; shift
@@ -42,10 +52,9 @@ case ${cmd:-help} in
 				err "Shortcut '$arg' not allowed here"
 				continue
 			fi
-			arg=${arg#"$urlprefix"}
-			arg=${arg%.git}.git
-			dir=$fsroot/$arg
-			url=$urlprefix${arg%.git}
+			arg=$(argtorepo "$arg")
+			dir=$fsroot/$arg.git
+			url=$urlprefix$arg
 			if ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' already exists"
 				continue
@@ -63,14 +72,12 @@ case ${cmd:-help} in
 		fi
 		old=$1
 		new=$2
-		old=${old#"$urlprefix"}
-		new=${new#"$urlprefix"}
-		old=${old%.git}.git
-		new=${new%.git}.git
-		olddir=$fsroot/$old
-		newdir=$fsroot/$new
-		oldurl=$urlprefix${old%.git}
-		newurl=$urlprefix${new%.git}
+		old=$(argtorepo "$old")
+		new=$(argtorepo "$new")
+		olddir=$fsroot/$old.git
+		newdir=$fsroot/$new.git
+		oldurl=$urlprefix$old
+		newurl=$urlprefix$new
 		if ! ssh $host "test -d ${olddir@Q}"; then
 			err "Source repository '$oldurl' does not exist"
 		elif ssh $host "test -d ${newdir@Q}"; then
@@ -88,13 +95,8 @@ case ${cmd:-help} in
 		else
 			arg=$1 newhead=$2
 		fi
-		if [[ $arg == "." ]]; then
-			url=$(git config remote.origin.url) || exit
-			arg=${url#"$urlprefix"}
-		fi
-		arg=${arg#"$urlprefix"}
-		arg=${arg%.git}.git
-		dir=$fsroot/$arg
+		arg=$(argtorepo "$arg")
+		dir=$fsroot/$arg.git
 		if [[ $newhead ]]; then
 			newhead=refs/heads/${newhead#refs/heads/}
 			info "Setting default branch for '$arg' to '$newhead'"
@@ -111,13 +113,8 @@ case ${cmd:-help} in
 		else
 			arg=$1 newdesc=$2
 		fi
-		if [[ $arg == "." ]]; then
-			url=$(git config remote.origin.url) || exit
-			arg=${url#"$urlprefix"}
-		fi
-		arg=${arg#"$urlprefix"}
-		arg=${arg%.git}.git
-		dir=$fsroot/$arg
+		arg=$(argtorepo "$arg")
+		dir=$fsroot/$arg.git
 		if [[ $newdesc ]]; then
 			info "Setting description for '$arg' to \"$newdesc\""
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
@@ -134,13 +131,8 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo> <upstream>"
 		fi
 		arg=$1 upstream=$2
-		if [[ $arg == "." ]]; then
-			url=$(git config remote.origin.url) || exit
-			arg=${url#"$urlprefix"}
-		fi
-		arg=${arg#"$urlprefix"}
-		arg=${arg%.git}.git
-		dir=$fsroot/$arg
+		arg=$(argtorepo "$arg")
+		dir=$fsroot/$arg.git
 		# Set up parameters for the hourly re-fetch cronjob, which looks for
 		# repositories with a remote that have [Mirror] in their description.
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
@@ -162,9 +154,8 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>"
 		fi
 		arg=$1
-		arg=${arg#"$urlprefix"}
-		arg=${arg%.git}.git
-		dir=$fsroot/$arg
+		arg=$(argtorepo "$arg")
+		dir=$fsroot/$arg.git
 		ssh $host "git -C ${dir@Q} remote remove origin &>/dev/null || true"
 		info "Removed remote 'origin'"
 		if ssh $host "test -s ${dir@Q}/description"; then
@@ -181,14 +172,9 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			if [[ $arg == "." ]]; then
-				url=$(git config remote.origin.url) || exit
-				arg=${url#"$urlprefix"}
-			fi
-			arg=${arg#"$urlprefix"}
-			arg=${arg%.git}.git
-			dir=$fsroot/$arg
-			url=$urlprefix${arg%.git}
+			arg=$(argtorepo "$arg")
+			dir=$fsroot/$arg.git
+			url=$urlprefix$arg
 			# Make world-readable and create the 'export-ok' flag
 			# that both Cgit and git-daemon look for.
 			if ! ssh $host "test -d ${dir@Q}"; then
@@ -211,14 +197,9 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			if [[ $arg == "." ]]; then
-				url=$(git config remote.origin.url) || exit
-				arg=${url#"$urlprefix"}
-			fi
-			arg=${arg#"$urlprefix"}
-			arg=${arg%.git}.git
-			dir=$fsroot/$arg
-			url=$urlprefix${arg%.git}
+			arg=$(argtorepo "$arg")
+			dir=$fsroot/$arg.git
+			url=$urlprefix$arg
 			if ! ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' does not exist"
 				continue
@@ -233,13 +214,8 @@ case ${cmd:-help} in
 			die "Usage: $progname $cmd <repo>..."
 		fi
 		for arg; do
-			if [[ $arg == "." ]]; then
-				url=$(git config remote.origin.url) || exit
-				arg=${url#"$urlprefix"}
-			fi
-			arg=${arg#"$urlprefix"}
-			arg=${arg%.git}.git
-			url="https://git.nullroute.lt/cgit/$arg/"
+			arg=$(argtorepo "$arg")
+			url="https://git.nullroute.lt/cgit/$arg.git/"
 			echo "$arg => $url"
 		done
 		;;

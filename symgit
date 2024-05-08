@@ -27,6 +27,14 @@ repodir() {
 	echo "$fsroot/$repo.git"
 }
 
+repourl() {
+	local repo=$1
+	case $repo in [!a-z]*|*.git)
+		lib:crash "repo should have been canonicalized: $repo"
+	esac
+	echo "$urlprefix$repo"
+}
+
 klist -s || kinit || die "no Kerberos credentials"
 
 cmd=$1; shift
@@ -64,7 +72,7 @@ case ${cmd:-help} in
 			fi
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
-			url=$urlprefix$repo
+			url=$(repourl "$repo")
 			if ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' already exists"
 				continue
@@ -121,7 +129,7 @@ case ${cmd:-help} in
 		elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
 			arg=. newdesc=$1
 		else
-			arg=$1 newdesc=$2
+			arg=$1 newdesc=${2-}
 		fi
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
@@ -184,7 +192,7 @@ case ${cmd:-help} in
 		for arg; do
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
-			url=$urlprefix$repo
+			url=$(repourl "$repo")
 			# Make world-readable and create the 'export-ok' flag
 			# that both Cgit and git-daemon look for.
 			if ! ssh $host "test -d ${dir@Q}"; then
@@ -209,7 +217,7 @@ case ${cmd:-help} in
 		for arg; do
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
-			url=$urlprefix$repo
+			url=$(repourl "$repo")
 			if ! ssh $host "test -d ${dir@Q}"; then
 				err "Repository '$url' does not exist"
 				continue

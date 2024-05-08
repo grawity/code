@@ -46,6 +46,15 @@ flushall() {
 	ssh $host "sudo find /var/cache/cgit -type f -delete"
 }
 
+vusage() {
+	local argc=$1 min=$2 max=$3 text=$4
+	if (( argc > max )); then
+		vdie "excess arguments"
+	elif (( argc < min )); then
+		vdie "usage: $progname $text" >&2
+	fi
+}
+
 klist -s || kinit || die "no Kerberos credentials"
 
 cmd=$1; shift
@@ -55,6 +64,7 @@ set -e
 
 case ${cmd:-help} in
 	help)
+		vusage $# 0 0 "$cmd"
 		echo "Commands:"
 		echo "  ls|list"
 		echo "  new <repo>..."
@@ -68,17 +78,13 @@ case ${cmd:-help} in
 		echo "  cgit-flush"
 		;;
 	ls|list)
-		if (( $# )); then
-			die "Extraneous arguments: '$*'"
-		fi
+		vusage $# 0 0 "$cmd"
 		ssh $host "find '$fsroot/' -type d -name '*.git' -printf '%P\n' -prune" \
 			| sort \
 			| sed "s|^|$urlprefix|; s|\\.git\$||"
 		;;
 	new)
-		if (( $# < 1 )); then
-			die "Usage: $progname $cmd <repo>..."
-		fi
+		vusage $# 1 1 "$cmd <repo>"
 		for arg; do
 			if [[ $arg == "." ]]; then
 				err "Shortcut '$arg' not allowed here"
@@ -98,9 +104,7 @@ case ${cmd:-help} in
 		flushconf
 		;;
 	mv|move|rename)
-		if (( $# != 2 )); then
-			die "Usage: $progname $cmd <old> <new>"
-		fi
+		vusage $# 2 2 "$cmd <old> <new>"
 		old=$1
 		new=$2
 		oldrepo=$(argtorepo "$old")
@@ -120,11 +124,8 @@ case ${cmd:-help} in
 		flushconf
 		;;
 	head)
-		if (( $# < 1 )); then
-			die "Usage: $progname $cmd <repo> <head>"
-		else
-			arg=$1 newhead=$2
-		fi
+		vusage $# 1 2 "$cmd <repo> [<head>]"
+		arg=$1 newhead=${2-}
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		if [[ $newhead ]]; then
@@ -136,9 +137,8 @@ case ${cmd:-help} in
 		fi
 		;;
 	desc|describe)
-		if (( $# < 1 )); then
-			die "Usage: $progname $cmd <repo> [<description>]"
-		elif (( $# == 1 )) && [[ $1 == *\ * ]]; then
+		vusage $# 1 2 "$cmd <repo> [<description>]"
+		if (( $# == 1 )) && [[ $1 == *\ * ]]; then
 			arg=. newdesc=$1
 		else
 			arg=$1 newdesc=${2-}
@@ -157,9 +157,7 @@ case ${cmd:-help} in
 		fi
 		;;
 	mirror)
-		if (( $# != 2 )); then
-			die "Usage: $progname $cmd <repo> <upstream>"
-		fi
+		vusage $# 2 2 "$cmd <repo> <upstream>"
 		arg=$1 upstream=$2
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
@@ -180,9 +178,7 @@ case ${cmd:-help} in
 		ssh $host "echo ${desc@Q} > ${dir@Q}/description"
 		;;
 	unmirror)
-		if (( $# != 1 )); then
-			die "Usage: $progname $cmd <repo>"
-		fi
+		vusage $# 1 1 "$cmd <repo>"
 		arg=$1
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
@@ -198,9 +194,7 @@ case ${cmd:-help} in
 		ssh $host "echo ${desc@Q} > ${dir@Q}/description"
 		;;
 	pub|publish|exp|export)
-		if (( $# < 1 )); then
-			die "Usage: $progname $cmd <repo>..."
-		fi
+		vusage $# 1 1 "$cmd <repo>"
 		for arg; do
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
@@ -223,9 +217,7 @@ case ${cmd:-help} in
 		done
 		;;
 	unpub|unpublish|unexp|unexport)
-		if (( $# < 1 )); then
-			die "Usage: $progname $cmd <repo>..."
-		fi
+		vusage $# 1 1 "$cmd <repo>"
 		for arg; do
 			repo=$(argtorepo "$arg")
 			dir=$(repodir "$repo")
@@ -240,9 +232,7 @@ case ${cmd:-help} in
 		done
 		;;
 	web)
-		if (( $# < 1 )); then
-			die "Usage: $progname $cmd <repo>..."
-		fi
+		vusage $# 1 1 "$cmd <repo>"
 		for arg; do
 			repo=$(argtorepo "$arg")
 			url="https://git.nullroute.lt/cgit/$repo.git/"
@@ -250,13 +240,11 @@ case ${cmd:-help} in
 		done
 		;;
 	flush)
-		if (( $# )); then
-			die "Extraneous arguments: '$*'"
-		fi
+		vusage $# 0 0 "$cmd"
 		flushall
 		;;
 	*)
-		die "Unknown subcommand '$cmd'"
+		vdie "bad command: $cmd"
 		;;
 esac
 

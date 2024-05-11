@@ -1,8 +1,113 @@
 #!/usr/bin/env bash
 # git-up -- fast-forward the latest changes from upstream
 
-if (( ! $# )) && dir=$(git rev-parse --show-cdup); then
-	set -- "$dir"
+# TODO:
+# fetch.output compact
+# merge.stat off
+
+. lib.bash || exit
+
+log:() {
+	"$@" || err "command '$1' failed (status $?)"
+}
+
+svnsync() {
+	local lib=$(which libfunsync.so 2>/dev/null)
+
+	if [[ -f $lib ]]; then
+		env LD_PRELOAD="$lib" svnsync "$@"
+	else
+		env svnsync "$@"
+	fi
+}
+
+update() {
+	# If we're running in a subdir
+	dir=$(git rev-parse --show-cdup) && cd "$dir" || return
+
+	if [[ -d .git/svn ]]; then
+		if remote=$(git config --get svn-remote.svn.url); then
+			rroot=$(log: svn info "$remote" | sed -n 's/^Repository Root: //p')
+			if [[ $rroot == file://* ]]; then
+				log: svnsync sync "$rroot"
+			fi
+		fi
+		ref=$(git config --get svn-remote.svn.fetch)
+		ref=${ref#*:}
+		ref=${ref:-refs/remotes/git-svn}
+		old=$(git rev-parse --verify HEAD)
+		log: git svn fetch &&
+		log: git merge --ff-only "$ref" || return
+		new=$(git rev-parse --verify HEAD)
+	elif [[ -e .git ]]; then
+		sparse=$(git config --type bool core.sparseCheckout || echo false)
+		case $sparse in
+			true) recurseopt='--recurse-submodules=no';;
+			*) recurseopt='';
+		esac
+		old=$(git rev-parse --verify HEAD)
+		log: git pull --ff-only --no-stat $recurseopt || return
+		new=$(git rev-parse --verify HEAD)
+		if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
+			log: git submodule update
+		fi
+	elif [[ "$(git config core.bare)" == "true" ]]; then
+		old=$(git rev-parse --verify HEAD)
+		git fetch || return
+		new=$(git rev-parse --verify HEAD)
+	fi
+
+	if [[ "$old" != "$new" ]] && (( opt_stat || opt_tig )); then
+		local diff_paths=(:!{fuzz,test\*,vendor}/)
+		mapfile -t -O ${#diff_paths[@]} diff_paths \
+			< <(git config --get-all nullroute.git-new.paths)
+		local diff_args=("$old..$new" -- "${diff_paths[@]}")
+
+		if (( opt_stat )); then
+			git --no-pager diff --stat "${diff_args[@]}"
+		fi
+
+		if (( opt_tig )); then
+			revs=$(git rev-list --count "${diff_args[@]}")
+			# Only run tig if there are commits to show, as
+			# otherwise it still triggers the 'focus' \e[I and
+			# there's no Bash prompt to consume that.
+			if (( revs )); then
+				local tig_opts=()
+				mapfile -t tig_opts \
+					< <(git config --get-all nullroute.git-new.options)
+				tig "${tig_opts[@]}" "${diff_args[@]}" || true
+			else
+				vmsg "no interesting commits to show"
+			fi
+		fi
+	fi
+}
+
+usage() {
+	echo "Usage: $progname [<dir>...]"
+}
+
+set -u
+
+opt_stat=0
+opt_tig=1
+
+if (( ${PULL_DIFFSTAT-} )); then
+	opt_stat=1
 fi
-pull -t "$@"
-# TODO: handle bare repos, both here and in 'pull'
+if (( ${PULL_NONINTERACTIVE-} )); then
+	opt_tig=0
+fi
+
+while getopts : OPT; do
+	case $OPT in
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
+(( $# )) || set -- .
+
+for arg; do
+	(cd "$arg" && update)
+done

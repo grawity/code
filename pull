@@ -1,82 +1,14 @@
 #!/usr/bin/env bash
 # pull - update version control repositories to latest upstream versions
 
-# fetch.output compact
-# merge.stat off
-
 . lib.bash || exit
 
-set -u
-
-log:() {
-	"$@" || err "command '$1' failed (status $?)"
-}
-
-svnsync() {
-	local lib=$(which libfunsync.so 2>/dev/null)
-
-	if [[ -f $lib ]]; then
-		env LD_PRELOAD="$lib" svnsync "$@"
-	else
-		env svnsync "$@"
-	fi
-}
-
 do_git() {
-	if [[ -d .git/svn ]]; then
-		if remote=$(git config --get svn-remote.svn.url); then
-			rroot=$(log: svn info "$remote" | sed -n 's/^Repository Root: //p')
-			if [[ $rroot == file://* ]]; then
-				log: svnsync sync "$rroot"
-			fi
-		fi
-		ref=$(git config --get svn-remote.svn.fetch)
-		ref=${ref#*:}
-		ref=${ref:-refs/remotes/git-svn}
-		old=$(git rev-parse --verify HEAD)
-		log: git svn fetch &&
-		log: git merge --ff-only "$ref" || return
-		new=$(git rev-parse --verify HEAD)
-	elif [[ -e .git ]]; then
-		sparse=$(git config --type bool core.sparseCheckout || echo false)
-		case $sparse in
-			true) recurseopt='--recurse-submodules=no';;
-			*) recurseopt='';
-		esac
-		old=$(git rev-parse --verify HEAD)
-		log: git pull --ff-only --no-stat $recurseopt || return
-		new=$(git rev-parse --verify HEAD)
-		if [[ -e .gitmodules ]] && [[ $sparse != true ]]; then
-			log: git submodule update
-		fi
-	elif [[ "$(git config core.bare)" == "true" ]]; then
-		old=$(git rev-parse --verify HEAD)
-		git fetch || return
-		new=$(git rev-parse --verify HEAD)
+	export PULL_DIFFSTAT=1
+	if (( !opt_tig )); then
+		export PULL_NONINTERACTIVE=1
 	fi
-
-	if [[ "$old" != "$new" ]]; then
-		local diff_paths=(:!{fuzz,test\*,vendor}/)
-		mapfile -t -O ${#diff_paths[@]} diff_paths \
-			< <(git config --get-all nullroute.git-new.paths)
-		local diff_args=("$old..$new" -- "${diff_paths[@]}")
-		git --no-pager diff --stat "${diff_args[@]}"
-
-		if (( opt_tig )); then
-			revs=$(git rev-list --count "${diff_args[@]}")
-			# Only run tig if there are commits to show, as
-			# otherwise it still triggers the 'focus' \e[I and
-			# there's no Bash prompt to consume that.
-			if (( revs )); then
-				local tig_opts=()
-				mapfile -t tig_opts \
-					< <(git config --get-all nullroute.git-new.options)
-				tig "${tig_opts[@]}" "${diff_args[@]}" || true
-			else
-				vmsg "no interesting commits to show"
-			fi
-		fi
-	fi
+	git-up
 }
 
 do_pullfile() {
@@ -173,6 +105,8 @@ usage() {
 	echo_opt "-nn"	"dry run (do not recurse)"
 	echo_opt "-t"	"immediately run 'tig' to browse commits"
 }
+
+set -u
 
 # Remember original starting directory for displaying subdirs
 _PULL_STARTDIR=$PWD

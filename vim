@@ -1,7 +1,7 @@
 #!/bin/sh
 if [ -x /usr/bin/nvim ]; then
-	exec /usr/bin/nvim -d "$@"
+	exec /usr/bin/nvim "$@"
 else
 	echo "$0: nvim not found" >&2
-	exec /usr/bin/vimdiff "$@"
+	exec /usr/bin/vim "$@"
 fi

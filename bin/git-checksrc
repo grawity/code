@@ -30,6 +30,7 @@ if [[ "$fetch" == "+refs/*:refs/*" ]]; then
 			done
 			if (( ${#refs[@]} )) && confirm "purge refs?"; then
 				for ref in "${refs[@]}"; do
+					vmsg "removing junk ref: $ref"
 					git update-ref -d "$ref"
 				done
 			fi
@@ -46,6 +47,7 @@ if [[ -e .github/dependabot.yml ]]; then
 	addconfig remote.origin.fetch "^refs/heads/dependabot/*"
 	git for-each-ref --format="%(refname)" "refs/remotes/*/dependabot/**" | {
 		while read -r ref; do
+			vmsg "removing junk ref: $ref"
 			git update-ref -d "$ref"
 		done
 	}

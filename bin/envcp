@@ -7,15 +7,16 @@ def read_env(pid):
     env = None
     try:
         with open("/proc/%d/environ" % pid, "rb") as fd:
-            env = parse_env(fd)
+            env = parse_env(fd.read())
     except IOError as e:
-        with subprocess.Popen(["sudo", "cat", "/proc/%d/environ" % pid],
-                              stdout=subprocess.PIPE) as proc:
-            env = parse_env(proc.stdout)
+        res = subprocess.run(["sudo", "cat", "/proc/%d/environ" % pid],
+                             stdout=subprocess.PIPE,
+                             check=True)
+        env = parse_env(res.stdout)
     return env
 
-def parse_env(fd):
-    env = fd.read().split(b'\0')
+def parse_env(buf):
+    env = buf.split(b'\0')
     return dict(k.split(b'=', 1) for k in env if k != b'')
 
 parser = argparse.ArgumentParser()

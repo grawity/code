@@ -2,11 +2,7 @@
 # envcp -- read environment of a running process
 import argparse
 import os
-
-def read_env(pid):
-    with open("/proc/%d/environ" % pid, "rb") as fd:
-        buf = fd.read()
-    return parse_env(buf)
+import subprocess
 
 def parse_env(buf):
     env = buf.split(b"\0")
@@ -14,6 +10,11 @@ def parse_env(buf):
 
 parser = argparse.ArgumentParser()
 parser.description = "Get environment variables from a running process."
+# This is different from `sudo envcp` as it allows the command to still be run
+# with the invoker's privileges.
+parser.add_argument("-s", "--sudo",
+                        action="store_true",
+                        help="read environment with root privileges")
 parser.add_argument("pid",
                         metavar="<pid>",
                         type=int,
@@ -25,7 +26,18 @@ parser.add_argument("command",
                         help="command to run with the new environment")
 args = parser.parse_args()
 
-env = read_env(args.pid)
+file = "/proc/%d/environ" % args.pid
+try:
+    with open(file, "rb") as fd:
+        buf = fd.read()
+except PermissionError as e:
+    if args.sudo:
+        res = subprocess.run(["sudo", "cat", file], stdout=subprocess.PIPE)
+        buf = res.stdout
+    else:
+        exit("envcp: %s" % e)
+
+env = parse_env(buf)
 if not env:
     exit("envcp: environment was empty")
 

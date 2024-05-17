@@ -2,17 +2,10 @@
 # envcp -- read environment of a running process
 import argparse
 import os
-import subprocess
 
 def read_env(pid):
-    try:
-        with open("/proc/%d/environ" % pid, "rb") as fd:
-            buf = fd.read()
-    except PermissionError:
-        res = subprocess.run(["sudo", "cat", "/proc/%d/environ" % pid],
-                             stdout=subprocess.PIPE,
-                             check=True)
-        buf = res.stdout
+    with open("/proc/%d/environ" % pid, "rb") as fd:
+        buf = fd.read()
     return parse_env(buf)
 
 def parse_env(buf):

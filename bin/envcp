@@ -4,20 +4,19 @@ import os
 import subprocess
 
 def read_env(pid):
-    env = None
     try:
         with open("/proc/%d/environ" % pid, "rb") as fd:
-            env = parse_env(fd.read())
+            buf = fd.read()
     except IOError as e:
         res = subprocess.run(["sudo", "cat", "/proc/%d/environ" % pid],
                              stdout=subprocess.PIPE,
                              check=True)
-        env = parse_env(res.stdout)
-    return env
+        buf = res.stdout
+    return parse_env(buf)
 
 def parse_env(buf):
-    env = buf.split(b'\0')
-    return dict(k.split(b'=', 1) for k in env if k != b'')
+    env = buf.split(b"\0")
+    return dict(k.split(b"=", 1) for k in env if k != b"")
 
 parser = argparse.ArgumentParser()
 parser.description = "Get environment variables from a running process."

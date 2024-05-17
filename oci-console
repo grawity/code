@@ -165,15 +165,22 @@ class OciRcons():
         self._delete_console(conn)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-i", "--ssh-key", default="~/.ssh/id_rsa")
-parser.add_argument("instance_name", nargs="?")
+parser.description = "Connect to the serial console of an Oracle Cloud VM."
+parser.add_argument("-i",
+                        metavar="<path>",
+                        dest="ssh_key",
+                        default="~/.ssh/id_rsa",
+                        help="specify path to SSH keypair")
+parser.add_argument("instance",
+                        nargs="?",
+                        help="instance name to connect")
 args = parser.parse_args()
 
 rc = OciRcons()
-if args.instance_name:
+if args.instance:
     ssh_privkey = os.path.expanduser(args.ssh_key)
     with open(f"{ssh_privkey}.pub", "r") as fh:
         ssh_pubkey = fh.read()
-    rc.do_connect_instance(args.instance_name, ssh_pubkey)
+    rc.do_connect_instance(args.instance, ssh_pubkey)
 else:
     rc.do_list_instances()

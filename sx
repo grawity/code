@@ -1,37 +1,44 @@
 #!/usr/bin/env bash
 # sx -- start X11
 
+. lib.bash || exit
+
+fdisplay() {
+	local i=0
+	while [ -e /tmp/.X$i-lock ] || [ -e /tmp/.X11-unix/X$i ]; do
+		let i++
+	done
+	echo ":$i"
+}
+
 if [ "$DISPLAY" ]; then
-	echo "${0##*/}: already have an X display" >&2
-	exit 1
+	vdie "already have an X display"
 fi
 
 if ! [ -O "$XDG_RUNTIME_DIR" ]; then
-	echo "${0##*/}: XDG_RUNTIME_DIR missing or not owned" >&2
-	exit 1
+	vdie "XDG_RUNTIME_DIR missing or not owned"
 fi
 
 if ! vt="vt$(fgconsole)"; then
-	echo "${0##*/}: could not determine current virtual terminal" >&2
-	exit 1
+	vdie "could not determine current virtual terminal"
 fi
 
 cd ~
 unset SHLVL
+export DISPLAY=$(fdisplay)
 
-export DISPLAY=$(i=0;
-	while [ -e /tmp/.X$i-lock ] || [ -e /tmp/.X11-unix/X$i ]; do
-		i=$((i+1))
-	done;
-	echo ":$i")
-
+# Prevent an xauth message about absent file
 touch "${XAUTHORITY:-"$HOME/.Xauthority"}"
+
+# Add cookie for current display if missing
 cookie=$(xauth -n list "$DISPLAY" | awk '{print $3}')
 if ! test "$cookie"; then
 	cookie=$(mcookie)
 	xauth -q add "$DISPLAY" . "$cookie"
 fi
 
+# The Xserver accepts any cookie it finds in the file, so it
+# must be given only the specific one for this display.
 serverauth=$(mktemp /tmp/serverauth.XXXXXXXX) || exit
 xauth -f "$serverauth" add :0 . "$cookie"
 

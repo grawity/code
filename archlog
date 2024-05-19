@@ -6,7 +6,7 @@
 basedir="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
 verbose=0
 
-while getopts ":v" OPT; do
+while getopts :v OPT; do
 	case $OPT in
 	v) verbose=1;;
 	*) lib:die_getopts;;
@@ -14,7 +14,7 @@ while getopts ":v" OPT; do
 done; shift $((OPTIND-1))
 
 if (( ! $# )); then
-	die "package name not specified"
+	vdie "package name not specified"
 fi
 
 if [[ ! -d $basedir ]]; then
@@ -37,8 +37,8 @@ for pkg; do
 
 	# Update the repository
 	if [[ ! -d $dir ]]; then
-		vmsg "initial clone of '$pkg'"
-		git clone "$url" "$dir"
+		vmsg "cloning '$pkg'"
+		git clone --quiet "$url" "$dir"
 	else
 		vmsg "updating '$pkg'"
 		git -C "$dir" pull --quiet --ff-only

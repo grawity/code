@@ -12,39 +12,34 @@ highlight() {
 }
 
 if have certtool; then
-	use='certtool'
+	mode=certtool
 elif have openssl; then
-	use='openssl'
+	mode=openssl
 elif have certutil; then
-	use='nss-certutil'
+	mode=nsscertutil
 else
-	die "no GnuTLS or OpenSSL tools present"
+	vdie "no supported tool found"
 fi
 
-while getopts ':gno' OPT; do
+while getopts :gno OPT; do
 	case $OPT in
-	g) use='certtool';;
-	n) use='nss-certutil';;
-	o) use='openssl';;
+	g) mode=certtool;;
+	n) mode=nsscertutil;;
+	o) mode=openssl;;
 	*) lib:die_getopts;;
 	esac
-done; shift $((OPTIND-1))
+done; shift $[OPTIND-1]
 
 if (( ! $# )); then
 	set -- /dev/stdin
 fi
 
-unset temp
-
 for file; do
-	debug "processing '$file'"
-	if [[ "$file" == "-" || "$file" == "/dev/stdin" ]]; then
-		if [[ ! "$temp" ]]; then
-			temp=$(mktemp "/tmp/x509_XXXXXXXX")
-		fi
-		debug "- copying stdin to temporary file"
-		cat > "$temp"
-		file="$temp"
+	tempfile=""
+	if [[ $file == - || $file == /dev/stdin ]]; then
+		tempfile=$(mktemp /tmp/x509.XXXXXXXX)
+		file=$tempfile
+		cat > "$tempfile"
 	fi
 
 	der=0
@@ -53,14 +48,12 @@ for file; do
 		der=1
 	fi
 
-	args=()
-	unset arg
-	case $use in
-	'certtool')
+	case $mode in
+	certtool)
+		arg=""
 		if (( der )); then
 			arg="--inder"
 		fi
-		debug "- calling 'certtool${arg:+ }$arg'"
 		certtool $arg -i < "$file" |
 			sed -r '/^-----BEGIN/,/^-----END/d' |
 			awk '
@@ -78,32 +71,31 @@ for file; do
 			' |
 			highlight '/^X\.509 Certificate /'
 		;;
-	'openssl')
+	openssl)
+		arg=""
 		if (( der )); then
 			arg+=" -inform DER"
 		fi
 		arg+=" -nameopt RFC2253"
 		arg+=" -nameopt sep_comma_plus_space"
-		debug "- calling 'openssl x509${arg:+ }$arg'"
 		openssl x509 -noout -text -certopt no_sigdump $arg < "$file" |
 			awk '/Exponent:/ {m=0} !m {print} /Modulus:/ {m=1}' |
 			highlight '/^Certificate/'
 		;;
-	'nss-certutil')
-		db=$(mktemp -d /tmp/nss.XXXXXXXX)
+	nsscertutil)
+		tempdb=$(mktemp -d /tmp/x509.XXXXXXXX)
 		name="Temporary X.509 certificate"
-		certutil -A -d "$db" -i "$file" -n "$name" -t ",,"
-		certutil -L -d "$db" -n "$name" |
+		certutil -A -d "$tempdb" -i "$file" -n "$name" -t ",,"
+		certutil -L -d "$tempdb" -n "$name" |
 			awk '/Exponent:/ {m=0} !m {print} /Modulus:/ {m=1}' |
 			awk '!m {print} /Signature:/ {m=1} !/:$/ {m=0}' |
 			awk '/Certificate Trust Flags:/ {m=1} !m {print} /^$/ {m=0}' |
 			highlight '/^Certificate/'
-		rm -rf "$db"
+		rm -rf "$tempdb"
 		;;
 	esac
-done
 
-if [[ "$temp" ]]; then
-	debug "removing temp file '$temp'"
-	rm -f "$temp"
-fi
+	if [[ $tempfile ]]; then
+		rm -f "$tempfile"
+	fi
+done

@@ -26,7 +26,7 @@ printf '\e[c' # returns '\e[?XXXc'
 if read -r -d '?' -t 2 ans1 &&
    read -r -d 'c' -t 2 ans2; then
 	ans="${ans1}?${ans2}c"
-	re=$'^\e\\]11;(rgb:([[:alnum:]]+)/([[:alnum:]]+)/([[:alnum:]]+))\e'
+	re=$'^\e\\]11;(rgb:([[:alnum:]]+)/([[:alnum:]]+)/([[:alnum:]]+))[\a\e]'
 	if [[ $ans1 =~ $re ]]; then
 		declare -i r="0x${BASH_REMATCH[2]}"
 		declare -i g="0x${BASH_REMATCH[3]}"
@@ -54,7 +54,7 @@ if read -r -d '?' -t 2 ans1 &&
 		*)		usage >&2; exit 2;;
 		esac
 	else
-		echo "${0##*/}: Invalid reply from terminal: ${ans@Q}" >&2
+		echo "${0##*/}: Invalid reply from terminal: ${ans1@Q}" >&2
 		exit 3
 	fi
 else

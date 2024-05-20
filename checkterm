@@ -36,12 +36,14 @@ stty -echo
 printf '\e[c'
 if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
 	ans="${ans1}?${ans2}c"
-	if [[ $ans == *$'\e[?1;2c' && $arg_wanted == juicessh ]]; then
+	if [[ $ans == *$'\e[?1;2c' ]]; then
 		# This is probably JuiceSSH, so exit immediately without doing
 		# the full query.
-		exit 0
-	else
-		exit 1
+		if [[ $arg_wanted == juicessh ]]; then
+			exit 0
+		else
+			exit 1
+		fi
 	fi
 else
 	echo "${0##*/}: did not receive Primary DA reply from terminal" >&2

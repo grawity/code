@@ -18,16 +18,18 @@ trap "stty echo" EXIT
 stty -echo
 
 # Hack to detect terminals that fail to parse the Secondary DA query
-printf '\e[c'
-if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
-	ans="${ans1}?${ans2}c"
-	if [[ $ans == *$'\e[?1;2c' ]]; then
-		# Probably JuiceSSH -- definitely not PuTTY
-		exit 1
+if [[ $COLORTERM != truecolor ]]; then
+	printf '\e[c'
+	if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
+		ans="${ans1}?${ans2}c"
+		if [[ $ans == *$'\e[?1;2c' ]]; then
+			# Probably JuiceSSH -- definitely not PuTTY
+			exit 1
+		fi
+	else
+		echo "${0##*/}: Did not receive Primary DA reply from terminal" >&2
+		exit 4
 	fi
-else
-	echo "${0##*/}: Did not receive Primary DA reply from terminal" >&2
-	exit 4
 fi
 
 printf '\e[>c\e[c'

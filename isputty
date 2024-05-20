@@ -14,18 +14,16 @@ elif [[ $TERM != @(xterm|xterm-*) ]]; then
 	exit 1
 fi
 
+trap "stty echo" EXIT
 stty -echo
+
 printf '\e[>c\e[c'
-if read -r -s -d '?' -t 2 ans1 &&
-   read -r -s -d 'c' -t 2 ans2; then
+if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
 	ans="${ans1}?${ans2}c"
 	# Discard any buffered type-ahead input
 	ans=$'\e'${ans#*$'\e'}
 	test "$ans" = $'\e[>0;136;0c\e[?6c'
-	err=$?
 else
 	echo "${0##*/}: Did not receive Primary DA reply from terminal" >&2
-	err=4
+	exit 4
 fi
-stty echo
-exit $err

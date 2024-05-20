@@ -28,26 +28,41 @@ elif [[ $TERM != @(xterm|xterm-*) ]]; then
 	exit 1
 fi
 
-# Request Secondary DA and Primary DA
+trap "stty echo" EXIT
 stty -echo
-printf '\e[>c\e[c'
 
-# TODO: Raw JuiceSSH completely botches Secondary DA and stops parsing at \e[>,
-# leading to the 'c' being visible on screen. It might be necessary to query
-# Primary DA separately first, and then do the full query again...
+# Request Primary DA to detect JuiceSSH (which fails to parse Secondary DA
+# query and leaves the 'c' visible on screen).
+printf '\e[c'
+if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
+	ans="${ans1}?${ans2}c"
+	if [[ $ans == *$'\e[?1;2c' && $arg_wanted == juicessh ]]; then
+		# This is probably JuiceSSH, so exit immediately without doing
+		# the full query.
+		exit 0
+	else
+		exit 1
+	fi
+else
+	echo "${0##*/}: did not receive Primary DA reply from terminal" >&2
+	exit 4
+fi
+
+# Request Secondary DA (and Primary DA, to avoid hang on terminals that fail to
+# answer the former).
+printf '\e[>c\e[c'
 
 if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
 	ans="${ans1}?${ans2}c"
-	case $ans=$arg_wanted in
-		*$'\e[>0;136;0c\e[?6c'=putty)		err=0;;
-		*$'\e[>1;10;0c\e[?62c'=juicessh)	err=0;; # actually Mosh
-		*$'\e[?1;2c'=juicessh)			err=0;; # real JuiceSSH
-		*)					err=1;;
-	esac
+	if [[ $ans == *$'\e[>0;136;0c\e[?6c' && $arg_wanted == putty ]]; then
+		exit 0
+	elif [[ $ans == *$'\e[>1;10;0c\e[?62c' && $arg_wanted == juicessh ]]; then
+		# This actually detects Mosh
+		exit 0
+	else
+		exit 1
+	fi
 else
-	echo "${0##*/}: Did not receive Primary DA reply from terminal" >&2
-	err=4
+	echo "${0##*/}: did not receive Primary DA reply from terminal" >&2
+	exit 4
 fi
-
-stty echo
-exit $err

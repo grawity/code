@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
-# checkterm -- Check whether xterm is being emulated by PuTTY
+# checkterm -- Check whether xterm is being emulated by PuTTY/Mosh/JuiceSSH
 #
-# This is needed for things like Neovim, which strictly adhere to terminfo data
-# and do not recognize the (or rather, incorrectly recognize) Home/End keys,
-# which PuTTY sends as \e[1~ and \e[4~ whereas terminfo(xterm-256color) says
-# khome/kend are \eOH and \eOF respectively.
+# - PuTTY detection is needed for things like Neovim, which strictly adhere
+#   to terminfo data and do not recognize (or rather, incorrectly recognize)
+#   the Home/End keys, which PuTTY sends as \e[1~ and \e[4~ whereas terminfo
+#   (xterm-256color) says khome/kend are \eOH and \eOF respectively.
+#
+# - Mosh/JuiceSSH detection is also used for Neovim to tell it whether to avoid
+#   'tgc' truecolor mode (which Mosh doesn't support, but apparently Neovim
+#   detects it as capable regardless).
+#
+# Note: Strictly speaking, 'checkterm juicessh' is written in a way that it
+# primarily detects Mosh, with the actual JuiceSSH detection being only a side
+# effect, but the use case is identical for both.
 
 usage() {
 	echo "Usage: ${0##*/} {juicessh|putty}"
@@ -35,7 +43,7 @@ stty -echo
 # query and leaves the 'c' visible on screen).
 if [[ ! $COLORTERM ]]; then
 	# Request also the Xterm "Report background color" OSC, to rule out
-	# e.g. Nvim :terminal over SSH (which reports the same Primary DA).
+	# e.g. Nvim :terminal (which reports the same Primary DA).
 	printf '\e]11;?\e\\'
 	printf '\e[c'
 	if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then

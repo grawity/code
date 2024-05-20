@@ -19,13 +19,13 @@
 #      need to do any of this for it anymore.
 
 usage() {
-	echo "Usage: ${0##*/} {juicessh|putty}"
+	echo "Usage: ${0##*/} {juicessh|mosh|putty}"
 }
 
 if (( $# != 1 )); then
 	usage >&2
 	exit 2
-elif [[ $1 != @(juicessh|putty) ]]; then
+elif [[ $1 != @(juicessh|mosh|putty) ]]; then
 	echo "${0##*/}: Unknown terminal '$1'" >&2
 	exit 2
 fi
@@ -76,7 +76,7 @@ if read -r -d '?' -t 2 ans1 && read -r -d 'c' -t 2 ans2; then
 	ans="${ans1}?${ans2}c"
 	if [[ $ans == *$'\e[>0;136;0c\e[?6c' && $arg_wanted == putty ]]; then
 		exit 0
-	elif [[ $ans == *$'\e[>1;10;0c\e[?62c' && $arg_wanted == juicessh ]]; then
+	elif [[ $ans == *$'\e[>1;10;0c\e[?62c' && $arg_wanted == @(mosh|juicessh) ]]; then
 		# This actually detects Mosh, but both have the same lack of
 		# truecolor support so it does the job well enough.
 		exit 0

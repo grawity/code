@@ -67,6 +67,7 @@ borg_args = [
     "--stats",
     "--one-file-system",
     "--exclude-caches",
+    "--exclude-nodump",
     "--exclude-if-present=.nobackup",
     "--keep-exclude-tags",
 ]

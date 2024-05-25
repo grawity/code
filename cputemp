@@ -82,7 +82,7 @@ class Sensor:
             return temp / 1000
 
     @classmethod
-    def find_hwmon_by_name(self, name):
+    def find_hwmon_by_name(cls, name):
         for dev in glob("/sys/class/hwmon/hwmon*"):
             if os.path.exists("%s/name" % dev):
                 with open("%s/name" % dev, "r") as fh:
@@ -92,8 +92,8 @@ class Sensor:
         raise RuntimeError("no %r hwmon device found" % name)
 
     @classmethod
-    def find_sensor(self):
-        dev = self.find_hwmon_by_name("coretemp")
+    def find_sensor(cls):
+        dev = cls.find_hwmon_by_name("coretemp")
 
         subdev = None
         subdev_pkg = None
@@ -272,8 +272,8 @@ else:
               file=sys.stderr)
     print(f"Using sensor {sensor.subdev} ({sensor.devname}:{sensor.label})",
           file=sys.stderr)
+    m = MeterBar(interval=args.interval)
     try:
-        m = MeterBar(interval=args.interval)
         signal.signal(signal.SIGQUIT, lambda s, f: m.print_stats(True))
         while True:
             if m.last_temp:

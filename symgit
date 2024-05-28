@@ -12,9 +12,10 @@ argtorepo() {
 	if [[ $arg == . ]]; then
 		arg=$(git config remote.origin.url)
 	fi
-	case $arg in *://*|?*:*)
+	if [[ $arg == *:* && $arg != @(:*|%:*) ]]; then
 		vdie "not a symgit repo: $arg"
-	esac
+	fi
+	arg=${arg#'%'}
 	arg=${arg#$urlprefix}
 	case $arg in [!A-Za-z_]*|*/|"")
 		vdie "bad repository name: $arg"

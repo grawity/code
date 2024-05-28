@@ -43,8 +43,10 @@ if args.ip4 + args.ip6 > 1:
 
 if "/" in args.interface:
     # Convenience shortcut to output the peer of a /30 or /31
+    ifname = None
     addrs = [(ipaddress.ip_interface(args.interface), None)]
 else:
+    ifname = args.interface
     addrs = [*get_ip_addrs(args.interface)]
 
 ip4 = [(a, p) for (a, p) in addrs if a.version == 4]
@@ -53,6 +55,12 @@ ip6 = [(a, p) for (a, p) in addrs if a.version == 6]
 addrs = (ip4 if args.ip4 else
          ip6 if args.ip6 else
          ip4 + ip6)
+
+if not addrs:
+    if ifname:
+        exit(f"ifpeer: Interface has no IP addresses of requested version")
+    else:
+        exit(f"ifpeer: Requested IP version contradicts specified address")
 
 peers = []
 
@@ -88,4 +96,8 @@ for peer in peers:
         break
 
 if not peers:
-    exit(f"ifpeer: No point-to-point links found on interface '{args.interface}'")
+    # Don't show a redundant message if we were explicitly given one address
+    if ifname:
+        exit(f"ifpeer: No point-to-point links found on interface '{ifname}'")
+    else:
+        exit(1)

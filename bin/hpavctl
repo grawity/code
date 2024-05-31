@@ -21,6 +21,36 @@ usage() {
 	done
 }
 
+put_header() {
+	local label=$1
+	declare -ig nheaders
+	if (( nheaders++ )); then
+		printf "\n"
+	fi
+	printf "\e[1m%s\e[m\n" "$label"
+}
+
+put_row() {
+	local label=$1 text=$2 args=("${@:3}")
+	printf "   %-14s $text\n" "$label" "${args[@]}"
+}
+
+put_mac_row() {
+	local label=$1 mac=$2
+	local vendor=$(_get_vendor "$mac")
+	local location=${locations[$mac]}
+	local model=${models[$mac]}
+	put_row "$label" "\e[4m%s\e[m \e[38;5;8m%s\e[m" "$mac" "$vendor"
+	if [[ $location ]]; then
+		location=" └─$location"
+	fi
+	if [[ $location && $model ]]; then
+		put_row "" "%s" "$location ($model)"
+	elif [[ $location ]]; then
+		put_row "" "%s" "$location"
+	fi
+}
+
 pretty_nw_info() {
 	local hed tail
 	while read -r head tail; do
@@ -30,28 +60,30 @@ pretty_nw_info() {
 		NID)
 			set -- NID "$@"
 			while (( $# )); do kv[$1]=$2; shift; shift; done
-			echo "Network ID: ${kv[NID]} (short: ${kv[SNID]})"
+			put_header "Network:"
+			put_row "Network ID:" "%s" "${kv[NID]} (${kv[SNID]})"
 			;;
 		CCO)
-			printf "\n"
-			printf "\e[1m* %s\e[m\n" "Central Coordinator:" ;;&
+			put_header "Central Coordinator:"
+			;;&
 		STA)
-			printf "\n"
-			printf "\e[1m* %s\e[m\n" "Station:" ;;&
+			put_header "Station:"
+			;;&
 		CCO|STA)
-			while (( $# )); do kv[$1]=$2; shift; shift; done
-			local location=${locations[${kv[MAC]}]}
-			local model=${models[${kv[MAC]}]}
-			[[ ${kv[MAC]} ]] &&
-			printf "   MAC address: \e[38;5;10m%s\e[m \e[38;5;8m%s\e[m\n" "${kv[MAC]}" "$(_get_vendor ${kv[MAC]})"
-			[[ $location || $model ]]  &&
-			printf "   Description: \e[38;5;11m%s\e[m \e[36m(%s)\e[m\n" "$location" "$model"
-			[[ ${kv[TX]} ]] && tx=$[10#${kv[TX]}]
-			[[ ${kv[RX]} ]] && rx=$[10#${kv[RX]}]
-			[[ ${kv[TX]} && ${kv[RX]} ]] &&
-			printf "   Speed:       %s Mbps TX / %s Mbps RX\n" "$tx" "$rx"
-			[[ ${kv[BDA]} ]] &&
-			printf "   Bridged to:  %s \e[38;5;8m%s\e[m\n" "${kv[BDA]}" "$(_get_vendor ${kv[BDA]})"
+			while (( $# )); do
+				kv[$1]=$2; shift; shift
+			done
+			if [[ ${kv[MAC]} ]]; then
+				put_mac_row "MAC address:" "${kv[MAC]}"
+			fi
+			if [[ ${kv[BDA]} ]]; then
+				put_mac_row "Bridged to:" "${kv[BDA]}"
+			fi
+			if [[ ${kv[TX]} && ${kv[RX]} ]]; then
+				local tx=$[10#${kv[TX]}]
+				local rx=$[10#${kv[RX]}]
+				put_row "Speed:" "%s Mbps TX / %s Mbps RX" "$tx" "$rx"
+			fi
 			;;
 		esac
 	done

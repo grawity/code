@@ -7,9 +7,10 @@ spawn -noecho telnet {*}$argv
 
 interact {
 	# Exit on Ctrl-]
-	"\035" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
-	# Exit on Ctrl-Backslash
-	"\034" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
+	"\035\035" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
+	# Use Ctrl-Backslash to escape itself and Ctrl-]
+	"\034\034" { send_user "\033\[1m^\\\033\[m"; send "\034" }
+	"\034\035" { send_user "\033\[1m^]\033\[m"; send "\035" }
 	# Translate Backspace to ^H
 	"\177" { send "\010" }
 }

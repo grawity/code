@@ -1,0 +1,15 @@
+#!/usr/bin/env expect
+# htelnet -- telnet to a host that wants ^H for Backspace
+
+spawn -noecho telnet {*}$argv
+
+interact {
+	# Exit on Ctrl-] because the telnet> prompt doesn't like ^H
+	# (this could be solved by changing 'erase' for the pty that
+	# expect creates, but this will do)
+	"\035" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
+	# Exit on Ctrl-Backslash
+	"\034" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
+	# Translate Backspace to ^H
+	"\177" { send "\010" }
+}

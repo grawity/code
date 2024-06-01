@@ -1,16 +1,19 @@
 #!/usr/bin/env expect
 # htelnet -- telnet to a host that wants ^H for Backspace
 
+# Let `telnet` understand ^H at its own telnet> prompt
 set stty_init "erase ^H"
 
-spawn -noecho telnet {*}$argv
+spawn -noecho /usr/bin/telnet {*}$argv
 
 interact {
-	# Exit on Ctrl-]
-	"\035\035" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
-	# Use Ctrl-Backslash to escape itself and Ctrl-]
-	"\034\034" { send_user "\033\[1m^\\\033\[m"; send "\034" }
-	"\034\035" { send_user "\033\[1m^]\033\[m"; send "\035" }
 	# Translate Backspace to ^H
 	"\177" { send "\010" }
+
+	# Exit on Ctrl-] Ctrl-]
+	"\035\035" { send_user "\033\[1m<Disconnecting>\033\[m\n"; exit }
+
+	# Use Ctrl-Backslash to escape itself and Ctrl-]
+	"\034\034" { send "\034" }
+	"\034\035" { send "\035" }
 }

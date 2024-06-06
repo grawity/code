@@ -61,9 +61,10 @@ def ask_credentials_zenity(host, title):
                           "--add-password", "Password:",
                           "--separator", "\n"],
                          stdout=subprocess.PIPE)
-    logging.debug("Zenity output: %r", res.stdout)
-    username, password, _ = res.stdout.decode().split("\n")
-    return username, password
+    if res.stdout:
+        username, password, _ = res.stdout.decode().split("\n")
+        return username, password
+    return None, None
 
 def ask_credentials(host):
     title = "Remote Desktop on %s" % host
@@ -80,14 +81,14 @@ def get_credentials_libsecret(host):
             qattrs = {"xdg:schema": "org.gnome.keyring.NetworkPassword",
                       "protocol": proto,
                       "server": target}
-            logging.debug("Searching keyring for protocol %r server %r", proto, target)
+            logging.debug("searching keyring for protocol %r server %r", proto, target)
             res = Secret.password_search_sync(None,
                                               qattrs,
                                               Secret.SearchFlags.LOAD_SECRETS,
                                               None)
             if res:
                 item = res[0]
-                logging.debug("Found keyring entry %r", item.get_label())
+                logging.debug("found keyring entry %r", item.get_label())
                 for k, v in sorted(item.get_attributes().items()):
                     logging.debug(" - %s = %r", k, v)
                 username = item.get_attributes()["user"]
@@ -124,35 +125,32 @@ def get_credentials(host, ask=True):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--legacy", "--old",
-                    action="store_true",
-                    help="legacy server (Windows 2003 or older, non-NLA)")
-parser.add_argument("--restricted-admin", "--ra",
-                    action="store_true",
-                    help="Restricted Admin mode - don't delegate any credentials")
+                        action="store_true",
+                        help="legacy server (Windows 2003 or older, non-NLA)")
+parser.add_argument("-r", "--restricted-admin", "--ra",
+                        action="store_true",
+                        help="Restricted Admin mode - don't delegate any credentials")
 parser.add_argument("-k", "--insecure",
-                    action="store_true",
-                    help="ignore certificates")
+                        action="store_true",
+                        help="ignore certificates")
 parser.add_argument("--workarea",
-                    action="store_true",
-                    help="fit display into the work area instead of full-screen")
-parser.add_argument("--gfx",
-                    action="store_true",
-                    help="enable support for RDP8 \"Graphics Pipeline\"")
-parser.add_argument("--rfx",
-                    action="store_true",
-                    help="enable support for RDP7 \"RemoteFX\" graphics")
+                        action="store_true",
+                        help="fit display into the work area instead of full-screen")
+parser.add_argument("-g", "--gfx",
+                        action="store_true",
+                        help="enable support for RDP8 \"Graphics Pipeline\"")
 parser.add_argument("--dev",
-                    action="store_true",
-                    help="use local FreeRDP build if available")
+                        action="store_true",
+                        help="use local FreeRDP build if available")
 parser.add_argument("--flatpak",
-                    action="store_true",
-                    help="use the Flatpak build")
+                        action="store_true",
+                        help="use the Flatpak build")
 parser.add_argument("--x11",
-                    action="store_true",
-                    help="use the X11 client instead of SDL client")
+                        action="store_true",
+                        help="use the X11 client instead of SDL client")
 parser.add_argument("--save",
-                    action="store_true",
-                    help="save password for future connections")
+                        action="store_true",
+                        help="save password for future connections")
 parser.add_argument("-v", "--verbose",
                         action="store_true",
                         help="show more details")
@@ -163,22 +161,20 @@ logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="rdp: %(message)s")
 
 # We need the FQDN for keyring lookup (and kerberos, and possibly certificate
-# validation)
+# validation).
 try:
     fqdn, addrs = resolve(args.host)
-    logging.debug("Resolved host %r to FQDN %r", args.host, fqdn)
+    logging.debug("resolved host %r to FQDN %r", args.host, fqdn)
 except socket.gaierror as e:
-    exit("rdp: Could not resolve hostname %r: %s" % (args.host, e))
+    exit("rdp: could not resolve hostname %r: %s" % (args.host, e))
 
 if args.save:
     username, password = ask_credentials(fqdn)
-    save_credentials(fqdn, username, password)
+    if username and password:
+        save_credentials(fqdn, username, password)
     exit()
-
-username, password = get_credentials(fqdn, ask=(not args.legacy))
-
-if args.dev:
-    os.environ["PATH"] = os.path.expanduser("~/.local/pkg/FreeRDP/bin") + ":" + os.environ["PATH"]
+else:
+    username, password = get_credentials(fqdn, ask=(not args.legacy))
 
 if args.x11:
     cmd = ["xfreerdp"]
@@ -188,16 +184,18 @@ else:
 if args.flatpak:
     cmd = ["flatpak", "run", "--command=%s" % cmd[0], "com.freerdp.FreeRDP"]
 else:
+    if args.dev:
+        os.environ["PATH"] = "%s:%s" % (os.path.expanduser("~/.local/pkg/FreeRDP/bin"),
+                                        os.environ["PATH"])
     try:
         cmd[0] = which(cmd[0] + "3")
     except KeyError:
         cmd[0] = which(cmd[0])
 
-logging.debug("Using FreeRDP executable: %s", cmd)
+logging.debug("using FreeRDP executable: %s", cmd[0])
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn.lower())
-#cmd.append("/cert:name:%s" % fqdn)
 
 if username and password:
     cmd.append("/u:%s" % username)
@@ -225,15 +223,13 @@ cmd.append("/network:auto")
 
 if args.gfx:
     cmd.append("/gfx")
-if args.rfx:
-    cmd.append("/rfx")
 
 #cmd.append("/bpp:32")
 #cmd.append("+fonts")
 #cmd.append("+aero")
 #cmd.append("+window-drag")
 #cmd.append("+wallpaper")
-cmd.append("+multitouch")
+#cmd.append("+multitouch")
 
 cmd.append("/sound:sys:pulse")
 cmd.append("+clipboard")

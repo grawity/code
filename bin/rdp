@@ -40,17 +40,11 @@ def which(cmd):
             return exe
     raise KeyError(f"{cmd!r} not found in PATH")
 
-def resolve(host):
-    fqdn = None
-    addrs = []
+def resolve_fqdn(host):
     res = socket.getaddrinfo(host, 3389,
                              type=socket.SOCK_STREAM,
                              flags=socket.AI_CANONNAME)
-    for ai_af, _, _, ai_fqdn, ai_addr in res:
-        if ai_fqdn:
-            fqdn = ai_fqdn
-        addrs.append(ai_addr[0])
-    return fqdn, addrs
+    return res[0][3]
 
 def ask_credentials_zenity(host, title):
     res = subprocess.run(["zenity",
@@ -163,7 +157,7 @@ logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
 # We need the FQDN for keyring lookup (and kerberos, and possibly certificate
 # validation).
 try:
-    fqdn, addrs = resolve(args.host)
+    fqdn = resolve_fqdn(args.host)
     logging.debug("resolved host %r to FQDN %r", args.host, fqdn)
 except socket.gaierror as e:
     exit("rdp: could not resolve hostname %r: %s" % (args.host, e))

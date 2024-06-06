@@ -2,7 +2,7 @@
 # rdp -- launch FreeRDP to make Remote Desktop connections
 import argparse
 import gi
-from nullroute.core import Core
+import logging
 import os
 import socket
 import subprocess
@@ -61,7 +61,7 @@ def ask_credentials_zenity(host, title):
                           "--add-password", "Password:",
                           "--separator", "\n"],
                          stdout=subprocess.PIPE)
-    Core.debug("Zenity output: %r", res.stdout)
+    logging.debug("Zenity output: %r", res.stdout)
     username, password, _ = res.stdout.decode().split("\n")
     return username, password
 
@@ -80,20 +80,21 @@ def get_credentials_libsecret(host):
             qattrs = {"xdg:schema": "org.gnome.keyring.NetworkPassword",
                       "protocol": proto,
                       "server": target}
-            Core.debug("Searching libsecret for attrs %r", qattrs)
+            logging.debug("Searching keyring for protocol %r server %r", proto, target)
             res = Secret.password_search_sync(None,
                                               qattrs,
                                               Secret.SearchFlags.LOAD_SECRETS,
                                               None)
             if res:
-                Core.debug("Found libsecret credential %r", res[0].get_label())
-                for k, v in sorted(res[0].get_attributes().items()):
-                    Core.debug("Attribute: %s = %r", k, v)
-                username = res[0].get_attributes()["user"]
-                password = res[0].get_secret().get_text()
-                if domain := res[0].get_attributes().get("domain"):
-                    Core.warn("XXX: Found credential with separate domain, u=%r d=%r",
-                              username, domain)
+                item = res[0]
+                logging.debug("Found keyring entry %r", item.get_label())
+                for k, v in sorted(item.get_attributes().items()):
+                    logging.debug(" - %s = %r", k, v)
+                username = item.get_attributes()["user"]
+                password = item.get_secret().get_text()
+                if domain := item.get_attributes().get("domain"):
+                    logging.warn("XXX: Found credential with separate domain, u=%r d=%r",
+                                 username, domain)
                     if "." in domain:
                         username = "%s@%s" % (username, domain)
                     else:
@@ -122,7 +123,7 @@ def get_credentials(host, ask=True):
     return None, None
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--legacy", "--old",
+parser.add_argument("-l", "--legacy", "--old",
                     action="store_true",
                     help="legacy server (Windows 2003 or older, non-NLA)")
 parser.add_argument("--restricted-admin", "--ra",
@@ -152,12 +153,22 @@ parser.add_argument("--x11",
 parser.add_argument("--save",
                     action="store_true",
                     help="save password for future connections")
+parser.add_argument("-v", "--verbose",
+                        action="store_true",
+                        help="show more details")
 parser.add_argument("host")
 args = parser.parse_args()
 
-Core.debug("trying to resolve host %r", args.host)
-fqdn, addrs = resolve(args.host)
-Core.debug("resolved to fqdn %r, addresses %r", fqdn, addrs)
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="rdp: %(message)s")
+
+# We need the FQDN for keyring lookup (and kerberos, and possibly certificate
+# validation)
+try:
+    fqdn, addrs = resolve(args.host)
+    logging.debug("Resolved host %r to FQDN %r", args.host, fqdn)
+except socket.gaierror as e:
+    exit("rdp: Could not resolve hostname %r: %s" % (args.host, e))
 
 if args.save:
     username, password = ask_credentials(fqdn)
@@ -181,7 +192,8 @@ else:
         cmd[0] = which(cmd[0] + "3")
     except KeyError:
         cmd[0] = which(cmd[0])
-Core.info("using freerdp executable: %s", " ".join(cmd))
+
+logging.debug("Using FreeRDP executable: %s", cmd)
 
 cmd.append("/t:Remote Desktop: %s" % args.host)
 cmd.append("/v:%s" % fqdn.lower())
@@ -239,7 +251,8 @@ else:
     cmd.append("/f")
     cmd.append("+floatbar")
 
-cmd.append("/log-level:WARN")
+if not args.verbose:
+    cmd.append("/log-level:WARN")
 
 print(safe(cmd))
 subprocess.run(cmd)

@@ -24,13 +24,21 @@ def die(msg):
                                   "--width=300"])
         exit(1)
 
-def safe(args):
+def argv_hide_password(args):
     nargs = []
     for arg in args:
         if arg.startswith("/p:"):
             arg = "/p:" + "*"*(len(arg)-len("/p:"))
         nargs.append(arg)
     return nargs
+
+def argv_join(args):
+    nargs = []
+    for arg in args:
+        if " " in arg:
+            arg = "'%s'" % arg
+        nargs.append(arg)
+    return " ".join(nargs)
 
 def which(cmd):
     dirs = os.environ["PATH"].split(":")
@@ -244,5 +252,5 @@ else:
 if not args.verbose:
     cmd.append("/log-level:WARN")
 
-print(safe(cmd))
+logging.debug("running with options: %s", argv_join(argv_hide_password(cmd)))
 subprocess.run(cmd)

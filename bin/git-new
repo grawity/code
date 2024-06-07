@@ -6,6 +6,7 @@
 usage() {
 	echo "Usage: $progname [options] [<dir> [<branch>]]"
 	echo ""
+	echo_opt "-a"		"show full branch history"
 	echo_opt "-b REF"	"show new commits in a different branch"
 	echo_opt "-C DIR"	"change to specified directory"
 	echo ""
@@ -29,13 +30,15 @@ getconfig() {
 	git config --get-all "$key" || true
 }
 
+opt_showall=0
 opt_no_merges=0
 opt_exclude=()
 opt_chdir=
 opt_ref=
 
-while getopts :b:C:GMPX: OPT; do
+while getopts :ab:C:GMPX: OPT; do
 	case $OPT in
+	a) opt_showall=1;;
 	b) opt_ref=$OPTARG;;
 	C) opt_chdir=$OPTARG;;
 	M) opt_no_merges=1;;
@@ -86,10 +89,15 @@ if ! git rev-parse --verify "$ref" &> /dev/null; then
 	vdie "nonexistent ref '$ref'"
 fi
 
-range="$ref@{1}..$ref"
-if ! git rev-parse --verify "$ref@{1}" &> /dev/null; then
-	vmsg "no reflog for '$ref', showing entire branch" >&2
+if (( opt_showall )); then
 	range="$ref"
+else
+	if git rev-parse --verify "$ref@{1}" &> /dev/null; then
+		range="$ref@{1}..$ref"
+	else
+		vmsg "no reflog for '$ref', showing entire branch" >&2
+		range="$ref"
+	fi
 fi
 
 options=(); mapfile -t options < <(getconfig options)

@@ -26,3 +26,5 @@
 #elif defined(__KRB5_H__)
 #  define KRB5_HEIMDAL
 #endif
+
+#include "config-krb5.h"

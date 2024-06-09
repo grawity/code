@@ -5,6 +5,9 @@ DL_LDLIBS := -ldl
 KRB_CFLAGS = $(shell krb5-config --cflags)
 KRB_LDLIBS = $(shell krb5-config --libs)
 
+# allow krb5.h to include config-krb5.h
+KRB_CFLAGS += -I$(OBJ)
+
 ifeq ($(UNAME),Linux)
 	OSFLAGS := -DHAVE_LINUX
 endif

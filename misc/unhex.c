@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
 	FILE *input = stdin;
 	int opt;
 
-	char c, d;
+	char c = 0, d = 0;
 	int odd = 0;
 
 	while ((opt = getopt(argc, argv, "a:")) != -1) {

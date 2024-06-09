@@ -178,4 +178,5 @@ int main(int argc, char *argv[]) {
 	else {
 		errx(2, "unknown subcommand '%s'", cmd);
 	}
+	return 0;
 }

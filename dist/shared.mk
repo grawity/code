@@ -2,7 +2,7 @@ comma	:= ,
 empty	:=
 space	:= $(empty) $(empty)
 UNAME	:= $(shell uname)
-HNAME	:= $(shell hostname | sed 's/[.].*//')
+HNAME	:= $(firstword $(subst ., ,$(shell hostname)))
 DIST	?= dist
 OBJ	:= obj/host.$(HNAME)
 

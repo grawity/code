@@ -1,4 +1,5 @@
 /* unescape -- process C-like backslash escapes */
+#define _GNU_SOURCE /* for fmemopen */
 #include <err.h>
 #include <stdbool.h>
 #include <stdio.h>

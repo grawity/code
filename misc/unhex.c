@@ -1,4 +1,5 @@
 /* unhex -- convert data from hexadecimal */
+#define _GNU_SOURCE /* for fmemopen */
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

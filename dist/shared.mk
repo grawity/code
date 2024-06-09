@@ -3,7 +3,7 @@ empty	:=
 space	:= $(empty) $(empty)
 UNAME	:= $(shell uname)
 DIST	?= dist
-OBJ	:= obj/host.$(shell hostname -s)
+OBJ	:= obj/host.$(shell hostname | sed 's/[.].*//')
 
 # cflags
 

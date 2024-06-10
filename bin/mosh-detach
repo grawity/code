@@ -1,15 +1,25 @@
 #!/usr/bin/env python
+# mosh-detach -- kill detached Mosh servers
 import argparse
 from nullroute.system.utmp import enum_utmp, UtType
 import re
 import subprocess
 
 def hup(tty):
-    subprocess.run(["pkill", "-HUP", "-t", tty], check=True)
+    res = subprocess.call(["pkill", "-HUP", "-t", tty])
+    if res != 0:
+        # Probably an entry that was just hup'd recently and its mosh-server is
+        # still in the process of exiting.
+        print("could not hup line %s (likely a stale entry)" % tty)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-n", "--dry-run", action="store_true")
-parser.add_argument("-q", "--quiet", action="store_true")
+parser.description = "Hang up all terminals belonging to detached Mosh servers."
+parser.add_argument("-n", "--dry-run",
+                        action="store_true",
+                        help="only print ttys that would be hung up")
+parser.add_argument("-q", "--quiet",
+                        action="store_true",
+                        help="print nothing")
 args = parser.parse_args()
 
 for ent in enum_utmp():

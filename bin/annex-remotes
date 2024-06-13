@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 from functools import cache
 import re
 import subprocess
@@ -64,6 +65,12 @@ def get_examine_kvp(file):
         data[key] = entry
     return data
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-o", "--cost",
+                        action="store_true",
+                        help="order remotes by cost")
+args = parser.parse_args()
+
 remotes = sorted(get_remotes())
 remotedescs = get_examine_uuid()
 
@@ -85,6 +92,10 @@ for remote in remotes:
         rurl,
     )
     rows.append(row)
+
+rows.sort(key=lambda row: row[1])
+if args.cost:
+    rows.sort(key=lambda row: int(row[2]))
 
 table(rows,
       headers=[

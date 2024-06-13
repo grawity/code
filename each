@@ -74,26 +74,24 @@ elif (( verbose )); then
 	cmd=(Xverb "${cmd[@]}")
 fi
 
-lpos=0
-larg=""
+lpos=()
+larg=()
 for (( i=0; i<${#cmd[@]}; i++ )); do
 	if [[ ${cmd[i]} == *"{}"* ]]; then
-		if (( lpos )); then
-			echo "each: only one '{}' is allowed" >&2
-			exit 2
-		fi
-		lpos=$i
-		larg=${cmd[lpos]}
+		lpos+=($i)
+		larg+=("${cmd[i]}")
 	fi
 done
 if (( !lpos )); then
-	lpos=${#cmd[@]}
-	larg="{}"
+	lpos=(${#cmd[@]})
+	larg=("{}")
 fi
 
 if [[ -t 0 ]]; then
 	for arg in "${args[@]}"; do
-		cmd[lpos]=${larg//"{}"/"$arg"}
+		for i in ${!lpos[@]}; do
+			cmd[lpos[i]]=${larg[i]//"{}"/"$arg"}
+		done
 		"${cmd[@]}"
 		if (( $? && errexit )); then
 			echo "each: command failed with result $?" >&2
@@ -102,7 +100,9 @@ if [[ -t 0 ]]; then
 	done
 else
 	while IFS= read -r arg; do
-		cmd[lpos]=${larg//"{}"/"$arg"}
+		for i in ${!lpos[@]}; do
+			cmd[lpos[i]]=${larg[i]//"{}"/"$arg"}
+		done
 		"${cmd[@]}" </dev/tty
 		if (( $? && errexit )); then
 			echo "each: command failed with result $?" >&2

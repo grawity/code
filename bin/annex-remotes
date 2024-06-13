@@ -73,11 +73,13 @@ for remote in remotes:
     rurl = run("git", "config", f"remote.{remote}.url")
     furl = run("git", "remote", "get-url", remote)
     uuid = run("git", "config", f"remote.{remote}.annex-uuid")
+    cost = run("git", "config", f"remote.{remote}.annex-cost")
     sync = run("git", "config", "--default=true", f"remote.{remote}.annex-sync") == "true"
     desc = remotedescs.get(uuid)
     row = (
-        " %s " % " ✔"[sync],
+        " %s " % (" ", "✔")[sync],
         remote,
+        cost,
         desc or "--",
         uuid,
         rurl,
@@ -85,6 +87,13 @@ for remote in remotes:
     rows.append(row)
 
 table(rows,
-      headers=["SYNC", "NAME", "DESCRIPTION", "UUID", "ADDRESS"],
-      args=["--table-right", "SYNC",
+      headers=[
+        "SYNC",
+        "NAME",
+        "COST",
+        "DESCRIPTION",
+        "UUID",
+        "ADDRESS",
+      ],
+      args=["--table-right", "COST",
             "--table-hide", "UUID"])

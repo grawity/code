@@ -75,35 +75,36 @@ elif (( verbose )); then
 fi
 
 lpos=()
-larg=()
 for (( i=0; i<${#cmd[@]}; i++ )); do
 	if [[ ${cmd[i]} == *"{}"* ]]; then
 		lpos+=($i)
-		larg+=("${cmd[i]}")
 	fi
 done
 if (( !lpos )); then
 	lpos=(${#cmd[@]})
-	larg=("{}")
+	cmd+=("{}")
 fi
 
 if [[ -t 0 ]]; then
+	lcmd=("${cmd[@]}")
 	for arg in "${args[@]}"; do
-		for i in ${!lpos[@]}; do
-			cmd[lpos[i]]=${larg[i]//"{}"/"$arg"}
+		for i in ${lpos[@]}; do
+			lcmd[i]=${cmd[i]//"{}"/"$arg"}
 		done
-		"${cmd[@]}"
+		declare -p lcmd
+		"${lcmd[@]}"
 		if (( $? && errexit )); then
 			echo "each: command failed with result $?" >&2
 			exit 1
 		fi
 	done
 else
+	lcmd=("${cmd[@]}")
 	while IFS= read -r arg; do
-		for i in ${!lpos[@]}; do
-			cmd[lpos[i]]=${larg[i]//"{}"/"$arg"}
+		for i in ${lpos[@]}; do
+			lcmd[i]=${cmd[i]//"{}"/"$arg"}
 		done
-		"${cmd[@]}" </dev/tty
+		"${lcmd[@]}" </dev/tty
 		if (( $? && errexit )); then
 			echo "each: command failed with result $?" >&2
 			exit 1

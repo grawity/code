@@ -75,25 +75,20 @@ try:
                     break
 
     if not opt_list:
+        plural = lambda x, n, s: (f"{x} {n}" if x == 1 else f"{x} {n}{s}")
+
         if net.version == 6 and subnet.prefixlen < 64:
             totalnets = 2 ** (64 - subnet.prefixlen)
             msg = "%d (/%d) ranges × %d (/64) subnets" % (total, subnet.prefixlen,
                                                           totalnets)
         elif subnet.prefixlen == 64:
-            if total == 1:
-                msg = "1 subnet"
-            else:
-                msg = "%d subnets" % (total,)
+            msg = plural(total, "subnet", "s")
         elif subnet.prefixlen == subnet.max_prefixlen:
-            if total == 1:
-                msg = "1 address"
-            else:
-                msg = "%d addresses" % (total,)
+            msg = plural(total, "address", "es")
         else:
-            if total == 1:
-                msg = "1 subnet × %d addresses" % (subnet.num_addresses,)
-            else:
-                msg = "%d subnets × %d addresses" % (total, subnet.num_addresses)
+            msg = plural(total, "subnet", "s")
+            msg += " × "
+            msg += plural(subnet.num_addresses, "address", "es")
 
         if net.version == 4 and subnet.prefixlen < subnet.max_prefixlen - 1:
             msg += " (total %d hosts)" % (total * (subnet.num_addresses - 2))

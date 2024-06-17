@@ -195,6 +195,7 @@ clear_progress
 trap - EXIT
 
 if true; then
+	intrash=()
 	outsmaller=()
 	outlarger=()
 	for oname in "${outfiles[@]}"; do
@@ -205,6 +206,7 @@ if true; then
 		if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") )); then
 			outlarger+=("$oname")
 		else
+			intrash+=("$iname")
 			outsmaller+=("$oname")
 		fi
 	done
@@ -260,13 +262,14 @@ if true; then
 	done
 fi
 
-if (( r == 0 && trashorig )); then
-	if confirm "Remove originals?"; then
-		echo "Removing ${#infiles[@]} originals."
+if (( trashorig )); then
+	if (( ! ${#intrash[@]} )); then
+		echo "No originals to remove (all ${#outlarger[@]} outputs were larger)."
+	elif confirm "Remove ${#intrash[@]} originals?"; then
 		if have trash && [[ -d ~/.local/share/Trash ]]; then
-			trash "${infiles[@]}"
+			trash "${intrash[@]}"
 		else
-			rm -v "${infiles[@]}"
+			rm -v "${intrash[@]}"
 		fi
 	fi
 fi

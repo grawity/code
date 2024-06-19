@@ -95,7 +95,7 @@ wipefs -a "$dev"
 
 info "Dumping SMART data before erase"
 attrib="/tmp/${dev//'/'/'_'}"
-smartctl -A "$dev" | tee "$attrib-old.txt" | awk '
+smartctl -x "$dev" | tee "$attrib-old.txt" | awk '
 	/Reallocated_Sector_Ct|Current_Pending_Sector|Offline_Uncorrectable/ {
 		if ($10 != "0") {
 			$0 = "\033[1;93m" $0 "\033[m"
@@ -152,7 +152,7 @@ info "ATA security information:"
 hdparm -I "$dev" | awk '/^Security:/{x=1} /^[^S\t]/{x=0} x{print}'
 
 info "SMART attributes after erase:"
-smartctl -A "$dev" > "$attrib-new.txt"
+smartctl -x "$dev" > "$attrib-new.txt"
 ! colordiff -U999 "$attrib-old.txt" "$attrib-new.txt" || cat "$attrib-new.txt"
 
 info "Initializing a new GPT on $dev"

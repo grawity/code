@@ -97,7 +97,7 @@ if [[ ! -s $file ]]; then
 	vdie "screenshot failed ('$file' not created)"
 fi
 
-sfile=${file/#"$HOME/"/"~/"}
+shortfile=${file/#"$HOME/"/"~/"}
 
 if (( opt_upload )); then
 	url=$(cap-upload.sh "$file")
@@ -107,12 +107,12 @@ if (( opt_upload )); then
 		echo "$file"
 		vdie "screenshot upload failed"
 	else
-		notifysend -i "$file" "Screenshot captured and uploaded" &
+		notifysend -i "$file" "Screenshot captured and uploaded" "$url" &
 		echo "$url" | gclip
 		echo "$url"
 	fi
 else
-	notifysend -i "$file" "Screenshot captured" "$sfile" &
+	notifysend -i "$file" "Screenshot captured" "$shortfile" &
 	echo "$file" | gclip
 	echo "$file"
 fi

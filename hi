@@ -130,14 +130,13 @@ rpath = "irclogs/perl.highmon.log"
 cpath = Env.find_cache_file("highlights.txt")
 
 delta, offs = download_log(rhost, rpath, cpath)
-if delta > 32*1024:
+if delta:
     with open(cpath, "rb") as fh:
-        fh.seek(-32*1024, os.SEEK_END)
-        fh.readline()
-        print_log(io.TextIOWrapper(fh), unseen=True)
-elif delta:
-    with open(cpath, "rb") as fh:
-        fh.seek(offs)
+        if delta > 32*1024:
+            fh.seek(-32*1024, os.SEEK_END)
+            fh.readline()
+        else:
+            fh.seek(offs)
         print_log(io.TextIOWrapper(fh), unseen=True)
 elif args.quiet:
     print("hi: no new messages")

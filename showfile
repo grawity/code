@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+# showfile -- reveal specified items in a file manager window
+import argparse
+import dbus
+import os
+import urllib.parse
+
+def path_to_url(path):
+    return "file://" + urllib.parse.quote(os.path.abspath(path))
+
+parser = argparse.ArgumentParser()
+parser.add_argument("path", nargs="+",
+                        help="file to reveal")
+args = parser.parse_args()
+
+for f in args.path:
+    if not os.path.exists(f):
+        exit("error: Path %r does not exist" % f)
+
+fm = dbus.SessionBus().get_object("org.freedesktop.FileManager1",
+                                  "/org/freedesktop/FileManager1")
+
+fm = dbus.Interface(fm, "org.freedesktop.FileManager1")
+
+fm.ShowItems([path_to_url(p) for p in args.path], "")

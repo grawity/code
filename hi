@@ -127,20 +127,22 @@ os.umask(0o077)
 
 rhost = "star"
 rpath = "irclogs/perl.highmon.log"
-cpath = Env.find_cache_file("highlights.txt")
+cachepath = Env.find_cache_file("highlights.txt")
 
-delta, offs = download_log(rhost, rpath, cpath)
+delta, pos = download_log(rhost, rpath, cachepath)
 if delta:
-    with open(cpath, "rb") as fh:
+    with open(cachepath, "rb") as fh:
+        # In case `hi` hasn't been run for a very long time on this system,
+        # limit output to ~32k so that it doesn't kill the terminal.
         if delta > 32*1024:
             fh.seek(-32*1024, os.SEEK_END)
             fh.readline()
         else:
-            fh.seek(offs)
+            fh.seek(pos)
         print_log(io.TextIOWrapper(fh), unseen=True)
 elif args.quiet:
     print("hi: no new messages")
 else:
-    with os.popen("tail -n 10 '%s'" % cpath, "r") as fh:
+    with os.popen("tail -n 10 '%s'" % cachepath, "r") as fh:
         print_log(fh, unseen=False)
     print("hi: no new messages")

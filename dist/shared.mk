@@ -22,11 +22,11 @@ override CFLAGS += $(OSFLAGS) $(cflags)
 # output
 
 ifeq ($(V),1)
-	verbose_hide := $(empty)
-	verbose_echo := @:
+verbose_hide := $(empty)
+verbose_echo := @:
 else
-	verbose_hide := @
-	verbose_echo := @echo
+verbose_hide := @
+verbose_echo := @echo
 endif
 
 # compile recipes

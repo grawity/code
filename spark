@@ -80,7 +80,7 @@ class Sparkline:
         (0xFF, 0x00, 0x00), # red
     ]
 
-    def __init__(self, low, high, *, sep=False):
+    def __init__(self, low, high, *, sep=False, invert=False):
         self.low = low
         self.high = high
         self.sep = sep
@@ -98,6 +98,9 @@ class Sparkline:
         else:
             self.truecolor = True
             self.colors = self.RGB_COLORS
+
+        if invert:
+            self.colors = self.colors[::-1]
 
     def update_ttysize(self):
         if x := os.environ.get("COLUMNS"):
@@ -159,6 +162,8 @@ parser.add_argument("-l", "--low", type=float, default=0,
                     help="minimum value to clamp the sparkline to")
 parser.add_argument("-h", "--high", type=float, default=100,
                     help="maximum value to clamp the sparkline to")
+parser.add_argument("-i", "--invert", action="store_true",
+                    help="invert color relationship")
 parser.add_argument("-n", "--no-sep", action="store_true",
                     help="disable hourly separators")
 args = parser.parse_args()
@@ -168,7 +173,8 @@ if args.low >= args.high:
 
 s = Sparkline(low=args.low,
               high=args.high,
-              sep=(not args.no_sep))
+              sep=(not args.no_sep),
+              invert=args.invert)
 
 if hasattr(signal, "SIGWINCH"):
     signal.signal(signal.SIGWINCH,

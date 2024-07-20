@@ -231,6 +231,8 @@ class MeterBar:
             self._draw_bar(True, self.last_ts, self.last_temp, self.last_load)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-1", "--once", action="store_true",
+                    help="output current value and exit")
 parser.add_argument("-r", "--raw", action="store_true",
                     help="output only temperature value")
 parser.add_argument("-s", "--spark", action="store_true",
@@ -247,6 +249,8 @@ hostname = os.uname().nodename
 sensor = Sensor.find_sensor()
 
 if args.spark:
+    if args.once:
+        exit("cputemp: Options --once and --spark are incompatible")
     args.raw = True
     sys.stdout = os.popen("spark -l 20 -h 70", "w")
 
@@ -263,6 +267,8 @@ if args.raw:
             if args.wname:
                 set_wname(f"{load:.2f}" if args.load else f"{temp:.0f}°C")
 
+            if args.once:
+                break
             time.sleep(args.interval)
     except KeyboardInterrupt:
         exit(0)
@@ -285,6 +291,8 @@ else:
             m.update(ts, temp, load)
             set_title(f"{hostname}: {temp:.0f}°C (load {load:.2f})")
             set_wname(f"{temp:.0f}°C")
+            if args.once:
+                break
             time.sleep(args.interval)
     except RuntimeError as e:
         exit(f"error: {e}")

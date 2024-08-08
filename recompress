@@ -108,29 +108,45 @@ fi
 if [[ $minorigsize != 0 ]]; then
 	minorigsize=$(numfmt --from=iec "${minorigsize%[Bb]}") || exit
 	if (( minorigsize < 128 )); then
-		warn "minimum size of $minorigsize bytes looks too low, assuming this is megabytes"
+		warn "minimum size of $minorigsize bytes looks too low, assuming MB"
 		minorigsize=$(numfmt --from=iec "${minorigsize}M") || exit
 	elif (( minorigsize < 1024 )); then
-		warn "minimum size of $minorigsize bytes looks too low, assuming this is kilobytes"
+		warn "minimum size of $minorigsize bytes looks too low, assuming kB"
 		minorigsize=$(numfmt --from=iec "${minorigsize}K") || exit
 	fi
 	info "will skip files smaller than $(numfmt --to=iec "$minorigsize")B"
 fi
+
+nskipconv=0
+nskipsmall=0
 
 for arg in "$@"; do
 	oarg=${outdir%/}${outdir:+/}$arg
 	if [[ ! -e $arg ]]; then
 		err "input file '$arg' does not exist"
 	elif [[ $arg =~ \.conv\.[^.]+$ ]] && [[ $arg -ef $oarg ]]; then
-		info "skipping already converted file '$arg'"
+		debug "skipping already converted file '$arg'"
+		let ++nskipconv
 	elif (( minorigsize && $(stat -c %s "$arg") < minorigsize )); then
 		debug "skipping small file '$arg'"
+		let ++nskipsmall
 	else
 		infiles+=("$arg")
 	fi
 done
 
-(( !errors )) || exit
+if (( errors )); then
+	exit 1
+fi
+if (( nskipconv )); then
+	info "$nskipconv arguments ignored as already converted"
+fi
+if (( nskipsmall )); then
+	info "$nskipsmall files skipped as below size threshold"
+fi
+if (( ! ${#infiles[@]} )); then
+	die 0 "no input files"
+fi
 
 addargs+=(-background "$background" -alpha remove)
 

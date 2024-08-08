@@ -48,6 +48,14 @@ clear_progress() {
 	printf '\e]9;4;%d;%d\e\\' 0 0
 }
 
+dispose() {
+	if have trash && [[ -d ~/.local/share/Trash ]]; then
+		trash "$@"
+	else
+		rm -v "$@"
+	fi
+}
+
 if ! have magick; then
 	# ImageMagick 6.x or older
 	magick() { "/usr/bin/$@"; }
@@ -203,7 +211,7 @@ if true; then
 		if [[ ! -s "$oname" ]]; then
 			die "conversion of '$iname' failed"
 		fi
-		if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") )); then
+		if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") - 128*1024 )); then
 			outlarger+=("$oname")
 		else
 			intrash+=("$iname")
@@ -266,11 +274,9 @@ if (( trashorig )); then
 	if (( ! ${#intrash[@]} )); then
 		echo "No originals to remove (all ${#outlarger[@]} outputs were larger)."
 	elif confirm "Remove ${#intrash[@]} originals?"; then
-		if have trash && [[ -d ~/.local/share/Trash ]]; then
-			trash "${intrash[@]}"
-		else
-			rm -v "${intrash[@]}"
-		fi
+		dispose "${intrash[@]}"
+	elif confirm "Remove ${#outsmaller[@]} outputs?"; then
+		dispose "${outsmaller[@]}"
 	fi
 fi
 

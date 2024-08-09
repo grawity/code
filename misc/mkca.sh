@@ -105,6 +105,8 @@ if [[ ! $tool ]]; then
 		tool=openssl
 	elif have certtool; then
 		tool=gnutls
+	else
+		vdie "neither openssl nor certtool found"
 	fi
 fi
 
@@ -139,8 +141,6 @@ if [[ $opt_keyout ]]; then
 		esac
 		args+=(--pkcs8 --password="")
 		(umask 077; certtool --generate-privkey "${args[@]}" --outfile="$opt_keyout")
-	else
-		die "no key generation tools available"
 	fi
 	opt_keyin=$opt_keyout
 else
@@ -186,12 +186,12 @@ if [[ $tool == openssl ]]; then
 	rm -f "$cnf"
 	if (( r )); then
 		rm -f "$opt_certout"
-		die "certificate creation failed"
+		vdie "certificate creation failed"
 	fi
 	openssl x509 -in "$opt_certout" -noout -text -certopt no_sigdump -nameopt RFC2253 -nameopt sep_comma_plus_space
 elif [[ $tool == gnutls ]]; then
 	if [[ $(certtool --version) == certtool\ 3.6.* ]]; then
-		die "GnuTLS certtool (3.6.6) includes spurious zero bits in keyUsage bitstring"
+		vdie "GnuTLS certtool (3.6.6) includes spurious zero bits in keyUsage bitstring"
 	fi
 	if [[ $opt_subject != *=* ]]; then
 		opt_subject="CN=$opt_subject"
@@ -220,9 +220,7 @@ elif [[ $tool == gnutls ]]; then
 	rm -f "$cnf"
 	if (( r )); then
 		rm -f "$opt_certout"
-		die "certificate creation failed"
+		vdie "certificate creation failed"
 	fi
 	# certtool automatically shows the final certificate
-else
-	die "no certificate building tools available"
 fi

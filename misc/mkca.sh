@@ -142,7 +142,7 @@ fi
 # create private key
 
 if [[ $opt_keyout ]]; then
-	info "generating ${opt_keytype^^}${opt_keybits:+-}${opt_keybits} private key '$opt_keyout'"
+	vmsg "generating ${opt_keytype^^}${opt_keybits:+-}${opt_keybits} private key '$opt_keyout'"
 	if [[ $tool == openssl ]]; then
 		args=()
 		case $opt_keytype in
@@ -175,12 +175,12 @@ if [[ $opt_keyout ]]; then
 	fi
 	opt_keyin=$opt_keyout
 else
-	info "using existing private key '$opt_keyin'"
+	vmsg "using existing private key '$opt_keyin'"
 fi
 
 # create certificate
 
-info "creating root certificate '$opt_certout'"
+vmsg "creating root certificate '$opt_certout'"
 days=$(( opt_certyears * 36525 / 100 ))
 debug "subject: $opt_subject"
 debug "expiry: $days days"
@@ -257,5 +257,3 @@ elif [[ $tool == gnutls ]]; then
 else
 	die "no certificate building tools available"
 fi
-
-info "certificate created"

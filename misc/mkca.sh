@@ -116,9 +116,9 @@ if [[ $opt_keyout ]]; then
 		args=()
 		case $opt_keytype in
 			rsa2048|rsa4096)
-				args=(-algorithm RSA -pkeyopt rsa_keygen_bits:"${opt_keytype#rsa}");;
+				args=(-algorithm RSA -pkeyopt rsa_keygen_bits:${opt_keytype#rsa});;
 			ecp256|ecp384|ecp521)
-				args=(-algorithm EC -pkeyopt ec_paramgen_curve:"P-${opt_keytype#ecp}");;
+				args=(-algorithm EC -pkeyopt ec_paramgen_curve:"${opt_keytype/#ecp/P-}");;
 			ed25519|ed448)
 				args=(-algorithm ${opt_keytype^^});;
 			*)
@@ -129,9 +129,9 @@ if [[ $opt_keyout ]]; then
 		args=()
 		case $opt_keytype in
 			rsa2048|rsa4096)
-				args=(--key-type=rsa --bits="${opt_keytype#rsa}");;
+				args=(--key-type=rsa --bits=${opt_keytype#rsa});;
 			ecp256|ecp384|ecp521)
-				args=(--key-type=ecdsa --curve="SECP${opt_keytype#ecp}R1");;
+				args=(--key-type=ecdsa --curve="${opt_keytype/#ecp/SECP}R1");;
 			ed25519|ed448)
 				args=(--key-type=$opt_keytype);;
 			*)

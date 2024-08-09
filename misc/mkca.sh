@@ -71,18 +71,26 @@ if (( $# )); then
 	vdie "unrecognized arguments: ${*@Q}"
 elif [[ ! $opt_subject ]]; then
 	vdie "subject (-s) not specified"
+elif echo "$opt_subject" | LC_ALL=C grep -Pqs '[\x80-\xFF]'; then
+	vdie "UTF-8 in subject not allowed"
 elif [[ ! $opt_certout ]]; then
 	vdie "certificate output file (-c) not specified"
+elif [[ $opt_certout == @(-|/dev/*) ]]; then
+	vdie "writing certificate to stdout or device not supported"
+elif [[ $opt_certout && -f $opt_certout ]] && (( !opt_clobber )); then
+	vdie "certificate '$opt_certout' already exists"
+elif [[ ! $opt_keyin && ! $opt_keyout ]]; then
+	vdie "private key location (-K or -k) not specified"
 elif [[ $opt_keyin && $opt_keyout ]]; then
 	vdie "conflicting options (-K and -k) specified"
 elif [[ $opt_keyin && $opt_keytype ]]; then
 	vdie "conflicting options (-K and -t) specified"
-elif [[ ! $opt_keyin && ! $opt_keyout ]]; then
-	vdie "private key location (-K or -k) not specified"
-elif [[ $opt_certout == @(-|/dev/*) ]]; then
-	vdie "writing certificate to stdout or device not supported"
+elif [[ $opt_keyin && ! -f $opt_keyin ]]; then
+	vdie "private key file '$opt_keyin' does not exist"
 elif [[ $opt_keyout == @(-|/dev/*) ]]; then
 	vdie "writing private key to stdout or device not supported"
+elif [[ $opt_keyout && -f $opt_keyout ]] && (( !opt_clobber )); then
+	vdie "private key file '$opt_keyout' already exists"
 elif (( opt_certyears < 1 )); then
 	vdie "expiry time (-y) must be at least 1y"
 elif (( opt_certyears > 50 )); then
@@ -90,18 +98,6 @@ elif (( opt_certyears > 50 )); then
 elif (( opt_certyears > 25 )); then
 	warn "expiry time (-y) of $opt_certyears years is very large"
 	confirm "continue?" || exit
-fi
-
-if echo "$opt_subject" | LC_ALL=C grep -Pqs '[\x80-\xFF]'; then
-	vdie "UTF-8 in CA certificate subjects is not allowed"
-fi
-
-if [[ $opt_keyin && ! -f $opt_keyin ]]; then
-	vdie "private key file '$opt_keyin' does not exist"
-elif [[ $opt_certout && -f $opt_certout ]] && (( !opt_clobber )); then
-	vdie "certificate '$opt_certout' already exists"
-elif [[ $opt_keyout && -f $opt_keyout ]] && (( !opt_clobber )); then
-	vdie "private key file '$opt_keyout' already exists"
 fi
 
 if [[ ! $tool ]]; then

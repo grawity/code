@@ -171,7 +171,7 @@ if [[ $tool == openssl ]]; then
 	cat > "$cnf" <<-EOF
 	[req]
 	# (1.1.1a) Without 'utf8=yes', trying to include non-ASCII text results in a malformed UTF8String
-	# utf8 = yes
+	utf8 = yes
 	distinguished_name = dn
 	x509_extensions = exts
 	[dn]

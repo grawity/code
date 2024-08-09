@@ -45,7 +45,6 @@ dn_reverse() {
 opt_certout=""
 opt_certyears=25
 opt_clobber=0
-opt_keybits=""
 opt_keyin=""
 opt_keyout=""
 opt_keytype=""
@@ -81,7 +80,7 @@ elif [[ $opt_keyout ]]; then
 	: "${opt_keytype:=$default_key_type}"
 	case $opt_keytype in
 		rsa2048|rsa4096)
-			opt_keybits=${opt_keytype#rsa} opt_keytype=rsa ;;
+			;;
 		ecp256|ecp384|ecp521|ed25519|ed448)
 			;;
 		*)
@@ -128,12 +127,12 @@ fi
 # create private key
 
 if [[ $opt_keyout ]]; then
-	vmsg "generating ${opt_keytype^^}${opt_keybits:+-}${opt_keybits} private key '$opt_keyout'"
+	vmsg "generating ${opt_keytype^^} private key '$opt_keyout'"
 	if [[ $tool == openssl ]]; then
 		args=()
 		case $opt_keytype in
-			rsa)
-				args=(-algorithm RSA -pkeyopt rsa_keygen_bits:"$opt_keybits");;
+			rsa2048|rsa4096)
+				args=(-algorithm RSA -pkeyopt rsa_keygen_bits:"${opt_keytype#rsa}");;
 			ecp256|ecp384|ecp521)
 				args=(-algorithm EC -pkeyopt ec_paramgen_curve:"P-${opt_keytype#ecp}");;
 			ed25519|ed448)
@@ -145,8 +144,8 @@ if [[ $opt_keyout ]]; then
 	elif [[ $tool == gnutls ]]; then
 		args=()
 		case $opt_keytype in
-			rsa)
-				args=(--key-type=rsa --bits="$opt_keybits");;
+			rsa2048|rsa4096)
+				args=(--key-type=rsa --bits="${opt_keytype#rsa}");;
 			ecp256|ecp384|ecp521)
 				args=(--key-type=ecdsa --curve="SECP${opt_keytype#ecp}R1");;
 			ed25519)

@@ -79,14 +79,14 @@ elif [[ $opt_keyin ]]; then
 	fi
 elif [[ $opt_keyout ]]; then
 	: "${opt_keytype:=$default_key_type}"
-	if [[ $opt_keytype == @(rsa2048|rsa4096) ]]; then
-		opt_keybits=${opt_keytype#rsa}
-		opt_keytype=rsa
-	elif [[ $opt_keytype == @(ecp256|ecp384|ecp521|ed25519|ed448) ]]; then
-		true
-	else
-		err "unsupported key type '$opt_keytype' (must be one of: $key_types)"
-	fi
+	case $opt_keytype in
+		rsa2048|rsa4096)
+			opt_keybits=${opt_keytype#rsa} opt_keytype=rsa ;;
+		ecp256|ecp384|ecp521|ed25519|ed448)
+			;;
+		*)
+			vdie "unsupported key type '$opt_keytype'"
+	esac
 else
 	err "neither input private key (-K) nor output private key (-k) specified"
 fi

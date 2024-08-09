@@ -13,12 +13,11 @@
 
 . lib.bash || exit
 
-key_types="RSA, ECP256, ECP384, ECP521, Ed25519, Ed448"
+key_types="rsa2048 rsa4096 ecp256 ecp384 ecp521 ed25519 ed448"
 
 usage() {
 	echo "Usage: $progname [options]"
 	echo
-	echo_opt "-b BITS" "generated private key size in bits (RSA only)"
 	echo_opt "-c CRTFILE" "output certificate"
 	echo_opt "-k KEYFILE" "output generated private key"
 	echo_opt "-K KEYFILE" "input existing private key"
@@ -52,11 +51,10 @@ opt_keytype=""
 opt_subject=""
 maxyears=50
 
-while getopts ":GOb:c:fK:k:s:t:y:" OPT; do
+while getopts ":GOc:fK:k:s:t:y:" OPT; do
 	case $OPT in
 	G) tool=gnutls;;
 	O) tool=openssl;;
-	b) opt_keybits=$OPTARG;;
 	c) opt_certout=$OPTARG;;
 	f) opt_clobber=1;;
 	K) opt_keyin=$OPTARG;;
@@ -78,26 +76,13 @@ elif [[ $opt_keyin ]]; then
 	if [[ $opt_keytype ]]; then
 		err "both input private key (-K) and key type (-t) cannot be specified"
 	fi
-	if [[ $opt_keybits ]]; then
-		err "both input private key (-K) and key bits (-b) cannot be specified"
-	fi
 elif [[ $opt_keyout ]]; then
-	: "${opt_keytype:=rsa}"
-	if [[ $opt_keytype == rsa ]]; then
-		: "${opt_keybits:=4096}"
-		if [[ $opt_keybits != @(2048|4096) ]]; then
-			err "unsupported RSA key size $opt_keybits"
-		fi
-	elif [[ $opt_keytype == @(rsa2048|rsa4096) ]]; then
-		if [[ $opt_keybits && $opt_keybits != ${opt_keytype#rsa} ]]; then
-			err "mismatching RSA key sizes given; key bits (-b) should not be specified"
-		fi
+	: "${opt_keytype:=rsa2048}"
+	if [[ $opt_keytype == @(rsa2048|rsa4096) ]]; then
 		opt_keybits=${opt_keytype#rsa}
 		opt_keytype=rsa
 	elif [[ $opt_keytype == @(ecp256|ecp384|ecp521|ed25519|ed448) ]]; then
-		if [[ $opt_keybits ]]; then
-			err "${opt_keytype^^} keys are of fixed size; key bits (-b) should not be specified"
-		fi
+		true
 	else
 		err "unsupported key type '$opt_keytype' (must be one of: $key_types)"
 	fi

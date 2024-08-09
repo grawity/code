@@ -98,13 +98,11 @@ if echo "$opt_subject" | LC_ALL=C grep -Pqs '[\x80-\xFF]'; then
 fi
 
 if [[ $opt_keyin && ! -f $opt_keyin ]]; then
-	die "private key file '$opt_keyin' does not exist"
+	vdie "private key file '$opt_keyin' does not exist"
 elif [[ $opt_certout && -f $opt_certout ]] && (( !opt_clobber )); then
-	warn "certificate '$opt_certout' already exists"
-	confirm "overwrite file?" || exit
+	vdie "certificate '$opt_certout' already exists"
 elif [[ $opt_keyout && -f $opt_keyout ]] && (( !opt_clobber )); then
-	warn "private key file '$opt_keyout' already exists"
-	confirm "overwrite file?" || exit
+	vdie "private key file '$opt_keyout' already exists"
 fi
 
 if [[ ! $tool ]]; then

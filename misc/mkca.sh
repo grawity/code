@@ -25,6 +25,7 @@ usage() {
 	echo_opt "-s SUBJECT" "certificate subject"
 	echo_opt "-t TYPE" "generated private key type ($key_types)"
 	echo_opt "-y YEARS" "certificate validity in years"
+	echo_opt "-f" "force overwriting existing files"
 }
 
 dn_reverse() {

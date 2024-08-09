@@ -52,8 +52,10 @@ opt_keytype=""
 opt_subject=""
 maxyears=50
 
-while getopts ":b:c:fK:k:s:t:y:" OPT; do
+while getopts ":GOb:c:fK:k:s:t:y:" OPT; do
 	case $OPT in
+	G) tool=gnutls;;
+	O) tool=openssl;;
 	b) opt_keybits=$OPTARG;;
 	c) opt_certout=$OPTARG;;
 	f) opt_clobber=1;;

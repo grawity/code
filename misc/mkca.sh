@@ -122,7 +122,7 @@ if [[ $opt_keyout ]]; then
 			ed25519|ed448)
 				args=(-algorithm ${opt_keytype^^});;
 			*)
-				die "unsupported key type '$opt_keytype' (using OpenSSL genpkey)"
+				vdie "key type $opt_keytype not supported";;
 		esac
 		(umask 077; openssl genpkey "${args[@]}" -out "$opt_keyout")
 	elif [[ $tool == gnutls ]]; then
@@ -132,10 +132,10 @@ if [[ $opt_keyout ]]; then
 				args=(--key-type=rsa --bits="${opt_keytype#rsa}");;
 			ecp256|ecp384|ecp521)
 				args=(--key-type=ecdsa --curve="SECP${opt_keytype#ecp}R1");;
-			ed25519)
-				args=(--key-type=ed25519);;
+			ed25519|ed448)
+				args=(--key-type=$opt_keytype);;
 			*)
-				die "unsupported key type '$opt_keytype' (using GnuTLS certtool)"
+				vdie "key type $opt_keytype not supported";;
 		esac
 		args+=(--pkcs8 --password="")
 		(umask 077; certtool --generate-privkey "${args[@]}" --outfile="$opt_keyout")

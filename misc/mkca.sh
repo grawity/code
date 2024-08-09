@@ -95,9 +95,6 @@ elif (( opt_certyears < 1 )); then
 	vdie "expiry time (-y) must be at least 1y"
 elif (( opt_certyears > 50 )); then
 	vdie "expiry time (-y) of $opt_certyears years is too large"
-elif (( opt_certyears > 25 )); then
-	warn "expiry time (-y) of $opt_certyears years is very large"
-	confirm "continue?" || exit
 fi
 
 if [[ ! $tool ]]; then

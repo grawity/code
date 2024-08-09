@@ -14,6 +14,7 @@
 . lib.bash || exit
 
 key_types="rsa2048 rsa4096 ecp256 ecp384 ecp521 ed25519 ed448"
+default_key_type="ecp256"
 
 usage() {
 	echo "Usage: $progname [options]"
@@ -77,7 +78,7 @@ elif [[ $opt_keyin ]]; then
 		err "both input private key (-K) and key type (-t) cannot be specified"
 	fi
 elif [[ $opt_keyout ]]; then
-	: "${opt_keytype:=rsa2048}"
+	: "${opt_keytype:=$default_key_type}"
 	if [[ $opt_keytype == @(rsa2048|rsa4096) ]]; then
 		opt_keybits=${opt_keytype#rsa}
 		opt_keytype=rsa

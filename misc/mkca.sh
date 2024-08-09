@@ -93,8 +93,7 @@ elif (( opt_certyears > 25 )); then
 fi
 
 if echo "$opt_subject" | LC_ALL=C grep -Pqs '[\x80-\xFF]'; then
-	warn "UTF-8 in CA certificate subjects is not recommended"
-	confirm "continue?" || exit
+	vdie "UTF-8 in CA certificate subjects is not allowed"
 fi
 
 if [[ $opt_keyin && ! -f $opt_keyin ]]; then
@@ -176,7 +175,7 @@ if [[ $tool == openssl ]]; then
 	cat > "$cnf" <<-EOF
 	[req]
 	# (1.1.1a) Without 'utf8=yes', trying to include non-ASCII text results in a malformed UTF8String
-	utf8 = yes
+	# utf8 = yes
 	distinguished_name = dn
 	x509_extensions = exts
 	[dn]

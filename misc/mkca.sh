@@ -66,36 +66,26 @@ while getopts ":GOc:fK:k:s:t:y:" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-(( ! $# ))         || err "unrecognized arguments ${*@Q}"
-[[ $opt_subject ]] || err "certificate subject (-s) not specified"
-[[ $opt_certout ]] || err "output certificate (-c) not specified"
-
-if [[ $opt_keyin && $opt_keyout ]]; then
-	err "both input private key (-K) and output key (-k) cannot be specified"
-elif [[ $opt_keyin ]]; then
-	if [[ $opt_keytype ]]; then
-		err "both input private key (-K) and key type (-t) cannot be specified"
-	fi
-elif [[ $opt_keyout ]]; then
-	: "${opt_keytype:=$default_key_type}"
-	case $opt_keytype in
-		rsa2048|rsa4096)
-			;;
-		ecp256|ecp384|ecp521|ed25519|ed448)
-			;;
-		*)
-			vdie "unsupported key type '$opt_keytype'"
-	esac
-else
-	err "neither input private key (-K) nor output private key (-k) specified"
-fi
-
-((!errors)) || exit
-
-if (( opt_certyears < 1 )); then
-	die "expiry time (-y) must be at least 1 year"
+if (( $# )); then
+	vdie "unrecognized arguments: ${*@Q}"
+elif [[ ! $opt_subject ]]; then
+	vdie "subject (-s) not specified"
+elif [[ ! $opt_certout ]]; then
+	vdie "certificate output file (-c) not specified"
+elif [[ $opt_keyin && $opt_keyout ]]; then
+	vdie "conflicting options (-K and -k) specified"
+elif [[ $opt_keyin && $opt_keytype ]]; then
+	vdie "conflicting options (-K and -t) specified"
+elif [[ ! $opt_keyin && ! $opt_keyout ]]; then
+	vdie "private key location (-K or -k) not specified"
+elif [[ $opt_certout == @(-|/dev/*) ]]; then
+	vdie "writing certificate to stdout or device not supported"
+elif [[ $opt_keyout == @(-|/dev/*) ]]; then
+	vdie "writing private key to stdout or device not supported"
+elif (( opt_certyears < 1 )); then
+	vdie "expiry time (-y) must be at least 1y"
 elif (( opt_certyears > 50 )); then
-	die "expiry time (-y) of $opt_certyears years is too large"
+	vdie "expiry time (-y) of $opt_certyears years is too large"
 elif (( opt_certyears > 25 )); then
 	warn "expiry time (-y) of $opt_certyears years is very large"
 	confirm "continue?" || exit

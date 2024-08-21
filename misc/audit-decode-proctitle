@@ -1,5 +1,7 @@
 #!/bin/sh
 perl -MSocket -pe '
 	s/(?<=(?:proctitle|name|exe|comm)=)([0-9A-F]+)/join " ", map {"\"$_\""} split("\0", $1 =~ s![0-9A-F]{2}!chr hex $&!ger)/ge;
+	s/(?<=saddr=)(01[0-9A-F]+)/my ($addr) = unpack_sockaddr_un(pack("H*", $1)); $addr =~ s!^\0!@!; $addr/ge;
 	s/(?<=saddr=)(02[0-9A-F]+)/my ($port, $addr) = unpack_sockaddr_in(pack("H*", $1)); inet_ntoa($addr).":".$port/ge;
+	s/(?<=saddr=)(0A[0-9A-F]+)/my ($port, $addr, $scope) = unpack_sockaddr_in6(pack("H*", $1)); "[".inet_ntop(AF_INET6, $addr)."%".$scope."]:".$port/ge;
 '

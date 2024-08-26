@@ -33,7 +33,6 @@ function ip_cidr($host, $mask) {
 	$nbits = strlen($host) * 8;
 	$len = strlen($len) ? intval($len) : $nbits;
 
-	var_dump($len);
 	if ($len < 0 || $len > $nbits)
 		throw new \InvalidArgumentException();
 	elseif ($len == 0)

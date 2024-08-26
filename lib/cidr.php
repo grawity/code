@@ -1,10 +1,10 @@
 <?php
-// ip_expand(str $addr) -> str?
-// Expand a string IP address to binary representation.
-// v6-mapped IPv4 addresses will be converted to IPv4.
+// inet_pton_v6mapped(str $addr) -> str?
+// Convert a string IP address to binary representation, and unmap "v6-mapped"
+// addresses such as "::ffff:1.2.3.4" to their native IPv4 representation.
 
-function ip_expand($addr) {
-	$addr = @inet_pton($addr);
+function inet_pton_v6mapped($addr) {
+	$addr = inet_pton($addr);
 	if ($addr === false || $addr === -1)
 		return null;
 	if (strlen($addr) == 16) {
@@ -15,40 +15,38 @@ function ip_expand($addr) {
 	return $addr;
 }
 
-// ip_cidr(str $host, str $cidrmask) -> bool
-// Check if $host belongs to the network $mask (specified in CIDR format)
-// If $cidrmask does not contain /prefixlen, an exact match will be done.
+// ip_cidr(str $host, str $mask) -> bool
+// Check if $host belongs to the network $mask (specified in CIDR format). If
+// $mask does not contain /prefixlen, a full-length prefix (/32 or /128) is
+// assumed.
 
 function ip_cidr($host, $mask) {
 	@list ($net, $len) = explode("/", $mask, 2);
+	$host = inet_pton_v6mapped($host);
+	$net = inet_pton($net);
 
-	$host = ip_expand($host);
-	$net = ip_expand($net);
+	if ($host === false || $net === false || !is_numeric("0$len"))
+		throw new \InvalidArgumentException();
+	elseif (strlen($host) !== strlen($net))
+		return false; /* Mismatching address families aren't an error */
 
-	// FIXME: if ip_expand strips off the v6mapped prefix from $net,
-	// it also needs to adjust $len accordingly.
+	$nbits = strlen($host) * 8;
+	$len = strlen($len) ? intval($len) : $nbits;
 
-	if ($host === null || $net === null || strlen($host) !== strlen($net))
-		return false;
-
-	$nbits = strlen($net) * 8;
-
-	if ($len === null || $len == $nbits)
-		return $host === $net;
+	var_dump($len);
+	if ($len < 0 || $len > $nbits)
+		throw new \InvalidArgumentException();
 	elseif ($len == 0)
 		return true;
-	elseif ($len < 0 || $len > $nbits)
-		return false;
 
 	$host = unpack("C*", $host);
 	$net = unpack("C*", $net);
-	$bad = 0;
 
-	for ($i = 1; $i <= count($net) && $len > 0; $i++) {
+	for ($i = 1; $i <= count($net) && $len > 0; $i++, $len -= 8) {
 		$bits = min($len, 8);
 		$bmask = (0xFF00 >> $bits) & 0xFF;
-		$bad |= ($host[$i] ^ $net[$i]) & $bmask;
-		$len -= 8;
+		if (($host[$i] ^ $net[$i]) & $bmask)
+			return false;
 	}
-	return !$bad;
+	return true;
 }

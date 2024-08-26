@@ -119,6 +119,7 @@ fi
 
 nskipconv=0
 nskipsmall=0
+nskipother=0
 
 for arg in "$@"; do
 	oarg=${outdir%/}${outdir:+/}$arg
@@ -130,6 +131,9 @@ for arg in "$@"; do
 	elif (( minorigsize && $(stat -c %s "$arg") < minorigsize )); then
 		debug "skipping small file '$arg'"
 		let ++nskipsmall
+	elif [[ ${arg,,} = *.@(zip|webm) ]]; then
+		warn "skipping incompatible file '$arg'"
+		let ++nskipother
 	else
 		infiles+=("$arg")
 	fi
@@ -143,6 +147,9 @@ if (( nskipconv )); then
 fi
 if (( nskipsmall )); then
 	info "$nskipsmall files skipped as below size threshold"
+fi
+if (( nskipother )); then
+	info "$nskipother files skipped as incompatible"
 fi
 if (( ! ${#infiles[@]} )); then
 	die 0 "no input files"

@@ -7,11 +7,10 @@ function inet_pton_v6mapped($addr) {
 	$addr = inet_pton($addr);
 	if ($addr === false || $addr === -1)
 		return null;
-	if (strlen($addr) == 16) {
-		if (substr($addr, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xFF\xFF"
-		||  substr($addr, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\0\0")
-			return substr($addr, 12);
-	}
+	if (strlen($addr) == 16 &&
+	    (substr($addr, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\xFF\xFF" ||
+	     substr($addr, 0, 12) === "\0\0\0\0\0\0\0\0\0\0\0\0"))
+		return substr($addr, 12);
 	return $addr;
 }
 
@@ -41,8 +40,9 @@ function ip_cidr($host, $mask) {
 	$host = unpack("C*", $host);
 	$net = unpack("C*", $net);
 
-	for ($i = 1; $i <= count($net) && $len > 0; $i++, $len -= 8) {
+	for ($i = 1; $i <= count($net) && $len > 0; $i++) {
 		$bits = min($len, 8);
+		$len -= $bits;
 		$bmask = (0xFF00 >> $bits) & 0xFF;
 		if (($host[$i] ^ $net[$i]) & $bmask)
 			return false;
@@ -64,11 +64,12 @@ function ip_range($mask) {
 		throw new \InvalidArgumentException();
 
 	$net = unpack("C*", $net);
-	$first = $last = [];
+	$first = [];
+	$last = [];
 
 	for ($i = 1; $i <= count($net); $i++) {
 		$bits = min($len, 8);
-		$len = max($len - 8, 0);
+		$len -= $bits;
 		$bmask = (0xFF00 >> $bits) & 0xFF;
 
 		$first[$i] = $net[$i] & $bmask;

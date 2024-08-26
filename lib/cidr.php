@@ -49,3 +49,33 @@ function ip_cidr($host, $mask) {
 	}
 	return true;
 }
+
+function ip_range($mask) {
+	@list ($net, $len) = explode("/", $mask, 2);
+	$net = inet_pton($net);
+
+	if ($net === false || !is_numeric("0$len"))
+		throw new \InvalidArgumentException();
+
+	$nbits = strlen($net) * 8;
+	$len = strlen($len) ? intval($len) : $nbits;
+
+	if ($len < 0 || $len > $nbits)
+		throw new \InvalidArgumentException();
+
+	$net = unpack("C*", $net);
+	$first = $last = [];
+
+	for ($i = 1; $i <= count($net); $i++) {
+		$bits = min($len, 8);
+		$len = max($len - 8, 0);
+		$bmask = (0xFF00 >> $bits) & 0xFF;
+
+		$first[$i] = $net[$i] & $bmask;
+		$last[$i] = $net[$i] | ~$bmask & 0xFF;
+	}
+
+	$first = inet_ntop(pack("C*", ...$first));
+	$last = inet_ntop(pack("C*", ...$last));
+	return [$first, $last];
+}

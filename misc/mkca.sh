@@ -48,7 +48,7 @@ opt_certyears=25
 opt_clobber=0
 opt_keyin=""
 opt_keyout=""
-opt_keytype=""
+opt_keytype=$default_key_type
 opt_subject=""
 maxyears=50
 

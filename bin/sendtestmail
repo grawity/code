@@ -2,6 +2,21 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: ${0##*/} [-t ADDR]"
+	echo
+	echo_opt "-t ADDR" "Recipient address (default: '$USER')"
+}
+
+opt_to=$USER
+
+while getopts :t OPT; do
+	case $OPT in
+	t) opt_to=$OPTARG;;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
 PATH=/usr/lib:/usr/sbin:$PATH
 
 if ! have sendmail; then
@@ -10,10 +25,10 @@ else
 	vmsg "sending test mail to self"
 fi
 
-sendmail -i "$USER" <<-EOF
+sendmail -i "$opt_to" <<-EOF
 Subject: Test from $(hostname)
 Date: $(date "+%a, %d %b %Y %H:%M:%S %z")
-To: <$USER>
+To: <$opt_to>
 
 Test mail from $USER ($UID) at $(fqdn || hostname)
 EOF

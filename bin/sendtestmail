@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+. lib.bash || exit
+
+if ! mta=$(PATH=/usr/lib:/usr/sbin:/usr/bin:/bin command -v sendmail); then
+	vdie "sendmail program not found"
+else
+	vmsg "sending test mail to self"
+	lhost=$(fqdn || hostname)
+	$mta -i "$USER" <<-EOF
+	Subject: Test from $(hostname)
+	Date: $(date "+%a, %d %b %Y %H:%M:%S %z")
+	To: <$opt_addr>
+
+	Test mail from $USER ($UID) at $lhost
+	EOF
+fi

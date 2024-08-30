@@ -4,8 +4,12 @@
 do_list() {
     local f=$1
     case ${f,,} in
+	*.arj)
+	    arj l "$f";;
 	*.rar)
 	    unrar vb "$f";;
+	*.lzh)
+	    lhasa -l "$f";;
 	*.rpa)
 	    unrpa -l "$f";;
 	*.tar.*|*.tbz2|*.tgz|*.txz)
@@ -35,9 +39,13 @@ uncompress_as() {
 do_extract() {
     local f d
     for f; do
-    	d=${f%.*}.out/
+    	d=${f%.*}.out
     	mkdir -p "$d"
     	case ${f,,} in
+	    *.arj)
+		f=$(realpath -s "$f") && (cd "$d" && arj x "$f");;
+	    *.lzh)
+		lhasa -xw="$d" "$f";;
 	    *.deb)
 	    	sub=$(bsdtar -tf "$f" | grep '^data\.')
 	    	echo "looking for '$sub'"
@@ -58,7 +66,7 @@ do_extract() {
 	    	#unzip -d "$d" "$f";;
 	    	;&
 	    *.7z|*.cab|*.lha|*.msi|*.rar|*.jar|*.zip|*.exe)
-	    	7z x -o"$d" "$f";;
+	    	7z x -o"$d/" "$f";;
 	    *)
 	    	echo "Unknown file type of '$f'" >&2; exit 1;;
     	esac

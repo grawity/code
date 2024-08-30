@@ -13,8 +13,7 @@
 
 . lib.bash || exit
 
-key_types="rsa2048 rsa4096 ecp256 ecp384 ecp521 ed25519 ed448"
-default_key_type="ecp256"
+keytypes="rsa2048 rsa4096 ecp256 ecp384 ecp521 ed25519 ed448"
 
 usage() {
 	echo "Usage: $progname [options]"
@@ -23,7 +22,7 @@ usage() {
 	echo_opt "-k KEYFILE" "output generated private key"
 	echo_opt "-K KEYFILE" "input existing private key"
 	echo_opt "-s SUBJECT" "certificate subject"
-	echo_opt "-t TYPE" "generated private key type ($key_types)"
+	echo_opt "-t TYPE" "generated private key type ($keytypes)"
 	echo_opt "-y YEARS" "certificate validity in years"
 	echo_opt "-f" "force overwriting existing files"
 }
@@ -48,7 +47,7 @@ opt_certyears=25
 opt_clobber=0
 opt_keyin=""
 opt_keyout=""
-opt_keytype=$default_key_type
+opt_keytype="ecp256"
 opt_subject=""
 maxyears=50
 

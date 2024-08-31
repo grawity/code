@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# lastdown -- show the last time the system was turned off
+
+. lib.bash || exit
+
+text="went to sleep"
+x=$(journalctl -b -o json -n 1 MESSAGE_ID=6bbd95ee977941e497c48be27c254128)
+if [[ ! $x ]]; then
+	text="was shut down"
+	x=$(journalctl -b -1 -o json -n 1)
+fi
+
+if [[ $x ]]; then
+	ts=$(jq -r .__REALTIME_TIMESTAMP <<< "$x")
+	ts=$[ts/1000000]
+	if (( !quiet )); then
+		abstime=$(date -d @$ts +"%F %T")
+		reltime=$(interval $[`date +%s` - ts])
+		echo "System $text $reltime ago ($abstime)"
+	else
+		echo "$ts"
+	fi
+else
+	xxxxx
+fi

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# charge -- control ThinkPad laptop charge threshold
+
+. lib.bash || exit
+
+dev="/sys/class/power_supply/BAT0"
+
+if [[ $1 =~ ^([0-9]+)-([0-9]+)$ ]]; then
+	start=${BASH_REMATCH[1]}
+	stop=${BASH_REMATCH[2]}
+	(( start >= 0 )) || die "Start threshold must be >= 0"
+	(( stop <= 100 )) || die "Stop threshold must be <= 100"
+	(( start < stop )) || die "Start threshold must be < Stop threshold"
+	sudo ctl $dev/charge_start_threshold=$start $dev/charge_stop_threshold=$stop
+elif [[ $1 == @(on|save|limit|80) ]]; then
+	start=75
+	stop=80
+	sudo ctl $dev/charge_start_threshold=$start $dev/charge_stop_threshold=$stop
+elif [[ $1 == @(off|normal|full|100) ]]; then
+	# Default values
+	start=0
+	stop=100
+	sudo ctl $dev/charge_start_threshold=$start $dev/charge_stop_threshold=$stop
+elif [[ $1 ]]; then
+	die "Unrecognized argument '$1'"
+fi
+
+echo "Current values:"
+echo "  Status: $(<$dev/status), $(<$dev/capacity)%"
+echo "  Start charging at: $(<$dev/charge_start_threshold)%"
+echo "  Stop charging at: $(<$dev/charge_stop_threshold)%"

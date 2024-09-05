@@ -90,6 +90,16 @@ for iarg; do
 		arg=$(realpath -s "$iarg")
 	fi
 
+	if [[ -L "$arg" ]]; then
+		# Pre-expand absolute symlink targets as otherwise they would
+		# point to the client's local path, making the /net indirection
+		# moot.
+		target=$(readlink "$arg")
+		if [[ $target == /* && $target != /@(afs|n|net)/* ]]; then
+			arg=$target
+		fi
+	fi
+
 	if [[ $arg == /n/*/* ]]; then
 		nhost=${arg#/n/}; nhost=${nhost%%/*}
 		arg="/net/$nhost$HOME/${arg#/n/*/}"

@@ -43,7 +43,7 @@ function ip_cidr($host, $mask) {
 	for ($i = 1; $i <= count($net) && $len > 0; $i++) {
 		$bits = min($len, 8);
 		$len -= $bits;
-		$bmask = (0xFF00 >> $bits) & 0xFF;
+		$bmask = 0xFF00 >> $bits;
 		if (($host[$i] ^ $net[$i]) & $bmask)
 			return false;
 	}
@@ -70,7 +70,7 @@ function ip_range($mask) {
 	for ($i = 1; $i <= count($net); $i++) {
 		$bits = min($len, 8);
 		$len -= $bits;
-		$bmask = (0xFF00 >> $bits) & 0xFF;
+		$bmask = 0xFF00 >> $bits;
 
 		$first[$i] = $net[$i] & $bmask;
 		$last[$i] = $net[$i] | ~$bmask & 0xFF;

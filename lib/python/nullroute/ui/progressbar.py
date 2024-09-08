@@ -74,6 +74,12 @@ class ProgressBar():
             bar.incr(1)
         bar.end(True)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.end()
+
 class ProgressText(ProgressBar):
     def __init__(self, *args, fmt="%s/%s", **kwargs):
         super().__init__(*args, **kwargs)

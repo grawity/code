@@ -36,7 +36,8 @@ def create_certificate(subject_cn, subject_o, days, *, key_type="ecp256"):
     cb.end_date = datetime.now().astimezone(timezone.utc) + timedelta(days=days)
     cb.ca = True
     # Override the key_usage set by 'ca = True' to include digital_signature,
-    # as many new CAs also do.
+    # as many new CAs also do (per CA/B, it would be needed if the CA were to
+    # directly sign OCSP responses).
     cb.key_usage = {"digital_signature", "key_cert_sign", "crl_sign"}
     cert = cb.build(priv)
 
@@ -54,26 +55,32 @@ def parse_lifetime(string):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--common-name", "--cn",
-                    required=True,
-                    help="Subject common name (CN)")
+                        metavar="NAME",
+                        required=True,
+                        help="Subject common name (CN)")
 parser.add_argument("-g", "--organization",
-                    help="Subject organization (O)")
+                        metavar="NAME",
+                        help="Subject organization (O)")
 parser.add_argument("-l", "--lifetime",
-                    default="1d",
-                    help="Certificate lifetime in days")
+                        metavar="DAYS",
+                        default="1d",
+                        help="Certificate lifetime in days")
 parser.add_argument("-a", "--key-type",
-                    default="ecp256",
-                    help="Private key algorithm")
+                        metavar="TYPE",
+                        default="ecp256",
+                        help="Private key algorithm (ecp256 or rsa2048)")
 parser.add_argument("-o", "--out-cert",
-                    help="Certificate output path")
+                        metavar="PATH",
+                        help="Certificate output path")
 parser.add_argument("-O", "--out-key",
-                    help="Private key output path")
+                        metavar="PATH",
+                        help="Private key output path")
 args = parser.parse_args()
 
 try:
     days = parse_lifetime(args.lifetime)
 except ValueError as e:
-    exit(f"error: Invalid lifetime {args.lifetime!r}: {e}")
+    exit(f"mkca: invalid lifetime {args.lifetime!r}: {e}")
 
 cert, priv = create_certificate(subject_cn=args.common_name,
                                 subject_o=args.organization,

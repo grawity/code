@@ -13,6 +13,7 @@ my $force;
 my $force_host;
 my $dry_run = 0;
 my $do_prefix = 0;
+my $recurse = 1;
 
 sub usage {
 	print for
@@ -24,6 +25,7 @@ sub usage {
 	"  -h, --host=STR         Suffix a host name or some other label\n",
 	"  --force-host=STR       Likewise but has something to do with --force?\n",
 	"  -F, --prefix           Prefix current name (instead of replacing)\n",
+	"  --no-recurse           Don't descend into subdirectories\n",
 	;
 }
 
@@ -164,6 +166,7 @@ sub do_dir {
 					next;
 				}
 				elsif (-d $path) {
+					next if !$recurse;
 					# queue?
 					push @next, $path;
 					# recursion?
@@ -190,6 +193,7 @@ GetOptions(
 	"force-host=s" => \$force_host,
 	"h|host=s" => \$host,
 	"F|prefix!" => \$do_prefix,
+	"recurse!" => \$recurse,
 ) or exit(2);
 
 my @args = @ARGV;

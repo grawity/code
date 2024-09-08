@@ -48,7 +48,7 @@ class ProgressBar():
 
         print(bar, end="\033[K\r", file=self.output_fh, flush=True)
 
-    def incr(self, delta):
+    def incr(self, delta=1):
         self.num_incrs += 1
         self.cur_value += delta
 

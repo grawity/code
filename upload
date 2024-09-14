@@ -218,30 +218,8 @@ for arg; do
 	debug "  target: '$target'"
 	debug "  url: '$url'"
 
-	if [[ -e $source ]]; then
-		stored_target=$(ks:getattr "$source" upload.path)
-		stored_url=$(ks:getattr "$source" upload.url)
-
-		if [[ $stored_url == "$urlbase"/* ]]; then
-			debug "found stored URL at default base, remembering"
-			debug "* stored target: '$stored_target'"
-			stored_name=${stored_url#"$urlbase"/}
-			stored_target="$fsbase/$stored_name"
-			debug "  adjust target: '$stored_target'"
-			debug "  stored url: '$stored_url'"
-		fi
-	fi
-
 	if (( arg_remove )); then
-		if [[ $stored_target ]]; then
-			debug "removing based on stored target"
-			r:rm_rvf "$stored_target"
-			ks:delattr "$source" upload.path
-			ks:delattr "$source" upload.url
-		else
-			debug "removing based on guessed target"
-			r:rm_rvf "$target"
-		fi
+		r:rm_rvf "$target"
 	else
 		if r:test -s "$target" && ! (( arg_clobber )); then
 			err "'$name' already exists on server"
@@ -251,8 +229,6 @@ for arg; do
 			err "upload of '$source' to '$target' failed"
 			continue
 		fi
-		ks:setattr "$source" upload.path "$target"
-		ks:setattr "$source" upload.url "$url"
 
 		if (( arg_quiet )); then
 			echo "$url"

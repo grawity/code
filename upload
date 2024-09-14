@@ -47,7 +47,10 @@ urlbase="https://nullroute.lt/tmp"
 fsbase[fs1]="ember:/srv/http/fs1/tmp"
 urlbase[fs1]="https://fs1.nullroute.lt/tmp"
 
-rsync=(--chmod="a+r")
+rsync=(
+	--copy-links
+	--chmod="a+r"
+)
 
 # parse command line
 
@@ -208,7 +211,7 @@ for arg; do
 	elif (( arg_timestamp )); then
 		name=$(date +"$timefmt")$name
 	fi
-	source=$(readlink -f "$arg")
+	source=$(realpath -s "$arg")
 	target="$fsbase/$name"
 	url="$urlbase/$(urlencode -a "$name")"
 	debug "* source: '$source'"

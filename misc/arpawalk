@@ -99,7 +99,7 @@ def crawl_recursively(domain, card=16, fmt="%x", rtype="PTR",
     except dns.resolver.NXDOMAIN:
         Core.trace("got NXDOMAIN for %r; continuing", domain)
         stat["nxdomains"] += 1
-    except dns.resolver.NoNameservers:
+    except (dns.resolver.NoNameservers, dns.resolver.LifetimeTimeout):
         Core.warn("got SERVFAIL for %r; returning and continuing", domain)
         stat["baddelegations"] += 1
         yield (domain, None)
@@ -140,7 +140,7 @@ def crawl_iteratively(domain, card=16, fmt="%x", rtype="PTR",
         except dns.resolver.NXDOMAIN:
             Core.trace("got NXDOMAIN for %r; continuing", domain)
             stat["nxdomains"] += 1
-        except dns.resolver.NoNameservers:
+        except (dns.resolver.NoNameservers, dns.resolver.LifetimeTimeout):
             Core.warn("got SERVFAIL for %r; returning and continuing", domain)
             stat["baddelegations"] += 1
             yield (domain, None)

@@ -9,7 +9,8 @@ import subprocess
 def yrun(*cmd):
     res = subprocess.run(cmd, stdout=subprocess.PIPE,
                               check=True)
-    return yaml.safe_load(res.stdout)
+    buf = res.stdout.replace(b'value: ""!!', b'value: "!!')
+    return yaml.safe_load(buf)
 
 def findrange(ranges, key):
     for (start, end, *rest) in ranges:

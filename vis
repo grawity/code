@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+# utfvis -- make non-ASCII Unicode characters highly visible
+
+use warnings;
+use strict;
+use Getopt::Long qw(:config bundling no_ignore_case);
+
+sub usage {
+	print for
+	"Usage: utfvis [-o] <file>...\n",
+	"\n",
+	"Options:\n",
+	"  -o, --only    show only lines containing non-ASCII characters\n";
+}
+
+sub hilight {
+	my ($char, $color) = @_;
+	$char = sprintf "<%02X>", ord($char);
+	if ($color) {
+		return "\e[1;37;41m$char\e[m";
+	} else {
+		return $char;
+	}
+}
+
+my $opt_only = 0;
+my $opt_color = (-t 1);
+
+GetOptions(
+	"o|only!" => \$opt_only,
+	"color!" => \$opt_color,
+	"help" => sub { usage(); exit(0); },
+) or exit(2);
+
+while (<>) {
+	my $n = s/[^\n\t\x20-\x7e]/hilight($&, $opt_color)/ge;
+	if ($opt_only) {
+		if ($opt_color) {
+			print "\e[4m$ARGV:$.:\e[m$_" if $n;
+		} else {
+			print "$ARGV:$.:$_" if $n;
+		}
+	} else {
+		print;
+	}
+} continue {
+	# Reset $. between files, as <> doesn't do that automatically.
+	close ARGV if eof(ARGV);
+}

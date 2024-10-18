@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+# annex abslink -- convert git-annex relative symlinks to absolute
+#
+# By default git-annex creates relative symlinks, which make annexed files hard
+# to manage over SMB as moving them to a different level causes the symlink to
+# break and the file to "disappear".
+import argparse
+import os
+import stat
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-n", "--dry-run", action="store_true")
+parser.add_argument("path", nargs="*")
+args = parser.parse_args()
+
+pid = os.getpid()
+
+n_good = 0
+n_fixed = 0
+n_other = 0
+n_total = 0
+
+for walk_base in args.path or ["."]:
+    for walk_dir, subdirs, files in os.walk(walk_base):
+        for name in files:
+            path = os.path.join(walk_dir, name)
+            st = os.lstat(path)
+            if not stat.S_ISLNK(st.st_mode):
+                continue
+            n_total += 1
+
+            orig_target = os.readlink(path)
+            if "/.git/annex/objects/" not in f"/{orig_target}":
+                n_other += 1
+                continue
+            if orig_target.startswith("/"):
+                n_good += 1
+                continue
+            abs_target = os.path.join(os.path.dirname(path), orig_target)
+            abs_target = os.path.abspath(abs_target)
+
+            print(path)
+            if args.dry_run:
+                print("  <-", orig_target)
+                print("  =>", abs_target)
+            else:
+                backup_path = f"{path}~{pid}"
+                os.rename(path, backup_path)
+                os.symlink(abs_target, path)
+                os.chown(path, st.st_uid, st.st_gid, follow_symlinks=False)
+                os.utime(path, (st.st_atime+1, st.st_mtime+1), follow_symlinks=False)
+                os.unlink(backup_path)
+            n_fixed += 1
+
+print(f"Found {n_total} symlinks, {n_fixed} updated, {n_good} already absolute, {n_other} non-annex")

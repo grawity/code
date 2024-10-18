@@ -6,10 +6,20 @@
 # break and the file to "disappear".
 import argparse
 import os
+import re
 import stat
+import subprocess
+
+def find_git_dir(base):
+    r = subprocess.run(["git", "-C", base, "rev-parse", "--git-dir"],
+                       stdout=subprocess.PIPE,
+                       text=True,
+                       check=True)
+    return r.stdout.rstrip("\n")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-n", "--dry-run", action="store_true")
+parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
 
@@ -22,6 +32,7 @@ n_total = 0
 
 for walk_base in args.path or ["."]:
     for walk_dir, subdirs, files in os.walk(walk_base):
+        git_dir = find_git_dir(walk_dir)
         for name in files:
             path = os.path.join(walk_dir, name)
             st = os.lstat(path)
@@ -36,10 +47,17 @@ for walk_base in args.path or ["."]:
             if orig_target.startswith("/"):
                 n_good += 1
                 continue
-            abs_target = os.path.join(os.path.dirname(path), orig_target)
-            abs_target = os.path.abspath(abs_target)
 
-            print(path)
+            # Do the rewrite manually in an annex-specific manner instead of
+            # using os.path.abspath(), so that it will work even with
+            # already-broken (i.e. moved) symlinks.
+            #abs_target = os.path.join(os.path.dirname(path), orig_target)
+            #abs_target = os.path.abspath(abs_target)
+            m = re.search(r"\.git/(annex/objects/.+)", orig_target)
+            abs_target = os.path.join(git_dir, m[1])
+
+            if args.dry_run or args.verbose:
+                print(path)
             if args.dry_run:
                 print("  <-", orig_target)
                 print("  =>", abs_target)

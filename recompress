@@ -120,7 +120,6 @@ fi
 nskipconv=0
 nskipsmall=0
 nskipother=0
-nwarnalpha=0
 
 for arg in "$@"; do
 	oarg=${outdir%/}${outdir:+/}$arg
@@ -156,18 +155,6 @@ if (( ! ${#infiles[@]} )); then
 	die 0 "no input files"
 fi
 
-for arg in "${infiles[@]}"; do
-	if [[ $arg == *.png ]]; then
-		if [[ $(magick identify -format "%[opaque]" "$arg") != True ]]; then
-			warn "File has an alpha layer: $arg"
-			let ++nwarnalpha
-		fi
-	fi
-done
-if (( nwarnalpha )); then
-	info "$nwarnalpha files have an alpha layer"
-	confirm "Proceed with removing alpha channel?" || exit
-fi
 addargs+=(-background "$background" -alpha remove)
 
 if (( quality < 20 || quality > 100 )); then

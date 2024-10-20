@@ -308,6 +308,23 @@ case $cmd in
         find -iname "*.exe" -xtype f -not -executable -exec chmod -c a+x {} +
         ;;
     # overrides
+    add)
+        for arg; do
+            if [[ $arg == *.part ]]; then
+                err "will not add .part file: $arg"
+            elif [[ -e $arg && -f $arg && ! -L $arg && ! -S $arg ]]; then
+                shopt -s nullglob
+                parts=("$arg".*.part)
+                shopt -u nullglob
+                if (( ${#parts[@]} )); then
+                    err "file is still being downloaded: $arg -> $parts"
+                else
+                    err "will not add 0-byte file: $arg"
+                fi
+            fi
+        done
+        (( !errors )) || exit
+        ;;&
     addurl)
         args=()
         for arg; do

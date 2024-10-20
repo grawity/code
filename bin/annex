@@ -307,6 +307,18 @@ case $cmd in
     fixmodes)
         find -iname "*.exe" -xtype f -not -executable -exec chmod -c a+x {} +
         ;;
+    set-cost)
+        name=${1?}
+        cost=${2?}
+        if ! git config remote.$name.url > /dev/null; then
+            die "no such remote: $name"
+        fi
+        if [[ $cost == @(-|-u|--unset) ]]; then
+            git config --unset remote.$name.annex-cost
+        else
+            git config remote.$name.annex-cost "$cost"
+        fi
+        ;;
     # overrides
     add)
         for arg; do

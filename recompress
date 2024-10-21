@@ -120,6 +120,7 @@ fi
 nskipconv=0
 nskipsmall=0
 nskipother=0
+nwarnanim=0
 
 for arg in "$@"; do
 	oarg=${outdir%/}${outdir:+/}$arg
@@ -138,7 +139,6 @@ for arg in "$@"; do
 		infiles+=("$arg")
 	fi
 done
-
 if (( errors )); then
 	exit 1
 fi
@@ -153,6 +153,19 @@ if (( nskipother )); then
 fi
 if (( ! ${#infiles[@]} )); then
 	die 0 "no input files"
+fi
+
+for arg in "${infiles[@]}"; do
+	if [[ $arg == *.webp ]]; then
+		nframes=$(magick identify -ping "$arg" | wc -l)
+		if (( nframes > 1 )); then
+			err "file is animated ($nframes frames): $arg"
+			let ++nwarnanim
+		fi
+	fi
+done
+if (( errors )); then
+	exit 1
 fi
 
 addargs+=(-background "$background" -alpha remove)

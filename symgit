@@ -127,6 +127,7 @@ case ${cmd:-help} in
 		ssh $host "umask 022; mkdir -p ${pdir@Q}"
 		ssh $host "git init --bare ${dir@Q}"
 		ssh $host "chmod go-rx ${dir@Q}"
+		ssh $host "echo defbranch=main > ${dir@Q}/cgitrc"
 		if [[ $newdesc ]]; then
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
 		fi
@@ -168,11 +169,14 @@ case ${cmd:-help} in
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		if [[ $newhead ]]; then
-			newhead=refs/heads/${newhead#refs/heads/}
+			newhead=${newhead#refs/heads/}
+			newref=refs/heads/$newname
 			vmsg "setting default branch for $repo to \"$newhead\""
-			ssh $host "git -C ${dir@Q} symbolic-ref HEAD ${newhead@Q}"
+			ssh $host "git -C ${dir@Q} symbolic-ref HEAD ${newref@Q}"
+			ssh $host "echo defbranch=${newhead@Q} > ${dir@Q}/cgitrc"
 		else
 			ssh $host "git -C ${dir@Q} symbolic-ref HEAD"
+			ssh $host "cat ${dir@Q}/cgitrc"
 		fi
 		;;
 	desc|describe)

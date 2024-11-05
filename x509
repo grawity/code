@@ -3,6 +3,15 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname [-gno] [-v] <file>"
+	echo
+	echo_opt "-g" "display using GnuTLS 'certtool'"
+	echo_opt "-n" "display using NSS 'certutil'"
+	echo_opt "-o" "display using OpenSSL 'x509'"
+	echo_opt "-v" "show some normally-hidden details"
+}
+
 highlight() {
 	if [ -t 1 ]; then
 		sed "$1 s/.*/"$'\e[1m&\e[m'"/"
@@ -10,6 +19,8 @@ highlight() {
 		cat
 	fi
 }
+
+opt_verbose=0
 
 if have certtool; then
 	mode=certtool
@@ -21,11 +32,12 @@ else
 	vdie "no supported tool found"
 fi
 
-while getopts :gno OPT; do
+while getopts :gnov OPT; do
 	case $OPT in
 	g) mode=certtool;;
 	n) mode=nsscertutil;;
 	o) mode=openssl;;
+	v) let opt_verbose++;;
 	*) lib:die_getopts;;
 	esac
 done; shift $[OPTIND-1]
@@ -69,10 +81,11 @@ for file; do
 				!c {n=0}
 				n<m {print}
 			' |
-			awk '
-				/^Other Information:/ {other=1}
-				!other {print}
-			'
+			if (( opt_verbose )); then
+				cat
+			else
+				awk '/^Other Information:/ {m=1} /^$/ {m=0} !m {print}'
+			fi |
 			highlight '/^X\.509 Certificate /'
 		;;
 	openssl)

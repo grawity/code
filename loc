@@ -1,9 +1,11 @@
 #!/bin/sh
 
-locate -Abi "$@" | grep -v '/\.old/'
+exclude='/\.old/|/\.local/share/Trash/'
+
+locate -Abi "$@" | egrep -v "$exclude"
 
 case $(hostname) in frost)
 	# frost is low on disk capacity, so a large part of ~/Dropbox has been
 	# mounted from /n/ember.
-	on -C. ember locate -Abi "$@" | grep -v '/\.old/'
+	on -C. ember locate -Abi "$@" | egrep -v "$exclude"
 esac

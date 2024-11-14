@@ -14,34 +14,33 @@
 # TODO: Update from strongswan's src/libcharon/plugins/save_keys/save_keys_listener.c
 
 my %ENC_ALGOS = (
+	"enc cbc(aes)"			=> "AES-CBC [RFC3602]",
+	"enc rfc3686(ctr(aes))"		=> "AES-CTR [RFC3686]",
+	"aead rfc4543(gcm(aes)) 128"	=> "AES-GCM [RFC4106]", # ???
+	"aead rfc4106(gcm(aes)) 128" 	=> "AES-GCM [RFC4106]", # ???
 	# "TripleDES-CBC [RFC2451]",
-	"enc cbc(aes)" => "AES-CBC [RFC3602]",
-	"enc rfc3686(ctr(aes))" => "AES-CTR [RFC3686]",
 	# "DES-CBC [RFC2405]",
 	# "CAST5-CBC [RFC2144]",
 	# "BLOWFISH-CBC [RFC2451]",
 	# "TWOFISH-CBC", # sic
-	"aead rfc4543(gcm(aes)) 128" => "AES-GCM [RFC4106]",
-	"aead rfc4106(gcm(aes)) 128" => "AES-GCM [RFC4106]", # ???
 	# "AES-GCM with 8 octet ICV [RFC4106]",
 	# "AES-GCM with 12 octet ICV [RFC4106]",
 	# "AES-GCM with 16 octet ICV [RFC4106]",
 );
 
 my %AUTH_ALGOS = (
-	"" => "NULL",
-	"auth-trunc hmac(sha1) 96" => "HMAC-SHA-1-96 [RFC2404]",
+	""				=> "NULL",
+	"auth-trunc hmac(sha1) 96"	=> "HMAC-SHA-1-96 [RFC2404]",
+	"auth-trunc hmac(sha256) 128"	=> "HMAC-SHA-256-128 [RFC4868]",
 	# "HMAC-SHA-256-96 [draft-ietf-ipsec-ciph-sha-256-00]",
-	"auth-trunc hmac(sha256) 128" => "HMAC-SHA-256-128 [RFC4868]",
 	# "HMAC-SHA-384-192 [RFC4868]",
 	# "HMAC-SHA-512-256 [RFC4868]",
 	# "HMAC-MD5-96 [RFC2403]",
 	# "MAC-RIPEMD-160-96 [RFC2857]",
 );
 
-my %cur;
-
 sub out {
+	my (%cur) = @_;
 	my $family = ($cur{src} =~ /:/) ? "IPv6" : "IPv4";
 	my $enc_algo = $ENC_ALGOS{$cur{enc_algo}}
 		// die "error: unmapped enc algorithm '$cur{enc_algo}'\n";
@@ -56,9 +55,11 @@ sub out {
 	return ();
 }
 
+my %cur;
+
 while (<>) {
 	if (/^src (\S+) dst (\S+)$/) {
-		%cur = out() if %cur;
+		%cur = out(%cur) if %cur;
 		$cur{src} = $1;
 		$cur{dst} = $2;
 	}
@@ -83,4 +84,5 @@ while (<>) {
 		die "error: expected 'ip xfrm state', not 'ip xfrm policy'\n";
 	}
 }
-out() if %cur;
+
+out(%cur) if %cur;

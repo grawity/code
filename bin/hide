@@ -12,15 +12,6 @@ usage() {
 	echo_opt "-y <year>"	"Use specified year instead of modification time"
 }
 
-_put() {
-	local src=$1 dst=$2
-
-	[[ ! -e "$dst" ]] && {
-		vmsg "moving \"$src\" to \"${dst#$HOME/}\""
-		mv -f "$src" "$dst"
-	}
-}
-
 dir="$HOME/Attic/Misc"
 if [[ ! -d $dir ]]; then
 	dir="/net/ember/home/grawity/Attic/Misc"
@@ -90,10 +81,12 @@ for arg; do
 	mkdir -p "$dstdir"
 
 	dst="$dstdir/$name"
-	_put "$arg" "$dst" ||
-	for (( count=2; count < 9999; count++ )); do
+	for (( count=1; count < 9999; count++ )); do
+		if [[ ! -e $dst ]]; then
+			vmsg "moving \"$src\" to \"${dst#$HOME/}\""
+			mv -n "$src" "$dst" && break
+		fi
 		dst="$dstdir/$base-$count${ext:+.}$ext"
-		_put "$arg" "$dst" && break
 	done
 
 	perms=$(stat -c %a "$dst") &&

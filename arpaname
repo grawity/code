@@ -19,7 +19,10 @@ for arg in args.address:
         if net.version == 6:
             full, bits = divmod(net.prefixlen, 4)
             full += 2
-            if bits:
+            if bits != 0:
+                # print a list of nibble delegations (it would be extremely
+                # rare for a sub-/124 last-nibble delegation to occur so the
+                # whole IPv4 code is not duplicated here)
                 full += 1
                 start = int(rev[-full], 16)
                 count = 2 ** (4 - bits)
@@ -31,14 +34,20 @@ for arg in args.address:
         else:
             full, bits = divmod(net.prefixlen, 8)
             full += 2
-            if bits and net.prefixlen > 24:
+            if bits != 0 and net.prefixlen > 24:
+                # print a sub-/24 delegation in RFC 2317 style
                 print("arpaname: using RFC 2317 style for sub-/24 delegation",
                       file=sys.stderr)
                 rev[0] = rev[0].replace("/", "-")
                 print(".".join(rev))
-            elif bits:
-                print(f"{rev=} {bits=} {full=} {net.prefixlen=}")
-                exit("arpaname: %s: not implemented (bits=%r)" % (rev, bits))
+            elif bits != 0:
+                # print a list of /24 delegations
+                full += 1
+                start = int(rev[-full], 10)
+                count = 2 ** (8 - bits)
+                for i in range(count):
+                    rev[-full] = "%d" % (start + i)
+                    print(".".join(rev[-full:]))
             else:
                 if net.prefixlen == 32:
                     rev[0] = "0"

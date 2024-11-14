@@ -2,28 +2,34 @@
 
 . lib.bash || exit
 
-if have expac; then
-	{
-		expac -Q '%r/%n %v' "$@" || true
-		expac -S '%r/%n %v' "$@" || true
-	} | {
-		declare -a packages=()
-		declare -A versions=()
-		declare -i width=0
+tool=$(osguess package-mgr) || exit
 
-		while read -r name version; do
-			packages+=("$name")
-			versions["$name"]=$version
-			if (( ${#name} > width )); then
-				width=${#name}
-			fi
-		done
+case $tool in
+	pacman)
+		if ! have expac; then
+			vdie "expac not found"
+		fi
+		{ expac -Q '%r/%n %v' "$@" || true;
+		  expac -S '%r/%n %v' "$@" || true; } |
+		{
+			declare -a packages=()
+			declare -A versions=()
+			declare -i width=0
 
-		for name in "${packages[@]}"; do
-			printf '%-*s %s\n' "$width" "$name" "${versions["$name"]}"
-		done
-	}
-elif have apt-get && have dpkg-query; then
-	apt-cache policy "$@"
-	#dpkg-query -W "$@"
-fi
+			while read -r name version; do
+				packages+=("$name")
+				versions["$name"]=$version
+				if (( ${#name} > width )); then
+					width=${#name}
+				fi
+			done
+
+			for name in "${packages[@]}"; do
+				printf '%-*s %s\n' "$width" "$name" "${versions["$name"]}"
+			done
+		}
+		;;
+	*)
+		echo "${0##*/}: unknown distribution" >&2
+		exit 2
+esac

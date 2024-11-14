@@ -17,22 +17,22 @@ for arg in args.address:
         net = ipaddress.ip_network(arg)
         rev = net.reverse_pointer.split(".")
         if net.version == 6:
-            full, bits = divmod(net.prefixlen, 4)
+            nibbles, extrabits = divmod(net.prefixlen, 4)
             # IPv6Network.reverse_pointer returns the "/nn" as individual
             # nibbles ["n", "n", "/"]. Discard it (i.e. keep only the number
             # of nibbles we need, plus two for .ip6.arpa)
-            if bits != 0:
-                rev = rev[-(full+3):]
+            if extrabits != 0:
+                rev = rev[-(nibbles+3):]
                 start = int(rev[0], 16)
-                count = 2 ** (4 - bits)
+                count = 2 ** (4 - extrabits)
                 for i in range(count):
                     rev[0] = "%x" % (start + i)
                     print(".".join(rev))
             else:
-                rev = rev[-(full+2):]
+                rev = rev[-(nibbles+2):]
                 print(".".join(rev))
         else:
-            full, bits = divmod(net.prefixlen, 8)
+            octets, extrabits = divmod(net.prefixlen, 8)
             # IPv4Network.reverse_pointer returns the whole "xy/nn" as the
             # leftmost octet. For /32 we should trim it off; for sub-/24 cases
             # use a dash as the RFC begrudgingly recommends; in other cases
@@ -46,15 +46,15 @@ for arg in args.address:
                       file=sys.stderr)
                 rev[0] = rev[0].replace("/", "-")
                 print(".".join(rev))
-            elif bits != 0:
-                rev = rev[-(full+3):]
+            elif extrabits != 0:
+                rev = rev[-(octets+3):]
                 start = int(rev[0], 10)
-                count = 2 ** (8 - bits)
+                count = 2 ** (8 - extrabits)
                 for i in range(count):
                     rev[0] = "%d" % (start + i)
                     print(".".join(rev))
             else:
-                rev = rev[-(full+2):]
+                rev = rev[-(octets+2):]
                 print(".".join(rev))
     else:
         net = ipaddress.ip_address(arg)

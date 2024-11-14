@@ -6,7 +6,7 @@
 usage() {
 	echo "Usage: $progname [-d <dir>] [-y <year>] <files>..."
 	echo ""
-	echo "Move old files to ~/Attic/Misc/<year>."
+	echo "Put away old files to ~/Attic/Misc/<year>."
 	echo ""
 	echo_opt "-d <dir>"	"Put files in a subdirectory"
 	echo_opt "-y <year>"	"Use specified year instead of modification time"
@@ -16,7 +16,7 @@ _put() {
 	local src=$1 dst=$2
 
 	[[ ! -e "$dst" ]] && {
-		lib:echo "Moving \"$src\" to \"${dst#$HOME/}\""
+		vmsg "moving \"$src\" to \"${dst#$HOME/}\""
 		mv -f "$src" "$dst"
 	}
 }
@@ -25,9 +25,9 @@ dir="$HOME/Attic/Misc"
 if [[ ! -d $dir ]]; then
 	dir="/net/ember/home/grawity/Attic/Misc"
 	if [[ ! -d $dir ]]; then
-		die "Misc directory not found"
+		vdie "misc directory not found and not accessible via NFS"
 	fi
-	info "using location '$dir'"
+	vmsg "using NFS location ($dir)"
 fi
 
 # parse command line
@@ -45,8 +45,8 @@ while getopts ":D:d:y:" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-if ! (( $# )); then
-	die "files to hide not specified"
+if (( ! $# )); then
+	vdie "no files specified"
 fi
 
 if [[ $arg_year == @(now|today) ]]; then
@@ -57,7 +57,8 @@ fi
 
 for arg; do
 	if [[ ! -e $arg ]]; then
-		err "item \"$arg\" not found"
+		vmsg "file \"$arg\" not found" >&2
+		let ++errors
 		continue
 	fi
 

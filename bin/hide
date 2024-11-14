@@ -50,27 +50,24 @@ for arg; do
 
 	src=$(readlink -f "$arg")
 
-	arg=${arg%/}
-	name=${arg##*/}
-	debug "name='$name'"
+	name=$(basename "$arg")
+	# separate name/extension for adding "-counter" if needed
 	if [[ $name == *.* ]]; then
 		base=${name%.*}
 		ext=${name##*.}
 	else
 		base=$name
-		ext=
+		ext=""
 	fi
-	debug "... base='$base' ext='$ext'"
 
 	if [[ $arg_year ]]; then
 		dstdir=$dir/$arg_year
 	else
-		dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
+		dstdir=$dir/$(date +%Y -d "@$(stat -c %Y "$arg")")
 	fi
 	if [[ $arg_subdir ]]; then
 		dstdir+=/$arg_subdir
 	fi
-	debug "... dstdir='$dstdir'"
 	mkdir -p "$dstdir"
 
 	dst="$dstdir/$name"

@@ -4,12 +4,11 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-d <dir>] [-T] [-y <year>] <files>..."
+	echo "Usage: $progname [-d <dir>] [-y <year>] <files>..."
 	echo ""
 	echo "Move old files to ~/Attic/Misc/<year>."
 	echo ""
-	echo_opt "-d <dir>"	"Put all files in a subdirectory"
-	echo_opt "-T"		"Use today's year instead of modification time"
+	echo_opt "-d <dir>"	"Put files in a subdirectory"
 	echo_opt "-y <year>"	"Use specified year instead of modification time"
 }
 
@@ -37,11 +36,10 @@ arg_mtime=1
 arg_subdir=
 arg_year=
 
-while getopts ":D:d:Ty:" OPT; do
+while getopts ":D:d:y:" OPT; do
 	case $OPT in
 	D) dir=$OPTARG;;
 	d) arg_subdir=$OPTARG;;
-	T) arg_mtime=0; arg_year=$(date +%Y);;
 	y) arg_mtime=0; arg_year=$OPTARG;;
 	*) lib:die_getopts;;
 	esac
@@ -49,6 +47,10 @@ done; shift $((OPTIND-1))
 
 if ! (( $# )); then
 	die "files to hide not specified"
+fi
+
+if [[ $arg_year == @(now|today) ]]; then
+	arg_year=$(date +%Y)
 fi
 
 # move files
@@ -75,7 +77,7 @@ for arg; do
 
 	if (( arg_mtime )); then
 		dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
-	elif (( arg_year )); then
+	elif [[ $arg_year ]]; then
 		dstdir=$dir/$arg_year
 	else
 		dstdir=$dir/$(date +%Y)

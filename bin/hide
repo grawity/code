@@ -43,21 +43,22 @@ fi
 
 for arg; do
 	if [[ ! -e $arg ]]; then
-		vmsg "file \"$arg\" not found" >&2
+		vmsg "not found: \"$arg\"" >&2
+		let ++errors
+		continue
+	elif [[ -L $arg || ! -f $arg ]]; then
+		vmsg "not a regular file: \"$arg\"" >&2
 		let ++errors
 		continue
 	fi
 
 	src=$(readlink -f "$arg")
-
-	name=$(basename "$arg")
 	# separate name/extension for adding "-counter" if needed
-	if [[ $name == *.* ]]; then
-		base=${name%.*}
-		ext=${name##*.}
-	else
-		base=$name
-		ext=""
+	ext=""
+	base=$(basename "$arg")
+	if [[ $base == *.* ]]; then
+		ext=${base##*.}
+		base=${base%.*}
 	fi
 
 	if [[ $arg_year ]]; then
@@ -65,19 +66,22 @@ for arg; do
 	else
 		dstdir=$dir/$(date +%Y -d "@$(stat -c %Y "$arg")")
 	fi
+
 	if [[ $arg_subdir ]]; then
-		dstdir+=/$arg_subdir
+		dstdir=$dstdir/$arg_subdir
 	fi
+
 	mkdir -p "$dstdir"
 
-	dst="$dstdir/$name"
-	for (( count=1; count < 9999; count++ )); do
-		if [[ ! -e $dst ]]; then
-			vmsg "moving \"$src\" to \"${dst#$HOME/}\""
-			mv -n "$src" "$dst" && break
-		fi
+	count=1
+	dst="$dstdir/$base${ext:+.}$ext"
+	while [[ -e $dst ]]; do
+		let ++count
 		dst="$dstdir/$base-$count${ext:+.}$ext"
 	done
+
+	vmsg "moving \"$src\" to \"${dst#$HOME/}\""
+	mv -b "$src" "$dst" || let ++errors
 done
 
 (( ! errors ))

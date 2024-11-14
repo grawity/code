@@ -22,14 +22,13 @@ if [[ ! -d $dir ]]; then
 	vmsg "using NFS location ($dir)"
 fi
 
-arg_mtime=1
 arg_subdir=
 arg_year=
 
 while getopts ":d:y:" OPT; do
 	case $OPT in
 	d) arg_subdir=$OPTARG;;
-	y) arg_mtime=0; arg_year=$OPTARG;;
+	y) arg_year=$OPTARG;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -63,12 +62,10 @@ for arg; do
 	fi
 	debug "... base='$base' ext='$ext'"
 
-	if (( arg_mtime )); then
-		dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
-	elif [[ $arg_year ]]; then
+	if [[ $arg_year ]]; then
 		dstdir=$dir/$arg_year
 	else
-		dstdir=$dir/$(date +%Y)
+		dstdir=$dir/$(date +%Y -d @$(stat -c %Y "$arg"))
 	fi
 	if [[ $arg_subdir ]]; then
 		dstdir+=/$arg_subdir

@@ -6,6 +6,7 @@
 
 import argparse
 import ipaddress
+import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument("address", nargs="+")
@@ -30,7 +31,13 @@ for arg in args.address:
         else:
             full, bits = divmod(net.prefixlen, 8)
             full += 2
-            if bits:
+            if bits and net.prefixlen > 24:
+                print("arpaname: using RFC 2317 style for sub-/24 delegation",
+                      file=sys.stderr)
+                rev[0] = rev[0].replace("/", "-")
+                print(".".join(rev))
+            elif bits:
+                print(f"{rev=} {bits=} {full=} {net.prefixlen=}")
                 exit("arpaname: %s: not implemented (bits=%r)" % (rev, bits))
             else:
                 if net.prefixlen == 32:

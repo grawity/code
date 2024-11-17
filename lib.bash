@@ -78,7 +78,7 @@ lib:progress() {
 #
 # Set terminal title. Used by log/log2 levels.
 
-settitle() {
+lib:settitle() {
 	local str="$*"
 	case $TERM in
 	[xkE]term*|putty*|rxvt*|cygwin|dtterm|termite|tmux*)
@@ -263,7 +263,7 @@ lib:log() {
 
 log2() {
 	lib:msg "$*" log2
-	settitle "$progname: $*"
+	lib:settitle "$progname: $*"
 }
 
 warn() {

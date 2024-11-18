@@ -11,11 +11,11 @@ usage() {
 	echo_opt "-q"		"print only the timestamp"
 }
 
-quiet=0
+opt_quiet=0
 
 while getopts :q OPT; do
 	case $OPT in
-	q) quiet=1;;
+	q) opt_quiet=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $[OPTIND-1]
@@ -29,7 +29,7 @@ x=$(journalctl -b -o json -n 1 MESSAGE_ID=8811e6df2a8e40f58a94cea26f8ebf14)
 if [[ $x ]]; then
 	ts=$(jq -r .__REALTIME_TIMESTAMP <<< "$x")
 	ts=$[ts/1000000]
-	if (( !quiet )); then
+	if (( !opt_quiet )); then
 		abstime=$(date -d @$ts +%T)
 		reltime=$(interval $[`date +%s` - ts])
 		echo "System resumed from sleep $reltime ago ($abstime)"
@@ -37,7 +37,7 @@ if [[ $x ]]; then
 		echo "$ts"
 	fi
 else
-	if (( !quiet )); then
+	if (( !opt_quiet )); then
 		echo "System did not sleep since last boot."
 	fi
 	exit 1

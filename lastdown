@@ -9,11 +9,11 @@ usage() {
 	echo_opt "-q"		"print only the timestamp"
 }
 
-quiet=0
+opt_quiet=0
 
 while getopts :q OPT; do
 	case $OPT in
-	q) quiet=1;;
+	q) opt_quiet=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $[OPTIND-1]
@@ -32,7 +32,7 @@ fi
 if [[ $x ]]; then
 	ts=$(jq -r .__REALTIME_TIMESTAMP <<< "$x")
 	ts=$[ts/1000000]
-	if (( !quiet )); then
+	if (( !opt_quiet )); then
 		abstime=$(date -d @$ts +"%F %T")
 		reltime=$(interval $[`date +%s` - ts])
 		echo "System $text $reltime ago ($abstime)"

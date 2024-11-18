@@ -3,6 +3,25 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname [-q]"
+	echo ""
+	echo_opt "-q"		"print only the timestamp"
+}
+
+quiet=0
+
+while getopts :q OPT; do
+	case $OPT in
+	q) quiet=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
+if (( $# )); then
+	vdie "excess arguments"
+fi
+
 text="went to sleep"
 x=$(journalctl -b -o json -n 1 MESSAGE_ID=6bbd95ee977941e497c48be27c254128)
 if [[ ! $x ]]; then

@@ -61,6 +61,7 @@ if ! have magick; then
 	magick() { "/usr/bin/$@"; }
 fi
 
+opt_verbose=0
 quality=92
 scale=100
 keeplarger=0
@@ -81,7 +82,7 @@ njobs=0
 ndone=0
 r=0
 
-while getopts ":B:d:fj:L:O:q:s:Tx" OPT; do
+while getopts ":B:d:fj:L:O:q:s:Txv" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	d) outdir=$OPTARG;;
@@ -93,6 +94,7 @@ while getopts ":B:d:fj:L:O:q:s:Tx" OPT; do
 	s) scale=${OPTARG%'%'};;
 	T) keepmtime=0;;
 	x) trashorig=1;;
+	v) let ++opt_verbose;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -287,7 +289,7 @@ if true; then
 	n=${#outfiles[@]}
 	max=15
 	for oname in "${outfiles[@]}"; do
-		if (( i >= max-1 && n-i > 1 )); then
+		if (( i >= max-1 && n-i > 1 && !opt_verbose )); then
 			echo "... [$[n-i] more files, $n total]"
 			break
 		fi

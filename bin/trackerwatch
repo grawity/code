@@ -21,5 +21,6 @@ sudo stdbuf -oL -- strace -p ${pids[0]} -e statx |&
 		if(s/.*AT_FDCWD, "(.+?)", AT_STATX.*/$1/) {
 			s/\\(\d{3})/chr oct $1/ge;
 			s!^(.+/)([^/]+)$!\033[${col}m$2\033[m \033[2m($1$2)\033[m!;
+			if (my $n = $seen{$&}++) { s/^/[$n] /; }
 			say;
 		}'

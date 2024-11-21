@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+# tapoplug -- command-line tool to control Tapo P110 smart outlets
+use warnings;
+use strict;
+use Net::Netrc;
+do "/srv/http/cgi-bin/tapo/Tapo.pm";
+do "/srv/http/cgi-bin/tapo/util.pm";
+
+my $host = shift @ARGV;
+my $user = "";
+my $pass = "";
+
+my $clnt = Tapo::Client->new($host, $user, $pass);
+
+my $cmd = shift @ARGV // "";
+
+if ($cmd eq "on") {
+	$clnt->call("set_device_info" => {device_on => \1});
+}
+elsif ($cmd eq "off") {
+	$clnt->call("set_device_info" => {device_on => \0});
+}
+elsif ($cmd eq "toggle") {
+	my $info = $clnt->call("get_device_info");
+	if ($info->{device_on}) {
+		$clnt->call("set_device_info" => {device_on => \0});
+	} else {
+		$clnt->call("set_device_info" => {device_on => \1});
+	}
+}
+elsif ($cmd eq "dump") {
+	my ($info, $energy) = $clnt->multicall(
+		get_device_info => undef,
+		get_energy_usage => undef,
+	);
+	print dvar(get_device_info => $info);
+	print dvar(get_energy_usage => $energy);
+}
+else {
+	my ($info, $energy) = $clnt->multicall(
+		get_device_info => undef,
+		get_energy_usage => undef,
+	);
+	print "Switch state: ";
+	if ($info->{device_on}) {
+		print "ON (since ".interval($info->{on_time})." ago)\n";
+	} else {
+		print "off\n";
+	}
+	print "Power use: ",
+		r(2, $energy->{current_power} / 1000), " W\n";
+	print "Energy consumed today: ",
+		r(2, $energy->{today_energy} / 1000), " kWh (over ",
+		interval($energy->{today_runtime} * 60), ")\n";
+	print "Consumed this month: ",
+		r(2, $energy->{month_energy} / 1000), " kWh (over ",
+		interval($energy->{month_runtime} * 60), ")\n";
+}

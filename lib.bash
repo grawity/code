@@ -83,8 +83,6 @@ lib:settitle() {
 	case $TERM in
 	[xkE]term*|putty*|rxvt*|cygwin|dtterm|termite|tmux*)
 		printf '\e]0;%s\a' "$str";;
-	screen*)
-		printf '\ek%s\e\\' "$str";;
 	vt300*)
 		printf '\e]21;%s\e\\' "$str";;
 	esac

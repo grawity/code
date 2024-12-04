@@ -75,13 +75,15 @@ fi
 
 if [[ $wd ]]; then
 	if (( noshell )); then
-		cmd="cd ${wd@Q} && $cmd"
+		wdcmd="cd ${wd@Q} && $cmd"
 	else
-		cmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
+		wdcmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
 	fi
 else
 	if (( !noshell )); then
-		cmd="\$SHELL -l -c ${cmd@Q} 2>&1"
+		wdcmd="$cmd"
+	else
+		wdcmd="\$SHELL -l -c ${cmd@Q} 2>&1"
 	fi
 fi
 
@@ -90,6 +92,12 @@ trap 'wait; rm -f "$lck"' INT
 
 for host in $hosts; do
 	{
+		case $host in
+			# Assume -P -C "" for '!'-suffixed hosts
+			# (allows them to be defined in rlisthosts)
+			*!) host=${host%!};;
+			*) cmd=$wdcmd;;
+		esac
 		out=$(mktemp /tmp/rdo.XXXXXXXX) || exit
 		if (( quiet )); then
 			ssh -n $user$host "$cmd" > "$out"

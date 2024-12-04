@@ -23,7 +23,7 @@ usage() {
 }
 
 wd=
-nowd=0
+noshell=0
 nfs=0
 hosts=
 user=
@@ -35,7 +35,7 @@ while getopts ":C:H:NPSWq" OPT; do
 	C) wd=$OPTARG;;
 	H) hosts=${OPTARG//,/ };;
 	N) nfs=1;;
-	P) nowd=1;;
+	P) noshell=1;;
 	S) user="root@";;
 	W) wait=1;;
 	q) quiet=1;;
@@ -60,27 +60,29 @@ if (( nfs )); then
 	wd=${wd:-"."}
 fi
 
-if (( nowd )); then
-	if [[ $wd ]]; then
-		# Not really useful but
-		die "TODO: implement setting wd without invoking shell"
+if [[ $wd ]]; then
+	# Allow "-C ." to be specified in a useful way (i.e. translate the
+	# local working directory into its remote or NFS equivalent)
+	if [[ $wd != /* ]]; then
+		wd=$(realpath -s "$wd")
+	fi
+	if (( nfs )); then
+		wd="$wd/"
+		wd="/net/$HOSTNAME/${wd#/net/*/}"
+		wd="${wd%/}"
+	fi
+fi
+
+if [[ $wd ]]; then
+	if (( noshell )); then
+		cmd="cd ${wd@Q} && $cmd"
+	else
+		cmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
 	fi
 else
-	if [[ $wd ]]; then
-		# Allow "-C ." to be specified in a useful way (i.e. translate the
-		# local working directory into its remote or NFS equivalent)
-		if [[ $wd != /* ]]; then
-			wd=$(realpath -s "$wd")
-		fi
-		if (( nfs )); then
-			wd="$wd/"
-			wd="/net/$HOSTNAME/${wd#/net/*/}"
-			wd="${wd%/}"
-		fi
+	if (( !noshell )); then
+		cmd="\$SHELL -l -c ${cmd@Q} 2>&1"
 	fi
-
-	wd=${wd:-"."}
-	cmd="(cd ${wd@Q} && \$SHELL -l -c ${cmd@Q}) 2>&1"
 fi
 
 lck=$(mktemp /tmp/rdo.XXXXXXXX) || exit

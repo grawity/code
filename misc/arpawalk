@@ -14,7 +14,6 @@ import dns.resolver
 import dns.reversename
 import ipaddress
 import logging
-import sys
 
 def get_rdns_domains(addr):
     net = ipaddress.ip_network(addr)
@@ -93,7 +92,6 @@ def crawl_recursively(domain, card=16, fmt="%x", rtype="PTR",
 def crawl_iteratively(domain, card=16, fmt="%x", rtype="PTR",
                               maxdepth=-1):
     global stat
-    logging.debug("crawling %r iteratively", domain)
     depth = len(domain.strip(".").split("."))
     queue = deque()
     queue += [(depth, domain)]
@@ -131,8 +129,8 @@ def crawl_iteratively(domain, card=16, fmt="%x", rtype="PTR",
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", action="store_true",
                         help="show more progress information")
-parser.add_argument("-r", "--recursive", action="store_true",
-                        help="use recursive crawl instead of iterative")
+parser.add_argument("-i", "--alternative", action="store_true",
+                        help="use breadth-first search instead of depth-first")
 parser.add_argument("domain", nargs="+",
                         help="IP prefix (CIDR format) or .arpa domain to crawl")
 args = parser.parse_args()
@@ -140,10 +138,10 @@ args = parser.parse_args()
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
-if args.recursive:
-    crawl = crawl_recursively
-else:
+if args.alternative:
     crawl = crawl_iteratively
+else:
+    crawl = crawl_recursively
 
 domains = []
 for arg in args.domain:

@@ -3,19 +3,19 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-H hosts] <keyword>..."
+	echo "Usage: $progname [-H hosts] [-w] <keyword>..."
 	echo
 	echo_opt "-H hosts"	"list of hosts to search"
+	echo_opt "-w"		"match against entire path"
 }
 
-args=""
 hosts="+myth"
-opt_whole=0
+args=""
 
 while getopts ":H:w" OPT; do
 	case $OPT in
 	H) hosts=${OPTARG//,/ };;
-	w) opt_whole=1;;
+	w) args+=" -$OPT";;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -26,9 +26,6 @@ if (( ! $# )); then
 	vdie "query not specified"
 fi
 
-if (( opt_whole )); then
-	args+=" -w"
-fi
 for arg; do
 	args+=" ${arg@Q}"
 done

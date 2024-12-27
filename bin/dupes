@@ -44,10 +44,14 @@ def status(*vargs):
             sys.stderr.flush()
             _last_status = now
 
+def match_any_glob(path, globs):
+    return any(fnmatch.fnmatch(path, g) for g in globs)
+
 def path_is_ignored(path):
-    for filter in args.ignore:
-        if fnmatch.fnmatch(path, filter):
-            return True
+    if args.ignore and match_any_glob(path, args.ignore):
+        return True
+    if args.scan_only and not match_any_glob(path, args.scan_only):
+        return True
     return False
 
 def path_is_removable(path):
@@ -369,6 +373,8 @@ if __name__ == "__main__":
                         help="always keep the oldest file")
     parser.add_argument("--only", metavar="GLOB", action="append", default=[],
                         help="only list files with duplicates matching given paths")
+    parser.add_argument("--scan-only", metavar="GLOB", action="append", default=[],
+                        help="only scan files matching given globs")
     parser.add_argument("--dry-run", action="store_true", default=False,
                         help="TODO")
     parser.add_argument("--min-size", metavar="SIZE", default="1",

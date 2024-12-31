@@ -130,8 +130,16 @@ parser.add_argument("-B", "--ignore-bmp", action="store_true", help="ignore non-
 parser.add_argument("-1", "--check-1252", action="store_true", help="check Windows-1252 compliance only")
 parser.add_argument("-7", "--check-1257", action="store_true", help="check Windows-1257 compliance only")
 parser.add_argument("-j", "--check-sjis", action="store_true", help="check Shift-JIS compliance only")
+parser.add_argument("-q", "--quiet", action="store_true", help="only list found files")
 parser.add_argument("path", nargs="*")
 args = parser.parse_args()
+
+if args.quiet:
+    print_hdr = lambda *args: None
+    print_name = lambda name, hlname: print(name)
+else:
+    print_hdr = print
+    print_name = lambda name, hlname: print("  %s" % hlname)
 
 REGEX_1252 = make_inv_regex(find_valid_chars("cp1252"))
 REGEX_1257 = make_inv_regex(find_valid_chars("cp1257"))
@@ -185,49 +193,49 @@ for root in roots:
     if not args.ignore_case:
         for cfpath in sorted(seen):
             if len(seen[cfpath]) > 1:
-                print("Colliding paths:")
+                print_hdr("Colliding paths:")
                 for ogpath in sorted(seen[cfpath]):
-                    print("  %s" % ogpath)
+                    print_name(ogpath, ogpath)
                 bad += 1
 
     if badwin:
-        print("Names incompatible with Windows:")
+        print_hdr("Names incompatible with Windows:")
         for path in sorted(badwin):
-            print("  %s" % hl_win32_name(path))
+            print_name(path, hl_win32_name(path))
             bad += 1
 
     if baducs and not args.ignore_bmp:
-        print("Names incompatible with Dropbox:")
+        print_hdr("Names incompatible with Dropbox:")
         for path in sorted(baducs):
-            print("  %s" % hl_baducs_name(path))
+            print_name(path, hl_baducs_name(path))
             bad += 1
 
     if bad1252:
-        print("Names incompatible with Windows-1252 (Latin-1):")
+        print_hdr("Names incompatible with Windows-1252 (Latin-1):")
         for path in sorted(bad1252):
-            print("  %s" % hl_bad_name(path, REGEX_1252))
+            print_name(path, hl_bad_name(path, REGEX_1252))
             bad += 1
 
     if bad1257:
-        print("Names incompatible with Windows-1257 (Baltic):")
+        print_hdr("Names incompatible with Windows-1257 (Baltic):")
         for path in sorted(bad1257):
-            print("  %s" % hl_bad_name(path, REGEX_1257))
+            print_name(path, hl_bad_name(path, REGEX_1257))
             bad += 1
 
     if badsjis:
-        print("Names incompatible with Shift-JIS:")
+        print_hdr("Names incompatible with Shift-JIS:")
         for path in sorted(badsjis):
-            print("  %s" % hl_bad_sjis_name(path))
+            print_name(path, hl_bad_sjis_name(path))
             bad += 1
 
     if nonutf:
-        print("Names not encoded as UTF-8:")
+        print_hdr("Names not encoded as UTF-8:")
         for path in sorted(nonutf):
-            print("  %s" % hl_nonutf_name(path))
+            print_name(path, hl_nonutf_name(path))
             bad += 1
 
-    print("Scanned %s items with %s unique paths" % (total, len(seen)))
+    print_hdr("Scanned %s items with %s unique paths" % (total, len(seen)))
 
 if bad > 0:
-    print("Found %d issues" % bad)
+    print_hdr("Found %d issues" % bad)
     sys.exit(1)

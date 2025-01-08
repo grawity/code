@@ -10,6 +10,9 @@
 usage() {
 	echo "Usage: ${0##*/} {-d|-l|--is-dark|--is-light}"
 }
+vmsg() {
+	echo "${0##*/}: $*" >&2
+}
 
 if [[ ! -t 0 ]]; then
 	exit 1
@@ -54,16 +57,16 @@ if read -r -d '?' -t 2 ans1 &&
 	elif [[ $ans1 == $'\e[' ]]; then
 		# No answer to color inquiry, all we got is Primary DA
 		case $1 in
-		"")		echo "${0##*/}: No OSC reply from terminal" >&2; exit 1;;
+		"")		vmsg "no OSC reply from terminal"; exit 1;;
 		-l|--is-light)	false;;
 		-d|--is-dark)	true;;
 		*)		usage >&2; exit 2;;
 		esac
 	else
-		echo "${0##*/}: Invalid reply from terminal: ${ans1@Q}" >&2
+		vmsg "invalid DA reply from terminal: ${ans1@Q}"
 		exit 3
 	fi
 else
-	echo "${0##*/}: Did not receive Primary DA reply from terminal" >&2
+	vmsg "did not receive Primary DA reply from terminal"
 	exit 4
 fi

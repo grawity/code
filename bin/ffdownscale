@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# ffdownscale -- down-convert videos to SD (480p) for playback on obsolete systems
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $0 <files>"
+	echo
+	echo_opt "-f <ext>"	"force output MP4 or MKV (preserves fancy subtitles)"
+	echo_opt "-o <dir>"	"put converted files in another directory"
+	echo_opt "-y"		"overwrite existing output files"
+	echo
+	echo_opt "-c <crf>"	"specify CRF (23 is default, 29 is half-quality)"
+	echo_opt "-b"		"use Baseline profile for H.264 (faster decoding)"
+}
+
+# 23 is normal, 29 is half the bitrate
+crf=23
+outdir=""
+opt_height=480
+opt_forceformat=""
+opt_overwrite=0
+opt_baseline=0
+
+# Clamp to an 1024x768 screen (some movies are very wide, resulting in 1152x480!)
+opt_autoclamp=1
+maxwidth=1024
+
+# misc notes:
+#  - mpeg2 gets huge at high bitrates
+#  - "You will get better quality blowing up SD res video that has been well
+#     encoded with a reasonable bitrate, than having HD res video encoded at
+#     a poor bitrate."
+#  - mpeg1 may be better than mpeg2
+
+while getopts ":bh:o:c:f:y" OPT; do
+	case $OPT in
+	b) opt_baseline=1;;
+	h) opt_height=$OPTARG;;
+	o) outdir=$OPTARG;;
+	c) crf=$OPTARG;;
+	f) opt_forceformat=${OPTARG,,};;
+	k) opt_forceformat=mkv;;
+	y) opt_overwrite=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $((OPTIND-1))
+
+if (( ! $# )); then
+	vdie "No input files specified"
+fi
+
+# H.264 -- CRF 23 is default, 18 is near-lossless
+# -6 = double bitrate, +6 = half bitrate
+
+if [[ $crf == half ]]; then
+	crf=29
+fi
+
+if (( crf > 29 )); then
+	warn "Using CRF $crf for below-half bitrate"
+elif (( crf > 23 )); then
+	info "Using CRF $crf for below-normal bitrate"
+elif (( crf < 18 )); then
+	vdie "CRF $crf is too low (18 is already almost lossless)"
+elif (( crf < 23 )); then
+	warn "Using CRF $crf for above-normal bitrate"
+fi
+
+if [[ $outdir ]]; then
+	mkdir -p "$outdir/" || exit
+fi
+
+# Only support H.264-capable outputs for now. Eventually might include MOV.
+if [[ $opt_forceformat && $opt_forceformat != @(mkv|mp4) ]]; then
+	vdie "unsupported output format '$opt_forceformat'"
+fi
+
+# Global ffmpeg options
+ffoptions=(-hide_banner -v warning -stats)
+# Overwrite (we do our own pre-check)
+ffoptions+=(-y)
+
+# How wide would a 4:3 screen at $opt_height would be?
+#max43width=`bc <<< "scale=10; a=4/3; scale=0; $opt_height*a"`
+
+for arg; do
+	srcfile="$arg"
+
+	# Decide output format. Assume that the input is either MKV or MP4, as
+	# other formats are unlikely to be large in the first place. If the
+	# input is MKV, by default keep it as MKV to preserve the fancy .ass
+	# subtitles.
+	if [[ ${arg,,} == *.@(mkv|mp4) ]]; then
+		dstext=${opt_forceformat:-${arg##*.}}
+	else
+		dstext=${opt_forceformat:-mp4}
+	fi
+
+	if [[ ${srcfile##*/} == *.conv* ]]; then
+		info "Skipping '$srcfile' (looks like an output file)"
+		continue
+	fi
+
+	# Use -v error to hide "Unsupported codec" for .ttf attachments
+	probe=$(ffprobe -hide_banner -v error -show_format -show_streams -of json "$srcfile")
+	if (( $? )); then
+		err "Failed to probe '$srcfile'"
+		continue
+	fi
+
+	width=$(jq -r '.streams | map(select(.codec_type == "video")) | .[0].width' <<< "$probe")
+	height=$(jq -r '.streams | map(select(.codec_type == "video")) | .[0].height' <<< "$probe")
+	num_subtitles=$(jq -r '.streams | map(select(.codec_type == "subtitle")) | length' <<< "$probe")
+	num_attachs=$(jq -r '.streams | map(select(.codec_type == "attachment")) | length' <<< "$probe")
+
+	if (( width <= 1000 && height <= opt_height )); then
+		info "Skipping '$srcfile' (already below target at ${width}x${height})"
+		continue
+	fi
+
+	# Calculate WxH for current aspect ratio
+	outheight=$opt_height
+	#outwidth=`python -c "import math; a=$width/$height; print(math.trunc($outheight*a/2)*2))"`
+	outwidth=`bc <<< "scale=10; a=$width/$height; scale=0; ($outheight*a/2)*2"`
+
+	# Tag as "conv480p" even if the next check decides to reduce height
+	convtag="${outheight}p"
+	
+	# Would it be too wide for a 1024x768 display?
+	if (( outwidth > maxwidth )); then
+		if (( opt_autoclamp )); then
+			newwidth=$maxwidth
+			newheight=`bc <<< "scale=10; a=$width/$height; scale=0; ($newwidth/(a*2))*2"`
+			warn "Output ${outwidth}x${outheight} would be too wide, clamping to ${newwidth}x${newheight}"
+			outwidth=$newwidth
+			outheight=$newheight
+		else
+			warn "Output ${outwidth}x${outheight} would be too wide for the display, but proceeding anyway"
+		fi
+	fi
+
+	# Output file name
+	dstfile="${srcfile##*/}"
+	dstfile="${dstfile%.*}"
+	#dstfile="${dstfile/%' ['[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]']'}"
+	dstfile="${dstfile//'(720p)'}"
+	dstfile="${dstfile//'[720p]'}"
+	dstfile="${dstfile//'  '/' '}"
+	dstfile="$dstfile.conv$convtag.$dstext"
+	dstfile="${outdir:-"$(dirname "$srcfile")"}/$dstfile"
+
+	if [[ -e $dstfile ]] && ! (( opt_overwrite )); then
+		info "Skipping '$srcfile' (converted file already present)"
+		continue
+	fi
+
+	settitle "ffdownscale: ${srcfile##*/}"
+	duration=$(interval "$(jq -r '.format.duration | tonumber | round' <<< "$probe")")
+	info "Converting '$srcfile' (duration: $duration) to .${dstfile##*.}"
+
+	# Video options
+	#   See "-help encoder=libx264"
+	#   Note: -crf is H.264-only, not for MPEG4(AVI)
+	#   Note: If an output format needs a multiple of 16, do '(oh*a/16)*16'
+	ffconvert=(-c:v libx264)
+	ffconvert+=(-vf scale="trunc(oh*a/2)*2:$outheight")
+	ffconvert+=(-crf "$crf")
+	# In case legacy systems need it
+	if (( opt_baseline )); then
+		ffconvert+=(-profile:v baseline -level 3.0)
+	fi
+	#ffconvert+=(-profile:v main)
+	# In case it's needed to force 8-bit
+	#ffconvert+=(-vf format=yuv420p)
+
+	# Couldn't get vaapi to work; software encoding is easier
+	#ffoptions+=(-vaapi_device /dev/dri/renderD128)
+	#ffconvert=(-c:v h264_vaapi -vf "format=nv12|vaapi,hwupload,scale_vaapi=w=${outwidth}:h=${outheight}")
+
+	# Audio options
+	# Don't use Vorbis
+	ffconvert+=(-c:a aac)
+
+	# MP4 requires a specific subtitle format
+	do_attachment_mux=0
+	if [[ $srcfile == *.mkv ]]; then
+		if [[ $dstext == mp4 ]]; then
+			ffconvert+=(-c:s mov_text)
+		elif [[ $dstext == mkv ]]; then
+			ffconvert+=(-c:s copy)
+			if (( num_attachs > 0 )); then
+				do_attachment_mux=1
+			fi
+		fi
+	fi
+
+	if [[ $TEST ]]; then
+		ffconvert+=(-t 60s)
+	fi
+
+	case $dstext in
+		mkv) outformat=matroska;;
+		mp4) outformat=mp4;;
+		*) die "BUG: no outformat for .$dstext";;
+	esac
+
+	# Downscale
+	nice ffmpeg "${ffoptions[@]}" -i "$srcfile" "${ffconvert[@]}" \
+		-f "$outformat" "$dstfile.part" || confirm || break
+
+	# Remux to include attachments. Do this as a separate step as otherwise
+	# the 0:t would break ffmpeg's progress reporting. Use 0:t? to prevent
+	# failures in case there are no attachments.
+	if (( do_attachment_mux )); then
+		vmsg "remuxing to include attachments"
+		ffmpeg "${ffoptions[@]}" -i "$srcfile" -i "$dstfile.part" \
+			-map 1:v -map 1:a -map 1:s -map 0:t? -c copy \
+			-f "$outformat" "$dstfile" || confirm || break
+		rm -f "$dstfile.part"
+	else
+		mv "$dstfile.part" "$dstfile"
+	fi
+
+	if (( `cputemp -1r` >= 75 )); then
+		while (( `cputemp -1r` > 50 )); do
+			vmsg "waiting for CPU temperature to drop"
+			sleep 60
+		done
+	fi
+done

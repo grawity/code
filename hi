@@ -68,6 +68,16 @@ def parse_log(fh):
             else:
                 print(f"Unmatched: {server=} {text=}", file=sys.stderr)
                 continue
+        elif "." not in wname:
+            server = wname
+            if m := re.match(r"^<(\S+)> (.*)$", text):
+                # Private messages
+                name = m[1]
+                head = "<%s>" % name
+                text = m[2]
+            else:
+                print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
+                continue
         else:
             print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
             continue

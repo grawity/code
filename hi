@@ -38,6 +38,7 @@ def parse_log(fh):
         date, wname, text = line.split("\t", 2)
         date = datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S %z")
         wname = re.sub(r"^<(.+)>$", r"\1", wname)
+        head = ""
         text = text.rstrip()
 
         if "#" in wname:
@@ -66,8 +67,10 @@ def parse_log(fh):
                     continue
             else:
                 print(f"Unmatched: {server=} {text=}", file=sys.stderr)
+                continue
         else:
             print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
+            continue
             # All kinds of non-channel messages
             # XXX
             #if m := re.match(r"^<(\S+)> \1: (.*)$", text):

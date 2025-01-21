@@ -54,6 +54,9 @@ def parse_log(fh):
                 name = m[1]
                 head = "(%s)" % name
                 text = m[2]
+            else:
+                print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
+                continue
         elif wname.startswith("server."):
             server = wname.removeprefix("server.")
             if m := re.match(r"^<(\S+)> (\S+) \S+: (.*)$", text):
@@ -68,21 +71,19 @@ def parse_log(fh):
             else:
                 print(f"Unmatched: {server=} {text=}", file=sys.stderr)
                 continue
-        elif "." not in wname:
+        elif "." in wname:
+            print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
+            continue
+        else:
             server = wname
             if m := re.match(r"^<(\S+)> (.*)$", text):
-                # Private messages
+                # Private messages (/msg)
                 name = m[1]
-                head = "<%s>" % name
+                head = "Msg: <%s>" % name
                 text = m[2]
             else:
                 print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
                 continue
-        else:
-            print(f"Unmatched: {wname=} {text=}", file=sys.stderr)
-            continue
-            # All kinds of non-channel messages
-            # XXX
             #if m := re.match(r"^<(\S+)> \1: (.*)$", text):
             #    # /notice
             #    name = "Msg: -%s-" % m[1]

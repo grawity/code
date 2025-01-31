@@ -70,6 +70,12 @@ def parse_log(fh):
                     continue
                 if re.match(r"^ARUTHA", name, re.I):
                     continue
+            elif text.startswith("<%s>" % server):
+                # server text like /quote help foo
+                name = server
+                head = "Server:"
+                text = text.removeprefix("<%s>" % server).removeprefix(" ")
+                continue
             else:
                 err(f"Unmatched: {server=} {text=}")
                 continue
@@ -153,6 +159,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-q", "--quiet",
                         action="store_true",
                         help="don't show old messages")
+parser.add_argument("-n", "--lines",
+                        type=int,
+                        default=10,
+                        help="how many old messages to show")
 args = parser.parse_args()
 
 os.umask(0o077)
@@ -175,6 +185,6 @@ if delta:
 elif args.quiet:
     print("hi: no new messages")
 else:
-    with os.popen("tail -n 10 '%s'" % cachepath, "r") as fh:
+    with os.popen("tail -n %d '%s'" % (args.lines, cachepath), "r") as fh:
         print_log(fh, unseen=False)
     print("hi: no new messages")

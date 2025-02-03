@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# whatmac -- Look up a MAC address in the "IP addresses.txt" database
+import argparse
+import ipaddress
+import os
+import re
+import subprocess
+
+def mactobytes(buf):
+    # Handle potential NIS-style "no leading zeros" addresses
+    tmp = buf.split(":")
+    if len(tmp) >= 6:
+        return bytes([int(i, 16) for i in tmp])
+
+    # Otherwise assume fixed-length
+    buf = re.sub(r"[.:-]", "", buf)
+    assert len(buf) % 2 == 0
+    return bytes.fromhex(buf)
+
+def maceq(a, b):
+    a = mactobytes(a)
+    b = mactobytes(b)
+    return a == b
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-e", "--edit", action="store_true",
+                    help="open in text editor")
+parser.add_argument("address", nargs="*")
+args = parser.parse_args()
+
+if not (args.edit or args.address):
+    exit("whatmac: no address specified")
+
+path = os.path.expanduser("~/Dropbox/Notes/Nullroute/MAC addresses.txt")
+if not os.path.exists(path):
+    path = "/net/ember/" + path
+
+lineno = 0
+found = False
+
+with open(path, "r") as fh:
+    for i, line in enumerate(fh, start=1):
+        mac = line.split()[0]
+        desc = line.rstrip()
+        if any(maceq(a, mac) for a in args.address):
+            print(desc)
+            lineno = i
+            found = True
+
+if args.edit:
+    cmd = ["nvim", path, "+:setl cursorline", f"+{lineno}"]
+    subprocess.run(cmd)
+else:
+    if not found:
+        addrs = ", ".join(map(str, args.address))
+        exit(f"whatmac: no results for {addrs}")

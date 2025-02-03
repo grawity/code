@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # whatmac -- Look up a MAC address in the "IP addresses.txt" database
 import argparse
-import ipaddress
 import os
 import re
 import subprocess
@@ -17,15 +16,10 @@ def mactobytes(buf):
     assert len(buf) % 2 == 0
     return bytes.fromhex(buf)
 
-def maceq(a, b):
-    a = mactobytes(a)
-    b = mactobytes(b)
-    return a == b
-
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--edit", action="store_true",
                     help="open in text editor")
-parser.add_argument("address", nargs="*")
+parser.add_argument("address", nargs="*", type=mactobytes)
 args = parser.parse_args()
 
 if not (args.edit or args.address):
@@ -42,7 +36,7 @@ with open(path, "r") as fh:
     for i, line in enumerate(fh, start=1):
         mac = line.split()[0]
         desc = line.rstrip()
-        if any(maceq(a, mac) for a in args.address):
+        if mactobytes(mac) in args.address:
             print(desc)
             lineno = i
             found = True

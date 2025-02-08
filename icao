@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+import argparse
+import bs4
+import re
+import requests
+import subprocess
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument("query", nargs="+", help="City name or ICAO code")
+args = parser.parse_args()
+
+ua = requests.Session()
+header = []
+results = []
+err = False
+
+for query in args.query:
+    if len(query) == 3:
+        form = {"iataapt": query}
+    elif len(query) == 4:
+        form = {"icaoapt": query}
+    else:
+        form = {"locname": query}
+    resp = ua.post("https://www.avcodes.co.uk/aptcoderes.asp",
+                   data=form)
+    resp.raise_for_status()
+    page = bs4.BeautifulSoup(resp.content, "lxml")
+    for result in page.select("main.form-result table.table-sm"):
+        r = {}
+        for cell in result.select("td"):
+            cell = cell.get_text(strip=True)
+            if x := re.match("^(.+?): (.+)$", cell):
+                r[x[1]] = x[2]
+        print(r)
+
+cmd = ["column",
+       "--table",
+       "--separator=\t",
+       "--table-columns=%s" % ",".join(header).upper()]
+with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
+    for row in results:
+        proc.stdin.write("\t".join(row).encode() + b"\n")
+    proc.stdin.close()
+
+exit(err)
+

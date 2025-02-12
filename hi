@@ -172,6 +172,13 @@ args = parser.parse_args()
 
 os.umask(0o077)
 
+# Keep state in sync regardless of where it is run from.
+shost = "star"
+lhost = os.uname().nodename
+if lhost != shost:
+    print("hi: running on %s" % shost)
+    exit(subprocess.call(["on", "-H", shost, *sys.argv]))
+
 rhost = "star"
 rpath = "irclogs/perl.highmon.log"
 cachepath = platformdirs.user_cache_path("nullroute.eu.org/highlights.txt")

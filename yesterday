@@ -10,7 +10,10 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: ${0##*/} [-al] <path>"
+	echo "Usage: ${0##*/} [-acdl] <path>"
+	echo ""
+	echo_opt "-c" "copy file from latest snapshot"
+	echo_opt "-d" "diff against latest snapshot"
 	echo ""
 	echo_opt "-a" "show all unique versions"
 	echo_opt "-l" "long listing"
@@ -41,8 +44,14 @@ while getopts :acdl OPT; do
 	esac
 done; shift $((OPTIND-1))
 
+if (( opt_l + opt_c + opt_d > 1 )); then
+	vdie "only one option out of -l, -c, -d can be used"
+fi
 if (( opt_l )); then
 	opt_a=1
+fi
+if (( opt_a && (opt_c + opt_d) )); then
+	vdie "options -c or -d cannot be used with multiple files"
 fi
 
 if (( ! $# )); then
@@ -50,8 +59,10 @@ if (( ! $# )); then
 fi
 
 for path; do
-	apath=$(realpath "$path")
-	if [[ -d $HOME/.old && "$apath/" == "$HOME/"* ]]; then
+	# Determine the snapshot root (location of the '.old' directory),
+	# and the path of the specified file relative to said root.
+	abspath=$(realpath "$path")
+	if [[ -d $HOME/.old && "$abspath/" == "$HOME/"* ]]; then
 		base=$HOME
 	elif [[ -d /.old ]]; then
 		base=/
@@ -60,13 +71,15 @@ for path; do
 		exit 1
 	fi
 	base=${base%/}
-	rpath=$(realpath --relative-base="${base:-/}" "$path")
+	relpath=$(realpath --relative-base="${base:-/}" "$path")
+	yespath=$base/.old/latest/$relpath
+
 	if (( opt_a )); then
 		shopt -s nullglob
-		paths=("$base"/.old/*/????-??-??/"$rpath")
+		paths=("$base"/.old/*/????-??-??/"$relpath")
 		shopt -u nullglob
 		if (( ! ${#paths[@]} )); then
-			echo "${0##*/}: No snapshots for '$base/$rpath'" >&2
+			echo "${0##*/}: No snapshots for '$base/$relpath'" >&2
 			exit 1
 		fi
 		# Sort by date, then filter duplicates by mtime
@@ -86,7 +99,11 @@ for path; do
 			done
 			echo_l "${opaths[@]}"
 		}
+	elif (( opt_c )); then
+		cp -avib "$yespath" "$path"
+	elif (( opt_d )); then
+		diff --color -u "$yespath" "$abspath"
 	else
-		echo_l "$(realpath "$base/.old/latest/$rpath")"
+		echo_l "$(realpath "$yespath")"
 	fi
 done

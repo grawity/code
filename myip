@@ -1,13 +1,21 @@
-#!/bin/sh
+#!/bin/bash
 # myip -- use online services to determine external IPv4 address
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-46]"
+}
 
 afs='-4 -6'
 
-case $1 in
--4) afs='-4';;
--6) afs='-6';;
--*) echo "${0##*/}: bad option '$1'" >&2; exit 2;;
-esac
+while getopts :46 OPT; do
+	case $OPT in
+	4) afs="-4";;
+	6) afs="-6";;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
 
 for af in $afs; do
 	case $af in

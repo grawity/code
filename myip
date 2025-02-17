@@ -17,12 +17,19 @@ while getopts :46 OPT; do
 	esac
 done; shift $[OPTIND-1]
 
+found=0
+
 for af in $afs; do
 	case $af in
-	-4) type=A;;
-	-6) type=AAAA;;
+	-4) type=A;	res=208.67.222.222;;
+	-6) type=AAAA	res=2620:119:35::35;;
 	esac
 
-	dig $af +short myip.opendns.com. $type @resolver1.opendns.com. ||
-	curl $af -Ssf http://whatismyip.akamai.com
+	if ip $af route get $res &>/dev/null; then
+		dig $af +short myip.opendns.com. $type @resolver1.opendns.com. ||
+		curl $af -Ssf http://whatismyip.akamai.com &&
+		found=1
+	fi
 done
+
+(( found ))

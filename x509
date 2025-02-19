@@ -10,7 +10,6 @@ usage() {
 	echo_opt "-n" "display using NSS 'certutil'"
 	echo_opt "-o" "display using OpenSSL 'x509'"
 	echo_opt "-v" "show some normally-hidden details"
-	echo_opt "-R" "expect a certificate request instead"
 }
 
 highlight() {
@@ -34,12 +33,12 @@ else
 	vdie "no supported tool found"
 fi
 
-while getopts :gnoRv OPT; do
+while getopts :Rgnov OPT; do
 	case $OPT in
+	R) opt_certreq=1;;
 	g) mode=certtool;;
 	n) mode=nsscertutil;;
 	o) mode=openssl;;
-	R) opt_certreq=1;;
 	v) let opt_verbose++;;
 	*) lib:die_getopts;;
 	esac
@@ -61,6 +60,9 @@ for file; do
 	if [[ "$(head -c 2 "$file")" == $'\x30\x82' ]]; then
 		debug "- is probably in DER format"
 		der=1
+	fi
+	if grep -Eqs -- "-----BEGIN (NEW )?CERTIFICATE REQUEST-----" "$file"; then
+		opt_certreq=1
 	fi
 
 	case $mode in

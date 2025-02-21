@@ -1,6 +1,9 @@
 #!/usr/bin/env perl
 # v -- open vim with a specific file and position taken from primary selection
 
+sub vmsg { warn "v: @_\n"; }
+sub vdie { vmsg @_; exit 1; }
+
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
 		Nullroute::Lib->import(qw(_debug));
@@ -189,22 +192,20 @@ if (@ARGV) {
 } else {
 	my $sel = `psel`;
 	if ($?) {
-		warn "v: cannot operate without X display\n";
-		exit 1;
+		vdie("cannot operate without X display");
 	}
 	chomp($sel);
 	if (!$sel) {
-		warn "v: selection is empty\n";
-		exit 1;
+		vdie("selection is empty");
 	}
 	if (my @r = parse($sel)) {
 		push @args, @r;
 	} else {
-		warn "v: no file name in selection\n";
-		exit 1;
+		vdie("no file name in selection");
 	}
 }
 
 print join(" ", map {shescape($_)} @args), "\n";
 exec {$editor} @args;
-die "v: could not execute '$editor': $!\n";
+
+vdie("could not execute '$editor': $!");

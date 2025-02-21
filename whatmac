@@ -16,10 +16,20 @@ def mactobytes(buf):
     assert len(buf) % 2 == 0
     return bytes.fromhex(buf)
 
+class EtherAddress:
+    def __init__(self, value):
+        self.buf = mactobytes(value)
+
+    def __str__(self):
+        return ":".join("%02X" % x for x in self.buf)
+
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, str(self))
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--edit", action="store_true",
                     help="open in text editor")
-parser.add_argument("address", nargs="*", type=mactobytes)
+parser.add_argument("address", nargs="*", type=EtherAddress)
 args = parser.parse_args()
 
 if not (args.edit or args.address):
@@ -36,7 +46,7 @@ with open(path, "r") as fh:
     for i, line in enumerate(fh, start=1):
         mac = line.split()[0]
         desc = line.rstrip()
-        if mactobytes(mac) in args.address:
+        if EtherAddress(mac) in args.address:
             print(desc)
             lineno = i
             found = True

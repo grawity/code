@@ -6,15 +6,16 @@ import re
 import subprocess
 
 def mactobytes(buf):
-    # Handle potential NIS-style "no leading zeros" addresses
-    tmp = buf.split(":")
-    if len(tmp) >= 6:
-        return bytes([int(i, 16) for i in tmp])
-
-    # Otherwise assume fixed-length
-    buf = re.sub(r"[.:-]", "", buf)
-    assert len(buf) % 2 == 0
-    return bytes.fromhex(buf)
+    # IETF-style (and potential NIS-style "no leading zeros") addresses
+    if m := re.match(r"^[0-9a-f]{1,2}(:[0-9a-f]{1,2}){5,}$", buf, re.I):
+        return bytes(int(x, 16) for x in buf.split(":"))
+    # Windows-style addresses
+    if m := re.match(r"^[0-9a-f]{2}(-[0-9a-f]{2}){5,}$", buf, re.I):
+        return bytes(int(x, 16) for x in buf.split("-"))
+    # Cisco-style addresses
+    if m := re.match(r"^[0-9a-f]{4}(\.[0-9a-f]{4}){2,}$", buf, re.I):
+        return bytes.fromhex(buf.replace(".", ""))
+    raise ValueError
 
 class EtherAddress:
     def __init__(self, value):

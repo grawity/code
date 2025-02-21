@@ -8,7 +8,6 @@ BEGIN {
 		our ($arg0, $warnings, $errors);
 		$::arg0 = (split m!/!, $0)[-1];
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
-		sub _warn  { warn "warning: @_\n"; ++$::warnings; }
 		sub _err   { warn "error: @_\n"; ! ++$::errors; }
 		sub _die   { _err(@_); exit 1; }
 	}
@@ -139,7 +138,7 @@ sub parse {
 			$file =~ s|^~/|$ENV{HOME}/|;
 			$cmd =~ s|^|+|;
 			return ($file, $cmd) if -e $file;
-			_warn("file '$file' not found");
+			warn "v: matched file '$file' not found\n";
 		}
 		elsif (/$perlre/) {
 			_debug("perlre: '$&' -> '$1' '$2'");
@@ -189,8 +188,12 @@ if (@ARGV) {
 			push @args, $arg;
 		}
 	}
-} elsif (length $ENV{DISPLAY}) {
+} else {
 	my $sel = `psel`;
+	if ($?) {
+		warn "v: cannot operate without X display\n";
+		exit 1;
+	}
 	chomp($sel);
 	if (!$sel) {
 		warn "v: selection is empty\n";
@@ -199,12 +202,9 @@ if (@ARGV) {
 	if (my @r = parse($sel)) {
 		push @args, @r;
 	} else {
-		warn "v: no match for selection\n";
+		warn "v: no file name in selection\n";
 		exit 1;
 	}
-} else {
-	warn "v: cannot operate without X display\n";
-	exit 2;
 }
 
 print join(" ", map {shescape($_)} @args), "\n";

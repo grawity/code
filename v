@@ -3,13 +3,11 @@
 
 BEGIN {
 	if (eval {require Nullroute::Lib}) {
-		Nullroute::Lib->import(qw(_debug _warn _err _die));
+		Nullroute::Lib->import(qw(_debug));
 	} else {
 		our ($arg0, $warnings, $errors);
 		$::arg0 = (split m!/!, $0)[-1];
 		sub _debug { warn "debug: @_\n" if $ENV{DEBUG}; }
-		sub _err   { warn "error: @_\n"; ! ++$::errors; }
-		sub _die   { _err(@_); exit 1; }
 	}
 }
 

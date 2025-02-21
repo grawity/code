@@ -1,9 +1,28 @@
 #!/usr/bin/env bash
 
-file=$1
+. lib.bash || exit
 
-mime=$(file --brief --mime-type "$file")
+usage() {
+	echo "Usage: $progname [-t TYPE] FILE..."
+	echo
+	echo_opt "-t TYPE" "override guessed MIME type"
+}
 
-data=$(base64 --wrap=0 "$file")
+opt_mime=
 
-echo "data:$mime;base64,$data"
+while getopts :t: OPT; do
+	case $OPT in
+	t) opt_mime=$OPTARG;;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
+if (( ! $# )); then
+	vdie "no file specified"
+fi
+
+for file; do
+	mime=${opt_mime:-"$(file --brief --mime-type "$file")"}
+	data=$(base64 --wrap=0 "$file")
+	echo "data:$mime;base64,$data"
+done

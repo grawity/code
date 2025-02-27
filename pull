@@ -67,6 +67,18 @@ main() {
 	rdir=$(realpath --relative-to="$_PULL_STARTDIR" "$PWD")
 	if [[ $rdir == . ]]; then
 		rdir=$PWD
+	elif [[ $rdir == ../* ]]; then
+		# Fall back to absolute path if there are no common components
+		# (to avoid "../../../../net/etc")
+		rdirtemp=$rdir
+		sdirtemp=${_PULL_STARTDIR%/}
+		while [[ $rdirtemp == ../* ]]; do
+			rdirtemp=${rdirtemp#../}
+			sdirtemp=${sdirtemp%/*}
+		done
+		if [[ ! $sdirtemp ]]; then
+			rdir=$PWD
+		fi
 	fi
 
 	# Check cwd for supported repositories

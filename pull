@@ -15,9 +15,20 @@ do_pullfile() {
 	local -A skip_dirs=()
 	local skip_args=
 	local skip_glob=
+	local -i positive=0
 
 	if [[ -s Pullfile ]]; then
 		set -- $(grep '^[^#]' Pullfile)
+		for arg; do
+			case $arg in
+			!*|-*)	true ;;
+			*)	let ++positive ;;
+			esac
+		done
+		if (( !positive )); then
+			debug "No targets in Pullfile, assuming */"
+			set -- "$@" */
+		fi
 	elif [[ -e Pullfile ]]; then
 		set -- */
 	else

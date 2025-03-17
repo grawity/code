@@ -144,13 +144,17 @@ for arg; do
 		info "mounting $dev"
 		gio mount -d "$dev"
 	else
-		debug "searching for inner label/uuid '$arg'"
-		outer_id=${outer_uuid["$arg"]:-"$arg"}
-		mtpt=$(findmnt -n -o TARGET -S "/dev/disk/by-id/$outer_id" \
-			|| findmnt -n -o TARGET -S "PARTLABEL=$arg" \
-			|| findmnt -n -o TARGET -S "LABEL=$arg" \
-			|| findmnt -n -o TARGET -S "PARTUUID=$arg" \
-			|| findmnt -n -o TARGET -S "UUID=$arg")
+		if [[ $arg == /dev/* ]]; then
+			mtpt=$(findmnt -n -o TARGET -S "$arg")
+		else
+			debug "searching for inner label/uuid '$arg'"
+			outer_id=${outer_uuid["$arg"]:-"$arg"}
+			mtpt=$(findmnt -n -o TARGET -S "/dev/disk/by-id/$outer_id" \
+				|| findmnt -n -o TARGET -S "PARTLABEL=$arg" \
+				|| findmnt -n -o TARGET -S "LABEL=$arg" \
+				|| findmnt -n -o TARGET -S "PARTUUID=$arg" \
+				|| findmnt -n -o TARGET -S "UUID=$arg")
+		fi
 		if [[ $mtpt ]]; then
 			info "unmounting $mtpt"
 			gio mount -u "$mtpt" || err "unmount failed"

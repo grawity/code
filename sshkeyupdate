@@ -117,7 +117,7 @@ if (( opt_testfilter )); then
 	exit
 fi
 
-if [[ -e ~/.ssh/authorized_keys.noupdate ]] || grep -qs "^# NOUPDATE" ~/.ssh/authorized_keys; then
+if [[ -e "$dst_file.noupdate" ]] || grep -qs "^# NOUPDATE" "$dst_file"; then
 	if (( opt_force )); then
 		true
 	elif (( !opt_quiet )); then
@@ -128,10 +128,10 @@ if [[ -e ~/.ssh/authorized_keys.noupdate ]] || grep -qs "^# NOUPDATE" ~/.ssh/aut
 fi
 
 if [[ "$LOGNAME" != "$unix_user" ]]; then
-	if [[ -e ~/.ssh/authorized_keys.optin ]]; then
+	if [[ -e "$dst_file.optin" ]]; then
 		true
 	elif (( opt_force )); then
-		echo "$LOGNAME on $(date)" > ~/.ssh/authorized_keys.optin
+		echo "$LOGNAME on $(date)" > "$dst_file.optin"
 	elif (( !opt_quiet )); then
 		vdie "username mismatch, this program isn't for you"
 	else

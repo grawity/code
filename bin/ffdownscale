@@ -22,10 +22,7 @@ opt_height=480
 opt_forceformat=""
 opt_overwrite=0
 opt_baseline=0
-
-# Clamp to an 1024x768 screen (some movies are very wide, resulting in 1152x480!)
 opt_autoclamp=1
-maxwidth=1024
 
 # misc notes:
 #  - mpeg2 gets huge at high bitrates
@@ -49,6 +46,16 @@ done; shift $((OPTIND-1))
 
 if (( ! $# )); then
 	vdie "No input files specified"
+fi
+
+# Clamp to an 1024x768 screen (some movies are very wide, resulting in 1152x480!)
+# See also opt_autoclamp
+if (( opt_height >= 1080 )); then
+	maxwidth=1920
+elif (( opt_height >= 720 )); then
+	maxwidth=1280
+else
+	maxwidth=1024
 fi
 
 # H.264 -- CRF 23 is default, 18 is near-lossless

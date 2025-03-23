@@ -4,8 +4,10 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-gno] [-v] <file>"
+	echo "Usage: $progname [-LRgno] [-v] <file>"
 	echo
+	echo_opt "-L" "input is a certificate revocation list (CRL)"
+	echo_opt "-R" "input is a certificate request (CSR)"
 	echo_opt "-g" "display using GnuTLS 'certtool'"
 	echo_opt "-n" "display using NSS 'certutil'"
 	echo_opt "-o" "display using OpenSSL 'x509'"
@@ -22,6 +24,7 @@ highlight() {
 
 opt_verbose=0
 opt_certreq=0
+opt_crl=0
 
 if have certtool; then
 	mode=certtool
@@ -33,8 +36,9 @@ else
 	vdie "no supported tool found"
 fi
 
-while getopts :Rgnov OPT; do
+while getopts :LRgnov OPT; do
 	case $OPT in
+	L) opt_crl=1;;
 	R) opt_certreq=1;;
 	g) mode=certtool;;
 	n) mode=nsscertutil;;
@@ -71,10 +75,12 @@ for file; do
 		if (( der )); then
 			arg="--inder"
 		fi
-		if (( opt_certreq )); then
+		if (( opt_crl )); then
+			arg+=" --crl-info"
+		elif (( opt_certreq )); then
 			arg+=" --crq-info"
 		else
-			arg+=" -i"
+			arg+=" --certificate-info"
 		fi
 		certtool $arg < "$file" |
 			sed -r '/^-----BEGIN/,/^-----END/d' |
@@ -105,7 +111,9 @@ for file; do
 		fi
 		arg+=" -nameopt RFC2253"
 		arg+=" -nameopt sep_comma_plus_space"
-		if (( opt_certreq )); then
+		if (( opt_crl )); then
+			openssl crl -noout -text $arg < "$file"
+		elif (( opt_certreq )); then
 			openssl req -noout -text -reqopt no_sigdump $arg < "$file"
 		else
 			openssl x509 -noout -text -certopt no_sigdump $arg < "$file"
@@ -114,8 +122,10 @@ for file; do
 		highlight '/^Certificate/'
 		;;
 	nsscertutil)
-		if (( opt_certreq )); then
-			vdie "don't know how to dump requests using NSS"
+		if (( opt_crl )); then
+			vdie "don't know how to dump revocation lists using NSS"
+		elif (( opt_certreq )); then
+			vdie "don't know how to dump certificate requests using NSS"
 		fi
 		tempdb=$(mktemp -d /tmp/x509.XXXXXXXX)
 		name="Temporary X.509 certificate"

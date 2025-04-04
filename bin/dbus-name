@@ -196,7 +196,8 @@ if ($list) {
 	my $current = $obj->ListNames;
 	# Filter out already-published names before starting the loop
 	# this is effectively "@wanted -= @$current"
-	@wanted = grep {my $x = $_; !grep {$_ eq $x} @$current} @wanted;
+	my %current = map {$_ => 1} @$current;
+	@wanted = grep {!$current{$_}} @wanted;
 	exit 0 if !@wanted;
 	Net::DBus::Reactor->main->run;
 } elsif ($wait || $watch) {

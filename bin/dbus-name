@@ -185,14 +185,18 @@ if ($list) {
 	my @wanted = @ARGV;
 	$obj->connect_to_signal("NameOwnerChanged", sub {
 		my ($bus_name, $old_owner, $new_owner) = @_;
-		if ($bus_name ~~ @wanted && $new_owner) {
+		my $is_wanted = grep {$_ eq $bus_name} @wanted;
+		if ($is_wanted && $new_owner) {
 			say "$bus_name taken by $new_owner" unless $quiet;
+			# Remove from the wanted list
 			@wanted = grep {$_ ne $bus_name} @wanted;
 			exit 0 if $wait eq 'any' || !@wanted;
 		}
 	});
 	my $current = $obj->ListNames;
-	@wanted = grep {!($_ ~~ @$current)} @wanted;
+	# Filter out already-published names before starting the loop
+	# this is effectively "@wanted -= @$current"
+	@wanted = grep {my $x = $_; !grep {$_ eq $x} @$current} @wanted;
 	exit 0 if !@wanted;
 	Net::DBus::Reactor->main->run;
 } elsif ($wait || $watch) {

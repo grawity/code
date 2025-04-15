@@ -6,6 +6,8 @@ import requests
 import subprocess
 import sys
 
+from pprint import pprint
+
 parser = argparse.ArgumentParser()
 parser.add_argument("query", nargs="+", help="City name or ICAO code")
 args = parser.parse_args()
@@ -30,9 +32,12 @@ for query in args.query:
         r = {}
         for cell in result.select("td"):
             cell = cell.get_text(strip=True)
-            if x := re.match("^(.+?): (.+)$", cell):
+            if x := re.match("^(.+?): *(.+)$", cell):
                 r[x[1]] = x[2]
-        print(r)
+            if not re.match(r"URL|.*:/?$", cell):
+                print(cell)
+        #pprint(r)
+        print("-"*80)
 
 cmd = ["column",
        "--table",

@@ -92,9 +92,12 @@ case ${cmd:-help} in
 	vlist)
 		vusage $# 0 0 "$cmd"
 		lib_config[opt_width]=32
+		barchars='/-\|' x=0
 		ssh $host "find '$fsroot/' -type d -name '*.git' -printf '%P\n' -prune" \
 			| sort \
 			| while read -r dir; do
+				printf 'loading %s (%d repositories loaded)\r' \
+					"${barchars:$((x++ % ${#barchars})):1}" $x >&2
 				repo=${dir%.git}
 				descfile="/net/$host$fsroot/$repo.git/description"
 				expfile="/net/$host$fsroot/$repo.git/git-daemon-export-ok"

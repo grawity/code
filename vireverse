@@ -12,6 +12,8 @@ import os
 import subprocess
 import tempfile
 
+RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
+
 def confirm(text):
     return input(f"{text} ").startswith("y")
 
@@ -110,7 +112,10 @@ def group_for_addr(addr):
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
                                  debug=False):
-    cmds = [f"zone {zone}\n",
+    server = master_for_zone(zone)
+
+    cmds = [f"server {server}\n",
+            f"zone {zone}\n",
             *cmds,
             f"send\n"]
 
@@ -126,42 +131,48 @@ def send_nsupdate(zone, cmds, *, gssapi=True,
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--ttl", type=int, default=3600,
-                    help="set the TTL for created records")
+                        help="set the TTL for created records")
+parser.add_argument("-R", "--rpz", action="store_true",
+                        help="edit the Response Policy Zone")
 parser.add_argument("-n", "--dry-run", action="store_true",
-                    help="only show updates that would be done")
+                        help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
-                    help="disable Kerberos (GSS-TSIG) authentication")
+                        help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="count", default=0,
-                    help="enable nsupdate debugging")
+                        help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
-                    help="show detailed information")
+                        help="show detailed information")
 parser.add_argument("network",
-                    help="IP prefix to edit the zone for",
-                    nargs="?", default="10.147.0.0/16")
+                        help="IP prefix to edit the zone for",
+                        nargs="?", default="10.147.0.0/16")
 args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
-try:
-    prefix = ipaddress.ip_network(args.network)
-except ValueError:
-    # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
-    # so we can't just address_for_ptr() it to get the prefix back.
+if args.rpz:
     prefix = None
-    zone = dns.name.from_text(args.network)
+    zone = RPZ_ZONE
 else:
-    zones = zones_for_prefix(prefix)
-    zones = [*zones]
-    if len(zones) > 1:
-        exit(f"error: Multiple zones for {prefix}: {zones}")
-    zone = dns.name.from_text(zones[0])
-    logging.debug(f"Domain for {prefix} is <{zone}>")
+    try:
+        prefix = ipaddress.ip_network(args.network)
+    except ValueError:
+        # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
+        # so we can't just address_for_ptr() it to get the prefix back.
+        prefix = None
+        zone = dns.name.from_text(args.network)
+    else:
+        zones = zones_for_prefix(prefix)
+        zones = [*zones]
+        if len(zones) > 1:
+            exit(f"error: Multiple zones for {prefix}: {zones}")
+        zone = dns.name.from_text(zones[0])
+        logging.debug(f"Domain for {prefix} is <{zone}>")
 
-apex = dns.resolver.zone_for_name(zone)
-if apex != zone:
-    logging.warning(f"Editing zone {apex}")
-    zone = apex
+    apex = dns.resolver.zone_for_name(zone)
+    if apex != zone:
+        logging.warning(f"Editing zone {apex}")
+        zone = apex
 
 master = master_for_zone(zone)
 logging.debug(f"Master for zone <{zone}> is <{master}>")
@@ -183,6 +194,8 @@ for name, node in zone_data.items():
     if not rdset:
         non_ptr += 1
         continue
+    if args.rpz:
+        name = name.relativize(RPZ_ZONE) + dns.name.root
     addr = address_for_ptr(name)
     old[addr] = rdset
     #old[addr] = set(rdset)
@@ -294,12 +307,16 @@ cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
 
 for addr in addrs_missing | addrs_updated:
     rname = ptr_for_address(addr)
+    if args.rpz:
+        rname = rname.relativize(dns.name.root) + RPZ_ZONE
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
     for rdata in old[addr]:
         print(f"Deleting: {addr} -= (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
     rname = ptr_for_address(addr)
+    if args.rpz:
+        rname = rname.relativize(dns.name.root) + RPZ_ZONE
     for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} += {rdata.target}")

@@ -67,6 +67,8 @@ for file in "${ids[@]}"; do
 	key=${key//'('}
 	key=${key//')'}
 	printf '%s\n' "$key" > "$ltmpfile"
+	# Establish mux socket (scp no longer does so)
+	ssh "$host" ":"
 	scp "$ltmpfile" "$scphost:$rtmpfile" || exit
 	# Wait for the file to show up (not always instant; silly RouterOS SSH)
 	until ssh "$host" "/file print detail where name=\"$rtmpfile\"" \

@@ -7,6 +7,8 @@ import ipaddress
 import logging
 import subprocess
 
+RPZ_ZONE = "rpz.nullroute.lt."
+
 def confirm(text):
     return input(f"{text} ").startswith("y")
 
@@ -102,7 +104,11 @@ if "/" in args.address:
     rnames = [dns.name.from_text(addr.reverse_pointer)
               for addr in addrs]
 
-    if args.zone:
+    if args.zone == "rpz":
+        zone = dns.name.from_text(RPZ_ZONE)
+        rnames = [rname.relativize(dns.name.root) + zone
+                  for rname in rnames]
+    elif args.zone:
         zone = dns.name.from_text(args.zone)
     else:
         # Detect IPv4 classless delegations
@@ -123,7 +129,10 @@ else:
     rname = dns.name.from_text(addr.reverse_pointer)
     target = dns.name.from_text(args.target)
 
-    if args.zone:
+    if args.zone == "rpz":
+        zone = dns.name.from_text(RPZ_ZONE)
+        rname = rname.relativize(dns.name.root) + zone
+    elif args.zone:
         zone = dns.name.from_text(args.zone)
     else:
         # Detect IPv4 classless delegations

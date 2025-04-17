@@ -52,27 +52,32 @@ def send_nsupdate(zone, cmds, *, gssapi=True,
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--edit", action="store_true",
-                    help="interactively edit the zone")
+                        help="interactively edit the zone")
 parser.add_argument("-z", "--zone",
-                    help="override automatically determined rDNS zone")
+                        help="override automatically determined rDNS zone")
+parser.add_argument("-R", "--rpz", action="store_true",
+                        help="update the Response Policy Zone")
 parser.add_argument("-l", "--ttl", type=int, default=3600,
-                    help="set the TTL for created records")
+                        help="set the TTL for created records")
 parser.add_argument("-n", "--dry-run", action="store_true",
-                    help="only show updates that would be done")
+                        help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
-                    help="disable Kerberos (GSS-TSIG) authentication")
+                        help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="count", default=0,
-                    help="enable nsupdate debugging")
+                        help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
-                    help="show detailed information")
+                        help="show detailed information")
 parser.add_argument("address",
-                    help="IP address to update the PTR for")
+                        help="IP address to update the PTR for")
 parser.add_argument("target", nargs="?",
-                    help="PTR target domain name, or \".\" to remove")
+                        help="PTR target domain name, or \".\" to remove")
 args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
+
+if args.zone and args.rpz:
+    exit(f"setptr: --rpz and --zone are mutually exclusive")
 
 if args.edit:
     if args.target:
@@ -84,6 +89,8 @@ if args.edit:
         cmd += ["--verbose"]
     if args.no_gss:
         cmd += ["--no-gss"]
+    if args.rpz:
+        cmd += ["--rpz"]
     cmd += [args.address]
     exit(subprocess.call(cmd))
 else:
@@ -103,7 +110,7 @@ if "/" in args.address:
     rnames = [dns.name.from_text(addr.reverse_pointer)
               for addr in addrs]
 
-    if args.zone == "rpz":
+    if args.rpz:
         zone = dns.name.from_text(RPZ_ZONE)
         rnames = [rname.relativize(dns.name.root) + zone
                   for rname in rnames]
@@ -128,7 +135,7 @@ else:
     rname = dns.name.from_text(addr.reverse_pointer)
     target = dns.name.from_text(args.target)
 
-    if args.zone == "rpz":
+    if args.rpz:
         zone = dns.name.from_text(RPZ_ZONE)
         rname = rname.relativize(dns.name.root) + zone
     elif args.zone:

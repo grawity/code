@@ -10,6 +10,8 @@ import ipaddress
 import logging
 import subprocess
 
+RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
+
 def lookup_suffix(name):
     ans = dns.resolver.resolve(name,
                                search=True,
@@ -24,6 +26,14 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
+def master_for_zone(zone):
+    # Because Bind, the SOA response might have an upper-case tail, e.g.
+    # "star.nullroute.LT" for our RPZ zone, and nsupdate blindly gives that to
+    # Kerberos which fails. So we manually look up the master server here and
+    # casefold the result.
+    ans = dns.resolver.resolve(zone, "SOA")
+    return ans.rrset[0].mname.canonicalize()
+
 def rtype_for_address(rdata):
     addr = ipaddress.ip_address(rdata)
     if addr.version == 4:
@@ -34,7 +44,11 @@ def rtype_for_address(rdata):
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
                                  debug=False):
-    cmds = [f"zone {zone}\n",
+    server = master_for_zone(zone)
+    logging.debug(f"Sending update to server \"{server}\"")
+
+    cmds = [f"server {server}\n",
+            f"zone {zone}\n",
             *cmds,
             f"send\n"]
 
@@ -50,31 +64,36 @@ def send_nsupdate(zone, cmds, *, gssapi=True,
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-a", "--add", action="store_true",
-                    help="keep existing records of same type")
+                        help="keep existing records of same type")
 parser.add_argument("-r", "--remove", action="store_true",
-                    help="remove all specified records")
+                        help="remove all specified records")
 parser.add_argument("-z", "--zone",
-                    help="override automatically determined DNS zone")
+                        help="override automatically determined DNS zone")
+parser.add_argument("-R", "--rpz", action="store_true",
+                        help="update the Response Policy Zone")
 parser.add_argument("-t", "--type",
-                    help="manage records of the specified type")
+                        help="manage records of the specified type")
 parser.add_argument("-l", "--ttl", type=int, default=3600,
-                    help="set the TTL for created records")
+                        help="set the TTL for created records")
 parser.add_argument("-n", "--dry-run", action="store_true",
-                    help="only show updates that would be done")
+                        help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
-                    help="disable Kerberos (GSS-TSIG) authentication")
+                        help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="count", default=0,
-                    help="enable nsupdate debugging")
+                        help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
-                    help="show detailed information")
+                        help="show detailed information")
 parser.add_argument("name",
-                    help="domain name to update")
+                        help="domain name to update")
 parser.add_argument("data", nargs="?",
-                    help="record data")
+                        help="record data")
 args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
+
+if args.zone and args.rpz:
+    exit(f"setptr: --rpz and --zone are mutually exclusive")
 
 if "." in args.name:
     rname = dns.name.from_text(args.name)
@@ -82,6 +101,9 @@ else:
     print(f"Looking up \"{args.name}\"...", end=" ", flush=True)
     rname = lookup_suffix(args.name)
     print(f"canonicalized to <{rname}>")
+
+if args.rpz:
+    rname = rname.relativize(dns.name.root) + RPZ_ZONE
 
 if args.zone:
     zone = dns.name.from_text(args.zone)

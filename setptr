@@ -22,18 +22,17 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
-def get_zone_mname(zone):
+def master_for_zone(zone):
     # Because Bind, the SOA response might have an upper-case tail, e.g.
     # "star.nullroute.LT" for our RPZ zone, and nsupdate blindly gives that to
     # Kerberos which fails. So we manually look up the master server here and
     # casefold the result.
     ans = dns.resolver.resolve(zone, "SOA")
-    name = ans.rrset[0].mname
-    return str(name).lower()
+    return ans.rrset[0].mname.canonicalize()
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
                                  debug=False):
-    server = get_zone_mname(zone)
+    server = master_for_zone(zone)
     logging.debug(f"Sending update to server \"{server}\"")
 
     cmds = [f"server {server}\n",

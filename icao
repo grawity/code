@@ -28,7 +28,9 @@ for query in args.query:
     WHERE
     {
         # instance of = airport
-        ?item wdt:P31 wd:Q1248784.
+        ?item wdt:P31 wd:Q1248784;
+              wdt:P238 ?iata;
+              wdt:P239 ?icao.
         {
             ?item ?label "%(query)s"@en.
         }
@@ -37,9 +39,7 @@ for query in args.query:
             # IATA code or ICAO code = "VNO"
             ?item wdt:P238|wdt:P239 "%(query)s".
         }
-        ?item wdt:P238 ?iata.
-        ?item wdt:P239 ?icao.
-        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],mul,en". }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
     }
     """ % {"query": query}
     resp = ua.get("https://query.wikidata.org/sparql",

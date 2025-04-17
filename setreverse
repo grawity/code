@@ -8,6 +8,8 @@ import logging
 import sys
 import subprocess
 
+RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
+
 def lookup_suffix(name):
     ans = dns.resolver.resolve(name,
                                search=True,
@@ -31,6 +33,14 @@ def chase_one_cname(name):
         return name
     else:
         return ans.rrset[0].target
+
+def master_for_zone(zone):
+    # Because Bind, the SOA response might have an upper-case tail, e.g.
+    # "star.nullroute.LT" for our RPZ zone, and nsupdate blindly gives that to
+    # Kerberos which fails. So we manually look up the master server here and
+    # casefold the result.
+    ans = dns.resolver.resolve(zone, "SOA")
+    return ans.rrset[0].mname.canonicalize()
 
 # dnspython 2.0 in Debian lacks Answer.chaining_result
 def compat_chaining_result_cnames(answer):
@@ -88,7 +98,11 @@ def lookup_addrs(name, *, allow_cname=False,
 
 def send_nsupdate(zone, cmds, *, gssapi=True,
                                  debug=False):
-    cmds = [f"zone {zone}\n",
+    server = master_for_zone(zone)
+    logging.debug(f"Sending update to server \"{server}\"")
+
+    cmds = [f"server {server}\n",
+            f"zone {zone}\n",
             *cmds,
             f"send\n"]
 
@@ -104,25 +118,27 @@ def send_nsupdate(zone, cmds, *, gssapi=True,
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--allow-cname", action="store_true",
-                    help="allow the hostname to be an alias (a CNAME)")
+                        help="allow the hostname to be an alias (a CNAME)")
 parser.add_argument("-r", "--remove", action="store_true",
-                    help="unset rDNS pointers")
+                        help="unset rDNS pointers")
 parser.add_argument("-4", "--only-v4", action="store_true",
-                    help="only update IPv4 rDNS")
+                        help="only update IPv4 rDNS")
 parser.add_argument("-6", "--only-v6", action="store_true",
-                    help="only update IPv6 rDNS")
+                        help="only update IPv6 rDNS")
+parser.add_argument("-R", "--rpz", action="store_true",
+                        help="update the Response Policy Zone")
 parser.add_argument("-l", "--ttl", type=int, default=3600,
-                    help="set the TTL for created records")
+                        help="set the TTL for created records")
 parser.add_argument("-n", "--dry-run", action="store_true",
-                    help="only show updates that would be done")
+                        help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
-                    help="disable Kerberos (GSS-TSIG) authentication")
+                        help="disable Kerberos (GSS-TSIG) authentication")
 parser.add_argument("-d", "--debug", action="count", default=0,
-                    help="enable nsupdate debugging")
+                        help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
-                    help="show detailed information")
+                        help="show detailed information")
 parser.add_argument("host", nargs="+",
-                    help="domain name to update PTR for")
+                        help="domain name to update PTR for")
 args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
@@ -149,6 +165,8 @@ for host in args.host:
     for addr in addresses:
         addr = ipaddress.ip_address(addr)
         rname = dns.name.from_text(addr.reverse_pointer)
+        if args.rpz:
+            rname = rname.relativize(dns.name.root) + RPZ_ZONE
         old = lookup_ptr(rname)
 
         # Detect IPv4 classless delegation, as well as other uses of CNAME.

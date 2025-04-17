@@ -44,17 +44,20 @@ def zones_for_prefix(net):
                 rev[0] = "0"
             yield ".".join(rev[-full:])
 
-def ptr_for_address(addr):
+def address_for_ptr(name, rpz_zone):
+    assert isinstance(name, dns.name.Name)
+    if rpz_zone:
+        name = name.relativize(rpz_zone) + dns.name.root
+    addr = dns.reversename.to_address(name)
+    return ipaddress.ip_address(addr)
+
+def ptr_for_address(addr, rpz_zone):
     assert isinstance(addr, (ipaddress.IPv4Address,
                              ipaddress.IPv6Address))
-
-    return dns.reversename.from_address(str(addr))
-
-def address_for_ptr(domain):
-    assert isinstance(domain, dns.name.Name)
-
-    addr = dns.reversename.to_address(domain)
-    return ipaddress.ip_address(addr)
+    name = dns.reversename.from_address(str(addr))
+    if rpz_zone:
+        name = name.relativize(dns.name.root) + rpz_zone
+    return name
 
 def master_for_zone(zone):
     ans = dns.resolver.resolve(zone, "SOA")
@@ -196,9 +199,7 @@ for name, node in zone_data.items():
     if not rdset:
         non_ptr += 1
         continue
-    if rpz_zone:
-        name = name.relativize(rpz_zone) + dns.name.root
-    addr = address_for_ptr(name)
+    addr = address_for_ptr(name, rpz_zone)
     old[addr] = rdset
     #old[addr] = set(rdset)
 
@@ -308,17 +309,13 @@ cmds = []
 cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
 
 for addr in addrs_missing | addrs_updated:
-    rname = ptr_for_address(addr)
-    if rpz_zone:
-        rname = rname.relativize(dns.name.root) + rpz_zone
+    rname = ptr_for_address(addr, rpz_zone)
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
     for rdata in old[addr]:
         print(f"Deleting: {addr} -= (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
-    rname = ptr_for_address(addr)
-    if rpz_zone:
-        rname = rname.relativize(dns.name.root) + rpz_zone
+    rname = ptr_for_address(addr, rpz_zone)
     for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} += {rdata.target}")

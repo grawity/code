@@ -110,6 +110,8 @@ def group_for_addr(addr):
     """
     Round the address up to the nearest IPv4 /24 or IPv6 /64 that covers it.
     """
+    if addr.version == 4 and addr in ipaddress.ip_network("10.147.240.0/22"):
+        return ipaddress.ip_interface((addr, 30)).network
     bits = {4: 24, 6: 64}[addr.version]
     return ipaddress.ip_interface((addr, bits)).network
 

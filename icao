@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import argparse
-import requests
-import subprocess
-import sys
-
 from pprint import pprint
+import requests
 
 parser = argparse.ArgumentParser()
 parser.add_argument("query", nargs="+", help="City name or ICAO code")
@@ -40,21 +37,8 @@ for query in args.query:
                   params={"query": sparql},
                   headers={"Accept": "application/sparql-results+json"})
     resp.raise_for_status()
-    #print(resp)
-    #pprint(resp.json())
     data = resp.json()
     for result in data["results"]["bindings"]:
+        # Flatten for display
+        result = {k: v["value"] for k, v in result.items()}
         pprint(result)
-exit()
-
-cmd = ["column",
-       "--table",
-       "--separator=\t",
-       "--table-columns=%s" % ",".join(header).upper()]
-with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
-    for row in results:
-        proc.stdin.write("\t".join(row).encode() + b"\n")
-    proc.stdin.close()
-
-exit(err)
-

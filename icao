@@ -25,20 +25,13 @@ for query in args.query:
     SELECT DISTINCT ?item ?itemLabel ?iata ?icao
     WHERE
     {
-        BIND(wd:Q1248784 as ?airportType)
-        BIND(wdt:P31 as ?instanceOf)
-        BIND(wdt:P238 as ?iataCodeProp)
-        BIND(wdt:P239 as ?icaoCodeProp)
-
-        ?item ?instanceOf ?airportType;
-              ?iataCodeProp ?iata;
-              ?icaoCodeProp ?icao.
+        ?item wdt:P31 wd:Q1248784;
+              wdt:P238 ?iata;
+              wdt:P239 ?icao.
 
         { ?item ?label "%(query)s"@en. }
         UNION
-        { ?item ?iataCodeProp "%(query)s". }
-        UNION
-        { ?item ?icaoCodeProp "%(query)s". }
+        { ?item wdt:P238|wdt:P239 "%(query)s". }
 
         SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
     }

@@ -18,6 +18,35 @@ results = []
 err = False
 
 for query in args.query:
+    # https://www.wikidata.org/wiki/Wikidata:SPARQL_query_service
+    # https://query.wikidata.org/sparql?query={SPARQL}
+    # https://stackoverflow.com/questions/30501124/or-in-a-sparql-query
+    # https://pypi.org/project/sparql-client/
+    # XXX: This can do iata->icao or the other way around, but search by
+    # "label" seems to be more complicated.
+    qry = """
+    SELECT ?item ?itemLabel ?iata ?icao
+    WHERE
+    {
+        # instance of = airport
+        ?item wdt:P31 wd:Q1248784.
+        # IATA code or ICAO code = "VNO"
+        ?item wdt:P238|wdt:P239 "%s".
+        ?item wdt:P238 ?iata.
+        ?item wdt:P239 ?icao.
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],mul,en". }
+    }
+    """ % query
+    resp = ua.get("https://query.wikidata.org/sparql",
+                  params={"query": qry},
+                  headers={"Accept": "application/sparql-results+json"})
+    resp.raise_for_status()
+    #print(resp)
+    #pprint(resp.json())
+    data = resp.json()
+    for result in data["results"]["bindings"]:
+        pprint(result)
+    break
     if len(query) == 3:
         form = {"iataapt": query}
     elif len(query) == 4:

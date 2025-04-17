@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import bs4
-import re
 import requests
 import subprocess
 import sys
@@ -54,27 +52,7 @@ for query in args.query:
     data = resp.json()
     for result in data["results"]["bindings"]:
         pprint(result)
-    break
-    if len(query) == 3:
-        form = {"iataapt": query}
-    elif len(query) == 4:
-        form = {"icaoapt": query}
-    else:
-        form = {"locname": query}
-    resp = ua.post("https://www.avcodes.co.uk/aptcoderes.asp",
-                   data=form)
-    resp.raise_for_status()
-    page = bs4.BeautifulSoup(resp.content, "lxml")
-    for result in page.select("main.form-result table.table-sm"):
-        r = {}
-        for cell in result.select("td"):
-            cell = cell.get_text(strip=True)
-            if x := re.match("^(.+?): *(.+)$", cell):
-                r[x[1]] = x[2]
-            if not re.match(r"URL|.*:/?$", cell):
-                print(cell)
-        #pprint(r)
-        print("-"*80)
+exit()
 
 cmd = ["column",
        "--table",

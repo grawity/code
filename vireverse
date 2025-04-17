@@ -44,10 +44,13 @@ def zones_for_prefix(net):
                 rev[0] = "0"
             yield ".".join(rev[-full:])
 
+def swap_suffix(name, old, new):
+    return name.relativize(old) + new
+
 def address_for_ptr(name, rpz_zone):
     assert isinstance(name, dns.name.Name)
     if rpz_zone:
-        name = name.relativize(rpz_zone) + dns.name.root
+        name = swap_suffix(name, rpz_zone, dns.name.root)
     addr = dns.reversename.to_address(name)
     return ipaddress.ip_address(addr)
 
@@ -56,7 +59,7 @@ def ptr_for_address(addr, rpz_zone):
                              ipaddress.IPv6Address))
     name = dns.reversename.from_address(str(addr))
     if rpz_zone:
-        name = name.relativize(dns.name.root) + rpz_zone
+        name = swap_suffix(name, dns.name.root, rpz_zone)
     return name
 
 def master_for_zone(zone):

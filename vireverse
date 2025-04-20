@@ -220,7 +220,13 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
     print(f"# Editing {zone} (serial {old_soa[0].serial})", file=temp.file)
     n_lines += 1
 
-    for addr in sorted(old):
+    # A mixed list of IPv4Address and IPv6Address (such as in a RPZ zone)
+    # refuses to be sorted
+    old4 = [a for a in old if a.version == 4]
+    old6 = [a for a in old if a.version == 6]
+    assert len(old) == len(old4 + old6)
+
+    for addr in sorted(old4) + sorted(old6):
         # Output a blank line between each /24 or /64
         this_net = group_for_addr(addr)
         if last_net and this_net != last_net:

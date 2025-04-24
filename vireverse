@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 
 RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
+DEFAULT_NET = "10.147.0.0/16"
 
 def confirm(text):
     return input(f"{text} ").startswith("y")
@@ -149,18 +150,23 @@ parser.add_argument("-v", "--verbose", action="store_true",
                         help="show detailed information")
 parser.add_argument("network",
                         help="IP prefix to edit the zone for",
-                        nargs="?", default="10.147.0.0/16")
+                        nargs="?")
 args = parser.parse_args()
 
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
 if args.rpz:
-    prefix = None
-    zone = RPZ_ZONE
-else:
+    # For RPZ, the prefix is only used to jump to the nearest line.
     try:
         prefix = ipaddress.ip_network(args.network)
+    except ValueError:
+        prefix = None
+    zone = RPZ_ZONE
+    logging.info(f"Editing RPZ zone <{zone}>")
+else:
+    try:
+        prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
     except ValueError:
         # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
         # so we can't just address_for_ptr() it to get the prefix back.
@@ -170,13 +176,13 @@ else:
         zones = zones_for_prefix(prefix)
         zones = [*zones]
         if len(zones) > 1:
-            exit(f"error: Multiple zones for {prefix}: {zones}")
+            exit(f"error: multiple zones for {prefix}: {zones}")
         zone = dns.name.from_text(zones[0])
         logging.debug(f"Domain for {prefix} is <{zone}>")
 
     apex = dns.resolver.zone_for_name(zone)
     if apex != zone:
-        logging.warning(f"Editing zone {apex}")
+        logging.warning(f"Editing zone <{apex}>")
         zone = apex
 
 master = master_for_zone(zone)

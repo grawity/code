@@ -61,10 +61,13 @@ with open(path, "r") as fh:
         if re.match(r"^\d+\.\d+\.\d+\.\d+|^2[0-9a-f]{3}:", line.strip()):
             net = line.split()[0].rstrip(":")
             desc = line.rstrip()
-            if any(ipmatch(a, net) for a in args.address):
-                print(desc)
-                lineno = i
-                found = True
+            try:
+                if any(ipmatch(a, net) for a in args.address):
+                    print(desc)
+                    lineno = i
+                    found = True
+            except ValueError as e:
+                print(f"whatip: line {i}: {e}", file=sys.stderr)
 
 if args.edit:
     cmd = ["nvim", path, "+:setl cursorline", f"+{lineno}"]

@@ -231,10 +231,12 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
     old6 = [a for a in old if a.version == 6]
     assert len(old) == len(old4 + old6)
 
-    # Effective (i.e. rounded up to a whole number of tabs) maximum width of
-    # the 'address' column.
+    # Maximum width of the address column...
     addr_max_width = max(len(str(addr)) for addr in old) if old else 0
-    addr_max_width = math.ceil(addr_max_width / 8) * 8
+    # ...rounded up to the effective width (whole number of tabs), with an
+    # increment to guarantee that if it is already an exact multiple of 8, then
+    # a tab is inserted regardless.
+    addr_max_width = math.ceil((addr_max_width + 1) / 8) * 8
 
     for addr in sorted(old4) + sorted(old6):
         # Output a blank line between each /24 or /64
@@ -255,7 +257,7 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
 
         for rdata in old[addr]:
             pad = addr_max_width - len(str(addr))
-            tabs = "\t" * (math.ceil(pad / 8) + 1)
+            tabs = "\t" * (math.ceil(pad / 8) + 0)
             target = rdata.target.relativize(dns.name.root)
             print(f"{addr}{tabs}{target}", file=temp.file)
             n_lines += 1

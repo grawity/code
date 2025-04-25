@@ -24,6 +24,8 @@ def ipmatch(ip, net):
     return False
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-f", "--file",
+                        help="alternate file to search")
 parser.add_argument("-e", "--edit", action="store_true",
                         help="open in text editor")
 parser.add_argument("address", nargs="*", type=ipaddress.ip_address,
@@ -33,9 +35,12 @@ args = parser.parse_args()
 if not (args.edit or args.address):
     exit("whatip: no address specified")
 
-path = os.path.expanduser("~/Dropbox/Notes/Nullroute/IP address assignments.txt")
-if not os.path.exists(path):
-    path = "/net/ember/" + path
+if args.file:
+    path = args.file
+else:
+    path = os.path.expanduser("~/Dropbox/Notes/Nullroute/IP address assignments.txt")
+    if not os.path.exists(path):
+        path = "/net/ember/" + path
 
 lineno = 0
 found = False
@@ -43,16 +48,18 @@ found = False
 with open(path, "r") as fh:
     within = False
     for i, line in enumerate(fh, start=1):
-        if line.startswith("Main IPv4 private range"):
-            lineno = i
-            within = True
-        #elif line.startswith("Main IPv6 private range"):
-        elif line.startswith("=== Additional networks") and found:
-            within = False
-        elif not within:
-            continue
-        elif re.match(r"^\d+\.\d+\.\d+\.\d+|^2[0-9a-f]{3}:", line.strip()):
-            net = line.split()[0]
+        if not args.file:
+            # For the default file, only search a specific section.
+            if line.startswith("Main IPv4 private range"):
+                lineno = i
+                within = True
+            elif line.startswith("=== Additional networks") and found:
+                within = False
+            elif not within and not args.file:
+                continue
+
+        if re.match(r"^\d+\.\d+\.\d+\.\d+|^2[0-9a-f]{3}:", line.strip()):
+            net = line.split()[0].rstrip(":")
             desc = line.rstrip()
             if any(ipmatch(a, net) for a in args.address):
                 print(desc)

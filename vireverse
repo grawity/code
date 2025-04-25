@@ -46,6 +46,33 @@ def zones_for_prefix(net):
                 rev[0] = "0"
             yield ".".join(rev[-full:])
 
+def prefix_for_zone(name):
+    # Similar to dns.reversename.to_address() but handles prefixes.
+    assert isinstance(name, dns.name.Name)
+    if name.is_subdomain(dns.reversename.ipv4_reverse_domain):
+        name = name.relativize(dns.reversename.ipv4_reverse_domain)
+        octets = [x.decode() for x in reversed(name.labels)]
+        bits = len(octets) * 8
+        octets += ["0"] * (4 - len(octets))
+        addr = ".".join(octets)
+        prefix = ipaddress.ip_network((addr, bits))
+        return prefix
+    elif name.is_subdomain(dns.reversename.ipv6_reverse_domain):
+        name = name.relativize(dns.reversename.ipv6_reverse_domain)
+        nibbles = [x.decode() for x in reversed(name.labels)]
+        bits = len(nibbles) * 4
+        nibbles += ["0"] * (32 - len(nibbles))
+        parts = []
+        for i in range(0, len(nibbles), 4):
+            parts.append("".join(nibbles[i : i+4]))
+        addr = ":".join(parts)
+        prefix = ipaddress.ip_network((addr, bits))
+        return prefix
+    else:
+        # XXX: For unusual zones, it might be wise to return 'none' here so
+        # that prefix checks would be skipped outright.
+        raise ValueError(name)
+
 def address_for_ptr(name, rpz_zone):
     assert isinstance(name, dns.name.Name)
     if rpz_zone:
@@ -183,8 +210,9 @@ else:
 
     apex = dns.resolver.zone_for_name(zone)
     if apex != zone:
-        logging.warning(f"Editing zone <{apex}>")
         zone = apex
+        prefix = prefix_for_zone(zone)
+        logging.warning(f"Editing zone <{zone}> for prefix {prefix}")
 
 master = master_for_zone(zone)
 logging.debug(f"Master for zone <{zone}> is <{master}>")

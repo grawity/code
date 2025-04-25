@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # vireverse -- interactively edit reverse-DNS records
 import argparse
+import dns.exception
 import dns.name
 import dns.resolver
 import dns.reversename
@@ -267,18 +268,28 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
 
 run_visual(edit_path, pref_line or near_line)
 
+parse_err = False
 with open(edit_path, "r") as temp:
-    for line in temp:
+    for i, line in enumerate(temp, start=1):
         line = line.rstrip()
         if not line:
             continue
         if line[0] in {"#", ";"}:
             continue
-        addr, target = line.split()
-        addr = ipaddress.ip_address(addr)
+
+        try:
+            addr, target = line.split()
+            addr = ipaddress.ip_address(addr)
+            target = dns.name.from_text(target)
+        except (ValueError, dns.exception.SyntaxError) as err:
+            logging.error(f"error: Line {i}: {err}")
+            logging.error(f"{edit_path}:{i}: {line}")
+            parse_err = True
+            continue
+
         # TODO: Check whether 'addr' is in 'prefix'. If not, output to stdout
         # and skip the change.
-        target = dns.name.from_text(target)
+
         rdata = dns.rdtypes.ANY.PTR.PTR(dns.rdataclass.IN,
                                         dns.rdatatype.PTR,
                                         target)
@@ -287,6 +298,10 @@ with open(edit_path, "r") as temp:
                                               dns.rdatatype.PTR)
             #new[addr] = set()
         new[addr].add(rdata)
+
+if parse_err:
+    exit(f"error: Could not parse input (retained in {edit_path!r})")
+else:
     os.unlink(edit_path)
 
 addrs_missing = {*old} - {*new}

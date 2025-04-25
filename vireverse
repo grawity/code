@@ -287,8 +287,11 @@ with open(edit_path, "r") as temp:
             parse_err = True
             continue
 
-        # TODO: Check whether 'addr' is in 'prefix'. If not, output to stdout
-        # and skip the change.
+        if prefix and addr not in prefix:
+            logging.error(f"error: Line {i}: {addr} is out of range for {prefix}")
+            logging.error(f"{edit_path}:{i}: {line}")
+            parse_err = True
+            continue
 
         rdata = dns.rdtypes.ANY.PTR.PTR(dns.rdataclass.IN,
                                         dns.rdatatype.PTR,

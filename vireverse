@@ -254,10 +254,8 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
                 near_line = n_lines + 1
 
         for rdata in old[addr]:
-            # The -1 accounts for misalignment when len(addr) is a whole
-            # multiple of 8, as then one extra tab is added
-            pad = addr_max_width - len(str(addr)) - 1
-            tabs = "\t" * (math.floor(pad / 8) + 2)
+            pad = addr_max_width - len(str(addr))
+            tabs = "\t" * (math.ceil(pad / 8) + 1)
             target = rdata.target.relativize(dns.name.root)
             print(f"{addr}{tabs}{target}", file=temp.file)
             n_lines += 1

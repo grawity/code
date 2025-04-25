@@ -10,24 +10,24 @@ tool=$(osguess package-mgr) || exit
 case $tool in
 	dpkg)
 		if [[ -x /usr/bin/apt ]]; then
-			sudo: apt update &&
-			sudo: apt full-upgrade -V "$@"
+			sudo: nice apt update &&
+			sudo: nice apt full-upgrade -V "$@"
 		else
-			sudo: apt-get update &&
-			sudo: apt-get dist-upgrade -V "$@"
+			sudo: nice apt-get update &&
+			sudo: nice apt-get dist-upgrade -V "$@"
 		fi
 		;;
 	pacman)
 		if pgrep -u "$UID" -x firefox &> /dev/null; then
 			set -- --ignore=firefox "$@"
 		fi
-		sudo: pacman -Syu "$@" &&
+		sudo: nice pacman -Syu "$@" &&
 		if pkgs=$(pacman -Qqdt | grep ^haskell-); then
-			sudo: pacman -Rns $pkgs
+			sudo: nice pacman -Rns $pkgs
 		fi
 		;;
 	rpm)
-		sudo: yum update "$@"
+		sudo: nice yum update "$@"
 		;;
 	*)
 		echo "${0##*/}: unknown distribution" >&2

@@ -209,9 +209,11 @@ else:
         logging.debug(f"Domain for {prefix} is <{zone}>")
 
     apex = dns.resolver.zone_for_name(zone)
-    if apex != zone:
+    if apex == zone:
+        zone_prefix = prefix
+    else:
         zone = apex
-        prefix = prefix_for_zone(zone)
+        zone_prefix = prefix_for_zone(zone)
         logging.warning(f"Editing zone <{zone}> for prefix {prefix}")
 
 master = master_for_zone(zone)
@@ -280,9 +282,11 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
         if prefix:
             if addr in prefix and not pref_line:
                 pref_line = n_lines + 1
+                #print(f"new {pref_line=} ({addr=} within {prefix=})")
             elif addr_diff(prefix[0], addr) < addr_diff(prefix[0], near_addr):
                 near_addr = addr
                 near_line = n_lines + 1
+                #print(f"new {near_line=} ({addr=} near {prefix=}")
 
         for rdata in old[addr]:
             pad = addr_max_width - len(str(addr))
@@ -315,8 +319,8 @@ with open(edit_path, "r") as temp:
             parse_err = True
             continue
 
-        if prefix and addr not in prefix:
-            logging.error(f"error: Line {i}: {addr} is out of range for {prefix}")
+        if zone_prefix and addr not in zone_prefix:
+            logging.error(f"error: Line {i}: {addr} is out of range for {zone_prefix}")
             logging.error(f"{edit_path}:{i}: {line}")
             parse_err = True
             continue

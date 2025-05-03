@@ -3,7 +3,7 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-i <path>] <host>"
+	echo "Usage: $progname [-i <path>] <host...>"
 	echo
 	echo_opt "-i <path>" "OpenSSH public key to upload"
 }
@@ -17,22 +17,10 @@ while getopts ':i:' OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-host=$1
+hosts=("$@")
 
-if [[ ! $host ]]; then
+if (( ! ${#hosts[@]} )); then
 	die "hostname not provided"
-fi
-
-if [[ $host == \[*:*\] ]]; then
-	scphost="$host"
-	host="${host#'['}"
-	host="${host%']'}"
-elif [[ $host == *:*:*:* ]]; then
-	scphost="[$host]"
-elif [[ $host == *[:/]* ]]; then
-	die "invalid hostname '$host'"
-else
-	scphost="$host"
 fi
 
 if (( ! ${#ids[@]} )); then
@@ -58,31 +46,43 @@ done
 
 (( !errors )) || exit
 
-ltmpfile=$(mktemp /tmp/key_XXXXXXXXXX)
-for file in "${ids[@]}"; do
-	info "uploading $file to $host"
-	rtmpfile="tmp_$(uuidgen).pub"
-	key=$(< "$file")
-	key=${key//'('}
-	key=${key//')'}
-	printf '%s\n' "$key" > "$ltmpfile"
-	# Establish mux socket (scp no longer does so)
-	ssh "$host" ":"
-	scp "$ltmpfile" "$scphost:$rtmpfile" || exit
-	# Wait for the file to show up (not always instant; silly RouterOS SSH)
-	until ssh "$host" "/file print detail where name=\"$rtmpfile\"" \
-	      | grep -qs "$rtmpfile"; do
-		sleep 0.1
-		echo -n "."
+for host in "${hosts[@]}"; do
+	if [[ $host == \[*:*\] ]]; then
+		scphost="$host"
+		host="${host#'['}"
+		host="${host%']'}"
+	elif [[ $host == *:*:*:* ]]; then
+		scphost="[$host]"
+	elif [[ $host == *[:/]* ]]; then
+		die "invalid hostname '$host'"
+	else
+		scphost="$host"
+	fi
+
+	ltmpfile=$(mktemp /tmp/key_XXXXXXXXXX)
+	for file in "${ids[@]}"; do
+		info "uploading $file to $host"
+		rtmpfile="tmp_$(uuidgen).pub"
+		key=$(< "$file")
+		key=${key//'('}
+		key=${key//')'}
+		printf '%s\n' "$key" > "$ltmpfile"
+		# Establish mux socket (new OpenSSH's scp no longer does so)
+		ssh "$host" :
+		scp "$ltmpfile" "$scphost:$rtmpfile" || exit
+		# Wait for the file to show up (not always instant; silly RouterOS SSH)
+		until ssh "$host" "/file print detail where name=\"$rtmpfile\"" \
+		      | grep -qs "$rtmpfile"; do
+			sleep 0.1
+			echo -n "."
+		done
+		echo ""
+		ssh "$host" "/user ssh-keys import public-key-file=\"$rtmpfile\""
+		ssh "$host" "/file remove [find name=\"$rtmpfile\"]"
 	done
-	echo ""
-	ssh "$host" "/user ssh-keys import public-key-file=\"$rtmpfile\""
-	ssh "$host" "/file remove [find name=\"$rtmpfile\"]"
+	rm -f "$ltmpfile"
+
+	ssh "$host" "/user ssh-keys print"
 done
 
-rm -f "$ltmpfile"
-
-info "done"
-ssh "$host" "/user ssh-keys print"
-
-((!errors))
+(( !errors )) || exit

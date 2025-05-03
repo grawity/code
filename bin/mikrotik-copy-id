@@ -72,12 +72,16 @@ for host in "${hosts[@]}"; do
 		printf '%s\n' "$key" > "$ltmpfile"
 		scp "$ltmpfile" "$scphost:$rtmpfile" || exit
 		# Wait for the file to show up (not always instant; silly RouterOS SSH)
+		waited=0
 		until ssh "$host" "/file print detail where name=\"$rtmpfile\"" \
 		      | grep -qs "$rtmpfile"; do
 			sleep 0.5
 			echo -n "."
+			(( ++waited ))
 		done
-		echo ""
+		if (( waited )); then
+			echo ""
+		fi
 		ssh "$host" "/user ssh-keys import public-key-file=\"$rtmpfile\""
 		ssh "$host" "/file remove [find name=\"$rtmpfile\"]"
 	done

@@ -59,6 +59,9 @@ for host in "${hosts[@]}"; do
 		scphost="$host"
 	fi
 
+	# Establish mux socket (new OpenSSH's scp no longer does so)
+	ssh "$host" :
+
 	ltmpfile=$(mktemp /tmp/key_XXXXXXXXXX)
 	for file in "${ids[@]}"; do
 		info "uploading $file to $host"
@@ -67,13 +70,11 @@ for host in "${hosts[@]}"; do
 		key=${key//'('}
 		key=${key//')'}
 		printf '%s\n' "$key" > "$ltmpfile"
-		# Establish mux socket (new OpenSSH's scp no longer does so)
-		ssh "$host" :
 		scp "$ltmpfile" "$scphost:$rtmpfile" || exit
 		# Wait for the file to show up (not always instant; silly RouterOS SSH)
 		until ssh "$host" "/file print detail where name=\"$rtmpfile\"" \
 		      | grep -qs "$rtmpfile"; do
-			sleep 0.1
+			sleep 0.5
 			echo -n "."
 		done
 		echo ""

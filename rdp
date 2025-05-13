@@ -138,6 +138,8 @@ parser.add_argument("-k", "--insecure",
 parser.add_argument("--workarea",
                         action="store_true",
                         help="fit display into the work area instead of full-screen")
+parser.add_argument("-g", "--dimensions", metavar="WxH",
+                        help="use specified remote screen size")
 parser.add_argument("--no-gfx",
                         action="store_true",
                         help="disable support for RDP8 \"Graphics Pipeline\"")
@@ -148,6 +150,7 @@ parser.add_argument("--flatpak",
                         action="store_true",
                         help="use the Flatpak build")
 parser.add_argument("--x11",
+                        default=True,
                         action="store_true",
                         help="use the X11 client instead of SDL client")
 parser.add_argument("--save",
@@ -244,7 +247,9 @@ if args.legacy:
 
 if args.workarea:
     cmd.append("/workarea")
-    cmd.append("-decorations")
+    #cmd.append("-decorations")
+elif args.dimensions:
+    cmd.append("/size:%s" % args.dimensions)
 else:
     cmd.append("/f")
     cmd.append("+floatbar")

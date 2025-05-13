@@ -7,6 +7,7 @@ import binascii
 import datetime
 import enum
 import io
+import ipaddress
 import uuid
 from nullroute.io import BinaryReader
 
@@ -24,11 +25,34 @@ class DUIDType(enum.IntEnum):
     LL = 3          # Link Layer (RFC 3315)
     UUID = 4        # Universally Unique ID (RFC 6355)
 
+# https://datatracker.ietf.org/doc/html/rfc4446#section-3.2
+class PseudowireType(enum.IntEnum):
+    TaggedEthernet  = 0x0004
+    Ethernet        = 0x0005
+
+# https://datatracker.ietf.org/doc/html/rfc4446#section-3.3
+class PseudowireInterfaceParamSubTlvType(enum.IntEnum):
+    InterfaceMTU    = 0x01
+
+# https://datatracker.ietf.org/doc/html/rfc4446#section-3.4.2
+class PseudowireAttachmentGroupType(enum.IntEnum):
+    RouteDistinguisher  = 0x01
+
+# https://datatracker.ietf.org/doc/html/rfc4446#section-3.4.1
+class PseudowireAttachmentIndividualType(enum.IntEnum):
+    LocalIdentifier     = 0x01
+
 def try_enum(etype, value):
     try:
         return etype(value)
     except ValueError:
         return value
+
+def show_enum(value, fmt="%d"):
+    if hasattr(value, "name"):
+        return ("%s (" + fmt + ")") % (value.name, value)
+    else:
+        return ("%s (" + fmt + ")") % ("unknown", value)
 
 def lookup_iana_pen(vendor):
     return {
@@ -48,7 +72,7 @@ def parse_hex(s):
 def fmt_hex(buf):
     h = ["%02x" % c for c in buf]
     h = ":".join(h).upper()
-    return h
+    return h or "(empty)"
 
 def is_ascii(buf):
     return all(0x20 < x < 0x7F for x in buf)
@@ -164,9 +188,110 @@ def decode_osi_nsap(buf):
     else:
         print("AFI: unknown (%02x)" % afi)
 
+def decode_bgp_rd(buf):
+    br = BinaryReader(buf)
+    afi = br.read_u16_be()
+    if afi == 0x0000:
+        print("AFI: 2-byte ASN + 4-byte ID (0x%04x)" % afi)
+        print("ASN: %d" % br.read_u16_be())
+        print("ID: %d" % br.read_u32_be())
+    elif afi == 0x0001:
+        print("AFI: 4-byte IPv4 + 2-byte ID (0x%04x)" % afi)
+        print("IPv4: %s" % ipaddress.IPv4Address(br.read(4)))
+        print("ID: %d" % br.read_u16_be())
+    elif afi == 0x0002:
+        print("AFI: 4-byte ASN + 2-byte ID (0x%04x)" % afi)
+        print("ASN: %d" % br.read_u32_be())
+        print("ID: %d" % br.read_u16_be())
+    else:
+        print("AFI: unknown (0x%04x)" % afi)
+        print("Rest: %s" % fmt_hex(br.read()))
+
+def decode_mpls_fec(buf):
+    br = BinaryReader(buf)
+    fec = br.read_u8()
+    if fec == 0x80:
+        # https://datatracker.ietf.org/doc/html/rfc4447#section-5.2
+        print("FEC element type: RFC 4446 PWid (0x%02x)" % fec)
+        pw_type = br.read_u16_be()
+        cw_bit = bool(pw_type & 0x8000)
+        pw_type = try_enum(PseudowireType, pw_type & ~0x8000)
+        print("Pseudowire type: %s" % show_enum(pw_type))
+        print("Control word: %s" % cw_bit)
+        info_len = br.read_u8()
+        print("PW info length: [%d]" % info_len) # includes pw_id + subTLVs
+        group_id = br.read_u32_be()
+        print("Group ID: %d" % group_id)
+        if info_len == 0:
+            return
+        elif info_len < 4:
+            print("Pseudowire ID (too short):", fmt_hex(br.read()))
+        else:
+            pw_id = br.read_u32_be()
+            print("Pseudowire ID: %d" % pw_id)
+            info_len -= 4 # includes pw_id (but not group_id)
+            while info_len:
+                assert info_len >= 2, "not enough bytes for TLV type+len"
+                tlv_type = br.read_u8()
+                tlv_type = try_enum(PseudowireInterfaceParamSubTlvType, tlv_type)
+                tlv_len = br.read_u8()
+                assert tlv_len >= 2, "TLV impossibly short"
+                assert tlv_len <= info_len, "not enough bytes left for TLV data"
+                tlv_data = br.read(tlv_len - 2)
+                print("TLV: %s = %s" % (show_enum(tlv_type, "0x%02d"), fmt_hex(tlv_data)))
+                info_len -= tlv_len
+    elif fec == 0x81:
+        # https://datatracker.ietf.org/doc/html/rfc4447#section-5.3
+        print("FEC element type: RFC 4446 Generalized PWid (0x%02x)" % fec)
+        pw_type = br.read_u16_be()
+        cw_bit = bool(pw_type & 0x8000)
+        pw_type = try_enum(PseudowireType, pw_type & ~0x8000)
+        print("Pseudowire type: %s" % show_enum(pw_type))
+        print("Control word: %s" % cw_bit)
+        info_len = br.read_u8()
+        print("PW info length: [%d]" % info_len) # includes AGI+SAII+TAII
+        if info_len == 0:
+            return
+
+        assert info_len >= 2, "not enough bytes for AGI type+len"
+        agi_type = br.read_u8()
+        agi_type = try_enum(PseudowireAttachmentGroupType, agi_type)
+        agi_len = br.read_u8()
+        info_len -= 2
+        assert agi_len <= info_len, "not enough bytes left for AGI value"
+        agi_value = br.read(agi_len)
+        info_len -= agi_len
+        print("AGI type: %s" % show_enum(agi_type))
+        if agi_type == 0x01:
+            decode_bgp_rd(agi_value)
+        else:
+            print("AGI:", fmt_hex(agi_value))
+
+        for t in ["Source", "Dest"]:
+            assert info_len >= 2, "not enough bytes for AII type+len"
+            aii_type = br.read_u8()
+            aii_type = try_enum(PseudowireAttachmentIndividualType, aii_type)
+            aii_len = br.read_u8()
+            info_len -= 2
+            assert aii_len <= info_len, "not enough bytes left for AII value"
+            print("%s AII type: %s (%d)" % (t, aii_type.name, aii_type))
+            if aii_type == 0x01 and aii_len == 4:
+                aii_value = br.read_u32_be()
+                info_len -= aii_len
+                print("%s AII: %s" % (t, aii_value))
+            else:
+                aii_value = br.read(aii_len)
+                info_len -= aii_len
+                print("%s AII: %s" % (t, fmt_hex(aii_value)))
+    else:
+        print("FEC element type: %s" % show_enum(fec))
+        print("Rest: %s" % fmt_hex(br.read()))
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dhcp4", dest="type", action="store_const", const="dhcp-client-id")
 parser.add_argument("--dhcp6", dest="type", action="store_const", const="dhcpv6-duid")
+parser.add_argument("--bgp-rd", dest="type", action="store_const", const="bgp-rd")
+parser.add_argument("--mpls-fec", dest="type", action="store_const", const="mpls-fec")
 parser.add_argument("data")
 args = parser.parse_args()
 data = parse_hex(args.data.replace(".", ""))
@@ -177,5 +302,9 @@ elif args.type == "dhcpv6-duid":
     decode_dhcpv6_duid(data)
 elif args.type == "osi-nsap":
     decode_osi_nsap(data)
+elif args.type == "bgp-rd":
+    decode_bgp_rd(data)
+elif args.type == "mpls-fec":
+    decode_mpls_fec(data)
 else:
     exit("error: Unknown type %r" % args.type)

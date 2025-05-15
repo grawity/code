@@ -81,78 +81,10 @@ def print_hdr(hdr):
     print("\033[1m%s\033[m" % hdr)
 
 def decode_dhcp_client_id(buf):
-    # https://tools.ietf.org/html/rfc2132#section-9.14
-    # Types (except 0 and 255) correspond to link-layer types, 1 is Ethernet
-    print_hdr("DHCP Client Identifier")
-    br = BinaryReader(buf)
-    type = br.read_u8()
-    type = try_enum(ArpHardwareType, type)
-    if type == 0x00:
-        print("Type:", "non-hardware (%d)" % type)
-        ident = br.fh.read()
-        if is_ascii(ident):
-            print("  Identifier:", repr(ident))
-        else:
-            print("  Identifier:", fmt_hex(ident))
-    elif type == 0xFF:
-        # https://tools.ietf.org/html/rfc4361#section-6.1
-        print("Type:", "embedded RFC 3315 IAID+DUID (%d)" % type)
-        iaid = br.read(4)
-        print("  IAID:", fmt_hex(iaid))
-        duid = br.fh.read()
-        print("  DUID:", fmt_hex(duid))
-        print("  -- Decoding nested DUID --")
-        decode_dhcpv6_duid(duid)
-    elif type == 0x01 and len(buf) == (1 + 16) and buf[1:5] == b'RAS ':
-        print("Type:", "Windows RRAS dial-in pool lease")
-        magic = br.read(4)
-        print("  Magic:", repr(magic))
-        mac = br.read(6)
-        print("  Server MAC:", fmt_hex(mac))
-        foo = br.read(2)
-        print("  Unknown field:", fmt_hex(foo))
-        rest = br.fh.read()
-        print("  RAS port number:", fmt_hex(rest))
-    else:
-        print("Type:", "link-layer address (%s) (%d)" % (type.name, type))
-        mac = br.fh.read()
-        print("  Link-layer address:", fmt_hex(mac))
+    Dhcpv4ClientIdDecoder(buf).show()
 
 def decode_dhcpv6_duid(buf):
-    # https://tools.ietf.org/html/rfc3315#section-9.1
-    print_hdr("DHCPv6 DUID")
-    br = BinaryReader(buf)
-    type = br.read_u16_be()
-    type = try_enum(DUIDType, type)
-    if type == DUIDType.LLT:
-        print("Type:", "link-layer + time (DUID-LLT) (%d)" % type)
-        hwtype = br.read_u16_be()
-        print("  Hardware type:", "unknown (%d)" % hwtype)
-        time = br.read_u32_be()
-        time = datetime.datetime.fromtimestamp(time)
-        print("  Time:", time)
-        lladdr = br.fh.read()
-        print("  Link-layer address:", fmt_hex(lladdr))
-    elif type == DUIDType.EN:
-        print("Type:", "vendor-assigned (DUID-EN) (%d)" % type)
-        vendor = br.read_u32_be()
-        print("  Vendor:", "%s (%d)" % (lookup_iana_pen(vendor), vendor))
-        rest = br.fh.read()
-        print("  Identifier:", fmt_hex(rest))
-    elif type == DUIDType.LL:
-        print("Type:", "link-layer (DUID-LL) (%d)" % type)
-        hwtype = br.read_u16_be()
-        hwtype = try_enum(ArpHardwareType, hwtype)
-        print("  Hardware type:", hwtype)
-        lladdr = br.fh.read()
-        print("  Link-layer address:", fmt_hex(lladdr))
-    elif type == DUIDType.UUID:
-        print("Type:", "universally unique (DUID-UUID) (%d)" % type)
-        buf = br.read(16)
-        uid = uuid.UUID(bytes=buf)
-        print("  UUID:", uid)
-    else:
-        print("Type:", "unknown (%d)" % type)
+    Dhcpv6DuidDecoder(buf).show()
 
 def decode_osi_nsap(buf):
     br = BinaryReader(buf)
@@ -202,6 +134,88 @@ class Decoder:
     def print_field(self, name, value):
         print("%s%s: %s" % (self.vindent, name, value))
 
+class Dhcpv4ClientIdDecoder(Decoder):
+    def show(self):
+        # https://tools.ietf.org/html/rfc2132#section-9.14
+        # Types (except 0 and 255) correspond to link-layer types, 1 is Ethernet
+        self.print_hdr("DHCP Client Identifier")
+        id_type = self.br.read_u8()
+        id_type = try_enum(ArpHardwareType, id_type)
+        id_type_str = {
+                0x00: "non-hardware",
+                0xFF: "embedded RFC 3315 IAID+DUID",
+        }.get(id_type, "unknown")
+        if id_type == 0x00:
+            self.print_field("Type", "%s (%d)" % (id_type_str, id_type))
+            ident = self.br.fh.read()
+            if is_ascii(ident):
+                self.print_field("Identifier", repr(ident))
+            else:
+                self.print_field("Identifier", fmt_hex(ident))
+        elif id_type == 0xFF:
+            # https://tools.ietf.org/html/rfc4361#section-6.1
+            self.print_field("Type", "%s (%d)" % (id_type_str, id_type))
+            iaid = self.br.read(4)
+            self.print_field("IAID", fmt_hex(iaid))
+            duid = self.br.fh.read()
+            self.print_field("DUID", fmt_hex(duid))
+            Dhcpv6DuidDecoder(duid, self.depth+1).show()
+        elif id_type == 0x01 and len(buf) == (1 + 16) and buf[1:5] == b'RAS ':
+            self.print_field("Type", "Windows RRAS dial-in pool lease")
+            magic = self.br.read(4)
+            self.print_field("Magic", repr(magic))
+            mac = self.br.read(6)
+            self.print_field("Server MAC", fmt_hex(mac))
+            foo = self.br.read(2)
+            self.print_field("Unknown", fmt_hex(foo))
+            rest = self.br.fh.read()
+            self.print_field("RAS port number", fmt_hex(rest))
+        else:
+            self.print_field("Type", "link-layer address - %s" % show_enum(id_type))
+            mac = self.br.fh.read()
+            self.print_field("Link-layer address", fmt_hex(mac))
+
+class Dhcpv6DuidDecoder(Decoder):
+    DUID_TYPES = {
+        DUIDType.LLT:       "link-layer + time (DUID-LLT)",
+        DUIDType.EN:        "vendor-assigned (DUID-EN)",
+        DUIDType.LL:        "link-layer (DUID-LL)",
+        DUIDType.UUID:      "universally unique (DUID-UUID)",
+    }
+
+    def show(self):
+        # https://tools.ietf.org/html/rfc3315#section-9.1
+        self.print_hdr("DHCPv6 DUID")
+        duid_type = self.br.read_u16_be()
+        duid_type = try_enum(DUIDType, duid_type)
+        duid_type_str = self.DUID_TYPES.get(duid_type, "unknown")
+        self.print_field("Type", "%s (0x%04x)" % (duid_type_str, duid_type))
+        if duid_type == DUIDType.LLT:
+            hwtype = self.br.read_u16_be()
+            hwtype = try_enum(ArpHardwareType, hwtype)
+            self.print_field("Hardware type", show_enum(hwtype))
+            time = self.br.read_u32_be()
+            time = datetime.datetime.fromtimestamp(time)
+            self.print_field("Time", time)
+            lladdr = self.br.fh.read()
+            self.print_field("Link-layer address", fmt_hex(lladdr))
+        elif duid_type == DUIDType.EN:
+            vendor = self.br.read_u32_be()
+            self.print_field("Vendor", "%s (%d)" % (lookup_iana_pen(vendor), vendor))
+            rest = self.br.fh.read()
+            self.print_field("Identifier", fmt_hex(rest))
+        elif duid_type == DUIDType.LL:
+            hwtype = self.br.read_u16_be()
+            hwtype = try_enum(ArpHardwareType, hwtype)
+            self.print_field("Hardware type", show_enum(hwtype))
+            lladdr = self.br.fh.read()
+            self.print_field("Link-layer address", fmt_hex(lladdr))
+        elif duid_type == DUIDType.UUID:
+            self.buf = br.read(16)
+            self.print_field("UUID", uuid.UUID(bytes=buf))
+        else:
+            self.print_field("Rest", fmt_hex(self.br.fh.read()))
+
 class RouteDistinguisherDecoder(Decoder):
     AFIS = {
         0x0000: "2-byte ASN + 4-byte ID",
@@ -224,7 +238,7 @@ class RouteDistinguisherDecoder(Decoder):
             self.print_field("ASN", self.br.read_u32_be())
             self.print_field("ID", self.br.read_u16_be())
         else:
-            self.print_field("Rest", fmt_hex(self.br.read()))
+            self.print_field("Rest", fmt_hex(self.br.fh.read()))
 
 class MplsFecDecoder(Decoder):
     FEC_TYPES = {
@@ -252,7 +266,7 @@ class MplsFecDecoder(Decoder):
             if info_len == 0:
                 return
             elif info_len < 4:
-                self.print_field("Pseudowire ID (too short):", fmt_hex(self.br.read()))
+                self.print_field("Pseudowire ID (too short):", fmt_hex(self.br.fh.read()))
             else:
                 pw_id = self.br.read_u32_be()
                 self.print_field("Pseudowire ID", pw_id)
@@ -312,7 +326,7 @@ class MplsFecDecoder(Decoder):
                         info_len -= aii_len
                         self.print_field("%s AII" % t, fmt_hex(aii_value))
         else:
-            self.print_field("Rest", fmt_hex(self.br.read()))
+            self.print_field("Rest", fmt_hex(self.br.fh.read()))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dhcp4", dest="type", action="store_const", const="dhcp-client-id")

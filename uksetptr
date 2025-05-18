@@ -50,7 +50,9 @@ if not str(server).endswith(".utenos-kolegija.lt."):
 try:
     ans = dns.resolver.resolve_at(server, rname, "PTR")
 except dns.resolver.NXDOMAIN:
-    found = False
+    if target == dns.name.root:
+        print(f"PTR already absent")
+        exit()
 else:
     found = False
     for rr in ans.rrset:
@@ -70,21 +72,21 @@ else:
             str(rr.target),
         ]
         subprocess.run(cmd)
+    if found and not args.force:
+        print(f"PTR for {target} already present")
+        exit()
 
-if found and not args.force:
-    print(f"PTR for {target} already present")
-    exit()
-
-print(f"Adding PTR for {target}")
-cmd = [
-    "samba-tool",
-    "dns",
-    "add",
-    "--use-kerberos=required",
-    str(server).rstrip("."),
-    str(zone),
-    str(rname),
-    "PTR",
-    str(target),
-]
-subprocess.run(cmd)
+if target != dns.name.root:
+    print(f"Adding PTR for {target}")
+    cmd = [
+        "samba-tool",
+        "dns",
+        "add",
+        "--use-kerberos=required",
+        str(server).rstrip("."),
+        str(zone),
+        str(rname),
+        "PTR",
+        str(target),
+    ]
+    subprocess.run(cmd)

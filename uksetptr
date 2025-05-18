@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+# uksetptr -- update PTR records via Active Directory tools
+import argparse
+import dns.name
+import dns.resolver
+import gssapi
+import ipaddress
+import subprocess
+
+def master_for_zone(zone):
+    ans = dns.resolver.resolve(zone, "SOA")
+    return ans.rrset[0].mname.canonicalize()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", "--verbose",
+                        action="store_true",
+                        help="show detailed information")
+parser.add_argument("-f", "--force",
+                        action="store_true",
+                        help="delete and re-add PTR if found")
+parser.add_argument("address",
+                        type=ipaddress.ip_address,
+                        help="IP address")
+parser.add_argument("name",
+                        type=dns.name.from_text,
+                        help="PTR domain name")
+args = parser.parse_args()
+
+princ = gssapi.Credentials(usage="initiate").name
+if not str(princ).endswith("@AD.UTENOS-KOLEGIJA.LT"):
+    exit(f"uksetptr: tickets for {princ} not suitable")
+
+addr = args.address
+target = args.name
+
+rname = dns.name.from_text(addr.reverse_pointer)
+if args.verbose:
+    print(f"{rname = }")
+
+zone = dns.resolver.zone_for_name(rname)
+if args.verbose:
+    print(f"{zone = }")
+
+server = master_for_zone(zone)
+if args.verbose:
+    print(f"{server = }")
+if not str(server).endswith(".utenos-kolegija.lt."):
+    exit(f"uksetptr: master {server} doesn't look like a UK server")
+
+try:
+    ans = dns.resolver.resolve_at(server, rname, "PTR")
+except dns.resolver.NXDOMAIN:
+    found = False
+else:
+    found = False
+    for rr in ans.rrset:
+        if rr.target == target and not args.force:
+            found = True
+            continue
+        print(f"Removing existing PTR for {rr.target}")
+        cmd = [
+            "samba-tool",
+            "dns",
+            "delete",
+            "--use-kerberos=required",
+            str(server).rstrip("."),
+            str(zone),
+            str(rname),
+            "PTR",
+            str(rr.target),
+        ]
+        subprocess.run(cmd)
+
+if found and not args.force:
+    print(f"PTR for {target} already present")
+    exit()
+
+print(f"Adding PTR for {target}")
+cmd = [
+    "samba-tool",
+    "dns",
+    "add",
+    "--use-kerberos=required",
+    str(server).rstrip("."),
+    str(zone),
+    str(rname),
+    "PTR",
+    str(target),
+]
+subprocess.run(cmd)

@@ -2,17 +2,19 @@
 # settitle -- update the terminal window titlebar or window name
 # # TODO: DECSWT (supported by Windows Terminal 1.21)
 
+. lib.bash || exit
+
 usage() {
 	echo "Usage: ${0##*/} [-arsw] <title>"
 	echo ""
 	echo "Update the terminal's window titlebar."
 	echo ""
 	echo "Options:"
-	echo "  -a            use nonstandard BEL terminator instead of ST"
-	echo "  -r            ask terminal to restore saved title"
-	echo "  -s            ask terminal to save current title"
-	echo "  -w            set tmux/screen \"window name\""
-	echo "                (-ww to set both)"
+	echo_opt "-a"		"use nonstandard BEL terminator instead of ST"
+	echo_opt "-r"		"ask terminal to restore saved title"
+	echo_opt "-s"		"ask terminal to save current title"
+	echo_opt "-w"		"set tmux/screen \"window name\""
+	echo_opt "-ww"		"set both window name and title"
 }
 
 do_bel=0
@@ -21,57 +23,45 @@ do_restore=0
 do_title=1
 do_wname=0
 
-while getopts "arsw" OPT; do
+while getopts ":arsw" OPT; do
 	case $OPT in
 	a) do_bel=1;;
 	r) do_restore=1;;
 	s) do_save=1;;
 	w) let ++do_wname;;
-	*) usage; exit 2;;
+	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
+
+if (( ! $# && ! do_restore )); then
+	vdie "argument not provided"
+elif (( $# && do_restore )); then
+	vdie "cannot both restore and set new title"
+fi
 
 title=$*
 
 if (( do_restore )); then
-	# Restore (pop) window title if supported
-	if [[ $title ]]; then
-		echo "${0##*/}: cannot both restore and set new title" >&2
-		exit 1
-	fi
-	if (( do_bel )); then
-		echo "${0##*/}: BEL terminator not used with this mode" >&2
-		exit 1
-	fi
 	printf '\e[23;2t'
-	exit
-fi
+else
+	if (( do_wname )); then
+		# Set tmux/screen window title
+		if [[ $TERM- == @(screen|tmux)-* ]]; then
+			printf '\ek%s\e\\' "$title"
+		fi
+	fi
 
-if (( do_wname )); then
-	# Set tmux/screen window title
-	if (( do_save || do_restore )); then
-		echo "${0##*/}: save/restore ineffective for window name" >&2
-		exit 1
-	fi
-	if (( do_bel )); then
-		echo "${0##*/}: BEL terminator not used with this mode" >&2
-		exit 1
-	fi
-	if [[ $TERM- == @(screen|tmux)-* ]]; then
-		printf '\ek%s\e\\' "$title"
-	fi
-fi
-
-if (( do_wname != 1 )); then
-	# Set regular Xterm window titlebar
-	if (( do_save )); then
-		# Save (push) window title if supported
-		printf '\e[22;2t'
-	fi
-	# XXX: Should just use BEL everywhere for better compatibility?
-	if (( do_bel )); then
-		printf '\e]0;%s\a' "$title"
-	else
-		printf '\e]0;%s\e\\' "$title"
+	if (( do_wname != 1 )); then
+		# Set regular Xterm window titlebar
+		if (( do_save )); then
+			# Save (push) window title if supported
+			printf '\e[22;2t'
+		fi
+		# XXX: Should just use BEL everywhere for better compatibility?
+		if (( do_bel )); then
+			printf '\e]0;%s\a' "$title"
+		else
+			printf '\e]0;%s\e\\' "$title"
+		fi
 	fi
 fi

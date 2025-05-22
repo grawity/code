@@ -12,11 +12,13 @@ usage() {
 	echo "  -r            ask terminal to restore saved title"
 	echo "  -s            ask terminal to save current title"
 	echo "  -w            set tmux/screen \"window name\""
+	echo "                (-ww to set both)"
 }
 
 do_bel=0
 do_save=0
 do_restore=0
+do_title=1
 do_wname=0
 
 while getopts "arsw" OPT; do
@@ -24,12 +26,26 @@ while getopts "arsw" OPT; do
 	a) do_bel=1;;
 	r) do_restore=1;;
 	s) do_save=1;;
-	w) do_wname=1;;
+	w) let ++do_wname;;
 	*) usage; exit 2;;
 	esac
 done; shift $((OPTIND-1))
 
 title=$*
+
+if (( do_restore )); then
+	# Restore (pop) window title if supported
+	if [[ $title ]]; then
+		echo "${0##*/}: cannot both restore and set new title" >&2
+		exit 1
+	fi
+	if (( do_bel )); then
+		echo "${0##*/}: BEL terminator not used with this mode" >&2
+		exit 1
+	fi
+	printf '\e[23;2t'
+	exit
+fi
 
 if (( do_wname )); then
 	# Set tmux/screen window title
@@ -44,18 +60,9 @@ if (( do_wname )); then
 	if [[ $TERM- == @(screen|tmux)-* ]]; then
 		printf '\ek%s\e\\' "$title"
 	fi
-elif (( do_restore )); then
-	# Restore (pop) window title if supported
-	if [[ $title ]]; then
-		echo "${0##*/}: cannot both restore and set new title" >&2
-		exit 1
-	fi
-	if (( do_bel )); then
-		echo "${0##*/}: BEL terminator not used with this mode" >&2
-		exit 1
-	fi
-	printf '\e[23;2t'
-else
+fi
+
+if (( do_wname != 1 )); then
 	# Set regular Xterm window titlebar
 	if (( do_save )); then
 		# Save (push) window title if supported

@@ -5,10 +5,9 @@
 
 sysfs_ctl() {
 	local acpidev=$1 start=$2 stop=$3
-	local devpath=/sys/class/power_supply/$acpidev
 	sudo ctl \
-		$devpath/charge_start_threshold=$start \
-		$devpath/charge_stop_threshold=$stop
+		/sys/class/power_supply/$acpidev/charge_start_threshold=$start \
+		/sys/class/power_supply/$acpidev/charge_stop_threshold=$stop
 }
 
 upower_get() {
@@ -31,8 +30,13 @@ upower_ctl() {
 acpidev=BAT0
 dev=/sys/class/power_supply/$acpidev
 
-upowerfile="/var/lib/upower/charging-threshold-status"
-if [[ -e $upowerfile ]]; then
+if [[ ! -e $dev ]]; then
+	vdie "no battery on this system: $acpidev"
+fi
+
+statefile=/var/lib/upower/charging-threshold-status
+
+if [[ -e $statefile ]]; then
 	upower=1
 fi
 
@@ -59,11 +63,11 @@ esac
 
 echo "Current values:"
 echo "  Status: $(<$dev/status), $(<$dev/capacity)%"
-echo "  Start charging at: $(<$dev/charge_start_threshold)%"
 echo "  Stop charging at: $(<$dev/charge_stop_threshold)%"
+echo "  Start charging at: $(<$dev/charge_start_threshold)%"
 
 if (( upower )); then
-	value=$(< "$upowerfile")
+	value=$(< "$statefile")
 	case $value in
 		0) mode="Maximize Charge";;
 		1) mode="Preserve Battery Health";;

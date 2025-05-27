@@ -3,7 +3,36 @@
 
 . lib.bash || exit
 
-dev="/sys/class/power_supply/BAT0"
+sysfs_ctl() {
+	local acpidev=$1 start=$2 stop=$3
+	local devpath=/sys/class/power_supply/$acpidev
+	sudo ctl \
+		$devpath/charge_start_threshold=$start \
+		$devpath/charge_stop_threshold=$stop
+}
+upower_get() {
+	local acpidev=$1
+	busctl get-property \
+		org.freedesktop.UPower \
+		/org/freedesktop/UPower/devices/battery_$acpidev \
+		org.freedesktop.UPower.Device ChargeThresholdEnabled
+}
+upower_ctl() {
+	local acpidev=$1 bool=$2
+	busctl call \
+		org.freedesktop.UPower \
+		/org/freedesktop/UPower/devices/battery_$acpidev \
+		org.freedesktop.UPower.Device EnableChargeThreshold \
+		b $bool
+}
+
+acpidev=BAT0
+dev=/sys/class/power_supply/$acpidev
+
+upowerfile="/var/lib/upower/charging-threshold-status"
+if [[ -e $upowerfile ]]; then
+	upower=1
+fi
 
 if [[ $1 =~ ^([0-9]+)-([0-9]+)$ ]]; then
 	start=${BASH_REMATCH[1]}
@@ -11,16 +40,29 @@ if [[ $1 =~ ^([0-9]+)-([0-9]+)$ ]]; then
 	(( start >= 0 )) || die "Start threshold must be >= 0"
 	(( stop <= 100 )) || die "Stop threshold must be <= 100"
 	(( start < stop )) || die "Start threshold must be < Stop threshold"
-	sudo ctl $dev/charge_start_threshold=$start $dev/charge_stop_threshold=$stop
+	if (( upower )); then
+		vdie "threshold managed by upower; only on/off allowed"
+	fi
+	sysfs_ctl $acpidev $start $stop
 elif [[ $1 == @(on|save|limit|80) ]]; then
-	start=75
-	stop=80
-	sudo ctl $dev/charge_start_threshold=$start $dev/charge_stop_threshold=$stop
+	if (( upower )); then
+		vmsg "setting threshold to enabled via upower"
+		upower_ctl $acpidev true
+	else
+		start=75 stop=80
+		vmsg "setting threshold to $start% .. $stop% via sysfs"
+		sysfs_ctl $acpidev $start
+	fi
 elif [[ $1 == @(off|normal|full|100) ]]; then
-	# Default values
-	start=0
-	stop=100
-	sudo ctl $dev/charge_start_threshold=$start $dev/charge_stop_threshold=$stop
+	if (( upower )); then
+		vmsg "setting threshold to disabled via upower"
+		upower_ctl $acpidev false
+	else
+		# Default values
+		start=0 stop=100
+		vmsg "setting threshold to $start% .. $stop% via sysfs"
+		sysfs_ctl $acpidev $start
+	fi
 elif [[ $1 ]]; then
 	die "Unrecognized argument '$1'"
 fi
@@ -30,10 +72,9 @@ echo "  Status: $(<$dev/status), $(<$dev/capacity)%"
 echo "  Start charging at: $(<$dev/charge_start_threshold)%"
 echo "  Stop charging at: $(<$dev/charge_stop_threshold)%"
 
-file="/var/lib/upower/charging-threshold-status"
-if [[ -e $file ]]; then
+if (( upower )); then
 	echo "Warning: Threshold is managed by UPower."
-	value=$(< "$file")
+	value=$(< "$upowerfile")
 	case $value in
 		0) mode="Maximize Charge";;
 		1) mode="Preserve Battery Health";;

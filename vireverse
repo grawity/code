@@ -217,10 +217,18 @@ else:
         zone_prefix = prefix_for_zone(zone)
         logging.warning(f"Editing zone <{zone}> for prefix {prefix}")
 
-master = master_for_zone(zone)
+if args.rpz:
+    # XXX: hack (this should be a properly delegated .sym zone)
+    master = dns.name.from_text("star.nullroute.lt")
+else:
+    master = master_for_zone(zone)
 logging.debug(f"Master for zone <{zone}> is <{master}>")
 
-zone_data = axfr(zone, master)
+if args.rpz:
+    import n.dns.gssapi
+    zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
+else:
+    zone_data = axfr(zone, master)
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
 
 rpz_zone = RPZ_ZONE if args.rpz else None

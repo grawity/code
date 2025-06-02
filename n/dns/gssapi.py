@@ -101,8 +101,8 @@ def gss_tsig_axfr(zone,
                                             server_addr,
                                             gss_credentials)
 
-    query = dns.query.xfr(server_addr, zone,
-                          keyring=key_ring,
-                          keyname=key_name)
-    response = dns.zone.from_xfr(query)
-    return response
+    response = dns.query.xfr(server_addr, zone,
+                             keyring=key_ring,
+                             keyname=key_name)
+    zone = dns.zone.from_xfr(response)
+    return zone

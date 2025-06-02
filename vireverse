@@ -144,9 +144,9 @@ def group_for_addr(addr):
     bits = {4: 24, 6: 64}[addr.version]
     return ipaddress.ip_interface((addr, bits)).network
 
-def send_nsupdate(zone, cmds, *, gssapi=True,
-                                 debug=False):
-    server = master_for_zone(zone)
+def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
+    if not server:
+        server = master_for_zone(zone)
 
     cmds = [f"server {server}\n",
             f"zone {zone}\n",
@@ -394,5 +394,7 @@ if args.debug >= 1:
     print("\t" + "\t".join(cmds), end="")
 
 if not args.dry_run:
-    send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                              debug=(args.debug >= 2))
+    send_nsupdate(zone, cmds,
+                  server=master,
+                  gssapi=not args.no_gss,
+                  debug=(args.debug >= 2))

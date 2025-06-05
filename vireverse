@@ -184,6 +184,8 @@ parser.add_argument("-n", "--dry-run", action="store_true",
                         help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
                         help="disable Kerberos (GSS-TSIG) authentication")
+parser.add_argument("--no-gss-axfr", action="store_true",
+                        help="disable Kerberos for zone transfers only")
 parser.add_argument("-d", "--debug", action="count", default=0,
                         help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
@@ -236,7 +238,7 @@ else:
     master = master_for_zone(zone)
 logging.debug(f"Master for zone <{zone}> is <{master}>")
 
-if args.no_gss:
+if args.no_gss or args.no_gss_axfr:
     logging.debug("Performing unauthenticated zone transfer")
     zone_data = axfr(zone, master, use_gss=False)
 else:

@@ -225,10 +225,13 @@ else:
 logging.debug(f"Master for zone <{zone}> is <{master}>")
 
 if args.rpz:
-    # Requires python-gssapi.
     logging.debug(f"Using GSS-TSIG authentication for zone transfer")
+    import gssapi
     import n.dns.gssapi
-    zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
+    try:
+        zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
+    except gssapi.exceptions.MissingCredentialsError as ex:
+        exit(f"vireverse: GSS-TSIG zone transfer failed: {ex!r}")
 else:
     zone_data = axfr(zone, master)
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")

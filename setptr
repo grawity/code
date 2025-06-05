@@ -30,9 +30,9 @@ def master_for_zone(zone):
     ans = dns.resolver.resolve(zone, "SOA")
     return ans.rrset[0].mname.canonicalize()
 
-def send_nsupdate(zone, cmds, *, gssapi=True,
-                                 debug=False):
-    server = master_for_zone(zone)
+def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
+    if not server:
+        server = master_for_zone(zone)
     logging.debug(f"Sending update to server \"{server}\"")
 
     cmds = [f"server {server}\n",
@@ -160,5 +160,6 @@ if args.debug >= 1:
     print("\t" + "\t".join(cmds), end="")
 
 if not args.dry_run:
-    send_nsupdate(zone, cmds, gssapi=not args.no_gss,
-                              debug=(args.debug >= 2))
+    send_nsupdate(zone, cmds,
+                  gssapi=not args.no_gss,
+                  debug=(args.debug >= 2))

@@ -6,12 +6,15 @@ import dns.name
 import dns.resolver
 import dns.reversename
 import dns.zone
+import gssapi
 import ipaddress
 import logging
 import math
 import os
 import subprocess
 import tempfile
+
+import n.dns.gssapi
 
 RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
 RPZ_MASTER = dns.name.from_text("star.nullroute.lt.")
@@ -227,8 +230,6 @@ logging.debug(f"Master for zone <{zone}> is <{master}>")
 
 if args.rpz:
     logging.debug(f"Using GSS-TSIG authentication for zone transfer")
-    import gssapi
-    import n.dns.gssapi
     try:
         zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
     except gssapi.exceptions.GSSError as ex:

@@ -78,19 +78,19 @@ def prefix_for_zone(name):
         # that prefix checks would be skipped outright.
         raise ValueError(name)
 
-def address_for_ptr(name, rpz_zone):
+def address_for_ptr(name, extra_suffix):
     assert isinstance(name, dns.name.Name)
-    if rpz_zone:
-        name = name.relativize(rpz_zone) + dns.name.root
+    if extra_suffix:
+        name = name.relativize(extra_suffix) + dns.name.root
     addr = dns.reversename.to_address(name)
     return ipaddress.ip_address(addr)
 
-def ptr_for_address(addr, rpz_zone):
+def ptr_for_address(addr, extra_suffix):
     assert isinstance(addr, (ipaddress.IPv4Address,
                              ipaddress.IPv6Address))
     name = dns.reversename.from_address(str(addr))
-    if rpz_zone:
-        name = name.relativize(dns.name.root) + rpz_zone
+    if extra_suffix:
+        name = name.relativize(dns.name.root) + extra_suffix
     return name
 
 def master_for_zone(zone):
@@ -204,6 +204,7 @@ if args.rpz:
         prefix = None
     zone = RPZ_ZONE
     zone_prefix = prefix
+    extra_suffix = RPZ_ZONE
     logging.info(f"Editing RPZ zone <{zone}>")
 else:
     try:
@@ -228,6 +229,7 @@ else:
         zone = apex
         zone_prefix = prefix_for_zone(zone)
         logging.warning(f"Editing zone <{zone}> for prefix {prefix}")
+    extra_suffix = None
 
 if args.rpz:
     # XXX: hack (this should be a properly delegated .sym zone)
@@ -248,8 +250,6 @@ except gssapi.exceptions.GSSError as ex:
     exit(f"vireverse: GSS-TSIG zone transfer failed: {ex!r}")
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
 
-rpz_zone = RPZ_ZONE if args.rpz else None
-
 old_soa = zone_data[zone].get_rdataset(dns.rdataclass.IN,
                                        dns.rdatatype.SOA)
 logging.debug(f"Old serial number {old_soa[0].serial}.")
@@ -264,7 +264,7 @@ for name, node in zone_data.items():
     if not rdset:
         non_ptr += 1
         continue
-    addr = address_for_ptr(name, rpz_zone)
+    addr = address_for_ptr(name, extra_suffix)
     old[addr] = rdset
     #old[addr] = set(rdset)
 
@@ -403,13 +403,13 @@ cmds = []
 cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
 
 for addr in addrs_missing | addrs_updated:
-    rname = ptr_for_address(addr, rpz_zone)
+    rname = ptr_for_address(addr, extra_suffix)
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
     for rdata in old[addr]:
         print(f"Deleting: {addr} -= (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
-    rname = ptr_for_address(addr, rpz_zone)
+    rname = ptr_for_address(addr, extra_suffix)
     for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} += {rdata.target}")

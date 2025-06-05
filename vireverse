@@ -11,6 +11,7 @@ import ipaddress
 import logging
 import math
 import os
+import socket
 import subprocess
 import tempfile
 
@@ -96,20 +97,17 @@ def master_for_zone(zone):
     ans = dns.resolver.resolve(zone, "SOA")
     return ans.rrset[0].mname
 
-def axfr(zone, server):
-    proc = subprocess.run(["dig", f"@{server}", f"{zone}", "AXFR"],
-                          stdout=subprocess.PIPE,
-                          check=True)
-
-    if b"; Transfer failed" in proc.stdout:
-        exit(f"error: Zone transfer from {server} failed.")
-
-    return dns.zone.from_text(proc.stdout, zone,
-                              relativize=False)
-
-    # for addr in ...:
-    # qry = dns.query.xfr(addr, zone)
-    # dns.zone.from_xfr(qry)
+def axfr(zone, server_name):
+    gai = socket.getaddrinfo(str(server_name),
+                             "domain",
+                             socket.AF_UNSPEC,
+                             socket.SOCK_DGRAM)
+    for af, sf, pt, cname, sa in gai:
+        query = dns.message.make_query(zone, "SOA")
+        if dns.query.udp(query, sa[0], timeout=2):
+            server_addr = sa[0]
+            resp = dns.query.xfr(server_addr, zone, relativize=False)
+            return dns.zone.from_xfr(resp, relativize=False)
 
 def run_visual(filename, line=0):
     editor = os.environ.get("VISUAL") \

@@ -228,14 +228,15 @@ else:
     master = master_for_zone(zone)
 logging.debug(f"Master for zone <{zone}> is <{master}>")
 
-if args.rpz:
-    logging.debug(f"Using GSS-TSIG authentication for zone transfer")
+if args.no_gss:
+    logging.debug("Performing unauthenticated zone transfer")
+    zone_data = axfr(zone, master)
+else:
+    logging.debug("Using GSS-TSIG authentication for zone transfer")
     try:
         zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
     except gssapi.exceptions.GSSError as ex:
         exit(f"vireverse: GSS-TSIG zone transfer failed: {ex!r}")
-else:
-    zone_data = axfr(zone, master)
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
 
 rpz_zone = RPZ_ZONE if args.rpz else None

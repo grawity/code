@@ -15,7 +15,7 @@ import socket
 import subprocess
 import tempfile
 
-import n.dns.gssapi
+from n.dns.gssapi import gss_tsig_negotiate
 
 RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
 RPZ_MASTER = dns.name.from_text("star.nullroute.lt.")
@@ -97,17 +97,27 @@ def master_for_zone(zone):
     ans = dns.resolver.resolve(zone, "SOA")
     return ans.rrset[0].mname
 
-def axfr(zone, server_name):
+def probe_dns_server(server_name):
     gai = socket.getaddrinfo(str(server_name),
                              "domain",
                              socket.AF_UNSPEC,
                              socket.SOCK_DGRAM)
     for af, sf, pt, cname, sa in gai:
-        query = dns.message.make_query(zone, "SOA")
-        if dns.query.udp(query, sa[0], timeout=2):
-            server_addr = sa[0]
-            resp = dns.query.xfr(server_addr, zone, relativize=False)
-            return dns.zone.from_xfr(resp, relativize=False)
+        yield sa[0]
+
+def axfr(zone, server_name, *, use_gss=False):
+    for server_addr in probe_dns_server(server_name):
+        if use_gss:
+            key_ring, key_name = gss_tsig_negotiate(server_name,
+                                                    server_addr)
+        else:
+            key_ring, key_name = None, None
+        resp = dns.query.xfr(server_addr, zone,
+                             relativize=False,
+                             keyring=key_ring,
+                             keyname=key_name)
+        return dns.zone.from_xfr(resp,
+                                 relativize=False)
 
 def run_visual(filename, line=0):
     editor = os.environ.get("VISUAL") \
@@ -228,11 +238,11 @@ logging.debug(f"Master for zone <{zone}> is <{master}>")
 
 if args.no_gss:
     logging.debug("Performing unauthenticated zone transfer")
-    zone_data = axfr(zone, master)
+    zone_data = axfr(zone, master, use_gss=False)
 else:
     logging.debug("Using GSS-TSIG authentication for zone transfer")
     try:
-        zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
+        zone_data = axfr(zone, master, use_gss=True)
     except gssapi.exceptions.GSSError as ex:
         exit(f"vireverse: GSS-TSIG zone transfer failed: {ex!r}")
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")

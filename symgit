@@ -206,9 +206,16 @@ case ${cmd:-help} in
 				newdesc="$oldtag"
 			elif [[ $oldtag ]]; then
 				newdesc="[$oldtag] $newdesc"
+			elif [[ $newdesc = "-" ]]; then
+				newdesc=
 			fi
-			vmsg "setting description for $repo to \"$newdesc\""
-			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
+			if [[ $newdesc ]]; then
+				vmsg "setting description for $repo to \"$newdesc\""
+				ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
+			else
+				vmsg "removing description for $repo"
+				ssh $host "rm -f ${dir@Q}/description"
+			fi
 		else
 			if ! ssh $host "test -s ${dir@Q}/description"; then
 				vmsg "$repo has no description"

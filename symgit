@@ -6,6 +6,7 @@
 host=star
 fsroot=/srv/git
 urlprefix=":"
+webroot=https://git.nullroute.lt/cgit
 
 argtorepo() {
 	local arg=$1
@@ -112,6 +113,9 @@ case ${cmd:-help} in
 				else
 					exp="---"
 				fi
+				# experimental, `column` can't handle it yet
+				#url="$webroot/$repo.git/"
+				#repo=$'\e]8;;'$url$'\e\\'$repo$'\e]8;;\e\\'
 				printf '%s\t%s\t%s\n' "$exp" "$repo" "$desc"
 			done \
 			| column -t -s $'\t' -N PUB,NAME,DESCRIPTION -T DESCRIPTION -c $COLUMNS \
@@ -303,7 +307,7 @@ case ${cmd:-help} in
 		vusage $# 1 -1 "$cmd <repo>..."
 		for arg; do
 			repo=$(argtorepo "$arg")
-			url="https://git.nullroute.lt/cgit/$repo.git/"
+			url="$webroot/$repo.git/"
 			echo "$repo => $url"
 		done
 		;;

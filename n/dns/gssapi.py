@@ -36,7 +36,7 @@ def _probe_server(server_name, zone):
                              socket.SOCK_DGRAM)
     for af, sf, pt, cname, sa in gai:
         query = dns.message.make_query(zone, "SOA")
-        res = dns.query.udp(query, sa[0], timeout=2)
+        _ = dns.query.udp(query, sa[0], timeout=2)
         return sa[0]
 
 def gss_tsig_negotiate(server_name, server_addr, creds=None):

@@ -193,6 +193,20 @@ case ${cmd:-help} in
 		repo=$(argtorepo "$arg")
 		dir=$(repodir "$repo")
 		if [[ $newdesc ]]; then
+			oldtag=
+			if ssh $host "test -s ${dir@Q}/description"; then
+				olddesc=$(ssh $host "cat ${dir@Q}/description")
+				if [[ $olddesc = "Mirror of "* ]]; then
+					oldtag=$olddesc
+				elif [[ $olddesc = "[Mirror of "*"]"* ]]; then
+					oldtag=$(echo "$olddesc" | sed -E 's/^\[(Mirror of [^ ]*)\] .*/\1/')
+				fi
+			fi
+			if [[ $oldtag && $newdesc = "-" ]]; then
+				newdesc="$oldtag"
+			elif [[ $oldtag ]]; then
+				newdesc="[$oldtag] $newdesc"
+			fi
 			vmsg "setting description for $repo to \"$newdesc\""
 			ssh $host "echo ${newdesc@Q} > ${dir@Q}/description"
 		else

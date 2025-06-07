@@ -184,6 +184,8 @@ parser.add_argument("-n", "--dry-run", action="store_true",
                         help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
                         help="disable Kerberos (GSS-TSIG) authentication")
+parser.add_argument("--no-prereq", action="store_true",
+                        help="allow SOA serial number mismatch when updating")
 parser.add_argument("-d", "--debug", action="count", default=0,
                         help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
@@ -400,7 +402,9 @@ else:
 assert len(addrs_missing) < 20
 
 cmds = []
-cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
+
+if not args.no_prereq:
+    cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
 
 for addr in addrs_missing | addrs_updated:
     rname = ptr_for_address(addr, extra_suffix)

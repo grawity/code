@@ -3,12 +3,18 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "Usage: $progname [-v] <package>"
+	echo
+	echo_opt "-v"		"show all files (including PGP keys, etc.)"
+}
+
 basedir="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
-verbose=0
+opt_verbose=0
 
 while getopts :v OPT; do
 	case $OPT in
-	v) verbose=1;;
+	v) opt_verbose=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -57,7 +63,7 @@ for pkg; do
 
 	# Optionally hide redundant .SRCINFO diffs
 	paths=()
-	if (( !verbose )); then
+	if (( !opt_verbose )); then
 		paths+=(":!/.SRCINFO")
 		paths+=(":!/keys/pgp")
 	fi

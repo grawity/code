@@ -4,16 +4,19 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-v] <package>"
+	echo "Usage: $progname [-av] <package>"
 	echo
+	echo_opt "-a"		"show all branches (e.g. gnome-unstable)"
 	echo_opt "-v"		"show all files (including PGP keys, etc.)"
 }
 
 basedir="${XDG_CACHE_HOME:-$HOME/.cache}/asp"
+opt_allrefs=0
 opt_verbose=0
 
-while getopts :v OPT; do
+while getopts :av OPT; do
 	case $OPT in
+	a) opt_allrefs=1;;
 	v) opt_verbose=1;;
 	*) lib:die_getopts;;
 	esac
@@ -25,6 +28,12 @@ fi
 
 if [[ ! -d $basedir ]]; then
 	mkdir -p "$basedir"
+fi
+
+if (( opt_allrefs )); then
+	ref="--all"
+else
+	ref=""
 fi
 
 for pkg; do

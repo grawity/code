@@ -19,6 +19,8 @@ def lookup_suffix(name):
 def lookup_ptr(name):
     try:
         ans = dns.resolver.resolve(name, "PTR")
+    except dns.resolver.NoAnswer:
+        return None
     except dns.resolver.NXDOMAIN:
         return None
     else:
@@ -96,7 +98,7 @@ def lookup_addrs(name, *, allow_cname=False,
                 exit("error: Refusing to point rDNS to an alias; use --allow-cname if needed")
     return addrs
 
-def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
+def send_nsupdate(zone, cmds, *, server=None, use_gss=True, debug=False):
     if not server:
         server = master_for_zone(zone)
     logging.debug(f"Sending update to server \"{server}\"")
@@ -109,7 +111,7 @@ def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
     nsupdate_args = ["nsupdate"]
     if debug:
         nsupdate_args += ["-d"]
-    if gssapi:
+    if use_gss:
         nsupdate_args += ["-g"]
 
     subprocess.run(nsupdate_args,
@@ -196,7 +198,7 @@ for host in args.host:
         if not args.dry_run:
             try:
                 send_nsupdate(zone, cmds,
-                              gssapi=not args.no_gss,
+                              use_gss=not args.no_gss,
                               debug=(args.debug >= 2))
             except subprocess.CalledProcessError as e:
                 print("error: %s" % e, file=sys.stderr)

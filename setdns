@@ -38,7 +38,7 @@ def rtype_for_address(rdata):
     addr = ipaddress.ip_address(rdata)
     return {4: "A", 6: "AAAA"}[addr.version]
 
-def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
+def send_nsupdate(zone, cmds, *, server=None, use_gss=True, debug=False):
     if not server:
         server = master_for_zone(zone)
     logging.debug(f"Sending update to server \"{server}\"")
@@ -51,7 +51,7 @@ def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
     nsupdate_args = ["nsupdate"]
     if debug:
         nsupdate_args += ["-d"]
-    if gssapi:
+    if use_gss:
         nsupdate_args += ["-g"]
 
     subprocess.run(nsupdate_args,
@@ -151,5 +151,5 @@ if args.debug >= 1:
 
 if not args.dry_run:
     send_nsupdate(zone, cmds,
-                  gssapi=not args.no_gss,
+                  use_gss=not args.no_gss,
                   debug=(args.debug >= 2))

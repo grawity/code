@@ -30,7 +30,7 @@ def _http_header_param(hdr, param, default=None):
     msg = email.message.Message()
     msg.set_raw("dummy", hdr)
     val = msg.get_param(param, default, "dummy")
-    if type(val) == tuple:
+    if type(val) is tuple:
         val = email.utils.collapse_rfc2231_value(val)
     return val
 

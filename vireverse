@@ -6,14 +6,19 @@ import dns.name
 import dns.resolver
 import dns.reversename
 import dns.zone
+import gssapi
 import ipaddress
 import logging
 import math
 import os
+import socket
 import subprocess
 import tempfile
 
+from n.dns.gssapi import gss_tsig_negotiate
+
 RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
+RPZ_MASTER = dns.name.from_text("star.nullroute.lt.")
 DEFAULT_NET = "10.147.0.0/16"
 
 def confirm(text):
@@ -73,39 +78,46 @@ def prefix_for_zone(name):
         # that prefix checks would be skipped outright.
         raise ValueError(name)
 
-def address_for_ptr(name, rpz_zone):
+def address_for_ptr(name, extra_suffix):
     assert isinstance(name, dns.name.Name)
-    if rpz_zone:
-        name = name.relativize(rpz_zone) + dns.name.root
+    if extra_suffix:
+        name = name.relativize(extra_suffix) + dns.name.root
     addr = dns.reversename.to_address(name)
     return ipaddress.ip_address(addr)
 
-def ptr_for_address(addr, rpz_zone):
+def ptr_for_address(addr, extra_suffix):
     assert isinstance(addr, (ipaddress.IPv4Address,
                              ipaddress.IPv6Address))
     name = dns.reversename.from_address(str(addr))
-    if rpz_zone:
-        name = name.relativize(dns.name.root) + rpz_zone
+    if extra_suffix:
+        name = name.relativize(dns.name.root) + extra_suffix
     return name
 
 def master_for_zone(zone):
     ans = dns.resolver.resolve(zone, "SOA")
     return ans.rrset[0].mname
 
-def axfr(zone, server):
-    proc = subprocess.run(["dig", f"@{server}", f"{zone}", "AXFR"],
-                          stdout=subprocess.PIPE,
-                          check=True)
+def probe_dns_server(server_name):
+    gai = socket.getaddrinfo(str(server_name),
+                             "domain",
+                             socket.AF_UNSPEC,
+                             socket.SOCK_DGRAM)
+    for af, sf, pt, cname, sa in gai:
+        yield sa[0]
 
-    if b"; Transfer failed" in proc.stdout:
-        exit(f"error: Zone transfer from {server} failed.")
-
-    return dns.zone.from_text(proc.stdout, zone,
-                              relativize=False)
-
-    # for addr in ...:
-    # qry = dns.query.xfr(addr, zone)
-    # dns.zone.from_xfr(qry)
+def axfr(zone, server_name, *, use_gss=False):
+    for server_addr in probe_dns_server(server_name):
+        if use_gss:
+            key_ring, key_name = gss_tsig_negotiate(server_name,
+                                                    server_addr)
+        else:
+            key_ring, key_name = None, None
+        resp = dns.query.xfr(server_addr, zone,
+                             relativize=False,
+                             keyring=key_ring,
+                             keyname=key_name)
+        return dns.zone.from_xfr(resp,
+                                 relativize=False)
 
 def run_visual(filename, line=0):
     editor = os.environ.get("VISUAL") \
@@ -144,7 +156,7 @@ def group_for_addr(addr):
     bits = {4: 24, 6: 64}[addr.version]
     return ipaddress.ip_interface((addr, bits)).network
 
-def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
+def send_nsupdate(zone, cmds, *, server=None, use_gss=True, debug=False):
     if not server:
         server = master_for_zone(zone)
 
@@ -156,7 +168,7 @@ def send_nsupdate(zone, cmds, *, server=None, gssapi=True, debug=False):
     nsupdate_args = ["nsupdate"]
     if debug:
         nsupdate_args += ["-d"]
-    if gssapi:
+    if use_gss:
         nsupdate_args += ["-g"]
 
     subprocess.run(nsupdate_args,
@@ -172,6 +184,8 @@ parser.add_argument("-n", "--dry-run", action="store_true",
                         help="only show updates that would be done")
 parser.add_argument("-x", "--no-gss", action="store_true",
                         help="disable Kerberos (GSS-TSIG) authentication")
+parser.add_argument("--no-prereq", action="store_true",
+                        help="allow SOA serial number mismatch when updating")
 parser.add_argument("-d", "--debug", action="count", default=0,
                         help="enable nsupdate debugging")
 parser.add_argument("-v", "--verbose", action="store_true",
@@ -192,6 +206,7 @@ if args.rpz:
         prefix = None
     zone = RPZ_ZONE
     zone_prefix = prefix
+    extra_suffix = RPZ_ZONE
     logging.info(f"Editing RPZ zone <{zone}>")
 else:
     try:
@@ -216,24 +231,26 @@ else:
         zone = apex
         zone_prefix = prefix_for_zone(zone)
         logging.warning(f"Editing zone <{zone}> for prefix {prefix}")
+    extra_suffix = None
 
 if args.rpz:
     # XXX: hack (this should be a properly delegated .sym zone)
-    master = dns.name.from_text("star.nullroute.lt")
+    master = RPZ_MASTER
 else:
     master = master_for_zone(zone)
 logging.debug(f"Master for zone <{zone}> is <{master}>")
 
-if args.rpz:
-    # Requires python-gssapi.
-    logging.debug(f"Using GSS-TSIG authentication for zone transfer")
-    import n.dns.gssapi
-    zone_data = n.dns.gssapi.gss_tsig_axfr(zone, master)
+if args.no_gss:
+    logging.debug("Performing unauthenticated zone transfer")
 else:
-    zone_data = axfr(zone, master)
+    logging.debug("Using GSS-TSIG authentication for zone transfer")
+try:
+    zone_data = axfr(zone, master, use_gss=(not args.no_gss))
+except dns.xfr.TransferError as ex:
+    exit(f"vireverse: zone transfer failed: {ex!r}")
+except gssapi.exceptions.GSSError as ex:
+    exit(f"vireverse: GSS-TSIG zone transfer failed: {ex!r}")
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
-
-rpz_zone = RPZ_ZONE if args.rpz else None
 
 old_soa = zone_data[zone].get_rdataset(dns.rdataclass.IN,
                                        dns.rdatatype.SOA)
@@ -249,7 +266,7 @@ for name, node in zone_data.items():
     if not rdset:
         non_ptr += 1
         continue
-    addr = address_for_ptr(name, rpz_zone)
+    addr = address_for_ptr(name, extra_suffix)
     old[addr] = rdset
     #old[addr] = set(rdset)
 
@@ -385,16 +402,18 @@ else:
 assert len(addrs_missing) < 20
 
 cmds = []
-cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
+
+if not args.no_prereq:
+    cmds += [f"prereq yxrrset {zone} SOA {old_soa[0]}\n"]
 
 for addr in addrs_missing | addrs_updated:
-    rname = ptr_for_address(addr, rpz_zone)
+    rname = ptr_for_address(addr, extra_suffix)
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
     for rdata in old[addr]:
         print(f"Deleting: {addr} -= (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
-    rname = ptr_for_address(addr, rpz_zone)
+    rname = ptr_for_address(addr, extra_suffix)
     for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} += {rdata.target}")
@@ -406,5 +425,5 @@ if args.debug >= 1:
 if not args.dry_run:
     send_nsupdate(zone, cmds,
                   server=master,
-                  gssapi=not args.no_gss,
+                  use_gss=not args.no_gss,
                   debug=(args.debug >= 2))

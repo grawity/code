@@ -252,26 +252,30 @@ except gssapi.exceptions.GSSError as ex:
     exit(f"vireverse: GSS-TSIG zone transfer failed: {ex!r}")
 logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
 
-old_soa = zone_data[zone].get_rdataset(dns.rdataclass.IN,
-                                       dns.rdatatype.SOA)
-logging.debug(f"Old serial number {old_soa[0].serial}.")
-
 old = {}
 new = {}
-non_ptr = 0
+num_nonptr = 0
+is_dnssec = False
 
 for name, node in zone_data.items():
-    rdset = node.get_rdataset(dns.rdataclass.IN,
-                              dns.rdatatype.PTR)
-    if not rdset:
-        non_ptr += 1
-        continue
-    addr = address_for_ptr(name, extra_suffix)
-    old[addr] = rdset
-    #old[addr] = set(rdset)
+    if rdset := node.get_rdataset(dns.rdataclass.IN, dns.rdatatype.PTR):
+        addr = address_for_ptr(name, extra_suffix)
+        old[addr] = rdset
+        #old[addr] = set(rdset)
+    else:
+        num_nonptr += 1
 
-if not prefix and not old and non_ptr > 5:
+if not prefix and not old and num_nonptr > 5:
     exit(f"error: This doesn't look like a reverse zone (too many non-PTR records).")
+
+old_soa = zone_data[zone].get_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
+logging.debug(f"Old serial number {old_soa[0].serial}.")
+
+is_dnssec = zone_data[zone].get_rdataset(dns.rdataclass.IN, dns.rdatatype.RRSIG,
+                                         covers=dns.rdatatype.SOA)
+if is_dnssec:
+    args.no_prereq = True
+    logging.debug("Disabling serial number prerequisite for DNSSEC-signed zone.")
 
 pref_line = 0
 near_line = 0
@@ -397,9 +401,6 @@ else:
             print(f"\t{addr} := {fmt(new[addr])} (was {fmt(old[addr])})")
     if not confirm("Continue?"):
         exit("Changes discarded.")
-
-# Safety check
-assert len(addrs_missing) < 20
 
 cmds = []
 

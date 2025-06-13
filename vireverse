@@ -358,8 +358,6 @@ with open(edit_path, "r") as temp:
 
 if parse_err:
     exit(f"error: Could not parse input (retained in {edit_path!r})")
-else:
-    os.unlink(edit_path)
 
 addrs_missing = {*old} - {*new}
 addrs_created = {*new} - {*old}
@@ -415,5 +413,7 @@ if args.debug >= 1:
 if not args.dry_run:
     send_nsupdate(zone, cmds,
                   server=master,
-                  use_gss=not args.no_gss,
+                  use_gss=(not args.no_gss),
                   debug=(args.debug >= 2))
+
+os.unlink(edit_path)

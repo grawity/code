@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# kzgrep -- grep the current kernel config file
+
+. lib.bash || exit
+
+arg=$1
+
+case $(uname) in
+	Linux)
+		if [ -e /proc/config.gz ]; then
+			zgrep -Ei "${arg:?}" /proc/config.gz
+		else
+			# Debian style
+			grep -Ei "${arg:?}" /boot/config-$(uname -r)
+		fi
+		;;
+	FreeBSD)
+		sysctl kern.conftxt | grep -Ei "${arg:?}"
+		;;
+	*)
+		vdie "unknown OS: $(uname)"
+		;;
+esac

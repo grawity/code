@@ -3,13 +3,14 @@
 
 # 2022-02-16 grawity: Now nocache makes any git-annex operation really slow.
 # For example, `nocache git-annex find ...` on Midnight is 18s instead of just 2s.
-export ANNEX_SKIP_NOCACHE=1
+# 2025-06-14 grawity: Seems to be fine now, at least on Ember.
+#export ANNEX_SKIP_NOCACHE=1
+
+# Search for annex-* subcommands in additional locations
+export PATH=$PATH:${0%/*}
+export PATH=$PATH:$HOME/bin/misc
 
 . lib.bash || exit
-
-# Search for annex-* subcommands in the same subdir
-PATH=$PATH:${0%/*}
-PATH=$PATH:$HOME/bin/misc
 
 annexes=(~/Attic/{Anime,Annex,Software,Videos})
 
@@ -320,7 +321,7 @@ case $cmd in
             git config remote.$name.annex-cost "$cost"
         fi
         ;;
-    # overrides
+    # Simple overrides chaining to the 'default' case
     add)
         for arg; do
             if [[ $arg == *.part ]]; then
@@ -362,13 +363,15 @@ case $cmd in
             set --
         fi
         ;;&
-    sync)
-        set -- -g "$@"
-        ;;&
     ls)
-        cmd=find ;;&
+        cmd=find
+        ;;&
     st)
-        cmd=status ;;&
+        cmd=status
+        ;;&
+    sync)
+        set -- --no-content "$@"
+        ;;&
     *)
         if [[ ! $cmd ]]; then
             die "Usage: annex <command> ..."

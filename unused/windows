@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# windows -- set EFI "BootNext" variable to boot into Windows next time
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-b | -c]"
+	echo ""
+	echo_opt "-b" "reboot immediately"
+	echo_opt "-c" "cancel (clear BootNext)"
+}
+
+if (( UID )); then
+	exec sudo "$0" "$@" || vdie "root privileges needed"
+fi
+
+opt_cancel=0
+opt_reboot=0
+
+while getopts ':bcr' OPT; do
+	case $OPT in
+	b) opt_reboot=1;;
+	c) opt_cancel=1;;
+	r) opt_reboot=1;; # compat
+	*) lib:die_getopts;;
+	esac
+done
+
+if (( opt_cancel )); then
+	vmsg "removing BootNext"
+	efibootmgr --quiet --delete-bootnext
+else
+	boot_id=$(efibootmgr | awk '/^Boot.* Windows Boot Manager/{print $1}')
+	if [[ ! $boot_id ]]; then
+		vdie "could not find 'Windows Boot Manager' entry in EFI boot menu"
+	fi
+	boot_id=${boot_id#'Boot'}
+	boot_id=${boot_id%'*'}
+
+	vmsg "setting BootNext to $boot_id"
+	efibootmgr --quiet --bootnext "$boot_id"
+
+	if (( opt_reboot )); then
+		vmsg "rebooting now"
+		systemctl reboot
+	fi
+fi

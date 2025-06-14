@@ -32,6 +32,7 @@ while getopts ":P:pv" OPT; do
 	esac
 done; shift $((OPTIND-1))
 
+# Accept 'hostname@ipaddress' for credential lookup while avoiding DNS
 case $host in
 	*@*)	bhost=${host##*@}; host=${host%@*};;
 	*.*)	bhost=$host;;
@@ -39,9 +40,9 @@ case $host in
 esac
 
 # Look up operator password in ~/.netrc
-creds=$(getnetrc -sdf %a:%u:%p "ipmi/$bhost" ||
-        getnetrc -sdf %a:%u:%p "ipmi/$host" ||
-        getnetrc -sdf %a:%u:%p "ipmi/*")
+creds=$(getnetrc -qsdf %a:%u:%p "ipmi/$bhost" ||
+        getnetrc -qsdf %a:%u:%p "ipmi/$host" ||
+        getnetrc -qsdf %a:%u:%p "ipmi/*")
 
 priv=${creds%%:*}; creds=${creds#*:}
 user=${creds%%:*}; creds=${creds#*:}

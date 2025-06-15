@@ -42,7 +42,6 @@ basic: $(OBJ)/zlib
 linux: $(OBJ)/ac-wait
 linux: $(OBJ)/libfunsync.so
 linux: $(OBJ)/libwcwidth.so
-linux: $(OBJ)/ssh_force_lp.so
 linux: $(OBJ)/unsymlink.so
 linux: $(OBJ)/peekvc
 linux: $(OBJ)/showsigmask
@@ -68,9 +67,6 @@ emergency-su: $(OBJ)/emergency-su
 
 $(OBJ)/libfunsync.so:	CFLAGS += -shared
 $(OBJ)/libfunsync.so:	misc/libfunsync.c
-
-$(OBJ)/ssh_force_lp.so:	CFLAGS += -shared
-$(OBJ)/ssh_force_lp.so:	misc/ssh_force_lp.c
 
 $(OBJ)/unsymlink.so:	CFLAGS += -shared
 $(OBJ)/unsymlink.so:	LDLIBS += $(DL_LDLIBS)

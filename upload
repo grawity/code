@@ -143,8 +143,11 @@ if (( arg_interactive >= 3 )); then
 	esac
 	if (( arg_quiet )); then
 		echo "$url"
-	else
+	elif [[ $DISPLAY || $WAYLAND_DISPLAY ]]; then
 		gio open "$url"
+	else
+		vmsg "starting a shell at $url"
+		env -C "$url" bash
 	fi
 	exit
 elif (( arg_interactive == 2 )); then
@@ -155,9 +158,11 @@ elif (( arg_interactive == 2 )); then
 	esac
 	if (( arg_quiet )); then
 		echo "$url"
-	else
+	elif [[ $DISPLAY || $WAYLAND_DISPLAY ]]; then
 		gio info -f "$url" &> /dev/null || gio mount "$url"
 		gio open "$url"
+	else
+		vdie "no X11 or Wayland; can't start Nautilus SFTP"
 	fi
 	exit
 elif (( arg_interactive == 1 )); then

@@ -38,7 +38,7 @@ setup_vlan() {
 		echo "[40;97mVLAN $vlan_id already exists[m"
 		vlan_added=0
 	else
-		echo "[40;97mAdding temporary VLAN[m"
+		echo "[40;97mAdding temporary VLAN interface '$vlan_dev'[m"
 		sudo ip link add $vlan_dev link $phy_dev type vlan id $vlan_id &&
 		sudo ip link set $vlan_dev alias "Temporary VLAN for ${0##*/}" &&
 		sudo ip link set $vlan_dev up &&
@@ -49,7 +49,7 @@ setup_vlan() {
 
 teardown_vlan() {
 	if (( vlan_added )); then
-		echo "[40;97mRemoving temporary VLAN[m"
+		echo "[40;97mRemoving temporary VLAN interface '$vlan_dev'[m"
 		sudo ip link del $vlan_dev
 		vlan_added=0
 	fi
@@ -59,7 +59,7 @@ if [[ $1 == -f ]]; then
 	echo "[40;93mUsing indirect access through network[m"
 	attach_console
 elif [[ $1 == -v ]] || can_have_vlan; then
-	echo "[40;92mUsing direct access through VLAN[m"
+	echo "[40;92mUsing direct access through VLAN $vlan_id[m"
 	trap teardown_vlan SIGINT
 	setup_vlan
 	attach_console

@@ -13,16 +13,16 @@ vlan_id=28
 vlan_dev=$phy_dev.$vlan_id
 vlan_addr=10.254.28.219/24
 
+can_have_vlan() {
+	[[ $HOSTNAME == @(ember) ]]
+}
+
 do:() {
 	(PS4="+ "; set -x; "$@")
 }
 
 attach_console() {
 	do: rconsole ${bmc_host}@${bmc_addr}
-}
-
-can_have_vlan() {
-	[[ $HOSTNAME == @(ember) ]]
 }
 
 has_vlan() {
@@ -62,6 +62,12 @@ usage() {
 	echo ""
 	echo "  -f    Force indirect (routed) access through network"
 	echo "  -v    Force direct access through VLAN $vlan_id"
+	echo ""
+	if can_have_vlan; then
+		echo "This host has direct emergency access to BMC VLAN."
+	else
+		echo "This host does not have direct access to BMC VLAN."
+	fi
 }
 
 if [[ $1 == --help ]]; then

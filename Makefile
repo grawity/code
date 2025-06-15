@@ -41,7 +41,6 @@ basic: $(OBJ)/zlib
 .PHONY: linux
 linux: $(OBJ)/ac-wait
 linux: $(OBJ)/libfunsync.so
-linux: $(OBJ)/libwcwidth.so
 linux: $(OBJ)/unsymlink.so
 linux: $(OBJ)/peekvc
 linux: $(OBJ)/showsigmask
@@ -71,10 +70,6 @@ $(OBJ)/libfunsync.so:	misc/libfunsync.c
 $(OBJ)/unsymlink.so:	CFLAGS += -shared
 $(OBJ)/unsymlink.so:	LDLIBS += $(DL_LDLIBS)
 $(OBJ)/unsymlink.so:	misc/unsymlink.c
-
-$(OBJ)/libwcwidth.so:	CFLAGS += -shared -fPIC \
-				-Dmk_wcwidth=wcwidth -Dmk_wcswidth=wcswidth
-$(OBJ)/libwcwidth.so:	thirdparty/wcwidth.c
 
 $(OBJ)/misc_util.o:	misc/util.c misc/util.h
 

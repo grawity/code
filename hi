@@ -11,6 +11,8 @@ import subprocess
 import sys
 import textwrap
 
+IRC_HOST = "star"
+
 def tty_width():
     return int(os.environ.get("COLUMNS", os.get_terminal_size().columns))
 
@@ -170,22 +172,19 @@ parser.add_argument("-n", "--lines",
                         help="how many old messages to show")
 args = parser.parse_args()
 
+os.umask(0o077)
 if os.getuid() == 0:
     exit("hi: will not run as root")
 
-os.umask(0o077)
+rhost = IRC_HOST
+rpath = "irclogs/perl.highmon.log"
 
 # Keep state in sync regardless of where it is run from.
-shost = "star"
-lhost = os.uname().nodename
-if lhost != shost:
-    print("hi: running on %s" % shost)
-    exit(subprocess.call(["on", "-H", shost, *sys.argv]))
+if os.uname().nodename != rhost:
+    print("hi: running on %s" % rhost)
+    exit(subprocess.call(["on", "-H", rhost, *sys.argv]))
 
-rhost = "star"
-rpath = "irclogs/perl.highmon.log"
 cachepath = platformdirs.user_cache_path("nullroute.eu.org/highlights.txt")
-
 delta, pos = download_log(rhost, rpath, cachepath)
 if delta:
     with open(cachepath, "rb") as fh:

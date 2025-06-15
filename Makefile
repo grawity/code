@@ -96,7 +96,7 @@ $(OBJ)/hex:		misc/hex.c
 
 $(OBJ)/k5userok:	CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/k5userok:	LDLIBS += $(KRB_LDLIBS)
-$(OBJ)/k5userok:	kerberos/k5userok.c
+$(OBJ)/k5userok:	misc/kerberos/k5userok.c
 
 $(OBJ)/mkpasswd:	LDLIBS += $(CRYPT_LDLIBS)
 $(OBJ)/mkpasswd:	misc/mkpasswd.c
@@ -107,7 +107,7 @@ $(OBJ)/peekvc:		thirdparty/peekvc.c
 
 $(OBJ)/pklist:		CFLAGS += $(KRB_CFLAGS)
 $(OBJ)/pklist:		LDLIBS += $(KRB_LDLIBS)
-$(OBJ)/pklist:		kerberos/pklist.c
+$(OBJ)/pklist:		misc/kerberos/pklist.c
 
 $(OBJ)/pause:		misc/pause.c
 

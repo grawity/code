@@ -4,11 +4,14 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-f] [-m]"
+	echo "Usage: $progname [-f] [-m] [-s]"
 	echo
 	echo_opt "-f"	"allow duplicate attach"
 	echo_opt "-m"	"use Mosh"
+	echo_opt "-s"	"use SSH"
 }
+
+IRC_HOST=star
 
 session=${XDG_SESSION_ID:-${DISPLAY:-${WAYLAND_DISPLAY:-none}}}
 lockfile=${XDG_RUNTIME_DIR?}/irc-$session.lock
@@ -25,8 +28,6 @@ while getopts :fms OPT; do
 	esac
 done; shift $((OPTIND-1))
 
-. ~/.config/nullroute.lt/irc.conf || exit
-
 exec {fd}<>"$lockfile"
 if (( !opt_force )); then
 	flock -xn $fd || vdie "already connected from $HOSTNAME/$session"
@@ -34,9 +35,9 @@ fi
 
 if (( opt_mosh )); then
 	export MOSH_TITLE_NOPREFIX=y
-	mosh "${irc_host?}" -- tmux attach -t irc; r=$?
+	mosh "$IRC_HOST" -- tmux attach -t irc; r=$?
 else
-	ssh -t "${irc_host?}" "tmux attach -t irc"; r=$?
+	ssh -t "$IRC_HOST" "tmux attach -t irc"; r=$?
 fi
 
 exec {fd}>&-

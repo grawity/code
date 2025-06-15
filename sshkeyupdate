@@ -76,28 +76,15 @@ PATH="$HOME/bin/bin:$PATH"
 progname_prefix=0
 
 usage() {
-	echo "Usage: $progname [-f] [-q] [-r [-k URL]]"
+	echo "Usage: $progname [-f] [-q] [-i]"
 	echo ""
 	echo_opt "-f"		"proceed on username mismatch"
 	echo_opt "-q"		"quietly exit if update is not to be done"
 	echo_opt "-i"		"import embedded signing key"
-	echo_opt "-r"		"import signing key from keyserver"
-	echo_opt "-k URL"	"use a different keyserver for -r"
 }
 
 filter_keys() {
 	filter_file 'match_hostname'
-}
-
-recv_key() {
-	local key=$1 status=
-	if status=$(gpg --keyserver "$keyserver" --recv-key "$key" 2>&1); then
-		lib:trace "$status"
-	else
-		echo "$status" >&2
-		vmsg "failed to receive key $key from $keyserver" >&2
-		return 1
-	fi
 }
 
 fetch() {
@@ -141,21 +128,19 @@ verify() {
 	return 0
 }
 
+umask 077
+
 opt_testfilter=0
 opt_force=0
 opt_importkey=0
-opt_recvkey=0
 opt_quiet=0
-keyserver="hkps://keyserver.ubuntu.com"
 dst_file=~/.ssh/authorized_keys
 
-while getopts :Ffik:rq OPT; do
+while getopts :Ffiq OPT; do
 	case $OPT in
 	F) opt_testfilter=1;;
 	f) opt_force=1;;
 	i) opt_importkey=1;;
-	k) keyserver=$OPTARG;;
-	r) opt_recvkey=1;;
 	q) opt_quiet=1;;
 	*) lib:die_getopts;;
 	esac
@@ -164,8 +149,6 @@ done; shift $[OPTIND-1]
 if (( $# )); then
 	vdie "excess arguments"
 fi
-
-umask 077
 
 if (( opt_testfilter )); then
 	if [[ -t 0 ]]; then
@@ -212,20 +195,13 @@ if (( opt_importkey )); then
 	vmsg "importing embedded owner key into GnuPG keyring"
 	echo "$signer_key" | gpg --import
 	echo "$signer_fpr:6:" | gpg --import-ownertrust
-fi
-
-if (( opt_recvkey )); then
-	recv_key "$signer_fpr" || vdie "failed to import key '$signer_fpr'"
-	vmsg "owner key imported"
-	echo "$signer_fpr:6:" | gpg --import-ownertrust
-	vmsg "ultimate trust set"
 elif ! [[ -d ~/.gnupg ]]; then
 	if (( !opt_quiet )); then
 		vdie "~/.gnupg is not initialized"
 	else
 		exit 0
 	fi
-elif ! gpg --list-keys "$signer_fpr" > /dev/null; then
+elif ! gpg -k "$signer_fpr" > /dev/null; then
 	if (( !opt_quiet )); then
 		vdie "signer key $signer_fpr not found in keyring"
 	else

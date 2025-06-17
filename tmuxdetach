@@ -1,0 +1,18 @@
+#!/bin/bash
+# tmuxdetach -- detach all other clients from this session
+
+. lib.bash || exit
+
+if [ ! "$TMUX" ]; then
+	vdie "not in a tmux session"
+fi
+
+if [ "$1" = "-y" ]; then
+	tmux lsc -t . -F '#{client_tty} #{client_flags}' |
+	awk '$2 !~ /focused/ {print $1}' |
+	sed 's,^/dev/,pkill -HUP -t ,' |
+	sh -x
+else
+	echo "Attached to current session:"
+	tmux lsc -t .
+fi

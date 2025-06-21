@@ -21,17 +21,6 @@ unlock() {
 	rm -f "$XDG_RUNTIME_DIR/bogomark.lock"
 }
 
-mark_all() {
-	# -n	ham
-	# -r	remove after filtering
-	# -s	spam
-	# -S	only Seen
-
-	mark -sr	Junk/Spam
-	mark -nr	Junk/Ham
-	#purge	7	Trash
-}
-
 purge() {
 	local max_age=$1 dir=$2
 	find "$mail_base/$(maildir "$dir")/cur" -type f -mtime +$max_age -delete
@@ -121,5 +110,11 @@ shopt -s nullglob
 if [[ $1 ]]; then
 	mark "$@"
 else
-	mark_all
+	# -n	ham
+	# -r	remove after filtering
+	# -s	spam
+	# -S	only Seen
+	mark -sr Junk/Spam
+	mark -nr Junk/Ham
+	#purge 7 Trash
 fi

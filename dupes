@@ -409,9 +409,12 @@ if __name__ == "__main__":
                     if num > 1 and path_is_removable(path):
                         print("rm -vf %s" % escape_shell(path))
                         num -= 1
-            elif args.list:
+            elif args.list and args.verbose:
                 for path in paths:
                     print(wasted, fmt_hash(hash), path)
+            elif args.list:
+                for path in paths:
+                    print(path)
             else:
                 print("\033[38;5;11mDuplicates (%s wasted):\033[m" % fmt_size(wasted))
                 oldest = None
@@ -445,7 +448,7 @@ if __name__ == "__main__":
 
     if args.list and args.remove:
         pass
-    elif args.verbose or args.list:
+    elif args.verbose:
         wasted_files = total_files - unique_files
         print("; %d files compared by header" % len(file_headers))
         print("; %d files compared by hash" % len(file_hashes))

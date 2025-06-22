@@ -10,6 +10,8 @@ git=$(git rev-parse --git-dir)
 obj=$git/objects
 dir=$obj/pack
 
+# show packfile list
+
 declare -A packs=()
 declare -A kept=()
 declare -A temp=()
@@ -32,8 +34,10 @@ for pack in "${!packs[@]}"; do
 	else
 		keep='-'
 	fi
-	printf '%6s %s %s\n' "$size" "$keep" "$pack"
+	printf '%6s %1s %s\n' "$size" "$keep" "$pack"
 done | sort -h
+
+# count loose objects, show summary
 
 size_packs=$(du -hs "$dir" | awk '{print $1}')
 size_index=$(du -hsc "$dir"/*.idx 2>/dev/null | awk '$2 == "total" {print $1}')
@@ -42,7 +46,6 @@ size_total=$(du -hs "$obj" | awk '{print $1}')
 n_loose=$(find "$obj"/??/ -type f 2>/dev/null | wc -l)
 
 printf '\n'
-
 printf '%6s   %s\n' \
 	"$size_packs" "all packs" \
 	"$size_index" "└ pack indexes" \

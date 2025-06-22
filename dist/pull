@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+VFLAG="$HOME/bin/dist/pull.verbose"
+
 vmsg() {
 	echo "dist/pull: $*" >&2
 }
@@ -13,14 +15,15 @@ if [ "$1" != "--child" ]; then
 	export PATH="$HOME/bin:$PATH"
 
 	if ! git var GIT_AUTHOR_IDENT >/dev/null; then
-		vmsg "removed broken git configuration file"
+		vmsg "removing broken git configuration file"
 		if [ -e ~/.config/git/config ]; then
-			mv -f ~/.config/git/config ~/.config/git/config.bad ||
-			mv -f ~/.config/git        ~/.config/git.bad
+			mv -vf ~/.config/git/config ~/.config/git/config.bad ||
+			mv -vf ~/.config/git        ~/.config/git.bad
 		fi
 		if [ -e ~/.gitconfig ]; then
-			rm -f ~/.gitconfig
+			rm -vf ~/.gitconfig
 		fi
+		touch "$VFLAG"
 	fi
 
 	if (cd ~/bin && on_main); then
@@ -64,4 +67,9 @@ else
 	fi
 
 	wait
+
+	# cause 'chronic' to send a cronmail for this run
+	if [ -e "$VFLAG" ]; then
+		rm -f "$VFLAG"; exit 1
+	fi
 fi

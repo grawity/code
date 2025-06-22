@@ -24,6 +24,7 @@ lib:is_nested() {
 : ${XDG_CONFIG_HOME:="$HOME/.config"}
 : ${XDG_DATA_HOME:="$HOME/.local/share"}
 : ${XDG_DATA_DIRS:="/usr/local/share:/usr/share"}
+: ${XDG_STATE_HOME:="$HOME/.local/state"}
 : ${XDG_RUNTIME_DIR:="$XDG_CACHE_HOME"}
 
 declare -i warnings=0

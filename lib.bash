@@ -72,7 +72,13 @@ lib:progress() {
 	local lbar rbar
 	printf -v lbar '%*s' $fill ''; lbar=${lbar// /#}
 	printf -v rbar '%*s' $(( width-fill )) ''
+	printf '\e]9;4;1;%d\e\\' "$perc"
 	printf '%3s%% [%s%s] %s/%s done\r' "$perc" "$lbar" "$rbar" "$done" "$total"
+}
+
+lib:endprogress() {
+	printf '\e]9;4;0;100\e\\'
+	printf '\n'
 }
 
 # settitle(text)

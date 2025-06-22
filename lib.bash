@@ -159,14 +159,6 @@ vmsg() {
 	fi
 }
 
-msg() {
-	if [[ $DEBUG ]]; then
-		lib:msg "$*" info
-	else
-		printf "%s\n" "$*"
-	fi
-}
-
 # lib:backtrace
 #
 # Print a call trace.
@@ -246,10 +238,6 @@ debug() {
 		printf "%s[%s]: ${color}debug (%s):${reset} %s\n" \
 			"$progname" "$$" "${FUNCNAME[1]}" "$*"
 	fi >&2
-}
-
-info() {
-	lib:msg "$*" info
 }
 
 lib:info() {
@@ -333,8 +321,24 @@ lib:die_getopts() {
 
 # obsolete
 
+info() {
+	lib:msg "$*" info
+	DEBUG=2 lib:msg "BUG: obsolete function info() used" warning >&2
+	DEBUG=2 lib:backtrace 2 >&2
+}
+
 notice() {
 	vmsg "$*" >&2
 	DEBUG=2 lib:msg "BUG: obsolete function notice() used" warning >&2
+	DEBUG=2 lib:backtrace 2 >&2
+}
+
+msg() {
+	if [[ $DEBUG ]]; then
+		lib:msg "$*" info
+	else
+		printf "%s\n" "$*"
+	fi
+	DEBUG=2 lib:msg "BUG: obsolete function msg() used" warning >&2
 	DEBUG=2 lib:backtrace 2 >&2
 }

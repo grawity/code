@@ -7,13 +7,11 @@ tool=$(osguess package-mgr) || exit
 
 case $tool in
 	pacman)
-		if ! have expac; then
-			vdie "expac not found"
-		fi
+		have expac || vdie "expac is not installed"
 		{ expac -Q '%r/%n %v' "$@" || true;
 		  expac -S '%r/%n %v' "$@" || true; } | column -t
 		;;
 	*)
-		echo "${0##*/}: unknown distribution" >&2
-		exit 2
+		vdie "unknown distribution"
+		;;
 esac

@@ -22,11 +22,16 @@ if (( $# )); then
 	vdie "excess arguments"
 fi
 
-text="went to sleep"
-x=$(journalctl -b -o json -n 1 MESSAGE_ID=6bbd95ee977941e497c48be27c254128)
-if [[ ! $x ]]; then
-	text="was shut down"
+text=""
+if [[ ! $text ]]; then
+	x=$(journalctl -b -o json -n 1 MESSAGE_ID=6bbd95ee977941e497c48be27c254128)
+	if [[ $x ]]; then
+		text="went to sleep"
+	fi
+fi
+if [[ ! $text ]]; then
 	x=$(journalctl -b -1 -o json -n 1)
+	text="was unexpectedly powered off"
 fi
 
 if [[ $x ]]; then

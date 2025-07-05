@@ -8,11 +8,13 @@ if [ ! "$TMUX" ]; then
 fi
 
 if [ "$1" = "-y" ]; then
+	unset PS4
 	tmux lsc -t . -F '#{client_tty} #{client_flags}' |
-	awk '$2 !~ /focused/ {print $1}' |
-	sed 's,^/dev/,pkill -HUP -t ,' |
-	sh -x
+		awk '$2 !~ /focused/ {print $1}' |
+		sed 's,^/dev/,pkill -HUP -t ,' |
+		sh -x
 else
 	echo "Attached to current session:"
 	tmux lsc -t .
+	echo "Run '${0##*/} -y' to detach all non-focused clients."
 fi

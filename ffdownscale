@@ -11,6 +11,7 @@ usage() {
 	echo_opt "-y"		"overwrite existing output files"
 	echo
 	echo_opt "-h <height>"	"specify output height (default 480)"
+	echo_opt "-w <width>"	"specify *maximum* output width"
 	echo_opt "-c <crf>"	"specify CRF (23 is default, 29 is half-quality)"
 	echo_opt "-b"		"use Baseline profile for H.264 (faster decoding)"
 }
@@ -23,6 +24,7 @@ opt_forceformat=""
 opt_overwrite=0
 opt_baseline=0
 opt_autoclamp=1
+opt_maxwidth=0
 
 # misc notes:
 #  - mpeg2 gets huge at high bitrates
@@ -31,7 +33,7 @@ opt_autoclamp=1
 #     a poor bitrate."
 #  - mpeg1 may be better than mpeg2
 
-while getopts ":bh:o:c:f:y" OPT; do
+while getopts ":bh:o:c:f:w:y" OPT; do
 	case $OPT in
 	b) opt_baseline=1;;
 	h) opt_height=$OPTARG;;
@@ -39,6 +41,7 @@ while getopts ":bh:o:c:f:y" OPT; do
 	c) crf=$OPTARG;;
 	f) opt_forceformat=${OPTARG,,};;
 	k) opt_forceformat=mkv;;
+	w) opt_maxwidth=$OPTARG;;
 	y) opt_overwrite=1;;
 	*) lib:die_getopts;;
 	esac
@@ -50,12 +53,14 @@ fi
 
 # Clamp to an 1024x768 screen (some movies are very wide, resulting in 1152x480!)
 # See also opt_autoclamp
-if (( opt_height >= 1080 )); then
-	maxwidth=1920
-elif (( opt_height >= 720 )); then
-	maxwidth=1280
-else
-	maxwidth=1024
+if (( ! opt_maxwidth )); then
+	if (( opt_height >= 1080 )); then
+		opt_maxwidth=1920
+	elif (( opt_height >= 720 )); then
+		opt_maxwidth=1280
+	else
+		opt_maxwidth=1024
+	fi
 fi
 
 # H.264 -- CRF 23 is default, 18 is near-lossless
@@ -136,9 +141,9 @@ for arg; do
 	convtag="${outheight}p"
 	
 	# Would it be too wide for a 1024x768 display?
-	if (( outwidth > maxwidth )); then
+	if (( outwidth > opt_maxwidth )); then
 		if (( opt_autoclamp )); then
-			newwidth=$maxwidth
+			newwidth=$opt_maxwidth
 			newheight=`bc <<< "scale=10; a=$width/$height; scale=0; ($newwidth/(a*2))*2"`
 			warn "Output ${outwidth}x${outheight} would be too wide, clamping to ${newwidth}x${newheight}"
 			outwidth=$newwidth
@@ -182,10 +187,6 @@ for arg; do
 	#ffconvert+=(-profile:v main)
 	# In case it's needed to force 8-bit
 	#ffconvert+=(-vf format=yuv420p)
-
-	# Couldn't get vaapi to work; software encoding is easier
-	#ffoptions+=(-vaapi_device /dev/dri/renderD128)
-	#ffconvert=(-c:v h264_vaapi -vf "format=nv12|vaapi,hwupload,scale_vaapi=w=${outwidth}:h=${outheight}")
 
 	# Audio options
 	# Don't use Vorbis

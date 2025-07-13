@@ -95,20 +95,9 @@ lib:settitle() {
 	esac
 }
 
-# lib:msg(text, level_prefix, level_color, [fancy_prefix, fancy_color, [text_color]])
-#
-# Print a log message.
-#
-#   level_prefix: message level like "warning" or "error"
-#   level_color:  color to use when printing message level prefix
-#   fancy_prefix: symbolic level indicator like "==" or "*"
-#   fancy_color:  color to use when printing symbolic prefix
-#
-# If $DEBUG is set, $fancy_prefix and $fancy_color will be ignored.
-
 lib:msg() {
-	local text=$1
-	local level_prefix=$2
+	local level=$1 text=$2
+	local level_prefix=$level
 	local level_color=${_log_color[$level_prefix]-}
 	local fancy_prefix=${_log_fprefix[$level_prefix]-}
 	local fancy_color=${_log_fcolor[$level_prefix]-}
@@ -150,7 +139,7 @@ lib:echo() {
 
 vdie() {
 	if [[ $DEBUG ]]; then
-		lib:msg "$*" error >&2
+		lib:msg error "$*" >&2
 	else
 		printf "%s\n" "$progname: $*" >&2
 	fi
@@ -159,7 +148,7 @@ vdie() {
 
 vmsg() {
 	if [[ $DEBUG ]]; then
-		lib:msg "$*" info
+		lib:msg info "$*"
 	else
 		printf "%s\n" "$progname: $*"
 	fi
@@ -247,26 +236,26 @@ debug() {
 }
 
 lib:info() {
-	lib:msg "$*" info
+	lib:msg info "$*"
 }
 
 lib:log() {
-	lib:msg "$*" log
+	lib:msg log1 "$*"
 }
 
 log2() {
-	lib:msg "$*" log2
+	lib:msg log2 "$*"
 	lib:settitle "$progname: $*"
 }
 
 warn() {
-	lib:msg "$*" warning
+	lib:msg warning "$*"
 	if (( DEBUG > 1 )); then lib:backtrace; fi
 	(( ++warnings ))
 } >&2
 
 err() {
-	lib:msg "$*" error
+	lib:msg error "$*"
 	if (( DEBUG > 1 )); then lib:backtrace; fi
 	! (( ++errors ))
 } >&2
@@ -274,13 +263,13 @@ err() {
 die() {
 	local r=1
 	if [[ $1 =~ ^-?[0-9]+$ ]]; then r=${1#-}; shift; fi
-	lib:msg "$*" fatal
+	lib:msg fatal "$*"
 	if (( DEBUG > 1 )); then lib:backtrace; fi
 	exit $r
 } >&2
 
 lib:crash() {
-	lib:msg "BUG: $*" fatal >&2
+	lib:msg fatal "BUG: $*" >&2
 	lib:backtrace 2 >&2
 	exit 3
 }
@@ -312,7 +301,7 @@ lib:die_getopts() {
 			usage || lib:crash "help text not available"
 			exit 0
 		elif [[ $OPTARG ]]; then
-			lib:msg "unknown option '-$OPTARG'" fatal
+			lib:msg fatal "unknown option '-$OPTARG'"
 			usage || true
 			exit 2
 		else
@@ -328,23 +317,23 @@ lib:die_getopts() {
 # obsolete
 
 info() {
-	lib:msg "$*" info
-	DEBUG=2 lib:msg "BUG: obsolete function info() used" warning >&2
+	lib:msg info "$*"
+	DEBUG=2 lib:msg warning "BUG: obsolete function info() used" >&2
 	DEBUG=2 lib:backtrace 2 >&2
 }
 
 notice() {
 	vmsg "$*" >&2
-	DEBUG=2 lib:msg "BUG: obsolete function notice() used" warning >&2
+	DEBUG=2 lib:msg warning "BUG: obsolete function notice() used" >&2
 	DEBUG=2 lib:backtrace 2 >&2
 }
 
 msg() {
 	if [[ $DEBUG ]]; then
-		lib:msg "$*" info
+		lib:msg info "$*"
 	else
 		printf "%s\n" "$*"
 	fi
-	DEBUG=2 lib:msg "BUG: obsolete function msg() used" warning >&2
+	DEBUG=2 lib:msg warning "BUG: obsolete function msg() used" >&2
 	DEBUG=2 lib:backtrace 2 >&2
 }

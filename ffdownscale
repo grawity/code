@@ -73,7 +73,7 @@ fi
 if (( crf > 29 )); then
 	warn "Using CRF $crf for below-half bitrate"
 elif (( crf > 23 )); then
-	info "Using CRF $crf for below-normal bitrate"
+	warn "Using CRF $crf for below-normal bitrate"
 elif (( crf < 18 )); then
 	vdie "CRF $crf is too low (18 is already almost lossless)"
 elif (( crf < 23 )); then
@@ -111,7 +111,7 @@ for arg; do
 	fi
 
 	if [[ ${srcfile##*/} == *.conv* ]]; then
-		info "Skipping '$srcfile' (looks like an output file)"
+		warn "Skipping '$srcfile' (looks like an output file)"
 		continue
 	fi
 
@@ -128,7 +128,7 @@ for arg; do
 	num_attachs=$(jq -r '.streams | map(select(.codec_type == "attachment")) | length' <<< "$probe")
 
 	if (( width <= 1000 && height <= opt_height )); then
-		info "Skipping '$srcfile' (already below target at ${width}x${height})"
+		warn "Skipping '$srcfile' (already below target at ${width}x${height})"
 		continue
 	fi
 
@@ -165,13 +165,13 @@ for arg; do
 	dstfile="${outdir:-"$(dirname "$srcfile")"}/$dstfile"
 
 	if [[ -e $dstfile ]] && ! (( opt_overwrite )); then
-		info "Skipping '$srcfile' (converted file already present)"
+		warn "Skipping '$srcfile' (converted file already present)"
 		continue
 	fi
 
 	settitle "ffdownscale: ${srcfile##*/}"
 	duration=$(interval "$(jq -r '.format.duration | tonumber | round' <<< "$probe")")
-	info "Converting '$srcfile' (duration: $duration) to .${dstfile##*.}"
+	lib:msg log2 "Converting '$srcfile' (duration: $duration) to .${dstfile##*.}"
 
 	# Video options
 	#   See "-help encoder=libx264"

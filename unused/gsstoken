@@ -16,13 +16,19 @@ def hostbased_to_kerberos(service_name):
 
     return service_name
 
-def get_token_gssapi(service_name):
+def get_token_gssapi(service_name, use_spnego=False):
     import gssapi
 
     service_name = gssapi.Name(args.service_name,
                                gssapi.NameType.hostbased_service)
 
+    if use_spnego:
+        gss_mech = gssapi.Mechanism.from_sasl_name("SPNEGO")
+    else:
+        gss_mech = gssapi.MechType.kerberos
+
     context = gssapi.SecurityContext(usage="initiate",
+                                     mech=gss_mech,
                                      name=service_name)
 
     return context.step()
@@ -30,13 +36,17 @@ def get_token_gssapi(service_name):
 # SSPI/GSSAPI interoperability notes:
 # https://learn.microsoft.com/en-us/windows/win32/secauthn/sspi-kerberos-interoperability-with-gssapi
 
-def get_token_pywin32(service_name):
+def get_token_pywin32(service_name, use_spnego=False):
     import sspi
 
     service_name = hostbased_to_kerberos(service_name)
 
-    context = sspi.ClientAuth("Kerberos",
-                              targetspn=service_name)
+    if use_spnego:
+        context = sspi.ClientAuth("Negotiate",
+                                  targetspn=service_name)
+    else:
+        context = sspi.ClientAuth("Kerberos",
+                                  targetspn=service_name)
 
     err, buffers = context.authorize(None)
 
@@ -60,36 +70,43 @@ def get_token_sspilib(service_name, use_spnego=False):
 
     return ctx.step()
 
-def get_token_pyspnego(service_name):
+def get_token_pyspnego(service_name, use_spnego=False):
     import spnego
 
     service, _, hostname = service_name.partition("@")
 
+    if use_spnego:
+        protocol = "negotiate"
+    else:
+        protocol = "kerberos"
+
     context = spnego.client(hostname=hostname,
                             service=service,
-                            protocol="kerberos")
+                            protocol=protocol)
 
     return context.step(None)
 
 parser = argparse.ArgumentParser()
 parser.description = "Generates Kerberos authentication tokens using GSSAPI."
 parser.add_argument("-s", "--spnego", action="store_true",
-                    help="use pyspnego instead of direct sspi/gssapi")
+                    help="create a SPNEGO token instead of raw Kerberos token")
+parser.add_argument("-P", "--pyspnego", action="store_true",
+                    help="use the pyspnego module instead of sspi/sspilib/gssapi")
 parser.add_argument("service_name",
                     help="target GSS name (service@host)")
 args = parser.parse_args()
 
-if args.spnego:
-    out_token = get_token_pyspnego(args.service_name)
+if args.pyspnego:
+    out_token = get_token_pyspnego(args.service_name, args.spnego)
 elif sys.platform == "win32":
     try:
-        out_token = get_token_pywin32(args.service_name)
+        out_token = get_token_pywin32(args.service_name, args.spnego)
     except ModuleNotFoundError:
         try:
-            out_token = get_token_sspilib(args.service_name)
+            out_token = get_token_sspilib(args.service_name, args.spnego)
         except ModuleNotFoundError:
             exit("error: neither 'pywin32' nor 'sspilib' packages installed")
 else:
-    out_token = get_token_gssapi(args.service_name)
+    out_token = get_token_gssapi(args.service_name, args.spnego)
 
 print(b64encode(out_token))

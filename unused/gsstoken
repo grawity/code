@@ -7,6 +7,15 @@ import sys
 def b64encode(buf):
     return base64.b64encode(buf).decode()
 
+def hostbased_to_kerberos(service_name):
+    if "/" not in service_name:
+        # Convert the name to a Kerberos principal, as Windows SSPI does not
+        # support HOSTBASED_SERVICE names. (It also doesn't canonicalize host
+        # names -- the SPN is passed to the KDC as-is).
+        service_name = args.service_name.replace("@", "/")
+
+    return service_name
+
 def get_token_gssapi(service_name):
     import gssapi
 
@@ -21,14 +30,10 @@ def get_token_gssapi(service_name):
 # SSPI/GSSAPI interoperability notes:
 # https://learn.microsoft.com/en-us/windows/win32/secauthn/sspi-kerberos-interoperability-with-gssapi
 
-def get_token_sspi(service_name):
+def get_token_pywin32(service_name):
     import sspi
 
-    if "/" not in service_name:
-        # Convert the name to a Kerberos principal, as Windows SSPI does not
-        # support HOSTBASED_SERVICE names. (It also doesn't canonicalize host
-        # names -- the SPN is passed to the KDC as-is).
-        service_name = args.service_name.replace("@", "/")
+    service_name = hostbased_to_kerberos(service_name)
 
     context = sspi.ClientAuth("Kerberos",
                               targetspn=service_name)
@@ -36,6 +41,24 @@ def get_token_sspi(service_name):
     err, buffers = context.authorize(None)
 
     return buffers[0].Buffer
+
+def get_token_sspilib(service_name, use_spnego=False):
+    import sspilib
+
+    service_name = hostbased_to_kerberos(service_name)
+
+    if use_spnego:
+        creds = sspilib.UserCredential(usage="initiate",
+                                       protocol="Negotiate",
+                                       protocol_list=["!ntlm"])
+    else:
+        creds = sspilib.UserCredential(usage="initiate",
+                                       protocol="Kerberos")
+
+    ctx = sspilib.ClientSecurityContext(credential=creds,
+                                       target_name=service_name)
+
+    return ctx.step()
 
 def get_token_pyspnego(service_name):
     import spnego
@@ -60,9 +83,12 @@ if args.spnego:
     out_token = get_token_pyspnego(args.service_name)
 elif sys.platform == "win32":
     try:
-        out_token = get_token_sspi(args.service_name)
+        out_token = get_token_pywin32(args.service_name)
     except ModuleNotFoundError:
-        exit("error: The 'pywin32' package is not installed.")
+        try:
+            out_token = get_token_sspilib(args.service_name)
+        except ModuleNotFoundError:
+            exit("error: neither 'pywin32' nor 'sspilib' packages installed")
 else:
     out_token = get_token_gssapi(args.service_name)
 

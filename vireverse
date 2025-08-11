@@ -20,6 +20,10 @@ from n.dns.gssapi import gss_tsig_negotiate
 RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
 RPZ_MASTER = dns.name.from_text("star.nullroute.lt.")
 DEFAULT_NET = "10.147.0.0/16"
+NET_GROUPS = [
+    (ipaddress.ip_network("10.147.240.0/22"),           30),
+    (ipaddress.ip_network("2a06:e881:108:ffff::/64"),   126),
+]
 
 def confirm(text):
     return input(f"{text} ").startswith("y")
@@ -151,10 +155,10 @@ def group_for_addr(addr):
     """
     Round the address up to the nearest IPv4 /24 or IPv6 /64 that covers it.
     """
-    if addr in ipaddress.ip_network("10.147.240.0/22"):
-        return ipaddress.ip_interface((addr, 30)).network
-    if addr in ipaddress.ip_network("2a06:e881:108:ffff::/64"):
-        return ipaddress.ip_interface((addr, 126)).network
+    global NET_GROUPS
+    for grp_net, grp_bits in NET_GROUPS:
+        if addr in grp_net:
+            return ipaddress.ip_interface((addr, grp_bits)).network
     bits = {4: 24, 6: 64}[addr.version]
     return ipaddress.ip_interface((addr, bits)).network
 

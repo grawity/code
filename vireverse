@@ -20,6 +20,7 @@ from n.dns.gssapi import gss_tsig_negotiate
 RPZ_ZONE = dns.name.from_text("rpz.nullroute.lt.")
 RPZ_MASTER = dns.name.from_text("star.nullroute.lt.")
 DEFAULT_NET = "10.147.0.0/16"
+DEFAULT_NET6 = "2a06:e881:108::/48"
 NET_GROUPS = [
     (ipaddress.ip_network("10.147.240.0/22"),           30),
     (ipaddress.ip_network("2a06:e881:108:ffff::/64"),   126),
@@ -184,6 +185,8 @@ def send_nsupdate(zone, cmds, *, server=None, use_gss=True, debug=False):
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--ttl", type=int, default=3600,
                         help="set the TTL for created records")
+parser.add_argument("-6", "--ipv6", action="store_true",
+                        help="edit the default IPv6 reverse zone")
 parser.add_argument("-R", "--rpz", action="store_true",
                         help="edit the Response Policy Zone")
 parser.add_argument("-n", "--dry-run", action="store_true",
@@ -202,6 +205,12 @@ args = parser.parse_args()
 logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
                     format="%(message)s")
 
+if (args.ipv6 + args.rpz) > 1:
+    exit(f"vireverse: options -6 and -R conflict")
+
+if args.ipv6 and args.network:
+    exit(f"vireverse: cannot specify custom prefix with -6")
+
 if args.rpz:
     # For RPZ, the prefix is only used to jump to the nearest line.
     try:
@@ -214,7 +223,10 @@ if args.rpz:
     logging.info(f"Editing RPZ zone <{zone}>")
 else:
     try:
-        prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
+        if args.ipv6:
+            prefix = ipaddress.ip_network(args.network or DEFAULT_NET6)
+        else:
+            prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
     except ValueError:
         # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
         # so we can't just address_for_ptr() it to get the prefix back.

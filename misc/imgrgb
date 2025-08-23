@@ -57,7 +57,6 @@ my $LINES = int(`tput lines`);
 $COLUMNS -= 1;
 $LINES -= $promptheight;	# Reserve space for shell prompt
 $LINES *= 2;			# Two rows per text line
-#$LINES -= 1;			# Seems like otherwise it results in an odd amount of half-lines
 
 my $size = ($fullwidth) ? "${COLUMNS}x" : "${COLUMNS}x${LINES}";
 
@@ -71,8 +70,8 @@ my $height = $image->Get("height");
 my @upper = ();
 my @lower = ();
 my $buf = "";
-for my $row (0..$height) {
-	for my $col (0..$width) {
+for my $row (0..$height-1) {
+	for my $col (0..$width-1) {
 		my ($r, $g, $b, $a) = $image->GetPixel(x => $col, y => $row);
 
 		# GetPixel returns values 0..1 after Quantize()
@@ -100,7 +99,9 @@ for my $row (0..$height) {
 		@lower = ();
 	}
 }
-# Print the last half line, if required.
+# Print last half-line if needed. (If the image was shrunk in width, this can
+# still result in an odd number of rows, despite 'LINES *= 2' making you think
+# otherwise.)
 if (@upper) {
 	for my $i (0..@upper-1) {
 		$buf .= "\e[38${sep1}2${sep2}${upper[$i]}m▀";

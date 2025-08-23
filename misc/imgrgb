@@ -28,12 +28,14 @@ my $sep1 = ";";
 my $sep2 = ";";
 my $promptheight = 3 + 1; # one extra line for the original command
 my $fullwidth = 0;
+my $debug = 0;
 
 GetOptions(
 	"O|colon4|official|dejure"	=> sub { $sep1 = ":"; $sep2 = "::"; },
 	"W|colon3|wrong"		=> sub { $sep1 = ":"; $sep2 = ":"; },
 	"S|semicolon|common|defacto"	=> sub { $sep1 = ";"; $sep2 = ";"; },
-	"w|wide"			=> \$fullwidth,
+	"w|wide!"			=> \$fullwidth,
+	"d|debug!"			=> \$debug,
 ) || exit(2);
 
 if (!@ARGV) {
@@ -55,6 +57,7 @@ my $LINES = int(`tput lines`);
 $COLUMNS -= 1;
 $LINES -= $promptheight;	# Reserve space for shell prompt
 $LINES *= 2;			# Two rows per text line
+#$LINES -= 1;			# Seems like otherwise it results in an odd amount of half-lines
 
 my $size = ($fullwidth) ? "${COLUMNS}x" : "${COLUMNS}x${LINES}";
 
@@ -63,11 +66,13 @@ $image->Read($ARGV[0]);
 $image->Thumbnail(geometry => $size);
 $image->Quantize(colorspace => "srgb");
 
+my $width = $image->Get("width");
+my $height = $image->Get("height");
 my @upper = ();
 my @lower = ();
 my $buf = "";
-for my $row (0..$image->Get("height")) {
-	for my $col (0..$image->Get("width")) {
+for my $row (0..$height) {
+	for my $col (0..$width) {
 		my ($r, $g, $b, $a) = $image->GetPixel(x => $col, y => $row);
 
 		# GetPixel returns values 0..1 after Quantize()
@@ -89,6 +94,7 @@ for my $row (0..$image->Get("height")) {
 		for my $i (0..@lower-1) {
 			$buf .= "\e[38${sep1}2${sep2}${upper[$i]};48${sep1}2${sep2}${lower[$i]}m▀";
 		}
+		$buf .= "\e[0m (row $row/$height)" if $debug;
 		$buf .= "\e[0m\e[K\n";
 		@upper = ();
 		@lower = ();
@@ -99,6 +105,7 @@ if (@upper) {
 	for my $i (0..@upper-1) {
 		$buf .= "\e[38${sep1}2${sep2}${upper[$i]}m▀";
 	}
+	$buf .= "\e[0m (odd final)" if $debug;
 	$buf .= "\e[0m\e[K\n";
 }
 print $buf;

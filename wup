@@ -1,0 +1,74 @@
+#!/bin/bash
+# wup -- display a WhatsUp network map in terminal
+
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-s] [-L] [mapname]"
+	echo
+	echo_opt "-s" "output plain ANSI instead of SIXEL"
+	echo_opt "-L" "use LITNET map server instead of Dunelab"
+}
+
+format_args() {
+	local arg
+	for arg; do
+		if ! [[ $arg =~ ^[0-9A-Za-z=.,_+-]+$ ]]; then
+			arg=${arg@Q}
+		fi
+		printf '%s ' "$arg"
+	done
+}
+
+orig_args=$(format_args "$@")
+opt_chafafmt=""
+opt_litnet=0
+
+while getopts :Ls OPT; do
+	case $OPT in
+	L) let ++opt_litnet;;
+	s) opt_chafafmt="--format=symbols";;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
+if (( opt_litnet >= 2 )); then
+	host="http://lokys.litnet.lt"
+	defmap="Backbone.wup"
+elif (( opt_litnet )); then
+	host="http://lokys.litnet.lt"
+	defmap="LITNET.wup"
+else
+	host="http://echo.dunelab.sym"
+	defmap="Dunelab.wup"
+fi
+
+map=${1:-"$defmap"}
+map=${map%.wup}.wup
+
+test -t 1 || vdie "not a tty"
+
+ttysize=$(stty size) || vdie "not a tty"
+imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-2)}')
+
+# Find and download the map
+mapurl="$host/map.asp?map=$map"
+maptmp=$(mktemp /tmp/wup.XXXXXX.html)
+curl -nfsS "$mapurl" -o "$maptmp" || vdie "could not fetch '$mapurl'"
+imgurl=$(grep -a '<img.*ISMAP' "$maptmp" | grep -ao 'WUG[-0-9]*\.jpg') || vdie "could not find map '$map'"
+imgurl="$host/$imgurl"
+imgtmp=$(mktemp /tmp/wup.XXXXXX.jpg)
+curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
+
+# Pre-clear (and display a fake prompt) to avoid slow scrolling
+settitle "wup: ${map%.wup}"
+tput smcup
+clear
+echo "\$ ${0##*/} $orig_args"
+chafa $opt_chafafmt --symbols=vhalf --size="$imgsize" "$imgtmp"
+
+# Chafa sets stdin to nonblocking mode, breaking 'read' or 'head'; fix that
+perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'
+read -p "done: " -n 1
+tput rmcup
+rm -f "$imgtmp" "$maptmp"

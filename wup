@@ -6,7 +6,7 @@
 usage() {
 	echo "Usage: $progname [-s] [-L] [mapname]"
 	echo
-	echo_opt "-s" "output plain ANSI instead of SIXEL"
+	echo_opt "-s" "output SIXEL instead of plain ANSI"
 	echo_opt "-L" "use LITNET map server instead of Dunelab"
 }
 
@@ -21,13 +21,14 @@ format_args() {
 }
 
 orig_args=$(format_args "$@")
+opt_sixel=0
 opt_chafafmt=""
 opt_litnet=0
 
 while getopts :Ls OPT; do
 	case $OPT in
 	L) let ++opt_litnet;;
-	s) opt_chafafmt="--format=symbols";;
+	s) let ++opt_sixel;;
 	*) lib:die_getopts;;
 	esac
 done; shift $[OPTIND-1]
@@ -51,6 +52,11 @@ test -t 1 || vdie "not a tty"
 ttysize=$(stty size) || vdie "not a tty"
 imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-2)}')
 
+# If opted in to sixel, let chafa autodetect. Otherwise default to ANSI.
+if (( !opt_sixel )); then
+	chafa_fmtarg="--format=symbols"
+fi
+
 # Find and download the map
 mapurl="$host/map.asp?map=$map"
 maptmp=$(mktemp /tmp/wup.XXXXXX.html)
@@ -65,7 +71,7 @@ settitle "wup: ${map%.wup}"
 tput smcup
 clear
 echo "\$ ${0##*/} $orig_args"
-chafa $opt_chafafmt --symbols=vhalf --size="$imgsize" "$imgtmp"
+chafa $chafa_fmtarg --symbols=vhalf --size="$imgsize" "$imgtmp"
 
 # Chafa sets stdin to nonblocking mode, breaking 'read' or 'head'; fix that
 perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'

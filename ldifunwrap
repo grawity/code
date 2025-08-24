@@ -2,26 +2,62 @@
 # ldifunwrap -- unwrap and optionally Base64-decode values within LDIF files
 import argparse
 import base64
+import re
 import sys
 
-def xprint(buf, decode=False):
-    if decode and ": " in buf:
+def univis(string, color=False):
+    format = "\033[1;37;41m%s\033[m" if color else "%s"
+
+    return re.sub(r"[\x00-\x1f]",
+                  lambda m: format % ("<U+%04X>" % ord(m.group(0))),
+                  string)
+
+def binvis(buf, color=False):
+    format = b"\033[1;31m%s\033[m" if color else b"%s"
+
+    return re.sub(rb"[\x00-\x1f\x7f-\xff]",
+                  lambda m: format % (b"<%02X>" % m.group(0)[0]),
+                  buf).decode()
+
+def isprintable(string):
+    # Doesn't block weird Unicode, but does block ASCII newlines.
+    return not any([x < 0x20 for x in map(ord, string)])
+
+def xprint(buf, decode=False, decodebin=False, color=False):
+    if decode and (not buf.startswith("#")) and (": " in buf):
         k, v = buf.split(": ", 1)
         if k.endswith(":"):
+            vb = base64.b64decode(v)
+            # With decodebin=False, always output valid LDIF, leaving fields
+            # Base64-encoded if they wouldn't result in printable ASCII.
+            #
+            # With decodebin=True, output pseudo-LDIF with ANSI highlighting
+            # for visualization.
             try:
-                v = base64.b64decode(v).decode()
+                vn = vb.decode()
             except UnicodeDecodeError:
-                pass
+                if decodebin:
+                    k = k[:-1]
+                    v = binvis(vb, color=color)
             else:
-                k = k[:-1]
+                if decodebin:
+                    k = k[:-1]
+                    v = univis(vn, color=color)
+                elif isprintable(vn):
+                    k = k[:-1]
+                    v = vn
         buf = "%s: %s" % (k, v)
     print(buf)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--decode", action="store_true",
-                    help="Base64-decode fields that are valid UTF-8")
+                        help="Base64-decode fields that are valid UTF-8 text")
+parser.add_argument("-v", "--visualize", action="store_true",
+                        help="visualize unprintable characters")
 args = parser.parse_args()
-opts = {"decode": args.decode}
+opts = dict(decode=(args.decode or args.visualize),
+            decodebin=args.visualize,
+            color=sys.stdout.isatty())
 
 buf = ""
 for line in sys.stdin:

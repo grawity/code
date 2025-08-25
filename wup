@@ -54,7 +54,7 @@ map=${map%.wup}.wup
 test -t 1 || vdie "not a tty"
 
 ttysize=$(stty size) || vdie "not a tty"
-imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-2)}')
+imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-4)}')
 
 # If opted in to sixel, let chafa autodetect. Otherwise default to ANSI.
 if (( !opt_sixel )); then
@@ -71,14 +71,8 @@ imgtmp=$(mktemp /tmp/wup.XXXXXX.jpg)
 curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
 
 # Pre-clear (and display a fake prompt) to avoid slow scrolling
-settitle "wup: ${map%.wup}"
-tput smcup
 clear
 echo "\$ ${0##*/} $orig_args"
 chafa $chafa_fmtarg --symbols=vhalf --size="$imgsize" "$imgtmp"
-
-# Chafa sets stdin to nonblocking mode, breaking 'read' or 'head'; fix that
 perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'
-read -p "done: " -n 1
-tput rmcup
 rm -f "$imgtmp" "$maptmp"

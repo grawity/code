@@ -1,0 +1,12 @@
+#!/bin/bash
+# imgrgb -- display image in terminal
+
+# Give space for 1 original command line + 3 new prompt lines
+size=$(stty size | awk '{print $2 "x" ($1-4)}')
+
+chafa --symbols=vhalf --size="$size" "$@"
+
+# Chafa sets stdin to nonblocking mode, breaking 'read' or 'head'. Bash fixes
+# that automatically upon returning to interactive prompt, but it still causes
+# problems for scripts, so undo it manually.
+perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'

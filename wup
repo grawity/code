@@ -7,6 +7,8 @@ usage() {
 	echo "Usage: $progname [-s] [-L] [mapname]"
 	echo
 	echo_opt "-s" "output SIXEL instead of plain ANSI"
+	echo_opt "-o" "open map page via browser instead"
+	echo_opt "-oo" "open map via image viewer instead"
 	echo_opt "-L" "use LITNET map server instead of Dunelab"
 }
 
@@ -66,17 +68,22 @@ fi
 # Find and download the map
 mapurl="$host/map.asp?map=$map"
 if (( opt_openmap == 1 )); then
-	xdg-open "$mapurl"; exit
+	xdg-open "$mapurl"
+	exit
 fi
 maptmp=$(mktemp /tmp/wup.XXXXXX.html)
 curl -nfsS "$mapurl" -o "$maptmp" || vdie "could not fetch '$mapurl'"
 imgurl=$(grep -a '<img.*ISMAP' "$maptmp" | grep -ao 'WUG[-0-9]*\.jpg') || vdie "could not find map '$map'"
 imgurl="$host/$imgurl"
-if (( opt_openmap == 2 )); then
-	xdg-open "$imgurl"; rm -f "$maptmp"; exit
-fi
 imgtmp=$(mktemp /tmp/wup.XXXXXX.jpg)
 curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
+if (( opt_openmap == 2 )); then
+	xdg-open "$imgtmp"
+	# This deliberately leaves stale downloaded file, as some image viewers
+	# start non-blocking so we would proceed to 'rm' before the viewer even
+	# has a chance to open it.
+	exit
+fi
 
 # Pre-clear (and display a fake prompt) to avoid slow scrolling
 clear

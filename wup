@@ -24,14 +24,16 @@ orig_args=$(format_args "$@")
 opt_sixel=0
 opt_chafafmt=""
 opt_litnet=0
+opt_openmap=0
 
 case $TERM in xterm-ghostty)
 	opt_sixel=1
 esac
 
-while getopts :Ls OPT; do
+while getopts :Los OPT; do
 	case $OPT in
 	L) let ++opt_litnet;;
+	o) let ++opt_openmap;;
 	s) let ++opt_sixel;;
 	*) lib:die_getopts;;
 	esac
@@ -63,10 +65,16 @@ fi
 
 # Find and download the map
 mapurl="$host/map.asp?map=$map"
+if (( opt_openmap == 1 )); then
+	xdg-open "$mapurl"; exit
+fi
 maptmp=$(mktemp /tmp/wup.XXXXXX.html)
 curl -nfsS "$mapurl" -o "$maptmp" || vdie "could not fetch '$mapurl'"
 imgurl=$(grep -a '<img.*ISMAP' "$maptmp" | grep -ao 'WUG[-0-9]*\.jpg') || vdie "could not find map '$map'"
 imgurl="$host/$imgurl"
+if (( opt_openmap == 2 )); then
+	xdg-open "$imgurl"; rm -f "$maptmp"; exit
+fi
 imgtmp=$(mktemp /tmp/wup.XXXXXX.jpg)
 curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
 

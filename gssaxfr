@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+# gssaxfr -- perform a zone transfer using Kerberos authentication
+import argparse
+import dns.name
+import gssapi
+import logging
+import os
+import socket
+
+from n.dns.gssapi import gss_tsig_negotiate
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-x", "--no-gss", action="store_true",
+                        help="perform a non-authenticated transfer (for testing)")
+parser.add_argument("-s", "--server",
+                        help="transfer from a specific server")
+parser.add_argument("-g", "--gss-name",
+                        help="override the host name of GSS-API service")
+parser.add_argument("-v", "--verbose", action="store_true",
+                        help="show detailed information")
+parser.add_argument("zone",
+                        help="DNS zone to transfer")
+args = parser.parse_args()
+
+logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
+                    format="%(message)s")
+
+def master_for_zone(zone):
+    ans = dns.resolver.resolve(zone, "SOA")
+    return ans.rrset[0].mname
+
+def probe_dns_server(server_name):
+    gai = socket.getaddrinfo(str(server_name),
+                             "domain",
+                             socket.AF_UNSPEC,
+                             socket.SOCK_DGRAM)
+    for af, sf, pt, cname, sa in gai:
+        yield sa[0]
+
+def axfr(zone, server_name, *, use_gss=False):
+    for server_addr in probe_dns_server(server_name):
+        if use_gss:
+            key_ring, key_name = gss_tsig_negotiate(server_name,
+                                                    server_addr)
+        else:
+            key_ring, key_name = None, None
+        resp = dns.query.xfr(server_addr, zone,
+                             relativize=False,
+                             keyring=key_ring,
+                             keyname=key_name)
+        return dns.zone.from_xfr(resp,
+                                 relativize=False)
+
+zone = dns.name.from_text(args.zone)
+master = args.server or master_for_zone(zone)
+logging.debug(f"Master for zone <{zone}> is <{master}>")
+
+try:
+    zone_data = axfr(zone, master, use_gss=(not args.no_gss))
+except dns.xfr.TransferError as ex:
+    exit(f"gssaxfr: zone transfer failed: {ex!r}")
+except gssapi.exceptions.GSSError as ex:
+    exit(f"gssaxfr: GSS-TSIG zone transfer failed: {ex!r}")
+logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
+
+print("$ORIGIN", zone)
+print(zone_data.to_text(), end="")

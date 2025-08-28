@@ -14,7 +14,7 @@ usage() {
 
 hashtemp() {
 	local format=$1 param=$2 seed=$3
-	printf "$format" "$param" "$(sha256sum <<< "$seed" | awk '{print substr($1, 1, 24)}')"
+	printf "$format" "$param" "$(sha256sum <<< "$seed" | awk '{print substr($1, 1, 16)}')"
 }
 
 format_args() {
@@ -76,11 +76,11 @@ if (( opt_openmap == 1 )); then
 	xdg-open "$mapurl"
 	exit
 fi
-maptmp=$(hashtemp /tmp/wup.%s.%s.html "${map%.wup}" "$mapurl")
+maptmp=$(hashtemp /tmp/wup.%s.%s.html "${host#*://}.${map%.wup}" "$mapurl")
 curl -nfsS "$mapurl" -o "$maptmp" || vdie "could not fetch '$mapurl'"
 imgurl=$(grep -a '<img.*ISMAP' "$maptmp" | grep -ao 'WUG[-0-9]*\.jpg') || vdie "could not find map '$map'"
 imgurl="$host/$imgurl"
-imgtmp=$(hashtemp /tmp/wup.%s.%s.jpg "${map%.wup}" "$mapurl")
+imgtmp=$(hashtemp /tmp/wup.%s.%s.jpg "${host#*://}.${map%.wup}" "$mapurl")
 curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
 if (( opt_openmap == 2 )); then
 	xdg-open "$imgtmp"
@@ -95,4 +95,3 @@ clear
 echo "\$ ${0##*/} $orig_args"
 chafa $chafa_fmtarg --symbols=vhalf --size="$imgsize" "$imgtmp"
 perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'
-rm -f "$imgtmp" "$maptmp"

@@ -12,11 +12,6 @@ usage() {
 	echo_opt "-L" "use LITNET map server instead of Dunelab"
 }
 
-hashtemp() {
-	local format=$1 param=$2 seed=$3
-	printf "$format" "$param" "$(sha256sum <<< "$seed" | awk '{print substr($1, 1, 16)}')"
-}
-
 format_args() {
 	local arg
 	for arg; do
@@ -60,6 +55,10 @@ fi
 map=${1:-"$defmap"}
 map=${map%.wup}.wup
 
+tmphost=${host#*://}
+tmphost=${tmphost%%/*}
+tmpbase=${XDG_CACHE_HOME:-"$HOME/.cache"}/wup_${tmphost}_${map%.wup}
+
 test -t 1 || vdie "not a tty"
 
 ttysize=$(stty size) || vdie "not a tty"
@@ -76,17 +75,14 @@ if (( opt_openmap == 1 )); then
 	xdg-open "$mapurl"
 	exit
 fi
-maptmp=$(hashtemp /tmp/wup.%s.%s.html "${host#*://}.${map%.wup}" "$mapurl")
+maptmp=$tmpbase.html
 curl -nfsS "$mapurl" -o "$maptmp" || vdie "could not fetch '$mapurl'"
 imgurl=$(grep -a '<img.*ISMAP' "$maptmp" | grep -ao 'WUG[-0-9]*\.jpg') || vdie "could not find map '$map'"
 imgurl="$host/$imgurl"
-imgtmp=$(hashtemp /tmp/wup.%s.%s.jpg "${host#*://}.${map%.wup}" "$mapurl")
+imgtmp=$tmpbase.jpg
 curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
 if (( opt_openmap == 2 )); then
 	xdg-open "$imgtmp"
-	# This deliberately leaves stale downloaded file, as some image viewers
-	# start non-blocking so we would proceed to 'rm' before the viewer even
-	# has a chance to open it.
 	exit
 fi
 

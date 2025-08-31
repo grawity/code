@@ -60,6 +60,11 @@ if (( !opt_sixel )); then
 	chafa_fmtarg="--format=symbols"
 fi
 
+# Pre-scroll to avoid slow scrolling in Xterm
+ttyheight=$[ ${ttysize% *} - 2 ]
+printf "%*s" "$ttyheight" "" | tr " " '\n'
+printf '\e[%sA' "$ttyheight"
+
 # Find and download the map
 mapurl="$host/map.asp?map=$map"
 if (( opt_openmap == 1 )); then
@@ -77,11 +82,6 @@ if (( opt_openmap == 2 )); then
 	xdg-open "$imgtmp"
 	exit
 fi
-
-# Pre-scroll to avoid slow scrolling in Xterm
-ttyheight=$[ ${ttysize% *} - 2 ]
-printf "%*s" "$ttyheight" "" | tr " " '\n'
-printf '\e[%sA' "$ttyheight"
 
 # Display image and undo chafa's making of stdout non-blocking
 chafa $chafa_fmtarg --symbols=vhalf --size="$imgsize" "$imgtmp"

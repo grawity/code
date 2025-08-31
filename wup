@@ -48,22 +48,21 @@ tmphost=${host#*://}
 tmphost=${tmphost%%/*}
 tmpbase=${XDG_CACHE_HOME:-"$HOME/.cache"}/wup_${tmphost}_${map%.wup}
 
-if (( !opt_openmap )); then
-	test -t 1 || vdie "not a tty"
-fi
-
-ttysize=$(stty size) || vdie "not a tty"
-imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-4)}')
-
 # If opted in to sixel, let chafa autodetect. Otherwise default to ANSI.
 if (( !opt_sixel )); then
 	chafa_fmtarg="--format=symbols"
 fi
 
 # Pre-scroll to avoid slow scrolling in Xterm
-ttyheight=$[ ${ttysize% *} - 2 ]
-printf "%*s" "$ttyheight" "" | tr " " '\n'
-printf '\e[%sA' "$ttyheight"
+if (( !opt_openmap )); then
+	test -t 1 || vdie "not a tty"
+	ttysize=$(stty size) || vdie "not a tty"
+	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-4)}')
+
+	ttyheight=$[ ${ttysize% *} - 2 ]
+	printf "%*s" "$ttyheight" "" | tr " " '\n'
+	printf '\e[%sA' "$ttyheight"
+fi
 
 # Find and download the map
 mapurl="$host/map.asp?map=$map"

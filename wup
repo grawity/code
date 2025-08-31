@@ -89,8 +89,11 @@ if (( opt_openmap == 2 )); then
 	exit
 fi
 
-# Pre-clear (and display a fake prompt) to avoid slow scrolling
-clear
-echo "\$ ${0##*/} $orig_args"
+# Pre-scroll to avoid slow scrolling in Xterm
+ttyheight=$[ ${ttysize% *} - 2 ]
+printf "%*s" "$ttyheight" "" | tr " " '\n'
+printf '\e[%sA' "$ttyheight"
+
+# Display image and undo chafa's making of stdout non-blocking
 chafa $chafa_fmtarg --symbols=vhalf --size="$imgsize" "$imgtmp"
 perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'

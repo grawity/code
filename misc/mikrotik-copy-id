@@ -64,7 +64,7 @@ for host in "${hosts[@]}"; do
 
 	ltmpfile=$(mktemp /tmp/key_XXXXXXXXXX)
 	for file in "${ids[@]}"; do
-		info "uploading $file to $host"
+		vmsg "Uploading $file to $host"
 		rtmpfile="tmp_$(uuidgen).pub"
 		key=$(< "$file")
 		key=${key//'('}
@@ -72,6 +72,7 @@ for host in "${hosts[@]}"; do
 		printf '%s\n' "$key" > "$ltmpfile"
 		scp "$ltmpfile" "$scphost:$rtmpfile" || exit
 		# Wait for the file to show up (not always instant; silly RouterOS SSH)
+		sleep 0.5
 		waited=0
 		until ssh "$host" "/file print detail where name=\"$rtmpfile\"" \
 		      | grep -qs "$rtmpfile"; do

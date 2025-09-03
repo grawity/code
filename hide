@@ -4,10 +4,11 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-d <dir>] [-y <year>] <files>..."
+	echo "Usage: $progname [-c] [-d <dir>] [-y <year>] <files>..."
 	echo ""
 	echo "Put away old files to ~/Attic/Misc/<year>."
 	echo ""
+	echo_opt "-c"		"Copy instead of moving"
 	echo_opt "-d <dir>"	"Put files in a subdirectory"
 	echo_opt "-y <year>"	"Use specified year instead of modification time"
 }
@@ -24,9 +25,11 @@ fi
 
 arg_subdir=
 arg_year=
+arg_copy=0
 
-while getopts ":d:y:" OPT; do
+while getopts ":cd:y:" OPT; do
 	case $OPT in
+	c) arg_copy=1;;
 	d) arg_subdir=$OPTARG;;
 	y) arg_year=$OPTARG;;
 	*) lib:die_getopts;;
@@ -80,8 +83,13 @@ for arg; do
 		dst="$dstdir/$base-$count${ext:+.}$ext"
 	done
 
-	vmsg "moving \"$src\" to \"${dst#$HOME/}\""
-	mv -b "$src" "$dst" || let ++errors
+	if (( arg_copy )); then
+		vmsg "copying \"$src\" to \"${dst#$HOME/}\""
+		cp -b -p "$src" "$dst"
+	else
+		vmsg "moving \"$src\" to \"${dst#$HOME/}\""
+		mv -b "$src" "$dst"
+	fi || let ++errors
 done
 
 (( ! errors ))

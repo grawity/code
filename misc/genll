@@ -4,14 +4,23 @@ import ipaddress
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-l", "--link-local", action="store_true")
-parser.add_argument("-m", "--mac", action="store_true")
-parser.add_argument("-u", "--ula", action="store_true")
-parser.add_argument("-U", "--ula64", action="store_true")
+parser.add_argument("-l", "--link-local", action="store_true",
+                        help="generate a random IPv6 link-local address")
+parser.add_argument("-m", "--from-mac", metavar="MAC",
+                        help="translate MAC to EUI64-based IPv6LL address")
+parser.add_argument("-u", "--ula", action="store_true",
+                        help="generate a random ULA /48 prefix")
+parser.add_argument("-U", "--ula64", action="store_true",
+                        help="generate a random ULA /64 prefix")
+parser.add_argument("-M", "--mac", action="store_true",
+                        help="generate a random MAC address")
 args = parser.parse_args()
 
 if (args.link_local + args.mac + args.ula + args.ula64) > 1:
     exit("error: Conflicting modes specified")
+
+elif args.from_mac and (args.mac + args.ula + args.ula64):
+    exit("error: Conflicting options (--from-mac is ignored in this mode)")
 
 elif args.mac:
     buf = bytearray(os.urandom(6))
@@ -35,9 +44,15 @@ elif args.ula64:
     print(net)
 
 else:
-    iid = bytearray(os.urandom(8))
-    # Clear the U/L bit to indicate "Local"
-    iid[0] &= ~0x2
+    if args.from_mac:
+        mac = bytearray([int(x, 16) for x in args.from_mac.split(":")])
+        iid = mac[0:3] + bytearray([0xFF, 0xFE]) + mac[3:6]
+        # Flip the U/L bit per specification
+        iid[0] ^= 0x02
+    else:
+        iid = bytearray(os.urandom(8))
+        # Clear the U/L bit to always indicate "Local"
+        iid[0] &= ~0x02
     buf = bytes([0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                  *iid])
     addr = ipaddress.IPv6Address(buf)

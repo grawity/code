@@ -5,6 +5,8 @@
 # Note: ssh-keygen supports -D and -I options when signing certificates using a
 # CA key, but oddly not when signing data via -Y.
 
+. lib.bash || exit
+
 dirs=(/usr/lib/pkcs11 /usr/lib)
 lib='p11-kit-proxy.so'
 do_add=0
@@ -28,10 +30,14 @@ if [[ ! $_SSH_PKCS11_MOD ]]; then
 		done
 	fi
 	if [[ $lib != */* ]]; then
-		echo "${0##*/}: Could not find PKCS#11 library '$lib'" >&2
-		exit 1
+		vdie "could not find PKCS#11 library '$lib'"
 	fi
 	if (( do_add || do_del )); then
+		if [[ $SSH_AUTH_SOCK == "$XDG_RUNTIME_DIR"/ssh-tpm-agent.socket ]]; then
+			# work around go-ssh-agent rejecting the operations
+			SSH_AUTH_SOCK=$(ps -C ssh-tpm-agent -o cmd= | sed -En 's/.*-A ([^ ]*)( .*)?/\1/p')
+			vmsg "using socket $SSH_AUTH_SOCK instead"
+		fi
 		if (( do_del )); then
 			ssh-add -e "$lib"
 		fi

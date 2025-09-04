@@ -318,8 +318,8 @@ lib:die_getopts() {
 
 info() {
 	lib:msg info "$*"
-	DEBUG=2 lib:msg warning "BUG: obsolete function info() used" >&2
-	DEBUG=2 lib:backtrace 2 >&2
+	#DEBUG=2 lib:msg warning "BUG: obsolete function info() used" >&2
+	#DEBUG=2 lib:backtrace 2 >&2
 }
 
 notice() {

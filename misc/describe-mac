@@ -38,6 +38,21 @@ if [[ $1 =~ ^MAC=([0-9a-f:]{17}):([0-9a-f:]{17}):([0-9a-f:]{5})$ ]]; then
 	exit
 fi
 
+if [[ $1 == *%* ]]; then
+	set -- "${1%'%'*}"
+fi
+if [[ $1 =~ ^fe80::[0-9a-f:]+ff:fe[0-9a-f:]+$ ]]; then
+	set -- "$(python -c 'if True:
+		import ipaddress
+		import sys
+		addr = ipaddress.IPv6Address(sys.argv[1])
+		iid = bytearray(addr.packed[8:])
+		iid[0] ^= 2
+		mac = iid[:3] + iid[5:]
+		print(mac.hex())
+	' "$1")"
+fi
+
 mac_re='^[0-9A-Fa-f]{12}$'
 mac_re+='|^([0-9A-Fa-f]{6}[-])[0-9A-Fa-f]{6}$'
 mac_re+='|^([0-9A-Fa-f]{4}[.]){2}[0-9A-Fa-f]{4}$'

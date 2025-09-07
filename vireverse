@@ -29,6 +29,16 @@ NET_GROUPS = [
 def confirm(text):
     return input(f"{text} ").startswith("y")
 
+def chase_one_cname(name):
+    try:
+        ans = dns.resolver.resolve(name, "CNAME")
+    except dns.resolver.NoAnswer:
+        return name
+    except dns.resolver.NXDOMAIN:
+        return name
+    else:
+        return ans.rrset[0].target
+
 def zones_for_prefix(net):
     assert isinstance(net, (ipaddress.IPv4Network,
                             ipaddress.IPv6Network))
@@ -62,8 +72,13 @@ def prefix_for_zone(name):
     if name.is_subdomain(dns.reversename.ipv4_reverse_domain):
         name = name.relativize(dns.reversename.ipv4_reverse_domain)
         octets = [x.decode() for x in reversed(name.labels)]
-        bits = len(octets) * 8
-        octets += ["0"] * (4 - len(octets))
+        # Handle sub-/24 CIDR zones
+        if len(octets) == 4 and "/" in octets[-1]:
+            octets[-1], bits = octets[-1].split("/", 1)
+            bits = int(bits)
+        else:
+            bits = len(octets) * 8
+            octets += ["0"] * (4 - len(octets))
         addr = ".".join(octets)
         prefix = ipaddress.ip_network((addr, bits))
         return prefix
@@ -82,6 +97,12 @@ def prefix_for_zone(name):
         # XXX: For unusual zones, it might be wise to return 'none' here so
         # that prefix checks would be skipped outright.
         raise ValueError(name)
+
+def swap_suffix(name, old_suffix, new_suffix):
+    assert name.is_absolute()
+    assert old_suffix.is_absolute()
+    assert new_suffix.is_absolute()
+    return name.relativize(old_suffix) + new_suffix
 
 def address_for_ptr(name, extra_suffix):
     assert isinstance(name, dns.name.Name)
@@ -232,21 +253,34 @@ else:
         # so we can't just address_for_ptr() it to get the prefix back.
         prefix = None
         zone = dns.name.from_text(args.network)
+        logging.debug(f"Specified zone is <{zone}>")
     else:
         zones = zones_for_prefix(prefix)
         zones = [*zones]
         if len(zones) > 1:
             exit(f"error: multiple zones for {prefix}: {zones}")
         zone = dns.name.from_text(zones[0])
-        logging.debug(f"Domain for {prefix} is <{zone}>")
+        logging.debug(f"DNS name for {prefix} is <{zone}>")
 
-    apex = dns.resolver.zone_for_name(zone)
-    if apex == zone:
+    # If this is a CIDR zone, remember the guessed non-CIDR one.
+    norm_zone = zone
+    real_zone = chase_one_cname(norm_zone)
+    logging.debug(f"After chasing CNAME, the name is <{real_zone}>")
+
+    apex = dns.resolver.zone_for_name(real_zone)
+    if apex == real_zone:
+        logging.debug(f"Zone <{real_zone}> is already zone apex")
         zone_prefix = prefix
+        logging.debug(f"Input prefix {prefix} matches zone apex")
     else:
+        logging.debug(f"Zone apex for <{real_zone}> is <{apex}>")
         zone = apex
         zone_prefix = prefix_for_zone(zone)
-        logging.warning(f"Editing zone <{zone}> for prefix {prefix}")
+        logging.debug(f"Input prefix {prefix} wasn't zone apex, widened to {zone_prefix}")
+        logging.warning(f"Editing zone <{zone}> ({zone_prefix}) for prefix {prefix}")
+
+    norm_suffix = norm_zone.parent()
+    real_suffix = real_zone.parent()
     extra_suffix = None
 
 if args.rpz:
@@ -275,6 +309,8 @@ is_dnssec = False
 
 for name, node in zone_data.items():
     if rdset := node.get_rdataset(dns.rdataclass.IN, dns.rdatatype.PTR):
+        if real_suffix != norm_suffix:
+            name = swap_suffix(name, real_suffix, norm_suffix)
         addr = address_for_ptr(name, extra_suffix)
         old[addr] = rdset
         #old[addr] = set(rdset)

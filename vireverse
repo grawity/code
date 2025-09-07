@@ -323,7 +323,6 @@ logging.debug(f"Transferred records for {len(zone_data.keys())} names.")
 
 old = {}
 new = {}
-num_nonptr = 0
 is_dnssec = False
 
 for name, node in zone_data.items():
@@ -331,11 +330,6 @@ for name, node in zone_data.items():
         addr = address_for_ptr(name, real_suffix, class_suffix, extra_suffix)
         old[addr] = rdset
         #old[addr] = set(rdset)
-    else:
-        num_nonptr += 1
-
-if not prefix and not old and num_nonptr > 5:
-    exit(f"error: This doesn't look like a reverse zone (too many non-PTR records).")
 
 old_soa = zone_data[zone].get_rdataset(dns.rdataclass.IN, dns.rdatatype.SOA)
 logging.debug(f"Old serial number {old_soa[0].serial}.")

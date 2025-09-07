@@ -219,12 +219,16 @@ if args.rpz:
     real_suffix = RPZ_ZONE
     fake_suffix = dns.name.root
 else:
-    if args.ipv6:
-        prefix = ipaddress.ip_network(args.network or DEFAULT_NET6)
-    else:
-        prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
+    try:
+        if args.ipv6:
+            prefix = ipaddress.ip_network(args.network or DEFAULT_NET6)
+        else:
+            prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
+        rname = dns.name.from_text(prefix[0].reverse_pointer)
+    except ValueError:
+        prefix = None
+        rname = dns.name.from_text(args.network)
 
-    rname = dns.name.from_text(prefix[0].reverse_pointer)
     logging.debug(f"Initial DNS name is <{rname}>")
     cname = chase_one_cname(rname)
     if cname != rname:

@@ -39,39 +39,6 @@ def chase_one_cname(name):
     else:
         return ans.rrset[0].target
 
-def zones_for_prefix(net):
-    assert isinstance(net, (ipaddress.IPv4Network,
-                            ipaddress.IPv6Network))
-
-    rev = net.reverse_pointer.split(".")
-    if net.version == 6:
-        full, bits = divmod(net.prefixlen, 4)
-        full += 2
-        if bits:
-            full += 1
-            start = int(rev[-full], 16)
-            count = 2 ** (4 - bits)
-            for i in range(count):
-                rev[-full] = "%x" % (start + i)
-                yield ".".join(rev[-full:])
-        else:
-            yield ".".join(rev[-full:])
-    else:
-        if 32 > net.prefixlen > 24:
-            # For IPv4, reverse_pointer already produces the correct style.
-            yield ".".join(rev)
-        else:
-            full, bits = divmod(net.prefixlen, 8)
-            full += 2
-            if bits:
-                count = 2 ** (8 - bits)
-                # TODO
-                raise NotImplementedError(f"{rev} (/{net.prefixlen}) has spare {bits=}")
-            else:
-                if net.prefixlen == 32:
-                    rev[0] = "0"
-                yield ".".join(rev[-full:])
-
 def prefix_for_zone(name):
     # Similar to dns.reversename.to_address() but handles prefixes.
     assert isinstance(name, dns.name.Name)
@@ -103,13 +70,6 @@ def prefix_for_zone(name):
         # XXX: For unusual zones, it might be wise to return 'none' here so
         # that prefix checks would be skipped outright.
         raise ValueError(name)
-
-def norm_zone_for_cidr_zone(name):
-    assert isinstance(name, dns.name.Name)
-    if name.is_subdomain(dns.reversename.ipv4_reverse_domain):
-        if b"/" in name.labels[0]:
-            return name.parent()
-    return name
 
 def swap_suffix(name, old_suffix, new_suffix):
     assert name.is_absolute()
@@ -269,37 +229,27 @@ else:
     else:
         prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
 
-    # XXX: This could be simplified by just calculating the PTR of the 0th
-    # address, then chasing its cnames.
-    zones = zones_for_prefix(prefix)
-    zones = [*zones]
-    if len(zones) > 1:
-        exit(f"error: multiple zones for {prefix}: {zones}")
-
-    zone = dns.name.from_text(zones[0])
-    logging.debug(f"DNS name for {prefix} is <{zone}>")
-
-    zone = chase_one_cname(zone)
-    logging.debug(f"After chasing CNAME, the name is <{zone}>")
-
-    apex = dns.resolver.zone_for_name(zone)
-    if apex == zone:
-        logging.debug(f"Zone <{zone}> is already zone apex")
-        zone_prefix = prefix
-        logging.debug(f"Input prefix {prefix} matches zone apex")
-    else:
-        logging.debug(f"Zone apex for <{zone}> is <{apex}>")
-        zone = apex
-        zone_prefix = prefix_for_zone(zone)
-        logging.debug(f"Input prefix {prefix} wasn't zone apex, widened to {zone_prefix}")
-        logging.warning(f"Editing zone <{zone}> ({zone_prefix})")
+    rname = prefix[0].reverse_pointer
+    logging.debug(f"Initial DNS name is <{rname}>")
+    cname = chase_one_cname(rname)
+    if cname != rname:
+        logging.debug(f"Aliases followed to <{cname}>")
+    zone = dns.resolver.zone_for_name(cname)
+    logging.debug(f"Zone for <{cname}> is <{zone}>")
+    zone_prefix = prefix_for_zone(zone)
+    logging.debug(f"Zone prefix for <{zone}> is [{zone_prefix}]")
+    if zone_prefix != prefix:
+        # Warn that input prefix was widened.
+        logging.warning(f"Editing zone <{zone}> for {zone_prefix}")
 
     real_suffix = zone
     class_suffix = zone
     extra_suffix = None
+
     # A hack to make address_for_ptr() work with CIDR PTRs.
     if zone.is_subdomain(dns.reversename.ipv4_reverse_domain):
-        if b"/" in zone.labels[0]:
+        if zone_prefix.prefixlen > 24:
+            assert b"/" in zone.labels[0]
             class_suffix = zone.parent()
             logging.debug(f"Derived classful zone is <{class_suffix}>")
 

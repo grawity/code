@@ -247,13 +247,15 @@ if (args.ipv6 + args.rpz) > 1:
     exit(f"vireverse: options -6 and -R conflict")
 
 if args.ipv6 and args.network:
+    # The purpose of -6 is literally to act as an alias for one specific custom
+    # prefix, so it's mutually exclusive with actually specifying one.
     exit(f"vireverse: cannot specify custom prefix with -6")
 
 if args.rpz:
     # For RPZ, the prefix is only used to jump to the nearest line.
-    try:
+    if args.network:
         prefix = ipaddress.ip_network(args.network)
-    except ValueError:
+    else:
         prefix = None
     zone = RPZ_ZONE
     zone_prefix = None

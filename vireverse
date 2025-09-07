@@ -77,23 +77,19 @@ def swap_suffix(name, old_suffix, new_suffix):
     assert new_suffix.is_absolute()
     return name.relativize(old_suffix) + new_suffix
 
-def address_for_ptr(name, real_suffix, class_suffix, extra_suffix):
+def address_for_ptr(name, real_suffix, fake_suffix):
     assert isinstance(name, dns.name.Name)
-    if extra_suffix:
-        name = swap_suffix(name, extra_suffix, dns.name.root)
-    if real_suffix != class_suffix:
-        name = swap_suffix(name, real_suffix, class_suffix)
+    if real_suffix != fake_suffix:
+        name = swap_suffix(name, real_suffix, fake_suffix)
     addr = dns.reversename.to_address(name)
     return ipaddress.ip_address(addr)
 
-def ptr_for_address(addr, real_suffix, class_suffix, extra_suffix):
+def ptr_for_address(addr, real_suffix, fake_suffix):
     assert isinstance(addr, (ipaddress.IPv4Address,
                              ipaddress.IPv6Address))
     name = dns.reversename.from_address(str(addr))
-    if real_suffix != class_suffix:
-        name = swap_suffix(name, class_suffix, real_suffix)
-    if extra_suffix:
-        name = swap_suffix(name, dns.name.root, extra_suffix)
+    if real_suffix != fake_suffix:
+        name = swap_suffix(name, fake_suffix, real_suffix)
     return name
 
 def master_for_zone(zone):
@@ -218,11 +214,10 @@ if args.rpz:
     else:
         prefix = None
     zone = RPZ_ZONE
-    zone_prefix = None
-    real_suffix = None
-    class_suffix = None
-    extra_suffix = RPZ_ZONE
     logging.info(f"Editing RPZ zone <{zone}>")
+    zone_prefix = None
+    real_suffix = RPZ_ZONE
+    fake_suffix = dns.name.root
 else:
     if args.ipv6:
         prefix = ipaddress.ip_network(args.network or DEFAULT_NET6)
@@ -243,15 +238,12 @@ else:
         logging.warning(f"Editing zone <{zone}> for {zone_prefix}")
 
     real_suffix = zone
-    class_suffix = zone
-    extra_suffix = None
-
-    # A hack to make address_for_ptr() work with CIDR PTRs.
+    fake_suffix = zone
     if zone.is_subdomain(dns.reversename.ipv4_reverse_domain):
         if zone_prefix.prefixlen > 24:
             assert b"/" in zone.labels[0]
-            class_suffix = zone.parent()
-            logging.debug(f"Derived classful zone is <{class_suffix}>")
+            fake_suffix = zone.parent()
+            logging.debug(f"Derived classful zone is <{fake_suffix}>")
 
 if args.rpz:
     # XXX: hack (this should be a properly delegated .sym zone)
@@ -279,7 +271,7 @@ is_dnssec = False
 
 for name, node in zone_data.items():
     if rdset := node.get_rdataset(dns.rdataclass.IN, dns.rdatatype.PTR):
-        addr = address_for_ptr(name, real_suffix, class_suffix, extra_suffix)
+        addr = address_for_ptr(name, real_suffix, fake_suffix)
         old[addr] = rdset
         #old[addr] = set(rdset)
 
@@ -412,13 +404,13 @@ else:
 cmds = []
 
 for addr in addrs_missing | addrs_updated:
-    rname = ptr_for_address(addr, real_suffix, class_suffix, extra_suffix)
+    rname = ptr_for_address(addr, real_suffix, fake_suffix)
     cmds += [f"update del {rname} {args.ttl} PTR\n"]
     for rdata in old[addr]:
         print(f"Deleting: {addr} -= (was {rdata.target})")
 
 for addr in addrs_created | addrs_updated:
-    rname = ptr_for_address(addr, real_suffix, class_suffix, extra_suffix)
+    rname = ptr_for_address(addr, real_suffix, fake_suffix)
     for rdata in new[addr]:
         cmds += [f"update add {rname} {args.ttl} PTR {rdata.target}\n"]
         print(f"Adding:   {addr} += {rdata.target}")

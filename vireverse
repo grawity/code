@@ -249,7 +249,7 @@ if (args.ipv6 + args.rpz) > 1:
 if args.ipv6 and args.network:
     # The purpose of -6 is literally to act as an alias for one specific custom
     # prefix, so it's mutually exclusive with actually specifying one.
-    exit(f"vireverse: cannot specify custom prefix with -6")
+    exit(f"vireverse: -6 does nothing when IP address is specified")
 
 if args.rpz:
     # For RPZ, the prefix is only used to jump to the nearest line.
@@ -264,24 +264,18 @@ if args.rpz:
     extra_suffix = RPZ_ZONE
     logging.info(f"Editing RPZ zone <{zone}>")
 else:
-    try:
-        if args.ipv6:
-            prefix = ipaddress.ip_network(args.network or DEFAULT_NET6)
-        else:
-            prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
-    except ValueError:
-        # XXX: This case is meant for editing non-CIDR (e.g. /26) zones,
-        # so we can't just address_for_ptr() it to get the prefix back.
-        prefix = None
-        zone = dns.name.from_text(args.network)
-        logging.debug(f"Specified zone is <{zone}>")
+    if args.ipv6:
+        prefix = ipaddress.ip_network(args.network or DEFAULT_NET6)
     else:
-        zones = zones_for_prefix(prefix)
-        zones = [*zones]
-        if len(zones) > 1:
-            exit(f"error: multiple zones for {prefix}: {zones}")
-        zone = dns.name.from_text(zones[0])
-        logging.debug(f"DNS name for {prefix} is <{zone}>")
+        prefix = ipaddress.ip_network(args.network or DEFAULT_NET)
+
+    zones = zones_for_prefix(prefix)
+    zones = [*zones]
+    if len(zones) > 1:
+        exit(f"error: multiple zones for {prefix}: {zones}")
+
+    zone = dns.name.from_text(zones[0])
+    logging.debug(f"DNS name for {prefix} is <{zone}>")
 
     zone = chase_one_cname(zone)
     logging.debug(f"After chasing CNAME, the name is <{zone}>")
@@ -296,11 +290,12 @@ else:
         zone = apex
         zone_prefix = prefix_for_zone(zone)
         logging.debug(f"Input prefix {prefix} wasn't zone apex, widened to {zone_prefix}")
-        logging.warning(f"Editing zone <{zone}> ({zone_prefix}) for prefix {prefix}")
+        logging.warning(f"Editing zone <{zone}> ({zone_prefix})")
 
     real_suffix = zone
     class_suffix = zone
     extra_suffix = None
+    # A hack to make address_for_ptr() work with CIDR PTRs.
     if zone.is_subdomain(dns.reversename.ipv4_reverse_domain):
         if b"/" in zone.labels[0]:
             class_suffix = zone.parent()

@@ -209,8 +209,10 @@ if args.ipv6 and args.network:
 
 if args.rpz:
     # For RPZ, the prefix is only used to jump to the nearest line.
+    # If an interface was given, ignore nbits and treat it as /32 or /128.
     if args.network:
-        prefix = ipaddress.ip_network(args.network)
+        arg = ipaddress.ip_interface(args.network)
+        prefix = ipaddress.ip_network(arg.ip)
     else:
         prefix = None
     zone = RPZ_ZONE
@@ -220,15 +222,21 @@ if args.rpz:
     fake_suffix = dns.name.root
 else:
     if args.network:
+        # Deliberately accept interfaces (i.e. prefixes with non-0 host bits)
+        # for convenient pasting. Use network/nbits for the initial DNS zone,
+        # but address/32 or address/128 as the jump target.
         try:
-            prefix = ipaddress.ip_network(args.network)
-            rname = dns.name.from_text(prefix[0].reverse_pointer)
+            arg = ipaddress.ip_interface(args.network)
+            prefix = ipaddress.ip_network(arg.ip)
+            rname = dns.name.from_text(arg.network[0].reverse_pointer)
         except ValueError:
+            logging.debug(f"Failed to parse {args.network!r} as IP prefix, assuming DNS zone")
             prefix = None
             rname = dns.name.from_text(args.network)
     else:
         prefix = ipaddress.ip_network(DEFAULT_NET6 if args.ipv6 else DEFAULT_NET)
 
+    logging.debug(f"Jump target is [{prefix}]")
     logging.debug(f"Initial DNS name is <{rname}>")
     cname = chase_one_cname(rname)
     if cname != rname:

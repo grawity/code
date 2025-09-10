@@ -212,12 +212,12 @@ if args.rpz:
     # If an interface was given, ignore nbits and treat it as /32 or /128.
     if args.network:
         arg = ipaddress.ip_interface(args.network)
-        jump_prefix = ipaddress.ip_network(arg.ip)
+        jump_net = ipaddress.ip_network(arg.ip)
     else:
-        jump_prefix = None
+        jump_net = None
     zone = RPZ_ZONE
     logging.info(f"Editing RPZ zone <{zone}>")
-    zone_prefix = None
+    zone_net = None
     real_suffix = RPZ_ZONE
     fake_suffix = dns.name.root
 else:
@@ -227,32 +227,32 @@ else:
         # but address/32 or address/128 as the jump target.
         try:
             arg = ipaddress.ip_interface(args.network)
-            jump_prefix = ipaddress.ip_network(arg.ip)
+            jump_net = ipaddress.ip_network(arg.ip)
             rname = dns.name.from_text(arg.network[0].reverse_pointer)
         except ValueError:
             logging.debug(f"Failed to parse {args.network!r} as IP prefix, assuming DNS zone")
-            jump_prefix = None
+            jump_net = None
             rname = dns.name.from_text(args.network)
     else:
-        jump_prefix = ipaddress.ip_network(DEFAULT_NET6 if args.ipv6 else DEFAULT_NET)
+        jump_net = ipaddress.ip_network(DEFAULT_NET6 if args.ipv6 else DEFAULT_NET)
 
-    logging.debug(f"Jump target is [{jump_prefix}]")
+    logging.debug(f"Jump target is [{jump_net}]")
     logging.debug(f"Initial DNS name is <{rname}>")
     cname = chase_one_cname(rname)
     if cname != rname:
         logging.debug(f"Aliases followed to <{cname}>")
     zone = dns.resolver.zone_for_name(cname)
     logging.debug(f"Zone for <{cname}> is <{zone}>")
-    zone_prefix = prefix_for_zone(zone)
-    logging.debug(f"Zone prefix for <{zone}> is [{zone_prefix}]")
-    if zone_prefix != jump_prefix:
+    zone_net = prefix_for_zone(zone)
+    logging.debug(f"IP range for <{zone}> is [{zone_net}]")
+    if zone_net != jump_net:
         # Warn that input prefix was widened.
-        logging.warning(f"Editing zone <{zone}> for {zone_prefix}")
+        logging.warning(f"Editing zone <{zone}> for {zone_net}")
 
     real_suffix = zone
     fake_suffix = zone
     if zone.is_subdomain(dns.reversename.ipv4_reverse_domain):
-        if zone_prefix.prefixlen > 24:
+        if zone_net.prefixlen > 24:
             assert b"/" in zone.labels[0]
             fake_suffix = zone.parent()
             logging.debug(f"Derived classful zone is <{fake_suffix}>")
@@ -324,10 +324,10 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
 
         # Let `vireverse <addr>` open editor with the cursor at this location
         # (or the nearest line if the address is not in the zone yet).
-        if jump_prefix:
-            if addr in jump_prefix and not pref_line:
+        if jump_net:
+            if addr in jump_net and not pref_line:
                 pref_line = n_lines + 1
-            elif addr_diff(jump_prefix[0], addr) < addr_diff(jump_prefix[0], near_addr):
+            elif addr_diff(jump_net[0], addr) < addr_diff(jump_net[0], near_addr):
                 near_addr = addr
                 near_line = n_lines + 1
 
@@ -362,8 +362,8 @@ with open(edit_path, "r") as temp:
             parse_err = True
             continue
 
-        if zone_prefix and addr not in zone_prefix:
-            logging.error(f"error: {addr} is out of range for {zone_prefix}")
+        if zone_net and addr not in zone_net:
+            logging.error(f"error: {addr} is out of range for {zone_net}")
             logging.error(f"{edit_path}:{i}: {line}")
             parse_err = True
             continue

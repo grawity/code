@@ -212,9 +212,9 @@ if args.rpz:
     # If an interface was given, ignore nbits and treat it as /32 or /128.
     if args.network:
         arg = ipaddress.ip_interface(args.network)
-        prefix = ipaddress.ip_network(arg.ip)
+        jump_prefix = ipaddress.ip_network(arg.ip)
     else:
-        prefix = None
+        jump_prefix = None
     zone = RPZ_ZONE
     logging.info(f"Editing RPZ zone <{zone}>")
     zone_prefix = None
@@ -227,16 +227,16 @@ else:
         # but address/32 or address/128 as the jump target.
         try:
             arg = ipaddress.ip_interface(args.network)
-            prefix = ipaddress.ip_network(arg.ip)
+            jump_prefix = ipaddress.ip_network(arg.ip)
             rname = dns.name.from_text(arg.network[0].reverse_pointer)
         except ValueError:
             logging.debug(f"Failed to parse {args.network!r} as IP prefix, assuming DNS zone")
-            prefix = None
+            jump_prefix = None
             rname = dns.name.from_text(args.network)
     else:
-        prefix = ipaddress.ip_network(DEFAULT_NET6 if args.ipv6 else DEFAULT_NET)
+        jump_prefix = ipaddress.ip_network(DEFAULT_NET6 if args.ipv6 else DEFAULT_NET)
 
-    logging.debug(f"Jump target is [{prefix}]")
+    logging.debug(f"Jump target is [{jump_prefix}]")
     logging.debug(f"Initial DNS name is <{rname}>")
     cname = chase_one_cname(rname)
     if cname != rname:
@@ -245,7 +245,7 @@ else:
     logging.debug(f"Zone for <{cname}> is <{zone}>")
     zone_prefix = prefix_for_zone(zone)
     logging.debug(f"Zone prefix for <{zone}> is [{zone_prefix}]")
-    if zone_prefix != prefix:
+    if zone_prefix != jump_prefix:
         # Warn that input prefix was widened.
         logging.warning(f"Editing zone <{zone}> for {zone_prefix}")
 
@@ -324,10 +324,10 @@ with tempfile.NamedTemporaryFile("w", delete=False) as temp:
 
         # Let `vireverse <addr>` open editor with the cursor at this location
         # (or the nearest line if the address is not in the zone yet).
-        if prefix:
-            if addr in prefix and not pref_line:
+        if jump_prefix:
+            if addr in jump_prefix and not pref_line:
                 pref_line = n_lines + 1
-            elif addr_diff(prefix[0], addr) < addr_diff(prefix[0], near_addr):
+            elif addr_diff(jump_prefix[0], addr) < addr_diff(jump_prefix[0], near_addr):
                 near_addr = addr
                 near_line = n_lines + 1
 

@@ -192,7 +192,7 @@ parser.add_argument("-d", "--debug", action="count", default=0,
 parser.add_argument("-v", "--verbose", action="store_true",
                         help="show detailed information")
 parser.add_argument("network",
-                        help="IP prefix to edit the zone for",
+                        help="IP address to edit the zone for",
                         nargs="?")
 args = parser.parse_args()
 
@@ -201,11 +201,6 @@ logging.basicConfig(level=[logging.INFO, logging.DEBUG][args.verbose],
 
 if (args.ipv6 + args.rpz) > 1:
     exit(f"vireverse: options -6 and -R conflict")
-
-if args.ipv6 and args.network:
-    # The purpose of -6 is literally to act as an alias for one specific custom
-    # prefix, so it's mutually exclusive with actually specifying one.
-    exit(f"vireverse: -6 does nothing when IP address is specified")
 
 if args.rpz:
     # For RPZ, the prefix is only used to jump to the nearest line.

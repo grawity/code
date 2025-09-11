@@ -54,9 +54,12 @@ fi
 if (( !opt_openmap )); then
 	test -t 1 || vdie "not a tty"
 	ttysize=$(stty size) || vdie "not a tty"
-	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-4)}')
+	# Calculate image height (2 lines for old prompt + 3 for new)
+	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-5)}')
 
-	ttyheight=$[ ${ttysize% *} - 2 ]
+	# Scroll full terminal minus 2 lines for old prompt
+	# (+ 1 to account for starting below prompt)
+	ttyheight=$[${ttysize% *}-3]
 	printf "%*s" "$ttyheight" "" | tr " " '\n'
 	printf '\e[%sA' "$ttyheight"
 fi

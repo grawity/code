@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # rdp -- launch FreeRDP to make Remote Desktop connections
 import argparse
+import getpass
 import gi
 import logging
 import os
@@ -55,17 +56,22 @@ def resolve_fqdn(host):
     return res[0][3]
 
 def ask_credentials_zenity(host, title):
-    res = subprocess.run(["zenity",
-                          "--forms",
-                          "--title", "Enter credentials",
-                          "--text", "Enter credentials for %s:" % title,
-                          "--add-entry", "Username:",
-                          "--add-password", "Password:",
-                          "--separator", "\n"],
-                         stdout=subprocess.PIPE)
-    if res.stdout:
-        username, password, _ = res.stdout.decode().split("\n")
+    if sys.stdout.isatty():
+        username = input("Username: ")
+        password = getpass.getpass("Password: ")
         return username, password
+    else:
+        res = subprocess.run(["zenity",
+                              "--forms",
+                              "--title", "Enter credentials",
+                              "--text", "Enter credentials for %s:" % title,
+                              "--add-entry", "Username:",
+                              "--add-password", "Password:",
+                              "--separator", "\n"],
+                             stdout=subprocess.PIPE)
+        if res.stdout:
+            username, password, _ = res.stdout.decode().split("\n")
+            return username, password
     return None, None
 
 def ask_credentials(host):

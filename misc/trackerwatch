@@ -14,11 +14,11 @@ pids=(`pidof $proc`) || {
 
 #if (( ${#pids[@]} > 1 )); then
 
-sudo stdbuf -oL -- strace -p ${pids[0]} -e statx |&
+sudo stdbuf -oL -- strace -p ${pids[0]} -e statx,openat |&
 	perl -nE 'chomp;
 		($err) = /= -\d+ (E\w+) \(.+?\)$/;
 		$col = $err ? 91 : 93;
-		if(s/.*AT_FDCWD, "(.+?)", AT_STATX.*/$1/) {
+		if(s/.*AT_FDCWD, "(.+?)", AT_STATX.*/$1/ || s/openat.AT_FDCWD, "(.+)", O_.*/$1/) {
 			s/\\(\d{3})/chr oct $1/ge;
 			s!^(.+/)([^/]+)$!\033[${col}m$2\033[m \033[2m($1$2)\033[m!;
 			if (my $n = $seen{$&}++) { s/^/[$n] /; }

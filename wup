@@ -45,6 +45,12 @@ tmphost=${host#*://}
 tmphost=${tmphost%%/*}
 tmpbase=${XDG_CACHE_HOME:-"$HOME/.cache"}/wup_${tmphost}_${map%.wup}
 
+# Hardcode my shell prompt 'visible' height in PV, 'full' (visible + preceding
+# blanks/separators) in PF. Currently the height is 3 lines, with the 1st line
+# being blank so it can be safely scrolled out of view.
+export PV=2
+export PF=$[PV + 1]
+
 # If opted in to sixel, let chafa autodetect. Otherwise default to ANSI.
 if (( !opt_sixel )); then
 	chafa_fmtarg="--format=symbols"
@@ -54,12 +60,12 @@ fi
 if (( !opt_openmap )); then
 	test -t 1 || vdie "not a tty"
 	ttysize=$(stty size) || vdie "not a tty"
-	# Calculate image height (2 lines for old prompt + 3 for new)
-	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-5)}')
+	# Calculate image height (leaving space for old and new prompts)
+	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-ENV[PV]-ENV[PF])}')
 
-	# Scroll full terminal minus 2 lines for old prompt
-	# (+ 1 to account for starting below prompt)
-	ttyheight=$[${ttysize% *}-3]
+	# Scroll full terminal minus old prompt (and 1 extra line to account
+	# for already starting below prompt)
+	ttyheight=$[${ttysize% *}-(PV+1)]
 	printf "%*s" "$ttyheight" "" | tr " " '\n'
 	printf '\e[%sA' "$ttyheight"
 fi
@@ -82,6 +88,9 @@ if (( opt_openmap >= 2 )); then
 	exit
 fi
 
-# Display image and undo chafa's making of stdout non-blocking
+# Display image
+# --size will stretch, --view-size will only clamp
 chafa $chafa_fmtarg --dither=fs --colors=full --symbols=vhalf --size="$imgsize" "$imgtmp"
+
+# Undo chafa's making of stdout non-blocking
 perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'

@@ -45,12 +45,6 @@ tmphost=${host#*://}
 tmphost=${tmphost%%/*}
 tmpbase=${XDG_CACHE_HOME:-"$HOME/.cache"}/wup_${tmphost}_${map%.wup}
 
-# Hardcode my shell prompt 'visible' height in PV, 'full' (visible + preceding
-# blanks/separators) in PF. Currently the height is 3 lines, with the 1st line
-# being blank so it can be safely scrolled out of view.
-export PV=2
-export PF=$[PV + 1]
-
 # If opted in to sixel, let chafa autodetect. Otherwise default to ANSI.
 if (( !opt_sixel )); then
 	chafa_fmtarg="--format=symbols"
@@ -59,13 +53,21 @@ fi
 # Pre-scroll to avoid slow scrolling in Xterm
 if (( !opt_openmap )); then
 	test -t 1 || vdie "not a tty"
-	ttysize=$(stty size) || vdie "not a tty"
+
+	# Hardcode my shell prompt 'visible' height and 'total' height (visible
+	# + preceding blanks/separators). Currently the height is 3 lines, with
+	# the 1st line being blank so it can be safely scrolled out of view.
+	hvisible=2
+	htotal=3
+
 	# Calculate image height (leaving space for old and new prompts)
-	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-ENV[PV]-ENV[PF])}')
+	export PN=$[hvisible + htotal]
+	ttysize=$(stty size) || vdie "not a tty"
+	imgsize=$(echo "$ttysize" | awk '{print $2 "x" ($1-ENVIRON["PN"])}')
 
 	# Scroll full terminal minus old prompt (and 1 extra line to account
 	# for already starting below prompt)
-	ttyheight=$[${ttysize% *}-(PV+1)]
+	ttyheight=$[${ttysize% *}-(hvisible+1)]
 	printf "%*s" "$ttyheight" "" | tr " " '\n'
 	printf '\e[%sA' "$ttyheight"
 fi

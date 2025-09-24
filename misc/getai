@@ -27,6 +27,7 @@ args = parser.parse_args()
 # non-options by default, so we don't have to do anything special for that.
 
 service = "discard"
+flags = socket.AI_CANONNAME
 want_af = socket.AF_UNSPEC
 
 for host in args.hostname:
@@ -37,12 +38,16 @@ for host in args.hostname:
         want_af = socket.AF_INET6
         continue
 
-    r = socket.getaddrinfo(host, service, want_af, socket.SOCK_DGRAM)
+    r = socket.getaddrinfo(host, service, want_af, socket.SOCK_DGRAM, flags=flags)
     for r_af, r_type, r_proto, r_cname, r_addr in r:
+        if r_cname:
+            print("Canonical name:", r_cname)
+
         if r_af == socket.AF_INET:
             addr_str = "{host: %r, port: %r}" % r_addr
         elif r_af == socket.AF_INET6:
             addr_str = "{host: %r, port: %r, flow: %r, scope: %r}" % r_addr
         else:
             addr_str = repr(r_addr)
+
         print(name(r_af, "AF"), addr_str)

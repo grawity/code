@@ -1,0 +1,12 @@
+#!/bin/bash
+# chafa -- wrapper to fix stdout
+#
+# Chafa 1.16.2 sets stdin to nonblocking mode, breaking 'read' or 'head'. Bash
+# fixes that automatically upon returning to interactive prompt, but it still
+# causes problems for scripts, so undo it manually.
+#
+# This should be fixed in the next release.
+
+/bin/chafa "$@"
+
+perl -MFcntl -e 'fcntl(STDIN, F_SETFL, fcntl(STDIN, F_GETFL, 0) & ~O_NONBLOCK)'

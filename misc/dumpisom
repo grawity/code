@@ -43,20 +43,25 @@ def str_brand(brand):
     return f"<{fstr}> {name}"
 
 class IsomReader(BinaryReader):
-    def read_chunk(self):
+    def read_chunk_header(self):
         size = self.read_u32_be()
         tag = self.read(4)
         if size == 1:
             size = self.read_u32_be() << 32
             size |= self.read_u32_be()
         assert size >= 8
-        value = self.read(size - 8)
+        return tag, size-8
+
+    def read_chunk(self):
+        tag, size = self.read_chunk_header()
+        value = self.read(size)
         print(f"Chunk: {size=}, {tag=}, {value[:100]=}")
-        return tag, size, value
+        return tag, value
 
     def read_ftyp(self):
-        tag, size, value = self.read_chunk()
-        if tag == b'ftyp':
+        tag, size = self.read_chunk_header()
+        if tag == b"ftyp":
+            value = self.read(size)
             br = BinaryReader(value)
             brand = br.read(4)
             print("Major brand:", str_brand(brand))
@@ -64,6 +69,8 @@ class IsomReader(BinaryReader):
             while br.tell() < size-8:
                 brand = br.read(4)
                 print("Compatible brand:", str_brand(brand))
+        else:
+            raise ValueError(f"unexpected chunk (wanted ftyp, got {tag!r}")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("file",

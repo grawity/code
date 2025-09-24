@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # dumpisom -- show the type of an ISO Media file
+#
+# Also useful: fq '.boxes[0]|d' $file
+
 import argparse
 import os
 import sys
@@ -7,15 +10,37 @@ import sys
 sys.path.append("/usr/local/nullroute")
 from n.io.base import BinaryReader
 
+# https://mp4ra.org/registered-types/brands
 BRANDS = {
-    # https://mp4ra.org/registered-types/brands
     b"M4A ": "Apple iTunes AAC-LC (.M4A) Audio",
     b"iso2": "ISO Base Media v2 [ISO 14496-12:2005]",
     b"isom": "ISO Base Media v1 [IS0 14496-12:2003]",
 
-    b"mif1": "Image file format structural brand [ISO 23008-12 \"HEIF\"]",
+    # Seen in HEIF files
     b"heic": "HEVC image file [ISO 23008-12 \"HEIF\"]",
+    b"mif1": "Image file format structural brand [ISO 23008-12 \"HEIF\"]",
+    b"msf1": "Image sequence file format structural brand [ISO 23008-12 \"HEIF\"]",
+
+    # MIAF is a subset profile of HEIF, also used for AVIF
+    b"miaf": "ISO Multi-Image Application Format (MIAF) [ISO 23000-22:2019]",
+    b"MiAn": "ISO MIAF - animation [ISO 23000-22:2019]",
+    b"MiBu": "ISO MIAF - burst capture [ISO 23000-22:2019]",
+    b"MiPr": "ISO MIAF - progressive decoding and rendering [ISO 23000-22:2019]",
+    b"MiHB": "ISO MIAF - HEVC Basic Profile [ISO 23000-22:2019]",
+    b"MiHA": "ISO MIAF - HEVC Advanced Profile [ISO 23000-22:2019]",
+    b"MiHE": "ISO MIAF - HEVC Extended Profile [ISO 23000-22:2019]",
+
+    # https://aomediacodec.github.io/av1-avif/#brands
+    b"avif": "AV1 (AVIF) image",
+    b"avis": "AV1 (AVIF) image sequence",
+    b"MA1B": "ISO MIAF - AVIF Baseline Profile [AOM]",
+    b"MA1A": "ISO MIAF - AVIF Advanced Profile [AOM]",
 }
+
+def str_brand(brand):
+    fstr = str(brand).removeprefix("b")
+    name = BRANDS.get(brand, "unknown")
+    return f"<{fstr}> {name}"
 
 class IsomReader(BinaryReader):
     def read_chunk(self):
@@ -34,11 +59,11 @@ class IsomReader(BinaryReader):
         if tag == b'ftyp':
             br = BinaryReader(value)
             brand = br.read(4)
-            print("Major brand:", brand, BRANDS.get(brand))
+            print("Major brand:", str_brand(brand))
             print("Major brand version:", hex(br.read_u32_be()))
             while br.tell() < size-8:
                 brand = br.read(4)
-                print("Compatible brand:", brand, BRANDS.get(brand))
+                print("Compatible brand:", str_brand(brand))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("file",

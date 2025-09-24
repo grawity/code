@@ -1,7 +1,32 @@
 #!/bin/bash
 # imgrgb -- display image in terminal
 
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-s] <file>"
+	echo
+	echo_opt "-s" "stretch image to terminal size"
+}
+
+opt_stretch=0
+
+while getopts :s OPT; do
+	case $OPT in
+	s) opt_stretch=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
 # Give space for 1 original command line + 3 new prompt lines
 size=$(stty size | awk '{print $2 "x" ($1-4)}')
 
-chafa --symbols=vhalf --size="$size" "$@"
+args=(--symbols="vhalf")
+
+if (( opt_stretch )); then
+	args+=(--size="$size")
+else
+	args+=(--view-size="$size")
+fi
+
+chafa "${args[@]}" "$@"

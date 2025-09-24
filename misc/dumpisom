@@ -26,7 +26,11 @@ class IsomReader(BinaryReader):
             size |= self.read_u32_be()
         assert size >= 8
         value = self.read(size - 8)
-        print(f"{size=}, {tag=}, {value[:100]=}")
+        print(f"Chunk: {size=}, {tag=}, {value[:100]=}")
+        return tag, size, value
+
+    def read_ftyp(self):
+        tag, size, value = self.read_chunk()
         if tag == b'ftyp':
             br = BinaryReader(value)
             brand = br.read(4)
@@ -43,7 +47,10 @@ args = parser.parse_args()
 
 with open(args.file, "rb") as fh:
     br = IsomReader(fh)
-    if br.read(4) == b'RIFF':
+    # Detect other chunk-based formats.
+    if br.read(4) == b"RIFF":
         exit("dumpisom: this is a RIFF file, not an ISO Media file: %s" % args.file)
+    if br.read(4) != b"ftyp":
+        exit("dumpisom: not an ISO Media file (first chunk is not ftyp): %s" % args.file)
     br.seek(0)
-    br.read_chunk()
+    br.read_ftyp()

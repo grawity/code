@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+# dumpisom -- show the type of an ISO Media file
+import argparse
+import os
+import sys
+
+sys.path.append("/usr/local/nullroute")
+from n.io.base import BinaryReader
+
+BRANDS = {
+    # https://mp4ra.org/registered-types/brands
+    b"M4A ": "Apple iTunes AAC-LC (.M4A) Audio",
+    b"iso2": "ISO Base Media v2 [ISO 14496-12:2005]",
+    b"isom": "ISO Base Media v1 [IS0 14496-12:2003]",
+
+    b"mif1": "Image file format structural brand [ISO 23008-12 \"HEIF\"]",
+    b"heic": "HEVC image file [ISO 23008-12 \"HEIF\"]",
+}
+
+class IsomReader(BinaryReader):
+    def read_chunk(self):
+        size = self.read_u32_be()
+        tag = self.read(4)
+        if size == 1:
+            size = self.read_u32_be() << 32
+            size |= self.read_u32_be()
+        assert size >= 8
+        value = self.read(size - 8)
+        print(f"{size=}, {tag=}, {value[:100]=}")
+        if tag == b'ftyp':
+            br = BinaryReader(value)
+            brand = br.read(4)
+            print("Major brand:", brand, BRANDS.get(brand))
+            print("Major brand version:", hex(br.read_u32_be()))
+            while br.tell() < size-8:
+                brand = br.read(4)
+                print("Compatible brand:", brand, BRANDS.get(brand))
+
+parser = argparse.ArgumentParser()
+parser.add_argument("file",
+                        help="file to dump")
+args = parser.parse_args()
+
+with open(args.file, "rb") as fh:
+    br = IsomReader(fh)
+    if br.read(4) == b'RIFF':
+        exit("dumpisom: this is a RIFF file, not an ISO Media file: %s" % args.file)
+    br.seek(0)
+    br.read_chunk()

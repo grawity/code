@@ -1,5 +1,5 @@
 #!bash
-# kc.sh - Kerberos credential cache juggler (wrapper script)
+# kc.sh -- Kerberos credential cache juggler (wrapper script)
 #
 # Must be sourced (ie. from bashrc) in order for cache switching to work.
 

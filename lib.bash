@@ -1,5 +1,5 @@
 # vim: ft=sh
-# lib.bash - a few very basic functions for bash cripts
+# lib.bash -- common shell script functions
 
 if [[ ${__LIBROOT-} ]]; then
 	return

@@ -7,8 +7,8 @@ usage() {
 	echo "Usage: $progname [-S] [-L] [mapname]"
 	echo
 	echo_opt "-S" "output plain ANSI instead of SIXEL"
-	echo_opt "-o" "open map page via browser instead"
-	echo_opt "-oo" "open map via image viewer instead"
+	echo_opt "-o" "open map via image viewer"
+	echo_opt "-oo" "open map page via browser"
 	echo_opt "-L" "use LITNET map server instead of Dunelab"
 }
 
@@ -78,7 +78,7 @@ fi
 
 # Find and download the map
 mapurl="$host/map.asp?map=$map"
-if (( opt_openmap == 1 )); then
+if (( opt_openmap >= 2 )); then
 	xdg-open "$mapurl"
 	exit
 fi
@@ -89,7 +89,7 @@ imgurl="$host/$imgurl"
 rm -f "$maptmp"
 imgtmp=$tmpbase.jpg
 curl -nfsS "$imgurl" -o "$imgtmp" || vdie "could not fetch '$imgurl'"
-if (( opt_openmap >= 2 )); then
+if (( opt_openmap )); then
 	xdg-open "$imgtmp"
 	exit
 fi

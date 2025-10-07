@@ -35,7 +35,7 @@ if [[ ! $_SSH_PKCS11_MOD ]]; then
 	if (( do_add || do_del )); then
 		if [[ $SSH_AUTH_SOCK == "$XDG_RUNTIME_DIR"/ssh-tpm-agent.sock* ]]; then
 			# work around go-ssh-agent rejecting the operations
-			SSH_AUTH_SOCK=$(ps -u $UID -C ssh-tpm-agent -o cmd= | sed -En 's/.*-A ([^ ]*)( .*)?/\1/p')
+			SSH_AUTH_SOCK=$(pgrep -U $UID -x ssh-tpm-agent -a | sed -En 's/.*-A ([^ ]*)( .*)?/\1/p')
 			vmsg "using socket $SSH_AUTH_SOCK instead"
 		fi
 		if (( do_del )); then

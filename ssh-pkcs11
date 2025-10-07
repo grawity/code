@@ -33,9 +33,9 @@ if [[ ! $_SSH_PKCS11_MOD ]]; then
 		vdie "could not find PKCS#11 library '$lib'"
 	fi
 	if (( do_add || do_del )); then
-		if [[ $SSH_AUTH_SOCK == "$XDG_RUNTIME_DIR"/ssh-tpm-agent.socket ]]; then
+		if [[ $SSH_AUTH_SOCK == "$XDG_RUNTIME_DIR"/ssh-tpm-agent.sock* ]]; then
 			# work around go-ssh-agent rejecting the operations
-			SSH_AUTH_SOCK=$(ps -C ssh-tpm-agent -o cmd= | sed -En 's/.*-A ([^ ]*)( .*)?/\1/p')
+			SSH_AUTH_SOCK=$(ps -u $UID -C ssh-tpm-agent -o cmd= | sed -En 's/.*-A ([^ ]*)( .*)?/\1/p')
 			vmsg "using socket $SSH_AUTH_SOCK instead"
 		fi
 		if (( do_del )); then

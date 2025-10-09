@@ -48,7 +48,7 @@ def br_enum_sections(br):
     _ = br.read(opthdr_size)
     # Section Table
     for i in range(num_sections):
-        section_name = br.read(8).rstrip(b'\0')
+        section_name = br.read(8).rstrip(b"\0")
         virtual_size = br.read_u32_le()
         virtual_addr = br.read_u32_le()
         section_size = br.read_u32_le()
@@ -58,6 +58,17 @@ def br_enum_sections(br):
         num_relocs = br.read_u16_le()
         num_linenums = br.read_u16_le()
         characteristics = br.read_u32_le()
+        # Section names longer than 8 bytes are stored as pointers into the
+        # symbol table. Note that num_symbols will be 0 as COFF symbols are
+        # generally unused for other purposes.
+        if symtab_offset and section_name.startswith(b"/"):
+            sym_offset = int(section_name[1:])
+            prev_pos = br.tell()
+            br.seek(symtab_offset + sym_offset)
+            # The symbol table is optimized for memory-mapped usage, so it just
+            # consists of null-terminated strings.
+            section_name = br.read(32).split(b"\0")[0]
+            br.seek(prev_pos)
         yield (section_name,
                section_offset,
                min(section_size, virtual_size))

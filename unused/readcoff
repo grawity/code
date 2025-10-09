@@ -23,54 +23,61 @@ class CoffImageFileType(IntEnum):
     Sh4 = 0x1a6
     Thumb = 0x1c2
 
-def read_coff_section(file, want_section):
-    found_size = None
-    found_offset = None
+def br_enum_sections(br):
+    br.seek(0)
+    # MS-DOS stub and PE signature
+    dos_stub = br.read(0x3c)
+    if dos_stub[0:2] != b'MZ':
+        raise ValueError("File does not start with MS-DOS MZ magic")
+    pe_offset = br.read_u16_le()
+    br.seek(pe_offset)
+    pe_sig = br.read(4)
+    if pe_sig != b'PE\0\0':
+        raise ValueError("File does not contain PE signature")
+    # COFF header
+    target_machine = br.read_u16_le()
+    num_sections = br.read_u16_le()
+    time_date = br.read_u32_le()
+    symtab_offset = br.read_u32_le()
+    num_symbols = br.read_u32_le()
+    opthdr_size = br.read_u16_le()
+    characteristics = br.read_u16_le()
+    #target_machine = CoffImageFileType(target_machine)
+    #print(target_machine)
+    # Optional PE32 Header
+    _ = br.read(opthdr_size)
+    # Section Table
+    for i in range(num_sections):
+        section_name = br.read(8).rstrip(b'\0')
+        virtual_size = br.read_u32_le()
+        virtual_addr = br.read_u32_le()
+        section_size = br.read_u32_le()
+        section_offset = br.read_u32_le()
+        relocs_offset = br.read_u32_le()
+        linenums_offset = br.read_u32_le()
+        num_relocs = br.read_u16_le()
+        num_linenums = br.read_u16_le()
+        characteristics = br.read_u32_le()
+        yield (section_name,
+               section_offset,
+               min(section_size, virtual_size))
+
+def read_coff_section(file, wanted_section):
     with open(file, "rb") as fh:
         br = BinaryReader(fh)
-        # MS-DOS stub and PE signature
-        dos_stub = br.read(0x3c)
-        if dos_stub[0:2] != b'MZ':
-            raise ValueError("File does not start with MS-DOS MZ magic")
-        pe_offset = br.read_u16_le()
-        br.seek(pe_offset)
-        pe_sig = br.read(4)
-        if pe_sig != b'PE\0\0':
-            raise ValueError("File does not contain PE signature")
-        # COFF header
-        target_machine = br.read_u16_le()
-        num_sections = br.read_u16_le()
-        time_date = br.read_u32_le()
-        symtab_offset = br.read_u32_le()
-        num_symbols = br.read_u32_le()
-        opthdr_size = br.read_u16_le()
-        characteristics = br.read_u16_le()
-        #target_machine = CoffImageFileType(target_machine)
-        #print(target_machine)
-        # Optional PE32 Header
-        _ = br.read(opthdr_size)
-        # Section Table
-        for i in range(num_sections):
-            section_name = br.read(8).rstrip(b'\0')
-            virtual_size = br.read_u32_le()
-            virtual_addr = br.read_u32_le()
-            section_size = br.read_u32_le()
-            section_offset = br.read_u32_le()
-            relocs_offset = br.read_u32_le()
-            linenums_offset = br.read_u32_le()
-            num_relocs = br.read_u16_le()
-            num_linenums = br.read_u16_le()
-            characteristics = br.read_u32_le()
-            if want_section is None:
-                print(section_name.decode())
-            elif section_name == want_section.encode():
-                found_size = min(section_size, virtual_size)
-                found_offset = section_offset
-        if want_section:
-            # The section
-            br.seek(found_offset)
-            data = br.read(found_size)
-            return data
+        sections = {}
+        for name, offset, size in br_enum_sections(br):
+            name = name.decode()
+            sections[name] = (offset, size)
+            if not wanted_section:
+                print(name)
+        if wanted_section:
+            if wanted_section in sections:
+                offset, size = sections[wanted_section]
+                br.seek(offset)
+                return br.read(size)
+            else:
+                raise KeyError("section %r not found" % wanted_section)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-o", "--output", metavar="PATH",

@@ -54,7 +54,15 @@ for arg; do
 		--help)
 			usage; exit 0;;
 		-a)
-			hosts+=" ${groups[*]}";;
+			set -f
+			next=(${groups[*]})
+			set +f
+			for host in "${next[@]}"; do
+				case $host in
+				@*)	;;
+				*)	hosts+=" $host";;
+				esac
+			done;;
 		-l)
 			for group in "${!groups[@]}"; do
 				echo "$group = ${groups[$group]}"
@@ -70,10 +78,8 @@ for arg; do
 			set +f
 			for host in "${next[@]}"; do
 				case $host in
-				@*)
-					hosts+=" $(rlisthosts "$host")";;
-				*)
-					hosts+=" $host";;
+				@*)	hosts+=" $(rlisthosts "$host")";;
+				*)	hosts+=" $host";;
 				esac
 			done;;
 		*)

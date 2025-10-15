@@ -155,6 +155,9 @@ parser.add_argument("-g", "--dimensions", metavar="WxH",
 parser.add_argument("--no-gfx",
                         action="store_true",
                         help="disable support for RDP8 \"Graphics Pipeline\"")
+parser.add_argument("-m", "--modem",
+                        action="count", default=0,
+                        help="set legacy \"network connection type\"")
 parser.add_argument("--dev",
                         action="store_true",
                         help="use local FreeRDP build if available")
@@ -241,14 +244,18 @@ cmd.append("/network:auto")
 if args.no_gfx:
     cmd.append("/gfx:progressive:off,RFX:off,AVC420:off,AVC444:off")
 
-#cmd.append("/bpp:32")
-#cmd.append("+fonts")
-#cmd.append("+aero")
-#cmd.append("+window-drag")
-#cmd.append("+wallpaper")
-#cmd.append("+multitouch")
+if args.modem:
+    cmd.append("/network:modem")
+    cmd.append("/bpp:8" if args.modem >= 2 else "/bpp:16")
+else:
+    #cmd.append("/bpp:32")
+    #cmd.append("+fonts")
+    #cmd.append("+aero")
+    #cmd.append("+window-drag")
+    #cmd.append("+wallpaper")
+    #cmd.append("+multitouch")
+    cmd.append("/sound:sys:pulse")
 
-cmd.append("/sound:sys:pulse")
 cmd.append("+clipboard")
 #cmd.append("+home-drive")
 #cmd.append("/drive:media,/run/media/%s" % os.getlogin())
@@ -268,7 +275,9 @@ else:
     cmd.append("/f")
     cmd.append("+floatbar")
 
-if not args.verbose:
+if args.verbose:
+    cmd.append("/log-level:DEBUG")
+else:
     cmd.append("/log-level:WARN")
 
 logging.debug("running with options: %s", argv_join(argv_hide_password(cmd)))

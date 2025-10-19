@@ -1,36 +1,15 @@
 #!/usr/bin/env bash
 # darkmode -- Toggle between light/dark mode in GNOME
 
-setbacklight() {
-	local light_mode=$1
-
-	case $HOSTNAME in
-		midnight)
-			local hi=3043 lo=743 dev=intel_backlight;;
-		*)
-			return;;
-	esac
-
-	local path=/sys/class/backlight/${dev?}/brightness
-	local current=$(< $path)
-	if (( light_mode && current < hi )); then
-		sudo sh -c "echo $hi > $path"
-	elif (( !light_mode && current > lo )); then
-		sudo sh -c "echo $lo > $path"
-	fi
-}
-
 schema=org.gnome.desktop.interface
 key=color-scheme
 value="'prefer-dark'"
 
 case $(gsettings get $schema $key) in
 	"$value")
-		setbacklight 1 &
 		gsettings reset $schema $key
 		text=disabled;;
 	*)
-		setbacklight 0 &
 		gsettings set $schema $key "$value"
 		text=enabled;;
 esac

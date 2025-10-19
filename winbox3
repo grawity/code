@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# winbox3 -- launcher for Mikrotik WinBox 3.x
+
+: ${WINBOX_HOME:="$HOME/.winbox"}
+
+export WINEPREFIX="$WINBOX_HOME/wine"
+export WINEARCH=win64
+export WINEDLLOVERRIDES="mscoree,mshtml="
+export WINEDEBUG=-all
+
+echo "${0##*/}: using Wine prefix $WINEPREFIX"
+
+if [ ! -d "$WINEPREFIX" ]; then
+	wineboot -u
+fi
+
+#mkdir -p "$WINEPREFIX/drive_c/windows/Fonts"
+#cp -u /usr/share/fonts/TTF/tahoma{,bd}.ttf "${WINEPREFIX}/drive_c/windows/Fonts/"
+
+# Windows does practically no antialiasing in "grayscale" mode, and Wine emulates that.
+if [ ! -s ~/.Xdefaults-$HOSTNAME ]; then
+	echo "! Hack to trick Wine into using ClearType" >> ~/.Xdefaults-$HOSTNAME
+	echo "Xft.rgba: rgb" >> ~/.Xdefaults-$HOSTNAME
+fi
+
+# This now seems to be necessary to make Wine honor 'Xft.rgba' at all.
+wine reg add 'HKCU\Software\Wine\X11 Driver' /v ClientSideWithRender /t REG_SZ /d Y /f
+wine reg query 'HKCU\Software\Wine\X11 Driver' /v ClientSideWithRender
+#tput rmkx
+
+if [ "$1" = -c ]; then
+	winecfg
+else
+	wine /usr/share/winbox3/winbox.exe "$@"
+fi

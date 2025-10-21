@@ -50,10 +50,12 @@ checkdb() {
 }
 
 checkspeed() {
-	local base=$1 url=$2 pkg=$3
+	local base=$1 baseurl=$2 pkg=$3
 	local result
+	local url=$baseurl/$pkg
 
-	result=$(timeout --foreground 30s wget -e quiet=Off -O /dev/null "$url/$pkg" 2>&1); r=$?
+	echo "Testing $url"
+	result=$(timeout --foreground 30s wget -e quiet=Off -O /dev/null "$url" 2>&1); r=$?
 
 	if (( ! r )); then
 		info "speed: $(echo "$result" | tail -1 | awk '{print $3, $4}')"
@@ -68,7 +70,7 @@ opt_speed=0
 
 while getopts ":w" OPT; do
 	case $OPT in
-	w) opt_speed=1;;
+	w) let ++opt_speed;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -76,7 +78,14 @@ done; shift $((OPTIND-1))
 repo=extra
 arch=`uname -m`
 now=`date +%s`
-linux=`expac -S %f $repo/linux`
+
+if (( opt_speed >= 2 )); then
+	bigpkg=texlive-fontsextra
+else
+	repo=core
+	bigpkg=linux
+fi
+bigpkgurl=`expac -S %f $repo/$bigpkg`
 
 re='^#? *Server *= *(.+)'
 
@@ -91,7 +100,7 @@ while read -r line; do
 		checklast "$base" update &&
 		checkdb "$base" "$url" &&
 		if (( opt_speed )); then
-			checkspeed "$base" "$url" "$linux"
+			checkspeed "$base" "$url" "$bigpkgurl"
 		fi
 	elif [[ $line == \#* ]]; then
 		printf '\e[2m%s\e[m\n' "$line"

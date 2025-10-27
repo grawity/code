@@ -47,10 +47,21 @@ for pkg; do
 		pkg=$pkgbase
 	fi
 
-	pkgrepo=${pkg//+/-}
+	# Convert to a repository name per GitLab rules
+	pkgrepo=$(sed -E '
+			s/([a-zA-Z0-9]+)\+([a-zA-Z]+)/\1-\2/g;
+			s/\+/plus/g;
+			s/[^a-zA-Z0-9_\-\.]/-/g;
+			s/[_\-]{2,}/-/g;
+			s/^tree$/unix-tree/g;
+		' <<< "$pkg")
+	if [[ "$pkgrepo" != "$pkg" ]]; then
+		vmsg "using '$pkgrepo' as repository name for '$pkgbase'"
+		pkg=$pkgrepo
+	fi
 
 	dir="$basedir/$pkg"
-	url="https://gitlab.archlinux.org/archlinux/packaging/packages/$pkgrepo.git"
+	url="https://gitlab.archlinux.org/archlinux/packaging/packages/$pkg.git"
 
 	# Update the repository
 	if [[ ! -d $dir ]]; then

@@ -34,6 +34,9 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 		file=$(mktemp "/tmp/sprunge.$(filename)")
 	fi
 
+	dstname=$(basename "$file")
+	dstname=${dstname#sprunge.}
+
 	if [ ! "$1" ] && [ -t 0 ] && psel -q &> /dev/null; then
 		psel > "$file"
 	else
@@ -51,7 +54,7 @@ if [ ! "$1" ] || [ "$*" = "-" ]; then
 	fi
 
 	if [ -s "$file" ]; then
-		post "$file" "$(basename "$file" | sed 's/^sprunge\.//')"
+		post "$file" "$dstname"
 		if [ ! -d "$cache" ]; then
 			rm -f "$file"
 		fi

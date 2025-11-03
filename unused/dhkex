@@ -55,10 +55,11 @@ curve_name = nil
 default_curve = "prime256v1"
 my_private_str = nil
 other_public_str = nil
+show_private = false
 ask_my_private = false
 ask_other_public = true
 secret_file = nil
-show_private = false
+use_hkdf = true
 
 OptionParser.new do |opts|
     opts.banner = "Usage: dhkex [options]"
@@ -134,18 +135,30 @@ other_public_point = OpenSSL::PKey::EC::Point.new(my_pkey.group, other_public_bn
 
 # compute shared secret
 
-secret = my_pkey.dh_compute_key(other_public_point)
-length = "#{secret.length * 8} bits"
+ikm = my_pkey.dh_compute_key(other_public_point)
+nbits = ikm.length * 8
+
+if use_hkdf
+    secret = OpenSSL::KDF.hkdf(ikm, salt: "",
+                                    info: "",
+                                    # all the usual curves "offer n/2 bits of
+                                    # security" so this seems appropriate
+                                    length: ikm.length / 2,
+                                    hash: OpenSSL::Digest::SHA256.new)
+    nbits = secret.length * 8
+    puts "\e[2musing HKDF-SHA256 to derive shared secret from DH result\e[m"
+else
+    secret = ikm
+    puts "\e[1mnote: DH result should never be used raw, only as input to a hash or HKDF\e[m"
+end
+
 if secret_file
     File.open(secret_file, "wb") do |f|
         f.write(secret)
     end
-    puts "shared secret (#{length}) written to \"#{secret_file}\""
+    puts "shared secret (#{nbits} bits) written to \"#{secret_file}\""
 else
-    puts "shared secret (#{length}): " + color(Base64.strict_encode64(secret), "36")
+    puts "shared secret (#{nbits} bits): " + color(Base64.strict_encode64(secret), "36")
 end
-puts "note: shared secret should never be used raw, only as input to a hash or a KDF"
-secret_hash = OpenSSL::Digest::SHA256.digest(secret)
-puts "hash of secret: " + color(buf_to_hex(secret_hash), "33")
 
 # vim: ts=4:sw=4:et

@@ -118,7 +118,11 @@ for file; do
 		else
 			openssl x509 -noout -text -certopt no_sigdump $arg < "$file"
 		fi |
-		awk '/Exponent:/ {m=0} !m {print} /Modulus:/ {m=1}' |
+		awk '
+			/Exponent:|X509v3 extensions:/ {m=0}
+			!m {print}
+			/Modulus:|Public-Key:/ {m=1}
+		' |
 		highlight '/^Certificate/'
 		;;
 	nsscertutil)

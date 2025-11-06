@@ -14,7 +14,7 @@
 # Accepts '@foo' symlinks (hostname in argv[0]) like ssh/rsh.
 #
 # Kind of inspired by the SunOS /tmp story from:
-# https://www-uxsup.csx.cam.ac.uk/misc/horror.txt
+# http://web.archive.org/web/20160114202623id_/http://www-uxsup.csx.cam.ac.uk/misc/horror.txt
 #
 # Apparently the 'on' command did indeed exist:
 # http://www.bitsavers.org/pdf/sun/sunos/3.4/800-1295-04A_Commands_Reference_Manual_198609.pdf#page=290
@@ -54,7 +54,7 @@ usage() {
 
 arg0=${0##*/}
 wd=$PWD
-nfsmode=KEEP
+nfsmode=MapLocalToTarget
 host=""
 user=""
 Kflag=""
@@ -67,15 +67,15 @@ if [[ $1 == --help ]]; then
 	usage; exit
 elif [[ $arg0 == 'on' && $1 == [!-]* ]]; then
 	host=$1; shift
-	nfsmode=USE
+	nfsmode=MapLocalToNet
 elif [[ $arg0 == 'on' ]]; then
-	nfsmode=USE
+	nfsmode=MapLocalToNet
 elif [[ $arg0 == '@'?* ]]; then
 	host=${arg0#@}
-	nfsmode=STRIP
+	nfsmode=AlwaysMapToTarget
 elif [[ $arg0 == '@' && $1 == [!-]* ]]; then
 	host=$1; shift
-	nfsmode=STRIP
+	nfsmode=AlwaysMapToTarget
 elif [[ $arg0 != @('@'|'on') ]]; then
 	host=$arg0
 	wd=""
@@ -84,13 +84,13 @@ fi
 while getopts ":C:d:HKLNRSvxX" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
-	C) nfsmode=KEEP; wd=$OPTARG;;
-	d) nfsmode=KEEP; wd=$OPTARG;;
-	H) nfsmode=KEEP; wd=".";;
+	C) nfsmode=MapLocalToTarget; wd=$OPTARG;;
+	d) nfsmode=MapLocalToTarget; wd=$OPTARG;;
+	H) nfsmode=MapLocalToTarget; wd=".";;
 	K) Kflag="-K -Snone";;
-	L) nfsmode=USE;;	# default 'on' behavior
-	N) nfsmode=KEEP;;
-	R) nfsmode=STRIP;;	# default '@' behavior
+	L) nfsmode=MapLocalToNet;;	# default 'on' behavior
+	N) nfsmode=MapLocalToTarget;;
+	R) nfsmode=AlwaysMapToTarget;;	# default '@' behavior
 	S) user="root@";;
 	v) verbose=1;;
 	x) excomm=1;;
@@ -114,7 +114,7 @@ fi
 # Translate the local working directory
 
 case $nfsmode in
-	USE)
+	MapLocalToNet)
 		# 'on <host>' mode (-L)
 		#
 		# Always add /net/$CLIENT (unless already on /net/$OTHER)
@@ -140,7 +140,7 @@ case $nfsmode in
 			lib:crash "-L with relative paths not implemented"
 		fi
 		;;
-	KEEP)
+	MapLocalToTarget)
 		# Partial-'@' mode (-N), also implied by '-C <path>'
 		#
 		# Keep the path intact (map local 1:1 to target; /net/$OTHER
@@ -156,7 +156,7 @@ case $nfsmode in
 			shopt -u extglob
 		fi
 		;;
-	STRIP)
+	AlwaysMapToTarget)
 		# '@<host>' mode (-R), also '<host>' (-D)
 		#
 		# Always strip /net/* (including /net/$OTHER) and access the

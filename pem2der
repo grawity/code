@@ -22,6 +22,9 @@ def decode_pem(buf):
     return base64.b64decode(res[1])
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-x", "--trash",
+                        action="store_true",
+                        help="remove inputs after successful conversion")
 parser.add_argument("file",
                         nargs="+",
                         help="input .pem file")
@@ -44,5 +47,5 @@ for inarg in args.file:
         with open(outarg, "wb") as fh:
             fh.write(buf)
             print(f"pem2der: wrote {outarg!r}")
-    if len(certs):
+    if len(certs) and args.trash:
         subprocess.run(["trash", inarg])

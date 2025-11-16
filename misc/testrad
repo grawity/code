@@ -200,6 +200,13 @@ load_conf() {
 	fi
 }
 
+vargs() {
+	local argc=$1 min=$2
+	if (( argc < min )); then
+		die "not enough arguments"
+	fi
+}
+
 parse_args() {
 	debug "current load type '$type', name '$name'"
 	while (( $# )); do
@@ -217,11 +224,11 @@ parse_args() {
 			-4|-6)
 				ip_version=${1#-};;
 			-o)
-				ecfg_extra+=("$2"); shift;;
+				vargs $# 2; ecfg_extra+=("$2"); shift;;
 			-O)
-				save_chain=$2; shift;;
+				vargs $# 2; save_chain=$2; shift;;
 			-x)
-				eapol_bin=$2; shift;;
+				vargs $# 2; eapol_bin=$2; shift;;
 			help)
 				help "$2"; ((!errors)); exit;;
 			show-config)
@@ -231,15 +238,15 @@ parse_args() {
 				if [[ $type == server ]]; then
 					die "cannot nest profile in server configuration"
 				fi
-				load_conf profile "$2"; shift;;
+				vargs $# 2; load_conf profile "$2"; shift;;
 			via)
-				load_conf server "$2"; shift;;
+				vargs $# 2; load_conf server "$2"; shift;;
 			host)
-				host=$2; shift;;
+				vargs $# 2; host=$2; shift;;
 			port)
-				port=$2; shift;;
+				vargs $# 2; port=$2; shift;;
 			proto)
-				case $2 in
+				vargs $# 2; case $2 in
 				    any) ip_version="";;
 				   [46]) ip_version=$2;;
 				 ip[46]) ip_version=${2#ip};;
@@ -247,39 +254,39 @@ parse_args() {
 				*) die "invalid IP protocol version '$2'";;
 				esac; shift;;
 			secret)
-				secret=$2; shift;;
+				vargs $# 2; secret=$2; shift;;
 			# mechanism choice
 			eap|inside|phase1)
-				eap=$2; shift;;
+				vargs $# 2; eap=$2; shift;;
 			mech|using|phase2)
-				mech=$2; shift;;
+				vargs $# 2; mech=$2; shift;;
 			# main (inner) identity
 			user|username|identity|login|inner-user|inner-identity|inner-login)
-				identity=$2; : ${password:="-"}; shift;;
+				vargs $# 2; identity=$2; : ${password:="-"}; shift;;
 			pass|password)
-				password=$2; shift;;
+				vargs $# 2; password=$2; shift;;
 			cert|tls-cert)
-				tls_cert=$2; shift;;
+				vargs $# 2; tls_cert=$2; shift;;
 			key|tls-key)
-				tls_key=$2; shift;;
+				vargs $# 2; tls_key=$2; shift;;
 			ca|tls-ca|ca-cert)
-				tls_ca=$2; shift;;
+				vargs $# 2; tls_ca=$2; shift;;
 			tls)
-				tls_opts+=(${2//,/ }); shift;;
+				vargs $# 2; tls_opts+=(${2//,/ }); shift;;
 			# anonymous (outer) identity
 			anon)
 				outer_id="@";;
 			outer|outer-user|outer-identity|outer-login)
-				outer_id=$2; shift;;
+				vargs $# 2; outer_id=$2; shift;;
 			# misc eapol options
 			subject-match)
-				ecfg_extra+=("subject_match=\"$2\""); shift;;
+				vargs $# 2; ecfg_extra+=("subject_match=\"$2\""); shift;;
 			altsubject-match)
-				ecfg_extra+=("altsubject_match=\"$2\""); shift;;
+				vargs $# 2; ecfg_extra+=("altsubject_match=\"$2\""); shift;;
 			domain-match|tls-hostname)
-				ecfg_extra+=("domain_match=\"$2\""); shift;;
+				vargs $# 2; ecfg_extra+=("domain_match=\"$2\""); shift;;
 			domain-suffix-match|tls-domain)
-				ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
+				vargs $# 2; ecfg_extra+=("domain_suffix_match=\"$2\""); shift;;
 			# etc.
 			*)
 				err "bad arg: \"$1\"";;

@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+# exiftouch -- update JPEG file modification time from Exif 'Date Original'
+import argparse
+import exif
+from pprint import pprint
+import os
+import datetime
+
+parser = argparse.ArgumentParser()
+parser.add_argument("file", nargs="+")
+args = parser.parse_args()
+
+for path in args.file:
+    with open(path, "rb") as fh:
+        img = exif.Image(fh)
+
+    try:
+        when = img.datetime_original
+    except AttributeError:
+        try:
+            print(f"{path} has no datetime_original, try datetime")
+            when = img.datetime
+        except AttributeError:
+            print(f"{path} has no datetime, skip")
+            continue
+    except KeyError:
+        print(f"{path} has no EXIF, skip")
+        continue
+
+    tm = datetime.datetime.strptime(when, "%Y:%m:%d %H:%M:%S")
+    tm = tm.astimezone()
+    print(repr(when), repr(tm))
+    #print(repr(tm))
+    #print(tm.timestamp())
+    atime = int(datetime.datetime.now().timestamp())
+    mtime = int(tm.timestamp())
+    os.utime(path, times=(atime, mtime))
+    #print(repr(img.datetime), type(img.datetime))
+    #print(img.gps_datestamp, img.gps_timestamp)

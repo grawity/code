@@ -5,6 +5,7 @@ import datetime
 import exif
 import os
 from pprint import pprint
+import re
 
 def get_time_exif(path):
     def parse_dt(dt):
@@ -26,6 +27,11 @@ def get_time_exif(path):
         print(f"{path}: has no EXIF data")
         return None
 
+def get_time_filename(path):
+    name = os.path.basename(path)
+    if m := re.match(r"^(IMG|PXL)_([0-9]{8}_[0-9]{6})[._]", name):
+        return datetime.datetime.strptime(m.group(2), "%Y%m%d_%H%M%S").astimezone()
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("file", nargs="+")
@@ -33,6 +39,10 @@ args = parser.parse_args()
 
 for path in args.file:
     tm = get_time_exif(path)
+    if not tm:
+        tm = get_time_filename(path)
+        if tm:
+            print(f"{path}: using file name as fallback")
     if not tm:
         continue
 

@@ -12,7 +12,11 @@ def get_time_exif(path):
         return datetime.datetime.strptime(dt, "%Y:%m:%d %H:%M:%S").astimezone()
 
     with open(path, "rb") as fh:
-        img = exif.Image(fh)
+        try:
+            img = exif.Image(fh)
+        except Exception as e:
+            print(f"{path}: not an EXIF compatible format")
+            return None
 
     try:
         return parse_dt(img.datetime_original)
@@ -29,7 +33,8 @@ def get_time_exif(path):
 
 def get_time_filename(path):
     name = os.path.basename(path)
-    if m := re.match(r"^(IMG|PXL)_([0-9]{8}_[0-9]{6})[._]", name):
+    # Accept new PXL filenames with milliseconds.
+    if m := re.match(r"^(IMG|PXL)_([0-9]{8}_[0-9]{6})([0-9]{3})?[._]", name):
         return datetime.datetime.strptime(m.group(2), "%Y%m%d_%H%M%S").astimezone()
 
 parser = argparse.ArgumentParser()

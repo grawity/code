@@ -1,5 +1,5 @@
 #!python
-# win32-cred - Windows credential management tool
+# win32-cred -- Windows credential management tool
 from __future__ import print_function
 import sys
 import getopt

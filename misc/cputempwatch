@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cputempwatch -- run command if CPU temperature exceeds limit
 import argparse
 import enum
 from glob import glob
@@ -74,7 +75,7 @@ def do_something_about_it(command):
         subprocess.run(command)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--max-temp", metavar="TEMP", type=int, default=78)
+parser.add_argument("-m", "--max-temp", metavar="TEMP", type=int, default=78)
 args, rest_args = parser.parse_known_args()
 
 command = None
@@ -98,6 +99,6 @@ while True:
     if ravg.get() > args.max_temp:
         if time.time() - acted > 60:
             acted = time.time()
-            print("warning: average temp {temp}C over threshold", flush=True)
+            print(f"\nwarning: average temp {temp}C over threshold")
             do_something_about_it(command)
     time.sleep(interval)

@@ -5,17 +5,11 @@ import ipaddress
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("host")
-parser.add_argument("network")
+parser.add_argument("host", type=ipaddress.ip_address)
+parser.add_argument("network", type=ipaddress.ip_network)
 args = parser.parse_args()
 
-host = ipaddress.ip_address(args.host)
-net = ipaddress.ip_network(args.network)
+if args.host.version != args.net.version:
+    exit("error: mismatching address versions")
 
-#if host.version != net.version:
-#    exit("error: mismatching address versions")
-
-if host in net:
-    exit(0)
-else:
-    exit(1)
+exit(0 if args.host in args.net else 1)

@@ -6,30 +6,37 @@ from pprint import pprint
 import os
 import datetime
 
+def get_time_exif(path):
+    with open(path, "rb") as fh:
+        img = exif.Image(fh)
+
+    dt = None
+    try:
+        dt = img.datetime_original
+    except AttributeError:
+        try:
+            print(f"{path}: has no datetime_original, try datetime")
+            dt = img.datetime
+        except AttributeError:
+            print(f"{path}: EXIF data has no datetime")
+    except KeyError:
+        print(f"{path}: has no EXIF data")
+
+    if dt:
+        tm = datetime.datetime.strptime(dt, "%Y:%m:%d %H:%M:%S")
+        tm = tm.astimezone()
+        return tm
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("file", nargs="+")
 args = parser.parse_args()
 
 for path in args.file:
-    with open(path, "rb") as fh:
-        img = exif.Image(fh)
-
-    try:
-        when = img.datetime_original
-    except AttributeError:
-        try:
-            print(f"{path} has no datetime_original, try datetime")
-            when = img.datetime
-        except AttributeError:
-            print(f"{path} has no datetime, skip")
-            continue
-    except KeyError:
-        print(f"{path} has no EXIF, skip")
+    tm = get_time_exif(path)
+    if not tm:
         continue
 
-    tm = datetime.datetime.strptime(when, "%Y:%m:%d %H:%M:%S")
-    tm = tm.astimezone()
     if args.verbose:
         print(repr(when), repr(tm))
         #print(repr(tm))

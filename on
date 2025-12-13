@@ -65,20 +65,31 @@ verbose=0
 
 if [[ $1 == --help ]]; then
 	usage; exit
-elif [[ $arg0 == 'on' && $1 == [!-]* ]]; then
-	host=$1; shift
+elif [[ $arg0 == "on" ]]; then
+	# 'on ember pwd' -- NFS-attach local directory
 	nfsmode=MapLocalToNet
-elif [[ $arg0 == 'on' ]]; then
-	nfsmode=MapLocalToNet
-elif [[ $arg0 == '@'?* ]]; then
-	host=${arg0#@}
+	if [[ $1 == - ]]; then
+		# 'on - ember pwd' -- start at remote homedir
+		nfsmode=MapLocalToTarget; wd="."
+		shift
+	fi
+	if [[ $1 == [!-]* ]]; then
+		host=$1; shift
+	fi
+elif [[ $arg0 == "@" ]]; then
+	# '@ ember pwd' -- start at remote equivalent of local directory
 	nfsmode=AlwaysMapToTarget
-elif [[ $arg0 == '@' && $1 == [!-]* ]]; then
-	host=$1; shift
+	if [[ $1 == [!-]* ]]; then
+		host=$1; shift
+	fi
+elif [[ $arg0 == "@"?* ]]; then
+	# '@ember pwd' -- same as '@'
 	nfsmode=AlwaysMapToTarget
-elif [[ $arg0 != @('@'|'on') ]]; then
+	host=${arg0#"@"}
+else
+	# 'ember pwd' -- start at remote homedir like regular ssh
+	nfsmode=MapLocalToTarget; wd="."
 	host=$arg0
-	wd=""
 fi
 
 while getopts ":C:d:HKLNRSvxX" OPT; do

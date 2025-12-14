@@ -14,16 +14,16 @@ case $host in
 	ember|wind|dune)
 		rconsole $host;;
 	wolke)
-		#do: ssh -t lish-london.linode.com $host;;
-		echo "Order KVM: https://robot.hetzner.com/support/index?server_id=2141018";;
+		echo "KVM: https://robot.hetzner.com/support/index?server_id=2141018";;
 	sky)
 		echo "Web VNC: https://cloud.hosthatch.com/servers/25904/console";;
 	star)
 		echo "Web VNC: https://klientams.iv.lt/server.php?id=658792";;
 	land)
 		echo "Web VNC: https://web7.php-friends.de/";;
-	river|vm-litnet)
-		# Expects /n/ember/.config/openstack/clouds.yml to be available.
+	litnet-vm)
+		test -e /n/ember/.config/openstack/clouds.yml ||
+			vdie "LITNET OpenStack configuration not found"
 		do: env HOME=/n/ember OS_CLOUD=litnet \
 			openstack console url show -f shell 13d7ec56-18f1-4f13-a27f-d21e61c25dfb;;
 	ampere|vm-ampere)
@@ -32,21 +32,21 @@ case $host in
 		do: oci session authenticate --region eu-frankfurt-1 --profile-name DEFAULT &&
 		do: ociconsole fra-ampere-1;;
 	cisco-top)
-		echo "Use &# to break, &. to detach."
-		do: ssh -t alter "doas cu -E '&' -l /dev/ttyU0";;
+		#echo "Use &# to break, &. to detach."
+		#do: ssh -t alter "doas cu -E '&' -l /dev/ttyU0";;
+		vdie "$host is currently connected to Shore";;
 	cisco-mid)
 		echo "Use Ctrl-] 'send brk' to break."
 		do: telnet cisco-top 2005;;
 	cisco-btm)
 		echo "Use Ctrl-] 'send brk' to break."
 		do: telnet cisco-mid 2005;;
-	dust)
-		do: telnet dune 2501;;
-	alter)
-		do: telnet dune 2502;;
+	@cisco-*)
+		echo "Use Ctrl-] 'send brk' to break."
+		do: telnet ${host#@} 2005;;
 	shore)
-		do: tapo 10.4.240.4 "$@"
-		vmsg "only power-cycle available for $host" >&2;;
+		vmsg "only power-cycle available for $host" >&2
+		do: shoreplug "$@";;
 	uk-gw|gw-core)
 		do: gw-core-console;;
 	uk-lnx1)

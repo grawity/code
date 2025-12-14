@@ -243,6 +243,7 @@ trap - EXIT
 if true; then
 	intrash=()
 	outsmaller=()
+	inkeep=()
 	outlarger=()
 	for oname in "${outfiles[@]}"; do
 		iname=${oimap["$oname"]}
@@ -250,6 +251,7 @@ if true; then
 			die "conversion of '$iname' failed"
 		fi
 		if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") - 128*1024 )); then
+			inkeep+=("$iname")
 			outlarger+=("$oname")
 		else
 			intrash+=("$iname")
@@ -267,27 +269,55 @@ fi
 if (( ! ${#outfiles[@]} )); then
 	die "no conversions succeeded"
 fi
+final=("${inkeep[@]}" "${outfiles[@]}")
 
-orig_total_str=$(du -hsc "${infiles[@]}" | awk 'END {print $1}')
-jpeg_total_str=$(du -hsc "${outfiles[@]}" | awk 'END {print $1}')
+total_size_str() {
+	if (( $# )); then
+		du -hsc -- "$@" | awk 'END {print $1}'
+	else
+		echo '0'
+	fi
+}
+
+avg_size_str() {
+	local nbytes=$1 nfiles=$2
+	numfmt --to=iec $[nfiles ? (nbytes / nfiles) : 0]
+}
+
+orig_total_str=$(total_size_str "${infiles[@]}")
+keep_total_str=$(total_size_str "${inkeep[@]}")
+conv_total_str=$(total_size_str "${intrash[@]}")
+jpeg_total_str=$(total_size_str "${outfiles[@]}")
+final_total_str=$(total_size_str "${final[@]}")
 
 orig_total_bytes=$(numfmt --from=iec "$orig_total_str")
+keep_total_bytes=$(numfmt --from=iec "$keep_total_str")
+conv_total_bytes=$(numfmt --from=iec "$conv_total_str")
 jpeg_total_bytes=$(numfmt --from=iec "$jpeg_total_str")
+final_total_bytes=$(numfmt --from=iec "$final_total_str")
 
-orig_avg_str=$(numfmt --to=iec $[orig_total_bytes/${#infiles[@]}])
-jpeg_avg_str=$(numfmt --to=iec $[jpeg_total_bytes/${#outfiles[@]}])
+orig_avg_str=$(avg_size_str $orig_total_bytes ${#infiles[@]})
+keep_avg_str=$(avg_size_str $keep_total_bytes ${#inkeep[@]})
+conv_avg_str=$(avg_size_str $conv_total_bytes ${#intrash[@]})
+jpeg_avg_str=$(avg_size_str $jpeg_total_bytes ${#outfiles[@]})
+final_avg_str=$(avg_size_str $final_total_bytes ${#final[@]})
 
-percentage=$(( 100 * jpeg_total_bytes / orig_total_bytes ))
+conv_percentage=$[100 * jpeg_total_bytes / conv_total_bytes]
+final_percentage=$[100 * final_total_bytes / orig_total_bytes]
 
-echo "Orig: $orig_total_str total ($orig_avg_str average)"
-echo "JPEG: $jpeg_total_str total ($jpeg_avg_str average)"
-echo "Overall reduction: 100% -> $percentage%"
+echo "Statistics:"
+echo "  Orig (all):   $orig_total_str total (${#infiles[@]} files, $orig_avg_str average)"
+echo "  Unconverted:  $keep_total_str total (${#inkeep[@]} files, $keep_avg_str average)"
+echo "  Orig (conv):  $conv_total_str total (${#intrash[@]} files, $conv_avg_str average)"
+echo "  JPEG output:  $jpeg_total_str total (${#outfiles[@]} files, $jpeg_avg_str average)"
+echo "  Final result: $final_total_str total (${#final[@]} files, $final_avg_str average)"
+echo "  Reduction:    100% -> $conv_percentage% of converted, $final_percentage% of total"
 
-#if (( ${#outfiles[@]} <= 15 )); then
-if true; then
+if (( ${#outfiles[@]} > 0 )); then
 	i=0
 	n=${#outfiles[@]}
 	max=15
+	echo "Results:"
 	for oname in "${outfiles[@]}"; do
 		if (( i >= max-1 && n-i > 1 && !opt_verbose )); then
 			echo "... [$[n-i] more files, $n total]"

@@ -23,8 +23,8 @@
 progname="on"
 
 usage() {
-	echo "Usage: on <host> [-HKLNRSvxX] [-C <path>] [<command>]"
-	echo "       @ <host> [-HKLNRSvxX] [-C <path>] [<command>]"
+	echo "Usage: on <host> [-eEHKLNRSv] [-C <path>] [<command>]"
+	echo "       @ <host> [-eEHKLNRSv] [-C <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
@@ -39,8 +39,8 @@ usage() {
 	echo_opt "-N"		"keep current directory exactly (preserve /net/<thirdhost>)"
 	echo_opt "-R"		"always map current directory to target host (default for '@')"
 	echo
-	echo_opt "-x"		"expand the command to an NFS path"
-	echo_opt "-X"		"expand paths in arguments to NFS paths"
+	echo_opt "-e"		"expand the command to an NFS path"
+	echo_opt "-E"		"expand paths in arguments to NFS paths"
 	echo
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
 	echo_opt "-S"		"connect as superuser (root)"
@@ -92,11 +92,13 @@ else
 	host=$arg0
 fi
 
-while getopts ":C:d:HKLNRSvxX" OPT; do
+while getopts ":C:d:eEHKLNRSv" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=MapLocalToTarget; wd=$OPTARG;;
 	d) nfsmode=MapLocalToTarget; wd=$OPTARG;;
+	e) excomm=1;;
+	E) expaths=1;;
 	H) nfsmode=MapLocalToTarget; wd=".";;
 	K) Kflag="-K -Snone";;
 	L) nfsmode=MapLocalToNet;;	# default 'on' behavior
@@ -104,8 +106,6 @@ while getopts ":C:d:HKLNRSvxX" OPT; do
 	R) nfsmode=AlwaysMapToTarget;;	# default '@' behavior
 	S) user="root@";;
 	v) verbose=1;;
-	x) excomm=1;;
-	X) expaths=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))

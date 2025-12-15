@@ -197,13 +197,17 @@ fi
 echo "Recompressing ${#infiles[@]} files ($nproc jobs)"
 
 for iname in "${infiles[@]}"; do
-	oname=${outdir%/}${outdir:+/}${iname%.*}.$infix.jpg
+	case $iname in
+	*.mp3)	ext=mp3;;
+	*)	ext=jpg;;
+	esac
+	oname=${outdir%/}${outdir:+/}${iname%.*}.$infix.$ext
 	if [[ ${oimap["$oname"]} && ! ${iomap["$iname"]} ]]; then
 		# More than one input (e.g. foo.png & foo.tiff) maps to the
 		# same output file, so keep the original extensions.
 		xiname=${oimap["$oname"]}
-		xoname=${outdir%/}${outdir:+/}$xiname.$infix.jpg
-		oname=${outdir%/}${outdir:+/}$iname.$infix.jpg
+		xoname=${outdir%/}${outdir:+/}$xiname.$infix.$ext
+		oname=${outdir%/}${outdir:+/}$iname.$infix.$ext
 		iomap["$xiname"]=$xoname
 		oimap["$xoname"]=$xiname
 		# (Keep the old $oname in the oimap, so that we would detect
@@ -225,7 +229,10 @@ for iname in "${infiles[@]}"; do
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
 		fi
-		magick "$iname" "${addargs[@]}" "$oname" &&
+		case $iname in
+		*.mp3)	ffmpeg -loglevel error -i "$iname" -c:a libmp3lame -q:a 7 "$oname";;
+		*)	magick "$iname" "${addargs[@]}" "$oname";;
+		esac &&
 		if (( keepmtime )); then
 			touch "$oname" --reference="$iname" 2>/dev/null
 		fi

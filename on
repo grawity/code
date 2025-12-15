@@ -43,6 +43,7 @@ usage() {
 	echo_opt "-E"		"expand paths in arguments to NFS paths"
 	echo
 	echo_opt "-K"		"allow Kerberos ticket delegation, disable SSH multiplexing"
+	echo_opt "-X"		"pass DISPLAY environment variable"
 	echo_opt "-S"		"connect as superuser (root)"
 	echo_opt "-v"		"verbose (display remote host and path)"
 	echo
@@ -61,6 +62,7 @@ Kflag=""
 qflag="-q"
 excomm=0
 expaths=0
+passdisplay=0
 verbose=0
 
 if [[ $1 == --help ]]; then
@@ -92,7 +94,7 @@ else
 	host=$arg0
 fi
 
-while getopts ":C:d:eEHKLNRSv" OPT; do
+while getopts ":C:d:eEHKLNRSvX" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=MapLocalToTarget; wd=$OPTARG;;
@@ -106,6 +108,7 @@ while getopts ":C:d:eEHKLNRSv" OPT; do
 	R) nfsmode=AlwaysMapToTarget;;	# default '@' behavior
 	S) user="root@";;
 	v) verbose=1;;
+	X) passdisplay=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $((OPTIND-1))
@@ -240,6 +243,17 @@ else
 		set -- "${args[@]}"
 	fi
 	q_cmd=${@@Q}
+fi
+
+if (( passdisplay )); then
+	if [[ $DISPLAY == *?:* ]]; then
+		q_cmd="export DISPLAY=${DISPLAY@Q}; $q_cmd"
+	elif [[ $DISPLAY ]]; then
+		# XXX: Should just set ssh -Y?
+		vdie "cannot pass a local display address ($DISPLAY) currently"
+	else
+		vdie "no display address to pass"
+	fi
 fi
 
 if [[ -t 0 && -t 1 && -t 2 ]]; then

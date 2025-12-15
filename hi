@@ -14,7 +14,11 @@ import textwrap
 IRC_HOST = "star"
 
 def tty_width():
-    return int(os.environ.get("COLUMNS", os.get_terminal_size().columns))
+    if cols := os.environ.get("COLUMNS"):
+        return int(cols)
+    if sys.stdout.isatty():
+        return os.get_terminal_size().columns
+    return 80
 
 def err(msg):
     print("\033[30;41m%s\033[m" % msg, file=sys.stderr)

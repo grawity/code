@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# runsuper -- run a task as invoker but with backup read rights
+
+set -u
+. lib.bash || exit
+
+usage() {
+	echo "Usage: $progname [-s] [-C <path>] <command...>"
+	echo
+	echo_opt "-C <path>"	"set initial working directory"
+	echo_opt "-s"		"run command as root"
+}
+
+opt_base=$HOME
+opt_sudo=0
+
+while getopts :C:s OPT; do
+	case $OPT in
+	C) opt_base=$OPTARG;;
+	s) opt_sudo=1;;
+	*) lib:die_getopts;;
+	esac
+done; shift $[OPTIND-1]
+
+cmd=(sudo systemd-run --pty --quiet --collect)
+
+cmd+=(--nice=10)
+cmd+=(--property="WorkingDirectory=$opt_base")
+
+for env in KRB5CCNAME SSH_AUTH_SOCK; do
+	if [[ -v $env ]]; then
+		cmd+=(--setenv="$env=${!env}")
+	fi
+done
+
+if (( opt_sudo )); then
+	cmd+=(--description="Backup task for $LOGNAME/root")
+else
+	cmd+=(--uid="$LOGNAME")
+	cmd+=(--property="AmbientCapabilities=cap_dac_read_search")
+	cmd+=(--description="Backup task for $LOGNAME")
+fi
+
+cmd+=(-- "$@")
+
+"${cmd[@]}"

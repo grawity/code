@@ -111,27 +111,10 @@ def do_borg(*,
     args += [f"--exclude-from={excludefile.name}"]
 
     # Prepare the environment for 'borg create'
-    user = os.environ["LOGNAME"]
-    wrap = ["sudo",
-            "systemd-run",
-            "--pty",
-            "--quiet",
-            "--collect"]
-    wrap += [f"--setenv={e}={os.environ[e]}"
-             for e in ["KRB5CCNAME",
-                       "SSH_AUTH_SOCK"]
-             if e in os.environ]
+    wrap = ["runsuper", "-C", base]
     if sudo:
-        wrap += [f"--description=borg backup task for {user}/root",
-                 f"--property=WorkingDirectory={base}",
-                 "--"]
-    else:
-        # Systemd automatically sets $HOME based on --uid.
-        wrap += [f"--description=borg backup task for {user}",
-                 f"--property=WorkingDirectory={base}",
-                 f"--property=AmbientCapabilities=cap_dac_read_search",
-                 f"--uid={user}",
-                 "--"]
+        wrap += ["-s"]
+    wrap += ["--"]
 
     # If we'll be running as root and using SSH, default to including the
     # non-root username for SSH.

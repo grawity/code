@@ -22,14 +22,14 @@ while getopts :C:s OPT; do
 	esac
 done; shift $[OPTIND-1]
 
-cmd=(sudo systemd-run --pty --quiet --collect)
+cmd=(sudo systemd-run -q -G -t)
 
 cmd+=(--nice=10)
-cmd+=(--property="WorkingDirectory=$opt_base")
+cmd+=(-p WorkingDirectory="$opt_base")
 
 for env in KRB5CCNAME SSH_AUTH_SOCK; do
 	if [[ -v $env ]]; then
-		cmd+=(--setenv="$env=${!env}")
+		cmd+=(-E "$env=${!env}")
 	fi
 done
 
@@ -37,7 +37,7 @@ if (( opt_sudo )); then
 	cmd+=(--description="Backup task for $LOGNAME/root")
 else
 	cmd+=(--uid="$LOGNAME")
-	cmd+=(--property="AmbientCapabilities=cap_dac_read_search")
+	cmd+=(-p AmbientCapabilities="cap_dac_read_search")
 	cmd+=(--description="Backup task for $LOGNAME")
 fi
 

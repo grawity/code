@@ -40,7 +40,13 @@ class IffReader(BinaryReader):
     def read_file(self):
         # At the top level, there is always a type ID and usually a FORM chunk.
         file_type_id = self.read(4)
-        print(f"{file_type_id = }")
+        if file_type_id == b"FORM":
+            # Some files (.ilbm) don't have the type prefix.
+            print(f"file_type_id = (none)")
+            self.seek(0)
+        else:
+            # But .djvu files do.
+            print(f"{file_type_id = }")
         self.read_chunk()
         pos = self.tell()
         self.fh.read()
@@ -62,7 +68,7 @@ with open(args.file, "rb") as fh:
         exit("dumpiff: this is a RIFF file, not an EA IFF file: %s" % args.file)
     if b == b"ftyp":
         exit("dumpiff: this is an ISO BMFF media file, not an EA IFF file: %s" % args.file)
-    if b not in {b"FORM", b"LIST", B"CAT "}:
+    if not {a, b} & {b"FORM", b"LIST", b"CAT "}:
         exit("dumpiff: not an IFF file (first chunk is not FORM): %s" % args.file)
     br.seek(0)
     br.read_file()

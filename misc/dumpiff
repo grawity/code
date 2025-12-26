@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+# dumpiff -- show the type of an EA IFF media file
+#
+# https://www.martinreddy.net/gfx/2d/IFF.txt
+
+import argparse
+import os
+import sys
+
+sys.path.append("/usr/local/nullroute")
+from n.io.base import BinaryReader
+
+PAD = " " * 2
+
+class IffReader(BinaryReader):
+    def read_align(self, len):
+        data = self.read(len)
+        # Consume padding so that the next read will be word-aligned
+        if x := len % 2:
+            self.read(2 - x)
+        return data
+
+    def read_chunk(self, *, depth=0):
+        if x := self.tell() % 2:
+            print("realigning")
+            self.read(2 - x)
+        chunk_id = self.read(4)
+        data_len = self.read_s32_be()
+        if chunk_id == b"FORM":
+            # FORM chunks have a secondary ID and some number of nested chunks.
+            type_id = self.read(4)
+            print(f"{PAD*depth}{chunk_id = }, {type_id = }, {data_len = }")
+            chunk_end = self.tell() + (data_len - 4)
+            while self.tell() < chunk_end:
+                self.read_chunk(depth=depth+1)
+        else:
+            print(f"{PAD*depth}{chunk_id = }, {data_len = }")
+            self.read_align(data_len)
+
+    def read_file(self):
+        # At the top level, there is always a type ID and usually a FORM chunk.
+        file_type_id = self.read(4)
+        print(f"{file_type_id = }")
+        self.read_chunk()
+        pos = self.tell()
+        self.fh.read()
+        end = self.tell()
+        if end != pos:
+            print(f"{end - pos} bytes of trailing data")
+
+parser = argparse.ArgumentParser()
+parser.add_argument("file",
+                        help="file to dump")
+args = parser.parse_args()
+
+with open(args.file, "rb") as fh:
+    br = IffReader(fh)
+    # Detect other chunk-based formats.
+    a = br.read(4)
+    b = br.read(4)
+    if a == b"RIFF":
+        exit("dumpiff: this is a RIFF file, not an EA IFF file: %s" % args.file)
+    if b == b"ftyp":
+        exit("dumpiff: this is an ISO BMFF media file, not an EA IFF file: %s" % args.file)
+    if b not in {b"FORM", b"LIST", B"CAT "}:
+        exit("dumpiff: not an IFF file (first chunk is not FORM): %s" % args.file)
+    br.seek(0)
+    br.read_file()

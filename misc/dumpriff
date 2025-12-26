@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+# dumpiff -- show the type of a RIFF media file
+#
+# Also useful: fq '.boxes[0]|d' $file
+
+import argparse
+import os
+import sys
+
+sys.path.append("/usr/local/nullroute")
+from n.io.base import BinaryReader
+
+PAD = " " * 2
+
+class RiffReader(BinaryReader):
+    def read_align(self, len):
+        data = self.read(len)
+        # Consume padding so that the next read will be word-aligned
+        if x := len % 2:
+            self.read(2 - x)
+        return data
+
+    def read_chunk(self, *, depth=0):
+        if x := self.tell() % 2:
+            print("realigning")
+            self.read(2 - x)
+        chunk_id = self.read(4)
+        data_len = self.read_u32_le()
+        if chunk_id == b"RIFF":
+            # RIFF chunks have a secondary ID and some number of nested chunks.
+            type_id = self.read(4)
+            print(f"{PAD*depth}{chunk_id = }, {type_id = }, {data_len = }")
+            chunk_end = self.tell() + (data_len - 4)
+            while self.tell() < chunk_end:
+                self.read_chunk(depth=depth+1)
+        else:
+            print(f"{PAD*depth}{chunk_id = }, {data_len = }")
+            data = self.read_align(data_len)
+
+    def read_file(self):
+        self.read_chunk()
+        pos = self.tell()
+        self.fh.read()
+        end = self.tell()
+        if end != pos:
+            print(f"{end - pos} bytes of trailing data")
+
+parser = argparse.ArgumentParser()
+parser.add_argument("file",
+                        help="file to dump")
+args = parser.parse_args()
+
+with open(args.file, "rb") as fh:
+    br = RiffReader(fh)
+    # Detect other chunk-based formats.
+    a = br.read(4)
+    b = br.read(4)
+    br.seek(0)
+    if b == b"FORM":
+        exit("dumpriff: this is an EA IFF file, not a RIFF file: %s" % args.file)
+    if b == b"ftyp":
+        exit("dumpriff: this is an ISO BMFF media file, not a RIFF file: %s" % args.file)
+    if a != b"RIFF":
+        exit("dumpriff: not a RIFF file (first chunk not 'RIFF'): %s" % args.file)
+    br.read_file()

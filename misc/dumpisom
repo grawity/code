@@ -80,9 +80,13 @@ args = parser.parse_args()
 with open(args.file, "rb") as fh:
     br = IsomReader(fh)
     # Detect other chunk-based formats.
-    if br.read(4) == b"RIFF":
+    a = br.read(4)
+    b = br.read(4)
+    if a == b"RIFF":
         exit("dumpisom: this is a RIFF file, not an ISO Media file: %s" % args.file)
-    if br.read(4) != b"ftyp":
+    if b == b"FORM":
+        exit("dumpisom: this is an IFF file, not an ISO Media file: %s" % args.file)
+    if b != b"ftyp":
         exit("dumpisom: not an ISO Media file (first chunk is not ftyp): %s" % args.file)
     br.seek(0)
     br.read_ftyp()

@@ -4,22 +4,29 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-s] <file>"
+	echo "Usage: $progname [-sx] <file>"
 	echo
 	echo_opt "-s" "stretch image to terminal size"
+	echo_opt "-x" "force SIXEL output if not auto-detected"
 }
 
 opt_stretch=0
+opt_sixel=0
 
-while getopts :s OPT; do
+while getopts :sx OPT; do
 	case $OPT in
 	s) opt_stretch=1;;
+	x) opt_sixel=1;;
 	*) lib:die_getopts;;
 	esac
 done; shift $[OPTIND-1]
 
 # Give space for 1 original command line + 3 new prompt lines
 size=$(stty size <&2 | awk '{print $2 "x" ($1-4)}')
+
+if (( opt_sixel )); then
+	set -- --format=sixel "$@"
+fi
 
 if (( opt_stretch )); then
 	chafa --symbols=vhalf --size="$size" "$@"

@@ -232,10 +232,18 @@ for arg; do
 		mv "$dstfile.part" "$dstfile"
 	fi
 
-	if (( `cputemp -1r` >= 75 )); then
-		while (( `cputemp -1r` > 50 )); do
-			vmsg "waiting for CPU temperature to drop"
+	case $HOSTNAME in
+		myth)  temphigh=75 templow=50;;
+		wolke) temphigh=90 templow=60;;
+	esac
+	if (( temphigh && templow )); then
+		if temp=`cputemp -1r` && (( temp && temp >= temphigh )); then
+			vmsg "CPU temperature above $temphigh°C (currently $temp°C)"
 			sleep 60
-		done
+			while temp=`cputemp -1r` && (( temp > templow )); do
+				vmsg "waiting for CPU temperature to drop to $templow°C (currently $temp°C)"
+				sleep 60
+			done
+		fi
 	fi
 done

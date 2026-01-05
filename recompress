@@ -190,6 +190,11 @@ elif (( scale < 100 )); then
 	infix="s$scale.$infix"
 fi
 
+mem=$(awk '/^MemAvailable:/{print int($2 / 1024)}' /proc/meminfo)
+if (( mem < 100*nproc )); then
+	confirm "Not enough RAM for conversion ($mem MB free), continue?" || exit
+	nproc=1
+fi
 if (( nproc < 1 || nproc > $(nproc)*4 )); then
 	die "invalid job count '$nproc'"
 fi

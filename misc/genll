@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 import argparse
 import ipaddress
+import json
 import os
+
+def mac_from_string(address):
+    return bytes([int(x, 16) for x in address.split(":")])
+
+def get_iface_mac(ifname):
+    with os.popen(f"ip -j link ls dev '{ifname}'", "r") as fh:
+        buf = json.load(fh)
+        return mac_from_string(buf[0]["address"])
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-l", "--link-local", action="store_true",
                         help="generate a random IPv6 link-local address")
+parser.add_argument("-i", "--from-iface", metavar="IFNAME",
+                        help="translate MAC to EUI64-based IPv6LL address")
 parser.add_argument("-m", "--from-mac", metavar="MAC",
                         help="translate MAC to EUI64-based IPv6LL address")
 parser.add_argument("-u", "--ula", action="store_true",
@@ -19,7 +30,7 @@ args = parser.parse_args()
 if (args.link_local + args.mac + args.ula + args.ula64) > 1:
     exit("error: Conflicting modes specified")
 
-elif args.from_mac and (args.mac + args.ula + args.ula64):
+elif (args.from_mac or args.from_iface) and (args.mac + args.ula + args.ula64):
     exit("error: Conflicting options (--from-mac is ignored in this mode)")
 
 elif args.mac:
@@ -45,7 +56,14 @@ elif args.ula64:
 
 else:
     if args.from_mac:
-        mac = bytearray([int(x, 16) for x in args.from_mac.split(":")])
+        mac = bytearray(mac_from_string(args.from_mac))
+        assert len(mac) == 6
+        iid = mac[0:3] + bytearray([0xFF, 0xFE]) + mac[3:6]
+        # Flip the U/L bit per specification
+        iid[0] ^= 0x02
+    elif args.from_iface:
+        mac = bytearray(get_iface_mac(args.from_iface))
+        assert len(mac) == 6
         iid = mac[0:3] + bytearray([0xFF, 0xFE]) + mac[3:6]
         # Flip the U/L bit per specification
         iid[0] ^= 0x02

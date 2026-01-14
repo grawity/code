@@ -7,12 +7,17 @@ addchannel=0
 fileext=""
 extraargs=(--no-mtime)
 
-args=$(getopt -n ${0##*/} -o O:np:x -l channel,prefix: -- "$@") || exit
+args=$(getopt -n ${0##*/} -o B:O:np:x -l channel,prefix: -- "$@") || exit
 eval set -- "$args"
 
 while (( $# )); do
 	arg=$1; shift
 	case $arg in
+	-B)
+		case $1 in
+		f) extraargs+=(--cookies-from-browser firefox);;
+		*) extraargs+=(--cookies-from-browser "$1");;
+		esac; shift;;
 	-O)
 		extraargs+=("${1#,}"); shift;;
 	-n|--channel)

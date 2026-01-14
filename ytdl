@@ -3,11 +3,20 @@
 
 . lib.bash || exit
 
+usage() {
+	echo "$progname [-B browser] [-O arg] [-n] [-p prefix] <url>..."
+	echo
+	echo_opt "-B browser"	"have yt-dlp get cookies from specified browser"
+	echo_opt "-O arg"	"pass custom argument to yt-dlp"
+	echo_opt "-n"		"add channel name as filename prefix"
+	echo_opt "-p prefix"	"add custom filename prefix"
+}
+
 addchannel=0
 fileext=""
 extraargs=(--no-mtime)
 
-args=$(getopt -n ${0##*/} -o B:O:np:x -l channel,prefix: -- "$@") || exit
+args=$(getopt -n ${0##*/} -o B:O:np:x -l channel,help,prefix: -- "$@") || exit
 eval set -- "$args"
 
 while (( $# )); do
@@ -22,6 +31,8 @@ while (( $# )); do
 		extraargs+=("${1#,}"); shift;;
 	-n|--channel)
 		addchannel=1;;
+	--help)
+		usage; exit;;
 	-p|--prefix)
 		prefix=$1; shift;;
 	-x)

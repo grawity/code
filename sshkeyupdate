@@ -47,39 +47,50 @@ fetch() {
 verify_gpg() {
 	local input=$1 output=$2 status=
 
-	if ! status=$(gpg --batch --quiet --no-options --no-default-keyring --no-auto-key-import \
-		--no-auto-key-retrieve --keyring="$signer_key" --trust-model=always --status-fd=1 \
-		--output="$output" --decrypt "$input" 2>/dev/null)
+	if ! status=$(gpg \
+			--batch \
+			--quiet \
+			--no-options \
+			--no-default-keyring \
+			--no-auto-key-import \
+			--no-auto-key-retrieve \
+			--keyring="$signer_key" \
+			--trust-model=always \
+			--status-fd=1 \
+			--output="$output" \
+			--decrypt \
+			"$input" 2>/dev/null)
 	then
 		vmsg "signature verification failed" >&2
 		echo "$status" >&2
 		return 1
-	fi
-	if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+	elif ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
 		vmsg "signer mismatch" >&2
 		echo "$status" >&2
 		return 1
+	else
+		return 0
 	fi
-
-	return 0
 }
 
 verify_gpgv() {
 	local input=$1 output=$2 status=
 
-	if ! status=$(gpgv --status-fd=1 --keyring="$signer_key" --output="$output" \
+	if ! status=$(gpgv \
+			--status-fd=1 \
+			--keyring="$signer_key" \
+			--output="$output" \
 			"$input" 2>/dev/null); then
 		vmsg "signature verification failed" >&2
 		echo "$status" >&2
 		return 1
-	fi
-	if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+	elif ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
 		vmsg "signer mismatch" >&2
 		echo "$status" >&2
 		return 1
+	else
+		return 0
 	fi
-
-	return 0
 }
 
 verify_sop() {
@@ -90,19 +101,17 @@ verify_sop() {
 			"$signer_key" < "$input" > "$output"; then
 		vmsg "validation failed" >&2
 		return 1
-	fi
-	if ! [ "$(awk '{print toupper($2)}' < "$status")" = "$signer_fpr" ]; then
+	elif ! [ "$(awk '{print toupper($2)}' < "$status")" = "$signer_fpr" ]; then
 		vmsg "signer mismatch" >&2
 		cat "$status" >&2
 		return 1
-	fi
-	if ! [ "$(awk '{print toupper($3)}' < "$status")" = "$signer_fpr" ]; then
+	elif ! [ "$(awk '{print toupper($3)}' < "$status")" = "$signer_fpr" ]; then
 		vmsg "signer mismatch" >&2
 		cat "$status" >&2
 		return 1
+	else
+		return 0
 	fi
-
-	return 0
 }
 
 verify_sq() {
@@ -112,8 +121,12 @@ verify_sq() {
 	mkdir "$SEQUOIA_HOME" &&
 	sq cert import "$signer_key" >/dev/null || return 2
 
-	if ! status=$(sq verify --cleartext --signer="$signer_fpr" \
-			--signer-file="$signer_key" --output="$output" "$input" 2>&1); then
+	if ! status=$(sq verify \
+			--cleartext \
+			--signer="$signer_fpr" \
+			--signer-file="$signer_key" \
+			--output="$output" \
+			"$input" 2>&1); then
 		vmsg "validation failed" >&2
 		echo "$status" >&2
 		return 1

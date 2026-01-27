@@ -83,7 +83,6 @@ verify_gpgv() {
 
 verify_sop() {
 	local input=$1 output=$2
-
 	local status="$workdir/verify.out"
 
 	if ! ${SOP?} inline-verify --verifications-out "$status" \
@@ -105,13 +104,23 @@ verify_sop() {
 	return 0
 }
 
+verify_sqv() {
+	local input=$1 output=$2
+
+	sqv --cleartext --keyring "$signer_key" --output "$output" "$input"
+}
+
 verify() {
 	if [ "$SOP" = gpgv ]; then
 		verify_gpgv "$@"
 	elif [ "$SOP" = gpg ]; then
 		verify_gpg "$@"
+	elif [ "$SOP" = sqv ]; then
+		verify_sqv "$@"
 	elif [ "$SOP" ]; then
 		verify_sop "$@"
+	elif have sqv; then
+		verify_sqv "$@"
 	elif have sqop; then
 		SOP=sqop verify_sop "$@"
 	elif have rsop; then

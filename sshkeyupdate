@@ -45,19 +45,12 @@ fetch() {
 }
 
 verify_gpg() {
-	local input=$1 output=$2 status= errors=0
+	local input=$1 output=$2 status=
 
-	if ! [[ -d ~/.gnupg ]]; then
-		vmsg "cannot validate using gpg; ~/.gnupg is not initialized" >&2
-		return 2
-	fi
-	if ! gpg -k "$signer_fpr" > /dev/null; then
-		vmsg "cannot validate using gpg; key $signer_fpr not in keyring" >&2
-		return 2
-	fi
-
-	if ! status=$(gpg --batch --yes --status-fd 1 --output "$output" \
-	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
+	if ! status=$(gpg --batch --quiet --no-options --no-default-keyring \
+		--keyring "$signer_key" --trust-model always --status-fd 1 \
+		--output "$output" --decrypt "$input" 2>/dev/null)
+	then
 		vmsg "unknown gpg error" >&2
 		echo "$status" >&2
 		return 1

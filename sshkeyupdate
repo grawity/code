@@ -114,11 +114,11 @@ verify_gpg() {
 	fi
 	if ! [[ -d ~/.gnupg ]]; then
 		vmsg "cannot validate using gpg; ~/.gnupg is not initialized" >&2
-		return 1
+		return 2
 	fi
 	if ! gpg -k "$signer_fpr" > /dev/null; then
 		vmsg "cannot validate using gpg; key $signer_fpr not in keyring" >&2
-		return 1
+		return 2
 	fi
 
 	if ! status=$(gpg --batch --yes --status-fd 1 --output "$output" \
@@ -153,7 +153,7 @@ verify_sop() {
 		sop=gosop
 	else
 		vmsg "sop is not installed" >&2
-		return 1
+		return 2
 	fi
 
 	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
@@ -275,8 +275,13 @@ fi
 tmp_plain=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! verify "$tmp_signed" "$tmp_plain"; then
-	rm -f "$tmp_plain"
-	vdie "verification of $tmp_signed failed"
+	if (( $? == 2 )); then
+		rm -f "$tmp_plain"
+		vdie "verification of $tmp_signed could not be performed"
+	else
+		rm -f "$tmp_plain"
+		vdie "verification of $tmp_signed failed"
+	fi
 fi
 
 local_file="$dst_file.local"

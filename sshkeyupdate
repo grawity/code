@@ -141,21 +141,19 @@ verify_gpg() {
 }
 
 verify_gpgv() {
-	local input=$1 output=$2 workdir= status=
+	local input=$1 output=$2 status=
 
 	if ! have gpgv; then
 		vmsg "gpgv is not installed" >&2
 		return 2
 	fi
 
-	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
 	local cert="$workdir/signer.pgp"
 	# XXX: cannot rely on gpg being present
 	echo "$signer_key" | gpg --dearmor > "$cert"
 
 	if ! status=$(gpgv --status-fd 1 --keyring "$cert" --output "$output" "$input" 2>/dev/null); then
 		vmsg "validation failed" >&2
-		rm -rf "$workdir"
 		return 1
 	fi
 	if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
@@ -169,12 +167,11 @@ verify_gpgv() {
 		return 1
 	fi
 
-	rm -rf "$workdir"
 	return 0
 }
 
 verify_sop() {
-	local input=$1 output=$2 sop= workdir=
+	local input=$1 output=$2 sop=
 
 	if [ "$SOP" ]; then
 		sop=$SOP
@@ -189,30 +186,25 @@ verify_sop() {
 		return 2
 	fi
 
-	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
 	local cert="$workdir/signer.pgp"
 	local status="$workdir/verify.out"
 	echo "$signer_key" > "$cert"
 
 	if ! $sop inline-verify --verifications-out "$status" "$cert" < "$input" > "$output"; then
 		vmsg "validation failed" >&2
-		rm -rf "$workdir"
 		return 1
 	fi
 	if ! [ "$(awk '{print toupper($2)}' < "$status")" = "$signer_fpr" ]; then
 		vmsg "signer mismatch" >&2
 		cat "$status" >&2
-		rm -rf "$workdir"
 		return 1
 	fi
 	if ! [ "$(awk '{print toupper($3)}' < "$status")" = "$signer_fpr" ]; then
 		vmsg "signer mismatch" >&2
 		cat "$status" >&2
-		rm -rf "$workdir"
 		return 1
 	fi
 
-	rm -rf "$workdir"
 	return 0
 }
 
@@ -293,6 +285,8 @@ fi
 
 # download new pubkeys
 
+workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || exit
+
 mkdir -p "${dst_file%/*}"
 
 tmp_signed=$(mktemp "$dst_file.XXXXXXXX")
@@ -330,7 +324,7 @@ local_file="$dst_file.local"
 	echo "# updated: end"
 } | filter_keys > "$dst_file"
 
-rm -f "$tmp_plain" "$tmp_signed"
+rm -rf "$tmp_plain" "$tmp_signed" "${workdir?}"
 
 if [[ -t 1 ]]; then
 	num=$(grep -c '^[^#]' "$dst_file")

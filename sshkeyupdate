@@ -135,14 +135,27 @@ verify_gpg() {
 }
 
 verify_sop() {
-	local input=$1 output=$2= workdir=
+	local input=$1 output=$2 sop= workdir=
+
+	if [ "$SOP" ]; then
+		sop=$SOP
+	elif have sqop; then
+		sop=sqop
+	elif have rsop; then
+		sop=rsop
+	else
+		vmsg "sop not installed"
+		return 1
+	fi
+
 	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
 
 	local cert="$workdir/signer.pgp"
 	local status="$workdir/verify.out"
 	echo "$signer_key" > "$cert"
 
-	if ! sqop inline-verify "$cert" --verifications-out "$status" < "$input" > "$output"; then
+	if ! $sop inline-verify "$cert" --verifications-out "$status" < "$input" \
+	   | tr -d '\r' > "$output"; then
 		vmsg "validation failed" >&2
 		rm -rf "$workdir"
 		return 1

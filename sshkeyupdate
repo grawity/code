@@ -108,9 +108,11 @@ verify_sop() {
 verify_sq() {
 	local input=$1 output=$2 status=
 
-	# XXX: this still uses the default Sequoia and GnuPG keyrings
-	if ! status=$(sq verify --cleartext --signer-file="$signer_key" \
-			--output="$output" "$input" 2>&1); then
+	mkdir "$workdir/sq" &&
+	sq --home="$workdir/sq" cert import "$signer_key" >/dev/null || return
+
+	if ! status=$(sq --home="$workdir/sq" verify --cleartext --signer="$signer_fpr" \
+			--signer-file="$signer_key" --output="$output" "$input" 2>&1); then
 		vmsg "validation failed" >&2
 		echo "$status" >&2
 		return 1

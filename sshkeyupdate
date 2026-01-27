@@ -143,6 +143,8 @@ verify_sop() {
 		sop=sqop
 	elif have rsop; then
 		sop=rsop
+	elif have gosop; then
+		sop=gosop
 	else
 		vmsg "sop not installed"
 		return 1
@@ -154,7 +156,7 @@ verify_sop() {
 	local status="$workdir/verify.out"
 	echo "$signer_key" > "$cert"
 
-	if ! $sop inline-verify "$cert" --verifications-out "$status" < "$input" \
+	if ! $sop inline-verify --verifications-out "$status" "$cert" < "$input" \
 	   | tr -d '\r' > "$output"; then
 		vmsg "validation failed" >&2
 		rm -rf "$workdir"

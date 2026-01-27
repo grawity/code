@@ -47,10 +47,6 @@ fetch() {
 verify_gpg() {
 	local input=$1 output=$2 status= errors=0
 
-	if ! have gpg; then
-		vmsg "gpg is not installed" >&2
-		return 2
-	fi
 	if ! [[ -d ~/.gnupg ]]; then
 		vmsg "cannot validate using gpg; ~/.gnupg is not initialized" >&2
 		return 2
@@ -78,11 +74,6 @@ verify_gpg() {
 verify_gpgv() {
 	local input=$1 output=$2 status=
 
-	if ! have gpgv; then
-		vmsg "gpgv is not installed" >&2
-		return 2
-	fi
-
 	if ! status=$(gpgv --status-fd 1 --keyring "$signer_key" --output "$output" \
 			"$input" 2>/dev/null); then
 		vmsg "validation failed" >&2
@@ -98,24 +89,11 @@ verify_gpgv() {
 }
 
 verify_sop() {
-	local input=$1 output=$2 sop=
-
-	if [ "$SOP" ]; then
-		sop=$SOP
-	elif have sqop; then
-		sop=sqop
-	elif have rsop; then
-		sop=rsop
-	elif have gosop; then
-		sop=gosop
-	else
-		vmsg "sop is not installed" >&2
-		return 2
-	fi
+	local input=$1 output=$2
 
 	local status="$workdir/verify.out"
 
-	if ! $sop inline-verify --verifications-out "$status" \
+	if ! ${SOP?} inline-verify --verifications-out "$status" \
 			"$signer_key" < "$input" > "$output"; then
 		vmsg "validation failed" >&2
 		return 1
@@ -137,10 +115,21 @@ verify_sop() {
 verify() {
 	if [ "$SOP" = gpgv ]; then
 		verify_gpgv "$@"
-	elif [ "$SOP" ] || have sqop || have rsop || have gosop; then
-		verify_sop "$@"
-	else
+	elif [ "$SOP" = gpg ]; then
 		verify_gpg "$@"
+	elif [ "$SOP" ]; then
+		verify_sop "$@"
+	elif have sqop; then
+		SOP=sqop verify_sop "$@"
+	elif have rsop; then
+		SOP=rsop verify_sop "$@"
+	elif have gosop; then
+		SOP=gosop verify_sop "$@"
+	elif have gpgv; then
+		verify_gpgv "$@"
+	else
+		vmsg "gpg or sop is not installed" >&2
+		return 2
 	fi
 }
 

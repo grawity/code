@@ -108,10 +108,11 @@ verify_sop() {
 verify_sq() {
 	local input=$1 output=$2 status=
 
-	mkdir "$workdir/sq" &&
-	sq --home="$workdir/sq" cert import "$signer_key" >/dev/null || return
+	export SEQUOIA_HOME="$workdir/sq"
+	mkdir "$SEQUOIA_HOME" &&
+	sq cert import "$signer_key" >/dev/null || return 2
 
-	if ! status=$(sq --home="$workdir/sq" verify --cleartext --signer="$signer_fpr" \
+	if ! status=$(sq verify --cleartext --signer="$signer_fpr" \
 			--signer-file="$signer_key" --output="$output" "$input" 2>&1); then
 		vmsg "validation failed" >&2
 		echo "$status" >&2

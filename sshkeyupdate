@@ -162,8 +162,7 @@ verify_sop() {
 	local status="$workdir/verify.out"
 	echo "$signer_key" > "$cert"
 
-	if ! $sop inline-verify --verifications-out "$status" "$cert" < "$input" \
-	   | tr -d '\r' > "$output"; then
+	if ! $sop inline-verify --verifications-out "$status" "$cert" < "$input" > "$output"; then
 		vmsg "validation failed" >&2
 		rm -rf "$workdir"
 		return 1
@@ -289,7 +288,7 @@ local_file="$dst_file.local"
 {
 	echo "# updated: at $(date +"%Y-%m-%d %H:%M:%S %z")"
 	echo "# updated: from $src_url"
-	cat "$tmp_plain"
+	cat "$tmp_plain" | tr -d '\r'
 	if [[ -s $local_file ]]; then
 		echo "# updated: from $local_file"
 		cat "$local_file"

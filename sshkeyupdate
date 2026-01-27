@@ -47,6 +47,9 @@ fetch() {
 verify_gpg() {
 	local input=$1 output=$2 status=
 
+	export GNUPGHOME="$workdir/gnupg"
+	mkdir -m 0700 "$GNUPGHOME" || return
+
 	if ! status=$(gpg \
 			--batch \
 			--quiet \
@@ -118,7 +121,7 @@ verify_sq() {
 	local input=$1 output=$2 status=
 
 	export SEQUOIA_HOME="$workdir/sq"
-	mkdir "$SEQUOIA_HOME" &&
+	mkdir -m 0700 "$SEQUOIA_HOME" &&
 	sq cert import "$signer_key" >/dev/null || return 2
 
 	if ! status=$(sq verify \

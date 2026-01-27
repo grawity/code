@@ -286,10 +286,10 @@ fi
 # download new pubkeys
 
 workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || exit
+tmp_signed="$workdir/signed.txt"
+tmp_plain="$workdir/output.txt"
 
 mkdir -p "${dst_file%/*}"
-
-tmp_signed=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! fetch "$src_url" "$tmp_signed"; then
 	rm -f "$tmp_signed"
@@ -298,8 +298,6 @@ elif ! test -s "$tmp_signed"; then
 	rm -f "$tmp_signed"
 	vdie "empty file fetched from $src_url"
 fi
-
-tmp_plain=$(mktemp "$dst_file.XXXXXXXX")
 
 if ! verify "$tmp_signed" "$tmp_plain"; then
 	if (( $? == 2 )); then
@@ -324,7 +322,7 @@ local_file="$dst_file.local"
 	echo "# updated: end"
 } | filter_keys > "$dst_file"
 
-rm -rf "$tmp_plain" "$tmp_signed" "${workdir?}"
+rm -rf "${workdir?}"
 
 if [[ -t 1 ]]; then
 	num=$(grep -c '^[^#]' "$dst_file")

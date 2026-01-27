@@ -105,7 +105,7 @@ fetch() {
 	return 1
 }
 
-verify() {
+verify_gpg() {
 	local input=$1 output=$2 status= errors=0
 	if ! [[ -d ~/.gnupg ]]; then
 		vmsg "cannot validate using gpg; ~/.gnupg is not initialized" >&2
@@ -132,6 +132,40 @@ verify() {
 		return 1
 	fi
 	return 0
+}
+
+verify_sop() {
+	local input=$1 output=$2= workdir=
+	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
+
+	local cert="$workdir/signer.pgp"
+	local status="$workdir/verify.out"
+	echo "$signer_key" > "$cert"
+
+	if ! sqop inline-verify "$cert" --verifications-out "$status" < "$input" > "$output"; then
+		vmsg "validation failed" >&2
+		rm -rf "$workdir"
+		return 1
+	fi
+	if ! [ "$(awk '{print toupper($2)}' < "$status")" = "$signer_fpr" ]; then
+		vmsg "signer mismatch" >&2
+		cat "$status" >&2
+		rm -rf "$workdir"
+		return 1
+	fi
+	if ! [ "$(awk '{print toupper($3)}' < "$status")" = "$signer_fpr" ]; then
+		vmsg "signer mismatch" >&2
+		cat "$status" >&2
+		rm -rf "$workdir"
+		return 1
+	fi
+
+	rm -rf "$workdir"
+	return 0
+}
+
+verify() {
+	verify_sop "$@"
 }
 
 umask 077

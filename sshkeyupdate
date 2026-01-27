@@ -107,6 +107,14 @@ fetch() {
 
 verify() {
 	local input=$1 output=$2 status= errors=0
+	if ! [[ -d ~/.gnupg ]]; then
+		vmsg "cannot validate using gpg; ~/.gnupg is not initialized" >&2
+		return 1
+	fi
+	if ! gpg -k "$signer_fpr" > /dev/null; then
+		vmsg "cannot validate using gpg; key $signer_fpr not in keyring" >&2
+		return 1
+	fi
 	if ! status=$(gpg --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
 		vmsg "unknown gpg error" >&2
@@ -114,7 +122,7 @@ verify() {
 		return 1
 	fi
 	if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
-		vmsg "file has invalid signature" >&2
+		vmsg "validation failed or signer mismatch" >&2
 		echo "$status" >&2
 		return 1
 	fi
@@ -193,10 +201,6 @@ if (( opt_importkey )); then
 	vmsg "importing embedded owner key into GnuPG keyring"
 	echo "$signer_key" | gpg --import
 	echo "$signer_fpr:6:" | gpg --import-ownertrust
-elif ! [[ -d ~/.gnupg ]]; then
-	vdie "~/.gnupg is not initialized"
-elif ! gpg -k "$signer_fpr" > /dev/null; then
-	vdie "signer key $signer_fpr not found in keyring"
 fi
 
 # download new pubkeys

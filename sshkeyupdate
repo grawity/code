@@ -107,6 +107,11 @@ fetch() {
 
 verify_gpg() {
 	local input=$1 output=$2 status= errors=0
+
+	if ! have gpg; then
+		vmsg "gpg is not installed" >&2
+		return 2
+	fi
 	if ! [[ -d ~/.gnupg ]]; then
 		vmsg "cannot validate using gpg; ~/.gnupg is not initialized" >&2
 		return 1
@@ -115,6 +120,7 @@ verify_gpg() {
 		vmsg "cannot validate using gpg; key $signer_fpr not in keyring" >&2
 		return 1
 	fi
+
 	if ! status=$(gpg --batch --yes --status-fd 1 --output "$output" \
 	                 --trust-model pgp --decrypt "$input" 2> /dev/null); then
 		vmsg "unknown gpg error" >&2
@@ -146,7 +152,7 @@ verify_sop() {
 	elif have gosop; then
 		sop=gosop
 	else
-		vmsg "sop not installed"
+		vmsg "sop is not installed" >&2
 		return 1
 	fi
 
@@ -180,7 +186,11 @@ verify_sop() {
 }
 
 verify() {
-	verify_sop "$@"
+	if have sqop || have rsop || have gosop; then
+		verify_sop "$@"
+	else
+		verify_gpg "$@"
+	fi
 }
 
 umask 077
@@ -238,10 +248,6 @@ if [[ "$LOGNAME" != "$unix_user" ]]; then
 	else
 		exit 0
 	fi
-fi
-
-if ! have gpg; then
-	vdie "gpg is not installed"
 fi
 
 # ensure key exists in keyring

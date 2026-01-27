@@ -122,23 +122,8 @@ verify_sq() {
 
 verify_sop() {
 	local input=$1 output=$2
-	local status="$workdir/verify.out"
 
-	if ! ${SOP?} inline-verify --verifications-out="$status" \
-			"$signer_key" < "$input" > "$output"; then
-		vmsg "validation failed" >&2
-		return 1
-	elif ! [ "$(awk '{print toupper($2)}' < "$status")" = "$signer_fpr" ]; then
-		vmsg "signer mismatch" >&2
-		cat "$status" >&2
-		return 1
-	elif ! [ "$(awk '{print toupper($3)}' < "$status")" = "$signer_fpr" ]; then
-		vmsg "signer mismatch" >&2
-		cat "$status" >&2
-		return 1
-	else
-		return 0
-	fi
+	${SOP?} inline-verify "$signer_key" < "$input" > "$output"
 }
 
 verify_sqv() {

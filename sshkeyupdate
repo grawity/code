@@ -140,6 +140,39 @@ verify_gpg() {
 	return 0
 }
 
+verify_gpgv() {
+	local input=$1 output=$2 workdir= status=
+
+	if ! have gpgv; then
+		vmsg "gpgv is not installed" >&2
+		return 2
+	fi
+
+	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
+	local cert="$workdir/signer.pgp"
+	# XXX: cannot rely on gpg being present
+	echo "$signer_key" | gpg --dearmor > "$cert"
+
+	if ! status=$(gpgv --status-fd 1 --keyring "$cert" --output "$output" "$input" 2>/dev/null); then
+		vmsg "validation failed" >&2
+		rm -rf "$workdir"
+		return 1
+	fi
+	if ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+		vmsg "validation failed or signer mismatch" >&2
+		echo "$status" >&2
+		return 1
+	fi
+	if ! grep -Eqs "^\\[GNUPG:\\] TRUST_ULTIMATE( 0 .+)?\$" <<< "$status"; then
+		vmsg "signer key is not ultimately trusted" >&2
+		echo "$status" >&2
+		return 1
+	fi
+
+	rm -rf "$workdir"
+	return 0
+}
+
 verify_sop() {
 	local input=$1 output=$2 sop= workdir=
 
@@ -157,7 +190,6 @@ verify_sop() {
 	fi
 
 	workdir=$(mktemp -d /tmp/sshkeyupdate.XXXXXX) || return
-
 	local cert="$workdir/signer.pgp"
 	local status="$workdir/verify.out"
 	echo "$signer_key" > "$cert"
@@ -185,7 +217,9 @@ verify_sop() {
 }
 
 verify() {
-	if have sqop || have rsop || have gosop; then
+	if [ "$SOP" = gpgv ]; then
+		verify_gpgv "$@"
+	elif [ "$SOP" ] || have sqop || have rsop || have gosop; then
 		verify_sop "$@"
 	else
 		verify_gpg "$@"

@@ -127,9 +127,17 @@ verify_sop() {
 }
 
 verify_sqv() {
-	local input=$1 output=$2
+	local input=$1 output=$2 status=
 
-	sqv --cleartext --keyring="$signer_key" --output="$output" "$input" > /dev/null
+	if ! status=$(sqv --cleartext --keyring="$signer_key" --output="$output" "$input"); then
+		vmsg "validation failed" >&2
+		return 1
+	elif [[ "$status" != "$signer_fpr" ]]; then
+		vmsg "signer mismatch" >&2
+		return 1
+	else
+		return 0
+	fi
 }
 
 verify() {

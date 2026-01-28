@@ -90,6 +90,10 @@ verify_gpgv() {
 		vmsg "signature verification failed" >&2
 		echo "$status" >&2
 		return 1
+	elif ! grep -Eqs "^\\[GNUPG:\\] VALIDSIG $signer_fpr " <<< "$status"; then
+		vmsg "signer mismatch" >&2
+		echo "$status" >&2
+		return 1
 	else
 		return 0
 	fi

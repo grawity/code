@@ -82,7 +82,11 @@ verify_gpgv() {
 	export GNUPGHOME="$workdir/gnupg"
 	mkdir -m 0700 "$GNUPGHOME" || return
 
-	if ! status=$(gpgv --keyring="$signer_key" --output="$output" "$input" 2>&1); then
+	if ! status=$(gpgv \
+			--status-fd=1 \
+			--keyring="$signer_key" \
+			--output="$output" \
+			"$input" 2>/dev/null); then
 		vmsg "signature verification failed" >&2
 		echo "$status" >&2
 		return 1

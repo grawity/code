@@ -217,7 +217,7 @@ for arg; do
 
 	# Downscale
 	nice ffmpeg "${ffoptions[@]}" -i "$srcfile" "${ffconvert[@]}" \
-		-f "$outformat" "$dstfile.part" || confirm || break
+		-f "$outformat" "$dstfile.part" || confirm || exit
 
 	# Remux to include attachments. Do this as a separate step as otherwise
 	# the 0:t would break ffmpeg's progress reporting. Use 0:t? to prevent
@@ -226,7 +226,7 @@ for arg; do
 		vmsg "remuxing to include attachments"
 		ffmpeg "${ffoptions[@]}" -i "$srcfile" -i "$dstfile.part" \
 			-map 1:v -map 1:a -map 1:s -map 0:t? -c copy \
-			-f "$outformat" "$dstfile" || confirm || break
+			-f "$outformat" "$dstfile" || confirm || exit
 		rm -f "$dstfile.part"
 	else
 		mv "$dstfile.part" "$dstfile"

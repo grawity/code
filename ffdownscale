@@ -192,17 +192,20 @@ for arg; do
 	# Don't use Vorbis
 	ffconvert+=(-c:a aac)
 
-	# MP4 requires a specific subtitle format
+	# Subtitles
 	do_attachment_mux=0
-	if [[ $srcfile == *.mkv ]]; then
-		if [[ $dstext == mp4 ]]; then
-			ffconvert+=(-c:s mov_text)
-		elif [[ $dstext == mkv ]]; then
-			ffconvert+=(-c:s copy)
-			if (( num_attachs > 0 )); then
-				do_attachment_mux=1
-			fi
+	if [[ $srcfile == *.mkv && $dstext == mp4 ]]; then
+		# MP4 requires a specific subtitle format
+		ffconvert+=(-c:s mov_text)
+	elif [[ $srcfile == *.mkv && $dstext == mkv ]]; then
+		# Copy SRT subs and try to preserve fonts as well
+		ffconvert+=(-c:s copy)
+		if (( num_attachs > 0 )); then
+			do_attachment_mux=1
 		fi
+	else
+		# MP4 to MP4
+		ffconvert+=(-c:s copy)
 	fi
 
 	if [[ $TEST ]]; then

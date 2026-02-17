@@ -6,7 +6,7 @@
 
 import argparse
 
-base_hosts = ["wolke", "sky", "star", "land", "ember", "wind"]
+base_hosts = ["wolke", "sky", "star", "ember", "wind"]
 other_hosts = ["vm-vol5", "vm-litnet"]
 
 parser = argparse.ArgumentParser()

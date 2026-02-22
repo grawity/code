@@ -23,21 +23,10 @@ highlight() {
 	fi
 }
 
+mode=""
 opt_verbose=0
 opt_certreq=0
 opt_crl=0
-
-if have certtool; then
-	mode=certtool
-elif have openssl; then
-	mode=openssl
-elif have step; then
-	mode=step
-elif have certutil; then
-	mode=nsscertutil
-else
-	vdie "no supported tool found"
-fi
 
 while getopts :LRgnosv OPT; do
 	case $OPT in
@@ -54,6 +43,20 @@ done; shift $[OPTIND-1]
 
 if (( ! $# )); then
 	set -- /dev/stdin
+fi
+
+if [ "$mode" ]; then
+	:
+elif have openssl; then
+	mode=openssl
+elif have certtool; then
+	mode=certtool
+elif have step; then
+	mode=step
+elif have certutil; then
+	mode=nsscertutil
+else
+	vdie "no supported tool found"
 fi
 
 for file; do

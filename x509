@@ -4,13 +4,14 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-LRgno] [-v] <file>"
+	echo "Usage: $progname [-LRgnos] [-v] <file>"
 	echo
 	echo_opt "-L" "input is a certificate revocation list (CRL)"
 	echo_opt "-R" "input is a certificate request (CSR)"
 	echo_opt "-g" "display using GnuTLS 'certtool'"
 	echo_opt "-n" "display using NSS 'certutil'"
 	echo_opt "-o" "display using OpenSSL 'x509'"
+	echo_opt "-s" "display using Step"
 	echo_opt "-v" "show some normally-hidden details"
 }
 
@@ -30,19 +31,22 @@ if have certtool; then
 	mode=certtool
 elif have openssl; then
 	mode=openssl
+elif have step; then
+	mode=step
 elif have certutil; then
 	mode=nsscertutil
 else
 	vdie "no supported tool found"
 fi
 
-while getopts :LRgnov OPT; do
+while getopts :LRgnosv OPT; do
 	case $OPT in
 	L) opt_crl=1;;
 	R) opt_certreq=1;;
 	g) mode=certtool;;
 	n) mode=nsscertutil;;
 	o) mode=openssl;;
+	s) mode=step;;
 	v) let opt_verbose++;;
 	*) lib:die_getopts;;
 	esac
@@ -140,6 +144,14 @@ for file; do
 			awk '/Certificate Trust Flags:/ {m=1} !m {print} /^$/ {m=0}' |
 			highlight '/^Certificate/'
 		rm -rf "$tempdb"
+		;;
+	step)
+		step certificate inspect < "$file" | awk '
+			/Curve:|Exponent:|X509v3 extensions:/ {m=0}
+			!m {print}
+			/Modulus:|Public-Key:/ {m=1}
+			/^    Signature Algorithm:/ {m=1}
+		'
 		;;
 	esac
 

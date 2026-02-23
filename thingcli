@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+# thingcli -- Syncthing command-line interface
+import click
+#import click_aliases
+from functools import cache
+import lxml.etree
+import os
+from pprint import pprint
+import requests
+import sys
+
+def path_is_prefix_of(parent, child):
+    parent = parent.split("/")
+    child = child.split("/")
+    for i in range(min(len(parent), len(child))):
+        if parent[i] != child[i]:
+            return 0, None, None
+    parent = "/".join(parent[:i+1])
+    child = "/".join(child[i+1:])
+    return i, parent, child
+
+class SyncthingClient():
+    def __init__(self, url="http://localhost:8384"):
+        self.init_ua()
+        self.url = url
+        self.config = self.get_config()
+
+    def init_ua(self):
+        self.ua = requests.Session()
+        self.ua.headers["X-API-Key"] = self._get_api_key()
+        return self.ua
+
+    def _find_config_dir(self):
+        if sys.platform == "win32":
+            if e := os.environ.get("LOCALAPPDATA"):
+                return os.path.join(e, "Syncthing")
+            else:
+                return os.path.expanduser("~/AppData/Local/Syncthing")
+        else:
+            if e := os.environ.get("XDG_CONFIG_HOME"):
+                return os.path.join(e, "syncthing")
+            else:
+                return os.path.expanduser("~/.config/syncthing")
+
+    def _get_api_key(self):
+        path = os.path.join(self._find_config_dir(), "config.xml")
+        with open(path, "r") as fh:
+            xml = lxml.etree.fromstring(fh.read())
+        return str(xml.xpath("string(/configuration/gui/apikey)"))
+
+    def get_config(self):
+        r = self.ua.get(f"{self.url}/rest/system/config")
+        r.raise_for_status()
+        return r.json()
+
+    def lookup_folder(self, name):
+        for fld in self._get_config()["folders"]:
+            if fld["id"] == name:
+                return fld["id"]
+            elif fld["label"].casefold() == name.casefold():
+                return fld["id"]
+        raise KeyError(name)
+
+    '''
+    def get_folder_by_path(self, path):
+        candidates = []
+        for fld in self._get_config()["folders"]:
+            (m, p, c) = path_is_prefix_of(fld["path"], path)
+            if m:
+                Core.debug("Folder %r matches %r for %r", fld["path"], path, m)
+                candidates.append((m, fld["id"], c))
+        if not candidates:
+            raise KeyError(f"No folder matching {path!r}")
+        candidates.sort()
+        return candidates[-1]
+    '''
+
+    '''
+    def get_host_name(self, host_id):
+        for dev in self._get_config()["devices"]:
+            if dev["deviceID"].split("-")[0] == host_id:
+                return dev["name"]
+        return host_id
+    '''
+
+    def rescan_folder(self, folder_id):
+        r = self.ua.post(f"{self.url}/rest/db/scan",
+                         params={"folder": folder_id})
+        r.raise_for_status()
+        pprint(r.json())
+
+    def rescan_path(self, folder_id, path):
+        path = path.strip("/")
+        r = self.ua.post(f"{self.url}/rest/db/scan",
+                         params={"folder": folder_id,
+                                 "sub": path})
+        r.raise_for_status()
+        pprint(r.json())
+
+    def reset_index(self, folder_id):
+        r = self.ua.post(f"{self.url}/rest/system/reset",
+                         params={"folder": folder_id})
+        r.raise_for_status()
+        pprint(r.json())
+
+    def patch_folder(self, folder_id, data):
+        r = self.ua.patch(f"{self.url}/rest/config/folders/{folder_id}",
+                          json=data)
+        r.raise_for_status()
+
+#@click.group(cls=click_aliases.ClickAliasedGroup)
+@click.group()
+def main():
+    pass
+
+@main.command("folders")
+def cmd_folders():
+    global st
+    folders = st.config["folders"]
+    folders = sorted(folders, key=lambda f: (f["label"], f["id"]))
+    for f in folders:
+        print(f["id"], f["label"], sep="\t")
+
+@main.command("pause")
+@click.argument("folder")
+def cmd_pause(folder):
+    global st
+    folder_id = st.lookup_folder(folder)
+    st.patch_folder(folder_id, {"paused": True})
+
+@main.command("unpause")
+@click.argument("folder")
+def cmd_unpause(folder):
+    global st
+    folder_id = st.lookup_folder(folder)
+    st.patch_folder(folder_id, {"paused": False})
+
+st = SyncthingClient()
+main()

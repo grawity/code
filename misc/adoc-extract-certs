@@ -9,6 +9,7 @@ use Encode qw(decode);
 use File::Basename qw(basename dirname);
 use File::Path qw(make_path);
 use File::Spec::Functions qw(catfile);
+use File::Temp;
 use Getopt::Long qw(:config bundling no_ignore_case);
 use MIME::Base64;
 use Nullroute::Lib;
@@ -36,6 +37,29 @@ sub bigint_hex {
     }
 }
 
+sub split_pem_certs {
+    my ($buf) = @_;
+    return $buf =~ /^-----BEGIN CERTIFICATE-----\r?\n(.+?)\r?\n-----END CERTIFICATE-----$/msg;
+}
+
+sub parse_pkcs7 {
+    my ($buf) = @_;
+
+    my $tmp = File::Temp->new;
+    $tmp->print($buf);
+    $tmp->flush;
+    open(my $fh, "-|", "openssl", "pkcs7",
+                    "-in", $tmp->filename,
+                    "-inform", "DER",
+                    "-print_certs",
+                    "-quiet");
+    my $pems = do { local $/; <$fh> };
+    $fh->close;
+    $tmp->close;
+
+    return map {decode_base64($_)} split_pem_certs($pems);
+}
+
 sub parse_xmldsig {
     my ($data, %opt) = @_;
 
@@ -53,16 +77,33 @@ sub parse_xmldsig {
         print Data::Dumper->new([$xml])->Indent(1)->Dump;
     }
 
+    my @certs;
     if (my $data = $xml->{"{http://www.w3.org/2000/09/xmldsig#}Signature"}) {
-        map {decode_base64($_)}
+        push @certs,
+            map {decode_base64($_)}
+            grep {defined $_}
             map {$_->{"{http://www.w3.org/2000/09/xmldsig#}KeyInfo"}
                    ->{"{http://www.w3.org/2000/09/xmldsig#}X509Data"}
                    ->{"{http://www.w3.org/2000/09/xmldsig#}X509Certificate"}
                    ->{"content"}}
                 @$data;
+
+        push @certs,
+            map {parse_pkcs7($_)}
+            map {decode_base64($_)}
+            grep {defined $_}
+            map {$_->{"{http://www.w3.org/2000/09/xmldsig#}Object"}
+                   ->{"{http://uri.etsi.org/01903/v1.3.2#}QualifyingProperties"}
+                   ->{"{http://uri.etsi.org/01903/v1.3.2#}UnsignedProperties"}
+                   ->{"{http://uri.etsi.org/01903/v1.3.2#}UnsignedSignatureProperties"}
+                   ->{"{http://uri.etsi.org/01903/v1.3.2#}SignatureTimeStamp"}
+                   ->{"{http://uri.etsi.org/01903/v1.3.2#}EncapsulatedTimeStamp"}
+                   ->{"content"}}
+                @$data;
     } else {
-        return;
+        warn "XML-DSig has no <Signature> tag";
     }
+    return @certs;
 }
 
 sub parse_xml {

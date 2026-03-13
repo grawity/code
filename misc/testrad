@@ -362,14 +362,6 @@ fi
 
 # check client parameters
 
-[[ $identity ]]	|| err "missing username"
-[[ $outer_id ]]	|| outer_id=$identity
-
-
-if [[ $outer_id == "@" ]]; then
-	outer_id+=${identity#*@}
-fi
-
 eap=${eap^^}
 
 if [[ $eap == MSCHAP ]]; then
@@ -413,6 +405,26 @@ fi
 
 if [[ ${eap:-NONE} != @(NONE|MD5|MSCHAPV2|OTP|GTC|TLS|PEAP|TTLS) ]]; then
 	die "eapol_test does not support the '$eap' EAP mechanism"
+fi
+
+if [[ ${eap:-NONE} == TLS ]]; then
+	if [[ $identity && $outer_id && "$outer_id" != "$identity" ]]; then
+		# XXX: is this true?
+		die "EAP-$eap does not support an inner identity"
+	fi
+else
+	if [[ ! $identity ]]; then
+		die "missing username"
+	fi
+fi
+
+if [[ ! $outer_id ]]; then
+	outer_id=$identity
+fi
+
+# XXX: forgot what this is for
+if [[ $outer_id == "@" ]]; then
+	outer_id+=${identity#*@}
 fi
 
 if [[ $tls_ca == @(default|system) ]]; then

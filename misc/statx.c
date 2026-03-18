@@ -212,6 +212,9 @@ static void dump_statx(struct statx *stx)
 	else if (stx->stx_mask & STATX_MNT_ID)
 		printf("Mount ID (short): %llu\n", stx->stx_mnt_id);
 
+	if (stx->stx_mask & STATX_SUBVOL)
+		printf("Subvolume ID: %llu\n", stx->stx_subvol);
+
 	/* Print supported attributes in short format */
 	if (stx->stx_attributes_mask) {
 		printf("Attributes: 0x%016llx (", (unsigned long long)stx->stx_attributes);

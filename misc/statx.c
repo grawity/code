@@ -92,6 +92,7 @@ static char *attr_name[64] = {
 	[12] = "automount",
 	[13] = "mount_root",
 	[20] = "fsverity",
+	[21] = "dax",
 };
 
 static char attr_flag[64] = {
@@ -103,6 +104,7 @@ static char attr_flag[64] = {
 	[12] = 'm', /* automount */
 	[13] = 'r', /* mount-root */
 	[20] = 'v', /* fs-verity */
+	[21] = 'x', /* dax */
 };
 
 static void print_time(const char *field, struct statx_timestamp *ts)

@@ -4,9 +4,8 @@
 . lib.bash || exit
 
 usage() {
-	echo "Usage: $progname [-g] [-l] [user]@host"
+	echo "Usage: $progname [-l] [user]@host"
 	echo ""
-	echo_opt "-g" "always use HTTP gateway"
 	echo_opt "-l" "long output (/W request)"
 }
 
@@ -20,7 +19,7 @@ detail=0
 webgw=0
 ipv6=1
 
-while getopts ":gl" OPT; do
+while getopts ":l" OPT; do
 	case $OPT in
 	g) webgw=1;;
 	l) detail=1;;
@@ -63,9 +62,6 @@ elif have curl && curl -V | grep -qws telnet; then
 elif have socat; then
 	debug "found Socat"
 	client=socat
-elif have http-get; then
-	debug "found http-get, using web gateway"
-	client=gateway
 elif have lynx; then
 	debug "found Lynx"
 	client=lynx
@@ -78,9 +74,7 @@ fi
 
 debug "using client mode '$client'"
 
-if [[ $client == gateway ]]; then
-	http-get "http://nullroute.lt/finger/?q=$uquery@$host&raw=1"
-elif [[ $client == finger.py ]]; then
+if [[ $client == finger.py ]]; then
 	~/bin/misc/finger.py "$query@$host"
 else
 	if have name2addr; then

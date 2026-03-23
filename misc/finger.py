@@ -30,12 +30,12 @@ def finger(user, host, whois=False, *, timeout=10):
             sock.close()
             data = data.replace(b"\r\n", b"\n")
             if not data.strip():
-                print("Empty response from %s" % addr, file=sys.stderr)
+                print("finger: empty response from %s for \"%s\"" % (addr, user), file=sys.stderr)
                 continue
             return cname or addr, data
         except OSError as e:
-            print("Connect to %s failed: %s" % (addr, e), file=sys.stderr)
-    print("Unable to query \"%s@%s\"" % (user, host), file=sys.stderr)
+            print("finger: connect to %s failed: %s" % (addr, e), file=sys.stderr)
+    print("finger: unable to query \"%s@%s\"" % (user, host), file=sys.stderr)
     exit(1)
 
 parser = argparse.ArgumentParser()

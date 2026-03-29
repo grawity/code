@@ -165,6 +165,12 @@ def eui48_get_vendor_hwdb(addr):
         Core.debug("systemd-hwdb not available: %s", e)
     return None
 
+def eui48_get_whatmac(addr):
+    query = eui48_fmt(addr)
+    r = subprocess.run(["eui48_get_whatmac", "-q", query],
+                       stdout=subprocess.PIPE)
+    return r.stdout.decode().strip()
+
 def ipv6_get_v4mapped(addr, at=12):
     if addr.version == 4:
         return addr
@@ -234,10 +240,11 @@ def addr2props(addr):
         if is_autoconf:
             if ipv6_is_eui48(addr):
                 mac = ipv6_get_eui48(addr)
-                vnd = eui48_get_vendor_hwdb(mac)
                 misc.append(("MAC address", eui48_fmt(mac)))
-                if vnd:
+                if vnd := eui48_get_vendor_hwdb(mac):
                     misc.append(("MAC vendor", vnd))
+                if desc := eui48_get_whatmac(mac):
+                    misc.append(("eui48_get_whatmac", desc))
             elif ipv6_is_isatap(addr):
                 misc.append(("ISATAP v4", ipv6_get_v4mapped(addr)))
             elif ipv6_maybe_v4mapped(addr):

@@ -19,6 +19,8 @@ usage() {
 	echo_opt "-x"		"Remove originals after successful conversion"
 	echo
 	echo_opt "-j <nproc>"	"Number of parallel conversions (default $nproc)"
+	echo_opt "-h"		"Distribute conversion across the '@cpu' group"
+	echo_opt "-H <hosts>"	"Distribute conversion across specified hosts"
 }
 
 # Print out a progress bar, and set the ConEmu taskbar progress.
@@ -76,17 +78,24 @@ outdir=
 declare -A iomap=()
 declare -A oimap=()
 addargs=()
+opt_hosts=""
 
+slotdir=""
+slots=()
+hosts=""
+nhosts=1
 nproc=$(nproc)
 njobs=0
 ndone=0
 r=0
 
-while getopts ":B:d:fj:L:O:q:s:Txv" OPT; do
+while getopts ":B:d:fhH:j:L:O:q:s:Txv" OPT; do
 	case $OPT in
 	B) background="#${OPTARG#'#'}";;
 	d) outdir=$OPTARG;;
 	f) keeplarger=1;;
+	h) opt_hosts="@cpu";;
+	H) opt_hosts=$OPTARG;;
 	q) quality=${OPTARG%'%'};;
 	j) nproc=$OPTARG;;
 	L) minorigsize=$OPTARG;;
@@ -199,34 +208,34 @@ if (( nproc < 1 || nproc > $(nproc)*4 )); then
 	die "invalid job count '$nproc'"
 fi
 
-# XXX: multi-host mode
-hosts='ember:8 wind:10 dust:10'
-declare -A slots=()
+if [[ $opt_hosts ]]; then
+	hosts=$(rlisthosts "$opt_hosts") || exit
+fi
 slotdir=$(mktemp -d /tmp/recompress.XXXXXX) || exit
 if [[ $hosts ]]; then
 	for hp in $hosts; do
-		shost=${hp%:*} smax=${hp#*:}
+		shost=${hp%:*}
 		srealmax=$(ssh -q "$shost" nproc)
-		if [[ $smax ]]; then
-			if (( smax < 1 || smax > srealmax*4 )); then
+		if [[ $shost == *:* ]]; then
+			smax=${hp#:}
+			if (( smax < 1 || smax > srealmax*2 )); then
 				die "bad job count '$smax' for host '$shost'"
 			fi
 		else
+			smax=$srealmax
 			# Add +2 extra jobs to account for slower network I/O
-			if [[ $shost == "$HOSTNAME" ]]; then
-				smax=$srealmax
-			else
-				smax=$[srealmax+2]
+			if [[ $shost != "$HOSTNAME" ]]; then
+				(( smax += 2 ))
 			fi
 		fi
 		for (( sproc = 0; sproc < smax; sproc++ )); do
 			slots["$shost:$sproc"]=0
 			touch "$slotdir"/S."$slot"
 		done
+		(( ++nhosts ))
 	done
 	nproc=${#slots[@]}
-	hosts=($hosts)
-	vmsg "distributing $nproc jobs across ${#hosts[@]} hosts"
+	vmsg "distributing $nproc jobs across $nhosts hosts"
 fi
 
 echo "Recompressing ${#infiles[@]} files ($nproc jobs)"

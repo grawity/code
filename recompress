@@ -81,7 +81,7 @@ addargs=()
 opt_hosts=""
 
 slotdir=""
-slots=()
+declare -A slots=()
 hosts=""
 nhosts=1
 nproc=$(nproc)
@@ -215,7 +215,7 @@ slotdir=$(mktemp -d /tmp/recompress.XXXXXX) || exit
 if [[ $hosts ]]; then
 	for hp in $hosts; do
 		shost=${hp%:*}
-		srealmax=$(ssh -q "$shost" nproc)
+		srealmax=$(ssh -q "$shost" nproc) || continue
 		if [[ $shost == *:* ]]; then
 			smax=${hp#:}
 			if (( smax < 1 || smax > srealmax*2 )); then

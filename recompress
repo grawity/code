@@ -199,6 +199,36 @@ if (( nproc < 1 || nproc > $(nproc)*4 )); then
 	die "invalid job count '$nproc'"
 fi
 
+# XXX: multi-host mode
+hosts='ember:8 wind:10 dust:10'
+declare -A slots=()
+slotdir=$(mktemp -d /tmp/recompress.XXXXXX) || exit
+if [[ $hosts ]]; then
+	for hp in $hosts; do
+		shost=${hp%:*} smax=${hp#*:}
+		srealmax=$(ssh -q "$shost" nproc)
+		if [[ $smax ]]; then
+			if (( smax < 1 || smax > srealmax*4 )); then
+				die "bad job count '$smax' for host '$shost'"
+			fi
+		else
+			# Add +2 extra jobs to account for slower network I/O
+			if [[ $shost == "$HOSTNAME" ]]; then
+				smax=$srealmax
+			else
+				smax=$[srealmax+2]
+			fi
+		fi
+		for (( sproc = 0; sproc < smax; sproc++ )); do
+			slots["$shost:$sproc"]=0
+			touch "$slotdir"/S."$slot"
+		done
+	done
+	nproc=${#slots[@]}
+	hosts=($hosts)
+	vmsg "distributing $nproc jobs across ${#hosts[@]} hosts"
+fi
+
 echo "Recompressing ${#infiles[@]} files ($nproc jobs)"
 
 for iname in "${infiles[@]}"; do
@@ -222,7 +252,7 @@ for iname in "${infiles[@]}"; do
 	oimap["$oname"]=$iname
 done
 
-trap 'clear_progress' EXIT
+trap 'clear_progress; rm -rf "$slotdir"' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
@@ -230,17 +260,52 @@ for iname in "${infiles[@]}"; do
 		show_progress "$ndone" "${#infiles[@]}"
 	done
 	oname=${iomap["$iname"]}
+
+	# find a free slot
+	unset slot shost spath
+	if [[ $hosts ]]; then
+		for islot in "${!slots[@]}"; do
+			spath="$slotdir"/S."$islot"
+			if [[ ! -e "$spath" ]]; then
+				slot=$islot shost=${slot%:*}
+				touch "$spath"
+				break
+			fi
+		done
+		if [[ ! $slot ]]; then
+			vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
+		fi
+	fi
+
+	#{
+	#	sleep $[(RANDOM%5)+1]
+	#	rm -f "$spath"
+	#} & (( ++njobs ))
+	#show_progress "$ndone" "${#infiles[@]}"
+	#continue
+
 	{
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
 		fi
 		case $iname in
-		# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps
-		*.mp3)	ffmpeg -loglevel error -i "$iname" -c:a libmp3lame -q:a 7 "$oname";;
-		*)	magick "$iname" "${addargs[@]}" "$oname";;
-		esac &&
+			# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps
+			*.mp3)
+				cmd=(ffmpeg -loglevel error -i "$iname" -c:a libmp3lame -q:a 7 "$oname");;
+			*)
+				cmd=(magick "$iname" "${addargs[@]}" "$oname");;
+		esac
+		if [[ $shost && $shost != "$HOSTNAME" ]]; then
+			on "$shost" "${cmd[@]}"
+		else
+			"${cmd[@]}"
+		fi &&
 		if (( keepmtime )); then
 			touch "$oname" --reference="$iname" 2>/dev/null
+		fi
+		# Mark slot as free
+		if [[ $spath ]]; then
+			rm -f "$spath"
 		fi
 	} & (( ++njobs ))
 	outfiles+=("$oname")

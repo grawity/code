@@ -305,12 +305,11 @@ for iname in "${infiles[@]}"; do
 		wait_job
 		show_progress "$ndone" "${#infiles[@]}"
 	done
-	oname=${iomap["$iname"]}
 
 	unset host
 	if [[ $hosts ]]; then
 		for h in "${!hostproc[@]}"; do
-			if (( hostproc[$h] )); then
+			if (( hostproc[$h] > 0 )); then
 				host=$h
 			fi
 		done
@@ -319,6 +318,7 @@ for iname in "${infiles[@]}"; do
 		fi
 	fi
 
+	oname=${iomap["$iname"]}
 	case $iname in
 	# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps
 	*.mp3)	cmd=(ffmpeg -loglevel error -i "$iname" -c:a libmp3lame -q:a 7 "$oname");;
@@ -340,7 +340,8 @@ for iname in "${infiles[@]}"; do
 		# If any code is added here in the future, always propagate
 		# the exit status of the main command.
 		exit $r
-	} & (( ++njobs ))
+	} &
+	(( ++njobs ))
 	(( --hostproc[$host] ))
 	jobhosts[$!]=$host
 	jobfiles[$!]=$iname

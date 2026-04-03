@@ -267,6 +267,7 @@ else
 		vdie "not enough memory for $nproc jobs ($smemfree MB available)"
 	fi
 	nproc=$sproc
+	hostproc["$HOSTNAME"]=$nproc
 	vmsg "converting ${#infiles[@]} files ($nproc local jobs)"
 fi
 
@@ -310,15 +311,13 @@ trap 'clear_progress' EXIT
 show_progress "$ndone" "${#infiles[@]}"
 for iname in "${infiles[@]}"; do
 	unset host
-	if [[ $hosts ]]; then
-		for h in "${!hostproc[@]}"; do
-			if (( hostproc[$h] > 0 )); then
-				host=$h
-			fi
-		done
-		if [[ ! $host ]]; then
-			vdie "BUG: did not find a free host (njobs=$njobs, nproc=$nproc)"
+	for h in "${!hostproc[@]}"; do
+		if (( hostproc[$h] > 0 )); then
+			host=$h
 		fi
+	done
+	if [[ ! $host ]]; then
+		vdie "BUG: did not find a free host (njobs=$njobs, nproc=$nproc)"
 	fi
 
 	oname=${iomap["$iname"]}
@@ -332,7 +331,7 @@ for iname in "${infiles[@]}"; do
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
 		fi
-		if [[ $host && $host != "$HOSTNAME" ]]; then
+		if [[ $host != "$HOSTNAME" ]]; then
 			on "$host" nice "${cmd[@]}"
 		else
 			nice "${cmd[@]}"

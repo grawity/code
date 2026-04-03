@@ -79,13 +79,16 @@ declare -A oimap=()
 addargs=()
 opt_hosts=""
 
+memperjob=100
 slotdir=""
+declare -A shosts=()
 declare -A slots=()
+declare -A spids=()
 hosts=""
-nhosts=0
 nproc=$(nproc)
 njobs=0
 ndone=0
+nfail=0
 r=0
 
 while getopts ":B:d:fhH:j:L:O:q:s:Txv" OPT; do
@@ -203,14 +206,6 @@ elif (( scale < 100 )); then
 	infix="s$scale.$infix"
 fi
 
-mem=$(awk '/^MemAvailable:/{print int($2 / 1024)}' /proc/meminfo)
-if (( mem < 100*nproc )); then
-	confirm "Not enough RAM for conversion ($mem MB free), continue?" || exit
-	nproc=1
-fi
-if (( nproc < 1 || nproc > $(nproc)*4 )); then
-	die "invalid job count '$nproc'"
-fi
 
 # Expand hosts to job slots
 if [[ $opt_hosts ]]; then
@@ -220,27 +215,41 @@ slotdir=$(mktemp -d /tmp/recompress.XXXXXX) || exit
 if [[ $hosts ]]; then
 	for hp in $hosts; do
 		shost=${hp%:*}
-		srealmax=$(ssh -q "$shost" nproc) || continue
+		smaxproc=$(ssh -q "$shost" nproc) || continue
+		smemfree=$(ssh -q "$shost" \
+			"awk '/^MemAvailable:/{print int(\$2/1024)}' /proc/meminfo")
 		if [[ $hp == *:* ]]; then
-			smax=${hp#*:}
-			if (( smax < 1 || smax > srealmax*2 )); then
-				die "bad job count '$smax' for host '$shost'"
+			sproc=${hp#*:}
+			if (( sproc < 1 || sproc > smaxproc*2 )); then
+				vdie "can't do $sproc jobs on $shost ($smaxproc CPUs available)"
 			fi
 		else
-			smax=$srealmax
+			sproc=$smaxproc
 			# Add extra jobs to account for slower network I/O
 			if [[ $shost != "$HOSTNAME" ]]; then
-				(( smax += (smax+4)/4 ))
+				(( sproc += (sproc+4)/4 ))
 			fi
 		fi
-		for (( sproc = 0; sproc < smax; sproc++ )); do
-			slots["$shost:$sproc"]=0
+		if (( smemfree < sproc * memperjob )); then
+			vdie "not enough memory for $sproc jobs ($smemfree MB available)"
+		fi
+		for (( i = 0; i < sproc; i++ )); do
+			slots["$shost:$i"]=0
 		done
-		(( ++nhosts ))
+		shosts["$shost"]=$sproc
 	done
+	nhosts=${#shosts[@]}
 	nproc=${#slots[@]}
 	vmsg "converting ${#infiles[@]} files ($nproc jobs across $nhosts hosts)"
 else
+	smaxproc=$(nproc)
+	smemfree=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
+	if (( nproc < 1 || nproc > smaxproc*4 )); then
+		vdie "can't do $nproc jobs ($smaxproc CPUs available)"
+	fi
+	if (( smemfree < nproc * memperjob )); then
+		vdie "not enough memory for $nproc jobs ($smemfree MB available)"
+	fi
 	vmsg "converting ${#infiles[@]} files ($nproc local jobs)"
 fi
 
@@ -295,13 +304,6 @@ for iname in "${infiles[@]}"; do
 			vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
 		fi
 	fi
-
-	#{
-	#	sleep $[(RANDOM%5)+1]
-	#	rm -f "$spath"
-	#} & (( ++njobs ))
-	#show_progress "$ndone" "${#infiles[@]}"
-	#continue
 
 	case $iname in
 	# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps

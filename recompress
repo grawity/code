@@ -272,7 +272,10 @@ trap 'clear_progress; rm -rf "$slotdir"' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
-		wait -n; (( --njobs )); (( ++ndone ))
+		wait -n; r=$?; (( --njobs )); (( ++ndone ))
+		if (( r )); then
+			vmsg "job failed with status $r" >&2; (( ++nfail ))
+		fi
 		show_progress "$ndone" "${#infiles[@]}"
 	done
 	oname=${iomap["$iname"]}
@@ -318,17 +321,21 @@ for iname in "${infiles[@]}"; do
 		fi &&
 		if (( keepmtime )); then
 			touch "$oname" --reference="$iname" 2>/dev/null
-		fi
+		fi; r=$?
 		# Mark slot as free
 		if [[ $spath ]]; then
 			rm -f "$spath"
 		fi
+		exit $r
 	} & (( ++njobs ))
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
 done
 while (( njobs )); do
-	wait -n; (( --njobs )); (( ++ndone ))
+	wait -n; r=$?; (( --njobs )); (( ++ndone ))
+	if (( r )); then
+		vmsg "job failed with status $r" >&2; (( ++nfail ))
+	fi
 	show_progress "$ndone" "${#infiles[@]}"
 done
 clear_progress

@@ -83,7 +83,8 @@ outdir=
 declare -A iomap=()
 declare -A oimap=()
 addargs=()
-opt_hosts=""
+opt_nproc=0		# -j
+opt_hosts=""		# -H
 
 memperjob=100
 hosts=""
@@ -104,7 +105,7 @@ while getopts ":B:d:fhH:j:L:O:q:s:Txv" OPT; do
 	h) opt_hosts="@cpu";;
 	H) opt_hosts=$OPTARG;;
 	q) quality=${OPTARG%'%'};;
-	j) nproc=$OPTARG;;
+	j) opt_nproc=$OPTARG;;
 	L) minorigsize=$OPTARG;;
 	O) addargs+=("$OPTARG");;
 	s) scale=${OPTARG%'%'};;
@@ -228,13 +229,13 @@ if [[ $hosts ]]; then
 			if (( sproc < 1 || sproc > smaxproc*2 )); then
 				vdie "can't do $sproc jobs on $host ($smaxproc CPUs available)"
 			fi
-			#if (( nproc )); then
-			#	vmsg "host specification '$hp' overrides '-j $nproc'"
+			#if (( opt_nproc )); then
+			#	vmsg "host specification '$hp' overrides '-j $opt_nproc'"
 			#fi
-		elif (( nproc )); then
-			sproc=$nproc
+		elif (( opt_nproc )); then
+			sproc=$opt_nproc
 			if (( sproc > smaxproc*2 )); then
-				vdie "can't do $sproc jobs on $shost ($smaxproc CPUs available)"
+				vdie "can't do $sproc jobs on $host ($smaxproc CPUs available)"
 			fi
 		else
 			sproc=$smaxproc
@@ -244,7 +245,7 @@ if [[ $hosts ]]; then
 			fi
 		fi
 		if (( smemfree < sproc * memperjob )); then
-			vdie "not enough memory for $sproc jobs ($smemfree MB available)"
+			vdie "not enough memory for $sproc jobs on $host ($smemfree MB available)"
 		fi
 		let nproc+=sproc
 		hostproc["$host"]=$sproc
@@ -254,14 +255,18 @@ if [[ $hosts ]]; then
 else
 	smaxproc=$(nproc)
 	smemfree=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
-	if (( !nproc )); then
-		nproc=$smaxproc
-	elif (( nproc > smaxproc*2 )); then
-		vdie "can't do $nproc jobs ($smaxproc CPUs available)"
+	if (( opt_nproc )); then
+		sproc=$opt_nproc
+		if (( sproc > smaxproc*2 )); then
+			vdie "can't do $nproc jobs ($smaxproc CPUs available)"
+		fi
+	else
+		sproc=$smaxproc
 	fi
-	if (( smemfree < nproc * memperjob )); then
+	if (( smemfree < sproc * memperjob )); then
 		vdie "not enough memory for $nproc jobs ($smemfree MB available)"
 	fi
+	nproc=$sproc
 	vmsg "converting ${#infiles[@]} files ($nproc local jobs)"
 fi
 

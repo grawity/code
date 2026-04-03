@@ -128,11 +128,12 @@ if [[ $minorigsize != 0 ]]; then
 	info "will skip files smaller than $(numfmt --to=iec "$minorigsize")B"
 fi
 
+# Discard inputs which are already converted (to allow 'recompress *.jpg'),
+# or those below the specified size limit.
 nskipconv=0
 nskipsmall=0
 nskipother=0
 nwarnanim=0
-
 if (( $# > 250 )); then
 	# Show signs of life as the 'stat' loop is not instant with 3k inputs
 	vmsg "checking $# input files"
@@ -170,6 +171,7 @@ if (( ! ${#infiles[@]} )); then
 	die 0 "no input files"
 fi
 
+# Do some additional checks for formats we can't convert
 for arg in "${infiles[@]}"; do
 	if [[ $arg == *.webp ]]; then
 		nframes=$(magick identify -ping "$arg" | wc -l)
@@ -183,13 +185,12 @@ if (( errors )); then
 	exit 1
 fi
 
+# Generate imagemagick arguments
 addargs+=(-background "$background" -alpha remove)
-
-if (( quality < 20 || quality > 100 )); then
-	die "invalid quality value '$quality'"
-fi
 addargs+=(-quality "$quality")
-if (( quality < 90 )); then
+if (( quality < 20 || quality > 100 )); then
+	die "invalid quality '$quality'"
+elif (( quality < 90 )); then
 	infix="q$quality.$infix"
 fi
 
@@ -212,6 +213,7 @@ if (( nproc < 1 || nproc > $(nproc)*4 )); then
 	die "invalid job count '$nproc'"
 fi
 
+# Expand hosts to job slots
 if [[ $opt_hosts ]]; then
 	hosts=$(rlisthosts "$opt_hosts") || exit
 fi
@@ -243,6 +245,8 @@ else
 	vmsg "converting ${#infiles[@]} files ($nproc local jobs)"
 fi
 
+# Decide on output file names upfront (as worker processes cannot easily
+# propagate them to the master).
 for iname in "${infiles[@]}"; do
 	case $iname in
 	*.mp3)	ext=mp3;;
@@ -264,6 +268,7 @@ for iname in "${infiles[@]}"; do
 	oimap["$oname"]=$iname
 done
 
+# Perform the conversion
 trap 'clear_progress; rm -rf "$slotdir"' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
@@ -330,32 +335,35 @@ done
 clear_progress
 trap - EXIT
 
-if true; then
-	intrash=()
-	outsmaller=()
-	inkeep=()
-	outlarger=()
-	for oname in "${outfiles[@]}"; do
-		iname=${oimap["$oname"]}
-		if [[ ! -s "$oname" ]]; then
-			die "conversion of '$iname' failed"
-		fi
-		if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") - 128*1024 )); then
-			inkeep+=("$iname")
-			outlarger+=("$oname")
-		else
-			intrash+=("$iname")
-			outsmaller+=("$oname")
-		fi
-	done
-	if (( ${#outlarger[@]} )) && (( !keeplarger )); then
-		warn "${#outlarger[@]} files were larger than originals; deleting."; ((++r))
-		rm -f "${outlarger[@]}"
-		outfiles=("${outsmaller[@]}")
-	elif (( ${#outlarger[@]} )); then
-		warn "${#outlarger[@]} files are larger than originals"
-	fi
+# Verify the conversion results
+intrash=()
+outsmaller=()
+inkeep=()
+outlarger=()
+if (( $# > 250 )); then
+	vmsg "verifying output files"
 fi
+for oname in "${outfiles[@]}"; do
+	iname=${oimap["$oname"]}
+	if [[ ! -s "$oname" ]]; then
+		die "conversion of '$iname' failed"
+	fi
+	if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") - 128*1024 )); then
+		inkeep+=("$iname")
+		outlarger+=("$oname")
+	else
+		intrash+=("$iname")
+		outsmaller+=("$oname")
+	fi
+done
+if (( ${#outlarger[@]} )) && (( !keeplarger )); then
+	warn "${#outlarger[@]} files were larger than originals; deleting."; ((++r))
+	rm -f "${outlarger[@]}"
+	outfiles=("${outsmaller[@]}")
+elif (( ${#outlarger[@]} )); then
+	warn "${#outlarger[@]} files are larger than originals"
+fi
+
 if (( ! ${#outfiles[@]} )); then
 	die "no conversions succeeded"
 fi

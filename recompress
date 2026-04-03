@@ -83,7 +83,7 @@ memperjob=100
 declare -A shosts=()
 declare -A slots=()
 hosts=""
-nproc=$(nproc)
+nproc=0
 njobs=0
 ndone=0
 nfail=0
@@ -223,6 +223,11 @@ if [[ $hosts ]]; then
 			if (( sproc < 1 || sproc > smaxproc*2 )); then
 				vdie "can't do $sproc jobs on $shost ($smaxproc CPUs available)"
 			fi
+			#if (( nproc )); then
+			#	vmsg "host specification '$hp' overrides '-j $nproc'"
+			#fi
+		elif (( nproc )); then
+			sproc=$nproc
 		else
 			sproc=$smaxproc
 			# Add extra jobs to account for slower network I/O
@@ -244,7 +249,9 @@ if [[ $hosts ]]; then
 else
 	smaxproc=$(nproc)
 	smemfree=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
-	if (( nproc < 1 || nproc > smaxproc*4 )); then
+	if (( !nproc )); then
+		nproc=$smaxproc
+	elif (( nproc > smaxproc*4 )); then
 		vdie "can't do $nproc jobs ($smaxproc CPUs available)"
 	fi
 	if (( smemfree < nproc * memperjob )); then

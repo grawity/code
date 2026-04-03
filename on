@@ -23,8 +23,8 @@
 progname="on"
 
 usage() {
-	echo "Usage: on <host> [-eEHKLNRSv] [-C <path>] [<command>]"
-	echo "       @ <host> [-eEHKLNRSv] [-C <path>] [<command>]"
+	echo "Usage: on <host> [-eEKlLNrSv] [-C <path>] [<command>]"
+	echo "       @ <host> [-eEKlLNrSv] [-C <path>] [<command>]"
 	echo
 	echo "Run an interactive shell or command on the specified host, preserving the"
 	echo "current working directory. When invoked as '@' will use the remote equivalent"
@@ -33,11 +33,11 @@ usage() {
 	echo "(If the current directory is under /net/<otherhost>, -R will map it to reference"
 	echo "the same location on the target system, while -L and -N will retain it as-is.)"
 	echo
-	echo_opt "-l"		"access remote home directory (equivalent to -C.)"
+	echo_opt "-L"		"access local directory via NFS (default for 'on')"
+	echo_opt "-r"		"map directory to remote equivalent (default for '@')"
+	echo_opt "-l"		"'log in' to remote home directory (equivalent to -C.)"
 	echo_opt "-C <path>"	"access specified remote directory (relative to remote home)"
-	echo_opt "-L"		"access local current directory via NFS (default for 'on')"
 	echo_opt "-N"		"keep current directory exactly (preserve /net/<thirdhost>)"
-	echo_opt "-R"		"always map current directory to target host (default for '@')"
 	echo
 	echo_opt "-e"		"expand the command to an NFS path"
 	echo_opt "-E"		"expand paths in arguments to NFS paths"
@@ -94,7 +94,7 @@ else
 	host=$arg0
 fi
 
-while getopts ":C:d:eEHKlLNRSvX" OPT; do
+while getopts ":C:d:eEHKlLNrRSvX" OPT; do
 	case $OPT in
 	# -C is equal to -d for consistency with other tools
 	C) nfsmode=MapLocalToTarget; wd=$OPTARG;;
@@ -103,10 +103,11 @@ while getopts ":C:d:eEHKlLNRSvX" OPT; do
 	E) expaths=1;;
 	H) nfsmode=MapLocalToTarget; wd=".";;	# obsolete, renamed to -l
 	K) Kflag="-K -Snone";;
-	l) nfsmode=MapLocalToTarget; wd=".";;
-	L) nfsmode=MapLocalToNet;;	# default 'on' behavior
+	l) nfsmode=MapLocalToTarget; wd=".";;	# 'login' mode, goes to remote home
+	L) nfsmode=MapLocalToNet;;		# default 'on' behavior
 	N) nfsmode=MapLocalToTarget;;
-	R) nfsmode=AlwaysMapToTarget;;	# default '@' behavior
+	r) nfsmode=AlwaysMapToTarget;;		# default '@' behavior
+	R) nfsmode=AlwaysMapToTarget;;		# obsolete, renamed to -r
 	S) user="root@";;
 	v) verbose=1;;
 	X) passdisplay=1;;

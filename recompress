@@ -86,17 +86,16 @@ addargs=()
 opt_hosts=""
 
 memperjob=100
-declare -A shosts=()
-declare -A slots=()
 hosts=""
 nproc=0
 njobs=0
 ndone=0
 nfail=0
 r=0
-declare -A slotjobs=()
-declare -A jobslots=()
+declare -Ai hostproc=()
+declare -Ai hostjobs=()
 declare -A jobfiles=()
+declare -A jobhosts=()
 
 while getopts ":B:d:fhH:j:L:O:q:s:Txv" OPT; do
 	case $OPT in
@@ -214,11 +213,12 @@ elif (( scale < 100 )); then
 fi
 
 
-# Expand hosts to job slots
+# Verify host capacity
 if [[ $opt_hosts ]]; then
 	hosts=$(rlisthosts "$opt_hosts") || exit
 fi
 if [[ $hosts ]]; then
+	nproc=0
 	for hp in $hosts; do
 		shost=${hp%:*}
 		smaxproc=$(ssh "$shost" nproc) || continue
@@ -244,13 +244,11 @@ if [[ $hosts ]]; then
 		if (( smemfree < sproc * memperjob )); then
 			vdie "not enough memory for $sproc jobs ($smemfree MB available)"
 		fi
-		for (( i = 0; i < sproc; i++ )); do
-			slots["$shost:$i"]=0
-		done
-		shosts["$shost"]=$sproc
+		let nproc+=sproc
+		hostproc["$shost"]=$sproc
+		hostjobs["$shost"]=0
 	done
-	vhosts=${!shosts[*]}
-	nproc=${#slots[@]}
+	vhosts=${!hostproc[*]}
 	vmsg "converting ${#infiles[@]} files ($nproc jobs on ${vhosts// /,})"
 else
 	smaxproc=$(nproc)
@@ -296,30 +294,27 @@ for iname in "${infiles[@]}"; do
 	while (( njobs >= nproc )); do
 		wait -n -p rpid; r=$?; (( --njobs )); (( ++ndone ))
 		if (( r )); then
-			rslot=${jobslots[$rpid]}
+			rhost=${jobhosts[$rpid]}
 			rfile=${jobfiles[$rpid]}
-			vmsg "job for '$rfile' ($rslot) failed with status $r" >&2; (( ++nfail ))
+			vmsg "job for '$rfile' ($rhost) failed with status $r" >&2; (( ++nfail ))
 		fi
-		unset slotjobs[${jobslots[$rpid]}]
-		unset jobslots[$rpid]
+		(( ++hostjobs[${jobhosts[$rpid]}] ))
+		unset jobhosts[$rpid]
 		unset jobfiles[$rpid]
 		show_progress "$ndone" "${#infiles[@]}"
 	done
 	oname=${iomap["$iname"]}
 
-	unset slot shost
+	unset shost
 	if [[ $hosts ]]; then
-		for i in "${!slots[@]}"; do
-			if [[ ! ${slotjobs[$i]} ]]; then
-				slot=$i; break
+		for h in "${!hostproc[@]}"; do
+			if (( hostjobs[$h] < hostproc[$h] )); then
+				shost=$h
 			fi
 		done
-		if [[ ! $slot ]]; then
-			vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
+		if [[ ! $shost ]]; then
+			vdie "BUG: did not find a free host (njobs=$njobs, nproc=$nproc)"
 		fi
-		shost=${slot%:*}
-	else
-		slot="local"
 	fi
 
 	case $iname in
@@ -344,8 +339,8 @@ for iname in "${infiles[@]}"; do
 		# the exit status of the main command.
 		exit $r
 	} & (( ++njobs ))
-	slotjobs[$slot]=$!
-	jobslots[$!]=$slot
+	hostjobs[$shost]+=1
+	jobhosts[$!]=$shost
 	jobfiles[$!]=$iname
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
@@ -353,12 +348,11 @@ done
 while (( njobs )); do
 	wait -n -p rpid; r=$?; (( --njobs )); (( ++ndone ))
 	if (( r )); then
-		rslot=${jobslots[$rpid]}
+		rhost=${jobhosts[$rpid]}
 		rfile=${jobfiles[$rpid]}
-		vmsg "job for '$rfile' ($rslot) failed with status $r" >&2; (( ++nfail ))
+		vmsg "job for '$rfile' ($rhost) failed with status $r" >&2; (( ++nfail ))
 	fi
-	unset slotjobs[${jobslots[$rpid]}]
-	unset jobslots[$rpid]
+	(( --hostjobs[${jobhosts[$rpid]}] ))
 	unset jobfiles[$rpid]
 	show_progress "$ndone" "${#infiles[@]}"
 done

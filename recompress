@@ -141,15 +141,15 @@ for arg in "$@"; do
 	oarg=${outdir%/}${outdir:+/}$arg
 	if [[ ! -e $arg ]]; then
 		err "input file '$arg' does not exist"
+	elif [[ ${arg,,} = *.@(zip|webm) ]]; then
+		warn "skipping incompatible file '$arg'"
+		let ++nskipother
 	elif [[ $arg =~ \.conv\.[^.]+$ ]] && [[ $arg -ef $oarg ]]; then
 		debug "skipping already converted file '$arg'"
 		let ++nskipconv
 	elif (( minorigsize && $(stat -c %s "$arg") < minorigsize )); then
 		debug "skipping small file '$arg'"
 		let ++nskipsmall
-	elif [[ ${arg,,} = *.@(zip|webm) ]]; then
-		warn "skipping incompatible file '$arg'"
-		let ++nskipother
 	else
 		infiles+=("$arg")
 	fi

@@ -299,13 +299,8 @@ wait_job() {
 	fi
 }
 trap 'clear_progress' EXIT
+show_progress "$ndone" "${#infiles[@]}"
 for iname in "${infiles[@]}"; do
-	show_progress "$ndone" "${#infiles[@]}"
-	while (( njobs >= nproc )); do
-		wait_job
-		show_progress "$ndone" "${#infiles[@]}"
-	done
-
 	unset host
 	if [[ $hosts ]]; then
 		for h in "${!hostproc[@]}"; do
@@ -347,6 +342,10 @@ for iname in "${infiles[@]}"; do
 	jobfiles[$!]=$iname
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
+	while (( njobs >= nproc )); do
+		wait_job
+		show_progress "$ndone" "${#infiles[@]}"
+	done
 done
 while (( njobs > 0 )); do
 	wait_job

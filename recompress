@@ -250,9 +250,6 @@ else
 	if (( smemfree < nproc * memperjob )); then
 		vdie "not enough memory for $nproc jobs ($smemfree MB available)"
 	fi
-	for (( i = 0; i < nproc; i++ )); do
-		slots["$HOSTNAME:$i"]=0
-	done
 	vmsg "converting ${#infiles[@]} files ($nproc local jobs)"
 fi
 
@@ -297,16 +294,20 @@ for iname in "${infiles[@]}"; do
 	done
 	oname=${iomap["$iname"]}
 
-	unset slot
-	for i in "${!slots[@]}"; do
-		if [[ ! ${slotjobs[$i]} ]]; then
-			slot=$i; break
+	unset slot shost
+	if [[ $hosts ]]; then
+		for i in "${!slots[@]}"; do
+			if [[ ! ${slotjobs[$i]} ]]; then
+				slot=$i; break
+			fi
+		done
+		if [[ ! $slot ]]; then
+			vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
 		fi
-	done
-	if [[ ! $slot ]]; then
-		vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
+		shost=${slot%:*}
+	else
+		slot="local"
 	fi
-	shost=${slot%:*}
 
 	case $iname in
 	# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps

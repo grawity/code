@@ -233,6 +233,9 @@ if [[ $hosts ]]; then
 			#fi
 		elif (( nproc )); then
 			sproc=$nproc
+			if (( sproc > smaxproc*2 )); then
+				vdie "can't do $sproc jobs on $shost ($smaxproc CPUs available)"
+			fi
 		else
 			sproc=$smaxproc
 			# Add extra jobs to account for slower network I/O
@@ -253,7 +256,7 @@ else
 	smemfree=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
 	if (( !nproc )); then
 		nproc=$smaxproc
-	elif (( nproc > smaxproc*4 )); then
+	elif (( nproc > smaxproc*2 )); then
 		vdie "can't do $nproc jobs ($smaxproc CPUs available)"
 	fi
 	if (( smemfree < nproc * memperjob )); then

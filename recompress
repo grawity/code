@@ -93,7 +93,6 @@ ndone=0
 nfail=0
 r=0
 declare -Ai hostproc=()
-declare -Ai hostjobs=()
 declare -A jobfiles=()
 declare -A jobhosts=()
 
@@ -246,7 +245,6 @@ if [[ $hosts ]]; then
 		fi
 		let nproc+=sproc
 		hostproc["$shost"]=$sproc
-		hostjobs["$shost"]=0
 	done
 	vhosts=${!hostproc[*]}
 	vmsg "converting ${#infiles[@]} files ($nproc jobs on ${vhosts// /,})"
@@ -298,7 +296,7 @@ for iname in "${infiles[@]}"; do
 			rfile=${jobfiles[$rpid]}
 			vmsg "job for '$rfile' ($rhost) failed with status $r" >&2; (( ++nfail ))
 		fi
-		(( ++hostjobs[${jobhosts[$rpid]}] ))
+		(( ++hostproc[${jobhosts[$rpid]}] ))
 		unset jobhosts[$rpid]
 		unset jobfiles[$rpid]
 		show_progress "$ndone" "${#infiles[@]}"
@@ -308,7 +306,7 @@ for iname in "${infiles[@]}"; do
 	unset shost
 	if [[ $hosts ]]; then
 		for h in "${!hostproc[@]}"; do
-			if (( hostjobs[$h] < hostproc[$h] )); then
+			if (( hostproc[$h] )); then
 				shost=$h
 			fi
 		done
@@ -339,7 +337,7 @@ for iname in "${infiles[@]}"; do
 		# the exit status of the main command.
 		exit $r
 	} & (( ++njobs ))
-	hostjobs[$shost]+=1
+	(( --hostproc[$shost] ))
 	jobhosts[$!]=$shost
 	jobfiles[$!]=$iname
 	outfiles+=("$oname")
@@ -352,7 +350,6 @@ while (( njobs )); do
 		rfile=${jobfiles[$rpid]}
 		vmsg "job for '$rfile' ($rhost) failed with status $r" >&2; (( ++nfail ))
 	fi
-	(( --hostjobs[${jobhosts[$rpid]}] ))
 	unset jobfiles[$rpid]
 	show_progress "$ndone" "${#infiles[@]}"
 done

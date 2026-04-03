@@ -80,7 +80,6 @@ addargs=()
 opt_hosts=""
 
 memperjob=100
-slotdir=""
 declare -A shosts=()
 declare -A slots=()
 hosts=""
@@ -89,6 +88,7 @@ njobs=0
 ndone=0
 nfail=0
 r=0
+declare -A slotjobs=()
 declare -A jobslots=()
 declare -A jobfiles=()
 
@@ -212,7 +212,6 @@ fi
 if [[ $opt_hosts ]]; then
 	hosts=$(rlisthosts "$opt_hosts") || exit
 fi
-slotdir=$(mktemp -d /tmp/recompress.XXXXXX) || exit
 if [[ $hosts ]]; then
 	for hp in $hosts; do
 		shost=${hp%:*}
@@ -278,7 +277,7 @@ for iname in "${infiles[@]}"; do
 done
 
 # Perform the conversion
-trap 'clear_progress; rm -rf "$slotdir"' EXIT
+trap 'clear_progress' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
@@ -288,6 +287,7 @@ for iname in "${infiles[@]}"; do
 			rfile=${jobfiles[$rpid]}
 			vmsg "job for '$rfile' ($rslot) failed with status $r" >&2; (( ++nfail ))
 		fi
+		unset slotjobs[${jobslots[$rpid]}]
 		unset jobslots[$rpid]
 		unset jobfiles[$rpid]
 		show_progress "$ndone" "${#infiles[@]}"
@@ -298,16 +298,16 @@ for iname in "${infiles[@]}"; do
 	unset slot shost spath
 	if [[ $hosts ]]; then
 		for islot in "${!slots[@]}"; do
-			spath="$slotdir"/S."$islot"
-			if [[ ! -e "$spath" ]]; then
+			if [[ ! ${slotjobs[$islot]} ]]; then
 				slot=$islot shost=${slot%:*}
-				touch "$spath"
 				break
 			fi
 		done
 		if [[ ! $slot ]]; then
 			vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
 		fi
+	else
+		slot="local"
 	fi
 
 	case $iname in
@@ -328,13 +328,12 @@ for iname in "${infiles[@]}"; do
 		if (( keepmtime )); then
 			touch "$oname" --reference="$iname" 2>/dev/null
 		fi; r=$?
-		# Mark slot as free
-		if [[ $spath ]]; then
-			rm -f "$spath"
-		fi
+		# If any code is added here in the future, always propagate
+		# the exit status of the main command.
 		exit $r
 	} & (( ++njobs ))
-	jobslots[$!]=${slot:-local}
+	slotjobs[$slot]=$!
+	jobslots[$!]=$slot
 	jobfiles[$!]=$iname
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
@@ -346,11 +345,12 @@ while (( njobs )); do
 		rfile=${jobfiles[$rpid]}
 		vmsg "job for '$rfile' ($rslot) failed with status $r" >&2; (( ++nfail ))
 	fi
+	unset slotjobs[${jobslots[$rpid]}]
 	unset jobslots[$rpid]
 	unset jobfiles[$rpid]
 	show_progress "$ndone" "${#infiles[@]}"
 done
-clear_progress; rm -rf "$slotdir"
+clear_progress
 trap - EXIT
 if (( nfail )); then
 	die "$nfail/$ndone jobs returned errors"

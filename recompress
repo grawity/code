@@ -83,13 +83,14 @@ memperjob=100
 slotdir=""
 declare -A shosts=()
 declare -A slots=()
-declare -A spids=()
 hosts=""
 nproc=$(nproc)
 njobs=0
 ndone=0
 nfail=0
 r=0
+declare -A jobslots=()
+declare -A jobfiles=()
 
 while getopts ":B:d:fhH:j:L:O:q:s:Txv" OPT; do
 	case $OPT in
@@ -281,10 +282,14 @@ trap 'clear_progress; rm -rf "$slotdir"' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
-		wait -n; r=$?; (( --njobs )); (( ++ndone ))
+		wait -n -p rpid; r=$?; (( --njobs )); (( ++ndone ))
 		if (( r )); then
-			vmsg "job failed with status $r" >&2; (( ++nfail ))
+			rslot=${jobslots[$rpid]}
+			rfile=${jobfiles[$rpid]}
+			vmsg "job for '$rfile' ($rslot) failed with status $r" >&2; (( ++nfail ))
 		fi
+		unset jobslots[$rpid]
+		unset jobfiles[$rpid]
 		show_progress "$ndone" "${#infiles[@]}"
 	done
 	oname=${iomap["$iname"]}
@@ -329,14 +334,20 @@ for iname in "${infiles[@]}"; do
 		fi
 		exit $r
 	} & (( ++njobs ))
+	jobslots[$!]=${slot:-local}
+	jobfiles[$!]=$iname
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
 done
 while (( njobs )); do
-	wait -n; r=$?; (( --njobs )); (( ++ndone ))
+	wait -n -p rpid; r=$?; (( --njobs )); (( ++ndone ))
 	if (( r )); then
-		vmsg "job failed with status $r" >&2; (( ++nfail ))
+		rslot=${jobslots[$rpid]}
+		rfile=${jobfiles[$rpid]}
+		vmsg "job for '$rfile' ($rslot) failed with status $r" >&2; (( ++nfail ))
 	fi
+	unset jobslots[$rpid]
+	unset jobfiles[$rpid]
 	show_progress "$ndone" "${#infiles[@]}"
 done
 clear_progress

@@ -352,6 +352,9 @@ while (( njobs )); do
 done
 clear_progress; rm -rf "$slotdir"
 trap - EXIT
+if (( nfail )); then
+	die "$nfail/$ndone jobs returned errors"
+fi
 
 # Verify the conversion results
 intrash=()
@@ -364,7 +367,7 @@ fi
 for oname in "${outfiles[@]}"; do
 	iname=${oimap["$oname"]}
 	if [[ ! -s "$oname" ]]; then
-		die "conversion of '$iname' failed"
+		die "job for '$iname' did not generate output"
 	fi
 	if (( $(stat -c %s "$oname") >= $(stat -c %s "$iname") - 128*1024 )); then
 		inkeep+=("$iname")
@@ -381,9 +384,8 @@ if (( ${#outlarger[@]} )) && (( !keeplarger )); then
 elif (( ${#outlarger[@]} )); then
 	warn "${#outlarger[@]} files are larger than originals"
 fi
-
 if (( ! ${#outfiles[@]} )); then
-	die "no conversions succeeded"
+	die "no output files were produced"
 fi
 final=("${inkeep[@]}" "${outfiles[@]}")
 

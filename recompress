@@ -94,6 +94,7 @@ ndone=0
 nfail=0
 r=0
 declare -Ai hostproc=()
+declare -Ai hostjobs=()
 declare -A jobfiles=()
 declare -A jobhosts=()
 
@@ -248,7 +249,7 @@ if [[ $hosts ]]; then
 			vdie "not enough memory for $sproc jobs on $host ($smemfree MB available)"
 		fi
 		let nproc+=sproc
-		hostproc["$host"]=$sproc
+		hostproc[$host]=$sproc
 	done
 	vhosts=${!hostproc[*]}
 	vmsg "converting ${#infiles[@]} files ($nproc jobs on ${vhosts// /,})"
@@ -267,7 +268,7 @@ else
 		vdie "not enough memory for $nproc jobs ($smemfree MB available)"
 	fi
 	nproc=$sproc
-	hostproc["$HOSTNAME"]=$nproc
+	hostproc[$HOSTNAME]=$nproc
 	vmsg "converting ${#infiles[@]} files ($nproc local jobs)"
 fi
 
@@ -301,7 +302,7 @@ wait_job() {
 	(( ++ndone ))
 	rhost=${jobhosts[$rpid]}; unset jobhosts[$rpid]
 	rfile=${jobfiles[$rpid]}; unset jobfiles[$rpid]
-	(( ++hostproc[$rhost] ))
+	(( --hostjobs[$rhost] ))
 	if (( r )); then
 		vmsg "job for '$rfile' ($rhost) failed with status $r" >&2
 		(( ++nfail ))
@@ -312,7 +313,7 @@ show_progress "$ndone" "${#infiles[@]}"
 for iname in "${infiles[@]}"; do
 	unset host
 	for h in "${!hostproc[@]}"; do
-		if (( hostproc[$h] > 0 )); then
+		if (( hostjobs[$h] < hostproc[$h] )); then
 			host=$h
 			break
 		fi
@@ -345,7 +346,7 @@ for iname in "${infiles[@]}"; do
 		exit $r
 	} &
 	(( ++njobs ))
-	(( --hostproc[$host] ))
+	(( ++hostjobs[$host] ))
 	jobhosts[$!]=$host
 	jobfiles[$!]=$iname
 	outfiles+=("$oname")

@@ -30,6 +30,8 @@ def _fmt_duration(t):
 parser = argparse.ArgumentParser()
 parser.add_argument("-t", "--taskbar", action="store_true",
                         help="show progress in taskbar")
+parser.add_argument("-q", "--quiet", action="store_true",
+                        help="do not display done message")
 parser.add_argument("duration", nargs="*",
                         help="countdown duration")
 args, rest = parser.parse_known_args()
@@ -50,7 +52,10 @@ if secs > 0:
             time.sleep(next)
         if args.taskbar:
             outprog(Progress.REMOVE)
-        out("done after %s\n" % _fmt_duration(time.time() - start))
+        if args.quiet:
+            out("")
+        else:
+            out("done after %s\n" % _fmt_duration(time.time() - start))
     except KeyboardInterrupt:
         if args.taskbar:
             outprog(Progress.REMOVE)

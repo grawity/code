@@ -294,18 +294,17 @@ for iname in "${infiles[@]}"; do
 	done
 	oname=${iomap["$iname"]}
 
-	# find a free slot
-	unset slot shost spath
+	unset slot shost
 	if [[ $hosts ]]; then
-		for islot in "${!slots[@]}"; do
-			if [[ ! ${slotjobs[$islot]} ]]; then
-				slot=$islot shost=${slot%:*}
-				break
+		for i in "${!slots[@]}"; do
+			if [[ ! ${slotjobs[$i]} ]]; then
+				slot=$i; break
 			fi
 		done
 		if [[ ! $slot ]]; then
 			vdie "BUG: did not find a free slot (njobs=$njobs, nproc=$nproc)"
 		fi
+		shost=${slot%:*}
 	else
 		slot="local"
 	fi

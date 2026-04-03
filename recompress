@@ -286,19 +286,23 @@ for iname in "${infiles[@]}"; do
 done
 
 # Perform the conversion
+wait_job() {
+	wait -n -p rpid; r=$?
+	(( --njobs ))
+	(( ++ndone ))
+	rhost=${jobhosts[$rpid]}; unset jobhosts[$rpid]
+	rfile=${jobfiles[$rpid]}; unset jobfiles[$rpid]
+	(( ++hostproc[$rhost] ))
+	if (( r )); then
+		vmsg "job for '$rfile' ($rhost) failed with status $r" >&2
+		(( ++nfail ))
+	fi
+}
 trap 'clear_progress' EXIT
 for iname in "${infiles[@]}"; do
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do
-		wait -n -p rpid; r=$?; (( --njobs )); (( ++ndone ))
-		if (( r )); then
-			rhost=${jobhosts[$rpid]}
-			rfile=${jobfiles[$rpid]}
-			vmsg "job for '$rfile' ($rhost) failed with status $r" >&2; (( ++nfail ))
-		fi
-		(( ++hostproc[${jobhosts[$rpid]}] ))
-		unset jobhosts[$rpid]
-		unset jobfiles[$rpid]
+		wait_job
 		show_progress "$ndone" "${#infiles[@]}"
 	done
 	oname=${iomap["$iname"]}
@@ -343,14 +347,8 @@ for iname in "${infiles[@]}"; do
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
 done
-while (( njobs )); do
-	wait -n -p rpid; r=$?; (( --njobs )); (( ++ndone ))
-	if (( r )); then
-		rhost=${jobhosts[$rpid]}
-		rfile=${jobfiles[$rpid]}
-		vmsg "job for '$rfile' ($rhost) failed with status $r" >&2; (( ++nfail ))
-	fi
-	unset jobfiles[$rpid]
+while (( njobs > 0 )); do
+	wait_job
 	show_progress "$ndone" "${#infiles[@]}"
 done
 clear_progress

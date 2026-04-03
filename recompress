@@ -219,14 +219,14 @@ fi
 if [[ $hosts ]]; then
 	nproc=0
 	for hp in $hosts; do
-		shost=${hp%:*}
-		smaxproc=$(ssh "$shost" nproc) || continue
-		smemfree=$(ssh "$shost" \
+		host=${hp%:*}
+		smaxproc=$(ssh "$host" nproc) || continue
+		smemfree=$(ssh "$host" \
 			"awk '/^MemAvailable:/{print int(\$2/1024)}' /proc/meminfo")
 		if [[ $hp == *:* ]]; then
 			sproc=${hp#*:}
 			if (( sproc < 1 || sproc > smaxproc*2 )); then
-				vdie "can't do $sproc jobs on $shost ($smaxproc CPUs available)"
+				vdie "can't do $sproc jobs on $host ($smaxproc CPUs available)"
 			fi
 			#if (( nproc )); then
 			#	vmsg "host specification '$hp' overrides '-j $nproc'"
@@ -236,7 +236,7 @@ if [[ $hosts ]]; then
 		else
 			sproc=$smaxproc
 			# Add extra jobs to account for slower network I/O
-			if [[ $shost != "$HOSTNAME" ]]; then
+			if [[ $host != "$HOSTNAME" ]]; then
 				(( sproc += (sproc+4)/4 ))
 			fi
 		fi
@@ -244,7 +244,7 @@ if [[ $hosts ]]; then
 			vdie "not enough memory for $sproc jobs ($smemfree MB available)"
 		fi
 		let nproc+=sproc
-		hostproc["$shost"]=$sproc
+		hostproc["$host"]=$sproc
 	done
 	vhosts=${!hostproc[*]}
 	vmsg "converting ${#infiles[@]} files ($nproc jobs on ${vhosts// /,})"
@@ -303,14 +303,14 @@ for iname in "${infiles[@]}"; do
 	done
 	oname=${iomap["$iname"]}
 
-	unset shost
+	unset host
 	if [[ $hosts ]]; then
 		for h in "${!hostproc[@]}"; do
 			if (( hostproc[$h] )); then
-				shost=$h
+				host=$h
 			fi
 		done
-		if [[ ! $shost ]]; then
+		if [[ ! $host ]]; then
 			vdie "BUG: did not find a free host (njobs=$njobs, nproc=$nproc)"
 		fi
 	fi
@@ -325,8 +325,8 @@ for iname in "${infiles[@]}"; do
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
 		fi
-		if [[ $shost && $shost != "$HOSTNAME" ]]; then
-			on "$shost" nice "${cmd[@]}"
+		if [[ $host && $host != "$HOSTNAME" ]]; then
+			on "$host" nice "${cmd[@]}"
 		else
 			nice "${cmd[@]}"
 		fi &&
@@ -337,8 +337,8 @@ for iname in "${infiles[@]}"; do
 		# the exit status of the main command.
 		exit $r
 	} & (( ++njobs ))
-	(( --hostproc[$shost] ))
-	jobhosts[$!]=$shost
+	(( --hostproc[$host] ))
+	jobhosts[$!]=$host
 	jobfiles[$!]=$iname
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"

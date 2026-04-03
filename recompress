@@ -303,17 +303,16 @@ for iname in "${infiles[@]}"; do
 	#show_progress "$ndone" "${#infiles[@]}"
 	#continue
 
+	case $iname in
+	# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps
+	*.mp3)	cmd=(ffmpeg -loglevel error -i "$iname" -c:a libmp3lame -q:a 7 "$oname");;
+	*)	cmd=(magick "$iname" "${addargs[@]}" "$oname");;
+	esac
+
 	{
 		if [[ $outdir ]]; then
 			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
 		fi
-		case $iname in
-			# for libmp3lame, -q:a maps to LAME -V (VBR), -V7 is ~100 kbps
-			*.mp3)
-				cmd=(ffmpeg -loglevel error -i "$iname" -c:a libmp3lame -q:a 7 "$oname");;
-			*)
-				cmd=(magick "$iname" "${addargs[@]}" "$oname");;
-		esac
 		if [[ $shost && $shost != "$HOSTNAME" ]]; then
 			on "$shost" nice "${cmd[@]}"
 		else

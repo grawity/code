@@ -86,17 +86,16 @@ addargs=()
 opt_nproc=0		# -j
 opt_hosts=""		# -H
 
-memperjob=100
+memperjob=100		# wanted MB of free RAM for each worker
 hosts=""
-nproc=0
-njobs=0
-ndone=0
-nfail=0
-r=0
-declare -Ai hostproc=()
-declare -Ai hostjobs=()
-declare -A jobfiles=()
-declare -A jobhosts=()
+nproc=0			# max concurrent workers (total across all hosts)
+njobs=0			# active workers
+ndone=0			# exited workers (both success and failed)
+nfail=0			# failed workers
+declare -A hostproc=()	# max workers by host
+declare -A hostjobs=()	# active workers by host
+declare -A jobfile=()	# input filename by PID
+declare -A jobhost=()	# hostname by PID
 
 while getopts ":B:d:fhH:j:L:O:q:s:Txv" OPT; do
 	case $OPT in
@@ -300,8 +299,8 @@ wait_job() {
 	wait -n -p rpid; r=$?
 	(( --njobs ))
 	(( ++ndone ))
-	rhost=${jobhosts[$rpid]}; unset jobhosts[$rpid]
-	rfile=${jobfiles[$rpid]}; unset jobfiles[$rpid]
+	rhost=${jobhost[$rpid]}; unset jobhost[$rpid]
+	rfile=${jobfile[$rpid]}; unset jobfile[$rpid]
 	(( --hostjobs[$rhost] ))
 	if (( r )); then
 		vmsg "job for '$rfile' ($rhost) failed with status $r" >&2
@@ -330,9 +329,9 @@ for iname in "${infiles[@]}"; do
 	esac
 
 	{
-		if [[ $outdir ]]; then
-			[[ -d ${oname%/*} ]] || mkdir -p "${oname%/*}"
-		fi
+		if [[ $outdir && ! -d ${oname%/*} ]]; then
+			mkdir -p "${oname%/*}"
+		fi &&
 		if [[ $host != "$HOSTNAME" ]]; then
 			on "$host" nice "${cmd[@]}"
 		else
@@ -346,9 +345,9 @@ for iname in "${infiles[@]}"; do
 		exit $r
 	} &
 	(( ++njobs ))
+	jobhost[$!]=$host
+	jobfile[$!]=$iname
 	(( ++hostjobs[$host] ))
-	jobhosts[$!]=$host
-	jobfiles[$!]=$iname
 	outfiles+=("$oname")
 	show_progress "$ndone" "${#infiles[@]}"
 	while (( njobs >= nproc )); do

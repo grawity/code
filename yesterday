@@ -67,8 +67,7 @@ for path; do
 	elif [[ -d /.old ]]; then
 		base=/
 	else
-		echo "${0##*/}: No snapshots on $HOSTNAME" >&2
-		exit 1
+		vdie "no snapshots on $HOSTNAME"
 	fi
 	base=${base%/}
 	relpath=$(realpath --relative-base="${base:-/}" "$path")
@@ -79,8 +78,7 @@ for path; do
 		paths=("$base"/.old/*/????-??-??/"$relpath")
 		shopt -u nullglob
 		if (( ! ${#paths[@]} )); then
-			echo "${0##*/}: No snapshots for '$base/$relpath'" >&2
-			exit 1
+			vdie "no snapshots for '$base/$relpath'"
 		fi
 		# Sort by date, then filter duplicates by mtime
 		{
@@ -105,8 +103,7 @@ for path; do
 		diff --color -u "$yespath" "$abspath"
 	else
 		if [[ ! -e "$yespath" ]]; then
-			echo "${0##*/}: No snapshots for '$base/$relpath'" >&2
-			exit 1
+			vdie "no snapshots for '$base/$relpath'"
 		fi
 		echo_l "$(realpath "$yespath")"
 	fi

@@ -1,1 +1,0 @@
-misc/kerberos/kc.sh
